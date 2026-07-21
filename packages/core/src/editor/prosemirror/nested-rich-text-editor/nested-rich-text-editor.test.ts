@@ -2,7 +2,7 @@
 
 import { Editor, Node, type Extensions, type JSONContent } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
-import { describe, expect, expectTypeOf, it } from "vite-plus/test";
+import { afterEach, describe, expect, expectTypeOf, it } from "vite-plus/test";
 
 import { EmptyScaffoldRichTextDocument, type ScaffoldRichTextDocument } from "@/schemas/rich-text";
 
@@ -14,6 +14,15 @@ import {
   mapInnerTransactionToOuter,
   NESTED_RICH_TEXT_EXTERNAL_SYNC_META,
 } from "./map-inner-transaction-to-outer";
+
+const editors = new Set<Editor>();
+
+afterEach(() => {
+  for (const editor of editors) {
+    if (!editor.isDestroyed) editor.destroy();
+  }
+  editors.clear();
+});
 
 const TestOverlayContentNode = Node.create({
   name: "test_overlay_content",
@@ -55,10 +64,12 @@ function makeExtensions({ undoRedo = false }: { undoRedo?: boolean } = {}): Exte
 }
 
 function makeEditor(content?: JSONContent, options: { undoRedo?: boolean } = {}) {
-  return new Editor({
+  const editor = new Editor({
     extensions: makeExtensions(options),
     ...(content ? { content } : {}),
   });
+  editors.add(editor);
+  return editor;
 }
 
 function outerDoc(fieldText = "hint"): JSONContent {
