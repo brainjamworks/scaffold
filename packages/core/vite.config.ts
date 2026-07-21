@@ -64,6 +64,8 @@ export default defineConfig({
             enabled: true,
             headless: true,
             provider: playwright(),
+            screenshotDirectory: ".tmp/vitest-failure-screenshots",
+            screenshotFailures: true,
             instances: [{ browser: "chromium" }],
           },
         },
