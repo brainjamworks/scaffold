@@ -1,5 +1,9 @@
 <p align="center">
-  <img src="./brand/logo/lockup-stacked-light.svg" width="180" alt="Scaffold">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./brand/logo/lockup-stacked-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="./brand/logo/lockup-stacked-light.svg">
+    <img src="./brand/logo/lockup-stacked-light.svg" width="180" alt="Scaffold">
+  </picture>
 </p>
 
 <p align="center">
