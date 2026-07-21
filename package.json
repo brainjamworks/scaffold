@@ -1,0 +1,34 @@
+{
+  "name": "scaffold",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Multi-target OSS course content authoring tool. React + Tiptap editor + schemas + grading as a shared core; per-platform adapters for XBlock now, with LTI 1.3, Google Classroom, and standalone hosted targets later.",
+  "homepage": "https://github.com/brainjamworks/scaffold#readme",
+  "bugs": {
+    "url": "https://github.com/brainjamworks/scaffold/issues"
+  },
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/brainjamworks/scaffold.git"
+  },
+  "type": "module",
+  "scripts": {
+    "chrome:shared": "bash scripts/start-shared-chrome.sh",
+    "create:block": "node scripts/create-block.mjs",
+    "create:layout": "node scripts/create-layout.mjs",
+    "report:xblock-css": "node scripts/report-xblock-css.mjs"
+  },
+  "devDependencies": {
+    "dependency-cruiser": "17.4.3",
+    "postcss": "^8.5.15",
+    "typescript": "~5.9.3",
+    "vite": "npm:@voidzero-dev/vite-plus-core@0.2.4",
+    "vite-plus": "0.2.4",
+    "yaml": "2.9.0"
+  },
+  "engines": {
+    "node": "^20.19.0 || ^22.18.0 || >=24.11.0"
+  },
+  "packageManager": "pnpm@11.10.0"
+}

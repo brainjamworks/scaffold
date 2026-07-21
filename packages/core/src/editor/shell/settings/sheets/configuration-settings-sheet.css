@@ -1,0 +1,99 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-overlays {
+  :where(.sc-settings-sheet-form) {
+    display: flex;
+    min-height: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+  }
+
+  :where(.sc-settings-sheet-section-fields) {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  :where(.sc-settings-sheet-section-description) {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: 0.8125rem;
+    line-height: 1.35;
+  }
+
+  :where(.sc-settings-collection),
+  :where(.sc-settings-collection__items),
+  :where(.sc-settings-collection__fields) {
+    display: flex;
+    flex-direction: column;
+  }
+
+  :where(.sc-settings-collection) {
+    gap: 0.75rem;
+  }
+
+  :where(.sc-settings-collection__items) {
+    gap: 0.875rem;
+  }
+
+  :where(.sc-settings-collection__item) {
+    display: grid;
+    gap: 0.875rem;
+    min-width: 0;
+    margin: 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 0.75rem;
+    background: var(--color-background);
+  }
+
+  :where(.sc-settings-collection__item-header) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  :where(.sc-settings-collection__item-label) {
+    padding: 0;
+    color: var(--color-ink);
+    font-size: 0.875rem;
+    font-weight: 700;
+  }
+
+  :where(.sc-settings-collection__fields) {
+    gap: 1rem;
+  }
+
+  :where(.sc-settings-collection__error) {
+    margin: 0;
+    color: var(--color-error-text);
+    font-size: 0.75rem;
+    line-height: 1.35;
+  }
+
+  :where(.sc-settings-sheet-empty) {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.25rem;
+  }
+
+  :where(.sc-settings-sheet-load-error) {
+    margin: 0;
+    color: var(--color-error-text);
+    font-size: 0.875rem;
+    line-height: 1.35;
+  }
+
+  :where(.sc-settings-sheet-submit-error-frame) {
+    padding: 0 1.25rem 1.25rem;
+  }
+
+  :where(.sc-settings-sheet-submit-error) {
+    margin: 0;
+    color: var(--color-error-text);
+    font-size: 0.75rem;
+    line-height: 1.35;
+  }
+}

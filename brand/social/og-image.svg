@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="scaffold — build courses that actually teach">
+  <title>scaffold — build courses that actually teach</title>
+
+  <!-- Dark brand-presence surface -->
+  <rect width="1200" height="630" fill="#0a0a0f"/>
+
+  <!-- Subtle radial glows — teal top-right, coral bottom-left -->
+  <defs>
+    <radialGradient id="glowTeal" cx="80%" cy="20%" r="50%">
+      <stop offset="0%" stop-color="#00BA92" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#00BA92" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowCoral" cx="15%" cy="90%" r="55%">
+      <stop offset="0%" stop-color="#F43A57" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="#F43A57" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#glowTeal)"/>
+  <rect width="1200" height="630" fill="url(#glowCoral)"/>
+
+  <!-- Mark + wordmark — top-left -->
+  <g transform="translate(80, 80)">
+    <g transform="scale(1.53125)">
+      <path d="M5 24V5h19M40 5h19v19M59 40v19H40M24 59H5V40" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 3" opacity="0.5"/>
+      <path d="M32 18v28M18 32h28" fill="none" stroke="#FFFFFF" stroke-width="4.25" stroke-linecap="round"/>
+    </g>
+    <text
+      x="120"
+      y="78"
+      font-family="Poppins, system-ui, -apple-system, BlinkMacSystemFont, sans-serif"
+      font-size="60"
+      font-weight="700"
+      letter-spacing="-1.5"
+      fill="#FFFFFF"
+    >scaffold<tspan fill="#F43A57">.</tspan></text>
+  </g>
+
+  <!-- Headline -->
+  <text
+    x="80"
+    y="340"
+    font-family="Poppins, system-ui, -apple-system, BlinkMacSystemFont, sans-serif"
+    font-size="84"
+    font-weight="800"
+    letter-spacing="-3"
+    fill="#FFFFFF"
+  >Build courses</text>
+  <text
+    x="80"
+    y="440"
+    font-family="Poppins, system-ui, -apple-system, BlinkMacSystemFont, sans-serif"
+    font-size="84"
+    font-weight="800"
+    letter-spacing="-3"
+    fill="#FFFFFF"
+  >that actually teach.</text>
+
+  <text
+    x="80"
+    y="510"
+    font-family="Poppins, system-ui, -apple-system, BlinkMacSystemFont, sans-serif"
+    font-size="26"
+    font-weight="400"
+    fill="rgba(255,255,255,0.5)"
+  >Open-source authoring tool for educators who care about pedagogy.</text>
+
+  <text
+    x="1120"
+    y="580"
+    text-anchor="end"
+    font-family="Poppins, system-ui, -apple-system, BlinkMacSystemFont, sans-serif"
+    font-size="20"
+    font-weight="500"
+    letter-spacing="0.5"
+    fill="rgba(255,255,255,0.4)"
+  >scaffold.ac</text>
+</svg>

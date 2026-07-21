@@ -1,0 +1,29 @@
+{
+  "name": "scaffold",
+  "short_name": "scaffold",
+  "description": "Open-source authoring tool for educators who care about pedagogy.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAFAFA",
+  "theme_color": "#161D77",
+  "icons": [
+    {
+      "src": "/favicon-sm.svg",
+      "type": "image/svg+xml",
+      "sizes": "16x16 22x22",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "32x32 any",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-touch-icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "180x180",
+      "purpose": "any maskable"
+    }
+  ]
+}

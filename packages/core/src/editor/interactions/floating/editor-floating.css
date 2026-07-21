@@ -1,0 +1,20 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-overlays {
+  .sc-editor-floating-layer {
+    position: absolute;
+    inset: 0;
+    z-index: var(--z-interactive);
+    overflow: visible;
+    pointer-events: none;
+  }
+
+  .sc-editor-floating-content {
+    pointer-events: auto;
+  }
+
+  .sc-editor-floating-content[data-scaffold-overlay-hidden="true"] {
+    pointer-events: none;
+    visibility: hidden;
+  }
+}

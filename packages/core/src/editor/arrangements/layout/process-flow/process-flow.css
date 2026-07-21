@@ -1,0 +1,225 @@
+/* ─── Process flow ─────────────────────────────────────────────────
+ * Labeled boxes connected by chevron arrows. Two independent toggles:
+ * `data-show-numbers` adds a navy header band per box;
+ * `data-show-connectors` draws a navy chevron between boxes.
+ * Orientation toggle (horizontal / vertical) swaps the grid track
+ * and the connector geometry. State lives in process-flow-owned
+ * elements rather than on the generic layout/section frames. */
+
+.sc-process-flow {
+  position: relative;
+  border-radius: var(--radius-sm);
+}
+
+[data-node="layout"][data-empty="true"] > .sc-process-flow {
+  min-height: 6rem;
+}
+
+/* Track — the row (or column) of boxes. The 1.25rem gap doubles as
+ * the visual budget for the connector chevrons; keep them in sync. */
+
+.sc-process-flow__track {
+  display: grid;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+.sc-process-flow__track[data-orientation="horizontal"] {
+  grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr));
+}
+
+.sc-process-flow__track[data-orientation="vertical"] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* Box — one section. Hairline border, flat at rest, hover anchors
+ * to ink. Selected state escalates to a 2px navy border (the brand
+ * selection rule). Number band lives at the top, content below. */
+
+.sc-process-flow__box {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-background);
+  transition: border-color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sc-process-flow__box:hover {
+  border-color: var(--color-ink);
+}
+
+.sc-process-flow__box:focus-within {
+  border-color: var(--color-primary);
+}
+
+/* Number band — primary-muted strip clipped to the box's top
+ * corners. Mono digit at the brand's tabular treatment. */
+
+.sc-process-flow__number {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-primary-muted);
+  border-bottom: 1px solid var(--color-border);
+  border-top-left-radius: calc(var(--radius-lg) - 1px);
+  border-top-right-radius: calc(var(--radius-lg) - 1px);
+}
+
+.sc-process-flow__track[data-show-numbers="true"] .sc-process-flow__number {
+  display: flex;
+}
+
+.sc-process-flow__number-value {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--color-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/* Content — the editable region. The first paragraph reads as the
+ * box title (heading-weight, tight line-height, balanced wrap);
+ * subsequent paragraphs are body in the secondary ink ramp. Course
+ * blocks can sit inside (this is a layout section). */
+
+.sc-process-flow__content {
+  min-width: 0;
+  padding: 0.875rem 1rem 1rem;
+  color: var(--color-text-primary);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+}
+
+.sc-process-flow__content > p:first-child {
+  margin-top: 0;
+  margin-bottom: 0.375rem;
+  color: var(--color-ink);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  text-wrap: balance;
+}
+
+.sc-process-flow__content > p {
+  color: var(--color-text-secondary);
+  margin-block: 0.25rem;
+}
+
+.sc-process-flow__content > :first-child {
+  margin-top: 0;
+}
+
+.sc-process-flow__content > :last-child {
+  margin-bottom: 0;
+}
+
+/* Connectors — navy chevron (right-pointing for horizontal,
+ * down-pointing for vertical). Two-stroke open arrowhead reads as
+ * "flow direction" without competing with content. Navy is the one
+ * brand colour cleared to decorate; coral and teal stay reserved
+ * for destructive and correctness.
+ *
+ * The chevron is built from two borders on a small box rotated
+ * 45deg — cheaper than SVG, sharp at every zoom. */
+
+.sc-process-flow__track[data-show-connectors="true"] .sc-process-flow__box::before {
+  content: "";
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  border-style: solid;
+  border-color: var(--color-primary);
+  transition: border-color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Geometry: track gap is 1.25rem (20px). Gap centre is at +10px past
+ * the box's right edge. For the chevron's rotation centre to land
+ * there, the 0.5rem (8px) element's right edge sits at +14px past
+ * the box — `right: -0.875rem`. No cross-axis translate; only the
+ * Y centring translate (rotation happens around the element's
+ * centre, which is what we want for visual centring). */
+
+.sc-process-flow__track[data-orientation="horizontal"][data-show-connectors="true"]
+  .sc-process-flow__box::before {
+  top: 50%;
+  right: -0.875rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-width: 0 1.5px 1.5px 0;
+  transform: translateY(-50%) rotate(-45deg);
+}
+
+.sc-process-flow__track[data-orientation="vertical"][data-show-connectors="true"]
+  .sc-process-flow__box::before {
+  left: 50%;
+  bottom: -0.875rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-width: 0 1.5px 1.5px 0;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.sc-process-flow__box:has(> .sc-process-flow__content[data-is-last="true"])::before {
+  display: none;
+}
+
+/* Section chrome — movement handle + action trigger sit inside the
+ * box's top corners. The shared chrome components own their own
+ * visual treatment; here we only position. Content padding-top
+ * reserves space for them in editing mode (see the box rule
+ * below); in runtime mode the chrome isn't rendered and content
+ * starts flush at the top. */
+
+.sc-process-flow__movement {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: var(--z-interactive);
+}
+
+.sc-process-flow__action {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: var(--z-interactive);
+}
+
+/* When the number band is shown, chrome sits inside the band so
+ * the content area underneath stays clean. */
+
+.sc-process-flow__track[data-show-numbers="true"] .sc-process-flow__box .sc-process-flow__movement,
+.sc-process-flow__track[data-show-numbers="true"] .sc-process-flow__box .sc-process-flow__action {
+  top: 0.375rem;
+}
+
+/* Editing-mode-only top padding on the content. Authors see room
+ * for the chrome above the title; learners (non-editable runtime)
+ * see content flush against the box top. The number band, when
+ * shown, already absorbs this space — no extra padding then. */
+
+.sc-process-flow__track[data-show-numbers="false"] .sc-process-flow__content[data-editable="true"] {
+  padding-top: 2rem;
+}
+
+/* Add ghost — placement only. LayoutAddGhost owns the shared dashed
+ * ghost skin, plus-in-circle, hover, focus, and type treatment. */
+
+.sc-process-flow__add {
+  min-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-process-flow__box,
+  .sc-process-flow__movement,
+  .sc-process-flow__action,
+  .sc-process-flow__track[data-show-connectors="true"] .sc-process-flow__box::before {
+    transition: none;
+  }
+}

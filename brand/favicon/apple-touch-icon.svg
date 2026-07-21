@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="180" height="180" role="img" aria-label="scaffold">
+  <title>scaffold</title>
+  <!-- 180×180 Apple touch icon. Register mark centred on canvas so the
+       iOS rounded-corner mask doesn't clip it. The 64-unit master mark
+       is scaled 1.6875× into a 108px field. -->
+  <rect width="180" height="180" rx="40" fill="#FAFAFA"/>
+  <g transform="translate(36, 36) scale(1.6875)">
+    <path d="M5 24V5h19M40 5h19v19M59 40v19H40M24 59H5V40" fill="none" stroke="#161D77" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 3" opacity="0.5"/>
+    <path d="M32 18v28M18 32h28" fill="none" stroke="#161D77" stroke-width="4.25" stroke-linecap="round"/>
+  </g>
+</svg>

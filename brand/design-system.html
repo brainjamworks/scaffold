@@ -1,0 +1,2921 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>scaffold Design System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* ---------- tokens ---------- */
+      :root {
+        --navy: #161d77;
+        --navy-hover: #1a2347;
+        --navy-light: rgba(33, 43, 88, 0.08);
+        --coral: #f43a57;
+        --coral-hover: #d43a63;
+        --coral-light: rgba(239, 66, 111, 0.08);
+        --teal: #00ba92;
+        --teal-hover: #008a72;
+        --teal-light: rgba(0, 166, 137, 0.08);
+
+        --ink: #18181b;
+        --ink-2: #27272a;
+        --gray-700: #3f3f46;
+        --gray-600: #52525b;
+        --gray-500: #71717a;
+        --gray-400: #a1a1aa;
+        --gray-300: #d4d4d8;
+        --gray-200: #e4e4e7;
+        --gray-100: #f4f4f5;
+        --gray-50: #fafafa;
+        --white: #ffffff;
+
+        --success-bg: #d4f4dd;
+        --success-text: #0d5c2f;
+        --success: #00ba92;
+        --warning-bg: #fff4cc;
+        --warning-text: #8b5a00;
+        --warning: #ffd100;
+        --error-bg: #ffdede;
+        --error-text: #a11f1f;
+        --error: #f43a57;
+        --info-bg: #e3f2fd;
+        --info-text: #0d47a1;
+        --info: #2196f3;
+
+        --font: "Poppins", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+        --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+        --ease: cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      /* ---------- reset ---------- */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html {
+        scroll-behavior: smooth;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      body {
+        font-family: var(--font);
+        font-size: 15px;
+        color: var(--gray-600);
+        background: var(--gray-50);
+        line-height: 1.6;
+      }
+
+      ::selection {
+        background: var(--navy-light);
+        color: var(--ink);
+      }
+
+      .wrap {
+        max-width: 1120px;
+        margin: 0 auto;
+        padding: 0 32px;
+      }
+      code,
+      pre {
+        font-family: var(--font-mono);
+      }
+
+      /* ---------- cover ---------- */
+      .cover {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        background: #0a0a0f;
+        color: var(--white);
+        text-align: center;
+        padding: 80px 32px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .cover::before {
+        content: "";
+        position: absolute;
+        top: -260px;
+        right: -200px;
+        width: 600px;
+        height: 600px;
+        background: radial-gradient(circle, rgba(0, 166, 137, 0.1) 0%, transparent 70%);
+        pointer-events: none;
+      }
+      .cover::after {
+        content: "";
+        position: absolute;
+        bottom: -300px;
+        left: -200px;
+        width: 700px;
+        height: 700px;
+        background: radial-gradient(circle, rgba(239, 66, 111, 0.08) 0%, transparent 70%);
+        pointer-events: none;
+      }
+
+      /* Cover elements use a soft fade-in but stay visible if animation
+ * doesn't fire (browser tab inactive on first paint, fill-mode
+ * inconsistency, prefers-reduced-motion). Default opacity is 1; the
+ * animation overrides the start state via `animation-fill-mode: both`. */
+      .cover__mark {
+        margin-bottom: 48px;
+        animation: fadeUp 0.8s var(--ease) 0.2s both;
+      }
+
+      .cover__title {
+        font-size: clamp(40px, 6vw, 72px);
+        font-weight: 800;
+        letter-spacing: -0.035em;
+        line-height: 1;
+        margin-bottom: 18px;
+        animation: fadeUp 0.8s var(--ease) 0.35s both;
+        position: relative;
+      }
+
+      .cover__sub {
+        font-size: 19px;
+        font-weight: 400;
+        color: rgba(255, 255, 255, 0.5);
+        max-width: 540px;
+        line-height: 1.55;
+        animation: fadeUp 0.8s var(--ease) 0.5s both;
+      }
+
+      .cover__version {
+        position: absolute;
+        bottom: 40px;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.3);
+        animation: fadeUp 0.8s var(--ease) 0.65s both;
+      }
+
+      @keyframes fadeUp {
+        from {
+          opacity: 0;
+          transform: translateY(24px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* ---------- nav ---------- */
+      .ds-nav {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: rgba(250, 250, 250, 0.88);
+        backdrop-filter: saturate(180%) blur(20px);
+        -webkit-backdrop-filter: saturate(180%) blur(20px);
+        border-bottom: 1px solid var(--gray-200);
+        padding: 0 32px;
+      }
+      .ds-nav__inner {
+        max-width: 1120px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 28px;
+        height: 56px;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+      .ds-nav__inner::-webkit-scrollbar {
+        display: none;
+      }
+      .ds-nav__brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--ink);
+        text-decoration: none;
+        letter-spacing: -0.02em;
+        margin-right: auto;
+        flex-shrink: 0;
+      }
+      .ds-nav__link {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--gray-500);
+        text-decoration: none;
+        white-space: nowrap;
+        transition: color 0.2s ease;
+      }
+      .ds-nav__link:hover {
+        color: var(--ink);
+      }
+
+      /* ---------- mark ---------- */
+      /* Inline-SVG register mark — four dashed registration corners
+ * framing a bold plus. Rendered via <svg> rather than CSS-grid-of-divs
+ * because the dashed corners + plus can't be expressed cleanly in CSS.
+ * Class controls only the wrapping size + alignment; the actual shape
+ * is in the SVG markup. */
+      .mark {
+        display: inline-block;
+        flex-shrink: 0;
+        vertical-align: middle;
+        line-height: 0;
+      }
+      .mark--sm svg {
+        width: 22px;
+        height: 22px;
+      }
+      .mark--md svg {
+        width: 32px;
+        height: 32px;
+      }
+      .mark--lg svg {
+        width: 56px;
+        height: 56px;
+      }
+      .mark--xl svg {
+        width: 96px;
+        height: 96px;
+      }
+
+      /* ---------- sections ---------- */
+      section {
+        padding: 96px 0;
+        border-bottom: 1px solid var(--gray-200);
+        background: var(--white);
+      }
+      section.alt {
+        background: var(--gray-50);
+      }
+      section:last-of-type {
+        border-bottom: none;
+      }
+
+      .section-label {
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--navy);
+        margin-bottom: 14px;
+        display: inline-block;
+      }
+      .section-title {
+        font-size: 36px;
+        font-weight: 700;
+        color: var(--ink);
+        letter-spacing: -0.025em;
+        line-height: 1.15;
+        margin-bottom: 12px;
+      }
+      .section-desc {
+        font-size: 17px;
+        font-weight: 400;
+        color: var(--gray-500);
+        max-width: 600px;
+        line-height: 1.6;
+        margin-bottom: 56px;
+      }
+
+      /* ---------- principles ---------- */
+      .principles-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+      }
+      .principle {
+        background: var(--white);
+        border: 1px solid var(--gray-200);
+        border-radius: 12px;
+        padding: 28px 22px;
+      }
+      section.alt .principle {
+        background: var(--white);
+      }
+      .principle__num {
+        display: inline-block;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--navy);
+        opacity: 0.5;
+        margin-bottom: 14px;
+        letter-spacing: 0.1em;
+      }
+      .principle__heading {
+        font-size: 17px;
+        font-weight: 700;
+        color: var(--ink);
+        letter-spacing: -0.02em;
+        margin-bottom: 8px;
+      }
+      .principle__body {
+        font-size: 13.5px;
+        color: var(--gray-500);
+        line-height: 1.6;
+      }
+
+      /* ---------- colour ---------- */
+      .colour-group {
+        margin-bottom: 48px;
+      }
+      .colour-group:last-child {
+        margin-bottom: 0;
+      }
+      .colour-group__label {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--ink);
+        margin-bottom: 14px;
+      }
+      .swatches {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .swatch {
+        width: 144px;
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid var(--gray-200);
+        background: var(--white);
+      }
+      .swatch__colour {
+        height: 76px;
+      }
+      .swatch__info {
+        padding: 12px;
+      }
+      .swatch__name {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--ink);
+        display: block;
+        margin-bottom: 2px;
+      }
+      .swatch__hex {
+        font-size: 11.5px;
+        color: var(--gray-500);
+        font-family: var(--font-mono);
+      }
+      .swatch__role {
+        font-size: 11px;
+        color: var(--gray-500);
+        display: block;
+        margin-top: 4px;
+        line-height: 1.4;
+      }
+
+      /* ---------- typography ---------- */
+      .type-row {
+        display: flex;
+        align-items: baseline;
+        gap: 40px;
+        padding: 26px 0;
+        border-bottom: 1px solid var(--gray-200);
+      }
+      .type-row:last-child {
+        border-bottom: none;
+      }
+      .type-meta {
+        flex-shrink: 0;
+        width: 180px;
+      }
+      .type-meta__name {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--ink);
+      }
+      .type-meta__spec {
+        font-size: 11.5px;
+        color: var(--gray-500);
+        font-family: var(--font-mono);
+        line-height: 1.6;
+        margin-top: 4px;
+      }
+      .type-sample {
+        flex: 1;
+        color: var(--ink);
+        min-width: 0;
+      }
+
+      /* ---------- spacing ---------- */
+      .spacing-row {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        margin-bottom: 10px;
+      }
+      .spacing-bar {
+        height: 24px;
+        background: var(--navy-light);
+        border-left: 3px solid var(--navy);
+        border-radius: 0 4px 4px 0;
+      }
+      .spacing-label {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--ink);
+        width: 80px;
+        flex-shrink: 0;
+      }
+      .spacing-value {
+        font-size: 11.5px;
+        color: var(--gray-500);
+        font-family: var(--font-mono);
+        white-space: nowrap;
+      }
+
+      /* ---------- radius ---------- */
+      .radius-row {
+        display: flex;
+        gap: 24px;
+        flex-wrap: wrap;
+        align-items: flex-end;
+      }
+      .radius-item {
+        text-align: center;
+      }
+      .radius-box {
+        width: 80px;
+        height: 80px;
+        background: var(--navy-light);
+        border: 2px solid var(--navy);
+        margin-bottom: 8px;
+      }
+      .radius-item span {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--ink);
+        display: block;
+      }
+      .radius-item small {
+        font-size: 11px;
+        color: var(--gray-500);
+        font-family: var(--font-mono);
+      }
+
+      /* ---------- shadows ---------- */
+      .shadow-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+      }
+      .shadow-card {
+        background: var(--white);
+        border-radius: 12px;
+        padding: 28px 22px;
+        text-align: center;
+        border: 1px solid var(--gray-200);
+      }
+      .shadow-card__name {
+        font-size: 13.5px;
+        font-weight: 600;
+        color: var(--ink);
+        margin-bottom: 4px;
+      }
+      .shadow-card__value {
+        font-size: 11px;
+        color: var(--gray-500);
+        font-family: var(--font-mono);
+        word-break: break-all;
+      }
+
+      /* ---------- buttons ---------- */
+      .btn-row {
+        display: flex;
+        gap: 14px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+      }
+      .btn-row__label {
+        width: 100%;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--ink);
+        margin-bottom: -8px;
+        letter-spacing: 0.02em;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 11px 22px;
+        font-family: var(--font);
+        font-size: 14px;
+        font-weight: 600;
+        border-radius: 999px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        border: 1px solid transparent;
+        line-height: 1;
+      }
+      .btn--sm {
+        padding: 7px 16px;
+        font-size: 12.5px;
+      }
+      .btn--lg {
+        padding: 14px 28px;
+        font-size: 15px;
+      }
+      .btn--primary {
+        background: var(--navy);
+        color: var(--white);
+      }
+      .btn--primary:hover {
+        background: var(--navy-hover);
+      }
+      .btn--secondary {
+        background: var(--ink);
+        color: var(--white);
+      }
+      .btn--secondary:hover {
+        background: var(--gray-700);
+      }
+      .btn--tertiary {
+        background: var(--white);
+        color: var(--ink);
+        border-color: var(--gray-200);
+      }
+      .btn--tertiary:hover {
+        background: var(--gray-50);
+        border-color: var(--gray-300);
+      }
+      .btn--ghost {
+        background: transparent;
+        color: var(--gray-600);
+        border-color: transparent;
+      }
+      .btn--ghost:hover {
+        background: var(--gray-100);
+        color: var(--ink);
+      }
+      .btn--danger {
+        background: var(--coral);
+        color: var(--white);
+      }
+      .btn--danger:hover {
+        background: var(--coral-hover);
+      }
+      .btn--success {
+        background: var(--teal);
+        color: var(--white);
+      }
+      .btn--success:hover {
+        background: var(--teal-hover);
+      }
+
+      /* ---------- pills / badges ---------- */
+      .pill-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 12px;
+        border-radius: 999px;
+        font-size: 11.5px;
+        font-weight: 500;
+        line-height: 1.4;
+      }
+      .pill--neutral {
+        background: var(--gray-100);
+        color: var(--gray-600);
+      }
+      .pill--ink {
+        background: var(--ink);
+        color: var(--white);
+      }
+      .pill--navy {
+        background: var(--navy);
+        color: var(--white);
+      }
+      .pill--success {
+        background: var(--success-bg);
+        color: var(--success-text);
+      }
+      .pill--warning {
+        background: var(--warning-bg);
+        color: var(--warning-text);
+      }
+      .pill--error {
+        background: var(--error-bg);
+        color: var(--error-text);
+      }
+      .pill--info {
+        background: var(--info-bg);
+        color: var(--info-text);
+      }
+
+      /* ---------- cards ---------- */
+      .card-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 20px;
+      }
+      .demo-card {
+        background: var(--white);
+        border: 1px solid var(--gray-200);
+        border-radius: 10px;
+        padding: 22px;
+        transition:
+          border-color 0.2s ease,
+          box-shadow 0.2s ease;
+        cursor: pointer;
+      }
+      .demo-card:hover {
+        border-color: var(--ink);
+      }
+      .demo-card--featured {
+        border: 2px solid var(--navy);
+      }
+      .demo-card__label {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--gray-500);
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin-bottom: 12px;
+      }
+      .demo-card__heading {
+        font-size: 17px;
+        font-weight: 700;
+        color: var(--ink);
+        letter-spacing: -0.015em;
+        margin-bottom: 6px;
+      }
+      .demo-card__body {
+        font-size: 13.5px;
+        color: var(--gray-500);
+        line-height: 1.6;
+        margin-bottom: 16px;
+      }
+
+      /* ---------- inputs ---------- */
+      .input-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        max-width: 700px;
+      }
+      .input-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .input-group label {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--ink);
+      }
+      .input {
+        font-family: var(--font);
+        font-size: 14px;
+        padding: 10px 14px;
+        background: var(--white);
+        border: 1px solid var(--gray-300);
+        border-radius: 8px;
+        color: var(--ink);
+        transition:
+          border-color 0.15s ease,
+          box-shadow 0.15s ease;
+        outline: none;
+        width: 100%;
+      }
+      .input:focus {
+        border-color: var(--navy);
+        box-shadow: 0 0 0 3px var(--navy-light);
+      }
+      .input--error {
+        border-color: var(--error);
+        background: var(--error-bg);
+        color: var(--error-text);
+      }
+      .input--error:focus {
+        box-shadow: 0 0 0 3px rgba(239, 66, 111, 0.15);
+      }
+      textarea.input {
+        min-height: 96px;
+        resize: vertical;
+        font-family: var(--font);
+      }
+
+      /* ---------- icons ---------- */
+      .icon-grid {
+        display: grid;
+        grid-template-columns: repeat(8, 1fr);
+        gap: 10px;
+      }
+      .icon-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        padding: 14px 8px;
+        background: var(--white);
+        border: 1px solid var(--gray-200);
+        border-radius: 8px;
+      }
+      .icon-item__box {
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--ink);
+      }
+      .icon-item__label {
+        font-size: 10.5px;
+        color: var(--gray-500);
+        font-weight: 500;
+      }
+
+      /* ---------- logo blocks ---------- */
+      .logo-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+      }
+      .logo-box {
+        border-radius: 14px;
+        border: 1px solid var(--gray-200);
+        padding: 48px 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 180px;
+      }
+      .logo-box--light {
+        background: var(--white);
+      }
+      .logo-box--canvas {
+        background: var(--gray-50);
+      }
+      .logo-box--dark {
+        background: #0a0a0f;
+        border-color: #1f1f29;
+      }
+      .logo-box--navy {
+        background: var(--navy);
+        border-color: var(--navy);
+      }
+      .logo-box__caption {
+        font-size: 11.5px;
+        color: var(--gray-500);
+        margin-top: 12px;
+        text-align: center;
+      }
+      .wordmark {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .wordmark__type {
+        font-family: var(--font);
+        font-size: 36px;
+        font-weight: 700;
+        letter-spacing: -0.025em;
+        color: var(--ink);
+        line-height: 1;
+      }
+      .wordmark--dark .wordmark__type {
+        color: var(--white);
+      }
+      .wordmark--navy .wordmark__type {
+        color: var(--white);
+      }
+      .wordmark__dot {
+        color: var(--coral);
+      }
+      .wordmark--dark .wordmark__dot {
+        color: var(--coral);
+      }
+      .wordmark--navy .wordmark__dot {
+        color: var(--teal);
+      }
+
+      /* ---------- do/don't ---------- */
+      .dodont-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-top: 28px;
+      }
+      .dodont {
+        border-radius: 10px;
+        padding: 22px;
+        border: 1px solid var(--gray-200);
+        background: var(--white);
+      }
+      .dodont--do {
+        border-left: 3px solid var(--teal);
+      }
+      .dodont--dont {
+        border-left: 3px solid var(--coral);
+      }
+      .dodont__label {
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin-bottom: 12px;
+      }
+      .dodont--do .dodont__label {
+        color: var(--teal);
+      }
+      .dodont--dont .dodont__label {
+        color: var(--coral);
+      }
+      .dodont__list {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .dodont__list li {
+        font-size: 13.5px;
+        color: var(--gray-600);
+        line-height: 1.6;
+        padding-left: 18px;
+        position: relative;
+      }
+      .dodont--do .dodont__list li::before {
+        content: "✓";
+        position: absolute;
+        left: 0;
+        color: var(--teal);
+        font-weight: 700;
+      }
+      .dodont--dont .dodont__list li::before {
+        content: "✗";
+        position: absolute;
+        left: 0;
+        color: var(--coral);
+        font-weight: 700;
+      }
+
+      /* ---------- surfaces preview ---------- */
+      .surface-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+      }
+      .surface {
+        border: 1px solid var(--gray-200);
+        border-radius: 14px;
+        overflow: hidden;
+      }
+      .surface__header {
+        padding: 12px 18px;
+        background: var(--white);
+        border-bottom: 1px solid var(--gray-200);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 12px;
+      }
+      .surface__name {
+        font-weight: 600;
+        color: var(--ink);
+      }
+      .surface__tag {
+        font-size: 11px;
+        color: var(--gray-500);
+      }
+      .surface__body {
+        padding: 28px 24px;
+        min-height: 220px;
+      }
+      .surface__body--light {
+        background: var(--gray-50);
+      }
+      .surface__body--dark {
+        background: #0a0a0f;
+        color: var(--white);
+      }
+
+      /* ---------- voice ---------- */
+      .voice-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+      .voice-card {
+        background: var(--white);
+        border: 1px solid var(--gray-200);
+        border-radius: 12px;
+        padding: 22px;
+      }
+      .voice-card__heading {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--ink);
+        margin-bottom: 10px;
+      }
+      .voice-card__do {
+        font-size: 13.5px;
+        color: var(--ink);
+        line-height: 1.5;
+        margin-bottom: 8px;
+        padding: 8px 12px;
+        background: var(--success-bg);
+        border-radius: 6px;
+      }
+      .voice-card__dont {
+        font-size: 13.5px;
+        color: var(--ink);
+        line-height: 1.5;
+        padding: 8px 12px;
+        background: var(--error-bg);
+        border-radius: 6px;
+        text-decoration: line-through;
+        text-decoration-color: rgba(0, 0, 0, 0.4);
+      }
+
+      /* ---------- tokens table ---------- */
+      .token-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      .token-table th,
+      .token-table td {
+        padding: 10px 14px;
+        text-align: left;
+        border-bottom: 1px solid var(--gray-200);
+      }
+      .token-table th {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--gray-500);
+      }
+      .token-table td code {
+        font-size: 12px;
+        background: var(--gray-100);
+        padding: 2px 6px;
+        border-radius: 4px;
+        color: var(--ink);
+      }
+
+      /* ---------- responsive ---------- */
+      @media (max-width: 900px) {
+        .principles-grid,
+        .card-grid,
+        .voice-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .icon-grid {
+          grid-template-columns: repeat(4, 1fr);
+        }
+        .logo-grid,
+        .surface-grid,
+        .input-grid,
+        .dodont-grid {
+          grid-template-columns: 1fr;
+        }
+        .shadow-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      @media (max-width: 600px) {
+        .principles-grid,
+        .card-grid,
+        .voice-grid {
+          grid-template-columns: 1fr;
+        }
+        .icon-grid {
+          grid-template-columns: repeat(3, 1fr);
+        }
+        .shadow-grid {
+          grid-template-columns: 1fr;
+        }
+        section {
+          padding: 64px 0;
+        }
+        .section-title {
+          font-size: 28px;
+        }
+        .type-row {
+          flex-direction: column;
+          gap: 8px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ==================== COVER ==================== -->
+    <div class="cover">
+      <span class="cover__mark mark mark--xl">
+        <svg viewBox="0 0 64 64">
+          <title>scaffold</title>
+          <path
+            d="M5 24V5h19M40 5h19v19M59 40v19H40M24 59H5V40"
+            fill="none"
+            stroke="#FFFFFF"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-dasharray="3 3"
+            opacity="0.5"
+          />
+          <path
+            d="M32 18v28M18 32h28"
+            fill="none"
+            stroke="#FFFFFF"
+            stroke-width="4.25"
+            stroke-linecap="round"
+          />
+        </svg>
+      </span>
+      <h1 class="cover__title">Design System.</h1>
+      <p class="cover__sub">
+        The visual language for every scaffold surface — editor, runtime player, brand presence, and
+        host adapters.
+      </p>
+      <span class="cover__version">Version 1.0 &mdash; June 2026</span>
+    </div>
+
+    <!-- ==================== NAV ==================== -->
+    <nav class="ds-nav">
+      <div class="ds-nav__inner">
+        <a href="#" class="ds-nav__brand">
+          <span class="mark mark--sm">
+            <svg viewBox="0 0 64 64">
+              <title>scaffold</title>
+              <path
+                d="M5 24V5h19M40 5h19v19M59 40v19H40M24 59H5V40"
+                fill="none"
+                stroke="#161D77"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-dasharray="3 3"
+                opacity="0.5"
+              />
+              <path
+                d="M32 18v28M18 32h28"
+                fill="none"
+                stroke="#161D77"
+                stroke-width="4.25"
+                stroke-linecap="round"
+              />
+            </svg>
+          </span>
+          scaffold
+        </a>
+        <a href="#principles" class="ds-nav__link">Principles</a>
+        <a href="#colour" class="ds-nav__link">Colour</a>
+        <a href="#typography" class="ds-nav__link">Typography</a>
+        <a href="#spacing" class="ds-nav__link">Spacing</a>
+        <a href="#radius" class="ds-nav__link">Radius</a>
+        <a href="#shadows" class="ds-nav__link">Shadows</a>
+        <a href="#surfaces" class="ds-nav__link">Surfaces</a>
+        <a href="#material" class="ds-nav__link">Material</a>
+        <a href="#buttons" class="ds-nav__link">Buttons</a>
+        <a href="#pills" class="ds-nav__link">Pills</a>
+        <a href="#cards" class="ds-nav__link">Cards</a>
+        <a href="#inputs" class="ds-nav__link">Inputs</a>
+        <a href="#icons" class="ds-nav__link">Icons</a>
+        <a href="#logo" class="ds-nav__link">Logo</a>
+        <a href="#voice" class="ds-nav__link">Voice</a>
+        <a href="#tokens" class="ds-nav__link">Tokens</a>
+      </div>
+    </nav>
+
+    <!-- ==================== PRINCIPLES ==================== -->
+    <section id="principles">
+      <div class="wrap">
+        <span class="section-label">Foundations</span>
+        <h2 class="section-title">Design Principles</h2>
+        <p class="section-desc">
+          Six rules that guide every visual decision. When two principles conflict, the
+          lower-numbered one wins.
+        </p>
+        <div class="principles-grid">
+          <div class="principle">
+            <span class="principle__num">01</span>
+            <h3 class="principle__heading">Calm + Considered</h3>
+            <p class="principle__body">
+              Authors are building real teaching content. The editor is a focused work surface, not
+              a marketing site, not a slide deck, not a kid's app.
+            </p>
+          </div>
+          <div class="principle">
+            <span class="principle__num">02</span>
+            <h3 class="principle__heading">Education-flavoured</h3>
+            <p class="principle__body">
+              Reads as a serious tool for educators. Triple-colour palette is the fingerprint.
+              Block-stack mark is the literal product metaphor.
+            </p>
+          </div>
+          <div class="principle">
+            <span class="principle__num">03</span>
+            <h3 class="principle__heading">Functional First</h3>
+            <p class="principle__body">
+              Every element earns its place. No decoration for decoration's sake. If it doesn't help
+              the author understand or act, remove it.
+            </p>
+          </div>
+          <div class="principle">
+            <span class="principle__num">04</span>
+            <h3 class="principle__heading">Surface-aware</h3>
+            <p class="principle__body">
+              Editor surfaces are light + spacious + ink-on-canvas. Brand-presence surfaces (splash,
+              login, marketing) are dark + bold + confident.
+            </p>
+          </div>
+          <div class="principle">
+            <span class="principle__num">05</span>
+            <h3 class="principle__heading">Restraint with Colour</h3>
+            <p class="principle__body">
+              Mostly ink + canvas. Navy carries brand. Coral = destructive/error only. Teal =
+              correctness/affirmation only. No gradient, ever.
+            </p>
+          </div>
+          <div class="principle">
+            <span class="principle__num">06</span>
+            <h3 class="principle__heading">Distinct, not Derivative</h3>
+            <p class="principle__body">
+              Not Linear, not Notion, not Canvas, not Teachable, not Learnhouse. The triple palette
+              + register mark + Poppins / JetBrains Mono pairing make scaffold recognisable on its
+              own.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== COLOUR ==================== -->
+    <section id="colour" class="alt">
+      <div class="wrap">
+        <span class="section-label">Colour</span>
+        <h2 class="section-title">Palette</h2>
+        <p class="section-desc">
+          A triple-colour brand on a neutral surface. Navy carries brand identity, coral and teal
+          earn their place by being scarce.
+        </p>
+
+        <div class="colour-group">
+          <div class="colour-group__label">Brand Triple — the fingerprint</div>
+          <div class="swatches">
+            <div class="swatch">
+              <div class="swatch__colour" style="background: #161d77"></div>
+              <div class="swatch__info">
+                <span class="swatch__name">Navy</span><span class="swatch__hex">#161D77</span
+                ><span class="swatch__role">Brand · primary CTA · wordmark</span>
+              </div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__colour" style="background: #f43a57"></div>
+              <div class="swatch__info">
+                <span class="swatch__name">Coral</span><span class="swatch__hex">#F43A57</span
+                ><span class="swatch__role">Destructive · error · warning attention</span>
+              </div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__colour" style="background: #00ba92"></div>
+              <div class="swatch__info">
+                <span class="swatch__name">Teal</span><span class="swatch__hex">#00BA92</span
+                ><span class="swatch__role">Correctness · success · affirmation</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="colour-group">
+          <div class="colour-group__label">Inks &amp; Canvas</div>
+          <div class="swatches">
+            <div class="swatch">
+              <div class="swatch__colour" style="background: #18181b"></div>
+              <div class="swatch__info">
+                <span class="swatch__name">Ink</span><span class="swatch__hex">#18181B</span
+                ><span class="swatch__role">Primary text · dark surfaces · chrome</span>
+              </div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__colour" style="background: #3f3f46"></div>
+              <div class="swatch__info">
+                <span class="swatch__name">Gray 700</span><span class="swatch__hex">#3F3F46</span>
+              </div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__colour" style="background: #52525b"></div>
+              <div class="swatch__info">
+                <span class="swatch__name">Gray 600</span><span class="swatch__hex">#52525B</span
+                ><span class="swatch__role">Body text on light</span>
+              </div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__colour" style="background: #71717a"></div>
+              <div class="swatch__info">
+                <span class="swatch__name">Gray 500</span><span class="swatch__hex">#71717A</span
+                ><span class="swatch__role">Secondary text · muted</span>
+              </div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__colour" style="background: #a1a1aa"></div>
+              <div class="swatch__info">
+                <span class="swatch__name">Gray 400</span><span class="swatch__hex">#A1A1AA</span
+                ><span class="swatch__role">Disabled · placeholder</span>
+              </div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__colour" style="background: #d4d4d8"></div>
+              <div class="swatch__info">
+                <span class="swatch__name">Gray 300</span><span class="swatch__hex">#D4D4D8</span>
+              </div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__colour" style="background: #e4e4e7"></div>
+              <div class="swatch__info">
+                <span class="swatch__name">Gray 200</span><span class="swatch__hex">#E4E4E7</span
+                ><span class="swatch__role">Default border</span>
+              </div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__colour" style="background: #f4f4f5"></div>
+              <div class="swatch__info">
+                <span class="swatch__name">Gray 100</span><span class="swatch__hex">#F4F4F5</span
+                ><span class="swatch__role">Subtle fill · pill bg</span>
+              </div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__colour" style="background: #fafafa"></div>
+              <div class="swatch__info">
+                <span class="swatch__name">Gray 50</span><span class="swatch__hex">#FAFAFA</span
+                ><span class="swatch__role">Page canvas</span>
+              </div>
+            </div>
+            <div class="swatch">
+              <div
+                class="swatch__colour"
+                style="background: #ffffff; border-bottom: 1px solid #e4e4e7"
+              ></div>
+              <div class="swatch__info">
+                <span class="swatch__name">White</span><span class="swatch__hex">#FFFFFF</span
+                ><span class="swatch__role">Surface · cards</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="colour-group">
+          <div class="colour-group__label">Semantic Pairs — bg + text are always used together</div>
+          <div class="swatches">
+            <div class="swatch">
+              <div
+                class="swatch__colour"
+                style="
+                  background: #d4f4dd;
+                  color: #0d5c2f;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  font-weight: 600;
+                  font-size: 12px;
+                "
+              >
+                Saved
+              </div>
+              <div class="swatch__info">
+                <span class="swatch__name">Success</span
+                ><span class="swatch__hex">#D4F4DD / #0D5C2F</span>
+              </div>
+            </div>
+            <div class="swatch">
+              <div
+                class="swatch__colour"
+                style="
+                  background: #fff4cc;
+                  color: #8b5a00;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  font-weight: 600;
+                  font-size: 12px;
+                "
+              >
+                Heads up
+              </div>
+              <div class="swatch__info">
+                <span class="swatch__name">Warning</span
+                ><span class="swatch__hex">#FFF4CC / #8B5A00</span>
+              </div>
+            </div>
+            <div class="swatch">
+              <div
+                class="swatch__colour"
+                style="
+                  background: #ffdede;
+                  color: #a11f1f;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  font-weight: 600;
+                  font-size: 12px;
+                "
+              >
+                Removed
+              </div>
+              <div class="swatch__info">
+                <span class="swatch__name">Error</span
+                ><span class="swatch__hex">#FFDEDE / #A11F1F</span>
+              </div>
+            </div>
+            <div class="swatch">
+              <div
+                class="swatch__colour"
+                style="
+                  background: #e3f2fd;
+                  color: #0d47a1;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  font-weight: 600;
+                  font-size: 12px;
+                "
+              >
+                Tip
+              </div>
+              <div class="swatch__info">
+                <span class="swatch__name">Info</span
+                ><span class="swatch__hex">#E3F2FD / #0D47A1</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="colour-group">
+          <div class="colour-group__label">Brand-presence dark surface</div>
+          <div class="swatches">
+            <div class="swatch">
+              <div class="swatch__colour" style="background: #0a0a0f"></div>
+              <div class="swatch__info">
+                <span class="swatch__name">Near-black</span><span class="swatch__hex">#0A0A0F</span
+                ><span class="swatch__role">Splash · login · marketing bg</span>
+              </div>
+            </div>
+            <div class="swatch">
+              <div class="swatch__colour" style="background: #161d77"></div>
+              <div class="swatch__info">
+                <span class="swatch__name">Navy fill</span><span class="swatch__hex">#161D77</span
+                ><span class="swatch__role">Brand-loud alternative dark surface</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TYPOGRAPHY ==================== -->
+    <section id="typography">
+      <div class="wrap">
+        <span class="section-label">Typography</span>
+        <h2 class="section-title">Type Scale</h2>
+        <p class="section-desc">
+          Two families: <strong>Poppins</strong> for prose + chrome (geometric sans, weights
+          300–900), and <strong>JetBrains Mono</strong> for code blocks, tabular data, and numeric
+          status pills. Hierarchy within Poppins comes from size + weight contrast, not from
+          switching families.
+        </p>
+
+        <div class="type-row">
+          <div class="type-meta">
+            <div class="type-meta__name">Display</div>
+            <div class="type-meta__spec">56–72px / 800<br />-0.03em / 1.0</div>
+          </div>
+          <div
+            class="type-sample"
+            style="font-size: 56px; font-weight: 800; letter-spacing: -0.03em; line-height: 1"
+          >
+            Build courses that teach.
+          </div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta">
+            <div class="type-meta__name">H1</div>
+            <div class="type-meta__spec">36px / 700<br />-0.025em / 1.1</div>
+          </div>
+          <div
+            class="type-sample"
+            style="font-size: 36px; font-weight: 700; letter-spacing: -0.025em; line-height: 1.1"
+          >
+            Untitled course
+          </div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta">
+            <div class="type-meta__name">H2</div>
+            <div class="type-meta__spec">24px / 700<br />-0.02em / 1.2</div>
+          </div>
+          <div
+            class="type-sample"
+            style="font-size: 24px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2"
+          >
+            Lesson 1 · Photosynthesis
+          </div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta">
+            <div class="type-meta__name">H3</div>
+            <div class="type-meta__spec">18px / 600<br />-0.015em / 1.3</div>
+          </div>
+          <div
+            class="type-sample"
+            style="font-size: 18px; font-weight: 600; letter-spacing: -0.015em; line-height: 1.3"
+          >
+            Which organelle is the site of photosynthesis?
+          </div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta">
+            <div class="type-meta__name">H4</div>
+            <div class="type-meta__spec">15px / 600<br />-0.01em / 1.4</div>
+          </div>
+          <div
+            class="type-sample"
+            style="
+              font-size: 15px;
+              font-weight: 600;
+              letter-spacing: -0.01em;
+              line-height: 1.4;
+              color: var(--ink);
+            "
+          >
+            Block · Settings
+          </div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta">
+            <div class="type-meta__name">Body</div>
+            <div class="type-meta__spec">14px / 400<br />0 / 1.6</div>
+          </div>
+          <div
+            class="type-sample"
+            style="font-size: 14px; font-weight: 400; line-height: 1.6; color: var(--gray-600)"
+          >
+            Plants convert light energy into chemical energy through a process called
+            photosynthesis. In the chloroplasts, chlorophyll absorbs sunlight and uses it to drive a
+            reaction that splits water and fixes carbon dioxide.
+          </div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta">
+            <div class="type-meta__name">Small</div>
+            <div class="type-meta__spec">12.5px / 400<br />0 / 1.55</div>
+          </div>
+          <div
+            class="type-sample"
+            style="font-size: 12.5px; font-weight: 400; line-height: 1.55; color: var(--gray-600)"
+          >
+            Helper text. Attempt counters. Block toolbar tooltips. Settings descriptions.
+          </div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta">
+            <div class="type-meta__name">Overline</div>
+            <div class="type-meta__spec">11px / 600<br />0.14em uppercase</div>
+          </div>
+          <div
+            class="type-sample"
+            style="
+              font-size: 11px;
+              font-weight: 600;
+              letter-spacing: 0.14em;
+              text-transform: uppercase;
+              color: var(--navy);
+            "
+          >
+            Lesson · Module 1
+          </div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta">
+            <div class="type-meta__name">Mono — token</div>
+            <div class="type-meta__spec">12.5px / 500<br />JetBrains Mono</div>
+          </div>
+          <div
+            class="type-sample"
+            style="
+              font-size: 12.5px;
+              font-weight: 500;
+              font-family: var(--font-mono);
+              color: var(--gray-700);
+            "
+          >
+            --color-primary: #161D77;
+          </div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta">
+            <div class="type-meta__name">Mono — data</div>
+            <div class="type-meta__spec">12px / 500<br />tabular numerals</div>
+          </div>
+          <div
+            class="type-sample"
+            style="
+              font-size: 13px;
+              font-weight: 500;
+              font-family: var(--font-mono);
+              color: var(--ink);
+              font-variant-numeric: tabular-nums;
+            "
+          >
+            5 pts · attempt 1 of 3 · 92% complete
+          </div>
+        </div>
+        <div class="type-row">
+          <div class="type-meta">
+            <div class="type-meta__name">Mono — code block</div>
+            <div class="type-meta__spec">14px / 400<br />JetBrains Mono</div>
+          </div>
+          <div
+            class="type-sample"
+            style="
+              font-size: 14px;
+              font-weight: 400;
+              font-family: var(--font-mono);
+              background: var(--gray-100);
+              padding: 14px 18px;
+              border-radius: 8px;
+              color: var(--ink);
+              line-height: 1.6;
+            "
+          >
+            function gradeMcq(answerKey, response) {<br />&nbsp;&nbsp;return { isCorrect: true,
+            score: 1 };<br />}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== SPACING ==================== -->
+    <section id="spacing" class="alt">
+      <div class="wrap">
+        <span class="section-label">Spacing</span>
+        <h2 class="section-title">Spacing Scale</h2>
+        <p class="section-desc">
+          A Tailwind-aligned scale anchored to a 4px base. Sections breathe at 64–96px. Within a
+          block, rhythm tightens to 8–16px.
+        </p>
+        <div style="max-width: 600px">
+          <div class="spacing-row">
+            <span class="spacing-label">0.5</span>
+            <div class="spacing-bar" style="width: 2px"></div>
+            <span class="spacing-value">2px</span>
+          </div>
+          <div class="spacing-row">
+            <span class="spacing-label">1</span>
+            <div class="spacing-bar" style="width: 4px"></div>
+            <span class="spacing-value">4px</span>
+          </div>
+          <div class="spacing-row">
+            <span class="spacing-label">2</span>
+            <div class="spacing-bar" style="width: 8px"></div>
+            <span class="spacing-value">8px</span>
+          </div>
+          <div class="spacing-row">
+            <span class="spacing-label">3</span>
+            <div class="spacing-bar" style="width: 12px"></div>
+            <span class="spacing-value">12px</span>
+          </div>
+          <div class="spacing-row">
+            <span class="spacing-label">4</span>
+            <div class="spacing-bar" style="width: 16px"></div>
+            <span class="spacing-value">16px</span>
+          </div>
+          <div class="spacing-row">
+            <span class="spacing-label">6</span>
+            <div class="spacing-bar" style="width: 24px"></div>
+            <span class="spacing-value">24px</span>
+          </div>
+          <div class="spacing-row">
+            <span class="spacing-label">8</span>
+            <div class="spacing-bar" style="width: 32px"></div>
+            <span class="spacing-value">32px</span>
+          </div>
+          <div class="spacing-row">
+            <span class="spacing-label">12</span>
+            <div class="spacing-bar" style="width: 48px"></div>
+            <span class="spacing-value">48px</span>
+          </div>
+          <div class="spacing-row">
+            <span class="spacing-label">16</span>
+            <div class="spacing-bar" style="width: 64px"></div>
+            <span class="spacing-value">64px</span>
+          </div>
+          <div class="spacing-row">
+            <span class="spacing-label">24</span>
+            <div class="spacing-bar" style="width: 96px"></div>
+            <span class="spacing-value">96px</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== RADIUS ==================== -->
+    <section id="radius">
+      <div class="wrap">
+        <span class="section-label">Shape</span>
+        <h2 class="section-title">Border Radius</h2>
+        <p class="section-desc">
+          Small for utility, medium for cards and inputs, pill (999px) for CTAs and tags. No square
+          corners on interactive elements.
+        </p>
+        <div class="radius-row">
+          <div class="radius-item">
+            <div class="radius-box" style="border-radius: 4px"></div>
+            <span>SM</span><small>4px · pills inner, tags</small>
+          </div>
+          <div class="radius-item">
+            <div class="radius-box" style="border-radius: 6px"></div>
+            <span>Default</span><small>6px · inputs, small chips</small>
+          </div>
+          <div class="radius-item">
+            <div class="radius-box" style="border-radius: 8px"></div>
+            <span>MD</span><small>8px · inputs, choice rows</small>
+          </div>
+          <div class="radius-item">
+            <div class="radius-box" style="border-radius: 10px"></div>
+            <span>LG</span><small>10px · block cards</small>
+          </div>
+          <div class="radius-item">
+            <div class="radius-box" style="border-radius: 14px"></div>
+            <span>XL</span><small>14px · composite panels</small>
+          </div>
+          <div class="radius-item">
+            <div class="radius-box" style="border-radius: 999px"></div>
+            <span>Pill</span><small>999px · CTAs, tags, pills</small>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== SHADOWS ==================== -->
+    <section id="shadows" class="alt">
+      <div class="wrap">
+        <span class="section-label">Elevation</span>
+        <h2 class="section-title">Shadows</h2>
+        <p class="section-desc">
+          Flat by default. Cards sit on canvas without shadow — depth comes from hairline borders.
+          Shadow only appears on intentional overlays: popovers, modals, drag previews.
+        </p>
+        <div class="shadow-grid">
+          <div class="shadow-card" style="box-shadow: none">
+            <div class="shadow-card__name">None (default)</div>
+            <div class="shadow-card__value">No shadow — hairline border carries elevation</div>
+          </div>
+          <div class="shadow-card" style="box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04)">
+            <div class="shadow-card__name">XS — Subtle</div>
+            <div class="shadow-card__value">0 1px 2px rgba(0,0,0,0.04)</div>
+          </div>
+          <div class="shadow-card" style="box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06)">
+            <div class="shadow-card__name">SM — Card hover</div>
+            <div class="shadow-card__value">0 4px 12px rgba(0,0,0,0.06)</div>
+          </div>
+          <div
+            class="shadow-card"
+            style="
+              box-shadow:
+                0 8px 24px -4px rgba(0, 0, 0, 0.12),
+                0 2px 6px -2px rgba(0, 0, 0, 0.08);
+            "
+          >
+            <div class="shadow-card__name">Overlay — Popover</div>
+            <div class="shadow-card__value">
+              0 8px 24px -4px rgba(0,0,0,0.12),<br />0 2px 6px -2px rgba(0,0,0,0.08)
+            </div>
+          </div>
+          <div class="shadow-card" style="box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.18)">
+            <div class="shadow-card__name">Modal</div>
+            <div class="shadow-card__value">0 16px 40px -8px rgba(0,0,0,0.18)</div>
+          </div>
+          <div class="shadow-card" style="box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18)">
+            <div class="shadow-card__name">Drag preview</div>
+            <div class="shadow-card__value">0 12px 32px rgba(0,0,0,0.18)</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== SURFACES ==================== -->
+    <section id="surfaces">
+      <div class="wrap">
+        <span class="section-label">Surfaces</span>
+        <h2 class="section-title">Light editor · Dark brand-presence</h2>
+        <p class="section-desc">
+          Two surface treatments. The editor is light, spacious, calm — focus on the author's
+          content. Brand-presence surfaces are dark, bold, confident — splash, login, document home,
+          marketing.
+        </p>
+        <div class="surface-grid">
+          <div class="surface">
+            <div class="surface__header">
+              <span class="surface__name">Editor surface</span>
+              <span class="surface__tag">canvas · ink · #FAFAFA</span>
+            </div>
+            <div class="surface__body surface__body--light">
+              <div
+                style="
+                  font-size: 11px;
+                  font-weight: 600;
+                  letter-spacing: 0.14em;
+                  text-transform: uppercase;
+                  color: var(--navy);
+                  margin-bottom: 6px;
+                "
+              >
+                Module 1
+              </div>
+              <div
+                style="
+                  font-size: 28px;
+                  font-weight: 700;
+                  letter-spacing: -0.025em;
+                  line-height: 1.1;
+                  color: var(--ink);
+                  margin-bottom: 8px;
+                "
+              >
+                Photosynthesis
+              </div>
+              <div
+                style="
+                  font-size: 13.5px;
+                  color: var(--gray-600);
+                  line-height: 1.6;
+                  margin-bottom: 18px;
+                "
+              >
+                Plants convert light energy into chemical energy.
+              </div>
+              <div
+                style="
+                  background: #fff;
+                  border: 1px solid var(--gray-200);
+                  border-radius: 10px;
+                  padding: 14px 16px;
+                "
+              >
+                <div
+                  style="font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 8px"
+                >
+                  Which organelle?
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px">
+                  <div
+                    style="
+                      background: var(--gray-50);
+                      padding: 8px 12px;
+                      border-radius: 6px;
+                      font-size: 13px;
+                      color: var(--ink);
+                    "
+                  >
+                    Mitochondria
+                  </div>
+                  <div
+                    style="
+                      background: #f0f9f5;
+                      border: 1.5px solid var(--teal);
+                      padding: 7px 11px;
+                      border-radius: 6px;
+                      font-size: 13px;
+                      color: var(--ink);
+                      font-weight: 500;
+                    "
+                  >
+                    Chloroplasts
+                  </div>
+                  <div
+                    style="
+                      background: var(--gray-50);
+                      padding: 8px 12px;
+                      border-radius: 6px;
+                      font-size: 13px;
+                      color: var(--ink);
+                    "
+                  >
+                    Ribosomes
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="surface">
+            <div class="surface__header">
+              <span class="surface__name">Brand-presence surface</span>
+              <span class="surface__tag">near-black · white · #0A0A0F</span>
+            </div>
+            <div class="surface__body surface__body--dark" style="padding-top: 32px">
+              <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 24px">
+                <span class="mark mark--md">
+                  <svg viewBox="0 0 64 64">
+                    <title>scaffold</title>
+                    <path
+                      d="M5 24V5h19M40 5h19v19M59 40v19H40M24 59H5V40"
+                      fill="none"
+                      stroke="#FFFFFF"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-dasharray="3 3"
+                      opacity="0.5"
+                    />
+                    <path
+                      d="M32 18v28M18 32h28"
+                      fill="none"
+                      stroke="#FFFFFF"
+                      stroke-width="4.25"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </span>
+                <span
+                  style="font-weight: 700; font-size: 15px; letter-spacing: -0.02em; color: #fff"
+                  >scaffold<span style="color: #f43a57">.</span></span
+                >
+              </div>
+              <div
+                style="
+                  font-size: 32px;
+                  font-weight: 800;
+                  letter-spacing: -0.03em;
+                  line-height: 1.05;
+                  color: #fff;
+                  margin-bottom: 12px;
+                "
+              >
+                Build courses<br />that actually teach.
+              </div>
+              <div
+                style="
+                  font-size: 13px;
+                  color: rgba(255, 255, 255, 0.5);
+                  line-height: 1.5;
+                  margin-bottom: 16px;
+                  max-width: 280px;
+                "
+              >
+                Open-source authoring tool for educators who care about pedagogy.
+              </div>
+              <div style="display: flex; gap: 8px">
+                <span
+                  style="
+                    padding: 8px 18px;
+                    background: #fff;
+                    color: #0a0a0f;
+                    border-radius: 999px;
+                    font-size: 12.5px;
+                    font-weight: 600;
+                  "
+                  >Get started →</span
+                >
+                <span
+                  style="
+                    padding: 8px 18px;
+                    background: transparent;
+                    color: #fff;
+                    border: 1px solid rgba(255, 255, 255, 0.2);
+                    border-radius: 999px;
+                    font-size: 12.5px;
+                    font-weight: 500;
+                  "
+                  >See example</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== BRAND-PRESENCE MATERIAL ==================== -->
+    <section id="material">
+      <div class="wrap">
+        <span class="section-label">Surfaces · new</span>
+        <h2 class="section-title">Brand-presence material</h2>
+        <p class="section-desc">
+          The dark splash refresh. Translucent tiles over a whisper aurora — depth without breaking
+          the flat-at-rest rule. Used on splash, login, OG, marketing hero, design-system hero.
+          Editor surfaces and favicons stay flat. <strong>Under revision:</strong> the glass demo
+          below still shows the retired block-stack; it's being reworked as a frosted register mark
+          on the aurora. Falls back to solid fills under
+          <code
+            style="
+              font-family: var(--mono);
+              font-size: 0.85em;
+              background: var(--gray-100);
+              padding: 1px 6px;
+              border-radius: 4px;
+            "
+            >prefers-reduced-transparency</code
+          >.
+        </p>
+
+        <div
+          style="
+            position: relative;
+            border-radius: 14px;
+            overflow: hidden;
+            isolation: isolate;
+            background: #0a0a0f;
+            aspect-ratio: 21/9;
+            display: grid;
+            place-items: center;
+          "
+        >
+          <div
+            style="
+              content: &quot;&quot;;
+              position: absolute;
+              inset: -5%;
+              z-index: 0;
+              background:
+                radial-gradient(
+                  ellipse 50% 40% at 32% 40%,
+                  oklch(0.42 0.18 270 / 0.2),
+                  transparent 70%
+                ),
+                radial-gradient(
+                  ellipse 50% 40% at 72% 70%,
+                  oklch(0.52 0.14 175 / 0.13),
+                  transparent 70%
+                );
+              filter: blur(60px);
+              pointer-events: none;
+            "
+          ></div>
+          <div
+            style="
+              position: absolute;
+              inset: 0;
+              z-index: 1;
+              background: radial-gradient(
+                ellipse at 50% 50%,
+                transparent 35%,
+                rgba(0, 0, 0, 0.55) 100%
+              );
+              pointer-events: none;
+            "
+          ></div>
+
+          <div
+            style="
+              position: relative;
+              z-index: 3;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              gap: 26px;
+            "
+          >
+            <div
+              style="
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                grid-template-rows: 1fr 1fr;
+                gap: 8px;
+                width: 140px;
+                height: 140px;
+              "
+            >
+              <span
+                style="
+                  border-radius: 10px;
+                  backdrop-filter: blur(20px) saturate(150%);
+                  -webkit-backdrop-filter: blur(20px) saturate(150%);
+                  border: 1px solid rgba(255, 255, 255, 0.18);
+                  box-shadow:
+                    inset 0 1px 0 0 rgba(255, 255, 255, 0.24),
+                    inset 0 -1px 0 0 rgba(0, 0, 0, 0.18);
+                  background: rgba(255, 255, 255, 0.88);
+                "
+              ></span>
+              <span
+                style="
+                  border-radius: 10px;
+                  background: rgba(255, 255, 255, 0.03);
+                  border: 2px dashed rgba(255, 255, 255, 0.42);
+                  display: grid;
+                  place-items: center;
+                  color: rgba(255, 255, 255, 0.55);
+                  font-size: 30px;
+                  line-height: 1;
+                "
+                >+</span
+              >
+              <span
+                style="
+                  border-radius: 10px;
+                  backdrop-filter: blur(20px) saturate(150%);
+                  -webkit-backdrop-filter: blur(20px) saturate(150%);
+                  border: 1px solid rgba(255, 255, 255, 0.18);
+                  box-shadow:
+                    inset 0 1px 0 0 rgba(255, 255, 255, 0.24),
+                    inset 0 -1px 0 0 rgba(0, 0, 0, 0.18);
+                  background: oklch(0.68 0.18 175 / 0.82);
+                "
+              ></span>
+              <span
+                style="
+                  border-radius: 10px;
+                  backdrop-filter: blur(20px) saturate(150%);
+                  -webkit-backdrop-filter: blur(20px) saturate(150%);
+                  border: 1px solid rgba(255, 255, 255, 0.18);
+                  box-shadow:
+                    inset 0 1px 0 0 rgba(255, 255, 255, 0.24),
+                    inset 0 -1px 0 0 rgba(0, 0, 0, 0.18);
+                  background: oklch(0.64 0.22 18 / 0.86);
+                "
+              ></span>
+            </div>
+            <div
+              style="
+                font-family: var(--sans);
+                font-size: 42px;
+                font-weight: 700;
+                letter-spacing: -0.028em;
+                color: #fff;
+                line-height: 1;
+              "
+            >
+              scaffold<span style="color: oklch(0.66 0.22 18)">.</span>
+            </div>
+          </div>
+        </div>
+
+        <div
+          style="
+            margin-top: 24px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+          "
+        >
+          <div
+            style="
+              background: var(--gray-50);
+              padding: 18px 20px;
+              border-radius: 10px;
+              border: 1px solid var(--gray-200);
+            "
+          >
+            <div
+              style="
+                font-family: var(--mono);
+                font-size: 10px;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: var(--gray-600);
+                margin-bottom: 8px;
+              "
+            >
+              When to use
+            </div>
+            <div style="font-size: 13.5px; line-height: 1.55; color: var(--ink)">
+              Splash, login, document home, OG card, marketing hero, design-system hero, dark
+              wordmark lockup at ≥ 64px.
+            </div>
+          </div>
+          <div
+            style="
+              background: var(--gray-50);
+              padding: 18px 20px;
+              border-radius: 10px;
+              border: 1px solid var(--gray-200);
+            "
+          >
+            <div
+              style="
+                font-family: var(--mono);
+                font-size: 10px;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: var(--gray-600);
+                margin-bottom: 8px;
+              "
+            >
+              When NOT to use
+            </div>
+            <div style="font-size: 13.5px; line-height: 1.55; color: var(--ink)">
+              Anywhere inside the editor. Favicons. Marks under 64px. Light surfaces. Anywhere
+              transparency would conflict with the host chrome.
+            </div>
+          </div>
+          <div
+            style="
+              background: var(--gray-50);
+              padding: 18px 20px;
+              border-radius: 10px;
+              border: 1px solid var(--gray-200);
+            "
+          >
+            <div
+              style="
+                font-family: var(--mono);
+                font-size: 10px;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: var(--gray-600);
+                margin-bottom: 8px;
+              "
+            >
+              In code
+            </div>
+            <div
+              style="
+                font-family: var(--mono);
+                font-size: 11.5px;
+                line-height: 1.55;
+                color: var(--ink);
+              "
+            >
+              &lt;Mark variant="material" /&gt;<br />inside a
+              <code>.sc-brand-surface</code> wrapper.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== BUTTONS ==================== -->
+    <section id="buttons" class="alt">
+      <div class="wrap">
+        <span class="section-label">Components</span>
+        <h2 class="section-title">Buttons</h2>
+        <p class="section-desc">
+          Pill-shaped (999px radius). Primary is navy. Ink is the dark default. Coral and teal are
+          reserved for destructive and success actions only.
+        </p>
+
+        <div class="btn-row">
+          <div class="btn-row__label">Primary — navy CTA, one per surface</div>
+          <button class="btn btn--primary btn--sm">Small</button>
+          <button class="btn btn--primary">Submit answer</button>
+          <button class="btn btn--primary btn--lg">Get started →</button>
+        </div>
+
+        <div class="btn-row">
+          <div class="btn-row__label">Secondary — ink, neutral emphasis</div>
+          <button class="btn btn--secondary btn--sm">Small</button>
+          <button class="btn btn--secondary">Preview</button>
+          <button class="btn btn--secondary btn--lg">Publish lesson</button>
+        </div>
+
+        <div class="btn-row">
+          <div class="btn-row__label">Tertiary — outlined, low emphasis</div>
+          <button class="btn btn--tertiary btn--sm">Cancel</button>
+          <button class="btn btn--tertiary">Add block</button>
+          <button class="btn btn--tertiary btn--lg">Browse blocks</button>
+        </div>
+
+        <div class="btn-row">
+          <div class="btn-row__label">Ghost — chrome buttons, no border</div>
+          <button class="btn btn--ghost btn--sm">Skip</button>
+          <button class="btn btn--ghost">Show hint</button>
+          <button class="btn btn--ghost btn--lg">Try again</button>
+        </div>
+
+        <div class="btn-row">
+          <div class="btn-row__label">Danger — coral, destructive only</div>
+          <button class="btn btn--danger btn--sm">Remove</button>
+          <button class="btn btn--danger">Delete lesson</button>
+        </div>
+
+        <div class="btn-row">
+          <div class="btn-row__label">Success — teal, completion / save confirmation</div>
+          <button class="btn btn--success btn--sm">Saved</button>
+          <button class="btn btn--success">Mark complete</button>
+        </div>
+
+        <div style="margin-top: 32px; background: #0a0a0f; border-radius: 14px; padding: 32px">
+          <div class="btn-row__label" style="color: rgba(255, 255, 255, 0.5); margin-bottom: 16px">
+            On dark surface
+          </div>
+          <div class="btn-row">
+            <button class="btn" style="background: #fff; color: #0a0a0f">Get started →</button>
+            <button
+              class="btn"
+              style="
+                background: transparent;
+                color: #fff;
+                border: 1px solid rgba(255, 255, 255, 0.2);
+              "
+            >
+              See example
+            </button>
+            <button class="btn btn--ghost" style="color: rgba(255, 255, 255, 0.7)">Skip</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== PILLS / BADGES ==================== -->
+    <section id="pills">
+      <div class="wrap">
+        <span class="section-label">Components</span>
+        <h2 class="section-title">Pills &amp; Badges</h2>
+        <p class="section-desc">
+          Always pill-shaped, fill-only — no borders. Use the semantic pairs for state. Use ink +
+          navy fills for emphasis.
+        </p>
+
+        <div style="margin-bottom: 24px">
+          <div class="colour-group__label">Status</div>
+          <div class="pill-row">
+            <span class="pill pill--neutral">draft</span>
+            <span class="pill pill--success">graded</span>
+            <span class="pill pill--warning">unsaved</span>
+            <span class="pill pill--error">required</span>
+            <span class="pill pill--info">new</span>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 24px">
+          <div class="colour-group__label">Emphasis</div>
+          <div class="pill-row">
+            <span class="pill pill--ink">5 pts</span>
+            <span class="pill pill--navy">featured</span>
+            <span class="pill pill--neutral">3 attempts</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="colour-group__label">Anatomy</div>
+          <div style="font-size: 13px; color: var(--gray-500)">
+            12px · 500 weight · 4px 12px padding · 999px radius · no border · no shadow
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== CARDS ==================== -->
+    <section id="cards" class="alt">
+      <div class="wrap">
+        <span class="section-label">Components</span>
+        <h2 class="section-title">Cards</h2>
+        <p class="section-desc">
+          Flat. White on canvas, hairline border. Hover darkens the border to ink — no shadow lift.
+          Featured cards use a 2px navy border.
+        </p>
+        <div class="card-grid">
+          <div class="demo-card">
+            <div class="demo-card__label">Multiple choice</div>
+            <div class="demo-card__heading">Default block card</div>
+            <div class="demo-card__body">
+              Sits on canvas. 1px gray border. Hover darkens to ink. No shadow at rest.
+            </div>
+            <span class="pill pill--neutral">2 pts</span>
+          </div>
+          <div class="demo-card demo-card--featured">
+            <div class="demo-card__label" style="color: var(--navy)">Sequencing</div>
+            <div class="demo-card__heading">Featured / focused block</div>
+            <div class="demo-card__body">
+              2px navy border. Used when a single block is selected or featured in a list.
+            </div>
+            <span class="pill pill--navy">selected</span>
+          </div>
+          <div class="demo-card">
+            <div class="demo-card__label">Image hotspot</div>
+            <div class="demo-card__heading">Empty-state block card</div>
+            <div class="demo-card__body">
+              Same chrome as default. Empty content area uses the mark motif for a brand moment
+              (migrating from the block-stack to the register mark).
+            </div>
+            <span class="pill pill--success">graded</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== INPUTS ==================== -->
+    <section id="inputs">
+      <div class="wrap">
+        <span class="section-label">Components</span>
+        <h2 class="section-title">Form Inputs</h2>
+        <p class="section-desc">
+          8px radius. 1px gray-300 border at rest, navy ring on focus, coral on error. Use the same
+          input style on light + dark surfaces (background fills handle the contrast).
+        </p>
+        <div class="input-grid">
+          <div class="input-group">
+            <label>Course title</label>
+            <input type="text" class="input" placeholder="Introduction to Biology" />
+          </div>
+          <div class="input-group">
+            <label>Points</label>
+            <input type="number" class="input" value="2" />
+          </div>
+          <div class="input-group">
+            <label>Image URL (error)</label>
+            <input type="url" class="input input--error" value="not a url" />
+          </div>
+          <div class="input-group">
+            <label>Disabled</label>
+            <input
+              type="text"
+              class="input"
+              disabled
+              value="Read-only field"
+              style="opacity: 0.5; cursor: not-allowed; background: var(--gray-100)"
+            />
+          </div>
+          <div class="input-group" style="grid-column: 1/-1">
+            <label>Question prompt</label>
+            <textarea class="input" placeholder="What will learners be asked?"></textarea>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== ICONS ==================== -->
+    <section id="icons" class="alt">
+      <div class="wrap">
+        <span class="section-label">Iconography</span>
+        <h2 class="section-title">Icons</h2>
+        <p class="section-desc">
+          Phosphor icons. Default weight: <code>regular</code>. Use <code>bold</code> only for
+          emphasis (block toolbar, primary CTAs). 16px default, 20px for prominent UI, 24px+ for
+          hero/feature.
+        </p>
+        <div class="icon-grid">
+          <div class="icon-item">
+            <div class="icon-item__box">
+              <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
+                <path
+                  d="M3 8.5L6.5 12L13 5"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </div>
+            <div class="icon-item__label">Check</div>
+          </div>
+          <div class="icon-item">
+            <div class="icon-item__box">
+              <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
+                <path
+                  d="M4 4l8 8M12 4l-8 8"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </div>
+            <div class="icon-item__label">Close</div>
+          </div>
+          <div class="icon-item">
+            <div class="icon-item__box">
+              <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
+                <path
+                  d="M4 8h8M8 4v8"
+                  stroke="currentColor"
+                  stroke-width="1.75"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </div>
+            <div class="icon-item__label">Add</div>
+          </div>
+          <div class="icon-item">
+            <div class="icon-item__box">
+              <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
+                <path
+                  d="M6 3l5 5-5 5"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </div>
+            <div class="icon-item__label">Arrow</div>
+          </div>
+          <div class="icon-item">
+            <div class="icon-item__box">
+              <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
+                <path
+                  d="M2 4h12M5 4V3a1 1 0 011-1h4a1 1 0 011 1v1M6 7v4M10 7v4M3 4l1 9a1 1 0 001 1h6a1 1 0 001-1l1-9"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </div>
+            <div class="icon-item__label">Delete</div>
+          </div>
+          <div class="icon-item">
+            <div class="icon-item__box">
+              <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.5" />
+                <path
+                  d="M8 5.5v3M8 10.5h.01"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </div>
+            <div class="icon-item__label">Info</div>
+          </div>
+          <div class="icon-item">
+            <div class="icon-item__box">
+              <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
+                <circle cx="7" cy="7" r="4" stroke="currentColor" stroke-width="1.5" />
+                <path
+                  d="M10 10l3 3"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </div>
+            <div class="icon-item__label">Search</div>
+          </div>
+          <div class="icon-item">
+            <div class="icon-item__box">
+              <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
+                <path
+                  d="M3 6h2M3 10h2M11 6h2M11 10h2M7 4v8M9 4v8"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </div>
+            <div class="icon-item__label">Drag handle</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== LOGO ==================== -->
+    <section id="logo">
+      <div class="wrap">
+        <span class="section-label">Brand</span>
+        <h2 class="section-title">Logo &amp; Mark</h2>
+        <p class="section-desc">
+          The register mark is four construction corners framing a bold plus — the dashed add-block
+          slot reduced to its corners. The framed-but-empty slot reads as "add the next block"; the
+          plus is the figure, the corners the ground. One hue throughout so it reduces cleanly to a
+          favicon and single-ink stamps. The wordmark uses Poppins 700 with the dot in coral on
+          light + dark surfaces, teal on navy.
+        </p>
+
+        <div class="logo-grid">
+          <div>
+            <div class="logo-box logo-box--light">
+              <div class="wordmark">
+                <span class="mark mark--lg">
+                  <svg viewBox="0 0 64 64">
+                    <title>scaffold</title>
+                    <path
+                      d="M5 24V5h19M40 5h19v19M59 40v19H40M24 59H5V40"
+                      fill="none"
+                      stroke="#161D77"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-dasharray="3 3"
+                      opacity="0.5"
+                    />
+                    <path
+                      d="M32 18v28M18 32h28"
+                      fill="none"
+                      stroke="#161D77"
+                      stroke-width="4.25"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </span>
+                <span class="wordmark__type">scaffold<span class="wordmark__dot">.</span></span>
+              </div>
+            </div>
+            <div class="logo-box__caption">On white</div>
+          </div>
+          <div>
+            <div class="logo-box logo-box--canvas">
+              <div class="wordmark">
+                <span class="mark mark--lg">
+                  <svg viewBox="0 0 64 64">
+                    <title>scaffold</title>
+                    <path
+                      d="M5 24V5h19M40 5h19v19M59 40v19H40M24 59H5V40"
+                      fill="none"
+                      stroke="#161D77"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-dasharray="3 3"
+                      opacity="0.5"
+                    />
+                    <path
+                      d="M32 18v28M18 32h28"
+                      fill="none"
+                      stroke="#161D77"
+                      stroke-width="4.25"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </span>
+                <span class="wordmark__type">scaffold<span class="wordmark__dot">.</span></span>
+              </div>
+            </div>
+            <div class="logo-box__caption">On canvas (#FAFAFA)</div>
+          </div>
+          <div>
+            <div class="logo-box logo-box--dark wordmark--dark">
+              <div class="wordmark">
+                <span class="mark mark--lg">
+                  <svg viewBox="0 0 64 64">
+                    <title>scaffold</title>
+                    <path
+                      d="M5 24V5h19M40 5h19v19M59 40v19H40M24 59H5V40"
+                      fill="none"
+                      stroke="#FFFFFF"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-dasharray="3 3"
+                      opacity="0.5"
+                    />
+                    <path
+                      d="M32 18v28M18 32h28"
+                      fill="none"
+                      stroke="#FFFFFF"
+                      stroke-width="4.25"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </span>
+                <span class="wordmark__type">scaffold<span class="wordmark__dot">.</span></span>
+              </div>
+            </div>
+            <div class="logo-box__caption">On near-black (#0A0A0F)</div>
+          </div>
+          <div>
+            <div class="logo-box logo-box--navy wordmark--navy">
+              <div class="wordmark">
+                <span class="mark mark--lg">
+                  <svg viewBox="0 0 64 64">
+                    <title>scaffold</title>
+                    <path
+                      d="M5 24V5h19M40 5h19v19M59 40v19H40M24 59H5V40"
+                      fill="none"
+                      stroke="#FFFFFF"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-dasharray="3 3"
+                      opacity="0.5"
+                    />
+                    <path
+                      d="M32 18v28M18 32h28"
+                      fill="none"
+                      stroke="#FFFFFF"
+                      stroke-width="4.25"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                </span>
+                <span class="wordmark__type">scaffold<span class="wordmark__dot">.</span></span>
+              </div>
+            </div>
+            <div class="logo-box__caption">On navy (#161D77)</div>
+          </div>
+        </div>
+
+        <div style="margin-top: 48px">
+          <div class="colour-group__label">Mark at various sizes</div>
+          <div
+            style="
+              display: flex;
+              gap: 32px;
+              align-items: center;
+              padding: 32px;
+              background: var(--white);
+              border: 1px solid var(--gray-200);
+              border-radius: 14px;
+            "
+          >
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 10px">
+              <span class="mark mark--xl">
+                <svg viewBox="0 0 64 64">
+                  <title>scaffold</title>
+                  <path
+                    d="M5 24V5h19M40 5h19v19M59 40v19H40M24 59H5V40"
+                    fill="none"
+                    stroke="#161D77"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-dasharray="3 3"
+                    opacity="0.5"
+                  />
+                  <path
+                    d="M32 18v28M18 32h28"
+                    fill="none"
+                    stroke="#161D77"
+                    stroke-width="4.25"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </span>
+              <span style="font-size: 11px; color: var(--gray-500); font-family: var(--font-mono)"
+                >96px</span
+              >
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 10px">
+              <span class="mark mark--lg">
+                <svg viewBox="0 0 64 64">
+                  <title>scaffold</title>
+                  <path
+                    d="M5 24V5h19M40 5h19v19M59 40v19H40M24 59H5V40"
+                    fill="none"
+                    stroke="#161D77"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-dasharray="3 3"
+                    opacity="0.5"
+                  />
+                  <path
+                    d="M32 18v28M18 32h28"
+                    fill="none"
+                    stroke="#161D77"
+                    stroke-width="4.25"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </span>
+              <span style="font-size: 11px; color: var(--gray-500); font-family: var(--font-mono)"
+                >56px</span
+              >
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 10px">
+              <span class="mark mark--md">
+                <svg viewBox="0 0 64 64">
+                  <title>scaffold</title>
+                  <path
+                    d="M5 24V5h19M40 5h19v19M59 40v19H40M24 59H5V40"
+                    fill="none"
+                    stroke="#161D77"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-dasharray="3 3"
+                    opacity="0.5"
+                  />
+                  <path
+                    d="M32 18v28M18 32h28"
+                    fill="none"
+                    stroke="#161D77"
+                    stroke-width="4.25"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </span>
+              <span style="font-size: 11px; color: var(--gray-500); font-family: var(--font-mono)"
+                >32px</span
+              >
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 10px">
+              <span class="mark mark--sm">
+                <svg viewBox="0 0 64 64">
+                  <title>scaffold</title>
+                  <path
+                    d="M5 24V5h19M40 5h19v19M59 40v19H40M24 59H5V40"
+                    fill="none"
+                    stroke="#161D77"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M32 18v28M18 32h28"
+                    fill="none"
+                    stroke="#161D77"
+                    stroke-width="4.5"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </span>
+              <span style="font-size: 11px; color: var(--gray-500); font-family: var(--font-mono)"
+                >22px (small variant — solid outline)</span
+              >
+            </div>
+          </div>
+        </div>
+
+        <div class="dodont-grid">
+          <div class="dodont dodont--do">
+            <div class="dodont__label">Do</div>
+            <ul class="dodont__list">
+              <li>Use the register mark — four dashed corners framing a bold plus</li>
+              <li>Keep the plus centred and dominant; keep the corners quiet</li>
+              <li>One hue: navy on light, white on dark / navy surfaces</li>
+              <li>Use the coral dot in the wordmark on light + dark, teal on navy</li>
+              <li>Use the small-variant mark (solid corners) below 22px</li>
+              <li>Maintain clear space ≥ the plus's half-height around the mark</li>
+            </ul>
+          </div>
+          <div class="dodont dodont--dont">
+            <div class="dodont__label">Don't</div>
+            <ul class="dodont__list">
+              <li>Close the corners into a full box — the open, framed slot is the point</li>
+              <li>Add a gradient to the mark or wordmark — gradient is dead</li>
+              <li>Tint the plus with coral or teal — they're reserved semantic signals</li>
+              <li>Use the dashed mark at sub-22px sizes — use the small variant (solid corners)</li>
+              <li>Apply effects (drop shadow, outline, glow)</li>
+              <li>Place on busy or low-contrast backgrounds</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== VOICE ==================== -->
+    <section id="voice" class="alt">
+      <div class="wrap">
+        <span class="section-label">Voice</span>
+        <h2 class="section-title">Writing Style</h2>
+        <p class="section-desc">
+          Direct, calm, educator-respecting. No exclamation marks, no emoji in chrome, no
+          consultant-speak. Always specific over abstract.
+        </p>
+        <div class="voice-grid">
+          <div class="voice-card">
+            <div class="voice-card__heading">Be specific, not vague</div>
+            <div class="voice-card__do">"3 hotspots · partial credit"</div>
+            <div class="voice-card__dont">"Customize your assessment experience!"</div>
+          </div>
+          <div class="voice-card">
+            <div class="voice-card__heading">Direct over flowery</div>
+            <div class="voice-card__do">"Add a hint"</div>
+            <div class="voice-card__dont">"✨ Empower your learners with helpful hints"</div>
+          </div>
+          <div class="voice-card">
+            <div class="voice-card__heading">Educator, not marketer</div>
+            <div class="voice-card__do">"This block is graded."</div>
+            <div class="voice-card__dont">"Unlock powerful grading features."</div>
+          </div>
+          <div class="voice-card">
+            <div class="voice-card__heading">Quiet errors</div>
+            <div class="voice-card__do">"Image URL not valid."</div>
+            <div class="voice-card__dont">"Oops! Something went wrong 😬"</div>
+          </div>
+          <div class="voice-card">
+            <div class="voice-card__heading">Empty states with purpose</div>
+            <div class="voice-card__do">"Start with a block. Type / for the library."</div>
+            <div class="voice-card__dont">"Nothing here yet."</div>
+          </div>
+          <div class="voice-card">
+            <div class="voice-card__heading">Lowercase for chrome</div>
+            <div class="voice-card__do">"draft · 5 pts · graded"</div>
+            <div class="voice-card__dont">"DRAFT · 5 PTS · GRADED"</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TOKENS ==================== -->
+    <section id="tokens">
+      <div class="wrap">
+        <span class="section-label">Reference</span>
+        <h2 class="section-title">Tokens</h2>
+        <p class="section-desc">
+          CSS custom properties for Scaffold surfaces and components. Defined in
+          <code>packages/core/src/styles/globals.css</code> on <code>:root</code> and
+          <code>:host</code>.
+        </p>
+        <table class="token-table">
+          <thead>
+            <tr>
+              <th>Token</th>
+              <th>Value</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>--color-primary</code></td>
+              <td>#161D77</td>
+              <td>Navy — brand · primary CTA · wordmark</td>
+            </tr>
+            <tr>
+              <td><code>--color-secondary</code></td>
+              <td>#F43A57</td>
+              <td>Coral — destructive · error</td>
+            </tr>
+            <tr>
+              <td><code>--color-accent</code></td>
+              <td>#00BA92</td>
+              <td>Teal — correctness · affirmation</td>
+            </tr>
+            <tr>
+              <td><code>--color-ink</code></td>
+              <td>#18181B</td>
+              <td>Default text · dark surfaces · chrome</td>
+            </tr>
+            <tr>
+              <td><code>--color-background</code></td>
+              <td>#FFFFFF</td>
+              <td>Card / surface white</td>
+            </tr>
+            <tr>
+              <td><code>--color-canvas</code></td>
+              <td>#FAFAFA</td>
+              <td>Page background</td>
+            </tr>
+            <tr>
+              <td><code>--color-border</code></td>
+              <td>#E4E4E7</td>
+              <td>Default hairline border</td>
+            </tr>
+            <tr>
+              <td><code>--color-border-subtle</code></td>
+              <td>#F4F4F5</td>
+              <td>Subtle divider</td>
+            </tr>
+            <tr>
+              <td><code>--color-dark-surface</code></td>
+              <td>#0A0A0F</td>
+              <td>Brand-presence background</td>
+            </tr>
+            <tr>
+              <td><code>--font-sans</code></td>
+              <td>Poppins, system-ui, …</td>
+              <td>Single family — weights 400/500/600/700/800</td>
+            </tr>
+            <tr>
+              <td><code>--radius-sm</code></td>
+              <td>4px</td>
+              <td>Inner pills, small chips</td>
+            </tr>
+            <tr>
+              <td><code>--radius-md</code></td>
+              <td>8px</td>
+              <td>Inputs, choice rows</td>
+            </tr>
+            <tr>
+              <td><code>--radius-lg</code></td>
+              <td>10px</td>
+              <td>Block cards</td>
+            </tr>
+            <tr>
+              <td><code>--radius-xl</code></td>
+              <td>14px</td>
+              <td>Composite panels, hero cards</td>
+            </tr>
+            <tr>
+              <td><code>--radius-pill</code></td>
+              <td>999px</td>
+              <td>All CTAs, all tags, all pills</td>
+            </tr>
+            <tr>
+              <td><code>--shadow-overlay</code></td>
+              <td>0 8px 24px -4px rgba(0,0,0,.12), 0 2px 6px -2px rgba(0,0,0,.08)</td>
+              <td>Popovers, dropdowns</td>
+            </tr>
+            <tr>
+              <td><code>--shadow-modal</code></td>
+              <td>0 16px 40px -8px rgba(0,0,0,.18)</td>
+              <td>Modals</td>
+            </tr>
+            <tr>
+              <td><code>--ease-out-soft</code></td>
+              <td>cubic-bezier(0.16, 1, 0.3, 1)</td>
+              <td>Primary easing</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </body>
+</html>

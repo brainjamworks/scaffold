@@ -1,0 +1,116 @@
+.sc-document-creation-gate {
+  display: grid;
+  min-height: 100%;
+  padding: 2rem;
+  place-items: center;
+}
+
+.sc-document-creation-gate__dialog {
+  width: min(100%, 38rem);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  background: var(--color-background);
+  box-shadow: var(--shadow-overlay);
+}
+
+.sc-document-creation-gate__header {
+  display: grid;
+  gap: 0.375rem;
+  margin-bottom: 1.25rem;
+}
+
+.sc-document-creation-gate__eyebrow {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.sc-document-creation-gate__header h2 {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 1.25rem;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.sc-document-creation-gate__intro {
+  max-width: 60ch;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.sc-document-creation-gate__options {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.sc-document-creation-gate__option {
+  display: grid;
+  gap: 0.375rem;
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  background: var(--color-canvas);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition:
+    border-color 150ms var(--ease-out-soft),
+    background-color 150ms var(--ease-out-soft),
+    opacity 150ms var(--ease-out-soft);
+}
+
+.sc-document-creation-gate__option:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background: var(--color-primary-muted);
+}
+
+.sc-document-creation-gate__option:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.sc-document-creation-gate__option:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.sc-document-creation-gate__option-label {
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.sc-document-creation-gate__option-description {
+  display: grid;
+  gap: 0.375rem;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.sc-document-creation-gate__option-note {
+  padding: 0.5rem 0.625rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-muted);
+  font-size: 0.8125rem;
+}
+
+.sc-document-creation-gate__status,
+.sc-document-creation-gate__error {
+  margin: 1rem 0 0;
+  font-size: 0.875rem;
+}
+
+.sc-document-creation-gate__status {
+  color: var(--color-text-secondary);
+}
+
+.sc-document-creation-gate__error {
+  color: var(--color-error-text);
+}

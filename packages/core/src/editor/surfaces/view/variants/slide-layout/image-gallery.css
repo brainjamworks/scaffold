@@ -1,0 +1,74 @@
+.sc-slide-layout-surface-view[data-slide-layout-composition="diptych"] {
+  grid-template: auto minmax(0, 1fr) / repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.sc-slide-layout-surface-view[data-slide-layout-composition="triptych"] {
+  grid-template: auto minmax(0, 1fr) / repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.sc-slide-layout-surface-view:is(
+    [data-slide-layout-composition="diptych"],
+    [data-slide-layout-composition="triptych"]
+  )
+  > :is([data-node-view-content-react], [data-surface-content]) {
+  display: block;
+  grid-row: 1;
+  grid-column: 1 / -1;
+}
+
+.sc-slide-layout-surface-view:is(
+    [data-slide-layout-composition="diptych"],
+    [data-slide-layout-composition="triptych"]
+  )
+  > .sc-surface-owned-image-slot {
+  grid-row: 2;
+}
+
+.sc-slide-layout-surface-view:is(
+    [data-slide-layout-composition="diptych"],
+    [data-slide-layout-composition="triptych"]
+  )
+  > .sc-surface-owned-image-slot[data-image-role="primary"] {
+  grid-column: 1;
+}
+
+.sc-slide-layout-surface-view:is(
+    [data-slide-layout-composition="diptych"],
+    [data-slide-layout-composition="triptych"]
+  )
+  > .sc-surface-owned-image-slot[data-image-role="secondary"] {
+  grid-column: 2;
+}
+
+.sc-slide-layout-surface-view[data-slide-layout-composition="triptych"]
+  > .sc-surface-owned-image-slot[data-image-role="tertiary"] {
+  grid-column: 3;
+}
+
+.sc-slide-layout-surface-view[data-slide-layout-title="hidden"][data-slide-layout-composition="diptych"] {
+  grid-template: minmax(0, 1fr) / repeat(2, minmax(0, 1fr));
+  gap: 0 1rem;
+}
+
+.sc-slide-layout-surface-view[data-slide-layout-title="hidden"][data-slide-layout-composition="triptych"] {
+  grid-template: minmax(0, 1fr) / repeat(3, minmax(0, 1fr));
+  gap: 0 1rem;
+}
+
+.sc-slide-layout-surface-view[data-slide-layout-title="hidden"]:is(
+    [data-slide-layout-composition="diptych"],
+    [data-slide-layout-composition="triptych"]
+  )
+  > :is([data-node-view-content-react], [data-surface-content]) {
+  display: none;
+}
+
+.sc-slide-layout-surface-view[data-slide-layout-title="hidden"]:is(
+    [data-slide-layout-composition="diptych"],
+    [data-slide-layout-composition="triptych"]
+  )
+  > .sc-surface-owned-image-slot {
+  grid-row: 1;
+}

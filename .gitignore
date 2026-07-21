@@ -1,0 +1,91 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+.next/
+out/
+
+# Vite
+.vite/
+
+# Bundle analysis
+.bundle-analysis/
+
+# TypeScript
+*.tsbuildinfo
+.tscache/
+
+# Test
+coverage/
+.vitest-cache/
+.vitest-attachments/
+
+# Local scratch (screenshots, debug artifacts)
+.tmp/
+.tmp-screens/
+.scratch/
+tmp/
+scratch/
+screenshots/
+playwright-report/
+test-results/
+
+# Generated adapter bundles
+adapters/xblock/scaffold_xblock/public/
+adapters/moodle/scaffold/public/
+adapters/moodle/scaffold/amd/build/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+*.swp
+
+# Env
+.env*
+!.env.example
+!.env.*.example
+
+# AI tooling — never commit
+.claude/
+claude-*.txt
+.plans/
+.impeccable/
+
+# Local-only agent rules + personas
+.agents/
+CLAUDE.md
+AGENTS.md
+
+# Local-only project docs
+docs/checkpoints/
+docs/architecture/
+docs/authoring/START-HERE.md
+docs/authoring/block-layout-model.md
+docs/authoring/chart-blocks.md
+docs/authoring/child-textblock-pattern.md
+docs/authoring/structured-nodeview-rules.md
+docs/tech-debt.md
+
+# Local-only session state
+.sanad/
+
+# Python (for any future xblock adapter)
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+*.egg-info/

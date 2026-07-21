@@ -1,0 +1,11 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-overlays {
+  .sc-overlay-boundary-host {
+    box-sizing: border-box;
+  }
+
+  .sc-overlay-boundary-host > :not([data-scaffold-overlay-click-through-root]) {
+    pointer-events: auto;
+  }
+}

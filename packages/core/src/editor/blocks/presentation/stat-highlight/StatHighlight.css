@@ -1,0 +1,96 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  /* ─── Stat highlight ────────────────────────────────────────────
+ * Big number + label + optional context. Editorial fact-foregrounding
+ * block: oversized display value, small label cap underneath, body
+ * context paragraph below. No card chrome — flat, lives in the
+ * reading rhythm. */
+
+  .sc-stat-highlight {
+    display: grid;
+    gap: 0.625rem;
+  }
+
+  .sc-stat-highlight[data-align="center"] {
+    text-align: center;
+    justify-items: center;
+  }
+
+  .sc-stat-highlight__content {
+    display: contents;
+  }
+
+  .sc-stat-highlight__value {
+    font-family: var(--font-display, var(--font-sans));
+    font-size: clamp(2.75rem, 2rem + 3.5vw, 4.25rem);
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: -0.035em;
+    color: var(--color-primary);
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+
+  .sc-stat-highlight__value > [data-node-view-content-react] > p {
+    margin: 0;
+  }
+
+  .sc-stat-highlight__label {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  .sc-stat-highlight__label > [data-node-view-content-react] > p {
+    margin: 0;
+  }
+
+  .sc-stat-highlight__context {
+    max-width: 60ch;
+    margin-top: 0.5rem;
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    color: var(--color-text-secondary);
+    text-wrap: pretty;
+  }
+
+  .sc-stat-highlight[data-align="center"] .sc-stat-highlight__context {
+    margin-inline: auto;
+  }
+
+  .sc-stat-highlight__context > [data-node-view-content-react] > p {
+    margin: 0;
+  }
+
+  .sc-stat-highlight__context > [data-node-view-content-react] > p + p {
+    margin-top: 0.5rem;
+  }
+
+  .sc-stat-highlight__context--hidden {
+    display: none;
+  }
+
+  /* Empty placeholders in editor mode. */
+  .sc-stat-highlight__value > [data-node-view-content-react] > p:first-child:empty::before {
+    content: "98%";
+    color: var(--color-text-placeholder);
+    pointer-events: none;
+  }
+
+  .sc-stat-highlight__label > [data-node-view-content-react] > p:first-child:empty::before {
+    content: "of students";
+    color: var(--color-text-placeholder);
+    pointer-events: none;
+  }
+
+  .sc-stat-highlight__context[data-empty]
+    > [data-node-view-content-react]
+    > p:first-child:empty::before {
+    content: "Add a short note for context";
+    color: var(--color-text-placeholder);
+    pointer-events: none;
+  }
+}

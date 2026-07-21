@@ -1,0 +1,41 @@
+{
+  "name": "@scaffold/adapter-moodle",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Moodle activity module adapter for Scaffold.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "build": "vp run check:artifacts && vp run build:unchecked",
+    "build:unchecked": "vp build",
+    "check:artifacts": "node scripts/sync-assessment-artifacts.mjs --check && node scripts/sync-learner-activity-artifact.mjs --check",
+    "check:assessment-artifacts": "node scripts/sync-assessment-artifacts.mjs --check",
+    "check:learner-activity-artifact": "node scripts/sync-learner-activity-artifact.mjs --check",
+    "php:lint": "find scaffold tests -name '*.php' -print0 | xargs -0 -n1 php -l",
+    "sync:assessment-artifacts": "node scripts/sync-assessment-artifacts.mjs --write",
+    "sync:learner-activity-artifact": "node scripts/sync-learner-activity-artifact.mjs --write",
+    "test": "vp run check:artifacts && vp run test:unchecked",
+    "test:unchecked": "vp test run --passWithNoTests && php tests/assessment_contract_test.php && php tests/learner_activity_contract_test.php && php tests/learner_activity_state_test.php && php tests/learner_activity_api_test.php && php tests/assessment_projection_test.php && php tests/assessment_grade_projection_test.php && php tests/assessment_state_test.php && php tests/assessment_quiz_test.php && php tests/assessment_quiz_external_test.php && php tests/grade_publisher_test.php && php tests/grade_reconciler_test.php && php tests/custom_completion_test.php && php tests/grading_conformance_test.php && php tests/grader_test.php && php tests/payload_test.php && php tests/branding_test.php && php tests/media_service_test.php && php tests/cm_info_contract_test.php && php tests/pluginfile_contract_test.php",
+    "verify": "vp run check:artifacts && vp run php:lint && vp run test:unchecked && vp run build:unchecked"
+  },
+  "dependencies": {
+    "@scaffold/contracts": "workspace:*",
+    "@scaffold/core": "workspace:*",
+    "katex": "^0.16.47",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^22.10.5",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^6.0.2",
+    "happy-dom": "^20.10.2",
+    "typescript": "~5.9.3",
+    "vite": "npm:@voidzero-dev/vite-plus-core@0.2.4",
+    "vite-plus": "0.2.4"
+  }
+}

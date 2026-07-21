@@ -1,0 +1,89 @@
+.sc-editor-header {
+  position: sticky;
+  z-index: var(--z-drag-overlay, 30);
+  top: 0;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-background);
+}
+
+.sc-editor-header-inner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.625rem 1rem;
+}
+
+.sc-editor-header-brand,
+.sc-editor-header-actions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+}
+
+.sc-editor-header-brand {
+  gap: 0.75rem;
+}
+
+.sc-editor-header-actions {
+  gap: 0.5rem;
+}
+
+.sc-editor-header-divider {
+  width: 1px;
+  height: 1.5rem;
+  flex-shrink: 0;
+  background: var(--color-border);
+}
+
+.sc-editor-header-title {
+  min-width: 0;
+  flex: 1 1 auto;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-foreground);
+  font: inherit;
+  font-size: 1.1875rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: var(--leading-snug);
+}
+
+.sc-editor-header-title::placeholder {
+  color: var(--color-text-muted);
+}
+
+.sc-editor-header-title:focus-visible {
+  outline: none;
+}
+
+.sc-editor-header-save-pill {
+  flex-shrink: 0;
+}
+
+.sc-editor-header-save-dot {
+  display: inline-block;
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: var(--radius-pill);
+  background: currentColor;
+  opacity: 0.7;
+  animation: sc-editor-header-save-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-editor-header-save-dot {
+    animation: none;
+  }
+}
+
+@keyframes sc-editor-header-save-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+
+  50% {
+    opacity: 0.8;
+  }
+}

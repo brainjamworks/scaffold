@@ -1,0 +1,131 @@
+/* ─── Course Table ─────────────────────────────────────────────────
+ * Brand styling layered on ProseMirror-tables. The structural rules
+ * (column resize, selection, header detection) live in Tiptap's
+ * table extension; this file owns the visual treatment so tables
+ * match the flat-at-rest, hairline-bordered vocabulary used by every
+ * other course block. */
+
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-table {
+    position: relative;
+    width: 100%;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--color-background);
+    overflow: hidden;
+    /* The ProseMirror-tables column-resize plugin needs a stable
+   * table-layout so resize math stays consistent across rendering
+   * passes. */
+    table-layout: fixed;
+  }
+
+  .sc-table th,
+  .sc-table td {
+    position: relative;
+    min-width: 4rem;
+    padding: 0.625rem 0.875rem;
+    border-bottom: 1px solid var(--color-border);
+    border-right: 1px solid var(--color-border);
+    vertical-align: top;
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    text-align: left;
+  }
+
+  .sc-table th:last-child,
+  .sc-table td:last-child {
+    border-right: none;
+  }
+
+  .sc-table tr:last-child > th,
+  .sc-table tr:last-child > td {
+    border-bottom: none;
+  }
+
+  .sc-table th {
+    background: var(--color-primary-muted);
+    color: var(--color-primary);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .sc-table th p,
+  .sc-table td p {
+    margin: 0;
+  }
+
+  /* Cell paragraph spacing — keep multi-paragraph cells readable
+ * without the default block spacing pushing the row tall. */
+
+  .sc-table th p + p,
+  .sc-table td p + p {
+    margin-top: 0.375rem;
+  }
+
+  /* ProseMirror-tables adds a .selectedCell class to cells inside the
+ * current cell selection. Match the brand selection treatment (light
+ * navy tint, no outline) so it reads as "this is what your next edit
+ * affects." */
+
+  .sc-table .selectedCell {
+    background: var(--color-primary-muted);
+    box-shadow: inset 0 0 0 1px var(--color-primary);
+  }
+
+  .sc-table th.selectedCell {
+    /* Headers stay tinted but keep their type colour. */
+    box-shadow: inset 0 0 0 1px var(--color-primary);
+  }
+
+  /* Column resize handle drawn at the right edge of each cell. The
+ * default is a wider grab area; we tighten it to a 4px hit zone with
+ * a visible 2px line in navy so authors see where to drag. */
+
+  .sc-table .column-resize-handle {
+    position: absolute;
+    top: 0;
+    right: -2px;
+    bottom: 0;
+    width: 4px;
+    pointer-events: auto;
+    background: transparent;
+  }
+
+  .sc-table .column-resize-handle::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 1px;
+    width: 2px;
+    background: var(--color-primary);
+    opacity: 0;
+    transition: opacity 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .sc-table .column-resize-handle:hover::after,
+  .ProseMirror.resize-cursor + .sc-table .column-resize-handle::after {
+    opacity: 1;
+  }
+
+  /* When the editor enters resize mode, hand the column-resize cursor
+ * to the whole row so authors don't have to land precisely on the
+ * 2px handle. */
+
+  .ProseMirror.resize-cursor {
+    cursor: col-resize;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sc-table .column-resize-handle::after {
+      transition: none;
+    }
+  }
+}

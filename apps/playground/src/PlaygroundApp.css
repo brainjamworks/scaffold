@@ -1,0 +1,8 @@
+.sc-playground-loading,
+.sc-playground-authoring-app {
+  min-height: 100vh;
+}
+
+.sc-playground-loading {
+  background: var(--color-canvas);
+}

@@ -1,0 +1,41 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-choice-trailing-button {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: var(--radius-pill);
+    color: currentColor;
+    opacity: 0.5;
+    transition:
+      opacity 150ms var(--ease-out-soft),
+      background-color 150ms var(--ease-out-soft),
+      color 150ms var(--ease-out-soft);
+  }
+
+  .sc-choice-trailing-button:hover,
+  .sc-choice-trailing-button:focus-visible {
+    opacity: 1;
+  }
+
+  .sc-choice-trailing-button:hover {
+    background: color-mix(in srgb, var(--color-ink) 8%, transparent);
+  }
+
+  .sc-choice-trailing-button:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+
+  .sc-choice-trailing-button--danger:hover {
+    color: var(--color-secondary);
+  }
+
+  .sc-choice-trailing-button--muted {
+    color: var(--color-text-muted);
+  }
+}

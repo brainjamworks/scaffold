@@ -1,0 +1,47 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-assessment-choices-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .sc-assessment-choices-scroll {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .sc-assessment-choices-fieldset {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .sc-assessment-choices-legend {
+    margin: 0 0 0.5rem;
+    padding: 0;
+    color: var(--color-text-primary);
+    font-size: var(--text-base);
+    font-weight: 600;
+    line-height: var(--leading-tight);
+  }
+
+  .sc-assessment-choices-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .sc-assessment-choices-add {
+    min-height: var(--spacing-touch-target);
+    justify-content: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem 0.75rem 0.75rem 1rem;
+    border-radius: var(--radius-md);
+    text-align: left;
+  }
+}

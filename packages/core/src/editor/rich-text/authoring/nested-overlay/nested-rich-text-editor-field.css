@@ -1,0 +1,22 @@
+.sc-nested-rich-text-editor-field {
+  outline: none;
+}
+
+.sc-nested-rich-text-editor-field__editor {
+  width: 100%;
+  min-height: 4rem;
+  max-width: none;
+  padding: 0.25rem 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: currentColor;
+  font-size: 0.875rem;
+  line-height: 1.375;
+  outline: none;
+}
+
+.sc-nested-rich-text-editor-field__editor p {
+  margin-top: 0;
+  margin-bottom: 0;
+  line-height: 1.375;
+}

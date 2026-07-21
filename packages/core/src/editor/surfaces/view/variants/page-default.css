@@ -1,0 +1,15 @@
+.sc-page-default-surface-view {
+  --sc-surface-flow-gap: 1.5rem;
+
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+.sc-page-default-surface-view [data-slot="surface-header"] {
+  margin-block-end: var(--sc-surface-flow-gap);
+}
+
+.sc-page-default-surface-view [data-slot="surface-footer"] {
+  margin-block-start: calc(var(--sc-surface-flow-gap) + 0.25rem);
+}

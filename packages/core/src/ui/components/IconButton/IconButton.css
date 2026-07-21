@@ -1,0 +1,94 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-icon-button {
+    box-sizing: border-box;
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: var(--radius-pill);
+    padding: 0;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    line-height: 1;
+    transition:
+      background-color 150ms var(--ease-out-soft),
+      color 150ms var(--ease-out-soft),
+      opacity 150ms var(--ease-out-soft);
+  }
+
+  .sc-icon-button:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+
+  .sc-icon-button:disabled,
+  .sc-icon-button[aria-disabled="true"] {
+    pointer-events: none;
+    opacity: 0.4;
+  }
+
+  .sc-icon-button[data-size="sm"] {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .sc-icon-button[data-size="md"] {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+
+  .sc-icon-button[data-size="lg"] {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .sc-icon-button[data-variant="ghost"] {
+    color: var(--color-text-secondary);
+  }
+
+  .sc-icon-button[data-variant="ghost"]:hover:not(:disabled) {
+    background: var(--color-muted);
+    color: var(--color-ink);
+  }
+
+  .sc-icon-button[data-variant="inline"] {
+    color: currentColor;
+    opacity: 0.6;
+  }
+
+  .sc-icon-button[data-variant="inline"]:hover:not(:disabled) {
+    background: rgb(0 0 0 / 0.1);
+    opacity: 1;
+  }
+
+  .sc-icon-button[data-variant="primary"] {
+    background: var(--color-primary);
+    color: var(--color-primary-foreground);
+  }
+
+  .sc-icon-button[data-variant="primary"]:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+
+  .sc-icon-button[data-variant="danger"] {
+    color: currentColor;
+    opacity: 0.6;
+  }
+
+  .sc-icon-button[data-variant="danger"]:hover:not(:disabled) {
+    background: rgb(0 0 0 / 0.1);
+    color: var(--color-secondary);
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sc-icon-button {
+      transition: none;
+    }
+  }
+}

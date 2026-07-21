@@ -1,0 +1,31 @@
+.sc-icon-renderer {
+  line-height: 1;
+}
+
+.sc-icon-renderer[data-kind="emoji"],
+.sc-icon-renderer[data-kind="fallback"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sc-icon-renderer[data-kind="svg"] {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+}
+
+.sc-icon-renderer[data-kind="media"] {
+  display: inline-block;
+  height: 1em;
+  width: auto;
+  max-width: 4em;
+  flex-shrink: 0;
+  object-fit: contain;
+  vertical-align: middle;
+}
+
+.sc-icon-renderer[data-kind="fallback"] {
+  font-weight: 600;
+}

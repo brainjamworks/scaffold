@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="scaffold mark">
+  <title>scaffold mark — dark surface</title>
+  <!-- Dark surface variant. Plus is full white (the figure); the
+       registration corners are white at 50% (the ground). -->
+  <path d="M5 24V5h19M40 5h19v19M59 40v19H40M24 59H5V40" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 3" opacity="0.5"/>
+  <path d="M32 18v28M18 32h28" fill="none" stroke="#FFFFFF" stroke-width="4.25" stroke-linecap="round"/>
+</svg>

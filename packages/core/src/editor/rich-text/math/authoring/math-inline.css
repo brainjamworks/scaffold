@@ -1,0 +1,27 @@
+.sc-inline-math {
+  display: inline-flex;
+  min-width: 1rem;
+  vertical-align: baseline;
+}
+
+.sc-inline-math--editing {
+  border-radius: var(--radius-sm);
+  outline: 2px solid var(--color-focus-ring);
+}
+
+.tiptap-mathematics-render--editable {
+  cursor: text;
+}
+
+.sc-inline-math-editor {
+  display: inline-block;
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--color-text-primary);
+  font-size: 1rem;
+  outline: none;
+  padding: 0;
+}

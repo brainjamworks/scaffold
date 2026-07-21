@@ -1,0 +1,71 @@
+.sc-slide-layout-surface-view[data-slide-layout-title="hidden"][data-slide-layout-composition="image-backdrop-panel"]
+  > :is([data-node-view-content-react], [data-surface-content]) {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.sc-slide-layout-surface-view[data-slide-layout-title="hidden"][data-slide-layout-composition="image-backdrop-panel"]
+  [data-region-role="main"] {
+  grid-row: 1;
+}
+
+.sc-slide-layout-surface-view:is(
+  .sc-slide-layout-surface-authoring-view,
+  .sc-slide-layout-surface-runtime-view
+):is(
+  [data-slide-layout-composition="full-bleed-image"],
+  [data-slide-layout-composition="image-backdrop-panel"]
+) {
+  position: relative;
+  padding: 0;
+}
+
+.sc-slide-layout-surface-view[data-slide-layout-composition="full-bleed-image"] {
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+}
+
+.sc-slide-layout-surface-view[data-slide-layout-composition="full-bleed-image"]
+  > :is([data-node-view-content-react], [data-surface-content]) {
+  z-index: 1;
+  grid-row: 1;
+  grid-column: 1 / -1;
+  align-self: end;
+  justify-self: start;
+  max-width: 68%;
+  margin: 0 0 var(--sc-surface-inset) var(--sc-surface-inset);
+  padding: 1.25rem 1.5rem;
+  border-radius: var(--radius-md);
+  background: var(--color-background);
+  pointer-events: auto;
+}
+
+.sc-slide-layout-surface-view[data-slide-layout-composition="full-bleed-image"][data-slide-layout-title="hidden"]
+  > :is([data-node-view-content-react], [data-surface-content]) {
+  display: none;
+}
+
+.sc-slide-layout-surface-view[data-slide-layout-composition="image-backdrop-panel"] {
+  grid-template-columns: var(--sc-slide-layout-second) var(--sc-slide-layout-first);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.sc-slide-layout-surface-view[data-slide-layout-composition="image-backdrop-panel"]
+  > :is([data-node-view-content-react], [data-surface-content]) {
+  z-index: 1;
+  grid-row: 1;
+  grid-column: 2;
+  height: calc(100% - (2 * var(--sc-surface-inset)));
+  margin: var(--sc-surface-inset);
+  padding: 1.5rem;
+  border-radius: var(--radius-md);
+  background: var(--color-background);
+  pointer-events: auto;
+}
+
+.sc-slide-layout-surface-view[data-slide-layout-composition="image-backdrop-panel"][data-slide-layout-orientation="reversed"] {
+  grid-template-columns: var(--sc-slide-layout-first) var(--sc-slide-layout-second);
+}
+
+.sc-slide-layout-surface-view[data-slide-layout-composition="image-backdrop-panel"][data-slide-layout-orientation="reversed"]
+  > :is([data-node-view-content-react], [data-surface-content]) {
+  grid-column: 1;
+}

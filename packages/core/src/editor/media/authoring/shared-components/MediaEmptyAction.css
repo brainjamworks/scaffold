@@ -1,0 +1,74 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-media-empty-action {
+    box-sizing: border-box;
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    min-height: var(--spacing-touch-target);
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 1rem;
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius-md);
+    background: color-mix(in oklch, var(--color-background) 88%, transparent);
+    color: var(--color-text-secondary);
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.35;
+    text-align: center;
+    cursor: pointer;
+    transition:
+      background-color 150ms var(--ease-out-soft),
+      border-color 150ms var(--ease-out-soft),
+      color 150ms var(--ease-out-soft);
+  }
+
+  .sc-media-empty-action > svg {
+    flex: none;
+  }
+
+  .sc-media-empty-action > span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .sc-media-empty-action:hover:not(:disabled) {
+    border-color: var(--color-primary);
+    background: color-mix(in oklch, var(--color-primary) 4%, transparent);
+    color: var(--color-primary);
+  }
+
+  .sc-media-empty-action:active:not(:disabled) {
+    background: color-mix(in oklch, var(--color-primary) 8%, transparent);
+  }
+
+  .sc-media-empty-action:focus-visible {
+    outline: 2px solid var(--color-focus-outline);
+    outline-offset: -3px;
+  }
+
+  .sc-media-empty-action:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  @media (forced-colors: active) {
+    .sc-media-empty-action {
+      border-color: ButtonText;
+    }
+
+    .sc-media-empty-action:focus-visible {
+      outline-color: Highlight;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sc-media-empty-action {
+      transition: none;
+    }
+  }
+}

@@ -1,0 +1,15 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-media-overlay-button {
+    border: 1px solid var(--color-border);
+    background: color-mix(in srgb, var(--color-background) 82%, transparent);
+    color: var(--color-ink);
+    backdrop-filter: blur(4px);
+  }
+
+  .sc-media-overlay-button:hover:not(:disabled) {
+    border-color: var(--color-text-muted);
+    background: var(--color-background);
+  }
+}

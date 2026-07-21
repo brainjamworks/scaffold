@@ -1,0 +1,91 @@
+/* Shared surface header/footer slot contract:
+ * the nodes provide three stable positions; variants decide where the slot sits.
+ */
+[data-slot="surface-header"],
+[data-slot="surface-footer"] {
+  box-sizing: border-box;
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 1rem;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.4;
+}
+
+[data-header-footer-slot] {
+  width: 100%;
+  min-width: 0;
+  justify-self: stretch;
+}
+
+.sc-surface-header-footer-slot__content {
+  --sc-field-content-flow-gap: 0.25rem;
+}
+
+[data-header-footer-slot][data-header-footer-slot-position="left"] {
+  grid-column: 1;
+}
+
+[data-header-footer-slot][data-header-footer-slot-position="center"] {
+  grid-column: 2;
+}
+
+[data-header-footer-slot][data-header-footer-slot-position="right"] {
+  grid-column: 3;
+}
+
+.sc-surface-header-footer-slot__content > :where(*) {
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  overflow-wrap: anywhere;
+}
+
+.scaffold-authoring-surface-view [data-slot="surface-header"],
+.scaffold-authoring-surface-view [data-slot="surface-footer"] {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  transition: box-shadow 150ms var(--ease-out-soft);
+}
+
+.scaffold-authoring-surface-view .sc-surface-header-footer-slot__content > :where(*) {
+  min-height: 1.5rem;
+}
+
+.scaffold-authoring-surface-view [data-slot="surface-header"] p.is-empty::before,
+.scaffold-authoring-surface-view [data-slot="surface-footer"] p.is-empty::before {
+  content: attr(data-placeholder);
+  height: auto;
+  float: none;
+  color: var(--color-text-placeholder);
+  opacity: 1;
+  pointer-events: none;
+}
+
+.scaffold-authoring-surface-view [data-slot="surface-header"]:focus-within,
+.scaffold-authoring-surface-view [data-slot="surface-footer"]:focus-within {
+  box-shadow: inset 0 -1px 0 var(--color-primary);
+}
+
+[data-surface][data-surface-variant^="slide-"] [data-slot="surface-header"],
+[data-surface][data-surface-variant^="slide-"] [data-slot="surface-footer"] {
+  position: absolute;
+  z-index: 2;
+  left: 1.5rem;
+  right: 1.5rem;
+  width: auto;
+  min-height: 1.75rem;
+}
+
+[data-surface][data-surface-variant^="slide-"] [data-slot="surface-header"] {
+  top: 1.25rem;
+}
+
+[data-surface][data-surface-variant^="slide-"] [data-slot="surface-footer"] {
+  bottom: 1.25rem;
+}

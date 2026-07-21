@@ -1,0 +1,75 @@
+.scaffold-authoring-surface-view .sc-authoring-slide-divider {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: min(100%, 64rem);
+  margin: 0.75rem auto;
+  padding-inline: 0.5rem;
+  pointer-events: none;
+}
+
+.scaffold-authoring-surface-view .sc-authoring-slide-divider__rule {
+  display: block;
+  flex: 1 1 0;
+  min-width: 0;
+  border-top: 1px dashed var(--color-border);
+}
+
+.scaffold-authoring-surface-view
+  .sc-authoring-slide-divider[data-active="true"]
+  .sc-authoring-slide-divider__rule {
+  border-top-color: var(--color-primary);
+}
+
+.scaffold-authoring-surface-view .sc-authoring-slide-divider__button {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-background);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 650;
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;
+  transition:
+    border-color 150ms var(--ease-out-soft),
+    background-color 150ms var(--ease-out-soft),
+    color 150ms var(--ease-out-soft);
+}
+
+.scaffold-authoring-surface-view .sc-authoring-slide-divider__button::before {
+  content: "+";
+}
+
+.scaffold-authoring-surface-view .sc-authoring-slide-divider__button:hover {
+  border-color: var(--color-text-muted);
+  background: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+.scaffold-authoring-surface-view
+  .sc-authoring-slide-divider[data-active="true"]
+  .sc-authoring-slide-divider__button {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.scaffold-authoring-surface-view .sc-authoring-slide-divider__button:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scaffold-authoring-surface-view .sc-authoring-slide-divider__button {
+    transition: none;
+  }
+}

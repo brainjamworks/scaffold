@@ -1,0 +1,4 @@
+recursive-include scaffold_xblock/static *.js *.css
+recursive-include scaffold_xblock/public *
+recursive-include scaffold_xblock/validation/fixtures *.json
+recursive-include scaffold_xblock/validation/schemas *.json

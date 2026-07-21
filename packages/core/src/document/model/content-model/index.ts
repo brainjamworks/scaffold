@@ -1,0 +1,40 @@
+export {
+  ASSESSMENT_QUESTION_CONTENT,
+  ARRANGEMENT_CONTENT,
+  BLOCK_CONTENT,
+  CELL_ARRANGEMENT_CONTENT,
+  COURSE_BLOCK_CONTENT,
+  FILL_BLANK_INLINE_CONTENT,
+  INLINE_CONTENT,
+  RICH_CONTENT,
+  SECTION_ARRANGEMENT_CONTENT,
+  TEXT_CONTENT,
+  fieldContainerSpec,
+  richContentExpression,
+  textContentExpression,
+  type FieldContainerSpecOptions,
+  type RichContentExpressionOptions,
+  type TextContentExpressionOptions,
+} from "./content-groups";
+export {
+  createEditableRegionFragment,
+  createEditableTextblock,
+  editableRegionContentJSON,
+} from "./editable-region";
+export {
+  ASSESSMENT_SUPPORTING_MATERIAL_DISPLAY_SIZE_ATTRIBUTE,
+  ASSESSMENT_SUPPORTING_MATERIAL_DISPLAY_SIZES,
+  ASSESSMENT_SUPPORTING_MATERIAL_NODE_TYPE,
+  ASSESSMENT_SUPPORTING_MATERIAL_SLOT,
+  ASSESSMENT_SUPPORTING_MATERIAL_SLOT_ATTRIBUTE,
+  DEFAULT_ASSESSMENT_SUPPORTING_MATERIAL_DISPLAY_SIZE,
+  createAssessmentActionsGroupJSON,
+  createAssessmentSupportingMaterialJSON,
+  isAssessmentSupportingMaterialEmpty,
+  normalizeAssessmentSupportingMaterialDisplaySize,
+  validateAssessmentSupportingMaterial,
+  type AssessmentSupportingMaterialDisplaySize,
+  type AssessmentSupportingMaterialJSON,
+  type SupportingMaterialValidationResult,
+} from "./assessment-supporting-material";
+export { isFieldContentEmpty } from "./is-field-content-empty";

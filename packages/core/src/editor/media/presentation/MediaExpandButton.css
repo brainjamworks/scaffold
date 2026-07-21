@@ -1,0 +1,21 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-media-expand-button,
+  .sc-media-authoring-actions {
+    position: absolute;
+    z-index: var(--z-interactive);
+    top: 0.25rem;
+    right: 0.25rem;
+  }
+
+  .sc-media-authoring-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .sc-media-authoring-actions > .sc-media-expand-button {
+    position: static;
+  }
+}

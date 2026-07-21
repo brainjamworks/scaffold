@@ -1,0 +1,279 @@
+/* ─── Tabs layout ────────────────────────────────────────────
+ * Two visual modes:
+ *
+ *   default  hairline bottom border with a navy active indicator
+ *            that animates between tabs when switching
+ *   pills    rounded chip triggers, hairline borders, primary fill on
+ *            the active chip (no muted-bg container — flat per design
+ *            system; chips speak for themselves)
+ *
+ * Editing chrome (movement handle + section action trigger) reveals on
+ * hover/focus only. No reserved horizontal padding — the tab label
+ * sits at its natural width and the handle/trigger float over the
+ * leading + trailing edges. */
+
+.sc-tabs {
+  position: relative;
+  border-radius: var(--radius-sm);
+}
+
+.sc-tabs__content {
+  min-width: 0;
+}
+
+[data-node="region"] .sc-layout-frame[data-bounded-placement="fill"] > .sc-tabs {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-self: stretch;
+  height: 100cqh;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+[data-node="region"]
+  .sc-layout-frame[data-bounded-placement="fill"]
+  > .sc-tabs
+  > .sc-tabs__content {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+[data-node="region"]
+  .sc-layout-frame[data-bounded-placement="fill"]
+  > .sc-tabs
+  .sc-tabs__panel-frame:has(> .sc-tabs__panel[data-state="active"]) {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+[data-node="region"]
+  .sc-layout-frame[data-bounded-placement="fill"]
+  > .sc-tabs
+  .sc-tabs__panel[data-state="active"] {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+/* ─── Tab list ─────────────────────────────────────────────── */
+
+.sc-tabs__list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  max-width: 100%;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.sc-tabs__list[data-variant="default"] {
+  gap: 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.sc-tabs__list[data-variant="pills"] {
+  gap: 0.375rem;
+  padding-block: 0.125rem;
+}
+
+/* ─── Tab item (wrapper around trigger + chrome) ──────────── */
+
+.sc-tabs__item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* ─── Tab trigger ─────────────────────────────────────────── */
+
+.sc-tabs__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-target, 2.75rem);
+  padding: 0.625rem 1rem;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sc-tabs__trigger:hover {
+  color: var(--color-ink);
+}
+
+.sc-tabs__trigger:focus-visible {
+  outline: 2px solid var(--color-focus-ring, var(--color-primary));
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.sc-tabs__trigger-label {
+  min-width: 0;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+/* Default variant — hairline + animated underline */
+
+.sc-tabs__list[data-variant="default"] .sc-tabs__trigger {
+  position: relative;
+  margin-bottom: -1px;
+}
+
+.sc-tabs__list[data-variant="default"] .sc-tabs__trigger::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0.875rem;
+  inset-block-end: 0;
+  height: 2px;
+  background: transparent;
+  transition: background-color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sc-tabs__list[data-variant="default"] .sc-tabs__trigger:hover::after {
+  background: var(--color-border);
+}
+
+.sc-tabs__list[data-variant="default"] .sc-tabs__trigger[data-state="active"] {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.sc-tabs__list[data-variant="default"] .sc-tabs__trigger[data-state="active"]::after {
+  background: var(--color-primary);
+}
+
+/* Pills variant — chip triggers */
+
+.sc-tabs__list[data-variant="pills"] .sc-tabs__trigger {
+  padding: 0.4375rem 0.875rem;
+  min-height: 0;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border);
+  background: var(--color-background);
+}
+
+.sc-tabs__list[data-variant="pills"] .sc-tabs__trigger:hover {
+  border-color: var(--color-ink);
+}
+
+.sc-tabs__list[data-variant="pills"] .sc-tabs__trigger[data-state="active"] {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+  font-weight: 600;
+}
+
+.sc-tabs__list[data-variant="pills"] .sc-tabs__trigger[data-state="active"]:hover {
+  /* Don't change border on hover when already filled — would flash. */
+  border-color: var(--color-primary);
+}
+
+/* ─── Editing chrome (handle + section actions) ───────────── */
+
+.sc-tabs__handle,
+.sc-tabs__action {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: var(--z-interactive, 5);
+  opacity: 0;
+  transition: opacity 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.sc-tabs__handle {
+  inset-inline-start: 0.125rem;
+}
+
+.sc-tabs__action {
+  inset-inline-end: 0.125rem;
+}
+
+/* Lighten the shared section-action trigger inside tabs: drop the
+ * full-pill background fill on hover and the heavy ring chrome.
+ * Inside the tab list the trigger needs to read as a quiet kebab,
+ * not a stamped circular button. */
+
+.sc-tabs__action[data-layout-section-menu-trigger] {
+  border-radius: var(--radius-sm);
+  background: transparent !important;
+}
+
+.sc-tabs__action[data-layout-section-menu-trigger]:hover {
+  background: color-mix(in oklch, var(--color-ink) 7%, transparent) !important;
+  color: var(--color-ink);
+}
+
+.sc-tabs__item:hover .sc-tabs__handle,
+.sc-tabs__item:hover .sc-tabs__action,
+.sc-tabs__item:focus-within .sc-tabs__handle,
+.sc-tabs__item:focus-within .sc-tabs__action {
+  opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+}
+
+[data-authoring-frame="layout"][data-authoring-chrome-active]
+  .sc-tabs__item[data-state="active"]
+  .sc-tabs__handle,
+[data-authoring-frame="layout"][data-authoring-chrome-active]
+  .sc-tabs__item[data-state="active"]
+  .sc-tabs__action {
+  opacity: 0.55;
+  pointer-events: auto;
+  visibility: visible;
+}
+
+/* When editing chrome is present, leave room on either side of the
+ * trigger label so the handle + action don't sit on top of the text. */
+
+.sc-tabs__item:has(.sc-tabs__handle) .sc-tabs__trigger {
+  padding-inline-start: 1.5rem;
+}
+
+.sc-tabs__item:has(.sc-tabs__action) .sc-tabs__trigger {
+  padding-inline-end: 1.5rem;
+}
+
+/* ─── Panel ───────────────────────────────────────────────── */
+
+.sc-tabs__panel {
+  min-width: 0;
+  color: var(--color-ink);
+}
+
+.sc-tabs__panel-frame:has(> .sc-tabs__panel[hidden]) {
+  display: none;
+}
+
+/* ─── Reduced motion ──────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-tabs__trigger,
+  .sc-tabs__trigger::after,
+  .sc-tabs__handle,
+  .sc-tabs__action {
+    transition: none;
+  }
+}

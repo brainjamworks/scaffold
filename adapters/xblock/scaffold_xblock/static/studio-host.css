@@ -1,0 +1,56 @@
+.modal-type-scaffold .modal-header,
+.modal-type-scaffold .modal-actions,
+.modal-type-scaffold .xblock-actions {
+  display: none !important;
+}
+
+.modal-type-scaffold.sc-xblock-host-modal.sc-xblock-host-modal-fallback {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  z-index: 1001 !important;
+  display: flex !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  transform: translate(-50%, -50%) !important;
+  flex-direction: column !important;
+}
+
+.modal-type-scaffold.sc-xblock-host-modal .edit-xblock-modal,
+.modal-type-scaffold.sc-xblock-host-modal .modal-content,
+.modal-type-scaffold.sc-xblock-host-modal .xblock-editor,
+.modal-type-scaffold.sc-xblock-host-modal .xblock,
+.modal-type-scaffold.sc-xblock-host-modal .xblock-studio_view,
+.modal-type-scaffold.sc-xblock-host-modal .scaffold-xblock.scaffold-studio {
+  display: flex !important;
+  min-height: 0 !important;
+  flex: 1 1 auto !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+.modal-type-scaffold.sc-xblock-host-modal .edit-xblock-modal .modal-content {
+  height: 100% !important;
+  max-height: none !important;
+}
+
+.modal-type-scaffold.sc-xblock-host-modal .xblock-editor,
+.modal-type-scaffold.sc-xblock-host-modal .xblock,
+.modal-type-scaffold.sc-xblock-host-modal .xblock-studio_view,
+.modal-type-scaffold.sc-xblock-host-modal .scaffold-xblock.scaffold-studio {
+  width: 100% !important;
+}
+
+.modal-type-scaffold.sc-xblock-host-modal .sc-xblock-isolated-frame {
+  display: block !important;
+  width: 100% !important;
+  min-height: 0 !important;
+  height: auto !important;
+  flex: 1 1 auto !important;
+  border: 0 !important;
+}

@@ -1,0 +1,111 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-assessment-field--hidden {
+    display: none;
+  }
+
+  .sc-assessment-meta-title {
+    position: relative;
+    display: flex;
+    flex: 0 0 auto;
+    min-height: 1.25rem;
+    align-items: center;
+    color: var(--color-text-muted);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: var(--leading-snug);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .sc-assessment-meta-instructions {
+    position: relative;
+    display: flex;
+    flex: 0 1 auto;
+    min-width: 0;
+    min-height: 1.25rem;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 0.75rem;
+    color: var(--color-text-muted);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: var(--leading-snug);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .sc-assessment-meta-title p,
+  .sc-assessment-meta-instructions p {
+    margin: 0;
+  }
+
+  .sc-assessment-meta-default {
+    pointer-events: none;
+  }
+
+  .sc-assessment-meta-content--inline {
+    display: contents;
+  }
+
+  .sc-assessment-prompt {
+    max-width: none;
+    color: var(--color-ink);
+    font-size: 1.1875rem;
+    font-weight: 600;
+    line-height: var(--leading-snug);
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+
+  .sc-assessment-prompt p {
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+
+  .sc-assessment-summary-feedback-author {
+    display: flex;
+    justify-content: flex-start;
+  }
+
+  .sc-assessment-summary-feedback-runtime {
+    display: flex;
+    justify-content: flex-start;
+  }
+
+  .sc-button.sc-assessment-summary-feedback-trigger {
+    --sc-summary-feedback-icon-color: var(--color-text-muted);
+
+    gap: 0.5rem;
+    padding-inline: 0.25rem;
+    border-color: transparent;
+    background: transparent;
+    color: var(--color-ink);
+  }
+
+  .sc-button.sc-assessment-summary-feedback-trigger:hover:not(:disabled) {
+    --sc-summary-feedback-icon-color: var(--color-primary);
+
+    border-color: transparent;
+    background: transparent;
+    color: var(--color-primary);
+  }
+
+  .sc-assessment-summary-feedback-trigger--has-feedback {
+    --sc-summary-feedback-icon-color: var(--color-primary);
+  }
+
+  .sc-assessment-summary-feedback-trigger__icon {
+    flex-shrink: 0;
+    color: var(--sc-summary-feedback-icon-color);
+  }
+
+  .sc-assessment-summary-feedback-trigger__text {
+    white-space: nowrap;
+  }
+
+  .sc-assessment-summary-feedback__editor {
+    min-height: 5rem;
+  }
+}

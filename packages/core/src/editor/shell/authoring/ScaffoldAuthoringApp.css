@@ -1,0 +1,92 @@
+.sc-scaffold-authoring-app {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-canvas);
+}
+
+.sc-scaffold-authoring-main {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.sc-scaffold-authoring-workspace {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.sc-scaffold-authoring-workspace[data-preview-mode="slideshow"] {
+  display: grid;
+  min-height: 0;
+}
+
+.sc-scaffold-authoring-workspace[data-preview-mode="slideshow"]
+  .sc-slideshow-player[data-slideshow-sizing="contained"] {
+  height: 100%;
+  min-height: 0;
+}
+
+.sc-scaffold-authoring-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sc-scaffold-authoring-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  min-height: 2rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  padding: 0 1rem;
+  background: var(--color-background);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1;
+  transition:
+    border-color 150ms var(--ease-out-soft),
+    background-color 150ms var(--ease-out-soft),
+    color 150ms var(--ease-out-soft),
+    opacity 150ms var(--ease-out-soft);
+}
+
+.sc-scaffold-authoring-action:hover:not(:disabled) {
+  border-color: var(--color-ink);
+  color: var(--color-foreground);
+}
+
+.sc-scaffold-authoring-action:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.sc-scaffold-authoring-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.sc-scaffold-authoring-action[data-state="active-muted"] {
+  border-color: var(--color-primary);
+  background: var(--color-primary-muted);
+  color: var(--color-primary);
+}
+
+.sc-scaffold-authoring-action[data-state="active-muted"]:hover:not(:disabled) {
+  background: var(--color-primary-muted);
+  color: var(--color-primary);
+}
+
+.sc-scaffold-authoring-action[data-state="active-primary"] {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+
+.sc-scaffold-authoring-action[data-state="active-primary"]:hover:not(:disabled) {
+  background: oklch(0.27 0.16 270);
+}

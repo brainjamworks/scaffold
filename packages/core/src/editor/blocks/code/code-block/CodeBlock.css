@@ -1,0 +1,184 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-code-block {
+    position: relative;
+    width: 100%;
+    white-space: normal;
+  }
+
+  .sc-code-block__shell {
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-background);
+    transition: border-color 150ms ease;
+  }
+
+  .sc-code-block__shell:focus-within {
+    border-color: var(--color-ink);
+  }
+
+  .sc-code-block__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-background);
+    padding: 0.5rem 0.75rem;
+  }
+
+  /* Language picker. The shared Radix `Select` owns the trigger
+ * appearance; we override sizing + type treatment so it reads as
+ * inline chrome (mono uppercase, transparent) rather than a form
+ * field. The compact trigger keeps the header dense. */
+
+  .sc-code-block__language {
+    height: 1.75rem !important;
+    width: auto !important;
+    border: 0 !important;
+    border-radius: var(--radius-md) !important;
+    background: transparent !important;
+    padding: 0 0.5rem !important;
+    color: var(--color-text-muted) !important;
+    font-family: var(--font-mono) !important;
+    font-size: 0.625rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.06em !important;
+    text-transform: uppercase !important;
+    gap: 0.375rem !important;
+  }
+
+  .sc-code-block__language:hover {
+    background: var(--color-muted) !important;
+    color: var(--color-ink) !important;
+  }
+
+  .sc-code-block__language[data-state="open"] {
+    background: var(--color-muted) !important;
+    color: var(--color-ink) !important;
+  }
+
+  .sc-code-block__language-static {
+    padding: 0 0.5rem;
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .sc-code-block__copy:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--color-focus-ring);
+  }
+
+  .sc-code-block__copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    border: 0;
+    border-radius: var(--radius-md);
+    background: transparent;
+    padding: 0.25rem 0.625rem;
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition:
+      background-color 150ms ease,
+      color 150ms ease;
+  }
+
+  .sc-code-block__copy:hover {
+    background: var(--color-muted);
+    color: var(--color-primary);
+  }
+
+  .sc-code-block__body {
+    background: var(--color-muted);
+  }
+
+  .sc-code-block__pre {
+    display: block;
+    min-height: 3rem;
+    margin: 0;
+    overflow-x: auto;
+    padding: 0.75rem 1rem;
+    color: var(--color-ink);
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    tab-size: 2;
+    white-space: pre-wrap;
+  }
+
+  .sc-code-block__content {
+    display: block;
+    min-height: 1.6em;
+    color: inherit;
+    font: inherit;
+    outline: none;
+    white-space: inherit;
+  }
+
+  .sc-code-block__pre .hljs-keyword,
+  .sc-code-block__pre .hljs-selector-tag,
+  .sc-code-block__pre .hljs-built_in,
+  .sc-code-block__pre .hljs-meta {
+    color: var(--color-primary);
+    font-weight: 600;
+  }
+
+  .sc-code-block__pre .hljs-string,
+  .sc-code-block__pre .hljs-attr,
+  .sc-code-block__pre .hljs-template-tag,
+  .sc-code-block__pre .hljs-template-variable {
+    color: var(--color-ink);
+  }
+
+  .sc-code-block__pre .hljs-number,
+  .sc-code-block__pre .hljs-literal,
+  .sc-code-block__pre .hljs-symbol {
+    color: var(--color-ink-2);
+    font-weight: 500;
+  }
+
+  .sc-code-block__pre .hljs-title,
+  .sc-code-block__pre .hljs-name,
+  .sc-code-block__pre .hljs-section,
+  .sc-code-block__pre .hljs-title.class_,
+  .sc-code-block__pre .hljs-title.function_ {
+    color: var(--color-text-secondary);
+    font-weight: 500;
+  }
+
+  .sc-code-block__pre .hljs-comment,
+  .sc-code-block__pre .hljs-quote {
+    color: var(--color-text-muted);
+    font-style: italic;
+  }
+
+  .sc-code-block__pre .hljs-tag,
+  .sc-code-block__pre .hljs-punctuation,
+  .sc-code-block__pre .hljs-operator {
+    color: var(--color-text-secondary);
+  }
+
+  .sc-code-block__pre .hljs-variable,
+  .sc-code-block__pre .hljs-params {
+    color: var(--color-ink);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sc-code-block__shell,
+    .sc-code-block__copy {
+      transition: none;
+    }
+  }
+}

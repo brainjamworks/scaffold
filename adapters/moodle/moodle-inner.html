@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Scaffold</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+      }
+
+      html[data-scaffold-surface="authoring"],
+      html[data-scaffold-surface="authoring"] body,
+      html[data-scaffold-surface="authoring"] #scaffold-moodle-inner-root {
+        height: 100%;
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="scaffold-moodle-inner-root"></div>
+    <script type="module" src="/frontend/src/inner/moodle-inner-entry.tsx"></script>
+  </body>
+</html>

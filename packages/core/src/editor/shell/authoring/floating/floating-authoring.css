@@ -1,0 +1,58 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-overlays {
+  .sc-authoring-chrome-root {
+    position: relative;
+    overflow: visible;
+  }
+
+  .sc-floating-control-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 2.25rem;
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    background: var(--color-background);
+    box-shadow: var(--shadow-sm);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    pointer-events: auto;
+    transition:
+      background-color 150ms var(--ease-out-soft),
+      color 150ms var(--ease-out-soft);
+  }
+
+  .sc-floating-control-trigger:hover {
+    background: var(--color-canvas);
+    color: var(--color-ink);
+  }
+
+  .sc-floating-control-trigger:focus-visible {
+    outline: none;
+    box-shadow:
+      var(--shadow-sm),
+      0 0 0 2px var(--color-focus-ring);
+  }
+
+  .sc-floating-control-trigger:disabled {
+    cursor: not-allowed;
+  }
+
+  .sc-floating-control-trigger:disabled:hover {
+    background: var(--color-background);
+    color: var(--color-text-secondary);
+  }
+
+  .sc-floating-grid-cell-menu-trigger {
+    width: 2.25rem;
+    height: 1.25rem;
+  }
+
+  .sc-floating-layout-menu-trigger {
+    width: 2.25rem;
+    height: 1.25rem;
+  }
+}

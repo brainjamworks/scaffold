@@ -1,0 +1,84 @@
+/* ─── Scaffold cursors ──────────────────────────────────────────
+ * Global custom cursor system. All cursors are 24x24 SVG inline
+ * data URIs with a 1px white outline under the ink stroke so they
+ * read on any background.
+ *
+ * Applied to `html` so the cursor is consistent across the whole
+ * page, not just the editor surface. Tool-specific cursors (text,
+ * grab, place) override per element via element / attribute /
+ * utility-class selectors.
+ *
+ * Don't tidy whitespace inside `url(...)` — browsers parse data
+ * URIs strictly. */
+
+:root {
+  /* Default — Figma / Liveblocks multiplayer-cursor chevron path.
+   * Black fill, white outline. Source: liveblocks/examples
+   * (sveltekit-live-cursors). Hot-spot at the tip (1, 2).
+   *
+   * Drawn with width/height 24 but viewBox sized to the source path
+   * (18 wide, 18 tall) so the chevron occupies the full 24×24
+   * cursor box at a natural size. */
+  --sc-cursor-default:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 18 18'><path d='M5.65376 12.3673H5.46026L5.31717 12.4976L0.500002 16.8829L0.500002 1.19841L11.7841 12.3673H5.65376Z' fill='%23ffffff' stroke='%23ffffff' stroke-width='1.5' stroke-linejoin='round'/><path d='M5.65376 12.3673H5.46026L5.31717 12.4976L0.500002 16.8829L0.500002 1.19841L11.7841 12.3673H5.65376Z' fill='%23000000'/></svg>")
+      1 2,
+    auto;
+
+  /* Text I-beam — slim vertical bar with small caps. Hot-spot at
+   * dead-centre so the caret-insertion point lands as expected
+   * regardless of font size. */
+  --sc-cursor-text:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path d='M9 4 H15 M9 20 H15 M12 4 V20' stroke='%23ffffff' stroke-width='4' stroke-linecap='round'/><path d='M9 4 H15 M9 20 H15 M12 4 V20' stroke='%2318181B' stroke-width='1.75' stroke-linecap='round'/></svg>")
+      12 12,
+    text;
+
+  /* Grab — 2x2 dot pattern, ink. Echoes the scaffold mark's grid
+   * without being a literal mini-mark. Hot-spot at the centre. */
+  --sc-cursor-grab:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><circle cx='9' cy='9' r='2' fill='%23ffffff' stroke='%23ffffff' stroke-width='2.5'/><circle cx='15' cy='9' r='2' fill='%23ffffff' stroke='%23ffffff' stroke-width='2.5'/><circle cx='9' cy='15' r='2' fill='%23ffffff' stroke='%23ffffff' stroke-width='2.5'/><circle cx='15' cy='15' r='2' fill='%23ffffff' stroke='%23ffffff' stroke-width='2.5'/><circle cx='9' cy='9' r='2' fill='%2318181B'/><circle cx='15' cy='9' r='2' fill='%2318181B'/><circle cx='9' cy='15' r='2' fill='%2318181B'/><circle cx='15' cy='15' r='2' fill='%2318181B'/></svg>")
+      12 12,
+    grab;
+
+  /* Place — dashed-outline slot with plus inside; the brand mark's
+   * "add the next block" motif. The single navy moment in the
+   * cursor system because placing IS the brand metaphor. */
+  --sc-cursor-place:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><rect x='3.5' y='3.5' width='17' height='17' rx='3' fill='none' stroke='%23ffffff' stroke-width='3.5' stroke-dasharray='3.5 2.5' stroke-linejoin='round'/><rect x='3.5' y='3.5' width='17' height='17' rx='3' fill='none' stroke='%23161D77' stroke-width='1.5' stroke-dasharray='3.5 2.5' stroke-linejoin='round'/><path d='M12 8.5v7M8.5 12h7' stroke='%23ffffff' stroke-width='3.5' stroke-linecap='round'/><path d='M12 8.5v7M8.5 12h7' stroke='%23161D77' stroke-width='1.75' stroke-linecap='round'/></svg>")
+      12 12,
+    crosshair;
+}
+
+/* ─── Global application ──────────────────────────────────────────
+ * `html` sets the default; `*` inherits so elements with their own
+ * `cursor: pointer` (Tailwind, Radix, buttons, links) still pick up
+ * the brand cursor. Tool-specific cursors override per element. */
+
+html {
+  cursor: var(--sc-cursor-default);
+}
+
+* {
+  cursor: inherit;
+}
+
+:is(
+  [contenteditable="true"],
+  input[type="text"],
+  input[type="url"],
+  input[type="email"],
+  input[type="search"],
+  input[type="number"],
+  input[type="password"],
+  textarea
+) {
+  cursor: var(--sc-cursor-text);
+}
+
+:is([data-drag-handle], [aria-roledescription="draggable"], [aria-roledescription="sortable"]) {
+  cursor: var(--sc-cursor-grab);
+}
+
+/* Utility class — explicit opt-in for stage / canvas affordances. */
+.sc-cursor-place {
+  cursor: var(--sc-cursor-place);
+}

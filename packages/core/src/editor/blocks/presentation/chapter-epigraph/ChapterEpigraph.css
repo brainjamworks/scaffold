@@ -1,0 +1,99 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  /* ─── Chapter epigraph ─────────────────────────────────────────
+ * Italic opener quote at the start of a section. More restrained than
+ * the pull quote: smaller scale, italic, hairline rule below, generous
+ * top margin to read as a chapter mark. Default-centred (epigraphs
+ * typically sit above the chapter body). */
+
+  .sc-chapter-epigraph {
+    margin-inline: auto;
+    max-width: 52ch;
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+  }
+
+  .sc-chapter-epigraph[data-align="left"] {
+    margin-left: 0;
+    text-align: left;
+  }
+
+  .sc-chapter-epigraph[data-align="center"] {
+    text-align: center;
+  }
+
+  .sc-chapter-epigraph__content {
+    display: contents;
+  }
+
+  .sc-chapter-epigraph__body {
+    font-style: italic;
+    font-size: 1.0625rem;
+    line-height: 1.55;
+    color: var(--color-text-secondary);
+    text-wrap: balance;
+  }
+
+  .sc-chapter-epigraph__body > [data-node-view-content-react] > p {
+    margin: 0;
+  }
+
+  .sc-chapter-epigraph__body > [data-node-view-content-react] > p + p {
+    margin-top: 0.5rem;
+  }
+
+  .sc-chapter-epigraph__attribution {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  .sc-chapter-epigraph__attribution > [data-node-view-content-react] > p {
+    margin: 0;
+  }
+
+  .sc-chapter-epigraph[data-align="center"] .sc-chapter-epigraph__attribution {
+    display: flex;
+    justify-content: center;
+  }
+
+  /* Hairline rule below the attribution to mark the chapter transition. */
+  .sc-chapter-epigraph::after {
+    content: "";
+    display: block;
+    width: 2.5rem;
+    height: 1px;
+    background: var(--color-border);
+    margin-top: 0.5rem;
+  }
+
+  .sc-chapter-epigraph[data-align="center"]::after {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .sc-chapter-epigraph__attribution--hidden {
+    display: none;
+  }
+
+  /* Empty placeholders */
+  .sc-chapter-epigraph__body > [data-node-view-content-react] > p:first-child:empty::before {
+    content: "A quote to open the section";
+    color: var(--color-text-placeholder);
+    font-style: italic;
+    pointer-events: none;
+  }
+
+  .sc-chapter-epigraph__attribution[data-empty]
+    > [data-node-view-content-react]
+    > p:first-child:empty::before {
+    content: "Attribution";
+    color: var(--color-text-placeholder);
+    pointer-events: none;
+  }
+}

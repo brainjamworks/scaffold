@@ -1,0 +1,83 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  :where(.sc-checkbox) {
+    box-sizing: border-box;
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    border: 1.5px solid var(--color-ink);
+    border-radius: var(--radius-sm);
+    background: var(--color-background);
+    color: var(--color-primary-foreground);
+    cursor: pointer;
+    transition:
+      border-color 150ms var(--ease-out-soft),
+      background-color 150ms var(--ease-out-soft),
+      color 150ms var(--ease-out-soft),
+      opacity 150ms var(--ease-out-soft);
+  }
+
+  :where(.sc-checkbox):hover:not(:disabled):not([aria-invalid="true"])[data-state="unchecked"] {
+    background: var(--color-primary-muted);
+  }
+
+  :where(.sc-checkbox):focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 1px;
+  }
+
+  :where(.sc-checkbox)[data-state="checked"],
+  :where(.sc-checkbox)[data-state="indeterminate"] {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+  }
+
+  :where(.sc-checkbox)[aria-invalid="true"] {
+    border-color: var(--color-error);
+  }
+
+  :where(.sc-checkbox)[aria-invalid="true"][data-state="checked"],
+  :where(.sc-checkbox)[aria-invalid="true"][data-state="indeterminate"] {
+    border-color: var(--color-error);
+    background: var(--color-error);
+  }
+
+  :where(.sc-checkbox):disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  :where(.sc-checkbox-indicator) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    :where(.sc-checkbox-indicator) {
+      animation: sc-checkbox-indicator-in 150ms var(--ease-out-soft);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :where(.sc-checkbox) {
+      transition: none;
+    }
+  }
+
+  @keyframes sc-checkbox-indicator-in {
+    from {
+      opacity: 0;
+      transform: scale(0.5);
+    }
+
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+}

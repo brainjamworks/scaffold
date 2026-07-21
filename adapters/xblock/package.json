@@ -1,0 +1,36 @@
+{
+  "name": "@scaffold/adapter-xblock",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Open edX XBlock adapter for Scaffold.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "build": "vp build",
+    "check:assessment-artifacts": "node scripts/sync-assessment-artifacts.mjs --check",
+    "check:learner-activity-artifact": "node scripts/sync-learner-activity-artifact.mjs --check",
+    "sync:assessment-artifacts": "node scripts/sync-assessment-artifacts.mjs",
+    "sync:learner-activity-artifact": "node scripts/sync-learner-activity-artifact.mjs",
+    "test": "vp test run --passWithNoTests"
+  },
+  "dependencies": {
+    "@scaffold/contracts": "workspace:*",
+    "@scaffold/core": "workspace:*",
+    "@tiptap/react": "^3.10.1",
+    "katex": "^0.16.47",
+    "nanoid": "^5.1.16",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "yjs": "^13.6.20"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^6.0.2",
+    "rollup-plugin-visualizer": "^7.0.1",
+    "typescript": "~5.9.3",
+    "vite": "npm:@voidzero-dev/vite-plus-core@0.2.4",
+    "vite-plus": "0.2.4"
+  }
+}

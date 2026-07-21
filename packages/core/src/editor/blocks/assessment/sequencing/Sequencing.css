@@ -1,0 +1,169 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-sequencing-items-group,
+  .sc-sequencing-items-content,
+  .sc-sequencing-items-scroll,
+  .sc-sequencing-runtime-list {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .sc-sequencing-runtime-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .sc-sequencing-items-content {
+    flex-shrink: 0;
+  }
+
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+    > .sc-sequencing
+    [data-slot="sequencing-items-group"] {
+    position: relative;
+    grid-column: 1 / -1;
+    grid-row: 3;
+    width: min(100%, 42rem);
+    align-self: stretch;
+    justify-self: center;
+  }
+
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+    > .sc-sequencing
+    [data-slot="sequencing-items-group"]
+    .sc-sequencing-items-scroll {
+    justify-content: safe center;
+  }
+
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+    > .sc-sequencing
+    [data-slot="sequencing-items-group"]
+    .sc-sequencing-items-scroll[data-assessment-bounded-scroll-overflow] {
+    justify-content: flex-start;
+  }
+
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+    > .sc-sequencing
+    [data-slot="sequencing-items-group"]
+    .sc-sequencing-items-content,
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+    > .sc-sequencing
+    [data-slot="sequencing-items-group"]
+    .sc-sequencing-runtime-list {
+    width: 100%;
+  }
+
+  .sc-sequencing-item {
+    display: flex;
+    min-height: var(--spacing-touch-target);
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 0.75rem 0.75rem 1rem;
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-background);
+    color: var(--color-ink);
+    user-select: none;
+    transition:
+      border-color 150ms var(--ease-out-soft),
+      background-color 150ms var(--ease-out-soft),
+      color 150ms var(--ease-out-soft);
+  }
+
+  .sc-sequencing-item:hover {
+    border-color: var(--color-ink);
+    background: var(--color-canvas);
+  }
+
+  .sc-sequencing-item--runtime {
+    position: relative;
+    margin: 0;
+    list-style: none;
+  }
+
+  .sc-sequencing-item--draggable {
+    cursor: grab;
+  }
+
+  .sc-sequencing-item--draggable:active {
+    cursor: grabbing;
+  }
+
+  .sc-sequencing-item--answer-key {
+    border-color: var(--color-accent);
+    background: var(--color-success-bg);
+    color: var(--color-ink);
+  }
+
+  .sc-sequencing-item__content,
+  .sc-sequencing-runtime-preview__content {
+    min-width: 0;
+    flex: 1;
+    max-width: none;
+    color: currentColor;
+    font-size: var(--text-sm);
+    line-height: var(--leading-snug);
+  }
+
+  .sc-sequencing-item__content p,
+  .sc-sequencing-runtime-preview__content p {
+    margin-block: 0;
+    line-height: var(--leading-snug);
+  }
+
+  .sc-sequencing-add {
+    min-height: var(--spacing-touch-target);
+    justify-content: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem 0.75rem 0.75rem 1rem;
+    border-radius: var(--radius-md);
+    text-align: left;
+  }
+
+  .sc-sequencing-runtime-preview {
+    display: flex;
+    min-height: var(--spacing-touch-target);
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .sc-sequencing-runtime-preview__handle {
+    display: inline-flex;
+    width: 1rem;
+    height: 1.25rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-muted);
+  }
+
+  .sc-sequencing-static-html {
+    display: contents;
+  }
+
+  .sc-sequencing-position-dot {
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.5rem;
+    flex-shrink: 0;
+    border-radius: var(--radius-pill);
+  }
+
+  .sc-sequencing-position-dot--correct {
+    background: var(--color-accent);
+  }
+
+  .sc-sequencing-position-dot--incorrect {
+    background: var(--color-secondary);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sc-sequencing-item {
+      transition: none;
+    }
+  }
+}

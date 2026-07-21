@@ -1,0 +1,310 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-roadmap {
+    font-family: var(--font-sans);
+    color: var(--color-ink);
+  }
+
+  .sc-roadmap__section {
+    padding-block: 0.75rem;
+  }
+
+  .sc-roadmap[data-orientation="horizontal"] .sc-roadmap__section {
+    padding-inline: 0.5rem;
+  }
+
+  .sc-roadmap__track {
+    position: relative;
+  }
+
+  .sc-roadmap[data-orientation="vertical"] .sc-roadmap__track {
+    padding-left: 4.25rem;
+  }
+
+  .sc-roadmap__track::before {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    background: color-mix(in oklch, var(--color-primary) 20%, transparent);
+  }
+
+  .sc-roadmap[data-orientation="vertical"] .sc-roadmap__track::before {
+    top: 1.5rem;
+    bottom: 1.5rem;
+    left: 1.5rem;
+    width: 1.5px;
+  }
+
+  .sc-roadmap[data-orientation="horizontal"] .sc-roadmap__track {
+    display: flex;
+    flex-flow: row nowrap;
+    align-items: flex-start;
+    padding-block: 0.5rem;
+  }
+
+  .sc-roadmap[data-orientation="horizontal"] .sc-roadmap__track::before {
+    top: 1.625rem;
+    right: 3rem;
+    left: 3rem;
+    height: 1.5px;
+  }
+
+  /* When the ghost-add milestone is the last child of the track, pull
+ * the connector line back so it ends at the last real milestone's
+ * tile centre instead of running through the ghost cell. The ghost
+ * has `flex: 1 1 0` like a real milestone, so trimming by one
+ * fractional cell-width via fr/cell-count would need a JS-set
+ * variable. Practical workaround: the ghost tile has a solid bg
+ * (see `.sc-roadmap__tile--ghost`) that occludes the line inside
+ * the dashed circle. */
+
+  /* Ghost milestone — sits as the next item in the track and looks
+ * like an empty version of a real milestone (dashed tile + "Add
+ * chapter" label). Hover cascades primary via currentColor through
+ * the ghost-add contract so the tile shifts on its own. */
+  .sc-roadmap__milestone--ghost {
+    display: block;
+    width: 100%;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .sc-roadmap[data-orientation="horizontal"] .sc-roadmap__milestone--ghost {
+    width: auto;
+  }
+
+  .sc-roadmap__tile--ghost {
+    /* Solid background occludes the track connector line inside the
+   * dashed circle so the line doesn't appear to run through the
+   * ghost. Border + color cascade from the ghost-add hover via
+   * `currentColor`. */
+    border: 1.5px dashed currentColor;
+    background: var(--color-background);
+    color: currentColor;
+  }
+
+  .sc-roadmap__milestone--ghost:hover .sc-roadmap__tile--ghost,
+  .sc-roadmap__milestone--ghost:focus-visible .sc-roadmap__tile--ghost {
+    background: color-mix(in oklch, var(--color-primary) 6%, transparent);
+  }
+
+  .sc-roadmap__add-label {
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: currentColor;
+  }
+
+  .sc-roadmap__milestone {
+    position: relative;
+    min-width: 0;
+  }
+
+  .sc-roadmap[data-orientation="vertical"] .sc-roadmap__milestone {
+    display: block;
+    margin-bottom: 1.5rem;
+  }
+
+  .sc-roadmap[data-orientation="horizontal"] .sc-roadmap__milestone {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .sc-roadmap[data-orientation="horizontal"] .sc-roadmap__milestone + .sc-roadmap__milestone {
+    margin-left: 1rem;
+  }
+
+  .sc-roadmap__milestone-shell {
+    position: relative;
+    display: flex;
+    min-width: 0;
+  }
+
+  .sc-roadmap[data-orientation="vertical"] .sc-roadmap__milestone-shell {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .sc-roadmap[data-orientation="horizontal"] .sc-roadmap__milestone-shell {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .sc-roadmap__tile {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    width: 3rem;
+    height: 3rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-lg);
+    font-size: 1rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    user-select: none;
+  }
+
+  button.sc-roadmap__tile {
+    cursor: pointer;
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease,
+      color 150ms ease,
+      box-shadow 150ms ease,
+      transform 150ms ease;
+  }
+
+  button.sc-roadmap__tile:hover {
+    box-shadow: 0 0 0 4px color-mix(in oklch, var(--color-primary) 10%, transparent);
+  }
+
+  button.sc-roadmap__tile:active {
+    transform: scale(0.95);
+  }
+
+  button.sc-roadmap__tile:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+
+  .sc-roadmap[data-orientation="vertical"] .sc-roadmap__tile {
+    margin-right: 1rem;
+    margin-left: -4.25rem;
+  }
+
+  .sc-roadmap[data-orientation="horizontal"] .sc-roadmap__tile {
+    margin-bottom: 0.75rem;
+  }
+
+  .sc-roadmap__tile--upcoming {
+    border: 1px solid color-mix(in oklch, var(--color-primary) 30%, transparent);
+    background: var(--color-background);
+    color: var(--color-primary);
+  }
+
+  .sc-roadmap__tile--current,
+  .sc-roadmap__tile--done {
+    border: 1px solid var(--color-primary);
+    background: var(--color-primary);
+    color: var(--color-primary-foreground);
+  }
+
+  .sc-roadmap__tile--current {
+    box-shadow: 0 0 0 4px color-mix(in oklch, var(--color-primary) 14%, transparent);
+  }
+
+  .sc-roadmap__tile-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    font-size: 1.25rem;
+  }
+
+  .sc-roadmap__content {
+    min-width: 0;
+    flex: 1 1 auto;
+    padding-top: 0.25rem;
+    color: var(--color-text-primary);
+  }
+
+  .sc-roadmap[data-orientation="horizontal"] .sc-roadmap__content {
+    max-width: 14rem;
+    padding-top: 0;
+  }
+
+  .sc-roadmap__content h1,
+  .sc-roadmap__content h2,
+  .sc-roadmap__content h3,
+  .sc-roadmap__content h4,
+  .sc-roadmap__content h5,
+  .sc-roadmap__content h6,
+  .sc-roadmap__content p {
+    margin: 0;
+  }
+
+  .sc-roadmap__content p + p {
+    margin-top: 0.25rem;
+  }
+
+  .sc-roadmap__content h3 {
+    margin-bottom: 0.25rem;
+  }
+
+  .sc-roadmap__content h3,
+  .sc-roadmap__content p:first-child {
+    color: var(--color-ink);
+    font-size: 1.0625rem;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+  }
+
+  .sc-roadmap__content p {
+    font-size: 0.9375rem;
+    line-height: 1.625;
+  }
+
+  .sc-roadmap[data-orientation="horizontal"] .sc-roadmap__content p {
+    font-size: 0.875rem;
+  }
+
+  .sc-roadmap[data-orientation="horizontal"] .sc-roadmap__content p:first-child {
+    font-size: 0.9375rem;
+  }
+
+  .sc-roadmap__delete {
+    display: inline-flex;
+    width: 1.75rem;
+    height: 1.75rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    margin-top: 0.25rem;
+    margin-left: 0.5rem;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    color: var(--color-text-muted);
+    opacity: 0;
+    cursor: pointer;
+    transition:
+      opacity 150ms ease,
+      background-color 150ms ease,
+      color 150ms ease;
+  }
+
+  .sc-roadmap__delete:hover {
+    background: var(--color-muted);
+    color: var(--color-error-text);
+    opacity: 1;
+  }
+
+  .sc-roadmap__milestone:hover .sc-roadmap__delete,
+  .sc-roadmap__milestone:focus-within .sc-roadmap__delete {
+    opacity: 0.6;
+  }
+
+  .sc-roadmap__delete:focus-visible {
+    opacity: 1;
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+
+  .sc-roadmap__delete:disabled {
+    cursor: not-allowed;
+    opacity: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sc-roadmap__tile,
+    .sc-roadmap__delete {
+      transition: none;
+    }
+
+    button.sc-roadmap__tile:active {
+      transform: none;
+    }
+  }
+}

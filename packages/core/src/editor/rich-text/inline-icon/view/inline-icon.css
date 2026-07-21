@@ -1,0 +1,62 @@
+.sc-inline-icon,
+.sc-inline-icon-static {
+  --sc-inline-icon-size: 1.25em;
+
+  display: inline-flex;
+  width: var(--sc-inline-icon-size);
+  height: var(--sc-inline-icon-size);
+  align-items: center;
+  justify-content: center;
+  margin-inline: 0.0625em;
+  border-radius: 0.2em;
+  color: currentColor;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.sc-inline-icon[data-icon-size="md"],
+.sc-inline-icon-static[data-icon-size="md"] {
+  --sc-inline-icon-size: 2em;
+}
+
+.sc-inline-icon[data-icon-size="lg"],
+.sc-inline-icon-static[data-icon-size="lg"] {
+  --sc-inline-icon-size: 3em;
+}
+
+.sc-inline-icon[data-icon-kind="media"] {
+  width: auto;
+  min-width: var(--sc-inline-icon-size);
+  max-width: calc(var(--sc-inline-icon-size) * 4);
+}
+
+.sc-inline-icon__glyph {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  font-size: var(--sc-inline-icon-size);
+  flex-shrink: 0;
+}
+
+.sc-inline-icon[data-icon-kind="media"] .sc-inline-icon__glyph {
+  width: auto;
+  max-width: calc(var(--sc-inline-icon-size) * 4);
+  height: var(--sc-inline-icon-size);
+  font-size: 1em;
+  object-fit: contain;
+}
+
+.sc-inline-icon--selected {
+  background: var(--color-primary-muted);
+  box-shadow: 0 0 0 2px var(--color-focus-ring);
+}
+
+.sc-inline-icon-static {
+  width: auto;
+  max-width: 14ch;
+  padding-inline: 0.1875em;
+  background: var(--color-muted);
+  color: var(--color-text-secondary);
+  font-size: 0.875em;
+  font-weight: 600;
+}

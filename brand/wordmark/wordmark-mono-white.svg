@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" width="320" height="80" role="img" aria-label="scaffold">
+  <title>scaffold wordmark — single-colour white</title>
+  <g transform="translate(10, 12) scale(0.84375)">
+    <path d="M5 24V5h19M40 5h19v19M59 40v19H40M24 59H5V40" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 3"/>
+    <path d="M32 18v28M18 32h28" fill="none" stroke="#FFFFFF" stroke-width="4.25" stroke-linecap="round"/>
+  </g>
+  <text
+    x="80"
+    y="52"
+    font-family="Poppins, system-ui, -apple-system, BlinkMacSystemFont, sans-serif"
+    font-size="40"
+    font-weight="700"
+    letter-spacing="-1"
+    fill="#FFFFFF"
+  >scaffold.</text>
+</svg>

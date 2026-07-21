@@ -1,0 +1,14 @@
+[data-text-align="left"] {
+  margin-inline-start: 0;
+  margin-inline-end: auto;
+}
+
+[data-text-align="center"] {
+  margin-inline-start: auto;
+  margin-inline-end: auto;
+}
+
+[data-text-align="right"] {
+  margin-inline-start: auto;
+  margin-inline-end: 0;
+}

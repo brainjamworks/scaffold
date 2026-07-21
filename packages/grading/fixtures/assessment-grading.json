@@ -1,0 +1,1083 @@
+{
+  "cases": [
+    {
+      "id": "single-select-happy",
+      "target": {
+        "schemaVersion": 1,
+        "targetId": "single-select-happy",
+        "blockId": "single-select-happy",
+        "blockType": "mcq",
+        "interaction": {
+          "kind": "single-select",
+          "options": [{ "id": "a" }, { "id": "b" }]
+        },
+        "assessment": {
+          "kind": "single-select",
+          "correctOptionId": "b",
+          "feedbackByOptionId": {
+            "b": {
+              "kind": "rich-text",
+              "document": {
+                "type": "doc",
+                "content": [{ "type": "text", "text": "Correct option." }]
+              }
+            }
+          },
+          "summaryFeedback": {
+            "kind": "rich-text",
+            "document": {
+              "type": "doc",
+              "content": [{ "type": "text", "text": "Single-select summary." }]
+            }
+          }
+        },
+        "settings": {
+          "feedbackMode": "on_submit",
+          "isGraded": true,
+          "showAnswer": true,
+          "points": 1,
+          "maxAttempts": null
+        }
+      },
+      "response": { "kind": "single-select", "optionId": "b" },
+      "expected": {
+        "isCorrect": true,
+        "score": 1,
+        "maxScore": 1,
+        "feedback": {
+          "kind": "rich-text",
+          "document": {
+            "type": "doc",
+            "content": [{ "type": "text", "text": "Single-select summary." }]
+          }
+        },
+        "items": {
+          "a": { "correct": false, "expected": false, "given": false },
+          "b": {
+            "correct": true,
+            "expected": true,
+            "given": true,
+            "feedback": {
+              "kind": "rich-text",
+              "document": {
+                "type": "doc",
+                "content": [{ "type": "text", "text": "Correct option." }]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "single-select-fail",
+      "target": {
+        "schemaVersion": 1,
+        "targetId": "single-select-fail",
+        "blockId": "single-select-fail",
+        "blockType": "dropdown",
+        "interaction": {
+          "kind": "single-select",
+          "options": [{ "id": "a" }, { "id": "b" }]
+        },
+        "assessment": {
+          "kind": "single-select",
+          "correctOptionId": "b",
+          "feedbackByOptionId": {
+            "a": {
+              "kind": "rich-text",
+              "document": {
+                "type": "doc",
+                "content": [{ "type": "text", "text": "Try another option." }]
+              }
+            }
+          }
+        },
+        "settings": {
+          "feedbackMode": "immediate",
+          "isGraded": true,
+          "showAnswer": false,
+          "points": 2,
+          "maxAttempts": 2
+        }
+      },
+      "response": { "kind": "single-select", "optionId": "a" },
+      "expected": {
+        "isCorrect": false,
+        "score": 0,
+        "maxScore": 1,
+        "feedback": null,
+        "items": {
+          "a": {
+            "correct": false,
+            "expected": false,
+            "given": true,
+            "feedback": {
+              "kind": "rich-text",
+              "document": {
+                "type": "doc",
+                "content": [{ "type": "text", "text": "Try another option." }]
+              }
+            }
+          },
+          "b": { "correct": false, "expected": true, "given": false }
+        }
+      }
+    },
+    {
+      "id": "single-select-empty-answer",
+      "target": {
+        "schemaVersion": 1,
+        "targetId": "single-select-empty-answer",
+        "blockId": "single-select-empty-answer",
+        "blockType": "mcq",
+        "interaction": {
+          "kind": "single-select",
+          "options": [{ "id": "a" }, { "id": "b" }]
+        },
+        "assessment": {
+          "kind": "single-select",
+          "correctOptionId": null,
+          "feedbackByOptionId": {}
+        },
+        "settings": {
+          "feedbackMode": "on_submit",
+          "isGraded": false,
+          "showAnswer": false,
+          "points": 0,
+          "maxAttempts": null
+        }
+      },
+      "response": { "kind": "single-select", "optionId": null },
+      "expected": {
+        "isCorrect": false,
+        "score": 0,
+        "maxScore": 1,
+        "feedback": null,
+        "items": {
+          "a": { "correct": false, "expected": false, "given": false },
+          "b": { "correct": false, "expected": false, "given": false }
+        }
+      }
+    },
+    {
+      "id": "multi-select-happy",
+      "target": {
+        "schemaVersion": 1,
+        "targetId": "multi-select-happy",
+        "blockId": "multi-select-happy",
+        "blockType": "multiselect",
+        "interaction": {
+          "kind": "multi-select",
+          "options": [{ "id": "a" }, { "id": "b" }, { "id": "c" }],
+          "maxSelections": 2
+        },
+        "assessment": {
+          "kind": "multi-select",
+          "correctOptionIds": ["a", "b"],
+          "feedbackByOptionId": {
+            "a": {
+              "kind": "rich-text",
+              "document": {
+                "type": "doc",
+                "content": [{ "type": "text", "text": "A belongs in the answer." }]
+              }
+            }
+          },
+          "summaryFeedback": {
+            "kind": "rich-text",
+            "document": {
+              "type": "doc",
+              "content": [{ "type": "text", "text": "Multi-select summary." }]
+            }
+          }
+        },
+        "settings": {
+          "feedbackMode": "on_submit",
+          "isGraded": true,
+          "showAnswer": true,
+          "points": 3,
+          "maxAttempts": null,
+          "maxSelections": 2
+        }
+      },
+      "response": { "kind": "multi-select", "optionIds": ["a", "b"] },
+      "expected": {
+        "isCorrect": true,
+        "score": 1,
+        "maxScore": 1,
+        "feedback": {
+          "kind": "rich-text",
+          "document": {
+            "type": "doc",
+            "content": [{ "type": "text", "text": "Multi-select summary." }]
+          }
+        },
+        "items": {
+          "a": {
+            "correct": true,
+            "expected": true,
+            "given": true,
+            "feedback": {
+              "kind": "rich-text",
+              "document": {
+                "type": "doc",
+                "content": [{ "type": "text", "text": "A belongs in the answer." }]
+              }
+            }
+          },
+          "b": { "correct": true, "expected": true, "given": true },
+          "c": { "correct": true, "expected": false, "given": false }
+        }
+      }
+    },
+    {
+      "id": "multi-select-wrong-pick-penalty",
+      "target": {
+        "schemaVersion": 1,
+        "targetId": "multi-select-wrong-pick-penalty",
+        "blockId": "multi-select-wrong-pick-penalty",
+        "blockType": "multiselect",
+        "interaction": {
+          "kind": "multi-select",
+          "options": [{ "id": "a" }, { "id": "b" }, { "id": "c" }],
+          "maxSelections": null
+        },
+        "assessment": {
+          "kind": "multi-select",
+          "correctOptionIds": ["a", "b"],
+          "feedbackByOptionId": {}
+        },
+        "settings": {
+          "feedbackMode": "immediate",
+          "isGraded": true,
+          "showAnswer": true,
+          "points": 1,
+          "maxAttempts": 3
+        }
+      },
+      "response": { "kind": "multi-select", "optionIds": ["a", "c"] },
+      "expected": {
+        "isCorrect": false,
+        "score": 0,
+        "maxScore": 1,
+        "feedback": null,
+        "items": {
+          "a": { "correct": true, "expected": true, "given": true },
+          "b": { "correct": false, "expected": true, "given": false },
+          "c": { "correct": false, "expected": false, "given": true }
+        }
+      }
+    },
+    {
+      "id": "multi-select-empty-answer",
+      "target": {
+        "schemaVersion": 1,
+        "targetId": "multi-select-empty-answer",
+        "blockId": "multi-select-empty-answer",
+        "blockType": "multiselect",
+        "interaction": {
+          "kind": "multi-select",
+          "options": [{ "id": "a" }],
+          "maxSelections": null
+        },
+        "assessment": {
+          "kind": "multi-select",
+          "correctOptionIds": [],
+          "feedbackByOptionId": {}
+        },
+        "settings": {
+          "feedbackMode": "on_submit",
+          "isGraded": false,
+          "showAnswer": false,
+          "points": 0,
+          "maxAttempts": null
+        }
+      },
+      "response": { "kind": "multi-select", "optionIds": [] },
+      "expected": {
+        "isCorrect": false,
+        "score": 0,
+        "maxScore": 1,
+        "feedback": null,
+        "items": {
+          "a": { "correct": true, "expected": false, "given": false }
+        }
+      }
+    },
+    {
+      "id": "sequence-happy",
+      "target": {
+        "schemaVersion": 1,
+        "targetId": "sequence-happy",
+        "blockId": "sequence-happy",
+        "blockType": "sequencing",
+        "interaction": {
+          "kind": "sequence",
+          "items": [{ "id": "a" }, { "id": "b" }, { "id": "c" }]
+        },
+        "assessment": {
+          "kind": "sequence",
+          "correctOrder": ["a", "b", "c"],
+          "feedbackByItemId": {
+            "b": {
+              "kind": "rich-text",
+              "document": {
+                "type": "doc",
+                "content": [{ "type": "text", "text": "B is the middle step." }]
+              }
+            }
+          },
+          "summaryFeedback": {
+            "kind": "rich-text",
+            "document": {
+              "type": "doc",
+              "content": [{ "type": "text", "text": "Sequence summary." }]
+            }
+          }
+        },
+        "settings": {
+          "feedbackMode": "on_submit",
+          "isGraded": true,
+          "showAnswer": true,
+          "points": 1,
+          "maxAttempts": null
+        }
+      },
+      "response": { "kind": "sequence", "orderedItemIds": ["a", "b", "c"] },
+      "expected": {
+        "isCorrect": true,
+        "score": 1,
+        "maxScore": 1,
+        "feedback": {
+          "kind": "rich-text",
+          "document": {
+            "type": "doc",
+            "content": [{ "type": "text", "text": "Sequence summary." }]
+          }
+        },
+        "items": {
+          "a": { "correct": true, "expected": 0, "given": 0 },
+          "b": {
+            "correct": true,
+            "expected": 1,
+            "given": 1,
+            "feedback": {
+              "kind": "rich-text",
+              "document": {
+                "type": "doc",
+                "content": [{ "type": "text", "text": "B is the middle step." }]
+              }
+            }
+          },
+          "c": { "correct": true, "expected": 2, "given": 2 }
+        }
+      }
+    },
+    {
+      "id": "sequence-partial-missing-selection",
+      "target": {
+        "schemaVersion": 1,
+        "targetId": "sequence-partial-missing-selection",
+        "blockId": "sequence-partial-missing-selection",
+        "blockType": "sequencing",
+        "interaction": {
+          "kind": "sequence",
+          "items": [{ "id": "a" }, { "id": "b" }, { "id": "c" }]
+        },
+        "assessment": {
+          "kind": "sequence",
+          "correctOrder": ["a", "b", "c"],
+          "feedbackByItemId": {}
+        },
+        "settings": {
+          "feedbackMode": "immediate",
+          "isGraded": true,
+          "showAnswer": false,
+          "points": 1,
+          "maxAttempts": 2
+        }
+      },
+      "response": { "kind": "sequence", "orderedItemIds": ["a", "c"] },
+      "expected": {
+        "isCorrect": false,
+        "score": 0.3333333333333333,
+        "maxScore": 1,
+        "feedback": null,
+        "items": {
+          "a": { "correct": true, "expected": 0, "given": 0 },
+          "b": { "correct": false, "expected": 1 },
+          "c": { "correct": false, "expected": 2, "given": 1 }
+        }
+      }
+    },
+    {
+      "id": "sequence-empty-answer",
+      "target": {
+        "schemaVersion": 1,
+        "targetId": "sequence-empty-answer",
+        "blockId": "sequence-empty-answer",
+        "blockType": "sequencing",
+        "interaction": { "kind": "sequence", "items": [] },
+        "assessment": {
+          "kind": "sequence",
+          "correctOrder": [],
+          "feedbackByItemId": {}
+        },
+        "settings": {
+          "feedbackMode": "on_submit",
+          "isGraded": false,
+          "showAnswer": false,
+          "points": 0,
+          "maxAttempts": null
+        }
+      },
+      "response": { "kind": "sequence", "orderedItemIds": [] },
+      "expected": {
+        "isCorrect": false,
+        "score": 0,
+        "maxScore": 1,
+        "feedback": null,
+        "items": {}
+      }
+    },
+    {
+      "id": "match-happy",
+      "target": {
+        "schemaVersion": 1,
+        "targetId": "match-happy",
+        "blockId": "match-happy",
+        "blockType": "matching",
+        "interaction": {
+          "kind": "match",
+          "items": [{ "id": "i1" }, { "id": "i2" }],
+          "targets": [{ "id": "t1" }, { "id": "t2" }]
+        },
+        "assessment": {
+          "kind": "match",
+          "correctPairs": [
+            { "itemId": "i1", "targetId": "t1" },
+            { "itemId": "i2", "targetId": "t2" }
+          ],
+          "feedbackByItemId": {
+            "i2": {
+              "kind": "rich-text",
+              "document": {
+                "type": "doc",
+                "content": [{ "type": "text", "text": "Second pair feedback." }]
+              }
+            }
+          },
+          "summaryFeedback": {
+            "kind": "rich-text",
+            "document": { "type": "doc", "content": [{ "type": "text", "text": "Match summary." }] }
+          }
+        },
+        "settings": {
+          "feedbackMode": "on_submit",
+          "isGraded": true,
+          "showAnswer": true,
+          "points": 1,
+          "maxAttempts": null
+        }
+      },
+      "response": {
+        "kind": "match",
+        "pairs": [
+          { "itemId": "i1", "targetId": "t1" },
+          { "itemId": "i2", "targetId": "t2" }
+        ]
+      },
+      "expected": {
+        "isCorrect": true,
+        "score": 1,
+        "maxScore": 1,
+        "feedback": {
+          "kind": "rich-text",
+          "document": { "type": "doc", "content": [{ "type": "text", "text": "Match summary." }] }
+        },
+        "items": {
+          "i1": { "correct": true, "expected": "t1", "given": "t1" },
+          "i2": {
+            "correct": true,
+            "expected": "t2",
+            "given": "t2",
+            "feedback": {
+              "kind": "rich-text",
+              "document": {
+                "type": "doc",
+                "content": [{ "type": "text", "text": "Second pair feedback." }]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "match-partial-missing-pair",
+      "target": {
+        "schemaVersion": 1,
+        "targetId": "match-partial-missing-pair",
+        "blockId": "match-partial-missing-pair",
+        "blockType": "matching",
+        "interaction": {
+          "kind": "match",
+          "items": [{ "id": "i1" }, { "id": "i2" }],
+          "targets": [{ "id": "t1" }, { "id": "t2" }]
+        },
+        "assessment": {
+          "kind": "match",
+          "correctPairs": [
+            { "itemId": "i1", "targetId": "t1" },
+            { "itemId": "i2", "targetId": "t2" }
+          ],
+          "feedbackByItemId": {}
+        },
+        "settings": {
+          "feedbackMode": "immediate",
+          "isGraded": true,
+          "showAnswer": false,
+          "points": 1,
+          "maxAttempts": 3
+        }
+      },
+      "response": {
+        "kind": "match",
+        "pairs": [{ "itemId": "i1", "targetId": "t1" }]
+      },
+      "expected": {
+        "isCorrect": false,
+        "score": 0.5,
+        "maxScore": 1,
+        "feedback": null,
+        "items": {
+          "i1": { "correct": true, "expected": "t1", "given": "t1" },
+          "i2": { "correct": false, "expected": "t2" }
+        }
+      }
+    },
+    {
+      "id": "match-empty-answer",
+      "target": {
+        "schemaVersion": 1,
+        "targetId": "match-empty-answer",
+        "blockId": "match-empty-answer",
+        "blockType": "matching",
+        "interaction": { "kind": "match", "items": [], "targets": [] },
+        "assessment": {
+          "kind": "match",
+          "correctPairs": [],
+          "feedbackByItemId": {}
+        },
+        "settings": {
+          "feedbackMode": "on_submit",
+          "isGraded": false,
+          "showAnswer": false,
+          "points": 0,
+          "maxAttempts": null
+        }
+      },
+      "response": { "kind": "match", "pairs": [] },
+      "expected": {
+        "isCorrect": false,
+        "score": 0,
+        "maxScore": 1,
+        "feedback": null,
+        "items": {}
+      }
+    },
+    {
+      "id": "classify-happy",
+      "target": {
+        "schemaVersion": 1,
+        "targetId": "classify-happy",
+        "blockId": "classify-happy",
+        "blockType": "categorise",
+        "interaction": {
+          "kind": "classify",
+          "items": [{ "id": "i1" }, { "id": "i2" }],
+          "categories": [{ "id": "c1" }, { "id": "c2" }]
+        },
+        "assessment": {
+          "kind": "classify",
+          "correctPlacements": [
+            { "itemId": "i1", "categoryId": "c1" },
+            { "itemId": "i2", "categoryId": "c2" }
+          ],
+          "feedbackByItemId": {
+            "i1": {
+              "kind": "rich-text",
+              "document": {
+                "type": "doc",
+                "content": [{ "type": "text", "text": "First classification feedback." }]
+              }
+            }
+          },
+          "summaryFeedback": {
+            "kind": "rich-text",
+            "document": {
+              "type": "doc",
+              "content": [{ "type": "text", "text": "Classify summary." }]
+            }
+          }
+        },
+        "settings": {
+          "feedbackMode": "on_submit",
+          "isGraded": true,
+          "showAnswer": true,
+          "points": 1,
+          "maxAttempts": null
+        }
+      },
+      "response": {
+        "kind": "classify",
+        "placements": [
+          { "itemId": "i1", "categoryId": "c1" },
+          { "itemId": "i2", "categoryId": "c2" }
+        ]
+      },
+      "expected": {
+        "isCorrect": true,
+        "score": 1,
+        "maxScore": 1,
+        "feedback": {
+          "kind": "rich-text",
+          "document": {
+            "type": "doc",
+            "content": [{ "type": "text", "text": "Classify summary." }]
+          }
+        },
+        "items": {
+          "i1": {
+            "correct": true,
+            "expected": "c1",
+            "given": "c1",
+            "feedback": {
+              "kind": "rich-text",
+              "document": {
+                "type": "doc",
+                "content": [{ "type": "text", "text": "First classification feedback." }]
+              }
+            }
+          },
+          "i2": { "correct": true, "expected": "c2", "given": "c2" }
+        }
+      }
+    },
+    {
+      "id": "classify-partial-wrong-placement",
+      "target": {
+        "schemaVersion": 1,
+        "targetId": "classify-partial-wrong-placement",
+        "blockId": "classify-partial-wrong-placement",
+        "blockType": "categorise",
+        "interaction": {
+          "kind": "classify",
+          "items": [{ "id": "i1" }, { "id": "i2" }],
+          "categories": [{ "id": "c1" }, { "id": "c2" }]
+        },
+        "assessment": {
+          "kind": "classify",
+          "correctPlacements": [
+            { "itemId": "i1", "categoryId": "c1" },
+            { "itemId": "i2", "categoryId": "c2" }
+          ],
+          "feedbackByItemId": {}
+        },
+        "settings": {
+          "feedbackMode": "immediate",
+          "isGraded": true,
+          "showAnswer": false,
+          "points": 1,
+          "maxAttempts": 2
+        }
+      },
+      "response": {
+        "kind": "classify",
+        "placements": [
+          { "itemId": "i1", "categoryId": "c1" },
+          { "itemId": "i2", "categoryId": "c1" }
+        ]
+      },
+      "expected": {
+        "isCorrect": false,
+        "score": 0.5,
+        "maxScore": 1,
+        "feedback": null,
+        "items": {
+          "i1": { "correct": true, "expected": "c1", "given": "c1" },
+          "i2": { "correct": false, "expected": "c2", "given": "c1" }
+        }
+      }
+    },
+    {
+      "id": "classify-empty-answer",
+      "target": {
+        "schemaVersion": 1,
+        "targetId": "classify-empty-answer",
+        "blockId": "classify-empty-answer",
+        "blockType": "categorise",
+        "interaction": { "kind": "classify", "items": [], "categories": [] },
+        "assessment": {
+          "kind": "classify",
+          "correctPlacements": [],
+          "feedbackByItemId": {}
+        },
+        "settings": {
+          "feedbackMode": "on_submit",
+          "isGraded": false,
+          "showAnswer": false,
+          "points": 0,
+          "maxAttempts": null
+        }
+      },
+      "response": { "kind": "classify", "placements": [] },
+      "expected": {
+        "isCorrect": false,
+        "score": 0,
+        "maxScore": 1,
+        "feedback": null,
+        "items": {}
+      }
+    },
+    {
+      "id": "fill-blanks-happy-normalized",
+      "target": {
+        "schemaVersion": 1,
+        "targetId": "fill-blanks-happy-normalized",
+        "blockId": "fill-blanks-happy-normalized",
+        "blockType": "fill_blanks",
+        "interaction": {
+          "kind": "fill-blanks",
+          "blanks": [{ "id": "b1" }, { "id": "b2" }]
+        },
+        "assessment": {
+          "kind": "fill-blanks",
+          "blanks": [
+            {
+              "blankId": "b1",
+              "acceptedAnswers": ["Paris"],
+              "caseSensitive": false,
+              "trimWhitespace": true
+            },
+            {
+              "blankId": "b2",
+              "acceptedAnswers": [" Na "],
+              "caseSensitive": true,
+              "trimWhitespace": false
+            }
+          ],
+          "feedbackByBlankId": {
+            "b2": {
+              "kind": "rich-text",
+              "document": {
+                "type": "doc",
+                "content": [{ "type": "text", "text": "Preserve the exact symbol spacing." }]
+              }
+            }
+          },
+          "summaryFeedback": {
+            "kind": "rich-text",
+            "document": {
+              "type": "doc",
+              "content": [{ "type": "text", "text": "Fill-blanks summary." }]
+            }
+          }
+        },
+        "settings": {
+          "feedbackMode": "on_submit",
+          "isGraded": true,
+          "showAnswer": true,
+          "points": 1,
+          "maxAttempts": null
+        }
+      },
+      "response": {
+        "kind": "fill-blanks",
+        "blanks": [
+          { "blankId": "b1", "value": " paris " },
+          { "blankId": "b2", "value": " Na " }
+        ]
+      },
+      "expected": {
+        "isCorrect": true,
+        "score": 1,
+        "maxScore": 1,
+        "feedback": {
+          "kind": "rich-text",
+          "document": {
+            "type": "doc",
+            "content": [{ "type": "text", "text": "Fill-blanks summary." }]
+          }
+        },
+        "items": {
+          "b1": { "correct": true, "expected": ["Paris"], "given": " paris " },
+          "b2": {
+            "correct": true,
+            "expected": [" Na "],
+            "given": " Na ",
+            "feedback": {
+              "kind": "rich-text",
+              "document": {
+                "type": "doc",
+                "content": [{ "type": "text", "text": "Preserve the exact symbol spacing." }]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "fill-blanks-partial-normalization-flags",
+      "target": {
+        "schemaVersion": 1,
+        "targetId": "fill-blanks-partial-normalization-flags",
+        "blockId": "fill-blanks-partial-normalization-flags",
+        "blockType": "fill_blanks",
+        "interaction": {
+          "kind": "fill-blanks",
+          "blanks": [{ "id": "b1" }, { "id": "b2" }]
+        },
+        "assessment": {
+          "kind": "fill-blanks",
+          "blanks": [
+            {
+              "blankId": "b1",
+              "acceptedAnswers": ["Paris"],
+              "caseSensitive": false,
+              "trimWhitespace": true
+            },
+            {
+              "blankId": "b2",
+              "acceptedAnswers": [" Na "],
+              "caseSensitive": true,
+              "trimWhitespace": false
+            }
+          ],
+          "feedbackByBlankId": {}
+        },
+        "settings": {
+          "feedbackMode": "immediate",
+          "isGraded": true,
+          "showAnswer": false,
+          "points": 1,
+          "maxAttempts": 2
+        }
+      },
+      "response": {
+        "kind": "fill-blanks",
+        "blanks": [
+          { "blankId": "b1", "value": " PARIS " },
+          { "blankId": "b2", "value": "Na" }
+        ]
+      },
+      "expected": {
+        "isCorrect": false,
+        "score": 0.5,
+        "maxScore": 1,
+        "feedback": null,
+        "items": {
+          "b1": { "correct": true, "expected": ["Paris"], "given": " PARIS " },
+          "b2": { "correct": false, "expected": [" Na "], "given": "Na" }
+        }
+      }
+    },
+    {
+      "id": "fill-blanks-empty-answer",
+      "target": {
+        "schemaVersion": 1,
+        "targetId": "fill-blanks-empty-answer",
+        "blockId": "fill-blanks-empty-answer",
+        "blockType": "fill_blanks",
+        "interaction": { "kind": "fill-blanks", "blanks": [] },
+        "assessment": {
+          "kind": "fill-blanks",
+          "blanks": [],
+          "feedbackByBlankId": {}
+        },
+        "settings": {
+          "feedbackMode": "on_submit",
+          "isGraded": false,
+          "showAnswer": false,
+          "points": 0,
+          "maxAttempts": null
+        }
+      },
+      "response": { "kind": "fill-blanks", "blanks": [] },
+      "expected": {
+        "isCorrect": false,
+        "score": 0,
+        "maxScore": 1,
+        "feedback": null,
+        "items": {}
+      }
+    },
+    {
+      "id": "spatial-hotspot-partial-credit-happy",
+      "target": {
+        "schemaVersion": 1,
+        "targetId": "spatial-hotspot-partial-credit-happy",
+        "blockId": "spatial-hotspot-partial-credit-happy",
+        "blockType": "image_hotspot",
+        "interaction": {
+          "kind": "spatial-hotspot",
+          "hotspots": [
+            {
+              "id": "h1",
+              "geometry": { "kind": "circle", "centerX": 0.25, "centerY": 0.25, "radius": 0.1 }
+            },
+            {
+              "id": "h2",
+              "geometry": { "kind": "circle", "centerX": 0.75, "centerY": 0.75, "radius": 0.1 }
+            }
+          ],
+          "maxSelections": null
+        },
+        "assessment": {
+          "kind": "spatial-hotspot",
+          "gradingMode": "partial-credit",
+          "correctHotspotIds": ["h1"],
+          "feedbackByHotspotId": {
+            "h1": {
+              "kind": "rich-text",
+              "document": {
+                "type": "doc",
+                "content": [{ "type": "text", "text": "Primary hotspot feedback." }]
+              }
+            }
+          },
+          "summaryFeedback": {
+            "kind": "rich-text",
+            "document": {
+              "type": "doc",
+              "content": [{ "type": "text", "text": "Hotspot summary." }]
+            }
+          }
+        },
+        "settings": {
+          "feedbackMode": "on_submit",
+          "isGraded": true,
+          "showAnswer": true,
+          "points": 1,
+          "maxAttempts": null
+        }
+      },
+      "response": {
+        "kind": "spatial-hotspot",
+        "selections": [{ "hotspotId": "h1", "x": 0.25, "y": 0.25 }]
+      },
+      "expected": {
+        "isCorrect": true,
+        "score": 1,
+        "maxScore": 1,
+        "feedback": {
+          "kind": "rich-text",
+          "document": { "type": "doc", "content": [{ "type": "text", "text": "Hotspot summary." }] }
+        },
+        "items": {
+          "h1": {
+            "correct": true,
+            "expected": true,
+            "given": true,
+            "feedback": {
+              "kind": "rich-text",
+              "document": {
+                "type": "doc",
+                "content": [{ "type": "text", "text": "Primary hotspot feedback." }]
+              }
+            }
+          },
+          "h2": { "correct": true, "expected": false, "given": false }
+        }
+      }
+    },
+    {
+      "id": "spatial-hotspot-all-or-nothing-fail",
+      "target": {
+        "schemaVersion": 1,
+        "targetId": "spatial-hotspot-all-or-nothing-fail",
+        "blockId": "spatial-hotspot-all-or-nothing-fail",
+        "blockType": "image_hotspot",
+        "interaction": {
+          "kind": "spatial-hotspot",
+          "hotspots": [
+            {
+              "id": "h1",
+              "geometry": { "kind": "circle", "centerX": 0.25, "centerY": 0.25, "radius": 0.1 }
+            },
+            {
+              "id": "h2",
+              "geometry": { "kind": "circle", "centerX": 0.75, "centerY": 0.75, "radius": 0.1 }
+            }
+          ],
+          "maxSelections": 2
+        },
+        "assessment": {
+          "kind": "spatial-hotspot",
+          "gradingMode": "all-or-nothing",
+          "correctHotspotIds": ["h1", "h2"],
+          "feedbackByHotspotId": {}
+        },
+        "settings": {
+          "feedbackMode": "immediate",
+          "isGraded": true,
+          "showAnswer": false,
+          "points": 1,
+          "maxAttempts": 2,
+          "maxSelections": 2
+        }
+      },
+      "response": {
+        "kind": "spatial-hotspot",
+        "selections": [{ "hotspotId": "h1", "x": 0.25, "y": 0.25 }]
+      },
+      "expected": {
+        "isCorrect": false,
+        "score": 0,
+        "maxScore": 1,
+        "feedback": null,
+        "items": {
+          "h1": { "correct": true, "expected": true, "given": true },
+          "h2": { "correct": false, "expected": true, "given": false }
+        }
+      }
+    },
+    {
+      "id": "spatial-hotspot-empty-answer",
+      "target": {
+        "schemaVersion": 1,
+        "targetId": "spatial-hotspot-empty-answer",
+        "blockId": "spatial-hotspot-empty-answer",
+        "blockType": "image_hotspot",
+        "interaction": {
+          "kind": "spatial-hotspot",
+          "hotspots": [],
+          "maxSelections": null
+        },
+        "assessment": {
+          "kind": "spatial-hotspot",
+          "gradingMode": "partial-credit",
+          "correctHotspotIds": [],
+          "feedbackByHotspotId": {}
+        },
+        "settings": {
+          "feedbackMode": "on_submit",
+          "isGraded": false,
+          "showAnswer": false,
+          "points": 0,
+          "maxAttempts": null
+        }
+      },
+      "response": {
+        "kind": "spatial-hotspot",
+        "selections": [{ "hotspotId": null, "x": 0.5, "y": 0.5 }]
+      },
+      "expected": {
+        "isCorrect": false,
+        "score": 0,
+        "maxScore": 1,
+        "feedback": null,
+        "items": {}
+      }
+    }
+  ]
+}

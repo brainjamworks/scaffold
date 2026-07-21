@@ -1,0 +1,99 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  /* ─── Marginalia ────────────────────────────────────────────────
+ * Constrained gutter slot + main column. Gutter is fixed at ~220px,
+ * main column flexes. On viewports < 720px the layout collapses
+ * to a stack with the gutter appearing as a quiet inline aside
+ * above the main column.
+ *
+ * `data-position` swaps left/right gutter via grid-area assignment.
+ * The gutter renders narrower content (small image + caption,
+ * definition, sidenote) without competing with the body. */
+
+  .sc-marginalia {
+    position: relative;
+  }
+
+  .sc-marginalia__content {
+    display: grid;
+    gap: 1.5rem;
+    align-items: start;
+  }
+
+  .sc-marginalia[data-position="right"] .sc-marginalia__content {
+    grid-template-columns: minmax(0, 1fr) 220px;
+    grid-template-areas: "main gutter";
+  }
+
+  .sc-marginalia[data-position="left"] .sc-marginalia__content {
+    grid-template-columns: 220px minmax(0, 1fr);
+    grid-template-areas: "gutter main";
+  }
+
+  @media (max-width: 720px) {
+    .sc-marginalia[data-position="right"] .sc-marginalia__content,
+    .sc-marginalia[data-position="left"] .sc-marginalia__content {
+      grid-template-columns: 1fr;
+      grid-template-areas: "gutter" "main";
+      gap: 1rem;
+    }
+  }
+
+  .sc-marginalia__gutter {
+    grid-area: gutter;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 0;
+    padding-top: 1.625rem;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--color-text-secondary);
+  }
+
+  .sc-marginalia__gutter-label {
+    position: absolute;
+    top: 0;
+    left: 0;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 0.25rem;
+    width: 100%;
+  }
+
+  .sc-marginalia__gutter-content > [data-node-view-content-react] > * {
+    margin: 0;
+  }
+
+  .sc-marginalia__gutter-content > [data-node-view-content-react] > * + * {
+    margin-top: 0.5rem;
+  }
+
+  /* Images and figures in the gutter scale to the gutter width. */
+  .sc-marginalia__gutter-content [data-node="image_block"] img,
+  .sc-marginalia__gutter-content img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  .sc-marginalia__main {
+    grid-area: main;
+    min-width: 0;
+  }
+
+  .sc-marginalia__main-content > [data-node-view-content-react] > * {
+    margin: 0;
+  }
+
+  .sc-marginalia__main-content > [data-node-view-content-react] > * + * {
+    margin-top: 0.75rem;
+  }
+}

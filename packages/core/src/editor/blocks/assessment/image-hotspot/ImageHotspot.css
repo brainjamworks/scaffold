@@ -1,0 +1,523 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-image-hotspot-empty__button {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.25rem;
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--color-text-muted);
+    text-align: left;
+    cursor: pointer;
+    transition:
+      border-color 150ms var(--ease-out-soft),
+      background-color 150ms var(--ease-out-soft),
+      color 150ms var(--ease-out-soft);
+  }
+
+  .sc-image-hotspot-empty__button:hover {
+    border-color: var(--color-ink);
+    background: var(--color-canvas);
+    color: var(--color-ink);
+  }
+
+  .sc-image-hotspot-empty__button:active {
+    background: var(--color-muted);
+  }
+
+  .sc-image-hotspot-empty__button:focus-visible {
+    outline: 2px solid var(--color-focus-outline);
+    outline-offset: 2px;
+  }
+
+  .sc-image-hotspot-empty__icon {
+    display: inline-flex;
+    width: 2.5rem;
+    height: 2.5rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px dashed currentColor;
+    border-radius: var(--radius-pill);
+  }
+
+  .sc-image-hotspot-empty__title {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .sc-image-hotspot-empty__description {
+    display: block;
+    margin-top: 0.125rem;
+    font-size: 0.75rem;
+  }
+
+  .sc-image-hotspot-empty {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .sc-image-hotspot-shell {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .sc-image-hotspot-fit-stage {
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    place-items: center;
+  }
+
+  .sc-image-hotspot-runtime-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .sc-image-hotspot-canvas {
+    position: relative;
+    overflow: hidden;
+    user-select: none;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-muted);
+    aspect-ratio: var(--sc-image-hotspot-aspect-ratio);
+  }
+
+  .sc-image-hotspot-canvas--authoring {
+    touch-action: none;
+    cursor: crosshair;
+  }
+
+  .sc-image-hotspot-canvas--authoring-preview {
+    cursor: default;
+  }
+
+  .sc-image-hotspot-canvas--runtime-enabled {
+    cursor: crosshair;
+  }
+
+  .sc-image-hotspot-canvas--runtime-disabled {
+    cursor: default;
+  }
+
+  .sc-image-hotspot-image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+  }
+
+  .sc-image-hotspot-shell--expanded {
+    display: grid;
+    height: 100%;
+    min-height: 0;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .sc-image-hotspot-shell--expanded > .sc-image-hotspot-runtime-toolbar {
+    grid-row: 1;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .sc-image-hotspot-runtime-workspace__body {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr);
+    overflow: hidden;
+    padding: 1rem;
+  }
+
+  .sc-image-hotspot-workspace__canvas {
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sc-image-hotspot-workspace__canvas .sc-image-hotspot-canvas {
+    max-width: 100%;
+    max-height: 100%;
+    flex: none;
+  }
+
+  .sc-image-hotspot-shell--expanded .sc-image-hotspot-canvas {
+    max-width: 100%;
+    max-height: 100%;
+  }
+
+  .sc-image-hotspot-workspace__row-summary {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sc-image-hotspot-workspace__row-editor {
+    margin-block-start: 0.625rem;
+    padding-block-start: 0.75rem;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .sc-assessment-node-view[data-bounded-placement="fill"] > .sc-image-hotspot {
+    --sc-assessment-bounded-row-gap: clamp(0.5rem, 1.75cqw, 0.75rem);
+    --sc-assessment-bounded-column-gap: clamp(0.5rem, 1.75cqw, 0.75rem);
+  }
+
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+    > .sc-image-hotspot
+    [data-node="image-hotspot-canvas"] {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-row: 3;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    align-items: center;
+    justify-items: stretch;
+    overflow: hidden;
+  }
+
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+    > .sc-image-hotspot
+    [data-node="image-hotspot-canvas"]
+    > .sc-image-hotspot-empty,
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+    > .sc-image-hotspot
+    [data-node="image-hotspot-canvas"]
+    > .sc-image-hotspot-runtime-missing {
+    align-self: center;
+    justify-self: stretch;
+  }
+
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+    > .sc-image-hotspot
+    [data-node="image-hotspot-canvas"]
+    > .sc-image-hotspot-runtime-missing {
+    text-align: center;
+  }
+
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+    > .sc-image-hotspot
+    [data-node="image-hotspot-canvas"]
+    > .sc-image-hotspot-shell {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    align-items: stretch;
+    justify-items: stretch;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+    > .sc-image-hotspot
+    .sc-image-hotspot-runtime-toolbar,
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+    > .sc-image-hotspot
+    .sc-image-hotspot-runtime-counter {
+    grid-row: 1;
+    margin-bottom: var(--sc-assessment-bounded-row-gap);
+  }
+
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+    > .sc-image-hotspot
+    .sc-image-hotspot-fit-stage {
+    grid-row: 2;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+    > .sc-image-hotspot
+    .sc-image-hotspot-canvas {
+    max-width: 100%;
+    max-height: 100%;
+    justify-self: center;
+    align-self: center;
+  }
+
+  .sc-image-hotspot-overlay {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  .sc-image-hotspot-author-marker {
+    position: absolute;
+    z-index: 10;
+    display: flex;
+    width: 1.75rem;
+    height: 1.75rem;
+    align-items: center;
+    justify-content: center;
+    transform: translate(-50%, -50%);
+    border: 1px solid transparent;
+    border-radius: var(--radius-pill);
+    background: transparent;
+    color: transparent;
+    cursor: pointer;
+    transition:
+      border-color 150ms ease,
+      background-color 150ms ease,
+      color 150ms ease;
+  }
+
+  .sc-image-hotspot-author-marker[data-hotspot-selected="true"],
+  .sc-image-hotspot-author-marker[data-state="open"],
+  .sc-image-hotspot-author-marker:hover,
+  .sc-image-hotspot-author-marker:focus-visible {
+    border-color: var(--color-primary);
+    background: var(--color-background);
+    color: var(--color-primary);
+  }
+
+  .sc-image-hotspot-author-marker:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--color-focus-ring);
+  }
+
+  .sc-image-hotspot-author-marker__number {
+    pointer-events: none;
+    font-size: 0.875rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .sc-image-hotspot-author-marker__edit {
+    position: absolute;
+    right: -0.25rem;
+    bottom: -0.25rem;
+    display: flex;
+    width: 0.875rem;
+    height: 0.875rem;
+    align-items: center;
+    justify-content: center;
+    transform: scale(0.86);
+    border-radius: var(--radius-pill);
+    background: var(--color-primary);
+    color: var(--color-background);
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      opacity 150ms ease,
+      transform 150ms ease;
+  }
+
+  .sc-image-hotspot-author-marker[data-state="open"] .sc-image-hotspot-author-marker__edit,
+  .sc-image-hotspot-author-marker:hover .sc-image-hotspot-author-marker__edit,
+  .sc-image-hotspot-author-marker:focus-visible .sc-image-hotspot-author-marker__edit {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  .sc-image-hotspot-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .sc-image-hotspot-editor__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .sc-image-hotspot-editor__title {
+    color: var(--color-ink);
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .sc-image-hotspot-editor__field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  .sc-image-hotspot-editor__label {
+    color: var(--color-ink);
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .sc-image-hotspot-editor__input {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-background);
+    color: var(--color-ink);
+    font-size: 0.875rem;
+    line-height: 1.35;
+  }
+
+  .sc-image-hotspot-editor__input::placeholder {
+    color: var(--color-text-placeholder);
+  }
+
+  .sc-image-hotspot-editor__input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px var(--color-focus-ring);
+  }
+
+  .sc-image-hotspot-editor__correct-toggle {
+    display: inline-flex;
+    width: 100%;
+    height: 2.25rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    padding-inline: 1rem;
+    border-radius: var(--radius-pill);
+    color: var(--color-ink);
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition:
+      border-color 150ms ease,
+      background-color 150ms ease;
+  }
+
+  .sc-image-hotspot-editor__correct-toggle--neutral {
+    border: 1px solid var(--color-border);
+    background: var(--color-background);
+  }
+
+  .sc-image-hotspot-editor__correct-toggle--neutral:hover {
+    border-color: var(--color-text-muted);
+    background: var(--color-canvas);
+  }
+
+  .sc-image-hotspot-editor__correct-toggle--correct {
+    border: 1.5px solid var(--color-accent);
+    background: var(--color-success-bg);
+  }
+
+  .sc-image-hotspot-editor__correct-toggle--correct:hover {
+    background: var(--color-success-bg);
+  }
+
+  .sc-image-hotspot-editor__correct-icon {
+    color: var(--color-accent);
+  }
+
+  .sc-image-hotspot-runtime-missing {
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+  }
+
+  .sc-image-hotspot-runtime-counter {
+    margin-bottom: 0.5rem;
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .sc-image-hotspot-runtime-toolbar .sc-image-hotspot-runtime-counter {
+    margin-bottom: 0;
+  }
+
+  .sc-image-hotspot-marker {
+    position: absolute;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transform: translate(-50%, -50%);
+    border-radius: var(--radius-pill);
+    transition:
+      border-color 150ms ease,
+      background-color 150ms ease,
+      color 150ms ease,
+      opacity 150ms ease;
+  }
+
+  .sc-image-hotspot-marker--hit {
+    width: 1.5rem;
+    height: 1.5rem;
+    color: #fff;
+    box-shadow: var(--shadow-overlay);
+  }
+
+  .sc-image-hotspot-marker--correct {
+    background: var(--color-accent);
+  }
+
+  .sc-image-hotspot-marker--incorrect {
+    background: var(--color-secondary);
+  }
+
+  .sc-image-hotspot-marker--pending {
+    width: 1.25rem;
+    height: 1.25rem;
+    border: 1.5px dashed var(--color-ink);
+    background: var(--color-background);
+    color: var(--color-ink);
+  }
+
+  .sc-image-hotspot-marker--pending:hover {
+    background: var(--color-canvas);
+  }
+
+  .sc-image-hotspot-marker--miss {
+    width: 0.625rem;
+    height: 0.625rem;
+    background: rgb(113 113 122 / 70%);
+    box-shadow: 0 0 0 1px var(--color-background);
+  }
+
+  .sc-image-hotspot-marker__pending-label {
+    font-size: 0.625rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .sc-image-hotspot-runtime-rich-text :where(p) {
+    margin-block: 0;
+    line-height: 1.45;
+  }
+
+  .sc-hotspot-pulse {
+    animation: sc-hotspot-pulse 1400ms ease-out infinite;
+  }
+
+  @keyframes sc-hotspot-pulse {
+    0% {
+      opacity: 1;
+    }
+
+    70% {
+      opacity: 0.45;
+    }
+
+    100% {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sc-image-hotspot-empty__button,
+    .sc-image-hotspot-editor__correct-toggle,
+    .sc-image-hotspot-marker {
+      transition: none;
+    }
+
+    .sc-hotspot-pulse {
+      animation: none;
+    }
+  }
+}

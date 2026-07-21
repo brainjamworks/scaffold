@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 60" width="260" height="60" role="img" aria-label="scaffold">
+  <title>scaffold wordmark — text only, dark surface</title>
+  <text
+    x="0"
+    y="48"
+    font-family="Poppins, system-ui, -apple-system, BlinkMacSystemFont, sans-serif"
+    font-size="48"
+    font-weight="700"
+    letter-spacing="-1.2"
+    fill="#FFFFFF"
+  >scaffold<tspan fill="#F43A57">.</tspan></text>
+</svg>

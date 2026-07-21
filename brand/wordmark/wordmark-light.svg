@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" width="320" height="80" role="img" aria-label="scaffold">
+  <title>scaffold wordmark — light surface</title>
+  <!-- Register mark + "scaffold." in Poppins 700. Trailing dot is coral
+       on light surfaces. Master 64-unit mark scaled 0.84375× into the
+       54px lockup slot. -->
+  <g transform="translate(10, 12) scale(0.84375)">
+    <path d="M5 24V5h19M40 5h19v19M59 40v19H40M24 59H5V40" fill="none" stroke="#161D77" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 3" opacity="0.5"/>
+    <path d="M32 18v28M18 32h28" fill="none" stroke="#161D77" stroke-width="4.25" stroke-linecap="round"/>
+  </g>
+  <text
+    x="80"
+    y="52"
+    font-family="Poppins, system-ui, -apple-system, BlinkMacSystemFont, sans-serif"
+    font-size="40"
+    font-weight="700"
+    letter-spacing="-1"
+    fill="#18181B"
+  >scaffold<tspan fill="#F43A57">.</tspan></text>
+</svg>

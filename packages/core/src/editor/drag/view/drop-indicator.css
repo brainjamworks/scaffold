@@ -1,0 +1,42 @@
+.sc-drop-indicator {
+  pointer-events: none;
+  position: absolute;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary);
+}
+
+.sc-drop-indicator--horizontal-before {
+  inset-inline: 0;
+  top: 0;
+  height: 0.125rem;
+}
+
+.sc-drop-indicator--horizontal-after {
+  inset-inline: 0;
+  bottom: 0;
+  height: 0.125rem;
+}
+
+.sc-drop-indicator--vertical-before {
+  inset-block: 0;
+  left: 0;
+  width: 0.125rem;
+}
+
+.sc-drop-indicator--vertical-after {
+  inset-block: 0;
+  right: 0;
+  width: 0.125rem;
+}
+
+.sc-drop-indicator--inside {
+  inset: 0;
+  border: 1px dashed var(--color-primary);
+  border-radius: var(--radius-md);
+  background: transparent;
+}
+
+.sc-drop-indicator-frame {
+  pointer-events: none;
+  position: fixed;
+}

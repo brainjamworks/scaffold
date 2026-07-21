@@ -1,0 +1,172 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-choice-answer {
+    position: relative;
+    display: flex;
+    min-height: var(--spacing-touch-target);
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 0.75rem 0.75rem 1rem;
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-background);
+    color: var(--color-ink);
+    transition:
+      border-color 150ms var(--ease-out-soft),
+      background-color 150ms var(--ease-out-soft),
+      color 150ms var(--ease-out-soft);
+  }
+
+  .sc-choice-answer:has([data-state="open"]) {
+    z-index: var(--z-popover);
+  }
+
+  .sc-choice-answer--interactive {
+    cursor: pointer;
+  }
+
+  .sc-choice-answer--interactive:hover {
+    border-color: var(--color-ink);
+    background: var(--color-canvas);
+  }
+
+  .sc-choice-answer--disabled {
+    cursor: default;
+  }
+
+  .sc-choice-answer--checked-runtime {
+    border-color: var(--color-primary);
+    background: var(--color-primary-muted);
+  }
+
+  .sc-choice-answer--correct {
+    border-color: var(--color-accent);
+    background: var(--color-success-bg);
+  }
+
+  .sc-choice-answer--incorrect {
+    border-color: var(--color-secondary);
+    background: var(--color-error-bg);
+  }
+
+  .sc-choice-answer--missed {
+    border-color: var(--color-accent);
+    border-style: dashed;
+    background: var(--color-success-bg);
+    color: var(--color-success-text);
+  }
+
+  .sc-choice-answer__native-control {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sc-choice-answer__input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    cursor: inherit;
+    opacity: 0;
+  }
+
+  .sc-choice-answer__input:focus-visible + .sc-choice-answer__indicator {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+
+  .sc-choice-answer__indicator {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    border: 1.5px solid var(--color-ink);
+    background: var(--color-background);
+    transition:
+      border-color 150ms var(--ease-out-soft),
+      background-color 150ms var(--ease-out-soft);
+  }
+
+  .sc-choice-answer__indicator--radio {
+    border-radius: var(--radius-pill);
+  }
+
+  .sc-choice-answer__indicator--checkbox {
+    border-radius: var(--radius-sm);
+  }
+
+  .sc-choice-answer--interactive:hover .sc-choice-answer__indicator--unchecked {
+    border-color: var(--color-primary);
+  }
+
+  .sc-choice-answer__indicator--checked-runtime {
+    border-color: var(--color-primary);
+  }
+
+  .sc-choice-answer__indicator--checked-author,
+  .sc-choice-answer__indicator--correct,
+  .sc-choice-answer__indicator--missed {
+    border-color: var(--color-accent);
+  }
+
+  .sc-choice-answer__indicator--incorrect {
+    border-color: var(--color-secondary);
+  }
+
+  .sc-choice-answer__indicator-button {
+    appearance: none;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .sc-choice-answer__indicator-button:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+
+  .sc-choice-answer__mark {
+    color: currentColor;
+  }
+
+  .sc-choice-answer__mark--primary {
+    color: var(--color-primary);
+  }
+
+  .sc-choice-answer__mark--accent {
+    color: var(--color-accent);
+  }
+
+  .sc-choice-answer__mark--incorrect {
+    color: var(--color-secondary);
+  }
+
+  .sc-choice-answer__dot {
+    display: block;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: var(--radius-pill);
+    background: var(--color-primary);
+  }
+
+  .sc-choice-answer__content {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none;
+    color: currentColor;
+    font-size: var(--text-sm);
+    line-height: var(--leading-snug);
+  }
+
+  .sc-choice-answer__content p {
+    margin-top: 0;
+    margin-bottom: 0;
+    line-height: var(--leading-snug);
+  }
+}

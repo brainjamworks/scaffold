@@ -1,0 +1,45 @@
+.sc-field-content {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+  word-break: normal;
+}
+
+.sc-field-content > :where(h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote, pre, hr),
+.ProseMirror .sc-field-content > :where(h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote, pre, hr) {
+  min-width: 0;
+  max-width: 100%;
+  margin-block: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  overflow-wrap: inherit;
+  text-wrap: inherit;
+  word-break: inherit;
+}
+
+.sc-field-content > * + *,
+.ProseMirror .sc-field-content > * + * {
+  margin-block-start: var(--sc-field-content-flow-gap);
+  margin-top: var(--sc-field-content-flow-gap);
+}
+
+.sc-field-content > :where(ul, ol),
+.ProseMirror .sc-field-content > :where(ul, ol) {
+  padding-inline-start: 1.25em;
+}
+
+.sc-field-content :where(li),
+.ProseMirror .sc-field-content :where(li) {
+  margin-block: 0.125rem;
+}
+
+.sc-field-content > :where(blockquote),
+.ProseMirror .sc-field-content > :where(blockquote) {
+  border-inline-start: 2px solid currentColor;
+  padding-inline-start: 0.875rem;
+}
+
+.sc-field-content > :where(pre),
+.ProseMirror .sc-field-content > :where(pre) {
+  white-space: pre-wrap;
+}

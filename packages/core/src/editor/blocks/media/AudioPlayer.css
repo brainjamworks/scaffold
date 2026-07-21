@@ -1,0 +1,257 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  /* ─── AudioPlayer ────────────────────────────────────────────────
+ * Pill-shaped control bar. Responsive via container queries on the
+ * pill itself: as the block narrows, drop the volume slider first,
+ * then the speed cycle, then the time display. Mute toggle and play
+ * always stay. */
+
+  .sc-audio-player {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    color: var(--color-ink);
+    font-family: inherit;
+    container-type: inline-size;
+    container-name: sc-audio-player;
+  }
+
+  .sc-audio-player__title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-ink);
+    letter-spacing: -0.005em;
+  }
+
+  .sc-audio-player__bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3125rem 0.5rem 0.3125rem 0.3125rem;
+    border: 1px solid var(--color-border);
+    border-radius: 9999px;
+    background: var(--color-background);
+    min-width: 0;
+    transition: border-color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .sc-audio-player__bar:hover {
+    border-color: color-mix(in oklch, var(--color-ink) 22%, transparent);
+  }
+
+  .sc-audio-player__bar:focus-within {
+    border-color: var(--color-primary);
+  }
+
+  /* ─── Play / Pause ────────────────────────────────────────────── */
+
+  .sc-audio-player__play {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    flex-shrink: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: var(--color-primary);
+    color: var(--color-primary-foreground);
+    cursor: pointer;
+    transition:
+      background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      transform 120ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .sc-audio-player__play:hover {
+    background: color-mix(in oklch, var(--color-primary) 88%, black);
+  }
+
+  .sc-audio-player__play:active {
+    transform: scale(0.96);
+  }
+
+  .sc-audio-player__play:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+
+  /* ─── Secondary buttons (rate, mute) ──────────────────────────── */
+
+  .sc-audio-player__rate,
+  .sc-audio-player__mute {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 1.5rem;
+    padding: 0 0.4375rem;
+    flex-shrink: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition:
+      background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .sc-audio-player__mute {
+    width: 1.5rem;
+    padding: 0;
+  }
+
+  .sc-audio-player__rate:hover,
+  .sc-audio-player__mute:hover {
+    background: color-mix(in oklch, var(--color-ink) 6%, transparent);
+    color: var(--color-ink);
+  }
+
+  .sc-audio-player__rate:focus-visible,
+  .sc-audio-player__mute:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+
+  /* ─── Time display ────────────────────────────────────────────── */
+
+  .sc-audio-player__time {
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+  }
+
+  /* ─── Volume group (mute + slider) ────────────────────────────── */
+
+  .sc-audio-player__volume-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-shrink: 0;
+  }
+
+  /* ─── Sliders ─────────────────────────────────────────────────── */
+
+  .sc-audio-player__progress,
+  .sc-audio-player__volume {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 3px;
+    border-radius: 9999px;
+    background: var(--color-border);
+    cursor: pointer;
+    outline: none;
+    margin: 0;
+  }
+
+  .sc-audio-player__progress {
+    flex: 1 1 0;
+    min-width: 3rem;
+  }
+
+  .sc-audio-player__volume {
+    width: 3.5rem;
+    flex-shrink: 0;
+  }
+
+  .sc-audio-player__progress:focus-visible,
+  .sc-audio-player__volume:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 3px;
+  }
+
+  /* WebKit track */
+  .sc-audio-player__progress::-webkit-slider-runnable-track,
+  .sc-audio-player__volume::-webkit-slider-runnable-track {
+    height: 3px;
+    border-radius: 9999px;
+    background: var(--color-border);
+  }
+
+  /* Firefox track */
+  .sc-audio-player__progress::-moz-range-track,
+  .sc-audio-player__volume::-moz-range-track {
+    height: 3px;
+    border-radius: 9999px;
+    background: var(--color-border);
+  }
+
+  /* WebKit thumb */
+  .sc-audio-player__progress::-webkit-slider-thumb,
+  .sc-audio-player__volume::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 11px;
+    height: 11px;
+    margin-top: -4px;
+    border-radius: 9999px;
+    background: var(--color-primary);
+    border: 2px solid var(--color-background);
+    cursor: pointer;
+    box-shadow: 0 1px 3px color-mix(in oklch, var(--color-ink) 16%, transparent);
+    transition: transform 120ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .sc-audio-player__progress::-webkit-slider-thumb:hover,
+  .sc-audio-player__volume::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+  }
+
+  /* Firefox thumb */
+  .sc-audio-player__progress::-moz-range-thumb,
+  .sc-audio-player__volume::-moz-range-thumb {
+    width: 11px;
+    height: 11px;
+    border-radius: 9999px;
+    background: var(--color-primary);
+    border: 2px solid var(--color-background);
+    cursor: pointer;
+    box-shadow: 0 1px 3px color-mix(in oklch, var(--color-ink) 16%, transparent);
+  }
+
+  /* ─── Responsive: progressively drop chrome on narrow widths.
+ * Volume slider goes first (mute is enough), then the speed cycle,
+ * then the time display. Play + progress always stay so the block
+ * never collapses to "no controls". */
+
+  @container sc-audio-player (max-width: 420px) {
+    .sc-audio-player__volume {
+      display: none;
+    }
+  }
+
+  @container sc-audio-player (max-width: 340px) {
+    .sc-audio-player__rate {
+      display: none;
+    }
+  }
+
+  @container sc-audio-player (max-width: 260px) {
+    .sc-audio-player__time {
+      display: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sc-audio-player__bar,
+    .sc-audio-player__play,
+    .sc-audio-player__rate,
+    .sc-audio-player__mute,
+    .sc-audio-player__progress::-webkit-slider-thumb,
+    .sc-audio-player__volume::-webkit-slider-thumb {
+      transition: none;
+    }
+    .sc-audio-player__play:active {
+      transform: none;
+    }
+  }
+}

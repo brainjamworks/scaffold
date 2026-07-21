@@ -1,0 +1,165 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-overlays {
+  :where(.sc-workspace-dialog-overlay) {
+    position: fixed;
+    inset: 0;
+    background: var(--color-overlay-backdrop);
+  }
+
+  :where(.sc-workspace-dialog-content) {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform: translate(-50%, -50%);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-background);
+    color: var(--color-ink);
+    box-shadow: var(--shadow-overlay);
+    outline: none;
+  }
+
+  :where(.sc-workspace-dialog-header) {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  :where(.sc-workspace-dialog-toolbar) {
+    display: flex;
+    min-width: 0;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 0.25rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0.5rem 1.5rem;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-background);
+    overscroll-behavior-inline: contain;
+    white-space: nowrap;
+  }
+
+  :where(.sc-workspace-dialog-toolbar-group) {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 0.125rem;
+  }
+
+  :where(.sc-workspace-dialog-toolbar-button.is-active),
+  :where(.sc-workspace-dialog-toolbar-button[aria-pressed="true"]) {
+    background: var(--color-primary-muted);
+    color: var(--color-primary);
+  }
+
+  :where(.sc-workspace-dialog-toolbar-button.is-active:hover:not(:disabled)),
+  :where(.sc-workspace-dialog-toolbar-button[aria-pressed="true"]:hover:not(:disabled)) {
+    background: var(--color-primary-muted);
+    color: var(--color-primary);
+  }
+
+  :where(.sc-workspace-dialog-toolbar-separator) {
+    width: 1px;
+    height: 1.25rem;
+    flex: 0 0 auto;
+    margin: 0 0.125rem;
+    background: var(--color-border);
+  }
+
+  :where(.sc-workspace-dialog-title) {
+    margin: 0;
+    color: var(--color-ink);
+    font-size: 1.1875rem;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+
+  :where(.sc-workspace-dialog-description) {
+    margin: 0.25rem 0 0;
+    color: var(--color-text-muted);
+    font-size: 0.8125rem;
+    line-height: 1.4;
+  }
+
+  :where(.sc-workspace-dialog-body) {
+    min-width: 0;
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow: auto;
+    padding: 1.5rem;
+  }
+
+  :where(.sc-workspace-dialog-actions) {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--color-border);
+  }
+
+  :where(.sc-workspace-dialog-close) {
+    margin: -0.25rem -0.25rem 0 0;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    :where(.sc-workspace-dialog-overlay)[data-state="open"] {
+      animation: sc-workspace-dialog-overlay-in 220ms var(--ease-out-soft);
+    }
+
+    :where(.sc-workspace-dialog-overlay)[data-state="closed"] {
+      animation: sc-workspace-dialog-overlay-out 220ms var(--ease-out-soft);
+    }
+
+    :where(.sc-workspace-dialog-content)[data-state="open"] {
+      animation: sc-workspace-dialog-content-in 220ms var(--ease-out-soft);
+    }
+
+    :where(.sc-workspace-dialog-content)[data-state="closed"] {
+      animation: sc-workspace-dialog-content-out 220ms var(--ease-out-soft);
+    }
+  }
+
+  @keyframes sc-workspace-dialog-overlay-in {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes sc-workspace-dialog-overlay-out {
+    to {
+      opacity: 0;
+    }
+  }
+
+  @keyframes sc-workspace-dialog-content-in {
+    from {
+      opacity: 0;
+      transform: translate(-50%, -48%) scale(0.98);
+    }
+  }
+
+  @keyframes sc-workspace-dialog-content-out {
+    to {
+      opacity: 0;
+      transform: translate(-50%, -48%) scale(0.98);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :where(.sc-workspace-dialog-overlay)[data-state],
+    :where(.sc-workspace-dialog-content)[data-state] {
+      animation: none;
+    }
+  }
+}

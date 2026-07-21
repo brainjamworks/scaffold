@@ -1,0 +1,841 @@
+/* ─── Local fonts ───────────────────────────────────────────────
+ * Two branded families per `brand/design-system.html`:
+ *   - Poppins — primary, sans, every chrome + content surface
+ *   - JetBrains Mono — secondary, for code blocks, data values,
+ *     numeric status pills, and any tabular / monospaced moment
+ * CSS spec requires all @import rules to precede any other rule.
+ * Poppins does not publish a variable build, so keep the five design-token
+ * weights; JetBrains Mono uses one variable file for its full weight range. */
+@import "@fontsource/poppins/400.css";
+@import "@fontsource/poppins/500.css";
+@import "@fontsource/poppins/600.css";
+@import "@fontsource/poppins/700.css";
+@import "@fontsource/poppins/800.css";
+@import "@fontsource-variable/jetbrains-mono/wght.css";
+
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+:root,
+:host {
+  /* ─── Colours ─────────────────────────────────────────────────── */
+
+  /* Brand triple — navy primary, coral secondary, teal accent.
+   * THE fingerprint. Coral and teal earn their signal value by being
+   * scarce: coral = destructive/error only, teal = correctness/
+   * affirmation only. Anything outside those roles uses ink + canvas.
+   *
+   * Values are OKLCH-tuned (see brand/DESIGN-SYSTEM.md). sRGB hex listed for
+   * legacy fallback. */
+  --color-primary: oklch(0.3 0.15 270); /* #161d77 — deeper indigo */
+  --color-primary-foreground: #ffffff;
+  --color-primary-muted: oklch(0.95 0.025 270); /* ≈ #ecebf6 */
+
+  --color-secondary: oklch(0.64 0.22 18); /* #f43a57 — punchier vermillion */
+  --color-secondary-foreground: #ffffff;
+
+  --color-accent: oklch(0.68 0.18 175); /* #00ba92 — brighter cyan-lean */
+  --color-accent-foreground: #ffffff;
+
+  /* Inks — text, chrome, and the dark-surface family. Drives every
+   * neutral surface decision in the rebrand. */
+  --color-ink: #18181b;
+  --color-ink-2: #27272a;
+
+  /* Brand-presence dark surfaces (splash / login / document home /
+   * marketing). Distinct from the editor surface (light, canvas). */
+  --color-dark-surface: #0a0a0f;
+  --color-dark-surface-2: #1a1a1f;
+  --color-dark-text-muted: rgb(255 255 255 / 0.5);
+  --color-dark-border: rgb(255 255 255 / 0.12);
+
+  /* Brand-presence material treatment (splash / login / OG / hero).
+   * The aurora field + glass tile vocabulary that gives the dark
+   * splash depth without breaking the "flat at rest" rule for the
+   * editor. Use ONLY on brand-presence surfaces, never inside the
+   * editor or on favicon-sized marks. */
+  --color-brand-aurora-navy: oklch(0.42 0.18 270 / 0.2);
+  --color-brand-aurora-teal: oklch(0.52 0.14 175 / 0.13);
+  --color-brand-material-border: rgb(255 255 255 / 0.18);
+  --color-brand-material-highlight-top: rgb(255 255 255 / 0.24);
+  --color-brand-material-highlight-bottom: rgb(0 0 0 / 0.18);
+
+  /* Semantic pairs — bg + text + foreground per state. Always used
+   * as a pair (bg + text); never mix `success-bg` with arbitrary text.
+   * `--color-success` aligns to teal so the icon colour for
+   * "correctness/affirmation" matches the brand triple.
+   * `--color-error` aligns to coral for the same reason on the
+   * destructive side. */
+  --color-info: #2196f3;
+  --color-info-foreground: #ffffff;
+  --color-info-bg: #e3f2fd;
+  --color-info-text: #0d47a1;
+
+  --color-success: oklch(0.68 0.18 175); /* aligned to accent */
+  --color-success-foreground: #ffffff;
+  --color-success-bg: #d4f4dd;
+  --color-success-text: #0d5c2f;
+
+  --color-warning: #ffd100;
+  --color-warning-foreground: #000000;
+  --color-warning-bg: #fff4cc;
+  --color-warning-text: #8b5a00;
+
+  --color-error: oklch(0.64 0.22 18); /* aligned to secondary */
+  --color-error-foreground: #ffffff;
+  --color-error-bg: #ffdede;
+  --color-error-text: #a11f1f;
+
+  /* Surfaces + borders. Values aligned to zinc (cool greys). The
+   * page canvas is the warmest off-white we use; everything above it
+   * sits on white surfaces with hairline borders. */
+  --color-background: #ffffff;
+  --color-canvas: #fafafa;
+  --color-background-canvas: #fafafa;
+  --color-foreground: #18181b;
+  --color-muted: #f4f4f5;
+  --color-muted-foreground: #71717a;
+  --color-border: #e4e4e7;
+  --color-border-subtle: #f4f4f5;
+
+  /* Text-tier hierarchy for authoring chrome. Aligned to ink + zinc. */
+  --color-text-primary: #18181b;
+  --color-text-secondary: #52525b;
+  --color-text-muted: #71717a;
+  --color-text-placeholder: #a1a1aa;
+
+  /* Overlay tints. */
+  --color-overlay-backdrop: rgb(0 0 0 / 0.4);
+  --color-overlay-button: rgb(255 255 255 / 0.15);
+  --color-overlay-button-hover: rgb(255 255 255 / 0.25);
+  --color-overlay-pill: rgb(0 0 0 / 0.6);
+
+  /* Focus + ring — anchored to the brand navy. */
+  --color-focus-outline: oklch(0.3 0.15 270);
+  --color-focus-ring: rgb(22 29 119 / 0.35);
+
+  /* ─── Spacing ─────────────────────────────────────────────────── */
+
+  /* Canonical spacing unit retained from the original design token scale. */
+  --spacing: 0.25rem;
+  --spacing-touch-target: 44px;
+  --spacing-touch-target-inline: 24px;
+
+  /* Semantic spacing contracts. These define the shared vocabulary and
+   * safe defaults; component owners override them where their context needs
+   * a different value. */
+  --sc-player-inset: 1rem;
+  --sc-surface-inset: 2rem;
+  --sc-surface-flow-gap: 1rem;
+  --sc-container-inset: 0.75rem;
+  --sc-container-flow-gap: 0.75rem;
+  --sc-block-inset: 1rem;
+  --sc-field-content-flow-gap: 0.375rem;
+  --sc-authoring-chrome-gap: 0.5rem;
+
+  /* ─── Radius ──────────────────────────────────────────────────── */
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 9999px;
+  --radius-full: 9999px;
+
+  /* ─── Shadows ─────────────────────────────────────────────────── */
+
+  --shadow-sm: 0 2px 4px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 8px rgb(0 0 0 / 0.12);
+  --shadow-lg: 0 8px 16px rgb(0 0 0 / 0.15);
+  --shadow-xl: 0 10px 30px rgb(0 0 0 / 0.2);
+  --shadow-inner: inset 0 2px 4px rgb(0 0 0 / 0.05);
+
+  /* Reserved for floating overlays (popovers, modals, toasts). */
+  --shadow-overlay: 0 8px 24px -4px rgb(0 0 0 / 0.12), 0 2px 6px -2px rgb(0 0 0 / 0.08);
+
+  /* ─── Typography ──────────────────────────────────────────────── */
+
+  /* Poppins is the primary family for prose + chrome. Geometric sans
+   * with a wide weight range — hierarchy comes from size + weight
+   * contrast within the family.
+   *
+   * JetBrains Mono is the secondary family for monospaced contexts:
+   * code blocks, tabular data values, numeric status pills, token
+   * references in author chrome. Excellent tabular numerals and
+   * legible at small sizes; programming ligatures are off by default
+   * (set `font-feature-settings: "calt"` to enable per-context).
+   *
+   * Both families have a system fallback chain so text stays legible
+   * before the web fonts load. */
+  --font-sans:
+    "Poppins", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  --default-font-family: var(--font-sans);
+  --default-mono-font-family: var(--font-mono);
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+
+  /* Body + utility text sizes. */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+
+  /* Fluid heading sizes — clamp() scale from xblock embed to standalone. */
+  --text-h1: clamp(2rem, 1.625rem + 0.94vw, 2.5rem);
+  --text-h2: clamp(1.75rem, 1.594rem + 0.39vw, 2rem);
+  --text-h3: clamp(1.5rem, 1.438rem + 0.16vw, 1.75rem);
+  --text-h4: clamp(1.25rem, 1.188rem + 0.16vw, 1.5rem);
+  --text-h5: clamp(1.125rem, 1.094rem + 0.08vw, 1.25rem);
+  --text-h6: clamp(1rem, 0.969rem + 0.08vw, 1.125rem);
+
+  /* Fluid body + small for prose. */
+  --text-body: clamp(1rem, 0.969rem + 0.08vw, 1.0625rem);
+  --text-small: clamp(0.875rem, 0.844rem + 0.08vw, 0.9375rem);
+
+  /* Line heights. */
+  --leading-tight: 1;
+  --leading-snug: 1.25;
+  --leading-normal: 1.4;
+  --leading-relaxed: 1.6;
+  --leading-body: 1.5;
+
+  /* ─── Easing + duration ───────────────────────────────────────── */
+
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
+  --default-transition-duration: 150ms;
+  --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ─── Z-index ─────────────────────────────────────────────────── */
+
+  --z-behind: -10;
+  --z-background: -1;
+  --z-base: 0;
+  --z-content: 1;
+  --z-elevated: 5;
+  --z-sticky: 10;
+  --z-sticky-header: 15;
+  --z-interactive: 20;
+  --z-drag-overlay: 30;
+  --z-nav: 50;
+  --z-nav-menu: 51;
+  --z-dropdown: 100;
+  --z-overlay: 120;
+  --z-editor-toolbar: 130;
+  --z-editor-bubble: 135;
+  --z-editor-text-bubble: 140;
+  --z-overlay-host: 190;
+  --z-modal-backdrop: 200;
+  --z-modal: 210;
+  --z-modal-content: 220;
+  --z-nested-modal: 230;
+  --z-popover: 250;
+  --z-tooltip: 250;
+  --z-toast: 300;
+  --z-notification: 310;
+  --z-critical: 400;
+  --z-max: 9999;
+}
+
+@layer sc-reset {
+  *,
+  *::before,
+  *::after,
+  ::backdrop,
+  ::file-selector-button {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border: 0 solid;
+  }
+
+  html,
+  :host {
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+    tab-size: 4;
+    font-family: var(--default-font-family);
+    font-feature-settings: var(--default-font-feature-settings, normal);
+    font-variation-settings: var(--default-font-variation-settings, normal);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  hr {
+    height: 0;
+    color: inherit;
+    border-top-width: 1px;
+  }
+
+  abbr:where([title]) {
+    text-decoration: underline dotted;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-size: inherit;
+    font-weight: inherit;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: inherit;
+  }
+
+  b,
+  strong {
+    font-weight: bolder;
+  }
+
+  code,
+  kbd,
+  samp,
+  pre {
+    font-family: var(--default-mono-font-family);
+    font-feature-settings: var(--default-mono-font-feature-settings, normal);
+    font-variation-settings: var(--default-mono-font-variation-settings, normal);
+    font-size: 1em;
+  }
+
+  small {
+    font-size: 80%;
+  }
+
+  sub,
+  sup {
+    position: relative;
+    vertical-align: baseline;
+    font-size: 75%;
+    line-height: 0;
+  }
+
+  sub {
+    bottom: -0.25em;
+  }
+
+  sup {
+    top: -0.5em;
+  }
+
+  table {
+    border-color: inherit;
+    border-collapse: collapse;
+    text-indent: 0;
+  }
+
+  :-moz-focusring {
+    outline: auto;
+  }
+
+  progress {
+    vertical-align: baseline;
+  }
+
+  summary {
+    display: list-item;
+  }
+
+  ol,
+  ul,
+  menu {
+    list-style: none;
+  }
+
+  img,
+  svg,
+  video,
+  canvas,
+  audio,
+  iframe,
+  embed,
+  object {
+    display: block;
+    vertical-align: middle;
+  }
+
+  img,
+  video {
+    max-width: 100%;
+    height: auto;
+  }
+
+  button,
+  input,
+  select,
+  optgroup,
+  textarea,
+  ::file-selector-button {
+    border-radius: 0;
+    background-color: transparent;
+    color: inherit;
+    font: inherit;
+    font-feature-settings: inherit;
+    font-variation-settings: inherit;
+    letter-spacing: inherit;
+    opacity: 1;
+  }
+
+  :where(select:is([multiple], [size])) optgroup {
+    font-weight: bolder;
+  }
+
+  :where(select:is([multiple], [size])) optgroup option {
+    padding-inline-start: 20px;
+  }
+
+  ::file-selector-button {
+    margin-inline-end: 4px;
+  }
+
+  ::placeholder {
+    color: color-mix(in oklab, currentColor 50%, transparent);
+    opacity: 1;
+  }
+
+  textarea {
+    resize: vertical;
+  }
+
+  ::-webkit-search-decoration {
+    -webkit-appearance: none;
+  }
+
+  ::-webkit-date-and-time-value {
+    min-height: 1lh;
+    text-align: inherit;
+  }
+
+  ::-webkit-datetime-edit {
+    display: inline-flex;
+  }
+
+  ::-webkit-datetime-edit-fields-wrapper {
+    padding: 0;
+  }
+
+  ::-webkit-datetime-edit,
+  ::-webkit-datetime-edit-year-field,
+  ::-webkit-datetime-edit-month-field,
+  ::-webkit-datetime-edit-day-field,
+  ::-webkit-datetime-edit-hour-field,
+  ::-webkit-datetime-edit-minute-field,
+  ::-webkit-datetime-edit-second-field,
+  ::-webkit-datetime-edit-millisecond-field,
+  ::-webkit-datetime-edit-meridiem-field {
+    padding-block: 0;
+  }
+
+  ::-webkit-inner-spin-button,
+  ::-webkit-outer-spin-button {
+    height: auto;
+  }
+
+  [type="search"] {
+    -webkit-appearance: textfield;
+    outline-offset: -2px;
+  }
+
+  ::-webkit-file-upload-button {
+    -webkit-appearance: button;
+    font: inherit;
+    font-feature-settings: inherit;
+    font-variation-settings: inherit;
+  }
+
+  ::file-selector-button {
+    -webkit-appearance: button;
+  }
+
+  output {
+    display: inline-block;
+  }
+
+  iframe {
+    border: 0;
+  }
+
+  [hidden]:where(:not([hidden="until-found"])) {
+    display: none !important;
+  }
+}
+
+@layer sc-base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    color-scheme: light;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  .sc-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* ─── Brand-presence surface — aurora field ────────────────────────
+ * Apply to the wrapping element on any dark splash / login / OG /
+ * marketing hero. Pairs with `.sc-mark-material` to produce the full
+ * brand-presence treatment.
+ *
+ * The aurora is a pair of low-opacity radial gradients (navy + teal)
+ * blurred into ambient washes, with a darkening vignette to keep the
+ * mark area legible. Whisper-level, not stage lights. */
+  .sc-brand-surface {
+    position: relative;
+    background-color: var(--color-dark-surface);
+    isolation: isolate;
+    overflow: hidden;
+  }
+
+  .sc-brand-surface::before {
+    content: "";
+    position: absolute;
+    inset: -5%;
+    z-index: 0;
+    background:
+      radial-gradient(ellipse 50% 40% at 32% 40%, var(--color-brand-aurora-navy), transparent 70%),
+      radial-gradient(ellipse 50% 40% at 72% 70%, var(--color-brand-aurora-teal), transparent 70%);
+    filter: blur(60px);
+    pointer-events: none;
+    animation: sc-aurora-drift 60s ease-in-out infinite alternate;
+  }
+
+  .sc-brand-surface::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: radial-gradient(ellipse at 50% 50%, transparent 35%, rgb(0 0 0 / 0.55) 100%);
+    pointer-events: none;
+  }
+
+  /* All children sit above the aurora layers. */
+  .sc-brand-surface > * {
+    position: relative;
+    z-index: 2;
+  }
+
+  @keyframes sc-aurora-drift {
+    0% {
+      transform: translate(0, 0) scale(1);
+    }
+    100% {
+      transform: translate(-2%, 1.5%) scale(1.04);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sc-brand-surface::before {
+      animation: none;
+    }
+  }
+
+  /* Tiptap — focus outline off; affordances drawn manually. */
+  .ProseMirror:focus {
+    outline: none;
+  }
+
+  .ProseMirror {
+    min-height: 1.5em;
+  }
+
+  /* Scaffold editor rich text.
+ *
+ * The Scaffold reset removes browser defaults for headings, lists, quotes,
+ * and code blocks. The editor owns a small explicit prose base for the
+ * structures exposed by the persistent rich-text toolbar. */
+  .ProseMirror h1,
+  .ProseMirror h2,
+  .ProseMirror h3 {
+    color: var(--color-ink);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--leading-snug);
+    text-wrap: balance;
+  }
+
+  .ProseMirror h1 {
+    margin-block: 1.25rem 0.625rem;
+    font-size: var(--text-h1);
+  }
+
+  .ProseMirror h2 {
+    margin-block: 1rem 0.5rem;
+    font-size: var(--text-h2);
+  }
+
+  .ProseMirror h3 {
+    margin-block: 0.875rem 0.375rem;
+    font-size: var(--text-h3);
+  }
+
+  .ProseMirror p {
+    margin-block: 0;
+  }
+
+  .ProseMirror p + p,
+  .ProseMirror :is(p, ul, ol, blockquote, pre) + :is(p, ul, ol, blockquote, pre) {
+    margin-top: 0.75rem;
+  }
+
+  .ProseMirror h1:first-child,
+  .ProseMirror h2:first-child,
+  .ProseMirror h3:first-child,
+  .ProseMirror p:first-child,
+  .ProseMirror ul:first-child,
+  .ProseMirror ol:first-child,
+  .ProseMirror blockquote:first-child,
+  .ProseMirror pre:first-child {
+    margin-top: 0;
+  }
+
+  .ProseMirror ul,
+  .ProseMirror ol {
+    margin-block: 0.75rem 0;
+    padding-left: 1.5rem;
+  }
+
+  .ProseMirror ul {
+    list-style: disc;
+  }
+
+  .ProseMirror ol {
+    list-style: decimal;
+  }
+
+  .ProseMirror li {
+    margin-block: 0.25rem;
+    padding-left: 0.125rem;
+  }
+
+  .ProseMirror li > p {
+    margin-block: 0;
+  }
+
+  .ProseMirror blockquote {
+    margin-block: 1rem 0;
+    border-left: 3px solid var(--color-border);
+    padding-left: 1rem;
+    color: var(--color-text-secondary);
+  }
+
+  .ProseMirror pre {
+    margin-block: 1rem 0;
+    overflow-x: auto;
+    border-radius: var(--radius-md);
+    background: var(--color-muted);
+    padding: 0.875rem 1rem;
+    color: var(--color-ink);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    line-height: var(--leading-relaxed);
+  }
+
+  .ProseMirror code {
+    border-radius: var(--radius-sm);
+    background: var(--color-muted);
+    padding: 0.125rem 0.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+  }
+
+  .ProseMirror pre code {
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    font-size: inherit;
+  }
+
+  .ProseMirror hr {
+    margin-block: 1.25rem;
+    border: 0;
+    border-top: 1px solid var(--color-border);
+  }
+
+  /* Keep ProseMirror gap-cursor keyboard navigation without rendering its
+   * insertion marker between blocks. */
+  .ProseMirror.ProseMirror-focused .ProseMirror-gapcursor::after {
+    display: none !important;
+  }
+
+  /* Tiptap React NodeView wrappers — layout-invisible. ProseMirror /
+ * Tiptap insert several wrapper divs around each child NodeView for
+ * tracking. Without flattening, gap/flex utilities applied at
+ * composite-block level (ProblemShell, choices group, hints group)
+ * never reach the child NodeViews because these wrappers absorb them.
+ *
+ * Our layout lives on each NodeViewWrapper's own className. */
+  [data-node-view-content],
+  [data-node-view-content-react],
+  .react-renderer {
+    display: contents;
+  }
+
+  /* Field-style text inside NodeViews should not force awkward line breaks
+ * around inline atoms or long pasted tokens. Top-level prose keeps the
+ * normal browser wrapping rules; structured editor fields get resilient
+ * wrapping because their available width is often constrained by block UI. */
+  .ProseMirror [data-node-view-content-react] > :where(p, h1, h2, h3, h4, h5, h6, li, blockquote) {
+    overflow-wrap: anywhere;
+  }
+
+  .ProseMirror
+    [data-node-view-content-react]
+    > :where(p, h1, h2, h3, h4, h5, h6, li, blockquote):has(.sc-inline-icon) {
+    word-break: break-all;
+  }
+
+  /* Tiptap placeholder — surfaced by our custom editor Placeholder extension.
+ * Filled in by the editor/prosemirror/placeholder resolver with context-specific guidance for
+ * prompt / choice / hint slots.
+ *
+ * Placeholders inherit the slot's own typography (weight, size,
+ * tracking) so the ghost copy reads as part of the slot itself rather
+ * than a separate italic gloss — italic placeholders were the
+ * editor's largest visible "stock CMS form" tell. The only signal
+ * that this IS a placeholder is the lighter text colour. */
+  .ProseMirror p.is-empty:not(.is-editor-empty)::before,
+  .ProseMirror p.is-editor-empty:first-child::before,
+  .ProseMirror h1.is-editor-empty:first-child::before,
+  .ProseMirror h2.is-editor-empty:first-child::before,
+  .ProseMirror h3.is-editor-empty:first-child::before,
+  .ProseMirror .is-empty.has-focus::before {
+    content: attr(data-placeholder);
+    /* `currentColor` lets the placeholder inherit the slot's own text
+   * colour — ink on a white surface, white on a coloured choice pill,
+   * muted on a label slot — so the ghost always sits naturally against
+   * the surface it's on. Opacity carries the "this is a placeholder"
+   * signal instead of a fixed gray that fights coloured fills. */
+    color: currentColor;
+    opacity: 0.5;
+    pointer-events: none;
+    height: 0;
+    float: left;
+  }
+
+  /* Active empty insertion row — a focused structural paragraph affordance.
+ * This is deliberately separate from placeholders: field placeholders describe
+ * authored content, while this widget exposes insertion actions at the cursor. */
+  .sc-empty-insertion-row {
+    display: inline-block;
+    width: 100%;
+    height: var(--sc-empty-insertion-row-height, 1.5rem);
+    color: var(--color-text-placeholder);
+    cursor: text;
+    pointer-events: auto;
+    user-select: none;
+    vertical-align: top;
+  }
+
+  .ProseMirror:not(.ProseMirror-focused) .sc-empty-insertion-row {
+    display: none;
+  }
+
+  .sc-empty-insertion-row__content {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    white-space: nowrap;
+    transform: scale(var(--sc-empty-insertion-row-scale, 1));
+    transform-origin: left center;
+  }
+
+  .sc-empty-insertion-row__prompt {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+    line-height: 1.5rem;
+  }
+
+  .sc-empty-insertion-row__button {
+    display: inline-flex;
+    width: 1.25rem;
+    height: 1.25rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-secondary);
+    opacity: 0.78;
+    transition:
+      color 120ms var(--ease-out-soft),
+      opacity 120ms var(--ease-out-soft);
+  }
+
+  .sc-empty-insertion-row__button:hover {
+    color: var(--color-text-primary);
+    opacity: 1;
+  }
+
+  .sc-empty-insertion-row__mark {
+    width: 1.125rem;
+    height: 1.125rem;
+    flex: none;
+  }
+
+  .sc-empty-insertion-row__button:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+
+  /* During parent structure drag, child authored-row handles are not valid
+ * structure sources. Hide them at the editor boundary so individual blocks do
+ * not need to know about global movement lifecycle. */
+  .ProseMirror[data-scaffold-structure-movement-active] [data-contained-movement-handle] {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* Authoring and runtime render different DOM around the same document nodes.
+ * Keep spacing on the actual layout boxes so frame width/selection geometry is
+ * not affected by React wrappers that do not generate boxes. */
+  .ProseMirror [data-authoring-frame-wrapper][data-authoring-frame-wrapper-active] {
+    outline: 2px solid var(--color-info);
+    outline-offset: 0;
+  }
+}
+
+/* MathLive renders its virtual keyboard outside the editor subtree. */
+.ML__keyboard {
+  z-index: var(--z-max) !important;
+}
+
+math-field[data-scaffold-math-field]::part(menu-toggle),
+math-field[data-scaffold-math-field]::part(virtual-keyboard-toggle) {
+  display: none;
+}

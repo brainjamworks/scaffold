@@ -1,0 +1,4 @@
+.scaffold-authoring-surface-view[data-surface-size="fluid"]
+  [data-surface].sc-page-default-surface-view {
+  max-width: 48rem;
+}

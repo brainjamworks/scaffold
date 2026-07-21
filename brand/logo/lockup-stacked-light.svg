@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 180" width="200" height="180" role="img" aria-label="scaffold">
+  <title>scaffold lockup — stacked, light surface</title>
+  <g transform="translate(64, 18) scale(1.125)">
+    <path d="M5 24V5h19M40 5h19v19M59 40v19H40M24 59H5V40" fill="none" stroke="#161D77" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 3" opacity="0.5"/>
+    <path d="M32 18v28M18 32h28" fill="none" stroke="#161D77" stroke-width="4.25" stroke-linecap="round"/>
+  </g>
+  <text
+    x="100"
+    y="140"
+    text-anchor="middle"
+    font-family="Poppins, system-ui, -apple-system, BlinkMacSystemFont, sans-serif"
+    font-size="32"
+    font-weight="700"
+    letter-spacing="-0.8"
+    fill="#18181B"
+  >scaffold<tspan fill="#F43A57">.</tspan></text>
+</svg>

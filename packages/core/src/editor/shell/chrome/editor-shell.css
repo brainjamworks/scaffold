@@ -1,0 +1,46 @@
+.sc-editor-shell {
+  --sc-editor-header-height: 53px;
+  --sc-editor-rail-slot-width: 62px;
+  --sc-editor-rail-sticky-top: var(--sc-editor-header-height);
+  --sc-editor-rail-available-height: calc(100dvh - var(--sc-editor-header-height));
+
+  display: flex;
+  min-height: 100%;
+  flex-direction: row;
+  align-items: stretch;
+}
+
+.sc-editor-shell[data-scroll-model="contained"] {
+  --sc-editor-rail-sticky-top: 0px;
+}
+
+.sc-editor-rail-slot {
+  position: relative;
+  display: flex;
+  width: var(--sc-editor-rail-slot-width);
+  min-width: var(--sc-editor-rail-slot-width);
+  flex: 0 0 var(--sc-editor-rail-slot-width);
+}
+
+.sc-editor-rail-slot[data-side="left"],
+.sc-editor-rail-slot[data-side="right"] {
+  justify-content: center;
+}
+
+.sc-editor-stage {
+  min-width: 0;
+  flex: 1 1 0%;
+}
+
+.sc-editor-dock-slot {
+  flex: 0 0 auto;
+}
+
+.sc-editor-rail {
+  position: sticky;
+  top: var(--sc-editor-rail-sticky-top);
+  z-index: var(--z-editor-toolbar, 130);
+  display: flex;
+  height: var(--sc-editor-rail-available-height);
+  align-items: center;
+}

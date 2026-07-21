@@ -1,0 +1,55 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-overlays {
+  .sc-slash-menu,
+  .sc-slash-menu-empty {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-background);
+    box-shadow: var(--shadow-overlay);
+  }
+
+  .sc-slash-menu-empty {
+    max-width: var(--sc-overlay-available-inline-size);
+    min-width: min(15rem, var(--sc-overlay-available-inline-size));
+    padding: 0.5rem 0.75rem;
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+  }
+
+  .sc-slash-menu {
+    max-width: var(--sc-overlay-available-inline-size);
+    min-width: min(16.25rem, var(--sc-overlay-available-inline-size));
+    max-height: 17.5rem;
+    overflow-y: auto;
+    padding-block: 0.25rem;
+  }
+
+  .sc-slash-menu-item {
+    display: block;
+    width: 100%;
+    border: 0;
+    padding: 0.5rem 0.75rem;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.875rem;
+    text-align: left;
+  }
+
+  .sc-slash-menu-item:hover,
+  .sc-slash-menu-item.is-selected {
+    background: var(--color-muted);
+  }
+
+  .sc-slash-menu-item-title {
+    color: var(--color-foreground);
+    font-weight: var(--font-weight-medium);
+  }
+
+  .sc-slash-menu-item-description {
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+  }
+}

@@ -1,0 +1,47 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  /* ─── Image block ────────────────────────────────────────────── */
+
+  .sc-image-block__stage {
+    position: relative;
+    display: block;
+    width: 100%;
+  }
+
+  .sc-image-block__fallback {
+    width: 100%;
+    min-height: 12rem;
+    border: 2px dashed var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-muted);
+  }
+
+  .sc-image-block__empty-action {
+    min-height: 12rem;
+    padding-block: 2rem;
+    border-width: 2px;
+  }
+
+  .sc-image-block__media {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+    background: var(--color-muted);
+  }
+
+  .sc-image-block__error {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--color-error-text);
+  }
+
+  .sc-image-block__loading {
+    margin: 0;
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+  }
+}

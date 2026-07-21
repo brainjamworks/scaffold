@@ -1,0 +1,107 @@
+.scaffold-authoring-surface-view {
+  --sc-surface-inset: 2rem;
+  --sc-surface-flow-gap: 1rem;
+
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.scaffold-authoring-surface-view [data-surface] {
+  box-sizing: border-box;
+  position: relative;
+  margin-inline: auto;
+  padding: var(--sc-surface-inset);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-background);
+}
+
+.scaffold-authoring-surface-view[data-course-mode="slideshow"] {
+  overflow: visible;
+}
+
+.scaffold-authoring-surface-view .sc-slideshow-authoring-surface-stage {
+  position: relative;
+  width: var(--sc-authoring-slide-rendered-width);
+  height: var(--sc-authoring-slide-rendered-height);
+  margin-inline: auto;
+  border-radius: var(--radius-md);
+}
+
+.scaffold-authoring-surface-view .sc-slideshow-authoring-surface-stage::after {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--color-border);
+  border-radius: inherit;
+  content: "";
+  pointer-events: none;
+}
+
+.scaffold-authoring-surface-view .sc-slideshow-authoring-surface-stage > [data-surface] {
+  --sc-authoring-slide-intrinsic-radius: calc(var(--radius-md) / var(--sc-authoring-slide-scale));
+
+  position: absolute;
+  inset: 0 auto auto 0;
+  margin-inline: 0;
+  border-radius: var(--sc-authoring-slide-intrinsic-radius);
+  transform: scale(var(--sc-authoring-slide-scale));
+  transform-origin: top left;
+}
+
+.scaffold-authoring-surface-view[data-course-mode="slideshow"][data-surface-size="16x9"]
+  [data-surface] {
+  width: var(--sc-slideshow-canvas-width);
+  min-width: var(--sc-slideshow-canvas-width);
+  max-width: none;
+  height: var(--sc-slideshow-canvas-height);
+  border: 0;
+}
+
+.scaffold-authoring-surface-view[data-surface-size="fluid"] [data-surface] {
+  max-width: none;
+  min-height: min(1120px, 141vw);
+}
+
+.scaffold-authoring-surface-view[data-overflow-mode="clip"] [data-surface] {
+  overflow: hidden;
+}
+
+.scaffold-authoring-surface-view[data-overflow-mode="fit"] [data-surface] {
+  overflow: auto;
+}
+
+.scaffold-authoring-surface-view[data-overflow-mode="grow"] [data-surface] {
+  overflow: visible;
+}
+
+/* Slide authoring chrome floats outside the canvas. Runtime and page surfaces
+ * keep their normal overflow semantics. */
+.scaffold-authoring-surface-view:not([data-course-mode="page"]) [data-surface] {
+  overflow: visible !important;
+}
+
+.scaffold-authoring-surface-view[data-surface-size="fluid"] [data-surface][data-empty="true"] {
+  min-height: min(1120px, 141vw);
+}
+
+.scaffold-authoring-surface-view
+  [data-surface]:not(.sc-slide-layout-surface-view)
+  > :not(.react-renderer):not(:last-child),
+.scaffold-authoring-surface-view
+  [data-surface-content]:not(.sc-slide-layout-surface-view > [data-surface-content])
+  > [data-node-view-content-react]
+  > :not(.react-renderer):not(:last-child) {
+  margin-bottom: var(--sc-surface-flow-gap);
+}
+
+.scaffold-authoring-surface-view
+  [data-surface]:not(.sc-slide-layout-surface-view)
+  > .react-renderer:not(:last-child)
+  > [data-authoring-frame],
+.scaffold-authoring-surface-view
+  [data-surface-content]:not(.sc-slide-layout-surface-view > [data-surface-content])
+  > [data-node-view-content-react]
+  > .react-renderer:not(:last-child)
+  > [data-authoring-frame] {
+  margin-bottom: var(--sc-surface-flow-gap);
+}

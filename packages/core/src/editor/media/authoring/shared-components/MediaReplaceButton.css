@@ -1,0 +1,28 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-media-replace-button {
+    position: absolute;
+    z-index: var(--z-interactive);
+    top: 0.625rem;
+    right: 0.625rem;
+    opacity: 0;
+  }
+
+  .sc-media-replace-host:hover .sc-media-replace-button,
+  .sc-media-replace-host:focus-within .sc-media-replace-button,
+  .sc-media-replace-button:focus-visible {
+    opacity: 1;
+  }
+
+  .sc-media-authoring-actions > .sc-media-replace-button {
+    position: static;
+    opacity: 1;
+  }
+
+  @media (hover: none), (pointer: coarse) {
+    .sc-media-replace-button {
+      opacity: 1;
+    }
+  }
+}

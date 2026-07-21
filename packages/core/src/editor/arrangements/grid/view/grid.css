@@ -1,0 +1,184 @@
+.sc-grid {
+  --sc-grid-gap: 0.5rem;
+
+  display: grid;
+  gap: var(--sc-grid-gap);
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.sc-grid__content {
+  display: contents;
+}
+
+[data-node="region"] :where(.sc-grid, .sc-grid-authoring)[data-bounded-placement="fill"] {
+  align-self: stretch;
+  height: 100cqh;
+  min-height: 0;
+  max-height: 100%;
+  grid-auto-rows: minmax(0, 1fr);
+}
+
+[data-node="region"]
+  :where(.sc-grid, .sc-grid-authoring)[data-bounded-placement="fill"]
+  [data-node="cell"] {
+  min-height: 0;
+  max-height: 100%;
+  container-type: size;
+}
+
+.sc-grid-cell {
+  --sc-grid-cell-inset: 0.25rem;
+  --sc-grid-cell-flow-gap: var(--sc-container-flow-gap);
+
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  gap: var(--sc-grid-cell-flow-gap);
+  padding: var(--sc-grid-cell-inset);
+  background: transparent;
+}
+
+:where(.sc-grid-cell, .sc-grid-cell-authoring)[data-vertical-content-position="top"] {
+  justify-content: flex-start;
+}
+
+:where(.sc-grid-cell, .sc-grid-cell-authoring)[data-vertical-content-position="middle"] {
+  justify-content: center;
+}
+
+:where(.sc-grid-cell, .sc-grid-cell-authoring)[data-vertical-content-position="bottom"] {
+  justify-content: flex-end;
+}
+
+.sc-grid-cell > [data-node-view-content].sc-grid-cell__content,
+.sc-grid-cell__content {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  gap: var(--sc-grid-cell-flow-gap);
+}
+
+.sc-grid-authoring {
+  --sc-grid-gap: 0.5rem;
+
+  position: relative;
+  display: grid;
+  gap: var(--sc-grid-gap);
+  padding: 0;
+  border-radius: var(--radius-sm);
+  outline: 1px solid transparent;
+  background: transparent;
+  transition-property: outline-color;
+  transition-duration: 150ms;
+  transition-timing-function: var(--ease-out-soft);
+}
+
+.sc-grid-authoring--editable:hover,
+.sc-grid-authoring--editable:focus-within,
+.sc-grid-authoring--editable[data-authoring-chrome-active] {
+  outline-color: var(--color-border);
+  background: transparent;
+}
+
+.sc-grid-cell-authoring {
+  --sc-grid-cell-inset: 0.25rem;
+  --sc-grid-cell-flow-gap: var(--sc-container-flow-gap);
+
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 6rem;
+  flex-direction: column;
+  gap: var(--sc-grid-cell-flow-gap);
+  padding: var(--sc-grid-cell-inset);
+  background: transparent;
+}
+
+.sc-grid-authoring__content {
+  display: contents;
+}
+
+.sc-grid-cell-authoring > [data-node-view-content].sc-grid-cell-authoring__content,
+.sc-grid-cell-authoring__content {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  gap: var(--sc-grid-cell-flow-gap);
+}
+
+.sc-grid-cell__content > *,
+.sc-grid-cell__content > [data-node-view-content-react] > *,
+.sc-grid-cell-authoring__content > *,
+.sc-grid-cell-authoring__content > [data-node-view-content-react] > * {
+  margin-block: 0;
+}
+
+[data-authoring-frame="grid"] {
+  position: relative;
+}
+
+[data-grid-column-controls] {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-interactive);
+  pointer-events: none;
+}
+
+[data-grid-column-resize-handle] {
+  appearance: none;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  left: var(--sc-grid-column-position);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: col-resize;
+  pointer-events: auto;
+  transform: translateX(-50%);
+}
+
+[data-grid-column-resize-handle]::before {
+  content: "";
+  position: absolute;
+  inset-block: 0.25rem;
+  left: 50%;
+  width: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--color-border);
+  opacity: 0;
+  transform: translateX(-50%);
+  transition:
+    background-color 120ms var(--ease-out-soft),
+    opacity 120ms var(--ease-out-soft);
+}
+
+[data-grid-column-resize-handle]:hover::before,
+[data-grid-column-resize-handle]:focus-visible::before,
+[data-grid-column-resize-handle]:active::before {
+  width: 2px;
+  background: var(--color-primary);
+  opacity: 1;
+}
+
+.sc-grid-authoring--editable:hover [data-grid-column-resize-handle]::before,
+.sc-grid-authoring--editable:focus-within [data-grid-column-resize-handle]::before,
+.sc-grid-authoring--editable[data-authoring-chrome-active]
+  [data-grid-column-resize-handle]::before {
+  inset-block: 0;
+  width: 1px;
+  background: var(--color-border);
+  opacity: 1;
+}
+
+.sc-grid-authoring--editable [data-grid-column-resize-handle]:hover::before,
+.sc-grid-authoring--editable [data-grid-column-resize-handle]:focus-visible::before,
+.sc-grid-authoring--editable [data-grid-column-resize-handle]:active::before {
+  width: 2px;
+  background: var(--color-primary);
+}

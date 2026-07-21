@@ -1,0 +1,43 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+    > .sc-mcq
+    [data-slot="assessment-choices-group"] {
+    position: relative;
+    grid-column: 1 / -1;
+    grid-row: 3;
+    width: min(100%, 42rem);
+    align-self: stretch;
+    justify-self: center;
+  }
+
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+    > .sc-mcq
+    [data-slot="assessment-choices-group"]
+    .sc-assessment-choices-scroll {
+    justify-content: safe center;
+  }
+
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+    > .sc-mcq
+    [data-slot="assessment-choices-group"]
+    .sc-assessment-choices-scroll[data-assessment-bounded-scroll-overflow] {
+    justify-content: flex-start;
+  }
+
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+    > .sc-mcq
+    [data-slot="assessment-choices-group"]
+    .sc-assessment-choices-fieldset,
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+    > .sc-mcq
+    [data-slot="assessment-choices-group"]
+    .sc-assessment-choices-list {
+    width: 100%;
+  }
+
+  .sc-assessment-node-view[data-bounded-placement="fill"] > .sc-mcq .sc-choice-answer {
+    min-height: var(--spacing-touch-target);
+  }
+}

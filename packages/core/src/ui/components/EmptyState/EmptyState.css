@@ -1,0 +1,62 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  :where(.sc-empty-state) {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    border-radius: var(--radius-lg);
+  }
+
+  :where(.sc-empty-state[data-surface="light"]) {
+    background: var(--color-canvas);
+  }
+
+  :where(.sc-empty-state[data-surface="dark"]) {
+    background: var(--color-dark-surface-2);
+  }
+
+  :where(.sc-empty-state[data-surface="navy"]) {
+    background: var(--color-primary);
+  }
+
+  :where(.sc-empty-state-copy) {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  :where(.sc-empty-state-title) {
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+
+  :where(.sc-empty-state-description) {
+    margin-top: 0.125rem;
+    font-size: 0.78125rem;
+    line-height: 1.35;
+  }
+
+  :where(.sc-empty-state[data-surface="light"]) :where(.sc-empty-state-title) {
+    color: var(--color-ink);
+  }
+
+  :where(.sc-empty-state[data-surface="light"]) :where(.sc-empty-state-description) {
+    color: var(--color-text-muted);
+  }
+
+  :where(.sc-empty-state[data-surface="dark"]) :where(.sc-empty-state-title),
+  :where(.sc-empty-state[data-surface="navy"]) :where(.sc-empty-state-title) {
+    color: var(--color-background);
+  }
+
+  :where(.sc-empty-state[data-surface="dark"]) :where(.sc-empty-state-description),
+  :where(.sc-empty-state[data-surface="navy"]) :where(.sc-empty-state-description) {
+    color: var(--color-dark-text-muted);
+  }
+
+  :where(.sc-empty-state-action) {
+    flex: 0 0 auto;
+  }
+}

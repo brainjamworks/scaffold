@@ -1,0 +1,15 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-overlays {
+  .sc-tooltip {
+    z-index: var(--z-tooltip);
+    padding: 0.25rem 0.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-background);
+    box-shadow: var(--shadow-overlay);
+    color: var(--color-ink);
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+}

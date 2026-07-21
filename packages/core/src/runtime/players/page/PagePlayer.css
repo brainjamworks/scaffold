@@ -1,0 +1,20 @@
+.sc-page-player {
+  --sc-player-inset: 1.5rem 1rem;
+  --sc-page-player-content-max-width: 72ch;
+
+  min-width: 0;
+  box-sizing: border-box;
+  padding: var(--sc-player-inset);
+}
+
+.sc-page-player__content {
+  width: 100%;
+  max-width: var(--sc-page-player-content-max-width);
+  margin-inline: auto;
+}
+
+@media (min-width: 640px) {
+  .sc-page-player {
+    --sc-player-inset: 2.5rem 2rem;
+  }
+}

@@ -1,0 +1,1594 @@
+{
+  "$comment": "This bundle is generated from the strict v1 Zod contracts and carries their portable assessment invariants.",
+  "$id": "https://scaffold.ac/schemas/assessment.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "AnswerReveal": {
+      "additionalProperties": false,
+      "properties": {
+        "answerKey": {
+          "anyOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "correctOptionId": {
+                  "type": ["string", "null"]
+                },
+                "feedbackByOptionId": {
+                  "additionalProperties": {
+                    "$ref": "#/definitions/AssessmentFeedbackContent"
+                  },
+                  "default": {},
+                  "type": "object"
+                },
+                "kind": {
+                  "const": "single-select",
+                  "type": "string"
+                },
+                "summaryFeedback": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/AssessmentFeedbackContent"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": ["kind", "correctOptionId"],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "correctOptionIds": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "feedbackByOptionId": {
+                  "additionalProperties": {
+                    "$ref": "#/definitions/AssessmentFeedbackContent"
+                  },
+                  "default": {},
+                  "type": "object"
+                },
+                "kind": {
+                  "const": "multi-select",
+                  "type": "string"
+                },
+                "summaryFeedback": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/AssessmentFeedbackContent"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": ["kind", "correctOptionIds"],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "correctOrder": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "feedbackByItemId": {
+                  "additionalProperties": {
+                    "$ref": "#/definitions/AssessmentFeedbackContent"
+                  },
+                  "default": {},
+                  "type": "object"
+                },
+                "kind": {
+                  "const": "sequence",
+                  "type": "string"
+                },
+                "summaryFeedback": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/AssessmentFeedbackContent"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": ["kind", "correctOrder"],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "correctPairs": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "itemId": {
+                        "type": "string"
+                      },
+                      "targetId": {
+                        "type": "string"
+                      }
+                    },
+                    "required": ["itemId", "targetId"],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "feedbackByItemId": {
+                  "additionalProperties": {
+                    "$ref": "#/definitions/AssessmentFeedbackContent"
+                  },
+                  "default": {},
+                  "type": "object"
+                },
+                "kind": {
+                  "const": "match",
+                  "type": "string"
+                },
+                "summaryFeedback": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/AssessmentFeedbackContent"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": ["kind", "correctPairs"],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "correctPlacements": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "categoryId": {
+                        "type": "string"
+                      },
+                      "itemId": {
+                        "type": "string"
+                      }
+                    },
+                    "required": ["itemId", "categoryId"],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "feedbackByItemId": {
+                  "additionalProperties": {
+                    "$ref": "#/definitions/AssessmentFeedbackContent"
+                  },
+                  "default": {},
+                  "type": "object"
+                },
+                "kind": {
+                  "const": "classify",
+                  "type": "string"
+                },
+                "summaryFeedback": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/AssessmentFeedbackContent"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": ["kind", "correctPlacements"],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "blanks": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "acceptedAnswers": {
+                        "items": {
+                          "type": "string"
+                        },
+                        "type": "array"
+                      },
+                      "blankId": {
+                        "type": "string"
+                      },
+                      "caseSensitive": {
+                        "default": false,
+                        "type": "boolean"
+                      },
+                      "trimWhitespace": {
+                        "default": true,
+                        "type": "boolean"
+                      }
+                    },
+                    "required": ["blankId", "acceptedAnswers"],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "feedbackByBlankId": {
+                  "additionalProperties": {
+                    "$ref": "#/definitions/AssessmentFeedbackContent"
+                  },
+                  "default": {},
+                  "type": "object"
+                },
+                "kind": {
+                  "const": "fill-blanks",
+                  "type": "string"
+                },
+                "summaryFeedback": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/AssessmentFeedbackContent"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": ["kind", "blanks"],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "correctHotspotIds": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "feedbackByHotspotId": {
+                  "additionalProperties": {
+                    "$ref": "#/definitions/AssessmentFeedbackContent"
+                  },
+                  "default": {},
+                  "type": "object"
+                },
+                "gradingMode": {
+                  "enum": ["partial-credit", "all-or-nothing"],
+                  "type": "string"
+                },
+                "kind": {
+                  "const": "spatial-hotspot",
+                  "type": "string"
+                },
+                "missFeedback": {
+                  "$ref": "#/definitions/AssessmentFeedbackContent"
+                },
+                "summaryFeedback": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/definitions/AssessmentFeedbackContent"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": ["kind", "gradingMode", "correctHotspotIds"],
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "required": ["answerKey"],
+      "type": "object"
+    },
+    "AssessmentFeedbackContent": {
+      "additionalProperties": true,
+      "properties": {
+        "document": {
+          "additionalProperties": true,
+          "properties": {
+            "attrs": {
+              "additionalProperties": {},
+              "type": "object"
+            },
+            "content": {
+              "items": {
+                "additionalProperties": true,
+                "properties": {
+                  "attrs": {
+                    "additionalProperties": {},
+                    "type": "object"
+                  },
+                  "content": {
+                    "items": {
+                      "$ref": "#/definitions/AssessmentFeedbackContent/properties/document/properties/content/items"
+                    },
+                    "type": "array"
+                  },
+                  "marks": {
+                    "items": {
+                      "additionalProperties": true,
+                      "properties": {
+                        "attrs": {
+                          "additionalProperties": {},
+                          "type": "object"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["type"],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "text": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  }
+                },
+                "required": ["type"],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "type": {
+              "const": "doc",
+              "type": "string"
+            }
+          },
+          "required": ["type"],
+          "type": "object"
+        },
+        "kind": {
+          "const": "rich-text",
+          "type": "string"
+        }
+      },
+      "required": ["kind", "document"],
+      "type": "object"
+    },
+    "AssessmentGradeProjection": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "activityStatus": {
+              "enum": ["not_started", "in_progress", "completed"],
+              "type": "string"
+            },
+            "changedAt": {
+              "format": "date-time",
+              "pattern": "\\.\\d+(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)$",
+              "type": "string"
+            },
+            "gradingStatus": {
+              "const": "not_ready",
+              "type": "string"
+            },
+            "normalizedScore": {
+              "type": "null"
+            }
+          },
+          "required": ["activityStatus", "changedAt", "normalizedScore", "gradingStatus"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "activityStatus": {
+              "$ref": "#/definitions/AssessmentGradeProjection/anyOf/0/properties/activityStatus"
+            },
+            "changedAt": {
+              "$ref": "#/definitions/AssessmentGradeProjection/anyOf/0/properties/changedAt"
+            },
+            "gradingStatus": {
+              "const": "graded",
+              "type": "string"
+            },
+            "normalizedScore": {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          "required": ["activityStatus", "changedAt", "normalizedScore", "gradingStatus"],
+          "type": "object"
+        }
+      ]
+    },
+    "AssessmentGroupContract": {
+      "additionalProperties": false,
+      "properties": {
+        "groupId": {
+          "pattern": "\\S",
+          "type": "string"
+        },
+        "kind": {
+          "const": "quiz",
+          "type": "string"
+        },
+        "schemaVersion": {
+          "const": 1,
+          "type": "number"
+        },
+        "settings": {
+          "additionalProperties": false,
+          "properties": {
+            "allowBacktracking": {
+              "type": "boolean"
+            },
+            "attemptsPerQuestion": {
+              "enum": [1, 2, 3],
+              "type": "number"
+            },
+            "isGraded": {
+              "type": "boolean"
+            },
+            "reviewDetail": {
+              "enum": ["none", "result_only", "full_review"],
+              "type": "string"
+            },
+            "reviewTiming": {
+              "enum": ["after_quiz", "after_each_answer"],
+              "type": "string"
+            },
+            "timer": {
+              "additionalProperties": false,
+              "properties": {
+                "durationSeconds": {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "enabled": {
+                  "type": "boolean"
+                }
+              },
+              "required": ["enabled", "durationSeconds"],
+              "type": "object"
+            }
+          },
+          "required": [
+            "allowBacktracking",
+            "reviewTiming",
+            "reviewDetail",
+            "attemptsPerQuestion",
+            "isGraded",
+            "timer"
+          ],
+          "type": "object"
+        },
+        "targetIds": {
+          "items": {
+            "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": ["schemaVersion", "kind", "groupId", "targetIds", "settings"],
+      "type": "object"
+    },
+    "AssessmentItemDetail": {
+      "additionalProperties": false,
+      "properties": {
+        "correct": {
+          "type": "boolean"
+        },
+        "expected": {
+          "$ref": "#/definitions/AssessmentItemValue"
+        },
+        "feedback": {
+          "$ref": "#/definitions/AssessmentFeedbackContent"
+        },
+        "given": {
+          "$ref": "#/definitions/AssessmentItemValue"
+        }
+      },
+      "required": ["correct"],
+      "type": "object"
+    },
+    "AssessmentItemValue": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      ]
+    },
+    "AssessmentLearnerSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "artifactId": {
+          "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+        },
+        "problems": {
+          "additionalProperties": {
+            "$ref": "#/definitions/AssessmentProblemSnapshot"
+          },
+          "propertyNames": {
+            "allOf": [
+              {
+                "pattern": "\\S"
+              },
+              {
+                "pattern": "^(?!artifact:[\\s\\S]*\\/block:)"
+              }
+            ]
+          },
+          "type": "object"
+        },
+        "quizzes": {
+          "additionalProperties": {
+            "$ref": "#/definitions/QuizAttemptSnapshot"
+          },
+          "propertyNames": {
+            "pattern": "\\S"
+          },
+          "type": "object"
+        },
+        "snapshotVersion": {
+          "const": 1,
+          "type": "number"
+        }
+      },
+      "required": ["snapshotVersion", "artifactId", "problems", "quizzes"],
+      "type": "object"
+    },
+    "AssessmentProblemSnapshot": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "attemptNumber": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "checkResult": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/AssessmentResult"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "hintsShown": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "response": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/AssessmentResponseValue"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "submissionResult": {
+              "type": "null"
+            },
+            "submitted": {
+              "const": false,
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "response",
+            "attemptNumber",
+            "hintsShown",
+            "checkResult",
+            "submitted",
+            "submissionResult"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "attemptNumber": {
+              "$ref": "#/definitions/AssessmentProblemSnapshot/anyOf/0/properties/attemptNumber"
+            },
+            "checkResult": {
+              "$ref": "#/definitions/AssessmentProblemSnapshot/anyOf/0/properties/checkResult"
+            },
+            "hintsShown": {
+              "$ref": "#/definitions/AssessmentProblemSnapshot/anyOf/0/properties/hintsShown"
+            },
+            "response": {
+              "$ref": "#/definitions/AssessmentProblemSnapshot/anyOf/0/properties/response"
+            },
+            "submissionResult": {
+              "$ref": "#/definitions/AssessmentResult"
+            },
+            "submitted": {
+              "const": true,
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "response",
+            "attemptNumber",
+            "hintsShown",
+            "checkResult",
+            "submitted",
+            "submissionResult"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "AssessmentResponseValue": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "single-select",
+              "type": "string"
+            },
+            "optionId": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": ["kind", "optionId"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "multi-select",
+              "type": "string"
+            },
+            "optionIds": {
+              "items": {
+                "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              },
+              "type": "array"
+            }
+          },
+          "required": ["kind", "optionIds"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "sequence",
+              "type": "string"
+            },
+            "orderedItemIds": {
+              "items": {
+                "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              },
+              "type": "array"
+            }
+          },
+          "required": ["kind", "orderedItemIds"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "match",
+              "type": "string"
+            },
+            "pairs": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "itemId": {
+                    "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+                  },
+                  "targetId": {
+                    "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+                  }
+                },
+                "required": ["itemId", "targetId"],
+                "type": "object"
+              },
+              "type": "array"
+            }
+          },
+          "required": ["kind", "pairs"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "classify",
+              "type": "string"
+            },
+            "placements": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "categoryId": {
+                    "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+                  },
+                  "itemId": {
+                    "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+                  }
+                },
+                "required": ["itemId", "categoryId"],
+                "type": "object"
+              },
+              "type": "array"
+            }
+          },
+          "required": ["kind", "placements"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "blanks": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "blankId": {
+                    "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+                  },
+                  "value": {
+                    "type": "string"
+                  }
+                },
+                "required": ["blankId", "value"],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "kind": {
+              "const": "fill-blanks",
+              "type": "string"
+            }
+          },
+          "required": ["kind", "blanks"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "spatial-hotspot",
+              "type": "string"
+            },
+            "selections": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "hotspotId": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "x": {
+                    "type": "number"
+                  },
+                  "y": {
+                    "type": "number"
+                  }
+                },
+                "required": ["hotspotId", "x", "y"],
+                "type": "object"
+              },
+              "type": "array"
+            }
+          },
+          "required": ["kind", "selections"],
+          "type": "object"
+        }
+      ]
+    },
+    "AssessmentResult": {
+      "additionalProperties": false,
+      "properties": {
+        "feedback": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AssessmentFeedbackContent"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "isCorrect": {
+          "type": "boolean"
+        },
+        "items": {
+          "additionalProperties": {
+            "$ref": "#/definitions/AssessmentItemDetail"
+          },
+          "type": "object"
+        },
+        "maxScore": {
+          "const": 1,
+          "type": "number"
+        },
+        "score": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": ["isCorrect", "score", "maxScore", "feedback", "items"],
+      "type": "object"
+    },
+    "AssessmentTargetContract": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "assessment": {
+              "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0"
+            },
+            "blockId": {
+              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            },
+            "blockType": {
+              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            },
+            "interaction": {
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "const": "single-select",
+                  "type": "string"
+                },
+                "options": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "label": {
+                        "type": "string"
+                      }
+                    },
+                    "required": ["id"],
+                    "type": "object"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": ["kind", "options"],
+              "type": "object"
+            },
+            "schemaVersion": {
+              "const": 1,
+              "type": "number"
+            },
+            "settings": {
+              "additionalProperties": false,
+              "properties": {
+                "feedbackMode": {
+                  "enum": ["immediate", "on_submit"],
+                  "type": "string"
+                },
+                "isGraded": {
+                  "type": "boolean"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "legend": {
+                  "type": "string"
+                },
+                "maxAttempts": {
+                  "anyOf": [
+                    {
+                      "exclusiveMinimum": 0,
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "maxSelections": {
+                  "anyOf": [
+                    {
+                      "exclusiveMinimum": 0,
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "placeholder": {
+                  "type": "string"
+                },
+                "points": {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                "showAnswer": {
+                  "type": "boolean"
+                }
+              },
+              "required": ["feedbackMode", "isGraded", "showAnswer", "points", "maxAttempts"],
+              "type": "object"
+            },
+            "targetId": {
+              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "targetId",
+            "blockId",
+            "blockType",
+            "settings",
+            "interaction",
+            "assessment"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "assessment": {
+              "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/1"
+            },
+            "blockId": {
+              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            },
+            "blockType": {
+              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            },
+            "interaction": {
+              "additionalProperties": false,
+              "properties": {
+                "kind": {
+                  "const": "multi-select",
+                  "type": "string"
+                },
+                "maxSelections": {
+                  "anyOf": [
+                    {
+                      "exclusiveMinimum": 0,
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null
+                },
+                "options": {
+                  "items": {
+                    "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/interaction/properties/options/items"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": ["kind", "options"],
+              "type": "object"
+            },
+            "schemaVersion": {
+              "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/schemaVersion"
+            },
+            "settings": {
+              "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/settings"
+            },
+            "targetId": {
+              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "targetId",
+            "blockId",
+            "blockType",
+            "settings",
+            "interaction",
+            "assessment"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "assessment": {
+              "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/2"
+            },
+            "blockId": {
+              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            },
+            "blockType": {
+              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            },
+            "interaction": {
+              "additionalProperties": false,
+              "properties": {
+                "items": {
+                  "items": {
+                    "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/interaction/properties/options/items"
+                  },
+                  "type": "array"
+                },
+                "kind": {
+                  "const": "sequence",
+                  "type": "string"
+                }
+              },
+              "required": ["kind", "items"],
+              "type": "object"
+            },
+            "schemaVersion": {
+              "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/schemaVersion"
+            },
+            "settings": {
+              "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/settings"
+            },
+            "targetId": {
+              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "targetId",
+            "blockId",
+            "blockType",
+            "settings",
+            "interaction",
+            "assessment"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "assessment": {
+              "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/3"
+            },
+            "blockId": {
+              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            },
+            "blockType": {
+              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            },
+            "interaction": {
+              "additionalProperties": false,
+              "properties": {
+                "items": {
+                  "items": {
+                    "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/interaction/properties/options/items"
+                  },
+                  "type": "array"
+                },
+                "kind": {
+                  "const": "match",
+                  "type": "string"
+                },
+                "targets": {
+                  "items": {
+                    "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/interaction/properties/options/items"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": ["kind", "items", "targets"],
+              "type": "object"
+            },
+            "schemaVersion": {
+              "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/schemaVersion"
+            },
+            "settings": {
+              "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/settings"
+            },
+            "targetId": {
+              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "targetId",
+            "blockId",
+            "blockType",
+            "settings",
+            "interaction",
+            "assessment"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "assessment": {
+              "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/4"
+            },
+            "blockId": {
+              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            },
+            "blockType": {
+              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            },
+            "interaction": {
+              "additionalProperties": false,
+              "properties": {
+                "categories": {
+                  "items": {
+                    "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/interaction/properties/options/items"
+                  },
+                  "type": "array"
+                },
+                "items": {
+                  "items": {
+                    "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/interaction/properties/options/items"
+                  },
+                  "type": "array"
+                },
+                "kind": {
+                  "const": "classify",
+                  "type": "string"
+                }
+              },
+              "required": ["kind", "items", "categories"],
+              "type": "object"
+            },
+            "schemaVersion": {
+              "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/schemaVersion"
+            },
+            "settings": {
+              "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/settings"
+            },
+            "targetId": {
+              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "targetId",
+            "blockId",
+            "blockType",
+            "settings",
+            "interaction",
+            "assessment"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "assessment": {
+              "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/5"
+            },
+            "blockId": {
+              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            },
+            "blockType": {
+              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            },
+            "interaction": {
+              "additionalProperties": false,
+              "properties": {
+                "blanks": {
+                  "items": {
+                    "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/interaction/properties/options/items"
+                  },
+                  "type": "array"
+                },
+                "kind": {
+                  "const": "fill-blanks",
+                  "type": "string"
+                }
+              },
+              "required": ["kind", "blanks"],
+              "type": "object"
+            },
+            "schemaVersion": {
+              "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/schemaVersion"
+            },
+            "settings": {
+              "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/settings"
+            },
+            "targetId": {
+              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "targetId",
+            "blockId",
+            "blockType",
+            "settings",
+            "interaction",
+            "assessment"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "assessment": {
+              "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/6"
+            },
+            "blockId": {
+              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            },
+            "blockType": {
+              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            },
+            "interaction": {
+              "additionalProperties": false,
+              "properties": {
+                "hotspots": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "geometry": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "centerX": {
+                            "type": "number"
+                          },
+                          "centerY": {
+                            "type": "number"
+                          },
+                          "kind": {
+                            "const": "circle",
+                            "type": "string"
+                          },
+                          "radius": {
+                            "type": "number"
+                          }
+                        },
+                        "required": ["kind", "centerX", "centerY", "radius"],
+                        "type": "object"
+                      },
+                      "id": {
+                        "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/interaction/properties/options/items/properties/id"
+                      },
+                      "label": {
+                        "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/interaction/properties/options/items/properties/label"
+                      }
+                    },
+                    "required": ["id", "geometry"],
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "kind": {
+                  "const": "spatial-hotspot",
+                  "type": "string"
+                },
+                "maxSelections": {
+                  "anyOf": [
+                    {
+                      "exclusiveMinimum": 0,
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null
+                }
+              },
+              "required": ["kind", "hotspots"],
+              "type": "object"
+            },
+            "schemaVersion": {
+              "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/schemaVersion"
+            },
+            "settings": {
+              "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/settings"
+            },
+            "targetId": {
+              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            }
+          },
+          "required": [
+            "schemaVersion",
+            "targetId",
+            "blockId",
+            "blockType",
+            "settings",
+            "interaction",
+            "assessment"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "QuizAttemptSnapshot": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "answerReviewAuthorized": {
+              "type": "boolean"
+            },
+            "attemptId": {
+              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            },
+            "currentTargetId": {
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "expiresAt": {
+              "type": ["string", "null"]
+            },
+            "finishedAt": {
+              "type": ["string", "null"]
+            },
+            "maxScore": {
+              "type": "null"
+            },
+            "resultsByTargetId": {
+              "additionalProperties": {
+                "$ref": "#/definitions/AssessmentResult"
+              },
+              "propertyNames": {
+                "pattern": "\\S"
+              },
+              "type": "object"
+            },
+            "score": {
+              "type": "null"
+            },
+            "startedAt": {
+              "type": ["string", "null"]
+            },
+            "status": {
+              "enum": ["in_progress", "completed", "expired"],
+              "type": "string"
+            },
+            "submittedTargetIds": {
+              "items": {
+                "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              },
+              "type": "array",
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "attemptId",
+            "status",
+            "currentTargetId",
+            "submittedTargetIds",
+            "startedAt",
+            "finishedAt",
+            "expiresAt",
+            "resultsByTargetId",
+            "answerReviewAuthorized",
+            "score",
+            "maxScore"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "answerReviewAuthorized": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/answerReviewAuthorized"
+            },
+            "attemptId": {
+              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            },
+            "currentTargetId": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/currentTargetId"
+            },
+            "expiresAt": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/expiresAt"
+            },
+            "finishedAt": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/finishedAt"
+            },
+            "maxScore": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "resultsByTargetId": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/resultsByTargetId"
+            },
+            "score": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "startedAt": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/startedAt"
+            },
+            "status": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/status"
+            },
+            "submittedTargetIds": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/submittedTargetIds"
+            }
+          },
+          "required": [
+            "attemptId",
+            "status",
+            "currentTargetId",
+            "submittedTargetIds",
+            "startedAt",
+            "finishedAt",
+            "expiresAt",
+            "resultsByTargetId",
+            "answerReviewAuthorized",
+            "score",
+            "maxScore"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "QuizAttemptState": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "answerReviewAuthorized": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/answerReviewAuthorized"
+            },
+            "attemptId": {
+              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            },
+            "currentTargetId": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/currentTargetId"
+            },
+            "expiresAt": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/expiresAt"
+            },
+            "finishedAt": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/finishedAt"
+            },
+            "groupId": {
+              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            },
+            "maxScore": {
+              "type": "null"
+            },
+            "resultsByTargetId": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/resultsByTargetId"
+            },
+            "score": {
+              "type": "null"
+            },
+            "startedAt": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/startedAt"
+            },
+            "status": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/status"
+            },
+            "submittedTargetIds": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/submittedTargetIds"
+            }
+          },
+          "required": [
+            "attemptId",
+            "groupId",
+            "status",
+            "currentTargetId",
+            "submittedTargetIds",
+            "startedAt",
+            "finishedAt",
+            "expiresAt",
+            "resultsByTargetId",
+            "answerReviewAuthorized",
+            "score",
+            "maxScore"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "answerReviewAuthorized": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/answerReviewAuthorized"
+            },
+            "attemptId": {
+              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            },
+            "currentTargetId": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/currentTargetId"
+            },
+            "expiresAt": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/expiresAt"
+            },
+            "finishedAt": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/finishedAt"
+            },
+            "groupId": {
+              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            },
+            "maxScore": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "resultsByTargetId": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/resultsByTargetId"
+            },
+            "score": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "startedAt": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/startedAt"
+            },
+            "status": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/status"
+            },
+            "submittedTargetIds": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/submittedTargetIds"
+            }
+          },
+          "required": [
+            "attemptId",
+            "groupId",
+            "status",
+            "currentTargetId",
+            "submittedTargetIds",
+            "startedAt",
+            "finishedAt",
+            "expiresAt",
+            "resultsByTargetId",
+            "answerReviewAuthorized",
+            "score",
+            "maxScore"
+          ],
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "title": "Scaffold assessment contracts"
+}

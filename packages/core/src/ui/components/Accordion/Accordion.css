@@ -1,0 +1,111 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  :where(.sc-accordion-item) {
+    border-top: 1px solid var(--color-border);
+  }
+
+  :where(.sc-accordion-item:first-child) {
+    border-top: 0;
+  }
+
+  :where(.sc-accordion-header) {
+    display: flex;
+    margin: 0;
+  }
+
+  :where(.sc-accordion-trigger) {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    border: 0;
+    background: transparent;
+    color: var(--color-ink);
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.25;
+    text-align: left;
+    cursor: pointer;
+    transition:
+      background-color 150ms var(--ease-out-soft),
+      color 150ms var(--ease-out-soft);
+  }
+
+  :where(.sc-accordion-trigger):hover {
+    color: var(--color-primary);
+  }
+
+  :where(.sc-accordion-trigger):focus-visible {
+    background: var(--color-canvas);
+    outline: none;
+  }
+
+  :where(.sc-accordion-trigger-label) {
+    min-width: 0;
+  }
+
+  :where(.sc-accordion-trigger-icon) {
+    flex: 0 0 auto;
+    color: var(--color-text-secondary);
+    transition:
+      color 150ms var(--ease-out-soft),
+      transform 200ms var(--ease-out-soft);
+  }
+
+  :where(.sc-accordion-trigger):hover :where(.sc-accordion-trigger-icon) {
+    color: var(--color-primary);
+  }
+
+  :where(.sc-accordion-trigger)[data-state="open"] :where(.sc-accordion-trigger-icon) {
+    transform: rotate(180deg);
+  }
+
+  :where(.sc-accordion-content) {
+    overflow: hidden;
+  }
+
+  :where(.sc-accordion-content-inner) {
+    padding: 0.25rem 1.5rem 1.25rem;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    :where(.sc-accordion-content)[data-state="open"] {
+      animation: sc-accordion-fade-in 150ms var(--ease-out-soft);
+    }
+
+    :where(.sc-accordion-content)[data-state="closed"] {
+      animation: sc-accordion-fade-out 120ms var(--ease-out-soft);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :where(.sc-accordion-trigger),
+    :where(.sc-accordion-trigger-icon) {
+      transition: none;
+    }
+  }
+
+  @keyframes sc-accordion-fade-in {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes sc-accordion-fade-out {
+    from {
+      opacity: 1;
+    }
+
+    to {
+      opacity: 0;
+    }
+  }
+}

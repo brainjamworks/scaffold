@@ -1,0 +1,41 @@
+{
+  "name": "@scaffold/playground",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Scaffold playground — single-doc, IndexedDB-backed editor sandbox. Deploys to playground.scaffold.ac.",
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "dev": "vp dev",
+    "build": "vp build",
+    "preview": "vp preview",
+    "test": "vp test run --passWithNoTests",
+    "test:watch": "vp test watch"
+  },
+  "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
+    "@scaffold/contracts": "workspace:*",
+    "@scaffold/core": "workspace:*",
+    "@scaffold/grading": "workspace:*",
+    "idb": "^8.0.3",
+    "katex": "^0.16.47",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "yjs": "^13.6.20"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@tiptap/core": "^3.10.1",
+    "@tiptap/react": "^3.10.1",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^6.0.2",
+    "fake-indexeddb": "^6.2.5",
+    "happy-dom": "^20.10.2",
+    "typescript": "~5.9.3",
+    "vite": "npm:@voidzero-dev/vite-plus-core@0.2.4",
+    "vite-plus": "0.2.4"
+  }
+}

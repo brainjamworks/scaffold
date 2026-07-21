@@ -1,0 +1,124 @@
+/* Bounded container viewports
+ * A bounded viewport scrolls ordinary flow content inside a finite region.
+ * When its direct child is itself a fill occupant, the child owns the finite
+ * rectangle and the viewport stops scrolling.
+ */
+
+[data-node="region"] [data-bounded-placement="fill"] [data-bounded-viewport] {
+  --sc-bounded-viewport-scrollbar-thumb: color-mix(in srgb, var(--color-primary) 0%, transparent);
+  --sc-bounded-viewport-scrollbar-thumb-active: color-mix(
+    in srgb,
+    var(--color-primary) 28%,
+    transparent
+  );
+
+  min-height: 0;
+  max-height: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: auto;
+  scrollbar-color: var(--sc-bounded-viewport-scrollbar-thumb) transparent;
+  scrollbar-width: none;
+}
+
+[data-node="region"] [data-bounded-placement="fill"] [data-bounded-viewport="fill"] {
+  height: 100%;
+}
+
+[data-node="region"] [data-bounded-placement="fill"] [data-bounded-viewport]:hover,
+[data-node="region"] [data-bounded-placement="fill"] [data-bounded-viewport]:focus-within {
+  scrollbar-color: var(--sc-bounded-viewport-scrollbar-thumb-active) transparent;
+  scrollbar-width: thin;
+}
+
+[data-node="region"] [data-bounded-placement="fill"] [data-bounded-viewport]::-webkit-scrollbar {
+  width: 0.375rem;
+  height: 0.375rem;
+}
+
+[data-node="region"]
+  [data-bounded-placement="fill"]
+  [data-bounded-viewport]::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+[data-node="region"]
+  [data-bounded-placement="fill"]
+  [data-bounded-viewport]::-webkit-scrollbar-thumb {
+  border: 0.125rem solid transparent;
+  border-radius: var(--radius-pill);
+  background: var(--sc-bounded-viewport-scrollbar-thumb);
+  background-clip: content-box;
+}
+
+[data-node="region"]
+  [data-bounded-placement="fill"]
+  [data-bounded-viewport]:hover::-webkit-scrollbar-thumb,
+[data-node="region"]
+  [data-bounded-placement="fill"]
+  [data-bounded-viewport]:focus-within::-webkit-scrollbar-thumb {
+  background: var(--sc-bounded-viewport-scrollbar-thumb-active);
+  background-clip: content-box;
+}
+
+@media (forced-colors: active) {
+  [data-node="region"] [data-bounded-placement="fill"] [data-bounded-viewport] {
+    scrollbar-color: auto;
+  }
+}
+
+[data-node="region"]
+  [data-bounded-placement="fill"]
+  [data-bounded-viewport]:has(> [data-bounded-placement="fill"]),
+[data-node="region"]
+  [data-bounded-placement="fill"]
+  [data-bounded-viewport]:has(> .react-renderer > [data-bounded-placement="fill"]),
+[data-node="region"]
+  [data-bounded-placement="fill"]
+  [data-bounded-viewport]:has(> * > .react-renderer > [data-bounded-placement="fill"]),
+[data-node="region"]
+  [data-bounded-placement="fill"]
+  [data-bounded-viewport]:has(> [data-node-view-content-react] > [data-bounded-placement="fill"]) {
+  height: 100%;
+  overflow: hidden;
+}
+
+[data-node="region"]
+  [data-bounded-placement="fill"]
+  [data-bounded-viewport]
+  > [data-bounded-placement="fill"],
+[data-node="region"]
+  [data-bounded-placement="fill"]
+  [data-bounded-viewport]
+  > .react-renderer
+  > [data-bounded-placement="fill"],
+[data-node="region"]
+  [data-bounded-placement="fill"]
+  [data-bounded-viewport]
+  > *
+  > .react-renderer
+  > [data-bounded-placement="fill"],
+[data-node="region"]
+  [data-bounded-placement="fill"]
+  [data-bounded-viewport]
+  > [data-node-view-content-react]
+  > [data-bounded-placement="fill"] {
+  align-self: stretch;
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+}
+
+[data-node="region"]
+  [data-bounded-placement="fill"]
+  [data-bounded-viewport]
+  > *:has(> .react-renderer > [data-bounded-placement="fill"]),
+[data-node="region"]
+  [data-bounded-placement="fill"]
+  [data-bounded-viewport]
+  > *
+  > .react-renderer:has(> [data-bounded-placement="fill"]) {
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+}

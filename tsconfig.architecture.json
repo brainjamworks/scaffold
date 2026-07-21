@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "noEmit": true,
+    "paths": {
+      "@/*": ["packages/core/src/*"],
+      "@scaffold/contracts": ["packages/contracts/src/index.ts"],
+      "@scaffold/grading": ["packages/grading/src/index.ts"],
+      "@scaffold/core/runtime": ["packages/core/src/entrypoints/runtime.ts"],
+      "@scaffold/core/authoring": ["packages/core/src/entrypoints/authoring.ts"],
+      "@scaffold/core/agent-host": ["packages/core/src/entrypoints/agent-host.ts"],
+      "@scaffold/core/format": ["packages/core/src/entrypoints/format.ts"],
+      "@scaffold/core/ports": ["packages/core/src/entrypoints/ports.ts"],
+      "@scaffold/core/media-policy": ["packages/core/src/entrypoints/media-policy.ts"],
+      "@scaffold/core/styles.css": ["packages/core/src/styles/globals.css"]
+    }
+  }
+}

@@ -1,0 +1,85 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  /* ─── Pull quote ────────────────────────────────────────────────
+ * Editorial pull quote: oversized body with a hairline rule above
+ * the attribution. Default-left alignment, optional centred for
+ * dramatic openers. No decorative quote glyphs (we use real
+ * <blockquote> semantics; the size carries the weight). */
+
+  .sc-pull-quote {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+  }
+
+  .sc-pull-quote[data-align="center"] {
+    text-align: center;
+  }
+
+  .sc-pull-quote__content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+  }
+
+  .sc-pull-quote__body {
+    font-family: var(--font-display, var(--font-sans));
+    font-size: clamp(1.5rem, 1.1rem + 1.4vw, 2rem);
+    font-weight: 500;
+    line-height: 1.25;
+    letter-spacing: -0.015em;
+    color: var(--color-ink);
+    text-wrap: balance;
+  }
+
+  .sc-pull-quote__body > [data-node-view-content-react] > * {
+    margin: 0;
+  }
+
+  .sc-pull-quote__body > [data-node-view-content-react] > * + * {
+    margin-top: 0.5rem;
+  }
+
+  .sc-pull-quote__attribution {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+    line-height: 1.4;
+  }
+
+  .sc-pull-quote[data-align="center"] .sc-pull-quote__attribution {
+    display: flex;
+    justify-content: center;
+  }
+
+  /* Em-dash prefix marker via ::before so authors don't have to type it
+ * (and it stays consistent in the rendered output). */
+  .sc-pull-quote__attribution::before {
+    content: "—";
+    color: var(--color-text-muted);
+    margin-right: 0.125rem;
+    flex-shrink: 0;
+  }
+
+  .sc-pull-quote__attribution > [data-node-view-content-react] > * {
+    margin: 0;
+  }
+
+  .sc-pull-quote__attribution--hidden {
+    display: none;
+  }
+
+  /* Editor-mode placeholder when the attribution slot is empty. PM
+ * paragraphs hold a single empty text node; we surface a hint via
+ * the data-empty marker set on the wrapper. */
+  .sc-pull-quote__attribution[data-empty]
+    > [data-node-view-content-react]
+    > p:first-child:empty::before {
+    content: "who said it";
+    color: var(--color-text-placeholder);
+    pointer-events: none;
+  }
+}

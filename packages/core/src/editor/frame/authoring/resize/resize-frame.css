@@ -1,0 +1,248 @@
+/* ─── Authoring resize frame ────────────────────────────────
+ * Polishes the block resize chrome that Tiptap's ResizableNodeView
+ * paints onto blocks. Two things happen here:
+ *
+ *   1. The wrapper grows a subtle navy outline when the block is the
+ *      active interaction target (only while selectable + selected).
+ *      Currently the only signal of "this block is being framed" was
+ *      the handles themselves; now the edges are legible too.
+ *
+ *   2. The resize handles get a polish pass: brand navy instead of
+ *      info blue, with visible square grips inside larger invisible
+ *      button targets. Focus-visible gets a proper ring for keyboard
+ *      reach.
+ *
+ * `!important` shows up below because the underlying library sets
+ * background / border inline; the attribute selectors win on
+ * specificity but lose to the style attribute without it. Position
+ * + cursor stay JS-driven; transform is CSS-owned so the handles sit
+ * inside the selected frame instead of overhanging clipped containers. */
+
+[data-authoring-frame-wrapper-active] {
+  position: relative;
+  outline: none;
+  border-radius: var(--radius-sm);
+}
+
+[data-authoring-frame-wrapper-active]::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border: 2px solid #2563eb;
+  border-radius: inherit;
+  transition: border-color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-authoring-frame-wrapper-active]:hover::after {
+  border-color: #1d4ed8;
+}
+
+/* ─── Bounded resize NodeViews ────────────────────────────────
+ * When a resizable block is placed inside a bounded container, the
+ * resize shell must obey the rectangle allocated by that container.
+ * Region/grid/layout styles decide the available space; this file owns
+ * the internal ResizableNodeView DOM contract. */
+
+[data-resize-container][data-bounded-placement="fill"] {
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+[data-resize-container][data-bounded-placement="fill"]
+  > [data-resize-wrapper][data-bounded-placement="fill"] {
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+[data-resize-container][data-bounded-placement="fill"]
+  > [data-resize-wrapper][data-bounded-placement="fill"]
+  > .react-renderer {
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+}
+
+/* ─── Resize handles ────────────────────────────────────────── */
+
+[data-authoring-resize-handle] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px !important;
+  height: 24px !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 9999px !important;
+  box-shadow: none !important;
+  pointer-events: auto;
+  z-index: 2 !important;
+  transition:
+    background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-authoring-resize-handle]::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: block;
+  width: 9px;
+  height: 9px;
+  border: 2px solid color-mix(in oklch, var(--color-primary) 72%, white);
+  border-radius: 2px;
+  background: var(--color-background);
+  transform: translate(-50%, -50%);
+  box-shadow: none;
+}
+
+/* The button stays at least 24px for target-size; the visible grip remains
+ * compact and square so it can sit on the frame without overhanging. */
+
+[data-authoring-resize-handle="left"],
+[data-authoring-resize-handle="right"] {
+  width: 24px !important;
+  height: 24px !important;
+}
+
+[data-authoring-resize-handle="left"]::before,
+[data-authoring-resize-handle="right"]::before {
+  width: 9px;
+  height: 9px;
+}
+
+[data-authoring-resize-handle="left"]::before {
+  left: -0.5px;
+  transform: translateY(-50%);
+}
+
+[data-authoring-resize-handle="right"]::before {
+  right: -0.5px;
+  left: auto;
+  transform: translateY(-50%);
+}
+
+[data-authoring-resize-handle="top"],
+[data-authoring-resize-handle="bottom"] {
+  width: 24px !important;
+  height: 24px !important;
+}
+
+[data-authoring-resize-handle="top"]::before,
+[data-authoring-resize-handle="bottom"]::before {
+  width: 9px;
+  height: 9px;
+}
+
+[data-authoring-resize-handle="top"]::before {
+  top: 0;
+  transform: translateX(-50%);
+}
+
+[data-authoring-resize-handle="bottom"]::before {
+  top: auto;
+  bottom: -0.5px;
+  transform: translateX(-50%);
+}
+
+[data-authoring-resize-handle="top-left"],
+[data-authoring-resize-handle="top-right"],
+[data-authoring-resize-handle="bottom-left"],
+[data-authoring-resize-handle="bottom-right"] {
+  width: 24px !important;
+  height: 24px !important;
+}
+
+[data-authoring-resize-handle="top-left"]::before {
+  top: 0;
+  left: -0.5px;
+  transform: none;
+}
+
+[data-authoring-resize-handle="top-right"]::before {
+  top: 0;
+  right: -0.5px;
+  left: auto;
+  transform: none;
+}
+
+[data-authoring-resize-handle="bottom-left"]::before {
+  top: auto;
+  bottom: -0.5px;
+  left: -0.5px;
+  transform: none;
+}
+
+[data-authoring-resize-handle="bottom-right"]::before {
+  top: auto;
+  right: -0.5px;
+  bottom: -0.5px;
+  left: auto;
+  transform: none;
+}
+
+[data-authoring-resize-handle="top-left"] {
+  transform-origin: top left;
+  transform: translate(0, 0) !important;
+}
+
+[data-authoring-resize-handle="top-right"] {
+  transform-origin: top right;
+  transform: translate(0, 0) !important;
+}
+
+[data-authoring-resize-handle="bottom-left"] {
+  transform-origin: bottom left;
+  transform: translate(0, 0) !important;
+}
+
+[data-authoring-resize-handle="bottom-right"] {
+  transform-origin: bottom right;
+  transform: translate(0, 0) !important;
+}
+
+[data-authoring-resize-handle="left"] {
+  transform-origin: left center;
+  transform: translate(0, -50%) !important;
+}
+
+[data-authoring-resize-handle="right"] {
+  transform-origin: right center;
+  transform: translate(0, -50%) !important;
+}
+
+[data-authoring-resize-handle="top"] {
+  transform-origin: center top;
+  transform: translate(-50%, 0) !important;
+}
+
+[data-authoring-resize-handle="bottom"] {
+  transform-origin: center bottom;
+  transform: translate(-50%, 0) !important;
+}
+
+[data-authoring-resize-handle]:focus-visible {
+  outline: none !important;
+  box-shadow:
+    0 0 0 2px var(--color-background),
+    0 0 0 4px var(--color-primary),
+    0 1px 2px color-mix(in oklch, var(--color-ink) 25%, transparent) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-authoring-frame-wrapper-active],
+  [data-authoring-frame-wrapper-active]::after,
+  [data-authoring-resize-handle] {
+    transition: none;
+  }
+}

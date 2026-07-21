@@ -1,0 +1,25 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-overlays {
+  .sc-interaction-bubble {
+    display: flex;
+    width: max-content;
+    max-width: 100%;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 0.25rem;
+    white-space: nowrap;
+  }
+
+  .sc-interaction-bubble > * {
+    flex: 0 0 auto;
+  }
+
+  .sc-block-bubble-divider {
+    display: inline-block;
+    width: 1px;
+    height: 1.25rem;
+    margin: 0 0.125rem;
+    background: var(--color-border);
+  }
+}

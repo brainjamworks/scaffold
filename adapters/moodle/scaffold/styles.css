@@ -1,0 +1,24 @@
+.path-mod-scaffold .scaffold-moodle {
+  width: 100%;
+}
+
+.path-mod-scaffold .sc-moodle-isolated-frame {
+  display: block;
+  width: 100%;
+  border: 0;
+}
+
+.path-mod-scaffold .sc-moodle-frame-error {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid currentcolor;
+}
+
+body.scaffold-moodle-authoring-page {
+  overflow: hidden;
+}
+
+body.scaffold-moodle-authoring-page .scaffold-moodle-authoring {
+  height: 100dvh;
+  min-height: 0;
+}

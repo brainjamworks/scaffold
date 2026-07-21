@@ -1,0 +1,310 @@
+/* ─── Checklist ────────────────────────────────────────────────────
+ * Per-learner persisted runtime state on a content block. Each
+ * item's checked state lives in the shared learner activity runtime,
+ * NOT in the document, so two learners reading the same lesson see
+ * independent progress. Author writes items; learners check them. */
+
+.sc-checklist {
+  position: relative;
+}
+
+.sc-checklist__section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.875rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-background);
+  transition: border-color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Progress header. Mono tabular numbers (per the brand mono rule
+ * for chrome / numeric moments). The "complete" label sits in
+ * --color-text-muted to stay quiet beside the digits. */
+
+.sc-checklist__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0 0.25rem 0.5rem;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.sc-checklist__progress {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.sc-checklist__progress-count {
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.sc-checklist__progress-divider {
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.sc-checklist__progress-total {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.sc-checklist__progress-label {
+  margin-left: 0.375rem;
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: lowercase;
+  letter-spacing: 0;
+}
+
+.sc-checklist__reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.sc-checklist__reset:hover {
+  background: var(--color-muted);
+  color: var(--color-primary);
+}
+
+/* Item list. The list resets default <ul> styling because we own
+ * markers via the checkbox button per item. The ghost row sits as
+ * the last <li> so it shares the exact same horizontal alignment
+ * as real items, no offset possible. */
+
+.sc-checklist__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.0625rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+/* Item. Hover tints the row so authors / learners can see the row
+ * boundary while empty. Checked rows fade the body slightly and
+ * strike through the text. Grid columns: drag, checkbox, text,
+ * delete; same template across real and ghost rows so checkboxes
+ * line up. */
+
+.sc-checklist-item {
+  display: block;
+  min-width: 0;
+}
+
+.sc-checklist-item__shell {
+  display: grid;
+  grid-template-columns: 1.25rem auto minmax(0, 1fr) 1.5rem;
+  align-items: start;
+  gap: 0.5rem;
+  padding: 0.35rem 0.25rem;
+  border-radius: var(--radius-md);
+  transition: background-color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sc-checklist-item:hover .sc-checklist-item__shell {
+  background: var(--color-muted);
+}
+
+/* Drag handle column. Hidden until the row is hovered; floats over
+ * the left edge of the shell. The shared StructureMovementHandle
+ * owns the visual treatment (dots icon + dnd kit listeners). */
+
+.sc-checklist-item__drag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.1875rem;
+  width: 1.25rem;
+  height: 1.25rem;
+  opacity: 0;
+  color: var(--color-text-muted);
+  transition:
+    opacity 150ms ease,
+    color 150ms ease;
+}
+
+.sc-checklist-item:hover .sc-checklist-item__drag,
+.sc-checklist-item:focus-within .sc-checklist-item__drag {
+  opacity: 1;
+}
+
+.sc-checklist-item__drag:hover {
+  color: var(--color-ink);
+}
+
+/* Checkbox. Hairline border at rest; navy fill on checked. Drives
+ * the per-row checked state via data attribute so CSS can fade the
+ * row text without depending on JS class swaps. */
+
+.sc-checklist-item__checkbox {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin-top: 0.1875rem;
+  flex-shrink: 0;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-background);
+  color: transparent;
+  cursor: pointer;
+  transition:
+    background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sc-checklist-item__checkbox:hover:not(:disabled) {
+  border-color: var(--color-ink);
+}
+
+.sc-checklist-item__checkbox:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-focus-ring);
+}
+
+.sc-checklist-item[data-checked="true"] .sc-checklist-item__checkbox {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+
+.sc-checklist-item__checkbox:disabled {
+  cursor: default;
+}
+
+/* Item text. Strike + fade when checked. */
+
+.sc-checklist-item__text {
+  min-width: 0;
+  color: var(--color-text-primary);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  padding-top: 0.0625rem;
+}
+
+.sc-checklist-item__text > p {
+  margin: 0;
+}
+
+.sc-checklist-item[data-checked="true"] .sc-checklist-item__text {
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--color-text-muted);
+}
+
+/* Item delete — visible on row hover, matches the brand chrome
+ * ghost-icon-button vocabulary (no background at rest). */
+
+.sc-checklist-item__delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-top: 0;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease,
+    opacity 150ms ease;
+}
+
+.sc-checklist-item:hover .sc-checklist-item__delete,
+.sc-checklist-item:focus-within .sc-checklist-item__delete {
+  opacity: 1;
+}
+
+.sc-checklist-item__delete:hover:not(:disabled) {
+  background: var(--color-muted);
+  color: var(--color-secondary);
+}
+
+.sc-checklist-item__delete:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-focus-ring);
+  opacity: 1;
+}
+
+.sc-checklist-item__delete:disabled {
+  cursor: not-allowed;
+  opacity: 0;
+}
+
+/* Ghost row — last <li> styled as a button that mirrors the item
+ * shell exactly. Same 4-column grid so the dashed checkbox icon
+ * lines up with real checkboxes; the drag column is a placeholder
+ * keeping the columns aligned. */
+
+.sc-checklist-item--ghost {
+  margin-top: 0.125rem;
+}
+
+/* Geometry only — visual contract comes from `.sc-ghost-add`. The
+ * 4-column grid aligns the leading drag-placeholder + plus chip
+ * with the surrounding checklist items. */
+.sc-checklist__add {
+  display: grid;
+  grid-template-columns: 1.25rem auto minmax(0, 1fr) 1.5rem;
+  width: 100%;
+  padding: 0.35rem 0.25rem;
+  border-radius: var(--radius-md);
+  font-size: 0.9375rem;
+}
+
+.sc-checklist-item__drag-placeholder {
+  display: block;
+  width: 1.25rem;
+  height: 1.125rem;
+}
+
+.sc-checklist__add-label {
+  padding-top: 0.0625rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-checklist__section,
+  .sc-checklist-item__shell,
+  .sc-checklist-item__checkbox,
+  .sc-checklist-item__delete,
+  .sc-checklist-item__drag,
+  .sc-checklist__reset {
+    transition: none;
+  }
+}

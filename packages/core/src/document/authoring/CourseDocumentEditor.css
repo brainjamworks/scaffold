@@ -1,0 +1,10 @@
+.sc-course-document-editor {
+  box-sizing: border-box;
+  margin-inline: auto;
+  padding: 2rem 1.5rem;
+  position: relative;
+}
+
+.sc-course-document-editor__content {
+  max-width: none;
+}

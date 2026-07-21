@@ -1,0 +1,38 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-overlays {
+  .sc-bubble-toolbar-frame {
+    display: flex;
+    width: max-content;
+    max-width: min(44rem, var(--sc-overlay-available-inline-size, 44rem));
+    min-width: 0;
+    align-items: center;
+    gap: 0.125rem;
+    padding: 0.25rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    background: var(--color-background);
+    box-shadow: var(--shadow-md);
+  }
+
+  .sc-bubble-toolbar-scrollport {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+  }
+
+  .sc-bubble-toolbar-frame[data-overflow="true"] > .sc-bubble-toolbar-scrollport {
+    flex: 1 1 auto;
+  }
+
+  .sc-bubble-toolbar-scrollport::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sc-bubble-toolbar-scroll-button {
+    flex: 0 0 auto;
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "name": "@scaffold/grading",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pure TypeScript answer-key validation over @scaffold/contracts, currently consumed by apps/playground for browser-local development grading.",
+  "license": "AGPL-3.0-only",
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "default": "./dist/index.mjs"
+    },
+    "./assessment-grading.json": "./dist/fixtures/assessment-grading.json",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "dev": "vp pack src/index.ts --dts --watch",
+    "test": "vp test run",
+    "test:watch": "vp test watch",
+    "build": "vp pack src/index.ts --dts && node scripts/copy-assessment-grading-corpus.mjs --check --copy",
+    "copy:assessment-grading-corpus": "node scripts/copy-assessment-grading-corpus.mjs --copy",
+    "check:assessment-grading-corpus": "node scripts/copy-assessment-grading-corpus.mjs --check"
+  },
+  "dependencies": {
+    "@scaffold/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "~5.9.3",
+    "vite": "npm:@voidzero-dev/vite-plus-core@0.2.4",
+    "vite-plus": "0.2.4"
+  }
+}

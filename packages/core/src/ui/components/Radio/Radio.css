@@ -1,0 +1,55 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  :where(.sc-radio-group) {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  :where(.sc-radio-item) {
+    box-sizing: border-box;
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    border: 1.5px solid var(--color-ink);
+    border-radius: var(--radius-pill);
+    background: var(--color-background);
+    cursor: pointer;
+    transition:
+      border-color 150ms var(--ease-out-soft),
+      background-color 150ms var(--ease-out-soft),
+      opacity 150ms var(--ease-out-soft);
+  }
+
+  :where(.sc-radio-item):focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 1px;
+  }
+
+  :where(.sc-radio-item)[data-state="checked"] {
+    border-color: var(--color-primary);
+  }
+
+  :where(.sc-radio-item):disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  :where(.sc-radio-indicator) {
+    display: block;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: var(--radius-pill);
+    background: var(--color-primary);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :where(.sc-radio-item) {
+      transition: none;
+    }
+  }
+}

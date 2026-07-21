@@ -1,0 +1,104 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  /* ─── AudioBlock ─────────────────────────────────────────────────
+ * Wrapper chrome for the audio block. The player primitive owns its
+ * own pill skin (see AudioPlayer.css); this file is about how the
+ * block sits in the document — margin, the empty-state ghost, the
+ * Replace pill, error/loading text. */
+
+  .sc-audio-block {
+    position: relative;
+    display: block;
+  }
+
+  .sc-audio-block__fallback {
+    width: 100%;
+    min-height: 5rem;
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-canvas);
+  }
+
+  /* ─── Empty state ─────────────────────────────────────────────── */
+
+  .sc-audio-block__ghost {
+    width: 100%;
+    min-height: 2.75rem;
+    padding-block: 0.625rem;
+    border-radius: 9999px;
+  }
+
+  .sc-audio-block__placeholder {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+  }
+
+  /* ─── Loaded state ────────────────────────────────────────────── */
+
+  .sc-audio-block__stage {
+    position: relative;
+    display: block;
+  }
+
+  .sc-audio-block__loading,
+  .sc-audio-block__error {
+    margin: 0;
+    padding: 0.5rem 0.875rem;
+    border: 1px dashed var(--color-border);
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+  }
+
+  .sc-audio-block__error {
+    border-color: color-mix(in oklch, var(--color-secondary, oklch(0.62 0.22 18)) 40%, transparent);
+    color: var(--color-secondary, oklch(0.62 0.22 18));
+  }
+
+  /* Replace pill — sits inline at the top-right of the player area
+ * (above the pill bar, anchored to the player's right edge). Reveals
+ * on hover of the stage so it doesn't clutter the resting state. */
+  .sc-audio-block__replace {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.1875rem 0.4375rem 0.1875rem 0.375rem;
+    border: 0;
+    border-radius: 9999px;
+    background: var(--color-ink);
+    color: var(--color-background);
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    cursor: pointer;
+    opacity: 0;
+    transform: translateY(-2px);
+    transition:
+      opacity 180ms cubic-bezier(0.16, 1, 0.3, 1),
+      transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .sc-audio-block__stage:hover .sc-audio-block__replace,
+  .sc-audio-block__replace:focus-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .sc-audio-block__replace:focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 3px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sc-audio-block__replace {
+      transition: none;
+    }
+  }
+}

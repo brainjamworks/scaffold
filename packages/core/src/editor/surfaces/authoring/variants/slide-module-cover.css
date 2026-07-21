@@ -1,0 +1,22 @@
+.scaffold-authoring-surface-view
+  [data-surface].sc-slide-module-cover-surface-view
+  h1.is-empty::before {
+  content: attr(data-placeholder);
+  height: 0;
+  float: left;
+  color: currentColor;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.scaffold-authoring-surface-view
+  [data-surface].sc-slide-module-cover-surface-view
+  [data-slot="slide-cover-subtitle"]
+  p.is-empty::before {
+  content: attr(data-placeholder);
+  height: 0;
+  float: left;
+  color: currentColor;
+  opacity: 0.5;
+  pointer-events: none;
+}

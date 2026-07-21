@@ -1,0 +1,98 @@
+body {
+  margin: 0;
+}
+
+.sc-xblock-root {
+  color: var(--foreground);
+}
+
+.sc-xblock-studio-shell {
+  display: flex;
+  height: 100vh;
+  min-height: 100vh;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sc-xblock-authoring-app {
+  height: 100%;
+  min-height: 0;
+}
+
+.sc-xblock-editor-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.sc-xblock-header-action {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  border-radius: 9999px;
+  padding: 0 0.875rem;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sc-xblock-header-action:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.sc-xblock-header-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.sc-xblock-header-action--secondary {
+  background: var(--color-background);
+  color: var(--color-text-primary);
+}
+
+.sc-xblock-header-action--secondary:hover:not(:disabled) {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+.sc-xblock-header-action--primary {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+
+.sc-xblock-header-action--primary:hover:not(:disabled) {
+  border-color: var(--color-ink);
+  background: var(--color-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-xblock-header-action {
+    transition: none;
+  }
+}
+
+.sc-xblock-student-shell .ProseMirror {
+  outline: none;
+}
+
+.sc-xblock-error {
+  display: flex;
+  min-height: 240px;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 2rem;
+  color: var(--color-error-text, #a11f1f);
+  background: var(--color-error-bg, #ffdede);
+}

@@ -1,0 +1,93 @@
+/* Shared slide-cover layout contract:
+ * [data-surface] is the absolute positioning box for surface regions.
+ * Runtime variant wrappers must stay static so header/footer do not drift.
+ */
+.scaffold-authoring-surface-view [data-surface].sc-slide-cover-surface-view,
+.scaffold-runtime-surface-view [data-surface][data-surface-variant="slide-cover"] {
+  position: relative;
+  overflow: hidden;
+  border-color: var(--color-border);
+  background: var(--color-background);
+}
+
+.scaffold-authoring-surface-view [data-surface].sc-slide-cover-surface-view,
+.scaffold-runtime-surface-view
+  [data-surface][data-surface-variant="slide-cover"]
+  .sc-slide-cover-surface-view {
+  box-sizing: border-box;
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+  padding: 1.5rem 4.25rem;
+  align-items: stretch;
+}
+
+.scaffold-authoring-surface-view
+  [data-surface].sc-slide-cover-surface-view
+  [data-node-view-content-react],
+.scaffold-runtime-surface-view
+  [data-surface][data-surface-variant="slide-cover"]
+  [data-surface-content] {
+  z-index: 1;
+  display: grid;
+  min-width: 0;
+  min-height: 100%;
+  grid-template-rows: minmax(0, 1fr) auto auto minmax(0, 1fr);
+  align-content: stretch;
+  justify-items: stretch;
+}
+
+.scaffold-authoring-surface-view
+  [data-surface].sc-slide-cover-surface-view[data-vertical-content-position="top"]
+  [data-node-view-content-react],
+.scaffold-runtime-surface-view
+  [data-surface][data-surface-variant="slide-cover"][data-vertical-content-position="top"]
+  [data-surface-content] {
+  grid-template-rows: 0 auto auto minmax(0, 1fr);
+}
+
+.scaffold-authoring-surface-view
+  [data-surface].sc-slide-cover-surface-view[data-vertical-content-position="bottom"]
+  [data-node-view-content-react],
+.scaffold-runtime-surface-view
+  [data-surface][data-surface-variant="slide-cover"][data-vertical-content-position="bottom"]
+  [data-surface-content] {
+  grid-template-rows: minmax(0, 1fr) auto auto 0;
+}
+
+.sc-slide-cover-surface-view h1 {
+  grid-row: 2;
+  width: 100%;
+  max-width: 12ch;
+  margin-block: 0;
+  color: var(--color-text-primary);
+  font-size: 4rem;
+  font-weight: var(--font-weight-extrabold);
+  letter-spacing: 0;
+  line-height: 1;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.sc-slide-cover-surface-view [data-slot="slide-cover-subtitle"] {
+  --sc-field-content-flow-gap: 0.375rem;
+
+  grid-row: 3;
+  width: 100%;
+  max-width: none;
+  color: var(--color-text-secondary);
+  font-size: 1.25rem;
+  font-weight: var(--font-weight-normal);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+.sc-slide-cover-surface-view [data-slot="slide-cover-subtitle"] > :where(*) {
+  width: 100%;
+  max-width: 44rem;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+}

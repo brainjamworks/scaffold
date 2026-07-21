@@ -1,0 +1,144 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  /* ─── Text-wrap image ───────────────────────────────────────────
+ * Magazine-style float layout: image floats to one side, body text
+ * wraps around it via real CSS `float`. The image is rendered as a
+ * sibling before the body inside a single block container; the
+ * `float` + `shape-outside` does the wrap.
+ *
+ * Size, shape, and float side come from data-* attributes the block
+ * view writes on its shell. After the float, the container
+ * clears so subsequent blocks start on a new line. */
+
+  .sc-text-wrap-image {
+    display: block;
+  }
+
+  .sc-text-wrap-image__shell {
+    --twi-radius: var(--radius-md);
+    --twi-gutter: 1.25rem;
+    overflow: hidden; /* contain the float */
+  }
+
+  /* ─── Media slot ────────────────────────────────────────────── */
+
+  .sc-text-wrap-image__media {
+    position: relative;
+    margin: 0 0 0.625rem;
+    width: 240px;
+    max-width: 45%;
+  }
+
+  /* Sizes */
+  .sc-text-wrap-image__shell[data-size="sm"] .sc-text-wrap-image__media {
+    width: 168px;
+  }
+
+  .sc-text-wrap-image__shell[data-size="md"] .sc-text-wrap-image__media {
+    width: 248px;
+  }
+
+  .sc-text-wrap-image__shell[data-size="lg"] .sc-text-wrap-image__media {
+    width: 352px;
+  }
+
+  /* Float side */
+  .sc-text-wrap-image__shell[data-position="left"] .sc-text-wrap-image__media {
+    float: left;
+    margin-right: var(--twi-gutter);
+  }
+
+  .sc-text-wrap-image__shell[data-position="right"] .sc-text-wrap-image__media {
+    float: right;
+    margin-left: var(--twi-gutter);
+  }
+
+  /* Shape — same radius rule applies to the real image, the empty
+ * state, and the float's `shape-outside` (so text wraps the visual
+ * silhouette, not the bounding box). */
+
+  .sc-text-wrap-image__shell[data-shape="square"] {
+    --twi-radius: 2px;
+  }
+
+  .sc-text-wrap-image__shell[data-shape="rounded"] {
+    --twi-radius: var(--radius-md);
+  }
+
+  .sc-text-wrap-image__shell[data-shape="circle"] {
+    --twi-radius: 9999px;
+  }
+
+  .sc-text-wrap-image__shell[data-shape="circle"] .sc-text-wrap-image__media,
+  .sc-text-wrap-image__shell[data-shape="circle"] .sc-text-wrap-image__empty {
+    aspect-ratio: 1;
+  }
+
+  .sc-text-wrap-image__shell[data-shape="circle"] .sc-text-wrap-image__media {
+    shape-outside: circle();
+  }
+
+  .sc-text-wrap-image__shell[data-shape="circle"] .sc-text-wrap-image__img {
+    object-fit: cover;
+    height: 100%;
+  }
+
+  /* ─── Image ─────────────────────────────────────────────────── */
+
+  .sc-text-wrap-image__img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: var(--twi-radius);
+    /* Border-as-decoration competes with photographs. A near-canvas
+   * outline keeps the edge crisp without fighting the subject. */
+    box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--color-ink) 8%, transparent);
+  }
+
+  /* ─── Empty state ───────────────────────────────────────────── */
+
+  .sc-text-wrap-image__empty {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    border-radius: var(--twi-radius);
+  }
+
+  .sc-text-wrap-image__empty:not(button) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 1rem;
+    border: 1px dashed color-mix(in oklch, var(--color-ink) 16%, transparent);
+    background: color-mix(in oklch, var(--color-canvas) 60%, transparent);
+    color: var(--color-text-muted);
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  /* Circle shape: anchor the replace button near the top-centre so it
+ * doesn't get clipped by the circular mask in the corner. */
+  .sc-text-wrap-image__shell[data-shape="circle"] .sc-media-replace-button {
+    top: 8%;
+    right: 50%;
+    transform: translate(50%, 0);
+  }
+
+  /* ─── Body content ──────────────────────────────────────────── */
+
+  .sc-text-wrap-image__content,
+  .sc-text-wrap-image__body {
+    min-width: 0;
+  }
+
+  .sc-text-wrap-image__body-content > [data-node-view-content-react] > p {
+    margin: 0 0 0.75rem;
+    line-height: 1.6;
+    color: var(--color-ink);
+  }
+
+  .sc-text-wrap-image__body-content > [data-node-view-content-react] > p:last-child {
+    margin-bottom: 0;
+  }
+}

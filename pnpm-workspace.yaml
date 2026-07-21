@@ -1,0 +1,16 @@
+packages:
+  - "packages/*"
+  - "adapters/*"
+  - "apps/*"
+
+allowBuilds:
+  esbuild: true
+
+overrides:
+  vite: "npm:@voidzero-dev/vite-plus-core@0.2.4"
+
+peerDependencyRules:
+  allowAny:
+    - vite
+  allowedVersions:
+    vite: "*"

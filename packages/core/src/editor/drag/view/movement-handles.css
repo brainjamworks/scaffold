@@ -1,0 +1,137 @@
+.sc-structure-movement-handle,
+.sc-contained-movement-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  transition:
+    opacity 150ms var(--ease-out-soft),
+    background-color 150ms var(--ease-out-soft),
+    color 150ms var(--ease-out-soft);
+}
+
+.sc-structure-movement-handle:focus-visible,
+.sc-contained-movement-handle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-focus-ring);
+}
+
+.sc-structure-movement-handle--pill {
+  width: 1.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-background);
+  color: var(--color-text-secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.sc-structure-movement-handle--pill:hover {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+.sc-structure-movement-handle--bare {
+  width: 1rem;
+  height: 1.25rem;
+  border-radius: var(--radius-sm);
+  color: currentColor;
+}
+
+.sc-structure-movement-handle--bare:hover {
+  color: var(--color-text-primary);
+}
+
+.sc-contained-movement-handle {
+  width: 1rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  color: currentColor;
+  opacity: 0;
+}
+
+[data-contained-movement-target]:hover
+  .sc-contained-movement-handle:not(.sc-movement-handle--disabled):not(
+    .sc-movement-handle--dragging
+  ),
+[data-contained-movement-target]:focus-within
+  .sc-contained-movement-handle:not(.sc-movement-handle--disabled):not(
+    .sc-movement-handle--dragging
+  ) {
+  opacity: 0.5;
+}
+
+.sc-contained-movement-handle:hover:not(.sc-movement-handle--disabled):not(
+  .sc-movement-handle--dragging
+),
+.sc-contained-movement-handle:focus-visible:not(.sc-movement-handle--disabled):not(
+  .sc-movement-handle--dragging
+) {
+  opacity: 1;
+}
+
+.sc-contained-movement-handle:hover {
+  background: rgb(0 0 0 / 10%);
+}
+
+.sc-contained-movement-handle--row-offset {
+  margin-left: -0.25rem;
+}
+
+.sc-editor-movement-layer {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-interactive);
+}
+
+.sc-editor-movement-handle {
+  pointer-events: auto;
+  display: flex;
+  width: 1.25rem;
+  height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-background);
+  color: var(--color-text-secondary);
+  box-shadow: var(--shadow-sm);
+}
+
+.sc-editor-movement-handle:hover {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+.sc-editor-movement-handle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-focus-ring);
+}
+
+.sc-editor-movement-overlay-ghost {
+  width: 1.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-background);
+  box-shadow: var(--shadow-sm);
+}
+
+.sc-movement-handle--disabled {
+  cursor: not-allowed;
+  opacity: 0.3;
+}
+
+.sc-movement-handle--dragging {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-structure-movement-handle,
+  .sc-contained-movement-handle,
+  .sc-editor-movement-handle {
+    transition: none;
+  }
+}

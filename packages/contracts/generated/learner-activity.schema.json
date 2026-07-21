@@ -1,0 +1,105 @@
+{
+  "$comment": "This bundle is generated from the strict v1 Zod contract and carries its portable learner activity invariants.",
+  "$id": "https://scaffold.ac/schemas/learner-activity.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "definitions": {
+    "LearnerActivityData": {
+      "additionalProperties": {
+        "$ref": "#/definitions/LearnerActivityJsonValue"
+      },
+      "type": "object"
+    },
+    "LearnerActivityJsonValue": {
+      "anyOf": [
+        {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        {
+          "items": {
+            "$ref": "#/definitions/LearnerActivityJsonValue"
+          },
+          "type": "array"
+        },
+        {
+          "additionalProperties": {
+            "$ref": "#/definitions/LearnerActivityJsonValue"
+          },
+          "type": "object"
+        }
+      ]
+    },
+    "LearnerActivityRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "activityKind": {
+          "pattern": "\\S",
+          "type": "string"
+        },
+        "completed": {
+          "type": "boolean"
+        },
+        "data": {
+          "$ref": "#/definitions/LearnerActivityData"
+        },
+        "updatedAt": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "pattern": "^(?!0000)\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": ["activityKind", "data", "completed", "updatedAt"],
+      "type": "object"
+    },
+    "LearnerActivitySnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "activities": {
+          "additionalProperties": {
+            "$ref": "#/definitions/LearnerActivityRecord"
+          },
+          "propertyNames": {
+            "allOf": [
+              {
+                "pattern": "\\S"
+              },
+              {
+                "pattern": "^(?!artifact:[\\s\\S]*\\/block:)"
+              }
+            ]
+          },
+          "type": "object"
+        },
+        "artifactId": {
+          "$ref": "#/definitions/LearnerActivityRecord/properties/activityKind"
+        },
+        "snapshotVersion": {
+          "const": 1,
+          "type": "number"
+        }
+      },
+      "required": ["snapshotVersion", "artifactId", "activities"],
+      "type": "object"
+    }
+  },
+  "title": "Scaffold learner activity contracts"
+}

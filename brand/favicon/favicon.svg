@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="scaffold">
+  <title>scaffold</title>
+  <!-- The register mark, used at 24px and above. Adaptive: navy on light
+       UI, white on dark UI (follows the browser/OS theme). For 16-22px
+       contexts use favicon-sm.svg where the corners hold with a solid
+       stroke. -->
+  <style>
+    .sc-mark { stroke: #161D77; }
+    @media (prefers-color-scheme: dark) {
+      .sc-mark { stroke: #FFFFFF; }
+    }
+  </style>
+  <path class="sc-mark" d="M5 24V5h19M40 5h19v19M59 40v19H40M24 59H5V40" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 3" opacity="0.5"/>
+  <path class="sc-mark" d="M32 18v28M18 32h28" fill="none" stroke-width="4.25" stroke-linecap="round"/>
+</svg>

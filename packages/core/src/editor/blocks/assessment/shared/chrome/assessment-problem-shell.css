@@ -1,0 +1,74 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-assessment-shell {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    column-gap: 0.75rem;
+    row-gap: 1.5rem;
+    padding: 1.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-background);
+    transition: border-color 150ms var(--ease-out-soft);
+  }
+
+  .sc-assessment-shell:hover {
+    border-color: var(--color-ink);
+  }
+
+  .sc-assessment-shell [data-slot="assessment-prompt"],
+  .sc-assessment-shell [data-slot="assessment-choices-group"],
+  .sc-assessment-shell [data-slot="dropdown-choices-group"],
+  .sc-assessment-shell [data-slot="fill-blanks-body"],
+  .sc-assessment-shell [data-slot="sequencing-items-group"],
+  .sc-assessment-shell [data-slot="matching-pairs-group"],
+  .sc-assessment-shell [data-slot="categorise-content"],
+  .sc-assessment-shell [data-node="image-hotspot-canvas"] {
+    flex: 0 0 100%;
+    min-width: 0;
+  }
+
+  .sc-assessment-shell [data-slot="assessment-actions-group"] {
+    flex: 0 0 100%;
+    min-width: 0;
+    width: 100%;
+    align-self: stretch;
+    margin-top: -0.75rem;
+    margin-left: 0;
+    order: 20;
+  }
+
+  @container (max-width: 460px) {
+    .sc-assessment-shell [data-slot="assessment-title"] {
+      min-width: 0;
+      white-space: nowrap;
+      font-size: clamp(0.5625rem, 2.25cqw, 0.8125rem);
+      letter-spacing: clamp(0.06em, 0.4cqw, 0.14em);
+      line-height: 1.15;
+    }
+
+    .sc-assessment-shell [data-slot="assessment-instructions"] {
+      min-width: 0;
+      flex-wrap: nowrap;
+      white-space: nowrap;
+      column-gap: clamp(0.25rem, 1.25cqw, 0.75rem);
+      font-size: clamp(0.5625rem, 2.25cqw, 0.8125rem);
+      letter-spacing: clamp(0.06em, 0.4cqw, 0.14em);
+      line-height: 1.15;
+    }
+  }
+
+  @container (max-width: 520px) {
+    .sc-assessment-shell [data-slot="assessment-actions-group"] {
+      flex-basis: 100%;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sc-assessment-shell {
+      transition: none;
+    }
+  }
+}
