@@ -55,6 +55,24 @@
     opacity 150ms var(--ease-out-soft);
 }
 
+.sc-scaffold-authoring-action-label {
+  display: inline;
+}
+
+@container sc-editor-header (max-width: 32rem) {
+  .sc-scaffold-authoring-action[data-compact-label] {
+    width: var(--spacing-touch-target);
+    height: var(--spacing-touch-target);
+    min-height: var(--spacing-touch-target);
+    flex: 0 0 var(--spacing-touch-target);
+    padding: 0;
+  }
+
+  .sc-scaffold-authoring-action[data-compact-label] .sc-scaffold-authoring-action-label {
+    display: none;
+  }
+}
+
 .sc-scaffold-authoring-action:hover:not(:disabled) {
   border-color: var(--color-ink);
   color: var(--color-foreground);

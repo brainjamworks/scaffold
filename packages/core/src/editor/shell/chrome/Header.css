@@ -1,4 +1,5 @@
 .sc-editor-header {
+  container: sc-editor-header / inline-size;
   position: sticky;
   z-index: var(--z-drag-overlay, 30);
   top: 0;
@@ -26,6 +27,22 @@
 
 .sc-editor-header-actions {
   gap: 0.5rem;
+}
+
+@container sc-editor-header (max-width: 32rem) {
+  .sc-editor-header-inner {
+    gap: 0.5rem;
+    padding-inline: 0.75rem;
+  }
+
+  .sc-editor-header-title {
+    display: none;
+  }
+
+  .sc-editor-header-actions {
+    min-width: 0;
+    margin-left: auto;
+  }
 }
 
 .sc-editor-header-divider {

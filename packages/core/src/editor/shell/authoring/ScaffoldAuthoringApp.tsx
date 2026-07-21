@@ -1,4 +1,8 @@
-import { ChatCircleTextIcon as ChatCircleText } from "@phosphor-icons/react";
+import {
+  ChatCircleTextIcon as ChatCircleText,
+  EyeIcon as Eye,
+  PencilSimpleIcon as PencilSimple,
+} from "@phosphor-icons/react";
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
 import {
   lazy,
@@ -403,10 +407,11 @@ export function ScaffoldAuthoringApp({
           aria-label={resolvedAgentOpen ? "Hide Scaffold Agent" : "Show Scaffold Agent"}
           title="Toggle Scaffold Agent"
           className="sc-scaffold-authoring-action"
+          data-compact-label
           data-state={resolvedAgentOpen ? "active-muted" : "default"}
         >
-          <ChatCircleText size={iconSm} />
-          Agent
+          <ChatCircleText size={iconSm} aria-hidden />
+          <span className="sc-scaffold-authoring-action-label">Agent</span>
         </button>
       ) : null}
       {enablePreview ? (
@@ -416,10 +421,15 @@ export function ScaffoldAuthoringApp({
           disabled={previewState === "loading" || (!preview && !editor)}
           aria-pressed={preview}
           aria-label={preview ? "Switch to editing" : "Switch to preview"}
+          title={preview ? "Switch to editing" : "Switch to preview"}
           className="sc-scaffold-authoring-action"
+          data-compact-label
           data-state={preview ? "active-primary" : "default"}
         >
-          {preview ? "Edit" : previewState === "loading" ? "Preparing..." : "Preview"}
+          {preview ? <PencilSimple size={iconSm} aria-hidden /> : <Eye size={iconSm} aria-hidden />}
+          <span className="sc-scaffold-authoring-action-label">
+            {preview ? "Edit" : previewState === "loading" ? "Preparing..." : "Preview"}
+          </span>
         </button>
       ) : null}
       {previewState === "error" ? (

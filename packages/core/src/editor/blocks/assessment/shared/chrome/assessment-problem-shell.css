@@ -41,6 +41,12 @@
   }
 
   @container (max-width: 460px) {
+    .sc-assessment-shell {
+      column-gap: clamp(0.5rem, 3cqw, 0.75rem);
+      row-gap: clamp(1rem, 5cqw, 1.5rem);
+      padding: clamp(0.75rem, 4cqw, 1.5rem);
+    }
+
     .sc-assessment-shell [data-slot="assessment-title"] {
       min-width: 0;
       white-space: nowrap;
@@ -63,6 +69,25 @@
   @container (max-width: 520px) {
     .sc-assessment-shell [data-slot="assessment-actions-group"] {
       flex-basis: 100%;
+    }
+  }
+
+  @container (max-width: 14rem) {
+    .sc-assessment-shell :where(p, h1, h2, h3, h4, h5, h6).is-empty {
+      position: relative;
+      min-height: 1lh;
+    }
+
+    .sc-assessment-shell :where(p, h1, h2, h3, h4, h5, h6).is-empty::before {
+      position: absolute;
+      inset: 0 0 auto;
+      width: auto;
+      height: auto;
+      max-width: 100%;
+      overflow: hidden;
+      float: none;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
   }
 

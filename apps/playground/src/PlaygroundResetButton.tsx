@@ -29,9 +29,10 @@ export function PlaygroundResetButton() {
       aria-label="Reset playground"
       title="Clear the page you authored on this device"
       className="sc-scaffold-authoring-action"
+      data-compact-label
     >
-      <ArrowCounterClockwise size={14} />
-      Reset
+      <ArrowCounterClockwise size={14} aria-hidden />
+      <span className="sc-scaffold-authoring-action-label">Reset</span>
     </button>
   );
 }
