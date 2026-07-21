@@ -1,136 +1,174 @@
-# Scaffold
+<p align="center">
+  <img src="./brand/logo/lockup-stacked-light.svg" width="180" alt="Scaffold">
+</p>
 
-Scaffold is a pre-alpha course content authoring toolkit for building rich
-learning activities once and running them in multiple host platforms.
+<p align="center">
+  <strong>Open-source course authoring for rich, portable learning experiences.</strong>
+</p>
 
-The repo is organized as a small platform-agnostic core, pure shared contracts,
-pure TypeScript grading, a browser playground, and thin LMS adapters. The
-Scaffold document is the authored artifact; runtime hosts receive learner-safe
-content and provide persistence, media, and assessment ports.
+<p align="center">
+  <a href="https://github.com/brainjamworks/scaffold/actions/workflows/ci.yml"><img src="https://github.com/brainjamworks/scaffold/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0--only-161D77" alt="License: AGPL-3.0-only"></a>
+  <img src="https://img.shields.io/badge/status-pre--alpha-F43A57" alt="Status: pre-alpha">
+</p>
 
-Scaffold Agent has a deliberate product boundary. Public core owns its
-launcher, shared dock presentation, neutral authoring integration seam, and a
-complete unavailable state. Active Agent behavior belongs to the separate
-Scaffold hosted SaaS product and is not shipped through this repository or its
-installed LMS adapters.
+![Scaffold authoring a course page with an assessment and the block library open](./.github/readme/block-library.png)
 
-## Status
+Scaffold is a browser-based authoring toolkit for building course content once
+and delivering it through different learning platforms. It combines a
+React/Tiptap editor, portable document contracts, learner-safe rendering,
+assessment grading, and thin LMS adapters in one open-source workspace.
 
-Scaffold is not production-ready yet. APIs, package exports, document format
-details, and adapter contracts may change before `1.0`.
+> [!IMPORTANT]
+> Scaffold is pre-alpha. The document format, package APIs, and adapter
+> contracts can change before `1.0`. The packages are not published to npm yet;
+> clone this repository to evaluate or contribute to the project.
 
-Current maturity:
+## Why Scaffold
 
-- `@scaffold/core`: active pre-alpha editor/runtime library.
-- `@scaffold/contracts`: active provider-neutral Scaffold document schemas.
-- `@scaffold/grading`: active pure TypeScript assessment validation.
-- XBlock adapter: active reference adapter for Open edX.
-- Moodle adapter: parked/in-flight; its package-owned test still participates
-  in recursive workspace verification and currently requires PHP.
-- LTI 1.3 and Google Classroom integrations: future. A future hosted
-  integration channel enters Scaffold hosted SaaS; it does not add private
-  Agent code to an installed adapter.
+- **One portable course artifact.** Pages and slideshows share the same
+  provider-neutral document model.
+- **Authoring and delivery are separate.** Authors get editing controls;
+  learners receive a runtime projection without answer keys or editor chrome.
+- **Rich learning content is built in.** Compose text, media, layouts,
+  structured content, interactive presentations, and assessments.
+- **Assessment logic is portable.** Serializable contracts and deterministic
+  TypeScript grading are kept outside React and host-platform code.
+- **Hosts stay in control.** Persistence, media, learner activity, assessment
+  delivery, authorization, and platform protocols enter through explicit
+  ports.
+- **Adapters stay thin.** The same core is integrated through an Open edX
+  XBlock and a native Moodle activity module.
 
-## Quick Start
+## Pages and slides, one document model
 
-Requirements:
+Scaffold supports long-form course pages with embedded interactive blocks and
+structured layouts.
 
-- Node.js matching the root `package.json` engines; CI uses Node.js 24.11+.
-- Vite+ `vp` CLI.
+![A long-form Scaffold page containing a timeline and flashcards](./.github/readme/page-authoring.png)
+
+The same document can contain responsive slide surfaces for presentation-led
+learning experiences.
+
+![A Scaffold slideshow with a large cover composition](./.github/readme/slideshow-authoring.png)
+
+## Included today
+
+| Area                  | What it owns                                                                           |
+| --------------------- | -------------------------------------------------------------------------------------- |
+| `@scaffold/core`      | React/Tiptap authoring, learner runtime, blocks, layouts, surfaces, and host ports     |
+| `@scaffold/contracts` | Provider-neutral persisted document and learner-state schemas                          |
+| `@scaffold/grading`   | Framework-free assessment validation and scoring                                       |
+| `apps/playground`     | Local IndexedDB-backed browser sandbox                                                 |
+| `adapters/xblock`     | Open edX Studio and LMS integration                                                    |
+| `adapters/moodle`     | Native Moodle authoring, learner runtime, persistence, grading, and backup integration |
+
+Built-in content includes page and slide surfaces; grids and layouts; images,
+audio, charts, embeds, and PDFs; callouts, comparisons, timelines, flashcards,
+galleries, glossaries, tables, and checklists; plus multiple-choice,
+multi-select, matching, categorisation, sequencing, fill-in-the-blank, dropdown,
+image-hotspot, and grouped quiz assessments.
+
+## Quick start
+
+You need Git and a Node.js version accepted by the root `package.json`. Scaffold
+uses the [Vite+ toolchain](https://viteplus.dev/guide/).
+
+Install `vp` on macOS or Linux:
 
 ```sh
+curl -fsSL https://vite.plus | bash
+```
+
+Then clone and start the playground:
+
+```sh
+git clone https://github.com/brainjamworks/scaffold.git
+cd scaffold
 vp install
 vp run dev:playground
 ```
 
-The playground runs at `http://localhost:5848` locally. Its intended public URL
-is `https://playground.scaffold.ac`.
+Open `http://localhost:5848`. The playground stores one working document in
+browser IndexedDB. It is an evaluation and development sandbox, not hosted
+storage, authentication, sharing, or a production deployment path.
 
-The playground is a single-document IndexedDB sandbox for trying the editor. It
-is not hosted storage, sharing, authentication, or a production deployment path.
+## Architecture at a glance
 
-## Repository Map
-
-```txt
-packages/contracts   provider-neutral Scaffold document schemas
-packages/core        React/Tiptap authoring and runtime library
-packages/grading     pure TypeScript answer-key validation
-
-apps/playground      browser-only Scaffold sandbox
-
-adapters/xblock      Open edX reference adapter, active
-adapters/moodle      Moodle activity module, parked/in-flight
+```text
+@scaffold/contracts <- @scaffold/grading <- apps/playground
+@scaffold/contracts <- @scaffold/core    <- apps/playground
+                                           <- adapters/*
 ```
 
-Packages own platform-neutral behavior. Adapters consume packages and implement
-host-specific services.
+- Contracts owns serializable, provider-neutral data.
+- Grading owns deterministic answer-key validation and has no framework
+  dependencies.
+- Core owns the platform-neutral editor and runtime. It imports Contracts but
+  never apps or adapters.
+- Apps and adapters compose Core through supported entrypoints and implement
+  host services.
 
-## Public Entrypoints
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for ownership rules, document
+boundaries, composition roots, and dependency enforcement.
 
-Supported package imports are intentionally small:
+## Public Core entrypoints
+
+Core exposes role-based package seams rather than one broad root API:
 
 ```ts
-import { ... } from '@scaffold/core/runtime';
-import { ... } from '@scaffold/core/authoring';
-import { ... } from '@scaffold/core/format';
-import { ... } from '@scaffold/core/ports';
-import { ... } from '@scaffold/core/media-policy';
-import '@scaffold/core/styles.css';
-
-import { ... } from '@scaffold/contracts';
-import { ... } from '@scaffold/grading';
+import { ScaffoldAuthoringEntry } from "@scaffold/core/authoring";
+import { ContentRuntimeHost, ScaffoldServicesProvider } from "@scaffold/core/runtime";
+import type { ArtifactPersistencePort, MediaPort } from "@scaffold/core/ports";
+import "@scaffold/core/styles.css";
 ```
 
-`@scaffold/core/agent-host` is a purpose-specific, exact-version seam for the
-first-party private `@scaffold/agent` package. It is not a general plugin or
-adapter API. Public apps and installed adapters omit an Agent integration and
-therefore use core's built-in unavailable experience.
+Additional supported seams are `@scaffold/core/format` and
+`@scaffold/core/media-policy`. Do not import from `@scaffold/core/src/...` or
+other package source paths.
 
-Do not import from `@scaffold/core/src/...`, `@scaffold/core/document`, or
-package source paths. Document mechanics are internal; saved artifact/content
-helpers belong to `@scaffold/core/format`.
+`@scaffold/core/agent-host` is a narrow, exact-version integration seam for the
+separate first-party hosted Agent package. Active Agent behavior and private
+activation settings are not included in this repository or installed LMS
+adapters.
 
-## Verification
+## Development
 
-Useful checks:
+Use the smallest focused command while working, then run the release gate
+before proposing a merge:
 
 ```sh
 vp run verify:static        # formatting, Oxlint, and TypeScript
-vp run verify:architecture  # JavaScript/TypeScript dependency graph
-vp run verify:artifacts     # generated schema and vendored artifact drift
-vp run verify:tooling       # resolver, metadata, and generator tests
+vp run verify:architecture  # dependency-cruiser source boundaries
+vp run verify:artifacts     # generated and vendored artifact drift
+vp run verify:tooling       # metadata and generator behavior
 vp run verify:unit          # package and adapter tests
 vp run verify:build         # package and app builds
-vp run verify:release       # all six focused commands
+vp run verify:release       # complete repository gate
 ```
 
-Dependency-cruiser owns JavaScript/TypeScript source dependencies only.
-Oxlint, TypeScript, Vitest, structured metadata tests, artifact checks, and
-native adapter tests own their respective evidence. The architecture graph has
-zero accepted dependency debt; future deliberate debt must use
-dependency-cruiser's reviewed native known-violations mechanism.
+Dependency-cruiser starts from zero accepted dependency debt. Oxlint,
+TypeScript, Vitest, artifact checks, structured metadata tests, and native
+adapter tests own the non-dependency evidence.
 
-## Documentation
+## Project documentation
 
-- [Architecture](./ARCHITECTURE.md) - public package and adapter boundaries.
-- [Support](./SUPPORT.md) - where to ask questions and report problems.
-- [Contributing](./CONTRIBUTING.md) - development setup and contribution rules.
+- [Architecture](./ARCHITECTURE.md) — package ownership and dependency direction.
+- [Contributing](./CONTRIBUTING.md) — setup, boundaries, verification, and pull requests.
+- [Open edX adapter](./adapters/xblock/README.md) — XBlock lifecycle and host seams.
+- [Moodle adapter](./adapters/moodle/README.md) — plugin build, installation, and backend lifecycle.
+- [Support](./SUPPORT.md) — help and issue-reporting guidance.
+- [Security](./SECURITY.md) — private vulnerability reporting.
 
 ## Contributing
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md). The short version: keep core
-platform-agnostic, keep adapters thin, avoid private package imports, and run
-the smallest verification that proves your change before opening a PR.
-
-## Security
-
-Please report suspected vulnerabilities privately. See [SECURITY.md](./SECURITY.md).
-
-For general support, contact [support@scaffold.ac](mailto:support@scaffold.ac)
-or see [SUPPORT.md](./SUPPORT.md).
+Contributions are welcome while the pre-`1.0` architecture and adapter
+contracts settle. Please read [CONTRIBUTING.md](./CONTRIBUTING.md), keep changes
+focused, preserve package boundaries, and include the verification evidence
+for your change.
 
 ## License
 
-Scaffold is licensed under `AGPL-3.0-only`. See [LICENSE](./LICENSE).
-The separate hosted repository has its own existing package manifests and is
-outside this repository's license statement.
+Scaffold is licensed under [AGPL-3.0-only](./LICENSE). The separate hosted
+product is outside this repository and has its own licensing and deployment
+model.
