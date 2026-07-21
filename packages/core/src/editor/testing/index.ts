@@ -3,7 +3,12 @@ export {
   describeBlockContract,
   type DescribeBlockContractInput,
 } from "./block-contract";
-export { createDisposableEditor, type DisposableEditorFixture } from "./disposable-editor";
+export {
+  createDisposableEditor,
+  createEditorDisposalPool,
+  type DisposableEditorFixture,
+  type EditorDisposalPool,
+} from "./disposable-editor";
 export {
   assertLayoutContract,
   describeLayoutContract,

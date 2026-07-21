@@ -9,6 +9,28 @@ export interface DisposableEditorFixture {
   topLevelNodeTypes: () => string[];
 }
 
+export interface EditorDisposalPool {
+  track: <T extends Editor>(editor: T) => T;
+  destroyAll: () => void;
+}
+
+export function createEditorDisposalPool(): EditorDisposalPool {
+  const editors = new Set<Editor>();
+
+  return {
+    track: <T extends Editor>(editor: T): T => {
+      editors.add(editor);
+      return editor;
+    },
+    destroyAll: () => {
+      for (const editor of editors) {
+        if (!editor.isDestroyed) editor.destroy();
+      }
+      editors.clear();
+    },
+  };
+}
+
 export function createDisposableEditor(options: EditorOptions): DisposableEditorFixture {
   const editor = new Editor(options);
   let destroyed = false;

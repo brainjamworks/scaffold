@@ -3,10 +3,11 @@
 import { Editor, Node, type JSONContent } from "@tiptap/core";
 import { NodeSelection } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
+import { createEditorDisposalPool } from "@/editor/testing";
 
 import {
   InteractionActivationIntentKind,
@@ -57,6 +58,10 @@ const testBlockRegistry = createBlockRegistry([
   delegateParentDefinition,
   embeddedChildDefinition,
 ]);
+
+const editorDisposal = createEditorDisposalPool();
+
+afterEach(() => editorDisposal.destroyAll());
 
 function projectInteractionEngineInput(
   state: Parameters<typeof projectInteractionEngineInputWithLookup>[0],
@@ -156,32 +161,34 @@ function structuralNode(name: string, content: string) {
 }
 
 function makeEditor(content?: JSONContent) {
-  return new Editor({
-    extensions: [
-      StarterKit.configure({ undoRedo: false }),
-      TestFieldNode,
-      TestBlockNode,
-      TestResizableBlockNode,
-      TestDelegateParentNode,
-      TestEmbeddedChildNode,
-      TestGridNode,
-      TestCellNode,
-      TestLayoutNode,
-      TestSectionNode,
-    ],
-    content: content ?? {
-      type: "doc",
-      content: [
-        grid("grid-a", [
-          cell("cell-a", [
-            block("block-a", "Caret text"),
-            resizableBlock("resizable-a", "Resizable text"),
-          ]),
-        ]),
-        delegateParent("parent-a", embeddedChild("child-a", "Child text")),
+  return editorDisposal.track(
+    new Editor({
+      extensions: [
+        StarterKit.configure({ undoRedo: false }),
+        TestFieldNode,
+        TestBlockNode,
+        TestResizableBlockNode,
+        TestDelegateParentNode,
+        TestEmbeddedChildNode,
+        TestGridNode,
+        TestCellNode,
+        TestLayoutNode,
+        TestSectionNode,
       ],
-    },
-  });
+      content: content ?? {
+        type: "doc",
+        content: [
+          grid("grid-a", [
+            cell("cell-a", [
+              block("block-a", "Caret text"),
+              resizableBlock("resizable-a", "Resizable text"),
+            ]),
+          ]),
+          delegateParent("parent-a", embeddedChild("child-a", "Child text")),
+        ],
+      },
+    }),
+  );
 }
 
 function block(id: string, text: string): JSONContent {

@@ -2,11 +2,12 @@
 
 import { Editor, Node, type JSONContent } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it } from "vite-plus/test";
 import { z } from "zod";
 
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
+import { createEditorDisposalPool } from "@/editor/testing";
 import {
   InteractionTargetKind,
   type InteractionTargetRef,
@@ -42,6 +43,9 @@ const settingsBlockDefinition = defineBlock({
 const plainBlockDefinition = defineBlock({ nodeType: PLAIN_BLOCK });
 
 const testBlockRegistry = createBlockRegistry([settingsBlockDefinition, plainBlockDefinition]);
+const editorDisposal = createEditorDisposalPool();
+
+afterEach(() => editorDisposal.destroyAll());
 
 const resolveInteractionSettingsSheetDescriptor = (
   editor: Parameters<typeof resolveInteractionSettingsSheetDescriptorWithLookup>[0],
@@ -88,20 +92,22 @@ const TestSettingsBlockNode = structuralNode(SETTINGS_BLOCK, "paragraph+");
 const TestPlainBlockNode = structuralNode(PLAIN_BLOCK, "paragraph+");
 
 function makeEditor() {
-  return new Editor({
-    extensions: [
-      StarterKit.configure({ undoRedo: false }),
-      TestSurfaceNode,
-      TestRegionNode,
-      TestLayoutNode,
-      TestSectionNode,
-      TestGridNode,
-      TestCellNode,
-      TestSettingsBlockNode,
-      TestPlainBlockNode,
-    ],
-    content: fixtureContent(),
-  });
+  return editorDisposal.track(
+    new Editor({
+      extensions: [
+        StarterKit.configure({ undoRedo: false }),
+        TestSurfaceNode,
+        TestRegionNode,
+        TestLayoutNode,
+        TestSectionNode,
+        TestGridNode,
+        TestCellNode,
+        TestSettingsBlockNode,
+        TestPlainBlockNode,
+      ],
+      content: fixtureContent(),
+    }),
+  );
 }
 
 function paragraph(text: string): JSONContent {
