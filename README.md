@@ -138,6 +138,7 @@ Use the smallest focused command while working, then run the release gate
 before proposing a merge:
 
 ```sh
+vp run verify:docs          # Markdown and documentation formatting
 vp run verify:static        # formatting, Oxlint, and TypeScript
 vp run verify:architecture  # dependency-cruiser source boundaries
 vp run verify:artifacts     # generated and vendored artifact drift

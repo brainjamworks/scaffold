@@ -97,6 +97,7 @@ change touches shared behavior or package boundaries.
 Common commands:
 
 ```sh
+vp run verify:docs          # Markdown and documentation formatting
 vp run verify:static        # formatting, Oxlint, and TypeScript
 vp run verify:architecture  # JavaScript/TypeScript dependency graph
 vp run verify:artifacts     # generated schema and vendored artifact drift
@@ -113,6 +114,13 @@ vp run verify:types
 vp run @scaffold/core#test
 vp run @scaffold/adapter-xblock#build
 ```
+
+CI classifies changed paths before starting package work. Documentation-only
+changes run `verify:docs` without building packages or installing Chromium.
+Code changes build once, then run static analysis, boundary checks, artifact
+checks, tooling tests, sharded Core unit tests, Core browser tests, and the
+remaining workspace tests in parallel. The final `Required CI` job reports one
+stable result across jobs that ran or were intentionally skipped.
 
 Before an adapter release, run `vp run verify:release` and review the public
 API, adapter, authored-content, and XBlock boundary requirements described in

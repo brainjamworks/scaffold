@@ -332,7 +332,7 @@ test("Vite aliases resolve only to approved package-local roots", async () => {
   }
 });
 
-test("root static analysis builds workspace outputs before checking consumers", async () => {
+test("root static analysis builds workspace outputs once before checking consumers", async () => {
   const config = await loadViteConfig("vite.config.ts");
 
   for (const taskName of ["verify:lint", "verify:types"]) {
@@ -344,4 +344,17 @@ test("root static analysis builds workspace outputs before checking consumers", 
       `${taskName} must build workspace package outputs first`,
     );
   }
+
+  const staticTask = config.run?.tasks?.["verify:static"];
+  assert.equal(typeof staticTask, "object", "verify:static must declare its shared prerequisite");
+  assert.deepEqual(
+    staticTask.dependsOn,
+    ["verify:build"],
+    "verify:static must build workspace package outputs once",
+  );
+  assert.equal(
+    staticTask.command,
+    "vp run verify:fmt && vp run --ignore-depends-on verify:lint && vp run --ignore-depends-on verify:types",
+    "verify:static must not repeat the shared build through its child checks",
+  );
 });

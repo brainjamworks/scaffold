@@ -876,15 +876,16 @@ it("edits, switches, resyncs, reorders, and deletes stable caption targets in th
   );
   const dialog = await screen.findByRole("dialog", { name: "Edit annotated figure" });
   const captionList = within(dialog).getByRole("region", { name: "Caption management" });
-  const firstEditor = within(captionList).getByLabelText("Annotation 1 caption");
   setCaptionDisplay(editor, "popover");
   await waitFor(() => {
     expect(within(dialog).getByRole("region", { name: "Caption management" })).toBeInTheDocument();
     expect(within(captionList).getAllByLabelText(/Annotation \d+ caption/)).toHaveLength(1);
   });
   setCaptionDisplay(editor, "list");
-  firstEditor.focus();
-  await user.keyboard(" updated");
+  const firstEditor = await within(captionList).findByLabelText("Annotation 1 caption");
+  await user.click(firstEditor);
+  expect(firstEditor).toHaveFocus();
+  await user.type(firstEditor, " updated", { skipClick: true });
   await waitFor(() => {
     expect(
       resolveAnnotatedFigureModel({ node: editor.state.doc.firstChild!, pos: 0 })?.annotations[0]

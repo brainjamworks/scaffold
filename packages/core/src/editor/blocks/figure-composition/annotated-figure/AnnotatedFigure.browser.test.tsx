@@ -430,7 +430,7 @@ describe("Annotated Figure image geometry", () => {
     expect(dialog.contains(document.activeElement)).toBe(true);
     await userEvent.keyboard("{Escape}");
     await waitForCondition(() => !dialog.isConnected);
-    expect(document.activeElement).toBe(expand);
+    await waitForCondition(() => document.activeElement === expand);
   });
 
   it("contains a long Popover Lightbox caption and closes child-first", async () => {

@@ -156,6 +156,7 @@ export default defineConfig({
         command: "vp exec -c 'vp --version && node --version && pnpm --version'",
         cache: false,
       },
+      "verify:docs": "vp fmt '**/*.md' .github/ISSUE_TEMPLATE --check",
       "verify:fmt": "vp fmt --check",
       "verify:lint": {
         command: "vp lint",
@@ -166,7 +167,11 @@ export default defineConfig({
           "mkdir -p .tmp && vp check --no-fmt --no-lint > .tmp/vp-verify-types.log && tail -n 1 .tmp/vp-verify-types.log",
         dependsOn: ["verify:build"],
       },
-      "verify:static": "vp run verify:fmt && vp run verify:lint && vp run verify:types",
+      "verify:static": {
+        command:
+          "vp run verify:fmt && vp run --ignore-depends-on verify:lint && vp run --ignore-depends-on verify:types",
+        dependsOn: ["verify:build"],
+      },
       "verify:architecture": {
         command:
           "vp exec depcruise --config .dependency-cruiser.cjs --output-type err-long packages/contracts/src packages/grading/src packages/core/src apps/playground/src adapters",

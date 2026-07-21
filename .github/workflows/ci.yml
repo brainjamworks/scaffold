@@ -5,25 +5,81 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
-# Avoid duplicate runs when a branch already has an open PR: the
-# pull_request workflow covers it.
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 jobs:
-  check:
-    name: Vite+ release gate
+  classify:
+    name: Classify changes
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-
+    outputs:
+      code: ${{ steps.changes.outputs.code }}
+      docs: ${{ steps.changes.outputs.docs }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Classify changed paths
+        id: changes
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_SHA: ${{ github.sha }}
+          PULL_REQUEST_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        shell: bash
+        run: |
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            base_sha="$PULL_REQUEST_BASE_SHA"
+          else
+            base_sha="$BEFORE_SHA"
+          fi
+
+          if [[ -z "$base_sha" || "$base_sha" =~ ^0+$ ]] || ! git cat-file -e "$base_sha^{commit}"; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            echo "docs=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          code=false
+          docs=false
+          while IFS= read -r -d '' path; do
+            case "$path" in
+              *.md|LICENSE|documentation/*|.github/readme/*|.github/ISSUE_TEMPLATE/*)
+                docs=true
+                ;;
+              *)
+                code=true
+                ;;
+            esac
+          done < <(git diff --name-only -z "$base_sha" "$HEAD_SHA")
+
+          if [[ "$code" == false && "$docs" == false ]]; then
+            code=true
+          fi
+
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "docs=$docs" >> "$GITHUB_OUTPUT"
+
+  docs:
+    name: Documentation
+    needs: classify
+    if: ${{ needs.classify.outputs.docs == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Vite+
-        uses: voidzero-dev/setup-vp@v1
+        uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb # v1.15.0
         with:
           node-version: "24"
           cache: true
@@ -31,11 +87,262 @@ jobs:
       - name: Install
         run: vp install
 
-      - name: Install Chromium
-        run: vp exec --filter @scaffold/core -- playwright install --with-deps chromium
+      - name: Check documentation
+        run: vp run verify:docs
+
+  build:
+    name: Build workspace
+    needs: classify
+    if: ${{ needs.classify.outputs.code == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb # v1.15.0
+        with:
+          node-version: "24"
+          cache: true
+
+      - name: Install
+        run: vp install
 
       - name: Doctor
         run: vp run doctor
 
-      - name: Release gate
-        run: vp run verify:release
+      - name: Build
+        run: vp run verify:build
+
+      - name: Archive package outputs
+        run: tar -czf package-builds.tgz packages/contracts/dist packages/core/dist packages/grading/dist
+
+      - name: Upload package outputs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: package-builds
+          path: package-builds.tgz
+          if-no-files-found: error
+          retention-days: 1
+
+  static:
+    name: Format, lint, and types
+    needs: [classify, build]
+    if: ${{ needs.classify.outputs.code == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb # v1.15.0
+        with:
+          node-version: "24"
+          cache: true
+
+      - name: Install
+        run: vp install
+
+      - name: Download package outputs
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: package-builds
+          path: .tmp/package-builds
+
+      - name: Restore package outputs
+        run: tar -xzf .tmp/package-builds/package-builds.tgz
+
+      - name: Static checks
+        run: vp run --ignore-depends-on verify:static
+
+  architecture:
+    name: Architecture
+    needs: classify
+    if: ${{ needs.classify.outputs.code == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb # v1.15.0
+        with:
+          node-version: "24"
+          cache: true
+
+      - name: Install
+        run: vp install
+
+      - name: Check dependency boundaries
+        run: vp run verify:architecture
+
+  artifacts:
+    name: Generated artifacts
+    needs: classify
+    if: ${{ needs.classify.outputs.code == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb # v1.15.0
+        with:
+          node-version: "24"
+          cache: true
+
+      - name: Install
+        run: vp install
+
+      - name: Check generated artifacts
+        run: vp run verify:artifacts
+
+  tooling:
+    name: Repository tooling
+    needs: classify
+    if: ${{ needs.classify.outputs.code == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb # v1.15.0
+        with:
+          node-version: "24"
+          cache: true
+
+      - name: Install
+        run: vp install
+
+      - name: Test repository tooling
+        run: vp run verify:tooling
+
+  core-unit:
+    name: Core unit tests (${{ matrix.shard }})
+    needs: [classify, build]
+    if: ${{ needs.classify.outputs.code == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1/2, 2/2]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb # v1.15.0
+        with:
+          node-version: "24"
+          cache: true
+
+      - name: Install
+        run: vp install
+
+      - name: Download package outputs
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: package-builds
+          path: .tmp/package-builds
+
+      - name: Restore package outputs
+        run: tar -xzf .tmp/package-builds/package-builds.tgz
+
+      - name: Test Core unit shard
+        run: vp exec --filter @scaffold/core -- vp test run --project unit --shard "${{ matrix.shard }}"
+
+  core-browser:
+    name: Core browser tests
+    needs: [classify, build]
+    if: ${{ needs.classify.outputs.code == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb # v1.15.0
+        with:
+          node-version: "24"
+          cache: true
+
+      - name: Install
+        run: vp install
+
+      - name: Download package outputs
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: package-builds
+          path: .tmp/package-builds
+
+      - name: Restore package outputs
+        run: tar -xzf .tmp/package-builds/package-builds.tgz
+
+      - name: Install Chromium
+        run: vp exec --filter @scaffold/core -- playwright install --with-deps chromium
+
+      - name: Test Core in Chromium
+        run: vp exec --filter @scaffold/core -- vp test run --project browser
+
+  workspace-tests:
+    name: Workspace tests
+    needs: [classify, build]
+    if: ${{ needs.classify.outputs.code == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb # v1.15.0
+        with:
+          node-version: "24"
+          cache: true
+
+      - name: Install
+        run: vp install
+
+      - name: Download package outputs
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: package-builds
+          path: .tmp/package-builds
+
+      - name: Restore package outputs
+        run: tar -xzf .tmp/package-builds/package-builds.tgz
+
+      - name: Test non-Core workspaces
+        run: vp run --filter '!@scaffold/core' test
+
+  status:
+    name: Required CI
+    if: ${{ !cancelled() }}
+    needs:
+      - classify
+      - docs
+      - build
+      - static
+      - architecture
+      - artifacts
+      - tooling
+      - core-unit
+      - core-browser
+      - workspace-tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Fail when a required job failed or was cancelled
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: exit 1
+
+      - name: Confirm required jobs
+        run: echo "All required CI jobs passed or were intentionally skipped."
