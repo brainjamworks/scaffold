@@ -22,9 +22,13 @@ if ($monologo === false || !str_contains($monologo, 'viewBox="0 0 64 64"')) {
     fail_branding_test('Scaffold monologo should use the canonical mark view box');
 }
 
-foreach (['#161D77', '#00BA92', '#F43A57'] as $brandcolour) {
-    if (!str_contains($monologo, $brandcolour)) {
-        fail_branding_test('Scaffold monologo should preserve brand colour ' . $brandcolour);
+if (substr_count($monologo, 'stroke="currentColor"') !== 2) {
+    fail_branding_test('Scaffold monologo should use one theme-aware colour for both mark strokes');
+}
+
+foreach (['#00BA92', '#F43A57'] as $reservedcolour) {
+    if (str_contains($monologo, $reservedcolour)) {
+        fail_branding_test('Scaffold monologo should not use reserved signal colour ' . $reservedcolour);
     }
 }
 
