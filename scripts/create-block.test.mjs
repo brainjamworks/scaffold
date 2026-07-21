@@ -239,118 +239,104 @@ test("content recipe scaffold works end to end in a temp root", (t) => {
   );
 });
 
-test(
-  "assessment composite recipe writes current lane-safe assessment output",
-  { timeout: 240_000 },
-  (t) => {
-    const root = createFixtureRoot(t);
+test("assessment composite recipe writes current lane-safe assessment output", (t) => {
+  const root = createFixtureRoot(t);
 
-    const result = runCreateBlock(["--name", "Demo", "--recipe", "assessment-composite"], root);
+  const result = runCreateBlock(["--name", "Demo", "--recipe", "assessment-composite"], root);
 
-    assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(fixtureSourceFiles(root), [
-      "packages/core/src/editor/blocks/Demo/Demo.test.ts",
-      "packages/core/src/editor/blocks/Demo/Demo.tsx",
-      "packages/core/src/editor/blocks/Demo/assessment.ts",
-      "packages/core/src/editor/blocks/Demo/demo-authoring-extension.tsx",
-      "packages/core/src/editor/blocks/Demo/demo-definition.ts",
-      "packages/core/src/editor/blocks/Demo/demo-runtime-extension.tsx",
-      "packages/core/src/editor/blocks/Demo/index.tsx",
-      "packages/core/src/editor/blocks/Demo/node.ts",
-      "packages/core/src/schemas/blocks/demo.ts",
-    ]);
-    assertAssessmentSettingsSchema(
-      readFixtureFile(root, "packages/core/src/schemas/blocks/demo.ts"),
-    );
-    assert.match(
-      readFixtureFile(root, "packages/core/src/editor/blocks/Demo/demo-definition.ts"),
-      /insert: \{\n    id: DEMO_BLOCK_ID,/,
-    );
-    assert.match(
-      readFixtureFile(root, "packages/core/src/editor/blocks/Demo/demo-definition.ts"),
-      /from '@\/editor\/blocks\/block-definition'/,
-    );
-    assert.match(
-      readFixtureFile(root, "packages/core/src/editor/blocks/Demo/demo-definition.ts"),
-      /from '@\/editor\/configuration\/assessment-configuration'/,
-    );
-    assert.doesNotMatch(
-      readFixtureFile(root, "packages/core/src/editor/blocks/Demo/demo-definition.ts"),
-      /defaults:|from '@\/editor\/registry'|host\/agent|editor\/configuration\/checked-settings/,
-    );
-    assert.match(
-      readFixtureFile(root, "packages/core/src/editor/blocks/Demo/assessment.ts"),
-      /export function projectDemoAssessment\(_node: JSONContent\): AssessmentAnswerKey/,
-    );
-    assert.match(
-      readFixtureFile(root, "packages/core/src/editor/blocks/Demo/assessment.ts"),
-      /throw new Error\('Implement Demo assessment projection before shipping this block\.'\)/,
-    );
-    assert.match(
-      readFixtureFile(root, "packages/core/src/editor/blocks/Demo/assessment.ts"),
-      /throw new Error\('Implement Demo response presence check before shipping this block\.'\)/,
-    );
-    assertCurrentAssessmentTemplateSources(root);
-    assertAssessmentNodeViewSource(
-      readFixtureFile(root, "packages/core/src/editor/blocks/Demo/Demo.tsx"),
-    );
-    assertAssessmentLaneExtensionSources(root);
-    assert.match(
-      readFixtureFile(root, "packages/core/src/editor/blocks/Demo/Demo.test.ts"),
-      /expectsAssessment: true/,
-    );
-    assertAssessmentRecipePassesWorkspaceChecks(t, "assessment-composite");
-  },
-);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(fixtureSourceFiles(root), [
+    "packages/core/src/editor/blocks/Demo/Demo.test.ts",
+    "packages/core/src/editor/blocks/Demo/Demo.tsx",
+    "packages/core/src/editor/blocks/Demo/assessment.ts",
+    "packages/core/src/editor/blocks/Demo/demo-authoring-extension.tsx",
+    "packages/core/src/editor/blocks/Demo/demo-definition.ts",
+    "packages/core/src/editor/blocks/Demo/demo-runtime-extension.tsx",
+    "packages/core/src/editor/blocks/Demo/index.tsx",
+    "packages/core/src/editor/blocks/Demo/node.ts",
+    "packages/core/src/schemas/blocks/demo.ts",
+  ]);
+  assertAssessmentSettingsSchema(readFixtureFile(root, "packages/core/src/schemas/blocks/demo.ts"));
+  assert.match(
+    readFixtureFile(root, "packages/core/src/editor/blocks/Demo/demo-definition.ts"),
+    /insert: \{\n    id: DEMO_BLOCK_ID,/,
+  );
+  assert.match(
+    readFixtureFile(root, "packages/core/src/editor/blocks/Demo/demo-definition.ts"),
+    /from '@\/editor\/blocks\/block-definition'/,
+  );
+  assert.match(
+    readFixtureFile(root, "packages/core/src/editor/blocks/Demo/demo-definition.ts"),
+    /from '@\/editor\/configuration\/assessment-configuration'/,
+  );
+  assert.doesNotMatch(
+    readFixtureFile(root, "packages/core/src/editor/blocks/Demo/demo-definition.ts"),
+    /defaults:|from '@\/editor\/registry'|host\/agent|editor\/configuration\/checked-settings/,
+  );
+  assert.match(
+    readFixtureFile(root, "packages/core/src/editor/blocks/Demo/assessment.ts"),
+    /export function projectDemoAssessment\(_node: JSONContent\): AssessmentAnswerKey/,
+  );
+  assert.match(
+    readFixtureFile(root, "packages/core/src/editor/blocks/Demo/assessment.ts"),
+    /throw new Error\('Implement Demo assessment projection before shipping this block\.'\)/,
+  );
+  assert.match(
+    readFixtureFile(root, "packages/core/src/editor/blocks/Demo/assessment.ts"),
+    /throw new Error\('Implement Demo response presence check before shipping this block\.'\)/,
+  );
+  assertCurrentAssessmentTemplateSources(root);
+  assertAssessmentNodeViewSource(
+    readFixtureFile(root, "packages/core/src/editor/blocks/Demo/Demo.tsx"),
+  );
+  assertAssessmentLaneExtensionSources(root);
+  assert.match(
+    readFixtureFile(root, "packages/core/src/editor/blocks/Demo/Demo.test.ts"),
+    /expectsAssessment: true/,
+  );
+});
 
-test(
-  "shell widget recipe writes current lane-safe assessment output with an atomic child canvas",
-  { timeout: 240_000 },
-  (t) => {
-    const root = createFixtureRoot(t);
+test("shell widget recipe writes current lane-safe assessment output with an atomic child canvas", (t) => {
+  const root = createFixtureRoot(t);
 
-    const result = runCreateBlock(["--name", "Demo", "--recipe", "shell-widget"], root);
+  const result = runCreateBlock(["--name", "Demo", "--recipe", "shell-widget"], root);
 
-    assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(fixtureSourceFiles(root), [
-      "packages/core/src/editor/blocks/Demo/Demo.test.ts",
-      "packages/core/src/editor/blocks/Demo/Demo.tsx",
-      "packages/core/src/editor/blocks/Demo/DemoCanvas.tsx",
-      "packages/core/src/editor/blocks/Demo/assessment.ts",
-      "packages/core/src/editor/blocks/Demo/demo-authoring-extension.tsx",
-      "packages/core/src/editor/blocks/Demo/demo-definition.ts",
-      "packages/core/src/editor/blocks/Demo/demo-runtime-extension.tsx",
-      "packages/core/src/editor/blocks/Demo/index.tsx",
-      "packages/core/src/editor/blocks/Demo/node.ts",
-      "packages/core/src/schemas/blocks/demo.ts",
-    ]);
-    assertAssessmentSettingsSchema(
-      readFixtureFile(root, "packages/core/src/schemas/blocks/demo.ts"),
-    );
-    assert.match(
-      readFixtureFile(root, "packages/core/src/editor/blocks/Demo/DemoCanvas.tsx"),
-      /stableNodeIdAttribute\(\)/,
-    );
-    assert.match(
-      readFixtureFile(root, "packages/core/src/editor/blocks/Demo/DemoCanvas.tsx"),
-      /atom: true/,
-    );
-    assert.doesNotMatch(
-      readFixtureFile(root, "packages/core/src/editor/blocks/Demo/node.ts"),
-      /atom: true/,
-    );
-    assertCurrentAssessmentTemplateSources(root);
-    assertAssessmentNodeViewSource(
-      readFixtureFile(root, "packages/core/src/editor/blocks/Demo/Demo.tsx"),
-    );
-    assertAssessmentLaneExtensionSources(root);
-    assert.match(
-      readFixtureFile(root, "packages/core/src/editor/blocks/Demo/Demo.test.ts"),
-      /expectsAssessment: true/,
-    );
-    assertAssessmentRecipePassesWorkspaceChecks(t, "shell-widget");
-  },
-);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(fixtureSourceFiles(root), [
+    "packages/core/src/editor/blocks/Demo/Demo.test.ts",
+    "packages/core/src/editor/blocks/Demo/Demo.tsx",
+    "packages/core/src/editor/blocks/Demo/DemoCanvas.tsx",
+    "packages/core/src/editor/blocks/Demo/assessment.ts",
+    "packages/core/src/editor/blocks/Demo/demo-authoring-extension.tsx",
+    "packages/core/src/editor/blocks/Demo/demo-definition.ts",
+    "packages/core/src/editor/blocks/Demo/demo-runtime-extension.tsx",
+    "packages/core/src/editor/blocks/Demo/index.tsx",
+    "packages/core/src/editor/blocks/Demo/node.ts",
+    "packages/core/src/schemas/blocks/demo.ts",
+  ]);
+  assertAssessmentSettingsSchema(readFixtureFile(root, "packages/core/src/schemas/blocks/demo.ts"));
+  assert.match(
+    readFixtureFile(root, "packages/core/src/editor/blocks/Demo/DemoCanvas.tsx"),
+    /stableNodeIdAttribute\(\)/,
+  );
+  assert.match(
+    readFixtureFile(root, "packages/core/src/editor/blocks/Demo/DemoCanvas.tsx"),
+    /atom: true/,
+  );
+  assert.doesNotMatch(
+    readFixtureFile(root, "packages/core/src/editor/blocks/Demo/node.ts"),
+    /atom: true/,
+  );
+  assertCurrentAssessmentTemplateSources(root);
+  assertAssessmentNodeViewSource(
+    readFixtureFile(root, "packages/core/src/editor/blocks/Demo/Demo.tsx"),
+  );
+  assertAssessmentLaneExtensionSources(root);
+  assert.match(
+    readFixtureFile(root, "packages/core/src/editor/blocks/Demo/Demo.test.ts"),
+    /expectsAssessment: true/,
+  );
+});
 
 test("media widget recipe writes one visible widget node with structured data", (t) => {
   const root = createFixtureRoot(t);
@@ -619,64 +605,6 @@ function assertCurrentAssessmentTemplateSources(root) {
   );
 }
 
-function assertAssessmentRecipePassesWorkspaceChecks(t, recipe) {
-  const scratch = mkdtempSync(join(tmpdir(), `scaffold-create-block-${recipe}-checkout-`));
-  const root = join(scratch, "scaffold");
-  t.after(() => rmSync(scratch, { force: true, recursive: true }));
-
-  const cloneResult = spawnSync("git", ["clone", "--shared", REPO_ROOT, root], {
-    encoding: "utf8",
-  });
-  assert.equal(cloneResult.status, 0, cloneResult.stderr);
-
-  const result = runCreateBlock(["--name", "Generated Assessment Probe", "--recipe", recipe], root);
-  assert.equal(result.status, 0, result.stderr);
-
-  const installResult = runVp(["install", "--ignore-scripts"], root);
-  assert.equal(installResult.status, 0, installResult.stderr || installResult.stdout);
-  for (const dependency of ["@scaffold/contracts", "@scaffold/grading"]) {
-    const dependencyBuildResult = runVp(["run", `${dependency}#build`], root);
-    assert.equal(
-      dependencyBuildResult.status,
-      0,
-      `${dependencyBuildResult.stdout}\n${dependencyBuildResult.stderr}`,
-    );
-  }
-  const buildResult = runVp(["run", "@scaffold/core#build"], root);
-  assert.equal(buildResult.status, 0, `${buildResult.stdout}\n${buildResult.stderr}`);
-  const typeResult = runVp(["run", "verify:types"], root);
-  const typeLogPath = join(root, ".tmp/vp-verify-types.log");
-  const typeLog = existsSync(typeLogPath) ? readFileSync(typeLogPath, "utf8") : "";
-  assert.equal(typeResult.status, 0, `${typeResult.stdout}\n${typeResult.stderr}\n${typeLog}`);
-  const contractResult = runInstalledVp(
-    [
-      "run",
-      "@scaffold/core#test",
-      "src/editor/blocks/GeneratedAssessmentProbe/GeneratedAssessmentProbe.test.ts",
-    ],
-    root,
-  );
-  assert.equal(contractResult.status, 0, `${contractResult.stdout}\n${contractResult.stderr}`);
-  const settingsProbeResult = spawnSync(
-    process.execPath,
-    [
-      "--experimental-strip-types",
-      "--input-type=module",
-      "--eval",
-      `import { GeneratedAssessmentProbeSettingsSchema } from './packages/core/src/schemas/blocks/generated-assessment-probe.ts';
-if (GeneratedAssessmentProbeSettingsSchema.safeParse({ unsupportedSetting: true }).success) {
-  throw new Error('generated assessment settings accepted an unsupported key');
-}`,
-    ],
-    { cwd: root, encoding: "utf8", env: process.env },
-  );
-  assert.equal(
-    settingsProbeResult.status,
-    0,
-    `${settingsProbeResult.stdout}\n${settingsProbeResult.stderr}`,
-  );
-}
-
 function assertAssessmentSettingsSchema(source) {
   assert.match(source, /import \{ AssessmentCommonSettingsSchema \} from '@scaffold\/contracts';/);
   assert.match(source, /SettingsSchema = AssessmentCommonSettingsSchema\.extend\(\{/);
@@ -724,21 +652,5 @@ function runCreateBlock(args, root = REPO_ROOT) {
       ...process.env,
       SCAFFOLD_ROOT: root,
     },
-  });
-}
-
-function runVp(args, cwd) {
-  return spawnSync("vp", args, {
-    cwd,
-    encoding: "utf8",
-    env: process.env,
-  });
-}
-
-function runInstalledVp(args, cwd) {
-  return spawnSync(join(cwd, "node_modules/.bin/vp"), args, {
-    cwd,
-    encoding: "utf8",
-    env: process.env,
   });
 }

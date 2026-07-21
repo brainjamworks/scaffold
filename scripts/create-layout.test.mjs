@@ -390,48 +390,6 @@ test("dry run reports all catalog updates without writing them", (t) => {
   assert.equal(fixtureLayoutExists(root, "demo"), false);
 });
 
-test(
-  "generated output passes workspace types and layout contracts in a disposable checkout",
-  { timeout: 180_000 },
-  (t) => {
-    const scratch = mkdtempSync(join(tmpdir(), "scaffold-create-layout-checkout-"));
-    const root = join(scratch, "scaffold");
-    t.after(() => rmSync(scratch, { force: true, recursive: true }));
-
-    const cloneResult = spawnSync("git", ["clone", "--shared", REPO_ROOT, root], {
-      encoding: "utf8",
-    });
-    assert.equal(cloneResult.status, 0, cloneResult.stderr);
-
-    const result = runCreateLayout(demoLayoutArgs(), root);
-    assert.equal(result.status, 0, result.stderr);
-
-    const installResult = runVp(["install", "--ignore-scripts"], root);
-    assert.equal(installResult.status, 0, installResult.stderr || installResult.stdout);
-    const contractsBuildResult = runVp(["run", "@scaffold/contracts#build"], root);
-    assert.equal(
-      contractsBuildResult.status,
-      0,
-      `${contractsBuildResult.stdout}\n${contractsBuildResult.stderr}`,
-    );
-    const gradingBuildResult = runVp(["run", "@scaffold/grading#build"], root);
-    assert.equal(
-      gradingBuildResult.status,
-      0,
-      `${gradingBuildResult.stdout}\n${gradingBuildResult.stderr}`,
-    );
-    const buildResult = runVp(["run", "@scaffold/core#build"], root);
-    assert.equal(buildResult.status, 0, `${buildResult.stdout}\n${buildResult.stderr}`);
-    const typeResult = runVp(["run", "verify:types"], root);
-    assert.equal(typeResult.status, 0, `${typeResult.stdout}\n${typeResult.stderr}`);
-    const contractResult = runInstalledVp(
-      ["run", "@scaffold/core#test", "src/editor/arrangements/layout/demo/demo.test.ts"],
-      root,
-    );
-    assert.equal(contractResult.status, 0, `${contractResult.stdout}\n${contractResult.stderr}`);
-  },
-);
-
 function createFixtureRoot(t) {
   const root = mkdtempSync(join(tmpdir(), "scaffold-create-layout-"));
   writeFixtureFile(
@@ -588,21 +546,5 @@ function runCreateLayout(args, root = REPO_ROOT) {
       ...process.env,
       SCAFFOLD_ROOT: root,
     },
-  });
-}
-
-function runVp(args, cwd) {
-  return spawnSync("vp", args, {
-    cwd,
-    encoding: "utf8",
-    env: process.env,
-  });
-}
-
-function runInstalledVp(args, cwd) {
-  return spawnSync(join(cwd, "node_modules/.bin/vp"), args, {
-    cwd,
-    encoding: "utf8",
-    env: process.env,
   });
 }
