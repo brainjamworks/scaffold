@@ -39,6 +39,12 @@
   > [data-node-view-content] > [data-node-view-content-react] > [data-bounded-placement="fill"]
 ),
 .sc-region:has(
+  > [data-node-view-content]
+    > [data-node-view-content-react]
+    > .react-renderer
+    > [data-bounded-placement="fill"]
+),
+.sc-region:has(
   > [data-node-view-content-react] > .react-renderer > [data-bounded-placement="fill"]
 ) {
   align-content: stretch;
