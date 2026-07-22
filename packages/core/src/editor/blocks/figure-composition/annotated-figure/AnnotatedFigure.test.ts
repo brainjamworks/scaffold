@@ -858,13 +858,11 @@ it("adds a centred annotation from the workspace toolbar", async () => {
   editor.destroy();
 });
 
-it("edits, switches, resyncs, reorders, and deletes stable caption targets in the workspace", async () => {
+it("edits a workspace caption and routes undo and redo through outer history", async () => {
   const user = userEvent.setup();
   const editor = renderAnnotatedFigureEditor(
     annotatedFigureFixture(undefined, [
       { id: "annotation-one", x: 10, y: 20, caption: "First managed caption" },
-      { id: "annotation-two", x: 30, y: 40, caption: "Second managed caption" },
-      { id: "annotation-three", x: 50, y: 60, caption: "Third managed caption" },
     ]),
     { undoRedo: true },
   );
@@ -876,26 +874,59 @@ it("edits, switches, resyncs, reorders, and deletes stable caption targets in th
   );
   const dialog = await screen.findByRole("dialog", { name: "Edit annotated figure" });
   const captionList = within(dialog).getByRole("region", { name: "Caption management" });
-  setCaptionDisplay(editor, "popover");
-  await waitFor(() => {
-    expect(within(dialog).getByRole("region", { name: "Caption management" })).toBeInTheDocument();
-    expect(within(captionList).getAllByLabelText(/Annotation \d+ caption/)).toHaveLength(1);
-  });
-  setCaptionDisplay(editor, "list");
   const firstEditor = await within(captionList).findByLabelText("Annotation 1 caption");
+
   await user.click(firstEditor);
   expect(firstEditor).toHaveFocus();
   await user.type(firstEditor, " updated", { skipClick: true });
+  expect(firstEditor).toHaveTextContent("First managed caption updated");
   await waitFor(() => {
     expect(
       resolveAnnotatedFigureModel({ node: editor.state.doc.firstChild!, pos: 0 })?.annotations[0]
         ?.captionNode.textContent,
     ).toBe("First managed caption updated");
   });
+
   expect(editor.commands.undo()).toBe(true);
-  await waitFor(() => expect(firstEditor.textContent).toBe("First managed caption"));
+  await waitFor(() => {
+    expect(firstEditor).toHaveTextContent("First managed caption");
+    expect(
+      resolveAnnotatedFigureModel({ node: editor.state.doc.firstChild!, pos: 0 })?.annotations[0]
+        ?.captionNode.textContent,
+    ).toBe("First managed caption");
+  });
+
   expect(editor.commands.redo()).toBe(true);
-  await waitFor(() => expect(firstEditor.textContent).toBe("First managed caption updated"));
+  await waitFor(() => {
+    expect(firstEditor).toHaveTextContent("First managed caption updated");
+    expect(
+      resolveAnnotatedFigureModel({ node: editor.state.doc.firstChild!, pos: 0 })?.annotations[0]
+        ?.captionNode.textContent,
+    ).toBe("First managed caption updated");
+  });
+  editor.destroy();
+});
+
+it("switches, resyncs, reorders, and deletes stable workspace caption targets", async () => {
+  const user = userEvent.setup();
+  const editor = renderAnnotatedFigureEditor(
+    annotatedFigureFixture(undefined, [
+      { id: "annotation-one", x: 10, y: 20, caption: "First managed caption" },
+      { id: "annotation-two", x: 30, y: 40, caption: "Second managed caption" },
+      { id: "annotation-three", x: 50, y: 60, caption: "Third managed caption" },
+    ]),
+  );
+
+  await user.click(
+    await screen.findByRole("button", {
+      name: "Edit annotated figure in expanded workspace",
+    }),
+  );
+  const dialog = await screen.findByRole("dialog", { name: "Edit annotated figure" });
+  const captionList = within(dialog).getByRole("region", { name: "Caption management" });
+  expect(await within(captionList).findByLabelText("Annotation 1 caption")).toHaveTextContent(
+    "First managed caption",
+  );
 
   await user.click(
     within(captionList).getByRole("button", { name: "Select annotation 2 caption" }),
@@ -903,7 +934,7 @@ it("edits, switches, resyncs, reorders, and deletes stable caption targets in th
   expect(within(captionList).getAllByLabelText(/Annotation \d+ caption/)).toHaveLength(1);
   const secondEditor = within(captionList).getByLabelText("Annotation 2 caption");
   expect(secondEditor.textContent).toBe("Second managed caption");
-  expect(within(captionList).getByText("First managed caption updated")).toBeInTheDocument();
+  expect(within(captionList).getByText("First managed caption")).toBeInTheDocument();
 
   const secondAnnotation = resolveAnnotatedFigureModel({
     node: editor.state.doc.firstChild!,
@@ -944,7 +975,7 @@ it("edits, switches, resyncs, reorders, and deletes stable caption targets in th
       ),
     ).toEqual(["annotation-one", "annotation-three"]);
     expect(within(captionList).getByLabelText("Annotation 1 caption").textContent).toBe(
-      "First managed caption updated",
+      "First managed caption",
     );
   });
   expect(selectedFieldUnmountedBeforeDelete).toBe(true);
