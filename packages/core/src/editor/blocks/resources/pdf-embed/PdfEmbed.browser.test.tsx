@@ -11,19 +11,22 @@ vi.mock("react-pdf", () => ({
   pdfjs: { GlobalWorkerOptions: {} },
   Document({
     children,
+    className,
     onLoadSuccess,
   }: {
     children: ReactNode;
+    className?: string;
     onLoadSuccess?: (result: { numPages: number }) => void;
   }) {
     useEffect(() => {
       onLoadSuccess?.({ numPages: 3 });
     }, [onLoadSuccess]);
-    return <div className="react-pdf__Document">{children}</div>;
+    return <div className={className}>{children}</div>;
   },
   Page({
     onLoadSuccess,
     pageNumber,
+    scale,
     width,
   }: {
     onLoadSuccess?: (result: {
@@ -32,7 +35,8 @@ vi.mock("react-pdf", () => ({
       pageNumber: number;
     }) => void;
     pageNumber: number;
-    width: number;
+    scale?: number;
+    width?: number;
   }) {
     useEffect(() => {
       onLoadSuccess?.({
@@ -42,13 +46,15 @@ vi.mock("react-pdf", () => ({
       });
     }, [onLoadSuccess, pageNumber]);
 
+    const renderedWidth = width ?? 600 * (scale ?? 1);
+
     return (
       <div className="react-pdf__Page">
         <canvas
           data-pdf-page=""
           style={{
-            width: `${width}px`,
-            height: `${(width * 800) / 600}px`,
+            width: `${renderedWidth}px`,
+            height: `${(renderedWidth * 800) / 600}px`,
           }}
         />
       </div>
@@ -137,6 +143,29 @@ describe("PDF bounded geometry", () => {
     expect(frameRect.height).toBeCloseTo(180, 0);
     expect(fallbackRect.height).toBeCloseTo(frameRect.height, 0);
     expect(fallbackRect.bottom).toBeLessThanOrEqual(frameRect.bottom + 1);
+  });
+
+  it("makes an enlarged page keyboard-scrollable instead of clipping it", async () => {
+    const mounted = await mountPdf({ bounded: true, kind: "runtime" });
+    const stage = requiredElement<HTMLElement>(mounted.frame, ".sc-pdf-embed__stage");
+
+    for (let index = 0; index < 4; index += 1) {
+      requiredElement<HTMLButtonElement>(mounted.frame, '[aria-label="Zoom in"]').click();
+      await nextLayoutFrames(1);
+    }
+
+    await waitForCondition(() =>
+      mounted.frame.querySelector('[aria-label="Zoom 125%. Reset to fit"]'),
+    );
+    await nextLayoutFrames(3);
+
+    const canvas = requiredElement<HTMLCanvasElement>(mounted.frame, "[data-pdf-page]");
+
+    expect(stage.tabIndex).toBe(0);
+    expect(getComputedStyle(stage).overflow).toBe("auto");
+    expect(canvas.getBoundingClientRect().width).toBeGreaterThan(stage.clientWidth);
+    expect(stage.scrollWidth).toBeGreaterThan(stage.clientWidth);
+    expect(stage.scrollHeight).toBeGreaterThan(stage.clientHeight);
   });
 });
 

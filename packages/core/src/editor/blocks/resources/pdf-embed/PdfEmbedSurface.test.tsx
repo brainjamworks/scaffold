@@ -26,6 +26,7 @@ vi.mock("react-pdf", () => ({
   Page({
     onLoadSuccess,
     pageNumber,
+    scale,
     width,
   }: {
     onLoadSuccess?: (result: {
@@ -34,7 +35,8 @@ vi.mock("react-pdf", () => ({
       pageNumber: number;
     }) => void;
     pageNumber: number;
-    width: number;
+    scale?: number;
+    width?: number;
   }) {
     useEffect(() => {
       onLoadSuccess?.({
@@ -46,7 +48,11 @@ vi.mock("react-pdf", () => ({
     }, [onLoadSuccess, pageNumber]);
 
     return (
-      <div data-testid="pdf-page" data-render-width={width}>
+      <div
+        data-testid="pdf-page"
+        data-render-scale={scale ?? "fit"}
+        data-render-width={width ?? ""}
+      >
         PDF page {pageNumber}
       </div>
     );
@@ -227,4 +233,94 @@ it("keeps ordinary page-flow rendering width-driven", async () => {
   await waitFor(() => {
     expect(screen.getByTestId("pdf-page").dataset["renderWidth"]).toBe("640");
   });
+});
+
+it("starts in fit mode and advances to the next fixed zoom step", async () => {
+  const user = userEvent.setup();
+  render(
+    <PdfEmbedSurface
+      data={emptyPdfEmbedData({
+        source: {
+          mode: "external",
+          src: "https://example.com/sample.pdf",
+        },
+      })}
+      editable={false}
+      mediaPort={null}
+    />,
+  );
+
+  await waitFor(() => {
+    expect(screen.getByTestId("pdf-page").dataset["renderWidth"]).toBe("640");
+  });
+
+  expect(screen.getByRole("button", { name: "PDF zoom set to fit" })).toHaveTextContent("Fit");
+
+  await user.click(screen.getByRole("button", { name: "Zoom in" }));
+
+  await waitFor(() => {
+    expect(screen.getByTestId("pdf-page").dataset["renderWidth"]).toBe("");
+    expect(screen.getByTestId("pdf-page").dataset["renderScale"]).toBe("1.25");
+  });
+  expect(screen.getByRole("button", { name: "Zoom 125%. Reset to fit" })).toHaveTextContent("125%");
+});
+
+it("keeps stepped zoom between 50% and 300%", async () => {
+  const user = userEvent.setup();
+  render(
+    <PdfEmbedSurface
+      data={emptyPdfEmbedData({
+        source: {
+          mode: "external",
+          src: "https://example.com/sample.pdf",
+        },
+      })}
+      editable={false}
+      mediaPort={null}
+    />,
+  );
+
+  await screen.findByText("PDF page 1");
+  const zoomOut = screen.getByRole("button", { name: "Zoom out" });
+  const zoomIn = screen.getByRole("button", { name: "Zoom in" });
+
+  for (let index = 0; index < 8; index += 1) {
+    await user.click(zoomIn);
+  }
+
+  expect(screen.getByRole("button", { name: "Zoom 300%. Reset to fit" })).toBeInTheDocument();
+  expect(zoomIn).toHaveProperty("disabled", true);
+
+  for (let index = 0; index < 8; index += 1) {
+    await user.click(zoomOut);
+  }
+
+  expect(screen.getByRole("button", { name: "Zoom 50%. Reset to fit" })).toBeInTheDocument();
+  expect(zoomOut).toHaveProperty("disabled", true);
+});
+
+it("resets percentage zoom to responsive fit", async () => {
+  const user = userEvent.setup();
+  render(
+    <PdfEmbedSurface
+      data={emptyPdfEmbedData({
+        source: {
+          mode: "external",
+          src: "https://example.com/sample.pdf",
+        },
+      })}
+      editable={false}
+      mediaPort={null}
+    />,
+  );
+
+  await screen.findByText("PDF page 1");
+  await user.click(screen.getByRole("button", { name: "Zoom in" }));
+  await user.click(screen.getByRole("button", { name: "Zoom 125%. Reset to fit" }));
+
+  await waitFor(() => {
+    expect(screen.getByTestId("pdf-page").dataset["renderWidth"]).toBe("640");
+    expect(screen.getByTestId("pdf-page").dataset["renderScale"]).toBe("fit");
+  });
+  expect(screen.getByRole("button", { name: "PDF zoom set to fit" })).toHaveTextContent("Fit");
 });

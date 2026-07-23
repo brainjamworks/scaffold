@@ -3,6 +3,8 @@ import {
   CaretLeftIcon as CaretLeft,
   CaretRightIcon as CaretRight,
   FilePdfIcon as FilePdf,
+  MinusIcon as Minus,
+  PlusIcon as Plus,
   WarningCircleIcon as WarningCircle,
 } from "@phosphor-icons/react";
 import type { PdfEmbedData } from "@scaffold/contracts";
@@ -44,11 +46,17 @@ interface PdfPageDimensions {
 interface ViewerProps {
   url: string;
   pageNumber: number;
-  width: number;
+  scale?: number;
+  width?: number;
   onLoadSuccess: (numPages: number) => void;
   onLoadError: (message: string) => void;
   onPageLoadSuccess: (dimensions: PdfPageDimensions) => void;
 }
+
+const PDF_ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3] as const;
+
+type PdfZoomScale = (typeof PDF_ZOOM_STEPS)[number];
+type PdfZoom = "fit" | PdfZoomScale;
 
 const PdfViewer = lazy<ComponentType<ViewerProps>>(async () => {
   const [reactPdf] = await Promise.all([
@@ -63,6 +71,7 @@ const PdfViewer = lazy<ComponentType<ViewerProps>>(async () => {
   function Renderer({
     url,
     pageNumber,
+    scale,
     width,
     onLoadSuccess,
     onLoadError,
@@ -70,6 +79,7 @@ const PdfViewer = lazy<ComponentType<ViewerProps>>(async () => {
   }: ViewerProps) {
     return (
       <Document
+        className="sc-pdf-embed__document"
         file={url}
         loading={<PdfStateMessage>{mediaLoadingMessage("pdf")}</PdfStateMessage>}
         error={
@@ -83,9 +93,10 @@ const PdfViewer = lazy<ComponentType<ViewerProps>>(async () => {
       >
         <Page
           pageNumber={pageNumber}
-          width={width}
           renderAnnotationLayer={false}
           renderTextLayer={false}
+          {...(scale === undefined ? {} : { scale })}
+          {...(width === undefined ? {} : { width })}
           onLoadSuccess={({ originalHeight, originalWidth, pageNumber: loadedPageNumber }) =>
             onPageLoadSuccess({
               originalHeight,
@@ -121,6 +132,7 @@ export function PdfEmbedSurface({
   const [pageDimensions, setPageDimensions] = useState<PdfPageDimensions | null>(null);
   const [numPages, setNumPages] = useState<number | null>(null);
   const [pageNumber, setPageNumber] = useState<number>(data.initialPage);
+  const [zoom, setZoom] = useState<PdfZoom>("fit");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [resolved, setResolved] = useState<{
     mediaId: string;
@@ -201,6 +213,7 @@ export function PdfEmbedSurface({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPageNumber(Math.max(1, data.initialPage));
     setPageDimensions(null);
+    setZoom("fit");
     setErrorMessage(null);
     setNumPages(null);
   }, [fileUrl, data.initialPage]);
@@ -235,6 +248,10 @@ export function PdfEmbedSurface({
     availableWidth: stageSize.width,
     pageDimensions,
   });
+  const fitScale = resolvePdfFitScale(fittedPageWidth, pageDimensions);
+  const zoomOutScale = resolveNextPdfZoomScale(zoom === "fit" ? fitScale : zoom, -1);
+  const zoomInScale = resolveNextPdfZoomScale(zoom === "fit" ? fitScale : zoom, 1);
+  const zoomLabel = zoom === "fit" ? "Fit" : `${Math.round(zoom * 100)}%`;
 
   if (!source) {
     return <PdfEmptyState disabled={!editable || !onAdd} {...(onAdd ? { onAdd } : {})} />;
@@ -257,13 +274,15 @@ export function PdfEmbedSurface({
         role="group"
         aria-label={`${pdfLabel} preview`}
         aria-describedby={showStats ? pagerId : undefined}
+        data-pdf-zoomed={zoom === "fit" ? undefined : ""}
+        tabIndex={zoom === "fit" ? undefined : 0}
       >
         {fileUrl && fittedPageWidth > 0 ? (
           <Suspense fallback={<PdfStateMessage>{mediaLoadingMessage("pdf")}</PdfStateMessage>}>
             <PdfViewer
               url={fileUrl}
               pageNumber={pageNumber}
-              width={fittedPageWidth}
+              {...(zoom === "fit" ? { width: fittedPageWidth } : { scale: zoom })}
               onLoadSuccess={(pages) => {
                 setNumPages(pages);
                 setErrorMessage(null);
@@ -327,6 +346,39 @@ export function PdfEmbedSurface({
             <CaretRight size={14} weight="bold" aria-hidden />
           </button>
         </div>
+        <div className="sc-pdf-embed__zoom" role="group" aria-label="PDF zoom controls">
+          <button
+            type="button"
+            onClick={() => {
+              if (zoomOutScale !== null) setZoom(zoomOutScale);
+            }}
+            disabled={!showStats || zoomOutScale === null}
+            className="sc-pdf-embed__zoom-button"
+            aria-label="Zoom out"
+          >
+            <Minus size={13} weight="bold" aria-hidden />
+          </button>
+          <button
+            type="button"
+            onClick={() => setZoom("fit")}
+            disabled={!showStats || zoom === "fit"}
+            className="sc-pdf-embed__zoom-value"
+            aria-label={zoom === "fit" ? "PDF zoom set to fit" : `Zoom ${zoomLabel}. Reset to fit`}
+          >
+            {zoomLabel}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (zoomInScale !== null) setZoom(zoomInScale);
+            }}
+            disabled={!showStats || zoomInScale === null}
+            className="sc-pdf-embed__zoom-button"
+            aria-label="Zoom in"
+          >
+            <Plus size={13} weight="bold" aria-hidden />
+          </button>
+        </div>
         <div className="sc-pdf-embed__chrome-end">
           {editable && onAdd ? (
             <button
@@ -379,6 +431,27 @@ function resolvePdfPageWidth({
     availableWidth,
     (availableHeight * pageDimensions.originalWidth) / pageDimensions.originalHeight,
   );
+}
+
+function resolvePdfFitScale(
+  fittedPageWidth: number,
+  pageDimensions: PdfPageDimensions | null,
+): number {
+  if (!pageDimensions || pageDimensions.originalWidth <= 0) return 1;
+  return fittedPageWidth / pageDimensions.originalWidth;
+}
+
+function resolveNextPdfZoomScale(currentScale: number, direction: -1 | 1): PdfZoomScale | null {
+  if (direction === 1) {
+    return PDF_ZOOM_STEPS.find((step) => step > currentScale + Number.EPSILON) ?? null;
+  }
+
+  for (let index = PDF_ZOOM_STEPS.length - 1; index >= 0; index -= 1) {
+    const step = PDF_ZOOM_STEPS[index];
+    if (step !== undefined && step < currentScale - Number.EPSILON) return step;
+  }
+
+  return null;
 }
 
 function PdfEmptyState({ disabled, onAdd }: { disabled: boolean; onAdd?: () => void }) {
