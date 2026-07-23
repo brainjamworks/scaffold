@@ -23,8 +23,33 @@ vi.mock("react-pdf", () => ({
 
     return <div>{children}</div>;
   },
-  Page({ pageNumber }: { pageNumber: number }) {
-    return <div>PDF page {pageNumber}</div>;
+  Page({
+    onLoadSuccess,
+    pageNumber,
+    width,
+  }: {
+    onLoadSuccess?: (result: {
+      originalHeight: number;
+      originalWidth: number;
+      pageNumber: number;
+    }) => void;
+    pageNumber: number;
+    width: number;
+  }) {
+    useEffect(() => {
+      onLoadSuccess?.({
+        pageNumber,
+        ...(pageNumber === 1
+          ? { originalHeight: 800, originalWidth: 600 }
+          : { originalHeight: 600, originalWidth: 800 }),
+      });
+    }, [onLoadSuccess, pageNumber]);
+
+    return (
+      <div data-testid="pdf-page" data-render-width={width}>
+        PDF page {pageNumber}
+      </div>
+    );
   },
 }));
 
@@ -49,14 +74,17 @@ class MockResizeObserver implements ResizeObserver {
 }
 
 let clientWidthSpy: ReturnType<typeof vi.spyOn>;
+let clientHeightSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   clientWidthSpy = vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(640);
+  clientHeightSpy = vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(360);
   vi.stubGlobal("ResizeObserver", MockResizeObserver);
 });
 
 afterEach(() => {
   clientWidthSpy.mockRestore();
+  clientHeightSpy.mockRestore();
   vi.unstubAllGlobals();
   cleanup();
 });
@@ -146,4 +174,57 @@ it("keeps PDF loading, empty, and error states semantic", async () => {
   expect(screen.getByRole("group", { name: "PDF preview" }).textContent).toContain(
     "PDF unavailable",
   );
+});
+
+it("fits portrait and landscape pages within a bounded stage", async () => {
+  const source = {
+    mode: "external" as const,
+    src: "https://example.com/sample.pdf",
+  };
+  const { rerender } = render(
+    <div data-bounded-placement="fill">
+      <PdfEmbedSurface
+        data={emptyPdfEmbedData({ source, initialPage: 1 })}
+        editable={false}
+        mediaPort={null}
+      />
+    </div>,
+  );
+
+  await waitFor(() => {
+    expect(screen.getByTestId("pdf-page").dataset["renderWidth"]).toBe("270");
+  });
+
+  rerender(
+    <div data-bounded-placement="fill">
+      <PdfEmbedSurface
+        data={emptyPdfEmbedData({ source, initialPage: 2 })}
+        editable={false}
+        mediaPort={null}
+      />
+    </div>,
+  );
+
+  await waitFor(() => {
+    expect(screen.getByTestId("pdf-page").dataset["renderWidth"]).toBe("480");
+  });
+});
+
+it("keeps ordinary page-flow rendering width-driven", async () => {
+  render(
+    <PdfEmbedSurface
+      data={emptyPdfEmbedData({
+        source: {
+          mode: "external",
+          src: "https://example.com/sample.pdf",
+        },
+      })}
+      editable={false}
+      mediaPort={null}
+    />,
+  );
+
+  await waitFor(() => {
+    expect(screen.getByTestId("pdf-page").dataset["renderWidth"]).toBe("640");
+  });
 });

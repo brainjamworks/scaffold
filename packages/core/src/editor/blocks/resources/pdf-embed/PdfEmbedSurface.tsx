@@ -35,12 +35,19 @@ interface MediaPortLite {
   resolve: (mediaId: string) => Promise<string>;
 }
 
+interface PdfPageDimensions {
+  originalHeight: number;
+  originalWidth: number;
+  pageNumber: number;
+}
+
 interface ViewerProps {
   url: string;
   pageNumber: number;
   width: number;
   onLoadSuccess: (numPages: number) => void;
   onLoadError: (message: string) => void;
+  onPageLoadSuccess: (dimensions: PdfPageDimensions) => void;
 }
 
 const PdfViewer = lazy<ComponentType<ViewerProps>>(async () => {
@@ -53,7 +60,14 @@ const PdfViewer = lazy<ComponentType<ViewerProps>>(async () => {
 
   pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
-  function Renderer({ url, pageNumber, width, onLoadSuccess, onLoadError }: ViewerProps) {
+  function Renderer({
+    url,
+    pageNumber,
+    width,
+    onLoadSuccess,
+    onLoadError,
+    onPageLoadSuccess,
+  }: ViewerProps) {
     return (
       <Document
         file={url}
@@ -72,6 +86,13 @@ const PdfViewer = lazy<ComponentType<ViewerProps>>(async () => {
           width={width}
           renderAnnotationLayer={false}
           renderTextLayer={false}
+          onLoadSuccess={({ originalHeight, originalWidth, pageNumber: loadedPageNumber }) =>
+            onPageLoadSuccess({
+              originalHeight,
+              originalWidth,
+              pageNumber: loadedPageNumber,
+            })
+          }
         />
       </Document>
     );
@@ -93,7 +114,11 @@ export function PdfEmbedSurface({
 }) {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const generatedId = useId();
-  const [stageWidth, setStageWidth] = useState(0);
+  const [stageSize, setStageSize] = useState<{
+    boundedHeight: number | null;
+    width: number;
+  }>({ boundedHeight: null, width: 0 });
+  const [pageDimensions, setPageDimensions] = useState<PdfPageDimensions | null>(null);
   const [numPages, setNumPages] = useState<number | null>(null);
   const [pageNumber, setPageNumber] = useState<number>(data.initialPage);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -155,7 +180,17 @@ export function PdfEmbedSurface({
   useLayoutEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
-    const update = () => setStageWidth(stage.clientWidth);
+    const update = () => {
+      const next = {
+        boundedHeight: stage.closest('[data-bounded-placement="fill"]') ? stage.clientHeight : null,
+        width: stage.clientWidth,
+      };
+      setStageSize((current) =>
+        current.width === next.width && current.boundedHeight === next.boundedHeight
+          ? current
+          : next,
+      );
+    };
     update();
     const observer = new ResizeObserver(update);
     observer.observe(stage);
@@ -165,6 +200,7 @@ export function PdfEmbedSurface({
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPageNumber(Math.max(1, data.initialPage));
+    setPageDimensions(null);
     setErrorMessage(null);
     setNumPages(null);
   }, [fileUrl, data.initialPage]);
@@ -194,6 +230,11 @@ export function PdfEmbedSurface({
     resolveError && managedMediaId && resolveError.mediaId === managedMediaId
       ? resolveError.message
       : errorMessage;
+  const fittedPageWidth = resolvePdfPageWidth({
+    availableHeight: stageSize.boundedHeight,
+    availableWidth: stageSize.width,
+    pageDimensions,
+  });
 
   if (!source) {
     return <PdfEmptyState disabled={!editable || !onAdd} {...(onAdd ? { onAdd } : {})} />;
@@ -217,12 +258,12 @@ export function PdfEmbedSurface({
         aria-label={`${pdfLabel} preview`}
         aria-describedby={showStats ? pagerId : undefined}
       >
-        {fileUrl && stageWidth > 0 ? (
+        {fileUrl && fittedPageWidth > 0 ? (
           <Suspense fallback={<PdfStateMessage>{mediaLoadingMessage("pdf")}</PdfStateMessage>}>
             <PdfViewer
               url={fileUrl}
               pageNumber={pageNumber}
-              width={stageWidth}
+              width={fittedPageWidth}
               onLoadSuccess={(pages) => {
                 setNumPages(pages);
                 setErrorMessage(null);
@@ -230,6 +271,15 @@ export function PdfEmbedSurface({
               onLoadError={(message) => {
                 setErrorMessage(message);
                 setNumPages(null);
+              }}
+              onPageLoadSuccess={(dimensions) => {
+                setPageDimensions((current) =>
+                  current?.pageNumber === dimensions.pageNumber &&
+                  current.originalWidth === dimensions.originalWidth &&
+                  current.originalHeight === dimensions.originalHeight
+                    ? current
+                    : dimensions,
+                );
               }}
             />
           </Suspense>
@@ -303,6 +353,31 @@ export function PdfEmbedSurface({
         </div>
       </div>
     </figure>
+  );
+}
+
+function resolvePdfPageWidth({
+  availableHeight,
+  availableWidth,
+  pageDimensions,
+}: {
+  availableHeight: number | null;
+  availableWidth: number;
+  pageDimensions: PdfPageDimensions | null;
+}): number {
+  if (
+    availableHeight === null ||
+    availableHeight <= 0 ||
+    !pageDimensions ||
+    pageDimensions.originalHeight <= 0 ||
+    pageDimensions.originalWidth <= 0
+  ) {
+    return availableWidth;
+  }
+
+  return Math.min(
+    availableWidth,
+    (availableHeight * pageDimensions.originalWidth) / pageDimensions.originalHeight,
   );
 }
 

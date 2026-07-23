@@ -42,6 +42,7 @@ export const pdfEmbedBlockDefinition = defineBlock({
     resizable: true,
     resizeMode: "responsive",
   },
+  boundedPlacement: "fill",
   insert: {
     id: PDF_EMBED_BLOCK_ID,
     category: "embed",
