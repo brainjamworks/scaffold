@@ -157,6 +157,10 @@ describe("flashcard block", () => {
     });
   });
 
+  it("fills bounded containers", () => {
+    expect(flashcardBlockDefinition.boundedPlacement).toBe("fill");
+  });
+
   it("adds a new blank card through the flashcard ghost affordance", async () => {
     const user = userEvent.setup();
     const fixture = renderFlashcardEditor();

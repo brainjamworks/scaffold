@@ -483,6 +483,57 @@
     box-shadow: 0 0 0 2px var(--color-focus-ring);
   }
 
+  /* Finite slide and layout regions reserve the deck chrome, then give the
+   * card stage the remaining rectangle. The active card behaves like
+   * object-fit: contain: it keeps its 5:3 ratio and scales down on whichever
+   * axis is constrained, while each face remains the content scroll owner. */
+
+  .sc-flashcard-block[data-bounded-placement="fill"] {
+    display: flex;
+    height: 100%;
+    min-height: 0;
+    flex-direction: column;
+    justify-content: safe center;
+    overflow: hidden;
+  }
+
+  .sc-flashcard-block[data-bounded-placement="fill"] .sc-flashcard-deck {
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+    overflow: hidden;
+  }
+
+  .sc-flashcard-block[data-bounded-placement="fill"]
+    :is(.sc-flashcard-deck-header, .sc-flashcard-add-card, .sc-flashcard-reader-controls) {
+    flex: 0 0 auto;
+  }
+
+  .sc-flashcard-block[data-bounded-placement="fill"] .sc-flashcard-stack {
+    container-type: size;
+    display: flex;
+    min-height: 0;
+    flex: 1 1 0;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .sc-flashcard-block[data-bounded-placement="fill"] .sc-flashcard-card {
+    width: min(100cqi, calc(100cqb * 5 / 3));
+    min-height: 0;
+    flex: 0 0 auto;
+  }
+
+  .sc-flashcard-block[data-bounded-placement="fill"] .sc-flashcard-card__surface {
+    min-height: 0;
+  }
+
+  .sc-flashcard-block[data-bounded-placement="fill"] .sc-flashcard-mastered {
+    max-height: 100%;
+    overflow: auto;
+  }
+
   @container sc-flashcard (max-width: 28rem) {
     .sc-flashcard-deck {
       gap: 1rem;

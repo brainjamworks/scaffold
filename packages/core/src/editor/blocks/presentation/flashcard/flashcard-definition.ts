@@ -15,6 +15,7 @@ import {
 
 export const flashcardBlockDefinition = defineBlock({
   nodeType: FLASHCARD_NODE,
+  boundedPlacement: "fill",
   configuration: defineConfiguration({
     attr: "data",
     schema: FlashcardDataSchema,
