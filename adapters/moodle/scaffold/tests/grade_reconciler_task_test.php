@@ -175,15 +175,16 @@ final class grade_reconciler_task_test extends \advanced_testcase {
 
         $events = [];
         $itempublisher = new class($events) {
+            /** @var array Reconciliation event records. */
+            private array $events;
+
             /**
              * Creates a new grade reconciler task test instance.
              *
              * @param array $events Reconciliation event records.
              */
-            public function __construct(
-                /** @var array Reconciliation event records. */
-                private array &$events
-            ) {
+            public function __construct(array &$events) {
+                $this->events = &$events;
             }
             /**
              * Publishes the supplied state.
@@ -197,15 +198,16 @@ final class grade_reconciler_task_test extends \advanced_testcase {
             }
         };
         $learnerpublisher = new class($events) {
+            /** @var array Reconciliation event records. */
+            private array $events;
+
             /**
              * Creates a new grade reconciler task test instance.
              *
              * @param array $events Reconciliation event records.
              */
-            public function __construct(
-                /** @var array Reconciliation event records. */
-                private array &$events
-            ) {
+            public function __construct(array &$events) {
+                $this->events = &$events;
             }
             /**
              * Publishes user.
