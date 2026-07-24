@@ -28,10 +28,7 @@ test("keeps artifact checks in the adapter build, test, and verification command
 test("wires an authorized Moodle File API lookup to the standard send path", async () => {
   const source = await readAdapterFile("scaffold/lib.php");
   const callbackStart = source.indexOf("function mod_scaffold_pluginfile(");
-  const callbackEnd = source.indexOf(
-    "function scaffold_normalize_grade(",
-    callbackStart,
-  );
+  const callbackEnd = source.indexOf("function scaffold_normalize_grade(", callbackStart);
   const callback = source.slice(callbackStart, callbackEnd);
 
   assert.ok(callbackStart >= 0, "mod_scaffold_pluginfile callback must exist");
