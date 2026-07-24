@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vite-plus/test";
 
@@ -17,23 +17,33 @@ import {
 const sessionId = "session-123";
 const source = {};
 
-const registeredBrowserMethods = [
-  "mod_scaffold_get_payload",
-  "mod_scaffold_save_content",
-  "mod_scaffold_load_learner_activity",
-  "mod_scaffold_save_learner_activity",
-  "mod_scaffold_check_assessment",
-  "mod_scaffold_submit_assessment",
-  "mod_scaffold_reveal_answer",
-  "mod_scaffold_reveal_hint",
-  "mod_scaffold_start_quiz_attempt",
-  "mod_scaffold_submit_quiz_question",
-  "mod_scaffold_finish_quiz_attempt",
-  "mod_scaffold_reveal_quiz_answers",
-  "mod_scaffold_upload_media",
-  "mod_scaffold_resolve_media",
-  "mod_scaffold_list_media",
-] as const;
+const readAdapterFile = (path: string): string =>
+  readFileSync(new URL(`../../../${path}`, import.meta.url), "utf8");
+
+const servicesSource = readAdapterFile("scaffold/db/services.php");
+const registeredAjaxMethods = [
+  ...servicesSource.matchAll(
+    /'(mod_scaffold_[a-z_]+)'\s*=>\s*\[(.*?)(?=\n\s*'mod_scaffold_|\n\];)/gs,
+  ),
+]
+  .filter(([, , definition]) => /'ajax'\s*=>\s*true/.test(definition))
+  .map(([, methodName]) => methodName)
+  .sort();
+
+const browserUsedMethods = [
+  ...new Set(
+    [
+      "frontend/src/MoodleApp.tsx",
+      "frontend/src/authoring-ports.ts",
+      "frontend/src/ports.ts",
+      "frontend/src/learner-activity-port.ts",
+    ].flatMap((path) =>
+      [...readAdapterFile(path).matchAll(/mod_scaffold_[a-z_]+/g)].map(
+        ([methodName]) => methodName,
+      ),
+    ),
+  ),
+].sort();
 
 const authoringConfig = {
   cmid: 42,
@@ -46,17 +56,17 @@ const authoringConfig = {
 
 describe("Moodle bridge protocol", () => {
   it("matches Moodle's registered browser AJAX functions", () => {
-    expect(() =>
-      execFileSync("php", [`${process.cwd()}/tests/external_method_parity_test.php`], {
-        stdio: "pipe",
-      }),
-    ).not.toThrow();
+    expect([...MOODLE_AJAX_METHODS].sort()).toEqual(registeredAjaxMethods);
+    expect(browserUsedMethods).toEqual(registeredAjaxMethods);
+  });
+
+  it("keeps grade-item publication status in the content-save contract", () => {
+    const saveContentSource = readAdapterFile("scaffold/classes/external/save_content.php");
+    expect(saveContentSource.match(/'gradeItemPublication'/g)?.length).toBeGreaterThanOrEqual(2);
   });
 
   it("allows exactly the registered browser method surface", () => {
-    expect(MOODLE_AJAX_METHODS).toEqual(registeredBrowserMethods);
-
-    for (const methodName of registeredBrowserMethods) {
+    for (const methodName of MOODLE_AJAX_METHODS) {
       const request = createMoodleAjaxRequest({
         sessionId,
         requestId: `request-${methodName}`,
