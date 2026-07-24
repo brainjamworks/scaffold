@@ -118,6 +118,30 @@ test("Moodle Plugin CI builds, installs, and runs only the component suite", () 
   assert.doesNotMatch(jobSource, /moodle-plugin-ci behat|selenium|--coverage/i);
 });
 
+test("Moodle Plugin CI runs the applicable static checks once on the current PostgreSQL leg", () => {
+  const { workflow } = loadWorkflow();
+  const job = moodleJob(workflow);
+  const workingDirectory = "${{ runner.temp }}/moodle-plugin-ci-work";
+  const currentPostgresOnly =
+    "${{ !cancelled() && matrix.moodle == 'MOODLE_502_STABLE' && matrix.database == 'pgsql' }}";
+  const expectedChecks = new Map([
+    ["Run Moodle PHP lint", "moodle-plugin-ci phplint"],
+    ["Run Moodle code checker", "moodle-plugin-ci phpcs --max-warnings 0"],
+    ["Run Moodle PHPDoc checker", "moodle-plugin-ci phpdoc --max-warnings 0"],
+    ["Run Moodle plugin validation", "moodle-plugin-ci validate"],
+    ["Run Moodle upgrade savepoint validation", "moodle-plugin-ci savepoints"],
+    ["Run Moodle Grunt checks", "moodle-plugin-ci grunt --max-lint-warnings 0"],
+  ]);
+
+  for (const [name, command] of expectedChecks) {
+    const step = job.steps.find((candidate) => candidate.name === name);
+    assert.ok(step, `${name} step is required`);
+    assert.equal(step.if, currentPostgresOnly);
+    assert.equal(step["working-directory"], workingDirectory);
+    assert.equal(step.run, command);
+  }
+});
+
 test("native Moodle PHPUnit is part of read-only Required CI with pinned actions", () => {
   const { source, workflow } = loadWorkflow();
 

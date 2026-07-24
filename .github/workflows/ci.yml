@@ -432,6 +432,36 @@ jobs:
           --fail-on-warning
           --fail-on-risky
 
+      - name: Run Moodle PHP lint
+        if: ${{ !cancelled() && matrix.moodle == 'MOODLE_502_STABLE' && matrix.database == 'pgsql' }}
+        working-directory: ${{ runner.temp }}/moodle-plugin-ci-work
+        run: moodle-plugin-ci phplint
+
+      - name: Run Moodle code checker
+        if: ${{ !cancelled() && matrix.moodle == 'MOODLE_502_STABLE' && matrix.database == 'pgsql' }}
+        working-directory: ${{ runner.temp }}/moodle-plugin-ci-work
+        run: moodle-plugin-ci phpcs --max-warnings 0
+
+      - name: Run Moodle PHPDoc checker
+        if: ${{ !cancelled() && matrix.moodle == 'MOODLE_502_STABLE' && matrix.database == 'pgsql' }}
+        working-directory: ${{ runner.temp }}/moodle-plugin-ci-work
+        run: moodle-plugin-ci phpdoc --max-warnings 0
+
+      - name: Run Moodle plugin validation
+        if: ${{ !cancelled() && matrix.moodle == 'MOODLE_502_STABLE' && matrix.database == 'pgsql' }}
+        working-directory: ${{ runner.temp }}/moodle-plugin-ci-work
+        run: moodle-plugin-ci validate
+
+      - name: Run Moodle upgrade savepoint validation
+        if: ${{ !cancelled() && matrix.moodle == 'MOODLE_502_STABLE' && matrix.database == 'pgsql' }}
+        working-directory: ${{ runner.temp }}/moodle-plugin-ci-work
+        run: moodle-plugin-ci savepoints
+
+      - name: Run Moodle Grunt checks
+        if: ${{ !cancelled() && matrix.moodle == 'MOODLE_502_STABLE' && matrix.database == 'pgsql' }}
+        working-directory: ${{ runner.temp }}/moodle-plugin-ci-work
+        run: moodle-plugin-ci grunt --max-lint-warnings 0
+
   status:
     name: Required CI
     if: ${{ !cancelled() }}
