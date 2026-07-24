@@ -37,6 +37,9 @@ defined('MOODLE_INTERNAL') || die();
  */
 final class assessment_quiz_test extends \basic_testcase {
     /**
+     * Tests dependency guard detects public projection reference.
+     *
+     * @param string $source Source.
      * @dataProvider public_projection_reference_provider
      */
     public function test_dependency_guard_detects_public_projection_reference(
@@ -45,6 +48,11 @@ final class assessment_quiz_test extends \basic_testcase {
         $this->assertNotSame([], self::public_projection_tokens($source));
     }
 
+    /**
+     * Provides public projection reference cases.
+     *
+     * @return array
+     */
     public static function public_projection_reference_provider(): array {
         return [
             'require' => ["<?php require_once(__DIR__ . '/assessment_public_projection.php');"],
@@ -281,6 +289,10 @@ final class assessment_quiz_test extends \basic_testcase {
     }
 
     /**
+     * Tests in progress review policy never exposes answer material.
+     *
+     * @param string $reviewdetail Reviewdetail.
+     * @param bool $authorized Authorized.
      * @dataProvider review_detail_provider
      */
     public function test_in_progress_review_policy_never_exposes_answer_material(
@@ -342,6 +354,10 @@ final class assessment_quiz_test extends \basic_testcase {
     }
 
     /**
+     * Tests terminal review policy exposes only authorized detail.
+     *
+     * @param string $reviewdetail Reviewdetail.
+     * @param bool $authorized Authorized.
      * @dataProvider review_detail_provider
      */
     public function test_terminal_review_policy_exposes_only_authorized_detail(
@@ -420,6 +436,11 @@ final class assessment_quiz_test extends \basic_testcase {
         $this->assertSame($state, serialize($snapshot));
     }
 
+    /**
+     * Provides review detail cases.
+     *
+     * @return array
+     */
     public static function review_detail_provider(): array {
         return [
             'none' => ['none', false],
@@ -530,6 +551,12 @@ final class assessment_quiz_test extends \basic_testcase {
         );
     }
 
+    /**
+     * Returns completed after quiz.
+     *
+     * @param string $reviewdetail Reviewdetail.
+     * @return array
+     */
     private function completed_after_quiz(string $reviewdetail): array {
         $targets = [$this->target('question-1'), $this->target('question-2')];
         $groups = [$this->group('after_quiz', true, false, $reviewdetail)];
@@ -553,10 +580,21 @@ final class assessment_quiz_test extends \basic_testcase {
         return [$quiz, $snapshot, $groups, $attempt];
     }
 
+    /**
+     * Asserts no item outcomes.
+     *
+     * @param \stdClass $result Result.
+     */
     private function assert_no_item_outcomes(\stdClass $result): void {
         $this->assertSame([], get_object_vars($result->items ?? (object) []));
     }
 
+    /**
+     * Builds the public projection tokens.
+     *
+     * @param string $source Source.
+     * @return array
+     */
     private static function public_projection_tokens(string $source): array {
         $references = [];
         foreach (token_get_all($source) as $token) {
@@ -575,18 +613,34 @@ final class assessment_quiz_test extends \basic_testcase {
         return $references;
     }
 
+    /**
+     * Asserts no answer material.
+     *
+     * @param string $json Json.
+     */
     private function assert_no_answer_material(string $json): void {
         $this->assertStringNotContainsString('"expected"', $json);
         $this->assertStringNotContainsString('Quiz item feedback sentinel', $json);
         $this->assertStringNotContainsString('Quiz summary feedback sentinel', $json);
     }
 
+    /**
+     * Asserts answer material.
+     *
+     * @param string $json Json.
+     */
     private function assert_answer_material(string $json): void {
         $this->assertStringContainsString('"expected"', $json);
         $this->assertStringContainsString('Quiz item feedback sentinel', $json);
         $this->assertStringContainsString('Quiz summary feedback sentinel', $json);
     }
 
+    /**
+     * Returns feedback.
+     *
+     * @param string $text Text.
+     * @return array
+     */
     private function feedback(string $text): array {
         return [
             'kind' => 'rich-text',
@@ -600,6 +654,12 @@ final class assessment_quiz_test extends \basic_testcase {
         ];
     }
 
+    /**
+     * Returns target.
+     *
+     * @param string $targetid Assessment target ID.
+     * @return array
+     */
     private function target(string $targetid): array {
         return [
             'schemaVersion' => 1,
@@ -628,6 +688,17 @@ final class assessment_quiz_test extends \basic_testcase {
         ];
     }
 
+    /**
+     * Returns group.
+     *
+     * @param string $reviewtiming Reviewtiming.
+     * @param bool $isgraded Isgraded.
+     * @param bool $timerenabled Timerenabled.
+     * @param string $reviewdetail Reviewdetail.
+     * @param string $groupid Assessment group ID.
+     * @param array $targetids Targetids.
+     * @return array
+     */
     private function group(
         string $reviewtiming = 'after_each_answer',
         bool $isgraded = true,
@@ -655,6 +726,11 @@ final class assessment_quiz_test extends \basic_testcase {
         ];
     }
 
+    /**
+     * Returns snapshot.
+     *
+     * @return \stdClass
+     */
     private function snapshot(): \stdClass {
         return (object) [
             'snapshotVersion' => 1,
@@ -664,6 +740,14 @@ final class assessment_quiz_test extends \basic_testcase {
         ];
     }
 
+    /**
+     * Returns expiry attempt.
+     *
+     * @param string $attemptid Quiz attempt ID.
+     * @param string $targetid Assessment target ID.
+     * @param string $expiresat Expiresat.
+     * @return \stdClass
+     */
     private function expiry_attempt(
         string $attemptid,
         string $targetid,

@@ -31,8 +31,18 @@ require_once(__DIR__ . '/assessment_projection.php');
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class restore_identity_service {
+    /**
+     * RECONCILIATION BATCH SIZE.
+     */
     private const RECONCILIATION_BATCH_SIZE = 100;
 
+    /**
+     * Repairs restored Scaffold identities.
+     *
+     * @param string $destinationartifactid Destinationartifactid.
+     * @param \stdClass $source Source.
+     * @return \stdClass
+     */
     public static function repair(string $destinationartifactid, \stdClass $source): \stdClass {
         if ($destinationartifactid === '') {
             throw new \invalid_parameter_exception('Destination artifact identity is required');
@@ -49,6 +59,12 @@ final class restore_identity_service {
         throw new \invalid_parameter_exception('Restore source has an unknown canonical shape');
     }
 
+    /**
+     * Returns assessment next expiry.
+     *
+     * @param \stdClass $snapshot Canonical assessment snapshot.
+     * @return int|null
+     */
     public static function assessment_next_expiry(\stdClass $snapshot): ?int {
         json_schema_validator::validate_plugin_definition(
             'AssessmentLearnerSnapshot',
@@ -69,6 +85,12 @@ final class restore_identity_service {
         return $next;
     }
 
+    /**
+     * Rebuilds host projections.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $cmid Course module ID.
+     */
     public static function rebuild_host_projections(int $scaffoldid, int $cmid): void {
         global $CFG, $DB;
 
@@ -124,6 +146,13 @@ final class restore_identity_service {
         }
     }
 
+    /**
+     * Repairs activity.
+     *
+     * @param string $destinationartifactid Destinationartifactid.
+     * @param \stdClass $source Source.
+     * @return \stdClass
+     */
     private static function repair_activity(string $destinationartifactid, \stdClass $source): \stdClass {
         $repaired = clone $source;
         $artifact = self::decode_object((string) $source->artifactjson, 'Restored Scaffold artifact');
@@ -136,6 +165,13 @@ final class restore_identity_service {
         return $repaired;
     }
 
+    /**
+     * Repairs assessment snapshot.
+     *
+     * @param string $destinationartifactid Destinationartifactid.
+     * @param \stdClass $source Source.
+     * @return \stdClass
+     */
     private static function repair_assessment_snapshot(
         string $destinationartifactid,
         \stdClass $source,
@@ -150,6 +186,13 @@ final class restore_identity_service {
         return $repaired;
     }
 
+    /**
+     * Repairs learner activity snapshot.
+     *
+     * @param string $destinationartifactid Destinationartifactid.
+     * @param \stdClass $source Source.
+     * @return \stdClass
+     */
     private static function repair_learner_activity_snapshot(
         string $destinationartifactid,
         \stdClass $source,
@@ -164,6 +207,12 @@ final class restore_identity_service {
         return $repaired;
     }
 
+    /**
+     * Validates artifact.
+     *
+     * @param \stdClass $artifact Artifact.
+     * @param string $destinationartifactid Destinationartifactid.
+     */
     private static function validate_artifact(\stdClass $artifact, string $destinationartifactid): void {
         if (($artifact->id ?? null) !== $destinationartifactid) {
             throw new \invalid_parameter_exception('Restored Scaffold artifact id is invalid');
@@ -187,6 +236,13 @@ final class restore_identity_service {
         }
     }
 
+    /**
+     * Decodes object.
+     *
+     * @param string $raw Raw.
+     * @param string $name Name.
+     * @return \stdClass
+     */
     private static function decode_object(string $raw, string $name): \stdClass {
         try {
             $value = json_decode($raw, false, 512, JSON_THROW_ON_ERROR);
@@ -199,6 +255,13 @@ final class restore_identity_service {
         return $value;
     }
 
+    /**
+     * Encodes the supplied value.
+     *
+     * @param \stdClass $value Value.
+     * @param string $name Name.
+     * @return string
+     */
     private static function encode(\stdClass $value, string $name): string {
         try {
             return json_encode($value, JSON_THROW_ON_ERROR);

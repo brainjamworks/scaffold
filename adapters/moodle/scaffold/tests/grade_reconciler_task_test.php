@@ -35,7 +35,18 @@ defined('MOODLE_INTERNAL') || die();
  * Exposes controlled grade reconciliation task dependencies for tests.
  */
 final class grade_reconciler_task_under_test extends \mod_scaffold\task\reconcile_assessment_grades {
-    public function __construct(private readonly grade_reconciler $reconciler, private readonly int $limit) {
+    /**
+     * Creates a new grade reconciler task under test instance.
+     *
+     * @param grade_reconciler $reconciler Reconciler.
+     * @param int $limit Maximum records processed.
+     */
+    public function __construct(
+        /** @var grade_reconciler Reconciler. */
+        private readonly grade_reconciler $reconciler,
+        /** @var int Maximum records processed. */
+        private readonly int $limit
+    ) {
     }
 
     #[\Override]
@@ -164,16 +175,45 @@ final class grade_reconciler_task_test extends \advanced_testcase {
 
         $events = [];
         $itempublisher = new class($events) {
-            public function __construct(private array &$events) {
+            /**
+             * Creates a new grade reconciler task test instance.
+             *
+             * @param array $events Reconciliation event records.
+             */
+            public function __construct(
+                /** @var array Reconciliation event records. */
+                private array &$events
+            ) {
             }
+            /**
+             * Publishes the supplied state.
+             *
+             * @param \stdClass $activity Activity.
+             * @return \stdClass
+             */
             public function publish(\stdClass $activity): \stdClass {
                 $this->events[] = 'item';
                 return (object) ['status' => 'published'];
             }
         };
         $learnerpublisher = new class($events) {
-            public function __construct(private array &$events) {
+            /**
+             * Creates a new grade reconciler task test instance.
+             *
+             * @param array $events Reconciliation event records.
+             */
+            public function __construct(
+                /** @var array Reconciliation event records. */
+                private array &$events
+            ) {
             }
+            /**
+             * Publishes user.
+             *
+             * @param \stdClass $activity Activity.
+             * @param int $userid User ID.
+             * @return \stdClass
+             */
             public function publish_user(\stdClass $activity, int $userid): \stdClass {
                 $this->events[] = 'learner';
                 return (object) ['status' => 'published'];
@@ -304,6 +344,12 @@ final class grade_reconciler_task_test extends \advanced_testcase {
         ));
     }
 
+    /**
+     * Returns execute task.
+     *
+     * @param grade_reconciler_task_under_test $task Task.
+     * @return string
+     */
     private function execute_task(grade_reconciler_task_under_test $task): string {
         ob_start();
         $task->execute();

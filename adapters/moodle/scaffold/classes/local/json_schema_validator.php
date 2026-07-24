@@ -28,6 +28,9 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class json_schema_validator {
+    /**
+     * SUPPORTED KEYWORDS.
+     */
     private const SUPPORTED_KEYWORDS = [
         '$comment',
         '$id',
@@ -55,10 +58,17 @@ class json_schema_validator {
         'uniqueItems',
     ];
 
+    /** @var ?self Shared plugin schema validator. */
     private static ?self $pluginvalidator = null;
 
+    /** @var \stdClass Loaded JSON schema. */
     private \stdClass $schema;
 
+    /**
+     * Creates a new json schema validator instance.
+     *
+     * @param string|null $schemafilepath Schemafilepath.
+     */
     public function __construct(?string $schemafilepath = null) {
         $schemafilepath ??= dirname(__DIR__, 2) . '/schemas/assessment.schema.json';
         $raw = @file_get_contents($schemafilepath);
@@ -80,6 +90,13 @@ class json_schema_validator {
         $this->audit_schema($schema, '#');
     }
 
+    /**
+     * Validates plugin definition.
+     *
+     * @param string $definition Definition.
+     * @param mixed $value Value.
+     * @param string $path Path.
+     */
     public static function validate_plugin_definition(
         string $definition,
         mixed $value,
@@ -89,6 +106,13 @@ class json_schema_validator {
         self::$pluginvalidator->validate_definition($definition, $value, $path);
     }
 
+    /**
+     * Validates definition.
+     *
+     * @param string $definition Definition.
+     * @param mixed $value Value.
+     * @param string $path Path.
+     */
     public function validate_definition(string $definition, mixed $value, string $path = '$'): void {
         $definitions = $this->schema->definitions ?? null;
         if (!($definitions instanceof \stdClass) || !property_exists($definitions, $definition)) {
@@ -103,6 +127,12 @@ class json_schema_validator {
         $this->validate_value($value, $schema, $path, 0);
     }
 
+    /**
+     * Returns audit schema.
+     *
+     * @param \stdClass $schema Loaded JSON schema.
+     * @param string $path Path.
+     */
     private function audit_schema(\stdClass $schema, string $path): void {
         foreach (get_object_vars($schema) as $keyword => $constraint) {
             if (!in_array($keyword, self::SUPPORTED_KEYWORDS, true)) {
@@ -162,6 +192,13 @@ class json_schema_validator {
         }
     }
 
+    /**
+     * Returns audit constraint.
+     *
+     * @param string $keyword Keyword.
+     * @param mixed $constraint Constraint.
+     * @param string $path Path.
+     */
     private function audit_constraint(string $keyword, mixed $constraint, string $path): void {
         if (in_array($keyword, ['$comment', '$id', '$schema', 'title'], true) && !is_string($constraint)) {
             throw new \invalid_parameter_exception($path . '.' . $keyword . ' must be a string');
@@ -210,6 +247,14 @@ class json_schema_validator {
         }
     }
 
+    /**
+     * Validates value.
+     *
+     * @param mixed $value Value.
+     * @param \stdClass $schema Loaded JSON schema.
+     * @param string $path Path.
+     * @param int $depth Depth.
+     */
     private function validate_value(mixed $value, \stdClass $schema, string $path, int $depth): void {
         if ($depth > 512) {
             throw new \invalid_parameter_exception($path . ' exceeds schema validation depth');
@@ -287,6 +332,14 @@ class json_schema_validator {
         }
     }
 
+    /**
+     * Validates object.
+     *
+     * @param array $properties Properties.
+     * @param \stdClass $schema Loaded JSON schema.
+     * @param string $path Path.
+     * @param int $depth Depth.
+     */
     private function validate_object(array $properties, \stdClass $schema, string $path, int $depth): void {
         $defined = property_exists($schema, 'properties') ? get_object_vars($schema->properties) : [];
         if (property_exists($schema, 'required')) {
@@ -316,6 +369,14 @@ class json_schema_validator {
         }
     }
 
+    /**
+     * Validates array.
+     *
+     * @param array $value Value.
+     * @param \stdClass $schema Loaded JSON schema.
+     * @param string $path Path.
+     * @param int $depth Depth.
+     */
     private function validate_array(array $value, \stdClass $schema, string $path, int $depth): void {
         if (property_exists($schema, 'minItems') && count($value) < $schema->minItems) {
             throw new \invalid_parameter_exception($path . ' has too few items');
@@ -336,6 +397,13 @@ class json_schema_validator {
         }
     }
 
+    /**
+     * Validates number.
+     *
+     * @param int|float $value Value.
+     * @param \stdClass $schema Loaded JSON schema.
+     * @param string $path Path.
+     */
     private function validate_number(int|float $value, \stdClass $schema, string $path): void {
         if (property_exists($schema, 'minimum') && $value < $schema->minimum) {
             throw new \invalid_parameter_exception($path . ' is below the minimum');
@@ -348,6 +416,13 @@ class json_schema_validator {
         }
     }
 
+    /**
+     * Validates string.
+     *
+     * @param string $value Value.
+     * @param \stdClass $schema Loaded JSON schema.
+     * @param string $path Path.
+     */
     private function validate_string(string $value, \stdClass $schema, string $path): void {
         if (property_exists($schema, 'pattern') && preg_match($this->pattern_expression($schema->pattern), $value) !== 1) {
             throw new \invalid_parameter_exception($path . ' does not match the required pattern');
@@ -357,6 +432,12 @@ class json_schema_validator {
         }
     }
 
+    /**
+     * Resolves reference.
+     *
+     * @param string $reference Reference.
+     * @return \stdClass
+     */
     private function resolve_reference(string $reference): \stdClass {
         if (!str_starts_with($reference, '#/')) {
             throw new \invalid_parameter_exception('Only local JSON schema references are supported');
@@ -382,6 +463,13 @@ class json_schema_validator {
         return $current;
     }
 
+    /**
+     * Checks whether a value matches a schema type.
+     *
+     * @param mixed $value Value.
+     * @param string $type Type.
+     * @return bool
+     */
     private function matches_type(mixed $value, string $type): bool {
         return match ($type) {
             'array' => is_array($value) && array_is_list($value),
@@ -395,6 +483,12 @@ class json_schema_validator {
         };
     }
 
+    /**
+     * Returns object properties.
+     *
+     * @param mixed $value Value.
+     * @return array|null
+     */
     private function object_properties(mixed $value): ?array {
         if ($value instanceof \stdClass) {
             return get_object_vars($value);
@@ -405,10 +499,23 @@ class json_schema_validator {
         return null;
     }
 
+    /**
+     * Checks whether json number.
+     *
+     * @param mixed $value Value.
+     * @return bool
+     */
     private function is_json_number(mixed $value): bool {
         return (is_int($value) || is_float($value)) && is_finite((float) $value);
     }
 
+    /**
+     * Checks whether two JSON values are equivalent.
+     *
+     * @param mixed $left Left.
+     * @param mixed $right Right.
+     * @return bool
+     */
     private function json_values_equal(mixed $left, mixed $right): bool {
         if ($this->is_json_number($left) && $this->is_json_number($right)) {
             return (float) $left === (float) $right;
@@ -443,10 +550,22 @@ class json_schema_validator {
         return $left === $right;
     }
 
+    /**
+     * Returns pattern expression.
+     *
+     * @param string $pattern Pattern.
+     * @return string
+     */
     private function pattern_expression(string $pattern): string {
         return '~' . str_replace('~', '\\~', $pattern) . '~u';
     }
 
+    /**
+     * Checks whether rfc3339 datetime.
+     *
+     * @param string $value Value.
+     * @return bool
+     */
     private function is_rfc3339_datetime(string $value): bool {
         $matched = preg_match(
             '/^(\d{4})-(\d{2})-(\d{2})T(?:[01]\d|2[0-3]):[0-5]\d:(?:[0-5]\d|60)(?:\.\d+)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/',

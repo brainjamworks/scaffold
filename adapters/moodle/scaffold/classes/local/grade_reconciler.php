@@ -28,13 +28,30 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class grade_reconciler {
+    /**
+     * MAX RETRIES.
+     */
     private const MAX_RETRIES = 5;
+    /** @var grade_publication_repository Persistence repository. */
     private $repository;
+    /** @var grade_item_publisher Grade item publisher. */
     private $itempublisher;
+    /** @var grade_publisher Learner grade publisher. */
     private $learnerpublisher;
+    /** @var \Closure Activity loading callback. */
     private readonly \Closure $activityloader;
+    /** @var \Closure Clock callback. */
     private readonly \Closure $clock;
 
+    /**
+     * Creates a new grade reconciler instance.
+     *
+     * @param object|null $repository Persistence repository.
+     * @param object|null $itempublisher Grade item publisher.
+     * @param object|null $learnerpublisher Learner grade publisher.
+     * @param callable|null $activityloader Activity loading callback.
+     * @param callable|null $clock Clock callback.
+     */
     public function __construct(
         ?object $repository = null,
         ?object $itempublisher = null,
@@ -52,6 +69,12 @@ final class grade_reconciler {
         $this->clock = \Closure::fromCallable($clock ?? static fn(): int => time());
     }
 
+    /**
+     * Reconciles due.
+     *
+     * @param int $limit Maximum records processed.
+     * @return \stdClass
+     */
     public function reconcile_due(int $limit): \stdClass {
         if ($limit <= 0 || $limit > 1000) {
             throw new \invalid_parameter_exception('Grade reconciliation limit is invalid');

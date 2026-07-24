@@ -30,14 +30,29 @@ require_once(__DIR__ . '/artifact_identity.php');
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class learner_activity_service {
+    /**
+     * RECORD MAX BYTES.
+     */
     private const RECORD_MAX_BYTES = 262144;
 
+    /** @var learner_activity_repository Persistence repository. */
     private learner_activity_repository $repository;
 
+    /**
+     * Creates a new learner activity service instance.
+     *
+     * @param learner_activity_repository|null $repository Persistence repository.
+     */
     public function __construct(?learner_activity_repository $repository = null) {
         $this->repository = $repository ?? new learner_activity_repository();
     }
 
+    /**
+     * Loads the requested persisted state.
+     *
+     * @param activity_scope $scope Scope.
+     * @return array
+     */
     public function load(activity_scope $scope): array {
         $this->require_view_scope($scope);
         $artifactid = artifact_identity::for_course_module((int) $scope->cm->id);
@@ -49,6 +64,15 @@ final class learner_activity_service {
         );
     }
 
+    /**
+     * Validates and saves the supplied state.
+     *
+     * @param activity_scope $scope Scope.
+     * @param string $artifactid Scaffold artifact ID.
+     * @param string $blockid Learner activity block ID.
+     * @param string $recordjson Recordjson.
+     * @return array
+     */
     public function save(
         activity_scope $scope,
         string $artifactid,
@@ -66,11 +90,23 @@ final class learner_activity_service {
         );
     }
 
+    /**
+     * Requires artifact.
+     *
+     * @param activity_scope $scope Scope.
+     * @param string $artifactid Scaffold artifact ID.
+     */
     public function require_artifact(activity_scope $scope, string $artifactid): void {
         $this->require_view_scope($scope);
         $this->require_artifact_id((int) $scope->cm->id, $artifactid);
     }
 
+    /**
+     * Returns activity map.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @return array
+     */
     public static function activity_map(\stdClass $scaffold): array {
         try {
             $content = json_decode(
@@ -94,6 +130,16 @@ final class learner_activity_service {
         return $activities;
     }
 
+    /**
+     * Saves record.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @param int $userid User ID.
+     * @param string $artifactid Scaffold artifact ID.
+     * @param string $blockid Learner activity block ID.
+     * @param string $recordjson Recordjson.
+     * @return array
+     */
     private function save_record(
         \stdClass $scaffold,
         int $userid,
@@ -132,18 +178,35 @@ final class learner_activity_service {
         );
     }
 
+    /**
+     * Requires view scope.
+     *
+     * @param activity_scope $scope Scope.
+     */
     private function require_view_scope(activity_scope $scope): void {
         if ($scope->capability !== 'mod/scaffold:view') {
             throw new \invalid_parameter_exception('Learner activity requires a view-authorized activity scope');
         }
     }
 
+    /**
+     * Requires artifact ID.
+     *
+     * @param int $cmid Course module ID.
+     * @param string $artifactid Scaffold artifact ID.
+     */
     private function require_artifact_id(int $cmid, string $artifactid): void {
         if ($artifactid !== artifact_identity::for_course_module($cmid)) {
             throw new \invalid_parameter_exception('artifactId does not match activity');
         }
     }
 
+    /**
+     * Decodes save record.
+     *
+     * @param string $raw Raw.
+     * @return array
+     */
     private static function decode_save_record(string $raw): array {
         try {
             $value = json_decode($raw, false, 512, JSON_THROW_ON_ERROR);
@@ -167,6 +230,12 @@ final class learner_activity_service {
         ];
     }
 
+    /**
+     * Collects activity map.
+     *
+     * @param mixed $value Value.
+     * @param array $activities Activities.
+     */
     private static function collect_activity_map(mixed $value, array &$activities): void {
         if (is_array($value)) {
             foreach ($value as $child) {

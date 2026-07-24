@@ -215,6 +215,9 @@ final class lib_test extends \advanced_testcase {
     }
 
     /**
+     * Creates activity.
+     *
+     * @param bool $completionenabled Completionenabled.
      * @return array{\stdClass, \stdClass, \cm_info, \context_module}
      */
     private function create_activity(bool $completionenabled = false): array {

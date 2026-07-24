@@ -46,6 +46,9 @@ final class learner_activity_contract_test extends \advanced_testcase {
     }
 
     /**
+     * Tests blank artifact identity and activity kind are rejected.
+     *
+     * @param string $blankidentity Blankidentity.
      * @dataProvider blank_identity_provider
      */
     public function test_blank_artifact_identity_and_activity_kind_are_rejected(
@@ -60,6 +63,11 @@ final class learner_activity_contract_test extends \advanced_testcase {
         $this->assert_learner_activity_rejected('LearnerActivityRecord', $record);
     }
 
+    /**
+     * Provides blank identity cases.
+     *
+     * @return array
+     */
     public static function blank_identity_provider(): array {
         return [
             'empty' => [''],
@@ -106,6 +114,9 @@ final class learner_activity_contract_test extends \advanced_testcase {
     }
 
     /**
+     * Tests invalid updated at is rejected.
+     *
+     * @param string $timestamp Timestamp.
      * @dataProvider invalid_timestamp_provider
      */
     public function test_invalid_updated_at_is_rejected(string $timestamp): void {
@@ -115,6 +126,11 @@ final class learner_activity_contract_test extends \advanced_testcase {
         $this->assert_learner_activity_rejected('LearnerActivityRecord', $record);
     }
 
+    /**
+     * Provides invalid timestamp cases.
+     *
+     * @return array
+     */
     public static function invalid_timestamp_provider(): array {
         return [
             'missing timezone' => ['2026-07-17T12:45:12'],
@@ -152,6 +168,12 @@ final class learner_activity_contract_test extends \advanced_testcase {
         );
     }
 
+    /**
+     * Asserts learner activity rejected.
+     *
+     * @param string $definition Definition.
+     * @param mixed $value Value.
+     */
     private function assert_learner_activity_rejected(
         string $definition,
         mixed $value,
@@ -164,6 +186,12 @@ final class learner_activity_contract_test extends \advanced_testcase {
         }
     }
 
+    /**
+     * Asserts assessment rejected.
+     *
+     * @param string $definition Definition.
+     * @param mixed $value Value.
+     */
     private function assert_assessment_rejected(string $definition, mixed $value): void {
         try {
             json_schema_validator::validate_plugin_definition($definition, $value);
@@ -173,6 +201,11 @@ final class learner_activity_contract_test extends \advanced_testcase {
         }
     }
 
+    /**
+     * Builds a learner activity record.
+     *
+     * @return \stdClass
+     */
     private function record(): \stdClass {
         return $this->decode(<<<'JSON'
 {
@@ -190,6 +223,11 @@ final class learner_activity_contract_test extends \advanced_testcase {
 JSON);
     }
 
+    /**
+     * Returns snapshot.
+     *
+     * @return \stdClass
+     */
     private function snapshot(): \stdClass {
         return $this->decode(<<<'JSON'
 {
@@ -219,6 +257,12 @@ JSON);
 JSON);
     }
 
+    /**
+     * Decodes the supplied JSON value.
+     *
+     * @param string $json Json.
+     * @return \stdClass
+     */
     private function decode(string $json): \stdClass {
         $value = json_decode($json, false, 512, JSON_THROW_ON_ERROR);
         if (!($value instanceof \stdClass)) {

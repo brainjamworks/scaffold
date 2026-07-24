@@ -31,6 +31,11 @@ use mod_scaffold\local\content_service;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class save_content extends \core_external\external_api {
+    /**
+     * Defines the external function parameters.
+     *
+     * @return \core_external\external_function_parameters
+     */
     public static function execute_parameters(): \core_external\external_function_parameters {
         return new \core_external\external_function_parameters([
             'cmid' => new \core_external\external_value(PARAM_INT, 'Course module id'),
@@ -41,6 +46,16 @@ class save_content extends \core_external\external_api {
         ]);
     }
 
+    /**
+     * Executes the external function.
+     *
+     * @param int $cmid Course module ID.
+     * @param string $artifactjson Artifactjson.
+     * @param string $learnercontentjson Learnercontentjson.
+     * @param string $assessmenttargetsjson Assessmenttargetsjson.
+     * @param string $assessmentgroupsjson Assessmentgroupsjson.
+     * @return array
+     */
     public static function execute(
         int $cmid,
         string $artifactjson,
@@ -71,6 +86,11 @@ class save_content extends \core_external\external_api {
         ];
     }
 
+    /**
+     * Defines the external function return value.
+     *
+     * @return \core_external\external_single_structure
+     */
     public static function execute_returns(): \core_external\external_single_structure {
         return new \core_external\external_single_structure([
             'success' => new \core_external\external_value(PARAM_BOOL, 'Success flag'),

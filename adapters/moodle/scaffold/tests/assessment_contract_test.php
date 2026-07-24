@@ -43,6 +43,9 @@ final class assessment_contract_test extends \advanced_testcase {
     }
 
     /**
+     * Tests target contract rejects invalid shape.
+     *
+     * @param string $mutation Mutation.
      * @dataProvider invalid_target_provider
      */
     public function test_target_contract_rejects_invalid_shape(string $mutation): void {
@@ -59,6 +62,11 @@ final class assessment_contract_test extends \advanced_testcase {
         $this->assert_contract_rejected('AssessmentTargetContract', $target);
     }
 
+    /**
+     * Provides invalid target cases.
+     *
+     * @return array
+     */
     public static function invalid_target_provider(): array {
         return [
             'removed setting' => ['removed setting'],
@@ -91,6 +99,9 @@ final class assessment_contract_test extends \advanced_testcase {
     }
 
     /**
+     * Tests result contract rejects nonfinite score.
+     *
+     * @param float $score Score.
      * @dataProvider nonfinite_score_provider
      */
     public function test_result_contract_rejects_nonfinite_score(float $score): void {
@@ -102,6 +113,11 @@ final class assessment_contract_test extends \advanced_testcase {
         $this->assert_contract_rejected('AssessmentResult', $result);
     }
 
+    /**
+     * Provides nonfinite score cases.
+     *
+     * @return array
+     */
     public static function nonfinite_score_provider(): array {
         return [
             'infinite' => [INF],
@@ -209,6 +225,9 @@ JSON);
     }
 
     /**
+     * Tests schema loader rejects invalid resources.
+     *
+     * @param string $schemajson Schemajson.
      * @dataProvider invalid_schema_resource_provider
      */
     public function test_schema_loader_rejects_invalid_resources(string $schemajson): void {
@@ -219,6 +238,11 @@ JSON);
         new json_schema_validator($path);
     }
 
+    /**
+     * Provides invalid schema resource cases.
+     *
+     * @return array
+     */
     public static function invalid_schema_resource_provider(): array {
         return [
             'unsupported keyword' => ['{"definitions":{"Invalid":{"oneOf":[]}}}'],
@@ -298,6 +322,13 @@ JSON);
         $this->assert_group_rejected([$group, $overlapping], $targets);
     }
 
+    /**
+     * Asserts contract rejected.
+     *
+     * @param string $definition Definition.
+     * @param mixed $value Value.
+     * @param json_schema_validator|null $validator Shared schema validator.
+     */
     private function assert_contract_rejected(
         string $definition,
         mixed $value,
@@ -314,6 +345,12 @@ JSON);
         }
     }
 
+    /**
+     * Asserts group rejected.
+     *
+     * @param array $groups Groups.
+     * @param array $targets Targets.
+     */
     private function assert_group_rejected(array $groups, array $targets): void {
         try {
             assessment_group_validator::validate_groups($groups, $targets);
@@ -323,6 +360,11 @@ JSON);
         }
     }
 
+    /**
+     * Returns target.
+     *
+     * @return \stdClass
+     */
     private function target(): \stdClass {
         return $this->decode(<<<'JSON'
 {
@@ -350,6 +392,11 @@ JSON);
 JSON);
     }
 
+    /**
+     * Returns group.
+     *
+     * @return \stdClass
+     */
     private function group(): \stdClass {
         return $this->decode(<<<'JSON'
 {
@@ -369,6 +416,11 @@ JSON);
 JSON);
     }
 
+    /**
+     * Builds an empty problem.
+     *
+     * @return \stdClass
+     */
     private function empty_problem(): \stdClass {
         return $this->decode(<<<'JSON'
 {
@@ -382,6 +434,11 @@ JSON);
 JSON);
     }
 
+    /**
+     * Returns quiz snapshot.
+     *
+     * @return \stdClass
+     */
     private function quiz_snapshot(): \stdClass {
         return $this->decode(<<<'JSON'
 {
@@ -400,6 +457,12 @@ JSON);
 JSON);
     }
 
+    /**
+     * Returns a detached copy of the supplied value.
+     *
+     * @param mixed $value Value.
+     * @return mixed
+     */
     private function copy(mixed $value): mixed {
         return json_decode(
             json_encode($value, JSON_THROW_ON_ERROR),
@@ -409,6 +472,12 @@ JSON);
         );
     }
 
+    /**
+     * Decodes the supplied JSON value.
+     *
+     * @param string $json Json.
+     * @return \stdClass
+     */
     private function decode(string $json): \stdClass {
         $value = json_decode($json, false, 512, JSON_THROW_ON_ERROR);
         if (!($value instanceof \stdClass)) {

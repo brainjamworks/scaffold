@@ -30,6 +30,9 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class reconcile_assessment_grades extends \core\task\scheduled_task {
+    /**
+     * BATCH LIMIT.
+     */
     private const BATCH_LIMIT = 100;
 
     #[\Override]
@@ -52,10 +55,20 @@ class reconcile_assessment_grades extends \core\task\scheduled_task {
         ));
     }
 
+    /**
+     * Creates reconciler.
+     *
+     * @return grade_reconciler
+     */
     protected function create_reconciler(): grade_reconciler {
         return new grade_reconciler();
     }
 
+    /**
+     * Returns batch limit.
+     *
+     * @return int
+     */
     protected function batch_limit(): int {
         return self::BATCH_LIMIT;
     }

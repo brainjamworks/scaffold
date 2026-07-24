@@ -393,6 +393,11 @@ final class learner_activity_service_test extends \advanced_testcase {
         );
     }
 
+    /**
+     * Creates activity.
+     *
+     * @return array
+     */
     private function create_activity(): array {
         global $CFG, $DB;
 
@@ -442,6 +447,14 @@ final class learner_activity_service_test extends \advanced_testcase {
         return [$course, $activity];
     }
 
+    /**
+     * Returns learner scope.
+     *
+     * @param \stdClass $course Moodle course record.
+     * @param int $cmid Course module ID.
+     * @param \stdClass|null $learner Learner.
+     * @return \mod_scaffold\local\activity_scope
+     */
     private function learner_scope(
         \stdClass $course,
         int $cmid,
@@ -453,6 +466,13 @@ final class learner_activity_service_test extends \advanced_testcase {
         return activity_access::require($cmid, 'mod/scaffold:view');
     }
 
+    /**
+     * Returns enrol as.
+     *
+     * @param \stdClass $user User.
+     * @param \stdClass $course Moodle course record.
+     * @param string $roleshortname Roleshortname.
+     */
     private function enrol_as(\stdClass $user, \stdClass $course, string $roleshortname): void {
         global $DB;
 
@@ -460,6 +480,11 @@ final class learner_activity_service_test extends \advanced_testcase {
         $this->getDataGenerator()->enrol_user($user->id, $course->id, $roleid);
     }
 
+    /**
+     * Asserts invalid parameter.
+     *
+     * @param callable $operation Operation.
+     */
     private function assert_invalid_parameter(callable $operation): void {
         try {
             $operation();
@@ -469,6 +494,14 @@ final class learner_activity_service_test extends \advanced_testcase {
         }
     }
 
+    /**
+     * Records json.
+     *
+     * @param string $kind Kind.
+     * @param mixed $data Data.
+     * @param bool $completed Completed.
+     * @return string
+     */
     private static function record_json(
         string $kind,
         mixed $data = null,
@@ -481,6 +514,11 @@ final class learner_activity_service_test extends \advanced_testcase {
         ], JSON_THROW_ON_ERROR);
     }
 
+    /**
+     * Returns lossless record json.
+     *
+     * @return string
+     */
     private static function lossless_record_json(): string {
         return '{"activityKind":"checklist","data":{'
             . '"0":"zero","1":"one","emptyObject":{},'
@@ -488,6 +526,12 @@ final class learner_activity_service_test extends \advanced_testcase {
             . '"completed":false}';
     }
 
+    /**
+     * Returns learner content.
+     *
+     * @param bool $withflashcard Withflashcard.
+     * @return array
+     */
     private static function learner_content(bool $withflashcard): array {
         $content = [[
             'type' => 'checklist',

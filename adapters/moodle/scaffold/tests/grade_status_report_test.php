@@ -154,6 +154,11 @@ final class grade_status_report_test extends \advanced_testcase {
         $this->assertSame('automatic_retry', $page->rows[1]->nextAction);
     }
 
+    /**
+     * Creates activity.
+     *
+     * @return array
+     */
     private function create_activity(): array {
         global $CFG, $DB;
 

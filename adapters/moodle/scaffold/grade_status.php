@@ -107,6 +107,15 @@ echo html_writer::table($table);
 echo $OUTPUT->paging_bar($learnerpage->total, $page, $learnerpage->perPage, $PAGE->url);
 echo $OUTPUT->footer();
 
+/**
+ * Builds a grade-publication requeue form.
+ *
+ * @param int $cmid Course module ID.
+ * @param int $page Page.
+ * @param string $target Target.
+ * @param int|null $userid User ID.
+ * @return string
+ */
 function scaffold_grade_status_requeue_form(int $cmid, int $page, string $target, ?int $userid = null): string {
     $fields = html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'id', 'value' => $cmid]);
     $fields .= html_writer::empty_tag('input', ['type' => 'hidden', 'name' => 'page', 'value' => $page]);

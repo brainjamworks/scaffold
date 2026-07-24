@@ -68,6 +68,12 @@ final class activity_deletion_test extends \advanced_testcase {
         $this->assertNotFalse(get_file_storage()->get_file_by_id($otherfile->get_id()));
     }
 
+    /**
+     * Creates activity.
+     *
+     * @param string $name Name.
+     * @return \stdClass
+     */
     private function create_activity(string $name): \stdClass {
         global $CFG, $DB;
 
@@ -115,6 +121,12 @@ final class activity_deletion_test extends \advanced_testcase {
         ];
     }
 
+    /**
+     * Inserts personal rows.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     */
     private function insert_personal_rows(int $scaffoldid, int $userid): void {
         global $DB;
 
@@ -148,6 +160,15 @@ final class activity_deletion_test extends \advanced_testcase {
         ]);
     }
 
+    /**
+     * Creates file.
+     *
+     * @param \stdClass $activity Activity.
+     * @param string $filearea Filearea.
+     * @param int $itemid Itemid.
+     * @param string $filename Filename.
+     * @return \stored_file
+     */
     private function create_file(
         \stdClass $activity,
         string $filearea,

@@ -231,6 +231,11 @@ final class grade_publication_repository_test extends \advanced_testcase {
         $DB->insert_record('scaffold_grade_publications', $row);
     }
 
+    /**
+     * Creates activity.
+     *
+     * @return \stdClass
+     */
     private function create_activity(): \stdClass {
         global $CFG, $DB;
 

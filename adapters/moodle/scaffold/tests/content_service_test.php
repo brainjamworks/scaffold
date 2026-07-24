@@ -231,6 +231,11 @@ final class content_service_test extends \advanced_testcase {
         $this->assertSame('Committed title', $stored->name);
     }
 
+    /**
+     * Creates activity with content.
+     *
+     * @return array
+     */
     private function create_activity_with_content(): array {
         global $CFG, $DB;
 
@@ -307,6 +312,13 @@ final class content_service_test extends \advanced_testcase {
         return [$course, $activity];
     }
 
+    /**
+     * Saves bundle.
+     *
+     * @param int $cmid Course module ID.
+     * @param string $title Title.
+     * @return array
+     */
     private function save_bundle(int $cmid, string $title): array {
         $artifact = [
             'id' => 'moodle-cm-' . $cmid,
@@ -328,6 +340,13 @@ final class content_service_test extends \advanced_testcase {
         ];
     }
 
+    /**
+     * Returns enrol as.
+     *
+     * @param \stdClass $user User.
+     * @param \stdClass $course Moodle course record.
+     * @param string $roleshortname Roleshortname.
+     */
     private function enrol_as(\stdClass $user, \stdClass $course, string $roleshortname): void {
         global $DB;
 

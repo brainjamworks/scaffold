@@ -123,6 +123,11 @@ final class backup_scaffold_test extends advanced_testcase {
         self::sources((int) $activity->id, $cmid, true);
     }
 
+    /**
+     * Creates activity.
+     *
+     * @return array
+     */
     private function create_activity(): array {
         global $CFG, $DB;
 
@@ -190,11 +195,27 @@ final class backup_scaffold_test extends advanced_testcase {
         return [$DB->get_record('scaffold', ['id' => $activityid], '*', MUST_EXIST), (int) $cmid];
     }
 
+    /**
+     * Returns sources.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $cmid Course module ID.
+     * @param bool $userinfo Userinfo.
+     * @return array
+     */
     private static function sources(int $scaffoldid, int $cmid, bool $userinfo): array {
         $method = new ReflectionMethod(backup_scaffold_activity_structure_step::class, 'validated_sources');
         return $method->invoke(null, $scaffoldid, $cmid, $userinfo);
     }
 
+    /**
+     * Inserts learner state.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     * @param int $cmid Course module ID.
+     * @param string $blockid Learner activity block ID.
+     */
     private function insert_learner_state(int $scaffoldid, int $userid, int $cmid, string $blockid = 'block-1'): void {
         global $DB;
 

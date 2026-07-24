@@ -30,10 +30,20 @@ require_once(__DIR__ . '/assessment_result_projection.php');
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class assessment_quiz {
+    /** @var \Closure Clock callback. */
     private $clock;
+    /** @var \Closure Quiz attempt ID factory. */
     private $attemptidfactory;
+    /** @var \Closure Assessment grading callback. */
     private $grader;
 
+    /**
+     * Creates a new assessment quiz instance.
+     *
+     * @param callable|null $clock Clock callback.
+     * @param callable|null $attemptidfactory Quiz attempt ID factory.
+     * @param callable|null $grader Assessment grading callback.
+     */
     public function __construct(
         ?callable $clock = null,
         ?callable $attemptidfactory = null,
@@ -51,6 +61,15 @@ class assessment_quiz {
             grader::grade_assessment($target, $response);
     }
 
+    /**
+     * Starts state.
+     *
+     * @param \stdClass $snapshot Canonical assessment snapshot.
+     * @param array $targets Targets.
+     * @param array $groups Groups.
+     * @param string $groupid Assessment group ID.
+     * @return \stdClass
+     */
     public function start_state(\stdClass $snapshot, array $targets, array $groups, string $groupid): \stdClass {
         $group = self::group_by_id($groups, $groupid);
         $existing = property_exists($snapshot->quizzes, $groupid) ? $snapshot->quizzes->{$groupid} : null;
@@ -83,6 +102,19 @@ class assessment_quiz {
         return self::public_attempt($attempt, $group);
     }
 
+    /**
+     * Submits question state.
+     *
+     * @param \stdClass $snapshot Canonical assessment snapshot.
+     * @param array $targets Targets.
+     * @param array $groups Groups.
+     * @param string $attemptid Quiz attempt ID.
+     * @param string $groupid Assessment group ID.
+     * @param string $targetid Assessment target ID.
+     * @param array $response Response.
+     * @param int|null $expectedattemptnumber Expectedattemptnumber.
+     * @return \stdClass
+     */
     public function submit_question_state(
         \stdClass $snapshot,
         array $targets,
@@ -149,6 +181,17 @@ class assessment_quiz {
         return self::public_attempt($attempt, $group);
     }
 
+    /**
+     * Finishes state.
+     *
+     * @param \stdClass $snapshot Canonical assessment snapshot.
+     * @param array $targets Targets.
+     * @param array $groups Groups.
+     * @param string $attemptid Quiz attempt ID.
+     * @param string $groupid Assessment group ID.
+     * @param array $responsesbytargetid Responsesbytargetid.
+     * @return \stdClass
+     */
     public function finish_state(
         \stdClass $snapshot,
         array $targets,
@@ -203,6 +246,15 @@ class assessment_quiz {
         return self::public_attempt($attempt, $group);
     }
 
+    /**
+     * Reveals state.
+     *
+     * @param \stdClass $snapshot Canonical assessment snapshot.
+     * @param array $groups Groups.
+     * @param string $attemptid Quiz attempt ID.
+     * @param string $groupid Assessment group ID.
+     * @return \stdClass
+     */
     public function reveal_state(
         \stdClass $snapshot,
         array $groups,
@@ -223,6 +275,9 @@ class assessment_quiz {
     /**
      * Finalizes every due in-progress Quiz in one caller-owned state mutation.
      *
+     * @param \stdClass $snapshot Canonical assessment snapshot.
+     * @param array $groups Groups.
+     * @param string $now Now.
      * @return string[] expired group IDs in snapshot order
      */
     public function expire_due_state(\stdClass $snapshot, array $groups, string $now): array {
@@ -260,6 +315,12 @@ class assessment_quiz {
         return $expired;
     }
 
+    /**
+     * Checks whether expired.
+     *
+     * @param mixed $expiresat Expiresat.
+     * @return bool
+     */
     private function is_expired(mixed $expiresat): bool {
         if (!is_string($expiresat) || $expiresat === '') {
             return false;
@@ -271,6 +332,13 @@ class assessment_quiz {
         }
     }
 
+    /**
+     * Returns group by ID.
+     *
+     * @param array $groups Groups.
+     * @param string $groupid Assessment group ID.
+     * @return array
+     */
     private static function group_by_id(array $groups, string $groupid): array {
         foreach ($groups as $group) {
             if (($group['kind'] ?? null) === 'quiz' && ($group['groupId'] ?? null) === $groupid) {
@@ -280,6 +348,14 @@ class assessment_quiz {
         throw new \moodle_exception('quiz group not found', 'scaffold');
     }
 
+    /**
+     * Returns attempt for request.
+     *
+     * @param \stdClass $snapshot Canonical assessment snapshot.
+     * @param string $groupid Assessment group ID.
+     * @param string $attemptid Quiz attempt ID.
+     * @return \stdClass
+     */
     private static function attempt_for_request(
         \stdClass $snapshot,
         string $groupid,
@@ -294,6 +370,15 @@ class assessment_quiz {
         return $attempt;
     }
 
+    /**
+     * Returns target for response.
+     *
+     * @param array $targets Targets.
+     * @param array $group Group.
+     * @param string $targetid Assessment target ID.
+     * @param array $response Response.
+     * @return array
+     */
     private static function target_for_response(
         array $targets,
         array $group,
@@ -325,6 +410,13 @@ class assessment_quiz {
         return $target;
     }
 
+    /**
+     * Grades result.
+     *
+     * @param array $target Target.
+     * @param array $response Response.
+     * @return \stdClass
+     */
     private function grade_result(array $target, array $response): \stdClass {
         $graded = ($this->grader)($target, $response);
         if (!is_array($graded)) {
@@ -342,6 +434,15 @@ class assessment_quiz {
         return $result;
     }
 
+    /**
+     * Stores problem.
+     *
+     * @param \stdClass $snapshot Canonical assessment snapshot.
+     * @param string $targetid Assessment target ID.
+     * @param array $response Response.
+     * @param \stdClass $result Result.
+     * @param int $attemptnumber Attemptnumber.
+     */
     private static function store_problem(
         \stdClass $snapshot,
         string $targetid,
@@ -366,6 +467,13 @@ class assessment_quiz {
         ];
     }
 
+    /**
+     * Returns first unsubmitted.
+     *
+     * @param array $targetids Targetids.
+     * @param array $submitted Submitted.
+     * @return string|null
+     */
     private static function first_unsubmitted(array $targetids, array $submitted): ?string {
         foreach ($targetids as $targetid) {
             if (!in_array($targetid, $submitted, true)) {
@@ -375,6 +483,14 @@ class assessment_quiz {
         return null;
     }
 
+    /**
+     * Finalises attempt.
+     *
+     * @param \stdClass $attempt Attempt.
+     * @param array $group Group.
+     * @param string $status Status.
+     * @param string $finishedat Finishedat.
+     */
     private static function finalize_attempt(
         \stdClass $attempt,
         array $group,
@@ -395,10 +511,24 @@ class assessment_quiz {
         $attempt->answerReviewAuthorized = self::review_is_authorized($group);
     }
 
+    /**
+     * Checks whether answer review is authorised.
+     *
+     * @param array $group Group.
+     * @return bool
+     */
     private static function review_is_authorized(array $group): bool {
         return ($group['settings']['reviewDetail'] ?? 'none') !== 'none';
     }
 
+    /**
+     * Builds the public attempt.
+     *
+     * @param \stdClass $attempt Attempt.
+     * @param array $group Group.
+     * @param bool $authorizefullreview Authorizefullreview.
+     * @return \stdClass
+     */
     public static function public_attempt(
         \stdClass $attempt,
         array $group,
@@ -431,6 +561,15 @@ class assessment_quiz {
         return $value;
     }
 
+    /**
+     * Builds the public problems by target ID.
+     *
+     * @param \stdClass $problems Problems.
+     * @param array $targetids Targetids.
+     * @param array $group Group.
+     * @param \stdClass $attempt Attempt.
+     * @return \stdClass
+     */
     public static function public_problems_by_target_id(
         \stdClass $problems,
         array $targetids,
@@ -465,6 +604,14 @@ class assessment_quiz {
         return (object) $publicproblems;
     }
 
+    /**
+     * Builds the public review policy.
+     *
+     * @param \stdClass $attempt Attempt.
+     * @param array $group Group.
+     * @param bool $authorizefullreview Authorizefullreview.
+     * @return array
+     */
     private static function public_review_policy(
         \stdClass $attempt,
         array $group,
@@ -482,6 +629,12 @@ class assessment_quiz {
         ];
     }
 
+    /**
+     * Copies object.
+     *
+     * @param \stdClass $value Value.
+     * @return \stdClass
+     */
     private static function copy_object(\stdClass $value): \stdClass {
         return json_decode(
             json_encode($value, JSON_THROW_ON_ERROR),

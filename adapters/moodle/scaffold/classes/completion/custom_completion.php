@@ -31,6 +31,9 @@ use mod_scaffold\local\assessment_projection;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class custom_completion extends activity_custom_completion {
+    /**
+     * RULE ACTIVITY STATUS.
+     */
     private const RULE_ACTIVITY_STATUS = 'completionactivitystatus';
 
     #[\Override]

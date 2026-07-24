@@ -28,6 +28,12 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class assessment_target_validator {
+    /**
+     * Validates targets.
+     *
+     * @param array $targets Targets.
+     * @return array
+     */
     public static function validate_targets(array $targets): array {
         if (!array_is_list($targets)) {
             throw new \invalid_parameter_exception('assessmenttargetsjson must be a JSON array');

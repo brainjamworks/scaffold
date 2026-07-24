@@ -14,6 +14,131 @@ REPOSITORY_ROOT = Path(__file__).parents[3]
 
 
 class MoodlePackageTest(unittest.TestCase):
+    def test_plugin_php_members_and_callables_have_moodle_docblocks(self):
+        plugin_root = REPOSITORY_ROOT / "adapters" / "moodle" / "scaffold"
+        declaration_patterns = {
+            "constant": re.compile(
+                r"(?m)^[ \t]*(?:(?:public|protected|private)\s+)?"
+                r"const\s+[A-Z][A-Z0-9_]*\s*=",
+            ),
+            "function": re.compile(
+                r"(?m)^[ \t]*(?:(?:final|abstract|public|protected|private|"
+                r"static)\s+)*function\s+&?\s*"
+                r"(?P<name>[a-zA-Z_][a-zA-Z0-9_]*)\s*\(",
+            ),
+            "property": re.compile(
+                r"(?m)^[ \t]+(?:public|protected|private)[ \t]+"
+                r"(?:(?:static|readonly)[ \t]+)*"
+                r"(?:(?:[?\\a-zA-Z_][\\a-zA-Z0-9_|?]*)[ \t]+)?"
+                r"\$[a-zA-Z_][a-zA-Z0-9_]*(?:[ \t]*=|[ \t]*[,;])",
+            ),
+        }
+        failures = []
+
+        def closing_parenthesis(source, opening_parenthesis):
+            depth = 0
+            for index in range(opening_parenthesis, len(source)):
+                if source[index] == "(":
+                    depth += 1
+                elif source[index] == ")":
+                    depth -= 1
+                    if depth == 0:
+                        return index
+            self.fail(f"unclosed function parameters at offset {opening_parenthesis}")
+
+        for source_file in plugin_root.rglob("*.php"):
+            source = source_file.read_text(encoding="utf8")
+            relative_path = source_file.relative_to(plugin_root)
+            if re.search(
+                r"(?m)^\s*\*\s+@(?:param|return|var)\s+\?",
+                source,
+            ):
+                failures.append(
+                    f"{relative_path} uses nullable PHP syntax in a PHPDoc type",
+                )
+            for declaration_kind, pattern in declaration_patterns.items():
+                for declaration in pattern.finditer(source):
+                    prefix = source[: declaration.start()].rstrip()
+                    if (
+                        declaration_kind == "function"
+                        and prefix.endswith("#[\\Override]")
+                    ):
+                        continue
+
+                    is_undocumented_test_method = (
+                        declaration_kind == "function"
+                        and "tests" in relative_path.parts
+                        and declaration.group("name").startswith("test_")
+                        and not prefix.endswith("*/")
+                    )
+                    if is_undocumented_test_method:
+                        continue
+
+                    if not prefix.endswith("*/"):
+                        failures.append(
+                            f"{relative_path}:{source.count(chr(10), 0, declaration.start()) + 1} "
+                            f"missing {declaration_kind} docblock",
+                        )
+                        continue
+
+                    docblock = prefix[prefix.rfind("/**") :]
+                    if declaration_kind == "property":
+                        if "@var " not in docblock:
+                            failures.append(
+                                f"{relative_path}:{source.count(chr(10), 0, declaration.start()) + 1} "
+                                "missing property @var tag",
+                            )
+                        continue
+
+                    description_lines = []
+                    for line in docblock.splitlines():
+                        line = line.strip()
+                        if line in {"/**", "*/"}:
+                            continue
+                        line = line.removeprefix("*").strip()
+                        if line and not line.startswith("@"):
+                            description_lines.append(line)
+                    if not description_lines:
+                        failures.append(
+                            f"{relative_path}:{source.count(chr(10), 0, declaration.start()) + 1} "
+                            f"missing {declaration_kind} description",
+                        )
+                    if declaration_kind != "function":
+                        continue
+
+                    opening_parenthesis = source.find("(", declaration.start())
+                    closing = closing_parenthesis(source, opening_parenthesis)
+                    parameters = source[opening_parenthesis + 1 : closing]
+                    parameter_names = re.findall(
+                        r"\$([a-zA-Z_][a-zA-Z0-9_]*)",
+                        parameters,
+                    )
+                    for parameter_name in parameter_names:
+                        if not re.search(
+                            rf"(?m)^\s*\*\s+@param\s+\S+\s+\${parameter_name}\b",
+                            docblock,
+                        ):
+                            failures.append(
+                                f"{relative_path}:{source.count(chr(10), 0, declaration.start()) + 1} "
+                                f"missing @param for ${parameter_name}",
+                            )
+
+                    return_type = re.match(
+                        r"\s*:\s*([^;{]+)",
+                        source[closing + 1 :],
+                    )
+                    if (
+                        return_type
+                        and return_type.group(1).strip() != "void"
+                        and "@return " not in docblock
+                    ):
+                        failures.append(
+                            f"{relative_path}:{source.count(chr(10), 0, declaration.start()) + 1} "
+                            "missing @return tag",
+                        )
+
+        self.assertEqual(failures, [])
+
     def test_plugin_php_files_use_moodles_top_level_metadata(self):
         plugin_root = REPOSITORY_ROOT / "adapters" / "moodle" / "scaffold"
         metadata_tags = (

@@ -133,6 +133,14 @@ final class assessment_definition_test extends \advanced_testcase {
         $this->assertSame(0, $DB->count_records('scaffold_grade_publications', ['scaffoldid' => $activityid]));
     }
 
+    /**
+     * Returns target.
+     *
+     * @param string $targetid Assessment target ID.
+     * @param float $points Points.
+     * @param bool $isgraded Isgraded.
+     * @return array
+     */
     private function target(string $targetid, float $points, bool $isgraded): array {
         return [
             'schemaVersion' => 1,
@@ -158,6 +166,14 @@ final class assessment_definition_test extends \advanced_testcase {
         ];
     }
 
+    /**
+     * Returns group.
+     *
+     * @param string $groupid Assessment group ID.
+     * @param array $targetids Targetids.
+     * @param bool $isgraded Isgraded.
+     * @return array
+     */
     private function group(string $groupid, array $targetids, bool $isgraded): array {
         return [
             'schemaVersion' => 1,

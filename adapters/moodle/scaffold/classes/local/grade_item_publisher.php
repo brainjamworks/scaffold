@@ -30,15 +30,35 @@ require_once(__DIR__ . '/assessment_projection.php');
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class grade_item_publisher {
+    /**
+     * RETRY DELAY SECONDS.
+     */
     private const RETRY_DELAY_SECONDS = 60;
+    /**
+     * MAX RETRY DELAY SECONDS.
+     */
     private const MAX_RETRY_DELAY_SECONDS = 3600;
 
+    /** @var \Closure Activity loading callback. */
     private readonly \Closure $activityloader;
+    /** @var \Closure Grade item update callback. */
     private readonly \Closure $itemupdater;
+    /** @var \Closure Grade item deletion callback. */
     private readonly \Closure $itemdeleter;
+    /** @var \Closure Publication status callback. */
     private readonly \Closure $statuspersister;
+    /** @var \Closure Clock callback. */
     private readonly \Closure $clock;
 
+    /**
+     * Creates a new grade item publisher instance.
+     *
+     * @param callable|null $activityloader Activity loading callback.
+     * @param callable|null $itemupdater Grade item update callback.
+     * @param callable|null $itemdeleter Grade item deletion callback.
+     * @param callable|null $statuspersister Publication status callback.
+     * @param callable|null $clock Clock callback.
+     */
     public function __construct(
         ?callable $activityloader = null,
         ?callable $itemupdater = null,
@@ -75,6 +95,12 @@ final class grade_item_publisher {
         $this->clock = \Closure::fromCallable($clock ?? static fn(): int => time());
     }
 
+    /**
+     * Publishes the supplied state.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @return \stdClass
+     */
     public function publish(\stdClass $scaffold): \stdClass {
         $scaffoldid = (int) ($scaffold->id ?? 0);
         if ($scaffoldid <= 0) {
@@ -97,6 +123,14 @@ final class grade_item_publisher {
         return $this->persist_host_status($current, (int) $status, $withdraw);
     }
 
+    /**
+     * Persists host status.
+     *
+     * @param \stdClass $current Current.
+     * @param int $hoststatus Hoststatus.
+     * @param bool $withdraw Withdraw.
+     * @return \stdClass
+     */
     private function persist_host_status(\stdClass $current, int $hoststatus, bool $withdraw): \stdClass {
         return match ($hoststatus) {
             GRADE_UPDATE_OK => $this->persist(
@@ -122,6 +156,15 @@ final class grade_item_publisher {
         };
     }
 
+    /**
+     * Persists failure.
+     *
+     * @param \stdClass $current Current.
+     * @param string $code Code.
+     * @param bool $retryable Retryable.
+     * @param string $status Status.
+     * @return \stdClass
+     */
     private function persist_failure(
         \stdClass $current,
         string $code,
@@ -149,6 +192,14 @@ final class grade_item_publisher {
         );
     }
 
+    /**
+     * Persists the publication outcome.
+     *
+     * @param \stdClass $current Current.
+     * @param array $status Status.
+     * @param \stdClass $outcome Outcome.
+     * @return \stdClass
+     */
     private function persist(\stdClass $current, array $status, \stdClass $outcome): \stdClass {
         $status['gradeitemtimemodified'] = ($this->clock)();
         if (!(($this->statuspersister)($current, $status))) {
@@ -157,6 +208,13 @@ final class grade_item_publisher {
         return $outcome;
     }
 
+    /**
+     * Checks whether graded sources.
+     *
+     * @param array $targets Targets.
+     * @param array $groups Groups.
+     * @return bool
+     */
     private static function has_graded_sources(array $targets, array $groups): bool {
         $grouppolicy = [];
         foreach ($groups as $group) {
@@ -178,6 +236,16 @@ final class grade_item_publisher {
         return false;
     }
 
+    /**
+     * Returns outcome.
+     *
+     * @param string $status Status.
+     * @param string|null $code Code.
+     * @param bool $withdrawn Withdrawn.
+     * @param bool|null $retryable Retryable.
+     * @param int|null $retryafter Retryafter.
+     * @return \stdClass
+     */
     private static function outcome(
         string $status,
         ?string $code = null,

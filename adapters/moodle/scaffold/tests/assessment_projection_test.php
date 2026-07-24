@@ -249,6 +249,11 @@ final class assessment_projection_test extends \advanced_testcase {
         $this->assertSame(0, $DB->count_records('scaffold_grade_publications'));
     }
 
+    /**
+     * Creates fixture.
+     *
+     * @return array
+     */
     private function create_fixture(): array {
         global $CFG, $DB;
 
@@ -293,6 +298,13 @@ final class assessment_projection_test extends \advanced_testcase {
         return [$scope, $DB->get_record('scaffold', ['id' => $scaffoldid], '*', MUST_EXIST)];
     }
 
+    /**
+     * Returns activity record.
+     *
+     * @param array $targets Targets.
+     * @param array $groups Groups.
+     * @return \stdClass
+     */
     private function activity_record(array $targets = [], array $groups = []): \stdClass {
         return (object) [
             'assessmenttargetsjson' => json_encode($targets, JSON_THROW_ON_ERROR),
@@ -300,6 +312,13 @@ final class assessment_projection_test extends \advanced_testcase {
         ];
     }
 
+    /**
+     * Returns content bundle.
+     *
+     * @param int $cmid Course module ID.
+     * @param string $title Title.
+     * @return array
+     */
     private function content_bundle(int $cmid, string $title): array {
         $content = [
             'type' => 'doc',
@@ -320,6 +339,11 @@ final class assessment_projection_test extends \advanced_testcase {
         ];
     }
 
+    /**
+     * Returns target.
+     *
+     * @return array
+     */
     private function target(): array {
         return [
             'schemaVersion' => 1,
@@ -345,6 +369,12 @@ final class assessment_projection_test extends \advanced_testcase {
         ];
     }
 
+    /**
+     * Returns quiz group.
+     *
+     * @param array $targetids Targetids.
+     * @return array
+     */
     private function quiz_group(array $targetids = ['question-1']): array {
         return [
             'schemaVersion' => 1,

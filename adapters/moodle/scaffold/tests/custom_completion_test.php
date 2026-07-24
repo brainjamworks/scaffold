@@ -129,6 +129,8 @@ final class custom_completion_test extends \advanced_testcase {
     }
 
     /**
+     * Creates activity.
+     *
      * @return array{\stdClass, \cm_info, \stdClass}
      */
     private function create_activity(): array {
@@ -183,6 +185,11 @@ final class custom_completion_test extends \advanced_testcase {
         ];
     }
 
+    /**
+     * Returns target.
+     *
+     * @return array
+     */
     private static function target(): array {
         return [
             'schemaVersion' => 1,
@@ -208,6 +215,12 @@ final class custom_completion_test extends \advanced_testcase {
         ];
     }
 
+    /**
+     * Returns problem.
+     *
+     * @param float|null $score Score.
+     * @return \stdClass
+     */
     private static function problem(?float $score): \stdClass {
         return (object) [
             'response' => null,

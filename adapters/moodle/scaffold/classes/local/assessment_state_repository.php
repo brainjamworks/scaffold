@@ -40,15 +40,36 @@ class assessment_state_insert_collision extends \RuntimeException {
  * Persists and queries learner assessment state.
  */
 class assessment_state_repository {
+    /**
+     * LOCK TYPE.
+     */
     private const LOCK_TYPE = 'mod_scaffold_assessment_state';
+    /**
+     * LOCK TIMEOUT SECONDS.
+     */
     private const LOCK_TIMEOUT_SECONDS = 10;
+    /**
+     * SNAPSHOT VERSION.
+     */
     private const SNAPSHOT_VERSION = 1;
 
+    /** @var \moodle_database Moodle database connection. */
     private $database;
+    /** @var \core\lock\lock_factory Moodle lock factory. */
     private $lockfactory;
+    /** @var grade_publication_repository Grade publication repository. */
     private $publicationrepository;
+    /** @var \Closure Definitionversionloader. */
     private \Closure $definitionversionloader;
 
+    /**
+     * Creates a new assessment state repository instance.
+     *
+     * @param object|null $database Moodle database connection.
+     * @param object|null $lockfactory Moodle lock factory.
+     * @param object|null $publicationrepository Grade publication repository.
+     * @param callable|null $definitionversionloader Definitionversionloader.
+     */
     public function __construct(
         ?object $database = null,
         ?object $lockfactory = null,
@@ -75,10 +96,26 @@ class assessment_state_repository {
         );
     }
 
+    /**
+     * Returns existing state or creates its initial record.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     * @param string $artifactid Scaffold artifact ID.
+     * @return \stdClass
+     */
     public function get_or_create(int $scaffoldid, int $userid, string $artifactid): \stdClass {
         return $this->get_or_create_state($scaffoldid, $userid, $artifactid)->snapshot;
     }
 
+    /**
+     * Returns existing state or creates its initial state.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     * @param string $artifactid Scaffold artifact ID.
+     * @return \stdClass
+     */
     public function get_or_create_state(int $scaffoldid, int $userid, string $artifactid): \stdClass {
         return $this->with_lock(
             $scaffoldid,
@@ -87,6 +124,15 @@ class assessment_state_repository {
         );
     }
 
+    /**
+     * Mutates canonical state under the caller-owned lock.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     * @param string $artifactid Scaffold artifact ID.
+     * @param callable $mutation Mutation.
+     * @return \stdClass
+     */
     public function mutate(
         int $scaffoldid,
         int $userid,
@@ -96,6 +142,15 @@ class assessment_state_repository {
         return $this->mutate_state($scaffoldid, $userid, $artifactid, $mutation)->snapshot;
     }
 
+    /**
+     * Mutates state.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     * @param string $artifactid Scaffold artifact ID.
+     * @param callable $mutation Mutation.
+     * @return \stdClass
+     */
     public function mutate_state(
         int $scaffoldid,
         int $userid,
@@ -109,6 +164,15 @@ class assessment_state_repository {
         );
     }
 
+    /**
+     * Mutates with grade publication.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     * @param string $artifactid Scaffold artifact ID.
+     * @param callable $mutation Mutation.
+     * @return \stdClass
+     */
     public function mutate_with_grade_publication(
         int $scaffoldid,
         int $userid,
@@ -123,6 +187,15 @@ class assessment_state_repository {
         )->snapshot;
     }
 
+    /**
+     * Mutates with grade publication state.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     * @param string $artifactid Scaffold artifact ID.
+     * @param callable $mutation Mutation.
+     * @return \stdClass
+     */
     public function mutate_with_grade_publication_state(
         int $scaffoldid,
         int $userid,
@@ -143,6 +216,14 @@ class assessment_state_repository {
         );
     }
 
+    /**
+     * Runs with learner lock.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     * @param callable $operation Operation.
+     * @return mixed
+     */
     public function with_learner_lock(
         int $scaffoldid,
         int $userid,
@@ -151,6 +232,14 @@ class assessment_state_repository {
         return $this->with_lock($scaffoldid, $userid, $operation);
     }
 
+    /**
+     * Finds for activity.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param string $artifactid Scaffold artifact ID.
+     * @param int|null $userid User ID.
+     * @return array
+     */
     public function find_for_activity(
         int $scaffoldid,
         string $artifactid,
@@ -162,6 +251,14 @@ class assessment_state_repository {
         );
     }
 
+    /**
+     * Finds states for activity.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param string $artifactid Scaffold artifact ID.
+     * @param int|null $userid User ID.
+     * @return array
+     */
     public function find_states_for_activity(
         int $scaffoldid,
         string $artifactid,
@@ -189,6 +286,12 @@ class assessment_state_repository {
         return $states;
     }
 
+    /**
+     * Adds contexts for user.
+     *
+     * @param \core_privacy\local\request\contextlist $contextlist Contextlist.
+     * @param int $userid User ID.
+     */
     public function add_contexts_for_user(
         \core_privacy\local\request\contextlist $contextlist,
         int $userid,
@@ -206,6 +309,12 @@ class assessment_state_repository {
         ]);
     }
 
+    /**
+     * Adds users for activity.
+     *
+     * @param \core_privacy\local\request\userlist $userlist Userlist.
+     * @param int $scaffoldid Scaffold activity ID.
+     */
     public function add_users_for_activity(
         \core_privacy\local\request\userlist $userlist,
         int $scaffoldid,
@@ -216,6 +325,14 @@ class assessment_state_repository {
         $userlist->add_from_sql('userid', $sql, ['scaffoldid' => $scaffoldid]);
     }
 
+    /**
+     * Returns records prepared for privacy export.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     * @param string $artifactid Scaffold artifact ID.
+     * @return \stdClass|null
+     */
     public function get_for_privacy_export(
         int $scaffoldid,
         int $userid,
@@ -238,10 +355,21 @@ class assessment_state_repository {
         ];
     }
 
+    /**
+     * Deletes for activity.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     */
     public function delete_for_activity(int $scaffoldid): void {
         $this->database->delete_records('scaffold_assessment_state', ['scaffoldid' => $scaffoldid]);
     }
 
+    /**
+     * Deletes for user in activity.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     */
     public function delete_for_user_in_activity(int $scaffoldid, int $userid): void {
         $this->database->delete_records('scaffold_assessment_state', [
             'scaffoldid' => $scaffoldid,
@@ -249,6 +377,12 @@ class assessment_state_repository {
         ]);
     }
 
+    /**
+     * Deletes for users in activity.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param array $userids Userids.
+     */
     public function delete_for_users_in_activity(int $scaffoldid, array $userids): void {
         if ($userids === []) {
             return;
@@ -261,6 +395,17 @@ class assessment_state_repository {
         );
     }
 
+    /**
+     * Runs a state mutation in a delegated transaction.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     * @param string $artifactid Scaffold artifact ID.
+     * @param callable|null $mutation Mutation.
+     * @param bool $retryinsert Retryinsert.
+     * @param bool $stagepublication Stagepublication.
+     * @return \stdClass
+     */
     private function transact(
         int $scaffoldid,
         int $userid,
@@ -293,6 +438,16 @@ class assessment_state_repository {
         }
     }
 
+    /**
+     * Runs a transaction for once.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     * @param string $artifactid Scaffold artifact ID.
+     * @param callable|null $mutation Mutation.
+     * @param bool $stagepublication Stagepublication.
+     * @return \stdClass
+     */
     private function transact_once(
         int $scaffoldid,
         int $userid,
@@ -394,6 +549,14 @@ class assessment_state_repository {
         }
     }
 
+    /**
+     * Runs with lock.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     * @param callable $operation Operation.
+     * @return mixed
+     */
     private function with_lock(int $scaffoldid, int $userid, callable $operation): mixed {
         $factory = $this->lockfactory ?? \core\lock\lock_config::get_lock_factory(self::LOCK_TYPE);
         $lock = $factory->get_lock(
@@ -411,6 +574,12 @@ class assessment_state_repository {
         }
     }
 
+    /**
+     * Builds an empty snapshot.
+     *
+     * @param string $artifactid Scaffold artifact ID.
+     * @return \stdClass
+     */
     private function empty_snapshot(string $artifactid): \stdClass {
         $snapshot = (object) [
             'snapshotVersion' => self::SNAPSHOT_VERSION,
@@ -422,6 +591,13 @@ class assessment_state_repository {
         return $snapshot;
     }
 
+    /**
+     * Decodes snapshot.
+     *
+     * @param string $raw Raw.
+     * @param string $artifactid Scaffold artifact ID.
+     * @return \stdClass
+     */
     private function decode_snapshot(string $raw, string $artifactid): \stdClass {
         try {
             $snapshot = json_decode($raw, false, 512, JSON_THROW_ON_ERROR);
@@ -436,6 +612,12 @@ class assessment_state_repository {
         return $snapshot;
     }
 
+    /**
+     * Encodes snapshot.
+     *
+     * @param \stdClass $snapshot Canonical assessment snapshot.
+     * @return string
+     */
     private function encode_snapshot(\stdClass $snapshot): string {
         try {
             return json_encode($snapshot, JSON_THROW_ON_ERROR);
@@ -444,15 +626,33 @@ class assessment_state_repository {
         }
     }
 
+    /**
+     * Returns the next modified time.
+     *
+     * @param int|null $previous Previous.
+     * @return int
+     */
     private static function next_modified_time(?int $previous): int {
         $now = time();
         return $previous === null ? $now : max($now, $previous + 1);
     }
 
+    /**
+     * Returns changed at.
+     *
+     * @param int $timemodified Timemodified.
+     * @return string
+     */
     private static function changed_at(int $timemodified): string {
         return gmdate('Y-m-d\TH:i:s', $timemodified) . '.000000Z';
     }
 
+    /**
+     * Returns the next quiz expiry.
+     *
+     * @param \stdClass $snapshot Canonical assessment snapshot.
+     * @return int|null
+     */
     private static function next_quiz_expiry(\stdClass $snapshot): ?int {
         $next = null;
         foreach (get_object_vars($snapshot->quizzes ?? (object) []) as $quiz) {
@@ -468,6 +668,12 @@ class assessment_state_repository {
         return $next;
     }
 
+    /**
+     * Validates snapshot.
+     *
+     * @param \stdClass $snapshot Canonical assessment snapshot.
+     * @param string $artifactid Scaffold artifact ID.
+     */
     private function validate_snapshot(\stdClass $snapshot, string $artifactid): void {
         json_schema_validator::validate_plugin_definition(
             'AssessmentLearnerSnapshot',

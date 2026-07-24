@@ -35,6 +35,9 @@ require_once($CFG->dirroot . '/backup/util/includes/restore_includes.php');
  */
 final class restore_scaffold_test extends advanced_testcase {
     /**
+     * Tests moodle backup restore rebuilds destination state.
+     *
+     * @param bool $userinfo Userinfo.
      * @dataProvider userinfo_provider
      */
     public function test_moodle_backup_restore_rebuilds_destination_state(bool $userinfo): void {
@@ -119,6 +122,11 @@ final class restore_scaffold_test extends advanced_testcase {
         $this->assertSame(COMPLETION_COMPLETE, (int) $completion->completionstate);
     }
 
+    /**
+     * Provides userinfo cases.
+     *
+     * @return array
+     */
     public static function userinfo_provider(): array {
         return [
             'definition only' => [false],
@@ -292,6 +300,11 @@ final class restore_scaffold_test extends advanced_testcase {
         ]));
     }
 
+    /**
+     * Creates portable activity.
+     *
+     * @return array
+     */
     private function create_portable_activity(): array {
         global $CFG, $DB;
 
@@ -365,6 +378,13 @@ final class restore_scaffold_test extends advanced_testcase {
         return [$course, $activity, $cm, $learner];
     }
 
+    /**
+     * Inserts portable state.
+     *
+     * @param stdClass $activity Activity.
+     * @param cm_info $cm Moodle course module.
+     * @param stdClass $learner Learner.
+     */
     private function insert_portable_state(stdClass $activity, cm_info $cm, stdClass $learner): void {
         global $DB;
 
@@ -431,6 +451,12 @@ final class restore_scaffold_test extends advanced_testcase {
         ]);
     }
 
+    /**
+     * Creates owned files.
+     *
+     * @param stdClass $activity Activity.
+     * @param cm_info $cm Moodle course module.
+     */
     private function create_owned_files(stdClass $activity, cm_info $cm): void {
         $fs = get_file_storage();
         $context = context_module::instance((int) $cm->id);
@@ -451,6 +477,16 @@ final class restore_scaffold_test extends advanced_testcase {
         ], 'portable media');
     }
 
+    /**
+     * Returns backup and restore.
+     *
+     * @param stdClass $sourcecourse Sourcecourse.
+     * @param bool $userinfo Userinfo.
+     * @param int $mode Mode.
+     * @param int|null $destinationcourseid Destinationcourseid.
+     * @param int $target Target.
+     * @return int
+     */
     private function backup_and_restore(
         stdClass $sourcecourse,
         bool $userinfo,
@@ -496,6 +532,11 @@ final class restore_scaffold_test extends advanced_testcase {
         return $destinationcourseid;
     }
 
+    /**
+     * Returns target.
+     *
+     * @return array
+     */
     private static function target(): array {
         return [
             'schemaVersion' => 1,
@@ -521,6 +562,11 @@ final class restore_scaffold_test extends advanced_testcase {
         ];
     }
 
+    /**
+     * Returns group.
+     *
+     * @return array
+     */
     private static function group(): array {
         return [
             'schemaVersion' => 1,

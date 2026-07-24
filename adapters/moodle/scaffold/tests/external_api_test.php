@@ -43,6 +43,11 @@ defined('MOODLE_INTERNAL') || die();
  */
 final class external_api_test extends \advanced_testcase {
     /**
+     * Tests external declarations are strict.
+     *
+     * @param string $classname Classname.
+     * @param array $parameterkeys Parameterkeys.
+     * @param array $returnkeys Returnkeys.
      * @dataProvider external_declaration_provider
      */
     public function test_external_declarations_are_strict(
@@ -60,6 +65,11 @@ final class external_api_test extends \advanced_testcase {
         );
     }
 
+    /**
+     * Provides external declaration cases.
+     *
+     * @return array
+     */
     public static function external_declaration_provider(): array {
         $quizreturns = ['success', 'outcomeJson', 'gradePublicationJson'];
         return [
@@ -469,6 +479,13 @@ final class external_api_test extends \advanced_testcase {
         ));
     }
 
+    /**
+     * Creates activity.
+     *
+     * @param string $reviewtiming Reviewtiming.
+     * @param bool $quiz Quiz assessment service.
+     * @return array
+     */
     private function create_activity(
         string $reviewtiming,
         bool $quiz,
@@ -549,6 +566,13 @@ final class external_api_test extends \advanced_testcase {
         return [(int) $cmid, $user, (int) $scaffoldid, $course];
     }
 
+    /**
+     * Returns enrol as.
+     *
+     * @param \stdClass $user User.
+     * @param \stdClass $course Moodle course record.
+     * @param string $roleshortname Roleshortname.
+     */
     private function enrol_as(
         \stdClass $user,
         \stdClass $course,
@@ -565,6 +589,12 @@ final class external_api_test extends \advanced_testcase {
         $this->getDataGenerator()->enrol_user($user->id, $course->id, $roleid);
     }
 
+    /**
+     * Decodes the supplied JSON value.
+     *
+     * @param string $json Json.
+     * @return \stdClass
+     */
     private function decode(string $json): \stdClass {
         $value = json_decode($json, false, 512, JSON_THROW_ON_ERROR);
         if (!($value instanceof \stdClass)) {
@@ -573,6 +603,11 @@ final class external_api_test extends \advanced_testcase {
         return $value;
     }
 
+    /**
+     * Asserts invalid parameter.
+     *
+     * @param callable $operation Operation.
+     */
     private function assert_invalid_parameter(callable $operation): void {
         try {
             $operation();
@@ -582,6 +617,11 @@ final class external_api_test extends \advanced_testcase {
         }
     }
 
+    /**
+     * Asserts moodle exception.
+     *
+     * @param callable $operation Operation.
+     */
     private function assert_moodle_exception(callable $operation): void {
         try {
             $operation();
@@ -591,6 +631,11 @@ final class external_api_test extends \advanced_testcase {
         }
     }
 
+    /**
+     * Returns target.
+     *
+     * @return array
+     */
     private function target(): array {
         return [
             'schemaVersion' => 1,
@@ -616,6 +661,12 @@ final class external_api_test extends \advanced_testcase {
         ];
     }
 
+    /**
+     * Returns quiz group.
+     *
+     * @param string $reviewtiming Reviewtiming.
+     * @return array
+     */
     private function quiz_group(string $reviewtiming): array {
         return [
             'schemaVersion' => 1,
@@ -633,6 +684,11 @@ final class external_api_test extends \advanced_testcase {
         ];
     }
 
+    /**
+     * Returns learner content.
+     *
+     * @return array
+     */
     private function learner_content(): array {
         return [
             'type' => 'doc',

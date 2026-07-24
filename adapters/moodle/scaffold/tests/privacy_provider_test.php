@@ -288,6 +288,12 @@ final class privacy_provider_test extends \core_privacy\tests\provider_testcase 
         }
     }
 
+    /**
+     * Creates activity.
+     *
+     * @param string $name Name.
+     * @return \stdClass
+     */
     private function create_activity(string $name): \stdClass {
         global $CFG, $DB;
 
@@ -333,6 +339,16 @@ final class privacy_provider_test extends \core_privacy\tests\provider_testcase 
         ];
     }
 
+    /**
+     * Inserts assessment state.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     * @param \stdClass|null $snapshot Canonical assessment snapshot.
+     * @param int $staterevision Persisted state revision.
+     * @param int $timecreated Timecreated.
+     * @param int $timemodified Timemodified.
+     */
     private function insert_assessment_state(
         int $scaffoldid,
         int $userid,
@@ -354,6 +370,15 @@ final class privacy_provider_test extends \core_privacy\tests\provider_testcase 
         ]);
     }
 
+    /**
+     * Inserts learner activity.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     * @param \stdClass|null $snapshot Canonical assessment snapshot.
+     * @param int $timecreated Timecreated.
+     * @param int $timemodified Timemodified.
+     */
     private function insert_learner_activity(
         int $scaffoldid,
         int $userid,
@@ -372,6 +397,20 @@ final class privacy_provider_test extends \core_privacy\tests\provider_testcase 
         ]);
     }
 
+    /**
+     * Inserts grade publication.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     * @param int $staterevision Persisted state revision.
+     * @param int $definitionversion Definitionversion.
+     * @param string $status Status.
+     * @param string|null $failurecode Failurecode.
+     * @param int $retrycount Retrycount.
+     * @param int|null $retryafter Retryafter.
+     * @param int $timecreated Timecreated.
+     * @param int $timemodified Timemodified.
+     */
     private function insert_grade_publication(
         int $scaffoldid,
         int $userid,
@@ -400,12 +439,25 @@ final class privacy_provider_test extends \core_privacy\tests\provider_testcase 
         ]);
     }
 
+    /**
+     * Inserts all personal rows.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     */
     private function insert_all_personal_rows(int $scaffoldid, int $userid): void {
         $this->insert_assessment_state($scaffoldid, $userid);
         $this->insert_learner_activity($scaffoldid, $userid);
         $this->insert_grade_publication($scaffoldid, $userid);
     }
 
+    /**
+     * Asserts personal rows exist.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     * @param bool $expected Expected.
+     */
     private function assert_personal_rows_exist(int $scaffoldid, int $userid, bool $expected): void {
         global $DB;
 
@@ -421,6 +473,13 @@ final class privacy_provider_test extends \core_privacy\tests\provider_testcase 
         }
     }
 
+    /**
+     * Creates course media.
+     *
+     * @param \stdClass $activity Activity.
+     * @param string $filename Filename.
+     * @return \stored_file
+     */
     private function create_course_media(\stdClass $activity, string $filename): \stored_file {
         return get_file_storage()->create_file_from_string([
             'contextid' => $activity->contextid,
@@ -433,6 +492,13 @@ final class privacy_provider_test extends \core_privacy\tests\provider_testcase 
         ], 'course-owned media');
     }
 
+    /**
+     * Returns assessment snapshot.
+     *
+     * @param int $cmid Course module ID.
+     * @param string $response Response.
+     * @return \stdClass
+     */
     private static function assessment_snapshot(int $cmid, string $response): \stdClass {
         return (object) [
             'snapshotVersion' => 1,
@@ -454,6 +520,13 @@ final class privacy_provider_test extends \core_privacy\tests\provider_testcase 
         ];
     }
 
+    /**
+     * Returns learner activity snapshot.
+     *
+     * @param int $cmid Course module ID.
+     * @param string $blockid Learner activity block ID.
+     * @return \stdClass
+     */
     private static function learner_activity_snapshot(int $cmid, string $blockid): \stdClass {
         return (object) [
             'snapshotVersion' => 1,

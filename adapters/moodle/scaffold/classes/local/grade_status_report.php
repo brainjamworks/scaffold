@@ -28,9 +28,17 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class grade_status_report {
+    /** @var grade_publication_repository Persistence repository. */
     private $repository;
+    /** @var \moodle_database Moodle database connection. */
     private $database;
 
+    /**
+     * Creates a new grade status report instance.
+     *
+     * @param grade_publication_repository|null $repository Persistence repository.
+     * @param object|null $database Moodle database connection.
+     */
     public function __construct(
         ?grade_publication_repository $repository = null,
         ?object $database = null,
@@ -43,6 +51,12 @@ final class grade_status_report {
         $this->repository = $repository ?? new grade_publication_repository($database);
     }
 
+    /**
+     * Returns item.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @return \stdClass
+     */
     public function item(int $scaffoldid): \stdClass {
         $activity = $this->database->get_record('scaffold', ['id' => $scaffoldid], '*', MUST_EXIST);
         $definitionversion = (int) $activity->assessmentdefinitionversion;
@@ -68,6 +82,14 @@ final class grade_status_report {
         ];
     }
 
+    /**
+     * Returns page.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $page Page.
+     * @param int $perpage Perpage.
+     * @return \stdClass
+     */
     public function page(int $scaffoldid, int $page, int $perpage): \stdClass {
         if ($scaffoldid <= 0 || $page < 0 || $perpage <= 0 || $perpage > 100) {
             throw new \invalid_parameter_exception('Grade status report page is invalid');
@@ -120,14 +142,35 @@ final class grade_status_report {
         ];
     }
 
+    /**
+     * Requeues grade publication for a learner.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     * @return bool
+     */
     public function requeue_user(int $scaffoldid, int $userid): bool {
         return $this->repository->requeue_user($scaffoldid, $userid);
     }
 
+    /**
+     * Requeues grade-item publication.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @return bool
+     */
     public function requeue_item(int $scaffoldid): bool {
         return $this->repository->requeue_item($scaffoldid);
     }
 
+    /**
+     * Returns the next action.
+     *
+     * @param string $status Status.
+     * @param int $retrycount Retrycount.
+     * @param int|null $retryafter Retryafter.
+     * @return string
+     */
     private static function next_action(string $status, int $retrycount, ?int $retryafter): string {
         if (in_array($status, ['locked', 'configuration_error'], true)
             || ($status === 'failed' && ($retryafter === null || $retrycount >= 5))) {

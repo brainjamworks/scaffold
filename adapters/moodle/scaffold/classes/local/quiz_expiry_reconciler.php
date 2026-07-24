@@ -35,15 +35,35 @@ require_once(__DIR__ . '/assessment_projection.php');
  * Describes the result of one quiz expiry transition.
  */
 final class expiry_outcome {
+    /** @var bool Whether state changed. */
     public bool $changed;
+    /** @var int Persisted state revision. */
     public int $stateRevision;
+    /** @var string State change timestamp. */
     public string $changedAt;
+    /** @var array Expired assessment group IDs. */
     public array $expiredGroupIds;
+    /** @var bool Whether grade publication is required. */
     public bool $gradeRequired;
+    /** @var bool Whether completion updating is required. */
     public bool $completionRequired;
+    /** @var \stdClass Canonical assessment snapshot. */
     public \stdClass $snapshot;
+    /** @var ?\stdClass Grade publication result. */
     public ?\stdClass $gradePublication;
 
+    /**
+     * Creates a new expiry outcome instance.
+     *
+     * @param bool $changed Whether state changed.
+     * @param int $staterevision Persisted state revision.
+     * @param string $changedat State change timestamp.
+     * @param array $expiredgroupids Expired assessment group IDs.
+     * @param bool $graderequired Whether grade publication is required.
+     * @param bool $completionrequired Whether completion updating is required.
+     * @param \stdClass $snapshot Canonical assessment snapshot.
+     * @param \stdClass|null $gradepublication Grade publication result.
+     */
     public function __construct(
         bool $changed,
         int $staterevision,
@@ -69,12 +89,28 @@ final class expiry_outcome {
  * Summarises a batch of quiz expiry transitions.
  */
 final class expiry_batch_outcome {
+    /**
+     * Creates a new expiry batch outcome instance.
+     *
+     * @param int $selected Number of selected records.
+     * @param int $changed Whether state changed.
+     * @param int $unchanged Number of unchanged records.
+     * @param int $skipped Number of skipped records.
+     * @param int $failed Number of failed records.
+     * @param array $events Reconciliation event records.
+     */
     public function __construct(
+        /** @var int Number of selected records. */
         public int $selected,
+        /** @var int Whether state changed. */
         public int $changed,
+        /** @var int Number of unchanged records. */
         public int $unchanged,
+        /** @var int Number of skipped records. */
         public int $skipped,
+        /** @var int Number of failed records. */
         public int $failed,
+        /** @var array Reconciliation event records. */
         public array $events,
     ) {
     }
@@ -84,12 +120,26 @@ final class expiry_batch_outcome {
  * Owns the locked, idempotent server-time Quiz expiry transition.
  */
 final class quiz_expiry_reconciler {
+    /** @var assessment_state_repository Persistence repository. */
     private assessment_state_repository $repository;
+    /** @var assessment_quiz Quiz assessment service. */
     private assessment_quiz $quiz;
+    /** @var \Closure Clock callback. */
     private \Closure $clock;
+    /** @var \Closure Grade publication callback. */
     private \Closure $gradepublisher;
+    /** @var \Closure Completion update callback. */
     private \Closure $completionupdater;
 
+    /**
+     * Creates a new quiz expiry reconciler instance.
+     *
+     * @param assessment_state_repository|null $repository Persistence repository.
+     * @param assessment_quiz|null $quiz Quiz assessment service.
+     * @param callable|null $clock Clock callback.
+     * @param callable|null $gradepublisher Grade publication callback.
+     * @param callable|null $completionupdater Completion update callback.
+     */
     public function __construct(
         ?assessment_state_repository $repository = null,
         ?assessment_quiz $quiz = null,
@@ -119,6 +169,14 @@ final class quiz_expiry_reconciler {
         );
     }
 
+    /**
+     * Reconciles user.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @param int $userid User ID.
+     * @param string $artifactid Scaffold artifact ID.
+     * @return expiry_outcome
+     */
     public function reconcile_user(
         \stdClass $scaffold,
         int $userid,
@@ -205,6 +263,15 @@ final class quiz_expiry_reconciler {
         );
     }
 
+    /**
+     * Reconciles user and apply effects.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @param \cm_info $cm Moodle course module.
+     * @param int $userid User ID.
+     * @param string $artifactid Scaffold artifact ID.
+     * @return expiry_outcome
+     */
     public function reconcile_user_and_apply_effects(
         \stdClass $scaffold,
         \cm_info $cm,
@@ -234,6 +301,12 @@ final class quiz_expiry_reconciler {
         return $outcome;
     }
 
+    /**
+     * Reconciles due batch.
+     *
+     * @param int $limit Maximum records processed.
+     * @return expiry_batch_outcome
+     */
     public function reconcile_due_batch(int $limit): expiry_batch_outcome {
         global $DB;
 
@@ -329,6 +402,13 @@ final class quiz_expiry_reconciler {
         );
     }
 
+    /**
+     * Checks whether snapshot has due quiz.
+     *
+     * @param \stdClass $snapshot Canonical assessment snapshot.
+     * @param string $now Now.
+     * @return bool
+     */
     private static function snapshot_has_due_quiz(\stdClass $snapshot, string $now): bool {
         try {
             $servernow = new \DateTimeImmutable($now);
@@ -357,6 +437,14 @@ final class quiz_expiry_reconciler {
         return false;
     }
 
+    /**
+     * Checks whether snapshot has due graded quiz.
+     *
+     * @param \stdClass $snapshot Canonical assessment snapshot.
+     * @param array $groups Groups.
+     * @param string $now Now.
+     * @return bool
+     */
     private static function snapshot_has_due_graded_quiz(
         \stdClass $snapshot,
         array $groups,
@@ -393,6 +481,12 @@ final class quiz_expiry_reconciler {
         return false;
     }
 
+    /**
+     * Checks whether lock unavailable.
+     *
+     * @param \Throwable $exception Exception.
+     * @return bool
+     */
     private static function is_lock_unavailable(\Throwable $exception): bool {
         return $exception instanceof \moodle_exception
             && (($exception->errorcode ?? null) === 'Could not acquire assessment state lock'

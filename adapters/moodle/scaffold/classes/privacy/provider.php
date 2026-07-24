@@ -223,6 +223,12 @@ final class provider implements
         (new learner_activity_repository())->delete_for_users_in_activity($scaffoldid, $userids);
     }
 
+    /**
+     * Returns Scaffold activity ID for context.
+     *
+     * @param \context $context Moodle module context.
+     * @return int|null
+     */
     private static function scaffoldid_for_context(\context $context): ?int {
         if (!$context instanceof \context_module) {
             return null;
@@ -231,6 +237,12 @@ final class provider implements
         return $coursemodule ? (int) $coursemodule->instance : null;
     }
 
+    /**
+     * Returns datetime or null.
+     *
+     * @param int|null $timestamp Timestamp.
+     * @return string|null
+     */
     private static function datetime_or_null(?int $timestamp): ?string {
         return $timestamp === null ? null : transform::datetime($timestamp);
     }

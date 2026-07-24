@@ -529,6 +529,17 @@ final class assessment_service_test extends \advanced_testcase {
         )));
     }
 
+    /**
+     * Creates scope.
+     *
+     * @param string $feedbackmode Feedbackmode.
+     * @param int|null $maxattempts Maxattempts.
+     * @param bool $isgraded Isgraded.
+     * @param int $hintcount Hintcount.
+     * @param bool $quiz Quiz assessment service.
+     * @param string $quizreviewtiming Quizreviewtiming.
+     * @return array
+     */
     private function create_scope(
         string $feedbackmode = 'immediate',
         ?int $maxattempts = 2,
@@ -598,10 +609,25 @@ final class assessment_service_test extends \advanced_testcase {
         return [activity_access::require($cmid, 'mod/scaffold:submit')];
     }
 
+    /**
+     * Returns problem ID.
+     *
+     * @param \mod_scaffold\local\activity_scope $scope Scope.
+     * @return string
+     */
     private function problem_id(\mod_scaffold\local\activity_scope $scope): string {
         return 'artifact:moodle-cm-' . $scope->cm->id . '/block:question-1';
     }
 
+    /**
+     * Returns target.
+     *
+     * @param string $feedbackmode Feedbackmode.
+     * @param int|null $maxattempts Maxattempts.
+     * @param bool $isgraded Isgraded.
+     * @param string $targetid Assessment target ID.
+     * @return array
+     */
     private static function target(
         string $feedbackmode,
         ?int $maxattempts,
@@ -632,6 +658,13 @@ final class assessment_service_test extends \advanced_testcase {
         ];
     }
 
+    /**
+     * Returns quiz group.
+     *
+     * @param string $reviewtiming Reviewtiming.
+     * @param bool $isgraded Isgraded.
+     * @return array
+     */
     private static function quiz_group(string $reviewtiming, bool $isgraded): array {
         return [
             'schemaVersion' => 1,
@@ -649,6 +682,12 @@ final class assessment_service_test extends \advanced_testcase {
         ];
     }
 
+    /**
+     * Returns learner content.
+     *
+     * @param int $hintcount Hintcount.
+     * @return array
+     */
     private static function learner_content(int $hintcount): array {
         return [
             'type' => 'doc',
@@ -667,6 +706,12 @@ final class assessment_service_test extends \advanced_testcase {
         ];
     }
 
+    /**
+     * Returns assessment result.
+     *
+     * @param bool $correct Correct.
+     * @return array
+     */
     private static function assessment_result(bool $correct): array {
         return [
             'isCorrect' => $correct,

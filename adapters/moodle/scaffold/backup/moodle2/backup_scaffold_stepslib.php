@@ -78,6 +78,14 @@ final class backup_scaffold_activity_structure_step extends backup_activity_stru
         return $this->prepare_activity_structure($scaffold);
     }
 
+    /**
+     * Returns validated sources.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $cmid Course module ID.
+     * @param bool $userinfo Userinfo.
+     * @return array
+     */
     protected static function validated_sources(int $scaffoldid, int $cmid, bool $userinfo): array {
         global $DB;
 
@@ -133,6 +141,12 @@ final class backup_scaffold_activity_structure_step extends backup_activity_stru
         ];
     }
 
+    /**
+     * Validates activity.
+     *
+     * @param \stdClass $activity Activity.
+     * @param string $artifactid Scaffold artifact ID.
+     */
     private static function validate_activity(\stdClass $activity, string $artifactid): void {
         $artifact = self::decode_object((string) $activity->artifactjson, 'Stored Scaffold artifact');
         if (($artifact->id ?? null) !== $artifactid) {
@@ -152,6 +166,12 @@ final class backup_scaffold_activity_structure_step extends backup_activity_stru
         \mod_scaffold\local\assessment_projection::for_activity($activity);
     }
 
+    /**
+     * Validates assessment snapshot.
+     *
+     * @param string $raw Raw.
+     * @param string $artifactid Scaffold artifact ID.
+     */
     private static function validate_assessment_snapshot(string $raw, string $artifactid): void {
         $snapshot = self::decode_object($raw, 'Stored assessment snapshot');
         \mod_scaffold\local\json_schema_validator::validate_plugin_definition(
@@ -164,6 +184,12 @@ final class backup_scaffold_activity_structure_step extends backup_activity_stru
         }
     }
 
+    /**
+     * Validates learner activity snapshot.
+     *
+     * @param string $raw Raw.
+     * @param string $artifactid Scaffold artifact ID.
+     */
     private static function validate_learner_activity_snapshot(string $raw, string $artifactid): void {
         $snapshot = self::decode_object($raw, 'Stored learner activity snapshot');
         \mod_scaffold\local\learner_activity_validator::validate_definition(
@@ -176,6 +202,13 @@ final class backup_scaffold_activity_structure_step extends backup_activity_stru
         }
     }
 
+    /**
+     * Decodes object.
+     *
+     * @param string $raw Raw.
+     * @param string $name Name.
+     * @return \stdClass
+     */
     private static function decode_object(string $raw, string $name): \stdClass {
         try {
             $value = json_decode($raw, false, 512, JSON_THROW_ON_ERROR);

@@ -31,6 +31,11 @@ use mod_scaffold\local\media_service;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class resolve_media extends \core_external\external_api {
+    /**
+     * Defines the external function parameters.
+     *
+     * @return \core_external\external_function_parameters
+     */
     public static function execute_parameters(): \core_external\external_function_parameters {
         return new \core_external\external_function_parameters([
             'cmid' => new \core_external\external_value(PARAM_INT, 'Course module id'),
@@ -38,6 +43,13 @@ class resolve_media extends \core_external\external_api {
         ]);
     }
 
+    /**
+     * Executes the external function.
+     *
+     * @param int $cmid Course module ID.
+     * @param string $mediaid Mediaid.
+     * @return array
+     */
     public static function execute(int $cmid, string $mediaid): array {
         $params = self::validate_parameters(self::execute_parameters(), [
             'cmid' => $cmid,
@@ -53,6 +65,11 @@ class resolve_media extends \core_external\external_api {
         ];
     }
 
+    /**
+     * Defines the external function return value.
+     *
+     * @return \core_external\external_single_structure
+     */
     public static function execute_returns(): \core_external\external_single_structure {
         return new \core_external\external_single_structure([
             'success' => new \core_external\external_value(PARAM_BOOL, 'Success flag'),

@@ -28,8 +28,17 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class artifact_identity {
+    /**
+     * PREFIX.
+     */
     private const PREFIX = 'moodle-cm-';
 
+    /**
+     * Builds for course module.
+     *
+     * @param int $cmid Course module ID.
+     * @return string
+     */
     public static function for_course_module(int $cmid): string {
         return self::PREFIX . $cmid;
     }

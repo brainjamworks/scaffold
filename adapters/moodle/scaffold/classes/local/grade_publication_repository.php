@@ -28,12 +28,26 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class grade_publication_repository {
+    /**
+     * TABLE.
+     */
     private const TABLE = 'scaffold_grade_publications';
+    /**
+     * STATUSES.
+     */
     private const STATUSES = ['pending', 'published', 'failed', 'locked', 'configuration_error'];
 
+    /** @var \moodle_database Moodle database connection. */
     private $database;
+    /** @var \Closure Clock callback. */
     private $clock;
 
+    /**
+     * Creates a new grade publication repository instance.
+     *
+     * @param object|null $database Moodle database connection.
+     * @param callable|null $clock Clock callback.
+     */
     public function __construct(?object $database = null, ?callable $clock = null) {
         if ($database === null) {
             global $DB;
@@ -43,6 +57,13 @@ class grade_publication_repository {
         $this->clock = $clock ?? static fn(): int => time();
     }
 
+    /**
+     * Returns the persisted record.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     * @return \stdClass|null
+     */
     public function get(int $scaffoldid, int $userid): ?\stdClass {
         $record = $this->database->get_record(self::TABLE, [
             'scaffoldid' => $scaffoldid,
@@ -51,6 +72,12 @@ class grade_publication_repository {
         return $record ? $this->normalize($record) : null;
     }
 
+    /**
+     * Finds for activity.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @return array
+     */
     public function find_for_activity(int $scaffoldid): array {
         return $this->normalize_records($this->database->get_records(
             self::TABLE,
@@ -59,6 +86,12 @@ class grade_publication_repository {
         ));
     }
 
+    /**
+     * Finds for user.
+     *
+     * @param int $userid User ID.
+     * @return array
+     */
     public function find_for_user(int $userid): array {
         return $this->normalize_records($this->database->get_records(
             self::TABLE,
@@ -67,6 +100,12 @@ class grade_publication_repository {
         ));
     }
 
+    /**
+     * Adds contexts for user.
+     *
+     * @param \core_privacy\local\request\contextlist $contextlist Contextlist.
+     * @param int $userid User ID.
+     */
     public function add_contexts_for_user(
         \core_privacy\local\request\contextlist $contextlist,
         int $userid,
@@ -84,6 +123,12 @@ class grade_publication_repository {
         ]);
     }
 
+    /**
+     * Adds users for activity.
+     *
+     * @param \core_privacy\local\request\userlist $userlist Userlist.
+     * @param int $scaffoldid Scaffold activity ID.
+     */
     public function add_users_for_activity(
         \core_privacy\local\request\userlist $userlist,
         int $scaffoldid,
@@ -94,6 +139,14 @@ class grade_publication_repository {
         $userlist->add_from_sql('userid', $sql, ['scaffoldid' => $scaffoldid]);
     }
 
+    /**
+     * Finds due item ids.
+     *
+     * @param int $limit Maximum records processed.
+     * @param int $now Now.
+     * @param int $maxretries Maxretries.
+     * @return array
+     */
     public function find_due_item_ids(int $limit, int $now, int $maxretries): array {
         $this->validate_recovery_query($limit, $now, $maxretries);
         $sql = "SELECT id
@@ -115,6 +168,14 @@ class grade_publication_repository {
         ], 0, $limit));
     }
 
+    /**
+     * Finds due sources.
+     *
+     * @param int $limit Maximum records processed.
+     * @param int $now Now.
+     * @param int $maxretries Maxretries.
+     * @return array
+     */
     public function find_due_sources(int $limit, int $now, int $maxretries): array {
         $this->validate_recovery_query($limit, $now, $maxretries);
         $sql = "SELECT s.id AS stateid,
@@ -144,6 +205,15 @@ class grade_publication_repository {
         ], 0, $limit));
     }
 
+    /**
+     * Creates or updates pending grade publication state.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     * @param int $staterevision Persisted state revision.
+     * @param int $definitionversion Definitionversion.
+     * @return \stdClass
+     */
     public function upsert_pending(
         int $scaffoldid,
         int $userid,
@@ -188,6 +258,15 @@ class grade_publication_repository {
         return $this->normalize($this->database->get_record(self::TABLE, ['id' => $current->id], '*', MUST_EXIST));
     }
 
+    /**
+     * Claims eligible pending work.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     * @param int $expectedstaterevision Expectedstaterevision.
+     * @param int $expecteddefinitionversion Expecteddefinitionversion.
+     * @return \stdClass|null
+     */
     public function claim(
         int $scaffoldid,
         int $userid,
@@ -215,6 +294,18 @@ class grade_publication_repository {
         return $this->normalize($this->database->get_record(self::TABLE, ['id' => $current->id], '*', MUST_EXIST));
     }
 
+    /**
+     * Records status.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     * @param int $expectedstaterevision Expectedstaterevision.
+     * @param int $expecteddefinitionversion Expecteddefinitionversion.
+     * @param string $status Status.
+     * @param string|null $failurecode Failurecode.
+     * @param int|null $retryafter Retryafter.
+     * @return bool
+     */
     public function record_status(
         int $scaffoldid,
         int $userid,
@@ -240,10 +331,21 @@ class grade_publication_repository {
         return true;
     }
 
+    /**
+     * Deletes for activity.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     */
     public function delete_for_activity(int $scaffoldid): void {
         $this->database->delete_records(self::TABLE, ['scaffoldid' => $scaffoldid]);
     }
 
+    /**
+     * Deletes for user in activity.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     */
     public function delete_for_user_in_activity(int $scaffoldid, int $userid): void {
         $this->database->delete_records(self::TABLE, [
             'scaffoldid' => $scaffoldid,
@@ -251,6 +353,12 @@ class grade_publication_repository {
         ]);
     }
 
+    /**
+     * Deletes for users in activity.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param array $userids Userids.
+     */
     public function delete_for_users_in_activity(int $scaffoldid, array $userids): void {
         if ($userids === []) {
             return;
@@ -263,10 +371,22 @@ class grade_publication_repository {
         );
     }
 
+    /**
+     * Deletes for user.
+     *
+     * @param int $userid User ID.
+     */
     public function delete_for_user(int $userid): void {
         $this->database->delete_records(self::TABLE, ['userid' => $userid]);
     }
 
+    /**
+     * Requeues grade publication for a learner.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     * @return bool
+     */
     public function requeue_user(int $scaffoldid, int $userid): bool {
         $current = $this->get($scaffoldid, $userid);
         if ($current === null || !in_array($current->status, ['failed', 'locked', 'configuration_error'], true)) {
@@ -283,6 +403,12 @@ class grade_publication_repository {
         return true;
     }
 
+    /**
+     * Requeues grade-item publication.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @return bool
+     */
     public function requeue_item(int $scaffoldid): bool {
         $current = $this->database->get_record('scaffold', ['id' => $scaffoldid]);
         if (!$current || !in_array($current->gradeitemstatus, ['failed', 'locked', 'configuration_error'], true)) {
@@ -299,6 +425,15 @@ class grade_publication_repository {
         return true;
     }
 
+    /**
+     * Returns records matching the supplied identity.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     * @param int $staterevision Persisted state revision.
+     * @param int $definitionversion Definitionversion.
+     * @return \stdClass|null
+     */
     private function matching(
         int $scaffoldid,
         int $userid,
@@ -314,10 +449,22 @@ class grade_publication_repository {
         return $current;
     }
 
+    /**
+     * Normalises records.
+     *
+     * @param array $records Records.
+     * @return array
+     */
     private function normalize_records(array $records): array {
         return array_map(fn(\stdClass $record): \stdClass => $this->normalize($record), $records);
     }
 
+    /**
+     * Normalises the supplied value.
+     *
+     * @param \stdClass $record Record.
+     * @return \stdClass
+     */
     private function normalize(\stdClass $record): \stdClass {
         $record->id = (int) $record->id;
         $record->scaffoldid = (int) $record->scaffoldid;
@@ -341,6 +488,14 @@ class grade_publication_repository {
         return $record;
     }
 
+    /**
+     * Validates source identity.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     * @param int $staterevision Persisted state revision.
+     * @param int $definitionversion Definitionversion.
+     */
     private function validate_source_identity(
         int $scaffoldid,
         int $userid,
@@ -352,6 +507,13 @@ class grade_publication_repository {
         }
     }
 
+    /**
+     * Validates status.
+     *
+     * @param string $status Status.
+     * @param string|null $failurecode Failurecode.
+     * @param int|null $retryafter Retryafter.
+     */
     private function validate_status(string $status, ?string $failurecode, ?int $retryafter): void {
         if (!in_array($status, self::STATUSES, true)
             || ($failurecode !== null && preg_match('/^[a-z][a-z0-9_]*$/D', $failurecode) !== 1)
@@ -360,6 +522,13 @@ class grade_publication_repository {
         }
     }
 
+    /**
+     * Validates recovery query.
+     *
+     * @param int $limit Maximum records processed.
+     * @param int $now Now.
+     * @param int $maxretries Maxretries.
+     */
     private function validate_recovery_query(int $limit, int $now, int $maxretries): void {
         if ($limit <= 0 || $limit > 1000 || $now < 0 || $maxretries <= 0) {
             throw new \invalid_parameter_exception('Grade publication recovery query is invalid');

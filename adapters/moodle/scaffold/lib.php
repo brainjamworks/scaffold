@@ -26,9 +26,21 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * SCAFFOLD EMPTY ARTIFACT JSON.
+ */
 const SCAFFOLD_EMPTY_ARTIFACT_JSON = '{"id":"","title":"Scaffold","mode":"page","content":null}';
+/**
+ * SCAFFOLD EMPTY TARGETS JSON.
+ */
 const SCAFFOLD_EMPTY_TARGETS_JSON = '[]';
 
+/**
+ * Returns support information for a Moodle feature.
+ *
+ * @param string $feature Feature.
+ * @return bool|string|null
+ */
 function scaffold_supports(string $feature): bool|string|null {
     return match ($feature) {
         FEATURE_MOD_INTRO => true,
@@ -42,6 +54,12 @@ function scaffold_supports(string $feature): bool|string|null {
     };
 }
 
+/**
+ * Returns information for a Scaffold course module.
+ *
+ * @param stdClass $coursemodule Coursemodule.
+ * @return cached_cm_info|false
+ */
 function scaffold_get_coursemodule_info(stdClass $coursemodule): cached_cm_info|false {
     global $DB;
 
@@ -62,6 +80,12 @@ function scaffold_get_coursemodule_info(stdClass $coursemodule): cached_cm_info|
     return $info;
 }
 
+/**
+ * Returns active custom completion rule descriptions.
+ *
+ * @param \cm_info|\stdClass $cm Moodle course module.
+ * @return array
+ */
 function mod_scaffold_get_completion_active_rule_descriptions(\cm_info|\stdClass $cm): array {
     if ($cm->completion != COMPLETION_TRACKING_AUTOMATIC
         || empty($cm->customdata['customcompletionrules']['completionactivitystatus'])) {
@@ -70,6 +94,13 @@ function mod_scaffold_get_completion_active_rule_descriptions(\cm_info|\stdClass
     return [get_string('completiondetail:activitystatus', 'scaffold')];
 }
 
+/**
+ * Updates learner completion for a Scaffold activity.
+ *
+ * @param stdClass $scaffold Scaffold.
+ * @param \cm_info $cm Moodle course module.
+ * @param int $userid User ID.
+ */
 function scaffold_update_completion(
     stdClass $scaffold,
     \cm_info $cm,
@@ -88,10 +119,22 @@ function scaffold_update_completion(
     }
 }
 
+/**
+ * Checks whether branded.
+ *
+ * @return bool
+ */
 function scaffold_is_branded(): bool {
     return true;
 }
 
+/**
+ * Creates a Scaffold activity instance.
+ *
+ * @param stdClass $instancedata Instancedata.
+ * @param mod_scaffold_mod_form|null $mform Mform.
+ * @return int
+ */
 function scaffold_add_instance(stdClass $instancedata, ?mod_scaffold_mod_form $mform = null): int {
     global $DB;
 
@@ -119,6 +162,13 @@ function scaffold_add_instance(stdClass $instancedata, ?mod_scaffold_mod_form $m
     return $id;
 }
 
+/**
+ * Updates a Scaffold activity instance.
+ *
+ * @param stdClass $instancedata Instancedata.
+ * @param mod_scaffold_mod_form|null $mform Mform.
+ * @return bool
+ */
 function scaffold_update_instance(stdClass $instancedata, ?mod_scaffold_mod_form $mform = null): bool {
     global $DB;
 
@@ -160,6 +210,12 @@ function scaffold_update_instance(stdClass $instancedata, ?mod_scaffold_mod_form
     return $result;
 }
 
+/**
+ * Deletes a Scaffold activity instance.
+ *
+ * @param int $id ID.
+ * @return bool
+ */
 function scaffold_delete_instance(int $id): bool {
     global $DB;
 
@@ -180,6 +236,13 @@ function scaffold_delete_instance(int $id): bool {
     return true;
 }
 
+/**
+ * Updates the Scaffold gradebook item.
+ *
+ * @param stdClass $scaffold Scaffold.
+ * @param mixed $grades Grades.
+ * @return int
+ */
 function scaffold_grade_item_update(stdClass $scaffold, mixed $grades = null): int {
     if ($grades === null) {
         $outcome = (new \mod_scaffold\local\grade_item_publisher())->publish($scaffold);
@@ -194,6 +257,13 @@ function scaffold_grade_item_update(stdClass $scaffold, mixed $grades = null): i
     return scaffold_grade_item_apply($scaffold, $grades);
 }
 
+/**
+ * Grades item apply.
+ *
+ * @param stdClass $scaffold Scaffold.
+ * @param mixed $grades Grades.
+ * @return int
+ */
 function scaffold_grade_item_apply(stdClass $scaffold, mixed $grades = null): int {
     global $CFG;
 
@@ -219,6 +289,13 @@ function scaffold_grade_item_apply(stdClass $scaffold, mixed $grades = null): in
     );
 }
 
+/**
+ * Grades publication conflict.
+ *
+ * @param stdClass $scaffold Scaffold.
+ * @param int $userid User ID.
+ * @return string|null
+ */
 function scaffold_grade_publication_conflict(stdClass $scaffold, int $userid): ?string {
     global $CFG;
 
@@ -257,10 +334,22 @@ function scaffold_grade_publication_conflict(stdClass $scaffold, int $userid): ?
     return null;
 }
 
+/**
+ * Deletes the Scaffold gradebook item.
+ *
+ * @param stdClass $scaffold Scaffold.
+ * @return int
+ */
 function scaffold_grade_item_delete(stdClass $scaffold): int {
     return scaffold_grade_item_withdraw($scaffold);
 }
 
+/**
+ * Grades item withdraw.
+ *
+ * @param stdClass $scaffold Scaffold.
+ * @return int
+ */
 function scaffold_grade_item_withdraw(stdClass $scaffold): int {
     global $CFG;
 
@@ -278,6 +367,12 @@ function scaffold_grade_item_withdraw(stdClass $scaffold): int {
     );
 }
 
+/**
+ * Publishes Scaffold grades to the Moodle gradebook.
+ *
+ * @param stdClass $scaffold Scaffold.
+ * @param int $userid User ID.
+ */
 function scaffold_update_grades(stdClass $scaffold, int $userid = 0): void {
     global $DB;
 
@@ -307,6 +402,18 @@ function scaffold_update_grades(stdClass $scaffold, int $userid = 0): void {
     }
 }
 
+/**
+ * Serves an authorised Scaffold plugin file.
+ *
+ * @param stdClass $course Moodle course record.
+ * @param stdClass $cm Moodle course module.
+ * @param context $context Moodle module context.
+ * @param string $filearea Filearea.
+ * @param array $args Args.
+ * @param bool $forcedownload Forcedownload.
+ * @param array $options Options.
+ * @return bool
+ */
 function mod_scaffold_pluginfile(
     stdClass $course,
     stdClass $cm,
@@ -350,6 +457,12 @@ function mod_scaffold_pluginfile(
     send_stored_file($file, DAYSECS, 0, $forcedownload, $options);
 }
 
+/**
+ * Normalises grade.
+ *
+ * @param mixed $grade Grade.
+ * @return float
+ */
 function scaffold_normalize_grade(mixed $grade): float {
     if (!is_numeric($grade)) {
         return 100.0;
@@ -358,6 +471,12 @@ function scaffold_normalize_grade(mixed $grade): float {
     return max(0.0, (float) $grade);
 }
 
+/**
+ * Extends the activity settings navigation.
+ *
+ * @param settings_navigation $settings Settings.
+ * @param navigation_node $node Node.
+ */
 function scaffold_extend_settings_navigation(
     settings_navigation $settings,
     navigation_node $node,

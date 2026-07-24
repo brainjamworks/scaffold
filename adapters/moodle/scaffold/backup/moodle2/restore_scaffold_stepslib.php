@@ -45,6 +45,11 @@ final class restore_scaffold_activity_structure_step extends restore_activity_st
         return $this->prepare_activity_structure($paths);
     }
 
+    /**
+     * Processes scaffold.
+     *
+     * @param mixed $data Data.
+     */
     protected function process_scaffold(mixed $data): void {
         global $DB;
 
@@ -67,6 +72,11 @@ final class restore_scaffold_activity_structure_step extends restore_activity_st
         $this->apply_activity_instance($newitemid);
     }
 
+    /**
+     * Processes assessment state.
+     *
+     * @param mixed $data Data.
+     */
     protected function process_scaffold_assessment_state(mixed $data): void {
         global $DB;
 
@@ -96,6 +106,11 @@ final class restore_scaffold_activity_structure_step extends restore_activity_st
         $DB->insert_record('scaffold_assessment_state', $state);
     }
 
+    /**
+     * Processes learner activity.
+     *
+     * @param mixed $data Data.
+     */
     protected function process_scaffold_learner_activity(mixed $data): void {
         global $DB;
 
@@ -129,6 +144,13 @@ final class restore_scaffold_activity_structure_step extends restore_activity_st
         $this->add_related_files('mod_scaffold', 'media', 'scaffold');
     }
 
+    /**
+     * Decodes snapshot.
+     *
+     * @param string $raw Raw.
+     * @param string $name Name.
+     * @return \stdClass
+     */
     private static function decode_snapshot(string $raw, string $name): \stdClass {
         try {
             $snapshot = json_decode($raw, false, 512, JSON_THROW_ON_ERROR);
@@ -141,6 +163,13 @@ final class restore_scaffold_activity_structure_step extends restore_activity_st
         return $snapshot;
     }
 
+    /**
+     * Encodes snapshot.
+     *
+     * @param \stdClass $snapshot Canonical assessment snapshot.
+     * @param string $name Name.
+     * @return string
+     */
     private static function encode_snapshot(\stdClass $snapshot, string $name): string {
         try {
             return json_encode($snapshot, JSON_THROW_ON_ERROR);

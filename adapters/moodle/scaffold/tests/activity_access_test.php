@@ -109,6 +109,12 @@ final class activity_access_test extends \advanced_testcase {
         activity_access::require($activity->cmid, 'mod/scaffold:editcontent');
     }
 
+    /**
+     * Creates activity.
+     *
+     * @param \stdClass $course Moodle course record.
+     * @return \stdClass
+     */
     private function create_scaffold_activity(\stdClass $course): \stdClass {
         global $CFG, $DB;
 
@@ -151,6 +157,13 @@ final class activity_access_test extends \advanced_testcase {
         return $activity;
     }
 
+    /**
+     * Returns enrol as.
+     *
+     * @param \stdClass $user User.
+     * @param \stdClass $course Moodle course record.
+     * @param string $roleshortname Roleshortname.
+     */
     private function enrol_as(\stdClass $user, \stdClass $course, string $roleshortname): void {
         global $DB;
 

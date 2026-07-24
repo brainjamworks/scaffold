@@ -30,6 +30,9 @@ defined('MOODLE_INTERNAL') || die();
  * @covers \mod_scaffold\local\assessment_grade_projector
  */
 final class assessment_grade_projector_test extends \basic_testcase {
+    /**
+     * CHANGED AT.
+     */
     private const CHANGED_AT = '2026-07-17T10:00:00.123456Z';
 
     public function test_weighted_projection_and_moodle_scale_mapping(): void {
@@ -58,6 +61,12 @@ final class assessment_grade_projector_test extends \basic_testcase {
     }
 
     /**
+     * Tests standalone state policy.
+     *
+     * @param \stdClass $snapshot Canonical assessment snapshot.
+     * @param string $activitystatus Activitystatus.
+     * @param string $gradingstatus Gradingstatus.
+     * @param float|null $score Score.
      * @dataProvider standalone_state_provider
      */
     public function test_standalone_state_policy(
@@ -81,6 +90,11 @@ final class assessment_grade_projector_test extends \basic_testcase {
         }
     }
 
+    /**
+     * Provides standalone state cases.
+     *
+     * @return array
+     */
     public static function standalone_state_provider(): array {
         return [
             'not started' => [
@@ -105,6 +119,11 @@ final class assessment_grade_projector_test extends \basic_testcase {
     }
 
     /**
+     * Tests quiz state policy.
+     *
+     * @param string $status Status.
+     * @param string $activitystatus Activitystatus.
+     * @param float|null $score Score.
      * @dataProvider quiz_state_provider
      */
     public function test_quiz_state_policy(
@@ -137,6 +156,11 @@ final class assessment_grade_projector_test extends \basic_testcase {
         $this->assertSame($score, $projection->normalizedScore);
     }
 
+    /**
+     * Provides quiz state cases.
+     *
+     * @return array
+     */
     public static function quiz_state_provider(): array {
         return [
             'in progress' => ['in_progress', 'in_progress', null],
@@ -262,6 +286,9 @@ final class assessment_grade_projector_test extends \basic_testcase {
     }
 
     /**
+     * Tests invalid moodle maximum is rejected.
+     *
+     * @param mixed $maximum Maximum.
      * @dataProvider invalid_maximum_provider
      */
     public function test_invalid_moodle_maximum_is_rejected(mixed $maximum): void {
@@ -276,6 +303,11 @@ final class assessment_grade_projector_test extends \basic_testcase {
         assessment_grade_projector::to_raw_grade($projection, $maximum);
     }
 
+    /**
+     * Provides invalid maximum cases.
+     *
+     * @return array
+     */
     public static function invalid_maximum_provider(): array {
         return [
             'negative' => [-1],
@@ -291,6 +323,14 @@ final class assessment_grade_projector_test extends \basic_testcase {
         assessment_grade_projector::build([], [], $this->snapshot(), 'not-a-timestamp');
     }
 
+    /**
+     * Returns target.
+     *
+     * @param string $targetid Assessment target ID.
+     * @param float $points Points.
+     * @param bool $isgraded Isgraded.
+     * @return array
+     */
     private function target(string $targetid, float $points, bool $isgraded = true): array {
         return [
             'targetId' => $targetid,
@@ -301,10 +341,22 @@ final class assessment_grade_projector_test extends \basic_testcase {
         ];
     }
 
+    /**
+     * Grades result.
+     *
+     * @param float $score Score.
+     * @return \stdClass
+     */
     private function grade_result(float $score): \stdClass {
         return self::make_result($score);
     }
 
+    /**
+     * Returns make result.
+     *
+     * @param float $score Score.
+     * @return \stdClass
+     */
     private static function make_result(float $score): \stdClass {
         return (object) [
             'isCorrect' => $score === 1.0,
@@ -315,10 +367,22 @@ final class assessment_grade_projector_test extends \basic_testcase {
         ];
     }
 
+    /**
+     * Returns problem.
+     *
+     * @param float|null $score Score.
+     * @return \stdClass
+     */
     private function problem(?float $score): \stdClass {
         return self::make_problem($score);
     }
 
+    /**
+     * Returns make problem.
+     *
+     * @param float|null $score Score.
+     * @return \stdClass
+     */
     private static function make_problem(?float $score): \stdClass {
         return (object) [
             'response' => null,
@@ -330,10 +394,24 @@ final class assessment_grade_projector_test extends \basic_testcase {
         ];
     }
 
+    /**
+     * Returns snapshot.
+     *
+     * @param array $problems Problems.
+     * @param array $quizzes Quizzes.
+     * @return \stdClass
+     */
     private function snapshot(array $problems = [], array $quizzes = []): \stdClass {
         return self::make_snapshot($problems, $quizzes);
     }
 
+    /**
+     * Returns make snapshot.
+     *
+     * @param array $problems Problems.
+     * @param array $quizzes Quizzes.
+     * @return \stdClass
+     */
     private static function make_snapshot(array $problems = [], array $quizzes = []): \stdClass {
         return (object) [
             'snapshotVersion' => 1,
@@ -343,6 +421,12 @@ final class assessment_grade_projector_test extends \basic_testcase {
         ];
     }
 
+    /**
+     * Returns quiz group.
+     *
+     * @param bool $isgraded Isgraded.
+     * @return array
+     */
     private function quiz_group(bool $isgraded = true): array {
         return [
             'kind' => 'quiz',

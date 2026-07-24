@@ -63,13 +63,37 @@ final class grade_publisher_test extends \advanced_testcase {
         $this->stage_scored_state($scaffold, $cm, $user, 0.5);
         $repository = new grade_publication_repository();
         $rejectingrepository = new class($repository) {
-            public function __construct(private grade_publication_repository $repository) {
+            /**
+             * Creates a new grade publisher test instance.
+             *
+             * @param grade_publication_repository $repository Persistence repository.
+             */
+            public function __construct(
+                /** @var grade_publication_repository Persistence repository. */
+                private grade_publication_repository $repository
+            ) {
             }
 
+            /**
+             * Returns the persisted record.
+             *
+             * @param int $scaffoldid Scaffold activity ID.
+             * @param int $userid User ID.
+             * @return \stdClass|null
+             */
             public function get(int $scaffoldid, int $userid): ?\stdClass {
                 return $this->repository->get($scaffoldid, $userid);
             }
 
+            /**
+             * Claims eligible pending work.
+             *
+             * @param int $scaffoldid Scaffold activity ID.
+             * @param int $userid User ID.
+             * @param int $staterevision Persisted state revision.
+             * @param int $definitionversion Definitionversion.
+             * @return \stdClass|null
+             */
             public function claim(
                 int $scaffoldid,
                 int $userid,
@@ -84,6 +108,18 @@ final class grade_publisher_test extends \advanced_testcase {
                 );
             }
 
+            /**
+             * Records status.
+             *
+             * @param int $scaffoldid Scaffold activity ID.
+             * @param int $userid User ID.
+             * @param int $staterevision Persisted state revision.
+             * @param int $definitionversion Definitionversion.
+             * @param string $status Status.
+             * @param string|null $failurecode Failurecode.
+             * @param int|null $retryafter Retryafter.
+             * @return bool
+             */
             public function record_status(
                 int $scaffoldid,
                 int $userid,
@@ -149,6 +185,13 @@ final class grade_publisher_test extends \advanced_testcase {
     }
 
     /**
+     * Tests maps gradebook update statuses.
+     *
+     * @param int $returnstatus Returnstatus.
+     * @param string $expectedstatus Expectedstatus.
+     * @param string $expectedcode Expectedcode.
+     * @param bool|null $expectedretryable Expectedretryable.
+     * @param int|null $expectedretryafter Expectedretryafter.
      * @dataProvider grade_update_status_provider
      */
     public function test_maps_gradebook_update_statuses(
@@ -198,6 +241,11 @@ final class grade_publisher_test extends \advanced_testcase {
         }
     }
 
+    /**
+     * Provides grade update status cases.
+     *
+     * @return array
+     */
     public static function grade_update_status_provider(): array {
         return [
             'retryable Moodle failure' => [
@@ -427,6 +475,9 @@ final class grade_publisher_test extends \advanced_testcase {
     }
 
     /**
+     * Tests stale source identity does not reach moodle.
+     *
+     * @param string $field Field.
      * @dataProvider stale_source_provider
      */
     public function test_stale_source_identity_does_not_reach_moodle(string $field): void {
@@ -456,6 +507,11 @@ final class grade_publisher_test extends \advanced_testcase {
         $this->assertSame(0, $gradecalls);
     }
 
+    /**
+     * Provides stale source cases.
+     *
+     * @return array
+     */
     public static function stale_source_provider(): array {
         return [
             'state revision changed' => ['staterevision'],
@@ -493,6 +549,14 @@ final class grade_publisher_test extends \advanced_testcase {
         $this->assertSame(340, $publication->retryafter);
     }
 
+    /**
+     * Stages scored state.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @param object $cm Moodle course module.
+     * @param \stdClass $user User.
+     * @param float $score Score.
+     */
     private function stage_scored_state(\stdClass $scaffold, object $cm, \stdClass $user, float $score): void {
         $state = (new assessment_state_repository())->mutate_state(
             (int) $scaffold->id,
@@ -524,12 +588,24 @@ final class grade_publisher_test extends \advanced_testcase {
         );
     }
 
+    /**
+     * Grades item.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @return \grade_item
+     */
     private function grade_item(\stdClass $scaffold): \grade_item {
         $item = $this->find_grade_item($scaffold);
         $this->assertInstanceOf(\grade_item::class, $item);
         return $item;
     }
 
+    /**
+     * Finds grade item.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @return \grade_item|false
+     */
     private function find_grade_item(\stdClass $scaffold): \grade_item|false {
         $items = \grade_item::fetch_all([
             'courseid' => $scaffold->course,
@@ -541,6 +617,11 @@ final class grade_publisher_test extends \advanced_testcase {
         return $items ? reset($items) : false;
     }
 
+    /**
+     * Creates fixture.
+     *
+     * @return array
+     */
     private function create_fixture(): array {
         global $CFG, $DB;
 

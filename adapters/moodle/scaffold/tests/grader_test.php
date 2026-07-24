@@ -156,6 +156,12 @@ final class grader_test extends \basic_testcase {
     }
 
     /**
+     * Tests canonical grading case.
+     *
+     * @param string $caseid Caseid.
+     * @param \stdClass $target Target.
+     * @param \stdClass $response Response.
+     * @param \stdClass $expected Expected.
      * @dataProvider grading_case_provider
      */
     public function test_canonical_grading_case(
@@ -202,6 +208,11 @@ final class grader_test extends \basic_testcase {
         );
     }
 
+    /**
+     * Provides grading case cases.
+     *
+     * @return array
+     */
     public static function grading_case_provider(): array {
         $corpusbytes = file_get_contents(__DIR__ . '/fixtures/assessment-grading.json');
         if ($corpusbytes === false) {
@@ -231,6 +242,12 @@ final class grader_test extends \basic_testcase {
         return $cases;
     }
 
+    /**
+     * Asserts result rejected.
+     *
+     * @param json_schema_validator $validator Shared schema validator.
+     * @param \stdClass $result Result.
+     */
     private function assert_result_rejected(
         json_schema_validator $validator,
         \stdClass $result,
@@ -243,6 +260,12 @@ final class grader_test extends \basic_testcase {
         }
     }
 
+    /**
+     * Returns normalised json.
+     *
+     * @param mixed $value Value.
+     * @return string
+     */
     private static function normalised_json(mixed $value): string {
         if ($value instanceof \stdClass) {
             $properties = get_object_vars($value);
@@ -275,6 +298,12 @@ final class grader_test extends \basic_testcase {
         return json_encode($value, JSON_THROW_ON_ERROR);
     }
 
+    /**
+     * Returns rich feedback.
+     *
+     * @param string $text Text.
+     * @return array
+     */
     private function rich_feedback(string $text): array {
         return [
             'kind' => 'rich-text',
@@ -288,6 +317,11 @@ final class grader_test extends \basic_testcase {
         ];
     }
 
+    /**
+     * Returns single select target.
+     *
+     * @return array
+     */
     private function single_select_target(): array {
         return [
             'schemaVersion' => 1,

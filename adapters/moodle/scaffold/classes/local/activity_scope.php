@@ -28,12 +28,28 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class activity_scope {
+    /**
+     * Creates a new activity scope instance.
+     *
+     * @param \stdClass $course Moodle course record.
+     * @param \cm_info $cm Moodle course module.
+     * @param \context_module $context Moodle module context.
+     * @param \stdClass $instance Scaffold activity record.
+     * @param int $actorid Acting user ID.
+     * @param string $capability Required Moodle capability.
+     */
     public function __construct(
+        /** @var \stdClass Moodle course record. */
         public readonly \stdClass $course,
+        /** @var \cm_info Moodle course module. */
         public readonly \cm_info $cm,
+        /** @var \context_module Moodle module context. */
         public readonly \context_module $context,
+        /** @var \stdClass Scaffold activity record. */
         public readonly \stdClass $instance,
+        /** @var int Acting user ID. */
         public readonly int $actorid,
+        /** @var string Required Moodle capability. */
         public readonly string $capability,
     ) {
     }

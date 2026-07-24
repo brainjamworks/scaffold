@@ -28,6 +28,13 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class assessment_result_projection {
+    /**
+     * Returns result.
+     *
+     * @param \stdClass $result Result.
+     * @param bool $includeauthoredfeedback Includeauthoredfeedback.
+     * @return \stdClass
+     */
     public static function result(
         \stdClass $result,
         bool $includeauthoredfeedback = false,

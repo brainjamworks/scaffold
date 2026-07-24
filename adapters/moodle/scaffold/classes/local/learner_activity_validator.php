@@ -28,8 +28,16 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class learner_activity_validator {
+    /** @var ?json_schema_validator Shared schema validator. */
     private static ?json_schema_validator $validator = null;
 
+    /**
+     * Validates definition.
+     *
+     * @param string $definition Definition.
+     * @param mixed $value Value.
+     * @param string $path Path.
+     */
     public static function validate_definition(string $definition, mixed $value, string $path = '$'): void {
         self::$validator ??= new json_schema_validator(
             dirname(__DIR__, 2) . '/schemas/learner-activity.schema.json',

@@ -32,10 +32,22 @@ require_once(__DIR__ . '/assessment_public_projection.php');
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class content_service {
+    /**
+     * GRADE ITEM PUBLICATION PUBLISHED.
+     */
     public const GRADE_ITEM_PUBLICATION_PUBLISHED = 'published';
+    /**
+     * GRADE ITEM PUBLICATION FAILED.
+     */
     public const GRADE_ITEM_PUBLICATION_FAILED = 'failed';
 
+    /**
+     * SCAFFOLD MODES.
+     */
     private const SCAFFOLD_MODES = ['page', 'slideshow', 'branching'];
+    /**
+     * SAVE PAYLOAD MAX BYTES.
+     */
     private const SAVE_PAYLOAD_MAX_BYTES = [
         'artifactjson' => 2097152,
         'learnercontentjson' => 2097152,
@@ -43,10 +55,20 @@ final class content_service {
         'assessmentgroupsjson' => 524288,
     ];
 
+    /** @var \Closure Grade item refresh callback. */
     private readonly \Closure $gradeitemrefresher;
+    /** @var \Closure Diagnostic reporting callback. */
     private readonly \Closure $diagnosticreporter;
+    /** @var ?quiz_expiry_reconciler Quiz expiry reconciler. */
     private readonly ?quiz_expiry_reconciler $quizexpiryreconciler;
 
+    /**
+     * Creates a new content service instance.
+     *
+     * @param callable|null $gradeitemrefresher Grade item refresh callback.
+     * @param callable|null $diagnosticreporter Diagnostic reporting callback.
+     * @param quiz_expiry_reconciler|null $quizexpiryreconciler Quiz expiry reconciler.
+     */
     public function __construct(
         ?callable $gradeitemrefresher = null,
         ?callable $diagnosticreporter = null,
@@ -71,6 +93,13 @@ final class content_service {
         $this->quizexpiryreconciler = $quizexpiryreconciler;
     }
 
+    /**
+     * Returns payload.
+     *
+     * @param activity_scope $scope Scope.
+     * @param string $purpose Purpose.
+     * @return array
+     */
     public function payload(activity_scope $scope, string $purpose): array {
         $authoring = match ($purpose) {
             'authoring' => true,
@@ -123,6 +152,11 @@ final class content_service {
         return $payload;
     }
 
+    /**
+     * Returns quiz expiry reconciler.
+     *
+     * @return quiz_expiry_reconciler|null
+     */
     private function quiz_expiry_reconciler(): ?quiz_expiry_reconciler {
         if ($this->quizexpiryreconciler !== null) {
             return $this->quizexpiryreconciler;
@@ -135,6 +169,13 @@ final class content_service {
     }
 
     /**
+     * Validates and saves the supplied state.
+     *
+     * @param activity_scope $scope Scope.
+     * @param string $artifactjson Artifactjson.
+     * @param string $learnercontentjson Learnercontentjson.
+     * @param string $assessmenttargetsjson Assessmenttargetsjson.
+     * @param string $assessmentgroupsjson Assessmentgroupsjson.
      * @return array{content: \stdClass, gradeItemPublication: string}
      */
     public function save(
@@ -158,6 +199,14 @@ final class content_service {
         );
     }
 
+    /**
+     * Projects artifact.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @param int $cmid Course module ID.
+     * @param bool $authoring Authoring.
+     * @return array
+     */
     public function project_artifact(\stdClass $scaffold, int $cmid, bool $authoring): array {
         $artifact = self::read_json_object($scaffold->artifactjson ?? '', []);
         $artifact['id'] = artifact_identity::for_course_module($cmid);
@@ -176,11 +225,24 @@ final class content_service {
         return $artifact;
     }
 
+    /**
+     * Reads json object.
+     *
+     * @param string $raw Raw.
+     * @param array $fallback Fallback.
+     * @return array
+     */
     public static function read_json_object(string $raw, array $fallback): array {
         $value = self::decode_json_object($raw);
         return $value ?? $fallback;
     }
 
+    /**
+     * Reads json nullable object.
+     *
+     * @param string $raw Raw.
+     * @return array|null
+     */
     public static function read_json_nullable_object(string $raw): ?array {
         try {
             $value = json_decode($raw, false, 512, JSON_THROW_ON_ERROR);
@@ -198,6 +260,14 @@ final class content_service {
     }
 
     /**
+     * Saves instance.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @param int $cmid Course module ID.
+     * @param string $artifactjson Artifactjson.
+     * @param string $learnercontentjson Learnercontentjson.
+     * @param string $assessmenttargetsjson Assessmenttargetsjson.
+     * @param string $assessmentgroupsjson Assessmentgroupsjson.
      * @return array{content: \stdClass, gradeItemPublication: string}
      */
     private function save_instance(
@@ -282,6 +352,12 @@ final class content_service {
         ];
     }
 
+    /**
+     * Validates artifact.
+     *
+     * @param array $artifact Artifact.
+     * @param string $expectedid Expectedid.
+     */
     private static function validate_artifact(array $artifact, string $expectedid): void {
         if (($artifact['id'] ?? null) !== $expectedid) {
             throw new \invalid_parameter_exception('artifact.id does not match activity');
@@ -304,6 +380,12 @@ final class content_service {
         }
     }
 
+    /**
+     * Returns course document mode.
+     *
+     * @param array $content Content.
+     * @return string|null
+     */
     private static function course_document_mode(array $content): ?string {
         if (($content['type'] ?? null) !== 'doc') {
             return null;
@@ -325,6 +407,13 @@ final class content_service {
         return is_string($attrs['mode'] ?? null) ? $attrs['mode'] : null;
     }
 
+    /**
+     * Decodes required object.
+     *
+     * @param string $raw Raw.
+     * @param string $name Name.
+     * @return array
+     */
     private static function decode_required_object(string $raw, string $name): array {
         $value = self::decode_json_object($raw);
         if ($value === null) {
@@ -333,6 +422,12 @@ final class content_service {
         return $value;
     }
 
+    /**
+     * Decodes json object.
+     *
+     * @param string $raw Raw.
+     * @return array|null
+     */
     private static function decode_json_object(string $raw): ?array {
         try {
             $value = json_decode($raw, false, 512, JSON_THROW_ON_ERROR);
@@ -345,6 +440,12 @@ final class content_service {
         return self::json_object_to_array($value);
     }
 
+    /**
+     * Converts json object to array.
+     *
+     * @param \stdClass $value Value.
+     * @return array
+     */
     private static function json_object_to_array(\stdClass $value): array {
         $result = [];
         foreach (get_object_vars($value) as $key => $child) {
@@ -353,6 +454,12 @@ final class content_service {
         return $result;
     }
 
+    /**
+     * Converts json value to php.
+     *
+     * @param mixed $value Value.
+     * @return mixed
+     */
     private static function json_value_to_php(mixed $value): mixed {
         if ($value instanceof \stdClass) {
             return get_object_vars($value) === [] ? $value : self::json_object_to_array($value);
@@ -363,6 +470,13 @@ final class content_service {
         return $value;
     }
 
+    /**
+     * Encodes json.
+     *
+     * @param mixed $value Value.
+     * @param string $name Name.
+     * @return string
+     */
     private static function encode_json(mixed $value, string $name): string {
         try {
             return json_encode($value, JSON_THROW_ON_ERROR);
@@ -371,6 +485,12 @@ final class content_service {
         }
     }
 
+    /**
+     * Validates save payload size.
+     *
+     * @param string $name Name.
+     * @param string $raw Raw.
+     */
     private static function validate_save_payload_size(string $name, string $raw): void {
         $limit = self::SAVE_PAYLOAD_MAX_BYTES[$name] ?? 0;
         if ($limit <= 0 || strlen($raw) > $limit) {
@@ -378,6 +498,11 @@ final class content_service {
         }
     }
 
+    /**
+     * Marks grade item pending.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     */
     public static function mark_grade_item_pending(\stdClass $scaffold): void {
         $scaffold->gradeitemstatus = 'pending';
         $scaffold->gradeitemfailurecode = null;

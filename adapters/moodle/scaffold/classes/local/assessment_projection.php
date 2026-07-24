@@ -28,6 +28,12 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class assessment_projection {
+    /**
+     * Builds for activity.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @return array
+     */
     public static function for_activity(\stdClass $scaffold): array {
         return self::from_json(
             $scaffold->assessmenttargetsjson ?? '',
@@ -37,6 +43,15 @@ final class assessment_projection {
         );
     }
 
+    /**
+     * Builds from json.
+     *
+     * @param string $targetsjson Targetsjson.
+     * @param string $groupsjson Groupsjson.
+     * @param string $targetsname Targetsname.
+     * @param string $groupsname Groupsname.
+     * @return array
+     */
     public static function from_json(
         string $targetsjson,
         string $groupsjson,
@@ -54,6 +69,13 @@ final class assessment_projection {
         ];
     }
 
+    /**
+     * Builds for user.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @param int $userid User ID.
+     * @return \stdClass
+     */
     public static function for_user(\stdClass $scaffold, int $userid): \stdClass {
         $projection = self::for_activity($scaffold);
         $state = (new assessment_state_repository())->get_or_create_state(
@@ -70,6 +92,14 @@ final class assessment_projection {
         );
     }
 
+    /**
+     * Returns activity status for user.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @param int $cmid Course module ID.
+     * @param int $userid User ID.
+     * @return string
+     */
     public static function activity_status_for_user(
         \stdClass $scaffold,
         int $cmid,
@@ -94,6 +124,13 @@ final class assessment_projection {
         )->activityStatus;
     }
 
+    /**
+     * Returns raw grade for user.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @param int $userid User ID.
+     * @return float|null
+     */
     public static function raw_grade_for_user(\stdClass $scaffold, int $userid): ?float {
         return assessment_grade_projector::to_raw_grade(
             self::for_user($scaffold, $userid),
@@ -101,6 +138,13 @@ final class assessment_projection {
         );
     }
 
+    /**
+     * Grades records for activity.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @param int $userid User ID.
+     * @return array
+     */
     public static function grade_records_for_activity(\stdClass $scaffold, int $userid = 0): array {
         $batch = self::for_activity_users($scaffold, $userid);
         $grades = [];
@@ -120,6 +164,13 @@ final class assessment_projection {
         return $grades;
     }
 
+    /**
+     * Builds for activity users.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @param int $userid User ID.
+     * @return array
+     */
     public static function for_activity_users(\stdClass $scaffold, int $userid = 0): array {
         $projection = self::for_activity($scaffold);
         $artifactid = artifact_identity::for_course_module(self::course_module_id($scaffold));
@@ -145,6 +196,13 @@ final class assessment_projection {
         ];
     }
 
+    /**
+     * Decodes required list.
+     *
+     * @param string $raw Raw.
+     * @param string $name Name.
+     * @return array
+     */
     private static function decode_required_list(string $raw, string $name): array {
         try {
             $value = json_decode($raw, false, 512, JSON_THROW_ON_ERROR);
@@ -157,6 +215,12 @@ final class assessment_projection {
         return $value;
     }
 
+    /**
+     * Converts json object to array.
+     *
+     * @param \stdClass $value Value.
+     * @return array
+     */
     private static function json_object_to_array(\stdClass $value): array {
         $result = [];
         foreach (get_object_vars($value) as $key => $child) {
@@ -165,6 +229,12 @@ final class assessment_projection {
         return $result;
     }
 
+    /**
+     * Converts json value to php.
+     *
+     * @param mixed $value Value.
+     * @return mixed
+     */
     private static function json_value_to_php(mixed $value): mixed {
         if ($value instanceof \stdClass) {
             return get_object_vars($value) === [] ? $value : self::json_object_to_array($value);
@@ -175,6 +245,12 @@ final class assessment_projection {
         return $value;
     }
 
+    /**
+     * Returns course module ID.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @return int
+     */
     private static function course_module_id(\stdClass $scaffold): int {
         if (isset($scaffold->coursemodule) && (int) $scaffold->coursemodule > 0) {
             return (int) $scaffold->coursemodule;

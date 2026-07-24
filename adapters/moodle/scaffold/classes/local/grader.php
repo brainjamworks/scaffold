@@ -28,6 +28,13 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class grader {
+    /**
+     * Grades assessment.
+     *
+     * @param array|null $target Target.
+     * @param array|null $response Response.
+     * @return array
+     */
     public static function grade_assessment(?array $target, ?array $response): array {
         if (!$target || !$response) {
             return self::empty_result();
@@ -63,6 +70,14 @@ class grader {
         };
     }
 
+    /**
+     * Grades single select.
+     *
+     * @param array $interaction Interaction.
+     * @param array $assessment Assessment.
+     * @param array $response Response.
+     * @return array
+     */
     private static function grade_single_select(array $interaction, array $assessment, array $response): array {
         $correctid = is_string($assessment['correctOptionId'] ?? null) ? $assessment['correctOptionId'] : null;
         $given = is_string($response['optionId'] ?? null) ? $response['optionId'] : null;
@@ -98,6 +113,14 @@ class grader {
         ];
     }
 
+    /**
+     * Grades multi select.
+     *
+     * @param array $interaction Interaction.
+     * @param array $assessment Assessment.
+     * @param array $response Response.
+     * @return array
+     */
     private static function grade_multi_select(array $interaction, array $assessment, array $response): array {
         $expected = self::string_set($assessment['correctOptionIds'] ?? null);
         $selected = self::string_set($response['optionIds'] ?? null);
@@ -157,6 +180,13 @@ class grader {
         ];
     }
 
+    /**
+     * Grades sequence.
+     *
+     * @param array $assessment Assessment.
+     * @param array $response Response.
+     * @return array
+     */
     private static function grade_sequence(array $assessment, array $response): array {
         $expected = self::string_list($assessment['correctOrder'] ?? null);
         $given = self::string_list($response['orderedItemIds'] ?? null);
@@ -208,6 +238,16 @@ class grader {
         ];
     }
 
+    /**
+     * Grades pairs.
+     *
+     * @param array $expectedpairs Expectedpairs.
+     * @param array $givenpairs Givenpairs.
+     * @param string $expectedkey Expectedkey.
+     * @param mixed $feedback Feedback.
+     * @param array $feedbackbyitem Feedbackbyitem.
+     * @return array
+     */
     private static function grade_pairs(
         array $expectedpairs,
         array $givenpairs,
@@ -276,6 +316,13 @@ class grader {
         ];
     }
 
+    /**
+     * Grades fill blanks.
+     *
+     * @param array $assessment Assessment.
+     * @param array $response Response.
+     * @return array
+     */
     private static function grade_fill_blanks(array $assessment, array $response): array {
         $givenbyblank = [];
         foreach (self::list($response['blanks'] ?? null) as $blank) {
@@ -342,6 +389,14 @@ class grader {
         ];
     }
 
+    /**
+     * Grades hotspot.
+     *
+     * @param array $interaction Interaction.
+     * @param array $assessment Assessment.
+     * @param array $response Response.
+     * @return array
+     */
     private static function grade_hotspot(array $interaction, array $assessment, array $response): array {
         $selected = [];
         foreach (self::list($response['selections'] ?? null) as $selection) {
@@ -399,6 +454,12 @@ class grader {
         ];
     }
 
+    /**
+     * Builds an empty result.
+     *
+     * @param mixed $feedback Feedback.
+     * @return array
+     */
     private static function empty_result(mixed $feedback = null): array {
         return [
             'isCorrect' => false,
@@ -409,23 +470,54 @@ class grader {
         ];
     }
 
+    /**
+     * Normalises blank.
+     *
+     * @param string $value Value.
+     * @param array $meta Meta.
+     * @return string
+     */
     private static function normalize_blank(string $value, array $meta): string {
         $normalized = ($meta['trimWhitespace'] ?? true) === false ? $value : trim($value);
         return ($meta['caseSensitive'] ?? false) ? $normalized : \core_text::strtolower($normalized);
     }
 
+    /**
+     * Returns summary feedback.
+     *
+     * @param array $assessment Assessment.
+     * @return mixed
+     */
     private static function summary_feedback(array $assessment): mixed {
         return $assessment['summaryFeedback'] ?? null;
     }
 
+    /**
+     * Returns the value as an associative array.
+     *
+     * @param mixed $value Value.
+     * @return array|null
+     */
     private static function assoc(mixed $value): ?array {
         return is_array($value) && !array_is_list($value) ? $value : null;
     }
 
+    /**
+     * Returns the value as a list.
+     *
+     * @param mixed $value Value.
+     * @return array
+     */
     private static function list(mixed $value): array {
         return is_array($value) && array_is_list($value) ? $value : [];
     }
 
+    /**
+     * Returns string list.
+     *
+     * @param mixed $value Value.
+     * @return array
+     */
     private static function string_list(mixed $value): array {
         return array_values(array_filter(
             self::list($value),
@@ -433,6 +525,12 @@ class grader {
         ));
     }
 
+    /**
+     * Returns string set.
+     *
+     * @param mixed $value Value.
+     * @return array
+     */
     private static function string_set(mixed $value): array {
         $set = [];
         foreach (self::string_list($value) as $item) {

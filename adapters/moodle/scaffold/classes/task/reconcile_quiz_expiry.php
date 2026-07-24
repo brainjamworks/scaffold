@@ -30,6 +30,9 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class reconcile_quiz_expiry extends \core\task\scheduled_task {
+    /**
+     * BATCH LIMIT.
+     */
     private const BATCH_LIMIT = 100;
 
     #[\Override]
@@ -59,10 +62,20 @@ class reconcile_quiz_expiry extends \core\task\scheduled_task {
         ));
     }
 
+    /**
+     * Creates reconciler.
+     *
+     * @return quiz_expiry_reconciler
+     */
     protected function create_reconciler(): quiz_expiry_reconciler {
         return new quiz_expiry_reconciler();
     }
 
+    /**
+     * Returns batch limit.
+     *
+     * @return int
+     */
     protected function batch_limit(): int {
         return self::BATCH_LIMIT;
     }

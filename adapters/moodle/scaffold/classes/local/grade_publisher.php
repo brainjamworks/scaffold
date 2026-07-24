@@ -31,17 +31,41 @@ require_once(__DIR__ . '/assessment_projection.php');
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class grade_publisher {
+    /**
+     * RETRY DELAY SECONDS.
+     */
     private const RETRY_DELAY_SECONDS = 60;
+    /**
+     * MAX RETRY DELAY SECONDS.
+     */
     private const MAX_RETRY_DELAY_SECONDS = 3600;
 
+    /** @var assessment_state_repository Assessment state repository. */
     private $staterepository;
+    /** @var grade_publication_repository Grade publication repository. */
     private $publicationrepository;
+    /** @var \Closure Activity loading callback. */
     private readonly \Closure $activityloader;
+    /** @var \Closure Moodle grade writing callback. */
     private readonly \Closure $gradewriter;
+    /** @var \Closure Grade conflict checking callback. */
     private readonly \Closure $conflictchecker;
+    /** @var \Closure Clock callback. */
     private readonly \Closure $clock;
+    /** @var \Closure Grade projection loading callback. */
     private readonly \Closure $projectionloader;
 
+    /**
+     * Creates a new grade publisher instance.
+     *
+     * @param object|null $staterepository Assessment state repository.
+     * @param object|null $publicationrepository Grade publication repository.
+     * @param callable|null $activityloader Activity loading callback.
+     * @param callable|null $gradewriter Moodle grade writing callback.
+     * @param callable|null $conflictchecker Grade conflict checking callback.
+     * @param callable|null $clock Clock callback.
+     * @param callable|null $projectionloader Grade projection loading callback.
+     */
     public function __construct(
         ?object $staterepository = null,
         ?object $publicationrepository = null,
@@ -88,6 +112,13 @@ class grade_publisher {
         });
     }
 
+    /**
+     * Publishes user.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @param int $userid User ID.
+     * @return \stdClass
+     */
     public function publish_user(\stdClass $scaffold, int $userid): \stdClass {
         $scaffoldid = (int) ($scaffold->id ?? 0);
         if ($scaffoldid <= 0 || $userid <= 0) {
@@ -191,6 +222,16 @@ class grade_publisher {
         );
     }
 
+    /**
+     * Persists grade status.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     * @param int $staterevision Persisted state revision.
+     * @param int $definitionversion Definitionversion.
+     * @param int $status Status.
+     * @return \stdClass
+     */
     private function persist_grade_status(
         int $scaffoldid,
         int $userid,
@@ -248,6 +289,16 @@ class grade_publisher {
         };
     }
 
+    /**
+     * Persists conflict.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     * @param int $staterevision Persisted state revision.
+     * @param int $definitionversion Definitionversion.
+     * @param string $conflict Conflict.
+     * @return \stdClass
+     */
     private function persist_conflict(
         int $scaffoldid,
         int $userid,
@@ -279,6 +330,17 @@ class grade_publisher {
         );
     }
 
+    /**
+     * Persists failure.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     * @param int $staterevision Persisted state revision.
+     * @param int $definitionversion Definitionversion.
+     * @param string $code Code.
+     * @param bool $retryable Retryable.
+     * @return \stdClass
+     */
     private function persist_failure(
         int $scaffoldid,
         int $userid,
@@ -309,6 +371,19 @@ class grade_publisher {
         );
     }
 
+    /**
+     * Persists the publication outcome.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     * @param int $staterevision Persisted state revision.
+     * @param int $definitionversion Definitionversion.
+     * @param string $status Status.
+     * @param string|null $code Code.
+     * @param int|null $retryafter Retryafter.
+     * @param \stdClass $outcome Outcome.
+     * @return \stdClass
+     */
     private function persist(
         int $scaffoldid,
         int $userid,
@@ -333,6 +408,13 @@ class grade_publisher {
         return $outcome;
     }
 
+    /**
+     * Returns outcome.
+     *
+     * @param string $status Status.
+     * @param string|null $code Code.
+     * @return \stdClass
+     */
     private static function outcome(string $status, ?string $code = null): \stdClass {
         $outcome = (object) ['status' => $status];
         if ($code !== null) {
@@ -341,6 +423,14 @@ class grade_publisher {
         return $outcome;
     }
 
+    /**
+     * Returns failed outcome.
+     *
+     * @param string $code Code.
+     * @param bool $retryable Retryable.
+     * @param int|null $retryafter Retryafter.
+     * @return \stdClass
+     */
     private static function failed_outcome(string $code, bool $retryable, ?int $retryafter): \stdClass {
         return (object) [
             'status' => 'failed',
@@ -350,6 +440,12 @@ class grade_publisher {
         ];
     }
 
+    /**
+     * Returns course module ID.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @return int
+     */
     private static function course_module_id(\stdClass $scaffold): int {
         if (isset($scaffold->coursemodule) && (int) $scaffold->coursemodule > 0) {
             return (int) $scaffold->coursemodule;

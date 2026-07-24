@@ -31,13 +31,29 @@ require_once(__DIR__ . '/assessment_public_projection.php');
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class assessment_service {
+    /** @var assessment_state_repository Persistence repository. */
     private $repository;
+    /** @var \Closure Assessment grading callback. */
     private \Closure $grader;
+    /** @var \Closure Grade publication callback. */
     private \Closure $gradepublisher;
+    /** @var \Closure Completion update callback. */
     private \Closure $completionupdater;
+    /** @var assessment_quiz Quiz assessment service. */
     private assessment_quiz $quiz;
+    /** @var ?quiz_expiry_reconciler Quiz expiry reconciler. */
     private ?quiz_expiry_reconciler $quizexpiryreconciler;
 
+    /**
+     * Creates a new assessment service instance.
+     *
+     * @param assessment_state_repository|null $repository Persistence repository.
+     * @param callable|null $grader Assessment grading callback.
+     * @param callable|null $gradepublisher Grade publication callback.
+     * @param callable|null $completionupdater Completion update callback.
+     * @param assessment_quiz|null $quiz Quiz assessment service.
+     * @param quiz_expiry_reconciler|null $quizexpiryreconciler Quiz expiry reconciler.
+     */
     public function __construct(
         ?assessment_state_repository $repository = null,
         ?callable $grader = null,
@@ -71,6 +87,17 @@ final class assessment_service {
         $this->quizexpiryreconciler = $quizexpiryreconciler;
     }
 
+    /**
+     * Checks an assessment response.
+     *
+     * @param activity_scope $scope Scope.
+     * @param string $problemid Runtime problem ID.
+     * @param string $targetid Assessment target ID.
+     * @param string $interactionkind Interactionkind.
+     * @param array $response Response.
+     * @param int $expectedattemptnumber Expectedattemptnumber.
+     * @return array
+     */
     public function check(
         activity_scope $scope,
         string $problemid,
@@ -93,6 +120,17 @@ final class assessment_service {
         );
     }
 
+    /**
+     * Submits an assessment response.
+     *
+     * @param activity_scope $scope Scope.
+     * @param string $problemid Runtime problem ID.
+     * @param string $targetid Assessment target ID.
+     * @param string $interactionkind Interactionkind.
+     * @param array $response Response.
+     * @param int $expectedattemptnumber Expectedattemptnumber.
+     * @return array
+     */
     public function submit(
         activity_scope $scope,
         string $problemid,
@@ -115,6 +153,15 @@ final class assessment_service {
         );
     }
 
+    /**
+     * Reveals answer.
+     *
+     * @param activity_scope $scope Scope.
+     * @param string $problemid Runtime problem ID.
+     * @param string $targetid Assessment target ID.
+     * @param string $interactionkind Interactionkind.
+     * @return array
+     */
     public function reveal_answer(
         activity_scope $scope,
         string $problemid,
@@ -154,6 +201,16 @@ final class assessment_service {
         return ['answerKey' => $target['assessment'] ?? null];
     }
 
+    /**
+     * Reveals hint.
+     *
+     * @param activity_scope $scope Scope.
+     * @param string $problemid Runtime problem ID.
+     * @param string $targetid Assessment target ID.
+     * @param string $interactionkind Interactionkind.
+     * @param int $hintsshown Hintsshown.
+     * @return array
+     */
     public function reveal_hint(
         activity_scope $scope,
         string $problemid,
@@ -173,11 +230,29 @@ final class assessment_service {
         );
     }
 
+    /**
+     * Starts quiz.
+     *
+     * @param activity_scope $scope Scope.
+     * @param string $groupid Assessment group ID.
+     * @return array
+     */
     public function start_quiz(activity_scope $scope, string $groupid): array {
         $this->require_submit_scope($scope);
         return $this->start_quiz_for($scope->instance, $scope->cm, $scope->actorid, $groupid);
     }
 
+    /**
+     * Submits quiz question.
+     *
+     * @param activity_scope $scope Scope.
+     * @param string $attemptid Quiz attempt ID.
+     * @param string $groupid Assessment group ID.
+     * @param string $targetid Assessment target ID.
+     * @param array $response Response.
+     * @param int $expectedattemptnumber Expectedattemptnumber.
+     * @return array
+     */
     public function submit_quiz_question(
         activity_scope $scope,
         string $attemptid,
@@ -199,6 +274,15 @@ final class assessment_service {
         );
     }
 
+    /**
+     * Finishes quiz.
+     *
+     * @param activity_scope $scope Scope.
+     * @param string $attemptid Quiz attempt ID.
+     * @param string $groupid Assessment group ID.
+     * @param array $responsesbytargetid Responsesbytargetid.
+     * @return array
+     */
     public function finish_quiz(
         activity_scope $scope,
         string $attemptid,
@@ -216,11 +300,28 @@ final class assessment_service {
         );
     }
 
+    /**
+     * Reveals quiz.
+     *
+     * @param activity_scope $scope Scope.
+     * @param string $attemptid Quiz attempt ID.
+     * @param string $groupid Assessment group ID.
+     * @return array
+     */
     public function reveal_quiz(activity_scope $scope, string $attemptid, string $groupid): array {
         $this->require_submit_scope($scope);
         return $this->reveal_quiz_for($scope->instance, $scope->cm, $scope->actorid, $attemptid, $groupid);
     }
 
+    /**
+     * Starts quiz for.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @param \cm_info $cm Moodle course module.
+     * @param int $userid User ID.
+     * @param string $groupid Assessment group ID.
+     * @return array
+     */
     private function start_quiz_for(\stdClass $scaffold, \cm_info $cm, int $userid, string $groupid): array {
         $this->reconcile_expiry($scaffold, $cm, $userid);
         $projection = assessment_projection::for_activity($scaffold);
@@ -249,6 +350,19 @@ final class assessment_service {
         );
     }
 
+    /**
+     * Submits quiz question for.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @param \cm_info $cm Moodle course module.
+     * @param int $userid User ID.
+     * @param string $attemptid Quiz attempt ID.
+     * @param string $groupid Assessment group ID.
+     * @param string $targetid Assessment target ID.
+     * @param array $response Response.
+     * @param int|null $expectedattemptnumber Expectedattemptnumber.
+     * @return array
+     */
     private function submit_quiz_question_for(
         \stdClass $scaffold,
         \cm_info $cm,
@@ -298,6 +412,17 @@ final class assessment_service {
         );
     }
 
+    /**
+     * Finishes quiz for.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @param \cm_info $cm Moodle course module.
+     * @param int $userid User ID.
+     * @param string $attemptid Quiz attempt ID.
+     * @param string $groupid Assessment group ID.
+     * @param array $responsesbytargetid Responsesbytargetid.
+     * @return array
+     */
     private function finish_quiz_for(
         \stdClass $scaffold,
         \cm_info $cm,
@@ -341,6 +466,16 @@ final class assessment_service {
         );
     }
 
+    /**
+     * Reveals quiz for.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @param \cm_info $cm Moodle course module.
+     * @param int $userid User ID.
+     * @param string $attemptid Quiz attempt ID.
+     * @param string $groupid Assessment group ID.
+     * @return array
+     */
     private function reveal_quiz_for(
         \stdClass $scaffold,
         \cm_info $cm,
@@ -367,6 +502,17 @@ final class assessment_service {
         ];
     }
 
+    /**
+     * Mutates quiz.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @param \cm_info $cm Moodle course module.
+     * @param int $userid User ID.
+     * @param array $projection Projection.
+     * @param string $groupid Assessment group ID.
+     * @param callable $mutation Mutation.
+     * @return array
+     */
     private function mutate_quiz(
         \stdClass $scaffold,
         \cm_info $cm,
@@ -403,6 +549,15 @@ final class assessment_service {
         return ['state' => $state, 'gradePublication' => $publication];
     }
 
+    /**
+     * Returns quiz result.
+     *
+     * @param array $result Result.
+     * @param \stdClass|null $attempt Attempt.
+     * @param array $group Group.
+     * @param array $targetids Targetids.
+     * @return array
+     */
     private function quiz_result(
         array $result,
         ?\stdClass $attempt,
@@ -433,11 +588,25 @@ final class assessment_service {
         ];
     }
 
+    /**
+     * Checks whether quiz group is graded.
+     *
+     * @param array $groups Groups.
+     * @param string $groupid Assessment group ID.
+     * @return bool
+     */
     private static function quiz_group_is_graded(array $groups, string $groupid): bool {
         $group = self::quiz_group_by_id($groups, $groupid);
         return ($group['settings']['isGraded'] ?? true) === true;
     }
 
+    /**
+     * Returns quiz group by ID.
+     *
+     * @param array $groups Groups.
+     * @param string $groupid Assessment group ID.
+     * @return array
+     */
     private static function quiz_group_by_id(array $groups, string $groupid): array {
         foreach ($groups as $group) {
             if (($group['kind'] ?? null) === 'quiz' && ($group['groupId'] ?? null) === $groupid) {
@@ -447,6 +616,20 @@ final class assessment_service {
         throw new \moodle_exception('quiz group not found', 'scaffold');
     }
 
+    /**
+     * Applies attempt.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @param \cm_info $cm Moodle course module.
+     * @param int $userid User ID.
+     * @param string $problemid Runtime problem ID.
+     * @param string $targetid Assessment target ID.
+     * @param string $interactionkind Interactionkind.
+     * @param array $response Response.
+     * @param int|null $expectedattemptnumber Expectedattemptnumber.
+     * @param string $action Action.
+     * @return array
+     */
     private function apply_attempt(
         \stdClass $scaffold,
         \cm_info $cm,
@@ -565,6 +748,18 @@ final class assessment_service {
         ];
     }
 
+    /**
+     * Reveals hint for.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @param \cm_info $cm Moodle course module.
+     * @param int $userid User ID.
+     * @param string $problemid Runtime problem ID.
+     * @param string $targetid Assessment target ID.
+     * @param string $interactionkind Interactionkind.
+     * @param int $hintsshown Hintsshown.
+     * @return array
+     */
     private function reveal_hint_for(
         \stdClass $scaffold,
         \cm_info $cm,
@@ -623,6 +818,13 @@ final class assessment_service {
         ];
     }
 
+    /**
+     * Reconciles expiry.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @param \cm_info $cm Moodle course module.
+     * @param int $userid User ID.
+     */
     private function reconcile_expiry(\stdClass $scaffold, \cm_info $cm, int $userid): void {
         ($this->quizexpiryreconciler ?? new quiz_expiry_reconciler())->reconcile_user_and_apply_effects(
             $scaffold,
@@ -632,6 +834,17 @@ final class assessment_service {
         );
     }
 
+    /**
+     * Runs a callback after the database transaction commits.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @param \cm_info $cm Moodle course module.
+     * @param int $userid User ID.
+     * @param string $artifactid Scaffold artifact ID.
+     * @param bool $changed Whether state changed.
+     * @param bool $publishgrade Publishgrade.
+     * @return \stdClass|null
+     */
     private function after_commit(
         \stdClass $scaffold,
         \cm_info $cm,
@@ -661,12 +874,27 @@ final class assessment_service {
         }
     }
 
+    /**
+     * Requires submit scope.
+     *
+     * @param activity_scope $scope Scope.
+     */
     private function require_submit_scope(activity_scope $scope): void {
         if ($scope->capability !== 'mod/scaffold:submit') {
             throw new \invalid_parameter_exception('Assessment command is not authorized by activity scope');
         }
     }
 
+    /**
+     * Returns target for request.
+     *
+     * @param array $projection Projection.
+     * @param int $cmid Course module ID.
+     * @param string $problemid Runtime problem ID.
+     * @param string $targetid Assessment target ID.
+     * @param string $interactionkind Interactionkind.
+     * @return array
+     */
     private static function target_for_request(
         array $projection,
         int $cmid,
@@ -694,6 +922,13 @@ final class assessment_service {
         throw new \moodle_exception('problem not found', 'scaffold');
     }
 
+    /**
+     * Returns assessment ID from problem ID.
+     *
+     * @param string $problemid Runtime problem ID.
+     * @param int $cmid Course module ID.
+     * @return string|null
+     */
     private static function assessment_id_from_problem_id(string $problemid, int $cmid): ?string {
         $marker = '/block:';
         $pos = strrpos($problemid, $marker);
@@ -708,14 +943,33 @@ final class assessment_service {
         return $block !== '' ? $block : null;
     }
 
+    /**
+     * Returns problem attempts.
+     *
+     * @param \stdClass|null $problem Problem.
+     * @return int
+     */
     private static function problem_attempts(?\stdClass $problem): int {
         return $problem instanceof \stdClass ? max(0, (int) ($problem->attemptNumber ?? 0)) : 0;
     }
 
+    /**
+     * Returns problem hints.
+     *
+     * @param \stdClass|null $problem Problem.
+     * @return int
+     */
     private static function problem_hints(?\stdClass $problem): int {
         return $problem instanceof \stdClass ? max(0, (int) ($problem->hintsShown ?? 0)) : 0;
     }
 
+    /**
+     * Returns problem with hints.
+     *
+     * @param \stdClass|null $problem Problem.
+     * @param int $hintsshown Hintsshown.
+     * @return \stdClass
+     */
     private static function problem_with_hints(?\stdClass $problem, int $hintsshown): \stdClass {
         return (object) [
             'response' => $problem instanceof \stdClass ? ($problem->response ?? null) : null,
@@ -727,6 +981,12 @@ final class assessment_service {
         ];
     }
 
+    /**
+     * Checks whether problem authorizes answer reveal.
+     *
+     * @param \stdClass|null $problem Problem.
+     * @return bool
+     */
     private static function problem_authorizes_answer_reveal(?\stdClass $problem): bool {
         if (!($problem instanceof \stdClass) || ($problem->submitted ?? null) !== true) {
             return false;
@@ -736,6 +996,13 @@ final class assessment_service {
         return $submissionresult instanceof \stdClass && ($submissionresult->isCorrect ?? null) === false;
     }
 
+    /**
+     * Returns hint limit.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @param string $targetid Assessment target ID.
+     * @return int
+     */
     private static function hint_limit(\stdClass $scaffold, string $targetid): int {
         $content = content_service::read_json_nullable_object((string) ($scaffold->learnercontentjson ?? 'null'));
         $target = $content === null ? null : self::content_node_by_id($content, $targetid);
@@ -745,6 +1012,13 @@ final class assessment_service {
         return self::count_content_nodes_by_type($target, 'assessment_hint');
     }
 
+    /**
+     * Returns content node by ID.
+     *
+     * @param array $node Node.
+     * @param string $targetid Assessment target ID.
+     * @return array|null
+     */
     private static function content_node_by_id(array $node, string $targetid): ?array {
         if (!array_is_list($node) && ($node['attrs']['id'] ?? null) === $targetid) {
             return $node;
@@ -761,6 +1035,13 @@ final class assessment_service {
         return null;
     }
 
+    /**
+     * Counts content nodes by type.
+     *
+     * @param array $node Node.
+     * @param string $type Type.
+     * @return int
+     */
     private static function count_content_nodes_by_type(array $node, string $type): int {
         $count = !array_is_list($node) && ($node['type'] ?? null) === $type ? 1 : 0;
         $children = !array_is_list($node) && is_array($node['content'] ?? null) ? $node['content'] : [];
@@ -772,6 +1053,12 @@ final class assessment_service {
         return $count;
     }
 
+    /**
+     * Returns positive int or null.
+     *
+     * @param mixed $value Value.
+     * @return int|null
+     */
     private static function positive_int_or_null(mixed $value): ?int {
         if ($value === null) {
             return null;

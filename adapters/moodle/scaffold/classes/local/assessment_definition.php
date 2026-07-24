@@ -28,6 +28,14 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class assessment_definition {
+    /**
+     * Builds the canonical assessment definition fingerprint.
+     *
+     * @param array $targets Targets.
+     * @param array $groups Groups.
+     * @param float $maximum Maximum.
+     * @return string
+     */
     public static function fingerprint(array $targets, array $groups, float $maximum): string {
         $canonicaltargets = [];
         foreach ($targets as $target) {

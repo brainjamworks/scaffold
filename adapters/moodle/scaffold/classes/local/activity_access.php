@@ -28,6 +28,13 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class activity_access {
+    /**
+     * Returns an authorised Scaffold activity scope.
+     *
+     * @param int $cmid Course module ID.
+     * @param string $capability Required Moodle capability.
+     * @return activity_scope
+     */
     public static function require(int $cmid, string $capability): activity_scope {
         global $DB, $USER;
 

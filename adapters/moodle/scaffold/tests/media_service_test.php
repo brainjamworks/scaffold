@@ -306,6 +306,19 @@ final class media_service_test extends \advanced_testcase {
         ));
     }
 
+    /**
+     * Asserts invalid upload.
+     *
+     * @param \stdClass $activity Activity.
+     * @param \cm_info $cm Moodle course module.
+     * @param \context_module $context Moodle module context.
+     * @param string $mediatype Mediatype.
+     * @param string $filename Filename.
+     * @param string $contenttype Contenttype.
+     * @param string $dataurl Dataurl.
+     * @param string $expectedmessage Expectedmessage.
+     * @param string $case Case.
+     */
     private function assert_invalid_upload(
         \stdClass $activity,
         \cm_info $cm,
@@ -334,6 +347,8 @@ final class media_service_test extends \advanced_testcase {
     }
 
     /**
+     * Creates activity.
+     *
      * @return array{\stdClass, \cm_info, \context_module}
      */
     private function create_activity(): array {
@@ -381,10 +396,22 @@ final class media_service_test extends \advanced_testcase {
         ];
     }
 
+    /**
+     * Returns data url.
+     *
+     * @param string $mimetype Mimetype.
+     * @param string $payload Payload.
+     * @return string
+     */
     private static function data_url(string $mimetype, string $payload): string {
         return 'data:' . $mimetype . ';base64,' . base64_encode($payload);
     }
 
+    /**
+     * Returns valid png.
+     *
+     * @return string
+     */
     private static function valid_png(): string {
         $decoded = base64_decode(
             'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
@@ -396,6 +423,11 @@ final class media_service_test extends \advanced_testcase {
         return $decoded;
     }
 
+    /**
+     * Returns valid wav.
+     *
+     * @return string
+     */
     private static function valid_wav(): string {
         return 'RIFF'
             . pack('V', 37)

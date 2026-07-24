@@ -28,6 +28,12 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class activity_deletion_service {
+    /**
+     * Deletes owned state.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param \context_module $context Moodle module context.
+     */
     public function delete_owned_state(int $scaffoldid, \context_module $context): void {
         (new grade_publication_repository())->delete_for_activity($scaffoldid);
         (new assessment_state_repository())->delete_for_activity($scaffoldid);

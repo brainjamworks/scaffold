@@ -204,6 +204,12 @@ final class grade_item_publisher_test extends \advanced_testcase {
         }
     }
 
+    /**
+     * Returns target.
+     *
+     * @param bool $isgraded Isgraded.
+     * @return array
+     */
     private function target(bool $isgraded): array {
         return [
             'schemaVersion' => 1,
@@ -229,12 +235,24 @@ final class grade_item_publisher_test extends \advanced_testcase {
         ];
     }
 
+    /**
+     * Grades item.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @return \grade_item
+     */
     private function grade_item(\stdClass $scaffold): \grade_item {
         $item = $this->find_grade_item($scaffold);
         $this->assertInstanceOf(\grade_item::class, $item);
         return $item;
     }
 
+    /**
+     * Finds grade item.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @return \grade_item|false
+     */
     private function find_grade_item(\stdClass $scaffold): \grade_item|false {
         $items = \grade_item::fetch_all([
             'courseid' => $scaffold->course,

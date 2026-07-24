@@ -39,6 +39,7 @@ defined('MOODLE_INTERNAL') || die();
  * Records quiz expiry persistence calls for tests.
  */
 final class quiz_expiry_tracking_repository extends assessment_state_repository {
+    /** @var bool Whether test mutation tracking is active. */
     public bool $mutationactive = false;
 
     #[\Override]
@@ -336,6 +337,11 @@ final class quiz_expiry_test extends \advanced_testcase {
         );
     }
 
+    /**
+     * Creates fixture.
+     *
+     * @return array
+     */
     private function create_fixture(): array {
         global $CFG, $DB;
 
@@ -395,6 +401,12 @@ final class quiz_expiry_test extends \advanced_testcase {
         return [$scaffold, get_fast_modinfo($course)->get_cm($cmid), $user, $course];
     }
 
+    /**
+     * Returns target.
+     *
+     * @param string $targetid Assessment target ID.
+     * @return array
+     */
     private static function target(string $targetid): array {
         return [
             'schemaVersion' => 1,
@@ -420,6 +432,14 @@ final class quiz_expiry_test extends \advanced_testcase {
         ];
     }
 
+    /**
+     * Returns group.
+     *
+     * @param string $groupid Assessment group ID.
+     * @param bool $isgraded Isgraded.
+     * @param string $reviewtiming Reviewtiming.
+     * @return array
+     */
     private static function group(
         string $groupid,
         bool $isgraded,
@@ -441,6 +461,14 @@ final class quiz_expiry_test extends \advanced_testcase {
         ];
     }
 
+    /**
+     * Returns attempt.
+     *
+     * @param string $attemptid Quiz attempt ID.
+     * @param string $expiresat Expiresat.
+     * @param string $currenttargetid Currenttargetid.
+     * @return \stdClass
+     */
     private static function attempt(string $attemptid, string $expiresat, string $currenttargetid): \stdClass {
         return (object) [
             'attemptId' => $attemptid,

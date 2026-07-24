@@ -28,6 +28,15 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class assessment_grade_projector {
+    /**
+     * Builds the requested projection.
+     *
+     * @param array $targets Targets.
+     * @param array $groups Groups.
+     * @param \stdClass $snapshot Canonical assessment snapshot.
+     * @param string $changedat State change timestamp.
+     * @return \stdClass
+     */
     public static function build(
         array $targets,
         array $groups,
@@ -103,6 +112,13 @@ class assessment_grade_projector {
         return $projection;
     }
 
+    /**
+     * Converts to raw grade.
+     *
+     * @param \stdClass $projection Projection.
+     * @param mixed $maximum Maximum.
+     * @return float|null
+     */
     public static function to_raw_grade(\stdClass $projection, mixed $maximum): ?float {
         json_schema_validator::validate_plugin_definition(
             'AssessmentGradeProjection',
@@ -125,6 +141,14 @@ class assessment_grade_projector {
         return (float) $projection->normalizedScore * $numericmaximum;
     }
 
+    /**
+     * Converts to moodle grade record.
+     *
+     * @param \stdClass $projection Projection.
+     * @param mixed $maximum Maximum.
+     * @param int $userid User ID.
+     * @return array|null
+     */
     public static function to_moodle_grade_record(
         \stdClass $projection,
         mixed $maximum,
@@ -143,17 +167,36 @@ class assessment_grade_projector {
         ];
     }
 
+    /**
+     * Returns target points.
+     *
+     * @param array $target Target.
+     * @return float
+     */
     private static function target_points(array $target): float {
         $settings = is_array($target['settings'] ?? null) ? $target['settings'] : [];
         $points = $settings['points'] ?? 1;
         return is_numeric($points) ? max(0.0, (float) $points) : 1.0;
     }
 
+    /**
+     * Checks whether target is graded.
+     *
+     * @param array $target Target.
+     * @return bool
+     */
     private static function target_is_graded(array $target): bool {
         $settings = is_array($target['settings'] ?? null) ? $target['settings'] : [];
         return array_key_exists('isGraded', $settings) ? $settings['isGraded'] === true : true;
     }
 
+    /**
+     * Converts target contributes to score.
+     *
+     * @param array $target Target.
+     * @param array|null $grouppolicy Grouppolicy.
+     * @return bool
+     */
     private static function target_contributes_to_score(array $target, ?array $grouppolicy): bool {
         if (!self::target_is_graded($target)) {
             return false;
@@ -161,6 +204,12 @@ class assessment_grade_projector {
         return $grouppolicy === null || $grouppolicy['hasgradedgroup'];
     }
 
+    /**
+     * Returns authoritative problem result.
+     *
+     * @param mixed $problem Problem.
+     * @return \stdClass|null
+     */
     private static function authoritative_problem_result(mixed $problem): ?\stdClass {
         if (!($problem instanceof \stdClass)) {
             return null;
@@ -171,6 +220,14 @@ class assessment_grade_projector {
         return self::authoritative_stored_result($result);
     }
 
+    /**
+     * Returns authoritative quiz result.
+     *
+     * @param \stdClass $quizzes Quizzes.
+     * @param string $groupid Assessment group ID.
+     * @param string $targetid Assessment target ID.
+     * @return \stdClass|null
+     */
     private static function authoritative_quiz_result(
         \stdClass $quizzes,
         string $groupid,
@@ -188,6 +245,12 @@ class assessment_grade_projector {
         return self::authoritative_stored_result($result);
     }
 
+    /**
+     * Returns authoritative stored result.
+     *
+     * @param mixed $result Result.
+     * @return \stdClass|null
+     */
     private static function authoritative_stored_result(mixed $result): ?\stdClass {
         if (!($result instanceof \stdClass)
             || !is_numeric($result->score ?? null)
@@ -197,6 +260,13 @@ class assessment_grade_projector {
         return $result;
     }
 
+    /**
+     * Checks whether authoritative quiz result.
+     *
+     * @param array $groups Groups.
+     * @param \stdClass $quizzes Quizzes.
+     * @return bool
+     */
     private static function has_authoritative_quiz_result(array $groups, \stdClass $quizzes): bool {
         foreach ($groups as $group) {
             if (($group['kind'] ?? null) !== 'quiz') {
@@ -218,6 +288,14 @@ class assessment_grade_projector {
         return false;
     }
 
+    /**
+     * Checks whether all standalone targets are terminal.
+     *
+     * @param array $targets Targets.
+     * @param array $groupedtargetids Groupedtargetids.
+     * @param \stdClass $problems Problems.
+     * @return bool
+     */
     private static function standalone_targets_are_terminal(
         array $targets,
         array $groupedtargetids,
@@ -236,6 +314,13 @@ class assessment_grade_projector {
         return true;
     }
 
+    /**
+     * Checks whether all quiz attempts are terminal.
+     *
+     * @param array $groups Groups.
+     * @param \stdClass $quizzes Quizzes.
+     * @return bool
+     */
     private static function quiz_attempts_are_terminal(array $groups, \stdClass $quizzes): bool {
         foreach ($groups as $group) {
             if (($group['kind'] ?? null) !== 'quiz') {
@@ -251,6 +336,12 @@ class assessment_grade_projector {
         return true;
     }
 
+    /**
+     * Returns quiz group policy by target ID.
+     *
+     * @param array $groups Groups.
+     * @return array
+     */
     private static function quiz_group_policy_by_target_id(array $groups): array {
         $ownership = assessment_group_validator::quiz_group_id_by_target_id($groups);
         $groupsbyid = [];

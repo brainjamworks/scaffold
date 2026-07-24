@@ -28,6 +28,9 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class media_service {
+    /**
+     * MEDIA UPLOAD TYPES.
+     */
     private const MEDIA_UPLOAD_TYPES = [
         'image',
         'audio',
@@ -40,6 +43,9 @@ class media_service {
         'text',
         'other',
     ];
+    /**
+     * MEDIA UPLOAD MAX BYTES.
+     */
     private const MEDIA_UPLOAD_MAX_BYTES = [
         'image' => 10485760,
         'audio' => 52428800,
@@ -52,6 +58,9 @@ class media_service {
         'text' => 2097152,
         'other' => 10485760,
     ];
+    /**
+     * MEDIA KIND GROUPS.
+     */
     private const MEDIA_KIND_GROUPS = [
         'media' => ['image', 'audio', 'video'],
         'documents' => [
@@ -64,23 +73,35 @@ class media_service {
             'other',
         ],
     ];
+    /**
+     * WORD MIME TYPES.
+     */
     private const WORD_MIME_TYPES = [
         'application/msword',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'application/vnd.oasis.opendocument.text',
         'application/rtf',
     ];
+    /**
+     * SPREADSHEET MIME TYPES.
+     */
     private const SPREADSHEET_MIME_TYPES = [
         'application/vnd.ms-excel',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'application/vnd.oasis.opendocument.spreadsheet',
         'text/csv',
     ];
+    /**
+     * PRESENTATION MIME TYPES.
+     */
     private const PRESENTATION_MIME_TYPES = [
         'application/vnd.ms-powerpoint',
         'application/vnd.openxmlformats-officedocument.presentationml.presentation',
         'application/vnd.oasis.opendocument.presentation',
     ];
+    /**
+     * ARCHIVE MIME TYPES.
+     */
     private const ARCHIVE_MIME_TYPES = [
         'application/zip',
         'application/x-zip-compressed',
@@ -89,11 +110,29 @@ class media_service {
         'application/gzip',
         'application/x-tar',
     ];
+    /**
+     * WORD EXTENSIONS.
+     */
     private const WORD_EXTENSIONS = ['doc', 'docx', 'odt', 'rtf'];
+    /**
+     * SPREADSHEET EXTENSIONS.
+     */
     private const SPREADSHEET_EXTENSIONS = ['csv', 'ods', 'xls', 'xlsx'];
+    /**
+     * PRESENTATION EXTENSIONS.
+     */
     private const PRESENTATION_EXTENSIONS = ['odp', 'ppt', 'pptx'];
+    /**
+     * ARCHIVE EXTENSIONS.
+     */
     private const ARCHIVE_EXTENSIONS = ['7z', 'gz', 'rar', 'tar', 'tgz', 'zip'];
+    /**
+     * TEXT EXTENSIONS.
+     */
     private const TEXT_EXTENSIONS = ['md', 'txt'];
+    /**
+     * IMAGE MIME TYPES.
+     */
     private const IMAGE_MIME_TYPES = [
         'image/avif',
         'image/gif',
@@ -101,6 +140,9 @@ class media_service {
         'image/png',
         'image/webp',
     ];
+    /**
+     * AUDIO MIME TYPES.
+     */
     private const AUDIO_MIME_TYPES = [
         'audio/aac',
         'audio/flac',
@@ -114,6 +156,9 @@ class media_service {
         'audio/x-m4a',
         'audio/x-wav',
     ];
+    /**
+     * VIDEO MIME TYPES.
+     */
     private const VIDEO_MIME_TYPES = [
         'video/mp4',
         'video/ogg',
@@ -121,6 +166,18 @@ class media_service {
         'video/webm',
     ];
 
+    /**
+     * Uploads media.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @param \cm_info|\core_course\cm_info $cm Moodle course module.
+     * @param \context_module $context Moodle module context.
+     * @param string $mediatype Mediatype.
+     * @param string $filename Filename.
+     * @param string $contenttype Contenttype.
+     * @param string $dataurl Dataurl.
+     * @return array
+     */
     public static function upload_media(
         \stdClass $scaffold,
         \cm_info|\core_course\cm_info $cm,
@@ -166,6 +223,15 @@ class media_service {
         ];
     }
 
+    /**
+     * Lists media.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @param \context_module $context Moodle module context.
+     * @param string|null $kind Kind.
+     * @param string|null $mediatype Mediatype.
+     * @return array
+     */
     public static function list_media(
         \stdClass $scaffold,
         \context_module $context,
@@ -219,6 +285,14 @@ class media_service {
         return $items;
     }
 
+    /**
+     * Resolves media.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @param \context_module $context Moodle module context.
+     * @param string $mediaid Mediaid.
+     * @return array
+     */
     public static function resolve_media(\stdClass $scaffold, \context_module $context, string $mediaid): array {
         $filename = trim($mediaid);
         if ($filename === '') {
@@ -237,6 +311,12 @@ class media_service {
         ];
     }
 
+    /**
+     * Returns allowed mime types for media.
+     *
+     * @param string $mediatype Mediatype.
+     * @return array
+     */
     private static function allowed_mime_types_for_media(string $mediatype): array {
         return match ($mediatype) {
             'image' => self::IMAGE_MIME_TYPES,
@@ -252,6 +332,12 @@ class media_service {
         };
     }
 
+    /**
+     * Returns allowed extensions for media.
+     *
+     * @param string $mediatype Mediatype.
+     * @return array
+     */
     private static function allowed_extensions_for_media(string $mediatype): array {
         return match ($mediatype) {
             'image' => ['avif', 'gif', 'jpeg', 'jpg', 'png', 'webp'],
@@ -267,12 +353,27 @@ class media_service {
         };
     }
 
+    /**
+     * Validates requested media type.
+     *
+     * @param string $mediatype Mediatype.
+     */
     private static function validate_requested_media_type(string $mediatype): void {
         if (!in_array($mediatype, self::MEDIA_UPLOAD_TYPES, true) || $mediatype === 'other') {
             throw new \invalid_parameter_exception('mediatype is not supported');
         }
     }
 
+    /**
+     * Validates media upload.
+     *
+     * @param string $mediatype Mediatype.
+     * @param string $filename Filename.
+     * @param string $clientmimetype Clientmimetype.
+     * @param string $dataurlmimetype Dataurlmimetype.
+     * @param string $payload Payload.
+     * @return string
+     */
     private static function validate_media_upload(
         string $mediatype,
         string $filename,
@@ -317,6 +418,12 @@ class media_service {
         return $detectedmimetype;
     }
 
+    /**
+     * Detects mime type.
+     *
+     * @param string $payload Payload.
+     * @return string
+     */
     private static function detect_mime_type(string $payload): string {
         if (!class_exists(\finfo::class)) {
             throw new \invalid_parameter_exception('file type could not be verified');
@@ -336,6 +443,12 @@ class media_service {
         return self::normalize_mime_type($detected);
     }
 
+    /**
+     * Normalises mime type.
+     *
+     * @param string $mimetype Mimetype.
+     * @return string
+     */
     private static function normalize_mime_type(string $mimetype): string {
         $normalized = strtolower(trim(explode(';', $mimetype, 2)[0]));
 
@@ -350,6 +463,12 @@ class media_service {
         };
     }
 
+    /**
+     * Returns extension for filename.
+     *
+     * @param string $filename Filename.
+     * @return string
+     */
     private static function extension_for_filename(string $filename): string {
         $dot = strrpos($filename, '.');
         return ($dot !== false && $dot < strlen($filename) - 1)
@@ -357,6 +476,13 @@ class media_service {
             : '';
     }
 
+    /**
+     * Infers media upload type.
+     *
+     * @param string $filename Filename.
+     * @param string $mimetype Mimetype.
+     * @return string
+     */
     private static function infer_media_upload_type(string $filename, string $mimetype): string {
         $mime = strtolower($mimetype);
         $extension = self::extension_for_filename($filename);
@@ -391,6 +517,12 @@ class media_service {
         return 'other';
     }
 
+    /**
+     * Parses data url.
+     *
+     * @param string $dataurl Dataurl.
+     * @return array
+     */
     private static function parse_data_url(string $dataurl): array {
         if (!str_contains($dataurl, ',')) {
             throw new \invalid_parameter_exception('dataurl must be a data URL');
@@ -411,6 +543,13 @@ class media_service {
         return [$mimetype, $encoded];
     }
 
+    /**
+     * Decodes data url.
+     *
+     * @param string $mediatype Mediatype.
+     * @param string $encoded Encoded.
+     * @return string
+     */
     private static function decode_data_url(string $mediatype, string $encoded): string {
         $limit = self::MEDIA_UPLOAD_MAX_BYTES[$mediatype] ?? 0;
         $maxencodedbytes = 4 * intdiv($limit + 2, 3);
@@ -426,6 +565,14 @@ class media_service {
         return $decoded;
     }
 
+    /**
+     * Returns media url.
+     *
+     * @param \context_module $context Moodle module context.
+     * @param \stdClass $scaffold Scaffold.
+     * @param string $filename Filename.
+     * @return string
+     */
     private static function media_url(\context_module $context, \stdClass $scaffold, string $filename): string {
         return \moodle_url::make_pluginfile_url(
             $context->id,
@@ -438,6 +585,12 @@ class media_service {
         )->out(false);
     }
 
+    /**
+     * Builds a safe filename.
+     *
+     * @param string $filename Filename.
+     * @return string
+     */
     private static function safe_filename(string $filename): string {
         $basename = basename(trim($filename));
         if ($basename === '' || $basename === '.' || $basename === DIRECTORY_SEPARATOR) {

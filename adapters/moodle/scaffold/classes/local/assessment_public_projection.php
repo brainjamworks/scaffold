@@ -31,6 +31,13 @@ require_once(__DIR__ . '/assessment_quiz.php');
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class assessment_public_projection {
+    /**
+     * Returns snapshot.
+     *
+     * @param \stdClass $snapshot Canonical assessment snapshot.
+     * @param array $projection Projection.
+     * @return \stdClass
+     */
     public static function snapshot(\stdClass $snapshot, array $projection): \stdClass {
         $publicproblems = [];
         $publicquizzes = [];
@@ -83,6 +90,13 @@ final class assessment_public_projection {
         ];
     }
 
+    /**
+     * Returns problem.
+     *
+     * @param \stdClass $problem Problem.
+     * @param array $target Target.
+     * @return \stdClass
+     */
     public static function problem(\stdClass $problem, array $target): \stdClass {
         $publicproblem = self::copy_object($problem);
         $settings = is_array($target['settings'] ?? null) ? $target['settings'] : [];
@@ -96,6 +110,12 @@ final class assessment_public_projection {
         return $publicproblem;
     }
 
+    /**
+     * Copies object.
+     *
+     * @param \stdClass $value Value.
+     * @return \stdClass
+     */
     private static function copy_object(\stdClass $value): \stdClass {
         return json_decode(
             json_encode($value, JSON_THROW_ON_ERROR),

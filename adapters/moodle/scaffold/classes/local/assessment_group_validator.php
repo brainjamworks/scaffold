@@ -28,6 +28,13 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class assessment_group_validator {
+    /**
+     * Validates groups.
+     *
+     * @param array $groups Groups.
+     * @param array $targets Targets.
+     * @return array
+     */
     public static function validate_groups(array $groups, array $targets): array {
         if (!array_is_list($groups)) {
             throw new \invalid_parameter_exception('assessmentgroupsjson must be a JSON array');
@@ -69,6 +76,12 @@ class assessment_group_validator {
         return $groups;
     }
 
+    /**
+     * Returns quiz group ID by target ID.
+     *
+     * @param array $groups Groups.
+     * @return array
+     */
     public static function quiz_group_id_by_target_id(array $groups): array {
         $ownership = [];
         foreach ($groups as $group) {
@@ -94,6 +107,13 @@ class assessment_group_validator {
         return $ownership;
     }
 
+    /**
+     * Returns object property.
+     *
+     * @param mixed $value Value.
+     * @param string $name Name.
+     * @return mixed
+     */
     private static function object_property(mixed $value, string $name): mixed {
         if ($value instanceof \stdClass) {
             return $value->{$name} ?? null;

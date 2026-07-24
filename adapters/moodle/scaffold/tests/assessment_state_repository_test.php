@@ -379,6 +379,11 @@ final class assessment_state_repository_test extends \advanced_testcase {
         ));
     }
 
+    /**
+     * Creates activity.
+     *
+     * @return array
+     */
     private function create_activity(): array {
         global $CFG, $DB;
 
@@ -418,6 +423,11 @@ final class assessment_state_repository_test extends \advanced_testcase {
         return [(int) $scaffoldid, (int) $cmid];
     }
 
+    /**
+     * Returns problem.
+     *
+     * @return \stdClass
+     */
     private static function problem(): \stdClass {
         return (object) [
             'response' => null,
@@ -429,6 +439,13 @@ final class assessment_state_repository_test extends \advanced_testcase {
         ];
     }
 
+    /**
+     * Returns attempt.
+     *
+     * @param string $attemptid Quiz attempt ID.
+     * @param string $expiresat Expiresat.
+     * @return \stdClass
+     */
     private static function attempt(string $attemptid, string $expiresat): \stdClass {
         return (object) [
             'attemptId' => $attemptid,

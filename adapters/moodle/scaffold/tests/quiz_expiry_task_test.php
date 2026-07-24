@@ -36,8 +36,16 @@ defined('MOODLE_INTERNAL') || die();
  * Exposes controlled quiz expiry task dependencies for tests.
  */
 final class quiz_expiry_task_under_test extends \mod_scaffold\task\reconcile_quiz_expiry {
+    /**
+     * Creates a new quiz expiry task under test instance.
+     *
+     * @param quiz_expiry_reconciler $reconciler Reconciler.
+     * @param int $limit Maximum records processed.
+     */
     public function __construct(
+        /** @var quiz_expiry_reconciler Reconciler. */
         private readonly quiz_expiry_reconciler $reconciler,
+        /** @var int Maximum records processed. */
         private readonly int $limit,
     ) {
     }
@@ -57,6 +65,13 @@ final class quiz_expiry_task_under_test extends \mod_scaffold\task\reconcile_qui
  * Simulates an unavailable scheduled task lock.
  */
 final class quiz_expiry_unavailable_lock_factory {
+    /**
+     * Returns lock.
+     *
+     * @param string $resource Resource.
+     * @param int $timeout Timeout.
+     * @return bool
+     */
     public function get_lock(string $resource, int $timeout): bool {
         return false;
     }
@@ -69,6 +84,9 @@ final class quiz_expiry_unavailable_lock_factory {
  * @covers \mod_scaffold\local\quiz_expiry_reconciler
  */
 final class quiz_expiry_task_test extends \advanced_testcase {
+    /**
+     * NOW.
+     */
     private const NOW = '2026-07-18T10:00:00.000000Z';
 
     public function test_task_processes_only_a_bounded_due_batch_and_applies_effects_once(): void {
@@ -303,6 +321,11 @@ final class quiz_expiry_task_test extends \advanced_testcase {
         $this->assertSame('expired', $this->quiz_status($scaffold, $user));
     }
 
+    /**
+     * Creates fixture.
+     *
+     * @return array
+     */
     private function create_fixture(): array {
         global $CFG, $DB;
 
@@ -352,6 +375,16 @@ final class quiz_expiry_task_test extends \advanced_testcase {
         return [$scaffold, get_fast_modinfo($course)->get_cm($cmid)];
     }
 
+    /**
+     * Creates state.
+     *
+     * @param assessment_state_repository $repository Persistence repository.
+     * @param \stdClass $scaffold Scaffold.
+     * @param int $userid User ID.
+     * @param string $artifactid Scaffold artifact ID.
+     * @param string $attemptid Quiz attempt ID.
+     * @param string $expiresat Expiresat.
+     */
     private function create_state(
         assessment_state_repository $repository,
         \stdClass $scaffold,
@@ -371,6 +404,15 @@ final class quiz_expiry_task_test extends \advanced_testcase {
         );
     }
 
+    /**
+     * Inserts candidate.
+     *
+     * @param int $scaffoldid Scaffold activity ID.
+     * @param int $userid User ID.
+     * @param string $artifactid Scaffold artifact ID.
+     * @param \stdClass|null $attempt Attempt.
+     * @return int
+     */
     private function insert_candidate(
         int $scaffoldid,
         int $userid,
@@ -398,6 +440,13 @@ final class quiz_expiry_task_test extends \advanced_testcase {
         ]);
     }
 
+    /**
+     * Returns quiz status.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @param \stdClass $user User.
+     * @return string
+     */
     private function quiz_status(\stdClass $scaffold, \stdClass $user): string {
         global $DB;
 
@@ -410,6 +459,12 @@ final class quiz_expiry_task_test extends \advanced_testcase {
         return (string) $snapshot->quizzes->{'quiz-due-graded'}->status;
     }
 
+    /**
+     * Returns execute task.
+     *
+     * @param quiz_expiry_task_under_test $task Task.
+     * @return string
+     */
     private function execute_task(quiz_expiry_task_under_test $task): string {
         ob_start();
         try {
@@ -420,6 +475,12 @@ final class quiz_expiry_task_test extends \advanced_testcase {
         }
     }
 
+    /**
+     * Returns target.
+     *
+     * @param string $targetid Assessment target ID.
+     * @return array
+     */
     private static function target(string $targetid): array {
         return [
             'schemaVersion' => 1,
@@ -445,6 +506,12 @@ final class quiz_expiry_task_test extends \advanced_testcase {
         ];
     }
 
+    /**
+     * Returns group.
+     *
+     * @param string $groupid Assessment group ID.
+     * @return array
+     */
     private static function group(string $groupid): array {
         return [
             'schemaVersion' => 1,
@@ -462,6 +529,13 @@ final class quiz_expiry_task_test extends \advanced_testcase {
         ];
     }
 
+    /**
+     * Returns attempt.
+     *
+     * @param string $attemptid Quiz attempt ID.
+     * @param string $expiresat Expiresat.
+     * @return \stdClass
+     */
     private static function attempt(string $attemptid, string $expiresat): \stdClass {
         return (object) [
             'attemptId' => $attemptid,

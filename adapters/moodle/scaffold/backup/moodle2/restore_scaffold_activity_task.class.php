@@ -55,10 +55,18 @@ final class restore_scaffold_activity_task extends restore_activity_task {
         return [];
     }
 
+    /**
+     * Defines the course restore log rules.
+     *
+     * @return array
+     */
     public static function define_restore_log_rules_for_course(): array {
         return [];
     }
 
+    /**
+     * Rebuilds host projections after activity restore.
+     */
     public function after_restore(): void {
         \mod_scaffold\local\restore_identity_service::rebuild_host_projections(
             (int) $this->get_activityid(),
