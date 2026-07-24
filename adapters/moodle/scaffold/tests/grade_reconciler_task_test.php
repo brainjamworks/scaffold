@@ -16,10 +16,12 @@ final class grade_reconciler_task_under_test extends \mod_scaffold\task\reconcil
     public function __construct(private readonly grade_reconciler $reconciler, private readonly int $limit) {
     }
 
+    #[\Override]
     protected function create_reconciler(): grade_reconciler {
         return $this->reconciler;
     }
 
+    #[\Override]
     protected function batch_limit(): int {
         return $this->limit;
     }

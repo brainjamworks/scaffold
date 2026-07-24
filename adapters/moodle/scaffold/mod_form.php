@@ -10,6 +10,7 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->dirroot . '/course/moodleform_mod.php');
 
 class mod_scaffold_mod_form extends moodleform_mod {
+    #[\Override]
     public function definition(): void {
         $mform = $this->_form;
 
@@ -30,6 +31,7 @@ class mod_scaffold_mod_form extends moodleform_mod {
         $this->add_action_buttons();
     }
 
+    #[\Override]
     public function data_postprocessing($data): void {
         parent::data_postprocessing($data);
         if (!empty($data->completionunlocked)) {
@@ -40,6 +42,7 @@ class mod_scaffold_mod_form extends moodleform_mod {
         }
     }
 
+    #[\Override]
     public function add_completion_rules(): array {
         $suffix = $this->get_suffix();
         $field = 'completionactivitystatus' . $suffix;
@@ -53,6 +56,7 @@ class mod_scaffold_mod_form extends moodleform_mod {
         return [$field];
     }
 
+    #[\Override]
     public function completion_rule_enabled($data): bool {
         return !empty($data['completionactivitystatus' . $this->get_suffix()]);
     }

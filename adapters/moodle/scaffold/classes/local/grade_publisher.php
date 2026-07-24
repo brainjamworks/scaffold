@@ -25,8 +25,8 @@ class grade_publisher {
     private readonly \Closure $projectionloader;
 
     public function __construct(
-        $staterepository = null,
-        $publicationrepository = null,
+        ?object $staterepository = null,
+        ?object $publicationrepository = null,
         ?callable $activityloader = null,
         ?callable $gradewriter = null,
         ?callable $conflictchecker = null,

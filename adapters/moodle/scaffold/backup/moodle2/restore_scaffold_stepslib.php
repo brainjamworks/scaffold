@@ -11,6 +11,7 @@ use mod_scaffold\local\artifact_identity;
 use mod_scaffold\local\restore_identity_service;
 
 final class restore_scaffold_activity_structure_step extends restore_activity_structure_step {
+    #[\Override]
     protected function define_structure(): array {
         $paths = [new restore_path_element('scaffold', '/activity/scaffold')];
         if ($this->get_setting_value('userinfo')) {
@@ -26,7 +27,7 @@ final class restore_scaffold_activity_structure_step extends restore_activity_st
         return $this->prepare_activity_structure($paths);
     }
 
-    protected function process_scaffold($data): void {
+    protected function process_scaffold(mixed $data): void {
         global $DB;
 
         $activity = (object) $data;
@@ -48,7 +49,7 @@ final class restore_scaffold_activity_structure_step extends restore_activity_st
         $this->apply_activity_instance($newitemid);
     }
 
-    protected function process_scaffold_assessment_state($data): void {
+    protected function process_scaffold_assessment_state(mixed $data): void {
         global $DB;
 
         $state = (object) $data;
@@ -77,7 +78,7 @@ final class restore_scaffold_activity_structure_step extends restore_activity_st
         $DB->insert_record('scaffold_assessment_state', $state);
     }
 
-    protected function process_scaffold_learner_activity($data): void {
+    protected function process_scaffold_learner_activity(mixed $data): void {
         global $DB;
 
         $state = (object) $data;
@@ -104,6 +105,7 @@ final class restore_scaffold_activity_structure_step extends restore_activity_st
         $DB->insert_record('scaffold_learner_activity', $state);
     }
 
+    #[\Override]
     protected function after_execute(): void {
         $this->add_related_files('mod_scaffold', 'intro', null);
         $this->add_related_files('mod_scaffold', 'media', 'scaffold');

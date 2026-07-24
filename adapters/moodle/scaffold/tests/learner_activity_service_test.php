@@ -50,8 +50,8 @@ final class learner_activity_service_test extends \advanced_testcase {
         $editscope = activity_access::require($activity->cmid, 'mod/scaffold:editcontent');
         $service = new learner_activity_service();
 
-        $this->assert_invalid_parameter(static fn() => $service->load($editscope));
-        $this->assert_invalid_parameter(static fn() => $service->save(
+        $this->assert_invalid_parameter(static fn(): array => $service->load($editscope));
+        $this->assert_invalid_parameter(static fn(): array => $service->save(
             $editscope,
             'moodle-cm-' . $activity->cmid,
             'checklist-1',
@@ -66,19 +66,19 @@ final class learner_activity_service_test extends \advanced_testcase {
         $scope = $this->learner_scope($course, $activity->cmid);
         $service = new learner_activity_service();
 
-        $this->assert_invalid_parameter(static fn() => $service->save(
+        $this->assert_invalid_parameter(static fn(): array => $service->save(
             $scope,
             'moodle-cm-999',
             'checklist-1',
             self::record_json('checklist'),
         ));
-        $this->assert_invalid_parameter(static fn() => $service->save(
+        $this->assert_invalid_parameter(static fn(): array => $service->save(
             $scope,
             'moodle-cm-' . $activity->cmid,
             'missing-block',
             self::record_json('checklist'),
         ));
-        $this->assert_invalid_parameter(static fn() => $service->save(
+        $this->assert_invalid_parameter(static fn(): array => $service->save(
             $scope,
             'moodle-cm-' . $activity->cmid,
             'checklist-1',

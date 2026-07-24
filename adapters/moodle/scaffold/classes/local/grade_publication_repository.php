@@ -16,7 +16,7 @@ class grade_publication_repository {
     private $database;
     private $clock;
 
-    public function __construct($database = null, ?callable $clock = null) {
+    public function __construct(?object $database = null, ?callable $clock = null) {
         if ($database === null) {
             global $DB;
             $database = $DB;

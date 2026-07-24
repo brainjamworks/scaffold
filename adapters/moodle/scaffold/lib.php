@@ -43,7 +43,7 @@ function scaffold_get_coursemodule_info(stdClass $coursemodule): cached_cm_info|
     return $info;
 }
 
-function mod_scaffold_get_completion_active_rule_descriptions($cm): array {
+function mod_scaffold_get_completion_active_rule_descriptions(\cm_info $cm): array {
     if ($cm->completion != COMPLETION_TRACKING_AUTOMATIC
         || empty($cm->customdata['customcompletionrules']['completionactivitystatus'])) {
         return [];
@@ -161,7 +161,7 @@ function scaffold_delete_instance(int $id): bool {
     return true;
 }
 
-function scaffold_grade_item_update(stdClass $scaffold, $grades = null): int {
+function scaffold_grade_item_update(stdClass $scaffold, mixed $grades = null): int {
     if ($grades === null) {
         $outcome = (new \mod_scaffold\local\grade_item_publisher())->publish($scaffold);
         return match ($outcome->status) {
@@ -175,7 +175,7 @@ function scaffold_grade_item_update(stdClass $scaffold, $grades = null): int {
     return scaffold_grade_item_apply($scaffold, $grades);
 }
 
-function scaffold_grade_item_apply(stdClass $scaffold, $grades = null): int {
+function scaffold_grade_item_apply(stdClass $scaffold, mixed $grades = null): int {
     global $CFG;
 
     require_once($CFG->libdir . '/gradelib.php');

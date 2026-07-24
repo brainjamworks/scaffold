@@ -14,10 +14,12 @@ defined('MOODLE_INTERNAL') || die();
 class reconcile_assessment_grades extends \core\task\scheduled_task {
     private const BATCH_LIMIT = 100;
 
+    #[\Override]
     public function get_name(): string {
         return get_string('taskreconcileassessmentgrades', 'scaffold');
     }
 
+    #[\Override]
     public function execute(): void {
         $outcome = $this->create_reconciler()->reconcile_due($this->batch_limit());
         mtrace(sprintf(

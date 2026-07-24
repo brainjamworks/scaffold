@@ -8,6 +8,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 final class backup_scaffold_activity_structure_step extends backup_activity_structure_step {
+    #[\Override]
     protected function define_structure() {
         $scaffold = new backup_nested_element('scaffold', ['id'], [
             'name',

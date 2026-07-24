@@ -25,9 +25,9 @@ class assessment_state_repository {
     private \Closure $definitionversionloader;
 
     public function __construct(
-        $database = null,
-        $lockfactory = null,
-        $publicationrepository = null,
+        ?object $database = null,
+        ?object $lockfactory = null,
+        ?object $publicationrepository = null,
         ?callable $definitionversionloader = null,
     ) {
         if ($database === null) {

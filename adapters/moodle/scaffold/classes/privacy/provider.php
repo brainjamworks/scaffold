@@ -24,6 +24,7 @@ final class provider implements
     \core_privacy\local\metadata\provider,
     \core_privacy\local\request\plugin\provider,
     \core_privacy\local\request\core_userlist_provider {
+    #[\Override]
     public static function get_metadata(collection $items): collection {
         $items->add_database_table(
             'scaffold_assessment_state',
@@ -69,6 +70,7 @@ final class provider implements
         return $items;
     }
 
+    #[\Override]
     public static function get_contexts_for_userid(int $userid): contextlist {
         $contextlist = new contextlist();
         (new assessment_state_repository())->add_contexts_for_user($contextlist, $userid);
@@ -77,6 +79,7 @@ final class provider implements
         return $contextlist;
     }
 
+    #[\Override]
     public static function get_users_in_context(userlist $userlist): void {
         $context = $userlist->get_context();
         if (!$context instanceof \context_module) {
@@ -93,6 +96,7 @@ final class provider implements
         (new grade_publication_repository())->add_users_for_activity($userlist, (int) $coursemodule->instance);
     }
 
+    #[\Override]
     public static function export_user_data(approved_contextlist $contextlist): void {
         if ($contextlist->count() === 0) {
             return;
@@ -158,6 +162,7 @@ final class provider implements
         }
     }
 
+    #[\Override]
     public static function delete_data_for_all_users_in_context(\context $context): void {
         $scaffoldid = self::scaffoldid_for_context($context);
         if ($scaffoldid === null) {
@@ -169,6 +174,7 @@ final class provider implements
         (new learner_activity_repository())->delete_for_activity($scaffoldid);
     }
 
+    #[\Override]
     public static function delete_data_for_user(approved_contextlist $contextlist): void {
         if ($contextlist->count() === 0) {
             return;
@@ -186,6 +192,7 @@ final class provider implements
         }
     }
 
+    #[\Override]
     public static function delete_data_for_users(approved_userlist $userlist): void {
         $scaffoldid = self::scaffoldid_for_context($userlist->get_context());
         $userids = array_map('intval', $userlist->get_userids());

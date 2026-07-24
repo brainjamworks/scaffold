@@ -14,10 +14,12 @@ defined('MOODLE_INTERNAL') || die();
 class reconcile_quiz_expiry extends \core\task\scheduled_task {
     private const BATCH_LIMIT = 100;
 
+    #[\Override]
     public function get_name(): string {
         return get_string('taskreconcilequizexpiry', 'scaffold');
     }
 
+    #[\Override]
     public function execute(): void {
         $outcome = $this->create_reconciler()->reconcile_due_batch($this->batch_limit());
         foreach ($outcome->events as $event) {

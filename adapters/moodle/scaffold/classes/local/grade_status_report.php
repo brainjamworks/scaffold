@@ -13,7 +13,10 @@ final class grade_status_report {
     private $repository;
     private $database;
 
-    public function __construct($repository = null, $database = null) {
+    public function __construct(
+        ?grade_publication_repository $repository = null,
+        ?object $database = null,
+    ) {
         if ($database === null) {
             global $DB;
             $database = $DB;

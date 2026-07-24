@@ -21,7 +21,7 @@ class learner_activity_repository {
     private $database;
     private $lockfactory;
 
-    public function __construct($database = null, $lockfactory = null) {
+    public function __construct(?object $database = null, ?object $lockfactory = null) {
         if ($database === null) {
             global $DB;
             $database = $DB;

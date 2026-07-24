@@ -15,6 +15,7 @@ use mod_scaffold\local\assessment_projection;
 class custom_completion extends activity_custom_completion {
     private const RULE_ACTIVITY_STATUS = 'completionactivitystatus';
 
+    #[\Override]
     public function get_state(string $rule): int {
         global $DB;
 
@@ -33,16 +34,19 @@ class custom_completion extends activity_custom_completion {
         return $status === 'completed' ? COMPLETION_COMPLETE : COMPLETION_INCOMPLETE;
     }
 
+    #[\Override]
     public static function get_defined_custom_rules(): array {
         return [self::RULE_ACTIVITY_STATUS];
     }
 
+    #[\Override]
     public function get_custom_rule_descriptions(): array {
         return [
             self::RULE_ACTIVITY_STATUS => get_string('completiondetail:activitystatus', 'scaffold'),
         ];
     }
 
+    #[\Override]
     public function get_sort_order(): array {
         return [
             'completionview',

@@ -18,9 +18,9 @@ final class grade_reconciler {
     private readonly \Closure $clock;
 
     public function __construct(
-        $repository = null,
-        $itempublisher = null,
-        $learnerpublisher = null,
+        ?object $repository = null,
+        ?object $itempublisher = null,
+        ?object $learnerpublisher = null,
         ?callable $activityloader = null,
         ?callable $clock = null,
     ) {

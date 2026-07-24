@@ -19,6 +19,7 @@ defined('MOODLE_INTERNAL') || die();
 final class quiz_expiry_tracking_repository extends assessment_state_repository {
     public bool $mutationactive = false;
 
+    #[\Override]
     public function mutate_state(
         int $scaffoldid,
         int $userid,
@@ -73,7 +74,11 @@ final class quiz_expiry_test extends \advanced_testcase {
                 $gradecalls[] = [$repository->mutationactive, (int) $activity->id, $userid, $artifactid];
                 return (object) ['status' => 'published'];
             },
-            static function(\stdClass $activity, $cm, int $userid) use ($repository, &$completioncalls): void {
+            static function(
+                \stdClass $activity,
+                \cm_info $cm,
+                int $userid,
+            ) use ($repository, &$completioncalls): void {
                 $completioncalls[] = [
                     $repository->mutationactive,
                     (int) $activity->id,
@@ -224,10 +229,10 @@ final class quiz_expiry_test extends \advanced_testcase {
         $outcome = $reconciler->reconcile_user($scaffold, (int) $user->id, $artifactid);
 
         $this->assertTrue($outcome->changed);
-        $this->assertSame(2, $outcome->stateRevision);
-        $this->assertSame(['quiz-due-graded', 'quiz-due-ungraded'], $outcome->expiredGroupIds);
-        $this->assertTrue($outcome->gradeRequired);
-        $this->assertTrue($outcome->completionRequired);
+        $this->assertSame(2, $outcome->staterevision);
+        $this->assertSame(['quiz-due-graded', 'quiz-due-ungraded'], $outcome->expiredgroupids);
+        $this->assertTrue($outcome->graderequired);
+        $this->assertTrue($outcome->completionrequired);
         $row = $DB->get_record('scaffold_assessment_state', [
             'scaffoldid' => $scaffold->id,
             'userid' => $user->id,
@@ -241,7 +246,7 @@ final class quiz_expiry_test extends \advanced_testcase {
         $before = serialize($row);
         $repeat = $reconciler->reconcile_user($scaffold, (int) $user->id, $artifactid);
         $this->assertFalse($repeat->changed);
-        $this->assertSame([], $repeat->expiredGroupIds);
+        $this->assertSame([], $repeat->expiredgroupids);
         $this->assertSame($before, serialize($DB->get_record(
             'scaffold_assessment_state',
             ['scaffoldid' => $scaffold->id, 'userid' => $user->id],

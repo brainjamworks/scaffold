@@ -45,7 +45,7 @@ final class assessment_service {
         $this->completionupdater = \Closure::fromCallable(
             $completionupdater ?? static function(
                 \stdClass $scaffold,
-                $cm,
+                \cm_info $cm,
                 int $userid,
             ): void {
                 global $CFG;
@@ -208,7 +208,7 @@ final class assessment_service {
         return $this->reveal_quiz_for($scope->instance, $scope->cm, $scope->actorid, $attemptid, $groupid);
     }
 
-    private function start_quiz_for(\stdClass $scaffold, $cm, int $userid, string $groupid): array {
+    private function start_quiz_for(\stdClass $scaffold, \cm_info $cm, int $userid, string $groupid): array {
         $this->reconcile_expiry($scaffold, $cm, $userid);
         $projection = assessment_projection::for_activity($scaffold);
         $attempt = null;
@@ -238,7 +238,7 @@ final class assessment_service {
 
     private function submit_quiz_question_for(
         \stdClass $scaffold,
-        $cm,
+        \cm_info $cm,
         int $userid,
         string $attemptid,
         string $groupid,
@@ -287,7 +287,7 @@ final class assessment_service {
 
     private function finish_quiz_for(
         \stdClass $scaffold,
-        $cm,
+        \cm_info $cm,
         int $userid,
         string $attemptid,
         string $groupid,
@@ -330,7 +330,7 @@ final class assessment_service {
 
     private function reveal_quiz_for(
         \stdClass $scaffold,
-        $cm,
+        \cm_info $cm,
         int $userid,
         string $attemptid,
         string $groupid,
@@ -356,7 +356,7 @@ final class assessment_service {
 
     private function mutate_quiz(
         \stdClass $scaffold,
-        $cm,
+        \cm_info $cm,
         int $userid,
         array $projection,
         string $groupid,
@@ -436,7 +436,7 @@ final class assessment_service {
 
     private function apply_attempt(
         \stdClass $scaffold,
-        $cm,
+        \cm_info $cm,
         int $userid,
         string $problemid,
         string $targetid,
@@ -554,7 +554,7 @@ final class assessment_service {
 
     private function reveal_hint_for(
         \stdClass $scaffold,
-        $cm,
+        \cm_info $cm,
         int $userid,
         string $problemid,
         string $targetid,
@@ -610,7 +610,7 @@ final class assessment_service {
         ];
     }
 
-    private function reconcile_expiry(\stdClass $scaffold, $cm, int $userid): void {
+    private function reconcile_expiry(\stdClass $scaffold, \cm_info $cm, int $userid): void {
         ($this->quizexpiryreconciler ?? new quiz_expiry_reconciler())->reconcile_user_and_apply_effects(
             $scaffold,
             $cm,
@@ -621,7 +621,7 @@ final class assessment_service {
 
     private function after_commit(
         \stdClass $scaffold,
-        $cm,
+        \cm_info $cm,
         int $userid,
         string $artifactid,
         bool $changed,

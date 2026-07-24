@@ -20,10 +20,12 @@ final class quiz_expiry_task_under_test extends \mod_scaffold\task\reconcile_qui
     ) {
     }
 
+    #[\Override]
     protected function create_reconciler(): quiz_expiry_reconciler {
         return $this->reconciler;
     }
 
+    #[\Override]
     protected function batch_limit(): int {
         return $this->limit;
     }
