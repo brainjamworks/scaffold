@@ -14,6 +14,24 @@ REPOSITORY_ROOT = Path(__file__).parents[3]
 
 
 class MoodlePackageTest(unittest.TestCase):
+    def test_plugin_english_language_strings_are_alphabetically_sorted(self):
+        language_file = (
+            REPOSITORY_ROOT
+            / "adapters"
+            / "moodle"
+            / "scaffold"
+            / "lang"
+            / "en"
+            / "scaffold.php"
+        )
+        string_keys = re.findall(
+            r"(?m)^\$string\['([^']+)'\]\s*=",
+            language_file.read_text(encoding="utf8"),
+        )
+
+        self.assertTrue(string_keys)
+        self.assertEqual(string_keys, sorted(string_keys))
+
     def test_plugin_php_class_files_follow_moodle_file_conventions(self):
         plugin_root = REPOSITORY_ROOT / "adapters" / "moodle" / "scaffold"
         named_class_pattern = re.compile(
