@@ -18,8 +18,8 @@ Before the first formal release:
 3. Choose the first Scaffold version and align the root product, Moodle, and
    XBlock metadata.
 4. Add the adapter changelogs and `Unreleased` sections required by this policy.
-5. Implement both adapter package commands, confirm the XBlock distribution
-   name is available on PyPI, and configure trusted publishing.
+5. Validate both adapter package commands, confirm the XBlock distribution name
+   is available on PyPI, and configure trusted publishing.
 6. Complete Moodle Marketplace provider onboarding and prepare the first
    `mod_scaffold` listing.
 7. Implement the tag-driven draft release workflow described below.
@@ -188,6 +188,9 @@ The package process must:
 4. Produce `mod_scaffold-X.Y.Z.zip` and a SHA-256 checksum.
 5. Inspect and smoke-install that exact ZIP rather than a second local copy.
 
+Local package outputs are written under `dist/release/X.Y.Z/`, which is ignored
+by Git.
+
 GitHub's automatically generated source archives are not Moodle packages and
 must not be presented as installable downloads.
 
@@ -204,9 +207,9 @@ The intended package interface is:
 vp run @scaffold/adapter-moodle#package
 ```
 
-This command and its exact-archive installation checks must be implemented
-before the first formal release. Until then, Moodle packaging is a release
-blocker, not a manual fallback.
+The command performs deterministic archive and extraction checks locally. The
+release workflow must additionally install that exact ZIP against the supported
+Moodle matrix before publication.
 
 ## XBlock Package Contract
 
@@ -235,15 +238,18 @@ The intended package interface is:
 vp run @scaffold/adapter-xblock#package
 ```
 
+Local package outputs are written under `dist/release/X.Y.Z/`, which is ignored
+by Git.
+
 GitHub's automatically generated source archives are not Python distribution
 packages and must not be presented as XBlock downloads. Attach the tested wheel
 and source distribution to the GitHub Release and publish those exact files to
 PyPI as `scaffold-xblock`; do not rebuild them between destinations.
 
-The package command, exact-distribution installation checks, PyPI name
-availability, and trusted-publishing configuration must be in place before the
-first formal release. Until then, XBlock packaging and publication are release
-blockers, not manual fallbacks.
+The package command performs exact-distribution checks and a clean entry-point
+load locally. The release workflow must additionally test that exact wheel on
+the supported Open edX matrix. PyPI name availability and trusted-publishing
+configuration remain first-release blockers.
 
 ## Public Installation Documentation
 
@@ -304,10 +310,12 @@ an immutable tagged source commit, and PyPI trusted publishing rather than a
 long-lived upload token. It must never publish from an uncommitted working tree,
 a moving branch reference, or a second unverified artifact build.
 
-The tag-driven draft GitHub Release workflow is not implemented yet. It is a
-release blocker alongside both adapter package commands and the PyPI publishing
-configuration. Marketplace provider and submission readiness are also required
-before starting the first formal release.
+The tag-driven draft GitHub Release workflow and PyPI publishing configuration
+are not implemented yet. The adapter package commands are implemented, but
+their release preflights will remain intentionally blocked until the first
+version and dated changelog entries are aligned. Marketplace provider and
+submission readiness are also required before starting the first formal
+release.
 
 ## Failed and Superseded Releases
 

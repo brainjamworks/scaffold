@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools==83.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scaffold-xblock"
+version = "0.0.0"
+description = "Open edX XBlock adapter for Scaffold."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "AGPL-3.0-only"
+dependencies = ["XBlock>=6,<7"]
+
+[project.urls]
+Homepage = "https://scaffold.ac"
+Repository = "https://github.com/brainjamworks/scaffold"
+Issues = "https://github.com/brainjamworks/scaffold/issues"
+
+[project.entry-points."xblock.v1"]
+scaffold = "scaffold_xblock:ScaffoldXBlock"
+
+[tool.setuptools]
+include-package-data = true
+packages = ["scaffold_xblock", "scaffold_xblock.validation"]
+
+[tool.setuptools.package-data]
+scaffold_xblock = [
+  "static/*.js",
+  "static/*.css",
+  "public/*.js",
+  "public/*.css",
+  "public/*.html",
+  "public/assets/*",
+  "validation/fixtures/*.json",
+  "validation/schemas/*.json",
+]

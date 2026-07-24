@@ -41,8 +41,10 @@ def copied_distribution_source():
     with tempfile.TemporaryDirectory() as temporary_directory:
         source = Path(temporary_directory) / "xblock"
         source.mkdir()
-        shutil.copy2(ADAPTER_ROOT / "setup.py", source)
+        shutil.copy2(ADAPTER_ROOT / "pyproject.toml", source)
         shutil.copy2(ADAPTER_ROOT / "MANIFEST.in", source)
+        shutil.copy2(ADAPTER_ROOT / "README.md", source)
+        shutil.copy2(ADAPTER_ROOT / "CHANGES.md", source)
         shutil.copytree(
             ADAPTER_ROOT / "scaffold_xblock",
             source / "scaffold_xblock",
@@ -60,11 +62,11 @@ def packaging_python():
         if not candidate or not Path(candidate).is_file():
             continue
         result = subprocess.run(
-            [str(candidate), "-c", "import setuptools, wheel"],
+            [str(candidate), "-c", "import build"],
             capture_output=True,
             check=False,
             text=True,
         )
         if result.returncode == 0:
             return str(candidate)
-    raise unittest.SkipTest("distribution test requires setuptools and wheel")
+    raise unittest.SkipTest("distribution test requires the Python build frontend")

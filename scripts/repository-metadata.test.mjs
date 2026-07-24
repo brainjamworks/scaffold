@@ -190,6 +190,18 @@ test("public manifests and lock metadata contain no private Agent package", asyn
   }
 });
 
+test("installable adapters expose explicit non-publishing package tasks", async () => {
+  const moodle = await readJson("adapters/moodle/package.json");
+  const xblock = await readJson("adapters/xblock/package.json");
+
+  const expectedCommand =
+    "python3 scripts/package.py --check && vp run verify && python3 scripts/package.py";
+  assert.equal(moodle.scripts?.package, expectedCommand);
+  assert.equal(xblock.scripts?.package, expectedCommand);
+  assert.equal(Object.hasOwn(moodle.scripts ?? {}, "publish"), false);
+  assert.equal(Object.hasOwn(xblock.scripts ?? {}, "publish"), false);
+});
+
 test("Core exposes exactly the supported public subpaths", async () => {
   const coreManifest = await readJson("packages/core/package.json");
   const expectedExports = {

@@ -173,11 +173,11 @@ class AssessmentContractResourceTest(unittest.TestCase):
             subprocess.run(
                 [
                     packaging_python(),
-                    "setup.py",
-                    "sdist",
-                    "bdist_wheel",
-                    "--dist-dir",
+                    "-m",
+                    "build",
+                    "--outdir",
                     str(distribution),
+                    ".",
                 ],
                 cwd=source,
                 check=True,

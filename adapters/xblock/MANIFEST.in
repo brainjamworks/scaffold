@@ -1,4 +1,17 @@
+include CHANGES.md
+include README.md
 recursive-include scaffold_xblock/static *.js *.css
 recursive-include scaffold_xblock/public *
 recursive-include scaffold_xblock/validation/fixtures *.json
 recursive-include scaffold_xblock/validation/schemas *.json
+prune frontend
+prune tests
+exclude package.json
+exclude student-inner.html
+exclude studio-inner.html
+exclude tsconfig.json
+exclude vite.config.test.ts
+exclude vite.config.ts
+global-exclude .DS_Store
+global-exclude *.map
+global-exclude *.py[cod]

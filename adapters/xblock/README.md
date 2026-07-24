@@ -14,6 +14,27 @@ vp run @scaffold/adapter-xblock#build
 python3 -m py_compile adapters/xblock/scaffold_xblock/scaffold.py adapters/xblock/scaffold_xblock/__init__.py
 ```
 
+Python 3.12 or later is required to build and package the distribution.
+
+## Package
+
+From the repository root, build and verify the installable wheel and source
+distribution:
+
+```sh
+vp run @scaffold/adapter-xblock#package
+```
+
+The command requires the root product version, `pyproject.toml`, and the dated
+release heading in `CHANGES.md` to agree. It builds the frontend, runs adapter
+tests, checks both Python distributions, installs and loads the exact wheel in
+a clean virtual environment, and confirms that the source distribution can
+build a valid wheel independently.
+
+Successful artifacts and SHA-256 sidecars are written to
+`dist/release/X.Y.Z/` at the repository root. Packaging does not upload to PyPI
+or create a Git tag or GitHub Release.
+
 ## Fullscreen Compatibility
 
 The Studio layout shim detects the host surface:

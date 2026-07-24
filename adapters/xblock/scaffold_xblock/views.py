@@ -1,4 +1,5 @@
-import pkg_resources
+from importlib.resources import files
+from pathlib import PurePosixPath
 
 from .media_store import resolved_media_urls_for_content
 
@@ -8,8 +9,7 @@ SCAFFOLD_MEDIA_CONTEXTS = {"authoring", "preview", "runtime"}
 
 
 def resource_string(path):
-    data = pkg_resources.resource_string(__package__, path)
-    return data.decode("utf8")
+    return files(__package__).joinpath(*PurePosixPath(path).parts).read_text(encoding="utf8")
 
 
 def media_context(view_name, context=None):

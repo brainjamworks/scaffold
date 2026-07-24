@@ -2,6 +2,7 @@ import ast
 import importlib
 import json
 import sys
+import tomllib
 import types
 import unittest
 from datetime import datetime, timezone
@@ -52,7 +53,6 @@ def install_xblock_import_stubs():
     xblock_fragment = types.ModuleType("xblock.fragment")
     web_fragments = types.ModuleType("web_fragments")
     web_fragments_fragment = types.ModuleType("web_fragments.fragment")
-    pkg_resources = types.ModuleType("pkg_resources")
 
     xblock_core.XBlock = XBlock
     xblock_fields.Float = Field
@@ -63,7 +63,6 @@ def install_xblock_import_stubs():
     xblock_scorable.Score = Score
     xblock_fragment.Fragment = Fragment
     web_fragments_fragment.Fragment = Fragment
-    pkg_resources.resource_string = lambda *_args, **_kwargs: b""
 
     sys.modules.setdefault("xblock", xblock)
     sys.modules.setdefault("xblock.core", xblock_core)
@@ -72,7 +71,6 @@ def install_xblock_import_stubs():
     sys.modules.setdefault("xblock.fragment", xblock_fragment)
     sys.modules.setdefault("web_fragments", web_fragments)
     sys.modules.setdefault("web_fragments.fragment", web_fragments_fragment)
-    sys.modules.setdefault("pkg_resources", pkg_resources)
 
 
 def load_scaffold_module():
@@ -94,6 +92,26 @@ quiz_module = importlib.import_module("scaffold_xblock.quiz")
 scorebook_module = importlib.import_module("scaffold_xblock.scorebook")
 state_codecs = importlib.import_module("scaffold_xblock.state")
 views_module = importlib.import_module("scaffold_xblock.views")
+
+
+class ResourceStringTest(unittest.TestCase):
+    def test_reads_packaged_resources_without_pkg_resources(self):
+        class Resource:
+            def joinpath(self, *parts):
+                self.parts = parts
+                return self
+
+            def read_text(self, encoding):
+                self.encoding = encoding
+                return "export {};"
+
+        resource = Resource()
+        with patch.object(views_module, "files", return_value=resource):
+            contents = views_module.resource_string("static/student.js")
+
+        self.assertEqual(contents, "export {};")
+        self.assertEqual(resource.parts, ("static", "student.js"))
+        self.assertEqual(resource.encoding, "utf8")
 
 
 def scaffold_xblock_import_graph(module_root):
@@ -1630,21 +1648,12 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         _initializer, payload = fragment.initialized[0]
         self.assertEqual(payload["resolvedMedia"], {})
 
-    def test_setup_package_data_includes_inner_iframe_html(self):
-        setup_path = Path(__file__).resolve().parents[1] / "setup.py"
-        tree = ast.parse(setup_path.read_text())
-        setup_call = next(
-            node
-            for node in ast.walk(tree)
-            if isinstance(node, ast.Call)
-            and getattr(node.func, "id", None) == "setup"
+    def test_python_package_data_includes_inner_iframe_html(self):
+        pyproject_path = Path(__file__).resolve().parents[1] / "pyproject.toml"
+        pyproject = tomllib.loads(
+            pyproject_path.read_text(encoding="utf8"),
         )
-        package_data_node = next(
-            keyword.value
-            for keyword in setup_call.keywords
-            if keyword.arg == "package_data"
-        )
-        package_data = ast.literal_eval(package_data_node)
+        package_data = pyproject["tool"]["setuptools"]["package-data"]
 
         self.assertIn(
             "public/*.html",

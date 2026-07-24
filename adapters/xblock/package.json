@@ -6,12 +6,17 @@
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
-    "build": "vp build",
+    "build": "vp run check:artifacts && vp run build:unchecked",
+    "build:unchecked": "vp build",
+    "check:artifacts": "node scripts/sync-assessment-artifacts.mjs --check && node scripts/sync-learner-activity-artifact.mjs --check",
     "check:assessment-artifacts": "node scripts/sync-assessment-artifacts.mjs --check",
     "check:learner-activity-artifact": "node scripts/sync-learner-activity-artifact.mjs --check",
+    "package": "python3 scripts/package.py --check && vp run verify && python3 scripts/package.py",
     "sync:assessment-artifacts": "node scripts/sync-assessment-artifacts.mjs",
     "sync:learner-activity-artifact": "node scripts/sync-learner-activity-artifact.mjs",
-    "test": "vp test run --passWithNoTests"
+    "test": "vp run check:artifacts && vp run test:unchecked",
+    "test:unchecked": "vp test run --passWithNoTests && PYTHONPATH=../.. python3 -m unittest discover -s tests -p 'test_*.py'",
+    "verify": "vp run check:artifacts && vp run test:unchecked && vp run build:unchecked"
   },
   "dependencies": {
     "@scaffold/contracts": "workspace:*",

@@ -1,8 +1,8 @@
-import ast
 import importlib
 import json
 import subprocess
 import sys
+import tomllib
 import types
 import unittest
 from copy import deepcopy
@@ -142,16 +142,10 @@ class LearnerActivityContractResourceTest(unittest.TestCase):
                 )
 
     def test_python_distributions_include_the_schema_resource(self):
-        setup_tree = ast.parse((ADAPTER_ROOT / "setup.py").read_text())
-        setup_call = next(
-            node
-            for node in ast.walk(setup_tree)
-            if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "setup"
+        pyproject = tomllib.loads(
+            (ADAPTER_ROOT / "pyproject.toml").read_text(encoding="utf8"),
         )
-        package_data_node = next(
-            keyword.value for keyword in setup_call.keywords if keyword.arg == "package_data"
-        )
-        package_data = ast.literal_eval(package_data_node)
+        package_data = pyproject["tool"]["setuptools"]["package-data"]
 
         self.assertIn(
             "validation/schemas/*.json",

@@ -22,6 +22,23 @@ package, runs the standalone TypeScript and PHP suites, and builds the frontend.
 The adapter's `test` and `build` commands also reject artifact drift before they
 run.
 
+## Package
+
+From the repository root, build and verify the installable Moodle ZIP:
+
+```sh
+vp run @scaffold/adapter-moodle#package
+```
+
+The command requires the root product version, `scaffold/version.php`, and the
+dated release heading in `scaffold/CHANGES.md` to agree. It verifies and builds
+the adapter, creates a deterministic archive with one top-level `scaffold/`
+directory, extracts and compares the exact archive contents, and writes the ZIP
+and its SHA-256 sidecar to `dist/release/X.Y.Z/`.
+
+Packaging does not install into a Moodle site, submit to Moodle Marketplace, or
+create a Git tag or GitHub Release.
+
 Canonical assessment and learner-activity contracts live in
 `packages/contracts`; canonical grading behavior and its conformance corpus live
 in `packages/grading`. Moodle consumes byte-identical generated copies:
