@@ -108,6 +108,10 @@ final class grade_publisher_test extends \advanced_testcase {
         $this->resetAfterTest();
         [$scaffold, $cm, $user] = $this->create_fixture();
         $this->stage_scored_state($scaffold, $cm, $user, 0.5);
+        $statebefore = $DB->get_record('scaffold_assessment_state', [
+            'scaffoldid' => $scaffold->id,
+            'userid' => $user->id,
+        ], '*', MUST_EXIST);
 
         $outcome = (new grade_publisher())->publish_user($scaffold, (int) $user->id);
 
@@ -122,6 +126,131 @@ final class grade_publisher_test extends \advanced_testcase {
         $grade = \grade_grade::fetch(['itemid' => $item->id, 'userid' => $user->id]);
         $this->assertInstanceOf(\grade_grade::class, $grade);
         $this->assertEqualsWithDelta(50.0, (float) $grade->rawgrade, 0.00001);
+        $this->assertEquals($statebefore, $DB->get_record(
+            'scaffold_assessment_state',
+            ['id' => $statebefore->id],
+            '*',
+            MUST_EXIST,
+        ));
+        $this->assertObjectNotHasProperty('rawgrade', $publication);
+    }
+
+    /**
+     * @dataProvider grade_update_status_provider
+     */
+    public function test_maps_gradebook_update_statuses(
+        int $returnstatus,
+        string $expectedstatus,
+        string $expectedcode,
+        ?bool $expectedretryable,
+        ?int $expectedretryafter,
+    ): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        [$scaffold, $cm, $user] = $this->create_fixture();
+        $this->stage_scored_state($scaffold, $cm, $user, 0.5);
+        $gradecalls = [];
+        $publisher = new grade_publisher(
+            null,
+            null,
+            null,
+            static function(\stdClass $activity, array $grade) use (&$gradecalls, $returnstatus): int {
+                $gradecalls[] = [$activity, $grade];
+                return $returnstatus;
+            },
+            null,
+            static fn(): int => 100,
+        );
+
+        $outcome = $publisher->publish_user($scaffold, (int) $user->id);
+        $publication = $DB->get_record('scaffold_grade_publications', [
+            'scaffoldid' => $scaffold->id,
+            'userid' => $user->id,
+        ], '*', MUST_EXIST);
+
+        $this->assertSame($expectedstatus, $outcome->status);
+        $this->assertSame($expectedcode, $outcome->code);
+        $this->assertSame($expectedstatus, $publication->status);
+        $this->assertSame($expectedcode, $publication->failurecode);
+        $storedretryafter = $publication->retryafter === null ? null : (int) $publication->retryafter;
+        $this->assertSame($expectedretryafter, $storedretryafter);
+        $this->assertCount(1, $gradecalls);
+        $this->assertSame((int) $user->id, $gradecalls[0][1]['userid']);
+        $this->assertEqualsWithDelta(50.0, $gradecalls[0][1]['rawgrade'], 0.00001);
+        if ($expectedretryable === null) {
+            $this->assertObjectNotHasProperty('retryable', $outcome);
+        } else {
+            $this->assertSame($expectedretryable, $outcome->retryable);
+        }
+    }
+
+    public static function grade_update_status_provider(): array {
+        return [
+            'retryable Moodle failure' => [
+                1, // GRADE_UPDATE_FAILED.
+                'failed',
+                'grade_update_failed',
+                true,
+                160,
+            ],
+            'multiple grade items' => [
+                2, // GRADE_UPDATE_MULTIPLE.
+                'configuration_error',
+                'multiple_grade_items',
+                null,
+                null,
+            ],
+            'locked grade item' => [
+                4, // GRADE_UPDATE_ITEM_LOCKED.
+                'locked',
+                'grade_item_locked',
+                null,
+                null,
+            ],
+            'unknown status' => [
+                99,
+                'failed',
+                'unknown_grade_update_status',
+                false,
+                null,
+            ],
+        ];
+    }
+
+    public function test_gradebook_exception_is_retryable_and_privacy_safe(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        [$scaffold, $cm, $user] = $this->create_fixture();
+        $this->stage_scored_state($scaffold, $cm, $user, 0.5);
+        $publisher = new grade_publisher(
+            null,
+            null,
+            null,
+            static function(\stdClass $activity, array $grade): never {
+                throw new \RuntimeException('sensitive gradebook detail');
+            },
+            null,
+            static fn(): int => 100,
+        );
+
+        $outcome = $publisher->publish_user($scaffold, (int) $user->id);
+        $publication = $DB->get_record('scaffold_grade_publications', [
+            'scaffoldid' => $scaffold->id,
+            'userid' => $user->id,
+        ], '*', MUST_EXIST);
+
+        $this->assertSame('failed', $outcome->status);
+        $this->assertSame('grade_update_exception', $outcome->code);
+        $this->assertTrue($outcome->retryable);
+        $this->assertSame(160, $outcome->retryAfter);
+        $this->assertSame('grade_update_exception', $publication->failurecode);
+        $this->assertSame(160, (int) $publication->retryafter);
+        $this->assertStringNotContainsString(
+            'sensitive',
+            json_encode($publication, JSON_THROW_ON_ERROR),
+        );
     }
 
     public function test_respects_instructor_override_and_item_lock(): void {
@@ -179,6 +308,78 @@ final class grade_publisher_test extends \advanced_testcase {
         $this->assertSame('grade_item_locked', $locked->code);
     }
 
+    public function test_respects_a_locked_learner_grade(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        [$scaffold, $cm, $user] = $this->create_fixture();
+        $this->stage_scored_state($scaffold, $cm, $user, 0.5);
+        $publisher = new grade_publisher();
+        $publisher->publish_user($scaffold, (int) $user->id);
+        $item = $this->grade_item($scaffold);
+        $grade = \grade_grade::fetch(['itemid' => $item->id, 'userid' => $user->id]);
+        $this->assertInstanceOf(\grade_grade::class, $grade);
+        $grade->set_locked(true);
+
+        $state = (new assessment_state_repository())->mutate_state(
+            (int) $scaffold->id,
+            (int) $user->id,
+            artifact_identity::for_course_module((int) $cm->id),
+            static function(\stdClass $snapshot): \stdClass {
+                $snapshot->problems->{'question-1'}->submissionResult->score = 1;
+                return $snapshot;
+            },
+        );
+        (new grade_publication_repository())->upsert_pending(
+            (int) $scaffold->id,
+            (int) $user->id,
+            (int) $state->stateRevision,
+            1,
+        );
+
+        $outcome = $publisher->publish_user($scaffold, (int) $user->id);
+        $publication = $DB->get_record('scaffold_grade_publications', [
+            'scaffoldid' => $scaffold->id,
+            'userid' => $user->id,
+        ], '*', MUST_EXIST);
+
+        $this->assertSame('locked', $outcome->status);
+        $this->assertSame('learner_grade_locked', $outcome->code);
+        $this->assertSame('learner_grade_locked', $publication->failurecode);
+        $this->assertEqualsWithDelta(50.0, (float) $grade->rawgrade, 0.00001);
+    }
+
+    public function test_unrecognized_conflict_requires_operator_action_without_writing(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        [$scaffold, $cm, $user] = $this->create_fixture();
+        $this->stage_scored_state($scaffold, $cm, $user, 0.5);
+        $gradecalls = 0;
+        $publisher = new grade_publisher(
+            null,
+            null,
+            null,
+            static function() use (&$gradecalls): int {
+                $gradecalls++;
+                return GRADE_UPDATE_OK;
+            },
+            static fn(\stdClass $activity, int $userid): string => 'unexpected_conflict',
+        );
+
+        $outcome = $publisher->publish_user($scaffold, (int) $user->id);
+        $publication = $DB->get_record('scaffold_grade_publications', [
+            'scaffoldid' => $scaffold->id,
+            'userid' => $user->id,
+        ], '*', MUST_EXIST);
+
+        $this->assertSame(0, $gradecalls);
+        $this->assertSame('configuration_error', $outcome->status);
+        $this->assertSame('gradebook_conflict', $outcome->code);
+        $this->assertSame('configuration_error', $publication->status);
+        $this->assertSame('gradebook_conflict', $publication->failurecode);
+    }
+
     public function test_null_projection_performs_no_numeric_update(): void {
         global $DB;
 
@@ -204,6 +405,78 @@ final class grade_publisher_test extends \advanced_testcase {
             'scaffoldid' => $scaffold->id,
             'userid' => $user->id,
         ]));
+        $this->assertSame(0, (int) $DB->get_field(
+            'scaffold_grade_publications',
+            'retrycount',
+            ['scaffoldid' => $scaffold->id, 'userid' => $user->id],
+        ));
+    }
+
+    /**
+     * @dataProvider stale_source_provider
+     */
+    public function test_stale_source_identity_does_not_reach_moodle(string $field): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        [$scaffold, $cm, $user] = $this->create_fixture();
+        $this->stage_scored_state($scaffold, $cm, $user, 0.5);
+        $DB->set_field('scaffold_grade_publications', $field, 2, [
+            'scaffoldid' => $scaffold->id,
+            'userid' => $user->id,
+        ]);
+        $gradecalls = 0;
+        $publisher = new grade_publisher(
+            null,
+            null,
+            null,
+            static function() use (&$gradecalls): int {
+                $gradecalls++;
+                return GRADE_UPDATE_OK;
+            },
+        );
+
+        $outcome = $publisher->publish_user($scaffold, (int) $user->id);
+
+        $this->assertSame('pending', $outcome->status);
+        $this->assertSame(0, $gradecalls);
+    }
+
+    public static function stale_source_provider(): array {
+        return [
+            'state revision changed' => ['staterevision'],
+            'definition version changed' => ['definitionversion'],
+        ];
+    }
+
+    public function test_retryable_failure_uses_bounded_exponential_backoff(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        [$scaffold, $cm, $user] = $this->create_fixture();
+        $this->stage_scored_state($scaffold, $cm, $user, 0.5);
+        $DB->set_field('scaffold_grade_publications', 'retrycount', 2, [
+            'scaffoldid' => $scaffold->id,
+            'userid' => $user->id,
+        ]);
+        $repository = new grade_publication_repository($DB, static fn(): int => 100);
+        $publisher = new grade_publisher(
+            null,
+            $repository,
+            null,
+            static fn(): int => GRADE_UPDATE_FAILED,
+            null,
+            static fn(): int => 100,
+        );
+
+        $outcome = $publisher->publish_user($scaffold, (int) $user->id);
+        $publication = $repository->get((int) $scaffold->id, (int) $user->id);
+
+        $this->assertSame('failed', $outcome->status);
+        $this->assertSame(340, $outcome->retryAfter);
+        $this->assertNotNull($publication);
+        $this->assertSame(3, $publication->retrycount);
+        $this->assertSame(340, $publication->retryafter);
     }
 
     private function stage_scored_state(\stdClass $scaffold, object $cm, \stdClass $user, float $score): void {

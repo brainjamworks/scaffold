@@ -34,6 +34,53 @@ final class grade_reconciler_task_under_test extends \mod_scaffold\task\reconcil
  * @covers \mod_scaffold\task\reconcile_assessment_grades
  */
 final class grade_reconciler_task_test extends \advanced_testcase {
+    public function test_item_selector_excludes_terminal_future_and_exhausted_work(): void {
+        global $CFG, $DB;
+
+        $this->resetAfterTest();
+        require_once($CFG->dirroot . '/mod/scaffold/lib.php');
+        $course = $this->getDataGenerator()->create_course();
+        $cases = [
+            [2, 2, 'pending', 0, null],
+            [2, 1, 'published', 0, null],
+            [2, 2, 'published', 0, null],
+            [2, 1, 'failed', 1, 90],
+            [2, 1, 'failed', 1, 110],
+            [2, 1, 'failed', 1, null],
+            [2, 1, 'failed', 5, 90],
+            [2, 1, 'locked', 1, null],
+            [2, 1, 'configuration_error', 1, null],
+            [2, 1, 'unexpected_terminal_status', 1, null],
+        ];
+        $activityids = [];
+        foreach ($cases as $index => $case) {
+            [$definitionversion, $itemversion, $status, $retrycount, $retryafter] = $case;
+            $activityid = scaffold_add_instance((object) [
+                'course' => $course->id,
+                'name' => 'Item selector fixture ' . $index,
+                'intro' => '',
+                'introformat' => FORMAT_HTML,
+                'grade' => 100,
+            ]);
+            $DB->update_record('scaffold', (object) [
+                'id' => $activityid,
+                'assessmentdefinitionversion' => $definitionversion,
+                'gradeitemversion' => $itemversion,
+                'gradeitemstatus' => $status,
+                'gradeitemretrycount' => $retrycount,
+                'gradeitemretryafter' => $retryafter,
+            ]);
+            $activityids[] = $activityid;
+        }
+
+        $repository = new grade_publication_repository($DB, static fn(): int => 100);
+
+        $this->assertSame(
+            [$activityids[0], $activityids[1], $activityids[3]],
+            $repository->find_due_item_ids(20, 100, 5),
+        );
+    }
+
     public function test_discovers_bounded_missing_stale_and_retryable_work_in_order(): void {
         global $CFG, $DB;
 
