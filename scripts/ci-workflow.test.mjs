@@ -40,7 +40,8 @@ test("CI defines exactly the selected Moodle compatibility pair", () => {
       database: "mysqli",
       "database-image": "mysql:8.0",
       "database-port": 3306,
-      "database-health-command": "mysqladmin ping -h localhost -umoodle -pmoodle",
+      "database-health-command": "mysqladmin ping -h localhost -uroot -pmoodle",
+      "database-user": "root",
       "php-extension": "mysqli",
     },
     {
@@ -49,7 +50,8 @@ test("CI defines exactly the selected Moodle compatibility pair", () => {
       database: "pgsql",
       "database-image": "postgres:16",
       "database-port": 5432,
-      "database-health-command": "pg_isready -U moodle -d moodle",
+      "database-health-command": "pg_isready -U moodle -d postgres",
+      "database-user": "moodle",
       "php-extension": "pgsql",
     },
   ]);
@@ -65,6 +67,12 @@ test("each Moodle row starts only its selected database service", () => {
     "${{ matrix.database-port }}:${{ matrix.database-port }}",
   ]);
   assert.match(job.services.database.options, /matrix\.database-health-command/);
+  assert.deepEqual(job.services.database.env, {
+    MYSQL_ROOT_PASSWORD: "moodle",
+    POSTGRES_DB: "postgres",
+    POSTGRES_USER: "moodle",
+    POSTGRES_PASSWORD: "moodle",
+  });
 
   const setupPhp = job.steps.find((step) => step.uses?.startsWith("shivammathur/setup-php@"));
   assert.equal(setupPhp.with["php-version"], "${{ matrix.php }}");
