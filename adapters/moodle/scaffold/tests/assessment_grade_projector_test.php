@@ -113,7 +113,7 @@ final class assessment_grade_projector_test extends \basic_testcase {
                     'status' => $status,
                     'score' => $quizscore,
                     'resultsByTargetId' => (object) [
-                        'target-a' => $this->result($quizscore),
+                        'target-a' => $this->grade_result($quizscore),
                     ],
                 ]],
             ),
@@ -195,7 +195,7 @@ final class assessment_grade_projector_test extends \basic_testcase {
                     'status' => 'completed',
                     'score' => 1.0,
                     'resultsByTargetId' => (object) [
-                        'target-a' => $this->result(1.0),
+                        'target-a' => $this->grade_result(1.0),
                     ],
                 ]],
             ),
@@ -223,7 +223,7 @@ final class assessment_grade_projector_test extends \basic_testcase {
                     'status' => 'completed',
                     'score' => 1.0,
                     'resultsByTargetId' => (object) [
-                        'target-a' => $this->result(1.0),
+                        'target-a' => $this->grade_result(1.0),
                     ],
                 ]],
             ),
@@ -288,7 +288,7 @@ final class assessment_grade_projector_test extends \basic_testcase {
         ];
     }
 
-    private function result(float $score): \stdClass {
+    private function grade_result(float $score): \stdClass {
         return self::make_result($score);
     }
 
