@@ -51,6 +51,11 @@ final class content_service_test extends \advanced_testcase {
         $this->assertStringNotContainsString('author-only', $payload['artifactJson']);
         $this->assertNotSame('null', $payload['assessmentSnapshotJson']);
         $this->assertArrayHasKey('learnerActivitySnapshotJson', $payload);
+        $this->assertArrayNotHasKey('learnerStateJson', $payload);
+        $this->assertSame(
+            ['success', 'artifactJson', 'assessmentSnapshotJson', 'learnerActivitySnapshotJson'],
+            array_keys($payload),
+        );
     }
 
     public function test_payload_rejects_purpose_not_proved_by_scope(): void {
@@ -80,6 +85,62 @@ final class content_service_test extends \advanced_testcase {
 
         $this->assertInstanceOf(\stdClass::class, $artifact->content->content[0]->attrs->settings);
         $this->assertSame([], get_object_vars($artifact->content->content[0]->attrs->settings));
+    }
+
+    public function test_project_artifact_uses_canonical_metadata_and_nullable_content(): void {
+        $service = new content_service();
+        $initialized = (object) [
+            'name' => 'Projected activity',
+            'artifactjson' => json_encode([
+                'id' => 'stale-id',
+                'title' => 'Stale title',
+                'mode' => 'page',
+                'content' => [
+                    'type' => 'doc',
+                    'content' => [[
+                        'type' => 'surface',
+                        'attrs' => [
+                            'id' => 'surface-1',
+                            'variant' => 'page-default',
+                            'settings' => (object) [],
+                        ],
+                        'content' => [],
+                    ]],
+                ],
+            ], JSON_THROW_ON_ERROR),
+            'learnercontentjson' => json_encode([
+                'type' => 'doc',
+                'content' => [['type' => 'paragraph']],
+            ], JSON_THROW_ON_ERROR),
+        ];
+
+        $authoring = $service->project_artifact($initialized, 42, true);
+        $learner = $service->project_artifact($initialized, 42, false);
+        $this->assertSame('moodle-cm-42', $authoring['id']);
+        $this->assertSame('Projected activity', $authoring['title']);
+        $this->assertInstanceOf(
+            \stdClass::class,
+            $authoring['content']['content'][0]['attrs']['settings'],
+        );
+        $this->assertSame(
+            [['type' => 'paragraph']],
+            $learner['content']['content'],
+        );
+
+        $uninitialized = (object) [
+            'name' => 'Uninitialized activity',
+            'artifactjson' => json_encode([
+                'id' => '',
+                'title' => 'Scaffold',
+                'mode' => 'slideshow',
+                'content' => null,
+            ], JSON_THROW_ON_ERROR),
+            'learnercontentjson' => 'null',
+        ];
+        $projection = $service->project_artifact($uninitialized, 73, true);
+        $this->assertSame('moodle-cm-73', $projection['id']);
+        $this->assertSame('Uninitialized activity', $projection['title']);
+        $this->assertNull($projection['content']);
     }
 
     public function test_save_rolls_back_coherent_bundle_when_content_dml_fails(): void {
