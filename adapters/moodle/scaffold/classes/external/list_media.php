@@ -9,23 +9,20 @@ namespace mod_scaffold\external;
 
 defined('MOODLE_INTERNAL') || die();
 
-global $CFG;
-require_once($CFG->libdir . '/externallib.php');
-
 use mod_scaffold\local\activity_access;
 use mod_scaffold\local\media_service;
 
-class list_media extends \external_api {
-    public static function execute_parameters(): \external_function_parameters {
-        return new \external_function_parameters([
-            'cmid' => new \external_value(PARAM_INT, 'Course module id'),
-            'kind' => new \external_value(
+class list_media extends \core_external\external_api {
+    public static function execute_parameters(): \core_external\external_function_parameters {
+        return new \core_external\external_function_parameters([
+            'cmid' => new \core_external\external_value(PARAM_INT, 'Course module id'),
+            'kind' => new \core_external\external_value(
                 PARAM_TEXT,
                 'Filter kind: media, documents, all',
                 VALUE_DEFAULT,
                 '',
             ),
-            'mediatype' => new \external_value(
+            'mediatype' => new \core_external\external_value(
                 PARAM_TEXT,
                 'Specific media type to filter by',
                 VALUE_DEFAULT,
@@ -56,18 +53,18 @@ class list_media extends \external_api {
         ];
     }
 
-    public static function execute_returns(): \external_single_structure {
-        return new \external_single_structure([
-            'success' => new \external_value(PARAM_BOOL, 'Success flag'),
-            'items' => new \external_multiple_structure(
-                new \external_single_structure([
-                    'id' => new \external_value(PARAM_TEXT, 'Scaffold media id'),
-                    'url' => new \external_value(PARAM_RAW, 'Fetchable URL'),
-                    'mediaType' => new \external_value(PARAM_TEXT, 'Inferred media type'),
-                    'fileName' => new \external_value(PARAM_TEXT, 'Original file name'),
-                    'mimeType' => new \external_value(PARAM_TEXT, 'MIME type'),
-                    'size' => new \external_value(PARAM_INT, 'Size in bytes'),
-                    'createdAt' => new \external_value(
+    public static function execute_returns(): \core_external\external_single_structure {
+        return new \core_external\external_single_structure([
+            'success' => new \core_external\external_value(PARAM_BOOL, 'Success flag'),
+            'items' => new \core_external\external_multiple_structure(
+                new \core_external\external_single_structure([
+                    'id' => new \core_external\external_value(PARAM_TEXT, 'Scaffold media id'),
+                    'url' => new \core_external\external_value(PARAM_RAW, 'Fetchable URL'),
+                    'mediaType' => new \core_external\external_value(PARAM_TEXT, 'Inferred media type'),
+                    'fileName' => new \core_external\external_value(PARAM_TEXT, 'Original file name'),
+                    'mimeType' => new \core_external\external_value(PARAM_TEXT, 'MIME type'),
+                    'size' => new \core_external\external_value(PARAM_INT, 'Size in bytes'),
+                    'createdAt' => new \core_external\external_value(
                         PARAM_TEXT,
                         'ISO8601 upload timestamp',
                         VALUE_OPTIONAL,

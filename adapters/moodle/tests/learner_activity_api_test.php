@@ -38,7 +38,30 @@ namespace mod_scaffold\local {
 }
 
 namespace core_external {
+    class external_value {
+        public function __construct(
+            public string $type,
+            public string $description,
+            public int $required = 1,
+        ) {
+        }
+    }
+
+    class external_function_parameters {
+        public function __construct(public array $definition) {
+        }
+    }
+
+    class external_single_structure {
+        public function __construct(public array $definition) {
+        }
+    }
+
     class external_api {
+        public static function validate_parameters(external_function_parameters $description, array $params): array {
+            return $params;
+        }
+
         public static function validate_context(\context_module $context): void {
             \external_api::validate_context($context);
         }

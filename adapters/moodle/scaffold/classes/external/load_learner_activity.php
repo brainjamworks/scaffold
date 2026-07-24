@@ -9,17 +9,14 @@ namespace mod_scaffold\external;
 
 defined('MOODLE_INTERNAL') || die();
 
-global $CFG;
-require_once($CFG->libdir . '/externallib.php');
-
 use mod_scaffold\local\activity_access;
 use mod_scaffold\local\learner_activity_service;
 
-class load_learner_activity extends \external_api {
-    public static function execute_parameters(): \external_function_parameters {
-        return new \external_function_parameters([
-            'cmid' => new \external_value(PARAM_INT, 'Course module id'),
-            'artifactid' => new \external_value(PARAM_RAW, 'Scaffold artifact id'),
+class load_learner_activity extends \core_external\external_api {
+    public static function execute_parameters(): \core_external\external_function_parameters {
+        return new \core_external\external_function_parameters([
+            'cmid' => new \core_external\external_value(PARAM_INT, 'Course module id'),
+            'artifactid' => new \core_external\external_value(PARAM_RAW, 'Scaffold artifact id'),
         ]);
     }
 
@@ -39,10 +36,10 @@ class load_learner_activity extends \external_api {
         ];
     }
 
-    public static function execute_returns(): \external_single_structure {
-        return new \external_single_structure([
-            'success' => new \external_value(PARAM_BOOL, 'Success flag'),
-            'snapshotJson' => new \external_value(PARAM_RAW, 'Canonical learner activity snapshot JSON'),
+    public static function execute_returns(): \core_external\external_single_structure {
+        return new \core_external\external_single_structure([
+            'success' => new \core_external\external_value(PARAM_BOOL, 'Success flag'),
+            'snapshotJson' => new \core_external\external_value(PARAM_RAW, 'Canonical learner activity snapshot JSON'),
         ]);
     }
 }

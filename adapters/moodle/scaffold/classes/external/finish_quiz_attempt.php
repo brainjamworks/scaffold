@@ -9,20 +9,17 @@ namespace mod_scaffold\external;
 
 defined('MOODLE_INTERNAL') || die();
 
-global $CFG;
-require_once($CFG->libdir . '/externallib.php');
-
 use mod_scaffold\local\activity_access;
 use mod_scaffold\local\assessment_service;
 use mod_scaffold\local\content_service;
 
-class finish_quiz_attempt extends \external_api {
-    public static function execute_parameters(): \external_function_parameters {
-        return new \external_function_parameters([
-            'cmid' => new \external_value(PARAM_INT, 'Course module id'),
-            'attemptid' => new \external_value(PARAM_RAW, 'Quiz attempt id'),
-            'groupid' => new \external_value(PARAM_RAW, 'Quiz group id'),
-            'responsesjson' => new \external_value(PARAM_RAW, 'Responses by target id JSON'),
+class finish_quiz_attempt extends \core_external\external_api {
+    public static function execute_parameters(): \core_external\external_function_parameters {
+        return new \core_external\external_function_parameters([
+            'cmid' => new \core_external\external_value(PARAM_INT, 'Course module id'),
+            'attemptid' => new \core_external\external_value(PARAM_RAW, 'Quiz attempt id'),
+            'groupid' => new \core_external\external_value(PARAM_RAW, 'Quiz group id'),
+            'responsesjson' => new \core_external\external_value(PARAM_RAW, 'Responses by target id JSON'),
         ]);
     }
 
@@ -52,11 +49,11 @@ class finish_quiz_attempt extends \external_api {
         ];
     }
 
-    public static function execute_returns(): \external_single_structure {
-        return new \external_single_structure([
-            'success' => new \external_value(PARAM_BOOL, 'Success flag'),
-            'outcomeJson' => new \external_value(PARAM_RAW, 'Canonical Quiz outcome JSON'),
-            'gradePublicationJson' => new \external_value(PARAM_RAW, 'Moodle grade publication JSON'),
+    public static function execute_returns(): \core_external\external_single_structure {
+        return new \core_external\external_single_structure([
+            'success' => new \core_external\external_value(PARAM_BOOL, 'Success flag'),
+            'outcomeJson' => new \core_external\external_value(PARAM_RAW, 'Canonical Quiz outcome JSON'),
+            'gradePublicationJson' => new \core_external\external_value(PARAM_RAW, 'Moodle grade publication JSON'),
         ]);
     }
 }

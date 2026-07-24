@@ -9,20 +9,17 @@ namespace mod_scaffold\external;
 
 defined('MOODLE_INTERNAL') || die();
 
-global $CFG;
-require_once($CFG->libdir . '/externallib.php');
-
 use mod_scaffold\local\activity_access;
 use mod_scaffold\local\content_service;
 
-class save_content extends \external_api {
-    public static function execute_parameters(): \external_function_parameters {
-        return new \external_function_parameters([
-            'cmid' => new \external_value(PARAM_INT, 'Course module id'),
-            'artifactjson' => new \external_value(PARAM_RAW, 'Scaffold artifact JSON'),
-            'learnercontentjson' => new \external_value(PARAM_RAW, 'Learner content JSON'),
-            'assessmenttargetsjson' => new \external_value(PARAM_RAW, 'Assessment targets JSON'),
-            'assessmentgroupsjson' => new \external_value(PARAM_RAW, 'Assessment groups JSON'),
+class save_content extends \core_external\external_api {
+    public static function execute_parameters(): \core_external\external_function_parameters {
+        return new \core_external\external_function_parameters([
+            'cmid' => new \core_external\external_value(PARAM_INT, 'Course module id'),
+            'artifactjson' => new \core_external\external_value(PARAM_RAW, 'Scaffold artifact JSON'),
+            'learnercontentjson' => new \core_external\external_value(PARAM_RAW, 'Learner content JSON'),
+            'assessmenttargetsjson' => new \core_external\external_value(PARAM_RAW, 'Assessment targets JSON'),
+            'assessmentgroupsjson' => new \core_external\external_value(PARAM_RAW, 'Assessment groups JSON'),
         ]);
     }
 
@@ -56,13 +53,13 @@ class save_content extends \external_api {
         ];
     }
 
-    public static function execute_returns(): \external_single_structure {
-        return new \external_single_structure([
-            'success' => new \external_value(PARAM_BOOL, 'Success flag'),
-            'artifact' => new \external_single_structure([
-                'title' => new \external_value(PARAM_TEXT, 'Saved artifact title'),
+    public static function execute_returns(): \core_external\external_single_structure {
+        return new \core_external\external_single_structure([
+            'success' => new \core_external\external_value(PARAM_BOOL, 'Success flag'),
+            'artifact' => new \core_external\external_single_structure([
+                'title' => new \core_external\external_value(PARAM_TEXT, 'Saved artifact title'),
             ]),
-            'gradeItemPublication' => new \external_value(
+            'gradeItemPublication' => new \core_external\external_value(
                 PARAM_ALPHA,
                 'Grade-item publication status after content confirmation',
             ),

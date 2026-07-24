@@ -144,6 +144,43 @@ namespace mod_scaffold\local {
     }
 }
 
+namespace core_external {
+    class external_value {
+        public function __construct(public string $type, public string $description) {
+        }
+    }
+
+    class external_function_parameters {
+        public function __construct(public array $definition) {
+        }
+    }
+
+    class external_single_structure {
+        public function __construct(public array $definition) {
+        }
+    }
+
+    class external_api {
+        public static array $validated = [];
+
+        public static function validate_parameters(external_function_parameters $description, array $params): array {
+            if (array_keys($params) !== array_keys($description->definition)) {
+                throw new \invalid_parameter_exception('External parameters do not match the declaration');
+            }
+            foreach ($description->definition as $name => $value) {
+                $actual = $params[$name];
+                if (($value->type === PARAM_INT && !is_int($actual))
+                    || (in_array($value->type, [PARAM_RAW, PARAM_ALPHANUMEXT], true)
+                        && !is_string($actual))) {
+                    throw new \invalid_parameter_exception('External parameter has the wrong type: ' . $name);
+                }
+            }
+            self::$validated[] = $params;
+            return $params;
+        }
+    }
+}
+
 namespace {
     define('MOODLE_INTERNAL', true);
     define('PARAM_INT', 'int');
@@ -350,7 +387,7 @@ namespace {
     }
 
     expect_assessment_quiz_external_rejected(
-        static fn() => external_api::validate_parameters(
+        static fn() => \core_external\external_api::validate_parameters(
             \mod_scaffold\external\start_quiz_attempt::execute_parameters(),
             ['cmid' => '42', 'groupid' => 'quiz-1'],
         ),

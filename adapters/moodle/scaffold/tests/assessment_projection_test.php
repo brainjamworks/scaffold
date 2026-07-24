@@ -194,12 +194,12 @@ final class assessment_projection_test extends \advanced_testcase {
         $this->assertSame('published', $result['gradeItemPublication']);
         $this->assertSame('Saved lesson', $stored->name);
         $this->assertEquals(
-            [$target],
-            json_decode($stored->assessmenttargetsjson, true, 512, JSON_THROW_ON_ERROR),
+            json_decode(json_encode([$target], JSON_THROW_ON_ERROR), false, 512, JSON_THROW_ON_ERROR),
+            json_decode($stored->assessmenttargetsjson, false, 512, JSON_THROW_ON_ERROR),
         );
         $this->assertEquals(
-            [$group],
-            json_decode($stored->assessmentgroupsjson, true, 512, JSON_THROW_ON_ERROR),
+            json_decode(json_encode([$group], JSON_THROW_ON_ERROR), false, 512, JSON_THROW_ON_ERROR),
+            json_decode($stored->assessmentgroupsjson, false, 512, JSON_THROW_ON_ERROR),
         );
         $this->assertSame(2, (int) $stored->assessmentdefinitionversion);
         $this->assertSame('pending', $stored->gradeitemstatus);

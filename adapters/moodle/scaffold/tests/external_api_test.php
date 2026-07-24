@@ -216,7 +216,7 @@ final class external_api_test extends \advanced_testcase {
         [$cmid, , , $course] = $this->create_activity('after_each_answer', true);
 
         try {
-            \external_api::validate_parameters(
+            \core_external\external_api::validate_parameters(
                 start_quiz_attempt::execute_parameters(),
                 ['cmid' => [], 'groupid' => 'quiz-1'],
             );

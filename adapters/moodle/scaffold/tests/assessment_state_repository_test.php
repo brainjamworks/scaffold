@@ -309,6 +309,7 @@ final class assessment_state_repository_test extends \advanced_testcase {
         global $DB;
 
         $this->resetAfterTest(true);
+        $this->preventResetByRollback();
         [$scaffoldid, $cmid] = $this->create_activity();
         $user = $this->getDataGenerator()->create_user();
         $artifactid = 'moodle-cm-' . $cmid;
