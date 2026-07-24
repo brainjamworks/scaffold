@@ -2,7 +2,9 @@
 
 This file records user-visible changes to the Moodle activity module.
 
-## 0.0.1 - 2026-07-18
+## Unreleased
+
+## 0.1.0 - 2026-07-24
 
 Initial alpha release.
 

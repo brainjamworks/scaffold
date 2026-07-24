@@ -5,24 +5,17 @@ in the same change as any release-tooling or policy change.
 
 ## Adoption Status
 
-Scaffold has no formal release tags or publishing workflow yet. The existing
-Moodle `0.0.1` and XBlock `0.0.0` metadata predate this policy and must not be
-treated as evidence of a coordinated published release.
+Scaffold has no formal release tags or publishing workflow yet. Version `0.1.0`
+is the first coordinated release candidate; it is not a published release until
+the corresponding tag and GitHub Release exist.
 
 Before the first formal release:
 
-1. Establish whether the Moodle `0.0.1` package was distributed outside local
-   development.
-2. Preserve its history if it was distributed; otherwise fold the initial
-   changelog into the chosen first coordinated release.
-3. Choose the first Scaffold version and align the root product, Moodle, and
-   XBlock metadata.
-4. Add the adapter changelogs and `Unreleased` sections required by this policy.
-5. Validate both adapter package commands, confirm the XBlock distribution name
-   is available on PyPI, and configure trusted publishing.
-6. Complete Moodle Marketplace provider onboarding and prepare the first
+1. Confirm the XBlock distribution name is available on PyPI and configure
+   trusted publishing.
+2. Complete Moodle Marketplace provider onboarding and prepare the first
    `mod_scaffold` listing.
-7. Implement the tag-driven draft release workflow described below.
+3. Implement the tag-driven draft release workflow described below.
 
 Remove this transition section after those steps are complete.
 
@@ -120,7 +113,8 @@ and upgrade metadata.
   code or documentation changed.
 - `$plugin->requires` changes only when the minimum Moodle version changes.
 - `$plugin->supported` may be added only for an inclusive Moodle branch range
-  covered by the release test matrix.
+  supported by explicit compatibility evidence; do not infer it solely from
+  `$plugin->requires`.
 - `$plugin->maturity` must describe the release honestly. Alpha releases must
   also be marked as pre-releases on GitHub.
 
@@ -131,10 +125,10 @@ every version that could already be installed.
 
 ## XBlock Version Metadata
 
-Before the first formal release, XBlock distribution metadata must be
-modernized into `adapters/xblock/pyproject.toml`. The root product version is the
-release authority; the XBlock distribution version must mirror it and equal the
-Git tag without the leading `v`.
+`adapters/xblock/pyproject.toml` is authoritative for the public XBlock
+distribution metadata. The root product version is the release authority; the
+XBlock distribution version must mirror it and equal the Git tag without the
+leading `v`.
 
 The public distribution name and runtime entry point are stable contracts:
 
@@ -143,10 +137,10 @@ The public distribution name and runtime entry point are stable contracts:
   `xblock.v1` entry-point group;
 - the course advanced-module identifier is `scaffold`.
 
-Declare supported Python and XBlock dependency ranges from the tested Open edX
-host matrix rather than from the development environment alone. Record changes
-to those ranges and any administrator upgrade action in the XBlock changelog
-and GitHub Release notes.
+Declare supported Python and XBlock dependency ranges from explicit
+compatibility evidence rather than from the development environment alone.
+Record changes to those ranges and any administrator upgrade action in the
+XBlock changelog and GitHub Release notes.
 
 ## Release Prerequisites
 
@@ -157,8 +151,7 @@ A release candidate must satisfy all of the following:
 - version metadata and changelogs agree with the proposed tag;
 - generated and vendored artifacts are current;
 - required runtime assets are built from the selected commit;
-- installation and upgrade behavior has been tested on the declared supported
-  host versions;
+- both exact adapter distributions pass their package-level validation;
 - bundled dependencies and their licenses are suitable for distribution;
 - Moodle Marketplace listing metadata and compatibility declarations are ready
   for the release.
@@ -173,6 +166,14 @@ Passing the source gate does not by itself prove that a packaged adapter is
 installable. Release verification must test the exact distributions that will
 be published.
 
+The release workflow relies on required CI for the tagged commit and must not
+duplicate the complete source test suite. It performs release-specific package
+validation instead. Before approving the draft, the maintainer must manually
+smoke-test the exact Moodle ZIP and XBlock wheel in available real host
+installations and record the host versions and results in the draft. An
+automated multi-version Moodle and Open edX host matrix is future hardening, not
+a requirement for the initial release pipeline.
+
 ## Moodle Package Contract
 
 The Moodle release asset must be a reproducible ZIP with exactly one
@@ -186,7 +187,7 @@ The package process must:
 3. Validate the component, version, changelog, archive root, runtime assets,
    file permissions, and excluded development files.
 4. Produce `mod_scaffold-X.Y.Z.zip` and a SHA-256 checksum.
-5. Inspect and smoke-install that exact ZIP rather than a second local copy.
+5. Inspect and extract that exact ZIP rather than a second local copy.
 
 Local package outputs are written under `dist/release/X.Y.Z/`, which is ignored
 by Git.
@@ -208,8 +209,10 @@ vp run @scaffold/adapter-moodle#package
 ```
 
 The command performs deterministic archive and extraction checks locally. The
-release workflow must additionally install that exact ZIP against the supported
-Moodle matrix before publication.
+release workflow reruns those exact-package checks from the tag. Before
+approving the draft, the maintainer manually smoke-installs the draft ZIP in an
+available real Moodle site; the release workflow does not provision a Moodle
+host matrix.
 
 ## XBlock Package Contract
 
@@ -228,7 +231,7 @@ The package process must:
    files, permissions, and excluded development files.
 5. Run `twine check` and produce SHA-256 checksums.
 6. Install the exact wheel into a clean environment, load the `scaffold`
-   `xblock.v1` entry point, and smoke-test it on the supported Open edX matrix.
+   `xblock.v1` entry point, and verify its installed runtime files.
 7. Confirm that the source distribution can build an equivalent installable
    wheel without relying on repository files outside the distribution.
 
@@ -247,8 +250,10 @@ and source distribution to the GitHub Release and publish those exact files to
 PyPI as `scaffold-xblock`; do not rebuild them between destinations.
 
 The package command performs exact-distribution checks and a clean entry-point
-load locally. The release workflow must additionally test that exact wheel on
-the supported Open edX matrix. PyPI name availability and trusted-publishing
+load locally. The release workflow reruns those checks from the tag. Before
+approving the draft, the maintainer manually smoke-installs the draft wheel in
+an available real Open edX site; the release workflow does not provision an
+Open edX host matrix. PyPI name availability and trusted-publishing
 configuration remain first-release blockers.
 
 ## Public Installation Documentation
@@ -265,11 +270,12 @@ public documentation identifies the verified installation and upgrade paths:
 - the installation pages on `scaffold.ac`;
 - the GitHub Release notes.
 
-The instructions must identify the supported Moodle and Open edX versions, show
-how to find the installed Scaffold version, and distinguish the normal channels
-from versioned GitHub fallback downloads. XBlock instructions must cover a
-pinned PyPI install, persistent Tutor or Open edX deployment, service restart,
-and enabling the `scaffold` advanced module.
+The instructions must identify minimum runtime requirements and the Moodle and
+Open edX host versions used for manual release smoke testing, show how to find
+the installed Scaffold version, and distinguish the normal channels from
+versioned GitHub fallback downloads. XBlock instructions must cover a pinned
+PyPI install, persistent Tutor or Open edX deployment, service restart, and
+enabling the `scaffold` advanced module.
 
 Immediately after the first GitHub and PyPI publication, update the public docs
 to use those live destinations and label the GitHub Moodle ZIP as the temporary
@@ -290,18 +296,21 @@ command against the released version before declaring the rollout complete.
 6. Create an annotated tag named `vX.Y.Z`; sign it when release signing is
    configured.
 7. Push the commit and tag. The release workflow must build both adapters from
-   the tag, validate the fixed-version mapping, test the exact outputs on the
-   supported host matrix, and create a draft GitHub Release.
+   the tag, validate the fixed-version mapping and exact package outputs, and
+   create a draft GitHub Release.
 8. Confirm that the draft contains the expected notes, Moodle ZIP, XBlock wheel
    and source distribution, checksums, and provenance.
-9. Publish the GitHub Release and upload the same approved XBlock distributions
-   to PyPI through the protected publishing workflow.
-10. Submit the approved Moodle ZIP to Marketplace or add it to the existing
+9. Manually smoke-test the exact draft Moodle ZIP and XBlock wheel in available
+   real host installations, then record the host versions and results in the
+   draft.
+10. Publish the GitHub Release and upload the same approved XBlock distributions
+    to PyPI through the protected publishing workflow.
+11. Submit the approved Moodle ZIP to Marketplace or add it to the existing
     listing with the tested compatibility declarations.
-11. Update and verify the public installation documentation against the
+12. Update and verify the public installation documentation against the
     destinations that are live, including the temporary Marketplace-review
     state when applicable.
-12. After Marketplace approval, verify installation and update discovery within
+13. After Marketplace approval, verify installation and update discovery within
     a Moodle administrator session, make Marketplace the primary documented
     route, and confirm all channels identify the coordinated release correctly.
 
@@ -311,11 +320,10 @@ long-lived upload token. It must never publish from an uncommitted working tree,
 a moving branch reference, or a second unverified artifact build.
 
 The tag-driven draft GitHub Release workflow and PyPI publishing configuration
-are not implemented yet. The adapter package commands are implemented, but
-their release preflights will remain intentionally blocked until the first
-version and dated changelog entries are aligned. Marketplace provider and
-submission readiness are also required before starting the first formal
-release.
+are not implemented yet. The adapter package commands and coordinated `0.1.0`
+metadata are ready. PyPI trusted-publisher configuration, Marketplace provider
+and submission readiness, and access to representative real hosts for manual
+smoke testing remain first-release prerequisites.
 
 ## Failed and Superseded Releases
 
