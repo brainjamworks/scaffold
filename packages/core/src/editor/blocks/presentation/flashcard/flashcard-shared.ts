@@ -224,7 +224,11 @@ export function shouldIgnoreFlashcardEnterFlip(target: EventTarget | null | unde
     return false;
   }
 
-  return Boolean(target.closest('[contenteditable="true"]'));
+  return Boolean(
+    target.closest(
+      '[contenteditable="true"], [data-scaffold-card-no-flip], a, button, input, textarea, select',
+    ),
+  );
 }
 
 function readObject(value: unknown): Record<string, unknown> {

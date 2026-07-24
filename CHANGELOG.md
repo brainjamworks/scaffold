@@ -26,3 +26,7 @@ called out explicitly.
   grading identity.
 - Canonical assessment target contracts and response values for adapter
   transport and grading boundaries.
+- PDF embeds with responsive page fitting, bounded-frame containment, stepped
+  zoom controls, keyboard scrolling, and live page and zoom announcements.
+- Flashcard decks with bounded-frame scaling, internally scrollable short
+  layouts, keyboard-scrollable active faces, and persisted learner mastery.

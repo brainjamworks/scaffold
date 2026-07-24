@@ -28,6 +28,7 @@ import {
   mediaMissingMessage,
   mediaUnavailableMessage,
 } from "@/editor/media/accessibility/media-accessibility";
+import { BOUNDED_PLACEMENT_ATTR } from "@/editor/frame/model/bounded-placement";
 
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?worker&url";
 
@@ -148,6 +149,7 @@ export function PdfEmbedSurface({
   const pdfLabel = pdfTitle || "PDF";
   const captionId = `${generatedId}-caption`;
   const pagerId = `${generatedId}-pager`;
+  const zoomStatusId = `${generatedId}-zoom-status`;
   const managedMediaId = source?.mode === "managed" ? source.mediaId : null;
   const externalSrc = source?.mode === "external" ? source.src : null;
 
@@ -159,7 +161,7 @@ export function PdfEmbedSurface({
       return undefined;
     }
     let cancelled = false;
-    (async () => {
+    void (async () => {
       try {
         if (!mediaPort) {
           throw new Error("No media port configured.");
@@ -193,8 +195,10 @@ export function PdfEmbedSurface({
     const stage = stageRef.current;
     if (!stage) return;
     const update = () => {
+      const frame = stage.closest(".sc-pdf-embed");
       const next = {
-        boundedHeight: stage.closest('[data-bounded-placement="fill"]') ? stage.clientHeight : null,
+        boundedHeight:
+          frame?.getAttribute(BOUNDED_PLACEMENT_ATTR) === "fill" ? stage.clientHeight : null,
         width: stage.clientWidth,
       };
       setStageSize((current) =>
@@ -243,12 +247,13 @@ export function PdfEmbedSurface({
     resolveError && managedMediaId && resolveError.mediaId === managedMediaId
       ? resolveError.message
       : errorMessage;
+  const activePageDimensions = pageDimensions?.pageNumber === pageNumber ? pageDimensions : null;
   const fittedPageWidth = resolvePdfPageWidth({
     availableHeight: stageSize.boundedHeight,
     availableWidth: stageSize.width,
-    pageDimensions,
+    pageDimensions: activePageDimensions,
   });
-  const fitScale = resolvePdfFitScale(fittedPageWidth, pageDimensions);
+  const fitScale = resolvePdfFitScale(fittedPageWidth, activePageDimensions);
   const zoomOutScale = resolveNextPdfZoomScale(zoom === "fit" ? fitScale : zoom, -1);
   const zoomInScale = resolveNextPdfZoomScale(zoom === "fit" ? fitScale : zoom, 1);
   const zoomLabel = zoom === "fit" ? "Fit" : `${Math.round(zoom * 100)}%`;
@@ -346,7 +351,12 @@ export function PdfEmbedSurface({
             <CaretRight size={14} weight="bold" aria-hidden />
           </button>
         </div>
-        <div className="sc-pdf-embed__zoom" role="group" aria-label="PDF zoom controls">
+        <div
+          className="sc-pdf-embed__zoom"
+          role="group"
+          aria-label="PDF zoom controls"
+          aria-describedby={zoomStatusId}
+        >
           <button
             type="button"
             onClick={() => {
@@ -379,6 +389,16 @@ export function PdfEmbedSurface({
             <Plus size={13} weight="bold" aria-hidden />
           </button>
         </div>
+        <span
+          id={zoomStatusId}
+          className="sc-sr-only"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          aria-label={`PDF zoom ${zoomLabel}`}
+        >
+          PDF zoom {zoomLabel}
+        </span>
         <div className="sc-pdf-embed__chrome-end">
           {editable && onAdd ? (
             <button

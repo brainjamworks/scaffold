@@ -8,6 +8,15 @@ import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 import { emptyPdfEmbedData } from "./content";
 import { PdfEmbedSurface } from "./PdfEmbedSurface";
 
+const pdfPageRenders = vi.hoisted(
+  () =>
+    [] as Array<{
+      pageNumber: number;
+      scale: number | undefined;
+      width: number | undefined;
+    }>,
+);
+
 vi.mock("react-pdf", () => ({
   pdfjs: { GlobalWorkerOptions: {} },
   Document({
@@ -38,6 +47,8 @@ vi.mock("react-pdf", () => ({
     scale?: number;
     width?: number;
   }) {
+    pdfPageRenders.push({ pageNumber, scale, width });
+
     useEffect(() => {
       onLoadSuccess?.({
         pageNumber,
@@ -83,6 +94,7 @@ let clientWidthSpy: ReturnType<typeof vi.spyOn>;
 let clientHeightSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
+  pdfPageRenders.length = 0;
   clientWidthSpy = vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(640);
   clientHeightSpy = vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(360);
   vi.stubGlobal("ResizeObserver", MockResizeObserver);
@@ -188,7 +200,7 @@ it("fits portrait and landscape pages within a bounded stage", async () => {
     src: "https://example.com/sample.pdf",
   };
   const { rerender } = render(
-    <div data-bounded-placement="fill">
+    <div className="sc-pdf-embed" data-bounded-placement="fill">
       <PdfEmbedSurface
         data={emptyPdfEmbedData({ source, initialPage: 1 })}
         editable={false}
@@ -202,7 +214,7 @@ it("fits portrait and landscape pages within a bounded stage", async () => {
   });
 
   rerender(
-    <div data-bounded-placement="fill">
+    <div className="sc-pdf-embed" data-bounded-placement="fill">
       <PdfEmbedSurface
         data={emptyPdfEmbedData({ source, initialPage: 2 })}
         editable={false}
@@ -213,6 +225,29 @@ it("fits portrait and landscape pages within a bounded stage", async () => {
 
   await waitFor(() => {
     expect(screen.getByTestId("pdf-page").dataset["renderWidth"]).toBe("480");
+  });
+});
+
+it("ignores bounded placement inherited from a different ancestor frame", async () => {
+  render(
+    <div data-bounded-placement="fill">
+      <div className="sc-pdf-embed">
+        <PdfEmbedSurface
+          data={emptyPdfEmbedData({
+            source: {
+              mode: "external",
+              src: "https://example.com/sample.pdf",
+            },
+          })}
+          editable={false}
+          mediaPort={null}
+        />
+      </div>
+    </div>,
+  );
+
+  await waitFor(() => {
+    expect(screen.getByTestId("pdf-page").dataset["renderWidth"]).toBe("640");
   });
 });
 
@@ -263,6 +298,42 @@ it("starts in fit mode and advances to the next fixed zoom step", async () => {
     expect(screen.getByTestId("pdf-page").dataset["renderScale"]).toBe("1.25");
   });
   expect(screen.getByRole("button", { name: "Zoom 125%. Reset to fit" })).toHaveTextContent("125%");
+  expect(screen.getByRole("status", { name: "PDF zoom 125%" })).toHaveTextContent("PDF zoom 125%");
+});
+
+it("does not fit a new page using dimensions retained from the previous page", async () => {
+  const user = userEvent.setup();
+  render(
+    <div className="sc-pdf-embed" data-bounded-placement="fill">
+      <PdfEmbedSurface
+        data={emptyPdfEmbedData({
+          source: {
+            mode: "external",
+            src: "https://example.com/sample.pdf",
+          },
+        })}
+        editable={false}
+        mediaPort={null}
+      />
+    </div>,
+  );
+
+  await waitFor(() => {
+    expect(screen.getByTestId("pdf-page").dataset["renderWidth"]).toBe("270");
+  });
+  pdfPageRenders.length = 0;
+
+  await user.click(screen.getByRole("button", { name: "Next page" }));
+
+  await waitFor(() => {
+    expect(screen.getByTestId("pdf-page").dataset["renderWidth"]).toBe("480");
+  });
+  const secondPageWidths = pdfPageRenders
+    .filter(({ pageNumber }) => pageNumber === 2)
+    .map(({ width }) => width);
+  expect(secondPageWidths[0]).toBe(640);
+  expect(secondPageWidths).not.toContain(270);
+  expect(secondPageWidths).toContain(480);
 });
 
 it("keeps stepped zoom between 50% and 300%", async () => {

@@ -166,6 +166,18 @@ describe("PDF bounded geometry", () => {
     expect(canvas.getBoundingClientRect().width).toBeGreaterThan(stage.clientWidth);
     expect(stage.scrollWidth).toBeGreaterThan(stage.clientWidth);
     expect(stage.scrollHeight).toBeGreaterThan(stage.clientHeight);
+
+    stage.scrollLeft = 0;
+    await nextLayoutFrames(1);
+    expect(canvas.getBoundingClientRect().left).toBeGreaterThanOrEqual(
+      stage.getBoundingClientRect().left - 1,
+    );
+
+    stage.scrollLeft = stage.scrollWidth - stage.clientWidth;
+    await nextLayoutFrames(1);
+    expect(canvas.getBoundingClientRect().right).toBeLessThanOrEqual(
+      stage.getBoundingClientRect().right + 1,
+    );
   });
 });
 

@@ -110,6 +110,62 @@ function renderFlashcardEditor(content: JSONContent = flashcardFixture()) {
 }
 
 describe("flashcard block", () => {
+  it("exposes only the visible authoring face to interaction", async () => {
+    const user = userEvent.setup();
+    const fixture = renderFlashcardEditor();
+
+    const front = await waitFor(() => {
+      const element = document.body.querySelector<HTMLElement>(
+        '[data-slot="flashcard-card-front"]',
+      );
+      expect(element).not.toBeNull();
+      return element;
+    });
+    const back = await waitFor(() => {
+      const element = document.body.querySelector<HTMLElement>('[data-slot="flashcard-card-back"]');
+      expect(element).not.toBeNull();
+      return element;
+    });
+    if (!front || !back) throw new Error("Expected both flashcard faces to render.");
+
+    await waitFor(() => {
+      expect(front.getAttribute("aria-hidden")).toBe("false");
+      expect(front.tabIndex).toBe(-1);
+      expect(front.inert).toBe(false);
+      expect(front.getAttribute("aria-label")).toBe("Flashcard front content");
+      expect(back.getAttribute("aria-hidden")).toBe("true");
+      expect(back.tabIndex).toBe(-1);
+      expect(back.inert).toBe(true);
+    });
+    expect(
+      document.body.querySelector(".sc-flashcard-card__rotator")?.hasAttribute("aria-hidden"),
+    ).toBe(false);
+
+    const flipButton = document.body.querySelector<HTMLButtonElement>(
+      ".sc-flashcard-reader-controls__flip-button",
+    );
+    expect(flipButton).not.toBeNull();
+    await user.click(flipButton!);
+
+    await waitFor(() => {
+      const currentFront = document.body.querySelector<HTMLElement>(
+        '[data-slot="flashcard-card-front"]',
+      );
+      const currentBack = document.body.querySelector<HTMLElement>(
+        '[data-slot="flashcard-card-back"]',
+      );
+      expect(currentFront?.getAttribute("aria-hidden")).toBe("true");
+      expect(currentFront?.tabIndex).toBe(-1);
+      expect(currentFront?.inert).toBe(true);
+      expect(currentBack?.getAttribute("aria-hidden")).toBe("false");
+      expect(currentBack?.tabIndex).toBe(-1);
+      expect(currentBack?.inert).toBe(false);
+      expect(currentBack?.getAttribute("aria-label")).toBe("Flashcard back content");
+    });
+
+    fixture.destroy();
+  });
+
   it("seeds catalog content as a flashcard block with private cards", () => {
     const insertContent = builtInInsertCatalog.getById("flashcard")?.content() as
       | JSONContent

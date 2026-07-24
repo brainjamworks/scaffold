@@ -348,15 +348,13 @@ export function FlashcardCardSurface({
   return (
     <div
       role="group"
-      aria-label={flipped ? "Card, back showing" : "Card, front showing"}
+      aria-label={editable ? "Flashcard" : flipped ? "Card, back showing" : "Card, front showing"}
       onClick={handleCardClick}
       onKeyDown={handleCardKey}
-      tabIndex={editable ? -1 : 0}
+      tabIndex={-1}
       className="sc-flashcard-card__surface"
     >
-      <div aria-hidden className="sc-flashcard-card__rotator">
-        {children}
-      </div>
+      <div className="sc-flashcard-card__rotator">{children}</div>
       {mastery ? (
         <span
           data-scaffold-card-no-flip

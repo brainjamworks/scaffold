@@ -163,13 +163,17 @@ describe("flashcard shared deck policy", () => {
     expect(shouldIgnoreFlashcardPointerFlip(null)).toBe(false);
   });
 
-  it("only ignores Enter flips from editable content", () => {
+  it("ignores Enter flips from editable and interactive content", () => {
     const editable = document.createElement("div");
     const button = document.createElement("button");
+    const link = document.createElement("a");
+    const normalText = document.createElement("span");
     editable.contentEditable = "true";
 
     expect(shouldIgnoreFlashcardEnterFlip(editable)).toBe(true);
-    expect(shouldIgnoreFlashcardEnterFlip(button)).toBe(false);
+    expect(shouldIgnoreFlashcardEnterFlip(button)).toBe(true);
+    expect(shouldIgnoreFlashcardEnterFlip(link)).toBe(true);
+    expect(shouldIgnoreFlashcardEnterFlip(normalText)).toBe(false);
     expect(shouldIgnoreFlashcardEnterFlip(null)).toBe(false);
   });
 });
