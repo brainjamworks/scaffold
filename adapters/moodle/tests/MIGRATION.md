@@ -1,14 +1,16 @@
 # Moodle Standalone Test Migration Ledger
 
-This ledger tracks the temporary standalone PHP scripts while their behaviour
-is moved to Moodle's component PHPUnit suite. A call-site count is an inventory
-control, not a claim that one call site represents one runtime case: loops and
-data sets are expanded in the detailed rows when their owning batch is
-migrated.
+This ledger records the completed migration of the temporary standalone PHP
+scripts to Moodle's component PHPUnit suite and repository-owned checks. The
+standalone harness was removed on 2026-07-24 after every detailed row reached a
+terminal state and the native suite passed in both required environments. A
+call-site count is a historical inventory control, not a claim that one call
+site represents one runtime case: loops and data sets are expanded in the
+detailed rows for their owning batch.
 
-Allowed states are `pending`, `native-existing`, `native-migrated`,
-`repository-owned`, and `obsolete-with-proof`. No standalone source may be
-deleted while one of its detailed rows is `pending`.
+The migration used the states `pending`, `native-existing`, `native-migrated`,
+`repository-owned`, and `obsolete-with-proof`. No source was deleted while one
+of its detailed rows was `pending`.
 
 ## Complete Script Inventory
 
@@ -36,10 +38,9 @@ deleted while one of its detailed rows is `pending`.
 | `pluginfile_contract_test.php`         |                             3 | Native callback or repository callback contract        | Detailed below |
 | **Total**                              |                       **668** |                                                        |                |
 
-The unresolved scripts above are inventoried by file and call-site count now.
-Their assertion messages and loop cases must be expanded into detailed rows in
-their owning migration task before their state can change or their source can
-be removed.
+The table above is the preserved inventory of the scripts that were removed.
+Its assertion messages and loop cases were expanded into the detailed rows
+below before the source harness was deleted.
 
 ## Pure Contract Batch
 
@@ -231,11 +232,11 @@ are repository-owned.
 | `media_service_test.php:302-341`        | valid `{PNG, PDF, Markdown, CSV, WAV, generic-hint PNG}` uploads preserve bytes, normalize MIME/name, use one stored file each, and reject text disguised as `{XLSX, ODS}` | Moodle File API and media validation         | `media_service_test::{test_valid_uploads_use_moodle_file_api,test_rejects_oversized_malformed_and_disguised_uploads}`                                                                                               | `native-migrated`  | Real stored files prove context, component, area, item, path, filename, MIME, bytes, list, and resolve  |
 | `pluginfile_contract_test.php:55-67`    | authorized media lookup sends the stored file through Moodle with `DAYSECS`; the cache constant is defined                                                                 | Moodle pluginfile callback                   | `lib_test::test_pluginfile_rejects_invalid_or_unauthorized_file_lookups` and `repository-contracts.node.mjs` — `wires an authorized Moodle File API lookup to the standard send path`                               | `repository-owned` | Native context/capability/path failures plus explicit standard send wiring; no terminating fake harness |
 
-## Batch Gate
+## Final Migration Gate
 
-The detailed pure rows may be considered migrated only after:
-
-1. The retained standalone scripts pass with the moved fixture.
-2. Artifact byte checks and PHP syntax checks pass.
-3. `mod_scaffold_testsuite` passes on Moodle 4.5/PHP 8.1/MySQL and Moodle
-   5.2/PHP 8.3/PostgreSQL for the migration commit.
+The standalone scripts were retained until their detailed rows were terminal.
+The harness was then removed only after artifact byte checks and PHP syntax
+checks passed and `mod_scaffold_testsuite` passed on both required combinations:
+Moodle 4.5/PHP 8.1/MySQL and Moodle 5.2/PHP 8.3/PostgreSQL. The repository guard
+now prevents raw PHP test scripts or direct `php tests/...` invocations from
+being reintroduced.

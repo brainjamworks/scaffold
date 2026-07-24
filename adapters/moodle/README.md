@@ -17,12 +17,14 @@ The adapter is intentionally thin:
 vp run @scaffold/adapter-moodle#verify
 ```
 
-The verification command checks generated artifact freshness, lints the PHP
-package, runs the standalone TypeScript and PHP suites, builds the frontend, and
-compiles the Moodle AMD bootstrap. The AMD builder uses the compiler versions
-from Moodle 4.5, the adapter's minimum supported Moodle release, and does not
-require a separate Moodle checkout. The adapter's `test` and `build` commands
-also reject artifact drift before they run.
+The verification command checks generated artifact freshness, lints the
+installable PHP package, runs the repository-owned Vitest, Node, and Python
+checks, builds the frontend, and compiles the Moodle AMD bootstrap. These fast
+local checks do not initialize Moodle or substitute for the component PHPUnit
+suite. The AMD builder uses the compiler versions from Moodle 4.5, the
+adapter's minimum supported Moodle release, and does not require a separate
+Moodle checkout. The adapter's `test` and `build` commands also reject artifact
+drift before they run.
 
 ## Package
 
@@ -46,7 +48,8 @@ Canonical assessment and learner-activity contracts live in
 in `packages/grading`. Moodle consumes byte-identical generated copies:
 
 - installable schemas in `scaffold/schemas/` for the PHP validators;
-- the standalone grading corpus in `tests/fixtures/` for PHP parity checks.
+- the canonical native grading corpus in
+  `scaffold/tests/fixtures/assessment-grading.json`.
 
 Do not edit those copies by hand. After changing and regenerating their package
 sources, run the applicable sync command and commit the resulting tracked copy:
@@ -59,8 +62,13 @@ vp run @scaffold/adapter-moodle#check:artifacts
 
 Moodle-native PHPUnit sources are shipped under `scaffold/tests/`. Running
 them requires a separately initialized, supported Moodle PHPUnit environment;
-the adapter's standalone `verify` command checks and packages their source but
-does not initialize Moodle or claim installed-system coverage.
+`mod_scaffold_testsuite` is authoritative for behavior that depends on Moodle
+or PHP. Required CI builds the installable plugin and runs that suite on
+Moodle 4.5/PHP 8.1/MySQL and Moodle 5.2/PHP 8.3/PostgreSQL. Vitest owns
+frontend behavior, Node's test runner owns repository and build contracts, and
+Python's `unittest` owns ZIP packaging. The adapter's local `verify` command
+checks and packages the native test source but does not initialize Moodle or
+claim installed-system coverage.
 
 ## Installed Verification
 

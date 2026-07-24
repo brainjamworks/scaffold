@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
 
 const readAdapterFile = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
@@ -37,4 +37,17 @@ test("wires an authorized Moodle File API lookup to the standard send path", asy
     /\$fs->get_file\(\$context->id, 'mod_scaffold', \$filearea, \(int\) \$scaffoldid, \$filepath, \$filename\)/,
   );
   assert.match(callback, /send_stored_file\(\$file, DAYSECS, 0, \$forcedownload, \$options\);/);
+});
+
+test("does not retain or invoke the standalone PHP test harness", async () => {
+  const testfiles = await readdir(new URL(".", import.meta.url));
+  const manifest = JSON.parse(await readAdapterFile("package.json"));
+  const protocoltest = await readAdapterFile("frontend/src/bridge/protocol.test.ts");
+
+  assert.deepEqual(
+    testfiles.filter((filename) => filename.endsWith(".php")),
+    [],
+  );
+  assert.doesNotMatch(manifest.scripts["test:unchecked"], /\bphp\s+tests\//);
+  assert.doesNotMatch(protocoltest, /external_method_parity_test\.php|execFileSync/);
 });
