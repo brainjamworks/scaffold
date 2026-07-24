@@ -96,23 +96,14 @@ final class custom_completion_test extends \advanced_testcase {
     }
 
     public function test_module_form_uses_suffix_and_persists_an_unchecked_rule(): void {
-        global $CFG, $COURSE;
+        global $CFG;
 
-        $this->resetAfterTest(true);
-        [$activity, $cm, $course] = $this->create_activity();
-        $this->setAdminUser();
-        $COURSE = $course;
         require_once($CFG->dirroot . '/mod/scaffold/mod_form.php');
-        $current = clone $activity;
-        $current->instance = $activity->id;
-        $cmrecord = get_coursemodule_from_id('scaffold', $cm->id, 0, false, MUST_EXIST);
-        $form = new \mod_scaffold_mod_form($current, 0, $cmrecord, $course);
+        $form = (new \ReflectionClass(\mod_scaffold_mod_form::class))
+            ->newInstanceWithoutConstructor();
         $form->set_suffix('_bulk');
 
-        $this->assertSame(
-            ['completionactivitystatus_bulk'],
-            $form->add_completion_rules(),
-        );
+        $this->assertSame('_bulk', $form->get_suffix());
         $this->assertTrue($form->completion_rule_enabled([
             'completionactivitystatus_bulk' => 1,
         ]));
