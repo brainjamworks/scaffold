@@ -365,8 +365,21 @@ final class external_api_test extends \advanced_testcase {
             'scaffoldid' => $scaffoldid,
         ]));
 
-        $unenrolled = $this->getDataGenerator()->create_user();
-        $this->setUser($unenrolled);
+        $viewerroleid = $DB->get_field(
+            'role',
+            'id',
+            ['shortname' => 'student'],
+            MUST_EXIST,
+        );
+        assign_capability(
+            'mod/scaffold:view',
+            CAP_PROHIBIT,
+            $viewerroleid,
+            \context_module::instance($cmid)->id,
+            true,
+        );
+        accesslib_clear_all_caches_for_unit_testing();
+        $this->setUser($learner);
         $this->expectException(\required_capability_exception::class);
         load_learner_activity::execute($cmid, $artifactid);
     }
