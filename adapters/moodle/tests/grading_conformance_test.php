@@ -57,7 +57,7 @@ function normalized_grading_json(mixed $value): string {
 }
 
 $canonicalcorpuspath = __DIR__ . '/../../../packages/grading/fixtures/assessment-grading.json';
-$corpuspath = __DIR__ . '/fixtures/assessment-grading.json';
+$corpuspath = __DIR__ . '/../scaffold/tests/fixtures/assessment-grading.json';
 $canonicalcorpusbytes = @file_get_contents($canonicalcorpuspath);
 $corpusbytes = @file_get_contents($corpuspath);
 if ($canonicalcorpusbytes === false || $corpusbytes === false) {

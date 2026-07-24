@@ -14,7 +14,7 @@ const artifacts = [
   {
     label: "assessment grading corpus",
     sourcePath: resolve(adapterRoot, "../../packages/grading/fixtures/assessment-grading.json"),
-    vendoredPath: resolve(adapterRoot, "tests/fixtures/assessment-grading.json"),
+    vendoredPath: resolve(adapterRoot, "scaffold/tests/fixtures/assessment-grading.json"),
   },
 ];
 
