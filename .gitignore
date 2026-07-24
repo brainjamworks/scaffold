@@ -69,15 +69,8 @@ claude-*.txt
 CLAUDE.md
 AGENTS.md
 
-# Local-only project docs
-docs/checkpoints/
-docs/architecture/
-docs/authoring/START-HERE.md
-docs/authoring/block-layout-model.md
-docs/authoring/chart-blocks.md
-docs/authoring/child-textblock-pattern.md
-docs/authoring/structured-nodeview-rules.md
-docs/tech-debt.md
+# Local-only project and workflow docs
+docs/
 
 # Local-only session state
 .sanad/
