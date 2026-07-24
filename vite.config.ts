@@ -180,7 +180,7 @@ export default defineConfig({
       "verify:artifacts":
         "vp exec node scripts/generate-third-party-notices.mjs --check && vp run @scaffold/contracts#check:assessment-schema && vp run @scaffold/contracts#check:learner-activity-schema && vp run @scaffold/adapter-xblock#check:assessment-artifacts && vp run @scaffold/adapter-xblock#check:learner-activity-artifact && vp run @scaffold/adapter-moodle#check:assessment-artifacts && vp run @scaffold/adapter-moodle#check:learner-activity-artifact",
       "verify:tooling":
-        "vp exec node --test scripts/dependency-cruiser.test.mjs scripts/repository-metadata.test.mjs scripts/create-block.test.mjs scripts/create-layout.test.mjs scripts/generate-third-party-notices.test.mjs scripts/prepare-release-candidate.test.mjs scripts/publish-pypi-workflow.test.mjs scripts/release-workflow.behavior.test.mjs scripts/release-workflow.test.mjs",
+        "vp exec node --test scripts/dependency-cruiser.test.mjs scripts/repository-metadata.test.mjs scripts/create-block.test.mjs scripts/create-layout.test.mjs scripts/generate-third-party-notices.test.mjs scripts/prepare-release-candidate.test.mjs scripts/publish-pypi-workflow.test.mjs scripts/release-workflow.behavior.test.mjs scripts/release-workflow.test.mjs scripts/ci-workflow.test.mjs",
       "verify:unit": "vp run -r test",
       "verify:build": "vp run -r build",
       "verify:release": {

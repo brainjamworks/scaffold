@@ -323,6 +323,111 @@ jobs:
       - name: Test non-Core workspaces
         run: vp run --filter '!@scaffold/core' test
 
+  moodle-phpunit:
+    name: Moodle PHPUnit (${{ matrix.moodle }}, PHP ${{ matrix.php }}, ${{ matrix.database }})
+    needs: [classify, build]
+    if: ${{ needs.classify.outputs.code == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - moodle: MOODLE_405_STABLE
+            php: "8.1"
+            database: mysqli
+            database-image: mysql:8.0
+            database-port: 3306
+            database-health-command: mysqladmin ping -h localhost -umoodle -pmoodle
+            php-extension: mysqli
+          - moodle: MOODLE_502_STABLE
+            php: "8.3"
+            database: pgsql
+            database-image: postgres:16
+            database-port: 5432
+            database-health-command: pg_isready -U moodle -d moodle
+            php-extension: pgsql
+    services:
+      database:
+        image: ${{ matrix.database-image }}
+        env:
+          MYSQL_DATABASE: moodle
+          MYSQL_USER: moodle
+          MYSQL_PASSWORD: moodle
+          MYSQL_ROOT_PASSWORD: moodle-root
+          POSTGRES_DB: moodle
+          POSTGRES_USER: moodle
+          POSTGRES_PASSWORD: moodle
+        ports:
+          - "${{ matrix.database-port }}:${{ matrix.database-port }}"
+        options: >-
+          --health-cmd="${{ matrix.database-health-command }}"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb # v1.15.0
+        with:
+          node-version: "24"
+          cache: true
+
+      - name: Install workspace
+        run: vp install
+
+      - name: Download package outputs
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: package-builds
+          path: .tmp/package-builds
+
+      - name: Restore package outputs
+        run: tar -xzf .tmp/package-builds/package-builds.tgz
+
+      - name: Build Moodle plugin
+        run: vp run @scaffold/adapter-moodle#build
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@b604ade2a87db23f8871b7182e69ec5e75effb45 # v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: intl, mbstring, soap, zip, gd, ${{ matrix.php-extension }}
+          ini-values: max_input_vars=5000
+          coverage: none
+
+      - name: Install Moodle Plugin CI
+        run: |
+          composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci ci '^4'
+          echo "$(pwd)/ci/bin" >> "$GITHUB_PATH"
+          echo "$(pwd)/ci/vendor/bin" >> "$GITHUB_PATH"
+          sudo locale-gen en_AU.UTF-8
+
+      - name: Install Moodle
+        env:
+          DB: ${{ matrix.database }}
+          DB_HOST: 127.0.0.1
+          DB_NAME: moodle
+          DB_PASS: moodle
+          DB_PORT: ${{ matrix.database-port }}
+          DB_USER: moodle
+          MOODLE_BRANCH: ${{ matrix.moodle }}
+        run: >-
+          moodle-plugin-ci install
+          --plugin ./adapters/moodle/scaffold
+          --db-host=127.0.0.1
+          --db-port=${{ matrix.database-port }}
+          --no-plugin-node
+
+      - name: Run Moodle component suite
+        run: >-
+          moodle-plugin-ci phpunit
+          --testsuite mod_scaffold_testsuite
+          --fail-on-warning
+          --fail-on-risky
+
   status:
     name: Required CI
     if: ${{ !cancelled() }}
@@ -337,6 +442,7 @@ jobs:
       - core-unit
       - core-browser
       - workspace-tests
+      - moodle-phpunit
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
