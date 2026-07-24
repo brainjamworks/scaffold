@@ -202,6 +202,21 @@ test("installable adapters expose explicit non-publishing package tasks", async 
   assert.equal(Object.hasOwn(xblock.scripts ?? {}, "publish"), false);
 });
 
+test("release tooling locks the patched Terser and fast-uri versions", async () => {
+  const moodle = await readJson("adapters/moodle/package.json");
+  const lock = parseYaml(await readFile(resolve(REPOSITORY_ROOT, "pnpm-lock.yaml"), "utf8"));
+  const workspace = parseYaml(
+    await readFile(resolve(REPOSITORY_ROOT, "pnpm-workspace.yaml"), "utf8"),
+  );
+
+  assert.equal(moodle.devDependencies?.terser, "5.49.0");
+  assert.equal(workspace.overrides?.["fast-uri"], "3.1.4");
+  assert.equal(Object.hasOwn(lock.packages, "terser@5.49.0"), true);
+  assert.equal(Object.hasOwn(lock.packages, "terser@5.11.0"), false);
+  assert.equal(Object.hasOwn(lock.packages, "fast-uri@3.1.4"), true);
+  assert.equal(Object.hasOwn(lock.packages, "fast-uri@3.1.3"), false);
+});
+
 test("repository tooling gate includes release candidate verification", async () => {
   const configSource = await readFile(resolve(REPOSITORY_ROOT, "vite.config.ts"), "utf8");
 

@@ -7,6 +7,7 @@ allowBuilds:
   esbuild: true
 
 overrides:
+  fast-uri: "3.1.4"
   vite: "npm:@voidzero-dev/vite-plus-core@0.2.4"
 
 peerDependencyRules:
