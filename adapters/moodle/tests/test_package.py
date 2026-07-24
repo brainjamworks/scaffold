@@ -13,6 +13,35 @@ REPOSITORY_ROOT = Path(__file__).parents[3]
 
 
 class MoodlePackageTest(unittest.TestCase):
+    def test_plugin_sources_use_moodles_gpl_boilerplate(self):
+        plugin_root = REPOSITORY_ROOT / "adapters" / "moodle" / "scaffold"
+        expected_boilerplate = "\n".join(
+            [
+                "// Scaffold is free software: you can redistribute it and/or modify",
+                "// it under the terms of the GNU General Public License as published by",
+                "// the Free Software Foundation, either version 3 of the License, or",
+                "// (at your option) any later version.",
+                "//",
+                "// Scaffold is distributed in the hope that it will be useful,",
+                "// but WITHOUT ANY WARRANTY; without even the implied warranty of",
+                "// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the",
+                "// GNU General Public License for more details.",
+                "//",
+                "// You should have received a copy of the GNU General Public License",
+                "// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.",
+            ],
+        )
+        source_files = list(plugin_root.rglob("*.php"))
+        source_files.extend((plugin_root / "amd" / "src").rglob("*.js"))
+
+        self.assertTrue(source_files)
+        for source_file in source_files:
+            with self.subTest(source_file=source_file.relative_to(plugin_root)):
+                self.assertIn(
+                    expected_boilerplate,
+                    source_file.read_text(encoding="utf8"),
+                )
+
     def test_repository_admin_guide_has_versioned_install_and_verification_paths(self):
         guide = (
             REPOSITORY_ROOT / "adapters" / "moodle" / "scaffold" / "README.md"
