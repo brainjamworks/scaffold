@@ -13,26 +13,6 @@ use mod_scaffold\local\learner_activity_service;
 
 defined('MOODLE_INTERNAL') || die();
 
-final class learner_activity_service_test_lock {
-    public bool $released = false;
-
-    public function release(): void {
-        $this->released = true;
-    }
-}
-
-final class learner_activity_service_test_lock_factory {
-    public array $requests = [];
-    public array $locks = [];
-
-    public function get_lock(string $resource, int $timeout): learner_activity_service_test_lock {
-        $this->requests[] = [$resource, $timeout];
-        $lock = new learner_activity_service_test_lock();
-        $this->locks[] = $lock;
-        return $lock;
-    }
-}
-
 /**
  * Tests the learner-activity service against Moodle authorization and DML.
  *
@@ -60,6 +40,8 @@ final class learner_activity_service_test extends \advanced_testcase {
     }
 
     public function test_save_rejects_wrong_artifact_block_and_kind(): void {
+        global $DB;
+
         $this->resetAfterTest();
 
         [$course, $activity] = $this->create_activity();
@@ -84,33 +66,234 @@ final class learner_activity_service_test extends \advanced_testcase {
             'checklist-1',
             self::record_json('flashcard'),
         ));
+        $this->assertSame(0, $DB->count_records('scaffold_learner_activity'));
     }
 
-    public function test_save_assigns_server_time_and_uses_learner_lock(): void {
-        $this->resetAfterTest();
+    public function test_save_lifecycle_uses_real_dml_and_releases_moodle_lock(): void {
+        global $DB;
 
+        $this->resetAfterTest();
         [$course, $activity] = $this->create_activity();
         $scope = $this->learner_scope($course, $activity->cmid);
-        $locks = new learner_activity_service_test_lock_factory();
-        $repository = new learner_activity_repository(null, $locks);
-        $service = new learner_activity_service($repository);
+        $service = new learner_activity_service();
+        $artifactid = 'moodle-cm-' . $activity->cmid;
+        $empty = $service->load($scope);
 
-        $record = $service->save(
+        $this->assertSame(1, $empty['snapshotVersion']);
+        $this->assertSame($artifactid, $empty['artifactId']);
+        $this->assertSame([], get_object_vars($empty['activities']));
+        $this->assertSame(0, $DB->count_records('scaffold_learner_activity'));
+
+        $checklist = $service->save(
             $scope,
-            'moodle-cm-' . $activity->cmid,
+            $artifactid,
+            'checklist-1',
+            self::lossless_record_json(),
+        );
+        $this->assertMatchesRegularExpression(
+            '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.000000Z$/',
+            $checklist['updatedAt'],
+        );
+        $this->assertInstanceOf(\stdClass::class, $checklist['data']);
+        $this->assertSame('zero', $checklist['data']->{'0'});
+        $this->assertSame('one', $checklist['data']->{'1'});
+        $this->assertInstanceOf(\stdClass::class, $checklist['data']->emptyObject);
+        $this->assertIsArray($checklist['data']->genuineArray);
+        $firstrow = $DB->get_record('scaffold_learner_activity', [
+            'scaffoldid' => $activity->id,
+            'userid' => $scope->actorid,
+        ], '*', MUST_EXIST);
+
+        $flashcard = $service->save(
+            $scope,
+            $artifactid,
+            'flashcard-1',
+            self::record_json('flashcard', (object) ['currentCardId' => 'card-2'], true),
+        );
+        $loaded = $service->load($scope);
+        $this->assertSame(
+            ['checklist-1', 'flashcard-1'],
+            array_keys(get_object_vars($loaded['activities'])),
+        );
+        $this->assertEquals(
+            $checklist['data'],
+            $loaded['activities']->{'checklist-1'}->data,
+        );
+        $this->assertSame(
+            $flashcard['updatedAt'],
+            $loaded['activities']->{'flashcard-1'}->updatedAt,
+        );
+        $this->assertSame(1, $DB->count_records('scaffold_learner_activity', [
+            'scaffoldid' => $activity->id,
+            'userid' => $scope->actorid,
+        ]));
+
+        $updated = $service->save(
+            $scope,
+            $artifactid,
+            'checklist-1',
+            self::record_json('checklist', (object) ['position' => 2], true),
+        );
+        $updatedrow = $DB->get_record('scaffold_learner_activity', [
+            'id' => $firstrow->id,
+        ], '*', MUST_EXIST);
+        $this->assertTrue($updated['completed']);
+        $this->assertSame((int) $firstrow->timecreated, (int) $updatedrow->timecreated);
+        $this->assertGreaterThan((int) $firstrow->timemodified, (int) $updatedrow->timemodified);
+
+        $dbman = $DB->get_manager();
+        $table = new \xmldb_table('scaffold_learner_activity');
+        $this->assertTrue($dbman->index_exists(
+            $table,
+            new \xmldb_index('scaffolduser', XMLDB_INDEX_UNIQUE, ['scaffoldid', 'userid']),
+        ));
+        $factory = \core\lock\lock_config::get_lock_factory('mod_scaffold_learner_activity');
+        $lock = $factory->get_lock(
+            'activity:' . $activity->id . ':learner:' . $scope->actorid,
+            0,
+        );
+        $this->assertNotFalse($lock);
+        $lock->release();
+    }
+
+    public function test_user_and_activity_rows_are_isolated(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        [$firstcourse, $firstactivity] = $this->create_activity();
+        [$secondcourse, $secondactivity] = $this->create_activity();
+        $firstuser = $this->getDataGenerator()->create_user();
+        $seconduser = $this->getDataGenerator()->create_user();
+        $firstscope = $this->learner_scope($firstcourse, $firstactivity->cmid, $firstuser);
+        $service = new learner_activity_service();
+        $service->save(
+            $firstscope,
+            'moodle-cm-' . $firstactivity->cmid,
             'checklist-1',
             self::record_json('checklist'),
         );
 
-        $this->assertMatchesRegularExpression(
-            '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.000000Z$/',
-            $record['updatedAt'],
+        $secondscope = $this->learner_scope($firstcourse, $firstactivity->cmid, $seconduser);
+        $this->assertSame([], get_object_vars($service->load($secondscope)['activities']));
+        $service->save(
+            $secondscope,
+            'moodle-cm-' . $firstactivity->cmid,
+            'checklist-1',
+            self::record_json('checklist'),
         );
-        $this->assertSame(
-            [['activity:' . $activity->id . ':learner:' . $scope->actorid, 10]],
-            $locks->requests,
+
+        $otheractivityscope = $this->learner_scope($secondcourse, $secondactivity->cmid, $firstuser);
+        $otherempty = $service->load($otheractivityscope);
+        $this->assertSame('moodle-cm-' . $secondactivity->cmid, $otherempty['artifactId']);
+        $this->assertSame([], get_object_vars($otherempty['activities']));
+        $service->save(
+            $otheractivityscope,
+            'moodle-cm-' . $secondactivity->cmid,
+            'flashcard-1',
+            self::record_json('flashcard'),
         );
-        $this->assertTrue($locks->locks[0]->released);
+
+        $this->assertSame(3, $DB->count_records('scaffold_learner_activity'));
+        $this->assertSame(2, $DB->count_records('scaffold_learner_activity', [
+            'scaffoldid' => $firstactivity->id,
+        ]));
+        $this->assertSame(1, $DB->count_records('scaffold_learner_activity', [
+            'scaffoldid' => $secondactivity->id,
+        ]));
+    }
+
+    public function test_invalid_stored_snapshots_reject_load_and_save_without_rewrite(): void {
+        global $DB;
+
+        $this->resetAfterTest(true);
+        $this->preventResetByRollback();
+        [$course, $activity] = $this->create_activity();
+        $scope = $this->learner_scope($course, $activity->cmid);
+        $service = new learner_activity_service();
+        $artifactid = 'moodle-cm-' . $activity->cmid;
+        $service->save(
+            $scope,
+            $artifactid,
+            'checklist-1',
+            self::record_json('checklist'),
+        );
+        $rowid = $DB->get_field('scaffold_learner_activity', 'id', [
+            'scaffoldid' => $activity->id,
+            'userid' => $scope->actorid,
+        ], MUST_EXIST);
+        $cases = [
+            '{bad json',
+            '[]',
+            json_encode([
+                'snapshotVersion' => 2,
+                'artifactId' => $artifactid,
+                'activities' => (object) [],
+            ], JSON_THROW_ON_ERROR),
+            json_encode([
+                'snapshotVersion' => 1,
+                'artifactId' => 'moodle-cm-999',
+                'activities' => (object) [],
+            ], JSON_THROW_ON_ERROR),
+        ];
+        foreach ($cases as $snapshotjson) {
+            $DB->set_field('scaffold_learner_activity', 'snapshotjson', $snapshotjson, ['id' => $rowid]);
+            $this->assert_invalid_parameter(static fn(): array => $service->load($scope));
+            $this->assert_invalid_parameter(static fn(): array => $service->save(
+                $scope,
+                $artifactid,
+                'checklist-1',
+                self::record_json('checklist'),
+            ));
+            $this->assertSame(
+                $snapshotjson,
+                $DB->get_field('scaffold_learner_activity', 'snapshotjson', ['id' => $rowid]),
+            );
+        }
+
+        $factory = \core\lock\lock_config::get_lock_factory('mod_scaffold_learner_activity');
+        $lock = $factory->get_lock(
+            'activity:' . $activity->id . ':learner:' . $scope->actorid,
+            0,
+        );
+        $this->assertNotFalse($lock);
+        $lock->release();
+    }
+
+    public function test_activity_map_rejects_blank_and_conflicting_stored_ids(): void {
+        global $DB;
+
+        $this->resetAfterTest();
+        [$course, $activity] = $this->create_activity();
+        $learner = $this->getDataGenerator()->create_user();
+        $this->enrol_as($learner, $course, 'student');
+        $this->setUser($learner);
+        $cases = [
+            [
+                'type' => 'doc',
+                'content' => [['type' => 'checklist', 'attrs' => ['id' => '   ']]],
+            ],
+            [
+                'type' => 'doc',
+                'content' => [
+                    ['type' => 'checklist', 'attrs' => ['id' => 'shared-id']],
+                    ['type' => 'flashcard', 'attrs' => ['id' => 'shared-id']],
+                ],
+            ],
+        ];
+
+        foreach ($cases as $content) {
+            $DB->set_field(
+                'scaffold',
+                'learnercontentjson',
+                json_encode($content, JSON_THROW_ON_ERROR),
+                ['id' => $activity->id],
+            );
+            $scope = activity_access::require($activity->cmid, 'mod/scaffold:view');
+            $this->assert_invalid_parameter(
+                static fn(): array => (new learner_activity_service())->load($scope),
+            );
+        }
+        $this->assertSame(0, $DB->count_records('scaffold_learner_activity'));
     }
 
     public function test_load_omits_orphan_records_without_deleting_persisted_state(): void {
@@ -152,6 +335,9 @@ final class learner_activity_service_test extends \advanced_testcase {
         [$course, $activity] = $this->create_activity();
         $scope = $this->learner_scope($course, $activity->cmid);
         $assessmentbefore = $DB->count_records('scaffold_assessment_state', ['scaffoldid' => $activity->id]);
+        $publicationsbefore = $DB->count_records('scaffold_grade_publications', [
+            'scaffoldid' => $activity->id,
+        ]);
         $gradesbefore = $DB->get_records('grade_items', [
             'itemmodule' => 'scaffold',
             'iteminstance' => $activity->id,
@@ -177,6 +363,12 @@ final class learner_activity_service_test extends \advanced_testcase {
             $DB->get_records('grade_items', [
                 'itemmodule' => 'scaffold',
                 'iteminstance' => $activity->id,
+            ]),
+        );
+        $this->assertSame(
+            $publicationsbefore,
+            $DB->count_records('scaffold_grade_publications', [
+                'scaffoldid' => $activity->id,
             ]),
         );
         $this->assertSame(
@@ -237,8 +429,12 @@ final class learner_activity_service_test extends \advanced_testcase {
         return [$course, $activity];
     }
 
-    private function learner_scope(\stdClass $course, int $cmid): \mod_scaffold\local\activity_scope {
-        $learner = $this->getDataGenerator()->create_user();
+    private function learner_scope(
+        \stdClass $course,
+        int $cmid,
+        ?\stdClass $learner = null,
+    ): \mod_scaffold\local\activity_scope {
+        $learner ??= $this->getDataGenerator()->create_user();
         $this->enrol_as($learner, $course, 'student');
         $this->setUser($learner);
         return activity_access::require($cmid, 'mod/scaffold:view');
@@ -260,12 +456,23 @@ final class learner_activity_service_test extends \advanced_testcase {
         }
     }
 
-    private static function record_json(string $kind): string {
+    private static function record_json(
+        string $kind,
+        mixed $data = null,
+        bool $completed = false,
+    ): string {
         return json_encode([
             'activityKind' => $kind,
-            'data' => ['position' => 1],
-            'completed' => false,
+            'data' => $data ?? (object) ['position' => 1],
+            'completed' => $completed,
         ], JSON_THROW_ON_ERROR);
+    }
+
+    private static function lossless_record_json(): string {
+        return '{"activityKind":"checklist","data":{'
+            . '"0":"zero","1":"one","emptyObject":{},'
+            . '"genuineArray":["array-zero",{"0":"object-zero"}]},'
+            . '"completed":false}';
     }
 
     private static function learner_content(bool $withflashcard): array {

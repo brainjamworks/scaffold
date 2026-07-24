@@ -9,8 +9,10 @@ namespace mod_scaffold;
 
 use mod_scaffold\external\finish_quiz_attempt;
 use mod_scaffold\external\get_payload;
+use mod_scaffold\external\load_learner_activity;
 use mod_scaffold\external\reveal_hint;
 use mod_scaffold\external\reveal_quiz_answers;
+use mod_scaffold\external\save_learner_activity;
 use mod_scaffold\external\start_quiz_attempt;
 use mod_scaffold\external\submit_quiz_question;
 
@@ -89,6 +91,16 @@ final class external_api_test extends \advanced_testcase {
                     'assessmentSnapshotJson',
                     'learnerActivitySnapshotJson',
                 ],
+            ],
+            'load learner activity' => [
+                load_learner_activity::class,
+                ['cmid', 'artifactid'],
+                ['success', 'snapshotJson'],
+            ],
+            'save learner activity' => [
+                save_learner_activity::class,
+                ['cmid', 'artifactid', 'blockid', 'recordjson'],
+                ['success', 'recordJson'],
             ],
         ];
     }
@@ -185,6 +197,178 @@ final class external_api_test extends \advanced_testcase {
         $this->assertTrue($result['success']);
         $this->assertSame(1, $outcome->problem->hintsShown);
         $this->assertSame('null', $result['gradePublicationJson']);
+    }
+
+    public function test_learner_activity_external_round_trip_is_lossless_and_isolated(): void {
+        global $DB;
+
+        $this->resetAfterTest(true);
+        [$cmid, $learner, $scaffoldid, $course] = $this->create_activity(
+            'after_each_answer',
+            false,
+        );
+        $artifactid = 'moodle-cm-' . $cmid;
+        $this->setUser($learner);
+        $empty = $this->decode(
+            load_learner_activity::execute($cmid, $artifactid)['snapshotJson'],
+        );
+        $this->assertSame(1, $empty->snapshotVersion);
+        $this->assertSame($artifactid, $empty->artifactId);
+        $this->assertSame([], get_object_vars($empty->activities));
+
+        $checklistjson = '{"activityKind":"checklist","data":{'
+            . '"0":"zero","1":"one"},"completed":false}';
+        $flashcardjson = '{"activityKind":"flashcard","data":{'
+            . '"nestedNumericKeys":{"0":{"0":"deep-zero","1":"deep-one"},"1":"nested-one"},'
+            . '"genuineArray":["array-zero",{"0":"object-zero","1":"object-one"}],'
+            . '"emptyObject":{}},"completed":true}';
+        $checklist = $this->decode(save_learner_activity::execute(
+            $cmid,
+            $artifactid,
+            'checklist-1',
+            $checklistjson,
+        )['recordJson']);
+        $flashcard = $this->decode(save_learner_activity::execute(
+            $cmid,
+            $artifactid,
+            'flashcard-1',
+            $flashcardjson,
+        )['recordJson']);
+
+        $this->assertSame('zero', $checklist->data->{'0'});
+        $this->assertSame('one', $checklist->data->{'1'});
+        $this->assertSame('deep-zero', $flashcard->data->nestedNumericKeys->{'0'}->{'0'});
+        $this->assertSame('deep-one', $flashcard->data->nestedNumericKeys->{'0'}->{'1'});
+        $this->assertSame('nested-one', $flashcard->data->nestedNumericKeys->{'1'});
+        $this->assertIsArray($flashcard->data->genuineArray);
+        $this->assertInstanceOf(\stdClass::class, $flashcard->data->genuineArray[1]);
+        $this->assertInstanceOf(\stdClass::class, $flashcard->data->emptyObject);
+        $this->assertTrue($flashcard->completed);
+
+        $loadedjson = load_learner_activity::execute($cmid, $artifactid)['snapshotJson'];
+        $loaded = $this->decode($loadedjson);
+        $this->assertEquals($checklist, $loaded->activities->{'checklist-1'});
+        $this->assertEquals($flashcard, $loaded->activities->{'flashcard-1'});
+        $this->assertSame(1, $DB->count_records('scaffold_learner_activity', [
+            'scaffoldid' => $scaffoldid,
+            'userid' => $learner->id,
+        ]));
+        $this->assertJsonStringEqualsJsonString(
+            $loadedjson,
+            get_payload::execute($cmid, 'learner')['learnerActivitySnapshotJson'],
+        );
+
+        $otherlearner = $this->getDataGenerator()->create_user();
+        $this->enrol_as($otherlearner, $course, 'student');
+        $this->setUser($otherlearner);
+        $otheruser = $this->decode(
+            load_learner_activity::execute($cmid, $artifactid)['snapshotJson'],
+        );
+        $this->assertSame([], get_object_vars($otheruser->activities));
+
+        [$othercmid, , , $othercourse] = $this->create_activity('after_each_answer', false);
+        $this->enrol_as($learner, $othercourse, 'student');
+        $this->setUser($learner);
+        $otheractivity = $this->decode(load_learner_activity::execute(
+            $othercmid,
+            'moodle-cm-' . $othercmid,
+        )['snapshotJson']);
+        $this->assertSame('moodle-cm-' . $othercmid, $otheractivity->artifactId);
+        $this->assertSame([], get_object_vars($otheractivity->activities));
+    }
+
+    public function test_learner_activity_external_rejects_invalid_scope_and_records(): void {
+        global $DB;
+
+        $this->resetAfterTest(true);
+        [$cmid, $learner, $scaffoldid] = $this->create_activity(
+            'after_each_answer',
+            false,
+        );
+        $artifactid = 'moodle-cm-' . $cmid;
+        $this->setUser($learner);
+        $checklistjson = '{"activityKind":"checklist","data":{},"completed":false}';
+
+        $this->assert_invalid_parameter(static fn(): array => \core_external\external_api::validate_parameters(
+            load_learner_activity::execute_parameters(),
+            ['cmid' => [], 'artifactid' => $artifactid],
+        ));
+        $this->assert_moodle_exception(
+            static fn(): array => load_learner_activity::execute(999999, 'moodle-cm-999999'),
+        );
+        foreach ([
+            static fn(): array => load_learner_activity::execute($cmid, 'moodle-cm-999'),
+            static fn(): array => save_learner_activity::execute(
+                $cmid,
+                $artifactid,
+                '',
+                $checklistjson,
+            ),
+            static fn(): array => save_learner_activity::execute(
+                $cmid,
+                $artifactid,
+                'missing-block',
+                $checklistjson,
+            ),
+            static fn(): array => save_learner_activity::execute(
+                $cmid,
+                $artifactid,
+                'hidden-in-data',
+                $checklistjson,
+            ),
+            static fn(): array => save_learner_activity::execute(
+                $cmid,
+                $artifactid,
+                'checklist-1',
+                '{"activityKind":"flashcard","data":{},"completed":false}',
+            ),
+            static fn(): array => save_learner_activity::execute(
+                $cmid,
+                $artifactid,
+                'checklist-1',
+                '{bad json',
+            ),
+            static fn(): array => save_learner_activity::execute(
+                $cmid,
+                $artifactid,
+                'checklist-1',
+                '[]',
+            ),
+            static fn(): array => save_learner_activity::execute(
+                $cmid,
+                $artifactid,
+                'checklist-1',
+                '{"activityKind":"checklist","data":{},"completed":false,"updatedAt":null}',
+            ),
+            static fn(): array => save_learner_activity::execute(
+                $cmid,
+                $artifactid,
+                'checklist-1',
+                '{"activityKind":"checklist","data":{},"completed":false,"unexpected":true}',
+            ),
+            static fn(): array => save_learner_activity::execute(
+                $cmid,
+                $artifactid,
+                'checklist-1',
+                '{"activityKind":"   ","data":{},"completed":false}',
+            ),
+            static fn(): array => save_learner_activity::execute(
+                $cmid,
+                $artifactid,
+                'checklist-1',
+                str_repeat('x', 262145),
+            ),
+        ] as $operation) {
+            $this->assert_invalid_parameter($operation);
+        }
+        $this->assertSame(0, $DB->count_records('scaffold_learner_activity', [
+            'scaffoldid' => $scaffoldid,
+        ]));
+
+        $unenrolled = $this->getDataGenerator()->create_user();
+        $this->setUser($unenrolled);
+        $this->expectException(\required_capability_exception::class);
+        load_learner_activity::execute($cmid, $artifactid);
     }
 
     public function test_get_payload_delegates_authoring_and_learner_projections(): void {
@@ -363,6 +547,24 @@ final class external_api_test extends \advanced_testcase {
         return $value;
     }
 
+    private function assert_invalid_parameter(callable $operation): void {
+        try {
+            $operation();
+            $this->fail('Expected invalid_parameter_exception');
+        } catch (\invalid_parameter_exception) {
+            $this->addToAssertionCount(1);
+        }
+    }
+
+    private function assert_moodle_exception(callable $operation): void {
+        try {
+            $operation();
+            $this->fail('Expected moodle_exception');
+        } catch (\moodle_exception) {
+            $this->addToAssertionCount(1);
+        }
+    }
+
     private function target(): array {
         return [
             'schemaVersion' => 1,
@@ -413,11 +615,21 @@ final class external_api_test extends \advanced_testcase {
                 'attrs' => ['mode' => 'page'],
                 'content' => [[
                     'type' => 'surface',
-                    'content' => [[
-                        'type' => 'mcq',
-                        'attrs' => ['id' => 'question-1'],
-                        'content' => [['type' => 'assessment_hint']],
-                    ]],
+                    'content' => [
+                        [
+                            'type' => 'checklist',
+                            'attrs' => ['id' => 'checklist-1'],
+                        ],
+                        [
+                            'type' => 'flashcard',
+                            'attrs' => ['id' => 'flashcard-1'],
+                        ],
+                        [
+                            'type' => 'mcq',
+                            'attrs' => ['id' => 'question-1'],
+                            'content' => [['type' => 'assessment_hint']],
+                        ],
+                    ],
                 ]],
             ]],
         ];

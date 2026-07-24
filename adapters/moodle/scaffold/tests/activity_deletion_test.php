@@ -22,7 +22,9 @@ final class activity_deletion_test extends \advanced_testcase {
         $activity = $this->create_activity('Deleted activity');
         $otheractivity = $this->create_activity('Preserved activity');
         $user = $this->getDataGenerator()->create_user();
+        $otheruser = $this->getDataGenerator()->create_user();
         $this->insert_personal_rows($activity->id, $user->id);
+        $this->insert_personal_rows($activity->id, $otheruser->id);
         $this->insert_personal_rows($otheractivity->id, $user->id);
         $mediafile = $this->create_file($activity, 'media', $activity->id, 'media.txt');
         $introfile = $this->create_file($activity, 'intro', 0, 'intro.txt');
@@ -38,6 +40,7 @@ final class activity_deletion_test extends \advanced_testcase {
         ] as $table) {
             $this->assertFalse($DB->record_exists($table, ['scaffoldid' => $activity->id]));
             $this->assertTrue($DB->record_exists($table, ['scaffoldid' => $otheractivity->id]));
+            $this->assertSame(1, $DB->count_records($table, ['scaffoldid' => $otheractivity->id]));
         }
         $this->assertFalse($DB->record_exists('grade_items', [
             'itemmodule' => 'scaffold',
