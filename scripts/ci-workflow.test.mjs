@@ -88,14 +88,16 @@ test("Moodle Plugin CI builds, installs, and runs only the component suite", () 
   const prepareIndex = stepNames.indexOf("Prepare Moodle workspace");
   const installIndex = stepNames.indexOf("Install Moodle");
   const installTool = job.steps.find((step) => step.name === "Install Moodle Plugin CI");
+  const prepareWorkspace = job.steps.find((step) => step.name === "Prepare Moodle workspace");
   const installMoodle = job.steps.find((step) => step.name === "Install Moodle");
   const runPhpunit = job.steps.find((step) => step.name === "Run Moodle component suite");
 
   assert.ok(buildIndex >= 0, "Moodle plugin build step is required");
   assert.ok(prepareIndex > buildIndex, "Moodle workspace must be prepared after the plugin build");
   assert.ok(installIndex > prepareIndex, "Moodle plugin must be built before Moodle installation");
-  assert.equal(installMoodle["working-directory"], ".tmp/moodle-plugin-ci-work");
-  assert.equal(runPhpunit["working-directory"], ".tmp/moodle-plugin-ci-work");
+  assert.equal(prepareWorkspace.run, 'mkdir -p "${{ runner.temp }}/moodle-plugin-ci-work"');
+  assert.equal(installMoodle["working-directory"], "${{ runner.temp }}/moodle-plugin-ci-work");
+  assert.equal(runPhpunit["working-directory"], "${{ runner.temp }}/moodle-plugin-ci-work");
 
   const jobSource = source.slice(
     source.indexOf("  moodle-phpunit:"),
