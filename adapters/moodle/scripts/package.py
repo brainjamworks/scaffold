@@ -14,7 +14,7 @@ from pathlib import Path, PurePosixPath
 
 SEMVER_PATTERN = re.compile(r"(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)")
 EXCLUDED_PARTS = {".git", "node_modules"}
-REQUIRED_FILES = ("README.md", "CHANGES.md", "version.php")
+REQUIRED_FILES = ("README.md", "CHANGES.md", "LICENSE", "version.php")
 REQUIRED_RUNTIME_DIRECTORIES = ("public", "amd/build")
 
 
@@ -119,7 +119,7 @@ def release_payload(repository_root, plugin_root, files):
         (path.relative_to(plugin_root).as_posix(), path)
         for path in files
     ]
-    for filename in ("LICENSE", "THIRD_PARTY_NOTICES.md"):
+    for filename in ("THIRD_PARTY_NOTICES.md",):
         source_path = repository_root / filename
         if not source_path.is_file():
             raise ValueError(f"Moodle package is missing repository {filename}.")

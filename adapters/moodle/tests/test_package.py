@@ -44,11 +44,16 @@ class MoodlePackageTest(unittest.TestCase):
                 names = packaged.namelist()
                 self.assertTrue(names)
                 self.assertTrue(all(name.startswith("scaffold/") for name in names))
+                self.assertEqual(names.count("scaffold/LICENSE"), 1)
                 self.assertIn("scaffold/version.php", names)
                 self.assertIn("scaffold/public/app.js", names)
                 self.assertIn("scaffold/amd/build/app.min.js", names)
                 self.assertIn("scaffold/LICENSE", names)
                 self.assertIn("scaffold/THIRD_PARTY_NOTICES.md", names)
+                self.assertEqual(
+                    packaged.read("scaffold/LICENSE"),
+                    b"GPLv3-or-later licence\n",
+                )
                 self.assertTrue(
                     all((entry.external_attr >> 16) == 0o100644 for entry in packaged.infolist()),
                 )
@@ -117,6 +122,10 @@ class MoodlePackageTest(unittest.TestCase):
         (repository_root / "LICENSE").write_text("AGPL licence\n", encoding="utf8")
         (repository_root / "THIRD_PARTY_NOTICES.md").write_text(
             "# Third-Party Notices\n",
+            encoding="utf8",
+        )
+        (plugin_root / "LICENSE").write_text(
+            "GPLv3-or-later licence\n",
             encoding="utf8",
         )
         (plugin_root / "version.php").write_text(

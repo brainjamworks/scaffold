@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Moodle activity module adapter for Scaffold.",
-  "license": "AGPL-3.0-only",
+  "license": "GPL-3.0-or-later",
   "type": "module",
   "scripts": {
     "build": "vp run check:artifacts && vp run build:unchecked",

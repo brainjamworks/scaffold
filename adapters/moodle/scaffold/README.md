@@ -103,5 +103,7 @@ Report security concerns privately to
 
 ## License
 
-Scaffold is distributed under the GNU Affero General Public License v3.0 only.
+The Scaffold Moodle plugin is distributed under the GNU General Public
+License v3.0 or later. The wider Scaffold repository remains available under
+the GNU Affero General Public License v3.0 only.
 The release ZIP includes `LICENSE` and `THIRD_PARTY_NOTICES.md`.
