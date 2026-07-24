@@ -202,6 +202,13 @@ test("installable adapters expose explicit non-publishing package tasks", async 
   assert.equal(Object.hasOwn(xblock.scripts ?? {}, "publish"), false);
 });
 
+test("repository tooling gate includes release candidate verification", async () => {
+  const configSource = await readFile(resolve(REPOSITORY_ROOT, "vite.config.ts"), "utf8");
+
+  assert.match(configSource, /scripts\/prepare-release-candidate\.test\.mjs/);
+  assert.match(configSource, /scripts\/release-workflow\.test\.mjs/);
+});
+
 test("Core exposes exactly the supported public subpaths", async () => {
   const coreManifest = await readJson("packages/core/package.json");
   const expectedExports = {

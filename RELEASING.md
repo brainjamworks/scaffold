@@ -5,9 +5,10 @@ in the same change as any release-tooling or policy change.
 
 ## Adoption Status
 
-Scaffold has no formal release tags or publishing workflow yet. Version `0.1.0`
-is the first coordinated release candidate; it is not a published release until
-the corresponding tag and GitHub Release exist.
+Scaffold has no formal release tags yet. The tag-driven candidate workflow is
+implemented, but it has not produced a release. Version `0.1.0` is the first
+coordinated release candidate; it is not a published release until the
+corresponding tag and GitHub Release exist.
 
 Before the first formal release:
 
@@ -15,7 +16,8 @@ Before the first formal release:
    trusted publishing.
 2. Complete Moodle Marketplace provider onboarding and prepare the first
    `mod_scaffold` listing.
-3. Implement the tag-driven draft release workflow described below.
+3. Confirm access to representative real Moodle and Open edX hosts for the
+   manual approval smoke tests.
 
 Remove this transition section after those steps are complete.
 
@@ -292,12 +294,12 @@ command against the released version before declaring the rollout complete.
    XBlock metadata, and all release changelogs together.
 3. Run `vp run verify:release`.
 4. Run both adapter package tasks locally to validate the release candidate.
-5. Commit the release preparation to `main`.
-6. Create an annotated tag named `vX.Y.Z`; sign it when release signing is
-   configured.
-7. Push the commit and tag. The release workflow must build both adapters from
-   the tag, validate the fixed-version mapping and exact package outputs, and
-   create a draft GitHub Release.
+5. Commit and push the release preparation to `main`.
+6. Wait for the release commit's `Required CI` check to pass.
+7. Create an annotated tag named `vX.Y.Z`; sign it when release signing is
+   configured, then push the tag. The release workflow must build both adapters
+   from the tag, validate the fixed-version mapping and exact package outputs,
+   and create a draft GitHub Release.
 8. Confirm that the draft contains the expected notes, Moodle ZIP, XBlock wheel
    and source distribution, checksums, and provenance.
 9. Manually smoke-test the exact draft Moodle ZIP and XBlock wheel in available
@@ -319,11 +321,19 @@ an immutable tagged source commit, and PyPI trusted publishing rather than a
 long-lived upload token. It must never publish from an uncommitted working tree,
 a moving branch reference, or a second unverified artifact build.
 
-The tag-driven draft GitHub Release workflow and PyPI publishing configuration
-are not implemented yet. The adapter package commands and coordinated `0.1.0`
-metadata are ready. PyPI trusted-publisher configuration, Marketplace provider
-and submission readiness, and access to representative real hosts for manual
-smoke testing remain first-release prerequisites.
+The tag-driven draft GitHub Release workflow is implemented in
+`.github/workflows/release.yml`. It requires an annotated `vX.Y.Z` tag on a
+`main` commit whose `Required CI` check passed, validates the coordinated
+release identity, packages both adapters, records checksums and GitHub build
+provenance, and creates a draft prerelease. It never publishes the release or
+either adapter. An interrupted draft can be completed only when its existing
+assets match the verified candidate; a published release or differing asset is
+never overwritten.
+
+The adapter package commands and coordinated `0.1.0` metadata are ready. PyPI
+trusted-publisher configuration, Marketplace provider and submission readiness,
+and access to representative real hosts for manual smoke testing remain
+first-release prerequisites.
 
 ## Failed and Superseded Releases
 
