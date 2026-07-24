@@ -14,72 +14,20 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
-/**
- * Scheduled quiz expiry task tests.
- *
- * Defines task-specific test helpers and verifies scheduled expiry processing.
- *
- * @package    mod_scaffold
- * @copyright  2026 Rizvan Ali
- * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- */
-
 namespace mod_scaffold;
 
 use mod_scaffold\local\assessment_state_repository;
 use mod_scaffold\local\artifact_identity;
 use mod_scaffold\local\quiz_expiry_reconciler;
+use mod_scaffold\task\reconcile_quiz_expiry;
 
-defined('MOODLE_INTERNAL') || die();
-
-/**
- * Exposes controlled quiz expiry task dependencies for tests.
- */
-final class quiz_expiry_task_under_test extends \mod_scaffold\task\reconcile_quiz_expiry {
-    /**
-     * Creates a new quiz expiry task under test instance.
-     *
-     * @param quiz_expiry_reconciler $reconciler Reconciler.
-     * @param int $limit Maximum records processed.
-     */
-    public function __construct(
-        /** @var quiz_expiry_reconciler Reconciler. */
-        private readonly quiz_expiry_reconciler $reconciler,
-        /** @var int Maximum records processed. */
-        private readonly int $limit,
-    ) {
-    }
-
-    #[\Override]
-    protected function create_reconciler(): quiz_expiry_reconciler {
-        return $this->reconciler;
-    }
-
-    #[\Override]
-    protected function batch_limit(): int {
-        return $this->limit;
-    }
-}
-
-/**
- * Simulates an unavailable scheduled task lock.
- */
-final class quiz_expiry_unavailable_lock_factory {
-    /**
-     * Returns lock.
-     *
-     * @param string $resource Resource.
-     * @param int $timeout Timeout.
-     * @return bool
-     */
-    public function get_lock(string $resource, int $timeout): bool {
-        return false;
-    }
-}
 
 /**
  * Verifies bounded scheduled Quiz expiry recovery against Moodle DML.
  *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers \mod_scaffold\task\reconcile_quiz_expiry
  * @covers \mod_scaffold\local\quiz_expiry_reconciler
  */
@@ -125,11 +73,11 @@ final class quiz_expiry_task_test extends \advanced_testcase {
             $repository,
             null,
             static fn(): string => self::NOW,
-            static function(\stdClass $activity, int $userid, string $artifactid) use (&$gradecalls): \stdClass {
+            static function (\stdClass $activity, int $userid, string $artifactid) use (&$gradecalls): \stdClass {
                 $gradecalls[] = [(int) $activity->id, $userid, $artifactid];
                 return (object) ['status' => 'published'];
             },
-            static function(
+            static function (
                 \stdClass $activity,
                 \cm_info $cm,
                 int $userid,
@@ -138,7 +86,7 @@ final class quiz_expiry_task_test extends \advanced_testcase {
             },
         );
 
-        $firstoutput = $this->execute_task(new quiz_expiry_task_under_test($reconciler, 2));
+        $firstoutput = $this->execute_task(self::task_under_test($reconciler, 2));
         $this->assertStringContainsString('selected=2 changed=2 unchanged=0 skipped=0 failed=0', $firstoutput);
         $this->assertSame('expired', $this->quiz_status($scaffold, $users[0]));
         $this->assertSame('expired', $this->quiz_status($scaffold, $users[1]));
@@ -148,14 +96,14 @@ final class quiz_expiry_task_test extends \advanced_testcase {
         $this->assertCount(2, $completioncalls);
         $this->assertStringNotContainsString('attempt-due', $firstoutput);
 
-        $secondoutput = $this->execute_task(new quiz_expiry_task_under_test($reconciler, 2));
+        $secondoutput = $this->execute_task(self::task_under_test($reconciler, 2));
         $this->assertStringContainsString('selected=1 changed=1 unchanged=0 skipped=0 failed=0', $secondoutput);
         $this->assertSame('expired', $this->quiz_status($scaffold, $users[2]));
         $this->assertSame('in_progress', $this->quiz_status($scaffold, $users[3]));
         $this->assertCount(3, $gradecalls);
         $this->assertCount(3, $completioncalls);
 
-        $repeatoutput = $this->execute_task(new quiz_expiry_task_under_test($reconciler, 2));
+        $repeatoutput = $this->execute_task(self::task_under_test($reconciler, 2));
         $this->assertStringContainsString('selected=0 changed=0 unchanged=0 skipped=0 failed=0', $repeatoutput);
         $this->assertCount(3, $gradecalls);
         $this->assertCount(3, $completioncalls);
@@ -245,13 +193,13 @@ final class quiz_expiry_task_test extends \advanced_testcase {
             null,
         );
 
-        $output = $this->execute_task(new quiz_expiry_task_under_test(
+        $output = $this->execute_task(self::task_under_test(
             new quiz_expiry_reconciler(
                 $repository,
                 null,
                 static fn(): string => self::NOW,
                 static fn(): \stdClass => (object) ['status' => 'published'],
-                static function(): void {
+                static function (): void {
                 },
             ),
             10,
@@ -290,12 +238,12 @@ final class quiz_expiry_task_test extends \advanced_testcase {
             'userid' => $user->id,
         ], MUST_EXIST);
         $contended = new quiz_expiry_reconciler(
-            new assessment_state_repository($DB, new quiz_expiry_unavailable_lock_factory()),
+            new assessment_state_repository($DB, self::unavailable_lock_factory()),
             null,
             static fn(): string => self::NOW,
         );
 
-        $failedoutput = $this->execute_task(new quiz_expiry_task_under_test($contended, 10));
+        $failedoutput = $this->execute_task(self::task_under_test($contended, 10));
         $this->assertStringContainsString('selected=1 changed=0 unchanged=0 skipped=0 failed=1', $failedoutput);
         $this->assertStringContainsString('status=lock_unavailable', $failedoutput);
         $this->assertSame('in_progress', $this->quiz_status($scaffold, $user));
@@ -306,13 +254,13 @@ final class quiz_expiry_task_test extends \advanced_testcase {
             MUST_EXIST,
         ));
 
-        $recoveredoutput = $this->execute_task(new quiz_expiry_task_under_test(
+        $recoveredoutput = $this->execute_task(self::task_under_test(
             new quiz_expiry_reconciler(
                 $repository,
                 null,
                 static fn(): string => self::NOW,
                 static fn(): \stdClass => (object) ['status' => 'published'],
-                static function(): void {
+                static function (): void {
                 },
             ),
             10,
@@ -397,7 +345,7 @@ final class quiz_expiry_task_test extends \advanced_testcase {
             (int) $scaffold->id,
             $userid,
             $artifactid,
-            static function(\stdClass $snapshot) use ($attemptid, $expiresat): \stdClass {
+            static function (\stdClass $snapshot) use ($attemptid, $expiresat): \stdClass {
                 $snapshot->quizzes->{'quiz-due-graded'} = self::attempt($attemptid, $expiresat);
                 return $snapshot;
             },
@@ -460,12 +408,70 @@ final class quiz_expiry_task_test extends \advanced_testcase {
     }
 
     /**
-     * Returns execute task.
+     * Creates a task with controlled quiz expiry dependencies.
      *
-     * @param quiz_expiry_task_under_test $task Task.
+     * @param quiz_expiry_reconciler $reconciler Reconciler.
+     * @param int $limit Maximum records processed.
+     * @return reconcile_quiz_expiry
+     */
+    private static function task_under_test(
+        quiz_expiry_reconciler $reconciler,
+        int $limit,
+    ): reconcile_quiz_expiry {
+        return new class ($reconciler, $limit) extends reconcile_quiz_expiry {
+            /**
+             * Creates a task with controlled dependencies.
+             *
+             * @param quiz_expiry_reconciler $reconciler Reconciler.
+             * @param int $limit Maximum records processed.
+             */
+            public function __construct(
+                /** @var quiz_expiry_reconciler Reconciler. */
+                private readonly quiz_expiry_reconciler $reconciler,
+                /** @var int Maximum records processed. */
+                private readonly int $limit,
+            ) {
+            }
+
+            #[\Override]
+            protected function create_reconciler(): quiz_expiry_reconciler {
+                return $this->reconciler;
+            }
+
+            #[\Override]
+            protected function batch_limit(): int {
+                return $this->limit;
+            }
+        };
+    }
+
+    /**
+     * Creates a lock factory which always reports contention.
+     *
+     * @return object
+     */
+    private static function unavailable_lock_factory(): object {
+        return new class {
+            /**
+             * Refuses the requested lock.
+             *
+             * @param string $resource Resource.
+             * @param int $timeout Timeout.
+             * @return bool
+             */
+            public function get_lock(string $resource, int $timeout): bool {
+                return false;
+            }
+        };
+    }
+
+    /**
+     * Executes a quiz expiry task and returns its output.
+     *
+     * @param reconcile_quiz_expiry $task Task.
      * @return string
      */
-    private function execute_task(quiz_expiry_task_under_test $task): string {
+    private function execute_task(reconcile_quiz_expiry $task): string {
         ob_start();
         try {
             $task->execute();

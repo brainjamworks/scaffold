@@ -18,7 +18,6 @@ namespace mod_scaffold;
 
 use mod_scaffold\local\grade_publication_repository;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Verifies normalized learner grade-publication storage against Moodle DML.
@@ -37,7 +36,8 @@ final class grade_publication_repository_test extends \advanced_testcase {
         $dbman = $DB->get_manager();
         $publicationtable = new \xmldb_table('scaffold_grade_publications');
 
-        foreach ([
+        foreach (
+            [
             'id',
             'scaffoldid',
             'userid',
@@ -49,7 +49,8 @@ final class grade_publication_repository_test extends \advanced_testcase {
             'retryafter',
             'timecreated',
             'timemodified',
-        ] as $fieldname) {
+            ] as $fieldname
+        ) {
             $this->assertTrue($dbman->field_exists($publicationtable, new \xmldb_field($fieldname)));
         }
         $this->assertFalse($dbman->field_exists($publicationtable, new \xmldb_field('rawgrade')));
@@ -71,7 +72,8 @@ final class grade_publication_repository_test extends \advanced_testcase {
         ));
 
         $activitytable = new \xmldb_table('scaffold');
-        foreach ([
+        foreach (
+            [
             'assessmentdefinitionversion',
             'gradeitemversion',
             'gradeitemstatus',
@@ -79,7 +81,8 @@ final class grade_publication_repository_test extends \advanced_testcase {
             'gradeitemretrycount',
             'gradeitemretryafter',
             'gradeitemtimemodified',
-        ] as $fieldname) {
+            ] as $fieldname
+        ) {
             $this->assertTrue($dbman->field_exists($activitytable, new \xmldb_field($fieldname)));
         }
 
@@ -106,7 +109,7 @@ final class grade_publication_repository_test extends \advanced_testcase {
         $times = [100, 101, 102, 103, 104, 105];
         $repository = new grade_publication_repository(
             $DB,
-            static function() use (&$times): int {
+            static function () use (&$times): int {
                 return array_shift($times);
             },
         );

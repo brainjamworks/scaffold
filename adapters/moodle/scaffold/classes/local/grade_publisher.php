@@ -77,11 +77,11 @@ class grade_publisher {
     ) {
         $this->staterepository = $staterepository ?? new assessment_state_repository();
         $this->publicationrepository = $publicationrepository ?? new grade_publication_repository();
-        $this->activityloader = \Closure::fromCallable($activityloader ?? static function(int $scaffoldid): \stdClass {
+        $this->activityloader = \Closure::fromCallable($activityloader ?? static function (int $scaffoldid): \stdClass {
             global $DB;
             return $DB->get_record('scaffold', ['id' => $scaffoldid], '*', MUST_EXIST);
         });
-        $this->gradewriter = \Closure::fromCallable($gradewriter ?? static function(
+        $this->gradewriter = \Closure::fromCallable($gradewriter ?? static function (
             \stdClass $scaffold,
             array $grade,
         ): int {
@@ -89,7 +89,7 @@ class grade_publisher {
             require_once($CFG->dirroot . '/mod/scaffold/lib.php');
             return scaffold_grade_item_update($scaffold, $grade);
         });
-        $this->conflictchecker = \Closure::fromCallable($conflictchecker ?? static function(
+        $this->conflictchecker = \Closure::fromCallable($conflictchecker ?? static function (
             \stdClass $scaffold,
             int $userid,
         ): ?string {
@@ -98,7 +98,7 @@ class grade_publisher {
             return scaffold_grade_publication_conflict($scaffold, $userid);
         });
         $this->clock = \Closure::fromCallable($clock ?? static fn(): int => time());
-        $this->projectionloader = \Closure::fromCallable($projectionloader ?? static function(
+        $this->projectionloader = \Closure::fromCallable($projectionloader ?? static function (
             \stdClass $scaffold,
             \stdClass $state,
         ): \stdClass {
@@ -128,7 +128,7 @@ class grade_publisher {
         return $this->staterepository->with_learner_lock(
             $scaffoldid,
             $userid,
-            function() use ($scaffoldid, $userid): \stdClass {
+            function () use ($scaffoldid, $userid): \stdClass {
                 $currentactivity = ($this->activityloader)($scaffoldid);
                 $cmid = self::course_module_id($currentactivity);
                 $artifactid = artifact_identity::for_course_module($cmid);
@@ -145,13 +145,17 @@ class grade_publisher {
                 $staterevision = (int) $state->stateRevision;
                 $definitionversion = (int) ($currentactivity->assessmentdefinitionversion ?? 1);
                 $publication = $this->publicationrepository->get($scaffoldid, $userid);
-                if (!($publication instanceof \stdClass)
+                if (
+                    !($publication instanceof \stdClass)
                     || (int) $publication->staterevision !== $staterevision
-                    || (int) $publication->definitionversion !== $definitionversion) {
+                    || (int) $publication->definitionversion !== $definitionversion
+                ) {
                     return self::outcome('pending');
                 }
-                if ((int) ($currentactivity->gradeitemversion ?? 0) !== $definitionversion
-                    || ($currentactivity->gradeitemstatus ?? 'pending') !== 'published') {
+                if (
+                    (int) ($currentactivity->gradeitemversion ?? 0) !== $definitionversion
+                    || ($currentactivity->gradeitemstatus ?? 'pending') !== 'published'
+                ) {
                     return self::outcome('pending');
                 }
 
@@ -165,13 +169,15 @@ class grade_publisher {
                     $userid,
                 );
                 if ($grade === null) {
-                    if (!$this->publicationrepository->record_status(
-                        $scaffoldid,
-                        $userid,
-                        $staterevision,
-                        $definitionversion,
-                        'published',
-                    )) {
+                    if (
+                        !$this->publicationrepository->record_status(
+                            $scaffoldid,
+                            $userid,
+                            $staterevision,
+                            $definitionversion,
+                            'published',
+                        )
+                    ) {
                         return self::outcome('pending');
                     }
                     return self::outcome('not_applicable');
@@ -394,15 +400,17 @@ class grade_publisher {
         ?int $retryafter,
         \stdClass $outcome,
     ): \stdClass {
-        if (!$this->publicationrepository->record_status(
-            $scaffoldid,
-            $userid,
-            $staterevision,
-            $definitionversion,
-            $status,
-            $code,
-            $retryafter,
-        )) {
+        if (
+            !$this->publicationrepository->record_status(
+                $scaffoldid,
+                $userid,
+                $staterevision,
+                $definitionversion,
+                $status,
+                $code,
+                $retryafter,
+            )
+        ) {
             return self::outcome('pending');
         }
         return $outcome;

@@ -14,28 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
+namespace mod_scaffold\local;
+
+
 /**
- * Learner activity persistence for the Scaffold activity module.
- *
- * Defines the insert-collision exception and repository used for learner activity snapshots.
+ * Persists and queries learner activity snapshots.
  *
  * @package    mod_scaffold
  * @copyright  2026 Rizvan Ali
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- */
-
-namespace mod_scaffold\local;
-
-defined('MOODLE_INTERNAL') || die();
-
-/**
- * Signals a concurrent learner activity insertion.
- */
-class learner_activity_insert_collision extends \RuntimeException {
-}
-
-/**
- * Persists and queries learner activity snapshots.
  */
 class learner_activity_repository {
     /**
@@ -114,9 +101,11 @@ class learner_activity_repository {
         $snapshot = $this->load_or_empty($scaffoldid, $userid, $artifactid);
         $active = (object) [];
         foreach (get_object_vars($snapshot['activities']) as $blockid => $record) {
-            if (!array_key_exists($blockid, $authorizedactivities)
+            if (
+                !array_key_exists($blockid, $authorizedactivities)
                 || !($record instanceof \stdClass)
-                || ($record->activityKind ?? null) !== $authorizedactivities[$blockid]) {
+                || ($record->activityKind ?? null) !== $authorizedactivities[$blockid]
+            ) {
                 continue;
             }
             $active->{$blockid} = $record;
@@ -498,10 +487,12 @@ class learner_activity_repository {
      * @return array
      */
     private function validate_requested_record(array $record): array {
-        if (count($record) !== 3
+        if (
+            count($record) !== 3
             || !array_key_exists('activityKind', $record)
             || !array_key_exists('data', $record)
-            || !array_key_exists('completed', $record)) {
+            || !array_key_exists('completed', $record)
+        ) {
             throw new \invalid_parameter_exception('Learner activity save record has an invalid shape');
         }
 

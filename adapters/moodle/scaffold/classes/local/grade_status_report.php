@@ -16,7 +16,6 @@
 
 namespace mod_scaffold\local;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Reports grade publication status.
@@ -172,8 +171,10 @@ final class grade_status_report {
      * @return string
      */
     private static function next_action(string $status, int $retrycount, ?int $retryafter): string {
-        if (in_array($status, ['locked', 'configuration_error'], true)
-            || ($status === 'failed' && ($retryafter === null || $retrycount >= 5))) {
+        if (
+            in_array($status, ['locked', 'configuration_error'], true)
+            || ($status === 'failed' && ($retryafter === null || $retrycount >= 5))
+        ) {
             return 'correct_and_requeue';
         }
         return match ($status) {

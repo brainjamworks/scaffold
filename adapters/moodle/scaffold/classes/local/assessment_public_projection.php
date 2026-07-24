@@ -72,12 +72,14 @@ final class assessment_public_projection {
             $publicattempt = assessment_quiz::public_attempt($attempt, $group);
             unset($publicattempt->groupId);
             $publicquizzes[$groupid] = $publicattempt;
-            foreach (get_object_vars(assessment_quiz::public_problems_by_target_id(
-                $snapshot->problems,
-                $group['targetIds'] ?? [],
-                $group,
-                $attempt,
-            )) as $targetid => $problem) {
+            foreach (
+                get_object_vars(assessment_quiz::public_problems_by_target_id(
+                    $snapshot->problems,
+                    $group['targetIds'] ?? [],
+                    $group,
+                    $attempt,
+                )) as $targetid => $problem
+            ) {
                 $publicproblems[$targetid] = $problem;
             }
         }

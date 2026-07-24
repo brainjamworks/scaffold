@@ -24,7 +24,6 @@
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * SCAFFOLD EMPTY ARTIFACT JSON.
@@ -87,8 +86,10 @@ function scaffold_get_coursemodule_info(stdClass $coursemodule): cached_cm_info|
  * @return array
  */
 function mod_scaffold_get_completion_active_rule_descriptions(\cm_info|\stdClass $cm): array {
-    if ($cm->completion != COMPLETION_TRACKING_AUTOMATIC
-        || empty($cm->customdata['customcompletionrules']['completionactivitystatus'])) {
+    if (
+        $cm->completion != COMPLETION_TRACKING_AUTOMATIC
+        || empty($cm->customdata['customcompletionrules']['completionactivitystatus'])
+    ) {
         return [];
     }
     return [get_string('completiondetail:activitystatus', 'scaffold')];

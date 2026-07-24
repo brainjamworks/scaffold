@@ -20,7 +20,6 @@ use mod_scaffold\local\activity_access;
 use mod_scaffold\local\learner_activity_repository;
 use mod_scaffold\local\learner_activity_service;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Tests the learner-activity service against Moodle authorization and DML.

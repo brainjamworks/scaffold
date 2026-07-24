@@ -19,7 +19,6 @@ namespace mod_scaffold;
 use mod_scaffold\local\activity_access;
 use mod_scaffold\local\content_service;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Tests content projection and persistence against Moodle DML.
@@ -200,7 +199,7 @@ final class content_service_test extends \advanced_testcase {
         $callbacktransactionactive = null;
         $diagnostic = null;
         $service = new content_service(
-            static function(\stdClass $saved) use (
+            static function (\stdClass $saved) use (
                 $DB,
                 &$callbackran,
                 &$callbacktransactionactive,
@@ -209,7 +208,7 @@ final class content_service_test extends \advanced_testcase {
                 $callbacktransactionactive = $DB->is_transaction_started();
                 throw new \RuntimeException('Simulated grade-item failure');
             },
-            static function(\Throwable $exception, \stdClass $saved) use (&$diagnostic): void {
+            static function (\Throwable $exception, \stdClass $saved) use (&$diagnostic): void {
                 $diagnostic = [
                     'message' => $exception->getMessage(),
                     'activityid' => $saved->id,

@@ -19,7 +19,6 @@ namespace mod_scaffold;
 use mod_scaffold\local\activity_access;
 use mod_scaffold\local\assessment_service;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Exercises standalone assessment sequencing through Moodle DML and locking.
@@ -40,7 +39,7 @@ final class assessment_service_test extends \advanced_testcase {
         $service = new assessment_service(
             null,
             static fn(array $target, array $response): array => self::assessment_result(true),
-            static function(): never {
+            static function (): never {
                 throw new \RuntimeException('simulated publisher failure');
             },
         );
@@ -77,11 +76,11 @@ final class assessment_service_test extends \advanced_testcase {
         $publicationcalls = 0;
         $service = new assessment_service(
             null,
-            static function(array $target, array $response) use (&$gradecalls): array {
+            static function (array $target, array $response) use (&$gradecalls): array {
                 $gradecalls++;
                 return self::assessment_result(($response['optionId'] ?? null) === 'option-b');
             },
-            static function() use (&$publicationcalls): \stdClass {
+            static function () use (&$publicationcalls): \stdClass {
                 $publicationcalls++;
                 return (object) ['status' => 'observed'];
             },
@@ -357,15 +356,15 @@ final class assessment_service_test extends \advanced_testcase {
         $completioncalls = 0;
         $service = new assessment_service(
             null,
-            static function() use (&$gradecalls): array {
+            static function () use (&$gradecalls): array {
                 $gradecalls++;
                 return self::assessment_result(true);
             },
-            static function() use (&$publicationcalls): \stdClass {
+            static function () use (&$publicationcalls): \stdClass {
                 $publicationcalls++;
                 return (object) ['status' => 'observed'];
             },
-            static function() use (&$completioncalls): void {
+            static function () use (&$completioncalls): void {
                 $completioncalls++;
             },
         );
@@ -427,7 +426,7 @@ final class assessment_service_test extends \advanced_testcase {
         $quiz = new \mod_scaffold\local\assessment_quiz(
             static fn(): string => '2026-07-18T10:00:00.000000Z',
             static fn(string $groupid): string => 'attempt-quiz-1',
-            static function(array $target, array $response) use (&$gradecalls): array {
+            static function (array $target, array $response) use (&$gradecalls): array {
                 $gradecalls++;
                 return self::assessment_result(($response['optionId'] ?? null) === 'option-b');
             },

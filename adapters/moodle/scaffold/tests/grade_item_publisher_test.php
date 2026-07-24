@@ -18,7 +18,6 @@ namespace mod_scaffold;
 
 use mod_scaffold\local\grade_item_publisher;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Tests activity grade-item publication independently from learner grades.
@@ -140,7 +139,7 @@ final class grade_item_publisher_test extends \advanced_testcase {
             static fn(int $id): \stdClass => clone $activity,
             static fn(\stdClass $loaded): int => GRADE_UPDATE_MULTIPLE,
             static fn(\stdClass $loaded): int => GRADE_UPDATE_OK,
-            static function(\stdClass $loaded, array $status) use (&$persisted): bool {
+            static function (\stdClass $loaded, array $status) use (&$persisted): bool {
                 $persisted = $status;
                 return true;
             },
@@ -165,11 +164,13 @@ final class grade_item_publisher_test extends \advanced_testcase {
     }
 
     public function test_retryable_failures_use_capped_exponential_backoff(): void {
-        foreach ([
+        foreach (
+            [
             [0, 1, 160],
             [1, 2, 220],
             [6, 7, 3700],
-        ] as [$currentretrycount, $expectedretrycount, $expectedretryafter]) {
+            ] as [$currentretrycount, $expectedretrycount, $expectedretryafter]
+        ) {
             $activity = (object) [
                 'id' => 7,
                 'course' => 3,
@@ -187,7 +188,7 @@ final class grade_item_publisher_test extends \advanced_testcase {
                 static fn(int $id): \stdClass => clone $activity,
                 static fn(\stdClass $loaded): int => GRADE_UPDATE_FAILED,
                 static fn(\stdClass $loaded): int => GRADE_UPDATE_OK,
-                static function(\stdClass $loaded, array $status) use (&$persisted): bool {
+                static function (\stdClass $loaded, array $status) use (&$persisted): bool {
                     $persisted = $status;
                     return true;
                 },

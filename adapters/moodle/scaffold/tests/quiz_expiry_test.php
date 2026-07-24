@@ -14,16 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
-/**
- * Quiz expiry reconciliation tests.
- *
- * Defines a tracking repository and verifies due quiz state transitions.
- *
- * @package    mod_scaffold
- * @copyright  2026 Rizvan Ali
- * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- */
-
 namespace mod_scaffold;
 
 use mod_scaffold\local\assessment_state_repository;
@@ -33,34 +23,13 @@ use mod_scaffold\local\artifact_identity;
 use mod_scaffold\local\content_service;
 use mod_scaffold\local\quiz_expiry_reconciler;
 
-defined('MOODLE_INTERNAL') || die();
-
-/**
- * Records quiz expiry persistence calls for tests.
- */
-final class quiz_expiry_tracking_repository extends assessment_state_repository {
-    /** @var bool Whether test mutation tracking is active. */
-    public bool $mutationactive = false;
-
-    #[\Override]
-    public function mutate_state(
-        int $scaffoldid,
-        int $userid,
-        string $artifactid,
-        callable $mutation,
-    ): \stdClass {
-        $this->mutationactive = true;
-        try {
-            return parent::mutate_state($scaffoldid, $userid, $artifactid, $mutation);
-        } finally {
-            $this->mutationactive = false;
-        }
-    }
-}
 
 /**
  * Verifies server-authoritative Quiz expiry against real Moodle DML and locks.
  *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers \mod_scaffold\local\quiz_expiry_reconciler
  */
 final class quiz_expiry_test extends \advanced_testcase {
@@ -70,12 +39,12 @@ final class quiz_expiry_test extends \advanced_testcase {
         $this->resetAfterTest();
         [$scaffold, $cm, $user, $course] = $this->create_fixture();
         $artifactid = artifact_identity::for_course_module((int) $cm->id);
-        $repository = new quiz_expiry_tracking_repository();
+        $repository = self::tracking_repository();
         $repository->mutate_state(
             (int) $scaffold->id,
             (int) $user->id,
             $artifactid,
-            static function(\stdClass $snapshot): \stdClass {
+            static function (\stdClass $snapshot): \stdClass {
                 $snapshot->quizzes->{'quiz-due-graded'} = self::attempt(
                     'attempt-lazy',
                     '2026-07-18T09:59:59.000000Z',
@@ -90,18 +59,25 @@ final class quiz_expiry_test extends \advanced_testcase {
             $repository,
             null,
             static fn(): string => '2026-07-18T10:00:00.000000Z',
-            static function(\stdClass $activity, int $userid, string $artifactid) use (
+            static function (
+                \stdClass $activity,
+                int $userid,
+                string $artifactid
+            ) use (
                 $repository,
                 &$gradecalls,
             ): \stdClass {
                 $gradecalls[] = [$repository->mutationactive, (int) $activity->id, $userid, $artifactid];
                 return (object) ['status' => 'published'];
             },
-            static function(
+            static function (
                 \stdClass $activity,
                 \cm_info $cm,
                 int $userid,
-            ) use ($repository, &$completioncalls): void {
+            ) use (
+                $repository,
+                &$completioncalls
+            ): void {
                 $completioncalls[] = [
                     $repository->mutationactive,
                     (int) $activity->id,
@@ -160,7 +136,7 @@ final class quiz_expiry_test extends \advanced_testcase {
             (int) $scaffold->id,
             (int) $user->id,
             $artifactid,
-            static function(\stdClass $snapshot): \stdClass {
+            static function (\stdClass $snapshot): \stdClass {
                 $snapshot->quizzes->{'quiz-due-graded'} = self::attempt(
                     'attempt-command',
                     '2026-07-18T09:59:59.000000Z',
@@ -175,11 +151,11 @@ final class quiz_expiry_test extends \advanced_testcase {
             $repository,
             null,
             static fn(): string => '2026-07-18T10:00:00.000000Z',
-            static function() use (&$gradecalls): \stdClass {
+            static function () use (&$gradecalls): \stdClass {
                 $gradecalls++;
                 return (object) ['status' => 'published'];
             },
-            static function() use (&$completioncalls): void {
+            static function () use (&$completioncalls): void {
                 $completioncalls++;
             },
         );
@@ -224,7 +200,7 @@ final class quiz_expiry_test extends \advanced_testcase {
             (int) $scaffold->id,
             (int) $user->id,
             $artifactid,
-            static function(\stdClass $snapshot): \stdClass {
+            static function (\stdClass $snapshot): \stdClass {
                 $snapshot->quizzes->{'quiz-due-graded'} = self::attempt(
                     'attempt-due-graded',
                     '2026-07-18T09:59:59.000000Z',
@@ -252,10 +228,10 @@ final class quiz_expiry_test extends \advanced_testcase {
         $outcome = $reconciler->reconcile_user($scaffold, (int) $user->id, $artifactid);
 
         $this->assertTrue($outcome->changed);
-        $this->assertSame(2, $outcome->stateRevision);
-        $this->assertSame(['quiz-due-graded', 'quiz-due-ungraded'], $outcome->expiredGroupIds);
-        $this->assertTrue($outcome->gradeRequired);
-        $this->assertTrue($outcome->completionRequired);
+        $this->assertSame(2, $outcome->staterevision);
+        $this->assertSame(['quiz-due-graded', 'quiz-due-ungraded'], $outcome->expiredgroupids);
+        $this->assertTrue($outcome->graderequired);
+        $this->assertTrue($outcome->completionrequired);
         $row = $DB->get_record('scaffold_assessment_state', [
             'scaffoldid' => $scaffold->id,
             'userid' => $user->id,
@@ -269,7 +245,7 @@ final class quiz_expiry_test extends \advanced_testcase {
         $before = serialize($row);
         $repeat = $reconciler->reconcile_user($scaffold, (int) $user->id, $artifactid);
         $this->assertFalse($repeat->changed);
-        $this->assertSame([], $repeat->expiredGroupIds);
+        $this->assertSame([], $repeat->expiredgroupids);
         $this->assertSame($before, serialize($DB->get_record(
             'scaffold_assessment_state',
             ['scaffoldid' => $scaffold->id, 'userid' => $user->id],
@@ -281,7 +257,7 @@ final class quiz_expiry_test extends \advanced_testcase {
             (int) $scaffold->id,
             (int) $user->id,
             $artifactid,
-            static function(\stdClass $current): \stdClass {
+            static function (\stdClass $current): \stdClass {
                 if ($current->quizzes->{'quiz-due-graded'}->status === 'in_progress') {
                     $current->quizzes->{'quiz-due-graded'}->currentTargetId = null;
                 }
@@ -335,6 +311,33 @@ final class quiz_expiry_test extends \advanced_testcase {
             $before,
             serialize($DB->get_record('scaffold_assessment_state', ['id' => $recordid], '*', MUST_EXIST)),
         );
+    }
+
+    /**
+     * Creates a repository which records whether a mutation is active.
+     *
+     * @return assessment_state_repository
+     */
+    private static function tracking_repository(): assessment_state_repository {
+        return new class extends assessment_state_repository {
+            /** @var bool Whether test mutation tracking is active. */
+            public bool $mutationactive = false;
+
+            #[\Override]
+            public function mutate_state(
+                int $scaffoldid,
+                int $userid,
+                string $artifactid,
+                callable $mutation,
+            ): \stdClass {
+                $this->mutationactive = true;
+                try {
+                    return parent::mutate_state($scaffoldid, $userid, $artifactid, $mutation);
+                } finally {
+                    $this->mutationactive = false;
+                }
+            }
+        };
     }
 
     /**

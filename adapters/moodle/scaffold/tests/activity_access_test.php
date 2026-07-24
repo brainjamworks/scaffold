@@ -19,7 +19,6 @@ namespace mod_scaffold;
 use mod_scaffold\local\activity_access;
 use mod_scaffold\local\activity_scope;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Tests the authorized activity boundary against Moodle contexts and capabilities.

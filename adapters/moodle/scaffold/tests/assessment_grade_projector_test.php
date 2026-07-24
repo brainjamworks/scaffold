@@ -18,7 +18,6 @@ namespace mod_scaffold;
 
 use mod_scaffold\local\assessment_grade_projector;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Tests Moodle grade projections from canonical assessment state.

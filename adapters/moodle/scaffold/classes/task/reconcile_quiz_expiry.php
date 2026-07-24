@@ -18,7 +18,6 @@ namespace mod_scaffold\task;
 
 use mod_scaffold\local\quiz_expiry_reconciler;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Scheduled task for quiz expiry reconciliation.

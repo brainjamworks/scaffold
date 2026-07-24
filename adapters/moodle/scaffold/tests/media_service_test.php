@@ -18,7 +18,6 @@ namespace mod_scaffold;
 
 use mod_scaffold\local\media_service;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Tests managed media against Moodle's File API.
@@ -96,7 +95,8 @@ final class media_service_test extends \advanced_testcase {
         ];
         $uploads = [];
 
-        foreach ($cases as $case => [
+        foreach (
+            $cases as $case => [
             $mediatype,
             $filename,
             $contenttype,
@@ -104,7 +104,8 @@ final class media_service_test extends \advanced_testcase {
             $expectedmimetype,
             $payload,
             $filenamepattern,
-        ]) {
+            ]
+        ) {
             $result = media_service::upload_media(
                 $activity,
                 $cm,
@@ -212,7 +213,8 @@ final class media_service_test extends \advanced_testcase {
             self::data_url('image/png', str_repeat('a', 10485761)),
             'image upload exceeds the size limit',
         );
-        foreach ([
+        foreach (
+            [
             'HTML presented as PNG' => [
                 'image',
                 'disguised.png',
@@ -283,7 +285,8 @@ final class media_service_test extends \advanced_testcase {
                 self::data_url('application/octet-stream', ''),
                 'mediatype is not supported',
             ],
-        ] as $case => [$mediatype, $filename, $contenttype, $dataurl, $message]) {
+            ] as $case => [$mediatype, $filename, $contenttype, $dataurl, $message]
+        ) {
             $this->assert_invalid_upload(
                 $activity,
                 $cm,

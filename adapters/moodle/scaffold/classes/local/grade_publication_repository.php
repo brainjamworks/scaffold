@@ -16,7 +16,6 @@
 
 namespace mod_scaffold\local;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Persists grade publication state.
@@ -222,9 +221,11 @@ class grade_publication_repository {
     ): \stdClass {
         $this->validate_source_identity($scaffoldid, $userid, $staterevision, $definitionversion);
         $current = $this->get($scaffoldid, $userid);
-        if ($current !== null
+        if (
+            $current !== null
             && $current->staterevision === $staterevision
-            && $current->definitionversion === $definitionversion) {
+            && $current->definitionversion === $definitionversion
+        ) {
             return $current;
         }
 
@@ -278,8 +279,10 @@ class grade_publication_repository {
             return null;
         }
         $now = ($this->clock)();
-        if ($current->status === 'failed'
-            && ($current->retryafter === null || $current->retryafter > $now)) {
+        if (
+            $current->status === 'failed'
+            && ($current->retryafter === null || $current->retryafter > $now)
+        ) {
             return null;
         }
 
@@ -441,9 +444,11 @@ class grade_publication_repository {
         int $definitionversion,
     ): ?\stdClass {
         $current = $this->get($scaffoldid, $userid);
-        if ($current === null
+        if (
+            $current === null
             || $current->staterevision !== $staterevision
-            || $current->definitionversion !== $definitionversion) {
+            || $current->definitionversion !== $definitionversion
+        ) {
             return null;
         }
         return $current;
@@ -515,9 +520,11 @@ class grade_publication_repository {
      * @param int|null $retryafter Retryafter.
      */
     private function validate_status(string $status, ?string $failurecode, ?int $retryafter): void {
-        if (!in_array($status, self::STATUSES, true)
+        if (
+            !in_array($status, self::STATUSES, true)
             || ($failurecode !== null && preg_match('/^[a-z][a-z0-9_]*$/D', $failurecode) !== 1)
-            || ($retryafter !== null && $retryafter < 0)) {
+            || ($retryafter !== null && $retryafter < 0)
+        ) {
             throw new \invalid_parameter_exception('Grade publication status is invalid');
         }
     }

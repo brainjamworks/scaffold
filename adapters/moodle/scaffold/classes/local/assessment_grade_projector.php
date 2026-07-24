@@ -16,7 +16,6 @@
 
 namespace mod_scaffold\local;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Projects assessment state into a Moodle grade.
@@ -234,8 +233,10 @@ class assessment_grade_projector {
         string $targetid,
     ): ?\stdClass {
         $attempt = property_exists($quizzes, $groupid) ? $quizzes->{$groupid} : null;
-        if (!($attempt instanceof \stdClass)
-            || !in_array($attempt->status ?? null, ['completed', 'expired'], true)) {
+        if (
+            !($attempt instanceof \stdClass)
+            || !in_array($attempt->status ?? null, ['completed', 'expired'], true)
+        ) {
             return null;
         }
         $results = $attempt->resultsByTargetId ?? null;
@@ -252,9 +253,11 @@ class assessment_grade_projector {
      * @return \stdClass|null
      */
     private static function authoritative_stored_result(mixed $result): ?\stdClass {
-        if (!($result instanceof \stdClass)
+        if (
+            !($result instanceof \stdClass)
             || !is_numeric($result->score ?? null)
-            || !is_finite((float) $result->score)) {
+            || !is_finite((float) $result->score)
+        ) {
             return null;
         }
         return $result;
@@ -278,10 +281,12 @@ class assessment_grade_projector {
             }
             $groupid = is_string($group['groupId'] ?? null) ? $group['groupId'] : '';
             $attempt = $groupid !== '' && property_exists($quizzes, $groupid) ? $quizzes->{$groupid} : null;
-            if ($attempt instanceof \stdClass
+            if (
+                $attempt instanceof \stdClass
                 && in_array($attempt->status ?? null, ['completed', 'expired'], true)
                 && is_numeric($attempt->score ?? null)
-                && is_finite((float) $attempt->score)) {
+                && is_finite((float) $attempt->score)
+            ) {
                 return true;
             }
         }
@@ -328,8 +333,10 @@ class assessment_grade_projector {
             }
             $groupid = is_string($group['groupId'] ?? null) ? $group['groupId'] : '';
             $attempt = $groupid !== '' && property_exists($quizzes, $groupid) ? $quizzes->{$groupid} : null;
-            if (!($attempt instanceof \stdClass)
-                || !in_array($attempt->status ?? null, ['completed', 'expired'], true)) {
+            if (
+                !($attempt instanceof \stdClass)
+                || !in_array($attempt->status ?? null, ['completed', 'expired'], true)
+            ) {
                 return false;
             }
         }

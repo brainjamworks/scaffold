@@ -16,7 +16,6 @@
 
 namespace mod_scaffold\external;
 
-defined('MOODLE_INTERNAL') || die();
 
 use mod_scaffold\local\activity_access;
 use mod_scaffold\local\content_service;
@@ -64,7 +63,7 @@ class get_payload extends \core_external\external_api {
                 $params['cmid'],
                 'mod/scaffold:editcontent',
             );
-        } elseif ($params['purpose'] === 'learner') {
+        } else if ($params['purpose'] === 'learner') {
             $scope = activity_access::require($params['cmid'], 'mod/scaffold:view');
         } else {
             throw new \invalid_parameter_exception('Unknown payload purpose');

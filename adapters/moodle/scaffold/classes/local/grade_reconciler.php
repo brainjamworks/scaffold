@@ -16,7 +16,6 @@
 
 namespace mod_scaffold\local;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Reconciles pending grade publication work.
@@ -62,7 +61,7 @@ final class grade_reconciler {
         $this->repository = $repository ?? new grade_publication_repository();
         $this->itempublisher = $itempublisher ?? new grade_item_publisher();
         $this->learnerpublisher = $learnerpublisher ?? new grade_publisher();
-        $this->activityloader = \Closure::fromCallable($activityloader ?? static function(int $scaffoldid): \stdClass {
+        $this->activityloader = \Closure::fromCallable($activityloader ?? static function (int $scaffoldid): \stdClass {
             global $DB;
             return $DB->get_record('scaffold', ['id' => $scaffoldid], '*', MUST_EXIST);
         });

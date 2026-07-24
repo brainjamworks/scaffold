@@ -72,7 +72,7 @@ final class assessment_service {
                 (new grade_publisher())->publish_user($scaffold, $userid),
         );
         $this->completionupdater = \Closure::fromCallable(
-            $completionupdater ?? static function(
+            $completionupdater ?? static function (
                 \stdClass $scaffold,
                 \cm_info $cm,
                 int $userid,
@@ -332,7 +332,7 @@ final class assessment_service {
             $userid,
             $projection,
             $groupid,
-            function(\stdClass $snapshot) use ($groupid, $projection, &$attempt): \stdClass {
+            function (\stdClass $snapshot) use ($groupid, $projection, &$attempt): \stdClass {
                 $attempt = $this->quiz->start_state(
                     $snapshot,
                     $projection['targets'],
@@ -382,7 +382,7 @@ final class assessment_service {
             $userid,
             $projection,
             $groupid,
-            function(\stdClass $snapshot) use (
+            function (\stdClass $snapshot) use (
                 $attemptid,
                 $expectedattemptnumber,
                 $groupid,
@@ -440,7 +440,7 @@ final class assessment_service {
             $userid,
             $projection,
             $groupid,
-            function(\stdClass $snapshot) use (
+            function (\stdClass $snapshot) use (
                 $attemptid,
                 $groupid,
                 $projection,
@@ -666,7 +666,7 @@ final class assessment_service {
         $isgraded = array_key_exists('isGraded', $settings) ? (bool) $settings['isGraded'] : true;
         $maxattempts = self::positive_int_or_null($settings['maxAttempts'] ?? null);
         $artifactid = artifact_identity::for_course_module((int) $cm->id);
-        $mutation = function(\stdClass $snapshot) use (
+        $mutation = function (\stdClass $snapshot) use (
             $action,
             $expectedattemptnumber,
             $maxattempts,
@@ -787,7 +787,7 @@ final class assessment_service {
             (int) $scaffold->id,
             $userid,
             $artifactid,
-            static function(\stdClass $snapshot) use ($hintlimit, $hintsshown, $targetid): \stdClass {
+            static function (\stdClass $snapshot) use ($hintlimit, $hintsshown, $targetid): \stdClass {
                 $problem = property_exists($snapshot->problems, $targetid)
                     ? $snapshot->problems->{$targetid}
                     : null;
@@ -860,7 +860,10 @@ final class assessment_service {
             try {
                 ($this->completionupdater)($scaffold, $cm, $userid);
             } catch (\Throwable) {
-                // Canonical assessment state is already committed.
+                debugging(
+                    'Scaffold completion update failed after the assessment state was committed.',
+                    DEBUG_DEVELOPER,
+                );
             }
         }
         if (!$publishgrade) {

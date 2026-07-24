@@ -20,7 +20,6 @@ use mod_scaffold\local\assessment_group_validator;
 use mod_scaffold\local\assessment_target_validator;
 use mod_scaffold\local\json_schema_validator;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Tests canonical assessment contracts and collection boundaries.
@@ -252,7 +251,7 @@ JSON);
 
     public function test_schema_loader_rejects_missing_resource_without_warning(): void {
         set_error_handler(
-            static function(int $severity, string $message): bool {
+            static function (int $severity, string $message): bool {
                 if ((error_reporting() & $severity) === 0) {
                     return false;
                 }

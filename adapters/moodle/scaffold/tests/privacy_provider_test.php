@@ -23,7 +23,6 @@ use core_privacy\local\request\userlist;
 use core_privacy\local\request\writer;
 use core_privacy\tests\request\approved_contextlist;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Verifies the Scaffold privacy inventory and request handling.
@@ -461,11 +460,13 @@ final class privacy_provider_test extends \core_privacy\tests\provider_testcase 
     private function assert_personal_rows_exist(int $scaffoldid, int $userid, bool $expected): void {
         global $DB;
 
-        foreach ([
+        foreach (
+            [
             'scaffold_assessment_state',
             'scaffold_learner_activity',
             'scaffold_grade_publications',
-        ] as $table) {
+            ] as $table
+        ) {
             $this->assertSame($expected, $DB->record_exists($table, [
                 'scaffoldid' => $scaffoldid,
                 'userid' => $userid,

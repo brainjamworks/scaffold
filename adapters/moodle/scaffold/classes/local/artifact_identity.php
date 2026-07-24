@@ -16,7 +16,6 @@
 
 namespace mod_scaffold\local;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Resolves the identity of a Scaffold artifact.

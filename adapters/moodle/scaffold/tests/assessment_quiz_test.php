@@ -22,7 +22,6 @@ use mod_scaffold\local\assessment_result_projection;
 use mod_scaffold\local\grader;
 use mod_scaffold\local\json_schema_validator;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Tests caller-owned quiz state transitions and learner projections.
@@ -80,12 +79,14 @@ final class assessment_quiz_test extends \basic_testcase {
         $source = file_get_contents(__DIR__ . '/../db/services.php');
         $this->assertIsString($source);
 
-        foreach ([
+        foreach (
+            [
             'mod_scaffold_start_quiz_attempt',
             'mod_scaffold_submit_quiz_question',
             'mod_scaffold_finish_quiz_attempt',
             'mod_scaffold_reveal_quiz_answers',
-        ] as $operation) {
+            ] as $operation
+        ) {
             $this->assertStringContainsString($operation, $source);
         }
     }
@@ -138,11 +139,11 @@ final class assessment_quiz_test extends \basic_testcase {
         ];
         $gradecalls = 0;
         $quiz = new assessment_quiz(
-            static function() use (&$times): string {
+            static function () use (&$times): string {
                 return array_shift($times) ?? '2026-07-17T10:00:04.000000Z';
             },
             static fn(string $groupid): string => 'attempt-1',
-            static function(array $target, array $response) use (&$gradecalls): array {
+            static function (array $target, array $response) use (&$gradecalls): array {
                 $gradecalls++;
                 return grader::grade_assessment($target, $response);
             },
@@ -245,11 +246,11 @@ final class assessment_quiz_test extends \basic_testcase {
         ];
         $gradecalls = 0;
         $quiz = new assessment_quiz(
-            static function() use (&$times): string {
+            static function () use (&$times): string {
                 return array_shift($times) ?? '2026-07-17T10:02:02.000000Z';
             },
             static fn(string $groupid): string => 'attempt-expired',
-            static function(array $target, array $response) use (&$gradecalls): array {
+            static function (array $target, array $response) use (&$gradecalls): array {
                 $gradecalls++;
                 return grader::grade_assessment($target, $response);
             },
@@ -395,7 +396,7 @@ final class assessment_quiz_test extends \basic_testcase {
             $this->assertNull($problem->submissionResult);
             $this->assert_no_answer_material($publicjson);
             $this->assert_no_answer_material($problemjson);
-        } elseif ($reviewdetail === 'result_only') {
+        } else if ($reviewdetail === 'result_only') {
             foreach (get_object_vars($reviewed->resultsByTargetId) as $result) {
                 $this->assert_no_item_outcomes($result);
             }

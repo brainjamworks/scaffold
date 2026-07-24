@@ -25,7 +25,6 @@ use mod_scaffold\external\save_learner_activity;
 use mod_scaffold\external\start_quiz_attempt;
 use mod_scaffold\external\submit_quiz_question;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Tests Moodle external-function declarations, context, and outcomes.
@@ -319,7 +318,8 @@ final class external_api_test extends \advanced_testcase {
         $this->assert_moodle_exception(
             static fn(): array => load_learner_activity::execute(999999, 'moodle-cm-999999'),
         );
-        foreach ([
+        foreach (
+            [
             static fn(): array => load_learner_activity::execute($cmid, 'moodle-cm-999'),
             static fn(): array => save_learner_activity::execute(
                 $cmid,
@@ -381,7 +381,8 @@ final class external_api_test extends \advanced_testcase {
                 'checklist-1',
                 str_repeat('x', 262145),
             ),
-        ] as $operation) {
+            ] as $operation
+        ) {
             $this->assert_invalid_parameter($operation);
         }
         $this->assertSame(0, $DB->count_records('scaffold_learner_activity', [

@@ -18,7 +18,6 @@ namespace mod_scaffold;
 
 use mod_scaffold\local\assessment_definition;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Tests grade-relevant assessment definition identity.

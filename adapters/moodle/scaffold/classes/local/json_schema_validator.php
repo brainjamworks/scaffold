@@ -16,7 +16,6 @@
 
 namespace mod_scaffold\local;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Validates plugin JSON against packaged schemas.
@@ -279,6 +278,8 @@ class json_schema_validator {
                     $matched = true;
                     break;
                 } catch (\invalid_parameter_exception) {
+                    // A later anyOf branch may still validate the value.
+                    continue;
                 }
             }
             if (!$matched) {

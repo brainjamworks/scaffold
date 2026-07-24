@@ -27,7 +27,6 @@ use mod_scaffold\local\assessment_state_repository;
 use mod_scaffold\local\grade_publication_repository;
 use mod_scaffold\local\learner_activity_repository;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Privacy provider for the Scaffold activity module.
@@ -40,8 +39,8 @@ defined('MOODLE_INTERNAL') || die();
  */
 final class provider implements
     \core_privacy\local\metadata\provider,
-    \core_privacy\local\request\plugin\provider,
-    \core_privacy\local\request\core_userlist_provider {
+    \core_privacy\local\request\core_userlist_provider,
+    \core_privacy\local\request\plugin\provider {
     #[\Override]
     public static function get_metadata(collection $items): collection {
         $items->add_database_table(

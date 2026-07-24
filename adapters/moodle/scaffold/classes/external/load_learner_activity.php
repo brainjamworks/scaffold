@@ -16,7 +16,6 @@
 
 namespace mod_scaffold\external;
 
-defined('MOODLE_INTERNAL') || die();
 
 use mod_scaffold\local\activity_access;
 use mod_scaffold\local\learner_activity_service;

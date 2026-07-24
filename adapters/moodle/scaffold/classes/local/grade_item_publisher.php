@@ -66,22 +66,22 @@ final class grade_item_publisher {
         ?callable $statuspersister = null,
         ?callable $clock = null,
     ) {
-        $this->activityloader = \Closure::fromCallable($activityloader ?? static function(int $scaffoldid): \stdClass {
+        $this->activityloader = \Closure::fromCallable($activityloader ?? static function (int $scaffoldid): \stdClass {
             global $DB;
             return $DB->get_record('scaffold', ['id' => $scaffoldid], '*', MUST_EXIST);
         });
-        $this->itemupdater = \Closure::fromCallable($itemupdater ?? static function(\stdClass $scaffold): int {
+        $this->itemupdater = \Closure::fromCallable($itemupdater ?? static function (\stdClass $scaffold): int {
             global $CFG;
             require_once($CFG->dirroot . '/mod/scaffold/lib.php');
             return scaffold_grade_item_apply($scaffold);
         });
-        $this->itemdeleter = \Closure::fromCallable($itemdeleter ?? static function(\stdClass $scaffold): int {
+        $this->itemdeleter = \Closure::fromCallable($itemdeleter ?? static function (\stdClass $scaffold): int {
             global $CFG;
             require_once($CFG->dirroot . '/mod/scaffold/lib.php');
             return scaffold_grade_item_withdraw($scaffold);
         });
         $this->statuspersister = \Closure::fromCallable(
-            $statuspersister ?? static function(\stdClass $loaded, array $status): bool {
+            $statuspersister ?? static function (\stdClass $loaded, array $status): bool {
                 global $DB;
                 $current = $DB->get_record('scaffold', ['id' => $loaded->id], '*', MUST_EXIST);
                 if ((int) $current->assessmentdefinitionversion !== (int) $loaded->assessmentdefinitionversion) {
@@ -228,8 +228,10 @@ final class grade_item_publisher {
         foreach ($targets as $target) {
             $settings = is_array($target['settings'] ?? null) ? $target['settings'] : [];
             $targetid = (string) ($target['targetId'] ?? '');
-            if (($settings['isGraded'] ?? true) === true
-                && (!array_key_exists($targetid, $grouppolicy) || $grouppolicy[$targetid])) {
+            if (
+                ($settings['isGraded'] ?? true) === true
+                && (!array_key_exists($targetid, $grouppolicy) || $grouppolicy[$targetid])
+            ) {
                 return true;
             }
         }

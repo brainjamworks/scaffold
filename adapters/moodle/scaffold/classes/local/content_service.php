@@ -75,19 +75,19 @@ final class content_service {
         ?quiz_expiry_reconciler $quizexpiryreconciler = null,
     ) {
         $this->gradeitemrefresher = $gradeitemrefresher === null
-            ? static function(\stdClass $scaffold): int {
+            ? static function (\stdClass $scaffold): int {
                 global $CFG;
                 require_once($CFG->dirroot . '/mod/scaffold/lib.php');
                 return scaffold_grade_item_update($scaffold);
             }
             : \Closure::fromCallable($gradeitemrefresher);
         $this->diagnosticreporter = $diagnosticreporter === null
-            ? static function(\Throwable $exception, \stdClass $scaffold): void {
-                error_log(sprintf(
+            ? static function (\Throwable $exception, \stdClass $scaffold): void {
+                debugging(sprintf(
                     'Scaffold grade-item refresh failed after content commit for activity %d: %s',
                     (int) ($scaffold->id ?? 0),
                     (string) $exception,
-                ));
+                ), DEBUG_DEVELOPER);
             }
             : \Closure::fromCallable($diagnosticreporter);
         $this->quizexpiryreconciler = $quizexpiryreconciler;
@@ -218,7 +218,7 @@ final class content_service {
 
         if (!$authoring) {
             $artifact['content'] = self::read_json_nullable_object($scaffold->learnercontentjson ?? 'null');
-        } elseif (!array_key_exists('content', $artifact)) {
+        } else if (!array_key_exists('content', $artifact)) {
             $artifact['content'] = null;
         }
 
@@ -395,8 +395,10 @@ final class content_service {
             return null;
         }
         $coursedocument = $children[0];
-        if (!is_array($coursedocument) || array_is_list($coursedocument)
-            || ($coursedocument['type'] ?? null) !== 'courseDocument') {
+        if (
+            !is_array($coursedocument) || array_is_list($coursedocument)
+            || ($coursedocument['type'] ?? null) !== 'courseDocument'
+        ) {
             return null;
         }
         $attrs = $coursedocument['attrs'] ?? null;

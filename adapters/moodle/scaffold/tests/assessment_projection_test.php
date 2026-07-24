@@ -20,7 +20,6 @@ use mod_scaffold\local\activity_access;
 use mod_scaffold\local\assessment_projection;
 use mod_scaffold\local\content_service;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Tests strict assessment projection and author-save persistence.
@@ -188,7 +187,7 @@ final class assessment_projection_test extends \advanced_testcase {
         $group = $this->quiz_group();
         $refreshes = [];
         $service = new content_service(
-            static function(\stdClass $saved) use (&$refreshes): int {
+            static function (\stdClass $saved) use (&$refreshes): int {
                 $refreshes[] = clone $saved;
                 return 0;
             },
@@ -232,7 +231,7 @@ final class assessment_projection_test extends \advanced_testcase {
         );
         $refreshes = 0;
         $service = new content_service(
-            static function() use (&$refreshes): int {
+            static function () use (&$refreshes): int {
                 $refreshes++;
                 return 0;
             },

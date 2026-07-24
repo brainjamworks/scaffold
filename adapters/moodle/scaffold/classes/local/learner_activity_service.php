@@ -216,10 +216,12 @@ final class learner_activity_service {
         if (!($value instanceof \stdClass)) {
             throw new \invalid_parameter_exception('recordjson must be a JSON object');
         }
-        if (count(get_object_vars($value)) !== 3
+        if (
+            count(get_object_vars($value)) !== 3
             || !property_exists($value, 'activityKind')
             || !property_exists($value, 'data')
-            || !property_exists($value, 'completed')) {
+            || !property_exists($value, 'completed')
+        ) {
             throw new \invalid_parameter_exception('Learner activity save record has an invalid shape');
         }
 

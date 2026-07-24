@@ -16,27 +16,12 @@
 
 namespace mod_scaffold\local;
 
-
 /**
- * Deletes data owned by a Scaffold activity.
- *
- * Coordinates removal of plugin records when a module instance is deleted.
+ * Signals a concurrent learner activity insertion.
  *
  * @package    mod_scaffold
  * @copyright  2026 Rizvan Ali
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-final class activity_deletion_service {
-    /**
-     * Deletes owned state.
-     *
-     * @param int $scaffoldid Scaffold activity ID.
-     * @param \context_module $context Moodle module context.
-     */
-    public function delete_owned_state(int $scaffoldid, \context_module $context): void {
-        (new grade_publication_repository())->delete_for_activity($scaffoldid);
-        (new assessment_state_repository())->delete_for_activity($scaffoldid);
-        (new learner_activity_repository())->delete_for_activity($scaffoldid);
-        get_file_storage()->delete_area_files($context->id, 'mod_scaffold');
-    }
+class learner_activity_insert_collision extends \RuntimeException {
 }

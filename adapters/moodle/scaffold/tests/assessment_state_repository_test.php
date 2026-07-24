@@ -18,7 +18,6 @@ namespace mod_scaffold;
 
 use mod_scaffold\local\assessment_state_repository;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Tests canonical assessment state persistence with Moodle DML and locks.
@@ -167,7 +166,7 @@ final class assessment_state_repository_test extends \advanced_testcase {
                 $scaffoldid,
                 (int) $user->id,
                 $artifactid,
-                static function(\stdClass $snapshot): never {
+                static function (\stdClass $snapshot): never {
                     $snapshot->problems->{'question-1'} = self::problem();
                     throw new \RuntimeException('simulated mutation failure');
                 },
@@ -240,7 +239,7 @@ final class assessment_state_repository_test extends \advanced_testcase {
             $scaffoldid,
             (int) $user->id,
             $artifactid,
-            static function(\stdClass $snapshot): \stdClass {
+            static function (\stdClass $snapshot): \stdClass {
                 $snapshot->problems->{'question-1'} = self::problem();
                 return $snapshot;
             },
@@ -277,7 +276,7 @@ final class assessment_state_repository_test extends \advanced_testcase {
             $scaffoldid,
             (int) $user->id,
             $artifactid,
-            static function(\stdClass $snapshot): \stdClass {
+            static function (\stdClass $snapshot): \stdClass {
                 $snapshot->quizzes->{'quiz-later'} = self::attempt(
                     'attempt-later',
                     '2100-01-01T00:00:00.000000Z',
@@ -300,7 +299,7 @@ final class assessment_state_repository_test extends \advanced_testcase {
             $scaffoldid,
             (int) $user->id,
             $artifactid,
-            static function(\stdClass $snapshot): \stdClass {
+            static function (\stdClass $snapshot): \stdClass {
                 foreach (get_object_vars($snapshot->quizzes) as $quiz) {
                     $quiz->status = 'expired';
                     $quiz->currentTargetId = null;
@@ -332,7 +331,7 @@ final class assessment_state_repository_test extends \advanced_testcase {
             $scaffoldid,
             (int) $user->id,
             $artifactid,
-            static function(\stdClass $snapshot): \stdClass {
+            static function (\stdClass $snapshot): \stdClass {
                 $snapshot->problems->{'question-1'} = self::problem();
                 return $snapshot;
             },
@@ -353,7 +352,7 @@ final class assessment_state_repository_test extends \advanced_testcase {
             null,
             null,
             null,
-            static function(): never {
+            static function (): never {
                 throw new \RuntimeException('definition version unavailable');
             },
         );
@@ -362,7 +361,7 @@ final class assessment_state_repository_test extends \advanced_testcase {
                 $scaffoldid,
                 (int) $user->id,
                 $artifactid,
-                static function(\stdClass $snapshot): \stdClass {
+                static function (\stdClass $snapshot): \stdClass {
                     $snapshot->problems->{'question-2'} = self::problem();
                     return $snapshot;
                 },

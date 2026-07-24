@@ -14,55 +14,19 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
-/**
- * Scheduled grade reconciliation task tests.
- *
- * Defines task-specific test helpers and verifies indexed grade recovery.
- *
- * @package    mod_scaffold
- * @copyright  2026 Rizvan Ali
- * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- */
-
 namespace mod_scaffold;
 
 use mod_scaffold\local\grade_publication_repository;
 use mod_scaffold\local\grade_reconciler;
+use mod_scaffold\task\reconcile_assessment_grades;
 
-defined('MOODLE_INTERNAL') || die();
-
-/**
- * Exposes controlled grade reconciliation task dependencies for tests.
- */
-final class grade_reconciler_task_under_test extends \mod_scaffold\task\reconcile_assessment_grades {
-    /**
-     * Creates a new grade reconciler task under test instance.
-     *
-     * @param grade_reconciler $reconciler Reconciler.
-     * @param int $limit Maximum records processed.
-     */
-    public function __construct(
-        /** @var grade_reconciler Reconciler. */
-        private readonly grade_reconciler $reconciler,
-        /** @var int Maximum records processed. */
-        private readonly int $limit
-    ) {
-    }
-
-    #[\Override]
-    protected function create_reconciler(): grade_reconciler {
-        return $this->reconciler;
-    }
-
-    #[\Override]
-    protected function batch_limit(): int {
-        return $this->limit;
-    }
-}
 
 /**
  * Tests indexed grade recovery and scheduled aggregate reporting.
  *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers \mod_scaffold\local\grade_reconciler
  * @covers \mod_scaffold\task\reconcile_assessment_grades
  */
@@ -174,7 +138,7 @@ final class grade_reconciler_task_test extends \advanced_testcase {
         ));
 
         $events = [];
-        $itempublisher = new class($events) {
+        $itempublisher = new class ($events) {
             /** @var array Reconciliation event records. */
             private array $events;
 
@@ -197,7 +161,7 @@ final class grade_reconciler_task_test extends \advanced_testcase {
                 return (object) ['status' => 'published'];
             }
         };
-        $learnerpublisher = new class($events) {
+        $learnerpublisher = new class ($events) {
             /** @var array Reconciliation event records. */
             private array $events;
 
@@ -228,7 +192,7 @@ final class grade_reconciler_task_test extends \advanced_testcase {
             null,
             static fn(): int => 100,
         );
-        $output = $this->execute_task(new grade_reconciler_task_under_test($reconciler, 2));
+        $output = $this->execute_task(self::task_under_test($reconciler, 2));
         $this->assertSame(['item', 'item', 'learner', 'learner'], $events);
         $this->assertStringContainsString(
             'items=1 itemfailures=0 learners=2 published=2 pending=0 failed=0 skipped=0',
@@ -347,12 +311,50 @@ final class grade_reconciler_task_test extends \advanced_testcase {
     }
 
     /**
-     * Returns execute task.
+     * Creates a task with controlled grade reconciliation dependencies.
      *
-     * @param grade_reconciler_task_under_test $task Task.
+     * @param grade_reconciler $reconciler Reconciler.
+     * @param int $limit Maximum records processed.
+     * @return reconcile_assessment_grades
+     */
+    private static function task_under_test(
+        grade_reconciler $reconciler,
+        int $limit,
+    ): reconcile_assessment_grades {
+        return new class ($reconciler, $limit) extends reconcile_assessment_grades {
+            /**
+             * Creates a task with controlled dependencies.
+             *
+             * @param grade_reconciler $reconciler Reconciler.
+             * @param int $limit Maximum records processed.
+             */
+            public function __construct(
+                /** @var grade_reconciler Reconciler. */
+                private readonly grade_reconciler $reconciler,
+                /** @var int Maximum records processed. */
+                private readonly int $limit,
+            ) {
+            }
+
+            #[\Override]
+            protected function create_reconciler(): grade_reconciler {
+                return $this->reconciler;
+            }
+
+            #[\Override]
+            protected function batch_limit(): int {
+                return $this->limit;
+            }
+        };
+    }
+
+    /**
+     * Executes a grade reconciliation task and returns its output.
+     *
+     * @param reconcile_assessment_grades $task Task.
      * @return string
      */
-    private function execute_task(grade_reconciler_task_under_test $task): string {
+    private function execute_task(reconcile_assessment_grades $task): string {
         ob_start();
         $task->execute();
         return (string) ob_get_clean();

@@ -18,7 +18,6 @@ namespace mod_scaffold\task;
 
 use mod_scaffold\local\grade_reconciler;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Scheduled task for assessment grade reconciliation.

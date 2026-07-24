@@ -21,7 +21,6 @@ use mod_scaffold\local\artifact_identity;
 use mod_scaffold\local\grade_publication_repository;
 use mod_scaffold\local\grade_publisher;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Verifies learner publication against Moodle gradebook state.
@@ -62,7 +61,7 @@ final class grade_publisher_test extends \advanced_testcase {
         [$scaffold, $cm, $user] = $this->create_fixture();
         $this->stage_scored_state($scaffold, $cm, $user, 0.5);
         $repository = new grade_publication_repository();
-        $rejectingrepository = new class($repository) {
+        $rejectingrepository = new class ($repository) {
             /**
              * Creates a new grade publisher test instance.
              *
@@ -211,7 +210,7 @@ final class grade_publisher_test extends \advanced_testcase {
             null,
             null,
             null,
-            static function(\stdClass $activity, array $grade) use (&$gradecalls, $returnstatus): int {
+            static function (\stdClass $activity, array $grade) use (&$gradecalls, $returnstatus): int {
                 $gradecalls[] = [$activity, $grade];
                 return $returnstatus;
             },
@@ -289,7 +288,7 @@ final class grade_publisher_test extends \advanced_testcase {
             null,
             null,
             null,
-            static function(\stdClass $activity, array $grade): never {
+            static function (\stdClass $activity, array $grade): never {
                 throw new \RuntimeException('sensitive gradebook detail');
             },
             null,
@@ -330,7 +329,7 @@ final class grade_publisher_test extends \advanced_testcase {
             (int) $scaffold->id,
             (int) $user->id,
             artifact_identity::for_course_module((int) $cm->id),
-            static function(\stdClass $snapshot): \stdClass {
+            static function (\stdClass $snapshot): \stdClass {
                 $snapshot->problems->{'question-1'}->submissionResult->score = 1;
                 return $snapshot;
             },
@@ -387,7 +386,7 @@ final class grade_publisher_test extends \advanced_testcase {
             (int) $scaffold->id,
             (int) $user->id,
             artifact_identity::for_course_module((int) $cm->id),
-            static function(\stdClass $snapshot): \stdClass {
+            static function (\stdClass $snapshot): \stdClass {
                 $snapshot->problems->{'question-1'}->submissionResult->score = 1;
                 return $snapshot;
             },
@@ -422,7 +421,7 @@ final class grade_publisher_test extends \advanced_testcase {
             null,
             null,
             null,
-            static function() use (&$gradecalls): int {
+            static function () use (&$gradecalls): int {
                 $gradecalls++;
                 return GRADE_UPDATE_OK;
             },
@@ -495,7 +494,7 @@ final class grade_publisher_test extends \advanced_testcase {
             null,
             null,
             null,
-            static function() use (&$gradecalls): int {
+            static function () use (&$gradecalls): int {
                 $gradecalls++;
                 return GRADE_UPDATE_OK;
             },
@@ -562,7 +561,7 @@ final class grade_publisher_test extends \advanced_testcase {
             (int) $scaffold->id,
             (int) $user->id,
             artifact_identity::for_course_module((int) $cm->id),
-            static function(\stdClass $snapshot) use ($score): \stdClass {
+            static function (\stdClass $snapshot) use ($score): \stdClass {
                 $snapshot->problems->{'question-1'} = (object) [
                     'response' => (object) ['kind' => 'single-select', 'optionId' => 'option-a'],
                     'submitted' => true,

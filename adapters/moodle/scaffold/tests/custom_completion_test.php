@@ -19,7 +19,6 @@ namespace mod_scaffold;
 use mod_scaffold\completion\custom_completion;
 use mod_scaffold\local\assessment_state_repository;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Tests Scaffold custom completion against Moodle completion and DML.
@@ -71,7 +70,7 @@ final class custom_completion_test extends \advanced_testcase {
             (int) $activity->id,
             (int) $learner->id,
             $artifactid,
-            static function(\stdClass $snapshot): \stdClass {
+            static function (\stdClass $snapshot): \stdClass {
                 $snapshot->problems->{'question-1'} = self::problem(null);
                 return $snapshot;
             },
@@ -85,7 +84,7 @@ final class custom_completion_test extends \advanced_testcase {
             (int) $activity->id,
             (int) $learner->id,
             $artifactid,
-            static function(\stdClass $snapshot): \stdClass {
+            static function (\stdClass $snapshot): \stdClass {
                 $snapshot->problems->{'question-1'} = self::problem(1.0);
                 return $snapshot;
             },

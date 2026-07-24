@@ -16,7 +16,6 @@
 
 namespace mod_scaffold;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Verifies complete activity-owned data deletion.
@@ -46,11 +45,13 @@ final class activity_deletion_test extends \advanced_testcase {
         $this->assertTrue(scaffold_delete_instance($activity->id));
 
         $this->assertFalse($DB->record_exists('scaffold', ['id' => $activity->id]));
-        foreach ([
+        foreach (
+            [
             'scaffold_grade_publications',
             'scaffold_assessment_state',
             'scaffold_learner_activity',
-        ] as $table) {
+            ] as $table
+        ) {
             $this->assertFalse($DB->record_exists($table, ['scaffoldid' => $activity->id]));
             $this->assertTrue($DB->record_exists($table, ['scaffoldid' => $otheractivity->id]));
             $this->assertSame(1, $DB->count_records($table, ['scaffoldid' => $otheractivity->id]));

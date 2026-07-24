@@ -19,7 +19,6 @@ namespace mod_scaffold;
 use mod_scaffold\local\grade_publication_repository;
 use mod_scaffold\local\grade_status_report;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Tests authorized privacy-safe grade publication reporting.
@@ -35,12 +34,14 @@ final class grade_status_report_test extends \advanced_testcase {
         [$course, $activityid, $cm] = $this->create_activity();
         $context = \context_module::instance($cm->id);
 
-        foreach ([
+        foreach (
+            [
             'editingteacher' => true,
             'manager' => true,
             'teacher' => false,
             'student' => false,
-        ] as $role => $expected) {
+            ] as $role => $expected
+        ) {
             $user = $this->getDataGenerator()->create_user();
             $roles = get_archetype_roles($role);
             $roleid = reset($roles)->id;

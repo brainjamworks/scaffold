@@ -19,7 +19,6 @@ namespace mod_scaffold;
 use mod_scaffold\local\grader;
 use mod_scaffold\local\json_schema_validator;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Tests canonical assessment grading.

@@ -18,7 +18,6 @@ namespace mod_scaffold;
 
 use mod_scaffold\local\activity_scope;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Tests Moodle module callbacks against core records, contexts, and files.
@@ -26,6 +25,12 @@ defined('MOODLE_INTERNAL') || die();
  * @package    mod_scaffold
  * @copyright  2026 Rizvan Ali
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers     ::mod_scaffold_get_completion_active_rule_descriptions
+ * @covers     ::mod_scaffold_pluginfile
+ * @covers     ::scaffold_get_coursemodule_info
+ * @covers     ::scaffold_is_branded
+ * @covers     ::scaffold_supports
+ * @covers     \mod_scaffold\local\activity_scope
  */
 final class lib_test extends \advanced_testcase {
     public function test_advertises_supported_features_and_branded_icon(): void {

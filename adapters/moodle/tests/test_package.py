@@ -14,6 +14,45 @@ REPOSITORY_ROOT = Path(__file__).parents[3]
 
 
 class MoodlePackageTest(unittest.TestCase):
+    def test_plugin_php_class_files_follow_moodle_file_conventions(self):
+        plugin_root = REPOSITORY_ROOT / "adapters" / "moodle" / "scaffold"
+        named_class_pattern = re.compile(
+            r"(?m)^(?:abstract |final )?class (?P<name>[a-z0-9_]+)",
+        )
+        failures = []
+
+        for source_file in plugin_root.rglob("*.php"):
+            source = source_file.read_text(encoding="utf8")
+            relative_path = source_file.relative_to(plugin_root)
+            class_names = [
+                match.group("name")
+                for match in named_class_pattern.finditer(source)
+            ]
+
+            if len(class_names) > 1:
+                failures.append(
+                    f"{relative_path} contains multiple named classes: "
+                    f"{', '.join(class_names)}",
+                )
+                continue
+
+            if not class_names:
+                continue
+
+            is_autoloaded_class = relative_path.parts[0] == "classes"
+            is_testcase = (
+                relative_path.parts[0] == "tests"
+                and relative_path.name.endswith("_test.php")
+            )
+            if (is_autoloaded_class or is_testcase) and (
+                source_file.stem != class_names[0]
+            ):
+                failures.append(
+                    f"{relative_path} must be named {class_names[0]}.php",
+                )
+
+        self.assertEqual(failures, [])
+
     def test_plugin_php_members_and_callables_have_moodle_docblocks(self):
         plugin_root = REPOSITORY_ROOT / "adapters" / "moodle" / "scaffold"
         declaration_patterns = {

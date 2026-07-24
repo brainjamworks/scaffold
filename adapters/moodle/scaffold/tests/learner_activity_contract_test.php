@@ -19,7 +19,6 @@ namespace mod_scaffold;
 use mod_scaffold\local\json_schema_validator;
 use mod_scaffold\local\learner_activity_validator;
 
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Tests learner-activity schema boundaries.

@@ -49,7 +49,7 @@ class assessment_quiz {
         ?callable $attemptidfactory = null,
         ?callable $grader = null,
     ) {
-        $this->clock = $clock ?? static function(): string {
+        $this->clock = $clock ?? static function (): string {
             $now = microtime(true);
             $seconds = (int) floor($now);
             $micros = (int) floor(($now - $seconds) * 1000000);
@@ -545,7 +545,7 @@ class assessment_quiz {
             || $fullreviewauthorized;
         if ($reviewdetail === 'none') {
             $value->resultsByTargetId = (object) [];
-        } elseif (!$fullreviewauthorized) {
+        } else if (!$fullreviewauthorized) {
             $results = [];
             foreach (get_object_vars($attempt->resultsByTargetId ?? (object) []) as $targetid => $result) {
                 if ($result instanceof \stdClass) {
@@ -591,7 +591,7 @@ class assessment_quiz {
                 $publicproblem->submitted = false;
                 $publicproblem->checkResult = null;
                 $publicproblem->submissionResult = null;
-            } elseif (!$fullreviewauthorized) {
+            } else if (!$fullreviewauthorized) {
                 foreach (['checkResult', 'submissionResult'] as $field) {
                     $result = $problem->{$field} ?? null;
                     $publicproblem->{$field} = $result instanceof \stdClass

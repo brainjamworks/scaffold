@@ -14,16 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
-/**
- * Assessment state persistence for the Scaffold activity module.
- *
- * Defines the insert-collision exception and repository used for learner assessment state.
- *
- * @package    mod_scaffold
- * @copyright  2026 Rizvan Ali
- * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- */
-
 namespace mod_scaffold\local;
 
 defined('MOODLE_INTERNAL') || die();
@@ -31,13 +21,11 @@ defined('MOODLE_INTERNAL') || die();
 require_once(__DIR__ . '/grade_publication_repository.php');
 
 /**
- * Signals a concurrent assessment state insertion.
- */
-class assessment_state_insert_collision extends \RuntimeException {
-}
-
-/**
  * Persists and queries learner assessment state.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class assessment_state_repository {
     /**
@@ -85,7 +73,7 @@ class assessment_state_repository {
         $this->lockfactory = $lockfactory;
         $this->publicationrepository = $publicationrepository ?? new grade_publication_repository($database);
         $this->definitionversionloader = \Closure::fromCallable(
-            $definitionversionloader ?? function(int $scaffoldid): int {
+            $definitionversionloader ?? function (int $scaffoldid): int {
                 return (int) $this->database->get_field(
                     'scaffold',
                     'assessmentdefinitionversion',

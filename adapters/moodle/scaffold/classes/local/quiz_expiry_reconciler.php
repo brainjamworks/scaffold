@@ -14,16 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
-/**
- * Quiz expiry reconciliation for the Scaffold activity module.
- *
- * Defines expiry outcomes and the service that applies due quiz transitions.
- *
- * @package    mod_scaffold
- * @copyright  2026 Rizvan Ali
- * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- */
-
 namespace mod_scaffold\local;
 
 defined('MOODLE_INTERNAL') || die();
@@ -32,92 +22,11 @@ require_once(__DIR__ . '/artifact_identity.php');
 require_once(__DIR__ . '/assessment_projection.php');
 
 /**
- * Describes the result of one quiz expiry transition.
- */
-final class expiry_outcome {
-    /** @var bool Whether state changed. */
-    public bool $changed;
-    /** @var int Persisted state revision. */
-    public int $stateRevision;
-    /** @var string State change timestamp. */
-    public string $changedAt;
-    /** @var array Expired assessment group IDs. */
-    public array $expiredGroupIds;
-    /** @var bool Whether grade publication is required. */
-    public bool $gradeRequired;
-    /** @var bool Whether completion updating is required. */
-    public bool $completionRequired;
-    /** @var \stdClass Canonical assessment snapshot. */
-    public \stdClass $snapshot;
-    /** @var ?\stdClass Grade publication result. */
-    public ?\stdClass $gradePublication;
-
-    /**
-     * Creates a new expiry outcome instance.
-     *
-     * @param bool $changed Whether state changed.
-     * @param int $staterevision Persisted state revision.
-     * @param string $changedat State change timestamp.
-     * @param array $expiredgroupids Expired assessment group IDs.
-     * @param bool $graderequired Whether grade publication is required.
-     * @param bool $completionrequired Whether completion updating is required.
-     * @param \stdClass $snapshot Canonical assessment snapshot.
-     * @param \stdClass|null $gradepublication Grade publication result.
-     */
-    public function __construct(
-        bool $changed,
-        int $staterevision,
-        string $changedat,
-        array $expiredgroupids,
-        bool $graderequired,
-        bool $completionrequired,
-        \stdClass $snapshot,
-        ?\stdClass $gradepublication = null,
-    ) {
-        $this->changed = $changed;
-        $this->stateRevision = $staterevision;
-        $this->changedAt = $changedat;
-        $this->expiredGroupIds = $expiredgroupids;
-        $this->gradeRequired = $graderequired;
-        $this->completionRequired = $completionrequired;
-        $this->snapshot = $snapshot;
-        $this->gradePublication = $gradepublication;
-    }
-}
-
-/**
- * Summarises a batch of quiz expiry transitions.
- */
-final class expiry_batch_outcome {
-    /**
-     * Creates a new expiry batch outcome instance.
-     *
-     * @param int $selected Number of selected records.
-     * @param int $changed Whether state changed.
-     * @param int $unchanged Number of unchanged records.
-     * @param int $skipped Number of skipped records.
-     * @param int $failed Number of failed records.
-     * @param array $events Reconciliation event records.
-     */
-    public function __construct(
-        /** @var int Number of selected records. */
-        public int $selected,
-        /** @var int Whether state changed. */
-        public int $changed,
-        /** @var int Number of unchanged records. */
-        public int $unchanged,
-        /** @var int Number of skipped records. */
-        public int $skipped,
-        /** @var int Number of failed records. */
-        public int $failed,
-        /** @var array Reconciliation event records. */
-        public array $events,
-    ) {
-    }
-}
-
-/**
  * Owns the locked, idempotent server-time Quiz expiry transition.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class quiz_expiry_reconciler {
     /** @var assessment_state_repository Persistence repository. */
@@ -149,7 +58,7 @@ final class quiz_expiry_reconciler {
     ) {
         $this->repository = $repository ?? new assessment_state_repository();
         $this->quiz = $quiz ?? new assessment_quiz();
-        $this->clock = \Closure::fromCallable($clock ?? static function(): string {
+        $this->clock = \Closure::fromCallable($clock ?? static function (): string {
             $now = microtime(true);
             $seconds = (int) floor($now);
             $micros = (int) floor(($now - $seconds) * 1000000);
@@ -160,7 +69,7 @@ final class quiz_expiry_reconciler {
                 (new grade_publisher())->publish_user($scaffold, $userid),
         );
         $this->completionupdater = \Closure::fromCallable(
-            $completionupdater ?? static function(\stdClass $scaffold, \cm_info $cm, int $userid): void {
+            $completionupdater ?? static function (\stdClass $scaffold, \cm_info $cm, int $userid): void {
                 global $CFG;
 
                 require_once($CFG->dirroot . '/mod/scaffold/lib.php');
@@ -228,7 +137,7 @@ final class quiz_expiry_reconciler {
             $now,
         );
         $expiredgroupids = [];
-        $mutation = function(\stdClass $snapshot) use (&$expiredgroupids, $now, $projection): \stdClass {
+        $mutation = function (\stdClass $snapshot) use (&$expiredgroupids, $now, $projection): \stdClass {
             $expiredgroupids = $this->quiz->expire_due_state(
                 $snapshot,
                 $projection['groups'],
@@ -283,19 +192,22 @@ final class quiz_expiry_reconciler {
             return $outcome;
         }
 
-        if ($outcome->completionRequired && !empty($scaffold->completionactivitystatus)) {
+        if ($outcome->completionrequired && !empty($scaffold->completionactivitystatus)) {
             try {
                 ($this->completionupdater)($scaffold, $cm, $userid);
             } catch (\Throwable) {
-                // Canonical Quiz expiry is already committed.
+                debugging(
+                    'Scaffold completion update failed after the quiz expiry state was committed.',
+                    DEBUG_DEVELOPER,
+                );
             }
         }
-        if ($outcome->gradeRequired) {
+        if ($outcome->graderequired) {
             try {
                 $publication = ($this->gradepublisher)($scaffold, $userid, $artifactid);
-                $outcome->gradePublication = $publication instanceof \stdClass ? $publication : null;
+                $outcome->gradepublication = $publication instanceof \stdClass ? $publication : null;
             } catch (\Throwable) {
-                $outcome->gradePublication = (object) ['status' => 'pending'];
+                $outcome->gradepublication = (object) ['status' => 'pending'];
             }
         }
         return $outcome;
@@ -452,9 +364,11 @@ final class quiz_expiry_reconciler {
     ): bool {
         $gradedgroups = [];
         foreach ($groups as $group) {
-            if (($group['kind'] ?? null) === 'quiz'
+            if (
+                ($group['kind'] ?? null) === 'quiz'
                 && ($group['settings']['isGraded'] ?? true) === true
-                && is_string($group['groupId'] ?? null)) {
+                && is_string($group['groupId'] ?? null)
+            ) {
                 $gradedgroups[$group['groupId']] = true;
             }
         }
@@ -464,10 +378,12 @@ final class quiz_expiry_reconciler {
             throw new \invalid_parameter_exception('Server Quiz reconciliation time is invalid');
         }
         foreach (get_object_vars($snapshot->quizzes ?? (object) []) as $groupid => $attempt) {
-            if (!isset($gradedgroups[$groupid])
+            if (
+                !isset($gradedgroups[$groupid])
                 || !($attempt instanceof \stdClass)
                 || ($attempt->status ?? null) !== 'in_progress'
-                || !is_string($attempt->expiresAt ?? null)) {
+                || !is_string($attempt->expiresAt ?? null)
+            ) {
                 continue;
             }
             try {

@@ -51,12 +51,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     } else {
         throw new invalid_parameter_exception('Unknown grade publication requeue target');
     }
-    error_log(sprintf(
+    debugging(sprintf(
         'Scaffold grade publication requeue activity=%d actor=%d changed=%d',
         (int) $cm->instance,
         (int) $USER->id,
         $changed ? 1 : 0,
-    ));
+    ), DEBUG_DEVELOPER);
     redirect(new moodle_url('/mod/scaffold/grade_status.php', ['id' => $cm->id, 'page' => $page]));
 }
 

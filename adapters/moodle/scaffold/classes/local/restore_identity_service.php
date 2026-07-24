@@ -228,10 +228,12 @@ final class restore_identity_service {
         }
         $document = $artifact->content;
         $coursedocument = is_array($document->content ?? null) ? ($document->content[0] ?? null) : null;
-        if (($document->type ?? null) !== 'doc'
+        if (
+            ($document->type ?? null) !== 'doc'
             || !($coursedocument instanceof \stdClass)
             || ($coursedocument->type ?? null) !== 'courseDocument'
-            || (($coursedocument->attrs->mode ?? null) !== $artifact->mode)) {
+            || (($coursedocument->attrs->mode ?? null) !== $artifact->mode)
+        ) {
             throw new \invalid_parameter_exception('Restored Scaffold artifact document mode is invalid');
         }
     }
