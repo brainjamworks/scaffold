@@ -13,16 +13,33 @@ require_once(__DIR__ . '/artifact_identity.php');
 require_once(__DIR__ . '/assessment_projection.php');
 
 final class expiry_outcome {
+    public bool $changed;
+    public int $stateRevision;
+    public string $changedAt;
+    public array $expiredGroupIds;
+    public bool $gradeRequired;
+    public bool $completionRequired;
+    public \stdClass $snapshot;
+    public ?\stdClass $gradePublication;
+
     public function __construct(
-        public bool $changed,
-        public int $staterevision,
-        public string $changedat,
-        public array $expiredgroupids,
-        public bool $graderequired,
-        public bool $completionrequired,
-        public \stdClass $snapshot,
-        public ?\stdClass $gradepublication = null,
+        bool $changed,
+        int $staterevision,
+        string $changedat,
+        array $expiredgroupids,
+        bool $graderequired,
+        bool $completionrequired,
+        \stdClass $snapshot,
+        ?\stdClass $gradepublication = null,
     ) {
+        $this->changed = $changed;
+        $this->stateRevision = $staterevision;
+        $this->changedAt = $changedat;
+        $this->expiredGroupIds = $expiredgroupids;
+        $this->gradeRequired = $graderequired;
+        $this->completionRequired = $completionrequired;
+        $this->snapshot = $snapshot;
+        $this->gradePublication = $gradepublication;
     }
 }
 
@@ -174,19 +191,19 @@ final class quiz_expiry_reconciler {
             return $outcome;
         }
 
-        if ($outcome->completionrequired && !empty($scaffold->completionactivitystatus)) {
+        if ($outcome->completionRequired && !empty($scaffold->completionactivitystatus)) {
             try {
                 ($this->completionupdater)($scaffold, $cm, $userid);
             } catch (\Throwable) {
                 // Canonical Quiz expiry is already committed.
             }
         }
-        if ($outcome->graderequired) {
+        if ($outcome->gradeRequired) {
             try {
                 $publication = ($this->gradepublisher)($scaffold, $userid, $artifactid);
-                $outcome->gradepublication = $publication instanceof \stdClass ? $publication : null;
+                $outcome->gradePublication = $publication instanceof \stdClass ? $publication : null;
             } catch (\Throwable) {
-                $outcome->gradepublication = (object) ['status' => 'pending'];
+                $outcome->gradePublication = (object) ['status' => 'pending'];
             }
         }
         return $outcome;

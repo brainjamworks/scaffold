@@ -852,6 +852,36 @@ require_once(__DIR__ . '/../scaffold/classes/local/assessment_quiz.php');
 require_once(__DIR__ . '/../scaffold/classes/local/content_service.php');
 require_once(__DIR__ . '/../scaffold/classes/local/assessment_service.php');
 
+$expiryoutcome = new \mod_scaffold\local\expiry_outcome(
+    true,
+    2,
+    '2026-07-18T10:00:00.000000Z',
+    ['quiz-1'],
+    true,
+    true,
+    (object) ['snapshotVersion' => 1],
+    (object) ['status' => 'published'],
+);
+$expectedexpirykeys = [
+    'changed',
+    'stateRevision',
+    'changedAt',
+    'expiredGroupIds',
+    'gradeRequired',
+    'completionRequired',
+    'snapshot',
+    'gradePublication',
+];
+assert_assessment_state(
+    array_keys(get_object_vars($expiryoutcome)) === $expectedexpirykeys,
+    'Quiz expiry outcomes must preserve their public property names',
+);
+assert_assessment_state(
+    array_keys(json_decode(json_encode($expiryoutcome, JSON_THROW_ON_ERROR), true, 512, JSON_THROW_ON_ERROR))
+        === $expectedexpirykeys,
+    'Quiz expiry outcomes must preserve their serialized property names',
+);
+
 function assessment_state_scope(stdClass $scaffold, \core_course\cm_info $cm, int $userid): \mod_scaffold\local\activity_scope {
     return new \mod_scaffold\local\activity_scope(
         (object) ['id' => $scaffold->course],

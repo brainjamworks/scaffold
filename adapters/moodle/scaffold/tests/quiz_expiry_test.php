@@ -229,10 +229,10 @@ final class quiz_expiry_test extends \advanced_testcase {
         $outcome = $reconciler->reconcile_user($scaffold, (int) $user->id, $artifactid);
 
         $this->assertTrue($outcome->changed);
-        $this->assertSame(2, $outcome->staterevision);
-        $this->assertSame(['quiz-due-graded', 'quiz-due-ungraded'], $outcome->expiredgroupids);
-        $this->assertTrue($outcome->graderequired);
-        $this->assertTrue($outcome->completionrequired);
+        $this->assertSame(2, $outcome->stateRevision);
+        $this->assertSame(['quiz-due-graded', 'quiz-due-ungraded'], $outcome->expiredGroupIds);
+        $this->assertTrue($outcome->gradeRequired);
+        $this->assertTrue($outcome->completionRequired);
         $row = $DB->get_record('scaffold_assessment_state', [
             'scaffoldid' => $scaffold->id,
             'userid' => $user->id,
@@ -246,7 +246,7 @@ final class quiz_expiry_test extends \advanced_testcase {
         $before = serialize($row);
         $repeat = $reconciler->reconcile_user($scaffold, (int) $user->id, $artifactid);
         $this->assertFalse($repeat->changed);
-        $this->assertSame([], $repeat->expiredgroupids);
+        $this->assertSame([], $repeat->expiredGroupIds);
         $this->assertSame($before, serialize($DB->get_record(
             'scaffold_assessment_state',
             ['scaffoldid' => $scaffold->id, 'userid' => $user->id],

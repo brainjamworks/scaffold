@@ -43,7 +43,7 @@ function scaffold_get_coursemodule_info(stdClass $coursemodule): cached_cm_info|
     return $info;
 }
 
-function mod_scaffold_get_completion_active_rule_descriptions(\cm_info $cm): array {
+function mod_scaffold_get_completion_active_rule_descriptions(\cm_info|\stdClass $cm): array {
     if ($cm->completion != COMPLETION_TRACKING_AUTOMATIC
         || empty($cm->customdata['customcompletionrules']['completionactivitystatus'])) {
         return [];

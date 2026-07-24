@@ -8,11 +8,18 @@
 namespace core_course {
     class cm_info {
         public int $id = 5;
+        public int $completion = 2;
+        public array $customdata = [
+            'customcompletionrules' => [
+                'completionactivitystatus' => 1,
+            ],
+        ];
     }
 }
 
 namespace {
     define('MOODLE_INTERNAL', true);
+    define('COMPLETION_TRACKING_AUTOMATIC', 2);
 
     class context_module {
     }
@@ -30,6 +37,11 @@ namespace {
         class_alias(\core_course\cm_info::class, 'cm_info');
     }
 
+    function get_string(string $identifier, string $component): string {
+        return $component . ':' . $identifier;
+    }
+
+    require_once(__DIR__ . '/../scaffold/lib.php');
     require_once(__DIR__ . '/../scaffold/classes/local/media_service.php');
     require_once(__DIR__ . '/../scaffold/classes/local/activity_scope.php');
 
@@ -62,6 +74,26 @@ namespace {
     ];
     $cm = new \core_course\cm_info();
     $problemid = 'artifact:moodle-cm-5/block:target';
+
+    $completiondescription = ['scaffold:completiondetail:activitystatus'];
+    if (mod_scaffold_get_completion_active_rule_descriptions($cm) !== $completiondescription) {
+        fail_cm_info_contract_test('completion callback should accept cm_info');
+    }
+    try {
+        $legacycm = (object) [
+            'completion' => COMPLETION_TRACKING_AUTOMATIC,
+            'customdata' => [
+                'customcompletionrules' => [
+                    'completionactivitystatus' => 1,
+                ],
+            ],
+        ];
+        if (mod_scaffold_get_completion_active_rule_descriptions($legacycm) !== $completiondescription) {
+            fail_cm_info_contract_test('completion callback should describe active stdClass rules');
+        }
+    } catch (\TypeError $exception) {
+        fail_cm_info_contract_test('completion callback should accept stdClass: ' . $exception->getMessage());
+    }
 
     try {
         media_service::upload_media(
