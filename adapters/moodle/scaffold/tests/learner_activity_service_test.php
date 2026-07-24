@@ -25,6 +25,10 @@ defined('MOODLE_INTERNAL') || die();
 /**
  * Tests the learner-activity service against Moodle authorization and DML.
  *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ *
  * @covers \mod_scaffold\local\learner_activity_service
  * @covers \mod_scaffold\local\learner_activity_repository
  */

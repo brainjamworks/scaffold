@@ -20,6 +20,15 @@ defined('MOODLE_INTERNAL') || die();
 
 require_once(__DIR__ . '/artifact_identity.php');
 
+/**
+ * Manages learner activity snapshots.
+ *
+ * Validates, reads, and writes authorised learner activity records.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 final class learner_activity_service {
     private const RECORD_MAX_BYTES = 262144;
 

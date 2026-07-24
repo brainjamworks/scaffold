@@ -21,6 +21,15 @@ defined('MOODLE_INTERNAL') || die();
 use mod_scaffold\local\activity_access;
 use mod_scaffold\local\assessment_service;
 
+/**
+ * External API for starting a quiz attempt.
+ *
+ * Starts or resumes the authorised attempt for a quiz group.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class start_quiz_attempt extends \core_external\external_api {
     public static function execute_parameters(): \core_external\external_function_parameters {
         return new \core_external\external_function_parameters([

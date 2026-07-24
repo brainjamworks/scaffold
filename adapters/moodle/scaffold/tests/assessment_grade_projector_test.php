@@ -23,6 +23,10 @@ defined('MOODLE_INTERNAL') || die();
 /**
  * Tests Moodle grade projections from canonical assessment state.
  *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ *
  * @covers \mod_scaffold\local\assessment_grade_projector
  */
 final class assessment_grade_projector_test extends \basic_testcase {

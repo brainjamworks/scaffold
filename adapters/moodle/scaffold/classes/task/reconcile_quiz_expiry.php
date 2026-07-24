@@ -20,6 +20,15 @@ use mod_scaffold\local\quiz_expiry_reconciler;
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Scheduled task for quiz expiry reconciliation.
+ *
+ * Applies due quiz expiry transitions in bounded batches.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class reconcile_quiz_expiry extends \core\task\scheduled_task {
     private const BATCH_LIMIT = 100;
 

@@ -23,6 +23,14 @@ require_once($CFG->dirroot . '/backup/util/includes/backup_includes.php');
 require_once($CFG->dirroot . '/backup/util/includes/restore_includes.php');
 
 /**
+ * Tests Scaffold activity restore.
+ *
+ * Verifies identity remapping and user-data handling during Moodle restore.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ *
  * @covers \mod_scaffold\local\restore_identity_service
  */
 final class restore_scaffold_test extends advanced_testcase {

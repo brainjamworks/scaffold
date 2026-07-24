@@ -14,6 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
+/**
+ * Moodle callbacks for the Scaffold activity module.
+ *
+ * Implements the activity lifecycle, feature, completion, and file callbacks.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 defined('MOODLE_INTERNAL') || die();
 
 const SCAFFOLD_EMPTY_ARTIFACT_JSON = '{"id":"","title":"Scaffold","mode":"page","content":null}';

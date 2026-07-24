@@ -21,6 +21,15 @@ defined('MOODLE_INTERNAL') || die();
 require_once(__DIR__ . '/assessment_result_projection.php');
 require_once(__DIR__ . '/assessment_quiz.php');
 
+/**
+ * Builds the learner-visible assessment projection.
+ *
+ * Removes protected assessment details from public runtime payloads.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 final class assessment_public_projection {
     public static function snapshot(\stdClass $snapshot, array $projection): \stdClass {
         $publicproblems = [];

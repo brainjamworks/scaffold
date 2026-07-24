@@ -18,6 +18,15 @@ namespace mod_scaffold\local;
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Reconciles pending grade publication work.
+ *
+ * Retries eligible gradebook updates and records their outcomes.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 final class grade_reconciler {
     private const MAX_RETRIES = 5;
     private $repository;

@@ -18,6 +18,15 @@ namespace mod_scaffold\local;
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Reports grade publication status.
+ *
+ * Reads and requeues publication state for activity administration.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 final class grade_status_report {
     private $repository;
     private $database;

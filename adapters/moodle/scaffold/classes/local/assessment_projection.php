@@ -18,6 +18,15 @@ namespace mod_scaffold\local;
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Builds the canonical assessment projection.
+ *
+ * Combines definitions and persisted state into the current outcome.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 final class assessment_projection {
     public static function for_activity(\stdClass $scaffold): array {
         return self::from_json(

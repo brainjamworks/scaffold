@@ -23,6 +23,10 @@ defined('MOODLE_INTERNAL') || die();
 /**
  * Tests managed media against Moodle's File API.
  *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ *
  * @covers \mod_scaffold\local\media_service
  */
 final class media_service_test extends \advanced_testcase {

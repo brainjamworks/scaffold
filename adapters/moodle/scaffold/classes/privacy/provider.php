@@ -29,6 +29,15 @@ use mod_scaffold\local\learner_activity_repository;
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Privacy provider for the Scaffold activity module.
+ *
+ * Describes, exports, discovers, and deletes personal data owned by the plugin.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 final class provider implements
     \core_privacy\local\metadata\provider,
     \core_privacy\local\request\plugin\provider,

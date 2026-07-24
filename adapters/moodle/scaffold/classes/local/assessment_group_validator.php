@@ -18,6 +18,15 @@ namespace mod_scaffold\local;
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Validates assessment group definitions.
+ *
+ * Enforces the structural rules for grouped quiz targets.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class assessment_group_validator {
     public static function validate_groups(array $groups, array $targets): array {
         if (!array_is_list($groups)) {

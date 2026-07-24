@@ -21,6 +21,15 @@ defined('MOODLE_INTERNAL') || die();
 require_once(__DIR__ . '/artifact_identity.php');
 require_once(__DIR__ . '/assessment_projection.php');
 
+/**
+ * Restores identities embedded in Scaffold content.
+ *
+ * Remaps artifact identifiers and related records after activity restore.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 final class restore_identity_service {
     private const RECONCILIATION_BATCH_SIZE = 100;
 

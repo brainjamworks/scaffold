@@ -18,6 +18,15 @@ namespace mod_scaffold\local;
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Builds assessment result projections.
+ *
+ * Converts grading results into the canonical persisted result shape.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 final class assessment_result_projection {
     public static function result(
         \stdClass $result,

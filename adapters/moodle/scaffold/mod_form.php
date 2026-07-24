@@ -18,6 +18,15 @@ defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->dirroot . '/course/moodleform_mod.php');
 
+/**
+ * Activity configuration form for the Scaffold module.
+ *
+ * Defines the settings and completion fields used to create or update an activity.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class mod_scaffold_mod_form extends moodleform_mod {
     #[\Override]
     public function definition(): void {

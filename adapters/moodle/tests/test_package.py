@@ -1,5 +1,6 @@
 import hashlib
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -13,6 +14,44 @@ REPOSITORY_ROOT = Path(__file__).parents[3]
 
 
 class MoodlePackageTest(unittest.TestCase):
+    def test_plugin_php_files_use_moodles_top_level_metadata(self):
+        plugin_root = REPOSITORY_ROOT / "adapters" / "moodle" / "scaffold"
+        metadata_tags = (
+            "@package    mod_scaffold",
+            "@copyright  2026 Rizvan Ali",
+            "@license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later",
+        )
+        class_pattern = re.compile(r"(?m)^(?:abstract |final )?class [a-z0-9_]+")
+        documented_class_pattern = re.compile(
+            r"(?ms)(/\*\*.*?\*/)\n(?:abstract |final )?class [a-z0-9_]+",
+        )
+        boilerplate_end = (
+            "// along with Moodle.  If not, see <https://www.gnu.org/licenses/>."
+        )
+
+        for source_file in plugin_root.rglob("*.php"):
+            source = source_file.read_text(encoding="utf8")
+            relative_path = source_file.relative_to(plugin_root)
+            docblocks = re.findall(r"(?ms)/\*\*.*?\*/", source)
+            metadata_blocks = [
+                docblock
+                for docblock in docblocks
+                if all(tag in docblock for tag in metadata_tags)
+            ]
+            classes = class_pattern.findall(source)
+            documented_classes = documented_class_pattern.findall(source)
+
+            with self.subTest(source_file=relative_path):
+                self.assertEqual(len(metadata_blocks), 1)
+                self.assertEqual(len(documented_classes), len(classes))
+                if len(classes) == 1:
+                    self.assertIn(metadata_blocks[0], documented_classes)
+                else:
+                    self.assertIn(
+                        f"{boilerplate_end}\n\n{metadata_blocks[0]}",
+                        source,
+                    )
+
     def test_plugin_sources_use_moodles_gpl_boilerplate(self):
         plugin_root = REPOSITORY_ROOT / "adapters" / "moodle" / "scaffold"
         expected_boilerplate = "\n".join(

@@ -14,6 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
+/**
+ * Quiz expiry reconciliation for the Scaffold activity module.
+ *
+ * Defines expiry outcomes and the service that applies due quiz transitions.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 namespace mod_scaffold\local;
 
 defined('MOODLE_INTERNAL') || die();
@@ -21,6 +31,9 @@ defined('MOODLE_INTERNAL') || die();
 require_once(__DIR__ . '/artifact_identity.php');
 require_once(__DIR__ . '/assessment_projection.php');
 
+/**
+ * Describes the result of one quiz expiry transition.
+ */
 final class expiry_outcome {
     public bool $changed;
     public int $stateRevision;
@@ -52,6 +65,9 @@ final class expiry_outcome {
     }
 }
 
+/**
+ * Summarises a batch of quiz expiry transitions.
+ */
 final class expiry_batch_outcome {
     public function __construct(
         public int $selected,

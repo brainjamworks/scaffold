@@ -18,6 +18,15 @@ defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->dirroot . '/mod/scaffold/backup/moodle2/backup_scaffold_stepslib.php');
 
+/**
+ * Backup task for a Scaffold activity.
+ *
+ * Defines the activity backup settings and structure step.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 final class backup_scaffold_activity_task extends backup_activity_task {
     #[\Override]
     protected function define_my_settings(): void {

@@ -21,6 +21,15 @@ defined('MOODLE_INTERNAL') || die();
 require_once(__DIR__ . '/artifact_identity.php');
 require_once(__DIR__ . '/assessment_projection.php');
 
+/**
+ * Publishes learner grades to the Moodle gradebook.
+ *
+ * Projects assessment state and records the publication outcome.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class grade_publisher {
     private const RETRY_DELAY_SECONDS = 60;
     private const MAX_RETRY_DELAY_SECONDS = 3600;

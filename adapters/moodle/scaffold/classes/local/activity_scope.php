@@ -18,6 +18,15 @@ namespace mod_scaffold\local;
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Represents an authorised Scaffold activity scope.
+ *
+ * Carries the resolved course, module, context, and activity instance.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 final class activity_scope {
     public function __construct(
         public readonly \stdClass $course,

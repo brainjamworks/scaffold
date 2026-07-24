@@ -18,6 +18,15 @@ namespace mod_scaffold\local;
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Validates assessment target definitions.
+ *
+ * Enforces the supported target and interaction contracts.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class assessment_target_validator {
     public static function validate_targets(array $targets): array {
         if (!array_is_list($targets)) {

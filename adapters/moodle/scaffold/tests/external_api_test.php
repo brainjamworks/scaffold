@@ -30,6 +30,10 @@ defined('MOODLE_INTERNAL') || die();
 /**
  * Tests Moodle external-function declarations, context, and outcomes.
  *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ *
  * @covers \mod_scaffold\external\finish_quiz_attempt
  * @covers \mod_scaffold\external\get_payload
  * @covers \mod_scaffold\external\reveal_hint

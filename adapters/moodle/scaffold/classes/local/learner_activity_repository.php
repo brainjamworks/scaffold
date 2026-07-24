@@ -14,13 +14,29 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
+/**
+ * Learner activity persistence for the Scaffold activity module.
+ *
+ * Defines the insert-collision exception and repository used for learner activity snapshots.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 namespace mod_scaffold\local;
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Signals a concurrent learner activity insertion.
+ */
 class learner_activity_insert_collision extends \RuntimeException {
 }
 
+/**
+ * Persists and queries learner activity snapshots.
+ */
 class learner_activity_repository {
     private const LOCK_TYPE = 'mod_scaffold_learner_activity';
     private const LOCK_TIMEOUT_SECONDS = 10;

@@ -21,6 +21,10 @@ defined('MOODLE_INTERNAL') || die();
 /**
  * Verifies complete activity-owned data deletion.
  *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ *
  * @covers \mod_scaffold\local\activity_deletion_service
  */
 final class activity_deletion_test extends \advanced_testcase {

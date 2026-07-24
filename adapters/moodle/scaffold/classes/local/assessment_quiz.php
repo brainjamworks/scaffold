@@ -20,6 +20,15 @@ defined('MOODLE_INTERNAL') || die();
 
 require_once(__DIR__ . '/assessment_result_projection.php');
 
+/**
+ * Applies quiz assessment state transitions.
+ *
+ * Starts, updates, and completes attempts for assessment groups.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class assessment_quiz {
     private $clock;
     private $attemptidfactory;

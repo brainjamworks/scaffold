@@ -18,6 +18,15 @@ namespace mod_scaffold\local;
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Persists grade publication state.
+ *
+ * Records pending, successful, and failed gradebook publication attempts.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class grade_publication_repository {
     private const TABLE = 'scaffold_grade_publications';
     private const STATUSES = ['pending', 'published', 'failed', 'locked', 'configuration_error'];

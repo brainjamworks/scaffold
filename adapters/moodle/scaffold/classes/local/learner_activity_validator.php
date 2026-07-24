@@ -18,6 +18,15 @@ namespace mod_scaffold\local;
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Validates learner activity records.
+ *
+ * Enforces the canonical snapshot and block record contracts.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class learner_activity_validator {
     private static ?json_schema_validator $validator = null;
 

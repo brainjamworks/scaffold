@@ -25,6 +25,10 @@ require_once(__DIR__ . '/assessment_public_projection.php');
 
 /**
  * Applies learner assessment commands against locked canonical state.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class assessment_service {
     private $repository;

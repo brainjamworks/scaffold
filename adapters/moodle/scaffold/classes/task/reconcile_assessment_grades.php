@@ -20,6 +20,15 @@ use mod_scaffold\local\grade_reconciler;
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Scheduled task for assessment grade reconciliation.
+ *
+ * Retries pending or recoverable grade publication work in bounded batches.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class reconcile_assessment_grades extends \core\task\scheduled_task {
     private const BATCH_LIMIT = 100;
 

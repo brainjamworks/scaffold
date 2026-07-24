@@ -18,6 +18,15 @@ namespace mod_scaffold\local;
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Provides the canonical assessment definition.
+ *
+ * Parses and exposes assessment targets and groups from activity content.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 final class assessment_definition {
     public static function fingerprint(array $targets, array $groups, float $maximum): string {
         $canonicaltargets = [];

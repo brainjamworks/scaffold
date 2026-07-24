@@ -21,6 +21,15 @@ namespace mod_scaffold\completion;
 use core_completion\activity_custom_completion;
 use mod_scaffold\local\assessment_projection;
 
+/**
+ * Custom completion rules for a Scaffold activity.
+ *
+ * Evaluates learner activity status for Moodle completion tracking.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class custom_completion extends activity_custom_completion {
     private const RULE_ACTIVITY_STATUS = 'completionactivitystatus';
 

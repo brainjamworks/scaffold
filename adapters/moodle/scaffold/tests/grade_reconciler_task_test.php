@@ -14,6 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
+/**
+ * Scheduled grade reconciliation task tests.
+ *
+ * Defines task-specific test helpers and verifies indexed grade recovery.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 namespace mod_scaffold;
 
 use mod_scaffold\local\grade_publication_repository;
@@ -21,6 +31,9 @@ use mod_scaffold\local\grade_reconciler;
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Exposes controlled grade reconciliation task dependencies for tests.
+ */
 final class grade_reconciler_task_under_test extends \mod_scaffold\task\reconcile_assessment_grades {
     public function __construct(private readonly grade_reconciler $reconciler, private readonly int $limit) {
     }

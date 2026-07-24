@@ -18,6 +18,15 @@ namespace mod_scaffold\local;
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Resolves the identity of a Scaffold artifact.
+ *
+ * Validates and normalises artifact identifiers used by persisted content.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 final class artifact_identity {
     private const PREFIX = 'moodle-cm-';
 

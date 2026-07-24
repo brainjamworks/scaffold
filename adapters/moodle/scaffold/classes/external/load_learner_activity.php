@@ -21,6 +21,15 @@ defined('MOODLE_INTERNAL') || die();
 use mod_scaffold\local\activity_access;
 use mod_scaffold\local\learner_activity_service;
 
+/**
+ * External API for loading learner activity.
+ *
+ * Returns the authorised learner snapshot for a Scaffold artifact.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class load_learner_activity extends \core_external\external_api {
     public static function execute_parameters(): \core_external\external_function_parameters {
         return new \core_external\external_function_parameters([

@@ -18,6 +18,15 @@ namespace mod_scaffold\local;
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Deletes data owned by a Scaffold activity.
+ *
+ * Coordinates removal of plugin records when a module instance is deleted.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 final class activity_deletion_service {
     public function delete_owned_state(int $scaffoldid, \context_module $context): void {
         (new grade_publication_repository())->delete_for_activity($scaffoldid);

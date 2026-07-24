@@ -20,6 +20,15 @@ defined('MOODLE_INTERNAL') || die();
 
 require_once(__DIR__ . '/assessment_projection.php');
 
+/**
+ * Publishes the Scaffold grade item configuration.
+ *
+ * Keeps the Moodle gradebook item aligned with the activity settings.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 final class grade_item_publisher {
     private const RETRY_DELAY_SECONDS = 60;
     private const MAX_RETRY_DELAY_SECONDS = 3600;

@@ -18,6 +18,15 @@ namespace mod_scaffold\local;
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Grades assessment responses.
+ *
+ * Evaluates supported interactions against their assessment definitions.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class grader {
     public static function grade_assessment(?array $target, ?array $response): array {
         if (!$target || !$response) {

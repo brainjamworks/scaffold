@@ -24,6 +24,10 @@ defined('MOODLE_INTERNAL') || die();
 /**
  * Tests learner-activity schema boundaries.
  *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ *
  * @covers \mod_scaffold\local\json_schema_validator
  * @covers \mod_scaffold\local\learner_activity_validator
  */

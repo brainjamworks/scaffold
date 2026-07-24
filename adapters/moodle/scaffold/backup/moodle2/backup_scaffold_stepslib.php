@@ -16,6 +16,15 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Backup structure step for a Scaffold activity.
+ *
+ * Defines the activity data included in a Moodle backup.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 final class backup_scaffold_activity_structure_step extends backup_activity_structure_step {
     #[\Override]
     protected function define_structure() {

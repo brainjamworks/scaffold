@@ -23,6 +23,10 @@ defined('MOODLE_INTERNAL') || die();
 /**
  * Tests activity grade-item publication independently from learner grades.
  *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ *
  * @covers \mod_scaffold\local\grade_item_publisher
  */
 final class grade_item_publisher_test extends \advanced_testcase {

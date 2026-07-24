@@ -14,6 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
+/**
+ * Scheduled quiz expiry task tests.
+ *
+ * Defines task-specific test helpers and verifies scheduled expiry processing.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 namespace mod_scaffold;
 
 use mod_scaffold\local\assessment_state_repository;
@@ -22,6 +32,9 @@ use mod_scaffold\local\quiz_expiry_reconciler;
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Exposes controlled quiz expiry task dependencies for tests.
+ */
 final class quiz_expiry_task_under_test extends \mod_scaffold\task\reconcile_quiz_expiry {
     public function __construct(
         private readonly quiz_expiry_reconciler $reconciler,
@@ -40,6 +53,9 @@ final class quiz_expiry_task_under_test extends \mod_scaffold\task\reconcile_qui
     }
 }
 
+/**
+ * Simulates an unavailable scheduled task lock.
+ */
 final class quiz_expiry_unavailable_lock_factory {
     public function get_lock(string $resource, int $timeout): bool {
         return false;

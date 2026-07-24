@@ -24,6 +24,10 @@ defined('MOODLE_INTERNAL') || die();
 /**
  * Tests Scaffold custom completion against Moodle completion and DML.
  *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ *
  * @covers \mod_scaffold\completion\custom_completion
  */
 final class custom_completion_test extends \advanced_testcase {

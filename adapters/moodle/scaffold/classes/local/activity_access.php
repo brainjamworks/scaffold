@@ -18,6 +18,15 @@ namespace mod_scaffold\local;
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Resolves and authorises access to a Scaffold activity.
+ *
+ * Loads the Moodle activity context and enforces the required capabilities.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 final class activity_access {
     public static function require(int $cmid, string $capability): activity_scope {
         global $DB, $USER;

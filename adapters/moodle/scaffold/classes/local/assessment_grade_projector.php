@@ -18,6 +18,15 @@ namespace mod_scaffold\local;
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Projects assessment state into a Moodle grade.
+ *
+ * Converts canonical assessment outcomes to gradebook values.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class assessment_grade_projector {
     public static function build(
         array $targets,

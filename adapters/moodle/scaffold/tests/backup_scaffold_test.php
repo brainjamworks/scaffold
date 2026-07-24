@@ -22,6 +22,14 @@ require_once($CFG->dirroot . '/backup/moodle2/backup_stepslib.php');
 require_once($CFG->dirroot . '/mod/scaffold/backup/moodle2/backup_scaffold_stepslib.php');
 
 /**
+ * Tests Scaffold activity backup.
+ *
+ * Verifies that backup includes only the state allowed by the user-data setting.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ *
  * @covers \backup_scaffold_activity_structure_step
  */
 final class backup_scaffold_test extends advanced_testcase {

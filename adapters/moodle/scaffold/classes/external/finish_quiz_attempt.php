@@ -22,6 +22,15 @@ use mod_scaffold\local\activity_access;
 use mod_scaffold\local\assessment_service;
 use mod_scaffold\local\content_service;
 
+/**
+ * External API for finishing a quiz attempt.
+ *
+ * Completes an authorised attempt and returns its assessment outcome.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class finish_quiz_attempt extends \core_external\external_api {
     public static function execute_parameters(): \core_external\external_function_parameters {
         return new \core_external\external_function_parameters([

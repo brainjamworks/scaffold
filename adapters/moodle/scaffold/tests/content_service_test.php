@@ -24,6 +24,10 @@ defined('MOODLE_INTERNAL') || die();
 /**
  * Tests content projection and persistence against Moodle DML.
  *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ *
  * @covers \mod_scaffold\local\content_service
  */
 final class content_service_test extends \advanced_testcase {

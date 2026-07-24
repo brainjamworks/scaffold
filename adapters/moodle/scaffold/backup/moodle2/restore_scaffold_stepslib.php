@@ -19,6 +19,15 @@ defined('MOODLE_INTERNAL') || die();
 use mod_scaffold\local\artifact_identity;
 use mod_scaffold\local\restore_identity_service;
 
+/**
+ * Restore structure step for a Scaffold activity.
+ *
+ * Restores activity records and rewrites persisted Scaffold identities.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 final class restore_scaffold_activity_structure_step extends restore_activity_structure_step {
     #[\Override]
     protected function define_structure(): array {

@@ -22,6 +22,15 @@ require_once(__DIR__ . '/artifact_identity.php');
 require_once(__DIR__ . '/assessment_projection.php');
 require_once(__DIR__ . '/assessment_public_projection.php');
 
+/**
+ * Manages authored content for Scaffold activities.
+ *
+ * Validates, reads, and writes the canonical activity payload.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 final class content_service {
     public const GRADE_ITEM_PUBLICATION_PUBLISHED = 'published';
     public const GRADE_ITEM_PUBLICATION_FAILED = 'failed';

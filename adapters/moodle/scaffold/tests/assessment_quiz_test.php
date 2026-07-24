@@ -27,6 +27,10 @@ defined('MOODLE_INTERNAL') || die();
 /**
  * Tests caller-owned quiz state transitions and learner projections.
  *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ *
  * @covers \mod_scaffold\local\assessment_public_projection
  * @covers \mod_scaffold\local\assessment_quiz
  * @covers \mod_scaffold\local\assessment_result_projection

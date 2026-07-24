@@ -23,6 +23,10 @@ defined('MOODLE_INTERNAL') || die();
 /**
  * Verifies normalized learner grade-publication storage against Moodle DML.
  *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ *
  * @covers \mod_scaffold\local\grade_publication_repository
  */
 final class grade_publication_repository_test extends \advanced_testcase {

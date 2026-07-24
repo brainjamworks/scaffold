@@ -14,6 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
+/**
+ * Quiz expiry reconciliation tests.
+ *
+ * Defines a tracking repository and verifies due quiz state transitions.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 namespace mod_scaffold;
 
 use mod_scaffold\local\assessment_state_repository;
@@ -25,6 +35,9 @@ use mod_scaffold\local\quiz_expiry_reconciler;
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Records quiz expiry persistence calls for tests.
+ */
 final class quiz_expiry_tracking_repository extends assessment_state_repository {
     public bool $mutationactive = false;
 

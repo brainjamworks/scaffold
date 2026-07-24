@@ -18,6 +18,15 @@ namespace mod_scaffold\local;
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Manages media owned by Scaffold activities.
+ *
+ * Stores, lists, and resolves files through the Moodle File API.
+ *
+ * @package    mod_scaffold
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class media_service {
     private const MEDIA_UPLOAD_TYPES = [
         'image',
