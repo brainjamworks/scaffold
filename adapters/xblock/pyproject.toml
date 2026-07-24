@@ -9,6 +9,7 @@ description = "Open edX XBlock adapter for Scaffold."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "AGPL-3.0-only"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 dependencies = ["XBlock>=6,<7"]
 
 [project.urls]

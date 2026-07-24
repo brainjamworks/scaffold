@@ -220,6 +220,8 @@ test("release tooling locks the patched Terser and fast-uri versions", async () 
 test("repository tooling gate includes release candidate verification", async () => {
   const configSource = await readFile(resolve(REPOSITORY_ROOT, "vite.config.ts"), "utf8");
 
+  assert.match(configSource, /scripts\/generate-third-party-notices\.test\.mjs/);
+  assert.match(configSource, /scripts\/generate-third-party-notices\.mjs --check/);
   assert.match(configSource, /scripts\/prepare-release-candidate\.test\.mjs/);
   assert.match(configSource, /scripts\/release-workflow\.test\.mjs/);
 });

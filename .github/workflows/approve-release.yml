@@ -1,0 +1,221 @@
+name: Approve release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Draft release tag to approve
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: approve-release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  approve:
+    name: Validate and publish reviewed prerelease
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment:
+      name: release
+    permissions:
+      contents: write
+    steps:
+      - name: Validate evidence and publish the draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Release tag must use vMAJOR.MINOR.PATCH." >&2
+            exit 1
+          fi
+
+          version="${RELEASE_TAG#v}"
+          expected_title="Scaffold $version"
+          candidate="$RUNNER_TEMP/candidate"
+          mkdir -p "$candidate"
+
+          resolve_tag_identity() {
+            local ref_json="$RUNNER_TEMP/tag-ref.json"
+            local object_json="$RUNNER_TEMP/tag-object.json"
+            local tag_object
+            local commit
+
+            gh api \
+              "repos/$GH_REPO/git/ref/tags/$RELEASE_TAG" \
+              > "$ref_json"
+            if ! jq -e \
+              --arg ref "refs/tags/$RELEASE_TAG" \
+              '.ref == $ref and .object.type == "tag" and
+                (.object.sha | test("^[0-9a-f]{40}$"))' \
+              "$ref_json" \
+              > /dev/null; then
+              echo "Release tag $RELEASE_TAG must remain an annotated tag." >&2
+              return 1
+            fi
+            tag_object="$(jq -er '.object.sha' "$ref_json")"
+
+            gh api "repos/$GH_REPO/git/tags/$tag_object" > "$object_json"
+            if ! jq -e \
+              --arg tag "$RELEASE_TAG" \
+              '.tag == $tag and .object.type == "commit" and
+                (.object.sha | test("^[0-9a-f]{40}$"))' \
+              "$object_json" \
+              > /dev/null; then
+              echo "Annotated tag $RELEASE_TAG does not point directly to a commit." >&2
+              return 1
+            fi
+            commit="$(jq -er '.object.sha' "$object_json")"
+            printf '%s %s\n' "$tag_object" "$commit"
+          }
+
+          approved_identity="$RUNNER_TEMP/approved-tag-identity"
+          resolve_tag_identity > "$approved_identity"
+          read -r approved_tag_object approved_commit < "$approved_identity"
+
+          release_json="$RUNNER_TEMP/release.json"
+          gh api \
+            "repos/$GH_REPO/releases/tags/$RELEASE_TAG" \
+            > "$release_json"
+          if ! jq -e \
+            --arg tag "$RELEASE_TAG" \
+            --arg title "$expected_title" \
+            '.tag_name == $tag and .name == $title and .draft == true and
+              .prerelease == true and .published_at == null and
+              (.id | type == "number")' \
+            "$release_json" \
+            > /dev/null; then
+            echo "Release $RELEASE_TAG is not the expected unpublished draft prerelease." >&2
+            exit 1
+          fi
+
+          notes="$RUNNER_TEMP/release-notes.md"
+          jq -er '.body | strings' "$release_json" > "$notes"
+          recorded_commit_count="$(
+            sed -nE 's/^- Source commit: `([0-9a-f]{40})`$/\1/p' "$notes" |
+              wc -l |
+              tr -d ' '
+          )"
+          recorded_commit="$(
+            sed -nE 's/^- Source commit: `([0-9a-f]{40})`$/\1/p' "$notes"
+          )"
+          if [[ "$recorded_commit_count" != "1" ||
+            "$recorded_commit" != "$approved_commit" ]]; then
+            echo "Release notes do not identify the approved tagged commit." >&2
+            exit 1
+          fi
+          if grep -Fq "smoke test: pending" "$notes"; then
+            echo "Release notes still contain pending smoke tests." >&2
+            exit 1
+          fi
+          if ! grep -Eq '^- Moodle smoke test: passed on .+$' "$notes"; then
+            echo "Record the Moodle smoke test as: Moodle smoke test: passed on <host version and result>." >&2
+            exit 1
+          fi
+          if ! grep -Eq '^- Open edX smoke test: passed on .+$' "$notes"; then
+            echo "Record the Open edX smoke test as: Open edX smoke test: passed on <host version and result>." >&2
+            exit 1
+          fi
+
+          expected_assets=(
+            "mod_scaffold-$version.zip"
+            "scaffold_xblock-$version-py3-none-any.whl"
+            "scaffold_xblock-$version.tar.gz"
+            "SHA256SUMS"
+            "scaffold-$version-provenance.jsonl"
+          )
+          actual_asset_names="$RUNNER_TEMP/actual-asset-names"
+          jq -er \
+            '.assets | if type == "array" and length > 0
+              then .[].name
+              else error("release assets must be a non-empty array")
+            end' \
+            "$release_json" \
+            > "$actual_asset_names"
+          actual_assets=()
+          while IFS= read -r actual_name; do
+            actual_assets+=("$actual_name")
+          done < "$actual_asset_names"
+          for expected_name in "${expected_assets[@]}"; do
+            if ! printf '%s\n' "${actual_assets[@]}" | grep -Fqx "$expected_name"; then
+              echo "Release is missing expected asset $expected_name." >&2
+              exit 1
+            fi
+          done
+          for actual_name in "${actual_assets[@]}"; do
+            if ! printf '%s\n' "${expected_assets[@]}" | grep -Fqx "$actual_name"; then
+              echo "Refusing to approve unexpected release asset $actual_name." >&2
+              exit 1
+            fi
+          done
+
+          gh release download \
+            "$RELEASE_TAG" \
+            --repo "$GH_REPO" \
+            --dir "$candidate"
+          (
+            cd "$candidate"
+            if [[ "$(wc -l < SHA256SUMS | tr -d ' ')" != "3" ]]; then
+              echo "SHA256SUMS must contain exactly three entries." >&2
+              exit 1
+            fi
+            if grep -Evq '^[0-9a-f]{64}  [A-Za-z0-9._-]+$' SHA256SUMS; then
+              echo "SHA256SUMS contains an invalid entry." >&2
+              exit 1
+            fi
+            sha256sum --check SHA256SUMS
+          )
+
+          bundle="$candidate/scaffold-$version-provenance.jsonl"
+          certificate_identity="https://github.com/$GH_REPO/.github/workflows/release.yml@refs/tags/$RELEASE_TAG"
+          packages=(
+            "mod_scaffold-$version.zip"
+            "scaffold_xblock-$version-py3-none-any.whl"
+            "scaffold_xblock-$version.tar.gz"
+          )
+          for package in "${packages[@]}"; do
+            gh attestation verify \
+              "$candidate/$package" \
+              --bundle "$bundle" \
+              --repo "$GH_REPO" \
+              --cert-identity "$certificate_identity" \
+              --source-digest "$approved_commit" \
+              --source-ref "refs/tags/$RELEASE_TAG" \
+              --deny-self-hosted-runners
+          done
+
+          gh api \
+            -H "X-GitHub-Api-Version: 2026-03-10" \
+            "repos/$GH_REPO/immutable-releases" \
+            > /dev/null
+
+          current_identity="$RUNNER_TEMP/current-tag-identity"
+          resolve_tag_identity > "$current_identity"
+          read -r current_tag_object current_commit < "$current_identity"
+          if [[ "$current_tag_object" != "$approved_tag_object" ||
+            "$current_commit" != "$approved_commit" ]]; then
+            echo "Release tag identity changed during approval." >&2
+            exit 1
+          fi
+
+          release_id="$(jq -er '.id' "$release_json")"
+          gh api \
+            --method PATCH \
+            "repos/$GH_REPO/releases/$release_id" \
+            -f name="$expected_title" \
+            -F draft=false \
+            -F prerelease=true \
+            --silent

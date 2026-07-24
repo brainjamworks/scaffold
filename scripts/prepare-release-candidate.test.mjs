@@ -28,6 +28,8 @@ test("prepares coordinated release metadata and notes", (t) => {
   assert.match(notes, new RegExp(`Source commit: \`${COMMIT}\``));
   assert.match(notes, /Moodle smoke test: pending/);
   assert.match(notes, /Open edX smoke test: pending/);
+  assert.match(notes, /Moodle smoke test: passed on <host version and result>/);
+  assert.match(notes, /Open edX smoke test: passed on <host version and result>/);
 });
 
 test("rejects unknown command arguments", (t) => {

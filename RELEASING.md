@@ -16,6 +16,9 @@ Before the first formal release:
    `mod_scaffold` listing.
 2. Confirm access to representative real Moodle and Open edX hosts for the
    manual approval smoke tests.
+3. Confirm the `release` and `pypi` GitHub environments, PyPI Trusted
+   Publisher, protected release-tag ruleset, and immutable GitHub Releases
+   setting are active.
 
 Remove this transition section after those steps are complete.
 
@@ -152,7 +155,8 @@ A release candidate must satisfy all of the following:
 - generated and vendored artifacts are current;
 - required runtime assets are built from the selected commit;
 - both exact adapter distributions pass their package-level validation;
-- bundled dependencies and their licenses are suitable for distribution;
+- the generated third-party notice inventory is current, and every adapter
+  distribution contains it and the Scaffold license;
 - Moodle Marketplace listing metadata and compatibility declarations are ready
   for the release.
 
@@ -185,7 +189,8 @@ The package process must:
 1. Build and verify the Moodle adapter from the tagged source.
 2. Stage the payload in a clean temporary directory.
 3. Validate the component, version, changelog, archive root, runtime assets,
-   file permissions, and excluded development files.
+   administrator guide, license notices, file permissions, and excluded
+   development files.
 4. Produce `mod_scaffold-X.Y.Z.zip` and a SHA-256 checksum.
 5. Inspect and extract that exact ZIP rather than a second local copy.
 
@@ -226,9 +231,10 @@ The package process must:
 1. Build and verify the XBlock adapter from the tagged source.
 2. Synchronize and check generated validation artifacts.
 3. Build the wheel and source distribution in a clean environment with
-   `python -m build`.
+   the pinned release-tool inventory and `python -m build`.
 4. Validate the distribution name, version, metadata, entry point, runtime
-   files, permissions, and excluded development files.
+   files, administrator guide, license notices, permissions, and excluded
+   development files.
 5. Run `twine check` and produce SHA-256 checksums.
 6. Install the exact wheel into a clean environment, load the `scaffold`
    `xblock.v1` entry point, and verify its installed runtime files.
@@ -253,8 +259,26 @@ The package command performs exact-distribution checks and a clean entry-point
 load locally. The release workflow reruns those checks from the tag. Before
 approving the draft, the maintainer manually smoke-installs the draft wheel in
 an available real Open edX site; the release workflow does not provision an
-Open edX host matrix. The `scaffold-xblock` pending trusted publisher and the
-matching GitHub `pypi` environment are configured for the first publication.
+Open edX host matrix. The `scaffold-xblock` Trusted Publisher and the matching
+GitHub `pypi` environment must remain configured for publication.
+
+## Repository Release Controls
+
+The public repository must keep these controls active:
+
+- a `release` environment used only by the explicit draft-approval workflow;
+- a `pypi` environment whose name and workflow identity match the
+  `scaffold-xblock` PyPI Trusted Publisher;
+- an active tag ruleset that blocks updates and deletion for semantic release
+  tags matching `v*.*.*`;
+- immutable GitHub Releases, so a published release and its assets cannot be
+  altered in place.
+
+The workflows also re-resolve the annotated tag object and peeled commit at
+each mutation boundary. Repository settings and workflow checks are both
+required: settings prevent an out-of-band mutation, while workflow checks fail
+closed if the candidate identity or external state differs from what was
+reviewed.
 
 ## Public Installation Documentation
 
@@ -301,17 +325,25 @@ command against the released version before declaring the rollout complete.
 8. Confirm that the draft contains the expected notes, Moodle ZIP, XBlock wheel
    and source distribution, checksums, and provenance.
 9. Manually smoke-test the exact draft Moodle ZIP and XBlock wheel in available
-   real host installations, then record the host versions and results in the
-   draft.
-10. Publish the GitHub Release. Its `published` event must trigger the protected
-    publishing workflow, which verifies and uploads the same approved XBlock
-    distributions to PyPI without rebuilding them.
-11. Submit the approved Moodle ZIP to Marketplace or add it to the existing
+   real host installations. Edit the draft notes to replace the pending lines
+   using exactly `Moodle smoke test: passed on <host version and result>` and
+   `Open edX smoke test: passed on <host version and result>`.
+10. From `main`, run the `Approve release` workflow with `vX.Y.Z` as its tag
+    input. The protected workflow revalidates the private draft, smoke evidence,
+    exact asset set, checksums, provenance, annotated tag identity, and
+    immutable-release setting before publishing the GitHub prerelease. Do not
+    publish the draft directly in the GitHub Release UI.
+11. Confirm that the release's `published` event triggers the protected PyPI
+    workflow. It must verify and upload the same approved XBlock distributions
+    without rebuilding them. If that workflow fails after a partial upload,
+    dispatch it again from `main` with the published tag; it accepts only exact
+    existing filenames and digests.
+12. Submit the approved Moodle ZIP to Marketplace or add it to the existing
     listing with the tested compatibility declarations.
-12. Update and verify the public installation documentation against the
+13. Update and verify the public installation documentation against the
     destinations that are live, including the temporary Marketplace-review
     state when applicable.
-13. After Marketplace approval, verify installation and update discovery within
+14. After Marketplace approval, verify installation and update discovery within
     a Moodle administrator session, make Marketplace the primary documented
     route, and confirm all channels identify the coordinated release correctly.
 
@@ -329,6 +361,14 @@ either adapter. An interrupted draft can be completed only when its existing
 assets match the verified candidate; a published release or differing asset is
 never overwritten.
 
+The protected approval workflow is implemented in
+`.github/workflows/approve-release.yml`. A maintainer dispatches it from
+`main` after editing the private draft with both exact smoke-test result lines.
+It is the only supported publication path for the GitHub prerelease. The
+workflow verifies the complete reviewed candidate, confirms the tag identity
+again immediately before mutation, and publishes through the GitHub API only
+when immutable releases are enabled.
+
 The approved XBlock publication workflow is implemented in
 `.github/workflows/publish-pypi.yml`. Publishing the reviewed GitHub Release
 triggers it; a maintainer can also dispatch it from `main` with a published tag
@@ -338,10 +378,10 @@ complete asset set, checksums, and tag-bound GitHub provenance, then uses the
 distributions whose existing PyPI digests do not conflict. It never checks out
 or rebuilds source and never stores a long-lived package credential.
 
-The adapter package commands, coordinated `0.1.0` metadata, pending PyPI trusted
-publisher, and matching GitHub environment are ready. Marketplace provider and
-submission readiness and access to representative real hosts for manual smoke
-testing remain first-release prerequisites.
+The adapter package commands, coordinated `0.1.0` metadata, PyPI Trusted
+Publisher, and matching GitHub environment are ready. Marketplace provider
+and submission readiness and access to representative real hosts for manual
+smoke testing remain first-release prerequisites.
 
 ## Failed and Superseded Releases
 

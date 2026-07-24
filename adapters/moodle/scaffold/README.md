@@ -17,8 +17,13 @@ The plugin component is `mod_scaffold`, and its installation directory must be
 
 ## Installation
 
-Use the Scaffold Moodle release ZIP. GitHub's automatically generated source
-archive is not an installable plugin package.
+For `0.1.0`, use the versioned
+[Scaffold Moodle ZIP](https://github.com/brainjamworks/scaffold/releases/download/v0.1.0/mod_scaffold-0.1.0.zip)
+from the GitHub Release. This is the temporary official installation route
+while the first Moodle Plugins directory listing is under review.
+
+Do not use GitHub's automatically generated **Source code** archives. They are
+repository snapshots, not installable Moodle plugin packages.
 
 1. Sign in to Moodle as a site administrator.
 2. Open **Site administration → Plugins → Install plugins**.
@@ -31,6 +36,18 @@ codebase, then visit **Site administration → Notifications** or run:
 ```sh
 php admin/cli/upgrade.php --non-interactive
 ```
+
+## Verify the Installation
+
+Open **Site administration → Plugins → Plugins overview**, find
+`Scaffold (mod_scaffold)`, and confirm that the release is `0.1.0`. Moodle's
+Plugins overview displays the installed plugin version and release.
+
+The immutable
+[Scaffold 0.1.0 release record](https://github.com/brainjamworks/scaffold/releases/tag/v0.1.0)
+contains checksums, provenance, and the Moodle host version used for the release
+smoke test. Confirm those results before installing the alpha release on a live
+site.
 
 ## Configuration
 
@@ -86,5 +103,5 @@ Report security concerns privately to
 
 ## License
 
-Scaffold is distributed under the
-[GNU Affero General Public License v3.0 only](https://github.com/brainjamworks/scaffold/blob/main/LICENSE).
+Scaffold is distributed under the GNU Affero General Public License v3.0 only.
+The release ZIP includes `LICENSE` and `THIRD_PARTY_NOTICES.md`.

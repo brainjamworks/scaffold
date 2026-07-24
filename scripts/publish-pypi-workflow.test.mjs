@@ -36,16 +36,37 @@ test("PyPI workflow publishes only after approval and supports explicit retries"
 
   assert.match(source, /Release tag must use vMAJOR\.MINOR\.PATCH/);
   assert.match(source, /Refusing to publish from draft release/);
+  assert.match(source, /Refusing to publish a non-prerelease/);
+  assert.match(source, /Moodle smoke test: passed on/);
+  assert.match(source, /Open edX smoke test: passed on/);
   assert.match(source, /unexpected release asset/);
   assert.match(source, /gh release download/);
   assert.match(source, /sha256sum --check SHA256SUMS/);
   assert.match(source, /gh attestation verify/);
   assert.match(source, /--bundle/);
   assert.match(source, /--cert-identity/);
+  assert.match(source, /--source-digest/);
+  assert.match(source, /--source-ref/);
   assert.match(source, /pypi\.org\/pypi\/scaffold-xblock/);
   assert.match(source, /existing PyPI digest/);
+  assert.match(source, /unexpected PyPI distribution/);
+  assert.match(source, /yanked/);
   assert.match(source, /upload_count/);
   assert.doesNotMatch(source, /outputs\.[A-Za-z0-9_]*-/);
+});
+
+test("PyPI distributions are staged where the Docker publisher can read them", () => {
+  const { workflow } = loadWorkflow();
+  const stage = workflow.jobs.publish.steps.find(
+    (step) => step.name === "Stage missing PyPI distributions",
+  );
+  const publish = workflow.jobs.publish.steps.find(
+    (step) => step.name === "Publish verified XBlock distributions",
+  );
+
+  assert.match(stage.run, /\$GITHUB_WORKSPACE\/\.pypi-dist/);
+  assert.doesNotMatch(stage.run, /\$RUNNER_TEMP\/publish/);
+  assert.equal(publish.with["packages-dir"], ".pypi-dist/");
 });
 
 test("PyPI workflow grants only release-read and publishing identity permissions", () => {

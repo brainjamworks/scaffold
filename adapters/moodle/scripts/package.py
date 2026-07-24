@@ -80,6 +80,16 @@ def validate_metadata(plugin_root, product_version):
     if release_heading.search(changelog) is None:
         raise ValueError(f"CHANGES.md must contain a dated {product_version} release heading.")
 
+    guide = (plugin_root / "README.md").read_text(encoding="utf8")
+    required_guide_text = (
+        f"releases/download/v{product_version}/mod_scaffold-{product_version}.zip",
+        "Plugins overview",
+        f"releases/tag/v{product_version}",
+        "Moodle 4.5",
+    )
+    if any(text not in guide for text in required_guide_text):
+        raise ValueError("Moodle README.md is missing the administrator installation guide.")
+
 
 def source_files(plugin_root):
     for required_file in REQUIRED_FILES:
@@ -104,7 +114,20 @@ def source_files(plugin_root):
     return files
 
 
-def write_archive(plugin_root, files, archive_path):
+def release_payload(repository_root, plugin_root, files):
+    payload = [
+        (path.relative_to(plugin_root).as_posix(), path)
+        for path in files
+    ]
+    for filename in ("LICENSE", "THIRD_PARTY_NOTICES.md"):
+        source_path = repository_root / filename
+        if not source_path.is_file():
+            raise ValueError(f"Moodle package is missing repository {filename}.")
+        payload.append((filename, source_path))
+    return sorted(payload, key=lambda entry: entry[0])
+
+
+def write_archive(payload, archive_path):
     archive_path.parent.mkdir(parents=True, exist_ok=True)
     temporary_archive = archive_path.with_suffix(".zip.tmp")
     temporary_archive.unlink(missing_ok=True)
@@ -115,8 +138,7 @@ def write_archive(plugin_root, files, archive_path):
         compression=zipfile.ZIP_DEFLATED,
         compresslevel=9,
     ) as archive:
-        for source_path in files:
-            relative_path = source_path.relative_to(plugin_root).as_posix()
+        for relative_path, source_path in payload:
             archive_pathname = f"scaffold/{relative_path}"
             entry = zipfile.ZipInfo(archive_pathname, date_time=(1980, 1, 1, 0, 0, 0))
             entry.create_system = 3
@@ -127,8 +149,8 @@ def write_archive(plugin_root, files, archive_path):
     os.replace(temporary_archive, archive_path)
 
 
-def verify_archive(plugin_root, files, archive_path):
-    expected_names = [f"scaffold/{path.relative_to(plugin_root).as_posix()}" for path in files]
+def verify_archive(payload, archive_path):
+    expected_names = [f"scaffold/{relative_path}" for relative_path, _ in payload]
     with zipfile.ZipFile(archive_path) as archive:
         names = archive.namelist()
         if names != expected_names:
@@ -144,8 +166,7 @@ def verify_archive(plugin_root, files, archive_path):
             extraction_root = Path(temporary_directory)
             archive.extractall(extraction_root)
             extracted_plugin = extraction_root / "scaffold"
-            for source_path in files:
-                relative_path = source_path.relative_to(plugin_root)
+            for relative_path, source_path in payload:
                 if (extracted_plugin / relative_path).read_bytes() != source_path.read_bytes():
                     raise ValueError(f"Extracted Moodle file differs: {relative_path}.")
 
@@ -167,6 +188,7 @@ def main():
         print(f"Moodle package metadata is ready for {product_version}.")
         return
     files = source_files(plugin_root)
+    payload = release_payload(repository_root, plugin_root, files)
 
     archive_path = (
         repository_root
@@ -175,8 +197,8 @@ def main():
         / product_version
         / f"mod_scaffold-{product_version}.zip"
     )
-    write_archive(plugin_root, files, archive_path)
-    verify_archive(plugin_root, files, archive_path)
+    write_archive(payload, archive_path)
+    verify_archive(payload, archive_path)
     checksum_path = write_checksum(archive_path)
     print(f"Created {archive_path}")
     print(f"Created {checksum_path}")

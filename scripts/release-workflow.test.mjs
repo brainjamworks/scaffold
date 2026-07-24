@@ -8,6 +8,7 @@ import { parse as parseYaml } from "yaml";
 
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const WORKFLOW_PATH = resolve(REPOSITORY_ROOT, ".github/workflows/release.yml");
+const APPROVAL_WORKFLOW_PATH = resolve(REPOSITORY_ROOT, ".github/workflows/approve-release.yml");
 
 function loadWorkflow() {
   const source = readFileSync(WORKFLOW_PATH, "utf8");
@@ -31,7 +32,8 @@ test("release workflow is tag-driven and candidate-only", () => {
   assert.deepEqual(workflow.jobs.draft.needs, ["gate", "package", "attest"]);
 
   assert.match(source, /node scripts\/prepare-release-candidate\.mjs/);
-  assert.match(source, /\.app\.slug == "github-actions"/);
+  assert.match(source, /actions\/workflows\/ci\.yml\/runs/);
+  assert.doesNotMatch(source, /commits\/\$RELEASE_COMMIT\/check-runs/);
   assert.match(source, /vp run @scaffold\/adapter-moodle#package/);
   assert.match(source, /vp run @scaffold\/adapter-xblock#package/);
   assert.match(source, /subject-checksums:/);
@@ -45,12 +47,50 @@ test("release workflow is tag-driven and candidate-only", () => {
   assert.doesNotMatch(source, /pypi|marketplace|--draft=false/i);
 });
 
+test("release workflow pins its build environment and revalidates tag identity", () => {
+  const { source, workflow } = loadWorkflow();
+
+  for (const job of Object.values(workflow.jobs)) {
+    assert.equal(job["runs-on"], "ubuntu-24.04");
+  }
+  const setupVp = workflow.jobs.package.steps.find((step) =>
+    step.uses?.startsWith("voidzero-dev/setup-vp@"),
+  );
+  const setupPython = workflow.jobs.package.steps.find((step) =>
+    step.uses?.startsWith("actions/setup-python@"),
+  );
+  assert.equal(setupVp.with["node-version"], "24.18.0");
+  assert.equal(setupPython.with["python-version"], "3.12.10");
+
+  assert.match(source, /tag_object=/);
+  assert.match(source, /git\/ref\/tags\/\$RELEASE_TAG/);
+  assert.match(source, /git\/tags\/\$EXPECTED_TAG_OBJECT/);
+  assert.match(source, /EXPECTED_RELEASE_COMMIT/);
+});
+
+test("draft mutation has explicit repository context and preserves reviewed notes", () => {
+  const { workflow } = loadWorkflow();
+  const step = workflow.jobs.draft.steps.find(
+    (candidate) => candidate.name === "Create or safely complete the draft",
+  );
+
+  assert.equal(step.env.GH_REPO, "${{ github.repository }}");
+  assert.match(step.run, /gh release create/);
+  assert.match(step.run, /gh release edit/);
+
+  const existingDraftBranch = step.run.slice(
+    step.run.indexOf('if [[ "$release_status" == "200" ]]'),
+    step.run.indexOf('elif [[ "$release_status" == "404" ]]'),
+  );
+  assert.doesNotMatch(existingDraftBranch, /--notes-file/);
+});
+
 test("release workflow grants elevated permissions only after package building", () => {
   const { workflow } = loadWorkflow();
 
   assert.deepEqual(workflow.permissions, { contents: "read" });
   assert.deepEqual(workflow.jobs.gate.permissions, {
-    checks: "read",
+    actions: "read",
     contents: "read",
   });
   assert.deepEqual(workflow.jobs.package.permissions, { contents: "read" });
@@ -70,4 +110,41 @@ test("release workflow pins every action to a full commit SHA", () => {
   for (const reference of references) {
     assert.match(reference, /@[0-9a-f]{40}$/, reference);
   }
+});
+
+test("approval workflow validates the private draft before publishing it", () => {
+  const source = readFileSync(APPROVAL_WORKFLOW_PATH, "utf8");
+  const workflow = parseYaml(source);
+
+  assert.deepEqual(workflow.on, {
+    workflow_dispatch: {
+      inputs: {
+        tag: {
+          description: "Draft release tag to approve",
+          required: true,
+          type: "string",
+        },
+      },
+    },
+  });
+  assert.deepEqual(Object.keys(workflow.jobs), ["approve"]);
+  assert.equal(workflow.jobs.approve["runs-on"], "ubuntu-24.04");
+  assert.equal(workflow.jobs.approve.environment.name, "release");
+  assert.deepEqual(workflow.jobs.approve.permissions, { contents: "write" });
+  assert.match(workflow.jobs.approve.if, /refs\/heads\/main/);
+
+  assert.match(source, /Release tag must use vMAJOR\.MINOR\.PATCH/);
+  assert.match(source, /git\/ref\/tags\/\$RELEASE_TAG/);
+  assert.match(source, /git\/tags\//);
+  assert.match(source, /Moodle smoke test: passed on/);
+  assert.match(source, /Open edX smoke test: passed on/);
+  assert.match(source, /unexpected release asset/);
+  assert.match(source, /sha256sum --check SHA256SUMS/);
+  assert.match(source, /gh attestation verify/);
+  assert.match(source, /--source-digest/);
+  assert.match(source, /--source-ref/);
+  assert.match(source, /--method PATCH/);
+  assert.match(source, /draft=false/);
+  assert.match(source, /prerelease=true/);
+  assert.doesNotMatch(source, /gh release edit/);
 });

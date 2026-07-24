@@ -25,7 +25,7 @@ jobs:
   publish:
     name: Publish approved XBlock distributions
     if: github.event_name == 'release' || github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment:
       name: pypi
@@ -56,6 +56,10 @@ jobs:
             echo "Refusing to publish from draft release $RELEASE_TAG." >&2
             exit 1
           fi
+          if [[ "$(jq -r '.prerelease' "$release_json")" != "true" ]]; then
+            echo "Refusing to publish a non-prerelease for $RELEASE_TAG." >&2
+            exit 1
+          fi
           if [[ "$(jq -r '.tag_name' "$release_json")" != "$RELEASE_TAG" ]]; then
             echo "Release metadata does not match $RELEASE_TAG." >&2
             exit 1
@@ -66,8 +70,69 @@ jobs:
           fi
 
           version="${RELEASE_TAG#v}"
+          if [[ "$(jq -r '.name' "$release_json")" != "Scaffold $version" ]]; then
+            echo "Release title does not match Scaffold $version." >&2
+            exit 1
+          fi
+
+          notes="$RUNNER_TEMP/release-notes.md"
+          jq -er '.body | strings' "$release_json" > "$notes"
+          if grep -Fq "smoke test: pending" "$notes"; then
+            echo "Release notes still contain pending smoke tests." >&2
+            exit 1
+          fi
+          if ! grep -Eq '^- Moodle smoke test: passed on .+$' "$notes"; then
+            echo "Moodle smoke test evidence is missing." >&2
+            exit 1
+          fi
+          if ! grep -Eq '^- Open edX smoke test: passed on .+$' "$notes"; then
+            echo "Open edX smoke test evidence is missing." >&2
+            exit 1
+          fi
+          recorded_commit_count="$(
+            sed -nE 's/^- Source commit: `([0-9a-f]{40})`$/\1/p' "$notes" |
+              wc -l |
+              tr -d ' '
+          )"
+          release_commit="$(
+            sed -nE 's/^- Source commit: `([0-9a-f]{40})`$/\1/p' "$notes"
+          )"
+          if [[ "$recorded_commit_count" != "1" ]]; then
+            echo "Release notes must identify exactly one source commit." >&2
+            exit 1
+          fi
+
+          tag_ref_json="$RUNNER_TEMP/tag-ref.json"
+          tag_object_json="$RUNNER_TEMP/tag-object.json"
+          gh api \
+            "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" \
+            > "$tag_ref_json"
+          if ! jq -e \
+            --arg ref "refs/tags/$RELEASE_TAG" \
+            '.ref == $ref and .object.type == "tag" and
+              (.object.sha | test("^[0-9a-f]{40}$"))' \
+            "$tag_ref_json" \
+            > /dev/null; then
+            echo "Release tag $RELEASE_TAG must remain annotated." >&2
+            exit 1
+          fi
+          tag_object="$(jq -er '.object.sha' "$tag_ref_json")"
+          gh api \
+            "repos/$GITHUB_REPOSITORY/git/tags/$tag_object" \
+            > "$tag_object_json"
+          if ! jq -e \
+            --arg tag "$RELEASE_TAG" \
+            --arg commit "$release_commit" \
+            '.tag == $tag and .object.type == "commit" and .object.sha == $commit' \
+            "$tag_object_json" \
+            > /dev/null; then
+            echo "Release tag does not match the approved source commit." >&2
+            exit 1
+          fi
+
           echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "commit=$release_commit" >> "$GITHUB_OUTPUT"
           echo "release_json=$release_json" >> "$GITHUB_OUTPUT"
 
       - name: Require exact release assets
@@ -84,7 +149,18 @@ jobs:
             "SHA256SUMS"
             "scaffold-$RELEASE_VERSION-provenance.jsonl"
           )
-          mapfile -t actual_assets < <(jq -r '.assets[].name' "$RELEASE_JSON")
+          actual_asset_names="$RUNNER_TEMP/actual-asset-names"
+          jq -er \
+            '.assets | if type == "array" and length > 0
+              then .[].name
+              else error("release assets must be a non-empty array")
+            end' \
+            "$RELEASE_JSON" \
+            > "$actual_asset_names"
+          actual_assets=()
+          while IFS= read -r actual_name; do
+            actual_assets+=("$actual_name")
+          done < "$actual_asset_names"
 
           for expected_name in "${expected_assets[@]}"; do
             if ! printf '%s\n' "${actual_assets[@]}" | grep -Fqx "$expected_name"; then
@@ -132,7 +208,12 @@ jobs:
             echo "SHA256SUMS contains an invalid entry." >&2
             exit 1
           fi
-          mapfile -t checksum_files < <(awk '{ print $2 }' SHA256SUMS)
+          awk '{ print $2 }' SHA256SUMS > checksum-files
+          checksum_files=()
+          while IFS= read -r checksum_name; do
+            checksum_files+=("$checksum_name")
+          done < checksum-files
+          rm checksum-files
           for expected_name in "${expected_files[@]}"; do
             if ! printf '%s\n' "${checksum_files[@]}" | grep -Fqx "$expected_name"; then
               echo "SHA256SUMS is missing $expected_name." >&2
@@ -151,6 +232,7 @@ jobs:
       - name: Verify GitHub build provenance
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_COMMIT: ${{ steps.release.outputs.commit }}
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
           RELEASE_VERSION: ${{ steps.release.outputs.version }}
         run: |
@@ -170,6 +252,8 @@ jobs:
               --bundle "$bundle" \
               --repo "$GITHUB_REPOSITORY" \
               --cert-identity "$certificate_identity" \
+              --source-digest "$RELEASE_COMMIT" \
+              --source-ref "refs/tags/$RELEASE_TAG" \
               --deny-self-hosted-runners
           done
 
@@ -181,7 +265,11 @@ jobs:
           set -euo pipefail
 
           candidate="$RUNNER_TEMP/candidate"
-          publish_directory="$RUNNER_TEMP/publish"
+          publish_directory="$GITHUB_WORKSPACE/.pypi-dist"
+          if [[ -e "$publish_directory" ]]; then
+            echo "PyPI staging directory already exists." >&2
+            exit 1
+          fi
           mkdir -p "$publish_directory"
           distributions=(
             "scaffold_xblock-$RELEASE_VERSION-py3-none-any.whl"
@@ -201,23 +289,68 @@ jobs:
             echo "PyPI returned HTTP $pypi_status while checking $RELEASE_VERSION." >&2
             exit 1
           fi
+          if [[ "$pypi_status" == "404" ]]; then
+            printf '{"urls":[]}\n' > "$pypi_json"
+          fi
+
+          if ! jq -e \
+            '.urls | type == "array" and all(.[];
+              (.filename | type == "string") and
+              (.digests.sha256 | type == "string") and
+              (.yanked | type == "boolean")
+            )' \
+            "$pypi_json" \
+            > /dev/null; then
+            echo "PyPI returned malformed release metadata." >&2
+            exit 1
+          fi
+
+          unexpected_distribution="$(
+            jq -er \
+              --arg wheel "${distributions[0]}" \
+              --arg sdist "${distributions[1]}" \
+              '[.urls[].filename | select(. != $wheel and . != $sdist)] |
+                if length == 0 then "" else .[0] end' \
+              "$pypi_json"
+          )"
+          if [[ -n "$unexpected_distribution" ]]; then
+            echo "PyPI contains unexpected PyPI distribution $unexpected_distribution." >&2
+            exit 1
+          fi
+          yanked_distribution="$(
+            jq -er \
+              '[.urls[] | select(.yanked == true) | .filename] |
+                if length == 0 then "" else .[0] end' \
+              "$pypi_json"
+          )"
+          if [[ -n "$yanked_distribution" ]]; then
+            echo "PyPI distribution $yanked_distribution is yanked." >&2
+            exit 1
+          fi
+          duplicate_distribution="$(
+            jq -er \
+              '[.urls[].filename] | group_by(.) |
+                map(select(length > 1) | .[0]) |
+                if length == 0 then "" else .[0] end' \
+              "$pypi_json"
+          )"
+          if [[ -n "$duplicate_distribution" ]]; then
+            echo "PyPI returned duplicate metadata for $duplicate_distribution." >&2
+            exit 1
+          fi
 
           upload_count=0
           for distribution in "${distributions[@]}"; do
             expected_digest="$(sha256sum "$candidate/$distribution" | awk '{ print $1 }')"
             existing_digest=""
             if [[ "$pypi_status" == "200" ]]; then
-              mapfile -t matching_digests < <(
-                jq -r \
+              existing_digest="$(
+                jq -er \
                   --arg filename "$distribution" \
-                  '.urls[] | select(.filename == $filename) | .digests.sha256' \
+                  '[.urls[] | select(.filename == $filename) | .digests.sha256] |
+                    if length == 0 then "" else .[0] end' \
                   "$pypi_json"
-              )
-              if (( ${#matching_digests[@]} > 1 )); then
-                echo "PyPI returned duplicate metadata for $distribution." >&2
-                exit 1
-              fi
-              existing_digest="${matching_digests[0]:-}"
+              )"
             fi
 
             if [[ -n "$existing_digest" ]]; then
@@ -239,4 +372,4 @@ jobs:
         if: steps.stage.outputs.upload_count != '0'
         uses: pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247 # v1.14.1
         with:
-          packages-dir: ${{ runner.temp }}/publish/
+          packages-dir: .pypi-dist/

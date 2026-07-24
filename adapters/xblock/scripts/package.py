@@ -8,6 +8,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tarfile
@@ -39,10 +40,15 @@ REQUIRED_SDIST_FILES = {
     "pyproject.toml",
     "README.md",
     "CHANGES.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
     "MANIFEST.in",
     *REQUIRED_WHEEL_FILES,
 }
 PACKAGE_TOOL_REQUIREMENTS = ("build==1.5.0", "twine==6.2.0")
+PACKAGE_TOOL_KEY = "-".join(
+    requirement.replace("==", "-") for requirement in PACKAGE_TOOL_REQUIREMENTS
+)
 SOURCE_DATE_EPOCH = 315532800
 
 
@@ -92,16 +98,38 @@ def validate_wheel(wheel_path, product_version):
     dist_info = f"scaffold_xblock-{product_version}.dist-info"
     metadata_path = f"{dist_info}/METADATA"
     entry_points_path = f"{dist_info}/entry_points.txt"
+    licence_paths = {
+        f"{dist_info}/licenses/LICENSE",
+        f"{dist_info}/licenses/THIRD_PARTY_NOTICES.md",
+    }
     with zipfile.ZipFile(wheel_path) as wheel:
         names = wheel.namelist()
+        if len(names) != len(set(names)):
+            raise ValueError("XBlock wheel contains duplicate paths.")
         if wheel.testzip() is not None:
             raise ValueError("XBlock wheel failed its integrity check.")
-        for name in names:
+        for entry in wheel.infolist():
+            name = entry.filename
             path = PurePosixPath(name)
             if path.is_absolute() or ".." in path.parts:
                 raise ValueError(f"XBlock wheel contains an unsafe path: {name}.")
+            if (
+                path.suffix in {".map", ".pyc", ".pyo"}
+                or "__pycache__" in path.parts
+                or path.name == ".DS_Store"
+            ):
+                raise ValueError(f"XBlock wheel contains an excluded file: {name}.")
             if not (name.startswith("scaffold_xblock/") or name.startswith(f"{dist_info}/")):
                 raise ValueError(f"XBlock wheel contains an unexpected path: {name}.")
+            if not entry.is_dir():
+                mode = entry.external_attr >> 16
+                permitted_modes = (
+                    {0o644, 0o664}
+                    if name == f"{dist_info}/RECORD"
+                    else {0o644}
+                )
+                if not stat.S_ISREG(mode) or stat.S_IMODE(mode) not in permitted_modes:
+                    raise ValueError(f"XBlock wheel contains an invalid file mode: {name}.")
 
         missing = sorted(REQUIRED_WHEEL_FILES.difference(names))
         if missing:
@@ -111,10 +139,31 @@ def validate_wheel(wheel_path, product_version):
                 raise ValueError(f"XBlock wheel is missing runtime files under {prefix}.")
         if metadata_path not in names or entry_points_path not in names:
             raise ValueError("XBlock wheel is missing distribution metadata.")
+        missing_licences = sorted(licence_paths.difference(names))
+        if missing_licences:
+            raise ValueError(
+                f"XBlock wheel is missing licence notices: {', '.join(missing_licences)}.",
+            )
 
         metadata = BytesParser().parsebytes(wheel.read(metadata_path))
         if metadata["Name"] != "scaffold-xblock" or metadata["Version"] != product_version:
             raise ValueError("XBlock wheel name or version metadata does not match the release.")
+        description = metadata.get_payload()
+        required_guide_text = (
+            f"scaffold-xblock=={product_version}",
+            "OPENEDX_EXTRA_PIP_REQUIREMENTS",
+            "tutor images build openedx",
+            "tutor local reboot -d",
+            "pip show scaffold-xblock",
+            '"scaffold"',
+            f"releases/tag/v{product_version}",
+        )
+        if not isinstance(description, str) or any(
+            text not in description for text in required_guide_text
+        ):
+            raise ValueError(
+                "XBlock wheel metadata is missing the administrator installation guide.",
+            )
         entry_points = wheel.read(entry_points_path).decode("utf8")
         if re.search(
             r"(?ms)^\[xblock\.v1\]\s*$.*^scaffold\s*=\s*"
@@ -147,8 +196,27 @@ def validate_sdist(source_distribution, product_version):
                 raise ValueError(
                     f"XBlock source distribution contains a link: {member.name}.",
                 )
+            if not (member.isfile() or member.isdir()):
+                raise ValueError(
+                    f"XBlock source distribution contains a special file: {member.name}.",
+                )
+            expected_mode = 0o644 if member.isfile() else 0o755
+            if stat.S_IMODE(member.mode) != expected_mode:
+                raise ValueError(
+                    f"XBlock source distribution contains an invalid mode: {member.name}.",
+                )
             if member.isfile():
-                relative_files.add(PurePosixPath(*path.parts[1:]).as_posix())
+                relative_path = PurePosixPath(*path.parts[1:])
+                if (
+                    relative_path.suffix in {".map", ".pyc", ".pyo"}
+                    or "__pycache__" in relative_path.parts
+                    or relative_path.name == ".DS_Store"
+                ):
+                    raise ValueError(
+                        "XBlock source distribution contains an excluded file: "
+                        f"{relative_path.as_posix()}.",
+                    )
+                relative_files.add(relative_path.as_posix())
 
     missing = sorted(REQUIRED_SDIST_FILES.difference(relative_files))
     if missing:
@@ -175,6 +243,10 @@ def normalize_sdist(source_distribution):
             if member.issym() or member.islnk():
                 raise ValueError(
                     f"XBlock source distribution contains a link: {member.name}.",
+                )
+            if not (member.isfile() or member.isdir()):
+                raise ValueError(
+                    f"XBlock source distribution contains a special file: {member.name}.",
                 )
             contents = archive.extractfile(member).read() if member.isfile() else None
             entries.append((member.name, member.isdir(), contents))
@@ -217,13 +289,30 @@ def run_checked(command, *, cwd=None, environment=None):
 
 
 def ensure_package_tools(repository_root):
-    tool_key = "-".join(requirement.replace("==", "-") for requirement in PACKAGE_TOOL_REQUIREMENTS)
-    environment_root = repository_root / ".tmp" / f"xblock-package-tools-{tool_key}"
+    environment_root = repository_root / ".tmp" / f"xblock-package-tools-{PACKAGE_TOOL_KEY}"
     python_path = (
         environment_root / "Scripts" / "python.exe"
         if os.name == "nt"
         else environment_root / "bin" / "python"
     )
+    expected_versions = {
+        requirement.split("==", maxsplit=1)[0]: requirement.split("==", maxsplit=1)[1]
+        for requirement in PACKAGE_TOOL_REQUIREMENTS
+    }
+    probe = "\n".join(
+        [
+            "from importlib.metadata import version",
+            f"expected = {expected_versions!r}",
+            "actual = {name: version(name) for name in expected}",
+            "assert actual == expected, (actual, expected)",
+        ],
+    )
+    if python_path.is_file():
+        try:
+            run_checked([python_path, "-c", probe])
+            return python_path
+        except (OSError, subprocess.CalledProcessError):
+            shutil.rmtree(environment_root)
     if not python_path.is_file():
         environment_root.parent.mkdir(parents=True, exist_ok=True)
         run_checked([sys.executable, "-m", "venv", environment_root])
@@ -237,6 +326,7 @@ def ensure_package_tools(repository_root):
                 *PACKAGE_TOOL_REQUIREMENTS,
             ],
         )
+        run_checked([python_path, "-c", probe])
     return python_path
 
 
@@ -272,7 +362,31 @@ def smoke_install_wheel(wheel_path, product_version):
         run_checked([python_path, "-c", probe])
 
 
-def rebuild_sdist(tool_python, source_distribution, product_version, environment):
+def compare_wheel_payloads(expected_wheel, rebuilt_wheel, product_version):
+    record_path = f"scaffold_xblock-{product_version}.dist-info/RECORD"
+
+    def payload(path):
+        with zipfile.ZipFile(path) as wheel:
+            return {
+                entry.filename: (
+                    entry.external_attr >> 16,
+                    wheel.read(entry.filename),
+                )
+                for entry in wheel.infolist()
+                if not entry.is_dir() and entry.filename != record_path
+            }
+
+    if payload(expected_wheel) != payload(rebuilt_wheel):
+        raise ValueError("The sdist-rebuilt wheel differs from the approved wheel payload.")
+
+
+def rebuild_sdist(
+    tool_python,
+    source_distribution,
+    product_version,
+    environment,
+    expected_wheel,
+):
     with tempfile.TemporaryDirectory(prefix="scaffold-xblock-sdist-") as temporary_directory:
         temporary_root = Path(temporary_directory)
         with tarfile.open(source_distribution, "r:gz") as archive:
@@ -287,6 +401,8 @@ def rebuild_sdist(tool_python, source_distribution, product_version, environment
             f"scaffold_xblock-{product_version}-py3-none-any.whl"
         )
         validate_wheel(rebuilt_wheel, product_version)
+        smoke_install_wheel(rebuilt_wheel, product_version)
+        compare_wheel_payloads(expected_wheel, rebuilt_wheel, product_version)
 
 
 def write_checksum(artifact_path):
@@ -309,9 +425,24 @@ def package_distributions(repository_root, adapter_root, product_version):
         prefix="scaffold-xblock-build-",
         dir=scratch_root,
     ) as temporary_directory:
-        build_directory = Path(temporary_directory) / "dist"
+        temporary_root = Path(temporary_directory)
+        build_directory = temporary_root / "dist"
+        staged_source = temporary_root / "source"
+        staged_source.mkdir()
+        for filename in ("pyproject.toml", "MANIFEST.in", "README.md", "CHANGES.md"):
+            shutil.copyfile(adapter_root / filename, staged_source / filename)
+        shutil.copytree(
+            adapter_root / "scaffold_xblock",
+            staged_source / "scaffold_xblock",
+            ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo", "*.map", ".DS_Store"),
+        )
+        shutil.copyfile(repository_root / "LICENSE", staged_source / "LICENSE")
+        shutil.copyfile(
+            repository_root / "THIRD_PARTY_NOTICES.md",
+            staged_source / "THIRD_PARTY_NOTICES.md",
+        )
         run_checked(
-            [tool_python, "-m", "build", "--outdir", build_directory, adapter_root],
+            [tool_python, "-m", "build", "--outdir", build_directory, staged_source],
             environment=environment,
         )
         wheel = build_directory / f"scaffold_xblock-{product_version}-py3-none-any.whl"
@@ -327,7 +458,13 @@ def package_distributions(repository_root, adapter_root, product_version):
         validate_wheel(wheel, product_version)
         validate_sdist(source_distribution, product_version)
         smoke_install_wheel(wheel, product_version)
-        rebuild_sdist(tool_python, source_distribution, product_version, environment)
+        rebuild_sdist(
+            tool_python,
+            source_distribution,
+            product_version,
+            environment,
+            wheel,
+        )
 
         output_directory = repository_root / "dist" / "release" / product_version
         output_directory.mkdir(parents=True, exist_ok=True)

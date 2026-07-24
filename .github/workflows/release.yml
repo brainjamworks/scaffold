@@ -19,15 +19,16 @@ defaults:
 jobs:
   gate:
     name: Validate release identity
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
-      checks: read
+      actions: read
       contents: read
     outputs:
       commit: ${{ steps.identity.outputs.commit }}
       release_title: ${{ steps.identity.outputs.release_title }}
       tag: ${{ steps.identity.outputs.tag }}
+      tag_object: ${{ steps.identity.outputs.tag_object }}
       version: ${{ steps.identity.outputs.version }}
     steps:
       - name: Checkout tagged source
@@ -54,6 +55,7 @@ jobs:
           fi
 
           release_commit="$(git rev-parse "$tag_ref^{}")"
+          tag_object="$(git rev-parse "$tag_ref")"
           if [[ "$(git rev-parse HEAD)" != "$release_commit" ]]; then
             echo "The checked-out commit does not match $RELEASE_TAG." >&2
             exit 1
@@ -73,6 +75,7 @@ jobs:
             --github-output "$GITHUB_OUTPUT"
           echo "commit=$release_commit" >> "$GITHUB_OUTPUT"
           echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "tag_object=$tag_object" >> "$GITHUB_OUTPUT"
 
       - name: Require successful source CI
         env:
@@ -81,16 +84,28 @@ jobs:
         run: |
           set -euo pipefail
 
-          successful_checks="$(
-            gh api \
-              --method GET \
-              "repos/$GITHUB_REPOSITORY/commits/$RELEASE_COMMIT/check-runs" \
-              -f check_name="Required CI" \
-              -f filter="latest" \
-              -f per_page=100 \
-              --jq '[.check_runs[] | select(.app.slug == "github-actions" and .status == "completed" and .conclusion == "success")] | length'
-          )"
-          if [[ ! "$successful_checks" =~ ^[0-9]+$ ]] || (( successful_checks < 1 )); then
+          workflow_runs="$RUNNER_TEMP/required-ci-runs.json"
+          gh api \
+            --method GET \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs" \
+            -f event="push" \
+            -f head_sha="$RELEASE_COMMIT" \
+            -f status="success" \
+            -f per_page=100 \
+            > "$workflow_runs"
+          if ! jq -e \
+            --arg commit "$RELEASE_COMMIT" \
+            '[.workflow_runs[] |
+              select(
+                .head_sha == $commit and
+                .event == "push" and
+                .status == "completed" and
+                .conclusion == "success" and
+                .path == ".github/workflows/ci.yml"
+              )
+            ] | length >= 1' \
+            "$workflow_runs" \
+            > /dev/null; then
             echo "Required CI has not passed for $RELEASE_COMMIT." >&2
             exit 1
           fi
@@ -98,7 +113,7 @@ jobs:
   package:
     name: Build exact release packages
     needs: gate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       contents: read
@@ -111,13 +126,13 @@ jobs:
       - name: Setup Vite+
         uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb # v1.15.0
         with:
-          node-version: "24"
+          node-version: "24.18.0"
           cache: true
 
       - name: Setup Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
-          python-version: "3.12"
+          python-version: "3.12.10"
 
       - name: Install workspace dependencies
         run: vp install
@@ -178,7 +193,7 @@ jobs:
   attest:
     name: Attest exact release packages
     needs: [gate, package]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       attestations: write
@@ -223,7 +238,7 @@ jobs:
   draft:
     name: Create draft GitHub prerelease
     needs: [gate, package, attest]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: write
@@ -243,6 +258,9 @@ jobs:
       - name: Create or safely complete the draft
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          EXPECTED_RELEASE_COMMIT: ${{ needs.gate.outputs.commit }}
+          EXPECTED_TAG_OBJECT: ${{ needs.gate.outputs.tag_object }}
           RELEASE_TAG: ${{ needs.gate.outputs.tag }}
           RELEASE_TITLE: ${{ needs.gate.outputs.release_title }}
           RELEASE_VERSION: ${{ needs.gate.outputs.version }}
@@ -263,19 +281,62 @@ jobs:
           done
           test -f "$notes_path"
 
+          tag_ref_json="$RUNNER_TEMP/tag-ref.json"
+          tag_object_json="$RUNNER_TEMP/tag-object.json"
+          gh api \
+            "repos/$GH_REPO/git/ref/tags/$RELEASE_TAG" \
+            > "$tag_ref_json"
+          if ! jq -e \
+            --arg ref "refs/tags/$RELEASE_TAG" \
+            --arg tag_object "$EXPECTED_TAG_OBJECT" \
+            '.ref == $ref and .object.type == "tag" and .object.sha == $tag_object' \
+            "$tag_ref_json" \
+            > /dev/null; then
+            echo "Remote tag $RELEASE_TAG no longer matches the verified tag object." >&2
+            exit 1
+          fi
+          gh api \
+            "repos/$GH_REPO/git/tags/$EXPECTED_TAG_OBJECT" \
+            > "$tag_object_json"
+          if ! jq -e \
+            --arg tag "$RELEASE_TAG" \
+            --arg commit "$EXPECTED_RELEASE_COMMIT" \
+            '.tag == $tag and .object.type == "commit" and .object.sha == $commit' \
+            "$tag_object_json" \
+            > /dev/null; then
+            echo "Remote tag $RELEASE_TAG no longer points at the verified release commit." >&2
+            exit 1
+          fi
+
           existing_release="$RUNNER_TEMP/existing-release.json"
-          release_error="$RUNNER_TEMP/release-error.log"
-          if gh api \
-            "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" \
-            > "$existing_release" \
-            2> "$release_error"; then
+          release_status="$(
+            curl \
+              --silent \
+              --show-error \
+              --header "Accept: application/vnd.github+json" \
+              --header "Authorization: Bearer $GH_TOKEN" \
+              --header "X-GitHub-Api-Version: 2026-03-10" \
+              --output "$existing_release" \
+              --write-out '%{http_code}' \
+              "${GITHUB_API_URL:-https://api.github.com}/repos/$GH_REPO/releases/tags/$RELEASE_TAG"
+          )"
+          if [[ "$release_status" == "200" ]]; then
             if [[ "$(jq -r '.draft' "$existing_release")" != "true" ]]; then
               echo "Refusing to alter the existing published release $RELEASE_TAG." >&2
               exit 1
             fi
 
             comparison_directory="$(mktemp -d)"
-            mapfile -t existing_assets < <(jq -r '.assets[].name' "$existing_release")
+            if ! jq -e '.assets | type == "array"' "$existing_release" > /dev/null; then
+              echo "Existing draft returned malformed asset metadata." >&2
+              exit 1
+            fi
+            existing_asset_names="$RUNNER_TEMP/existing-asset-names"
+            jq -r '.assets[].name' "$existing_release" > "$existing_asset_names"
+            existing_assets=()
+            while IFS= read -r existing_name; do
+              existing_assets+=("$existing_name")
+            done < "$existing_asset_names"
             for existing_name in "${existing_assets[@]}"; do
               expected_path=""
               for asset in "${assets[@]}"; do
@@ -306,18 +367,8 @@ jobs:
               fi
             done
 
-            gh release edit \
-              "$RELEASE_TAG" \
-              --draft \
-              --prerelease \
-              --title "$RELEASE_TITLE" \
-              --notes-file "$notes_path"
-          else
-            if ! grep -Eq 'HTTP 404|Not Found' "$release_error"; then
-              cat "$release_error" >&2
-              exit 1
-            fi
-
+            gh release edit "$RELEASE_TAG" --draft --prerelease --title "$RELEASE_TITLE"
+          elif [[ "$release_status" == "404" ]]; then
             gh release create \
               "$RELEASE_TAG" \
               "${assets[@]}" \
@@ -326,4 +377,7 @@ jobs:
               --prerelease \
               --title "$RELEASE_TITLE" \
               --notes-file "$notes_path"
+          else
+            echo "GitHub returned HTTP $release_status while checking $RELEASE_TAG." >&2
+            exit 1
           fi

@@ -145,8 +145,10 @@ function releaseNotes(release) {
     "- Moodle smoke test: pending",
     "- Open edX smoke test: pending",
     "",
-    "Replace the pending smoke-test entries with the tested host versions and",
-    "results before publishing this draft.",
+    "Replace the pending entries before approval using exactly these prefixes:",
+    "",
+    "- Moodle smoke test: passed on <host version and result>",
+    "- Open edX smoke test: passed on <host version and result>",
     "",
   ].join("\n");
 }
