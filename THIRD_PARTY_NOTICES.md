@@ -22,7 +22,6 @@ licence terms; project links identify their upstream source and notices.
 | @internationalized/number              | 3.6.7      | Apache-2.0              | [upstream](https://github.com/adobe/react-spectrum#readme)                                               |
 | @internationalized/string              | 3.2.9      | Apache-2.0              | [upstream](https://github.com/adobe/react-spectrum#readme)                                               |
 | @napi-rs/canvas                        | 0.1.100    | MIT                     | [upstream](https://github.com/Brooooooklyn/canvas#readme)                                                |
-| @napi-rs/canvas-darwin-arm64           | 0.1.100    | MIT                     | [upstream](https://github.com/Brooooooklyn/canvas#readme)                                                |
 | @phosphor-icons/react                  | 2.1.10     | MIT                     | [upstream](https://phosphoricons.com)                                                                    |
 | @radix-ui/number                       | 1.1.2      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |
 | @radix-ui/primitive                    | 1.1.4      | MIT                     | [upstream](https://radix-ui.com/primitives)                                                              |

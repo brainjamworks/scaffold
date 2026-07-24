@@ -51,6 +51,10 @@ function markdownCell(value) {
     .replaceAll("\n", " ");
 }
 
+function isPlatformSpecificCanvasBinary(name) {
+  return /^@napi-rs\/canvas-(?:android|darwin|linux|win32)-/.test(name);
+}
+
 function noticeRows(inventory) {
   if (!inventory || typeof inventory !== "object" || Array.isArray(inventory)) {
     throw new Error("The production licence inventory must be an object.");
@@ -65,7 +69,11 @@ function noticeRows(inventory) {
       if (typeof name !== "string" || !Array.isArray(versions)) {
         throw new Error(`Licence group ${licence} contains invalid package metadata.`);
       }
-      if (name === "scaffold" || name.startsWith("@scaffold/")) {
+      if (
+        name === "scaffold" ||
+        name.startsWith("@scaffold/") ||
+        isPlatformSpecificCanvasBinary(name)
+      ) {
         continue;
       }
       for (const version of versions) {

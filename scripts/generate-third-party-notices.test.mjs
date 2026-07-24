@@ -60,6 +60,41 @@ test("check mode rejects a stale notice inventory", (t) => {
   assert.match(result.stderr, /THIRD_PARTY_NOTICES\.md is stale/);
 });
 
+test("normalizes platform-specific Canvas binary packages", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "scaffold-third-party-notices-"));
+  t.after(() => rmSync(root, { force: true, recursive: true }));
+  const darwinInput = join(root, "licenses-darwin.json");
+  const linuxInput = join(root, "licenses-linux.json");
+  const darwinOutput = join(root, "THIRD_PARTY_NOTICES-darwin.md");
+  const linuxOutput = join(root, "THIRD_PARTY_NOTICES-linux.md");
+  const canvas = {
+    name: "@napi-rs/canvas",
+    versions: ["0.1.100"],
+    homepage: "https://github.com/Brooooooklyn/canvas#readme",
+  };
+  const inventory = (platformPackage) => ({
+    MIT: [
+      canvas,
+      {
+        ...canvas,
+        name: platformPackage,
+      },
+    ],
+  });
+  writeFileSync(darwinInput, JSON.stringify(inventory("@napi-rs/canvas-darwin-arm64")));
+  writeFileSync(linuxInput, JSON.stringify(inventory("@napi-rs/canvas-linux-x64-gnu")));
+
+  const darwinResult = runGenerator(["--input", darwinInput, "--output", darwinOutput]);
+  const linuxResult = runGenerator(["--input", linuxInput, "--output", linuxOutput]);
+
+  assert.equal(darwinResult.status, 0, darwinResult.stderr);
+  assert.equal(linuxResult.status, 0, linuxResult.stderr);
+  const notices = readFileSync(darwinOutput, "utf8");
+  assert.equal(notices, readFileSync(linuxOutput, "utf8"));
+  assert.match(notices, /\| @napi-rs\/canvas\s+\| 0\.1\.100\s+\| MIT\s+\|/);
+  assert.doesNotMatch(notices, /@napi-rs\/canvas-(?:darwin|linux)-/);
+});
+
 function runGenerator(arguments_) {
   return spawnSync(process.execPath, [SCRIPT_PATH, ...arguments_], {
     encoding: "utf8",

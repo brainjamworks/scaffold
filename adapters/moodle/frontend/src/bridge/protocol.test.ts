@@ -19,6 +19,7 @@ const source = {};
 
 const readAdapterFile = (path: string): string =>
   readFileSync(new URL(`../../../${path}`, import.meta.url), "utf8");
+const sortStrings = (left: string, right: string): number => left.localeCompare(right);
 
 const servicesSource = readAdapterFile("scaffold/db/services.php");
 const registeredAjaxMethods = [
@@ -26,9 +27,10 @@ const registeredAjaxMethods = [
     /'(mod_scaffold_[a-z_]+)'\s*=>\s*\[(.*?)(?=\n\s*'mod_scaffold_|\n\];)/gs,
   ),
 ]
-  .filter(([, , definition]) => /'ajax'\s*=>\s*true/.test(definition))
-  .map(([, methodName]) => methodName)
-  .sort();
+  .flatMap(([, methodName, definition]) =>
+    methodName && definition && /'ajax'\s*=>\s*true/.test(definition) ? [methodName] : [],
+  )
+  .sort(sortStrings);
 
 const browserUsedMethods = [
   ...new Set(
@@ -43,7 +45,7 @@ const browserUsedMethods = [
       ),
     ),
   ),
-].sort();
+].sort(sortStrings);
 
 const authoringConfig = {
   cmid: 42,
@@ -56,7 +58,7 @@ const authoringConfig = {
 
 describe("Moodle bridge protocol", () => {
   it("matches Moodle's registered browser AJAX functions", () => {
-    expect([...MOODLE_AJAX_METHODS].sort()).toEqual(registeredAjaxMethods);
+    expect([...MOODLE_AJAX_METHODS].sort(sortStrings)).toEqual(registeredAjaxMethods);
     expect(browserUsedMethods).toEqual(registeredAjaxMethods);
   });
 
