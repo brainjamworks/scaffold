@@ -12,11 +12,9 @@ corresponding tag and GitHub Release exist.
 
 Before the first formal release:
 
-1. Confirm the XBlock distribution name is available on PyPI and configure
-   trusted publishing.
-2. Complete Moodle Marketplace provider onboarding and prepare the first
+1. Complete Moodle Marketplace provider onboarding and prepare the first
    `mod_scaffold` listing.
-3. Confirm access to representative real Moodle and Open edX hosts for the
+2. Confirm access to representative real Moodle and Open edX hosts for the
    manual approval smoke tests.
 
 Remove this transition section after those steps are complete.
@@ -255,8 +253,8 @@ The package command performs exact-distribution checks and a clean entry-point
 load locally. The release workflow reruns those checks from the tag. Before
 approving the draft, the maintainer manually smoke-installs the draft wheel in
 an available real Open edX site; the release workflow does not provision an
-Open edX host matrix. PyPI name availability and trusted-publishing
-configuration remain first-release blockers.
+Open edX host matrix. The `scaffold-xblock` pending trusted publisher and the
+matching GitHub `pypi` environment are configured for the first publication.
 
 ## Public Installation Documentation
 
@@ -305,8 +303,9 @@ command against the released version before declaring the rollout complete.
 9. Manually smoke-test the exact draft Moodle ZIP and XBlock wheel in available
    real host installations, then record the host versions and results in the
    draft.
-10. Publish the GitHub Release and upload the same approved XBlock distributions
-    to PyPI through the protected publishing workflow.
+10. Publish the GitHub Release. Its `published` event must trigger the protected
+    publishing workflow, which verifies and uploads the same approved XBlock
+    distributions to PyPI without rebuilding them.
 11. Submit the approved Moodle ZIP to Marketplace or add it to the existing
     listing with the tested compatibility declarations.
 12. Update and verify the public installation documentation against the
@@ -330,10 +329,19 @@ either adapter. An interrupted draft can be completed only when its existing
 assets match the verified candidate; a published release or differing asset is
 never overwritten.
 
-The adapter package commands and coordinated `0.1.0` metadata are ready. PyPI
-trusted-publisher configuration, Marketplace provider and submission readiness,
-and access to representative real hosts for manual smoke testing remain
-first-release prerequisites.
+The approved XBlock publication workflow is implemented in
+`.github/workflows/publish-pypi.yml`. Publishing the reviewed GitHub Release
+triggers it; a maintainer can also dispatch it from `main` with a published tag
+to retry a failed upload. It downloads the public release assets, validates the
+complete asset set, checksums, and tag-bound GitHub provenance, then uses the
+`pypi` environment and Trusted Publishing to upload only missing XBlock
+distributions whose existing PyPI digests do not conflict. It never checks out
+or rebuilds source and never stores a long-lived package credential.
+
+The adapter package commands, coordinated `0.1.0` metadata, pending PyPI trusted
+publisher, and matching GitHub environment are ready. Marketplace provider and
+submission readiness and access to representative real hosts for manual smoke
+testing remain first-release prerequisites.
 
 ## Failed and Superseded Releases
 

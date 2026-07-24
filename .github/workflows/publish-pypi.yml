@@ -1,0 +1,242 @@
+name: Publish XBlock to PyPI
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published release tag to retry
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-pypi-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  publish:
+    name: Publish approved XBlock distributions
+    if: github.event_name == 'release' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/project/scaffold-xblock/
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Resolve approved release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "Release tag must use vMAJOR.MINOR.PATCH." >&2
+            exit 1
+          fi
+
+          release_json="$RUNNER_TEMP/release.json"
+          gh api \
+            "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" \
+            > "$release_json"
+
+          if [[ "$(jq -r '.draft' "$release_json")" != "false" ]]; then
+            echo "Refusing to publish from draft release $RELEASE_TAG." >&2
+            exit 1
+          fi
+          if [[ "$(jq -r '.tag_name' "$release_json")" != "$RELEASE_TAG" ]]; then
+            echo "Release metadata does not match $RELEASE_TAG." >&2
+            exit 1
+          fi
+          if [[ "$(jq -r '.published_at // empty' "$release_json")" == "" ]]; then
+            echo "Release $RELEASE_TAG has not been published." >&2
+            exit 1
+          fi
+
+          version="${RELEASE_TAG#v}"
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "release_json=$release_json" >> "$GITHUB_OUTPUT"
+
+      - name: Require exact release assets
+        env:
+          RELEASE_JSON: ${{ steps.release.outputs.release_json }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          expected_assets=(
+            "mod_scaffold-$RELEASE_VERSION.zip"
+            "scaffold_xblock-$RELEASE_VERSION-py3-none-any.whl"
+            "scaffold_xblock-$RELEASE_VERSION.tar.gz"
+            "SHA256SUMS"
+            "scaffold-$RELEASE_VERSION-provenance.jsonl"
+          )
+          mapfile -t actual_assets < <(jq -r '.assets[].name' "$RELEASE_JSON")
+
+          for expected_name in "${expected_assets[@]}"; do
+            if ! printf '%s\n' "${actual_assets[@]}" | grep -Fqx "$expected_name"; then
+              echo "Release is missing expected asset $expected_name." >&2
+              exit 1
+            fi
+          done
+          for actual_name in "${actual_assets[@]}"; do
+            if ! printf '%s\n' "${expected_assets[@]}" | grep -Fqx "$actual_name"; then
+              echo "Refusing to publish with unexpected release asset $actual_name." >&2
+              exit 1
+            fi
+          done
+
+      - name: Download approved assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p "$RUNNER_TEMP/candidate"
+          gh release download \
+            "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --dir "$RUNNER_TEMP/candidate"
+
+      - name: Verify coordinated checksums
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        working-directory: ${{ runner.temp }}/candidate
+        run: |
+          set -euo pipefail
+
+          expected_files=(
+            "mod_scaffold-$RELEASE_VERSION.zip"
+            "scaffold_xblock-$RELEASE_VERSION-py3-none-any.whl"
+            "scaffold_xblock-$RELEASE_VERSION.tar.gz"
+          )
+          if [[ "$(wc -l < SHA256SUMS | tr -d ' ')" != "3" ]]; then
+            echo "SHA256SUMS must contain exactly three entries." >&2
+            exit 1
+          fi
+          if grep -Evq '^[0-9a-f]{64}  [A-Za-z0-9._-]+$' SHA256SUMS; then
+            echo "SHA256SUMS contains an invalid entry." >&2
+            exit 1
+          fi
+          mapfile -t checksum_files < <(awk '{ print $2 }' SHA256SUMS)
+          for expected_name in "${expected_files[@]}"; do
+            if ! printf '%s\n' "${checksum_files[@]}" | grep -Fqx "$expected_name"; then
+              echo "SHA256SUMS is missing $expected_name." >&2
+              exit 1
+            fi
+          done
+          for checksum_name in "${checksum_files[@]}"; do
+            if ! printf '%s\n' "${expected_files[@]}" | grep -Fqx "$checksum_name"; then
+              echo "SHA256SUMS contains unexpected file $checksum_name." >&2
+              exit 1
+            fi
+          done
+
+          sha256sum --check SHA256SUMS
+
+      - name: Verify GitHub build provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          candidate="$RUNNER_TEMP/candidate"
+          bundle="$candidate/scaffold-$RELEASE_VERSION-provenance.jsonl"
+          certificate_identity="https://github.com/$GITHUB_REPOSITORY/.github/workflows/release.yml@refs/tags/$RELEASE_TAG"
+          packages=(
+            "mod_scaffold-$RELEASE_VERSION.zip"
+            "scaffold_xblock-$RELEASE_VERSION-py3-none-any.whl"
+            "scaffold_xblock-$RELEASE_VERSION.tar.gz"
+          )
+          for package in "${packages[@]}"; do
+            gh attestation verify \
+              "$candidate/$package" \
+              --bundle "$bundle" \
+              --repo "$GITHUB_REPOSITORY" \
+              --cert-identity "$certificate_identity" \
+              --deny-self-hosted-runners
+          done
+
+      - name: Stage missing PyPI distributions
+        id: stage
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          candidate="$RUNNER_TEMP/candidate"
+          publish_directory="$RUNNER_TEMP/publish"
+          mkdir -p "$publish_directory"
+          distributions=(
+            "scaffold_xblock-$RELEASE_VERSION-py3-none-any.whl"
+            "scaffold_xblock-$RELEASE_VERSION.tar.gz"
+          )
+
+          pypi_json="$RUNNER_TEMP/pypi-release.json"
+          pypi_status="$(
+            curl \
+              --silent \
+              --show-error \
+              --output "$pypi_json" \
+              --write-out '%{http_code}' \
+              "https://pypi.org/pypi/scaffold-xblock/$RELEASE_VERSION/json"
+          )"
+          if [[ "$pypi_status" != "200" && "$pypi_status" != "404" ]]; then
+            echo "PyPI returned HTTP $pypi_status while checking $RELEASE_VERSION." >&2
+            exit 1
+          fi
+
+          upload_count=0
+          for distribution in "${distributions[@]}"; do
+            expected_digest="$(sha256sum "$candidate/$distribution" | awk '{ print $1 }')"
+            existing_digest=""
+            if [[ "$pypi_status" == "200" ]]; then
+              mapfile -t matching_digests < <(
+                jq -r \
+                  --arg filename "$distribution" \
+                  '.urls[] | select(.filename == $filename) | .digests.sha256' \
+                  "$pypi_json"
+              )
+              if (( ${#matching_digests[@]} > 1 )); then
+                echo "PyPI returned duplicate metadata for $distribution." >&2
+                exit 1
+              fi
+              existing_digest="${matching_digests[0]:-}"
+            fi
+
+            if [[ -n "$existing_digest" ]]; then
+              if [[ "$existing_digest" != "$expected_digest" ]]; then
+                echo "The existing PyPI digest for $distribution does not match the approved release." >&2
+                exit 1
+              fi
+              echo "$distribution already exists on PyPI with the approved digest."
+              continue
+            fi
+
+            cp "$candidate/$distribution" "$publish_directory/$distribution"
+            upload_count=$((upload_count + 1))
+          done
+
+          echo "upload_count=$upload_count" >> "$GITHUB_OUTPUT"
+
+      - name: Publish verified XBlock distributions
+        if: steps.stage.outputs.upload_count != '0'
+        uses: pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247 # v1.14.1
+        with:
+          packages-dir: ${{ runner.temp }}/publish/
