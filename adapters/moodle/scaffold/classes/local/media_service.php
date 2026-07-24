@@ -105,7 +105,7 @@ class media_service {
 
     public static function upload_media(
         \stdClass $scaffold,
-        \core_course\cm_info $cm,
+        \cm_info|\core_course\cm_info $cm,
         \context_module $context,
         string $mediatype,
         string $filename,

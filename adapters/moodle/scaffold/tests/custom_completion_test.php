@@ -96,10 +96,12 @@ final class custom_completion_test extends \advanced_testcase {
     }
 
     public function test_module_form_uses_suffix_and_persists_an_unchecked_rule(): void {
-        global $CFG;
+        global $CFG, $COURSE;
 
         $this->resetAfterTest(true);
         [$activity, $cm, $course] = $this->create_activity();
+        $this->setAdminUser();
+        $COURSE = $course;
         require_once($CFG->dirroot . '/mod/scaffold/mod_form.php');
         $current = clone $activity;
         $current->instance = $activity->id;

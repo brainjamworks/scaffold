@@ -316,7 +316,7 @@ final class media_service_test extends \advanced_testcase {
             );
             $this->fail('Invalid media upload was accepted: ' . $case);
         } catch (\invalid_parameter_exception $exception) {
-            $this->assertSame($expectedmessage, $exception->getMessage(), $case);
+            $this->assertSame($expectedmessage, $exception->debuginfo, $case);
         }
     }
 
