@@ -319,7 +319,8 @@ final class grade_publisher_test extends \advanced_testcase {
         $item = $this->grade_item($scaffold);
         $grade = \grade_grade::fetch(['itemid' => $item->id, 'userid' => $user->id]);
         $this->assertInstanceOf(\grade_grade::class, $grade);
-        $grade->set_locked(true);
+        $grade->locked = time();
+        $this->assertTrue($grade->update());
 
         $state = (new assessment_state_repository())->mutate_state(
             (int) $scaffold->id,
