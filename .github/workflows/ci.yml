@@ -389,6 +389,9 @@ jobs:
       - name: Build Moodle plugin
         run: vp run @scaffold/adapter-moodle#build
 
+      - name: Prepare Moodle workspace
+        run: mkdir -p .tmp/moodle-plugin-ci-work
+
       - name: Setup PHP
         uses: shivammathur/setup-php@b604ade2a87db23f8871b7182e69ec5e75effb45 # v2
         with:
@@ -413,14 +416,16 @@ jobs:
           DB_PORT: ${{ matrix.database-port }}
           DB_USER: ${{ matrix.database-user }}
           MOODLE_BRANCH: ${{ matrix.moodle }}
+        working-directory: .tmp/moodle-plugin-ci-work
         run: >-
           moodle-plugin-ci install
-          --plugin ./adapters/moodle/scaffold
+          --plugin "${{ github.workspace }}/adapters/moodle/scaffold"
           --db-host=127.0.0.1
           --db-port=${{ matrix.database-port }}
           --no-plugin-node
 
       - name: Run Moodle component suite
+        working-directory: .tmp/moodle-plugin-ci-work
         run: >-
           moodle-plugin-ci phpunit
           --testsuite mod_scaffold_testsuite
