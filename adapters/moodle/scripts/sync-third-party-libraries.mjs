@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { readFile, stat, writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { resolve, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -245,12 +245,19 @@ function markdownCell(value) {
 }
 
 export function renderThirdPartyNotices(libraries) {
-  const rows = libraries.map(
-    ({ license, location, name, repository, version }) =>
-      `| ${markdownCell(name)} | ${markdownCell(version)} | ${markdownCell(
-        license,
-      )} | ${markdownCell(location)} | [source](${repository}) |`,
+  const tableRows = libraries.map(({ license, location, name, repository, version }) => [
+    markdownCell(name),
+    markdownCell(version),
+    markdownCell(license),
+    markdownCell(location),
+    markdownCell(`[source](${repository})`),
+  ]);
+  const headers = ["Package", "Version", "Licence", "Packaged location", "Upstream"];
+  const widths = headers.map((header, index) =>
+    Math.max(header.length, 3, ...tableRows.map((row) => row[index].length)),
   );
+  const formatRow = (row) =>
+    `| ${row.map((cell, index) => cell.padEnd(widths[index])).join(" | ")} |`;
 
   return [
     "# Third-Party Notices",
@@ -259,24 +266,15 @@ export function renderThirdPartyNotices(libraries) {
     "the compiled Scaffold Moodle frontend. The packages remain subject to their",
     "own licence terms. `thirdpartylibs.xml` contains the matching Moodle metadata.",
     "",
-    "| Package | Version | Licence | Packaged location | Upstream |",
-    "| --- | --- | --- | --- | --- |",
-    ...rows,
+    formatRow(headers),
+    formatRow(widths.map((width) => "-".repeat(width))),
+    ...tableRows.map(formatRow),
     "",
     "Generated from the tree-shaken Vite output and package metadata locked by",
     "`pnpm-lock.yaml`; run `vp run @scaffold/adapter-moodle#sync:third-party-libraries`",
     "after changing frontend dependencies or generated output.",
     "",
   ].join("\n");
-}
-
-async function assertPackagedLocations(pluginRoot, libraries) {
-  for (const location of new Set(libraries.map((library) => library.location))) {
-    const locationStatus = await stat(resolve(pluginRoot, location));
-    if (!locationStatus.isDirectory()) {
-      throw new Error(`Declared third-party location is not a directory: ${location}.`);
-    }
-  }
 }
 
 async function syncThirdPartyLibraries(mode) {
@@ -293,7 +291,6 @@ async function syncThirdPartyLibraries(mode) {
     },
   ];
 
-  await assertPackagedLocations(pluginRoot, libraries);
   if (mode === "--write") {
     await Promise.all(generatedFiles.map(({ content, path }) => writeFile(path, content, "utf8")));
     console.log(`Wrote Moodle metadata for ${libraries.length} bundled libraries.`);

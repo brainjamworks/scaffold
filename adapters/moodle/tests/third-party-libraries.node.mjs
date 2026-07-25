@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile, stat } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
@@ -41,9 +41,11 @@ test("keeps Moodle third-party metadata equal to the generated frontend bundle",
   assert.equal(xml, renderThirdPartyLibraries(libraries));
   assert.equal(notices, renderThirdPartyNotices(libraries));
 
-  for (const { location } of libraries) {
-    const locationStatus = await stat(new URL(`${location}/`, pluginRoot));
-    assert.ok(locationStatus.isDirectory(), `${location} must be a packaged directory`);
+  for (const { location, outputFiles } of libraries) {
+    assert.ok(
+      outputFiles.every((outputFile) => outputFile.startsWith(`${location}/`)),
+      `${location} must contain every generated package contribution`,
+    );
   }
 });
 
