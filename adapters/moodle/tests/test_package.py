@@ -430,9 +430,15 @@ class MoodlePackageTest(unittest.TestCase):
                 self.assertIn("scaffold/amd/build/app.min.js.map", names)
                 self.assertIn("scaffold/LICENSE", names)
                 self.assertIn("scaffold/THIRD_PARTY_NOTICES.md", names)
+                self.assertIn("scaffold/readme_moodle.txt", names)
+                self.assertIn("scaffold/thirdpartylibs.xml", names)
                 self.assertEqual(
                     packaged.read("scaffold/LICENSE"),
                     b"GPLv3-or-later licence\n",
+                )
+                self.assertEqual(
+                    packaged.read("scaffold/THIRD_PARTY_NOTICES.md"),
+                    b"# Plugin third-party notices\n",
                 )
                 self.assertTrue(
                     all((entry.external_attr >> 16) == 0o100644 for entry in packaged.infolist()),
@@ -501,11 +507,23 @@ class MoodlePackageTest(unittest.TestCase):
         )
         (repository_root / "LICENSE").write_text("AGPL licence\n", encoding="utf8")
         (repository_root / "THIRD_PARTY_NOTICES.md").write_text(
-            "# Third-Party Notices\n",
+            "# Repository third-party notices\n",
             encoding="utf8",
         )
         (plugin_root / "LICENSE").write_text(
             "GPLv3-or-later licence\n",
+            encoding="utf8",
+        )
+        (plugin_root / "THIRD_PARTY_NOTICES.md").write_text(
+            "# Plugin third-party notices\n",
+            encoding="utf8",
+        )
+        (plugin_root / "readme_moodle.txt").write_text(
+            "Moodle third-party import instructions\n",
+            encoding="utf8",
+        )
+        (plugin_root / "thirdpartylibs.xml").write_text(
+            "<?xml version=\"1.0\"?><libraries></libraries>\n",
             encoding="utf8",
         )
         (plugin_root / "version.php").write_text(

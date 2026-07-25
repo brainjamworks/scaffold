@@ -8,15 +8,16 @@
   "scripts": {
     "build": "vp run check:artifacts && vp run build:unchecked",
     "build:unchecked": "vp build",
-    "check:artifacts": "node scripts/sync-assessment-artifacts.mjs --check && node scripts/sync-learner-activity-artifact.mjs --check",
+    "check:artifacts": "node scripts/sync-assessment-artifacts.mjs --check && node scripts/sync-learner-activity-artifact.mjs --check && node scripts/sync-third-party-libraries.mjs --check",
     "check:assessment-artifacts": "node scripts/sync-assessment-artifacts.mjs --check",
     "check:learner-activity-artifact": "node scripts/sync-learner-activity-artifact.mjs --check",
     "php:lint": "find scaffold -name '*.php' -print0 | xargs -0 -n1 php -l",
     "package": "python3 scripts/package.py --check && vp run verify && python3 scripts/package.py",
     "sync:assessment-artifacts": "node scripts/sync-assessment-artifacts.mjs --write",
     "sync:learner-activity-artifact": "node scripts/sync-learner-activity-artifact.mjs --write",
+    "sync:third-party-libraries": "node scripts/sync-third-party-libraries.mjs --write",
     "test": "vp run check:artifacts && vp run test:unchecked",
-    "test:unchecked": "vp test run --passWithNoTests && node --test tests/moodle-amd.node.mjs tests/repository-contracts.node.mjs && python3 -m unittest tests/test_package.py",
+    "test:unchecked": "vp test run --passWithNoTests && node --test tests/moodle-amd.node.mjs tests/repository-contracts.node.mjs tests/third-party-libraries.node.mjs && python3 -m unittest tests/test_package.py",
     "verify": "vp run check:artifacts && vp run php:lint && vp run test:unchecked && vp run build:unchecked"
   },
   "dependencies": {

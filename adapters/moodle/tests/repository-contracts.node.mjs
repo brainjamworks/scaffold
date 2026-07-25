@@ -21,7 +21,12 @@ test("keeps artifact checks in the adapter build, test, and verification command
   assert.equal(
     manifest.scripts["check:artifacts"],
     "node scripts/sync-assessment-artifacts.mjs --check && " +
-      "node scripts/sync-learner-activity-artifact.mjs --check",
+      "node scripts/sync-learner-activity-artifact.mjs --check && " +
+      "node scripts/sync-third-party-libraries.mjs --check",
+  );
+  assert.equal(
+    manifest.scripts["sync:third-party-libraries"],
+    "node scripts/sync-third-party-libraries.mjs --write",
   );
 });
 

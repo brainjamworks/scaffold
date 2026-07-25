@@ -14,7 +14,15 @@ from pathlib import Path, PurePosixPath
 
 SEMVER_PATTERN = re.compile(r"(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)")
 EXCLUDED_PARTS = {".git", "node_modules"}
-REQUIRED_FILES = ("README.md", "CHANGES.md", "LICENSE", "version.php")
+REQUIRED_FILES = (
+    "README.md",
+    "CHANGES.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "readme_moodle.txt",
+    "thirdpartylibs.xml",
+    "version.php",
+)
 REQUIRED_RUNTIME_DIRECTORIES = ("public", "amd/build")
 
 
@@ -118,17 +126,11 @@ def source_files(plugin_root):
     return files
 
 
-def release_payload(repository_root, plugin_root, files):
-    payload = [
+def release_payload(plugin_root, files):
+    return [
         (path.relative_to(plugin_root).as_posix(), path)
         for path in files
     ]
-    for filename in ("THIRD_PARTY_NOTICES.md",):
-        source_path = repository_root / filename
-        if not source_path.is_file():
-            raise ValueError(f"Moodle package is missing repository {filename}.")
-        payload.append((filename, source_path))
-    return sorted(payload, key=lambda entry: entry[0])
 
 
 def write_archive(payload, archive_path):
@@ -192,7 +194,7 @@ def main():
         print(f"Moodle package metadata is ready for {product_version}.")
         return
     files = source_files(plugin_root)
-    payload = release_payload(repository_root, plugin_root, files)
+    payload = release_payload(plugin_root, files)
 
     archive_path = (
         repository_root
