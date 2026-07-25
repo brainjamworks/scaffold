@@ -15,8 +15,8 @@ The values below were reconciled on 25 July 2026 against:
 - the official Moodle Marketplace submission guidelines linked from the
   [Moodle plugin contribution checklist](https://moodledev.io/general/community/plugincontribution/checklist).
 
-Do not submit the listing until the two confirmation sections near the end of
-this worksheet are complete.
+Do not submit the listing until the maintainer confirmation and release hold
+near the end of this worksheet are complete.
 
 ## Plugin identity
 
@@ -135,23 +135,20 @@ If a Marketplace reviewer specifically requires a conventional mirror, create
 one as a release mirror at that point. Do not split or duplicate the repository
 pre-emptively.
 
-## Screenshot set to capture
+## Screenshot set
 
-Capture these three screenshots from a Moodle site on which the exact candidate
-ZIP is installed. Use non-sensitive example course and user data.
+Use these three current 1920 × 1080 PNG files for the initial Marketplace
+listing:
 
-1. `01-scaffold-authoring.png`: the teacher authoring view with a page,
-   assessment, and block library visible.
-2. `02-scaffold-learner-slideshow.png`: the learner view showing a slide-based
-   activity and its navigation.
-3. `03-scaffold-moodle-integration.png`: Moodle completion or Gradebook showing
-   the result of a completed Scaffold assessment.
+1. [`block-library.png`](../../.github/readme/block-library.png) — Scaffold
+   authoring a course page with an assessment and the block library open.
+2. [`page-authoring.png`](../../.github/readme/page-authoring.png) — A long-form
+   Scaffold page containing a timeline and flashcards.
+3. [`slideshow-authoring.png`](../../.github/readme/slideshow-authoring.png) — A
+   Scaffold slideshow with a large cover composition.
 
-Use clear PNG images at the browser's native resolution and give each image a
-plain-English caption matching the descriptions above. Do not use the existing
-`.github/readme/*.png` files as Marketplace evidence: they illustrate the
-shared Scaffold interface but were not captured from the installed Moodle
-plugin and include controls that do not match the Moodle adapter.
+These images represent the current shared Scaffold interface. Use the captions
+above and do not describe them as captures of Moodle's surrounding interface.
 
 ## Maintainer confirmation before submission
 
@@ -175,7 +172,6 @@ they are provider attestations, not repository facts.
 The listing copy, links, compatibility, licence, service declaration, and
 repository exception are ready. Submission remains on hold until:
 
-- the three installed-Moodle screenshots have been captured and attached;
 - the maintainer declarations above have been completed; and
 - the release-closing criteria produce the immutable public `v0.1.0` release
   ZIP that will be uploaded to Marketplace.
