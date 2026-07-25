@@ -39,7 +39,7 @@ const loadBundle = (config) =>
         }
         resolve(window.ScaffoldMoodle);
       },
-      { once: true },
+      {once: true},
     );
     script.addEventListener("error", () => reject(new Error("Scaffold bundle failed to load")), {
       once: true,
@@ -54,7 +54,7 @@ export const init = (rootId, config) => {
     return;
   }
 
-  const callMoodle = (methodname, args) => Ajax.call([{ methodname, args }])[0];
+  const callMoodle = (methodname, args) => Ajax.call([{methodname, args}])[0];
 
   loadBundle(config)
     .then((bundle) => bundle.mountMoodle(root, config, callMoodle))

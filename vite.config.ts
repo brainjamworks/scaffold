@@ -4,7 +4,12 @@ export default defineConfig({
   check: {
     fmt: false,
   },
-  fmt: {},
+  fmt: {
+    ignorePatterns: [
+      "adapters/moodle/scaffold/amd/src/**/*.js",
+      "adapters/moodle/scaffold/styles.css",
+    ],
+  },
   lint: {
     plugins: ["typescript"],
     options: {
