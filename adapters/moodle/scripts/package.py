@@ -108,7 +108,11 @@ def source_files(plugin_root):
         if EXCLUDED_PARTS.intersection(relative_path.parts):
             raise ValueError(f"Moodle package contains an excluded path: {relative_path}.")
         if path.is_file():
-            if path.suffix == ".map" or path.name == ".DS_Store":
+            is_moodle_amd_map = (
+                relative_path.parts[:2] == ("amd", "build")
+                and path.name.endswith(".js.map")
+            )
+            if (path.suffix == ".map" and not is_moodle_amd_map) or path.name == ".DS_Store":
                 raise ValueError(f"Moodle package contains an excluded file: {relative_path}.")
             files.append(path)
     return files

@@ -298,6 +298,7 @@ class MoodlePackageTest(unittest.TestCase):
                 self.assertIn("scaffold/version.php", names)
                 self.assertIn("scaffold/public/app.js", names)
                 self.assertIn("scaffold/amd/build/app.min.js", names)
+                self.assertIn("scaffold/amd/build/app.min.js.map", names)
                 self.assertIn("scaffold/LICENSE", names)
                 self.assertIn("scaffold/THIRD_PARTY_NOTICES.md", names)
                 self.assertEqual(
@@ -331,7 +332,7 @@ class MoodlePackageTest(unittest.TestCase):
             )
             self.assertNotIn("Traceback", result.stderr)
 
-    def test_rejects_development_files_from_the_installable_zip(self):
+    def test_rejects_non_moodle_source_maps_from_the_installable_zip(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             repository_root = Path(temporary_directory)
             self.create_repository(repository_root)
@@ -410,6 +411,18 @@ class MoodlePackageTest(unittest.TestCase):
         (plugin_root / "public" / "app.js").write_text("export {};\n", encoding="utf8")
         (plugin_root / "amd" / "build" / "app.min.js").write_text(
             "define([]);\n",
+            encoding="utf8",
+        )
+        (plugin_root / "amd" / "build" / "app.min.js.map").write_text(
+            json.dumps(
+                {
+                    "version": 3,
+                    "file": "app.min.js",
+                    "sources": ["../src/app.js"],
+                    "names": [],
+                    "mappings": "",
+                },
+            ),
             encoding="utf8",
         )
 

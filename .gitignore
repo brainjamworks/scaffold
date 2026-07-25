@@ -36,7 +36,9 @@ test-results/
 # Generated adapter bundles
 adapters/xblock/scaffold_xblock/public/
 adapters/moodle/scaffold/public/
-adapters/moodle/scaffold/amd/build/
+!adapters/moodle/scaffold/amd/build/
+!adapters/moodle/scaffold/amd/build/*.min.js
+!adapters/moodle/scaffold/amd/build/*.min.js.map
 
 # Logs
 *.log

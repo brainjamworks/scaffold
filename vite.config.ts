@@ -6,6 +6,7 @@ export default defineConfig({
   },
   fmt: {
     ignorePatterns: [
+      "adapters/moodle/scaffold/amd/build/**",
       "adapters/moodle/scaffold/amd/src/**/*.js",
       "adapters/moodle/scaffold/styles.css",
     ],
