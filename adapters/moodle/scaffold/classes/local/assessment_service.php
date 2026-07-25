@@ -181,7 +181,7 @@ final class assessment_service {
         );
         $settings = is_array($target['settings'] ?? null) ? $target['settings'] : [];
         if (($settings['showAnswer'] ?? null) !== true) {
-            throw new \moodle_exception('answer reveal disabled', 'scaffold');
+            throw new \moodle_exception('answerrevealdisabled', 'scaffold');
         }
 
         $artifactid = artifact_identity::for_course_module((int) $scope->cm->id);
@@ -195,7 +195,7 @@ final class assessment_service {
             ? $states[$scope->actorid]->snapshot->problems->{$targetid}
             : null;
         if (!self::problem_authorizes_answer_reveal($problem)) {
-            throw new \moodle_exception('answer reveal unavailable', 'scaffold');
+            throw new \moodle_exception('answerrevealunavailable', 'scaffold');
         }
 
         return ['answerKey' => $target['assessment'] ?? null];
@@ -613,7 +613,7 @@ final class assessment_service {
                 return $group;
             }
         }
-        throw new \moodle_exception('quiz group not found', 'scaffold');
+        throw new \moodle_exception('quizgroupnotfound', 'scaffold');
     }
 
     /**
@@ -688,15 +688,15 @@ final class assessment_service {
                 );
             }
             if ($action === 'check' && ($settings['feedbackMode'] ?? null) !== 'immediate') {
-                throw new \moodle_exception('check is only available for immediate feedback', 'scaffold');
+                throw new \moodle_exception('checkrequiresimmediatefeedback', 'scaffold');
             }
             if ($maxattempts !== null && $attempts >= $maxattempts) {
-                throw new \moodle_exception('maximum attempts exceeded', 'scaffold');
+                throw new \moodle_exception('maximumattemptsexceeded', 'scaffold');
             }
 
             $gradedresult = ($this->grader)($target, $response);
             if (!is_array($gradedresult)) {
-                throw new \moodle_exception('assessment response is ungradable', 'scaffold');
+                throw new \moodle_exception('assessmentresponseungradable', 'scaffold');
             }
             if (is_array($gradedresult['items'] ?? null)) {
                 $gradedresult['items'] = (object) $gradedresult['items'];
@@ -799,7 +799,7 @@ final class assessment_service {
                     throw new \invalid_parameter_exception('hintsShown cannot skip unrevealed hints');
                 }
                 if ($hintsshown > $hintlimit) {
-                    throw new \moodle_exception('hint reveal limit exceeded', 'scaffold');
+                    throw new \moodle_exception('hintreveallimitexceeded', 'scaffold');
                 }
 
                 $snapshot->problems->{$targetid} = self::problem_with_hints($problem, $hintsshown);
@@ -922,7 +922,7 @@ final class assessment_service {
             }
             return $target;
         }
-        throw new \moodle_exception('problem not found', 'scaffold');
+        throw new \moodle_exception('problemnotfound', 'scaffold');
     }
 
     /**
@@ -1010,7 +1010,7 @@ final class assessment_service {
         $content = content_service::read_json_nullable_object((string) ($scaffold->learnercontentjson ?? 'null'));
         $target = $content === null ? null : self::content_node_by_id($content, $targetid);
         if ($target === null) {
-            throw new \moodle_exception('assessment hint content not found', 'scaffold');
+            throw new \moodle_exception('assessmenthintcontentnotfound', 'scaffold');
         }
         return self::count_content_nodes_by_type($target, 'assessment_hint');
     }

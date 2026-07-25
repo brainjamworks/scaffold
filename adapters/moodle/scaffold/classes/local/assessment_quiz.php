@@ -127,7 +127,7 @@ class assessment_quiz {
     ): \stdClass {
         $group = self::group_by_id($groups, $groupid);
         if ($group['settings']['reviewTiming'] !== 'after_each_answer') {
-            throw new \moodle_exception('quiz question submission requires after_each_answer timing', 'scaffold');
+            throw new \moodle_exception('quizquestionsubmissiontiminginvalid', 'scaffold');
         }
         $target = self::target_for_response($targets, $group, $targetid, $response);
         $attempt = self::attempt_for_request($snapshot, $groupid, $attemptid);
@@ -152,10 +152,10 @@ class assessment_quiz {
             return self::public_attempt($attempt, $group);
         }
         if ($attempt->currentTargetId !== $targetid) {
-            throw new \moodle_exception('quiz current question is ' . $attempt->currentTargetId, 'scaffold');
+            throw new \moodle_exception('quizcurrentquestion', 'scaffold', '', $attempt->currentTargetId);
         }
         if ($attemptnumber >= $group['settings']['attemptsPerQuestion']) {
-            throw new \moodle_exception('maximum attempts exceeded', 'scaffold');
+            throw new \moodle_exception('maximumattemptsexceeded', 'scaffold');
         }
 
         $result = $this->grade_result($target, $response);
@@ -210,7 +210,7 @@ class assessment_quiz {
             return self::public_attempt($attempt, $group);
         }
         if ($group['settings']['reviewTiming'] === 'after_each_answer') {
-            throw new \moodle_exception('quiz finish requires after_quiz timing or expired attempt', 'scaffold');
+            throw new \moodle_exception('quizfinishtiminginvalid', 'scaffold');
         }
         foreach ($responsesbytargetid as $targetid => $response) {
             if (!is_string($targetid) || !in_array($targetid, $group['targetIds'], true)) {
@@ -263,11 +263,11 @@ class assessment_quiz {
     ): \stdClass {
         $group = self::group_by_id($groups, $groupid);
         if ($group['settings']['reviewDetail'] !== 'full_review') {
-            throw new \moodle_exception('quiz answer review disabled', 'scaffold');
+            throw new \moodle_exception('quizanswerreviewdisabled', 'scaffold');
         }
         $attempt = self::attempt_for_request($snapshot, $groupid, $attemptid);
         if (!in_array($attempt->status, ['completed', 'expired'], true)) {
-            throw new \moodle_exception('quiz attempt is not complete', 'scaffold');
+            throw new \moodle_exception('quizattemptnotcomplete', 'scaffold');
         }
         return self::public_attempt($attempt, $group, true);
     }
@@ -345,7 +345,7 @@ class assessment_quiz {
                 return $group;
             }
         }
-        throw new \moodle_exception('quiz group not found', 'scaffold');
+        throw new \moodle_exception('quizgroupnotfound', 'scaffold');
     }
 
     /**
@@ -365,7 +365,7 @@ class assessment_quiz {
             ? $snapshot->quizzes->{$groupid}
             : null;
         if (!($attempt instanceof \stdClass) || ($attempt->attemptId ?? null) !== $attemptid) {
-            throw new \moodle_exception('quiz attempt is not latest', 'scaffold');
+            throw new \moodle_exception('quizattemptnotlatest', 'scaffold');
         }
         return $attempt;
     }
@@ -396,7 +396,7 @@ class assessment_quiz {
             }
         }
         if ($target === null) {
-            throw new \moodle_exception('problem not found', 'scaffold');
+            throw new \moodle_exception('problemnotfound', 'scaffold');
         }
         $responseobject = json_decode(json_encode($response, JSON_THROW_ON_ERROR));
         json_schema_validator::validate_plugin_definition(
@@ -420,7 +420,7 @@ class assessment_quiz {
     private function grade_result(array $target, array $response): \stdClass {
         $graded = ($this->grader)($target, $response);
         if (!is_array($graded)) {
-            throw new \moodle_exception('assessment response is ungradable', 'scaffold');
+            throw new \moodle_exception('assessmentresponseungradable', 'scaffold');
         }
         if (is_array($graded['items'])) {
             $graded['items'] = (object) $graded['items'];

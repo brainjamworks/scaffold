@@ -301,7 +301,7 @@ class media_service {
         $fs = get_file_storage();
         $file = $fs->get_file($context->id, 'mod_scaffold', 'media', $scaffold->id, '/', $filename);
         if (!$file) {
-            throw new \moodle_exception('media not found', 'scaffold');
+            throw new \moodle_exception('medianotfound', 'scaffold');
         }
 
         return [

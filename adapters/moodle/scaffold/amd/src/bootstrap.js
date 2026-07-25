@@ -64,7 +64,7 @@ export const init = (rootId, config) => {
       const alert = document.createElement("div");
       alert.className = "sc-moodle-frame-error";
       alert.setAttribute("role", "alert");
-      alert.textContent = "Scaffold could not be loaded.";
+      alert.textContent = config.loadError;
       root.append(alert);
     });
 };

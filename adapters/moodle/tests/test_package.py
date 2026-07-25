@@ -50,6 +50,78 @@ class MoodlePackageTest(unittest.TestCase):
         self.assertTrue(string_keys)
         self.assertEqual(string_keys, sorted(string_keys))
 
+    def test_plugin_owned_user_text_uses_moodle_language_identifiers(self):
+        plugin_root = REPOSITORY_ROOT / "adapters" / "moodle" / "scaffold"
+        language_source = (
+            plugin_root / "lang" / "en" / "scaffold.php"
+        ).read_text(encoding="utf8")
+        language_keys = set(
+            re.findall(r"(?m)^\$string\['([^']+)'\]\s*=", language_source),
+        )
+        failures = []
+
+        for source_file in plugin_root.rglob("*.php"):
+            source = source_file.read_text(encoding="utf8")
+            for match in re.finditer(
+                r"new\s+\\?moodle_exception\(\s*'(?P<errorcode>[^']+)'"
+                r"(?P<arguments>[^;\n]*)",
+                source,
+            ):
+                errorcode = match.group("errorcode")
+                arguments = match.group("arguments")
+                component = re.search(r",\s*'([^']+)'", arguments)
+                component_name = component.group(1) if component else None
+                line = source.count("\n", 0, match.start()) + 1
+                location = f"{source_file.relative_to(plugin_root)}:{line}"
+
+                if component_name == "error" and errorcode == "confirmationnotenabled":
+                    continue
+                if component_name != "scaffold":
+                    failures.append(
+                        f"{location} must identify the scaffold language component",
+                    )
+                    continue
+                if not re.fullmatch(r"[a-z][a-z0-9_:]*", errorcode):
+                    failures.append(
+                        f"{location} uses non-identifier error code {errorcode!r}",
+                    )
+                elif errorcode not in language_keys:
+                    failures.append(
+                        f"{location} has no scaffold language string for {errorcode!r}",
+                    )
+
+        grade_status = (plugin_root / "grade_status.php").read_text(encoding="utf8")
+        for literal in (
+            "Activity item",
+            "Code",
+            "Definition version",
+            "Next action",
+            "Retries",
+            "Scope",
+            "State revision",
+            "Status",
+            "User ID",
+            "Version",
+        ):
+            if f"'{literal}'" in grade_status:
+                failures.append(
+                    f"grade_status.php contains user-visible literal {literal!r}",
+                )
+
+        bootstrap = (
+            plugin_root / "amd" / "src" / "bootstrap.js"
+        ).read_text(encoding="utf8")
+        if 'alert.textContent = "Scaffold could not be loaded."' in bootstrap:
+            failures.append("amd/src/bootstrap.js contains a user-visible load error")
+        for page_name in ("author.php", "view.php"):
+            page = (plugin_root / page_name).read_text(encoding="utf8")
+            if "'loadError' => get_string('loaderror', 'scaffold')" not in page:
+                failures.append(
+                    f"{page_name} does not pass the translated load error",
+                )
+
+        self.assertEqual(failures, [])
+
     def test_plugin_php_class_files_follow_moodle_file_conventions(self):
         plugin_root = REPOSITORY_ROOT / "adapters" / "moodle" / "scaffold"
         named_class_pattern = re.compile(

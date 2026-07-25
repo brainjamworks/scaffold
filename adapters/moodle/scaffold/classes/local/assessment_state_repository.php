@@ -552,7 +552,7 @@ class assessment_state_repository {
             self::LOCK_TIMEOUT_SECONDS,
         );
         if (!$lock) {
-            throw new \moodle_exception('Could not acquire assessment state lock');
+            throw new \moodle_exception('assessmentstatelockfailed', 'scaffold');
         }
 
         try {

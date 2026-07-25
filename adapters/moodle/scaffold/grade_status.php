@@ -72,9 +72,16 @@ echo $OUTPUT->header();
 echo $OUTPUT->heading(get_string('gradestatus', 'scaffold'));
 
 $itemtable = new html_table();
-$itemtable->head = ['Scope', 'Status', 'Code', 'Version', 'Retries', 'Next action'];
+$itemtable->head = [
+    get_string('gradestatusscope', 'scaffold'),
+    get_string('gradestatusstatus', 'scaffold'),
+    get_string('gradestatuscode', 'scaffold'),
+    get_string('gradestatusversion', 'scaffold'),
+    get_string('gradestatusretries', 'scaffold'),
+    get_string('gradestatusnextaction', 'scaffold'),
+];
 $itemtable->data[] = [
-    'Activity item',
+    get_string('gradestatusactivityitem', 'scaffold'),
     s($item->status),
     s($item->code ?? ''),
     $item->itemVersion . ' / ' . $item->definitionVersion,
@@ -87,7 +94,15 @@ if ($item->nextAction === 'correct_and_requeue') {
 }
 
 $table = new html_table();
-$table->head = ['User ID', 'Status', 'Code', 'State revision', 'Definition version', 'Retries', 'Next action'];
+$table->head = [
+    get_string('gradestatususerid', 'scaffold'),
+    get_string('gradestatusstatus', 'scaffold'),
+    get_string('gradestatuscode', 'scaffold'),
+    get_string('gradestatusstaterevision', 'scaffold'),
+    get_string('gradestatusdefinitionversion', 'scaffold'),
+    get_string('gradestatusretries', 'scaffold'),
+    get_string('gradestatusnextaction', 'scaffold'),
+];
 foreach ($learnerpage->rows as $row) {
     $action = s($row->nextAction);
     if ($row->nextAction === 'correct_and_requeue') {

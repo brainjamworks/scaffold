@@ -401,7 +401,7 @@ class learner_activity_repository {
             self::LOCK_TIMEOUT_SECONDS,
         );
         if (!$lock) {
-            throw new \moodle_exception('Could not acquire learner activity state lock');
+            throw new \moodle_exception('learneractivitystatelockfailed', 'scaffold');
         }
 
         try {

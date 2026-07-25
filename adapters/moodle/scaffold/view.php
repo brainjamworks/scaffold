@@ -68,6 +68,7 @@ $PAGE->requires->js_call_amd('mod_scaffold/bootstrap', 'init', [
         'cmid' => (int) $cm->id,
         'scaffoldid' => (int) $scaffold->id,
         'surface' => 'learner',
+        'loadError' => get_string('loaderror', 'scaffold'),
         'bundleUrl' => $bundleurl,
         'innerUrl' => $innerurl,
         'wwwroot' => $CFG->wwwroot,

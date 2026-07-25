@@ -51,6 +51,7 @@ $PAGE->requires->js_call_amd('mod_scaffold/bootstrap', 'init', [
         'cmid' => (int) $cm->id,
         'scaffoldid' => (int) $scaffold->id,
         'surface' => 'authoring',
+        'loadError' => get_string('loaderror', 'scaffold'),
         'returnUrl' => (new moodle_url('/mod/scaffold/view.php', ['id' => $cm->id]))->out(false),
         'bundleUrl' => $bundleurl,
         'innerUrl' => $innerurl,
