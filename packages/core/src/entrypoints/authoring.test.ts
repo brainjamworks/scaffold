@@ -33,5 +33,8 @@ describe("@scaffold/core/authoring", () => {
 
   it("publishes the authoring entry, host, preview, save, artifact, and learner types", () => {
     expectTypeOf<AuthoringTypeSurface>().toBeObject();
+    expectTypeOf<
+      "xapi" extends keyof Awaited<ReturnType<ScaffoldPreviewServicesFactory>> ? true : false
+    >().toEqualTypeOf<false>();
   });
 });

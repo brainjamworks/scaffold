@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, expectTypeOf, it } from "vite-plus/test";
 
 import { SCAFFOLD_MEDIA_CONTEXTS, type MediaPort } from "./media";
 import {
@@ -16,6 +16,9 @@ import type {
   QuizRevealAnswersRequest,
   QuizStartAttemptRequest,
   QuizSubmitQuestionRequest,
+  ScaffoldRuntimePorts,
+  XapiPort,
+  XapiStatementTemplate,
 } from "@/host/ports";
 import type {
   ScaffoldAuthoringArtifact,
@@ -124,6 +127,10 @@ describe("host app contracts", () => {
       type: "preview",
       submit: async () => successfulProblemOutcome,
     };
+    const xapi = {
+      activityId: "https://learning.example.test/courses/artifact-1",
+      send: async () => undefined,
+    } satisfies XapiPort;
 
     const learnerServices = {
       assessment,
@@ -135,9 +142,14 @@ describe("host app contracts", () => {
         }),
       },
       media: null,
+      xapi,
     } satisfies ScaffoldLearnerHostServices;
 
     expect(authoringServices.artifactPersistence).toBe(artifactPersistence);
+    expect(learnerServices.xapi).toBe(xapi);
+    expectTypeOf<
+      "xapi" extends keyof ScaffoldAuthoringEntryHostServices ? true : false
+    >().toEqualTypeOf<false>();
     await expect(
       learnerServices.assessment?.submit({
         problemId: "problem-1",
@@ -147,6 +159,38 @@ describe("host app contracts", () => {
         expectedAttemptNumber: 0,
       }),
     ).resolves.toMatchObject({ problem: { submissionResult: { isCorrect: true } } });
+  });
+});
+
+describe("xAPI port contract", () => {
+  it("defines one optional ordered Statement-acceptance seam", async () => {
+    const statement: XapiStatementTemplate = {
+      id: "550e8400-e29b-41d4-a716-446655440000",
+      timestamp: "2026-07-25T10:15:30.123Z",
+      verb: {
+        id: "https://w3id.org/xapi/adl/verbs/initialized",
+        display: { "en-GB": "initialized" },
+      },
+      object: {
+        objectType: "Activity",
+        id: "https://learning.example.test/courses/artifact-1",
+      },
+    };
+    const accepted: XapiStatementTemplate[] = [];
+    const xapi = {
+      activityId: statement.object.id,
+      send: async (template: XapiStatementTemplate) => {
+        accepted.push(template);
+      },
+    } satisfies XapiPort;
+    const runtimePorts = { xapi } satisfies ScaffoldRuntimePorts;
+    const learnerServices = { xapi } satisfies ScaffoldLearnerHostServices;
+
+    await xapi.send(statement);
+
+    expect(accepted).toStrictEqual([statement]);
+    expect(runtimePorts.xapi).toBe(xapi);
+    expect(learnerServices.xapi).toBe(xapi);
   });
 });
 

@@ -217,6 +217,7 @@ describe("ScaffoldLearnerApp", () => {
 
   it("passes learner host services through the runtime provider", async () => {
     const load = vi.fn(async () => null);
+    const send = vi.fn(async () => undefined);
     const services = {
       learnerActivity: {
         load,
@@ -224,6 +225,10 @@ describe("ScaffoldLearnerApp", () => {
           ...record,
           updatedAt: "2026-07-17T08:00:00Z",
         })),
+      },
+      xapi: {
+        activityId: "https://learning.example.test/courses/artifact-services",
+        send,
       },
     } satisfies ScaffoldLearnerHostServices;
 
@@ -239,6 +244,7 @@ describe("ScaffoldLearnerApp", () => {
         artifactId: "artifact-services",
       }),
     );
+    expect(send).not.toHaveBeenCalled();
   });
 
   it("accepts a strict assessment snapshot while keeping activity state separate", async () => {

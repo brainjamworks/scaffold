@@ -8,6 +8,7 @@ import type {
 import type { AssessmentPort } from "../ports/assessment";
 import type { LearnerActivityPort } from "../ports/learner-activity";
 import type { MediaPort } from "../ports/media";
+import type { XapiPort } from "../ports/xapi";
 
 export interface ScaffoldLearnerInitialState {
   assessmentSnapshot?: AssessmentLearnerSnapshot;
@@ -26,4 +27,5 @@ export interface ScaffoldLearnerHostServices {
   assessment?: AssessmentPort | null;
   learnerActivity?: LearnerActivityPort | null;
   media?: MediaPort | null;
+  xapi?: XapiPort | null;
 }

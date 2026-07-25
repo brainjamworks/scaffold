@@ -83,9 +83,17 @@ export interface ScaffoldAuthoringHeaderActionsContext {
   preview: boolean;
 }
 
+type ScaffoldPreviewHostServices = Omit<ScaffoldLearnerHostServices, "xapi">;
+
 export type ScaffoldPreviewServicesFactory = (
   content: ScaffoldLearnerPreviewContent,
-) => ScaffoldLearnerHostServices | Promise<ScaffoldLearnerHostServices>;
+) => ScaffoldPreviewHostServices | Promise<ScaffoldPreviewHostServices>;
+
+function withoutXapiCapability(services: ScaffoldLearnerHostServices): ScaffoldPreviewHostServices {
+  const previewServices = { ...services };
+  delete previewServices.xapi;
+  return previewServices;
+}
 
 export interface ScaffoldAuthoringAppProps {
   agentIntegration?: ScaffoldAgentIntegration;
@@ -158,7 +166,7 @@ export function ScaffoldAuthoringApp({
   const [preview, setPreview] = useState(false);
   const [uncontrolledAgentOpen, setUncontrolledAgentOpen] = useState(agentOpen);
   const [previewContent, setPreviewContent] = useState<ScaffoldLearnerPreviewContent | null>(null);
-  const [previewServices, setPreviewServices] = useState<ScaffoldLearnerHostServices | null>(null);
+  const [previewServices, setPreviewServices] = useState<ScaffoldPreviewHostServices | null>(null);
   const [previewState, setPreviewStateStatus] = useState<"idle" | "loading" | "error">("idle");
   const [saveState, setSaveState] = useState<ScaffoldAuthoringSaveState>("idle");
   const saveStateRef = useRef<ScaffoldAuthoringSaveState>("idle");
@@ -309,7 +317,7 @@ export function ScaffoldAuthoringApp({
     (
       nextPreview: boolean,
       nextContent: ScaffoldLearnerPreviewContent | null,
-      nextServices: ScaffoldLearnerHostServices | null,
+      nextServices: ScaffoldPreviewHostServices | null,
     ) => {
       setPreview(nextPreview);
       setPreviewContent(nextContent);
@@ -338,9 +346,10 @@ export function ScaffoldAuthoringApp({
           assessmentTargets: bundle.assessmentTargets,
           learnerContent: bundle.learnerContent,
         };
-        const nextServices = createPreviewServices
+        const resolvedServices = createPreviewServices
           ? await createPreviewServices(nextContent)
           : { media: services.media ?? null };
+        const nextServices = withoutXapiCapability(resolvedServices);
         onAuthoringEditorChange?.(null);
         latestEditorRef.current = null;
         setEditor(null);
