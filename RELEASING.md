@@ -12,8 +12,10 @@ corresponding tag and GitHub Release exist.
 
 Before the first formal release:
 
-1. Complete Moodle Marketplace provider onboarding and prepare the first
-   `mod_scaffold` listing.
+1. Confirm access to the Moodle Marketplace account that will be the lead
+   maintainer and prepare the first `mod_scaffold` listing materials. The ZIP
+   upload and submission-time declarations follow publication of the approved
+   GitHub Release asset.
 2. Confirm access to representative real Moodle and Open edX hosts for the
    manual approval smoke tests.
 3. Confirm the `release` and `pypi` GitHub environments, PyPI Trusted
@@ -157,8 +159,10 @@ A release candidate must satisfy all of the following:
 - both exact adapter distributions pass their package-level validation;
 - the generated third-party notice inventory is current, and every adapter
   distribution contains it and the Scaffold license;
-- Moodle Marketplace listing metadata and compatibility declarations are ready
-  for the release.
+- repository-preparable Moodle Marketplace listing metadata and compatibility
+  declarations are ready. The provider attestations and ZIP upload shown by the
+  submission form are closing actions, not prerequisites for creating the
+  immutable release asset they refer to.
 
 Run the complete repository gate before creating a release commit:
 
@@ -338,8 +342,12 @@ command against the released version before declaring the rollout complete.
     without rebuilding them. If that workflow fails after a partial upload,
     dispatch it again from `main` with the published tag; it accepts only exact
     existing filenames and digests.
-12. Submit the approved Moodle ZIP to Marketplace or add it to the existing
-    listing with the tested compatibility declarations.
+12. Sign in to Marketplace with the intended lead-maintainer account. For
+    `0.1.0`, choose a free plugin listing, upload the exact approved GitHub
+    Release ZIP, add the prepared details and screenshots, complete the
+    intellectual-property, trademark, commercial, and provider declarations,
+    allow the automated checks to run, and submit it for review. For a later
+    release, add the exact ZIP to the existing listing instead.
 13. Update and verify the public installation documentation against the
     destinations that are live, including the temporary Marketplace-review
     state when applicable.
@@ -379,9 +387,35 @@ distributions whose existing PyPI digests do not conflict. It never checks out
 or rebuilds source and never stores a long-lived package credential.
 
 The adapter package commands, coordinated `0.1.0` metadata, PyPI Trusted
-Publisher, and matching GitHub environment are ready. Marketplace provider
-and submission readiness and access to representative real hosts for manual
-smoke testing remain first-release prerequisites.
+Publisher, matching GitHub environment, and repository-preparable Marketplace
+listing materials are ready. Access to the intended lead-maintainer Marketplace
+account and representative real hosts for manual smoke testing remain
+first-release prerequisites. Marketplace declarations, ZIP upload, automated
+checks, and submission happen after the approved release asset exists.
+
+## Moodle Marketplace Commercial Classification
+
+Classify the offering that exists in the release; do not classify a release
+from hypothetical future functionality. Scaffold `0.1.0` is a **free plugin**
+because its full functionality requires no payment to Scaffold, no paid
+Scaffold service, and no paid tier or upgrade.
+
+If a future release requires payment to Scaffold for AI functionality, a
+Scaffold-operated service, a subscription, or a premium tier, treat the
+Marketplace offering as paid before offering that release, even when a free
+download or tier remains. Add the applicable paid price option or paid listing;
+paid offerings must use Marketplace purchasing and require pricing, Stripe
+Connect, Terms of Sale, support, and commercial disclosures. A plugin that
+merely interoperates with an unrelated third-party service paid for directly
+by the customer can remain free when no payment goes to Scaffold.
+
+Recheck the then-current Marketplace rules before introducing any commercial
+feature, especially usage-based AI charging, because Marketplace does not
+currently automate usage-based pricing. The current rules are documented in
+Moodle's
+[quick guide to listing a plugin](https://moodle.atlassian.net/wiki/external/MzFlM2RkYjM3ZDVhNDgyMGJmYjA2ZjIyMzQ1NDRlYmY)
+and
+[sales, payments and terms guide](https://moodle.atlassian.net/wiki/external/MDY5MDE4OGYwMzNmNDYzNjlhNGM3NmJmMzc2ZGJlN2U).
 
 ## Failed and Superseded Releases
 

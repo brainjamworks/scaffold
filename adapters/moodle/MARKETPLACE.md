@@ -28,6 +28,7 @@ near the end of this worksheet are complete.
 | Release                  | `0.1.0`                                  |
 | Maturity                 | Alpha                                    |
 | Licence                  | GNU General Public License v3.0 or later |
+| Marketplace offering     | Free                                     |
 | Minimum Moodle version   | Moodle 4.5                               |
 | Declared Moodle versions | Moodle 4.5, 5.0, 5.1, and 5.2            |
 
@@ -114,6 +115,28 @@ change the licence of the packaged Moodle plugin. Bundled third-party
 components and their compatible licences are declared in `thirdpartylibs.xml`
 and `THIRD_PARTY_NOTICES.md`.
 
+### Commercial classification
+
+List `0.1.0` as **free**. Moodle classifies the functionality and services
+offered by the submitted release, so a possible paid AI feature in a future
+release does not make this release paid.
+
+Before a future release charges for AI functionality, a Scaffold-operated
+service, a subscription, a paid tier, or a premium upgrade, add the applicable
+paid price option or paid listing and complete Moodle's paid-listing
+requirements. This applies even if Scaffold keeps a free download or free
+tier. If a future feature instead uses an unrelated third-party service that
+the customer pays directly, with no payment to Scaffold, reassess it under the
+then-current rule; Moodle currently permits that arrangement in a free
+listing.
+
+Do not configure a paid listing now for hypothetical functionality. Recheck
+Moodle's current
+[free and paid classification](https://moodle.atlassian.net/wiki/external/MzFlM2RkYjM3ZDVhNDgyMGJmYjA2ZjIyMzQ1NDRlYmY)
+and
+[sales requirements](https://moodle.atlassian.net/wiki/external/MDY5MDE4OGYwMzNmNDYzNjlhNGM3NmJmMzc2ZGJlN2U)
+when a commercial feature is designed.
+
 ## Repository naming exception
 
 Moodle recommends a repository named
@@ -150,15 +173,17 @@ listing:
 These images represent the current shared Scaffold interface. Use the captions
 above and do not describe them as captures of Moodle's surrounding interface.
 
-## Maintainer confirmation before submission
+## Maintainer confirmation during final submission
 
 The maintainer has stated that Scaffold is their own code, and the repository
 identifies Rizvan Ali as the plugin copyright holder. The Marketplace account
 holder must still personally complete the Marketplace declarations because
 they are provider attestations, not repository facts.
 
-- [ ] Confirm that the submitting Marketplace provider profile and onboarding
-      are complete.
+- [ ] Sign in with the Marketplace account intended to remain the listing's
+      lead maintainer.
+- [ ] Choose a free plugin listing for `0.1.0` and upload the exact approved
+      GitHub Release ZIP.
 - [ ] Accept the Marketplace intellectual-property declaration for original
       Scaffold work and the declared, authorised third-party components.
 - [ ] Confirm the right to use the Scaffold name, logo, and submitted
@@ -172,6 +197,7 @@ they are provider attestations, not repository facts.
 The listing copy, links, compatibility, licence, service declaration, and
 repository exception are ready. Submission remains on hold until:
 
-- the maintainer declarations above have been completed; and
 - the release-closing criteria produce the immutable public `v0.1.0` release
-  ZIP that will be uploaded to Marketplace.
+  ZIP that will be uploaded to Marketplace; and
+- the maintainer completes the account actions and declarations above in the
+  final submission session.
