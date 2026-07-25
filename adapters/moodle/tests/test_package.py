@@ -14,6 +14,24 @@ REPOSITORY_ROOT = Path(__file__).parents[3]
 
 
 class MoodlePackageTest(unittest.TestCase):
+    def test_plugin_php_does_not_access_request_superglobals_directly(self):
+        plugin_root = REPOSITORY_ROOT / "adapters" / "moodle" / "scaffold"
+        request_superglobal = re.compile(
+            r"\$_(?:GET|POST|REQUEST|SERVER|COOKIE|FILES)\b",
+        )
+        failures = []
+
+        for source_file in plugin_root.rglob("*.php"):
+            source = source_file.read_text(encoding="utf8")
+            for match in request_superglobal.finditer(source):
+                failures.append(
+                    f"{source_file.relative_to(plugin_root)}:"
+                    f"{source.count(chr(10), 0, match.start()) + 1} uses "
+                    f"{match.group(0)}",
+                )
+
+        self.assertEqual(failures, [])
+
     def test_plugin_english_language_strings_are_alphabetically_sorted(self):
         language_file = (
             REPOSITORY_ROOT

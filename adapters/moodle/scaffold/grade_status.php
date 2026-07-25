@@ -36,7 +36,7 @@ require_login($course, true, $cm);
 require_capability('mod/scaffold:viewgradestatus', $context);
 
 $report = new grade_status_report();
-if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+if (data_submitted()) {
     require_sesskey();
     $target = required_param('target', PARAM_ALPHA);
     $confirmed = required_param('confirm', PARAM_BOOL);
