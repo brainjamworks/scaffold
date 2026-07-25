@@ -29,6 +29,11 @@ require_once(__DIR__ . '/grade_publication_repository.php');
  */
 class assessment_state_repository {
     /**
+     * Error code raised when the assessment state lock is unavailable.
+     */
+    public const LOCK_UNAVAILABLE_ERROR_CODE = 'assessmentstatelockfailed';
+
+    /**
      * LOCK TYPE.
      */
     private const LOCK_TYPE = 'mod_scaffold_assessment_state';
@@ -552,7 +557,7 @@ class assessment_state_repository {
             self::LOCK_TIMEOUT_SECONDS,
         );
         if (!$lock) {
-            throw new \moodle_exception('assessmentstatelockfailed', 'scaffold');
+            throw new \moodle_exception(self::LOCK_UNAVAILABLE_ERROR_CODE, 'scaffold');
         }
 
         try {

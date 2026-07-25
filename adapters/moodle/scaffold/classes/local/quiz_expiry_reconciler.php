@@ -405,7 +405,6 @@ final class quiz_expiry_reconciler {
      */
     private static function is_lock_unavailable(\Throwable $exception): bool {
         return $exception instanceof \moodle_exception
-            && (($exception->errorcode ?? null) === 'Could not acquire assessment state lock'
-                || str_contains($exception->getMessage(), 'Could not acquire assessment state lock'));
+            && ($exception->errorcode ?? null) === assessment_state_repository::LOCK_UNAVAILABLE_ERROR_CODE;
     }
 }
