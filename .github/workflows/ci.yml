@@ -115,6 +115,9 @@ jobs:
       - name: Build
         run: vp run verify:build
 
+      - name: Package Moodle plugin candidate
+        run: python3 adapters/moodle/scripts/package.py
+
       - name: Archive package outputs
         run: tar -czf package-builds.tgz packages/contracts/dist packages/core/dist packages/grading/dist
 
@@ -125,6 +128,16 @@ jobs:
           path: package-builds.tgz
           if-no-files-found: error
           retention-days: 1
+
+      - name: Upload Moodle plugin candidate
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: moodle-plugin-candidate
+          path: |
+            dist/release/*/mod_scaffold-*.zip
+            dist/release/*/mod_scaffold-*.zip.sha256
+          if-no-files-found: error
+          retention-days: 7
 
   static:
     name: Format, lint, and types
@@ -365,29 +378,49 @@ jobs:
           --health-timeout=5s
           --health-retries=5
     steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Setup Vite+
-        uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb # v1.15.0
-        with:
-          node-version: "24"
-          cache: true
-
-      - name: Install workspace
-        run: vp install
-
-      - name: Download package outputs
+      - name: Download Moodle plugin candidate
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: package-builds
-          path: .tmp/package-builds
+          name: moodle-plugin-candidate
+          path: ${{ runner.temp }}/moodle-plugin-candidate-download
 
-      - name: Restore package outputs
-        run: tar -xzf .tmp/package-builds/package-builds.tgz
+      - name: Restore Moodle plugin candidate
+        env:
+          CANDIDATE_DOWNLOAD: ${{ runner.temp }}/moodle-plugin-candidate-download
+          CANDIDATE_ROOT: ${{ runner.temp }}/moodle-plugin-candidate
+        shell: bash
+        run: |
+          mapfile -t archives < <(find "$CANDIDATE_DOWNLOAD" -type f -name 'mod_scaffold-*.zip' -print)
+          if [[ "${#archives[@]}" -ne 1 ]]; then
+            echo "Expected exactly one Moodle plugin candidate, found ${#archives[@]}." >&2
+            exit 1
+          fi
 
-      - name: Build Moodle plugin
-        run: vp run @scaffold/adapter-moodle#build
+          archive="${archives[0]}"
+          checksum="${archive}.sha256"
+          if [[ ! -f "$checksum" ]]; then
+            echo "Missing checksum sidecar for $archive." >&2
+            exit 1
+          fi
+
+          (
+            cd "$(dirname "$archive")"
+            sha256sum --check "$(basename "$checksum")"
+          )
+
+          mkdir -p "$CANDIDATE_ROOT"
+          unzip -q "$archive" -d "$CANDIDATE_ROOT"
+          pluginpath="$CANDIDATE_ROOT/scaffold"
+          if [[ ! -f "$pluginpath/version.php" ]]; then
+            echo "Extracted Moodle candidate is missing scaffold/version.php." >&2
+            exit 1
+          fi
+
+          digest="$(sha256sum "$archive" | awk '{print $1}')"
+          echo "Moodle candidate SHA-256: $digest"
+          echo "MOODLE_PLUGIN_CANDIDATE_NAME=$(basename "$archive")" >> "$GITHUB_ENV"
+          echo "MOODLE_PLUGIN_PATH=$pluginpath" >> "$GITHUB_ENV"
+          echo "MOODLE_PLUGIN_SHA256=$digest" >> "$GITHUB_ENV"
 
       - name: Prepare Moodle workspace
         run: mkdir -p "${{ runner.temp }}/moodle-plugin-ci-work"
@@ -419,7 +452,7 @@ jobs:
         working-directory: ${{ runner.temp }}/moodle-plugin-ci-work
         run: >-
           moodle-plugin-ci install
-          --plugin "${{ github.workspace }}/adapters/moodle/scaffold"
+          --plugin "$MOODLE_PLUGIN_PATH"
           --db-host=127.0.0.1
           --db-port=${{ matrix.database-port }}
           --no-plugin-node
@@ -431,6 +464,59 @@ jobs:
           --testsuite mod_scaffold_testsuite
           --fail-on-warning
           --fail-on-risky
+
+      - name: Confirm Moodle developer debugging
+        if: ${{ !cancelled() && matrix.moodle == 'MOODLE_502_STABLE' && matrix.database == 'pgsql' }}
+        working-directory: ${{ runner.temp }}/moodle-plugin-ci-work
+        run: |
+          php -r '
+          define("CLI_SCRIPT", true);
+          require "moodle/config.php";
+          if ($CFG->debug !== DEBUG_DEVELOPER || empty($CFG->debugdisplay)) {
+              fwrite(STDERR, "Moodle developer debugging is not enabled.\n");
+              exit(1);
+          }
+          '
+
+      - name: Run Moodle Behat developer-debug smoke
+        id: behat_smoke
+        if: ${{ !cancelled() && matrix.moodle == 'MOODLE_502_STABLE' && matrix.database == 'pgsql' }}
+        working-directory: ${{ runner.temp }}/moodle-plugin-ci-work
+        run: >-
+          moodle-plugin-ci behat
+          --profile chrome
+          --tags=@mod_scaffold_smoke
+          --start-servers
+          --auto-rerun=0
+          --dump
+
+      - name: Record Moodle Behat smoke evidence
+        if: ${{ !cancelled() && steps.behat_smoke.outcome == 'success' }}
+        env:
+          DATABASE: ${{ matrix.database }}
+          MOODLE_BRANCH: ${{ matrix.moodle }}
+          PHP_VERSION: ${{ matrix.php }}
+        shell: bash
+        run: |
+          {
+            printf '### Moodle developer-debug Behat smoke\n\n'
+            printf '%s\n' "- Candidate: $MOODLE_PLUGIN_CANDIDATE_NAME"
+            printf '%s\n' "- SHA-256: $MOODLE_PLUGIN_SHA256"
+            printf '%s\n' "- Moodle: $MOODLE_BRANCH"
+            printf '%s\n' "- PHP: $PHP_VERSION"
+            printf '%s\n' "- Database: $DATABASE"
+            printf '%s\n' '- Scenario: @mod_scaffold_smoke'
+            printf '%s\n' '- Result: passed with DEBUG_DEVELOPER and debug display enabled'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Behat faildump
+        if: ${{ failure() && steps.behat_smoke.outcome == 'failure' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: Moodle Behat faildump
+          path: ${{ runner.temp }}/moodle-plugin-ci-work/moodledata/behat_dump
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Run Moodle PHP lint
         if: ${{ !cancelled() && matrix.moodle == 'MOODLE_502_STABLE' && matrix.database == 'pgsql' }}

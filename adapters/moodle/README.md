@@ -79,6 +79,15 @@ Python's `unittest` owns ZIP packaging. The adapter's local `verify` command
 checks and packages the native test source but does not initialize Moodle or
 claim installed-system coverage.
 
+The Moodle 5.2 CI leg also runs the single `@mod_scaffold_smoke` Behat
+scenario in Chrome. CI creates one deterministic candidate ZIP, verifies its
+checksum, installs the extracted candidate, confirms Moodle is using
+`DEBUG_DEVELOPER` with debug display enabled, and then opens the real Scaffold
+authoring interface. Moodle's Behat integration treats exceptions,
+`debugging()` calls, PHP errors, and backtraces as failures. This is the
+recurring installed-site smoke gate; broader behavior and edge cases remain in
+the faster PHPUnit and frontend suites.
+
 ## Installed Verification
 
 Build the installable candidate before synchronizing it into Moodle. Keep the

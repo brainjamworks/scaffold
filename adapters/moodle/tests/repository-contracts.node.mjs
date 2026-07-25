@@ -3,6 +3,7 @@ import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
 
 const readAdapterFile = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
+const readRepositoryFile = (path) => readFile(new URL(`../../../${path}`, import.meta.url), "utf8");
 
 test("provides Moodle's canonical branded activity icon", async () => {
   const icon = await readAdapterFile("scaffold/pix/monologo.svg");
@@ -56,4 +57,24 @@ test("does not retain or invoke the standalone PHP test harness", async () => {
   );
   assert.doesNotMatch(manifest.scripts["test:unchecked"], /\bphp\s+tests\//);
   assert.doesNotMatch(protocoltest, /external_method_parity_test\.php|execFileSync/);
+});
+
+test("runs the packaged plugin through Moodle's developer-debug Behat smoke gate", async () => {
+  const feature = await readAdapterFile("scaffold/tests/behat/developer_debug_smoke.feature");
+  const workflow = await readRepositoryFile(".github/workflows/ci.yml");
+
+  assert.match(feature, /@mod_scaffold\b/);
+  assert.match(feature, /@mod_scaffold_smoke\b/);
+  assert.match(feature, /@javascript\b/);
+  assert.match(feature, /\| scaffold\s+\| C1\s+\| Scaffold smoke test\s+\|/);
+  assert.match(feature, /I switch to "sc-moodle-isolated-frame" class iframe/);
+  assert.match(feature, /I should see "Back to activity"/);
+
+  assert.match(workflow, /python3 adapters\/moodle\/scripts\/package\.py/);
+  assert.match(workflow, /name: moodle-plugin-candidate/);
+  assert.match(workflow, /Confirm Moodle developer debugging/);
+  assert.match(workflow, /moodle-plugin-ci behat[\s\S]*--profile chrome/);
+  assert.match(workflow, /--tags=@mod_scaffold_smoke/);
+  assert.match(workflow, /--start-servers/);
+  assert.match(workflow, /Upload Behat faildump/);
 });
