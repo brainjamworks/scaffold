@@ -16,7 +16,9 @@
 /**
  * Moodle AMD bootstrap for the Vite-built Scaffold bundle.
  *
- * @module mod_scaffold/bootstrap
+ * @module     mod_scaffold/bootstrap
+ * @copyright  2026 Rizvan Ali
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 import Ajax from "core/ajax";
 

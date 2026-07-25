@@ -326,7 +326,19 @@ class MoodlePackageTest(unittest.TestCase):
 
     def test_plugin_sources_use_moodles_gpl_boilerplate(self):
         plugin_root = REPOSITORY_ROOT / "adapters" / "moodle" / "scaffold"
-        expected_boilerplate = "\n".join(
+        expected_notice_lines = [
+            "Scaffold is free software: you can redistribute it and/or modify",
+            "it under the terms of the GNU General Public License as published by",
+            "the Free Software Foundation, either version 3 of the License, or",
+            "(at your option) any later version.",
+            "Scaffold is distributed in the hope that it will be useful,",
+            "but WITHOUT ANY WARRANTY; without even the implied warranty of",
+            "MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the",
+            "GNU General Public License for more details.",
+            "You should have received a copy of the GNU General Public License",
+            "along with Moodle.  If not, see <https://www.gnu.org/licenses/>.",
+        ]
+        expected_slash_boilerplate = "\n".join(
             [
                 "// Scaffold is free software: you can redistribute it and/or modify",
                 "// it under the terms of the GNU General Public License as published by",
@@ -342,16 +354,43 @@ class MoodlePackageTest(unittest.TestCase):
                 "// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.",
             ],
         )
-        source_files = list(plugin_root.rglob("*.php"))
-        source_files.extend((plugin_root / "amd" / "src").rglob("*.js"))
+        slash_comment_sources = list(plugin_root.rglob("*.php"))
+        slash_comment_sources.extend((plugin_root / "amd" / "src").rglob("*.js"))
 
-        self.assertTrue(source_files)
-        for source_file in source_files:
+        self.assertTrue(slash_comment_sources)
+        for source_file in slash_comment_sources:
             with self.subTest(source_file=source_file.relative_to(plugin_root)):
                 self.assertIn(
-                    expected_boilerplate,
+                    expected_slash_boilerplate,
                     source_file.read_text(encoding="utf8"),
                 )
+
+        other_owned_sources = (
+            plugin_root / "styles.css",
+            plugin_root / "db" / "install.xml",
+            plugin_root / "pix" / "monologo.svg",
+        )
+        for source_file in other_owned_sources:
+            source = source_file.read_text(encoding="utf8")
+            with self.subTest(source_file=source_file.relative_to(plugin_root)):
+                for notice_line in expected_notice_lines:
+                    self.assertIn(notice_line, source)
+                self.assertIn("@copyright  2026 Rizvan Ali", source)
+                self.assertIn(
+                    "@license    https://www.gnu.org/copyleft/gpl.html "
+                    "GNU GPL v3 or later",
+                    source,
+                )
+
+        amd_source = (plugin_root / "amd" / "src" / "bootstrap.js").read_text(
+            encoding="utf8",
+        )
+        self.assertIn("@module     mod_scaffold/bootstrap", amd_source)
+        self.assertIn("@copyright  2026 Rizvan Ali", amd_source)
+        self.assertIn(
+            "@license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later",
+            amd_source,
+        )
 
     def test_repository_admin_guide_has_versioned_install_and_verification_paths(self):
         guide = (
