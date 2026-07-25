@@ -17,7 +17,7 @@
 # @copyright  2026 Rizvan Ali
 # @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
 
-@mod_scaffold @mod_scaffold_smoke @javascript
+@mod @mod_scaffold @mod_scaffold_smoke @javascript
 Feature: Scaffold developer-debug smoke test
   In order to detect installed plugin warnings and runtime errors
   As an editing teacher

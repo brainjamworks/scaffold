@@ -80,21 +80,51 @@ test("each Moodle row starts only its selected database service", () => {
   assert.equal(setupPhp.with.coverage, "none");
 });
 
-test("Moodle Plugin CI builds, installs, and runs only the component suite", () => {
+test("Moodle Plugin CI installs the packaged candidate and runs the component suite", () => {
   const { source, workflow } = loadWorkflow();
+  const buildJob = workflow.jobs.build;
   const job = moodleJob(workflow);
+  const buildStepNames = buildJob.steps.map((step) => step.name);
   const stepNames = job.steps.map((step) => step.name);
-  const buildIndex = stepNames.indexOf("Build Moodle plugin");
+  const packageIndex = buildStepNames.indexOf("Package Moodle plugin candidate");
+  const uploadIndex = buildStepNames.indexOf("Upload Moodle plugin candidate");
+  const downloadIndex = stepNames.indexOf("Download Moodle plugin candidate");
+  const restoreIndex = stepNames.indexOf("Restore Moodle plugin candidate");
   const prepareIndex = stepNames.indexOf("Prepare Moodle workspace");
   const installIndex = stepNames.indexOf("Install Moodle");
+  const packageCandidate = buildJob.steps.find(
+    (step) => step.name === "Package Moodle plugin candidate",
+  );
+  const uploadCandidate = buildJob.steps.find(
+    (step) => step.name === "Upload Moodle plugin candidate",
+  );
+  const downloadCandidate = job.steps.find(
+    (step) => step.name === "Download Moodle plugin candidate",
+  );
+  const restoreCandidate = job.steps.find(
+    (step) => step.name === "Restore Moodle plugin candidate",
+  );
   const installTool = job.steps.find((step) => step.name === "Install Moodle Plugin CI");
   const prepareWorkspace = job.steps.find((step) => step.name === "Prepare Moodle workspace");
   const installMoodle = job.steps.find((step) => step.name === "Install Moodle");
   const runPhpunit = job.steps.find((step) => step.name === "Run Moodle component suite");
 
-  assert.ok(buildIndex >= 0, "Moodle plugin build step is required");
-  assert.ok(prepareIndex > buildIndex, "Moodle workspace must be prepared after the plugin build");
-  assert.ok(installIndex > prepareIndex, "Moodle plugin must be built before Moodle installation");
+  assert.ok(packageIndex >= 0, "Build job must package the Moodle plugin candidate");
+  assert.ok(uploadIndex > packageIndex, "Build job must upload the packaged candidate");
+  assert.ok(downloadIndex >= 0, "Moodle job must download the packaged candidate");
+  assert.ok(restoreIndex > downloadIndex, "Moodle job must restore the downloaded candidate");
+  assert.ok(
+    prepareIndex > restoreIndex,
+    "Moodle workspace must be prepared after candidate restore",
+  );
+  assert.ok(installIndex > prepareIndex, "Moodle must install after workspace preparation");
+  assert.equal(packageCandidate.run, "python3 adapters/moodle/scripts/package.py");
+  assert.equal(uploadCandidate.with.name, "moodle-plugin-candidate");
+  assert.match(uploadCandidate.with.path, /mod_scaffold-\*\.zip/);
+  assert.match(uploadCandidate.with.path, /mod_scaffold-\*\.zip\.sha256/);
+  assert.equal(downloadCandidate.with.name, "moodle-plugin-candidate");
+  assert.match(restoreCandidate.run, /sha256sum --check/);
+  assert.match(restoreCandidate.run, /MOODLE_PLUGIN_PATH=\$pluginpath/);
   assert.equal(prepareWorkspace.run, 'mkdir -p "${{ runner.temp }}/moodle-plugin-ci-work"');
   assert.equal(installMoodle["working-directory"], "${{ runner.temp }}/moodle-plugin-ci-work");
   assert.equal(runPhpunit["working-directory"], "${{ runner.temp }}/moodle-plugin-ci-work");
@@ -109,13 +139,13 @@ test("Moodle Plugin CI builds, installs, and runs only the component suite", () 
   );
   assert.match(
     installMoodle.run,
-    /moodle-plugin-ci install --plugin "\$\{\{ github\.workspace \}\}\/adapters\/moodle\/scaffold" .*--no-plugin-node/,
+    /moodle-plugin-ci install --plugin "\$MOODLE_PLUGIN_PATH" .*--no-plugin-node/,
   );
   assert.match(
     runPhpunit.run,
     /moodle-plugin-ci phpunit --testsuite mod_scaffold_testsuite --fail-on-warning --fail-on-risky/,
   );
-  assert.doesNotMatch(jobSource, /moodle-plugin-ci behat|selenium|--coverage/i);
+  assert.doesNotMatch(jobSource, /--coverage/i);
 });
 
 test("Moodle Plugin CI runs the applicable static checks once on the current PostgreSQL leg", () => {

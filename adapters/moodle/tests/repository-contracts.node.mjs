@@ -61,14 +61,17 @@ test("does not retain or invoke the standalone PHP test harness", async () => {
 
 test("runs the packaged plugin through Moodle's developer-debug Behat smoke gate", async () => {
   const feature = await readAdapterFile("scaffold/tests/behat/developer_debug_smoke.feature");
+  const generator = await readAdapterFile("scaffold/tests/generator/lib.php");
   const workflow = await readRepositoryFile(".github/workflows/ci.yml");
 
+  assert.match(feature, /@mod\b/);
   assert.match(feature, /@mod_scaffold\b/);
   assert.match(feature, /@mod_scaffold_smoke\b/);
   assert.match(feature, /@javascript\b/);
   assert.match(feature, /\| scaffold\s+\| C1\s+\| Scaffold smoke test\s+\|/);
   assert.match(feature, /I switch to "sc-moodle-isolated-frame" class iframe/);
   assert.match(feature, /I should see "Back to activity"/);
+  assert.match(generator, /class mod_scaffold_generator extends testing_module_generator/);
 
   assert.match(workflow, /python3 adapters\/moodle\/scripts\/package\.py/);
   assert.match(workflow, /name: moodle-plugin-candidate/);
