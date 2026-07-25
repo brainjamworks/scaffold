@@ -33,8 +33,11 @@ test("release workflow is tag-driven and candidate-only", () => {
 
   assert.match(source, /node scripts\/prepare-release-candidate\.mjs/);
   assert.match(source, /actions\/workflows\/ci\.yml\/runs/);
+  assert.match(source, /actions\/runs\/\$run_id\/artifacts/);
+  assert.match(source, /moodle-plugin-candidate/);
+  assert.match(source, /ci_run_id=/);
   assert.doesNotMatch(source, /commits\/\$RELEASE_COMMIT\/check-runs/);
-  assert.match(source, /vp run @scaffold\/adapter-moodle#package/);
+  assert.doesNotMatch(source, /vp run @scaffold\/adapter-moodle#package/);
   assert.match(source, /vp run @scaffold\/adapter-xblock#package/);
   assert.match(source, /subject-checksums:/);
   assert.match(source, /gh release create/);
@@ -93,13 +96,43 @@ test("release workflow grants elevated permissions only after package building",
     actions: "read",
     contents: "read",
   });
-  assert.deepEqual(workflow.jobs.package.permissions, { contents: "read" });
+  assert.deepEqual(workflow.jobs.package.permissions, {
+    actions: "read",
+    contents: "read",
+  });
   assert.deepEqual(workflow.jobs.attest.permissions, {
     attestations: "write",
     contents: "read",
     "id-token": "write",
   });
   assert.deepEqual(workflow.jobs.draft.permissions, { contents: "write" });
+});
+
+test("release package downloads the exact tested Moodle candidate from the selected CI run", () => {
+  const { workflow } = loadWorkflow();
+
+  assert.equal(workflow.jobs.gate.outputs.ci_run_id, "${{ steps.source_ci.outputs.ci_run_id }}");
+
+  const download = workflow.jobs.package.steps.find(
+    (step) => step.name === "Download tested Moodle candidate",
+  );
+  assert.ok(download);
+  assert.match(download.uses, /^actions\/download-artifact@[0-9a-f]{40}$/);
+  assert.deepEqual(download.with, {
+    name: "moodle-plugin-candidate",
+    path: "${{ runner.temp }}/moodle-plugin-candidate",
+    "github-token": "${{ github.token }}",
+    repository: "${{ github.repository }}",
+    "run-id": "${{ needs.gate.outputs.ci_run_id }}",
+  });
+
+  const stage = workflow.jobs.package.steps.find(
+    (step) => step.name === "Stage tested Moodle candidate",
+  );
+  assert.ok(stage?.run);
+  assert.match(stage.run, /Expected exactly one tested Moodle candidate/);
+  assert.match(stage.run, /sha256sum --check/);
+  assert.match(stage.run, /mod_scaffold-\$RELEASE_VERSION\.zip/);
 });
 
 test("release workflow pins every action to a full commit SHA", () => {

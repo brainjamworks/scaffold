@@ -173,6 +173,26 @@ exit 1
   );
 }
 
+function installMockSourceCiGh(bin) {
+  writeExecutable(
+    join(bin, "gh"),
+    `#!/usr/bin/env bash
+set -euo pipefail
+arguments="$*"
+if [[ "$arguments" == *"/actions/workflows/ci.yml/runs"* ]]; then
+  cat "$MOCK_WORKFLOW_RUNS"
+  exit 0
+fi
+if [[ "$arguments" =~ /actions/runs/([0-9]+)/artifacts ]]; then
+  cat "$MOCK_ARTIFACTS_DIR/\${BASH_REMATCH[1]}.json"
+  exit 0
+fi
+echo "unexpected gh invocation: $arguments" >&2
+exit 1
+`,
+  );
+}
+
 function runShell(script, { cwd, env }) {
   return spawnSync("bash", ["-c", script], {
     cwd,
@@ -184,9 +204,139 @@ function runShell(script, { cwd, env }) {
   });
 }
 
+function sourceCiRun(id, event = "push") {
+  return {
+    id,
+    head_sha: RELEASE_COMMIT,
+    event,
+    status: "completed",
+    conclusion: "success",
+    path: ".github/workflows/ci.yml",
+  };
+}
+
+function writeSourceCiFixtures(workspace, runs, artifactsByRun) {
+  const artifactsDirectory = join(workspace.root, "artifacts");
+  mkdirSync(artifactsDirectory);
+  const workflowRuns = join(workspace.root, "workflow-runs.json");
+  writeFileSync(workflowRuns, `${JSON.stringify({ workflow_runs: runs })}\n`);
+  for (const run of runs) {
+    writeFileSync(
+      join(artifactsDirectory, `${run.id}.json`),
+      `${JSON.stringify({ artifacts: artifactsByRun.get(run.id) ?? [] })}\n`,
+    );
+  }
+  return { artifactsDirectory, workflowRuns };
+}
+
 function sha256(path) {
   return createHash("sha256").update(readFileSync(path)).digest("hex");
 }
+
+test("release gate selects a successful exact-commit CI run with an unexpired Moodle candidate", (t) => {
+  const workspace = makeWorkspace(t, "scaffold-release-source-ci-");
+  installMockSourceCiGh(workspace.bin);
+  const runs = [sourceCiRun(101), sourceCiRun(102, "workflow_dispatch")];
+  const fixtures = writeSourceCiFixtures(
+    workspace,
+    runs,
+    new Map([
+      [101, []],
+      [
+        102,
+        [
+          {
+            id: 5002,
+            name: "moodle-plugin-candidate",
+            expired: false,
+          },
+        ],
+      ],
+    ]),
+  );
+  const githubOutput = join(workspace.root, "github-output");
+
+  const result = runShell(workflowStep(RELEASE_WORKFLOW, "gate", "Require successful source CI"), {
+    cwd: workspace.root,
+    env: {
+      GH_TOKEN: "test-token",
+      GITHUB_OUTPUT: githubOutput,
+      GITHUB_REPOSITORY: "brainjamworks/scaffold",
+      MOCK_ARTIFACTS_DIR: fixtures.artifactsDirectory,
+      MOCK_WORKFLOW_RUNS: fixtures.workflowRuns,
+      PATH: `${workspace.bin}:${process.env.PATH}`,
+      RELEASE_COMMIT,
+      RUNNER_TEMP: workspace.runnerTemp,
+    },
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(readFileSync(githubOutput, "utf8"), "ci_run_id=102\n");
+});
+
+test("release gate rejects successful CI runs without an unexpired Moodle candidate", (t) => {
+  const workspace = makeWorkspace(t, "scaffold-release-missing-candidate-");
+  installMockSourceCiGh(workspace.bin);
+  const runs = [sourceCiRun(101)];
+  const fixtures = writeSourceCiFixtures(
+    workspace,
+    runs,
+    new Map([
+      [
+        101,
+        [
+          {
+            id: 5001,
+            name: "moodle-plugin-candidate",
+            expired: true,
+          },
+        ],
+      ],
+    ]),
+  );
+
+  const result = runShell(workflowStep(RELEASE_WORKFLOW, "gate", "Require successful source CI"), {
+    cwd: workspace.root,
+    env: {
+      GH_TOKEN: "test-token",
+      GITHUB_OUTPUT: join(workspace.root, "github-output"),
+      GITHUB_REPOSITORY: "brainjamworks/scaffold",
+      MOCK_ARTIFACTS_DIR: fixtures.artifactsDirectory,
+      MOCK_WORKFLOW_RUNS: fixtures.workflowRuns,
+      PATH: `${workspace.bin}:${process.env.PATH}`,
+      RELEASE_COMMIT,
+      RUNNER_TEMP: workspace.runnerTemp,
+    },
+  });
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /does not have one unexpired Moodle candidate/);
+});
+
+test("release staging preserves the exact tested Moodle candidate bytes", (t) => {
+  const workspace = makeWorkspace(t, "scaffold-release-stage-candidate-");
+  const download = join(workspace.root, "download", VERSION);
+  mkdirSync(download, { recursive: true });
+  const archive = join(download, ASSET_NAMES[0]);
+  writeFileSync(archive, "exact CI-tested Moodle bytes\n");
+  writeFileSync(`${archive}.sha256`, `${sha256(archive)}  ${ASSET_NAMES[0]}\n`);
+
+  const result = runShell(
+    workflowStep(RELEASE_WORKFLOW, "package", "Stage tested Moodle candidate"),
+    {
+      cwd: workspace.root,
+      env: {
+        RELEASE_VERSION: VERSION,
+        TESTED_MOODLE_CANDIDATE: join(workspace.root, "download"),
+      },
+    },
+  );
+
+  assert.equal(result.status, 0, result.stderr);
+  const staged = join(workspace.root, "dist", "release", VERSION, ASSET_NAMES[0]);
+  assert.equal(readFileSync(staged, "utf8"), readFileSync(archive, "utf8"));
+  assert.equal(sha256(staged), sha256(archive));
+});
 
 function createCandidate(root) {
   const candidate = join(root, "candidate");
