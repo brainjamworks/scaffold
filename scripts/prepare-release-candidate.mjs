@@ -142,6 +142,8 @@ function releaseNotes(release) {
     `- Source commit: \`${release.commit}\``,
     "- Required CI: passed",
     "- Exact package checks: passed",
+    "- Checksums: SHA256SUMS verified",
+    "- Provenance: GitHub artifact attestations attached",
     "- Moodle smoke test: pending",
     "- Open edX smoke test: pending",
     "",

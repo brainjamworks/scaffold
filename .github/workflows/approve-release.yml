@@ -30,6 +30,13 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Check out reviewed release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          ref: ${{ inputs.tag }}
+
       - name: Validate evidence and publish the draft
         env:
           GH_TOKEN: ${{ github.token }}
@@ -85,6 +92,11 @@ jobs:
           approved_identity="$RUNNER_TEMP/approved-tag-identity"
           resolve_tag_identity > "$approved_identity"
           read -r approved_tag_object approved_commit < "$approved_identity"
+          checked_out_commit="$(git -C "$GITHUB_WORKSPACE" rev-parse HEAD)"
+          if [[ "$checked_out_commit" != "$approved_commit" ]]; then
+            echo "Checked-out release source does not match the approved tagged commit." >&2
+            exit 1
+          fi
 
           release_json="$RUNNER_TEMP/release.json"
           gh api \
@@ -103,7 +115,14 @@ jobs:
           fi
 
           notes="$RUNNER_TEMP/release-notes.md"
-          jq -er '.body | strings' "$release_json" > "$notes"
+          jq -ej '.body | strings' "$release_json" > "$notes"
+          expected_notes="$RUNNER_TEMP/expected-release-notes.md"
+          env -u GH_TOKEN node "$GITHUB_WORKSPACE/scripts/prepare-release-candidate.mjs" \
+            --repository-root "$GITHUB_WORKSPACE" \
+            --tag "$RELEASE_TAG" \
+            --commit "$approved_commit" \
+            --notes-output "$expected_notes" \
+            --github-output "$RUNNER_TEMP/expected-release-output"
           recorded_commit_count="$(
             sed -nE 's/^- Source commit: `([0-9a-f]{40})`$/\1/p' "$notes" |
               wc -l |
@@ -127,6 +146,43 @@ jobs:
           fi
           if ! grep -Eq '^- Open edX smoke test: passed on .+$' "$notes"; then
             echo "Record the Open edX smoke test as: Open edX smoke test: passed on <host version and result>." >&2
+            exit 1
+          fi
+          moodle_result_count="$(
+            grep -Ec '^- Moodle smoke test: passed on .+$' "$notes" || true
+          )"
+          moodle_example_count="$(
+            grep -Fxc -- '- Moodle smoke test: passed on <host version and result>' "$notes" ||
+              true
+          )"
+          xblock_result_count="$(
+            grep -Ec '^- Open edX smoke test: passed on .+$' "$notes" || true
+          )"
+          xblock_example_count="$(
+            grep -Fxc -- '- Open edX smoke test: passed on <host version and result>' "$notes" ||
+              true
+          )"
+          if [[ "$moodle_result_count" != "2" || "$moodle_example_count" != "1" ||
+            "$xblock_result_count" != "2" || "$xblock_example_count" != "1" ]]; then
+            echo "Release notes must preserve the complete generated evidence template." >&2
+            exit 1
+          fi
+          normalized_notes="$RUNNER_TEMP/normalized-release-notes.md"
+          awk '
+            !moodle && /^- Moodle smoke test: passed on .+$/ {
+              print "- Moodle smoke test: pending"
+              moodle = 1
+              next
+            }
+            !xblock && /^- Open edX smoke test: passed on .+$/ {
+              print "- Open edX smoke test: pending"
+              xblock = 1
+              next
+            }
+            { print }
+          ' "$notes" > "$normalized_notes"
+          if ! cmp -s "$expected_notes" "$normalized_notes"; then
+            echo "Release notes must preserve the complete generated evidence template." >&2
             exit 1
           fi
 

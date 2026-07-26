@@ -165,12 +165,18 @@ test("approval workflow validates the private draft before publishing it", () =>
   assert.equal(workflow.jobs.approve.environment.name, "release");
   assert.deepEqual(workflow.jobs.approve.permissions, { contents: "write" });
   assert.match(workflow.jobs.approve.if, /refs\/heads\/main/);
+  const checkout = workflow.jobs.approve.steps.find((step) =>
+    step.uses?.startsWith("actions/checkout@"),
+  );
+  assert.equal(checkout.with.ref, "${{ inputs.tag }}");
+  assert.equal(checkout.with["persist-credentials"], false);
 
   assert.match(source, /Release tag must use vMAJOR\.MINOR\.PATCH/);
   assert.match(source, /git\/ref\/tags\/\$RELEASE_TAG/);
   assert.match(source, /git\/tags\//);
   assert.match(source, /Moodle smoke test: passed on/);
   assert.match(source, /Open edX smoke test: passed on/);
+  assert.match(source, /must preserve the complete generated evidence template/);
   assert.match(source, /unexpected release asset/);
   assert.match(source, /SHA256SUMS must name exactly the approved packages/);
   assert.match(source, /sha256sum --check SHA256SUMS/);

@@ -173,6 +173,21 @@ exit 1
   );
 }
 
+function installMockGit(bin) {
+  writeExecutable(
+    join(bin, "git"),
+    `#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$1" == "-C" && "$3" == "rev-parse" && "$4" == "HEAD" ]]; then
+  printf '%s\\n' "$MOCK_RELEASE_COMMIT"
+  exit 0
+fi
+echo "unexpected git invocation: $*" >&2
+exit 1
+`,
+  );
+}
+
 function installMockSourceCiGh(bin) {
   writeExecutable(
     join(bin, "gh"),
@@ -368,6 +383,7 @@ function mockEnvironment(workspace, extra = {}) {
   return {
     GH_REPO: "brainjamworks/scaffold",
     GITHUB_API_URL: "https://api.github.test",
+    GITHUB_WORKSPACE: REPOSITORY_ROOT,
     MOCK_ASSET_DIR: join(workspace.root, "candidate"),
     MOCK_GH_LOG: join(workspace.root, "gh.log"),
     MOCK_RELEASE_COMMIT: RELEASE_COMMIT,
@@ -450,14 +466,41 @@ test("draft retry preserves manually reviewed release notes", (t) => {
 function createApprovalFixture(t, { pending = false } = {}) {
   const workspace = makeWorkspace(t, "scaffold-release-approval-");
   installMockGh(workspace.bin);
+  installMockGit(workspace.bin);
   const { candidate, provenance } = createCandidate(workspace.root);
   cpSync(join(provenance, ASSET_NAMES[4]), join(candidate, ASSET_NAMES[4]));
-  const smokeLines = pending
-    ? ["- Moodle smoke test: pending", "- Open edX smoke test: pending"]
-    : [
+  const notes = join(workspace.root, "generated-release-notes.md");
+  const output = join(workspace.root, "generated-release-output");
+  const prepared = spawnSync(
+    process.execPath,
+    [
+      resolve(REPOSITORY_ROOT, "scripts/prepare-release-candidate.mjs"),
+      "--repository-root",
+      REPOSITORY_ROOT,
+      "--tag",
+      TAG,
+      "--commit",
+      RELEASE_COMMIT,
+      "--notes-output",
+      notes,
+      "--github-output",
+      output,
+    ],
+    { encoding: "utf8" },
+  );
+  assert.equal(prepared.status, 0, prepared.stderr);
+  let body = readFileSync(notes, "utf8");
+  if (!pending) {
+    body = body
+      .replace(
+        "- Moodle smoke test: pending",
         "- Moodle smoke test: passed on Moodle 4.5.7 (clean install)",
+      )
+      .replace(
+        "- Open edX smoke test: pending",
         "- Open edX smoke test: passed on Sumac.3 (clean install)",
-      ];
+      );
+  }
   const release = {
     id: 123,
     tag_name: TAG,
@@ -465,7 +508,7 @@ function createApprovalFixture(t, { pending = false } = {}) {
     draft: true,
     prerelease: true,
     published_at: null,
-    body: [`- Source commit: \`${RELEASE_COMMIT}\``, ...smokeLines].join("\n"),
+    body,
     assets: ASSET_NAMES.map((name) => ({ name })),
   };
   writeFileSync(join(workspace.root, "release.json"), `${JSON.stringify(release)}\n`);
@@ -484,6 +527,30 @@ test("approval refuses a draft whose host smoke evidence is still pending", (t) 
 
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /still contain pending smoke tests/);
+  assert.doesNotMatch(readFileSync(join(workspace.root, "gh.log"), "utf8"), /--method PATCH/);
+});
+
+test("approval refuses materially truncated release evidence", (t) => {
+  const workspace = createApprovalFixture(t);
+  const releasePath = join(workspace.root, "release.json");
+  const release = JSON.parse(readFileSync(releasePath, "utf8"));
+  release.body = [
+    `- Source commit: \`${RELEASE_COMMIT}\``,
+    "- Moodle smoke test: passed on Moodle 4.5.7 (clean install)",
+    "- Open edX smoke test: passed on Sumac.3 (clean install)",
+  ].join("\n");
+  writeFileSync(releasePath, `${JSON.stringify(release)}\n`);
+
+  const result = runShell(
+    workflowStep(APPROVAL_WORKFLOW, "approve", "Validate evidence and publish the draft"),
+    {
+      cwd: workspace.root,
+      env: mockEnvironment(workspace, { GH_TOKEN: "test-token" }),
+    },
+  );
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /must preserve the complete generated evidence template/);
   assert.doesNotMatch(readFileSync(join(workspace.root, "gh.log"), "utf8"), /--method PATCH/);
 });
 

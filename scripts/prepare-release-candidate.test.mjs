@@ -26,6 +26,8 @@ test("prepares coordinated release metadata and notes", (t) => {
   assert.match(notes, /Moodle release change\./);
   assert.match(notes, /XBlock release change\./);
   assert.match(notes, new RegExp(`Source commit: \`${COMMIT}\``));
+  assert.match(notes, /Checksums: SHA256SUMS verified/);
+  assert.match(notes, /Provenance: GitHub artifact attestations attached/);
   assert.match(notes, /Moodle smoke test: pending/);
   assert.match(notes, /Open edX smoke test: pending/);
   assert.match(notes, /Moodle smoke test: passed on <host version and result>/);
