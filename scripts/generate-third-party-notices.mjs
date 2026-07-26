@@ -2,7 +2,11 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { spawnSync } from "node:child_process";
+
+import {
+  loadProductionLicenceInventory,
+  renderLicenceAndNoticeTexts,
+} from "./third-party-license-text.mjs";
 
 function parseArguments(argv) {
   const options = {
@@ -28,20 +32,6 @@ function parseArguments(argv) {
     throw new Error(`Unknown argument: ${argument}.`);
   }
   return options;
-}
-
-function loadLicenceInventory(inputPath) {
-  if (inputPath) {
-    return JSON.parse(readFileSync(inputPath, "utf8"));
-  }
-  const result = spawnSync("pnpm", ["licenses", "list", "--prod", "--json"], {
-    encoding: "utf8",
-    maxBuffer: 10 * 1024 * 1024,
-  });
-  if (result.status !== 0) {
-    throw new Error(result.stderr.trim() || "Could not read the production licence inventory.");
-  }
-  return JSON.parse(result.stdout);
 }
 
 function markdownCell(value) {
@@ -103,7 +93,8 @@ function noticeRows(inventory) {
 }
 
 function renderNotices(inventory) {
-  const tableRows = noticeRows(inventory).map(({ homepage, licence, name, version }) => [
+  const rows = noticeRows(inventory);
+  const tableRows = rows.map(({ homepage, licence, name, version }) => [
     markdownCell(name),
     markdownCell(version),
     markdownCell(licence),
@@ -129,12 +120,13 @@ function renderNotices(inventory) {
     "Generated with `node scripts/generate-third-party-notices.mjs` from the",
     "production dependency graph locked by `pnpm-lock.yaml`.",
     "",
+    renderLicenceAndNoticeTexts(rows, inventory),
   ].join("\n");
 }
 
 function main() {
   const options = parseArguments(process.argv.slice(2));
-  const expected = renderNotices(loadLicenceInventory(options.input));
+  const expected = renderNotices(loadProductionLicenceInventory(options.input));
   if (options.check) {
     const current = readFileSync(options.output, "utf8");
     if (current !== expected) {

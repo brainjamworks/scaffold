@@ -40,6 +40,13 @@ test("keeps Moodle third-party metadata equal to the generated frontend bundle",
   );
   assert.equal(xml, renderThirdPartyLibraries(libraries));
   assert.equal(notices, renderThirdPartyNotices(libraries));
+  assert.match(notices, /## Licence and notice texts/);
+  assert.match(notices, /Copyright \(c\) Meta Platforms, Inc\. and affiliates\./);
+  assert.match(
+    notices,
+    /The above copyright notice and this permission notice shall be included in all/,
+  );
+  assert.match(notices, /Apache ECharts\nCopyright 2017-2025 The Apache Software Foundation/);
 
   for (const { location, outputFiles } of libraries) {
     assert.ok(

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { test } from "node:test";
@@ -12,6 +12,23 @@ test("generates a deterministic sorted production dependency inventory", (t) => 
   t.after(() => rmSync(root, { force: true, recursive: true }));
   const input = join(root, "licenses.json");
   const output = join(root, "THIRD_PARTY_NOTICES.md");
+  const zPackageV2 = writePackage(root, "z-package-v2", "z-package", "2.0.0", {
+    LICENSE: [
+      "MIT License",
+      "",
+      "Copyright (c) Zed Example",
+      "",
+      "Permission is hereby granted, free of charge.",
+      "",
+    ].join("\n"),
+  });
+  const zPackageV1 = writePackage(root, "z-package-v1", "z-package", "1.0.0", {
+    LICENSE: "MIT License\nCopyright (c) Zed Example\n",
+  });
+  const aPackage = writePackage(root, "a-package", "@scope/a-package", "3.0.0", {
+    LICENSE: "Apache License Version 2.0\n",
+    NOTICE: "A Package includes software developed by Example.\n",
+  });
   writeFileSync(
     input,
     JSON.stringify({
@@ -20,6 +37,7 @@ test("generates a deterministic sorted production dependency inventory", (t) => 
           name: "z-package",
           versions: ["2.0.0", "1.0.0"],
           homepage: "https://example.com/z",
+          paths: [zPackageV2, zPackageV1],
         },
       ],
       "Apache-2.0": [
@@ -27,6 +45,7 @@ test("generates a deterministic sorted production dependency inventory", (t) => 
           name: "@scope/a-package",
           versions: ["3.0.0"],
           homepage: "https://example.com/a",
+          paths: [aPackage],
         },
       ],
     }),
@@ -41,6 +60,10 @@ test("generates a deterministic sorted production dependency inventory", (t) => 
   assert.match(notices, /\| z-package\s+\| 1\.0\.0\s+\| MIT\s+\|/);
   assert.ok(notices.indexOf("@scope/a-package") < notices.indexOf("z-package"));
   assert.ok(notices.indexOf("1.0.0") < notices.indexOf("2.0.0"));
+  assert.match(notices, /## Licence and notice texts/);
+  assert.match(notices, /Copyright \(c\) Zed Example/);
+  assert.match(notices, /Permission is hereby granted, free of charge\./);
+  assert.match(notices, /A Package includes software developed by Example\./);
 
   const check = runGenerator(["--input", input, "--output", output, "--check"]);
   assert.equal(check.status, 0, check.stderr);
@@ -67,9 +90,13 @@ test("normalizes platform-specific Canvas binary packages", (t) => {
   const linuxInput = join(root, "licenses-linux.json");
   const darwinOutput = join(root, "THIRD_PARTY_NOTICES-darwin.md");
   const linuxOutput = join(root, "THIRD_PARTY_NOTICES-linux.md");
+  const canvasPackage = writePackage(root, "canvas", "@napi-rs/canvas", "0.1.100", {
+    LICENSE: "MIT License\nCopyright (c) Canvas Example\n",
+  });
   const canvas = {
     name: "@napi-rs/canvas",
     versions: ["0.1.100"],
+    paths: [canvasPackage],
     homepage: "https://github.com/Brooooooklyn/canvas#readme",
   };
   const inventory = (platformPackage) => ({
@@ -78,6 +105,7 @@ test("normalizes platform-specific Canvas binary packages", (t) => {
       {
         ...canvas,
         name: platformPackage,
+        paths: [],
       },
     ],
   });
@@ -99,4 +127,14 @@ function runGenerator(arguments_) {
   return spawnSync(process.execPath, [SCRIPT_PATH, ...arguments_], {
     encoding: "utf8",
   });
+}
+
+function writePackage(root, directory, name, version, files) {
+  const packageRoot = join(root, directory);
+  mkdirSync(packageRoot);
+  writeFileSync(join(packageRoot, "package.json"), JSON.stringify({ name, version }));
+  for (const [name, contents] of Object.entries(files)) {
+    writeFileSync(join(packageRoot, name), contents);
+  }
+  return packageRoot;
 }

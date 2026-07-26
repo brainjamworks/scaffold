@@ -6,6 +6,11 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { build } from "vite-plus";
 
+import {
+  loadProductionLicenceInventory,
+  renderLicenceAndNoticeTexts,
+} from "../../../scripts/third-party-license-text.mjs";
+
 const DEFAULT_ADAPTER_ROOT = fileURLToPath(new URL("..", import.meta.url));
 const NODE_MODULES_MARKER = `${sep}node_modules${sep}`;
 
@@ -244,7 +249,7 @@ function markdownCell(value) {
     .replaceAll("|", String.raw`\|`);
 }
 
-export function renderThirdPartyNotices(libraries) {
+export function renderThirdPartyNotices(libraries, inventory = loadProductionLicenceInventory()) {
   const tableRows = libraries.map(({ license, location, name, repository, version }) => [
     markdownCell(name),
     markdownCell(version),
@@ -274,6 +279,7 @@ export function renderThirdPartyNotices(libraries) {
     "`pnpm-lock.yaml`; run `vp run @scaffold/adapter-moodle#sync:third-party-libraries`",
     "after changing frontend dependencies or generated output.",
     "",
+    renderLicenceAndNoticeTexts(libraries, inventory),
   ].join("\n");
 }
 
