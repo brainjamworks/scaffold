@@ -93,6 +93,7 @@ export interface AssessmentQuizRegistrationInput extends AssessmentQuizRegistrat
 
 export interface AssessmentQuizRegistration {
   readonly groupId: AssessmentGroupId;
+  readonly authoredGroupId: string;
   readonly targetIds: readonly string[];
   readonly settings: QuizAssessmentSettings;
 }

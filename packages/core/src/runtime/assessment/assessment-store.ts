@@ -20,7 +20,9 @@ import {
   buildAnsweredStatementDraft,
   buildHintInteractedStatementDraft,
 } from "../xapi/statement-catalogue";
+import type { XapiSession } from "../xapi/session";
 import type {
+  AssessmentDurableState,
   AssessmentGroupId,
   AssessmentProblemId,
   AssessmentQuizRegistration,
@@ -158,6 +160,7 @@ function storedQuizRegistration(
   }
   return {
     groupId: scopeAssessmentGroupId(artifactId, registration.groupId),
+    authoredGroupId: registration.groupId.trim(),
     targetIds,
     settings: QuizAssessmentSettingsSchema.parse(registration.settings),
   };
@@ -336,6 +339,70 @@ export function createAssessmentStore({
       }
     };
 
+    const recordQuizAnswers = (
+      operation: AssessmentRequestOperation,
+      registration: AssessmentQuizRegistration,
+      previousDurable: AssessmentDurableState,
+      currentDurable: AssessmentDurableState,
+      attempt: QuizAttemptState,
+    ): void => {
+      if (
+        operation !== "quiz-submit-question" &&
+        operation !== "quiz-finish" &&
+        operation !== "quiz-expire"
+      ) {
+        return;
+      }
+
+      const answers = registration.targetIds.flatMap((targetId) => {
+        const problemRegistrations = Object.values(get().registrations).filter(
+          (candidate) => candidate.targetId === targetId,
+        );
+        if (problemRegistrations.length !== 1) return [];
+        const problemRegistration = problemRegistrations[0];
+        if (!problemRegistration) return [];
+        const previousProblem = previousDurable.problems[problemRegistration.problemId];
+        const problem = currentDurable.problems[problemRegistration.problemId];
+        if (
+          !problem?.submitted ||
+          problem.attemptNumber <= 0 ||
+          problem.attemptNumber <= (previousProblem?.attemptNumber ?? 0)
+        ) {
+          return [];
+        }
+        return [{ problemRegistration, problem }];
+      });
+      if (answers.length === 0) return;
+
+      let session: XapiSession | null | undefined;
+      try {
+        session = getXapiSession?.();
+      } catch {
+        return;
+      }
+      if (!session) return;
+
+      for (const { problemRegistration, problem } of answers) {
+        try {
+          session.record(
+            buildAnsweredStatementDraft({
+              rootActivityId: session.rootActivityId,
+              targetId: problemRegistration.targetId,
+              interactionKind: problemRegistration.interactionKind,
+              result: problem.submissionResult,
+              attemptNumber: problem.attemptNumber,
+              quiz: {
+                quizId: registration.authoredGroupId,
+                attemptId: attempt.attemptId,
+              },
+            }),
+          );
+        } catch {
+          // One learning-record failure cannot change authority or suppress later answers.
+        }
+      }
+    };
+
     const beginRequest = (
       ownerId: AssessmentScopedId,
       operation: AssessmentRequestOperation,
@@ -392,6 +459,8 @@ export function createAssessmentStore({
       },
       clearRequest: boolean,
     ): boolean => {
+      const previousDurable = get().durable;
+      const operation = get().requests[groupId]?.operation;
       let committed = false;
       set((state) => {
         if (state.requests[groupId]?.requestId !== requestId) return state;
@@ -405,6 +474,16 @@ export function createAssessmentStore({
         delete requests[groupId];
         return { durable, requests };
       });
+      const registration = get().quizRegistrations[groupId];
+      if (committed && operation && registration) {
+        recordQuizAnswers(
+          operation,
+          registration,
+          previousDurable,
+          get().durable,
+          outcome.quizAttempt,
+        );
+      }
       return committed;
     };
 
