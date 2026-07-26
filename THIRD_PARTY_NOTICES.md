@@ -140,8 +140,8 @@ licence terms; project links identify their upstream source and notices.
 | dequal                                 | 2.0.3      | MIT                     | [upstream](https://github.com/lukeed/dequal#readme)                                                      |
 | detect-node-es                         | 1.1.0      | MIT                     | [upstream](https://github.com/thekashey/detect-node)                                                     |
 | devlop                                 | 1.1.0      | MIT                     | [upstream](https://github.com/wooorm/devlop#readme)                                                      |
-| dompurify                              | 3.4.11     | (MPL-2.0 OR Apache-2.0) | [upstream](https://github.com/cure53/DOMPurify)                                                          |
-| echarts                                | 6.0.0      | Apache-2.0              | [upstream](https://echarts.apache.org)                                                                   |
+| dompurify                              | 3.4.12     | (MPL-2.0 OR Apache-2.0) | [upstream](https://github.com/cure53/DOMPurify)                                                          |
+| echarts                                | 6.1.0      | Apache-2.0              | [upstream](https://echarts.apache.org)                                                                   |
 | entities                               | 7.0.1      | BSD-2-Clause            | [upstream](https://github.com/fb55/entities#readme)                                                      |
 | fast-equals                            | 5.4.0      | MIT                     | [upstream](https://github.com/planttheidea/fast-equals#readme)                                           |
 | get-nonce                              | 1.0.1      | MIT                     | [upstream](https://github.com/theKashey/get-nonce)                                                       |
@@ -203,7 +203,7 @@ licence terms; project links identify their upstream source and notices.
 | y-protocols                            | 1.0.7      | MIT                     | [upstream](https://github.com/yjs/y-protocols#readme)                                                    |
 | yjs                                    | 13.6.31    | MIT                     | [upstream](https://docs.yjs.dev)                                                                         |
 | zod                                    | 3.25.76    | MIT                     | [upstream](https://zod.dev)                                                                              |
-| zrender                                | 6.0.0      | BSD-3-Clause            | [upstream](https://github.com/ecomfe/zrender#readme)                                                     |
+| zrender                                | 6.1.0      | BSD-3-Clause            | [upstream](https://github.com/ecomfe/zrender#readme)                                                     |
 | zustand                                | 5.0.14     | MIT                     | [upstream](https://github.com/pmndrs/zustand)                                                            |
 
 Generated with `node scripts/generate-third-party-notices.mjs` from the
@@ -1829,7 +1829,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **Applies to:**
 
-- `dompurify@3.4.11` — declared `(MPL-2.0 OR Apache-2.0)`
+- `dompurify@3.4.12` — declared `(MPL-2.0 OR Apache-2.0)`
 
 ```text
 
@@ -2040,7 +2040,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **Applies to:**
 
-- `dompurify@3.4.11` — declared `(MPL-2.0 OR Apache-2.0)`
+- `dompurify@3.4.12` — declared `(MPL-2.0 OR Apache-2.0)`
 
 ```text
 Mozilla Public License Version 2.0
@@ -2422,7 +2422,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 
 **Applies to:**
 
-- `echarts@6.0.0` — declared `Apache-2.0`
+- `echarts@6.1.0` — declared `Apache-2.0`
 
 ```text
 
@@ -2653,11 +2653,11 @@ See `/licenses/LICENSE-d3` for details of the license.
 
 **Applies to:**
 
-- `echarts@6.0.0` — declared `Apache-2.0`
+- `echarts@6.1.0` — declared `Apache-2.0`
 
 ```text
 Apache ECharts
-Copyright 2017-2025 The Apache Software Foundation
+Copyright 2017-2026 The Apache Software Foundation
 
 This product includes software developed at
 The Apache Software Foundation (https://www.apache.org/).
@@ -3763,7 +3763,7 @@ SOFTWARE.
 
 **Applies to:**
 
-- `zrender@6.0.0` — declared `BSD-3-Clause`
+- `zrender@6.1.0` — declared `BSD-3-Clause`
 
 ```text
 BSD 3-Clause License

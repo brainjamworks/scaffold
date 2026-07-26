@@ -106,8 +106,8 @@ own licence terms. `thirdpartylibs.xml` contains the matching Moodle metadata.
 | clsx                                   | 2.1.1   | MIT                     | public/assets     | [source](https://github.com/lukeed/clsx)                              |
 | dequal                                 | 2.0.3   | MIT                     | public/assets     | [source](https://github.com/lukeed/dequal)                            |
 | devlop                                 | 1.1.0   | MIT                     | public/assets     | [source](https://github.com/wooorm/devlop)                            |
-| dompurify                              | 3.4.11  | (MPL-2.0 OR Apache-2.0) | public/assets     | [source](https://github.com/cure53/DOMPurify)                         |
-| echarts                                | 6.0.0   | Apache-2.0              | public/assets     | [source](https://github.com/apache/echarts)                           |
+| dompurify                              | 3.4.12  | (MPL-2.0 OR Apache-2.0) | public/assets     | [source](https://github.com/cure53/DOMPurify)                         |
+| echarts                                | 6.1.0   | Apache-2.0              | public/assets     | [source](https://github.com/apache/echarts)                           |
 | fast-equals                            | 5.4.0   | MIT                     | public/assets     | [source](https://github.com/planttheidea/fast-equals)                 |
 | get-nonce                              | 1.0.1   | MIT                     | public/assets     | [source](https://github.com/theKashey/get-nonce)                      |
 | highlight.js                           | 11.11.1 | BSD-3-Clause            | public/assets     | [source](https://github.com/highlightjs/highlight.js)                 |
@@ -157,7 +157,7 @@ own licence terms. `thirdpartylibs.xml` contains the matching Moodle metadata.
 | y-prosemirror                          | 1.3.7   | MIT                     | public/assets     | [source](https://github.com/yjs/y-prosemirror)                        |
 | yjs                                    | 13.6.31 | MIT                     | public/assets     | [source](https://github.com/yjs/yjs)                                  |
 | zod                                    | 3.25.76 | MIT                     | public/assets     | [source](https://github.com/colinhacks/zod)                           |
-| zrender                                | 6.0.0   | BSD-3-Clause            | public/assets     | [source](https://github.com/ecomfe/zrender)                           |
+| zrender                                | 6.1.0   | BSD-3-Clause            | public/assets     | [source](https://github.com/ecomfe/zrender)                           |
 | zustand                                | 5.0.14  | MIT                     | public/assets     | [source](https://github.com/pmndrs/zustand)                           |
 
 Generated from the tree-shaken Vite output and package metadata locked by
@@ -1031,7 +1031,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **Applies to:**
 
-- `dompurify@3.4.11` — declared `(MPL-2.0 OR Apache-2.0)`
+- `dompurify@3.4.12` — declared `(MPL-2.0 OR Apache-2.0)`
 
 ```text
 
@@ -1242,7 +1242,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **Applies to:**
 
-- `dompurify@3.4.11` — declared `(MPL-2.0 OR Apache-2.0)`
+- `dompurify@3.4.12` — declared `(MPL-2.0 OR Apache-2.0)`
 
 ```text
 Mozilla Public License Version 2.0
@@ -1624,7 +1624,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 
 **Applies to:**
 
-- `echarts@6.0.0` — declared `Apache-2.0`
+- `echarts@6.1.0` — declared `Apache-2.0`
 
 ```text
 
@@ -1855,11 +1855,11 @@ See `/licenses/LICENSE-d3` for details of the license.
 
 **Applies to:**
 
-- `echarts@6.0.0` — declared `Apache-2.0`
+- `echarts@6.1.0` — declared `Apache-2.0`
 
 ```text
 Apache ECharts
-Copyright 2017-2025 The Apache Software Foundation
+Copyright 2017-2026 The Apache Software Foundation
 
 This product includes software developed at
 The Apache Software Foundation (https://www.apache.org/).
@@ -2738,7 +2738,7 @@ SOFTWARE.
 
 **Applies to:**
 
-- `zrender@6.0.0` — declared `BSD-3-Clause`
+- `zrender@6.1.0` — declared `BSD-3-Clause`
 
 ```text
 BSD 3-Clause License

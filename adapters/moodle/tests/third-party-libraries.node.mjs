@@ -46,7 +46,7 @@ test("keeps Moodle third-party metadata equal to the generated frontend bundle",
     notices,
     /The above copyright notice and this permission notice shall be included in all/,
   );
-  assert.match(notices, /Apache ECharts\nCopyright 2017-2025 The Apache Software Foundation/);
+  assert.match(notices, /Apache ECharts\nCopyright 2017-\d{4} The Apache Software Foundation/);
 
   for (const { location, outputFiles } of libraries) {
     assert.ok(
