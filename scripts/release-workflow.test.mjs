@@ -133,6 +133,18 @@ test("release package downloads the exact tested Moodle candidate from the selec
   assert.match(stage.run, /Expected exactly one tested Moodle candidate/);
   assert.match(stage.run, /sha256sum --check/);
   assert.match(stage.run, /mod_scaffold-\$RELEASE_VERSION\.zip/);
+  assert.match(stage.run, /release-evidence\.json/);
+  assert.match(stage.run, /CI_RUN_ID/);
+  assert.match(stage.run, /moodle_candidate/);
+
+  const assemble = workflow.jobs.package.steps.find(
+    (step) => step.name === "Assemble candidate evidence",
+  );
+  assert.match(assemble.run, /release-evidence\.json/);
+  const draft = workflow.jobs.draft.steps.find(
+    (step) => step.name === "Create or safely complete the draft",
+  );
+  assert.match(draft.run, /release-evidence\.json/);
 });
 
 test("release workflow pins every action to a full commit SHA", () => {
@@ -163,7 +175,10 @@ test("approval workflow validates the private draft before publishing it", () =>
   assert.deepEqual(Object.keys(workflow.jobs), ["approve"]);
   assert.equal(workflow.jobs.approve["runs-on"], "ubuntu-24.04");
   assert.equal(workflow.jobs.approve.environment.name, "release");
-  assert.deepEqual(workflow.jobs.approve.permissions, { contents: "write" });
+  assert.deepEqual(workflow.jobs.approve.permissions, {
+    actions: "read",
+    contents: "write",
+  });
   assert.match(workflow.jobs.approve.if, /refs\/heads\/main/);
   const checkout = workflow.jobs.approve.steps.find((step) =>
     step.uses?.startsWith("actions/checkout@"),
@@ -180,6 +195,9 @@ test("approval workflow validates the private draft before publishing it", () =>
   assert.match(source, /unexpected release asset/);
   assert.match(source, /SHA256SUMS must name exactly the approved packages/);
   assert.match(source, /sha256sum --check SHA256SUMS/);
+  assert.match(source, /release-evidence\.json/);
+  assert.match(source, /Required CI evidence does not match the approved Moodle package/);
+  assert.match(source, /actions\/runs\/\$source_ci_run_id/);
   assert.match(source, /gh attestation verify/);
   assert.match(source, /--source-digest/);
   assert.match(source, /--source-ref/);

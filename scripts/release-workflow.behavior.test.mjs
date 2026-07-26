@@ -25,13 +25,14 @@ const VERSION = "0.1.0";
 const TAG = `v${VERSION}`;
 const TAG_OBJECT = "a".repeat(40);
 const RELEASE_COMMIT = "b".repeat(40);
-const ASSET_NAMES = [
-  `mod_scaffold-${VERSION}.zip`,
-  `scaffold_xblock-${VERSION}-py3-none-any.whl`,
-  `scaffold_xblock-${VERSION}.tar.gz`,
-  "SHA256SUMS",
-  `scaffold-${VERSION}-provenance.jsonl`,
-];
+const SOURCE_CI_RUN_ID = 102;
+const MOODLE_ASSET = `mod_scaffold-${VERSION}.zip`;
+const WHEEL_ASSET = `scaffold_xblock-${VERSION}-py3-none-any.whl`;
+const SDIST_ASSET = `scaffold_xblock-${VERSION}.tar.gz`;
+const EVIDENCE_ASSET = "release-evidence.json";
+const PROVENANCE_ASSET = `scaffold-${VERSION}-provenance.jsonl`;
+const PACKAGE_ASSET_NAMES = [MOODLE_ASSET, WHEEL_ASSET, SDIST_ASSET];
+const ASSET_NAMES = [...PACKAGE_ASSET_NAMES, "SHA256SUMS", EVIDENCE_ASSET, PROVENANCE_ASSET];
 
 function loadWorkflow(relativePath) {
   return parseYaml(readFileSync(resolve(REPOSITORY_ROOT, relativePath), "utf8"));
@@ -102,6 +103,9 @@ if [[ "$1" == "api" ]]; then
       "$RELEASE_TAG" "$MOCK_RELEASE_COMMIT"
   elif [[ "$arguments" == *"/releases/tags/"* ]]; then
     cat "$MOCK_RELEASE_JSON"
+  elif [[ "$arguments" == *"/actions/runs/"* ]]; then
+    printf '{"id":%s,"head_sha":"%s","event":"push","status":"completed","conclusion":"success","path":".github/workflows/ci.yml"}\\n' \
+      "$MOCK_SOURCE_CI_RUN_ID" "$MOCK_SOURCE_CI_HEAD_SHA"
   elif [[ "$arguments" == *"/immutable-releases"* ]]; then
     printf '{}\\n'
   elif [[ "$arguments" == *"/releases/"* && "$arguments" == *"--method PATCH"* ]]; then
@@ -332,15 +336,19 @@ test("release staging preserves the exact tested Moodle candidate bytes", (t) =>
   const workspace = makeWorkspace(t, "scaffold-release-stage-candidate-");
   const download = join(workspace.root, "download", VERSION);
   mkdirSync(download, { recursive: true });
-  const archive = join(download, ASSET_NAMES[0]);
+  const archive = join(download, MOODLE_ASSET);
   writeFileSync(archive, "exact CI-tested Moodle bytes\n");
-  writeFileSync(`${archive}.sha256`, `${sha256(archive)}  ${ASSET_NAMES[0]}\n`);
+  writeFileSync(`${archive}.sha256`, `${sha256(archive)}  ${MOODLE_ASSET}\n`);
 
   const result = runShell(
     workflowStep(RELEASE_WORKFLOW, "package", "Stage tested Moodle candidate"),
     {
       cwd: workspace.root,
       env: {
+        CI_RUN_ID: String(SOURCE_CI_RUN_ID),
+        GITHUB_REPOSITORY: "brainjamworks/scaffold",
+        GITHUB_SERVER_URL: "https://github.com",
+        RELEASE_COMMIT,
         RELEASE_VERSION: VERSION,
         TESTED_MOODLE_CANDIDATE: join(workspace.root, "download"),
       },
@@ -348,9 +356,27 @@ test("release staging preserves the exact tested Moodle candidate bytes", (t) =>
   );
 
   assert.equal(result.status, 0, result.stderr);
-  const staged = join(workspace.root, "dist", "release", VERSION, ASSET_NAMES[0]);
+  const staged = join(workspace.root, "dist", "release", VERSION, MOODLE_ASSET);
   assert.equal(readFileSync(staged, "utf8"), readFileSync(archive, "utf8"));
   assert.equal(sha256(staged), sha256(archive));
+  assert.deepEqual(
+    JSON.parse(
+      readFileSync(join(workspace.root, "dist", "release", VERSION, EVIDENCE_ASSET), "utf8"),
+    ),
+    {
+      schema: 1,
+      source_commit: RELEASE_COMMIT,
+      required_ci: {
+        workflow: ".github/workflows/ci.yml",
+        run_id: SOURCE_CI_RUN_ID,
+        run_url: `https://github.com/brainjamworks/scaffold/actions/runs/${SOURCE_CI_RUN_ID}`,
+      },
+      moodle_candidate: {
+        filename: MOODLE_ASSET,
+        sha256: sha256(archive),
+      },
+    },
+  );
 });
 
 function createCandidate(root) {
@@ -358,16 +384,36 @@ function createCandidate(root) {
   const provenance = join(root, "provenance");
   mkdirSync(candidate);
   mkdirSync(provenance);
-  for (const name of ASSET_NAMES.slice(0, 3)) {
+  for (const name of PACKAGE_ASSET_NAMES) {
     writeFileSync(join(candidate, name), `approved bytes for ${name}\n`);
   }
   writeFileSync(
     join(candidate, "SHA256SUMS"),
-    `${ASSET_NAMES.slice(0, 3)
-      .map((name) => `${sha256(join(candidate, name))}  ${name}`)
-      .join("\n")}\n`,
+    `${PACKAGE_ASSET_NAMES.map((name) => `${sha256(join(candidate, name))}  ${name}`).join(
+      "\n",
+    )}\n`,
   );
-  writeFileSync(join(provenance, ASSET_NAMES[4]), '{"bundle":"fixture"}\n');
+  writeFileSync(
+    join(candidate, EVIDENCE_ASSET),
+    `${JSON.stringify(
+      {
+        schema: 1,
+        source_commit: RELEASE_COMMIT,
+        required_ci: {
+          workflow: ".github/workflows/ci.yml",
+          run_id: SOURCE_CI_RUN_ID,
+          run_url: `https://github.com/brainjamworks/scaffold/actions/runs/${SOURCE_CI_RUN_ID}`,
+        },
+        moodle_candidate: {
+          filename: MOODLE_ASSET,
+          sha256: sha256(join(candidate, MOODLE_ASSET)),
+        },
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  writeFileSync(join(provenance, PROVENANCE_ASSET), '{"bundle":"fixture"}\n');
   writeFileSync(join(candidate, "release-notes.md"), "candidate notes\n");
   return { candidate, provenance };
 }
@@ -383,11 +429,14 @@ function mockEnvironment(workspace, extra = {}) {
   return {
     GH_REPO: "brainjamworks/scaffold",
     GITHUB_API_URL: "https://api.github.test",
+    GITHUB_SERVER_URL: "https://github.com",
     GITHUB_WORKSPACE: REPOSITORY_ROOT,
     MOCK_ASSET_DIR: join(workspace.root, "candidate"),
     MOCK_GH_LOG: join(workspace.root, "gh.log"),
     MOCK_RELEASE_COMMIT: RELEASE_COMMIT,
     MOCK_RELEASE_JSON: join(workspace.root, "release.json"),
+    MOCK_SOURCE_CI_HEAD_SHA: RELEASE_COMMIT,
+    MOCK_SOURCE_CI_RUN_ID: String(SOURCE_CI_RUN_ID),
     MOCK_TAG_OBJECT: TAG_OBJECT,
     PATH: `${workspace.bin}:${process.env.PATH}`,
     RELEASE_TAG: TAG,
@@ -429,7 +478,7 @@ test("draft retry preserves manually reviewed release notes", (t) => {
   installMockCurl(workspace.bin);
   installMockGh(workspace.bin);
   const { candidate } = createCandidate(workspace.root);
-  const existingAsset = ASSET_NAMES[0];
+  const existingAsset = MOODLE_ASSET;
   const release = {
     body: [
       "- Moodle smoke test: passed on Moodle 4.5 (clean install)",
@@ -468,7 +517,7 @@ function createApprovalFixture(t, { pending = false } = {}) {
   installMockGh(workspace.bin);
   installMockGit(workspace.bin);
   const { candidate, provenance } = createCandidate(workspace.root);
-  cpSync(join(provenance, ASSET_NAMES[4]), join(candidate, ASSET_NAMES[4]));
+  cpSync(join(provenance, PROVENANCE_ASSET), join(candidate, PROVENANCE_ASSET));
   const notes = join(workspace.root, "generated-release-notes.md");
   const output = join(workspace.root, "generated-release-output");
   const prepared = spawnSync(
@@ -558,11 +607,11 @@ test("approval requires checksums for exactly the approved packages", (t) => {
   const cases = [
     {
       label: "duplicate and missing package names",
-      names: [ASSET_NAMES[0], ASSET_NAMES[0], ASSET_NAMES[0]],
+      names: [MOODLE_ASSET, MOODLE_ASSET, MOODLE_ASSET],
     },
     {
       label: "an unexpected package name",
-      names: [ASSET_NAMES[0], ASSET_NAMES[1], "unapproved-package.zip"],
+      names: [MOODLE_ASSET, WHEEL_ASSET, "unapproved-package.zip"],
     },
   ];
 
@@ -596,6 +645,26 @@ test("approval requires checksums for exactly the approved packages", (t) => {
   }
 });
 
+test("approval refuses tested-Moodle evidence that does not match the release package", (t) => {
+  const workspace = createApprovalFixture(t);
+  const evidencePath = join(workspace.root, "candidate", EVIDENCE_ASSET);
+  const evidence = JSON.parse(readFileSync(evidencePath, "utf8"));
+  evidence.moodle_candidate.sha256 = "0".repeat(64);
+  writeFileSync(evidencePath, `${JSON.stringify(evidence, null, 2)}\n`);
+
+  const result = runShell(
+    workflowStep(APPROVAL_WORKFLOW, "approve", "Validate evidence and publish the draft"),
+    {
+      cwd: workspace.root,
+      env: mockEnvironment(workspace, { GH_TOKEN: "test-token" }),
+    },
+  );
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /does not match the approved Moodle package/);
+  assert.doesNotMatch(readFileSync(join(workspace.root, "gh.log"), "utf8"), /--method PATCH/);
+});
+
 test("approval publishes only a complete draft bound to its annotated tag", (t) => {
   const workspace = createApprovalFixture(t);
   const result = runShell(
@@ -618,7 +687,7 @@ function runPypiStage(t, releaseMetadata, status = "200") {
   installMockCurl(workspace.bin);
   const candidate = join(workspace.runnerTemp, "candidate");
   mkdirSync(candidate);
-  const distributions = ASSET_NAMES.slice(1, 3);
+  const distributions = [WHEEL_ASSET, SDIST_ASSET];
   for (const name of distributions) {
     writeFileSync(join(candidate, name), `approved bytes for ${name}\n`);
   }

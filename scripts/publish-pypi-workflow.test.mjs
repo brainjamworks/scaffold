@@ -40,6 +40,7 @@ test("PyPI workflow publishes only after approval and supports explicit retries"
   assert.match(source, /Moodle smoke test: passed on/);
   assert.match(source, /Open edX smoke test: passed on/);
   assert.match(source, /unexpected release asset/);
+  assert.match(source, /release-evidence\.json/);
   assert.match(source, /gh release download/);
   assert.match(source, /sha256sum --check SHA256SUMS/);
   assert.match(source, /gh attestation verify/);

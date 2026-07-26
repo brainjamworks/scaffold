@@ -140,7 +140,7 @@ function releaseNotes(release) {
     "## Verification",
     "",
     `- Source commit: \`${release.commit}\``,
-    "- Required CI: passed",
+    "- Required CI: exact run and Moodle digest in `release-evidence.json`",
     "- Exact package checks: passed",
     "- Checksums: SHA256SUMS verified",
     "- Provenance: GitHub artifact attestations attached",

@@ -174,10 +174,17 @@ jobs:
 
       - name: Stage tested Moodle candidate
         env:
+          CI_RUN_ID: ${{ needs.gate.outputs.ci_run_id }}
+          RELEASE_COMMIT: ${{ needs.gate.outputs.commit }}
           RELEASE_VERSION: ${{ needs.gate.outputs.version }}
           TESTED_MOODLE_CANDIDATE: ${{ runner.temp }}/moodle-plugin-candidate
         run: |
           set -euo pipefail
+
+          if [[ ! "$CI_RUN_ID" =~ ^[1-9][0-9]*$ ]]; then
+            echo "Required CI run ID must be a positive integer." >&2
+            exit 1
+          fi
 
           archives="$(
             find "$TESTED_MOODLE_CANDIDATE" -type f -name 'mod_scaffold-*.zip' -print
@@ -209,6 +216,29 @@ jobs:
           mkdir -p "$release_directory"
           cp "$archive" "$release_directory/$expected_name"
           cp "$checksum" "$release_directory/$expected_name.sha256"
+
+          candidate_sha256="$(sha256sum "$archive" | awk '{print $1}')"
+          jq -n \
+            --arg commit "$RELEASE_COMMIT" \
+            --arg filename "$expected_name" \
+            --arg run_url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$CI_RUN_ID" \
+            --arg sha256 "$candidate_sha256" \
+            --arg workflow ".github/workflows/ci.yml" \
+            --argjson run_id "$CI_RUN_ID" \
+            '{
+              schema: 1,
+              source_commit: $commit,
+              required_ci: {
+                workflow: $workflow,
+                run_id: $run_id,
+                run_url: $run_url
+              },
+              moodle_candidate: {
+                filename: $filename,
+                sha256: $sha256
+              }
+            }' \
+            > "$release_directory/release-evidence.json"
 
       - name: Setup Vite+
         uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb # v1.15.0
@@ -258,6 +288,7 @@ jobs:
             cp "$release_directory/$filename" "$handoff_directory/$filename"
           done
           cp "$release_directory/SHA256SUMS" "$handoff_directory/SHA256SUMS"
+          cp "$release_directory/release-evidence.json" "$handoff_directory/release-evidence.json"
 
           node scripts/prepare-release-candidate.mjs \
             --repository-root "$GITHUB_WORKSPACE" \
@@ -358,6 +389,7 @@ jobs:
             "$release_directory/scaffold_xblock-$RELEASE_VERSION-py3-none-any.whl"
             "$release_directory/scaffold_xblock-$RELEASE_VERSION.tar.gz"
             "$release_directory/SHA256SUMS"
+            "$release_directory/release-evidence.json"
             "provenance/scaffold-$RELEASE_VERSION-provenance.jsonl"
           )
           for asset in "${assets[@]}"; do

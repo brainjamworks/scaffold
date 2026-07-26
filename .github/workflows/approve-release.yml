@@ -28,6 +28,7 @@ jobs:
     environment:
       name: release
     permissions:
+      actions: read
       contents: write
     steps:
       - name: Check out reviewed release source
@@ -191,6 +192,7 @@ jobs:
             "scaffold_xblock-$version-py3-none-any.whl"
             "scaffold_xblock-$version.tar.gz"
             "SHA256SUMS"
+            "release-evidence.json"
             "scaffold-$version-provenance.jsonl"
           )
           actual_asset_names="$RUNNER_TEMP/actual-asset-names"
@@ -251,6 +253,70 @@ jobs:
             fi
             sha256sum --check SHA256SUMS
           )
+
+          evidence="$candidate/release-evidence.json"
+          if ! source_ci_run_id="$(
+            jq -er \
+              '.required_ci.run_id |
+                select(type == "number" and . > 0 and . == floor)' \
+              "$evidence"
+          )"; then
+            echo "Release evidence contains an invalid Required CI run ID." >&2
+            exit 1
+          fi
+          expected_moodle_name="mod_scaffold-$version.zip"
+          expected_moodle_sha256="$(
+            sha256sum "$candidate/$expected_moodle_name" |
+              awk '{print $1}'
+          )"
+          expected_source_ci_url="$GITHUB_SERVER_URL/$GH_REPO/actions/runs/$source_ci_run_id"
+          if ! jq -e \
+            --arg commit "$approved_commit" \
+            --arg filename "$expected_moodle_name" \
+            --arg run_url "$expected_source_ci_url" \
+            --arg sha256 "$expected_moodle_sha256" \
+            --arg workflow ".github/workflows/ci.yml" \
+            --argjson run_id "$source_ci_run_id" \
+            'type == "object" and
+              (keys == ["moodle_candidate", "required_ci", "schema", "source_commit"]) and
+              .schema == 1 and
+              .source_commit == $commit and
+              (.required_ci |
+                type == "object" and
+                (keys == ["run_id", "run_url", "workflow"]) and
+                .workflow == $workflow and
+                .run_id == $run_id and
+                .run_url == $run_url) and
+              (.moodle_candidate |
+                type == "object" and
+                (keys == ["filename", "sha256"]) and
+                .filename == $filename and
+                .sha256 == $sha256)' \
+            "$evidence" \
+            > /dev/null; then
+            echo "Required CI evidence does not match the approved Moodle package or source." >&2
+            exit 1
+          fi
+
+          source_ci_run="$RUNNER_TEMP/source-ci-run.json"
+          gh api \
+            "repos/$GH_REPO/actions/runs/$source_ci_run_id" \
+            > "$source_ci_run"
+          if ! jq -e \
+            --arg commit "$approved_commit" \
+            --arg workflow ".github/workflows/ci.yml" \
+            --argjson run_id "$source_ci_run_id" \
+            '.id == $run_id and
+              .head_sha == $commit and
+              (.event == "push" or .event == "workflow_dispatch") and
+              .status == "completed" and
+              .conclusion == "success" and
+              .path == $workflow' \
+            "$source_ci_run" \
+            > /dev/null; then
+            echo "Required CI evidence does not identify a successful exact-commit run." >&2
+            exit 1
+          fi
 
           bundle="$candidate/scaffold-$version-provenance.jsonl"
           certificate_identity="https://github.com/$GH_REPO/.github/workflows/release.yml@refs/tags/$RELEASE_TAG"

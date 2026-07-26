@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { spawnSync } from "node:child_process";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
@@ -25,6 +27,67 @@ function actionReferences(workflow) {
     (job.steps ?? []).flatMap((step) => (step.uses ? [step.uses] : [])),
   );
 }
+
+test("packaged and release Markdown runs both code and documentation CI", (t) => {
+  const { workflow } = loadWorkflow();
+  const classify = workflow.jobs.classify.steps.find(
+    (step) => step.name === "Classify changed paths",
+  );
+  assert.ok(classify?.run);
+
+  const root = mkdtempSync(join(tmpdir(), "scaffold-ci-classify-"));
+  t.after(() => rmSync(root, { force: true, recursive: true }));
+  const bin = join(root, "bin");
+  mkdirSync(bin);
+  const mockGit = join(bin, "git");
+  writeFileSync(
+    mockGit,
+    `#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$1" == "cat-file" ]]; then
+  exit 0
+fi
+if [[ "$1" == "diff" ]]; then
+  printf '%s\\0' "$CHANGED_FILE"
+  exit 0
+fi
+echo "unexpected git invocation: $*" >&2
+exit 1
+`,
+  );
+  chmodSync(mockGit, 0o755);
+
+  const releaseFiles = [
+    "CHANGELOG.md",
+    "THIRD_PARTY_NOTICES.md",
+    "adapters/moodle/scaffold/CHANGES.md",
+    "adapters/moodle/scaffold/README.md",
+    "adapters/moodle/scaffold/THIRD_PARTY_NOTICES.md",
+    "adapters/xblock/CHANGES.md",
+    "adapters/xblock/README.md",
+    "adapters/xblock/scaffold_xblock/runtime-notice.md",
+  ];
+  for (const changedFile of releaseFiles) {
+    const output = join(root, changedFile.replaceAll("/", "-"));
+    const result = spawnSync("bash", ["-c", classify.run], {
+      cwd: root,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        BEFORE_SHA: "a".repeat(40),
+        CHANGED_FILE: changedFile,
+        EVENT_NAME: "push",
+        GITHUB_OUTPUT: output,
+        HEAD_SHA: "b".repeat(40),
+        PATH: `${bin}:${process.env.PATH}`,
+        PULL_REQUEST_BASE_SHA: "",
+      },
+    });
+
+    assert.equal(result.status, 0, `${changedFile}: ${result.stderr}`);
+    assert.equal(readFileSync(output, "utf8"), "code=true\ndocs=true\n", changedFile);
+  }
+});
 
 test("CI defines exactly the selected Moodle compatibility pair", () => {
   const { workflow } = loadWorkflow();

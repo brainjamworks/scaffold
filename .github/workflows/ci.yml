@@ -52,8 +52,15 @@ jobs:
           docs=false
           while IFS= read -r -d '' path; do
             case "$path" in
-              *.md|LICENSE|documentation/*|.github/readme/*|.github/ISSUE_TEMPLATE/*)
+              CHANGELOG.md|THIRD_PARTY_NOTICES.md|adapters/moodle/scaffold/*.md|adapters/xblock/CHANGES.md|adapters/xblock/README.md|adapters/xblock/scaffold_xblock/*.md)
+                code=true
                 docs=true
+                ;;
+              *.md|documentation/*|.github/readme/*|.github/ISSUE_TEMPLATE/*)
+                docs=true
+                ;;
+              LICENSE)
+                code=true
                 ;;
               *)
                 code=true

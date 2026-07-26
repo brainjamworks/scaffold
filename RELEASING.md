@@ -174,13 +174,15 @@ Passing the source gate does not by itself prove that a packaged adapter is
 installable. Release verification must test the exact distributions that will
 be published.
 
-The release workflow relies on required CI for the tagged commit and must not
-duplicate the complete source test suite. It performs release-specific package
-validation instead. Before approving the draft, the maintainer must manually
-smoke-test the exact Moodle ZIP and XBlock wheel in available real host
-installations and record the host versions and results in the draft. An
-automated multi-version Moodle and Open edX host matrix is future hardening, not
-a requirement for the initial release pipeline.
+Required CI builds the exact Moodle ZIP and exercises it with the selected
+Moodle-native and Marketplace-equivalent checks. The release workflow selects a
+successful exact-commit CI run, promotes that run's ZIP without rebuilding it,
+and performs the XBlock release-specific package validation. It must not
+duplicate the complete source test suite. Before approving the draft, the
+maintainer must manually smoke-test the exact Moodle ZIP and XBlock wheel in
+available real host installations and record the host versions and results in
+the draft. An automated multi-version Moodle and Open edX host matrix is future
+hardening, not a requirement for the initial release pipeline.
 
 ## Moodle Package Contract
 
@@ -217,11 +219,13 @@ The intended package interface is:
 vp run @scaffold/adapter-moodle#package
 ```
 
-The command performs deterministic archive and extraction checks locally. The
-release workflow reruns those exact-package checks from the tag. Before
-approving the draft, the maintainer manually smoke-installs the draft ZIP in an
-available real Moodle site; the release workflow does not provision a Moodle
-host matrix.
+The command performs deterministic archive and extraction checks locally.
+Required CI runs those checks, uploads the exact ZIP, and installs those bytes
+for Moodle-native verification. The release workflow verifies the ZIP's
+checksum sidecar and promotes those same bytes; it does not rebuild the Moodle
+package. Before approving the draft, the maintainer manually smoke-installs the
+draft ZIP in an available real Moodle site; the release workflow does not
+provision a Moodle host matrix.
 
 ## XBlock Package Contract
 
@@ -321,22 +325,27 @@ command against the released version before declaring the rollout complete.
 3. Run `vp run verify:release`.
 4. Run both adapter package tasks locally to validate the release candidate.
 5. Commit and push the release preparation to `main`.
-6. Wait for the release commit's `Required CI` check to pass.
+6. Wait for the release commit's `Required CI` check to pass. Release-affecting
+   packaged Markdown, including the adapter changelogs, runs both documentation
+   validation and the complete code/package path, so this run must contain the
+   tested Moodle candidate.
 7. Create an annotated tag named `vX.Y.Z`; sign it when release signing is
-   configured, then push the tag. The release workflow must build both adapters
-   from the tag, validate the fixed-version mapping and exact package outputs,
-   and create a draft GitHub Release.
+   configured, then push the tag. The release workflow must promote the exact
+   Required CI-tested Moodle ZIP, build and verify the XBlock distributions,
+   validate the fixed-version mapping, and create a draft GitHub Release.
 8. Confirm that the draft contains the expected notes, Moodle ZIP, XBlock wheel
-   and source distribution, checksums, and provenance.
+   and source distribution, checksums, `release-evidence.json`, and provenance.
+   The evidence file must identify the exact Required CI run and Moodle ZIP
+   digest.
 9. Manually smoke-test the exact draft Moodle ZIP and XBlock wheel in available
    real host installations. Edit the draft notes to replace the pending lines
    using exactly `Moodle smoke test: passed on <host version and result>` and
    `Open edX smoke test: passed on <host version and result>`.
 10. From `main`, run the `Approve release` workflow with `vX.Y.Z` as its tag
     input. The protected workflow revalidates the private draft, smoke evidence,
-    exact asset set, checksums, provenance, annotated tag identity, and
-    immutable-release setting before publishing the GitHub prerelease. Do not
-    publish the draft directly in the GitHub Release UI.
+    exact asset set, checksums, source CI receipt, provenance, annotated tag
+    identity, and immutable-release setting before publishing the GitHub
+    prerelease. Do not publish the draft directly in the GitHub Release UI.
 11. Confirm that the release's `published` event triggers the protected PyPI
     workflow. It must verify and upload the same approved XBlock distributions
     without rebuilding them. If that workflow fails after a partial upload,
@@ -363,7 +372,8 @@ a moving branch reference, or a second unverified artifact build.
 The tag-driven draft GitHub Release workflow is implemented in
 `.github/workflows/release.yml`. It requires an annotated `vX.Y.Z` tag on a
 `main` commit whose `Required CI` check passed, validates the coordinated
-release identity, packages both adapters, records checksums and GitHub build
+release identity, promotes the exact CI-tested Moodle candidate, packages the
+XBlock adapter, records checksums, the source CI receipt, and GitHub build
 provenance, and creates a draft prerelease. It never publishes the release or
 either adapter. An interrupted draft can be completed only when its existing
 assets match the verified candidate; a published release or differing asset is
@@ -374,17 +384,18 @@ The protected approval workflow is implemented in
 `main` after editing the private draft with both exact smoke-test result lines.
 It is the only supported publication path for the GitHub prerelease. The
 workflow verifies the complete reviewed candidate, confirms the tag identity
-again immediately before mutation, and publishes through the GitHub API only
-when immutable releases are enabled.
+and successful source CI receipt again immediately before mutation, and
+publishes through the GitHub API only when immutable releases are enabled.
 
 The approved XBlock publication workflow is implemented in
 `.github/workflows/publish-pypi.yml`. Publishing the reviewed GitHub Release
 triggers it; a maintainer can also dispatch it from `main` with a published tag
 to retry a failed upload. It downloads the public release assets, validates the
-complete asset set, checksums, and tag-bound GitHub provenance, then uses the
-`pypi` environment and Trusted Publishing to upload only missing XBlock
-distributions whose existing PyPI digests do not conflict. It never checks out
-or rebuilds source and never stores a long-lived package credential.
+complete asset set including the retained source CI receipt, then validates
+checksums and tag-bound GitHub provenance. It uses the `pypi` environment and
+Trusted Publishing to upload only missing XBlock distributions whose existing
+PyPI digests do not conflict. It never checks out or rebuilds source and never
+stores a long-lived package credential.
 
 The adapter package commands, coordinated `0.1.0` metadata, PyPI Trusted
 Publisher, matching GitHub environment, and repository-preparable Marketplace

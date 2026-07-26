@@ -147,6 +147,7 @@ jobs:
             "scaffold_xblock-$RELEASE_VERSION-py3-none-any.whl"
             "scaffold_xblock-$RELEASE_VERSION.tar.gz"
             "SHA256SUMS"
+            "release-evidence.json"
             "scaffold-$RELEASE_VERSION-provenance.jsonl"
           )
           actual_asset_names="$RUNNER_TEMP/actual-asset-names"
