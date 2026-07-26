@@ -19,6 +19,8 @@ import {
 import {
   buildAnsweredStatementDraft,
   buildHintInteractedStatementDraft,
+  buildQuizCompletedStatementDraft,
+  buildQuizSuccessStatementDraft,
 } from "../xapi/statement-catalogue";
 import type { XapiSession } from "../xapi/session";
 import type {
@@ -339,7 +341,7 @@ export function createAssessmentStore({
       }
     };
 
-    const recordQuizAnswers = (
+    const recordQuizOutcome = (
       operation: AssessmentRequestOperation,
       registration: AssessmentQuizRegistration,
       previousDurable: AssessmentDurableState,
@@ -354,6 +356,11 @@ export function createAssessmentStore({
         return;
       }
 
+      const previousAttempt = previousDurable.quizzes[registration.groupId];
+      const newlyTerminal =
+        previousAttempt?.attemptId === attempt.attemptId &&
+        previousAttempt.status === "in_progress" &&
+        (attempt.status === "completed" || attempt.status === "expired");
       const answers = registration.targetIds.flatMap((targetId) => {
         const problemRegistrations = Object.values(get().registrations).filter(
           (candidate) => candidate.targetId === targetId,
@@ -372,7 +379,7 @@ export function createAssessmentStore({
         }
         return [{ problemRegistration, problem }];
       });
-      if (answers.length === 0) return;
+      if (answers.length === 0 && !newlyTerminal) return;
 
       let session: XapiSession | null | undefined;
       try {
@@ -400,6 +407,37 @@ export function createAssessmentStore({
         } catch {
           // One learning-record failure cannot change authority or suppress later answers.
         }
+      }
+
+      if (!newlyTerminal) return;
+      try {
+        session.record(
+          buildQuizCompletedStatementDraft({
+            rootActivityId: session.rootActivityId,
+            quizId: registration.authoredGroupId,
+            attemptId: attempt.attemptId,
+            startedAt: attempt.startedAt,
+            finishedAt: attempt.finishedAt,
+          }),
+        );
+      } catch {
+        // Learning-record failure cannot change an authoritative terminal Quiz.
+      }
+
+      if (attempt.successStatus === null) return;
+      try {
+        session.record(
+          buildQuizSuccessStatementDraft({
+            rootActivityId: session.rootActivityId,
+            quizId: registration.authoredGroupId,
+            attemptId: attempt.attemptId,
+            successStatus: attempt.successStatus,
+            score: attempt.score,
+            maxScore: attempt.maxScore,
+          }),
+        );
+      } catch {
+        // Success recording is observational and independent of completion delivery.
       }
     };
 
@@ -476,7 +514,7 @@ export function createAssessmentStore({
       });
       const registration = get().quizRegistrations[groupId];
       if (committed && operation && registration) {
-        recordQuizAnswers(
+        recordQuizOutcome(
           operation,
           registration,
           previousDurable,
