@@ -163,6 +163,14 @@ describe("host app contracts", () => {
 });
 
 describe("xAPI port contract", () => {
+  it("allows runtime hosts to omit the capability entirely", () => {
+    const runtimePorts = {} satisfies ScaffoldRuntimePorts;
+    const learnerServices = {} satisfies ScaffoldLearnerHostServices;
+
+    expect(runtimePorts).not.toHaveProperty("xapi");
+    expect(learnerServices).not.toHaveProperty("xapi");
+  });
+
   it("defines one optional ordered Statement-acceptance seam", async () => {
     const statement: XapiStatementTemplate = {
       id: "550e8400-e29b-41d4-a716-446655440000",

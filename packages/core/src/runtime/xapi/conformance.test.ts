@@ -17,7 +17,11 @@ import {
 } from "@scaffold/core/ports";
 import type { AssessmentPort } from "../../host/ports/assessment";
 import type { LearnerActivityPort } from "../../host/ports/learner-activity";
-import { createAssessmentStore, scopeAssessmentGroupId } from "../assessment/assessment-store";
+import {
+  createAssessmentStore,
+  scopeAssessmentGroupId,
+  scopeAssessmentProblemId,
+} from "../assessment/assessment-store";
 import type {
   AssessmentRegistrationIdentity,
   AssessmentRegistrationInput,
@@ -26,12 +30,15 @@ import { createLearnerActivityStore } from "../learner-activity/store";
 import {
   XAPI_ACTIVITY_TYPES,
   XAPI_EXTENSIONS,
+  XAPI_SESSION_MAX_PENDING_STATEMENTS,
   XAPI_VERBS,
+  buildLearnerActivityInteractedStatementDraft,
   createAssessmentActivityId,
   createHintActivityId,
   createLearnerActivityId,
   createQuizActivityId,
   createXapiSession,
+  type XapiSessionAccessor,
 } from "./index";
 
 const ROOT_ACTIVITY_ID = "https://lms.example.test/courses/course-one";
@@ -357,9 +364,15 @@ function learnerActivityRecord(
   };
 }
 
-async function recordLearnerActivitySequence(
-  getXapiSession: () => ReturnType<typeof createXapiSession>,
-): Promise<void> {
+async function recordLearnerActivitySequence(getXapiSession: XapiSessionAccessor): Promise<void> {
+  const store = createConformanceLearnerActivityStore(getXapiSession);
+  await recordLearnerActivityProgress(store);
+  await recordLearnerActivityCompletion(store);
+}
+
+function createConformanceLearnerActivityStore(
+  getXapiSession?: XapiSessionAccessor,
+): ReturnType<typeof createLearnerActivityStore> {
   const learnerActivityPort: LearnerActivityPort = {
     load: async () => null,
     save: async ({ record }) =>
@@ -372,7 +385,7 @@ async function recordLearnerActivitySequence(
   const store = createLearnerActivityStore({
     artifactId: ARTIFACT_ID,
     learnerActivityPort,
-    getXapiSession,
+    ...(getXapiSession ? { getXapiSession } : {}),
   });
   store.setState({
     activities: {
@@ -380,7 +393,12 @@ async function recordLearnerActivitySequence(
     },
     hydration: { status: "ready", error: null },
   });
+  return store;
+}
 
+async function recordLearnerActivityProgress(
+  store: ReturnType<typeof createLearnerActivityStore>,
+): Promise<void> {
   expect(
     store.getState().setData(LEARNER_ACTIVITY_BLOCK_ID, {
       checked: ["first"],
@@ -390,7 +408,11 @@ async function recordLearnerActivitySequence(
   await vi.waitFor(() =>
     expect(store.getState().saves[LEARNER_ACTIVITY_BLOCK_ID]?.status).toBe("idle"),
   );
+}
 
+async function recordLearnerActivityCompletion(
+  store: ReturnType<typeof createLearnerActivityStore>,
+): Promise<void> {
   expect(store.getState().setCompleted(LEARNER_ACTIVITY_BLOCK_ID, true)).toBe(true);
   await vi.waitFor(() =>
     expect(store.getState().saves[LEARNER_ACTIVITY_BLOCK_ID]?.status).toBe("idle"),
@@ -398,35 +420,48 @@ async function recordLearnerActivitySequence(
 }
 
 function createConformanceAssessmentStore(
-  getXapiSession: () => ReturnType<typeof createXapiSession>,
+  getXapiSession: XapiSessionAccessor | undefined,
   successStatus: "passed" | "failed",
 ): ReturnType<typeof createAssessmentStore> {
   return createAssessmentStore({
     artifactId: ARTIFACT_ID,
     assessmentPort: createAssessmentPort(successStatus),
-    getXapiSession,
+    ...(getXapiSession ? { getXapiSession } : {}),
   });
 }
 
 async function recordStandaloneAndHint(
   store: ReturnType<typeof createAssessmentStore>,
 ): Promise<void> {
+  await recordStandalone(store);
+  await recordPersistedHint(store);
+}
+
+async function recordStandalone(
+  store: ReturnType<typeof createAssessmentStore>,
+): Promise<AssessmentResult> {
   const standaloneIdentity = identity(STANDALONE_PROBLEM_ID, STANDALONE_TARGET_ID);
-  const hintIdentity = identity(HINT_PROBLEM_ID, HINT_TARGET_ID);
 
   expect(store.getState().register(registration(STANDALONE_PROBLEM_ID, STANDALONE_TARGET_ID))).toBe(
     true,
   );
-  expect(store.getState().register(registration(HINT_PROBLEM_ID, HINT_TARGET_ID))).toBe(true);
-
   expect(
     store.getState().setLocalResponse(standaloneIdentity, { choice: "PRIVATE_RESPONSE" }),
   ).toBe(true);
-  await expect(store.getState().submit(standaloneIdentity)).resolves.toMatchObject({
+  const result = await store.getState().submit(standaloneIdentity);
+  expect(result).toMatchObject({
     isCorrect: false,
     score: 0.25,
   });
+  if (result === null) {
+    throw new Error("Expected the authoritative standalone result");
+  }
+  return result;
+}
 
+async function recordPersistedHint(store: ReturnType<typeof createAssessmentStore>): Promise<void> {
+  const hintIdentity = identity(HINT_PROBLEM_ID, HINT_TARGET_ID);
+  expect(store.getState().register(registration(HINT_PROBLEM_ID, HINT_TARGET_ID))).toBe(true);
   await expect(store.getState().revealHint(hintIdentity)).resolves.toBe(true);
 }
 
@@ -460,6 +495,75 @@ async function recordTerminalQuiz(
     status: "completed",
     successStatus,
   });
+}
+
+interface OperationalStores {
+  readonly learnerActivity: ReturnType<typeof createLearnerActivityStore>;
+  readonly assessment: ReturnType<typeof createAssessmentStore>;
+}
+
+interface OperationalResult {
+  readonly learnerActivity: LearnerActivityRecord;
+  readonly assessmentResult: AssessmentResult;
+  readonly assessmentProblem: AssessmentProblemSnapshot;
+}
+
+function createOperationalStores(getXapiSession?: XapiSessionAccessor): OperationalStores {
+  return {
+    learnerActivity: createConformanceLearnerActivityStore(getXapiSession),
+    assessment: createConformanceAssessmentStore(getXapiSession, "passed"),
+  };
+}
+
+function operationalResult(
+  stores: OperationalStores,
+  assessmentResultValue: AssessmentResult,
+): OperationalResult {
+  const learnerActivity = stores.learnerActivity.getState().activities[LEARNER_ACTIVITY_BLOCK_ID];
+  const assessmentProblem =
+    stores.assessment.getState().durable.problems[
+      scopeAssessmentProblemId(ARTIFACT_ID, STANDALONE_PROBLEM_ID)
+    ];
+  expect(learnerActivity).toBeDefined();
+  expect(assessmentProblem).toBeDefined();
+  if (learnerActivity === undefined || assessmentProblem === undefined) {
+    throw new Error("Expected both authoritative operational records");
+  }
+  return {
+    learnerActivity,
+    assessmentResult: assessmentResultValue,
+    assessmentProblem,
+  };
+}
+
+async function recordOperationalScenario(
+  getXapiSession?: XapiSessionAccessor,
+  afterLearnerActivity?: () => Promise<void>,
+): Promise<OperationalResult> {
+  const stores = createOperationalStores(getXapiSession);
+  await recordLearnerActivityProgress(stores.learnerActivity);
+  await afterLearnerActivity?.();
+  const result = await recordStandalone(stores.assessment);
+  return operationalResult(stores, result);
+}
+
+function deferredAcceptance(): {
+  readonly promise: Promise<void>;
+  readonly resolve: () => void;
+} {
+  let resolve!: () => void;
+  const promise = new Promise<void>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
+function operationalActivityIds(): Set<string> {
+  return new Set([
+    ROOT_ACTIVITY_ID,
+    createLearnerActivityId(ROOT_ACTIVITY_ID, LEARNER_ACTIVITY_BLOCK_ID),
+    createAssessmentActivityId(ROOT_ACTIVITY_ID, STANDALONE_TARGET_ID),
+  ]);
 }
 
 function collectTemplateDetails(
@@ -708,5 +812,140 @@ describe("Core xAPI conformance", () => {
     });
 
     expectConformantTemplates(accepted, approvedActivityIds(false));
+  });
+
+  it("preserves operational authority across unavailable and failed recording", async () => {
+    const acceptingPort = createInMemoryXapiPort();
+    const acceptingSession = createDeterministicSession(acceptingPort.port);
+    const baseline = await recordOperationalScenario(() => acceptingSession.session);
+    acceptingSession.setMonotonicTime(31_000);
+    await acceptingSession.session.terminate();
+    expect(acceptingPort.accepted.map((statement) => statement.verb.id)).toStrictEqual([
+      XAPI_VERBS.initialized.id,
+      XAPI_VERBS.interacted.id,
+      XAPI_VERBS.answered.id,
+      XAPI_VERBS.terminated.id,
+    ]);
+    expectConformantTemplates(acceptingPort.accepted, operationalActivityIds());
+
+    const absent = await recordOperationalScenario();
+
+    let rejectionAttempt = 0;
+    const rejectSecondAcceptance = vi.fn<XapiPort["send"]>(async () => {
+      rejectionAttempt += 1;
+      if (rejectionAttempt === 2) {
+        throw new Error("host rejected the learning Statement");
+      }
+    });
+    const rejectingPort = createInMemoryXapiPort(rejectSecondAcceptance);
+    const rejectingSession = createDeterministicSession(rejectingPort.port);
+    const rejected = await recordOperationalScenario(
+      () => rejectingSession.session,
+      async () => {
+        await vi.waitFor(() =>
+          expect(rejectingSession.session.getState()).toMatchObject({
+            status: "active",
+            delivery: "failed",
+          }),
+        );
+      },
+    );
+    expect(rejectSecondAcceptance).toHaveBeenCalledTimes(2);
+    expect(rejectingPort.accepted.map((statement) => statement.verb.id)).toStrictEqual([
+      XAPI_VERBS.initialized.id,
+    ]);
+    expectConformantTemplates(rejectingPort.accepted, new Set([ROOT_ACTIVITY_ID]));
+    await rejectingSession.session.terminate();
+    expect(rejectingSession.session.getState()).toMatchObject({
+      status: "terminated",
+      delivery: "failed",
+    });
+
+    const heldOverflowAcceptance = deferredAcceptance();
+    const acceptOverflow = vi.fn<XapiPort["send"]>(() => heldOverflowAcceptance.promise);
+    const overflowPort = createInMemoryXapiPort(acceptOverflow);
+    const overflowSession = createDeterministicSession(overflowPort.port);
+    overflowSession.session.start();
+    await vi.waitFor(() => expect(acceptOverflow).toHaveBeenCalledOnce());
+    for (let index = 1; index < XAPI_SESSION_MAX_PENDING_STATEMENTS; index += 1) {
+      overflowSession.session.record(
+        buildLearnerActivityInteractedStatementDraft({
+          rootActivityId: ROOT_ACTIVITY_ID,
+          blockId: `overflow-${index}`,
+          activityKind: "checklist",
+        }),
+      );
+    }
+    overflowSession.session.record(
+      buildLearnerActivityInteractedStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        blockId: "overflow",
+        activityKind: "checklist",
+      }),
+    );
+    expect(overflowSession.session.getState()).toMatchObject({
+      status: "active",
+      delivery: "failed",
+    });
+    const overflowed = await recordOperationalScenario(() => overflowSession.session);
+    expect(acceptOverflow).toHaveBeenCalledOnce();
+    heldOverflowAcceptance.resolve();
+    await vi.waitFor(() => expect(overflowPort.accepted).toHaveLength(1));
+    expectConformantTemplates(overflowPort.accepted, new Set([ROOT_ACTIVITY_ID]));
+    await overflowSession.session.terminate();
+    expect(overflowSession.session.getState()).toMatchObject({
+      status: "terminated",
+      delivery: "failed",
+    });
+
+    const heldShutdownAcceptance = deferredAcceptance();
+    let shutdownAttempt = 0;
+    const acceptShutdown = vi.fn<XapiPort["send"]>(() => {
+      shutdownAttempt += 1;
+      return shutdownAttempt === 1 ? heldShutdownAcceptance.promise : Promise.resolve();
+    });
+    const shutdownPort = createInMemoryXapiPort(acceptShutdown);
+    const shutdownSession = createDeterministicSession(shutdownPort.port);
+    shutdownSession.session.start();
+    await vi.waitFor(() => expect(acceptShutdown).toHaveBeenCalledOnce());
+    shutdownSession.setMonotonicTime(31_000);
+    const termination = shutdownSession.session.terminate();
+    expect(shutdownSession.session.getState()).toMatchObject({
+      status: "terminating",
+      delivery: "accepting",
+    });
+    const shutdownStores = createOperationalStores(() => shutdownSession.session);
+    await recordLearnerActivityProgress(shutdownStores.learnerActivity);
+    expect(shutdownSession.session.getState()).toMatchObject({
+      status: "terminating",
+      delivery: "accepting",
+    });
+    expect(acceptShutdown).toHaveBeenCalledOnce();
+    heldShutdownAcceptance.resolve();
+    await termination;
+    expect(shutdownSession.session.getState()).toMatchObject({
+      status: "terminated",
+      delivery: "accepted",
+    });
+    const shutdownAssessmentResult = await recordStandalone(shutdownStores.assessment);
+    const shutDown = operationalResult(shutdownStores, shutdownAssessmentResult);
+    expect(acceptShutdown).toHaveBeenCalledTimes(2);
+    expect(shutdownPort.accepted.map((statement) => statement.verb.id)).toStrictEqual([
+      XAPI_VERBS.initialized.id,
+      XAPI_VERBS.terminated.id,
+    ]);
+    expectConformantTemplates(shutdownPort.accepted, new Set([ROOT_ACTIVITY_ID]));
+
+    for (const [condition, result] of Object.entries({
+      absent,
+      rejected,
+      overflowed,
+      shutDown,
+    })) {
+      expect({ condition, result }).toStrictEqual({
+        condition,
+        result: baseline,
+      });
+    }
   });
 });
