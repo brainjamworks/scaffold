@@ -223,7 +223,7 @@ describe("xAPI Statement template contract", () => {
     },
   );
 
-  it("rejects raw learner responses", () => {
+  it("accepts a standard learner response string", () => {
     expect(
       XapiStatementTemplateSchema.safeParse({
         ...validStatement(),
@@ -231,6 +231,6 @@ describe("xAPI Statement template contract", () => {
           response: "choice-a",
         },
       }).success,
-    ).toBe(false);
+    ).toBe(true);
   });
 });

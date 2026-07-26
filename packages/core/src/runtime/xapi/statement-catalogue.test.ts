@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import type { AssessmentInteractionKind, AssessmentResult } from "@scaffold/contracts";
+import type {
+  AssessmentInteractionKind,
+  AssessmentResponseValue,
+  AssessmentResult,
+} from "@scaffold/contracts";
 import type { XapiStatementDraft } from "../../host/ports/xapi";
 import {
   XAPI_ACTIVITY_TYPES,
@@ -18,6 +22,7 @@ import {
   createHintActivityId,
   createLearnerActivityId,
   createQuizActivityId,
+  encodeAssessmentResponse,
   isXapiLearnerActivityKind,
 } from "./index";
 
@@ -74,6 +79,7 @@ describe("xAPI catalogue vocabulary", () => {
     });
     expect(XAPI_EXTENSIONS).toStrictEqual({
       assessmentAttemptNumber: "https://scaffold.ac/xapi/extensions/assessment-attempt-number",
+      assessmentInteractionKind: "https://scaffold.ac/xapi/extensions/assessment-interaction-kind",
       quizAttemptId: "https://scaffold.ac/xapi/extensions/quiz-attempt-id",
       learnerActivityKind: "https://scaffold.ac/xapi/extensions/learner-activity-kind",
       hintNumber: "https://scaffold.ac/xapi/extensions/hint-number",
@@ -92,8 +98,8 @@ describe("xAPI catalogue vocabulary", () => {
     ["sequence", "sequencing"],
     ["match", "matching"],
     ["classify", "matching"],
-    ["fill-blanks", "performance"],
-    ["spatial-hotspot", "choice"],
+    ["fill-blanks", "other"],
+    ["spatial-hotspot", "other"],
   ] satisfies readonly (readonly [AssessmentInteractionKind, string])[])(
     "maps %s to the %s xAPI interaction type",
     (interactionKind, interactionType) => {
@@ -102,12 +108,128 @@ describe("xAPI catalogue vocabulary", () => {
           rootActivityId: ROOT_ACTIVITY_ID,
           targetId: "question-one",
           interactionKind,
+          response: null,
           result: normalizedResult(),
           attemptNumber: 1,
         }).object.definition?.interactionType,
       ).toBe(interactionType);
     },
   );
+});
+
+describe("xAPI assessment response encoding", () => {
+  it.each([
+    {
+      interactionKind: "single-select",
+      response: { kind: "single-select", optionId: "option /é" },
+      interactionType: "choice",
+      encodedResponse: "option%20%2F%C3%A9",
+    },
+    {
+      interactionKind: "multi-select",
+      response: {
+        kind: "multi-select",
+        optionIds: ["option[,]b", "option a"],
+      },
+      interactionType: "choice",
+      encodedResponse: "option%20a[,]option%5B%2C%5Db",
+    },
+    {
+      interactionKind: "sequence",
+      response: {
+        kind: "sequence",
+        orderedItemIds: ["item b", "item/a"],
+      },
+      interactionType: "sequencing",
+      encodedResponse: "item%20b[,]item%2Fa",
+    },
+    {
+      interactionKind: "match",
+      response: {
+        kind: "match",
+        pairs: [
+          { itemId: "item-b", targetId: "target[,]2" },
+          { itemId: "item a", targetId: "target.1" },
+        ],
+      },
+      interactionType: "matching",
+      encodedResponse: "item%20a[.]target.1[,]item-b[.]target%5B%2C%5D2",
+    },
+    {
+      interactionKind: "classify",
+      response: {
+        kind: "classify",
+        placements: [
+          { itemId: "item-b", categoryId: "category 2" },
+          { itemId: "item/a", categoryId: "category[,]1" },
+        ],
+      },
+      interactionType: "matching",
+      encodedResponse: "item%2Fa[.]category%5B%2C%5D1[,]item-b[.]category%202",
+    },
+    {
+      interactionKind: "fill-blanks",
+      response: {
+        kind: "fill-blanks",
+        blanks: [
+          { blankId: "blank-b", value: "second" },
+          { blankId: "blank a", value: "Mercury[,]Venus" },
+          { blankId: "blank-c", value: "" },
+        ],
+      },
+      interactionType: "other",
+      encodedResponse:
+        '{"blanks":[{"blankId":"blank a","value":"Mercury[,]Venus"},{"blankId":"blank-b","value":"second"},{"blankId":"blank-c","value":""}]}',
+    },
+    {
+      interactionKind: "spatial-hotspot",
+      response: {
+        kind: "spatial-hotspot",
+        selections: [
+          { hotspotId: null, x: -0, y: 0.75 },
+          { hotspotId: "hotspot[,]1", x: 0.5, y: 0.25 },
+        ],
+      },
+      interactionType: "other",
+      encodedResponse:
+        '{"selections":[{"hotspotId":null,"x":0,"y":0.75},{"hotspotId":"hotspot[,]1","x":0.5,"y":0.25}]}',
+    },
+  ] satisfies readonly {
+    readonly interactionKind: AssessmentInteractionKind;
+    readonly response: AssessmentResponseValue;
+    readonly interactionType: string;
+    readonly encodedResponse: string;
+  }[])("encodes $interactionKind losslessly", (testCase) => {
+    expect(encodeAssessmentResponse(testCase.interactionKind, testCase.response)).toStrictEqual({
+      interactionType: testCase.interactionType,
+      response: testCase.encodedResponse,
+    });
+  });
+
+  it.each([
+    ["single-select", null],
+    ["single-select", { kind: "single-select", optionId: null }],
+    ["multi-select", { kind: "multi-select", optionIds: [] }],
+    ["sequence", { kind: "sequence", orderedItemIds: [] }],
+    ["match", { kind: "match", pairs: [] }],
+    ["classify", { kind: "classify", placements: [] }],
+    ["fill-blanks", { kind: "fill-blanks", blanks: [{ blankId: "blank-1", value: "  " }] }],
+    ["spatial-hotspot", { kind: "spatial-hotspot", selections: [] }],
+  ] satisfies readonly (readonly [AssessmentInteractionKind, AssessmentResponseValue | null])[])(
+    "omits an absent %s response",
+    (interactionKind, response) => {
+      expect(encodeAssessmentResponse(interactionKind, response)).not.toHaveProperty("response");
+    },
+  );
+
+  it("rejects a response whose kind does not match the registered interaction", () => {
+    expect(() =>
+      encodeAssessmentResponse("single-select", {
+        kind: "multi-select",
+        optionIds: ["option-a"],
+      }),
+    ).toThrow("does not match");
+  });
 });
 
 describe("xAPI Activity identities", () => {
@@ -181,6 +303,7 @@ describe("xAPI Statement catalogue builders", () => {
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
         interactionKind: "single-select",
+        response: { kind: "single-select", optionId: "option/a" },
         result: normalizedResult({ isCorrect: false, score: 0.25 }),
         attemptNumber: 2,
       }),
@@ -192,11 +315,15 @@ describe("xAPI Statement catalogue builders", () => {
         definition: {
           type: XAPI_ACTIVITY_TYPES.assessmentQuestion,
           interactionType: "choice",
+          extensions: {
+            [XAPI_EXTENSIONS.assessmentInteractionKind]: "single-select",
+          },
         },
       },
       result: {
         success: false,
         score: { scaled: 0.25, raw: 0.25, min: 0, max: 1 },
+        response: "option%2Fa",
         extensions: { [XAPI_EXTENSIONS.assessmentAttemptNumber]: 2 },
       },
       context: {
@@ -219,6 +346,7 @@ describe("xAPI Statement catalogue builders", () => {
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
         interactionKind: "sequence",
+        response: null,
         result: normalizedResult(),
         attemptNumber: 1,
         quiz: { quizId: "quiz-one", attemptId: "attempt-one" },
@@ -424,6 +552,7 @@ describe("xAPI catalogue invariants", () => {
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
         interactionKind: "single-select",
+        response: null,
         result: normalizedResult(),
         attemptNumber,
       }),
@@ -436,6 +565,7 @@ describe("xAPI catalogue invariants", () => {
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
         interactionKind: "single-select",
+        response: null,
         result: normalizedResult(),
         attemptNumber: 1,
         quiz: { quizId: "quiz-one", attemptId: " " },
@@ -512,7 +642,6 @@ describe("xAPI catalogue invariants", () => {
 
   it("preserves a catalogue-wide privacy allowlist", () => {
     const privateCanaries = {
-      response: "PRIVATE_RESPONSE",
       feedback: "PRIVATE_FEEDBACK",
       items: "PRIVATE_ITEMS",
       answerKey: "PRIVATE_ANSWER_KEY",
@@ -538,6 +667,7 @@ describe("xAPI catalogue invariants", () => {
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
         interactionKind: "single-select",
+        response: { kind: "single-select", optionId: "authorized-response" },
         result: privateResult,
         attemptNumber: 1,
         ...privateCanaries,
@@ -546,6 +676,7 @@ describe("xAPI catalogue invariants", () => {
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
         interactionKind: "single-select",
+        response: { kind: "single-select", optionId: "authorized-response" },
         result: privateResult,
         attemptNumber: 1,
         quiz: { quizId: "quiz-one", attemptId: "attempt-one", ...privateCanaries },
@@ -613,6 +744,7 @@ describe("xAPI catalogue invariants", () => {
       "max",
       "success",
       "completion",
+      "response",
       "duration",
       "contextActivities",
       "parent",
@@ -642,6 +774,7 @@ describe("xAPI catalogue invariants", () => {
       expect(serialized).not.toContain(privateKey);
       expect(serialized).not.toContain(privateValue);
     }
+    expect(serialized).toContain("authorized-response");
     expect(serialized).not.toContain("correctResponsesPattern");
     expect(serialized).not.toContain("attachments");
     expect(serialized).not.toContain("authority");

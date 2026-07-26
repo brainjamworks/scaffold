@@ -54,6 +54,7 @@ export interface XapiResult {
   readonly score?: XapiScore;
   readonly success?: boolean;
   readonly completion?: boolean;
+  readonly response?: string;
   readonly duration?: XapiDuration;
   readonly extensions?: Readonly<Record<XapiIri, XapiJsonValue>>;
 }
@@ -334,6 +335,7 @@ const XapiResultSchema = z
     score: XapiScoreSchema.optional(),
     success: z.boolean().optional(),
     completion: z.boolean().optional(),
+    response: z.string().optional(),
     duration: XapiDurationSchema.optional(),
     extensions: XapiExtensionsSchema.optional(),
   })

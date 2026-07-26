@@ -1,6 +1,11 @@
 import { z } from "zod";
 
-import type { AssessmentInteractionKind, AssessmentResult } from "@scaffold/contracts";
+import {
+  AssessmentResponseValueSchema,
+  type AssessmentInteractionKind,
+  type AssessmentResponseValue,
+  type AssessmentResult,
+} from "@scaffold/contracts";
 import {
   XapiIriSchema,
   XapiStatementDraftSchema,
@@ -39,6 +44,7 @@ export const XAPI_ACTIVITY_TYPES = Object.freeze({
 
 export const XAPI_EXTENSIONS = Object.freeze({
   assessmentAttemptNumber: "https://scaffold.ac/xapi/extensions/assessment-attempt-number",
+  assessmentInteractionKind: "https://scaffold.ac/xapi/extensions/assessment-interaction-kind",
   quizAttemptId: "https://scaffold.ac/xapi/extensions/quiz-attempt-id",
   learnerActivityKind: "https://scaffold.ac/xapi/extensions/learner-activity-kind",
   hintNumber: "https://scaffold.ac/xapi/extensions/hint-number",
@@ -142,7 +148,6 @@ function interactionType(kind: AssessmentInteractionKind): XapiInteractionType {
   switch (kind) {
     case "single-select":
     case "multi-select":
-    case "spatial-hotspot":
       return "choice";
     case "sequence":
       return "sequencing";
@@ -150,23 +155,146 @@ function interactionType(kind: AssessmentInteractionKind): XapiInteractionType {
     case "classify":
       return "matching";
     case "fill-blanks":
-      return "performance";
+    case "spatial-hotspot":
+      return "other";
     default:
       throw new Error(`Unsupported assessment interaction kind: ${String(kind)}`);
+  }
+}
+
+function ordinalCompare(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function encodedComponentId(id: string): string {
+  return rfc3986Encode(id);
+}
+
+export interface EncodedXapiAssessmentResponse {
+  readonly interactionType: XapiInteractionType;
+  readonly response?: string;
+}
+
+export function encodeAssessmentResponse(
+  kind: AssessmentInteractionKind,
+  response: AssessmentResponseValue | null,
+): EncodedXapiAssessmentResponse {
+  const encoded: EncodedXapiAssessmentResponse = {
+    interactionType: interactionType(kind),
+  };
+  if (response === null) return encoded;
+
+  const parsed = AssessmentResponseValueSchema.parse(response);
+  if (parsed.kind !== kind) {
+    throw new Error(
+      `Assessment response kind ${parsed.kind} does not match registered interaction kind ${kind}`,
+    );
+  }
+
+  switch (parsed.kind) {
+    case "single-select":
+      return parsed.optionId === null
+        ? encoded
+        : { ...encoded, response: encodedComponentId(parsed.optionId) };
+    case "multi-select": {
+      if (parsed.optionIds.length === 0) return encoded;
+      const optionIds = parsed.optionIds.map(encodedComponentId).sort(ordinalCompare);
+      return { ...encoded, response: optionIds.join("[,]") };
+    }
+    case "sequence":
+      return parsed.orderedItemIds.length === 0
+        ? encoded
+        : {
+            ...encoded,
+            response: parsed.orderedItemIds.map(encodedComponentId).join("[,]"),
+          };
+    case "match": {
+      if (parsed.pairs.length === 0) return encoded;
+      const pairs = parsed.pairs
+        .map(({ itemId, targetId }) => ({
+          itemId: encodedComponentId(itemId),
+          targetId: encodedComponentId(targetId),
+        }))
+        .sort(
+          (left, right) =>
+            ordinalCompare(left.itemId, right.itemId) ||
+            ordinalCompare(left.targetId, right.targetId),
+        );
+      return {
+        ...encoded,
+        response: pairs.map(({ itemId, targetId }) => `${itemId}[.]${targetId}`).join("[,]"),
+      };
+    }
+    case "classify": {
+      if (parsed.placements.length === 0) return encoded;
+      const placements = parsed.placements
+        .map(({ itemId, categoryId }) => ({
+          itemId: encodedComponentId(itemId),
+          categoryId: encodedComponentId(categoryId),
+        }))
+        .sort(
+          (left, right) =>
+            ordinalCompare(left.itemId, right.itemId) ||
+            ordinalCompare(left.categoryId, right.categoryId),
+        );
+      return {
+        ...encoded,
+        response: placements
+          .map(({ itemId, categoryId }) => `${itemId}[.]${categoryId}`)
+          .join("[,]"),
+      };
+    }
+    case "fill-blanks": {
+      if (!parsed.blanks.some(({ value }) => value.trim().length > 0)) return encoded;
+      const blanks = parsed.blanks
+        .map(({ blankId, value }) => ({
+          sortId: encodedComponentId(blankId),
+          blankId,
+          value,
+        }))
+        .sort((left, right) => ordinalCompare(left.sortId, right.sortId))
+        .map(({ blankId, value }) => ({ blankId, value }));
+      return { ...encoded, response: JSON.stringify({ blanks }) };
+    }
+    case "spatial-hotspot":
+      return parsed.selections.length === 0
+        ? encoded
+        : {
+            ...encoded,
+            response: JSON.stringify({
+              selections: parsed.selections.map(({ hotspotId, x, y }) => ({
+                hotspotId,
+                x,
+                y,
+              })),
+            }),
+          };
+    default:
+      throw new Error(`Unsupported assessment response kind: ${String(parsed)}`);
   }
 }
 
 function assessmentActivity(
   rootId: XapiIri,
   targetId: string,
-  kind?: AssessmentInteractionKind,
+  interaction?: {
+    readonly kind: AssessmentInteractionKind;
+    readonly interactionType: XapiInteractionType;
+  },
 ): XapiActivity {
   return {
     objectType: "Activity",
     id: createAssessmentActivityId(rootId, targetId),
     definition: {
       type: XAPI_ACTIVITY_TYPES.assessmentQuestion,
-      ...(kind === undefined ? {} : { interactionType: interactionType(kind) }),
+      ...(interaction === undefined
+        ? {}
+        : {
+            interactionType: interaction.interactionType,
+            extensions: {
+              [XAPI_EXTENSIONS.assessmentInteractionKind]: interaction.kind,
+            },
+          }),
     },
   };
 }
@@ -240,6 +368,7 @@ export function buildAnsweredStatementDraft(input: {
   readonly rootActivityId: XapiIri;
   readonly targetId: string;
   readonly interactionKind: AssessmentInteractionKind;
+  readonly response: AssessmentResponseValue | null;
   readonly result: Pick<AssessmentResult, "isCorrect" | "score">;
   readonly attemptNumber: number;
   readonly quiz?: {
@@ -249,9 +378,13 @@ export function buildAnsweredStatementDraft(input: {
 }): XapiStatementDraft {
   const result = validNormalizedResult(input.result);
   const attemptNumber = positiveInteger("attemptNumber", input.attemptNumber);
+  const encodedResponse = encodeAssessmentResponse(input.interactionKind, input.response);
   return validatedDraft({
     verb: XAPI_VERBS.answered,
-    object: assessmentActivity(input.rootActivityId, input.targetId, input.interactionKind),
+    object: assessmentActivity(input.rootActivityId, input.targetId, {
+      kind: input.interactionKind,
+      interactionType: encodedResponse.interactionType,
+    }),
     result: {
       success: result.isCorrect,
       score: {
@@ -260,6 +393,7 @@ export function buildAnsweredStatementDraft(input: {
         min: 0,
         max: 1,
       },
+      ...(encodedResponse.response === undefined ? {} : { response: encodedResponse.response }),
       extensions: {
         [XAPI_EXTENSIONS.assessmentAttemptNumber]: attemptNumber,
       },

@@ -314,6 +314,7 @@ export function createAssessmentStore({
             rootActivityId: session.rootActivityId,
             targetId: registration.targetId,
             interactionKind: registration.interactionKind,
+            response: problem.response,
             result: problem.submissionResult,
             attemptNumber: problem.attemptNumber,
           }),
@@ -399,6 +400,7 @@ export function createAssessmentStore({
               rootActivityId: session.rootActivityId,
               targetId: problemRegistration.targetId,
               interactionKind: problemRegistration.interactionKind,
+              response: problem.response,
               result: problem.submissionResult,
               attemptNumber: problem.attemptNumber,
               quiz: {

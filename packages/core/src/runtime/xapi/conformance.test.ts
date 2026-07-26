@@ -53,9 +53,11 @@ const QUIZ_PROBLEM_ID = "quiz-block";
 const QUIZ_TARGET_ID = "quiz-target";
 const QUIZ_ID = "quiz-one";
 const QUIZ_ATTEMPT_ID = "quiz-attempt-one";
+const LOCAL_RESPONSE_ID = "local option";
+const AUTHORITATIVE_RESPONSE_ID = "authoritative option";
 
 const PRIVATE_VALUES = Object.freeze([
-  "PRIVATE_RESPONSE",
+  "PRIVATE_ITEM_RESPONSE",
   "PRIVATE_ANSWER",
   "PRIVATE_FEEDBACK",
   "PRIVATE_ITEM_FEEDBACK",
@@ -82,7 +84,6 @@ const PROHIBITED_KEYS = new Set([
   "items",
   "platform",
   "registration",
-  "response",
   "stored",
   "version",
 ]);
@@ -109,6 +110,7 @@ const ALLOWED_TEMPLATE_KEYS = new Set([
   "max",
   "success",
   "completion",
+  "response",
   "duration",
   "contextActivities",
   "parent",
@@ -135,7 +137,7 @@ function assessmentResult(overrides: Partial<AssessmentResult> = {}): Assessment
       "private-item": {
         correct: true,
         expected: "PRIVATE_ANSWER",
-        given: "PRIVATE_RESPONSE",
+        given: "PRIVATE_ITEM_RESPONSE",
         feedback: {
           kind: "rich-text",
           document: {
@@ -261,7 +263,7 @@ function createAssessmentPort(successStatus: "passed" | "failed"): AssessmentPor
     type: "runtime",
     submit: async () => ({
       problem: problemSnapshot({
-        response: { kind: "single-select", optionId: "PRIVATE_RESPONSE" },
+        response: { kind: "single-select", optionId: AUTHORITATIVE_RESPONSE_ID },
         attemptNumber: 3,
         submitted: true,
         submissionResult: standaloneResult,
@@ -292,7 +294,7 @@ function createAssessmentPort(successStatus: "passed" | "failed"): AssessmentPor
         }),
         problemsByTargetId: {
           [QUIZ_TARGET_ID]: problemSnapshot({
-            response: { kind: "single-select", optionId: "PRIVATE_RESPONSE" },
+            response: { kind: "single-select", optionId: AUTHORITATIVE_RESPONSE_ID },
             attemptNumber: 1,
             submitted: true,
             submissionResult: quizResult,
@@ -445,9 +447,9 @@ async function recordStandalone(
   expect(store.getState().register(registration(STANDALONE_PROBLEM_ID, STANDALONE_TARGET_ID))).toBe(
     true,
   );
-  expect(
-    store.getState().setLocalResponse(standaloneIdentity, { choice: "PRIVATE_RESPONSE" }),
-  ).toBe(true);
+  expect(store.getState().setLocalResponse(standaloneIdentity, { choice: LOCAL_RESPONSE_ID })).toBe(
+    true,
+  );
   const result = await store.getState().submit(standaloneIdentity);
   expect(result).toMatchObject({
     isCorrect: false,
@@ -486,9 +488,7 @@ async function recordTerminalQuiz(
       quizzes: { [groupId]: quizAttempt(groupId) },
     },
   }));
-  expect(store.getState().setLocalResponse(quizIdentity, { choice: "PRIVATE_RESPONSE" })).toBe(
-    true,
-  );
+  expect(store.getState().setLocalResponse(quizIdentity, { choice: LOCAL_RESPONSE_ID })).toBe(true);
   await expect(
     store.getState().submitQuizQuestion({ groupId: QUIZ_ID }, quizIdentity),
   ).resolves.toMatchObject({
@@ -716,11 +716,17 @@ describe("Core xAPI conformance", () => {
     expect(accepted[3]).toMatchObject({
       object: {
         id: createAssessmentActivityId(ROOT_ACTIVITY_ID, STANDALONE_TARGET_ID),
-        definition: { interactionType: "choice" },
+        definition: {
+          interactionType: "choice",
+          extensions: {
+            [XAPI_EXTENSIONS.assessmentInteractionKind]: "single-select",
+          },
+        },
       },
       result: {
         success: false,
         score: { scaled: 0.25 },
+        response: "authoritative%20option",
         extensions: {
           [XAPI_EXTENSIONS.assessmentAttemptNumber]: 3,
         },
@@ -751,6 +757,7 @@ describe("Core xAPI conformance", () => {
         id: createAssessmentActivityId(ROOT_ACTIVITY_ID, QUIZ_TARGET_ID),
       },
       result: {
+        response: "authoritative%20option",
         extensions: {
           [XAPI_EXTENSIONS.assessmentAttemptNumber]: 1,
         },
