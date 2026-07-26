@@ -146,6 +146,9 @@ function validatedProblemOutcome(
       `Assessment host response kind ${outcome.problem.response.kind} does not match registration interactionKind ${registration.interactionKind}`,
     );
   }
+  if (outcome.problem.submitted && outcome.problem.attemptNumber <= 0) {
+    throw new Error("Submitted assessment host response attemptNumber must be positive");
+  }
   return outcome;
 }
 
@@ -489,7 +492,7 @@ export function createAssessmentStore({
     };
 
     const commitQuizOutcome = (
-      groupId: AssessmentGroupId,
+      registration: AssessmentQuizRegistration,
       requestId: string,
       outcome: {
         quizAttempt: QuizAttemptState;
@@ -497,6 +500,7 @@ export function createAssessmentStore({
       },
       clearRequest: boolean,
     ): boolean => {
+      const groupId = registration.groupId;
       const previousDurable = get().durable;
       const operation = get().requests[groupId]?.operation;
       let committed = false;
@@ -512,8 +516,7 @@ export function createAssessmentStore({
         delete requests[groupId];
         return { durable, requests };
       });
-      const registration = get().quizRegistrations[groupId];
-      if (committed && operation && registration) {
+      if (committed && operation) {
         recordQuizOutcome(
           operation,
           registration,
@@ -1025,7 +1028,9 @@ export function createAssessmentStore({
             get(),
           );
           if (get().requests[groupId]?.requestId !== requestId) return null;
-          return commitQuizOutcome(groupId, requestId, outcome, true) ? outcome.quizAttempt : null;
+          return commitQuizOutcome(registration, requestId, outcome, true)
+            ? outcome.quizAttempt
+            : null;
         } catch (error) {
           failCurrentRequest(groupId, requestId, error);
           return null;
@@ -1077,7 +1082,9 @@ export function createAssessmentStore({
             attempt.attemptId,
           );
           if (get().requests[groupId]?.requestId !== requestId) return null;
-          return commitQuizOutcome(groupId, requestId, outcome, true) ? outcome.quizAttempt : null;
+          return commitQuizOutcome(quizRegistration, requestId, outcome, true)
+            ? outcome.quizAttempt
+            : null;
         } catch (error) {
           failCurrentRequest(groupId, requestId, error);
           return null;
@@ -1111,7 +1118,9 @@ export function createAssessmentStore({
             throw new Error("Quiz finish must return a terminal attempt");
           }
           if (get().requests[groupId]?.requestId !== requestId) return null;
-          return commitQuizOutcome(groupId, requestId, outcome, true) ? outcome.quizAttempt : null;
+          return commitQuizOutcome(registration, requestId, outcome, true)
+            ? outcome.quizAttempt
+            : null;
         } catch (error) {
           failCurrentRequest(groupId, requestId, error);
           return null;
@@ -1159,7 +1168,7 @@ export function createAssessmentStore({
               initialAttempt.attemptId,
             );
             if (get().requests[groupId]?.requestId !== requestId) return null;
-            if (!commitQuizOutcome(groupId, requestId, submittedOutcome, false)) {
+            if (!commitQuizOutcome(registration, requestId, submittedOutcome, false)) {
               return null;
             }
             currentAttempt = submittedOutcome.quizAttempt;
@@ -1179,7 +1188,7 @@ export function createAssessmentStore({
             throw new Error("Quiz expiry must return an expired attempt");
           }
           if (get().requests[groupId]?.requestId !== requestId) return null;
-          return commitQuizOutcome(groupId, requestId, expiredOutcome, true)
+          return commitQuizOutcome(registration, requestId, expiredOutcome, true)
             ? expiredOutcome.quizAttempt
             : null;
         } catch (error) {
@@ -1218,7 +1227,9 @@ export function createAssessmentStore({
             throw new Error("Quiz answer reveal must return an authorized completed attempt");
           }
           if (get().requests[groupId]?.requestId !== requestId) return null;
-          return commitQuizOutcome(groupId, requestId, outcome, true) ? outcome.quizAttempt : null;
+          return commitQuizOutcome(registration, requestId, outcome, true)
+            ? outcome.quizAttempt
+            : null;
         } catch (error) {
           failCurrentRequest(groupId, requestId, error);
           return null;
