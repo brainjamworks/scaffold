@@ -90,6 +90,8 @@ final class quiz_expiry_task_test extends \advanced_testcase {
         $this->assertStringContainsString('selected=2 changed=2 unchanged=0 skipped=0 failed=0', $firstoutput);
         $this->assertSame('expired', $this->quiz_status($scaffold, $users[0]));
         $this->assertSame('expired', $this->quiz_status($scaffold, $users[1]));
+        $this->assertSame('failed', $this->quiz_success_status($scaffold, $users[0]));
+        $this->assertSame('failed', $this->quiz_success_status($scaffold, $users[1]));
         $this->assertSame('in_progress', $this->quiz_status($scaffold, $users[2]));
         $this->assertSame('in_progress', $this->quiz_status($scaffold, $users[3]));
         $this->assertCount(2, $gradecalls);
@@ -99,6 +101,7 @@ final class quiz_expiry_task_test extends \advanced_testcase {
         $secondoutput = $this->execute_task(self::task_under_test($reconciler, 2));
         $this->assertStringContainsString('selected=1 changed=1 unchanged=0 skipped=0 failed=0', $secondoutput);
         $this->assertSame('expired', $this->quiz_status($scaffold, $users[2]));
+        $this->assertSame('failed', $this->quiz_success_status($scaffold, $users[2]));
         $this->assertSame('in_progress', $this->quiz_status($scaffold, $users[3]));
         $this->assertCount(3, $gradecalls);
         $this->assertCount(3, $completioncalls);
@@ -214,6 +217,7 @@ final class quiz_expiry_task_test extends \advanced_testcase {
         );
         $this->assertSame('in_progress', $this->quiz_status($scaffold, $staleuser));
         $this->assertSame('expired', $this->quiz_status($scaffold, $validuser));
+        $this->assertSame('failed', $this->quiz_success_status($scaffold, $validuser));
         $this->assertStringNotContainsString('attempt-missing', $output);
     }
 
@@ -396,6 +400,28 @@ final class quiz_expiry_task_test extends \advanced_testcase {
      * @return string
      */
     private function quiz_status(\stdClass $scaffold, \stdClass $user): string {
+        return (string) $this->quiz_attempt($scaffold, $user)->status;
+    }
+
+    /**
+     * Returns quiz success status.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @param \stdClass $user User.
+     * @return string|null
+     */
+    private function quiz_success_status(\stdClass $scaffold, \stdClass $user): ?string {
+        return $this->quiz_attempt($scaffold, $user)->successStatus;
+    }
+
+    /**
+     * Returns the stored quiz attempt.
+     *
+     * @param \stdClass $scaffold Scaffold.
+     * @param \stdClass $user User.
+     * @return \stdClass
+     */
+    private function quiz_attempt(\stdClass $scaffold, \stdClass $user): \stdClass {
         global $DB;
 
         $snapshot = json_decode((string) $DB->get_field(
@@ -404,7 +430,7 @@ final class quiz_expiry_task_test extends \advanced_testcase {
             ['scaffoldid' => $scaffold->id, 'userid' => $user->id],
             MUST_EXIST,
         ), false, 512, JSON_THROW_ON_ERROR);
-        return (string) $snapshot->quizzes->{'quiz-due-graded'}->status;
+        return $snapshot->quizzes->{'quiz-due-graded'};
     }
 
     /**
@@ -530,6 +556,7 @@ final class quiz_expiry_task_test extends \advanced_testcase {
                 'reviewDetail' => 'full_review',
                 'attemptsPerQuestion' => 1,
                 'isGraded' => true,
+                'passingScore' => 0.5,
                 'timer' => ['enabled' => true, 'durationSeconds' => 60],
             ],
         ];
@@ -555,6 +582,7 @@ final class quiz_expiry_task_test extends \advanced_testcase {
             'maxScore' => null,
             'resultsByTargetId' => (object) [],
             'answerReviewAuthorized' => false,
+            'successStatus' => null,
         ];
     }
 }

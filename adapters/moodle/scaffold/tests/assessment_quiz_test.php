@@ -152,6 +152,7 @@ final class assessment_quiz_test extends \basic_testcase {
         $attempt = $quiz->start_state($snapshot, $targets, $groups, 'quiz-1');
         $this->assertSame('in_progress', $attempt->status);
         $this->assertSame('question-1', $attempt->currentTargetId);
+        $this->assertNull($attempt->successStatus);
         $this->assertFalse(property_exists($snapshot->quizzes->{'quiz-1'}, 'groupId'));
 
         $wrong = $quiz->submit_question_state(
@@ -230,14 +231,141 @@ final class assessment_quiz_test extends \basic_testcase {
         $this->assertSame(2.0, $completed->maxScore);
         $this->assertNull($completed->currentTargetId);
         $this->assertTrue($completed->answerReviewAuthorized);
+        $this->assertNull($completed->successStatus);
 
         $revealed = $quiz->reveal_state($snapshot, $groups, 'attempt-1', 'quiz-1');
         $this->assertTrue($revealed->answerReviewAuthorized);
+        $this->assertNull($revealed->successStatus);
+    }
+
+    /**
+     * Tests terminal success against the authored threshold.
+     *
+     * @param float|null $passingscore Passing score.
+     * @param string $firstoption First option.
+     * @param string $secondoption Second option.
+     * @param float $expectedscore Expected score.
+     * @param string|null $expectedsuccess Expected success.
+     * @dataProvider terminal_success_provider
+     */
+    public function test_after_quiz_terminal_success_uses_authored_threshold(
+        ?float $passingscore,
+        string $firstoption,
+        string $secondoption,
+        float $expectedscore,
+        ?string $expectedsuccess,
+    ): void {
+        $targets = [$this->target('question-1'), $this->target('question-2')];
+        $groups = [$this->group(
+            'after_quiz',
+            true,
+            false,
+            'full_review',
+            'quiz-1',
+            ['question-1', 'question-2'],
+            $passingscore,
+        )];
+        $snapshot = $this->snapshot();
+        $quiz = new assessment_quiz(
+            static fn(): string => '2026-07-17T10:00:00.000000Z',
+            static fn(string $groupid): string => 'attempt-threshold',
+        );
+        $started = $quiz->start_state($snapshot, $targets, $groups, 'quiz-1');
+
+        $finished = $quiz->finish_state(
+            $snapshot,
+            $targets,
+            $groups,
+            $started->attemptId,
+            'quiz-1',
+            [
+                'question-1' => ['kind' => 'single-select', 'optionId' => $firstoption],
+                'question-2' => ['kind' => 'single-select', 'optionId' => $secondoption],
+            ],
+        );
+
+        $this->assertSame($expectedscore, $finished->score);
+        $this->assertSame(2.0, $finished->maxScore);
+        $this->assertSame($expectedsuccess, $finished->successStatus);
+    }
+
+    /**
+     * Provides terminal success cases.
+     *
+     * @return array
+     */
+    public static function terminal_success_provider(): array {
+        return [
+            'equal threshold passes' => [0.5, 'option-b', 'option-a', 1.0, 'passed'],
+            'below threshold fails' => [0.75, 'option-b', 'option-a', 1.0, 'failed'],
+            'no threshold has no status' => [null, 'option-b', 'option-b', 2.0, null],
+        ];
+    }
+
+    public function test_synchronous_expiry_can_preserve_a_passing_result(): void {
+        $targets = [$this->target('question-1'), $this->target('question-2')];
+        $groups = [$this->group(
+            'after_each_answer',
+            true,
+            true,
+            'full_review',
+            'quiz-1',
+            ['question-1', 'question-2'],
+            0.5,
+        )];
+        $snapshot = $this->snapshot();
+        $times = [
+            '2026-07-17T10:00:00.000000Z',
+            '2026-07-17T10:00:30.000000Z',
+            '2026-07-17T10:02:00.000000Z',
+            '2026-07-17T10:02:00.000000Z',
+        ];
+        $quiz = new assessment_quiz(
+            static function () use (&$times): string {
+                return array_shift($times) ?? '2026-07-17T10:02:00.000000Z';
+            },
+            static fn(string $groupid): string => 'attempt-expiry-pass',
+        );
+        $started = $quiz->start_state($snapshot, $targets, $groups, 'quiz-1');
+        $quiz->submit_question_state(
+            $snapshot,
+            $targets,
+            $groups,
+            $started->attemptId,
+            'quiz-1',
+            'question-1',
+            ['kind' => 'single-select', 'optionId' => 'option-b'],
+            0,
+        );
+
+        $expired = $quiz->submit_question_state(
+            $snapshot,
+            $targets,
+            $groups,
+            $started->attemptId,
+            'quiz-1',
+            'question-2',
+            ['kind' => 'single-select', 'optionId' => 'option-a'],
+            0,
+        );
+
+        $this->assertSame('expired', $expired->status);
+        $this->assertSame(1.0, $expired->score);
+        $this->assertSame(2.0, $expired->maxScore);
+        $this->assertSame('passed', $expired->successStatus);
     }
 
     public function test_expired_finish_ignores_late_payload_and_is_idempotent(): void {
         $targets = [$this->target('question-1'), $this->target('question-2')];
-        $groups = [$this->group('after_quiz', true, true)];
+        $groups = [$this->group(
+            'after_quiz',
+            true,
+            true,
+            'full_review',
+            'quiz-1',
+            ['question-1', 'question-2'],
+            0.5,
+        )];
         $snapshot = $this->snapshot();
         $times = [
             '2026-07-17T10:00:00.000000Z',
@@ -268,6 +396,7 @@ final class assessment_quiz_test extends \basic_testcase {
         $this->assertSame('expired', $expired->status);
         $this->assertSame(0.0, $expired->score);
         $this->assertSame(2.0, $expired->maxScore);
+        $this->assertSame('failed', $expired->successStatus);
         $this->assertSame(0, $gradecalls);
         $this->assertSame([], get_object_vars($snapshot->quizzes->{'quiz-1'}->resultsByTargetId));
         $this->assertFalse(property_exists($snapshot->problems, 'question-1'));
@@ -287,6 +416,34 @@ final class assessment_quiz_test extends \basic_testcase {
         );
         $this->assertSame($expiredstate, serialize($snapshot));
         $this->assertSame(0, $gradecalls);
+    }
+
+    public function test_public_attempt_preserves_historical_null_success(): void {
+        $group = $this->group(
+            'after_quiz',
+            true,
+            false,
+            'full_review',
+            'quiz-1',
+            ['question-1', 'question-2'],
+            0.5,
+        );
+        $attempt = $this->expiry_attempt(
+            'historical-attempt',
+            'question-1',
+            '2026-07-17T10:01:00.000000Z',
+        );
+        $attempt->status = 'completed';
+        $attempt->currentTargetId = null;
+        $attempt->finishedAt = '2026-07-17T10:00:30.000000Z';
+        $attempt->score = 2.0;
+        $attempt->maxScore = 2.0;
+        $attempt->successStatus = null;
+
+        $public = assessment_quiz::public_attempt($attempt, $group);
+
+        $this->assertNull($public->successStatus);
+        $this->assertNull($attempt->successStatus);
     }
 
     /**
@@ -698,6 +855,7 @@ final class assessment_quiz_test extends \basic_testcase {
      * @param string $reviewdetail Reviewdetail.
      * @param string $groupid Assessment group ID.
      * @param array $targetids Targetids.
+     * @param float|null $passingscore Passing score.
      * @return array
      */
     private function group(
@@ -707,6 +865,7 @@ final class assessment_quiz_test extends \basic_testcase {
         string $reviewdetail = 'full_review',
         string $groupid = 'quiz-1',
         array $targetids = ['question-1', 'question-2'],
+        ?float $passingscore = null,
     ): array {
         return [
             'schemaVersion' => 1,
@@ -719,6 +878,7 @@ final class assessment_quiz_test extends \basic_testcase {
                 'reviewDetail' => $reviewdetail,
                 'attemptsPerQuestion' => 2,
                 'isGraded' => $isgraded,
+                'passingScore' => $passingscore,
                 'timer' => [
                     'enabled' => $timerenabled,
                     'durationSeconds' => $timerenabled ? 60 : 0,
@@ -766,6 +926,7 @@ final class assessment_quiz_test extends \basic_testcase {
             'maxScore' => null,
             'resultsByTargetId' => (object) [],
             'answerReviewAuthorized' => false,
+            'successStatus' => null,
         ];
     }
 }
