@@ -8,6 +8,7 @@ import { quizAssessmentProjection } from "./localAssessmentProjection.test-fixtu
 const RUNTIME_QUIZ_GROUP_ID = `artifact:${LOCAL_ARTIFACT_ID}/group:quiz-1`;
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -177,6 +178,9 @@ describe("createLocalAssessmentPort quiz runtime", () => {
       status: "in_progress",
       currentTargetId: "mcq-1",
       submittedTargetIds: [],
+      score: null,
+      maxScore: null,
+      successStatus: null,
     });
     expect(finished?.quizAttempt).toMatchObject({
       groupId: RUNTIME_QUIZ_GROUP_ID,
@@ -186,10 +190,57 @@ describe("createLocalAssessmentPort quiz runtime", () => {
       answerReviewAuthorized: true,
       score: 1,
       maxScore: 2,
+      successStatus: null,
       resultsByTargetId: {
         "mcq-1": { isCorrect: true, score: 1 },
         "mcq-2": { isCorrect: false, score: 0 },
       },
+    });
+  });
+
+  it("passes an after-quiz attempt at the exact passing score", async () => {
+    const port = createLocalAssessmentPortFromProjection(
+      projectionSource(quizAssessmentProjection({ passingScore: 0.5 })),
+    );
+    const started = await port.quiz?.startAttempt({ groupId: RUNTIME_QUIZ_GROUP_ID });
+
+    const finished = await port.quiz?.finishAttempt({
+      attemptId: started?.quizAttempt.attemptId ?? "attempt-1",
+      groupId: RUNTIME_QUIZ_GROUP_ID,
+      responsesByTargetId: {
+        "mcq-1": { kind: "single-select", optionId: "a" },
+        "mcq-2": { kind: "single-select", optionId: "a" },
+      },
+    });
+
+    expect(finished?.quizAttempt).toMatchObject({
+      status: "completed",
+      score: 1,
+      maxScore: 2,
+      successStatus: "passed",
+    });
+  });
+
+  it("fails an after-quiz attempt below the passing score", async () => {
+    const port = createLocalAssessmentPortFromProjection(
+      projectionSource(quizAssessmentProjection({ passingScore: 0.75 })),
+    );
+    const started = await port.quiz?.startAttempt({ groupId: RUNTIME_QUIZ_GROUP_ID });
+
+    const finished = await port.quiz?.finishAttempt({
+      attemptId: started?.quizAttempt.attemptId ?? "attempt-1",
+      groupId: RUNTIME_QUIZ_GROUP_ID,
+      responsesByTargetId: {
+        "mcq-1": { kind: "single-select", optionId: "a" },
+        "mcq-2": { kind: "single-select", optionId: "a" },
+      },
+    });
+
+    expect(finished?.quizAttempt).toMatchObject({
+      status: "completed",
+      score: 1,
+      maxScore: 2,
+      successStatus: "failed",
     });
   });
 
@@ -203,13 +254,47 @@ describe("createLocalAssessmentPort quiz runtime", () => {
     );
   });
 
+  it("rejects finish when the local attempt is missing", async () => {
+    const port = createLocalAssessmentPortFromProjection(
+      projectionSource(quizAssessmentProjection()),
+    );
+
+    await expect(
+      port.quiz?.finishAttempt({
+        attemptId: "missing-attempt",
+        groupId: RUNTIME_QUIZ_GROUP_ID,
+        responsesByTargetId: {},
+      }),
+    ).rejects.toThrow("local quiz attempt not found: missing-attempt");
+  });
+
+  it("rejects finish when the local attempt belongs to another group", async () => {
+    const projection = quizAssessmentProjection();
+    projection.assessmentGroups.push({
+      ...projection.assessmentGroups[0]!,
+      groupId: "quiz-2",
+    });
+    const port = createLocalAssessmentPortFromProjection(projectionSource(projection));
+    const started = await port.quiz?.startAttempt({ groupId: RUNTIME_QUIZ_GROUP_ID });
+
+    await expect(
+      port.quiz?.finishAttempt({
+        attemptId: started?.quizAttempt.attemptId ?? "attempt-1",
+        groupId: `artifact:${LOCAL_ARTIFACT_ID}/group:quiz-2`,
+        responsesByTargetId: {},
+      }),
+    ).rejects.toThrow(/does not belong to group/);
+  });
+
   it("preserves attempt expiry and accumulated results across per-question submits", async () => {
-    vi.spyOn(Date, "now").mockReturnValue(new Date("2026-06-18T08:00:00.000Z").getTime());
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-06-18T08:00:00.000Z"));
     const port = createLocalAssessmentPortFromProjection(
       projectionSource(
         quizAssessmentProjection({
           reviewTiming: "after_each_answer",
           allowBacktracking: false,
+          passingScore: 0.5,
           timer: { enabled: true, durationSeconds: 90 },
         }),
       ),
@@ -235,9 +320,15 @@ describe("createLocalAssessmentPort quiz runtime", () => {
 
     expect(first?.quizAttempt.expiresAt).toBe("2026-06-18T08:01:30.000Z");
     expect(second?.quizAttempt).toMatchObject({
+      status: "completed",
+      currentTargetId: null,
       expiresAt: "2026-06-18T08:01:30.000Z",
+      finishedAt: "2026-06-18T08:00:00.000Z",
       submittedTargetIds: ["mcq-1", "mcq-2"],
       answerReviewAuthorized: true,
+      score: 1,
+      maxScore: 2,
+      successStatus: "passed",
       resultsByTargetId: {
         "mcq-1": { isCorrect: true, score: 1 },
         "mcq-2": { isCorrect: false, score: 0 },
@@ -446,6 +537,7 @@ describe("createLocalAssessmentPort quiz runtime", () => {
       projectionSource(
         quizAssessmentProjection({
           reviewTiming: "after_quiz",
+          passingScore: 0.5,
           timer: { enabled: true, durationSeconds: 1 },
         }),
       ),
@@ -466,8 +558,12 @@ describe("createLocalAssessmentPort quiz runtime", () => {
 
     expect(finished?.quizAttempt).toMatchObject({
       status: "expired",
+      currentTargetId: null,
       submittedTargetIds: ["mcq-1"],
       answerReviewAuthorized: true,
+      score: 1,
+      maxScore: 2,
+      successStatus: "passed",
     });
   });
 
@@ -478,6 +574,7 @@ describe("createLocalAssessmentPort quiz runtime", () => {
       projectionSource(
         quizAssessmentProjection({
           reviewTiming: "after_each_answer",
+          passingScore: 0.5,
           timer: { enabled: true, durationSeconds: 1 },
         }),
       ),
@@ -498,9 +595,69 @@ describe("createLocalAssessmentPort quiz runtime", () => {
 
     expect(submitted?.quizAttempt).toMatchObject({
       status: "expired",
-      currentTargetId: "mcq-1",
+      currentTargetId: null,
       submittedTargetIds: ["mcq-1"],
+      finishedAt: "2026-06-18T08:00:02.000Z",
+      score: 1,
+      maxScore: 2,
+      successStatus: "passed",
     });
+  });
+
+  it("reveals a stored terminal attempt without rewriting its authority", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-06-18T08:00:00.000Z"));
+    const port = createLocalAssessmentPortFromProjection(
+      projectionSource(quizAssessmentProjection({ passingScore: 0.5 })),
+    );
+    const started = await port.quiz?.startAttempt({ groupId: RUNTIME_QUIZ_GROUP_ID });
+    vi.setSystemTime(new Date("2026-06-18T08:01:00.000Z"));
+    const finished = await port.quiz?.finishAttempt({
+      attemptId: started?.quizAttempt.attemptId ?? "attempt-1",
+      groupId: RUNTIME_QUIZ_GROUP_ID,
+      responsesByTargetId: {
+        "mcq-1": { kind: "single-select", optionId: "a" },
+        "mcq-2": { kind: "single-select", optionId: "a" },
+      },
+    });
+
+    vi.setSystemTime(new Date("2026-06-18T08:02:00.000Z"));
+    const revealed = await port.quiz?.revealAnswers?.({
+      attemptId: started?.quizAttempt.attemptId ?? "attempt-1",
+      groupId: RUNTIME_QUIZ_GROUP_ID,
+    });
+
+    expect(revealed?.quizAttempt).toEqual({
+      ...finished?.quizAttempt,
+      answerReviewAuthorized: true,
+    });
+  });
+
+  it("rejects reveal when the local attempt is missing", async () => {
+    const port = createLocalAssessmentPortFromProjection(
+      projectionSource(quizAssessmentProjection()),
+    );
+
+    await expect(
+      port.quiz?.revealAnswers?.({
+        attemptId: "missing-attempt",
+        groupId: RUNTIME_QUIZ_GROUP_ID,
+      }),
+    ).rejects.toThrow("local quiz attempt not found: missing-attempt");
+  });
+
+  it("rejects reveal while the local attempt is in progress", async () => {
+    const port = createLocalAssessmentPortFromProjection(
+      projectionSource(quizAssessmentProjection()),
+    );
+    const started = await port.quiz?.startAttempt({ groupId: RUNTIME_QUIZ_GROUP_ID });
+
+    await expect(
+      port.quiz?.revealAnswers?.({
+        attemptId: started?.quizAttempt.attemptId ?? "attempt-1",
+        groupId: RUNTIME_QUIZ_GROUP_ID,
+      }),
+    ).rejects.toThrow(/is not terminal/);
   });
 });
 

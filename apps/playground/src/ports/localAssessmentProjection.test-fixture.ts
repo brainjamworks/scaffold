@@ -25,6 +25,7 @@ export function quizAssessmentProjection(
     reviewDetail: "result_only",
     attemptsPerQuestion: 1,
     isGraded: true,
+    passingScore: null,
     timer: { enabled: false, durationSeconds: 0 },
     ...settings,
   };

@@ -32,9 +32,11 @@ describe("Playground local assessment runtime composition", () => {
   it("runs an authored Quiz through the public scoped Core runtime", async () => {
     const user = userEvent.setup();
     const learnerContent = quizDocument();
-    const assessmentProjection = quizAssessmentProjection({}, [
+    const assessmentProjection = quizAssessmentProjection({ passingScore: 1 }, [
       { id: "mcq-1", correctOptionId: "a" },
     ]);
+    const assessment = createLocalAssessmentPortFromProjection(() => assessmentProjection);
+    const finishAttempt = vi.spyOn(assessment.quiz!, "finishAttempt");
 
     render(
       <ScaffoldLearnerApp
@@ -45,7 +47,7 @@ describe("Playground local assessment runtime composition", () => {
           learnerContent,
         }}
         services={{
-          assessment: createLocalAssessmentPortFromProjection(() => assessmentProjection),
+          assessment,
         }}
       />,
     );
@@ -64,6 +66,15 @@ describe("Playground local assessment runtime composition", () => {
 
     expect(await screen.findByText("Quiz complete")).toBeInTheDocument();
     expect(screen.getByTestId("quiz-completion-summary").textContent).toContain("1 / 1");
+    expect(finishAttempt).toHaveBeenCalledOnce();
+    await expect(finishAttempt.mock.results[0]?.value).resolves.toMatchObject({
+      quizAttempt: {
+        status: "completed",
+        score: 1,
+        maxScore: 1,
+        successStatus: "passed",
+      },
+    });
   });
 });
 
@@ -83,6 +94,7 @@ function quizDocument(): JSONContent {
           reviewDetail: "result_only",
           attemptsPerQuestion: 1,
           isGraded: true,
+          passingScore: 1,
           timer: { enabled: false, durationSeconds: 0 },
         },
       },
