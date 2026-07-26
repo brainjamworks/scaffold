@@ -110,6 +110,8 @@ describe("createXapiSession", () => {
     const { session } = createHarness();
     const state = session.getState();
 
+    expect(session.rootActivityId).toBe(ROOT_ACTIVITY_ID);
+    expect(Object.isFrozen(session)).toBe(true);
     expect(state).toEqual({ status: "dormant" });
     expect(Object.isFrozen(state)).toBe(true);
   });

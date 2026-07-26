@@ -2,6 +2,7 @@ import {
   XapiIriSchema,
   XapiStatementDraftSchema,
   XapiStatementTemplateSchema,
+  type XapiIri,
   type XapiPort,
   type XapiStatementDraft,
   type XapiStatementTemplate,
@@ -31,6 +32,7 @@ export type XapiSessionState =
     };
 
 export interface XapiSession {
+  readonly rootActivityId: XapiIri;
   start(): void;
   record(statement: XapiStatementDraft): void;
   terminate(): Promise<void>;
@@ -320,6 +322,7 @@ export function createXapiSession(input: CreateXapiSessionInput): XapiSession {
   }
 
   return Object.freeze({
+    rootActivityId,
     start,
     record,
     terminate,
