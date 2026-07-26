@@ -7,6 +7,7 @@ import { useScaffoldArtifactIdentity } from "@/host/providers/ScaffoldArtifactId
 import { hydrateLearnerActivitySnapshot } from "./hydration";
 import { createLearnerActivityStore } from "./store";
 import type { LearnerActivityStore, LearnerActivityStoreApi } from "./types";
+import { useXapiSessionAccessor, type XapiSessionAccessor } from "../xapi";
 
 const missingProvider = Symbol("missing LearnerActivityRuntimeProvider");
 
@@ -28,10 +29,15 @@ function createLearnerActivityRuntimeScope(
   artifactId: string | null,
   learnerActivityPort: LearnerActivityPort | null,
   initialSnapshot: unknown,
+  getXapiSession: XapiSessionAccessor,
 ): LearnerActivityRuntimeScope | null {
   if (!artifactId) return null;
 
-  const store = createLearnerActivityStore({ artifactId, learnerActivityPort });
+  const store = createLearnerActivityStore({
+    artifactId,
+    learnerActivityPort,
+    getXapiSession,
+  });
   if (initialSnapshot !== undefined) {
     try {
       hydrateLearnerActivitySnapshot(store, initialSnapshot);
@@ -51,8 +57,14 @@ export function LearnerActivityRuntimeProvider({
 }) {
   const { artifactId } = useScaffoldArtifactIdentity();
   const learnerActivityPort = useLearnerActivityPort();
+  const getXapiSession = useXapiSessionAccessor();
   const [scope, setScope] = useState<LearnerActivityRuntimeScope | null>(() =>
-    createLearnerActivityRuntimeScope(artifactId, learnerActivityPort, initialSnapshot),
+    createLearnerActivityRuntimeScope(
+      artifactId,
+      learnerActivityPort,
+      initialSnapshot,
+      getXapiSession,
+    ),
   );
   let currentScope = scope;
   const scopeMatches = currentScope
@@ -65,6 +77,7 @@ export function LearnerActivityRuntimeProvider({
       artifactId,
       learnerActivityPort,
       initialSnapshot,
+      getXapiSession,
     );
     setScope(currentScope);
   }

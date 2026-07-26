@@ -31,6 +31,7 @@ export function ScaffoldLearnerApp({
     <ScaffoldServicesProvider ports={ports}>
       <ContentRuntimeHost
         artifactId={bootstrap.artifactId}
+        courseTitle={bootstrap.title}
         {...(bootstrap.initialLearnerState?.assessmentSnapshot === undefined
           ? {}
           : {

@@ -14,6 +14,7 @@ import type {
   AssessmentExperienceDefinition,
 } from "../../editor/blocks/block-definition";
 import type { AssessmentPort } from "../../host/ports/assessment";
+import type { XapiSessionAccessor } from "../xapi";
 
 export type AssessmentProblemId = `artifact:${string}/block:${string}`;
 export type AssessmentGroupId = `artifact:${string}/group:${string}`;
@@ -99,6 +100,7 @@ export interface AssessmentQuizRegistration {
 export interface CreateAssessmentStoreOptions {
   readonly artifactId: string;
   readonly assessmentPort: AssessmentPort | null;
+  readonly getXapiSession?: XapiSessionAccessor;
 }
 
 export interface AssessmentStore {

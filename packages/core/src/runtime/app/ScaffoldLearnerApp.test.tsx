@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import type { ScaffoldLearnerBootstrap, ScaffoldLearnerHostServices } from "@/host/contracts";
+import type { XapiPort } from "@/host/ports";
 
 import { ScaffoldLearnerApp } from "./ScaffoldLearnerApp";
 
@@ -217,7 +218,7 @@ describe("ScaffoldLearnerApp", () => {
 
   it("passes learner host services through the runtime provider", async () => {
     const load = vi.fn(async () => null);
-    const send = vi.fn(async () => undefined);
+    const send = vi.fn<XapiPort["send"]>(async () => undefined);
     const services = {
       learnerActivity: {
         load,
@@ -244,7 +245,14 @@ describe("ScaffoldLearnerApp", () => {
         artifactId: "artifact-services",
       }),
     );
-    expect(send).not.toHaveBeenCalled();
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    expect(send.mock.calls[0]?.[0]).toMatchObject({
+      verb: { display: { en: "initialized" } },
+      object: {
+        id: services.xapi.activityId,
+        definition: { name: { en: "Learner artifact" } },
+      },
+    });
   });
 
   it("accepts a strict assessment snapshot while keeping activity state separate", async () => {

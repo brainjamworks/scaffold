@@ -1,4 +1,5 @@
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
+import { useCallback, useEffect, useRef } from "react";
 
 import {
   validateCourseSurfaceLifecycle,
@@ -13,15 +14,18 @@ import {
 } from "../learner-activity/LearnerActivityRuntimeProvider";
 import { selectRuntimePlayer } from "../players/player-selection";
 import type {
+  RuntimePlayerSelection,
   RuntimePlayerUnavailableReason,
   SlideshowPlayerSizing,
 } from "../players/player-types";
 import { PagePlayer } from "../players/page/PagePlayer";
 import { SlideshowPlayer } from "../players/slideshow/SlideshowPlayer";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
+import { XapiRuntimeProvider, useXapiSession } from "../xapi";
 
 export interface ContentRuntimeHostProps {
   artifactId?: string | null;
+  courseTitle?: string | null;
   initialAssessmentSnapshot?: unknown;
   initialLearnerActivitySnapshot?: unknown;
   initialContent: JSONContent | null;
@@ -31,6 +35,7 @@ export interface ContentRuntimeHostProps {
 
 export function ContentRuntimeHost({
   artifactId,
+  courseTitle,
   initialAssessmentSnapshot,
   initialLearnerActivitySnapshot,
   initialContent,
@@ -59,43 +64,87 @@ export function ContentRuntimeHost({
   }
 
   const playerSelection = selectRuntimePlayer(validation.value);
+
+  return (
+    <ScaffoldArtifactIdentityProvider artifactId={runtimeArtifactId}>
+      <XapiRuntimeProvider {...(courseTitle === undefined ? {} : { courseTitle })}>
+        <AssessmentRuntimeProvider
+          {...(initialAssessmentSnapshot === undefined
+            ? {}
+            : { initialSnapshot: initialAssessmentSnapshot })}
+        >
+          <LearnerActivityRuntimeProvider
+            {...(initialLearnerActivitySnapshot === undefined
+              ? {}
+              : { initialSnapshot: initialLearnerActivitySnapshot })}
+          >
+            <LearnerActivityReadinessGate>
+              <HydratedRuntimePlayer
+                initialContent={initialContent}
+                playerSelection={playerSelection}
+                runtimeArtifactId={runtimeArtifactId}
+                {...(onEditorReady ? { onEditorReady } : {})}
+                {...(slideshowSizing ? { slideshowSizing } : {})}
+              />
+            </LearnerActivityReadinessGate>
+          </LearnerActivityRuntimeProvider>
+        </AssessmentRuntimeProvider>
+      </XapiRuntimeProvider>
+    </ScaffoldArtifactIdentityProvider>
+  );
+}
+
+interface HydratedRuntimePlayerProps {
+  readonly initialContent: JSONContent;
+  readonly onEditorReady?: (editor: TiptapEditor) => void;
+  readonly playerSelection: RuntimePlayerSelection;
+  readonly runtimeArtifactId: string | null;
+  readonly slideshowSizing?: SlideshowPlayerSizing;
+}
+
+function HydratedRuntimePlayer({
+  initialContent,
+  onEditorReady,
+  playerSelection,
+  runtimeArtifactId,
+  slideshowSizing,
+}: HydratedRuntimePlayerProps) {
+  const xapiSession = useXapiSession();
+  const rendererReadyRef = useRef(false);
+  const handleRendererReady = useCallback(
+    (editor: TiptapEditor) => {
+      rendererReadyRef.current = true;
+      xapiSession?.start();
+      onEditorReady?.(editor);
+    },
+    [onEditorReady, xapiSession],
+  );
+
+  useEffect(() => {
+    if (rendererReadyRef.current) {
+      xapiSession?.start();
+    }
+  }, [xapiSession]);
+
   const runtimeContent =
     playerSelection.player === "page" ? (
       <PagePlayer
         artifactId={runtimeArtifactId}
         initialContent={initialContent}
+        onRendererReady={handleRendererReady}
         surfaceId={playerSelection.surfaceIds[0]}
-        {...(onEditorReady ? { onRendererReady: onEditorReady } : {})}
       />
     ) : (
       <SlideshowPlayer
         artifactId={runtimeArtifactId}
         initialContent={initialContent}
+        onRendererReady={handleRendererReady}
         surfaceIds={playerSelection.surfaceIds}
         {...(slideshowSizing ? { sizing: slideshowSizing } : {})}
-        {...(onEditorReady ? { onRendererReady: onEditorReady } : {})}
       />
     );
 
-  return (
-    <ScaffoldArtifactIdentityProvider artifactId={runtimeArtifactId}>
-      <AssessmentRuntimeProvider
-        {...(initialAssessmentSnapshot === undefined
-          ? {}
-          : { initialSnapshot: initialAssessmentSnapshot })}
-      >
-        <LearnerActivityRuntimeProvider
-          {...(initialLearnerActivitySnapshot === undefined
-            ? {}
-            : { initialSnapshot: initialLearnerActivitySnapshot })}
-        >
-          <LearnerActivityReadinessGate>
-            <div data-testid="scaffold-runtime-host">{runtimeContent}</div>
-          </LearnerActivityReadinessGate>
-        </LearnerActivityRuntimeProvider>
-      </AssessmentRuntimeProvider>
-    </ScaffoldArtifactIdentityProvider>
-  );
+  return <div data-testid="scaffold-runtime-host">{runtimeContent}</div>;
 }
 
 type RuntimeUnavailableReason = RuntimePlayerUnavailableReason;

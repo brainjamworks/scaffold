@@ -2,6 +2,7 @@ import type { StoreApi } from "zustand/vanilla";
 
 import type { LearnerActivityData, LearnerActivityRecord } from "@scaffold/contracts";
 import type { LearnerActivityPort } from "../../host/ports/learner-activity";
+import type { XapiSessionAccessor } from "../xapi";
 
 export type LearnerActivityHydrationState =
   | { status: "loading"; error: null }
@@ -31,6 +32,7 @@ export interface LearnerActivityStoreState {
 export interface CreateLearnerActivityStoreOptions {
   artifactId: string;
   learnerActivityPort: LearnerActivityPort | null;
+  getXapiSession?: XapiSessionAccessor;
 }
 
 export interface LearnerActivityStoreActions {
