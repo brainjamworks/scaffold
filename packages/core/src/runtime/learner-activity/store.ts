@@ -9,6 +9,11 @@ import {
   type LearnerActivityRecord,
 } from "@scaffold/contracts";
 import type { LearnerActivitySaveRecord } from "../../host/ports/learner-activity";
+import {
+  buildLearnerActivityCompletedStatementDraft,
+  buildLearnerActivityInteractedStatementDraft,
+  isXapiLearnerActivityKind,
+} from "../xapi/statement-catalogue";
 import type {
   CreateLearnerActivityStoreOptions,
   LearnerActivityRuntimeRecord,
@@ -48,9 +53,48 @@ function saveRecord(record: LearnerActivityRuntimeRecord): LearnerActivitySaveRe
   };
 }
 
+function structurallyEqualJson(left: unknown, right: unknown): boolean {
+  if (left === right) return true;
+
+  if (Array.isArray(left) || Array.isArray(right)) {
+    if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
+      return false;
+    }
+    return left.every((value, index) => structurallyEqualJson(value, right[index]));
+  }
+
+  if (typeof left !== "object" || left === null || typeof right !== "object" || right === null) {
+    return false;
+  }
+
+  const leftRecord = left as Record<string, unknown>;
+  const rightRecord = right as Record<string, unknown>;
+  const leftKeys = Object.keys(leftRecord);
+  const rightKeys = Object.keys(rightRecord);
+  if (leftKeys.length !== rightKeys.length) return false;
+
+  return leftKeys.every(
+    (key) =>
+      Object.prototype.hasOwnProperty.call(rightRecord, key) &&
+      structurallyEqualJson(leftRecord[key], rightRecord[key]),
+  );
+}
+
+type LearnerActivityTransition = "completed" | "interacted";
+
+function authoritativeTransition(
+  previous: LearnerActivityRuntimeRecord,
+  current: LearnerActivityRuntimeRecord,
+): LearnerActivityTransition | null {
+  if (!isXapiLearnerActivityKind(current.activityKind)) return null;
+  if (!previous.completed && current.completed) return "completed";
+  return structurallyEqualJson(previous.data, current.data) ? null : "interacted";
+}
+
 export function createLearnerActivityStore({
   artifactId,
   learnerActivityPort,
+  getXapiSession,
 }: CreateLearnerActivityStoreOptions): LearnerActivityStoreApi {
   const normalizedArtifactId = artifactId.trim();
   if (!normalizedArtifactId) {
@@ -59,6 +103,31 @@ export function createLearnerActivityStore({
 
   return createStore((set, get) => {
     const saveTails = new Map<string, Promise<void>>();
+    const lastAuthoritativeRecords = new Map<string, LearnerActivityRuntimeRecord>();
+
+    const recordAuthoritativeTransition = (
+      blockId: string,
+      record: LearnerActivityRuntimeRecord,
+      transition: LearnerActivityTransition,
+    ): void => {
+      try {
+        const session = getXapiSession?.();
+        if (!session || !isXapiLearnerActivityKind(record.activityKind)) return;
+
+        const input = {
+          rootActivityId: session.rootActivityId,
+          blockId,
+          activityKind: record.activityKind,
+        };
+        session.record(
+          transition === "completed"
+            ? buildLearnerActivityCompletedStatementDraft(input)
+            : buildLearnerActivityInteractedStatementDraft(input),
+        );
+      } catch {
+        // Learning-record delivery is observational and cannot change persistence authority.
+      }
+    };
 
     const reconcileFailure = (blockId: string, generation: number, error: unknown): void => {
       if (get().saves[blockId]?.generation !== generation) return;
@@ -95,6 +164,7 @@ export function createLearnerActivityStore({
           }
           if (get().saves[blockId]?.generation !== generation) return;
 
+          const previousAuthoritative = lastAuthoritativeRecords.get(blockId);
           set((state) => ({
             activities: { ...state.activities, [blockId]: authoritative },
             saves: {
@@ -102,6 +172,14 @@ export function createLearnerActivityStore({
               [blockId]: { status: "idle", generation, error: null },
             },
           }));
+          lastAuthoritativeRecords.set(blockId, authoritative);
+
+          if (previousAuthoritative) {
+            const transition = authoritativeTransition(previousAuthoritative, authoritative);
+            if (transition) {
+              recordAuthoritativeTransition(blockId, authoritative, transition);
+            }
+          }
         })
         .catch((error: unknown) => {
           reconcileFailure(blockId, generation, error);
@@ -114,7 +192,17 @@ export function createLearnerActivityStore({
     };
 
     const commitMutation = (blockId: string, record: LearnerActivityRuntimeRecord): boolean => {
-      const generation = (get().saves[blockId]?.generation ?? 0) + 1;
+      const state = get();
+      const current = state.activities[blockId];
+      if (
+        !lastAuthoritativeRecords.has(blockId) &&
+        current !== undefined &&
+        state.saves[blockId] === undefined
+      ) {
+        lastAuthoritativeRecords.set(blockId, current);
+      }
+
+      const generation = (state.saves[blockId]?.generation ?? 0) + 1;
       enqueueSave(blockId, generation, record);
       set((state) => ({
         activities: { ...state.activities, [blockId]: record },
