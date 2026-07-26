@@ -136,6 +136,29 @@ separate first-party hosted Agent package. Active Agent behavior and private
 activation settings are not included in this repository or installed LMS
 adapters.
 
+### Optional xAPI learning records
+
+Learner-runtime hosts can omit xAPI entirely. When a host supplies the optional
+port, Core emits ordered partial standard xAPI Statement templates for its
+approved learning-record catalogue:
+
+```ts
+import type { XapiPort, XapiStatementTemplate } from "@scaffold/core/ports";
+```
+
+Core owns each learning fact's verb, Activity, Result, Statement ID, event
+timestamp, and order. The trusted host adds Actor identity and permitted
+placement or registration Context, then accepts responsibility for delivery
+through `XapiPort.send`. A rejected template permanently stops recording for
+that Core session without changing assessment, persistence, grading, or the
+learner-facing result.
+
+Core does not collect Actor identity, configure endpoints, authenticate, send
+HTTP, retry after host acceptance, or operate an LRS. Those concerns belong to
+the host deployment. This API documents Core's partial template boundary; it
+does not imply that every Scaffold adapter or delivery standard currently
+transports xAPI. Authoring preview services do not receive the capability.
+
 ## Development
 
 Use the smallest focused command while working, then run the release gate

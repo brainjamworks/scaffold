@@ -75,11 +75,26 @@ export interface XapiStatementDraft {
   readonly context?: XapiContextTemplate;
 }
 
+/**
+ * Partial standard xAPI Statement template produced by Scaffold Core.
+ *
+ * Core owns the learning semantics, Statement ID, event timestamp, and
+ * ordering. It deliberately omits Actor identity and host placement or
+ * registration Context; a trusted runtime host enriches those fields for
+ * delivery without replacing Core-owned values.
+ */
 export interface XapiStatementTemplate extends XapiStatementDraft {
   readonly id: XapiUuid;
   readonly timestamp: XapiTimestamp;
 }
 
+/**
+ * Optional learner-runtime boundary for accepting Core xAPI templates.
+ *
+ * Omitting this port disables learning-record emission without changing
+ * assessment, persistence, grading, or learner-facing results. An
+ * implementation is a trusted host boundary, not an endpoint or LRS client.
+ */
 export interface XapiPort {
   /**
    * Stable absolute IRI for the root course Activity in this host placement.
@@ -88,10 +103,11 @@ export interface XapiPort {
   readonly activityId: XapiIri;
 
   /**
-   * Accepts a Core template for trusted enrichment and ordered delivery.
-   * Resolution means the host has accepted ownership of delivery. Rejection
-   * means the template was not accepted and is permanent for this Core
-   * session.
+   * Accepts a partial Core template for trusted enrichment and ordered
+   * delivery. Resolution means the host has accepted ownership of delivery,
+   * including any later retry. Rejection means the template was not accepted,
+   * permanently stops emission for this Core session, and cannot change the
+   * learner operation that produced it.
    */
   send(statement: XapiStatementTemplate): Promise<void>;
 }
