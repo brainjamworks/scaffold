@@ -13,6 +13,12 @@ import {
   QuizAttemptStateSchema,
 } from "@scaffold/contracts";
 import type { AssessmentPort } from "../../host/ports/assessment";
+import type { XapiStatementDraft } from "../../host/ports/xapi";
+import {
+  buildAnsweredStatementDraft,
+  buildHintInteractedStatementDraft,
+  type XapiSession,
+} from "../xapi";
 import type {
   AssessmentRegistrationIdentity,
   AssessmentRegistrationInput,
@@ -25,6 +31,8 @@ import {
   scopeAssessmentGroupId,
   scopeAssessmentProblemId,
 } from "./assessment-store";
+
+const ROOT_ACTIVITY_ID = "https://example.com/courses/course-1";
 
 function createAssessmentPort(overrides: Partial<AssessmentPort> = {}): AssessmentPort {
   return {
@@ -53,6 +61,20 @@ function deferred<T>() {
     reject = rejectPromise;
   });
   return { promise, resolve, reject };
+}
+
+function createSessionDouble(
+  recordImplementation: (statement: XapiStatementDraft) => void = () => undefined,
+) {
+  const record = vi.fn<(statement: XapiStatementDraft) => void>(recordImplementation);
+  const session: XapiSession = Object.freeze({
+    rootActivityId: ROOT_ACTIVITY_ID,
+    start: vi.fn(),
+    record,
+    terminate: vi.fn(async () => undefined),
+    getState: () => ({ status: "dormant" as const }),
+  });
+  return { session, record };
 }
 
 function createProblemSnapshot(): AssessmentProblemSnapshot {
@@ -990,6 +1012,176 @@ describe("createAssessmentStore", () => {
     expect(submit).toHaveBeenCalledTimes(2);
   });
 
+  it("records a standalone answer only after its authoritative result commits", async () => {
+    const canonicalProblem = {
+      ...createProblemSnapshot(),
+      attemptNumber: 3,
+      submitted: true as const,
+      submissionResult: assessmentResult({
+        isCorrect: false,
+        score: 0.25,
+        items: {
+          "private-item": {
+            correct: false,
+            expected: "PRIVATE_ANSWER",
+            given: "PRIVATE_RESPONSE",
+          },
+        },
+      }),
+    };
+    let store!: ReturnType<typeof createAssessmentStore>;
+    let problemAtRecord: AssessmentProblemSnapshot | undefined;
+    const xapi = createSessionDouble(() => {
+      problemAtRecord =
+        store.getState().durable.problems[scopeAssessmentProblemId("artifact-one", "block-one")];
+    });
+    store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        submit: vi.fn().mockResolvedValue({ problem: canonicalProblem }),
+      }),
+      getXapiSession: () => xapi.session,
+    });
+    const identity = registrationIdentity();
+
+    store.getState().register(createRegistration());
+    store.getState().setLocalResponse(identity, { choice: "option-a" });
+
+    await expect(store.getState().submit(identity)).resolves.toEqual(
+      canonicalProblem.submissionResult,
+    );
+
+    expect(problemAtRecord).toEqual(canonicalProblem);
+    expect(xapi.record).toHaveBeenCalledExactlyOnceWith(
+      buildAnsweredStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        targetId: "target-one",
+        interactionKind: "single-select",
+        result: canonicalProblem.submissionResult,
+        attemptNumber: 3,
+      }),
+    );
+    expect(JSON.stringify(xapi.record.mock.calls)).not.toContain("PRIVATE_");
+  });
+
+  it("resolves the current xAPI session when a standalone answer becomes authoritative", async () => {
+    const pending = deferred<{ problem: AssessmentProblemSnapshot }>();
+    const xapi = createSessionDouble();
+    let currentSession: XapiSession | null = null;
+    const getXapiSession = vi.fn(() => currentSession);
+    const canonicalProblem = {
+      ...createProblemSnapshot(),
+      attemptNumber: 1,
+      submitted: true as const,
+      submissionResult: assessmentResult(),
+    };
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({ submit: () => pending.promise }),
+      getXapiSession,
+    });
+    const identity = registrationIdentity();
+
+    store.getState().register(createRegistration());
+    store.getState().setLocalResponse(identity, { choice: "option-a" });
+    const submission = store.getState().submit(identity);
+    expect(getXapiSession).not.toHaveBeenCalled();
+
+    currentSession = xapi.session;
+    pending.resolve({ problem: canonicalProblem });
+    await expect(submission).resolves.toEqual(canonicalProblem.submissionResult);
+
+    expect(getXapiSession).toHaveBeenCalledOnce();
+    expect(xapi.record).toHaveBeenCalledOnce();
+  });
+
+  it("keeps a successful standalone submission when xAPI recording throws", async () => {
+    const canonicalProblem = {
+      ...createProblemSnapshot(),
+      attemptNumber: 1,
+      submitted: true as const,
+      submissionResult: assessmentResult(),
+    };
+    const xapi = createSessionDouble(() => {
+      throw new Error("recording unavailable");
+    });
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        submit: vi.fn().mockResolvedValue({ problem: canonicalProblem }),
+      }),
+      getXapiSession: () => xapi.session,
+    });
+    const identity = registrationIdentity();
+    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+
+    store.getState().register(createRegistration());
+    store.getState().setLocalResponse(identity, { choice: "option-a" });
+
+    await expect(store.getState().submit(identity)).resolves.toEqual(
+      canonicalProblem.submissionResult,
+    );
+    expect(store.getState().durable.problems[problemId]).toEqual(canonicalProblem);
+    expect(store.getState().requests[problemId]).toBeUndefined();
+  });
+
+  it("does not record a standalone response without an authoritative result", async () => {
+    const xapi = createSessionDouble();
+    const canonicalProblem = {
+      ...createProblemSnapshot(),
+      attemptNumber: 1,
+    };
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        submit: vi.fn().mockResolvedValue({ problem: canonicalProblem }),
+      }),
+      getXapiSession: () => xapi.session,
+    });
+    const identity = registrationIdentity();
+
+    store.getState().register(createRegistration());
+    store.getState().setLocalResponse(identity, { choice: "option-a" });
+
+    await expect(store.getState().submit(identity)).resolves.toBeNull();
+    expect(xapi.record).not.toHaveBeenCalled();
+  });
+
+  it("keeps non-authoritative assessment operations out of xAPI", async () => {
+    const xapi = createSessionDouble();
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        check: vi.fn().mockResolvedValue({
+          problem: {
+            ...createProblemSnapshot(),
+            attemptNumber: 1,
+            checkResult: assessmentResult(),
+          },
+        }),
+        revealAnswer: vi.fn().mockResolvedValue({
+          answerKey: {
+            kind: "single-select",
+            correctOptionId: "option-b",
+            feedbackByOptionId: {},
+          },
+        }),
+      }),
+      getXapiSession: () => xapi.session,
+    });
+    const identity = registrationIdentity();
+
+    store.getState().register(createRegistration());
+    expect(store.getState().setLocalResponse(identity, { choice: "option-a" })).toBe(true);
+    await expect(store.getState().check(identity)).resolves.toEqual(assessmentResult());
+    await expect(store.getState().revealAnswer(identity)).resolves.toMatchObject({
+      answerKey: { kind: "single-select", correctOptionId: "option-b" },
+    });
+    expect(store.getState().reset(identity)).toBe(true);
+
+    expect(xapi.record).not.toHaveBeenCalled();
+  });
+
   it("resets a retryable problem while preserving attempt history and bounds durable hints", async () => {
     const store = createAssessmentStore({
       artifactId: "artifact-one",
@@ -1075,6 +1267,105 @@ describe("createAssessmentStore", () => {
     expect(store.getState().requests[problemId]).toBeUndefined();
   });
 
+  it("records a persisted hint only after its authoritative count commits", async () => {
+    const pending = deferred<{ problem: AssessmentProblemSnapshot }>();
+    let store!: ReturnType<typeof createAssessmentStore>;
+    let hintsAtRecord: number | undefined;
+    const xapi = createSessionDouble(() => {
+      hintsAtRecord =
+        store.getState().durable.problems[scopeAssessmentProblemId("artifact-one", "block-one")]
+          ?.hintsShown;
+    });
+    store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({ revealHint: () => pending.promise }),
+      getXapiSession: () => xapi.session,
+    });
+    const identity = registrationIdentity();
+
+    store.getState().register(createRegistration());
+    const reveal = store.getState().revealHint(identity);
+    expect(xapi.record).not.toHaveBeenCalled();
+
+    pending.resolve({ problem: { ...createProblemSnapshot(), hintsShown: 1 } });
+    await expect(reveal).resolves.toBe(true);
+
+    expect(hintsAtRecord).toBe(1);
+    expect(xapi.record).toHaveBeenCalledExactlyOnceWith(
+      buildHintInteractedStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        targetId: "target-one",
+        hintNumber: 1,
+      }),
+    );
+  });
+
+  it("does not record a persisted hint when authoritative count does not increase", async () => {
+    const xapi = createSessionDouble();
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        revealHint: vi.fn().mockResolvedValue({
+          problem: { ...createProblemSnapshot(), hintsShown: 1 },
+        }),
+      }),
+      getXapiSession: () => xapi.session,
+    });
+    const identity = registrationIdentity();
+    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+
+    store.getState().register(createRegistration());
+    store.setState({
+      durable: {
+        problems: { [problemId]: { ...createProblemSnapshot(), hintsShown: 1 } },
+        quizzes: {},
+      },
+    });
+
+    await expect(store.getState().revealHint(identity)).resolves.toBe(true);
+
+    expect(store.getState().durable.problems[problemId]?.hintsShown).toBe(1);
+    expect(xapi.record).not.toHaveBeenCalled();
+  });
+
+  it("does not record a locally revealed hint without persistence authority", async () => {
+    const xapi = createSessionDouble();
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort(),
+      getXapiSession: () => xapi.session,
+    });
+    const identity = registrationIdentity();
+
+    store.getState().register(createRegistration());
+
+    await expect(store.getState().revealHint(identity)).resolves.toBe(true);
+    expect(xapi.record).not.toHaveBeenCalled();
+  });
+
+  it("keeps a persisted hint reveal when xAPI recording throws", async () => {
+    const xapi = createSessionDouble(() => {
+      throw new Error("recording unavailable");
+    });
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        revealHint: vi.fn().mockResolvedValue({
+          problem: { ...createProblemSnapshot(), hintsShown: 1 },
+        }),
+      }),
+      getXapiSession: () => xapi.session,
+    });
+    const identity = registrationIdentity();
+    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+
+    store.getState().register(createRegistration());
+
+    await expect(store.getState().revealHint(identity)).resolves.toBe(true);
+    expect(store.getState().durable.problems[problemId]?.hintsShown).toBe(1);
+    expect(store.getState().requests[problemId]).toBeUndefined();
+  });
+
   it("allows only one in-flight host hint reveal per problem", async () => {
     const pending = deferred<{ problem: AssessmentProblemSnapshot }>();
     const revealHint = vi.fn(() => pending.promise);
@@ -1122,9 +1413,11 @@ describe("createAssessmentStore", () => {
 
   it("ignores stale host hint reveal completions", async () => {
     const stale = deferred<{ problem: AssessmentProblemSnapshot }>();
+    const xapi = createSessionDouble();
     const store = createAssessmentStore({
       artifactId: "artifact-one",
       assessmentPort: createAssessmentPort({ revealHint: () => stale.promise }),
+      getXapiSession: () => xapi.session,
     });
     const identity = registrationIdentity();
     const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
@@ -1136,6 +1429,7 @@ describe("createAssessmentStore", () => {
 
     await expect(staleReveal).resolves.toBe(false);
     expect(store.getState().durable.problems[problemId]?.hintsShown).toBe(0);
+    expect(xapi.record).not.toHaveBeenCalled();
   });
 
   it("rejects invalid canonical hint outcomes and installs a valid canonical problem", async () => {
@@ -1269,9 +1563,11 @@ describe("createAssessmentStore", () => {
     const older = deferred<{ problem: AssessmentProblemSnapshot }>();
     const newer = deferred<{ problem: AssessmentProblemSnapshot }>();
     const submit = vi.fn().mockReturnValueOnce(older.promise).mockReturnValueOnce(newer.promise);
+    const xapi = createSessionDouble();
     const store = createAssessmentStore({
       artifactId: "artifact-one",
       assessmentPort: createAssessmentPort({ submit }),
+      getXapiSession: () => xapi.session,
     });
     const identity = registrationIdentity();
     const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
@@ -1286,6 +1582,7 @@ describe("createAssessmentStore", () => {
       submitted: false,
       submissionResult: null,
     });
+    expect(xapi.record).not.toHaveBeenCalled();
 
     newer.resolve({
       problem: {
@@ -1305,6 +1602,7 @@ describe("createAssessmentStore", () => {
       submissionResult: assessmentResult(),
     });
     expect(store.getState().requests[problemId]).toBeUndefined();
+    expect(xapi.record).toHaveBeenCalledOnce();
   });
 
   it("records predictable transient errors when the port or an optional capability is absent", async () => {

@@ -16,6 +16,10 @@ import {
   AssessmentProblemCommandOutcomeSchema,
   AssessmentQuizCommandOutcomeSchema,
 } from "../../host/ports/assessment";
+import {
+  buildAnsweredStatementDraft,
+  buildHintInteractedStatementDraft,
+} from "../xapi/statement-catalogue";
 import type {
   AssessmentGroupId,
   AssessmentProblemId,
@@ -279,6 +283,7 @@ export function redactQuizResult(
 export function createAssessmentStore({
   artifactId,
   assessmentPort,
+  getXapiSession,
 }: CreateAssessmentStoreOptions): AssessmentStoreApi {
   const normalizedArtifactId = artifactId.trim();
   if (!normalizedArtifactId) {
@@ -287,6 +292,49 @@ export function createAssessmentStore({
 
   return createStore((set, get) => {
     let requestSequence = 0;
+
+    const recordStandaloneAnswer = (
+      registration: AssessmentRegistration,
+      problem: AssessmentProblemSnapshot,
+    ): void => {
+      if (!problem.submitted) return;
+      try {
+        const session = getXapiSession?.();
+        if (!session) return;
+        session.record(
+          buildAnsweredStatementDraft({
+            rootActivityId: session.rootActivityId,
+            targetId: registration.targetId,
+            interactionKind: registration.interactionKind,
+            result: problem.submissionResult,
+            attemptNumber: problem.attemptNumber,
+          }),
+        );
+      } catch {
+        // Learning-record delivery is observational and cannot change assessment authority.
+      }
+    };
+
+    const recordPersistedHint = (
+      registration: AssessmentRegistration,
+      previousProblem: AssessmentProblemSnapshot,
+      problem: AssessmentProblemSnapshot,
+    ): void => {
+      if (problem.hintsShown <= previousProblem.hintsShown) return;
+      try {
+        const session = getXapiSession?.();
+        if (!session) return;
+        session.record(
+          buildHintInteractedStatementDraft({
+            rootActivityId: session.rootActivityId,
+            targetId: registration.targetId,
+            hintNumber: problem.hintsShown,
+          }),
+        );
+      } catch {
+        // Learning-record delivery is observational and cannot change assessment authority.
+      }
+    };
 
     const beginRequest = (
       ownerId: AssessmentScopedId,
@@ -646,8 +694,10 @@ export function createAssessmentStore({
             registration,
           );
           if (get().requests[problemId]?.requestId !== requestId) return null;
+          let committed = false;
           set((state) => {
             if (state.requests[problemId]?.requestId !== requestId) return state;
+            committed = true;
             const requests = { ...state.requests };
             delete requests[problemId];
             return {
@@ -661,6 +711,8 @@ export function createAssessmentStore({
               requests,
             };
           });
+          if (!committed) return null;
+          recordStandaloneAnswer(registration, outcome.problem);
           return outcome.problem.submissionResult;
         } catch (error) {
           failCurrentRequest(problemId, requestId, error);
@@ -758,8 +810,10 @@ export function createAssessmentStore({
             registration,
           );
           if (get().requests[problemId]?.requestId !== requestId) return false;
+          let committed = false;
           set((state) => {
             if (state.requests[problemId]?.requestId !== requestId) return state;
+            committed = true;
             const requests = { ...state.requests };
             delete requests[problemId];
             return {
@@ -773,6 +827,8 @@ export function createAssessmentStore({
               requests,
             };
           });
+          if (!committed) return false;
+          recordPersistedHint(registration, problem, outcome.problem);
           return true;
         } catch (error) {
           failCurrentRequest(problemId, requestId, error);
