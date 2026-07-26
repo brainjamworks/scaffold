@@ -91,6 +91,7 @@ class RecordingBridge implements XBlockInnerBridge {
           expiresAt: null,
           score: null,
           maxScore: null,
+          successStatus: null,
           resultsByTargetId: {},
           answerReviewAuthorized: false,
         },

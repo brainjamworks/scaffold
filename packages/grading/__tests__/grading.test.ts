@@ -19,7 +19,7 @@ function richText(text: string): AssessmentFeedbackContent {
 }
 
 const baseTarget = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   targetId: "target-1",
   blockId: "target-1",
   blockType: "test",

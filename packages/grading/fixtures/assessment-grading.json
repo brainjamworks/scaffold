@@ -3,7 +3,7 @@
     {
       "id": "single-select-happy",
       "target": {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "targetId": "single-select-happy",
         "blockId": "single-select-happy",
         "blockType": "mcq",
@@ -71,7 +71,7 @@
     {
       "id": "single-select-fail",
       "target": {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "targetId": "single-select-fail",
         "blockId": "single-select-fail",
         "blockType": "dropdown",
@@ -126,7 +126,7 @@
     {
       "id": "single-select-empty-answer",
       "target": {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "targetId": "single-select-empty-answer",
         "blockId": "single-select-empty-answer",
         "blockType": "mcq",
@@ -162,7 +162,7 @@
     {
       "id": "multi-select-happy",
       "target": {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "targetId": "multi-select-happy",
         "blockId": "multi-select-happy",
         "blockType": "multiselect",
@@ -233,7 +233,7 @@
     {
       "id": "multi-select-wrong-pick-penalty",
       "target": {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "targetId": "multi-select-wrong-pick-penalty",
         "blockId": "multi-select-wrong-pick-penalty",
         "blockType": "multiselect",
@@ -271,7 +271,7 @@
     {
       "id": "multi-select-empty-answer",
       "target": {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "targetId": "multi-select-empty-answer",
         "blockId": "multi-select-empty-answer",
         "blockType": "multiselect",
@@ -307,7 +307,7 @@
     {
       "id": "sequence-happy",
       "target": {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "targetId": "sequence-happy",
         "blockId": "sequence-happy",
         "blockType": "sequencing",
@@ -376,7 +376,7 @@
     {
       "id": "sequence-partial-missing-selection",
       "target": {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "targetId": "sequence-partial-missing-selection",
         "blockId": "sequence-partial-missing-selection",
         "blockType": "sequencing",
@@ -413,7 +413,7 @@
     {
       "id": "sequence-empty-answer",
       "target": {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "targetId": "sequence-empty-answer",
         "blockId": "sequence-empty-answer",
         "blockType": "sequencing",
@@ -443,7 +443,7 @@
     {
       "id": "match-happy",
       "target": {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "targetId": "match-happy",
         "blockId": "match-happy",
         "blockType": "matching",
@@ -515,7 +515,7 @@
     {
       "id": "match-partial-missing-pair",
       "target": {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "targetId": "match-partial-missing-pair",
         "blockId": "match-partial-missing-pair",
         "blockType": "matching",
@@ -558,7 +558,7 @@
     {
       "id": "match-empty-answer",
       "target": {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "targetId": "match-empty-answer",
         "blockId": "match-empty-answer",
         "blockType": "matching",
@@ -588,7 +588,7 @@
     {
       "id": "classify-happy",
       "target": {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "targetId": "classify-happy",
         "blockId": "classify-happy",
         "blockType": "categorise",
@@ -666,7 +666,7 @@
     {
       "id": "classify-partial-wrong-placement",
       "target": {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "targetId": "classify-partial-wrong-placement",
         "blockId": "classify-partial-wrong-placement",
         "blockType": "categorise",
@@ -712,7 +712,7 @@
     {
       "id": "classify-empty-answer",
       "target": {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "targetId": "classify-empty-answer",
         "blockId": "classify-empty-answer",
         "blockType": "categorise",
@@ -742,7 +742,7 @@
     {
       "id": "fill-blanks-happy-normalized",
       "target": {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "targetId": "fill-blanks-happy-normalized",
         "blockId": "fill-blanks-happy-normalized",
         "blockType": "fill_blanks",
@@ -829,7 +829,7 @@
     {
       "id": "fill-blanks-partial-normalization-flags",
       "target": {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "targetId": "fill-blanks-partial-normalization-flags",
         "blockId": "fill-blanks-partial-normalization-flags",
         "blockType": "fill_blanks",
@@ -884,7 +884,7 @@
     {
       "id": "fill-blanks-empty-answer",
       "target": {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "targetId": "fill-blanks-empty-answer",
         "blockId": "fill-blanks-empty-answer",
         "blockType": "fill_blanks",
@@ -914,7 +914,7 @@
     {
       "id": "spatial-hotspot-partial-credit-happy",
       "target": {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "targetId": "spatial-hotspot-partial-credit-happy",
         "blockId": "spatial-hotspot-partial-credit-happy",
         "blockType": "image_hotspot",
@@ -993,7 +993,7 @@
     {
       "id": "spatial-hotspot-all-or-nothing-fail",
       "target": {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "targetId": "spatial-hotspot-all-or-nothing-fail",
         "blockId": "spatial-hotspot-all-or-nothing-fail",
         "blockType": "image_hotspot",
@@ -1044,7 +1044,7 @@
     {
       "id": "spatial-hotspot-empty-answer",
       "target": {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "targetId": "spatial-hotspot-empty-answer",
         "blockId": "spatial-hotspot-empty-answer",
         "blockType": "image_hotspot",

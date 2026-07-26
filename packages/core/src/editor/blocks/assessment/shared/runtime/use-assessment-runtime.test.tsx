@@ -125,6 +125,7 @@ function ScopedQuizRegistration({
         reviewDetail,
         attemptsPerQuestion: 1 as const,
         isGraded: true,
+        passingScore: null,
         timer: { enabled: false, durationSeconds: 0 },
       },
     }),

@@ -44,7 +44,7 @@ class assessment_state_repository {
     /**
      * SNAPSHOT VERSION.
      */
-    private const SNAPSHOT_VERSION = 1;
+    private const SNAPSHOT_VERSION = 2;
 
     /** @var \moodle_database Moodle database connection. */
     private $database;
@@ -601,6 +601,7 @@ class assessment_state_repository {
             throw new \invalid_parameter_exception('Stored assessment snapshot must be a JSON object');
         }
 
+        $snapshot = assessment_contract_migrator::upgrade_snapshot($snapshot);
         $this->validate_snapshot($snapshot, $artifactid);
         return $snapshot;
     }

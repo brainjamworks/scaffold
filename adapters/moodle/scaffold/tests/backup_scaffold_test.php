@@ -99,7 +99,9 @@ final class backup_scaffold_test extends advanced_testcase {
             array_map(static fn(stdClass $row): int => (int) $row->userid, $sources['learneractivities']),
         );
         foreach ($sources['assessmentstates'] as $row) {
-            $this->assertSame('moodle-cm-' . $cmid, json_decode($row->snapshotjson)->artifactId);
+            $snapshot = json_decode($row->snapshotjson);
+            $this->assertSame(2, $snapshot->snapshotVersion);
+            $this->assertSame('moodle-cm-' . $cmid, $snapshot->artifactId);
             $this->assertObjectNotHasProperty('staterevision', $row);
             $this->assertObjectNotHasProperty('nextquizexpiry', $row);
         }

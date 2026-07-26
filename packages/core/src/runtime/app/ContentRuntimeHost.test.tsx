@@ -579,7 +579,7 @@ describe("ContentRuntimeHost", () => {
         <ContentRuntimeHost
           artifactId="artifact-1"
           initialAssessmentSnapshot={{
-            snapshotVersion: 1,
+            snapshotVersion: 2,
             artifactId: "foreign-artifact",
             problems: {},
             quizzes: {},

@@ -119,7 +119,10 @@ final class backup_scaffold_activity_structure_step extends backup_activity_stru
             'id, userid, snapshotjson, timecreated, timemodified',
         ));
         foreach ($assessmentstates as $state) {
-            self::validate_assessment_snapshot((string) $state->snapshotjson, $artifactid);
+            $state->snapshotjson = self::normalize_assessment_snapshot(
+                (string) $state->snapshotjson,
+                $artifactid,
+            );
         }
 
         $learneractivities = array_values($DB->get_records(
@@ -169,9 +172,11 @@ final class backup_scaffold_activity_structure_step extends backup_activity_stru
      *
      * @param string $raw Raw.
      * @param string $artifactid Scaffold artifact ID.
+     * @return string
      */
-    private static function validate_assessment_snapshot(string $raw, string $artifactid): void {
+    private static function normalize_assessment_snapshot(string $raw, string $artifactid): string {
         $snapshot = self::decode_object($raw, 'Stored assessment snapshot');
+        $snapshot = \mod_scaffold\local\assessment_contract_migrator::upgrade_snapshot($snapshot);
         \mod_scaffold\local\json_schema_validator::validate_plugin_definition(
             'AssessmentLearnerSnapshot',
             $snapshot,
@@ -179,6 +184,11 @@ final class backup_scaffold_activity_structure_step extends backup_activity_stru
         );
         if (($snapshot->artifactId ?? null) !== $artifactid) {
             throw new \invalid_parameter_exception('Assessment snapshot artifactId does not match activity');
+        }
+        try {
+            return json_encode($snapshot, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            throw new \invalid_parameter_exception('Stored assessment snapshot cannot be encoded');
         }
     }
 

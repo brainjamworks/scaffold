@@ -213,7 +213,7 @@ final class grade_item_publisher_test extends \advanced_testcase {
      */
     private function target(bool $isgraded): array {
         return [
-            'schemaVersion' => 1,
+            'schemaVersion' => 2,
             'targetId' => 'question-1',
             'blockId' => 'question-1',
             'blockType' => 'mcq',

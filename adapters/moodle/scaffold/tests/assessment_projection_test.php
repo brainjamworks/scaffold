@@ -57,11 +57,11 @@ final class assessment_projection_test extends \advanced_testcase {
         $oldtarget = $target;
         unset($oldtarget['schemaVersion']);
         $futuretarget = $target;
-        $futuretarget['schemaVersion'] = 2;
+        $futuretarget['schemaVersion'] = 3;
         $oldgroup = $group;
         unset($oldgroup['schemaVersion']);
         $futuregroup = $group;
-        $futuregroup['schemaVersion'] = 2;
+        $futuregroup['schemaVersion'] = 3;
         $duplicategroup = $group;
         $duplicategroup['targetIds'] = ['question-1'];
         $cases = [
@@ -95,6 +95,23 @@ final class assessment_projection_test extends \advanced_testcase {
                 $this->addToAssertionCount(1);
             }
         }
+    }
+
+    public function test_projection_upgrades_version_one_bundle_in_memory(): void {
+        $target = $this->target();
+        $target['schemaVersion'] = 1;
+        $group = $this->quiz_group();
+        $group['schemaVersion'] = 1;
+        unset($group['settings']['passingScore']);
+        $activity = $this->activity_record([$target], [$group]);
+
+        $projection = assessment_projection::for_activity($activity);
+
+        $this->assertSame(2, $projection['targets'][0]['schemaVersion']);
+        $this->assertSame(2, $projection['groups'][0]['schemaVersion']);
+        $this->assertNull($projection['groups'][0]['settings']['passingScore']);
+        $this->assertSame(1, json_decode($activity->assessmenttargetsjson)[0]->schemaVersion);
+        $this->assertSame(1, json_decode($activity->assessmentgroupsjson)[0]->schemaVersion);
     }
 
     public function test_grade_read_validates_complete_target_and_group_bundle(): void {
@@ -345,7 +362,7 @@ final class assessment_projection_test extends \advanced_testcase {
      */
     private function target(): array {
         return [
-            'schemaVersion' => 1,
+            'schemaVersion' => 2,
             'targetId' => 'question-1',
             'blockId' => 'block-question-1',
             'blockType' => 'mcq',
@@ -376,7 +393,7 @@ final class assessment_projection_test extends \advanced_testcase {
      */
     private function quiz_group(array $targetids = ['question-1']): array {
         return [
-            'schemaVersion' => 1,
+            'schemaVersion' => 2,
             'kind' => 'quiz',
             'groupId' => 'quiz-1',
             'targetIds' => $targetids,
@@ -386,6 +403,7 @@ final class assessment_projection_test extends \advanced_testcase {
                 'reviewDetail' => 'result_only',
                 'attemptsPerQuestion' => 1,
                 'isGraded' => true,
+                'passingScore' => null,
                 'timer' => ['enabled' => false, 'durationSeconds' => 0],
             ],
         ];

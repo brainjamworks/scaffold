@@ -140,7 +140,7 @@ describe("authoring publication document projection", () => {
 
     expect(projection.targets).toEqual([
       {
-        schemaVersion: 1,
+        schemaVersion: 2,
         targetId: "registered-block",
         blockType: "registry_owned_projection_assessment",
         blockId: "registered-block",
@@ -264,7 +264,7 @@ describe("authoring publication document projection", () => {
     ]);
     expect(projection.groups).toEqual([
       {
-        schemaVersion: 1,
+        schemaVersion: 2,
         kind: "quiz",
         groupId: "quiz-1",
         targetIds: ["mcq-quiz-1", "mcq-quiz-2"],
@@ -623,7 +623,7 @@ describe("authoring publication document projection", () => {
 
     expect(projection.targets).toEqual([
       {
-        schemaVersion: 1,
+        schemaVersion: 2,
         targetId: "mcq-1",
         blockType: "mcq",
         blockId: "mcq-1",
@@ -731,7 +731,7 @@ describe("authoring publication document projection", () => {
 
     expect(targets).toMatchObject([
       {
-        schemaVersion: 1,
+        schemaVersion: 2,
         targetId: "fill-1",
         blockType: "fill_blanks",
         blockId: "fill-1",
@@ -756,7 +756,7 @@ describe("authoring publication document projection", () => {
         },
       },
       {
-        schemaVersion: 1,
+        schemaVersion: 2,
         targetId: "hotspot-block-1",
         blockType: "image_hotspot",
         blockId: "hotspot-block-1",

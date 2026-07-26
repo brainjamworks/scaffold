@@ -33,7 +33,7 @@ export function quizAssessmentProjection(
   return {
     assessmentGroups: [
       {
-        schemaVersion: 1,
+        schemaVersion: 2,
         kind: "quiz",
         groupId: "quiz-1",
         targetIds: targets.map(({ id }) => id),
@@ -41,7 +41,7 @@ export function quizAssessmentProjection(
       },
     ],
     assessmentTargets: targets.map(({ id, correctOptionId }) => ({
-      schemaVersion: 1,
+      schemaVersion: 2,
       targetId: id,
       blockId: id,
       blockType: "mcq",

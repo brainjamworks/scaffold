@@ -648,7 +648,7 @@ final class assessment_quiz_test extends \basic_testcase {
 
     public function test_expiry_reconciliation_finalizes_every_due_quiz_idempotently(): void {
         $snapshot = (object) [
-            'snapshotVersion' => 1,
+            'snapshotVersion' => 2,
             'artifactId' => 'moodle-cm-42',
             'problems' => (object) [],
             'quizzes' => (object) [
@@ -820,7 +820,7 @@ final class assessment_quiz_test extends \basic_testcase {
      */
     private function target(string $targetid): array {
         return [
-            'schemaVersion' => 1,
+            'schemaVersion' => 2,
             'targetId' => $targetid,
             'blockId' => $targetid,
             'blockType' => 'mcq',
@@ -868,7 +868,7 @@ final class assessment_quiz_test extends \basic_testcase {
         ?float $passingscore = null,
     ): array {
         return [
-            'schemaVersion' => 1,
+            'schemaVersion' => 2,
             'kind' => 'quiz',
             'groupId' => $groupid,
             'targetIds' => $targetids,
@@ -894,7 +894,7 @@ final class assessment_quiz_test extends \basic_testcase {
      */
     private function snapshot(): \stdClass {
         return (object) [
-            'snapshotVersion' => 1,
+            'snapshotVersion' => 2,
             'artifactId' => 'moodle-cm-42',
             'problems' => (object) [],
             'quizzes' => (object) [],

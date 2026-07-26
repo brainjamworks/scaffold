@@ -54,7 +54,7 @@ describe("host app contracts", () => {
     } satisfies ScaffoldAuthoringArtifact;
 
     const assessmentSnapshot = {
-      snapshotVersion: 1,
+      snapshotVersion: 2,
       artifactId: artifact.id,
       problems: {
         "target-1": {
@@ -238,6 +238,7 @@ describe("assessment port contracts", () => {
       expiresAt: null,
       score: null,
       maxScore: null,
+      successStatus: null,
       resultsByTargetId: {},
       answerReviewAuthorized: false,
     };
@@ -263,6 +264,9 @@ describe("assessment port contracts", () => {
             attemptId: args.attemptId,
             status: "completed",
             finishedAt: "2026-06-18T08:05:00.000Z",
+            score: 1,
+            maxScore: 1,
+            successStatus: null,
           },
           problemsByTargetId: {},
         }),
@@ -317,6 +321,7 @@ describe("assessment port contracts", () => {
         expiresAt: null,
         score: 1,
         maxScore: 1,
+        successStatus: null,
         resultsByTargetId: {
           "target-1": {
             isCorrect: true,

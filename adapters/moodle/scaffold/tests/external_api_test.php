@@ -234,7 +234,7 @@ final class external_api_test extends \advanced_testcase {
         $empty = $this->decode(
             load_learner_activity::execute($cmid, $artifactid)['snapshotJson'],
         );
-        $this->assertSame(1, $empty->snapshotVersion);
+        $this->assertSame(2, $empty->snapshotVersion);
         $this->assertSame($artifactid, $empty->artifactId);
         $this->assertSame([], get_object_vars($empty->activities));
 
@@ -639,7 +639,7 @@ final class external_api_test extends \advanced_testcase {
      */
     private function target(): array {
         return [
-            'schemaVersion' => 1,
+            'schemaVersion' => 2,
             'targetId' => 'question-1',
             'blockId' => 'question-1',
             'blockType' => 'mcq',
@@ -670,7 +670,7 @@ final class external_api_test extends \advanced_testcase {
      */
     private function quiz_group(string $reviewtiming): array {
         return [
-            'schemaVersion' => 1,
+            'schemaVersion' => 2,
             'kind' => 'quiz',
             'groupId' => 'quiz-1',
             'targetIds' => ['question-1'],
@@ -680,6 +680,7 @@ final class external_api_test extends \advanced_testcase {
                 'reviewDetail' => 'full_review',
                 'attemptsPerQuestion' => 1,
                 'isGraded' => false,
+                'passingScore' => null,
                 'timer' => ['enabled' => false, 'durationSeconds' => 0],
             ],
         ];

@@ -191,7 +191,7 @@ final class custom_completion_test extends \advanced_testcase {
      */
     private static function target(): array {
         return [
-            'schemaVersion' => 1,
+            'schemaVersion' => 2,
             'targetId' => 'question-1',
             'blockId' => 'block-question-1',
             'blockType' => 'mcq',

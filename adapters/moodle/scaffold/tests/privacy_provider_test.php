@@ -502,7 +502,7 @@ final class privacy_provider_test extends \core_privacy\tests\provider_testcase 
      */
     private static function assessment_snapshot(int $cmid, string $response): \stdClass {
         return (object) [
-            'snapshotVersion' => 1,
+            'snapshotVersion' => 2,
             'artifactId' => 'moodle-cm-' . $cmid,
             'problems' => (object) [
                 'problem-1' => (object) [

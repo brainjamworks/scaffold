@@ -276,7 +276,7 @@ function assessmentSnapshot({
   quizzes?: Record<string, QuizAttemptSnapshot>;
 }): AssessmentLearnerSnapshot {
   return {
-    snapshotVersion: 1,
+    snapshotVersion: 2,
     artifactId: "artifact-1",
     problems,
     quizzes,
@@ -319,6 +319,7 @@ function completedQuizSnapshot({
     expiresAt: null,
     score: 0,
     maxScore: result.maxScore,
+    successStatus: null,
     resultsByTargetId: { [targetId]: result },
     answerReviewAuthorized: true,
   };
@@ -2364,6 +2365,7 @@ describe("composite image_hotspot node", () => {
         reviewDetail: "full_review",
         attemptsPerQuestion: 1,
         isGraded: true,
+        passingScore: null,
         timer: { enabled: false, durationSeconds: 0 },
       },
     });
@@ -2450,6 +2452,7 @@ describe("composite image_hotspot node", () => {
         reviewDetail: "result_only",
         attemptsPerQuestion: 1,
         isGraded: true,
+        passingScore: null,
         timer: { enabled: false, durationSeconds: 0 },
       },
     });

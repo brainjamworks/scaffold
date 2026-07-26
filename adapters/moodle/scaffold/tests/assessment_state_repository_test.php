@@ -46,6 +46,7 @@ final class assessment_state_repository_test extends \advanced_testcase {
         );
         $this->assertSame(0, $first->stateRevision);
         $this->assertFalse($first->changed);
+        $this->assertSame(2, $first->snapshot->snapshotVersion);
         $this->assertSame($artifactid, $first->snapshot->artifactId);
         $this->assertSame([], get_object_vars($first->snapshot->problems));
         $this->assertSame([], get_object_vars($first->snapshot->quizzes));
@@ -102,13 +103,13 @@ final class assessment_state_repository_test extends \advanced_testcase {
             'invalid JSON' => '{',
             'list root' => '[]',
             'wrong artifact' => json_encode([
-                'snapshotVersion' => 1,
+                'snapshotVersion' => 2,
                 'artifactId' => 'moodle-cm-other',
                 'problems' => (object) [],
                 'quizzes' => (object) [],
             ], JSON_THROW_ON_ERROR),
             'future version' => json_encode([
-                'snapshotVersion' => 2,
+                'snapshotVersion' => 3,
                 'artifactId' => $artifactid,
                 'problems' => (object) [],
                 'quizzes' => (object) [],
@@ -145,6 +146,54 @@ final class assessment_state_repository_test extends \advanced_testcase {
                 $case,
             );
         }
+    }
+
+    public function test_version_one_snapshot_is_lazy_until_the_next_mutation(): void {
+        global $DB;
+
+        $this->resetAfterTest(true);
+        [$scaffoldid, $cmid] = $this->create_activity();
+        $user = $this->getDataGenerator()->create_user();
+        $artifactid = 'moodle-cm-' . $cmid;
+        $repository = new assessment_state_repository();
+        $repository->get_or_create($scaffoldid, (int) $user->id, $artifactid);
+        $record = $DB->get_record('scaffold_assessment_state', [
+            'scaffoldid' => $scaffoldid,
+            'userid' => $user->id,
+        ], '*', MUST_EXIST);
+        $legacyjson = json_encode((object) [
+            'snapshotVersion' => 1,
+            'artifactId' => $artifactid,
+            'problems' => (object) [],
+            'quizzes' => (object) [],
+        ], JSON_THROW_ON_ERROR);
+        $DB->set_field('scaffold_assessment_state', 'snapshotjson', $legacyjson, ['id' => $record->id]);
+
+        $read = $repository->get_or_create_state($scaffoldid, (int) $user->id, $artifactid);
+        $this->assertSame(2, $read->snapshot->snapshotVersion);
+        $this->assertSame($legacyjson, $DB->get_field(
+            'scaffold_assessment_state',
+            'snapshotjson',
+            ['id' => $record->id],
+            MUST_EXIST,
+        ));
+
+        $repository->mutate_state(
+            $scaffoldid,
+            (int) $user->id,
+            $artifactid,
+            static function (\stdClass $snapshot): \stdClass {
+                $snapshot->problems->{'question-1'} = self::problem();
+                return $snapshot;
+            },
+        );
+        $stored = json_decode((string) $DB->get_field(
+            'scaffold_assessment_state',
+            'snapshotjson',
+            ['id' => $record->id],
+            MUST_EXIST,
+        ), false, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(2, $stored->snapshotVersion);
     }
 
     public function test_failed_and_invalid_mutations_roll_back_real_transaction(): void {
@@ -456,6 +505,7 @@ final class assessment_state_repository_test extends \advanced_testcase {
             'expiresAt' => $expiresat,
             'score' => null,
             'maxScore' => null,
+            'successStatus' => null,
             'resultsByTargetId' => (object) [],
             'answerReviewAuthorized' => false,
         ];

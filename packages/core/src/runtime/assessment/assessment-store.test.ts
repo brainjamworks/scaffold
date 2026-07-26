@@ -81,6 +81,7 @@ function createQuizAttempt(
     expiresAt: null,
     score: null,
     maxScore: null,
+    successStatus: null,
     resultsByTargetId: {},
     answerReviewAuthorized: false,
     ...overrides,
@@ -154,6 +155,7 @@ const quizSettings: QuizAssessmentSettings = {
   reviewDetail: "result_only",
   attemptsPerQuestion: 2,
   isGraded: true,
+  passingScore: null,
   timer: { enabled: true, durationSeconds: 300 },
 };
 
@@ -246,7 +248,7 @@ describe("createAssessmentStore", () => {
     expect(store.getState().requests[groupId]).toBeUndefined();
   });
 
-  it("accepts a terminal current Quiz returned by ensure-start", async () => {
+  it("preserves historical null success returned by ensure-start", async () => {
     const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
     const terminalAttempt = createQuizAttempt(groupId, {
       status: "completed",
@@ -254,6 +256,7 @@ describe("createAssessmentStore", () => {
       finishedAt: "2026-07-16T12:05:00.000Z",
       score: 1,
       maxScore: 1,
+      successStatus: null,
     });
     const store = createAssessmentStore({
       artifactId: "artifact-one",
@@ -268,7 +271,11 @@ describe("createAssessmentStore", () => {
         },
       }),
     });
-    store.getState().registerQuiz(createQuizRegistration());
+    store.getState().registerQuiz(
+      createQuizRegistration({
+        settings: { ...quizSettings, passingScore: 0.5 },
+      }),
+    );
 
     await expect(store.getState().startQuizAttempt({ groupId: "quiz-one" })).resolves.toEqual(
       terminalAttempt,
@@ -346,6 +353,7 @@ describe("createAssessmentStore", () => {
         finishedAt: "2026-07-16T12:05:00.000Z",
         score: 2,
         maxScore: 2,
+        successStatus: "passed",
         resultsByTargetId: {
           "target-one": assessmentResult(),
           "target-two": assessmentResult(),
@@ -368,7 +376,11 @@ describe("createAssessmentStore", () => {
     store
       .getState()
       .register(createRegistration({ problemId: "block-two", targetId: "target-two" }));
-    store.getState().registerQuiz(createQuizRegistration());
+    store.getState().registerQuiz(
+      createQuizRegistration({
+        settings: { ...quizSettings, passingScore: 0.5 },
+      }),
+    );
     store.setState({
       durable: { problems: {}, quizzes: { [groupId]: createQuizAttempt(groupId) } },
     });
@@ -391,6 +403,100 @@ describe("createAssessmentStore", () => {
     expect(
       store.getState().durable.problems[scopeAssessmentProblemId("artifact-one", "block-one")],
     ).toEqual(canonicalFirstProblem);
+  });
+
+  it.each([
+    {
+      name: "score above maximum",
+      passingScore: 0.5,
+      score: 2,
+      maxScore: 1,
+      successStatus: "passed" as const,
+      error: "Quiz host response score exceeds maxScore",
+    },
+    {
+      name: "success disagreeing with threshold",
+      passingScore: 0.75,
+      score: 1,
+      maxScore: 2,
+      successStatus: "passed" as const,
+      error: "Quiz host response successStatus does not match passingScore",
+    },
+    {
+      name: "missing success on a new terminal transition",
+      passingScore: 0.75,
+      score: 1,
+      maxScore: 2,
+      successStatus: null,
+      error: "Quiz host response newly terminal successStatus is required",
+    },
+    {
+      name: "success without a pass criterion",
+      passingScore: null,
+      score: 1,
+      maxScore: 2,
+      successStatus: "passed" as const,
+      error: "Quiz host response successStatus requires passingScore",
+    },
+  ])("rejects a newly terminal Quiz with $name without committing", async (testCase) => {
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const current = createQuizAttempt(groupId);
+    const terminal = createQuizAttempt(groupId, {
+      status: "completed",
+      currentTargetId: null,
+      submittedTargetIds: ["target-one", "target-two"],
+      finishedAt: "2026-07-16T12:05:00.000Z",
+      score: testCase.score,
+      maxScore: testCase.maxScore,
+      successStatus: testCase.successStatus,
+      resultsByTargetId: {
+        "target-one": assessmentResult(),
+        "target-two": assessmentResult(),
+      },
+    });
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        quiz: {
+          startAttempt: vi.fn(),
+          submitQuestion: vi.fn(),
+          finishAttempt: vi.fn().mockResolvedValue({
+            quizAttempt: terminal,
+            problemsByTargetId: {},
+          }),
+        },
+      }),
+    });
+    const secondIdentity = registrationIdentity({
+      problemId: "block-two",
+      targetId: "target-two",
+    });
+    store.getState().register(createRegistration());
+    store
+      .getState()
+      .register(createRegistration({ problemId: "block-two", targetId: "target-two" }));
+    store.getState().registerQuiz(
+      createQuizRegistration({
+        settings: {
+          ...quizSettings,
+          passingScore: testCase.passingScore,
+        },
+      }),
+    );
+    store.setState({
+      durable: { problems: {}, quizzes: { [groupId]: current } },
+    });
+    store.getState().setLocalResponse(registrationIdentity(), { choice: "option-a" });
+    store.getState().setLocalResponse(secondIdentity, { choice: "option-b" });
+
+    await expect(store.getState().finishQuizAttempt({ groupId: "quiz-one" })).resolves.toBeNull();
+
+    expect(store.getState().durable.quizzes[groupId]).toEqual(current);
+    expect(store.getState().requests[groupId]).toMatchObject({
+      operation: "quiz-finish",
+      status: "error",
+      error: testCase.error,
+    });
   });
 
   it("does not create a false terminal Quiz state when expiry finalization rejects", async () => {

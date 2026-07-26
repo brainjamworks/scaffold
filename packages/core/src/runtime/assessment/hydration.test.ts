@@ -2,7 +2,7 @@
 
 import { render } from "@testing-library/react";
 import { createElement } from "react";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
 
 import {
@@ -47,13 +47,14 @@ const quiz: QuizAttemptSnapshot = {
   expiresAt: null,
   score: null,
   maxScore: null,
+  successStatus: null,
   resultsByTargetId: {},
   answerReviewAuthorized: false,
 };
 
 function snapshot(overrides: Partial<AssessmentLearnerSnapshot> = {}): AssessmentLearnerSnapshot {
   return {
-    snapshotVersion: 1,
+    snapshotVersion: 2,
     artifactId: "artifact-one",
     problems: { "target-one": problem },
     quizzes: { "quiz-one": quiz },
@@ -157,7 +158,7 @@ function runtimeRoot({
 }
 
 describe("assessment snapshot hydration", () => {
-  it("hydrates strict canonical records and projects the same v1 snapshot", () => {
+  it("hydrates strict canonical records and projects the same v2 snapshot", () => {
     const store = createAssessmentStore({ artifactId: "artifact-one", assessmentPort: null });
     const value = snapshot();
 
@@ -171,10 +172,37 @@ describe("assessment snapshot hydration", () => {
     expect(AssessmentLearnerSnapshotSchema.parse(projectAssessmentSnapshot(store))).toEqual(value);
   });
 
+  it("preserves historical null success without consulting the xAPI session", () => {
+    const getXapiSession = vi.fn();
+    const historicalQuiz: QuizAttemptSnapshot = {
+      ...quiz,
+      status: "completed",
+      currentTargetId: null,
+      submittedTargetIds: ["target-one"],
+      finishedAt: "2026-07-16T09:05:00Z",
+      score: 1,
+      maxScore: 1,
+      successStatus: null,
+    };
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: null,
+      getXapiSession,
+    });
+
+    hydrateAssessmentSnapshot(store, snapshot({ quizzes: { "quiz-one": historicalQuiz } }));
+
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    expect(store.getState().durable.quizzes[groupId]?.successStatus).toBeNull();
+    expect(projectAssessmentSnapshot(store).quizzes["quiz-one"]?.successStatus).toBeNull();
+    expect(getXapiSession).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["malformed", { ...snapshot(), problems: { "target-one": { ...problem, response: {} } } }],
     ["extra-field", { ...snapshot(), provider: "xblock" }],
-    ["future-version", { ...snapshot(), snapshotVersion: 2 }],
+    ["legacy-version", { ...snapshot(), snapshotVersion: 1 }],
+    ["future-version", { ...snapshot(), snapshotVersion: 3 }],
     ["foreign-artifact", { ...snapshot(), artifactId: "artifact-two" }],
   ])("rejects %s input without changing existing store state", (_name, value) => {
     const store = createAssessmentStore({ artifactId: "artifact-one", assessmentPort: null });

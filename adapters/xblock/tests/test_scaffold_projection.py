@@ -256,7 +256,7 @@ def single_select_target(
     show_answer=True,
 ):
     return {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "targetId": target_id,
         "blockId": target_id,
         "blockType": "mcq",
@@ -290,7 +290,7 @@ def quiz_group(
     passing_score=None,
 ):
     return {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "kind": "quiz",
         "groupId": group_id,
         "targetIds": target_ids or ["mcq-1", "mcq-2"],
@@ -448,13 +448,13 @@ def make_xblock(targets=None, groups=None, usage_id="usage-v1"):
 
 
 class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
-    def test_empty_learner_receives_a_strict_v1_assessment_snapshot(self):
+    def test_empty_learner_receives_a_strict_v2_assessment_snapshot(self):
         block = make_xblock(usage_id="usage-v1")
 
         self.assertEqual(
             block._assessment_snapshot(),
             {
-                "snapshotVersion": 1,
+                "snapshotVersion": 2,
                 "artifactId": "usage-v1",
                 "problems": {},
                 "quizzes": {},
@@ -463,7 +463,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
     def test_stored_assessment_snapshot_rejects_malformed_future_and_foreign_values(self):
         valid = {
-            "snapshotVersion": 1,
+            "snapshotVersion": 2,
             "artifactId": "usage-v1",
             "problems": {},
             "quizzes": {},
@@ -471,7 +471,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         cases = [
             "{bad json",
             json.dumps([]),
-            json.dumps({**valid, "snapshotVersion": 2}),
+            json.dumps({**valid, "snapshotVersion": 3}),
             json.dumps({**valid, "artifactId": "other-usage"}),
             json.dumps({**valid, "studentResponses": {}}),
         ]
@@ -498,7 +498,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             json.dumps({}),
             json.dumps([current_target, "not-an-object"]),
             json.dumps([{"targetId": "old-target"}]),
-            json.dumps([{**current_target, "schemaVersion": 2}]),
+            json.dumps([{**current_target, "schemaVersion": 3}]),
         ]
 
         for raw in cases:
@@ -517,7 +517,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             json.dumps({}),
             json.dumps([current_group, "not-an-object"]),
             json.dumps([{"groupId": "old-group", "targetIds": ["mcq-1"]}]),
-            json.dumps([{**current_group, "schemaVersion": 2}]),
+            json.dumps([{**current_group, "schemaVersion": 3}]),
         ]
 
         for raw in cases:
@@ -610,13 +610,11 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             "problems": {},
             "quizzes": {},
         }
-        self.assertEqual(
-            state_codecs.assessment_snapshot_from_json(
-                json.dumps(snapshot),
-                "usage-v1",
-            ),
-            snapshot,
+        upgraded_snapshot = state_codecs.assessment_snapshot_from_json(
+            json.dumps(snapshot),
+            "usage-v1",
         )
+        self.assertEqual(upgraded_snapshot, {**snapshot, "snapshotVersion": 2})
         activity_snapshot = {
             "snapshotVersion": 1,
             "artifactId": "usage-v1",
@@ -641,7 +639,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
                 ),
             ),
             {
-                "snapshotVersion": 1,
+                "snapshotVersion": 2,
                 "artifactId": "usage-v1",
                 "problems": {},
                 "quizzes": {},
@@ -1683,7 +1681,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         block = make_xblock()
         stored_snapshot_json = json.dumps(
             {
-                "snapshotVersion": 1,
+                "snapshotVersion": 2,
                 "artifactId": "usage-v1",
                 "problems": {},
                 "quizzes": {},
@@ -2160,7 +2158,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             },
         }
         snapshot = {
-            "snapshotVersion": 1,
+            "snapshotVersion": 2,
             "artifactId": "usage-v1",
             "problems": {
                 "mcq-1": {
@@ -2367,7 +2365,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             },
         }
         snapshot = {
-            "snapshotVersion": 1,
+            "snapshotVersion": 2,
             "artifactId": "usage-v1",
             "problems": {
                 "mcq-1": {
@@ -2390,6 +2388,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
                     "expiresAt": None,
                     "score": 0,
                     "maxScore": 1,
+                    "successStatus": None,
                     "resultsByTargetId": {"mcq-1": stored_result},
                     "answerReviewAuthorized": True,
                 },
@@ -2741,11 +2740,11 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         old_group.pop("schemaVersion")
         cases = [
             ([old_target], [], "old target"),
-            ([{**current_target, "schemaVersion": 2}], [], "future target"),
+            ([{**current_target, "schemaVersion": 3}], [], "future target"),
             ([current_target], [old_group], "old group"),
             (
                 [current_target],
-                [{**current_group, "schemaVersion": 2}],
+                [{**current_group, "schemaVersion": 3}],
                 "future group",
             ),
         ]
@@ -2775,7 +2774,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         )
 
         invalid_target = single_select_target()
-        invalid_target["schemaVersion"] = 2
+        invalid_target["schemaVersion"] = 3
         rejected_payloads.append(save_payload(assessment_targets=[invalid_target]))
         rejected_payloads.append(
             save_payload(
@@ -2787,7 +2786,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             save_payload(
                 assessment_targets=[single_select_target("mcq-1")],
                 assessment_groups=[
-                    {**quiz_group(target_ids=["mcq-1"]), "schemaVersion": 2},
+                    {**quiz_group(target_ids=["mcq-1"]), "schemaVersion": 3},
                 ],
             ),
         )
@@ -3239,7 +3238,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         )
         group = quiz_group(target_ids=["mcq-1"])
         existing_snapshot = {
-            "snapshotVersion": 1,
+            "snapshotVersion": 2,
             "artifactId": "usage-v1",
             "problems": {
                 "mcq-1": {
@@ -3389,7 +3388,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
     def test_reveal_hint_rejects_a_malformed_complete_snapshot_before_writing(self):
         block = make_xblock([single_select_target()])
         malformed_snapshot = {
-            "snapshotVersion": 1,
+            "snapshotVersion": 2,
             "artifactId": "usage-v1",
             "problems": {
                 "mcq-1": {
@@ -3481,7 +3480,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         self.assertTrue(result["success"])
         snapshot = json.loads(block.assessment_snapshot_json)
-        self.assertEqual(snapshot["snapshotVersion"], 1)
+        self.assertEqual(snapshot["snapshotVersion"], 2)
         self.assertEqual(snapshot["artifactId"], "usage-v1")
         self.assertEqual(set(snapshot["problems"]), {"mcq-1"})
         self.assertEqual(snapshot["quizzes"], {})
@@ -4682,7 +4681,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             groups=[quiz_group(target_ids=["mcq-1"])],
         )
         existing_snapshot = {
-            "snapshotVersion": 1,
+            "snapshotVersion": 2,
             "artifactId": "usage-v1",
             "problems": {
                 "mcq-1": {

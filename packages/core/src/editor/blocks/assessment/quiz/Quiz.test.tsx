@@ -212,9 +212,13 @@ function seedAssessmentStore(seed: ScopedAssessmentSeed) {
     const groupId = scopeAssessmentGroupId("artifact-1", authoredGroupId);
     const current = pendingQuizzes[groupId];
     const status = quizStatus(raw["status"], current?.status ?? "in_progress");
-    const score = raw["score"] === null ? null : numberValue(raw["score"], current?.score ?? 0);
-    const maxScore =
-      raw["maxScore"] === null ? null : numberValue(raw["maxScore"], current?.maxScore ?? 0);
+    const terminal = status !== "in_progress";
+    const score = terminal ? numberValue(raw["score"], current?.score ?? 0) : null;
+    const maxScore = terminal ? numberValue(raw["maxScore"], current?.maxScore ?? 1) : null;
+    const successStatus =
+      terminal && (raw["successStatus"] === "passed" || raw["successStatus"] === "failed")
+        ? raw["successStatus"]
+        : null;
     const rawResults = recordValue(raw["resultsByTargetId"]);
     const resultsByTargetId = Object.fromEntries(
       Object.entries(rawResults).map(([targetId, result]) => [targetId, assessmentResult(result)]),
@@ -236,6 +240,7 @@ function seedAssessmentStore(seed: ScopedAssessmentSeed) {
       expiresAt: nullableStringValue(raw["expiresAt"], current?.expiresAt ?? null),
       score,
       maxScore,
+      successStatus,
       resultsByTargetId: {
         ...(current?.resultsByTargetId ?? {}),
         ...resultsByTargetId,
@@ -3149,17 +3154,19 @@ function quizSettings(): QuizSettings {
 }
 
 function attemptState(overrides: Partial<QuizAttemptState> = {}): QuizAttemptState {
+  const status = overrides.status ?? "in_progress";
   return QuizAttemptStateSchema.parse({
     attemptId: "attempt-1",
     groupId: "quiz-1",
-    status: "in_progress",
+    status,
     currentTargetId: "question-a",
     submittedTargetIds: [],
     startedAt: "2026-06-18T08:00:00.000Z",
     finishedAt: null,
     expiresAt: null,
-    score: null,
-    maxScore: null,
+    score: status === "in_progress" ? null : 0,
+    maxScore: status === "in_progress" ? null : 1,
+    successStatus: null,
     resultsByTargetId: {},
     answerReviewAuthorized: false,
     ...overrides,

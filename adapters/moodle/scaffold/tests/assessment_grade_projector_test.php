@@ -413,7 +413,7 @@ final class assessment_grade_projector_test extends \basic_testcase {
      */
     private static function make_snapshot(array $problems = [], array $quizzes = []): \stdClass {
         return (object) [
-            'snapshotVersion' => 1,
+            'snapshotVersion' => 2,
             'artifactId' => 'moodle-cm-42',
             'problems' => (object) $problems,
             'quizzes' => (object) $quizzes,

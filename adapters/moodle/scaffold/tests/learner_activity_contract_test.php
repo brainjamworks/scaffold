@@ -147,7 +147,7 @@ final class learner_activity_contract_test extends \advanced_testcase {
 
     public function test_assessment_and_learner_activity_validators_are_isolated(): void {
         $assessmentsnapshot = $this->decode(
-            '{"snapshotVersion":1,"artifactId":"scaffold-42","problems":{},"quizzes":{}}',
+            '{"snapshotVersion":2,"artifactId":"scaffold-42","problems":{},"quizzes":{}}',
         );
         json_schema_validator::validate_plugin_definition(
             'AssessmentLearnerSnapshot',

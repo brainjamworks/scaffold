@@ -99,8 +99,10 @@ final class restore_scaffold_test extends advanced_testcase {
             'userid' => $learner->id,
         ], '*', MUST_EXIST);
         $snapshot = json_decode($assessment->snapshotjson, false, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame(2, $snapshot->snapshotVersion);
         $this->assertSame($artifactid, $snapshot->artifactId);
         $this->assertSame('expired', $snapshot->quizzes->{'stable-group-id'}->status);
+        $this->assertSame('failed', $snapshot->quizzes->{'stable-group-id'}->successStatus);
         $this->assertNull($assessment->nextquizexpiry);
         $this->assertSame(2, (int) $assessment->staterevision);
         $learneractivity = json_decode((string) $DB->get_field(
@@ -198,6 +200,7 @@ final class restore_scaffold_test extends advanced_testcase {
 
         $repaired = restore_identity_service::repair('moodle-cm-92', $source);
 
+        $this->assertSame(2, $repaired->snapshotVersion);
         $this->assertSame('moodle-cm-92', $repaired->artifactId);
         $this->assertSame(['stable-target-id'], array_keys(get_object_vars($repaired->problems)));
     }
@@ -539,7 +542,7 @@ final class restore_scaffold_test extends advanced_testcase {
      */
     private static function target(): array {
         return [
-            'schemaVersion' => 1,
+            'schemaVersion' => 2,
             'targetId' => 'stable-target-id',
             'blockId' => 'stable-block-id',
             'blockType' => 'mcq',
@@ -569,7 +572,7 @@ final class restore_scaffold_test extends advanced_testcase {
      */
     private static function group(): array {
         return [
-            'schemaVersion' => 1,
+            'schemaVersion' => 2,
             'kind' => 'quiz',
             'groupId' => 'stable-group-id',
             'targetIds' => ['stable-target-id'],
@@ -579,6 +582,7 @@ final class restore_scaffold_test extends advanced_testcase {
                 'reviewDetail' => 'full_review',
                 'attemptsPerQuestion' => 1,
                 'isGraded' => true,
+                'passingScore' => null,
                 'timer' => ['enabled' => true, 'durationSeconds' => 60],
             ],
         ];

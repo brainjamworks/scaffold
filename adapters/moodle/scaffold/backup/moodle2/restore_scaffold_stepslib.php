@@ -91,9 +91,12 @@ final class restore_scaffold_activity_structure_step extends restore_activity_st
             return;
         }
 
+        $snapshot = \mod_scaffold\local\assessment_contract_migrator::upgrade_snapshot(
+            self::decode_snapshot((string) $state->snapshotjson, 'assessment'),
+        );
         $snapshot = restore_identity_service::repair(
             artifact_identity::for_course_module((int) $this->task->get_moduleid()),
-            self::decode_snapshot((string) $state->snapshotjson, 'assessment'),
+            $snapshot,
         );
         unset($state->id);
         $state->scaffoldid = $this->get_new_parentid('scaffold');

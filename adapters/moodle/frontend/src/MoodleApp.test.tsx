@@ -159,7 +159,7 @@ const readyArtifact = {
 };
 
 const assessmentSnapshot = {
-  snapshotVersion: 1 as const,
+  snapshotVersion: 2 as const,
   artifactId: readyArtifact.id,
   problems: {},
   quizzes: {},

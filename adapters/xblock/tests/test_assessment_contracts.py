@@ -31,14 +31,14 @@ EMPTY_PROBLEM = {
 }
 
 LEARNER_SNAPSHOT = {
-    "snapshotVersion": 1,
+    "snapshotVersion": 2,
     "artifactId": "artifact-1",
     "problems": {"question-1": EMPTY_PROBLEM},
     "quizzes": {},
 }
 
 TARGET = {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "targetId": "question-1",
     "blockId": "block-1",
     "blockType": "mcq",
@@ -64,7 +64,7 @@ TARGET = {
 }
 
 GROUP = {
-    "schemaVersion": 1,
+    "schemaVersion": 2,
     "kind": "quiz",
     "groupId": "quiz-1",
     "targetIds": ["question-1", "question-2"],
@@ -74,6 +74,7 @@ GROUP = {
         "reviewDetail": "result_only",
         "attemptsPerQuestion": 1,
         "isGraded": True,
+        "passingScore": None,
         "timer": {"enabled": False, "durationSeconds": 0},
     },
 }
@@ -88,6 +89,7 @@ QUIZ_ATTEMPT_SNAPSHOT = {
     "expiresAt": None,
     "score": None,
     "maxScore": None,
+    "successStatus": None,
     "resultsByTargetId": {},
     "answerReviewAuthorized": False,
 }
@@ -114,7 +116,7 @@ class AssessmentContractResourceTest(unittest.TestCase):
 
         schema = json_schema.load_assessment_schema()
         group = {
-            "schemaVersion": 1,
+            "schemaVersion": 2,
             "kind": "quiz",
             "groupId": "quiz-1",
             "targetIds": ["question-1"],
@@ -124,6 +126,7 @@ class AssessmentContractResourceTest(unittest.TestCase):
                 "reviewDetail": "result_only",
                 "attemptsPerQuestion": 1,
                 "isGraded": True,
+                "passingScore": None,
                 "timer": {"enabled": False, "durationSeconds": 0},
             },
         }
@@ -293,26 +296,22 @@ class AssessmentContractSemanticTest(unittest.TestCase):
                     value,
                 )
 
-    def test_accepts_transitional_quiz_success_fields_and_legacy_omissions(self):
+    def test_requires_quiz_success_fields(self):
         json_schema = load_validation_module("json_schema")
-        expanded_group = deepcopy(GROUP)
-        expanded_group["settings"]["passingScore"] = 0.8
-        expanded_snapshot = deepcopy(LEARNER_SNAPSHOT)
-        expanded_snapshot["quizzes"] = {
-            "quiz-1": {**deepcopy(QUIZ_ATTEMPT_SNAPSHOT), "successStatus": None},
-        }
+        missing_passing_score = deepcopy(GROUP)
+        del missing_passing_score["settings"]["passingScore"]
+        missing_success_status = deepcopy(LEARNER_SNAPSHOT)
+        attempt = deepcopy(QUIZ_ATTEMPT_SNAPSHOT)
+        del attempt["successStatus"]
+        missing_success_status["quizzes"] = {"quiz-1": attempt}
 
         for definition_name, value in [
-            ("AssessmentGroupContract", GROUP),
-            ("AssessmentGroupContract", expanded_group),
-            ("AssessmentLearnerSnapshot", LEARNER_SNAPSHOT),
-            ("AssessmentLearnerSnapshot", expanded_snapshot),
+            ("AssessmentGroupContract", missing_passing_score),
+            ("AssessmentLearnerSnapshot", missing_success_status),
         ]:
             with self.subTest(definition_name=definition_name, value=value):
-                self.assertIs(
-                    json_schema.validate_assessment_definition(definition_name, value),
-                    value,
-                )
+                with self.assertRaises(json_schema.JsonSchemaValidationError):
+                    json_schema.validate_assessment_definition(definition_name, value)
 
     def test_rejects_the_portable_contract_invariant_corpus(self):
         json_schema = load_validation_module("json_schema")

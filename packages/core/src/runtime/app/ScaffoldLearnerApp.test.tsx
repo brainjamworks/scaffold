@@ -261,7 +261,7 @@ describe("ScaffoldLearnerApp", () => {
         bootstrap={learnerBootstrap({
           initialLearnerState: {
             assessmentSnapshot: {
-              snapshotVersion: 1,
+              snapshotVersion: 2,
               artifactId: "artifact-learner",
               problems: {
                 "target-mcq-1": {
@@ -308,7 +308,7 @@ describe("ScaffoldLearnerApp", () => {
     Object.defineProperty(bootstrap, "initialLearnerState", {
       value: {
         assessmentSnapshot: {
-          snapshotVersion: 2,
+          snapshotVersion: 3,
           artifactId: "artifact-learner",
           problems: {},
           quizzes: {},

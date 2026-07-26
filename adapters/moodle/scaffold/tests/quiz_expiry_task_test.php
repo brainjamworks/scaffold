@@ -376,7 +376,7 @@ final class quiz_expiry_task_test extends \advanced_testcase {
         $snapshotjson = $attempt === null
             ? '{invalid'
             : json_encode((object) [
-                'snapshotVersion' => 1,
+                'snapshotVersion' => 2,
                 'artifactId' => $artifactid,
                 'problems' => (object) [],
                 'quizzes' => (object) ['quiz-due-graded' => $attempt],
@@ -515,7 +515,7 @@ final class quiz_expiry_task_test extends \advanced_testcase {
      */
     private static function target(string $targetid): array {
         return [
-            'schemaVersion' => 1,
+            'schemaVersion' => 2,
             'targetId' => $targetid,
             'blockId' => $targetid,
             'blockType' => 'mcq',
@@ -546,7 +546,7 @@ final class quiz_expiry_task_test extends \advanced_testcase {
      */
     private static function group(string $groupid): array {
         return [
-            'schemaVersion' => 1,
+            'schemaVersion' => 2,
             'kind' => 'quiz',
             'groupId' => $groupid,
             'targetIds' => ['question-1'],

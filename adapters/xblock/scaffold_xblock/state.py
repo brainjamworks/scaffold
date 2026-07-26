@@ -1,6 +1,10 @@
 import json
 from datetime import datetime, timedelta, timezone
 
+from .assessment_migrations import (
+    upgrade_assessment_bundle,
+    upgrade_assessment_snapshot,
+)
 from .validation.assessment_groups import (
     AssessmentGroupValidationError,
     validate_assessment_groups,
@@ -117,12 +121,22 @@ def assessment_bundle_from_json(targets_raw, groups_raw):
     )
 
     try:
+        upgraded = upgrade_assessment_bundle(
+            assessment_targets,
+            assessment_groups,
+        )
+        assessment_targets = upgraded["assessment_targets"]
+        assessment_groups = upgraded["assessment_groups"]
         assessment_targets = validate_assessment_targets(assessment_targets)
         assessment_groups = validate_assessment_groups(
             assessment_groups,
             assessment_targets,
         )
-    except (AssessmentTargetValidationError, AssessmentGroupValidationError) as exc:
+    except (
+        ValueError,
+        AssessmentTargetValidationError,
+        AssessmentGroupValidationError,
+    ) as exc:
         raise AssessmentStorageValidationError(str(exc)) from exc
 
     return {
@@ -134,7 +148,7 @@ def assessment_bundle_from_json(targets_raw, groups_raw):
 def assessment_snapshot_from_json(raw, artifact_id):
     if not raw:
         snapshot = {
-            "snapshotVersion": 1,
+            "snapshotVersion": 2,
             "artifactId": artifact_id,
             "problems": {},
             "quizzes": {},
@@ -148,12 +162,13 @@ def assessment_snapshot_from_json(raw, artifact_id):
             ) from exc
 
     try:
+        snapshot = upgrade_assessment_snapshot(snapshot)
         validate_assessment_definition(
             "AssessmentLearnerSnapshot",
             snapshot,
             "assessmentSnapshot",
         )
-    except JsonSchemaValidationError as exc:
+    except (ValueError, JsonSchemaValidationError) as exc:
         raise AssessmentStorageValidationError(str(exc)) from exc
 
     if snapshot["artifactId"] != artifact_id:

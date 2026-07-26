@@ -2,8 +2,8 @@ import { z } from "zod";
 
 import { AssessmentFeedbackContentSchema } from "./assessment-feedback";
 
-export const SCAFFOLD_ASSESSMENT_CONTRACT_VERSION = 1;
-export const SCAFFOLD_ASSESSMENT_SNAPSHOT_VERSION = 1;
+export const SCAFFOLD_ASSESSMENT_CONTRACT_VERSION = 2;
+export const SCAFFOLD_ASSESSMENT_SNAPSHOT_VERSION = 2;
 
 const IdLabelSchema = z
   .object({
@@ -305,7 +305,7 @@ export const QuizAssessmentSettingsSchema = z
     reviewDetail: QuizReviewDetailSchema,
     attemptsPerQuestion: QuizAttemptsPerQuestionSchema,
     isGraded: z.boolean(),
-    passingScore: QuizPassingScoreSchema.optional(),
+    passingScore: QuizPassingScoreSchema,
     timer: QuizTimerSettingsSchema,
   })
   .strict();
@@ -489,7 +489,6 @@ export type QuizSuccessStatus = z.infer<typeof QuizSuccessStatusSchema>;
 const QuizAttemptStateBaseSchema = z.object({
   attemptId: NonBlankStringSchema,
   groupId: NonBlankStringSchema,
-  status: QuizAttemptStatusSchema,
   currentTargetId: NonBlankStringSchema.nullable(),
   submittedTargetIds: z
     .array(NonBlankStringSchema)
@@ -501,17 +500,26 @@ const QuizAttemptStateBaseSchema = z.object({
   expiresAt: z.string().nullable(),
   resultsByTargetId: z.record(NonBlankStringSchema, AssessmentResultSchema),
   answerReviewAuthorized: z.boolean(),
-  successStatus: QuizSuccessStatusSchema.optional(),
 });
 
 export const QuizAttemptStateSchema = z.union([
   QuizAttemptStateBaseSchema.extend({
+    status: z.literal("in_progress"),
     score: z.null(),
     maxScore: z.null(),
+    successStatus: z.null(),
   }).strict(),
   QuizAttemptStateBaseSchema.extend({
+    status: z.literal("completed"),
     score: z.number().finite().nonnegative(),
-    maxScore: z.number().finite().nonnegative(),
+    maxScore: z.number().finite().positive(),
+    successStatus: QuizSuccessStatusSchema,
+  }).strict(),
+  QuizAttemptStateBaseSchema.extend({
+    status: z.literal("expired"),
+    score: z.number().finite().nonnegative(),
+    maxScore: z.number().finite().positive(),
+    successStatus: QuizSuccessStatusSchema,
   }).strict(),
 ]);
 export type QuizAttemptState = z.infer<typeof QuizAttemptStateSchema>;
@@ -520,12 +528,22 @@ const QuizAttemptSnapshotBaseSchema = QuizAttemptStateBaseSchema.omit({ groupId:
 
 export const QuizAttemptSnapshotSchema = z.union([
   QuizAttemptSnapshotBaseSchema.extend({
+    status: z.literal("in_progress"),
     score: z.null(),
     maxScore: z.null(),
+    successStatus: z.null(),
   }).strict(),
   QuizAttemptSnapshotBaseSchema.extend({
+    status: z.literal("completed"),
     score: z.number().finite().nonnegative(),
-    maxScore: z.number().finite().nonnegative(),
+    maxScore: z.number().finite().positive(),
+    successStatus: QuizSuccessStatusSchema,
+  }).strict(),
+  QuizAttemptSnapshotBaseSchema.extend({
+    status: z.literal("expired"),
+    score: z.number().finite().nonnegative(),
+    maxScore: z.number().finite().positive(),
+    successStatus: QuizSuccessStatusSchema,
   }).strict(),
 ]);
 export type QuizAttemptSnapshot = z.infer<typeof QuizAttemptSnapshotSchema>;

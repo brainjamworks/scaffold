@@ -280,7 +280,7 @@ final class quiz_expiry_test extends \advanced_testcase {
         [$scaffold, $cm, $user] = $this->create_fixture();
         $artifactid = artifact_identity::for_course_module((int) $cm->id);
         $snapshot = (object) [
-            'snapshotVersion' => 1,
+            'snapshotVersion' => 2,
             'artifactId' => $artifactid,
             'problems' => (object) [],
             'quizzes' => (object) [
@@ -417,7 +417,7 @@ final class quiz_expiry_test extends \advanced_testcase {
      */
     private static function target(string $targetid): array {
         return [
-            'schemaVersion' => 1,
+            'schemaVersion' => 2,
             'targetId' => $targetid,
             'blockId' => $targetid,
             'blockType' => 'mcq',
@@ -456,7 +456,7 @@ final class quiz_expiry_test extends \advanced_testcase {
         ?float $passingscore = null,
     ): array {
         return [
-            'schemaVersion' => 1,
+            'schemaVersion' => 2,
             'kind' => 'quiz',
             'groupId' => $groupid,
             'targetIds' => [$groupid . '-question-1', $groupid . '-question-2'],

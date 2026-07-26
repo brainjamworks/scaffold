@@ -47,6 +47,7 @@ const attempt: QuizAttemptState = {
   expiresAt: null,
   score: null,
   maxScore: null,
+  successStatus: null,
   resultsByTargetId: {},
   answerReviewAuthorized: false,
 };

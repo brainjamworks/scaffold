@@ -162,6 +162,7 @@ function storedQuizRegistration(
 function validatedQuizAttempt(
   value: unknown,
   registration: AssessmentQuizRegistration,
+  previousAttempt: QuizAttemptState | undefined,
   expectedAttemptId?: string,
 ): QuizAttemptState {
   const attempt = QuizAttemptStateSchema.parse(value);
@@ -185,6 +186,33 @@ function validatedQuizAttempt(
       throw new Error("Quiz host response contains an unregistered result target");
     }
   }
+  if (attempt.status !== "in_progress") {
+    if (attempt.score > attempt.maxScore) {
+      throw new Error("Quiz host response score exceeds maxScore");
+    }
+
+    const passingScore = registration.settings.passingScore;
+    if (passingScore === null) {
+      if (attempt.successStatus !== null) {
+        throw new Error("Quiz host response successStatus requires passingScore");
+      }
+    } else {
+      const newlyTerminal =
+        previousAttempt?.attemptId === attempt.attemptId &&
+        previousAttempt.status === "in_progress";
+      if (attempt.successStatus === null) {
+        if (newlyTerminal) {
+          throw new Error("Quiz host response newly terminal successStatus is required");
+        }
+      } else {
+        const expectedSuccess =
+          attempt.score / attempt.maxScore >= passingScore ? "passed" : "failed";
+        if (attempt.successStatus !== expectedSuccess) {
+          throw new Error("Quiz host response successStatus does not match passingScore");
+        }
+      }
+    }
+  }
   return attempt;
 }
 
@@ -198,7 +226,12 @@ function validatedQuizOutcome(
   problems: Record<AssessmentProblemId, AssessmentProblemSnapshot>;
 } {
   const outcome = AssessmentQuizCommandOutcomeSchema.parse(value);
-  const quizAttempt = validatedQuizAttempt(outcome.quizAttempt, registration, expectedAttemptId);
+  const quizAttempt = validatedQuizAttempt(
+    outcome.quizAttempt,
+    registration,
+    state.durable.quizzes[registration.groupId],
+    expectedAttemptId,
+  );
   const problems: Record<AssessmentProblemId, AssessmentProblemSnapshot> = {};
   for (const [targetId, problem] of Object.entries(outcome.problemsByTargetId)) {
     if (!registration.targetIds.includes(targetId)) {
@@ -924,7 +957,7 @@ export function createAssessmentStore({
           return null;
         }
         try {
-          let currentAttempt = initialAttempt;
+          let currentAttempt: QuizAttemptState = initialAttempt;
           const initialResponses = quizResponses(registration);
           const currentTargetId = initialAttempt.currentTargetId;
           const currentResponse = currentTargetId ? initialResponses[currentTargetId] : undefined;

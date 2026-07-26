@@ -53,7 +53,7 @@ describe("createLocalAssessmentPort quiz runtime", () => {
       assessmentGroups: [],
       assessmentTargets: [
         {
-          schemaVersion: 1,
+          schemaVersion: 2,
           targetId: "multi-1",
           blockId: "multi-1",
           blockType: "multiselect",

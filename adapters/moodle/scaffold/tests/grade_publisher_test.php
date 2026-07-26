@@ -658,7 +658,7 @@ final class grade_publisher_test extends \advanced_testcase {
         ]);
         course_add_cm_to_section($course, $cmid, 0);
         $target = [
-            'schemaVersion' => 1,
+            'schemaVersion' => 2,
             'targetId' => 'question-1',
             'blockId' => 'question-1',
             'blockType' => 'mcq',
