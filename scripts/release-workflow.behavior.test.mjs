@@ -357,6 +357,13 @@ function createCandidate(root) {
   return { candidate, provenance };
 }
 
+function writeChecksumManifest(candidate, names) {
+  writeFileSync(
+    join(candidate, "SHA256SUMS"),
+    `${names.map((name) => `${sha256(join(candidate, name))}  ${name}`).join("\n")}\n`,
+  );
+}
+
 function mockEnvironment(workspace, extra = {}) {
   return {
     GH_REPO: "brainjamworks/scaffold",
@@ -478,6 +485,48 @@ test("approval refuses a draft whose host smoke evidence is still pending", (t) 
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /still contain pending smoke tests/);
   assert.doesNotMatch(readFileSync(join(workspace.root, "gh.log"), "utf8"), /--method PATCH/);
+});
+
+test("approval requires checksums for exactly the approved packages", (t) => {
+  const cases = [
+    {
+      label: "duplicate and missing package names",
+      names: [ASSET_NAMES[0], ASSET_NAMES[0], ASSET_NAMES[0]],
+    },
+    {
+      label: "an unexpected package name",
+      names: [ASSET_NAMES[0], ASSET_NAMES[1], "unapproved-package.zip"],
+    },
+  ];
+
+  for (const fixture of cases) {
+    const workspace = createApprovalFixture(t);
+    const candidate = join(workspace.root, "candidate");
+    if (fixture.names.includes("unapproved-package.zip")) {
+      writeFileSync(join(candidate, "unapproved-package.zip"), "unapproved bytes\n");
+    }
+    writeChecksumManifest(candidate, fixture.names);
+
+    const result = runShell(
+      workflowStep(APPROVAL_WORKFLOW, "approve", "Validate evidence and publish the draft"),
+      {
+        cwd: workspace.root,
+        env: mockEnvironment(workspace, { GH_TOKEN: "test-token" }),
+      },
+    );
+
+    assert.notEqual(result.status, 0, fixture.label);
+    assert.match(
+      result.stderr,
+      /SHA256SUMS must name exactly the approved packages/,
+      fixture.label,
+    );
+    assert.doesNotMatch(
+      readFileSync(join(workspace.root, "gh.log"), "utf8"),
+      /--method PATCH/,
+      fixture.label,
+    );
+  }
 });
 
 test("approval publishes only a complete draft bound to its annotated tag", (t) => {

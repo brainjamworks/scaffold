@@ -172,6 +172,7 @@ test("approval workflow validates the private draft before publishing it", () =>
   assert.match(source, /Moodle smoke test: passed on/);
   assert.match(source, /Open edX smoke test: passed on/);
   assert.match(source, /unexpected release asset/);
+  assert.match(source, /SHA256SUMS must name exactly the approved packages/);
   assert.match(source, /sha256sum --check SHA256SUMS/);
   assert.match(source, /gh attestation verify/);
   assert.match(source, /--source-digest/);

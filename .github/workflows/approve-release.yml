@@ -176,6 +176,23 @@ jobs:
               echo "SHA256SUMS contains an invalid entry." >&2
               exit 1
             fi
+            expected_checksum_names=(
+              "mod_scaffold-$version.zip"
+              "scaffold_xblock-$version-py3-none-any.whl"
+              "scaffold_xblock-$version.tar.gz"
+            )
+            actual_checksum_names="$(
+              awk '{print $2}' SHA256SUMS |
+                LC_ALL=C sort
+            )"
+            expected_checksum_names_sorted="$(
+              printf '%s\n' "${expected_checksum_names[@]}" |
+                LC_ALL=C sort
+            )"
+            if [[ "$actual_checksum_names" != "$expected_checksum_names_sorted" ]]; then
+              echo "SHA256SUMS must name exactly the approved packages." >&2
+              exit 1
+            fi
             sha256sum --check SHA256SUMS
           )
 
