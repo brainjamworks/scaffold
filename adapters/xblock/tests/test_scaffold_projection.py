@@ -287,6 +287,7 @@ def quiz_group(
     review_detail="result_only",
     attempts_per_question=1,
     is_graded=True,
+    passing_score=None,
 ):
     return {
         "schemaVersion": 1,
@@ -299,6 +300,7 @@ def quiz_group(
             "reviewDetail": review_detail,
             "attemptsPerQuestion": attempts_per_question,
             "isGraded": is_graded,
+            "passingScore": passing_score,
             "timer": {"enabled": False, "durationSeconds": 0},
         },
     }
@@ -768,6 +770,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             review_timing="after_each_answer",
             review_detail="full_review",
             attempts_per_question=3,
+            passing_score=0.75,
         )
         group["settings"]["timer"] = {
             "enabled": True,
@@ -789,6 +792,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
                 "reviewDetail": "full_review",
                 "attemptsPerQuestion": 3,
                 "isGraded": True,
+                "passingScore": 0.75,
                 "timer": {
                     "enabled": True,
                     "durationSeconds": 120,
@@ -808,6 +812,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             "expiresAt": None,
             "score": None,
             "maxScore": None,
+            "successStatus": None,
             "resultsByTargetId": "invalid",
             "answerReviewAuthorized": False,
         }
@@ -827,6 +832,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
                 "expiresAt": None,
                 "score": None,
                 "maxScore": None,
+                "successStatus": None,
                 "resultsByTargetId": {},
                 "answerReviewAuthorized": False,
             },
@@ -853,9 +859,48 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         stored_attempt = outcome["state"]["quiz-1"]
         self.assertEqual(stored_attempt["startedAt"], "2026-06-27T10:00:00Z")
         self.assertEqual(stored_attempt["expiresAt"], "2026-06-27T10:10:00Z")
+        self.assertIsNone(stored_attempt["successStatus"])
+        self.assertIsNone(outcome["response"]["successStatus"])
         self.assertNotIn("groupId", stored_attempt)
         self.assertNotIn("targetIds", stored_attempt)
         self.assertNotIn("settings", stored_attempt)
+
+    def test_quiz_module_idempotent_start_preserves_historical_null_success(self):
+        group = quiz_group(
+            target_ids=["mcq-1"],
+            passing_score=0.5,
+        )
+        attempt = {
+            "attemptId": "attempt-1",
+            "status": "completed",
+            "currentTargetId": None,
+            "submittedTargetIds": ["mcq-1"],
+            "startedAt": "2026-06-27T10:00:00Z",
+            "finishedAt": "2026-06-27T10:05:00Z",
+            "expiresAt": None,
+            "score": 1.0,
+            "maxScore": 1.0,
+            "successStatus": None,
+            "resultsByTargetId": {},
+            "answerReviewAuthorized": True,
+        }
+
+        def unexpected_factory(*_args):
+            raise AssertionError("new attempt factories must not run")
+
+        outcome = quiz_module.start_quiz_attempt(
+            {"groupId": "quiz-1"},
+            [group],
+            {"quiz-1": attempt},
+            unexpected_factory,
+            unexpected_factory,
+            unexpected_factory,
+            lambda _expires_at: False,
+        )
+
+        self.assertIsNone(outcome["response"]["successStatus"])
+        self.assertIsNone(outcome["state"])
+        self.assertIsNone(attempt["successStatus"])
 
     def test_quiz_module_time_helpers_handle_expiry_and_timer_settings(self):
         settings = {
@@ -895,6 +940,124 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             (0.5, 2.0),
         )
         self.assertEqual(quiz_module.aggregate_quiz_results({}, []), (0.0, 0.0))
+
+    def test_quiz_module_terminal_success_uses_authored_threshold(self):
+        cases = [
+            ("equal threshold passes", 0.5, "b", "a", 1.0, "passed"),
+            ("below threshold fails", 0.75, "b", "a", 1.0, "failed"),
+            ("no threshold has no status", None, "b", "b", 2.0, None),
+        ]
+
+        for (
+            name,
+            passing_score,
+            first_option,
+            second_option,
+            expected_score,
+            expected_success,
+        ) in cases:
+            with self.subTest(name=name):
+                group = quiz_group(
+                    target_ids=["mcq-1", "mcq-2"],
+                    passing_score=passing_score,
+                )
+                attempt = {
+                    "attemptId": "attempt-1",
+                    "status": "in_progress",
+                    "currentTargetId": "mcq-1",
+                    "submittedTargetIds": [],
+                    "startedAt": "2026-06-27T10:00:00Z",
+                    "finishedAt": None,
+                    "expiresAt": None,
+                    "score": None,
+                    "maxScore": None,
+                    "successStatus": None,
+                    "resultsByTargetId": {},
+                    "answerReviewAuthorized": False,
+                }
+
+                outcome = quiz_module.finish_quiz_attempt(
+                    {
+                        "attemptId": "attempt-1",
+                        "groupId": "quiz-1",
+                        "responsesByTargetId": {
+                            "mcq-1": {
+                                "kind": "single-select",
+                                "optionId": first_option,
+                            },
+                            "mcq-2": {
+                                "kind": "single-select",
+                                "optionId": second_option,
+                            },
+                        },
+                    },
+                    [group],
+                    [
+                        single_select_target("mcq-1"),
+                        single_select_target("mcq-2"),
+                    ],
+                    {"quiz-1": attempt},
+                    "usage-v1",
+                    lambda: "2026-06-27T10:02:00Z",
+                    lambda _expires_at: False,
+                )
+
+                terminal = outcome["state"]["quiz-1"]
+                self.assertEqual(terminal["score"], expected_score)
+                self.assertEqual(terminal["maxScore"], 2.0)
+                self.assertEqual(
+                    terminal["successStatus"],
+                    expected_success,
+                )
+                self.assertEqual(
+                    outcome["response"]["successStatus"],
+                    expected_success,
+                )
+
+    def test_quiz_module_question_completion_calculates_success(self):
+        group = quiz_group(
+            target_ids=["mcq-1"],
+            review_timing="after_each_answer",
+            passing_score=1.0,
+        )
+        attempt = {
+            "attemptId": "attempt-1",
+            "status": "in_progress",
+            "currentTargetId": "mcq-1",
+            "submittedTargetIds": [],
+            "startedAt": "2026-06-27T10:00:00Z",
+            "finishedAt": None,
+            "expiresAt": None,
+            "score": None,
+            "maxScore": None,
+            "successStatus": None,
+            "resultsByTargetId": {},
+            "answerReviewAuthorized": False,
+        }
+
+        outcome = quiz_module.submit_quiz_question(
+            {
+                "attemptId": "attempt-1",
+                "groupId": "quiz-1",
+                "targetId": "mcq-1",
+                "response": {"kind": "single-select", "optionId": "b"},
+                "expectedAttemptNumber": 0,
+            },
+            [group],
+            [single_select_target("mcq-1")],
+            {"quiz-1": attempt},
+            {},
+            "usage-v1",
+            lambda: "2026-06-27T10:01:00Z",
+            lambda _expires_at: False,
+        )
+
+        terminal = outcome["state"]["quiz-1"]
+        self.assertEqual(terminal["status"], "completed")
+        self.assertIsNone(terminal["currentTargetId"])
+        self.assertEqual(terminal["score"], 1.0)
+        self.assertEqual(terminal["maxScore"], 1.0)
+        self.assertEqual(terminal["successStatus"], "passed")
 
     def test_quiz_module_returns_expired_attempt_finalization_action(self):
         group = quiz_group(target_ids=["mcq-1", "mcq-2"])
@@ -944,6 +1107,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         group = quiz_group(
             target_ids=["mcq-1", "mcq-2"],
             review_timing="after_each_answer",
+            passing_score=0.5,
         )
         attempt = {
             "attemptId": "attempt-1",
@@ -981,6 +1145,8 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertEqual(outcome["response"]["currentTargetId"], "mcq-2")
         stored_attempt = outcome["state"]["quiz-1"]
         self.assertEqual(stored_attempt["submittedTargetIds"], ["mcq-1"])
+        self.assertIsNone(stored_attempt["successStatus"])
+        self.assertIsNone(outcome["response"]["successStatus"])
         self.assertNotIn("attemptCountsByTargetId", stored_attempt)
         self.assertEqual(stored_attempt["resultsByTargetId"]["mcq-1"]["score"], 1.0)
         self.assertEqual(
@@ -1094,6 +1260,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         group = quiz_group(
             target_ids=["mcq-1", "mcq-2"],
             review_timing="after_each_answer",
+            passing_score=0.5,
         )
         attempt = {
             "attemptId": "attempt-1",
@@ -1141,6 +1308,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertEqual(outcome["response"]["submittedTargetIds"], ["mcq-1"])
         self.assertEqual(outcome["response"]["score"], 1.0)
         self.assertEqual(outcome["response"]["maxScore"], 2.0)
+        self.assertEqual(outcome["response"]["successStatus"], "passed")
         self.assertEqual(outcome["submissions"], [])
         self.assertTrue(outcome["publish_grade"])
         stored_attempt = outcome["state"]["quiz-1"]
@@ -1148,7 +1316,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertNotIn("attemptCountsByTargetId", stored_attempt)
 
     def test_quiz_module_finishes_from_minimal_request_and_stored_membership(self):
-        group = quiz_group(target_ids=["mcq-1", "mcq-2"])
+        group = quiz_group(
+            target_ids=["mcq-1", "mcq-2"],
+            passing_score=0.5,
+        )
         attempt = {
             "attemptId": "attempt-1",
             "status": "in_progress",
@@ -1217,11 +1388,13 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertEqual(outcome["response"]["status"], "completed")
         self.assertEqual(outcome["response"]["score"], 2.0)
         self.assertEqual(outcome["response"]["maxScore"], 2.0)
+        self.assertEqual(outcome["response"]["successStatus"], "passed")
         self.assertTrue(outcome["publish_grade"])
         self.assertIsNone(outcome["finalize_expired"])
         stored_attempt = outcome["state"]["quiz-1"]
         self.assertEqual(stored_attempt["finishedAt"], "2026-06-27T10:02:00Z")
         self.assertEqual(stored_attempt["submittedTargetIds"], ["mcq-1", "mcq-2"])
+        self.assertEqual(stored_attempt["successStatus"], "passed")
         self.assertNotIn("attemptCountsByTargetId", stored_attempt)
         self.assertEqual(
             [submission["problem_id"] for submission in outcome["submissions"]],
@@ -1338,7 +1511,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         )
 
     def test_quiz_module_finalizes_expired_attempt_state_without_mutating_input(self):
-        group = quiz_group(target_ids=["mcq-1", "mcq-2"])
+        group = quiz_group(
+            target_ids=["mcq-1", "mcq-2"],
+            passing_score=0.5,
+        )
         attempt = {
             "attemptId": "attempt-1",
             "status": "in_progress",
@@ -1377,6 +1553,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertEqual(outcome["response"]["submittedTargetIds"], ["mcq-1"])
         self.assertEqual(outcome["response"]["score"], 1.0)
         self.assertEqual(outcome["response"]["maxScore"], 2.0)
+        self.assertEqual(outcome["response"]["successStatus"], "passed")
         self.assertTrue(outcome["publish_grade"])
         finalized = outcome["state"]["quiz-1"]
         self.assertEqual(finalized["finishedAt"], "2026-06-27T10:05:00Z")
@@ -1415,7 +1592,11 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertEqual(outcome["response"]["maxScore"], 2.0)
 
     def test_quiz_module_reveal_answers_reads_completed_attempt_without_mutation(self):
-        group = quiz_group(target_ids=["mcq-1"], review_detail="full_review")
+        group = quiz_group(
+            target_ids=["mcq-1"],
+            review_detail="full_review",
+            passing_score=0.5,
+        )
         attempt = {
             "attemptId": "attempt-1",
             "status": "completed",
@@ -1426,6 +1607,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             "expiresAt": None,
             "score": 1.0,
             "maxScore": 1.0,
+            "successStatus": None,
             "resultsByTargetId": {
                 "mcq-1": {
                     "isCorrect": True,
@@ -1454,12 +1636,14 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         self.assertTrue(outcome["response"]["success"])
         self.assertTrue(outcome["response"]["answerReviewAuthorized"])
+        self.assertIsNone(outcome["response"]["successStatus"])
         response_json = json.dumps(outcome["response"], sort_keys=True)
         self.assertIn('"expected"', response_json)
         self.assertIn("Summary feedback", response_json)
         self.assertIn("Choice feedback", response_json)
         self.assertIsNone(outcome["state"])
         self.assertFalse(attempt["answerReviewAuthorized"])
+        self.assertIsNone(attempt["successStatus"])
 
     def test_quiz_module_reveal_answers_rejects_incomplete_attempt(self):
         group = quiz_group(target_ids=["mcq-1"], review_detail="full_review")
@@ -3491,7 +3675,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertNotIn("targetIds", stored)
 
     def test_quiz_start_returns_completed_attempt_without_restarting(self):
-        group = quiz_group(target_ids=["mcq-1", "mcq-2"])
+        group = quiz_group(
+            target_ids=["mcq-1", "mcq-2"],
+            passing_score=0.5,
+        )
         block = make_xblock(
             [
                 single_select_target("mcq-1"),
@@ -3530,12 +3717,17 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertEqual(restarted["attemptId"], attempt["attemptId"])
         self.assertEqual(restarted["status"], "completed")
         self.assertEqual(restarted["score"], completed["score"])
+        self.assertEqual(completed["successStatus"], "passed")
+        self.assertEqual(restarted["successStatus"], "passed")
         snapshot = json.loads(block.assessment_snapshot_json)
         self.assertEqual(len(snapshot["quizzes"]), 1)
         self.assertEqual(len(block.runtime.published), 1)
 
     def test_quiz_start_finalizes_expired_after_quiz_attempt_without_restarting(self):
-        group = quiz_group(target_ids=["mcq-1", "mcq-2"])
+        group = quiz_group(
+            target_ids=["mcq-1", "mcq-2"],
+            passing_score=0.5,
+        )
         block = make_xblock(
             [
                 single_select_target("mcq-1"),
@@ -3567,6 +3759,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertIsNone(restarted["currentTargetId"])
         self.assertEqual(restarted["score"], 0.0)
         self.assertEqual(restarted["maxScore"], 2.0)
+        self.assertEqual(restarted["successStatus"], "failed")
         self.assertEqual(restarted["submittedTargetIds"], [])
         snapshot = json.loads(block.assessment_snapshot_json)
         self.assertEqual(len(snapshot["quizzes"]), 1)
@@ -3579,6 +3772,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         group = quiz_group(
             target_ids=["mcq-1", "mcq-2"],
             review_timing="after_each_answer",
+            passing_score=0.5,
         )
         block = make_xblock(
             [
@@ -3621,6 +3815,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertEqual(restarted["status"], "expired")
         self.assertEqual(restarted["score"], 1.0)
         self.assertEqual(restarted["maxScore"], 2.0)
+        self.assertEqual(restarted["successStatus"], "passed")
         self.assertEqual(restarted["submittedTargetIds"], ["mcq-1"])
         snapshot = json.loads(block.assessment_snapshot_json)
         self.assertEqual(len(snapshot["quizzes"]), 1)

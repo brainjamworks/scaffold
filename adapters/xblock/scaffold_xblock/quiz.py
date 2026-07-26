@@ -184,6 +184,7 @@ def start_quiz_attempt(
         "expiresAt": expires_at_factory(settings),
         "score": None,
         "maxScore": None,
+        "successStatus": None,
         "resultsByTargetId": {},
         "answerReviewAuthorized": False,
     }
@@ -365,23 +366,30 @@ def submit_quiz_question(
     )
     expired = is_expired(attempt.get("expiresAt"))
     status = "expired" if expired else ("in_progress" if next_target_id else "completed")
-    score, max_score = (
-        aggregate_quiz_results(results_by_target_id)
+    score, max_score, success_status = (
+        terminal_quiz_outcome(
+            results_by_target_id,
+            target_ids,
+            settings,
+        )
         if status in {"completed", "expired"}
-        else (None, None)
+        else (None, None, None)
     )
 
     next_attempt = dict(attempt)
     next_attempt.update(
         {
             "status": status,
-            "currentTargetId": None if status == "completed" else next_target_id,
+            "currentTargetId": (
+                None if status in {"completed", "expired"} else next_target_id
+            ),
             "submittedTargetIds": submitted_target_ids,
             "finishedAt": (
                 now_factory() if status in {"completed", "expired"} else None
             ),
             "score": score,
             "maxScore": max_score,
+            "successStatus": success_status,
             "resultsByTargetId": results_by_target_id,
             "answerReviewAuthorized": True,
         }
@@ -515,9 +523,10 @@ def finish_quiz_attempt(
             )
         )
 
-    score, max_score = aggregate_quiz_results(
+    score, max_score, success_status = terminal_quiz_outcome(
         results_by_target_id,
         target_ids,
+        settings,
     )
     next_attempt = dict(attempt)
     next_attempt.update(
@@ -528,6 +537,7 @@ def finish_quiz_attempt(
             "finishedAt": now_factory(),
             "score": score,
             "maxScore": max_score,
+            "successStatus": success_status,
             "resultsByTargetId": results_by_target_id,
             "answerReviewAuthorized": True,
         }
@@ -566,9 +576,10 @@ def finalize_expired_quiz_attempt(
         for target_id in attempt.get("submittedTargetIds", [])
         if isinstance(target_id, str) and target_id in target_ids
     ]
-    score, max_score = aggregate_quiz_results(
+    score, max_score, success_status = terminal_quiz_outcome(
         results_by_target_id,
         target_ids,
+        settings,
     )
     next_attempt = dict(attempt)
     next_attempt.update(
@@ -579,6 +590,7 @@ def finalize_expired_quiz_attempt(
             "finishedAt": now_factory(),
             "score": score,
             "maxScore": max_score,
+            "successStatus": success_status,
             "resultsByTargetId": results_by_target_id,
             "answerReviewAuthorized": True,
         }
@@ -660,6 +672,7 @@ def quiz_settings(group):
             if isinstance(settings.get("isGraded"), bool)
             else True
         ),
+        "passingScore": settings.get("passingScore"),
         "timer": {
             "enabled": (
                 timer.get("enabled")
@@ -705,6 +718,7 @@ def public_quiz_attempt(
         "expiresAt": attempt.get("expiresAt"),
         "score": attempt.get("score"),
         "maxScore": attempt.get("maxScore"),
+        "successStatus": attempt.get("successStatus"),
         "resultsByTargetId": _public_quiz_results_by_target_id(
             attempt.get("resultsByTargetId"),
             review_detail,
@@ -817,6 +831,20 @@ def aggregate_quiz_results(results_by_target_id, target_ids=None):
             max_score += 1.0
         score += float(result.get("score") or 0)
     return score, max_score
+
+
+def terminal_quiz_outcome(results_by_target_id, target_ids, settings):
+    score, max_score = aggregate_quiz_results(
+        results_by_target_id,
+        target_ids,
+    )
+    passing_score = settings.get("passingScore")
+    success_status = (
+        None
+        if passing_score is None
+        else ("passed" if score / max_score >= passing_score else "failed")
+    )
+    return score, max_score, success_status
 
 
 def _assessment_target(assessment_targets, target_id):
