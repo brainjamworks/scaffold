@@ -110,7 +110,7 @@ function generateSchema() {
     $id: "https://scaffold.ac/schemas/assessment.schema.json",
     title: "Scaffold assessment contracts",
     $comment:
-      "This bundle is generated from the strict v1 Zod contracts and carries their portable assessment invariants.",
+      "This bundle is generated from the transitional v1 Zod contracts; quiz success fields are optional only during the v2 migration.",
     definitions: converted.definitions,
   });
 }

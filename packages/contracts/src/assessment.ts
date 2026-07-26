@@ -287,6 +287,9 @@ export type QuizReviewDetail = z.infer<typeof QuizReviewDetailSchema>;
 export const QuizAttemptsPerQuestionSchema = z.union([z.literal(1), z.literal(2), z.literal(3)]);
 export type QuizAttemptsPerQuestion = z.infer<typeof QuizAttemptsPerQuestionSchema>;
 
+export const QuizPassingScoreSchema = z.number().finite().min(0).max(1).nullable();
+export type QuizPassingScore = z.infer<typeof QuizPassingScoreSchema>;
+
 export const QuizTimerSettingsSchema = z
   .object({
     enabled: z.boolean(),
@@ -302,6 +305,7 @@ export const QuizAssessmentSettingsSchema = z
     reviewDetail: QuizReviewDetailSchema,
     attemptsPerQuestion: QuizAttemptsPerQuestionSchema,
     isGraded: z.boolean(),
+    passingScore: QuizPassingScoreSchema.optional(),
     timer: QuizTimerSettingsSchema,
   })
   .strict();
@@ -479,6 +483,9 @@ export type AssessmentGradeProjection = z.infer<typeof AssessmentGradeProjection
 export const QuizAttemptStatusSchema = z.enum(["in_progress", "completed", "expired"]);
 export type QuizAttemptStatus = z.infer<typeof QuizAttemptStatusSchema>;
 
+export const QuizSuccessStatusSchema = z.enum(["passed", "failed"]).nullable();
+export type QuizSuccessStatus = z.infer<typeof QuizSuccessStatusSchema>;
+
 const QuizAttemptStateBaseSchema = z.object({
   attemptId: NonBlankStringSchema,
   groupId: NonBlankStringSchema,
@@ -494,6 +501,7 @@ const QuizAttemptStateBaseSchema = z.object({
   expiresAt: z.string().nullable(),
   resultsByTargetId: z.record(NonBlankStringSchema, AssessmentResultSchema),
   answerReviewAuthorized: z.boolean(),
+  successStatus: QuizSuccessStatusSchema.optional(),
 });
 
 export const QuizAttemptStateSchema = z.union([

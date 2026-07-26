@@ -248,6 +248,7 @@ describe("authoring publication document projection", () => {
                   reviewTiming: "after_each_answer",
                   reviewDetail: "full_review",
                   attemptsPerQuestion: 2,
+                  passingScore: 0.8,
                 },
               },
               content: [mcqBlock("mcq-quiz-1", "a"), mcqBlock("mcq-quiz-2", "b")],
@@ -273,6 +274,7 @@ describe("authoring publication document projection", () => {
           reviewDetail: "full_review",
           attemptsPerQuestion: 2,
           isGraded: true,
+          passingScore: 0.8,
           timer: {
             enabled: false,
             durationSeconds: 0,

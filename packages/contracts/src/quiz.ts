@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   QuizAttemptsPerQuestionSchema,
   QuizAssessmentSettingsSchema,
+  QuizPassingScoreSchema,
   QuizReviewDetailSchema,
   QuizReviewTimingSchema,
   QuizTimerSettingsSchema,
@@ -14,6 +15,7 @@ export const QuizSettingsSchema = QuizAssessmentSettingsSchema.extend({
   reviewDetail: QuizReviewDetailSchema.default("result_only"),
   attemptsPerQuestion: QuizAttemptsPerQuestionSchema.default(1),
   isGraded: z.boolean().default(true),
+  passingScore: QuizPassingScoreSchema.default(null),
   timer: QuizTimerSettingsSchema.default({
     enabled: false,
     durationSeconds: 0,

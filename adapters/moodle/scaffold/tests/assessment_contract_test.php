@@ -87,6 +87,21 @@ final class assessment_contract_test extends \advanced_testcase {
         $this->assert_contract_rejected('AssessmentGroupContract', $group, $validator);
     }
 
+    public function test_contract_accepts_transitional_quiz_success_fields_and_legacy_omissions(): void {
+        $validator = new json_schema_validator();
+        $validator->validate_definition('AssessmentGroupContract', $this->group());
+        $validator->validate_definition('QuizAttemptSnapshot', $this->quiz_snapshot());
+
+        $group = $this->group();
+        $group->settings->passingScore = 0.8;
+        $validator->validate_definition('AssessmentGroupContract', $group);
+
+        $quiz = $this->quiz_snapshot();
+        $quiz->successStatus = null;
+        $validator->validate_definition('QuizAttemptSnapshot', $quiz);
+        $this->addToAssertionCount(4);
+    }
+
     public function test_response_contract_requires_an_object(): void {
         $validator = new json_schema_validator();
         $validator->validate_definition(

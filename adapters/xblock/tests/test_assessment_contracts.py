@@ -293,6 +293,27 @@ class AssessmentContractSemanticTest(unittest.TestCase):
                     value,
                 )
 
+    def test_accepts_transitional_quiz_success_fields_and_legacy_omissions(self):
+        json_schema = load_validation_module("json_schema")
+        expanded_group = deepcopy(GROUP)
+        expanded_group["settings"]["passingScore"] = 0.8
+        expanded_snapshot = deepcopy(LEARNER_SNAPSHOT)
+        expanded_snapshot["quizzes"] = {
+            "quiz-1": {**deepcopy(QUIZ_ATTEMPT_SNAPSHOT), "successStatus": None},
+        }
+
+        for definition_name, value in [
+            ("AssessmentGroupContract", GROUP),
+            ("AssessmentGroupContract", expanded_group),
+            ("AssessmentLearnerSnapshot", LEARNER_SNAPSHOT),
+            ("AssessmentLearnerSnapshot", expanded_snapshot),
+        ]:
+            with self.subTest(definition_name=definition_name, value=value):
+                self.assertIs(
+                    json_schema.validate_assessment_definition(definition_name, value),
+                    value,
+                )
+
     def test_rejects_the_portable_contract_invariant_corpus(self):
         json_schema = load_validation_module("json_schema")
         mismatched_target = deepcopy(TARGET)

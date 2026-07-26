@@ -151,7 +151,7 @@ describe("generated assessment JSON Schema", () => {
       "QuizAttemptState",
     ]);
     expect(assessmentJsonSchema.$comment).toBe(
-      "This bundle is generated from the strict v1 Zod contracts and carries their portable assessment invariants.",
+      "This bundle is generated from the transitional v1 Zod contracts; quiz success fields are optional only during the v2 migration.",
     );
   });
 
@@ -186,6 +186,10 @@ describe("generated assessment JSON Schema", () => {
     });
 
     expectAccepted(AssessmentGroupContractSchema, "AssessmentGroupContract", group);
+    expectAccepted(AssessmentGroupContractSchema, "AssessmentGroupContract", {
+      ...group,
+      settings: { ...group.settings, passingScore: 0.8 },
+    });
     expectRejected(AssessmentGroupContractSchema, "AssessmentGroupContract", {
       ...group,
       targetIds: [],
@@ -237,6 +241,10 @@ describe("generated assessment JSON Schema", () => {
     });
 
     expectAccepted(QuizAttemptStateSchema, "QuizAttemptState", quizAttempt);
+    expectAccepted(QuizAttemptStateSchema, "QuizAttemptState", {
+      ...quizAttempt,
+      successStatus: null,
+    });
     expectRejected(QuizAttemptStateSchema, "QuizAttemptState", {
       ...quizAttempt,
       status: "not_started",
@@ -301,6 +309,10 @@ describe("generated assessment JSON Schema", () => {
 
     expectAccepted(AssessmentLearnerSnapshotSchema, "AssessmentLearnerSnapshot", snapshot);
     expectAccepted(QuizAttemptSnapshotSchema, "QuizAttemptSnapshot", quizAttemptSnapshot);
+    expectAccepted(QuizAttemptSnapshotSchema, "QuizAttemptSnapshot", {
+      ...quizAttemptSnapshot,
+      successStatus: null,
+    });
     expectRejected(AssessmentLearnerSnapshotSchema, "AssessmentLearnerSnapshot", {
       ...snapshot,
       snapshotVersion: 2,

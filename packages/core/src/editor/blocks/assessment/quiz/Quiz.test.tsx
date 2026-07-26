@@ -2653,6 +2653,12 @@ describe("quiz block skeleton", () => {
         label: "Graded",
       },
       {
+        section: "scoring",
+        kind: "number",
+        name: "passingScore",
+        label: "Passing score",
+      },
+      {
         section: "timer",
         kind: "boolean",
         name: "timer.enabled",
@@ -2665,6 +2671,18 @@ describe("quiz block skeleton", () => {
         label: "Duration",
       },
     ]);
+    const passingScore = sheet?.sections
+      .flatMap((section) => section.fields)
+      .find((field) => field.name === "passingScore");
+    expect(passingScore).toMatchObject({
+      kind: "number",
+      label: "Passing score",
+      description: "Set a normalized score from 0 to 1, or leave empty for no pass criterion.",
+      min: 0,
+      max: 1,
+      step: 0.01,
+      emptyValue: null,
+    });
   });
 
   it("saves dependent quiz settings through checked configuration writes", () => {
@@ -2687,6 +2705,7 @@ describe("quiz block skeleton", () => {
                 reviewDetail: "result_only",
                 attemptsPerQuestion: 1,
                 isGraded: true,
+                passingScore: null,
                 timer: { enabled: true, durationSeconds: 90 },
               },
             },
@@ -2708,6 +2727,7 @@ describe("quiz block skeleton", () => {
         reviewDetail: "none",
         attemptsPerQuestion: 1,
         isGraded: false,
+        passingScore: 0.8,
         timer: { enabled: true, durationSeconds: 90 },
       },
     });
@@ -2719,6 +2739,7 @@ describe("quiz block skeleton", () => {
       reviewDetail: "none",
       attemptsPerQuestion: 1,
       isGraded: false,
+      passingScore: 0.8,
       timer: { enabled: true, durationSeconds: 90 },
     });
 
@@ -3122,6 +3143,7 @@ function quizSettings(): QuizSettings {
     reviewDetail: "result_only",
     attemptsPerQuestion: 1,
     isGraded: true,
+    passingScore: null,
     timer: { enabled: false, durationSeconds: 0 },
   };
 }

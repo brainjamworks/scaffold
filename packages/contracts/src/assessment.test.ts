@@ -26,8 +26,10 @@ import {
   QuizAttemptStateSchema,
   QuizAttemptStatusSchema,
   QuizAttemptsPerQuestionSchema,
+  QuizPassingScoreSchema,
   QuizReviewDetailSchema,
   QuizReviewTimingSchema,
+  QuizSuccessStatusSchema,
   QuizTimerSettingsSchema,
   SequenceResponseSchema,
   SingleSelectResponseSchema,
@@ -1401,6 +1403,20 @@ describe("assessment group contracts", () => {
     ]);
   });
 
+  it("accepts optional transitional Quiz success fields without changing version 1", () => {
+    expect(QuizPassingScoreSchema.parse(0.8)).toBe(0.8);
+    expect(QuizSuccessStatusSchema.parse(null)).toBeNull();
+    expect(
+      AssessmentGroupContractSchema.parse({
+        ...group,
+        settings: { ...group.settings, passingScore: 0.8 },
+      }),
+    ).toMatchObject({
+      schemaVersion: 1,
+      settings: { passingScore: 0.8 },
+    });
+  });
+
   it("accepts every Quiz review and attempts choice", () => {
     const reviewTimings: QuizReviewTiming[] = ["after_quiz", "after_each_answer"];
     const reviewDetails: QuizReviewDetail[] = ["none", "result_only", "full_review"];
@@ -1956,6 +1972,15 @@ describe("quiz attempt state contracts", () => {
     feedback: null,
     items: {},
   };
+
+  it("accepts optional transitional success status without requiring it from legacy attempts", () => {
+    expect(QuizAttemptStateSchema.parse(inProgressAttempt)).toEqual(inProgressAttempt);
+    expect(
+      QuizAttemptStateSchema.parse({ ...inProgressAttempt, successStatus: null }),
+    ).toMatchObject({ successStatus: null });
+    expect(QuizSuccessStatusSchema.parse("passed")).toBe("passed");
+    expect(QuizSuccessStatusSchema.parse("failed")).toBe("failed");
+  });
 
   const inProgressAttempt: QuizAttemptState = {
     attemptId: "attempt-1",
