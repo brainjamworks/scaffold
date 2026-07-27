@@ -1,6 +1,7 @@
 import type { Editor } from "@tiptap/core";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { useMemo } from "react";
+import { AssessmentInteractionContractSchema } from "@scaffold/contracts";
 import type {
   AssessmentAnswerKey,
   AssessmentInteractionKind,
@@ -16,8 +17,10 @@ import {
   type BlockAssessmentCapabilityDefinition,
   type BlockDefinition,
 } from "@/editor/blocks/block-definition";
+import { buildAssessmentActivityDefinition } from "@/runtime/xapi/statement-catalogue";
 
 import { countAssessmentHints } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { textBetween } from "@/editor/blocks/assessment/shared/publication/projection";
 import type { AssessmentExperienceConfig } from "../model/assessment-capability";
 import type { ProblemResponse } from "../model/assessment-response";
 import {
@@ -417,6 +420,9 @@ function runtimeProblemConfigFromFacade(
     kind: interactionKind,
     targetId,
     interactionKind,
+    ...(config.getXapiActivityDefinition === undefined
+      ? {}
+      : { getXapiActivityDefinition: config.getXapiActivityDefinition }),
     choiceMode: choiceModeForInteraction(interactionKind),
     feedbackMode: settings.feedbackMode,
     maxAttempts: settings.maxAttempts,
@@ -474,16 +480,31 @@ function createRuntimeProblemConfig(
     | undefined;
   const blockId = String(node.attrs["id"] ?? "");
   const kind = assessment.interactionKind;
-  const interaction = assessment.projection.projectInteraction(node.toJSON(), settings);
+  const interaction = AssessmentInteractionContractSchema.parse(
+    assessment.projection.projectInteraction(node.toJSON(), settings),
+  );
+  if (interaction.kind !== kind) {
+    throw new Error(
+      `Assessment interaction projection kind "${interaction.kind}" does not match registered kind "${kind}".`,
+    );
+  }
   const responseCodec = {
     ...assessment.response,
     hasResponse: (response: unknown) => assessment.response.hasResponse(response, interaction),
+  };
+  const getXapiActivityDefinition = () => {
+    const activityDescription = assessmentActivityDescription(node);
+    return buildAssessmentActivityDefinition({
+      ...(activityDescription === undefined ? {} : { activityDescription }),
+      interaction,
+    });
   };
 
   return {
     kind,
     targetId: blockId,
     interactionKind: kind,
+    getXapiActivityDefinition,
     choiceMode: choiceModeForInteraction(kind),
     feedbackMode: settings.feedbackMode,
     maxAttempts: settings.maxAttempts,
@@ -498,6 +519,20 @@ function createRuntimeProblemConfig(
     isGraded: settings.isGraded,
     responseCodec,
   };
+}
+
+function assessmentActivityDescription(node: PMNode): string | undefined {
+  let prompt: PMNode | null = null;
+  for (let index = 0; index < node.childCount; index += 1) {
+    const child = node.child(index);
+    if (child.type.name !== "assessment_prompt") continue;
+    prompt = child;
+    break;
+  }
+  if (!prompt) return undefined;
+
+  const description = textBetween(prompt.toJSON()).trim();
+  return description || undefined;
 }
 
 function choiceModeForInteraction(kind: AssessmentInteractionKind): ChoiceMode | null {

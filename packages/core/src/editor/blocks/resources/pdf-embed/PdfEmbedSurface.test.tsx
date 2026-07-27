@@ -109,6 +109,8 @@ afterEach(() => {
 
 it("announces the current PDF page and disables page navigation at bounds", async () => {
   const user = userEvent.setup();
+  const onOpen = vi.fn();
+  const onPagePresented = vi.fn();
   render(
     <PdfEmbedSurface
       data={emptyPdfEmbedData({
@@ -121,6 +123,8 @@ it("announces the current PDF page and disables page navigation at bounds", asyn
       editable
       mediaPort={null}
       onAdd={() => {}}
+      onOpen={onOpen}
+      onPagePresented={onPagePresented}
     />,
   );
 
@@ -133,11 +137,15 @@ it("announces the current PDF page and disables page navigation at bounds", asyn
   expect(screen.getByRole("figure", { name: "Course handbook" })).toBeInTheDocument();
   expect(preview.getAttribute("aria-describedby")).toBeNull();
   expect(screen.getByRole("button", { name: "Replace Course handbook" })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Open Course handbook in new tab" })).toBeInTheDocument();
+  const openLink = screen.getByRole("link", { name: "Open Course handbook in new tab" });
+  expect(openLink).toBeInTheDocument();
+  await user.click(openLink);
+  expect(onOpen).toHaveBeenCalledOnce();
 
   await screen.findByText("PDF page 1");
 
   await waitFor(() => {
+    expect(onPagePresented).toHaveBeenCalledWith({ pageNumber: 1, pageCount: 3 });
     expect(screen.getByRole("status", { name: "Page 1 of 3" })).toBeInTheDocument();
     expect(preview.getAttribute("aria-describedby")).toBe(
       screen.getByRole("status", { name: "Page 1 of 3" }).id,
@@ -149,6 +157,7 @@ it("announces the current PDF page and disables page navigation at bounds", asyn
   await user.click(next);
 
   await waitFor(() => {
+    expect(onPagePresented).toHaveBeenCalledWith({ pageNumber: 2, pageCount: 3 });
     expect(screen.getByRole("status", { name: "Page 2 of 3" })).toBeInTheDocument();
     expect(previous).toHaveProperty("disabled", false);
     expect(next).toHaveProperty("disabled", false);
@@ -160,6 +169,42 @@ it("announces the current PDF page and disables page navigation at bounds", asyn
     expect(screen.getByRole("status", { name: "Page 3 of 3" })).toBeInTheDocument();
     expect(previous).toHaveProperty("disabled", false);
     expect(next).toHaveProperty("disabled", true);
+  });
+});
+
+it("waits until an already-rendered PDF page is presented", async () => {
+  const onPagePresented = vi.fn();
+  const data = emptyPdfEmbedData({
+    source: {
+      mode: "external",
+      src: "https://example.com/sample.pdf",
+    },
+  });
+  const { rerender } = render(
+    <PdfEmbedSurface
+      data={data}
+      editable={false}
+      mediaPort={null}
+      presented={false}
+      onPagePresented={onPagePresented}
+    />,
+  );
+
+  await screen.findByText("PDF page 1");
+  expect(onPagePresented).not.toHaveBeenCalled();
+
+  rerender(
+    <PdfEmbedSurface
+      data={data}
+      editable={false}
+      mediaPort={null}
+      presented
+      onPagePresented={onPagePresented}
+    />,
+  );
+
+  await waitFor(() => {
+    expect(onPagePresented).toHaveBeenCalledWith({ pageNumber: 1, pageCount: 3 });
   });
 });
 

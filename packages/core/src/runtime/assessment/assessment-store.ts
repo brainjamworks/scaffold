@@ -16,7 +16,16 @@ import {
   AssessmentProblemCommandOutcomeSchema,
   AssessmentQuizCommandOutcomeSchema,
 } from "../../host/ports/assessment";
+import {
+  buildAnsweredStatementDraft,
+  buildHintInteractedStatementDraft,
+  buildQuizAttemptedStatementDraft,
+  buildQuizCompletedStatementDraft,
+  buildQuizSuccessStatementDraft,
+} from "../xapi/statement-catalogue";
+import type { XapiSession } from "../xapi/session";
 import type {
+  AssessmentDurableState,
   AssessmentGroupId,
   AssessmentProblemId,
   AssessmentQuizRegistration,
@@ -139,6 +148,9 @@ function validatedProblemOutcome(
       `Assessment host response kind ${outcome.problem.response.kind} does not match registration interactionKind ${registration.interactionKind}`,
     );
   }
+  if (outcome.problem.submitted && outcome.problem.attemptNumber <= 0) {
+    throw new Error("Submitted assessment host response attemptNumber must be positive");
+  }
   return outcome;
 }
 
@@ -155,6 +167,7 @@ function storedQuizRegistration(
   }
   return {
     groupId: scopeAssessmentGroupId(artifactId, registration.groupId),
+    authoredGroupId: registration.groupId.trim(),
     targetIds,
     settings: QuizAssessmentSettingsSchema.parse(registration.settings),
   };
@@ -163,6 +176,7 @@ function storedQuizRegistration(
 function validatedQuizAttempt(
   value: unknown,
   registration: AssessmentQuizRegistration,
+  previousAttempt: QuizAttemptState | undefined,
   expectedAttemptId?: string,
 ): QuizAttemptState {
   const attempt = QuizAttemptStateSchema.parse(value);
@@ -186,6 +200,33 @@ function validatedQuizAttempt(
       throw new Error("Quiz host response contains an unregistered result target");
     }
   }
+  if (attempt.status !== "in_progress") {
+    if (attempt.score > attempt.maxScore) {
+      throw new Error("Quiz host response score exceeds maxScore");
+    }
+
+    const passingScore = registration.settings.passingScore;
+    if (passingScore === null) {
+      if (attempt.successStatus !== null) {
+        throw new Error("Quiz host response successStatus requires passingScore");
+      }
+    } else {
+      const newlyTerminal =
+        previousAttempt?.attemptId === attempt.attemptId &&
+        previousAttempt.status === "in_progress";
+      if (attempt.successStatus === null) {
+        if (newlyTerminal) {
+          throw new Error("Quiz host response newly terminal successStatus is required");
+        }
+      } else {
+        const expectedSuccess =
+          attempt.score / attempt.maxScore >= passingScore ? "passed" : "failed";
+        if (attempt.successStatus !== expectedSuccess) {
+          throw new Error("Quiz host response successStatus does not match passingScore");
+        }
+      }
+    }
+  }
   return attempt;
 }
 
@@ -199,7 +240,12 @@ function validatedQuizOutcome(
   problems: Record<AssessmentProblemId, AssessmentProblemSnapshot>;
 } {
   const outcome = AssessmentQuizCommandOutcomeSchema.parse(value);
-  const quizAttempt = validatedQuizAttempt(outcome.quizAttempt, registration, expectedAttemptId);
+  const quizAttempt = validatedQuizAttempt(
+    outcome.quizAttempt,
+    registration,
+    state.durable.quizzes[registration.groupId],
+    expectedAttemptId,
+  );
   const problems: Record<AssessmentProblemId, AssessmentProblemSnapshot> = {};
   for (const [targetId, problem] of Object.entries(outcome.problemsByTargetId)) {
     if (!registration.targetIds.includes(targetId)) {
@@ -247,6 +293,7 @@ export function redactQuizResult(
 export function createAssessmentStore({
   artifactId,
   assessmentPort,
+  getXapiSession,
 }: CreateAssessmentStoreOptions): AssessmentStoreApi {
   const normalizedArtifactId = artifactId.trim();
   if (!normalizedArtifactId) {
@@ -255,6 +302,189 @@ export function createAssessmentStore({
 
   return createStore((set, get) => {
     let requestSequence = 0;
+
+    const recordStandaloneAnswer = (
+      registration: AssessmentRegistration,
+      problem: AssessmentProblemSnapshot,
+    ): void => {
+      if (!problem.submitted) return;
+      try {
+        const session = getXapiSession?.();
+        if (!session) return;
+        session.record(
+          buildAnsweredStatementDraft({
+            rootActivityId: session.rootActivityId,
+            targetId: registration.targetId,
+            ...(registration.config.getXapiActivityDefinition === undefined
+              ? {}
+              : {
+                  activityDefinition: registration.config.getXapiActivityDefinition(),
+                }),
+            interactionKind: registration.interactionKind,
+            response: problem.response,
+            result: problem.submissionResult,
+            attemptNumber: problem.attemptNumber,
+          }),
+        );
+      } catch {
+        // Learning-record delivery is observational and cannot change assessment authority.
+      }
+    };
+
+    const recordPersistedHint = (
+      registration: AssessmentRegistration,
+      previousProblem: AssessmentProblemSnapshot,
+      problem: AssessmentProblemSnapshot,
+    ): void => {
+      if (problem.hintsShown <= previousProblem.hintsShown) return;
+      try {
+        const session = getXapiSession?.();
+        if (!session) return;
+        session.record(
+          buildHintInteractedStatementDraft({
+            rootActivityId: session.rootActivityId,
+            targetId: registration.targetId,
+            ...(registration.config.getXapiActivityDefinition === undefined
+              ? {}
+              : {
+                  activityDefinition: registration.config.getXapiActivityDefinition(),
+                }),
+            hintNumber: problem.hintsShown,
+          }),
+        );
+      } catch {
+        // Learning-record delivery is observational and cannot change assessment authority.
+      }
+    };
+
+    const recordQuizOutcome = (
+      operation: AssessmentRequestOperation,
+      registration: AssessmentQuizRegistration,
+      previousDurable: AssessmentDurableState,
+      currentDurable: AssessmentDurableState,
+      attempt: QuizAttemptState,
+    ): void => {
+      const previousAttempt = previousDurable.quizzes[registration.groupId];
+      if (operation === "quiz-start") {
+        if (
+          attempt.status !== "in_progress" ||
+          previousAttempt?.attemptId === attempt.attemptId
+        ) {
+          return;
+        }
+        try {
+          const session = getXapiSession?.();
+          if (!session) return;
+          session.record(
+            buildQuizAttemptedStatementDraft({
+              rootActivityId: session.rootActivityId,
+              quizId: registration.authoredGroupId,
+              attemptId: attempt.attemptId,
+            }),
+          );
+        } catch {
+          // Learning-record failure cannot change an authoritative Quiz start.
+        }
+        return;
+      }
+
+      if (
+        operation !== "quiz-submit-question" &&
+        operation !== "quiz-finish" &&
+        operation !== "quiz-expire"
+      ) {
+        return;
+      }
+
+      const newlyTerminal =
+        previousAttempt?.attemptId === attempt.attemptId &&
+        previousAttempt.status === "in_progress" &&
+        (attempt.status === "completed" || attempt.status === "expired");
+      const answers = registration.targetIds.flatMap((targetId) => {
+        const problemRegistrations = Object.values(get().registrations).filter(
+          (candidate) => candidate.targetId === targetId,
+        );
+        if (problemRegistrations.length !== 1) return [];
+        const problemRegistration = problemRegistrations[0];
+        if (!problemRegistration) return [];
+        const previousProblem = previousDurable.problems[problemRegistration.problemId];
+        const problem = currentDurable.problems[problemRegistration.problemId];
+        if (
+          !problem?.submitted ||
+          problem.attemptNumber <= 0 ||
+          problem.attemptNumber <= (previousProblem?.attemptNumber ?? 0)
+        ) {
+          return [];
+        }
+        return [{ problemRegistration, problem }];
+      });
+      if (answers.length === 0 && !newlyTerminal) return;
+
+      let session: XapiSession | null | undefined;
+      try {
+        session = getXapiSession?.();
+      } catch {
+        return;
+      }
+      if (!session) return;
+
+      for (const { problemRegistration, problem } of answers) {
+        try {
+          session.record(
+            buildAnsweredStatementDraft({
+              rootActivityId: session.rootActivityId,
+              targetId: problemRegistration.targetId,
+              ...(problemRegistration.config.getXapiActivityDefinition === undefined
+                ? {}
+                : {
+                    activityDefinition: problemRegistration.config.getXapiActivityDefinition(),
+                  }),
+              interactionKind: problemRegistration.interactionKind,
+              response: problem.response,
+              result: problem.submissionResult,
+              attemptNumber: problem.attemptNumber,
+              quiz: {
+                quizId: registration.authoredGroupId,
+                attemptId: attempt.attemptId,
+              },
+            }),
+          );
+        } catch {
+          // One learning-record failure cannot change authority or suppress later answers.
+        }
+      }
+
+      if (!newlyTerminal) return;
+      try {
+        session.record(
+          buildQuizCompletedStatementDraft({
+            rootActivityId: session.rootActivityId,
+            quizId: registration.authoredGroupId,
+            attemptId: attempt.attemptId,
+            startedAt: attempt.startedAt,
+            finishedAt: attempt.finishedAt,
+          }),
+        );
+      } catch {
+        // Learning-record failure cannot change an authoritative terminal Quiz.
+      }
+
+      if (attempt.successStatus === null) return;
+      try {
+        session.record(
+          buildQuizSuccessStatementDraft({
+            rootActivityId: session.rootActivityId,
+            quizId: registration.authoredGroupId,
+            attemptId: attempt.attemptId,
+            successStatus: attempt.successStatus,
+            score: attempt.score,
+            maxScore: attempt.maxScore,
+          }),
+        );
+      } catch {
+        // Success recording is observational and independent of completion delivery.
+      }
+    };
 
     const beginRequest = (
       ownerId: AssessmentScopedId,
@@ -304,7 +534,7 @@ export function createAssessmentStore({
     };
 
     const commitQuizOutcome = (
-      groupId: AssessmentGroupId,
+      registration: AssessmentQuizRegistration,
       requestId: string,
       outcome: {
         quizAttempt: QuizAttemptState;
@@ -312,6 +542,9 @@ export function createAssessmentStore({
       },
       clearRequest: boolean,
     ): boolean => {
+      const groupId = registration.groupId;
+      const previousDurable = get().durable;
+      const operation = get().requests[groupId]?.operation;
       let committed = false;
       set((state) => {
         if (state.requests[groupId]?.requestId !== requestId) return state;
@@ -325,6 +558,15 @@ export function createAssessmentStore({
         delete requests[groupId];
         return { durable, requests };
       });
+      if (committed && operation) {
+        recordQuizOutcome(
+          operation,
+          registration,
+          previousDurable,
+          get().durable,
+          outcome.quizAttempt,
+        );
+      }
       return committed;
     };
 
@@ -614,8 +856,10 @@ export function createAssessmentStore({
             registration,
           );
           if (get().requests[problemId]?.requestId !== requestId) return null;
+          let committed = false;
           set((state) => {
             if (state.requests[problemId]?.requestId !== requestId) return state;
+            committed = true;
             const requests = { ...state.requests };
             delete requests[problemId];
             return {
@@ -629,6 +873,8 @@ export function createAssessmentStore({
               requests,
             };
           });
+          if (!committed) return null;
+          recordStandaloneAnswer(registration, outcome.problem);
           return outcome.problem.submissionResult;
         } catch (error) {
           failCurrentRequest(problemId, requestId, error);
@@ -726,8 +972,10 @@ export function createAssessmentStore({
             registration,
           );
           if (get().requests[problemId]?.requestId !== requestId) return false;
+          let committed = false;
           set((state) => {
             if (state.requests[problemId]?.requestId !== requestId) return state;
+            committed = true;
             const requests = { ...state.requests };
             delete requests[problemId];
             return {
@@ -741,6 +989,8 @@ export function createAssessmentStore({
               requests,
             };
           });
+          if (!committed) return false;
+          recordPersistedHint(registration, problem, outcome.problem);
           return true;
         } catch (error) {
           failCurrentRequest(problemId, requestId, error);
@@ -820,7 +1070,9 @@ export function createAssessmentStore({
             get(),
           );
           if (get().requests[groupId]?.requestId !== requestId) return null;
-          return commitQuizOutcome(groupId, requestId, outcome, true) ? outcome.quizAttempt : null;
+          return commitQuizOutcome(registration, requestId, outcome, true)
+            ? outcome.quizAttempt
+            : null;
         } catch (error) {
           failCurrentRequest(groupId, requestId, error);
           return null;
@@ -875,7 +1127,9 @@ export function createAssessmentStore({
             attempt.attemptId,
           );
           if (get().requests[groupId]?.requestId !== requestId) return null;
-          return commitQuizOutcome(groupId, requestId, outcome, true) ? outcome.quizAttempt : null;
+          return commitQuizOutcome(quizRegistration, requestId, outcome, true)
+            ? outcome.quizAttempt
+            : null;
         } catch (error) {
           failCurrentRequest(groupId, requestId, error);
           return null;
@@ -909,7 +1163,9 @@ export function createAssessmentStore({
             throw new Error("Quiz finish must return a terminal attempt");
           }
           if (get().requests[groupId]?.requestId !== requestId) return null;
-          return commitQuizOutcome(groupId, requestId, outcome, true) ? outcome.quizAttempt : null;
+          return commitQuizOutcome(registration, requestId, outcome, true)
+            ? outcome.quizAttempt
+            : null;
         } catch (error) {
           failCurrentRequest(groupId, requestId, error);
           return null;
@@ -928,7 +1184,7 @@ export function createAssessmentStore({
           return null;
         }
         try {
-          let currentAttempt = initialAttempt;
+          let currentAttempt: QuizAttemptState = initialAttempt;
           const initialResponses = quizResponses(registration);
           const currentTargetId = initialAttempt.currentTargetId;
           const currentResponse = currentTargetId ? initialResponses[currentTargetId] : undefined;
@@ -957,7 +1213,7 @@ export function createAssessmentStore({
               initialAttempt.attemptId,
             );
             if (get().requests[groupId]?.requestId !== requestId) return null;
-            if (!commitQuizOutcome(groupId, requestId, submittedOutcome, false)) {
+            if (!commitQuizOutcome(registration, requestId, submittedOutcome, false)) {
               return null;
             }
             currentAttempt = submittedOutcome.quizAttempt;
@@ -977,7 +1233,7 @@ export function createAssessmentStore({
             throw new Error("Quiz expiry must return an expired attempt");
           }
           if (get().requests[groupId]?.requestId !== requestId) return null;
-          return commitQuizOutcome(groupId, requestId, expiredOutcome, true)
+          return commitQuizOutcome(registration, requestId, expiredOutcome, true)
             ? expiredOutcome.quizAttempt
             : null;
         } catch (error) {
@@ -1016,7 +1272,9 @@ export function createAssessmentStore({
             throw new Error("Quiz answer reveal must return an authorized completed attempt");
           }
           if (get().requests[groupId]?.requestId !== requestId) return null;
-          return commitQuizOutcome(groupId, requestId, outcome, true) ? outcome.quizAttempt : null;
+          return commitQuizOutcome(registration, requestId, outcome, true)
+            ? outcome.quizAttempt
+            : null;
         } catch (error) {
           failCurrentRequest(groupId, requestId, error);
           return null;

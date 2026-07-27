@@ -87,6 +87,21 @@ final class assessment_contract_test extends \advanced_testcase {
         $this->assert_contract_rejected('AssessmentGroupContract', $group, $validator);
     }
 
+    public function test_contract_requires_quiz_success_fields(): void {
+        $validator = new json_schema_validator();
+        $validator->validate_definition('AssessmentGroupContract', $this->group());
+        $validator->validate_definition('QuizAttemptSnapshot', $this->quiz_snapshot());
+
+        $group = $this->group();
+        unset($group->settings->passingScore);
+        $this->assert_contract_rejected('AssessmentGroupContract', $group, $validator);
+
+        $quiz = $this->quiz_snapshot();
+        unset($quiz->successStatus);
+        $this->assert_contract_rejected('QuizAttemptSnapshot', $quiz, $validator);
+        $this->addToAssertionCount(2);
+    }
+
     public function test_response_contract_requires_an_object(): void {
         $validator = new json_schema_validator();
         $validator->validate_definition(
@@ -196,7 +211,7 @@ JSON);
     public function test_learner_snapshot_uses_local_identity_free_keys(): void {
         $validator = new json_schema_validator();
         $snapshot = (object) [
-            'snapshotVersion' => 1,
+            'snapshotVersion' => 2,
             'artifactId' => 'artifact-1',
             'problems' => (object) ['question-1' => $this->empty_problem()],
             'quizzes' => (object) ['quiz-1' => $this->quiz_snapshot()],
@@ -367,7 +382,7 @@ JSON);
     private function target(): \stdClass {
         return $this->decode(<<<'JSON'
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "targetId": "question-1",
   "blockId": "block-1",
   "blockType": "mcq",
@@ -399,7 +414,7 @@ JSON);
     private function group(): \stdClass {
         return $this->decode(<<<'JSON'
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "kind": "quiz",
   "groupId": "quiz-1",
   "targetIds": ["question-1", "question-2"],
@@ -409,6 +424,7 @@ JSON);
     "reviewDetail": "result_only",
     "attemptsPerQuestion": 1,
     "isGraded": true,
+    "passingScore": null,
     "timer": {"enabled": false, "durationSeconds": 0}
   }
 }
@@ -450,6 +466,7 @@ JSON);
   "expiresAt": null,
   "score": null,
   "maxScore": null,
+  "successStatus": null,
   "resultsByTargetId": {},
   "answerReviewAuthorized": false
 }

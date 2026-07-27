@@ -40,6 +40,21 @@ import type {
   QuizStartAttemptRequest,
   QuizSubmitQuestionRequest,
   SaveableScaffoldArtifact,
+  XapiActivity,
+  XapiActivityDefinition,
+  XapiContextTemplate,
+  XapiDuration,
+  XapiInteractionType,
+  XapiIri,
+  XapiJsonValue,
+  XapiLanguageMap,
+  XapiPort,
+  XapiResult,
+  XapiScore,
+  XapiStatementTemplate,
+  XapiTimestamp,
+  XapiUuid,
+  XapiVerb,
 } from "@scaffold/core/ports";
 
 type PortsTypeSurface = {
@@ -81,6 +96,21 @@ type PortsTypeSurface = {
   resolvedMediaMap: ScaffoldResolvedMediaMap;
   runtimePorts: ScaffoldRuntimePorts;
   saveableArtifact: SaveableScaffoldArtifact;
+  xapiActivity: XapiActivity;
+  xapiActivityDefinition: XapiActivityDefinition;
+  xapiContextTemplate: XapiContextTemplate;
+  xapiDuration: XapiDuration;
+  xapiInteractionType: XapiInteractionType;
+  xapiIri: XapiIri;
+  xapiJsonValue: XapiJsonValue;
+  xapiLanguageMap: XapiLanguageMap;
+  xapiPort: XapiPort;
+  xapiResult: XapiResult;
+  xapiScore: XapiScore;
+  xapiStatementTemplate: XapiStatementTemplate;
+  xapiTimestamp: XapiTimestamp;
+  xapiUuid: XapiUuid;
+  xapiVerb: XapiVerb;
 };
 
 describe("@scaffold/core/ports", () => {
@@ -90,6 +120,8 @@ describe("@scaffold/core/ports", () => {
       "AssessmentQuizCommandOutcomeSchema",
       "MEDIA_UPLOAD_TYPES",
       "SCAFFOLD_MEDIA_CONTEXTS",
+      "XapiIriSchema",
+      "XapiStatementTemplateSchema",
     ]);
     expect(Object.values(ports).every((value) => value !== undefined)).toBe(true);
     expect(ports.SCAFFOLD_MEDIA_CONTEXTS).toEqual(["authoring", "preview", "runtime"]);

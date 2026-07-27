@@ -379,7 +379,14 @@ describe("ScaffoldAuthoringApp preview", () => {
 
   it("awaits asynchronous preview services before entering preview", async () => {
     const user = userEvent.setup();
-    const servicesResult = createDeferred<{ media: null }>();
+    const send = vi.fn(async () => undefined);
+    const servicesResult = createDeferred<{
+      media: null;
+      xapi: {
+        activityId: string;
+        send: typeof send;
+      };
+    }>();
     const createPreviewServices = vi.fn(() => servicesResult.promise);
 
     render(
@@ -407,10 +414,17 @@ describe("ScaffoldAuthoringApp preview", () => {
     expect(previewButton.textContent).toBe("Preparing...");
     expect(screen.queryByTestId("scaffold-learner-app")).toBeNull();
 
-    servicesResult.resolve({ media: null });
+    servicesResult.resolve({
+      media: null,
+      xapi: {
+        activityId: "https://learning.example.test/courses/authoring-preview",
+        send,
+      },
+    });
 
     await screen.findByTestId("scaffold-learner-app");
     expect(mocks.learnerAppProps.at(-1)?.["services"]).toEqual({ media: null });
+    expect(send).not.toHaveBeenCalled();
   });
 
   it("announces an asynchronous preview-service failure and allows retry", async () => {

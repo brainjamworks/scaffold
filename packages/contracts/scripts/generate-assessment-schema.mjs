@@ -109,8 +109,7 @@ function generateSchema() {
     $schema: "http://json-schema.org/draft-07/schema#",
     $id: "https://scaffold.ac/schemas/assessment.schema.json",
     title: "Scaffold assessment contracts",
-    $comment:
-      "This bundle is generated from the strict v1 Zod contracts and carries their portable assessment invariants.",
+    $comment: "This bundle is generated from the strict version 2 Zod assessment contracts.",
     definitions: converted.definitions,
   });
 }

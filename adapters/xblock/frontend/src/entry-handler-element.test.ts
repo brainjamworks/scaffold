@@ -53,7 +53,7 @@ const data: ScaffoldXBlockOuterData = {
 };
 
 const assessmentSnapshot: AssessmentLearnerSnapshot = {
-  snapshotVersion: 1,
+  snapshotVersion: 2,
   artifactId: data.artifact.id,
   problems: {
     "hotspot-target": {
@@ -79,6 +79,7 @@ const assessmentSnapshot: AssessmentLearnerSnapshot = {
       expiresAt: "2026-06-27T10:05:00Z",
       score: null,
       maxScore: null,
+      successStatus: null,
       resultsByTargetId: {},
       answerReviewAuthorized: false,
     },

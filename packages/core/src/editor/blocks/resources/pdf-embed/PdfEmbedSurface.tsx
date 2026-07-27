@@ -118,11 +118,17 @@ export function PdfEmbedSurface({
   editable,
   mediaPort,
   onAdd,
+  onOpen,
+  onPagePresented,
+  presented = true,
 }: {
   data: PdfEmbedData;
   editable: boolean;
   mediaPort: MediaPortLite | null;
   onAdd?: () => void;
+  onOpen?: () => void;
+  onPagePresented?: (page: { pageNumber: number; pageCount: number }) => void;
+  presented?: boolean;
 }) {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const generatedId = useId();
@@ -228,6 +234,18 @@ export function PdfEmbedSurface({
       setPageNumber(numPages);
     }
   }, [numPages, pageNumber]);
+
+  useEffect(() => {
+    if (
+      !presented ||
+      !onPagePresented ||
+      numPages === null ||
+      pageDimensions?.pageNumber !== pageNumber
+    ) {
+      return;
+    }
+    onPagePresented({ pageNumber, pageCount: numPages });
+  }, [numPages, onPagePresented, pageDimensions?.pageNumber, pageNumber, presented]);
 
   const goToPage = useCallback(
     (next: number) => {
@@ -415,6 +433,7 @@ export function PdfEmbedSurface({
               href={fileUrl}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={onOpen}
               className="sc-pdf-embed__open"
               aria-label={`Open ${pdfLabel} in new tab`}
             >

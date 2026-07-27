@@ -62,6 +62,8 @@ export interface LightboxProps {
   ariaLabel?: string;
   /** Element to restore focus to when a controlled lightbox closes. */
   returnFocusRef?: RefObject<HTMLElement | null>;
+  /** Reports the stable key after the active default image successfully loads. */
+  onActiveItemLoad?: (key: string) => void;
 }
 
 function LightboxPortal(props: DialogPrimitive.DialogPortalProps) {
@@ -80,6 +82,7 @@ export function Lightbox({
   initialIndex = 0,
   ariaLabel = "Image viewer",
   returnFocusRef,
+  onActiveItemLoad,
 }: LightboxProps) {
   const safeInitial = Math.max(0, Math.min(initialIndex, items.length - 1));
   const [activeKey, setActiveKey] = useState<string | null>(items[safeInitial]?.key ?? null);
@@ -162,9 +165,10 @@ export function Lightbox({
         alt={activeItem.alt ?? ""}
         className="sc-lightbox-media"
         draggable={false}
+        onLoad={() => onActiveItemLoad?.(activeItem.key)}
       />
     );
-  }, [activeItem]);
+  }, [activeItem, onActiveItemLoad]);
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>

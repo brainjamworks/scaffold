@@ -38,7 +38,7 @@ function expectRejected(zodSchema: ZodTypeAny, definitionName: string, value: un
 }
 
 const target = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   targetId: "question-1",
   blockId: "block-1",
   blockType: "mcq",
@@ -64,7 +64,7 @@ const target = {
 };
 
 const group = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   kind: "quiz",
   groupId: "quiz-1",
   targetIds: ["question-1", "question-2"],
@@ -74,6 +74,7 @@ const group = {
     reviewDetail: "result_only",
     attemptsPerQuestion: 1,
     isGraded: true,
+    passingScore: null,
     timer: { enabled: false, durationSeconds: 0 },
   },
 };
@@ -97,6 +98,7 @@ const quizAttempt = {
   expiresAt: null,
   score: null,
   maxScore: null,
+  successStatus: null,
   resultsByTargetId: {},
   answerReviewAuthorized: false,
 };
@@ -111,6 +113,7 @@ const quizAttemptSnapshot = {
   expiresAt: null,
   score: null,
   maxScore: null,
+  successStatus: null,
   resultsByTargetId: {},
   answerReviewAuthorized: false,
 };
@@ -125,7 +128,7 @@ const emptyProblem = {
 };
 
 const snapshot = {
-  snapshotVersion: 1,
+  snapshotVersion: 2,
   artifactId: "artifact-1",
   problems: { "question-1": emptyProblem },
   quizzes: { "quiz-1": quizAttemptSnapshot },
@@ -151,7 +154,7 @@ describe("generated assessment JSON Schema", () => {
       "QuizAttemptState",
     ]);
     expect(assessmentJsonSchema.$comment).toBe(
-      "This bundle is generated from the strict v1 Zod contracts and carries their portable assessment invariants.",
+      "This bundle is generated from the strict version 2 Zod assessment contracts.",
     );
   });
 
@@ -159,7 +162,7 @@ describe("generated assessment JSON Schema", () => {
     expectAccepted(AssessmentTargetContractSchema, "AssessmentTargetContract", target);
     expectRejected(AssessmentTargetContractSchema, "AssessmentTargetContract", {
       ...target,
-      schemaVersion: 2,
+      schemaVersion: 1,
     });
     expectRejected(AssessmentTargetContractSchema, "AssessmentTargetContract", {
       ...target,
@@ -186,6 +189,21 @@ describe("generated assessment JSON Schema", () => {
     });
 
     expectAccepted(AssessmentGroupContractSchema, "AssessmentGroupContract", group);
+    expectAccepted(AssessmentGroupContractSchema, "AssessmentGroupContract", {
+      ...group,
+      settings: { ...group.settings, passingScore: 0.8 },
+    });
+    expectRejected(AssessmentGroupContractSchema, "AssessmentGroupContract", {
+      ...group,
+      settings: {
+        allowBacktracking: true,
+        reviewTiming: "after_quiz",
+        reviewDetail: "result_only",
+        attemptsPerQuestion: 1,
+        isGraded: true,
+        timer: { enabled: false, durationSeconds: 0 },
+      },
+    });
     expectRejected(AssessmentGroupContractSchema, "AssessmentGroupContract", {
       ...group,
       targetIds: [],
@@ -247,7 +265,7 @@ describe("generated assessment JSON Schema", () => {
       maxScore: 1,
     });
     const incompleteQuizAttempt = structuredClone(quizAttempt);
-    Reflect.deleteProperty(incompleteQuizAttempt, "answerReviewAuthorized");
+    Reflect.deleteProperty(incompleteQuizAttempt, "successStatus");
     expectRejected(QuizAttemptStateSchema, "QuizAttemptState", incompleteQuizAttempt);
   });
 
@@ -303,7 +321,7 @@ describe("generated assessment JSON Schema", () => {
     expectAccepted(QuizAttemptSnapshotSchema, "QuizAttemptSnapshot", quizAttemptSnapshot);
     expectRejected(AssessmentLearnerSnapshotSchema, "AssessmentLearnerSnapshot", {
       ...snapshot,
-      snapshotVersion: 2,
+      snapshotVersion: 1,
     });
     expectRejected(AssessmentLearnerSnapshotSchema, "AssessmentLearnerSnapshot", {
       ...snapshot,
@@ -357,6 +375,17 @@ describe("generated assessment JSON Schema", () => {
         definitionName: "QuizAttemptState",
         schema: QuizAttemptStateSchema,
         value: { ...quizAttempt, score: null, maxScore: 1 },
+      },
+      {
+        definitionName: "QuizAttemptState",
+        schema: QuizAttemptStateSchema,
+        value: {
+          ...quizAttempt,
+          status: "completed",
+          currentTargetId: null,
+          score: 0,
+          maxScore: 0,
+        },
       },
       {
         definitionName: "QuizAttemptState",

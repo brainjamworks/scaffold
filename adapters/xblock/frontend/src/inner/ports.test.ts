@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
+import type { XapiStatementTemplate } from "@scaffold/core/ports";
 import type { XBlockBridgeRequestType } from "../bridge/protocol";
 import { createXBlockRuntimePorts } from "./ports";
 import type { XBlockInnerBridge } from "./xblock-inner-bridge";
@@ -32,6 +33,7 @@ const quizAttempt = {
   expiresAt: null,
   score: null,
   maxScore: null,
+  successStatus: null,
   resultsByTargetId: {},
   answerReviewAuthorized: false,
 };
@@ -42,6 +44,7 @@ class AssessmentBridge implements XBlockInnerBridge {
   readonly requests: Array<{ type: XBlockBridgeRequestType; payload: unknown }> = [];
 
   destroy(): void {}
+  requestHostScroll(): void {}
   sendReady(): void {}
   reportHeight(): void {}
   reportDirty(): void {}
@@ -110,5 +113,43 @@ describe("XBlock runtime assessment port", () => {
         expectedAttemptNumber: 0,
       }),
     ).rejects.toThrow();
+  });
+});
+
+describe("XBlock runtime xAPI port", () => {
+  it("accepts Core statements through the bridge when the host activity IRI is supplied", async () => {
+    const bridge = new AssessmentBridge({
+      "xapi.accept": { success: true },
+    });
+    const xapi = createXBlockRuntimePorts(bridge, {
+      xapiActivityId: "https://scaffold.ac/xapi/activities/openedx/usage-v1",
+    }).xapi;
+    const statement = {
+      id: "00000000-0000-4000-8000-000000000001",
+      timestamp: "2026-07-27T12:00:00.000Z",
+      verb: {
+        id: "http://adlnet.gov/expapi/verbs/initialized",
+        display: { en: "initialized" },
+      },
+      object: {
+        objectType: "Activity",
+        id: "https://scaffold.ac/xapi/activities/openedx/usage-v1",
+      },
+    } as XapiStatementTemplate;
+
+    expect(xapi?.activityId).toBe(
+      "https://scaffold.ac/xapi/activities/openedx/usage-v1",
+    );
+    await expect(xapi?.send(statement)).resolves.toBeUndefined();
+    expect(bridge.requests).toContainEqual({
+      type: "xapi.accept",
+      payload: { statement },
+    });
+  });
+
+  it("omits xAPI when no host activity IRI is supplied", () => {
+    const bridge = new AssessmentBridge({});
+
+    expect(createXBlockRuntimePorts(bridge).xapi).toBeUndefined();
   });
 });

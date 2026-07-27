@@ -1,6 +1,11 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 
-import type { AssessmentPort, ScaffoldRuntimePorts, LearnerActivityPort } from "@/host/ports";
+import type {
+  AssessmentPort,
+  ScaffoldRuntimePorts,
+  LearnerActivityPort,
+  XapiPort,
+} from "@/host/ports";
 import type { MediaPort } from "@/host/ports/media";
 
 export interface ScaffoldServicesProviderProps {
@@ -12,6 +17,7 @@ const emptyServices: Required<ScaffoldRuntimePorts> = {
   assessment: null,
   learnerActivity: null,
   media: null,
+  xapi: null,
 };
 
 const ScaffoldServicesContext = createContext<Required<ScaffoldRuntimePorts>>(emptyServices);
@@ -22,8 +28,9 @@ export function ScaffoldServicesProvider({ children, ports }: ScaffoldServicesPr
       assessment: ports.assessment ?? null,
       learnerActivity: ports.learnerActivity ?? null,
       media: ports.media ?? null,
+      xapi: ports.xapi ?? null,
     }),
-    [ports.assessment, ports.learnerActivity, ports.media],
+    [ports.assessment, ports.learnerActivity, ports.media, ports.xapi],
   );
 
   return (
@@ -41,4 +48,8 @@ export function useLearnerActivityPort(): LearnerActivityPort | null {
 
 export function useMediaPort(): MediaPort | null {
   return useContext(ScaffoldServicesContext).media;
+}
+
+export function useXapiPort(): XapiPort | null {
+  return useContext(ScaffoldServicesContext).xapi;
 }

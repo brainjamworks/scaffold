@@ -7,6 +7,7 @@ import type {
   LearnerActivityDefault,
   LearnerActivityRuntimeRecord,
   LearnerActivitySaveState,
+  LearnerActivityUpdate,
 } from "./types";
 
 export interface UseLearnerActivityRuntimeArgs {
@@ -23,6 +24,7 @@ export interface LearnerActivityRuntimeFacade {
   setData(data: LearnerActivityData): void;
   patchData(patch: LearnerActivityData): void;
   setCompleted(completed: boolean): void;
+  updateActivity(update: LearnerActivityUpdate): void;
 }
 
 const unavailable: LearnerActivitySaveState = {
@@ -74,6 +76,9 @@ export function useLearnerActivityRuntime({
       },
       setCompleted: (completed: boolean) => {
         if (blockId) store.getState().setCompleted(blockId, completed);
+      },
+      updateActivity: (update: LearnerActivityUpdate) => {
+        if (blockId) store.getState().updateActivity(blockId, update);
       },
     }),
     [activity, blockId, hasUnsafeIdentity, persistence, store],

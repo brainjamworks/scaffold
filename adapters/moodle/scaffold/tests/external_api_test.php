@@ -16,6 +16,7 @@
 
 namespace mod_scaffold;
 
+use mod_scaffold\external\accept_xapi_statement;
 use mod_scaffold\external\finish_quiz_attempt;
 use mod_scaffold\external\get_payload;
 use mod_scaffold\external\load_learner_activity;
@@ -72,6 +73,11 @@ final class external_api_test extends \advanced_testcase {
     public static function external_declaration_provider(): array {
         $quizreturns = ['success', 'outcomeJson', 'gradePublicationJson'];
         return [
+            'accept xAPI statement' => [
+                accept_xapi_statement::class,
+                ['cmid', 'statementjson'],
+                ['success'],
+            ],
             'start quiz' => [
                 start_quiz_attempt::class,
                 ['cmid', 'groupid'],
@@ -234,7 +240,7 @@ final class external_api_test extends \advanced_testcase {
         $empty = $this->decode(
             load_learner_activity::execute($cmid, $artifactid)['snapshotJson'],
         );
-        $this->assertSame(1, $empty->snapshotVersion);
+        $this->assertSame(2, $empty->snapshotVersion);
         $this->assertSame($artifactid, $empty->artifactId);
         $this->assertSame([], get_object_vars($empty->activities));
 
@@ -639,7 +645,7 @@ final class external_api_test extends \advanced_testcase {
      */
     private function target(): array {
         return [
-            'schemaVersion' => 1,
+            'schemaVersion' => 2,
             'targetId' => 'question-1',
             'blockId' => 'question-1',
             'blockType' => 'mcq',
@@ -670,7 +676,7 @@ final class external_api_test extends \advanced_testcase {
      */
     private function quiz_group(string $reviewtiming): array {
         return [
-            'schemaVersion' => 1,
+            'schemaVersion' => 2,
             'kind' => 'quiz',
             'groupId' => 'quiz-1',
             'targetIds' => ['question-1'],
@@ -680,6 +686,7 @@ final class external_api_test extends \advanced_testcase {
                 'reviewDetail' => 'full_review',
                 'attemptsPerQuestion' => 1,
                 'isGraded' => false,
+                'passingScore' => null,
                 'timer' => ['enabled' => false, 'durationSeconds' => 0],
             ],
         ];

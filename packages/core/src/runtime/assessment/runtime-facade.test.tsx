@@ -87,6 +87,7 @@ const quizSettings: QuizAssessmentSettings = {
   reviewDetail: "result_only",
   attemptsPerQuestion: 2,
   isGraded: true,
+  passingScore: null,
   timer: { enabled: false, durationSeconds: 300 },
 };
 
@@ -137,6 +138,7 @@ function quizAttempt(groupId: string, overrides: Partial<QuizAttemptState> = {})
     expiresAt: null,
     score: null,
     maxScore: null,
+    successStatus: null,
     resultsByTargetId: {},
     answerReviewAuthorized: false,
     ...overrides,
@@ -249,7 +251,7 @@ describe("assessment problem facade", () => {
   it("decodes hydrated canonical response through the registered capability", async () => {
     const wrapper = createRuntimeWrapper({
       initialSnapshot: {
-        snapshotVersion: 1,
+        snapshotVersion: 2,
         artifactId: "artifact-one",
         problems: { "target-one": problemSnapshot() },
         quizzes: {},
@@ -416,7 +418,7 @@ describe("assessment problem facade", () => {
     const wrapper = createRuntimeWrapper({
       assessmentPort: null,
       initialSnapshot: {
-        snapshotVersion: 1,
+        snapshotVersion: 2,
         artifactId: "artifact-one",
         problems: { "target-one": problemSnapshot() },
         quizzes: {},

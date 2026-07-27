@@ -323,7 +323,7 @@ final class grader_test extends \basic_testcase {
      */
     private function single_select_target(): array {
         return [
-            'schemaVersion' => 1,
+            'schemaVersion' => 2,
             'targetId' => 'mcq-1',
             'blockId' => 'mcq-1',
             'blockType' => 'mcq',

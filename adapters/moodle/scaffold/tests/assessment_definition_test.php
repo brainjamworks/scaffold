@@ -142,7 +142,7 @@ final class assessment_definition_test extends \advanced_testcase {
      */
     private function target(string $targetid, float $points, bool $isgraded): array {
         return [
-            'schemaVersion' => 1,
+            'schemaVersion' => 2,
             'targetId' => $targetid,
             'blockId' => 'block-' . $targetid,
             'blockType' => 'mcq',
@@ -175,7 +175,7 @@ final class assessment_definition_test extends \advanced_testcase {
      */
     private function group(string $groupid, array $targetids, bool $isgraded): array {
         return [
-            'schemaVersion' => 1,
+            'schemaVersion' => 2,
             'kind' => 'quiz',
             'groupId' => $groupid,
             'targetIds' => $targetids,
@@ -185,6 +185,7 @@ final class assessment_definition_test extends \advanced_testcase {
                 'reviewDetail' => 'result_only',
                 'attemptsPerQuestion' => 1,
                 'isGraded' => $isgraded,
+                'passingScore' => null,
                 'timer' => ['enabled' => false, 'durationSeconds' => 0],
             ],
         ];

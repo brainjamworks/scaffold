@@ -32,7 +32,7 @@ export function useFlashcardDeckController({
     activityKind: "flashcard",
     blockId,
     initial: {
-      data: flashcardDataForPersistence(FLASHCARD_INITIAL_ACTIVITY.data),
+      data: flashcardDataForPersistence(FLASHCARD_INITIAL_ACTIVITY.data, cardSummaries.length),
       completed: FLASHCARD_INITIAL_ACTIVITY.completed,
     },
   });
@@ -53,22 +53,41 @@ export function useFlashcardDeckController({
   };
 
   const resetDeck = () => {
-    activity.setData(flashcardDataForPersistence(EMPTY_FLASHCARD_DATA));
+    activity.setData(flashcardDataForPersistence(EMPTY_FLASHCARD_DATA, cardSummaries.length));
     activity.setCompleted(false);
   };
 
   const flipCurrent = () => {
     if (!currentCardId) return;
-    activity.patchData({
-      flipped: toggleFlashcardFlipped(deck, currentCardId),
+    const flipped = toggleFlashcardFlipped(deck, currentCardId);
+    activity.updateActivity({
+      data: flashcardDataForPersistence({ ...deck, flipped }, cardSummaries.length),
+      completed: activity.activity?.completed ?? false,
+      xapiEvent: {
+        kind: "flashcard-flipped",
+        cardId: currentCardId,
+        face: flipped[currentCardId] ? "back" : "front",
+      },
     });
   };
 
   const rateCurrent = (status: FlashcardMasteryStatus) => {
     if (!currentCardId) return;
     const result = rateFlashcardDeck(cardSummaries, deck, currentCardId, currentIndex, status);
-    activity.setData(flashcardDataForPersistence(result.data));
-    activity.setCompleted(result.completed);
+    const masteredCount = cardSummaries.filter(
+      (card) => result.data.mastery[card.id] === "gotIt",
+    ).length;
+    activity.updateActivity({
+      data: flashcardDataForPersistence(result.data, cardSummaries.length),
+      completed: result.completed,
+      xapiEvent: {
+        kind: "flashcard-rated",
+        cardId: currentCardId,
+        rating: status === "gotIt" ? "got-it" : "not-yet",
+        masteredCount,
+        total: cardSummaries.length,
+      },
+    });
   };
 
   useEffect(() => {
@@ -129,7 +148,7 @@ export function useFlashcardCardController({
     activityKind: "flashcard",
     blockId,
     initial: {
-      data: flashcardDataForPersistence(FLASHCARD_INITIAL_ACTIVITY.data),
+      data: flashcardDataForPersistence(FLASHCARD_INITIAL_ACTIVITY.data, deckNode?.childCount),
       completed: FLASHCARD_INITIAL_ACTIVITY.completed,
     },
   });
@@ -143,8 +162,15 @@ export function useFlashcardCardController({
   });
 
   const flip = () => {
-    activity.patchData({
-      flipped: toggleFlashcardFlipped(deck, cardId),
+    const flipped = toggleFlashcardFlipped(deck, cardId);
+    activity.updateActivity({
+      data: flashcardDataForPersistence({ ...deck, flipped }, deckNode?.childCount),
+      completed: activity.activity?.completed ?? false,
+      xapiEvent: {
+        kind: "flashcard-flipped",
+        cardId,
+        face: flipped[cardId] ? "back" : "front",
+      },
     });
   };
 
@@ -156,10 +182,14 @@ export function useFlashcardCardController({
   };
 }
 
-function flashcardDataForPersistence(data: FlashcardActivityData): LearnerActivityData {
+function flashcardDataForPersistence(
+  data: FlashcardActivityData,
+  total?: number,
+): LearnerActivityData {
   return {
     currentCardId: data.currentCardId,
     flipped: data.flipped,
     mastery: data.mastery,
+    ...(total === undefined ? {} : { total }),
   };
 }

@@ -22,14 +22,16 @@ export function ScaffoldLearnerApp({
       assessment: services.assessment ?? null,
       learnerActivity: services.learnerActivity ?? null,
       media: services.media ?? null,
+      xapi: services.xapi ?? null,
     }),
-    [services.assessment, services.learnerActivity, services.media],
+    [services.assessment, services.learnerActivity, services.media, services.xapi],
   );
 
   return (
     <ScaffoldServicesProvider ports={ports}>
       <ContentRuntimeHost
         artifactId={bootstrap.artifactId}
+        courseTitle={bootstrap.title}
         {...(bootstrap.initialLearnerState?.assessmentSnapshot === undefined
           ? {}
           : {

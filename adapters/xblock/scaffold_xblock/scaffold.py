@@ -83,6 +83,7 @@ log = logging.getLogger(__name__)
 SCAFFOLD_MODES = {"page", "slideshow", "branching"}
 SCAFFOLD_CREATION_MODES = {"page", "slideshow"}
 SCAFFOLD_DEFAULT_MODE = "page"
+SCAFFOLD_XAPI_STATEMENT_MAX_BYTES = 65536
 
 
 @XBlock.needs("user")
@@ -573,6 +574,25 @@ class ScaffoldXBlock(ScorableXBlockMixin, XBlock):
             return {"success": False, "error": str(exc)}
 
     @XBlock.json_handler
+    def accept_xapi_statement(self, data, suffix=""):
+        try:
+            statement = _validated_xapi_statement_template(data)
+            self.runtime.publish(
+                self,
+                "scaffold.xapi",
+                {"statement": statement},
+            )
+            return {"success": True}
+        except ValueError as exc:
+            return {"success": False, "error": str(exc)}
+        except Exception:  # pylint: disable=broad-except
+            return unexpected_error_response(
+                log,
+                "accept_xapi_statement",
+                "xAPI statement could not be accepted",
+            )
+
+    @XBlock.json_handler
     def retry_assessment_grade_delivery(self, data, suffix=""):
         delivery = self._deliver_pending_assessment_grade()
         return {
@@ -865,6 +885,41 @@ def _without_protocol_version(data):
     request = dict(data)
     request.pop("protocolVersion", None)
     return request
+
+
+def _validated_xapi_statement_template(data):
+    request = _without_protocol_version(data)
+    if not isinstance(request, dict):
+        raise ValueError("xAPI request must be an object")
+    statement = request.get("statement")
+    if not isinstance(statement, dict):
+        raise ValueError("xAPI statement must be an object")
+    if "actor" in statement:
+        raise ValueError("xAPI actor is supplied by the Open edX tracking context")
+
+    for field in ("id", "timestamp"):
+        if not isinstance(statement.get(field), str) or not statement[field]:
+            raise ValueError("xAPI statement %s must be a non-empty string" % field)
+    for field in ("verb", "object"):
+        value = statement.get(field)
+        if (
+            not isinstance(value, dict)
+            or not isinstance(value.get("id"), str)
+            or not value["id"]
+        ):
+            raise ValueError("xAPI statement %s.id must be a non-empty string" % field)
+
+    try:
+        encoded = json.dumps(
+            statement,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    except (TypeError, ValueError) as exc:
+        raise ValueError("xAPI statement must contain JSON values") from exc
+    if len(encoded) > SCAFFOLD_XAPI_STATEMENT_MAX_BYTES:
+        raise ValueError("xAPI statement exceeds the maximum accepted size")
+    return json.loads(encoded.decode("utf-8"))
 
 
 def _problem_command_response(response, problem, target, redact=True):

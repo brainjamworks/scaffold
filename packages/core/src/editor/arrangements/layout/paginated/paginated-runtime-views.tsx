@@ -1,6 +1,16 @@
 import { NodeViewContent } from "@tiptap/react";
+import { useEffect, useRef } from "react";
 
 import { useLayoutInteractionStore } from "../shared/model/layout-interaction-store";
+import {
+  buildLayoutSectionExperiencedStatementDraft,
+  useXapiSession,
+  type XapiSession,
+} from "@/runtime/xapi";
+import {
+  resolveOwningRuntimeSurfaceId,
+  useRuntimePresentedSurfaceId,
+} from "@/runtime/renderer/runtime-surface-presentation";
 import type {
   LayoutRuntimeViewProps,
   SectionRuntimeFrameOptions,
@@ -23,6 +33,43 @@ export function PaginatedLayoutRuntimeView(props: LayoutRuntimeViewProps) {
   const storedActiveId = useLayoutInteractionStore((state) => state.activePageByLayoutId[layoutId]);
   const setActivePage = useLayoutInteractionStore((state) => state.setActivePage);
   const activeId = normalizeActivePageId(storedActiveId, pages);
+  const xapiSession = useXapiSession();
+  const presentedSurfaceId = useRuntimePresentedSurfaceId();
+  const owningSurfaceId = resolveOwningRuntimeSurfaceId(props.editor.state.doc, props.getPos);
+  const isPresented =
+    presentedSurfaceId === undefined ||
+    (presentedSurfaceId !== null && owningSurfaceId === presentedSurfaceId);
+  const recordedSectionRef = useRef<{
+    session: XapiSession;
+    sectionId: string;
+  } | null>(null);
+  const activeIndex = pages.findIndex((page) => page.id === activeId);
+
+  useEffect(() => {
+    if (!isPresented) {
+      recordedSectionRef.current = null;
+      return;
+    }
+    if (!xapiSession || !activeId || activeIndex < 0) return;
+    const previous = recordedSectionRef.current;
+    if (previous?.session === xapiSession && previous.sectionId === activeId) return;
+
+    try {
+      xapiSession.record(
+        buildLayoutSectionExperiencedStatementDraft({
+          rootActivityId: xapiSession.rootActivityId,
+          layoutId,
+          sectionId: activeId,
+          layoutKind: "paginated",
+          position: activeIndex + 1,
+          count: pages.length,
+        }),
+      );
+      recordedSectionRef.current = { session: xapiSession, sectionId: activeId };
+    } catch {
+      // Layout recording is observational and cannot make content unavailable.
+    }
+  }, [activeId, activeIndex, isPresented, layoutId, pages.length, xapiSession]);
 
   return (
     <div className="sc-paginated-layout">

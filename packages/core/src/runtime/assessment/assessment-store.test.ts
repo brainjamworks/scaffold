@@ -12,7 +12,20 @@ import {
   AssessmentResultSchema,
   QuizAttemptStateSchema,
 } from "@scaffold/contracts";
-import type { AssessmentPort } from "../../host/ports/assessment";
+import type {
+  AssessmentPort,
+  AssessmentQuizCommandOutcome,
+} from "../../host/ports/assessment";
+import type { XapiActivityDefinition, XapiPort, XapiStatementDraft } from "../../host/ports/xapi";
+import {
+  buildAnsweredStatementDraft,
+  buildHintInteractedStatementDraft,
+  buildQuizAttemptedStatementDraft,
+  buildQuizCompletedStatementDraft,
+  buildQuizSuccessStatementDraft,
+  createXapiSession,
+  type XapiSession,
+} from "../xapi";
 import type {
   AssessmentRegistrationIdentity,
   AssessmentRegistrationInput,
@@ -25,6 +38,8 @@ import {
   scopeAssessmentGroupId,
   scopeAssessmentProblemId,
 } from "./assessment-store";
+
+const ROOT_ACTIVITY_ID = "https://example.com/courses/course-1";
 
 function createAssessmentPort(overrides: Partial<AssessmentPort> = {}): AssessmentPort {
   return {
@@ -55,6 +70,38 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
+async function flushPromises(): Promise<void> {
+  for (let index = 0; index < 8; index += 1) {
+    await Promise.resolve();
+  }
+}
+
+function createSessionDouble(
+  recordImplementation: (statement: XapiStatementDraft) => void = () => undefined,
+) {
+  const record = vi.fn<(statement: XapiStatementDraft) => void>(recordImplementation);
+  const session: XapiSession = Object.freeze({
+    rootActivityId: ROOT_ACTIVITY_ID,
+    start: vi.fn(),
+    record,
+    terminate: vi.fn(async () => undefined),
+    getState: () => ({ status: "dormant" as const }),
+  });
+  return { session, record };
+}
+
+function assessmentActivityDefinition(): XapiActivityDefinition {
+  return {
+    description: { en: "Which answer is correct?" },
+    type: "http://adlnet.gov/expapi/activities/cmi.interaction",
+    interactionType: "choice",
+    choices: [
+      { id: "option-a", description: { en: "Paris" } },
+      { id: "option-b", description: { en: "Madrid" } },
+    ],
+  };
+}
+
 function createProblemSnapshot(): AssessmentProblemSnapshot {
   return {
     response: { kind: "single-select", optionId: "option-a" },
@@ -81,6 +128,7 @@ function createQuizAttempt(
     expiresAt: null,
     score: null,
     maxScore: null,
+    successStatus: null,
     resultsByTargetId: {},
     answerReviewAuthorized: false,
     ...overrides,
@@ -154,6 +202,7 @@ const quizSettings: QuizAssessmentSettings = {
   reviewDetail: "result_only",
   attemptsPerQuestion: 2,
   isGraded: true,
+  passingScore: null,
   timer: { enabled: true, durationSeconds: 300 },
 };
 
@@ -198,9 +247,12 @@ describe("createAssessmentStore", () => {
     });
     const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
 
-    expect(store.getState().registerQuiz(createQuizRegistration())).toBe(true);
+    expect(store.getState().registerQuiz(createQuizRegistration({ groupId: " quiz-one " }))).toBe(
+      true,
+    );
     expect(store.getState().quizRegistrations[groupId]).toEqual({
       groupId,
+      authoredGroupId: "quiz-one",
       targetIds: ["target-one", "target-two"],
       settings: quizSettings,
     });
@@ -225,7 +277,14 @@ describe("createAssessmentStore", () => {
       quizAttempt: hostAttempt,
       problemsByTargetId: {},
     });
-    const store = createAssessmentStore({
+    const durableAtRecord: QuizAttemptState[] = [];
+    let store!: ReturnType<typeof createAssessmentStore>;
+    const xapi = createSessionDouble(() => {
+      const attempt = store.getState().durable.quizzes[groupId];
+      if (attempt) durableAtRecord.push(attempt);
+    });
+    const getXapiSession = vi.fn(() => xapi.session);
+    store = createAssessmentStore({
       artifactId: "artifact-one",
       assessmentPort: createAssessmentPort({
         quiz: {
@@ -234,6 +293,7 @@ describe("createAssessmentStore", () => {
           finishAttempt: vi.fn(),
         },
       }),
+      getXapiSession,
     });
 
     store.getState().registerQuiz(createQuizRegistration());
@@ -244,9 +304,187 @@ describe("createAssessmentStore", () => {
     expect(startAttempt).toHaveBeenCalledWith({ groupId });
     expect(store.getState().durable.quizzes[groupId]).toEqual(hostAttempt);
     expect(store.getState().requests[groupId]).toBeUndefined();
+    expect(getXapiSession).toHaveBeenCalledOnce();
+    expect(xapi.record).toHaveBeenCalledWith(
+      buildQuizAttemptedStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        quizId: "quiz-one",
+        attemptId: "attempt-one",
+      }),
+    );
+    expect(durableAtRecord).toEqual([hostAttempt]);
   });
 
-  it("accepts a terminal current Quiz returned by ensure-start", async () => {
+  it("does not record the same authoritative Quiz attempt twice", async () => {
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const hostAttempt = createQuizAttempt(groupId);
+    const startAttempt = vi.fn().mockResolvedValue({
+      quizAttempt: hostAttempt,
+      problemsByTargetId: {},
+    });
+    const xapi = createSessionDouble();
+    const getXapiSession = vi.fn(() => xapi.session);
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        quiz: {
+          startAttempt,
+          submitQuestion: vi.fn(),
+          finishAttempt: vi.fn(),
+        },
+      }),
+      getXapiSession,
+    });
+    store.getState().registerQuiz(createQuizRegistration());
+
+    await expect(store.getState().startQuizAttempt({ groupId: "quiz-one" })).resolves.toEqual(
+      hostAttempt,
+    );
+    await expect(store.getState().startQuizAttempt({ groupId: "quiz-one" })).resolves.toEqual(
+      hostAttempt,
+    );
+
+    expect(startAttempt).toHaveBeenCalledTimes(2);
+    expect(getXapiSession).toHaveBeenCalledOnce();
+    expect(xapi.record).toHaveBeenCalledOnce();
+  });
+
+  it("records only the current response when Quiz starts overlap", async () => {
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const firstOutcome = deferred<AssessmentQuizCommandOutcome>();
+    const secondOutcome = deferred<AssessmentQuizCommandOutcome>();
+    const firstAttempt = createQuizAttempt(groupId);
+    const secondAttempt = createQuizAttempt(groupId, { attemptId: "attempt-two" });
+    const startAttempt = vi
+      .fn()
+      .mockReturnValueOnce(firstOutcome.promise)
+      .mockReturnValueOnce(secondOutcome.promise);
+    const xapi = createSessionDouble();
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        quiz: {
+          startAttempt,
+          submitQuestion: vi.fn(),
+          finishAttempt: vi.fn(),
+        },
+      }),
+      getXapiSession: () => xapi.session,
+    });
+    store.getState().registerQuiz(createQuizRegistration());
+
+    const firstStart = store.getState().startQuizAttempt({ groupId: "quiz-one" });
+    const secondStart = store.getState().startQuizAttempt({ groupId: "quiz-one" });
+    secondOutcome.resolve({ quizAttempt: secondAttempt, problemsByTargetId: {} });
+    await expect(secondStart).resolves.toEqual(secondAttempt);
+    firstOutcome.resolve({ quizAttempt: firstAttempt, problemsByTargetId: {} });
+    await expect(firstStart).resolves.toBeNull();
+
+    expect(store.getState().durable.quizzes[groupId]).toEqual(secondAttempt);
+    expect(xapi.record).toHaveBeenCalledOnce();
+    expect(xapi.record).toHaveBeenCalledWith(
+      buildQuizAttemptedStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        quizId: "quiz-one",
+        attemptId: "attempt-two",
+      }),
+    );
+  });
+
+  it("keeps an authoritative Quiz start successful when xAPI is unavailable", async () => {
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const hostAttempt = createQuizAttempt(groupId);
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        quiz: {
+          startAttempt: vi.fn().mockResolvedValue({
+            quizAttempt: hostAttempt,
+            problemsByTargetId: {},
+          }),
+          submitQuestion: vi.fn(),
+          finishAttempt: vi.fn(),
+        },
+      }),
+      getXapiSession: () => null,
+    });
+    store.getState().registerQuiz(createQuizRegistration());
+
+    await expect(store.getState().startQuizAttempt({ groupId: "quiz-one" })).resolves.toEqual(
+      hostAttempt,
+    );
+    expect(store.getState().durable.quizzes[groupId]).toEqual(hostAttempt);
+  });
+
+  it.each(["session accessor", "statement builder", "session record"] as const)(
+    "keeps an authoritative Quiz start successful when the xAPI %s throws",
+    async (failurePoint) => {
+      const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+      const hostAttempt = createQuizAttempt(groupId);
+      const xapi = createSessionDouble(() => {
+        throw new Error("recording failed");
+      });
+      const invalidRootSession: XapiSession = Object.freeze({
+        ...xapi.session,
+        rootActivityId: "not an IRI",
+      });
+      const store = createAssessmentStore({
+        artifactId: "artifact-one",
+        assessmentPort: createAssessmentPort({
+          quiz: {
+            startAttempt: vi.fn().mockResolvedValue({
+              quizAttempt: hostAttempt,
+              problemsByTargetId: {},
+            }),
+            submitQuestion: vi.fn(),
+            finishAttempt: vi.fn(),
+          },
+        }),
+        getXapiSession:
+          failurePoint === "session accessor"
+            ? () => {
+                throw new Error("session unavailable");
+              }
+            : failurePoint === "statement builder"
+              ? () => invalidRootSession
+              : () => xapi.session,
+      });
+      store.getState().registerQuiz(createQuizRegistration());
+
+      await expect(store.getState().startQuizAttempt({ groupId: "quiz-one" })).resolves.toEqual(
+        hostAttempt,
+      );
+      expect(store.getState().durable.quizzes[groupId]).toEqual(hostAttempt);
+    },
+  );
+
+  it("does not record a rejected Quiz start", async () => {
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const getXapiSession = vi.fn();
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        quiz: {
+          startAttempt: vi.fn().mockRejectedValue(new Error("start rejected")),
+          submitQuestion: vi.fn(),
+          finishAttempt: vi.fn(),
+        },
+      }),
+      getXapiSession,
+    });
+    store.getState().registerQuiz(createQuizRegistration());
+
+    await expect(store.getState().startQuizAttempt({ groupId: "quiz-one" })).resolves.toBeNull();
+    expect(store.getState().durable.quizzes).toEqual({});
+    expect(store.getState().requests[groupId]).toMatchObject({
+      operation: "quiz-start",
+      status: "error",
+      error: "start rejected",
+    });
+    expect(getXapiSession).not.toHaveBeenCalled();
+  });
+
+  it("preserves historical null success returned by ensure-start", async () => {
     const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
     const terminalAttempt = createQuizAttempt(groupId, {
       status: "completed",
@@ -254,7 +492,9 @@ describe("createAssessmentStore", () => {
       finishedAt: "2026-07-16T12:05:00.000Z",
       score: 1,
       maxScore: 1,
+      successStatus: null,
     });
+    const getXapiSession = vi.fn();
     const store = createAssessmentStore({
       artifactId: "artifact-one",
       assessmentPort: createAssessmentPort({
@@ -267,13 +507,19 @@ describe("createAssessmentStore", () => {
           finishAttempt: vi.fn(),
         },
       }),
+      getXapiSession,
     });
-    store.getState().registerQuiz(createQuizRegistration());
+    store.getState().registerQuiz(
+      createQuizRegistration({
+        settings: { ...quizSettings, passingScore: 0.5 },
+      }),
+    );
 
     await expect(store.getState().startQuizAttempt({ groupId: "quiz-one" })).resolves.toEqual(
       terminalAttempt,
     );
     expect(store.getState().durable.quizzes[groupId]).toEqual(terminalAttempt);
+    expect(getXapiSession).not.toHaveBeenCalled();
   });
 
   it("submits a Quiz question with its canonical response and applies authoritative target state", async () => {
@@ -294,6 +540,7 @@ describe("createAssessmentStore", () => {
       }),
       problemsByTargetId: { "target-one": canonicalProblem },
     });
+    const xapi = createSessionDouble();
     const store = createAssessmentStore({
       artifactId: "artifact-one",
       assessmentPort: createAssessmentPort({
@@ -303,11 +550,22 @@ describe("createAssessmentStore", () => {
           finishAttempt: vi.fn(),
         },
       }),
+      getXapiSession: () => xapi.session,
     });
     const identity = registrationIdentity();
     const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const getXapiActivityDefinition = vi.fn(assessmentActivityDefinition);
+    const registrationConfig = {
+      ...createRegistration().config,
+      getXapiActivityDefinition,
+    };
 
-    store.getState().register(createRegistration());
+    store.getState().register(
+      createRegistration({
+        config: registrationConfig,
+      }),
+    );
+    expect(getXapiActivityDefinition).not.toHaveBeenCalled();
     store.getState().registerQuiz(createQuizRegistration());
     store.setState({
       durable: {
@@ -328,15 +586,301 @@ describe("createAssessmentStore", () => {
       expectedAttemptNumber: 0,
     });
     expect(store.getState().durable.problems[problemId]).toEqual(canonicalProblem);
+    expect(getXapiActivityDefinition).toHaveBeenCalledOnce();
+    expect(xapi.record).toHaveBeenCalledExactlyOnceWith(
+      buildAnsweredStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        targetId: "target-one",
+        activityDefinition: assessmentActivityDefinition(),
+        interactionKind: "single-select",
+        response: canonicalProblem.response,
+        result,
+        attemptNumber: 5,
+        quiz: { quizId: "quiz-one", attemptId: "attempt-one" },
+      }),
+    );
   });
 
-  it("finishes a Quiz only with every registered canonical response", async () => {
+  it("records a terminal final question as answered, completed, then passed", async () => {
     const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const result = assessmentResult({
+      feedback: {
+        kind: "rich-text",
+        document: {
+          type: "doc",
+          content: [{ type: "text", text: "PRIVATE_FEEDBACK" }],
+        },
+      },
+      items: {
+        "private-item": {
+          correct: true,
+          expected: "PRIVATE_ANSWER",
+          given: "PRIVATE_RESPONSE",
+        },
+      },
+    });
+    const terminalAttempt = createQuizAttempt(groupId, {
+      status: "completed",
+      currentTargetId: null,
+      submittedTargetIds: ["target-one"],
+      finishedAt: "2026-07-16T12:05:00.000Z",
+      score: 1,
+      maxScore: 1,
+      successStatus: "passed",
+      resultsByTargetId: { "target-one": result },
+    });
+    const problem: AssessmentProblemSnapshot = {
+      ...createProblemSnapshot(),
+      attemptNumber: 1,
+      submitted: true,
+      submissionResult: result,
+    };
+    const xapi = createSessionDouble();
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        quiz: {
+          startAttempt: vi.fn(),
+          submitQuestion: vi.fn().mockResolvedValue({
+            quizAttempt: terminalAttempt,
+            problemsByTargetId: { "target-one": problem },
+          }),
+          finishAttempt: vi.fn(),
+        },
+      }),
+      getXapiSession: () => xapi.session,
+    });
+    const identity = registrationIdentity();
+
+    store.getState().register(createRegistration());
+    store.getState().registerQuiz(
+      createQuizRegistration({
+        targetIds: ["target-one"],
+        settings: { ...quizSettings, passingScore: 0.5 },
+      }),
+    );
+    store.setState({
+      durable: {
+        problems: {},
+        quizzes: { [groupId]: createQuizAttempt(groupId) },
+      },
+    });
+    store.getState().setLocalResponse(identity, { choice: "option-a" });
+
+    await expect(
+      store.getState().submitQuizQuestion({ groupId: "quiz-one" }, identity),
+    ).resolves.toEqual(terminalAttempt);
+
+    expect(xapi.record.mock.calls.map(([draft]) => draft)).toEqual([
+      buildAnsweredStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        targetId: "target-one",
+        interactionKind: "single-select",
+        response: problem.response,
+        result,
+        attemptNumber: 1,
+        quiz: { quizId: "quiz-one", attemptId: "attempt-one" },
+      }),
+      buildQuizCompletedStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        quizId: "quiz-one",
+        attemptId: "attempt-one",
+        startedAt: "2026-07-16T12:00:00.000Z",
+        finishedAt: "2026-07-16T12:05:00.000Z",
+      }),
+      buildQuizSuccessStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        quizId: "quiz-one",
+        attemptId: "attempt-one",
+        successStatus: "passed",
+        score: 1,
+        maxScore: 1,
+      }),
+    ]);
+    expect(JSON.stringify(xapi.record.mock.calls)).not.toContain("PRIVATE_");
+  });
+
+  it("records equal-valued Quiz retries as distinct authoritative attempts", async () => {
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const result = assessmentResult({ isCorrect: false, score: 0 });
+    const submitQuestion = vi
+      .fn()
+      .mockResolvedValueOnce({
+        quizAttempt: createQuizAttempt(groupId),
+        problemsByTargetId: {
+          "target-one": {
+            ...createProblemSnapshot(),
+            attemptNumber: 1,
+            submitted: true,
+            submissionResult: result,
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        quizAttempt: createQuizAttempt(groupId),
+        problemsByTargetId: {
+          "target-one": {
+            ...createProblemSnapshot(),
+            attemptNumber: 2,
+            submitted: true,
+            submissionResult: result,
+          },
+        },
+      });
+    const xapi = createSessionDouble();
+    const getXapiSession = vi.fn(() => xapi.session);
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        quiz: {
+          startAttempt: vi.fn(),
+          submitQuestion,
+          finishAttempt: vi.fn(),
+        },
+      }),
+      getXapiSession,
+    });
+    const identity = registrationIdentity();
+
+    store.getState().register(createRegistration());
+    store.getState().registerQuiz(createQuizRegistration());
+    store.setState({
+      durable: {
+        problems: {},
+        quizzes: { [groupId]: createQuizAttempt(groupId) },
+      },
+    });
+    store.getState().setLocalResponse(identity, { choice: "option-a" });
+
+    await store.getState().submitQuizQuestion({ groupId: "quiz-one" }, identity);
+    await store.getState().submitQuizQuestion({ groupId: "quiz-one" }, identity);
+
+    expect(submitQuestion).toHaveBeenNthCalledWith(2, {
+      attemptId: "attempt-one",
+      groupId,
+      targetId: "target-one",
+      response: { kind: "single-select", optionId: "option-a" },
+      expectedAttemptNumber: 1,
+    });
+    expect(xapi.record.mock.calls.map(([draft]) => draft)).toEqual(
+      [1, 2].map((attemptNumber) =>
+        buildAnsweredStatementDraft({
+          rootActivityId: ROOT_ACTIVITY_ID,
+          targetId: "target-one",
+          interactionKind: "single-select",
+          response: { kind: "single-select", optionId: "option-a" },
+          result,
+          attemptNumber,
+          quiz: { quizId: "quiz-one", attemptId: "attempt-one" },
+        }),
+      ),
+    );
+    expect(getXapiSession).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not record unchanged, lower, or redacted Quiz problem attempts", async () => {
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const result = assessmentResult();
+    const submitQuestion = vi
+      .fn()
+      .mockResolvedValueOnce({
+        quizAttempt: createQuizAttempt(groupId),
+        problemsByTargetId: {
+          "target-one": {
+            ...createProblemSnapshot(),
+            attemptNumber: 2,
+            submitted: true,
+            submissionResult: result,
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        quizAttempt: createQuizAttempt(groupId),
+        problemsByTargetId: {
+          "target-one": {
+            ...createProblemSnapshot(),
+            attemptNumber: 1,
+            submitted: true,
+            submissionResult: result,
+          },
+        },
+      })
+      .mockResolvedValueOnce({
+        quizAttempt: createQuizAttempt(groupId),
+        problemsByTargetId: {
+          "target-one": {
+            ...createProblemSnapshot(),
+            attemptNumber: 2,
+            submissionResult: null,
+          },
+        },
+      });
+    const xapi = createSessionDouble();
+    const getXapiSession = vi.fn(() => xapi.session);
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        quiz: {
+          startAttempt: vi.fn(),
+          submitQuestion,
+          finishAttempt: vi.fn(),
+        },
+      }),
+      getXapiSession,
+    });
+    const identity = registrationIdentity();
+    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+
+    store.getState().register(createRegistration());
+    store.getState().registerQuiz(createQuizRegistration());
+    store.setState({
+      durable: {
+        problems: {
+          [problemId]: {
+            ...createProblemSnapshot(),
+            attemptNumber: 2,
+            submitted: true,
+            submissionResult: result,
+          },
+        },
+        quizzes: { [groupId]: createQuizAttempt(groupId) },
+      },
+      transient: {
+        responseReady: { [problemId]: true },
+        revealedAnswers: {},
+      },
+    });
+
+    await store.getState().submitQuizQuestion({ groupId: "quiz-one" }, identity);
+    await store.getState().submitQuizQuestion({ groupId: "quiz-one" }, identity);
+    await store.getState().submitQuizQuestion({ groupId: "quiz-one" }, identity);
+
+    expect(submitQuestion).toHaveBeenCalledTimes(3);
+    expect(store.getState().durable.problems[problemId]).toMatchObject({
+      attemptNumber: 2,
+      submitted: false,
+      submissionResult: null,
+    });
+    expect(xapi.record).not.toHaveBeenCalled();
+    expect(getXapiSession).not.toHaveBeenCalled();
+  });
+
+  it("records explicit-finish answers before completion and authoritative success", async () => {
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const firstResult = assessmentResult();
+    const secondResult = assessmentResult({ isCorrect: false, score: 0 });
     const canonicalFirstProblem = {
       ...createProblemSnapshot(),
       attemptNumber: 7,
       submitted: true,
-      submissionResult: assessmentResult(),
+      submissionResult: firstResult,
+    };
+    const canonicalSecondProblem = {
+      ...createProblemSnapshot(),
+      response: { kind: "single-select" as const, optionId: "option-b" },
+      attemptNumber: 8,
+      submitted: true,
+      submissionResult: secondResult,
     };
     const finishAttempt = vi.fn().mockResolvedValue({
       quizAttempt: createQuizAttempt(groupId, {
@@ -346,18 +890,27 @@ describe("createAssessmentStore", () => {
         finishedAt: "2026-07-16T12:05:00.000Z",
         score: 2,
         maxScore: 2,
+        successStatus: "passed",
         resultsByTargetId: {
-          "target-one": assessmentResult(),
-          "target-two": assessmentResult(),
+          "target-one": firstResult,
+          "target-two": secondResult,
         },
       }),
-      problemsByTargetId: { "target-one": canonicalFirstProblem },
+      problemsByTargetId: {
+        "target-two": canonicalSecondProblem,
+        "target-one": canonicalFirstProblem,
+      },
     });
+    const xapi = createSessionDouble(() => {
+      throw new Error("recording unavailable");
+    });
+    const getXapiSession = vi.fn(() => xapi.session);
     const store = createAssessmentStore({
       artifactId: "artifact-one",
       assessmentPort: createAssessmentPort({
         quiz: { startAttempt: vi.fn(), submitQuestion: vi.fn(), finishAttempt },
       }),
+      getXapiSession,
     });
     const secondIdentity = registrationIdentity({
       authoredBlockId: "block-two",
@@ -368,7 +921,11 @@ describe("createAssessmentStore", () => {
     store
       .getState()
       .register(createRegistration({ authoredBlockId: "block-two", targetId: "target-two" }));
-    store.getState().registerQuiz(createQuizRegistration());
+    store.getState().registerQuiz(
+      createQuizRegistration({
+        settings: { ...quizSettings, passingScore: 0.5 },
+      }),
+    );
     store.setState({
       durable: { problems: {}, quizzes: { [groupId]: createQuizAttempt(groupId) } },
     });
@@ -391,16 +948,540 @@ describe("createAssessmentStore", () => {
     expect(
       store.getState().durable.problems[scopeAssessmentProblemId("artifact-one", "block-one")],
     ).toEqual(canonicalFirstProblem);
+    expect(
+      store.getState().durable.problems[scopeAssessmentProblemId("artifact-one", "block-two")],
+    ).toEqual(canonicalSecondProblem);
+    expect(getXapiSession).toHaveBeenCalledOnce();
+    expect(xapi.record.mock.calls.map(([draft]) => draft)).toEqual([
+      buildAnsweredStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        targetId: "target-one",
+        interactionKind: "single-select",
+        response: canonicalFirstProblem.response,
+        result: firstResult,
+        attemptNumber: 7,
+        quiz: { quizId: "quiz-one", attemptId: "attempt-one" },
+      }),
+      buildAnsweredStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        targetId: "target-two",
+        interactionKind: "single-select",
+        response: canonicalSecondProblem.response,
+        result: secondResult,
+        attemptNumber: 8,
+        quiz: { quizId: "quiz-one", attemptId: "attempt-one" },
+      }),
+      buildQuizCompletedStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        quizId: "quiz-one",
+        attemptId: "attempt-one",
+        startedAt: "2026-07-16T12:00:00.000Z",
+        finishedAt: "2026-07-16T12:05:00.000Z",
+      }),
+      buildQuizSuccessStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        quizId: "quiz-one",
+        attemptId: "attempt-one",
+        successStatus: "passed",
+        score: 2,
+        maxScore: 2,
+      }),
+    ]);
+    expect(store.getState().durable.quizzes[groupId]).toMatchObject({
+      status: "completed",
+      successStatus: "passed",
+    });
+    expect(store.getState().requests[groupId]).toBeUndefined();
+    await expect(store.getState().finishQuizAttempt({ groupId: "quiz-one" })).resolves.toBeNull();
+    expect(xapi.record).toHaveBeenCalledTimes(4);
   });
 
-  it("does not create a false terminal Quiz state when expiry finalization rejects", async () => {
+  it.each([
+    {
+      name: "removes a target",
+      replacementTargetIds: ["target-two"],
+    },
+    {
+      name: "reorders targets",
+      replacementTargetIds: ["target-two", "target-one"],
+    },
+  ])(
+    "records a finishing Quiz against its command registration when an update $name",
+    async ({ replacementTargetIds }) => {
+      const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+      const firstResult = assessmentResult();
+      const secondResult = assessmentResult({ isCorrect: false, score: 0 });
+      const firstProblem: AssessmentProblemSnapshot = {
+        ...createProblemSnapshot(),
+        attemptNumber: 1,
+        submitted: true,
+        submissionResult: firstResult,
+      };
+      const secondProblem: AssessmentProblemSnapshot = {
+        ...createProblemSnapshot(),
+        response: { kind: "single-select", optionId: "option-b" },
+        attemptNumber: 1,
+        submitted: true,
+        submissionResult: secondResult,
+      };
+      const terminalAttempt = createQuizAttempt(groupId, {
+        status: "completed",
+        currentTargetId: null,
+        submittedTargetIds: ["target-one", "target-two"],
+        finishedAt: "2026-07-16T12:05:00.000Z",
+        score: 1,
+        maxScore: 2,
+        successStatus: null,
+        resultsByTargetId: {
+          "target-one": firstResult,
+          "target-two": secondResult,
+        },
+      });
+      const pending = deferred<{
+        quizAttempt: QuizAttemptState;
+        problemsByTargetId: Record<string, AssessmentProblemSnapshot>;
+      }>();
+      const xapi = createSessionDouble();
+      const store = createAssessmentStore({
+        artifactId: "artifact-one",
+        assessmentPort: createAssessmentPort({
+          quiz: {
+            startAttempt: vi.fn(),
+            submitQuestion: vi.fn(),
+            finishAttempt: () => pending.promise,
+          },
+        }),
+        getXapiSession: () => xapi.session,
+      });
+      const secondIdentity = registrationIdentity({
+        authoredBlockId: "block-two",
+        targetId: "target-two",
+      });
+
+      store.getState().register(createRegistration());
+      store
+        .getState()
+        .register(createRegistration({ authoredBlockId: "block-two", targetId: "target-two" }));
+      store.getState().registerQuiz(createQuizRegistration());
+      store.setState({
+        durable: { problems: {}, quizzes: { [groupId]: createQuizAttempt(groupId) } },
+      });
+      store.getState().setLocalResponse(registrationIdentity(), { choice: "option-a" });
+      store.getState().setLocalResponse(secondIdentity, { choice: "option-b" });
+
+      const finishing = store.getState().finishQuizAttempt({ groupId: "quiz-one" });
+      expect(
+        store.getState().updateQuiz(createQuizRegistration({ targetIds: replacementTargetIds })),
+      ).toBe(true);
+      pending.resolve({
+        quizAttempt: terminalAttempt,
+        problemsByTargetId: {
+          "target-one": firstProblem,
+          "target-two": secondProblem,
+        },
+      });
+
+      await expect(finishing).resolves.toEqual(terminalAttempt);
+      expect(xapi.record.mock.calls.map(([draft]) => draft)).toEqual([
+        buildAnsweredStatementDraft({
+          rootActivityId: ROOT_ACTIVITY_ID,
+          targetId: "target-one",
+          interactionKind: "single-select",
+          response: firstProblem.response,
+          result: firstResult,
+          attemptNumber: 1,
+          quiz: { quizId: "quiz-one", attemptId: "attempt-one" },
+        }),
+        buildAnsweredStatementDraft({
+          rootActivityId: ROOT_ACTIVITY_ID,
+          targetId: "target-two",
+          interactionKind: "single-select",
+          response: secondProblem.response,
+          result: secondResult,
+          attemptNumber: 1,
+          quiz: { quizId: "quiz-one", attemptId: "attempt-one" },
+        }),
+        buildQuizCompletedStatementDraft({
+          rootActivityId: ROOT_ACTIVITY_ID,
+          quizId: "quiz-one",
+          attemptId: "attempt-one",
+          startedAt: "2026-07-16T12:00:00.000Z",
+          finishedAt: "2026-07-16T12:05:00.000Z",
+        }),
+      ]);
+    },
+  );
+
+  it.each([
+    {
+      name: "failed success",
+      passingScore: 0.75,
+      score: 1,
+      maxScore: 2,
+      successStatus: "failed" as const,
+    },
+    {
+      name: "completion without a threshold",
+      passingScore: null,
+      score: 1,
+      maxScore: 2,
+      successStatus: null,
+    },
+  ])("records explicit-finish $name from authoritative state", async (testCase) => {
     const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
-    const finishAttempt = vi.fn().mockRejectedValue(new Error("timeout persistence failed"));
+    const terminalAttempt = createQuizAttempt(groupId, {
+      status: "completed",
+      currentTargetId: null,
+      submittedTargetIds: ["target-one"],
+      finishedAt: "2026-07-16T12:05:00.000Z",
+      score: testCase.score,
+      maxScore: testCase.maxScore,
+      successStatus: testCase.successStatus,
+      resultsByTargetId: { "target-one": assessmentResult() },
+    });
+    const finishAttempt = vi.fn().mockResolvedValue({
+      quizAttempt: terminalAttempt,
+      problemsByTargetId: {},
+    });
+    const xapi = createSessionDouble();
     const store = createAssessmentStore({
       artifactId: "artifact-one",
       assessmentPort: createAssessmentPort({
         quiz: { startAttempt: vi.fn(), submitQuestion: vi.fn(), finishAttempt },
       }),
+      getXapiSession: () => xapi.session,
+    });
+
+    store.getState().register(createRegistration());
+    store.getState().registerQuiz(
+      createQuizRegistration({
+        targetIds: ["target-one"],
+        settings: {
+          ...quizSettings,
+          reviewTiming: "after_quiz",
+          passingScore: testCase.passingScore,
+        },
+      }),
+    );
+    store.setState({
+      durable: {
+        problems: {},
+        quizzes: { [groupId]: createQuizAttempt(groupId) },
+      },
+    });
+    store.getState().setLocalResponse(registrationIdentity(), { choice: "option-a" });
+
+    await expect(store.getState().finishQuizAttempt({ groupId: "quiz-one" })).resolves.toEqual(
+      terminalAttempt,
+    );
+
+    const expectedDrafts: XapiStatementDraft[] = [
+      buildQuizCompletedStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        quizId: "quiz-one",
+        attemptId: "attempt-one",
+        startedAt: "2026-07-16T12:00:00.000Z",
+        finishedAt: "2026-07-16T12:05:00.000Z",
+      }),
+    ];
+    if (testCase.successStatus !== null) {
+      expectedDrafts.push(
+        buildQuizSuccessStatementDraft({
+          rootActivityId: ROOT_ACTIVITY_ID,
+          quizId: "quiz-one",
+          attemptId: "attempt-one",
+          successStatus: testCase.successStatus,
+          score: testCase.score,
+          maxScore: testCase.maxScore,
+        }),
+      );
+    }
+    expect(xapi.record.mock.calls.map(([draft]) => draft)).toEqual(expectedDrafts);
+    expect(store.getState().durable.quizzes[groupId]).toEqual(terminalAttempt);
+
+    await expect(store.getState().finishQuizAttempt({ groupId: "quiz-one" })).resolves.toBeNull();
+    expect(xapi.record).toHaveBeenCalledTimes(expectedDrafts.length);
+  });
+
+  it.each(["throwing accessor", "invalid builder root"] as const)(
+    "retains terminal authority with a %s",
+    async (failureMode) => {
+      const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+      const terminalAttempt = createQuizAttempt(groupId, {
+        status: "completed",
+        currentTargetId: null,
+        submittedTargetIds: ["target-one"],
+        finishedAt: "2026-07-16T12:05:00.000Z",
+        score: 1,
+        maxScore: 1,
+        successStatus: "passed",
+        resultsByTargetId: { "target-one": assessmentResult() },
+      });
+      const record = vi.fn<(statement: XapiStatementDraft) => void>();
+      const invalidSession: XapiSession = Object.freeze({
+        ...createSessionDouble().session,
+        rootActivityId: "not-an-absolute-iri",
+        record,
+      });
+      const getXapiSession: () => XapiSession | null =
+        failureMode === "throwing accessor"
+          ? () => {
+              throw new Error("session unavailable");
+            }
+          : () => invalidSession;
+      const store = createAssessmentStore({
+        artifactId: "artifact-one",
+        assessmentPort: createAssessmentPort({
+          quiz: {
+            startAttempt: vi.fn(),
+            submitQuestion: vi.fn(),
+            finishAttempt: vi.fn().mockResolvedValue({
+              quizAttempt: terminalAttempt,
+              problemsByTargetId: {},
+            }),
+          },
+        }),
+        getXapiSession,
+      });
+
+      store.getState().register(createRegistration());
+      store.getState().registerQuiz(
+        createQuizRegistration({
+          targetIds: ["target-one"],
+          settings: { ...quizSettings, reviewTiming: "after_quiz", passingScore: 0.5 },
+        }),
+      );
+      store.setState({
+        durable: {
+          problems: {},
+          quizzes: { [groupId]: createQuizAttempt(groupId) },
+        },
+      });
+      store.getState().setLocalResponse(registrationIdentity(), { choice: "option-a" });
+
+      await expect(store.getState().finishQuizAttempt({ groupId: "quiz-one" })).resolves.toEqual(
+        terminalAttempt,
+      );
+
+      expect(store.getState().durable.quizzes[groupId]).toEqual(terminalAttempt);
+      expect(store.getState().requests[groupId]).toBeUndefined();
+      expect(record).not.toHaveBeenCalled();
+    },
+  );
+
+  it("retains terminal authority when a real xAPI session enters delivery-failed state", async () => {
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const terminalAttempt = createQuizAttempt(groupId, {
+      status: "completed",
+      currentTargetId: null,
+      submittedTargetIds: ["target-one"],
+      finishedAt: "2026-07-16T12:05:00.000Z",
+      score: 1,
+      maxScore: 1,
+      successStatus: "passed",
+      resultsByTargetId: { "target-one": assessmentResult() },
+    });
+    const send = vi.fn<XapiPort["send"]>(async () => {
+      throw new Error("delivery unavailable");
+    });
+    let uuidSequence = 0;
+    const session = createXapiSession({
+      port: { activityId: ROOT_ACTIVITY_ID, send },
+      courseTitle: "Course One",
+      createUuid: () => {
+        uuidSequence += 1;
+        return `00000000-0000-4000-8000-${uuidSequence.toString(16).padStart(12, "0")}`;
+      },
+      now: () => new Date("2026-07-16T12:05:00.000Z"),
+      monotonicNow: () => 1_000,
+    });
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        quiz: {
+          startAttempt: vi.fn(),
+          submitQuestion: vi.fn(),
+          finishAttempt: vi.fn().mockResolvedValue({
+            quizAttempt: terminalAttempt,
+            problemsByTargetId: {},
+          }),
+        },
+      }),
+      getXapiSession: () => session,
+    });
+
+    store.getState().register(createRegistration());
+    store.getState().registerQuiz(
+      createQuizRegistration({
+        targetIds: ["target-one"],
+        settings: { ...quizSettings, reviewTiming: "after_quiz", passingScore: 0.5 },
+      }),
+    );
+    store.setState({
+      durable: {
+        problems: {},
+        quizzes: { [groupId]: createQuizAttempt(groupId) },
+      },
+    });
+    store.getState().setLocalResponse(registrationIdentity(), { choice: "option-a" });
+
+    await expect(store.getState().finishQuizAttempt({ groupId: "quiz-one" })).resolves.toEqual(
+      terminalAttempt,
+    );
+    await flushPromises();
+
+    expect(send).toHaveBeenCalledOnce();
+    expect(session.getState()).toMatchObject({ status: "active", delivery: "failed" });
+    expect(store.getState().durable.quizzes[groupId]).toEqual(terminalAttempt);
+    expect(store.getState().requests[groupId]).toBeUndefined();
+  });
+
+  it("rejects a still-in-progress explicit-finish response without recording", async () => {
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const getXapiSession = vi.fn();
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        quiz: {
+          startAttempt: vi.fn(),
+          submitQuestion: vi.fn(),
+          finishAttempt: vi.fn().mockResolvedValue({
+            quizAttempt: createQuizAttempt(groupId),
+            problemsByTargetId: {},
+          }),
+        },
+      }),
+      getXapiSession,
+    });
+
+    store.getState().register(createRegistration());
+    store.getState().registerQuiz(createQuizRegistration({ targetIds: ["target-one"] }));
+    store.setState({
+      durable: {
+        problems: {},
+        quizzes: { [groupId]: createQuizAttempt(groupId) },
+      },
+    });
+    store.getState().setLocalResponse(registrationIdentity(), { choice: "option-a" });
+
+    await expect(store.getState().finishQuizAttempt({ groupId: "quiz-one" })).resolves.toBeNull();
+
+    expect(store.getState().durable.quizzes[groupId]?.status).toBe("in_progress");
+    expect(store.getState().requests[groupId]).toMatchObject({
+      operation: "quiz-finish",
+      status: "error",
+      error: "Quiz finish must return a terminal attempt",
+    });
+    expect(getXapiSession).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      name: "score above maximum",
+      passingScore: 0.5,
+      score: 2,
+      maxScore: 1,
+      successStatus: "passed" as const,
+      error: "Quiz host response score exceeds maxScore",
+    },
+    {
+      name: "success disagreeing with threshold",
+      passingScore: 0.75,
+      score: 1,
+      maxScore: 2,
+      successStatus: "passed" as const,
+      error: "Quiz host response successStatus does not match passingScore",
+    },
+    {
+      name: "missing success on a new terminal transition",
+      passingScore: 0.75,
+      score: 1,
+      maxScore: 2,
+      successStatus: null,
+      error: "Quiz host response newly terminal successStatus is required",
+    },
+    {
+      name: "success without a pass criterion",
+      passingScore: null,
+      score: 1,
+      maxScore: 2,
+      successStatus: "passed" as const,
+      error: "Quiz host response successStatus requires passingScore",
+    },
+  ])("rejects a newly terminal Quiz with $name without committing", async (testCase) => {
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const current = createQuizAttempt(groupId);
+    const terminal = createQuizAttempt(groupId, {
+      status: "completed",
+      currentTargetId: null,
+      submittedTargetIds: ["target-one", "target-two"],
+      finishedAt: "2026-07-16T12:05:00.000Z",
+      score: testCase.score,
+      maxScore: testCase.maxScore,
+      successStatus: testCase.successStatus,
+      resultsByTargetId: {
+        "target-one": assessmentResult(),
+        "target-two": assessmentResult(),
+      },
+    });
+    const getXapiSession = vi.fn();
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        quiz: {
+          startAttempt: vi.fn(),
+          submitQuestion: vi.fn(),
+          finishAttempt: vi.fn().mockResolvedValue({
+            quizAttempt: terminal,
+            problemsByTargetId: {},
+          }),
+        },
+      }),
+      getXapiSession,
+    });
+    const secondIdentity = registrationIdentity({
+      authoredBlockId: "block-two",
+      targetId: "target-two",
+    });
+    store.getState().register(createRegistration());
+    store
+      .getState()
+      .register(createRegistration({ authoredBlockId: "block-two", targetId: "target-two" }));
+    store.getState().registerQuiz(
+      createQuizRegistration({
+        settings: {
+          ...quizSettings,
+          passingScore: testCase.passingScore,
+        },
+      }),
+    );
+    store.setState({
+      durable: { problems: {}, quizzes: { [groupId]: current } },
+    });
+    store.getState().setLocalResponse(registrationIdentity(), { choice: "option-a" });
+    store.getState().setLocalResponse(secondIdentity, { choice: "option-b" });
+
+    await expect(store.getState().finishQuizAttempt({ groupId: "quiz-one" })).resolves.toBeNull();
+
+    expect(store.getState().durable.quizzes[groupId]).toEqual(current);
+    expect(store.getState().requests[groupId]).toMatchObject({
+      operation: "quiz-finish",
+      status: "error",
+      error: testCase.error,
+    });
+    expect(getXapiSession).not.toHaveBeenCalled();
+  });
+
+  it("does not create a false terminal Quiz state when expiry finalization rejects", async () => {
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const finishAttempt = vi.fn().mockRejectedValue(new Error("timeout persistence failed"));
+    const getXapiSession = vi.fn();
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        quiz: { startAttempt: vi.fn(), submitQuestion: vi.fn(), finishAttempt },
+      }),
+      getXapiSession,
     });
 
     store.getState().register(createRegistration());
@@ -422,6 +1503,7 @@ describe("createAssessmentStore", () => {
       status: "error",
       error: "timeout persistence failed",
     });
+    expect(getXapiSession).not.toHaveBeenCalled();
   });
 
   it("reveals completed full-review Quiz answers only from authoritative host state", async () => {
@@ -440,6 +1522,7 @@ describe("createAssessmentStore", () => {
       quizAttempt: revealedAttempt,
       problemsByTargetId: {},
     });
+    const getXapiSession = vi.fn();
     const store = createAssessmentStore({
       artifactId: "artifact-one",
       assessmentPort: createAssessmentPort({
@@ -450,6 +1533,7 @@ describe("createAssessmentStore", () => {
           revealAnswers,
         },
       }),
+      getXapiSession,
     });
 
     store.getState().register(createRegistration());
@@ -479,6 +1563,7 @@ describe("createAssessmentStore", () => {
     );
     expect(revealAnswers).toHaveBeenCalledWith({ attemptId: "attempt-one", groupId });
     expect(store.getState().durable.quizzes[groupId]).toEqual(revealedAttempt);
+    expect(getXapiSession).not.toHaveBeenCalled();
   });
 
   it("prevents binary item answers from being reconstructed in result-only review", () => {
@@ -517,6 +1602,7 @@ describe("createAssessmentStore", () => {
 
   it("rejects a host attempt for another group without changing durable Quiz state", async () => {
     const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const getXapiSession = vi.fn();
     const store = createAssessmentStore({
       artifactId: "artifact-one",
       assessmentPort: createAssessmentPort({
@@ -529,6 +1615,7 @@ describe("createAssessmentStore", () => {
           finishAttempt: vi.fn(),
         },
       }),
+      getXapiSession,
     });
     store.getState().registerQuiz(createQuizRegistration());
 
@@ -539,11 +1626,13 @@ describe("createAssessmentStore", () => {
       status: "error",
       error: "Quiz host response groupId does not match the registered group",
     });
+    expect(getXapiSession).not.toHaveBeenCalled();
   });
 
   it("preserves Quiz attempt and problem state when question submission rejects", async () => {
     const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
     const attempt = createQuizAttempt(groupId);
+    const getXapiSession = vi.fn();
     const store = createAssessmentStore({
       artifactId: "artifact-one",
       assessmentPort: createAssessmentPort({
@@ -553,6 +1642,7 @@ describe("createAssessmentStore", () => {
           finishAttempt: vi.fn(),
         },
       }),
+      getXapiSession,
     });
     const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
     store.getState().register(createRegistration());
@@ -570,6 +1660,7 @@ describe("createAssessmentStore", () => {
       submitted: false,
       submissionResult: null,
     });
+    expect(getXapiSession).not.toHaveBeenCalled();
   });
 
   it("rejects a Quiz question response for another host attempt", async () => {
@@ -603,9 +1694,113 @@ describe("createAssessmentStore", () => {
     });
   });
 
+  it("does not replay a stale terminal Quiz response after a newer terminal commit", async () => {
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const stale = deferred<{
+      quizAttempt: QuizAttemptState;
+      problemsByTargetId: Record<string, AssessmentProblemSnapshot>;
+    }>();
+    const result = assessmentResult();
+    const staleProblem: AssessmentProblemSnapshot = {
+      ...createProblemSnapshot(),
+      attemptNumber: 1,
+      submitted: true,
+      submissionResult: result,
+    };
+    const currentProblem: AssessmentProblemSnapshot = {
+      ...createProblemSnapshot(),
+      attemptNumber: 2,
+      submitted: true,
+      submissionResult: result,
+    };
+    const terminalAttempt = createQuizAttempt(groupId, {
+      status: "completed",
+      currentTargetId: null,
+      submittedTargetIds: ["target-one"],
+      finishedAt: "2026-07-16T12:05:00.000Z",
+      score: 1,
+      maxScore: 1,
+      successStatus: "passed",
+      resultsByTargetId: { "target-one": result },
+    });
+    const submitQuestion = vi
+      .fn()
+      .mockImplementationOnce(() => stale.promise)
+      .mockResolvedValueOnce({
+        quizAttempt: terminalAttempt,
+        problemsByTargetId: { "target-one": currentProblem },
+      });
+    const xapi = createSessionDouble();
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        quiz: {
+          startAttempt: vi.fn(),
+          submitQuestion,
+          finishAttempt: vi.fn(),
+        },
+      }),
+      getXapiSession: () => xapi.session,
+    });
+    const identity = registrationIdentity();
+
+    store.getState().register(createRegistration());
+    store.getState().registerQuiz(
+      createQuizRegistration({
+        targetIds: ["target-one"],
+        settings: { ...quizSettings, passingScore: 0.5 },
+      }),
+    );
+    store.setState({
+      durable: {
+        problems: {},
+        quizzes: { [groupId]: createQuizAttempt(groupId) },
+      },
+    });
+    store.getState().setLocalResponse(identity, { choice: "option-a" });
+
+    const staleSubmission = store.getState().submitQuizQuestion({ groupId: "quiz-one" }, identity);
+    await expect(
+      store.getState().submitQuizQuestion({ groupId: "quiz-one" }, identity),
+    ).resolves.toEqual(terminalAttempt);
+    stale.resolve({
+      quizAttempt: terminalAttempt,
+      problemsByTargetId: { "target-one": staleProblem },
+    });
+    await expect(staleSubmission).resolves.toBeNull();
+
+    expect(xapi.record.mock.calls.map(([draft]) => draft)).toEqual([
+      buildAnsweredStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        targetId: "target-one",
+        interactionKind: "single-select",
+        response: { kind: "single-select", optionId: "option-a" },
+        result,
+        attemptNumber: 2,
+        quiz: { quizId: "quiz-one", attemptId: "attempt-one" },
+      }),
+      buildQuizCompletedStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        quizId: "quiz-one",
+        attemptId: "attempt-one",
+        startedAt: "2026-07-16T12:00:00.000Z",
+        finishedAt: "2026-07-16T12:05:00.000Z",
+      }),
+      buildQuizSuccessStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        quizId: "quiz-one",
+        attemptId: "attempt-one",
+        successStatus: "passed",
+        score: 1,
+        maxScore: 1,
+      }),
+    ]);
+  });
+
   it("preserves the in-progress Quiz when explicit finish rejects", async () => {
     const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
     const current = createQuizAttempt(groupId);
+    const getXapiSession = vi.fn();
     const store = createAssessmentStore({
       artifactId: "artifact-one",
       assessmentPort: createAssessmentPort({
@@ -615,6 +1810,7 @@ describe("createAssessmentStore", () => {
           finishAttempt: vi.fn().mockRejectedValue(new Error("finish rejected")),
         },
       }),
+      getXapiSession,
     });
     const secondIdentity = registrationIdentity({
       authoredBlockId: "block-two",
@@ -636,34 +1832,39 @@ describe("createAssessmentStore", () => {
       status: "error",
       error: "finish rejected",
     });
+    expect(getXapiSession).not.toHaveBeenCalled();
   });
 
-  it("commits an expired attempt returned for current timer-expiry responses", async () => {
+  it("records authoritative failed success for an expired attempt", async () => {
     const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const result = assessmentResult({ isCorrect: false, score: 0 });
     const expired = createQuizAttempt(groupId, {
       status: "expired",
       currentTargetId: null,
       submittedTargetIds: ["target-one"],
       finishedAt: "2026-07-16T12:05:00.000Z",
-      score: 1,
+      score: 0,
       maxScore: 1,
-      resultsByTargetId: { "target-one": assessmentResult() },
+      successStatus: "failed",
+      resultsByTargetId: { "target-one": result },
     });
     const finishAttempt = vi.fn().mockResolvedValue({
       quizAttempt: expired,
       problemsByTargetId: {},
     });
+    const xapi = createSessionDouble();
     const store = createAssessmentStore({
       artifactId: "artifact-one",
       assessmentPort: createAssessmentPort({
         quiz: { startAttempt: vi.fn(), submitQuestion: vi.fn(), finishAttempt },
       }),
+      getXapiSession: () => xapi.session,
     });
     store.getState().register(createRegistration());
     store.getState().registerQuiz(
       createQuizRegistration({
         targetIds: ["target-one"],
-        settings: { ...quizSettings, reviewTiming: "after_quiz" },
+        settings: { ...quizSettings, reviewTiming: "after_quiz", passingScore: 0.5 },
       }),
     );
     store.setState({
@@ -682,6 +1883,105 @@ describe("createAssessmentStore", () => {
       },
     });
     expect(store.getState().durable.quizzes[groupId]).toEqual(expired);
+    expect(xapi.record.mock.calls.map(([draft]) => draft)).toEqual([
+      buildQuizCompletedStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        quizId: "quiz-one",
+        attemptId: "attempt-one",
+        startedAt: "2026-07-16T12:00:00.000Z",
+        finishedAt: "2026-07-16T12:05:00.000Z",
+      }),
+      buildQuizSuccessStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        quizId: "quiz-one",
+        attemptId: "attempt-one",
+        successStatus: "failed",
+        score: 0,
+        maxScore: 1,
+      }),
+    ]);
+  });
+
+  it("records timer-expiry's intermediate answer once before completion", async () => {
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const result = assessmentResult();
+    const problem = {
+      ...createProblemSnapshot(),
+      attemptNumber: 1,
+      submitted: true,
+      submissionResult: result,
+    };
+    const submittedAttempt = createQuizAttempt(groupId, {
+      currentTargetId: null,
+      submittedTargetIds: ["target-one"],
+      resultsByTargetId: { "target-one": result },
+    });
+    const expiredAttempt = createQuizAttempt(groupId, {
+      status: "expired",
+      currentTargetId: null,
+      submittedTargetIds: ["target-one"],
+      finishedAt: "2026-07-16T12:05:00.000Z",
+      score: 1,
+      maxScore: 1,
+      resultsByTargetId: { "target-one": result },
+    });
+    const submitQuestion = vi.fn().mockResolvedValue({
+      quizAttempt: submittedAttempt,
+      problemsByTargetId: { "target-one": problem },
+    });
+    const finishAttempt = vi.fn().mockResolvedValue({
+      quizAttempt: expiredAttempt,
+      problemsByTargetId: { "target-one": problem },
+    });
+    const xapi = createSessionDouble();
+    const getXapiSession = vi.fn(() => xapi.session);
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        quiz: { startAttempt: vi.fn(), submitQuestion, finishAttempt },
+      }),
+      getXapiSession,
+    });
+
+    store.getState().register(createRegistration());
+    store.getState().registerQuiz(
+      createQuizRegistration({
+        targetIds: ["target-one"],
+      }),
+    );
+    store.setState({
+      durable: {
+        problems: {},
+        quizzes: { [groupId]: createQuizAttempt(groupId) },
+      },
+    });
+    store.getState().setLocalResponse(registrationIdentity(), { choice: "option-a" });
+
+    await expect(store.getState().expireQuizAttempt({ groupId: "quiz-one" })).resolves.toEqual(
+      expiredAttempt,
+    );
+
+    expect(submitQuestion).toHaveBeenCalledOnce();
+    expect(finishAttempt).toHaveBeenCalledOnce();
+    expect(getXapiSession).toHaveBeenCalledTimes(2);
+    expect(xapi.record.mock.calls.map(([draft]) => draft)).toEqual([
+      buildAnsweredStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        targetId: "target-one",
+        interactionKind: "single-select",
+        response: { kind: "single-select", optionId: "option-a" },
+        result,
+        attemptNumber: 1,
+        quiz: { quizId: "quiz-one", attemptId: "attempt-one" },
+      }),
+      buildQuizCompletedStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        quizId: "quiz-one",
+        attemptId: "attempt-one",
+        startedAt: "2026-07-16T12:00:00.000Z",
+        finishedAt: "2026-07-16T12:05:00.000Z",
+      }),
+    ]);
   });
 
   it("preserves a completed Quiz when answer reveal rejects", async () => {
@@ -884,6 +2184,226 @@ describe("createAssessmentStore", () => {
     expect(submit).toHaveBeenCalledTimes(2);
   });
 
+  it("records a standalone answer only after its authoritative result commits", async () => {
+    const canonicalProblem = {
+      ...createProblemSnapshot(),
+      attemptNumber: 3,
+      submitted: true as const,
+      submissionResult: assessmentResult({
+        isCorrect: false,
+        score: 0.25,
+        items: {
+          "private-item": {
+            correct: false,
+            expected: "PRIVATE_ANSWER",
+            given: "PRIVATE_RESPONSE",
+          },
+        },
+      }),
+    };
+    let store!: ReturnType<typeof createAssessmentStore>;
+    let problemAtRecord: AssessmentProblemSnapshot | undefined;
+    const xapi = createSessionDouble(() => {
+      problemAtRecord =
+        store.getState().durable.problems[scopeAssessmentProblemId("artifact-one", "block-one")];
+    });
+    store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        submit: vi.fn().mockResolvedValue({ problem: canonicalProblem }),
+      }),
+      getXapiSession: () => xapi.session,
+    });
+    const identity = registrationIdentity();
+    const getXapiActivityDefinition = vi.fn(assessmentActivityDefinition);
+    const registrationConfig = {
+      ...createRegistration().config,
+      getXapiActivityDefinition,
+    };
+
+    store.getState().register(
+      createRegistration({
+        config: registrationConfig,
+      }),
+    );
+    expect(getXapiActivityDefinition).not.toHaveBeenCalled();
+    store.getState().setLocalResponse(identity, { choice: "option-a" });
+
+    await expect(store.getState().submit(identity)).resolves.toEqual(
+      canonicalProblem.submissionResult,
+    );
+
+    expect(problemAtRecord).toEqual(canonicalProblem);
+    expect(getXapiActivityDefinition).toHaveBeenCalledOnce();
+    expect(xapi.record).toHaveBeenCalledExactlyOnceWith(
+      buildAnsweredStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        targetId: "target-one",
+        activityDefinition: assessmentActivityDefinition(),
+        interactionKind: "single-select",
+        response: canonicalProblem.response,
+        result: canonicalProblem.submissionResult,
+        attemptNumber: 3,
+      }),
+    );
+    expect(xapi.record.mock.calls[0]?.[0].object.definition).not.toHaveProperty(
+      "correctResponsesPattern",
+    );
+    expect(JSON.stringify(xapi.record.mock.calls)).not.toContain("PRIVATE_");
+  });
+
+  it("rejects a submitted standalone host outcome without a positive attempt", async () => {
+    const xapi = createSessionDouble();
+    const invalidProblem = {
+      ...createProblemSnapshot(),
+      submitted: true as const,
+      submissionResult: assessmentResult(),
+    };
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        submit: vi.fn().mockResolvedValue({ problem: invalidProblem }),
+      }),
+      getXapiSession: () => xapi.session,
+    });
+    const identity = registrationIdentity();
+    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+
+    store.getState().register(createRegistration());
+    store.getState().setLocalResponse(identity, { choice: "option-a" });
+
+    await expect(store.getState().submit(identity)).resolves.toBeNull();
+
+    expect(store.getState().durable.problems[problemId]).toMatchObject({
+      attemptNumber: 0,
+      submitted: false,
+      submissionResult: null,
+    });
+    expect(store.getState().requests[problemId]).toMatchObject({
+      status: "error",
+      error: "Submitted assessment host response attemptNumber must be positive",
+    });
+    expect(xapi.record).not.toHaveBeenCalled();
+  });
+
+  it("resolves the current xAPI session when a standalone answer becomes authoritative", async () => {
+    const pending = deferred<{ problem: AssessmentProblemSnapshot }>();
+    const xapi = createSessionDouble();
+    let currentSession: XapiSession | null = null;
+    const getXapiSession = vi.fn(() => currentSession);
+    const canonicalProblem = {
+      ...createProblemSnapshot(),
+      attemptNumber: 1,
+      submitted: true as const,
+      submissionResult: assessmentResult(),
+    };
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({ submit: () => pending.promise }),
+      getXapiSession,
+    });
+    const identity = registrationIdentity();
+
+    store.getState().register(createRegistration());
+    store.getState().setLocalResponse(identity, { choice: "option-a" });
+    const submission = store.getState().submit(identity);
+    expect(getXapiSession).not.toHaveBeenCalled();
+
+    currentSession = xapi.session;
+    pending.resolve({ problem: canonicalProblem });
+    await expect(submission).resolves.toEqual(canonicalProblem.submissionResult);
+
+    expect(getXapiSession).toHaveBeenCalledOnce();
+    expect(xapi.record).toHaveBeenCalledOnce();
+  });
+
+  it("keeps a successful standalone submission when xAPI recording throws", async () => {
+    const canonicalProblem = {
+      ...createProblemSnapshot(),
+      attemptNumber: 1,
+      submitted: true as const,
+      submissionResult: assessmentResult(),
+    };
+    const xapi = createSessionDouble(() => {
+      throw new Error("recording unavailable");
+    });
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        submit: vi.fn().mockResolvedValue({ problem: canonicalProblem }),
+      }),
+      getXapiSession: () => xapi.session,
+    });
+    const identity = registrationIdentity();
+    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+
+    store.getState().register(createRegistration());
+    store.getState().setLocalResponse(identity, { choice: "option-a" });
+
+    await expect(store.getState().submit(identity)).resolves.toEqual(
+      canonicalProblem.submissionResult,
+    );
+    expect(store.getState().durable.problems[problemId]).toEqual(canonicalProblem);
+    expect(store.getState().requests[problemId]).toBeUndefined();
+  });
+
+  it("does not record a standalone response without an authoritative result", async () => {
+    const xapi = createSessionDouble();
+    const canonicalProblem = {
+      ...createProblemSnapshot(),
+      attemptNumber: 1,
+    };
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        submit: vi.fn().mockResolvedValue({ problem: canonicalProblem }),
+      }),
+      getXapiSession: () => xapi.session,
+    });
+    const identity = registrationIdentity();
+
+    store.getState().register(createRegistration());
+    store.getState().setLocalResponse(identity, { choice: "option-a" });
+
+    await expect(store.getState().submit(identity)).resolves.toBeNull();
+    expect(xapi.record).not.toHaveBeenCalled();
+  });
+
+  it("keeps non-authoritative assessment operations out of xAPI", async () => {
+    const xapi = createSessionDouble();
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        check: vi.fn().mockResolvedValue({
+          problem: {
+            ...createProblemSnapshot(),
+            attemptNumber: 1,
+            checkResult: assessmentResult(),
+          },
+        }),
+        revealAnswer: vi.fn().mockResolvedValue({
+          answerKey: {
+            kind: "single-select",
+            correctOptionId: "option-b",
+            feedbackByOptionId: {},
+          },
+        }),
+      }),
+      getXapiSession: () => xapi.session,
+    });
+    const identity = registrationIdentity();
+
+    store.getState().register(createRegistration());
+    expect(store.getState().setLocalResponse(identity, { choice: "option-a" })).toBe(true);
+    await expect(store.getState().check(identity)).resolves.toEqual(assessmentResult());
+    await expect(store.getState().revealAnswer(identity)).resolves.toMatchObject({
+      answerKey: { kind: "single-select", correctOptionId: "option-b" },
+    });
+    expect(store.getState().reset(identity)).toBe(true);
+
+    expect(xapi.record).not.toHaveBeenCalled();
+  });
+
   it("resets a retryable problem while preserving attempt history and bounds durable hints", async () => {
     const store = createAssessmentStore({
       artifactId: "artifact-one",
@@ -969,6 +2489,117 @@ describe("createAssessmentStore", () => {
     expect(store.getState().requests[problemId]).toBeUndefined();
   });
 
+  it("records a persisted hint only after its authoritative count commits", async () => {
+    const pending = deferred<{ problem: AssessmentProblemSnapshot }>();
+    let store!: ReturnType<typeof createAssessmentStore>;
+    let hintsAtRecord: number | undefined;
+    const xapi = createSessionDouble(() => {
+      hintsAtRecord =
+        store.getState().durable.problems[scopeAssessmentProblemId("artifact-one", "block-one")]
+          ?.hintsShown;
+    });
+    store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({ revealHint: () => pending.promise }),
+      getXapiSession: () => xapi.session,
+    });
+    const identity = registrationIdentity();
+    const getXapiActivityDefinition = vi.fn(assessmentActivityDefinition);
+    const registrationConfig = {
+      ...createRegistration().config,
+      getXapiActivityDefinition,
+    };
+
+    store.getState().register(
+      createRegistration({
+        config: registrationConfig,
+      }),
+    );
+    const reveal = store.getState().revealHint(identity);
+    expect(xapi.record).not.toHaveBeenCalled();
+    expect(getXapiActivityDefinition).not.toHaveBeenCalled();
+
+    pending.resolve({ problem: { ...createProblemSnapshot(), hintsShown: 1 } });
+    await expect(reveal).resolves.toBe(true);
+
+    expect(hintsAtRecord).toBe(1);
+    expect(getXapiActivityDefinition).toHaveBeenCalledOnce();
+    expect(xapi.record).toHaveBeenCalledExactlyOnceWith(
+      buildHintInteractedStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        targetId: "target-one",
+        activityDefinition: assessmentActivityDefinition(),
+        hintNumber: 1,
+      }),
+    );
+  });
+
+  it("does not record a persisted hint when authoritative count does not increase", async () => {
+    const xapi = createSessionDouble();
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        revealHint: vi.fn().mockResolvedValue({
+          problem: { ...createProblemSnapshot(), hintsShown: 1 },
+        }),
+      }),
+      getXapiSession: () => xapi.session,
+    });
+    const identity = registrationIdentity();
+    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+
+    store.getState().register(createRegistration());
+    store.setState({
+      durable: {
+        problems: { [problemId]: { ...createProblemSnapshot(), hintsShown: 1 } },
+        quizzes: {},
+      },
+    });
+
+    await expect(store.getState().revealHint(identity)).resolves.toBe(true);
+
+    expect(store.getState().durable.problems[problemId]?.hintsShown).toBe(1);
+    expect(xapi.record).not.toHaveBeenCalled();
+  });
+
+  it("does not record a locally revealed hint without persistence authority", async () => {
+    const xapi = createSessionDouble();
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort(),
+      getXapiSession: () => xapi.session,
+    });
+    const identity = registrationIdentity();
+
+    store.getState().register(createRegistration());
+
+    await expect(store.getState().revealHint(identity)).resolves.toBe(true);
+    expect(xapi.record).not.toHaveBeenCalled();
+  });
+
+  it("keeps a persisted hint reveal when xAPI recording throws", async () => {
+    const xapi = createSessionDouble(() => {
+      throw new Error("recording unavailable");
+    });
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort({
+        revealHint: vi.fn().mockResolvedValue({
+          problem: { ...createProblemSnapshot(), hintsShown: 1 },
+        }),
+      }),
+      getXapiSession: () => xapi.session,
+    });
+    const identity = registrationIdentity();
+    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+
+    store.getState().register(createRegistration());
+
+    await expect(store.getState().revealHint(identity)).resolves.toBe(true);
+    expect(store.getState().durable.problems[problemId]?.hintsShown).toBe(1);
+    expect(store.getState().requests[problemId]).toBeUndefined();
+  });
+
   it("allows only one in-flight host hint reveal per problem", async () => {
     const pending = deferred<{ problem: AssessmentProblemSnapshot }>();
     const revealHint = vi.fn(() => pending.promise);
@@ -1016,9 +2647,11 @@ describe("createAssessmentStore", () => {
 
   it("ignores stale host hint reveal completions", async () => {
     const stale = deferred<{ problem: AssessmentProblemSnapshot }>();
+    const xapi = createSessionDouble();
     const store = createAssessmentStore({
       artifactId: "artifact-one",
       assessmentPort: createAssessmentPort({ revealHint: () => stale.promise }),
+      getXapiSession: () => xapi.session,
     });
     const identity = registrationIdentity();
     const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
@@ -1030,6 +2663,7 @@ describe("createAssessmentStore", () => {
 
     await expect(staleReveal).resolves.toBe(false);
     expect(store.getState().durable.problems[problemId]?.hintsShown).toBe(0);
+    expect(xapi.record).not.toHaveBeenCalled();
   });
 
   it("rejects invalid canonical hint outcomes and installs a valid canonical problem", async () => {
@@ -1163,9 +2797,11 @@ describe("createAssessmentStore", () => {
     const older = deferred<{ problem: AssessmentProblemSnapshot }>();
     const newer = deferred<{ problem: AssessmentProblemSnapshot }>();
     const submit = vi.fn().mockReturnValueOnce(older.promise).mockReturnValueOnce(newer.promise);
+    const xapi = createSessionDouble();
     const store = createAssessmentStore({
       artifactId: "artifact-one",
       assessmentPort: createAssessmentPort({ submit }),
+      getXapiSession: () => xapi.session,
     });
     const identity = registrationIdentity();
     const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
@@ -1180,6 +2816,7 @@ describe("createAssessmentStore", () => {
       submitted: false,
       submissionResult: null,
     });
+    expect(xapi.record).not.toHaveBeenCalled();
 
     newer.resolve({
       problem: {
@@ -1199,6 +2836,7 @@ describe("createAssessmentStore", () => {
       submissionResult: assessmentResult(),
     });
     expect(store.getState().requests[problemId]).toBeUndefined();
+    expect(xapi.record).toHaveBeenCalledOnce();
   });
 
   it("records predictable transient errors when the port or an optional capability is absent", async () => {

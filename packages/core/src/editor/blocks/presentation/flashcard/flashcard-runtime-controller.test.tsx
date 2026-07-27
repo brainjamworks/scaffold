@@ -4,13 +4,14 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import type { LearnerActivityPort } from "@/host/ports/learner-activity";
+import type { LearnerActivityPort, XapiPort } from "@/host/ports";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 import {
   LearnerActivityReadinessGate,
   LearnerActivityRuntimeProvider,
 } from "@/runtime/learner-activity/LearnerActivityRuntimeProvider";
+import { XAPI_EXTENSIONS, XAPI_VERBS, XapiRuntimeProvider } from "@/runtime/xapi";
 
 import {
   useFlashcardCardController,
@@ -40,6 +41,15 @@ function createPort() {
     save,
   };
   return { learnerActivityPort, save };
+}
+
+function createXapiPort() {
+  const send = vi.fn<XapiPort["send"]>(async () => undefined);
+  const xapiPort: XapiPort = {
+    activityId: "https://lms.example.test/courses/flashcards-course",
+    send,
+  };
+  return { xapiPort, send };
 }
 
 function RuntimeControllerProbe() {
@@ -81,8 +91,14 @@ function RuntimeControllerProbe() {
       <button type="button" onClick={deck.flipCurrent}>
         Flip
       </button>
+      <button type="button" onClick={cardA.flip}>
+        Flip card A
+      </button>
       <button type="button" onClick={() => deck.rateCurrent("gotIt")}>
         Got it
+      </button>
+      <button type="button" onClick={() => deck.rateCurrent("notYet")}>
+        Not yet
       </button>
       <button type="button" onClick={deck.resetDeck}>
         Reset
@@ -91,15 +107,19 @@ function RuntimeControllerProbe() {
   );
 }
 
-function renderRuntimeController(learnerActivityPort: LearnerActivityPort) {
+function renderRuntimeController(learnerActivityPort: LearnerActivityPort, xapiPort?: XapiPort) {
   return render(
-    <ScaffoldServicesProvider ports={{ learnerActivity: learnerActivityPort }}>
+    <ScaffoldServicesProvider
+      ports={{ learnerActivity: learnerActivityPort, ...(xapiPort ? { xapi: xapiPort } : {}) }}
+    >
       <ScaffoldArtifactIdentityProvider artifactId="artifact-one">
-        <LearnerActivityRuntimeProvider>
-          <LearnerActivityReadinessGate>
-            <RuntimeControllerProbe />
-          </LearnerActivityReadinessGate>
-        </LearnerActivityRuntimeProvider>
+        <XapiRuntimeProvider>
+          <LearnerActivityRuntimeProvider>
+            <LearnerActivityReadinessGate>
+              <RuntimeControllerProbe />
+            </LearnerActivityReadinessGate>
+          </LearnerActivityRuntimeProvider>
+        </XapiRuntimeProvider>
       </ScaffoldArtifactIdentityProvider>
     </ScaffoldServicesProvider>,
   );
@@ -133,7 +153,7 @@ describe("flashcard runtime controller", () => {
         blockId: "flashcard-one",
         record: {
           activityKind: "flashcard",
-          data: { currentCardId: null, flipped: {}, mastery: {} },
+          data: { currentCardId: null, flipped: {}, mastery: {}, total: 2 },
           completed: false,
         },
       }),
@@ -162,7 +182,7 @@ describe("flashcard runtime controller", () => {
       blockId: "flashcard-one",
       record: {
         activityKind: "flashcard",
-        data: { currentCardId: "card-b", flipped: { "card-b": true }, mastery: {} },
+        data: { currentCardId: "card-b", flipped: { "card-b": true }, mastery: {}, total: 2 },
         completed: false,
       },
     });
@@ -204,6 +224,7 @@ describe("flashcard runtime controller", () => {
             currentCardId: "card-b",
             flipped: {},
             mastery: { "card-a": "gotIt", "card-b": "gotIt" },
+            total: 2,
           },
           completed: true,
         },
@@ -226,7 +247,7 @@ describe("flashcard runtime controller", () => {
         blockId: "flashcard-one",
         record: {
           activityKind: "flashcard",
-          data: { currentCardId: null, flipped: {}, mastery: {} },
+          data: { currentCardId: null, flipped: {}, mastery: {}, total: 2 },
           completed: false,
         },
       }),
@@ -266,10 +287,124 @@ describe("flashcard runtime controller", () => {
             currentCardId: "card-a",
             flipped: { "card-b": false },
             mastery: { "card-b": "gotIt" },
+            total: 2,
           },
           completed: false,
         },
       }),
     );
+  });
+
+  it("emits the accepted face from both flashcard flip controls", async () => {
+    const user = userEvent.setup();
+    const { learnerActivityPort, save } = createPort();
+    const { xapiPort, send } = createXapiPort();
+
+    renderRuntimeController(learnerActivityPort, xapiPort);
+
+    await waitFor(() => expect(save).toHaveBeenCalledOnce());
+    await user.click(screen.getByRole("button", { name: /^Flip$/u }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+    expect(send.mock.calls[1]?.[0]).toMatchObject({
+      verb: XAPI_VERBS.interacted,
+      result: {
+        extensions: {
+          [XAPI_EXTENSIONS.learnerActivityEvent]: {
+            action: "card-flipped",
+            cardId: "card-a",
+            face: "back",
+          },
+        },
+      },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Flip card A" }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(3));
+    expect(send.mock.calls[2]?.[0]).toMatchObject({
+      verb: XAPI_VERBS.interacted,
+      result: {
+        extensions: {
+          [XAPI_EXTENSIONS.learnerActivityEvent]: {
+            action: "card-flipped",
+            cardId: "card-a",
+            face: "front",
+          },
+        },
+      },
+    });
+  });
+
+  it("emits accepted ratings with deck progress and terminal completion", async () => {
+    const user = userEvent.setup();
+    const { learnerActivityPort, save } = createPort();
+    const { xapiPort, send } = createXapiPort();
+
+    renderRuntimeController(learnerActivityPort, xapiPort);
+
+    await waitFor(() => expect(save).toHaveBeenCalledOnce());
+    await user.click(screen.getByRole("button", { name: "Not yet" }));
+    await waitFor(() => expect(runtimeState()).toMatchObject({ currentCardId: "card-b" }));
+    await user.click(screen.getByRole("button", { name: "Got it" }));
+    await waitFor(() =>
+      expect(runtimeState()).toMatchObject({
+        currentCardId: "card-a",
+        masteredCount: 1,
+        allMastered: false,
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: "Got it" }));
+
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(4));
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(5));
+    expect(send.mock.calls.slice(1).map(([statement]) => statement)).toMatchObject([
+      {
+        verb: XAPI_VERBS.interacted,
+        result: {
+          extensions: {
+            [XAPI_EXTENSIONS.learnerActivityEvent]: {
+              action: "card-rated",
+              cardId: "card-a",
+              rating: "not-yet",
+              masteredCount: 0,
+              total: 2,
+            },
+          },
+        },
+      },
+      {
+        verb: XAPI_VERBS.interacted,
+        result: {
+          extensions: {
+            [XAPI_EXTENSIONS.learnerActivityEvent]: {
+              action: "card-rated",
+              cardId: "card-b",
+              rating: "got-it",
+              masteredCount: 1,
+              total: 2,
+            },
+          },
+        },
+      },
+      {
+        verb: XAPI_VERBS.interacted,
+        result: {
+          extensions: {
+            [XAPI_EXTENSIONS.learnerActivityEvent]: {
+              action: "card-rated",
+              cardId: "card-a",
+              rating: "got-it",
+              masteredCount: 2,
+              total: 2,
+            },
+          },
+        },
+      },
+      {
+        verb: XAPI_VERBS.completed,
+        result: { completion: true },
+      },
+    ]);
   });
 });

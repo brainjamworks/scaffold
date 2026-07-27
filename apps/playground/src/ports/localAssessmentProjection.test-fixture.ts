@@ -25,6 +25,7 @@ export function quizAssessmentProjection(
     reviewDetail: "result_only",
     attemptsPerQuestion: 1,
     isGraded: true,
+    passingScore: null,
     timer: { enabled: false, durationSeconds: 0 },
     ...settings,
   };
@@ -32,7 +33,7 @@ export function quizAssessmentProjection(
   return {
     assessmentGroups: [
       {
-        schemaVersion: 1,
+        schemaVersion: 2,
         kind: "quiz",
         groupId: "quiz-1",
         targetIds: targets.map(({ id }) => id),
@@ -40,7 +41,7 @@ export function quizAssessmentProjection(
       },
     ],
     assessmentTargets: targets.map(({ id, correctOptionId }) => ({
-      schemaVersion: 1,
+      schemaVersion: 2,
       targetId: id,
       blockId: id,
       blockType: "mcq",

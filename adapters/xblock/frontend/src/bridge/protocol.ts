@@ -19,6 +19,7 @@ export const SCAFFOLD_XBLOCK_BRIDGE_REQUEST_TYPES = [
   "assessment.quiz.revealAnswers",
   "learnerActivity.load",
   "learnerActivity.save",
+  "xapi.accept",
   "host.notifySaveStart",
   "host.notifySaveEnd",
   "host.done",

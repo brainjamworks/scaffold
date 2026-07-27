@@ -59,8 +59,12 @@ final class assessment_projection {
     ): array {
         $targets = self::decode_required_list($targetsjson, $targetsname);
         $groups = self::decode_required_list($groupsjson, $groupsname);
-        $validatedtargets = assessment_target_validator::validate_targets($targets);
-        $validatedgroups = assessment_group_validator::validate_groups($groups, $validatedtargets);
+        $upgraded = assessment_contract_migrator::upgrade_definitions($targets, $groups);
+        $validatedtargets = assessment_target_validator::validate_targets($upgraded['targets']);
+        $validatedgroups = assessment_group_validator::validate_groups(
+            $upgraded['groups'],
+            $validatedtargets,
+        );
 
         return [
             'targets' => array_map([self::class, 'json_value_to_php'], $validatedtargets),

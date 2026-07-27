@@ -33,6 +33,7 @@ export interface SlideshowPlayerProps {
   surfaceIds: [string, ...string[]];
   sizing?: SlideshowPlayerSizing;
   onRendererReady?: (editor: TiptapEditor) => void;
+  onActiveSurfaceChange?: (surfaceId: string) => void;
 }
 
 export function SlideshowPlayer({
@@ -41,6 +42,7 @@ export function SlideshowPlayer({
   surfaceIds,
   sizing = "contained",
   onRendererReady,
+  onActiveSurfaceChange,
 }: SlideshowPlayerProps) {
   const [viewportElement, setViewportElement] = useState<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -73,6 +75,10 @@ export function SlideshowPlayer({
   } else if (!invalidStateMessage && viewSettings?.mode !== "slideshow") {
     invalidStateMessage = "Slideshow player requires slideshow document mode.";
   }
+
+  useEffect(() => {
+    onActiveSurfaceChange?.(navigation.activeSurfaceId);
+  }, [navigation.activeSurfaceId, onActiveSurfaceChange]);
 
   useEffect(() => {
     if (!viewportElement) {

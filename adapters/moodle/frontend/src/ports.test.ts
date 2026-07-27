@@ -137,6 +137,7 @@ describe("createMoodleRuntimePorts assessment port", () => {
       expiresAt: null,
       score: null,
       maxScore: null,
+      successStatus: null,
       resultsByTargetId: {},
       answerReviewAuthorized: false,
     };
@@ -216,6 +217,7 @@ describe("createMoodleRuntimePorts assessment port", () => {
       expiresAt: null,
       score: null,
       maxScore: null,
+      successStatus: null,
       resultsByTargetId: {},
       answerReviewAuthorized: false,
     };

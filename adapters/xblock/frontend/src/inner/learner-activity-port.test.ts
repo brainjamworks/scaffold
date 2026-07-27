@@ -33,6 +33,7 @@ class RecordingBridge implements XBlockInnerBridge {
   readonly requests: Array<{ type: XBlockBridgeRequestType; payload: unknown }> = [];
 
   destroy(): void {}
+  requestHostScroll(): void {}
 
   async request<TResult = unknown, TPayload = unknown>(
     type: XBlockBridgeRequestType,

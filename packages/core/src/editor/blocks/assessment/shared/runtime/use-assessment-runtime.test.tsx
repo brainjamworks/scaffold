@@ -43,6 +43,10 @@ import { mcqBlockDefinition } from "@/editor/blocks/assessment/mcq/mcq-definitio
 import { McqNode } from "@/editor/blocks/assessment/mcq/node";
 import { mcqResponseCodec } from "@/editor/blocks/assessment/mcq/assessment";
 import { imageHotspotResponseCodec } from "@/editor/blocks/assessment/image-hotspot/assessment";
+import { InlineIconNode } from "@/editor/rich-text/inline-icon/model/InlineIconNode";
+import { MathInlineNode } from "@/editor/rich-text/math/authoring/MathInlineNodeView";
+import { MathBlockNode } from "@/editor/rich-text/math/model/MathBlock";
+import { createVocabularyTermNode } from "@/editor/rich-text/vocabulary-term/model/VocabularyTermNode";
 import {
   AssessmentRuntimeProvider,
   useAssessmentStoreApi,
@@ -125,6 +129,7 @@ function ScopedQuizRegistration({
         reviewDetail,
         attemptsPerQuestion: 1 as const,
         isGraded: true,
+        passingScore: null,
         timer: { enabled: false, durationSeconds: 0 },
       },
     }),
@@ -172,6 +177,10 @@ function makeEditor() {
       AssessmentSummaryFeedbackNode,
       SelectableChoiceBodyNode,
       SelectableChoiceNode,
+      InlineIconNode,
+      MathInlineNode,
+      MathBlockNode,
+      createVocabularyTermNode(),
       McqNode,
     ],
     content: {
@@ -201,10 +210,42 @@ function makeEditor() {
               type: "assessment_instructions",
               content: [{ type: "paragraph" }],
             },
-            { type: "assessment_prompt", content: [{ type: "paragraph" }] },
+            {
+              type: "assessment_prompt",
+              content: [
+                {
+                  type: "paragraph",
+                  content: [
+                    { type: "text", text: "  What   is " },
+                    { type: "inlineMath", attrs: { latex: "x^2" } },
+                    { type: "text", text: " called? " },
+                    {
+                      type: "vocabTerm",
+                      attrs: {
+                        term: "square",
+                        definition: "PRIVATE_VOCABULARY_DEFINITION",
+                      },
+                    },
+                    { type: "hardBreak" },
+                    {
+                      type: "inlineIcon",
+                      attrs: {
+                        value: { kind: "emoji", value: "💡" },
+                        size: "sm",
+                      },
+                    },
+                  ],
+                },
+                { type: "horizontalRule" },
+                {
+                  type: "blockMath",
+                  attrs: { id: "prompt-math", latex: "a^2 + b^2 = c^2" },
+                },
+              ],
+            },
             {
               type: "assessment_choices_group",
-              content: [selectableChoice("a"), selectableChoice("b")],
+              content: [richSelectableChoice("a"), selectableChoice("b")],
             },
             {
               type: "assessment_actions_group",
@@ -244,6 +285,47 @@ function selectableChoice(id: string) {
       {
         type: "selectable_choice_body",
         content: [{ type: "paragraph", content: [{ type: "text", text: id }] }],
+      },
+    ],
+  };
+}
+
+function richSelectableChoice(id: string) {
+  return {
+    type: "selectable_choice",
+    attrs: { id },
+    content: [
+      {
+        type: "selectable_choice_body",
+        content: [
+          {
+            type: "paragraph",
+            content: [
+              { type: "text", text: "Formula " },
+              { type: "inlineMath", attrs: { latex: "y^2" } },
+              { type: "text", text: " means " },
+              {
+                type: "vocabTerm",
+                attrs: {
+                  term: "square",
+                  definition: "PRIVATE_CHOICE_DEFINITION",
+                },
+              },
+              { type: "hardBreak" },
+              {
+                type: "inlineIcon",
+                attrs: {
+                  value: { kind: "emoji", value: "✅" },
+                  size: "sm",
+                },
+              },
+            ],
+          },
+          {
+            type: "blockMath",
+            attrs: { id: "choice-math", latex: "y^2 = y × y" },
+          },
+        ],
       },
     ],
   };
@@ -593,10 +675,30 @@ describe("useAssessmentRuntime", () => {
     );
 
     await waitFor(() => {
-      expect(
-        scopedAssessmentStore?.getState().registrations["artifact:artifact-1/block:mcq-1"],
-      ).toBeDefined();
+      const registration =
+        scopedAssessmentStore?.getState().registrations["artifact:artifact-1/block:mcq-1"];
+      expect(registration?.config.getXapiActivityDefinition).toBeTypeOf("function");
     });
+    const registration =
+      scopedAssessmentStore?.getState().registrations["artifact:artifact-1/block:mcq-1"];
+    expect(registration?.config).not.toHaveProperty("activityDescription");
+    const xapiDefinition = registration?.config.getXapiActivityDefinition?.();
+    expect(xapiDefinition).toMatchObject({
+      description: { en: "What is x^2 called? square 💡 a^2 + b^2 = c^2" },
+      interactionType: "choice",
+      choices: [
+        {
+          id: "a",
+          description: { en: "Formula y^2 means square ✅ y^2 = y × y" },
+        },
+        { id: "b", description: { en: "b" } },
+      ],
+    });
+    expect(xapiDefinition).not.toHaveProperty("correctResponsesPattern");
+    expect(JSON.stringify(xapiDefinition)).not.toContain("PRIVATE_CHOICE_DEFINITION");
+    expect(JSON.stringify(scopedAssessmentStore?.getState().registrations)).not.toContain(
+      "PRIVATE_VOCABULARY_DEFINITION",
+    );
   });
 
   it("rejects a definition whose node type does not match the runtime node", () => {

@@ -161,7 +161,15 @@ final class restore_identity_service {
         $repaired->artifactjson = self::encode($artifact, 'Restored Scaffold artifact');
 
         content_service::read_json_nullable_object((string) ($repaired->learnercontentjson ?? ''));
-        assessment_projection::for_activity($repaired);
+        $projection = assessment_projection::for_activity($repaired);
+        $repaired->assessmenttargetsjson = self::encode(
+            $projection['targets'],
+            'Restored assessment targets',
+        );
+        $repaired->assessmentgroupsjson = self::encode(
+            $projection['groups'],
+            'Restored assessment groups',
+        );
         return $repaired;
     }
 
@@ -176,7 +184,7 @@ final class restore_identity_service {
         string $destinationartifactid,
         \stdClass $source,
     ): \stdClass {
-        $repaired = clone $source;
+        $repaired = assessment_contract_migrator::upgrade_snapshot($source);
         $repaired->artifactId = $destinationartifactid;
         json_schema_validator::validate_plugin_definition(
             'AssessmentLearnerSnapshot',
@@ -260,11 +268,11 @@ final class restore_identity_service {
     /**
      * Encodes the supplied value.
      *
-     * @param \stdClass $value Value.
+     * @param mixed $value Value.
      * @param string $name Name.
      * @return string
      */
-    private static function encode(\stdClass $value, string $name): string {
+    private static function encode(mixed $value, string $name): string {
         try {
             return json_encode($value, JSON_THROW_ON_ERROR);
         } catch (\JsonException) {

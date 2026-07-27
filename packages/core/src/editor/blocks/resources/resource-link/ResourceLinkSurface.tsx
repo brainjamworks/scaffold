@@ -30,12 +30,14 @@ export function ResourceLinkSurface({
   editable,
   frameAttributes,
   controls,
+  onOpen,
 }: {
   children: ReactNode;
   data: ResourceLinkData;
   editable: boolean;
   frameAttributes?: Record<string, string>;
   controls?: ReactNode;
+  onOpen?: () => void;
 }) {
   const host = readResourceHost(data.url);
   const kindLabel = RESOURCE_LINK_KIND_LABELS[data.kind];
@@ -49,6 +51,7 @@ export function ResourceLinkSurface({
         href: safeUrl,
         target: "_blank" as const,
         rel: "noopener noreferrer",
+        onClick: onOpen,
       }
     : {};
 

@@ -36,6 +36,7 @@ $string['checkrequiresimmediatefeedback'] = 'Checking is available only for imme
 $string['completionactivitystatus'] = 'Learner must complete the Scaffold assessment';
 $string['completiondetail:activitystatus'] = 'Complete the Scaffold assessment';
 $string['editscaffoldcontent'] = 'Edit Scaffold content';
+$string['eventstatementreceived'] = 'xAPI statement received';
 $string['grade'] = 'Maximum grade';
 $string['grade_help'] = 'Maximum grade for this Scaffold activity.';
 $string['gradestatus'] = 'Grade publication status';

@@ -17,6 +17,8 @@ interface AudioBlockSurfaceProps {
   errorMessage: string | null;
   frameAttributes?: HTMLAttributes<HTMLElement>;
   onMouseDownCapture?: MouseEventHandler<HTMLElement>;
+  onPlaybackEnded?: () => void;
+  onPlaybackStarted?: () => void;
   replaceAction?: ReactNode;
   resolvedUrl: string | null;
   withWrapper?: boolean;
@@ -29,6 +31,8 @@ export function AudioBlockSurface({
   errorMessage,
   frameAttributes,
   onMouseDownCapture,
+  onPlaybackEnded,
+  onPlaybackStarted,
   replaceAction,
   resolvedUrl,
   withWrapper = true,
@@ -51,7 +55,12 @@ export function AudioBlockSurface({
             {errorMessage}
           </p>
         ) : resolvedUrl ? (
-          <AudioPlayer src={resolvedUrl} {...(data.title ? { title: data.title } : {})} />
+          <AudioPlayer
+            src={resolvedUrl}
+            {...(data.title ? { title: data.title } : {})}
+            {...(onPlaybackEnded ? { onEnded: onPlaybackEnded } : {})}
+            {...(onPlaybackStarted ? { onStarted: onPlaybackStarted } : {})}
+          />
         ) : (
           <p className="sc-audio-block__loading" role="status">
             {mediaLoadingMessage("audio")}

@@ -115,6 +115,7 @@ final class quiz_expiry_test extends \advanced_testcase {
         $payload = $service->payload($learnerscope, 'learner');
         $snapshot = json_decode($payload['assessmentSnapshotJson'], false, 512, JSON_THROW_ON_ERROR);
         $this->assertSame('expired', $snapshot->quizzes->{'quiz-due-graded'}->status);
+        $this->assertSame('passed', $snapshot->quizzes->{'quiz-due-graded'}->successStatus);
         $this->assertSame([[false, (int) $scaffold->id, (int) $user->id, $artifactid]], $gradecalls);
         $this->assertSame([
             [false, (int) $scaffold->id, (int) $cm->id, (int) $user->id],
@@ -178,6 +179,7 @@ final class quiz_expiry_test extends \advanced_testcase {
             0,
         );
         $this->assertSame('expired', $result['outcome']->quizAttempt->status);
+        $this->assertSame('passed', $result['outcome']->quizAttempt->successStatus);
         $this->assertSame([], get_object_vars($result['outcome']->problemsByTargetId));
         $this->assertSame(1, $gradecalls);
         $this->assertSame(1, $completioncalls);
@@ -239,7 +241,10 @@ final class quiz_expiry_test extends \advanced_testcase {
         $snapshot = json_decode((string) $row->snapshotjson, false, 512, JSON_THROW_ON_ERROR);
         $this->assertSame('expired', $snapshot->quizzes->{'quiz-due-graded'}->status);
         $this->assertSame('expired', $snapshot->quizzes->{'quiz-due-ungraded'}->status);
+        $this->assertSame('passed', $snapshot->quizzes->{'quiz-due-graded'}->successStatus);
+        $this->assertSame('failed', $snapshot->quizzes->{'quiz-due-ungraded'}->successStatus);
         $this->assertSame('in_progress', $snapshot->quizzes->{'quiz-future'}->status);
+        $this->assertNull($snapshot->quizzes->{'quiz-future'}->successStatus);
         $this->assertSame(strtotime('2026-07-18T10:10:00.000000Z'), (int) $row->nextquizexpiry);
 
         $before = serialize($row);
@@ -275,7 +280,7 @@ final class quiz_expiry_test extends \advanced_testcase {
         [$scaffold, $cm, $user] = $this->create_fixture();
         $artifactid = artifact_identity::for_course_module((int) $cm->id);
         $snapshot = (object) [
-            'snapshotVersion' => 1,
+            'snapshotVersion' => 2,
             'artifactId' => $artifactid,
             'problems' => (object) [],
             'quizzes' => (object) [
@@ -389,9 +394,9 @@ final class quiz_expiry_test extends \advanced_testcase {
             $targets[] = self::target($groupid . '-question-2');
         }
         $groups = [
-            self::group('quiz-due-graded', true, 'after_each_answer'),
-            self::group('quiz-due-ungraded', false),
-            self::group('quiz-future', true),
+            self::group('quiz-due-graded', true, 'after_each_answer', 0.0),
+            self::group('quiz-due-ungraded', false, 'after_quiz', 0.5),
+            self::group('quiz-future', true, 'after_quiz', null),
         ];
         $DB->set_field('scaffold', 'assessmenttargetsjson', json_encode($targets, JSON_THROW_ON_ERROR), [
             'id' => $scaffoldid,
@@ -412,7 +417,7 @@ final class quiz_expiry_test extends \advanced_testcase {
      */
     private static function target(string $targetid): array {
         return [
-            'schemaVersion' => 1,
+            'schemaVersion' => 2,
             'targetId' => $targetid,
             'blockId' => $targetid,
             'blockType' => 'mcq',
@@ -441,15 +446,17 @@ final class quiz_expiry_test extends \advanced_testcase {
      * @param string $groupid Assessment group ID.
      * @param bool $isgraded Isgraded.
      * @param string $reviewtiming Reviewtiming.
+     * @param float|null $passingscore Passing score.
      * @return array
      */
     private static function group(
         string $groupid,
         bool $isgraded,
         string $reviewtiming = 'after_quiz',
+        ?float $passingscore = null,
     ): array {
         return [
-            'schemaVersion' => 1,
+            'schemaVersion' => 2,
             'kind' => 'quiz',
             'groupId' => $groupid,
             'targetIds' => [$groupid . '-question-1', $groupid . '-question-2'],
@@ -459,6 +466,7 @@ final class quiz_expiry_test extends \advanced_testcase {
                 'reviewDetail' => 'full_review',
                 'attemptsPerQuestion' => 1,
                 'isGraded' => $isgraded,
+                'passingScore' => $passingscore,
                 'timer' => ['enabled' => true, 'durationSeconds' => 60],
             ],
         ];
@@ -485,6 +493,7 @@ final class quiz_expiry_test extends \advanced_testcase {
             'maxScore' => null,
             'resultsByTargetId' => (object) [],
             'answerReviewAuthorized' => false,
+            'successStatus' => null,
         ];
     }
 }

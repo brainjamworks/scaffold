@@ -12,6 +12,7 @@ import {
   type AssessmentTargetContract,
   type QuizAttemptState,
   type QuizAssessmentSettings,
+  type QuizSuccessStatus,
 } from "@scaffold/contracts";
 import type {
   AssessmentCheckRequest,
@@ -124,12 +125,26 @@ function gradeQuizResponse(
   return toAssessmentResult(gradeAssessment(target, response));
 }
 
-function aggregateQuizResults(resultsByTargetId: Record<string, AssessmentResult>) {
-  const results = Object.values(resultsByTargetId);
+function aggregateQuizResults(
+  targetIds: string[],
+  resultsByTargetId: Record<string, AssessmentResult>,
+) {
   return {
-    score: results.reduce((total, result) => total + result.score, 0),
-    maxScore: results.reduce((total, result) => total + result.maxScore, 0),
+    score: targetIds.reduce(
+      (total, targetId) => total + (resultsByTargetId[targetId]?.score ?? 0),
+      0,
+    ),
+    maxScore: targetIds.length,
   };
+}
+
+function calculateQuizSuccessStatus(
+  passingScore: number | null | undefined,
+  score: number,
+  maxScore: number,
+): QuizSuccessStatus {
+  if (passingScore == null) return null;
+  return score / maxScore >= passingScore ? "passed" : "failed";
 }
 
 function isExpired(expiresAt: string | null): boolean {
@@ -137,15 +152,32 @@ function isExpired(expiresAt: string | null): boolean {
 }
 
 interface LocalQuizAttemptRecord {
-  attemptId: string;
-  groupId: string;
   targetIds: string[];
-  settings: QuizAssessmentSettings;
-  startedAt: string | null;
-  expiresAt: string | null;
-  resultsByTargetId: Record<string, AssessmentResult>;
-  submittedTargetIds: string[];
+  quizAttempt: QuizAttemptState;
   attemptCountsByTargetId: Record<string, number>;
+}
+
+function terminalQuizAttempt(
+  previous: QuizAttemptState,
+  targetIds: string[],
+  settings: QuizAssessmentSettings,
+  status: "completed" | "expired",
+  submittedTargetIds: string[],
+  resultsByTargetId: Record<string, AssessmentResult>,
+): QuizAttemptState {
+  const { score, maxScore } = aggregateQuizResults(targetIds, resultsByTargetId);
+  return {
+    ...previous,
+    status,
+    currentTargetId: null,
+    submittedTargetIds,
+    finishedAt: new Date().toISOString(),
+    score,
+    maxScore,
+    resultsByTargetId,
+    answerReviewAuthorized: true,
+    successStatus: calculateQuizSuccessStatus(settings.passingScore, score, maxScore),
+  };
 }
 
 export function createLocalAssessmentPortFromProjection(
@@ -223,17 +255,6 @@ export function createLocalAssessmentPortFromProjection(
         const attemptId = newLocalAttemptId(args.groupId);
         const expiresAt =
           durationSeconds > 0 ? new Date(Date.now() + durationSeconds * 1000).toISOString() : null;
-        attempts.set(attemptId, {
-          attemptId,
-          groupId: args.groupId,
-          targetIds,
-          settings,
-          startedAt: now,
-          expiresAt,
-          resultsByTargetId: {},
-          submittedTargetIds: [],
-          attemptCountsByTargetId: {},
-        });
         const quizAttempt: QuizAttemptState = {
           attemptId,
           groupId: args.groupId,
@@ -247,14 +268,21 @@ export function createLocalAssessmentPortFromProjection(
           maxScore: null,
           resultsByTargetId: {},
           answerReviewAuthorized: false,
+          successStatus: null,
         };
+        attempts.set(attemptId, {
+          targetIds,
+          quizAttempt,
+          attemptCountsByTargetId: {},
+        });
         return { quizAttempt, problemsByTargetId: {} };
       },
       submitQuestion: async (args): Promise<AssessmentQuizCommandOutcome> => {
-        const previous = attempts.get(args.attemptId);
-        if (!previous) {
+        const previousRecord = attempts.get(args.attemptId);
+        if (!previousRecord) {
           throw new Error(`local quiz attempt not found: ${args.attemptId}`);
         }
+        const previous = previousRecord.quizAttempt;
         if (previous.groupId !== args.groupId) {
           throw new Error(`local quiz attempt does not belong to group: ${args.groupId}`);
         }
@@ -270,7 +298,7 @@ export function createLocalAssessmentPortFromProjection(
         if (settings.reviewTiming !== "after_each_answer") {
           throw new Error("local quiz question submission requires after_each_answer timing");
         }
-        const previousAttemptCount = previous.attemptCountsByTargetId[args.targetId] ?? 0;
+        const previousAttemptCount = previousRecord.attemptCountsByTargetId[args.targetId] ?? 0;
         if (previousAttemptCount >= settings.attemptsPerQuestion) {
           throw new Error(`local quiz attempts exhausted for ${args.targetId}`);
         }
@@ -289,7 +317,7 @@ export function createLocalAssessmentPortFromProjection(
         const result = gradeQuizResponse(readProjection, args.targetId, args.response);
         applyProblemResult(args.targetId, args.response, result, true);
         const attemptCountsByTargetId = {
-          ...previous.attemptCountsByTargetId,
+          ...previousRecord.attemptCountsByTargetId,
           [args.targetId]: previousAttemptCount + 1,
         };
         const submittedTargetIds = Array.from(
@@ -307,38 +335,48 @@ export function createLocalAssessmentPortFromProjection(
           ? args.targetId
           : (targetIds.find((targetId) => !submittedTargetIds.includes(targetId)) ?? null);
         const status = expired ? "expired" : nextTargetId ? "in_progress" : "completed";
+        const quizAttempt: QuizAttemptState =
+          status === "in_progress"
+            ? {
+                ...previous,
+                status,
+                currentTargetId: nextTargetId,
+                submittedTargetIds,
+                finishedAt: null,
+                score: null,
+                maxScore: null,
+                resultsByTargetId,
+                answerReviewAuthorized: true,
+                successStatus: null,
+              }
+            : terminalQuizAttempt(
+                previous,
+                targetIds,
+                settings,
+                status,
+                submittedTargetIds,
+                resultsByTargetId,
+              );
         attempts.set(args.attemptId, {
-          attemptId: args.attemptId,
-          groupId: args.groupId,
           targetIds,
-          settings,
-          startedAt: previous.startedAt,
-          expiresAt: previous.expiresAt,
-          resultsByTargetId,
-          submittedTargetIds,
+          quizAttempt,
           attemptCountsByTargetId,
         });
 
-        const quizAttempt: QuizAttemptState = {
-          attemptId: args.attemptId,
-          groupId: args.groupId,
-          status,
-          currentTargetId: expired ? args.targetId : nextTargetId,
-          submittedTargetIds,
-          startedAt: previous.startedAt,
-          finishedAt: null,
-          expiresAt: previous.expiresAt,
-          score: null,
-          maxScore: null,
-          resultsByTargetId,
-          answerReviewAuthorized: true,
-        };
         return {
           quizAttempt,
           problemsByTargetId: problemSelection([args.targetId]),
         };
       },
       finishAttempt: async (args): Promise<AssessmentQuizCommandOutcome> => {
+        const previousRecord = attempts.get(args.attemptId);
+        if (!previousRecord) {
+          throw new Error(`local quiz attempt not found: ${args.attemptId}`);
+        }
+        const previous = previousRecord.quizAttempt;
+        if (previous.groupId !== args.groupId) {
+          throw new Error(`local quiz attempt does not belong to group: ${args.groupId}`);
+        }
         const group = findLocalGroup(readProjection, args.groupId);
         if (!group) {
           throw new Error(`local quiz group not found: ${args.groupId}`);
@@ -359,40 +397,24 @@ export function createLocalAssessmentPortFromProjection(
         for (const [targetId, response] of Object.entries(args.responsesByTargetId)) {
           applyProblemResult(targetId, response, resultsByTargetId[targetId]!, true);
         }
-        const { score, maxScore } = aggregateQuizResults(resultsByTargetId);
-        const previous = attempts.get(args.attemptId);
-        if (previous && previous.groupId !== args.groupId) {
-          throw new Error(`local quiz attempt does not belong to group: ${args.groupId}`);
-        }
-        const expired = isExpired(previous?.expiresAt ?? null);
-        attempts.set(args.attemptId, {
-          attemptId: args.attemptId,
-          groupId: args.groupId,
+        const submittedTargetIds = Object.keys(resultsByTargetId);
+        const expired = isExpired(previous.expiresAt);
+        const quizAttempt = terminalQuizAttempt(
+          previous,
           targetIds,
-          settings: group.settings,
-          startedAt: previous?.startedAt ?? null,
-          expiresAt: previous?.expiresAt ?? null,
+          group.settings,
+          expired ? "expired" : "completed",
+          submittedTargetIds,
           resultsByTargetId,
-          submittedTargetIds: Object.keys(resultsByTargetId),
+        );
+        attempts.set(args.attemptId, {
+          targetIds,
+          quizAttempt,
           attemptCountsByTargetId: Object.fromEntries(
             Object.keys(resultsByTargetId).map((targetId) => [targetId, 1]),
           ),
         });
 
-        const quizAttempt: QuizAttemptState = {
-          attemptId: args.attemptId,
-          groupId: args.groupId,
-          status: expired ? "expired" : "completed",
-          currentTargetId: null,
-          submittedTargetIds: Object.keys(resultsByTargetId),
-          startedAt: previous?.startedAt ?? null,
-          finishedAt: new Date().toISOString(),
-          expiresAt: previous?.expiresAt ?? null,
-          score,
-          maxScore,
-          resultsByTargetId,
-          answerReviewAuthorized: true,
-        };
         return {
           quizAttempt,
           problemsByTargetId: problemSelection(Object.keys(resultsByTargetId)),
@@ -404,41 +426,20 @@ export function createLocalAssessmentPortFromProjection(
           throw new Error(`local quiz group not found: ${args.groupId}`);
         }
         const previous = attempts.get(args.attemptId);
-        if (previous && previous.groupId !== args.groupId) {
+        if (!previous) {
+          throw new Error(`local quiz attempt not found: ${args.attemptId}`);
+        }
+        if (previous.quizAttempt.groupId !== args.groupId) {
           throw new Error(`local quiz attempt does not belong to group: ${args.groupId}`);
         }
-        const aggregate = aggregateQuizResults(previous?.resultsByTargetId ?? {});
-        if (!previous) {
-          const quizAttempt: QuizAttemptState = {
-            attemptId: args.attemptId,
-            groupId: args.groupId,
-            status: "completed",
-            currentTargetId: null,
-            submittedTargetIds: [],
-            startedAt: null,
-            finishedAt: new Date().toISOString(),
-            expiresAt: null,
-            score: null,
-            maxScore: null,
-            resultsByTargetId: {},
-            answerReviewAuthorized: true,
-          };
-          return { quizAttempt, problemsByTargetId: {} };
+        if (previous.quizAttempt.status === "in_progress") {
+          throw new Error(`local quiz attempt is not terminal: ${args.attemptId}`);
         }
         const quizAttempt: QuizAttemptState = {
-          attemptId: args.attemptId,
-          groupId: args.groupId,
-          status: "completed",
-          currentTargetId: null,
-          submittedTargetIds: previous.submittedTargetIds,
-          startedAt: previous.startedAt,
-          finishedAt: new Date().toISOString(),
-          expiresAt: previous.expiresAt,
-          score: aggregate.score,
-          maxScore: aggregate.maxScore,
-          resultsByTargetId: previous.resultsByTargetId,
+          ...previous.quizAttempt,
           answerReviewAuthorized: true,
         };
+        attempts.set(args.attemptId, { ...previous, quizAttempt });
         return {
           quizAttempt,
           problemsByTargetId: problemSelection(previous.targetIds),

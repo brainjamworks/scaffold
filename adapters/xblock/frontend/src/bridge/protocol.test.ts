@@ -89,6 +89,22 @@ describe("XBlock iframe bridge protocol", () => {
     expect(validateXBlockBridgeMessage(message)).toEqual({ ok: true, message });
   });
 
+  it("accepts xAPI statement delivery request envelopes", () => {
+    const message = createXBlockBridgeRequest({
+      requestId: "request-1",
+      sessionId: "session-1",
+      type: "xapi.accept",
+      payload: {
+        statement: {
+          id: "00000000-0000-4000-8000-000000000001",
+          timestamp: "2026-07-27T12:00:00.000Z",
+        },
+      },
+    });
+
+    expect(validateXBlockBridgeMessage(message)).toEqual({ ok: true, message });
+  });
+
   it("accepts a valid lifecycle envelope", () => {
     const message = createXBlockBridgeLifecycleMessage({
       sessionId: "session-1",

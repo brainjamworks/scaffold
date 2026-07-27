@@ -490,7 +490,7 @@ final class assessment_service {
         $snapshot = isset($states[$userid])
             ? $states[$userid]->snapshot
             : (object) [
-                'snapshotVersion' => 1,
+                'snapshotVersion' => 2,
                 'artifactId' => $artifactid,
                 'problems' => (object) [],
                 'quizzes' => (object) [],

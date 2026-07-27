@@ -42,6 +42,7 @@ export function GalleryCarousel({
   activeItem,
   onSelect,
   onOpenLightbox,
+  onActiveItemLoad,
   onBeforeSelect,
   onBeforeOpenLightbox,
   renderThumbAction,
@@ -52,6 +53,7 @@ export function GalleryCarousel({
   activeItem: GalleryResolvedItem | null;
   onSelect: (id: string) => void;
   onOpenLightbox: (trigger: HTMLButtonElement) => void;
+  onActiveItemLoad?: (id: string) => void;
   onBeforeSelect?: () => void;
   onBeforeOpenLightbox?: () => void;
   renderThumbAction?: (item: GalleryResolvedItem, index: number) => ReactNode;
@@ -77,6 +79,7 @@ export function GalleryCarousel({
               alt={activeItem.alt}
               className="sc-gallery__stage-image"
               draggable={false}
+              onLoad={() => onActiveItemLoad?.(activeItem.key)}
             />
           </button>
         ) : (

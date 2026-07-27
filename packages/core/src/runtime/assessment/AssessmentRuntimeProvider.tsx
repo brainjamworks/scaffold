@@ -7,6 +7,7 @@ import { useScaffoldArtifactIdentity } from "@/host/providers/ScaffoldArtifactId
 import { createAssessmentStore } from "./assessment-store";
 import { hydrateAssessmentSnapshot } from "./hydration";
 import type { AssessmentStore, AssessmentStoreApi } from "./types";
+import { useXapiSessionAccessor, type XapiSessionAccessor } from "../xapi";
 
 const missingProvider = Symbol("missing AssessmentRuntimeProvider");
 
@@ -24,10 +25,11 @@ function createAssessmentRuntimeScope(
   artifactId: string | null,
   assessmentPort: AssessmentPort | null,
   initialSnapshot: unknown,
+  getXapiSession: XapiSessionAccessor,
 ): AssessmentRuntimeScope | null {
   if (!artifactId) return null;
 
-  const store = createAssessmentStore({ artifactId, assessmentPort });
+  const store = createAssessmentStore({ artifactId, assessmentPort, getXapiSession });
   if (initialSnapshot !== undefined) {
     hydrateAssessmentSnapshot(store, initialSnapshot);
   }
@@ -43,8 +45,9 @@ export function AssessmentRuntimeProvider({
 }) {
   const { artifactId } = useScaffoldArtifactIdentity();
   const assessmentPort = useAssessmentPort();
+  const getXapiSession = useXapiSessionAccessor();
   const [scope, setScope] = useState<AssessmentRuntimeScope | null>(() =>
-    createAssessmentRuntimeScope(artifactId, assessmentPort, initialSnapshot),
+    createAssessmentRuntimeScope(artifactId, assessmentPort, initialSnapshot, getXapiSession),
   );
   let currentScope = scope;
   const scopeMatches = currentScope
@@ -52,7 +55,12 @@ export function AssessmentRuntimeProvider({
     : artifactId === null;
 
   if (!scopeMatches) {
-    currentScope = createAssessmentRuntimeScope(artifactId, assessmentPort, initialSnapshot);
+    currentScope = createAssessmentRuntimeScope(
+      artifactId,
+      assessmentPort,
+      initialSnapshot,
+      getXapiSession,
+    );
     setScope(currentScope);
   }
 

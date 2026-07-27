@@ -1,5 +1,5 @@
 {
-  "$comment": "This bundle is generated from the strict v1 Zod contracts and carries their portable assessment invariants.",
+  "$comment": "This bundle is generated from the strict version 2 Zod assessment contracts.",
   "$id": "https://scaffold.ac/schemas/assessment.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "definitions": {
@@ -427,7 +427,7 @@
           "type": "string"
         },
         "schemaVersion": {
-          "const": 1,
+          "const": 2,
           "type": "number"
         },
         "settings": {
@@ -442,6 +442,18 @@
             },
             "isGraded": {
               "type": "boolean"
+            },
+            "passingScore": {
+              "anyOf": [
+                {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "reviewDetail": {
               "enum": ["none", "result_only", "full_review"],
@@ -472,6 +484,7 @@
             "reviewDetail",
             "attemptsPerQuestion",
             "isGraded",
+            "passingScore",
             "timer"
           ],
           "type": "object"
@@ -558,7 +571,7 @@
           "type": "object"
         },
         "snapshotVersion": {
-          "const": 1,
+          "const": 2,
           "type": "number"
         }
       },
@@ -905,7 +918,7 @@
               "type": "object"
             },
             "schemaVersion": {
-              "const": 1,
+              "const": 2,
               "type": "number"
             },
             "settings": {
@@ -1389,7 +1402,7 @@
               "type": ["string", "null"]
             },
             "status": {
-              "enum": ["in_progress", "completed", "expired"],
+              "const": "in_progress",
               "type": "string"
             },
             "submittedTargetIds": {
@@ -1398,11 +1411,13 @@
               },
               "type": "array",
               "uniqueItems": true
+            },
+            "successStatus": {
+              "type": "null"
             }
           },
           "required": [
             "attemptId",
-            "status",
             "currentTargetId",
             "submittedTargetIds",
             "startedAt",
@@ -1410,8 +1425,10 @@
             "expiresAt",
             "resultsByTargetId",
             "answerReviewAuthorized",
+            "status",
             "score",
-            "maxScore"
+            "maxScore",
+            "successStatus"
           ],
           "type": "object"
         },
@@ -1434,7 +1451,7 @@
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/finishedAt"
             },
             "maxScore": {
-              "minimum": 0,
+              "exclusiveMinimum": 0,
               "type": "number"
             },
             "resultsByTargetId": {
@@ -1448,15 +1465,26 @@
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/startedAt"
             },
             "status": {
-              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/status"
+              "const": "completed",
+              "type": "string"
             },
             "submittedTargetIds": {
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/submittedTargetIds"
+            },
+            "successStatus": {
+              "anyOf": [
+                {
+                  "enum": ["passed", "failed"],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             }
           },
           "required": [
             "attemptId",
-            "status",
             "currentTargetId",
             "submittedTargetIds",
             "startedAt",
@@ -1464,8 +1492,69 @@
             "expiresAt",
             "resultsByTargetId",
             "answerReviewAuthorized",
+            "status",
             "score",
-            "maxScore"
+            "maxScore",
+            "successStatus"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "answerReviewAuthorized": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/answerReviewAuthorized"
+            },
+            "attemptId": {
+              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            },
+            "currentTargetId": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/currentTargetId"
+            },
+            "expiresAt": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/expiresAt"
+            },
+            "finishedAt": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/finishedAt"
+            },
+            "maxScore": {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            "resultsByTargetId": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/resultsByTargetId"
+            },
+            "score": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "startedAt": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/startedAt"
+            },
+            "status": {
+              "const": "expired",
+              "type": "string"
+            },
+            "submittedTargetIds": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/submittedTargetIds"
+            },
+            "successStatus": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/1/properties/successStatus"
+            }
+          },
+          "required": [
+            "attemptId",
+            "currentTargetId",
+            "submittedTargetIds",
+            "startedAt",
+            "finishedAt",
+            "expiresAt",
+            "resultsByTargetId",
+            "answerReviewAuthorized",
+            "status",
+            "score",
+            "maxScore",
+            "successStatus"
           ],
           "type": "object"
         }
@@ -1507,16 +1596,19 @@
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/startedAt"
             },
             "status": {
-              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/status"
+              "const": "in_progress",
+              "type": "string"
             },
             "submittedTargetIds": {
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/submittedTargetIds"
+            },
+            "successStatus": {
+              "type": "null"
             }
           },
           "required": [
             "attemptId",
             "groupId",
-            "status",
             "currentTargetId",
             "submittedTargetIds",
             "startedAt",
@@ -1524,8 +1616,10 @@
             "expiresAt",
             "resultsByTargetId",
             "answerReviewAuthorized",
+            "status",
             "score",
-            "maxScore"
+            "maxScore",
+            "successStatus"
           ],
           "type": "object"
         },
@@ -1551,7 +1645,7 @@
               "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
             },
             "maxScore": {
-              "minimum": 0,
+              "exclusiveMinimum": 0,
               "type": "number"
             },
             "resultsByTargetId": {
@@ -1565,16 +1659,19 @@
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/startedAt"
             },
             "status": {
-              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/status"
+              "const": "completed",
+              "type": "string"
             },
             "submittedTargetIds": {
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/submittedTargetIds"
+            },
+            "successStatus": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/1/properties/successStatus"
             }
           },
           "required": [
             "attemptId",
             "groupId",
-            "status",
             "currentTargetId",
             "submittedTargetIds",
             "startedAt",
@@ -1582,8 +1679,73 @@
             "expiresAt",
             "resultsByTargetId",
             "answerReviewAuthorized",
+            "status",
             "score",
-            "maxScore"
+            "maxScore",
+            "successStatus"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "answerReviewAuthorized": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/answerReviewAuthorized"
+            },
+            "attemptId": {
+              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            },
+            "currentTargetId": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/currentTargetId"
+            },
+            "expiresAt": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/expiresAt"
+            },
+            "finishedAt": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/finishedAt"
+            },
+            "groupId": {
+              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            },
+            "maxScore": {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            "resultsByTargetId": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/resultsByTargetId"
+            },
+            "score": {
+              "minimum": 0,
+              "type": "number"
+            },
+            "startedAt": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/startedAt"
+            },
+            "status": {
+              "const": "expired",
+              "type": "string"
+            },
+            "submittedTargetIds": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/submittedTargetIds"
+            },
+            "successStatus": {
+              "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/1/properties/successStatus"
+            }
+          },
+          "required": [
+            "attemptId",
+            "groupId",
+            "currentTargetId",
+            "submittedTargetIds",
+            "startedAt",
+            "finishedAt",
+            "expiresAt",
+            "resultsByTargetId",
+            "answerReviewAuthorized",
+            "status",
+            "score",
+            "maxScore",
+            "successStatus"
           ],
           "type": "object"
         }

@@ -125,6 +125,7 @@ function projectCategoriseParts(node: JSONContent): {
 } {
   const content = childByType(node, "categorise_content");
   const binsGroup = content ? childByType(content, "categorise_bins_group") : null;
+  const learnerItemsGroup = content ? childByType(content, "categorise_items_group") : null;
   const categories: Array<{ id: string; label?: string }> = [];
   const items: Array<{ id: string; label?: string }> = [];
   const correctPlacements: Array<{ itemId: string; categoryId: string }> = [];
@@ -133,7 +134,7 @@ function projectCategoriseParts(node: JSONContent): {
     const id = readStringAttr(category, "id");
     if (!id) continue;
     const title = childByType(category, "categorise_bin_title");
-    const label = title ? textBetween(title).trim() : "";
+    const label = textBetween(title ?? category).trim();
     categories.push({ id, ...(label ? { label } : {}) });
     const itemsGroup = childByType(category, "categorise_items_group");
     for (const item of itemsGroup ? childrenOfType(itemsGroup, "categorise_item") : []) {
@@ -144,6 +145,16 @@ function projectCategoriseParts(node: JSONContent): {
       items.push({ id: itemId, ...(itemLabel ? { label: itemLabel } : {}) });
       correctPlacements.push({ itemId, categoryId: id });
     }
+  }
+
+  for (const item of learnerItemsGroup
+    ? childrenOfType(learnerItemsGroup, "categorise_item")
+    : []) {
+    const itemId = readStringAttr(item, "id");
+    if (!itemId) continue;
+    const labelNode = childByType(item, "categorise_item_body");
+    const itemLabel = textBetween(labelNode ?? item).trim();
+    items.push({ id: itemId, ...(itemLabel ? { label: itemLabel } : {}) });
   }
 
   return { categories, items, correctPlacements };

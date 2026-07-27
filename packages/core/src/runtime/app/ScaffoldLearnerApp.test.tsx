@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import type { ScaffoldLearnerBootstrap, ScaffoldLearnerHostServices } from "@/host/contracts";
+import type { XapiPort } from "@/host/ports";
 
 import { ScaffoldLearnerApp } from "./ScaffoldLearnerApp";
 
@@ -217,6 +218,7 @@ describe("ScaffoldLearnerApp", () => {
 
   it("passes learner host services through the runtime provider", async () => {
     const load = vi.fn(async () => null);
+    const send = vi.fn<XapiPort["send"]>(async () => undefined);
     const services = {
       learnerActivity: {
         load,
@@ -224,6 +226,10 @@ describe("ScaffoldLearnerApp", () => {
           ...record,
           updatedAt: "2026-07-17T08:00:00Z",
         })),
+      },
+      xapi: {
+        activityId: "https://learning.example.test/courses/artifact-services",
+        send,
       },
     } satisfies ScaffoldLearnerHostServices;
 
@@ -239,6 +245,17 @@ describe("ScaffoldLearnerApp", () => {
         artifactId: "artifact-services",
       }),
     );
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+    expect(send.mock.calls[0]?.[0]).toMatchObject({
+      verb: { display: { en: "initialized" } },
+      object: {
+        id: services.xapi.activityId,
+        definition: { name: { en: "Learner artifact" } },
+      },
+    });
+    expect(send.mock.calls[1]?.[0]).toMatchObject({
+      verb: { display: { en: "experienced" } },
+    });
   });
 
   it("accepts a strict assessment snapshot while keeping activity state separate", async () => {
@@ -247,7 +264,7 @@ describe("ScaffoldLearnerApp", () => {
         bootstrap={learnerBootstrap({
           initialLearnerState: {
             assessmentSnapshot: {
-              snapshotVersion: 1,
+              snapshotVersion: 2,
               artifactId: "artifact-learner",
               problems: {
                 "target-mcq-1": {
@@ -294,7 +311,7 @@ describe("ScaffoldLearnerApp", () => {
     Object.defineProperty(bootstrap, "initialLearnerState", {
       value: {
         assessmentSnapshot: {
-          snapshotVersion: 2,
+          snapshotVersion: 3,
           artifactId: "artifact-learner",
           problems: {},
           quizzes: {},

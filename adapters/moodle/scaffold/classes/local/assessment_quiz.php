@@ -97,6 +97,7 @@ class assessment_quiz {
             'maxScore' => null,
             'resultsByTargetId' => (object) [],
             'answerReviewAuthorized' => false,
+            'successStatus' => null,
         ];
         $snapshot->quizzes->{$groupid} = $attempt;
         return self::public_attempt($attempt, $group);
@@ -509,6 +510,10 @@ class assessment_quiz {
         $attempt->score = $score;
         $attempt->maxScore = (float) count($group['targetIds']);
         $attempt->answerReviewAuthorized = self::review_is_authorized($group);
+        $passingscore = $group['settings']['passingScore'] ?? null;
+        $attempt->successStatus = $passingscore === null
+            ? null
+            : ($score / $attempt->maxScore >= (float) $passingscore ? 'passed' : 'failed');
     }
 
     /**

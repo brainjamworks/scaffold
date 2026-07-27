@@ -14,6 +14,8 @@ import type {
   AssessmentExperienceDefinition,
 } from "../../editor/blocks/block-definition";
 import type { AssessmentPort } from "../../host/ports/assessment";
+import type { XapiActivityDefinition } from "../../host/ports/xapi";
+import type { XapiSessionAccessor } from "../xapi";
 
 export type AssessmentProblemId = `artifact:${string}/block:${string}`;
 export type AssessmentGroupId = `artifact:${string}/group:${string}`;
@@ -60,6 +62,7 @@ export interface AssessmentRegistrationConfig {
   readonly experience: AssessmentExperienceDefinition;
   readonly settings: AssessmentTargetSettings;
   readonly hintsTotal: number;
+  readonly getXapiActivityDefinition?: () => XapiActivityDefinition;
 }
 
 export interface AssessmentRegistrationIdentity {
@@ -92,6 +95,7 @@ export interface AssessmentQuizRegistrationInput extends AssessmentQuizRegistrat
 
 export interface AssessmentQuizRegistration {
   readonly groupId: AssessmentGroupId;
+  readonly authoredGroupId: string;
   readonly targetIds: readonly string[];
   readonly settings: QuizAssessmentSettings;
 }
@@ -99,6 +103,7 @@ export interface AssessmentQuizRegistration {
 export interface CreateAssessmentStoreOptions {
   readonly artifactId: string;
   readonly assessmentPort: AssessmentPort | null;
+  readonly getXapiSession?: XapiSessionAccessor;
 }
 
 export interface AssessmentStore {

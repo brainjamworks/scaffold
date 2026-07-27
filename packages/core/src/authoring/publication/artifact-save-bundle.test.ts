@@ -76,7 +76,7 @@ describe("artifact save bundle publication", () => {
       },
       assessmentTargets: [
         {
-          schemaVersion: 1,
+          schemaVersion: 2,
           targetId: "assessment-1",
           blockType: "mcq",
           blockId: "assessment-1",
@@ -132,7 +132,7 @@ describe("artifact save bundle publication", () => {
 
     expect(bundle.assessmentGroups).toEqual([
       {
-        schemaVersion: 1,
+        schemaVersion: 2,
         kind: "quiz",
         groupId: "quiz-1",
         targetIds: ["quiz-target-1"],
@@ -142,6 +142,7 @@ describe("artifact save bundle publication", () => {
           reviewDetail: "full_review",
           reviewTiming: "after_each_answer",
           isGraded: true,
+          passingScore: null,
           timer: { enabled: false, durationSeconds: 0 },
         },
       },

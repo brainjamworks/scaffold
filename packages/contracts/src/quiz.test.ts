@@ -26,6 +26,7 @@ describe("quiz authored settings contract", () => {
       reviewDetail: "result_only",
       attemptsPerQuestion: 1,
       isGraded: true,
+      passingScore: null,
       timer: { enabled: false, durationSeconds: 0 },
     });
   });
@@ -37,6 +38,7 @@ describe("quiz authored settings contract", () => {
       reviewDetail: "full_review",
       attemptsPerQuestion: 3,
       isGraded: false,
+      passingScore: 0.8,
       timer: { enabled: true, durationSeconds: 900 },
     };
 
@@ -64,5 +66,14 @@ describe("quiz authored settings contract", () => {
       QuizSettingsSchema.safeParse({ timer: { enabled: true, durationSeconds: -1 } }).success,
     ).toBe(false);
     expect(QuizSettingsSchema.safeParse({ timer: { enabled: true } }).success).toBe(false);
+  });
+
+  it("requires an authored passing score to be finite and normalized", () => {
+    expect(QuizSettingsSchema.parse({ passingScore: 0 })).toMatchObject({ passingScore: 0 });
+    expect(QuizSettingsSchema.parse({ passingScore: 1 })).toMatchObject({ passingScore: 1 });
+
+    for (const passingScore of [-0.01, 1.01, Number.NaN, Infinity]) {
+      expect(QuizSettingsSchema.safeParse({ passingScore }).success).toBe(false);
+    }
   });
 });

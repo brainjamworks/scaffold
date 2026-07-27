@@ -634,7 +634,7 @@ final class assessment_service_test extends \advanced_testcase {
         string $targetid = 'question-1',
     ): array {
         return [
-            'schemaVersion' => 1,
+            'schemaVersion' => 2,
             'targetId' => $targetid,
             'blockId' => $targetid,
             'blockType' => 'mcq',
@@ -666,7 +666,7 @@ final class assessment_service_test extends \advanced_testcase {
      */
     private static function quiz_group(string $reviewtiming, bool $isgraded): array {
         return [
-            'schemaVersion' => 1,
+            'schemaVersion' => 2,
             'kind' => 'quiz',
             'groupId' => 'quiz-1',
             'targetIds' => ['question-1', 'question-2'],
@@ -676,6 +676,7 @@ final class assessment_service_test extends \advanced_testcase {
                 'reviewDetail' => 'full_review',
                 'attemptsPerQuestion' => 2,
                 'isGraded' => $isgraded,
+                'passingScore' => null,
                 'timer' => ['enabled' => false, 'durationSeconds' => 0],
             ],
         ];

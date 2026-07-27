@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Editor, Node, type Extensions, type JSONContent } from "@tiptap/core";
 import {
@@ -335,19 +335,13 @@ describe("dialog-hosted nested editor", () => {
     const settingsSheet = await screen.findByRole("dialog", { name: "Callout settings" });
     expect(portalHost.contains(settingsSheet)).toBe(true);
     const variantSelect = within(settingsSheet).getByRole("combobox", { name: "Variant" });
-    await userEvent.click(variantSelect);
-    const variantListbox = await screen.findByRole("listbox");
-    expect(portalHost.contains(variantListbox)).toBe(true);
-
-    await userEvent.keyboard("{Escape}");
-    await waitFor(() => expect(screen.queryByRole("listbox")).toBeNull());
+    expect(portalHost.contains(variantSelect)).toBe(true);
     expect(screen.getByRole("dialog", { name: "Callout settings" })).toBe(settingsSheet);
     expect(screen.getByRole("dialog", { name: "Nested content" })).toBeInTheDocument();
-    expect(document.activeElement).toBe(variantSelect);
 
-    await userEvent.click(variantSelect);
-    await userEvent.click(await screen.findByRole("option", { name: "Warning" }));
-    await userEvent.click(within(settingsSheet).getByRole("button", { name: "Save" }));
+    fireEvent.change(variantSelect, { target: { value: "warning" } });
+    expect(variantSelect).toHaveValue("warning");
+    fireEvent.click(within(settingsSheet).getByRole("button", { name: "Save" }));
     await waitFor(() =>
       expect(screen.queryByRole("dialog", { name: "Callout settings" })).toBeNull(),
     );

@@ -906,6 +906,16 @@ describe("composite categorise node", () => {
         { id: "salmon", label: "Salmon" },
       ],
     });
+    expect(projectCategoriseInteraction(learner)).toMatchObject({
+      categories: [
+        { id: "birds", label: "Birds" },
+        { id: "fish", label: "Fish" },
+      ],
+      items: [
+        { id: "eagle", label: "Eagle" },
+        { id: "salmon", label: "Salmon" },
+      ],
+    });
     expect(projectCategoriseAssessment(categorise)).toMatchObject({
       correctPlacements: [
         { itemId: "eagle", categoryId: "birds" },

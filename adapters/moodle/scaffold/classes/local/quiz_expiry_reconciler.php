@@ -111,7 +111,7 @@ final class quiz_expiry_reconciler {
                 false,
                 false,
                 (object) [
-                    'snapshotVersion' => 1,
+                    'snapshotVersion' => 2,
                     'artifactId' => $artifactid,
                     'problems' => (object) [],
                     'quizzes' => (object) [],

@@ -89,6 +89,17 @@ const quizConfiguration = defineConfiguration({
       placement: { sheet: { section: "scoring" } },
     },
     {
+      kind: "number",
+      name: "passingScore",
+      label: "Passing score",
+      description: "Set a normalized score from 0 to 1, or leave empty for no pass criterion.",
+      min: 0,
+      max: 1,
+      step: 0.01,
+      emptyValue: null,
+      placement: { sheet: { section: "scoring" } },
+    },
+    {
       kind: "boolean",
       name: "timer.enabled",
       label: "Time limit",

@@ -26,8 +26,10 @@ import {
   QuizAttemptStateSchema,
   QuizAttemptStatusSchema,
   QuizAttemptsPerQuestionSchema,
+  QuizPassingScoreSchema,
   QuizReviewDetailSchema,
   QuizReviewTimingSchema,
+  QuizSuccessStatusSchema,
   QuizTimerSettingsSchema,
   SequenceResponseSchema,
   SingleSelectResponseSchema,
@@ -92,20 +94,21 @@ describe("assessment learner snapshot contracts", () => {
     expiresAt: null,
     score: null,
     maxScore: null,
+    successStatus: null,
     resultsByTargetId: {},
     answerReviewAuthorized: false,
   };
 
-  it("exports the independent literal v1 snapshot contract and accepts an empty snapshot", () => {
+  it("exports the independent literal v2 snapshot contract and accepts an empty snapshot", () => {
     const snapshot: AssessmentLearnerSnapshot = {
-      snapshotVersion: 1,
+      snapshotVersion: 2,
       artifactId: "artifact-1",
       problems: {},
       quizzes: {},
     };
 
-    expect(SCAFFOLD_ASSESSMENT_CONTRACT_VERSION).toBe(1);
-    expect(SCAFFOLD_ASSESSMENT_SNAPSHOT_VERSION).toBe(1);
+    expect(SCAFFOLD_ASSESSMENT_CONTRACT_VERSION).toBe(2);
+    expect(SCAFFOLD_ASSESSMENT_SNAPSHOT_VERSION).toBe(2);
     expect(AssessmentLearnerSnapshotSchema.parse(snapshot)).toEqual(snapshot);
   });
 
@@ -213,7 +216,7 @@ describe("assessment learner snapshot contracts", () => {
     }
 
     const snapshot: AssessmentLearnerSnapshot = {
-      snapshotVersion: 1,
+      snapshotVersion: 2,
       artifactId: "artifact-1",
       problems: {},
       quizzes: {},
@@ -227,7 +230,7 @@ describe("assessment learner snapshot contracts", () => {
 
   it("rejects blank identities, composite runtime problem keys, and malformed records", () => {
     const snapshot: AssessmentLearnerSnapshot = {
-      snapshotVersion: 1,
+      snapshotVersion: 2,
       artifactId: "artifact-1",
       problems: { "question-1": emptyProblem },
       quizzes: {},
@@ -268,7 +271,7 @@ describe("assessment learner snapshot contracts", () => {
 
   it("uses each quiz record key as canonical group identity without duplicating it", () => {
     const snapshot: AssessmentLearnerSnapshot = {
-      snapshotVersion: 1,
+      snapshotVersion: 2,
       artifactId: "artifact-1",
       problems: {},
       quizzes: { "quiz-1": quizAttemptSnapshot },
@@ -293,7 +296,7 @@ describe("assessment learner snapshot contracts", () => {
   it("represents a not-started quiz by absence rather than a sentinel attempt", () => {
     expect(
       AssessmentLearnerSnapshotSchema.safeParse({
-        snapshotVersion: 1,
+        snapshotVersion: 2,
         artifactId: "artifact-1",
         problems: {},
         quizzes: {},
@@ -301,7 +304,7 @@ describe("assessment learner snapshot contracts", () => {
     ).toBe(true);
     expect(
       AssessmentLearnerSnapshotSchema.safeParse({
-        snapshotVersion: 1,
+        snapshotVersion: 2,
         artifactId: "artifact-1",
         problems: {},
         quizzes: {
@@ -333,7 +336,7 @@ describe("assessment learner snapshot contracts", () => {
     }
 
     const snapshot: AssessmentLearnerSnapshot = {
-      snapshotVersion: 1,
+      snapshotVersion: 2,
       artifactId: "artifact-1",
       problems: {},
       quizzes: {},
@@ -376,7 +379,7 @@ describe("assessment learner snapshot contracts", () => {
     ).toBe(false);
     expect(
       AssessmentLearnerSnapshotSchema.safeParse({
-        snapshotVersion: 1,
+        snapshotVersion: 2,
         artifactId: "artifact-1",
         problems: {},
         quizzes: { "quiz-1": { ...quizAttemptSnapshot, answerReviewAuthorized: "yes" } },
@@ -386,7 +389,7 @@ describe("assessment learner snapshot contracts", () => {
 
   it("rejects unsupported snapshot versions and round-trips canonical values through JSON", () => {
     const snapshot: AssessmentLearnerSnapshot = {
-      snapshotVersion: 1,
+      snapshotVersion: 2,
       artifactId: "artifact-1",
       problems: {
         "question-1": {
@@ -406,7 +409,7 @@ describe("assessment learner snapshot contracts", () => {
       quizzes: { "quiz-1": quizAttemptSnapshot },
     };
 
-    for (const snapshotVersion of [0, 2, 99]) {
+    for (const snapshotVersion of [0, 1, 99]) {
       expect(
         AssessmentLearnerSnapshotSchema.safeParse({ ...snapshot, snapshotVersion }).success,
       ).toBe(false);
@@ -627,9 +630,9 @@ describe("assessment target contracts", () => {
     };
   }
 
-  it("accepts a literal v1 single-select target", () => {
+  it("accepts a literal v2 single-select target", () => {
     const target: AssessmentTargetContract = {
-      schemaVersion: 1,
+      schemaVersion: 2,
       targetId: "question-1",
       blockId: "block-1",
       blockType: "mcq",
@@ -654,7 +657,7 @@ describe("assessment target contracts", () => {
       },
     };
 
-    expect(SCAFFOLD_ASSESSMENT_CONTRACT_VERSION).toBe(1);
+    expect(SCAFFOLD_ASSESSMENT_CONTRACT_VERSION).toBe(2);
     expect(AssessmentTargetContractSchema.parse(target)).toEqual(target);
   });
 
@@ -1096,7 +1099,7 @@ describe("assessment target contracts", () => {
     ).toBe(false);
   });
 
-  it("accepts only literal v1 targets with non-blank identity fields", () => {
+  it("accepts only literal v2 targets with non-blank identity fields", () => {
     const interaction: AssessmentInteractionContract = {
       kind: "single-select",
       options: [{ id: "option-a" }],
@@ -1111,7 +1114,7 @@ describe("assessment target contracts", () => {
     expect(AssessmentTargetContractSchema.safeParse({ ...target, schemaVersion: 0 }).success).toBe(
       false,
     );
-    expect(AssessmentTargetContractSchema.safeParse({ ...target, schemaVersion: 2 }).success).toBe(
+    expect(AssessmentTargetContractSchema.safeParse({ ...target, schemaVersion: 1 }).success).toBe(
       false,
     );
     expect(AssessmentTargetContractSchema.safeParse({ ...target, schemaVersion: 99 }).success).toBe(
@@ -1381,17 +1384,18 @@ describe("assessment group contracts", () => {
     reviewDetail: "result_only",
     attemptsPerQuestion: 1,
     isGraded: true,
+    passingScore: null,
     timer,
   };
   const group: AssessmentGroupContract = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     kind: "quiz",
     groupId: "quiz-1",
     targetIds: ["question-1", "question-2"],
     settings,
   };
 
-  it("accepts complete current Quiz settings in an ordered v1 group", () => {
+  it("accepts complete current Quiz settings in an ordered v2 group", () => {
     expect(QuizTimerSettingsSchema.parse(timer)).toEqual(timer);
     expect(QuizAssessmentSettingsSchema.parse(settings)).toEqual(settings);
     expect(AssessmentGroupContractSchema.parse(group)).toEqual(group);
@@ -1399,6 +1403,20 @@ describe("assessment group contracts", () => {
       "question-1",
       "question-2",
     ]);
+  });
+
+  it("requires the current Quiz passing score field", () => {
+    expect(QuizPassingScoreSchema.parse(0.8)).toBe(0.8);
+    expect(QuizSuccessStatusSchema.parse(null)).toBeNull();
+    expect(
+      AssessmentGroupContractSchema.parse({
+        ...group,
+        settings: { ...group.settings, passingScore: 0.8 },
+      }),
+    ).toMatchObject({
+      schemaVersion: 2,
+      settings: { passingScore: 0.8 },
+    });
   });
 
   it("accepts every Quiz review and attempts choice", () => {
@@ -1418,7 +1436,7 @@ describe("assessment group contracts", () => {
   });
 
   it("rejects unsupported group contract versions", () => {
-    for (const schemaVersion of [0, 2, 99]) {
+    for (const schemaVersion of [0, 1, 99]) {
       expect(AssessmentGroupContractSchema.safeParse({ ...group, schemaVersion }).success).toBe(
         false,
       );
@@ -1438,6 +1456,7 @@ describe("assessment group contracts", () => {
       "reviewDetail",
       "attemptsPerQuestion",
       "isGraded",
+      "passingScore",
       "timer",
     ]) {
       const incompleteGroup = structuredClone(group);
@@ -1515,6 +1534,7 @@ describe("assessment group contracts", () => {
         reviewDetail: "full_review",
         attemptsPerQuestion: 3,
         isGraded: false,
+        passingScore: 0.8,
         timer: { enabled: false, durationSeconds: 900 },
       },
     };
@@ -1957,6 +1977,16 @@ describe("quiz attempt state contracts", () => {
     items: {},
   };
 
+  it("requires success status in every current attempt", () => {
+    expect(QuizAttemptStateSchema.parse(inProgressAttempt)).toEqual(inProgressAttempt);
+    expect(QuizSuccessStatusSchema.parse("passed")).toBe("passed");
+    expect(QuizSuccessStatusSchema.parse("failed")).toBe("failed");
+
+    const missingSuccessStatus = structuredClone(inProgressAttempt);
+    Reflect.deleteProperty(missingSuccessStatus, "successStatus");
+    expect(QuizAttemptStateSchema.safeParse(missingSuccessStatus).success).toBe(false);
+  });
+
   const inProgressAttempt: QuizAttemptState = {
     attemptId: "attempt-1",
     groupId: "quiz-1",
@@ -1968,6 +1998,7 @@ describe("quiz attempt state contracts", () => {
     expiresAt: null,
     score: null,
     maxScore: null,
+    successStatus: null,
     resultsByTargetId: {},
     answerReviewAuthorized: false,
   };
@@ -1980,6 +2011,7 @@ describe("quiz attempt state contracts", () => {
     finishedAt: "2026-07-15T12:05:00Z",
     score: 1,
     maxScore: 1,
+    successStatus: "passed",
     resultsByTargetId: { "question-1": result },
     answerReviewAuthorized: true,
   };
@@ -2011,6 +2043,29 @@ describe("quiz attempt state contracts", () => {
       score: 0,
       maxScore: 1,
     });
+  });
+
+  it("enforces lifecycle-specific score and success shapes", () => {
+    for (const successStatus of ["passed", "failed"]) {
+      expect(
+        QuizAttemptStateSchema.safeParse({ ...inProgressAttempt, successStatus }).success,
+      ).toBe(false);
+    }
+    expect(
+      QuizAttemptStateSchema.safeParse({
+        ...inProgressAttempt,
+        score: 0,
+        maxScore: 1,
+      }).success,
+    ).toBe(false);
+    expect(
+      QuizAttemptStateSchema.safeParse({
+        ...completedAttempt,
+        score: null,
+        maxScore: null,
+        successStatus: null,
+      }).success,
+    ).toBe(false);
   });
 
   it("requires non-blank attempt, group, current, submitted, and result identities", () => {
@@ -2072,12 +2127,12 @@ describe("quiz attempt state contracts", () => {
   it("requires finite nonnegative aggregate score values", () => {
     expect(
       QuizAttemptStateSchema.safeParse({ ...completedAttempt, score: 0, maxScore: 0 }).success,
-    ).toBe(true);
+    ).toBe(false);
 
     for (const score of [-1, Number.NaN, Infinity, Number.NEGATIVE_INFINITY]) {
       expect(QuizAttemptStateSchema.safeParse({ ...completedAttempt, score }).success).toBe(false);
     }
-    for (const maxScore of [-1, Number.NaN, Infinity, Number.NEGATIVE_INFINITY]) {
+    for (const maxScore of [0, -1, Number.NaN, Infinity, Number.NEGATIVE_INFINITY]) {
       expect(QuizAttemptStateSchema.safeParse({ ...completedAttempt, maxScore }).success).toBe(
         false,
       );
@@ -2125,6 +2180,7 @@ describe("quiz attempt state contracts", () => {
       "expiresAt",
       "score",
       "maxScore",
+      "successStatus",
       "resultsByTargetId",
       "answerReviewAuthorized",
     ]) {
