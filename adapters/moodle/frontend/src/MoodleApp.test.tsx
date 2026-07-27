@@ -418,10 +418,10 @@ describe("MoodleApp", () => {
         recordjson: JSON.stringify({
           activityKind: "flashcard",
           data: {
-              currentCardId: null,
-              flipped: { "moodle-flashcard-card": false },
-              mastery: {},
-              total: 1,
+            currentCardId: null,
+            flipped: { "moodle-flashcard-card": false },
+            mastery: {},
+            total: 1,
           },
           completed: false,
         }),

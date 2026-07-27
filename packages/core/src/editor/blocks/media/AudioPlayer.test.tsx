@@ -33,11 +33,7 @@ it("does not report pause, seek, volume, or playback-rate changes as learning ev
   const onStarted = vi.fn();
   const onEnded = vi.fn();
   render(
-    <AudioPlayer
-      src="https://example.com/audio.mp3"
-      onStarted={onStarted}
-      onEnded={onEnded}
-    />,
+    <AudioPlayer src="https://example.com/audio.mp3" onStarted={onStarted} onEnded={onEnded} />,
   );
   const audio = screen.getByLabelText("Audio player").querySelector("audio");
   expect(audio).not.toBeNull();

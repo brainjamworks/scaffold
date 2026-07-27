@@ -17,7 +17,9 @@ export function renderNumberedListAddControl({
       contentEditable={false}
       className={className}
     >
-      <span aria-hidden className="sc-numbered-list__add-marker">+</span>
+      <span aria-hidden className="sc-numbered-list__add-marker">
+        +
+      </span>
       <span>Add item</span>
     </BlockAddGhost>
   );

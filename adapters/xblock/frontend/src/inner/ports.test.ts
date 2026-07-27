@@ -137,9 +137,7 @@ describe("XBlock runtime xAPI port", () => {
       },
     } as XapiStatementTemplate;
 
-    expect(xapi?.activityId).toBe(
-      "https://scaffold.ac/xapi/activities/openedx/usage-v1",
-    );
+    expect(xapi?.activityId).toBe("https://scaffold.ac/xapi/activities/openedx/usage-v1");
     await expect(xapi?.send(statement)).resolves.toBeUndefined();
     expect(bridge.requests).toContainEqual({
       type: "xapi.accept",

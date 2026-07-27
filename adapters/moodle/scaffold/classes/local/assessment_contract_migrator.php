@@ -16,9 +16,6 @@
 
 namespace mod_scaffold\local;
 
-defined('MOODLE_INTERNAL') || die();
-
-
 /**
  * Pure upgrades for portable assessment definitions and learner snapshots.
  *

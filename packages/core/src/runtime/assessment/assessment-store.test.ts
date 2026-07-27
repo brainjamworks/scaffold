@@ -12,10 +12,7 @@ import {
   AssessmentResultSchema,
   QuizAttemptStateSchema,
 } from "@scaffold/contracts";
-import type {
-  AssessmentPort,
-  AssessmentQuizCommandOutcome,
-} from "../../host/ports/assessment";
+import type { AssessmentPort, AssessmentQuizCommandOutcome } from "../../host/ports/assessment";
 import type { XapiActivityDefinition, XapiPort, XapiStatementDraft } from "../../host/ports/xapi";
 import {
   buildAnsweredStatementDraft,

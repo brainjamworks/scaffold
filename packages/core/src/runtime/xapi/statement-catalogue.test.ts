@@ -893,11 +893,7 @@ describe("xAPI Statement catalogue builders", () => {
     ).toMatchObject({
       verb: XAPI_VERBS.experienced,
       object: {
-        id: createLayoutSectionActivityId(
-          ROOT_ACTIVITY_ID,
-          "layout-accordion",
-          "section-two",
-        ),
+        id: createLayoutSectionActivityId(ROOT_ACTIVITY_ID, "layout-accordion", "section-two"),
         definition: {
           type: XAPI_ACTIVITY_TYPES.layoutSection,
           extensions: {

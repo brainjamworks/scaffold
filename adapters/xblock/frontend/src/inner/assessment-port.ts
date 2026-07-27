@@ -7,10 +7,7 @@ import {
   type AssessmentPort,
 } from "@scaffold/core/ports";
 
-import {
-  type BridgeHandlerResponse,
-  unwrapXBlockHandlerResponse,
-} from "./handler-response";
+import { type BridgeHandlerResponse, unwrapXBlockHandlerResponse } from "./handler-response";
 import type { XBlockInnerBridge } from "./xblock-inner-bridge";
 
 export function createXBlockAssessmentPort(bridge: XBlockInnerBridge): AssessmentPort {
@@ -29,10 +26,7 @@ export function createXBlockAssessmentPort(bridge: XBlockInnerBridge): Assessmen
       return AssessmentProblemCommandOutcomeSchema.parse(unwrapXBlockHandlerResponse(response));
     },
     revealAnswer: async (args): Promise<AnswerReveal> => {
-      const response = await bridge.request<BridgeHandlerResponse>(
-        "assessment.revealAnswer",
-        args,
-      );
+      const response = await bridge.request<BridgeHandlerResponse>("assessment.revealAnswer", args);
       return AnswerRevealSchema.parse(unwrapXBlockHandlerResponse(response));
     },
     quiz: {

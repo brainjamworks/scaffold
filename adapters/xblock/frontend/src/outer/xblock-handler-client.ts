@@ -119,10 +119,7 @@ async function xblockQuizRequest(
   return restoreScopedQuizOutcome(response, group);
 }
 
-function xblockQuizGroupIdentity(
-  artifactId: string,
-  payload: unknown,
-): XBlockQuizGroupIdentity {
+function xblockQuizGroupIdentity(artifactId: string, payload: unknown): XBlockQuizGroupIdentity {
   if (!isRecord(payload) || typeof payload.groupId !== "string") {
     throw new Error("Open edX Quiz request requires a group id");
   }
@@ -148,10 +145,7 @@ function xblockQuizGroupIdentity(
   return { authored, scoped };
 }
 
-function restoreScopedQuizOutcome(
-  response: unknown,
-  group: XBlockQuizGroupIdentity,
-): unknown {
+function restoreScopedQuizOutcome(response: unknown, group: XBlockQuizGroupIdentity): unknown {
   if (!isRecord(response) || response.success !== true) {
     return response;
   }

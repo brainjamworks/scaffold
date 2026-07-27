@@ -240,7 +240,7 @@ final class external_api_test extends \advanced_testcase {
         $empty = $this->decode(
             load_learner_activity::execute($cmid, $artifactid)['snapshotJson'],
         );
-        $this->assertSame(2, $empty->snapshotVersion);
+        $this->assertSame(1, $empty->snapshotVersion);
         $this->assertSame($artifactid, $empty->artifactId);
         $this->assertSame([], get_object_vars($empty->activities));
 

@@ -109,8 +109,7 @@ function canConsumeVerticalWheel(
   while (element) {
     const style = documentHost.defaultView?.getComputedStyle(element);
     const overflowY = style?.overflowY;
-    const scrollable =
-      overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay";
+    const scrollable = overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay";
 
     if (scrollable && element.scrollHeight > element.clientHeight) {
       const maxScrollTop = element.scrollHeight - element.clientHeight;

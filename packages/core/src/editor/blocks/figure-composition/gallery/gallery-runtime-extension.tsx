@@ -52,12 +52,7 @@ function GalleryRuntimeView(props: NodeViewProps) {
   } | null>(null);
   const recordDisplayedItem = useCallback(
     (itemId: string) => {
-      if (
-        !isPresented ||
-        !xapiSession ||
-        typeof galleryId !== "string" ||
-        !galleryId.trim()
-      ) {
+      if (!isPresented || !xapiSession || typeof galleryId !== "string" || !galleryId.trim()) {
         return;
       }
       const position = resolved.findIndex((item) => item.key === itemId) + 1;

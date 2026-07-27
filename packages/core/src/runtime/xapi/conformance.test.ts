@@ -17,10 +17,7 @@ import {
 } from "@scaffold/core/ports";
 import type { AssessmentPort } from "../../host/ports/assessment";
 import type { LearnerActivityPort } from "../../host/ports/learner-activity";
-import {
-  createAssessmentStore,
-  scopeAssessmentProblemId,
-} from "../assessment/assessment-store";
+import { createAssessmentStore, scopeAssessmentProblemId } from "../assessment/assessment-store";
 import type {
   AssessmentRegistrationIdentity,
   AssessmentRegistrationInput,

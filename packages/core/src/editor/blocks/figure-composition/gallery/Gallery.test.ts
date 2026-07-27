@@ -424,9 +424,7 @@ it("does not record loaded gallery items on a non-presented runtime surface", as
     "another-surface",
   );
 
-  await waitFor(() =>
-    expect(document.querySelector(".sc-gallery__stage-image")).not.toBeNull(),
-  );
+  await waitFor(() => expect(document.querySelector(".sc-gallery__stage-image")).not.toBeNull());
   const hiddenStageImage = document.querySelector<HTMLImageElement>(".sc-gallery__stage-image");
   if (!hiddenStageImage) throw new Error("Expected a hidden-surface gallery stage image.");
   fireEvent.load(hiddenStageImage);
@@ -812,9 +810,7 @@ it("edits the same stable children through generic collection settings", async (
     expect(screen.queryByRole("group", { name: "Image (b)" })).toBeNull();
   });
 
-  fireEvent.click(
-    within(screen.getByRole("dialog")).getByRole("button", { name: "Add image" }),
-  );
+  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Add image" }));
 
   await waitFor(() => {
     const ids = galleryItemIds(editor);

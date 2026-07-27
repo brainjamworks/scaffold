@@ -94,20 +94,17 @@ it("reports activation of a safe runtime resource without changing navigation", 
   const user = userEvent.setup();
   const onOpen = vi.fn();
   render(
-    createElement(
-      ResourceLinkSurface,
-      {
-        data: {
-          type: "resource_link",
-          url: "https://example.com/private?token=SECRET",
-          kind: "article",
-          showDescription: true,
-        },
-        editable: false,
-        onOpen,
-        children: "Resource title",
+    createElement(ResourceLinkSurface, {
+      data: {
+        type: "resource_link",
+        url: "https://example.com/private?token=SECRET",
+        kind: "article",
+        showDescription: true,
       },
-    ),
+      editable: false,
+      onOpen,
+      children: "Resource title",
+    }),
   );
 
   const link = screen.getByRole("link", { name: /Resource title.*Opens in new tab/i });

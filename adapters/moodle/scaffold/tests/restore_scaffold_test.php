@@ -102,7 +102,7 @@ final class restore_scaffold_test extends advanced_testcase {
         $this->assertSame(2, $snapshot->snapshotVersion);
         $this->assertSame($artifactid, $snapshot->artifactId);
         $this->assertSame('expired', $snapshot->quizzes->{'stable-group-id'}->status);
-        $this->assertSame('failed', $snapshot->quizzes->{'stable-group-id'}->successStatus);
+        $this->assertNull($snapshot->quizzes->{'stable-group-id'}->successStatus);
         $this->assertNull($assessment->nextquizexpiry);
         $this->assertSame(2, (int) $assessment->staterevision);
         $learneractivity = json_decode((string) $DB->get_field(

@@ -157,11 +157,7 @@ export function choiceStateForProblem({
     return problem.officialResult.isCorrect ? "correct" : "incorrect";
   }
 
-  if (
-    kind === "multi-select" &&
-    problem.state.submitted &&
-    problem.officialResult?.isCorrect
-  ) {
+  if (kind === "multi-select" && problem.state.submitted && problem.officialResult?.isCorrect) {
     return "correct";
   }
 

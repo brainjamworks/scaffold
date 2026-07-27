@@ -72,7 +72,10 @@ export function CourseDocumentRuntimeRenderer({
       <ScaffoldArtifactIdentityProvider artifactId={artifactId ?? null}>
         <RuntimeSurfaceView settings={surfaceViewSettings}>
           <RuntimeSurfacePresentationProvider surfaceId={presentedSurfaceId}>
-            <EditorContent className="sc-course-document-runtime-renderer__content" editor={editor} />
+            <EditorContent
+              className="sc-course-document-runtime-renderer__content"
+              editor={editor}
+            />
           </RuntimeSurfacePresentationProvider>
         </RuntimeSurfaceView>
       </ScaffoldArtifactIdentityProvider>

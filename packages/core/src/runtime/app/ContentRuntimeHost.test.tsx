@@ -847,11 +847,7 @@ describe("ContentRuntimeHost", () => {
       })),
     ).toStrictEqual([
       {
-        id: createLayoutSectionActivityId(
-          port.activityId,
-          "layout-accordion",
-          "accordion-one",
-        ),
+        id: createLayoutSectionActivityId(port.activityId, "layout-accordion", "accordion-one"),
         extensions: {
           [XAPI_EXTENSIONS.layoutKind]: "accordion",
           [XAPI_EXTENSIONS.layoutSectionPosition]: 1,
@@ -859,11 +855,7 @@ describe("ContentRuntimeHost", () => {
         },
       },
       {
-        id: createLayoutSectionActivityId(
-          port.activityId,
-          "layout-accordion",
-          "accordion-two",
-        ),
+        id: createLayoutSectionActivityId(port.activityId, "layout-accordion", "accordion-two"),
         extensions: {
           [XAPI_EXTENSIONS.layoutKind]: "accordion",
           [XAPI_EXTENSIONS.layoutSectionPosition]: 2,
@@ -871,11 +863,7 @@ describe("ContentRuntimeHost", () => {
         },
       },
       {
-        id: createLayoutSectionActivityId(
-          port.activityId,
-          "layout-accordion",
-          "accordion-one",
-        ),
+        id: createLayoutSectionActivityId(port.activityId, "layout-accordion", "accordion-one"),
         extensions: {
           [XAPI_EXTENSIONS.layoutKind]: "accordion",
           [XAPI_EXTENSIONS.layoutSectionPosition]: 1,

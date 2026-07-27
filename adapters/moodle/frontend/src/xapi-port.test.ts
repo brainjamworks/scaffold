@@ -11,9 +11,9 @@ afterEach(() => {
 
 describe("createMoodleXapiPort", () => {
   it("hands the Core template to the trusted Moodle activity endpoint", async () => {
-    const call = vi.fn(
-      async (_methodName: string, _args: Record<string, unknown>) => ({ success: true }),
-    );
+    const call = vi.fn(async (_methodName: string, _args: Record<string, unknown>) => ({
+      success: true,
+    }));
     window.ScaffoldMoodleAjax = {
       call: async <T>(methodName: string, args: Record<string, unknown>) =>
         (await call(methodName, args)) as T,

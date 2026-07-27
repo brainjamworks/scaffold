@@ -112,13 +112,7 @@ function derivedActivityId(value: string): XapiIri {
 }
 
 function createChildActivityId(
-  kind:
-    | "quiz"
-    | "assessment"
-    | "learner-activity"
-    | "surface"
-    | "resource"
-    | "visual-composition",
+  kind: "quiz" | "assessment" | "learner-activity" | "surface" | "resource" | "visual-composition",
   rootId: XapiIri,
   localId: string,
 ): XapiIri {
@@ -149,10 +143,7 @@ export function createResourceActivityId(rootId: XapiIri, resourceId: string): X
   return createChildActivityId("resource", rootId, requiredIdentity("resourceId", resourceId));
 }
 
-export function createVisualCompositionActivityId(
-  rootId: XapiIri,
-  compositionId: string,
-): XapiIri {
+export function createVisualCompositionActivityId(rootId: XapiIri, compositionId: string): XapiIri {
   return createChildActivityId(
     "visual-composition",
     rootId,
@@ -580,11 +571,7 @@ function visualItemActivity(input: {
   }
   return {
     objectType: "Activity",
-    id: createVisualItemActivityId(
-      input.rootActivityId,
-      input.compositionId,
-      input.itemId,
-    ),
+    id: createVisualItemActivityId(input.rootActivityId, input.compositionId, input.itemId),
     definition: {
       type: XAPI_ACTIVITY_TYPES.visualItem,
       extensions: {
@@ -702,9 +689,7 @@ export function buildVisualItemExperiencedStatementDraft(input: {
   return validatedDraft({
     verb: XAPI_VERBS.experienced,
     object: visualItemActivity(input),
-    context: parentContext(
-      visualCompositionActivity(input.rootActivityId, input.compositionId),
-    ),
+    context: parentContext(visualCompositionActivity(input.rootActivityId, input.compositionId)),
   });
 }
 
@@ -1074,9 +1059,7 @@ function quizStatementParts(input: QuizStatementInput): {
   };
 }
 
-export function buildQuizAttemptedStatementDraft(
-  input: QuizStatementInput,
-): XapiStatementDraft {
+export function buildQuizAttemptedStatementDraft(input: QuizStatementInput): XapiStatementDraft {
   return validatedDraft({
     verb: XAPI_VERBS.attempted,
     ...quizStatementParts(input),

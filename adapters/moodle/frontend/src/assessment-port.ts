@@ -31,9 +31,7 @@ export function createMoodleAssessmentPort(cmid: number): AssessmentPort {
         responsejson: JSON.stringify(args.response),
         expectedattemptnumber: args.expectedAttemptNumber,
       });
-      return AssessmentProblemCommandOutcomeSchema.parse(
-        parseJsonField(response.outcomeJson, {}),
-      );
+      return AssessmentProblemCommandOutcomeSchema.parse(parseJsonField(response.outcomeJson, {}));
     },
     submit: async (args): Promise<AssessmentProblemCommandOutcome> => {
       const response = await moodleCall<AssessmentResponse>("mod_scaffold_submit_assessment", {
@@ -44,9 +42,7 @@ export function createMoodleAssessmentPort(cmid: number): AssessmentPort {
         responsejson: JSON.stringify(args.response),
         expectedattemptnumber: args.expectedAttemptNumber,
       });
-      return AssessmentProblemCommandOutcomeSchema.parse(
-        parseJsonField(response.outcomeJson, {}),
-      );
+      return AssessmentProblemCommandOutcomeSchema.parse(parseJsonField(response.outcomeJson, {}));
     },
     revealHint: async (args): Promise<AssessmentProblemCommandOutcome> => {
       const response = await moodleCall<AssessmentResponse>("mod_scaffold_reveal_hint", {
@@ -56,9 +52,7 @@ export function createMoodleAssessmentPort(cmid: number): AssessmentPort {
         interactionkind: args.interactionKind,
         hintsshown: args.hintsShown,
       });
-      return AssessmentProblemCommandOutcomeSchema.parse(
-        parseJsonField(response.outcomeJson, {}),
-      );
+      return AssessmentProblemCommandOutcomeSchema.parse(parseJsonField(response.outcomeJson, {}));
     },
     revealAnswer: async (args): Promise<AnswerReveal> => {
       const response = await moodleCall<AssessmentResponse>("mod_scaffold_reveal_answer", {
@@ -72,46 +66,41 @@ export function createMoodleAssessmentPort(cmid: number): AssessmentPort {
     quiz: {
       startAttempt: async (args) => {
         const group = moodleQuizGroupIdentity(cmid, args.groupId);
-        const response = await moodleCall<AssessmentResponse>(
-          "mod_scaffold_start_quiz_attempt",
-          { cmid, groupid: group.authored },
-        );
+        const response = await moodleCall<AssessmentResponse>("mod_scaffold_start_quiz_attempt", {
+          cmid,
+          groupid: group.authored,
+        });
         return restoreScopedQuizOutcome(response, group);
       },
       submitQuestion: async (args): Promise<AssessmentQuizCommandOutcome> => {
         const group = moodleQuizGroupIdentity(cmid, args.groupId);
-        const response = await moodleCall<AssessmentResponse>(
-          "mod_scaffold_submit_quiz_question",
-          {
-            cmid,
-            attemptid: args.attemptId,
-            groupid: group.authored,
-            targetid: args.targetId,
-            responsejson: JSON.stringify(args.response),
-            expectedattemptnumber: args.expectedAttemptNumber,
-          },
-        );
+        const response = await moodleCall<AssessmentResponse>("mod_scaffold_submit_quiz_question", {
+          cmid,
+          attemptid: args.attemptId,
+          groupid: group.authored,
+          targetid: args.targetId,
+          responsejson: JSON.stringify(args.response),
+          expectedattemptnumber: args.expectedAttemptNumber,
+        });
         return restoreScopedQuizOutcome(response, group);
       },
       finishAttempt: async (args) => {
         const group = moodleQuizGroupIdentity(cmid, args.groupId);
-        const response = await moodleCall<AssessmentResponse>(
-          "mod_scaffold_finish_quiz_attempt",
-          {
-            cmid,
-            attemptid: args.attemptId,
-            groupid: group.authored,
-            responsesjson: JSON.stringify(args.responsesByTargetId),
-          },
-        );
+        const response = await moodleCall<AssessmentResponse>("mod_scaffold_finish_quiz_attempt", {
+          cmid,
+          attemptid: args.attemptId,
+          groupid: group.authored,
+          responsesjson: JSON.stringify(args.responsesByTargetId),
+        });
         return restoreScopedQuizOutcome(response, group);
       },
       revealAnswers: async (args) => {
         const group = moodleQuizGroupIdentity(cmid, args.groupId);
-        const response = await moodleCall<AssessmentResponse>(
-          "mod_scaffold_reveal_quiz_answers",
-          { cmid, attemptid: args.attemptId, groupid: group.authored },
-        );
+        const response = await moodleCall<AssessmentResponse>("mod_scaffold_reveal_quiz_answers", {
+          cmid,
+          attemptid: args.attemptId,
+          groupid: group.authored,
+        });
         return restoreScopedQuizOutcome(response, group);
       },
     },

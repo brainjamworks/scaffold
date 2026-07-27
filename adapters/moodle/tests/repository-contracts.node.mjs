@@ -84,9 +84,7 @@ test("runs the packaged plugin through Moodle's developer-debug Behat smoke gate
 
 test("routes Core xAPI templates through Moodle core_xapi without adding an LRS", async () => {
   const services = await readAdapterFile("scaffold/db/services.php");
-  const endpoint = await readAdapterFile(
-    "scaffold/classes/external/accept_xapi_statement.php",
-  );
+  const endpoint = await readAdapterFile("scaffold/classes/external/accept_xapi_statement.php");
   const handler = await readAdapterFile("scaffold/classes/xapi/handler.php");
   const event = await readAdapterFile("scaffold/classes/event/statement_received.php");
 

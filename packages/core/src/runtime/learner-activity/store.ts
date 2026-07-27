@@ -87,10 +87,7 @@ function jsonRecord(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
-function nestedRecord(
-  data: LearnerActivityData,
-  key: string,
-): Record<string, unknown> | null {
+function nestedRecord(data: LearnerActivityData, key: string): Record<string, unknown> | null {
   return jsonRecord(data[key]);
 }
 

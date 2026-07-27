@@ -4,15 +4,7 @@ import {
   useEditorState,
   type NodeViewProps,
 } from "@tiptap/react";
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-  type ReactElement,
-} from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactElement } from "react";
 
 import { MediaExpandButton } from "@/editor/media/presentation/MediaExpandButton";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
@@ -261,14 +253,7 @@ export function AnnotatedFigureCanvasRuntimeView(props: NodeViewProps) {
         ),
       },
     ];
-  }, [
-    annotations,
-    data,
-    ownerId,
-    recordAnnotationOpened,
-    source.errorMessage,
-    source.resolvedUrl,
-  ]);
+  }, [annotations, data, ownerId, recordAnnotationOpened, source.errorMessage, source.resolvedUrl]);
 
   return (
     <NodeViewWrapper

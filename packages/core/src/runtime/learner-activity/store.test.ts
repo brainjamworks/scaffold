@@ -651,10 +651,7 @@ describe("createLearnerActivityStore", () => {
     const store = createLearnerActivityStore({
       artifactId: "course-1",
       learnerActivityPort: createPort(async () =>
-        hostRecord(
-          { checked: { "item-one": false } },
-          { updatedAt: "2026-07-25T11:00:00Z" },
-        ),
+        hostRecord({ checked: { "item-one": false } }, { updatedAt: "2026-07-25T11:00:00Z" }),
       ),
       getXapiSession: () => session,
     });

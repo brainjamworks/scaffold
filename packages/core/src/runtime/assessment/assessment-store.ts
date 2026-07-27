@@ -366,10 +366,7 @@ export function createAssessmentStore({
     ): void => {
       const previousAttempt = previousDurable.quizzes[registration.groupId];
       if (operation === "quiz-start") {
-        if (
-          attempt.status !== "in_progress" ||
-          previousAttempt?.attemptId === attempt.attemptId
-        ) {
+        if (attempt.status !== "in_progress" || previousAttempt?.attemptId === attempt.attemptId) {
           return;
         }
         try {
