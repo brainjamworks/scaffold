@@ -18,7 +18,7 @@ export function mountMoodle(element: Element, config: MoodleApplicationConfig): 
   }
 
   root.render(
-    <ScaffoldServicesProvider ports={createMoodleRuntimePorts(config.cmid)}>
+    <ScaffoldServicesProvider ports={createMoodleRuntimePorts(config.cmid, config.wwwroot)}>
       <MoodleApp config={config} />
     </ScaffoldServicesProvider>,
   );

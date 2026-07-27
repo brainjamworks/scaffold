@@ -39,6 +39,7 @@ const browserUsedMethods = [
       "frontend/src/authoring-ports.ts",
       "frontend/src/ports.ts",
       "frontend/src/learner-activity-port.ts",
+      "frontend/src/xapi-port.ts",
     ].flatMap((path) =>
       [...readAdapterFile(path).matchAll(/mod_scaffold_[a-z_]+/g)].map(
         ([methodName]) => methodName,

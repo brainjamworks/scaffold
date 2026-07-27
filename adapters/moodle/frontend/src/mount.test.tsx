@@ -78,7 +78,10 @@ describe("mountMoodle learner runtime ownership", () => {
     });
 
     expect(mocks.createMoodleRuntimePorts).toHaveBeenCalledOnce();
-    expect(mocks.createMoodleRuntimePorts).toHaveBeenCalledWith(42);
+    expect(mocks.createMoodleRuntimePorts).toHaveBeenCalledWith(
+      42,
+      "https://moodle.example",
+    );
     const mountedTree = mocks.rootRender.mock.calls[0]?.[0] as ReactElement;
     render(mountedTree);
 

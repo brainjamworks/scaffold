@@ -19,6 +19,7 @@ export const MOODLE_AJAX_METHODS = [
   "mod_scaffold_upload_media",
   "mod_scaffold_resolve_media",
   "mod_scaffold_list_media",
+  "mod_scaffold_accept_xapi_statement",
 ] as const;
 
 export type MoodleAjaxMethod = (typeof MOODLE_AJAX_METHODS)[number];

@@ -16,6 +16,7 @@
 
 namespace mod_scaffold;
 
+use mod_scaffold\external\accept_xapi_statement;
 use mod_scaffold\external\finish_quiz_attempt;
 use mod_scaffold\external\get_payload;
 use mod_scaffold\external\load_learner_activity;
@@ -72,6 +73,11 @@ final class external_api_test extends \advanced_testcase {
     public static function external_declaration_provider(): array {
         $quizreturns = ['success', 'outcomeJson', 'gradePublicationJson'];
         return [
+            'accept xAPI statement' => [
+                accept_xapi_statement::class,
+                ['cmid', 'statementjson'],
+                ['success'],
+            ],
             'start quiz' => [
                 start_quiz_attempt::class,
                 ['cmid', 'groupid'],

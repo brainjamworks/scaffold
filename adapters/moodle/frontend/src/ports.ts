@@ -10,6 +10,7 @@ import {
 
 import { moodleCall, parseJsonField, type MoodleAjaxResponse } from "./api";
 import { createMoodleLearnerActivityPort } from "./learner-activity-port";
+import { createMoodleXapiPort } from "./xapi-port";
 
 interface JsonResponse extends MoodleAjaxResponse {
   outcomeJson?: unknown;
@@ -24,9 +25,10 @@ interface MoodleQuizGroupIdentity {
   scoped: string;
 }
 
-export function createMoodleRuntimePorts(cmid: number): ScaffoldRuntimePorts {
+export function createMoodleRuntimePorts(cmid: number, wwwroot?: string): ScaffoldRuntimePorts {
   return {
     learnerActivity: createMoodleLearnerActivityPort(cmid),
+    ...(wwwroot ? { xapi: createMoodleXapiPort(cmid, wwwroot) } : {}),
 
     media: {
       resolve: async (mediaId) => {

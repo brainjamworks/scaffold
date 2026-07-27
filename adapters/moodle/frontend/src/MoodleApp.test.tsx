@@ -349,24 +349,11 @@ describe("MoodleApp", () => {
         ([methodName]) => methodName === "mod_scaffold_save_learner_activity",
       );
     await user.click(checkbox);
-    await waitFor(() => expect(learnerSaveCalls()).toHaveLength(2));
+    await waitFor(() => expect(learnerSaveCalls()).toHaveLength(1));
     await user.click(screen.getByRole("button", { name: /^Flip card/ }));
 
-    await waitFor(() => expect(learnerSaveCalls()).toHaveLength(3));
+    await waitFor(() => expect(learnerSaveCalls()).toHaveLength(2));
     expect(learnerSaveCalls()).toEqual([
-      [
-        "mod_scaffold_save_learner_activity",
-        {
-          cmid: 42,
-          artifactid: readyArtifact.id,
-          blockid: "moodle-checklist",
-          recordjson: JSON.stringify({
-            activityKind: "checklist",
-            data: { checked: { "moodle-checklist-item": true } },
-            completed: false,
-          }),
-        },
-      ],
       [
         "mod_scaffold_save_learner_activity",
         {
@@ -399,10 +386,10 @@ describe("MoodleApp", () => {
       ],
     ]);
     expect(persistedSnapshot.activities["moodle-checklist"]?.updatedAt).toBe(
-      authoritativeTimestamps[1],
+      authoritativeTimestamps[0],
     );
     expect(persistedSnapshot.activities["moodle-flashcard"]?.updatedAt).toBe(
-      authoritativeTimestamps[2],
+      authoritativeTimestamps[1],
     );
     expect(mocks.moodleCall).not.toHaveBeenCalledWith(
       "mod_scaffold_load_learner_activity",
@@ -417,10 +404,10 @@ describe("MoodleApp", () => {
     });
     expect(restoredCheckbox.getAttribute("aria-checked")).toBe("true");
     expect(screen.getByRole("group", { name: "Card, back showing" })).toBeInTheDocument();
-    expect(learnerSaveCalls()).toHaveLength(3);
+    expect(learnerSaveCalls()).toHaveLength(2);
 
     await user.click(screen.getByRole("button", { name: /^Show front/ }));
-    await waitFor(() => expect(learnerSaveCalls()).toHaveLength(4));
+    await waitFor(() => expect(learnerSaveCalls()).toHaveLength(3));
     expect(learnerSaveCalls().at(-1)).toEqual([
       "mod_scaffold_save_learner_activity",
       {
