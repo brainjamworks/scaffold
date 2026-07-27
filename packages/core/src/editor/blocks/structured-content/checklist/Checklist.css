@@ -286,8 +286,6 @@
   padding: 0.35rem 0.25rem;
   border-radius: var(--radius-md);
   font-size: 0.9375rem;
-  border: 1px dashed var(--color-border);
-  background: var(--color-background);
 }
 
 .sc-checklist-item__checkbox--ghost {

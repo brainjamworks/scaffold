@@ -194,19 +194,14 @@
   }
 }
 
-/* The shared item presentation intentionally strips its outer shell.
- * Restore the key/value row shell outside the cascade layer so this
- * block-specific shape wins regardless of stylesheet ordering. */
+/* Mirror the key/value columns without adding a separate button shell.
+ * The dashed treatment belongs to the empty fields, not their container. */
 .sc-ghost-add.sc-key-value-list__add {
   display: grid;
   grid-template-columns: minmax(5rem, auto) 1fr;
   gap: 1rem;
   width: 100%;
   margin-top: 0.75rem;
-  padding: 0.625rem 0.75rem;
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-background);
   font-size: 0.8125rem;
   text-align: left;
 }
