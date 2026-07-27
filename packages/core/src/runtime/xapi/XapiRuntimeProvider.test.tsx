@@ -16,7 +16,10 @@ import {
   type XapiSessionAccessor,
 } from "./index";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 async function flushPromises(): Promise<void> {
   for (let index = 0; index < 8; index += 1) {
@@ -84,6 +87,33 @@ function RuntimeRoot({
 }
 
 describe("XapiRuntimeProvider", () => {
+  it("creates UUIDs from secure random bytes when randomUUID is unavailable", async () => {
+    const getRandomValues = vi.fn(<T extends ArrayBufferView | null>(array: T): T => {
+      if (array instanceof Uint8Array) {
+        array.set([
+          0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd,
+          0xee, 0xff,
+        ]);
+      }
+      return array;
+    });
+    vi.stubGlobal("crypto", { getRandomValues });
+    const port = createPort();
+
+    render(
+      <RuntimeRoot
+        artifactId="course-one"
+        autoStart
+        port={port}
+        onObservation={() => undefined}
+      />,
+    );
+
+    await waitFor(() => expect(port.send).toHaveBeenCalledTimes(1));
+    expect(getRandomValues).toHaveBeenCalledTimes(1);
+    expect(port.send.mock.calls[0]?.[0].id).toBe("00112233-4455-4677-8899-aabbccddeeff");
+  });
+
   it.each([
     { artifactId: null, port: createPort(), label: "unsafe artifact identity" },
     { artifactId: "course-one", port: null, label: "absent port" },
