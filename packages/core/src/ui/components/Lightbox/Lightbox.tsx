@@ -110,17 +110,12 @@ export function Lightbox({
   const activeItem = items[activeIndex];
   const multiple = items.length > 1;
   const captionId = useId();
-  const descriptionId = useId();
   const statusId = useId();
   const fallbackReturnFocusRef = useRef<HTMLElement | null>(null);
   const [childOverlayContainer, setChildOverlayContainer] = useState<HTMLDivElement | null>(null);
   const positionLabel = activeItem
     ? `Image ${activeIndex + 1} of ${items.length}`
     : "No image selected";
-  const describedBy = [descriptionId, activeItem?.caption ? captionId : null]
-    .filter(Boolean)
-    .join(" ");
-
   const goPrev = useCallback(() => {
     if (!multiple) return;
     const nextIndex = (activeIndex - 1 + items.length) % items.length;
@@ -182,7 +177,6 @@ export function Lightbox({
           className="sc-lightbox-content"
           style={{ zIndex: zIndex.modalContent }}
           aria-label={ariaLabel}
-          aria-describedby={describedBy || undefined}
           onKeyDown={handleKeyDown}
           onOpenAutoFocus={(event) => {
             const content = event.currentTarget as HTMLElement | null;
@@ -218,7 +212,7 @@ export function Lightbox({
           tabIndex={-1}
         >
           <DialogPrimitive.Title className="sc-sr-only">{ariaLabel}</DialogPrimitive.Title>
-          <DialogPrimitive.Description id={descriptionId} className="sc-sr-only">
+          <DialogPrimitive.Description className="sc-sr-only">
             {positionLabel}
           </DialogPrimitive.Description>
 

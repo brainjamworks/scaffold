@@ -39,6 +39,26 @@ afterEach(() => {
 });
 
 describe("Lightbox", () => {
+  it("satisfies the Radix dialog description contract", async () => {
+    const warnings: unknown[][] = [];
+    const warning = vi.spyOn(console, "warn").mockImplementation((...arguments_) => {
+      warnings.push(arguments_);
+    });
+
+    try {
+      render(<ControlledLightbox />);
+      await userEvent.click(screen.getByRole("button", { name: "Open lightbox" }));
+      await screen.findByRole("dialog", { name: "Gallery viewer" });
+      await new Promise((resolve) => setTimeout(resolve));
+    } finally {
+      warning.mockRestore();
+    }
+
+    expect(warnings.flat()).not.toContainEqual(
+      expect.stringContaining("Missing `Description` or `aria-describedby={undefined}`"),
+    );
+  });
+
   it("closes on Escape and restores focus to the opener by default", async () => {
     render(<ControlledLightbox />);
 
@@ -134,7 +154,12 @@ describe("Lightbox", () => {
     expect(screen.getByRole("button", { name: "Previous image" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next image" })).toBeInTheDocument();
     expect(screen.getByRole("status", { name: "Image 1 of 3" })).toBeInTheDocument();
-    expect(dialog.getAttribute("aria-describedby")).toContain(caption.id);
+    const descriptionId = dialog.getAttribute("aria-describedby");
+    expect(descriptionId).toMatch(/\S/);
+    expect(document.getElementById(descriptionId ?? "")).toHaveTextContent("Image 1 of 3");
+    expect(within(dialog).getByRole("figure").getAttribute("aria-describedby")).toContain(
+      caption.id,
+    );
 
     await userEvent.keyboard("{ArrowRight}");
 
@@ -205,7 +230,9 @@ describe("Lightbox", () => {
     const caption = within(dialog).getByText("Formatted").parentElement;
 
     expect(caption?.tagName).toBe("FIGCAPTION");
-    expect(dialog.getAttribute("aria-describedby")).toContain(caption?.id);
+    expect(within(dialog).getByRole("figure").getAttribute("aria-describedby")).toContain(
+      caption?.id,
+    );
   });
 
   it("waits instead of falling back to the body while a scope is pending", () => {
