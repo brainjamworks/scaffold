@@ -153,7 +153,7 @@ describe("flashcard runtime controller", () => {
         blockId: "flashcard-one",
         record: {
           activityKind: "flashcard",
-          data: { currentCardId: null, flipped: {}, mastery: {} },
+          data: { currentCardId: null, flipped: {}, mastery: {}, total: 2 },
           completed: false,
         },
       }),
@@ -182,7 +182,7 @@ describe("flashcard runtime controller", () => {
       blockId: "flashcard-one",
       record: {
         activityKind: "flashcard",
-        data: { currentCardId: "card-b", flipped: { "card-b": true }, mastery: {} },
+        data: { currentCardId: "card-b", flipped: { "card-b": true }, mastery: {}, total: 2 },
         completed: false,
       },
     });
@@ -224,6 +224,7 @@ describe("flashcard runtime controller", () => {
             currentCardId: "card-b",
             flipped: {},
             mastery: { "card-a": "gotIt", "card-b": "gotIt" },
+            total: 2,
           },
           completed: true,
         },
@@ -246,7 +247,7 @@ describe("flashcard runtime controller", () => {
         blockId: "flashcard-one",
         record: {
           activityKind: "flashcard",
-          data: { currentCardId: null, flipped: {}, mastery: {} },
+          data: { currentCardId: null, flipped: {}, mastery: {}, total: 2 },
           completed: false,
         },
       }),
@@ -286,6 +287,7 @@ describe("flashcard runtime controller", () => {
             currentCardId: "card-a",
             flipped: { "card-b": false },
             mastery: { "card-b": "gotIt" },
+            total: 2,
           },
           completed: false,
         },

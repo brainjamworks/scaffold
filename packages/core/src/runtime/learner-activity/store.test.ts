@@ -560,6 +560,7 @@ describe("createLearnerActivityStore", () => {
     store.getState().updateActivity("block-1", {
       data: {
         checked: { "item-one": true },
+        total: 1,
         privateLearnerState: "PRIVATE_LEARNER_STATE",
       },
       completed: true,
@@ -578,6 +579,7 @@ describe("createLearnerActivityStore", () => {
       hostRecord(
         {
           checked: { "item-one": true },
+          total: 1,
           privateLearnerState: "PRIVATE_LEARNER_STATE",
         },
         { completed: true, updatedAt: "2026-07-25T11:00:00Z" },
@@ -605,6 +607,43 @@ describe("createLearnerActivityStore", () => {
       result: { completion: true },
     });
     expect(JSON.stringify(record.mock.calls)).not.toContain("PRIVATE_LEARNER_STATE");
+  });
+
+  it("falls back to generic interacted when checklist event details contradict an accepted save", async () => {
+    const { session, record } = createSessionDouble();
+    const store = createLearnerActivityStore({
+      artifactId: "course-1",
+      learnerActivityPort: createPort(async ({ record: saved }) =>
+        hostRecord(saved.data, {
+          completed: saved.completed,
+          updatedAt: "2026-07-25T11:00:00Z",
+        }),
+      ),
+      getXapiSession: () => session,
+    });
+    hydrateBlock(store, hostRecord({ checked: {}, total: 2 }));
+
+    store.getState().updateActivity("block-1", {
+      data: { checked: { "item-one": true }, total: 2 },
+      completed: false,
+      xapiEvent: {
+        kind: "checklist-item-toggled",
+        itemId: "item-two",
+        checked: true,
+        completedCount: 2,
+        total: 2,
+      },
+    });
+    await vi.waitFor(() => expect(store.getState().saves["block-1"]?.status).toBe("idle"));
+
+    expect(record).toHaveBeenCalledTimes(1);
+    expect(record).toHaveBeenCalledWith(
+      buildLearnerActivityInteractedStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        blockId: "block-1",
+        activityKind: "checklist",
+      }),
+    );
   });
 
   it("falls back to generic interacted when the host changes a checklist update", async () => {
@@ -664,6 +703,53 @@ describe("createLearnerActivityStore", () => {
       xapiEvent: {
         kind: "flashcard-flipped",
         cardId: "card-one",
+        face: "back",
+      },
+    });
+    await vi.waitFor(() => expect(store.getState().saves["block-1"]?.status).toBe("idle"));
+
+    expect(record).toHaveBeenCalledTimes(1);
+    expect(record).toHaveBeenCalledWith(
+      buildLearnerActivityInteractedStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        blockId: "block-1",
+        activityKind: "flashcard",
+      }),
+    );
+  });
+
+  it("falls back to generic interacted when flashcard event details contradict an accepted save", async () => {
+    const { session, record } = createSessionDouble();
+    const store = createLearnerActivityStore({
+      artifactId: "course-1",
+      learnerActivityPort: createPort(async ({ record: saved }) =>
+        hostRecord(saved.data, {
+          activityKind: "flashcard",
+          completed: saved.completed,
+          updatedAt: "2026-07-25T11:00:00Z",
+        }),
+      ),
+      getXapiSession: () => session,
+    });
+    hydrateBlock(
+      store,
+      hostRecord(
+        { currentCardId: "card-one", flipped: {}, mastery: {}, total: 2 },
+        { activityKind: "flashcard" },
+      ),
+    );
+
+    store.getState().updateActivity("block-1", {
+      data: {
+        currentCardId: "card-one",
+        flipped: { "card-one": true },
+        mastery: {},
+        total: 2,
+      },
+      completed: false,
+      xapiEvent: {
+        kind: "flashcard-flipped",
+        cardId: "card-two",
         face: "back",
       },
     });

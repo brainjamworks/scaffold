@@ -41,7 +41,7 @@ export function ChecklistItemRuntimeNodeView(props: NodeViewProps) {
     const completed = siblingIds.length > 0 && siblingIds.every((id) => nextChecked[id]);
     const completedCount = siblingIds.filter((id) => nextChecked[id]).length;
     activity.updateActivity({
-      data: { checked: nextChecked },
+      data: { checked: nextChecked, total: siblingIds.length },
       completed,
       xapiEvent: {
         kind: "checklist-item-toggled",

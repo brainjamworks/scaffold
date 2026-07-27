@@ -81,6 +81,114 @@ function structurallyEqualJson(left: unknown, right: unknown): boolean {
   );
 }
 
+function jsonRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function nestedRecord(
+  data: LearnerActivityData,
+  key: string,
+): Record<string, unknown> | null {
+  return jsonRecord(data[key]);
+}
+
+function changedBooleanKeys(
+  previous: Record<string, unknown>,
+  current: Record<string, unknown>,
+): string[] {
+  return [...new Set([...Object.keys(previous), ...Object.keys(current)])].filter(
+    (key) => (previous[key] === true) !== (current[key] === true),
+  );
+}
+
+function changedStringKeys(
+  previous: Record<string, unknown>,
+  current: Record<string, unknown>,
+): string[] {
+  return [...new Set([...Object.keys(previous), ...Object.keys(current)])].filter(
+    (key) => previous[key] !== current[key],
+  );
+}
+
+function positiveInteger(data: LearnerActivityData, key: string): number | null {
+  const value = data[key];
+  return Number.isInteger(value) && Number(value) > 0 ? Number(value) : null;
+}
+
+function authoritativeXapiEvent(
+  previous: LearnerActivityRuntimeRecord,
+  current: LearnerActivityRuntimeRecord,
+  event: LearnerActivityXapiEvent,
+): LearnerActivityXapiEvent | undefined {
+  switch (event.kind) {
+    case "checklist-item-toggled": {
+      if (current.activityKind !== "checklist") return undefined;
+      const previousChecked = nestedRecord(previous.data, "checked");
+      const currentChecked = nestedRecord(current.data, "checked");
+      const total = positiveInteger(current.data, "total");
+      const changedItems =
+        previousChecked && currentChecked
+          ? changedBooleanKeys(previousChecked, currentChecked)
+          : [];
+      if (
+        !previousChecked ||
+        !currentChecked ||
+        total === null ||
+        changedItems.length !== 1 ||
+        changedItems[0] !== event.itemId
+      ) {
+        return undefined;
+      }
+      const checked = currentChecked[event.itemId] === true;
+      const completedCount = Object.values(currentChecked).filter((value) => value === true).length;
+      if (
+        event.checked !== checked ||
+        event.completedCount !== completedCount ||
+        event.total !== total
+      ) {
+        return undefined;
+      }
+      return { ...event, checked, completedCount, total };
+    }
+    case "flashcard-flipped": {
+      if (current.activityKind !== "flashcard") return undefined;
+      const previousFlipped = nestedRecord(previous.data, "flipped");
+      const currentFlipped = nestedRecord(current.data, "flipped");
+      if (!previousFlipped || !currentFlipped) return undefined;
+      const changedCards = changedBooleanKeys(previousFlipped, currentFlipped);
+      if (changedCards.length !== 1 || changedCards[0] !== event.cardId) return undefined;
+      const face = currentFlipped[event.cardId] === true ? "back" : "front";
+      return event.face === face ? { ...event, face } : undefined;
+    }
+    case "flashcard-rated": {
+      if (current.activityKind !== "flashcard") return undefined;
+      const previousMastery = nestedRecord(previous.data, "mastery");
+      const currentMastery = nestedRecord(current.data, "mastery");
+      const total = positiveInteger(current.data, "total");
+      if (!previousMastery || !currentMastery || total === null) return undefined;
+      const changedCards = changedStringKeys(previousMastery, currentMastery);
+      if (changedCards.length !== 1 || changedCards[0] !== event.cardId) return undefined;
+      const rating = currentMastery[event.cardId] === "gotIt" ? "got-it" : "not-yet";
+      if (currentMastery[event.cardId] !== "gotIt" && currentMastery[event.cardId] !== "notYet") {
+        return undefined;
+      }
+      const masteredCount = Object.values(currentMastery).filter(
+        (status) => status === "gotIt",
+      ).length;
+      if (
+        event.rating !== rating ||
+        event.masteredCount !== masteredCount ||
+        event.total !== total
+      ) {
+        return undefined;
+      }
+      return { ...event, rating, masteredCount, total };
+    }
+  }
+}
+
 type LearnerActivityTransition = "completed" | "interacted";
 
 function authoritativeTransition(
@@ -108,6 +216,7 @@ export function createLearnerActivityStore({
 
     const recordAuthoritativeTransition = (
       blockId: string,
+      previousRecord: LearnerActivityRuntimeRecord,
       record: LearnerActivityRuntimeRecord,
       transition: LearnerActivityTransition,
       xapiEvent?: LearnerActivityXapiEvent,
@@ -124,14 +233,17 @@ export function createLearnerActivityStore({
         };
         let eventRecorded = false;
         if (xapiEvent && xapiEventIsAuthoritative) {
+          const authoritativeEvent = authoritativeXapiEvent(previousRecord, record, xapiEvent);
           try {
-            session.record(
-              buildLearnerActivityInteractedStatementDraft({
-                ...input,
-                event: xapiEvent,
-              }),
-            );
-            eventRecorded = true;
+            if (authoritativeEvent) {
+              session.record(
+                buildLearnerActivityInteractedStatementDraft({
+                  ...input,
+                  event: authoritativeEvent,
+                }),
+              );
+              eventRecorded = true;
+            }
           } catch {
             // Invalid observational metadata falls back to the generic transition.
           }
@@ -201,6 +313,7 @@ export function createLearnerActivityStore({
             if (transition) {
               recordAuthoritativeTransition(
                 blockId,
+                previousAuthoritative,
                 authoritative,
                 transition,
                 xapiEvent,
