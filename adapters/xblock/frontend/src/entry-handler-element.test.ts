@@ -261,13 +261,55 @@ describe("XBlock entry handler element routing", () => {
     expect(handlerUrl).toHaveBeenCalledWith(handlerElement, "reveal_hint");
   });
 
-  it("routes learner quiz lifecycle requests to XBlock handlers", async () => {
-    const { handlerUrl, handlerElement } = await renderAndRequest(renderStudentBlock, {
-      type: "assessment.quiz.startAttempt",
-      payload: { groupId: "quiz-1" },
-    });
+  it.each([
+    ["assessment.quiz.startAttempt", "start_quiz_attempt"],
+    ["assessment.quiz.submitQuestion", "submit_quiz_question"],
+    ["assessment.quiz.finishAttempt", "finish_quiz_attempt"],
+    ["assessment.quiz.revealAnswers", "reveal_quiz_answers"],
+  ] as const)("unscopes %s requests for the XBlock handler", async (type, handlerName) => {
+    const scopedGroupId = `artifact:${encodeURIComponent(data.artifact.id)}/group:quiz-1`;
+    const { handlerUrl, handlerElement, fetchMock } = await renderAndRequest(
+      renderStudentBlock,
+      {
+        type,
+        payload: { groupId: scopedGroupId },
+      },
+      {
+        success: true,
+        quizAttempt: { groupId: "quiz-1" },
+      },
+    );
 
-    expect(handlerUrl).toHaveBeenCalledWith(handlerElement, "start_quiz_attempt");
+    expect(handlerUrl).toHaveBeenCalledWith(handlerElement, handlerName);
+    expect(fetchMock).toHaveBeenCalledWith(
+      `http://local.openedx.io/handler/${handlerName}`,
+      expect.objectContaining({
+        body: JSON.stringify({ groupId: "quiz-1", protocolVersion: 1 }),
+      }),
+    );
+  });
+
+  it("restores the scoped quiz group id returned to the learner runtime", async () => {
+    const scopedGroupId = `artifact:${encodeURIComponent(data.artifact.id)}/group:quiz-1`;
+    const { frame } = await renderAndRequest(
+      renderStudentBlock,
+      {
+        type: "assessment.quiz.startAttempt",
+        payload: { groupId: scopedGroupId },
+      },
+      {
+        success: true,
+        quizAttempt: { groupId: "quiz-1" },
+      },
+    );
+
+    expect(frame.sendSuccessResponse).toHaveBeenCalledWith({
+      requestId: "request-1",
+      result: {
+        success: true,
+        quizAttempt: { groupId: scopedGroupId },
+      },
+    });
   });
 
   it("routes strict learner activity loads to the snapshot handler", async () => {
@@ -357,6 +399,7 @@ async function renderAndRequest(
     type: Parameters<typeof createXBlockBridgeRequest>[0]["type"];
     payload: unknown;
   },
+  response: unknown = { success: true },
 ) {
   const handlerUrl = vi.fn((_element: unknown, handlerName: string) => {
     return `http://local.openedx.io/handler/${handlerName}`;
@@ -364,7 +407,7 @@ async function renderAndRequest(
   const runtime: XBlockRuntime = { handlerUrl };
   const fetchMock = vi.fn(async () => ({
     ok: true,
-    json: async () => ({ success: true }),
+    json: async () => response,
   }));
   vi.stubGlobal("fetch", fetchMock);
 
@@ -393,7 +436,7 @@ async function renderAndRequest(
   });
   expect(frame.sendFailureResponse).not.toHaveBeenCalled();
 
-  return { handlerUrl, handlerElement, fetchMock };
+  return { handlerUrl, handlerElement, fetchMock, frame };
 }
 
 function capturedFrameOptions(): CapturedFrameOptions {

@@ -43,7 +43,7 @@ export function renderBlock(
     initPayload,
     onRequest(request, frame) {
       void bootstrapGradeDelivery.then(() =>
-        respondToRequest(request, frame, runtime, handlerElement),
+        respondToRequest(request, frame, runtime, handlerElement, data.artifact.id),
       );
     },
   });
@@ -60,11 +60,13 @@ async function respondToRequest(
   },
   runtime: XBlockRuntime,
   element: XBlockHandlerElement,
+  artifactId: string,
 ): Promise<void> {
   try {
     const result = await handleXBlockBridgeRequest(request, {
       runtime,
       element,
+      artifactId,
     });
     frame.sendSuccessResponse({ requestId: request.requestId, result });
   } catch (error) {

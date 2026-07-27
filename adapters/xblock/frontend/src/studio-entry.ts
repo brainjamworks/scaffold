@@ -37,7 +37,7 @@ export function renderBlock(
     title: "Scaffold editor",
     initPayload,
     onRequest(request, frame) {
-      void respondToRequest(request, frame, runtime, handlerElement);
+      void respondToRequest(request, frame, runtime, handlerElement, data.artifact.id);
     },
   });
 }
@@ -53,11 +53,13 @@ async function respondToRequest(
   },
   runtime: XBlockRuntime,
   element: XBlockHandlerElement,
+  artifactId: string,
 ): Promise<void> {
   try {
     const result = await handleXBlockBridgeRequest(request, {
       runtime,
       element,
+      artifactId,
     });
     frame.sendSuccessResponse({ requestId: request.requestId, result });
   } catch (error) {

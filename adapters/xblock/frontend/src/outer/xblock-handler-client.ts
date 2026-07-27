@@ -8,6 +8,7 @@ import { type XBlockHandlerElement, type XBlockRuntime, xblockPost } from "../ap
 export interface XBlockOuterRequestContext {
   runtime: XBlockRuntime;
   element: XBlockHandlerElement;
+  artifactId: string;
 }
 
 export async function handleXBlockBridgeRequest(
@@ -59,16 +60,16 @@ export async function handleXBlockBridgeRequest(
       return xblockPost(context.runtime, context.element, "reveal_answer", request.payload);
 
     case "assessment.quiz.startAttempt":
-      return xblockPost(context.runtime, context.element, "start_quiz_attempt", request.payload);
+      return xblockQuizRequest(context, "start_quiz_attempt", request.payload);
 
     case "assessment.quiz.submitQuestion":
-      return xblockPost(context.runtime, context.element, "submit_quiz_question", request.payload);
+      return xblockQuizRequest(context, "submit_quiz_question", request.payload);
 
     case "assessment.quiz.finishAttempt":
-      return xblockPost(context.runtime, context.element, "finish_quiz_attempt", request.payload);
+      return xblockQuizRequest(context, "finish_quiz_attempt", request.payload);
 
     case "assessment.quiz.revealAnswers":
-      return xblockPost(context.runtime, context.element, "reveal_quiz_answers", request.payload);
+      return xblockQuizRequest(context, "reveal_quiz_answers", request.payload);
 
     case "learnerActivity.load":
       return xblockPost(context.runtime, context.element, "load_learner_activity", request.payload);
@@ -96,6 +97,76 @@ export async function handleXBlockBridgeRequest(
   }
 }
 
+interface XBlockQuizGroupIdentity {
+  authored: string;
+  scoped: string;
+}
+
+async function xblockQuizRequest(
+  context: XBlockOuterRequestContext,
+  handlerName: string,
+  payload: unknown,
+): Promise<unknown> {
+  const group = xblockQuizGroupIdentity(context.artifactId, payload);
+  const response = await xblockPost(context.runtime, context.element, handlerName, {
+    ...(payload as Record<string, unknown>),
+    groupId: group.authored,
+  });
+
+  return restoreScopedQuizOutcome(response, group);
+}
+
+function xblockQuizGroupIdentity(
+  artifactId: string,
+  payload: unknown,
+): XBlockQuizGroupIdentity {
+  if (!isRecord(payload) || typeof payload.groupId !== "string") {
+    throw new Error("Open edX Quiz request requires a group id");
+  }
+
+  const scoped = payload.groupId;
+  const prefix = `artifact:${encodeURIComponent(artifactId)}/group:`;
+  if (!scoped.startsWith(prefix)) {
+    throw new Error("Open edX Quiz group id is not scoped to this XBlock");
+  }
+
+  const encodedAuthored = scoped.slice(prefix.length);
+  let authored: string;
+  try {
+    authored = decodeURIComponent(encodedAuthored);
+  } catch {
+    throw new Error("Open edX Quiz group id is not valid");
+  }
+
+  if (authored.length === 0 || encodeURIComponent(authored) !== encodedAuthored) {
+    throw new Error("Open edX Quiz group id is not valid");
+  }
+
+  return { authored, scoped };
+}
+
+function restoreScopedQuizOutcome(
+  response: unknown,
+  group: XBlockQuizGroupIdentity,
+): unknown {
+  if (!isRecord(response) || response.success !== true) {
+    return response;
+  }
+
+  const quizAttempt = response.quizAttempt;
+  if (!isRecord(quizAttempt) || quizAttempt.groupId !== group.authored) {
+    throw new Error("Open edX Quiz response group id did not match request");
+  }
+
+  return {
+    ...response,
+    quizAttempt: {
+      ...quizAttempt,
+      groupId: group.scoped,
+    },
+  };
+}
+
 export function toBridgeError(error: unknown): XBlockBridgeErrorPayload {
   if (isBridgeError(error)) return error;
   return createXBlockBridgeError(
@@ -115,6 +186,10 @@ function isBridgeError(value: unknown): value is XBlockBridgeErrorPayload {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const record = value as Record<string, unknown>;
   return typeof record.code === "string" && typeof record.message === "string";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function readOptionalMessage(payload: unknown): string | null {
