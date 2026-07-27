@@ -623,6 +623,31 @@ export function buildResourceLaunchedStatementDraft(input: {
   });
 }
 
+export function buildResourceAttemptedStatementDraft(input: {
+  readonly rootActivityId: XapiIri;
+  readonly resourceId: string;
+  readonly resourceKind: XapiResourceKind;
+}): XapiStatementDraft {
+  return validatedDraft({
+    verb: XAPI_VERBS.attempted,
+    object: resourceActivity(input),
+    context: parentContext(rootActivity(input.rootActivityId)),
+  });
+}
+
+export function buildResourceCompletedStatementDraft(input: {
+  readonly rootActivityId: XapiIri;
+  readonly resourceId: string;
+  readonly resourceKind: XapiResourceKind;
+}): XapiStatementDraft {
+  return validatedDraft({
+    verb: XAPI_VERBS.completed,
+    object: resourceActivity(input),
+    result: { completion: true },
+    context: parentContext(rootActivity(input.rootActivityId)),
+  });
+}
+
 export function buildResourcePageExperiencedStatementDraft(input: {
   readonly rootActivityId: XapiIri;
   readonly resourceId: string;

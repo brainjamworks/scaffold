@@ -19,6 +19,8 @@ import {
   buildLearnerActivityInteractedStatementDraft,
   buildLayoutSectionExperiencedStatementDraft,
   buildResourceLaunchedStatementDraft,
+  buildResourceAttemptedStatementDraft,
+  buildResourceCompletedStatementDraft,
   buildResourcePageExperiencedStatementDraft,
   buildQuizAttemptedStatementDraft,
   buildQuizCompletedStatementDraft,
@@ -464,6 +466,47 @@ describe("xAPI Statement catalogue builders", () => {
         }),
       ),
     ).not.toContain("example.com/sample.pdf");
+  });
+
+  it("builds audio attempted and playback-reached-end completion", () => {
+    const input = {
+      rootActivityId: ROOT_ACTIVITY_ID,
+      resourceId: "audio-one",
+      resourceKind: "audio" as const,
+    };
+    const object = {
+      objectType: "Activity" as const,
+      id: createResourceActivityId(ROOT_ACTIVITY_ID, "audio-one"),
+      definition: {
+        type: XAPI_ACTIVITY_TYPES.resource,
+        extensions: {
+          [XAPI_EXTENSIONS.resourceKind]: "audio",
+        },
+      },
+    };
+    const context = {
+      contextActivities: {
+        parent: [
+          {
+            objectType: "Activity" as const,
+            id: ROOT_ACTIVITY_ID,
+            definition: { type: XAPI_ACTIVITY_TYPES.course },
+          },
+        ],
+      },
+    };
+
+    expect(buildResourceAttemptedStatementDraft(input)).toStrictEqual({
+      verb: XAPI_VERBS.attempted,
+      object,
+      context,
+    });
+    expect(buildResourceCompletedStatementDraft(input)).toStrictEqual({
+      verb: XAPI_VERBS.completed,
+      object,
+      result: { completion: true },
+      context,
+    });
   });
 
   it("builds an experienced PDF page parented by its resource", () => {

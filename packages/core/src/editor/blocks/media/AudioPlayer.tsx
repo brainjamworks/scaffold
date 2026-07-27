@@ -53,9 +53,20 @@ interface AudioPlayerProps {
   className?: string;
   /** Inline style passthrough (rare; used by the block to align). */
   style?: CSSProperties;
+  /** Called after the native media element confirms playback started. */
+  onStarted?: () => void;
+  /** Called when the native media element reports playback reached the end. */
+  onEnded?: () => void;
 }
 
-export function AudioPlayer({ src, title, className, style }: AudioPlayerProps) {
+export function AudioPlayer({
+  src,
+  title,
+  className,
+  style,
+  onStarted,
+  onEnded,
+}: AudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const titleId = useId();
 
@@ -70,8 +81,15 @@ export function AudioPlayer({ src, title, className, style }: AudioPlayerProps) 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return undefined;
-    const onPlay = () => setPlaying(true);
+    const onPlay = () => {
+      setPlaying(true);
+      onStarted?.();
+    };
     const onPause = () => setPlaying(false);
+    const handleEnded = () => {
+      setPlaying(false);
+      onEnded?.();
+    };
     const onTime = () => setCurrentTime(audio.currentTime);
     const onMeta = () => setDuration(audio.duration || 0);
     const onVolume = () => {
@@ -84,6 +102,7 @@ export function AudioPlayer({ src, title, className, style }: AudioPlayerProps) 
     };
     audio.addEventListener("play", onPlay);
     audio.addEventListener("pause", onPause);
+    audio.addEventListener("ended", handleEnded);
     audio.addEventListener("timeupdate", onTime);
     audio.addEventListener("loadedmetadata", onMeta);
     audio.addEventListener("durationchange", onMeta);
@@ -92,13 +111,14 @@ export function AudioPlayer({ src, title, className, style }: AudioPlayerProps) 
     return () => {
       audio.removeEventListener("play", onPlay);
       audio.removeEventListener("pause", onPause);
+      audio.removeEventListener("ended", handleEnded);
       audio.removeEventListener("timeupdate", onTime);
       audio.removeEventListener("loadedmetadata", onMeta);
       audio.removeEventListener("durationchange", onMeta);
       audio.removeEventListener("volumechange", onVolume);
       audio.removeEventListener("ratechange", onRate);
     };
-  }, [src]);
+  }, [onEnded, onStarted, src]);
 
   const togglePlay = (event: MouseEvent) => {
     event.stopPropagation();
