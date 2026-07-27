@@ -111,6 +111,7 @@ export function createLearnerActivityStore({
       record: LearnerActivityRuntimeRecord,
       transition: LearnerActivityTransition,
       xapiEvent?: LearnerActivityXapiEvent,
+      xapiEventIsAuthoritative = false,
     ): void => {
       try {
         const session = getXapiSession?.();
@@ -122,7 +123,7 @@ export function createLearnerActivityStore({
           activityKind: record.activityKind,
         };
         let eventRecorded = false;
-        if (xapiEvent) {
+        if (xapiEvent && xapiEventIsAuthoritative) {
           try {
             session.record(
               buildLearnerActivityInteractedStatementDraft({
@@ -134,6 +135,10 @@ export function createLearnerActivityStore({
           } catch {
             // Invalid observational metadata falls back to the generic transition.
           }
+        }
+        if (xapiEvent && !eventRecorded) {
+          session.record(buildLearnerActivityInteractedStatementDraft(input));
+          eventRecorded = true;
         }
         if (transition === "completed") {
           session.record(buildLearnerActivityCompletedStatementDraft(input));
@@ -194,7 +199,13 @@ export function createLearnerActivityStore({
           if (previousAuthoritative) {
             const transition = authoritativeTransition(previousAuthoritative, authoritative);
             if (transition) {
-              recordAuthoritativeTransition(blockId, authoritative, transition, xapiEvent);
+              recordAuthoritativeTransition(
+                blockId,
+                authoritative,
+                transition,
+                xapiEvent,
+                structurallyEqualJson(saveRecord(record), saveRecord(authoritative)),
+              );
             }
           }
         })

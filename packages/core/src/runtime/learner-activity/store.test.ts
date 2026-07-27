@@ -607,6 +607,78 @@ describe("createLearnerActivityStore", () => {
     expect(JSON.stringify(record.mock.calls)).not.toContain("PRIVATE_LEARNER_STATE");
   });
 
+  it("falls back to generic interacted when the host changes a checklist update", async () => {
+    const { session, record } = createSessionDouble();
+    const store = createLearnerActivityStore({
+      artifactId: "course-1",
+      learnerActivityPort: createPort(async () =>
+        hostRecord(
+          { checked: { "item-one": false } },
+          { updatedAt: "2026-07-25T11:00:00Z" },
+        ),
+      ),
+      getXapiSession: () => session,
+    });
+    hydrateBlock(store, hostRecord({ checked: {} }));
+
+    store.getState().updateActivity("block-1", {
+      data: { checked: { "item-one": true } },
+      completed: false,
+      xapiEvent: {
+        kind: "checklist-item-toggled",
+        itemId: "item-one",
+        checked: true,
+        completedCount: 1,
+        total: 1,
+      },
+    });
+    await vi.waitFor(() => expect(store.getState().saves["block-1"]?.status).toBe("idle"));
+
+    expect(record).toHaveBeenCalledTimes(1);
+    expect(record).toHaveBeenCalledWith(
+      buildLearnerActivityInteractedStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        blockId: "block-1",
+        activityKind: "checklist",
+      }),
+    );
+  });
+
+  it("falls back to generic interacted when the host changes a flashcard update", async () => {
+    const { session, record } = createSessionDouble();
+    const store = createLearnerActivityStore({
+      artifactId: "course-1",
+      learnerActivityPort: createPort(async () =>
+        hostRecord(
+          { flipped: { "card-one": false } },
+          { activityKind: "flashcard", updatedAt: "2026-07-25T11:00:00Z" },
+        ),
+      ),
+      getXapiSession: () => session,
+    });
+    hydrateBlock(store, hostRecord({ flipped: {} }, { activityKind: "flashcard" }));
+
+    store.getState().updateActivity("block-1", {
+      data: { flipped: { "card-one": true } },
+      completed: false,
+      xapiEvent: {
+        kind: "flashcard-flipped",
+        cardId: "card-one",
+        face: "back",
+      },
+    });
+    await vi.waitFor(() => expect(store.getState().saves["block-1"]?.status).toBe("idle"));
+
+    expect(record).toHaveBeenCalledTimes(1);
+    expect(record).toHaveBeenCalledWith(
+      buildLearnerActivityInteractedStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        blockId: "block-1",
+        activityKind: "flashcard",
+      }),
+    );
+  });
+
   it("records only completed when the current generation changes data and completes", async () => {
     const first = deferred<LearnerActivityRecord>();
     const second = deferred<LearnerActivityRecord>();
