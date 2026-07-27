@@ -101,8 +101,10 @@ if [[ "$1" == "api" ]]; then
   elif [[ "$arguments" == *"/git/tags/"* ]]; then
     printf '{"tag":"%s","object":{"type":"commit","sha":"%s"}}\\n' \
       "$RELEASE_TAG" "$MOCK_RELEASE_COMMIT"
-  elif [[ "$arguments" == *"/releases/tags/"* ]]; then
+  elif [[ "$arguments" == *"/releases?per_page=100"* ]]; then
+    printf '[['
     cat "$MOCK_RELEASE_JSON"
+    printf ']]\\n'
   elif [[ "$arguments" == *"/actions/runs/"* ]]; then
     printf '{"id":%s,"head_sha":"%s","event":"push","status":"completed","conclusion":"success","path":".github/workflows/ci.yml"}\\n' \
       "$MOCK_SOURCE_CI_RUN_ID" "$MOCK_SOURCE_CI_HEAD_SHA"

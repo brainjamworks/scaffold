@@ -100,9 +100,21 @@ jobs:
           fi
 
           release_json="$RUNNER_TEMP/release.json"
-          gh api \
-            "repos/$GH_REPO/releases/tags/$RELEASE_TAG" \
-            > "$release_json"
+          releases_json="$RUNNER_TEMP/releases.json"
+          gh api --paginate --slurp \
+            "repos/$GH_REPO/releases?per_page=100" \
+            > "$releases_json"
+          if ! jq -e \
+            --arg tag "$RELEASE_TAG" \
+            '[.[][] | select(.tag_name == $tag)] |
+              if length == 1 then .[0]
+              else error("expected exactly one release matching the approved tag")
+              end' \
+            "$releases_json" \
+            > "$release_json"; then
+            echo "Expected exactly one release matching $RELEASE_TAG." >&2
+            exit 1
+          fi
           if ! jq -e \
             --arg tag "$RELEASE_TAG" \
             --arg title "$expected_title" \

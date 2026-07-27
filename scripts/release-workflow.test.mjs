@@ -220,6 +220,9 @@ test("approval workflow validates the private draft before publishing it", () =>
   assert.match(source, /Release tag must use vMAJOR\.MINOR\.PATCH/);
   assert.match(source, /git\/ref\/tags\/\$RELEASE_TAG/);
   assert.match(source, /git\/tags\//);
+  assert.match(source, /gh api --paginate --slurp/);
+  assert.match(source, /repos\/\$GH_REPO\/releases\?per_page=100/);
+  assert.doesNotMatch(source, /releases\/tags\/\$RELEASE_TAG/);
   assert.match(source, /Moodle smoke test: passed on/);
   assert.match(source, /Open edX smoke test: passed on/);
   assert.match(source, /must preserve the complete generated evidence template/);
