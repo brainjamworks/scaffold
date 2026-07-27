@@ -116,7 +116,10 @@ describe("Select", () => {
       />,
     );
 
-    expect(screen.getByRole("combobox").classList.contains("sc-select-trigger")).toBe(true);
+    const select = screen.getByRole("combobox");
+    expect(select).toBeInstanceOf(HTMLSelectElement);
+    expect(select.classList.contains("sc-select-trigger")).toBe(true);
+    expect(screen.getAllByRole("option")).toHaveLength(2);
   });
 
   it("keeps the exported variant helper available", () => {

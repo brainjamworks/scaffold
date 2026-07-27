@@ -199,33 +199,38 @@ function SimpleSelect({
   className,
 }: SelectProps) {
   return (
-    <Root
-      value={value}
-      onValueChange={onChange}
-      {...(disabled !== undefined ? { disabled } : {})}
-      {...(name !== undefined ? { name } : {})}
-      {...(required !== undefined ? { required } : {})}
-    >
-      <Trigger
-        {...(id !== undefined ? { id } : {})}
-        {...(ariaDescribedBy !== undefined ? { "aria-describedby": ariaDescribedBy } : {})}
-        {...(ariaLabelledBy !== undefined ? { "aria-labelledby": ariaLabelledBy } : {})}
-        {...(invalid !== undefined ? { invalid } : {})}
-        {...(placeholder !== undefined ? { placeholder } : {})}
-        {...(className !== undefined ? { className } : {})}
-      />
-      <Content>
+    <span className="sc-select-native">
+      <select
+        id={id}
+        className={cn(triggerVariants({ invalid }), className)}
+        aria-describedby={ariaDescribedBy}
+        aria-labelledby={ariaLabelledBy}
+        aria-invalid={invalid || undefined}
+        data-invalid={invalid ? "true" : undefined}
+        value={value}
+        onChange={(event) => onChange(event.currentTarget.value)}
+        disabled={disabled}
+        name={name}
+        required={required}
+      >
+        {placeholder ? (
+          <option value="" disabled>
+            {placeholder}
+          </option>
+        ) : null}
         {options.map((option) => (
-          <Item
-            key={option.value}
-            value={option.value}
-            {...(option.disabled !== undefined ? { disabled: option.disabled } : {})}
-          >
+          <option key={option.value} value={option.value} disabled={option.disabled}>
             {option.label}
-          </Item>
+          </option>
         ))}
-      </Content>
-    </Root>
+      </select>
+      <CaretDown
+        aria-hidden
+        className="sc-select-trigger-icon sc-select-native__icon"
+        size={14}
+        weight="bold"
+      />
+    </span>
   );
 }
 

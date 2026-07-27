@@ -384,6 +384,23 @@ describe("resolveBlockInteractionBubbleModel", () => {
     expect(model).toBeNull();
     editor.destroy();
   });
+
+  it("hides while a settings sheet owns the interaction", () => {
+    const editor = makeEditor(QUICK, {
+      id: "quick-a",
+      data: { isGraded: false },
+    });
+    const target = blockRef("quick-a");
+    const snapshot = createInteractionOwnerSnapshot({
+      chromeSlots: blockBubbleSnapshot({ target }).chromeSlots,
+      settingsOwner: target,
+    });
+
+    const model = resolveBlockInteractionBubbleModel(editor, snapshot, testBlockRegistry);
+
+    expect(model).toBeNull();
+    editor.destroy();
+  });
 });
 
 describe("resolveBlockBubbleAnchorVirtualElement", () => {

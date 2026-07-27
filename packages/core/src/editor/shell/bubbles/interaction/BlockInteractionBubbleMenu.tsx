@@ -79,6 +79,7 @@ export function resolveBlockInteractionBubbleModel(
 ): BlockInteractionBubbleModel | null {
   if (!editor.isEditable) return null;
   if (isEditorResizeGestureActive(editor)) return null;
+  if (snapshot.owners.settingsOwner.target) return null;
 
   const descriptor = resolveBlockChromeTargetFromSnapshot(
     editor.state,

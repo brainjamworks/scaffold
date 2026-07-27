@@ -147,8 +147,7 @@ describe("FieldRenderer", () => {
 
     render(<Harness />);
 
-    await userEvent.click(screen.getByLabelText("Mode"));
-    await userEvent.click(screen.getByRole("option", { name: "Graded" }));
+    await userEvent.selectOptions(screen.getByLabelText("Mode"), "graded");
     await userEvent.click(screen.getByRole("switch", { name: "Enabled" }));
 
     expect(onFormChange).toHaveBeenLastCalledWith({
@@ -185,10 +184,8 @@ describe("FieldRenderer", () => {
       />,
     );
 
-    await userEvent.click(screen.getByLabelText("Value"));
-
     expect(screen.queryByRole("option", { name: "Fruit" })).toBeNull();
-    await userEvent.click(screen.getByRole("option", { name: "Votes" }));
+    await userEvent.selectOptions(screen.getByLabelText("Value"), "votes");
 
     expect(onFormChange).toHaveBeenLastCalledWith({
       table: {
