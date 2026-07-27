@@ -106,8 +106,6 @@ if [[ "$1" == "api" ]]; then
   elif [[ "$arguments" == *"/actions/runs/"* ]]; then
     printf '{"id":%s,"head_sha":"%s","event":"push","status":"completed","conclusion":"success","path":".github/workflows/ci.yml"}\\n' \
       "$MOCK_SOURCE_CI_RUN_ID" "$MOCK_SOURCE_CI_HEAD_SHA"
-  elif [[ "$arguments" == *"/immutable-releases"* ]]; then
-    printf '{}\\n'
   elif [[ "$arguments" == *"/releases/"* && "$arguments" == *"--method PATCH"* ]]; then
     printf '{}\\n'
   else
@@ -678,7 +676,7 @@ test("approval publishes only a complete draft bound to its annotated tag", (t) 
   assert.equal(result.status, 0, result.stderr);
   const log = readFileSync(join(workspace.root, "gh.log"), "utf8");
   assert.equal((log.match(/git\/ref\/tags\/v0\.1\.0/g) ?? []).length, 2);
-  assert.match(log, /immutable-releases/);
+  assert.doesNotMatch(log, /immutable-releases/);
   assert.match(log, /--method PATCH repos\/brainjamworks\/scaffold\/releases\/123/);
 });
 

@@ -232,6 +232,7 @@ test("approval workflow validates the private draft before publishing it", () =>
   assert.match(source, /gh attestation verify/);
   assert.match(source, /--source-digest/);
   assert.match(source, /--source-ref/);
+  assert.doesNotMatch(source, /immutable-releases/);
   assert.match(source, /--method PATCH/);
   assert.match(source, /draft=false/);
   assert.match(source, /prerelease=true/);

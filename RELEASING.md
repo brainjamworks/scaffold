@@ -385,7 +385,9 @@ The protected approval workflow is implemented in
 It is the only supported publication path for the GitHub prerelease. The
 workflow verifies the complete reviewed candidate, confirms the tag identity
 and successful source CI receipt again immediately before mutation, and
-publishes through the GitHub API only when immutable releases are enabled.
+publishes through the GitHub API. The repository-level immutable releases
+setting protects published releases without granting repository-administration
+credentials to the workflow.
 
 The approved XBlock publication workflow is implemented in
 `.github/workflows/publish-pypi.yml`. Publishing the reviewed GitHub Release

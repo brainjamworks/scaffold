@@ -336,11 +336,6 @@ jobs:
               --deny-self-hosted-runners
           done
 
-          gh api \
-            -H "X-GitHub-Api-Version: 2026-03-10" \
-            "repos/$GH_REPO/immutable-releases" \
-            > /dev/null
-
           current_identity="$RUNNER_TEMP/current-tag-identity"
           resolve_tag_identity > "$current_identity"
           read -r current_tag_object current_commit < "$current_identity"
