@@ -61,6 +61,7 @@ export interface AssessmentRegistrationConfig {
   readonly experience: AssessmentExperienceDefinition;
   readonly settings: AssessmentTargetSettings;
   readonly hintsTotal: number;
+  readonly activityDescription?: string;
 }
 
 export interface AssessmentRegistrationIdentity {

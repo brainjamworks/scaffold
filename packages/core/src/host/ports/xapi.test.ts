@@ -76,6 +76,29 @@ describe("xAPI Statement template contract", () => {
     expect(JSON.parse(JSON.stringify(statement))).toStrictEqual(statement);
   });
 
+  it("accepts a standard Activity description language map", () => {
+    const statement = validStatement();
+
+    expect(
+      XapiStatementTemplateSchema.parse({
+        ...statement,
+        object: {
+          ...statement.object,
+          definition: {
+            ...statement.object.definition,
+            description: {
+              "en-GB": "Which city is the capital of France?",
+            },
+          },
+        },
+      }).object.definition,
+    ).toMatchObject({
+      description: {
+        "en-GB": "Which city is the capital of France?",
+      },
+    });
+  });
+
   it.each([
     "https://learning.example.test/courses/course-1",
     "urn:uuid:550e8400-e29b-41d4-a716-446655440000",

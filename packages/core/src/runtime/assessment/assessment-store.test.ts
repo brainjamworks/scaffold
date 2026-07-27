@@ -356,7 +356,14 @@ describe("createAssessmentStore", () => {
     const identity = registrationIdentity();
     const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
 
-    store.getState().register(createRegistration());
+    store.getState().register(
+      createRegistration({
+        config: {
+          ...createRegistration().config,
+          activityDescription: "Which answer is correct?",
+        },
+      }),
+    );
     store.getState().registerQuiz(createQuizRegistration());
     store.setState({
       durable: {
@@ -381,6 +388,7 @@ describe("createAssessmentStore", () => {
       buildAnsweredStatementDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "target-one",
+        activityDescription: "Which answer is correct?",
         interactionKind: "single-select",
         response: canonicalProblem.response,
         result,
@@ -388,6 +396,9 @@ describe("createAssessmentStore", () => {
         quiz: { quizId: "quiz-one", attemptId: "attempt-one" },
       }),
     );
+    expect(xapi.record.mock.calls[0]?.[0].object.definition?.description).toEqual({
+      en: "Which answer is correct?",
+    });
   });
 
   it("records a terminal final question as answered, completed, then passed", async () => {
@@ -2002,7 +2013,14 @@ describe("createAssessmentStore", () => {
     });
     const identity = registrationIdentity();
 
-    store.getState().register(createRegistration());
+    store.getState().register(
+      createRegistration({
+        config: {
+          ...createRegistration().config,
+          activityDescription: "Which answer is correct?",
+        },
+      }),
+    );
     store.getState().setLocalResponse(identity, { choice: "option-a" });
 
     await expect(store.getState().submit(identity)).resolves.toEqual(
@@ -2014,12 +2032,16 @@ describe("createAssessmentStore", () => {
       buildAnsweredStatementDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "target-one",
+        activityDescription: "Which answer is correct?",
         interactionKind: "single-select",
         response: canonicalProblem.response,
         result: canonicalProblem.submissionResult,
         attemptNumber: 3,
       }),
     );
+    expect(xapi.record.mock.calls[0]?.[0].object.definition?.description).toEqual({
+      en: "Which answer is correct?",
+    });
     expect(JSON.stringify(xapi.record.mock.calls)).not.toContain("PRIVATE_");
   });
 
@@ -2276,7 +2298,14 @@ describe("createAssessmentStore", () => {
     });
     const identity = registrationIdentity();
 
-    store.getState().register(createRegistration());
+    store.getState().register(
+      createRegistration({
+        config: {
+          ...createRegistration().config,
+          activityDescription: "Which answer is correct?",
+        },
+      }),
+    );
     const reveal = store.getState().revealHint(identity);
     expect(xapi.record).not.toHaveBeenCalled();
 
@@ -2288,9 +2317,16 @@ describe("createAssessmentStore", () => {
       buildHintInteractedStatementDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "target-one",
+        activityDescription: "Which answer is correct?",
         hintNumber: 1,
       }),
     );
+    expect(
+      xapi.record.mock.calls[0]?.[0].context?.contextActivities?.parent?.[0]?.definition
+        ?.description,
+    ).toEqual({
+      en: "Which answer is correct?",
+    });
   });
 
   it("does not record a persisted hint when authoritative count does not increase", async () => {

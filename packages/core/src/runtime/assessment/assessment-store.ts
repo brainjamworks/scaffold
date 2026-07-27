@@ -313,6 +313,9 @@ export function createAssessmentStore({
           buildAnsweredStatementDraft({
             rootActivityId: session.rootActivityId,
             targetId: registration.targetId,
+            ...(registration.config.activityDescription === undefined
+              ? {}
+              : { activityDescription: registration.config.activityDescription }),
             interactionKind: registration.interactionKind,
             response: problem.response,
             result: problem.submissionResult,
@@ -337,6 +340,9 @@ export function createAssessmentStore({
           buildHintInteractedStatementDraft({
             rootActivityId: session.rootActivityId,
             targetId: registration.targetId,
+            ...(registration.config.activityDescription === undefined
+              ? {}
+              : { activityDescription: registration.config.activityDescription }),
             hintNumber: problem.hintsShown,
           }),
         );
@@ -399,6 +405,11 @@ export function createAssessmentStore({
             buildAnsweredStatementDraft({
               rootActivityId: session.rootActivityId,
               targetId: problemRegistration.targetId,
+              ...(problemRegistration.config.activityDescription === undefined
+                ? {}
+                : {
+                    activityDescription: problemRegistration.config.activityDescription,
+                  }),
               interactionKind: problemRegistration.interactionKind,
               response: problem.response,
               result: problem.submissionResult,

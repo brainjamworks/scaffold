@@ -107,12 +107,16 @@ describe("xAPI catalogue vocabulary", () => {
         buildAnsweredStatementDraft({
           rootActivityId: ROOT_ACTIVITY_ID,
           targetId: "question-one",
+          activityDescription: "Which answer is correct?",
           interactionKind,
           response: null,
           result: normalizedResult(),
           attemptNumber: 1,
-        }).object.definition?.interactionType,
-      ).toBe(interactionType);
+        }).object.definition,
+      ).toMatchObject({
+        description: { en: "Which answer is correct?" },
+        interactionType,
+      });
     },
   );
 });
@@ -370,6 +374,7 @@ describe("xAPI Statement catalogue builders", () => {
       buildHintInteractedStatementDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
+        activityDescription: "Which answer is correct?",
         hintNumber: 2,
       }),
     ).toStrictEqual({
@@ -388,7 +393,10 @@ describe("xAPI Statement catalogue builders", () => {
             {
               objectType: "Activity",
               id: createAssessmentActivityId(ROOT_ACTIVITY_ID, "question-one"),
-              definition: { type: XAPI_ACTIVITY_TYPES.assessmentQuestion },
+              definition: {
+                description: { en: "Which answer is correct?" },
+                type: XAPI_ACTIVITY_TYPES.assessmentQuestion,
+              },
             },
           ],
         },

@@ -32,6 +32,7 @@ export type XapiInteractionType =
 
 export interface XapiActivityDefinition {
   readonly name?: XapiLanguageMap;
+  readonly description?: XapiLanguageMap;
   readonly type?: XapiIri;
   readonly interactionType?: XapiInteractionType;
   readonly extensions?: Readonly<Record<XapiIri, XapiJsonValue>>;
@@ -275,6 +276,7 @@ const XapiInteractionTypeSchema = z.enum([
 const XapiActivityDefinitionSchema = z
   .object({
     name: XapiLanguageMapSchema.optional(),
+    description: XapiLanguageMapSchema.optional(),
     type: XapiIriSchema.optional(),
     interactionType: XapiInteractionTypeSchema.optional(),
     extensions: XapiExtensionsSchema.optional(),

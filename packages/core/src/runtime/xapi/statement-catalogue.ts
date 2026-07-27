@@ -277,22 +277,27 @@ export function encodeAssessmentResponse(
 function assessmentActivity(
   rootId: XapiIri,
   targetId: string,
-  interaction?: {
-    readonly kind: AssessmentInteractionKind;
-    readonly interactionType: XapiInteractionType;
-  },
+  options: {
+    readonly activityDescription?: string;
+    readonly interaction?: {
+      readonly kind: AssessmentInteractionKind;
+      readonly interactionType: XapiInteractionType;
+    };
+  } = {},
 ): XapiActivity {
+  const description = options.activityDescription?.replace(/\s+/gu, " ").trim() ?? "";
   return {
     objectType: "Activity",
     id: createAssessmentActivityId(rootId, targetId),
     definition: {
+      ...(description ? { description: { en: description } } : {}),
       type: XAPI_ACTIVITY_TYPES.assessmentQuestion,
-      ...(interaction === undefined
+      ...(options.interaction === undefined
         ? {}
         : {
-            interactionType: interaction.interactionType,
+            interactionType: options.interaction.interactionType,
             extensions: {
-              [XAPI_EXTENSIONS.assessmentInteractionKind]: interaction.kind,
+              [XAPI_EXTENSIONS.assessmentInteractionKind]: options.interaction.kind,
             },
           }),
     },
@@ -367,6 +372,7 @@ export function buildInitializedStatementDraft(input: {
 export function buildAnsweredStatementDraft(input: {
   readonly rootActivityId: XapiIri;
   readonly targetId: string;
+  readonly activityDescription?: string;
   readonly interactionKind: AssessmentInteractionKind;
   readonly response: AssessmentResponseValue | null;
   readonly result: Pick<AssessmentResult, "isCorrect" | "score">;
@@ -382,8 +388,13 @@ export function buildAnsweredStatementDraft(input: {
   return validatedDraft({
     verb: XAPI_VERBS.answered,
     object: assessmentActivity(input.rootActivityId, input.targetId, {
-      kind: input.interactionKind,
-      interactionType: encodedResponse.interactionType,
+      ...(input.activityDescription === undefined
+        ? {}
+        : { activityDescription: input.activityDescription }),
+      interaction: {
+        kind: input.interactionKind,
+        interactionType: encodedResponse.interactionType,
+      },
     }),
     result: {
       success: result.isCorrect,
@@ -407,6 +418,7 @@ export function buildAnsweredStatementDraft(input: {
 export function buildHintInteractedStatementDraft(input: {
   readonly rootActivityId: XapiIri;
   readonly targetId: string;
+  readonly activityDescription?: string;
   readonly hintNumber: number;
 }): XapiStatementDraft {
   const hintNumber = positiveInteger("hintNumber", input.hintNumber);
@@ -422,7 +434,13 @@ export function buildHintInteractedStatementDraft(input: {
         [XAPI_EXTENSIONS.hintNumber]: hintNumber,
       },
     },
-    context: parentContext(assessmentActivity(input.rootActivityId, input.targetId)),
+    context: parentContext(
+      assessmentActivity(input.rootActivityId, input.targetId, {
+        ...(input.activityDescription === undefined
+          ? {}
+          : { activityDescription: input.activityDescription }),
+      }),
+    ),
   });
 }
 

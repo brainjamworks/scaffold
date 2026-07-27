@@ -16,6 +16,12 @@ import {
   type BlockAssessmentCapabilityDefinition,
   type BlockDefinition,
 } from "@/editor/blocks/block-definition";
+import {
+  DEFAULT_INLINE_ICON_VALUE,
+  inlineIconStaticText,
+  readInlineIconValue,
+} from "@/editor/rich-text/inline-icon/model/InlineIconNode";
+import { normalizeVocabularyText } from "@/editor/rich-text/vocabulary-term/model/VocabularyTermNode";
 
 import { countAssessmentHints } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import type { AssessmentExperienceConfig } from "../model/assessment-capability";
@@ -415,6 +421,9 @@ function runtimeProblemConfigFromFacade(
     kind: interactionKind,
     targetId,
     interactionKind,
+    ...(config.activityDescription === undefined
+      ? {}
+      : { activityDescription: config.activityDescription }),
     choiceMode: choiceModeForInteraction(interactionKind),
     feedbackMode: settings.feedbackMode,
     maxAttempts: settings.maxAttempts,
@@ -472,11 +481,13 @@ function createRuntimeProblemConfig(
     | undefined;
   const blockId = String(node.attrs["id"] ?? "");
   const kind = assessment.interactionKind;
+  const activityDescription = assessmentActivityDescription(node);
 
   return {
     kind,
     targetId: blockId,
     interactionKind: kind,
+    ...(activityDescription === undefined ? {} : { activityDescription }),
     choiceMode: choiceModeForInteraction(kind),
     feedbackMode: settings.feedbackMode,
     maxAttempts: settings.maxAttempts,
@@ -491,6 +502,39 @@ function createRuntimeProblemConfig(
     isGraded: settings.isGraded,
     responseCodec: assessment.response,
   };
+}
+
+function assessmentActivityDescription(node: PMNode): string | undefined {
+  let prompt: PMNode | null = null;
+  for (let index = 0; index < node.childCount; index += 1) {
+    const child = node.child(index);
+    if (child.type.name !== "assessment_prompt") continue;
+    prompt = child;
+    break;
+  }
+  if (!prompt) return undefined;
+
+  const description = prompt
+    .textBetween(0, prompt.content.size, " ", assessmentPromptLeafText)
+    .replace(/\s+/gu, " ")
+    .trim();
+  return description || undefined;
+}
+
+function assessmentPromptLeafText(node: PMNode): string {
+  if (node.type.name === "hardBreak" || node.type.name === "horizontalRule") return " ";
+  if (node.type.name === "inlineMath" || node.type.name === "blockMath") {
+    return typeof node.attrs["latex"] === "string" ? node.attrs["latex"] : "";
+  }
+  if (node.type.name === "vocabTerm") {
+    return normalizeVocabularyText(node.attrs["term"]);
+  }
+  if (node.type.name === "inlineIcon") {
+    return inlineIconStaticText(
+      readInlineIconValue(node.attrs["value"]) ?? DEFAULT_INLINE_ICON_VALUE,
+    );
+  }
+  return node.type.spec.leafText?.(node) ?? "";
 }
 
 function choiceModeForInteraction(kind: AssessmentInteractionKind): ChoiceMode | null {

@@ -22,6 +22,7 @@ export interface AssessmentBlockSetupConfig {
   hintsTotal: number;
   points: number;
   isGraded: boolean;
+  activityDescription?: string;
   legend?: string;
   placeholder?: string;
   maxSelect?: number | null;
@@ -67,6 +68,9 @@ export function useAssessmentBlockSetup({
         experience: config.experience,
         settings,
         hintsTotal: config.hintsTotal,
+        ...(config.activityDescription === undefined
+          ? {}
+          : { activityDescription: config.activityDescription }),
       },
     };
   }, [authoredProblemId, config]);
