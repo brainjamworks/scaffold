@@ -633,14 +633,23 @@ describe("useAssessmentRuntime", () => {
     );
 
     await waitFor(() => {
-      expect(
-        scopedAssessmentStore?.getState().registrations["artifact:artifact-1/block:mcq-1"],
-      ).toMatchObject({
-        config: {
-          activityDescription: "What is x^2 called? square 💡 a^2 + b^2 = c^2",
-        },
-      });
+      const registration =
+        scopedAssessmentStore?.getState().registrations["artifact:artifact-1/block:mcq-1"];
+      expect(registration?.config.getXapiActivityDefinition).toBeTypeOf("function");
     });
+    const registration =
+      scopedAssessmentStore?.getState().registrations["artifact:artifact-1/block:mcq-1"];
+    expect(registration?.config).not.toHaveProperty("activityDescription");
+    const xapiDefinition = registration?.config.getXapiActivityDefinition?.();
+    expect(xapiDefinition).toMatchObject({
+      description: { en: "What is x^2 called? square 💡 a^2 + b^2 = c^2" },
+      interactionType: "choice",
+      choices: [
+        { id: "a", description: { en: "a" } },
+        { id: "b", description: { en: "b" } },
+      ],
+    });
+    expect(xapiDefinition).not.toHaveProperty("correctResponsesPattern");
     expect(JSON.stringify(scopedAssessmentStore?.getState().registrations)).not.toContain(
       "PRIVATE_VOCABULARY_DEFINITION",
     );

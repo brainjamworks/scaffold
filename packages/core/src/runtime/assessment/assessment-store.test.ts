@@ -13,7 +13,7 @@ import {
   QuizAttemptStateSchema,
 } from "@scaffold/contracts";
 import type { AssessmentPort } from "../../host/ports/assessment";
-import type { XapiPort, XapiStatementDraft } from "../../host/ports/xapi";
+import type { XapiActivityDefinition, XapiPort, XapiStatementDraft } from "../../host/ports/xapi";
 import {
   buildAnsweredStatementDraft,
   buildHintInteractedStatementDraft,
@@ -84,6 +84,18 @@ function createSessionDouble(
     getState: () => ({ status: "dormant" as const }),
   });
   return { session, record };
+}
+
+function assessmentActivityDefinition(): XapiActivityDefinition {
+  return {
+    description: { en: "Which answer is correct?" },
+    type: "http://adlnet.gov/expapi/activities/cmi.interaction",
+    interactionType: "choice",
+    choices: [
+      { id: "option-a", description: { en: "Paris" } },
+      { id: "option-b", description: { en: "Madrid" } },
+    ],
+  };
 }
 
 function createProblemSnapshot(): AssessmentProblemSnapshot {
@@ -355,15 +367,18 @@ describe("createAssessmentStore", () => {
     });
     const identity = registrationIdentity();
     const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const getXapiActivityDefinition = vi.fn(assessmentActivityDefinition);
+    const registrationConfig = {
+      ...createRegistration().config,
+      getXapiActivityDefinition,
+    };
 
     store.getState().register(
       createRegistration({
-        config: {
-          ...createRegistration().config,
-          activityDescription: "Which answer is correct?",
-        },
+        config: registrationConfig,
       }),
     );
+    expect(getXapiActivityDefinition).not.toHaveBeenCalled();
     store.getState().registerQuiz(createQuizRegistration());
     store.setState({
       durable: {
@@ -384,11 +399,12 @@ describe("createAssessmentStore", () => {
       expectedAttemptNumber: 0,
     });
     expect(store.getState().durable.problems[problemId]).toEqual(canonicalProblem);
+    expect(getXapiActivityDefinition).toHaveBeenCalledOnce();
     expect(xapi.record).toHaveBeenCalledExactlyOnceWith(
       buildAnsweredStatementDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "target-one",
-        activityDescription: "Which answer is correct?",
+        activityDefinition: assessmentActivityDefinition(),
         interactionKind: "single-select",
         response: canonicalProblem.response,
         result,
@@ -396,9 +412,6 @@ describe("createAssessmentStore", () => {
         quiz: { quizId: "quiz-one", attemptId: "attempt-one" },
       }),
     );
-    expect(xapi.record.mock.calls[0]?.[0].object.definition?.description).toEqual({
-      en: "Which answer is correct?",
-    });
   });
 
   it("records a terminal final question as answered, completed, then passed", async () => {
@@ -2012,15 +2025,18 @@ describe("createAssessmentStore", () => {
       getXapiSession: () => xapi.session,
     });
     const identity = registrationIdentity();
+    const getXapiActivityDefinition = vi.fn(assessmentActivityDefinition);
+    const registrationConfig = {
+      ...createRegistration().config,
+      getXapiActivityDefinition,
+    };
 
     store.getState().register(
       createRegistration({
-        config: {
-          ...createRegistration().config,
-          activityDescription: "Which answer is correct?",
-        },
+        config: registrationConfig,
       }),
     );
+    expect(getXapiActivityDefinition).not.toHaveBeenCalled();
     store.getState().setLocalResponse(identity, { choice: "option-a" });
 
     await expect(store.getState().submit(identity)).resolves.toEqual(
@@ -2028,20 +2044,21 @@ describe("createAssessmentStore", () => {
     );
 
     expect(problemAtRecord).toEqual(canonicalProblem);
+    expect(getXapiActivityDefinition).toHaveBeenCalledOnce();
     expect(xapi.record).toHaveBeenCalledExactlyOnceWith(
       buildAnsweredStatementDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "target-one",
-        activityDescription: "Which answer is correct?",
+        activityDefinition: assessmentActivityDefinition(),
         interactionKind: "single-select",
         response: canonicalProblem.response,
         result: canonicalProblem.submissionResult,
         attemptNumber: 3,
       }),
     );
-    expect(xapi.record.mock.calls[0]?.[0].object.definition?.description).toEqual({
-      en: "Which answer is correct?",
-    });
+    expect(xapi.record.mock.calls[0]?.[0].object.definition).not.toHaveProperty(
+      "correctResponsesPattern",
+    );
     expect(JSON.stringify(xapi.record.mock.calls)).not.toContain("PRIVATE_");
   });
 
@@ -2297,36 +2314,34 @@ describe("createAssessmentStore", () => {
       getXapiSession: () => xapi.session,
     });
     const identity = registrationIdentity();
+    const getXapiActivityDefinition = vi.fn(assessmentActivityDefinition);
+    const registrationConfig = {
+      ...createRegistration().config,
+      getXapiActivityDefinition,
+    };
 
     store.getState().register(
       createRegistration({
-        config: {
-          ...createRegistration().config,
-          activityDescription: "Which answer is correct?",
-        },
+        config: registrationConfig,
       }),
     );
     const reveal = store.getState().revealHint(identity);
     expect(xapi.record).not.toHaveBeenCalled();
+    expect(getXapiActivityDefinition).not.toHaveBeenCalled();
 
     pending.resolve({ problem: { ...createProblemSnapshot(), hintsShown: 1 } });
     await expect(reveal).resolves.toBe(true);
 
     expect(hintsAtRecord).toBe(1);
+    expect(getXapiActivityDefinition).toHaveBeenCalledOnce();
     expect(xapi.record).toHaveBeenCalledExactlyOnceWith(
       buildHintInteractedStatementDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "target-one",
-        activityDescription: "Which answer is correct?",
+        activityDefinition: assessmentActivityDefinition(),
         hintNumber: 1,
       }),
     );
-    expect(
-      xapi.record.mock.calls[0]?.[0].context?.contextActivities?.parent?.[0]?.definition
-        ?.description,
-    ).toEqual({
-      en: "Which answer is correct?",
-    });
   });
 
   it("does not record a persisted hint when authoritative count does not increase", async () => {

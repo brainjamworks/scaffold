@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import type { AssessmentInteractionKind, AssessmentTargetSettings } from "@scaffold/contracts";
 
 import type { AssessmentCapabilityResponseDefinition } from "@/editor/blocks/block-definition";
+import type { XapiActivityDefinition } from "@/host/ports/xapi";
 import {
   useAssessmentProblemFacade,
   type AssessmentProblemFacade,
@@ -22,7 +23,7 @@ export interface AssessmentBlockSetupConfig {
   hintsTotal: number;
   points: number;
   isGraded: boolean;
-  activityDescription?: string;
+  getXapiActivityDefinition?: () => XapiActivityDefinition;
   legend?: string;
   placeholder?: string;
   maxSelect?: number | null;
@@ -68,9 +69,9 @@ export function useAssessmentBlockSetup({
         experience: config.experience,
         settings,
         hintsTotal: config.hintsTotal,
-        ...(config.activityDescription === undefined
+        ...(config.getXapiActivityDefinition === undefined
           ? {}
-          : { activityDescription: config.activityDescription }),
+          : { getXapiActivityDefinition: config.getXapiActivityDefinition }),
       },
     };
   }, [authoredProblemId, config]);

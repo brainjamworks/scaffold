@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import {
   AssessmentResponseValueSchema,
+  type AssessmentInteractionContract,
   type AssessmentInteractionKind,
   type AssessmentResponseValue,
   type AssessmentResult,
@@ -10,7 +11,9 @@ import {
   XapiIriSchema,
   XapiStatementDraftSchema,
   type XapiActivity,
+  type XapiActivityDefinition,
   type XapiContextTemplate,
+  type XapiInteractionComponent,
   type XapiInteractionType,
   type XapiIri,
   type XapiStatementDraft,
@@ -170,6 +173,63 @@ function encodedComponentId(id: string): string {
   return rfc3986Encode(id);
 }
 
+function xapiInteractionComponent(component: {
+  readonly id: string;
+  readonly label?: string | undefined;
+}): XapiInteractionComponent {
+  const label = component.label?.trim();
+  return {
+    id: encodedComponentId(component.id),
+    ...(label ? { description: { en: label } } : {}),
+  };
+}
+
+export function buildAssessmentActivityDefinition(input: {
+  readonly activityDescription?: string;
+  readonly interaction: AssessmentInteractionContract;
+}): XapiActivityDefinition {
+  const description = input.activityDescription?.replace(/\s+/gu, " ").trim() ?? "";
+  const base: XapiActivityDefinition = {
+    ...(description ? { description: { en: description } } : {}),
+    type: XAPI_ACTIVITY_TYPES.assessmentQuestion,
+    interactionType: interactionType(input.interaction.kind),
+    extensions: {
+      [XAPI_EXTENSIONS.assessmentInteractionKind]: input.interaction.kind,
+    },
+  };
+
+  switch (input.interaction.kind) {
+    case "single-select":
+    case "multi-select":
+      return {
+        ...base,
+        choices: input.interaction.options.map(xapiInteractionComponent),
+      };
+    case "sequence":
+      return {
+        ...base,
+        choices: input.interaction.items.map(xapiInteractionComponent),
+      };
+    case "match":
+      return {
+        ...base,
+        source: input.interaction.items.map(xapiInteractionComponent),
+        target: input.interaction.targets.map(xapiInteractionComponent),
+      };
+    case "classify":
+      return {
+        ...base,
+        source: input.interaction.items.map(xapiInteractionComponent),
+        target: input.interaction.categories.map(xapiInteractionComponent),
+      };
+    case "fill-blanks":
+    case "spatial-hotspot":
+      return base;
+    default:
+      throw new Error(`Unsupported assessment interaction kind: ${String(input.interaction)}`);
+  }
+}
+
 export interface EncodedXapiAssessmentResponse {
   readonly interactionType: XapiInteractionType;
   readonly response?: string;
@@ -279,6 +339,7 @@ function assessmentActivity(
   targetId: string,
   options: {
     readonly activityDescription?: string;
+    readonly activityDefinition?: XapiActivityDefinition;
     readonly interaction?: {
       readonly kind: AssessmentInteractionKind;
       readonly interactionType: XapiInteractionType;
@@ -290,6 +351,7 @@ function assessmentActivity(
     objectType: "Activity",
     id: createAssessmentActivityId(rootId, targetId),
     definition: {
+      ...options.activityDefinition,
       ...(description ? { description: { en: description } } : {}),
       type: XAPI_ACTIVITY_TYPES.assessmentQuestion,
       ...(options.interaction === undefined
@@ -297,6 +359,7 @@ function assessmentActivity(
         : {
             interactionType: options.interaction.interactionType,
             extensions: {
+              ...options.activityDefinition?.extensions,
               [XAPI_EXTENSIONS.assessmentInteractionKind]: options.interaction.kind,
             },
           }),
@@ -373,6 +436,7 @@ export function buildAnsweredStatementDraft(input: {
   readonly rootActivityId: XapiIri;
   readonly targetId: string;
   readonly activityDescription?: string;
+  readonly activityDefinition?: XapiActivityDefinition;
   readonly interactionKind: AssessmentInteractionKind;
   readonly response: AssessmentResponseValue | null;
   readonly result: Pick<AssessmentResult, "isCorrect" | "score">;
@@ -388,6 +452,9 @@ export function buildAnsweredStatementDraft(input: {
   return validatedDraft({
     verb: XAPI_VERBS.answered,
     object: assessmentActivity(input.rootActivityId, input.targetId, {
+      ...(input.activityDefinition === undefined
+        ? {}
+        : { activityDefinition: input.activityDefinition }),
       ...(input.activityDescription === undefined
         ? {}
         : { activityDescription: input.activityDescription }),
@@ -419,6 +486,7 @@ export function buildHintInteractedStatementDraft(input: {
   readonly rootActivityId: XapiIri;
   readonly targetId: string;
   readonly activityDescription?: string;
+  readonly activityDefinition?: XapiActivityDefinition;
   readonly hintNumber: number;
 }): XapiStatementDraft {
   const hintNumber = positiveInteger("hintNumber", input.hintNumber);
@@ -436,6 +504,9 @@ export function buildHintInteractedStatementDraft(input: {
     },
     context: parentContext(
       assessmentActivity(input.rootActivityId, input.targetId, {
+        ...(input.activityDefinition === undefined
+          ? {}
+          : { activityDefinition: input.activityDefinition }),
         ...(input.activityDescription === undefined
           ? {}
           : { activityDescription: input.activityDescription }),

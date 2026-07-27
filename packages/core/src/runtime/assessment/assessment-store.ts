@@ -313,9 +313,11 @@ export function createAssessmentStore({
           buildAnsweredStatementDraft({
             rootActivityId: session.rootActivityId,
             targetId: registration.targetId,
-            ...(registration.config.activityDescription === undefined
+            ...(registration.config.getXapiActivityDefinition === undefined
               ? {}
-              : { activityDescription: registration.config.activityDescription }),
+              : {
+                  activityDefinition: registration.config.getXapiActivityDefinition(),
+                }),
             interactionKind: registration.interactionKind,
             response: problem.response,
             result: problem.submissionResult,
@@ -340,9 +342,11 @@ export function createAssessmentStore({
           buildHintInteractedStatementDraft({
             rootActivityId: session.rootActivityId,
             targetId: registration.targetId,
-            ...(registration.config.activityDescription === undefined
+            ...(registration.config.getXapiActivityDefinition === undefined
               ? {}
-              : { activityDescription: registration.config.activityDescription }),
+              : {
+                  activityDefinition: registration.config.getXapiActivityDefinition(),
+                }),
             hintNumber: problem.hintsShown,
           }),
         );
@@ -405,10 +409,10 @@ export function createAssessmentStore({
             buildAnsweredStatementDraft({
               rootActivityId: session.rootActivityId,
               targetId: problemRegistration.targetId,
-              ...(problemRegistration.config.activityDescription === undefined
+              ...(problemRegistration.config.getXapiActivityDefinition === undefined
                 ? {}
                 : {
-                    activityDescription: problemRegistration.config.activityDescription,
+                    activityDefinition: problemRegistration.config.getXapiActivityDefinition(),
                   }),
               interactionKind: problemRegistration.interactionKind,
               response: problem.response,

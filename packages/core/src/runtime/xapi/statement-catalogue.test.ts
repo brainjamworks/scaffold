@@ -1,15 +1,17 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import type {
+  AssessmentInteractionContract,
   AssessmentInteractionKind,
   AssessmentResponseValue,
   AssessmentResult,
 } from "@scaffold/contracts";
-import type { XapiStatementDraft } from "../../host/ports/xapi";
+import type { XapiActivityDefinition, XapiStatementDraft } from "../../host/ports/xapi";
 import {
   XAPI_ACTIVITY_TYPES,
   XAPI_EXTENSIONS,
   XAPI_VERBS,
+  buildAssessmentActivityDefinition,
   buildAnsweredStatementDraft,
   buildHintInteractedStatementDraft,
   buildInitializedStatementDraft,
@@ -117,6 +119,111 @@ describe("xAPI catalogue vocabulary", () => {
         description: { en: "Which answer is correct?" },
         interactionType,
       });
+    },
+  );
+
+  it.each([
+    {
+      interaction: {
+        kind: "single-select",
+        options: [{ id: "option /é", label: "Paris" }],
+      },
+      expected: {
+        interactionType: "choice",
+        choices: [{ id: "option%20%2F%C3%A9", description: { en: "Paris" } }],
+      },
+    },
+    {
+      interaction: {
+        kind: "multi-select",
+        options: [{ id: "option-a" }, { id: "option-b", label: "Second" }],
+        maxSelections: 2,
+      },
+      expected: {
+        interactionType: "choice",
+        choices: [{ id: "option-a" }, { id: "option-b", description: { en: "Second" } }],
+      },
+    },
+    {
+      interaction: {
+        kind: "sequence",
+        items: [{ id: "step-1", label: "First step" }],
+      },
+      expected: {
+        interactionType: "sequencing",
+        choices: [{ id: "step-1", description: { en: "First step" } }],
+      },
+    },
+    {
+      interaction: {
+        kind: "match",
+        items: [{ id: "left-1", label: "France" }],
+        targets: [{ id: "right-1", label: "Paris" }],
+      },
+      expected: {
+        interactionType: "matching",
+        source: [{ id: "left-1", description: { en: "France" } }],
+        target: [{ id: "right-1", description: { en: "Paris" } }],
+      },
+    },
+    {
+      interaction: {
+        kind: "classify",
+        items: [{ id: "item-1", label: "Salmon" }],
+        categories: [{ id: "category-1", label: "Fish" }],
+      },
+      expected: {
+        interactionType: "matching",
+        source: [{ id: "item-1", description: { en: "Salmon" } }],
+        target: [{ id: "category-1", description: { en: "Fish" } }],
+      },
+    },
+    {
+      interaction: {
+        kind: "fill-blanks",
+        blanks: [{ id: "blank-1", label: "Capital" }],
+      },
+      expected: { interactionType: "other" },
+    },
+    {
+      interaction: {
+        kind: "spatial-hotspot",
+        hotspots: [
+          {
+            id: "hotspot-1",
+            label: "France",
+            geometry: { kind: "circle", centerX: 0.5, centerY: 0.5, radius: 0.1 },
+          },
+        ],
+        maxSelections: 1,
+      },
+      expected: { interactionType: "other" },
+    },
+  ] satisfies readonly {
+    readonly interaction: AssessmentInteractionContract;
+    readonly expected: Partial<XapiActivityDefinition>;
+  }[])(
+    "derives the standard component lists for $interaction.kind without an answer key",
+    ({ interaction, expected }) => {
+      const definition = buildAssessmentActivityDefinition({
+        activityDescription: "What is the answer?",
+        interaction,
+      });
+
+      expect(definition).toMatchObject({
+        description: { en: "What is the answer?" },
+        type: XAPI_ACTIVITY_TYPES.assessmentQuestion,
+        extensions: {
+          [XAPI_EXTENSIONS.assessmentInteractionKind]: interaction.kind,
+        },
+        ...expected,
+      });
+      expect(definition).not.toHaveProperty("correctResponsesPattern");
+      if (interaction.kind === "fill-blanks" || interaction.kind === "spatial-hotspot") {
+        expect(definition).not.toHaveProperty("choices");
+        expect(definition).not.toHaveProperty("source");
+        expect(definition).not.toHaveProperty("target");
+      }
     },
   );
 });

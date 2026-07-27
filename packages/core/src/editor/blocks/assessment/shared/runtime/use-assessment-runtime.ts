@@ -1,6 +1,7 @@
 import type { Editor } from "@tiptap/core";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { useMemo } from "react";
+import { AssessmentInteractionContractSchema } from "@scaffold/contracts";
 import type {
   AssessmentAnswerKey,
   AssessmentInteractionKind,
@@ -16,6 +17,7 @@ import {
   type BlockAssessmentCapabilityDefinition,
   type BlockDefinition,
 } from "@/editor/blocks/block-definition";
+import { buildAssessmentActivityDefinition } from "@/runtime/xapi/statement-catalogue";
 import {
   DEFAULT_INLINE_ICON_VALUE,
   inlineIconStaticText,
@@ -421,9 +423,9 @@ function runtimeProblemConfigFromFacade(
     kind: interactionKind,
     targetId,
     interactionKind,
-    ...(config.activityDescription === undefined
+    ...(config.getXapiActivityDefinition === undefined
       ? {}
-      : { activityDescription: config.activityDescription }),
+      : { getXapiActivityDefinition: config.getXapiActivityDefinition }),
     choiceMode: choiceModeForInteraction(interactionKind),
     feedbackMode: settings.feedbackMode,
     maxAttempts: settings.maxAttempts,
@@ -481,13 +483,27 @@ function createRuntimeProblemConfig(
     | undefined;
   const blockId = String(node.attrs["id"] ?? "");
   const kind = assessment.interactionKind;
-  const activityDescription = assessmentActivityDescription(node);
+  const getXapiActivityDefinition = () => {
+    const interaction = AssessmentInteractionContractSchema.parse(
+      assessment.projection.projectInteraction(node.toJSON(), settings),
+    );
+    if (interaction.kind !== kind) {
+      throw new Error(
+        `Assessment interaction projection kind "${interaction.kind}" does not match registered kind "${kind}".`,
+      );
+    }
+    const activityDescription = assessmentActivityDescription(node);
+    return buildAssessmentActivityDefinition({
+      ...(activityDescription === undefined ? {} : { activityDescription }),
+      interaction,
+    });
+  };
 
   return {
     kind,
     targetId: blockId,
     interactionKind: kind,
-    ...(activityDescription === undefined ? {} : { activityDescription }),
+    getXapiActivityDefinition,
     choiceMode: choiceModeForInteraction(kind),
     feedbackMode: settings.feedbackMode,
     maxAttempts: settings.maxAttempts,

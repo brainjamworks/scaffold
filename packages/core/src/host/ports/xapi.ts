@@ -30,11 +30,19 @@ export type XapiInteractionType =
   | "numeric"
   | "other";
 
+export interface XapiInteractionComponent {
+  readonly id: string;
+  readonly description?: XapiLanguageMap;
+}
+
 export interface XapiActivityDefinition {
   readonly name?: XapiLanguageMap;
   readonly description?: XapiLanguageMap;
   readonly type?: XapiIri;
   readonly interactionType?: XapiInteractionType;
+  readonly choices?: readonly XapiInteractionComponent[];
+  readonly source?: readonly XapiInteractionComponent[];
+  readonly target?: readonly XapiInteractionComponent[];
   readonly extensions?: Readonly<Record<XapiIri, XapiJsonValue>>;
 }
 
@@ -273,12 +281,22 @@ const XapiInteractionTypeSchema = z.enum([
   "other",
 ]);
 
+const XapiInteractionComponentSchema = z
+  .object({
+    id: z.string(),
+    description: XapiLanguageMapSchema.optional(),
+  })
+  .strict();
+
 const XapiActivityDefinitionSchema = z
   .object({
     name: XapiLanguageMapSchema.optional(),
     description: XapiLanguageMapSchema.optional(),
     type: XapiIriSchema.optional(),
     interactionType: XapiInteractionTypeSchema.optional(),
+    choices: z.array(XapiInteractionComponentSchema).optional(),
+    source: z.array(XapiInteractionComponentSchema).optional(),
+    target: z.array(XapiInteractionComponentSchema).optional(),
     extensions: XapiExtensionsSchema.optional(),
   })
   .strict()
