@@ -43,7 +43,6 @@ export function EmbedSurface({
             loading="lazy"
             allow={provider.allow}
             sandbox={provider.sandbox ?? DEFAULT_EMBED_SANDBOX}
-            allowFullScreen
             referrerPolicy="strict-origin-when-cross-origin"
             className="sc-embed__iframe"
           />

@@ -113,6 +113,19 @@ describe("embed data normalization", () => {
 });
 
 describe("EmbedSurface accessibility", () => {
+  it("uses one fullscreen permission mechanism for YouTube embeds", () => {
+    render(
+      createElement(EmbedSurface, {
+        data: updateEmbedDataUrl(emptyEmbedData(), "https://www.youtube.com/watch?v=aKllbvCaWvo"),
+        editable: false,
+      }),
+    );
+
+    const iframe = screen.getByTitle("YouTube embed");
+    expect(iframe.getAttribute("allow")).toContain("fullscreen");
+    expect(iframe.hasAttribute("allowfullscreen")).toBe(false);
+  });
+
   it("exposes missing runtime embeds as a passive status", () => {
     render(
       createElement(EmbedSurface, {

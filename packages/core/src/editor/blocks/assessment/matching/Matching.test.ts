@@ -712,6 +712,58 @@ describe("composite matching node", () => {
     editor.destroy();
   });
 
+  it("requires every matching item to have a target before enabling submit", async () => {
+    const editor = makeEditor(false);
+    const problemId = "artifact:artifact-1/block:matching-1";
+    editor.commands.setContent(matchingRuntimeDoc());
+    const assessmentPort: AssessmentPort = {
+      type: "runtime",
+      submit: async (args) =>
+        assessmentProblemOutcome(
+          {
+            ...canonicalAssessmentResult,
+            isCorrect: false,
+            score: 0,
+            items: {},
+          },
+          { response: args.response },
+        ),
+    };
+
+    renderRuntimeEditor(editor, assessmentPort);
+
+    await waitFor(() => {
+      expect(hasAssessmentRegistration(assessmentStore, problemId)).toBe(true);
+    });
+
+    setAssessmentResponseField(assessmentStore, problemId, "matches", {
+      i1: "t1",
+    });
+
+    await waitFor(() => {
+      expect(describedText('[data-target-id="t1"][data-matching-drop-target]')).toBe(
+        "Matched with item 1",
+      );
+      expect(
+        screen.getByRole("button", {
+          name: "Submit",
+          description: "Complete the response before submitting.",
+        }),
+      ).toBeDisabled();
+    });
+
+    setAssessmentResponseField(assessmentStore, problemId, "matches", {
+      i1: "t2",
+      i2: "t1",
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Submit" })).toBeEnabled();
+    });
+
+    editor.destroy();
+  });
+
   it("describes submitted matching correctness", async () => {
     const editor = makeEditor(false);
     const problemId = "artifact:artifact-1/block:matching-1";
@@ -750,6 +802,7 @@ describe("composite matching node", () => {
 
     setAssessmentResponseField(assessmentStore, problemId, "matches", {
       i1: "t2",
+      i2: "t1",
     });
 
     await waitFor(() => {
@@ -808,6 +861,7 @@ describe("composite matching node", () => {
 
     setAssessmentResponseField(assessmentStore, problemId, "matches", {
       i1: "t2",
+      i2: "t1",
     });
 
     await waitFor(() => {

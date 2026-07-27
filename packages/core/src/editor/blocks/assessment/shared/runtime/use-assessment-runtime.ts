@@ -474,6 +474,11 @@ function createRuntimeProblemConfig(
     | undefined;
   const blockId = String(node.attrs["id"] ?? "");
   const kind = assessment.interactionKind;
+  const interaction = assessment.projection.projectInteraction(node.toJSON(), settings);
+  const responseCodec = {
+    ...assessment.response,
+    hasResponse: (response: unknown) => assessment.response.hasResponse(response, interaction),
+  };
 
   return {
     kind,
@@ -491,7 +496,7 @@ function createRuntimeProblemConfig(
     hintsTotal: countAssessmentHints(node),
     points: settings.points,
     isGraded: settings.isGraded,
-    responseCodec: assessment.response,
+    responseCodec,
   };
 }
 

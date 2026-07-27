@@ -201,8 +201,26 @@ export function fromMatchingContractResponse(response: AssessmentResponseValue):
   });
 }
 
-export function hasMatchingResponse(response: unknown): boolean {
-  return Object.keys(readMatchingResponse(response).matches).length > 0;
+export function hasMatchingResponse(
+  response: unknown,
+  interaction?: AssessmentInteractionContract,
+): boolean {
+  const matches = readMatchingResponse(response).matches;
+  if (!interaction) return Object.keys(matches).length > 0;
+  if (interaction.kind !== "match" || interaction.items.length === 0) return false;
+
+  const expectedItemIds = new Set(interaction.items.map((item) => item.id));
+  const expectedTargetIds = new Set(interaction.targets.map((target) => target.id));
+  const entries = Object.entries(matches);
+  const selectedTargetIds = new Set(entries.map(([, targetId]) => targetId));
+
+  return (
+    entries.length === expectedItemIds.size &&
+    selectedTargetIds.size === entries.length &&
+    entries.every(
+      ([itemId, targetId]) => expectedItemIds.has(itemId) && expectedTargetIds.has(targetId),
+    )
+  );
 }
 
 export const matchingResponseCodec: AssessmentCapabilityResponseDefinition<MatchingResponse> = {
