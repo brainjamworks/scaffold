@@ -13,6 +13,7 @@ import type {
   ScaffoldMediaContext,
   ScaffoldResolvedMediaMap,
   ScaffoldRuntimePorts,
+  XapiIri,
 } from "@scaffold/core/ports";
 
 import { createXBlockLearnerActivityPort } from "./learner-activity-port";
@@ -33,6 +34,7 @@ type SaveContentResponse = BridgeHandlerResponse & {
 interface XBlockMediaPortOptions {
   mediaContext?: ScaffoldMediaContext | undefined;
   resolvedMedia?: ScaffoldResolvedMediaMap | null | undefined;
+  xapiActivityId?: XapiIri | undefined;
 }
 
 const DEFAULT_MEDIA_CONTEXT: ScaffoldMediaContext = "runtime";
@@ -64,6 +66,20 @@ export function createXBlockRuntimePorts(
   const resolvedMedia = sanitizeResolvedMedia(options.resolvedMedia);
 
   return {
+    ...(options.xapiActivityId
+      ? {
+          xapi: {
+            activityId: options.xapiActivityId,
+            send: async (statement) => {
+              const response = await bridge.request<BridgeHandlerResponse>("xapi.accept", {
+                statement,
+              });
+              unwrapXBlockHandlerResponse(response);
+            },
+          },
+        }
+      : {}),
+
     media: {
       context: mediaContext,
       resolve: async (mediaId) => {
@@ -210,6 +226,7 @@ export function createXBlockLearnerHostServices(
     ...(runtimePorts.assessment ? { assessment: runtimePorts.assessment } : {}),
     ...(runtimePorts.media ? { media: runtimePorts.media } : {}),
     ...(runtimePorts.learnerActivity ? { learnerActivity: runtimePorts.learnerActivity } : {}),
+    ...(runtimePorts.xapi ? { xapi: runtimePorts.xapi } : {}),
   };
 }
 

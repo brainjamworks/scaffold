@@ -3092,6 +3092,53 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertFalse(result["success"])
         self.assertIn("valid JSON", result["error"])
 
+    def test_xapi_handler_accepts_core_template_into_openedx_tracking(self):
+        block = make_xblock()
+        statement = {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "timestamp": "2026-07-27T12:00:00.000Z",
+            "verb": {
+                "id": "http://adlnet.gov/expapi/verbs/initialized",
+                "display": {"en": "initialized"},
+            },
+            "object": {
+                "objectType": "Activity",
+                "id": "https://scaffold.ac/xapi/activities/openedx/usage-v1",
+            },
+        }
+
+        result = block.accept_xapi_statement(
+            {"statement": statement, "protocolVersion": 1},
+        )
+
+        self.assertEqual(result, {"success": True})
+        self.assertEqual(
+            block.runtime.published,
+            [(block, "scaffold.xapi", {"statement": statement})],
+        )
+
+    def test_xapi_handler_rejects_caller_supplied_actor(self):
+        block = make_xblock()
+
+        result = block.accept_xapi_statement(
+            {
+                "statement": {
+                    "id": "00000000-0000-4000-8000-000000000001",
+                    "timestamp": "2026-07-27T12:00:00.000Z",
+                    "verb": {"id": "http://adlnet.gov/expapi/verbs/initialized"},
+                    "object": {
+                        "objectType": "Activity",
+                        "id": "https://scaffold.ac/xapi/activities/openedx/usage-v1",
+                    },
+                    "actor": {"mbox": "mailto:spoofed@example.test"},
+                },
+            },
+        )
+
+        self.assertFalse(result["success"])
+        self.assertIn("actor", result["error"])
+        self.assertEqual(block.runtime.published, [])
+
     def test_reveal_answer_reads_stored_target_contract_not_author_document(self):
         target = single_select_target()
         block = make_xblock([target])
