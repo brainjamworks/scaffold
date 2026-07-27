@@ -4,6 +4,11 @@ This file records user-visible changes to the Moodle activity module.
 
 ## Unreleased
 
+## 0.1.1 - 2026-07-27
+
+- Rebuilt the unchanged Moodle adapter as part of the coordinated replacement
+  for the rejected, unpublished `0.1.0` release candidate.
+
 ## 0.1.0 - 2026-07-27
 
 Initial alpha release.

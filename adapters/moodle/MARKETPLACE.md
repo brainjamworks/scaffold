@@ -1,22 +1,22 @@
 # Moodle Marketplace listing worksheet
 
 This is the copy-ready submission worksheet for Scaffold `mod_scaffold`
-release `0.1.0`. It is kept outside the installable plugin directory so that
+release `0.1.1`. It is kept outside the installable plugin directory so that
 listing administration does not change the verified release package.
 
-The values below were reconciled on 25 July 2026 against:
+The values below were updated on 27 July 2026 against:
 
 - `scaffold/version.php`;
 - the packaged plugin `README.md`, `LICENSE`, `thirdpartylibs.xml`, and
   `THIRD_PARTY_NOTICES.md`;
-- required CI run
-  [30153538168](https://github.com/brainjamworks/scaffold/actions/runs/30153538168);
-- source commit `1d7d8fcf5ab06d329a906ebb1a478595c166ac7c`; and
+- the repository's required CI and release workflow definitions; and
 - the official Moodle Marketplace submission guidelines linked from the
   [Moodle plugin contribution checklist](https://moodledev.io/general/community/plugincontribution/checklist).
 
-Do not submit the listing until the maintainer confirmation and release hold
-near the end of this worksheet are complete.
+The exact `0.1.1` source commit, Required CI run, package digest, and installed
+host smoke result are release-closing evidence. Do not submit the listing until
+that evidence, the maintainer confirmation, and the release hold near the end
+of this worksheet are complete.
 
 ## Plugin identity
 
@@ -25,7 +25,7 @@ near the end of this worksheet are complete.
 | Name                     | Scaffold                                 |
 | Plugin type              | Activity module                          |
 | Component                | `mod_scaffold`                           |
-| Release                  | `0.1.0`                                  |
+| Release                  | `0.1.1`                                  |
 | Maturity                 | Alpha                                    |
 | Licence                  | GNU General Public License v3.0 or later |
 | Marketplace offering     | Free                                     |
@@ -33,9 +33,10 @@ near the end of this worksheet are complete.
 | Declared Moodle versions | Moodle 4.5, 5.0, 5.1, and 5.2            |
 
 The compatibility declaration means Moodle 4.5 through 5.2 inclusive. Required
-CI exercises the endpoints: Moodle 4.5 with PHP 8.1 and MySQL 8.0, and Moodle
-5.2 with PHP 8.3 and PostgreSQL 16. The exact candidate ZIP also passed the
-Moodle-native Behat smoke scenario with `DEBUG_DEVELOPER` enabled.
+CI is configured to exercise the endpoints: Moodle 4.5 with PHP 8.1 and MySQL
+8.0, and Moodle 5.2 with PHP 8.3 and PostgreSQL 16. The exact `0.1.1` candidate
+ZIP must also pass the Moodle-native Behat smoke scenario with
+`DEBUG_DEVELOPER` enabled before submission.
 
 Do not add Moodle 5.3 until it has been released and verified.
 
@@ -63,7 +64,7 @@ reconciles expired quizzes and retries pending grade publication. Course
 backup and restore include Scaffold content, managed media, and learner state,
 and the plugin implements Moodle's Privacy API for personal learner data.
 
-This `0.1.0` release is alpha software. Evaluate it in a non-production Moodle
+This `0.1.1` release is alpha software. Evaluate it in a non-production Moodle
 site before deploying it to a live site. It requires Moodle 4.5 or later and a
 working Moodle cron process. It has no site-wide settings and no required
 third-party Moodle plugin dependency.
@@ -117,7 +118,7 @@ and `THIRD_PARTY_NOTICES.md`.
 
 ### Commercial classification
 
-List `0.1.0` as **free**. Moodle classifies the functionality and services
+List `0.1.1` as **free**. Moodle classifies the functionality and services
 offered by the submitted release, so a possible paid AI feature in a future
 release does not make this release paid.
 
@@ -182,7 +183,7 @@ they are provider attestations, not repository facts.
 
 - [ ] Sign in with the Marketplace account intended to remain the listing's
       lead maintainer.
-- [ ] Choose a free plugin listing for `0.1.0` and upload the exact approved
+- [ ] Choose a free plugin listing for `0.1.1` and upload the exact approved
       GitHub Release ZIP.
 - [ ] Accept the Marketplace intellectual-property declaration for original
       Scaffold work and the declared, authorised third-party components.
@@ -197,7 +198,7 @@ they are provider attestations, not repository facts.
 The listing copy, links, compatibility, licence, service declaration, and
 repository exception are ready. Submission remains on hold until:
 
-- the release-closing criteria produce the immutable public `v0.1.0` release
+- the release-closing criteria produce the immutable public `v0.1.1` release
   ZIP that will be uploaded to Marketplace; and
 - the maintainer completes the account actions and declarations above in the
   final submission session.

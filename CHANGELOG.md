@@ -10,6 +10,16 @@ called out explicitly.
 
 ## Unreleased
 
+## 0.1.1 - 2026-07-27
+
+### Fixed
+
+- Restored installation compatibility with the Open edX Ulmo runtime by
+  supporting Python 3.11 and XBlock 5.2 while retaining compatibility with
+  XBlock 6.
+- Replaced the rejected, unpublished `0.1.0` candidate with a coordinated
+  `0.1.1` candidate for both LMS adapters.
+
 ## 0.1.0 - 2026-07-27
 
 ### Added

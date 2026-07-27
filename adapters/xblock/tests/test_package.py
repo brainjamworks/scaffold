@@ -98,16 +98,27 @@ class XBlockPackageMetadataTest(unittest.TestCase):
             pyproject["project"]["entry-points"]["xblock.v1"]["scaffold"],
             "scaffold_xblock:ScaffoldXBlock",
         )
+        self.assertEqual(pyproject["project"]["requires-python"], ">=3.11")
+        self.assertEqual(
+            pyproject["project"]["dependencies"],
+            ["XBlock>=5.2,<7"],
+        )
         self.assertFalse((adapter_root / "setup.py").exists())
         self.assertTrue((adapter_root / "CHANGES.md").is_file())
         guide = (adapter_root / "README.md").read_text(encoding="utf8")
-        self.assertIn("scaffold-xblock==0.1.0", guide)
+        version = root_manifest["version"]
+        self.assertIn(f"scaffold-xblock=={version}", guide)
         self.assertIn("OPENEDX_EXTRA_PIP_REQUIREMENTS", guide)
         self.assertIn("tutor images build openedx", guide)
         self.assertIn("tutor local reboot -d", guide)
         self.assertIn("pip show scaffold-xblock", guide)
         self.assertIn('"scaffold"', guide)
-        self.assertIn("releases/tag/v0.1.0", guide)
+        self.assertIn(f"releases/tag/v{version}", guide)
+        self.assertIn("Python 3.11 or later", guide)
+        self.assertIn(
+            "Python 3.12 or later is required to build and package",
+            guide,
+        )
 
     def test_accepts_aligned_pep_621_distribution_metadata(self):
         with tempfile.TemporaryDirectory() as temporary_directory:

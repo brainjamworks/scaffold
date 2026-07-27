@@ -22,6 +22,12 @@ function moodleJob(workflow) {
   return job;
 }
 
+function xblockRuntimeJob(workflow) {
+  const job = workflow.jobs["xblock-runtime"];
+  assert.ok(job, "CI must define the XBlock runtime compatibility job");
+  return job;
+}
+
 function actionReferences(workflow) {
   return Object.values(workflow.jobs).flatMap((job) =>
     (job.steps ?? []).flatMap((step) => (step.uses ? [step.uses] : [])),
@@ -118,6 +124,44 @@ test("CI defines exactly the selected Moodle compatibility pair", () => {
       "php-extension": "pgsql",
     },
   ]);
+});
+
+test("CI verifies the supported XBlock runtime boundaries", () => {
+  const { workflow } = loadWorkflow();
+  const job = xblockRuntimeJob(workflow);
+
+  assert.deepEqual(job.needs, ["classify"]);
+  assert.equal(job.if, "${{ needs.classify.outputs.code == 'true' }}");
+  assert.equal(job.strategy["fail-fast"], false);
+  assert.deepEqual(job.strategy.matrix.include, [
+    {
+      python: "3.11",
+      xblock: "5.2.0",
+      host: "Open edX Ulmo",
+    },
+    {
+      python: "3.12",
+      xblock: "6.3.1",
+      host: "XBlock 6 boundary",
+    },
+  ]);
+
+  const setupPython = job.steps.find((step) => step.uses?.startsWith("actions/setup-python@"));
+  const install = job.steps.find((step) => step.name === "Install XBlock runtime boundary");
+  const testRuntime = job.steps.find((step) => step.name === "Test Scaffold XBlock runtime");
+  const loadEntryPoint = job.steps.find(
+    (step) => step.name === "Install and load Scaffold entry point",
+  );
+
+  assert.equal(setupPython.uses, "actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1");
+  assert.equal(setupPython.with["python-version"], "${{ matrix.python }}");
+  assert.match(install.run, /XBlock==\$\{\{ matrix\.xblock \}\}/);
+  assert.match(testRuntime.run, /test_assessment_contracts/);
+  assert.doesNotMatch(testRuntime.run, /test_package/);
+  assert.match(loadEntryPoint.run, /pip install --no-deps \.\/adapters\/xblock/);
+  assert.match(loadEntryPoint.run, /entry_points/);
+  assert.match(loadEntryPoint.run, /scaffold/);
+  assert.ok(workflow.jobs.status.needs.includes("xblock-runtime"));
 });
 
 test("each Moodle row starts only its selected database service", () => {

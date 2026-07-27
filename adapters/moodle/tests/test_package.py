@@ -396,13 +396,17 @@ class MoodlePackageTest(unittest.TestCase):
         guide = (
             REPOSITORY_ROOT / "adapters" / "moodle" / "scaffold" / "README.md"
         ).read_text(encoding="utf8")
+        manifest = json.loads(
+            (REPOSITORY_ROOT / "package.json").read_text(encoding="utf8"),
+        )
+        version = manifest["version"]
 
         self.assertIn(
-            "releases/download/v0.1.0/mod_scaffold-0.1.0.zip",
+            f"releases/download/v{version}/mod_scaffold-{version}.zip",
             guide,
         )
         self.assertIn("Plugins overview", guide)
-        self.assertIn("releases/tag/v0.1.0", guide)
+        self.assertIn(f"releases/tag/v{version}", guide)
         self.assertIn("Moodle 4.5", guide)
 
     def test_builds_a_reproducible_single_root_installable_zip(self):

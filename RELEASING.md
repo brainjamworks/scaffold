@@ -5,10 +5,12 @@ in the same change as any release-tooling or policy change.
 
 ## Adoption Status
 
-Scaffold has no formal release tags yet. The tag-driven candidate workflow is
-implemented, but it has not produced a release. Version `0.1.0` is the first
-coordinated release candidate; it is not a published release until the
-corresponding tag and GitHub Release exist.
+Scaffold has no published formal release yet. The annotated `v0.1.0` tag and
+private draft candidate were created, but the candidate was rejected after its
+Open edX host smoke test exposed an incompatible Python and XBlock runtime
+declaration. That candidate remains unpublished and immutable. Version `0.1.1`
+is the replacement coordinated release candidate; it is not a published
+release until the corresponding tag and GitHub Release exist.
 
 Before the first formal release:
 
@@ -352,7 +354,7 @@ command against the released version before declaring the rollout complete.
     dispatch it again from `main` with the published tag; it accepts only exact
     existing filenames and digests.
 12. Sign in to Marketplace with the intended lead-maintainer account. For
-    `0.1.0`, choose a free plugin listing, upload the exact approved GitHub
+    `0.1.1`, choose a free plugin listing, upload the exact approved GitHub
     Release ZIP, add the prepared details and screenshots, complete the
     intellectual-property, trademark, commercial, and provider declarations,
     allow the automated checks to run, and submit it for review. For a later
@@ -399,7 +401,7 @@ Trusted Publishing to upload only missing XBlock distributions whose existing
 PyPI digests do not conflict. It never checks out or rebuilds source and never
 stores a long-lived package credential.
 
-The adapter package commands, coordinated `0.1.0` metadata, PyPI Trusted
+The adapter package commands, coordinated `0.1.1` metadata, PyPI Trusted
 Publisher, matching GitHub environment, and repository-preparable Marketplace
 listing materials are ready. Access to the intended lead-maintainer Marketplace
 account and representative real hosts for manual smoke testing remain
@@ -409,7 +411,7 @@ checks, and submission happen after the approved release asset exists.
 ## Moodle Marketplace Commercial Classification
 
 Classify the offering that exists in the release; do not classify a release
-from hypothetical future functionality. Scaffold `0.1.0` is a **free plugin**
+from hypothetical future functionality. Scaffold `0.1.1` is a **free plugin**
 because its full functionality requires no payment to Scaffold, no paid
 Scaffold service, and no paid tier or upgrade.
 

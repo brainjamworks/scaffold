@@ -21,7 +21,7 @@ const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const RELEASE_WORKFLOW = loadWorkflow(".github/workflows/release.yml");
 const APPROVAL_WORKFLOW = loadWorkflow(".github/workflows/approve-release.yml");
 const PYPI_WORKFLOW = loadWorkflow(".github/workflows/publish-pypi.yml");
-const VERSION = "0.1.0";
+const VERSION = JSON.parse(readFileSync(resolve(REPOSITORY_ROOT, "package.json"), "utf8")).version;
 const TAG = `v${VERSION}`;
 const TAG_OBJECT = "a".repeat(40);
 const RELEASE_COMMIT = "b".repeat(40);
@@ -468,7 +468,7 @@ test("draft creation runs from a non-Git workspace with explicit repository cont
   );
 
   assert.equal(result.status, 0, result.stderr);
-  assert.match(readFileSync(join(workspace.root, "gh.log"), "utf8"), /release create v0\.1\.0/);
+  assert.ok(readFileSync(join(workspace.root, "gh.log"), "utf8").includes(`release create ${TAG}`));
 });
 
 test("draft retry preserves manually reviewed release notes", (t) => {
@@ -506,7 +506,7 @@ test("draft retry preserves manually reviewed release notes", (t) => {
 
   assert.equal(result.status, 0, result.stderr);
   const log = readFileSync(join(workspace.root, "gh.log"), "utf8");
-  assert.match(log, /release edit v0\.1\.0 --draft --prerelease/);
+  assert.ok(log.includes(`release edit ${TAG} --draft --prerelease`));
   assert.doesNotMatch(log, /--notes-file/);
 });
 
@@ -675,7 +675,7 @@ test("approval publishes only a complete draft bound to its annotated tag", (t) 
 
   assert.equal(result.status, 0, result.stderr);
   const log = readFileSync(join(workspace.root, "gh.log"), "utf8");
-  assert.equal((log.match(/git\/ref\/tags\/v0\.1\.0/g) ?? []).length, 2);
+  assert.equal(log.split(`git/ref/tags/${TAG}`).length - 1, 2);
   assert.doesNotMatch(log, /immutable-releases/);
   assert.match(log, /--method PATCH repos\/brainjamworks\/scaffold\/releases\/123/);
 });

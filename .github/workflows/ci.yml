@@ -343,6 +343,62 @@ jobs:
       - name: Test non-Core workspaces
         run: vp run --filter '!@scaffold/core' test
 
+  xblock-runtime:
+    name: XBlock runtime (Python ${{ matrix.python }}, XBlock ${{ matrix.xblock }}, ${{ matrix.host }})
+    needs: [classify]
+    if: ${{ needs.classify.outputs.code == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python: "3.11"
+            xblock: "5.2.0"
+            host: Open edX Ulmo
+          - python: "3.12"
+            xblock: "6.3.1"
+            host: XBlock 6 boundary
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install XBlock runtime boundary
+        run: python -m pip install "XBlock==${{ matrix.xblock }}"
+
+      - name: Test Scaffold XBlock runtime
+        run: >-
+          PYTHONPATH=adapters/xblock python -m unittest
+          adapters.xblock.tests.test_assessment_contracts
+          adapters.xblock.tests.test_grade_delivery
+          adapters.xblock.tests.test_grade_projection
+          adapters.xblock.tests.test_grading_conformance
+          adapters.xblock.tests.test_learner_activity
+          adapters.xblock.tests.test_learner_activity_contracts
+          adapters.xblock.tests.test_scaffold_projection
+
+      - name: Install and load Scaffold entry point
+        run: |
+          python -m pip install --no-deps ./adapters/xblock
+          python - <<'PY'
+          from importlib.metadata import entry_points
+
+          entry_point = next(
+              candidate
+              for candidate in entry_points(group="xblock.v1")
+              if candidate.name == "scaffold"
+          )
+          loaded = entry_point.load()
+          assert loaded.__module__ == "scaffold_xblock.scaffold"
+          assert loaded.__name__ == "ScaffoldXBlock"
+          print(f"Loaded {entry_point.name} = {entry_point.value}")
+          PY
+
   moodle-phpunit:
     name: Moodle PHPUnit (${{ matrix.moodle }}, PHP ${{ matrix.php }}, ${{ matrix.database }})
     needs: [classify, build]
@@ -569,6 +625,7 @@ jobs:
       - core-unit
       - core-browser
       - workspace-tests
+      - xblock-runtime
       - moodle-phpunit
     runs-on: ubuntu-latest
     timeout-minutes: 2
