@@ -50,6 +50,8 @@ export const XAPI_ACTIVITY_TYPES = Object.freeze({
   hint: "https://scaffold.ac/xapi/activity-types/hint",
   resource: "https://scaffold.ac/xapi/activity-types/resource",
   resourcePage: "https://scaffold.ac/xapi/activity-types/resource-page",
+  visualComposition: "https://scaffold.ac/xapi/activity-types/visual-composition",
+  visualItem: "https://scaffold.ac/xapi/activity-types/visual-item",
 });
 
 export const XAPI_EXTENSIONS = Object.freeze({
@@ -68,6 +70,9 @@ export const XAPI_EXTENSIONS = Object.freeze({
   resourceKind: "https://scaffold.ac/xapi/extensions/resource-kind",
   resourcePageNumber: "https://scaffold.ac/xapi/extensions/resource-page-number",
   resourcePageCount: "https://scaffold.ac/xapi/extensions/resource-page-count",
+  visualItemKind: "https://scaffold.ac/xapi/extensions/visual-item-kind",
+  visualItemPosition: "https://scaffold.ac/xapi/extensions/visual-item-position",
+  visualItemCount: "https://scaffold.ac/xapi/extensions/visual-item-count",
 });
 
 const XAPI_LEARNER_ACTIVITY_KINDS = ["flashcard", "checklist"] as const;
@@ -107,7 +112,13 @@ function derivedActivityId(value: string): XapiIri {
 }
 
 function createChildActivityId(
-  kind: "quiz" | "assessment" | "learner-activity" | "surface" | "resource",
+  kind:
+    | "quiz"
+    | "assessment"
+    | "learner-activity"
+    | "surface"
+    | "resource"
+    | "visual-composition",
   rootId: XapiIri,
   localId: string,
 ): XapiIri {
@@ -136,6 +147,31 @@ export function createSurfaceActivityId(rootId: XapiIri, surfaceId: string): Xap
 
 export function createResourceActivityId(rootId: XapiIri, resourceId: string): XapiIri {
   return createChildActivityId("resource", rootId, requiredIdentity("resourceId", resourceId));
+}
+
+export function createVisualCompositionActivityId(
+  rootId: XapiIri,
+  compositionId: string,
+): XapiIri {
+  return createChildActivityId(
+    "visual-composition",
+    rootId,
+    requiredIdentity("compositionId", compositionId),
+  );
+}
+
+export function createVisualItemActivityId(
+  rootId: XapiIri,
+  compositionId: string,
+  itemId: string,
+): XapiIri {
+  return derivedActivityId(
+    `https://scaffold.ac/xapi/activities/visual-item?root=${rfc3986Encode(
+      rootActivityId(rootId),
+    )}&composition=${rfc3986Encode(
+      requiredIdentity("compositionId", compositionId),
+    )}&id=${rfc3986Encode(requiredIdentity("itemId", itemId))}`,
+  );
 }
 
 export function createResourcePageActivityId(
@@ -516,6 +552,50 @@ function surfaceActivity(input: {
   };
 }
 
+export type XapiVisualItemKind = "annotation" | "gallery-image";
+
+function visualCompositionActivity(rootId: XapiIri, compositionId: string): XapiActivity {
+  return {
+    objectType: "Activity",
+    id: createVisualCompositionActivityId(rootId, compositionId),
+    definition: { type: XAPI_ACTIVITY_TYPES.visualComposition },
+  };
+}
+
+function visualItemActivity(input: {
+  readonly rootActivityId: XapiIri;
+  readonly compositionId: string;
+  readonly itemId: string;
+  readonly itemKind: XapiVisualItemKind;
+  readonly position: number;
+  readonly count: number;
+}): XapiActivity {
+  if (input.itemKind !== "annotation" && input.itemKind !== "gallery-image") {
+    throw new Error("itemKind must be annotation or gallery-image");
+  }
+  const position = positiveInteger("position", input.position);
+  const count = positiveInteger("count", input.count);
+  if (position > count) {
+    throw new Error("position must not exceed count");
+  }
+  return {
+    objectType: "Activity",
+    id: createVisualItemActivityId(
+      input.rootActivityId,
+      input.compositionId,
+      input.itemId,
+    ),
+    definition: {
+      type: XAPI_ACTIVITY_TYPES.visualItem,
+      extensions: {
+        [XAPI_EXTENSIONS.visualItemKind]: input.itemKind,
+        [XAPI_EXTENSIONS.visualItemPosition]: position,
+        [XAPI_EXTENSIONS.visualItemCount]: count,
+      },
+    },
+  };
+}
+
 export type XapiLayoutKind = "tabs" | "paginated" | "accordion";
 
 function layoutSectionActivity(input: {
@@ -608,6 +688,23 @@ export function buildSurfaceExperiencedStatementDraft(input: {
     verb: XAPI_VERBS.experienced,
     object: surfaceActivity(input),
     context: parentContext(rootActivity(input.rootActivityId)),
+  });
+}
+
+export function buildVisualItemExperiencedStatementDraft(input: {
+  readonly rootActivityId: XapiIri;
+  readonly compositionId: string;
+  readonly itemId: string;
+  readonly itemKind: XapiVisualItemKind;
+  readonly position: number;
+  readonly count: number;
+}): XapiStatementDraft {
+  return validatedDraft({
+    verb: XAPI_VERBS.experienced,
+    object: visualItemActivity(input),
+    context: parentContext(
+      visualCompositionActivity(input.rootActivityId, input.compositionId),
+    ),
   });
 }
 

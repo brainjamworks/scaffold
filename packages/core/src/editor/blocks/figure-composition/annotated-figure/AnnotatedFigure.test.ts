@@ -10,11 +10,18 @@ import { createElement } from "react";
 import { expect, it, vi } from "vite-plus/test";
 
 import { createCourseDocumentInlineContentExtensions } from "@/composition/model/create-document-composition";
+import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { InlineIconRuntimeNode } from "@/editor/rich-text/inline-icon/runtime/InlineIconRuntimeNode";
 import { MathInlineRuntimeNode } from "@/editor/rich-text/math/runtime/MathInlineRuntime";
 import { VocabularyTermRuntimeNode } from "@/editor/rich-text/vocabulary-term/runtime/VocabularyTermRuntimeNode";
 import { describeBlockContract } from "@/editor/testing";
+import type { XapiPort } from "@/host/ports/xapi";
+import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
+import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
+import { createScaffoldDocumentContent } from "@/format/artifact";
+import { CourseDocumentRuntimeRenderer } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
+import { XAPI_EXTENSIONS, XAPI_VERBS, XapiRuntimeProvider } from "@/runtime/xapi";
 import { AnnotatedFigureAuthoringExtension } from "./annotated-figure-authoring-extension";
 import { resolveAnnotatedFigureModel } from "./annotated-figure-document-model";
 import { AnnotatedFigureRuntimeExtension } from "./annotated-figure-runtime-extension";
@@ -85,6 +92,38 @@ function renderAnnotatedFigureRuntime(content: JSONContent) {
   });
   render(createElement(EditorContent, { editor }));
   return editor;
+}
+
+function renderAnnotatedFigureXapiRuntime(
+  figure: JSONContent,
+  xapiPort: XapiPort,
+  visibleSurfaceId = "annotated-figure-surface",
+) {
+  const surfaceId = "annotated-figure-surface";
+  const surface = slideContentSurfaceDefinition.createSurface({ surfaceId });
+  const region = surface.content?.find((child) => child.type === "region");
+  if (!region) throw new Error("Annotated Figure fixture is missing its Region.");
+  region.content = [figure];
+
+  const content = createScaffoldDocumentContent({ mode: "slideshow", surfaceId });
+  const courseDocument = content.content?.[0];
+  if (!courseDocument) throw new Error("Annotated Figure fixture has no courseDocument.");
+  courseDocument.content = [surface];
+
+  render(
+    createElement(ScaffoldServicesProvider, {
+      ports: { xapi: xapiPort },
+      children: createElement(ScaffoldArtifactIdentityProvider, {
+        artifactId: "annotated-figure-artifact",
+        children: createElement(XapiRuntimeProvider, {
+          children: createElement(CourseDocumentRuntimeRenderer, {
+            initialContent: content,
+            visibleSurfaceId,
+          }),
+        }),
+      }),
+    }),
+  );
 }
 
 function renderAnnotatedFigureEditor(
@@ -1434,6 +1473,73 @@ it("keeps empty Popover captions noninteractive and retains an ordered semantic 
     expect(document.activeElement).toBe(captionPin);
   });
   editor.destroy();
+});
+
+it("records each opened runtime annotation once per xAPI session", async () => {
+  const user = userEvent.setup();
+  const send = vi.fn<XapiPort["send"]>(async () => undefined);
+  renderAnnotatedFigureXapiRuntime(
+    annotatedFigureFixture(popoverFigureData(), [
+      { id: "annotation-one", x: 20, y: 30, caption: "First private caption" },
+      { id: "annotation-two", x: 70, y: 80, caption: "Second private caption" },
+    ]),
+    {
+      activityId: "https://lms.example.test/courses/annotated-figure",
+      send,
+    },
+  );
+
+  const firstPin = await screen.findByRole("button", { name: "View annotation 1" });
+  await user.click(firstPin);
+  await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+  await user.keyboard("{Escape}");
+  await user.click(firstPin);
+  await user.keyboard("{Escape}");
+
+  await user.click(screen.getByRole("button", { name: "Expand annotated figure" }));
+  const dialog = await screen.findByRole("dialog", { name: "Annotated figure viewer" });
+  await user.click(within(dialog).getByRole("button", { name: "View annotation 1" }));
+  await user.keyboard("{Escape}");
+  await user.click(within(dialog).getByRole("button", { name: "View annotation 2" }));
+  await waitFor(() => expect(send).toHaveBeenCalledTimes(3));
+
+  expect(send.mock.calls[1]?.[0]).toMatchObject({
+    verb: XAPI_VERBS.experienced,
+    object: {
+      definition: {
+        extensions: {
+          [XAPI_EXTENSIONS.visualItemKind]: "annotation",
+          [XAPI_EXTENSIONS.visualItemPosition]: 1,
+          [XAPI_EXTENSIONS.visualItemCount]: 2,
+        },
+      },
+    },
+  });
+  expect(JSON.stringify(send.mock.calls.slice(1))).not.toContain("private caption");
+});
+
+it("does not record annotation openings on a non-presented runtime surface", async () => {
+  const user = userEvent.setup();
+  const send = vi.fn<XapiPort["send"]>(async () => undefined);
+  renderAnnotatedFigureXapiRuntime(
+    annotatedFigureFixture(popoverFigureData(), [
+      { id: "annotation-one", x: 20, y: 30, caption: "Hidden caption" },
+    ]),
+    {
+      activityId: "https://lms.example.test/courses/annotated-figure",
+      send,
+    },
+    "another-surface",
+  );
+
+  await waitFor(() =>
+    expect(document.querySelector('[aria-label="View annotation 1"]')).not.toBeNull(),
+  );
+  const hiddenPin = document.querySelector<HTMLButtonElement>('[aria-label="View annotation 1"]');
+  if (!hiddenPin) throw new Error("Expected a hidden-surface annotation pin.");
+  await user.click(hiddenPin);
+
+  expect(send).not.toHaveBeenCalled();
 });
 
 it("projects rich runtime captions without mounting authoring editor DOM", async () => {

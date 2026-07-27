@@ -27,6 +27,7 @@ import {
   buildQuizSuccessStatementDraft,
   buildSurfaceExperiencedStatementDraft,
   buildTerminatedStatementDraft,
+  buildVisualItemExperiencedStatementDraft,
   createAssessmentActivityId,
   createHintActivityId,
   createLearnerActivityId,
@@ -35,6 +36,8 @@ import {
   createResourceActivityId,
   createResourcePageActivityId,
   createSurfaceActivityId,
+  createVisualCompositionActivityId,
+  createVisualItemActivityId,
   encodeAssessmentResponse,
   isXapiLearnerActivityKind,
 } from "./index";
@@ -105,6 +108,8 @@ describe("xAPI catalogue vocabulary", () => {
       hint: "https://scaffold.ac/xapi/activity-types/hint",
       resource: "https://scaffold.ac/xapi/activity-types/resource",
       resourcePage: "https://scaffold.ac/xapi/activity-types/resource-page",
+      visualComposition: "https://scaffold.ac/xapi/activity-types/visual-composition",
+      visualItem: "https://scaffold.ac/xapi/activity-types/visual-item",
     });
     expect(XAPI_EXTENSIONS).toStrictEqual({
       assessmentAttemptNumber: "https://scaffold.ac/xapi/extensions/assessment-attempt-number",
@@ -122,6 +127,9 @@ describe("xAPI catalogue vocabulary", () => {
       resourceKind: "https://scaffold.ac/xapi/extensions/resource-kind",
       resourcePageNumber: "https://scaffold.ac/xapi/extensions/resource-page-number",
       resourcePageCount: "https://scaffold.ac/xapi/extensions/resource-page-count",
+      visualItemKind: "https://scaffold.ac/xapi/extensions/visual-item-kind",
+      visualItemPosition: "https://scaffold.ac/xapi/extensions/visual-item-position",
+      visualItemCount: "https://scaffold.ac/xapi/extensions/visual-item-count",
     });
 
     expect(Object.isFrozen(XAPI_VERBS)).toBe(true);
@@ -766,6 +774,54 @@ describe("xAPI Statement catalogue builders", () => {
         count: 4,
       }),
     ).toThrow("position must not exceed count");
+  });
+
+  it("builds an experienced visual item parented by its composition", () => {
+    const compositionId = createVisualCompositionActivityId(
+      ROOT_ACTIVITY_ID,
+      "annotated-figure-one",
+    );
+    const itemId = createVisualItemActivityId(
+      ROOT_ACTIVITY_ID,
+      "annotated-figure-one",
+      "annotation-two",
+    );
+
+    expect(
+      buildVisualItemExperiencedStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        compositionId: "annotated-figure-one",
+        itemId: "annotation-two",
+        itemKind: "annotation",
+        position: 2,
+        count: 4,
+      }),
+    ).toStrictEqual({
+      verb: XAPI_VERBS.experienced,
+      object: {
+        objectType: "Activity",
+        id: itemId,
+        definition: {
+          type: XAPI_ACTIVITY_TYPES.visualItem,
+          extensions: {
+            [XAPI_EXTENSIONS.visualItemKind]: "annotation",
+            [XAPI_EXTENSIONS.visualItemPosition]: 2,
+            [XAPI_EXTENSIONS.visualItemCount]: 4,
+          },
+        },
+      },
+      context: {
+        contextActivities: {
+          parent: [
+            {
+              objectType: "Activity",
+              id: compositionId,
+              definition: { type: XAPI_ACTIVITY_TYPES.visualComposition },
+            },
+          ],
+        },
+      },
+    });
   });
 
   it("builds an experienced layout-section Activity with navigation position", () => {

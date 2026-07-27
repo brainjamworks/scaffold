@@ -10,6 +10,15 @@ import { MediaExpandButton } from "@/editor/media/presentation/MediaExpandButton
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 import { renderRuntimeRichTextNode } from "@/editor/rich-text/runtime/render-rich-text";
 import { useMediaPort } from "@/host/providers/ScaffoldServicesProvider";
+import {
+  resolveOwningRuntimeSurfaceId,
+  useRuntimePresentedSurfaceId,
+} from "@/runtime/renderer/runtime-surface-presentation";
+import {
+  buildVisualItemExperiencedStatementDraft,
+  useXapiSession,
+  type XapiSession,
+} from "@/runtime/xapi";
 import type { AnnotatedFigureData } from "@scaffold/contracts";
 import { Lightbox, type LightboxItem } from "@/ui/components/Lightbox/Lightbox";
 import * as Popover from "@/ui/components/Popover/Popover";
@@ -35,6 +44,7 @@ interface AnnotatedFigureRuntimeCompositionProps {
   errorMessage: string | null;
   expandAction?: ReactElement | null;
   fileUrl: string | null;
+  onOpenAnnotation?: (annotationId: string) => void;
   presentation: "compact" | "expanded";
 }
 
@@ -50,6 +60,7 @@ function AnnotatedFigureRuntimeComposition({
   errorMessage,
   expandAction,
   fileUrl,
+  onOpenAnnotation,
   presentation,
 }: AnnotatedFigureRuntimeCompositionProps) {
   const [openAnnotationId, setOpenAnnotationId] = useState<string | null>(null);
@@ -60,6 +71,10 @@ function AnnotatedFigureRuntimeComposition({
       annotation.id === openAnnotationId && hasAnnotatedFigureRuntimeCaption(annotation),
   );
   const liveOpenAnnotation = data.captionDisplay === "popover" ? openAnnotation : undefined;
+  const openRuntimeAnnotation = (annotationId: string) => {
+    onOpenAnnotation?.(annotationId);
+    setOpenAnnotationId(annotationId);
+  };
 
   useEffect(() => {
     if (openAnnotationId === null || liveOpenAnnotation) return;
@@ -85,9 +100,11 @@ function AnnotatedFigureRuntimeComposition({
       <Popover.Root
         open={open}
         onOpenChange={(nextOpen) => {
-          setOpenAnnotationId((current) =>
-            nextOpen ? annotation.id : current === annotation.id ? null : current,
-          );
+          if (nextOpen) {
+            openRuntimeAnnotation(annotation.id);
+          } else {
+            setOpenAnnotationId((current) => (current === annotation.id ? null : current));
+          }
         }}
       >
         <Popover.Trigger asChild>{activator}</Popover.Trigger>
@@ -134,7 +151,7 @@ function AnnotatedFigureRuntimeComposition({
         stageRef={stageRef}
         {...(data.captionDisplay === "popover"
           ? {
-              onActivatePin: setOpenAnnotationId,
+              onActivatePin: openRuntimeAnnotation,
               pinActivationLabel: (annotation: { number: number }) =>
                 `View annotation ${annotation.number}`,
               renderPinActivator,
@@ -163,12 +180,51 @@ export function AnnotatedFigureCanvasRuntimeView(props: NodeViewProps) {
   );
   const model = owner ? resolveAnnotatedFigureModel(owner) : null;
   const mediaPort = useMediaPort();
+  const xapiSession = useXapiSession();
+  const presentedSurfaceId = useRuntimePresentedSurfaceId();
+  const owningSurfaceId = resolveOwningRuntimeSurfaceId(props.editor.state.doc, props.getPos);
+  const isPresented =
+    presentedSurfaceId === undefined ||
+    (presentedSurfaceId !== null && owningSurfaceId === presentedSurfaceId);
   const data = model?.data ?? emptyAnnotatedFigureData();
   const source = useResolvedAnnotatedFigureSource(data, mediaPort);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const expandButtonRef = useRef<HTMLButtonElement | null>(null);
   const annotations = model?.annotations ?? EMPTY_ANNOTATIONS;
   const ownerId = String(model?.owner.node.attrs["id"] ?? "annotated-figure");
+  const recordedAnnotationsRef = useRef<{
+    session: XapiSession;
+    ownerId: string;
+    annotationIds: Set<string>;
+  } | null>(null);
+  const recordAnnotationOpened = (annotationId: string) => {
+    if (!isPresented || !xapiSession || !ownerId.trim()) return;
+    const position = annotations.findIndex((annotation) => annotation.id === annotationId) + 1;
+    if (position <= 0) return;
+
+    let recorded = recordedAnnotationsRef.current;
+    if (recorded?.session !== xapiSession || recorded.ownerId !== ownerId) {
+      recorded = { session: xapiSession, ownerId, annotationIds: new Set() };
+      recordedAnnotationsRef.current = recorded;
+    }
+    if (recorded.annotationIds.has(annotationId)) return;
+
+    try {
+      xapiSession.record(
+        buildVisualItemExperiencedStatementDraft({
+          rootActivityId: xapiSession.rootActivityId,
+          compositionId: ownerId,
+          itemId: annotationId,
+          itemKind: "annotation",
+          position,
+          count: annotations.length,
+        }),
+      );
+      recorded.annotationIds.add(annotationId);
+    } catch {
+      // Annotation recording is observational and cannot prevent caption access.
+    }
+  };
 
   const lightboxItems = useMemo<LightboxItem[]>(() => {
     if (!source.resolvedUrl) return [];
@@ -187,13 +243,21 @@ export function AnnotatedFigureCanvasRuntimeView(props: NodeViewProps) {
               data={data}
               errorMessage={source.errorMessage}
               fileUrl={source.resolvedUrl}
+              onOpenAnnotation={recordAnnotationOpened}
               presentation="expanded"
             />
           </div>
         ),
       },
     ];
-  }, [annotations, data, ownerId, source.errorMessage, source.resolvedUrl]);
+  }, [
+    annotations,
+    data,
+    ownerId,
+    recordAnnotationOpened,
+    source.errorMessage,
+    source.resolvedUrl,
+  ]);
 
   return (
     <NodeViewWrapper
@@ -215,6 +279,7 @@ export function AnnotatedFigureCanvasRuntimeView(props: NodeViewProps) {
           ) : null
         }
         fileUrl={source.resolvedUrl}
+        onOpenAnnotation={recordAnnotationOpened}
         presentation="compact"
       />
       <Lightbox
