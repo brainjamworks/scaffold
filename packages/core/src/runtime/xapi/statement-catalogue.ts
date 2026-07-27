@@ -44,6 +44,7 @@ export const XAPI_ACTIVITY_TYPES = Object.freeze({
   assessmentQuestion: "http://adlnet.gov/expapi/activities/cmi.interaction",
   learnerActivity: "https://scaffold.ac/xapi/activity-types/learner-activity",
   surface: "https://scaffold.ac/xapi/activity-types/surface",
+  layoutSection: "https://scaffold.ac/xapi/activity-types/layout-section",
   hint: "https://scaffold.ac/xapi/activity-types/hint",
 });
 
@@ -56,6 +57,9 @@ export const XAPI_EXTENSIONS = Object.freeze({
   surfaceKind: "https://scaffold.ac/xapi/extensions/surface-kind",
   surfacePosition: "https://scaffold.ac/xapi/extensions/surface-position",
   surfaceCount: "https://scaffold.ac/xapi/extensions/surface-count",
+  layoutKind: "https://scaffold.ac/xapi/extensions/layout-kind",
+  layoutSectionPosition: "https://scaffold.ac/xapi/extensions/layout-section-position",
+  layoutSectionCount: "https://scaffold.ac/xapi/extensions/layout-section-count",
   hintNumber: "https://scaffold.ac/xapi/extensions/hint-number",
 });
 
@@ -121,6 +125,20 @@ export function createLearnerActivityId(rootId: XapiIri, blockId: string): XapiI
 
 export function createSurfaceActivityId(rootId: XapiIri, surfaceId: string): XapiIri {
   return createChildActivityId("surface", rootId, requiredIdentity("surfaceId", surfaceId));
+}
+
+export function createLayoutSectionActivityId(
+  rootId: XapiIri,
+  layoutId: string,
+  sectionId: string,
+): XapiIri {
+  return derivedActivityId(
+    `https://scaffold.ac/xapi/activities/layout-section?root=${rfc3986Encode(
+      rootActivityId(rootId),
+    )}&layout=${rfc3986Encode(requiredIdentity("layoutId", layoutId))}&id=${rfc3986Encode(
+      requiredIdentity("sectionId", sectionId),
+    )}`,
+  );
 }
 
 export function createHintActivityId(
@@ -428,6 +446,38 @@ function surfaceActivity(input: {
   };
 }
 
+export type XapiLayoutKind = "tabs" | "paginated";
+
+function layoutSectionActivity(input: {
+  readonly rootActivityId: XapiIri;
+  readonly layoutId: string;
+  readonly sectionId: string;
+  readonly layoutKind: XapiLayoutKind;
+  readonly position: number;
+  readonly count: number;
+}): XapiActivity {
+  if (input.layoutKind !== "tabs" && input.layoutKind !== "paginated") {
+    throw new Error("layoutKind must be tabs or paginated");
+  }
+  const position = positiveInteger("position", input.position);
+  const count = positiveInteger("count", input.count);
+  if (position > count) {
+    throw new Error("position must not exceed count");
+  }
+  return {
+    objectType: "Activity",
+    id: createLayoutSectionActivityId(input.rootActivityId, input.layoutId, input.sectionId),
+    definition: {
+      type: XAPI_ACTIVITY_TYPES.layoutSection,
+      extensions: {
+        [XAPI_EXTENSIONS.layoutKind]: input.layoutKind,
+        [XAPI_EXTENSIONS.layoutSectionPosition]: position,
+        [XAPI_EXTENSIONS.layoutSectionCount]: count,
+      },
+    },
+  };
+}
+
 function parentContext(parent: XapiActivity): XapiContextTemplate {
   return {
     contextActivities: {
@@ -483,6 +533,21 @@ export function buildSurfaceExperiencedStatementDraft(input: {
   return validatedDraft({
     verb: XAPI_VERBS.experienced,
     object: surfaceActivity(input),
+    context: parentContext(rootActivity(input.rootActivityId)),
+  });
+}
+
+export function buildLayoutSectionExperiencedStatementDraft(input: {
+  readonly rootActivityId: XapiIri;
+  readonly layoutId: string;
+  readonly sectionId: string;
+  readonly layoutKind: XapiLayoutKind;
+  readonly position: number;
+  readonly count: number;
+}): XapiStatementDraft {
+  return validatedDraft({
+    verb: XAPI_VERBS.experienced,
+    object: layoutSectionActivity(input),
     context: parentContext(rootActivity(input.rootActivityId)),
   });
 }

@@ -18,6 +18,7 @@ import {
   XAPI_ACTIVITY_TYPES,
   XAPI_EXTENSIONS,
   XAPI_VERBS,
+  createLayoutSectionActivityId,
   createSurfaceActivityId,
   type XapiSession,
 } from "../xapi";
@@ -112,6 +113,89 @@ function runtimeDocumentWithBlock(block: JSONContent): JSONContent {
   }
 
   surface.content = [block];
+
+  return content;
+}
+
+function runtimeDocumentWithLayout(kind: "tabs" | "paginated"): JSONContent {
+  const layoutId = kind === "tabs" ? "layout-tabs" : "layout-pages";
+  const sectionIds = kind === "tabs" ? ["tab-one", "tab-two"] : ["page-one", "page-two"];
+  const labels = kind === "tabs" ? ["Overview", "Practice"] : ["First page", "Second page"];
+
+  return runtimeDocumentWithBlock({
+    type: "layout",
+    attrs: {
+      id: layoutId,
+      variant: kind,
+      ...(kind === "tabs" ? { options: { variant: "default", label: "Lesson sections" } } : {}),
+    },
+    content: sectionIds.map((id, index) => ({
+      type: "section",
+      attrs: {
+        id,
+        role: kind === "tabs" ? "tab-panel" : "page",
+        options: { label: labels[index] },
+      },
+      content: [{ type: "paragraph" }],
+    })),
+  });
+}
+
+function slideshowDocumentWithTabs(): JSONContent {
+  const content = runtimeDocumentContent({
+    mode: "slideshow",
+    surfaceIds: ["slide-one", "slide-two"],
+  });
+  const courseDocument = content.content?.[0];
+  const definition = builtInSurfaceVariantRegistry.get("slide-content");
+  if (!courseDocument || !definition) {
+    throw new Error("runtime slideshow test document is missing its slide definition");
+  }
+  courseDocument.content = [
+    definition.createSurface({ surfaceId: "slide-one" }),
+    definition.createSurface({ surfaceId: "slide-two" }),
+  ];
+  const firstRegion = courseDocument.content[0]?.content?.find((node) => node.type === "region");
+  const secondRegion = courseDocument.content[1]?.content?.find((node) => node.type === "region");
+
+  if (!firstRegion || !secondRegion) {
+    throw new Error("runtime slideshow test document is missing its content regions");
+  }
+
+  firstRegion.content = [
+    {
+      type: "layout",
+      attrs: {
+        id: "layout-slide-one",
+        variant: "tabs",
+        options: { variant: "default", label: "First slide sections" },
+      },
+      content: [
+        {
+          type: "section",
+          attrs: { id: "tab-slide-one", role: "tab-panel", options: { label: "First tab" } },
+          content: [{ type: "paragraph" }],
+        },
+      ],
+    },
+  ];
+  secondRegion.content = [
+    {
+      type: "layout",
+      attrs: {
+        id: "layout-slide-two",
+        variant: "tabs",
+        options: { variant: "default", label: "Second slide sections" },
+      },
+      content: [
+        {
+          type: "section",
+          attrs: { id: "tab-slide-two", role: "tab-panel", options: { label: "Second tab" } },
+          content: [{ type: "paragraph" }],
+        },
+      ],
+    },
+  ];
 
   return content;
 }
@@ -486,6 +570,173 @@ describe("ContentRuntimeHost", () => {
         },
       },
     ]);
+  });
+
+  it("records initial and changed active tab sections as experienced", async () => {
+    const user = userEvent.setup();
+    const port = createXapiPort();
+
+    render(
+      <ScaffoldServicesProvider ports={{ xapi: port }}>
+        <ContentRuntimeHost
+          artifactId="artifact-tabs"
+          initialContent={runtimeDocumentWithLayout("tabs")}
+        />
+      </ScaffoldServicesProvider>,
+    );
+
+    const layoutSectionStatements = () =>
+      port.send.mock.calls
+        .map(([statement]) => statement)
+        .filter(
+          (statement) => statement.object.definition?.type === XAPI_ACTIVITY_TYPES.layoutSection,
+        );
+
+    await waitFor(() => expect(layoutSectionStatements()).toHaveLength(1));
+    await user.click(screen.getByRole("tab", { name: "Overview" }));
+    expect(layoutSectionStatements()).toHaveLength(1);
+    await user.click(screen.getByRole("tab", { name: "Practice" }));
+    await waitFor(() => expect(layoutSectionStatements()).toHaveLength(2));
+    await user.click(screen.getByRole("tab", { name: "Overview" }));
+    await waitFor(() => expect(layoutSectionStatements()).toHaveLength(3));
+
+    expect(
+      layoutSectionStatements().map((statement) => ({
+        id: statement.object.id,
+        extensions: statement.object.definition?.extensions,
+      })),
+    ).toStrictEqual([
+      {
+        id: createLayoutSectionActivityId(port.activityId, "layout-tabs", "tab-one"),
+        extensions: {
+          [XAPI_EXTENSIONS.layoutKind]: "tabs",
+          [XAPI_EXTENSIONS.layoutSectionPosition]: 1,
+          [XAPI_EXTENSIONS.layoutSectionCount]: 2,
+        },
+      },
+      {
+        id: createLayoutSectionActivityId(port.activityId, "layout-tabs", "tab-two"),
+        extensions: {
+          [XAPI_EXTENSIONS.layoutKind]: "tabs",
+          [XAPI_EXTENSIONS.layoutSectionPosition]: 2,
+          [XAPI_EXTENSIONS.layoutSectionCount]: 2,
+        },
+      },
+      {
+        id: createLayoutSectionActivityId(port.activityId, "layout-tabs", "tab-one"),
+        extensions: {
+          [XAPI_EXTENSIONS.layoutKind]: "tabs",
+          [XAPI_EXTENSIONS.layoutSectionPosition]: 1,
+          [XAPI_EXTENSIONS.layoutSectionCount]: 2,
+        },
+      },
+    ]);
+  });
+
+  it("records initial and changed active paginated sections as experienced", async () => {
+    const user = userEvent.setup();
+    const port = createXapiPort();
+
+    render(
+      <ScaffoldServicesProvider ports={{ xapi: port }}>
+        <ContentRuntimeHost
+          artifactId="artifact-pages"
+          initialContent={runtimeDocumentWithLayout("paginated")}
+        />
+      </ScaffoldServicesProvider>,
+    );
+
+    const layoutSectionStatements = () =>
+      port.send.mock.calls
+        .map(([statement]) => statement)
+        .filter(
+          (statement) => statement.object.definition?.type === XAPI_ACTIVITY_TYPES.layoutSection,
+        );
+
+    await waitFor(() => expect(layoutSectionStatements()).toHaveLength(1));
+    await user.click(screen.getByRole("button", { name: "Next page" }));
+    await waitFor(() => expect(layoutSectionStatements()).toHaveLength(2));
+    await user.click(screen.getByRole("button", { name: "Previous page" }));
+    await waitFor(() => expect(layoutSectionStatements()).toHaveLength(3));
+
+    expect(
+      layoutSectionStatements().map((statement) => ({
+        id: statement.object.id,
+        extensions: statement.object.definition?.extensions,
+      })),
+    ).toStrictEqual([
+      {
+        id: createLayoutSectionActivityId(port.activityId, "layout-pages", "page-one"),
+        extensions: {
+          [XAPI_EXTENSIONS.layoutKind]: "paginated",
+          [XAPI_EXTENSIONS.layoutSectionPosition]: 1,
+          [XAPI_EXTENSIONS.layoutSectionCount]: 2,
+        },
+      },
+      {
+        id: createLayoutSectionActivityId(port.activityId, "layout-pages", "page-two"),
+        extensions: {
+          [XAPI_EXTENSIONS.layoutKind]: "paginated",
+          [XAPI_EXTENSIONS.layoutSectionPosition]: 2,
+          [XAPI_EXTENSIONS.layoutSectionCount]: 2,
+        },
+      },
+      {
+        id: createLayoutSectionActivityId(port.activityId, "layout-pages", "page-one"),
+        extensions: {
+          [XAPI_EXTENSIONS.layoutKind]: "paginated",
+          [XAPI_EXTENSIONS.layoutSectionPosition]: 1,
+          [XAPI_EXTENSIONS.layoutSectionCount]: 2,
+        },
+      },
+    ]);
+  });
+
+  it("records layout sections only when their slideshow surface is presented", async () => {
+    const user = userEvent.setup();
+    const port = createXapiPort();
+
+    render(
+      <ScaffoldServicesProvider ports={{ xapi: port }}>
+        <ContentRuntimeHost
+          artifactId="artifact-slide-tabs"
+          initialContent={slideshowDocumentWithTabs()}
+        />
+      </ScaffoldServicesProvider>,
+    );
+
+    const layoutSectionIds = () =>
+      port.send.mock.calls
+        .map(([statement]) => statement)
+        .filter(
+          (statement) => statement.object.definition?.type === XAPI_ACTIVITY_TYPES.layoutSection,
+        )
+        .map((statement) => statement.object.id);
+
+    await waitFor(() =>
+      expect(layoutSectionIds()).toStrictEqual([
+        createLayoutSectionActivityId(port.activityId, "layout-slide-one", "tab-slide-one"),
+      ]),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Next slide" }));
+
+    await waitFor(() =>
+      expect(layoutSectionIds()).toStrictEqual([
+        createLayoutSectionActivityId(port.activityId, "layout-slide-one", "tab-slide-one"),
+        createLayoutSectionActivityId(port.activityId, "layout-slide-two", "tab-slide-two"),
+      ]),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Previous slide" }));
+
+    await waitFor(() =>
+      expect(layoutSectionIds()).toStrictEqual([
+        createLayoutSectionActivityId(port.activityId, "layout-slide-one", "tab-slide-one"),
+        createLayoutSectionActivityId(port.activityId, "layout-slide-two", "tab-slide-two"),
+        createLayoutSectionActivityId(port.activityId, "layout-slide-one", "tab-slide-one"),
+      ]),
+    );
   });
 
   it("keeps learning available when the xAPI Activity IRI is invalid", async () => {

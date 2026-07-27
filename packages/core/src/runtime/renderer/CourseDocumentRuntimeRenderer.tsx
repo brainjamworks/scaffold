@@ -12,6 +12,7 @@ import {
   setRuntimeSurfaceStates,
   setRuntimeVisibleSurfaceId,
 } from "./runtime-surface-visibility";
+import { RuntimeSurfacePresentationProvider } from "./runtime-surface-presentation";
 import { RuntimeSurfaceView } from "@/editor/surfaces/runtime/views/RuntimeSurfaceView";
 import "./CourseDocumentRuntimeRenderer.css";
 
@@ -31,6 +32,9 @@ export function CourseDocumentRuntimeRenderer({
   visibleSurfaceId,
 }: CourseDocumentRuntimeRendererProps) {
   const surfaceViewSettings = readSurfaceViewSettings(initialContent);
+  const presentedSurfaceId = surfaceStates
+    ? (Object.entries(surfaceStates).find(([, state]) => state === "current")?.[0] ?? null)
+    : visibleSurfaceId;
 
   const editor = useEditor(
     {
@@ -67,7 +71,9 @@ export function CourseDocumentRuntimeRenderer({
     <div data-testid="course-document-runtime-renderer">
       <ScaffoldArtifactIdentityProvider artifactId={artifactId ?? null}>
         <RuntimeSurfaceView settings={surfaceViewSettings}>
-          <EditorContent className="sc-course-document-runtime-renderer__content" editor={editor} />
+          <RuntimeSurfacePresentationProvider surfaceId={presentedSurfaceId}>
+            <EditorContent className="sc-course-document-runtime-renderer__content" editor={editor} />
+          </RuntimeSurfacePresentationProvider>
         </RuntimeSurfaceView>
       </ScaffoldArtifactIdentityProvider>
     </div>

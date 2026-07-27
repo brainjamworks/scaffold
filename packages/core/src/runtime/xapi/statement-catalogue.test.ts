@@ -17,6 +17,7 @@ import {
   buildInitializedStatementDraft,
   buildLearnerActivityCompletedStatementDraft,
   buildLearnerActivityInteractedStatementDraft,
+  buildLayoutSectionExperiencedStatementDraft,
   buildQuizCompletedStatementDraft,
   buildQuizSuccessStatementDraft,
   buildSurfaceExperiencedStatementDraft,
@@ -24,6 +25,7 @@ import {
   createAssessmentActivityId,
   createHintActivityId,
   createLearnerActivityId,
+  createLayoutSectionActivityId,
   createQuizActivityId,
   createSurfaceActivityId,
   encodeAssessmentResponse,
@@ -84,6 +86,7 @@ describe("xAPI catalogue vocabulary", () => {
       assessmentQuestion: "http://adlnet.gov/expapi/activities/cmi.interaction",
       learnerActivity: "https://scaffold.ac/xapi/activity-types/learner-activity",
       surface: "https://scaffold.ac/xapi/activity-types/surface",
+      layoutSection: "https://scaffold.ac/xapi/activity-types/layout-section",
       hint: "https://scaffold.ac/xapi/activity-types/hint",
     });
     expect(XAPI_EXTENSIONS).toStrictEqual({
@@ -95,6 +98,9 @@ describe("xAPI catalogue vocabulary", () => {
       surfaceKind: "https://scaffold.ac/xapi/extensions/surface-kind",
       surfacePosition: "https://scaffold.ac/xapi/extensions/surface-position",
       surfaceCount: "https://scaffold.ac/xapi/extensions/surface-count",
+      layoutKind: "https://scaffold.ac/xapi/extensions/layout-kind",
+      layoutSectionPosition: "https://scaffold.ac/xapi/extensions/layout-section-position",
+      layoutSectionCount: "https://scaffold.ac/xapi/extensions/layout-section-count",
       hintNumber: "https://scaffold.ac/xapi/extensions/hint-number",
     });
 
@@ -607,6 +613,62 @@ describe("xAPI Statement catalogue builders", () => {
         surfaceKind: "slide",
         position: 5,
         count: 4,
+      }),
+    ).toThrow("position must not exceed count");
+  });
+
+  it("builds an experienced layout-section Activity with navigation position", () => {
+    const sectionActivityId = createLayoutSectionActivityId(
+      ROOT_ACTIVITY_ID,
+      "layout-tabs",
+      "tab-two",
+    );
+    expect(sectionActivityId).toBe(
+      "https://scaffold.ac/xapi/activities/layout-section?root=https%3A%2F%2Flms.example.test%2Fcourses%2Fcourse-one&layout=layout-tabs&id=tab-two",
+    );
+    expect(
+      buildLayoutSectionExperiencedStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        layoutId: "layout-tabs",
+        sectionId: "tab-two",
+        layoutKind: "tabs",
+        position: 2,
+        count: 3,
+      }),
+    ).toStrictEqual({
+      verb: XAPI_VERBS.experienced,
+      object: {
+        objectType: "Activity",
+        id: sectionActivityId,
+        definition: {
+          type: XAPI_ACTIVITY_TYPES.layoutSection,
+          extensions: {
+            [XAPI_EXTENSIONS.layoutKind]: "tabs",
+            [XAPI_EXTENSIONS.layoutSectionPosition]: 2,
+            [XAPI_EXTENSIONS.layoutSectionCount]: 3,
+          },
+        },
+      },
+      context: {
+        contextActivities: {
+          parent: [
+            {
+              objectType: "Activity",
+              id: ROOT_ACTIVITY_ID,
+              definition: { type: XAPI_ACTIVITY_TYPES.course },
+            },
+          ],
+        },
+      },
+    });
+    expect(() =>
+      buildLayoutSectionExperiencedStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        layoutId: "layout-tabs",
+        sectionId: "tab-two",
+        layoutKind: "tabs",
+        position: 4,
+        count: 3,
       }),
     ).toThrow("position must not exceed count");
   });
