@@ -14,7 +14,13 @@ import type { XapiPort } from "@/host/ports";
 
 import { ContentRuntimeHost } from "./ContentRuntimeHost";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
-import type { XapiSession } from "../xapi";
+import {
+  XAPI_ACTIVITY_TYPES,
+  XAPI_EXTENSIONS,
+  XAPI_VERBS,
+  createSurfaceActivityId,
+  type XapiSession,
+} from "../xapi";
 
 const runtimeStoreFactories = vi.hoisted(() => ({
   assessment: vi.fn(),
@@ -393,7 +399,7 @@ describe("ContentRuntimeHost", () => {
     );
 
     await waitFor(() => expect(onEditorReady).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(port.send).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(port.send).toHaveBeenCalledTimes(2));
 
     expect(port.send.mock.calls[0]?.[0]).toMatchObject({
       verb: { display: { en: "initialized" } },
@@ -402,6 +408,84 @@ describe("ContentRuntimeHost", () => {
         definition: { name: { en: "Course One" } },
       },
     });
+    expect(port.send.mock.calls[1]?.[0]).toMatchObject({
+      verb: XAPI_VERBS.experienced,
+      object: {
+        id: createSurfaceActivityId(port.activityId, "surface-runtime"),
+        definition: {
+          type: XAPI_ACTIVITY_TYPES.surface,
+          extensions: {
+            [XAPI_EXTENSIONS.surfaceKind]: "page",
+            [XAPI_EXTENSIONS.surfacePosition]: 1,
+            [XAPI_EXTENSIONS.surfaceCount]: 1,
+          },
+        },
+      },
+    });
+  });
+
+  it("records every active slideshow surface transition as experienced", async () => {
+    const user = userEvent.setup();
+    const port = createXapiPort();
+
+    render(
+      <ScaffoldServicesProvider ports={{ xapi: port }}>
+        <ContentRuntimeHost
+          artifactId="artifact-slideshow"
+          initialContent={runtimeDocumentContent({
+            mode: "slideshow",
+            surfaceIds: ["slide-one", "slide-two"],
+          })}
+        />
+      </ScaffoldServicesProvider>,
+    );
+
+    await waitFor(() => expect(statementVerbs(port)).toEqual(["initialized", "experienced"]));
+    await user.click(screen.getByRole("button", { name: "Next slide" }));
+    await waitFor(() =>
+      expect(statementVerbs(port)).toEqual(["initialized", "experienced", "experienced"]),
+    );
+    await user.click(screen.getByRole("button", { name: "Previous slide" }));
+    await waitFor(() =>
+      expect(statementVerbs(port)).toEqual([
+        "initialized",
+        "experienced",
+        "experienced",
+        "experienced",
+      ]),
+    );
+
+    expect(
+      port.send.mock.calls.slice(1).map(([statement]) => ({
+        id: statement.object.id,
+        extensions: statement.object.definition?.extensions,
+      })),
+    ).toStrictEqual([
+      {
+        id: createSurfaceActivityId(port.activityId, "slide-one"),
+        extensions: {
+          [XAPI_EXTENSIONS.surfaceKind]: "slide",
+          [XAPI_EXTENSIONS.surfacePosition]: 1,
+          [XAPI_EXTENSIONS.surfaceCount]: 2,
+        },
+      },
+      {
+        id: createSurfaceActivityId(port.activityId, "slide-two"),
+        extensions: {
+          [XAPI_EXTENSIONS.surfaceKind]: "slide",
+          [XAPI_EXTENSIONS.surfacePosition]: 2,
+          [XAPI_EXTENSIONS.surfaceCount]: 2,
+        },
+      },
+      {
+        id: createSurfaceActivityId(port.activityId, "slide-one"),
+        extensions: {
+          [XAPI_EXTENSIONS.surfaceKind]: "slide",
+          [XAPI_EXTENSIONS.surfacePosition]: 1,
+          [XAPI_EXTENSIONS.surfaceCount]: 2,
+        },
+      },
+    ]);
   });
 
   it("keeps learning available when the xAPI Activity IRI is invalid", async () => {
@@ -437,9 +521,11 @@ describe("ContentRuntimeHost", () => {
       </ScaffoldServicesProvider>,
     );
 
-    await waitFor(() => expect(statementVerbs(port)).toEqual(["initialized"]));
+    await waitFor(() => expect(statementVerbs(port)).toEqual(["initialized", "experienced"]));
     root.unmount();
-    await waitFor(() => expect(statementVerbs(port)).toEqual(["initialized", "terminated"]));
+    await waitFor(() =>
+      expect(statementVerbs(port)).toEqual(["initialized", "experienced", "terminated"]),
+    );
   });
 
   it("starts a fresh xAPI session when the learner runtime remounts", async () => {
@@ -455,14 +541,22 @@ describe("ContentRuntimeHost", () => {
     );
     const firstRoot = render(runtime);
 
-    await waitFor(() => expect(statementVerbs(port)).toEqual(["initialized"]));
+    await waitFor(() => expect(statementVerbs(port)).toEqual(["initialized", "experienced"]));
     firstRoot.unmount();
-    await waitFor(() => expect(statementVerbs(port)).toEqual(["initialized", "terminated"]));
+    await waitFor(() =>
+      expect(statementVerbs(port)).toEqual(["initialized", "experienced", "terminated"]),
+    );
 
     render(runtime);
 
     await waitFor(() =>
-      expect(statementVerbs(port)).toEqual(["initialized", "terminated", "initialized"]),
+      expect(statementVerbs(port)).toEqual([
+        "initialized",
+        "experienced",
+        "terminated",
+        "initialized",
+        "experienced",
+      ]),
     );
   });
 
@@ -480,7 +574,7 @@ describe("ContentRuntimeHost", () => {
       </ScaffoldServicesProvider>,
     );
 
-    await waitFor(() => expect(statementVerbs(firstPort)).toEqual(["initialized"]));
+    await waitFor(() => expect(statementVerbs(firstPort)).toEqual(["initialized", "experienced"]));
     const assessmentOptions = runtimeStoreFactories.assessment.mock
       .calls[0]?.[0] as StoreXapiOptions;
     const learnerActivityOptions = runtimeStoreFactories.learnerActivity.mock
@@ -499,8 +593,10 @@ describe("ContentRuntimeHost", () => {
       </ScaffoldServicesProvider>,
     );
 
-    await waitFor(() => expect(statementVerbs(firstPort)).toEqual(["initialized", "terminated"]));
-    await waitFor(() => expect(statementVerbs(secondPort)).toEqual(["initialized"]));
+    await waitFor(() =>
+      expect(statementVerbs(firstPort)).toEqual(["initialized", "experienced", "terminated"]),
+    );
+    await waitFor(() => expect(statementVerbs(secondPort)).toEqual(["initialized", "experienced"]));
 
     expect(runtimeStoreFactories.assessment).toHaveBeenCalledTimes(1);
     expect(runtimeStoreFactories.learnerActivity).toHaveBeenCalledTimes(1);
@@ -1145,7 +1241,7 @@ describe("ContentRuntimeHost", () => {
     resolveLoad(null);
 
     await waitFor(() => expect(onEditorReady).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(statementVerbs(xapi)).toEqual(["initialized"]));
+    await waitFor(() => expect(statementVerbs(xapi)).toEqual(["initialized", "experienced"]));
     expect(screen.getByTestId("page-player")).toBeInTheDocument();
   });
 
@@ -1198,7 +1294,7 @@ describe("ContentRuntimeHost", () => {
       </ScaffoldServicesProvider>,
     );
 
-    await waitFor(() => expect(statementVerbs(xapi)).toEqual(["initialized"]));
+    await waitFor(() => expect(statementVerbs(xapi)).toEqual(["initialized", "experienced"]));
 
     rerender(
       <ScaffoldServicesProvider ports={{ learnerActivity, xapi }}>
@@ -1210,13 +1306,21 @@ describe("ContentRuntimeHost", () => {
       </ScaffoldServicesProvider>,
     );
 
-    await waitFor(() => expect(statementVerbs(xapi)).toEqual(["initialized", "terminated"]));
+    await waitFor(() =>
+      expect(statementVerbs(xapi)).toEqual(["initialized", "experienced", "terminated"]),
+    );
     expect(screen.getByTestId("learner-activity-runtime-loading")).toBeInTheDocument();
 
     replacementLoad.resolve(null);
 
     await waitFor(() =>
-      expect(statementVerbs(xapi)).toEqual(["initialized", "terminated", "initialized"]),
+      expect(statementVerbs(xapi)).toEqual([
+        "initialized",
+        "experienced",
+        "terminated",
+        "initialized",
+        "experienced",
+      ]),
     );
     expect(screen.getByTestId("page-player")).toBeInTheDocument();
   });

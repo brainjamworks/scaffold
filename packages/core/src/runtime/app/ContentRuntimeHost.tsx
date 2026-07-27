@@ -21,7 +21,12 @@ import type {
 import { PagePlayer } from "../players/page/PagePlayer";
 import { SlideshowPlayer } from "../players/slideshow/SlideshowPlayer";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
-import { XapiRuntimeProvider, useXapiSession } from "../xapi";
+import {
+  XapiRuntimeProvider,
+  buildSurfaceExperiencedStatementDraft,
+  useXapiSession,
+  type XapiSession,
+} from "../xapi";
 
 export interface ContentRuntimeHostProps {
   artifactId?: string | null;
@@ -111,20 +116,56 @@ function HydratedRuntimePlayer({
 }: HydratedRuntimePlayerProps) {
   const xapiSession = useXapiSession();
   const rendererReadyRef = useRef(false);
+  const activeSurfaceIdRef = useRef(playerSelection.surfaceIds[0]);
+  const recordedSurfaceRef = useRef<{
+    session: XapiSession;
+    surfaceId: string;
+  } | null>(null);
+  if (!playerSelection.surfaceIds.includes(activeSurfaceIdRef.current)) {
+    activeSurfaceIdRef.current = playerSelection.surfaceIds[0];
+  }
+  const recordSurfaceExperienced = useCallback(
+    (surfaceId: string) => {
+      activeSurfaceIdRef.current = surfaceId;
+      if (!rendererReadyRef.current || !xapiSession) return;
+      const surfaceIndex = playerSelection.surfaceIds.indexOf(surfaceId);
+      if (surfaceIndex < 0) return;
+      const previous = recordedSurfaceRef.current;
+      if (previous?.session === xapiSession && previous.surfaceId === surfaceId) return;
+
+      try {
+        xapiSession.record(
+          buildSurfaceExperiencedStatementDraft({
+            rootActivityId: xapiSession.rootActivityId,
+            surfaceId,
+            surfaceKind: playerSelection.player === "page" ? "page" : "slide",
+            position: surfaceIndex + 1,
+            count: playerSelection.surfaceIds.length,
+          }),
+        );
+        recordedSurfaceRef.current = { session: xapiSession, surfaceId };
+      } catch {
+        // Surface recording is observational and cannot make content unavailable.
+      }
+    },
+    [playerSelection.player, playerSelection.surfaceIds, xapiSession],
+  );
   const handleRendererReady = useCallback(
     (editor: TiptapEditor) => {
       rendererReadyRef.current = true;
       xapiSession?.start();
+      recordSurfaceExperienced(activeSurfaceIdRef.current);
       onEditorReady?.(editor);
     },
-    [onEditorReady, xapiSession],
+    [onEditorReady, recordSurfaceExperienced, xapiSession],
   );
 
   useEffect(() => {
     if (rendererReadyRef.current) {
       xapiSession?.start();
+      recordSurfaceExperienced(activeSurfaceIdRef.current);
     }
-  }, [xapiSession]);
+  }, [recordSurfaceExperienced, xapiSession]);
 
   const runtimeContent =
     playerSelection.player === "page" ? (
@@ -138,6 +179,7 @@ function HydratedRuntimePlayer({
       <SlideshowPlayer
         artifactId={runtimeArtifactId}
         initialContent={initialContent}
+        onActiveSurfaceChange={recordSurfaceExperienced}
         onRendererReady={handleRendererReady}
         surfaceIds={playerSelection.surfaceIds}
         {...(slideshowSizing ? { sizing: slideshowSizing } : {})}

@@ -245,13 +245,16 @@ describe("ScaffoldLearnerApp", () => {
         artifactId: "artifact-services",
       }),
     );
-    await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
     expect(send.mock.calls[0]?.[0]).toMatchObject({
       verb: { display: { en: "initialized" } },
       object: {
         id: services.xapi.activityId,
         definition: { name: { en: "Learner artifact" } },
       },
+    });
+    expect(send.mock.calls[1]?.[0]).toMatchObject({
+      verb: { display: { en: "experienced" } },
     });
   });
 

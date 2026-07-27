@@ -29,6 +29,7 @@ function immutableVerb(id: XapiIri, display: string): XapiVerb {
 
 export const XAPI_VERBS = Object.freeze({
   initialized: immutableVerb("http://adlnet.gov/expapi/verbs/initialized", "initialized"),
+  experienced: immutableVerb("http://adlnet.gov/expapi/verbs/experienced", "experienced"),
   answered: immutableVerb("http://adlnet.gov/expapi/verbs/answered", "answered"),
   interacted: immutableVerb("http://adlnet.gov/expapi/verbs/interacted", "interacted"),
   completed: immutableVerb("http://adlnet.gov/expapi/verbs/completed", "completed"),
@@ -42,6 +43,7 @@ export const XAPI_ACTIVITY_TYPES = Object.freeze({
   quiz: "http://adlnet.gov/expapi/activities/assessment",
   assessmentQuestion: "http://adlnet.gov/expapi/activities/cmi.interaction",
   learnerActivity: "https://scaffold.ac/xapi/activity-types/learner-activity",
+  surface: "https://scaffold.ac/xapi/activity-types/surface",
   hint: "https://scaffold.ac/xapi/activity-types/hint",
 });
 
@@ -51,6 +53,9 @@ export const XAPI_EXTENSIONS = Object.freeze({
   quizAttemptId: "https://scaffold.ac/xapi/extensions/quiz-attempt-id",
   learnerActivityKind: "https://scaffold.ac/xapi/extensions/learner-activity-kind",
   learnerActivityEvent: "https://scaffold.ac/xapi/extensions/learner-activity-event",
+  surfaceKind: "https://scaffold.ac/xapi/extensions/surface-kind",
+  surfacePosition: "https://scaffold.ac/xapi/extensions/surface-position",
+  surfaceCount: "https://scaffold.ac/xapi/extensions/surface-count",
   hintNumber: "https://scaffold.ac/xapi/extensions/hint-number",
 });
 
@@ -91,7 +96,7 @@ function derivedActivityId(value: string): XapiIri {
 }
 
 function createChildActivityId(
-  kind: "quiz" | "assessment" | "learner-activity",
+  kind: "quiz" | "assessment" | "learner-activity" | "surface",
   rootId: XapiIri,
   localId: string,
 ): XapiIri {
@@ -112,6 +117,10 @@ export function createAssessmentActivityId(rootId: XapiIri, targetId: string): X
 
 export function createLearnerActivityId(rootId: XapiIri, blockId: string): XapiIri {
   return createChildActivityId("learner-activity", rootId, requiredIdentity("blockId", blockId));
+}
+
+export function createSurfaceActivityId(rootId: XapiIri, surfaceId: string): XapiIri {
+  return createChildActivityId("surface", rootId, requiredIdentity("surfaceId", surfaceId));
 }
 
 export function createHintActivityId(
@@ -388,6 +397,37 @@ function learnerActivity(
   };
 }
 
+export type XapiSurfaceKind = "page" | "slide";
+
+function surfaceActivity(input: {
+  readonly rootActivityId: XapiIri;
+  readonly surfaceId: string;
+  readonly surfaceKind: XapiSurfaceKind;
+  readonly position: number;
+  readonly count: number;
+}): XapiActivity {
+  if (input.surfaceKind !== "page" && input.surfaceKind !== "slide") {
+    throw new Error("surfaceKind must be page or slide");
+  }
+  const position = positiveInteger("position", input.position);
+  const count = positiveInteger("count", input.count);
+  if (position > count) {
+    throw new Error("position must not exceed count");
+  }
+  return {
+    objectType: "Activity",
+    id: createSurfaceActivityId(input.rootActivityId, input.surfaceId),
+    definition: {
+      type: XAPI_ACTIVITY_TYPES.surface,
+      extensions: {
+        [XAPI_EXTENSIONS.surfaceKind]: input.surfaceKind,
+        [XAPI_EXTENSIONS.surfacePosition]: position,
+        [XAPI_EXTENSIONS.surfaceCount]: count,
+      },
+    },
+  };
+}
+
 function parentContext(parent: XapiActivity): XapiContextTemplate {
   return {
     contextActivities: {
@@ -430,6 +470,20 @@ export function buildInitializedStatementDraft(input: {
   return validatedDraft({
     verb: XAPI_VERBS.initialized,
     object: rootActivity(input.rootActivityId, input.title),
+  });
+}
+
+export function buildSurfaceExperiencedStatementDraft(input: {
+  readonly rootActivityId: XapiIri;
+  readonly surfaceId: string;
+  readonly surfaceKind: XapiSurfaceKind;
+  readonly position: number;
+  readonly count: number;
+}): XapiStatementDraft {
+  return validatedDraft({
+    verb: XAPI_VERBS.experienced,
+    object: surfaceActivity(input),
+    context: parentContext(rootActivity(input.rootActivityId)),
   });
 }
 

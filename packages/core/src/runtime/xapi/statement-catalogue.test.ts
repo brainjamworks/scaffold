@@ -19,11 +19,13 @@ import {
   buildLearnerActivityInteractedStatementDraft,
   buildQuizCompletedStatementDraft,
   buildQuizSuccessStatementDraft,
+  buildSurfaceExperiencedStatementDraft,
   buildTerminatedStatementDraft,
   createAssessmentActivityId,
   createHintActivityId,
   createLearnerActivityId,
   createQuizActivityId,
+  createSurfaceActivityId,
   encodeAssessmentResponse,
   isXapiLearnerActivityKind,
 } from "./index";
@@ -46,6 +48,10 @@ describe("xAPI catalogue vocabulary", () => {
       initialized: {
         id: "http://adlnet.gov/expapi/verbs/initialized",
         display: { en: "initialized" },
+      },
+      experienced: {
+        id: "http://adlnet.gov/expapi/verbs/experienced",
+        display: { en: "experienced" },
       },
       answered: {
         id: "http://adlnet.gov/expapi/verbs/answered",
@@ -77,6 +83,7 @@ describe("xAPI catalogue vocabulary", () => {
       quiz: "http://adlnet.gov/expapi/activities/assessment",
       assessmentQuestion: "http://adlnet.gov/expapi/activities/cmi.interaction",
       learnerActivity: "https://scaffold.ac/xapi/activity-types/learner-activity",
+      surface: "https://scaffold.ac/xapi/activity-types/surface",
       hint: "https://scaffold.ac/xapi/activity-types/hint",
     });
     expect(XAPI_EXTENSIONS).toStrictEqual({
@@ -85,6 +92,9 @@ describe("xAPI catalogue vocabulary", () => {
       quizAttemptId: "https://scaffold.ac/xapi/extensions/quiz-attempt-id",
       learnerActivityKind: "https://scaffold.ac/xapi/extensions/learner-activity-kind",
       learnerActivityEvent: "https://scaffold.ac/xapi/extensions/learner-activity-event",
+      surfaceKind: "https://scaffold.ac/xapi/extensions/surface-kind",
+      surfacePosition: "https://scaffold.ac/xapi/extensions/surface-position",
+      surfaceCount: "https://scaffold.ac/xapi/extensions/surface-count",
       hintNumber: "https://scaffold.ac/xapi/extensions/hint-number",
     });
 
@@ -549,6 +559,56 @@ describe("xAPI Statement catalogue builders", () => {
       result: { completion: true },
       context,
     });
+  });
+
+  it("builds an experienced surface Activity with presentation position", () => {
+    const surfaceActivityId = createSurfaceActivityId(ROOT_ACTIVITY_ID, "slide-two");
+    expect(surfaceActivityId).toBe(
+      "https://scaffold.ac/xapi/activities/surface?root=https%3A%2F%2Flms.example.test%2Fcourses%2Fcourse-one&id=slide-two",
+    );
+    expect(
+      buildSurfaceExperiencedStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        surfaceId: "slide-two",
+        surfaceKind: "slide",
+        position: 2,
+        count: 4,
+      }),
+    ).toStrictEqual({
+      verb: XAPI_VERBS.experienced,
+      object: {
+        objectType: "Activity",
+        id: surfaceActivityId,
+        definition: {
+          type: XAPI_ACTIVITY_TYPES.surface,
+          extensions: {
+            [XAPI_EXTENSIONS.surfaceKind]: "slide",
+            [XAPI_EXTENSIONS.surfacePosition]: 2,
+            [XAPI_EXTENSIONS.surfaceCount]: 4,
+          },
+        },
+      },
+      context: {
+        contextActivities: {
+          parent: [
+            {
+              objectType: "Activity",
+              id: ROOT_ACTIVITY_ID,
+              definition: { type: XAPI_ACTIVITY_TYPES.course },
+            },
+          ],
+        },
+      },
+    });
+    expect(() =>
+      buildSurfaceExperiencedStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        surfaceId: "slide-two",
+        surfaceKind: "slide",
+        position: 5,
+        count: 4,
+      }),
+    ).toThrow("position must not exceed count");
   });
 
   it("describes an accepted checklist item toggle without learner state", () => {
