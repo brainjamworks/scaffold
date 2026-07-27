@@ -19,6 +19,7 @@ import { createElement } from "react";
 import { afterEach, it, expect, vi } from "vite-plus/test";
 
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import {
   AUTHORING_FRAME_ATTR,
@@ -34,6 +35,12 @@ import {
   updateDirectChildSettingsItemChecked,
 } from "@/document/model/commands/content-collections";
 import { ConfigurationSettingsSheet } from "@/editor/shell/settings/sheets/ConfigurationSettingsSheet";
+import { createScaffoldDocumentContent } from "@/format/artifact";
+import type { XapiPort } from "@/host/ports/xapi";
+import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
+import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
+import { CourseDocumentRuntimeRenderer } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
+import { XAPI_EXTENSIONS, XAPI_VERBS, XapiRuntimeProvider } from "@/runtime/xapi";
 import { EmptyScaffoldRichTextDocument } from "@/schemas/rich-text";
 
 import "./gallery-definition";
@@ -54,12 +61,13 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-function galleryFixture() {
+function galleryFixture(layout: "carousel" | "grid" = "carousel") {
   return {
     type: "gallery",
     attrs: {
       id: "block-gallery-proof",
       data: emptyGalleryData({
+        layout,
         caption: richText("Shared gallery caption", [{ type: "italic" }]),
       }),
     },
@@ -137,6 +145,38 @@ function renderGalleryEditor(content: JSONContent = galleryFixture()) {
   render(createElement(EditorContent, { editor }));
 
   return editor;
+}
+
+function renderGalleryXapiRuntime(
+  gallery: JSONContent,
+  xapiPort: XapiPort,
+  visibleSurfaceId = "gallery-surface",
+) {
+  const surfaceId = "gallery-surface";
+  const surface = slideContentSurfaceDefinition.createSurface({ surfaceId });
+  const region = surface.content?.find((child) => child.type === "region");
+  if (!region) throw new Error("Gallery fixture is missing its Region.");
+  region.content = [gallery];
+
+  const content = createScaffoldDocumentContent({ mode: "slideshow", surfaceId });
+  const courseDocument = content.content?.[0];
+  if (!courseDocument) throw new Error("Gallery fixture has no courseDocument.");
+  courseDocument.content = [surface];
+
+  render(
+    createElement(ScaffoldServicesProvider, {
+      ports: { xapi: xapiPort },
+      children: createElement(ScaffoldArtifactIdentityProvider, {
+        artifactId: "gallery-artifact",
+        children: createElement(XapiRuntimeProvider, {
+          children: createElement(CourseDocumentRuntimeRenderer, {
+            initialContent: content,
+            visibleSurfaceId,
+          }),
+        }),
+      }),
+    }),
+  );
 }
 
 describeBlockContract({
@@ -279,6 +319,123 @@ it("labels carousel thumbnail tabs and preserves selected state", async () => {
   expect(secondTab.getAttribute("aria-selected")).toBe("true");
 
   editor.destroy();
+});
+
+it("reports a carousel item only after its full-size stage image loads", () => {
+  const onActiveItemLoad = vi.fn();
+  const items: GalleryResolvedItem[] = [
+    {
+      key: "gallery-image-1",
+      alt: "First",
+      caption: EmptyScaffoldRichTextDocument,
+      url: "https://example.com/first.jpg",
+      loading: false,
+      error: null,
+    },
+  ];
+
+  render(
+    createElement(GalleryCarousel, {
+      items,
+      activeIndex: 0,
+      activeItem: items[0]!,
+      onSelect: () => undefined,
+      onOpenLightbox: () => undefined,
+      onActiveItemLoad,
+    }),
+  );
+
+  expect(onActiveItemLoad).not.toHaveBeenCalled();
+  fireEvent.load(screen.getByRole("img", { name: "First" }));
+  expect(onActiveItemLoad).toHaveBeenCalledWith("gallery-image-1");
+});
+
+it("records each successfully displayed carousel item once per xAPI session", async () => {
+  const send = vi.fn<XapiPort["send"]>(async () => undefined);
+  renderGalleryXapiRuntime(galleryFixture(), {
+    activityId: "https://lms.example.test/courses/gallery",
+    send,
+  });
+
+  const firstStageImage = await screen.findByRole("img", { name: "First image" });
+  expect(send).not.toHaveBeenCalled();
+  fireEvent.load(firstStageImage);
+  await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+
+  fireEvent.click(screen.getByRole("tab", { name: "Image 2" }));
+  const secondStageImage = await screen.findByRole("img", { name: "Second image" });
+  fireEvent.load(secondStageImage);
+  await waitFor(() => expect(send).toHaveBeenCalledTimes(3));
+  fireEvent.load(secondStageImage);
+  expect(send).toHaveBeenCalledTimes(3);
+
+  expect(send.mock.calls[1]?.[0]).toMatchObject({
+    verb: XAPI_VERBS.experienced,
+    object: {
+      definition: {
+        extensions: {
+          [XAPI_EXTENSIONS.visualItemKind]: "gallery-image",
+          [XAPI_EXTENSIONS.visualItemPosition]: 1,
+          [XAPI_EXTENSIONS.visualItemCount]: 2,
+        },
+      },
+    },
+  });
+  expect(JSON.stringify(send.mock.calls.slice(1))).not.toContain("First image");
+  expect(JSON.stringify(send.mock.calls.slice(1))).not.toContain("image-1.jpg");
+});
+
+it("records grid items only after their active lightbox images load", async () => {
+  const send = vi.fn<XapiPort["send"]>(async () => undefined);
+  renderGalleryXapiRuntime(galleryFixture("grid"), {
+    activityId: "https://lms.example.test/courses/gallery",
+    send,
+  });
+
+  const firstTileImage = await screen.findByRole("img", { name: "First image" });
+  fireEvent.load(firstTileImage);
+  expect(send).not.toHaveBeenCalled();
+
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Open image (a) fullscreen: First image",
+    }),
+  );
+  const dialog = await screen.findByRole("dialog", { name: "Gallery viewer" });
+  fireEvent.load(within(dialog).getByRole("img", { name: "First image" }));
+  await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+
+  fireEvent.click(within(dialog).getByRole("button", { name: "Next image" }));
+  const secondLightboxImage = await within(dialog).findByRole("img", {
+    name: "Second image",
+  });
+  fireEvent.load(secondLightboxImage);
+  await waitFor(() => expect(send).toHaveBeenCalledTimes(3));
+});
+
+it("does not record loaded gallery items on a non-presented runtime surface", async () => {
+  const send = vi.fn<XapiPort["send"]>(async () => undefined);
+  renderGalleryXapiRuntime(
+    galleryFixture(),
+    {
+      activityId: "https://lms.example.test/courses/gallery",
+      send,
+    },
+    "another-surface",
+  );
+
+  await waitFor(() =>
+    expect(document.querySelector(".sc-gallery__stage-image")).not.toBeNull(),
+  );
+  const hiddenStageImage = document.querySelector<HTMLImageElement>(".sc-gallery__stage-image");
+  if (!hiddenStageImage) throw new Error("Expected a hidden-surface gallery stage image.");
+  fireEvent.load(hiddenStageImage);
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+
+  expect(send).not.toHaveBeenCalled();
 });
 
 it("closes the gallery lightbox on Escape", async () => {

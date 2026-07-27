@@ -1,10 +1,19 @@
 import { Extension } from "@tiptap/core";
 import { NodeViewContent, type NodeViewProps } from "@tiptap/react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Lightbox } from "@/ui/components/Lightbox/Lightbox";
 import { createBlockRuntimeNodeView } from "@/editor/frame/runtime/create-block-runtime-node-view";
 import { useMediaPort } from "@/host/providers/ScaffoldServicesProvider";
+import {
+  resolveOwningRuntimeSurfaceId,
+  useRuntimePresentedSurfaceId,
+} from "@/runtime/renderer/runtime-surface-presentation";
+import {
+  buildVisualItemExperiencedStatementDraft,
+  useXapiSession,
+  type XapiSession,
+} from "@/runtime/xapi";
 
 import {
   parseGalleryData,
@@ -28,7 +37,57 @@ function GalleryRuntimeView(props: NodeViewProps) {
   const data = parseGalleryData(props.node.attrs["data"]);
   const rawItems = useMemo(() => readGalleryItems(props.node), [props.node]);
   const mediaPort = useMediaPort();
+  const xapiSession = useXapiSession();
+  const presentedSurfaceId = useRuntimePresentedSurfaceId();
+  const owningSurfaceId = resolveOwningRuntimeSurfaceId(props.editor.state.doc, props.getPos);
+  const isPresented =
+    presentedSurfaceId === undefined ||
+    (presentedSurfaceId !== null && owningSurfaceId === presentedSurfaceId);
   const resolved = useResolvedGalleryItems(rawItems, mediaPort);
+  const galleryId = props.node.attrs["id"];
+  const recordedItemsRef = useRef<{
+    session: XapiSession;
+    galleryId: string;
+    itemIds: Set<string>;
+  } | null>(null);
+  const recordDisplayedItem = useCallback(
+    (itemId: string) => {
+      if (
+        !isPresented ||
+        !xapiSession ||
+        typeof galleryId !== "string" ||
+        !galleryId.trim()
+      ) {
+        return;
+      }
+      const position = resolved.findIndex((item) => item.key === itemId) + 1;
+      if (position <= 0) return;
+
+      let recorded = recordedItemsRef.current;
+      if (recorded?.session !== xapiSession || recorded.galleryId !== galleryId) {
+        recorded = { session: xapiSession, galleryId, itemIds: new Set() };
+        recordedItemsRef.current = recorded;
+      }
+      if (recorded.itemIds.has(itemId)) return;
+
+      try {
+        xapiSession.record(
+          buildVisualItemExperiencedStatementDraft({
+            rootActivityId: xapiSession.rootActivityId,
+            compositionId: galleryId,
+            itemId,
+            itemKind: "gallery-image",
+            position,
+            count: resolved.length,
+          }),
+        );
+        recorded.itemIds.add(itemId);
+      } catch {
+        // Gallery recording is observational and cannot prevent image presentation.
+      }
+    },
+    [galleryId, isPresented, resolved, xapiSession],
+  );
 
   const [activeId, setActiveId] = useState<string | null>(rawItems[0]?.id ?? null);
   useEffect(() => {
@@ -74,6 +133,7 @@ function GalleryRuntimeView(props: NodeViewProps) {
               items={resolved}
               activeIndex={activeIndex}
               activeItem={activeItem}
+              onActiveItemLoad={recordDisplayedItem}
               onSelect={setActiveId}
               onOpenLightbox={() => setLightboxOpen(true)}
             />
@@ -92,6 +152,7 @@ function GalleryRuntimeView(props: NodeViewProps) {
         items={lightboxItems}
         initialIndex={lightboxInitialIndex}
         ariaLabel="Gallery viewer"
+        onActiveItemLoad={recordDisplayedItem}
       />
     </>
   );

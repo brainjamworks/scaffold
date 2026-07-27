@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useRef, useState } from "react";
-import { afterEach, describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import * as Dialog from "../Dialog/Dialog";
 import { Lightbox, type LightboxItem } from "./Lightbox";
@@ -155,6 +155,29 @@ describe("Lightbox", () => {
     await waitFor(() => {
       expect(screen.getByRole("status", { name: "Image 1 of 3" })).toBeInTheDocument();
     });
+  });
+
+  it("reports the stable key only after each active image loads", async () => {
+    const onActiveItemLoad = vi.fn();
+    render(
+      <Lightbox
+        open
+        onOpenChange={() => undefined}
+        items={ITEMS}
+        ariaLabel="Observed viewer"
+        onActiveItemLoad={onActiveItemLoad}
+      />,
+    );
+
+    const dialog = await screen.findByRole("dialog", { name: "Observed viewer" });
+    fireEvent.load(within(dialog).getByRole("img", { name: "First image" }));
+    expect(onActiveItemLoad).toHaveBeenLastCalledWith("first");
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Next image" }));
+    const second = await within(dialog).findByRole("img", { name: "Second image" });
+    expect(onActiveItemLoad).toHaveBeenCalledOnce();
+    fireEvent.load(second);
+    expect(onActiveItemLoad).toHaveBeenLastCalledWith("second");
   });
 
   it("renders rich React captions without changing the description contract", async () => {
