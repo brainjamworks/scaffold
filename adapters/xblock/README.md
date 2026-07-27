@@ -4,7 +4,7 @@ Scaffold is an Open edX XBlock for creating and delivering interactive learning
 content. The public Python distribution is `scaffold-xblock`, and the Open edX
 advanced-module identifier is `scaffold`.
 
-`0.1.1` is an alpha release. Test it in a non-production Open edX environment
+`0.1.2` is an alpha release. Test it in a non-production Open edX environment
 before enabling it on a live course.
 
 ## Requirements
@@ -14,7 +14,7 @@ before enabling it on a live course.
 - Administrator access to rebuild and restart the LMS and CMS/Studio services
 
 The
-[Scaffold 0.1.1 release record](https://github.com/brainjamworks/scaffold/releases/tag/v0.1.1)
+[Scaffold 0.1.2 release record](https://github.com/brainjamworks/scaffold/releases/tag/v0.1.2)
 records the exact Open edX host version used for the release smoke test, package
 checksums, and build provenance.
 
@@ -23,7 +23,7 @@ checksums, and build provenance.
 Add the pinned package to Tutor's persistent Open edX requirements:
 
 ```sh
-tutor config save --append OPENEDX_EXTRA_PIP_REQUIREMENTS=scaffold-xblock==0.1.1
+tutor config save --append OPENEDX_EXTRA_PIP_REQUIREMENTS=scaffold-xblock==0.1.2
 tutor images build openedx
 tutor local reboot -d
 ```
@@ -38,7 +38,7 @@ tutor local exec lms python -m pip show scaffold-xblock
 tutor local exec cms python -m pip show scaffold-xblock
 ```
 
-Each command must report `Version: 0.1.1`.
+Each command must report `Version: 0.1.2`.
 
 ## Install without Tutor
 
@@ -46,7 +46,7 @@ Install the same pinned package in the Python environments used by both the LMS
 and CMS/Studio:
 
 ```sh
-python -m pip install "scaffold-xblock==0.1.1"
+python -m pip install "scaffold-xblock==0.1.2"
 python -m pip show scaffold-xblock
 ```
 
@@ -55,7 +55,7 @@ installed in only one service is not a complete Open edX installation.
 
 PyPI is the normal installation channel. If PyPI is temporarily unavailable,
 the exact approved wheel is also attached to the
-[versioned GitHub Release](https://github.com/brainjamworks/scaffold/releases/tag/v0.1.1);
+[versioned GitHub Release](https://github.com/brainjamworks/scaffold/releases/tag/v0.1.2);
 do not install GitHub's automatically generated source archive.
 
 ## Enable Scaffold in a Course

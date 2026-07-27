@@ -4,6 +4,11 @@ This file records user-visible changes to the Open edX XBlock.
 
 ## Unreleased
 
+## 0.1.2 - 2026-07-27
+
+- Coordinated the XBlock package version with the Moodle Marketplace
+  validation release.
+
 ## 0.1.1 - 2026-07-27
 
 - Added runtime support for Python 3.11 or later and XBlock 5.2 through 6.x,

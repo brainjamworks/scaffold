@@ -10,6 +10,13 @@ called out explicitly.
 
 ## Unreleased
 
+## 0.1.2 - 2026-07-27
+
+### Fixed
+
+- Added Moodle's conventional database upgrade entry point required by
+  Marketplace package validation.
+
 ## 0.1.1 - 2026-07-27
 
 ### Fixed

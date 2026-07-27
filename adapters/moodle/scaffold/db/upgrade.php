@@ -15,9 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Version metadata for the Scaffold activity module.
- *
- * Declares the plugin identity, compatibility, maturity, and release version.
+ * Database upgrades for the Scaffold activity module.
  *
  * @package    mod_scaffold
  * @copyright  2026 Rizvan Ali
@@ -26,8 +24,12 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->component = 'mod_scaffold';
-$plugin->version = 2026072701;
-$plugin->requires = 2024100700;
-$plugin->maturity = MATURITY_ALPHA;
-$plugin->release = '0.1.2';
+/**
+ * Execute Scaffold database upgrades.
+ *
+ * @param int $oldversion Previously installed plugin version.
+ * @return bool
+ */
+function xmldb_scaffold_upgrade($oldversion): bool {
+    return true;
+}

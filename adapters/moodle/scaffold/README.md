@@ -17,8 +17,8 @@ The plugin component is `mod_scaffold`, and its installation directory must be
 
 ## Installation
 
-For `0.1.1`, use the versioned
-[Scaffold Moodle ZIP](https://github.com/brainjamworks/scaffold/releases/download/v0.1.1/mod_scaffold-0.1.1.zip)
+For `0.1.2`, use the versioned
+[Scaffold Moodle ZIP](https://github.com/brainjamworks/scaffold/releases/download/v0.1.2/mod_scaffold-0.1.2.zip)
 from the GitHub Release. This is the temporary official installation route
 while the first Moodle Plugins directory listing is under review.
 
@@ -40,11 +40,11 @@ php admin/cli/upgrade.php --non-interactive
 ## Verify the Installation
 
 Open **Site administration → Plugins → Plugins overview**, find
-`Scaffold (mod_scaffold)`, and confirm that the release is `0.1.1`. Moodle's
+`Scaffold (mod_scaffold)`, and confirm that the release is `0.1.2`. Moodle's
 Plugins overview displays the installed plugin version and release.
 
 The immutable
-[Scaffold 0.1.1 release record](https://github.com/brainjamworks/scaffold/releases/tag/v0.1.1)
+[Scaffold 0.1.2 release record](https://github.com/brainjamworks/scaffold/releases/tag/v0.1.2)
 contains checksums, provenance, and the Moodle host version used for the release
 smoke test. Confirm those results before installing the alpha release on a live
 site.

@@ -4,6 +4,11 @@ This file records user-visible changes to the Moodle activity module.
 
 ## Unreleased
 
+## 0.1.2 - 2026-07-27
+
+- Added the conventional Moodle database upgrade entry point required by
+  Marketplace package validation.
+
 ## 0.1.1 - 2026-07-27
 
 - Rebuilt the unchanged Moodle adapter as part of the coordinated replacement
