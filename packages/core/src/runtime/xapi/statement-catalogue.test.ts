@@ -581,6 +581,62 @@ describe("xAPI Statement catalogue builders", () => {
     });
   });
 
+  it("describes which flashcard face the learner revealed", () => {
+    expect(
+      buildLearnerActivityInteractedStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        blockId: "flashcards-one",
+        activityKind: "flashcard",
+        event: {
+          kind: "flashcard-flipped",
+          cardId: "card-two",
+          face: "back",
+        },
+      }),
+    ).toMatchObject({
+      verb: XAPI_VERBS.interacted,
+      result: {
+        extensions: {
+          "https://scaffold.ac/xapi/extensions/learner-activity-event": {
+            action: "card-flipped",
+            cardId: "card-two",
+            face: "back",
+          },
+        },
+      },
+    });
+  });
+
+  it("describes a flashcard rating and the resulting deck progress", () => {
+    expect(
+      buildLearnerActivityInteractedStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        blockId: "flashcards-one",
+        activityKind: "flashcard",
+        event: {
+          kind: "flashcard-rated",
+          cardId: "card-two",
+          rating: "got-it",
+          masteredCount: 2,
+          total: 4,
+        },
+      }),
+    ).toMatchObject({
+      verb: XAPI_VERBS.interacted,
+      result: {
+        extensions: {
+          "https://scaffold.ac/xapi/extensions/learner-activity-event": {
+            action: "card-rated",
+            cardId: "card-two",
+            rating: "got-it",
+            masteredCount: 2,
+            total: 4,
+          },
+        },
+      },
+    });
+  });
+
   it("builds terminal quiz completion with a valid authoritative duration", () => {
     expect(
       buildQuizCompletedStatementDraft({

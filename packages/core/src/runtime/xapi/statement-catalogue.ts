@@ -531,7 +531,24 @@ export interface ChecklistItemToggledXapiEvent {
   readonly total: number;
 }
 
-export type LearnerActivityXapiEvent = ChecklistItemToggledXapiEvent;
+export interface FlashcardFlippedXapiEvent {
+  readonly kind: "flashcard-flipped";
+  readonly cardId: string;
+  readonly face: "front" | "back";
+}
+
+export interface FlashcardRatedXapiEvent {
+  readonly kind: "flashcard-rated";
+  readonly cardId: string;
+  readonly rating: "got-it" | "not-yet";
+  readonly masteredCount: number;
+  readonly total: number;
+}
+
+export type LearnerActivityXapiEvent =
+  | ChecklistItemToggledXapiEvent
+  | FlashcardFlippedXapiEvent
+  | FlashcardRatedXapiEvent;
 
 function learnerActivityStatementParts(input: LearnerActivityStatementInput): {
   readonly object: XapiActivity;
@@ -570,13 +587,69 @@ function checklistItemToggledEventValue(
   };
 }
 
+function flashcardFlippedEventValue(
+  input: LearnerActivityStatementInput,
+  event: FlashcardFlippedXapiEvent,
+) {
+  if (input.activityKind !== "flashcard") {
+    throw new Error("Flashcard flip events require flashcard learner activities");
+  }
+  if (event.face !== "front" && event.face !== "back") {
+    throw new Error("Flashcard flip event face must be front or back");
+  }
+  return {
+    action: "card-flipped",
+    cardId: requiredIdentity("cardId", event.cardId),
+    face: event.face,
+  };
+}
+
+function flashcardRatedEventValue(
+  input: LearnerActivityStatementInput,
+  event: FlashcardRatedXapiEvent,
+) {
+  if (input.activityKind !== "flashcard") {
+    throw new Error("Flashcard rating events require flashcard learner activities");
+  }
+  if (event.rating !== "got-it" && event.rating !== "not-yet") {
+    throw new Error("Flashcard rating event rating must be got-it or not-yet");
+  }
+  if (!Number.isInteger(event.total) || event.total <= 0) {
+    throw new Error("Flashcard rating event total must be a positive integer");
+  }
+  if (
+    !Number.isInteger(event.masteredCount) ||
+    event.masteredCount < 0 ||
+    event.masteredCount > event.total
+  ) {
+    throw new Error("Flashcard rating event masteredCount must be between zero and total");
+  }
+  return {
+    action: "card-rated",
+    cardId: requiredIdentity("cardId", event.cardId),
+    rating: event.rating,
+    masteredCount: event.masteredCount,
+    total: event.total,
+  };
+}
+
+function learnerActivityEventValue(input: LearnerActivityStatementInput) {
+  switch (input.event?.kind) {
+    case "checklist-item-toggled":
+      return checklistItemToggledEventValue(input, input.event);
+    case "flashcard-flipped":
+      return flashcardFlippedEventValue(input, input.event);
+    case "flashcard-rated":
+      return flashcardRatedEventValue(input, input.event);
+    default:
+      return undefined;
+  }
+}
+
 export function buildLearnerActivityInteractedStatementDraft(
   input: LearnerActivityStatementInput,
 ): XapiStatementDraft {
-  const event =
-    input.event?.kind === "checklist-item-toggled"
-      ? checklistItemToggledEventValue(input, input.event)
-      : undefined;
+  const event = learnerActivityEventValue(input);
   return validatedDraft({
     verb: XAPI_VERBS.interacted,
     ...learnerActivityStatementParts(input),
