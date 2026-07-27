@@ -1,3 +1,6 @@
+from urllib.parse import unquote
+
+
 def assessment_id_from_problem_id(problem_id, expected_artifact_id=None):
     if not isinstance(problem_id, str):
         return None
@@ -15,7 +18,11 @@ def assessment_id_from_problem_id(problem_id, expected_artifact_id=None):
         return None
     if expected_artifact_id is not None:
         expected_artifact = str(expected_artifact_id).strip()
-        if not expected_artifact or artifact != "artifact:%s" % expected_artifact:
+        encoded_artifact = artifact[len("artifact:"):]
+        if (
+            not expected_artifact
+            or unquote(encoded_artifact) != expected_artifact
+        ):
             return None
 
     block_id = block_id.strip()

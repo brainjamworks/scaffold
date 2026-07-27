@@ -710,6 +710,29 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             },
         )
 
+    def test_assessment_module_accepts_encoded_open_edx_usage_id(self):
+        usage_id = (
+            "block-v1:Scaffold+Demo+2026+type@scaffold+block@scaffold-1"
+        )
+        outcome = assessment_module.grade_assessment_request(
+            {
+                "problemId": (
+                    "artifact:block-v1%3AScaffold%2BDemo%2B2026%2B"
+                    "type%40scaffold%2Bblock%40scaffold-1/block:mcq-1"
+                ),
+                "targetId": "mcq-1",
+                "interactionKind": "single-select",
+                "response": {"kind": "single-select", "optionId": "b"},
+                "expectedAttemptNumber": 0,
+            },
+            "check",
+            [single_select_target(feedback_mode="immediate")],
+            usage_id,
+            0,
+        )
+
+        self.assertTrue(outcome["response"]["success"])
+
     def test_assessment_module_prepares_immediate_check_submission(self):
         outcome = assessment_module.grade_assessment_request(
             {
