@@ -59,8 +59,8 @@ export interface MatchInteractionRuntime {
 export interface ClassifyInteractionRuntime {
   kind: "classify";
   placements: Readonly<Record<string, string>>;
-  selectedBinFor: (itemId: string) => string | null;
-  setPlacement: (itemId: string, binId: string) => void;
+  selectedCategoryFor: (itemId: string) => string | null;
+  setPlacement: (itemId: string, categoryId: string) => void;
   removePlacement: (itemId: string) => void;
   clearPlacements: () => void;
 }
@@ -207,7 +207,7 @@ export function createPendingAssessmentInteractionRuntime<K extends AssessmentIn
       return {
         kind,
         placements: {},
-        selectedBinFor: () => null,
+        selectedCategoryFor: () => null,
         setPlacement: noop,
         removePlacement: noop,
         clearPlacements: noop,
@@ -258,7 +258,7 @@ export function useAssessmentInteractionRuntime<K extends AssessmentInteractionK
     const actualKind = problem.state.interactionKind;
     if (expectedKind && actualKind !== expectedKind) {
       throw new Error(
-        `Assessment runtime expected "${expectedKind}" interaction for "${facade.authoredProblemId}", but registered "${actualKind}".`,
+        `Assessment runtime expected "${expectedKind}" interaction for "${facade.authoredBlockId}", but registered "${actualKind}".`,
       );
     }
 
@@ -379,9 +379,9 @@ export function useAssessmentInteractionRuntime<K extends AssessmentInteractionK
         return {
           kind: "classify",
           placements,
-          selectedBinFor: (itemId: string) => placements[itemId] ?? null,
-          setPlacement: (itemId: string, binId: string) => {
-            writeField("placements", { ...placements, [itemId]: binId });
+          selectedCategoryFor: (itemId: string) => placements[itemId] ?? null,
+          setPlacement: (itemId: string, categoryId: string) => {
+            writeField("placements", { ...placements, [itemId]: categoryId });
             checkImmediate();
           },
           removePlacement: (itemId: string) =>

@@ -29,7 +29,7 @@ import { AssessmentInstructionsNode } from "@/editor/blocks/assessment/shared/no
 import { AssessmentPromptNode } from "@/editor/blocks/assessment/shared/nodes/assessment-prompt";
 import { AssessmentSummaryFeedbackNode } from "@/editor/blocks/assessment/shared/nodes/assessment-summary-feedback";
 import { AssessmentTitleNode } from "@/editor/blocks/assessment/shared/nodes/assessment-title";
-import { findAncestorAssessmentId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 
 import { sequencingBlockDefinition } from "./sequencing-definition";
@@ -778,8 +778,8 @@ describe("composite sequencing node", () => {
       if (node.type.name === "assessment_summary_feedback") summaryFeedbackPos = pos;
     });
 
-    expect(findAncestorAssessmentId(editor, hintsGroupPos, ["sequencing"])).toBe("seq-1");
-    expect(findAncestorAssessmentId(editor, summaryFeedbackPos, ["sequencing"])).toBe("seq-1");
+    expect(findAncestorAssessmentBlockId(editor, hintsGroupPos, ["sequencing"])).toBe("seq-1");
+    expect(findAncestorAssessmentBlockId(editor, summaryFeedbackPos, ["sequencing"])).toBe("seq-1");
     editor.destroy();
   });
 

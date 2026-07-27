@@ -17,7 +17,7 @@ export function countAssessmentHints(node: ProseMirrorNode): number {
   return total;
 }
 
-export function findAncestorAssessmentId(
+export function findAncestorAssessmentBlockId(
   editor: Editor,
   childPos: number | undefined,
   matcher: AssessmentAncestorMatcher,

@@ -20,10 +20,10 @@ import {
 } from "@phosphor-icons/react";
 import { DOMSerializer, type Node as PMNode } from "@tiptap/pm/model";
 import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { CHOICE_TRAILING_BTN } from "@/editor/blocks/assessment/shared/chrome/ChoiceAnswerItem";
-import { findAncestorAssessmentId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import type { AssessmentItemDetail } from "@scaffold/contracts";
 import { RichFeedbackRuntimePopover } from "@/editor/blocks/assessment/shared/chrome/RichFeedbackRuntimePopover";
 import { useAssessmentRuntimeById } from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
@@ -86,8 +86,10 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
   );
 
   const pos = safeGetPos(props.getPos);
-  const problemId = findAncestorAssessmentId(props.editor, pos ?? undefined, ["matching"]);
-  const assessment = useAssessmentRuntimeById(problemId, "match");
+  const authoredBlockId = findAncestorAssessmentBlockId(props.editor, pos ?? undefined, [
+    "matching",
+  ]);
+  const assessment = useAssessmentRuntimeById(authoredBlockId, "match");
   const problem = assessment?.interaction ?? null;
   const runtimeProblem = assessment?.problem ?? null;
   const serializer = useMemo(
@@ -104,7 +106,7 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
       targetId: pair.targetId,
       targetHtml: pair.targetHtml,
     })),
-    `${problemId ?? "matching"}|${pairs.map((pair) => pair.targetId).join("|")}`,
+    `${authoredBlockId ?? "matching"}|${pairs.map((pair) => pair.targetId).join("|")}`,
   );
   const pairByItemId = new Map(pairs.map((pair) => [pair.itemId, pair]));
   const draggingPair = draggingItemId ? (pairByItemId.get(draggingItemId) ?? null) : null;
@@ -294,15 +296,10 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
                       matched,
                       selected,
                     });
-                    const itemDescriptionId =
-                      problemId !== null
-                        ? `${problemId}:${pair.itemId}:matching-item-description`
-                        : undefined;
                     return (
                       <MatchingRuntimeItem
                         key={pair.itemId}
                         description={itemDescription}
-                        descriptionId={itemDescriptionId}
                         draggingItemId={draggingItemId}
                         index={idx}
                         interactionLocked={interactionLocked}
@@ -356,17 +353,12 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
                       revealed: answerKeyVisible,
                       submitted,
                     });
-                    const targetDescriptionId =
-                      problemId !== null
-                        ? `${problemId}:${target.targetId}:matching-target-description`
-                        : undefined;
-
                     return (
                       <MatchingRuntimeTarget
                         key={target.targetId}
                         activeDrop={activeDrop}
                         correct={correct}
-                        descriptionId={targetDescriptionId}
+                        description={targetDescription}
                         hasMatchedPair={matchedPair !== null}
                         index={idx}
                         interactionLocked={interactionLocked}
@@ -426,11 +418,6 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
                             {selectedItemId ? "Click to place selected item" : "Choose an item"}
                           </span>
                         )}
-                        {targetDescriptionId && (
-                          <span id={targetDescriptionId} className="sc-sr-only">
-                            {targetDescription}
-                          </span>
-                        )}
                       </MatchingRuntimeTarget>
                     );
                   })}
@@ -461,7 +448,6 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
 
 function MatchingRuntimeItem({
   description,
-  descriptionId,
   draggingItemId,
   index,
   interactionLocked,
@@ -472,7 +458,6 @@ function MatchingRuntimeItem({
   selected,
 }: {
   description: string;
-  descriptionId: string | undefined;
   draggingItemId: string | null;
   index: number;
   interactionLocked: boolean;
@@ -482,6 +467,7 @@ function MatchingRuntimeItem({
   pair: MatchingProjectionPair;
   selected: boolean;
 }) {
+  const descriptionId = useId();
   const disabled = interactionLocked || matched;
   const { attributes, isDragging, listeners, setNodeRef, transform } = useDraggable({
     id: `matching-runtime-item:${pair.itemId}`,
@@ -533,11 +519,9 @@ function MatchingRuntimeItem({
       <div className="sc-matching-runtime-item__content">
         {renderStaticHtml(pair.itemHtml, `Item ${index + 1}`)}
       </div>
-      {descriptionId && (
-        <span id={descriptionId} className="sc-sr-only">
-          {description}
-        </span>
-      )}
+      <span id={descriptionId} className="sc-sr-only">
+        {description}
+      </span>
     </div>
   );
 }
@@ -546,7 +530,7 @@ function MatchingRuntimeTarget({
   activeDrop,
   children,
   correct,
-  descriptionId,
+  description,
   hasMatchedPair,
   index,
   interactionLocked,
@@ -558,7 +542,7 @@ function MatchingRuntimeTarget({
   activeDrop: boolean;
   children: ReactNode;
   correct: boolean | null;
-  descriptionId: string | undefined;
+  description: string;
   hasMatchedPair: boolean;
   index: number;
   interactionLocked: boolean;
@@ -567,6 +551,7 @@ function MatchingRuntimeTarget({
   showFeedback: boolean;
   targetId: string;
 }) {
+  const descriptionId = useId();
   const { isOver, setNodeRef } = useDroppable({
     id: `matching-runtime-target:${targetId}`,
     disabled: interactionLocked,
@@ -607,6 +592,9 @@ function MatchingRuntimeTarget({
       )}
     >
       {children}
+      <span id={descriptionId} className="sc-sr-only">
+        {description}
+      </span>
     </div>
   );
 }

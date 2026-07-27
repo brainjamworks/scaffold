@@ -126,7 +126,7 @@ describe("useAssessmentBlockSetup", () => {
     capturedStore
       ?.getState()
       .setLocalResponse(
-        { problemId: "block-1", targetId: "block-1", interactionKind: "single-select" },
+        { authoredBlockId: "block-1", targetId: "block-1", interactionKind: "single-select" },
         { choices: "a" },
       );
     const durableBefore = capturedStore?.getState().durable.problems[problemId];

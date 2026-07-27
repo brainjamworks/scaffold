@@ -263,7 +263,7 @@ function ScopedAssessmentHarness() {
   return (
     <>
       {Object.values(pendingRegistrations).map((registration) => (
-        <ScopedProblemRegistration key={registration.problemId} registration={registration} />
+        <ScopedProblemRegistration key={registration.authoredBlockId} registration={registration} />
       ))}
     </>
   );
@@ -3230,9 +3230,9 @@ function emptyProblemState(): AssessmentProblemSnapshot {
 }
 
 function registerQuizQuestionProblem(problemId: string, targetId: string) {
-  const authoredProblemId = unscopedProblemId(problemId);
+  const authoredBlockId = unscopedProblemId(problemId);
   const registration: AssessmentRegistrationInput = {
-    problemId: authoredProblemId,
+    authoredBlockId,
     targetId,
     interactionKind: "single-select",
     response: mcqResponseCodec,
@@ -3248,20 +3248,20 @@ function registerQuizQuestionProblem(problemId: string, targetId: string) {
       hintsTotal: 0,
     },
   };
-  pendingRegistrations[authoredProblemId] = registration;
+  pendingRegistrations[authoredBlockId] = registration;
   scopedAssessmentStore?.getState().register(registration);
 }
 
 function setAssessmentResponse(problemId: string, choiceId: string) {
-  const authoredProblemId = unscopedProblemId(problemId);
+  const authoredBlockId = unscopedProblemId(problemId);
   const registration =
     scopedAssessmentStore?.getState().registrations[
-      scopeAssessmentProblemId("artifact-1", authoredProblemId)
+      scopeAssessmentProblemId("artifact-1", authoredBlockId)
     ];
   if (registration && scopedAssessmentStore) {
     scopedAssessmentStore.getState().setLocalResponse(
       {
-        problemId: authoredProblemId,
+        authoredBlockId,
         targetId: registration.targetId,
         interactionKind: registration.interactionKind,
       },
@@ -3269,7 +3269,7 @@ function setAssessmentResponse(problemId: string, choiceId: string) {
     );
     return;
   }
-  const scopedId = scopeAssessmentProblemId("artifact-1", authoredProblemId);
+  const scopedId = scopeAssessmentProblemId("artifact-1", authoredBlockId);
   const current = pendingProblems[scopedId];
   pendingProblems[scopedId] = AssessmentProblemSnapshotSchema.parse({
     response: { kind: "single-select", optionId: choiceId },

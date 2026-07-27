@@ -4,11 +4,12 @@ import {
   type Editor,
   type NodeViewProps,
 } from "@tiptap/react";
-import { useMemo } from "react";
+import { useId, useMemo } from "react";
 
-import { findAncestorAssessmentId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { RichFeedbackRuntimePopover } from "@/editor/blocks/assessment/shared/chrome/RichFeedbackRuntimePopover";
 import { useAssessmentRuntimeById } from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
+import { assessmentResponseName } from "@/editor/blocks/assessment/shared/runtime/assessment-response-name";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 import { cn } from "@/lib/cn";
 import { FillBlanksAssessmentSchema } from "@scaffold/contracts";
@@ -73,8 +74,8 @@ function RuntimeFillBlank({
   editor: Editor;
   pos: number | null;
 }) {
-  const problemId = findAncestorAssessmentId(editor, pos ?? undefined, ["fill_blanks"]);
-  const assessment = useAssessmentRuntimeById(problemId, "fill-blanks");
+  const authoredBlockId = findAncestorAssessmentBlockId(editor, pos ?? undefined, ["fill_blanks"]);
+  const assessment = useAssessmentRuntimeById(authoredBlockId, "fill-blanks");
   const problem = assessment?.interaction ?? null;
   const runtimeProblem = assessment?.problem ?? null;
   const submitted = runtimeProblem?.state.submitted ?? false;
@@ -110,8 +111,8 @@ function RuntimeFillBlank({
     submitted,
     value: displayedValue,
   });
-  const descriptionId =
-    problemId && accessibilityDescription ? `${problemId}:${blank.id}:description` : undefined;
+  const generatedDescriptionId = useId();
+  const descriptionId = accessibilityDescription ? generatedDescriptionId : undefined;
 
   return (
     <NodeViewWrapper
@@ -123,6 +124,7 @@ function RuntimeFillBlank({
     >
       <input
         type="text"
+        name={assessmentResponseName(authoredBlockId ?? "", blank.id)}
         value={displayedValue}
         disabled={locked}
         onChange={(event) => problem?.setBlank(blank.id, event.target.value)}

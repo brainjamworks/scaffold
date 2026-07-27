@@ -7,11 +7,11 @@ import {
   CheckIcon as Check,
   XCircleIcon as XCircle,
 } from "@phosphor-icons/react";
-import { useMemo } from "react";
+import { useId, useMemo } from "react";
 
 import * as Select from "@/ui/components/Select/SelectMenu";
 import * as VisuallyHidden from "@/ui/components/VisuallyHidden/VisuallyHidden";
-import { findAncestorAssessmentId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { RichFeedbackRuntimePopover } from "@/editor/blocks/assessment/shared/chrome/RichFeedbackRuntimePopover";
 import type { SingleSelectInteractionRuntime } from "@/editor/blocks/assessment/shared/runtime/assessment-interaction-runtime";
 import {
@@ -96,15 +96,16 @@ function dropdownOptionsFromNode(
 }
 
 export function DropdownChoicesRuntimeNodeView(props: NodeViewProps) {
-  const problemId = findAncestorAssessmentId(props.editor, safeGetPos(props.getPos), ["dropdown"]);
-  const assessment = useAssessmentRuntimeById(problemId, "single-select");
+  const authoredBlockId = findAncestorAssessmentBlockId(props.editor, safeGetPos(props.getPos), [
+    "dropdown",
+  ]);
+  const assessment = useAssessmentRuntimeById(authoredBlockId, "single-select");
   const dropdown = assessment?.interaction ?? null;
 
   return (
     <DropdownChoicesRuntime
       node={props.node}
       editor={props.editor}
-      problemId={problemId}
       assessment={assessment}
       dropdown={dropdown}
       label={assessment?.problem?.state.legend ?? ""}
@@ -115,7 +116,6 @@ export function DropdownChoicesRuntimeNodeView(props: NodeViewProps) {
 interface DropdownChoicesRuntimeProps {
   node: NodeViewProps["node"];
   editor: Editor;
-  problemId: string | null;
   assessment: AssessmentRuntimeController<"single-select"> | null;
   dropdown: SingleSelectInteractionRuntime | null;
   label: string;
@@ -124,7 +124,6 @@ interface DropdownChoicesRuntimeProps {
 function DropdownChoicesRuntime({
   node,
   editor,
-  problemId,
   assessment,
   dropdown,
   label,
@@ -140,7 +139,8 @@ function DropdownChoicesRuntime({
   const state = displayOption && dropdown ? dropdown.stateFor(displayOption.id) : null;
   const locked = Boolean(problem?.state.submitted || hasRevealPayload || problem?.exhausted);
   const placeholder = problem?.state.placeholder || "Select...";
-  const labelId = problemId ? `${problemId}-dropdown-label` : undefined;
+  const labelId = useId();
+  const generatedDescriptionId = useId();
   const showFeedback = Boolean(
     displayOption &&
     dropdown &&
@@ -157,8 +157,7 @@ function DropdownChoicesRuntime({
     state,
     submitted: problem?.state.submitted ?? false,
   });
-  const descriptionId =
-    problemId && accessibilityDescription ? `${problemId}-dropdown-state-description` : undefined;
+  const descriptionId = accessibilityDescription ? generatedDescriptionId : undefined;
   const sideIconBoxClass = "sc-dropdown-runtime__side-icon";
   const renderOptionContent = (option: DropdownChoiceOption) =>
     option.html ? (
@@ -205,7 +204,7 @@ function DropdownChoicesRuntime({
             value={displayId}
             onValueChange={(next) => dropdown?.select(next)}
             disabled={locked}
-            {...(problem?.state.groupName ? { name: problem.state.groupName } : {})}
+            {...(problem?.state.responseName ? { name: problem.state.responseName } : {})}
           >
             <Select.Trigger
               aria-labelledby={label ? labelId : undefined}

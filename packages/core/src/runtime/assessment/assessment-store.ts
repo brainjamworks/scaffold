@@ -52,11 +52,11 @@ function requiredIdentityPart(name: string, value: string): string {
 
 export function scopeAssessmentProblemId(
   artifactId: string,
-  problemId: string,
+  authoredBlockId: string,
 ): AssessmentProblemId {
   return `artifact:${requiredIdentityPart("artifactId", artifactId)}/block:${requiredIdentityPart(
-    "problemId",
-    problemId,
+    "authoredBlockId",
+    authoredBlockId,
   )}`;
 }
 
@@ -71,21 +71,22 @@ function storedRegistration(
   artifactId: string,
   registration: AssessmentRegistrationInput,
 ): AssessmentRegistration {
+  const { authoredBlockId, ...registrationConfig } = registration;
   const targetId = registration.targetId.trim();
   if (!targetId) {
     throw new Error("targetId must be a non-blank string");
   }
 
   return {
-    ...registration,
-    problemId: scopeAssessmentProblemId(artifactId, registration.problemId),
+    ...registrationConfig,
+    problemId: scopeAssessmentProblemId(artifactId, authoredBlockId),
     targetId,
   };
 }
 
 function assertRegistrationIdentity(
   current: AssessmentRegistration,
-  next: AssessmentRegistrationIdentity,
+  next: Pick<AssessmentRegistrationIdentity, "targetId" | "interactionKind">,
 ): void {
   if (current.targetId !== next.targetId) {
     throw new Error(
@@ -400,7 +401,7 @@ export function createAssessmentStore({
         return true;
       },
       unregister: (identity) => {
-        const problemId = scopeAssessmentProblemId(normalizedArtifactId, identity.problemId);
+        const problemId = scopeAssessmentProblemId(normalizedArtifactId, identity.authoredBlockId);
         const current = get().registrations[problemId];
         if (!current) return false;
         assertRegistrationIdentity(current, {
@@ -452,7 +453,7 @@ export function createAssessmentStore({
         return true;
       },
       setLocalResponse: (identity, localResponse) => {
-        const problemId = scopeAssessmentProblemId(normalizedArtifactId, identity.problemId);
+        const problemId = scopeAssessmentProblemId(normalizedArtifactId, identity.authoredBlockId);
         const registration = get().registrations[problemId];
         if (!registration) return false;
         const normalizedIdentity = { ...identity, targetId: identity.targetId.trim() };
@@ -516,7 +517,7 @@ export function createAssessmentStore({
         }
       },
       check: async (identity) => {
-        const problemId = scopeAssessmentProblemId(normalizedArtifactId, identity.problemId);
+        const problemId = scopeAssessmentProblemId(normalizedArtifactId, identity.authoredBlockId);
         const registration = get().registrations[problemId];
         if (!registration) return null;
         try {
@@ -576,7 +577,7 @@ export function createAssessmentStore({
         }
       },
       submit: async (identity) => {
-        const problemId = scopeAssessmentProblemId(normalizedArtifactId, identity.problemId);
+        const problemId = scopeAssessmentProblemId(normalizedArtifactId, identity.authoredBlockId);
         const registration = get().registrations[problemId];
         if (!registration) return null;
         try {
@@ -635,7 +636,7 @@ export function createAssessmentStore({
         }
       },
       reset: (identity) => {
-        const problemId = scopeAssessmentProblemId(normalizedArtifactId, identity.problemId);
+        const problemId = scopeAssessmentProblemId(normalizedArtifactId, identity.authoredBlockId);
         const registration = get().registrations[problemId];
         if (!registration) return false;
         try {
@@ -680,7 +681,7 @@ export function createAssessmentStore({
         return true;
       },
       revealHint: async (identity) => {
-        const problemId = scopeAssessmentProblemId(normalizedArtifactId, identity.problemId);
+        const problemId = scopeAssessmentProblemId(normalizedArtifactId, identity.authoredBlockId);
         const registration = get().registrations[problemId];
         if (!registration) return false;
         try {
@@ -747,7 +748,7 @@ export function createAssessmentStore({
         }
       },
       revealAnswer: async (identity) => {
-        const problemId = scopeAssessmentProblemId(normalizedArtifactId, identity.problemId);
+        const problemId = scopeAssessmentProblemId(normalizedArtifactId, identity.authoredBlockId);
         const registration = get().registrations[problemId];
         if (!registration) return null;
         try {
@@ -831,7 +832,10 @@ export function createAssessmentStore({
         const attempt = get().durable.quizzes[groupId];
         if (!quizRegistration || !attempt || attempt.status !== "in_progress") return null;
 
-        const problemId = scopeAssessmentProblemId(normalizedArtifactId, problemIdentity.problemId);
+        const problemId = scopeAssessmentProblemId(
+          normalizedArtifactId,
+          problemIdentity.authoredBlockId,
+        );
         const problemRegistration = get().registrations[problemId];
         if (!problemRegistration) return null;
         try {

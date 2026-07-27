@@ -3,7 +3,7 @@ import { DOMSerializer } from "@tiptap/pm/model";
 import { useEffect, useMemo, useRef, type RefObject } from "react";
 
 import { ChoiceAnswerItem } from "@/editor/blocks/assessment/shared/chrome/ChoiceAnswerItem";
-import { findAncestorAssessmentId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { isAssessmentQuestionNode } from "./assessment-meta";
 import { RichFeedbackRuntimePopover } from "@/editor/blocks/assessment/shared/chrome/RichFeedbackRuntimePopover";
 import { useAssessmentRuntimeById } from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
@@ -67,8 +67,12 @@ function SelectableChoiceRuntimeNodeView(props: NodeViewProps) {
   const attrs: SelectableChoiceAttrs = parsed.success ? parsed.data : { id: "" };
 
   const pos = safeGetPos(props.getPos);
-  const problemId = findAncestorAssessmentId(props.editor, pos, isAssessmentQuestionNode);
-  const assessment = useAssessmentRuntimeById(problemId);
+  const authoredBlockId = findAncestorAssessmentBlockId(
+    props.editor,
+    pos,
+    isAssessmentQuestionNode,
+  );
+  const assessment = useAssessmentRuntimeById(authoredBlockId);
   const choice =
     assessment?.interaction.kind === "single-select" ||
     assessment?.interaction.kind === "multi-select"
@@ -134,8 +138,8 @@ function SelectableChoiceRuntimeNodeView(props: NodeViewProps) {
     >
       <ChoiceAnswerItem
         id={attrs.id}
-        {...(assessment?.problem?.state.groupName
-          ? { name: assessment.problem.state.groupName }
+        {...(assessment?.problem?.state.responseName
+          ? { name: assessment.problem.state.responseName }
           : {})}
         inputType={inputType}
         isCorrect={false}

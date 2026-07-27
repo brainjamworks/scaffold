@@ -18,9 +18,9 @@ import { CSS } from "@dnd-kit/utilities";
 import { DotsSixVerticalIcon as DotsSixVertical } from "@phosphor-icons/react";
 import { DOMSerializer, type Node as PMNode } from "@tiptap/pm/model";
 import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useId, useMemo, useState, type CSSProperties } from "react";
 
-import { findAncestorAssessmentId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { RichFeedbackRuntimePopover } from "@/editor/blocks/assessment/shared/chrome/RichFeedbackRuntimePopover";
 import { useAssessmentRuntimeById } from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
 import {
@@ -66,8 +66,10 @@ function SequencingItemsGroupRuntimeNodeView(props: NodeViewProps) {
     }),
   );
   const pos = safeGetPos(props.getPos);
-  const problemId = findAncestorAssessmentId(props.editor, pos ?? undefined, ["sequencing"]);
-  const assessment = useAssessmentRuntimeById(problemId, "sequence");
+  const authoredBlockId = findAncestorAssessmentBlockId(props.editor, pos ?? undefined, [
+    "sequencing",
+  ]);
+  const assessment = useAssessmentRuntimeById(authoredBlockId, "sequence");
   const problem = assessment?.interaction ?? null;
   const runtimeProblem = assessment?.problem ?? null;
   const serializer = useMemo(
@@ -84,7 +86,7 @@ function SequencingItemsGroupRuntimeNodeView(props: NodeViewProps) {
   const setOrder = problem?.setOrder;
 
   useEffect(() => {
-    if (!setOrder || !problemId) return;
+    if (!setOrder || !authoredBlockId) return;
     if (docOrderIds.length === 0) return;
     const currentSet = new Set(responseOrder);
     const docSet = new Set(docOrderIds);
@@ -93,10 +95,10 @@ function SequencingItemsGroupRuntimeNodeView(props: NodeViewProps) {
       docOrderIds.every((id) => currentSet.has(id)) &&
       responseOrder.every((id) => docSet.has(id));
     if (matches) return;
-    setOrder(deterministicShuffle(docOrderIds, `${problemId}|${docOrderKey}`));
+    setOrder(deterministicShuffle(docOrderIds, `${authoredBlockId}|${docOrderKey}`));
     // responseOrder intentionally omitted: only reseed when authored item set changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setOrder, problemId, docOrderKey]);
+  }, [setOrder, authoredBlockId, docOrderKey]);
 
   const answerKeyVisible = runtimeProblem?.answerKeyVisible ?? false;
   const submitted = runtimeProblem?.state.submitted ?? false;
@@ -189,8 +191,6 @@ function SequencingItemsGroupRuntimeNodeView(props: NodeViewProps) {
                   submitted,
                   total: orderedItems.length,
                 });
-                const descriptionId =
-                  problemId !== null ? `${problemId}:${item.id}:sequencing-description` : undefined;
                 return (
                   <SequencingRuntimeItem
                     key={item.id}
@@ -198,7 +198,6 @@ function SequencingItemsGroupRuntimeNodeView(props: NodeViewProps) {
                     answerKeyVisible={answerKeyVisible}
                     canReorder={canReorder}
                     correct={correct}
-                    descriptionId={descriptionId}
                     draggingItemId={draggingItemId}
                     feedback={parsedFeedback.success ? parsedFeedback.data : null}
                     index={idx}
@@ -236,7 +235,6 @@ function SequencingRuntimeItem({
   answerKeyVisible,
   canReorder,
   correct,
-  descriptionId,
   draggingItemId,
   feedback,
   index,
@@ -248,7 +246,6 @@ function SequencingRuntimeItem({
   answerKeyVisible: boolean;
   canReorder: boolean;
   correct: boolean | null;
-  descriptionId: string | undefined;
   draggingItemId: string | null;
   feedback: unknown;
   index: number;
@@ -256,6 +253,7 @@ function SequencingRuntimeItem({
   showFeedback: boolean;
   showPositionDots: boolean;
 }) {
+  const descriptionId = useId();
   const {
     attributes,
     isDragging,
@@ -323,11 +321,9 @@ function SequencingRuntimeItem({
       {showFeedback && parsedFeedback.success && (
         <RichFeedbackRuntimePopover feedback={parsedFeedback.data} />
       )}
-      {descriptionId && (
-        <span id={descriptionId} className="sc-sr-only">
-          {accessibilityDescription}
-        </span>
-      )}
+      <span id={descriptionId} className="sc-sr-only">
+        {accessibilityDescription}
+      </span>
     </li>
   );
 }

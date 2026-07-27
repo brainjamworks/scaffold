@@ -11,7 +11,7 @@ import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 import { AssessmentActionsRow } from "../chrome/AssessmentActionsRow";
 import { RuntimeAssessmentControls } from "../chrome/AssessmentControls";
 import { ShowAnswerButton } from "../chrome/ShowAnswerButton";
-import { findAncestorAssessmentId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { useAssessmentRuntimeById } from "../runtime/use-assessment-runtime";
 import { isAssessmentQuestionNode } from "./assessment-meta";
 
@@ -43,8 +43,12 @@ export const AssessmentActionsGroupRuntimeNode = Node.create({
 
 function AssessmentActionsGroupRuntimeNodeView(props: NodeViewProps) {
   const pos = safeGetPos(props.getPos);
-  const problemId = findAncestorAssessmentId(props.editor, pos, isAssessmentQuestionNode);
-  const problem = useAssessmentRuntimeById(problemId)?.problem ?? null;
+  const authoredBlockId = findAncestorAssessmentBlockId(
+    props.editor,
+    pos,
+    isAssessmentQuestionNode,
+  );
+  const problem = useAssessmentRuntimeById(authoredBlockId)?.problem ?? null;
   const submitted = problem?.state.submitted ?? false;
   const result = problem?.officialResult ?? problem?.feedbackResult ?? null;
   const showShowAnswerHelper = Boolean(problem?.canRevealAnswer) && submitted && !result?.isCorrect;

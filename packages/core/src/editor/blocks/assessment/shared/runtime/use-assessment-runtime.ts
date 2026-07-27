@@ -29,10 +29,12 @@ import {
   useAssessmentProblemFacadeById,
   type AssessmentProblemFacade,
 } from "@/runtime/assessment/runtime-facade";
+import type { AssessmentProblemId } from "@/runtime/assessment/types";
 import {
   useAssessmentBlockSetup,
   type AssessmentBlockSetupConfig,
 } from "./use-assessment-block-setup";
+import { assessmentResponseName } from "./assessment-response-name";
 
 export type ChoiceMode = "single" | "multiple";
 
@@ -44,7 +46,7 @@ export interface ProblemState extends AssessmentBlockSetupConfig {
   kind: AssessmentInteractionKind;
   choiceMode: ChoiceMode | null;
   maxSelect: number | null;
-  groupName: string;
+  responseName: string;
   legend: string;
   placeholder: string;
   response: ProblemResponse;
@@ -98,7 +100,7 @@ export interface AssessmentRuntimeProblemConfig extends AssessmentBlockSetupConf
   kind: AssessmentInteractionKind;
   choiceMode: ChoiceMode | null;
   maxSelect: number | null;
-  groupName: string;
+  responseName: string;
   legend: string;
   placeholder: string;
   experience: AssessmentExperienceConfig;
@@ -107,7 +109,7 @@ export interface AssessmentRuntimeProblemConfig extends AssessmentBlockSetupConf
 export interface AssessmentRuntimeController<
   K extends AssessmentInteractionKind = AssessmentInteractionKind,
 > {
-  problemId: string;
+  problemId: AssessmentProblemId | null;
   problem: ProblemScope | null;
   hasUnsafeIdentity: boolean;
   problemConfig: AssessmentRuntimeProblemConfig;
@@ -177,25 +179,25 @@ export function useAssessmentRuntime({
 }
 
 export function useAssessmentRuntimeById(
-  problemId: string | null | undefined,
+  authoredBlockId: string | null | undefined,
 ): AssessmentRuntimeController | null;
 export function useAssessmentRuntimeById<K extends AssessmentInteractionKind>(
-  problemId: string | null | undefined,
+  authoredBlockId: string | null | undefined,
   expectedKind: K,
 ): AssessmentRuntimeController<K> | null;
 export function useAssessmentRuntimeById<K extends AssessmentInteractionKind>(
-  problemId: string | null | undefined,
+  authoredBlockId: string | null | undefined,
   expectedKind?: K,
 ): AssessmentRuntimeController<K> | null {
-  const facade = useAssessmentProblemFacadeById(problemId, expectedKind);
+  const facade = useAssessmentProblemFacadeById(authoredBlockId, expectedKind);
   const runtime = useAssessmentRuntimeFacade<K>({
     facade,
     ...(expectedKind === undefined ? {} : { expectedKind }),
     hasUnsafeIdentity: false,
-    problemId: facade.problemId ?? problemId ?? "",
+    problemId: facade.problemId,
   });
 
-  return problemId ? runtime : null;
+  return authoredBlockId ? runtime : null;
 }
 
 function useAssessmentRuntimeFacade<
@@ -211,7 +213,7 @@ function useAssessmentRuntimeFacade<
   expectedKind?: K;
   fallbackConfig?: AssessmentRuntimeProblemConfig;
   hasUnsafeIdentity: boolean;
-  problemId: string;
+  problemId: AssessmentProblemId | null;
 }): AssessmentRuntimeController<K> | null {
   const problemConfig = fallbackConfig ?? runtimeProblemConfigFromFacade(facade);
   const problem = useMemo(
@@ -419,7 +421,7 @@ function runtimeProblemConfigFromFacade(
     feedbackMode: settings.feedbackMode,
     maxAttempts: settings.maxAttempts,
     maxSelect: settings.maxSelections ?? null,
-    groupName: `assessment-${facade.authoredProblemId}`,
+    responseName: assessmentResponseName(facade.authoredBlockId),
     legend: settings.legend ?? settings.label ?? "",
     placeholder: settings.placeholder ?? "",
     showAnswerEnabled: settings.showAnswer,
@@ -481,7 +483,7 @@ function createRuntimeProblemConfig(
     feedbackMode: settings.feedbackMode,
     maxAttempts: settings.maxAttempts,
     maxSelect: settingsProjection?.maxSelections ?? settings.maxSelect ?? null,
-    groupName: `${node.type.name.replaceAll("_", "-")}-${blockId || "pending"}`,
+    responseName: assessmentResponseName(blockId),
     legend: settingsProjection?.legend ?? settingsProjection?.label ?? "",
     placeholder: settingsProjection?.placeholder ?? "",
     showAnswerEnabled: settings.showAnswer,

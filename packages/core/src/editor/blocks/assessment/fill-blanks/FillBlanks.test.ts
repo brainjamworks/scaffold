@@ -27,7 +27,7 @@ import { AssessmentInstructionsNode } from "@/editor/blocks/assessment/shared/no
 import { AssessmentPromptNode } from "@/editor/blocks/assessment/shared/nodes/assessment-prompt";
 import { AssessmentSummaryFeedbackNode } from "@/editor/blocks/assessment/shared/nodes/assessment-summary-feedback";
 import { AssessmentTitleNode } from "@/editor/blocks/assessment/shared/nodes/assessment-title";
-import { findAncestorAssessmentId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import type { RichTextBubbleMenuProps } from "@/editor/shell/bubbles/rich-text/RichTextBubbleMenu";
 import { FillBlanksPrivateAssessmentSchema } from "@scaffold/contracts";
@@ -342,6 +342,17 @@ describe("composite fill_blanks node", () => {
     expect(fillBlanksBlockDefinition.boundedPlacement).toBe("fill");
   });
 
+  it("gives each runtime blank a child-specific assessment response name", async () => {
+    const editor = makeEditor({ runtime: true });
+    editor.commands.setContent(fillBlanksDoc());
+    renderAssessmentEditor(editor);
+
+    const input = await screen.findByLabelText("temperature");
+    expect(input).toHaveAttribute("name", "assessment-fill-1-response-b1");
+
+    editor.destroy();
+  });
+
   it("keeps authored prose and inline blanks in one shared bounded scroll lane", async () => {
     const editor = makeEditor();
     editor.commands.setContent(fillBlanksDoc());
@@ -509,7 +520,7 @@ describe("composite fill_blanks node", () => {
       if (node.type.name === "fill_blank") blankPos = pos;
     });
 
-    expect(findAncestorAssessmentId(editor, blankPos, ["fill_blanks"])).toBe("fill-1");
+    expect(findAncestorAssessmentBlockId(editor, blankPos, ["fill_blanks"])).toBe("fill-1");
     editor.destroy();
   });
 

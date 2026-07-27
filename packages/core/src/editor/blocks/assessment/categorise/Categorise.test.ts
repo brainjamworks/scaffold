@@ -32,7 +32,7 @@ import { AssessmentInstructionsNode } from "@/editor/blocks/assessment/shared/no
 import { AssessmentPromptNode } from "@/editor/blocks/assessment/shared/nodes/assessment-prompt";
 import { AssessmentSummaryFeedbackNode } from "@/editor/blocks/assessment/shared/nodes/assessment-summary-feedback";
 import { AssessmentTitleNode } from "@/editor/blocks/assessment/shared/nodes/assessment-title";
-import { findAncestorAssessmentId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { InteractionProvider } from "@/editor/interactions/targets/facade/interaction-provider";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
 import { getInteractionFacadeStoreForEditor } from "@/editor/interactions/targets/prosemirror/facade/interaction-facade-storage";
@@ -989,7 +989,7 @@ describe("composite categorise node", () => {
       if (node.type.name === "categorise_content") contentPos = pos;
     });
 
-    expect(findAncestorAssessmentId(editor, contentPos, ["categorise"])).toBe("categorise-1");
+    expect(findAncestorAssessmentBlockId(editor, contentPos, ["categorise"])).toBe("categorise-1");
     editor.destroy();
   });
 

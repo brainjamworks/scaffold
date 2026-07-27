@@ -63,7 +63,7 @@ export interface AssessmentRegistrationConfig {
 }
 
 export interface AssessmentRegistrationIdentity {
-  readonly problemId: string;
+  readonly authoredBlockId: string;
   readonly targetId: string;
   readonly interactionKind: AssessmentInteractionKind;
 }

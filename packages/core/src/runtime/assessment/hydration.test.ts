@@ -65,7 +65,7 @@ function registration(
   overrides: Partial<AssessmentRegistrationInput> = {},
 ): AssessmentRegistrationInput {
   return {
-    problemId: "block-one",
+    authoredBlockId: "block-one",
     targetId: "target-one",
     interactionKind: "single-select",
     response: {

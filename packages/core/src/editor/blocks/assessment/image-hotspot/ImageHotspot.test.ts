@@ -47,7 +47,7 @@ import { AssessmentInstructionsNode } from "@/editor/blocks/assessment/shared/no
 import { AssessmentPromptNode } from "@/editor/blocks/assessment/shared/nodes/assessment-prompt";
 import { AssessmentSummaryFeedbackNode } from "@/editor/blocks/assessment/shared/nodes/assessment-summary-feedback";
 import { AssessmentTitleNode } from "@/editor/blocks/assessment/shared/nodes/assessment-title";
-import { findAncestorAssessmentId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import type { RichTextBubbleMenuProps } from "@/editor/shell/bubbles/rich-text/RichTextBubbleMenu";
 import {
@@ -1989,8 +1989,10 @@ describe("composite image_hotspot node", () => {
       if (node.type.name === "assessment_summary_feedback") summaryFeedbackPos = pos;
     });
 
-    expect(findAncestorAssessmentId(editor, hintsGroupPos, ["image_hotspot"])).toBe("hs-1");
-    expect(findAncestorAssessmentId(editor, summaryFeedbackPos, ["image_hotspot"])).toBe("hs-1");
+    expect(findAncestorAssessmentBlockId(editor, hintsGroupPos, ["image_hotspot"])).toBe("hs-1");
+    expect(findAncestorAssessmentBlockId(editor, summaryFeedbackPos, ["image_hotspot"])).toBe(
+      "hs-1",
+    );
     editor.destroy();
   });
 

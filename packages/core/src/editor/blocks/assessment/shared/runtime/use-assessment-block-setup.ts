@@ -9,6 +9,7 @@ import {
   useAssessmentProblemFacade,
   type AssessmentProblemFacade,
 } from "@/runtime/assessment/runtime-facade";
+import type { AssessmentProblemId } from "@/runtime/assessment/types";
 
 import type { AssessmentExperienceConfig } from "../model/assessment-capability";
 
@@ -36,8 +37,8 @@ interface UseAssessmentBlockSetupArgs {
 }
 
 export interface UseAssessmentBlockSetupResult {
-  authoredProblemId: string;
-  problemId: string;
+  authoredBlockId: string;
+  problemId: AssessmentProblemId | null;
   facade: AssessmentProblemFacade;
   hasUnsafeIdentity: boolean;
 }
@@ -46,7 +47,7 @@ export function useAssessmentBlockSetup({
   node,
   config,
 }: UseAssessmentBlockSetupArgs): UseAssessmentBlockSetupResult {
-  const authoredProblemId = typeof node.attrs["id"] === "string" ? node.attrs["id"] : "";
+  const authoredBlockId = typeof node.attrs["id"] === "string" ? node.attrs["id"] : "";
   const registration = useMemo(() => {
     const settings: AssessmentTargetSettings = {
       feedbackMode: config.feedbackMode,
@@ -59,7 +60,7 @@ export function useAssessmentBlockSetup({
       ...(config.maxSelect === undefined ? {} : { maxSelections: config.maxSelect }),
     };
     return {
-      problemId: authoredProblemId,
+      authoredBlockId,
       targetId: config.targetId,
       interactionKind: config.interactionKind,
       response: config.responseCodec,
@@ -69,12 +70,12 @@ export function useAssessmentBlockSetup({
         hintsTotal: config.hintsTotal,
       },
     };
-  }, [authoredProblemId, config]);
+  }, [authoredBlockId, config]);
   const facade = useAssessmentProblemFacade(registration);
 
   return {
-    authoredProblemId,
-    problemId: facade.problemId ?? "",
+    authoredBlockId,
+    problemId: facade.problemId,
     facade,
     hasUnsafeIdentity: facade.status === "unsafe-identity",
   };

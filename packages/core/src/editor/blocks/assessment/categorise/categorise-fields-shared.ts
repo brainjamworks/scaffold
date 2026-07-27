@@ -9,7 +9,7 @@ import { serializeStaticRichTextHtml } from "@/editor/rich-text/static/render-ri
 import { ClassifyAssessmentSchema } from "@scaffold/contracts";
 import type { AssessmentFeedbackContent } from "@scaffold/contracts";
 
-export interface CategoriseBinProjection {
+export interface CategoriseCategoryProjection {
   id: string;
   html: string;
 }
@@ -70,22 +70,24 @@ export function fieldHtml(serializer: DOMSerializer, node: PMNode | null): strin
   return node ? serializeStaticRichTextHtml(serializer, node.content) : "";
 }
 
-export function binsFromContent(
+export function categoriesFromContent(
   content: PMNode,
   serializer: DOMSerializer,
-): CategoriseBinProjection[] {
+): CategoriseCategoryProjection[] {
   const categoriseContent = categoriseContentNode(content);
+  // `categorise_bin` and `data-bin-id` are the persisted legacy node format.
+  // Runtime and assessment contracts treat these nodes as categories.
   const binsGroup = categoriseContent
     ? childByType(categoriseContent, "categorise_bins_group")
     : null;
-  const bins: CategoriseBinProjection[] = [];
+  const categories: CategoriseCategoryProjection[] = [];
   binsGroup?.forEach((bin) => {
     if (bin.type.name !== "categorise_bin") return;
     const id = String(bin.attrs["id"] ?? "");
     if (!id) return;
-    bins.push({ id, html: fieldHtml(serializer, bin) });
+    categories.push({ id, html: fieldHtml(serializer, bin) });
   });
-  return bins;
+  return categories;
 }
 
 export function itemsFromContent(

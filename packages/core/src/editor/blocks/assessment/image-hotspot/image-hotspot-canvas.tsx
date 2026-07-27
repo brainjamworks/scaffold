@@ -29,7 +29,7 @@ import {
   richTextDocumentToAssessmentFeedback,
 } from "@/editor/blocks/assessment/shared/model/private-assessment-attrs";
 import { CHOICE_TRAILING_BTN } from "@/editor/blocks/assessment/shared/chrome/ChoiceAnswerItem";
-import { findAncestorAssessmentId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { createStableId } from "@/document/model/identity/stable-ids";
 import {
   useAuthoringNodeTarget,
@@ -160,7 +160,7 @@ function ImageHotspotCanvasNodeView(
   const pos = getCanvasPos();
 
   const blockId = useMemo(
-    () => findAncestorAssessmentId(props.editor, pos ?? undefined, ["image_hotspot"]),
+    () => findAncestorAssessmentBlockId(props.editor, pos ?? undefined, ["image_hotspot"]),
     [pos, props.editor],
   );
   const target = useAuthoringNodeTarget(
@@ -171,8 +171,6 @@ function ImageHotspotCanvasNodeView(
   const model = resolvedOwner ? resolveImageHotspotAuthoringModel(resolvedOwner) : null;
   const data = model?.data ?? ImageHotspotCanvasDataSchema.parse({});
   const assessment = model?.assessment ?? ImageHotspotPrivateAssessmentSchema.parse({});
-  const problemId = blockId;
-
   return (
     <NodeViewWrapper data-node="image-hotspot-canvas">
       <AuthorCanvas
@@ -182,7 +180,7 @@ function ImageHotspotCanvasNodeView(
         editor={props.editor}
         getCanvasPos={getCanvasPos}
         blockId={blockId}
-        problemId={problemId}
+        authoredBlockId={blockId}
         target={target}
       />
     </NodeViewWrapper>
@@ -203,7 +201,7 @@ interface AuthorCanvasProps {
   editor: NodeViewProps["editor"];
   getCanvasPos: () => number | null;
   blockId: string | null;
-  problemId: string | null;
+  authoredBlockId: string | null;
   target: AuthoringNodeTarget | null;
   popoverPortalContainer?: Element | null;
   presentation?: "compact" | "expanded";
@@ -217,7 +215,7 @@ function AuthorCanvas({
   editor,
   getCanvasPos,
   blockId,
-  problemId,
+  authoredBlockId,
   target,
   popoverPortalContainer,
   presentation = "compact",
@@ -800,7 +798,7 @@ function AuthorCanvas({
                         editor={editor}
                         hotspot={h}
                         index={idx}
-                        problemId={problemId}
+                        authoredBlockId={authoredBlockId}
                         onPointerDownOutside={onDetailsPointerDownOutside}
                         onPatch={(patch) => patchHotspot(h.id, patch)}
                         onToggleCorrect={() => toggleHotspotCorrect(target, h.id)}
@@ -862,7 +860,7 @@ function AuthorCanvas({
                       }
                       editor={editor}
                       index={index}
-                      problemId={problemId}
+                      authoredBlockId={authoredBlockId}
                       showHeader
                       onPatch={(patch) => patchHotspot(hotspot.id, patch)}
                       onToggleCorrect={() => toggleHotspotCorrect(target, hotspot.id)}
@@ -962,7 +960,7 @@ function AuthorCanvas({
             editor={editor}
             getCanvasPos={getCanvasPos}
             blockId={blockId}
-            problemId={problemId}
+            authoredBlockId={authoredBlockId}
             popoverPortalContainer={workspaceElement}
             presentation="expanded"
             selectedHotspotRequestId={workspaceSelectionRequestId}
@@ -1000,7 +998,7 @@ function CompactHotspotEditorPopover({
   editor,
   hotspot,
   index,
-  problemId,
+  authoredBlockId,
   onDelete,
   onPatch,
   onPointerDownOutside,
@@ -1011,7 +1009,7 @@ function CompactHotspotEditorPopover({
   editor: NodeViewProps["editor"];
   hotspot: HotspotItem;
   index: number;
-  problemId: string | null;
+  authoredBlockId: string | null;
   onDelete: () => void;
   onPatch: (patch: HotspotPatch) => void;
   onPointerDownOutside: (event: { target: EventTarget | null }) => void;
@@ -1040,7 +1038,7 @@ function CompactHotspotEditorPopover({
           editor={editor}
           hotspot={hotspot}
           index={index}
-          problemId={problemId}
+          authoredBlockId={authoredBlockId}
           onDelete={onDelete}
           onPatch={onPatch}
           onToggleCorrect={onToggleCorrect}
@@ -1059,7 +1057,7 @@ function HotspotEditorContent({
   bubbleMenuAppendTo,
   editor,
   index,
-  problemId,
+  authoredBlockId,
   showHeader = false,
   onPatch,
   onToggleCorrect,
@@ -1071,7 +1069,7 @@ function HotspotEditorContent({
   bubbleMenuAppendTo: () => HTMLElement | null;
   editor: NodeViewProps["editor"];
   index: number;
-  problemId: string | null;
+  authoredBlockId: string | null;
   showHeader?: boolean;
   onPatch: (patch: HotspotPatch) => void;
   onToggleCorrect: () => void;
@@ -1178,7 +1176,7 @@ function HotspotEditorContent({
           bubbleMenuAppendTo={bubbleMenuAppendTo}
           bubbleMenuPluginKey={bubbleMenuPluginKey}
           extensions={extensions}
-          fieldKey={`image_hotspot:${problemId ?? "pending"}:hotspot:${hotspot.id}:feedback`}
+          fieldKey={`image_hotspot:${authoredBlockId ?? "pending"}:hotspot:${hotspot.id}:feedback`}
           outerEditor={editor}
           syncKey={syncKey}
           target={feedbackTarget}

@@ -1,11 +1,19 @@
 import { CheckIcon as Check, InfoIcon as Info, XIcon as XMark } from "@phosphor-icons/react";
 import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
-import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 
 import * as Popover from "@/ui/components/Popover/Popover";
 import { WorkspaceDialog } from "@/ui/components/WorkspaceDialog/WorkspaceDialog";
 import type { HotspotClickRecord } from "@/editor/blocks/assessment/shared/runtime/assessment-interaction-runtime";
-import { findAncestorAssessmentId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { AssessmentRuntimePopoverShell } from "@/editor/blocks/assessment/shared/chrome/AssessmentRuntimePopoverShell";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import { resolveAssessmentAttrParent } from "@/editor/blocks/assessment/shared/model/private-assessment-attrs";
@@ -43,7 +51,7 @@ import "./ImageHotspot.css";
 
 interface RuntimeCanvasProps {
   data: ImageHotspotCanvasData;
-  problemId: string | null;
+  authoredBlockId: string | null;
   fitStrategy?: ImageHotspotFitStrategy | undefined;
   presentation?: "compact" | "expanded";
 }
@@ -127,15 +135,17 @@ export function ImageHotspotCanvasRuntimeNodeView(
     () => parseImageHotspotCanvasData(props.node.attrs["data"]),
     [props.node.attrs],
   );
-  const problemId = findAncestorAssessmentId(props.editor, pos ?? undefined, ["image_hotspot"]);
+  const authoredBlockId = findAncestorAssessmentBlockId(props.editor, pos ?? undefined, [
+    "image_hotspot",
+  ]);
   const boundedFillActive =
     pos !== null && isImageHotspotBoundedFillActive(props.editor, pos, props.blockDefinitions);
 
   return (
     <NodeViewWrapper data-node="image-hotspot-canvas">
       <RuntimeCanvas
+        authoredBlockId={authoredBlockId}
         data={data}
-        problemId={problemId}
         fitStrategy={boundedFillActive ? "contain" : "width"}
       />
     </NodeViewWrapper>
@@ -143,15 +153,15 @@ export function ImageHotspotCanvasRuntimeNodeView(
 }
 
 function RuntimeCanvas({
+  authoredBlockId,
   data,
   fitStrategy = "width",
-  problemId,
   presentation = "compact",
 }: RuntimeCanvasProps) {
   const isExpanded = presentation === "expanded";
   const effectiveFitStrategy = isExpanded ? "contain" : fitStrategy;
   const mediaPort = useMediaPort();
-  const assessment = useAssessmentRuntimeById(problemId, "spatial-hotspot");
+  const assessment = useAssessmentRuntimeById(authoredBlockId, "spatial-hotspot");
   const problem = assessment?.interaction ?? null;
   const runtimeProblem = assessment?.problem ?? null;
   const [resolvedManagedSrc, setResolvedManagedSrc] = useState<{
@@ -256,9 +266,7 @@ function RuntimeCanvas({
   };
 
   const correctHotspots = data.hotspots.filter((h) => revealCorrectIds.has(h.id));
-  const surfaceDescriptionId = problemId
-    ? `${problemId}-image-hotspot-surface-description`
-    : undefined;
+  const surfaceDescriptionId = useId();
   const surfaceDescription = describeImageHotspotSurfaceAccessibilityState({
     clickCount: problem?.clicks.length ?? 0,
     maxClicks: data.maxClicks,
@@ -296,11 +304,9 @@ function RuntimeCanvas({
               />
             </WorkspaceDialog.Trigger>
           )}
-          {surfaceDescriptionId && (
-            <span id={surfaceDescriptionId} className="sc-sr-only">
-              {surfaceDescription}
-            </span>
-          )}
+          <span id={surfaceDescriptionId} className="sc-sr-only">
+            {surfaceDescription}
+          </span>
 
           {data.debug && naturalSize && (
             <svg
@@ -405,9 +411,9 @@ function RuntimeCanvas({
             </WorkspaceDialog.Header>
             <WorkspaceDialog.Body className="sc-image-hotspot-runtime-workspace__body">
               <RuntimeCanvas
+                authoredBlockId={authoredBlockId}
                 data={data}
                 fitStrategy="contain"
-                problemId={problemId}
                 presentation="expanded"
               />
             </WorkspaceDialog.Body>
@@ -480,7 +486,7 @@ function ClickMarker({
         : `${state.charAt(0).toUpperCase() + state.slice(1)}${
             hasFeedback ? " — click for details" : ""
           }`;
-  const descriptionId = `image-hotspot-marker-${click.id}-description`;
+  const descriptionId = useId();
   const description = describeImageHotspotMarkerAccessibilityState({
     state,
     hasFeedback,

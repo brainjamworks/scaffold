@@ -6,7 +6,7 @@ import {
   type NodeViewProps,
 } from "@tiptap/react";
 
-import { findAncestorAssessmentId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { useAssessmentRuntimeById } from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
 import { isAssessmentQuestionNode } from "./assessment-meta";
 
@@ -47,8 +47,12 @@ export const AssessmentChoicesGroupRuntimeNode = Node.create({
 
 function AssessmentChoicesGroupRuntimeNodeView(props: NodeViewProps) {
   const pos = safeGetPos(props.getPos);
-  const problemId = findAncestorAssessmentId(props.editor, pos, isAssessmentQuestionNode);
-  const problem = useAssessmentRuntimeById(problemId)?.problem ?? null;
+  const authoredBlockId = findAncestorAssessmentBlockId(
+    props.editor,
+    pos,
+    isAssessmentQuestionNode,
+  );
+  const problem = useAssessmentRuntimeById(authoredBlockId)?.problem ?? null;
 
   return (
     <NodeViewWrapper data-assessment-bounded-scroll-frame="" data-slot="assessment-choices-group">

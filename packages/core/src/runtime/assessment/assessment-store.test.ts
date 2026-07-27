@@ -91,7 +91,7 @@ function createRegistration(
   overrides: Partial<AssessmentRegistrationInput> = {},
 ): AssessmentRegistrationInput {
   return {
-    problemId: "block-one",
+    authoredBlockId: "block-one",
     targetId: "target-one",
     interactionKind: "single-select",
     response: {
@@ -141,7 +141,7 @@ function registrationIdentity(
   overrides: Partial<AssessmentRegistrationIdentity> = {},
 ): AssessmentRegistrationIdentity {
   return {
-    problemId: "block-one",
+    authoredBlockId: "block-one",
     targetId: "target-one",
     interactionKind: "single-select",
     ...overrides,
@@ -360,14 +360,14 @@ describe("createAssessmentStore", () => {
       }),
     });
     const secondIdentity = registrationIdentity({
-      problemId: "block-two",
+      authoredBlockId: "block-two",
       targetId: "target-two",
     });
 
     store.getState().register(createRegistration());
     store
       .getState()
-      .register(createRegistration({ problemId: "block-two", targetId: "target-two" }));
+      .register(createRegistration({ authoredBlockId: "block-two", targetId: "target-two" }));
     store.getState().registerQuiz(createQuizRegistration());
     store.setState({
       durable: { problems: {}, quizzes: { [groupId]: createQuizAttempt(groupId) } },
@@ -617,13 +617,13 @@ describe("createAssessmentStore", () => {
       }),
     });
     const secondIdentity = registrationIdentity({
-      problemId: "block-two",
+      authoredBlockId: "block-two",
       targetId: "target-two",
     });
     store.getState().register(createRegistration());
     store
       .getState()
-      .register(createRegistration({ problemId: "block-two", targetId: "target-two" }));
+      .register(createRegistration({ authoredBlockId: "block-two", targetId: "target-two" }));
     store.getState().registerQuiz(createQuizRegistration());
     store.setState({ durable: { problems: {}, quizzes: { [groupId]: current } } });
     store.getState().setLocalResponse(registrationIdentity(), { choice: "option-a" });
@@ -1283,7 +1283,7 @@ describe("createAssessmentStore", () => {
 
   it("rejects blank identity components", () => {
     expect(() => scopeAssessmentProblemId(" ", "block-one")).toThrow(/artifactId/);
-    expect(() => scopeAssessmentProblemId("artifact-one", " ")).toThrow(/problemId/);
+    expect(() => scopeAssessmentProblemId("artifact-one", " ")).toThrow(/authoredBlockId/);
     expect(() => scopeAssessmentGroupId("artifact-one", " ")).toThrow(/groupId/);
     expect(() =>
       createAssessmentStore({ artifactId: " ", assessmentPort: createAssessmentPort() }),
@@ -1598,7 +1598,9 @@ describe("createAssessmentStore", () => {
         quizzes: { [secondGroupId]: createQuizAttempt("quiz-one") },
       },
     });
-    expect(first.getState().register(createRegistration({ problemId: "block-two" }))).toBe(true);
+    expect(first.getState().register(createRegistration({ authoredBlockId: "block-two" }))).toBe(
+      true,
+    );
     expect(Object.keys(first.getState()).sort()).toEqual([
       "artifactId",
       "check",

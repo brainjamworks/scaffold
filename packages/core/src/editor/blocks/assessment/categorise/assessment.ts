@@ -79,9 +79,9 @@ export function projectCategoriseSettings(settings: unknown): Partial<Assessment
 
 function projectCategoriseContentLearnerNode(node: JSONContent): JSONContent {
   const binsGroup = childByType(node, "categorise_bins_group");
-  const bins = binsGroup ? childrenOfType(binsGroup, "categorise_bin") : [];
-  const items = bins.flatMap((bin) => {
-    const group = childByType(bin, "categorise_items_group");
+  const categories = binsGroup ? childrenOfType(binsGroup, "categorise_bin") : [];
+  const items = categories.flatMap((category) => {
+    const group = childByType(category, "categorise_items_group");
     return group ? childrenOfType(group, "categorise_item") : [];
   });
 
@@ -90,7 +90,7 @@ function projectCategoriseContentLearnerNode(node: JSONContent): JSONContent {
     content: [
       {
         type: "categorise_bins_group",
-        content: bins.map(projectCategoriseBinLearnerNode),
+        content: categories.map(projectCategoriseCategoryLearnerNode),
       },
       {
         type: "categorise_items_group",
@@ -100,12 +100,12 @@ function projectCategoriseContentLearnerNode(node: JSONContent): JSONContent {
   };
 }
 
-function projectCategoriseBinLearnerNode(bin: JSONContent): JSONContent {
-  const title = childByType(bin, "categorise_bin_title");
+function projectCategoriseCategoryLearnerNode(category: JSONContent): JSONContent {
+  const title = childByType(category, "categorise_bin_title");
 
   return {
-    ...cloneJsonNodeWithoutContent(bin),
-    attrs: readAttrs(bin),
+    ...cloneJsonNodeWithoutContent(category),
+    attrs: readAttrs(category),
     content: title ? readContent(title).map((child) => redactCommonAssessmentShellNode(child)) : [],
   };
 }
@@ -129,13 +129,13 @@ function projectCategoriseParts(node: JSONContent): {
   const items: Array<{ id: string; label?: string }> = [];
   const correctPlacements: Array<{ itemId: string; categoryId: string }> = [];
 
-  for (const bin of binsGroup ? childrenOfType(binsGroup, "categorise_bin") : []) {
-    const id = readStringAttr(bin, "id");
+  for (const category of binsGroup ? childrenOfType(binsGroup, "categorise_bin") : []) {
+    const id = readStringAttr(category, "id");
     if (!id) continue;
-    const title = childByType(bin, "categorise_bin_title");
+    const title = childByType(category, "categorise_bin_title");
     const label = title ? textBetween(title).trim() : "";
     categories.push({ id, ...(label ? { label } : {}) });
-    const itemsGroup = childByType(bin, "categorise_items_group");
+    const itemsGroup = childByType(category, "categorise_items_group");
     for (const item of itemsGroup ? childrenOfType(itemsGroup, "categorise_item") : []) {
       const itemId = readStringAttr(item, "id");
       if (!itemId) continue;

@@ -108,7 +108,7 @@ export function setAssessmentResponseField(
   const current = parsed.success && isRecord(parsed.data) ? parsed.data : {};
   return store.getState().setLocalResponse(
     {
-      problemId: authoredProblemId(problemId),
+      authoredBlockId: authoredBlockId(problemId),
       targetId: registration.targetId,
       interactionKind: registration.interactionKind,
     },
@@ -135,7 +135,7 @@ export function assessmentProblemIdentity(store: AssessmentStoreApi | null, prob
   const registration = store.getState().registrations[scopedProblemId(problemId)];
   return registration
     ? {
-        problemId: authoredProblemId(problemId),
+        authoredBlockId: authoredBlockId(problemId),
         targetId: registration.targetId,
         interactionKind: registration.interactionKind,
       }
@@ -143,10 +143,10 @@ export function assessmentProblemIdentity(store: AssessmentStoreApi | null, prob
 }
 
 function scopedProblemId(problemId: string) {
-  return scopeAssessmentProblemId("artifact-1", authoredProblemId(problemId));
+  return scopeAssessmentProblemId("artifact-1", authoredBlockId(problemId));
 }
 
-function authoredProblemId(problemId: string) {
+function authoredBlockId(problemId: string) {
   const prefix = "artifact:artifact-1/block:";
   return problemId.startsWith(prefix)
     ? decodeURIComponent(problemId.slice(prefix.length))

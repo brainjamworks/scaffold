@@ -4,7 +4,7 @@ import { InfoIcon as Info } from "@phosphor-icons/react";
 
 import { RichFeedbackRuntimePopover } from "@/editor/blocks/assessment/shared/chrome/RichFeedbackRuntimePopover";
 import { readAssessmentFeedbackContent } from "@/editor/blocks/assessment/shared/model/private-assessment-attrs";
-import { findAncestorAssessmentId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { useAssessmentRuntimeById } from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
 import { isAssessmentQuestionNode } from "./assessment-meta";
 import { cn } from "@/lib/cn";
@@ -40,8 +40,12 @@ export const AssessmentSummaryFeedbackRuntimeNode = Node.create({
 
 function AssessmentSummaryFeedbackRuntimeNodeView(props: NodeViewProps) {
   const pos = safeGetPos(props.getPos);
-  const problemId = findAncestorAssessmentId(props.editor, pos, isAssessmentQuestionNode);
-  const problem = useAssessmentRuntimeById(problemId)?.problem ?? null;
+  const authoredBlockId = findAncestorAssessmentBlockId(
+    props.editor,
+    pos,
+    isAssessmentQuestionNode,
+  );
+  const problem = useAssessmentRuntimeById(authoredBlockId)?.problem ?? null;
   const result = problem?.officialResult ?? problem?.feedbackResult ?? null;
   const feedback = readAssessmentFeedbackContent(result?.feedback);
 

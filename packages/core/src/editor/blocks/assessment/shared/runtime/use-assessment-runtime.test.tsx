@@ -88,7 +88,7 @@ function ScopedProblemRegistration({
     interactionKind === "spatial-hotspot" ? imageHotspotResponseCodec : mcqResponseCodec;
   const registration = useMemo(
     () => ({
-      problemId,
+      authoredBlockId: problemId,
       targetId,
       interactionKind,
       response,
@@ -491,11 +491,11 @@ function withAssessmentPort(children: ReactNode, assessment: AssessmentPort | nu
 }
 
 function setScopedProblem(
-  authoredProblemId: string,
+  authoredBlockId: string,
   overrides: Partial<AssessmentProblemSnapshot>,
   revealed = false,
 ) {
-  const problemId = scopeAssessmentProblemId("artifact-1", authoredProblemId);
+  const problemId = scopeAssessmentProblemId("artifact-1", authoredBlockId);
   scopedAssessmentStore?.setState((state) => ({
     durable: {
       ...state.durable,
@@ -886,7 +886,7 @@ describe("useAssessmentRuntime", () => {
       scopedAssessmentStore
         ?.getState()
         .setLocalResponse(
-          { problemId, targetId: problemId, interactionKind: "single-select" },
+          { authoredBlockId: problemId, targetId: problemId, interactionKind: "single-select" },
           { choices: "a" },
         );
     });
@@ -896,7 +896,7 @@ describe("useAssessmentRuntime", () => {
 
     await act(async () => {
       await scopedAssessmentStore?.getState().revealAnswer({
-        problemId,
+        authoredBlockId: problemId,
         targetId: problemId,
         interactionKind: "single-select",
       });
@@ -961,7 +961,7 @@ describe("useAssessmentRuntime", () => {
       scopedAssessmentStore
         ?.getState()
         .setLocalResponse(
-          { problemId, targetId: problemId, interactionKind: "single-select" },
+          { authoredBlockId: problemId, targetId: problemId, interactionKind: "single-select" },
           { choices: "a" },
         );
     });
@@ -971,7 +971,7 @@ describe("useAssessmentRuntime", () => {
 
     await act(async () => {
       await scopedAssessmentStore?.getState().check({
-        problemId,
+        authoredBlockId: problemId,
         targetId: problemId,
         interactionKind: "single-select",
       });

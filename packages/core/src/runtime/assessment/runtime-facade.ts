@@ -35,7 +35,7 @@ export interface AssessmentProblemFacadeActions {
 
 export interface AssessmentProblemFacade {
   readonly status: AssessmentFacadeStatus;
-  readonly authoredProblemId: string;
+  readonly authoredBlockId: string;
   readonly problemId: AssessmentProblemId | null;
   readonly targetId: string | null;
   readonly interactionKind: AssessmentInteractionKind | null;
@@ -56,7 +56,7 @@ export interface AssessmentProblemQuizContext {
 }
 
 export interface AssessmentQuizProblemFacade {
-  readonly authoredProblemId: string;
+  readonly authoredBlockId: string;
   readonly problemId: AssessmentProblemId;
   readonly targetId: string;
   readonly interactionKind: AssessmentInteractionKind;
@@ -90,7 +90,7 @@ export function useAssessmentProblemFacade(
 ): AssessmentProblemFacade {
   const initialRegistration = useRef(registration);
   initialRegistration.current = registration;
-  const facade = useAssessmentProblemFacadeById(registration.problemId);
+  const facade = useAssessmentProblemFacadeById(registration.authoredBlockId);
   const register = useAssessmentStoreSelector((state) => state.register);
   const update = useAssessmentStoreSelector((state) => state.update);
   const unregister = useAssessmentStoreSelector((state) => state.unregister);
@@ -106,7 +106,7 @@ export function useAssessmentProblemFacade(
     };
   }, [
     identity.interactionKind,
-    identity.problemId,
+    identity.authoredBlockId,
     identity.targetId,
     identityKey,
     register,
@@ -122,11 +122,11 @@ export function useAssessmentProblemFacade(
 }
 
 export function useAssessmentProblemFacadeById(
-  authoredProblemId: string | null | undefined,
+  authoredBlockId: string | null | undefined,
   expectedInteractionKind?: AssessmentInteractionKind,
 ): AssessmentProblemFacade {
   const artifactId = useAssessmentStoreSelector((state) => state.artifactId);
-  const problemId = safeProblemId(artifactId, authoredProblemId);
+  const problemId = safeProblemId(artifactId, authoredBlockId);
   const registration = useAssessmentStoreSelector((state) =>
     problemId ? state.registrations[problemId] : undefined,
   );
@@ -157,7 +157,7 @@ export function useAssessmentProblemFacadeById(
     registration.interactionKind !== expectedInteractionKind
   ) {
     throw new Error(
-      `Assessment facade expected "${expectedInteractionKind}" interaction for "${authoredProblemId ?? ""}", but registered "${registration.interactionKind}".`,
+      `Assessment facade expected "${expectedInteractionKind}" interaction for "${authoredBlockId ?? ""}", but registered "${registration.interactionKind}".`,
     );
   }
 
@@ -175,7 +175,7 @@ export function useAssessmentProblemFacadeById(
   }, [quizAttempts, quizRegistrations, registration]);
   const actions = useMemo<AssessmentProblemFacadeActions>(() => {
     const identity = registration
-      ? registrationIdentityForAuthoredProblem(authoredProblemId ?? "", registration)
+      ? registrationIdentityForAuthoredBlock(authoredBlockId ?? "", registration)
       : null;
     return {
       setLocalResponse: (response) => (identity ? setLocalResponse(identity, response) : false),
@@ -186,7 +186,7 @@ export function useAssessmentProblemFacadeById(
       revealAnswer: () => (identity ? revealAnswer(identity) : Promise.resolve(null)),
     };
   }, [
-    authoredProblemId,
+    authoredBlockId,
     check,
     registration,
     reset,
@@ -198,7 +198,7 @@ export function useAssessmentProblemFacadeById(
 
   return {
     status: !problemId ? "unsafe-identity" : registration ? "registered" : "missing-registration",
-    authoredProblemId: authoredProblemId ?? "",
+    authoredBlockId: authoredBlockId ?? "",
     problemId,
     targetId: registration?.targetId ?? null,
     interactionKind: registration?.interactionKind ?? null,
@@ -267,7 +267,7 @@ export function useAssessmentQuizFacade(
       );
       if (!problemRegistration) continue;
       selected[targetId] = {
-        authoredProblemId: authoredProblemIdFromScoped(artifactId, problemRegistration.problemId),
+        authoredBlockId: authoredBlockIdFromScoped(artifactId, problemRegistration.problemId),
         problemId: problemRegistration.problemId,
         targetId,
         interactionKind: problemRegistration.interactionKind,
@@ -288,7 +288,7 @@ export function useAssessmentQuizFacade(
         const problem = problemsByTargetId[targetId];
         if (!problem) return Promise.resolve(null);
         return submitQuizQuestion(quizIdentity, {
-          problemId: problem.authoredProblemId,
+          authoredBlockId: problem.authoredBlockId,
           targetId: problem.targetId,
           interactionKind: problem.interactionKind,
         });
@@ -327,18 +327,18 @@ export function useAssessmentQuizFacade(
 
 function registrationIdentity(registration: AssessmentRegistrationInput) {
   return {
-    problemId: registration.problemId,
+    authoredBlockId: registration.authoredBlockId,
     targetId: registration.targetId,
     interactionKind: registration.interactionKind,
   };
 }
 
-function registrationIdentityForAuthoredProblem(
-  authoredProblemId: string,
+function registrationIdentityForAuthoredBlock(
+  authoredBlockId: string,
   registration: AssessmentRegistration,
 ) {
   return {
-    problemId: authoredProblemId,
+    authoredBlockId,
     targetId: registration.targetId,
     interactionKind: registration.interactionKind,
   };
@@ -346,10 +346,10 @@ function registrationIdentityForAuthoredProblem(
 
 function safeProblemId(
   artifactId: string,
-  authoredProblemId: string | null | undefined,
+  authoredBlockId: string | null | undefined,
 ): AssessmentProblemId | null {
   try {
-    return scopeAssessmentProblemId(artifactId, authoredProblemId ?? "");
+    return scopeAssessmentProblemId(artifactId, authoredBlockId ?? "");
   } catch {
     return null;
   }
@@ -381,7 +381,7 @@ function decodeLocalResponse(
   return parsed.data;
 }
 
-function authoredProblemIdFromScoped(artifactId: string, problemId: AssessmentProblemId): string {
+function authoredBlockIdFromScoped(artifactId: string, problemId: AssessmentProblemId): string {
   const prefix = `artifact:${encodeURIComponent(artifactId)}/block:`;
   if (!problemId.startsWith(prefix)) {
     throw new Error("Assessment problem registration is outside the current artifact scope.");

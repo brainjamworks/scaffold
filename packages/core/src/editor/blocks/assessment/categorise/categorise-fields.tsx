@@ -64,7 +64,7 @@ function CategoriseBinNodeView(props: NodeViewProps) {
   const isEditable = useCategoriseEditorEditable(props.editor);
   const rawPos = safeGetPos(props.getPos);
   const pos = typeof rawPos === "number" ? rawPos : null;
-  const binId = String(props.node.attrs["id"] ?? "");
+  const categoryId = String(props.node.attrs["id"] ?? "");
   const binPosition = useEditorState({
     editor: props.editor,
     selector: ({ editor }) => {
@@ -78,13 +78,13 @@ function CategoriseBinNodeView(props: NodeViewProps) {
     if (!props.editor.isEditable) return;
     const currentPos = currentNodeViewPos(props.editor, props.getPos, "categorise_bin");
     if (currentPos === null) return;
-    deleteCategoriseBin(props.editor, currentPos, binId);
+    deleteCategoriseCategory(props.editor, currentPos, categoryId);
   };
 
   return (
     <NodeViewWrapper
       data-node="categorise-bin"
-      data-bin-id={binId}
+      data-bin-id={categoryId}
       role="group"
       aria-label={`Category ${binPosition.index}`}
       {...{ [CONTAINED_MOVEMENT_TARGET_ATTR]: "" }}
@@ -95,7 +95,7 @@ function CategoriseBinNodeView(props: NodeViewProps) {
           <ContainedMovementHandle
             getSourcePos={() => safeGetPos(props.getPos)}
             label={`category ${binPosition.index}`}
-            sourceKey={binId}
+            sourceKey={categoryId}
             sourcePos={pos ?? undefined}
             className="sc-categorise-bin__move-handle"
           />
@@ -504,16 +504,20 @@ function readCategoriseItemAssessment(
   };
 }
 
-function deleteCategoriseBin(editor: NodeViewProps["editor"], binPos: number, binId: string) {
+function deleteCategoriseCategory(
+  editor: NodeViewProps["editor"],
+  categoryPos: number,
+  categoryId: string,
+) {
   if (!editor.isEditable) return;
-  const currentNode = editor.state.doc.nodeAt(binPos);
+  const currentNode = editor.state.doc.nodeAt(categoryPos);
   if (!currentNode || currentNode.type.name !== "categorise_bin") return;
-  if (editor.state.doc.resolve(binPos).parent.childCount <= 1) return;
+  if (editor.state.doc.resolve(categoryPos).parent.childCount <= 1) return;
 
-  const parent = resolveAssessmentAttrParent(editor, binPos, ["categorise"]);
+  const parent = resolveAssessmentAttrParent(editor, categoryPos, ["categorise"]);
   let transaction = editor.state.tr;
 
-  if (parent && binId) {
+  if (parent && categoryId) {
     const assessment = CategorisePrivateAssessmentSchema.parse(
       parent.node.attrs["assessment"] ?? {},
     );
@@ -533,7 +537,7 @@ function deleteCategoriseBin(editor: NodeViewProps["editor"], binPos: number, bi
   }
 
   editor.view.focus();
-  editor.view.dispatch(transaction.delete(binPos, binPos + currentNode.nodeSize));
+  editor.view.dispatch(transaction.delete(categoryPos, categoryPos + currentNode.nodeSize));
 }
 
 function deleteCategoriseItem(editor: NodeViewProps["editor"], itemPos: number, itemId: string) {

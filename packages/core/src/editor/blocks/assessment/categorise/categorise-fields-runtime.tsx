@@ -15,9 +15,9 @@ import { CSS } from "@dnd-kit/utilities";
 import { XIcon as X } from "@phosphor-icons/react";
 import { DOMSerializer } from "@tiptap/pm/model";
 import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 
-import { findAncestorAssessmentId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { RichFeedbackRuntimePopover } from "@/editor/blocks/assessment/shared/chrome/RichFeedbackRuntimePopover";
 import { useAssessmentRuntimeById } from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
 import {
@@ -32,7 +32,7 @@ import { iconSm } from "@/ui/tokens/icon-sizes";
 
 import {
   EMPTY_PLACEMENTS,
-  binsFromContent,
+  categoriesFromContent,
   categoriseRevealFromAnswers,
   createCategoriseBinNode,
   createCategoriseBinsGroupNode,
@@ -45,7 +45,7 @@ import {
   describeCategoriseSourceItemAccessibilityState,
   deterministicShuffle,
   itemsFromContent,
-  type CategoriseBinProjection,
+  type CategoriseCategoryProjection,
   type CategoriseItemProjection,
 } from "./categorise-fields-shared";
 import "./Categorise.css";
@@ -77,22 +77,27 @@ type CategoriseFeedbackResultItems = Record<
 function CategoriseContentRuntimeNodeView(props: NodeViewProps) {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [draggingItemId, setDraggingItemId] = useState<string | null>(null);
-  const [hoverBinId, setHoverBinId] = useState<string | null>(null);
+  const [hoveredCategoryId, setHoveredCategoryId] = useState<string | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor),
   );
   const pos = safeGetPos(props.getPos);
-  const problemId = findAncestorAssessmentId(props.editor, pos ?? undefined, ["categorise"]);
-  const assessment = useAssessmentRuntimeById(problemId, "classify");
-  const runtimeProblemId = assessment?.problemId ?? problemId;
+  const authoredBlockId = findAncestorAssessmentBlockId(props.editor, pos ?? undefined, [
+    "categorise",
+  ]);
+  const assessment = useAssessmentRuntimeById(authoredBlockId, "classify");
+  const shuffleScopeId = assessment?.problemId ?? authoredBlockId;
   const problem = assessment?.interaction ?? null;
   const runtimeProblem = assessment?.problem ?? null;
   const serializer = useMemo(
     () => DOMSerializer.fromSchema(props.editor.schema),
     [props.editor.schema],
   );
-  const bins = useMemo(() => binsFromContent(props.node, serializer), [props.node, serializer]);
+  const categories = useMemo(
+    () => categoriesFromContent(props.node, serializer),
+    [props.node, serializer],
+  );
   const items = useMemo(() => itemsFromContent(props.node, serializer), [props.node, serializer]);
 
   const submitted = runtimeProblem?.state.submitted ?? false;
@@ -110,22 +115,22 @@ function CategoriseContentRuntimeNodeView(props: NodeViewProps) {
   const showFeedback = hasFeedback || answerKeyVisible;
   const orderedItems = deterministicShuffle(
     items,
-    `${runtimeProblemId ?? "categorise"}|${items.map((item) => item.id).join("|")}`,
+    `${shuffleScopeId ?? "categorise"}|${items.map((item) => item.id).join("|")}`,
   );
   const sourceItems = orderedItems.filter((item) => displayPlacements[item.id] === undefined);
   const itemById = new Map(items.map((item) => [item.id, item]));
   const draggingItem = draggingItemId ? (itemById.get(draggingItemId) ?? null) : null;
 
-  const commitPlacement = (itemId: string, binId: string) => {
+  const commitPlacement = (itemId: string, categoryId: string) => {
     if (interactionLocked) return;
-    problem?.setPlacement(itemId, binId);
+    problem?.setPlacement(itemId, categoryId);
     setSelectedItemId(null);
     setDraggingItemId(null);
-    setHoverBinId(null);
+    setHoveredCategoryId(null);
   };
   const clearDragState = () => {
     setDraggingItemId(null);
-    setHoverBinId(null);
+    setHoveredCategoryId(null);
   };
   const handleDragStart = (event: DragStartEvent) => {
     if (interactionLocked) return;
@@ -139,7 +144,7 @@ function CategoriseContentRuntimeNodeView(props: NodeViewProps) {
   };
   const handleDragOver = (event: DragOverEvent) => {
     if (interactionLocked) return;
-    setHoverBinId(runtimeCategoriseBinId(event.over?.data.current) ?? null);
+    setHoveredCategoryId(runtimeCategoriseCategoryId(event.over?.data.current) ?? null);
   };
   const handleDragEnd = (event: DragEndEvent) => {
     if (interactionLocked) {
@@ -147,9 +152,9 @@ function CategoriseContentRuntimeNodeView(props: NodeViewProps) {
       return;
     }
     const itemId = runtimeCategoriseItemId(event.active.data.current);
-    const binId = runtimeCategoriseBinId(event.over?.data.current);
-    if (itemId && binId) {
-      commitPlacement(itemId, binId);
+    const categoryId = runtimeCategoriseCategoryId(event.over?.data.current);
+    if (itemId && categoryId) {
+      commitPlacement(itemId, categoryId);
       return;
     }
     clearDragState();
@@ -180,15 +185,10 @@ function CategoriseContentRuntimeNodeView(props: NodeViewProps) {
                     interactionLocked,
                     selected,
                   });
-                  const sourceDescriptionId =
-                    runtimeProblemId !== null
-                      ? `${runtimeProblemId}:${item.id}:categorise-source-description`
-                      : undefined;
                   return (
                     <CategoriseRuntimeSourceItem
                       key={item.id}
                       description={sourceDescription}
-                      descriptionId={sourceDescriptionId}
                       index={idx}
                       interactionLocked={interactionLocked}
                       item={item}
@@ -205,25 +205,24 @@ function CategoriseContentRuntimeNodeView(props: NodeViewProps) {
           )}
 
           <div className="sc-categorise-runtime-bin-grid">
-            {bins.map((bin, idx) => {
-              const placed = items.filter((item) => displayPlacements[item.id] === bin.id);
+            {categories.map((category, idx) => {
+              const placed = items.filter((item) => displayPlacements[item.id] === category.id);
               return (
                 <CategoriseRuntimeCategory
-                  key={bin.id}
+                  key={category.id}
                   answerKeyVisible={answerKeyVisible}
-                  bin={bin}
+                  category={category}
                   feedbackResultItems={feedbackResult?.items ?? null}
-                  hoverBinId={hoverBinId}
+                  hoveredCategoryId={hoveredCategoryId}
                   index={idx}
                   interactionLocked={interactionLocked}
                   items={placed}
-                  problemId={runtimeProblemId}
                   reveal={reveal}
                   selectedItemId={selectedItemId}
                   showFeedback={showFeedback}
                   submitted={submitted}
                   onPlaceSelected={() => {
-                    if (selectedItemId) commitPlacement(selectedItemId, bin.id);
+                    if (selectedItemId) commitPlacement(selectedItemId, category.id);
                   }}
                   onRemovePlacement={(itemId) => problem?.removePlacement(itemId)}
                 />
@@ -248,7 +247,6 @@ function CategoriseContentRuntimeNodeView(props: NodeViewProps) {
 
 function CategoriseRuntimeSourceItem({
   description,
-  descriptionId,
   index,
   interactionLocked,
   item,
@@ -256,13 +254,13 @@ function CategoriseRuntimeSourceItem({
   selected,
 }: {
   description: string;
-  descriptionId: string | undefined;
   index: number;
   interactionLocked: boolean;
   item: CategoriseItemProjection;
   onSelect: () => void;
   selected: boolean;
 }) {
+  const descriptionId = useId();
   const { attributes, isDragging, listeners, setNodeRef, transform } = useDraggable({
     id: `categorise-runtime-item:${item.id}`,
     disabled: interactionLocked,
@@ -295,62 +293,57 @@ function CategoriseRuntimeSourceItem({
       )}
     >
       {renderStaticHtml(item.html, `Item ${index + 1}`)}
-      {descriptionId && (
-        <span id={descriptionId} className="sc-sr-only">
-          {description}
-        </span>
-      )}
+      <span id={descriptionId} className="sc-sr-only">
+        {description}
+      </span>
     </div>
   );
 }
 
 function CategoriseRuntimeCategory({
   answerKeyVisible,
-  bin,
+  category,
   feedbackResultItems,
-  hoverBinId,
+  hoveredCategoryId,
   index,
   interactionLocked,
   items,
   onPlaceSelected,
   onRemovePlacement,
-  problemId,
   reveal,
   selectedItemId,
   showFeedback,
   submitted,
 }: {
   answerKeyVisible: boolean;
-  bin: CategoriseBinProjection;
+  category: CategoriseCategoryProjection;
   feedbackResultItems: CategoriseFeedbackResultItems | null;
-  hoverBinId: string | null;
+  hoveredCategoryId: string | null;
   index: number;
   interactionLocked: boolean;
   items: CategoriseItemProjection[];
   onPlaceSelected: () => void;
   onRemovePlacement: (itemId: string) => void;
-  problemId: string | null;
   reveal: ReturnType<typeof categoriseRevealFromAnswers>;
   selectedItemId: string | null;
   showFeedback: boolean;
   submitted: boolean;
 }) {
   const { isOver, setNodeRef } = useDroppable({
-    id: `categorise-runtime-bin:${bin.id}`,
+    id: `categorise-runtime-category:${category.id}`,
     disabled: interactionLocked,
     data: {
-      categoriseRuntimeBin: true,
-      binId: bin.id,
+      categoriseRuntimeCategory: true,
+      categoryId: category.id,
     },
   });
   const activeDrop =
-    isOver || hoverBinId === bin.id || (selectedItemId !== null && !interactionLocked);
+    isOver || hoveredCategoryId === category.id || (selectedItemId !== null && !interactionLocked);
   const categoryDescription = describeCategoriseCategoryAccessibilityState({
     activeDrop,
     placedCount: items.length,
   });
-  const categoryDescriptionId =
-    problemId !== null ? `${problemId}:${bin.id}:categorise-category-description` : undefined;
+  const categoryDescriptionId = useId();
 
   return (
     <div
@@ -359,30 +352,27 @@ function CategoriseRuntimeCategory({
       tabIndex={interactionLocked ? -1 : 0}
       aria-label={`Category ${index + 1}`}
       aria-describedby={categoryDescriptionId}
-      data-bin-id={bin.id}
+      data-bin-id={category.id}
       onClick={onPlaceSelected}
       className={cn(
         "sc-categorise-runtime-category",
         activeDrop && "sc-categorise-runtime-category--active",
       )}
     >
-      {categoryDescriptionId && (
-        <span id={categoryDescriptionId} className="sc-sr-only">
-          {categoryDescription}
-        </span>
-      )}
+      <span id={categoryDescriptionId} className="sc-sr-only">
+        {categoryDescription}
+      </span>
       <div className="sc-categorise-runtime-category__title">
-        {renderStaticHtml(bin.html, `Category ${index + 1}`)}
+        {renderStaticHtml(category.html, `Category ${index + 1}`)}
       </div>
       <div className="sc-categorise-runtime-category__items">
         {items.map((item) => (
           <CategoriseRuntimePlacedItem
             key={item.id}
             answerKeyVisible={answerKeyVisible}
-            binId={bin.id}
+            categoryId={category.id}
             feedbackResultItems={feedbackResultItems}
             item={item}
-            problemId={problemId}
             reveal={reveal}
             showFeedback={showFeedback}
             submitted={submitted}
@@ -402,23 +392,21 @@ function CategoriseRuntimeCategory({
 
 function CategoriseRuntimePlacedItem({
   answerKeyVisible,
-  binId,
+  categoryId,
   feedbackResultItems,
   interactionLocked,
   item,
   onRemovePlacement,
-  problemId,
   reveal,
   showFeedback,
   submitted,
 }: {
   answerKeyVisible: boolean;
-  binId: string;
+  categoryId: string;
   feedbackResultItems: CategoriseFeedbackResultItems | null;
   interactionLocked: boolean;
   item: CategoriseItemProjection;
   onRemovePlacement: (itemId: string) => void;
-  problemId: string | null;
   reveal: ReturnType<typeof categoriseRevealFromAnswers>;
   showFeedback: boolean;
   submitted: boolean;
@@ -426,7 +414,7 @@ function CategoriseRuntimePlacedItem({
   const detail = feedbackResultItems?.[item.id] ?? null;
   const correct =
     answerKeyVisible && reveal !== null
-      ? reveal.placements[item.id] === binId
+      ? reveal.placements[item.id] === categoryId
       : showFeedback && detail
         ? detail.correct
         : null;
@@ -441,8 +429,7 @@ function CategoriseRuntimePlacedItem({
     revealed: answerKeyVisible,
     submitted,
   });
-  const placedItemDescriptionId =
-    problemId !== null ? `${problemId}:${item.id}:categorise-placement-description` : undefined;
+  const placedItemDescriptionId = useId();
 
   return (
     <div
@@ -477,11 +464,9 @@ function CategoriseRuntimePlacedItem({
       {showFeedback && parsedFeedback.success && (
         <RichFeedbackRuntimePopover feedback={parsedFeedback.data} />
       )}
-      {placedItemDescriptionId && (
-        <span id={placedItemDescriptionId} className="sc-sr-only">
-          {placedItemDescription}
-        </span>
-      )}
+      <span id={placedItemDescriptionId} className="sc-sr-only">
+        {placedItemDescription}
+      </span>
     </div>
   );
 }
@@ -492,10 +477,10 @@ function runtimeCategoriseItemId(data: Record<string, unknown> | undefined) {
   return typeof itemId === "string" && itemId.length > 0 ? itemId : null;
 }
 
-function runtimeCategoriseBinId(data: Record<string, unknown> | undefined) {
-  if (data?.["categoriseRuntimeBin"] !== true) return null;
-  const binId = data["binId"];
-  return typeof binId === "string" && binId.length > 0 ? binId : null;
+function runtimeCategoriseCategoryId(data: Record<string, unknown> | undefined) {
+  if (data?.["categoriseRuntimeCategory"] !== true) return null;
+  const categoryId = data["categoryId"];
+  return typeof categoryId === "string" && categoryId.length > 0 ? categoryId : null;
 }
 
 function renderStaticHtml(html: string, fallback: string) {

@@ -15,7 +15,8 @@ import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-att
 /**
  * Composite Categorise node. Reuses the standard assessment shell
  * (title / instructions / prompt / hints / summary feedback) with authored
- * bins and sortable items represented as PM field nodes.
+ * categories and sortable items represented as PM field nodes. Persisted documents retain the
+ * legacy `categorise_bin` node names for compatibility.
  */
 export interface CategoriseNodeOptions {
   addNodeView?: () => NodeViewRenderer;

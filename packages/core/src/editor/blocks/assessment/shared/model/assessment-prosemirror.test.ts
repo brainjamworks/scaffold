@@ -2,7 +2,7 @@ import { Editor, Node, type JSONContent } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
-import { countAssessmentHints, findAncestorAssessmentId } from "./assessment-prosemirror";
+import { countAssessmentHints, findAncestorAssessmentBlockId } from "./assessment-prosemirror";
 
 const documentNode = Node.create({
   name: "doc",
@@ -61,11 +61,11 @@ function positionOf(editor: Editor, nodeType: string): number {
   return found;
 }
 
-describe("findAncestorAssessmentId", () => {
+describe("findAncestorAssessmentBlockId", () => {
   it("returns the nearest matching assessment ancestor id", () => {
     const editor = createEditor();
 
-    expect(findAncestorAssessmentId(editor, 1, ["assessment_owner"])).toBe("problem-one");
+    expect(findAncestorAssessmentBlockId(editor, 1, ["assessment_owner"])).toBe("problem-one");
   });
 
   it("supports a node matcher and prefers the nearest matching ancestor", () => {
@@ -87,7 +87,7 @@ describe("findAncestorAssessmentId", () => {
     });
 
     expect(
-      findAncestorAssessmentId(
+      findAncestorAssessmentBlockId(
         editor,
         positionOf(editor, "assessment_child"),
         (node) => node.type.name === "assessment_owner",
@@ -98,13 +98,13 @@ describe("findAncestorAssessmentId", () => {
   it.each([undefined, -1, Number.NaN, 99])("returns null for invalid position %s", (position) => {
     const editor = createEditor();
 
-    expect(findAncestorAssessmentId(editor, position, ["assessment_owner"])).toBeNull();
+    expect(findAncestorAssessmentBlockId(editor, position, ["assessment_owner"])).toBeNull();
   });
 
   it("returns null when no ancestor matches", () => {
     const editor = createEditor();
 
-    expect(findAncestorAssessmentId(editor, 1, ["other_owner"])).toBeNull();
+    expect(findAncestorAssessmentBlockId(editor, 1, ["other_owner"])).toBeNull();
   });
 
   it.each([null, " "])("returns null for a %s ancestor id", (id) => {
@@ -119,7 +119,7 @@ describe("findAncestorAssessmentId", () => {
       ],
     });
 
-    expect(findAncestorAssessmentId(editor, 1, ["assessment_owner"])).toBeNull();
+    expect(findAncestorAssessmentBlockId(editor, 1, ["assessment_owner"])).toBeNull();
   });
 });
 

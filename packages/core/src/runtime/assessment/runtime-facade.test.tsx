@@ -55,7 +55,7 @@ function problemRegistration(
   overrides: Partial<AssessmentRegistrationInput> = {},
 ): AssessmentRegistrationInput {
   return {
-    problemId: "block-one",
+    authoredBlockId: "block-one",
     targetId: "target-one",
     interactionKind: "single-select",
     response: responseCapability,
@@ -203,7 +203,7 @@ describe("assessment problem facade", () => {
     const wrapper = createRuntimeWrapper();
     const { result } = renderHook(
       () => ({
-        unsafe: useAssessmentProblemFacade(problemRegistration({ problemId: " " })),
+        unsafe: useAssessmentProblemFacade(problemRegistration({ authoredBlockId: " " })),
         missing: useAssessmentProblemFacadeById("not-registered"),
       }),
       { wrapper },
@@ -509,7 +509,7 @@ describe("assessment Quiz facade", () => {
       scopeAssessmentGroupId("artifact-one", "quiz-one"),
     );
     expect(result.current.quizFacade.problemsByTargetId["target-one"]).toMatchObject({
-      authoredProblemId: "block-one",
+      authoredBlockId: "block-one",
       responseReady: true,
       problem: { response: { kind: "single-select", optionId: "option-b" } },
     });

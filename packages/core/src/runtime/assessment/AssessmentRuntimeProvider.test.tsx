@@ -44,7 +44,7 @@ function deferred<T>() {
 
 function registerResponse(store: AssessmentStoreApi) {
   const identity = {
-    problemId: "block-one",
+    authoredBlockId: "block-one",
     targetId: "target-one",
     interactionKind: "single-select" as const,
   };
@@ -156,7 +156,7 @@ describe("AssessmentRuntimeProvider", () => {
     const identity = registerResponse(store);
     expect(
       store.getState().durable.problems[
-        scopeAssessmentProblemId("artifact-one", identity.problemId)
+        scopeAssessmentProblemId("artifact-one", identity.authoredBlockId)
       ],
     ).toBeDefined();
   });
@@ -298,13 +298,13 @@ describe("AssessmentRuntimeProvider", () => {
 
     expect(
       firstStore.getState().durable.problems[
-        scopeAssessmentProblemId("shared-artifact", firstIdentity.problemId)
+        scopeAssessmentProblemId("shared-artifact", firstIdentity.authoredBlockId)
       ],
     ).toBeDefined();
     const siblingIdentity = registerResponse(siblingStore);
     expect(
       siblingStore.getState().durable.problems[
-        scopeAssessmentProblemId("shared-artifact", siblingIdentity.problemId)
+        scopeAssessmentProblemId("shared-artifact", siblingIdentity.authoredBlockId)
       ],
     ).toBeDefined();
   });

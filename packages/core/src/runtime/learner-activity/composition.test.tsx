@@ -64,7 +64,7 @@ function storesFor(surfaceId: string) {
 
 function registerAssessment(store: AssessmentStoreApi, problemId: string) {
   const identity = {
-    problemId,
+    authoredBlockId: problemId,
     targetId: `${problemId}-target`,
     interactionKind: "single-select" as const,
   };
@@ -195,7 +195,7 @@ describe("learner activity runtime composition", () => {
     await expect(assessment.getState().submit(assessmentIdentity)).resolves.toBeNull();
 
     const requests = assessment.getState().requests;
-    expect(requests[assessmentIdentity.problemId as keyof typeof requests]).toBeUndefined();
+    expect(requests[assessmentIdentity.authoredBlockId as keyof typeof requests]).toBeUndefined();
     expect(Object.values(assessment.getState().requests)[0]).toMatchObject({
       status: "error",
       error: "assessment submit denied",

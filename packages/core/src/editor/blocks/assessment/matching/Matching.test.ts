@@ -29,7 +29,7 @@ import { AssessmentInstructionsNode } from "@/editor/blocks/assessment/shared/no
 import { AssessmentPromptNode } from "@/editor/blocks/assessment/shared/nodes/assessment-prompt";
 import { AssessmentSummaryFeedbackNode } from "@/editor/blocks/assessment/shared/nodes/assessment-summary-feedback";
 import { AssessmentTitleNode } from "@/editor/blocks/assessment/shared/nodes/assessment-title";
-import { findAncestorAssessmentId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 
 import { matchingBlockDefinition } from "./matching-definition";
@@ -652,7 +652,7 @@ describe("composite matching node", () => {
       if (node.type.name === "matching_item") itemPos = pos;
     });
 
-    expect(findAncestorAssessmentId(editor, itemPos, ["matching"])).toBe("matching-1");
+    expect(findAncestorAssessmentBlockId(editor, itemPos, ["matching"])).toBe("matching-1");
     editor.destroy();
   });
 

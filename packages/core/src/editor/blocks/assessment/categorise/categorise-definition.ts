@@ -116,7 +116,7 @@ export const categoriseBlockDefinition = defineBlock({
     icon: ListBullets,
     keywords: ["category", "categorize", "classify", "sort", "bin", "bucket", "drag"],
     content: () => {
-      const bins = [makeBin([makeItem(), makeItem()]), makeBin([makeItem(), makeItem()])];
+      const categories = [makeBin([makeItem(), makeItem()]), makeBin([makeItem(), makeItem()])];
 
       return {
         type: "categorise",
@@ -141,7 +141,7 @@ export const categoriseBlockDefinition = defineBlock({
             content: [
               {
                 type: "categorise_bins_group",
-                content: bins,
+                content: categories,
               },
             ],
           },
