@@ -1,8 +1,12 @@
 import * as RadixDialog from "@radix-ui/react-dialog";
 import { XIcon as X } from "@phosphor-icons/react";
+import { FocusScope } from "@radix-ui/react-focus-scope";
+import { inertOthers } from "aria-hidden";
 import {
   forwardRef,
   useCallback,
+  useLayoutEffect,
+  useRef,
   useState,
   type ComponentPropsWithoutRef,
   type ComponentRef,
@@ -10,7 +14,9 @@ import {
   type HTMLAttributes,
   type ReactNode,
 } from "react";
+import { RemoveScroll } from "react-remove-scroll";
 
+import { AUTHORING_CHROME_SUPPRESSION_ATTR } from "@/editor/interactions/dom/authoring-chrome";
 import { cn } from "@/lib/cn";
 import { zIndex } from "@/ui/overlays/z-index";
 
@@ -43,7 +49,12 @@ import "./Sheet.css";
  * to suppress.
  */
 
-const Root = RadixDialog.Root;
+type SheetRootProps = Omit<ComponentPropsWithoutRef<typeof RadixDialog.Root>, "modal">;
+
+function Root(props: SheetRootProps) {
+  return <RadixDialog.Root {...props} modal={false} />;
+}
+
 const Trigger = RadixDialog.Trigger;
 const Close = RadixDialog.Close;
 
@@ -76,6 +87,8 @@ interface SheetContentProps
 const Content = forwardRef<ComponentRef<typeof RadixDialog.Content>, SheetContentProps>(
   function Content({ side = "right", className, children, style, ...rest }, ref) {
     const resolvedSide = side ?? "right";
+    const openerRef = useRef<HTMLElement | null>(null);
+    const [overlayElement, setOverlayElement] = useState<HTMLDivElement | null>(null);
     const [contentElement, setContentElement] = useState<ComponentRef<
       typeof RadixDialog.Content
     > | null>(null);
@@ -88,30 +101,68 @@ const Content = forwardRef<ComponentRef<typeof RadixDialog.Content>, SheetConten
       [ref],
     );
 
+    useLayoutEffect(() => {
+      if (contentElement === null || overlayElement === null) return;
+      const portalHost = contentElement.parentElement;
+      if (portalHost === null || overlayElement.parentElement !== portalHost) return;
+      const isolationRoot = portalHost.parentElement;
+      if (isolationRoot === null) return;
+      return inertOthers([overlayElement, contentElement], isolationRoot, "data-sc-sheet-inert");
+    }, [contentElement, overlayElement]);
+
     return (
       <Portal>
-        <RadixDialog.Overlay
+        <div
+          ref={setOverlayElement}
+          aria-hidden="true"
           className="sc-sheet-overlay"
+          data-state="open"
           style={{ zIndex: zIndex.modalBackdrop }}
         />
-        <RadixDialog.Content
-          ref={contentRef}
-          className={cn(sheetContentVariants({ side: resolvedSide }), className)}
-          data-side={resolvedSide}
-          style={{
-            ...(style as CSSProperties | undefined),
-            zIndex: zIndex.modal,
-          }}
-          {...rest}
-        >
-          <OverlayBoundary
-            collisionBoundary={contentElement}
-            container={contentElement}
-            kind="contained"
-          >
-            {children}
-          </OverlayBoundary>
-        </RadixDialog.Content>
+        <RemoveScroll allowPinchZoom forwardProps>
+          <FocusScope asChild loop trapped>
+            <RadixDialog.Content
+              {...rest}
+              ref={contentRef}
+              className={cn(sheetContentVariants({ side: resolvedSide }), className)}
+              data-side={resolvedSide}
+              {...{ [AUTHORING_CHROME_SUPPRESSION_ATTR]: "" }}
+              onCloseAutoFocus={(event) => {
+                rest.onCloseAutoFocus?.(event);
+                if (event.defaultPrevented) return;
+                event.preventDefault();
+                const opener = openerRef.current;
+                if (opener?.isConnected) opener.focus({ preventScroll: true });
+                openerRef.current = null;
+              }}
+              onFocusOutside={(event) => {
+                rest.onFocusOutside?.(event);
+                if (!event.defaultPrevented) event.preventDefault();
+              }}
+              onOpenAutoFocus={(event) => {
+                const ownerDocument = contentElement?.ownerDocument;
+                const activeElement = ownerDocument?.activeElement;
+                openerRef.current =
+                  activeElement instanceof HTMLElement && activeElement !== ownerDocument?.body
+                    ? activeElement
+                    : null;
+                rest.onOpenAutoFocus?.(event);
+              }}
+              style={{
+                ...(style as CSSProperties | undefined),
+                zIndex: zIndex.modal,
+              }}
+            >
+              <OverlayBoundary
+                collisionBoundary={contentElement}
+                container={contentElement}
+                kind="contained"
+              >
+                {children}
+              </OverlayBoundary>
+            </RadixDialog.Content>
+          </FocusScope>
+        </RemoveScroll>
       </Portal>
     );
   },

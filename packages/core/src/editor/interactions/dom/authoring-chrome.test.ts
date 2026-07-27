@@ -84,6 +84,24 @@ describe("neutral authoring chrome markers", () => {
     unregister();
   });
 
+  it("suppresses page-level authoring chrome while a registered modal owns focus", () => {
+    const editorRoot = document.createElement("div");
+    document.body.appendChild(editorRoot);
+
+    const portalHost = document.createElement("div");
+    portalHost.setAttribute("data-scaffold-suppress-authoring-chrome", "");
+    const portalButton = document.createElement("button");
+    portalHost.appendChild(portalButton);
+    document.body.appendChild(portalHost);
+    const unregister = registerOverlayHostOwner(editorRoot, portalHost);
+    portalButton.focus();
+
+    expect(isAuthoringChromeSessionActive(editorRoot)).toBe(false);
+    expect(shouldRenderAuthoringChrome(editorRoot, true)).toBe(false);
+
+    unregister();
+  });
+
   it("does not share focused host membership with a sibling editor", () => {
     const firstRoot = document.createElement("div");
     const secondRoot = document.createElement("div");

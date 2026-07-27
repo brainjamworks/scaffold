@@ -33,6 +33,32 @@ function ScopedSheet({ container }: { container: Element | null }) {
   );
 }
 
+function ContainedEditorSheet() {
+  const [container, setContainer] = useState<HTMLDivElement | null>(null);
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div ref={setContainer}>
+      <div data-testid="sheet-editor-content">
+        <h2>Editor heading</h2>
+        <output aria-live="polite">Editor status</output>
+        <OverlayBoundary container={container} kind="contained">
+          <Sheet.Root open={open} onOpenChange={setOpen}>
+            <Sheet.Trigger asChild>
+              <button type="button">Open settings sheet</button>
+            </Sheet.Trigger>
+            <Sheet.Content>
+              <Sheet.Title>Block settings</Sheet.Title>
+              <Sheet.Description>Configure this block.</Sheet.Description>
+              <Sheet.Header closeLabel="Close settings" />
+            </Sheet.Content>
+          </Sheet.Root>
+        </OverlayBoundary>
+      </div>
+    </div>
+  );
+}
+
 function NestedSheetExample() {
   const [parentOpen, setParentOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -130,6 +156,32 @@ describe("Sheet", () => {
     const host = container.querySelector(":scope > [data-scaffold-overlay-host]");
     expect(host).not.toBeNull();
     expect(screen.getByRole("dialog", { name: "Scoped sheet" }).parentElement).toBe(host);
+  });
+
+  it("isolates a contained editor without mutating its ProseMirror descendants", async () => {
+    render(<ContainedEditorSheet />);
+    const editorContent = screen.getByTestId("sheet-editor-content");
+    const trigger = screen.getByRole("button", { name: "Open settings sheet" });
+
+    await userEvent.click(trigger);
+
+    expect(screen.getByRole("dialog", { name: "Block settings" })).toBeInTheDocument();
+    expect(editorContent.querySelector("[data-aria-hidden]")).toBeNull();
+    expect(editorContent).toHaveAttribute("data-sc-sheet-inert");
+    expect(editorContent).toHaveAttribute("inert");
+  });
+
+  it("restores its trigger without scrolling when it closes", async () => {
+    render(<ContainedEditorSheet />);
+    const trigger = screen.getByRole("button", { name: "Open settings sheet" });
+    const focus = vi.spyOn(trigger, "focus");
+
+    await userEvent.click(trigger);
+    focus.mockClear();
+    await userEvent.keyboard("{Escape}");
+
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+    focus.mockRestore();
   });
 
   it("scopes floating descendants to the Sheet content lifecycle", async () => {

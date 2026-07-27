@@ -1,6 +1,7 @@
 import { isOverlayTargetOwnedBy } from "./overlay-ownership";
 
 export const AUTHORING_CHROME_ATTR = "data-authoring-chrome";
+export const AUTHORING_CHROME_SUPPRESSION_ATTR = "data-scaffold-suppress-authoring-chrome";
 export const AUTHORING_FRAME_RESIZE_MODE_ATTR = "data-authoring-frame-resize-mode";
 export const AUTHORING_FRAME_WRAPPER_ATTR = "data-authoring-frame-wrapper";
 export const AUTHORING_FRAME_WRAPPER_ACTIVE_ATTR = "data-authoring-frame-wrapper-active";
@@ -34,6 +35,12 @@ export function isAuthoringChromeTarget(target: EventTarget | null): boolean {
 
 export function isAuthoringChromeSessionActive(editorRoot: Element): boolean {
   const activeElement = editorRoot.ownerDocument.activeElement;
+  if (
+    activeElement instanceof Element &&
+    activeElement.closest(`[${AUTHORING_CHROME_SUPPRESSION_ATTR}]`) !== null
+  ) {
+    return false;
+  }
   return isOverlayTargetOwnedBy(editorRoot, activeElement);
 }
 
