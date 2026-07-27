@@ -2,6 +2,13 @@ import type { JSONContent } from "@tiptap/core";
 
 import type { AssessmentTargetSettings } from "@scaffold/contracts";
 
+import {
+  DEFAULT_INLINE_ICON_VALUE,
+  inlineIconStaticText,
+  readInlineIconValue,
+} from "@/editor/rich-text/inline-icon/model/InlineIconNode";
+import { normalizeVocabularyText } from "@/editor/rich-text/vocabulary-term/model/VocabularyTermNode";
+
 /** Shared helpers for publishing authored assessment content. */
 export function readContent(node: JSONContent): JSONContent[] {
   return Array.isArray(node.content) ? node.content : [];
@@ -42,9 +49,27 @@ export function childText(node: JSONContent, childType: string): string {
 }
 
 export function textBetween(node: JSONContent): string {
+  return publicNodeText(node).replace(/\s+/gu, " ");
+}
+
+function publicNodeText(node: JSONContent): string {
   if (typeof node.text === "string") return node.text;
+
+  if (node.type === "hardBreak" || node.type === "horizontalRule") return " ";
+  if (node.type === "inlineMath" || node.type === "blockMath") {
+    return readStringAttr(node, "latex");
+  }
+  if (node.type === "vocabTerm") {
+    return normalizeVocabularyText(readAttrs(node)["term"]);
+  }
+  if (node.type === "inlineIcon") {
+    return inlineIconStaticText(
+      readInlineIconValue(readAttrs(node)["value"]) ?? DEFAULT_INLINE_ICON_VALUE,
+    );
+  }
+
   return readContent(node)
-    .map(textBetween)
+    .map(publicNodeText)
     .filter((part) => part.length > 0)
     .join(" ");
 }

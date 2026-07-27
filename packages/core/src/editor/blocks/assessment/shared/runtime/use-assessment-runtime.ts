@@ -18,14 +18,9 @@ import {
   type BlockDefinition,
 } from "@/editor/blocks/block-definition";
 import { buildAssessmentActivityDefinition } from "@/runtime/xapi/statement-catalogue";
-import {
-  DEFAULT_INLINE_ICON_VALUE,
-  inlineIconStaticText,
-  readInlineIconValue,
-} from "@/editor/rich-text/inline-icon/model/InlineIconNode";
-import { normalizeVocabularyText } from "@/editor/rich-text/vocabulary-term/model/VocabularyTermNode";
 
 import { countAssessmentHints } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { textBetween } from "@/editor/blocks/assessment/shared/publication/projection";
 import type { AssessmentExperienceConfig } from "../model/assessment-capability";
 import type { ProblemResponse } from "../model/assessment-response";
 import {
@@ -530,27 +525,8 @@ function assessmentActivityDescription(node: PMNode): string | undefined {
   }
   if (!prompt) return undefined;
 
-  const description = prompt
-    .textBetween(0, prompt.content.size, " ", assessmentPromptLeafText)
-    .replace(/\s+/gu, " ")
-    .trim();
+  const description = textBetween(prompt.toJSON()).trim();
   return description || undefined;
-}
-
-function assessmentPromptLeafText(node: PMNode): string {
-  if (node.type.name === "hardBreak" || node.type.name === "horizontalRule") return " ";
-  if (node.type.name === "inlineMath" || node.type.name === "blockMath") {
-    return typeof node.attrs["latex"] === "string" ? node.attrs["latex"] : "";
-  }
-  if (node.type.name === "vocabTerm") {
-    return normalizeVocabularyText(node.attrs["term"]);
-  }
-  if (node.type.name === "inlineIcon") {
-    return inlineIconStaticText(
-      readInlineIconValue(node.attrs["value"]) ?? DEFAULT_INLINE_ICON_VALUE,
-    );
-  }
-  return node.type.spec.leafText?.(node) ?? "";
 }
 
 function choiceModeForInteraction(kind: AssessmentInteractionKind): ChoiceMode | null {
