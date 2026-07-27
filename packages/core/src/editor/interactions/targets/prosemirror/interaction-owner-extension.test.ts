@@ -419,6 +419,36 @@ describe("ScaffoldInteractionOwnerExtension", () => {
     editor.destroy();
   });
 
+  it("leaves Escape from an open dialog to the dialog instead of focusing the editor", () => {
+    const { editor, ownerRoot } = makeReactMountedEditor();
+    dispatchMouseDown(cellFrameElement(editor));
+    expect(pluginState(editor).explicitOwner).not.toBeNull();
+    const host = document.createElement("div");
+    const dialog = document.createElement("div");
+    const control = document.createElement("button");
+    dialog.setAttribute("role", "dialog");
+    dialog.setAttribute("data-state", "open");
+    dialog.append(control);
+    host.append(dialog);
+    ownerRoot.parentElement?.append(host);
+    const unregisterHost = registerOverlayHostOwner(ownerRoot, host);
+
+    control.focus();
+    const escape = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "Escape",
+    });
+    control.dispatchEvent(escape);
+
+    expect(escape.defaultPrevented).toBe(false);
+    expect(pluginState(editor).explicitOwner).not.toBeNull();
+    expect(document.activeElement).toBe(control);
+
+    unregisterHost();
+    editor.destroy();
+  });
+
   it("lets a registered-host child consume Escape before its interaction owner", () => {
     const { editor, ownerRoot } = makeReactMountedEditor();
     dispatchMouseDown(cellFrameElement(editor));

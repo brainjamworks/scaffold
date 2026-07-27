@@ -257,6 +257,19 @@ describe("WorkspaceDialog", () => {
     expect(document.activeElement).toBe(trigger);
   });
 
+  it("restores trigger focus without scrolling when it closes", async () => {
+    render(<ControlledWorkspaceDialog />);
+    const trigger = screen.getByRole("button", { name: "Open workspace" });
+    const focus = vi.spyOn(trigger, "focus");
+
+    await userEvent.click(trigger);
+    focus.mockClear();
+    await userEvent.click(screen.getByRole("button", { name: "Close workspace" }));
+
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+    focus.mockRestore();
+  });
+
   it("exposes labelled toolbar composition with button states and tooltips", async () => {
     const onAdd = vi.fn();
     const user = userEvent.setup();

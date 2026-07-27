@@ -5,6 +5,7 @@ import {
   forwardRef,
   useCallback,
   useLayoutEffect,
+  useRef,
   useState,
   type CSSProperties,
   type ComponentPropsWithoutRef,
@@ -72,6 +73,7 @@ interface WorkspaceDialogContentProps extends Omit<
 const Content = forwardRef<ComponentRef<typeof Dialog.Content>, WorkspaceDialogContentProps>(
   function Content({ children, className, size = "medium", style, ...rest }, ref) {
     const presentationStyle = getWorkspaceDialogPresentationStyle(size);
+    const openerRef = useRef<HTMLElement | null>(null);
     const [overlayElement, setOverlayElement] = useState<HTMLDivElement | null>(null);
     const [contentElement, setContentElement] = useState<ComponentRef<
       typeof Dialog.Content
@@ -116,9 +118,26 @@ const Content = forwardRef<ComponentRef<typeof Dialog.Content>, WorkspaceDialogC
               ref={contentRef}
               className={cn("sc-workspace-dialog-content", className)}
               data-size={size}
+              onCloseAutoFocus={(event) => {
+                rest.onCloseAutoFocus?.(event);
+                if (event.defaultPrevented) return;
+                event.preventDefault();
+                const opener = openerRef.current;
+                if (opener?.isConnected) opener.focus({ preventScroll: true });
+                openerRef.current = null;
+              }}
               onFocusOutside={(event) => {
                 rest.onFocusOutside?.(event);
                 if (!event.defaultPrevented) event.preventDefault();
+              }}
+              onOpenAutoFocus={(event) => {
+                const ownerDocument = contentElement?.ownerDocument;
+                const activeElement = ownerDocument?.activeElement;
+                openerRef.current =
+                  activeElement instanceof HTMLElement && activeElement !== ownerDocument?.body
+                    ? activeElement
+                    : null;
+                rest.onOpenAutoFocus?.(event);
               }}
               style={{ ...presentationStyle, ...style, zIndex: zIndex.modalContent }}
             >

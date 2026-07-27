@@ -280,6 +280,12 @@ function dismissEphemeralInteractionOwnerOnKeyDown(
   event: KeyboardEvent,
 ): boolean {
   if (!isUnconsumedOverlayDismissKey(event)) return false;
+  if (
+    event.target instanceof Element &&
+    event.target.closest('[role="dialog"][data-state="open"]') !== null
+  ) {
+    return false;
+  }
   if (!hasEphemeralInteractionOwner(view.state)) return false;
 
   event.preventDefault();
