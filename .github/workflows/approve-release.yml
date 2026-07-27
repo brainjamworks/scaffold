@@ -28,7 +28,7 @@ jobs:
     environment:
       name: release
     permissions:
-      actions: read
+      actions: write
       contents: write
     steps:
       - name: Check out reviewed release source
@@ -364,4 +364,11 @@ jobs:
             -f name="$expected_title" \
             -F draft=false \
             -F prerelease=true \
+            --silent
+
+          gh api \
+            --method POST \
+            "repos/$GH_REPO/actions/workflows/publish-pypi.yml/dispatches" \
+            -f ref=main \
+            -f "inputs[tag]=$RELEASE_TAG" \
             --silent

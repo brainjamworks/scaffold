@@ -207,7 +207,7 @@ test("approval workflow validates the private draft before publishing it", () =>
   assert.equal(workflow.jobs.approve["runs-on"], "ubuntu-24.04");
   assert.equal(workflow.jobs.approve.environment.name, "release");
   assert.deepEqual(workflow.jobs.approve.permissions, {
-    actions: "read",
+    actions: "write",
     contents: "write",
   });
   assert.match(workflow.jobs.approve.if, /refs\/heads\/main/);
@@ -239,5 +239,7 @@ test("approval workflow validates the private draft before publishing it", () =>
   assert.match(source, /--method PATCH/);
   assert.match(source, /draft=false/);
   assert.match(source, /prerelease=true/);
+  assert.match(source, /actions\/workflows\/publish-pypi\.yml\/dispatches/);
+  assert.match(source, /inputs\[tag\]=\$RELEASE_TAG/);
   assert.doesNotMatch(source, /gh release edit/);
 });

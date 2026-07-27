@@ -105,6 +105,8 @@ if [[ "$1" == "api" ]]; then
     printf '[['
     cat "$MOCK_RELEASE_JSON"
     printf ']]\\n'
+  elif [[ "$arguments" == *"/actions/workflows/publish-pypi.yml/dispatches"* ]]; then
+    exit 0
   elif [[ "$arguments" == *"/actions/runs/"* ]]; then
     printf '{"id":%s,"head_sha":"%s","event":"push","status":"completed","conclusion":"success","path":".github/workflows/ci.yml"}\\n' \
       "$MOCK_SOURCE_CI_RUN_ID" "$MOCK_SOURCE_CI_HEAD_SHA"
@@ -680,6 +682,11 @@ test("approval publishes only a complete draft bound to its annotated tag", (t) 
   assert.equal(log.split(`git/ref/tags/${TAG}`).length - 1, 2);
   assert.doesNotMatch(log, /immutable-releases/);
   assert.match(log, /--method PATCH repos\/brainjamworks\/scaffold\/releases\/123/);
+  assert.match(
+    log,
+    /--method POST repos\/brainjamworks\/scaffold\/actions\/workflows\/publish-pypi\.yml\/dispatches/,
+  );
+  assert.ok(log.indexOf("--method PATCH") < log.indexOf("publish-pypi.yml/dispatches"));
 });
 
 function runPypiStage(t, releaseMetadata, status = "200") {
