@@ -18,6 +18,7 @@ import {
   buildLearnerActivityCompletedStatementDraft,
   buildLearnerActivityInteractedStatementDraft,
   buildLayoutSectionExperiencedStatementDraft,
+  buildResourceLaunchedStatementDraft,
   buildQuizAttemptedStatementDraft,
   buildQuizCompletedStatementDraft,
   buildQuizSuccessStatementDraft,
@@ -28,6 +29,7 @@ import {
   createLearnerActivityId,
   createLayoutSectionActivityId,
   createQuizActivityId,
+  createResourceActivityId,
   createSurfaceActivityId,
   encodeAssessmentResponse,
   isXapiLearnerActivityKind,
@@ -51,6 +53,10 @@ describe("xAPI catalogue vocabulary", () => {
       initialized: {
         id: "http://adlnet.gov/expapi/verbs/initialized",
         display: { en: "initialized" },
+      },
+      launched: {
+        id: "http://adlnet.gov/expapi/verbs/launched",
+        display: { en: "launched" },
       },
       experienced: {
         id: "http://adlnet.gov/expapi/verbs/experienced",
@@ -93,6 +99,7 @@ describe("xAPI catalogue vocabulary", () => {
       surface: "https://scaffold.ac/xapi/activity-types/surface",
       layoutSection: "https://scaffold.ac/xapi/activity-types/layout-section",
       hint: "https://scaffold.ac/xapi/activity-types/hint",
+      resource: "https://scaffold.ac/xapi/activity-types/resource",
     });
     expect(XAPI_EXTENSIONS).toStrictEqual({
       assessmentAttemptNumber: "https://scaffold.ac/xapi/extensions/assessment-attempt-number",
@@ -107,6 +114,7 @@ describe("xAPI catalogue vocabulary", () => {
       layoutSectionPosition: "https://scaffold.ac/xapi/extensions/layout-section-position",
       layoutSectionCount: "https://scaffold.ac/xapi/extensions/layout-section-count",
       hintNumber: "https://scaffold.ac/xapi/extensions/hint-number",
+      resourceKind: "https://scaffold.ac/xapi/extensions/resource-kind",
     });
 
     expect(Object.isFrozen(XAPI_VERBS)).toBe(true);
@@ -379,6 +387,9 @@ describe("xAPI Activity identities", () => {
     expect(createHintActivityId(ROOT_ACTIVITY_ID, "question-one", 2)).toBe(
       "https://scaffold.ac/xapi/activities/hint?root=https%3A%2F%2Flms.example.test%2Fcourses%2Fcourse-one&id=question-one&number=2",
     );
+    expect(createResourceActivityId(ROOT_ACTIVITY_ID, "resource-one")).toBe(
+      "https://scaffold.ac/xapi/activities/resource?root=https%3A%2F%2Flms.example.test%2Fcourses%2Fcourse-one&id=resource-one",
+    );
   });
 
   it("uses strict RFC 3986 encoding with uppercase escapes and no plus-space encoding", () => {
@@ -397,12 +408,55 @@ describe("xAPI Activity identities", () => {
     () => createHintActivityId(ROOT_ACTIVITY_ID, "", 1),
     () => createHintActivityId(ROOT_ACTIVITY_ID, "question-one", 0),
     () => createHintActivityId(ROOT_ACTIVITY_ID, "question-one", 1.5),
+    () => createResourceActivityId(ROOT_ACTIVITY_ID, ""),
   ])("rejects an invalid root, local identity, or hint number", (deriveIdentity) => {
     expect(deriveIdentity).toThrow();
   });
 });
 
 describe("xAPI Statement catalogue builders", () => {
+  it("builds a privacy-safe launched resource Activity", () => {
+    expect(
+      buildResourceLaunchedStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        resourceId: "resource-one",
+        resourceKind: "pdf",
+      }),
+    ).toStrictEqual({
+      verb: XAPI_VERBS.launched,
+      object: {
+        objectType: "Activity",
+        id: createResourceActivityId(ROOT_ACTIVITY_ID, "resource-one"),
+        definition: {
+          type: XAPI_ACTIVITY_TYPES.resource,
+          extensions: {
+            [XAPI_EXTENSIONS.resourceKind]: "pdf",
+          },
+        },
+      },
+      context: {
+        contextActivities: {
+          parent: [
+            {
+              objectType: "Activity",
+              id: ROOT_ACTIVITY_ID,
+              definition: { type: XAPI_ACTIVITY_TYPES.course },
+            },
+          ],
+        },
+      },
+    });
+    expect(
+      JSON.stringify(
+        buildResourceLaunchedStatementDraft({
+          rootActivityId: ROOT_ACTIVITY_ID,
+          resourceId: "resource-one",
+          resourceKind: "pdf",
+        }),
+      ),
+    ).not.toContain("example.com/sample.pdf");
+  });
+
   it("builds initialized with the root course Activity and a normalized title", () => {
     expect(
       buildInitializedStatementDraft({

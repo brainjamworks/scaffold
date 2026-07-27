@@ -118,11 +118,13 @@ export function PdfEmbedSurface({
   editable,
   mediaPort,
   onAdd,
+  onOpen,
 }: {
   data: PdfEmbedData;
   editable: boolean;
   mediaPort: MediaPortLite | null;
   onAdd?: () => void;
+  onOpen?: () => void;
 }) {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const generatedId = useId();
@@ -415,6 +417,7 @@ export function PdfEmbedSurface({
               href={fileUrl}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={onOpen}
               className="sc-pdf-embed__open"
               aria-label={`Open ${pdfLabel} in new tab`}
             >

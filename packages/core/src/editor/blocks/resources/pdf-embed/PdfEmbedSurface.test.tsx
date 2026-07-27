@@ -109,6 +109,7 @@ afterEach(() => {
 
 it("announces the current PDF page and disables page navigation at bounds", async () => {
   const user = userEvent.setup();
+  const onOpen = vi.fn();
   render(
     <PdfEmbedSurface
       data={emptyPdfEmbedData({
@@ -121,6 +122,7 @@ it("announces the current PDF page and disables page navigation at bounds", asyn
       editable
       mediaPort={null}
       onAdd={() => {}}
+      onOpen={onOpen}
     />,
   );
 
@@ -133,7 +135,10 @@ it("announces the current PDF page and disables page navigation at bounds", asyn
   expect(screen.getByRole("figure", { name: "Course handbook" })).toBeInTheDocument();
   expect(preview.getAttribute("aria-describedby")).toBeNull();
   expect(screen.getByRole("button", { name: "Replace Course handbook" })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Open Course handbook in new tab" })).toBeInTheDocument();
+  const openLink = screen.getByRole("link", { name: "Open Course handbook in new tab" });
+  expect(openLink).toBeInTheDocument();
+  await user.click(openLink);
+  expect(onOpen).toHaveBeenCalledOnce();
 
   await screen.findByText("PDF page 1");
 

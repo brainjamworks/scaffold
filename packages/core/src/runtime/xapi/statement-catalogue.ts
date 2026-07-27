@@ -29,6 +29,7 @@ function immutableVerb(id: XapiIri, display: string): XapiVerb {
 
 export const XAPI_VERBS = Object.freeze({
   initialized: immutableVerb("http://adlnet.gov/expapi/verbs/initialized", "initialized"),
+  launched: immutableVerb("http://adlnet.gov/expapi/verbs/launched", "launched"),
   experienced: immutableVerb("http://adlnet.gov/expapi/verbs/experienced", "experienced"),
   attempted: immutableVerb("http://adlnet.gov/expapi/verbs/attempted", "attempted"),
   answered: immutableVerb("http://adlnet.gov/expapi/verbs/answered", "answered"),
@@ -47,6 +48,7 @@ export const XAPI_ACTIVITY_TYPES = Object.freeze({
   surface: "https://scaffold.ac/xapi/activity-types/surface",
   layoutSection: "https://scaffold.ac/xapi/activity-types/layout-section",
   hint: "https://scaffold.ac/xapi/activity-types/hint",
+  resource: "https://scaffold.ac/xapi/activity-types/resource",
 });
 
 export const XAPI_EXTENSIONS = Object.freeze({
@@ -62,6 +64,7 @@ export const XAPI_EXTENSIONS = Object.freeze({
   layoutSectionPosition: "https://scaffold.ac/xapi/extensions/layout-section-position",
   layoutSectionCount: "https://scaffold.ac/xapi/extensions/layout-section-count",
   hintNumber: "https://scaffold.ac/xapi/extensions/hint-number",
+  resourceKind: "https://scaffold.ac/xapi/extensions/resource-kind",
 });
 
 const XAPI_LEARNER_ACTIVITY_KINDS = ["flashcard", "checklist"] as const;
@@ -101,7 +104,7 @@ function derivedActivityId(value: string): XapiIri {
 }
 
 function createChildActivityId(
-  kind: "quiz" | "assessment" | "learner-activity" | "surface",
+  kind: "quiz" | "assessment" | "learner-activity" | "surface" | "resource",
   rootId: XapiIri,
   localId: string,
 ): XapiIri {
@@ -126,6 +129,10 @@ export function createLearnerActivityId(rootId: XapiIri, blockId: string): XapiI
 
 export function createSurfaceActivityId(rootId: XapiIri, surfaceId: string): XapiIri {
   return createChildActivityId("surface", rootId, requiredIdentity("surfaceId", surfaceId));
+}
+
+export function createResourceActivityId(rootId: XapiIri, resourceId: string): XapiIri {
+  return createChildActivityId("resource", rootId, requiredIdentity("resourceId", resourceId));
 }
 
 export function createLayoutSectionActivityId(
@@ -417,6 +424,27 @@ function learnerActivity(
 }
 
 export type XapiSurfaceKind = "page" | "slide";
+export type XapiResourceKind = "article" | "video" | "pdf" | "audio" | "link";
+
+function resourceActivity(input: {
+  readonly rootActivityId: XapiIri;
+  readonly resourceId: string;
+  readonly resourceKind: XapiResourceKind;
+}): XapiActivity {
+  if (!["article", "video", "pdf", "audio", "link"].includes(input.resourceKind)) {
+    throw new Error("resourceKind must be article, video, pdf, audio, or link");
+  }
+  return {
+    objectType: "Activity",
+    id: createResourceActivityId(input.rootActivityId, input.resourceId),
+    definition: {
+      type: XAPI_ACTIVITY_TYPES.resource,
+      extensions: {
+        [XAPI_EXTENSIONS.resourceKind]: input.resourceKind,
+      },
+    },
+  };
+}
 
 function surfaceActivity(input: {
   readonly rootActivityId: XapiIri;
@@ -538,6 +566,18 @@ export function buildSurfaceExperiencedStatementDraft(input: {
   return validatedDraft({
     verb: XAPI_VERBS.experienced,
     object: surfaceActivity(input),
+    context: parentContext(rootActivity(input.rootActivityId)),
+  });
+}
+
+export function buildResourceLaunchedStatementDraft(input: {
+  readonly rootActivityId: XapiIri;
+  readonly resourceId: string;
+  readonly resourceKind: XapiResourceKind;
+}): XapiStatementDraft {
+  return validatedDraft({
+    verb: XAPI_VERBS.launched,
+    object: resourceActivity(input),
     context: parentContext(rootActivity(input.rootActivityId)),
   });
 }
