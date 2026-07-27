@@ -2,7 +2,7 @@ import type { StoreApi } from "zustand/vanilla";
 
 import type { LearnerActivityData, LearnerActivityRecord } from "@scaffold/contracts";
 import type { LearnerActivityPort } from "../../host/ports/learner-activity";
-import type { XapiSessionAccessor } from "../xapi";
+import type { LearnerActivityXapiEvent, XapiSessionAccessor } from "../xapi";
 
 export type LearnerActivityHydrationState =
   | { status: "loading"; error: null }
@@ -20,6 +20,12 @@ export type LearnerActivityRuntimeRecord = LearnerActivityRecord;
 export interface LearnerActivityDefault {
   data: LearnerActivityData;
   completed: boolean;
+}
+
+export interface LearnerActivityUpdate {
+  data: LearnerActivityData;
+  completed: boolean;
+  xapiEvent?: LearnerActivityXapiEvent;
 }
 
 export interface LearnerActivityStoreState {
@@ -44,6 +50,7 @@ export interface LearnerActivityStoreActions {
   setData(blockId: string, data: LearnerActivityData): boolean;
   patchData(blockId: string, patch: LearnerActivityData): boolean;
   setCompleted(blockId: string, completed: boolean): boolean;
+  updateActivity(blockId: string, update: LearnerActivityUpdate): boolean;
 }
 
 export type LearnerActivityStore = LearnerActivityStoreState & LearnerActivityStoreActions;

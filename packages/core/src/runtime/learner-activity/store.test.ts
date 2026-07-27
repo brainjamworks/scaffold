@@ -458,6 +458,7 @@ describe("createLearnerActivityStore", () => {
       "saves",
       "setCompleted",
       "setData",
+      "updateActivity",
     ]);
   });
 
@@ -544,6 +545,66 @@ describe("createLearnerActivityStore", () => {
     });
     expect(JSON.stringify(learningStatement)).not.toContain("privateAnswer");
     expect(JSON.stringify(learningStatement)).not.toContain("2026-07-25T11:00:00Z");
+  });
+
+  it("records an accepted checklist item event before completing the activity", async () => {
+    const save = deferred<LearnerActivityRecord>();
+    const { session, record } = createSessionDouble();
+    const store = createLearnerActivityStore({
+      artifactId: "course-1",
+      learnerActivityPort: createPort(() => save.promise),
+      getXapiSession: () => session,
+    });
+    hydrateBlock(store, hostRecord({ checked: {} }));
+
+    store.getState().updateActivity("block-1", {
+      data: {
+        checked: { "item-one": true },
+        privateLearnerState: "PRIVATE_LEARNER_STATE",
+      },
+      completed: true,
+      xapiEvent: {
+        kind: "checklist-item-toggled",
+        itemId: "item-one",
+        checked: true,
+        completedCount: 1,
+        total: 1,
+      },
+    });
+    await flushPromises();
+    expect(record).not.toHaveBeenCalled();
+
+    save.resolve(
+      hostRecord(
+        {
+          checked: { "item-one": true },
+          privateLearnerState: "PRIVATE_LEARNER_STATE",
+        },
+        { completed: true, updatedAt: "2026-07-25T11:00:00Z" },
+      ),
+    );
+    await vi.waitFor(() => expect(store.getState().saves["block-1"]?.status).toBe("idle"));
+
+    expect(record).toHaveBeenCalledTimes(2);
+    expect(record.mock.calls[0]?.[0]).toEqual(
+      buildLearnerActivityInteractedStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        blockId: "block-1",
+        activityKind: "checklist",
+        event: {
+          kind: "checklist-item-toggled",
+          itemId: "item-one",
+          checked: true,
+          completedCount: 1,
+          total: 1,
+        },
+      }),
+    );
+    expect(record.mock.calls[1]?.[0]).toMatchObject({
+      verb: XAPI_VERBS.completed,
+      result: { completion: true },
+    });
+    expect(JSON.stringify(record.mock.calls)).not.toContain("PRIVATE_LEARNER_STATE");
   });
 
   it("records only completed when the current generation changes data and completes", async () => {

@@ -50,6 +50,7 @@ export const XAPI_EXTENSIONS = Object.freeze({
   assessmentInteractionKind: "https://scaffold.ac/xapi/extensions/assessment-interaction-kind",
   quizAttemptId: "https://scaffold.ac/xapi/extensions/quiz-attempt-id",
   learnerActivityKind: "https://scaffold.ac/xapi/extensions/learner-activity-kind",
+  learnerActivityEvent: "https://scaffold.ac/xapi/extensions/learner-activity-event",
   hintNumber: "https://scaffold.ac/xapi/extensions/hint-number",
 });
 
@@ -519,7 +520,18 @@ interface LearnerActivityStatementInput {
   readonly rootActivityId: XapiIri;
   readonly blockId: string;
   readonly activityKind: XapiLearnerActivityKind;
+  readonly event?: LearnerActivityXapiEvent;
 }
+
+export interface ChecklistItemToggledXapiEvent {
+  readonly kind: "checklist-item-toggled";
+  readonly itemId: string;
+  readonly checked: boolean;
+  readonly completedCount: number;
+  readonly total: number;
+}
+
+export type LearnerActivityXapiEvent = ChecklistItemToggledXapiEvent;
 
 function learnerActivityStatementParts(input: LearnerActivityStatementInput): {
   readonly object: XapiActivity;
@@ -531,12 +543,52 @@ function learnerActivityStatementParts(input: LearnerActivityStatementInput): {
   };
 }
 
+function checklistItemToggledEventValue(
+  input: LearnerActivityStatementInput,
+  event: ChecklistItemToggledXapiEvent,
+) {
+  if (input.activityKind !== "checklist") {
+    throw new Error("Checklist item events require checklist learner activities");
+  }
+  if (!Number.isInteger(event.total) || event.total <= 0) {
+    throw new Error("Checklist item event total must be a positive integer");
+  }
+  if (
+    !Number.isInteger(event.completedCount) ||
+    event.completedCount < 0 ||
+    event.completedCount > event.total
+  ) {
+    throw new Error("Checklist item event completedCount must be between zero and total");
+  }
+
+  return {
+    action: "item-toggled",
+    itemId: requiredIdentity("itemId", event.itemId),
+    checked: event.checked,
+    completedCount: event.completedCount,
+    total: event.total,
+  };
+}
+
 export function buildLearnerActivityInteractedStatementDraft(
   input: LearnerActivityStatementInput,
 ): XapiStatementDraft {
+  const event =
+    input.event?.kind === "checklist-item-toggled"
+      ? checklistItemToggledEventValue(input, input.event)
+      : undefined;
   return validatedDraft({
     verb: XAPI_VERBS.interacted,
     ...learnerActivityStatementParts(input),
+    ...(event
+      ? {
+          result: {
+            extensions: {
+              [XAPI_EXTENSIONS.learnerActivityEvent]: event,
+            },
+          },
+        }
+      : {}),
   });
 }
 

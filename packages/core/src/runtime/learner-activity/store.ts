@@ -13,6 +13,7 @@ import {
   buildLearnerActivityCompletedStatementDraft,
   buildLearnerActivityInteractedStatementDraft,
   isXapiLearnerActivityKind,
+  type LearnerActivityXapiEvent,
 } from "../xapi/statement-catalogue";
 import type {
   CreateLearnerActivityStoreOptions,
@@ -109,6 +110,7 @@ export function createLearnerActivityStore({
       blockId: string,
       record: LearnerActivityRuntimeRecord,
       transition: LearnerActivityTransition,
+      xapiEvent?: LearnerActivityXapiEvent,
     ): void => {
       try {
         const session = getXapiSession?.();
@@ -119,11 +121,25 @@ export function createLearnerActivityStore({
           blockId,
           activityKind: record.activityKind,
         };
-        session.record(
-          transition === "completed"
-            ? buildLearnerActivityCompletedStatementDraft(input)
-            : buildLearnerActivityInteractedStatementDraft(input),
-        );
+        let eventRecorded = false;
+        if (xapiEvent) {
+          try {
+            session.record(
+              buildLearnerActivityInteractedStatementDraft({
+                ...input,
+                event: xapiEvent,
+              }),
+            );
+            eventRecorded = true;
+          } catch {
+            // Invalid observational metadata falls back to the generic transition.
+          }
+        }
+        if (transition === "completed") {
+          session.record(buildLearnerActivityCompletedStatementDraft(input));
+        } else if (!eventRecorded) {
+          session.record(buildLearnerActivityInteractedStatementDraft(input));
+        }
       } catch {
         // Learning-record delivery is observational and cannot change persistence authority.
       }
@@ -143,6 +159,7 @@ export function createLearnerActivityStore({
       blockId: string,
       generation: number,
       record: LearnerActivityRuntimeRecord,
+      xapiEvent?: LearnerActivityXapiEvent,
     ): void => {
       if (!learnerActivityPort) return;
 
@@ -177,7 +194,7 @@ export function createLearnerActivityStore({
           if (previousAuthoritative) {
             const transition = authoritativeTransition(previousAuthoritative, authoritative);
             if (transition) {
-              recordAuthoritativeTransition(blockId, authoritative, transition);
+              recordAuthoritativeTransition(blockId, authoritative, transition, xapiEvent);
             }
           }
         })
@@ -191,7 +208,11 @@ export function createLearnerActivityStore({
       });
     };
 
-    const commitMutation = (blockId: string, record: LearnerActivityRuntimeRecord): boolean => {
+    const commitMutation = (
+      blockId: string,
+      record: LearnerActivityRuntimeRecord,
+      xapiEvent?: LearnerActivityXapiEvent,
+    ): boolean => {
       const state = get();
       const current = state.activities[blockId];
       if (
@@ -203,7 +224,7 @@ export function createLearnerActivityStore({
       }
 
       const generation = (state.saves[blockId]?.generation ?? 0) + 1;
-      enqueueSave(blockId, generation, record);
+      enqueueSave(blockId, generation, record, xapiEvent);
       set((state) => ({
         activities: { ...state.activities, [blockId]: record },
         saves: {
@@ -270,6 +291,19 @@ export function createLearnerActivityStore({
           throw new Error("completed must be a boolean");
         }
         return commitMutation(blockId, { ...current, completed });
+      },
+      updateActivity: (blockId, update) => {
+        const current = currentRecord(blockId);
+        if (!current) return false;
+        const data = LearnerActivityDataSchema.parse(update.data);
+        if (typeof update.completed !== "boolean") {
+          throw new Error("completed must be a boolean");
+        }
+        return commitMutation(
+          blockId,
+          { ...current, data, completed: update.completed },
+          update.xapiEvent,
+        );
       },
     };
   });

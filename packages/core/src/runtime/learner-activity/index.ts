@@ -19,4 +19,5 @@ export type {
   LearnerActivityStoreActions,
   LearnerActivityStoreApi,
   LearnerActivityStoreState,
+  LearnerActivityUpdate,
 } from "./types";

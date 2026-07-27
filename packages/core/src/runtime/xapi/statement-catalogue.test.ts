@@ -84,6 +84,7 @@ describe("xAPI catalogue vocabulary", () => {
       assessmentInteractionKind: "https://scaffold.ac/xapi/extensions/assessment-interaction-kind",
       quizAttemptId: "https://scaffold.ac/xapi/extensions/quiz-attempt-id",
       learnerActivityKind: "https://scaffold.ac/xapi/extensions/learner-activity-kind",
+      learnerActivityEvent: "https://scaffold.ac/xapi/extensions/learner-activity-event",
       hintNumber: "https://scaffold.ac/xapi/extensions/hint-number",
     });
 
@@ -547,6 +548,36 @@ describe("xAPI Statement catalogue builders", () => {
       object,
       result: { completion: true },
       context,
+    });
+  });
+
+  it("describes an accepted checklist item toggle without learner state", () => {
+    expect(
+      buildLearnerActivityInteractedStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        blockId: "checklist-one",
+        activityKind: "checklist",
+        event: {
+          kind: "checklist-item-toggled",
+          itemId: "item-two",
+          checked: true,
+          completedCount: 2,
+          total: 4,
+        },
+      }),
+    ).toMatchObject({
+      verb: XAPI_VERBS.interacted,
+      result: {
+        extensions: {
+          "https://scaffold.ac/xapi/extensions/learner-activity-event": {
+            action: "item-toggled",
+            itemId: "item-two",
+            checked: true,
+            completedCount: 2,
+            total: 4,
+          },
+        },
+      },
     });
   });
 
