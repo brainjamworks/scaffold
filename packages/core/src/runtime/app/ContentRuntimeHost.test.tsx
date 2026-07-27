@@ -141,6 +141,63 @@ function runtimeDocumentWithLayout(kind: "tabs" | "paginated"): JSONContent {
   });
 }
 
+function runtimeAccordionLayout(layoutId: string, sectionPrefix: string): JSONContent {
+  return {
+    type: "layout",
+    attrs: {
+      id: layoutId,
+      variant: "accordion",
+      options: {
+        variant: "default",
+        label: "Topics",
+        allowMultiple: true,
+      },
+    },
+    content: [
+      {
+        type: "section",
+        attrs: {
+          id: `${sectionPrefix}-one`,
+          role: "accordion-panel",
+          options: { defaultOpen: true },
+        },
+        content: [
+          {
+            type: "accordion_section_title",
+            content: [paragraph("Before class")],
+          },
+          {
+            type: "accordion_section_panel",
+            content: [paragraph("Before class content")],
+          },
+        ],
+      },
+      {
+        type: "section",
+        attrs: {
+          id: `${sectionPrefix}-two`,
+          role: "accordion-panel",
+          options: { defaultOpen: false },
+        },
+        content: [
+          {
+            type: "accordion_section_title",
+            content: [paragraph("After class")],
+          },
+          {
+            type: "accordion_section_panel",
+            content: [paragraph("After class content")],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function runtimeDocumentWithAccordion(): JSONContent {
+  return runtimeDocumentWithBlock(runtimeAccordionLayout("layout-accordion", "accordion"));
+}
+
 function slideshowDocumentWithTabs(): JSONContent {
   const content = runtimeDocumentContent({
     mode: "slideshow",
@@ -196,6 +253,22 @@ function slideshowDocumentWithTabs(): JSONContent {
       ],
     },
   ];
+
+  return content;
+}
+
+function slideshowDocumentWithAccordions(): JSONContent {
+  const content = slideshowDocumentWithTabs();
+  const surfaces = content.content?.[0]?.content;
+  const firstRegion = surfaces?.[0]?.content?.find((node) => node.type === "region");
+  const secondRegion = surfaces?.[1]?.content?.find((node) => node.type === "region");
+
+  if (!firstRegion || !secondRegion) {
+    throw new Error("runtime accordion slideshow is missing its content regions");
+  }
+
+  firstRegion.content = [runtimeAccordionLayout("layout-accordion-one", "accordion-slide-one")];
+  secondRegion.content = [runtimeAccordionLayout("layout-accordion-two", "accordion-slide-two")];
 
   return content;
 }
@@ -735,6 +808,128 @@ describe("ContentRuntimeHost", () => {
         createLayoutSectionActivityId(port.activityId, "layout-slide-one", "tab-slide-one"),
         createLayoutSectionActivityId(port.activityId, "layout-slide-two", "tab-slide-two"),
         createLayoutSectionActivityId(port.activityId, "layout-slide-one", "tab-slide-one"),
+      ]),
+    );
+  });
+
+  it("records accordion sections when they open and not when they close", async () => {
+    const user = userEvent.setup();
+    const port = createXapiPort();
+
+    render(
+      <ScaffoldServicesProvider ports={{ xapi: port }}>
+        <ContentRuntimeHost
+          artifactId="artifact-accordion"
+          initialContent={runtimeDocumentWithAccordion()}
+        />
+      </ScaffoldServicesProvider>,
+    );
+
+    const layoutSectionStatements = () =>
+      port.send.mock.calls
+        .map(([statement]) => statement)
+        .filter(
+          (statement) => statement.object.definition?.type === XAPI_ACTIVITY_TYPES.layoutSection,
+        );
+
+    await waitFor(() => expect(layoutSectionStatements()).toHaveLength(1));
+    await user.click(screen.getByRole("button", { name: "Expand After class" }));
+    await waitFor(() => expect(layoutSectionStatements()).toHaveLength(2));
+    await user.click(screen.getByRole("button", { name: "Collapse Before class" }));
+    expect(layoutSectionStatements()).toHaveLength(2);
+    await user.click(screen.getByRole("button", { name: "Expand Before class" }));
+    await waitFor(() => expect(layoutSectionStatements()).toHaveLength(3));
+
+    expect(
+      layoutSectionStatements().map((statement) => ({
+        id: statement.object.id,
+        extensions: statement.object.definition?.extensions,
+      })),
+    ).toStrictEqual([
+      {
+        id: createLayoutSectionActivityId(
+          port.activityId,
+          "layout-accordion",
+          "accordion-one",
+        ),
+        extensions: {
+          [XAPI_EXTENSIONS.layoutKind]: "accordion",
+          [XAPI_EXTENSIONS.layoutSectionPosition]: 1,
+          [XAPI_EXTENSIONS.layoutSectionCount]: 2,
+        },
+      },
+      {
+        id: createLayoutSectionActivityId(
+          port.activityId,
+          "layout-accordion",
+          "accordion-two",
+        ),
+        extensions: {
+          [XAPI_EXTENSIONS.layoutKind]: "accordion",
+          [XAPI_EXTENSIONS.layoutSectionPosition]: 2,
+          [XAPI_EXTENSIONS.layoutSectionCount]: 2,
+        },
+      },
+      {
+        id: createLayoutSectionActivityId(
+          port.activityId,
+          "layout-accordion",
+          "accordion-one",
+        ),
+        extensions: {
+          [XAPI_EXTENSIONS.layoutKind]: "accordion",
+          [XAPI_EXTENSIONS.layoutSectionPosition]: 1,
+          [XAPI_EXTENSIONS.layoutSectionCount]: 2,
+        },
+      },
+    ]);
+  });
+
+  it("records open accordion sections only on the presented slideshow surface", async () => {
+    const user = userEvent.setup();
+    const port = createXapiPort();
+
+    render(
+      <ScaffoldServicesProvider ports={{ xapi: port }}>
+        <ContentRuntimeHost
+          artifactId="artifact-slide-accordions"
+          initialContent={slideshowDocumentWithAccordions()}
+        />
+      </ScaffoldServicesProvider>,
+    );
+
+    const layoutSectionIds = () =>
+      port.send.mock.calls
+        .map(([statement]) => statement)
+        .filter(
+          (statement) => statement.object.definition?.type === XAPI_ACTIVITY_TYPES.layoutSection,
+        )
+        .map((statement) => statement.object.id);
+
+    await waitFor(() =>
+      expect(layoutSectionIds()).toStrictEqual([
+        createLayoutSectionActivityId(
+          port.activityId,
+          "layout-accordion-one",
+          "accordion-slide-one-one",
+        ),
+      ]),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Next slide" }));
+
+    await waitFor(() =>
+      expect(layoutSectionIds()).toStrictEqual([
+        createLayoutSectionActivityId(
+          port.activityId,
+          "layout-accordion-one",
+          "accordion-slide-one-one",
+        ),
+        createLayoutSectionActivityId(
+          port.activityId,
+          "layout-accordion-two",
+          "accordion-slide-two-one",
+        ),
       ]),
     );
   });

@@ -446,7 +446,7 @@ function surfaceActivity(input: {
   };
 }
 
-export type XapiLayoutKind = "tabs" | "paginated";
+export type XapiLayoutKind = "tabs" | "paginated" | "accordion";
 
 function layoutSectionActivity(input: {
   readonly rootActivityId: XapiIri;
@@ -456,8 +456,12 @@ function layoutSectionActivity(input: {
   readonly position: number;
   readonly count: number;
 }): XapiActivity {
-  if (input.layoutKind !== "tabs" && input.layoutKind !== "paginated") {
-    throw new Error("layoutKind must be tabs or paginated");
+  if (
+    input.layoutKind !== "tabs" &&
+    input.layoutKind !== "paginated" &&
+    input.layoutKind !== "accordion"
+  ) {
+    throw new Error("layoutKind must be tabs, paginated, or accordion");
   }
   const position = positiveInteger("position", input.position);
   const count = positiveInteger("count", input.count);

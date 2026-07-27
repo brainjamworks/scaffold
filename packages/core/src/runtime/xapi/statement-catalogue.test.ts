@@ -673,6 +673,36 @@ describe("xAPI Statement catalogue builders", () => {
     ).toThrow("position must not exceed count");
   });
 
+  it("describes an experienced accordion section with the shared layout-section shape", () => {
+    expect(
+      buildLayoutSectionExperiencedStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        layoutId: "layout-accordion",
+        sectionId: "section-two",
+        layoutKind: "accordion",
+        position: 2,
+        count: 3,
+      }),
+    ).toMatchObject({
+      verb: XAPI_VERBS.experienced,
+      object: {
+        id: createLayoutSectionActivityId(
+          ROOT_ACTIVITY_ID,
+          "layout-accordion",
+          "section-two",
+        ),
+        definition: {
+          type: XAPI_ACTIVITY_TYPES.layoutSection,
+          extensions: {
+            [XAPI_EXTENSIONS.layoutKind]: "accordion",
+            [XAPI_EXTENSIONS.layoutSectionPosition]: 2,
+            [XAPI_EXTENSIONS.layoutSectionCount]: 3,
+          },
+        },
+      },
+    });
+  });
+
   it("describes an accepted checklist item toggle without learner state", () => {
     expect(
       buildLearnerActivityInteractedStatementDraft({
