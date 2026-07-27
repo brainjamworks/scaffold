@@ -1,4 +1,9 @@
-import { TableIcon as Table } from "@phosphor-icons/react";
+import {
+  ColumnsIcon as Columns,
+  GridFourIcon as GridFour,
+  RowsIcon as Rows,
+  TableIcon as Table,
+} from "@phosphor-icons/react";
 import {
   KeyValueListDataSchema,
   KeyValueListKeyWidthSchema,
@@ -25,6 +30,12 @@ const LAYOUT_LABELS: Record<"stacked" | "inline" | "grid", string> = {
   grid: "Grid",
 };
 
+const LAYOUT_ICONS = {
+  stacked: Rows,
+  inline: Columns,
+  grid: GridFour,
+} as const;
+
 const KEY_WIDTH_LABELS: Record<"auto" | "narrow" | "medium" | "wide", string> = {
   auto: "Auto",
   narrow: "Narrow",
@@ -50,8 +61,12 @@ export const keyValueListBlockDefinition = defineBlock({
         options: KeyValueListLayoutSchema.options.map((value) => ({
           value,
           label: LAYOUT_LABELS[value],
+          icon: LAYOUT_ICONS[value],
         })),
-        placement: { sheet: { section: "layout" } },
+        placement: {
+          quickMenu: { presentation: "segmented" },
+          sheet: { section: "layout" },
+        },
       },
       {
         kind: "select",

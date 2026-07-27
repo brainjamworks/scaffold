@@ -126,7 +126,7 @@ function firstChoiceId(ids: ReadonlySet<string>): string | null {
   return null;
 }
 
-function choiceStateForProblem({
+export function choiceStateForProblem({
   choiceId,
   kind,
   problem,
@@ -155,6 +155,14 @@ function choiceStateForProblem({
 
   if (kind === "single-select" && problem.state.submitted && problem.officialResult) {
     return problem.officialResult.isCorrect ? "correct" : "incorrect";
+  }
+
+  if (
+    kind === "multi-select" &&
+    problem.state.submitted &&
+    problem.officialResult?.isCorrect
+  ) {
+    return "correct";
   }
 
   return null;

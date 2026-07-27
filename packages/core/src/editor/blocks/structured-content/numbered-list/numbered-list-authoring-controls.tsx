@@ -12,11 +12,14 @@ export function renderNumberedListAddControl({
   return (
     <BlockAddGhost
       label={label}
-      presentation="row"
+      presentation="item"
       onClick={onClick}
       contentEditable={false}
       className={className}
-    />
+    >
+      <span aria-hidden className="sc-numbered-list__add-marker">+</span>
+      <span>Add item</span>
+    </BlockAddGhost>
   );
 }
 

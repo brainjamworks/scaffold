@@ -157,10 +157,12 @@
 
   /* ─── Add affordance ─── */
 
-  .sc-key-value-list__add {
-    margin-top: 0.75rem;
-    padding: 0.375rem 0;
-    font-size: 0.8125rem;
+  .sc-key-value-list__add-key {
+    font-weight: 600;
+  }
+
+  .sc-key-value-list__add-value {
+    font-size: 0.9375rem;
   }
 
   /* ─── Responsive collapse ─── */
@@ -190,4 +192,21 @@
       min-width: 0;
     }
   }
+}
+
+/* The shared item presentation intentionally strips its outer shell.
+ * Restore the key/value row shell outside the cascade layer so this
+ * block-specific shape wins regardless of stylesheet ordering. */
+.sc-ghost-add.sc-key-value-list__add {
+  display: grid;
+  grid-template-columns: minmax(5rem, auto) 1fr;
+  gap: 1rem;
+  width: 100%;
+  margin-top: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-background);
+  font-size: 0.8125rem;
+  text-align: left;
 }

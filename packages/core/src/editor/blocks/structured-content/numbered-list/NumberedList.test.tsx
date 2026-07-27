@@ -119,6 +119,15 @@ function numberedListFixture(): JSONContent {
   };
 }
 
+it("renders an item-shaped add numbered-list affordance", async () => {
+  const fixture = makeDisposableNumberedListEditor();
+  const add = await screen.findByRole("button", { name: "Add item" });
+
+  expect(add.classList.contains("sc-ghost-add--item")).toBe(true);
+  expect(add.querySelector(".sc-numbered-list__add-marker")).not.toBeNull();
+  fixture.destroy();
+});
+
 function makeDisposableNumberedListEditor(content: JSONContent = numberedListFixture()) {
   const fixture = createDisposableEditor({
     extensions: [

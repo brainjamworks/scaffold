@@ -279,13 +279,20 @@
 /* Geometry only — visual contract comes from `.sc-ghost-add`. The
  * 4-column grid aligns the leading drag-placeholder + plus chip
  * with the surrounding checklist items. */
-.sc-checklist__add {
+.sc-ghost-add.sc-checklist__add {
   display: grid;
   grid-template-columns: 1.25rem auto minmax(0, 1fr) 1.5rem;
   width: 100%;
   padding: 0.35rem 0.25rem;
   border-radius: var(--radius-md);
   font-size: 0.9375rem;
+  border: 1px dashed var(--color-border);
+  background: var(--color-background);
+}
+
+.sc-checklist-item__checkbox--ghost {
+  border-style: dashed;
+  color: currentColor;
 }
 
 .sc-checklist-item__drag-placeholder {

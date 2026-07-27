@@ -10,10 +10,13 @@ export function renderKeyValueListAddControl({
   return (
     <BlockAddGhost
       label={label}
-      presentation="row"
+      presentation="item"
       onClick={onClick}
       contentEditable={false}
       className={className}
-    />
+    >
+      <span className="sc-key-value-list__add-key">Key</span>
+      <span className="sc-key-value-list__add-value">Value</span>
+    </BlockAddGhost>
   );
 }

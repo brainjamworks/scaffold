@@ -24,6 +24,7 @@ import {
 } from "./content";
 import "./key-value-list-definition";
 import { KeyValueListAuthoringExtension } from "./key-value-list-authoring-extension";
+import { keyValueListBlockDefinition } from "./key-value-list-definition";
 
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
@@ -107,5 +108,25 @@ describe("key-value list block", () => {
     expect(fixture.json().content?.[0]?.content?.[1]?.type).toBe(KEY_VALUE_ROW_NODE);
 
     fixture.destroy();
+  });
+
+  it("renders an item-shaped add pair affordance", async () => {
+    const fixture = renderKeyValueListEditor();
+    const add = await screen.findByRole("button", { name: "Add item" });
+
+    expect(add.classList.contains("sc-ghost-add--item")).toBe(true);
+    expect(add.querySelector(".sc-key-value-list__add-key")).not.toBeNull();
+    expect(add.querySelector(".sc-key-value-list__add-value")).not.toBeNull();
+    fixture.destroy();
+  });
+
+  it("exposes icon-based layout choices in the block bubble menu", () => {
+    const layout = keyValueListBlockDefinition.quickMenu?.controls.find(
+      (control) => control.name === "layout",
+    );
+
+    expect(layout).toMatchObject({ kind: "select", presentation: "segmented" });
+    if (!layout || layout.kind !== "select") throw new Error("Expected layout quick-menu control.");
+    expect(layout.options?.every((option) => option.icon)).toBe(true);
   });
 });

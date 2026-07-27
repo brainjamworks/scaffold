@@ -104,6 +104,15 @@ function renderChecklistEditor(content: JSONContent = checklistFixture()) {
   return fixture;
 }
 
+it("renders an item-shaped add checklist affordance", async () => {
+  const fixture = renderChecklistEditor();
+  const add = await screen.findByRole("button", { name: "Add item" });
+
+  expect(add.classList.contains("sc-ghost-add--item")).toBe(true);
+  expect(add.querySelector(".sc-checklist-item__checkbox--ghost")).not.toBeNull();
+  fixture.destroy();
+});
+
 it("deletes the requested checklist item from a disposable editor fixture", async () => {
   const user = userEvent.setup();
   const fixture = renderChecklistEditor();

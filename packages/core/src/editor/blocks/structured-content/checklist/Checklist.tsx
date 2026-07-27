@@ -41,12 +41,15 @@ export function ChecklistAuthoringView(props: NodeViewProps) {
     <li className="sc-checklist-item sc-checklist-item--ghost" contentEditable={false}>
       <BlockAddGhost
         label="Add item"
-        presentation="row"
+        presentation="item"
         onClick={addItem}
         className="sc-checklist__add"
       >
         <span aria-hidden className="sc-checklist-item__drag-placeholder" />
-        <span aria-hidden className="sc-ghost-add__icon">
+        <span
+          aria-hidden
+          className="sc-checklist-item__checkbox sc-checklist-item__checkbox--ghost"
+        >
           <Plus size={12} weight="bold" />
         </span>
         <span className="sc-checklist__add-label">Add item</span>
