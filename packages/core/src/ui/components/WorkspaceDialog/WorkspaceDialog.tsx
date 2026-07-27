@@ -1,7 +1,10 @@
 import { XIcon as X } from "@phosphor-icons/react";
+import { FocusScope } from "@radix-ui/react-focus-scope";
+import { inertOthers } from "aria-hidden";
 import {
   forwardRef,
   useCallback,
+  useLayoutEffect,
   useState,
   type CSSProperties,
   type ComponentPropsWithoutRef,
@@ -9,10 +12,10 @@ import {
   type HTMLAttributes,
   type ReactNode,
 } from "react";
+import { RemoveScroll } from "react-remove-scroll";
 
 import { cn } from "@/lib/cn";
 import { zIndex } from "@/ui/overlays/z-index";
-
 import * as Dialog from "../Dialog/Dialog";
 import { IconButton, type IconButtonProps } from "../IconButton/IconButton";
 import { OverlayBoundary } from "../OverlayBoundary/OverlayBoundary";
@@ -50,7 +53,12 @@ function getWorkspaceDialogPresentationStyle(
   };
 }
 
-const Root = Dialog.Root;
+type WorkspaceDialogRootProps = Omit<ComponentPropsWithoutRef<typeof Dialog.Root>, "modal">;
+
+function Root(props: WorkspaceDialogRootProps) {
+  return <Dialog.Root {...props} modal={false} />;
+}
+
 const Trigger = Dialog.Trigger;
 
 interface WorkspaceDialogContentProps extends Omit<
@@ -64,6 +72,7 @@ interface WorkspaceDialogContentProps extends Omit<
 const Content = forwardRef<ComponentRef<typeof Dialog.Content>, WorkspaceDialogContentProps>(
   function Content({ children, className, size = "medium", style, ...rest }, ref) {
     const presentationStyle = getWorkspaceDialogPresentationStyle(size);
+    const [overlayElement, setOverlayElement] = useState<HTMLDivElement | null>(null);
     const [contentElement, setContentElement] = useState<ComponentRef<
       typeof Dialog.Content
     > | null>(null);
@@ -76,27 +85,53 @@ const Content = forwardRef<ComponentRef<typeof Dialog.Content>, WorkspaceDialogC
       [ref],
     );
 
+    useLayoutEffect(() => {
+      if (contentElement === null || overlayElement === null) {
+        return;
+      }
+      const portalHost = contentElement.parentElement;
+      if (portalHost === null || overlayElement.parentElement !== portalHost) return;
+      const isolationRoot = portalHost.parentElement;
+      if (isolationRoot === null) return;
+      return inertOthers(
+        [overlayElement, contentElement],
+        isolationRoot,
+        "data-sc-workspace-inert",
+      );
+    }, [contentElement, overlayElement]);
+
     return (
       <Dialog.Portal>
-        <Dialog.Overlay
+        <div
+          ref={setOverlayElement}
+          aria-hidden="true"
           className="sc-workspace-dialog-overlay"
+          data-state="open"
           style={{ zIndex: zIndex.modalBackdrop }}
         />
-        <Dialog.Content
-          {...rest}
-          ref={contentRef}
-          className={cn("sc-workspace-dialog-content", className)}
-          data-size={size}
-          style={{ ...presentationStyle, ...style, zIndex: zIndex.modalContent }}
-        >
-          <OverlayBoundary
-            collisionBoundary={contentElement}
-            container={contentElement}
-            kind="contained"
-          >
-            {children}
-          </OverlayBoundary>
-        </Dialog.Content>
+        <RemoveScroll allowPinchZoom forwardProps>
+          <FocusScope asChild loop trapped>
+            <Dialog.Content
+              {...rest}
+              ref={contentRef}
+              className={cn("sc-workspace-dialog-content", className)}
+              data-size={size}
+              onFocusOutside={(event) => {
+                rest.onFocusOutside?.(event);
+                if (!event.defaultPrevented) event.preventDefault();
+              }}
+              style={{ ...presentationStyle, ...style, zIndex: zIndex.modalContent }}
+            >
+              <OverlayBoundary
+                collisionBoundary={contentElement}
+                container={contentElement}
+                kind="contained"
+              >
+                {children}
+              </OverlayBoundary>
+            </Dialog.Content>
+          </FocusScope>
+        </RemoveScroll>
       </Dialog.Portal>
     );
   },

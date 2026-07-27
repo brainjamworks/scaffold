@@ -76,6 +76,35 @@ function ToolbarWorkspaceDialog({ onAdd }: { onAdd: () => void }) {
   );
 }
 
+function ContainedEditorWorkspaceDialog() {
+  const [container, setContainer] = useState<HTMLDivElement | null>(null);
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div ref={setContainer}>
+      <div data-testid="prosemirror-content">
+        <h2>Assessment heading</h2>
+        <p>Assessment content</p>
+        <output aria-live="polite">Editor status</output>
+        <OverlayBoundary container={container} kind="contained">
+          <WorkspaceDialog.Root open={open} onOpenChange={setOpen}>
+            <WorkspaceDialog.Trigger asChild>
+              <button type="button">Open contained workspace</button>
+            </WorkspaceDialog.Trigger>
+            <WorkspaceDialog.Content>
+              <WorkspaceDialog.Title>Edit assessment</WorkspaceDialog.Title>
+              <WorkspaceDialog.Description>
+                Edit the assessment in a contained workspace.
+              </WorkspaceDialog.Description>
+              <WorkspaceDialog.Close />
+            </WorkspaceDialog.Content>
+          </WorkspaceDialog.Root>
+        </OverlayBoundary>
+      </div>
+    </div>
+  );
+}
+
 function BoundaryProbe({
   onReady,
 }: {
@@ -182,6 +211,26 @@ describe("WorkspaceDialog", () => {
     expect(nestedHost.isConnected).toBe(false);
     expect(container.querySelector("[data-scaffold-overlay-host]")).toBeNull();
     container.remove();
+  });
+
+  it("does not apply modal isolation attributes inside contained editor content", async () => {
+    render(<ContainedEditorWorkspaceDialog />);
+    const editorContent = screen.getByTestId("prosemirror-content");
+    const heading = screen.getByRole("heading", { name: "Assessment heading" });
+    const paragraph = screen.getByText("Assessment content");
+
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: "Open contained workspace",
+      }),
+    );
+
+    expect(screen.getByRole("dialog", { name: "Edit assessment" })).toBeInTheDocument();
+    expect(editorContent.querySelector("[data-aria-hidden]")).toBeNull();
+    expect(editorContent).toHaveAttribute("data-sc-workspace-inert");
+    expect(editorContent).toHaveAttribute("inert");
+    expect(heading).not.toHaveAttribute("aria-hidden");
+    expect(paragraph).not.toHaveAttribute("aria-hidden");
   });
 
   it("closes with Escape and restores focus to its trigger", async () => {
