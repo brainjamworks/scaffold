@@ -18,6 +18,7 @@ import {
   buildLearnerActivityCompletedStatementDraft,
   buildLearnerActivityInteractedStatementDraft,
   buildLayoutSectionExperiencedStatementDraft,
+  buildQuizAttemptedStatementDraft,
   buildQuizCompletedStatementDraft,
   buildQuizSuccessStatementDraft,
   buildSurfaceExperiencedStatementDraft,
@@ -54,6 +55,10 @@ describe("xAPI catalogue vocabulary", () => {
       experienced: {
         id: "http://adlnet.gov/expapi/verbs/experienced",
         display: { en: "experienced" },
+      },
+      attempted: {
+        id: "http://adlnet.gov/expapi/verbs/attempted",
+        display: { en: "attempted" },
       },
       answered: {
         id: "http://adlnet.gov/expapi/verbs/answered",
@@ -789,6 +794,35 @@ describe("xAPI Statement catalogue builders", () => {
     });
   });
 
+  it("builds a Quiz attempted draft from authoritative Quiz and attempt identity", () => {
+    expect(
+      buildQuizAttemptedStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        quizId: "quiz-one",
+        attemptId: "attempt-one",
+      }),
+    ).toStrictEqual({
+      verb: XAPI_VERBS.attempted,
+      object: {
+        objectType: "Activity",
+        id: createQuizActivityId(ROOT_ACTIVITY_ID, "quiz-one"),
+        definition: { type: XAPI_ACTIVITY_TYPES.quiz },
+      },
+      context: {
+        contextActivities: {
+          parent: [
+            {
+              objectType: "Activity",
+              id: ROOT_ACTIVITY_ID,
+              definition: { type: XAPI_ACTIVITY_TYPES.course },
+            },
+          ],
+        },
+        extensions: { [XAPI_EXTENSIONS.quizAttemptId]: "attempt-one" },
+      },
+    });
+  });
+
   it("builds terminal quiz completion with a valid authoritative duration", () => {
     expect(
       buildQuizCompletedStatementDraft({
@@ -1051,6 +1085,12 @@ describe("xAPI catalogue invariants", () => {
         rootActivityId: ROOT_ACTIVITY_ID,
         blockId: "checklist-one",
         activityKind: "checklist",
+        ...privateCanaries,
+      }),
+      buildQuizAttemptedStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        quizId: "quiz-one",
+        attemptId: "attempt-one",
         ...privateCanaries,
       }),
       buildQuizCompletedStatementDraft({

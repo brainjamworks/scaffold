@@ -30,6 +30,7 @@ function immutableVerb(id: XapiIri, display: string): XapiVerb {
 export const XAPI_VERBS = Object.freeze({
   initialized: immutableVerb("http://adlnet.gov/expapi/verbs/initialized", "initialized"),
   experienced: immutableVerb("http://adlnet.gov/expapi/verbs/experienced", "experienced"),
+  attempted: immutableVerb("http://adlnet.gov/expapi/verbs/attempted", "attempted"),
   answered: immutableVerb("http://adlnet.gov/expapi/verbs/answered", "answered"),
   interacted: immutableVerb("http://adlnet.gov/expapi/verbs/interacted", "interacted"),
   completed: immutableVerb("http://adlnet.gov/expapi/verbs/completed", "completed"),
@@ -849,6 +850,15 @@ function quizStatementParts(input: QuizStatementInput): {
       },
     },
   };
+}
+
+export function buildQuizAttemptedStatementDraft(
+  input: QuizStatementInput,
+): XapiStatementDraft {
+  return validatedDraft({
+    verb: XAPI_VERBS.attempted,
+    ...quizStatementParts(input),
+  });
 }
 
 export function buildQuizCompletedStatementDraft(

@@ -19,7 +19,6 @@ import type { AssessmentPort } from "../../host/ports/assessment";
 import type { LearnerActivityPort } from "../../host/ports/learner-activity";
 import {
   createAssessmentStore,
-  scopeAssessmentGroupId,
   scopeAssessmentProblemId,
 } from "../assessment/assessment-store";
 import type {
@@ -472,7 +471,6 @@ async function recordTerminalQuiz(
   successStatus: "passed" | "failed",
 ): Promise<void> {
   const quizIdentity = identity(QUIZ_PROBLEM_ID, QUIZ_TARGET_ID);
-  const groupId = scopeAssessmentGroupId(ARTIFACT_ID, QUIZ_ID);
 
   expect(store.getState().register(registration(QUIZ_PROBLEM_ID, QUIZ_TARGET_ID))).toBe(true);
   expect(
@@ -482,12 +480,10 @@ async function recordTerminalQuiz(
       settings: quizSettings,
     }),
   ).toBe(true);
-  store.setState((state) => ({
-    durable: {
-      ...state.durable,
-      quizzes: { [groupId]: quizAttempt(groupId) },
-    },
-  }));
+  await expect(store.getState().startQuizAttempt({ groupId: QUIZ_ID })).resolves.toMatchObject({
+    attemptId: QUIZ_ATTEMPT_ID,
+    status: "in_progress",
+  });
   expect(store.getState().setLocalResponse(quizIdentity, { choice: LOCAL_RESPONSE_ID })).toBe(true);
   await expect(
     store.getState().submitQuizQuestion({ groupId: QUIZ_ID }, quizIdentity),
@@ -674,6 +670,7 @@ describe("Core xAPI conformance", () => {
       XAPI_VERBS.completed.id,
       XAPI_VERBS.answered.id,
       XAPI_VERBS.interacted.id,
+      XAPI_VERBS.attempted.id,
       XAPI_VERBS.answered.id,
       XAPI_VERBS.completed.id,
       XAPI_VERBS.passed.id,
@@ -753,6 +750,15 @@ describe("Core xAPI conformance", () => {
       },
     });
     expect(accepted[5]).toMatchObject({
+      object: { id: createQuizActivityId(ROOT_ACTIVITY_ID, QUIZ_ID) },
+      context: {
+        contextActivities: { parent: [{ id: ROOT_ACTIVITY_ID }] },
+        extensions: {
+          [XAPI_EXTENSIONS.quizAttemptId]: QUIZ_ATTEMPT_ID,
+        },
+      },
+    });
+    expect(accepted[6]).toMatchObject({
       object: {
         id: createAssessmentActivityId(ROOT_ACTIVITY_ID, QUIZ_TARGET_ID),
       },
@@ -771,7 +777,7 @@ describe("Core xAPI conformance", () => {
         },
       },
     });
-    expect(accepted[6]).toMatchObject({
+    expect(accepted[7]).toMatchObject({
       object: { id: createQuizActivityId(ROOT_ACTIVITY_ID, QUIZ_ID) },
       result: { completion: true, duration: "PT330S" },
       context: {
@@ -781,13 +787,13 @@ describe("Core xAPI conformance", () => {
         },
       },
     });
-    expect(accepted[7]).toMatchObject({
+    expect(accepted[8]).toMatchObject({
       result: {
         success: true,
         score: { scaled: 1, raw: 1, min: 0, max: 1 },
       },
     });
-    expect(accepted[8]).toMatchObject({
+    expect(accepted[9]).toMatchObject({
       object: { id: ROOT_ACTIVITY_ID },
       result: { duration: "PT30S" },
     });
@@ -806,12 +812,13 @@ describe("Core xAPI conformance", () => {
 
     expect(accepted.map((statement) => statement.verb.id)).toStrictEqual([
       XAPI_VERBS.initialized.id,
+      XAPI_VERBS.attempted.id,
       XAPI_VERBS.answered.id,
       XAPI_VERBS.completed.id,
       XAPI_VERBS.failed.id,
       XAPI_VERBS.terminated.id,
     ]);
-    expect(accepted[3]).toMatchObject({
+    expect(accepted[4]).toMatchObject({
       result: {
         success: false,
         score: { scaled: 0.25, raw: 0.25, min: 0, max: 1 },

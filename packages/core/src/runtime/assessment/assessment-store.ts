@@ -19,6 +19,7 @@ import {
 import {
   buildAnsweredStatementDraft,
   buildHintInteractedStatementDraft,
+  buildQuizAttemptedStatementDraft,
   buildQuizCompletedStatementDraft,
   buildQuizSuccessStatementDraft,
 } from "../xapi/statement-catalogue";
@@ -362,6 +363,30 @@ export function createAssessmentStore({
       currentDurable: AssessmentDurableState,
       attempt: QuizAttemptState,
     ): void => {
+      const previousAttempt = previousDurable.quizzes[registration.groupId];
+      if (operation === "quiz-start") {
+        if (
+          attempt.status !== "in_progress" ||
+          previousAttempt?.attemptId === attempt.attemptId
+        ) {
+          return;
+        }
+        try {
+          const session = getXapiSession?.();
+          if (!session) return;
+          session.record(
+            buildQuizAttemptedStatementDraft({
+              rootActivityId: session.rootActivityId,
+              quizId: registration.authoredGroupId,
+              attemptId: attempt.attemptId,
+            }),
+          );
+        } catch {
+          // Learning-record failure cannot change an authoritative Quiz start.
+        }
+        return;
+      }
+
       if (
         operation !== "quiz-submit-question" &&
         operation !== "quiz-finish" &&
@@ -370,7 +395,6 @@ export function createAssessmentStore({
         return;
       }
 
-      const previousAttempt = previousDurable.quizzes[registration.groupId];
       const newlyTerminal =
         previousAttempt?.attemptId === attempt.attemptId &&
         previousAttempt.status === "in_progress" &&
