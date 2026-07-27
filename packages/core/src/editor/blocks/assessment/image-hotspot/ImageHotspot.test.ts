@@ -182,12 +182,14 @@ function renderRuntimeEditor(
   editor: Editor,
   assessmentPort: AssessmentPort,
   initialSnapshot?: unknown,
+  mediaPort?: MediaPort,
 ) {
   render(
     createAssessmentRuntimeTestRoot({
       assessment: assessmentPort,
       children: createElement(EditorContent, { editor }),
       initialSnapshot,
+      media: mediaPort,
       onStore: captureAssessmentStore,
     }),
   );
@@ -2192,6 +2194,61 @@ describe("composite image_hotspot node", () => {
         name: "Close expanded hotspot workspace",
       }),
     );
+
+    editor.destroy();
+  });
+
+  it("renders a managed hotspot image after its media URL resolves", async () => {
+    const editor = makeRuntimeEditor();
+    editor.setEditable(false);
+    const block = imageHotspotBlock("hs-runtime-managed-image");
+    const canvas = block.content?.find((node) => node.type === "image_hotspot_canvas");
+    if (!canvas) throw new Error("expected image hotspot canvas");
+    canvas.attrs = {
+      data: {
+        ...sampleCanvasData,
+        image: {
+          mode: "managed",
+          mediaId: "managed-hotspot-image",
+          alt: "managed sample",
+        },
+      },
+    };
+    editor.commands.setContent({
+      type: "doc",
+      content: [block],
+    });
+
+    let resolveMediaUrl!: (url: string) => void;
+    const mediaUrl = new Promise<string>((resolve) => {
+      resolveMediaUrl = resolve;
+    });
+    const mediaPort: MediaPort = {
+      resolve: async () => mediaUrl,
+      upload: async () => {
+        throw new Error("not used");
+      },
+      list: async () => [],
+    };
+
+    renderRuntimeEditor(
+      editor,
+      {
+        type: "runtime",
+        submit: async (args) =>
+          assessmentProblemOutcome(
+            { ...canonicalAssessmentResult, isCorrect: true, score: 1 },
+            { response: args.response },
+          ),
+      },
+      undefined,
+      mediaPort,
+    );
+
+    expect(await screen.findByText("Image not configured.")).toBeInTheDocument();
+    resolveMediaUrl("https://cdn.example.test/managed-hotspot-image.png");
+
+    expect(await screen.findByAltText("managed sample")).toBeInTheDocument();
 
     editor.destroy();
   });

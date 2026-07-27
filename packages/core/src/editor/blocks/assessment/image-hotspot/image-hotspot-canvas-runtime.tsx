@@ -171,6 +171,7 @@ function RuntimeCanvas({
   const containerRef = useRef<HTMLDivElement>(null);
   const fitStageRef = useRef<HTMLDivElement>(null);
   const [workspaceOpen, setWorkspaceOpen] = useState(false);
+  const surfaceDescriptionId = useId();
 
   const image = data.image;
   const externalSrc = image?.mode === "external" ? image.src : null;
@@ -266,7 +267,6 @@ function RuntimeCanvas({
   };
 
   const correctHotspots = data.hotspots.filter((h) => revealCorrectIds.has(h.id));
-  const surfaceDescriptionId = useId();
   const surfaceDescription = describeImageHotspotSurfaceAccessibilityState({
     clickCount: problem?.clicks.length ?? 0,
     maxClicks: data.maxClicks,
