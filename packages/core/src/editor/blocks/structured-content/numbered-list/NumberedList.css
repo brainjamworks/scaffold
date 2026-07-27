@@ -36,6 +36,7 @@
 .sc-numbered-list__add {
   display: flex;
   align-items: center;
+  gap: 0.875rem;
   min-height: 2.25rem;
   width: 100%;
   margin-top: 0.75rem;
@@ -49,8 +50,6 @@
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  margin-right: 0.875rem;
-  margin-left: -3.25rem;
   border: 1px dashed currentColor;
   border-radius: 9999px;
   background: var(--color-background);

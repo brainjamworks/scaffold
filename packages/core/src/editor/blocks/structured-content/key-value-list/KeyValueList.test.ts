@@ -115,6 +115,7 @@ describe("key-value list block", () => {
     const add = await screen.findByRole("button", { name: "Add item" });
 
     expect(add.classList.contains("sc-ghost-add--item")).toBe(true);
+    expect(add.querySelector(".sc-key-value-list__add-marker")).not.toBeNull();
     expect(add.querySelector(".sc-key-value-list__add-key")).not.toBeNull();
     expect(add.querySelector(".sc-key-value-list__add-value")).not.toBeNull();
     fixture.destroy();
