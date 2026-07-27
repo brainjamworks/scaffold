@@ -91,8 +91,8 @@ describe("XapiRuntimeProvider", () => {
     const getRandomValues = vi.fn(<T extends ArrayBufferView | null>(array: T): T => {
       if (array instanceof Uint8Array) {
         array.set([
-          0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd,
-          0xee, 0xff,
+          0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee,
+          0xff,
         ]);
       }
       return array;
@@ -101,12 +101,7 @@ describe("XapiRuntimeProvider", () => {
     const port = createPort();
 
     render(
-      <RuntimeRoot
-        artifactId="course-one"
-        autoStart
-        port={port}
-        onObservation={() => undefined}
-      />,
+      <RuntimeRoot artifactId="course-one" autoStart port={port} onObservation={() => undefined} />,
     );
 
     await waitFor(() => expect(port.send).toHaveBeenCalledTimes(1));
