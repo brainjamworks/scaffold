@@ -19,6 +19,7 @@ import {
   buildLearnerActivityInteractedStatementDraft,
   buildLayoutSectionExperiencedStatementDraft,
   buildResourceLaunchedStatementDraft,
+  buildResourcePageExperiencedStatementDraft,
   buildQuizAttemptedStatementDraft,
   buildQuizCompletedStatementDraft,
   buildQuizSuccessStatementDraft,
@@ -30,6 +31,7 @@ import {
   createLayoutSectionActivityId,
   createQuizActivityId,
   createResourceActivityId,
+  createResourcePageActivityId,
   createSurfaceActivityId,
   encodeAssessmentResponse,
   isXapiLearnerActivityKind,
@@ -100,6 +102,7 @@ describe("xAPI catalogue vocabulary", () => {
       layoutSection: "https://scaffold.ac/xapi/activity-types/layout-section",
       hint: "https://scaffold.ac/xapi/activity-types/hint",
       resource: "https://scaffold.ac/xapi/activity-types/resource",
+      resourcePage: "https://scaffold.ac/xapi/activity-types/resource-page",
     });
     expect(XAPI_EXTENSIONS).toStrictEqual({
       assessmentAttemptNumber: "https://scaffold.ac/xapi/extensions/assessment-attempt-number",
@@ -115,6 +118,8 @@ describe("xAPI catalogue vocabulary", () => {
       layoutSectionCount: "https://scaffold.ac/xapi/extensions/layout-section-count",
       hintNumber: "https://scaffold.ac/xapi/extensions/hint-number",
       resourceKind: "https://scaffold.ac/xapi/extensions/resource-kind",
+      resourcePageNumber: "https://scaffold.ac/xapi/extensions/resource-page-number",
+      resourcePageCount: "https://scaffold.ac/xapi/extensions/resource-page-count",
     });
 
     expect(Object.isFrozen(XAPI_VERBS)).toBe(true);
@@ -390,6 +395,9 @@ describe("xAPI Activity identities", () => {
     expect(createResourceActivityId(ROOT_ACTIVITY_ID, "resource-one")).toBe(
       "https://scaffold.ac/xapi/activities/resource?root=https%3A%2F%2Flms.example.test%2Fcourses%2Fcourse-one&id=resource-one",
     );
+    expect(createResourcePageActivityId(ROOT_ACTIVITY_ID, "resource-one", 2)).toBe(
+      "https://scaffold.ac/xapi/activities/resource-page?root=https%3A%2F%2Flms.example.test%2Fcourses%2Fcourse-one&resource=resource-one&number=2",
+    );
   });
 
   it("uses strict RFC 3986 encoding with uppercase escapes and no plus-space encoding", () => {
@@ -409,6 +417,7 @@ describe("xAPI Activity identities", () => {
     () => createHintActivityId(ROOT_ACTIVITY_ID, "question-one", 0),
     () => createHintActivityId(ROOT_ACTIVITY_ID, "question-one", 1.5),
     () => createResourceActivityId(ROOT_ACTIVITY_ID, ""),
+    () => createResourcePageActivityId(ROOT_ACTIVITY_ID, "resource-one", 0),
   ])("rejects an invalid root, local identity, or hint number", (deriveIdentity) => {
     expect(deriveIdentity).toThrow();
   });
@@ -455,6 +464,46 @@ describe("xAPI Statement catalogue builders", () => {
         }),
       ),
     ).not.toContain("example.com/sample.pdf");
+  });
+
+  it("builds an experienced PDF page parented by its resource", () => {
+    expect(
+      buildResourcePageExperiencedStatementDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        resourceId: "resource-one",
+        pageNumber: 2,
+        pageCount: 8,
+      }),
+    ).toStrictEqual({
+      verb: XAPI_VERBS.experienced,
+      object: {
+        objectType: "Activity",
+        id: createResourcePageActivityId(ROOT_ACTIVITY_ID, "resource-one", 2),
+        definition: {
+          type: XAPI_ACTIVITY_TYPES.resourcePage,
+          extensions: {
+            [XAPI_EXTENSIONS.resourcePageNumber]: 2,
+            [XAPI_EXTENSIONS.resourcePageCount]: 8,
+          },
+        },
+      },
+      context: {
+        contextActivities: {
+          parent: [
+            {
+              objectType: "Activity",
+              id: createResourceActivityId(ROOT_ACTIVITY_ID, "resource-one"),
+              definition: {
+                type: XAPI_ACTIVITY_TYPES.resource,
+                extensions: {
+                  [XAPI_EXTENSIONS.resourceKind]: "pdf",
+                },
+              },
+            },
+          ],
+        },
+      },
+    });
   });
 
   it("builds initialized with the root course Activity and a normalized title", () => {

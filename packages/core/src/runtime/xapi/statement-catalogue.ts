@@ -49,6 +49,7 @@ export const XAPI_ACTIVITY_TYPES = Object.freeze({
   layoutSection: "https://scaffold.ac/xapi/activity-types/layout-section",
   hint: "https://scaffold.ac/xapi/activity-types/hint",
   resource: "https://scaffold.ac/xapi/activity-types/resource",
+  resourcePage: "https://scaffold.ac/xapi/activity-types/resource-page",
 });
 
 export const XAPI_EXTENSIONS = Object.freeze({
@@ -65,6 +66,8 @@ export const XAPI_EXTENSIONS = Object.freeze({
   layoutSectionCount: "https://scaffold.ac/xapi/extensions/layout-section-count",
   hintNumber: "https://scaffold.ac/xapi/extensions/hint-number",
   resourceKind: "https://scaffold.ac/xapi/extensions/resource-kind",
+  resourcePageNumber: "https://scaffold.ac/xapi/extensions/resource-page-number",
+  resourcePageCount: "https://scaffold.ac/xapi/extensions/resource-page-count",
 });
 
 const XAPI_LEARNER_ACTIVITY_KINDS = ["flashcard", "checklist"] as const;
@@ -133,6 +136,20 @@ export function createSurfaceActivityId(rootId: XapiIri, surfaceId: string): Xap
 
 export function createResourceActivityId(rootId: XapiIri, resourceId: string): XapiIri {
   return createChildActivityId("resource", rootId, requiredIdentity("resourceId", resourceId));
+}
+
+export function createResourcePageActivityId(
+  rootId: XapiIri,
+  resourceId: string,
+  pageNumber: number,
+): XapiIri {
+  return derivedActivityId(
+    `https://scaffold.ac/xapi/activities/resource-page?root=${rfc3986Encode(
+      rootActivityId(rootId),
+    )}&resource=${rfc3986Encode(
+      requiredIdentity("resourceId", resourceId),
+    )}&number=${positiveInteger("pageNumber", pageNumber)}`,
+  );
 }
 
 export function createLayoutSectionActivityId(
@@ -446,6 +463,30 @@ function resourceActivity(input: {
   };
 }
 
+function resourcePageActivity(input: {
+  readonly rootActivityId: XapiIri;
+  readonly resourceId: string;
+  readonly pageNumber: number;
+  readonly pageCount: number;
+}): XapiActivity {
+  const pageNumber = positiveInteger("pageNumber", input.pageNumber);
+  const pageCount = positiveInteger("pageCount", input.pageCount);
+  if (pageNumber > pageCount) {
+    throw new Error("pageNumber must not exceed pageCount");
+  }
+  return {
+    objectType: "Activity",
+    id: createResourcePageActivityId(input.rootActivityId, input.resourceId, pageNumber),
+    definition: {
+      type: XAPI_ACTIVITY_TYPES.resourcePage,
+      extensions: {
+        [XAPI_EXTENSIONS.resourcePageNumber]: pageNumber,
+        [XAPI_EXTENSIONS.resourcePageCount]: pageCount,
+      },
+    },
+  };
+}
+
 function surfaceActivity(input: {
   readonly rootActivityId: XapiIri;
   readonly surfaceId: string;
@@ -579,6 +620,25 @@ export function buildResourceLaunchedStatementDraft(input: {
     verb: XAPI_VERBS.launched,
     object: resourceActivity(input),
     context: parentContext(rootActivity(input.rootActivityId)),
+  });
+}
+
+export function buildResourcePageExperiencedStatementDraft(input: {
+  readonly rootActivityId: XapiIri;
+  readonly resourceId: string;
+  readonly pageNumber: number;
+  readonly pageCount: number;
+}): XapiStatementDraft {
+  return validatedDraft({
+    verb: XAPI_VERBS.experienced,
+    object: resourcePageActivity(input),
+    context: parentContext(
+      resourceActivity({
+        rootActivityId: input.rootActivityId,
+        resourceId: input.resourceId,
+        resourceKind: "pdf",
+      }),
+    ),
   });
 }
 

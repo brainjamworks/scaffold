@@ -119,12 +119,16 @@ export function PdfEmbedSurface({
   mediaPort,
   onAdd,
   onOpen,
+  onPagePresented,
+  presented = true,
 }: {
   data: PdfEmbedData;
   editable: boolean;
   mediaPort: MediaPortLite | null;
   onAdd?: () => void;
   onOpen?: () => void;
+  onPagePresented?: (page: { pageNumber: number; pageCount: number }) => void;
+  presented?: boolean;
 }) {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const generatedId = useId();
@@ -230,6 +234,18 @@ export function PdfEmbedSurface({
       setPageNumber(numPages);
     }
   }, [numPages, pageNumber]);
+
+  useEffect(() => {
+    if (
+      !presented ||
+      !onPagePresented ||
+      numPages === null ||
+      pageDimensions?.pageNumber !== pageNumber
+    ) {
+      return;
+    }
+    onPagePresented({ pageNumber, pageCount: numPages });
+  }, [numPages, onPagePresented, pageDimensions?.pageNumber, pageNumber, presented]);
 
   const goToPage = useCallback(
     (next: number) => {
