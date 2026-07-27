@@ -4,12 +4,18 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Annotated release tag to retry"
+        required: true
+        type: "string"
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-candidate-${{ github.ref }}
+  group: release-candidate-${{ inputs.tag || github.ref }}
   cancel-in-progress: false
 
 defaults:
@@ -36,11 +42,12 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Validate tag, commit, and coordinated versions
         id: identity
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           set -euo pipefail
 
@@ -253,6 +260,9 @@ jobs:
 
       - name: Install workspace dependencies
         run: vp install
+
+      - name: Build workspace dependencies
+        run: vp run verify:build
 
       - name: Package XBlock
         run: vp run @scaffold/adapter-xblock#package

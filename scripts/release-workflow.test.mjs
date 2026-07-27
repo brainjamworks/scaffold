@@ -21,10 +21,22 @@ function actionReferences(workflow) {
   );
 }
 
-test("release workflow is tag-driven and candidate-only", () => {
+test("release workflow is tag-selected, retryable, and candidate-only", () => {
   const { source, workflow } = loadWorkflow();
 
-  assert.deepEqual(workflow.on, { push: { tags: ["v*.*.*"] } });
+  assert.deepEqual(workflow.on, {
+    push: { tags: ["v*.*.*"] },
+    workflow_dispatch: {
+      inputs: {
+        tag: {
+          description: "Annotated release tag to retry",
+          required: true,
+          type: "string",
+        },
+      },
+    },
+  });
+  assert.equal(workflow.concurrency.group, "release-candidate-${{ inputs.tag || github.ref }}");
   assert.equal(workflow.concurrency["cancel-in-progress"], false);
   assert.deepEqual(Object.keys(workflow.jobs), ["gate", "package", "attest", "draft"]);
   assert.deepEqual(workflow.jobs.package.needs, "gate");
@@ -65,6 +77,12 @@ test("release workflow pins its build environment and revalidates tag identity",
   assert.equal(setupVp.with["node-version"], "24.18.0");
   assert.equal(setupPython.with["python-version"], "3.12.10");
 
+  const checkout = workflow.jobs.gate.steps.find((step) => step.name === "Checkout tagged source");
+  const identity = workflow.jobs.gate.steps.find(
+    (step) => step.name === "Validate tag, commit, and coordinated versions",
+  );
+  assert.equal(checkout.with.ref, "${{ inputs.tag || github.ref }}");
+  assert.equal(identity.env.RELEASE_TAG, "${{ inputs.tag || github.ref_name }}");
   assert.match(source, /tag_object=/);
   assert.match(source, /git\/ref\/tags\/\$RELEASE_TAG/);
   assert.match(source, /git\/tags\/\$EXPECTED_TAG_OBJECT/);
@@ -145,6 +163,19 @@ test("release package downloads the exact tested Moodle candidate from the selec
     (step) => step.name === "Create or safely complete the draft",
   );
   assert.match(draft.run, /release-evidence\.json/);
+});
+
+test("release workflow builds workspace dependencies before packaging the XBlock", () => {
+  const { workflow } = loadWorkflow();
+  const steps = workflow.jobs.package.steps;
+  const buildIndex = steps.findIndex((step) => step.name === "Build workspace dependencies");
+  const packageIndex = steps.findIndex((step) => step.name === "Package XBlock");
+
+  assert.notEqual(buildIndex, -1);
+  assert.notEqual(packageIndex, -1);
+  assert.ok(buildIndex < packageIndex);
+  assert.equal(steps[buildIndex].run, "vp run verify:build");
+  assert.equal(steps[packageIndex].run, "vp run @scaffold/adapter-xblock#package");
 });
 
 test("release workflow pins every action to a full commit SHA", () => {
