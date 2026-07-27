@@ -80,6 +80,9 @@ export function createIsolatedScaffoldFrame<TInitPayload = unknown>({
       iframe.style.height = `${nextHeight}px`;
       onHeightChanged?.(nextHeight);
     },
+    onScrollRequested(deltaY) {
+      window.scrollBy({ top: deltaY, left: 0, behavior: "auto" });
+    },
     ...(onDirtyChanged ? { onDirtyChanged } : {}),
     ...(onFatalError ? { onFatalError } : {}),
     ...(onRequest

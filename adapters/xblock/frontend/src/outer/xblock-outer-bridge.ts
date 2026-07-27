@@ -30,6 +30,7 @@ export interface XBlockOuterBridgeOptions<TInitPayload = unknown> {
   initPayload: TInitPayload;
   onReady?: (payload: unknown) => void;
   onHeightChanged?: (height: number) => void;
+  onScrollRequested?: (deltaY: number) => void;
   onDirtyChanged?: (dirty: boolean) => void;
   onFatalError?: (payload: unknown) => void;
   onRequest?: (request: XBlockBridgeRequest) => void;
@@ -144,6 +145,12 @@ function handleLifecycleMessage(
       options.onHeightChanged?.(readHeightPayload(message.payload));
       return;
 
+    case "inner.scrollRequested": {
+      const deltaY = readScrollDeltaPayload(message.payload);
+      if (deltaY !== 0) options.onScrollRequested?.(deltaY);
+      return;
+    }
+
     case "inner.dirtyChanged":
       options.onDirtyChanged?.(readDirtyPayload(message.payload));
       return;
@@ -155,6 +162,12 @@ function handleLifecycleMessage(
     default:
       return;
   }
+}
+
+function readScrollDeltaPayload(payload: unknown): number {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return 0;
+  const deltaY = (payload as Record<string, unknown>).deltaY;
+  return typeof deltaY === "number" && Number.isFinite(deltaY) ? deltaY : 0;
 }
 
 function readHeightPayload(payload: unknown): number {

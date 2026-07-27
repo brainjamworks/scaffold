@@ -91,12 +91,13 @@ describe("XBlock iframe lifecycle bridge", () => {
     expect(innerWindow.sent).toEqual([]);
   });
 
-  it("reports height and dirty-state lifecycle messages to the outer shell", () => {
+  it("reports height, dirty-state, and host-scroll lifecycle messages to the outer shell", () => {
     const innerWindow = new FakeWindowTarget();
     const outerHost = new FakeMessageHost();
     const innerSource = {};
     const heights: number[] = [];
     const dirtyStates: boolean[] = [];
+    const scrollDeltas: number[] = [];
 
     createXBlockOuterBridge({
       sessionId: "session-1",
@@ -110,6 +111,9 @@ describe("XBlock iframe lifecycle bridge", () => {
       },
       onDirtyChanged(dirty) {
         dirtyStates.push(dirty);
+      },
+      onScrollRequested(deltaY) {
+        scrollDeltas.push(deltaY);
       },
     });
 
@@ -131,12 +135,22 @@ describe("XBlock iframe lifecycle bridge", () => {
       origin: "https://studio.example",
       source: innerSource,
     });
+    outerHost.emit({
+      data: createXBlockBridgeLifecycleMessage({
+        sessionId: "session-1",
+        type: "inner.scrollRequested",
+        payload: { deltaY: 96 },
+      }),
+      origin: "https://studio.example",
+      source: innerSource,
+    });
 
     expect(heights).toEqual([482]);
     expect(dirtyStates).toEqual([true]);
+    expect(scrollDeltas).toEqual([96]);
   });
 
-  it("inner bridge sends ready and height messages to the expected parent origin", () => {
+  it("inner bridge sends ready, height, and host-scroll messages to the expected parent origin", () => {
     const parentWindow = new FakeWindowTarget();
     const innerHost = new FakeMessageHost();
 
@@ -158,6 +172,15 @@ describe("XBlock iframe lifecycle bridge", () => {
       onInit() {},
     }).reportHeight(299.1);
 
+    createXBlockInnerBridge({
+      sessionId: "session-3",
+      expectedParentOrigin: "https://studio.example",
+      parentWindow,
+      parentSource: {},
+      messageHost: innerHost,
+      onInit() {},
+    }).requestHostScroll(96);
+
     expect(parentWindow.sent).toEqual([
       {
         message: createXBlockBridgeLifecycleMessage({
@@ -172,6 +195,14 @@ describe("XBlock iframe lifecycle bridge", () => {
           sessionId: "session-2",
           type: "inner.heightChanged",
           payload: { height: 300 },
+        }),
+        targetOrigin: "https://studio.example",
+      },
+      {
+        message: createXBlockBridgeLifecycleMessage({
+          sessionId: "session-3",
+          type: "inner.scrollRequested",
+          payload: { deltaY: 96 },
         }),
         targetOrigin: "https://studio.example",
       },

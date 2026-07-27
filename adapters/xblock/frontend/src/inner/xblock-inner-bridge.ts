@@ -32,6 +32,7 @@ export interface XBlockInnerBridge {
   ): Promise<TResult>;
   sendReady(payload?: Record<string, unknown>): void;
   reportHeight(height: number): void;
+  requestHostScroll(deltaY: number): void;
   reportDirty(dirty: boolean): void;
   reportFatalError(payload: unknown): void;
 }
@@ -129,6 +130,16 @@ export function createXBlockInnerBridge<TInitPayload = unknown>(
           payload: {
             height: Math.max(0, Math.ceil(height)),
           },
+        }),
+      );
+    },
+
+    requestHostScroll(deltaY) {
+      postToParent(
+        createXBlockBridgeLifecycleMessage({
+          sessionId: options.sessionId,
+          type: "inner.scrollRequested",
+          payload: { deltaY },
         }),
       );
     },

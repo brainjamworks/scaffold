@@ -64,12 +64,73 @@ export function mountXBlockInner({ view, mount }: MountXBlockInnerOptions): void
   resizeObserver?.observe(root);
 
   window.addEventListener("load", reportHeight);
+  installWheelScrollForwarding(document, (deltaY) => {
+    bridge.requestHostScroll(deltaY);
+  });
   bridge.sendReady({ view, height: readDocumentHeight(root) });
 }
 
 export function readDocumentHeight(root?: HTMLElement | null): number {
   if (!(root instanceof HTMLElement)) return 0;
   return Math.max(root.scrollHeight, root.offsetHeight, root.clientHeight);
+}
+
+export function installWheelScrollForwarding(
+  documentHost: Document,
+  requestHostScroll: (deltaY: number) => void,
+): () => void {
+  const handleWheel = (event: WheelEvent) => {
+    if (
+      event.defaultPrevented ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey ||
+      event.deltaY === 0 ||
+      Math.abs(event.deltaX) > Math.abs(event.deltaY) ||
+      canConsumeVerticalWheel(event.target, event.deltaY, documentHost)
+    ) {
+      return;
+    }
+
+    event.preventDefault();
+    requestHostScroll(normalizeWheelDelta(event, documentHost.defaultView));
+  };
+
+  documentHost.addEventListener("wheel", handleWheel, { passive: false });
+  return () => documentHost.removeEventListener("wheel", handleWheel);
+}
+
+function canConsumeVerticalWheel(
+  target: EventTarget | null,
+  deltaY: number,
+  documentHost: Document,
+): boolean {
+  let element = target instanceof Element ? target : null;
+  while (element) {
+    const style = documentHost.defaultView?.getComputedStyle(element);
+    const overflowY = style?.overflowY;
+    const scrollable =
+      overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay";
+
+    if (scrollable && element.scrollHeight > element.clientHeight) {
+      const maxScrollTop = element.scrollHeight - element.clientHeight;
+      if (
+        (deltaY < 0 && element.scrollTop > 0) ||
+        (deltaY > 0 && element.scrollTop < maxScrollTop)
+      ) {
+        return true;
+      }
+    }
+
+    element = element.parentElement;
+  }
+  return false;
+}
+
+function normalizeWheelDelta(event: WheelEvent, windowHost: Window | null): number {
+  if (event.deltaMode === 1) return event.deltaY * 16;
+  if (event.deltaMode === 2) return event.deltaY * (windowHost?.innerHeight ?? 800);
+  return event.deltaY;
 }
 
 function renderFatalError(root: HTMLElement, message: string): void {

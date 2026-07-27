@@ -28,6 +28,7 @@ export const SCAFFOLD_XBLOCK_BRIDGE_LIFECYCLE_TYPES = [
   "inner.ready",
   "outer.init",
   "inner.heightChanged",
+  "inner.scrollRequested",
   "inner.dirtyChanged",
   "inner.fatalError",
   "outer.hostActionResult",

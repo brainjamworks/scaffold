@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import { createXBlockBridgeLifecycleMessage } from "../bridge/protocol";
 import { createIsolatedScaffoldFrame } from "./create-isolated-scaffold-frame";
@@ -69,6 +69,35 @@ describe("createIsolatedScaffoldFrame", () => {
     expect(frame.iframe.style.height).toBe("280px");
     expect(heightChanges).toEqual([642, 280]);
 
+    frame.destroy();
+  });
+
+  it("scrolls the host window when the inner document cannot consume a wheel gesture", () => {
+    const container = document.createElement("div");
+    const scrollBy = vi.spyOn(window, "scrollBy").mockImplementation(() => undefined);
+    document.body.append(container);
+
+    const frame = createIsolatedScaffoldFrame({
+      container,
+      innerUrl: "https://scaffold.example/student-inner.html",
+      sessionId: "session-scroll",
+      initPayload: {},
+      title: "Scaffold content",
+    });
+
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: createXBlockBridgeLifecycleMessage({
+          sessionId: "session-scroll",
+          type: "inner.scrollRequested",
+          payload: { deltaY: 72 },
+        }),
+        origin: "https://scaffold.example",
+        source: frame.iframe.contentWindow,
+      }),
+    );
+
+    expect(scrollBy).toHaveBeenCalledWith({ top: 72, left: 0, behavior: "auto" });
     frame.destroy();
   });
 });
