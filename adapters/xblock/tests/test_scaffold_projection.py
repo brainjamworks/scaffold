@@ -3305,6 +3305,23 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertEqual(event, "grade")
         self.assertEqual(payload, {"value": 1.0, "max_value": 1.0})
 
+    def test_submit_assessment_uses_canonical_string_artifact_id(self):
+        block = make_xblock([single_select_target()])
+        block._artifact_id = lambda: "canonical-usage-v1"
+
+        result = block.submit_assessment(
+            {
+                "problemId": "artifact:canonical-usage-v1/block:mcq-1",
+                "targetId": "mcq-1",
+                "interactionKind": "single-select",
+                "response": {"kind": "single-select", "optionId": "b"},
+                "expectedAttemptNumber": 0,
+            },
+        )
+
+        self.assertTrue(result["success"])
+        self.assertTrue(result["isCorrect"])
+
     def test_submit_assessment_persists_one_canonical_problem_snapshot(self):
         block = make_xblock([single_select_target()])
 

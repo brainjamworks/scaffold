@@ -631,7 +631,7 @@ class ScaffoldXBlock(ScorableXBlockMixin, XBlock):
             data,
             action,
             assessment_targets,
-            self.scope_ids.usage_id,
+            self._artifact_id(),
             attempt_count,
             persist=persist,
             assessment_groups=assessment_groups,
