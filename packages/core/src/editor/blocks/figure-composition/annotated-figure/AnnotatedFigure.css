@@ -374,9 +374,37 @@
     color: var(--color-error-text);
   }
 
-  .sc-annotated-figure__caption-popover .sc-popover-surface {
-    width: min(22rem, var(--sc-overlay-available-inline-size, 22rem));
-    max-block-size: min(18rem, var(--sc-overlay-available-block-size, 18rem));
+  .sc-annotated-figure__title-field,
+  .sc-annotated-figure-workspace__title-field {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    padding: 0.25rem 0.375rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--color-background) 84%, var(--color-muted));
+    color: var(--color-ink);
+    font: inherit;
+    font-weight: 600;
+    outline: none;
+    cursor: text;
+    transition:
+      border-color var(--default-transition-duration) var(--ease-out-soft),
+      background var(--default-transition-duration) var(--ease-out-soft),
+      box-shadow var(--default-transition-duration) var(--ease-out-soft);
+  }
+
+  .sc-annotated-figure__title-field:focus,
+  .sc-annotated-figure-workspace__title-field:focus {
+    border-color: var(--color-focus-ring);
+    background: var(--color-background);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-focus-ring) 18%, transparent);
+  }
+
+  .sc-annotated-figure__annotation-title {
+    display: block;
+    margin-block-end: 0.125rem;
+    font-weight: 600;
   }
 
   .sc-annotated-figure__runtime-caption-host {
@@ -440,6 +468,10 @@
   .sc-annotated-figure__caption-editor,
   .sc-annotated-figure__caption-field {
     min-height: 3rem;
+  }
+
+  .sc-annotated-figure-workspace__title-field {
+    margin-block-end: 0.5rem;
   }
 
   .sc-annotated-figure__caption-field:focus-visible {
@@ -548,5 +580,15 @@
     .sc-annotated-figure__legend {
       transition: none;
     }
+  }
+}
+
+@layer sc-overlays {
+  .sc-annotated-figure__caption-popover .sc-popover-surface {
+    width: auto;
+    inline-size: max-content;
+    min-inline-size: min(14rem, var(--sc-overlay-available-inline-size, 14rem));
+    max-inline-size: min(28rem, var(--sc-overlay-available-inline-size, 28rem));
+    max-block-size: min(18rem, var(--sc-overlay-available-block-size, 18rem));
   }
 }

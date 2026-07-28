@@ -18,6 +18,7 @@ export const DEFAULT_ANNOTATED_FIGURE_CAPTION_DISPLAY =
 export const AnnotatedFigureAnnotationAttrsSchema = z
   .object({
     id: z.string().min(1),
+    title: z.string().default(""),
     /** 0-100 percentage from the image's left edge. */
     x: z.number().finite().min(0).max(100),
     /** 0-100 percentage from the image's top edge. */

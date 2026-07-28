@@ -1,6 +1,8 @@
 import {
   CaretDownIcon as CaretDown,
   CaretUpIcon as CaretUp,
+  InfoIcon as Info,
+  TrashIcon as Trash,
   XIcon as X,
 } from "@phosphor-icons/react";
 import {
@@ -41,6 +43,7 @@ import { EditableOverlayPopover } from "@/editor/rich-text/authoring/nested-over
 import { focusTextSelectionNear, selectNodeAt } from "@/editor/selection/selection-commands";
 import { useMediaPort } from "@/host/providers/ScaffoldServicesProvider";
 import { WorkspaceDialog } from "@/ui/components/WorkspaceDialog/WorkspaceDialog";
+import { iconSm, iconXs } from "@/ui/tokens/icon-sizes";
 import {
   AnnotatedFigureDataSchema,
   type AnnotatedFigureData,
@@ -692,6 +695,27 @@ function AnnotatedFigureCanvasAuthoringView(props: NodeViewProps) {
       : annotation,
   );
 
+  const updateAnnotationTitle = (annotationId: string, title: string) => {
+    target?.transact((tr, resolvedOwner) => {
+      const currentModel = resolveAnnotatedFigureModel(resolvedOwner);
+      const currentAnnotation = currentModel?.annotations.find(({ id }) => id === annotationId);
+      if (!currentAnnotation) {
+        return {
+          ok: false,
+          issue: {
+            code: "missing_annotation",
+            message: `Annotation "${annotationId}" was not found.`,
+          },
+        };
+      }
+      tr.setNodeMarkup(currentAnnotation.pos, undefined, {
+        ...currentAnnotation.node.attrs,
+        title,
+      });
+      return { ok: true, tr };
+    });
+  };
+
   const renderAuthoringSurface = (presentation: "compact" | "workspace") => (
     <AnnotatedFigureSurface
       data={data}
@@ -752,18 +776,23 @@ function AnnotatedFigureCanvasAuthoringView(props: NodeViewProps) {
                       <EditableOverlayPopover.Content
                         className="sc-annotated-figure__caption-popover"
                         collisionPadding={12}
-                        headerActions={
+                        footerStart={
                           <EditableOverlayPopover.TextAction
+                            aria-label={`Delete annotation ${annotation.number}`}
                             tone="danger"
                             onClick={() => deleteAnnotation(annotation.id)}
                           >
-                            Delete annotation {annotation.number}
+                            <Trash size={iconXs} aria-hidden />
+                            <span>Delete annotation</span>
                           </EditableOverlayPopover.TextAction>
                         }
+                        description="Shown to learners when they select this pin."
+                        icon={<Info size={iconSm} weight="fill" />}
                         onClick={(event) => event.stopPropagation()}
                         onCloseAutoFocus={(event) => {
                           event.preventDefault();
                           queueMicrotask(() => {
+                            if (props.editor.isDestroyed) return;
                             if (workspaceOpenRef.current) return;
                             const nextOpenId = compactCaptionPopoverIdRef.current;
                             if (nextOpenId && nextOpenId !== annotation.id) return;
@@ -773,7 +802,22 @@ function AnnotatedFigureCanvasAuthoringView(props: NodeViewProps) {
                         onPointerDown={(event) => event.stopPropagation()}
                         side="bottom"
                         sideOffset={8}
-                        title={`Annotation ${annotation.number}`}
+                        title={
+                          <input
+                            aria-label={`Annotation ${annotation.number} title`}
+                            className="sc-annotated-figure__title-field"
+                            maxLength={120}
+                            onChange={(event) =>
+                              updateAnnotationTitle(annotation.id, event.currentTarget.value)
+                            }
+                            onClick={(event) => event.stopPropagation()}
+                            onPointerDown={(event) => event.stopPropagation()}
+                            placeholder={`Annotation ${annotation.number}`}
+                            type="text"
+                            value={openAnnotation.title}
+                          />
+                        }
+                        tone="feedback"
                         editor={{
                           ariaLabel: `Annotation ${annotation.number} caption`,
                           bubbleMenuPluginKey: `annotated-figure-caption-${captionEditorId.replace(

@@ -21,6 +21,13 @@ export function createAnnotatedFigureAnnotationNode(
     addAttributes() {
       return {
         id: stableNodeIdAttribute(),
+        title: {
+          default: "",
+          parseHTML: (element: HTMLElement) => element.getAttribute("data-title") ?? "",
+          renderHTML: (attrs: { title?: unknown }) => ({
+            "data-title": typeof attrs.title === "string" ? attrs.title : "",
+          }),
+        },
         x: {
           default: 50,
           parseHTML: (element: HTMLElement) => Number(element.getAttribute("data-x") ?? 50),

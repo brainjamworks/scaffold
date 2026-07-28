@@ -51,7 +51,7 @@ interface AnnotatedFigureRuntimeCompositionProps {
 export function hasAnnotatedFigureRuntimeCaption(
   annotation: AnnotatedFigureAnnotationProjection,
 ): boolean {
-  return annotation.captionNode.content.size > 0;
+  return annotation.title.trim().length > 0 || annotation.captionNode.content.size > 0;
 }
 
 function AnnotatedFigureRuntimeComposition({
@@ -124,13 +124,18 @@ function AnnotatedFigureRuntimeComposition({
               sideOffset={8}
               style={{ zIndex: zIndex.popover }}
             >
-              <PopoverSurface title={`Annotation ${annotation.number}`} titleId={titleId}>
-                <div className="sc-annotated-figure__runtime-popover-caption">
-                  {renderRuntimeRichTextNode(
-                    projectedAnnotation.captionNode.toJSON(),
-                    `annotated-figure-popover:${projectedAnnotation.id}`,
-                  )}
-                </div>
+              <PopoverSurface
+                title={projectedAnnotation.title || `Annotation ${annotation.number}`}
+                titleId={titleId}
+              >
+                {projectedAnnotation.captionNode.content.size > 0 ? (
+                  <div className="sc-annotated-figure__runtime-popover-caption">
+                    {renderRuntimeRichTextNode(
+                      projectedAnnotation.captionNode.toJSON(),
+                      `annotated-figure-popover:${projectedAnnotation.id}`,
+                    )}
+                  </div>
+                ) : null}
               </PopoverSurface>
             </Popover.Content>
           </Popover.Portal>

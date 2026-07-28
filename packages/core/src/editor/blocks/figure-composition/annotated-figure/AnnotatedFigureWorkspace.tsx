@@ -125,7 +125,7 @@ export function AnnotatedFigureWorkspace({
                           {annotation.number}
                         </MediaWorkspace.ItemNumber>
                         <span>
-                          {selected ? "Editing caption" : `Annotation ${annotation.number}`}
+                          {annotation.title || (selected ? "Editing annotation" : `Annotation ${annotation.number}`)}
                         </span>
                       </MediaWorkspace.ItemSelect>
                       <div
@@ -167,6 +167,22 @@ export function AnnotatedFigureWorkspace({
                     </MediaWorkspace.ItemHeader>
                     {selected && captionTarget ? (
                       <div className="sc-annotated-figure-workspace__caption-editor">
+                        <input
+                          aria-label={`Annotation ${annotation.number} title`}
+                          className="sc-annotated-figure-workspace__title-field"
+                          maxLength={120}
+                          onChange={(event) => {
+                            outerEditor.view.dispatch(
+                              outerEditor.state.tr.setNodeMarkup(annotation.pos, undefined, {
+                                ...annotation.node.attrs,
+                                title: event.currentTarget.value,
+                              }),
+                            );
+                          }}
+                          placeholder={`Annotation ${annotation.number}`}
+                          type="text"
+                          value={annotation.title}
+                        />
                         <RichTextArea
                           key={annotation.id}
                           ariaLabel={`Annotation ${annotation.number} caption`}

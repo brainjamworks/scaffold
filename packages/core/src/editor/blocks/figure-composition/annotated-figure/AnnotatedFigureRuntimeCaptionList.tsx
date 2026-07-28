@@ -77,6 +77,9 @@ export function AnnotatedFigureRuntimeCaptionList({
             {annotation.number}
           </span>
           <div className="sc-annotated-figure__annotation-caption">
+            {annotation.title ? (
+              <strong className="sc-annotated-figure__annotation-title">{annotation.title}</strong>
+            ) : null}
             {renderRuntimeRichTextNode(
               annotation.captionNode.toJSON(),
               `annotated-figure-caption:${annotation.id}`,

@@ -67,7 +67,15 @@ describe("annotated-figure persisted contracts", () => {
       y: 100,
     });
 
-    expect(annotation).toEqual({ id: " ", x: 0, y: 100 });
+    expect(annotation).toEqual({ id: " ", title: "", x: 0, y: 100 });
+    expect(
+      AnnotatedFigureAnnotationAttrsSchema.parse({
+        id: "titled",
+        title: "Ocean layer",
+        x: 50,
+        y: 50,
+      }),
+    ).toEqual({ id: "titled", title: "Ocean layer", x: 50, y: 50 });
     expect(
       normalizedAnnotationIssues(
         AnnotatedFigureAnnotationAttrsSchema.safeParse({

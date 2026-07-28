@@ -17,6 +17,7 @@ export interface AnnotatedFigureAnnotationProjection {
   id: string;
   index: number;
   number: number;
+  title: string;
   x: number;
   y: number;
   node: ProseMirrorNode;
@@ -96,6 +97,7 @@ export function resolveAnnotatedFigureModel(owner: {
       id: attrs.data.id,
       index,
       number: index + 1,
+      title: attrs.data.title,
       x: attrs.data.x,
       y: attrs.data.y,
       node: annotationNode,

@@ -41,6 +41,7 @@ function annotatedFigureFixture(
   },
   annotations: Array<{
     id: string;
+    title?: string;
     x: number;
     y: number;
     caption?: string;
@@ -59,7 +60,12 @@ function annotatedFigureFixture(
         type: "annotated_figure_legend",
         content: annotations.map((annotation) => ({
           type: "annotated_figure_annotation",
-          attrs: { id: annotation.id, x: annotation.x, y: annotation.y },
+          attrs: {
+            id: annotation.id,
+            title: annotation.title ?? "",
+            x: annotation.x,
+            y: annotation.y,
+          },
           content: [
             {
               type: "paragraph",
@@ -676,6 +682,36 @@ it("edits one live caption field, switches targets, resyncs externally, and rest
   editor.destroy();
 });
 
+it("edits an annotation title in the compact authoring popover", async () => {
+  const user = userEvent.setup();
+  const editor = renderAnnotatedFigureEditor(
+    annotatedFigureFixture(popoverFigureData(), [
+      {
+        id: "annotation-one",
+        title: "Icy shell",
+        x: 25,
+        y: 30,
+        caption: "Fractured surface ice",
+      },
+    ]),
+  );
+
+  await user.click(await screen.findByRole("button", { name: "Edit annotation 1 caption" }));
+  const title = await screen.findByRole("textbox", { name: "Annotation 1 title" });
+  expect(title).toHaveValue("Icy shell");
+
+  await user.clear(title);
+  await user.type(title, "Subsurface ocean");
+  await waitFor(() => {
+    expect(
+      resolveAnnotatedFigureModel({ node: editor.state.doc.firstChild!, pos: 0 })?.annotations[0]
+        ?.title,
+    ).toBe("Subsurface ocean");
+  });
+
+  editor.destroy();
+});
+
 it("opens a new empty caption in popover mode and deletes it before restoring canvas focus", async () => {
   const user = userEvent.setup();
   const editor = renderAnnotatedFigureEditor(annotatedFigureFixture(popoverFigureData()));
@@ -689,7 +725,7 @@ it("opens a new empty caption in popover mode and deletes it before restoring ca
     resolveAnnotatedFigureModel({ node: editor.state.doc.firstChild!, pos: 0 })?.annotations,
   ).toHaveLength(1);
 
-  fireEvent.click(screen.getByText("Delete annotation 1"));
+  fireEvent.click(screen.getByRole("button", { name: "Delete annotation 1" }));
 
   await waitFor(() => {
     expect(screen.queryByLabelText("Annotation 1 caption")).toBeNull();
@@ -1472,6 +1508,34 @@ it("keeps empty Popover captions noninteractive and retains an ordered semantic 
     expect(document.querySelector(".sc-annotated-figure__caption-popover")).toBeNull();
     expect(document.activeElement).toBe(captionPin);
   });
+  editor.destroy();
+});
+
+it("uses an authored annotation title in the runtime popover", async () => {
+  const user = userEvent.setup();
+  const editor = renderAnnotatedFigureRuntime(
+    annotatedFigureFixture(popoverFigureData(), [
+      {
+        id: "annotation-one",
+        title: "Salty global ocean",
+        x: 20,
+        y: 30,
+        caption: "A conductive layer hidden beneath the ice.",
+      },
+    ]),
+  );
+
+  await user.click(await screen.findByRole("button", { name: "View annotation 1" }));
+  await waitFor(() => {
+    expect(document.querySelector(".sc-annotated-figure__caption-popover")).not.toBeNull();
+  });
+  const popover = document.querySelector<HTMLElement>(".sc-annotated-figure__caption-popover");
+  if (!popover) throw new Error("Expected a runtime caption popover");
+  expect(popover.querySelector(".sc-popover-surface__title")?.textContent).toBe(
+    "Salty global ocean",
+  );
+  expect(within(popover).getByText("A conductive layer hidden beneath the ice.")).toBeInTheDocument();
+
   editor.destroy();
 });
 
