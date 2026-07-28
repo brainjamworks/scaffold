@@ -1,12 +1,12 @@
 /* A finite content lane owns scrolling, overflow feedback and its scrollbar. */
 [data-bounded-scroll-frame] {
+  position: relative;
   display: grid;
   width: 100%;
   min-width: 0;
   min-height: 0;
   max-height: 100%;
-  grid-template-rows: minmax(0, 1fr) auto;
-  row-gap: 0;
+  grid-template-rows: minmax(0, 1fr);
 }
 
 [data-bounded-scroll] {
@@ -42,6 +42,11 @@
 }
 
 [data-bounded-scroll-hint] {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1;
   display: none;
   min-width: 0;
   min-height: 1rem;
@@ -52,10 +57,6 @@
   pointer-events: none;
   visibility: hidden;
   white-space: nowrap;
-}
-
-[data-bounded-scroll-frame]:has(> [data-bounded-scroll][data-bounded-scroll-overflow]) {
-  row-gap: 0.25rem;
 }
 
 [data-bounded-scroll][data-bounded-scroll-overflow] + [data-bounded-scroll-hint] {
