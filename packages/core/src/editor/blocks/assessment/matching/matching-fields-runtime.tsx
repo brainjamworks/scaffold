@@ -226,11 +226,11 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper
-      data-assessment-bounded-scroll-frame=""
+      data-bounded-scroll-frame=""
       data-slot="matching-pairs-group"
       className="sc-matching-pairs-group"
     >
-      <div data-assessment-bounded-scroll="" className="sc-matching-pairs-scroll">
+      <div data-bounded-scroll="" className="sc-matching-pairs-scroll">
         <fieldset className="sc-matching-runtime-fieldset">
           {runtimeProblem?.state.legend && (
             <legend className="sc-matching-runtime-legend">{runtimeProblem.state.legend}</legend>
@@ -439,7 +439,7 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
           </DndContext>
         </fieldset>
       </div>
-      <div data-assessment-bounded-scroll-hint="" aria-hidden="true">
+      <div data-bounded-scroll-hint="" aria-hidden="true">
         Scroll for more ↓
       </div>
     </NodeViewWrapper>

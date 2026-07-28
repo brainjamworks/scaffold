@@ -404,15 +404,11 @@ export function createCategoriseContentNode(options: CategoriseFieldNodeOptions 
       return [
         "div",
         mergeAttributes(HTMLAttributes, {
-          "data-assessment-bounded-scroll-frame": "",
+          "data-bounded-scroll-frame": "",
           "data-slot": "categorise-content",
         }),
-        ["div", { "data-assessment-bounded-scroll": "", class: "sc-categorise-content-scroll" }, 0],
-        [
-          "div",
-          { "data-assessment-bounded-scroll-hint": "", "aria-hidden": "true" },
-          "Scroll for more ↓",
-        ],
+        ["div", { "data-bounded-scroll": "", class: "sc-categorise-content-scroll" }, 0],
+        ["div", { "data-bounded-scroll-hint": "", "aria-hidden": "true" }, "Scroll for more ↓"],
       ];
     },
 

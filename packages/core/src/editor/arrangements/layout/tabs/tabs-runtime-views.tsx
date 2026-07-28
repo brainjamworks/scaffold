@@ -32,6 +32,7 @@ import {
 } from "./tabs-components";
 
 import "@/editor/bounded-containers/view/bounded-container.css";
+import { BoundedScrollHint } from "@/editor/bounded-containers/view/bounded-scroll";
 import "./tabs.css";
 
 export function TabsLayoutRuntimeView(props: LayoutRuntimeViewProps) {
@@ -120,10 +121,13 @@ export function TabsSectionRuntimeView(props: SectionRuntimeViewProps) {
 
   return (
     <div {...tabsPanelAttributes({ layoutId, sectionId, isActive })} className="sc-tabs__panel">
-      <NodeViewContent
-        data-bounded-viewport="fill"
-        className="sc-layout-section__content sc-tabs__panel-content"
-      />
+      <div data-bounded-scroll-frame="">
+        <NodeViewContent
+          data-bounded-scroll=""
+          className="sc-layout-section__content sc-tabs__panel-content"
+        />
+        <BoundedScrollHint />
+      </div>
     </div>
   );
 }

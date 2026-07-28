@@ -42,6 +42,10 @@
   overflow: hidden;
 }
 
+.sc-tabs__panel > [data-bounded-scroll-frame] {
+  height: 100%;
+}
+
 [data-node="region"]
   .sc-layout-frame[data-bounded-placement="fill"]
   > .sc-tabs

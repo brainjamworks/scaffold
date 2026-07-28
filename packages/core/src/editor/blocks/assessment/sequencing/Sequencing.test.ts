@@ -525,19 +525,19 @@ describe("composite sequencing node", () => {
     });
     const shell = frame?.querySelector<HTMLElement>("[data-assessment-shell]");
     const items = frame?.querySelector<HTMLElement>('[data-slot="sequencing-items-group"]');
-    const scrollLane = items?.querySelector<HTMLElement>("[data-assessment-bounded-scroll]");
-    const hint = items?.querySelector<HTMLElement>("[data-assessment-bounded-scroll-hint]");
+    const scrollLane = items?.querySelector<HTMLElement>("[data-bounded-scroll]");
+    const hint = items?.querySelector<HTMLElement>("[data-bounded-scroll-hint]");
 
     expect(shell).toBeInstanceOf(HTMLElement);
     expect(items).toBeInstanceOf(HTMLElement);
-    expect(items?.getAttribute("data-assessment-bounded-scroll-frame")).toBe("");
-    expect(items?.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
-    expect(scrollLane?.getAttribute("data-assessment-bounded-scroll")).toBe("");
+    expect(items?.getAttribute("data-bounded-scroll-frame")).toBe("");
+    expect(items?.hasAttribute("data-bounded-scroll")).toBe(false);
+    expect(scrollLane?.getAttribute("data-bounded-scroll")).toBe("");
     expect(hint?.textContent).toBe("Scroll for more ↓");
     expect(scrollLane?.textContent).toContain("Alpha");
     expect(scrollLane?.textContent).toContain("Add item");
-    expect(shell?.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
-    expect(frame?.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
+    expect(shell?.hasAttribute("data-bounded-scroll")).toBe(false);
+    expect(frame?.hasAttribute("data-bounded-scroll")).toBe(false);
 
     editor.destroy();
   });
@@ -581,17 +581,17 @@ describe("composite sequencing node", () => {
     });
     const shell = frame?.querySelector<HTMLElement>("[data-assessment-shell]");
     const items = frame?.querySelector<HTMLElement>('[data-slot="sequencing-items-group"]');
-    const scrollLane = items?.querySelector<HTMLElement>("[data-assessment-bounded-scroll]");
-    const hint = items?.querySelector<HTMLElement>("[data-assessment-bounded-scroll-hint]");
+    const scrollLane = items?.querySelector<HTMLElement>("[data-bounded-scroll]");
+    const hint = items?.querySelector<HTMLElement>("[data-bounded-scroll-hint]");
 
     expect(shell).toBeInstanceOf(HTMLElement);
     expect(items).toBeInstanceOf(HTMLElement);
-    expect(items?.getAttribute("data-assessment-bounded-scroll-frame")).toBe("");
-    expect(items?.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
-    expect(scrollLane?.getAttribute("data-assessment-bounded-scroll")).toBe("");
+    expect(items?.getAttribute("data-bounded-scroll-frame")).toBe("");
+    expect(items?.hasAttribute("data-bounded-scroll")).toBe(false);
+    expect(scrollLane?.getAttribute("data-bounded-scroll")).toBe("");
     expect(hint?.textContent).toBe("Scroll for more ↓");
-    expect(shell?.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
-    expect(frame?.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
+    expect(shell?.hasAttribute("data-bounded-scroll")).toBe(false);
+    expect(frame?.hasAttribute("data-bounded-scroll")).toBe(false);
 
     await waitFor(() => {
       expect(hasAssessmentRegistration(assessmentStore, problemId)).toBe(true);

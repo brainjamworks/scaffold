@@ -351,11 +351,11 @@ function DropdownChoicesGroupNodeView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper
-      data-assessment-bounded-scroll-frame=""
+      data-bounded-scroll-frame=""
       data-slot="dropdown-choices-group"
       className="sc-dropdown-choices-group"
     >
-      <div data-assessment-bounded-scroll="" className="sc-dropdown-choices-scroll">
+      <div data-bounded-scroll="" className="sc-dropdown-choices-scroll">
         <NodeViewContent />
         {isEditable && (
           <BlockAddGhost
@@ -367,7 +367,7 @@ function DropdownChoicesGroupNodeView(props: NodeViewProps) {
           />
         )}
       </div>
-      <div data-assessment-bounded-scroll-hint="" contentEditable={false} aria-hidden="true">
+      <div data-bounded-scroll-hint="" contentEditable={false} aria-hidden="true">
         Scroll for more ↓
       </div>
     </NodeViewWrapper>

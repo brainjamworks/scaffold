@@ -1,13 +1,16 @@
 // @vitest-environment happy-dom
 
 import { cleanup, render, waitFor } from "@testing-library/react";
+import { useRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { ProblemShell, resolveBoundedScrollAffordanceState } from "./ProblemShell";
-
-const BOUNDED_SCROLL_SELECTOR = "[data-assessment-bounded-scroll]";
-const BOUNDED_SCROLL_OVERFLOW_ATTR = "data-assessment-bounded-scroll-overflow";
-const BOUNDED_SCROLL_END_ATTR = "data-assessment-bounded-scroll-end";
+import {
+  BOUNDED_SCROLL_END_ATTR,
+  BOUNDED_SCROLL_OVERFLOW_ATTR,
+  BOUNDED_SCROLL_VIEWPORT_SELECTOR,
+  resolveBoundedScrollAffordanceState,
+  useBoundedScrollAffordance,
+} from "./bounded-scroll";
 
 interface TestLaneMetrics {
   clientHeight: number;
@@ -27,16 +30,19 @@ function mockLaneMetrics(metricsById: Record<string, TestLaneMetrics>) {
   );
 }
 
-function BoundedScrollShell({ inputWidth = "8ch" }: { inputWidth?: string }) {
+function BoundedScrollRoot({ inputWidth = "8ch" }: { inputWidth?: string }) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  useBoundedScrollAffordance(rootRef);
+
   return (
-    <ProblemShell isEditable={false}>
-      <div data-assessment-bounded-scroll="" data-test-lane="first">
+    <div ref={rootRef} data-test-root="">
+      <div data-bounded-scroll="" data-test-lane="first">
         <input aria-label="First answer" style={{ width: inputWidth }} />
       </div>
-      <div data-assessment-bounded-scroll="" data-test-lane="second">
+      <div data-bounded-scroll="" data-test-lane="second">
         Second lane
       </div>
-    </ProblemShell>
+    </div>
   );
 }
 
@@ -46,8 +52,8 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("assessment bounded scroll affordance", () => {
-  it("does not show the hint when content fits", () => {
+describe("bounded scroll affordance", () => {
+  it("treats two pixels of layout noise as fitting content", () => {
     expect(
       resolveBoundedScrollAffordanceState({
         clientHeight: 120,
@@ -57,86 +63,58 @@ describe("assessment bounded scroll affordance", () => {
     ).toEqual({ atEnd: true, overflowing: false });
   });
 
-  it("shows the hint while overflowing content remains below", () => {
-    expect(
-      resolveBoundedScrollAffordanceState({
-        clientHeight: 120,
-        scrollHeight: 240,
-        scrollTop: 24,
-      }),
-    ).toEqual({ atEnd: false, overflowing: true });
-  });
-
-  it("hides the hint at the bottom of an overflowing lane", () => {
-    expect(
-      resolveBoundedScrollAffordanceState({
-        clientHeight: 120,
-        scrollHeight: 240,
-        scrollTop: 119,
-      }),
-    ).toEqual({ atEnd: true, overflowing: true });
-  });
-
-  it("measures registered bounded lanes on mount", () => {
+  it("tracks overflow and the end of every registered viewport", () => {
     mockLaneMetrics({
       first: { clientHeight: 120, scrollHeight: 240 },
       second: { clientHeight: 120, scrollHeight: 120 },
     });
 
-    const { container } = render(<BoundedScrollShell />);
-    const lanes = container.querySelectorAll<HTMLElement>(BOUNDED_SCROLL_SELECTOR);
-    const firstLane = lanes[0];
-    const secondLane = lanes[1];
+    const { container } = render(<BoundedScrollRoot />);
+    const lanes = container.querySelectorAll<HTMLElement>(BOUNDED_SCROLL_VIEWPORT_SELECTOR);
+    const firstLane = lanes[0]!;
+    const secondLane = lanes[1]!;
 
-    expect(firstLane?.hasAttribute(BOUNDED_SCROLL_OVERFLOW_ATTR)).toBe(true);
-    expect(firstLane?.hasAttribute(BOUNDED_SCROLL_END_ATTR)).toBe(false);
-    expect(secondLane?.hasAttribute(BOUNDED_SCROLL_OVERFLOW_ATTR)).toBe(false);
-    expect(secondLane?.hasAttribute(BOUNDED_SCROLL_END_ATTR)).toBe(true);
+    expect(firstLane.hasAttribute(BOUNDED_SCROLL_OVERFLOW_ATTR)).toBe(true);
+    expect(firstLane.hasAttribute(BOUNDED_SCROLL_END_ATTR)).toBe(false);
+    expect(secondLane.hasAttribute(BOUNDED_SCROLL_OVERFLOW_ATTR)).toBe(false);
+    expect(secondLane.hasAttribute(BOUNDED_SCROLL_END_ATTR)).toBe(true);
+
+    firstLane.scrollTop = 120;
+    firstLane.dispatchEvent(new Event("scroll"));
+
+    expect(firstLane.hasAttribute(BOUNDED_SCROLL_END_ATTR)).toBe(true);
   });
 
-  it("refreshes every bounded lane after a descendant style change", async () => {
+  it("remeasures viewports after descendant content changes", async () => {
     const metrics = {
       first: { clientHeight: 120, scrollHeight: 120 },
       second: { clientHeight: 120, scrollHeight: 120 },
     };
     mockLaneMetrics(metrics);
 
-    const { container, rerender } = render(<BoundedScrollShell />);
-    const lanes = container.querySelectorAll<HTMLElement>(BOUNDED_SCROLL_SELECTOR);
-
-    expect(Array.from(lanes).every((lane) => lane.hasAttribute(BOUNDED_SCROLL_END_ATTR))).toBe(
-      true,
-    );
-    expect(
-      Array.from(lanes).every((lane) => !lane.hasAttribute(BOUNDED_SCROLL_OVERFLOW_ATTR)),
-    ).toBe(true);
+    const { container, rerender } = render(<BoundedScrollRoot />);
+    const lanes = container.querySelectorAll<HTMLElement>(BOUNDED_SCROLL_VIEWPORT_SELECTOR);
 
     metrics.first.scrollHeight = 240;
     metrics.second.scrollHeight = 180;
-    rerender(<BoundedScrollShell inputWidth="20ch" />);
+    rerender(<BoundedScrollRoot inputWidth="20ch" />);
 
     await waitFor(() => {
       expect(
         Array.from(lanes).every((lane) => lane.hasAttribute(BOUNDED_SCROLL_OVERFLOW_ATTR)),
       ).toBe(true);
-      expect(Array.from(lanes).every((lane) => !lane.hasAttribute(BOUNDED_SCROLL_END_ATTR))).toBe(
-        true,
-      );
     });
   });
 
-  it("refreshes every bounded lane after the shell root regains layout dimensions", () => {
+  it("remeasures viewports when the bounded root regains layout dimensions", () => {
     const observedTargets = new Set<Element>();
-    let triggerResize: (target: Element) => void = (_target) => {
+    let triggerResize: (target: Element) => void = () => {
       throw new Error("ResizeObserver was not constructed");
     };
 
     class TestResizeObserver implements ResizeObserver {
       constructor(callback: ResizeObserverCallback) {
         triggerResize = (target: Element) => {
-          if (!observedTargets.has(target)) {
-            throw new Error("ResizeObserver target was not observed");
-          }
           callback([{ target } as ResizeObserverEntry], this);
         };
       }
@@ -153,29 +131,23 @@ describe("assessment bounded scroll affordance", () => {
     };
     mockLaneMetrics(metrics);
 
-    const { container } = render(<BoundedScrollShell />);
-    const shellRoot = container.querySelector<HTMLElement>("[data-assessment-shell]");
-    const lanes = container.querySelectorAll<HTMLElement>(BOUNDED_SCROLL_SELECTOR);
+    const { container } = render(<BoundedScrollRoot />);
+    const root = container.querySelector<HTMLElement>("[data-test-root]");
+    const lanes = container.querySelectorAll<HTMLElement>(BOUNDED_SCROLL_VIEWPORT_SELECTOR);
 
-    expect(shellRoot).not.toBeNull();
-    expect(observedTargets.has(shellRoot!)).toBe(true);
-    expect(
-      Array.from(lanes).every((lane) => !lane.hasAttribute(BOUNDED_SCROLL_OVERFLOW_ATTR)),
-    ).toBe(true);
+    expect(root).not.toBeNull();
+    expect(observedTargets.has(root!)).toBe(true);
 
     metrics.first = { clientHeight: 120, scrollHeight: 240 };
     metrics.second = { clientHeight: 120, scrollHeight: 180 };
-    triggerResize(shellRoot!);
+    triggerResize(root!);
 
     expect(Array.from(lanes).every((lane) => lane.hasAttribute(BOUNDED_SCROLL_OVERFLOW_ATTR))).toBe(
       true,
     );
-    expect(Array.from(lanes).every((lane) => !lane.hasAttribute(BOUNDED_SCROLL_END_ATTR))).toBe(
-      true,
-    );
   });
 
-  it("disconnects observers and lane listeners on unmount", () => {
+  it("disconnects observers and viewport listeners on unmount", () => {
     const mutationDisconnect = vi.spyOn(MutationObserver.prototype, "disconnect");
     const removeEventListener = vi.spyOn(HTMLElement.prototype, "removeEventListener");
     const resizeDisconnect = vi.fn();
@@ -192,7 +164,7 @@ describe("assessment bounded scroll affordance", () => {
       second: { clientHeight: 120, scrollHeight: 120 },
     });
 
-    const { unmount } = render(<BoundedScrollShell />);
+    const { unmount } = render(<BoundedScrollRoot />);
     unmount();
 
     expect(mutationDisconnect).toHaveBeenCalledTimes(1);

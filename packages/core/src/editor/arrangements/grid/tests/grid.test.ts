@@ -512,6 +512,11 @@ describe("grid arrangement nodes", () => {
     expect(cellElement?.getAttribute("class")).toContain("sc-grid-cell-authoring");
     expect(cellElement?.getAttribute("class")).toContain("sc-grid-cell-authoring--editable");
     expect(cellElement?.getAttribute("data-vertical-content-position")).toBe("top");
+    expect(cellElement?.querySelector("[data-bounded-scroll-frame]")).not.toBeNull();
+    expect(cellElement?.querySelector("[data-bounded-scroll]")).not.toBeNull();
+    expect(cellElement?.querySelector("[data-bounded-scroll-hint]")?.textContent).toBe(
+      "Scroll for more ↓",
+    );
     expect(cellElement?.getAttribute("class")).not.toContain("rounded-md");
     expect(cellElement?.getAttribute("class")).not.toContain("border-dashed");
     expect(gridMenuTrigger).toBeNull();
@@ -565,6 +570,11 @@ describe("grid arrangement nodes", () => {
     expect(cellElements[0]?.getAttribute("data-vertical-content-position")).toBe("middle");
     expect(cellElements[0]?.getAttribute("data-authoring-frame")).toBeNull();
     expect(cellElements[0]?.getAttribute("class")).toContain("sc-grid-cell");
+    expect(cellElements[0]?.querySelector("[data-bounded-scroll-frame]")).not.toBeNull();
+    expect(cellElements[0]?.querySelector("[data-bounded-scroll]")).not.toBeNull();
+    expect(cellElements[0]?.querySelector("[data-bounded-scroll-hint]")?.textContent).toBe(
+      "Scroll for more ↓",
+    );
     expect(cellElements[1]?.getAttribute("data-vertical-content-position")).toBe("top");
     expect(document.body.querySelector("[data-grid-menu-trigger]")).toBeNull();
     expect(document.body.querySelector("[data-grid-add-cell-end]")).toBeNull();

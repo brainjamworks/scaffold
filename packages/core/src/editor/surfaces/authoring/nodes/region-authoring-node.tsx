@@ -12,6 +12,7 @@ import {
   authoringChromeActiveAttributes,
   structuralAuthoringFrameAttributes,
 } from "@/editor/interactions/dom/authoring-frame";
+import { BoundedScrollHint } from "@/editor/bounded-containers/view/bounded-scroll";
 import { shouldRenderAuthoringChrome } from "@/editor/interactions/dom/authoring-chrome";
 import { InteractionTargetKind } from "@/editor/interactions/targets/model/interaction-owner-state";
 import { publishInteractionOwnerSnapshot } from "@/editor/interactions/targets/prosemirror/facade/interaction-owner-snapshot-publisher";
@@ -67,7 +68,10 @@ function RegionAuthoringNodeView(props: NodeViewProps) {
         editable && "sc-region-authoring--editable",
       )}
     >
-      <NodeViewContent className="sc-region__content" />
+      <div data-bounded-scroll-frame="">
+        <NodeViewContent data-bounded-scroll="" className="sc-region__content" />
+        <BoundedScrollHint editable />
+      </div>
     </NodeViewWrapper>
   );
 }

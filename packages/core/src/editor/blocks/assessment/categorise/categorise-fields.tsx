@@ -422,14 +422,14 @@ export const CategoriseContentNode = createCategoriseContentNode({
 function CategoriseContentNodeView() {
   return (
     <NodeViewWrapper
-      data-assessment-bounded-scroll-frame=""
+      data-bounded-scroll-frame=""
       data-slot="categorise-content"
       className="sc-categorise-content"
     >
-      <div data-assessment-bounded-scroll="" className="sc-categorise-content-scroll">
+      <div data-bounded-scroll="" className="sc-categorise-content-scroll">
         <NodeViewContent className="sc-categorise-content-flow" />
       </div>
-      <div data-assessment-bounded-scroll-hint="" contentEditable={false} aria-hidden="true">
+      <div data-bounded-scroll-hint="" contentEditable={false} aria-hidden="true">
         Scroll for more ↓
       </div>
     </NodeViewWrapper>

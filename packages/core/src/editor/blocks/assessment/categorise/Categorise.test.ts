@@ -447,25 +447,25 @@ describe("composite categorise node", () => {
     });
     const shell = frame?.querySelector<HTMLElement>("[data-assessment-shell]");
     const content = frame?.querySelector<HTMLElement>('[data-slot="categorise-content"]');
-    const scrollLane = content?.querySelector<HTMLElement>("[data-assessment-bounded-scroll]");
-    const hint = content?.querySelector<HTMLElement>("[data-assessment-bounded-scroll-hint]");
+    const scrollLane = content?.querySelector<HTMLElement>("[data-bounded-scroll]");
+    const hint = content?.querySelector<HTMLElement>("[data-bounded-scroll-hint]");
 
     expect(shell).toBeInstanceOf(HTMLElement);
     expect(content).toBeInstanceOf(HTMLElement);
-    expect(content?.getAttribute("data-assessment-bounded-scroll-frame")).toBe("");
-    expect(content?.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
-    expect(shell?.querySelectorAll("[data-assessment-bounded-scroll]")).toHaveLength(1);
-    expect(scrollLane?.getAttribute("data-assessment-bounded-scroll")).toBe("");
+    expect(content?.getAttribute("data-bounded-scroll-frame")).toBe("");
+    expect(content?.hasAttribute("data-bounded-scroll")).toBe(false);
+    expect(shell?.querySelectorAll("[data-bounded-scroll]")).toHaveLength(1);
+    expect(scrollLane?.getAttribute("data-bounded-scroll")).toBe("");
     expect(hint?.textContent).toBe("Scroll for more ↓");
     expect(scrollLane?.textContent).toContain("Birds");
     expect(scrollLane?.textContent).toContain("Eagle");
     expect(scrollLane?.textContent).toContain("Add item to category 1");
     expect(scrollLane?.textContent).toContain("Add category");
     expect(
-      scrollLane?.querySelector('[data-node="categorise-bin"] [data-assessment-bounded-scroll]'),
+      scrollLane?.querySelector('[data-node="categorise-bin"] [data-bounded-scroll]'),
     ).toBeNull();
-    expect(shell?.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
-    expect(frame?.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
+    expect(shell?.hasAttribute("data-bounded-scroll")).toBe(false);
+    expect(frame?.hasAttribute("data-bounded-scroll")).toBe(false);
 
     editor.destroy();
   });
@@ -512,16 +512,16 @@ describe("composite categorise node", () => {
     });
     const shell = frame?.querySelector<HTMLElement>("[data-assessment-shell]");
     const content = frame?.querySelector<HTMLElement>('[data-slot="categorise-content"]');
-    const scrollLane = content?.querySelector<HTMLElement>("[data-assessment-bounded-scroll]");
-    const hint = content?.querySelector<HTMLElement>("[data-assessment-bounded-scroll-hint]");
+    const scrollLane = content?.querySelector<HTMLElement>("[data-bounded-scroll]");
+    const hint = content?.querySelector<HTMLElement>("[data-bounded-scroll-hint]");
     const source = scrollLane?.querySelector<HTMLElement>(".sc-categorise-runtime-source");
     const bins = scrollLane?.querySelector<HTMLElement>(".sc-categorise-runtime-bin-grid");
 
     expect(shell).toBeInstanceOf(HTMLElement);
     expect(content).toBeInstanceOf(HTMLElement);
-    expect(content?.getAttribute("data-assessment-bounded-scroll-frame")).toBe("");
-    expect(shell?.querySelectorAll("[data-assessment-bounded-scroll]")).toHaveLength(1);
-    expect(scrollLane?.getAttribute("data-assessment-bounded-scroll")).toBe("");
+    expect(content?.getAttribute("data-bounded-scroll-frame")).toBe("");
+    expect(shell?.querySelectorAll("[data-bounded-scroll]")).toHaveLength(1);
+    expect(scrollLane?.getAttribute("data-bounded-scroll")).toBe("");
     expect(hint?.textContent).toBe("Scroll for more ↓");
     expect(scrollLane?.nextElementSibling).toBe(hint);
     expect(source).toBeInstanceOf(HTMLElement);
@@ -529,9 +529,9 @@ describe("composite categorise node", () => {
     expect(source?.nextElementSibling).toBe(bins);
     expect(source?.querySelectorAll('[role="button"][data-item-id]')).toHaveLength(2);
     expect(bins?.querySelectorAll('[role="button"][data-bin-id]')).toHaveLength(2);
-    expect(bins?.querySelector("[data-assessment-bounded-scroll]")).toBeNull();
-    expect(shell?.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
-    expect(frame?.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
+    expect(bins?.querySelector("[data-bounded-scroll]")).toBeNull();
+    expect(shell?.hasAttribute("data-bounded-scroll")).toBe(false);
+    expect(frame?.hasAttribute("data-bounded-scroll")).toBe(false);
 
     editor.destroy();
   });

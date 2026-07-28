@@ -447,25 +447,25 @@ describe("runtime selectable choice bounded scrolling", () => {
     document
       .querySelector<HTMLElement>('.sc-assessment-node-view[data-node="mcq"]')
       ?.setAttribute("data-bounded-placement", "fill");
-    const lane = document.querySelector<HTMLElement>("[data-assessment-bounded-scroll]");
+    const lane = document.querySelector<HTMLElement>("[data-bounded-scroll]");
     expect(lane).toBeInstanceOf(HTMLElement);
 
     vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(
       function clientHeight(this: HTMLElement) {
-        if (this.hasAttribute("data-assessment-bounded-scroll")) return 100;
+        if (this.hasAttribute("data-bounded-scroll")) return 100;
         return this === document.documentElement || this === document.body ? 768 : 32;
       },
     );
     vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(
       function scrollHeight(this: HTMLElement) {
-        if (this.hasAttribute("data-assessment-bounded-scroll")) return 300;
+        if (this.hasAttribute("data-bounded-scroll")) return 300;
         return this.clientHeight;
       },
     );
     vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
       function getBoundingClientRect(this: Element) {
         const element = this as HTMLElement;
-        if (element.hasAttribute("data-assessment-bounded-scroll")) {
+        if (element.hasAttribute("data-bounded-scroll")) {
           return DOMRect.fromRect({ height: 100, width: 400, x: 0, y: 0 });
         }
 
@@ -546,25 +546,25 @@ describe("runtime selectable choice bounded scrolling", () => {
     document
       .querySelector<HTMLElement>('.sc-assessment-node-view[data-node="multiselect"]')
       ?.setAttribute("data-bounded-placement", "fill");
-    const lane = document.querySelector<HTMLElement>("[data-assessment-bounded-scroll]");
+    const lane = document.querySelector<HTMLElement>("[data-bounded-scroll]");
     expect(lane).toBeInstanceOf(HTMLElement);
 
     vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(
       function clientHeight(this: HTMLElement) {
-        if (this.hasAttribute("data-assessment-bounded-scroll")) return 140;
+        if (this.hasAttribute("data-bounded-scroll")) return 140;
         return this === document.documentElement || this === document.body ? 768 : 32;
       },
     );
     vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(
       function scrollHeight(this: HTMLElement) {
-        if (this.hasAttribute("data-assessment-bounded-scroll")) return 400;
+        if (this.hasAttribute("data-bounded-scroll")) return 400;
         return this.clientHeight;
       },
     );
     vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
       function getBoundingClientRect(this: Element) {
         const element = this as HTMLElement;
-        if (element.hasAttribute("data-assessment-bounded-scroll")) {
+        if (element.hasAttribute("data-bounded-scroll")) {
           return DOMRect.fromRect({ height: 140, width: 400, x: 0, y: 0 });
         }
 

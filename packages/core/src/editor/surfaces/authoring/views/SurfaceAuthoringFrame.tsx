@@ -1,7 +1,9 @@
 import { NodeViewContent, NodeViewWrapper, useEditorState } from "@tiptap/react";
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { useBoundedScrollAffordance } from "@/editor/bounded-containers/view/bounded-scroll";
+import "@/editor/bounded-containers/view/bounded-container.css";
 import {
   authoringChromeActiveAttributes,
   surfaceAuthoringFrameAttributes,
@@ -33,6 +35,8 @@ export function SurfaceAuthoringFrame({
   className,
   ...props
 }: SurfaceAuthoringFrameProps) {
+  const surfaceRef = useRef<HTMLDivElement | null>(null);
+  useBoundedScrollAffordance(surfaceRef);
   const chromeActive = useEditorState({
     editor: props.editor,
     selector: ({ editor }) => {
@@ -64,6 +68,7 @@ export function SurfaceAuthoringFrame({
         data-authoring-surface-stage=""
       >
         <div
+          ref={surfaceRef}
           className={classNames}
           style={backgroundStyle}
           {...attributes}
@@ -79,6 +84,7 @@ export function SurfaceAuthoringFrame({
 
   return (
     <NodeViewWrapper
+      ref={surfaceRef}
       className={classNames}
       style={backgroundStyle}
       {...attributes}

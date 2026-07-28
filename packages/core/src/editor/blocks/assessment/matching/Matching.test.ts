@@ -464,20 +464,20 @@ describe("composite matching node", () => {
     });
     const shell = frame?.querySelector<HTMLElement>("[data-assessment-shell]");
     const pairs = frame?.querySelector<HTMLElement>('[data-slot="matching-pairs-group"]');
-    const scrollLane = pairs?.querySelector<HTMLElement>("[data-assessment-bounded-scroll]");
-    const hint = pairs?.querySelector<HTMLElement>("[data-assessment-bounded-scroll-hint]");
+    const scrollLane = pairs?.querySelector<HTMLElement>("[data-bounded-scroll]");
+    const hint = pairs?.querySelector<HTMLElement>("[data-bounded-scroll-hint]");
 
     expect(shell).toBeInstanceOf(HTMLElement);
     expect(pairs).toBeInstanceOf(HTMLElement);
-    expect(pairs?.getAttribute("data-assessment-bounded-scroll-frame")).toBe("");
-    expect(pairs?.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
-    expect(scrollLane?.getAttribute("data-assessment-bounded-scroll")).toBe("");
+    expect(pairs?.getAttribute("data-bounded-scroll-frame")).toBe("");
+    expect(pairs?.hasAttribute("data-bounded-scroll")).toBe(false);
+    expect(scrollLane?.getAttribute("data-bounded-scroll")).toBe("");
     expect(hint?.textContent).toBe("Scroll for more ↓");
     expect(scrollLane?.textContent).toContain("Term 1");
     expect(scrollLane?.textContent).toContain("Target 1");
     expect(scrollLane?.textContent).toContain("Add pair");
-    expect(shell?.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
-    expect(frame?.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
+    expect(shell?.hasAttribute("data-bounded-scroll")).toBe(false);
+    expect(frame?.hasAttribute("data-bounded-scroll")).toBe(false);
 
     editor.destroy();
   });
@@ -521,20 +521,20 @@ describe("composite matching node", () => {
     });
     const shell = frame?.querySelector<HTMLElement>("[data-assessment-shell]");
     const pairs = frame?.querySelector<HTMLElement>('[data-slot="matching-pairs-group"]');
-    const scrollLane = pairs?.querySelector<HTMLElement>("[data-assessment-bounded-scroll]");
-    const hint = pairs?.querySelector<HTMLElement>("[data-assessment-bounded-scroll-hint]");
+    const scrollLane = pairs?.querySelector<HTMLElement>("[data-bounded-scroll]");
+    const hint = pairs?.querySelector<HTMLElement>("[data-bounded-scroll-hint]");
 
     expect(shell).toBeInstanceOf(HTMLElement);
     expect(pairs).toBeInstanceOf(HTMLElement);
-    expect(pairs?.getAttribute("data-assessment-bounded-scroll-frame")).toBe("");
-    expect(pairs?.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
-    expect(scrollLane?.getAttribute("data-assessment-bounded-scroll")).toBe("");
+    expect(pairs?.getAttribute("data-bounded-scroll-frame")).toBe("");
+    expect(pairs?.hasAttribute("data-bounded-scroll")).toBe(false);
+    expect(scrollLane?.getAttribute("data-bounded-scroll")).toBe("");
     expect(hint?.textContent).toBe("Scroll for more ↓");
     expect(scrollLane?.querySelectorAll("[data-matching-draggable-item]")).toHaveLength(2);
     expect(scrollLane?.querySelectorAll("[data-matching-drop-target]")).toHaveLength(2);
     expect(scrollLane?.querySelector(".sc-matching-runtime-canvas")).toBeInstanceOf(HTMLElement);
-    expect(shell?.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
-    expect(frame?.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
+    expect(shell?.hasAttribute("data-bounded-scroll")).toBe(false);
+    expect(frame?.hasAttribute("data-bounded-scroll")).toBe(false);
 
     editor.destroy();
   });

@@ -105,7 +105,7 @@ describe("bounded tabs authoring", () => {
     expect(sections[0]?.classList.contains("sc-tabs__panel-frame")).toBe(true);
     expect(sections[0]?.getAttribute("data-vertical-content-position")).toBe("bottom");
     expect(sectionVerticalState(editor, "tab-a")).toEqual({ kind: "value", value: "bottom" });
-    expect(activePanelViewport(panels)?.getAttribute("data-bounded-viewport")).toBe("fill");
+    expect(activePanelViewport(panels)?.hasAttribute("data-bounded-scroll")).toBe(true);
     expect(screen.getByRole("button", { name: "Add tab" })).toBeInTheDocument();
     expect(layout?.querySelector("[data-authoring-move-handle]")).not.toBeNull();
     expect(layout?.querySelector("[data-layout-section-menu-trigger]")).not.toBeNull();
@@ -236,7 +236,7 @@ describe("bounded tabs runtime", () => {
     expect(sections).toHaveLength(2);
     expect(sections[0]?.classList.contains("sc-tabs__panel-frame")).toBe(true);
     expect(sections[0]?.getAttribute("data-vertical-content-position")).toBe("bottom");
-    expect(activePanelViewport(panels)?.getAttribute("data-bounded-viewport")).toBe("fill");
+    expect(activePanelViewport(panels)?.hasAttribute("data-bounded-scroll")).toBe(true);
     expect(sectionVerticalState(editor, "tab-a")).toEqual({ kind: "value", value: "bottom" });
     expect(screen.queryByRole("button", { name: "Add tab" })).toBeNull();
     expect(layout?.querySelector("[data-authoring-move-handle]")).toBeNull();
@@ -271,7 +271,7 @@ describe("page-flow tabs", () => {
     expect(layout?.classList.contains("sc-tabs")).toBe(false);
     expect(tabsSurface).not.toBeNull();
     expect(tabsSurface?.getAttribute("data-bounded-placement")).toBeNull();
-    expect(activePanelViewport(panels)?.getAttribute("data-bounded-viewport")).toBe("fill");
+    expect(activePanelViewport(panels)?.hasAttribute("data-bounded-scroll")).toBe(true);
     expect(sectionVerticalState(editor, "tab-a")).toEqual({ kind: "unavailable" });
     expect(setSectionVerticalPosition(editor, "tab-a", "middle")).toBe(false);
     expect(screen.getByRole("tab", { name: "Overview" }).getAttribute("aria-selected")).toBe(
@@ -454,9 +454,8 @@ function directTabsSurface(layout: HTMLElement | null): HTMLElement | null {
 
 function activePanelViewport(panels: HTMLElement[]): HTMLElement | null {
   return (
-    panels
-      .find((panel) => !panel.hidden)
-      ?.querySelector<HTMLElement>('[data-bounded-viewport="fill"]') ?? null
+    panels.find((panel) => !panel.hidden)?.querySelector<HTMLElement>("[data-bounded-scroll]") ??
+    null
   );
 }
 

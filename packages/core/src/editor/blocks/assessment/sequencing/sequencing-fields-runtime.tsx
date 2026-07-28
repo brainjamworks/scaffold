@@ -160,11 +160,11 @@ function SequencingItemsGroupRuntimeNodeView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper
-      data-assessment-bounded-scroll-frame=""
+      data-bounded-scroll-frame=""
       data-slot="sequencing-items-group"
       className="sc-sequencing-items-group"
     >
-      <div data-assessment-bounded-scroll="" className="sc-sequencing-items-scroll">
+      <div data-bounded-scroll="" className="sc-sequencing-items-scroll">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -223,7 +223,7 @@ function SequencingItemsGroupRuntimeNodeView(props: NodeViewProps) {
           </RuntimeDragOverlay>
         </DndContext>
       </div>
-      <div data-assessment-bounded-scroll-hint="" aria-hidden="true">
+      <div data-bounded-scroll-hint="" aria-hidden="true">
         Scroll for more ↓
       </div>
     </NodeViewWrapper>

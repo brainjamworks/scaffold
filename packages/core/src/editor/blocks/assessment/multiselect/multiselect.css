@@ -22,7 +22,7 @@
   .sc-assessment-node-view[data-bounded-placement="fill"]
     > .sc-multiselect
     [data-slot="assessment-choices-group"]
-    .sc-assessment-choices-scroll[data-assessment-bounded-scroll-overflow] {
+    .sc-assessment-choices-scroll[data-bounded-scroll-overflow] {
     justify-content: flex-start;
   }
 

@@ -42,7 +42,7 @@
   .sc-assessment-node-view[data-bounded-placement="fill"]
     > .sc-sequencing
     [data-slot="sequencing-items-group"]
-    .sc-sequencing-items-scroll[data-assessment-bounded-scroll-overflow] {
+    .sc-sequencing-items-scroll[data-bounded-scroll-overflow] {
     justify-content: flex-start;
   }
 

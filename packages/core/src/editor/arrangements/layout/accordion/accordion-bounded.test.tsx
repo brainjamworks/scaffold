@@ -94,7 +94,11 @@ describe("bounded accordion authoring", () => {
     expect(screen.getByRole("button", { name: "Add section" })).toBeInTheDocument();
     expect(layout?.querySelector("[data-authoring-move-handle]")).not.toBeNull();
     expect(layout?.querySelector("[data-layout-section-menu-trigger]")).not.toBeNull();
-    expect(panelViewport(panels[0])?.getAttribute("data-bounded-viewport")).toBe("scroll");
+    expect(panelViewport(panels[0])?.hasAttribute("data-bounded-scroll")).toBe(true);
+    expect(panels[0]?.querySelector("[data-bounded-scroll-frame]")).not.toBeNull();
+    expect(panels[0]?.querySelector("[data-bounded-scroll-hint]")?.textContent).toBe(
+      "Scroll for more ↓",
+    );
     expect(panels[0]?.hidden).toBe(false);
     expect(panels[1]?.hidden).toBe(true);
 
@@ -143,7 +147,11 @@ describe("bounded accordion runtime", () => {
     expect(screen.queryByRole("button", { name: "Add section" })).toBeNull();
     expect(layout?.querySelector("[data-authoring-move-handle]")).toBeNull();
     expect(layout?.querySelector("[data-layout-section-menu-trigger]")).toBeNull();
-    expect(panelViewport(panels[0])?.getAttribute("data-bounded-viewport")).toBe("scroll");
+    expect(panelViewport(panels[0])?.hasAttribute("data-bounded-scroll")).toBe(true);
+    expect(panels[0]?.querySelector("[data-bounded-scroll-frame]")).not.toBeNull();
+    expect(panels[0]?.querySelector("[data-bounded-scroll-hint]")?.textContent).toBe(
+      "Scroll for more ↓",
+    );
 
     await user.click(triggers[1]!);
 
@@ -175,7 +183,7 @@ describe("page-flow accordion", () => {
     expect(accordionRoot).not.toBeNull();
     expect(accordionRoot?.parentElement).toBe(layout);
     expect(accordionRoot?.getAttribute("data-bounded-placement")).toBeNull();
-    expect(panelViewport(panels[0])?.getAttribute("data-bounded-viewport")).toBe("scroll");
+    expect(panelViewport(panels[0])?.hasAttribute("data-bounded-scroll")).toBe(true);
 
     await user.click(triggers[1]!);
 

@@ -288,15 +288,11 @@ export function createMatchingPairsGroupNode(options: MatchingPairsGroupNodeOpti
       return [
         "div",
         mergeAttributes(HTMLAttributes, {
-          "data-assessment-bounded-scroll-frame": "",
+          "data-bounded-scroll-frame": "",
           "data-slot": "matching-pairs-group",
         }),
-        ["div", { "data-assessment-bounded-scroll": "", class: "sc-matching-pairs-scroll" }, 0],
-        [
-          "div",
-          { "data-assessment-bounded-scroll-hint": "", "aria-hidden": "true" },
-          "Scroll for more ↓",
-        ],
+        ["div", { "data-bounded-scroll": "", class: "sc-matching-pairs-scroll" }, 0],
+        ["div", { "data-bounded-scroll-hint": "", "aria-hidden": "true" }, "Scroll for more ↓"],
       ];
     },
 

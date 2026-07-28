@@ -94,7 +94,7 @@
   .sc-assessment-node-view[data-bounded-placement="fill"]
     > .sc-categorise
     [data-slot="categorise-content"]
-    .sc-categorise-content-scroll[data-assessment-bounded-scroll-overflow] {
+    .sc-categorise-content-scroll[data-bounded-scroll-overflow] {
     justify-content: flex-start;
   }
 

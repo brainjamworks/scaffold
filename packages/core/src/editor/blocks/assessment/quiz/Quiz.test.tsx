@@ -587,11 +587,11 @@ describe("quiz block skeleton", () => {
     const quizFrame = findBlockFrame("quiz-scroll-owner", true);
     const questionFrame = findBlockFrame("question-a", true);
     const shell = questionFrame?.querySelector<HTMLElement>("[data-assessment-shell]");
-    const lanes = questionFrame?.querySelectorAll<HTMLElement>("[data-assessment-bounded-scroll]");
+    const lanes = questionFrame?.querySelectorAll<HTMLElement>("[data-bounded-scroll]");
 
-    expect(quizFrame?.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
-    expect(stage.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
-    expect(shell?.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
+    expect(quizFrame?.hasAttribute("data-bounded-scroll")).toBe(false);
+    expect(stage.hasAttribute("data-bounded-scroll")).toBe(false);
+    expect(shell?.hasAttribute("data-bounded-scroll")).toBe(false);
     expect(lanes).toHaveLength(1);
 
     editor.destroy();
@@ -634,11 +634,9 @@ describe("quiz block skeleton", () => {
     expect(children.indexOf(completion)).toBeLessThan(children.indexOf(context));
     expect(children.indexOf(context)).toBeLessThan(children.indexOf(stage));
     expect(children.indexOf(stage)).toBeLessThan(children.indexOf(controls));
-    expect(activeQuestionFrame?.querySelectorAll("[data-assessment-bounded-scroll]")).toHaveLength(
-      1,
-    );
-    expect(stage.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
-    expect(controls.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
+    expect(activeQuestionFrame?.querySelectorAll("[data-bounded-scroll]")).toHaveLength(1);
+    expect(stage.hasAttribute("data-bounded-scroll")).toBe(false);
+    expect(controls.hasAttribute("data-bounded-scroll")).toBe(false);
 
     editor.destroy();
   });
@@ -704,8 +702,8 @@ describe("quiz block skeleton", () => {
       const stage = screen.getByTestId("quiz-stage-viewport");
       expect(findBlockFrame(quizId, true)?.hasAttribute("data-bounded-placement")).toBe(bounded);
       expect(picker.parentElement).toBe(stage.parentElement);
-      expect(picker.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
-      expect(stage.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
+      expect(picker.hasAttribute("data-bounded-scroll")).toBe(false);
+      expect(stage.hasAttribute("data-bounded-scroll")).toBe(false);
 
       editor.destroy();
     },
@@ -946,12 +944,8 @@ describe("quiz block skeleton", () => {
     const next = await screen.findByRole("button", { name: "Next question" });
     const firstQuestionFrame = findBlockFrame("question-a", false);
     const secondQuestionFrame = findBlockFrame("question-b", false);
-    const firstLane = firstQuestionFrame?.querySelector<HTMLElement>(
-      "[data-assessment-bounded-scroll]",
-    );
-    const secondLane = secondQuestionFrame?.querySelector<HTMLElement>(
-      "[data-assessment-bounded-scroll]",
-    );
+    const firstLane = firstQuestionFrame?.querySelector<HTMLElement>("[data-bounded-scroll]");
+    const secondLane = secondQuestionFrame?.querySelector<HTMLElement>("[data-bounded-scroll]");
 
     expect(firstQuestionFrame?.getAttribute("data-bounded-placement")).toBe("fill");
     expect(secondQuestionFrame?.getAttribute("data-bounded-placement")).toBe("fill");
@@ -1003,9 +997,7 @@ describe("quiz block skeleton", () => {
     renderWithRuntime(editor);
     const next = await screen.findByRole("button", { name: "Next question" });
     const secondQuestionFrame = findBlockFrame("question-b", false);
-    const secondLane = secondQuestionFrame?.querySelector<HTMLElement>(
-      "[data-assessment-bounded-scroll]",
-    );
+    const secondLane = secondQuestionFrame?.querySelector<HTMLElement>("[data-bounded-scroll]");
 
     expect(secondQuestionFrame?.hasAttribute("data-bounded-placement")).toBe(false);
     expect(secondLane).not.toBeNull();

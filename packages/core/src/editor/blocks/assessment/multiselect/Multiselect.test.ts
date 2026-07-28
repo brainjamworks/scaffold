@@ -417,17 +417,17 @@ describe("composite multiselect node", () => {
     });
     const shell = frame?.querySelector<HTMLElement>("[data-assessment-shell]");
     const choices = frame?.querySelector<HTMLElement>('[data-slot="assessment-choices-group"]');
-    const scrollLane = choices?.querySelector<HTMLElement>("[data-assessment-bounded-scroll]");
-    const hint = choices?.querySelector<HTMLElement>("[data-assessment-bounded-scroll-hint]");
+    const scrollLane = choices?.querySelector<HTMLElement>("[data-bounded-scroll]");
+    const hint = choices?.querySelector<HTMLElement>("[data-bounded-scroll-hint]");
 
     expect(shell).toBeInstanceOf(HTMLElement);
     expect(choices).toBeInstanceOf(HTMLElement);
-    expect(choices?.getAttribute("data-assessment-bounded-scroll-frame")).toBe("");
-    expect(choices?.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
-    expect(scrollLane?.getAttribute("data-assessment-bounded-scroll")).toBe("");
+    expect(choices?.getAttribute("data-bounded-scroll-frame")).toBe("");
+    expect(choices?.hasAttribute("data-bounded-scroll")).toBe(false);
+    expect(scrollLane?.getAttribute("data-bounded-scroll")).toBe("");
     expect(hint?.textContent).toBe("Scroll for more ↓");
-    expect(shell?.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
-    expect(frame?.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
+    expect(shell?.hasAttribute("data-bounded-scroll")).toBe(false);
+    expect(frame?.hasAttribute("data-bounded-scroll")).toBe(false);
 
     editor.destroy();
   });
@@ -457,17 +457,17 @@ describe("composite multiselect node", () => {
     });
     const shell = frame?.querySelector<HTMLElement>("[data-assessment-shell]");
     const choices = frame?.querySelector<HTMLElement>('[data-slot="assessment-choices-group"]');
-    const scrollLane = choices?.querySelector<HTMLElement>("[data-assessment-bounded-scroll]");
-    const hint = choices?.querySelector<HTMLElement>("[data-assessment-bounded-scroll-hint]");
+    const scrollLane = choices?.querySelector<HTMLElement>("[data-bounded-scroll]");
+    const hint = choices?.querySelector<HTMLElement>("[data-bounded-scroll-hint]");
 
     expect(shell).toBeInstanceOf(HTMLElement);
     expect(choices).toBeInstanceOf(HTMLElement);
-    expect(choices?.getAttribute("data-assessment-bounded-scroll-frame")).toBe("");
-    expect(choices?.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
-    expect(scrollLane?.getAttribute("data-assessment-bounded-scroll")).toBe("");
+    expect(choices?.getAttribute("data-bounded-scroll-frame")).toBe("");
+    expect(choices?.hasAttribute("data-bounded-scroll")).toBe(false);
+    expect(scrollLane?.getAttribute("data-bounded-scroll")).toBe("");
     expect(hint?.textContent).toBe("Scroll for more ↓");
-    expect(shell?.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
-    expect(frame?.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
+    expect(shell?.hasAttribute("data-bounded-scroll")).toBe(false);
+    expect(frame?.hasAttribute("data-bounded-scroll")).toBe(false);
 
     editor.destroy();
   });

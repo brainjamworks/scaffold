@@ -6,6 +6,7 @@ import {
 } from "@tiptap/react";
 
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
+import { BoundedScrollHint } from "@/editor/bounded-containers/view/bounded-scroll";
 import {
   authoringChromeActiveAttributes,
   structuralAuthoringFrameAttributes,
@@ -58,7 +59,10 @@ export function CellNodeView(props: CellNodeViewProps) {
       {...authoringChromeActiveAttributes(cellChromeActive)}
       className={cn("sc-grid-cell-authoring", editable && "sc-grid-cell-authoring--editable")}
     >
-      <NodeViewContent data-bounded-viewport="scroll" className="sc-grid-cell-authoring__content" />
+      <div data-bounded-scroll-frame="">
+        <NodeViewContent data-bounded-scroll="" className="sc-grid-cell-authoring__content" />
+        <BoundedScrollHint editable />
+      </div>
     </NodeViewWrapper>
   );
 }

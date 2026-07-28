@@ -25,6 +25,7 @@ import {
 } from "./paginated-components";
 
 import "@/editor/bounded-containers/view/bounded-container.css";
+import { BoundedScrollHint } from "@/editor/bounded-containers/view/bounded-scroll";
 import "./paginated.css";
 
 export function PaginatedLayoutRuntimeView(props: LayoutRuntimeViewProps) {
@@ -98,10 +99,13 @@ export function PaginatedSectionRuntimeView(props: SectionRuntimeViewProps) {
       {...paginatedPanelAttributes({ layoutId, pageId, isActive })}
       className="sc-paginated-layout__panel"
     >
-      <NodeViewContent
-        data-bounded-viewport="fill"
-        className="sc-layout-section__content sc-paginated-layout__page-content"
-      />
+      <div data-bounded-scroll-frame="">
+        <NodeViewContent
+          data-bounded-scroll=""
+          className="sc-layout-section__content sc-paginated-layout__page-content"
+        />
+        <BoundedScrollHint />
+      </div>
     </div>
   );
 }

@@ -51,7 +51,12 @@ export function createRegionNode(options: RegionNodeOptions = {}) {
     },
 
     parseHTML() {
-      return [{ tag: 'section[data-node="region"]' }];
+      return [
+        {
+          tag: 'section[data-node="region"]',
+          contentElement: "[data-bounded-scroll]",
+        },
+      ];
     },
 
     renderHTML({ node, HTMLAttributes }) {
@@ -61,7 +66,26 @@ export function createRegionNode(options: RegionNodeOptions = {}) {
           "data-node": "region",
           ...(isFieldContentEmpty(node) ? { "data-empty": "true" } : {}),
         }),
-        0,
+        [
+          "div",
+          { "data-bounded-scroll-frame": "" },
+          [
+            "div",
+            {
+              "data-bounded-scroll": "",
+              class: "sc-region__content",
+            },
+            0,
+          ],
+          [
+            "div",
+            {
+              "data-bounded-scroll-hint": "",
+              "aria-hidden": "true",
+            },
+            "Scroll for more ↓",
+          ],
+        ],
       ];
     },
 

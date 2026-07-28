@@ -29,7 +29,28 @@
 }
 
 .sc-region__content {
-  display: contents;
+  display: grid;
+  min-height: 0;
+  max-height: 100%;
+  align-content: start;
+  gap: var(--sc-region-flow-gap);
+}
+
+.sc-region > [data-bounded-scroll-frame] {
+  height: 100%;
+}
+
+.sc-region__content:has([data-bounded-placement="fill"]) {
+  height: 100%;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.sc-region[data-vertical-content-position="middle"] .sc-region__content {
+  align-content: center;
+}
+
+.sc-region[data-vertical-content-position="bottom"] .sc-region__content {
+  align-content: end;
 }
 
 .sc-region:has(> [data-bounded-placement="fill"]),
@@ -46,6 +67,25 @@
 ),
 .sc-region:has(
   > [data-node-view-content-react] > .react-renderer > [data-bounded-placement="fill"]
+),
+.sc-region:has(
+  > [data-bounded-scroll-frame] > [data-bounded-scroll] > [data-bounded-placement="fill"]
+),
+.sc-region:has(
+  > [data-bounded-scroll-frame]
+    > [data-bounded-scroll]
+    > .react-renderer
+    > [data-bounded-placement="fill"]
+),
+.sc-region:has(
+  > [data-bounded-scroll-frame]
+    > [data-bounded-scroll]
+    > [data-node-view-content-react]
+    > .react-renderer
+    > [data-bounded-placement="fill"]
+),
+.sc-region:has(
+  > [data-bounded-scroll-frame] [data-bounded-scroll] [data-bounded-placement="fill"]
 ) {
   align-content: stretch;
   grid-template-rows: minmax(0, 1fr);

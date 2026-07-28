@@ -134,7 +134,7 @@
   .sc-assessment-node-view[data-bounded-placement="fill"]
     > .sc-matching
     [data-slot="matching-pairs-group"]
-    .sc-matching-pairs-scroll[data-assessment-bounded-scroll-overflow] {
+    .sc-matching-pairs-scroll[data-bounded-scroll-overflow] {
     justify-content: flex-start;
   }
 

@@ -19,7 +19,7 @@ export const SelectableChoiceRuntimeNode = createSelectableChoiceNode({
 });
 
 const BOUNDED_ASSESSMENT_SELECTOR = '.sc-assessment-node-view[data-bounded-placement="fill"]';
-const BOUNDED_SCROLL_SELECTOR = "[data-assessment-bounded-scroll]";
+const BOUNDED_SCROLL_SELECTOR = "[data-bounded-scroll]";
 const SUBMIT_SCROLL_TARGET_ATTR = "data-assessment-runtime-submit-scroll-target";
 const REVEAL_SCROLL_TARGET_ATTR = "data-assessment-runtime-reveal-scroll-target";
 const SCROLL_TARGET_MARGIN_PX = 8;

@@ -58,7 +58,7 @@
   .sc-assessment-node-view[data-bounded-placement="fill"]
     > .sc-fill-blanks
     [data-slot="fill-blanks-body"]
-    .sc-fill-blanks-body-scroll[data-assessment-bounded-scroll-overflow] {
+    .sc-fill-blanks-body-scroll[data-bounded-scroll-overflow] {
     justify-content: flex-start;
   }
 

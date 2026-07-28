@@ -110,6 +110,20 @@
   gap: var(--sc-grid-cell-flow-gap);
 }
 
+:where(.sc-grid-cell, .sc-grid-cell-authoring) > [data-bounded-scroll-frame] {
+  height: 100%;
+}
+
+:where(.sc-grid-cell, .sc-grid-cell-authoring)[data-vertical-content-position="middle"]
+  [data-bounded-scroll] {
+  align-content: center;
+}
+
+:where(.sc-grid-cell, .sc-grid-cell-authoring)[data-vertical-content-position="bottom"]
+  [data-bounded-scroll] {
+  align-content: end;
+}
+
 .sc-grid-cell__content > *,
 .sc-grid-cell__content > [data-node-view-content-react] > *,
 .sc-grid-cell-authoring__content > *,

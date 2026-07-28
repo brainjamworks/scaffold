@@ -1,6 +1,8 @@
 import { NodeViewContent, NodeViewWrapper } from "@tiptap/react";
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 
+import { useBoundedScrollAffordance } from "@/editor/bounded-containers/view/bounded-scroll";
+import "@/editor/bounded-containers/view/bounded-container.css";
 import {
   readSurfaceBackground,
   readSurfaceVerticalPosition,
@@ -29,8 +31,12 @@ export function SurfaceRuntimeFrame({
   className,
   node,
 }: SurfaceRuntimeFrameProps) {
+  const surfaceRef = useRef<HTMLDivElement | null>(null);
+  useBoundedScrollAffordance(surfaceRef);
+
   return (
     <NodeViewWrapper
+      ref={surfaceRef}
       className={["sc-surface-runtime-node__content", className].filter(Boolean).join(" ")}
       style={surfaceBackgroundStyle(readSurfaceBackground(node.attrs["settings"]))}
       {...attributes}

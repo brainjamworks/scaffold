@@ -364,12 +364,12 @@ describe("composite fill_blanks node", () => {
       return element;
     });
     const body = shell?.querySelector<HTMLElement>('[data-slot="fill-blanks-body"]');
-    const scrollLane = body?.querySelector<HTMLElement>("[data-assessment-bounded-scroll]");
-    const hint = body?.querySelector<HTMLElement>("[data-assessment-bounded-scroll-hint]");
+    const scrollLane = body?.querySelector<HTMLElement>("[data-bounded-scroll]");
+    const hint = body?.querySelector<HTMLElement>("[data-bounded-scroll-hint]");
 
-    expect(body?.getAttribute("data-assessment-bounded-scroll-frame")).toBe("");
-    expect(body?.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
-    expect(shell?.querySelectorAll("[data-assessment-bounded-scroll]")).toHaveLength(1);
+    expect(body?.getAttribute("data-bounded-scroll-frame")).toBe("");
+    expect(body?.hasAttribute("data-bounded-scroll")).toBe(false);
+    expect(shell?.querySelectorAll("[data-bounded-scroll]")).toHaveLength(1);
     expect(scrollLane?.textContent).toContain("Water freezes at");
     expect(scrollLane?.querySelector('[data-node="fill-blank"]')).toBeInstanceOf(HTMLElement);
     expect(scrollLane?.querySelector('[data-slot="assessment-title"]')).toBeNull();
@@ -377,7 +377,7 @@ describe("composite fill_blanks node", () => {
     expect(scrollLane?.querySelector('[data-slot="assessment-prompt"]')).toBeNull();
     expect(scrollLane?.querySelector('[data-slot="assessment-actions-group"]')).toBeNull();
     expect(hint?.textContent).toBe("Scroll for more ↓");
-    expect(shell?.hasAttribute("data-assessment-bounded-scroll")).toBe(false);
+    expect(shell?.hasAttribute("data-bounded-scroll")).toBe(false);
 
     editor.destroy();
   });
@@ -496,9 +496,9 @@ describe("composite fill_blanks node", () => {
     expect(html).toContain('data-node="fill-blank"');
     expect(html).toContain('data-blank-id="b1"');
     expect(html).toContain('data-placeholder="temperature"');
-    expect(html).toContain('data-assessment-bounded-scroll-frame=""');
-    expect(html).toContain('data-assessment-bounded-scroll=""');
-    expect(html).toContain('data-assessment-bounded-scroll-hint=""');
+    expect(html).toContain('data-bounded-scroll-frame=""');
+    expect(html).toContain('data-bounded-scroll=""');
+    expect(html).toContain('data-bounded-scroll-hint=""');
     expect(html).toContain("Scroll for more ↓");
     expect(html).not.toContain("data-answers");
     expect(html).not.toContain("data-feedback");

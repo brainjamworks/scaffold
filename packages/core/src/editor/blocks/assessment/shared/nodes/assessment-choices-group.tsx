@@ -39,15 +39,11 @@ export const AssessmentChoicesGroupNode = Node.create({
     return [
       "div",
       mergeAttributes(HTMLAttributes, {
-        "data-assessment-bounded-scroll-frame": "",
+        "data-bounded-scroll-frame": "",
         "data-slot": "assessment-choices-group",
       }),
-      ["div", { "data-assessment-bounded-scroll": "", class: "sc-assessment-choices-scroll" }, 0],
-      [
-        "div",
-        { "data-assessment-bounded-scroll-hint": "", "aria-hidden": "true" },
-        "Scroll for more ↓",
-      ],
+      ["div", { "data-bounded-scroll": "", class: "sc-assessment-choices-scroll" }, 0],
+      ["div", { "data-bounded-scroll-hint": "", "aria-hidden": "true" }, "Scroll for more ↓"],
     ];
   },
 
@@ -86,11 +82,11 @@ function AssessmentChoicesGroupNodeView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper
-      data-assessment-bounded-scroll-frame=""
+      data-bounded-scroll-frame=""
       data-slot="assessment-choices-group"
       className="sc-assessment-choices-group"
     >
-      <div data-assessment-bounded-scroll="" className="sc-assessment-choices-scroll">
+      <div data-bounded-scroll="" className="sc-assessment-choices-scroll">
         <NodeViewContent />
         {isEditable ? (
           <BlockAddGhost
@@ -109,7 +105,7 @@ function AssessmentChoicesGroupNodeView(props: NodeViewProps) {
 
 function BoundedScrollHint() {
   return (
-    <div data-assessment-bounded-scroll-hint="" contentEditable={false} aria-hidden="true">
+    <div data-bounded-scroll-hint="" contentEditable={false} aria-hidden="true">
       Scroll for more ↓
     </div>
   );

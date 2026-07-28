@@ -50,6 +50,14 @@ describe("bounded Region authoring geometry", () => {
     await nextLayoutFrame();
 
     const region = requiredElement(host, '[data-node="region"]');
+    const regionViewport = requiredElement(
+      region,
+      ":scope > [data-bounded-scroll-frame] > [data-bounded-scroll]",
+    );
+    const regionHint = requiredElement(
+      region,
+      ":scope > [data-bounded-scroll-frame] > [data-bounded-scroll-hint]",
+    );
     const frame = requiredElement(
       region,
       '[data-authoring-frame="layout"][data-definition="tabs"]',
@@ -64,6 +72,8 @@ describe("bounded Region authoring geometry", () => {
       Number.parseFloat(regionStyle.paddingBottom);
 
     expect(regionStyle.alignContent).toBe("stretch");
+    expect(regionViewport).not.toBeNull();
+    expect(regionHint.textContent).toBe("Scroll for more ↓");
     expect(
       Math.abs(frame.getBoundingClientRect().height - expectedContentHeight),
     ).toBeLessThanOrEqual(0.5);

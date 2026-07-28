@@ -29,15 +29,11 @@ export const FillBlanksBodyNode = TiptapNode.create({
     return [
       "div",
       mergeAttributes(HTMLAttributes, {
-        "data-assessment-bounded-scroll-frame": "",
+        "data-bounded-scroll-frame": "",
         "data-slot": "fill-blanks-body",
       }),
-      ["div", { "data-assessment-bounded-scroll": "", class: "sc-fill-blanks-body-scroll" }, 0],
-      [
-        "div",
-        { "data-assessment-bounded-scroll-hint": "", "aria-hidden": "true" },
-        "Scroll for more ↓",
-      ],
+      ["div", { "data-bounded-scroll": "", class: "sc-fill-blanks-body-scroll" }, 0],
+      ["div", { "data-bounded-scroll-hint": "", "aria-hidden": "true" }, "Scroll for more ↓"],
     ];
   },
 
@@ -54,17 +50,17 @@ function FillBlanksBodyNodeView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper
-      data-assessment-bounded-scroll-frame=""
+      data-bounded-scroll-frame=""
       data-slot="fill-blanks-body"
       className={cn(
         "sc-fill-blanks-body",
         isEditable ? "sc-fill-blanks-body--authoring" : "sc-fill-blanks-body--runtime",
       )}
     >
-      <div data-assessment-bounded-scroll="" className="sc-fill-blanks-body-scroll">
+      <div data-bounded-scroll="" className="sc-fill-blanks-body-scroll">
         <NodeViewContent className="sc-fill-blanks-body-content" />
       </div>
-      <div data-assessment-bounded-scroll-hint="" contentEditable={false} aria-hidden="true">
+      <div data-bounded-scroll-hint="" contentEditable={false} aria-hidden="true">
         Scroll for more ↓
       </div>
     </NodeViewWrapper>

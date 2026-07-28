@@ -1,0 +1,122 @@
+import { useEffect, type RefObject } from "react";
+
+export const BOUNDED_SCROLL_VIEWPORT_SELECTOR = "[data-bounded-scroll]";
+export const BOUNDED_SCROLL_OVERFLOW_ATTR = "data-bounded-scroll-overflow";
+export const BOUNDED_SCROLL_END_ATTR = "data-bounded-scroll-end";
+const BOUNDED_SCROLL_TOLERANCE_PX = 2;
+
+interface BoundedScrollMetrics {
+  clientHeight: number;
+  scrollHeight: number;
+  scrollTop: number;
+}
+
+export function resolveBoundedScrollAffordanceState({
+  clientHeight,
+  scrollHeight,
+  scrollTop,
+}: BoundedScrollMetrics): { atEnd: boolean; overflowing: boolean } {
+  const overflowing = scrollHeight - clientHeight > BOUNDED_SCROLL_TOLERANCE_PX;
+  const atEnd =
+    !overflowing || scrollTop + clientHeight >= scrollHeight - BOUNDED_SCROLL_TOLERANCE_PX;
+
+  return { atEnd, overflowing };
+}
+
+export function useBoundedScrollAffordance(rootRef: RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return undefined;
+
+    const cleanupByViewport = new Map<HTMLElement, () => void>();
+    let resizeObserver: ResizeObserver | null = null;
+
+    const getResizeObserver = () => {
+      if (resizeObserver || typeof ResizeObserver === "undefined") return resizeObserver;
+      resizeObserver = new ResizeObserver(() => {
+        refreshViewports();
+      });
+      resizeObserver.observe(root);
+      return resizeObserver;
+    };
+
+    const updateViewport = (viewport: HTMLElement) => {
+      const state = resolveBoundedScrollAffordanceState({
+        clientHeight: viewport.clientHeight,
+        scrollHeight: viewport.scrollHeight,
+        scrollTop: viewport.scrollTop,
+      });
+
+      viewport.toggleAttribute(BOUNDED_SCROLL_OVERFLOW_ATTR, state.overflowing);
+      viewport.toggleAttribute(BOUNDED_SCROLL_END_ATTR, state.atEnd);
+    };
+
+    const registerViewport = (viewport: HTMLElement) => {
+      if (cleanupByViewport.has(viewport)) {
+        updateViewport(viewport);
+        return;
+      }
+
+      const handleScroll = () => updateViewport(viewport);
+      viewport.addEventListener("scroll", handleScroll, { passive: true });
+      getResizeObserver()?.observe(viewport);
+      cleanupByViewport.set(viewport, () => {
+        viewport.removeEventListener("scroll", handleScroll);
+        resizeObserver?.unobserve(viewport);
+      });
+      updateViewport(viewport);
+    };
+
+    function refreshViewports() {
+      const viewports = new Set(
+        Array.from(root.querySelectorAll<HTMLElement>(BOUNDED_SCROLL_VIEWPORT_SELECTOR)),
+      );
+
+      if (root.matches(BOUNDED_SCROLL_VIEWPORT_SELECTOR)) viewports.add(root);
+
+      for (const [viewport, cleanup] of cleanupByViewport) {
+        if (!viewports.has(viewport)) {
+          cleanup();
+          cleanupByViewport.delete(viewport);
+        }
+      }
+
+      for (const viewport of viewports) registerViewport(viewport);
+    }
+
+    const mutationObserver =
+      typeof MutationObserver === "undefined"
+        ? null
+        : new MutationObserver(() => {
+            refreshViewports();
+          });
+
+    mutationObserver?.observe(root, {
+      attributeFilter: ["style"],
+      attributes: true,
+      characterData: true,
+      childList: true,
+      subtree: true,
+    });
+    refreshViewports();
+
+    return () => {
+      mutationObserver?.disconnect();
+      resizeObserver?.disconnect();
+      for (const cleanup of cleanupByViewport.values()) cleanup();
+      cleanupByViewport.clear();
+    };
+  }, [rootRef]);
+}
+
+export function BoundedScrollHint({ editable = false }: { editable?: boolean }) {
+  return (
+    <div
+      data-bounded-scroll-hint=""
+      contentEditable={editable ? false : undefined}
+      aria-hidden="true"
+    >
+      Scroll for more ↓
+    </div>
+  );
+}

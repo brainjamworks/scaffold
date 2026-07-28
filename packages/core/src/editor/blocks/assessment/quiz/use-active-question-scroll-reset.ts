@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef } from "react";
 
 const QUESTION_FRAME_SELECTOR =
   '[data-authoring-frame="block"][data-bounded-placement="fill"][data-id], [data-runtime-frame="block"][data-bounded-placement="fill"][data-id]';
-const BOUNDED_RESPONSE_LANE_SELECTOR = "[data-assessment-bounded-scroll]";
+const BOUNDED_RESPONSE_LANE_SELECTOR = "[data-bounded-scroll]";
 
 export function useActiveQuestionScrollReset(activeQuestionId: string | null) {
   const quizRootRef = useRef<HTMLElement | null>(null);

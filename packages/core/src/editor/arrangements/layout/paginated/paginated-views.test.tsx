@@ -113,7 +113,7 @@ describe("paginated authoring", () => {
     expect(pageButtons[0]?.getAttribute("aria-current")).toBe("page");
     expect(panels[0]?.hidden).toBe(false);
     expect(panels[1]?.hidden).toBe(true);
-    expect(activePageViewport(panels)?.getAttribute("data-bounded-viewport")).toBe("fill");
+    expect(activePageViewport(panels)?.hasAttribute("data-bounded-scroll")).toBe(true);
 
     await user.click(pageButtons[1]!);
 
@@ -210,7 +210,7 @@ describe("paginated runtime", () => {
     expect(sections[0]?.getAttribute("data-vertical-content-position")).toBe("middle");
     expect(screen.queryByRole("button", { name: "Add page" })).toBeNull();
     expect(layout?.querySelector("[data-layout-section-menu-trigger]")).toBeNull();
-    expect(activePageViewport(panels)?.getAttribute("data-bounded-viewport")).toBe("fill");
+    expect(activePageViewport(panels)?.hasAttribute("data-bounded-scroll")).toBe(true);
     expect(sectionVerticalState(editor, "page-a")).toEqual({ kind: "value", value: "middle" });
 
     await user.click(pageButtons[1]!);
@@ -240,7 +240,7 @@ describe("page-flow paginated", () => {
     expect(layout?.getAttribute("data-bounded-placement")).toBe("fill");
     expect(paginatedRoot).not.toBeNull();
     expect(paginatedRoot?.getAttribute("data-bounded-placement")).toBeNull();
-    expect(activePageViewport(panels)?.getAttribute("data-bounded-viewport")).toBe("fill");
+    expect(activePageViewport(panels)?.hasAttribute("data-bounded-scroll")).toBe(true);
     expect(sectionVerticalState(editor, "page-a")).toEqual({ kind: "unavailable" });
   });
 });
@@ -378,9 +378,8 @@ function pagePanels(): HTMLElement[] {
 
 function activePageViewport(panels: HTMLElement[]): HTMLElement | null {
   return (
-    panels
-      .find((panel) => !panel.hidden)
-      ?.querySelector<HTMLElement>('[data-bounded-viewport="fill"]') ?? null
+    panels.find((panel) => !panel.hidden)?.querySelector<HTMLElement>("[data-bounded-scroll]") ??
+    null
   );
 }
 

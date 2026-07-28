@@ -162,11 +162,11 @@ function CategoriseContentRuntimeNodeView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper
-      data-assessment-bounded-scroll-frame=""
+      data-bounded-scroll-frame=""
       data-slot="categorise-content"
       className="sc-categorise-content sc-categorise-content--runtime"
     >
-      <div data-assessment-bounded-scroll="" className="sc-categorise-content-scroll">
+      <div data-bounded-scroll="" className="sc-categorise-content-scroll">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -238,7 +238,7 @@ function CategoriseContentRuntimeNodeView(props: NodeViewProps) {
           </RuntimeDragOverlay>
         </DndContext>
       </div>
-      <div data-assessment-bounded-scroll-hint="" aria-hidden="true">
+      <div data-bounded-scroll-hint="" aria-hidden="true">
         Scroll for more ↓
       </div>
     </NodeViewWrapper>
