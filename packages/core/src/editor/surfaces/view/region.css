@@ -21,11 +21,11 @@
 }
 
 .sc-region[data-vertical-content-position="middle"] {
-  align-content: center;
+  align-content: safe center;
 }
 
 .sc-region[data-vertical-content-position="bottom"] {
-  align-content: end;
+  align-content: safe end;
 }
 
 .sc-region__content {
@@ -50,15 +50,11 @@
 }
 
 .sc-region[data-vertical-content-position="middle"] .sc-region__content {
-  align-content: center;
+  align-content: safe center;
 }
 
 .sc-region[data-vertical-content-position="bottom"] .sc-region__content {
-  align-content: end;
-}
-
-.sc-region .sc-region__content[data-bounded-scroll-overflow] {
-  align-content: start;
+  align-content: safe end;
 }
 
 .sc-region:has(> [data-bounded-placement="fill"]),
