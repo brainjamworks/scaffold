@@ -5,11 +5,13 @@
 }
 
 .scaffold-runtime-surface-view[data-course-mode="page"] {
-  --sc-surface-inset: 0;
+  --sc-surface-inset: clamp(1.5rem, 4vw, 3rem);
   --sc-surface-flow-gap: 1.5rem;
 
   width: 100%;
   min-width: 0;
+  padding: 1rem;
+  background: var(--color-canvas);
 }
 
 .scaffold-runtime-surface-view[data-course-mode="page"] [data-surface] {
@@ -17,9 +19,31 @@
   width: 100%;
   max-width: none;
   min-height: 0;
-  padding: var(--sc-surface-inset);
+  padding: 0;
   border: 0;
   background: transparent;
+}
+
+.scaffold-runtime-surface-view[data-course-mode="page"] .sc-page-default-surface-runtime-view {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 0;
+  padding: var(--sc-surface-inset);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-background);
+}
+
+@media (max-width: 639px) {
+  .scaffold-runtime-surface-view[data-course-mode="page"] {
+    --sc-surface-inset: 1.25rem;
+
+    padding: 0.75rem;
+  }
+
+  .scaffold-runtime-surface-view[data-course-mode="page"] .sc-page-default-surface-runtime-view {
+    border-radius: var(--radius-lg);
+  }
 }
 
 .scaffold-runtime-surface-view:not([data-course-mode="page"]) {

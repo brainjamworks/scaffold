@@ -19,16 +19,25 @@ afterEach(() => {
 });
 
 describe("PagePlayer presentation", () => {
-  it("leaves the player and Page surface unpainted", async () => {
+  it("presents the runtime Page as a sheet without painting the player", async () => {
     const mounted = await mountPage(pageDocumentWithParagraphs(["Short learner page"]));
     const player = uniqueElement<HTMLElement>(mounted.host, ".sc-page-player");
-    const runtimeSurface = uniqueElement<HTMLElement>(
+    const runtimeView = uniqueElement<HTMLElement>(
       player,
-      '.scaffold-runtime-surface-view[data-course-mode="page"] [data-surface]',
+      '.scaffold-runtime-surface-view[data-course-mode="page"]',
+    );
+    const runtimeSurface = uniqueElement<HTMLElement>(
+      runtimeView,
+      ".sc-page-default-surface-runtime-view",
     );
 
     expect(getComputedStyle(player).backgroundColor).toBe("rgba(0, 0, 0, 0)");
-    expect(getComputedStyle(runtimeSurface).backgroundColor).toBe("rgba(0, 0, 0, 0)");
+    expect(getComputedStyle(runtimeView).backgroundColor).toBe("rgb(250, 250, 250)");
+    expect(Number.parseFloat(getComputedStyle(runtimeView).paddingTop)).toBeGreaterThan(0);
+    expect(getComputedStyle(runtimeSurface).backgroundColor).toBe("rgb(255, 255, 255)");
+    expect(Number.parseFloat(getComputedStyle(runtimeSurface).paddingTop)).toBeGreaterThan(0);
+    expect(getComputedStyle(runtimeSurface).borderTopWidth).toBe("1px");
+    expect(Number.parseFloat(getComputedStyle(runtimeSurface).borderRadius)).toBeGreaterThan(0);
   });
 
   it("grows with Page content while retaining the reader measure", async () => {
