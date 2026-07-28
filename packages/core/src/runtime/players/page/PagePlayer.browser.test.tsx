@@ -62,7 +62,9 @@ describe("PagePlayer presentation", () => {
       shortPlayer.getBoundingClientRect().height,
     );
     expect(longPlayer.scrollHeight).toBe(longPlayer.getBoundingClientRect().height);
-    expect(shortStyle.getPropertyValue("--sc-page-player-content-max-width").trim()).toBe("72ch");
+    expect(shortStyle.getPropertyValue("--sc-page-player-content-max-width").trim()).toBe(
+      "calc(72ch + 8rem)",
+    );
     expect(content.getBoundingClientRect().width).toBeLessThan(
       shortPlayer.getBoundingClientRect().width,
     );
