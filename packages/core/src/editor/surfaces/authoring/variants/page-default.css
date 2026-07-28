@@ -1,25 +1,4 @@
-.scaffold-authoring-surface-view[data-course-mode="page"] {
-  --sc-surface-inset: clamp(2rem, 4vw, 3rem);
-
-  padding: 2.5rem 2rem;
-  background: var(--color-canvas);
-}
-
 .scaffold-authoring-surface-view[data-surface-size="fluid"]
   [data-surface].sc-page-default-surface-view {
-  max-width: 72rem;
-  border-radius: var(--radius-xl);
-}
-
-@media (max-width: 639px) {
-  .scaffold-authoring-surface-view[data-course-mode="page"] {
-    --sc-surface-inset: 1.25rem;
-
-    padding: 1rem;
-  }
-
-  .scaffold-authoring-surface-view[data-surface-size="fluid"]
-    [data-surface].sc-page-default-surface-view {
-    border-radius: var(--radius-lg);
-  }
+  max-width: 48rem;
 }
