@@ -56,4 +56,30 @@ describe("Region vertical content geometry", () => {
     expect(getComputedStyle(region).alignContent).toBe("stretch");
     expect(resizeContainer.getBoundingClientRect().height).toBeCloseTo(192, 0);
   });
+
+  it("top-aligns overflowing content that would otherwise be vertically centred", () => {
+    const region = document.createElement("div");
+    region.className = "sc-region";
+    region.dataset.verticalContentPosition = "middle";
+    region.style.cssText =
+      "--sc-region-inset: 0; --sc-region-flow-gap: 0; width: 200px; height: 200px;";
+
+    const content = document.createElement("div");
+    content.className = "sc-region__content";
+    content.dataset.boundedScroll = "";
+    content.dataset.boundedScrollOverflow = "";
+    content.style.height = "100%";
+
+    const oversizedContent = document.createElement("div");
+    oversizedContent.style.height = "240px";
+    content.append(oversizedContent);
+    region.append(content);
+    document.body.append(region);
+
+    expect(getComputedStyle(content).alignContent).toBe("start");
+    expect(oversizedContent.getBoundingClientRect().top).toBeCloseTo(
+      region.getBoundingClientRect().top,
+      0,
+    );
+  });
 });

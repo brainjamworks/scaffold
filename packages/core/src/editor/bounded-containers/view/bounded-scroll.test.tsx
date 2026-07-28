@@ -63,6 +63,28 @@ describe("bounded scroll affordance", () => {
     ).toEqual({ atEnd: true, overflowing: false });
   });
 
+  it("does not let the visible hint row create its own overflow", () => {
+    expect(
+      resolveBoundedScrollAffordanceState({
+        availableHeight: 441,
+        clientHeight: 421,
+        scrollHeight: 441,
+        scrollTop: 20,
+      }),
+    ).toEqual({ atEnd: true, overflowing: false });
+  });
+
+  it("keeps genuine overflow when the content exceeds the complete frame", () => {
+    expect(
+      resolveBoundedScrollAffordanceState({
+        availableHeight: 237,
+        clientHeight: 217,
+        scrollHeight: 264,
+        scrollTop: 0,
+      }),
+    ).toEqual({ atEnd: false, overflowing: true });
+  });
+
   it("tracks overflow and the end of every registered viewport", () => {
     mockLaneMetrics({
       first: { clientHeight: 120, scrollHeight: 240 },

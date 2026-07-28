@@ -6,17 +6,20 @@ export const BOUNDED_SCROLL_END_ATTR = "data-bounded-scroll-end";
 const BOUNDED_SCROLL_TOLERANCE_PX = 2;
 
 interface BoundedScrollMetrics {
+  availableHeight?: number;
   clientHeight: number;
   scrollHeight: number;
   scrollTop: number;
 }
 
 export function resolveBoundedScrollAffordanceState({
+  availableHeight,
   clientHeight,
   scrollHeight,
   scrollTop,
 }: BoundedScrollMetrics): { atEnd: boolean; overflowing: boolean } {
-  const overflowing = scrollHeight - clientHeight > BOUNDED_SCROLL_TOLERANCE_PX;
+  const measuredAvailableHeight = availableHeight ?? clientHeight;
+  const overflowing = scrollHeight - measuredAvailableHeight > BOUNDED_SCROLL_TOLERANCE_PX;
   const atEnd =
     !overflowing || scrollTop + clientHeight >= scrollHeight - BOUNDED_SCROLL_TOLERANCE_PX;
 
@@ -41,7 +44,9 @@ export function useBoundedScrollAffordance(rootRef: RefObject<HTMLElement | null
     };
 
     const updateViewport = (viewport: HTMLElement) => {
+      const frame = viewport.closest<HTMLElement>("[data-bounded-scroll-frame]");
       const state = resolveBoundedScrollAffordanceState({
+        availableHeight: frame?.clientHeight,
         clientHeight: viewport.clientHeight,
         scrollHeight: viewport.scrollHeight,
         scrollTop: viewport.scrollTop,

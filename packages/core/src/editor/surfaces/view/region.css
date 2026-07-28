@@ -40,6 +40,10 @@
   height: 100%;
 }
 
+.sc-region:has(> [data-bounded-scroll-frame]) {
+  grid-template-rows: minmax(0, 1fr);
+}
+
 .sc-region__content:has([data-bounded-placement="fill"]) {
   height: 100%;
   grid-template-rows: minmax(0, 1fr);
@@ -51,6 +55,10 @@
 
 .sc-region[data-vertical-content-position="bottom"] .sc-region__content {
   align-content: end;
+}
+
+.sc-region .sc-region__content[data-bounded-scroll-overflow] {
+  align-content: start;
 }
 
 .sc-region:has(> [data-bounded-placement="fill"]),
