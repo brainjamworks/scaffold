@@ -150,6 +150,7 @@ const Content = forwardRef<ComponentRef<typeof RadixDialog.Content>, SheetConten
               }}
               style={{
                 ...(style as CSSProperties | undefined),
+                pointerEvents: "auto",
                 zIndex: zIndex.modal,
               }}
             >

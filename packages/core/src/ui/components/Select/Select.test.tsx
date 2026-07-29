@@ -104,11 +104,13 @@ describe("Select", () => {
     expect(trigger.querySelector(".sc-select-trigger-icon")).not.toBeNull();
   });
 
-  it("supports the simple options API", () => {
+  it("supports the simple options API through the branded Radix control", async () => {
+    const onChange = vi.fn();
+
     render(
       <Select
         value="line"
-        onChange={vi.fn()}
+        onChange={onChange}
         options={[
           { value: "bar", label: "Bar" },
           { value: "line", label: "Line" },
@@ -117,9 +119,14 @@ describe("Select", () => {
     );
 
     const select = screen.getByRole("combobox");
-    expect(select).toBeInstanceOf(HTMLSelectElement);
+    expect(select).not.toBeInstanceOf(HTMLSelectElement);
     expect(select.classList.contains("sc-select-trigger")).toBe(true);
-    expect(screen.getAllByRole("option")).toHaveLength(2);
+
+    await userEvent.click(select);
+    expect(await screen.findByRole("listbox")).not.toBeNull();
+    await userEvent.click(screen.getByRole("option", { name: "Bar" }));
+
+    expect(onChange).toHaveBeenCalledWith("bar");
   });
 
   it("keeps the exported variant helper available", () => {

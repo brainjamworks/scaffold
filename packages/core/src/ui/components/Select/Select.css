@@ -1,12 +1,6 @@
 @layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
 
 @layer sc-components {
-  :where(.sc-select-native) {
-    position: relative;
-    display: inline-block;
-    width: 100%;
-  }
-
   :where(.sc-select-trigger) {
     box-sizing: border-box;
     display: inline-flex;
@@ -27,19 +21,6 @@
       border-color 150ms var(--ease-out-soft),
       box-shadow 150ms var(--ease-out-soft),
       opacity 150ms var(--ease-out-soft);
-  }
-
-  :where(select.sc-select-trigger) {
-    appearance: none;
-    padding-inline-end: 2.25rem;
-  }
-
-  :where(.sc-select-native__icon) {
-    position: absolute;
-    top: 50%;
-    right: 0.75rem;
-    pointer-events: none;
-    transform: translateY(-50%);
   }
 
   :where(.sc-select-trigger):hover:not(:disabled):not([aria-invalid="true"]) {

@@ -339,8 +339,11 @@ describe("dialog-hosted nested editor", () => {
     expect(screen.getByRole("dialog", { name: "Callout settings" })).toBe(settingsSheet);
     expect(screen.getByRole("dialog", { name: "Nested content" })).toBeInTheDocument();
 
-    fireEvent.change(variantSelect, { target: { value: "warning" } });
-    expect(variantSelect).toHaveValue("warning");
+    await userEvent.click(variantSelect);
+    const warningOption = await screen.findByRole("option", { name: "Warning" });
+    expect(portalHost.contains(warningOption)).toBe(true);
+    await userEvent.click(warningOption);
+    expect(variantSelect).toHaveTextContent("Warning");
     fireEvent.click(within(settingsSheet).getByRole("button", { name: "Save" }));
     await waitFor(() =>
       expect(screen.queryByRole("dialog", { name: "Callout settings" })).toBeNull(),
