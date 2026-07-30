@@ -16,7 +16,12 @@
   <img src="https://img.shields.io/badge/status-pre--alpha-F43A57" alt="Status: pre-alpha">
 </p>
 
-![Scaffold authoring a course page with an assessment and the block library open](./.github/readme/block-library.png)
+[![Watch the Scaffold product demo](./.github/readme/scaffold-demo-poster.jpg)](./.github/readme/scaffold-demo-1080p.mp4?raw=1)
+
+<p align="center">
+  <strong><a href="./.github/readme/scaffold-demo-1080p.mp4?raw=1">▶ Watch the full Scaffold demo</a></strong>
+  · <a href="./.github/readme/scaffold-demo.en.vtt">English captions</a>
+</p>
 
 Scaffold is a browser-based authoring toolkit for building course content once
 and delivering it through different learning platforms. It combines a
