@@ -1534,7 +1534,9 @@ it("uses an authored annotation title in the runtime popover", async () => {
   expect(popover.querySelector(".sc-popover-surface__title")?.textContent).toBe(
     "Salty global ocean",
   );
-  expect(within(popover).getByText("A conductive layer hidden beneath the ice.")).toBeInTheDocument();
+  expect(
+    within(popover).getByText("A conductive layer hidden beneath the ice."),
+  ).toBeInTheDocument();
 
   editor.destroy();
 });

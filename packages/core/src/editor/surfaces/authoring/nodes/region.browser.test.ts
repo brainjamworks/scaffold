@@ -76,7 +76,7 @@ describe("Region vertical content geometry", () => {
     region.append(content);
     document.body.append(region);
 
-    expect(getComputedStyle(content).alignContent).toBe("start");
+    expect(getComputedStyle(content).alignContent).toBe("safe center");
     expect(oversizedContent.getBoundingClientRect().top).toBeCloseTo(
       region.getBoundingClientRect().top,
       0,

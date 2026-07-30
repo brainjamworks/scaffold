@@ -6,7 +6,7 @@ export const BOUNDED_SCROLL_END_ATTR = "data-bounded-scroll-end";
 const BOUNDED_SCROLL_TOLERANCE_PX = 2;
 
 interface BoundedScrollMetrics {
-  availableHeight?: number;
+  availableHeight?: number | undefined;
   clientHeight: number;
   scrollHeight: number;
   scrollTop: number;
@@ -30,6 +30,7 @@ export function useBoundedScrollAffordance(rootRef: RefObject<HTMLElement | null
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return undefined;
+    const boundedRoot: HTMLElement = root;
 
     const cleanupByViewport = new Map<HTMLElement, () => void>();
     let resizeObserver: ResizeObserver | null = null;
@@ -39,7 +40,7 @@ export function useBoundedScrollAffordance(rootRef: RefObject<HTMLElement | null
       resizeObserver = new ResizeObserver(() => {
         refreshViewports();
       });
-      resizeObserver.observe(root);
+      resizeObserver.observe(boundedRoot);
       return resizeObserver;
     };
 
@@ -74,10 +75,10 @@ export function useBoundedScrollAffordance(rootRef: RefObject<HTMLElement | null
 
     function refreshViewports() {
       const viewports = new Set(
-        Array.from(root.querySelectorAll<HTMLElement>(BOUNDED_SCROLL_VIEWPORT_SELECTOR)),
+        Array.from(boundedRoot.querySelectorAll<HTMLElement>(BOUNDED_SCROLL_VIEWPORT_SELECTOR)),
       );
 
-      if (root.matches(BOUNDED_SCROLL_VIEWPORT_SELECTOR)) viewports.add(root);
+      if (boundedRoot.matches(BOUNDED_SCROLL_VIEWPORT_SELECTOR)) viewports.add(boundedRoot);
 
       for (const [viewport, cleanup] of cleanupByViewport) {
         if (!viewports.has(viewport)) {
@@ -96,7 +97,7 @@ export function useBoundedScrollAffordance(rootRef: RefObject<HTMLElement | null
             refreshViewports();
           });
 
-    mutationObserver?.observe(root, {
+    mutationObserver?.observe(boundedRoot, {
       attributeFilter: ["style"],
       attributes: true,
       characterData: true,

@@ -125,7 +125,8 @@ export function AnnotatedFigureWorkspace({
                           {annotation.number}
                         </MediaWorkspace.ItemNumber>
                         <span>
-                          {annotation.title || (selected ? "Editing annotation" : `Annotation ${annotation.number}`)}
+                          {annotation.title ||
+                            (selected ? "Editing annotation" : `Annotation ${annotation.number}`)}
                         </span>
                       </MediaWorkspace.ItemSelect>
                       <div
