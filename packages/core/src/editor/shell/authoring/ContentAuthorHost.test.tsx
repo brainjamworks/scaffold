@@ -2,14 +2,13 @@
 
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { Editor as TiptapEditor } from "@tiptap/core";
+import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import * as Y from "yjs";
 
-import { COURSE_DOCUMENT_FRAGMENT } from "@/document/model/constants";
 import { ScaffoldUnavailableAgentIntegration } from "@/editor/shell/agent/ScaffoldUnavailableAgentIntegration";
 import type { ScaffoldAgentIntegrationProps } from "@/editor/shell/agent/agent-integration";
+import { createScaffoldDocumentContent } from "@/format/artifact";
 import { useScaffoldArtifactIdentity } from "@/host/providers/ScaffoldArtifactIdentityProvider";
 
 import { ContentAuthorHost } from "./ContentAuthorHost";
@@ -21,14 +20,14 @@ afterEach(() => {
 
 describe("ContentAuthorHost", () => {
   it("mounts the editor with the unavailable Agent integration", async () => {
-    const document = new Y.Doc();
+    const content = createScaffoldDocumentContent({ mode: "page" });
     const onEditorReady = vi.fn();
 
     render(
       <ContentAuthorHost
         agentIntegration={ScaffoldUnavailableAgentIntegration}
         artifactId="test-artifact"
-        document={document}
+        content={content}
         onEditorReady={onEditorReady}
       />,
     );
@@ -42,12 +41,11 @@ describe("ContentAuthorHost", () => {
     expect(screen.getByTestId("content-author-workspace")).toBeInTheDocument();
     expect(screen.getByTestId("authoring-agent-dock")).toBeInTheDocument();
     expect(screen.getByText("not connected")).toBeInTheDocument();
-    expect(document.getXmlFragment(COURSE_DOCUMENT_FRAGMENT).length).toBeGreaterThan(0);
     expect(courseDocument?.attrs).toMatchObject({ mode: "page" });
   });
 
   it("provides the initial null editor before the live editor without remounting", async () => {
-    const document = new Y.Doc();
+    const content = createScaffoldDocumentContent({ mode: "page" });
     const onEditorReady = vi.fn();
     const observedEditors: Array<TiptapEditor | null> = [];
 
@@ -60,7 +58,7 @@ describe("ContentAuthorHost", () => {
       <ContentAuthorHost
         agentIntegration={TrackingIntegration}
         agentOpen={false}
-        document={document}
+        content={content}
         leftRail={() => <div>Left rail</div>}
         onEditorReady={onEditorReady}
         rightRail={() => <div>Right rail</div>}
@@ -79,8 +77,47 @@ describe("ContentAuthorHost", () => {
     expect(onEditorReady).toHaveBeenCalledTimes(1);
   });
 
+  it("remounts the editor when the authoring artifact changes", async () => {
+    const firstContent = createScaffoldDocumentContent({
+      mode: "page",
+      surfaceId: "first-surface",
+    });
+    const nextContent = createScaffoldDocumentContent({
+      mode: "page",
+      surfaceId: "next-surface",
+    });
+    const onEditorReady = vi.fn();
+    const { rerender } = render(
+      <ContentAuthorHost
+        agentIntegration={ScaffoldUnavailableAgentIntegration}
+        artifactId="first-artifact"
+        content={firstContent}
+        onEditorReady={onEditorReady}
+      />,
+    );
+
+    await waitFor(() => expect(onEditorReady).toHaveBeenCalledTimes(1));
+    const firstEditor = onEditorReady.mock.calls[0]?.[0] as TiptapEditor;
+
+    rerender(
+      <ContentAuthorHost
+        agentIntegration={ScaffoldUnavailableAgentIntegration}
+        artifactId="next-artifact"
+        content={nextContent}
+        onEditorReady={onEditorReady}
+      />,
+    );
+
+    await waitFor(() => expect(onEditorReady).toHaveBeenCalledTimes(2));
+    const nextEditor = onEditorReady.mock.calls[1]?.[0] as TiptapEditor;
+    expect(firstEditor.isDestroyed).toBe(true);
+    expect(nextEditor).not.toBe(firstEditor);
+    const nextCourseDocument = nextEditor.getJSON().content?.[0] as JSONContent | undefined;
+    expect(nextCourseDocument?.content?.[0]?.attrs?.["id"]).toBe("next-surface");
+  });
+
   it("gates contributed dock content on readiness, open state, and editability", async () => {
-    const document = new Y.Doc();
+    const content = createScaffoldDocumentContent({ mode: "page" });
     const onEditorReady = vi.fn();
 
     function DockIntegration({ renderWorkspace }: ScaffoldAgentIntegrationProps) {
@@ -94,7 +131,7 @@ describe("ContentAuthorHost", () => {
       <ContentAuthorHost
         agentIntegration={DockIntegration}
         agentOpen
-        document={document}
+        content={content}
         onEditorReady={onEditorReady}
       />,
     );
@@ -107,7 +144,7 @@ describe("ContentAuthorHost", () => {
       <ContentAuthorHost
         agentIntegration={DockIntegration}
         agentOpen={false}
-        document={document}
+        content={content}
         onEditorReady={onEditorReady}
       />,
     );
@@ -117,7 +154,7 @@ describe("ContentAuthorHost", () => {
       <ContentAuthorHost
         agentIntegration={DockIntegration}
         agentOpen
-        document={document}
+        content={content}
         editable={false}
         onEditorReady={onEditorReady}
       />,
@@ -127,7 +164,7 @@ describe("ContentAuthorHost", () => {
 
   it("forwards close from a contributed dock", async () => {
     const user = userEvent.setup();
-    const document = new Y.Doc();
+    const content = createScaffoldDocumentContent({ mode: "page" });
     const onAgentClose = vi.fn();
 
     function ClosableIntegration({ onClose, renderWorkspace }: ScaffoldAgentIntegrationProps) {
@@ -145,7 +182,7 @@ describe("ContentAuthorHost", () => {
       <ContentAuthorHost
         agentIntegration={ClosableIntegration}
         agentOpen
-        document={document}
+        content={content}
         onAgentClose={onAgentClose}
       />,
     );
@@ -157,7 +194,7 @@ describe("ContentAuthorHost", () => {
 
   it("suspends and resumes the same editor from the review discriminant", async () => {
     const user = userEvent.setup();
-    const document = new Y.Doc();
+    const content = createScaffoldDocumentContent({ mode: "page" });
     const onEditorReady = vi.fn();
 
     function ReviewStage() {
@@ -187,7 +224,7 @@ describe("ContentAuthorHost", () => {
         agentIntegration={ReviewingIntegration}
         agentOpen
         artifactId="review-artifact"
-        document={document}
+        content={content}
         onEditorReady={onEditorReady}
       />,
     );

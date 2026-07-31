@@ -9,8 +9,6 @@ export {
   type CheckedMutationResult,
 } from "./commands/checked-transactions";
 export * from "./content-model";
-export { COURSE_DOCUMENT_FRAGMENT } from "./constants";
-export { initializeCourseDocumentFragment } from "./initialize-document";
 export { CourseDocumentNode, DocumentNode } from "./nodes";
 export {
   defineCourseDocumentMigration,

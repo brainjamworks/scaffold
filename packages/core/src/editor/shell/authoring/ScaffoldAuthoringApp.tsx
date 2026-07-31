@@ -14,7 +14,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import * as Y from "yjs";
 import type { AssessmentGroupContract, AssessmentTargetContract } from "@scaffold/contracts";
 
 import { cn } from "@/lib/cn";
@@ -42,7 +41,6 @@ import type { ArtifactSaveBundle, SaveableScaffoldArtifact } from "@/host/ports"
 
 import { ContentAuthorHost } from "./ContentAuthorHost";
 import { AuthoringDocumentBlockStrip } from "./AuthoringDocumentChrome";
-import { initializeAuthoringCourseDocumentFragment } from "@/document/authoring/initialize-authoring-document";
 import "./ScaffoldAuthoringApp.css";
 
 export type ScaffoldAuthoringSaveState = "idle" | "saving" | "saved" | "error";
@@ -145,13 +143,6 @@ export function ScaffoldAuthoringApp({
 }: ScaffoldAuthoringAppProps) {
   const preparedArtifact = useMemo(() => prepareScaffoldArtifactForAuthoring(artifact), [artifact]);
   const readyArtifact = preparedArtifact.status === "ready" ? preparedArtifact.artifact : null;
-  const document = useMemo(() => {
-    const nextDocument = new Y.Doc();
-    if (readyArtifact) {
-      initializeAuthoringCourseDocumentFragment(nextDocument, readyArtifact.content);
-    }
-    return nextDocument;
-  }, [readyArtifact]);
   const artifactStateSource = readyArtifact ?? artifact;
   const initialTitle = readyArtifact?.title ?? artifact.title;
   const [titleState, setTitleState] = useState<{
@@ -205,9 +196,8 @@ export function ScaffoldAuthoringApp({
         autosaveTimeoutRef.current = null;
       }
       latestEditorRef.current = null;
-      document.destroy();
     };
-  }, [document]);
+  }, []);
 
   const setTitleForCurrentArtifact = useCallback(
     (value: string) => {
@@ -496,11 +486,11 @@ export function ScaffoldAuthoringApp({
                   services={previewServices}
                 />
               </Suspense>
-            ) : (
+            ) : readyArtifact ? (
               <ContentAuthorHost
                 agentIntegration={agentIntegration}
                 artifactId={resolvedArtifactId}
-                document={document}
+                content={readyArtifact.content}
                 editable
                 onChange={handleEditorChange}
                 onEditorReady={handleEditorReady}
@@ -510,7 +500,7 @@ export function ScaffoldAuthoringApp({
                 leftRail={renderLeftRail}
                 rightRail={renderRightRail}
               />
-            )}
+            ) : null}
           </ScaffoldServicesProvider>
         </div>
       </main>

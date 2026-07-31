@@ -1,10 +1,8 @@
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import * as Y from "yjs";
 
 import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor";
-import { initializeAuthoringCourseDocumentFragment } from "@/document/authoring/initialize-authoring-document";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { CourseDocumentRuntimeRenderer } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
@@ -295,8 +293,6 @@ async function mountPair(
   surfaceId: string,
   editable: boolean,
 ): Promise<MountedPair> {
-  const ydoc = new Y.Doc();
-  initializeAuthoringCourseDocumentFragment(ydoc, cloneJSON(initialContent));
   const outer = document.createElement("div");
   outer.style.width = "1024px";
   document.body.append(outer);
@@ -310,7 +306,7 @@ async function mountPair(
 
   authoringRoot.render(
     <CourseDocumentEditor
-      document={ydoc}
+      source={{ mode: "document", content: cloneJSON(initialContent) }}
       editable={editable}
       onReady={(editor) => {
         authoringEditor = editor;
@@ -349,7 +345,6 @@ async function mountPair(
       runtimeRoot.unmount();
       authoringEditor?.destroy();
       runtimeEditor?.destroy();
-      ydoc.destroy();
       outer.remove();
     },
   };

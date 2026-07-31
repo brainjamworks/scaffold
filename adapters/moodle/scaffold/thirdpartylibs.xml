@@ -531,14 +531,6 @@
   </library>
   <library>
     <location>public/assets</location>
-    <name>@tiptap/extension-collaboration</name>
-    <description>collaboration extension for tiptap</description>
-    <version>3.26.0</version>
-    <license>MIT</license>
-    <repository>https://github.com/ueberdosis/tiptap</repository>
-  </library>
-  <library>
-    <location>public/assets</location>
     <name>@tiptap/extension-document</name>
     <description>document extension for tiptap</description>
     <version>3.26.0</version>
@@ -763,14 +755,6 @@
   </library>
   <library>
     <location>public/assets</location>
-    <name>@tiptap/y-tiptap</name>
-    <description>Tiptap prosemirror bindings for Yjs</description>
-    <version>3.0.4</version>
-    <license>MIT</license>
-    <repository>https://github.com/ueberdosis/y-tiptap</repository>
-  </library>
-  <library>
-    <location>public/assets</location>
     <name>aria-hidden</name>
     <description>Cast aria-hidden to everything, except...</description>
     <version>1.2.6</version>
@@ -848,14 +832,6 @@
     <version>0.16.47</version>
     <license>MIT</license>
     <repository>https://github.com/KaTeX/KaTeX</repository>
-  </library>
-  <library>
-    <location>public/assets</location>
-    <name>lib0</name>
-    <description>lib0 frontend dependency.</description>
-    <version>0.2.117</version>
-    <license>MIT</license>
-    <repository>https://github.com/dmonad/lib0</repository>
   </library>
   <library>
     <location>public/assets</location>
@@ -1184,22 +1160,6 @@
     <version>4.0.3</version>
     <license>MIT</license>
     <repository>https://github.com/BerkeleyTrue/warning</repository>
-  </library>
-  <library>
-    <location>public/assets</location>
-    <name>y-prosemirror</name>
-    <description>Prosemirror bindings for Yjs</description>
-    <version>1.3.7</version>
-    <license>MIT</license>
-    <repository>https://github.com/yjs/y-prosemirror</repository>
-  </library>
-  <library>
-    <location>public/assets</location>
-    <name>yjs</name>
-    <description>Shared Editing Library</description>
-    <version>13.6.31</version>
-    <license>MIT</license>
-    <repository>https://github.com/yjs/yjs</repository>
   </library>
   <library>
     <location>public/assets</location>

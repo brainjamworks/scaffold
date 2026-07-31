@@ -7,12 +7,8 @@ import {
 } from "@tiptap/pm/model";
 import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it } from "vite-plus/test";
-import { yXmlFragmentToProsemirrorJSON } from "y-prosemirror";
-import * as Y from "yjs";
 
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
-import { COURSE_DOCUMENT_FRAGMENT } from "@/document/model/constants";
-import { initializeCourseDocumentFragment } from "@/document/model/initialize-document";
 import { resolveEditorPlaceholder } from "@/editor/prosemirror/placeholder/resolve-editor-placeholder";
 import { Placeholder } from "@/editor/prosemirror/placeholder/Placeholder";
 import { SlideTitleNode } from "@/editor/surfaces/model/nodes/slide-title";
@@ -133,7 +129,6 @@ describe("SlideTitleNode", () => {
   });
 
   it("preserves supplied slide title content through the explicit initialization schema", () => {
-    const doc = new Y.Doc();
     const content: JSONContent = {
       type: "doc",
       content: [
@@ -162,12 +157,14 @@ describe("SlideTitleNode", () => {
       ],
     };
 
-    initializeCourseDocumentFragment(doc, { content });
-
-    const initialized = yXmlFragmentToProsemirrorJSON(
-      doc.getXmlFragment(COURSE_DOCUMENT_FRAGMENT),
-    ) as JSONContent;
-    expect(initialized.content?.[0]?.content?.[0]?.content?.[0]).toEqual({
+    const editor = new Editor({
+      extensions: createCourseDocumentAuthoringExtensions({ editable: true }),
+      content,
+    });
+    const initialized = editor.getJSON();
+    const courseDocument = initialized.content?.[0] as JSONContent | undefined;
+    const surface = courseDocument?.content?.[0] as JSONContent | undefined;
+    expect(surface?.content?.[0]).toMatchObject({
       type: "slide_title",
       content: [
         {
@@ -177,5 +174,6 @@ describe("SlideTitleNode", () => {
         },
       ],
     });
+    editor.destroy();
   });
 });

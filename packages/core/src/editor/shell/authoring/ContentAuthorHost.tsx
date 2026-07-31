@@ -1,6 +1,5 @@
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
-import { memo, useCallback, useState, type ReactNode } from "react";
-import type * as Y from "yjs";
+import { memo, useCallback, useRef, useState, type ReactNode } from "react";
 
 import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor";
 import {
@@ -15,7 +14,7 @@ function ignoreAgentClose() {}
 export interface ContentAuthorHostProps {
   agentIntegration: ScaffoldAgentIntegration;
   artifactId?: string | null;
-  document: Y.Doc;
+  content: JSONContent;
   editable?: boolean;
   onChange?: (editor: TiptapEditor) => void;
   onEditorReady?: (editor: TiptapEditor) => void;
@@ -45,7 +44,7 @@ export interface ContentAuthorHostProps {
 export const ContentAuthorHost = memo(function ContentAuthorHost({
   agentIntegration: AgentIntegration,
   artifactId,
-  document,
+  content,
   editable = true,
   onChange,
   onEditorReady,
@@ -56,16 +55,40 @@ export const ContentAuthorHost = memo(function ContentAuthorHost({
   leftRail,
   rightRail,
 }: ContentAuthorHostProps) {
-  const [editor, setEditor] = useState<TiptapEditor | null>(null);
+  const sessionIdentity = artifactId ?? content;
+  const sessionRef = useRef<{
+    identity: string | JSONContent;
+    key: number;
+  }>({
+    identity: sessionIdentity,
+    key: 0,
+  });
+  if (!Object.is(sessionRef.current.identity, sessionIdentity)) {
+    sessionRef.current = {
+      identity: sessionIdentity,
+      key: sessionRef.current.key + 1,
+    };
+  }
+  const sessionKey = sessionRef.current.key;
+  const [editorState, setEditorState] = useState<{
+    sessionKey: number;
+    editor: TiptapEditor | null;
+  }>({
+    sessionKey,
+    editor: null,
+  });
+  const editor = editorState.sessionKey === sessionKey ? editorState.editor : null;
   const changeProps = onChange ? { onChange } : {};
-  const updateProps = onUpdate ? { onUpdate } : {};
+  const source = onUpdate
+    ? { mode: "document" as const, content, onUpdate }
+    : { mode: "document" as const, content };
   const artifactProps = artifactId !== undefined ? { artifactId } : {};
   const handleReady = useCallback(
     (nextEditor: TiptapEditor) => {
-      setEditor(nextEditor);
+      setEditorState({ sessionKey, editor: nextEditor });
       onEditorReady?.(nextEditor);
     },
-    [onEditorReady],
+    [onEditorReady, sessionKey],
   );
 
   function renderWorkspace(contribution: ScaffoldAgentWorkspaceContribution): ReactNode {
@@ -82,13 +105,13 @@ export const ContentAuthorHost = memo(function ContentAuthorHost({
         stage={
           <>
             <CourseDocumentEditor
+              key={sessionKey}
               {...artifactProps}
               {...changeProps}
-              document={document}
+              source={source}
               editable={editable}
               onReady={handleReady}
               suspended={reviewing}
-              {...updateProps}
             />
             {contribution.mode === "review" ? (
               <ScaffoldArtifactIdentityProvider artifactId={artifactId ?? null}>

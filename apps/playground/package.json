@@ -20,8 +20,7 @@
     "idb": "^8.0.3",
     "katex": "^0.16.47",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "yjs": "^13.6.20"
+    "react-dom": "^19.2.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",

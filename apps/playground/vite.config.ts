@@ -1,7 +1,7 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite-plus";
 
-const singletonDependencies = ["react", "react-dom", "@tiptap/core", "@tiptap/react", "yjs"];
+const singletonDependencies = ["react", "react-dom", "@tiptap/core", "@tiptap/react"];
 
 export default defineConfig(() => ({
   plugins: [react()],

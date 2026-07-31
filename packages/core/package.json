@@ -73,7 +73,6 @@
     "@tiptap/core": "^3.10.1",
     "@tiptap/extension-blockquote": "^3.26.0",
     "@tiptap/extension-code-block": "^3.26.0",
-    "@tiptap/extension-collaboration": "^3.26.0",
     "@tiptap/extension-heading": "^3.26.0",
     "@tiptap/extension-highlight": "3.26.0",
     "@tiptap/extension-horizontal-rule": "^3.26.0",
@@ -112,8 +111,6 @@
     "react-hook-form": "^7.77.0",
     "react-pdf": "^10.4.1",
     "react-remove-scroll": "^2.7.2",
-    "y-prosemirror": "^1.2.12",
-    "yjs": "^13.6.20",
     "zod": "^3.23.8",
     "zustand": "^5.0.14"
   },

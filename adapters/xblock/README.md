@@ -152,8 +152,8 @@ Studio save/close behavior is adapter-owned:
 - Persistence is JSON content creation/save through `create_artifact` and
   `save_content`; the XBlock owns the stored Tiptap document. Authoring
   mutations require Studio write permission.
-- Collaboration is disabled by wiring a null provider. Studio is treated as a
-  single-author surface.
+- Studio uses Core's portable JSON authoring path and requires no collaboration
+  provider. It is treated as a single-author surface.
 - Media upload/resolve uses the Open edX contentstore for managed upload-backed
   blocks and attachments. Workbench or non-Open edX runtimes without
   `StaticContent` return an explicit unavailable error. Uploads require Studio

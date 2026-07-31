@@ -1,10 +1,8 @@
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import * as Y from "yjs";
 
 import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor";
-import { initializeAuthoringCourseDocumentFragment } from "@/document/authoring/initialize-authoring-document";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import "@/styles/globals.css";
@@ -18,8 +16,7 @@ afterEach(() => {
 
 describe("bounded Region authoring geometry", () => {
   it("allocates its finite row through the complete Tiptap wrapper path", async () => {
-    const document = new Y.Doc();
-    initializeAuthoringCourseDocumentFragment(document, tabsDocument());
+    const content = tabsDocument();
     const host = globalThis.document.createElement("div");
     host.style.position = "absolute";
     host.style.inset = "0 auto auto 0";
@@ -30,7 +27,7 @@ describe("bounded Region authoring geometry", () => {
 
     root.render(
       <CourseDocumentEditor
-        document={document}
+        source={{ mode: "document", content }}
         editable
         onReady={(nextEditor) => {
           editor = nextEditor;
@@ -40,7 +37,6 @@ describe("bounded Region authoring geometry", () => {
     dispose = () => {
       root.unmount();
       editor?.destroy();
-      document.destroy();
       host.remove();
     };
 

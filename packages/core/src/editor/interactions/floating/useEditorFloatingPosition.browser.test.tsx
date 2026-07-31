@@ -3,10 +3,8 @@ import { createRoot } from "react-dom/client";
 import { describe, expect, it } from "vite-plus/test";
 
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
-import * as Y from "yjs";
 
 import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor";
-import { initializeAuthoringCourseDocumentFragment } from "@/document/authoring/initialize-authoring-document";
 import { InteractionTargetKind } from "@/editor/interactions/targets/model/interaction-owner-state";
 import { createInteractionOwnerCommandPorts } from "@/editor/interactions/targets/prosemirror/facade/interaction-facade-command-ports";
 import { createScaffoldDocumentContent } from "@/format/artifact";
@@ -21,11 +19,10 @@ describe("structural floating visibility at the authoring boundary", () => {
       surfaceId: "first-slide-surface",
     },
   ])("keeps the first $label surface-options trigger visible at the boundary top", async (test) => {
-    const ydoc = new Y.Doc();
-    initializeAuthoringCourseDocumentFragment(
-      ydoc,
-      createScaffoldDocumentContent({ mode: test.mode, surfaceId: test.surfaceId }),
-    );
+    const content = createScaffoldDocumentContent({
+      mode: test.mode,
+      surfaceId: test.surfaceId,
+    });
     const host = document.createElement("div");
     host.style.cssText = "height: 1200px; inset: 0 auto auto 0; position: absolute; width: 960px;";
     document.body.append(host);
@@ -35,7 +32,7 @@ describe("structural floating visibility at the authoring boundary", () => {
     try {
       reactRoot.render(
         <CourseDocumentEditor
-          document={ydoc}
+          source={{ mode: "document", content }}
           onReady={(nextEditor) => {
             editorRef.current = nextEditor;
           }}
@@ -79,7 +76,6 @@ describe("structural floating visibility at the authoring boundary", () => {
     } finally {
       reactRoot.unmount();
       editorRef.current?.destroy();
-      ydoc.destroy();
       host.remove();
     }
   });

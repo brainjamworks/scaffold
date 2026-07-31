@@ -72,7 +72,6 @@ own licence terms. `thirdpartylibs.xml` contains the matching Moodle metadata.
 | @tiptap/extension-bubble-menu          | 3.26.0  | MIT                     | public/assets     | [source](https://github.com/ueberdosis/tiptap)                        |
 | @tiptap/extension-code                 | 3.26.0  | MIT                     | public/assets     | [source](https://github.com/ueberdosis/tiptap)                        |
 | @tiptap/extension-code-block           | 3.26.0  | MIT                     | public/assets     | [source](https://github.com/ueberdosis/tiptap)                        |
-| @tiptap/extension-collaboration        | 3.26.0  | MIT                     | public/assets     | [source](https://github.com/ueberdosis/tiptap)                        |
 | @tiptap/extension-document             | 3.26.0  | MIT                     | public/assets     | [source](https://github.com/ueberdosis/tiptap)                        |
 | @tiptap/extension-floating-menu        | 3.26.0  | MIT                     | public/assets     | [source](https://github.com/ueberdosis/tiptap)                        |
 | @tiptap/extension-hard-break           | 3.26.0  | MIT                     | public/assets     | [source](https://github.com/ueberdosis/tiptap)                        |
@@ -101,7 +100,6 @@ own licence terms. `thirdpartylibs.xml` contains the matching Moodle metadata.
 | @tiptap/react                          | 3.26.0  | MIT                     | public/assets     | [source](https://github.com/ueberdosis/tiptap)                        |
 | @tiptap/starter-kit                    | 3.26.0  | MIT                     | public/assets     | [source](https://github.com/ueberdosis/tiptap)                        |
 | @tiptap/suggestion                     | 3.26.0  | MIT                     | public/assets     | [source](https://github.com/ueberdosis/tiptap)                        |
-| @tiptap/y-tiptap                       | 3.0.4   | MIT                     | public/assets     | [source](https://github.com/ueberdosis/y-tiptap)                      |
 | aria-hidden                            | 1.2.6   | MIT                     | public/assets     | [source](https://github.com/theKashey/aria-hidden)                    |
 | clsx                                   | 2.1.1   | MIT                     | public/assets     | [source](https://github.com/lukeed/clsx)                              |
 | dequal                                 | 2.0.3   | MIT                     | public/assets     | [source](https://github.com/lukeed/dequal)                            |
@@ -112,7 +110,6 @@ own licence terms. `thirdpartylibs.xml` contains the matching Moodle metadata.
 | get-nonce                              | 1.0.1   | MIT                     | public/assets     | [source](https://github.com/theKashey/get-nonce)                      |
 | highlight.js                           | 11.11.1 | BSD-3-Clause            | public/assets     | [source](https://github.com/highlightjs/highlight.js)                 |
 | katex                                  | 0.16.47 | MIT                     | public            | [source](https://github.com/KaTeX/KaTeX)                              |
-| lib0                                   | 0.2.117 | MIT                     | public/assets     | [source](https://github.com/dmonad/lib0)                              |
 | linkifyjs                              | 4.3.3   | MIT                     | public/assets     | [source](https://github.com/nfrasser/linkifyjs)                       |
 | lowlight                               | 3.3.0   | MIT                     | public/assets     | [source](https://github.com/wooorm/lowlight)                          |
 | make-cancellable-promise               | 2.0.0   | MIT                     | public/assets     | [source](https://github.com/wojtekmaj/make-cancellable-promise)       |
@@ -154,8 +151,6 @@ own licence terms. `thirdpartylibs.xml` contains the matching Moodle metadata.
 | uuid                                   | 14.0.0  | MIT                     | public/assets     | [source](https://github.com/uuidjs/uuid)                              |
 | w3c-keyname                            | 2.2.8   | MIT                     | public/assets     | [source](https://github.com/marijnh/w3c-keyname)                      |
 | warning                                | 4.0.3   | MIT                     | public/assets     | [source](https://github.com/BerkeleyTrue/warning)                     |
-| y-prosemirror                          | 1.3.7   | MIT                     | public/assets     | [source](https://github.com/yjs/y-prosemirror)                        |
-| yjs                                    | 13.6.31 | MIT                     | public/assets     | [source](https://github.com/yjs/yjs)                                  |
 | zod                                    | 3.25.76 | MIT                     | public/assets     | [source](https://github.com/colinhacks/zod)                           |
 | zrender                                | 6.1.0   | BSD-3-Clause            | public/assets     | [source](https://github.com/ecomfe/zrender)                           |
 | zustand                                | 5.0.14  | MIT                     | public/assets     | [source](https://github.com/pmndrs/zustand)                           |
@@ -828,7 +823,6 @@ SOFTWARE.
 - `@tiptap/extension-bubble-menu@3.26.0` — declared `MIT`
 - `@tiptap/extension-code@3.26.0` — declared `MIT`
 - `@tiptap/extension-code-block@3.26.0` — declared `MIT`
-- `@tiptap/extension-collaboration@3.26.0` — declared `MIT`
 - `@tiptap/extension-document@3.26.0` — declared `MIT`
 - `@tiptap/extension-floating-menu@3.26.0` — declared `MIT`
 - `@tiptap/extension-hard-break@3.26.0` — declared `MIT`
@@ -886,37 +880,6 @@ SOFTWARE.
 
 **Applies to:**
 
-- `@tiptap/y-tiptap@3.0.4` — declared `MIT`
-
-```text
-The MIT License (MIT)
-
-Copyright (c) 2019 Kevin Jahns <kevin.jahns@protonmail.com>.
-Copyright (c) 2025 Tiptap GmbH.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
-### Text 12: `LICENSE`
-
-**Applies to:**
-
 - `aria-hidden@1.2.6` — declared `MIT`
 - `react-remove-scroll@2.7.2` — declared `MIT`
 - `react-remove-scroll-bar@2.3.8` — declared `MIT`; text supplied by `react-remove-scroll@2.7.2`
@@ -948,7 +911,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 13: `license`
+### Text 12: `license`
 
 **Applies to:**
 
@@ -966,7 +929,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 14: `license`
+### Text 13: `license`
 
 **Applies to:**
 
@@ -996,7 +959,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Text 15: `license`
+### Text 14: `license`
 
 **Applies to:**
 
@@ -1027,7 +990,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 16: `LICENSE`
+### Text 15: `LICENSE`
 
 **Applies to:**
 
@@ -1238,7 +1201,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
    limitations under the License.
 ```
 
-### Text 17: `LICENSE-MPL`
+### Text 16: `LICENSE-MPL`
 
 **Applies to:**
 
@@ -1620,7 +1583,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
   defined by the Mozilla Public License, v. 2.0.
 ```
 
-### Text 18: `LICENSE`
+### Text 17: `LICENSE`
 
 **Applies to:**
 
@@ -1851,7 +1814,7 @@ The following files embed [d3.js](https://github.com/d3/d3) BSD 3-Clause:
 See `/licenses/LICENSE-d3` for details of the license.
 ```
 
-### Text 19: `NOTICE`
+### Text 18: `NOTICE`
 
 **Applies to:**
 
@@ -1865,7 +1828,7 @@ This product includes software developed at
 The Apache Software Foundation (https://www.apache.org/).
 ```
 
-### Text 20: `LICENSE`
+### Text 19: `LICENSE`
 
 **Applies to:**
 
@@ -1895,7 +1858,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 21: `LICENSE`
+### Text 20: `LICENSE`
 
 **Applies to:**
 
@@ -1925,7 +1888,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 22: `LICENSE`
+### Text 21: `LICENSE`
 
 **Applies to:**
 
@@ -1963,7 +1926,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### Text 23: `LICENSE`
+### Text 22: `LICENSE`
 
 **Applies to:**
 
@@ -1993,38 +1956,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 24: `LICENSE`
-
-**Applies to:**
-
-- `lib0@0.2.117` — declared `MIT`
-- `y-prosemirror@1.3.7` — declared `MIT`
-
-```text
-The MIT License (MIT)
-
-Copyright (c) 2019 Kevin Jahns <kevin.jahns@protonmail.com>.
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
-### Text 25: `LICENSE`
+### Text 23: `LICENSE`
 
 **Applies to:**
 
@@ -2052,7 +1984,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Text 26: `license`
+### Text 24: `license`
 
 **Applies to:**
 
@@ -2083,7 +2015,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 27: `LICENSE`
+### Text 25: `LICENSE`
 
 **Applies to:**
 
@@ -2113,7 +2045,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 28: `LICENSE`
+### Text 26: `LICENSE`
 
 **Applies to:**
 
@@ -2143,7 +2075,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 29: `LICENSE.txt`
+### Text 27: `LICENSE.txt`
 
 **Applies to:**
 
@@ -2171,7 +2103,7 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 30: `LICENSE`
+### Text 28: `LICENSE`
 
 **Applies to:**
 
@@ -2202,7 +2134,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 31: `LICENSE`
+### Text 29: `LICENSE`
 
 **Applies to:**
 
@@ -2231,7 +2163,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 32: `LICENSE`
+### Text 30: `LICENSE`
 
 **Applies to:**
 
@@ -2260,7 +2192,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Text 33: `LICENSE`
+### Text 31: `LICENSE`
 
 **Applies to:**
 
@@ -2446,7 +2378,7 @@ THE SOFTWARE.
    END OF TERMS AND CONDITIONS
 ```
 
-### Text 34: `LICENSE`
+### Text 32: `LICENSE`
 
 **Applies to:**
 
@@ -2483,7 +2415,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Text 35: `LICENSE`
+### Text 33: `LICENSE`
 
 **Applies to:**
 
@@ -2511,7 +2443,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Text 36: `LICENSE`
+### Text 34: `LICENSE`
 
 **Applies to:**
 
@@ -2544,7 +2476,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 37: `LICENSE`
+### Text 35: `LICENSE`
 
 **Applies to:**
 
@@ -2572,7 +2504,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Text 38: `LICENSE`
+### Text 36: `LICENSE`
 
 **Applies to:**
 
@@ -2602,7 +2534,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 39: `LICENSE.txt`
+### Text 37: `LICENSE.txt`
 
 **Applies to:**
 
@@ -2624,7 +2556,7 @@ OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.
 ```
 
-### Text 40: `LICENSE.md`
+### Text 38: `LICENSE.md`
 
 **Applies to:**
 
@@ -2642,7 +2574,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 41: `LICENSE.md`
+### Text 39: `LICENSE.md`
 
 **Applies to:**
 
@@ -2672,39 +2604,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 42: `LICENSE`
-
-**Applies to:**
-
-- `yjs@13.6.31` — declared `MIT`
-
-```text
-The MIT License (MIT)
-
-Copyright (c) 2023
-  - Kevin Jahns <kevin.jahns@protonmail.com>.
-  - Chair of Computer Science 5 (Databases & Information Systems), RWTH Aachen University, Germany
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
-### Text 43: `LICENSE`
+### Text 40: `LICENSE`
 
 **Applies to:**
 
@@ -2734,7 +2634,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 44: `LICENSE`
+### Text 41: `LICENSE`
 
 **Applies to:**
 
@@ -2772,7 +2672,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### Text 45: `LICENSE`
+### Text 42: `LICENSE`
 
 **Applies to:**
 

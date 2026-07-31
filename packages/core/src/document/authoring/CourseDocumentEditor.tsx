@@ -2,159 +2,160 @@ import { type Editor as TiptapEditor, type Extension, type JSONContent } from "@
 import { EditorContent, useEditor } from "@tiptap/react";
 
 import "@/editor/shell/authoring/cursors.css";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { yXmlFragmentToProsemirrorJSON } from "y-prosemirror";
-import type * as Y from "yjs";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { validateCourseSurfaceLifecycle } from "@/document/model/validation";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
-import {
-  createAuthoringEditorCollaborationSetup,
-  type AuthoringEditorCollaborationSetup,
-} from "./authoring-collaboration";
 import { AuthoringDocumentChrome } from "@/editor/shell/authoring/AuthoringDocumentChrome";
 import { readSurfaceViewSettingsFromProseMirrorDoc } from "@/document/model/surface-view-settings";
-import { COURSE_DOCUMENT_FRAGMENT } from "@/document/model/constants";
-import { createScaffoldDocumentContent } from "@/format/artifact";
-
-import { initializeAuthoringCourseDocumentFragment } from "./initialize-authoring-document";
+import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 import { AuthoringSurfaceView } from "@/editor/surfaces/authoring/views/AuthoringSurfaceView";
-import { surfaceVariantsRemainStable } from "./surface-lifecycle-authoring-policy";
 import "./CourseDocumentEditor.css";
+
+export type CourseDocumentAuthoringSource =
+  | {
+      /**
+       * Portable JSON initializes this editor session. Tiptap owns live state
+       * after mounting; remount when switching artifacts or sources.
+       */
+      readonly mode: "document";
+      readonly content: JSONContent;
+      /** Observes portable updates; the host remains responsible for persistence. */
+      readonly onUpdate?: (json: JSONContent) => void;
+    }
+  | {
+      /**
+       * Trusted host extensions own editor state. Core does not provide,
+       * initialize, persist, or synchronize content in this mode.
+       */
+      readonly mode: "external";
+      readonly stateExtensions: readonly Extension[];
+      /** Optional checkpoint/validation signal; it does not grant Core persistence authority. */
+      readonly onUpdate?: (json: JSONContent) => void;
+    };
 
 export interface CourseDocumentEditorProps {
   artifactId?: string | null;
-  document: Y.Doc;
+  /**
+   * Initial state source for this mounted editor session. The source is
+   * immutable after mounting; callers remount to change source or artifact.
+   */
+  source: CourseDocumentAuthoringSource;
   editable?: boolean;
-  extensions?: Extension[];
+  /**
+   * Schema and content-capability contributions. These remain distinct from
+   * external state-owning extensions.
+   */
+  schemaExtensions?: readonly Extension[];
   onChange?: (editor: TiptapEditor) => void;
   onReady?: (editor: TiptapEditor) => void;
-  onUpdate?: (json: JSONContent) => void;
   suspended?: boolean;
 }
 
-const DEFAULT_AUTHORING_EXTENSIONS: Extension[] = [];
+const DEFAULT_SCHEMA_EXTENSIONS: readonly Extension[] = [];
 
 export function CourseDocumentEditor({
   artifactId,
-  document,
+  source,
   editable = true,
-  extensions = DEFAULT_AUTHORING_EXTENSIONS,
+  schemaExtensions = DEFAULT_SCHEMA_EXTENSIONS,
   onChange,
   onReady,
-  onUpdate,
   suspended = false,
 }: CourseDocumentEditorProps) {
-  const mountedEditorRef = useRef<TiptapEditor | null>(null);
-  const fragment = useMemo(() => {
-    // Low-level mounts may receive a fresh Y.Doc; seed only the document fragment.
-    if (document.getXmlFragment(COURSE_DOCUMENT_FRAGMENT).length === 0) {
-      initializeAuthoringCourseDocumentFragment(
-        document,
-        createScaffoldDocumentContent({ mode: "page" }),
-      );
-    }
-
-    return document.getXmlFragment(COURSE_DOCUMENT_FRAGMENT);
-  }, [document]);
-
-  const authoritativeStore = useMemo(() => createAuthoritativeSurfaceStore(fragment), [fragment]);
-  const subscribe = useCallback(
-    (onStoreChange: () => void) =>
-      authoritativeStore.subscribe(() => {
-        if (!authoritativeStore.getSnapshot().valid) {
-          mountedEditorRef.current?.destroy();
-          mountedEditorRef.current = null;
-        }
-        onStoreChange();
-      }),
-    [authoritativeStore],
+  const [initialSource] = useState(source);
+  const callbackRef = useRef({
+    onChange,
+    onReady,
+    onUpdate: source.onUpdate,
+  });
+  callbackRef.current = {
+    onChange,
+    onReady,
+    onUpdate: source.onUpdate,
+  };
+  const handleChange = useCallback((editor: TiptapEditor) => {
+    callbackRef.current.onChange?.(editor);
+  }, []);
+  const handleReady = useCallback((editor: TiptapEditor) => {
+    callbackRef.current.onReady?.(editor);
+  }, []);
+  const handleUpdate = useCallback((editor: TiptapEditor) => {
+    const observer = callbackRef.current.onUpdate;
+    if (observer) observer(editor.getJSON());
+  }, []);
+  const validation = useMemo(
+    () =>
+      initialSource.mode === "document"
+        ? validateCourseSurfaceLifecycle({
+            content: initialSource.content,
+            registry: builtInSurfaceVariantRegistry,
+          })
+        : { ok: true as const },
+    [initialSource],
   );
-  const authoritativeState = useSyncExternalStore(
-    subscribe,
-    authoritativeStore.getSnapshot,
-    authoritativeStore.getSnapshot,
-  );
 
-  if (!authoritativeState.valid) {
+  if (!validation.ok) {
     return <div role="status">This course document is invalid and cannot be edited.</div>;
   }
 
   return (
-    <ValidatedCourseDocumentEditor
-      key={authoritativeState.mountVersion}
+    <MountedCourseDocumentEditor
       artifactId={artifactId}
-      document={document}
+      source={initialSource}
       editable={editable}
-      extensions={extensions}
-      onEditorCreated={(editor) => {
-        mountedEditorRef.current = editor;
-      }}
-      onChange={onChange}
-      onReady={onReady}
-      onUpdate={onUpdate}
+      schemaExtensions={schemaExtensions}
+      onChange={handleChange}
+      onReady={handleReady}
+      onUpdate={handleUpdate}
       suspended={suspended}
     />
   );
 }
 
-function ValidatedCourseDocumentEditor(props: RequiredEditorProps) {
-  const authoringSetup = useMemo(
-    () =>
-      createAuthoringEditorCollaborationSetup({
-        document: props.document,
-        editable: props.editable,
-        extensions: props.extensions,
-      }),
-    [props.document, props.editable, props.extensions],
-  );
-
-  if (!authoringSetup.ok) {
-    return <div role="status">This course document is invalid and cannot be edited.</div>;
-  }
-
-  return <MountedCourseDocumentEditor {...props} authoringSetup={authoringSetup} />;
-}
-
 interface RequiredEditorProps {
   artifactId: string | null | undefined;
-  document: Y.Doc;
+  source: CourseDocumentAuthoringSource;
   editable: boolean;
-  extensions: Extension[];
+  schemaExtensions: readonly Extension[];
   onChange: ((editor: TiptapEditor) => void) | undefined;
-  onEditorCreated: (editor: TiptapEditor) => void;
   onReady: ((editor: TiptapEditor) => void) | undefined;
-  onUpdate: ((json: JSONContent) => void) | undefined;
+  onUpdate: (editor: TiptapEditor) => void;
   suspended: boolean;
 }
 
 function MountedCourseDocumentEditor({
   artifactId,
+  source,
   editable,
+  schemaExtensions,
   onChange,
   onReady,
-  onEditorCreated,
   onUpdate,
   suspended,
-  authoringSetup,
-}: RequiredEditorProps & {
-  authoringSetup: Extract<AuthoringEditorCollaborationSetup, { ok: true }>;
-}) {
+}: RequiredEditorProps) {
   const [overlayContainer, setOverlayContainer] = useState<HTMLDivElement | null>(null);
+  const authoringExtensions = useMemo(
+    () => [
+      ...createCourseDocumentAuthoringExtensions({ editable }),
+      ...schemaExtensions,
+      ...(source.mode === "external" ? source.stateExtensions : []),
+    ],
+    [editable, schemaExtensions, source],
+  );
 
   const editor = useEditor({
     immediatelyRender: false,
-    content: authoringSetup.content,
+    content: source.mode === "document" ? source.content : null,
     editable: editable && !suspended,
-    extensions: authoringSetup.extensions,
+    extensions: authoringExtensions,
     onCreate: ({ editor: e }) => {
-      onEditorCreated(e);
       onReady?.(e);
     },
     onUpdate: ({ editor: e }) => {
       onChange?.(e);
-      if (onUpdate) onUpdate(e.getJSON());
+      onUpdate(e);
     },
   });
 
@@ -190,68 +191,4 @@ function MountedCourseDocumentEditor({
       </ScaffoldArtifactIdentityProvider>
     </div>
   );
-}
-
-interface AuthoritativeSurfaceSnapshot {
-  readonly valid: boolean;
-  readonly mountVersion: number;
-}
-
-interface AuthoritativeSurfaceStore {
-  readonly getSnapshot: () => AuthoritativeSurfaceSnapshot;
-  readonly subscribe: (listener: () => void) => () => void;
-}
-
-function createAuthoritativeSurfaceStore(fragment: Y.XmlFragment): AuthoritativeSurfaceStore {
-  const initial = validateAuthoritativeSurfaceState(fragment);
-  let acceptedProjection = initial.ok ? initial.value : null;
-  let needsRemount = !initial.ok;
-  let snapshot: AuthoritativeSurfaceSnapshot = Object.freeze({
-    valid: initial.ok,
-    mountVersion: 0,
-  });
-  const listeners = new Set<() => void>();
-
-  const refresh = () => {
-    const validation = validateAuthoritativeSurfaceState(fragment);
-    const valid =
-      validation.ok &&
-      (acceptedProjection === null ||
-        surfaceVariantsRemainStable(acceptedProjection, validation.value));
-    let mountVersion = snapshot.mountVersion;
-
-    if (valid && validation.ok) {
-      acceptedProjection = validation.value;
-      if (needsRemount) mountVersion += 1;
-      needsRemount = false;
-    } else {
-      needsRemount = true;
-    }
-
-    if (snapshot.valid === valid && snapshot.mountVersion === mountVersion) return;
-    snapshot = Object.freeze({ valid, mountVersion });
-    for (const listener of listeners) listener();
-  };
-
-  return {
-    getSnapshot: () => snapshot,
-    subscribe: (listener) => {
-      listeners.add(listener);
-      if (listeners.size === 1) {
-        fragment.observeDeep(refresh);
-        refresh();
-      }
-      return () => {
-        listeners.delete(listener);
-        if (listeners.size === 0) fragment.unobserveDeep(refresh);
-      };
-    },
-  };
-}
-
-function validateAuthoritativeSurfaceState(fragment: Y.XmlFragment) {
-  return validateCourseSurfaceLifecycle({
-    content: yXmlFragmentToProsemirrorJSON(fragment),
-    registry: builtInSurfaceVariantRegistry,
-  });
 }

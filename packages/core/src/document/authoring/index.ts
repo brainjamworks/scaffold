@@ -1,2 +1,5 @@
-export { CourseDocumentEditor, type CourseDocumentEditorProps } from "./CourseDocumentEditor";
-export { initializeAuthoringCourseDocumentFragment } from "./initialize-authoring-document";
+export {
+  CourseDocumentEditor,
+  type CourseDocumentAuthoringSource,
+  type CourseDocumentEditorProps,
+} from "./CourseDocumentEditor";

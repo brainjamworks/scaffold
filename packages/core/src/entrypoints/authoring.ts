@@ -1,3 +1,8 @@
+export {
+  CourseDocumentEditor,
+  type CourseDocumentAuthoringSource,
+  type CourseDocumentEditorProps,
+} from "@/document/authoring/CourseDocumentEditor";
 export { ScaffoldAuthoringEntry } from "@/editor/shell/authoring/ScaffoldAuthoringEntry";
 export type {
   ScaffoldAuthoringHeaderActionsContext,

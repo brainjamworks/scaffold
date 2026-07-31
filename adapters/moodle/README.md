@@ -195,8 +195,9 @@ existing course.
   control; the shared iframe grants fullscreen permission.
 - Persistence stores author JSON, learner-safe JSON, and projected assessment
   target contracts in Moodle tables.
-- Collaboration is disabled by wiring a null provider. Moodle authoring is
-  treated as a single-author surface for the first adapter.
+- Moodle uses Core's portable JSON authoring path and requires no collaboration
+  provider. Authoring is treated as a single-author surface for the first
+  adapter.
 - Media upload/resolve uses Moodle's File API in the `media` file area for
   managed upload-backed blocks and attachments.
 - Assessment check/submit/reveal flows use Moodle external functions called

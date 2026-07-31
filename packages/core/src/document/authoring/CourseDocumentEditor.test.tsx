@@ -8,42 +8,35 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { EditorView } from "@tiptap/pm/view";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import * as Y from "yjs";
 
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 
-import { COURSE_DOCUMENT_FRAGMENT } from "@/document/model/constants";
-import { initializeCourseDocumentFragment } from "@/document/model/initialize-document";
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
+import { createScaffoldDocumentContent } from "@/format/artifact";
 import { CourseDocumentEditor } from "./CourseDocumentEditor";
-import { initializeAuthoringCourseDocumentFragment } from "./initialize-authoring-document";
 
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
 });
 
-function createInitializedDocument(mode: "page" | "slideshow" = "page"): Y.Doc {
-  const document = new Y.Doc();
-  initializeCourseDocumentFragment(document, { mode });
-  return document;
+function createInitializedDocument(mode: "page" | "slideshow" = "page"): JSONContent {
+  return createScaffoldDocumentContent({ mode });
 }
 
-function createSlideshowDocumentWithSurfaces(surfaceIds: string[]): Y.Doc {
-  const document = new Y.Doc();
-  initializeAuthoringCourseDocumentFragment(document, authoringSlideshowDocument(surfaceIds));
-  return document;
+function createSlideshowDocumentWithSurfaces(surfaceIds: string[]): JSONContent {
+  return authoringSlideshowDocument(surfaceIds);
 }
 
 describe("CourseDocumentEditor", () => {
   it("reports document changes without serializing the editor", async () => {
-    const document = createInitializedDocument();
+    const content = createInitializedDocument();
     const onChange = vi.fn();
     const onReady = vi.fn();
 
     render(
       createElement(CourseDocumentEditor, {
-        document,
+        source: { mode: "document", content },
         onChange,
         onReady,
       }),
@@ -61,16 +54,15 @@ describe("CourseDocumentEditor", () => {
     expect(getJSON).not.toHaveBeenCalled();
   });
 
-  it("mounts a prepared Yjs document with one page surface", async () => {
-    const document = createInitializedDocument();
+  it("mounts prepared portable content with one page surface", async () => {
+    const content = createInitializedDocument();
     const onReady = vi.fn();
     const onUpdate = vi.fn();
 
     render(
       createElement(CourseDocumentEditor, {
-        document,
+        source: { mode: "document", content, onUpdate },
         onReady,
-        onUpdate,
       }),
     );
 
@@ -93,7 +85,6 @@ describe("CourseDocumentEditor", () => {
     expect(
       editorRoot.querySelector(".sc-authoring-chrome-root > [data-scaffold-overlay-host]"),
     ).toBeNull();
-    expect(document.getXmlFragment(COURSE_DOCUMENT_FRAGMENT).length).toBeGreaterThan(0);
     expect(courseDocument?.attrs).toMatchObject({
       schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
       mode: "page",
@@ -115,12 +106,12 @@ describe("CourseDocumentEditor", () => {
   });
 
   it("renders initialized slideshow documents in slideshow mode", async () => {
-    const document = createInitializedDocument("slideshow");
+    const content = createInitializedDocument("slideshow");
     const onReady = vi.fn();
 
     render(
       createElement(CourseDocumentEditor, {
-        document,
+        source: { mode: "document", content },
         onReady,
       }),
     );
@@ -138,12 +129,12 @@ describe("CourseDocumentEditor", () => {
   });
 
   it("renders authoring-only dividers after slideshow surfaces", async () => {
-    const document = createSlideshowDocumentWithSurfaces(["slide-1", "slide-2", "slide-3"]);
+    const content = createSlideshowDocumentWithSurfaces(["slide-1", "slide-2", "slide-3"]);
     const onReady = vi.fn();
 
     render(
       createElement(CourseDocumentEditor, {
-        document,
+        source: { mode: "document", content },
         onReady,
       }),
     );
@@ -164,10 +155,15 @@ describe("CourseDocumentEditor", () => {
   });
 
   it("scopes slideshow transforms to each surface while dividers stay in document flow", async () => {
-    const document = createSlideshowDocumentWithSurfaces(["slide-1", "slide-2"]);
+    const content = createSlideshowDocumentWithSurfaces(["slide-1", "slide-2"]);
     const onReady = vi.fn();
 
-    render(createElement(CourseDocumentEditor, { document, onReady }));
+    render(
+      createElement(CourseDocumentEditor, {
+        source: { mode: "document", content },
+        onReady,
+      }),
+    );
 
     await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
     const stages = globalThis.document.body.querySelectorAll("[data-authoring-surface-stage]");
@@ -185,12 +181,12 @@ describe("CourseDocumentEditor", () => {
   });
 
   it("renders an authoring-only divider after a single slideshow surface", async () => {
-    const document = createSlideshowDocumentWithSurfaces(["slide-1"]);
+    const content = createSlideshowDocumentWithSurfaces(["slide-1"]);
     const onReady = vi.fn();
 
     render(
       createElement(CourseDocumentEditor, {
-        document,
+        source: { mode: "document", content },
         onReady,
       }),
     );
@@ -204,12 +200,12 @@ describe("CourseDocumentEditor", () => {
 
   it("opens the slide template picker from the divider control", async () => {
     const user = userEvent.setup();
-    const document = createSlideshowDocumentWithSurfaces(["slide-1"]);
+    const content = createSlideshowDocumentWithSurfaces(["slide-1"]);
     const onReady = vi.fn();
 
     render(
       createElement(CourseDocumentEditor, {
-        document,
+        source: { mode: "document", content },
         onReady,
       }),
     );
@@ -244,12 +240,12 @@ describe("CourseDocumentEditor", () => {
   });
 
   it("does not persist slideshow dividers into document JSON", async () => {
-    const document = createSlideshowDocumentWithSurfaces(["slide-1", "slide-2"]);
+    const content = createSlideshowDocumentWithSurfaces(["slide-1", "slide-2"]);
     const onReady = vi.fn();
 
     render(
       createElement(CourseDocumentEditor, {
-        document,
+        source: { mode: "document", content },
         onReady,
       }),
     );
@@ -270,12 +266,12 @@ describe("CourseDocumentEditor", () => {
   });
 
   it("does not render slide dividers for page documents", async () => {
-    const document = createInitializedDocument("page");
+    const content = createInitializedDocument("page");
     const onReady = vi.fn();
 
     render(
       createElement(CourseDocumentEditor, {
-        document,
+        source: { mode: "document", content },
         onReady,
       }),
     );
@@ -287,14 +283,13 @@ describe("CourseDocumentEditor", () => {
   });
 
   it("mounts saved composite assessment content without invalid initial text selection warnings", async () => {
-    const document = new Y.Doc();
-    initializeAuthoringCourseDocumentFragment(document, authoringDocumentWithMcq());
+    const content = authoringDocumentWithMcq();
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const onReady = vi.fn();
 
     render(
       createElement(CourseDocumentEditor, {
-        document,
+        source: { mode: "document", content },
         onReady,
       }),
     );
@@ -322,11 +317,15 @@ describe("CourseDocumentEditor", () => {
   });
 
   it("mounts persisted v2 Gallery content without legacy authoring state", async () => {
-    const document = new Y.Doc();
-    initializeAuthoringCourseDocumentFragment(document, authoringDocumentWithGallery());
+    const content = authoringDocumentWithGallery();
     const onReady = vi.fn();
 
-    render(createElement(CourseDocumentEditor, { document, onReady }));
+    render(
+      createElement(CourseDocumentEditor, {
+        source: { mode: "document", content },
+        onReady,
+      }),
+    );
 
     await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
     const editor = onReady.mock.calls[0]?.[0];
@@ -350,12 +349,12 @@ describe("CourseDocumentEditor", () => {
   });
 
   it("does not let UniqueID mutate readonly editor documents", async () => {
-    const document = createInitializedDocument();
+    const content = createInitializedDocument();
     const onReady = vi.fn();
 
     render(
       createElement(CourseDocumentEditor, {
-        document,
+        source: { mode: "document", content },
         editable: false,
         onReady,
       }),
@@ -372,11 +371,11 @@ describe("CourseDocumentEditor", () => {
   });
 
   it("keeps the live editor mounted while its authoring view is suspended", async () => {
-    const document = createInitializedDocument();
+    const content = createInitializedDocument();
     const onReady = vi.fn();
     const { rerender } = render(
       createElement(CourseDocumentEditor, {
-        document,
+        source: { mode: "document", content },
         onReady,
       }),
     );
@@ -389,7 +388,7 @@ describe("CourseDocumentEditor", () => {
 
     rerender(
       createElement(CourseDocumentEditor, {
-        document,
+        source: { mode: "document", content },
         onReady,
         suspended: true,
       }),
@@ -402,7 +401,7 @@ describe("CourseDocumentEditor", () => {
 
     rerender(
       createElement(CourseDocumentEditor, {
-        document,
+        source: { mode: "document", content },
         onReady,
         suspended: false,
       }),
@@ -415,12 +414,12 @@ describe("CourseDocumentEditor", () => {
   });
 
   it("generates a stable id for an inserted addressable block", async () => {
-    const document = createInitializedDocument();
+    const content = createInitializedDocument();
     const onReady = vi.fn();
 
     render(
       createElement(CourseDocumentEditor, {
-        document,
+        source: { mode: "document", content },
         onReady,
       }),
     );
@@ -447,12 +446,12 @@ describe("CourseDocumentEditor", () => {
   });
 
   it("regenerates nested component ids in pasted structured blocks", async () => {
-    const document = createInitializedDocument();
+    const content = createInitializedDocument();
     const onReady = vi.fn();
 
     render(
       createElement(CourseDocumentEditor, {
-        document,
+        source: { mode: "document", content },
         onReady,
       }),
     );
@@ -528,10 +527,15 @@ describe("CourseDocumentEditor", () => {
   });
 
   it("regenerates a pasted surface instance id while preserving its variant and current shape", async () => {
-    const document = createSlideshowDocumentWithSurfaces(["slide-1"]);
+    const content = createSlideshowDocumentWithSurfaces(["slide-1"]);
     const onReady = vi.fn();
 
-    render(createElement(CourseDocumentEditor, { document, onReady }));
+    render(
+      createElement(CourseDocumentEditor, {
+        source: { mode: "document", content },
+        onReady,
+      }),
+    );
 
     await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
     const editor = onReady.mock.calls[0]?.[0];

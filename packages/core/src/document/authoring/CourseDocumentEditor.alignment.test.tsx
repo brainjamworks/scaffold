@@ -1,10 +1,10 @@
 // @vitest-environment happy-dom
 
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import type { Editor, JSONContent } from "@tiptap/core";
+import { Extension, type Editor, type JSONContent } from "@tiptap/core";
+import { history, undo } from "@tiptap/pm/history";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import * as Y from "yjs";
 
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
@@ -22,11 +22,14 @@ import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/s
 import { CourseDocumentRuntimeRenderer } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
 
 import { CourseDocumentEditor } from "./CourseDocumentEditor";
-import { initializeAuthoringCourseDocumentFragment } from "./initialize-authoring-document";
 
 const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: builtInBlockRegistry,
   surfaceVariants: builtInSurfaceVariantRegistry,
+});
+const localHistory = Extension.create({
+  name: "localHistory",
+  addProseMirrorPlugins: () => [history()],
 });
 
 afterEach(() => {
@@ -177,7 +180,7 @@ describe("CourseDocumentEditor unified alignment", () => {
     expect(textAlignment(editor, "Nested A")).toBe("right");
     expect(textAlignment(editor, "Sibling text")).toBe("right");
 
-    expect(editor.commands.undo()).toBe(true);
+    expect(undo(editor.state, editor.view.dispatch)).toBe(true);
     expect(
       collectOwnedHorizontalParticipants(editor.state.doc, descriptor.pos, builtInBlockRegistry),
     ).toEqual([
@@ -213,15 +216,13 @@ describe("CourseDocumentEditor unified alignment", () => {
         callout("parity-callout", "center"),
       ]),
     ]);
-    const document = new Y.Doc();
-    initializeAuthoringCourseDocumentFragment(document, content);
     const onAuthoringReady = vi.fn();
     const onRuntimeReady = vi.fn();
 
     const view = render(
       <div>
         <div data-testid="parity-authoring">
-          <CourseDocumentEditor document={document} onReady={onAuthoringReady} />
+          <CourseDocumentEditor source={{ mode: "document", content }} onReady={onAuthoringReady} />
         </div>
         <div data-testid="parity-runtime">
           <CourseDocumentRuntimeRenderer
@@ -270,10 +271,14 @@ describe("CourseDocumentEditor unified alignment", () => {
 });
 
 async function mountEditor(content: JSONContent): Promise<Editor> {
-  const document = new Y.Doc();
-  initializeAuthoringCourseDocumentFragment(document, content);
   const onReady = vi.fn();
-  render(createElement(CourseDocumentEditor, { document, onReady }));
+  render(
+    createElement(CourseDocumentEditor, {
+      source: { mode: "document", content },
+      schemaExtensions: [localHistory],
+      onReady,
+    }),
+  );
 
   await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
   const editor = onReady.mock.calls[0]?.[0];

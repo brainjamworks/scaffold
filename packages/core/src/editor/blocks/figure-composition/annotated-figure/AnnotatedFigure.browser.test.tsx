@@ -2,10 +2,8 @@ import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser/context";
-import * as Y from "yjs";
 
 import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor";
-import { initializeAuthoringCourseDocumentFragment } from "@/document/authoring/initialize-authoring-document";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
@@ -501,9 +499,6 @@ async function mountBoundedPair(
   longFirstCaption = false,
 ): Promise<MountedPair> {
   const initialContent = boundedAnnotatedFigureDocument(captionDisplay, longFirstCaption);
-  const authoringDocument = new Y.Doc();
-  initializeAuthoringCourseDocumentFragment(authoringDocument, cloneJSON(initialContent));
-
   const outer = document.createElement("div");
   outer.style.width = "1024px";
   document.body.append(outer);
@@ -520,7 +515,7 @@ async function mountBoundedPair(
   authoringRoot.render(
     <ScaffoldServicesProvider ports={ports}>
       <CourseDocumentEditor
-        document={authoringDocument}
+        source={{ mode: "document", content: cloneJSON(initialContent) }}
         editable
         onReady={(editor) => {
           authoringEditor = editor;
@@ -561,7 +556,6 @@ async function mountBoundedPair(
       runtimeRoot.unmount();
       authoringEditor?.destroy();
       runtimeEditor?.destroy();
-      authoringDocument.destroy();
       outer.remove();
     },
   };

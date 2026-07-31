@@ -1,9 +1,7 @@
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
 import { createRoot, type Root } from "react-dom/client";
-import * as Y from "yjs";
 
 import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor";
-import { initializeAuthoringCourseDocumentFragment } from "@/document/authoring/initialize-authoring-document";
 import { isRegisteredSlideCompositionSurfaceDefinition } from "@/editor/surfaces/model/slide-composition-definition";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { createScaffoldDocumentContent } from "@/format/artifact";
@@ -116,9 +114,6 @@ async function renderDocumentPair(
   authoringEditable: boolean,
   description: string,
 ): Promise<RenderedCompositionStateCase> {
-  const authoringDocument = new Y.Doc();
-  initializeAuthoringCourseDocumentFragment(authoringDocument, cloneJSON(initialContent));
-
   const harnessHost = globalThis.document.createElement("div");
   harnessHost.dataset["compositionBrowserHarness"] = "";
   harnessHost.style.position = "absolute";
@@ -142,7 +137,7 @@ async function renderDocumentPair(
     });
     authoringRoot.render(
       <CourseDocumentEditor
-        document={authoringDocument}
+        source={{ mode: "document", content: cloneJSON(initialContent) }}
         editable={authoringEditable}
         onReady={authoringReady}
       />,
@@ -187,7 +182,6 @@ async function renderDocumentPair(
       disposed = true;
       disposeRendererRoot(authoringRoot, authoring.editor);
       disposeRendererRoot(runtimeRoot, runtime.editor);
-      authoringDocument.destroy();
       harnessHost.remove();
     };
 
@@ -201,7 +195,6 @@ async function renderDocumentPair(
   } catch (error) {
     disposeRendererRoot(authoringRoot, authoringEditor);
     disposeRendererRoot(runtimeRoot, runtimeEditor);
-    authoringDocument.destroy();
     harnessHost.remove();
     throw error;
   }

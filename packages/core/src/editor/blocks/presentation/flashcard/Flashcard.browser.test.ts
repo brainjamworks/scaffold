@@ -3,10 +3,8 @@ import { createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser/context";
-import * as Y from "yjs";
 
 import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor";
-import { initializeAuthoringCourseDocumentFragment } from "@/document/authoring/initialize-authoring-document";
 import "@/editor/frame/view/bounded-placement.css";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { createScaffoldDocumentContent } from "@/format/artifact";
@@ -391,9 +389,6 @@ interface MountedFlashcardPair {
 async function mountRealFlashcardPair(): Promise<MountedFlashcardPair> {
   const surfaceId = "flashcard-browser-surface";
   const initialContent = boundedFlashcardDocument(surfaceId);
-  const authoringDocument = new Y.Doc();
-  initializeAuthoringCourseDocumentFragment(authoringDocument, cloneJSON(initialContent));
-
   const outer = document.createElement("div");
   outer.style.display = "grid";
   outer.style.gridTemplateColumns = "repeat(2, 640px)";
@@ -412,7 +407,7 @@ async function mountRealFlashcardPair(): Promise<MountedFlashcardPair> {
 
   authoringRoot.render(
     createElement(CourseDocumentEditor, {
-      document: authoringDocument,
+      source: { mode: "document", content: cloneJSON(initialContent) },
       editable: true,
       onReady: (editor) => {
         authoringEditor = editor;
@@ -465,7 +460,6 @@ async function mountRealFlashcardPair(): Promise<MountedFlashcardPair> {
       runtimeRoot.unmount();
       authoringEditor?.destroy();
       runtimeEditor?.destroy();
-      authoringDocument.destroy();
       outer.remove();
       scrollSentinel.remove();
     },
