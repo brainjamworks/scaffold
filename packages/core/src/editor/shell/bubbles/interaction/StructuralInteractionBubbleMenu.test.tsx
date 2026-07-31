@@ -6,7 +6,10 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
 import { OverlayBoundary } from "@/ui/components/OverlayBoundary/OverlayBoundary";
+import { builtInLayoutDefinitions } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { createAlignmentTargetPort } from "@/editor/interactions/alignment/alignment-target";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
@@ -52,6 +55,10 @@ import {
 const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: builtInBlockRegistry,
   surfaceVariants: builtInSurfaceVariantRegistry,
+});
+const testCapabilities = resolveScaffoldCapabilities({
+  blockDefinitions: builtInBlockRegistry.definitions,
+  layoutDefinitions: builtInLayoutDefinitions,
 });
 let testRendererBindings: StructuralInteractionBubbleRendererBinding[] = [];
 
@@ -137,6 +144,7 @@ function makeEditor(content: JSONContent): Editor {
       TestRegionNode,
       TestLayoutNode,
       TestSectionNode,
+      createScaffoldCapabilitiesStorageExtension(testCapabilities),
     ],
     content,
   });

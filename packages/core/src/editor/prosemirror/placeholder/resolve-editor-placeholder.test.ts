@@ -1,11 +1,87 @@
 // @vitest-environment happy-dom
 
+import { CircleIcon } from "@phosphor-icons/react";
 import { Editor } from "@tiptap/core";
+import { NodeViewContent } from "@tiptap/react";
+import { createElement } from "react";
 import { describe, expect, it } from "vite-plus/test";
 
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
+import {
+  createScaffoldApplication,
+  defineScaffoldExtensionPack,
+  type LayoutCapability,
+} from "@/composition/application/create-scaffold-application";
 
 describe("editor placeholder resolver", () => {
+  it("resolves a host Layout paragraph placeholder from the editor composition", () => {
+    const layoutId = "host-placeholder-layout";
+    const placeholder = "Write the host-only layout paragraph";
+    const capability: LayoutCapability = {
+      definition: {
+        id: layoutId,
+        title: "Host placeholder layout",
+        description: "Host Layout with paragraph guidance",
+        icon: CircleIcon,
+        placeholders: { paragraph: placeholder },
+        createContent: () => ({
+          type: "layout",
+          attrs: { id: "layout-host-placeholder", variant: layoutId },
+          content: [
+            {
+              type: "section",
+              attrs: { id: "section-host-placeholder" },
+              content: [{ type: "paragraph" }],
+            },
+          ],
+        }),
+      },
+      authoringView: {
+        id: layoutId,
+        layout: () => createElement(NodeViewContent),
+      },
+      runtimeView: {
+        id: layoutId,
+        component: () => null,
+      },
+    };
+    const application = createScaffoldApplication({
+      packs: [
+        defineScaffoldExtensionPack({
+          id: "host-placeholder-pack",
+          layouts: [capability],
+        }),
+      ],
+    });
+    const editor = new Editor({
+      extensions: createCourseDocumentAuthoringExtensions({
+        editable: true,
+        composition: application.authoring,
+      }),
+      content: {
+        type: "doc",
+        content: [
+          {
+            type: "courseDocument",
+            content: [
+              {
+                type: "surface",
+                attrs: { id: "surface-host-placeholder", variant: "page-default" },
+                content: [capability.definition.createContent()],
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    document.body.append(editor.view.dom);
+
+    expect(editor.view.dom.querySelector(`p[data-placeholder="${placeholder}"]`)).not.toBeNull();
+
+    editor.destroy();
+  });
+
   it("resolves block-owned field placeholders through block definitions", () => {
     const editor = new Editor({
       extensions: [...createCourseDocumentAuthoringExtensions({ editable: true })],

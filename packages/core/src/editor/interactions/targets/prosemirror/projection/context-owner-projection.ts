@@ -1,7 +1,7 @@
 import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model";
 import type { EditorState, Selection } from "@tiptap/pm/state";
 
-import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
+import { getScaffoldCapabilitiesForState } from "@/composition/extensions/scaffold-capabilities-storage";
 
 import {
   EMPTY_INTERACTION_CONTEXT_OWNERS,
@@ -63,10 +63,11 @@ function projectInteractionContextOwnersFromAncestors(
 }
 
 export function projectInteractionContextOwnerPolicies(
-  selection: Selection,
+  state: EditorState,
 ): readonly InteractionTargetPolicy[] {
   return projectStructuralAncestorPolicies(
-    sharedStructuralAncestors(selection.$from, selection.$to),
+    state,
+    sharedStructuralAncestors(state.selection.$from, state.selection.$to),
   );
 }
 
@@ -75,16 +76,17 @@ export function projectInteractionContextOwnerPoliciesForTarget(
   target: InteractionTargetRef | null | undefined,
 ): readonly InteractionTargetPolicy[] | null {
   const ancestors = structuralAncestorsForTarget(state, target);
-  return ancestors ? projectStructuralAncestorPolicies(ancestors) : null;
+  return ancestors ? projectStructuralAncestorPolicies(state, ancestors) : null;
 }
 
 function projectStructuralAncestorPolicies(
+  state: EditorState,
   ancestors: readonly StructuralAncestor[],
 ): readonly InteractionTargetPolicy[] {
   return ancestors.map((ancestor) =>
     projectStructuralTargetPolicy({
       ...ancestor,
-      supportsSettings: supportsStructuralSettings(ancestor, ancestors),
+      supportsSettings: supportsStructuralSettings(state, ancestor, ancestors),
     }),
   );
 }
@@ -154,11 +156,15 @@ function isSameStructuralAncestor(left: StructuralAncestor, right: StructuralAnc
 }
 
 function supportsStructuralSettings(
+  state: EditorState,
   ancestor: StructuralAncestor,
   ancestors: readonly StructuralAncestor[],
 ): boolean {
   if (ancestor.kind === InteractionTargetKind.Layout) {
-    return Boolean(builtInLayoutRegistry.getForNode(ancestor.node)?.settingsSheet);
+    return Boolean(
+      getScaffoldCapabilitiesForState(state).layouts.registry.getForNode(ancestor.node)
+        ?.settingsSheet,
+    );
   }
 
   if (ancestor.kind !== InteractionTargetKind.Section) {
@@ -171,6 +177,8 @@ function supportsStructuralSettings(
   );
 
   return Boolean(
-    parentLayout && builtInLayoutRegistry.getForNode(parentLayout.node)?.section?.settingsSheet,
+    parentLayout &&
+    getScaffoldCapabilitiesForState(state).layouts.registry.getForNode(parentLayout.node)?.section
+      ?.settingsSheet,
   );
 }

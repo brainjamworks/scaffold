@@ -36,8 +36,11 @@ export function PaginatedLayoutView(props: LayoutComponentProps) {
   const layoutPos = resolveLayoutPos(props);
   const layoutId = readRequiredPaginatedNodeId(props.node.attrs["id"], "layout");
   const pages = readPaginatedPages(props.node);
-  const storedActiveId = useLayoutInteractionStore((state) => state.activePageByLayoutId[layoutId]);
-  const setActivePage = useLayoutInteractionStore((state) => state.setActivePage);
+  const storedActiveId = useLayoutInteractionStore(
+    props.editor,
+    (state) => state.activePageByLayoutId[layoutId],
+  );
+  const setActivePage = useLayoutInteractionStore(props.editor, (state) => state.setActivePage);
   const selectionState = useEditorState({
     editor: props.editor,
     selector: ({ editor }) =>
@@ -121,6 +124,7 @@ export function PaginatedSectionView(props: SectionComponentProps) {
     selector: () => resolveLivePaginatedSectionState(props),
   });
   const storedActiveId = useLayoutInteractionStore(
+    props.editor,
     (state) => state.activePageByLayoutId[liveState.layoutId],
   );
   const activeId = normalizeActivePageId(storedActiveId, liveState.pages);

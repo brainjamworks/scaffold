@@ -9,7 +9,7 @@ import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
-import { createAuthoringBlockExtensions } from "@/editor/blocks/authoring-block-extensions";
+import { builtInBlockAuthoringBindings } from "@/editor/blocks/authoring-block-extensions";
 import { AssessmentActionsGroupNode } from "@/editor/blocks/assessment/shared/nodes/assessment-actions-group";
 import { AssessmentChoicesGroupNode } from "@/editor/blocks/assessment/shared/nodes/assessment-choices-group";
 import { AssessmentHintNode } from "@/editor/blocks/assessment/shared/nodes/assessment-hint";
@@ -155,7 +155,7 @@ function createAudioBlockTestEditor() {
       SelectableChoiceNode,
       createRuntimeBlockFrameAttributesExtension(["audio_block"]),
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
-      ...createAuthoringBlockExtensions(builtInBlockRegistry),
+      ...builtInBlockAuthoringBindings.map(({ extension }) => extension),
     ],
   });
 }

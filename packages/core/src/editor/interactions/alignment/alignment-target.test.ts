@@ -16,6 +16,8 @@ import {
 } from "@/editor/interactions/targets/model/interaction-owner-state";
 import { resolveBlockChromeTargetDescriptor as resolveBlockChromeTargetDescriptorWithLookup } from "@/editor/interactions/targets/prosemirror/projection/block-chrome-target-projection";
 import { resolveStructuralChromeTargetDescriptor } from "@/editor/interactions/targets/prosemirror/projection/structural-chrome-target-projection";
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 
 import { createAlignmentTargetPort } from "./alignment-target";
 import { collectOwnedHorizontalParticipants } from "./owned-content-alignment";
@@ -34,6 +36,10 @@ const testSurfaceVariants = createSurfaceVariantRegistry([
 const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: testBlockRegistry,
   surfaceVariants: testSurfaceVariants,
+});
+const coreCapabilities = Object.freeze({
+  blocks: Object.freeze({ registry: testBlockRegistry }),
+  layouts: Object.freeze({ registry: builtInLayoutRegistry }),
 });
 const resolveBlockChromeTargetDescriptor = (
   state: Parameters<typeof resolveBlockChromeTargetDescriptorWithLookup>[0],
@@ -83,6 +89,7 @@ function structuralNode(name: string, content = "block+") {
 function makeEditor(content: JSONContent) {
   return new Editor({
     extensions: [
+      createScaffoldCapabilitiesStorageExtension(coreCapabilities),
       StarterKit,
       createScaffoldTextAlignExtension(["paragraph", "heading"]),
       blockNode(RESIZABLE),

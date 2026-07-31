@@ -8,6 +8,8 @@ import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
 import { CellNode, GridNode } from "@/editor/arrangements/grid/model/grid-nodes";
 import { LayoutNode, SectionNode } from "@/editor/arrangements/layout/model/layout-nodes";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
@@ -47,6 +49,10 @@ const testBlockRegistry = createBlockRegistry([
     interaction: { embeddedChildSelection: "delegate-to-parent" },
   }),
 ]);
+const testCapabilities = resolveScaffoldCapabilities({
+  blockDefinitions: testBlockRegistry.definitions,
+  layoutDefinitions: [],
+});
 
 const MovementTargetGridNode = GridNode.extend({
   renderHTML({ node, HTMLAttributes }) {
@@ -412,6 +418,7 @@ function makeEditor(content: JSONContent[]) {
       CourseDocumentNode,
       SurfaceNode,
       RegionNode,
+      createScaffoldCapabilitiesStorageExtension(testCapabilities),
       createScaffoldInteractionOwnerExtension(testBlockRegistry),
       MovementTargetGridNode,
       MovementTargetCellNode,

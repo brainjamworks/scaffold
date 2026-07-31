@@ -45,8 +45,11 @@ export function TabsLayoutView(props: LayoutComponentProps) {
   const layoutId = resolveLayoutId(props);
   const options = readTabsOptions(props.node.attrs["options"]);
   const sections = readTabsSections(props.node);
-  const storedActiveId = useLayoutInteractionStore((state) => state.activeTabByLayoutId[layoutId]);
-  const setActiveTab = useLayoutInteractionStore((state) => state.setActiveTab);
+  const storedActiveId = useLayoutInteractionStore(
+    props.editor,
+    (state) => state.activeTabByLayoutId[layoutId],
+  );
+  const setActiveTab = useLayoutInteractionStore(props.editor, (state) => state.setActiveTab);
   const selectionState = useEditorState({
     editor: props.editor,
     selector: ({ editor }) =>
@@ -162,7 +165,10 @@ export function TabsSectionView(props: SectionComponentProps) {
     selector: () => resolveLiveTabsSectionState(props),
   });
   const { layoutId, sectionId, sections } = liveState;
-  const storedActiveId = useLayoutInteractionStore((state) => state.activeTabByLayoutId[layoutId]);
+  const storedActiveId = useLayoutInteractionStore(
+    props.editor,
+    (state) => state.activeTabByLayoutId[layoutId],
+  );
   const activeId = normalizeActiveTabId(storedActiveId, sections);
   const isActive = sectionId === activeId;
 

@@ -12,6 +12,8 @@ import { useLayoutEffect, type ReactNode } from "react";
 
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
 import {
   AUTHORING_FRAME_ATTR,
   AuthoringFrameKind,
@@ -29,7 +31,7 @@ import { publishInteractionOwnerSnapshot as publishInteractionOwnerSnapshotWithL
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
 import { resolveBlockChromeTargetDescriptor as resolveBlockChromeTargetDescriptorWithLookup } from "@/editor/interactions/targets/prosemirror/projection/block-chrome-target-projection";
 import { interactionOwnerPluginKey } from "@/editor/interactions/targets/prosemirror/state/interaction-owner-plugin-state";
-import { createAuthoringBlockExtensions } from "@/editor/blocks/authoring-block-extensions";
+import { builtInBlockAuthoringBindings } from "@/editor/blocks/authoring-block-extensions";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { defineAssessmentCapability, defineBlock } from "@/editor/blocks/block-definition";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
@@ -59,6 +61,7 @@ import {
   COURSE_BLOCK_CONTENT,
 } from "@/document/model/content-model/content-groups";
 import { CellNode, GridNode } from "@/editor/arrangements/grid/model/grid-nodes";
+import { builtInLayoutDefinitions } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { LayoutNode, SectionNode } from "@/editor/arrangements/layout/model/layout-nodes";
 import { AssessmentActionsGroupNode } from "@/editor/blocks/assessment/shared/nodes/assessment-actions-group";
 import { AssessmentActionsGroupRuntimeNode } from "@/editor/blocks/assessment/shared/nodes/assessment-actions-group-runtime";
@@ -453,6 +456,10 @@ const quizTestBlockRegistry = createBlockRegistry([
   ...builtInBlockRegistry.definitions,
   testAssessmentQuestionDefinition,
 ]);
+const quizTestCapabilities = resolveScaffoldCapabilities({
+  blockDefinitions: quizTestBlockRegistry.definitions,
+  layoutDefinitions: builtInLayoutDefinitions,
+});
 
 const publishInteractionOwnerSnapshot = (
   state: Parameters<typeof publishInteractionOwnerSnapshotWithLookup>[0],
@@ -479,9 +486,9 @@ describe("quiz block skeleton", () => {
 
   it("registers quiz as a stable-id block", () => {
     expect(builtInBlockRegistry.stableIdNodeTypes).toContain("quiz");
-    expect(
-      createAuthoringBlockExtensions(builtInBlockRegistry).map((extension) => extension.name),
-    ).toContain("quiz_authoring_bundle");
+    expect(builtInBlockAuthoringBindings.map(({ extension }) => extension.name)).toContain(
+      "quiz_authoring_bundle",
+    );
   });
 
   it("registers quiz as a staged fill host for assessment questions", () => {
@@ -2786,6 +2793,7 @@ function createDisposableQuizEditor({
       editable ? AssessmentActionsGroupNode : AssessmentActionsGroupRuntimeNode,
       SelectableChoiceBodyNode,
       editable ? SelectableChoiceAuthoringNode : SelectableChoiceRuntimeNode,
+      createScaffoldCapabilitiesStorageExtension(quizTestCapabilities),
       createScaffoldInteractionOwnerExtension(quizTestBlockRegistry),
       TestRegionNode,
       GridNode,

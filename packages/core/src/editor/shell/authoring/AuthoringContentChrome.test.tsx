@@ -5,7 +5,10 @@ import { Editor, Node } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it } from "vite-plus/test";
 
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
 import { LAYOUT_FLOATING_AUTHORING_CONTROLS } from "@/editor/arrangements/layout/authoring/layout-floating-controls";
+import { builtInLayoutDefinitions } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { builtInSurfaceAuthoringChromeResolver } from "@/editor/surfaces/authoring/surface-authoring-views";
@@ -40,6 +43,10 @@ const TestLayoutNode = Node.create({
     return ["section", { ...HTMLAttributes, "data-test-layout": "" }, 0];
   },
 });
+const testCapabilities = resolveScaffoldCapabilities({
+  blockDefinitions: builtInBlockRegistry.definitions,
+  layoutDefinitions: builtInLayoutDefinitions,
+});
 
 function createContentEditor(id: string) {
   return new Editor({
@@ -47,6 +54,7 @@ function createContentEditor(id: string) {
     extensions: [
       StarterKit.configure({ undoRedo: false }),
       TestLayoutNode,
+      createScaffoldCapabilitiesStorageExtension(testCapabilities),
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
     ],
     content: {

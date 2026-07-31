@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { Editor } from "@tiptap/core";
+import { Editor, Node } from "@tiptap/core";
 import type { JSONContent } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { NodeSelection } from "@tiptap/pm/state";
@@ -23,9 +23,14 @@ import {
 } from "@/document/model/content-model/content-groups";
 import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
+import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
+import {
+  createScaffoldCapabilitiesStorageExtension,
+  getScaffoldCapabilitiesForEditor,
+} from "@/composition/extensions/scaffold-capabilities-storage";
 import { CellNode, GridNode } from "@/editor/arrangements/grid/model/grid-nodes";
 import { LayoutNode, SectionNode } from "@/editor/arrangements/layout/model/layout-nodes";
-import { createBlockRegistry } from "@/editor/blocks/block-registry";
+import type { BlockDefinition } from "@/editor/blocks/block-definition";
 import {
   assessmentProblemIdentity,
   assessmentProblemOutcome,
@@ -67,15 +72,26 @@ import {
   describeImageHotspotSurfaceAccessibilityState,
 } from "./image-hotspot-canvas-runtime";
 import { patchHotspotInCanvasData } from "./image-hotspot-canvas-shared";
-import { createImageHotspotAuthoringExtension } from "./image-hotspot-authoring-extension";
-import { createImageHotspotRuntimeExtension } from "./image-hotspot-runtime-extension";
+import { ImageHotspotAuthoringExtension } from "./image-hotspot-authoring-extension";
+import { ImageHotspotRuntimeExtension } from "./image-hotspot-runtime-extension";
 
 const canonicalAssessmentResult = { maxScore: 1 as const, feedback: null, items: {} };
-
-const imageHotspotBlockRegistry = createBlockRegistry([imageHotspotBlockDefinition]);
-const ImageHotspotAuthoringExtension =
-  createImageHotspotAuthoringExtension(imageHotspotBlockRegistry);
-const ImageHotspotRuntimeExtension = createImageHotspotRuntimeExtension(imageHotspotBlockRegistry);
+const sessionBoundedHostNodeType = "image_hotspot_session_bounded_host";
+const sessionBoundedHostDefinition: BlockDefinition = {
+  nodeType: sessionBoundedHostNodeType,
+  boundedPlacement: "fill",
+  stagedBoundedHost: { childGroup: "block" },
+};
+const sessionUnboundedHostDefinition: BlockDefinition = {
+  nodeType: sessionBoundedHostNodeType,
+};
+const SessionBoundedHostNode = Node.create({
+  name: sessionBoundedHostNodeType,
+  group: COURSE_BLOCK_CONTENT,
+  content: "image_hotspot",
+  parseHTML: () => [{ tag: "div[data-image-hotspot-session-bounded-host]" }],
+  renderHTML: () => ["div", { "data-image-hotspot-session-bounded-host": "" }, 0],
+});
 
 const imageHotspotBubbleMenuMock = vi.hoisted(() => ({
   props: [] as RichTextBubbleMenuProps[],
@@ -111,7 +127,12 @@ vi.mock("@/editor/shell/bubbles/rich-text/RichTextBubbleMenu", async () => {
 function makeEditor({
   content,
   undoRedo = false,
-}: { content?: JSONContent; undoRedo?: boolean } = {}) {
+  blockDefinitions = [imageHotspotBlockDefinition],
+}: {
+  content?: JSONContent;
+  undoRedo?: boolean;
+  blockDefinitions?: readonly BlockDefinition[];
+} = {}) {
   return new Editor({
     ...(content ? { content } : {}),
     extensions: [
@@ -125,12 +146,15 @@ function makeEditor({
       AssessmentActionsGroupNode,
       AssessmentHintsGroupNode,
       AssessmentSummaryFeedbackNode,
+      createScaffoldCapabilitiesStorageExtension(testCapabilities(blockDefinitions)),
       ImageHotspotAuthoringExtension,
     ],
   });
 }
 
-function makeRuntimeEditor() {
+function makeRuntimeEditor(
+  blockDefinitions: readonly BlockDefinition[] = [imageHotspotBlockDefinition],
+) {
   return new Editor({
     extensions: [
       StarterKit.configure({ undoRedo: false, paragraph: false }),
@@ -143,12 +167,15 @@ function makeRuntimeEditor() {
       AssessmentActionsGroupRuntimeNode,
       AssessmentHintsGroupNode,
       AssessmentSummaryFeedbackNode,
+      createScaffoldCapabilitiesStorageExtension(testCapabilities(blockDefinitions)),
       ImageHotspotRuntimeExtension,
     ],
   });
 }
 
-function makeBoundedAuthoringEditor() {
+function makeBoundedAuthoringEditor(
+  blockDefinitions: readonly BlockDefinition[] = [imageHotspotBlockDefinition],
+) {
   return new Editor({
     extensions: [
       DocumentNode,
@@ -165,6 +192,7 @@ function makeBoundedAuthoringEditor() {
       CellNode,
       LayoutNode,
       SectionNode,
+      SessionBoundedHostNode,
       createRuntimeBlockFrameAttributesExtension([imageHotspotBlockDefinition.nodeType]),
       AssessmentTitleNode,
       AssessmentInstructionsNode,
@@ -173,9 +201,48 @@ function makeBoundedAuthoringEditor() {
       AssessmentActionsGroupNode,
       AssessmentHintsGroupNode,
       AssessmentSummaryFeedbackNode,
+      createScaffoldCapabilitiesStorageExtension(testCapabilities(blockDefinitions)),
       ImageHotspotAuthoringExtension,
     ],
   });
+}
+
+function makeBoundedRuntimeEditor(
+  blockDefinitions: readonly BlockDefinition[] = [imageHotspotBlockDefinition],
+) {
+  return new Editor({
+    extensions: [
+      DocumentNode,
+      StarterKit.configure({
+        document: false,
+        paragraph: false,
+        undoRedo: false,
+      }),
+      ExtendedParagraph,
+      CourseDocumentNode,
+      SurfaceNode,
+      RegionNode,
+      GridNode,
+      CellNode,
+      LayoutNode,
+      SectionNode,
+      SessionBoundedHostNode,
+      createRuntimeBlockFrameAttributesExtension([imageHotspotBlockDefinition.nodeType]),
+      AssessmentTitleNode,
+      AssessmentInstructionsNode,
+      AssessmentPromptNode,
+      AssessmentHintNode,
+      AssessmentActionsGroupRuntimeNode,
+      AssessmentHintsGroupNode,
+      AssessmentSummaryFeedbackNode,
+      createScaffoldCapabilitiesStorageExtension(testCapabilities(blockDefinitions)),
+      ImageHotspotRuntimeExtension,
+    ],
+  });
+}
+
+function testCapabilities(blockDefinitions: readonly BlockDefinition[]) {
+  return resolveScaffoldCapabilities({ blockDefinitions, layoutDefinitions: [] });
 }
 
 function renderRuntimeEditor(
@@ -184,7 +251,7 @@ function renderRuntimeEditor(
   initialSnapshot?: unknown,
   mediaPort?: MediaPort,
 ) {
-  render(
+  return render(
     createAssessmentRuntimeTestRoot({
       assessment: assessmentPort,
       children: createElement(EditorContent, { editor }),
@@ -349,6 +416,44 @@ function imageHotspotBlock(id: string): JSONContent {
       assessmentActions(),
     ],
   };
+}
+
+function boundedImageHotspotDocument(id: string): JSONContent {
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "courseDocument",
+        attrs: { mode: "slideshow" },
+        content: [
+          {
+            type: "surface",
+            attrs: { id: `${id}-surface`, variant: "slide-content" },
+            content: [
+              {
+                type: "region",
+                attrs: { id: `${id}-region` },
+                content: [imageHotspotBlock(id)],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function stagedHostImageHotspotDocument(id: string): JSONContent {
+  const document = boundedImageHotspotDocument(id);
+  const region = document.content?.[0]?.content?.[0]?.content?.[0];
+  if (!region) throw new Error("Expected bounded test region");
+  region.content = [
+    {
+      type: sessionBoundedHostNodeType,
+      content: [imageHotspotBlock(id)],
+    },
+  ];
+  return document;
 }
 
 const sampleCanvasData: ImageHotspotCanvasData = {
@@ -663,6 +768,88 @@ describe("composite image_hotspot node", () => {
     expect(within(inspector).getByText("Hotspot 1")).toBeInTheDocument();
 
     editor.destroy();
+  });
+
+  it("keeps bounded authoring placement scoped to each editor's Block registry", async () => {
+    const installedEditor = makeBoundedAuthoringEditor([
+      imageHotspotBlockDefinition,
+      sessionBoundedHostDefinition,
+    ]);
+    const unboundedEditor = makeBoundedAuthoringEditor([
+      imageHotspotBlockDefinition,
+      sessionUnboundedHostDefinition,
+    ]);
+    installedEditor.commands.setContent(stagedHostImageHotspotDocument("installed-authoring"));
+    unboundedEditor.commands.setContent(stagedHostImageHotspotDocument("unbounded-authoring"));
+
+    const installedView = renderAssessmentEditor(installedEditor);
+    const unboundedView = renderAssessmentEditor(unboundedEditor);
+
+    await within(installedView.container).findByAltText("sample");
+    await within(unboundedView.container).findByAltText("sample");
+    expect(
+      getScaffoldCapabilitiesForEditor(installedEditor).blocks.registry.getByNodeType(
+        sessionBoundedHostNodeType,
+      ),
+    ).toBe(sessionBoundedHostDefinition);
+    expect(
+      getScaffoldCapabilitiesForEditor(unboundedEditor).blocks.registry.getByNodeType(
+        sessionBoundedHostNodeType,
+      ),
+    ).toBe(sessionUnboundedHostDefinition);
+    expect(
+      installedView.container
+        .querySelector("[data-image-hotspot-canvas-surface]")
+        ?.getAttribute("data-image-hotspot-fit"),
+    ).toBe("contain");
+    expect(
+      unboundedView.container
+        .querySelector("[data-image-hotspot-canvas-surface]")
+        ?.getAttribute("data-image-hotspot-fit"),
+    ).toBe("width");
+
+    installedEditor.destroy();
+    unboundedEditor.destroy();
+  });
+
+  it("keeps bounded learner-runtime placement scoped to each editor's Block registry", async () => {
+    const installedEditor = makeBoundedRuntimeEditor([
+      imageHotspotBlockDefinition,
+      sessionBoundedHostDefinition,
+    ]);
+    const unboundedEditor = makeBoundedRuntimeEditor([
+      imageHotspotBlockDefinition,
+      sessionUnboundedHostDefinition,
+    ]);
+    installedEditor.commands.setContent(stagedHostImageHotspotDocument("installed-runtime"));
+    unboundedEditor.commands.setContent(stagedHostImageHotspotDocument("unbounded-runtime"));
+    const assessmentPort: AssessmentPort = {
+      type: "runtime",
+      submit: async (args) =>
+        assessmentProblemOutcome(
+          { ...canonicalAssessmentResult, isCorrect: true, score: 1 },
+          { response: args.response },
+        ),
+    };
+
+    const installedView = renderRuntimeEditor(installedEditor, assessmentPort);
+    const unboundedView = renderRuntimeEditor(unboundedEditor, assessmentPort);
+
+    await within(installedView.container).findByAltText("sample");
+    await within(unboundedView.container).findByAltText("sample");
+    expect(
+      installedView.container
+        .querySelector("[data-image-hotspot-canvas-surface]")
+        ?.getAttribute("data-image-hotspot-fit"),
+    ).toBe("contain");
+    expect(
+      unboundedView.container
+        .querySelector("[data-image-hotspot-canvas-surface]")
+        ?.getAttribute("data-image-hotspot-fit"),
+    ).toBe("width");
+
+    installedEditor.destroy();
+    unboundedEditor.destroy();
   });
 
   it("renders a persistent hotspot management panel with ordered rows and label fallbacks", async () => {

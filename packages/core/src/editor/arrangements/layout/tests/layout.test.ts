@@ -9,6 +9,8 @@ import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
+import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import {
   ARRANGEMENT_CONTENT,
@@ -86,7 +88,6 @@ import { getLayoutKindFromAttrs, type LayoutDefinition } from "../model/layout-d
 import type { LayoutComponentProps } from "../authoring/layout-view-definition";
 import { createLayoutRegistry } from "../model/layout-registry";
 import { createLayoutAuthoringViewRegistry } from "../authoring/layout-view-registry";
-import { useLayoutInteractionStore } from "../shared/model/layout-interaction-store";
 import { DefaultLayoutContent } from "../authoring/default-layout-content";
 import { processFlowLayoutDefinition } from "../process-flow/process-flow-definition";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
@@ -99,6 +100,7 @@ const alignmentTargetPort = createAlignmentTargetPort({
 const layoutStructuralRenderers = createStructuralInteractionBubbleRendererMap(
   layoutStructuralInteractionBubbleRendererBindings,
 );
+const testScaffoldCapabilities = createScaffoldApplication().capabilities;
 
 const elementGetBoundingClientRectDescriptor = Object.getOwnPropertyDescriptor(
   Element.prototype,
@@ -162,6 +164,7 @@ describeLayoutContract({
 function makeEditor(content?: JSONContent) {
   const editor = new Editor({
     extensions: [
+      createScaffoldCapabilitiesStorageExtension(testScaffoldCapabilities),
       DocumentNode,
       StarterKit.configure({
         document: false,
@@ -384,10 +387,6 @@ describe("layout arrangement nodes", () => {
     cleanup();
     restoreDefaultFloatingControlRect();
     document.body.replaceChildren();
-    useLayoutInteractionStore.setState({
-      activeTabByLayoutId: {},
-      openAccordionSectionsByLayoutId: {},
-    });
   });
 
   it("defines layout and section schema placement rules", () => {

@@ -4,6 +4,8 @@ import { Editor, Node, type JSONContent } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
 import {
   AUTHORING_FRAME_ATTR,
   authoringFrameAttributes,
@@ -23,6 +25,10 @@ import { interactionOwnerPluginKey } from "../state/interaction-owner-plugin-sta
 const BLOCK = "v2_keyboard_workflow_block";
 
 const testBlockRegistry = createBlockRegistry([defineBlock({ nodeType: BLOCK })]);
+const testCapabilities = resolveScaffoldCapabilities({
+  blockDefinitions: testBlockRegistry.definitions,
+  layoutDefinitions: [],
+});
 
 const publishInteractionOwnerSnapshot = (
   state: Parameters<typeof publishInteractionOwnerSnapshotWithLookup>[0],
@@ -173,6 +179,7 @@ function makeEditor(): Editor {
       TestGridNode,
       TestCellNode,
       TestBlockNode,
+      createScaffoldCapabilitiesStorageExtension(testCapabilities),
       createScaffoldInteractionOwnerExtension(testBlockRegistry),
     ],
     content: fullContent(),

@@ -8,6 +8,7 @@ import userEvent from "@testing-library/user-event";
 import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import {
@@ -23,6 +24,7 @@ import {
   LayoutRuntimeNode,
   SectionRuntimeNode,
 } from "@/editor/arrangements/layout/runtime/layout-nodes";
+import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { InteractionTargetKind } from "@/editor/interactions/targets/model/interaction-owner-state";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
 import { resolveStructuralChromeTargetDescriptor } from "@/editor/interactions/targets/prosemirror/projection/structural-chrome-target-projection";
@@ -32,10 +34,13 @@ import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 
-import { useLayoutInteractionStore } from "../shared/model/layout-interaction-store";
 import { AccordionSectionPanelNode, AccordionSectionTitleNode } from "./accordion-section-nodes";
 
 const editors: Editor[] = [];
+const coreCapabilities = Object.freeze({
+  blocks: Object.freeze({ registry: builtInBlockRegistry }),
+  layouts: Object.freeze({ registry: builtInLayoutRegistry }),
+});
 const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: builtInBlockRegistry,
   surfaceVariants: builtInSurfaceVariantRegistry,
@@ -44,9 +49,6 @@ const alignmentTargetPort = createAlignmentTargetPort({
 afterEach(() => {
   cleanup();
   for (const editor of editors.splice(0)) editor.destroy();
-  useLayoutInteractionStore.setState({
-    openAccordionSectionsByLayoutId: {},
-  });
 });
 
 describe("bounded accordion authoring", () => {
@@ -226,6 +228,7 @@ function makeEditor({
   const editor = new Editor({
     editable,
     extensions: [
+      createScaffoldCapabilitiesStorageExtension(coreCapabilities),
       DocumentNode,
       StarterKit.configure({
         document: false,

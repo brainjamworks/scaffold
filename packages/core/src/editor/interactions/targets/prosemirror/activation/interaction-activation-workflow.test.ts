@@ -4,6 +4,8 @@ import { Editor, Node, type JSONContent } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
 import {
   AUTHORING_FRAME_ATTR,
   AUTHORING_FRAME_EDITABLE_ATTR,
@@ -48,6 +50,10 @@ const testBlockRegistry = createBlockRegistry([
   delegateParentDefinition,
   embeddedChildDefinition,
 ]);
+const testCapabilities = resolveScaffoldCapabilities({
+  blockDefinitions: testBlockRegistry.definitions,
+  layoutDefinitions: [],
+});
 
 const publishInteractionOwnerSnapshot = (
   state: Parameters<typeof publishInteractionOwnerSnapshotWithLookup>[0],
@@ -192,6 +198,7 @@ function makeEditor(): Editor {
       TestBlockNode,
       TestDelegateParentNode,
       TestEmbeddedChildNode,
+      createScaffoldCapabilitiesStorageExtension(testCapabilities),
       createScaffoldInteractionOwnerExtension(testBlockRegistry),
     ],
     content: fullContent(),

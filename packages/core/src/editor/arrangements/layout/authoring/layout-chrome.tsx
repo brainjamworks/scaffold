@@ -2,6 +2,7 @@ import { DotsThreeIcon as DotsThree, PlusIcon as Plus } from "@phosphor-icons/re
 import type { Editor } from "@tiptap/react";
 import type { MouseEvent, ReactNode } from "react";
 
+import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import * as Slot from "@/ui/components/Slot/Slot";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import "@/editor/suggestions/insert/ghost-add.css";
@@ -20,7 +21,6 @@ import { createInteractionOwnerCommandPorts } from "@/editor/interactions/target
 import { cn } from "@/lib/cn";
 import { iconSm, iconXs } from "@/ui/tokens/icon-sizes";
 
-import { builtInLayoutRegistry } from "../model/built-in-layout-definitions";
 import { appendLayoutSectionAt } from "../model/layout-commands";
 import {
   createLayoutArrangementAnchorId,
@@ -131,7 +131,8 @@ export function LayoutAddGhost({
     if (!previousLayout || previousLayout.type.name !== "layout") return;
     const previousCount = previousLayout.childCount;
 
-    if (!appendLayoutSectionAt(editor, pos, builtInLayoutRegistry)) return;
+    const capabilities = getScaffoldCapabilitiesForEditor(editor);
+    if (!appendLayoutSectionAt(editor, pos, capabilities.layouts.registry)) return;
 
     const nextLayout = editor.state.doc.nodeAt(pos);
     if (!nextLayout || nextLayout.type.name !== "layout") return;

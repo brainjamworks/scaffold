@@ -1,11 +1,10 @@
 import { Extension } from "@tiptap/core";
 
 import { AssessmentProblemContent } from "@/editor/blocks/assessment/shared/chrome/AssessmentProblemContent";
-import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import { createBlockAuthoringNodeView } from "@/editor/frame/authoring/create-block-authoring-node-view";
 
 import { imageHotspotBlockDefinition } from "./image-hotspot-definition";
-import { createImageHotspotCanvasAuthoringNode } from "./image-hotspot-canvas";
+import { ImageHotspotCanvasAuthoringNode } from "./image-hotspot-canvas";
 import { createImageHotspotNode } from "./node";
 
 function ImageHotspotAuthoringView() {
@@ -21,14 +20,10 @@ const ImageHotspotAuthoringNode = createImageHotspotNode({
     }),
 });
 
-export function createImageHotspotAuthoringExtension(blockDefinitions: BlockDefinitionLookup) {
-  const imageHotspotCanvasNode = createImageHotspotCanvasAuthoringNode(blockDefinitions);
+export const ImageHotspotAuthoringExtension = Extension.create({
+  name: "image_hotspot_authoring_bundle",
 
-  return Extension.create({
-    name: "image_hotspot_authoring_bundle",
-
-    addExtensions() {
-      return [imageHotspotCanvasNode, ImageHotspotAuthoringNode];
-    },
-  });
-}
+  addExtensions() {
+    return [ImageHotspotCanvasAuthoringNode, ImageHotspotAuthoringNode];
+  },
+});

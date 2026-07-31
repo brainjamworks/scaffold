@@ -5,6 +5,8 @@ import StarterKit from "@tiptap/starter-kit";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { z } from "zod";
 
+import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { createEditorDisposalPool } from "@/editor/testing";
@@ -43,6 +45,7 @@ const settingsBlockDefinition = defineBlock({
 const plainBlockDefinition = defineBlock({ nodeType: PLAIN_BLOCK });
 
 const testBlockRegistry = createBlockRegistry([settingsBlockDefinition, plainBlockDefinition]);
+const coreCapabilities = createScaffoldApplication().capabilities;
 const editorDisposal = createEditorDisposalPool();
 
 afterEach(() => editorDisposal.destroyAll());
@@ -95,6 +98,7 @@ function makeEditor() {
   return editorDisposal.track(
     new Editor({
       extensions: [
+        createScaffoldCapabilitiesStorageExtension(coreCapabilities),
         StarterKit.configure({ undoRedo: false }),
         TestSurfaceNode,
         TestRegionNode,

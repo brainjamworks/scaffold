@@ -1,9 +1,20 @@
 // @vitest-environment happy-dom
 
+import { CircleIcon } from "@phosphor-icons/react";
 import { Editor, Node, type JSONContent } from "@tiptap/core";
 import { AllSelection } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it } from "vite-plus/test";
+import { z } from "zod";
+
+import {
+  createScaffoldApplication,
+  defineScaffoldExtensionPack,
+  type LayoutCapability,
+} from "@/composition/application/create-scaffold-application";
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import type { ResolvedScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
+import { defineConfiguration } from "@/editor/configuration/definition";
 
 import {
   EMPTY_INTERACTION_CONTEXT_OWNERS,
@@ -49,9 +60,15 @@ function structuralNode(name: string, content: string) {
   });
 }
 
-function makeEditor(content: JSONContent) {
+const coreCapabilities = createScaffoldApplication().capabilities;
+
+function makeEditor(
+  content: JSONContent,
+  capabilities: ResolvedScaffoldCapabilities = coreCapabilities,
+) {
   return new Editor({
     extensions: [
+      createScaffoldCapabilitiesStorageExtension(capabilities),
       StarterKit.configure({ undoRedo: false }),
       TestSurfaceNode,
       TestRegionNode,
@@ -257,7 +274,7 @@ describe("projectInteractionContextOwners", () => {
 
     editor.commands.setTextSelection(textPos(editor, "Tab section") + 2);
 
-    const sectionPolicy = projectInteractionContextOwnerPolicies(editor.state.selection).find(
+    const sectionPolicy = projectInteractionContextOwnerPolicies(editor.state).find(
       (policy) => policy.target.kind === InteractionTargetKind.Section,
     );
 
@@ -272,6 +289,40 @@ describe("projectInteractionContextOwners", () => {
         kind: InteractionTargetKind.Section,
         pos: nodePos(editor, "section"),
       },
+    });
+
+    editor.destroy();
+  });
+
+  it.each([
+    { kind: InteractionTargetKind.Layout, id: "host-settings-layout-instance" },
+    { kind: InteractionTargetKind.Section, id: "host-settings-section-instance" },
+  ])("projects host-only $kind settings support", ({ id, kind }) => {
+    const capability = hostSettingsLayoutCapability("host-settings-layout");
+    const application = createScaffoldApplication({
+      packs: [
+        defineScaffoldExtensionPack({
+          id: "host-settings-layouts",
+          layouts: [capability],
+        }),
+      ],
+    });
+    const editor = makeEditor(
+      {
+        type: "doc",
+        content: [capability.definition.createContent()],
+      },
+      application.capabilities,
+    );
+    editor.commands.setTextSelection(textPos(editor, "Host settings section") + 2);
+
+    const policy = projectInteractionContextOwnerPolicies(editor.state).find(
+      (candidate) => candidate.target.kind === kind,
+    );
+
+    expect(policy).toMatchObject({
+      supportsSettings: true,
+      target: { id, kind },
     });
 
     editor.destroy();
@@ -332,3 +383,56 @@ describe("projectInteractionContextOwners", () => {
     editor.destroy();
   });
 });
+
+function hostSettingsLayoutCapability(id: string): LayoutCapability {
+  const configuration = defineConfiguration({
+    attr: "options",
+    schema: z.object({ label: z.string().default("") }),
+    sheet: {
+      title: "Host settings",
+      sections: [{ id: "main", title: "Host settings" }],
+    },
+    controls: [
+      {
+        kind: "text",
+        name: "label",
+        label: "Label",
+        placement: { sheet: { section: "main" } },
+      },
+    ],
+  });
+
+  return {
+    definition: {
+      id,
+      title: "Host settings Layout",
+      description: "Host-only settings projection fixture",
+      icon: CircleIcon,
+      configuration,
+      createContent: () => ({
+        type: "layout",
+        attrs: {
+          id: "host-settings-layout-instance",
+          variant: id,
+        },
+        content: [
+          {
+            type: "section",
+            attrs: { id: "host-settings-section-instance" },
+            content: [
+              { type: "paragraph", content: [{ type: "text", text: "Host settings section" }] },
+            ],
+          },
+        ],
+      }),
+      section: {
+        label: "Host settings section",
+        addLabel: "Add host settings section",
+        configuration,
+        create: () => ({ type: "section" }),
+      },
+    },
+    authoringView: { id, layout: () => null },
+    runtimeView: { id },
+  };
+}

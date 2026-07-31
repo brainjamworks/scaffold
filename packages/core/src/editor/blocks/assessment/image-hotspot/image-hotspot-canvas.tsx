@@ -15,8 +15,8 @@ import {
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type PointerEvent } from "react";
 
 import { WorkspaceDialog } from "@/ui/components/WorkspaceDialog/WorkspaceDialog";
+import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import { resolveActiveBoundedPlacement } from "@/editor/bounded-containers/model/bounded-container-structure-policy";
-import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import {
   nodeViewUiKey,
   usePickerOpen,
@@ -111,14 +111,9 @@ import "./ImageHotspot.css";
  * canvas owns its DOM (SVG overlay + image), does its own pointer
  * event routing, and treats PM as opaque outside.
  */
-export function createImageHotspotCanvasAuthoringNode(blockDefinitions: BlockDefinitionLookup) {
-  return createImageHotspotCanvasNode({
-    addNodeView: () =>
-      ReactNodeViewRenderer((props) => (
-        <ImageHotspotCanvasNodeView {...props} blockDefinitions={blockDefinitions} />
-      )),
-  });
-}
+export const ImageHotspotCanvasAuthoringNode = createImageHotspotCanvasNode({
+  addNodeView: () => ReactNodeViewRenderer(ImageHotspotCanvasNodeView),
+});
 
 // ─────────────────────────────────────────────────────────────────────
 // Geometry helpers — pure functions. Aspect-ratio aware: radius is %
@@ -150,9 +145,7 @@ function clamp(v: number, lo: number, hi: number): number {
 // Main NodeView — authoring-only. Runtime uses image-hotspot-canvas-runtime.tsx.
 // ─────────────────────────────────────────────────────────────────────
 
-function ImageHotspotCanvasNodeView(
-  props: NodeViewProps & { blockDefinitions: BlockDefinitionLookup },
-) {
+function ImageHotspotCanvasNodeView(props: NodeViewProps) {
   const getCanvasPos = useCallback(() => {
     const rawPos = safeGetPos(props.getPos);
     return typeof rawPos === "number" ? rawPos : null;
@@ -174,7 +167,6 @@ function ImageHotspotCanvasNodeView(
   return (
     <NodeViewWrapper data-node="image-hotspot-canvas">
       <AuthorCanvas
-        blockDefinitions={props.blockDefinitions}
         assessment={assessment}
         data={data}
         editor={props.editor}
@@ -195,7 +187,6 @@ type InteractionMode = "idle" | "drawing" | "moving" | "resizing";
 type HotspotPatch = Partial<Omit<HotspotItem, "id">>;
 
 interface AuthorCanvasProps {
-  blockDefinitions: BlockDefinitionLookup;
   assessment: ImageHotspotPrivateAssessment;
   data: ImageHotspotCanvasData;
   editor: NodeViewProps["editor"];
@@ -209,7 +200,6 @@ interface AuthorCanvasProps {
 }
 
 function AuthorCanvas({
-  blockDefinitions,
   assessment,
   data,
   editor,
@@ -264,8 +254,7 @@ function AuthorCanvas({
   const isInteracting = drawingPreview !== null || draftHotspotsState !== null;
   const boundedFillActive = useEditorState({
     editor,
-    selector: ({ editor }) =>
-      isImageHotspotBoundedFillActive(editor, getCanvasPos, blockDefinitions),
+    selector: ({ editor }) => isImageHotspotBoundedFillActive(editor, getCanvasPos),
   });
   const isBoundedCompact = !isExpanded && boundedFillActive;
   const canEditInline = isExpanded || !boundedFillActive;
@@ -954,7 +943,6 @@ function AuthorCanvas({
             </WorkspaceDialog.ToolbarGroup>
           </WorkspaceDialog.Toolbar>
           <AuthorCanvas
-            blockDefinitions={blockDefinitions}
             assessment={assessment}
             data={data}
             editor={editor}
@@ -977,12 +965,12 @@ function AuthorCanvas({
 function isImageHotspotBoundedFillActive(
   editor: NodeViewProps["editor"],
   getCanvasPos: () => number | null,
-  blockDefinitions: BlockDefinitionLookup,
 ): boolean {
   const canvasPos = getCanvasPos();
   if (canvasPos === null) return false;
   const parent = resolveAssessmentAttrParent(editor, canvasPos, ["image_hotspot"]);
   if (!parent) return false;
+  const blockDefinitions = getScaffoldCapabilitiesForEditor(editor).blocks.registry;
   return (
     resolveActiveBoundedPlacement({
       blockDefinitions,

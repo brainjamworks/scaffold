@@ -1,21 +1,8 @@
-import type { AnyExtension } from "@tiptap/core";
 import { describe, expect, it } from "vite-plus/test";
 
-import { createAuthoringBlockExtensions } from "./authoring-block-extensions";
+import { builtInBlockAuthoringBindings } from "./authoring-block-extensions";
 import { builtInBlockDefinitions, builtInBlockRegistry } from "./built-in-block-definitions";
-import { createRuntimeBlockExtensions } from "./runtime-block-extensions";
-
-function getParentNodeTypes(
-  extensions: readonly AnyExtension[],
-  lane: "authoring" | "runtime",
-): string[] {
-  const bundleSuffix = `_${lane}_bundle`;
-  return extensions.map((extension) =>
-    extension.name.endsWith(bundleSuffix)
-      ? extension.name.slice(0, -bundleSuffix.length)
-      : extension.name,
-  );
-}
+import { builtInBlockRuntimeBindings } from "./runtime-block-extensions";
 
 describe("built-in block definitions", () => {
   it("constructs the registry from 34 explicit unique node types", () => {
@@ -47,13 +34,17 @@ describe("built-in block definitions", () => {
 
   it("keeps authoring and runtime lanes in exact parent-node parity with the definition list", () => {
     const definitionNodeTypes = builtInBlockDefinitions.map((definition) => definition.nodeType);
-    const authoringBlockExtensions = createAuthoringBlockExtensions(builtInBlockRegistry);
-    const runtimeBlockExtensions = createRuntimeBlockExtensions(builtInBlockRegistry);
 
-    expect(authoringBlockExtensions).toHaveLength(34);
-    expect(runtimeBlockExtensions).toHaveLength(34);
-    expect(getParentNodeTypes(authoringBlockExtensions, "authoring")).toEqual(definitionNodeTypes);
-    expect(getParentNodeTypes(runtimeBlockExtensions, "runtime")).toEqual(definitionNodeTypes);
+    expect(builtInBlockAuthoringBindings).toHaveLength(34);
+    expect(builtInBlockRuntimeBindings).toHaveLength(34);
+    expect(builtInBlockAuthoringBindings.map(({ nodeType }) => nodeType)).toEqual(
+      definitionNodeTypes,
+    );
+    expect(builtInBlockRuntimeBindings.map(({ nodeType }) => nodeType)).toEqual(
+      definitionNodeTypes,
+    );
+    expect(Object.isFrozen(builtInBlockAuthoringBindings)).toBe(true);
+    expect(Object.isFrozen(builtInBlockRuntimeBindings)).toBe(true);
     expect(builtInBlockRegistry).not.toHaveProperty("authoringExtensions");
     expect(builtInBlockRegistry).not.toHaveProperty("runtimeExtensions");
   });

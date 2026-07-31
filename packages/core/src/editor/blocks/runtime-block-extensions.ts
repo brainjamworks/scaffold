@@ -1,11 +1,9 @@
 import type { AnyExtension } from "@tiptap/core";
 
-import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
-
 import { CategoriseRuntimeExtension } from "./assessment/categorise/categorise-runtime-extension";
 import { DropdownRuntimeExtension } from "./assessment/dropdown/dropdown-runtime-extension";
 import { FillBlanksRuntimeExtension } from "./assessment/fill-blanks/fill-blanks-runtime-extension";
-import { createImageHotspotRuntimeExtension } from "./assessment/image-hotspot/image-hotspot-runtime-extension";
+import { ImageHotspotRuntimeExtension } from "./assessment/image-hotspot/image-hotspot-runtime-extension";
 import { MatchingRuntimeExtension } from "./assessment/matching/matching-runtime-extension";
 import { McqRuntimeExtension } from "./assessment/mcq/mcq-runtime-extension";
 import { MultiselectRuntimeExtension } from "./assessment/multiselect/multiselect-runtime-extension";
@@ -37,43 +35,50 @@ import { KeyValueListRuntimeExtension } from "./structured-content/key-value-lis
 import { NumberedListRuntimeExtension } from "./structured-content/numbered-list/numbered-list-runtime-extension";
 import { TableRuntimeExtension } from "./structured-content/table/table-runtime-extension";
 
-export function createRuntimeBlockExtensions(
-  blockDefinitions: BlockDefinitionLookup,
-): readonly AnyExtension[] {
-  return [
-    CodeBlockRuntimeExtension,
-    CalloutRuntimeExtension,
-    ComparisonRuntimeExtension,
-    FlashcardRuntimeExtension,
-    CategoriseRuntimeExtension,
-    DropdownRuntimeExtension,
-    FillBlanksRuntimeExtension,
-    createImageHotspotRuntimeExtension(blockDefinitions),
-    MatchingRuntimeExtension,
-    McqRuntimeExtension,
-    MultiselectRuntimeExtension,
-    QuizRuntimeExtension,
-    SequencingRuntimeExtension,
-    AnnotatedFigureRuntimeExtension,
-    GalleryRuntimeExtension,
-    TextWrapImageRuntimeExtension,
-    AudioBlockRuntimeExtension,
-    ChartRuntimeExtension,
-    ImageBlockRuntimeExtension,
-    EmbedRuntimeExtension,
-    PdfEmbedRuntimeExtension,
-    ResourceLinkRuntimeExtension,
-    ChecklistRuntimeExtension,
-    GlossaryRuntimeExtension,
-    KeyValueListRuntimeExtension,
-    NumberedListRuntimeExtension,
-    TableRuntimeExtension,
-    ChapterEpigraphRuntimeExtension,
-    MarginaliaRuntimeExtension,
-    PullQuoteRuntimeExtension,
-    RoadmapRuntimeExtension,
-    SidebarRuntimeExtension,
-    StatHighlightRuntimeExtension,
-    TimelineRuntimeExtension,
-  ];
+export interface BlockRuntimeBinding {
+  readonly nodeType: string;
+  readonly extension: AnyExtension;
 }
+
+export const builtInBlockRuntimeBindings: readonly BlockRuntimeBinding[] = Object.freeze(
+  [
+    { nodeType: "code_block", extension: CodeBlockRuntimeExtension },
+    { nodeType: "callout", extension: CalloutRuntimeExtension },
+    { nodeType: "comparison", extension: ComparisonRuntimeExtension },
+    { nodeType: "flashcard", extension: FlashcardRuntimeExtension },
+    { nodeType: "categorise", extension: CategoriseRuntimeExtension },
+    { nodeType: "dropdown", extension: DropdownRuntimeExtension },
+    { nodeType: "fill_blanks", extension: FillBlanksRuntimeExtension },
+    { nodeType: "image_hotspot", extension: ImageHotspotRuntimeExtension },
+    { nodeType: "matching", extension: MatchingRuntimeExtension },
+    { nodeType: "mcq", extension: McqRuntimeExtension },
+    { nodeType: "multiselect", extension: MultiselectRuntimeExtension },
+    { nodeType: "quiz", extension: QuizRuntimeExtension },
+    { nodeType: "sequencing", extension: SequencingRuntimeExtension },
+    { nodeType: "annotated_figure", extension: AnnotatedFigureRuntimeExtension },
+    { nodeType: "gallery", extension: GalleryRuntimeExtension },
+    { nodeType: "text_wrap_image", extension: TextWrapImageRuntimeExtension },
+    { nodeType: "audio_block", extension: AudioBlockRuntimeExtension },
+    { nodeType: "chart_block", extension: ChartRuntimeExtension },
+    { nodeType: "image_block", extension: ImageBlockRuntimeExtension },
+    { nodeType: "embed", extension: EmbedRuntimeExtension },
+    { nodeType: "pdf_embed", extension: PdfEmbedRuntimeExtension },
+    { nodeType: "resource_link", extension: ResourceLinkRuntimeExtension },
+    { nodeType: "checklist", extension: ChecklistRuntimeExtension },
+    { nodeType: "glossary", extension: GlossaryRuntimeExtension },
+    { nodeType: "key_value_list", extension: KeyValueListRuntimeExtension },
+    { nodeType: "numbered_list", extension: NumberedListRuntimeExtension },
+    { nodeType: "table", extension: TableRuntimeExtension },
+    { nodeType: "chapter_epigraph", extension: ChapterEpigraphRuntimeExtension },
+    { nodeType: "marginalia", extension: MarginaliaRuntimeExtension },
+    { nodeType: "pull_quote", extension: PullQuoteRuntimeExtension },
+    { nodeType: "roadmap", extension: RoadmapRuntimeExtension },
+    { nodeType: "sidebar", extension: SidebarRuntimeExtension },
+    { nodeType: "stat_highlight", extension: StatHighlightRuntimeExtension },
+    { nodeType: "timeline", extension: TimelineRuntimeExtension },
+  ].map((binding) => Object.freeze(binding)),
+);
+
+export const builtInBlockRuntimeExtensions: readonly AnyExtension[] = Object.freeze(
+  builtInBlockRuntimeBindings.map(({ extension }) => extension),
+);

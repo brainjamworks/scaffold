@@ -13,6 +13,8 @@ import StarterKit from "@tiptap/starter-kit";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
 import { WorkspaceDialog } from "@/ui/components/WorkspaceDialog/WorkspaceDialog";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
@@ -25,6 +27,7 @@ import {
   LayoutAuthoringNode,
   SectionAuthoringNode,
 } from "@/editor/arrangements/layout/authoring/layout-nodes";
+import { builtInLayoutDefinitions } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { CalloutAuthoringExtension } from "@/editor/blocks/presentation/callout";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
@@ -53,6 +56,10 @@ const TARGET_NODE_NAME = "test_dialog_content_target";
 const REACT_BLOCK_NODE_NAME = "test_dialog_react_block";
 const ReactBlockContext = createContext("missing provider");
 const outerEditors: Editor[] = [];
+const fullChromeCapabilities = resolveScaffoldCapabilities({
+  blockDefinitions: builtInBlockRegistry.definitions,
+  layoutDefinitions: builtInLayoutDefinitions,
+});
 
 afterEach(() => {
   cleanup();
@@ -665,6 +672,7 @@ function makeFullChromeOuterEditor(): Editor {
       StarterKit.configure({ paragraph: false }),
       ExtendedParagraph,
       createRuntimeBlockFrameAttributesExtension(["callout"]),
+      createScaffoldCapabilitiesStorageExtension(fullChromeCapabilities),
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
       GridAuthoringNode,
       CellAuthoringNode,
@@ -690,6 +698,7 @@ function makeFullChromeInnerExtensions(catalogItems: readonly InsertAction[]): E
     StarterKit.configure({ document: false, paragraph: false, undoRedo: false }),
     ExtendedParagraph,
     createRuntimeBlockFrameAttributesExtension(["callout"]),
+    createScaffoldCapabilitiesStorageExtension(fullChromeCapabilities),
     createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
     GridAuthoringNode,
     CellAuthoringNode,

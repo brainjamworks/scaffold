@@ -106,9 +106,13 @@ describe("createLayoutRegistry", () => {
     ).toThrow('Layout definition ID "duplicate" is duplicated.');
   });
 
-  it("shallow-freezes owned collections and normalized records only", () => {
+  it("snapshots directly owned collections and normalized records only", () => {
     const keywords = ["fixture"];
-    const placeholders = { title: "Fixture title" };
+    const dynamicPlaceholder = () => "Fixture body";
+    const placeholders = {
+      title: "Fixture title",
+      body: dynamicPlaceholder,
+    };
     const section = {
       label: "Fixture section",
       addLabel: "Add fixture section",
@@ -128,16 +132,31 @@ describe("createLayoutRegistry", () => {
     expect(Object.isFrozen(registry)).toBe(true);
     expect(Object.isFrozen(registry.definitions)).toBe(true);
     expect(Object.isFrozen(registered)).toBe(true);
+    expect(Object.isFrozen(registered?.keywords)).toBe(true);
+    expect(Object.isFrozen(registered?.placeholders)).toBe(true);
     expect(Object.isFrozen(registered?.section)).toBe(true);
     expect(Object.isFrozen(input)).toBe(false);
     expect(Object.isFrozen(definition)).toBe(false);
     expect(Object.isFrozen(keywords)).toBe(false);
     expect(Object.isFrozen(placeholders)).toBe(false);
     expect(Object.isFrozen(section)).toBe(false);
-    expect(registered?.keywords).toBe(keywords);
-    expect(registered?.placeholders).toBe(placeholders);
+    expect(registered?.keywords).not.toBe(keywords);
+    expect(registered?.placeholders).not.toBe(placeholders);
+    expect(registered?.section).not.toBe(section);
     expect(registered?.icon).toBe(definition.icon);
     expect(registered?.createContent).toBe(definition.createContent);
+    expect(registered?.placeholders?.body).toBe(dynamicPlaceholder);
+    expect(registered?.section?.create).toBe(section.create);
+
+    keywords.push("caller mutation");
+    placeholders.title = "Changed by caller";
+    section.label = "Changed by caller";
+
+    expect(registered?.keywords).toEqual(["fixture"]);
+    expect(registry.resolvePlaceholder(definition.id, "title", createPlaceholderContext())).toBe(
+      "Fixture title",
+    );
+    expect(registered?.section?.label).toBe("Fixture section");
   });
 
   it("derives the existing layout and section configuration surfaces", () => {

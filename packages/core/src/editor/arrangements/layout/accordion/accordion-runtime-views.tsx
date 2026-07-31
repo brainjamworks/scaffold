@@ -34,6 +34,7 @@ export function AccordionLayoutRuntimeView(props: LayoutRuntimeViewProps) {
   const sections = readAccordionSections(props.node);
   const defaultOpenIds = defaultOpenAccordionSectionIds(sections);
   const storedOpenIds = useLayoutInteractionStore(
+    props.editor,
     (state) => state.openAccordionSectionsByLayoutId[layoutId],
   );
   const openSectionIds = accordionOpenSectionIds({ defaultOpenIds, storedOpenIds });

@@ -39,8 +39,11 @@ export function TabsLayoutRuntimeView(props: LayoutRuntimeViewProps) {
   const layoutId = readRequiredTabsNodeId(props.node.attrs["id"], "layout");
   const options = readTabsOptions(props.node.attrs["options"]);
   const sections = readTabsSections(props.node);
-  const storedActiveId = useLayoutInteractionStore((state) => state.activeTabByLayoutId[layoutId]);
-  const setActiveTab = useLayoutInteractionStore((state) => state.setActiveTab);
+  const storedActiveId = useLayoutInteractionStore(
+    props.editor,
+    (state) => state.activeTabByLayoutId[layoutId],
+  );
+  const setActiveTab = useLayoutInteractionStore(props.editor, (state) => state.setActiveTab);
   const activeId = normalizeActiveTabId(storedActiveId, sections);
   const xapiSession = useXapiSession();
   const presentedSurfaceId = useRuntimePresentedSurfaceId();
@@ -115,7 +118,10 @@ export function TabsSectionRuntimeView(props: SectionRuntimeViewProps) {
   const layoutId = readRequiredTabsNodeId(props.layoutNode?.attrs["id"], "layout");
   const sectionId = readRequiredTabsNodeId(props.node.attrs["id"], "section");
   const sections = readTabsSections(props.layoutNode);
-  const storedActiveId = useLayoutInteractionStore((state) => state.activeTabByLayoutId[layoutId]);
+  const storedActiveId = useLayoutInteractionStore(
+    props.editor,
+    (state) => state.activeTabByLayoutId[layoutId],
+  );
   const activeId = normalizeActiveTabId(storedActiveId, sections);
   const isActive = sectionId === activeId;
 

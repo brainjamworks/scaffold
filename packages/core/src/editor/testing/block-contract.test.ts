@@ -10,10 +10,12 @@ import { describe, expect, it } from "vite-plus/test";
 import { z } from "zod";
 
 import { COURSE_BLOCK_CONTENT } from "@/document/model/content-model/content-groups";
+import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
-import { createAuthoringBlockExtensions } from "@/editor/blocks/authoring-block-extensions";
+import { builtInBlockAuthoringBindings } from "@/editor/blocks/authoring-block-extensions";
 import { defineConfiguration } from "@/editor/configuration/definition";
 import { describeBlockContract } from "@/editor/testing";
 import { assertBlockContract } from "@/editor/testing/block-contract";
@@ -253,7 +255,10 @@ function createAuthoringFrameContractEditor(): Editor {
       SelectableChoiceNode,
       createRuntimeBlockFrameAttributesExtension(builtInBlockRegistry.resizableNodeTypes),
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
-      ...createAuthoringBlockExtensions(builtInBlockRegistry),
+      createScaffoldCapabilitiesStorageExtension(
+        createCoreScaffoldAuthoringComposition().capabilities,
+      ),
+      ...builtInBlockAuthoringBindings.map(({ extension }) => extension),
     ],
   });
 }

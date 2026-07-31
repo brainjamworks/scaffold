@@ -29,6 +29,7 @@ export function AccordionLayoutView(props: LayoutComponentProps) {
   const addLabel = props.definition?.section?.addLabel ?? "Add section";
   const defaultOpenIds = defaultOpenAccordionSectionIds(readAccordionSections(props.node));
   const setAccordionSectionOpen = useLayoutInteractionStore(
+    props.editor,
     (state) => state.setAccordionSectionOpen,
   );
 
@@ -108,6 +109,7 @@ function resolveAccordionSectionState(props: SectionComponentProps): "open" | "c
   const layoutId = resolveSectionLayoutId(props);
   const defaultOpenIds = defaultOpenAccordionSectionIds(sections);
   const storedOpenIds = useLayoutInteractionStore(
+    props.editor,
     (state) => state.openAccordionSectionsByLayoutId[layoutId],
   );
   const isOpen = isAccordionSectionOpen({

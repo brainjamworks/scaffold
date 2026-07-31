@@ -76,6 +76,40 @@ function pageDocumentContent(): JSONContent {
   return content;
 }
 
+function tabsDocumentContent(): JSONContent {
+  const content = pageDocumentContent();
+  const surface = content.content?.[0]?.content?.[0];
+
+  if (!surface) {
+    throw new Error("runtime renderer tabs fixture is missing its surface");
+  }
+
+  surface.content = [
+    {
+      type: "layout",
+      attrs: {
+        id: "shared-layout",
+        variant: "tabs",
+        options: { label: "Topics", variant: "default" },
+      },
+      content: [
+        {
+          type: "section",
+          attrs: { id: "first-topic", role: "tab-panel", verticalPosition: "top" },
+          content: [paragraph("First topic")],
+        },
+        {
+          type: "section",
+          attrs: { id: "second-topic", role: "tab-panel", verticalPosition: "top" },
+          content: [paragraph("Second topic")],
+        },
+      ],
+    },
+  ];
+
+  return content;
+}
+
 function surfaceById(surfaceId: string): HTMLElement {
   const surface = document.body.querySelector(`[data-surface-id="${surfaceId}"]`);
 
@@ -257,6 +291,53 @@ describe("CourseDocumentRuntimeRenderer", () => {
     expect(surface.hasAttribute("data-runtime-surface-visible")).toBe(false);
     expect(surface.hasAttribute("hidden")).toBe(false);
     expect(surface.getAttribute("aria-hidden")).toBeNull();
+  });
+
+  it("keeps layout interaction state isolated between mounted runtime sessions", async () => {
+    const user = userEvent.setup();
+    const onFirstReady = vi.fn();
+    const onSecondReady = vi.fn();
+    const content = tabsDocumentContent();
+
+    render(
+      <div>
+        <div data-testid="first-runtime">
+          <CourseDocumentRuntimeRenderer
+            artifactId="first-artifact"
+            initialContent={content}
+            onReady={onFirstReady}
+          />
+        </div>
+        <div data-testid="second-runtime">
+          <CourseDocumentRuntimeRenderer
+            artifactId="second-artifact"
+            initialContent={content}
+            onReady={onSecondReady}
+          />
+        </div>
+      </div>,
+    );
+
+    await waitFor(() => {
+      expect(onFirstReady).toHaveBeenCalledTimes(1);
+      expect(onSecondReady).toHaveBeenCalledTimes(1);
+    });
+
+    const firstRuntime = within(screen.getByTestId("first-runtime"));
+    const secondRuntime = within(screen.getByTestId("second-runtime"));
+    const firstTabs = firstRuntime.getAllByRole("tab");
+    const secondTabs = secondRuntime.getAllByRole("tab");
+
+    expect(firstTabs[0]?.getAttribute("aria-selected")).toBe("true");
+    expect(secondTabs[0]?.getAttribute("aria-selected")).toBe("true");
+
+    await user.click(firstTabs[1]!);
+
+    await waitFor(() => {
+      expect(firstTabs[1]?.getAttribute("aria-selected")).toBe("true");
+    });
+    expect(secondTabs[0]?.getAttribute("aria-selected")).toBe("true");
+    expect(secondTabs[1]?.getAttribute("aria-selected")).toBe("false");
   });
 
   it("renders v2 Gallery captions without authoring or settings chrome", async () => {

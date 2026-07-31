@@ -5,6 +5,7 @@ import { cleanup, render, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it } from "vite-plus/test";
 
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import {
   createLayoutAuthoringNodeView,
   createSectionAuthoringNodeView,
@@ -21,14 +22,14 @@ import {
   GridAuthoringNode,
 } from "@/editor/arrangements/grid/authoring/grid-nodes";
 import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
-import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
+import type { BlockRegistry } from "@/editor/blocks/block-registry";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 
 export interface DescribeLayoutContractInput {
-  blockDefinitions: BlockDefinitionLookup;
+  blockDefinitions: BlockRegistry;
   layoutDefinitions: LayoutRegistry;
   layoutAuthoringViews: LayoutAuthoringViewRegistry;
   layoutId: string;
@@ -171,7 +172,7 @@ function createLayoutContractNodeChecked(editor: Editor, input: DescribeLayoutCo
 }
 
 function createLayoutContractEditor(
-  blockDefinitions: BlockDefinitionLookup,
+  blockDefinitions: BlockRegistry,
   layoutDefinitions: LayoutRegistry,
   layoutAuthoringViews: LayoutAuthoringViewRegistry,
   editorExtensions: readonly AnyExtension[] = [],
@@ -184,9 +185,14 @@ function createLayoutContractEditor(
     addNodeView: () =>
       createSectionAuthoringNodeView(layoutDefinitions, layoutAuthoringViews, blockDefinitions),
   });
+  const capabilities = Object.freeze({
+    blocks: Object.freeze({ registry: blockDefinitions }),
+    layouts: Object.freeze({ registry: layoutDefinitions }),
+  });
 
   return new Editor({
     extensions: [
+      createScaffoldCapabilitiesStorageExtension(capabilities),
       DocumentNode,
       StarterKit.configure({
         document: false,

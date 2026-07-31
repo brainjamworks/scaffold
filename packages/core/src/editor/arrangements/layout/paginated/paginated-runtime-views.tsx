@@ -31,8 +31,11 @@ import "./paginated.css";
 export function PaginatedLayoutRuntimeView(props: LayoutRuntimeViewProps) {
   const layoutId = readRequiredPaginatedNodeId(props.node.attrs["id"], "layout");
   const pages = readPaginatedPages(props.node);
-  const storedActiveId = useLayoutInteractionStore((state) => state.activePageByLayoutId[layoutId]);
-  const setActivePage = useLayoutInteractionStore((state) => state.setActivePage);
+  const storedActiveId = useLayoutInteractionStore(
+    props.editor,
+    (state) => state.activePageByLayoutId[layoutId],
+  );
+  const setActivePage = useLayoutInteractionStore(props.editor, (state) => state.setActivePage);
   const activeId = normalizeActivePageId(storedActiveId, pages);
   const xapiSession = useXapiSession();
   const presentedSurfaceId = useRuntimePresentedSurfaceId();
@@ -90,7 +93,10 @@ export function PaginatedSectionRuntimeView(props: SectionRuntimeViewProps) {
   const layoutId = readRequiredPaginatedNodeId(props.layoutNode?.attrs["id"], "layout");
   const pageId = readRequiredPaginatedNodeId(props.node.attrs["id"], "section");
   const pages = readPaginatedPages(props.layoutNode);
-  const storedActiveId = useLayoutInteractionStore((state) => state.activePageByLayoutId[layoutId]);
+  const storedActiveId = useLayoutInteractionStore(
+    props.editor,
+    (state) => state.activePageByLayoutId[layoutId],
+  );
   const activeId = normalizeActivePageId(storedActiveId, pages);
   const isActive = pageId === activeId;
 

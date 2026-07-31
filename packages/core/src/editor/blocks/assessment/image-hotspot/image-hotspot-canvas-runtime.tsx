@@ -12,10 +12,10 @@ import {
 
 import * as Popover from "@/ui/components/Popover/Popover";
 import { WorkspaceDialog } from "@/ui/components/WorkspaceDialog/WorkspaceDialog";
+import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import type { HotspotClickRecord } from "@/editor/blocks/assessment/shared/runtime/assessment-interaction-runtime";
 import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { AssessmentRuntimePopoverShell } from "@/editor/blocks/assessment/shared/chrome/AssessmentRuntimePopoverShell";
-import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import { resolveAssessmentAttrParent } from "@/editor/blocks/assessment/shared/model/private-assessment-attrs";
 import { renderRuntimeRichTextNode } from "@/editor/rich-text/runtime/render-rich-text";
 import { useAssessmentRuntimeById } from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
@@ -126,9 +126,7 @@ export function describeImageHotspotRevealedHotspotAccessibilityState(
     : `Revealed correct hotspot ${index + 1}`;
 }
 
-export function ImageHotspotCanvasRuntimeNodeView(
-  props: NodeViewProps & { blockDefinitions: BlockDefinitionLookup },
-) {
+export function ImageHotspotCanvasRuntimeNodeView(props: NodeViewProps) {
   const rawPos = safeGetPos(props.getPos);
   const pos = typeof rawPos === "number" ? rawPos : null;
   const data = useMemo(
@@ -138,8 +136,7 @@ export function ImageHotspotCanvasRuntimeNodeView(
   const authoredBlockId = findAncestorAssessmentBlockId(props.editor, pos ?? undefined, [
     "image_hotspot",
   ]);
-  const boundedFillActive =
-    pos !== null && isImageHotspotBoundedFillActive(props.editor, pos, props.blockDefinitions);
+  const boundedFillActive = pos !== null && isImageHotspotBoundedFillActive(props.editor, pos);
 
   return (
     <NodeViewWrapper data-node="image-hotspot-canvas">
@@ -431,10 +428,10 @@ function RuntimeCanvas({
 function isImageHotspotBoundedFillActive(
   editor: NodeViewProps["editor"],
   canvasPos: number,
-  blockDefinitions: BlockDefinitionLookup,
 ): boolean {
   const parent = resolveAssessmentAttrParent(editor, canvasPos, ["image_hotspot"]);
   if (!parent) return false;
+  const blockDefinitions = getScaffoldCapabilitiesForEditor(editor).blocks.registry;
   return (
     resolveActiveBoundedPlacement({
       blockDefinitions,
@@ -583,11 +580,6 @@ function runtimeFeedbackDocument(value: unknown): ScaffoldRichTextDocument | nul
   return toTiptapRichTextDocument(parsed.data.document);
 }
 
-export function createImageHotspotCanvasRuntimeNode(blockDefinitions: BlockDefinitionLookup) {
-  return createImageHotspotCanvasNode({
-    addNodeView: () =>
-      ReactNodeViewRenderer((props) => (
-        <ImageHotspotCanvasRuntimeNodeView {...props} blockDefinitions={blockDefinitions} />
-      )),
-  });
-}
+export const ImageHotspotCanvasRuntimeNode = createImageHotspotCanvasNode({
+  addNodeView: () => ReactNodeViewRenderer(ImageHotspotCanvasRuntimeNodeView),
+});

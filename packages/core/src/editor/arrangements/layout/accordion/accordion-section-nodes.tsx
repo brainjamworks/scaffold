@@ -19,7 +19,10 @@ import "@/editor/bounded-containers/view/bounded-container.css";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 import { iconSm } from "@/ui/tokens/icon-sizes";
 
-import { useLayoutInteractionStore } from "../shared/model/layout-interaction-store";
+import {
+  useLayoutInteractionStore,
+  type LayoutInteractionStoreState,
+} from "../shared/model/layout-interaction-store";
 import {
   accordionPanelId,
   accordionTriggerId,
@@ -196,17 +199,18 @@ interface AccordionSectionContext {
   isOpen: boolean;
   triggerId: string;
   panelId: string;
-  toggleAccordionSection: ReturnType<
-    typeof useLayoutInteractionStore.getState
-  >["toggleAccordionSection"];
+  toggleAccordionSection: LayoutInteractionStoreState["toggleAccordionSection"];
 }
 
 function useAccordionSectionContext(props: NodeViewProps): AccordionSectionContext | null {
   const base = resolveAccordionSectionContext(props);
-  const storedOpenIds = useLayoutInteractionStore((state) =>
+  const storedOpenIds = useLayoutInteractionStore(props.editor, (state) =>
     base ? state.openAccordionSectionsByLayoutId[base.layoutId] : undefined,
   );
-  const toggleAccordionSection = useLayoutInteractionStore((state) => state.toggleAccordionSection);
+  const toggleAccordionSection = useLayoutInteractionStore(
+    props.editor,
+    (state) => state.toggleAccordionSection,
+  );
 
   if (!base) return null;
 

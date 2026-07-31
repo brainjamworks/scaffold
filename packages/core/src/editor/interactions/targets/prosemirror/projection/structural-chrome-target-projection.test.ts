@@ -1,8 +1,17 @@
 // @vitest-environment happy-dom
 
+import { CircleIcon } from "@phosphor-icons/react";
 import { Editor, Node, type JSONContent } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it } from "vite-plus/test";
+
+import {
+  createScaffoldApplication,
+  defineScaffoldExtensionPack,
+  type LayoutCapability,
+} from "@/composition/application/create-scaffold-application";
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import type { ResolvedScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
 
 import {
   InteractionChromeSlotReason,
@@ -49,9 +58,15 @@ function structuralNode(name: string, content: string) {
   });
 }
 
-function makeEditor(content: JSONContent) {
+const coreCapabilities = createScaffoldApplication().capabilities;
+
+function makeEditor(
+  content: JSONContent,
+  capabilities: ResolvedScaffoldCapabilities = coreCapabilities,
+) {
   return new Editor({
     extensions: [
+      createScaffoldCapabilitiesStorageExtension(capabilities),
       StarterKit.configure({ undoRedo: false }),
       TestSurfaceNode,
       TestRegionNode,
@@ -353,6 +368,47 @@ describe("resolveStructuralChromeTargetDescriptor", () => {
     editor.destroy();
   });
 
+  it("resolves host-only Layout and section definition facts", () => {
+    const capability = hostLayoutCapability("host-structural-layout");
+    const application = createScaffoldApplication({
+      packs: [
+        defineScaffoldExtensionPack({
+          id: "host-structural-layouts",
+          layouts: [capability],
+        }),
+      ],
+    });
+    const editor = makeEditor(
+      {
+        type: "doc",
+        content: [capability.definition.createContent()],
+      },
+      application.capabilities,
+    );
+
+    const layoutDescriptor = resolveStructuralChromeTargetDescriptor(editor.state, {
+      id: "host-structural-layout-instance",
+      kind: InteractionTargetKind.Layout,
+    });
+    const sectionDescriptor = resolveStructuralChromeTargetDescriptor(editor.state, {
+      id: "host-structural-section-instance",
+      kind: InteractionTargetKind.Section,
+    });
+
+    expect(
+      layoutDescriptor?.kind === InteractionTargetKind.Layout
+        ? layoutDescriptor.layoutDefinition?.id
+        : null,
+    ).toBe(capability.definition.id);
+    expect(
+      sectionDescriptor?.kind === InteractionTargetKind.Section
+        ? sectionDescriptor.sectionDefinition?.addLabel
+        : null,
+    ).toBe("Add host structural section");
+
+    editor.destroy();
+  });
+
   it("includes only the neutral variant fact on surface descriptors", () => {
     const editor = makeEditor(fullContent());
 
@@ -383,6 +439,38 @@ describe("resolveStructuralChromeTargetDescriptor", () => {
     editor.destroy();
   });
 });
+
+function hostLayoutCapability(id: string): LayoutCapability {
+  return {
+    definition: {
+      id,
+      title: "Host structural Layout",
+      description: "Host-only structural projection fixture",
+      icon: CircleIcon,
+      createContent: () => ({
+        type: "layout",
+        attrs: {
+          id: "host-structural-layout-instance",
+          variant: id,
+        },
+        content: [
+          {
+            type: "section",
+            attrs: { id: "host-structural-section-instance" },
+            content: [paragraph("Host structural section")],
+          },
+        ],
+      }),
+      section: {
+        label: "Host structural section",
+        addLabel: "Add host structural section",
+        create: () => ({ type: "section" }),
+      },
+    },
+    authoringView: { id, layout: () => null },
+    runtimeView: { id },
+  };
+}
 
 describe("structuralChromeTargetKey", () => {
   it("builds a stable key from descriptor facts", () => {

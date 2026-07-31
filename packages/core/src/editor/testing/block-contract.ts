@@ -6,7 +6,7 @@ import { cleanup, render, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it } from "vite-plus/test";
 
-import { createAuthoringBlockExtensions } from "@/editor/blocks/authoring-block-extensions";
+import { builtInBlockAuthoringBindings } from "@/editor/blocks/authoring-block-extensions";
 import type { BlockDefinition } from "@/editor/blocks/block-definition";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import { createBlockInsertAction } from "@/editor/insertion/block-insert-action";
@@ -229,7 +229,7 @@ function createBlockContractEditor(input: DescribeBlockContractInput): Editor {
       ...(hasInteractionOwner
         ? []
         : [createScaffoldInteractionOwnerExtension(input.blockDefinitions)]),
-      ...createAuthoringBlockExtensions(input.blockDefinitions),
+      ...builtInBlockAuthoringBindings.map(({ extension }) => extension),
       ...(input.extensions ?? []),
     ],
   });

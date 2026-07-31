@@ -86,6 +86,10 @@ export function defineLayout(definition: LayoutDefinition): RegisteredLayoutDefi
   const settingsSheet = deriveSettingsSheetDefinition(definition.configuration);
   const sectionQuickMenu = deriveQuickMenuDefinition(definition.section?.configuration);
   const sectionSettingsSheet = deriveSettingsSheetDefinition(definition.section?.configuration);
+  const keywords = definition.keywords ? Object.freeze([...definition.keywords]) : undefined;
+  const placeholders = definition.placeholders
+    ? Object.freeze({ ...definition.placeholders })
+    : undefined;
   const layoutSettingsSheet = settingsSheet
     ? Object.freeze({ nodeType: "layout", ...settingsSheet })
     : undefined;
@@ -104,6 +108,8 @@ export function defineLayout(definition: LayoutDefinition): RegisteredLayoutDefi
   return Object.freeze({
     ...definition,
     nodeType: "layout",
+    ...(keywords ? { keywords } : {}),
+    ...(placeholders ? { placeholders } : {}),
     ...(quickMenu ? { quickMenu } : {}),
     ...(layoutSettingsSheet ? { settingsSheet: layoutSettingsSheet } : {}),
     ...(section ? { section } : {}),

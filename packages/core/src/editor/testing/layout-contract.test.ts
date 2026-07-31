@@ -43,6 +43,12 @@ import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import { DefaultLayoutContent } from "@/editor/arrangements/layout/authoring/default-layout-content";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+
+const coreCapabilities = Object.freeze({
+  blocks: Object.freeze({ registry: builtInBlockRegistry }),
+  layouts: Object.freeze({ registry: builtInLayoutRegistry }),
+});
 
 const TestLayoutOptionsSchema = z.object({
   label: z.string().default(""),
@@ -228,6 +234,7 @@ describe("layout contract assertions", () => {
 function createUniversalLayoutContractEditor(): Editor {
   return new Editor({
     extensions: [
+      createScaffoldCapabilitiesStorageExtension(coreCapabilities),
       DocumentNode,
       StarterKit.configure({
         document: false,

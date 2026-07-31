@@ -1,7 +1,7 @@
 import type { Editor } from "@tiptap/core";
 import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model";
 
-import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
+import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import { getLayoutKindFromAttrs } from "@/editor/arrangements/layout/model/layout-definition";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 
@@ -146,8 +146,9 @@ function resolveOwnerPlaceholder(
 
     if (owner.type.name === "layout") {
       const layoutKind = getLayoutKindFromAttrs(owner.attrs);
+      const capabilities = getScaffoldCapabilitiesForEditor(context.editor);
       const layoutPlaceholder = layoutKind
-        ? builtInLayoutRegistry.resolvePlaceholder(layoutKind, placeholderNodeType, context)
+        ? capabilities.layouts.registry.resolvePlaceholder(layoutKind, placeholderNodeType, context)
         : undefined;
       if (layoutPlaceholder !== undefined) return layoutPlaceholder;
     }

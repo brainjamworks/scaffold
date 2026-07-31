@@ -1,7 +1,7 @@
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { EditorState } from "@tiptap/pm/state";
 
-import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
+import { getScaffoldCapabilitiesForState } from "@/composition/extensions/scaffold-capabilities-storage";
 import type { RegisteredLayoutDefinition } from "@/editor/arrangements/layout/model/layout-definition";
 import {
   AuthoringFrameKind,
@@ -170,7 +170,8 @@ function descriptorFromLiveNode(
     case InteractionTargetKind.Section: {
       const parent = resolveStructuralParent(state, pos, "layout");
       if (!parent) return null;
-      const layoutDefinition = builtInLayoutRegistry.getForNode(parent.node) ?? null;
+      const layoutDefinition =
+        getScaffoldCapabilitiesForState(state).layouts.registry.getForNode(parent.node) ?? null;
       return {
         ...base,
         kind,
@@ -188,7 +189,8 @@ function descriptorFromLiveNode(
       return {
         ...base,
         kind,
-        layoutDefinition: builtInLayoutRegistry.getForNode(node) ?? null,
+        layoutDefinition:
+          getScaffoldCapabilitiesForState(state).layouts.registry.getForNode(node) ?? null,
       };
 
     case InteractionTargetKind.Surface:

@@ -57,7 +57,7 @@ export function projectInteractionEngineInput(
     projectInteractionContextOwners(state.selection);
   const contextOwnerPolicies =
     projectInteractionContextOwnerPoliciesForTarget(state, contextOwner) ??
-    projectInteractionContextOwnerPolicies(state.selection);
+    projectInteractionContextOwnerPolicies(state);
   const targetPolicies = createTargetPolicySet([
     ...blockPoliciesForSelection(selectionProjection),
     ...blockPoliciesForOwnerRef(state, contextOwner, options.blockDefinitions),

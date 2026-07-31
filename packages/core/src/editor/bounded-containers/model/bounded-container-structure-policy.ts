@@ -1,6 +1,7 @@
 import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model";
 
 import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
+import type { LayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import type { BoundedPlacement } from "@/editor/frame/model/bounded-placement";
 
@@ -22,11 +23,12 @@ export interface BoundedContainerStructureValidationResult {
 export function isFillOccupantNode(
   node: ProseMirrorNode,
   blockDefinitions: BlockDefinitionLookup,
+  layoutDefinitions: LayoutRegistry = builtInLayoutRegistry,
 ): boolean {
   if (node.type.name === "grid") return true;
 
   if (node.type.name === "layout") {
-    return builtInLayoutRegistry.getForNode(node)?.boundedPlacement === "fill";
+    return layoutDefinitions.getForNode(node)?.boundedPlacement === "fill";
   }
 
   return blockDefinitions.getByNodeType(node.type.name)?.boundedPlacement === "fill";
@@ -47,7 +49,13 @@ export function resolveActiveBoundedPlacement(input: {
     const resolved = input.doc.resolve(pos);
     const child = input.doc.nodeAt(pos);
     return child &&
-      isActiveBoundedParentForChild(resolved, resolved.depth, input.blockDefinitions, child)
+      isActiveBoundedParentForChild(
+        resolved,
+        resolved.depth,
+        input.blockDefinitions,
+        builtInLayoutRegistry,
+        child,
+      )
       ? input.capability
       : undefined;
   } catch {
@@ -98,12 +106,19 @@ export function isActiveBoundedContainerAtPosition(input: {
 export function validateBoundedContainerStructure(
   doc: ProseMirrorNode,
   blockDefinitions: BlockDefinitionLookup,
+  layoutDefinitions: LayoutRegistry = builtInLayoutRegistry,
 ): BoundedContainerStructureValidationResult {
   const violations: BoundedContainerStructureViolation[] = [];
 
   doc.descendants((node, pos) => {
-    if (!isActiveBoundedContainerNodeAtPosition(doc, node, pos, blockDefinitions)) return true;
-    violations.push(...validateActiveBoundedContainerNode(node, blockDefinitions).violations);
+    if (
+      !isActiveBoundedContainerNodeAtPosition(doc, node, pos, blockDefinitions, layoutDefinitions)
+    ) {
+      return true;
+    }
+    violations.push(
+      ...validateActiveBoundedContainerNode(node, blockDefinitions, layoutDefinitions).violations,
+    );
     return true;
   });
 
@@ -113,8 +128,9 @@ export function validateBoundedContainerStructure(
 function validateActiveBoundedContainerNode(
   node: ProseMirrorNode,
   blockDefinitions: BlockDefinitionLookup,
+  layoutDefinitions: LayoutRegistry,
 ): BoundedContainerStructureValidationResult {
-  const fillOccupants = directFillOccupants(node, blockDefinitions);
+  const fillOccupants = directFillOccupants(node, blockDefinitions, layoutDefinitions);
   if (fillOccupants.length === 0 || node.childCount === 1) {
     return { ok: true, violations: [] };
   }
@@ -138,7 +154,16 @@ function resolveActiveBoundedContainer(
 
   try {
     const node = doc.nodeAt(pos);
-    if (!node || !isActiveBoundedContainerNodeAtPosition(doc, node, pos, blockDefinitions)) {
+    if (
+      !node ||
+      !isActiveBoundedContainerNodeAtPosition(
+        doc,
+        node,
+        pos,
+        blockDefinitions,
+        builtInLayoutRegistry,
+      )
+    ) {
       return null;
     }
     return { node, pos };
@@ -152,13 +177,14 @@ function isActiveBoundedContainerNodeAtPosition(
   node: ProseMirrorNode,
   pos: number,
   blockDefinitions: BlockDefinitionLookup,
+  layoutDefinitions: LayoutRegistry,
 ): boolean {
   if (node.type.name === "region") return true;
   if (node.type.name === "cell") {
-    return isActiveBoundedCellAtPosition(doc, pos, blockDefinitions);
+    return isActiveBoundedCellAtPosition(doc, pos, blockDefinitions, layoutDefinitions);
   }
   if (node.type.name === "section") {
-    return isActiveBoundedSectionAtPosition(doc, pos, blockDefinitions);
+    return isActiveBoundedSectionAtPosition(doc, pos, blockDefinitions, layoutDefinitions);
   }
   return false;
 }
@@ -167,6 +193,7 @@ function isActiveBoundedCellAtPosition(
   doc: ProseMirrorNode,
   pos: number,
   blockDefinitions: BlockDefinitionLookup,
+  layoutDefinitions: LayoutRegistry,
 ): boolean {
   try {
     const resolved = doc.resolve(pos);
@@ -174,7 +201,7 @@ function isActiveBoundedCellAtPosition(
     return (
       gridDepth >= 0 &&
       resolved.node(gridDepth).type.name === "grid" &&
-      isActiveFillOccupantAtDepth(resolved, gridDepth, blockDefinitions)
+      isActiveFillOccupantAtDepth(resolved, gridDepth, blockDefinitions, layoutDefinitions)
     );
   } catch {
     return false;
@@ -185,6 +212,7 @@ function isActiveBoundedSectionAtPosition(
   doc: ProseMirrorNode,
   pos: number,
   blockDefinitions: BlockDefinitionLookup,
+  layoutDefinitions: LayoutRegistry,
 ): boolean {
   try {
     const resolved = doc.resolve(pos);
@@ -192,8 +220,8 @@ function isActiveBoundedSectionAtPosition(
     const layout = resolved.node(layoutDepth);
     return (
       layout.type.name === "layout" &&
-      layoutHandsOffBoundedPlacementToSections(layout) &&
-      isActiveFillOccupantAtDepth(resolved, layoutDepth, blockDefinitions)
+      layoutHandsOffBoundedPlacementToSections(layout, layoutDefinitions) &&
+      isActiveFillOccupantAtDepth(resolved, layoutDepth, blockDefinitions, layoutDefinitions)
     );
   } catch {
     return false;
@@ -204,6 +232,7 @@ function isActiveBoundedParentForChild(
   resolved: ResolvedPos,
   parentDepth: number,
   blockDefinitions: BlockDefinitionLookup,
+  layoutDefinitions: LayoutRegistry,
   child?: ProseMirrorNode,
 ): boolean {
   if (parentDepth < 0) return false;
@@ -216,7 +245,7 @@ function isActiveBoundedParentForChild(
     return (
       gridDepth >= 0 &&
       resolved.node(gridDepth).type.name === "grid" &&
-      isActiveFillOccupantAtDepth(resolved, gridDepth, blockDefinitions)
+      isActiveFillOccupantAtDepth(resolved, gridDepth, blockDefinitions, layoutDefinitions)
     );
   }
 
@@ -225,21 +254,24 @@ function isActiveBoundedParentForChild(
     return (
       layoutDepth >= 0 &&
       resolved.node(layoutDepth).type.name === "layout" &&
-      layoutHandsOffBoundedPlacementToSections(resolved.node(layoutDepth)) &&
-      isActiveFillOccupantAtDepth(resolved, layoutDepth, blockDefinitions)
+      layoutHandsOffBoundedPlacementToSections(resolved.node(layoutDepth), layoutDefinitions) &&
+      isActiveFillOccupantAtDepth(resolved, layoutDepth, blockDefinitions, layoutDefinitions)
     );
   }
 
   const stagedHost = blockDefinitions.getByNodeType(parent.type.name)?.stagedBoundedHost;
   if (stagedHost && child?.type.isInGroup(stagedHost.childGroup)) {
-    return isActiveFillOccupantAtDepth(resolved, parentDepth, blockDefinitions);
+    return isActiveFillOccupantAtDepth(resolved, parentDepth, blockDefinitions, layoutDefinitions);
   }
 
   return false;
 }
 
-function layoutHandsOffBoundedPlacementToSections(layout: ProseMirrorNode): boolean {
-  const definition = builtInLayoutRegistry.getForNode(layout);
+function layoutHandsOffBoundedPlacementToSections(
+  layout: ProseMirrorNode,
+  layoutDefinitions: LayoutRegistry,
+): boolean {
+  const definition = layoutDefinitions.getForNode(layout);
   return (
     definition?.boundedPlacement === "fill" &&
     definition.boundedSectionBehavior !== "terminal-scroll"
@@ -250,14 +282,16 @@ function isActiveFillOccupantAtDepth(
   resolved: ResolvedPos,
   nodeDepth: number,
   blockDefinitions: BlockDefinitionLookup,
+  layoutDefinitions: LayoutRegistry,
 ): boolean {
   if (nodeDepth <= 0) return false;
   return (
-    isFillOccupantNode(resolved.node(nodeDepth), blockDefinitions) &&
+    isFillOccupantNode(resolved.node(nodeDepth), blockDefinitions, layoutDefinitions) &&
     isActiveBoundedParentForChild(
       resolved,
       nodeDepth - 1,
       blockDefinitions,
+      layoutDefinitions,
       resolved.node(nodeDepth),
     )
   );
@@ -280,11 +314,14 @@ function hasDirectFillOccupant(
 function directFillOccupants(
   node: ProseMirrorNode,
   blockDefinitions: BlockDefinitionLookup,
+  layoutDefinitions: LayoutRegistry,
 ): ProseMirrorNode[] {
   const fillOccupants: ProseMirrorNode[] = [];
 
   node.forEach((child) => {
-    if (isFillOccupantNode(child, blockDefinitions)) fillOccupants.push(child);
+    if (isFillOccupantNode(child, blockDefinitions, layoutDefinitions)) {
+      fillOccupants.push(child);
+    }
   });
 
   return fillOccupants;
