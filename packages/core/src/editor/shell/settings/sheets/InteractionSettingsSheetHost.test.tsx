@@ -49,6 +49,39 @@ const TestHostBlockNode = Node.create({
   },
 });
 
+const TestLayoutNode = Node.create({
+  name: "layout",
+  group: "block",
+  content: "section+",
+  addAttributes() {
+    return {
+      id: { default: null },
+      variant: { default: null },
+      options: { default: {} },
+    };
+  },
+  parseHTML() {
+    return [{ tag: "section[data-test-layout]" }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ["section", { ...HTMLAttributes, "data-test-layout": "" }, 0];
+  },
+});
+
+const TestSectionNode = Node.create({
+  name: "section",
+  content: "block+",
+  addAttributes() {
+    return { id: { default: null } };
+  },
+  parseHTML() {
+    return [{ tag: "section[data-test-section]" }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ["section", { ...HTMLAttributes, "data-test-section": "" }, 0];
+  },
+});
+
 const hostBlockDefinition = defineBlock({
   nodeType: HOST_BLOCK,
   configuration: defineConfiguration({
@@ -87,6 +120,38 @@ function makeEditor() {
         { type: HOST_BLOCK, attrs: { id: "block-a", settings: { label: "Alpha" } } },
         { type: "paragraph" },
         { type: HOST_BLOCK, attrs: { id: "block-b", settings: { label: "Beta" } } },
+      ],
+    },
+  });
+  editors.push(editor);
+  return editor;
+}
+
+function makeLayoutEditor() {
+  const editor = new Editor({
+    extensions: [StarterKit.configure({ undoRedo: false }), TestLayoutNode, TestSectionNode],
+    content: {
+      type: "doc",
+      content: [
+        {
+          type: "layout",
+          attrs: {
+            id: "layout-process-flow",
+            variant: "process-flow",
+            options: {
+              orientation: "horizontal",
+              showNumbers: true,
+              showConnectors: true,
+            },
+          },
+          content: [
+            {
+              type: "section",
+              attrs: { id: "section-step" },
+              content: [{ type: "paragraph" }],
+            },
+          ],
+        },
       ],
     },
   });
@@ -145,6 +210,34 @@ describe("InteractionSettingsSheetHost", () => {
     renderHost(editor, store);
 
     expect(await screen.findByText("Host block settings")).toBeInTheDocument();
+  });
+
+  it("renders and saves built-in layout settings through the interaction owner", async () => {
+    const editor = makeLayoutEditor();
+    const layoutTarget: InteractionTargetRef = {
+      id: "layout-process-flow",
+      kind: InteractionTargetKind.Layout,
+      pos: 0,
+    };
+    const store = createInteractionStore({
+      snapshot: settingsSnapshot(layoutTarget),
+    });
+
+    renderHost(editor, store);
+
+    expect(await screen.findByText("Process flow settings")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Presentation" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    await userEvent.selectOptions(screen.getByLabelText("Orientation"), "vertical");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(editor.state.doc.nodeAt(0)?.attrs["options"]).toEqual({
+      orientation: "vertical",
+      showNumbers: true,
+      showConnectors: true,
+    });
   });
 
   it("renders nothing when the settings sheet slot is hidden", () => {

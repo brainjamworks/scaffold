@@ -1,3 +1,6 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
 :where(.sc-settings-data-grid) {
   display: grid;
   gap: 0.75rem;
@@ -91,4 +94,5 @@
   font-size: 0.875rem;
   font-weight: 600;
   line-height: 1.25rem;
+}
 }

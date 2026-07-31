@@ -66,6 +66,30 @@ describe("slide catalogue regression", () => {
     },
   );
 
+  it("fits a long module-cover title in both authoring and runtime", async () => {
+    rendered = await renderRegisteredSurfaceVariant("slide-module-cover", {
+      titleText: "Explicit cascade ownership that remains readable with a longer module title",
+    });
+    rendered.runtime.host.style.padding = "0";
+    await document.fonts.ready;
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+    const authoring = measureSpecialisedSurface(
+      rendered.authoring.host,
+      "slide-module-cover",
+      null,
+    );
+    const runtime = measureSpecialisedSurface(rendered.runtime.host, "slide-module-cover", null);
+    const authoringTitle = uniqueElement<HTMLElement>(rendered.authoring.host, "h1");
+    const runtimeTitle = uniqueElement<HTMLElement>(rendered.runtime.host, "h1");
+    const authoringTitleSize = Number.parseFloat(getComputedStyle(authoringTitle).fontSize);
+    const runtimeTitleSize = Number.parseFloat(getComputedStyle(runtimeTitle).fontSize);
+
+    expect(authoringTitleSize).toBeLessThan(84);
+    expect(runtimeTitleSize).toBeLessThan(84);
+    expect(authoring.titleText).toBe(runtime.titleText);
+  });
+
   it("keeps nested ordinary authoring chrome geometry-neutral while inactive, hovered, and selected", async () => {
     const state = expandSlideCompositionCases().find(
       (candidate) =>

@@ -6,7 +6,7 @@ import type { JSONContent } from "@tiptap/core";
 import { Fragment, Slice } from "@tiptap/pm/model";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { EditorView } from "@tiptap/pm/view";
-import { createElement } from "react";
+import { createElement, StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import * as Y from "yjs";
 
@@ -15,6 +15,8 @@ import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import { COURSE_DOCUMENT_FRAGMENT } from "@/document/model/constants";
 import { initializeCourseDocumentFragment } from "@/document/model/initialize-document";
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
+import { selectCoursePreset } from "@/theme/authoring";
+import { SCAFFOLD_EDITORIAL_PRESET } from "@/theme/model";
 import { CourseDocumentEditor } from "./CourseDocumentEditor";
 import { initializeAuthoringCourseDocumentFragment } from "./initialize-authoring-document";
 
@@ -59,6 +61,27 @@ describe("CourseDocumentEditor", () => {
 
     await waitFor(() => expect(onChange).toHaveBeenCalledWith(editor));
     expect(getJSON).not.toHaveBeenCalled();
+  });
+
+  it("preserves collaborative redo after undoing a course theme change", async () => {
+    const document = createInitializedDocument();
+    const onReady = vi.fn();
+
+    render(
+      createElement(
+        StrictMode,
+        null,
+        createElement(CourseDocumentEditor, { document, onReady }),
+      ),
+    );
+
+    await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
+    const editor = onReady.mock.calls[0]?.[0];
+    if (!editor) throw new Error("CourseDocumentEditor did not provide an editor");
+
+    expect(selectCoursePreset(editor, SCAFFOLD_EDITORIAL_PRESET)).toBe(true);
+    expect(editor.chain().focus().undo().run()).toBe(true);
+    expect(editor.can().redo()).toBe(true);
   });
 
   it("mounts a prepared Yjs document with one page surface", async () => {

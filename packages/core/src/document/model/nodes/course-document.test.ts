@@ -6,6 +6,7 @@ import { Fragment } from "@tiptap/pm/model";
 import { describe, expect, it } from "vite-plus/test";
 
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
+import { createScaffoldDefaultTheme } from "@/theme/model";
 
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import {
@@ -48,6 +49,7 @@ function courseDocumentContent(): JSONContent {
         type: "courseDocument",
         attrs: {
           mode: "page",
+          theme: createScaffoldDefaultTheme(),
         },
         content: [
           {
@@ -208,6 +210,8 @@ describe("course document nodes", () => {
     expect(html).toContain(
       `data-scaffold-document-format-version="${SCAFFOLD_DOCUMENT_FORMAT_VERSION}"`,
     );
+    expect(html).toContain('data-course-theme="scaffold-default"');
+    expect(html).toContain("data-course-theme-values=");
     expect(html).toContain("data-surface");
     expect(html).toContain('data-surface-id="surface-1"');
     expect(html).toContain('data-surface-variant="page-default"');
@@ -221,6 +225,7 @@ describe("course document nodes", () => {
       mode: "page",
       surfaceSize: "fluid",
       overflowMode: "grow",
+      theme: createScaffoldDefaultTheme(),
     });
     expect(surface?.attrs).toMatchObject({
       id: "surface-1",

@@ -1,3 +1,6 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
 .sc-course-document-editor {
   box-sizing: border-box;
   margin-inline: auto;
@@ -7,4 +10,5 @@
 
 .sc-course-document-editor__content {
   max-width: none;
+}
 }

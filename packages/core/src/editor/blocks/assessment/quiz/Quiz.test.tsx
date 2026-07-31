@@ -2617,13 +2617,19 @@ describe("quiz block skeleton", () => {
     });
     expect(
       sheet?.sections.flatMap((section) =>
-        section.fields.map((field) => ({
-          section: section.id,
-          kind: field.kind,
-          name: field.name,
-          label: field.label,
-          visibleWhen: field.visibleWhen,
-        })),
+        section.items.flatMap((item) =>
+          item.kind === "directChildCollection"
+            ? []
+            : [
+                {
+                  section: section.id,
+                  kind: item.kind,
+                  name: item.name,
+                  label: item.label,
+                  visibleWhen: item.visibleWhen,
+                },
+              ],
+        ),
       ),
     ).toMatchObject([
       {
@@ -2677,8 +2683,8 @@ describe("quiz block skeleton", () => {
       },
     ]);
     const passingScore = sheet?.sections
-      .flatMap((section) => section.fields)
-      .find((field) => field.name === "passingScore");
+      .flatMap((section) => section.items)
+      .find((item) => item.kind !== "directChildCollection" && item.name === "passingScore");
     expect(passingScore).toMatchObject({
       kind: "number",
       label: "Passing score",

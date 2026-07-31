@@ -28,7 +28,7 @@
 
   .sc-chart-block__fallback {
     min-height: 16rem;
-    border: 1px dashed var(--color-border);
+    border: var(--sc-border-width) dashed var(--color-border);
     border-radius: var(--radius-md);
     background: var(--color-canvas);
   }

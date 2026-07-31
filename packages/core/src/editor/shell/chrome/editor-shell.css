@@ -1,3 +1,6 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
 .sc-editor-shell {
   --sc-editor-header-height: 53px;
   --sc-editor-rail-slot-width: 62px;
@@ -43,4 +46,5 @@
   display: flex;
   height: var(--sc-editor-rail-available-height);
   align-items: center;
+}
 }

@@ -19,35 +19,40 @@ export function deriveSettingsSheetDefinition(
 
   const sections = Object.freeze(
     sheet.sections.map((section) => {
-      const collections = Object.freeze(
-        (configuration.collections ?? [])
-          .filter(isCollectionInSection(section.id))
-          .map((collection, index) => ({ collection, index }))
-          .sort((left, right) => {
-            const leftOrder = left.collection.placement.sheet?.order ?? left.index;
-            const rightOrder = right.collection.placement.sheet?.order ?? right.index;
-            return leftOrder - rightOrder;
-          })
-          .map(({ collection }) => toSettingsSheetCollection(collection)),
-      );
-      const fields = Object.freeze(
-        configuration.controls
-          .filter(isSheetControlInSection(section.id))
-          .map((control, index) => ({ control, index }))
-          .sort((left, right) => {
-            const leftOrder = left.control.placement?.sheet?.order ?? left.index;
-            const rightOrder = right.control.placement?.sheet?.order ?? right.index;
-            return leftOrder - rightOrder;
-          })
-          .map(({ control }) => toSettingsSheetField(control)),
+      const placedControls = configuration.controls
+        .filter(isSheetControlInSection(section.id))
+        .map((control, index) => ({
+          type: "field" as const,
+          descriptor: control,
+          order: control.placement.sheet.order ?? index,
+          declarationIndex: index,
+        }));
+      const placedCollections = (configuration.collections ?? [])
+        .filter(isCollectionInSection(section.id))
+        .map((collection, index) => ({
+          type: "collection" as const,
+          descriptor: collection,
+          order: collection.placement.sheet?.order ?? configuration.controls.length + index,
+          declarationIndex: configuration.controls.length + index,
+        }));
+      const items = Object.freeze(
+        [...placedControls, ...placedCollections]
+          .sort(
+            (left, right) =>
+              left.order - right.order || left.declarationIndex - right.declarationIndex,
+          )
+          .map((item) =>
+            item.type === "field"
+              ? toSettingsSheetField(item.descriptor)
+              : toSettingsSheetCollection(item.descriptor),
+          ),
       );
 
       return Object.freeze({
         id: section.id,
         title: section.title,
         ...(section.description ? { description: section.description } : {}),
-        fields,
-        ...(collections.length > 0 ? { collections } : {}),
+        items,
       });
     }),
   );
@@ -77,6 +82,7 @@ function toSettingsSheetCollection(
   collection: ConfigurationDirectChildCollectionDescriptor,
 ): SettingsSheetDirectChildCollectionDescriptor {
   return Object.freeze({
+    kind: "directChildCollection" as const,
     id: collection.id,
     childNodeType: collection.childNodeType,
     attr: collection.attr,
@@ -147,6 +153,7 @@ function toSettingsSheetField(
         ...(control.options ? { options: control.options } : {}),
         ...(control.optionsSource ? { optionsSource: control.optionsSource } : {}),
         ...(control.placeholder ? { placeholder: control.placeholder } : {}),
+        ...(control.presentation ? { presentation: control.presentation } : {}),
       });
     case "multiSelect":
       return Object.freeze({
@@ -182,9 +189,24 @@ function toSettingsSheetField(
         kind: "richText",
         ...(control.placeholder ? { placeholder: control.placeholder } : {}),
       });
-    case "color":
-      throw new Error(
-        `Configuration control "name:${control.name}" cannot be placed in the settings sheet.`,
-      );
+    case "color": {
+      if (!control.palette || !control.fallbackColor) {
+        throw new Error(
+          `Configuration control "name:${control.name}" requires a palette and fallback colour in the settings sheet.`,
+        );
+      }
+      return Object.freeze({
+        ...base,
+        kind: "color",
+        palette: control.palette,
+        fallbackColor: control.fallbackColor,
+        ...(control.pickerLabel ? { pickerLabel: control.pickerLabel } : {}),
+        ...(control.labelSuffix ? { labelSuffix: control.labelSuffix } : {}),
+        ...(control.resetValue === undefined ? {} : { resetValue: control.resetValue }),
+        ...(control.resetLabel ? { resetLabel: control.resetLabel } : {}),
+        ...(control.resetAriaLabel ? { resetAriaLabel: control.resetAriaLabel } : {}),
+        ...(control.customHint ? { customHint: control.customHint } : {}),
+      });
+    }
   }
 }

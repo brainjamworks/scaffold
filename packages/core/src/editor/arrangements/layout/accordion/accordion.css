@@ -1,3 +1,6 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
 .sc-accordion-layout {
   position: relative;
   border-radius: var(--radius-lg);
@@ -324,4 +327,5 @@
   .sc-accordion-title__icon {
     transition: none;
   }
+}
 }

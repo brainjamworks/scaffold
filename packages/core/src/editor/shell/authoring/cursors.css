@@ -1,3 +1,6 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-base {
 /* ─── Scaffold cursors ──────────────────────────────────────────
  * Global custom cursor system. All cursors are 24x24 SVG inline
  * data URIs with a 1px white outline under the ink stroke so they
@@ -81,4 +84,5 @@ html {
 /* Utility class — explicit opt-in for stage / canvas affordances. */
 .sc-cursor-place {
   cursor: var(--sc-cursor-place);
+}
 }

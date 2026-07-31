@@ -1,3 +1,6 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-overlays {
 .sc-drop-indicator {
   pointer-events: none;
   position: absolute;
@@ -39,4 +42,5 @@
 .sc-drop-indicator-frame {
   pointer-events: none;
   position: fixed;
+}
 }

@@ -15,7 +15,7 @@
   .sc-audio-block__fallback {
     width: 100%;
     min-height: 5rem;
-    border: 1px dashed var(--color-border);
+    border: var(--sc-border-width) dashed var(--color-border);
     border-radius: var(--radius-md);
     background: var(--color-canvas);
   }
@@ -46,15 +46,15 @@
   .sc-audio-block__error {
     margin: 0;
     padding: 0.5rem 0.875rem;
-    border: 1px dashed var(--color-border);
+    border: var(--sc-border-width) dashed var(--color-border);
     border-radius: 9999px;
     font-size: 0.75rem;
     color: var(--color-text-muted);
   }
 
   .sc-audio-block__error {
-    border-color: color-mix(in oklch, var(--color-secondary, oklch(0.62 0.22 18)) 40%, transparent);
-    color: var(--color-secondary, oklch(0.62 0.22 18));
+    border-color: color-mix(in oklch, var(--color-error) 40%, transparent);
+    color: var(--color-error-text);
   }
 
   /* Replace pill — sits inline at the top-right of the player area
@@ -72,7 +72,7 @@
     border-radius: 9999px;
     background: var(--color-ink);
     color: var(--color-background);
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: 0.625rem;
     font-weight: 600;
     letter-spacing: 0.04em;

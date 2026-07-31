@@ -133,7 +133,7 @@ describe("surface authoring view map", () => {
 
     expect("configuration" in registered).toBe(false);
     const quickControl = registered.quickMenu?.controls[0];
-    const sheetField = registered.settingsSheet?.sections[0]?.fields[0];
+    const sheetField = registered.settingsSheet?.sections[0]?.items[0];
     expect(quickControl?.kind === "select" ? quickControl.options : undefined).toEqual([
       { value: "compact", label: "Compact" },
     ]);
@@ -190,7 +190,8 @@ function getQuickMenuControl(viewId: string, controlName: string): QuickControlD
 function getSettingsSheetFieldNames(viewId: string): string[] {
   return (
     resolveView(builtInSurfaceAuthoringViewMap, viewId)?.settingsSheet?.sections.flatMap(
-      (section) => section.fields.map((field) => field.name),
+      (section) =>
+        section.items.flatMap((item) => (item.kind === "directChildCollection" ? [] : [item.name])),
     ) ?? []
   );
 }

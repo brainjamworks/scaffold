@@ -1,3 +1,6 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
 /* Bounded container viewports
  * A bounded viewport scrolls ordinary flow content inside a finite region.
  * When its direct child is itself a fill occupant, the child owns the finite
@@ -121,4 +124,5 @@
   height: 100%;
   min-height: 0;
   max-height: 100%;
+}
 }

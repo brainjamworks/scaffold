@@ -1,13 +1,14 @@
 import { Editor, Node } from "@tiptap/core";
 import { NodeSelection } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { render as renderBrowserReact, type RenderResult } from "vitest-browser-react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { OverlayBoundary } from "@/ui/components/OverlayBoundary/OverlayBoundary";
 import { Select } from "@/ui/components/Select/Select";
+import { WorkspaceDialog } from "@/ui/components/WorkspaceDialog/WorkspaceDialog";
 import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
 import {
   CellAuthoringNode,
@@ -50,6 +51,7 @@ import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { createAlignmentTargetPort } from "@/editor/interactions/alignment/alignment-target";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import "@/styles/globals.css";
+import "./ScaffoldAuthoringApp.css";
 
 const TestGridNode = Node.create({
   name: "grid",
@@ -150,6 +152,67 @@ afterEach(() => {
   harness = null;
 });
 
+describe("authoring application overlay colour mode", () => {
+  it("keeps an application-owned dialog and keyboard focus inside dark application tokens", async () => {
+    const rendered = await renderBrowserReact(<DarkApplicationDialogHarness />);
+
+    try {
+      const dialog = await waitForElement<HTMLElement>(document, ".sc-workspace-dialog-content");
+      const overlayHost = dialog.closest<HTMLElement>("[data-scaffold-overlay-host]");
+      const application = dialog.closest<HTMLElement>(".sc-scaffold-authoring-app");
+      const close = requireElement<HTMLButtonElement>(
+        dialog,
+        'button[aria-label="Close workspace"]',
+      );
+
+      expect(overlayHost?.parentElement).toBe(application);
+      expect(dialog.closest(".sc-course-theme-scope")).toBeNull();
+      expect(getComputedStyle(dialog).getPropertyValue("--color-background").trim()).not.toBe(
+        "rgb(1 2 3)",
+      );
+      expect(getComputedStyle(dialog).backgroundColor).toBe("rgb(24, 24, 27)");
+      expect(getComputedStyle(dialog).color).toBe("rgb(250, 250, 250)");
+      expect(getComputedStyle(dialog).borderColor).toBe("rgb(63, 63, 70)");
+      expect(getComputedStyle(dialog).colorScheme).toBe("dark");
+      expect(getComputedStyle(dialog).getPropertyValue("--color-primary").trim()).toBe("#a5b4fc");
+      expect(getComputedStyle(dialog).getPropertyValue("--color-primary-foreground").trim()).toBe(
+        "#18181b",
+      );
+      expect(getComputedStyle(dialog).getPropertyValue("--color-primary-muted").trim()).toBe(
+        "#252a44",
+      );
+
+      close.focus();
+      expect(document.activeElement).toBe(close);
+      expect(close.matches(":focus-visible")).toBe(true);
+      expect(getComputedStyle(close).outlineStyle).not.toBe("none");
+    } finally {
+      await rendered.unmount();
+    }
+  });
+
+  it("keeps a content-owned dialog inside dark course tokens when the application is light", async () => {
+    const rendered = await renderBrowserReact(<DarkCourseDialogHarness />);
+
+    try {
+      const dialog = await waitForElement<HTMLElement>(document, ".sc-workspace-dialog-content");
+      const overlayHost = dialog.closest<HTMLElement>("[data-scaffold-overlay-host]");
+      const courseScope = dialog.closest<HTMLElement>(".sc-course-theme-scope");
+
+      expect(overlayHost?.parentElement).toBe(courseScope);
+      expect(getComputedStyle(dialog).backgroundColor).toBe("rgb(16, 24, 32)");
+      expect(getComputedStyle(dialog).color).toBe("rgb(244, 247, 250)");
+      expect(getComputedStyle(dialog).borderColor).toBe("rgb(63, 78, 92)");
+      expect(getComputedStyle(dialog).colorScheme).toBe("dark");
+      expect(
+        getComputedStyle(requireElement(document, ".sc-scaffold-authoring-app")).colorScheme,
+      ).toBe("light");
+    } finally {
+      await rendered.unmount();
+    }
+  });
+});
+
 describe("authoring nested rich text dismissal", () => {
   it("lets a real Scaffold color popover consume the first Escape before its parent", async () => {
     const current = await mountOpenStructuralBubble();
@@ -215,6 +278,103 @@ describe("authoring nested rich text dismissal", () => {
     );
   });
 });
+
+function DarkApplicationDialogHarness() {
+  const [application, setApplication] = useState<HTMLDivElement | null>(null);
+
+  return (
+    <div
+      ref={setApplication}
+      className="sc-scaffold-authoring-app"
+      data-scaffold-color-mode="dark"
+      style={{ colorScheme: "dark" }}
+    >
+      <OverlayBoundary container={application} kind="viewport">
+        <div
+          className="sc-course-theme-scope"
+          style={
+            {
+              "--color-background": "rgb(1 2 3)",
+              "--color-text-primary": "rgb(4 5 6)",
+              "--color-border": "rgb(7 8 9)",
+            } as CSSProperties
+          }
+        >
+          <WorkspaceDialog.Root open>
+            <WorkspaceDialog.Content size="small">
+              <WorkspaceDialog.Header>
+                <div>
+                  <WorkspaceDialog.Title>Application settings</WorkspaceDialog.Title>
+                  <WorkspaceDialog.Description>
+                    Configure the authoring workspace.
+                  </WorkspaceDialog.Description>
+                </div>
+                <WorkspaceDialog.Close />
+              </WorkspaceDialog.Header>
+              <WorkspaceDialog.Body>Application-owned dialog content</WorkspaceDialog.Body>
+            </WorkspaceDialog.Content>
+          </WorkspaceDialog.Root>
+        </div>
+      </OverlayBoundary>
+    </div>
+  );
+}
+
+interface CourseScopeStyle extends CSSProperties {
+  "--sc-course-color-background": string;
+  "--sc-course-color-border": string;
+  "--sc-course-color-text": string;
+  "--sc-course-density": string;
+  "--sc-course-roundness": string;
+  "--sc-course-shadow": string;
+  "--sc-course-stroke": string;
+}
+
+function DarkCourseDialogHarness() {
+  const [courseScope, setCourseScope] = useState<HTMLDivElement | null>(null);
+  const courseStyle: CourseScopeStyle = {
+    "--sc-course-color-background": "#101820",
+    "--sc-course-color-border": "#3f4e5c",
+    "--sc-course-color-text": "#f4f7fa",
+    "--sc-course-density": "1",
+    "--sc-course-roundness": "0.5",
+    "--sc-course-shadow": "none",
+    "--sc-course-stroke": "1px",
+    colorScheme: "dark",
+  };
+
+  return (
+    <div
+      className="sc-scaffold-authoring-app"
+      data-scaffold-color-mode="light"
+      style={{ colorScheme: "light" }}
+    >
+      <div
+        ref={setCourseScope}
+        className="sc-course-theme-scope"
+        data-course-color-mode="dark"
+        style={courseStyle}
+      >
+        <OverlayBoundary container={courseScope} kind="contained">
+          <WorkspaceDialog.Root open>
+            <WorkspaceDialog.Content size="small">
+              <WorkspaceDialog.Header>
+                <div>
+                  <WorkspaceDialog.Title>Course media</WorkspaceDialog.Title>
+                  <WorkspaceDialog.Description>
+                    Edit presentation owned by this course.
+                  </WorkspaceDialog.Description>
+                </div>
+                <WorkspaceDialog.Close />
+              </WorkspaceDialog.Header>
+              <WorkspaceDialog.Body>Course-owned dialog content</WorkspaceDialog.Body>
+            </WorkspaceDialog.Content>
+          </WorkspaceDialog.Root>
+        </OverlayBoundary>
+      </div>
+    </div>
+  );
+}
 
 describe("authoring owner-local geometry", () => {
   it("keeps a selected movement handle through a transaction while a real overlay descendant is focused", async () => {

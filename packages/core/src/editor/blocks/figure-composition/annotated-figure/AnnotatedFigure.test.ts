@@ -205,11 +205,11 @@ it("derives List and Pin popovers into both Annotated Figure configuration surfa
     sections: [
       {
         id: "image",
-        fields: [{ kind: "text", name: "alt", label: "Alt text" }],
+        items: [{ kind: "text", name: "alt", label: "Alt text" }],
       },
       {
         id: "presentation",
-        fields: [{ kind: "select", name: "captionDisplay", label: "Caption display" }],
+        items: [{ kind: "select", name: "captionDisplay", label: "Caption display" }],
       },
     ],
   });

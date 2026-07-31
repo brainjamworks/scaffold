@@ -156,6 +156,436 @@ describe("FieldRenderer", () => {
     });
   });
 
+  it("updates one form value from a segmented select", async () => {
+    const onFormChange = vi.fn();
+
+    render(
+      <FieldRendererHarness
+        defaultValues={{ mode: "practice" }}
+        descriptor={{
+          kind: "select",
+          name: "mode",
+          label: "Mode",
+          presentation: "segmented",
+          options: [
+            { value: "practice", label: "Practice" },
+            { value: "graded", label: "Graded" },
+          ],
+        }}
+        onFormChange={onFormChange}
+      />,
+    );
+
+    const practice = screen.getByRole("radio", { name: "Practice" });
+    const graded = screen.getByRole("radio", { name: "Graded" });
+    expect(practice).toHaveAttribute("aria-checked", "true");
+    expect(graded).toHaveAttribute("aria-checked", "false");
+
+    await userEvent.click(graded);
+
+    expect(practice).toHaveAttribute("aria-checked", "false");
+    expect(graded).toHaveAttribute("aria-checked", "true");
+    expect(onFormChange).toHaveBeenLastCalledWith({ mode: "graded" });
+  });
+
+  it("keeps concise segmented text while preserving an owner-provided accessible name", () => {
+    render(
+      <FieldRendererHarness
+        defaultValues={{ mode: "light" }}
+        descriptor={{
+          kind: "select",
+          name: "mode",
+          label: "Course preview colours",
+          presentation: "segmented",
+          options: [
+            {
+              value: "light",
+              label: "Light",
+              ariaLabel: "Preview light course colours",
+            },
+            {
+              value: "dark",
+              label: "Dark",
+              ariaLabel: "Preview dark course colours",
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("radio", { name: "Preview light course colours" })).toHaveTextContent(
+      "Light",
+    );
+    expect(screen.getByRole("radio", { name: "Preview dark course colours" })).toHaveTextContent(
+      "Dark",
+    );
+  });
+
+  it("moves segmented-select focus with arrow keys before keyboard selection", async () => {
+    const user = userEvent.setup();
+    const onFormChange = vi.fn();
+
+    render(
+      <FieldRendererHarness
+        defaultValues={{ mode: "practice" }}
+        descriptor={{
+          kind: "select",
+          name: "mode",
+          label: "Mode",
+          presentation: "segmented",
+          options: [
+            { value: "practice", label: "Practice" },
+            { value: "graded", label: "Graded" },
+          ],
+        }}
+        onFormChange={onFormChange}
+      />,
+    );
+
+    const practice = screen.getByRole("radio", { name: "Practice" });
+    const graded = screen.getByRole("radio", { name: "Graded" });
+
+    await user.tab();
+    expect(document.activeElement).toBe(practice);
+    await user.keyboard("{ArrowRight}");
+    expect(document.activeElement).toBe(graded);
+
+    await user.keyboard(" ");
+    expect(onFormChange).toHaveBeenLastCalledWith({ mode: "graded" });
+  });
+
+  it("renders descriptive single-choice cards and updates one form value", async () => {
+    const onFormChange = vi.fn();
+
+    render(
+      <FieldRendererHarness
+        defaultValues={{ layout: "editorial" }}
+        descriptor={{
+          kind: "select",
+          name: "layout",
+          label: "Layout",
+          presentation: "cards",
+          options: [
+            {
+              value: "editorial",
+              label: "Editorial",
+              description: "Serif headings and spacious content.",
+              swatches: ["#ffffff", "#161d77"],
+            },
+            {
+              value: "compact",
+              label: "Compact",
+              description: "Dense content for short activities.",
+            },
+          ],
+        }}
+        onFormChange={onFormChange}
+      />,
+    );
+
+    const group = screen.getByRole("radiogroup", { name: "Layout" });
+    const editorial = screen.getByRole("radio", { name: "Editorial" });
+    const compact = screen.getByRole("radio", { name: "Compact" });
+    const editorialDescriptionId = editorial.getAttribute("aria-describedby");
+
+    expect(group).toHaveClass("sc-settings-card-select");
+    expect(editorial).toHaveAttribute("aria-checked", "true");
+    expect(compact).toHaveAttribute("aria-checked", "false");
+    expect(document.getElementById(editorialDescriptionId ?? "")?.textContent).toBe(
+      "Serif headings and spacious content.",
+    );
+    expect(editorial.querySelectorAll("[data-color-swatch]")).toHaveLength(2);
+    expect(editorial.querySelectorAll('[data-color-swatch][aria-hidden="true"]')).toHaveLength(2);
+
+    await userEvent.click(compact);
+
+    expect(editorial).toHaveAttribute("aria-checked", "false");
+    expect(compact).toHaveAttribute("aria-checked", "true");
+    expect(onFormChange).toHaveBeenLastCalledWith({ layout: "compact" });
+  });
+
+  it("connects card-select status, disabled, help, and invalid state accessibly", async () => {
+    const onFormChange = vi.fn();
+
+    render(
+      <FieldRendererHarness
+        defaultValues={{ layout: "editorial" }}
+        descriptor={{
+          kind: "select",
+          name: "layout",
+          label: "Layout",
+          description: "Choose a layout.",
+          disabledReason: "Layout is unavailable.",
+          status: { label: "Derived from light", variant: "info" },
+          presentation: "cards",
+          options: [
+            { value: "editorial", label: "Editorial", description: "Spacious content." },
+            { value: "compact", label: "Compact", description: "Dense content." },
+          ],
+        }}
+        errors={{ layout: "Choose a supported layout." }}
+        onFormChange={onFormChange}
+      />,
+    );
+
+    const group = screen.getByRole("radiogroup", { name: "Layout" });
+    const status = screen.getByText("Derived from light");
+    const alert = await screen.findByRole("alert");
+    const describedBy = group.getAttribute("aria-describedby")?.split(" ") ?? [];
+
+    expect(group).toHaveAttribute("aria-invalid", "true");
+    expect(group).toHaveAttribute("data-invalid", "true");
+    expect(screen.getAllByRole("radio").every((radio) => radio.hasAttribute("disabled"))).toBe(
+      true,
+    );
+    expect(status).toHaveClass("sc-pill", "sc-settings-field-status");
+    expect(status).toHaveAttribute("data-variant", "info");
+    expect(describedBy).toHaveLength(3);
+    expect(document.getElementById(describedBy[0] ?? "")).toBe(status);
+    expect(document.getElementById(describedBy[1] ?? "")?.textContent).toContain(
+      "Choose a layout.",
+    );
+    expect(document.getElementById(describedBy[2] ?? "")).toBe(alert);
+
+    await userEvent.click(screen.getByRole("radio", { name: "Compact" }));
+    expect(onFormChange).not.toHaveBeenLastCalledWith({ layout: "compact" });
+  });
+
+  it("connects segmented-select disabled, help, and invalid state to its controls", async () => {
+    render(
+      <FieldRendererHarness
+        defaultValues={{ mode: "practice" }}
+        descriptor={{
+          kind: "select",
+          name: "mode",
+          label: "Mode",
+          description: "Choose how learners complete this activity.",
+          disabledReason: "Mode is locked.",
+          presentation: "segmented",
+          options: [
+            { value: "practice", label: "Practice" },
+            { value: "graded", label: "Graded" },
+          ],
+        }}
+        errors={{ mode: "Choose a supported mode." }}
+      />,
+    );
+
+    const group = screen.getByRole("radiogroup", { name: "Mode" });
+    const alert = await screen.findByRole("alert");
+    const describedBy = group.getAttribute("aria-describedby")?.split(" ") ?? [];
+
+    expect(group).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getAllByRole("radio").every((radio) => radio.hasAttribute("disabled"))).toBe(
+      true,
+    );
+    expect(describedBy).toHaveLength(2);
+    expect(document.getElementById(describedBy[0] ?? "")?.textContent).toContain(
+      "Choose how learners complete this activity.",
+    );
+    expect(document.getElementById(describedBy[1] ?? "")).toBe(alert);
+  });
+
+  it("updates a colour value from the shared picker palette", async () => {
+    const onFormChange = vi.fn();
+
+    render(
+      <FieldRendererHarness
+        defaultValues={{ accentColor: "" }}
+        descriptor={{
+          kind: "color",
+          name: "accentColor",
+          label: "Accent colour",
+          labelSuffix: "accent",
+          palette: [
+            { value: "", label: "Inherited" },
+            { value: "#161d77", label: "Navy" },
+          ],
+          fallbackColor: "#ffffff",
+          resetLabel: "Use inherited",
+          resetAriaLabel: "Use inherited accent colour",
+          customHint: "Enter an accent hex colour, for example #161d77.",
+        }}
+        onFormChange={onFormChange}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Navy accent" })).toBeNull();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Edit Accent colour, current value #ffffff" }),
+    );
+    expect(
+      document.querySelector('[role="dialog"][aria-label="Accent colour picker"]'),
+    ).toHaveClass("sc-settings-color-field__popover");
+    fireEvent.click(requiredPopoverButton("Navy accent"));
+
+    expect(onFormChange).toHaveBeenLastCalledWith({ accentColor: "#161d77" });
+  });
+
+  it("resets a colour value to its descriptor reset value", async () => {
+    const onFormChange = vi.fn();
+
+    render(
+      <FieldRendererHarness
+        defaultValues={{ accentColor: "#161d77" }}
+        descriptor={{
+          kind: "color",
+          name: "accentColor",
+          label: "Accent colour",
+          palette: [{ value: "#161d77", label: "Navy" }],
+          fallbackColor: "#ffffff",
+          resetValue: "",
+          resetLabel: "Use inherited",
+          resetAriaLabel: "Use inherited accent colour",
+          customHint: "Enter an accent hex colour, for example #161d77.",
+        }}
+        onFormChange={onFormChange}
+      />,
+    );
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Edit Accent colour, current value #161d77" }),
+    );
+    fireEvent.click(requiredPopoverButton("Use inherited accent colour"));
+
+    expect(onFormChange).toHaveBeenLastCalledWith({ accentColor: "" });
+  });
+
+  it("resets a colour value to an empty string when resetValue is omitted", async () => {
+    const onFormChange = vi.fn();
+
+    render(
+      <FieldRendererHarness
+        defaultValues={{ accentColor: "#161d77" }}
+        descriptor={{
+          kind: "color",
+          name: "accentColor",
+          label: "Accent colour",
+          palette: [{ value: "#161d77", label: "Navy" }],
+          fallbackColor: "#ffffff",
+          resetLabel: "Use inherited",
+          resetAriaLabel: "Use inherited accent colour",
+          customHint: "Enter an accent hex colour, for example #161d77.",
+        }}
+        onFormChange={onFormChange}
+      />,
+    );
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Edit Accent colour, current value #161d77" }),
+    );
+    fireEvent.click(requiredPopoverButton("Use inherited accent colour"));
+
+    expect(onFormChange).toHaveBeenLastCalledWith({ accentColor: "" });
+    expect(requiredPopoverButton("Navy")).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("focuses the first segmented option when the current value is no longer available", async () => {
+    function Harness() {
+      const form = useForm<FieldValues>({ defaultValues: { mode: "retired" } });
+      return (
+        <FormProvider {...form}>
+          <FieldRenderer
+            descriptor={{
+              kind: "select",
+              name: "mode",
+              label: "Mode",
+              presentation: "segmented",
+              options: [
+                { value: "practice", label: "Practice" },
+                { value: "graded", label: "Graded" },
+              ],
+            }}
+          />
+          <button type="button" onClick={() => form.setFocus("mode")}>
+            Focus mode
+          </button>
+        </FormProvider>
+      );
+    }
+
+    render(<Harness />);
+    await userEvent.click(screen.getByRole("button", { name: "Focus mode" }));
+
+    expect(document.activeElement).toBe(screen.getByRole("radio", { name: "Practice" }));
+  });
+
+  it("updates a colour value from the shared custom colour input", async () => {
+    const user = userEvent.setup();
+    const onFormChange = vi.fn();
+
+    render(
+      <FieldRendererHarness
+        defaultValues={{ accentColor: "#161d77" }}
+        descriptor={{
+          kind: "color",
+          name: "accentColor",
+          label: "Accent colour",
+          palette: [{ value: "#161d77", label: "Navy" }],
+          fallbackColor: "#ffffff",
+          resetLabel: "Use inherited",
+          resetAriaLabel: "Use inherited accent colour",
+          customHint: "Enter an accent hex colour, for example #161d77.",
+        }}
+        onFormChange={onFormChange}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Edit Accent colour, current value #161d77" }),
+    );
+    fireEvent.click(requiredPopoverButton("Custom colour"));
+    const input = screen.getByLabelText("Hex");
+    fireEvent.change(input, { target: { value: "#123456" } });
+    fireEvent.blur(input);
+
+    expect(onFormChange).toHaveBeenLastCalledWith({ accentColor: "#123456" });
+  });
+
+  it("exposes reusable colour picker labels, custom input help, and validation", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <FieldRendererHarness
+        defaultValues={{ accentColor: "#161d77" }}
+        descriptor={{
+          kind: "color",
+          name: "accentColor",
+          label: "Accent colour",
+          description: "Used for selected controls.",
+          palette: [{ value: "#161d77", label: "Navy" }],
+          fallbackColor: "#ffffff",
+          resetLabel: "Use inherited",
+          resetAriaLabel: "Use inherited accent colour",
+          customHint: "Enter an accent hex colour, for example #161d77.",
+        }}
+        errors={{ accentColor: "Enter a valid colour." }}
+      />,
+    );
+
+    const group = screen.getByRole("group", { name: "Accent colour" });
+    const alert = await screen.findByRole("alert");
+    const describedBy = group.getAttribute("aria-describedby")?.split(" ") ?? [];
+
+    expect(group.id).not.toBe("");
+    expect(group).toHaveAttribute("aria-invalid", "true");
+    expect(describedBy).toHaveLength(2);
+    expect(document.getElementById(describedBy[0] ?? "")?.textContent).toBe(
+      "Used for selected controls.",
+    );
+    expect(document.getElementById(describedBy[1] ?? "")).toBe(alert);
+
+    await user.click(
+      screen.getByRole("button", { name: "Edit Accent colour, current value #161d77" }),
+    );
+    fireEvent.click(requiredPopoverButton("Custom colour"));
+    const input = screen.getByLabelText("Hex");
+    expect(input.getAttribute("aria-describedby")).not.toBeNull();
+    expect(document.getElementById(input.getAttribute("aria-describedby") ?? "")?.textContent).toBe(
+      "Enter an accent hex colour, for example #161d77.",
+    );
+  });
+
   it("derives select options from data grid columns", async () => {
     const onFormChange = vi.fn();
 
@@ -706,3 +1136,13 @@ describe("FieldRenderer", () => {
     });
   });
 });
+
+function requiredPopoverButton(name: string): HTMLButtonElement {
+  const popover = document.querySelector(".sc-settings-color-field__popover");
+  const button = [...(popover?.querySelectorAll<HTMLButtonElement>("button") ?? [])].find(
+    (candidate) =>
+      candidate.getAttribute("aria-label") === name || candidate.textContent?.trim() === name,
+  );
+  if (!button) throw new Error(`Expected settings colour popover button ${name}`);
+  return button;
+}

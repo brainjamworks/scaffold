@@ -7,7 +7,7 @@
     align-items: center;
     justify-content: center;
     gap: 0.375rem;
-    border: 1px solid transparent;
+    border: var(--sc-border-width) solid transparent;
     border-radius: var(--radius-pill);
     font: inherit;
     font-weight: 600;
@@ -81,8 +81,8 @@
   }
 
   .sc-button[data-variant="danger"] {
-    background: var(--color-secondary);
-    color: var(--color-secondary-foreground);
+    background: var(--sc-app-color-error);
+    color: var(--sc-app-color-error-foreground);
   }
 
   .sc-button[data-variant="danger"]:hover:not(:disabled) {

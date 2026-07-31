@@ -110,6 +110,51 @@ describe("OverlayBoundary", () => {
     container.remove();
   });
 
+  it("updates host theme tokens without replacing the active portal host", async () => {
+    const container = document.createElement("section");
+    document.body.append(container);
+
+    const { rerender } = render(
+      <OverlayBoundary
+        container={container}
+        hostClassName="sc-course-theme-portal-scope"
+        hostColorScheme="light"
+        hostCssVariables={{ "--sc-course-color-background": "#ffffff" }}
+        kind="viewport"
+      >
+        <BoundaryProbe label="themed" />
+      </OverlayBoundary>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId("themed").textContent).toBe("ready"));
+    const firstHost = container.querySelector<HTMLElement>("[data-scaffold-overlay-host]");
+    expect(firstHost?.style.getPropertyValue("--sc-course-color-background")).toBe("#ffffff");
+
+    rerender(
+      <OverlayBoundary
+        container={container}
+        hostClassName="sc-course-theme-portal-scope"
+        hostColorScheme="dark"
+        hostCssVariables={{ "--sc-course-color-background": "#09090b" }}
+        kind="viewport"
+      >
+        <BoundaryProbe label="themed" />
+      </OverlayBoundary>,
+    );
+
+    await waitFor(() =>
+      expect(
+        container
+          .querySelector<HTMLElement>("[data-scaffold-overlay-host]")
+          ?.style.getPropertyValue("--sc-course-color-background"),
+      ).toBe("#09090b"),
+    );
+    expect(container.querySelector("[data-scaffold-overlay-host]")).toBe(firstHost);
+    expect(firstHost?.style.colorScheme).toBe("dark");
+
+    container.remove();
+  });
+
   it("uses absolute strategy and the container as the default contained collision boundary", async () => {
     const container = document.createElement("section");
     document.body.append(container);

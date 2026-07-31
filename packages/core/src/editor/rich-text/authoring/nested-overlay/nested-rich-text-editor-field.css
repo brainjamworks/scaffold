@@ -1,3 +1,6 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
 .sc-nested-rich-text-editor-field {
   outline: none;
 }
@@ -19,4 +22,5 @@
   margin-top: 0;
   margin-bottom: 0;
   line-height: 1.375;
+}
 }

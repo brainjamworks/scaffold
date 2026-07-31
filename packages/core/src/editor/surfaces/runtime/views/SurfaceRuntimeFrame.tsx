@@ -1,5 +1,5 @@
 import { NodeViewContent, NodeViewWrapper } from "@tiptap/react";
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 
 import {
   readSurfaceBackground,
@@ -21,6 +21,7 @@ export interface SurfaceRuntimeFrameProps extends SurfaceRuntimeViewProps {
   attributes?: Record<string, string | undefined>;
   children?: ReactNode;
   className?: string;
+  surfaceRef?: Ref<HTMLDivElement>;
 }
 
 export function SurfaceRuntimeFrame({
@@ -28,9 +29,11 @@ export function SurfaceRuntimeFrame({
   children,
   className,
   node,
+  surfaceRef,
 }: SurfaceRuntimeFrameProps) {
   return (
     <NodeViewWrapper
+      ref={surfaceRef}
       className={["sc-surface-runtime-node__content", className].filter(Boolean).join(" ")}
       style={surfaceBackgroundStyle(readSurfaceBackground(node.attrs["settings"]))}
       {...attributes}

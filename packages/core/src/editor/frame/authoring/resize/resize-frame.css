@@ -1,3 +1,6 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-overlays {
 /* ─── Authoring resize frame ────────────────────────────────
  * Polishes the block resize chrome that Tiptap's ResizableNodeView
  * paints onto blocks. Two things happen here:
@@ -38,7 +41,9 @@
 [data-authoring-frame-wrapper-active]:hover::after {
   border-color: #1d4ed8;
 }
+}
 
+@layer sc-components {
 /* ─── Bounded resize NodeViews ────────────────────────────────
  * When a resizable block is placed inside a bounded container, the
  * resize shell must obey the rectangle allocated by that container.
@@ -70,7 +75,9 @@
   min-height: 0;
   max-height: 100%;
 }
+}
 
+@layer sc-overlays {
 /* ─── Resize handles ────────────────────────────────────────── */
 
 [data-authoring-resize-handle] {
@@ -245,4 +252,5 @@
   [data-authoring-resize-handle] {
     transition: none;
   }
+}
 }

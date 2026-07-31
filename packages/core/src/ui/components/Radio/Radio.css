@@ -15,7 +15,7 @@
     justify-content: center;
     width: 1rem;
     height: 1rem;
-    border: 1.5px solid var(--color-ink);
+    border: calc(var(--sc-border-width) * 1.5) solid var(--color-ink);
     border-radius: var(--radius-pill);
     background: var(--color-background);
     cursor: pointer;

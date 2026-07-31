@@ -50,12 +50,14 @@
   }
 
   .sc-assessment-prompt {
+    font-family: var(--font-heading);
     max-width: none;
     color: var(--color-ink);
-    font-size: 1.1875rem;
-    font-weight: 600;
+    font-size: calc(1.1875rem * var(--sc-course-type-scale));
+    font-weight: var(--font-weight-bold);
     line-height: var(--leading-snug);
-    letter-spacing: -0.01em;
+    letter-spacing: var(--sc-course-letter-spacing-heading);
+    text-transform: var(--sc-course-text-transform-heading);
     text-wrap: balance;
   }
 

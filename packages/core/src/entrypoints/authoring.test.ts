@@ -11,6 +11,7 @@ import type {
   ScaffoldLearnerHostServices,
   ScaffoldLearnerPreviewContent,
   ScaffoldPreviewServicesFactory,
+  ScaffoldThemeExtension,
 } from "@scaffold/core/authoring";
 
 type AuthoringTypeSurface = {
@@ -23,6 +24,7 @@ type AuthoringTypeSurface = {
   learnerPreviewContent: ScaffoldLearnerPreviewContent;
   previewServicesFactory: ScaffoldPreviewServicesFactory;
   saveState: ScaffoldAuthoringSaveState;
+  themeExtension: ScaffoldThemeExtension;
 };
 
 describe("@scaffold/core/authoring", () => {

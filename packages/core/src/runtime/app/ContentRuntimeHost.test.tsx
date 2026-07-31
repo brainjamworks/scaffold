@@ -11,6 +11,11 @@ import { emptyCalloutData } from "@/editor/blocks/presentation/callout/content";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import type { XapiPort } from "@/host/ports";
+import {
+  createScaffoldDefaultTheme,
+  SCAFFOLD_DEFAULT_PRESET,
+  type ScaffoldThemeExtension,
+} from "@/theme/model";
 
 import { ContentRuntimeHost } from "./ContentRuntimeHost";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
@@ -293,6 +298,7 @@ function runtimeDocumentContent({
             mode: "branching",
             surfaceSize: "fluid",
             overflowMode: "grow",
+            theme: createScaffoldDefaultTheme(),
           },
           content: surfaceIds.map((id) =>
             id === null
@@ -490,6 +496,94 @@ function calloutBlock(widthPercent: number): JSONContent {
 }
 
 describe("ContentRuntimeHost", () => {
+  it("falls back and recovers silently when a host theme extension is removed and restored", async () => {
+    const themeExtension = hostThemeExtension();
+    const hostPreset = themeExtension.presets![0]!;
+    const content = runtimeDocumentContent();
+    const courseDocument = content.content![0]!;
+    courseDocument.attrs = {
+      ...courseDocument.attrs,
+      theme: {
+        schemaVersion: 1,
+        preset: { id: hostPreset.id, revision: hostPreset.revision },
+        values: structuredClone(hostPreset.values),
+      },
+    };
+    const persistedSnapshot = structuredClone(courseDocument.attrs!["theme"]);
+
+    const { rerender } = render(
+      <ContentRuntimeHost
+        artifactId="artifact-host-theme"
+        initialContent={content}
+        themeExtension={themeExtension}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("course-theme-scope")).toHaveAttribute(
+        "data-effective-course-theme",
+        hostPreset.id,
+      ),
+    );
+
+    rerender(<ContentRuntimeHost artifactId="artifact-host-theme" initialContent={content} />);
+    await waitFor(() =>
+      expect(screen.getByTestId("course-theme-scope")).toHaveAttribute(
+        "data-effective-course-theme",
+        SCAFFOLD_DEFAULT_PRESET.id,
+      ),
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(courseDocument.attrs!["theme"]).toEqual(persistedSnapshot);
+
+    rerender(
+      <ContentRuntimeHost
+        artifactId="artifact-host-theme"
+        initialContent={content}
+        themeExtension={themeExtension}
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("course-theme-scope")).toHaveAttribute(
+        "data-effective-course-theme",
+        hostPreset.id,
+      ),
+    );
+    expect(courseDocument.attrs!["theme"]).toEqual(persistedSnapshot);
+  });
+
+  it("silently excludes an invalid host theme recipe", async () => {
+    const validExtension = hostThemeExtension();
+    const invalidExtension = structuredClone(validExtension) as unknown as ScaffoldThemeExtension;
+    Object.assign(invalidExtension.presets![0]!.recipe, { version: 999 });
+    const content = runtimeDocumentContent();
+    const courseDocument = content.content![0]!;
+    courseDocument.attrs = {
+      ...courseDocument.attrs,
+      theme: {
+        schemaVersion: 1,
+        preset: { id: "host-course", revision: "host-course-v1" },
+        values: structuredClone(validExtension.presets![0]!.values),
+      },
+    };
+
+    render(
+      <ContentRuntimeHost
+        artifactId="artifact-invalid-host-theme"
+        initialContent={content}
+        themeExtension={invalidExtension}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("course-theme-scope")).toHaveAttribute(
+        "data-effective-course-theme",
+        SCAFFOLD_DEFAULT_PRESET.id,
+      ),
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("renders page content through the runtime renderer surface", async () => {
     const onEditorReady = vi.fn();
 
@@ -1790,3 +1884,11 @@ describe("ContentRuntimeHost", () => {
     expect(document.body.querySelector("[data-authoring-resize-handle]")).toBeNull();
   });
 });
+
+function hostThemeExtension(): ScaffoldThemeExtension {
+  const preset = structuredClone(SCAFFOLD_DEFAULT_PRESET);
+  preset.id = "host-course";
+  preset.revision = "host-course-v1";
+  preset.label = "Host course";
+  return { presets: [preset] };
+}

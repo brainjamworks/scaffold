@@ -10,6 +10,7 @@ import {
 import type { SettingsSheetFieldDescriptor } from "@/editor/configuration/settings-sheet";
 
 import { BooleanField } from "./fields/BooleanField";
+import { ColorField } from "./fields/ColorField";
 import { ImageField } from "./fields/ImageField";
 import { MultiSelectField } from "./fields/MultiSelectField";
 import { NumberField } from "./fields/NumberField";
@@ -17,6 +18,7 @@ import { RichTextField } from "./fields/RichTextField";
 import { SelectField } from "./fields/SelectField";
 import { TextField } from "./fields/TextField";
 import { TextareaField } from "./fields/TextareaField";
+import { SettingsFieldIdScope, SettingsFieldStatus } from "./fields/shared";
 import type { SettingsFieldDocumentTarget } from "./fields/types";
 
 const LazyDataGridField = lazy(() =>
@@ -27,12 +29,14 @@ export interface FieldRendererProps {
   descriptor: SettingsSheetFieldDescriptor;
   documentRevision?: unknown;
   documentTarget?: SettingsFieldDocumentTarget;
+  idPrefix?: string;
 }
 
 export function FieldRenderer({
   descriptor,
   documentRevision,
   documentTarget,
+  idPrefix,
 }: FieldRendererProps) {
   const form = useFormContext<FieldValues>();
   const visibleWhenValue = useWatch({
@@ -49,6 +53,43 @@ export function FieldRenderer({
 
   const error = fieldErrorMessage(getFieldError(form.formState.errors, descriptor.name));
 
+  return (
+    <SettingsFieldIdScope {...(idPrefix ? { idPrefix } : {})}>
+      {descriptor.status && descriptor.kind !== "color" ? (
+        <div className="sc-settings-field-with-status">
+          <SettingsFieldControl
+            descriptor={descriptor}
+            documentRevision={documentRevision}
+            documentTarget={documentTarget}
+            error={error}
+          />
+          <SettingsFieldStatus name={descriptor.name} status={descriptor.status} />
+        </div>
+      ) : (
+        <SettingsFieldControl
+          descriptor={descriptor}
+          documentRevision={documentRevision}
+          documentTarget={documentTarget}
+          error={error}
+        />
+      )}
+    </SettingsFieldIdScope>
+  );
+}
+
+interface SettingsFieldControlProps {
+  descriptor: SettingsSheetFieldDescriptor;
+  documentRevision: unknown;
+  documentTarget: SettingsFieldDocumentTarget | undefined;
+  error: string | undefined;
+}
+
+function SettingsFieldControl({
+  descriptor,
+  documentRevision,
+  documentTarget,
+  error,
+}: SettingsFieldControlProps) {
   switch (descriptor.kind) {
     case "text":
       return <TextField descriptor={descriptor} {...(error ? { error } : {})} />;
@@ -68,6 +109,8 @@ export function FieldRenderer({
           <LazyDataGridField descriptor={descriptor} {...(error ? { error } : {})} />
         </Suspense>
       );
+    case "color":
+      return <ColorField descriptor={descriptor} {...(error ? { error } : {})} />;
     case "image":
       return <ImageField descriptor={descriptor} {...(error ? { error } : {})} />;
     case "richText":

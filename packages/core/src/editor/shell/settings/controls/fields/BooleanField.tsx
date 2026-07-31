@@ -4,7 +4,7 @@ import { Checkbox } from "@/ui/components/Checkbox/Checkbox";
 import { Field, Label } from "@/ui/components/Input/Input";
 import { Switch } from "@/ui/components/Switch/Switch";
 
-import { SettingsFieldError, SettingsFieldHelp, settingsFieldMeta } from "./shared";
+import { SettingsFieldError, SettingsFieldHelp, useSettingsFieldMeta } from "./shared";
 import type { SettingsFieldDescriptorByKind, SettingsFieldProps } from "./types";
 
 import "./settings-field.css";
@@ -27,7 +27,7 @@ function CheckboxField({
     defaultValue: false,
   });
   const disabled = Boolean(descriptor.disabledReason);
-  const meta = settingsFieldMeta({ ...descriptor, error });
+  const meta = useSettingsFieldMeta({ ...descriptor, error });
 
   return (
     <Field>
@@ -66,7 +66,7 @@ function SwitchField({
     defaultValue: false,
   });
   const disabled = Boolean(descriptor.disabledReason);
-  const meta = settingsFieldMeta({ ...descriptor, error });
+  const meta = useSettingsFieldMeta({ ...descriptor, error });
 
   return (
     <Field className="sc-settings-control-switch-field">

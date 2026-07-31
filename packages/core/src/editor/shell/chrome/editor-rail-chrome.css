@@ -1,3 +1,6 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
 .sc-editor-rail-stack {
   z-index: var(--z-editor-toolbar);
   display: flex;
@@ -83,7 +86,9 @@
   gap: 0.5rem;
   margin-top: 0.5rem;
 }
+}
 
+@layer sc-overlays {
 .sc-block-strip-popover,
 .sc-block-strip-variant-popover {
   z-index: var(--z-popover);
@@ -257,4 +262,5 @@
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
 }

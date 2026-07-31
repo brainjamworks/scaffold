@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { createScaffoldDocumentContent } from "@/format/artifact";
+import { slideModuleCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-module-cover";
 import { AssessmentRuntimeProvider } from "@/runtime/assessment/AssessmentRuntimeProvider";
 import { SlideshowPlayer } from "@/runtime/players/slideshow/SlideshowPlayer";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
@@ -74,8 +75,11 @@ const EMBEDDED_PLAYER_BOUNDS = [
 let root: Root | null = null;
 let host: HTMLElement | null = null;
 let restoreFullscreenHarness: (() => void) | null = null;
+let adapterStyle: HTMLStyleElement | null = null;
 
 afterEach(() => {
+  adapterStyle?.remove();
+  adapterStyle = null;
   restoreFullscreenHarness?.();
   restoreFullscreenHarness = null;
   root?.unmount();
@@ -85,6 +89,113 @@ afterEach(() => {
 });
 
 describe("slideshow player geometry", () => {
+  it("contains a representative long module-cover title in the real player canvas", async () => {
+    const surfaceId = "player-module-cover";
+    const initialContent = createScaffoldDocumentContent({ mode: "slideshow", surfaceId });
+    const courseDocument = initialContent.content?.[0];
+    if (courseDocument?.type !== "courseDocument") {
+      throw new Error("Could not create a slideshow document for module-cover geometry.");
+    }
+    const surface = slideModuleCoverSurfaceDefinition.createSurface({ surfaceId }) as JSONContent;
+    const moduleCoverContent: JSONContent[] = [
+      {
+        type: "slide_cover_subtitle",
+        content: [{ type: "paragraph", content: [{ type: "text", text: "MODULE 01" }] }],
+      },
+      {
+        type: "heading",
+        attrs: { level: 1, textAlign: "left" },
+        content: [
+          {
+            type: "text",
+            text: "Explicit cascade ownership that remains readable with a longer module title",
+          },
+        ],
+      },
+      {
+        type: "slide_cover_subtitle",
+        content: [
+          {
+            type: "paragraph",
+            content: [{ type: "text", text: "Defaults → layouts → variants" }],
+          },
+        ],
+      },
+      {
+        type: "slide_cover_subtitle",
+        content: [
+          {
+            type: "paragraph",
+            content: [{ type: "text", text: "Scaffold visual verification" }],
+          },
+        ],
+      },
+    ];
+    surface.content = moduleCoverContent;
+    courseDocument.content = [surface];
+
+    let editor: TiptapEditor | null = null;
+    host = document.createElement("div");
+    host.style.cssText = "position: absolute; inset: 0 auto auto 0; width: 1024px; height: 576px;";
+    document.body.append(host);
+    root = createRoot(host);
+    adapterStyle = document.createElement("style");
+    adapterStyle.textContent = `
+      @layer sc-adapters {
+        .sc-slideshow-player__viewport {
+          padding: 0;
+        }
+      }
+    `;
+    document.head.append(adapterStyle);
+    root.render(
+      <SlideshowPlayer
+        initialContent={initialContent}
+        surfaceIds={[surfaceId]}
+        onRendererReady={(readyEditor) => {
+          editor = readyEditor;
+        }}
+      />,
+    );
+
+    await waitForCondition(() => editor !== null && host?.querySelector(".sc-slideshow-player"));
+    const player = uniqueElement<HTMLElement>(host, ".sc-slideshow-player");
+    const viewport = uniqueElement<HTMLElement>(player, ".sc-slideshow-player__viewport");
+    player.style.cssText = "width: 100%; height: 100%; min-height: 0;";
+    expect(getComputedStyle(viewport).padding).toBe("0px");
+    await waitForCondition(
+      () =>
+        uniqueElement<HTMLElement>(player, ".sc-slideshow-player__stage").style.width === "1024px",
+    );
+    await document.fonts.ready;
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+    const runtimeSurface = uniqueElement<HTMLElement>(
+      player,
+      '[data-surface-variant="slide-module-cover"]',
+    );
+    const layout = uniqueElement<HTMLElement>(
+      runtimeSurface,
+      ".sc-slide-module-cover-surface-view",
+    );
+    const content = uniqueElement<HTMLElement>(runtimeSurface, "[data-surface-content]");
+    const title = uniqueElement<HTMLElement>(runtimeSurface, "h1");
+    const subtitles = runtimeSurface.querySelectorAll<HTMLElement>(
+      '[data-slot="slide-cover-subtitle"]',
+    );
+    const finalSubtitle = subtitles.item(subtitles.length - 1);
+    const surfaceRect = runtimeSurface.getBoundingClientRect();
+    const contentRect = content.getBoundingClientRect();
+    const finalSubtitleRect = finalSubtitle.getBoundingClientRect();
+
+    expect(getComputedStyle(layout).display).toBe("grid");
+    expect(title.getBoundingClientRect().width).toBeGreaterThan(650);
+    expect(Number.parseFloat(getComputedStyle(title).fontSize)).toBeLessThan(84);
+    expect(getComputedStyle(title).marginBottom).toBe("0px");
+    expect(finalSubtitleRect.bottom).toBeLessThanOrEqual(contentRect.bottom + 0.5);
+    expect(contentRect.bottom).toBeLessThan(surfaceRect.bottom);
+  });
+
   it("keeps one intrinsic composition canvas under exact, narrow, and height-constrained bounds", async () => {
     const state = expandSlideCompositionCases().find(
       (candidate) => candidate.composition === "content" && candidate.title === "visible",

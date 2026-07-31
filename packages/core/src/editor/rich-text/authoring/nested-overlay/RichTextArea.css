@@ -1,3 +1,6 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
 .sc-nested-rich-text-editor-field__editor.sc-rich-text-area {
   min-height: 6rem;
   padding: 0.625rem 0.875rem;
@@ -19,4 +22,5 @@
 .sc-rich-text-area :where(p.is-empty)::before {
   color: var(--color-text-placeholder);
   opacity: 1;
+}
 }

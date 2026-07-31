@@ -1,3 +1,6 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
 .sc-paginated-layout {
   position: relative;
   min-width: 0;
@@ -215,4 +218,5 @@
   .sc-paginated-layout__step {
     transition: none;
   }
+}
 }

@@ -53,7 +53,9 @@ describe("block and layout icon bubble menu contracts", () => {
 
       const sheetFieldNames =
         contract.settingsSheet?.sections.flatMap((section) =>
-          section.fields.map((field) => field.name),
+          section.items.flatMap((item) =>
+            item.kind === "directChildCollection" ? [] : [item.name],
+          ),
         ) ?? [];
 
       for (const control of contract.quickMenu?.controls ?? []) {

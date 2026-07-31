@@ -6,6 +6,7 @@ import { EmptyScaffoldRichTextDocument } from "@/schemas/rich-text";
 import { validateCourseDocumentJSON } from "../validators";
 import { v1ToV2CourseDocumentMigration } from "./v1-to-v2";
 import { v2ToV3CourseDocumentMigration } from "./v2-to-v3";
+import { v3ToV4CourseDocumentMigration } from "./v3-to-v4";
 
 const LEGACY_FIGURE_LAYOUTS = ["row-2", "row-3", "grid", "lead", "stack"] as const;
 
@@ -125,8 +126,11 @@ describe("v1-to-v2 Scaffold document migration", () => {
       { type: "paragraph", attrs: { retained: "unrelated" } },
     ]);
     expect(
-      validateCourseDocumentJSON(v2ToV3CourseDocumentMigration.migrate(structuredClone(migrated)))
-        .ok,
+      validateCourseDocumentJSON(
+        v3ToV4CourseDocumentMigration.migrate(
+          v2ToV3CourseDocumentMigration.migrate(structuredClone(migrated)),
+        ),
+      ).ok,
     ).toBe(true);
   });
 

@@ -1,5 +1,5 @@
 import { NodeViewContent, NodeViewWrapper, useEditorState } from "@tiptap/react";
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import {
@@ -25,12 +25,14 @@ export interface SurfaceAuthoringFrameProps extends SurfaceAuthoringViewProps {
   attributes?: Record<string, string | undefined>;
   children?: ReactNode;
   className?: string;
+  surfaceRef?: Ref<HTMLDivElement>;
 }
 
 export function SurfaceAuthoringFrame({
   attributes,
   children,
   className,
+  surfaceRef,
   ...props
 }: SurfaceAuthoringFrameProps) {
   const chromeActive = useEditorState({
@@ -64,6 +66,7 @@ export function SurfaceAuthoringFrame({
         data-authoring-surface-stage=""
       >
         <div
+          ref={surfaceRef}
           className={classNames}
           style={backgroundStyle}
           {...attributes}
@@ -79,6 +82,7 @@ export function SurfaceAuthoringFrame({
 
   return (
     <NodeViewWrapper
+      ref={surfaceRef}
       className={classNames}
       style={backgroundStyle}
       {...attributes}

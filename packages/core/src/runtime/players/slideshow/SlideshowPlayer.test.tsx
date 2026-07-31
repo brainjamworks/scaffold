@@ -8,6 +8,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { AssessmentRuntimeProvider } from "@/runtime/assessment/AssessmentRuntimeProvider";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
+import {
+  createScaffoldDefaultTheme,
+  createThemeCatalogue,
+  resolveCourseTheme,
+} from "@/theme/model";
 
 import { SlideshowPlayer } from "./SlideshowPlayer";
 
@@ -274,6 +279,35 @@ function restoreProperty(
 }
 
 describe("SlideshowPlayer", () => {
+  it.each(["light", "dark"] as const)(
+    "passes the resolved %s course mode into slideshow content",
+    async (mode) => {
+      const onRendererReady = vi.fn();
+      const resolvedTheme = resolveCourseTheme({
+        catalogue: createThemeCatalogue(),
+        mode,
+        theme: createScaffoldDefaultTheme(),
+      });
+
+      render(
+        <SlideshowPlayer
+          initialContent={slideshowDocumentContent([
+            { id: "slide-themed", text: "Themed slide content" },
+          ])}
+          resolvedTheme={resolvedTheme}
+          surfaceIds={["slide-themed"]}
+          onRendererReady={onRendererReady}
+        />,
+      );
+
+      await waitFor(() => expect(onRendererReady).toHaveBeenCalledOnce());
+      expect(screen.getByTestId("course-theme-scope")).toHaveAttribute(
+        "data-course-color-mode",
+        mode,
+      );
+    },
+  );
+
   it("renders a one-slide slideshow with disabled boundary controls", async () => {
     const onRendererReady = vi.fn();
 

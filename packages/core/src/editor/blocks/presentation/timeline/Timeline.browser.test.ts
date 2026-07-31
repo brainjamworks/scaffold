@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vite-plus/test";
+import { userEvent } from "vite-plus/test/browser/context";
 
 import "@/editor/frame/view/bounded-placement.css";
 import "./timeline.css";
@@ -38,6 +39,18 @@ describe("Timeline bounded geometry", () => {
     expect(fixture.frame.hasAttribute("data-bounded-placement")).toBe(false);
     expect(getComputedStyle(fixture.track).maxHeight).toBe("512px");
   });
+
+  it("keeps its authoring delete control on the application error semantic", async () => {
+    const fixture = createTimelineFixture({ bounded: false, presentation: "vertical" });
+    fixture.host.style.setProperty("--sc-app-color-error", "rgb(185 28 28)");
+    fixture.frame.style.setProperty("--color-secondary", "rgb(8 145 178)");
+    fixture.deleteButton.style.transition = "none";
+
+    await userEvent.hover(fixture.firstEvent);
+    await userEvent.hover(fixture.deleteButton);
+
+    expect(getComputedStyle(fixture.deleteButton).color).toBe("rgb(185, 28, 28)");
+  });
 });
 
 function createTimelineFixture(input: { bounded: boolean; presentation: TimelinePresentation }) {
@@ -61,6 +74,8 @@ function createTimelineFixture(input: { bounded: boolean; presentation: Timeline
 
   const rail = document.createElement("div");
   rail.className = "sc-timeline__rail";
+  let firstEvent: HTMLDivElement | null = null;
+  let deleteButton: HTMLButtonElement | null = null;
   for (let index = 0; index < 4; index += 1) {
     const event = document.createElement("div");
     event.className = `sc-timeline__event sc-timeline__event--${index % 2 === 0 ? "left" : "right"}`;
@@ -70,6 +85,14 @@ function createTimelineFixture(input: { bounded: boolean; presentation: Timeline
     card.className = "sc-timeline__card";
     card.style.height = input.presentation === "vertical" ? "160px" : "180px";
     event.append(card);
+    if (index === 0) {
+      firstEvent = event;
+      deleteButton = document.createElement("button");
+      deleteButton.type = "button";
+      deleteButton.className = "sc-timeline__action sc-timeline__delete";
+      deleteButton.textContent = "Delete event";
+      event.append(deleteButton);
+    }
     rail.append(event);
   }
 
@@ -79,7 +102,9 @@ function createTimelineFixture(input: { bounded: boolean; presentation: Timeline
   host.append(frame);
   document.body.append(host);
 
-  return { frame, shell, track };
+  if (!firstEvent || !deleteButton) throw new Error("Timeline fixture requires a first event");
+
+  return { deleteButton, firstEvent, frame, host, shell, track };
 }
 
 async function nextLayoutFrame(): Promise<void> {

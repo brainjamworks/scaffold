@@ -19,7 +19,7 @@ import {
 } from "@/schemas/course-document";
 import { ImageBlockAttrsSchema, type ImageBlockAttrs } from "@scaffold/contracts";
 
-import { SettingsFieldError, SettingsFieldHelp, settingsFieldMeta } from "./shared";
+import { SettingsFieldError, SettingsFieldHelp, useSettingsFieldMeta } from "./shared";
 import type { SettingsFieldDescriptorByKind, SettingsFieldProps } from "./types";
 
 import "./settings-field.css";
@@ -75,7 +75,7 @@ export function ControlledImageField({
 }: ControlledImageFieldProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const disabled = Boolean(descriptor.disabledReason);
-  const meta = settingsFieldMeta({
+  const meta = useSettingsFieldMeta({
     ...descriptor,
     name: idScope ? `${idScope}.${descriptor.name}` : descriptor.name,
     error,

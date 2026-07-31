@@ -18,6 +18,7 @@ import "./color-picker.css";
 interface ColorSwatchRowProps {
   ariaLabel: string;
   currentValue: string;
+  disabled?: boolean;
   labelSuffix?: string;
   onControlMouseDown?: (event: MouseEvent<HTMLElement>) => void;
   onSelect: (value: string) => void;
@@ -27,6 +28,7 @@ interface ColorSwatchRowProps {
 export function ColorSwatchRow({
   ariaLabel,
   currentValue,
+  disabled,
   labelSuffix,
   onControlMouseDown,
   onSelect,
@@ -50,6 +52,7 @@ export function ColorSwatchRow({
             type="button"
             aria-label={labelSuffix ? `${option.label} ${labelSuffix}` : option.label}
             aria-pressed={isActive}
+            disabled={disabled}
             onMouseDown={onControlMouseDown}
             onClick={() => onSelect(option.value)}
             className="sc-color-picker-swatch-button"
@@ -68,12 +71,15 @@ export function ColorSwatchRow({
 
 interface FullColorPickerProps {
   currentValue: string;
+  disabled?: boolean;
   fallbackColor: string;
   label: string;
   labelSuffix?: string;
   palette: ReadonlyArray<ColorOption>;
+  paletteAriaLabel?: string;
   resetLabel: string;
   resetAriaLabel: string;
+  resetValue?: string;
   customHint: string;
   onChange: (value: string) => void;
   onControlMouseDown?: (event: MouseEvent<HTMLElement>) => void;
@@ -82,12 +88,15 @@ interface FullColorPickerProps {
 
 export function FullColorPicker({
   currentValue,
+  disabled,
   fallbackColor,
   label,
   labelSuffix,
   palette,
+  paletteAriaLabel = "Quick colours",
   resetLabel,
   resetAriaLabel,
+  resetValue = "",
   customHint,
   onChange,
   onControlMouseDown,
@@ -107,12 +116,13 @@ export function FullColorPicker({
           <button
             type="button"
             aria-label={resetAriaLabel}
+            disabled={disabled}
             onMouseDown={onControlMouseDown}
             onClick={onReset}
             className={
-              currentValue
-                ? "sc-color-picker-inline-action"
-                : "sc-color-picker-inline-action is-active"
+              currentValue === resetValue
+                ? "sc-color-picker-inline-action is-active"
+                : "sc-color-picker-inline-action"
             }
           >
             <ArrowCounterClockwise aria-hidden className="sc-color-picker-inline-action-icon" />
@@ -121,10 +131,11 @@ export function FullColorPicker({
         </div>
 
         <ColorSwatchRow
-          ariaLabel="Quick colours"
+          ariaLabel={paletteAriaLabel}
           currentValue={currentValue}
           options={palette}
           onSelect={onChange}
+          {...(disabled ? { disabled: true } : {})}
           {...(labelSuffix ? { labelSuffix } : {})}
           {...(onControlMouseDown ? { onControlMouseDown } : {})}
         />
@@ -132,6 +143,7 @@ export function FullColorPicker({
         <button
           type="button"
           aria-expanded={customOpen}
+          disabled={disabled}
           onMouseDown={onControlMouseDown}
           onClick={() => setCustomOpen((open) => !open)}
           className="sc-color-picker-disclosure"
@@ -141,7 +153,11 @@ export function FullColorPicker({
         </button>
 
         {customOpen ? (
-          <ColorField aria-describedby={hintId} className="sc-color-picker-color-field">
+          <ColorField
+            aria-describedby={hintId}
+            className="sc-color-picker-color-field"
+            {...(disabled ? { isDisabled: true } : {})}
+          >
             <AriaLabel className="sc-color-picker-label">Hex</AriaLabel>
             <AriaInput aria-describedby={hintId} className="sc-color-picker-hex-input" />
             <span id={hintId} className="sc-sr-only">

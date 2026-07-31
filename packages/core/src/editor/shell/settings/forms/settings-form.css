@@ -1,0 +1,31 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-overlays {
+  :where(.sc-settings-form__section-items) {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  :where(.sc-settings-form__section-description) {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: 0.8125rem;
+    line-height: 1.35;
+  }
+
+  :where(.sc-settings-form__section-actions),
+  :where(.sc-settings-form__footer-actions) {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
+
+  :where(.sc-settings-form__item-error) {
+    margin: 0;
+    color: var(--color-error-text);
+    font-size: 0.75rem;
+    line-height: 1.35;
+  }
+}

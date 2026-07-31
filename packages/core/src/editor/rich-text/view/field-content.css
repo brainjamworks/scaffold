@@ -1,3 +1,6 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
 .sc-field-content {
   min-width: 0;
   overflow-wrap: anywhere;
@@ -42,4 +45,5 @@
 .sc-field-content > :where(pre),
 .ProseMirror .sc-field-content > :where(pre) {
   white-space: pre-wrap;
+}
 }

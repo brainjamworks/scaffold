@@ -1,7 +1,9 @@
 import {
   ChatCircleTextIcon as ChatCircleText,
   EyeIcon as Eye,
+  MoonIcon as Moon,
   PencilSimpleIcon as PencilSimple,
+  SunIcon as Sun,
 } from "@phosphor-icons/react";
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
 import {
@@ -19,6 +21,7 @@ import type { AssessmentGroupContract, AssessmentTargetContract } from "@scaffol
 
 import { cn } from "@/lib/cn";
 import { iconSm } from "@/ui/tokens/icon-sizes";
+import { OverlayBoundary } from "@/ui/components/OverlayBoundary/OverlayBoundary";
 import {
   projectArtifactSaveBundle,
   validateArtifactSaveBundleSize,
@@ -39,6 +42,18 @@ import type {
   ScaffoldLearnerHostServices,
 } from "@/host/contracts";
 import type { ArtifactSaveBundle, SaveableScaffoldArtifact } from "@/host/ports";
+import {
+  CourseDocumentAttrsSchema,
+  PersistedCourseThemeSchema,
+  type PersistedCourseTheme,
+} from "@/schemas/course-document";
+import { CourseThemePanel } from "@/theme/authoring/CourseThemePanel";
+import {
+  createThemeCatalogue,
+  resolveCourseTheme,
+  type ScaffoldThemeExtension,
+} from "@/theme/model";
+import { useAuthoringColorMode } from "@/theme/state/authoring-color-mode";
 
 import { ContentAuthorHost } from "./ContentAuthorHost";
 import { AuthoringDocumentBlockStrip } from "./AuthoringDocumentChrome";
@@ -122,9 +137,14 @@ export interface ScaffoldAuthoringAppProps {
   className?: string;
   mainClassName?: string;
   workspaceClassName?: string;
+  themeExtension?: ScaffoldThemeExtension;
 }
 
-export function ScaffoldAuthoringApp({
+export function ScaffoldAuthoringApp(props: ScaffoldAuthoringAppProps) {
+  return <ScaffoldAuthoringAppSession {...props} />;
+}
+
+function ScaffoldAuthoringAppSession({
   agentIntegration = ScaffoldUnavailableAgentIntegration,
   artifact,
   services,
@@ -142,9 +162,34 @@ export function ScaffoldAuthoringApp({
   className,
   mainClassName,
   workspaceClassName,
+  themeExtension,
 }: ScaffoldAuthoringAppProps) {
+  const { mode: applicationColorMode, toggleMode: toggleApplicationColorMode } =
+    useAuthoringColorMode();
+  const themeCatalogue = useMemo(() => createThemeCatalogue(themeExtension), [themeExtension]);
   const preparedArtifact = useMemo(() => prepareScaffoldArtifactForAuthoring(artifact), [artifact]);
   const readyArtifact = preparedArtifact.status === "ready" ? preparedArtifact.artifact : null;
+  const readyCourseTheme = useMemo(
+    () =>
+      readyArtifact
+        ? CourseDocumentAttrsSchema.parse(readyArtifact.content.content?.[0]?.attrs).theme
+        : null,
+    [readyArtifact],
+  );
+  const [courseThemeState, setCourseThemeState] = useState<{
+    source: unknown;
+    value: PersistedCourseTheme | null;
+  }>(() => ({ source: readyArtifact, value: readyCourseTheme }));
+  const courseTheme =
+    courseThemeState.source === readyArtifact ? courseThemeState.value : readyCourseTheme;
+  const resolvedCourseTheme = useMemo(() => {
+    if (!courseTheme) return undefined;
+    return resolveCourseTheme({
+      catalogue: themeCatalogue,
+      mode: applicationColorMode,
+      theme: courseTheme,
+    });
+  }, [applicationColorMode, courseTheme, themeCatalogue]);
   const document = useMemo(() => {
     const nextDocument = new Y.Doc();
     if (readyArtifact) {
@@ -169,6 +214,7 @@ export function ScaffoldAuthoringApp({
   const [previewServices, setPreviewServices] = useState<ScaffoldPreviewHostServices | null>(null);
   const [previewState, setPreviewStateStatus] = useState<"idle" | "loading" | "error">("idle");
   const [saveState, setSaveState] = useState<ScaffoldAuthoringSaveState>("idle");
+  const [applicationElement, setApplicationElement] = useState<HTMLDivElement | null>(null);
   const saveStateRef = useRef<ScaffoldAuthoringSaveState>("idle");
   const hydratingRef = useRef(true);
   const latestEditorRef = useRef<TiptapEditor | null>(null);
@@ -226,6 +272,10 @@ export function ScaffoldAuthoringApp({
     (nextEditor: TiptapEditor) => {
       latestEditorRef.current = nextEditor;
       setEditor(nextEditor);
+      const nextTheme = readPersistedCourseTheme(nextEditor);
+      if (nextTheme) {
+        setCourseThemeState({ source: readyArtifact, value: nextTheme });
+      }
       hydratingRef.current = true;
       requestAnimationFrame(() => {
         hydratingRef.current = false;
@@ -233,7 +283,7 @@ export function ScaffoldAuthoringApp({
       onAuthoringEditorChange?.(nextEditor);
       onEditorReady?.(nextEditor);
     },
-    [onAuthoringEditorChange, onEditorReady],
+    [onAuthoringEditorChange, onEditorReady, readyArtifact],
   );
 
   const persist = useCallback(
@@ -301,10 +351,21 @@ export function ScaffoldAuthoringApp({
   const handleEditorChange = useCallback(
     (nextEditor: TiptapEditor) => {
       latestEditorRef.current = nextEditor;
-      if (hydratingRef.current) return;
-      scheduleAutosave();
+      const nextTheme = readPersistedCourseTheme(nextEditor);
+      const shouldAutosave = !hydratingRef.current;
+      queueMicrotask(() => {
+        if (latestEditorRef.current !== nextEditor) return;
+        if (nextTheme) {
+          setCourseThemeState((current) =>
+            current.source === readyArtifact && current.value === nextTheme
+              ? current
+              : { source: readyArtifact, value: nextTheme },
+          );
+        }
+        if (shouldAutosave) scheduleAutosave();
+      });
     },
-    [scheduleAutosave],
+    [readyArtifact, scheduleAutosave],
   );
 
   useEffect(() => {
@@ -408,6 +469,36 @@ export function ScaffoldAuthoringApp({
         saveState,
         title,
       })}
+      {courseTheme && resolvedCourseTheme ? (
+        <CourseThemePanel
+          editor={editor}
+          catalogue={themeCatalogue}
+          theme={courseTheme}
+          resolvedTheme={resolvedCourseTheme}
+          onThemeChange={() => undefined}
+        />
+      ) : null}
+      <button
+        type="button"
+        onClick={toggleApplicationColorMode}
+        aria-pressed={applicationColorMode === "dark"}
+        aria-label={`Switch authoring application to ${
+          applicationColorMode === "light" ? "dark" : "light"
+        } mode`}
+        title={`Use ${applicationColorMode === "light" ? "dark" : "light"} appearance`}
+        className="sc-scaffold-authoring-action"
+        data-compact-label
+        data-state="default"
+      >
+        {applicationColorMode === "light" ? (
+          <Moon size={iconSm} aria-hidden />
+        ) : (
+          <Sun size={iconSm} aria-hidden />
+        )}
+        <span className="sc-scaffold-authoring-action-label">
+          {applicationColorMode === "light" ? "Dark" : "Light"}
+        </span>
+      </button>
       {!preview ? (
         <button
           type="button"
@@ -467,53 +558,64 @@ export function ScaffoldAuthoringApp({
         : null;
 
   return (
-    <div className={cn("sc-scaffold-authoring-app", className)}>
-      <Header
-        title={title}
-        onTitleChange={(nextTitle) => {
-          setTitleForCurrentArtifact(nextTitle);
-          titleRef.current = nextTitle;
-          if (!readyArtifact) return;
-          scheduleAutosave();
-        }}
-        saveState={saveState}
-        actions={appHeaderActions}
-      />
+    <div
+      ref={setApplicationElement}
+      className={cn("sc-scaffold-authoring-app", className)}
+      data-scaffold-color-mode={applicationColorMode}
+      style={{ colorScheme: applicationColorMode }}
+    >
+      <OverlayBoundary container={applicationElement} kind="viewport">
+        <Header
+          title={title}
+          onTitleChange={(nextTitle) => {
+            setTitleForCurrentArtifact(nextTitle);
+            titleRef.current = nextTitle;
+            if (!readyArtifact) return;
+            scheduleAutosave();
+          }}
+          brandSurface={applicationColorMode}
+          saveState={saveState}
+          actions={appHeaderActions}
+        />
 
-      <main className={cn("sc-scaffold-authoring-main", mainClassName)}>
-        <div
-          className={cn("sc-scaffold-authoring-workspace", workspaceClassName)}
-          data-preview-mode={activePreviewContent?.bootstrap.mode}
-        >
-          <ScaffoldServicesProvider ports={providerPorts}>
-            {authoringUnavailableMessage && !readyArtifact ? (
-              <ScaffoldAuthoringUnavailable message={authoringUnavailableMessage} />
-            ) : activePreviewContent && previewServices ? (
-              <Suspense fallback={<div role="status">Preparing preview...</div>}>
-                <LazyScaffoldLearnerApp
-                  bootstrap={activePreviewContent.bootstrap}
-                  slideshowSizing="contained"
-                  services={previewServices}
+        <main className={cn("sc-scaffold-authoring-main", mainClassName)}>
+          <div
+            className={cn("sc-scaffold-authoring-workspace", workspaceClassName)}
+            data-preview-mode={activePreviewContent?.bootstrap.mode}
+          >
+            <ScaffoldServicesProvider ports={providerPorts}>
+              {authoringUnavailableMessage && !readyArtifact ? (
+                <ScaffoldAuthoringUnavailable message={authoringUnavailableMessage} />
+              ) : activePreviewContent && previewServices ? (
+                <Suspense fallback={<div role="status">Preparing preview...</div>}>
+                  <LazyScaffoldLearnerApp
+                    bootstrap={activePreviewContent.bootstrap}
+                    hostColorMode={applicationColorMode}
+                    slideshowSizing="contained"
+                    services={previewServices}
+                    {...(themeExtension === undefined ? {} : { themeExtension })}
+                  />
+                </Suspense>
+              ) : (
+                <ContentAuthorHost
+                  agentIntegration={agentIntegration}
+                  artifactId={resolvedArtifactId}
+                  document={document}
+                  editable
+                  onChange={handleEditorChange}
+                  onEditorReady={handleEditorReady}
+                  {...(resolvedCourseTheme ? { resolvedTheme: resolvedCourseTheme } : {})}
+                  agentOpen={resolvedAgentOpen}
+                  onAgentClose={handleAgentClose}
+                  scrollModel={scrollModel}
+                  leftRail={renderLeftRail}
+                  rightRail={renderRightRail}
                 />
-              </Suspense>
-            ) : (
-              <ContentAuthorHost
-                agentIntegration={agentIntegration}
-                artifactId={resolvedArtifactId}
-                document={document}
-                editable
-                onChange={handleEditorChange}
-                onEditorReady={handleEditorReady}
-                agentOpen={resolvedAgentOpen}
-                onAgentClose={handleAgentClose}
-                scrollModel={scrollModel}
-                leftRail={renderLeftRail}
-                rightRail={renderRightRail}
-              />
-            )}
-          </ScaffoldServicesProvider>
-        </div>
-      </main>
+              )}
+            </ScaffoldServicesProvider>
+          </div>
+        </main>
+      </OverlayBoundary>
     </div>
   );
 }
@@ -525,6 +627,13 @@ function ScaffoldAuthoringUnavailable({ message }: { message: string }) {
       <span>{message}</span>
     </div>
   );
+}
+
+function readPersistedCourseTheme(editor: TiptapEditor): PersistedCourseTheme | null {
+  const theme = editor.state.doc.firstChild?.attrs["theme"];
+  return PersistedCourseThemeSchema.safeParse(theme).success
+    ? (theme as PersistedCourseTheme)
+    : null;
 }
 
 function toJsonDocument(content: unknown): JSONContent {

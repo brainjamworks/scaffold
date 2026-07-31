@@ -1,10 +1,16 @@
 // @vitest-environment happy-dom
 
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Editor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
+import * as Y from "yjs";
 import { describe, expect, it } from "vite-plus/test";
+
+import { createAuthoringEditorCollaborationSetup } from "@/document/authoring/authoring-collaboration";
+import { initializeCourseDocumentFragment } from "@/document/model/initialize-document";
+import { selectCoursePreset } from "@/theme/authoring";
+import { SCAFFOLD_EDITORIAL_PRESET } from "@/theme/model";
 
 import { Toolbar } from "./Toolbar";
 
@@ -107,5 +113,24 @@ describe("Toolbar", () => {
     expect(editor.getHTML()).toContain("<hr>");
 
     editor.destroy();
+  });
+
+  it("enables redo after a collaborative undo", async () => {
+    const user = userEvent.setup();
+    const document = new Y.Doc();
+    initializeCourseDocumentFragment(document, { mode: "page" });
+    const setup = createAuthoringEditorCollaborationSetup({ document, editable: true });
+    expect(setup.ok).toBe(true);
+    if (!setup.ok) throw new Error("expected valid authoring setup");
+    const editor = new Editor({ content: setup.content, extensions: setup.extensions });
+    render(<Toolbar editor={editor} />);
+
+    expect(selectCoursePreset(editor, SCAFFOLD_EDITORIAL_PRESET)).toBe(true);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Undo" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Undo" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Redo" })).toBeEnabled());
+    editor.destroy();
+    document.destroy();
   });
 });

@@ -5,12 +5,15 @@ import {
   CourseDocumentAttrsSchema,
   CourseModeSchema,
   OverflowModeSchema,
+  PersistedCourseThemeSchema,
   SurfaceSizeSchema,
 } from "@/schemas/course-document";
+import { createScaffoldDefaultTheme } from "@/theme/model";
 
 const defaultAttrs = CourseDocumentAttrsSchema.parse({
   schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
   mode: "page",
+  theme: createScaffoldDefaultTheme(),
 });
 
 function parseAttrWithDefault<T>(
@@ -30,6 +33,13 @@ function parseJsonAttr(value: string | null): unknown {
   } catch {
     return null;
   }
+}
+
+function parseCourseTheme(element: HTMLElement) {
+  const parsed = PersistedCourseThemeSchema.safeParse(
+    parseJsonAttr(element.getAttribute("data-course-theme-values")),
+  );
+  return parsed.success ? parsed.data : createScaffoldDefaultTheme();
 }
 
 function parseDocumentFormatVersion(value: unknown): number {
@@ -106,10 +116,16 @@ export const CourseDocumentNode = Node.create({
         }),
       },
       theme: {
-        default: null,
-        parseHTML: (element: HTMLElement) => element.getAttribute("data-course-theme"),
-        renderHTML: (attrs: { theme?: unknown }) =>
-          typeof attrs.theme === "string" ? { "data-course-theme": attrs.theme } : {},
+        default: defaultAttrs.theme,
+        parseHTML: parseCourseTheme,
+        renderHTML: (attrs: { theme?: unknown }) => {
+          const parsed = PersistedCourseThemeSchema.safeParse(attrs.theme);
+          const theme = parsed.success ? parsed.data : createScaffoldDefaultTheme();
+          return {
+            "data-course-theme": theme.preset.id,
+            "data-course-theme-values": JSON.stringify(theme),
+          };
+        },
       },
       branching: {
         default: null,

@@ -1,5 +1,12 @@
 import Collaboration from "@tiptap/extension-collaboration";
-import { getSchema, type Content, type Extensions, type JSONContent } from "@tiptap/core";
+import {
+  Extension,
+  getSchema,
+  type Content,
+  type Extensions,
+  type JSONContent,
+} from "@tiptap/core";
+import type { EditorState } from "@tiptap/pm/state";
 import { initProseMirrorDoc, yXmlFragmentToProsemirrorJSON } from "y-prosemirror";
 import type * as Y from "yjs";
 
@@ -61,6 +68,53 @@ export function createAuthoringEditorCollaborationSetup({
         field: COURSE_DOCUMENT_FRAGMENT,
         ySyncOptions: { mapping },
       }),
+      collaborationUndoLifecycleGuard,
     ],
   };
+}
+
+/**
+ * Tiptap can recreate its ProseMirror view while retaining the collaboration
+ * plugin state. The collaboration view's cleanup destroys the retained Yjs
+ * UndoManager, which removes the manager from its own tracked origins. Restore
+ * that invariant immediately before history commands so undo transactions
+ * always create redo entries.
+ */
+const collaborationUndoLifecycleGuard = Extension.create({
+  name: "collaborationUndoLifecycleGuard",
+
+  addCommands() {
+    return {
+      undo:
+        () =>
+        ({ tr, state, dispatch }) => {
+          tr.setMeta("preventDispatch", true);
+          const undoManager = findCollaborationUndoManager(state);
+          if (!undoManager || undoManager.undoStack.length === 0) return false;
+          if (!dispatch) return true;
+          undoManager.addTrackedOrigin(undoManager);
+          return undoManager.undo() !== null;
+        },
+      redo:
+        () =>
+        ({ tr, state, dispatch }) => {
+          tr.setMeta("preventDispatch", true);
+          const undoManager = findCollaborationUndoManager(state);
+          if (!undoManager || undoManager.redoStack.length === 0) return false;
+          if (!dispatch) return true;
+          undoManager.addTrackedOrigin(undoManager);
+          return undoManager.redo() !== null;
+        },
+    };
+  },
+});
+
+function findCollaborationUndoManager(state: EditorState): Y.UndoManager | null {
+  for (const plugin of state.plugins) {
+    const pluginKey = plugin.spec.key as { key: string } | undefined;
+    if (!pluginKey?.key.startsWith("y-undo$")) continue;
+    const pluginState = plugin.getState(state) as { undoManager?: Y.UndoManager } | undefined;
+    return pluginState?.undoManager ?? null;
+  }
+  return null;
 }

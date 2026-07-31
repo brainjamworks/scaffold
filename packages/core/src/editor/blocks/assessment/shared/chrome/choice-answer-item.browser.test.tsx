@@ -5,6 +5,8 @@ import { page } from "vite-plus/test/browser/context";
 import "@/styles/globals.css";
 
 import { ChoiceAnswerItem, CHOICE_TRAILING_BTN } from "./ChoiceAnswerItem";
+import "../../image-hotspot/ImageHotspot.css";
+import "../../../media/AudioBlock.css";
 import "./assessment-problem-shell.css";
 
 let root: Root | null = null;
@@ -85,6 +87,98 @@ describe("ChoiceAnswerItem compact geometry", () => {
     expect(promptPlaceholderStyle.textOverflow).toBe("ellipsis");
     expect(promptPlaceholderStyle.position).toBe("absolute");
     expect(Number.parseFloat(promptPlaceholderStyle.height)).toBeGreaterThan(0);
+  });
+
+  it("keeps graded states on semantic status colours when brand colours change", async () => {
+    host = document.createElement("section");
+    host.style.cssText = [
+      "--color-accent: rgb(1 2 3)",
+      "--color-secondary: rgb(4 5 6)",
+      "--color-success: rgb(22 163 74)",
+      "--color-success-bg: rgb(220 252 231)",
+      "--color-success-text: rgb(20 83 45)",
+      "--color-error: rgb(220 38 38)",
+      "--color-error-bg: rgb(254 226 226)",
+      "--color-error-text: rgb(127 29 29)",
+    ].join(";");
+    document.body.append(host);
+
+    root = createRoot(host);
+    root.render(
+      <>
+        <ChoiceAnswerItem
+          id="correct"
+          inputType="radio"
+          isCorrect
+          isEditable={false}
+          state="correct"
+          checked
+          disabled
+          onSelect={() => {}}
+          onToggleCorrect={() => {}}
+          onDelete={() => {}}
+        >
+          Correct
+        </ChoiceAnswerItem>
+        <ChoiceAnswerItem
+          id="incorrect"
+          inputType="radio"
+          isCorrect={false}
+          isEditable={false}
+          state="incorrect"
+          checked
+          disabled
+          onSelect={() => {}}
+          onToggleCorrect={() => {}}
+          onDelete={() => {}}
+        >
+          Incorrect
+        </ChoiceAnswerItem>
+      </>,
+    );
+
+    await waitForCondition(() => host?.querySelector(".sc-choice-answer--incorrect"));
+
+    const correct = requireElement<HTMLElement>(host, ".sc-choice-answer--correct");
+    const incorrect = requireElement<HTMLElement>(host, ".sc-choice-answer--incorrect");
+    const correctMark = requireElement<SVGElement>(correct, ".sc-choice-answer__mark");
+    const incorrectMark = requireElement<SVGElement>(incorrect, ".sc-choice-answer__mark");
+
+    expect(getComputedStyle(correct).borderColor).toBe("rgb(22, 163, 74)");
+    expect(getComputedStyle(correct).backgroundColor).toBe("rgb(220, 252, 231)");
+    expect(getComputedStyle(correctMark).color).toBe("rgb(22, 163, 74)");
+    expect(getComputedStyle(incorrect).borderColor).toBe("rgb(220, 38, 38)");
+    expect(getComputedStyle(incorrect).backgroundColor).toBe("rgb(254, 226, 226)");
+    expect(getComputedStyle(incorrectMark).color).toBe("rgb(220, 38, 38)");
+  });
+
+  it("uses status tokens for hotspot results and media errors", () => {
+    host = document.createElement("section");
+    host.style.cssText = [
+      "--color-accent: rgb(1 2 3)",
+      "--color-secondary: rgb(4 5 6)",
+      "--color-success: rgb(22 163 74)",
+      "--color-success-foreground: rgb(240 253 244)",
+      "--color-error: rgb(220 38 38)",
+      "--color-error-foreground: rgb(254 242 242)",
+      "--color-error-text: rgb(127 29 29)",
+    ].join(";");
+    host.innerHTML = `
+      <span class="sc-image-hotspot-marker sc-image-hotspot-marker--hit sc-image-hotspot-marker--correct"></span>
+      <span class="sc-image-hotspot-marker sc-image-hotspot-marker--hit sc-image-hotspot-marker--incorrect"></span>
+      <p class="sc-audio-block__error">Unable to load audio</p>
+    `;
+    document.body.append(host);
+
+    const correct = requireElement<HTMLElement>(host, ".sc-image-hotspot-marker--correct");
+    const incorrect = requireElement<HTMLElement>(host, ".sc-image-hotspot-marker--incorrect");
+    const audioError = requireElement<HTMLElement>(host, ".sc-audio-block__error");
+
+    expect(getComputedStyle(correct).backgroundColor).toBe("rgb(22, 163, 74)");
+    expect(getComputedStyle(correct).color).toBe("rgb(240, 253, 244)");
+    expect(getComputedStyle(incorrect).backgroundColor).toBe("rgb(220, 38, 38)");
+    expect(getComputedStyle(incorrect).color).toBe("rgb(254, 242, 242)");
+    expect(getComputedStyle(audioError).color).toBe("rgb(127, 29, 29)");
   });
 });
 

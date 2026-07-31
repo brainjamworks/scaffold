@@ -2,7 +2,7 @@
 
 @layer sc-components {
   :where(.sc-accordion-item) {
-    border-top: 1px solid var(--color-border);
+    border-top: var(--sc-border-width) solid var(--color-border);
   }
 
   :where(.sc-accordion-item:first-child) {

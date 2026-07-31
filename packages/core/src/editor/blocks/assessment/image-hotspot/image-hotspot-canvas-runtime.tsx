@@ -37,6 +37,7 @@ import {
 import { AssessmentFeedbackContentSchema } from "@scaffold/contracts";
 
 import {
+  IMAGE_HOTSPOT_CORRECT_COLOR,
   createImageHotspotCanvasNode,
   eventToPercent,
   findHitHotspot,
@@ -345,7 +346,7 @@ function RuntimeCanvas({
                   cy={(h.centerY / 100) * naturalSize.h}
                   r={(h.radius / 100) * naturalSize.w}
                   fill="none"
-                  stroke="var(--color-accent)"
+                  stroke={IMAGE_HOTSPOT_CORRECT_COLOR}
                   strokeWidth={naturalSize.w * 0.004}
                   className="sc-hotspot-pulse"
                 />

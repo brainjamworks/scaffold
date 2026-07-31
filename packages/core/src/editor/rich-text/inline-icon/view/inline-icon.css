@@ -1,3 +1,6 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
 .sc-inline-icon,
 .sc-inline-icon-static {
   --sc-inline-icon-size: 1.25em;
@@ -59,4 +62,5 @@
   color: var(--color-text-secondary);
   font-size: 0.875em;
   font-weight: 600;
+}
 }

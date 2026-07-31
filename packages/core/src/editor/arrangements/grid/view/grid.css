@@ -1,3 +1,6 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
 .sc-grid {
   --sc-grid-gap: 0.5rem;
 
@@ -181,4 +184,5 @@
 .sc-grid-authoring--editable [data-grid-column-resize-handle]:active::before {
   width: 2px;
   background: var(--color-primary);
+}
 }

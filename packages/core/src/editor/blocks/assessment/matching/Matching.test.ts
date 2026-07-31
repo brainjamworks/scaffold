@@ -38,6 +38,7 @@ import {
   describeMatchingItemAccessibilityState,
   describeMatchingTargetAccessibilityState,
   getMatchingConnectorPath,
+  matchingConnectorColor,
 } from "./matching-fields";
 import { MatchingAuthoringExtension } from "./matching-authoring-extension";
 import { MatchingRuntimeExtension } from "./matching-runtime-extension";
@@ -888,6 +889,12 @@ describe("composite matching node", () => {
 });
 
 describe("matching reveal parsing", () => {
+  it("uses semantic result colours for matching connectors", () => {
+    expect(matchingConnectorColor("correct")).toBe("var(--color-success)");
+    expect(matchingConnectorColor("incorrect")).toBe("var(--color-error)");
+    expect(matchingConnectorColor("default")).toBe("var(--color-primary)");
+  });
+
   it("draws matching connectors as cubic bezier paths", () => {
     expect(
       getMatchingConnectorPath({

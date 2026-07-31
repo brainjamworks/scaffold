@@ -91,6 +91,7 @@ import {
   toggleImageHotspotCorrectChecked,
 } from "./image-hotspot-authoring-commands";
 import {
+  IMAGE_HOTSPOT_CORRECT_COLOR,
   createImageHotspotCanvasNode,
   eventToPercent,
   findHitHotspot,
@@ -685,9 +686,9 @@ function AuthorCanvas({
                 const cx = (h.centerX / 100) * naturalSize.w;
                 const cy = (h.centerY / 100) * naturalSize.h;
                 const r = (h.radius / 100) * naturalSize.w;
-                // Teal = marked correct; navy = drawn but not yet marked correct.
+                // Semantic success = marked correct; primary = drawn but not yet marked correct.
                 const color = assessment.correctHotspotIds.includes(h.id)
-                  ? "var(--color-accent)"
+                  ? IMAGE_HOTSPOT_CORRECT_COLOR
                   : "var(--color-primary)";
                 return (
                   <g key={h.id}>

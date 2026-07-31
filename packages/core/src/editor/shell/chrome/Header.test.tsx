@@ -14,4 +14,15 @@ describe("Header", () => {
     expect(title.getAttribute("id")).toBe("scaffold-document-title");
     expect(title.getAttribute("name")).toBe("scaffold-document-title");
   });
+
+  it("renders the brand lockup for the requested application surface", () => {
+    render(<Header title="Course title" onTitleChange={vi.fn()} brandSurface="dark" />);
+
+    const mark = screen.getByRole("img", { name: "scaffold mark" });
+    const markStroke = mark.querySelector("path")?.getAttribute("stroke");
+    const wordmark = mark.closest("[data-scaffold-wordmark]")?.querySelector(":scope > span");
+
+    expect(markStroke).toBe("#FFFFFF");
+    expect(wordmark).toHaveStyle({ color: "#FFFFFF" });
+  });
 });

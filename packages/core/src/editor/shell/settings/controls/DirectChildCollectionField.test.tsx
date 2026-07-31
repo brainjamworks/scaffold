@@ -46,6 +46,8 @@ vi.mock("@/editor/media/authoring/picker/LazyFilePickerModal", () => ({
 const ItemDataSchema = z.object({
   image: ImageBlockAttrsSchema.nullable(),
   caption: z.object({ type: z.literal("doc"), content: z.array(z.unknown()).optional() }),
+  accentColor: z.string().optional(),
+  mode: z.string().optional(),
 });
 
 const CollectionOwnerNode = Node.create({
@@ -86,6 +88,7 @@ afterEach(() => {
 });
 
 const descriptor = {
+  kind: "directChildCollection" as const,
   id: "images",
   childNodeType: "settings_collection_item",
   attr: "data",
@@ -106,6 +109,23 @@ const descriptor = {
       name: "caption",
       label: "Caption",
       placeholder: "Describe this image",
+    },
+    {
+      kind: "color" as const,
+      name: "accentColor",
+      label: "Accent colour",
+      palette: [{ value: "#161d77", label: "Navy" }],
+      fallbackColor: "#ffffff",
+    },
+    {
+      kind: "select" as const,
+      name: "mode",
+      label: "Mode",
+      presentation: "segmented" as const,
+      options: [
+        { value: "practice", label: "Practice" },
+        { value: "graded", label: "Graded" },
+      ],
     },
   ],
 };
@@ -184,6 +204,18 @@ describe("DirectChildCollectionField", () => {
       expect(screen.getByAltText("Updated")).toBeInTheDocument();
     });
     expect(screen.getAllByRole("group", { name: /Image \([ab]\)/ })).toHaveLength(2);
+  });
+
+  it("scopes scalar control and description ids to each collection item", () => {
+    const editor = makeEditor();
+    renderField(editor);
+
+    for (const name of ["Accent colour", "Mode"]) {
+      const controls = screen.getAllByRole(name === "Mode" ? "radiogroup" : "group", { name });
+      expect(controls).toHaveLength(2);
+      expect(new Set(controls.map((control) => control.id)).size).toBe(2);
+      expect(controls.every((control) => control.id.includes("item-"))).toBe(true);
+    }
   });
 
   it("keeps the live owner through movement, deletion, and undo", async () => {

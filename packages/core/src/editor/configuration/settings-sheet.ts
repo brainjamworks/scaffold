@@ -6,6 +6,8 @@ import type { ZodTypeAny } from "zod";
 
 import type { CheckedMutationResult } from "@/document/model/commands/checked-transactions";
 import type { ResolvedStableNode } from "@/document/model/identity/resolve-stable-node";
+import type { ButtonVariant } from "@/ui/components/Button/Button";
+import type { PillVariant } from "@/ui/components/Pill/Pill";
 
 export type SettingsSheetAttrSurface = "data" | "settings" | "options";
 export type SettingsSheetFieldName = FieldPath<FieldValues>;
@@ -13,7 +15,20 @@ export type SettingsSheetFieldName = FieldPath<FieldValues>;
 export interface SettingsSheetSelectOption {
   value: string;
   label: string;
+  ariaLabel?: string;
+  description?: string;
   icon?: Icon;
+  swatches?: readonly string[];
+}
+
+export interface SettingsSheetFieldStatus {
+  label: string;
+  variant?: PillVariant;
+}
+
+export interface SettingsSheetColorOption {
+  value: string;
+  label: string;
 }
 
 export interface SettingsSheetVisibleWhen {
@@ -53,6 +68,7 @@ interface SettingsSheetFieldBase {
   name: SettingsSheetFieldName;
   label: string;
   description?: ReactNode;
+  status?: SettingsSheetFieldStatus;
   disabledReason?: ReactNode;
   disabledHint?: ReactNode;
   visibleWhen?: SettingsSheetVisibleWhen;
@@ -88,6 +104,7 @@ export interface SettingsSheetSelectFieldDescriptor extends SettingsSheetFieldBa
   options?: readonly SettingsSheetSelectOption[];
   optionsSource?: SettingsSheetOptionSource;
   placeholder?: string;
+  presentation?: "cards" | "menu" | "segmented";
 }
 
 export interface SettingsSheetMultiSelectFieldDescriptor extends SettingsSheetFieldBase {
@@ -99,6 +116,18 @@ export interface SettingsSheetMultiSelectFieldDescriptor extends SettingsSheetFi
 export interface SettingsSheetDataGridFieldDescriptor extends SettingsSheetFieldBase {
   kind: "dataGrid";
   ariaLabel?: string;
+}
+
+export interface SettingsSheetColorFieldDescriptor extends SettingsSheetFieldBase {
+  kind: "color";
+  palette: readonly SettingsSheetColorOption[];
+  fallbackColor: string;
+  pickerLabel?: string;
+  labelSuffix?: string;
+  resetValue?: string;
+  resetLabel?: string;
+  resetAriaLabel?: string;
+  customHint?: string;
 }
 
 export interface SettingsSheetImageFieldDescriptor extends SettingsSheetFieldBase {
@@ -121,6 +150,7 @@ export interface SettingsSheetRichTextFieldDescriptor extends SettingsSheetField
 }
 
 export interface SettingsSheetDirectChildCollectionDescriptor {
+  kind: "directChildCollection";
   id: string;
   childNodeType: string;
   attr: string;
@@ -140,18 +170,49 @@ export type SettingsSheetFieldDescriptor =
   | SettingsSheetSelectFieldDescriptor
   | SettingsSheetMultiSelectFieldDescriptor
   | SettingsSheetDataGridFieldDescriptor
+  | SettingsSheetColorFieldDescriptor
   | SettingsSheetImageFieldDescriptor
   | SettingsSheetRichTextFieldDescriptor;
 
-export interface SettingsSheetSection {
+export type SettingsFormFieldDescriptor = SettingsSheetFieldDescriptor;
+export type SettingsFormItemDescriptor =
+  | SettingsFormFieldDescriptor
+  | SettingsSheetDirectChildCollectionDescriptor;
+
+export interface SettingsFormAction<TActionId extends string = string> {
+  id: TActionId;
+  label: string;
+  ariaLabel?: string;
+  variant?: ButtonVariant;
+  disabled?: boolean;
+}
+
+export interface SettingsFormActionEvent<TActionId extends string = string> {
+  actionId: TActionId;
+  sectionId?: string;
+}
+
+export interface SettingsFormSection<TActionId extends string = string> {
   id: string;
   title: string;
   description?: ReactNode;
-  fields: readonly SettingsSheetFieldDescriptor[];
-  collections?: readonly SettingsSheetDirectChildCollectionDescriptor[];
+  items: readonly SettingsFormItemDescriptor[];
+  actions?: readonly SettingsFormAction<TActionId>[];
 }
 
-export interface SettingsSheetDefinition {
+/**
+ * Presentation-only contract for a declarative settings form.
+ *
+ * The owner supplies the form state and validation. Persistence and container
+ * lifecycle are intentionally outside this definition.
+ */
+export interface SettingsFormDefinition<TActionId extends string = string> {
+  sections: readonly SettingsFormSection<TActionId>[];
+  defaultOpenSections?: readonly string[];
+  footerActions?: readonly SettingsFormAction<TActionId>[];
+}
+
+export interface SettingsSheetDefinition extends SettingsFormDefinition {
   attr: SettingsSheetAttrSurface;
   /** Persisted schema for the configured node attr. */
   schema: ZodTypeAny;
@@ -162,8 +223,6 @@ export interface SettingsSheetDefinition {
   apply?: SettingsSheetApply;
   title: string;
   description?: string;
-  sections: readonly SettingsSheetSection[];
-  defaultOpenSections?: readonly string[];
 }
 
 export type NodeSettingsSheetDefinition = SettingsSheetDefinition & {

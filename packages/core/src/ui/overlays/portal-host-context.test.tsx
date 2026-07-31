@@ -9,6 +9,7 @@ import { zIndex } from "@/ui/overlays/z-index";
 import {
   OverlayBoundaryResolutionProvider,
   pendingOverlayBoundaryResolution,
+  resolveOverlayThemeOwner,
   useOverlayBoundary,
   type OverlayBoundaryResolution,
 } from "./portal-host-context";
@@ -129,5 +130,24 @@ describe("overlay boundary resolution", () => {
 
     expect(screen.getByText("ready:outer:viewport:fixed:true:true")).toBeInTheDocument();
     expect(screen.getByText("ready:inner:viewport:fixed:true:true")).toBeInTheDocument();
+  });
+
+  it("distinguishes course-owned portal hosts from application-owned hosts", () => {
+    const application = document.createElement("main");
+    const applicationHost = document.createElement("div");
+    const courseScope = document.createElement("section");
+    const courseHost = document.createElement("div");
+    courseScope.className = "sc-course-theme-scope";
+    courseScope.append(courseHost);
+    application.append(applicationHost, courseScope);
+
+    expect(resolveOverlayThemeOwner(applicationHost)).toEqual({
+      kind: "application",
+      courseScope: null,
+    });
+    expect(resolveOverlayThemeOwner(courseHost)).toEqual({
+      kind: "course",
+      courseScope,
+    });
   });
 });

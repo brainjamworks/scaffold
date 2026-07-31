@@ -1,14 +1,20 @@
-.scaffold-authoring-surface-view [data-surface].sc-slide-cover-surface-view [data-surface-content] {
-  position: relative;
-  z-index: 1;
-  min-width: 0;
-}
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
 
-.scaffold-authoring-surface-view [data-surface].sc-slide-cover-surface-view h1.is-empty::before {
-  content: attr(data-placeholder);
-  height: 0;
-  float: left;
-  color: currentColor;
-  opacity: 0.5;
-  pointer-events: none;
+@layer sc-components {
+  .scaffold-authoring-surface-view
+    [data-surface].sc-slide-cover-surface-view
+    [data-surface-content] {
+    position: relative;
+    z-index: 1;
+    min-width: 0;
+  }
+
+  .scaffold-authoring-surface-view [data-surface].sc-slide-cover-surface-view h1.is-empty::before {
+    content: attr(data-placeholder);
+    height: 0;
+    float: left;
+    color: currentColor;
+    opacity: 0.5;
+    pointer-events: none;
+  }
 }

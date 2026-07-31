@@ -17,6 +17,8 @@ import { AuthoringDocumentChrome } from "@/editor/shell/authoring/AuthoringDocum
 import { readSurfaceViewSettingsFromProseMirrorDoc } from "@/document/model/surface-view-settings";
 import { COURSE_DOCUMENT_FRAGMENT } from "@/document/model/constants";
 import { createScaffoldDocumentContent } from "@/format/artifact";
+import type { ResolvedCourseTheme } from "@/theme/model";
+import { CourseThemeScope } from "@/theme/presentation";
 
 import { initializeAuthoringCourseDocumentFragment } from "./initialize-authoring-document";
 import { AuthoringSurfaceView } from "@/editor/surfaces/authoring/views/AuthoringSurfaceView";
@@ -31,6 +33,7 @@ export interface CourseDocumentEditorProps {
   onChange?: (editor: TiptapEditor) => void;
   onReady?: (editor: TiptapEditor) => void;
   onUpdate?: (json: JSONContent) => void;
+  resolvedTheme?: ResolvedCourseTheme;
   suspended?: boolean;
 }
 
@@ -44,6 +47,7 @@ export function CourseDocumentEditor({
   onChange,
   onReady,
   onUpdate,
+  resolvedTheme,
   suspended = false,
 }: CourseDocumentEditorProps) {
   const mountedEditorRef = useRef<TiptapEditor | null>(null);
@@ -94,6 +98,7 @@ export function CourseDocumentEditor({
       onChange={onChange}
       onReady={onReady}
       onUpdate={onUpdate}
+      resolvedTheme={resolvedTheme}
       suspended={suspended}
     />
   );
@@ -126,6 +131,7 @@ interface RequiredEditorProps {
   onEditorCreated: (editor: TiptapEditor) => void;
   onReady: ((editor: TiptapEditor) => void) | undefined;
   onUpdate: ((json: JSONContent) => void) | undefined;
+  resolvedTheme: ResolvedCourseTheme | undefined;
   suspended: boolean;
 }
 
@@ -136,6 +142,7 @@ function MountedCourseDocumentEditor({
   onReady,
   onEditorCreated,
   onUpdate,
+  resolvedTheme,
   suspended,
   authoringSetup,
 }: RequiredEditorProps & {
@@ -183,9 +190,11 @@ function MountedCourseDocumentEditor({
           editor={editor}
           overlayContainer={overlayContainer}
         >
-          <AuthoringSurfaceView settings={surfaceViewSettings}>
-            <EditorContent className="sc-course-document-editor__content" editor={editor} />
-          </AuthoringSurfaceView>
+          <CourseThemeScope resolvedTheme={resolvedTheme}>
+            <AuthoringSurfaceView settings={surfaceViewSettings}>
+              <EditorContent className="sc-course-document-editor__content" editor={editor} />
+            </AuthoringSurfaceView>
+          </CourseThemeScope>
         </AuthoringDocumentChrome>
       </ScaffoldArtifactIdentityProvider>
     </div>

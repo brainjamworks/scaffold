@@ -66,7 +66,10 @@ import {
   describeImageHotspotRevealedHotspotAccessibilityState,
   describeImageHotspotSurfaceAccessibilityState,
 } from "./image-hotspot-canvas-runtime";
-import { patchHotspotInCanvasData } from "./image-hotspot-canvas-shared";
+import {
+  IMAGE_HOTSPOT_CORRECT_COLOR,
+  patchHotspotInCanvasData,
+} from "./image-hotspot-canvas-shared";
 import { createImageHotspotAuthoringExtension } from "./image-hotspot-authoring-extension";
 import { createImageHotspotRuntimeExtension } from "./image-hotspot-runtime-extension";
 
@@ -429,6 +432,10 @@ afterEach(() => {
 });
 
 describe("composite image_hotspot node", () => {
+  it("uses the semantic success colour for correct hotspot geometry", () => {
+    expect(IMAGE_HOTSPOT_CORRECT_COLOR).toBe("var(--color-success)");
+  });
+
   it("describes image hotspot runtime accessibility states", () => {
     expect(
       describeImageHotspotSurfaceAccessibilityState({

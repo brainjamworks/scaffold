@@ -248,6 +248,7 @@ function CollectionItemFields({
               descriptor={field}
               documentTarget={documentTarget}
               form={form}
+              idPrefix={itemId}
             />
           );
         })}
@@ -260,10 +261,12 @@ function ImmediateScalarField({
   descriptor,
   documentTarget,
   form,
+  idPrefix,
 }: {
   descriptor: SettingsSheetFieldDescriptor;
   documentTarget: SettingsFieldDocumentTarget;
   form: ReturnType<typeof useForm<FieldValues>>;
+  idPrefix: string;
 }) {
   const value = useWatch({ control: form.control, name: descriptor.name });
 
@@ -272,7 +275,7 @@ function ImmediateScalarField({
     documentTarget.writeField(descriptor.name, value);
   }, [descriptor.name, documentTarget, value]);
 
-  return <FieldRenderer descriptor={descriptor} />;
+  return <FieldRenderer descriptor={descriptor} idPrefix={idPrefix} />;
 }
 
 function readCurrentItem(

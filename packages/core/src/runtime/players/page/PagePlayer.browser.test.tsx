@@ -4,6 +4,12 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { createAssessmentRuntimeTestRoot } from "@/runtime/assessment/test-utils";
+import {
+  createScaffoldDefaultTheme,
+  createThemeCatalogue,
+  resolveCourseTheme,
+  type ResolvedCourseTheme,
+} from "@/theme/model";
 import "@/styles/globals.css";
 
 import { PagePlayer } from "./PagePlayer";
@@ -19,6 +25,34 @@ afterEach(() => {
 });
 
 describe("PagePlayer presentation", () => {
+  it("applies dark theme-derived colours while preserving an explicit surface colour", async () => {
+    const content = pageDocumentWithParagraphs(["Dark learner page"]);
+    const courseDocument = content.content?.[0];
+    const surface = courseDocument?.content?.[0];
+    if (!courseDocument || !surface) throw new Error("Page browser theme fixture is incomplete.");
+    surface.attrs = {
+      ...surface.attrs,
+      settings: {
+        ...(surface.attrs?.settings as Record<string, unknown>),
+        background: { color: "#123456" },
+      },
+    };
+    const resolvedTheme = resolveCourseTheme({
+      catalogue: createThemeCatalogue(),
+      mode: "dark",
+      theme: createScaffoldDefaultTheme(),
+    });
+
+    const mounted = await mountPage(content, 1200, resolvedTheme);
+    const scope = uniqueElement<HTMLElement>(mounted.host, ".sc-course-theme-scope");
+    const runtimeSurface = uniqueElement<HTMLElement>(scope, "[data-surface]");
+    const paragraph = uniqueElement<HTMLElement>(runtimeSurface, "p");
+
+    expect(scope.dataset.courseColorMode).toBe("dark");
+    expect(getComputedStyle(paragraph).color).toBe(getComputedStyle(scope).color);
+    expect(getComputedStyle(runtimeSurface).backgroundColor).toBe("rgb(18, 52, 86)");
+  });
+
   it("leaves the player and Page surface unpainted", async () => {
     const mounted = await mountPage(pageDocumentWithParagraphs(["Short learner page"]));
     const player = uniqueElement<HTMLElement>(mounted.host, ".sc-page-player");
@@ -215,6 +249,7 @@ function buttonByName(root: ParentNode, name: string): HTMLButtonElement {
 async function mountPage(
   initialContent: JSONContent,
   width = 1200,
+  resolvedTheme?: ResolvedCourseTheme,
 ): Promise<{ host: HTMLElement }> {
   let editor: TiptapEditor | null = null;
   const host = document.createElement("div");
@@ -229,6 +264,7 @@ async function mountPage(
       children: (
         <PagePlayer
           initialContent={initialContent}
+          {...(resolvedTheme ? { resolvedTheme } : {})}
           surfaceId="surface-page-player-browser"
           onRendererReady={(readyEditor) => {
             editor = readyEditor;

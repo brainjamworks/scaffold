@@ -1,3 +1,6 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
 .sc-layout-frame {
   position: relative;
   min-width: 0;
@@ -284,4 +287,5 @@
 
 [data-authoring-frame="layout"][data-authoring-chrome-active]:hover > .sc-layout-outline {
   border-color: #1d4ed8;
+}
 }

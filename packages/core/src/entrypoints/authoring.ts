@@ -12,3 +12,4 @@ export type {
   ScaffoldAuthoringHostServices,
   ScaffoldLearnerHostServices,
 } from "@/host/contracts";
+export type { ScaffoldThemeExtension } from "@/theme/model";

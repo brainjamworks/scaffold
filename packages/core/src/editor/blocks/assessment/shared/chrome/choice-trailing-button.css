@@ -32,7 +32,11 @@
   }
 
   .sc-choice-trailing-button--danger:hover {
-    color: var(--color-secondary);
+    color: var(--sc-app-color-error);
+  }
+
+  .sc-choice-trailing-button--course-danger:hover {
+    color: var(--color-error);
   }
 
   .sc-choice-trailing-button--muted {

@@ -8,7 +8,7 @@
     align-items: center;
     gap: 0.75rem;
     padding: 0.75rem 0.75rem 0.75rem 1rem;
-    border: 1.5px solid var(--color-border);
+    border: calc(var(--sc-border-width) * 1.5) solid var(--color-border);
     border-radius: var(--radius-md);
     background: var(--color-background);
     color: var(--color-ink);
@@ -41,17 +41,17 @@
   }
 
   .sc-choice-answer--correct {
-    border-color: var(--color-accent);
+    border-color: var(--color-success);
     background: var(--color-success-bg);
   }
 
   .sc-choice-answer--incorrect {
-    border-color: var(--color-secondary);
+    border-color: var(--color-error);
     background: var(--color-error-bg);
   }
 
   .sc-choice-answer--missed {
-    border-color: var(--color-accent);
+    border-color: var(--color-success);
     border-style: dashed;
     background: var(--color-success-bg);
     color: var(--color-success-text);
@@ -113,11 +113,11 @@
   .sc-choice-answer__indicator--checked-author,
   .sc-choice-answer__indicator--correct,
   .sc-choice-answer__indicator--missed {
-    border-color: var(--color-accent);
+    border-color: var(--color-success);
   }
 
   .sc-choice-answer__indicator--incorrect {
-    border-color: var(--color-secondary);
+    border-color: var(--color-error);
   }
 
   .sc-choice-answer__indicator-button {
@@ -140,11 +140,11 @@
   }
 
   .sc-choice-answer__mark--accent {
-    color: var(--color-accent);
+    color: var(--color-success);
   }
 
   .sc-choice-answer__mark--incorrect {
-    color: var(--color-secondary);
+    color: var(--color-error);
   }
 
   .sc-choice-answer__dot {

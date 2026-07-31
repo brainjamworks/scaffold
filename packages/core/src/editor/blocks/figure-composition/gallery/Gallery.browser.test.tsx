@@ -27,14 +27,38 @@ interface MountedPair {
 }
 
 const mountedPairs: MountedPair[] = [];
+const mountedStyles: HTMLStyleElement[] = [];
 
 afterEach(() => {
   for (const pair of mountedPairs.splice(0)) pair.dispose();
+  for (const style of mountedStyles.splice(0)) style.remove();
   document.documentElement.removeAttribute("style");
   document.body.replaceChildren();
 });
 
 describe("Gallery container geometry", () => {
+  it("allows adapter-layer overrides without losing shell geometry", () => {
+    const adapterStyles = document.createElement("style");
+    adapterStyles.textContent = `
+      @layer sc-adapters {
+        .sc-gallery__shell {
+          gap: 1px;
+        }
+      }
+    `;
+    document.head.append(adapterStyles);
+    mountedStyles.push(adapterStyles);
+
+    const shell = document.createElement("div");
+    shell.className = "sc-gallery__shell";
+    document.body.append(shell);
+
+    const style = getComputedStyle(shell);
+    expect(style.display).toBe("flex");
+    expect(style.flexDirection).toBe("column");
+    expect(style.gap).toBe("1px");
+  });
+
   it.each([
     { owner: "region" as const, expectedLayout: "4x1" },
     { owner: "section" as const, expectedLayout: "4x1" },

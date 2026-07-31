@@ -61,6 +61,7 @@ export function createScaffoldDocumentContent(
     mode: defaults.mode,
     surfaceSize: input.surfaceSize ?? defaults.surfaceSize,
     overflowMode: input.overflowMode ?? defaults.overflowMode,
+    theme: defaults.theme,
   });
   const surfaceId = input.surfaceId ?? nanoid(ID_TOKEN_SIZE);
 

@@ -95,6 +95,32 @@ import { ... } from "@scaffold/grading";
 The public package surface is pre-1.0 and should be treated as evolving until
 the first stable release.
 
+## Course Themes And Colour Modes
+
+Scaffold separates persisted course presentation from surrounding application chrome:
+
+- A course theme belongs to the authored document. It stores the selected preset identity,
+  publication-level author colours, per-slot dark derivation/customisation provenance, typography,
+  design controls, recipe provenance, and complete resolved light/dark snapshots.
+- Authoring application colour mode belongs to local author preference. It changes the full-screen
+  Scaffold authoring chrome and is not initialized from an LMS.
+- Course Preview colour mode is temporary authoring-session state. It changes the canvas/Preview
+  without changing either the saved course theme or application mode.
+- Learner colour mode is supplied by the host when available and otherwise follows the browser
+  preference. It selects the saved light or dark course appearance without rematerialising it.
+
+Contracts owns the portable persisted shape. Core owns built-in presets, recipe validation,
+materialisation, catalogue fallback, semantic token projection, and the scoped DOM/chart/overlay
+application seams. Authors edit eleven publication roles; Core materialises those anchors into
+semantic output. Information, success, warning, and error families remain preset-owned rather than
+being inferred from brand colours.
+
+Hosts may add structured preset and font definitions through `themeExtension` on the public
+authoring and runtime entries. Extensions are data, not arbitrary CSS or executable generators.
+An unavailable or invalid host preset falls back silently to Scaffold Default in learner runtime;
+the saved snapshot is not mutated and becomes active again if the extension returns. Core contains
+no private host branding and has no LMS-specific dependency.
+
 ### Host-owned React contexts
 
 `ScaffoldServicesProvider` is the neutral, host-owned React context for

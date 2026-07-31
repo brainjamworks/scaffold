@@ -11,7 +11,7 @@ import {
   type ScaffoldRichTextDocument,
 } from "@/schemas/rich-text";
 
-import { SettingsFieldError, SettingsFieldHelp, settingsFieldMeta } from "./shared";
+import { SettingsFieldError, SettingsFieldHelp, useSettingsFieldMeta } from "./shared";
 import type {
   SettingsFieldDescriptorByKind,
   SettingsFieldDocumentTarget,
@@ -71,7 +71,7 @@ export function ControlledRichTextField({
   onCommitted,
 }: ControlledRichTextFieldProps) {
   const generatedId = useId();
-  const meta = settingsFieldMeta({ ...descriptor, error });
+  const meta = useSettingsFieldMeta({ ...descriptor, error });
   const safeId = generatedId.replace(/[^A-Za-z0-9_-]/g, "");
   const labelId = `${meta.id}-${safeId}-label`;
   const bubbleMenuPluginKey = `${meta.id}-${safeId}-bubble`;

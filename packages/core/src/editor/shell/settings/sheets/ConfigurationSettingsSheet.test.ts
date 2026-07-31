@@ -224,7 +224,7 @@ function registerTestSettingsSheet(createInitialDraft?: () => unknown) {
         id: "scoring",
         title: "Scoring",
         description: "Set how this question contributes to results.",
-        fields: [
+        items: [
           {
             kind: "number",
             name: "points",
@@ -238,7 +238,7 @@ function registerTestSettingsSheet(createInitialDraft?: () => unknown) {
       {
         id: "attempts",
         title: "Attempts",
-        fields: [
+        items: [
           {
             kind: "number",
             name: "maxAttempts",
@@ -350,7 +350,7 @@ function registerQuizManagedSettingsSheet() {
       {
         id: "behaviour",
         title: "Behaviour",
-        fields: [
+        items: [
           {
             kind: "select",
             name: "feedbackMode",
@@ -384,7 +384,7 @@ function registerQuizManagedSettingsSheet() {
       {
         id: "scoring",
         title: "Scoring",
-        fields: [
+        items: [
           {
             kind: "number",
             name: "points",
@@ -398,7 +398,7 @@ function registerQuizManagedSettingsSheet() {
       {
         id: "presentation",
         title: "Presentation",
-        fields: [
+        items: [
           {
             kind: "text",
             name: "legend",
@@ -679,10 +679,9 @@ describe("ConfigurationSettingsSheet", () => {
     expect(screen.getByRole("button", { name: "Scoring" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Attempts" })).toBeInTheDocument();
     const scoringRegion = screen.getByRole("region", { name: "Scoring" });
-    expect(scoringRegion.getAttribute("aria-describedby")).toBe(
-      "settings-section-scoring-description",
-    );
-    expect(document.getElementById("settings-section-scoring-description")?.textContent).toBe(
+    const scoringDescriptionId = scoringRegion.getAttribute("aria-describedby");
+    expect(scoringDescriptionId).not.toBeNull();
+    expect(document.getElementById(scoringDescriptionId ?? "")?.textContent).toBe(
       "Set how this question contributes to results.",
     );
 
@@ -1057,7 +1056,7 @@ describe("applySettingsSheetSettings", () => {
         {
           id: "content",
           title: "Content",
-          fields: [
+          items: [
             { kind: "text", name: "title", label: "Title" },
             {
               kind: "richText",
@@ -1065,9 +1064,8 @@ describe("applySettingsSheetSettings", () => {
               label: "Shared caption",
               placeholder: "Add a shared caption",
             },
-          ],
-          collections: [
             {
+              kind: "directChildCollection",
               id: "images",
               childNodeType: "test_collection_settings_item",
               attr: "data",

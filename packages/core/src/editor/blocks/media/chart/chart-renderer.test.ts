@@ -1,7 +1,154 @@
-import { describe, expect, it } from "vite-plus/test";
+// @vitest-environment happy-dom
+
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import { cartesianGridLabelBounds } from "./chart-profiles/shared";
-import { applyProfileResponsive } from "./chart-renderer";
+import {
+  applyChartCourseColours,
+  applyChartCourseTypography,
+  applyProfileResponsive,
+  observeChartThemeScope,
+} from "./chart-renderer";
+import { buildChartTheme, readChartTokens } from "./chart-theme";
+
+describe("chart theme baseline", () => {
+  it("reads the current shared CSS token names from its supplied scope", () => {
+    const originalGetComputedStyle = globalThis.getComputedStyle;
+    globalThis.getComputedStyle = (() =>
+      ({
+        getPropertyValue: (name: string) =>
+          ({
+            "--color-background": "#fefefe",
+            "--color-border": "#dedede",
+            "--color-border-subtle": "#eeeeee",
+            "--color-ink": "#111111",
+            "--color-text-muted": "#666666",
+            "--font-mono": "Baseline Mono",
+            "--font-sans": "Baseline Sans",
+            "--sc-course-data-series-1": "#110000",
+            "--sc-course-data-series-2": "#220000",
+            "--sc-course-data-series-3": "#330000",
+            "--sc-course-data-series-4": "#440000",
+            "--sc-course-data-series-5": "#550000",
+            "--sc-course-data-series-6": "#660000",
+            "--sc-course-data-series-7": "#770000",
+            "--sc-course-data-series-8": "#880000",
+          })[name] ?? "",
+      }) as CSSStyleDeclaration) as typeof getComputedStyle;
+
+    try {
+      const tokens = readChartTokens({} as Element);
+      const theme = buildChartTheme(tokens);
+
+      expect(tokens).toMatchObject({
+        background: "#fefefe",
+        border: "#dedede",
+        borderSubtle: "#eeeeee",
+        ink: "#111111",
+        muted: "#666666",
+        mono: "Baseline Mono",
+        sans: "Baseline Sans",
+        palette: [
+          "#110000",
+          "#220000",
+          "#330000",
+          "#440000",
+          "#550000",
+          "#660000",
+          "#770000",
+          "#880000",
+        ],
+      });
+      expect(theme["textStyle"]).toMatchObject({
+        color: "#111111",
+        fontFamily: "Baseline Sans",
+      });
+      expect(theme["categoryAxis"]).toMatchObject({
+        axisLabel: { fontFamily: "Baseline Sans" },
+      });
+    } finally {
+      globalThis.getComputedStyle = originalGetComputedStyle;
+    }
+  });
+
+  it("projects the course body font through profile-generated chart text", () => {
+    const option = {
+      graphic: [
+        {
+          type: "text",
+          style: {
+            text: "No data to display",
+            fontFamily: "var(--font-sans)",
+          },
+        },
+      ],
+      series: [
+        {
+          label: {
+            rich: {
+              percent: {
+                fontFamily: "var(--font-sans)",
+              },
+            },
+          },
+        },
+      ],
+    };
+
+    expect(applyChartCourseTypography(option, "Course Body")).toMatchObject({
+      graphic: [{ style: { fontFamily: "Course Body" } }],
+      series: [{ label: { rich: { percent: { fontFamily: "Course Body" } } } }],
+    });
+  });
+
+  it("projects course text colours through profile-generated chart text", () => {
+    const option = {
+      graphic: [
+        { style: { fill: "var(--color-ink)" } },
+        { style: { fill: "var(--color-text-muted)" } },
+      ],
+      xAxis: {
+        nameTextStyle: { color: "var(--color-text-muted)" },
+      },
+    };
+
+    expect(
+      applyChartCourseColours(option, {
+        ink: "#f5f3ff",
+        muted: "#a78bfa",
+      }),
+    ).toEqual({
+      graphic: [{ style: { fill: "#f5f3ff" } }, { style: { fill: "#a78bfa" } }],
+      xAxis: {
+        nameTextStyle: { color: "#a78bfa" },
+      },
+    });
+  });
+
+  it("observes only the renderer's nearest course scope for live theme changes", async () => {
+    const outerScope = document.createElement("section");
+    const innerScope = document.createElement("section");
+    const renderer = document.createElement("div");
+    outerScope.className = "sc-course-theme-scope";
+    innerScope.className = "sc-course-theme-scope";
+    innerScope.append(renderer);
+    outerScope.append(innerScope);
+    document.body.append(outerScope);
+    const onChange = vi.fn();
+
+    const disconnect = observeChartThemeScope(renderer, onChange);
+    outerScope.style.setProperty("--sc-course-data-series-1", "#111111");
+    await Promise.resolve();
+    expect(onChange).not.toHaveBeenCalled();
+
+    innerScope.style.setProperty("--sc-course-data-series-1", "#222222");
+    await Promise.resolve();
+    expect(onChange).toHaveBeenCalledOnce();
+
+    disconnect();
+    outerScope.remove();
+  });
+});
 
 describe("chart profile responsive dispatch", () => {
   it("flips vertical bar charts to horizontal in compact containers", () => {

@@ -1,3 +1,6 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
 .sc-inline-math {
   display: inline-flex;
   min-width: 1rem;
@@ -24,4 +27,5 @@
   font-size: 1rem;
   outline: none;
   padding: 0;
+}
 }

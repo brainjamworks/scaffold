@@ -1,16 +1,9 @@
 import type { Editor } from "@tiptap/react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  FormProvider,
-  useForm,
-  type FieldErrors,
-  type FieldValues,
-  type Resolver,
-} from "react-hook-form";
+import { useForm, type FieldErrors, type FieldValues, type Resolver } from "react-hook-form";
 import type { ZodTypeAny } from "zod";
 
-import { Accordion } from "@/ui/components/Accordion/Accordion";
 import { Button } from "@/ui/components/Button/Button";
 import { EmptyState } from "@/ui/components/EmptyState/EmptyState";
 import { Sheet } from "@/ui/components/Sheet/Sheet";
@@ -22,14 +15,14 @@ import {
   type SettingsSheetAttrSurface,
   type SettingsSheetDraftTransform,
   type SettingsSheetFieldDescriptor,
+  type SettingsFormItemDescriptor,
 } from "@/editor/configuration/settings-sheet";
 import {
   type AuthoringNodeTarget,
   useAuthoringNodeTarget,
 } from "@/editor/prosemirror/authoring-target";
-import { DirectChildCollectionField } from "@/editor/shell/settings/controls/DirectChildCollectionField";
-import { FieldRenderer } from "@/editor/shell/settings/controls/FieldRenderer";
 import type { SettingsFieldDocumentTarget } from "@/editor/shell/settings/controls/fields/types";
+import { SettingsForm } from "@/editor/shell/settings/forms/SettingsForm";
 
 import { resolveSettingsContext, type SettingsContext } from "./settings-context";
 
@@ -298,9 +291,16 @@ function markManagedSettings({
     ...entry,
     sections: entry.sections.map((section) => ({
       ...section,
-      fields: section.fields.map((field) => markManagedField(field, settingsContext)),
+      items: section.items.map((item) => markManagedItem(item, settingsContext)),
     })),
   };
+}
+
+function markManagedItem(
+  item: SettingsFormItemDescriptor,
+  settingsContext: SettingsContext,
+): SettingsFormItemDescriptor {
+  return item.kind === "directChildCollection" ? item : markManagedField(item, settingsContext);
 }
 
 function markManagedField(
@@ -468,100 +468,55 @@ function ConfigurationSettingsSheetContent({
           </Sheet.Description>
         </Sheet.Header>
 
-        <FormProvider {...form}>
-          <div className="sc-settings-sheet-form">
-            <Sheet.Body>
-              {entry && formSchema && attr && !loadError ? (
-                <Accordion.Root
-                  type="multiple"
-                  defaultValue={defaultOpenSections(entry.sections, entry.defaultOpenSections)}
-                >
-                  {entry.sections.map((section) => (
-                    <Accordion.Item key={section.id} value={section.id}>
-                      <Accordion.Header id={settingsSectionTriggerId(section.id)}>
-                        {section.title}
-                      </Accordion.Header>
-                      <Accordion.Content
-                        id={settingsSectionContentId(section.id)}
-                        role="region"
-                        aria-labelledby={settingsSectionTriggerId(section.id)}
-                        {...(section.description
-                          ? {
-                              "aria-describedby": settingsSectionDescriptionId(section.id),
-                            }
-                          : {})}
-                      >
-                        <div className="sc-settings-sheet-section-fields">
-                          {section.description && (
-                            <p
-                              id={settingsSectionDescriptionId(section.id)}
-                              className="sc-settings-sheet-section-description"
-                            >
-                              {section.description}
-                            </p>
-                          )}
-                          {section.fields.map((descriptor) => (
-                            <FieldRenderer
-                              key={`${section.id}:${descriptor.name}`}
-                              descriptor={descriptor}
-                              documentRevision={documentRevision}
-                              {...(documentTarget ? { documentTarget } : {})}
-                            />
-                          ))}
-                          {section.collections?.map((collection) =>
-                            target ? (
-                              <DirectChildCollectionField
-                                key={`${section.id}:${collection.id}`}
-                                descriptor={collection}
-                                target={target}
-                              />
-                            ) : null,
-                          )}
-                        </div>
-                      </Accordion.Content>
-                    </Accordion.Item>
-                  ))}
-                </Accordion.Root>
-              ) : (
-                <div className="sc-settings-sheet-empty">
-                  {loadError ? (
-                    <p className="sc-settings-sheet-load-error" role="alert">
-                      These settings could not be loaded. {loadError}
-                    </p>
-                  ) : (
-                    <EmptyState
-                      title="No settings"
-                      description="This item has no authoring options to configure."
-                    />
-                  )}
-                </div>
-              )}
-
-              {submitError && (
-                <div className="sc-settings-sheet-submit-error-frame">
-                  <p className="sc-settings-sheet-submit-error" role="alert">
-                    {submitError}
+        <div className="sc-settings-sheet-form">
+          <Sheet.Body>
+            {entry && formSchema && attr && !loadError ? (
+              <SettingsForm
+                definition={entry}
+                documentRevision={documentRevision}
+                form={form}
+                {...(target ? { authoringTarget: target } : {})}
+                {...(documentTarget ? { documentTarget } : {})}
+              />
+            ) : (
+              <div className="sc-settings-sheet-empty">
+                {loadError ? (
+                  <p className="sc-settings-sheet-load-error" role="alert">
+                    These settings could not be loaded. {loadError}
                   </p>
-                </div>
-              )}
-            </Sheet.Body>
+                ) : (
+                  <EmptyState
+                    title="No settings"
+                    description="This item has no authoring options to configure."
+                  />
+                )}
+              </div>
+            )}
 
-            <Sheet.Footer>
-              <Button type="button" variant="secondary" size="md" onClick={handleCancel}>
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                variant="primary"
-                size="md"
-                disabled={!entry || Boolean(loadError)}
-                onClick={handleSave}
-              >
-                Save
-              </Button>
-            </Sheet.Footer>
-          </div>
-        </FormProvider>
+            {submitError && (
+              <div className="sc-settings-sheet-submit-error-frame">
+                <p className="sc-settings-sheet-submit-error" role="alert">
+                  {submitError}
+                </p>
+              </div>
+            )}
+          </Sheet.Body>
+
+          <Sheet.Footer>
+            <Button type="button" variant="secondary" size="md" onClick={handleCancel}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              size="md"
+              disabled={!entry || Boolean(loadError)}
+              onClick={handleSave}
+            >
+              Save
+            </Button>
+          </Sheet.Footer>
+        </div>
       </Sheet.Content>
     </Sheet.Root>
   );
@@ -598,31 +553,6 @@ function setValueAtPath(value: unknown, path: string, nextValue: unknown): unkno
   const leaf = segments.at(-1);
   if (leaf) current[leaf] = nextValue;
   return root;
-}
-
-function settingsSectionDomId(sectionId: string, suffix: string): string {
-  return `settings-section-${sectionId.replace(/[^a-zA-Z0-9_-]/g, "-")}-${suffix}`;
-}
-
-function settingsSectionTriggerId(sectionId: string): string {
-  return settingsSectionDomId(sectionId, "trigger");
-}
-
-function settingsSectionContentId(sectionId: string): string {
-  return settingsSectionDomId(sectionId, "content");
-}
-
-function settingsSectionDescriptionId(sectionId: string): string {
-  return settingsSectionDomId(sectionId, "description");
-}
-
-function defaultOpenSections(
-  sections: readonly { id: string }[],
-  configured?: readonly string[],
-): string[] {
-  if (configured) return [...configured];
-  const first = sections[0]?.id;
-  return first ? [first] : [];
 }
 
 function firstFieldErrorMessage(errors: FieldErrors<FieldValues>): string {

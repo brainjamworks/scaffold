@@ -29,6 +29,7 @@
   }
 
   .sc-chapter-epigraph__body {
+    font-family: var(--font-heading);
     font-style: italic;
     font-size: 1.0625rem;
     line-height: 1.55;
@@ -45,7 +46,7 @@
   }
 
   .sc-chapter-epigraph__attribution {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: 0.6875rem;
     font-weight: 600;
     letter-spacing: 0.08em;

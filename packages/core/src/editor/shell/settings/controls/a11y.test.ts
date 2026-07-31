@@ -13,17 +13,19 @@ describe("settings field a11y helpers", () => {
     expect(settingsFieldDomId("")).toBe("settings-field");
   });
 
-  it("composes help and error ids for aria-describedby", () => {
+  it("composes status, help, and error ids for aria-describedby", () => {
     expect(
       settingsFieldA11yIds("embed-url", {
         hasError: true,
         hasHelp: true,
+        hasStatus: true,
       }),
     ).toEqual({
       id: "embed-url",
+      statusId: "embed-url-status",
       helpId: "embed-url-help",
       errorId: "embed-url-error",
-      describedBy: "embed-url-help embed-url-error",
+      describedBy: "embed-url-status embed-url-help embed-url-error",
     });
   });
 

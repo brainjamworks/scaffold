@@ -10,6 +10,8 @@ interface HeaderProps {
   onTitleChange: (next: string) => void;
   /** Optional left slot (brand mark / logo lockup). */
   brand?: ReactNode;
+  /** Application surface beneath the default Scaffold brand lockup. */
+  brandSurface?: "light" | "dark";
   /** Optional right-aligned slot (share, present, settings, account). */
   actions?: ReactNode;
   /** Save state indicator — renders as a JetBrains Mono pill. */
@@ -32,14 +34,21 @@ const SAVE_VARIANT: Record<NonNullable<HeaderProps["saveState"]>, PillVariant> =
   error: "error",
 };
 
-export function Header({ title, onTitleChange, brand, actions, saveState = "idle" }: HeaderProps) {
+export function Header({
+  title,
+  onTitleChange,
+  brand,
+  brandSurface = "light",
+  actions,
+  saveState = "idle",
+}: HeaderProps) {
   const saveLabel = SAVE_LABEL[saveState];
 
   return (
     <header className="sc-editor-header">
       <div className="sc-editor-header-inner">
         <div className="sc-editor-header-brand">
-          {brand ?? <Wordmark surface="light" markSize={24} />}
+          {brand ?? <Wordmark surface={brandSurface} markSize={24} />}
         </div>
 
         <span aria-hidden="true" className="sc-editor-header-divider" />

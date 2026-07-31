@@ -49,7 +49,7 @@ export function withAxisName(
     nameGap: isY ? 44 : 28,
     ...(isY ? { nameRotate: 90 } : {}),
     nameTextStyle: {
-      color: "rgba(0, 0, 0, 0.55)",
+      color: "var(--color-text-muted)",
       fontSize: 11,
       fontWeight: 600,
     },
@@ -195,9 +195,9 @@ function withDensityChip(
         silent: true,
         style: {
           text: `Showing ${visible} of ${total} — scroll`,
-          fontFamily: "'JetBrains Mono', ui-monospace, SFMono-Regular, monospace",
+          fontFamily: "var(--font-sans)",
           fontSize: 10,
-          fill: "rgba(0, 0, 0, 0.45)",
+          fill: "var(--color-text-muted)",
         },
       },
     ],

@@ -1,3 +1,6 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
 /* ─── Tabs layout ────────────────────────────────────────────
  * Two visual modes:
  *
@@ -276,4 +279,5 @@
   .sc-tabs__action {
     transition: none;
   }
+}
 }

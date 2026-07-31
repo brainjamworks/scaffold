@@ -161,7 +161,7 @@
     justify-content: center;
     gap: 0.5rem;
     padding: 1rem;
-    border: 1px dashed var(--color-border);
+    border: var(--sc-border-width) dashed var(--color-border);
     background: transparent;
     color: var(--color-text-muted);
     font-size: 0.875rem;
@@ -180,7 +180,7 @@
     border-radius: var(--radius-pill);
     background: transparent;
     color: var(--color-primary-foreground);
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: 0.75rem;
     font-weight: 700;
     letter-spacing: 0;
@@ -309,7 +309,7 @@
     border-radius: var(--radius-pill);
     background: color-mix(in oklch, var(--color-primary) 10%, transparent);
     color: var(--color-primary);
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: 0.75rem;
     font-weight: 700;
     pointer-events: none;

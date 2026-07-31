@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import "@/editor/frame/view/bounded-placement.css";
 
 import { emptyPdfEmbedData } from "./content";
+import "./PdfEmbed.css";
 import { PdfEmbedSurface } from "./PdfEmbedSurface";
 
 vi.mock("react-pdf", () => ({
@@ -71,16 +72,39 @@ interface MountedPdf {
 }
 
 const mountedPdfs: MountedPdf[] = [];
+const mountedStyles: HTMLStyleElement[] = [];
 
 afterEach(() => {
   for (const mounted of mountedPdfs.splice(0)) {
     mounted.root.unmount();
     mounted.host.remove();
   }
+  for (const style of mountedStyles.splice(0)) style.remove();
   document.body.replaceChildren();
 });
 
 describe("PDF bounded geometry", () => {
+  it("allows adapter-layer overrides without losing stage geometry", () => {
+    const adapterStyles = document.createElement("style");
+    adapterStyles.textContent = `
+      @layer sc-adapters {
+        .sc-pdf-embed__stage {
+          background: rgb(12 34 56);
+        }
+      }
+    `;
+    document.head.append(adapterStyles);
+    mountedStyles.push(adapterStyles);
+
+    const stage = document.createElement("div");
+    stage.className = "sc-pdf-embed__stage";
+    document.body.append(stage);
+
+    expect(stage.getBoundingClientRect().width).toBeCloseTo(document.body.clientWidth, 0);
+    expect(getComputedStyle(stage).minHeight).toBe("288px");
+    expect(getComputedStyle(stage).backgroundColor).toBe("rgb(12, 34, 56)");
+  });
+
   it.each(["authoring", "runtime"] as const)(
     "fills a finite %s frame while reserving caption and navigation chrome",
     async (kind) => {

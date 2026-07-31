@@ -11,8 +11,10 @@
     flex-direction: column;
     width: min(25rem, var(--sc-overlay-available-inline-size, 25rem));
     max-block-size: min(20rem, var(--sc-overlay-available-block-size, 20rem));
-    padding: 0.875rem 0.875rem 0.75rem;
-    border: 1px solid color-mix(in srgb, var(--sc-popover-surface-tone) 26%, var(--color-border));
+    padding: calc(0.875rem * var(--sc-density-factor)) calc(0.875rem * var(--sc-density-factor))
+      calc(0.75rem * var(--sc-density-factor));
+    border: var(--sc-border-width) solid
+      color-mix(in srgb, var(--sc-popover-surface-tone) 26%, var(--color-border));
     border-radius: var(--radius-lg);
     background: var(--color-background);
     box-shadow: var(--shadow-overlay);
@@ -150,7 +152,7 @@
     justify-content: space-between;
     margin-block-start: 0.625rem;
     padding-block-start: 0.625rem;
-    border-block-start: 1px solid
+    border-block-start: var(--sc-border-width) solid
       color-mix(in srgb, var(--sc-popover-surface-tone) 18%, var(--color-border));
   }
 

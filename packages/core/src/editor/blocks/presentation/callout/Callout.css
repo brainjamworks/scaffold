@@ -6,8 +6,8 @@
   }
 
   .sc-callout {
-    padding: 0.875rem 1rem;
-    border: 1px solid;
+    padding: calc(0.875rem * var(--sc-density-factor)) calc(1rem * var(--sc-density-factor));
+    border: var(--sc-border-width) solid;
     border-radius: var(--radius-lg);
     transition:
       border-color 150ms ease,
@@ -107,13 +107,16 @@
   }
 
   .sc-callout__title {
+    font-family: var(--font-heading);
     display: block;
     width: 100%;
     min-width: 0;
     color: currentColor;
-    font-size: 0.875rem;
-    font-weight: 600;
-    line-height: 1.375;
+    font-size: calc(0.875rem * var(--sc-course-type-scale));
+    font-weight: var(--font-weight-bold);
+    line-height: var(--leading-snug);
+    letter-spacing: var(--sc-course-letter-spacing-heading);
+    text-transform: var(--sc-course-text-transform-heading);
     text-wrap: balance;
   }
 
@@ -127,8 +130,9 @@
     width: 100%;
     min-width: 0;
     color: currentColor;
-    font-size: 0.875rem;
-    line-height: 1.625;
+    font-size: calc(0.875rem * var(--sc-course-type-scale));
+    font-weight: var(--font-weight-normal);
+    line-height: var(--leading-body);
   }
 
   .sc-callout__prompt :where(a),
