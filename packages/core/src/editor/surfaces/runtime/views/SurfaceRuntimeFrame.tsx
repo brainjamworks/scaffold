@@ -1,5 +1,5 @@
 import { NodeViewContent, NodeViewWrapper } from "@tiptap/react";
-import { useRef, type ReactNode } from "react";
+import { useRef, type ReactNode, type RefObject } from "react";
 
 import { useBoundedScrollAffordance } from "@/editor/bounded-containers/view/bounded-scroll";
 import "@/editor/bounded-containers/view/bounded-container.css";
@@ -23,6 +23,7 @@ export interface SurfaceRuntimeFrameProps extends SurfaceRuntimeViewProps {
   attributes?: Record<string, string | undefined>;
   children?: ReactNode;
   className?: string;
+  surfaceRef?: RefObject<HTMLDivElement | null>;
 }
 
 export function SurfaceRuntimeFrame({
@@ -30,13 +31,15 @@ export function SurfaceRuntimeFrame({
   children,
   className,
   node,
+  surfaceRef,
 }: SurfaceRuntimeFrameProps) {
-  const surfaceRef = useRef<HTMLDivElement | null>(null);
-  useBoundedScrollAffordance(surfaceRef);
+  const fallbackSurfaceRef = useRef<HTMLDivElement | null>(null);
+  const resolvedSurfaceRef = surfaceRef ?? fallbackSurfaceRef;
+  useBoundedScrollAffordance(resolvedSurfaceRef);
 
   return (
     <NodeViewWrapper
-      ref={surfaceRef}
+      ref={resolvedSurfaceRef}
       className={["sc-surface-runtime-node__content", className].filter(Boolean).join(" ")}
       style={surfaceBackgroundStyle(readSurfaceBackground(node.attrs["settings"]))}
       {...attributes}

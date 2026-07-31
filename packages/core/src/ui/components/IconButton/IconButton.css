@@ -81,8 +81,8 @@
   }
 
   .sc-icon-button[data-variant="danger"]:hover:not(:disabled) {
-    background: rgb(0 0 0 / 0.1);
-    color: var(--color-secondary);
+    background: var(--sc-app-color-error-background);
+    color: var(--sc-app-color-error);
     opacity: 1;
   }
 

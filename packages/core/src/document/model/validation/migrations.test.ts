@@ -2,6 +2,7 @@ import type { JSONContent } from "@tiptap/core";
 import { describe, expect, it } from "vite-plus/test";
 
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
+import { createScaffoldDefaultTheme } from "@/theme/model";
 
 import { migrateCourseDocumentJSON, readCourseDocumentFormatVersion } from "./migrations";
 import {
@@ -16,6 +17,7 @@ function documentWithAttrs(
     mode: "page",
     surfaceSize: "fluid",
     overflowMode: "grow",
+    theme: createScaffoldDefaultTheme(),
   },
 ): JSONContent {
   return {
@@ -48,12 +50,13 @@ describe("course document migrations", () => {
     });
   });
 
-  it("leaves current v3 documents unchanged", () => {
+  it("leaves current v4 documents unchanged", () => {
     const source = documentWithAttrs({
       schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
       mode: "page",
       surfaceSize: "fluid",
       overflowMode: "grow",
+      theme: createScaffoldDefaultTheme(),
     });
     const result = migrateCourseDocumentJSON(source);
 
@@ -201,7 +204,7 @@ describe("course document migrations", () => {
     );
   });
 
-  it("accepts two append-only migrations for the current v3 baseline", () => {
+  it("accepts three append-only migrations for the current v4 baseline", () => {
     const v1ToV2 = defineCourseDocumentMigration({
       from: 1,
       to: 2,
@@ -214,11 +217,21 @@ describe("course document migrations", () => {
       description: "Fake v2 to v3 test migration.",
       migrate: (document) => stampMigration(document, 3, "v3"),
     });
+    const v3ToV4 = defineCourseDocumentMigration({
+      from: 3,
+      to: 4,
+      description: "Fake v3 to v4 test migration.",
+      migrate: (document) => stampMigration(document, 4, "v4"),
+    });
 
-    expect(validateCourseDocumentMigrationPlan([v1ToV2, v2ToV3], 3)).toEqual([v1ToV2, v2ToV3]);
+    expect(validateCourseDocumentMigrationPlan([v1ToV2, v2ToV3, v3ToV4], 4)).toEqual([
+      v1ToV2,
+      v2ToV3,
+      v3ToV4,
+    ]);
   });
 
-  it("runs the production v1-to-v2-to-v3 migration", () => {
+  it("runs the production v1-to-v2-to-v3-to-v4 migration", () => {
     const result = migrateCourseDocumentJSON(
       documentWithAttrs({
         schemaVersion: 1,
@@ -231,15 +244,15 @@ describe("course document migrations", () => {
     expect(result).toMatchObject({
       ok: true,
       fromVersion: 1,
-      toVersion: 3,
+      toVersion: 4,
       migrated: true,
       document: {
-        content: [{ attrs: { schemaVersion: 3 } }],
+        content: [{ attrs: { schemaVersion: 4, theme: createScaffoldDefaultTheme() } }],
       },
     });
   });
 
-  it("runs the production v2-to-v3 migration", () => {
+  it("runs the production v2-to-v3-to-v4 migration", () => {
     const result = migrateCourseDocumentJSON(
       documentWithAttrs({
         schemaVersion: 2,
@@ -252,9 +265,11 @@ describe("course document migrations", () => {
     expect(result).toMatchObject({
       ok: true,
       fromVersion: 2,
-      toVersion: 3,
+      toVersion: 4,
       migrated: true,
-      document: { content: [{ attrs: { schemaVersion: 3 } }] },
+      document: {
+        content: [{ attrs: { schemaVersion: 4, theme: createScaffoldDefaultTheme() } }],
+      },
     });
   });
 

@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import { Extension, type Editor, type JSONContent } from "@tiptap/core";
-import { history, undo } from "@tiptap/pm/history";
+import type { Editor, JSONContent } from "@tiptap/core";
+import { undo } from "@tiptap/pm/history";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
@@ -20,6 +20,7 @@ import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 import { CourseDocumentRuntimeRenderer } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
+import { createScaffoldDefaultTheme } from "@/theme/model";
 
 import { CourseDocumentEditor } from "./CourseDocumentEditor";
 
@@ -27,11 +28,6 @@ const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: builtInBlockRegistry,
   surfaceVariants: builtInSurfaceVariantRegistry,
 });
-const localHistory = Extension.create({
-  name: "localHistory",
-  addProseMirrorPlugins: () => [history()],
-});
-
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -275,7 +271,6 @@ async function mountEditor(content: JSONContent): Promise<Editor> {
   render(
     createElement(CourseDocumentEditor, {
       source: { mode: "document", content },
-      schemaExtensions: [localHistory],
       onReady,
     }),
   );
@@ -327,6 +322,7 @@ function pageDocument(content: JSONContent[]): JSONContent {
           mode: "page",
           surfaceSize: "fluid",
           overflowMode: "grow",
+          theme: createScaffoldDefaultTheme(),
         },
         content: [
           {
@@ -376,6 +372,7 @@ function slideshowAlignmentDocument(): JSONContent {
           mode: "slideshow",
           surfaceSize: "16x9",
           overflowMode: "clip",
+          theme: createScaffoldDefaultTheme(),
         },
         content: [cover, contentSurface],
       },

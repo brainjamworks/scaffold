@@ -118,7 +118,11 @@ describe("runtime overlay boundary contract", () => {
       expect(overlayHost.contains(popover)).toBe(true);
       expect(overlayHost.ownerDocument).toBe(owner.document);
       expect(overlayHost.parentElement).toBe(mounted.player);
+      expectCourseThemeInheritance(popover, mounted.player);
       expect(getComputedStyle(overlayHost).position).toBe("fixed");
+      expect(getComputedStyle(overlayHost).getPropertyValue("--color-background").trim()).toBe(
+        getComputedStyle(mounted.player).getPropertyValue("--color-background").trim(),
+      );
       expect(containedRect.left).toBeGreaterThanOrEqual(-1);
       expect(containedRect.right).toBeLessThanOrEqual(
         owner.document.documentElement.clientWidth + 1,
@@ -190,6 +194,9 @@ describe("runtime overlay boundary contract", () => {
       expect(canvas.contains(normalHost)).toBe(false);
       expect(normalHost.ownerDocument).toBe(owner.document);
       expect(owner.document.querySelectorAll("[data-scaffold-overlay-host]")).toHaveLength(1);
+      expect(getComputedStyle(normalHost).getPropertyValue("--color-background").trim()).toBe(
+        getComputedStyle(player).getPropertyValue("--color-background").trim(),
+      );
 
       trigger.focus({ preventScroll: true });
       expect(trigger.matches(":focus-visible")).toBe(true);
@@ -203,6 +210,7 @@ describe("runtime overlay boundary contract", () => {
 
       expect(popover.getAttribute("aria-label")).toBe("Hint 1 of 1");
       expect(popover.ownerDocument).toBe(owner.document);
+      expectCourseThemeInheritance(popover, player);
       expect(containedRect.left).toBeGreaterThanOrEqual(-1);
       expect(containedRect.right).toBeLessThanOrEqual(
         owner.document.documentElement.clientWidth + 1,
@@ -258,6 +266,9 @@ describe("runtime overlay boundary contract", () => {
     expect(normalHost.isConnected).toBe(false);
     expect(fullscreenHost.ownerDocument).toBe(owner.document);
     expect(canvas.contains(fullscreenHost)).toBe(false);
+    expect(getComputedStyle(fullscreenHost).getPropertyValue("--color-background").trim()).toBe(
+      getComputedStyle(player).getPropertyValue("--color-background").trim(),
+    );
     expect(owner.document.querySelectorAll("[data-scaffold-overlay-host]")).toHaveLength(1);
     popover = popover.isConnected ? popover : await ensureRuntimeHintOpen(player, fullscreenHost);
     expect(fullscreenHost.contains(popover)).toBe(true);
@@ -654,6 +665,17 @@ function uniqueElement<T extends Element>(root: ParentNode, selector: string): T
     throw new Error(`Expected one element for ${selector}, found ${matches.length}.`);
   }
   return matches[0];
+}
+
+function expectCourseThemeInheritance(overlay: HTMLElement, player: HTMLElement): void {
+  const courseScope = uniqueElement<HTMLElement>(
+    player,
+    ".sc-course-theme-scope:not([data-scaffold-overlay-host])",
+  );
+  const property = "--sc-course-color-background";
+  const expected = getComputedStyle(courseScope).getPropertyValue(property).trim();
+  expect(expected).not.toBe("");
+  expect(getComputedStyle(overlay).getPropertyValue(property).trim()).toBe(expected);
 }
 
 async function waitForElement<T extends Element>(root: ParentNode, selector: string): Promise<T> {

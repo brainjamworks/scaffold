@@ -8,14 +8,14 @@ import {
   TooltipComponent,
   VisualMapComponent,
 } from "echarts/components";
-import { init, registerTheme, use as registerEChartsModules } from "echarts/core";
+import { init, use as registerEChartsModules } from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { ChartType } from "@/schemas/shared";
 import { cn } from "@/lib/cn";
 
-import { buildChartTheme, SCAFFOLD_CHART_THEME_NAME, readChartTokens } from "./chart-theme";
+import { buildChartTheme, readChartTokens, type ChartTokens } from "./chart-theme";
 import { chartProfiles } from "./chart-profiles";
 import type { ChartViewport } from "./chart-profiles/types";
 
@@ -34,17 +34,6 @@ registerEChartsModules([
   VisualMapComponent,
   CanvasRenderer,
 ]);
-
-// Register the scaffold theme once at module load. Reads CSS custom
-// properties from documentElement so palette/fonts pick up the brand
-// values; SSR / test environments fall back to the default brand
-// tokens defined in chart-theme.ts.
-registerTheme(
-  SCAFFOLD_CHART_THEME_NAME,
-  buildChartTheme(
-    readChartTokens(typeof document !== "undefined" ? document.documentElement : null),
-  ),
-);
 
 interface ChartRendererProps {
   option: Record<string, unknown>;
@@ -103,6 +92,7 @@ export function ChartRenderer({ option, ariaLabel, chartType, className }: Chart
 
     let disposed = false;
     let resizeObserver: ResizeObserver | null = null;
+    let disconnectThemeObserver: (() => void) | null = null;
     let frame = 0;
 
     const publishViewport = () => {
@@ -116,6 +106,29 @@ export function ChartRenderer({ option, ariaLabel, chartType, className }: Chart
       );
     };
 
+    const mountChart = () => {
+      const tokens = readChartTokens(container);
+      const instance = init(container, buildChartTheme(tokens), {
+        renderer: "canvas",
+      });
+      instanceRef.current = instance;
+
+      try {
+        instance.setOption(
+          applyChartCourseColours(
+            applyChartCourseTypography(latestOptionRef.current, tokens.sans),
+            tokens,
+          ),
+          { notMerge: true },
+        );
+        publishRenderError(null);
+      } catch {
+        publishRenderError("Chart could not be rendered.");
+      }
+
+      return instance;
+    };
+
     const mountWhenMeasured = () => {
       if (disposed || instanceRef.current) return;
       if (container.clientWidth === 0 || container.clientHeight === 0) {
@@ -124,27 +137,22 @@ export function ChartRenderer({ option, ariaLabel, chartType, className }: Chart
       }
 
       publishViewport();
-
-      const instance = init(container, SCAFFOLD_CHART_THEME_NAME, {
-        renderer: "canvas",
-      });
-      instanceRef.current = instance;
-
-      try {
-        instance.setOption(latestOptionRef.current, { notMerge: true });
-        publishRenderError(null);
-      } catch {
-        publishRenderError("Chart could not be rendered.");
-      }
+      mountChart();
 
       resizeObserver =
         typeof ResizeObserver === "undefined"
           ? null
           : new ResizeObserver(() => {
               publishViewport();
-              instance.resize();
+              instanceRef.current?.resize();
             });
       resizeObserver?.observe(container);
+      disconnectThemeObserver = observeChartThemeScope(container, () => {
+        if (disposed) return;
+        instanceRef.current?.dispose();
+        instanceRef.current = null;
+        mountChart();
+      });
     };
 
     mountWhenMeasured();
@@ -153,6 +161,7 @@ export function ChartRenderer({ option, ariaLabel, chartType, className }: Chart
       disposed = true;
       cancelAnimationFrame(frame);
       resizeObserver?.disconnect();
+      disconnectThemeObserver?.();
       instanceRef.current?.dispose();
       instanceRef.current = null;
     };
@@ -163,7 +172,11 @@ export function ChartRenderer({ option, ariaLabel, chartType, className }: Chart
     if (!instance) return;
 
     try {
-      instance.setOption(responsiveOption, { notMerge: true });
+      const tokens = readChartTokens(containerRef.current);
+      instance.setOption(
+        applyChartCourseColours(applyChartCourseTypography(responsiveOption, tokens.sans), tokens),
+        { notMerge: true },
+      );
       publishRenderError(null);
     } catch {
       publishRenderError("Chart could not be rendered.");
@@ -188,6 +201,17 @@ export function ChartRenderer({ option, ariaLabel, chartType, className }: Chart
   );
 }
 
+export function observeChartThemeScope(container: Element, onChange: () => void): () => void {
+  if (typeof MutationObserver === "undefined") return () => {};
+  const scope = container.closest(".sc-course-theme-scope") ?? container;
+  const observer = new MutationObserver(onChange);
+  observer.observe(scope, {
+    attributes: true,
+    attributeFilter: ["style", "data-course-color-mode", "data-effective-course-theme"],
+  });
+  return () => observer.disconnect();
+}
+
 /**
  * Dispatches to the profile's optional `responsive()` transform. Pure
  * passthrough when the chart type doesn't declare one or the viewport
@@ -203,4 +227,50 @@ export function applyProfileResponsive(
   const profile = chartProfiles[chartType];
   if (!profile?.responsive) return option;
   return profile.responsive(option, viewport);
+}
+
+export function applyChartCourseTypography(
+  option: Record<string, unknown>,
+  bodyFont: string,
+): Record<string, unknown> {
+  return replaceChartFontRoles(option, bodyFont) as Record<string, unknown>;
+}
+
+export function applyChartCourseColours(
+  option: Record<string, unknown>,
+  colours: Pick<ChartTokens, "ink" | "muted">,
+): Record<string, unknown> {
+  return replaceChartColourRoles(option, colours) as Record<string, unknown>;
+}
+
+function replaceChartFontRoles(value: unknown, bodyFont: string): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) => replaceChartFontRoles(entry, bodyFont));
+  }
+  if (value === null || typeof value !== "object") return value;
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [
+      key,
+      key === "fontFamily" && entry === "var(--font-sans)"
+        ? bodyFont
+        : replaceChartFontRoles(entry, bodyFont),
+    ]),
+  );
+}
+
+function replaceChartColourRoles(
+  value: unknown,
+  colours: Pick<ChartTokens, "ink" | "muted">,
+): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) => replaceChartColourRoles(entry, colours));
+  }
+  if (value === "var(--color-ink)") return colours.ink;
+  if (value === "var(--color-text-muted)") return colours.muted;
+  if (value === null || typeof value !== "object") return value;
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [key, replaceChartColourRoles(entry, colours)]),
+  );
 }

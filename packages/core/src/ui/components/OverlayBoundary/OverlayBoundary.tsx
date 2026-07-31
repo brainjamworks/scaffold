@@ -16,6 +16,9 @@ import "./OverlayBoundary.css";
 export interface OverlayBoundaryProps {
   container: Element | null;
   collisionBoundary?: Element | null;
+  hostClassName?: string;
+  hostColorScheme?: "light" | "dark";
+  hostCssVariables?: Readonly<Record<string, string>>;
   kind: OverlayBoundaryKind;
   children: ReactNode;
 }
@@ -27,6 +30,9 @@ function strategyForKind(kind: OverlayBoundaryKind): OverlayPositionStrategy {
 export function OverlayBoundary({
   container,
   collisionBoundary,
+  hostClassName,
+  hostColorScheme,
+  hostCssVariables,
   kind,
   children,
 }: OverlayBoundaryProps) {
@@ -60,6 +66,24 @@ export function OverlayBoundary({
       host.remove();
     };
   }, [container, kind]);
+
+  useLayoutEffect(() => {
+    if (ownedHost === null) return;
+
+    if (hostClassName) ownedHost.classList.add(hostClassName);
+    if (hostColorScheme) ownedHost.style.colorScheme = hostColorScheme;
+    for (const [property, value] of Object.entries(hostCssVariables ?? {})) {
+      ownedHost.style.setProperty(property, value);
+    }
+
+    return () => {
+      if (hostClassName) ownedHost.classList.remove(hostClassName);
+      if (hostColorScheme) ownedHost.style.removeProperty("color-scheme");
+      for (const property of Object.keys(hostCssVariables ?? {})) {
+        ownedHost.style.removeProperty(property);
+      }
+    };
+  }, [hostClassName, hostColorScheme, hostCssVariables, ownedHost]);
 
   const resolution = useMemo<OverlayBoundaryResolution>(() => {
     if (

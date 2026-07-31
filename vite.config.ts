@@ -195,7 +195,8 @@ export default defineConfig({
         cache: false,
       },
       "dev:playground": {
-        command: "vp dev apps/playground",
+        command:
+          "vp run --filter @scaffold/core... --filter @scaffold/grading... build && vp run -t --parallel @scaffold/playground#dev",
         cache: false,
       },
       "report:xblock:bundle": "vp exec node scripts/report-xblock-bundle.mjs",

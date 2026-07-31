@@ -1,160 +1,177 @@
 /* ─── Local fonts ───────────────────────────────────────────────
- * Two branded families per `brand/design-system.html`:
- *   - Poppins — primary, sans, every chrome + content surface
- *   - JetBrains Mono — secondary, for code blocks, data values,
- *     numeric status pills, and any tabular / monospaced moment
+ * Poppins and JetBrains Mono retain the application identity.
+ * Source Serif 4 and Inter are curated course-theme choices.
  * CSS spec requires all @import rules to precede any other rule.
- * Poppins does not publish a variable build, so keep the five design-token
- * weights; JetBrains Mono uses one variable file for its full weight range. */
+ * The static families load the five supported course-theme weights;
+ * JetBrains Mono uses one variable file for its full weight range. */
 @import "@fontsource/poppins/400.css";
 @import "@fontsource/poppins/500.css";
 @import "@fontsource/poppins/600.css";
 @import "@fontsource/poppins/700.css";
 @import "@fontsource/poppins/800.css";
+@import "@fontsource/source-serif-4/400.css";
+@import "@fontsource/source-serif-4/500.css";
+@import "@fontsource/source-serif-4/600.css";
+@import "@fontsource/source-serif-4/700.css";
+@import "@fontsource/source-serif-4/800.css";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+@import "@fontsource/inter/800.css";
 @import "@fontsource-variable/jetbrains-mono/wght.css";
 
 @layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
 
-:root,
-:host {
-  /* ─── Colours ─────────────────────────────────────────────────── */
+@layer sc-base {
+  :root,
+  :host {
+    /* ─── Colours ─────────────────────────────────────────────────── */
 
-  /* Brand triple — navy primary, coral secondary, teal accent.
+    /* Brand triple — navy primary, coral secondary, teal accent.
    * THE fingerprint. Coral and teal earn their signal value by being
    * scarce: coral = destructive/error only, teal = correctness/
    * affirmation only. Anything outside those roles uses ink + canvas.
    *
    * Values are OKLCH-tuned (see brand/DESIGN-SYSTEM.md). sRGB hex listed for
    * legacy fallback. */
-  --color-primary: oklch(0.3 0.15 270); /* #161d77 — deeper indigo */
-  --color-primary-foreground: #ffffff;
-  --color-primary-muted: oklch(0.95 0.025 270); /* ≈ #ecebf6 */
+    --color-primary: oklch(0.3 0.15 270); /* #161d77 — deeper indigo */
+    --color-primary-foreground: #ffffff;
+    --color-primary-muted: oklch(0.95 0.025 270); /* ≈ #ecebf6 */
 
-  --color-secondary: oklch(0.64 0.22 18); /* #f43a57 — punchier vermillion */
-  --color-secondary-foreground: #ffffff;
+    --color-secondary: oklch(0.64 0.22 18); /* #f43a57 — punchier vermillion */
+    --color-secondary-foreground: #ffffff;
 
-  --color-accent: oklch(0.68 0.18 175); /* #00ba92 — brighter cyan-lean */
-  --color-accent-foreground: #ffffff;
+    --color-accent: oklch(0.68 0.18 175); /* #00ba92 — brighter cyan-lean */
+    --color-accent-foreground: #ffffff;
 
-  /* Inks — text, chrome, and the dark-surface family. Drives every
+    /* Inks — text, chrome, and the dark-surface family. Drives every
    * neutral surface decision in the rebrand. */
-  --color-ink: #18181b;
-  --color-ink-2: #27272a;
+    --color-ink: #18181b;
+    --color-heading: var(--color-ink);
+    --color-link: var(--color-primary);
+    --color-ink-2: #27272a;
 
-  /* Brand-presence dark surfaces (splash / login / document home /
+    /* Brand-presence dark surfaces (splash / login / document home /
    * marketing). Distinct from the editor surface (light, canvas). */
-  --color-dark-surface: #0a0a0f;
-  --color-dark-surface-2: #1a1a1f;
-  --color-dark-text-muted: rgb(255 255 255 / 0.5);
-  --color-dark-border: rgb(255 255 255 / 0.12);
+    --color-dark-surface: #0a0a0f;
+    --color-dark-surface-2: #1a1a1f;
+    --color-dark-text-muted: rgb(255 255 255 / 0.5);
+    --color-dark-border: rgb(255 255 255 / 0.12);
 
-  /* Brand-presence material treatment (splash / login / OG / hero).
+    /* Brand-presence material treatment (splash / login / OG / hero).
    * The aurora field + glass tile vocabulary that gives the dark
    * splash depth without breaking the "flat at rest" rule for the
    * editor. Use ONLY on brand-presence surfaces, never inside the
    * editor or on favicon-sized marks. */
-  --color-brand-aurora-navy: oklch(0.42 0.18 270 / 0.2);
-  --color-brand-aurora-teal: oklch(0.52 0.14 175 / 0.13);
-  --color-brand-material-border: rgb(255 255 255 / 0.18);
-  --color-brand-material-highlight-top: rgb(255 255 255 / 0.24);
-  --color-brand-material-highlight-bottom: rgb(0 0 0 / 0.18);
+    --color-brand-aurora-navy: oklch(0.42 0.18 270 / 0.2);
+    --color-brand-aurora-teal: oklch(0.52 0.14 175 / 0.13);
+    --color-brand-material-border: rgb(255 255 255 / 0.18);
+    --color-brand-material-highlight-top: rgb(255 255 255 / 0.24);
+    --color-brand-material-highlight-bottom: rgb(0 0 0 / 0.18);
 
-  /* Semantic pairs — bg + text + foreground per state. Always used
+    /* Semantic pairs — bg + text + foreground per state. Always used
    * as a pair (bg + text); never mix `success-bg` with arbitrary text.
    * `--color-success` aligns to teal so the icon colour for
    * "correctness/affirmation" matches the brand triple.
    * `--color-error` aligns to coral for the same reason on the
    * destructive side. */
-  --color-info: #2196f3;
-  --color-info-foreground: #ffffff;
-  --color-info-bg: #e3f2fd;
-  --color-info-text: #0d47a1;
+    --color-info: #2196f3;
+    --color-info-foreground: #ffffff;
+    --color-info-bg: #e3f2fd;
+    --color-info-text: #0d47a1;
 
-  --color-success: oklch(0.68 0.18 175); /* aligned to accent */
-  --color-success-foreground: #ffffff;
-  --color-success-bg: #d4f4dd;
-  --color-success-text: #0d5c2f;
+    --color-success: oklch(0.68 0.18 175); /* aligned to accent */
+    --color-success-foreground: #ffffff;
+    --color-success-bg: #d4f4dd;
+    --color-success-text: #0d5c2f;
 
-  --color-warning: #ffd100;
-  --color-warning-foreground: #000000;
-  --color-warning-bg: #fff4cc;
-  --color-warning-text: #8b5a00;
+    --color-warning: #ffd100;
+    --color-warning-foreground: #000000;
+    --color-warning-bg: #fff4cc;
+    --color-warning-text: #8b5a00;
 
-  --color-error: oklch(0.64 0.22 18); /* aligned to secondary */
-  --color-error-foreground: #ffffff;
-  --color-error-bg: #ffdede;
-  --color-error-text: #a11f1f;
+    --color-error: oklch(0.64 0.22 18); /* aligned to secondary */
+    --color-error-foreground: #ffffff;
+    --color-error-bg: #ffdede;
+    --color-error-text: #a11f1f;
 
-  /* Surfaces + borders. Values aligned to zinc (cool greys). The
+    /* Surfaces + borders. Values aligned to zinc (cool greys). The
    * page canvas is the warmest off-white we use; everything above it
    * sits on white surfaces with hairline borders. */
-  --color-background: #ffffff;
-  --color-canvas: #fafafa;
-  --color-background-canvas: #fafafa;
-  --color-foreground: #18181b;
-  --color-muted: #f4f4f5;
-  --color-muted-foreground: #71717a;
-  --color-border: #e4e4e7;
-  --color-border-subtle: #f4f4f5;
+    --color-background: #ffffff;
+    --color-canvas: #fafafa;
+    --color-background-canvas: #fafafa;
+    --color-foreground: #18181b;
+    --color-muted: #f4f4f5;
+    --color-muted-foreground: #71717a;
+    --color-border: #e4e4e7;
+    --color-border-subtle: #f4f4f5;
 
-  /* Text-tier hierarchy for authoring chrome. Aligned to ink + zinc. */
-  --color-text-primary: #18181b;
-  --color-text-secondary: #52525b;
-  --color-text-muted: #71717a;
-  --color-text-placeholder: #a1a1aa;
+    /* Text-tier hierarchy for authoring chrome. Aligned to ink + zinc. */
+    --color-text-primary: #18181b;
+    --color-text-secondary: #52525b;
+    --color-text-muted: #71717a;
+    --color-text-placeholder: #a1a1aa;
 
-  /* Overlay tints. */
-  --color-overlay-backdrop: rgb(0 0 0 / 0.4);
-  --color-overlay-button: rgb(255 255 255 / 0.15);
-  --color-overlay-button-hover: rgb(255 255 255 / 0.25);
-  --color-overlay-pill: rgb(0 0 0 / 0.6);
+    /* Overlay tints. */
+    --color-overlay-backdrop: rgb(0 0 0 / 0.4);
+    --color-overlay-button: rgb(255 255 255 / 0.15);
+    --color-overlay-button-hover: rgb(255 255 255 / 0.25);
+    --color-overlay-pill: rgb(0 0 0 / 0.6);
 
-  /* Focus + ring — anchored to the brand navy. */
-  --color-focus-outline: oklch(0.3 0.15 270);
-  --color-focus-ring: rgb(22 29 119 / 0.35);
+    /* Focus + ring — anchored to the brand navy. */
+    --color-focus-outline: oklch(0.3 0.15 270);
+    --color-focus-ring: rgb(22 29 119 / 0.35);
 
-  /* ─── Spacing ─────────────────────────────────────────────────── */
+    /* ─── Spacing ─────────────────────────────────────────────────── */
 
-  /* Canonical spacing unit retained from the original design token scale. */
-  --spacing: 0.25rem;
-  --spacing-touch-target: 44px;
-  --spacing-touch-target-inline: 24px;
+    /* Canonical spacing unit retained from the original design token scale. */
+    --spacing: 0.25rem;
+    --spacing-touch-target: 44px;
+    --spacing-touch-target-inline: 24px;
 
-  /* Semantic spacing contracts. These define the shared vocabulary and
+    /* Semantic spacing contracts. These define the shared vocabulary and
    * safe defaults; component owners override them where their context needs
    * a different value. */
-  --sc-player-inset: 1rem;
-  --sc-surface-inset: 2rem;
-  --sc-surface-flow-gap: 1rem;
-  --sc-container-inset: 0.75rem;
-  --sc-container-flow-gap: 0.75rem;
-  --sc-block-inset: 1rem;
-  --sc-field-content-flow-gap: 0.375rem;
-  --sc-authoring-chrome-gap: 0.5rem;
+    --sc-player-inset: 1rem;
+    --sc-surface-inset: 2rem;
+    --sc-surface-flow-gap: 1rem;
+    --sc-container-inset: 0.75rem;
+    --sc-container-flow-gap: 0.75rem;
+    --sc-block-inset: 1rem;
+    --sc-field-content-flow-gap: 0.375rem;
+    --sc-authoring-chrome-gap: 0.5rem;
+    --sc-density-factor: 1;
 
-  /* ─── Radius ──────────────────────────────────────────────────── */
+    /* Standard and emphasis strokes retain application defaults outside a
+     * course-owned theme boundary. */
+    --sc-border-width: 1px;
+    --sc-border-width-emphasis: 2px;
 
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --radius-pill: 9999px;
-  --radius-full: 9999px;
+    /* ─── Radius ──────────────────────────────────────────────────── */
 
-  /* ─── Shadows ─────────────────────────────────────────────────── */
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    --radius-pill: 9999px;
+    --radius-full: 9999px;
 
-  --shadow-sm: 0 2px 4px rgb(0 0 0 / 0.1);
-  --shadow-md: 0 4px 8px rgb(0 0 0 / 0.12);
-  --shadow-lg: 0 8px 16px rgb(0 0 0 / 0.15);
-  --shadow-xl: 0 10px 30px rgb(0 0 0 / 0.2);
-  --shadow-inner: inset 0 2px 4px rgb(0 0 0 / 0.05);
+    /* ─── Shadows ─────────────────────────────────────────────────── */
 
-  /* Reserved for floating overlays (popovers, modals, toasts). */
-  --shadow-overlay: 0 8px 24px -4px rgb(0 0 0 / 0.12), 0 2px 6px -2px rgb(0 0 0 / 0.08);
+    --shadow-sm: 0 2px 4px rgb(0 0 0 / 0.1);
+    --shadow-md: 0 4px 8px rgb(0 0 0 / 0.12);
+    --shadow-lg: 0 8px 16px rgb(0 0 0 / 0.15);
+    --shadow-xl: 0 10px 30px rgb(0 0 0 / 0.2);
+    --shadow-inner: inset 0 2px 4px rgb(0 0 0 / 0.05);
 
-  /* ─── Typography ──────────────────────────────────────────────── */
+    /* Reserved for floating overlays (popovers, modals, toasts). */
+    --shadow-overlay: 0 8px 24px -4px rgb(0 0 0 / 0.12), 0 2px 6px -2px rgb(0 0 0 / 0.08);
 
-  /* Poppins is the primary family for prose + chrome. Geometric sans
+    /* ─── Typography ──────────────────────────────────────────────── */
+
+    /* Poppins is the primary family for prose + chrome. Geometric sans
    * with a wide weight range — hierarchy comes from size + weight
    * contrast within the family.
    *
@@ -166,79 +183,81 @@
    *
    * Both families have a system fallback chain so text stays legible
    * before the web fonts load. */
-  --font-sans:
-    "Poppins", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    sans-serif;
-  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
-  --default-font-family: var(--font-sans);
-  --default-mono-font-family: var(--font-mono);
+    --font-sans:
+      "Poppins", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      sans-serif;
+    --font-mono:
+      "JetBrains Mono Variable", ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    --default-font-family: var(--font-sans);
+    --default-mono-font-family: var(--font-mono);
 
-  --font-weight-normal: 400;
-  --font-weight-medium: 500;
-  --font-weight-semibold: 600;
-  --font-weight-bold: 700;
-  --font-weight-extrabold: 800;
+    --font-weight-normal: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+    --font-weight-extrabold: 800;
 
-  /* Body + utility text sizes. */
-  --text-xs: 0.75rem;
-  --text-sm: 0.875rem;
-  --text-base: 1rem;
-  --text-lg: 1.125rem;
+    /* Body + utility text sizes. */
+    --text-xs: 0.75rem;
+    --text-sm: 0.875rem;
+    --text-base: 1rem;
+    --text-lg: 1.125rem;
 
-  /* Fluid heading sizes — clamp() scale from xblock embed to standalone. */
-  --text-h1: clamp(2rem, 1.625rem + 0.94vw, 2.5rem);
-  --text-h2: clamp(1.75rem, 1.594rem + 0.39vw, 2rem);
-  --text-h3: clamp(1.5rem, 1.438rem + 0.16vw, 1.75rem);
-  --text-h4: clamp(1.25rem, 1.188rem + 0.16vw, 1.5rem);
-  --text-h5: clamp(1.125rem, 1.094rem + 0.08vw, 1.25rem);
-  --text-h6: clamp(1rem, 0.969rem + 0.08vw, 1.125rem);
+    /* Fluid heading sizes — clamp() scale from xblock embed to standalone. */
+    --text-h1: clamp(2rem, 1.625rem + 0.94vw, 2.5rem);
+    --text-h2: clamp(1.75rem, 1.594rem + 0.39vw, 2rem);
+    --text-h3: clamp(1.5rem, 1.438rem + 0.16vw, 1.75rem);
+    --text-h4: clamp(1.25rem, 1.188rem + 0.16vw, 1.5rem);
+    --text-h5: clamp(1.125rem, 1.094rem + 0.08vw, 1.25rem);
+    --text-h6: clamp(1rem, 0.969rem + 0.08vw, 1.125rem);
 
-  /* Fluid body + small for prose. */
-  --text-body: clamp(1rem, 0.969rem + 0.08vw, 1.0625rem);
-  --text-small: clamp(0.875rem, 0.844rem + 0.08vw, 0.9375rem);
+    /* Fluid body + small for prose. */
+    --text-body: clamp(1rem, 0.969rem + 0.08vw, 1.0625rem);
+    --text-small: clamp(0.875rem, 0.844rem + 0.08vw, 0.9375rem);
 
-  /* Line heights. */
-  --leading-tight: 1;
-  --leading-snug: 1.25;
-  --leading-normal: 1.4;
-  --leading-relaxed: 1.6;
-  --leading-body: 1.5;
+    /* Line heights. */
+    --leading-tight: 1;
+    --leading-snug: 1.25;
+    --leading-normal: 1.4;
+    --leading-relaxed: 1.6;
+    --leading-body: 1.5;
 
-  /* ─── Easing + duration ───────────────────────────────────────── */
+    /* ─── Easing + duration ───────────────────────────────────────── */
 
-  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
-  --default-transition-duration: 150ms;
-  --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
+    --default-transition-duration: 150ms;
+    --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* ─── Z-index ─────────────────────────────────────────────────── */
+    /* ─── Z-index ─────────────────────────────────────────────────── */
 
-  --z-behind: -10;
-  --z-background: -1;
-  --z-base: 0;
-  --z-content: 1;
-  --z-elevated: 5;
-  --z-sticky: 10;
-  --z-sticky-header: 15;
-  --z-interactive: 20;
-  --z-drag-overlay: 30;
-  --z-nav: 50;
-  --z-nav-menu: 51;
-  --z-dropdown: 100;
-  --z-overlay: 120;
-  --z-editor-toolbar: 130;
-  --z-editor-bubble: 135;
-  --z-editor-text-bubble: 140;
-  --z-overlay-host: 190;
-  --z-modal-backdrop: 200;
-  --z-modal: 210;
-  --z-modal-content: 220;
-  --z-nested-modal: 230;
-  --z-popover: 250;
-  --z-tooltip: 250;
-  --z-toast: 300;
-  --z-notification: 310;
-  --z-critical: 400;
-  --z-max: 9999;
+    --z-behind: -10;
+    --z-background: -1;
+    --z-base: 0;
+    --z-content: 1;
+    --z-elevated: 5;
+    --z-sticky: 10;
+    --z-sticky-header: 15;
+    --z-interactive: 20;
+    --z-drag-overlay: 30;
+    --z-nav: 50;
+    --z-nav-menu: 51;
+    --z-dropdown: 100;
+    --z-overlay: 120;
+    --z-editor-toolbar: 130;
+    --z-editor-bubble: 135;
+    --z-editor-text-bubble: 140;
+    --z-overlay-host: 190;
+    --z-modal-backdrop: 200;
+    --z-modal: 210;
+    --z-modal-content: 220;
+    --z-nested-modal: 230;
+    --z-popover: 250;
+    --z-tooltip: 250;
+    --z-toast: 300;
+    --z-notification: 310;
+    --z-critical: 400;
+    --z-max: 9999;
+  }
 }
 
 @layer sc-reset {
@@ -467,6 +486,115 @@
 }
 
 @layer sc-base {
+  .sc-course-theme-scope,
+  .sc-course-theme-portal-scope,
+  .sc-course-theme-scope [data-course-document] {
+    /* Stable course tokens are rebound to existing internal aliases only
+     * inside course-owned presentation. Application chrome keeps the root
+     * palette and typography outside this boundary. */
+    --color-background: var(--sc-course-color-background);
+    --color-canvas: var(--sc-course-color-canvas);
+    --color-background-canvas: var(--sc-course-color-canvas);
+    --color-foreground: var(--sc-course-color-text);
+    --color-ink: var(--sc-course-color-text);
+    --color-heading: var(--sc-course-color-heading);
+    --color-link: var(--sc-course-color-link);
+    --color-ink-2: var(--sc-course-color-text-secondary);
+    --color-muted: var(--sc-course-color-surface-muted);
+    --color-muted-foreground: var(--sc-course-color-text-muted);
+    --color-border: var(--sc-course-color-border);
+    --color-border-subtle: var(--sc-course-color-border-subtle);
+    --color-text-primary: var(--sc-course-color-text);
+    --color-text-secondary: var(--sc-course-color-text-secondary);
+    --color-text-muted: var(--sc-course-color-text-muted);
+    --color-text-placeholder: var(--sc-course-color-placeholder);
+    --color-primary: var(--sc-course-color-primary);
+    --color-primary-foreground: var(--sc-course-color-on-primary);
+    --color-primary-muted: var(--sc-course-color-primary-muted);
+    --color-secondary: var(--sc-course-color-secondary);
+    --color-secondary-foreground: var(--sc-course-color-on-secondary);
+    --color-accent: var(--sc-course-color-accent);
+    --color-accent-foreground: var(--sc-course-color-on-accent);
+    --color-info: var(--sc-course-color-info);
+    --color-info-foreground: var(--sc-course-color-info-foreground);
+    --color-info-bg: var(--sc-course-color-info-background);
+    --color-info-text: var(--sc-course-color-info-text);
+    --color-success: var(--sc-course-color-success);
+    --color-success-foreground: var(--sc-course-color-success-foreground);
+    --color-success-bg: var(--sc-course-color-success-background);
+    --color-success-text: var(--sc-course-color-success-text);
+    --color-warning: var(--sc-course-color-warning);
+    --color-warning-foreground: var(--sc-course-color-warning-foreground);
+    --color-warning-bg: var(--sc-course-color-warning-background);
+    --color-warning-text: var(--sc-course-color-warning-text);
+    --color-error: var(--sc-course-color-error);
+    --color-error-foreground: var(--sc-course-color-error-foreground);
+    --color-error-bg: var(--sc-course-color-error-background);
+    --color-error-text: var(--sc-course-color-error-text);
+    --color-focus-outline: var(--sc-course-color-focus-outline);
+    --color-focus-ring: var(--sc-course-color-focus-ring);
+    --color-overlay-backdrop: var(--sc-course-color-overlay-backdrop);
+    --color-overlay-button: var(--sc-course-color-overlay-control);
+    --color-overlay-button-hover: var(--sc-course-color-overlay-control-hover);
+    --color-overlay-pill: var(--sc-course-color-overlay-pill);
+
+    --font-heading: var(--sc-course-font-heading);
+    --font-sans: var(--sc-course-font-body);
+    --font-mono: var(--sc-course-font-code);
+    --default-font-family: var(--sc-course-font-body);
+    --default-mono-font-family: var(--sc-course-font-code);
+    --font-weight-normal: var(--sc-course-font-body-weight);
+    --font-weight-bold: var(--sc-course-font-heading-weight);
+    --leading-body: var(--sc-course-line-height-body);
+    --leading-normal: var(--sc-course-line-height-body);
+    --leading-snug: var(--sc-course-line-height-heading);
+
+    --radius-sm: calc(2px + var(--sc-course-roundness) * 4px);
+    --radius-md: calc(4px + var(--sc-course-roundness) * 8px);
+    --radius-lg: calc(6px + var(--sc-course-roundness) * 12px);
+    --radius-xl: calc(8px + var(--sc-course-roundness) * 16px);
+    --sc-border-width: var(--sc-course-stroke);
+    --sc-border-width-emphasis: calc(var(--sc-course-stroke) * 2);
+    --shadow-sm: var(--sc-course-shadow);
+    --shadow-md: var(--sc-course-shadow);
+    --shadow-lg: var(--sc-course-shadow);
+    --shadow-xl: var(--sc-course-shadow);
+    --shadow-overlay: var(--sc-course-shadow);
+
+    --sc-player-inset: calc(1rem * var(--sc-course-density));
+    --sc-surface-inset: calc(2rem * var(--sc-course-density));
+    --sc-surface-flow-gap: calc(1rem * var(--sc-course-density));
+    --sc-container-inset: calc(0.75rem * var(--sc-course-density));
+    --sc-container-flow-gap: calc(0.75rem * var(--sc-course-density));
+    --sc-block-inset: calc(1rem * var(--sc-course-density));
+    --sc-density-factor: var(--sc-course-density);
+  }
+
+  .sc-course-theme-scope {
+    display: contents;
+    background-color: var(--color-canvas);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    line-height: var(--leading-body);
+  }
+
+  .sc-course-theme-portal-scope {
+    font-family: var(--font-sans);
+    line-height: var(--leading-body);
+  }
+
+  .sc-course-theme-scope .ProseMirror {
+    font-size: calc(100% * var(--sc-course-type-scale));
+  }
+
+  .sc-course-theme-scope .ProseMirror :is(h1, h2, h3, h4, h5, h6) {
+    font-family: var(--font-heading);
+    font-weight: var(--sc-course-font-heading-weight);
+    line-height: var(--sc-course-line-height-heading);
+    letter-spacing: var(--sc-course-letter-spacing-heading);
+    text-transform: var(--sc-course-text-transform-heading);
+  }
+
   html,
   body,
   #root {
@@ -580,7 +708,7 @@
   .ProseMirror h1,
   .ProseMirror h2,
   .ProseMirror h3 {
-    color: var(--color-ink);
+    color: var(--color-heading);
     font-weight: var(--font-weight-semibold);
     line-height: var(--leading-snug);
     text-wrap: balance;
@@ -603,6 +731,12 @@
 
   .ProseMirror p {
     margin-block: 0;
+  }
+
+  .ProseMirror a:not([class]) {
+    color: var(--color-link);
+    text-decoration: underline;
+    text-underline-offset: 0.14em;
   }
 
   .ProseMirror p + p,

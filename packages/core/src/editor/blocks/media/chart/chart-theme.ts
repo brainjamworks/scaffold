@@ -1,17 +1,11 @@
 /**
  * Scaffold chart-theme contract.
  *
- * ECharts 6's public theming surface is `registerTheme(name, theme)` +
- * `init(dom, name)` + `instance.setTheme(name)`. There is no public token
- * API (RFC apache/echarts#20202 was closed unmerged in Oct 2025). The
- * "design tokens" reference in the v6 release notes is an internal
- * refactor only.
- *
- * This module is therefore our token layer: a typed `ChartTokens`
- * interface read from CSS custom properties, fed into a single
- * `buildChartTheme` that produces the ThemeOption registered as
- * `'scaffold'`. Per-series defaults (bar radius, line/scatter symbol,
- * pie border + emphasis) live here so profiles only express
+ * This module is our renderer-neutral token layer: a typed `ChartTokens`
+ * interface read from the chart's course scope and fed into
+ * `buildChartTheme`. The resulting object is passed directly to each
+ * ECharts instance so separate course scopes never share global theme
+ * state. Per-series defaults live here so profiles only express
  * encoding-driven options.
  */
 export interface ChartTokens {
@@ -72,6 +66,9 @@ export function readChartTokens(scope: Element | null): ChartTokens {
     const value = style.getPropertyValue(name).trim();
     return value || fallback;
   };
+  const palette = DEFAULT_TOKENS.palette.map((fallback, index) =>
+    read(`--sc-course-data-series-${index + 1}`, fallback),
+  );
   return {
     ...DEFAULT_TOKENS,
     ink: read("--color-ink", DEFAULT_TOKENS.ink),
@@ -81,6 +78,7 @@ export function readChartTokens(scope: Element | null): ChartTokens {
     background: read("--color-background", DEFAULT_TOKENS.background),
     sans: read("--font-sans", DEFAULT_TOKENS.sans),
     mono: read("--font-mono", DEFAULT_TOKENS.mono),
+    palette,
   };
 }
 
@@ -94,7 +92,6 @@ export function buildChartTheme(tokens: ChartTokens): Record<string, unknown> {
     axisPointerWash,
     tooltipShadow,
     sans,
-    mono,
     palette,
     radiusBar,
     radiusTooltip,
@@ -106,7 +103,7 @@ export function buildChartTheme(tokens: ChartTokens): Record<string, unknown> {
   } = tokens;
 
   const axisShared = {
-    axisLabel: { color: muted, fontFamily: mono, fontSize: 11 },
+    axisLabel: { color: muted, fontFamily: sans, fontSize: 11 },
     axisLine: { show: false, lineStyle: { color: border } },
     axisTick: { show: false, lineStyle: { color: border } },
     nameLocation: "middle" as const,
@@ -226,7 +223,7 @@ export function buildChartTheme(tokens: ChartTokens): Record<string, unknown> {
       itemHeight: 96,
       // Numbers on the visualMap are tabular values, not labels —
       // use mono so the digits align across hover and resize.
-      textStyle: { color: muted, fontFamily: mono, fontSize: 11 },
+      textStyle: { color: muted, fontFamily: sans, fontSize: 11 },
       inRange: { color: [background, palette[0]] },
       handleStyle: { color: palette[0], borderColor: background },
       indicatorStyle: { color: palette[0] },
@@ -259,11 +256,9 @@ export function buildChartTheme(tokens: ChartTokens): Record<string, unknown> {
           lineStyle: { color: palette[0], width: 1 },
           areaStyle: { color: `${palette[0]}1a` },
         },
-        textStyle: { color: muted, fontFamily: mono, fontSize: 10 },
+        textStyle: { color: muted, fontFamily: sans, fontSize: 10 },
       },
       { type: "inside" },
     ],
   };
 }
-
-export const SCAFFOLD_CHART_THEME_NAME = "scaffold";

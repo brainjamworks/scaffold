@@ -29,6 +29,39 @@ describe("FullColorPicker", () => {
 
     expect(document.activeElement).toBe(input);
   });
+
+  it("commits a custom hex colour when its shared input loses focus", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    renderPicker({
+      currentValue: "#161d77",
+      onChange,
+    });
+
+    await user.click(screen.getByRole("button", { name: "Custom colour" }));
+    const input = screen.getByLabelText("Hex");
+    await user.clear(input);
+    await user.type(input, "#123456");
+    await user.tab();
+
+    expect(onChange).toHaveBeenLastCalledWith("#123456");
+  });
+
+  it("disables every picker action when colour editing is disabled", () => {
+    renderPicker({ disabled: true });
+
+    expect(screen.getAllByRole("button").every((button) => button.hasAttribute("disabled"))).toBe(
+      true,
+    );
+  });
+
+  it("marks a non-empty reset value as active", () => {
+    renderPicker({ currentValue: "#ffffff", resetValue: "#ffffff" });
+
+    expect(screen.getByRole("button", { name: "Use default background colour" })).toHaveClass(
+      "is-active",
+    );
+  });
 });
 
 function renderPicker(overrides: Partial<Parameters<typeof FullColorPicker>[0]> = {}) {

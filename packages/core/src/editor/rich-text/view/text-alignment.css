@@ -1,18 +1,22 @@
-[data-text-align="left"] {
-  margin-inline-start: 0;
-  margin-inline-end: auto;
-}
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
 
-[data-text-align="center"] {
-  margin-inline-start: auto;
-  margin-inline-end: auto;
-}
+@layer sc-components {
+  [data-text-align="left"] {
+    margin-inline-start: 0;
+    margin-inline-end: auto;
+  }
 
-[data-text-align="right"] {
-  margin-inline-start: auto;
-  margin-inline-end: 0;
-}
+  [data-text-align="center"] {
+    margin-inline-start: auto;
+    margin-inline-end: auto;
+  }
 
-.sc-assessment-meta-instructions [data-text-align] {
-  margin-inline: 0;
+  [data-text-align="right"] {
+    margin-inline-start: auto;
+    margin-inline-end: 0;
+  }
+
+  .sc-assessment-meta-instructions [data-text-align] {
+    margin-inline: 0;
+  }
 }

@@ -1,116 +1,120 @@
-.sc-region {
-  --sc-region-inset: 0.25rem;
-  --sc-region-flow-gap: var(--sc-container-flow-gap);
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
 
-  box-sizing: border-box;
-  position: relative;
-  display: grid;
-  width: 100%;
-  height: 100%;
-  min-width: 0;
-  min-height: 0;
-  max-width: 100%;
-  max-height: 100%;
-  padding: var(--sc-region-inset);
-  overflow: clip;
-  align-content: start;
-  justify-items: stretch;
-  gap: var(--sc-region-flow-gap);
-  border-radius: var(--radius-md);
-  container-type: size;
-}
+@layer sc-components {
+  .sc-region {
+    --sc-region-inset: 0.25rem;
+    --sc-region-flow-gap: var(--sc-container-flow-gap);
 
-.sc-region[data-vertical-content-position="middle"] {
-  align-content: safe center;
-}
+    box-sizing: border-box;
+    position: relative;
+    display: grid;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    max-width: 100%;
+    max-height: 100%;
+    padding: var(--sc-region-inset);
+    overflow: clip;
+    align-content: start;
+    justify-items: stretch;
+    gap: var(--sc-region-flow-gap);
+    border-radius: var(--radius-md);
+    container-type: size;
+  }
 
-.sc-region[data-vertical-content-position="bottom"] {
-  align-content: safe end;
-}
+  .sc-region[data-vertical-content-position="middle"] {
+    align-content: safe center;
+  }
 
-.sc-region__content {
-  display: grid;
-  min-height: 0;
-  max-height: 100%;
-  align-content: start;
-  gap: var(--sc-region-flow-gap);
-}
+  .sc-region[data-vertical-content-position="bottom"] {
+    align-content: safe end;
+  }
 
-.sc-region > [data-bounded-scroll-frame] {
-  height: 100%;
-}
+  .sc-region__content {
+    display: grid;
+    min-height: 0;
+    max-height: 100%;
+    align-content: start;
+    gap: var(--sc-region-flow-gap);
+  }
 
-.sc-region:has(> [data-bounded-scroll-frame]) {
-  grid-template-rows: minmax(0, 1fr);
-}
+  .sc-region > [data-bounded-scroll-frame] {
+    height: 100%;
+  }
 
-.sc-region__content:has([data-bounded-placement="fill"]) {
-  height: 100%;
-  grid-template-rows: minmax(0, 1fr);
-}
+  .sc-region:has(> [data-bounded-scroll-frame]) {
+    grid-template-rows: minmax(0, 1fr);
+  }
 
-.sc-region[data-vertical-content-position="middle"] .sc-region__content {
-  align-content: safe center;
-}
+  .sc-region__content:has([data-bounded-placement="fill"]) {
+    height: 100%;
+    grid-template-rows: minmax(0, 1fr);
+  }
 
-.sc-region[data-vertical-content-position="bottom"] .sc-region__content {
-  align-content: safe end;
-}
+  .sc-region[data-vertical-content-position="middle"] .sc-region__content {
+    align-content: safe center;
+  }
 
-.sc-region:has(> [data-bounded-placement="fill"]),
-.sc-region:has(> .react-renderer > [data-bounded-placement="fill"]),
-.sc-region:has(> [data-node-view-content] > .react-renderer > [data-bounded-placement="fill"]),
-.sc-region:has(
-  > [data-node-view-content] > [data-node-view-content-react] > [data-bounded-placement="fill"]
-),
-.sc-region:has(
-  > [data-node-view-content]
-    > [data-node-view-content-react]
-    > .react-renderer
-    > [data-bounded-placement="fill"]
-),
-.sc-region:has(
-  > [data-node-view-content-react] > .react-renderer > [data-bounded-placement="fill"]
-),
-.sc-region:has(
-  > [data-bounded-scroll-frame] > [data-bounded-scroll] > [data-bounded-placement="fill"]
-),
-.sc-region:has(
-  > [data-bounded-scroll-frame]
-    > [data-bounded-scroll]
-    > .react-renderer
-    > [data-bounded-placement="fill"]
-),
-.sc-region:has(
-  > [data-bounded-scroll-frame]
-    > [data-bounded-scroll]
-    > [data-node-view-content-react]
-    > .react-renderer
-    > [data-bounded-placement="fill"]
-),
-.sc-region:has(
-  > [data-bounded-scroll-frame] [data-bounded-scroll] [data-bounded-placement="fill"]
-) {
-  align-content: stretch;
-  grid-template-rows: minmax(0, 1fr);
-}
+  .sc-region[data-vertical-content-position="bottom"] .sc-region__content {
+    align-content: safe end;
+  }
 
-[data-node="region"] > *,
-[data-node="region"] > [data-node-view-content] > *,
-[data-node="region"] > [data-node-view-content-react] > *,
-[data-node="region"] > [data-node-view-content] > .react-renderer > [data-authoring-frame],
-[data-node="region"] > [data-node-view-content] > .react-renderer > [data-runtime-frame],
-[data-node="region"] > [data-node-view-content] > .react-renderer > [data-resize-container],
-[data-node="region"] > [data-node-view-content-react] > .react-renderer > [data-authoring-frame],
-[data-node="region"] > [data-node-view-content-react] > .react-renderer > [data-runtime-frame],
-[data-node="region"] > [data-node-view-content-react] > .react-renderer > [data-resize-container],
-[data-node="region"] > .react-renderer > [data-authoring-frame],
-[data-node="region"] > .react-renderer > [data-runtime-frame],
-[data-node="region"] > .react-renderer > [data-resize-container] {
-  box-sizing: border-box;
-  min-width: 0;
-  min-height: 0;
-  max-width: 100%;
-  max-height: 100%;
-  margin-block: 0;
+  .sc-region:has(> [data-bounded-placement="fill"]),
+  .sc-region:has(> .react-renderer > [data-bounded-placement="fill"]),
+  .sc-region:has(> [data-node-view-content] > .react-renderer > [data-bounded-placement="fill"]),
+  .sc-region:has(
+    > [data-node-view-content] > [data-node-view-content-react] > [data-bounded-placement="fill"]
+  ),
+  .sc-region:has(
+    > [data-node-view-content]
+      > [data-node-view-content-react]
+      > .react-renderer
+      > [data-bounded-placement="fill"]
+  ),
+  .sc-region:has(
+    > [data-node-view-content-react] > .react-renderer > [data-bounded-placement="fill"]
+  ),
+  .sc-region:has(
+    > [data-bounded-scroll-frame] > [data-bounded-scroll] > [data-bounded-placement="fill"]
+  ),
+  .sc-region:has(
+    > [data-bounded-scroll-frame]
+      > [data-bounded-scroll]
+      > .react-renderer
+      > [data-bounded-placement="fill"]
+  ),
+  .sc-region:has(
+    > [data-bounded-scroll-frame]
+      > [data-bounded-scroll]
+      > [data-node-view-content-react]
+      > .react-renderer
+      > [data-bounded-placement="fill"]
+  ),
+  .sc-region:has(
+    > [data-bounded-scroll-frame] [data-bounded-scroll] [data-bounded-placement="fill"]
+  ) {
+    align-content: stretch;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  [data-node="region"] > *,
+  [data-node="region"] > [data-node-view-content] > *,
+  [data-node="region"] > [data-node-view-content-react] > *,
+  [data-node="region"] > [data-node-view-content] > .react-renderer > [data-authoring-frame],
+  [data-node="region"] > [data-node-view-content] > .react-renderer > [data-runtime-frame],
+  [data-node="region"] > [data-node-view-content] > .react-renderer > [data-resize-container],
+  [data-node="region"] > [data-node-view-content-react] > .react-renderer > [data-authoring-frame],
+  [data-node="region"] > [data-node-view-content-react] > .react-renderer > [data-runtime-frame],
+  [data-node="region"] > [data-node-view-content-react] > .react-renderer > [data-resize-container],
+  [data-node="region"] > .react-renderer > [data-authoring-frame],
+  [data-node="region"] > .react-renderer > [data-runtime-frame],
+  [data-node="region"] > .react-renderer > [data-resize-container] {
+    box-sizing: border-box;
+    min-width: 0;
+    min-height: 0;
+    max-width: 100%;
+    max-height: 100%;
+    margin-block: 0;
+  }
 }

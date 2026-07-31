@@ -75,9 +75,25 @@
   </library>
   <library>
     <location>public</location>
+    <name>@fontsource/inter</name>
+    <description>Self-host the Inter font in a neatly bundled NPM package.</description>
+    <version>5.2.8</version>
+    <license>OFL-1.1</license>
+    <repository>https://github.com/fontsource/font-files</repository>
+  </library>
+  <library>
+    <location>public</location>
     <name>@fontsource/poppins</name>
     <description>Self-host the Poppins font in a neatly bundled NPM package.</description>
     <version>5.2.7</version>
+    <license>OFL-1.1</license>
+    <repository>https://github.com/fontsource/font-files</repository>
+  </library>
+  <library>
+    <location>public</location>
+    <name>@fontsource/source-serif-4</name>
+    <description>Self-host the Source Serif 4 font in a neatly bundled NPM package.</description>
+    <version>5.2.8</version>
     <license>OFL-1.1</license>
     <repository>https://github.com/fontsource/font-files</repository>
   </library>
@@ -768,6 +784,14 @@
     <version>2.1.1</version>
     <license>MIT</license>
     <repository>https://github.com/lukeed/clsx</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
+    <name>culori</name>
+    <description>A general-purpose color library for JavaScript</description>
+    <version>4.0.2</version>
+    <license>MIT</license>
+    <repository>https://github.com/Evercoder/culori</repository>
   </library>
   <library>
     <location>public/assets</location>

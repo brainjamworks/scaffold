@@ -11,6 +11,7 @@ import {
 import { createBlockRegistry, type BlockRegistry } from "@/editor/blocks/block-registry";
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
 import { mcqResponseCodec } from "@/editor/blocks/assessment/mcq/assessment";
+import { SCAFFOLD_EDITORIAL_PRESET } from "@/theme/model";
 
 import {
   projectAssessmentDocument,
@@ -52,6 +53,36 @@ vi.mock("@/editor/blocks/built-in-block-definitions", async (importOriginal) => 
 });
 
 describe("authoring publication document projection", () => {
+  it("preserves the complete course theme snapshot for learners", () => {
+    const theme = {
+      schemaVersion: 1 as const,
+      preset: {
+        id: SCAFFOLD_EDITORIAL_PRESET.id,
+        revision: SCAFFOLD_EDITORIAL_PRESET.revision,
+      },
+      values: structuredClone(SCAFFOLD_EDITORIAL_PRESET.values),
+    };
+    const document: JSONContent = {
+      type: "courseDocument",
+      attrs: { theme },
+      content: [
+        {
+          type: "surface",
+          attrs: { id: "theme-surface", variant: "page-default" },
+          content: [{ type: "paragraph" }],
+        },
+      ],
+    };
+
+    const projectedTheme = projectLearnerDocument(document).document.attrs?.["theme"];
+    expect(projectedTheme).toEqual(theme);
+    expect(projectedTheme.values.colors).toMatchObject({
+      author: theme.values.colors.author,
+      recipe: theme.values.colors.recipe,
+      resolved: theme.values.colors.resolved,
+    });
+  });
+
   it("reads assessment projection from the explicit built-in registry", async () => {
     const configurationSchema = z.object({
       feedbackMode: z.literal("immediate").default("immediate"),

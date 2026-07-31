@@ -50,6 +50,7 @@ export {
   describeMatchingItemAccessibilityState,
   describeMatchingTargetAccessibilityState,
   getMatchingConnectorPath,
+  matchingConnectorColor,
   matchingFieldContent,
   matchingPairContent,
 } from "./matching-fields-shared";

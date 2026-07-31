@@ -1,4 +1,8 @@
-.scaffold-authoring-surface-view[data-surface-size="fluid"]
-  [data-surface].sc-page-default-surface-view {
-  max-width: 48rem;
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .scaffold-authoring-surface-view[data-surface-size="fluid"]
+    [data-surface].sc-page-default-surface-view {
+    max-width: 48rem;
+  }
 }

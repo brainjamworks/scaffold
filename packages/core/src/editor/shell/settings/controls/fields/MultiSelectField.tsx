@@ -3,7 +3,7 @@ import { useController, useFormContext, type FieldValues } from "react-hook-form
 import { Checkbox } from "@/ui/components/Checkbox/Checkbox";
 import { Field, Label } from "@/ui/components/Input/Input";
 
-import { SettingsFieldError, SettingsFieldHelp, settingsFieldMeta } from "./shared";
+import { SettingsFieldError, SettingsFieldHelp, useSettingsFieldMeta } from "./shared";
 import { useSettingsFieldOptions } from "./options";
 import type { SettingsFieldDescriptorByKind, SettingsFieldProps } from "./types";
 
@@ -20,7 +20,7 @@ export function MultiSelectField({
     defaultValue: [],
   });
   const disabled = Boolean(descriptor.disabledReason);
-  const meta = settingsFieldMeta({ ...descriptor, error });
+  const meta = useSettingsFieldMeta({ ...descriptor, error });
   const options = useSettingsFieldOptions(descriptor);
   const selected = Array.isArray(field.value)
     ? field.value.filter((value): value is string => typeof value === "string")

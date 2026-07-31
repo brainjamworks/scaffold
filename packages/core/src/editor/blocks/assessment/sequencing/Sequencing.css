@@ -63,7 +63,7 @@
     align-items: center;
     gap: 0.75rem;
     padding: 0.75rem 0.75rem 0.75rem 1rem;
-    border: 1.5px solid var(--color-border);
+    border: calc(var(--sc-border-width) * 1.5) solid var(--color-border);
     border-radius: var(--radius-md);
     background: var(--color-background);
     color: var(--color-ink);
@@ -94,9 +94,9 @@
   }
 
   .sc-sequencing-item--answer-key {
-    border-color: var(--color-accent);
+    border-color: var(--color-success);
     background: var(--color-success-bg);
-    color: var(--color-ink);
+    color: var(--color-success-text);
   }
 
   .sc-sequencing-item__content,
@@ -154,11 +154,11 @@
   }
 
   .sc-sequencing-position-dot--correct {
-    background: var(--color-accent);
+    background: var(--color-success);
   }
 
   .sc-sequencing-position-dot--incorrect {
-    background: var(--color-secondary);
+    background: var(--color-error);
   }
 
   @media (prefers-reduced-motion: reduce) {

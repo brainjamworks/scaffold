@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { getCourseDocumentDefaultsForMode } from "@/document/model/course-document-defaults";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
+import { SCAFFOLD_DEFAULT_PRESET } from "@/theme/model";
 
 import {
   createScaffoldArtifact,
@@ -27,6 +28,14 @@ describe("Scaffold format", () => {
             mode: "page",
             surfaceSize: "fluid",
             overflowMode: "grow",
+            theme: {
+              schemaVersion: 1,
+              preset: {
+                id: SCAFFOLD_DEFAULT_PRESET.id,
+                revision: SCAFFOLD_DEFAULT_PRESET.revision,
+              },
+              values: SCAFFOLD_DEFAULT_PRESET.values,
+            },
           },
           content: [
             {
@@ -131,10 +140,16 @@ describe("Scaffold format", () => {
   });
 
   it("keeps branching document view defaults fluid", () => {
-    expect(getCourseDocumentDefaultsForMode("branching")).toEqual({
+    expect(getCourseDocumentDefaultsForMode("branching")).toMatchObject({
       mode: "branching",
       surfaceSize: "fluid",
       overflowMode: "grow",
+      theme: {
+        preset: {
+          id: SCAFFOLD_DEFAULT_PRESET.id,
+          revision: SCAFFOLD_DEFAULT_PRESET.revision,
+        },
+      },
     });
   });
 
@@ -171,7 +186,8 @@ describe("Scaffold format", () => {
     const content = createScaffoldDocumentContent({ mode: "page" });
     const courseDocument = content.content?.[0];
     if (!courseDocument?.attrs) throw new Error("Expected courseDocument attrs.");
-    courseDocument.attrs = { ...courseDocument.attrs, schemaVersion: 1 };
+    const { theme: _currentTheme, ...legacyAttrs } = courseDocument.attrs;
+    courseDocument.attrs = { ...legacyAttrs, schemaVersion: 1 };
 
     const prepared = prepareScaffoldArtifactForAuthoring({
       id: "artifact-1",

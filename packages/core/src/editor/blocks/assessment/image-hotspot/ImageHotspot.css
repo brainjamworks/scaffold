@@ -7,7 +7,7 @@
     align-items: center;
     gap: 1rem;
     padding: 1.25rem;
-    border: 1px dashed var(--color-border);
+    border: var(--sc-border-width) dashed var(--color-border);
     border-radius: var(--radius-md);
     background: transparent;
     color: var(--color-text-muted);
@@ -88,7 +88,7 @@
     position: relative;
     overflow: hidden;
     user-select: none;
-    border: 1px solid var(--color-border);
+    border: var(--sc-border-width) solid var(--color-border);
     border-radius: var(--radius-lg);
     background: var(--color-muted);
     aspect-ratio: var(--sc-image-hotspot-aspect-ratio);
@@ -165,7 +165,7 @@
   .sc-image-hotspot-workspace__row-editor {
     margin-block-start: 0.625rem;
     padding-block-start: 0.75rem;
-    border-top: 1px solid var(--color-border);
+    border-top: var(--sc-border-width) solid var(--color-border);
   }
 
   .sc-assessment-node-view[data-bounded-placement="fill"] > .sc-image-hotspot {
@@ -357,7 +357,7 @@
   .sc-image-hotspot-editor__input {
     width: 100%;
     padding: 0.5rem 0.75rem;
-    border: 1px solid var(--color-border);
+    border: var(--sc-border-width) solid var(--color-border);
     border-radius: var(--radius-md);
     background: var(--color-background);
     color: var(--color-ink);
@@ -393,7 +393,7 @@
   }
 
   .sc-image-hotspot-editor__correct-toggle--neutral {
-    border: 1px solid var(--color-border);
+    border: var(--sc-border-width) solid var(--color-border);
     background: var(--color-background);
   }
 
@@ -403,7 +403,7 @@
   }
 
   .sc-image-hotspot-editor__correct-toggle--correct {
-    border: 1.5px solid var(--color-accent);
+    border: 1.5px solid var(--color-success);
     background: var(--color-success-bg);
   }
 
@@ -412,7 +412,7 @@
   }
 
   .sc-image-hotspot-editor__correct-icon {
-    color: var(--color-accent);
+    color: var(--color-success);
   }
 
   .sc-image-hotspot-runtime-missing {
@@ -423,7 +423,7 @@
   .sc-image-hotspot-runtime-counter {
     margin-bottom: 0.5rem;
     color: var(--color-text-muted);
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: 0.75rem;
     font-variant-numeric: tabular-nums;
   }
@@ -449,16 +449,17 @@
   .sc-image-hotspot-marker--hit {
     width: 1.5rem;
     height: 1.5rem;
-    color: #fff;
     box-shadow: var(--shadow-overlay);
   }
 
   .sc-image-hotspot-marker--correct {
-    background: var(--color-accent);
+    background: var(--color-success);
+    color: var(--color-success-foreground);
   }
 
   .sc-image-hotspot-marker--incorrect {
-    background: var(--color-secondary);
+    background: var(--color-error);
+    color: var(--color-error-foreground);
   }
 
   .sc-image-hotspot-marker--pending {
@@ -476,7 +477,7 @@
   .sc-image-hotspot-marker--miss {
     width: 0.625rem;
     height: 0.625rem;
-    background: rgb(113 113 122 / 70%);
+    background: color-mix(in srgb, var(--color-text-muted) 70%, transparent);
     box-shadow: 0 0 0 1px var(--color-background);
   }
 

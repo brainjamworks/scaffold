@@ -9,7 +9,7 @@
 
   .sc-code-block__shell {
     overflow: hidden;
-    border: 1px solid var(--color-border);
+    border: var(--sc-border-width) solid var(--color-border);
     border-radius: var(--radius-lg);
     background: var(--color-background);
     transition: border-color 150ms ease;
@@ -24,9 +24,9 @@
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
-    border-bottom: 1px solid var(--color-border);
+    border-bottom: var(--sc-border-width) solid var(--color-border);
     background: var(--color-background);
-    padding: 0.5rem 0.75rem;
+    padding: calc(0.5rem * var(--sc-density-factor)) calc(0.75rem * var(--sc-density-factor));
   }
 
   /* Language picker. The shared Radix `Select` owns the trigger
@@ -42,7 +42,7 @@
     background: transparent !important;
     padding: 0 0.5rem !important;
     color: var(--color-text-muted) !important;
-    font-family: var(--font-mono) !important;
+    font-family: var(--font-sans) !important;
     font-size: 0.625rem !important;
     font-weight: 600 !important;
     letter-spacing: 0.06em !important;
@@ -63,7 +63,7 @@
   .sc-code-block__language-static {
     padding: 0 0.5rem;
     color: var(--color-text-muted);
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: 0.625rem;
     font-weight: 600;
     letter-spacing: 0.06em;
@@ -84,7 +84,7 @@
     background: transparent;
     padding: 0.25rem 0.625rem;
     color: var(--color-text-muted);
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: 0.625rem;
     font-weight: 600;
     letter-spacing: 0.06em;

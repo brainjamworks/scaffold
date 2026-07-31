@@ -5,6 +5,7 @@ import type { ZodTypeAny } from "zod";
 
 import type {
   SettingsSheetApply,
+  SettingsSheetColorOption,
   SettingsSheetDraftTransform,
   SettingsSheetOptionSource,
   SettingsSheetSelectOption,
@@ -72,6 +73,7 @@ export interface ConfigurationSelectControlDescriptor extends ConfigurationNamed
   options?: readonly (SettingsSheetSelectOption & QuickMenuSelectOption)[];
   optionsSource?: SettingsSheetOptionSource;
   placeholder?: string;
+  presentation?: "menu" | "segmented";
 }
 
 export interface ConfigurationMultiSelectControlDescriptor extends ConfigurationNamedControlBase {
@@ -87,8 +89,11 @@ export interface ConfigurationDataGridControlDescriptor extends ConfigurationNam
 
 export interface ConfigurationColorControlDescriptor extends ConfigurationNamedControlBase {
   kind: "color";
+  palette?: readonly SettingsSheetColorOption[];
+  fallbackColor?: string;
   pickerLabel?: string;
   labelSuffix?: string;
+  resetValue?: string;
   resetLabel?: string;
   resetAriaLabel?: string;
   customHint?: string;

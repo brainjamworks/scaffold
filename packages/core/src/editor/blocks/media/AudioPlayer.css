@@ -18,10 +18,13 @@
   }
 
   .sc-audio-player__title {
-    font-size: 0.875rem;
-    font-weight: 600;
+    font-family: var(--font-heading);
+    font-size: calc(0.875rem * var(--sc-course-type-scale));
+    font-weight: var(--font-weight-bold);
     color: var(--color-ink);
-    letter-spacing: -0.005em;
+    line-height: var(--leading-snug);
+    letter-spacing: var(--sc-course-letter-spacing-heading);
+    text-transform: var(--sc-course-text-transform-heading);
   }
 
   .sc-audio-player__bar {
@@ -29,7 +32,7 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.3125rem 0.5rem 0.3125rem 0.3125rem;
-    border: 1px solid var(--color-border);
+    border: var(--sc-border-width) solid var(--color-border);
     border-radius: 9999px;
     background: var(--color-background);
     min-width: 0;
@@ -90,7 +93,7 @@
     border-radius: 9999px;
     background: transparent;
     color: var(--color-text-muted);
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: 0.6875rem;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
@@ -122,7 +125,7 @@
 
   .sc-audio-player__time {
     flex-shrink: 0;
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: 0.6875rem;
     font-weight: 500;
     font-variant-numeric: tabular-nums;

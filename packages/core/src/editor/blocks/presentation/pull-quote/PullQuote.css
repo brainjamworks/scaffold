@@ -24,7 +24,7 @@
   }
 
   .sc-pull-quote__body {
-    font-family: var(--font-display, var(--font-sans));
+    font-family: var(--font-heading);
     font-size: clamp(1.5rem, 1.1rem + 1.4vw, 2rem);
     font-weight: 500;
     line-height: 1.25;

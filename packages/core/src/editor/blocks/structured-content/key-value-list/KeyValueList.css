@@ -69,7 +69,8 @@
     flex-direction: column;
     gap: 0.25rem;
     padding-bottom: 0.75rem;
-    border-bottom: 1px solid color-mix(in oklch, var(--color-border) 60%, transparent);
+    border-bottom: var(--sc-border-width) solid
+      color-mix(in oklch, var(--color-border) 60%, transparent);
   }
 
   .sc-key-value-list[data-layout="stacked"] .sc-key-value-list__row:last-of-type {
@@ -82,7 +83,8 @@
     align-items: baseline;
     gap: 1rem;
     padding-bottom: 0.625rem;
-    border-bottom: 1px solid color-mix(in oklch, var(--color-border) 60%, transparent);
+    border-bottom: var(--sc-border-width) solid
+      color-mix(in oklch, var(--color-border) 60%, transparent);
   }
 
   .sc-key-value-list[data-layout="inline"] .sc-key-value-list__row:last-of-type {

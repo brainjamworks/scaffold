@@ -181,14 +181,14 @@
   }
 
   .sc-roadmap__tile--upcoming {
-    border: 1px solid color-mix(in oklch, var(--color-primary) 30%, transparent);
+    border: var(--sc-border-width) solid color-mix(in oklch, var(--color-primary) 30%, transparent);
     background: var(--color-background);
     color: var(--color-primary);
   }
 
   .sc-roadmap__tile--current,
   .sc-roadmap__tile--done {
-    border: 1px solid var(--color-primary);
+    border: var(--sc-border-width) solid var(--color-primary);
     background: var(--color-primary);
     color: var(--color-primary-foreground);
   }
@@ -235,23 +235,27 @@
 
   .sc-roadmap__content h3,
   .sc-roadmap__content p:first-child {
+    font-family: var(--font-heading);
     color: var(--color-ink);
-    font-size: 1.0625rem;
-    font-weight: 600;
-    letter-spacing: -0.005em;
+    font-size: calc(1.0625rem * var(--sc-course-type-scale));
+    font-weight: var(--font-weight-bold);
+    line-height: var(--leading-snug);
+    letter-spacing: var(--sc-course-letter-spacing-heading);
+    text-transform: var(--sc-course-text-transform-heading);
   }
 
-  .sc-roadmap__content p {
-    font-size: 0.9375rem;
-    line-height: 1.625;
+  .sc-roadmap__content p:not(:first-child) {
+    font-size: calc(0.9375rem * var(--sc-course-type-scale));
+    font-weight: var(--font-weight-normal);
+    line-height: var(--leading-body);
   }
 
   .sc-roadmap[data-orientation="horizontal"] .sc-roadmap__content p {
-    font-size: 0.875rem;
+    font-size: calc(0.875rem * var(--sc-course-type-scale));
   }
 
   .sc-roadmap[data-orientation="horizontal"] .sc-roadmap__content p:first-child {
-    font-size: 0.9375rem;
+    font-size: calc(0.9375rem * var(--sc-course-type-scale));
   }
 
   .sc-roadmap__delete {

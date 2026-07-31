@@ -11,6 +11,7 @@ import {
 import { asRecord, findCourseDocument } from "./migrations/helpers";
 import { v1ToV2CourseDocumentMigration } from "./migrations/v1-to-v2";
 import { v2ToV3CourseDocumentMigration } from "./migrations/v2-to-v3";
+import { v3ToV4CourseDocumentMigration } from "./migrations/v3-to-v4";
 
 export type CourseDocumentMigrationErrorCode =
   | "invalid_json"
@@ -38,7 +39,7 @@ export type CourseDocumentMigrationResult =
     };
 
 const MIGRATIONS: readonly CourseDocumentMigrationStep[] = validateCourseDocumentMigrationPlan(
-  [v1ToV2CourseDocumentMigration, v2ToV3CourseDocumentMigration],
+  [v1ToV2CourseDocumentMigration, v2ToV3CourseDocumentMigration, v3ToV4CourseDocumentMigration],
   SCAFFOLD_DOCUMENT_FORMAT_VERSION,
 );
 

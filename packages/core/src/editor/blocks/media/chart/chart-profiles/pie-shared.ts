@@ -9,7 +9,7 @@ import { chartHeaderReserve } from "./shared";
  * compile functions.
  */
 
-const JETBRAINS_MONO = "'JetBrains Mono', ui-monospace, SFMono-Regular, monospace";
+const CHART_BODY_FONT = "var(--font-sans)";
 /** Minimum segment percent that still earns an in-circle label. */
 const SMALL_SEGMENT_PERCENT_CUTOFF = 8;
 /** Below this rendered radius the pie can't accommodate any labels. */
@@ -38,7 +38,7 @@ export function pieRichLabel(): Record<string, unknown> {
     rich: {
       name: { fontSize: 12, fontWeight: 500, color: "inherit" },
       percent: {
-        fontFamily: JETBRAINS_MONO,
+        fontFamily: CHART_BODY_FONT,
         fontSize: 11,
         fontWeight: 500,
         color: "inherit",
@@ -138,7 +138,7 @@ function labelForState(radius: number, useOuterLabels: boolean): Record<string, 
     show: true,
     position: "inside",
     color: "#fff",
-    fontFamily: JETBRAINS_MONO,
+    fontFamily: CHART_BODY_FONT,
     fontSize: 11,
     fontWeight: 600,
     formatter: (params: { percent?: number }) =>

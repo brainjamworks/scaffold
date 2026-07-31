@@ -266,12 +266,14 @@ describe("surface authoring node views", () => {
     ]);
     expect(
       definition?.settingsSheet?.sections.flatMap((section) =>
-        section.fields.map((field) => field.name),
+        section.items.flatMap((item) => (item.kind === "directChildCollection" ? [] : [item.name])),
       ),
     ).toEqual(["background", "header.enabled", "footer.enabled"]);
     expect(page?.quickMenu?.controls.map((control) => control.name)).toEqual(["background.color"]);
     expect(
-      page?.settingsSheet?.sections.flatMap((section) => section.fields.map((field) => field.name)),
+      page?.settingsSheet?.sections.flatMap((section) =>
+        section.items.flatMap((item) => (item.kind === "directChildCollection" ? [] : [item.name])),
+      ),
     ).toEqual(["background", "header.enabled", "footer.enabled"]);
   });
 
@@ -293,7 +295,7 @@ describe("surface authoring node views", () => {
     });
     expect(
       definition?.settingsSheet?.sections.flatMap((section) =>
-        section.fields.map((field) => field.name),
+        section.items.flatMap((item) => (item.kind === "directChildCollection" ? [] : [item.name])),
       ),
     ).toEqual(["background", "header.enabled", "footer.enabled", "image"]);
   });
@@ -306,7 +308,7 @@ describe("surface authoring node views", () => {
     ]);
     expect(
       definition?.settingsSheet?.sections.flatMap((section) =>
-        section.fields.map((field) => field.name),
+        section.items.flatMap((item) => (item.kind === "directChildCollection" ? [] : [item.name])),
       ),
     ).toEqual(["background", "header.enabled", "footer.enabled", "slideTitle.enabled"]);
   });
@@ -320,7 +322,7 @@ describe("surface authoring node views", () => {
     expect(definition?.quickMenu?.controls.map((control) => control.name)).toEqual(quick);
     expect(
       definition?.settingsSheet?.sections.flatMap((section) =>
-        section.fields.map((field) => field.name),
+        section.items.flatMap((item) => (item.kind === "directChildCollection" ? [] : [item.name])),
       ),
     ).toEqual(["background", "header.enabled", "footer.enabled", "slideTitle.enabled"]);
   });
@@ -420,7 +422,7 @@ describe("surface authoring node views", () => {
     ]);
     expect(
       sideTitle?.settingsSheet?.sections.flatMap((section) =>
-        section.fields.map((field) => field.name),
+        section.items.flatMap((item) => (item.kind === "directChildCollection" ? [] : [item.name])),
       ),
     ).not.toContain("slideTitle.enabled");
     expect(sideTitle?.quickMenu?.controls.at(-1)?.name).toBe("orientation");
@@ -479,7 +481,7 @@ describe("surface authoring node views", () => {
     ]);
     expect(
       definition?.settingsSheet?.sections.flatMap((section) =>
-        section.fields.map((field) => field.name),
+        section.items.flatMap((item) => (item.kind === "directChildCollection" ? [] : [item.name])),
       ),
     ).toEqual(["background", "header.enabled", "footer.enabled", "image"]);
   });

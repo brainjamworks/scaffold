@@ -2,7 +2,7 @@ import { useFormContext, type FieldValues } from "react-hook-form";
 
 import { Field, Label, Textarea } from "@/ui/components/Input/Input";
 
-import { SettingsFieldError, SettingsFieldHelp, settingsFieldMeta } from "./shared";
+import { SettingsFieldError, SettingsFieldHelp, useSettingsFieldMeta } from "./shared";
 import type { SettingsFieldDescriptorByKind, SettingsFieldProps } from "./types";
 
 export function TextareaField({
@@ -11,7 +11,7 @@ export function TextareaField({
 }: SettingsFieldProps<SettingsFieldDescriptorByKind<"textarea">>) {
   const form = useFormContext<FieldValues>();
   const disabled = Boolean(descriptor.disabledReason);
-  const meta = settingsFieldMeta({ ...descriptor, error });
+  const meta = useSettingsFieldMeta({ ...descriptor, error });
   const field = form.register(descriptor.name);
 
   return (

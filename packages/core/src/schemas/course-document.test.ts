@@ -14,6 +14,7 @@ describe("course document schemas", () => {
       CourseDocumentAttrsSchema.parse({
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
         mode: "page",
+        theme: legacyThemeReference(),
       }),
     ).toMatchObject({
       schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
@@ -29,12 +30,11 @@ describe("course document schemas", () => {
       CourseDocumentAttrsSchema.parse({
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
         mode: "page",
-        theme: null,
+        theme: legacyThemeReference(),
         branching: null,
       }),
     ).toMatchObject({
       mode: "page",
-      theme: null,
       branching: null,
     });
 
@@ -51,6 +51,23 @@ describe("course document schemas", () => {
       variant: "page-default",
       notes: null,
     });
+  });
+
+  it("requires the Contracts-owned structured course theme", () => {
+    expect(
+      CourseDocumentAttrsSchema.safeParse({
+        schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+        mode: "page",
+        theme: "scaffold-default",
+      }).success,
+    ).toBe(false);
+    expect(
+      CourseDocumentAttrsSchema.safeParse({
+        schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+        mode: "page",
+        theme: null,
+      }).success,
+    ).toBe(false);
   });
 
   it("rejects unsupported document format versions", () => {
@@ -156,6 +173,7 @@ describe("course document schemas", () => {
       CourseDocumentAttrsSchema.parse({
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
         mode: "page",
+        theme: legacyThemeReference(),
         slideshow: { playbackMode: "auto" },
       }),
     ).not.toHaveProperty("slideshow");
@@ -178,3 +196,11 @@ describe("course document schemas", () => {
     expect(() => SurfaceAttrsSchema.parse({ id: "", variant: "page-default" })).toThrow();
   });
 });
+
+function legacyThemeReference() {
+  return {
+    schemaVersion: 1 as const,
+    preset: { id: "legacy-default", revision: null },
+    values: null,
+  };
+}

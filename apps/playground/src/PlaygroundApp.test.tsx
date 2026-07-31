@@ -6,6 +6,7 @@ import type { JSONContent } from "@tiptap/core";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { createScaffoldDocumentContent } from "@scaffold/core/format";
+import type { ScaffoldThemeExtension } from "@scaffold/core/authoring";
 import type { ArtifactSaveBundle } from "@scaffold/core/ports";
 import type { StoredArtifact } from "./ports/browserStorageDb";
 
@@ -230,6 +231,20 @@ function pageDocumentWithParagraph(surfaceId: string, text: string): JSONContent
 }
 
 describe("PlaygroundApp preview boundary", () => {
+  it("adds and removes a sample host theme extension at the public authoring seam", async () => {
+    const sampleThemeExtension = { fonts: [] } satisfies ScaffoldThemeExtension;
+    mocks.loadArtifact.mockResolvedValueOnce(storedArtifact());
+    const view = render(
+      <PlaygroundApp artifactId="shell-doc" themeExtension={sampleThemeExtension} />,
+    );
+
+    await screen.findByTestId("content-author-workspace");
+    expect(mocks.authoringAppProps.at(-1)?.["themeExtension"]).toBe(sampleThemeExtension);
+
+    view.rerender(<PlaygroundApp artifactId="shell-doc" />);
+    await waitFor(() => expect(mocks.authoringAppProps.at(-1)?.["themeExtension"]).toBeUndefined());
+  });
+
   it("does not evaluate local assessment grading during an ordinary mount", async () => {
     mocks.loadArtifact.mockResolvedValueOnce(storedArtifact());
 

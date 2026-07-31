@@ -1,4 +1,5 @@
 import { type Editor as TiptapEditor, type Extension, type JSONContent } from "@tiptap/core";
+import { UndoRedo } from "@tiptap/extensions";
 import { EditorContent, useEditor } from "@tiptap/react";
 
 import "@/editor/shell/authoring/cursors.css";
@@ -10,6 +11,8 @@ import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtif
 import { AuthoringDocumentChrome } from "@/editor/shell/authoring/AuthoringDocumentChrome";
 import { readSurfaceViewSettingsFromProseMirrorDoc } from "@/document/model/surface-view-settings";
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
+import type { ResolvedCourseTheme } from "@/theme/model";
+import { CourseThemeScope } from "@/theme/presentation";
 import { AuthoringSurfaceView } from "@/editor/surfaces/authoring/views/AuthoringSurfaceView";
 import "./CourseDocumentEditor.css";
 
@@ -50,6 +53,7 @@ export interface CourseDocumentEditorProps {
   schemaExtensions?: readonly Extension[];
   onChange?: (editor: TiptapEditor) => void;
   onReady?: (editor: TiptapEditor) => void;
+  resolvedTheme?: ResolvedCourseTheme;
   suspended?: boolean;
 }
 
@@ -62,6 +66,7 @@ export function CourseDocumentEditor({
   schemaExtensions = DEFAULT_SCHEMA_EXTENSIONS,
   onChange,
   onReady,
+  resolvedTheme,
   suspended = false,
 }: CourseDocumentEditorProps) {
   const [initialSource] = useState(source);
@@ -109,6 +114,7 @@ export function CourseDocumentEditor({
       onChange={handleChange}
       onReady={handleReady}
       onUpdate={handleUpdate}
+      resolvedTheme={resolvedTheme}
       suspended={suspended}
     />
   );
@@ -122,6 +128,7 @@ interface RequiredEditorProps {
   onChange: ((editor: TiptapEditor) => void) | undefined;
   onReady: ((editor: TiptapEditor) => void) | undefined;
   onUpdate: (editor: TiptapEditor) => void;
+  resolvedTheme: ResolvedCourseTheme | undefined;
   suspended: boolean;
 }
 
@@ -133,6 +140,7 @@ function MountedCourseDocumentEditor({
   onChange,
   onReady,
   onUpdate,
+  resolvedTheme,
   suspended,
 }: RequiredEditorProps) {
   const [overlayContainer, setOverlayContainer] = useState<HTMLDivElement | null>(null);
@@ -140,7 +148,7 @@ function MountedCourseDocumentEditor({
     () => [
       ...createCourseDocumentAuthoringExtensions({ editable }),
       ...schemaExtensions,
-      ...(source.mode === "external" ? source.stateExtensions : []),
+      ...(source.mode === "document" ? [UndoRedo] : source.stateExtensions),
     ],
     [editable, schemaExtensions, source],
   );
@@ -184,9 +192,11 @@ function MountedCourseDocumentEditor({
           editor={editor}
           overlayContainer={overlayContainer}
         >
-          <AuthoringSurfaceView settings={surfaceViewSettings}>
-            <EditorContent className="sc-course-document-editor__content" editor={editor} />
-          </AuthoringSurfaceView>
+          <CourseThemeScope resolvedTheme={resolvedTheme}>
+            <AuthoringSurfaceView settings={surfaceViewSettings}>
+              <EditorContent className="sc-course-document-editor__content" editor={editor} />
+            </AuthoringSurfaceView>
+          </CourseThemeScope>
         </AuthoringDocumentChrome>
       </ScaffoldArtifactIdentityProvider>
     </div>

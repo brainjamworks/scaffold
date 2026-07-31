@@ -15,7 +15,7 @@
     flex-direction: column;
     overflow: hidden;
     transform: translate(-50%, -50%);
-    border: 1px solid var(--color-border);
+    border: var(--sc-border-width) solid var(--color-border);
     border-radius: var(--radius-md);
     background: var(--color-background);
     color: var(--color-ink);
@@ -29,8 +29,8 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 1rem;
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid var(--color-border);
+    padding: calc(1rem * var(--sc-density-factor)) calc(1.5rem * var(--sc-density-factor));
+    border-bottom: var(--sc-border-width) solid var(--color-border);
   }
 
   :where(.sc-workspace-dialog-toolbar) {
@@ -41,8 +41,8 @@
     gap: 0.25rem;
     overflow-x: auto;
     overflow-y: hidden;
-    padding: 0.5rem 1.5rem;
-    border-bottom: 1px solid var(--color-border);
+    padding: calc(0.5rem * var(--sc-density-factor)) calc(1.5rem * var(--sc-density-factor));
+    border-bottom: var(--sc-border-width) solid var(--color-border);
     background: var(--color-background);
     overscroll-behavior-inline: contain;
     white-space: nowrap;
@@ -95,7 +95,7 @@
     min-height: 0;
     flex: 1 1 auto;
     overflow: auto;
-    padding: 1.5rem;
+    padding: calc(1.5rem * var(--sc-density-factor));
   }
 
   :where(.sc-workspace-dialog-actions) {
@@ -104,8 +104,8 @@
     align-items: center;
     justify-content: flex-end;
     gap: 0.5rem;
-    padding: 1rem 1.5rem;
-    border-top: 1px solid var(--color-border);
+    padding: calc(1rem * var(--sc-density-factor)) calc(1.5rem * var(--sc-density-factor));
+    border-top: var(--sc-border-width) solid var(--color-border);
   }
 
   :where(.sc-workspace-dialog-close) {

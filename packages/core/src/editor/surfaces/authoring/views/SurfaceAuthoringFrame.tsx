@@ -1,5 +1,5 @@
 import { NodeViewContent, NodeViewWrapper, useEditorState } from "@tiptap/react";
-import { useRef, type ReactNode } from "react";
+import { useRef, type ReactNode, type RefObject } from "react";
 
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { useBoundedScrollAffordance } from "@/editor/bounded-containers/view/bounded-scroll";
@@ -27,16 +27,19 @@ export interface SurfaceAuthoringFrameProps extends SurfaceAuthoringViewProps {
   attributes?: Record<string, string | undefined>;
   children?: ReactNode;
   className?: string;
+  surfaceRef?: RefObject<HTMLDivElement | null>;
 }
 
 export function SurfaceAuthoringFrame({
   attributes,
   children,
   className,
+  surfaceRef,
   ...props
 }: SurfaceAuthoringFrameProps) {
-  const surfaceRef = useRef<HTMLDivElement | null>(null);
-  useBoundedScrollAffordance(surfaceRef);
+  const fallbackSurfaceRef = useRef<HTMLDivElement | null>(null);
+  const resolvedSurfaceRef = surfaceRef ?? fallbackSurfaceRef;
+  useBoundedScrollAffordance(resolvedSurfaceRef);
   const chromeActive = useEditorState({
     editor: props.editor,
     selector: ({ editor }) => {
@@ -68,7 +71,7 @@ export function SurfaceAuthoringFrame({
         data-authoring-surface-stage=""
       >
         <div
-          ref={surfaceRef}
+          ref={resolvedSurfaceRef}
           className={classNames}
           style={backgroundStyle}
           {...attributes}
@@ -84,7 +87,7 @@ export function SurfaceAuthoringFrame({
 
   return (
     <NodeViewWrapper
-      ref={surfaceRef}
+      ref={resolvedSurfaceRef}
       className={classNames}
       style={backgroundStyle}
       {...attributes}

@@ -51,6 +51,7 @@ import {
   deterministicShuffle,
   getMatchingConnectorPath,
   matchedItemId,
+  matchingConnectorColor,
   matchingRevealFromAnswers,
   type MatchingConnector,
   type MatchingProjectionPair,
@@ -62,6 +63,7 @@ export {
   describeMatchingItemAccessibilityState,
   describeMatchingTargetAccessibilityState,
   getMatchingConnectorPath,
+  matchingConnectorColor,
 } from "./matching-fields-shared";
 
 export const MatchingItemRuntimeNode = createMatchingItemNode();
@@ -247,12 +249,7 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
               {connectors.length > 0 && (
                 <svg aria-hidden data-matching-connectors="" className="sc-matching-connectors">
                   {connectors.map((connector) => {
-                    const color =
-                      connector.state === "correct"
-                        ? "var(--color-accent)"
-                        : connector.state === "incorrect"
-                          ? "var(--color-secondary)"
-                          : "var(--color-primary)";
+                    const color = matchingConnectorColor(connector.state);
                     return (
                       <g
                         key={`${connector.itemId}:${connector.targetId}`}
@@ -387,7 +384,7 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
                                 }}
                                 className={cn(
                                   CHOICE_TRAILING_BTN,
-                                  "sc-choice-trailing-button--danger",
+                                  "sc-choice-trailing-button--course-danger",
                                 )}
                               >
                                 <X size={iconSm} />

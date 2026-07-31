@@ -1,12 +1,13 @@
 // @vitest-environment happy-dom
 
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import type { JSONContent } from "@tiptap/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import type { ScaffoldLearnerBootstrap, ScaffoldLearnerHostServices } from "@/host/contracts";
 import type { XapiPort } from "@/host/ports";
+import { SCAFFOLD_DEFAULT_PRESET, type ScaffoldThemeExtension } from "@/theme/model";
 
 import { ScaffoldLearnerApp } from "./ScaffoldLearnerApp";
 
@@ -152,6 +153,120 @@ function learnerBootstrap(
 }
 
 describe("ScaffoldLearnerApp", () => {
+  it("applies a validated host theme extension to learner content", async () => {
+    const themeExtension = hostThemeExtension();
+    const hostPreset = themeExtension.presets![0]!;
+    const learnerContent = learnerDocumentWithText("Host themed learner content");
+    learnerContent.content![0]!.attrs = {
+      ...learnerContent.content![0]!.attrs,
+      theme: {
+        schemaVersion: 1,
+        preset: { id: hostPreset.id, revision: hostPreset.revision },
+        values: structuredClone(hostPreset.values),
+      },
+    };
+
+    render(
+      <ScaffoldLearnerApp
+        bootstrap={learnerBootstrap({ learnerContent })}
+        services={{}}
+        themeExtension={themeExtension}
+      />,
+    );
+
+    await screen.findByText("Host themed learner content");
+    expect(screen.getByTestId("course-theme-scope")).toHaveAttribute(
+      "data-effective-course-theme",
+      hostPreset.id,
+    );
+  });
+
+  it("falls back and restores a host theme without mutating the saved snapshot", async () => {
+    const themeExtension = hostThemeExtension();
+    const hostPreset = themeExtension.presets![0]!;
+    const learnerContent = learnerDocumentWithText("Recoverable host theme");
+    learnerContent.content![0]!.attrs = {
+      ...learnerContent.content![0]!.attrs,
+      theme: {
+        schemaVersion: 1,
+        preset: { id: hostPreset.id, revision: hostPreset.revision },
+        values: structuredClone(hostPreset.values),
+      },
+    };
+    const savedTheme = structuredClone(learnerContent.content![0]!.attrs!["theme"]);
+    const bootstrap = learnerBootstrap({ learnerContent });
+    const view = render(
+      <ScaffoldLearnerApp bootstrap={bootstrap} services={{}} themeExtension={themeExtension} />,
+    );
+
+    await screen.findByText("Recoverable host theme");
+    expect(screen.getByTestId("course-theme-scope")).toHaveAttribute(
+      "data-effective-course-theme",
+      hostPreset.id,
+    );
+
+    view.rerender(<ScaffoldLearnerApp bootstrap={bootstrap} services={{}} />);
+    await waitFor(() =>
+      expect(screen.getByTestId("course-theme-scope")).toHaveAttribute(
+        "data-effective-course-theme",
+        SCAFFOLD_DEFAULT_PRESET.id,
+      ),
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+
+    view.rerender(
+      <ScaffoldLearnerApp bootstrap={bootstrap} services={{}} themeExtension={themeExtension} />,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("course-theme-scope")).toHaveAttribute(
+        "data-effective-course-theme",
+        hostPreset.id,
+      ),
+    );
+    expect(learnerContent.content![0]!.attrs!["theme"]).toEqual(savedTheme);
+  });
+
+  it("applies an explicit host mode to learner chrome and course presentation", async () => {
+    const { rerender } = render(
+      <ScaffoldLearnerApp bootstrap={learnerBootstrap()} hostColorMode="dark" services={{}} />,
+    );
+
+    await screen.findByText("Projected learner content");
+    const runtimeHost = screen.getByTestId("scaffold-runtime-host");
+    const courseScope = screen.getByTestId("course-theme-scope");
+    expect(runtimeHost).toHaveAttribute("data-scaffold-color-mode", "dark");
+    expect(runtimeHost).toHaveClass("sc-course-theme-scope");
+    expect(runtimeHost.style.colorScheme).toBe("dark");
+    expect(courseScope).toHaveAttribute("data-course-color-mode", "dark");
+
+    rerender(
+      <ScaffoldLearnerApp bootstrap={learnerBootstrap()} hostColorMode="light" services={{}} />,
+    );
+
+    await waitFor(() => {
+      expect(runtimeHost).toHaveAttribute("data-scaffold-color-mode", "light");
+      expect(courseScope).toHaveAttribute("data-course-color-mode", "light");
+    });
+  });
+
+  it("updates learner chrome and course presentation with the browser fallback", async () => {
+    const media = installColorModePreference(false);
+    render(<ScaffoldLearnerApp bootstrap={learnerBootstrap()} services={{}} />);
+
+    await screen.findByText("Projected learner content");
+    const runtimeHost = screen.getByTestId("scaffold-runtime-host");
+    const courseScope = screen.getByTestId("course-theme-scope");
+    expect(runtimeHost).toHaveAttribute("data-scaffold-color-mode", "light");
+    expect(courseScope).toHaveAttribute("data-course-color-mode", "light");
+
+    act(() => media.setDark(true));
+
+    await waitFor(() => {
+      expect(runtimeHost).toHaveAttribute("data-scaffold-color-mode", "dark");
+      expect(courseScope).toHaveAttribute("data-course-color-mode", "dark");
+    });
+  });
+
   it("renders projected learner content from learner bootstrap", async () => {
     render(<ScaffoldLearnerApp bootstrap={learnerBootstrap()} services={{}} />);
 
@@ -322,3 +437,40 @@ describe("ScaffoldLearnerApp", () => {
     expect(() => render(<ScaffoldLearnerApp bootstrap={bootstrap} services={{}} />)).toThrow();
   });
 });
+
+function hostThemeExtension(): ScaffoldThemeExtension {
+  const preset = structuredClone(SCAFFOLD_DEFAULT_PRESET);
+  preset.id = "host-course";
+  preset.revision = "host-course-v1";
+  preset.label = "Host course";
+  return { presets: [preset] };
+}
+
+function installColorModePreference(initialDark: boolean) {
+  let matches = initialDark;
+  const listeners = new Set<(event: MediaQueryListEvent) => void>();
+  const mediaQuery = {
+    get matches() {
+      return matches;
+    },
+    media: "(prefers-color-scheme: dark)",
+    addEventListener: (_type: "change", listener: (event: MediaQueryListEvent) => void) => {
+      listeners.add(listener);
+    },
+    removeEventListener: (_type: "change", listener: (event: MediaQueryListEvent) => void) => {
+      listeners.delete(listener);
+    },
+  } as MediaQueryList;
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn(() => mediaQuery),
+  );
+
+  return {
+    setDark(next: boolean) {
+      matches = next;
+      const event = { matches, media: mediaQuery.media } as MediaQueryListEvent;
+      for (const listener of listeners) listener(event);
+    },
+  };
+}

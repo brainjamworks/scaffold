@@ -21,6 +21,10 @@ export interface OverlayBoundaryEnvironment {
   strategy: OverlayPositionStrategy;
 }
 
+export type OverlayThemeOwner =
+  | { kind: "application"; courseScope: null }
+  | { kind: "course"; courseScope: HTMLElement };
+
 interface OverlayBoundaryResolutionProviderProps {
   resolution: OverlayBoundaryResolution;
   children: ReactNode;
@@ -42,4 +46,9 @@ export function OverlayBoundaryResolutionProvider({
 
 export function useOverlayBoundary(): OverlayBoundaryResolution {
   return useContext(OverlayBoundaryContext);
+}
+
+export function resolveOverlayThemeOwner(host: HTMLElement): OverlayThemeOwner {
+  const courseScope = host.closest<HTMLElement>(".sc-course-theme-scope");
+  return courseScope ? { kind: "course", courseScope } : { kind: "application", courseScope: null };
 }

@@ -3,7 +3,7 @@
 @layer sc-components {
   .sc-matching-field {
     min-height: var(--spacing-touch-target);
-    border: 1.5px solid var(--color-border);
+    border: calc(var(--sc-border-width) * 1.5) solid var(--color-border);
     border-radius: var(--radius-md);
     background: var(--color-background);
     color: var(--color-ink);
@@ -247,7 +247,7 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    border: 1px solid var(--color-border);
+    border: var(--sc-border-width) solid var(--color-border);
     border-radius: var(--radius-md);
     background: var(--color-background);
     padding: 0.75rem 1rem;
@@ -301,7 +301,7 @@
     flex-direction: column;
     justify-content: center;
     gap: 0.5rem;
-    border: 1px dashed var(--color-border);
+    border: var(--sc-border-width) dashed var(--color-border);
     border-radius: var(--radius-md);
     background: var(--color-background);
     padding: 0.75rem 1rem;
@@ -328,7 +328,7 @@
 
   .sc-matching-runtime-target--correct {
     border-style: solid;
-    border-color: var(--color-accent);
+    border-color: var(--color-success);
     background: var(--color-success-bg);
     color: var(--color-success-text);
   }
@@ -353,7 +353,7 @@
     gap: 0.5rem;
     margin-top: 0.5rem;
     padding-top: 0.5rem;
-    border-top: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+    border-top: var(--sc-border-width) solid color-mix(in srgb, currentColor 10%, transparent);
   }
 
   .sc-matching-runtime-status-icon {
@@ -361,11 +361,11 @@
   }
 
   .sc-matching-runtime-status-icon--correct {
-    color: var(--color-accent);
+    color: var(--color-success);
   }
 
   .sc-matching-runtime-status-icon--incorrect {
-    color: var(--color-secondary);
+    color: var(--color-error);
   }
 
   .sc-matching-empty {

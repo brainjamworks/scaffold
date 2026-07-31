@@ -4,11 +4,36 @@ import "@/editor/frame/view/bounded-placement.css";
 
 import "../../view/region.css";
 
+const mountedStyles: HTMLStyleElement[] = [];
+
 afterEach(() => {
+  for (const style of mountedStyles.splice(0)) style.remove();
   document.body.replaceChildren();
 });
 
 describe("Region vertical content geometry", () => {
+  it("allows adapter-layer overrides without losing Region geometry", () => {
+    const adapterStyles = document.createElement("style");
+    adapterStyles.textContent = `
+      @layer sc-adapters {
+        .sc-region {
+          gap: 1px;
+        }
+      }
+    `;
+    document.head.append(adapterStyles);
+    mountedStyles.push(adapterStyles);
+
+    const region = document.createElement("div");
+    region.className = "sc-region";
+    document.body.append(region);
+
+    const style = getComputedStyle(region);
+    expect(style.display).toBe("grid");
+    expect(style.containerType).toBe("size");
+    expect(style.gap).toBe("1px");
+  });
+
   it("centres content in the available Region height", () => {
     const region = document.createElement("div");
     region.className = "sc-region";

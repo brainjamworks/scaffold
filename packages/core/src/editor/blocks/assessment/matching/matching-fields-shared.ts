@@ -182,6 +182,14 @@ export function getMatchingConnectorPath({
   return `M ${startX} ${startY} C ${cp1X} ${startY}, ${cp2X} ${endY}, ${endX} ${endY}`;
 }
 
+export function matchingConnectorColor(
+  state: MatchingConnector["state"],
+): "var(--color-primary)" | "var(--color-success)" | "var(--color-error)" {
+  if (state === "correct") return "var(--color-success)";
+  if (state === "incorrect") return "var(--color-error)";
+  return "var(--color-primary)";
+}
+
 export function createMatchingItemNode(options: MatchingFieldNodeOptions = {}) {
   return Node.create({
     name: "matching_item",

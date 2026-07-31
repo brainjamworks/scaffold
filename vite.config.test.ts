@@ -39,9 +39,10 @@ function resolvePlaygroundConfig(command: "build" | "serve", mode: string) {
 }
 
 describe("playground development task graph", () => {
-  it("starts only the playground Vite server", () => {
+  it("starts the playground and its workspace dependency watchers", () => {
     expect(config.run?.tasks?.["dev:playground"]).toEqual({
-      command: "vp dev apps/playground",
+      command:
+        "vp run --filter @scaffold/core... --filter @scaffold/grading... build && vp run -t --parallel @scaffold/playground#dev",
       cache: false,
     });
   });

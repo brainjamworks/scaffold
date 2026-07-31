@@ -1,8 +1,12 @@
-.sc-region-authoring::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border: 1px dotted color-mix(in oklch, var(--color-primary) 18%, var(--color-border));
-  border-radius: inherit;
-  pointer-events: none;
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-overlays {
+  .sc-region-authoring::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border: 1px dotted color-mix(in oklch, var(--color-primary) 18%, var(--color-border));
+    border-radius: inherit;
+    pointer-events: none;
+  }
 }

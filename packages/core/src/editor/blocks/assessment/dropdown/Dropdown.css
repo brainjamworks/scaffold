@@ -20,7 +20,7 @@
     justify-self: stretch;
     place-items: center;
     padding: clamp(0.75rem, 2cqw, 1rem);
-    border: 1px solid color-mix(in srgb, var(--color-border) 78%, transparent);
+    border: var(--sc-border-width) solid color-mix(in srgb, var(--color-border) 78%, transparent);
     border-radius: var(--radius-md);
     background: color-mix(in srgb, var(--color-muted) 58%, var(--color-background));
   }
@@ -88,7 +88,7 @@
     justify-content: space-between;
     gap: 0.75rem;
     padding: 0.75rem 1rem;
-    border: 1px solid var(--color-border);
+    border: var(--sc-border-width) solid var(--color-border);
     border-radius: var(--radius-md);
     background: var(--color-background);
     color: var(--color-text-primary);
@@ -102,7 +102,7 @@
 
   .sc-dropdown-runtime__trigger:focus {
     outline: none;
-    border-color: var(--color-accent);
+    border-color: var(--color-focus-outline);
   }
 
   .sc-dropdown-runtime__trigger--idle:not(:disabled):hover {
@@ -160,7 +160,7 @@
     max-height: 18rem;
     min-width: var(--radix-select-trigger-width);
     overflow: hidden;
-    border: 1px solid var(--color-border);
+    border: var(--sc-border-width) solid var(--color-border);
     border-radius: var(--radius-md);
     background: var(--color-background);
     box-shadow: var(--shadow-overlay);

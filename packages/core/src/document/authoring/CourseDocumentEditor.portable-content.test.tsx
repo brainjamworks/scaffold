@@ -6,6 +6,7 @@ import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
+import { createScaffoldDefaultTheme } from "@/theme/model";
 import { CourseDocumentEditor } from "./CourseDocumentEditor";
 
 afterEach(cleanup);
@@ -136,6 +137,7 @@ function pageDocument(text: string): JSONContent {
           mode: "page",
           surfaceSize: "fluid",
           overflowMode: "grow",
+          theme: createScaffoldDefaultTheme(),
         },
         content: [
           {

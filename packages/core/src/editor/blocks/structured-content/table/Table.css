@@ -11,7 +11,7 @@
   .sc-table {
     position: relative;
     width: 100%;
-    border: 1px solid var(--color-border);
+    border: var(--sc-border-width) solid var(--color-border);
     border-radius: var(--radius-lg);
     border-collapse: separate;
     border-spacing: 0;
@@ -28,8 +28,8 @@
     position: relative;
     min-width: 4rem;
     padding: 0.625rem 0.875rem;
-    border-bottom: 1px solid var(--color-border);
-    border-right: 1px solid var(--color-border);
+    border-bottom: var(--sc-border-width) solid var(--color-border);
+    border-right: var(--sc-border-width) solid var(--color-border);
     vertical-align: top;
     font-size: 0.9375rem;
     line-height: 1.55;
@@ -49,7 +49,7 @@
   .sc-table th {
     background: var(--color-primary-muted);
     color: var(--color-primary);
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: 0.6875rem;
     font-weight: 700;
     letter-spacing: 0.06em;

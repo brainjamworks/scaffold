@@ -4,7 +4,7 @@ import { Field, Label } from "@/ui/components/Input/Input";
 
 import { DataGridEditor } from "./data-grid/DataGridEditor";
 import { normalizeDataGridValue } from "./data-grid/data-grid-model";
-import { SettingsFieldError, SettingsFieldHelp, settingsFieldMeta } from "./shared";
+import { SettingsFieldError, SettingsFieldHelp, useSettingsFieldMeta } from "./shared";
 import type { SettingsFieldDescriptorByKind, SettingsFieldProps } from "./types";
 
 export function DataGridField({
@@ -17,7 +17,7 @@ export function DataGridField({
     name: descriptor.name,
   });
   const disabled = Boolean(descriptor.disabledReason);
-  const meta = settingsFieldMeta({ ...descriptor, error });
+  const meta = useSettingsFieldMeta({ ...descriptor, error });
   const value = normalizeDataGridValue(field.value);
 
   return (

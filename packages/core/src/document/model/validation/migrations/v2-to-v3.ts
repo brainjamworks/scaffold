@@ -6,7 +6,7 @@ import {
   AnnotatedFigureSourceSchema,
   DEFAULT_ANNOTATED_FIGURE_CAPTION_DISPLAY,
 } from "@scaffold/contracts";
-import { CourseDocumentAttrsSchema } from "@/schemas/course-document";
+import { CourseModeSchema, OverflowModeSchema, SurfaceSizeSchema } from "@/schemas/course-document";
 
 import { defineCourseDocumentMigration } from "../migration-registry";
 import { asRecord, findCourseDocument } from "./helpers";
@@ -28,6 +28,24 @@ const LegacyAnnotatedFigureDataSchema = z
   })
   .strict();
 
+const V3CourseDocumentAttrsSchema = z
+  .object({
+    schemaVersion: z.literal(3),
+    mode: CourseModeSchema,
+    surfaceSize: SurfaceSizeSchema.default("fluid"),
+    overflowMode: OverflowModeSchema.default("grow"),
+    theme: z.string().nullable().optional(),
+    branching: z.unknown().optional(),
+  })
+  .refine(
+    (attrs) =>
+      attrs.mode === "slideshow" ? attrs.surfaceSize === "16x9" : attrs.surfaceSize === "fluid",
+    {
+      message: "surfaceSize must match the course mode",
+      path: ["surfaceSize"],
+    },
+  );
+
 export const v2ToV3CourseDocumentMigration = defineCourseDocumentMigration({
   from: 2,
   to: 3,
@@ -45,7 +63,7 @@ export const v2ToV3CourseDocumentMigration = defineCourseDocumentMigration({
       );
     }
 
-    const migratedAttrs = CourseDocumentAttrsSchema.safeParse({ ...attrs, schemaVersion: 3 });
+    const migratedAttrs = V3CourseDocumentAttrsSchema.safeParse({ ...attrs, schemaVersion: 3 });
     if (!migratedAttrs.success) {
       const issue = migratedAttrs.error.issues[0];
       throw new Error(

@@ -3,14 +3,14 @@
 @layer sc-components {
   :where(.sc-card) {
     box-sizing: border-box;
-    border: 1px solid var(--color-border);
+    border: var(--sc-border-width) solid var(--color-border);
     border-radius: var(--radius-lg);
     background: var(--color-background);
     transition: border-color 150ms var(--ease-out-soft);
   }
 
   :where(.sc-card[data-variant="selected"]) {
-    border-width: 2px;
+    border-width: var(--sc-border-width-emphasis);
     border-color: var(--color-primary);
   }
 
@@ -23,15 +23,15 @@
   }
 
   :where(.sc-card[data-padding="sm"]) {
-    padding: 0.75rem;
+    padding: calc(0.75rem * var(--sc-density-factor));
   }
 
   :where(.sc-card[data-padding="md"]) {
-    padding: 1.25rem;
+    padding: calc(1.25rem * var(--sc-density-factor));
   }
 
   :where(.sc-card[data-padding="lg"]) {
-    padding: 1.5rem;
+    padding: calc(1.5rem * var(--sc-density-factor));
   }
 
   :where(.sc-card-label) {

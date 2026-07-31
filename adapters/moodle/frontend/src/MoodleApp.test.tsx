@@ -4,10 +4,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createElement, type ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import {
-  SCAFFOLD_DOCUMENT_FORMAT_VERSION,
-  type LearnerActivitySnapshot,
-} from "@scaffold/contracts";
+import type { LearnerActivitySnapshot } from "@scaffold/contracts";
 import type { ContentRuntimeHostProps } from "@scaffold/core/runtime";
 
 const mocks = vi.hoisted(() => ({
@@ -50,15 +47,19 @@ vi.mock("@scaffold/core/authoring", () => ({
   },
 }));
 
-vi.mock("@scaffold/core/format", () => ({
-  ScaffoldArtifactSchema: {
-    safeParse: (value: unknown) => ({ success: true, data: value }),
-  },
-  prepareScaffoldArtifactForAuthoring: (artifact: typeof readyArtifact) =>
-    artifact.content === null
-      ? { status: "uninitialized", artifact }
-      : { status: "ready", artifact, source: "stored" },
-}));
+vi.mock("@scaffold/core/format", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@scaffold/core/format")>();
+  return {
+    ...actual,
+    ScaffoldArtifactSchema: {
+      safeParse: (value: unknown) => ({ success: true, data: value }),
+    },
+    prepareScaffoldArtifactForAuthoring: (artifact: typeof readyArtifact) =>
+      artifact.content === null
+        ? { status: "uninitialized", artifact }
+        : { status: "ready", artifact, source: "stored" },
+  };
+});
 
 vi.mock("@scaffold/core/runtime", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@scaffold/core/runtime")>();
@@ -73,10 +74,17 @@ vi.mock("@scaffold/core/runtime", async (importOriginal) => {
 });
 
 import { ScaffoldServicesProvider } from "@scaffold/core/runtime";
+import { createScaffoldDocumentContent } from "@scaffold/core/format";
 import { MoodleApp } from "./MoodleApp";
 import { createMoodleRuntimePorts } from "./ports";
 
 type MoodleAppConfig = ComponentProps<typeof MoodleApp>["config"];
+
+const defaultPageAttrs = createScaffoldDocumentContent({
+  mode: "page",
+  surfaceId: "moodle-default-surface",
+}).content?.[0]?.attrs;
+if (!defaultPageAttrs) throw new Error("Expected default page document attributes");
 
 const readyArtifact = {
   id: "moodle-artifact",
@@ -88,10 +96,7 @@ const readyArtifact = {
       {
         type: "courseDocument",
         attrs: {
-          schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
-          mode: "page",
-          surfaceSize: "fluid",
-          overflowMode: "grow",
+          ...defaultPageAttrs,
         },
         content: [
           {

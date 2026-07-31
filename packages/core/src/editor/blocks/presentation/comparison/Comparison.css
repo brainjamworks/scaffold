@@ -16,7 +16,7 @@
     flex-direction: column;
     min-width: 0;
     overflow: hidden;
-    border: 1px solid var(--color-border);
+    border: var(--sc-border-width) solid var(--color-border);
     border-radius: var(--radius-lg);
     background: var(--color-background);
   }
@@ -24,14 +24,14 @@
   .sc-comparison__header {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    border-bottom: 1px solid var(--color-border);
+    border-bottom: var(--sc-border-width) solid var(--color-border);
     background: var(--color-primary-muted);
   }
 
   .sc-comparison__header-cell {
     padding: 0.75rem 1.125rem;
     color: var(--color-primary);
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: 0.6875rem;
     font-weight: 700;
     letter-spacing: 0.06em;
@@ -40,7 +40,7 @@
   }
 
   .sc-comparison__header-cell + .sc-comparison__header-cell {
-    border-left: 1px solid var(--color-border);
+    border-left: var(--sc-border-width) solid var(--color-border);
   }
 
   .sc-comparison__body {
@@ -63,7 +63,7 @@
   }
 
   .sc-comparison__row:not(:first-child) {
-    border-top: 1px solid var(--color-border);
+    border-top: var(--sc-border-width) solid var(--color-border);
   }
 
   .sc-comparison__row:hover {
@@ -75,12 +75,13 @@
   }
 
   .sc-comparison__cell--right {
-    border-left: 1px solid color-mix(in oklch, var(--color-border) 82%, var(--color-ink));
+    border-left: var(--sc-border-width) solid
+      color-mix(in oklch, var(--color-border) 82%, var(--color-ink));
   }
 
   .sc-comparison__cell-content {
     min-width: 0;
-    padding: 1rem 1.125rem;
+    padding: calc(1rem * var(--sc-density-factor)) calc(1.125rem * var(--sc-density-factor));
     color: var(--color-text-primary);
     font-size: 0.9375rem;
     line-height: 1.55;

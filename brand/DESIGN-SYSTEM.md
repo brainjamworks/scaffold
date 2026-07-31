@@ -40,28 +40,57 @@ Full neutrals + semantic pairs live in
 [`design-system.html`](./design-system.html) and
 [`packages/core/src/styles/globals.css`](../packages/core/src/styles/globals.css).
 
+### Application palette and authored course palettes
+
+The brand palette above belongs to Scaffold application chrome. An authored course theme is a
+separate persisted presentation system and does not recolour the wordmark, editor toolbar,
+add-slide affordances, or other application-owned controls.
+
+Authors choose a curated preset and may edit eleven publication colours for both its light and dark
+course appearances:
+
+| Family      | Author roles                                 | Ownership after editing                                                                                                                                             |
+| ----------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Foundation  | Background, surface, body text, heading text | The chosen values remain exact anchors; the preset recipe resolves related neutrals, borders, overlays, and text hierarchy.                                         |
+| Creative    | Primary, secondary, accent 1–4               | The six chosen values remain exact anchors; the preset recipe resolves on-colours, containers, interaction tones, focus mappings, and declared chart contributions. |
+| Publication | Link                                         | The chosen value remains an exact anchor and is independent from the primary action colour.                                                                         |
+
+Internal semantic tokens are not individual author controls. Each preset continues to own its
+information, success, warning, and error colour families. Changing a foundation may select a more
+suitable tone from one of those families, but changing primary, secondary, an accent, or link must
+not change the family's semantic hue. Preset-owned supplemental data colours complete the
+eight-series chart palette after the declared creative contributions.
+
+Light and dark are separately persisted course appearances. An exact author selection remains
+available in its corresponding appearance; derived roles may use related tones where their
+semantic purpose requires them.
+
+Three colour-mode lifecycles must remain distinct:
+
+- **Application mode** is the author's remembered light/dark preference for Scaffold chrome.
+- **Course Preview mode** is temporary session state for inspecting the authored light/dark
+  appearance.
+- **Learner mode** is host-controlled when supplied and otherwise follows the browser preference.
+
+Course-owned DOM, charts, and learner overlays consume the resolved course tokens. Application
+chrome and application-owned overlays consume application tokens. Explicit author styling, such as
+a chosen surface colour, is presentation intent and is not silently recoloured.
+
+Built-in and host-provided presets use the same closed structured contract. Missing or invalid host
+presets fall back to Scaffold Default without changing the document snapshot. Arbitrary host CSS,
+private branding, and executable palette generators are outside the OSS theming seam.
+
 ## Typography
 
-Two branded families:
+Application chrome uses Poppins and JetBrains Mono through application-owned tokens. Course
+typography is independent: authors select any curated family for heading, body, and code roles.
+The OSS catalogue currently includes Poppins, Source Serif 4, Inter, and JetBrains Mono; a code
+role is not required to use a monospace family.
 
-- **Poppins** — primary. Prose + chrome. Weights 400/500/600/700/800.
-  Hierarchy comes from size + weight contrast within the family.
-- **JetBrains Mono** — secondary. Code blocks, tabular data values
-  ("5 pts · attempt 1 of 3"), numeric status pills, token references
-  in author chrome. Weights 400/500/700. Excellent tabular numerals;
-  programming ligatures off by default.
-
-Both load from Google Fonts with system fallbacks. The `@import url`
-sits before local rules per CSS spec.
-
-```css
-@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap");
-```
-
-In CSS tokens:
-
-- `--font-sans` → Poppins (the default — applied at `body`)
-- `--font-mono` → JetBrains Mono
+Course font choices are persisted by catalogue ID and resolved to scoped
+`--sc-course-font-heading`, `--sc-course-font-body`, and `--sc-course-font-code` values. Missing
+host fonts fall back through the catalogue without rewriting the saved selection. Font assets are
+bundled with Core rather than loaded from a third-party font service.
 
 ## The mark
 

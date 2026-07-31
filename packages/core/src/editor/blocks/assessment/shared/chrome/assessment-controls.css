@@ -16,19 +16,19 @@
   }
 
   .sc-assessment-submit-button--correct {
-    border: 1.5px solid var(--color-accent);
+    border: 1.5px solid var(--color-success);
     background: var(--color-success-bg);
     color: var(--color-success-text);
   }
 
   .sc-assessment-submit-button--exhausted {
-    border: 1px solid var(--color-border);
+    border: var(--sc-border-width) solid var(--color-border);
     background: var(--color-background);
     color: var(--color-text-secondary);
   }
 
   .sc-assessment-submit-button__icon {
-    color: var(--color-accent);
+    color: var(--color-success);
   }
 
   .sc-button.sc-assessment-show-answer-button {
@@ -50,7 +50,7 @@
     align-items: center;
     min-height: 2.25rem;
     color: var(--color-text-muted);
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: 0.75rem;
     font-variant-numeric: tabular-nums;
     font-weight: 500;

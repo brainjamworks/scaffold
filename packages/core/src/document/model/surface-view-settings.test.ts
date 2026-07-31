@@ -8,6 +8,7 @@ import { ARRANGEMENT_CONTENT } from "@/document/model/content-model/content-grou
 import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
+import { createScaffoldDefaultTheme } from "@/theme/model";
 
 import {
   getSurfaceViewSettings,
@@ -41,7 +42,11 @@ function documentContent(attrs: Record<string, unknown>): JSONContent {
     content: [
       {
         type: "courseDocument",
-        attrs: { schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION, ...attrs },
+        attrs: {
+          schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+          theme: createScaffoldDefaultTheme(),
+          ...attrs,
+        },
         content: [
           {
             type: "surface",

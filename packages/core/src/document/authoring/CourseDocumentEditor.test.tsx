@@ -6,13 +6,15 @@ import type { JSONContent } from "@tiptap/core";
 import { Fragment, Slice } from "@tiptap/pm/model";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { EditorView } from "@tiptap/pm/view";
-import { createElement } from "react";
+import { createElement, StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 import { createScaffoldDocumentContent } from "@/format/artifact";
+import { selectCoursePreset } from "@/theme/authoring";
+import { createScaffoldDefaultTheme, SCAFFOLD_EDITORIAL_PRESET } from "@/theme/model";
 import { CourseDocumentEditor } from "./CourseDocumentEditor";
 
 afterEach(() => {
@@ -52,6 +54,30 @@ describe("CourseDocumentEditor", () => {
 
     await waitFor(() => expect(onChange).toHaveBeenCalledWith(editor));
     expect(getJSON).not.toHaveBeenCalled();
+  });
+
+  it("preserves redo after undoing a course theme change", async () => {
+    const content = createInitializedDocument();
+    const onReady = vi.fn();
+
+    render(
+      createElement(
+        StrictMode,
+        null,
+        createElement(CourseDocumentEditor, {
+          source: { mode: "document", content },
+          onReady,
+        }),
+      ),
+    );
+
+    await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
+    const editor = onReady.mock.calls[0]?.[0];
+    if (!editor) throw new Error("CourseDocumentEditor did not provide an editor");
+
+    expect(selectCoursePreset(editor, SCAFFOLD_EDITORIAL_PRESET)).toBe(true);
+    expect(editor.chain().focus().undo().run()).toBe(true);
+    expect(editor.can().redo()).toBe(true);
   });
 
   it("mounts prepared portable content with one page surface", async () => {
@@ -571,6 +597,7 @@ function authoringDocumentWithMcq(): JSONContent {
           mode: "page",
           surfaceSize: "fluid",
           overflowMode: "grow",
+          theme: createScaffoldDefaultTheme(),
         },
         content: [
           {
@@ -681,6 +708,7 @@ function authoringDocumentWithGallery(): JSONContent {
           mode: "page",
           surfaceSize: "fluid",
           overflowMode: "grow",
+          theme: createScaffoldDefaultTheme(),
         },
         content: [
           {
@@ -741,6 +769,7 @@ function authoringSlideshowDocument(surfaceIds: string[]): JSONContent {
           mode: "slideshow",
           surfaceSize: "16x9",
           overflowMode: "clip",
+          theme: createScaffoldDefaultTheme(),
         },
         content: surfaceIds.map((surfaceId) =>
           slideCoverSurfaceDefinition.createSurface({ surfaceId }),

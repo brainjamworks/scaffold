@@ -11,7 +11,8 @@
   }
 
   .sc-glossary__list {
-    border-top: 1px solid color-mix(in oklch, var(--color-border) 60%, transparent);
+    border-top: var(--sc-border-width) solid
+      color-mix(in oklch, var(--color-border) 60%, transparent);
   }
 
   .sc-glossary__suppressed {
@@ -33,7 +34,8 @@
     column-gap: 1.5rem;
     row-gap: 0.25rem;
     padding-block: 1rem;
-    border-bottom: 1px solid color-mix(in oklch, var(--color-border) 60%, transparent);
+    border-bottom: var(--sc-border-width) solid
+      color-mix(in oklch, var(--color-border) 60%, transparent);
   }
 
   .sc-glossary__add {
@@ -107,14 +109,16 @@
   }
 
   .sc-glossary__term {
+    font-family: var(--font-heading);
     grid-column: 1;
     grid-row: 1;
     min-width: 0;
     color: var(--color-ink);
-    font-size: 1.0625rem;
-    font-weight: 600;
-    letter-spacing: -0.005em;
-    line-height: 1.375;
+    font-size: calc(1.0625rem * var(--sc-course-type-scale));
+    font-weight: var(--font-weight-bold);
+    letter-spacing: var(--sc-course-letter-spacing-heading);
+    line-height: var(--leading-snug);
+    text-transform: var(--sc-course-text-transform-heading);
     text-wrap: balance;
   }
 
@@ -127,8 +131,9 @@
     grid-row: 1;
     min-width: 0;
     color: var(--color-text-primary);
-    font-size: 0.9375rem;
-    line-height: 1.625;
+    font-size: calc(0.9375rem * var(--sc-course-type-scale));
+    font-weight: var(--font-weight-normal);
+    line-height: var(--leading-body);
   }
 
   .sc-glossary__definition p {

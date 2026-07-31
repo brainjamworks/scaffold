@@ -1,20 +1,24 @@
-.sc-runtime-rich-text-heading {
-  color: var(--color-ink);
-  font-weight: 600;
-}
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
 
-.sc-runtime-rich-text-inline-math {
-  display: inline-block;
-  max-width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
-  vertical-align: middle;
-}
+@layer sc-components {
+  .sc-runtime-rich-text-heading {
+    color: var(--color-ink);
+    font-weight: 600;
+  }
 
-.sc-runtime-rich-text-inline-math .katex {
-  font-size: 1em;
-}
+  .sc-runtime-rich-text-inline-math {
+    display: inline-block;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    vertical-align: middle;
+  }
 
-.sc-runtime-rich-text-inline-math.inline-math-error {
-  overflow-wrap: anywhere;
+  .sc-runtime-rich-text-inline-math .katex {
+    font-size: 1em;
+  }
+
+  .sc-runtime-rich-text-inline-math.inline-math-error {
+    overflow-wrap: anywhere;
+  }
 }

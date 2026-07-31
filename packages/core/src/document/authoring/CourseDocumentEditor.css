@@ -1,10 +1,14 @@
-.sc-course-document-editor {
-  box-sizing: border-box;
-  margin-inline: auto;
-  padding: 2rem 1.5rem;
-  position: relative;
-}
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
 
-.sc-course-document-editor__content {
-  max-width: none;
+@layer sc-components {
+  .sc-course-document-editor {
+    box-sizing: border-box;
+    margin-inline: auto;
+    padding: 2rem 1.5rem;
+    position: relative;
+  }
+
+  .sc-course-document-editor__content {
+    max-width: none;
+  }
 }
