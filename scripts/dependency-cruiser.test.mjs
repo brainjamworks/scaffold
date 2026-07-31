@@ -25,6 +25,7 @@ const architectureCompilerOptions = {
     "@scaffold/core/runtime": ["packages/core/src/entrypoints/runtime.ts"],
     "@scaffold/core/authoring": ["packages/core/src/entrypoints/authoring.ts"],
     "@scaffold/core/agent-host": ["packages/core/src/entrypoints/agent-host.ts"],
+    "@scaffold/core/extensions": ["packages/core/src/entrypoints/extensions.ts"],
     "@scaffold/core/format": ["packages/core/src/entrypoints/format.ts"],
     "@scaffold/core/ports": ["packages/core/src/entrypoints/ports.ts"],
     "@scaffold/core/media-policy": ["packages/core/src/entrypoints/media-policy.ts"],
@@ -81,6 +82,7 @@ test("resolves every supported source seam and import form without build output"
     "packages/core/src/entrypoints/runtime.ts": "export const runtimeValue = true;\n",
     "packages/core/src/entrypoints/authoring.ts": "export const authoringValue = true;\n",
     "packages/core/src/entrypoints/agent-host.ts": "export const agentHostValue = true;\n",
+    "packages/core/src/entrypoints/extensions.ts": "export const extensionsValue = true;\n",
     "packages/core/src/entrypoints/format.ts": "export const formatValue = true;\n",
     "packages/core/src/entrypoints/ports.ts": "export const portsValue = true;\n",
     "packages/core/src/entrypoints/media-policy.ts": "export const mediaPolicyValue = true;\n",
@@ -92,11 +94,12 @@ test("resolves every supported source seam and import form without build output"
       'import { relativeValue } from "../../../packages/core/src/relative-value";',
       'import { runtimeValue } from "@scaffold/core/runtime";',
       'import { authoringValue } from "@scaffold/core/authoring";',
+      'import { extensionsValue } from "@scaffold/core/extensions";',
       'import { formatValue } from "@scaffold/core/format";',
       'import { portsValue } from "@scaffold/core/ports";',
       'import { mediaPolicyValue } from "@scaffold/core/media-policy";',
       'import "@scaffold/core/styles.css";',
-      "export const values = { aliasValue, relativeValue, runtimeValue, authoringValue, formatValue, portsValue, mediaPolicyValue };",
+      "export const values = { aliasValue, relativeValue, runtimeValue, authoringValue, extensionsValue, formatValue, portsValue, mediaPolicyValue };",
       "export type ConsumerContract = ContractType;",
     ].join("\n"),
     "private/agent-consumer/src/consumer.ts": [
@@ -128,6 +131,7 @@ test("resolves every supported source seam and import form without build output"
     "packages/core/src/relative-value.ts",
     "packages/core/src/entrypoints/runtime.ts",
     "packages/core/src/entrypoints/authoring.ts",
+    "packages/core/src/entrypoints/extensions.ts",
     "packages/core/src/entrypoints/format.ts",
     "packages/core/src/entrypoints/ports.ts",
     "packages/core/src/entrypoints/media-policy.ts",
@@ -660,6 +664,48 @@ test("reports block peer, construction, registry-view, and lane inversions", asy
   assert.match(output, /runtime-block-lane-does-not-reach-authoring-block-lane/);
 });
 
+test("allows only application integration to join both Block lanes", async (t) => {
+  const allowedFixtureRoot = await createFixture(t, {
+    "packages/core/src/editor/blocks/authoring-block-extensions.ts":
+      "export interface AuthoringBlockBinding { nodeType: string }\n",
+    "packages/core/src/editor/blocks/runtime-block-extensions.ts":
+      "export interface RuntimeBlockBinding { nodeType: string }\n",
+    "packages/core/src/composition/application/block-capability.ts": [
+      'import type { AuthoringBlockBinding } from "../../editor/blocks/authoring-block-extensions";',
+      'import type { RuntimeBlockBinding } from "../../editor/blocks/runtime-block-extensions";',
+      "export type CompleteBlockCapability = AuthoringBlockBinding & RuntimeBlockBinding;",
+    ].join("\n"),
+  });
+
+  const allowedResult = cruise(allowedFixtureRoot, "err-long", ["packages/core/src"]);
+  assert.equal(allowedResult.status, 0, allowedResult.stderr || allowedResult.stdout);
+
+  const rejectedFixtureRoot = await createFixture(t, {
+    "packages/core/src/editor/blocks/authoring-block-extensions.ts": [
+      'import type { RuntimeIntermediate } from "./authoring-to-runtime-intermediate";',
+      "export type AuthoringBlockBinding = RuntimeIntermediate;",
+    ].join("\n"),
+    "packages/core/src/editor/blocks/authoring-to-runtime-intermediate.ts": [
+      'import type { RuntimeBlockBinding } from "./runtime-block-extensions";',
+      "export type RuntimeIntermediate = RuntimeBlockBinding;",
+    ].join("\n"),
+    "packages/core/src/editor/blocks/runtime-block-extensions.ts": [
+      'import type { AuthoringIntermediate } from "./runtime-to-authoring-intermediate";',
+      "export type RuntimeBlockBinding = AuthoringIntermediate;",
+    ].join("\n"),
+    "packages/core/src/editor/blocks/runtime-to-authoring-intermediate.ts": [
+      'import type { AuthoringBlockBinding } from "./authoring-block-extensions";',
+      "export type AuthoringIntermediate = AuthoringBlockBinding;",
+    ].join("\n"),
+  });
+  const rejectedResult = cruise(rejectedFixtureRoot, "err-long", ["packages/core/src"]);
+  const output = `${rejectedResult.stdout}\n${rejectedResult.stderr}`;
+
+  assert.notEqual(rejectedResult.status, 0, output);
+  assert.match(output, /authoring-block-lane-does-not-reach-runtime-block-lane/);
+  assert.match(output, /runtime-block-lane-does-not-reach-authoring-block-lane/);
+});
+
 test("reports layout model, Frame, and lane inversions", async (t) => {
   const fixtureRoot = await createFixture(t, {
     "node_modules/react/package.json": JSON.stringify({
@@ -792,11 +838,41 @@ test("allows named neutral adaptation and downward lane composition", async (t) 
       'import type { DocumentComposition } from "../model/create-document-composition";',
       "export type RuntimeComposition = DocumentComposition;",
     ].join("\n"),
+    "packages/core/src/composition/application/create-scaffold-application.ts": [
+      'import type { AuthoringComposition } from "../authoring/create-authoring-composition";',
+      'import type { RuntimeComposition } from "../runtime/create-runtime-composition";',
+      "export type ScaffoldApplication = AuthoringComposition | RuntimeComposition;",
+    ].join("\n"),
   });
 
   const result = cruise(fixtureRoot, "err-long", ["packages/core/src"]);
 
   assert.equal(result.status, 0, result.stderr || result.stdout);
+});
+
+test("rejects lane composition reachability back into application integration", async (t) => {
+  const fixtureRoot = await createFixture(t, {
+    "packages/core/src/composition/application/create-scaffold-application.ts":
+      "export interface ScaffoldApplication { id: string }\n",
+    "packages/core/src/composition/authoring/create-authoring-composition.ts": [
+      'import type { ScaffoldApplication } from "../application/create-scaffold-application";',
+      "export type AuthoringCompositionLeak = ScaffoldApplication;",
+    ].join("\n"),
+    "packages/core/src/composition/runtime/create-runtime-composition.ts": [
+      'import type { RuntimeIntermediate } from "./runtime-intermediate";',
+      "export type RuntimeCompositionLeak = RuntimeIntermediate;",
+    ].join("\n"),
+    "packages/core/src/composition/runtime/runtime-intermediate.ts": [
+      'import type { ScaffoldApplication } from "../application/create-scaffold-application";',
+      "export type RuntimeIntermediate = ScaffoldApplication;",
+    ].join("\n"),
+  });
+
+  const result = cruise(fixtureRoot, "err-long", ["packages/core/src"]);
+  const output = `${result.stdout}\n${result.stderr}`;
+
+  assert.notEqual(result.status, 0, output);
+  assert.match(output, /lane-composition-roots-do-not-reach-application-integration/);
 });
 
 test("reports named neutral owner and leaf-to-composition inversions", async (t) => {

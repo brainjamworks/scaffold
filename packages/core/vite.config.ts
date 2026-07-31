@@ -18,6 +18,7 @@ export default defineConfig({
       format: "src/entrypoints/format.ts",
       ports: "src/entrypoints/ports.ts",
       "media-policy": "src/entrypoints/media-policy.ts",
+      extensions: "src/entrypoints/extensions.ts",
     },
     alias: {
       "@": resolve(__dirname, "src"),

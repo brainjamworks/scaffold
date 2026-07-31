@@ -33,6 +33,10 @@
       "types": "./dist/media-policy.d.ts",
       "default": "./dist/media-policy.js"
     },
+    "./extensions": {
+      "types": "./dist/extensions.d.ts",
+      "default": "./dist/extensions.js"
+    },
     "./styles.css": {
       "default": "./dist/styles.css"
     }

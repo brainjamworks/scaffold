@@ -41,10 +41,19 @@ architecture review.
 Core uses explicit, closed-world construction for its built-in editor features:
 
 - `composition/model`, `composition/authoring`, and `composition/runtime` are
-  the neutral, authoring, and learner-runtime composition roots.
-- Block feature modules export pure definitions. One explicit built-in
-  definition collection constructs an immutable registry keyed by Tiptap node
-  type, while authoring and runtime keep separate extension lists.
+  the neutral, authoring, and learner-runtime composition roots;
+  `composition/application` is the deliberate integration root above both
+  lanes.
+- Block feature modules export pure definitions. Core keeps neutral built-in
+  definitions plus physically separate authoring and learner-runtime binding
+  inventories. These are dependency boundaries, not separate capability
+  universes: only `composition/application` joins them by persisted `nodeType`
+  into complete Block capabilities.
+- The application root resolves mandatory Core Block capabilities before
+  cumulative host additions, validates both complete Tiptap bundles, and gives
+  authoring and learner runtime only their own extension projection plus the
+  same immutable neutral Block registry. Neither lane imports or traverses the
+  opposite binding inventory.
 - Layout feature modules export pure definitions. An immutable definition
   registry is keyed by persisted layout variant, with separate authoring and
   runtime view registries.
@@ -86,6 +95,7 @@ import { ... } from "@scaffold/core/authoring";
 import { ... } from "@scaffold/core/format";
 import { ... } from "@scaffold/core/ports";
 import { ... } from "@scaffold/core/media-policy";
+import { ... } from "@scaffold/core/extensions";
 import "@scaffold/core/styles.css";
 
 import { ... } from "@scaffold/contracts";

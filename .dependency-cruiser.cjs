@@ -21,6 +21,7 @@ const runtimeOwnerPath = [
   "^packages/core/src/entrypoints/runtime\\.ts$",
   "^packages/core/src/composition/runtime/",
   "^packages/core/src/runtime/",
+  "^packages/core/src/editor/blocks/runtime-block-extensions\\.[^/]+$",
   "^packages/core/src/editor/arrangements/(?:grid|layout)/runtime/",
   "^packages/core/src/editor/blocks/assessment/shared/runtime/",
   "^packages/core/src/editor/blocks/[^/]+/[^/]+/[^/]*(?:runtime|Runtime)[^/]*\\.[^/]+$",
@@ -33,6 +34,7 @@ const authoringOwnerPath = [
   "^packages/core/src/authoring/",
   "^packages/core/src/document/authoring/",
   "^packages/core/src/composition/authoring/",
+  "^packages/core/src/editor/blocks/authoring-block-extensions\\.[^/]+$",
   "^packages/core/src/editor/(?:drag|interactions|shell|suggestions)/",
   "^packages/core/src/editor/(?:bounded-containers|frame|media)/authoring/",
   "^packages/core/src/editor/arrangements/(?:grid|layout)/authoring/",
@@ -59,7 +61,7 @@ const classifiedNeutralOwnerPath = [
 ];
 const higherCoreOwnerPath = [
   "^packages/core/src/entrypoints/",
-  "^packages/core/src/composition/(?:authoring|runtime)/",
+  "^packages/core/src/composition/(?:application|authoring|runtime)/",
   "^packages/core/src/authoring/",
   "^packages/core/src/document/authoring/",
   "^packages/core/src/runtime/",
@@ -232,7 +234,7 @@ module.exports = {
       to: {
         path: "^packages/core/src/",
         pathNot:
-          "^packages/core/src/(?:entrypoints/(?:agent-host|authoring|format|media-policy|ports|runtime)\\.ts|styles/globals\\.css)$",
+          "^packages/core/src/(?:entrypoints/(?:agent-host|authoring|extensions|format|media-policy|ports|runtime)\\.ts|styles/globals\\.css)$",
       },
     },
     {
@@ -419,7 +421,7 @@ module.exports = {
       to: {
         path: [
           "^packages/core/src/entrypoints/",
-          "^packages/core/src/composition/(?:authoring|runtime)/",
+          "^packages/core/src/composition/(?:application|authoring|runtime)/",
         ],
       },
     },
@@ -745,14 +747,28 @@ module.exports = {
     },
     {
       // Owner: composition-root direction in the tracked V2 architecture.
-      // Lane roots may assemble arbitrary lower leaves; those leaves cannot traverse back upward.
+      // The application root integrates both lanes; application and lane roots may assemble
+      // arbitrary lower leaves, while those leaves cannot traverse back upward.
       name: "core-leaves-do-not-reach-lane-composition-roots",
       severity: "error",
       from: {
-        path: "^packages/core/src/(?!entrypoints/|composition/(?:authoring|runtime)/|authoring/|document/authoring/|runtime/|editor/shell/)",
+        path: "^packages/core/src/(?!entrypoints/|composition/(?:application|authoring|runtime)/|authoring/|document/authoring/|runtime/|editor/shell/)",
       },
       to: {
+        path: "^packages/core/src/composition/(?:application|authoring|runtime)/",
+      },
+    },
+    {
+      // Owner: environment-specific composition remains below explicit application integration.
+      // Lane defaults and assembly consume neutral/model and same-lane owners only.
+      name: "lane-composition-roots-do-not-reach-application-integration",
+      severity: "error",
+      from: {
         path: "^packages/core/src/composition/(?:authoring|runtime)/",
+      },
+      to: {
+        path: "^packages/core/src/composition/application/",
+        reachable: true,
       },
     },
     {
@@ -872,7 +888,7 @@ module.exports = {
       to: {
         path: [
           "^packages/core/src/entrypoints/",
-          "^packages/core/src/composition/(?:authoring|runtime)/",
+          "^packages/core/src/composition/(?:application|authoring|runtime)/",
           "^packages/core/src/document/authoring/",
           "^packages/core/src/runtime/",
           "^packages/core/src/editor/shell/",
