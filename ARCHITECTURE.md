@@ -113,9 +113,11 @@ Scaffold separates persisted course presentation from surrounding application ch
   publication-level author colours, per-slot dark derivation/customisation provenance, typography,
   design controls, recipe provenance, and complete resolved light/dark snapshots.
 - Authoring application colour mode belongs to local author preference. It changes the full-screen
-  Scaffold authoring chrome and is not initialized from an LMS.
-- Course Preview colour mode is temporary authoring-session state. It changes the canvas/Preview
-  without changing either the saved course theme or application mode.
+  Scaffold authoring chrome and editing canvas, is not initialized from an LMS, and is not persisted
+  in the course document.
+- Learner Preview follows the current authoring application colour mode. This exercises the same
+  contextual light/dark response that learner runtime receives from its host without changing the
+  persisted course theme.
 - Learner colour mode is supplied by the host when available and otherwise follows the browser
   preference. It selects the saved light or dark course appearance without rematerialising it.
 
