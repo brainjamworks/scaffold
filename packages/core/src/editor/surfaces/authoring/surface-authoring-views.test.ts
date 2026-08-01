@@ -46,19 +46,19 @@ describe("surface authoring view map", () => {
         registry: builtInSurfaceVariantRegistry,
         bindings: [...bindings, first],
       }),
-    ).toThrow(/already bound/i);
+    ).toThrow(`Surface variant "${first.variantId}" is already bound for authoring.`);
     expect(() =>
       createSurfaceAuthoringViewMap({
         registry: builtInSurfaceVariantRegistry,
         bindings: bindings.slice(1),
       }),
-    ).toThrow(/has no authoring view binding/i);
+    ).toThrow(`Surface variant "${first.variantId}" has no authoring view binding.`);
     expect(() =>
       createSurfaceAuthoringViewMap({
         registry: builtInSurfaceVariantRegistry,
         bindings: [...bindings, { ...first, variantId: "extra-surface" }],
       }),
-    ).toThrow(/is not registered/i);
+    ).toThrow('Surface authoring variant "extra-surface" is not registered.');
   });
 
   it("owns immutable normalized binding snapshots", () => {

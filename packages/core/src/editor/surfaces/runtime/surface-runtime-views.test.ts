@@ -35,19 +35,19 @@ describe("surface runtime view map", () => {
         registry: builtInSurfaceVariantRegistry,
         bindings: [...bindings, first],
       }),
-    ).toThrow(/already bound/i);
+    ).toThrow(`Surface variant "${first.variantId}" is already bound for runtime.`);
     expect(() =>
       createSurfaceRuntimeViewMap({
         registry: builtInSurfaceVariantRegistry,
         bindings: bindings.slice(1),
       }),
-    ).toThrow(/has no runtime view binding/i);
+    ).toThrow(`Surface variant "${first.variantId}" has no runtime view binding.`);
     expect(() =>
       createSurfaceRuntimeViewMap({
         registry: builtInSurfaceVariantRegistry,
         bindings: [...bindings, { ...first, variantId: "extra-surface" }],
       }),
-    ).toThrow(/is not registered/i);
+    ).toThrow('Surface runtime variant "extra-surface" is not registered.');
   });
 
   it("owns immutable normalized binding snapshots", () => {

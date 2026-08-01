@@ -1,8 +1,10 @@
 import { CircleIcon } from "@phosphor-icons/react";
 import { Node } from "@tiptap/core";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { z } from "zod";
 
 import { builtInBlockDefinitions } from "@/editor/blocks/built-in-block-definitions";
+import { builtInSurfaceVariantDefinitions } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import * as surfaceVariantRegistry from "@/editor/surfaces/model/surface-variant-registry";
 
@@ -12,6 +14,18 @@ import {
   defineScaffoldExtensionPack,
   type LayoutCapability,
 } from "./create-scaffold-application";
+import type { SurfaceCapability } from "./surface-capability";
+
+const createHostTracerSurface = vi.fn(({ surfaceId }: { surfaceId: string }) => ({
+  type: "surface",
+  attrs: { id: surfaceId, variant: "host-tracer-first", settings: {} },
+  content: [{ type: "paragraph" }],
+}));
+const hostTracerSurface = testSurfaceCapability("host-tracer-first", createHostTracerSurface);
+const hostTracerPack = defineScaffoldExtensionPack({
+  id: "first-surface-host",
+  surfaces: [hostTracerSurface],
+});
 
 describe("createScaffoldApplication", () => {
   afterEach(() => {
@@ -64,6 +78,8 @@ describe("createScaffoldApplication", () => {
     expect(Object.keys(application.runtime.blocks)).toEqual(["extensions"]);
     expect(Object.keys(application.authoring.layouts)).toEqual(["views"]);
     expect(Object.keys(application.runtime.layouts)).toEqual(["views"]);
+    expect(Object.keys(application.authoring.surfaces)).toEqual(["views", "chrome"]);
+    expect(Object.keys(application.runtime.surfaces)).toEqual(["views"]);
     expect(application.authoring.layouts.views.getById(hostLayout.definition.id)?.layout).toBe(
       TestLayoutAuthoringView,
     );
@@ -123,6 +139,63 @@ describe("createScaffoldApplication", () => {
       ),
     ).toHaveLength(1);
   });
+
+  it("projects complete host Surfaces after Core in pack order without leaking between applications", () => {
+    const secondSurface = testSurfaceCapability("host-tracer-second");
+
+    expect(createHostTracerSurface).not.toHaveBeenCalled();
+
+    const application = createScaffoldApplication({
+      packs: [
+        hostTracerPack,
+        defineScaffoldExtensionPack({
+          id: "second-surface-host",
+          surfaces: [secondSurface],
+        }),
+      ],
+    });
+    const coreApplication = createScaffoldApplication();
+
+    expect(createHostTracerSurface).toHaveBeenCalledOnce();
+    expect(application.capabilities.surfaces.registry.definitions.map(({ id }) => id)).toEqual([
+      ...builtInSurfaceVariantDefinitions.map(({ id }) => id),
+      hostTracerSurface.definition.id,
+      secondSurface.definition.id,
+    ]);
+    expect(
+      application.capabilities.surfaces.registry.definitions.filter(
+        ({ id }) => id === hostTracerSurface.definition.id,
+      ),
+    ).toHaveLength(1);
+    expect(
+      application.authoring.surfaces.views.get(hostTracerSurface.definition.id)?.component,
+    ).toBe(TestSurfaceAuthoringView);
+    expect(
+      application.authoring.surfaces.chrome
+        .resolve(hostTracerSurface.definition.id)
+        ?.quickMenu?.controls.map(({ name }) => name),
+    ).toEqual(["accent"]);
+    expect(
+      application.runtime.surfaces.views.get(hostTracerSurface.definition.id)?.component,
+    ).toBe(TestSurfaceRuntimeView);
+    expect(
+      application.runtime.surfaces.views.get(hostTracerSurface.definition.id)?.component,
+    ).not.toBe(TestSurfaceAuthoringView);
+    expect(
+      coreApplication.capabilities.surfaces.registry.get(hostTracerSurface.definition.id),
+    ).toBe(undefined);
+    expect(coreApplication.authoring.surfaces.views.get(hostTracerSurface.definition.id)).toBe(
+      undefined,
+    );
+    expect(coreApplication.runtime.surfaces.views.get(hostTracerSurface.definition.id)).toBe(
+      undefined,
+    );
+    expect(Object.isFrozen(application.authoring.surfaces)).toBe(true);
+    expect(Object.isFrozen(application.authoring.surfaces.views)).toBe(true);
+    expect(Object.isFrozen(application.authoring.surfaces.chrome)).toBe(true);
+    expect(Object.isFrozen(application.runtime.surfaces)).toBe(true);
+    expect(Object.isFrozen(application.runtime.surfaces.views)).toBe(true);
+  });
 });
 
 function testBlockCapability(nodeType: string): BlockCapability {
@@ -162,5 +235,55 @@ function TestLayoutAuthoringView() {
 }
 
 function TestLayoutRuntimeView() {
+  return null;
+}
+
+function testSurfaceCapability(
+  id: string,
+  createSurface: SurfaceCapability["definition"]["createSurface"] = ({ surfaceId }) => ({
+    type: "surface",
+    attrs: { id: surfaceId, variant: id, settings: {} },
+    content: [{ type: "paragraph" }],
+  }),
+): SurfaceCapability {
+  const settingsSchema = z.object({ accent: z.boolean().optional() }).strict();
+
+  return {
+    definition: {
+      id,
+      modes: ["slideshow"],
+      title: "Host tracer Surface",
+      description: "A host-contributed Surface used to trace application composition.",
+      settingsSchema,
+      createSurface,
+    },
+    authoringView: {
+      variantId: id,
+      component: TestSurfaceAuthoringView,
+      configuration: {
+        attr: "settings",
+        schema: settingsSchema,
+        controls: [
+          {
+            kind: "boolean",
+            name: "accent",
+            label: "Accent",
+            placement: { quickMenu: { order: 10 } },
+          },
+        ],
+      },
+    },
+    runtimeView: {
+      variantId: id,
+      component: TestSurfaceRuntimeView,
+    },
+  };
+}
+
+function TestSurfaceAuthoringView() {
+  return null;
+}
+
+function TestSurfaceRuntimeView() {
   return null;
 }

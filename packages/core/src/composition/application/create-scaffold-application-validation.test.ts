@@ -1,12 +1,15 @@
 import { CircleIcon } from "@phosphor-icons/react";
 import { Extension, Node, type AnyExtension } from "@tiptap/core";
 import { describe, expect, it, vi } from "vite-plus/test";
+import { z } from "zod";
 
 import { builtInLayoutDefinitions } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import type { LayoutDefinition } from "@/editor/arrangements/layout/model/layout-definition";
 import { builtInBlockDefinitions } from "@/editor/blocks/built-in-block-definitions";
 import type { BlockAuthoringBinding } from "@/editor/blocks/authoring-block-extensions";
 import type { BlockRuntimeBinding } from "@/editor/blocks/runtime-block-extensions";
+import { builtInSurfaceVariantDefinitions } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
+import type { SurfaceVariantDefinition } from "@/editor/surfaces/model/surface-variant-definition";
 
 import { createBlockCapabilitiesFromBindings, type BlockCapability } from "./block-capability";
 import {
@@ -14,6 +17,10 @@ import {
   defineScaffoldExtensionPack,
   type LayoutCapability,
 } from "./create-scaffold-application";
+import {
+  createSurfaceCapabilitiesFromBindings,
+  type SurfaceCapability,
+} from "./surface-capability";
 
 describe("createScaffoldApplication", () => {
   it("resolves every Core built-in Layout before host Layout capabilities", () => {
@@ -48,7 +55,14 @@ describe("createScaffoldApplication", () => {
     const blocks = [blockCapability];
     const capability = testLayoutCapability("host-immutable-layout");
     const layouts = [capability];
-    const pack = defineScaffoldExtensionPack({ id: "immutable-host", blocks, layouts });
+    const surfaceCapability = testSurfaceCapability("host-immutable-surface");
+    const surfaces = [surfaceCapability];
+    const pack = defineScaffoldExtensionPack({
+      id: "immutable-host",
+      blocks,
+      layouts,
+      surfaces,
+    });
 
     const composition = createScaffoldApplication({ packs: [pack] });
 
@@ -63,6 +77,27 @@ describe("createScaffoldApplication", () => {
     expect(pack.layouts[0]).not.toBe(capability);
     expect(Object.isFrozen(pack.layouts[0])).toBe(true);
     expect(layouts).toEqual([capability]);
+    expect(Object.isFrozen(pack.surfaces)).toBe(true);
+    expect(pack.surfaces).not.toBe(surfaces);
+    expect(pack.surfaces[0]).not.toBe(surfaceCapability);
+    expect(Object.keys(pack.surfaces[0] ?? {})).toEqual([
+      "definition",
+      "authoringView",
+      "runtimeView",
+    ]);
+    expect(pack.surfaces[0]?.definition).toBe(surfaceCapability.definition);
+    expect(pack.surfaces[0]?.authoringView).toBe(surfaceCapability.authoringView);
+    expect(pack.surfaces[0]?.runtimeView).toBe(surfaceCapability.runtimeView);
+    expect(Object.isFrozen(pack.surfaces[0])).toBe(true);
+    expect(Object.isFrozen(surfaceCapability.definition)).toBe(false);
+    expect(Object.isFrozen(surfaceCapability.definition.settingsSchema)).toBe(false);
+    expect(Object.isFrozen(surfaceCapability.definition.createSurface)).toBe(false);
+    expect(Object.isFrozen(surfaceCapability.authoringView)).toBe(false);
+    expect(Object.isFrozen(surfaceCapability.authoringView.component)).toBe(false);
+    expect(Object.isFrozen(surfaceCapability.authoringView.configuration)).toBe(false);
+    expect(Object.isFrozen(surfaceCapability.runtimeView)).toBe(false);
+    expect(Object.isFrozen(surfaceCapability.runtimeView.component)).toBe(false);
+    expect(surfaces).toEqual([surfaceCapability]);
     expect(Object.isFrozen(composition)).toBe(true);
     expect(Object.isFrozen(composition.capabilities)).toBe(true);
     expect(Object.isFrozen(composition.capabilities.layouts)).toBe(true);
@@ -71,6 +106,78 @@ describe("createScaffoldApplication", () => {
     expect(Object.isFrozen(composition.runtime.blocks.extensions)).toBe(true);
     expect(Object.isFrozen(composition.authoring.layouts.views)).toBe(true);
     expect(Object.isFrozen(composition.runtime.layouts.views)).toBe(true);
+  });
+
+  it("joins Core Surface bindings by persisted variant ID rather than position", () => {
+    const first = testSurfaceCapability("joined-first");
+    const second = testSurfaceCapability("joined-second");
+
+    const capabilities = createSurfaceCapabilitiesFromBindings({
+      owner: "Core",
+      definitions: [first.definition, second.definition],
+      authoringBindings: [second.authoringView, first.authoringView],
+      runtimeBindings: [second.runtimeView, first.runtimeView],
+    });
+
+    expect(capabilities).toEqual([first, second]);
+    expect(Object.isFrozen(capabilities)).toBe(true);
+    expect(capabilities.every(Object.isFrozen)).toBe(true);
+  });
+
+  it.each([
+    {
+      label: "missing authoring",
+      authoringIds: [] as readonly string[],
+      runtimeIds: ["joined"],
+      message: 'Core Surface definition "joined" is missing its authoring view binding.',
+    },
+    {
+      label: "missing runtime",
+      authoringIds: ["joined"],
+      runtimeIds: [] as readonly string[],
+      message: 'Core Surface definition "joined" is missing its runtime view binding.',
+    },
+    {
+      label: "extra authoring",
+      authoringIds: ["joined", "extra"],
+      runtimeIds: ["joined"],
+      message: 'Core authoring Surface binding "extra" has no matching definition.',
+    },
+    {
+      label: "extra runtime",
+      authoringIds: ["joined"],
+      runtimeIds: ["joined", "extra"],
+      message: 'Core runtime Surface binding "extra" has no matching definition.',
+    },
+    {
+      label: "duplicate authoring",
+      authoringIds: ["joined", "joined"],
+      runtimeIds: ["joined"],
+      message: 'Core authoring Surface binding variant ID "joined" is duplicated.',
+    },
+    {
+      label: "duplicate runtime",
+      authoringIds: ["joined"],
+      runtimeIds: ["joined", "joined"],
+      message: 'Core runtime Surface binding variant ID "joined" is duplicated.',
+    },
+  ])("reports $label Core Surface bindings deterministically", (testCase) => {
+    const capability = testSurfaceCapability("joined");
+
+    expect(() =>
+      createSurfaceCapabilitiesFromBindings({
+        owner: "Core",
+        definitions: [capability.definition],
+        authoringBindings: testCase.authoringIds.map((variantId) => ({
+          variantId,
+          component: TestSurfaceAuthoringView,
+        })),
+        runtimeBindings: testCase.runtimeIds.map((variantId) => ({
+          variantId,
+          component: TestSurfaceRuntimeView,
+        })),
+      }),
+    ).toThrow(testCase.message);
   });
 
   it("isolates registered Layout-owned records between compositions", () => {
@@ -587,6 +694,132 @@ describe("createScaffoldApplication", () => {
       `Layout capability "${id}" ${path} must be callable.`,
     );
   });
+
+  it.each(["authoring", "runtime"] as const)(
+    "rejects a Surface capability missing its %s view binding",
+    (lane) => {
+      const id = `missing-${lane}-surface`;
+      const capability = testSurfaceCapability(id);
+      const incomplete = {
+        ...capability,
+        ...(lane === "authoring" ? { authoringView: undefined } : { runtimeView: undefined }),
+      } as unknown as SurfaceCapability;
+      const pack = defineScaffoldExtensionPack({
+        id: `missing-${lane}-surface-host`,
+        surfaces: [incomplete],
+      });
+
+      expect(() => createScaffoldApplication({ packs: [pack] })).toThrow(
+        `Surface capability "${id}" is missing its ${lane} view binding.`,
+      );
+    },
+  );
+
+  it.each(["authoring", "runtime"] as const)(
+    "rejects a Surface capability whose %s binding has a mismatched persisted variant ID",
+    (lane) => {
+      const id = `mismatched-${lane}-surface`;
+      const capability = testSurfaceCapability(id);
+      const mismatched = {
+        ...capability,
+        ...(lane === "authoring"
+          ? { authoringView: { ...capability.authoringView, variantId: "different-authoring-id" } }
+          : { runtimeView: { ...capability.runtimeView, variantId: "different-runtime-id" } }),
+      } satisfies SurfaceCapability;
+      const pack = defineScaffoldExtensionPack({
+        id: `mismatched-${lane}-surface-host`,
+        surfaces: [mismatched],
+      });
+
+      expect(() => createScaffoldApplication({ packs: [pack] })).toThrow(
+        `Surface capability "${id}" ${lane} view variant ID "different-${lane}-id" must match its definition ID.`,
+      );
+    },
+  );
+
+  it("rejects a host Surface that attempts to override a Core built-in", () => {
+    const builtInId = builtInSurfaceVariantDefinitions[0]!.id;
+    const pack = defineScaffoldExtensionPack({
+      id: "core-surface-override-host",
+      surfaces: [testSurfaceCapability(builtInId)],
+    });
+
+    expect(() => createScaffoldApplication({ packs: [pack] })).toThrow(
+      `Surface definition "${builtInId}" is already registered.`,
+    );
+  });
+
+  it("rejects the same Surface ID contributed by two host packs", () => {
+    const id = "duplicate-host-surface";
+    const first = defineScaffoldExtensionPack({
+      id: "first-surface-host",
+      surfaces: [testSurfaceCapability(id)],
+    });
+    const second = defineScaffoldExtensionPack({
+      id: "second-surface-host",
+      surfaces: [testSurfaceCapability(id)],
+    });
+
+    expect(() => createScaffoldApplication({ packs: [first, second] })).toThrow(
+      `Surface definition "${id}" is already registered.`,
+    );
+  });
+
+  it("lets the Surface registry reject a duplicate catalogue position", () => {
+    const existing = builtInSurfaceVariantDefinitions.find(
+      (definition) => definition.catalogue !== undefined,
+    );
+    if (!existing?.catalogue) throw new Error("Expected a catalogued Core Surface definition.");
+    const capability = testSurfaceCapability("duplicate-catalogue-surface", {
+      catalogue: existing.catalogue,
+    });
+    const pack = defineScaffoldExtensionPack({
+      id: "duplicate-catalogue-surface-host",
+      surfaces: [capability],
+    });
+
+    expect(() => createScaffoldApplication({ packs: [pack] })).toThrow(
+      `Surface catalogue position "${existing.catalogue.section}:${existing.catalogue.order}" is already registered by "${existing.id}".`,
+    );
+  });
+
+  it("lets the Surface registry reject a conflicting default mode", () => {
+    const mode = "slideshow";
+    const existingDefault = builtInSurfaceVariantDefinitions.find((definition) =>
+      definition.defaultForModes?.includes(mode),
+    );
+    if (!existingDefault) throw new Error(`Expected a Core default Surface for "${mode}".`);
+    const capability = testSurfaceCapability("conflicting-default-surface", {
+      defaultForModes: [mode],
+    });
+    const pack = defineScaffoldExtensionPack({
+      id: "conflicting-default-surface-host",
+      surfaces: [capability],
+    });
+
+    expect(() => createScaffoldApplication({ packs: [pack] })).toThrow(
+      `Course mode "${mode}" already has default surface "${existingDefault.id}".`,
+    );
+  });
+
+  it("rejects invalid host Surface factory output during explicit application validation", () => {
+    const id = "invalid-factory-surface";
+    const createSurface = vi.fn(({ surfaceId }: { surfaceId: string }) => ({
+      type: "surface",
+      attrs: { id: surfaceId, variant: "wrong-persisted-variant", settings: {} },
+    }));
+    const capability = testSurfaceCapability(id, { createSurface });
+    const pack = defineScaffoldExtensionPack({
+      id: "invalid-factory-surface-host",
+      surfaces: [capability],
+    });
+
+    expect(createSurface).not.toHaveBeenCalled();
+    expect(() => createScaffoldApplication({ packs: [pack] })).toThrow(
+      `Surface definition "${id}" must create its own persisted surface variant.`,
+    );
+    expect(createSurface).toHaveBeenCalledOnce();
+  });
 });
 
 function testLayoutCapabilityWithOverrides(
@@ -664,5 +897,49 @@ function TestLayoutAuthoringView() {
 }
 
 function TestLayoutRuntimeView() {
+  return null;
+}
+
+function testSurfaceCapability(
+  id: string,
+  overrides: Partial<SurfaceVariantDefinition> = {},
+): SurfaceCapability {
+  const settingsSchema = z.object({}).strict();
+
+  return {
+    definition: {
+      id,
+      modes: ["slideshow"],
+      title: "Host Surface",
+      description: "A host-contributed Surface fixture.",
+      settingsSchema,
+      createSurface: ({ surfaceId }) => ({
+        type: "surface",
+        attrs: { id: surfaceId, variant: id, settings: {} },
+        content: [{ type: "paragraph" }],
+      }),
+      ...overrides,
+    },
+    authoringView: {
+      variantId: id,
+      component: TestSurfaceAuthoringView,
+      configuration: {
+        attr: "settings",
+        schema: settingsSchema,
+        controls: [],
+      },
+    },
+    runtimeView: {
+      variantId: id,
+      component: TestSurfaceRuntimeView,
+    },
+  };
+}
+
+function TestSurfaceAuthoringView() {
+  return null;
+}
+
+function TestSurfaceRuntimeView() {
   return null;
 }

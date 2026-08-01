@@ -19,8 +19,10 @@ import type { LayoutRuntimeViewRegistration } from "@/editor/arrangements/layout
 import { builtInBlockAuthoringBindings } from "@/editor/blocks/authoring-block-extensions";
 import { builtInBlockDefinitions } from "@/editor/blocks/built-in-block-definitions";
 import { builtInBlockRuntimeBindings } from "@/editor/blocks/runtime-block-extensions";
+import { builtInSurfaceAuthoringViewBindings } from "@/editor/surfaces/authoring/surface-authoring-views";
 import { builtInSurfaceVariantDefinitions } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { validateSurfaceVariantFactories } from "@/editor/surfaces/model/surface-variant-registry";
+import { builtInSurfaceRuntimeViewBindings } from "@/editor/surfaces/runtime/surface-runtime-views";
 
 import {
   createBlockCapabilitiesFromBindings,
@@ -28,8 +30,14 @@ import {
   validateUniqueBlockExtensionNames,
   type BlockCapability,
 } from "./block-capability";
+import {
+  createSurfaceCapabilitiesFromBindings,
+  validateSurfaceCapability,
+  type SurfaceCapability,
+} from "./surface-capability";
 
 export type { BlockCapability } from "./block-capability";
+export type { SurfaceCapability } from "./surface-capability";
 
 export interface LayoutCapability {
   readonly definition: LayoutDefinition;
@@ -41,12 +49,14 @@ export interface ScaffoldExtensionPackInput {
   readonly id: string;
   readonly blocks?: readonly BlockCapability[];
   readonly layouts?: readonly LayoutCapability[];
+  readonly surfaces?: readonly SurfaceCapability[];
 }
 
 export interface ScaffoldExtensionPack {
   readonly id: string;
   readonly blocks: readonly BlockCapability[];
   readonly layouts: readonly LayoutCapability[];
+  readonly surfaces: readonly SurfaceCapability[];
 }
 
 export interface CreateScaffoldApplicationOptions {
@@ -68,6 +78,7 @@ export function defineScaffoldExtensionPack(
     id: input.id,
     blocks: Object.freeze((input.blocks ?? []).map(freezeBlockCapabilityShell)),
     layouts: Object.freeze((input.layouts ?? []).map(freezeLayoutCapabilityShell)),
+    surfaces: Object.freeze((input.surfaces ?? []).map(freezeSurfaceCapabilityShell)),
   });
 }
 
@@ -76,6 +87,7 @@ export function createScaffoldApplication(
 ): ScaffoldApplication {
   const blockCapabilities: BlockCapability[] = [...createBuiltInBlockCapabilities()];
   const layoutCapabilities: LayoutCapability[] = [...createBuiltInLayoutCapabilities()];
+  const surfaceCapabilities: SurfaceCapability[] = [...createBuiltInSurfaceCapabilities()];
   const packIds = new Set<string>();
 
   for (const pack of options.packs ?? []) {
@@ -87,6 +99,7 @@ export function createScaffoldApplication(
     packIds.add(pack.id);
     blockCapabilities.push(...pack.blocks);
     layoutCapabilities.push(...pack.layouts);
+    surfaceCapabilities.push(...pack.surfaces);
   }
 
   for (const capability of blockCapabilities) {
@@ -95,11 +108,14 @@ export function createScaffoldApplication(
   for (const capability of layoutCapabilities) {
     validateLayoutCapability(capability);
   }
+  for (const capability of surfaceCapabilities) {
+    validateSurfaceCapability(capability);
+  }
 
   const capabilities = resolveScaffoldCapabilities({
     blockDefinitions: blockCapabilities.map((capability) => capability.definition),
     layoutDefinitions: layoutCapabilities.map((capability) => capability.definition),
-    surfaceDefinitions: builtInSurfaceVariantDefinitions,
+    surfaceDefinitions: surfaceCapabilities.map((capability) => capability.definition),
   });
   validateSurfaceVariantFactories(capabilities.surfaces.registry);
   validateUniqueBlockExtensionNames(blockCapabilities, "authoring");
@@ -108,11 +124,13 @@ export function createScaffoldApplication(
     capabilities,
     blockCapabilities.map((capability) => capability.authoringExtension),
     layoutCapabilities.map((capability) => capability.authoringView),
+    surfaceCapabilities.map((capability) => capability.authoringView),
   );
   const runtime = createScaffoldRuntimeComposition(
     capabilities,
     blockCapabilities.map((capability) => capability.runtimeExtension),
     layoutCapabilities.map((capability) => capability.runtimeView),
+    surfaceCapabilities.map((capability) => capability.runtimeView),
   );
 
   return Object.freeze({ capabilities, authoring, runtime });
@@ -139,11 +157,24 @@ function createBuiltInLayoutCapabilities(): readonly LayoutCapability[] {
   );
 }
 
+function createBuiltInSurfaceCapabilities(): readonly SurfaceCapability[] {
+  return createSurfaceCapabilitiesFromBindings({
+    owner: "Core",
+    definitions: builtInSurfaceVariantDefinitions,
+    authoringBindings: builtInSurfaceAuthoringViewBindings,
+    runtimeBindings: builtInSurfaceRuntimeViewBindings,
+  });
+}
+
 function freezeBlockCapabilityShell(capability: BlockCapability): BlockCapability {
   return Object.freeze({ ...capability });
 }
 
 function freezeLayoutCapabilityShell(capability: LayoutCapability): LayoutCapability {
+  return Object.freeze({ ...capability });
+}
+
+function freezeSurfaceCapabilityShell(capability: SurfaceCapability): SurfaceCapability {
   return Object.freeze({ ...capability });
 }
 
