@@ -23,7 +23,10 @@ import {
   type SurfaceTemplatePreviewNode,
   type SurfaceVariantDefinition,
 } from "./surface-variant-definition";
-import { createSurfaceVariantRegistry } from "./surface-variant-registry";
+import {
+  createSurfaceVariantRegistry,
+  validateSurfaceVariantFactories,
+} from "./surface-variant-registry";
 import {
   matchFixedSurfaceChildren,
   snapshotSurfaceStructureChildrenFromJSON,
@@ -179,6 +182,32 @@ function createCatalogueTestSurface({
 }
 
 describe("surface definitions", () => {
+  it("normalizes declaration metadata without executing the content factory", () => {
+    const definitionId = "surface-definition-inert-normalization-test";
+    let factoryCalls = 0;
+
+    const normalized = normalizeSurfaceDefinition({
+      id: definitionId,
+      modes: ["page"],
+      title: "Import-inert surface",
+      description: "Test definition whose content factory must remain dormant.",
+      structurePolicy: {
+        fixedChildren: [{ type: "paragraph" }],
+      },
+      createSurface: ({ surfaceId }) => {
+        factoryCalls += 1;
+        return {
+          type: "surface",
+          attrs: { id: surfaceId, variant: definitionId },
+          content: [{ type: "paragraph" }],
+        };
+      },
+    });
+
+    expect(normalized.nodeType).toBe("surface");
+    expect(factoryCalls).toBe(0);
+  });
+
   it("uses fixed signatures as the only constrained slideshow structure policy", () => {
     for (const definition of builtInSurfaceVariantRegistry.forMode("slideshow")) {
       expect(definition.structurePolicy?.fixedChildren).toBeDefined();
@@ -685,13 +714,14 @@ describe("surface definitions", () => {
     expectValidSurface(surface);
   });
 
-  it("rejects a mismatched fixed structure during normalization", () => {
+  it("rejects a mismatched fixed structure during explicit factory validation", () => {
     const definitionId = "surface-definition-fixed-mismatch-test";
 
-    expect(() =>
-      normalizeSurfaceDefinition({
+    const registry = createSurfaceVariantRegistry([
+      {
         id: definitionId,
         modes: ["page"],
+        defaultForModes: ["page"],
         title: "Mismatched fixed surface",
         description: "Test definition whose factory disagrees with its signature.",
         structurePolicy: {
@@ -702,8 +732,10 @@ describe("surface definitions", () => {
           attrs: { id: surfaceId, variant: definitionId },
           content: [{ type: "paragraph" }],
         }),
-      }),
-    ).toThrow(
+      },
+    ]);
+
+    expect(() => validateSurfaceVariantFactories(registry)).toThrow(
       `Surface definition "${definitionId}" createSurface result does not match its declared fixedChildren signature.`,
     );
   });

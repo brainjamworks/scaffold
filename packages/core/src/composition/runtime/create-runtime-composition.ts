@@ -28,23 +28,23 @@ const builtInSurfaceRuntimeNode = createSurfaceRuntimeNode({
   registry: builtInSurfaceVariantRegistry,
   views: builtInSurfaceRuntimeViewMap,
 });
-const defaultScaffoldRuntimeComposition = createCoreScaffoldRuntimeComposition();
 
 export function createCourseDocumentRuntimeExtensions({
   surfaceNode = builtInSurfaceRuntimeNode,
-  composition = defaultScaffoldRuntimeComposition,
+  composition,
 }: {
   surfaceNode?: TiptapNode;
   composition?: ScaffoldRuntimeComposition;
 } = {}): Extensions {
-  const blockRegistry = composition.capabilities.blocks.registry;
+  const resolvedComposition = composition ?? createCoreScaffoldRuntimeComposition();
+  const blockRegistry = resolvedComposition.capabilities.blocks.registry;
   const { layoutNode, sectionNode } = createLayoutRuntimeNodes({
-    registry: composition.capabilities.layouts.registry,
-    runtimeViews: composition.layouts.views,
+    registry: resolvedComposition.capabilities.layouts.registry,
+    runtimeViews: resolvedComposition.layouts.views,
   });
 
   return [
-    createScaffoldCapabilitiesStorageExtension(composition.capabilities),
+    createScaffoldCapabilitiesStorageExtension(resolvedComposition.capabilities),
     ...createCourseDocumentBaseExtensions({
       assessmentActionsGroupNode: AssessmentActionsGroupRuntimeNode,
       assessmentChoicesGroupNode: AssessmentChoicesGroupRuntimeNode,
@@ -65,6 +65,6 @@ export function createCourseDocumentRuntimeExtensions({
       updateDocumentIds: false,
       vocabularyTermNode: VocabularyTermRuntimeNode,
     }),
-    ...composition.blocks.extensions,
+    ...resolvedComposition.blocks.extensions,
   ];
 }

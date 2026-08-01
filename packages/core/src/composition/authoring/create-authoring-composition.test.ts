@@ -5,7 +5,7 @@ import { Editor, Extension, Node, getSchema, type JSONContent } from "@tiptap/co
 import { EditorContent, NodeViewContent } from "@tiptap/react";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { createElement } from "react";
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import {
   createScaffoldApplication,
@@ -26,6 +26,8 @@ import {
 } from "@/editor/arrangements/layout/authoring/layout-nodes";
 import { LayoutAddGhost } from "@/editor/arrangements/layout/authoring/layout-chrome";
 import type { LayoutComponentProps } from "@/editor/arrangements/layout/authoring/layout-view-definition";
+import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
+import * as surfaceVariantRegistry from "@/editor/surfaces/model/surface-variant-registry";
 import { createCourseDocumentAuthoringExtensions } from "./create-authoring-composition";
 
 const AUTHORING_ONLY_EXTENSION_NAMES = [
@@ -40,6 +42,19 @@ const AUTHORING_ONLY_EXTENSION_NAMES = [
 const DECOMMISSIONED_ACTIVATION_EXTENSION_NAMES = ["scaffoldInteractionState", "blockSelection"];
 
 describe("createCourseDocumentAuthoringExtensions", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("validates built-in Surface factories when resolving the default authoring composition", () => {
+    const validateFactories = vi.spyOn(surfaceVariantRegistry, "validateSurfaceVariantFactories");
+
+    createCourseDocumentAuthoringExtensions({ editable: true });
+
+    expect(validateFactories).toHaveBeenCalledOnce();
+    expect(validateFactories).toHaveBeenCalledWith(builtInSurfaceVariantRegistry);
+  });
+
   it("returns each extension name only once", () => {
     const extensionNames = createCourseDocumentAuthoringExtensions({
       editable: true,

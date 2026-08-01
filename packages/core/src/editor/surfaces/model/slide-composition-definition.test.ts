@@ -21,6 +21,10 @@ import {
   type SlideTitleMode,
   type SurfaceImageSlotRole,
 } from "./slide-composition-definition";
+import {
+  createSurfaceVariantRegistry,
+  validateSurfaceVariantFactories,
+} from "./surface-variant-registry";
 import { slideContentSurfaceDefinition } from "./templates/slide-content";
 
 const ContentCompositionSettingsSchema = SurfaceSettingsSchema.extend({
@@ -447,6 +451,23 @@ describe("slide composition definitions", () => {
     expect(Object.isFrozen(definition.structurePolicy.fixedChildren[1]?.attrs)).toBe(true);
   });
 
+  it("declares slide composition metadata without executing the content factory", () => {
+    const definition = createContentCompositionDefinition(
+      "slide-composition-definition-inert-declaration-test",
+    );
+    const createSurface = definition.createSurface;
+    let factoryCalls = 0;
+    definition.createSurface = (input) => {
+      factoryCalls += 1;
+      return createSurface(input);
+    };
+
+    const registered = defineSlideCompositionSurface(definition);
+
+    expect(registered.nodeType).toBe("surface");
+    expect(factoryCalls).toBe(0);
+  });
+
   it("returns independent pure definitions for duplicate IDs", () => {
     const definitionId = "slide-composition-definition-duplicate-id-test";
     const first = defineSlideCompositionSurface(
@@ -495,17 +516,44 @@ describe("slide composition definitions", () => {
     ).toEqual(["slide_title", "region"]);
   });
 
-  it("rejects fixed-signature drift from a stateful normalized factory", () => {
+  it("rejects a wrong instance id on deliberate slide composition creation", () => {
+    const definitionId = "slide-composition-definition-instance-id-test";
+    const definition = createContentCompositionDefinition(definitionId, 991);
+    const createCanonicalSurface = definition.createSurface;
+    definition.createSurface = (input) => {
+      const surface = createCanonicalSurface(input);
+      return {
+        ...surface,
+        attrs: {
+          ...surface.attrs,
+          id: "wrong-surface-id",
+        },
+      };
+    };
+    const registered = defineSlideCompositionSurface(definition);
+
+    expect(() => registered.createSurface({ surfaceId: "requested-surface-id" })).toThrow(
+      `Slide composition definition "${definitionId}" must create the requested surface instance id.`,
+    );
+  });
+
+  it("validates every deliberate creation from a stateful normalized factory", () => {
     const definitionId = "slide-composition-definition-stateful-factory-drift-test";
     const definition = createContentCompositionDefinition(definitionId, 992);
     const createCanonicalSurface = definition.createSurface;
-    let omitMainRegion = false;
+    let factoryCalls = 0;
+    definition.defaultForModes = ["slideshow"];
     definition.createSurface = (input) => {
+      factoryCalls += 1;
       const surface = createCanonicalSurface(input);
-      return omitMainRegion ? { ...surface, content: [{ type: "slide_title" }] } : surface;
+      return factoryCalls > 1 ? { ...surface, content: [{ type: "slide_title" }] } : surface;
     };
     const registered = defineSlideCompositionSurface(definition);
-    omitMainRegion = true;
+    const registry = createSurfaceVariantRegistry([registered]);
+
+    expect(factoryCalls).toBe(0);
+    expect(() => validateSurfaceVariantFactories(registry)).not.toThrow();
+    expect(factoryCalls).toBe(1);
 
     expect(() => registered.createSurface({ surfaceId: "stateful-factory-drift" })).toThrow(
       `Surface definition "${definitionId}" createSurface result does not match its declared fixedChildren signature.`,
@@ -568,7 +616,11 @@ describe("slide composition definitions", () => {
       ],
     });
 
-    expect(() => defineSlideCompositionSurface(defaultMismatch)).toThrow(
+    const registeredDefaultMismatch = defineSlideCompositionSurface(defaultMismatch);
+
+    expect(() =>
+      registeredDefaultMismatch.createSurface({ surfaceId: "default-mismatch" }),
+    ).toThrow(
       'Slide composition definition "slide-composition-definition-default-mismatch-test" must default slideTitle.enabled to true.',
     );
   });
@@ -950,55 +1002,60 @@ describe("slide composition definitions", () => {
     expect(SlideCompositionMetadataSchema.safeParse(duplicateImages).success).toBe(false);
   });
 
-  it("requires parsed image defaults to contain exactly the declared logical slots", () => {
+  it("rejects incomplete image defaults during deliberate creation", () => {
     const definitionId = "slide-composition-definition-image-default-mismatch-test";
     const settingsSchema = SurfaceSettingsSchema.extend({
       slideTitle: SlideTitleVisibilitySchema,
-      images: z.record(z.unknown()),
+      images: z
+        .object({
+          primary: z.object({}).strict(),
+          secondary: z.object({}).strict(),
+        })
+        .strict(),
     }).strict();
 
-    expect(() =>
-      defineSlideCompositionSurface({
-        id: definitionId,
-        title: "Test diptych slideComposition",
-        description: "A local definition with incomplete image defaults.",
-        catalogue: {
-          section: "image",
-          order: 999,
-          preview: {
-            kind: "row",
-            children: [
-              { kind: "slot", role: "image" },
-              { kind: "slot", role: "image" },
-            ],
+    const registered = defineSlideCompositionSurface({
+      id: definitionId,
+      title: "Test diptych slideComposition",
+      description: "A local definition with incomplete image defaults.",
+      catalogue: {
+        section: "image",
+        order: 999,
+        preview: {
+          kind: "row",
+          children: [
+            { kind: "slot", role: "image" },
+            { kind: "slot", role: "image" },
+          ],
+        },
+      },
+      slideComposition: {
+        id: "diptych",
+        title: "optional-default-on",
+        regions: [],
+        imageSlots: ["primary", "secondary"],
+      },
+      settingsSchema,
+      structurePolicy: {
+        fixedChildren: [{ type: "slide_title" }],
+        allowRootInsertion: false,
+      },
+      createSurface: ({ surfaceId }) => ({
+        type: "surface",
+        attrs: {
+          id: surfaceId,
+          variant: definitionId,
+          settings: {
+            slideTitle: { enabled: true },
+            images: { primary: {} },
           },
         },
-        slideComposition: {
-          id: "diptych",
-          title: "optional-default-on",
-          regions: [],
-          imageSlots: ["primary", "secondary"],
-        },
-        settingsSchema,
-        structurePolicy: {
-          fixedChildren: [{ type: "slide_title" }],
-          allowRootInsertion: false,
-        },
-        createSurface: ({ surfaceId }) => ({
-          type: "surface",
-          attrs: {
-            id: surfaceId,
-            variant: definitionId,
-            settings: {
-              slideTitle: { enabled: true },
-              images: { primary: {} },
-            },
-          },
-          content: [{ type: "slide_title" }],
-        }),
+        content: [{ type: "slide_title" }],
       }),
-    ).toThrow(
-      'Slide composition definition "slide-composition-definition-image-default-mismatch-test" image defaults do not match its declared image slots.',
+    });
+
+    expect(() => registered.createSurface({ surfaceId: "image-default-mismatch" })).toThrow(
+      'Slide composition definition "slide-composition-definition-image-default-mismatch-test" createSurface settings do not match its settings schema.',
     );
   });
 
@@ -1068,7 +1125,9 @@ describe("slide composition definitions", () => {
       content: [{ type: "slide_title" }],
     });
 
-    expect(() => defineSlideCompositionSurface(definition)).toThrow(
+    const registered = defineSlideCompositionSurface(definition);
+
+    expect(() => registered.createSurface({ surfaceId: "fixed-signature-mismatch" })).toThrow(
       `Surface definition "${definitionId}" createSurface result does not match its declared fixedChildren signature.`,
     );
   });

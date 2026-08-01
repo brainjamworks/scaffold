@@ -3,6 +3,10 @@ import type { JSONContent } from "@tiptap/core";
 import type { CourseMode } from "@/schemas/course-document";
 
 import {
+  matchFixedSurfaceChildren,
+  snapshotSurfaceStructureChildrenFromJSON,
+} from "./policies/surface-fixed-structure";
+import {
   normalizeSurfaceDefinition,
   type CreateDefaultSurfaceForModeInput,
   type FixedSurfaceChild,
@@ -48,7 +52,6 @@ export function createSurfaceVariantRegistry(
     }
 
     const definition = createImmutableSurfaceDefinition(input);
-    validateSurfaceFactory(definition);
     if (hasSurfaceCatalogue(definition)) {
       const cataloguePosition = `${definition.catalogue.section}:${definition.catalogue.order}`;
       const existingCatalogueDefinitionId = catalogueDefinitionIdsByPosition.get(cataloguePosition);
@@ -112,6 +115,12 @@ export function createSurfaceVariantRegistry(
   });
 }
 
+export function validateSurfaceVariantFactories(registry: SurfaceVariantRegistry): void {
+  for (const definition of registry.definitions) {
+    validateSurfaceFactory(definition);
+  }
+}
+
 function hasSurfaceCatalogue(
   definition: RegisteredSurfaceVariantDefinition,
 ): definition is RegisteredSurfaceVariantCatalogueDefinition {
@@ -135,6 +144,19 @@ function validateSurfaceFactory(definition: RegisteredSurfaceVariantDefinition):
   }
   if (!definition.settingsSchema.safeParse(surface.attrs?.["settings"] ?? {}).success) {
     throw new Error(`Surface definition "${definition.id}" creates invalid default settings.`);
+  }
+
+  const fixedChildren = definition.structurePolicy?.fixedChildren;
+  if (fixedChildren === undefined) return;
+
+  const match = matchFixedSurfaceChildren(
+    snapshotSurfaceStructureChildrenFromJSON(surface),
+    fixedChildren,
+  );
+  if (!match.exact) {
+    throw new Error(
+      `Surface definition "${definition.id}" createSurface result does not match its declared fixedChildren signature.`,
+    );
   }
 }
 

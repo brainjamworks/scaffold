@@ -7,11 +7,6 @@ import {
   type VerticalContentPosition,
 } from "@/schemas/course-document";
 
-import {
-  matchFixedSurfaceChildren,
-  snapshotSurfaceStructureChildrenFromJSON,
-} from "./policies/surface-fixed-structure";
-
 export interface CreateSurfaceInput {
   surfaceId: string;
 }
@@ -115,7 +110,6 @@ export function normalizeSurfaceDefinition(
     assertSurfaceSupportsDefaultMode(definition, mode);
   }
 
-  validateSurfaceFixedChildren(definition);
   return createRegisteredSurfaceDefinition(definition);
 }
 
@@ -140,23 +134,6 @@ function assertSurfaceSupportsDefaultMode(
   if (!definition.modes.includes(mode)) {
     throw new Error(
       `Surface "${definition.id}" cannot be default for unsupported course mode "${mode}".`,
-    );
-  }
-}
-
-function validateSurfaceFixedChildren(definition: SurfaceVariantDefinition): void {
-  const fixedChildren = definition.structurePolicy?.fixedChildren;
-  if (fixedChildren === undefined) return;
-
-  const surface = definition.createSurface({ surfaceId: "surface-definition-validation" });
-  const match = matchFixedSurfaceChildren(
-    snapshotSurfaceStructureChildrenFromJSON(surface),
-    fixedChildren,
-  );
-
-  if (!match.exact) {
-    throw new Error(
-      `Surface definition "${definition.id}" createSurface result does not match its declared fixedChildren signature.`,
     );
   }
 }

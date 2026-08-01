@@ -293,19 +293,13 @@ export function defineSlideCompositionSurface(
     );
   }
   validateCanonicalComposition(slideComposition);
-
-  const validationSurface = createParsedSlideCompositionSurface(
-    definitionId,
-    sourceCreateSurface,
-    sourceSettingsSchema,
-    { surfaceId: "slide-composition-definition-validation" },
-  );
-  const validationSettings = validationSurface.attrs?.["settings"];
-  validateCompositionCapabilities(
+  validateCompositionCapabilities(slideComposition);
+  const settingsProbe = createCompositionSettingsProbe(slideComposition);
+  validateSettingsSchemaCapabilities(
     definition.id,
     slideComposition,
     sourceSettingsSchema,
-    validationSettings,
+    settingsProbe,
   );
   const settingsSchema = createClosedSlideCompositionSettingsSchema(
     definition.id,
@@ -316,7 +310,7 @@ export function defineSlideCompositionSurface(
     definition.id,
     slideComposition,
     settingsSchema,
-    validationSettings,
+    settingsProbe,
   );
 
   const createSurface: SurfaceVariantDefinition["createSurface"] = (input) => {
@@ -398,12 +392,7 @@ function validateCanonicalComposition(slideComposition: SlideCompositionMetadata
   }
 }
 
-function validateCompositionCapabilities(
-  definitionId: string,
-  slideComposition: SlideCompositionMetadata,
-  settingsSchema: ZodTypeAny,
-  settings: unknown,
-): void {
+function validateCompositionCapabilities(slideComposition: SlideCompositionMetadata): void {
   const compositionPolicy = CANONICAL_COMPOSITION_POLICIES[slideComposition.id];
   const supportsOrientation = compositionPolicy.orientation;
   if (!supportsOrientation && slideComposition.orientation !== undefined) {
@@ -428,9 +417,29 @@ function validateCompositionCapabilities(
       `Slide composition "${slideComposition.id}" must default proportion to "${expectedProportionDefault}".`,
     );
   }
+}
 
-  validateCompositionDefaults(definitionId, slideComposition, settings);
-  validateSettingsSchemaCapabilities(definitionId, slideComposition, settingsSchema, settings);
+function createCompositionSettingsProbe(
+  slideComposition: SlideCompositionMetadata,
+): Record<string, unknown> {
+  const settings: Record<string, unknown> = {};
+
+  if (slideComposition.title !== "required") {
+    settings["slideTitle"] = {
+      enabled: slideComposition.title === "optional-default-on",
+    };
+  }
+  if (slideComposition.orientation !== undefined) {
+    settings["orientation"] = slideComposition.orientation.default;
+  }
+  if (slideComposition.proportion !== undefined) {
+    settings["proportion"] = slideComposition.proportion.default;
+  }
+  if (slideComposition.imageSlots.length > 0) {
+    settings["images"] = Object.fromEntries(slideComposition.imageSlots.map((role) => [role, {}]));
+  }
+
+  return settings;
 }
 
 function validateCompositionDefaults(
@@ -796,12 +805,16 @@ function createParsedSlideCompositionSurface(
   if (surface.type !== "surface") {
     throw new Error(`Slide composition definition "${definitionId}" must create a surface node.`);
   }
+  if (surface.attrs?.["id"] !== input.surfaceId) {
+    throw new Error(
+      `Slide composition definition "${definitionId}" must create the requested surface instance id.`,
+    );
+  }
   if (surface.attrs?.["variant"] !== definitionId) {
     throw new Error(
       `Slide composition definition "${definitionId}" must create its own persisted surface variant.`,
     );
   }
-
   const settingsResult = settingsSchema.safeParse(surface.attrs?.["settings"] ?? {});
   if (!settingsResult.success) {
     throw new Error(

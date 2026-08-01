@@ -11,6 +11,8 @@ import {
 import { builtInLayoutDefinitions } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { builtInBlockDefinitions } from "@/editor/blocks/built-in-block-definitions";
 import { builtInBlockAuthoringBindings } from "@/editor/blocks/authoring-block-extensions";
+import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
+import { validateSurfaceVariantFactories } from "@/editor/surfaces/model/surface-variant-registry";
 
 export interface ScaffoldAuthoringBlockComposition {
   readonly extensions: readonly AnyExtension[];
@@ -43,11 +45,14 @@ export function createScaffoldAuthoringComposition(
 }
 
 export function createCoreScaffoldAuthoringComposition(): ScaffoldAuthoringComposition {
+  const capabilities = resolveScaffoldCapabilities({
+    blockDefinitions: builtInBlockDefinitions,
+    layoutDefinitions: builtInLayoutDefinitions,
+  });
+  validateSurfaceVariantFactories(builtInSurfaceVariantRegistry);
+
   return createScaffoldAuthoringComposition(
-    resolveScaffoldCapabilities({
-      blockDefinitions: builtInBlockDefinitions,
-      layoutDefinitions: builtInLayoutDefinitions,
-    }),
+    capabilities,
     builtInBlockAuthoringBindings.map(({ extension }) => extension),
     builtInLayoutAuthoringViews,
   );

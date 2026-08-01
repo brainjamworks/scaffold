@@ -43,24 +43,24 @@ const builtInSurfaceAuthoringNode = createSurfaceAuthoringNode({
   registry: builtInSurfaceVariantRegistry,
   views: builtInSurfaceAuthoringViewMap,
 });
-const defaultScaffoldAuthoringComposition = createCoreScaffoldAuthoringComposition();
 
 export function createCourseDocumentAuthoringExtensions({
   editable,
-  composition = defaultScaffoldAuthoringComposition,
+  composition,
 }: {
   editable: boolean;
   composition?: ScaffoldAuthoringComposition;
 }): Extensions {
-  const blockRegistry = composition.capabilities.blocks.registry;
+  const resolvedComposition = composition ?? createCoreScaffoldAuthoringComposition();
+  const blockRegistry = resolvedComposition.capabilities.blocks.registry;
   const { layoutNode, sectionNode } = createLayoutAuthoringNodes({
-    registry: composition.capabilities.layouts.registry,
-    authoringViews: composition.layouts.views,
+    registry: resolvedComposition.capabilities.layouts.registry,
+    authoringViews: resolvedComposition.layouts.views,
     blockDefinitions: blockRegistry,
   });
 
   return [
-    createScaffoldCapabilitiesStorageExtension(composition.capabilities),
+    createScaffoldCapabilitiesStorageExtension(resolvedComposition.capabilities),
     ...createCourseDocumentBaseExtensions({
       assessmentActionsGroupNode: AssessmentActionsGroupNode,
       assessmentChoicesGroupNode: AssessmentChoicesGroupNode,
@@ -84,7 +84,10 @@ export function createCourseDocumentAuthoringExtensions({
     AuthoringSlideDividers,
     createSurfaceRootSelectionPolicy({ surfaceVariants: builtInSurfaceVariantRegistry }),
     createSurfaceLifecycleAuthoringPolicy({ registry: builtInSurfaceVariantRegistry }),
-    createBoundedContainerStructurePolicy(blockRegistry, composition.capabilities.layouts.registry),
+    createBoundedContainerStructurePolicy(
+      blockRegistry,
+      resolvedComposition.capabilities.layouts.registry,
+    ),
     createScaffoldInteractionOwnerExtension(blockRegistry),
     StableIdPasteNormalization,
     Placeholder.configure({
@@ -101,6 +104,6 @@ export function createCourseDocumentAuthoringExtensions({
       items: builtInInsertCatalog.actions,
       surfaceVariants: builtInSurfaceVariantRegistry,
     }),
-    ...composition.blocks.extensions,
+    ...resolvedComposition.blocks.extensions,
   ];
 }

@@ -13,7 +13,10 @@ import {
   type SurfaceStructurePolicy,
   type SurfaceTemplatePreviewNode,
 } from "./surface-variant-definition";
-import { createSurfaceVariantRegistry } from "./surface-variant-registry";
+import {
+  createSurfaceVariantRegistry,
+  validateSurfaceVariantFactories,
+} from "./surface-variant-registry";
 
 function createSurfaceDefinition(
   id: string,
@@ -97,6 +100,40 @@ describe("surface variant registry foundation", () => {
     expect(Object.isFrozen(registry)).toBe(true);
     expect(Object.isFrozen(registry.definitions)).toBe(true);
     expect(Object.isFrozen(registry.get(first.id))).toBe(true);
+  });
+
+  it("constructs a registry without executing content factories", () => {
+    let firstFactoryCalls = 0;
+    let secondFactoryCalls = 0;
+    const first = createSurfaceDefinition("isolated-inert-registry-first-test", {
+      defaultForModes: ["page"],
+      createSurface: ({ surfaceId }) => {
+        firstFactoryCalls += 1;
+        return {
+          type: "surface",
+          attrs: { id: surfaceId, variant: "isolated-inert-registry-first-test" },
+        };
+      },
+    });
+    const second = createSurfaceDefinition("isolated-inert-registry-second-test", {
+      createSurface: ({ surfaceId }) => {
+        secondFactoryCalls += 1;
+        return {
+          type: "surface",
+          attrs: { id: surfaceId, variant: "isolated-inert-registry-second-test" },
+        };
+      },
+    });
+
+    const registry = createSurfaceVariantRegistry([first, second]);
+
+    expect(firstFactoryCalls).toBe(0);
+    expect(secondFactoryCalls).toBe(0);
+
+    validateSurfaceVariantFactories(registry);
+
+    expect(firstFactoryCalls).toBe(1);
+    expect(secondFactoryCalls).toBe(1);
   });
 
   it("keeps registries isolated when they contain the same variant id", () => {
@@ -303,7 +340,9 @@ describe("surface variant registry foundation", () => {
       }),
     });
 
-    expect(() => createSurfaceVariantRegistry([definition])).toThrow(
+    const registry = createSurfaceVariantRegistry([definition]);
+
+    expect(() => validateSurfaceVariantFactories(registry)).toThrow(
       `Surface definition "${definitionId}" must create a surface node.`,
     );
   });
@@ -319,7 +358,9 @@ describe("surface variant registry foundation", () => {
       }),
     });
 
-    expect(() => createSurfaceVariantRegistry([definition])).toThrow(
+    const registry = createSurfaceVariantRegistry([definition]);
+
+    expect(() => validateSurfaceVariantFactories(registry)).toThrow(
       `Surface definition "${definitionId}" must create the requested surface instance id.`,
     );
   });
@@ -335,7 +376,9 @@ describe("surface variant registry foundation", () => {
       }),
     });
 
-    expect(() => createSurfaceVariantRegistry([definition])).toThrow(
+    const registry = createSurfaceVariantRegistry([definition]);
+
+    expect(() => validateSurfaceVariantFactories(registry)).toThrow(
       `Surface definition "${definitionId}" must create its own persisted surface variant.`,
     );
   });
@@ -352,8 +395,25 @@ describe("surface variant registry foundation", () => {
       }),
     });
 
-    expect(() => createSurfaceVariantRegistry([definition])).toThrow(
+    const registry = createSurfaceVariantRegistry([definition]);
+
+    expect(() => validateSurfaceVariantFactories(registry)).toThrow(
       `Surface definition "${definitionId}" creates invalid default settings.`,
+    );
+  });
+
+  it("rejects factory output that does not match declared fixed children", () => {
+    const definitionId = "isolated-factory-fixed-children-test";
+    const definition = createSurfaceDefinition(definitionId, {
+      defaultForModes: ["page"],
+      structurePolicy: {
+        fixedChildren: [{ type: "heading", attrs: { level: 1 } }],
+      },
+    });
+    const registry = createSurfaceVariantRegistry([definition]);
+
+    expect(() => validateSurfaceVariantFactories(registry)).toThrow(
+      `Surface definition "${definitionId}" createSurface result does not match its declared fixedChildren signature.`,
     );
   });
 

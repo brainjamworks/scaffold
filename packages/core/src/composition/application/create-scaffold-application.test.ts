@@ -1,8 +1,10 @@
 import { CircleIcon } from "@phosphor-icons/react";
 import { Node } from "@tiptap/core";
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { builtInBlockDefinitions } from "@/editor/blocks/built-in-block-definitions";
+import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
+import * as surfaceVariantRegistry from "@/editor/surfaces/model/surface-variant-registry";
 
 import type { BlockCapability } from "./block-capability";
 import {
@@ -12,6 +14,19 @@ import {
 } from "./create-scaffold-application";
 
 describe("createScaffoldApplication", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("validates built-in Surface factories during explicit application construction", () => {
+    const validateFactories = vi.spyOn(surfaceVariantRegistry, "validateSurfaceVariantFactories");
+
+    createScaffoldApplication();
+
+    expect(validateFactories).toHaveBeenCalledOnce();
+    expect(validateFactories).toHaveBeenCalledWith(builtInSurfaceVariantRegistry);
+  });
+
   it("shares neutral capabilities while keeping authoring and runtime views lane-local", () => {
     const hostLayout = testLayoutCapability("host-columns");
     const application = createScaffoldApplication({

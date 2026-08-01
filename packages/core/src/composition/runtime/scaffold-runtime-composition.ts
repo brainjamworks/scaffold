@@ -11,6 +11,8 @@ import {
 } from "@/editor/arrangements/layout/runtime/layout-view-registry";
 import { builtInBlockDefinitions } from "@/editor/blocks/built-in-block-definitions";
 import { builtInBlockRuntimeBindings } from "@/editor/blocks/runtime-block-extensions";
+import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
+import { validateSurfaceVariantFactories } from "@/editor/surfaces/model/surface-variant-registry";
 
 export interface ScaffoldRuntimeBlockComposition {
   readonly extensions: readonly AnyExtension[];
@@ -43,11 +45,14 @@ export function createScaffoldRuntimeComposition(
 }
 
 export function createCoreScaffoldRuntimeComposition(): ScaffoldRuntimeComposition {
+  const capabilities = resolveScaffoldCapabilities({
+    blockDefinitions: builtInBlockDefinitions,
+    layoutDefinitions: builtInLayoutDefinitions,
+  });
+  validateSurfaceVariantFactories(builtInSurfaceVariantRegistry);
+
   return createScaffoldRuntimeComposition(
-    resolveScaffoldCapabilities({
-      blockDefinitions: builtInBlockDefinitions,
-      layoutDefinitions: builtInLayoutDefinitions,
-    }),
+    capabilities,
     builtInBlockRuntimeBindings.map(({ extension }) => extension),
     builtInLayoutRuntimeViews,
   );

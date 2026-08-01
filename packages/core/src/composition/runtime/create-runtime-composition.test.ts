@@ -5,7 +5,7 @@ import { Editor, Extension, Node, getSchema } from "@tiptap/core";
 import { EditorContent, NodeViewContent } from "@tiptap/react";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { createElement } from "react";
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import {
   createScaffoldApplication,
@@ -22,6 +22,8 @@ import {
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { builtInBlockRuntimeBindings } from "@/editor/blocks/runtime-block-extensions";
 import type { LayoutRuntimeViewProps } from "@/editor/arrangements/layout/runtime/layout-view-definition";
+import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
+import * as surfaceVariantRegistry from "@/editor/surfaces/model/surface-variant-registry";
 
 import { createCourseDocumentRuntimeExtensions } from "./create-runtime-composition";
 
@@ -35,6 +37,19 @@ const AUTHORING_ONLY_EXTENSION_NAMES = [
 ];
 
 describe("createCourseDocumentRuntimeExtensions", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("validates built-in Surface factories when resolving the default runtime composition", () => {
+    const validateFactories = vi.spyOn(surfaceVariantRegistry, "validateSurfaceVariantFactories");
+
+    createCourseDocumentRuntimeExtensions();
+
+    expect(validateFactories).toHaveBeenCalledOnce();
+    expect(validateFactories).toHaveBeenCalledWith(builtInSurfaceVariantRegistry);
+  });
+
   it("constructs one built-in runtime surface node", () => {
     const extensions = createCourseDocumentRuntimeExtensions();
 
