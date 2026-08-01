@@ -226,16 +226,31 @@ describe("createBlockInsertAction", () => {
     expect(validateNode).toHaveBeenCalledOnce();
   });
 
-  it("runs variant-local validation before configuration validation", () => {
-    const validateNode = vi.fn(() => ({
-      code: "invalid_catalog_content" as const,
-      message: "Variant-local validation failed.",
-    }));
+  it("short-circuits variant validation when the owning validator fails", () => {
+    const calls: string[] = [];
+    const owningValidateNode = vi.fn(() => {
+      calls.push("owning");
+      return {
+        code: "invalid_catalog_content" as const,
+        message: "Owning Block validation failed.",
+      };
+    });
+    const variantValidateNode = vi.fn(() => {
+      calls.push("variant");
+      return {
+        code: "invalid_catalog_content" as const,
+        message: "Variant-local validation failed.",
+      };
+    });
+    const configurationValidateNode = vi.fn(() => {
+      calls.push("configuration");
+      return false;
+    });
     const definition = defineBlock({
       nodeType: "fixture",
       configuration: defineConfiguration({
         attr: "data",
-        schema: z.object({ label: z.string() }),
+        schema: z.custom(configurationValidateNode),
         controls: [],
       }),
       insert: {
@@ -245,13 +260,69 @@ describe("createBlockInsertAction", () => {
         icon: ArticleIcon,
         category: "content",
         content: () => ({ type: "fixture" }),
+        validateNode: owningValidateNode,
         variants: [
           {
             id: "fixture-preset",
             title: "Fixture preset",
             description: "Insert a fixture preset.",
             content: () => ({ type: "fixture" }),
-            validateNode,
+            validateNode: variantValidateNode,
+          },
+        ],
+      },
+    });
+    const [, variant] = createBlockInsertActions([definition]);
+
+    expect(variant?.validateNode?.(fixtureNode({ label: 42 }))).toEqual({
+      code: "invalid_catalog_content",
+      message: "Owning Block validation failed.",
+    });
+    expect(calls).toEqual(["owning"]);
+    expect(owningValidateNode).toHaveBeenCalledOnce();
+    expect(variantValidateNode).not.toHaveBeenCalled();
+    expect(configurationValidateNode).not.toHaveBeenCalled();
+  });
+
+  it("short-circuits configuration validation when the variant validator fails", () => {
+    const calls: string[] = [];
+    const owningValidateNode = vi.fn(() => {
+      calls.push("owning");
+      return null;
+    });
+    const variantValidateNode = vi.fn(() => {
+      calls.push("variant");
+      return {
+        code: "invalid_catalog_content" as const,
+        message: "Variant-local validation failed.",
+      };
+    });
+    const configurationValidateNode = vi.fn(() => {
+      calls.push("configuration");
+      return false;
+    });
+    const definition = defineBlock({
+      nodeType: "fixture",
+      configuration: defineConfiguration({
+        attr: "data",
+        schema: z.custom(configurationValidateNode),
+        controls: [],
+      }),
+      insert: {
+        id: "fixture",
+        title: "Fixture",
+        description: "Insert a fixture.",
+        icon: ArticleIcon,
+        category: "content",
+        content: () => ({ type: "fixture" }),
+        validateNode: owningValidateNode,
+        variants: [
+          {
+            id: "fixture-preset",
+            title: "Fixture preset",
+            description: "Insert a fixture preset.",
+            content: () => ({ type: "fixture" }),
+            validateNode: variantValidateNode,
           },
         ],
       },
@@ -262,15 +333,31 @@ describe("createBlockInsertAction", () => {
       code: "invalid_catalog_content",
       message: "Variant-local validation failed.",
     });
-    expect(validateNode).toHaveBeenCalledOnce();
+    expect(calls).toEqual(["owning", "variant"]);
+    expect(owningValidateNode).toHaveBeenCalledOnce();
+    expect(variantValidateNode).toHaveBeenCalledOnce();
+    expect(configurationValidateNode).not.toHaveBeenCalled();
   });
 
-  it("reports variant configuration failures with the variant action id", () => {
+  it("runs configuration validation after owning and variant validators succeed", () => {
+    const calls: string[] = [];
+    const owningValidateNode = vi.fn(() => {
+      calls.push("owning");
+      return null;
+    });
+    const variantValidateNode = vi.fn(() => {
+      calls.push("variant");
+      return null;
+    });
+    const configurationValidateNode = vi.fn(() => {
+      calls.push("configuration");
+      return false;
+    });
     const definition = defineBlock({
       nodeType: "fixture",
       configuration: defineConfiguration({
         attr: "data",
-        schema: z.object({ label: z.string() }),
+        schema: z.custom(configurationValidateNode),
         controls: [],
       }),
       insert: {
@@ -280,12 +367,14 @@ describe("createBlockInsertAction", () => {
         icon: ArticleIcon,
         category: "content",
         content: () => ({ type: "fixture" }),
+        validateNode: owningValidateNode,
         variants: [
           {
             id: "fixture-preset",
             title: "Fixture preset",
             description: "Insert a fixture preset.",
             content: () => ({ type: "fixture" }),
+            validateNode: variantValidateNode,
           },
         ],
       },
@@ -297,6 +386,10 @@ describe("createBlockInsertAction", () => {
       field: "data",
       message: 'Insert action "fixture-preset" produced invalid "data" attrs for "fixture".',
     });
+    expect(calls).toEqual(["owning", "variant", "configuration"]);
+    expect(owningValidateNode).toHaveBeenCalledOnce();
+    expect(variantValidateNode).toHaveBeenCalledOnce();
+    expect(configurationValidateNode).toHaveBeenCalledOnce();
   });
 
   it("rejects a node whose type differs from the definition", () => {

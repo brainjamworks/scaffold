@@ -51,6 +51,7 @@ function createBlockInsertVariantAction(
   variant: BlockInsertVariantDefinition,
 ): InsertAction {
   const composedValidateNode = composeInsertValidators(
+    definition.insert?.validateNode,
     variant.validateNode,
     definition.configuration ? createConfigurationNodeValidator(definition, variant.id) : undefined,
   );
