@@ -105,9 +105,7 @@ describe("@scaffold/core/extensions", () => {
     >();
     expectTypeOf<keyof ScaffoldAuthoringBlockComposition>().toEqualTypeOf<"extensions">();
     expectTypeOf<keyof ScaffoldAuthoringLayoutComposition>().toEqualTypeOf<"views">();
-    expectTypeOf<keyof ScaffoldAuthoringSurfaceComposition>().toEqualTypeOf<
-      "chrome" | "views"
-    >();
+    expectTypeOf<keyof ScaffoldAuthoringSurfaceComposition>().toEqualTypeOf<"chrome" | "views">();
     expectTypeOf<keyof ScaffoldRuntimeComposition>().toEqualTypeOf<
       "blocks" | "capabilities" | "layouts" | "surfaces"
     >();

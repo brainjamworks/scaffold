@@ -103,16 +103,12 @@ describe("createCourseDocumentRuntimeExtensions", () => {
 
       await waitFor(() => {
         expect(
-          document.body.querySelector(
-            `[data-host-surface-runtime="${capability.definition.id}"]`,
-          ),
+          document.body.querySelector(`[data-host-surface-runtime="${capability.definition.id}"]`),
         ).not.toBeNull();
       });
 
       expect(
-        document.body.querySelector(
-          `[data-host-surface-authoring="${capability.definition.id}"]`,
-        ),
+        document.body.querySelector(`[data-host-surface-authoring="${capability.definition.id}"]`),
       ).toBeNull();
     } finally {
       cleanup();
@@ -292,9 +288,7 @@ describe("createCourseDocumentRuntimeExtensions", () => {
     const first = hostSurfaceCapability("first-runtime-host-surface");
     const second = hostSurfaceCapability("second-runtime-host-surface");
     const firstApplication = createScaffoldApplication({
-      packs: [
-        defineScaffoldExtensionPack({ id: "first-runtime-surface-pack", surfaces: [first] }),
-      ],
+      packs: [defineScaffoldExtensionPack({ id: "first-runtime-surface-pack", surfaces: [first] })],
     });
     const secondApplication = createScaffoldApplication({
       packs: [
@@ -327,15 +321,11 @@ describe("createCourseDocumentRuntimeExtensions", () => {
     expect(firstApplication.runtime.surfaces.views.get(first.definition.id)?.component).toBe(
       first.runtimeView.component,
     );
-    expect(
-      firstApplication.runtime.surfaces.views.get(second.definition.id),
-    ).toBeUndefined();
+    expect(firstApplication.runtime.surfaces.views.get(second.definition.id)).toBeUndefined();
     expect(secondApplication.runtime.surfaces.views.get(second.definition.id)?.component).toBe(
       second.runtimeView.component,
     );
-    expect(
-      secondApplication.runtime.surfaces.views.get(first.definition.id),
-    ).toBeUndefined();
+    expect(secondApplication.runtime.surfaces.views.get(first.definition.id)).toBeUndefined();
     expect(firstApplication.capabilities.surfaces.registry).not.toBe(
       secondApplication.capabilities.surfaces.registry,
     );

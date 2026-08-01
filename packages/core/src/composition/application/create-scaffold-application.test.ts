@@ -175,9 +175,9 @@ describe("createScaffoldApplication", () => {
         .resolve(hostTracerSurface.definition.id)
         ?.quickMenu?.controls.map(({ name }) => name),
     ).toEqual(["accent"]);
-    expect(
-      application.runtime.surfaces.views.get(hostTracerSurface.definition.id)?.component,
-    ).toBe(TestSurfaceRuntimeView);
+    expect(application.runtime.surfaces.views.get(hostTracerSurface.definition.id)?.component).toBe(
+      TestSurfaceRuntimeView,
+    );
     expect(
       application.runtime.surfaces.views.get(hostTracerSurface.definition.id)?.component,
     ).not.toBe(TestSurfaceAuthoringView);

@@ -72,6 +72,7 @@ Core uses explicit, closed-world construction for its built-in editor features:
   composition validates matching `variantId` values, builds one immutable
   neutral Surface registry, and projects only `views`/`chrome` to authoring and
   only `views` to learner runtime.
+
 - Surface definition declaration, module import, normalization, and passive
   registry construction do not execute `createSurface`. Factory output is
   sampled during explicit application or lane composition. Slide-composition
