@@ -27,7 +27,7 @@ import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-va
 import { authoringSlideDividersPluginKey } from "./AuthoringSlideDividers";
 import { AuthoringSlideDividers } from "./AuthoringSlideDividers";
 import { SurfaceTemplatePicker } from "./SurfaceTemplatePickerHost";
-import { createSurfaceInsertCatalog } from "./surface-insert-catalog";
+import { createSurfaceCreationCatalog } from "./surface-creation-catalog";
 import { insertSurfaceTemplateAfterSurface } from "./surface-template-insertion";
 
 const surfaceVariants = createSurfaceVariantRegistry(builtInSurfaceVariantDefinitions);
@@ -231,7 +231,7 @@ async function renderOpenPicker({
   render(
     createElement(SurfaceTemplatePicker, {
       editor,
-      catalog: createSurfaceInsertCatalog(pickerSurfaceVariants),
+      surfaceCreationCatalog: createSurfaceCreationCatalog(pickerSurfaceVariants),
       surfaceVariants: pickerSurfaceVariants,
     }),
   );

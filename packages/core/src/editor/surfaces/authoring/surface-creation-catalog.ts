@@ -6,26 +6,28 @@ import type {
 } from "../model/surface-variant-definition";
 import type { SurfaceVariantRegistry } from "../model/surface-variant-registry";
 
-export interface SurfaceInsertCatalogEntry {
+export interface SurfaceCreationCatalogEntry {
   readonly variantId: string;
   readonly title: string;
   readonly description: string;
   readonly catalogue: SurfaceCatalogueEntry;
 }
 
-export interface SurfaceInsertCatalog {
-  forMode(mode: CourseMode): readonly SurfaceInsertCatalogEntry[];
+export interface SurfaceCreationCatalog {
+  forMode(mode: CourseMode): readonly SurfaceCreationCatalogEntry[];
 }
 
-const EMPTY_INSERT_CATALOG: readonly SurfaceInsertCatalogEntry[] = Object.freeze([]);
+const EMPTY_CREATION_CATALOG: readonly SurfaceCreationCatalogEntry[] = Object.freeze([]);
 const SECTION_ORDER: Readonly<Record<SurfaceCatalogueSection, number>> = {
   title: 0,
   content: 1,
   image: 2,
 };
 
-export function createSurfaceInsertCatalog(registry: SurfaceVariantRegistry): SurfaceInsertCatalog {
-  const entriesByMode = new Map<CourseMode, SurfaceInsertCatalogEntry[]>();
+export function createSurfaceCreationCatalog(
+  registry: SurfaceVariantRegistry,
+): SurfaceCreationCatalog {
+  const entriesByMode = new Map<CourseMode, SurfaceCreationCatalogEntry[]>();
 
   for (const definition of registry.definitions) {
     if (!definition.catalogue) continue;
@@ -42,7 +44,7 @@ export function createSurfaceInsertCatalog(registry: SurfaceVariantRegistry): Su
     }
   }
 
-  const immutableEntriesByMode = new Map<CourseMode, readonly SurfaceInsertCatalogEntry[]>();
+  const immutableEntriesByMode = new Map<CourseMode, readonly SurfaceCreationCatalogEntry[]>();
   for (const [mode, entries] of entriesByMode) {
     immutableEntriesByMode.set(
       mode,
@@ -57,7 +59,7 @@ export function createSurfaceInsertCatalog(registry: SurfaceVariantRegistry): Su
   }
 
   return Object.freeze({
-    forMode: (mode: CourseMode) => immutableEntriesByMode.get(mode) ?? EMPTY_INSERT_CATALOG,
+    forMode: (mode: CourseMode) => immutableEntriesByMode.get(mode) ?? EMPTY_CREATION_CATALOG,
   });
 }
 

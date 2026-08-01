@@ -17,10 +17,10 @@ import {
   getAuthoringSlideDividersState,
 } from "./AuthoringSlideDividers";
 import {
-  createSurfaceInsertCatalog,
-  type SurfaceInsertCatalog,
-  type SurfaceInsertCatalogEntry,
-} from "./surface-insert-catalog";
+  createSurfaceCreationCatalog,
+  type SurfaceCreationCatalog,
+  type SurfaceCreationCatalogEntry,
+} from "./surface-creation-catalog";
 import { insertSurfaceTemplateAfterSurface } from "./surface-template-insertion";
 
 import "./SurfaceTemplatePickerHost.css";
@@ -30,11 +30,11 @@ interface SurfaceTemplatePickerHostProps {
 }
 
 interface SurfaceTemplatePickerProps extends SurfaceTemplatePickerHostProps {
-  catalog: SurfaceInsertCatalog;
+  surfaceCreationCatalog: SurfaceCreationCatalog;
   surfaceVariants: SurfaceVariantRegistry;
 }
 
-const builtInSurfaceInsertCatalog = createSurfaceInsertCatalog(builtInSurfaceVariantRegistry);
+const builtInSurfaceCreationCatalog = createSurfaceCreationCatalog(builtInSurfaceVariantRegistry);
 
 const CATALOGUE_SECTIONS: readonly {
   id: SurfaceCatalogueSection;
@@ -49,7 +49,7 @@ export function SurfaceTemplatePickerHost({ editor }: SurfaceTemplatePickerHostP
   return (
     <SurfaceTemplatePicker
       editor={editor}
-      catalog={builtInSurfaceInsertCatalog}
+      surfaceCreationCatalog={builtInSurfaceCreationCatalog}
       surfaceVariants={builtInSurfaceVariantRegistry}
     />
   );
@@ -57,7 +57,7 @@ export function SurfaceTemplatePickerHost({ editor }: SurfaceTemplatePickerHostP
 
 export function SurfaceTemplatePicker({
   editor,
-  catalog,
+  surfaceCreationCatalog,
   surfaceVariants,
 }: SurfaceTemplatePickerProps) {
   const request = useEditorState({
@@ -69,12 +69,12 @@ export function SurfaceTemplatePicker({
     editor,
     selector: ({ editor: currentEditor }) => readCourseMode(currentEditor),
   });
-  const definitions = mode ? catalog.forMode(mode) : [];
+  const surfaceCreationEntries = mode ? surfaceCreationCatalog.forMode(mode) : [];
   const groups = CATALOGUE_SECTIONS.map((section) => ({
     ...section,
-    definitions: definitions.filter((definition) => definition.catalogue.section === section.id),
-  })).filter((group) => group.definitions.length > 0);
-  const open = Boolean(request && mode && definitions.length > 0);
+    entries: surfaceCreationEntries.filter((entry) => entry.catalogue.section === section.id),
+  })).filter((group) => group.entries.length > 0);
+  const open = Boolean(request && mode && surfaceCreationEntries.length > 0);
 
   const close = () => {
     closeSurfaceTemplatePicker(editor.view);
@@ -135,12 +135,12 @@ export function SurfaceTemplatePicker({
                     {group.label}
                   </h2>
                   <div className="sc-surface-template-picker-grid">
-                    {group.definitions.map((definition) => {
-                      const titleId = `surface-template-picker-${definition.variantId}-title`;
-                      const descriptionId = `surface-template-picker-${definition.variantId}-description`;
+                    {group.entries.map((entry) => {
+                      const titleId = `surface-template-picker-${entry.variantId}-title`;
+                      const descriptionId = `surface-template-picker-${entry.variantId}-description`;
                       return (
                         <button
-                          key={definition.variantId}
+                          key={entry.variantId}
                           type="button"
                           aria-labelledby={titleId}
                           aria-describedby={descriptionId}
@@ -152,21 +152,21 @@ export function SurfaceTemplatePicker({
                               surfaceVariants,
                               {
                                 afterSurfaceId: request.afterSurfaceId,
-                                variantId: definition.variantId,
+                                variantId: entry.variantId,
                               },
                             );
                             if (inserted) close();
                           }}
                         >
-                          <SurfaceTemplatePreview definition={definition} />
+                          <SurfaceTemplatePreview entry={entry} />
                           <span id={titleId} className="sc-surface-template-picker-card-title">
-                            {definition.title}
+                            {entry.title}
                           </span>
                           <span
                             id={descriptionId}
                             className="sc-surface-template-picker-card-description"
                           >
-                            {definition.description}
+                            {entry.description}
                           </span>
                         </button>
                       );
@@ -182,14 +182,14 @@ export function SurfaceTemplatePicker({
   );
 }
 
-function SurfaceTemplatePreview({ definition }: { definition: SurfaceInsertCatalogEntry }) {
+function SurfaceTemplatePreview({ entry }: { entry: SurfaceCreationCatalogEntry }) {
   return (
     <span
       aria-hidden
       className="sc-surface-template-picker-preview"
-      data-surface-template-preview={definition.variantId}
+      data-surface-template-preview={entry.variantId}
     >
-      <SurfaceTemplatePreviewNodeView node={definition.catalogue.preview} path="preview" />
+      <SurfaceTemplatePreviewNodeView node={entry.catalogue.preview} path="preview" />
     </span>
   );
 }
