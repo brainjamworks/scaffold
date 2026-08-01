@@ -737,6 +737,28 @@ describe("createScaffoldApplication", () => {
     },
   );
 
+  it.each(["authoring", "runtime"] as const)(
+    "rejects a Surface capability whose %s view component is not callable",
+    (lane) => {
+      const id = `malformed-${lane}-surface-component`;
+      const capability = testSurfaceCapability(id);
+      const malformed = {
+        ...capability,
+        ...(lane === "authoring"
+          ? { authoringView: { ...capability.authoringView, component: "not callable" } }
+          : { runtimeView: { ...capability.runtimeView, component: "not callable" } }),
+      } as unknown as SurfaceCapability;
+      const pack = defineScaffoldExtensionPack({
+        id: `malformed-${lane}-surface-component-host`,
+        surfaces: [malformed],
+      });
+
+      expect(() => createScaffoldApplication({ packs: [pack] })).toThrow(
+        `Surface capability "${id}" ${lane}View.component must be callable.`,
+      );
+    },
+  );
+
   it("rejects a host Surface that attempts to override a Core built-in", () => {
     const builtInId = builtInSurfaceVariantDefinitions[0]!.id;
     const pack = defineScaffoldExtensionPack({

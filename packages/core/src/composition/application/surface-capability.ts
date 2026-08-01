@@ -63,6 +63,12 @@ export function validateSurfaceCapability(capability: SurfaceCapability): void {
       `Surface capability "${id}" runtime view variant ID "${capability.runtimeView.variantId}" must match its definition ID.`,
     );
   }
+  if (typeof capability.authoringView.component !== "function") {
+    throw new Error(`Surface capability "${id}" authoringView.component must be callable.`);
+  }
+  if (typeof capability.runtimeView.component !== "function") {
+    throw new Error(`Surface capability "${id}" runtimeView.component must be callable.`);
+  }
 }
 
 function indexBindings<Binding extends { readonly variantId: string }>(
