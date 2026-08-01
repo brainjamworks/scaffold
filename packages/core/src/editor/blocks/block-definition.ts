@@ -94,11 +94,25 @@ export type BlockInsertCategory =
   | "embed"
   | "layout";
 
+export type BlockInsertNodeValidator = (node: ProseMirrorNode) => {
+  readonly code: string;
+  readonly message: string;
+  readonly field?: string;
+} | null;
+
+export interface BlockInsertVariantDefinition {
+  readonly id: string;
+  readonly title: string;
+  readonly description: string;
+  readonly keywords?: readonly string[];
+  /** Fresh ProseMirror node JSON for each insert invocation. */
+  readonly content: () => Record<string, unknown>;
+  readonly validateNode?: BlockInsertNodeValidator;
+}
+
 export interface BlockInsertDefinition {
   /** Stable authoring action identity, which may differ from nodeType. */
   readonly id: string;
-  /** Optional parent action id for insert variants that share a node type. */
-  readonly variantOf?: string;
   readonly title: string;
   readonly description: string;
   readonly icon: Icon;
@@ -106,11 +120,8 @@ export interface BlockInsertDefinition {
   readonly keywords?: readonly string[];
   /** Fresh ProseMirror node JSON for each insert invocation. */
   readonly content: () => Record<string, unknown>;
-  readonly validateNode?: (node: ProseMirrorNode) => {
-    readonly code: string;
-    readonly message: string;
-    readonly field?: string;
-  } | null;
+  readonly validateNode?: BlockInsertNodeValidator;
+  readonly variants?: readonly BlockInsertVariantDefinition[];
 }
 
 export interface BlockAuthoringControlsInput {
@@ -209,6 +220,7 @@ export function defineBlock(input: BlockDefinitionInput): BlockDefinition {
   const quickMenu = deriveQuickMenuDefinition(input.configuration);
   const settingsSheet = deriveSettingsSheetDefinition(input.configuration);
   const frame = normalizeFrameDefinition(input.frame);
+  const insert = normalizeBlockInsertDefinition(input.insert);
 
   return Object.freeze({
     ...input,
@@ -216,6 +228,7 @@ export function defineBlock(input: BlockDefinitionInput): BlockDefinition {
     ...(quickMenu ? { quickMenu } : {}),
     ...(settingsSheet ? { settingsSheet: { nodeType: input.nodeType, ...settingsSheet } } : {}),
     ...(frame ? { frame } : {}),
+    ...(insert ? { insert } : {}),
   });
 }
 
@@ -259,4 +272,31 @@ function normalizeFrameDefinition(
       : { preserveAspectRatio: frame.preserveAspectRatio }),
     ...(aspectRatio === undefined ? {} : { aspectRatio }),
   };
+}
+
+function normalizeBlockInsertDefinition(
+  insert: BlockInsertDefinition | undefined,
+): BlockInsertDefinition | undefined {
+  if (!insert) return undefined;
+
+  const keywords = insert.keywords ? Object.freeze([...insert.keywords]) : undefined;
+  const variants = insert.variants
+    ? Object.freeze(
+        insert.variants.map((variant) => {
+          const variantKeywords = variant.keywords
+            ? Object.freeze([...variant.keywords])
+            : undefined;
+          return Object.freeze({
+            ...variant,
+            ...(variantKeywords ? { keywords: variantKeywords } : {}),
+          });
+        }),
+      )
+    : undefined;
+
+  return Object.freeze({
+    ...insert,
+    ...(keywords ? { keywords } : {}),
+    ...(variants ? { variants } : {}),
+  });
 }

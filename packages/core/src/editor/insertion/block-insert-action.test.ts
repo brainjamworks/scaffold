@@ -42,6 +42,33 @@ describe("createBlockInsertAction", () => {
     expect(definition).not.toHaveProperty("id");
   });
 
+  it("keeps the singular projector focused on the primary action", () => {
+    const definition = defineBlock({
+      nodeType: "fixture",
+      insert: {
+        id: "fixture",
+        title: "Fixture",
+        description: "Insert a fixture.",
+        icon: ArticleIcon,
+        category: "content",
+        content: () => ({ type: "fixture" }),
+        variants: [
+          {
+            id: "fixture-preset",
+            title: "Fixture preset",
+            description: "Insert a fixture preset.",
+            content: () => ({ type: "fixture", attrs: { data: { label: "Preset" } } }),
+          },
+        ],
+      },
+    });
+
+    const action = createBlockInsertAction(definition);
+
+    expect(action).toMatchObject({ id: "fixture", nodeType: "fixture" });
+    expect(action).not.toHaveProperty("variants");
+  });
+
   it("returns null for a non-insertable definition and filters it from array derivation", () => {
     const hidden = defineBlock({ nodeType: "hidden" });
     const visible = defineBlock({
@@ -60,6 +87,85 @@ describe("createBlockInsertAction", () => {
     expect(createBlockInsertActions([hidden, visible]).map((action) => action.id)).toEqual([
       "fixture",
     ]);
+  });
+
+  it("projects the primary action followed by explicitly declared variants", () => {
+    const primaryContent = vi.fn(() => ({
+      type: "fixture",
+      attrs: { data: { label: "Default" } },
+    }));
+    const firstContent = vi.fn(() => ({ type: "fixture", attrs: { data: { label: "First" } } }));
+    const secondContent = vi.fn(() => ({ type: "fixture", attrs: { data: { label: "Second" } } }));
+    const definition = defineBlock({
+      nodeType: "fixture",
+      insert: {
+        id: "fixture",
+        title: "Fixture",
+        description: "Insert a fixture.",
+        icon: ArticleIcon,
+        category: "content",
+        keywords: ["fixture", "default"],
+        content: primaryContent,
+        variants: [
+          {
+            id: "fixture-first",
+            title: "First fixture",
+            description: "Insert the first fixture preset.",
+            keywords: ["fixture", "first"],
+            content: firstContent,
+          },
+          {
+            id: "fixture-second",
+            title: "Second fixture",
+            description: "Insert the second fixture preset.",
+            keywords: ["fixture", "second"],
+            content: secondContent,
+          },
+        ],
+      },
+    });
+
+    const actions = createBlockInsertActions([definition]);
+
+    expect(actions.map((action) => action.id)).toEqual([
+      "fixture",
+      "fixture-first",
+      "fixture-second",
+    ]);
+    expect(actions[0]).toMatchObject({
+      id: "fixture",
+      nodeType: "fixture",
+      category: "content",
+      icon: ArticleIcon,
+    });
+    expect(actions[0]).not.toHaveProperty("variantOf");
+    expect(actions[1]).toMatchObject({
+      id: "fixture-first",
+      nodeType: "fixture",
+      variantOf: "fixture",
+      category: "content",
+      icon: ArticleIcon,
+      title: "First fixture",
+      description: "Insert the first fixture preset.",
+      keywords: ["fixture", "first"],
+    });
+    expect(actions[2]).toMatchObject({
+      id: "fixture-second",
+      nodeType: "fixture",
+      variantOf: "fixture",
+      category: "content",
+      icon: ArticleIcon,
+    });
+    expect(primaryContent).not.toHaveBeenCalled();
+    expect(firstContent).not.toHaveBeenCalled();
+    expect(secondContent).not.toHaveBeenCalled();
+
+    const firstNode = actions[1]?.content();
+    const nextFirstNode = actions[1]?.content();
+    expect(firstContent).toHaveBeenCalledTimes(2);
+    expect(firstNode).toEqual({ type: "fixture", attrs: { data: { label: "First" } } });
+    expect(nextFirstNode).toEqual(firstNode);
+    expect(nextFirstNode).not.toBe(firstNode);
   });
 
   it("validates the configured attr with the definition schema", () => {
@@ -118,6 +224,79 @@ describe("createBlockInsertAction", () => {
       message: "Block-local validation failed.",
     });
     expect(validateNode).toHaveBeenCalledOnce();
+  });
+
+  it("runs variant-local validation before configuration validation", () => {
+    const validateNode = vi.fn(() => ({
+      code: "invalid_catalog_content" as const,
+      message: "Variant-local validation failed.",
+    }));
+    const definition = defineBlock({
+      nodeType: "fixture",
+      configuration: defineConfiguration({
+        attr: "data",
+        schema: z.object({ label: z.string() }),
+        controls: [],
+      }),
+      insert: {
+        id: "fixture",
+        title: "Fixture",
+        description: "Insert a fixture.",
+        icon: ArticleIcon,
+        category: "content",
+        content: () => ({ type: "fixture" }),
+        variants: [
+          {
+            id: "fixture-preset",
+            title: "Fixture preset",
+            description: "Insert a fixture preset.",
+            content: () => ({ type: "fixture" }),
+            validateNode,
+          },
+        ],
+      },
+    });
+    const [, variant] = createBlockInsertActions([definition]);
+
+    expect(variant?.validateNode?.(fixtureNode({ label: 42 }))).toEqual({
+      code: "invalid_catalog_content",
+      message: "Variant-local validation failed.",
+    });
+    expect(validateNode).toHaveBeenCalledOnce();
+  });
+
+  it("reports variant configuration failures with the variant action id", () => {
+    const definition = defineBlock({
+      nodeType: "fixture",
+      configuration: defineConfiguration({
+        attr: "data",
+        schema: z.object({ label: z.string() }),
+        controls: [],
+      }),
+      insert: {
+        id: "fixture",
+        title: "Fixture",
+        description: "Insert a fixture.",
+        icon: ArticleIcon,
+        category: "content",
+        content: () => ({ type: "fixture" }),
+        variants: [
+          {
+            id: "fixture-preset",
+            title: "Fixture preset",
+            description: "Insert a fixture preset.",
+            content: () => ({ type: "fixture" }),
+          },
+        ],
+      },
+    });
+    const [, variant] = createBlockInsertActions([definition]);
+
+    expect(variant?.validateNode?.(fixtureNode({ label: 42 }))).toEqual({
+      code: "invalid_catalog_content",
+      field: "data",
+      message: 'Insert action "fixture-preset" produced invalid "data" attrs for "fixture".',
+    });
   });
 
   it("rejects a node whose type differs from the definition", () => {

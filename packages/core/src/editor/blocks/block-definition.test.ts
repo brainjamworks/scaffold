@@ -1,5 +1,5 @@
 import { ArticleIcon } from "@phosphor-icons/react";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
 
 import { defineConfiguration } from "@/editor/configuration/definition";
@@ -93,12 +93,66 @@ describe("defineBlock", () => {
     expect(Object.isFrozen(definition)).toBe(true);
     expect(() => Object.assign(definition, { nodeType: "changed" })).toThrow(TypeError);
     expect(definition.configuration).toBe(configuration);
-    expect(definition.insert).toBe(insertDefinition);
+    expect(definition.insert).not.toBe(insertDefinition);
+    expect(Object.isFrozen(definition.insert)).toBe(true);
     expect(Object.isFrozen(configuration)).toBe(false);
     expect(Object.isFrozen(schema)).toBe(false);
     expect(Object.isFrozen(insertDefinition)).toBe(false);
     expect(Object.isFrozen(insertDefinition.icon)).toBe(false);
     expect(Object.isFrozen(insertDefinition.content)).toBe(false);
+  });
+
+  it("owns nested insert variant metadata without executing content factories", () => {
+    const primaryKeywords = ["fixture", "default"];
+    const firstVariantKeywords = ["fixture", "first"];
+    const primaryContent = vi.fn(() => ({ type: "fixture" }));
+    const firstVariantContent = vi.fn(() => ({ type: "fixture", attrs: { preset: "first" } }));
+    const secondVariantContent = vi.fn(() => ({ type: "fixture", attrs: { preset: "second" } }));
+    const variants = [
+      {
+        id: "fixture-first",
+        title: "First fixture",
+        description: "Insert the first fixture preset.",
+        keywords: firstVariantKeywords,
+        content: firstVariantContent,
+      },
+      {
+        id: "fixture-second",
+        title: "Second fixture",
+        description: "Insert the second fixture preset.",
+        content: secondVariantContent,
+      },
+    ];
+    const insert = {
+      ...insertDefinition,
+      keywords: primaryKeywords,
+      content: primaryContent,
+      variants,
+    };
+
+    const definition = defineBlock({ nodeType: "fixture", insert });
+
+    expect(primaryContent).not.toHaveBeenCalled();
+    expect(firstVariantContent).not.toHaveBeenCalled();
+    expect(secondVariantContent).not.toHaveBeenCalled();
+    expect(definition.insert).not.toBe(insert);
+    expect(Object.isFrozen(definition.insert)).toBe(true);
+    expect(definition.insert?.keywords).toEqual(["fixture", "default"]);
+    expect(definition.insert?.keywords).not.toBe(primaryKeywords);
+    expect(Object.isFrozen(definition.insert?.keywords)).toBe(true);
+    expect(definition.insert?.variants).not.toBe(variants);
+    expect(Object.isFrozen(definition.insert?.variants)).toBe(true);
+    expect(definition.insert?.variants?.map((variant) => variant.id)).toEqual([
+      "fixture-first",
+      "fixture-second",
+    ]);
+    expect(definition.insert?.variants?.[0]).not.toBe(variants[0]);
+    expect(Object.isFrozen(definition.insert?.variants?.[0])).toBe(true);
+    expect(definition.insert?.variants?.[0]?.keywords).toEqual(["fixture", "first"]);
+    expect(definition.insert?.variants?.[0]?.keywords).not.toBe(firstVariantKeywords);
+    expect(Object.isFrozen(definition.insert?.variants?.[0]?.keywords)).toBe(true);
+    expect(definition.insert?.content).toBe(primaryContent);
+    expect(definition.insert?.variants?.[0]?.content).toBe(firstVariantContent);
   });
 
   it("keeps assessment capability declarations pure and default-free", () => {
@@ -208,6 +262,32 @@ if (false) {
       icon: ArticleIcon,
       category: "content",
       content: () => ({ type: "missing_insert_id" }),
+    },
+  });
+
+  defineBlock({
+    nodeType: "invalid_primary_variant",
+    insert: {
+      ...insertDefinition,
+      // @ts-expect-error Block declarations cannot choose a variant parent.
+      variantOf: "another-action",
+    },
+  });
+
+  defineBlock({
+    nodeType: "invalid_variant_metadata",
+    insert: {
+      ...insertDefinition,
+      variants: [
+        {
+          id: "invalid-variant",
+          title: "Invalid variant",
+          description: "Invalid duplicated owner metadata.",
+          content: () => ({ type: "invalid_variant_metadata" }),
+          // @ts-expect-error Block variants inherit nodeType from their owner.
+          nodeType: "another_node",
+        },
+      ],
     },
   });
 

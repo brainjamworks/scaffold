@@ -1,23 +1,30 @@
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
-import type { BlockDefinition } from "@/editor/blocks/block-definition";
+import type {
+  BlockDefinition,
+  BlockInsertVariantDefinition,
+} from "@/editor/blocks/block-definition";
 
 import type { InsertAction } from "./insert-action";
 
 export function createBlockInsertAction(definition: BlockDefinition): InsertAction | null {
   if (!definition.insert) return null;
 
-  const insertId = definition.insert.id;
-  const { validateNode, ...insert } = definition.insert;
+  const insert = definition.insert;
   const composedValidateNode = composeInsertValidators(
-    validateNode,
-    definition.configuration ? createConfigurationNodeValidator(definition, insertId) : undefined,
+    insert.validateNode,
+    definition.configuration ? createConfigurationNodeValidator(definition, insert.id) : undefined,
   );
 
   return {
-    ...insert,
-    id: definition.insert.id,
+    id: insert.id,
     nodeType: definition.nodeType,
+    title: insert.title,
+    description: insert.description,
+    icon: insert.icon,
+    category: insert.category,
+    ...(insert.keywords ? { keywords: insert.keywords } : {}),
+    content: insert.content,
     ...(composedValidateNode ? { validateNode: composedValidateNode } : {}),
   };
 }
@@ -28,9 +35,38 @@ export function createBlockInsertActions(
   const actions: InsertAction[] = [];
   for (const definition of definitions) {
     const action = createBlockInsertAction(definition);
-    if (action) actions.push(action);
+    if (!action) continue;
+
+    actions.push(action);
+    for (const variant of definition.insert?.variants ?? []) {
+      actions.push(createBlockInsertVariantAction(definition, action, variant));
+    }
   }
   return Object.freeze(actions);
+}
+
+function createBlockInsertVariantAction(
+  definition: BlockDefinition,
+  primary: InsertAction,
+  variant: BlockInsertVariantDefinition,
+): InsertAction {
+  const composedValidateNode = composeInsertValidators(
+    variant.validateNode,
+    definition.configuration ? createConfigurationNodeValidator(definition, variant.id) : undefined,
+  );
+
+  return {
+    id: variant.id,
+    nodeType: definition.nodeType,
+    variantOf: primary.id,
+    title: variant.title,
+    description: variant.description,
+    icon: primary.icon,
+    category: primary.category,
+    ...(variant.keywords ? { keywords: variant.keywords } : {}),
+    content: variant.content,
+    ...(composedValidateNode ? { validateNode: composedValidateNode } : {}),
+  };
 }
 
 function createConfigurationNodeValidator(
