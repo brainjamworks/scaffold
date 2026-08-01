@@ -34,7 +34,14 @@ export default defineConfig({
       fileName: "core.css",
       inject: true,
     },
-    copy: [{ from: "src/styles/globals.css", rename: "styles.css" }],
+    copy: [
+      { from: "src/styles/globals.css", rename: "styles.css" },
+      { from: "src/styles/fonts/Satoshi-Variable.woff2", rename: "fonts/Satoshi-Variable.woff2" },
+      {
+        from: "src/styles/fonts/Satoshi-VariableItalic.woff2",
+        rename: "fonts/Satoshi-VariableItalic.woff2",
+      },
+    ],
   },
   run: {
     tasks: {

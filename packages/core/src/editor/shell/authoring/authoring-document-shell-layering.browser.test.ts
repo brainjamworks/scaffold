@@ -74,7 +74,9 @@ describe("Authoring document shell cascade layering", () => {
 
     const headingStyle = getComputedStyle(heading);
     const probeStyle = getComputedStyle(probe);
-    expect(getComputedStyle(application).getPropertyValue("--font-sans")).toContain("Poppins");
+    expect(getComputedStyle(application).getPropertyValue("--font-ui")).toContain("Satoshi");
+    expect(getComputedStyle(application).fontFamily).toContain("Satoshi");
+    expect(getComputedStyle(scope).getPropertyValue("--font-sans")).toContain("Inter");
     expect(headingStyle.fontFamily).toContain("Source Serif 4");
     expect(headingStyle.fontWeight).toBe("800");
     expect(getComputedStyle(editor).fontSize).toBe("18px");

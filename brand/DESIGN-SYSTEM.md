@@ -82,10 +82,11 @@ private branding, and executable palette generators are outside the OSS theming 
 
 ## Typography
 
-Application chrome uses Poppins and JetBrains Mono through application-owned tokens. Course
-typography is independent: authors select any curated family for heading, body, and code roles.
-The OSS catalogue currently includes Poppins, Source Serif 4, Inter, and JetBrains Mono; a code
-role is not required to use a monospace family.
+Application chrome uses Satoshi through `--font-ui`, branding uses Poppins through `--font-brand`,
+and technical contexts use JetBrains Mono through `--font-mono`. Course typography is independent:
+authors select any curated family for heading, body, and code roles. The OSS catalogue currently
+includes Poppins, Source Serif 4, Inter, and JetBrains Mono; a code role is not required to use a
+monospace family.
 
 Course font choices are persisted by catalogue ID and resolved to scoped
 `--sc-course-font-heading`, `--sc-course-font-body`, and `--sc-course-font-code` values. Missing

@@ -14,15 +14,25 @@ afterEach(() => {
 });
 
 describe("Standalone editor style cascade layering", () => {
-  it("keeps the default application token baseline light", () => {
+  it("keeps application, brand, and mono typography roles independent", async () => {
     const style = getComputedStyle(document.documentElement);
 
     expect(style.getPropertyValue("--color-background").trim()).toBe("#ffffff");
     expect(style.getPropertyValue("--color-canvas").trim()).toBe("#fafafa");
     expect(style.getPropertyValue("--color-foreground").trim()).toBe("#18181b");
     expect(style.getPropertyValue("--color-border").trim()).toBe("#e4e4e7");
-    expect(style.getPropertyValue("--font-sans")).toContain("Poppins");
+    expect(style.getPropertyValue("--font-ui")).toContain("Satoshi");
+    expect(style.getPropertyValue("--font-brand")).toContain("Poppins");
     expect(style.getPropertyValue("--font-mono")).toContain("JetBrains Mono");
+    expect(style.getPropertyValue("--default-font-family")).toContain("Satoshi");
+    expect(getComputedStyle(document.body).fontFamily).toContain("Satoshi");
+
+    const code = document.createElement("code");
+    document.body.append(code);
+    expect(getComputedStyle(code).fontFamily).toContain("JetBrains Mono");
+
+    await expect(document.fonts.load('400 16px "Satoshi"')).resolves.not.toHaveLength(0);
+    await expect(document.fonts.load('italic 400 16px "Satoshi"')).resolves.not.toHaveLength(0);
   });
 
   it.each([

@@ -223,7 +223,7 @@ export function Wordmark({
       {showMark && <Mark surface={surface} variant={variant} size={markSize} />}
       <span
         style={{
-          fontFamily: "var(--font-sans)",
+          fontFamily: "var(--font-brand)",
           fontWeight: 700,
           fontSize: `${fontSize}px`,
           letterSpacing: "-0.025em",

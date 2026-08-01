@@ -1,9 +1,10 @@
 /* ─── Local fonts ───────────────────────────────────────────────
- * Poppins and JetBrains Mono retain the application identity.
- * Source Serif 4 and Inter are curated course-theme choices.
+ * Satoshi is the application UI family. Poppins remains the brand
+ * family and a curated course-theme choice. Source Serif 4 and Inter
+ * are additional course-theme choices.
  * CSS spec requires all @import rules to precede any other rule.
  * The static families load the five supported course-theme weights;
- * JetBrains Mono uses one variable file for its full weight range. */
+ * Satoshi and JetBrains Mono use variable files. */
 @import "@fontsource/poppins/400.css";
 @import "@fontsource/poppins/500.css";
 @import "@fontsource/poppins/600.css";
@@ -20,6 +21,22 @@
 @import "@fontsource/inter/700.css";
 @import "@fontsource/inter/800.css";
 @import "@fontsource-variable/jetbrains-mono/wght.css";
+
+@font-face {
+  font-family: "Satoshi";
+  src: url("./fonts/Satoshi-Variable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 300 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Satoshi";
+  src: url("./fonts/Satoshi-VariableItalic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 300 900;
+  font-display: swap;
+}
 
 @layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
 
@@ -171,9 +188,8 @@
 
     /* ─── Typography ──────────────────────────────────────────────── */
 
-    /* Poppins is the primary family for prose + chrome. Geometric sans
-   * with a wide weight range — hierarchy comes from size + weight
-   * contrast within the family.
+    /* Satoshi is the application UI family. Poppins remains explicit
+    * for Scaffold branding and is not inherited by application chrome.
    *
    * JetBrains Mono is the secondary family for monospaced contexts:
    * code blocks, tabular data values, numeric status pills, token
@@ -181,14 +197,18 @@
    * legible at small sizes; programming ligatures are off by default
    * (set `font-feature-settings: "calt"` to enable per-context).
    *
-   * Both families have a system fallback chain so text stays legible
-   * before the web fonts load. */
-    --font-sans:
+    * All families have a system fallback chain so text stays legible
+    * before the web fonts load. */
+    --font-ui:
+      "Satoshi", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      sans-serif;
+    --font-brand:
       "Poppins", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
       sans-serif;
     --font-mono:
       "JetBrains Mono Variable", ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
-    --default-font-family: var(--font-sans);
+    --font-sans: var(--font-ui);
+    --default-font-family: var(--font-ui);
     --default-mono-font-family: var(--font-mono);
 
     --font-weight-normal: 400;
@@ -602,7 +622,7 @@
   }
 
   body {
-    font-family: var(--font-sans);
+    font-family: var(--font-ui);
     background-color: var(--color-background);
     color: var(--color-foreground);
     color-scheme: light;
