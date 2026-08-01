@@ -5,6 +5,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it } from "vite-plus/test";
 
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";
 import { createAuthoringNodeTarget } from "@/editor/prosemirror/authoring-target";
 import { describeBlockContract } from "@/editor/testing";
 import { CHART_TYPES, ChartBlockDataSchema } from "@/schemas/shared";
@@ -12,7 +13,7 @@ import { CHART_TYPES, ChartBlockDataSchema } from "@/schemas/shared";
 import { chartDataToSettingsDraft, ChartSettingsDraftSchema } from "./chart-model";
 import { ChartNode } from "./chart-node";
 import { createChartSample } from "./chart-samples";
-import { chartBlockDefinition, chartInsertActions } from "./chart-definition";
+import { chartBlockDefinition } from "./chart-definition";
 
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
@@ -24,18 +25,35 @@ describeBlockContract({
 });
 
 describe("Chart insert variants", () => {
-  it("provides one direct insertion intent for every chart type", () => {
-    const variants = chartInsertActions;
+  it("owns and projects one insertion variant for every chart type", () => {
+    const declaredVariants = chartBlockDefinition.insert?.variants ?? [];
+    const actions = createBlockInsertActions([chartBlockDefinition]);
+    const [primary, ...variants] = actions;
 
-    expect(variants.map((item) => item.id)).toEqual(
+    expect(declaredVariants.map((variant) => variant.id)).toEqual(
       CHART_TYPES.map((chartType) => `chart-${chartType}`),
     );
+    expect(actions.map((action) => action.id)).toEqual([
+      "chart",
+      ...CHART_TYPES.map((chartType) => `chart-${chartType}`),
+    ]);
+    expect(primary).toMatchObject({ id: "chart", nodeType: "chart_block" });
 
-    for (const variant of variants) {
+    for (const [index, variant] of variants.entries()) {
+      const declaration = declaredVariants[index];
       const content = variant.content();
       const data = (content["attrs"] as Record<string, unknown>)["data"];
 
-      expect(variant.nodeType).toBe("chart_block");
+      expect(variant).toMatchObject({
+        id: declaration?.id,
+        nodeType: "chart_block",
+        variantOf: "chart",
+        category: "data",
+        icon: primary?.icon,
+        title: declaration?.title,
+        description: declaration?.description,
+        keywords: declaration?.keywords,
+      });
       expect(content["type"]).toBe("chart_block");
       expect(ChartBlockDataSchema.safeParse(data).success).toBe(true);
       expect(data).toMatchObject({

@@ -79,9 +79,7 @@ export interface ChartInsertVariant {
   description: string;
   id: `chart-${ChartType}`;
   keywords: string[];
-  nodeType: "chart_block";
   title: string;
-  variantOf: "chart";
   content: () => Record<string, unknown>;
 }
 
@@ -114,9 +112,7 @@ export function getChartCatalogVariants(): readonly ChartInsertVariant[] {
         definition.label.toLowerCase(),
         definition.family,
       ],
-      nodeType: "chart_block",
       title,
-      variantOf: "chart",
       content: () => ({
         type: "chart_block",
         attrs: {

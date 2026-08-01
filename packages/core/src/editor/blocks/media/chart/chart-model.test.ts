@@ -250,19 +250,31 @@ describe("chart data model helpers", () => {
     expect(ChartBlockDataSchema.safeParse(next).success).toBe(true);
   });
 
-  it("creates direct chart insertion variants from chart type definitions", () => {
+  it("creates block-owned chart insertion variants from chart type definitions", () => {
     const variants = getChartCatalogVariants();
 
     expect(variants.map((variant) => variant.chartType)).toEqual(CHART_TYPE_ORDER);
-    expect(variants.map((variant) => variant.id)).toEqual(
-      CHART_TYPE_ORDER.map((chartType) => `chart-${chartType}`),
+    expect(variants.map(({ content: _content, ...metadata }) => metadata)).toEqual(
+      chartTypeDefinitions.map((definition) => ({
+        chartType: definition.chartType,
+        description: definition.description,
+        id: `chart-${definition.chartType}`,
+        keywords: [
+          "chart",
+          "graph",
+          definition.chartType,
+          definition.label.toLowerCase(),
+          definition.family,
+        ],
+        title: `${definition.label} chart`,
+      })),
     );
 
     for (const variant of variants) {
       const content = variant.content();
 
-      expect(variant.nodeType).toBe("chart_block");
-      expect(variant.variantOf).toBe("chart");
+      expect(variant).not.toHaveProperty("nodeType");
+      expect(variant).not.toHaveProperty("variantOf");
       expect(variant.keywords).toContain("chart");
       expect(content).toMatchObject({
         type: "chart_block",

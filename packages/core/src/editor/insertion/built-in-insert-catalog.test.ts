@@ -1,41 +1,55 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
+
+const createStableId = vi.hoisted(() => vi.fn(() => "catalog-test-id"));
+vi.mock("@/document/model/identity/stable-ids", () => ({ createStableId }));
 
 import { builtInLayoutDefinitions } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { gridInsertAction } from "@/editor/arrangements/grid/model/grid-insert-action";
+import { createLayoutInsertAction } from "@/editor/arrangements/layout/model/layout-definition";
 import { builtInBlockDefinitions } from "@/editor/blocks/built-in-block-definitions";
-import { chartInsertActions } from "@/editor/blocks/media/chart/chart-definition";
 import { CHART_TYPES } from "@/schemas/shared";
 import { createBlockInsertActions } from "./block-insert-action";
+import { coreStructuralInsertActions } from "./core-structural-insert-actions";
 import { createInsertCatalog } from "./insert-catalog";
 import { INSERT_CATEGORY_ORDER } from "./insert-action";
-import { builtInNonBlockInsertActions } from "./built-in-non-block-inserts";
 import { builtInInsertCatalog } from "./built-in-insert-catalog";
 
 describe("builtInInsertCatalog", () => {
-  it("contains every primary block action and every explicit non-block action exactly once", () => {
-    const primaryBlockActionIds = builtInBlockDefinitions.map(
-      (definition) => definition.insert?.id,
-    );
+  it("keeps content factories dormant during definition, projection, and catalogue assembly", () => {
+    expect(createStableId).not.toHaveBeenCalled();
+  });
+
+  it("contains every built-in action exactly once in approved source order", () => {
+    const blockActions = createBlockInsertActions(builtInBlockDefinitions);
+    const layoutActions = builtInLayoutDefinitions.map(createLayoutInsertAction);
     const actionIds = builtInInsertCatalog.actions.map((action) => action.id);
 
     expect(builtInBlockDefinitions).toHaveLength(34);
-    expect(primaryBlockActionIds.every((id) => typeof id === "string")).toBe(true);
     expect(actionIds).toHaveLength(new Set(actionIds).size);
-    expect(actionIds).toEqual(expect.arrayContaining(primaryBlockActionIds));
-    expect(actionIds).toEqual(
-      expect.arrayContaining(builtInNonBlockInsertActions.map((action) => action.id)),
+    expect(actionIds).toEqual([
+      ...blockActions.map((action) => action.id),
+      ...layoutActions.map((action) => action.id),
+      ...coreStructuralInsertActions.map((action) => action.id),
+    ]);
+  });
+
+  it("contains Chart once as a primary followed by one variant for every chart type", () => {
+    const chartActions = builtInInsertCatalog.actions.filter(
+      (action) => action.id === "chart" || action.variantOf === "chart",
+    );
+
+    expect(chartActions.map((action) => action.id)).toEqual([
+      "chart",
+      ...CHART_TYPES.map((chartType) => `chart-${chartType}`),
+    ]);
+    expect(chartActions.filter((action) => action.id === "chart")).toHaveLength(1);
+    expect(chartActions.filter((action) => action.variantOf === "chart")).toHaveLength(
+      CHART_TYPES.length,
     );
   });
 
-  it("contains the exact chart variants, grid action, and layout presets", () => {
-    const chartVariants = builtInInsertCatalog.actions.filter(
-      (action) => action.variantOf === "chart",
-    );
-
-    expect(chartInsertActions).toHaveLength(CHART_TYPES.length);
-    expect(chartVariants.map((action) => action.id)).toEqual(
-      CHART_TYPES.map((chartType) => `chart-${chartType}`),
-    );
+  it("keeps Layout actions installed and Grid as the only fixed structural action", () => {
+    expect(coreStructuralInsertActions).toEqual([gridInsertAction]);
     expect(builtInInsertCatalog.getById(gridInsertAction.id)).toEqual(
       expect.objectContaining({ id: "grid", nodeType: "grid" }),
     );
@@ -53,7 +67,7 @@ describe("builtInInsertCatalog", () => {
       ),
     );
 
-    const layoutActions = builtInNonBlockInsertActions.filter(
+    const layoutActions = builtInInsertCatalog.actions.filter(
       (action) => action.nodeType === "layout",
     );
     expect(layoutActions.map((action) => action.id)).toEqual(
@@ -84,7 +98,8 @@ describe("builtInInsertCatalog", () => {
     const before = builtInInsertCatalog.actions.map((action) => action.id);
     const reconstructed = createInsertCatalog([
       ...createBlockInsertActions(builtInBlockDefinitions),
-      ...builtInNonBlockInsertActions,
+      ...builtInLayoutDefinitions.map(createLayoutInsertAction),
+      ...coreStructuralInsertActions,
     ]);
 
     expect(reconstructed.actions.map((action) => action.id)).toEqual(before);

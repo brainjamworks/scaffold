@@ -36,7 +36,6 @@ import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { AUTHORING_FRAME_ATTR } from "@/editor/interactions/dom/authoring-frame";
 import { defineConfiguration } from "@/editor/configuration/definition";
-import { builtInNonBlockInsertActions } from "@/editor/insertion/built-in-non-block-inserts";
 import { describeLayoutContract } from "@/editor/testing";
 import { assertLayoutContract } from "@/editor/testing/layout-contract";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
@@ -222,14 +221,6 @@ describe("layout contract assertions", () => {
         editor.destroy();
       }
     }
-  });
-
-  it("derives the built-in layout actions explicitly", () => {
-    expect(
-      builtInNonBlockInsertActions
-        .filter((action) => action.nodeType === "layout")
-        .map((action) => action.id),
-    ).toEqual(builtInLayoutDefinitions.map((definition) => definition.id));
   });
 });
 

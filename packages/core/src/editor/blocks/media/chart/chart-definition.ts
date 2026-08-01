@@ -5,7 +5,6 @@ import { defineConfiguration } from "@/editor/configuration/definition";
 import type { SettingsSheetApplyInput } from "@/editor/configuration/settings-sheet";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { createStableId } from "@/document/model/identity/stable-ids";
-import type { InsertAction } from "@/editor/insertion/insert-action";
 import { ChartBlockDataSchema } from "@/schemas/shared";
 
 import {
@@ -243,6 +242,7 @@ export const chartBlockDefinition = defineBlock({
       type: "chart_block",
       attrs: { id: createStableId(), data: createDefaultChartData() },
     }),
+    variants: getChartCatalogVariants(),
   },
 });
 
@@ -285,19 +285,3 @@ function chartPersistedDataToSettingsDraft(raw: unknown) {
   const parsed = ChartBlockDataSchema.safeParse(raw);
   return parsed.success ? chartDataToSettingsDraft(parsed.data) : raw;
 }
-
-export const chartInsertActions: readonly InsertAction[] = Object.freeze(
-  getChartCatalogVariants().map(
-    (variant): InsertAction => ({
-      id: variant.id,
-      nodeType: variant.nodeType,
-      variantOf: variant.variantOf,
-      category: "data",
-      title: variant.title,
-      description: variant.description,
-      icon: ChartBar,
-      keywords: variant.keywords,
-      content: variant.content,
-    }),
-  ),
-);
