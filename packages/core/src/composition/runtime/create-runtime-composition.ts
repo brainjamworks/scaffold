@@ -1,4 +1,4 @@
-import type { Extensions, Node as TiptapNode } from "@tiptap/core";
+import type { Extensions } from "@tiptap/core";
 
 import { CellRuntimeNode, GridRuntimeNode } from "@/editor/arrangements/grid/runtime/grid-nodes";
 import { createLayoutRuntimeNodes } from "@/editor/arrangements/layout/runtime/layout-nodes";
@@ -13,9 +13,7 @@ import { MathInlineRuntimeNode } from "@/editor/rich-text/math/runtime/MathInlin
 import { VocabularyTermRuntimeNode } from "@/editor/rich-text/vocabulary-term/runtime/VocabularyTermRuntimeNode";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createCourseDocumentBaseExtensions } from "@/composition/model/create-document-composition";
-import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { createSurfaceRuntimeNode } from "@/editor/surfaces/runtime/nodes/surface-runtime-node";
-import { builtInSurfaceRuntimeViewMap } from "@/editor/surfaces/runtime/surface-runtime-views";
 import { StudentGuard } from "@/runtime/guards/student-guard";
 import "@/editor/rich-text/view/text-alignment.css";
 
@@ -24,23 +22,21 @@ import {
   type ScaffoldRuntimeComposition,
 } from "./scaffold-runtime-composition";
 
-const builtInSurfaceRuntimeNode = createSurfaceRuntimeNode({
-  registry: builtInSurfaceVariantRegistry,
-  views: builtInSurfaceRuntimeViewMap,
-});
-
 export function createCourseDocumentRuntimeExtensions({
-  surfaceNode = builtInSurfaceRuntimeNode,
   composition,
 }: {
-  surfaceNode?: TiptapNode;
   composition?: ScaffoldRuntimeComposition;
 } = {}): Extensions {
   const resolvedComposition = composition ?? createCoreScaffoldRuntimeComposition();
   const blockRegistry = resolvedComposition.capabilities.blocks.registry;
+  const surfaceRegistry = resolvedComposition.capabilities.surfaces.registry;
   const { layoutNode, sectionNode } = createLayoutRuntimeNodes({
     registry: resolvedComposition.capabilities.layouts.registry,
     runtimeViews: resolvedComposition.layouts.views,
+  });
+  const surfaceNode = createSurfaceRuntimeNode({
+    registry: surfaceRegistry,
+    views: resolvedComposition.surfaces.views,
   });
 
   return [

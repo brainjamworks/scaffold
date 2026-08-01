@@ -3,7 +3,7 @@
 import { Editor, Node } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { cleanup, render, waitFor } from "@testing-library/react";
+import { cleanup, render, waitFor, within } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -17,15 +17,23 @@ import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 
 import { isRegisteredSlideCompositionSurfaceDefinition } from "../../model/slide-composition-definition";
 import { builtInSurfaceVariantRegistry } from "../../model/built-in-surface-variant-definitions";
-import type { SurfaceVariantRegistry } from "../../model/surface-variant-registry";
+import {
+  createSurfaceVariantRegistry,
+  type SurfaceVariantRegistry,
+} from "../../model/surface-variant-registry";
 import { builtInSurfaceRuntimeViewMap } from "../surface-runtime-views";
-import type { SurfaceRuntimeViewMap } from "../surface-runtime-view-registry";
+import {
+  createSurfaceRuntimeViewMap,
+  type SurfaceRuntimeViewMap,
+  type SurfaceRuntimeViewProps,
+} from "../surface-runtime-view-registry";
 import { PageDefaultSurfaceRuntimeView } from "../variants/page-default";
 import { SlideCompositionSurfaceRuntimeView } from "../variants/slide-composition";
 import { SlideCoverSurfaceRuntimeView } from "../variants/slide-cover";
 import { SlideImageBandSurfaceRuntimeView } from "../variants/slide-image-band";
 import { SlideImageCoverSurfaceRuntimeView } from "../variants/slide-image-cover";
 import { SlideModuleCoverSurfaceRuntimeView } from "../variants/slide-module-cover";
+import { SurfaceRuntimeFrame } from "../views/SurfaceRuntimeFrame";
 import { createSurfaceRuntimeNode, resolveSurfaceRuntimeNodeView } from "./surface-runtime-node";
 import { RegionNode } from "../../model/nodes/region-node";
 import { SlideCoverSubtitleNode } from "../../model/nodes/slide-cover-subtitle";
@@ -675,6 +683,90 @@ describe("surface runtime node views", () => {
     }
   });
 
+  it("keeps injected host Surface registries and runtime views isolated", async () => {
+    const firstRegistry = createHostSurfaceRegistry("first-host-runtime-surface");
+    const secondRegistry = createHostSurfaceRegistry("second-host-runtime-surface");
+    const firstViews = createSurfaceRuntimeViewMap({
+      registry: firstRegistry,
+      bindings: [
+        { variantId: "first-host-runtime-surface", component: FirstHostSurfaceRuntimeView },
+      ],
+    });
+    const secondViews = createSurfaceRuntimeViewMap({
+      registry: secondRegistry,
+      bindings: [
+        { variantId: "second-host-runtime-surface", component: SecondHostSurfaceRuntimeView },
+      ],
+    });
+    const firstEditor = createEditor(
+      "first-host-runtime-surface",
+      undefined,
+      undefined,
+      undefined,
+      { registry: firstRegistry, views: firstViews },
+    );
+    const secondEditor = createEditor(
+      "second-host-runtime-surface",
+      undefined,
+      undefined,
+      undefined,
+      { registry: secondRegistry, views: secondViews },
+    );
+    const firstSurface = firstEditor.state.doc.firstChild?.firstChild;
+    const secondSurface = secondEditor.state.doc.firstChild?.firstChild;
+    if (!firstSurface || !secondSurface) throw new Error("expected host Surface nodes");
+
+    try {
+      expect(
+        resolveSurfaceRuntimeNodeView({
+          node: firstSurface,
+          registry: firstRegistry,
+          views: firstViews,
+        }).runtimeView.component,
+      ).toBe(FirstHostSurfaceRuntimeView);
+      expect(
+        resolveSurfaceRuntimeNodeView({
+          node: secondSurface,
+          registry: secondRegistry,
+          views: secondViews,
+        }).runtimeView.component,
+      ).toBe(SecondHostSurfaceRuntimeView);
+      expect(() =>
+        resolveSurfaceRuntimeNodeView({
+          node: firstSurface,
+          registry: secondRegistry,
+          views: secondViews,
+        }),
+      ).toThrow(
+        'No surface runtime view registered for surface variant "first-host-runtime-surface".',
+      );
+      expect(() =>
+        resolveSurfaceRuntimeNodeView({
+          node: secondSurface,
+          registry: firstRegistry,
+          views: firstViews,
+        }),
+      ).toThrow(
+        'No surface runtime view registered for surface variant "second-host-runtime-surface".',
+      );
+
+      const firstRender = render(createElement(EditorContent, { editor: firstEditor }));
+      const secondRender = render(createElement(EditorContent, { editor: secondEditor }));
+      await waitFor(() => {
+        expect(within(firstRender.container).getByTestId("first-host-runtime-view")).toBeDefined();
+        expect(
+          within(secondRender.container).getByTestId("second-host-runtime-view"),
+        ).toBeDefined();
+      });
+      expect(within(firstRender.container).queryByTestId("second-host-runtime-view")).toBeNull();
+      expect(within(secondRender.container).queryByTestId("first-host-runtime-view")).toBeNull();
+    } finally {
+      cleanup();
+      firstEditor.destroy();
+      secondEditor.destroy();
+    }
+  });
+
   it("dispatches by variant when surface instance IDs repeat", () => {
     const editor = createEditor("slide-cover");
     const original = editor.state.doc.firstChild?.firstChild;
@@ -716,6 +808,37 @@ describe("surface runtime node views", () => {
 interface SurfaceRuntimeComposition {
   registry: SurfaceVariantRegistry;
   views: SurfaceRuntimeViewMap;
+}
+
+function FirstHostSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
+  return createElement(SurfaceRuntimeFrame, {
+    ...props,
+    attributes: { "data-testid": "first-host-runtime-view" },
+  });
+}
+
+function SecondHostSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
+  return createElement(SurfaceRuntimeFrame, {
+    ...props,
+    attributes: { "data-testid": "second-host-runtime-view" },
+  });
+}
+
+function createHostSurfaceRegistry(id: string): SurfaceVariantRegistry {
+  return createSurfaceVariantRegistry([
+    {
+      id,
+      modes: ["slideshow"],
+      defaultForModes: ["slideshow"],
+      title: id,
+      description: "Host runtime Surface",
+      createSurface: ({ surfaceId }) => ({
+        type: "surface",
+        attrs: { id: surfaceId, variant: id, settings: {} },
+        content: [{ type: "paragraph" }],
+      }),
+    },
+  ]);
 }
 
 function createEditor(
