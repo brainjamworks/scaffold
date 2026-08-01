@@ -463,7 +463,7 @@ module.exports = {
       to: {
         path: [
           "^packages/core/src/editor/blocks/(?:block-registry|built-in-block-definitions|authoring-block-extensions|runtime-block-extensions)\\.[^/]+$",
-          "^packages/core/src/editor/insertion/(?:built-in-insert-catalog|built-in-non-block-inserts|insert-catalog)\\.[^/]+$",
+          "^packages/core/src/editor/insertion/(?:built-in-insert-catalog|core-structural-insert-actions|insert-catalog)\\.[^/]+$",
           "^packages/core/src/composition/",
           "^packages/core/src/entrypoints/",
         ],

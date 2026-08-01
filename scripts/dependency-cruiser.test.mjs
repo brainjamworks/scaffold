@@ -633,8 +633,14 @@ test("reports block peer, construction, registry-view, and lane inversions", asy
       'import type { BuiltInBlocks } from "../../built-in-block-definitions";',
       "export type ConstructionLeak = BuiltInBlocks;",
     ].join("\n"),
+    "packages/core/src/editor/blocks/future/gamma/gamma-definition.ts": [
+      'import { coreStructuralInsertActions } from "../../../insertion/core-structural-insert-actions";',
+      "export const gammaDefinitionLeak = coreStructuralInsertActions;",
+    ].join("\n"),
     "packages/core/src/editor/blocks/built-in-block-definitions.ts":
       "export interface BuiltInBlocks { id: string }\n",
+    "packages/core/src/editor/insertion/core-structural-insert-actions.ts":
+      "export const coreStructuralInsertActions = [];\n",
     "packages/core/src/editor/blocks/block-registry.ts": [
       'import type { FutureNodeView } from "./future/alpha/alpha-view";',
       "export type RegistryViewLeak = FutureNodeView;",
@@ -659,6 +665,7 @@ test("reports block peer, construction, registry-view, and lane inversions", asy
   assert.notEqual(result.status, 0, output);
   assert.match(output, /block-features-do-not-import-peer-features/);
   assert.match(output, /block-definitions-do-not-reach-construction-roots/);
+  assert.match(output, /gamma-definition\.ts[\s\S]*core-structural-insert-actions\.ts/);
   assert.match(output, /block-registry-does-not-reach-react-views-or-lane-lists/);
   assert.match(output, /authoring-block-lane-does-not-reach-runtime-block-lane/);
   assert.match(output, /runtime-block-lane-does-not-reach-authoring-block-lane/);

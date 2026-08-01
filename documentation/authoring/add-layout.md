@@ -78,8 +78,8 @@ The shared ProseMirror node types stay `layout` and `section`. The layout kind i
 - Add the definition to `builtInLayoutDefinitions`.
 - Add the authoring binding to `builtInLayoutAuthoringViews` and the runtime
   binding to `builtInLayoutRuntimeViews`.
-- Let `built-in-non-block-inserts.ts` derive the layout insert action from the
-  built-in definitions.
+- Let Core project the definition into authoring insert actions; do not maintain
+  a separate Layout action list.
 - Create layout content in `<layout>-content.ts`.
 - Put authoring views and native chrome in `<layout>-views.tsx`.
 - Put learner-safe views in `<layout>-runtime-views.tsx`.

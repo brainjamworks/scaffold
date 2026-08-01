@@ -75,7 +75,6 @@ export const ChartSettingsDraftSchema = z
 export type ChartSettingsDraft = z.infer<typeof ChartSettingsDraftSchema>;
 
 export interface ChartInsertVariant {
-  chartType: ChartType;
   description: string;
   id: `chart-${ChartType}`;
   keywords: string[];
@@ -102,7 +101,6 @@ export function getChartCatalogVariants(): readonly ChartInsertVariant[] {
   return chartTypeDefinitions.map((definition) => {
     const title = `${definition.label} chart`;
     return {
-      chartType: definition.chartType,
       description: definition.description,
       id: `chart-${definition.chartType}`,
       keywords: [

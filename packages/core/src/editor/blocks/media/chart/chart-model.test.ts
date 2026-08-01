@@ -253,10 +253,8 @@ describe("chart data model helpers", () => {
   it("creates block-owned chart insertion variants from chart type definitions", () => {
     const variants = getChartCatalogVariants();
 
-    expect(variants.map((variant) => variant.chartType)).toEqual(CHART_TYPE_ORDER);
     expect(variants.map(({ content: _content, ...metadata }) => metadata)).toEqual(
       chartTypeDefinitions.map((definition) => ({
-        chartType: definition.chartType,
         description: definition.description,
         id: `chart-${definition.chartType}`,
         keywords: [
@@ -270,9 +268,11 @@ describe("chart data model helpers", () => {
       })),
     );
 
-    for (const variant of variants) {
+    for (const [index, variant] of variants.entries()) {
+      const chartType = CHART_TYPE_ORDER[index];
       const content = variant.content();
 
+      expect(variant).not.toHaveProperty("chartType");
       expect(variant).not.toHaveProperty("nodeType");
       expect(variant).not.toHaveProperty("variantOf");
       expect(variant.keywords).toContain("chart");
@@ -281,8 +281,8 @@ describe("chart data model helpers", () => {
         attrs: {
           data: {
             kind: "chart",
-            chartType: variant.chartType,
-            encoding: { chartType: variant.chartType },
+            chartType,
+            encoding: { chartType },
           },
         },
       });
