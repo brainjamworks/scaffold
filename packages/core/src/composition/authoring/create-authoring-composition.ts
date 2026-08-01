@@ -27,8 +27,6 @@ import { createCourseDocumentBaseExtensions } from "@/composition/model/create-d
 import { createSurfaceLifecycleAuthoringPolicy } from "@/document/authoring/surface-lifecycle-authoring-policy";
 import { AuthoringSlideDividers } from "@/editor/surfaces/authoring/AuthoringSlideDividers";
 import { createSurfaceRootSelectionPolicy } from "@/editor/surfaces/authoring/surface-root-selection-policy";
-import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
-import { builtInSurfaceAuthoringViewMap } from "@/editor/surfaces/authoring/surface-authoring-views";
 import { createSurfaceAuthoringNode } from "@/editor/surfaces/authoring/nodes/surface-authoring-node";
 import { RegionAuthoringNode } from "@/editor/surfaces/authoring/nodes/region-authoring-node";
 import "@/editor/surfaces/authoring/AuthoringSlideDividers.css";
@@ -39,11 +37,6 @@ import {
   type ScaffoldAuthoringComposition,
 } from "./scaffold-authoring-composition";
 
-const builtInSurfaceAuthoringNode = createSurfaceAuthoringNode({
-  registry: builtInSurfaceVariantRegistry,
-  views: builtInSurfaceAuthoringViewMap,
-});
-
 export function createCourseDocumentAuthoringExtensions({
   editable,
   composition,
@@ -53,10 +46,15 @@ export function createCourseDocumentAuthoringExtensions({
 }): Extensions {
   const resolvedComposition = composition ?? createCoreScaffoldAuthoringComposition();
   const blockRegistry = resolvedComposition.capabilities.blocks.registry;
+  const surfaceRegistry = resolvedComposition.capabilities.surfaces.registry;
   const { layoutNode, sectionNode } = createLayoutAuthoringNodes({
     registry: resolvedComposition.capabilities.layouts.registry,
     authoringViews: resolvedComposition.layouts.views,
     blockDefinitions: blockRegistry,
+  });
+  const surfaceNode = createSurfaceAuthoringNode({
+    registry: surfaceRegistry,
+    views: resolvedComposition.surfaces.views,
   });
 
   return [
@@ -77,13 +75,13 @@ export function createCourseDocumentAuthoringExtensions({
       regionNode: RegionAuthoringNode,
       resizableBlockNodeTypes: blockRegistry.resizableNodeTypes,
       sectionNode,
-      surfaceNode: builtInSurfaceAuthoringNode,
+      surfaceNode,
       updateDocumentIds: editable,
       vocabularyTermNode: VocabularyTermAuthoringNode,
     }),
     AuthoringSlideDividers,
-    createSurfaceRootSelectionPolicy({ surfaceVariants: builtInSurfaceVariantRegistry }),
-    createSurfaceLifecycleAuthoringPolicy({ registry: builtInSurfaceVariantRegistry }),
+    createSurfaceRootSelectionPolicy({ surfaceVariants: surfaceRegistry }),
+    createSurfaceLifecycleAuthoringPolicy({ registry: surfaceRegistry }),
     createBoundedContainerStructurePolicy(
       blockRegistry,
       resolvedComposition.capabilities.layouts.registry,
@@ -99,10 +97,10 @@ export function createCourseDocumentAuthoringExtensions({
       includeChildren: true,
       placeholder: resolveEditorPlaceholder,
     }),
-    createEmptyInsertionRowExtension({ surfaceVariants: builtInSurfaceVariantRegistry }),
+    createEmptyInsertionRowExtension({ surfaceVariants: surfaceRegistry }),
     createSlashCommand({
       items: builtInInsertCatalog.actions,
-      surfaceVariants: builtInSurfaceVariantRegistry,
+      surfaceVariants: surfaceRegistry,
     }),
     ...resolvedComposition.blocks.extensions,
   ];

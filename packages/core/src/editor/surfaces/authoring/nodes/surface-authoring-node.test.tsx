@@ -145,6 +145,88 @@ describe("surface authoring node views", () => {
     }
   });
 
+  it("keeps injected host Surface registries and authoring views isolated", async () => {
+    const firstRegistry = createHostSurfaceRegistry("first-host-authoring-surface");
+    const secondRegistry = createHostSurfaceRegistry("second-host-authoring-surface");
+    const firstViews = createSurfaceAuthoringViewMap({
+      registry: firstRegistry,
+      bindings: [{ variantId: "first-host-authoring-surface", component: FirstHostSurfaceView }],
+    });
+    const secondViews = createSurfaceAuthoringViewMap({
+      registry: secondRegistry,
+      bindings: [{ variantId: "second-host-authoring-surface", component: SecondHostSurfaceView }],
+    });
+    const firstEditor = createEditor(
+      "first-host-authoring-surface",
+      undefined,
+      "page",
+      undefined,
+      undefined,
+      { registry: firstRegistry, views: firstViews },
+    );
+    const secondEditor = createEditor(
+      "second-host-authoring-surface",
+      undefined,
+      "page",
+      undefined,
+      undefined,
+      { registry: secondRegistry, views: secondViews },
+    );
+    const firstSurface = firstEditor.state.doc.firstChild?.firstChild;
+    const secondSurface = secondEditor.state.doc.firstChild?.firstChild;
+    if (!firstSurface || !secondSurface) throw new Error("expected host Surface nodes");
+
+    try {
+      expect(
+        resolveSurfaceAuthoringNodeView({
+          node: firstSurface,
+          registry: firstRegistry,
+          views: firstViews,
+        }).authoringView.component,
+      ).toBe(FirstHostSurfaceView);
+      expect(
+        resolveSurfaceAuthoringNodeView({
+          node: secondSurface,
+          registry: secondRegistry,
+          views: secondViews,
+        }).authoringView.component,
+      ).toBe(SecondHostSurfaceView);
+      expect(() =>
+        resolveSurfaceAuthoringNodeView({
+          node: firstSurface,
+          registry: secondRegistry,
+          views: secondViews,
+        }),
+      ).toThrow(
+        'No surface authoring view registered for surface variant "first-host-authoring-surface".',
+      );
+      expect(() =>
+        resolveSurfaceAuthoringNodeView({
+          node: secondSurface,
+          registry: firstRegistry,
+          views: firstViews,
+        }),
+      ).toThrow(
+        'No surface authoring view registered for surface variant "second-host-authoring-surface".',
+      );
+
+      const firstRender = render(createElement(EditorContent, { editor: firstEditor }));
+      const secondRender = render(createElement(EditorContent, { editor: secondEditor }));
+      await waitFor(() => {
+        expect(within(firstRender.container).getByTestId("first-host-surface-view")).toBeDefined();
+        expect(
+          within(secondRender.container).getByTestId("second-host-surface-view"),
+        ).toBeDefined();
+      });
+      expect(within(firstRender.container).queryByTestId("second-host-surface-view")).toBeNull();
+      expect(within(secondRender.container).queryByTestId("first-host-surface-view")).toBeNull();
+    } finally {
+      cleanup();
+      firstEditor.destroy();
+      secondEditor.destroy();
+    }
+  });
+
   it("dispatches repeated variants independently of their surface instance IDs", async () => {
     const editor = createEditor(
       "slide-cover",
@@ -1288,6 +1370,35 @@ function DefinitionProbeSurfaceView(props: SurfaceAuthoringViewProps) {
       attributes={{ "data-probe-definition": props.definition.id }}
     />
   );
+}
+
+function FirstHostSurfaceView(props: SurfaceAuthoringViewProps) {
+  return (
+    <SurfaceAuthoringFrame {...props} attributes={{ "data-testid": "first-host-surface-view" }} />
+  );
+}
+
+function SecondHostSurfaceView(props: SurfaceAuthoringViewProps) {
+  return (
+    <SurfaceAuthoringFrame {...props} attributes={{ "data-testid": "second-host-surface-view" }} />
+  );
+}
+
+function createHostSurfaceRegistry(id: string): SurfaceVariantRegistry {
+  return createSurfaceVariantRegistry([
+    {
+      id,
+      modes: ["page"],
+      defaultForModes: ["page"],
+      title: id,
+      description: "Host authoring Surface",
+      createSurface: ({ surfaceId }) => ({
+        type: "surface",
+        attrs: { id: surfaceId, variant: id, settings: {} },
+        content: [{ type: "paragraph" }],
+      }),
+    },
+  ]);
 }
 
 interface SurfaceAuthoringComposition {
