@@ -4,6 +4,7 @@ export {
   type CourseDocumentEditorProps,
 } from "@/document/authoring/CourseDocumentEditor";
 export { ScaffoldAuthoringEntry } from "@/editor/shell/authoring/ScaffoldAuthoringEntry";
+export { AuthoringHeaderIconButton } from "@/editor/shell/chrome/AuthoringHeaderIconButton";
 export type {
   ScaffoldAuthoringHeaderActionsContext,
   ScaffoldAuthoringSaveState,

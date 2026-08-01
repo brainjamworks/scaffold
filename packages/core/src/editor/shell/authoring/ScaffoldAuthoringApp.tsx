@@ -19,9 +19,7 @@ import {
 import type { AssessmentGroupContract, AssessmentTargetContract } from "@scaffold/contracts";
 
 import { cn } from "@/lib/cn";
-import { IconButton } from "@/ui/components/IconButton/IconButton";
 import { OverlayBoundary } from "@/ui/components/OverlayBoundary/OverlayBoundary";
-import * as Tooltip from "@/ui/components/Tooltip/Tooltip";
 import { iconSm } from "@/ui/tokens/icon-sizes";
 import {
   projectArtifactSaveBundle,
@@ -31,6 +29,7 @@ import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvi
 import { ScaffoldUnavailableAgentIntegration } from "@/editor/shell/agent/ScaffoldUnavailableAgentIntegration";
 import type { ScaffoldAgentIntegration } from "@/editor/shell/agent/agent-integration";
 import { Header } from "@/editor/shell/chrome/Header";
+import { AuthoringHeaderIconButton } from "@/editor/shell/chrome/AuthoringHeaderIconButton";
 import { Toolbar } from "@/editor/shell/chrome/Toolbar";
 import type { EditorShellScrollModel } from "@/editor/shell/chrome/EditorShell";
 import {
@@ -476,30 +475,18 @@ function ScaffoldAuthoringAppSession({
           onThemeChange={() => undefined}
         />
       ) : null}
-      <Tooltip.Provider delayDuration={350}>
-        <Tooltip.Root>
-          <Tooltip.Trigger asChild>
-            <IconButton
-              variant="ghost"
-              size="lg"
-              onClick={toggleApplicationColorMode}
-              aria-pressed={applicationColorMode === "dark"}
-              aria-label={colorModeActionLabel}
-            >
-              {applicationColorMode === "light" ? (
-                <Moon size={iconSm} aria-hidden />
-              ) : (
-                <Sun size={iconSm} aria-hidden />
-              )}
-            </IconButton>
-          </Tooltip.Trigger>
-          <Tooltip.Portal>
-            <Tooltip.Content side="bottom" sideOffset={8}>
-              {colorModeTooltip}
-            </Tooltip.Content>
-          </Tooltip.Portal>
-        </Tooltip.Root>
-      </Tooltip.Provider>
+      <AuthoringHeaderIconButton
+        onClick={toggleApplicationColorMode}
+        aria-pressed={applicationColorMode === "dark"}
+        aria-label={colorModeActionLabel}
+        tooltip={colorModeTooltip}
+      >
+        {applicationColorMode === "light" ? (
+          <Moon size={iconSm} aria-hidden />
+        ) : (
+          <Sun size={iconSm} aria-hidden />
+        )}
+      </AuthoringHeaderIconButton>
       {!preview ? (
         <button
           type="button"

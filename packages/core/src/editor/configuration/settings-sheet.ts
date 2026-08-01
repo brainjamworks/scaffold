@@ -7,7 +7,6 @@ import type { ZodTypeAny } from "zod";
 import type { CheckedMutationResult } from "@/document/model/commands/checked-transactions";
 import type { ResolvedStableNode } from "@/document/model/identity/resolve-stable-node";
 import type { ButtonVariant } from "@/ui/components/Button/Button";
-import type { IconButtonVariant } from "@/ui/components/IconButton/IconButton";
 import type { PillVariant } from "@/ui/components/Pill/Pill";
 
 export type SettingsSheetAttrSurface = "data" | "settings" | "options";
@@ -180,32 +179,13 @@ export type SettingsFormItemDescriptor =
   | SettingsFormFieldDescriptor
   | SettingsSheetDirectChildCollectionDescriptor;
 
-interface SettingsFormActionBase<TActionId extends string = string> {
+export interface SettingsFormAction<TActionId extends string = string> {
   id: TActionId;
   label: string;
-  disabled?: boolean;
-}
-
-export interface SettingsFormButtonAction<
-  TActionId extends string = string,
-> extends SettingsFormActionBase<TActionId> {
-  presentation?: "button";
   ariaLabel?: string;
   variant?: ButtonVariant;
+  disabled?: boolean;
 }
-
-export interface SettingsFormIconAction<
-  TActionId extends string = string,
-> extends SettingsFormActionBase<TActionId> {
-  presentation: "icon";
-  icon: Icon;
-  ariaLabel: string;
-  variant?: IconButtonVariant;
-}
-
-export type SettingsFormAction<TActionId extends string = string> =
-  | SettingsFormButtonAction<TActionId>
-  | SettingsFormIconAction<TActionId>;
 
 export interface SettingsFormActionEvent<TActionId extends string = string> {
   actionId: TActionId;

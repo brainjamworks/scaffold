@@ -34,6 +34,7 @@ type AuthoringTypeSurface = {
 describe("@scaffold/core/authoring", () => {
   it("publishes the authoring entry and embeddable Course editor values", () => {
     expect(Object.keys(authoring).sort()).toEqual([
+      "AuthoringHeaderIconButton",
       "CourseDocumentEditor",
       "ScaffoldAuthoringEntry",
     ]);

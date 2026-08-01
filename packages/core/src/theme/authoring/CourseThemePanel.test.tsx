@@ -113,13 +113,9 @@ describe("CourseThemePanel", () => {
       updateCourseTheme(editor, customised);
     });
     const reset = screen.getByRole("button", { name: "Reset complete theme" });
-    expect(reset).toHaveClass("sc-icon-button");
-    expect(reset).toHaveTextContent("");
+    expect(reset).toHaveClass("sc-button");
     expect(reset.closest(".sc-sheet-footer")).not.toBeNull();
     expect(reset.closest(".sc-sheet-body")).toBeNull();
-    await user.hover(reset);
-    expect(await screen.findByRole("tooltip")).toHaveTextContent("Reset theme");
-    await user.unhover(reset);
     await user.click(reset);
     expect(readTheme(editor).values).toEqual(selected.values);
     expect(onThemeChange).toHaveBeenCalled();

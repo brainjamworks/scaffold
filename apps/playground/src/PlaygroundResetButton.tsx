@@ -1,4 +1,5 @@
 import { ArrowCounterClockwiseIcon as ArrowCounterClockwise } from "@phosphor-icons/react";
+import { AuthoringHeaderIconButton } from "@scaffold/core/authoring";
 
 import { browserMediaPort } from "./ports/browserMediaPort";
 import { resetBrowserStorage } from "./ports/browserStorageDb";
@@ -21,18 +22,14 @@ export function PlaygroundResetButton() {
   };
 
   return (
-    <button
-      type="button"
+    <AuthoringHeaderIconButton
       onClick={() => {
         void reset();
       }}
       aria-label="Reset playground"
-      title="Clear the page you authored on this device"
-      className="sc-scaffold-authoring-action"
-      data-compact-label
+      tooltip="Reset playground"
     >
-      <ArrowCounterClockwise size={14} aria-hidden />
-      <span className="sc-scaffold-authoring-action-label">Reset</span>
-    </button>
+      <ArrowCounterClockwise size={16} aria-hidden />
+    </AuthoringHeaderIconButton>
   );
 }
