@@ -839,6 +839,15 @@ test("allows only application integration to join both Surface lanes", async (t)
       'import type { RuntimeBindingRelay } from "./runtime-binding-relay";',
       "export type IndirectSurfaceLaneRelay = AuthoringBindingRelay & RuntimeBindingRelay;",
     ].join("\n"),
+    "packages/core/src/editor/shared/surface-binding-relay.ts": [
+      'import type { SurfaceAuthoringViewBinding } from "../surfaces/authoring/surface-authoring-view-registry";',
+      'import type { SurfaceRuntimeViewBinding } from "../surfaces/runtime/surface-runtime-view-registry";',
+      "export type SharedSurfaceLaneRelay = SurfaceAuthoringViewBinding & SurfaceRuntimeViewBinding;",
+    ].join("\n"),
+    "packages/core/src/entrypoints/agent-host.ts": [
+      'import type { SurfaceAuthoringViewBinding } from "../editor/surfaces/authoring/surface-authoring-view-registry";',
+      "export type AgentHostAuthoringSurface = SurfaceAuthoringViewBinding;",
+    ].join("\n"),
   });
   const rejectedResult = cruise(rejectedFixtureRoot, "err-long", ["packages/core/src"]);
   const output = `${rejectedResult.stdout}\n${rejectedResult.stderr}`;
@@ -848,6 +857,8 @@ test("allows only application integration to join both Surface lanes", async (t)
   assert.match(output, /runtime-surface-lane-does-not-reach-authoring-surface-lane/);
   assert.match(output, /neutral-surface-relays-do-not-reach-lane-bindings/);
   assert.match(output, /direct-surface-lane-relay\.ts/);
+  assert.match(output, /editor\/shared\/surface-binding-relay\.ts/);
+  assert.match(output, /entrypoints\/agent-host\.ts/);
   assert.match(
     output,
     /indirect-surface-lane-relay\.ts[\s\S]*authoring-binding-relay\.ts[\s\S]*surface-authoring-view-registry\.ts/,

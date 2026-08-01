@@ -47,6 +47,15 @@ const surfaceAuthoringBindingContractPath =
   "^packages/core/src/editor/surfaces/authoring/surface-authoring-view-registry\\.[^/]+$";
 const surfaceRuntimeBindingContractPath =
   "^packages/core/src/editor/surfaces/runtime/surface-runtime-view-registry\\.[^/]+$";
+const surfaceLaneBindingAllowedOwnerPath = [
+  ...authoringOwnerPath,
+  ...runtimeOwnerPath,
+  "^packages/core/src/composition/application/",
+  "^packages/core/src/entrypoints/extensions\\.ts$",
+  "^packages/core/src/editor/surfaces/testing/slide-composition-browser-harness\\.tsx$",
+]
+  .map((path) => `(?:${path})`)
+  .join("|");
 const blockConstructionOwnerPath =
   "^packages/core/src/editor/blocks/(?:block-definition|block-registry|built-in-block-definitions)\\.[^/]+$";
 const auditedNeutralSelectionPath =
@@ -638,9 +647,8 @@ module.exports = {
       name: "neutral-surface-relays-do-not-reach-lane-bindings",
       severity: "error",
       from: {
-        path: "^packages/core/src/editor/surfaces/(?!authoring/|runtime/)",
-        pathNot:
-          "^packages/core/src/editor/surfaces/testing/slide-composition-browser-harness\\.tsx$",
+        path: "^packages/core/src/",
+        pathNot: surfaceLaneBindingAllowedOwnerPath,
       },
       to: {
         path: [surfaceAuthoringBindingContractPath, surfaceRuntimeBindingContractPath],

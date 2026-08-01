@@ -74,8 +74,9 @@ Core uses explicit, closed-world construction for its built-in editor features:
   only `views` to learner runtime.
 - Surface definition declaration, module import, normalization, and passive
   registry construction do not execute `createSurface`. Factory output is
-  validated during explicit application or lane composition and whenever
-  content is deliberately created.
+  sampled during explicit application or lane composition. Slide-composition
+  definitions additionally wrap deliberate creation so their closed settings,
+  default, and structure invariants are checked for every produced Surface.
 - Every variant uses the one Core-owned persisted `surface` node. Capabilities
   contribute metadata and environment views, never another Surface node or an
   internal node factory.

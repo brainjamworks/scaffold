@@ -59,6 +59,19 @@ type ExtensionTypeSurface = {
   runtimeSurfaces: ScaffoldRuntimeSurfaceComposition;
 };
 
+type SurfaceDefinitionRequiredExtensionMembers = Pick<
+  SurfaceVariantDefinition,
+  "createSurface" | "description" | "id" | "modes" | "title"
+>;
+type SurfaceAuthoringRequiredExtensionProps = Pick<
+  SurfaceAuthoringViewProps,
+  "authoringView" | "definition" | "isEmpty" | "variant"
+>;
+type SurfaceRuntimeRequiredExtensionProps = Pick<
+  SurfaceRuntimeViewProps,
+  "definition" | "isEmpty" | "runtimeView" | "variant"
+>;
+
 describe("@scaffold/core/extensions", () => {
   it("publishes only the supported composition factories and editor accessor", () => {
     expect(Object.keys(extensions).sort()).toEqual([
@@ -108,6 +121,15 @@ describe("@scaffold/core/extensions", () => {
       "component" | "configuration" | "variantId"
     >();
     expectTypeOf<keyof SurfaceRuntimeViewBinding>().toEqualTypeOf<"component" | "variantId">();
+    expectTypeOf<keyof SurfaceDefinitionRequiredExtensionMembers>().toEqualTypeOf<
+      "createSurface" | "description" | "id" | "modes" | "title"
+    >();
+    expectTypeOf<keyof SurfaceAuthoringRequiredExtensionProps>().toEqualTypeOf<
+      "authoringView" | "definition" | "isEmpty" | "variant"
+    >();
+    expectTypeOf<keyof SurfaceRuntimeRequiredExtensionProps>().toEqualTypeOf<
+      "definition" | "isEmpty" | "runtimeView" | "variant"
+    >();
     expectTypeOf<keyof ScaffoldCapabilitiesStorage>().toEqualTypeOf<"capabilities">();
   });
 });

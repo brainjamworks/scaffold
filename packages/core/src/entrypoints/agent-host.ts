@@ -80,12 +80,7 @@ export {
   projectAssessmentDocument,
   type AssessmentDocumentProjection,
 } from "@/authoring/publication/document-projection";
-export { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 export {
   getSurfaceViewSettings,
   type SurfaceViewSettings,
 } from "@/document/model/surface-view-settings";
-export {
-  AuthoringSurfaceView,
-  type AuthoringSurfaceViewProps,
-} from "@/editor/surfaces/authoring/views/AuthoringSurfaceView";

@@ -2,6 +2,8 @@ import { describe, expect, expectTypeOf, it } from "vite-plus/test";
 
 import type { BlockDefinition as CoreBlockDefinition } from "../editor/blocks/block-definition";
 import type { InsertAction as CoreInsertAction } from "../editor/insertion/insert-action";
+// @ts-expect-error The Agent facade does not expose raw authoring view contracts.
+import type { AuthoringSurfaceViewProps } from "./agent-host";
 // @ts-expect-error The Agent facade deliberately removed this compatibility type name.
 import type { InsertCatalogItem } from "./agent-host";
 // @ts-expect-error The Agent facade deliberately removed this compatibility type name.
@@ -9,7 +11,6 @@ import type { RegisteredBlockDefinition } from "./agent-host";
 import type { BlockDefinition as AgentBlockDefinition } from "./agent-host";
 import * as agentHost from "@scaffold/core/agent-host";
 import {
-  AuthoringSurfaceView,
   Button,
   ScaffoldAgentDockEmptyState,
   ScaffoldAgentDockFrame,
@@ -23,7 +24,6 @@ import {
   Textarea,
   canInsertCatalogItem,
   createCatalogNodeChecked,
-  createCourseDocumentAuthoringExtensions,
   createGridTemplate,
   getBlockDefinitionByNodeType,
   getInsertableCatalogItems,
@@ -40,7 +40,6 @@ import {
   updateRegisteredNodeSettingsChecked,
   validateCourseDocumentJSON,
   type AssessmentDocumentProjection,
-  type AuthoringSurfaceViewProps,
   type BlockDefinition,
   type BlockChromeTargetDescriptor,
   type CheckedMutationIssue,
@@ -67,11 +66,11 @@ import {
   type SurfaceViewSettings,
 } from "@scaffold/core/agent-host";
 
+export type RemovedAuthoringSurfaceViewProps = AuthoringSurfaceViewProps;
 export type RemovedAgentRegisteredBlockDefinition = RegisteredBlockDefinition;
 export type RemovedAgentInsertCatalogItem = InsertCatalogItem;
 
 const agentHostValues = {
-  AuthoringSurfaceView,
   Button,
   ScaffoldAgentDockEmptyState,
   ScaffoldAgentDockFrame,
@@ -85,7 +84,6 @@ const agentHostValues = {
   Textarea,
   canInsertCatalogItem,
   createCatalogNodeChecked,
-  createCourseDocumentAuthoringExtensions,
   createGridTemplate,
   getBlockDefinitionByNodeType,
   getInsertableCatalogItems,
@@ -105,7 +103,6 @@ const agentHostValues = {
 
 type AgentHostTypeSurface = {
   assessmentProjection: AssessmentDocumentProjection;
-  authoringSurfaceProps: AuthoringSurfaceViewProps;
   blockContext: ScaffoldBlockContext;
   blockDescriptor: BlockChromeTargetDescriptor;
   blockDefinition: BlockDefinition;
@@ -143,13 +140,15 @@ describe("@scaffold/core/agent-host", () => {
     expect(Object.values(agentHostValues).every((value) => value !== undefined)).toBe(true);
   });
 
-  it("does not expose raw collections, constructors, or legacy block and insertion names", () => {
+  it("does not expose raw registries, constructors, legacy names, or authoring internals", () => {
     for (const key of [
       "builtInBlockRegistry",
       "builtInBlockDefinitions",
       "builtInInsertCatalog",
+      "AuthoringSurfaceView",
       "createBlockRegistry",
       "createInsertCatalog",
+      "createCourseDocumentAuthoringExtensions",
       "defineBlock",
       "defineInsertAction",
       "getBlockDefinitions",
