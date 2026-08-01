@@ -34,6 +34,7 @@ import { createCourseDocumentRuntimeExtensions } from "./create-runtime-composit
 import type { ScaffoldRuntimeComposition } from "./scaffold-runtime-composition";
 
 const AUTHORING_ONLY_EXTENSION_NAMES = [
+  "scaffoldAuthoringCatalogues",
   "scaffoldInteractionOwner",
   "scaffoldStableIdPasteNormalization",
   "placeholder",

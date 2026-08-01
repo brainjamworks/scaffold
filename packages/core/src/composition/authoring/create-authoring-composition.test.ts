@@ -38,6 +38,7 @@ import type { SurfaceAuthoringViewProps } from "@/editor/surfaces/authoring/surf
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import * as surfaceVariantRegistry from "@/editor/surfaces/model/surface-variant-registry";
+import { getScaffoldAuthoringCataloguesForEditor } from "./scaffold-authoring-catalogues-storage";
 import { createCourseDocumentAuthoringExtensions } from "./create-authoring-composition";
 
 const AUTHORING_ONLY_EXTENSION_NAMES = [
@@ -77,6 +78,38 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     );
 
     expect(duplicates).toEqual([]);
+  });
+
+  it("installs the exact resolved authoring catalogues once for a host editor", () => {
+    const capability = hostLayoutCapability("host-catalogue-storage-layout");
+    const application = createScaffoldApplication({
+      packs: [
+        defineScaffoldExtensionPack({
+          id: "host-catalogue-storage",
+          layouts: [capability],
+        }),
+      ],
+    });
+    const extensions = createCourseDocumentAuthoringExtensions({
+      editable: true,
+      composition: application.authoring,
+    });
+    const editor = new Editor({
+      editable: true,
+      extensions,
+      content: persistedHostLayoutDocument(capability.definition.id),
+    });
+
+    try {
+      expect(
+        extensions.filter((extension) => extension.name === "scaffoldAuthoringCatalogues"),
+      ).toHaveLength(1);
+      expect(getScaffoldAuthoringCataloguesForEditor(editor)).toBe(
+        application.authoring.catalogues,
+      );
+    } finally {
+      editor.destroy();
+    }
   });
 
   it("includes course block extensions in authoring composition", () => {

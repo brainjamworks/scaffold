@@ -36,6 +36,7 @@ import {
   createCoreScaffoldAuthoringComposition,
   type ScaffoldAuthoringComposition,
 } from "./scaffold-authoring-composition";
+import { createScaffoldAuthoringCataloguesStorageExtension } from "./scaffold-authoring-catalogues-storage";
 
 export function createCourseDocumentAuthoringExtensions({
   editable,
@@ -59,6 +60,7 @@ export function createCourseDocumentAuthoringExtensions({
 
   return [
     createScaffoldCapabilitiesStorageExtension(resolvedComposition.capabilities),
+    createScaffoldAuthoringCataloguesStorageExtension(resolvedComposition.catalogues),
     ...createCourseDocumentBaseExtensions({
       assessmentActionsGroupNode: AssessmentActionsGroupNode,
       assessmentChoicesGroupNode: AssessmentChoicesGroupNode,
