@@ -435,6 +435,33 @@ describe("createScaffoldApplication", () => {
     );
   });
 
+  it("rejects a host Block whose projected action ID duplicates a Core action", () => {
+    const coreActionId = builtInBlockDefinitions.find((definition) => definition.insert)?.insert
+      ?.id;
+    if (!coreActionId) throw new Error("Expected an insertable Core Block definition.");
+    const capability = testBlockCapability("host-duplicate-action", {
+      definition: {
+        nodeType: "host-duplicate-action",
+        insert: {
+          id: coreActionId,
+          title: "Duplicate action",
+          description: "A host action that collides with Core",
+          icon: CircleIcon,
+          category: "content",
+          content: () => ({ type: "host-duplicate-action" }),
+        },
+      },
+    });
+    const pack = defineScaffoldExtensionPack({
+      id: "duplicate-insert-action-host",
+      blocks: [capability],
+    });
+
+    expect(() => createScaffoldApplication({ packs: [pack] })).toThrow(
+      `Duplicate insert action id "${coreActionId}".`,
+    );
+  });
+
   it.each(["authoring", "runtime"] as const)(
     "rejects duplicate flattened %s extension names across complete capabilities",
     (lane) => {

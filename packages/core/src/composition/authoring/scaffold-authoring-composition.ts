@@ -22,6 +22,11 @@ import { builtInSurfaceAuthoringViewBindings } from "@/editor/surfaces/authoring
 import { builtInSurfaceVariantDefinitions } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { validateSurfaceVariantFactories } from "@/editor/surfaces/model/surface-variant-registry";
 
+import {
+  createScaffoldAuthoringCatalogues,
+  type ScaffoldAuthoringCatalogues,
+} from "./scaffold-authoring-catalogues";
+
 export interface ScaffoldAuthoringBlockComposition {
   readonly extensions: readonly AnyExtension[];
 }
@@ -40,6 +45,7 @@ export interface ScaffoldAuthoringComposition {
   readonly blocks: ScaffoldAuthoringBlockComposition;
   readonly layouts: ScaffoldAuthoringLayoutComposition;
   readonly surfaces: ScaffoldAuthoringSurfaceComposition;
+  readonly catalogues: ScaffoldAuthoringCatalogues;
 }
 
 export function createScaffoldAuthoringComposition(
@@ -65,6 +71,7 @@ export function createScaffoldAuthoringComposition(
       views,
       chrome: createSurfaceAuthoringChromeResolver(views),
     }),
+    catalogues: createScaffoldAuthoringCatalogues(capabilities),
   });
 }
 

@@ -106,6 +106,99 @@ describe("createScaffoldApplication", () => {
     expect(Object.isFrozen(firstApplication.capabilities.surfaces.registry)).toBe(true);
   });
 
+  it("derives isolated immutable authoring catalogues from each application's cumulative capabilities", () => {
+    const hostBlockContent = () => ({ type: "host-catalogue-block" });
+    const hostBlock = {
+      ...testBlockCapability("host-catalogue-block"),
+      definition: {
+        nodeType: "host-catalogue-block",
+        insert: {
+          id: "host-catalogue-block",
+          title: "Host catalogue Block",
+          description: "A host Block projected into its application catalogue",
+          icon: CircleIcon,
+          category: "content" as const,
+          content: hostBlockContent,
+        },
+      },
+    } satisfies BlockCapability;
+    const hostLayout = testLayoutCapability("host-catalogue-layout");
+    const baseHostSurface = testSurfaceCapability("host-catalogue-surface");
+    const hostSurface = {
+      ...baseHostSurface,
+      definition: {
+        ...baseHostSurface.definition,
+        catalogue: {
+          section: "image" as const,
+          order: 1_000,
+          preview: { kind: "slot" as const, role: "image" as const },
+        },
+      },
+    } satisfies SurfaceCapability;
+
+    const coreApplication = createScaffoldApplication();
+    const hostApplication = createScaffoldApplication({
+      packs: [
+        defineScaffoldExtensionPack({
+          id: "host-authoring-catalogues",
+          blocks: [hostBlock],
+          layouts: [hostLayout],
+          surfaces: [hostSurface],
+        }),
+      ],
+    });
+    const coreActionIds = coreApplication.authoring.catalogues.inDocument.actions.map(
+      ({ id }) => id,
+    );
+    const hostActionIds = hostApplication.authoring.catalogues.inDocument.actions.map(
+      ({ id }) => id,
+    );
+
+    expect(hostActionIds.filter((id) => coreActionIds.includes(id))).toEqual(coreActionIds);
+    expect(hostActionIds).toHaveLength(coreActionIds.length + 2);
+    expect(hostActionIds.indexOf(hostBlock.definition.insert.id)).toBeLessThan(
+      hostActionIds.indexOf(hostLayout.definition.id),
+    );
+    expect(hostActionIds.indexOf(hostLayout.definition.id)).toBeLessThan(
+      hostActionIds.indexOf("grid"),
+    );
+    expect(
+      hostApplication.authoring.catalogues.surfaceCreation
+        .forMode("slideshow")
+        .map(({ variantId }) => variantId),
+    ).toEqual([
+      ...coreApplication.authoring.catalogues.surfaceCreation
+        .forMode("slideshow")
+        .map(({ variantId }) => variantId),
+      hostSurface.definition.id,
+    ]);
+
+    for (const coreAction of coreApplication.authoring.catalogues.inDocument.actions) {
+      expect(hostActionIds.filter((id) => id === coreAction.id)).toHaveLength(1);
+      const hostCoreAction = hostApplication.authoring.catalogues.inDocument.getById(coreAction.id);
+      expect(hostCoreAction).toMatchObject({
+        id: coreAction.id,
+        nodeType: coreAction.nodeType,
+        title: coreAction.title,
+        description: coreAction.description,
+        category: coreAction.category,
+      });
+      expect(hostCoreAction).not.toBe(coreAction);
+    }
+    expect(
+      hostApplication.authoring.catalogues.inDocument.getById(hostBlock.definition.insert.id)
+        ?.content,
+    ).toBe(hostBlockContent);
+    expect(coreApplication.authoring.catalogues).not.toBe(hostApplication.authoring.catalogues);
+    expect(coreApplication.authoring.catalogues.inDocument).not.toBe(
+      hostApplication.authoring.catalogues.inDocument,
+    );
+    expect(coreApplication.authoring.catalogues.surfaceCreation).not.toBe(
+      hostApplication.authoring.catalogues.surfaceCreation,
+    );
+    expect(Object.isFrozen(hostApplication.authoring.catalogues)).toBe(true);
+  });
+
   it("projects one complete host Block after all mandatory Core Blocks", () => {
     const hostBlock = testBlockCapability("host_tracer");
     const application = createScaffoldApplication({

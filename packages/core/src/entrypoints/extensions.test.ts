@@ -101,7 +101,7 @@ describe("@scaffold/core/extensions", () => {
     expectTypeOf<keyof ResolvedLayoutCapabilities>().toEqualTypeOf<"registry">();
     expectTypeOf<keyof ResolvedSurfaceCapabilities>().toEqualTypeOf<"registry">();
     expectTypeOf<keyof ScaffoldAuthoringComposition>().toEqualTypeOf<
-      "blocks" | "capabilities" | "layouts" | "surfaces"
+      "blocks" | "capabilities" | "catalogues" | "layouts" | "surfaces"
     >();
     expectTypeOf<keyof ScaffoldAuthoringBlockComposition>().toEqualTypeOf<"extensions">();
     expectTypeOf<keyof ScaffoldAuthoringLayoutComposition>().toEqualTypeOf<"views">();
