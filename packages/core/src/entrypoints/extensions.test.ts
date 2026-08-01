@@ -9,16 +9,25 @@ import type {
   ResolvedBlockCapabilities,
   ResolvedLayoutCapabilities,
   ResolvedScaffoldCapabilities,
+  ResolvedSurfaceCapabilities,
   ScaffoldApplication,
-  ScaffoldAuthoringComposition,
   ScaffoldAuthoringBlockComposition,
+  ScaffoldAuthoringComposition,
   ScaffoldAuthoringLayoutComposition,
+  ScaffoldAuthoringSurfaceComposition,
   ScaffoldCapabilitiesStorage,
   ScaffoldExtensionPack,
   ScaffoldExtensionPackInput,
-  ScaffoldRuntimeComposition,
   ScaffoldRuntimeBlockComposition,
+  ScaffoldRuntimeComposition,
   ScaffoldRuntimeLayoutComposition,
+  ScaffoldRuntimeSurfaceComposition,
+  SurfaceAuthoringViewBinding,
+  SurfaceAuthoringViewProps,
+  SurfaceCapability,
+  SurfaceRuntimeViewBinding,
+  SurfaceRuntimeViewProps,
+  SurfaceVariantDefinition,
 } from "@scaffold/core/extensions";
 
 type ExtensionTypeSurface = {
@@ -26,19 +35,28 @@ type ExtensionTypeSurface = {
   blockDefinition: BlockDefinition;
   blockCapability: BlockCapability;
   layoutCapability: LayoutCapability;
+  surfaceCapability: SurfaceCapability;
+  surfaceDefinition: SurfaceVariantDefinition;
+  surfaceAuthoringViewBinding: SurfaceAuthoringViewBinding;
+  surfaceAuthoringViewProps: SurfaceAuthoringViewProps;
+  surfaceRuntimeViewBinding: SurfaceRuntimeViewBinding;
+  surfaceRuntimeViewProps: SurfaceRuntimeViewProps;
   resolvedBlocks: ResolvedBlockCapabilities;
   resolvedLayouts: ResolvedLayoutCapabilities;
+  resolvedSurfaces: ResolvedSurfaceCapabilities;
   resolvedCapabilities: ResolvedScaffoldCapabilities;
   application: ScaffoldApplication;
   authoring: ScaffoldAuthoringComposition;
   authoringBlocks: ScaffoldAuthoringBlockComposition;
   authoringLayouts: ScaffoldAuthoringLayoutComposition;
+  authoringSurfaces: ScaffoldAuthoringSurfaceComposition;
   capabilitiesStorage: ScaffoldCapabilitiesStorage;
   pack: ScaffoldExtensionPack;
   packInput: ScaffoldExtensionPackInput;
   runtime: ScaffoldRuntimeComposition;
   runtimeBlocks: ScaffoldRuntimeBlockComposition;
   runtimeLayouts: ScaffoldRuntimeLayoutComposition;
+  runtimeSurfaces: ScaffoldRuntimeSurfaceComposition;
 };
 
 describe("@scaffold/core/extensions", () => {
@@ -52,26 +70,44 @@ describe("@scaffold/core/extensions", () => {
     ]);
   });
 
-  it("publishes only the complete Block and Layout composition contracts", () => {
+  it("publishes only the complete Block, Layout, and Surface composition contracts", () => {
     expectTypeOf<ExtensionTypeSurface>().toBeObject();
-    expectTypeOf<keyof ScaffoldExtensionPackInput>().toEqualTypeOf<"blocks" | "id" | "layouts">();
-    expectTypeOf<keyof ScaffoldExtensionPack>().toEqualTypeOf<"blocks" | "id" | "layouts">();
+    expectTypeOf<keyof ScaffoldExtensionPackInput>().toEqualTypeOf<
+      "blocks" | "id" | "layouts" | "surfaces"
+    >();
+    expectTypeOf<keyof ScaffoldExtensionPack>().toEqualTypeOf<
+      "blocks" | "id" | "layouts" | "surfaces"
+    >();
     expectTypeOf<keyof ScaffoldApplication>().toEqualTypeOf<
       "capabilities" | "authoring" | "runtime"
     >();
-    expectTypeOf<keyof ResolvedScaffoldCapabilities>().toEqualTypeOf<"blocks" | "layouts">();
+    expectTypeOf<keyof ResolvedScaffoldCapabilities>().toEqualTypeOf<
+      "blocks" | "layouts" | "surfaces"
+    >();
     expectTypeOf<keyof ResolvedBlockCapabilities>().toEqualTypeOf<"registry">();
     expectTypeOf<keyof ResolvedLayoutCapabilities>().toEqualTypeOf<"registry">();
+    expectTypeOf<keyof ResolvedSurfaceCapabilities>().toEqualTypeOf<"registry">();
     expectTypeOf<keyof ScaffoldAuthoringComposition>().toEqualTypeOf<
-      "blocks" | "capabilities" | "layouts"
+      "blocks" | "capabilities" | "layouts" | "surfaces"
     >();
     expectTypeOf<keyof ScaffoldAuthoringBlockComposition>().toEqualTypeOf<"extensions">();
     expectTypeOf<keyof ScaffoldAuthoringLayoutComposition>().toEqualTypeOf<"views">();
+    expectTypeOf<keyof ScaffoldAuthoringSurfaceComposition>().toEqualTypeOf<
+      "chrome" | "views"
+    >();
     expectTypeOf<keyof ScaffoldRuntimeComposition>().toEqualTypeOf<
-      "blocks" | "capabilities" | "layouts"
+      "blocks" | "capabilities" | "layouts" | "surfaces"
     >();
     expectTypeOf<keyof ScaffoldRuntimeBlockComposition>().toEqualTypeOf<"extensions">();
     expectTypeOf<keyof ScaffoldRuntimeLayoutComposition>().toEqualTypeOf<"views">();
+    expectTypeOf<keyof ScaffoldRuntimeSurfaceComposition>().toEqualTypeOf<"views">();
+    expectTypeOf<keyof SurfaceCapability>().toEqualTypeOf<
+      "authoringView" | "definition" | "runtimeView"
+    >();
+    expectTypeOf<keyof SurfaceAuthoringViewBinding>().toEqualTypeOf<
+      "component" | "configuration" | "variantId"
+    >();
+    expectTypeOf<keyof SurfaceRuntimeViewBinding>().toEqualTypeOf<"component" | "variantId">();
     expectTypeOf<keyof ScaffoldCapabilitiesStorage>().toEqualTypeOf<"capabilities">();
   });
 });

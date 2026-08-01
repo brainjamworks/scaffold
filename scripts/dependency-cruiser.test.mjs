@@ -792,6 +792,72 @@ test("reports surface model, player, shell, and lane inversions", async (t) => {
   assert.match(output, /runtime-surface-lane-does-not-reach-authoring-surface-lane/);
 });
 
+test("allows only application integration to join both Surface lanes", async (t) => {
+  const allowedFixtureRoot = await createFixture(t, {
+    "packages/core/src/editor/surfaces/authoring/surface-authoring-view-registry.ts":
+      "export interface SurfaceAuthoringViewBinding { variantId: string }\n",
+    "packages/core/src/editor/surfaces/runtime/surface-runtime-view-registry.ts":
+      "export interface SurfaceRuntimeViewBinding { variantId: string }\n",
+    "packages/core/src/composition/application/surface-capability.ts": [
+      'import type { SurfaceAuthoringViewBinding } from "../../editor/surfaces/authoring/surface-authoring-view-registry";',
+      'import type { SurfaceRuntimeViewBinding } from "../../editor/surfaces/runtime/surface-runtime-view-registry";',
+      "export type CompleteSurfaceCapability = SurfaceAuthoringViewBinding & SurfaceRuntimeViewBinding;",
+    ].join("\n"),
+  });
+
+  const allowedResult = cruise(allowedFixtureRoot, "err-long", ["packages/core/src"]);
+  assert.equal(allowedResult.status, 0, allowedResult.stderr || allowedResult.stdout);
+
+  const rejectedFixtureRoot = await createFixture(t, {
+    "packages/core/src/editor/surfaces/authoring/surface-authoring-view-registry.ts":
+      "export interface SurfaceAuthoringViewBinding { variantId: string }\n",
+    "packages/core/src/editor/surfaces/runtime/surface-runtime-view-registry.ts":
+      "export interface SurfaceRuntimeViewBinding { variantId: string }\n",
+    "packages/core/src/composition/authoring/surface-projection.ts": [
+      'import type { SurfaceRuntimeViewBinding } from "../../editor/surfaces/runtime/surface-runtime-view-registry";',
+      "export type AuthoringSurfaceLeak = SurfaceRuntimeViewBinding;",
+    ].join("\n"),
+    "packages/core/src/composition/runtime/surface-projection.ts": [
+      'import type { SurfaceAuthoringViewBinding } from "../../editor/surfaces/authoring/surface-authoring-view-registry";',
+      "export type RuntimeSurfaceLeak = SurfaceAuthoringViewBinding;",
+    ].join("\n"),
+    "packages/core/src/editor/surfaces/direct-surface-lane-relay.ts": [
+      'import type { SurfaceAuthoringViewBinding } from "./authoring/surface-authoring-view-registry";',
+      'import type { SurfaceRuntimeViewBinding } from "./runtime/surface-runtime-view-registry";',
+      "export type DirectSurfaceLaneRelay = SurfaceAuthoringViewBinding & SurfaceRuntimeViewBinding;",
+    ].join("\n"),
+    "packages/core/src/editor/surfaces/authoring-binding-relay.ts": [
+      'import type { SurfaceAuthoringViewBinding } from "./authoring/surface-authoring-view-registry";',
+      "export type AuthoringBindingRelay = SurfaceAuthoringViewBinding;",
+    ].join("\n"),
+    "packages/core/src/editor/surfaces/runtime-binding-relay.ts": [
+      'import type { SurfaceRuntimeViewBinding } from "./runtime/surface-runtime-view-registry";',
+      "export type RuntimeBindingRelay = SurfaceRuntimeViewBinding;",
+    ].join("\n"),
+    "packages/core/src/editor/surfaces/indirect-surface-lane-relay.ts": [
+      'import type { AuthoringBindingRelay } from "./authoring-binding-relay";',
+      'import type { RuntimeBindingRelay } from "./runtime-binding-relay";',
+      "export type IndirectSurfaceLaneRelay = AuthoringBindingRelay & RuntimeBindingRelay;",
+    ].join("\n"),
+  });
+  const rejectedResult = cruise(rejectedFixtureRoot, "err-long", ["packages/core/src"]);
+  const output = `${rejectedResult.stdout}\n${rejectedResult.stderr}`;
+
+  assert.notEqual(rejectedResult.status, 0, output);
+  assert.match(output, /authoring-surface-lane-does-not-reach-runtime-surface-lane/);
+  assert.match(output, /runtime-surface-lane-does-not-reach-authoring-surface-lane/);
+  assert.match(output, /neutral-surface-relays-do-not-reach-lane-bindings/);
+  assert.match(output, /direct-surface-lane-relay\.ts/);
+  assert.match(
+    output,
+    /indirect-surface-lane-relay\.ts[\s\S]*authoring-binding-relay\.ts[\s\S]*surface-authoring-view-registry\.ts/,
+  );
+  assert.match(
+    output,
+    /indirect-surface-lane-relay\.ts[\s\S]*runtime-binding-relay\.ts[\s\S]*surface-runtime-view-registry\.ts/,
+  );
+});
+
 test("allows named neutral adaptation and downward lane composition", async (t) => {
   const fixtureRoot = await createFixture(t, {
     "node_modules/@tiptap/core/package.json": JSON.stringify({

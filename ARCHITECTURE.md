@@ -57,8 +57,34 @@ Core uses explicit, closed-world construction for its built-in editor features:
 - Layout feature modules export pure definitions. An immutable definition
   registry is keyed by persisted layout variant, with separate authoring and
   runtime view registries.
-- Surface model definitions construct an immutable variant registry. Authoring
-  and runtime bind their own view maps outside the neutral model.
+- A complete Surface capability keeps one `SurfaceVariantDefinition`, one
+  `SurfaceAuthoringViewBinding`, and one `SurfaceRuntimeViewBinding` together:
+
+  ```ts
+  interface SurfaceCapability {
+    readonly definition: SurfaceVariantDefinition;
+    readonly authoringView: SurfaceAuthoringViewBinding;
+    readonly runtimeView: SurfaceRuntimeViewBinding;
+  }
+  ```
+
+  Core capabilities are resolved before cumulative host additions. Application
+  composition validates matching `variantId` values, builds one immutable
+  neutral Surface registry, and projects only `views`/`chrome` to authoring and
+  only `views` to learner runtime.
+- Surface definition declaration, module import, normalization, and passive
+  registry construction do not execute `createSurface`. Factory output is
+  validated during explicit application or lane composition and whenever
+  content is deliberately created.
+- Every variant uses the one Core-owned persisted `surface` node. Capabilities
+  contribute metadata and environment views, never another Surface node or an
+  internal node factory.
+- Physical authoring and learner-runtime Surface binding inventories remain
+  separate. Only `composition/application` joins both lanes; authoring and
+  runtime composition can reach only their own lane, and neutral Surface code
+  cannot relay either binding contract. `@scaffold/core/extensions` re-exports
+  the minimum construction and projection types without exposing built-in
+  registries, inventories, view maps, creation catalogues, or node factories.
 - Authoring insertion is derived from block/layout definitions plus explicit
   non-block actions. Importing a definition never mutates a global registry or
   insertion catalog.

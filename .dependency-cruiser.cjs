@@ -43,6 +43,10 @@ const authoringOwnerPath = [
   "^packages/core/src/editor/surfaces/authoring/",
   "^packages/core/src/editor/selection/(?:native-drag-guard|selection-commands)\\.ts$",
 ];
+const surfaceAuthoringBindingContractPath =
+  "^packages/core/src/editor/surfaces/authoring/surface-authoring-view-registry\\.[^/]+$";
+const surfaceRuntimeBindingContractPath =
+  "^packages/core/src/editor/surfaces/runtime/surface-runtime-view-registry\\.[^/]+$";
 const blockConstructionOwnerPath =
   "^packages/core/src/editor/blocks/(?:block-definition|block-registry|built-in-block-definitions)\\.[^/]+$";
 const auditedNeutralSelectionPath =
@@ -603,7 +607,10 @@ module.exports = {
       name: "authoring-surface-lane-does-not-reach-runtime-surface-lane",
       severity: "error",
       from: {
-        path: "^packages/core/src/editor/surfaces/authoring/",
+        path: [
+          "^packages/core/src/composition/authoring/",
+          "^packages/core/src/editor/surfaces/authoring/",
+        ],
       },
       to: {
         path: "^packages/core/src/editor/surfaces/runtime/",
@@ -615,10 +622,28 @@ module.exports = {
       name: "runtime-surface-lane-does-not-reach-authoring-surface-lane",
       severity: "error",
       from: {
-        path: "^packages/core/src/editor/surfaces/runtime/",
+        path: [
+          "^packages/core/src/composition/runtime/",
+          "^packages/core/src/editor/surfaces/runtime/",
+        ],
       },
       to: {
         path: "^packages/core/src/editor/surfaces/authoring/",
+        reachable: true,
+      },
+    },
+    {
+      // Owner: complete Surface capabilities are joined by application integration.
+      // Neutral Surface owners cannot relay either environment binding contract.
+      name: "neutral-surface-relays-do-not-reach-lane-bindings",
+      severity: "error",
+      from: {
+        path: "^packages/core/src/editor/surfaces/(?!authoring/|runtime/)",
+        pathNot:
+          "^packages/core/src/editor/surfaces/testing/slide-composition-browser-harness\\.tsx$",
+      },
+      to: {
+        path: [surfaceAuthoringBindingContractPath, surfaceRuntimeBindingContractPath],
         reachable: true,
       },
     },
