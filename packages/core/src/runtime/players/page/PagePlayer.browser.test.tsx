@@ -66,7 +66,7 @@ describe("PagePlayer presentation", () => {
     );
 
     expect(getComputedStyle(player).backgroundColor).toBe("rgba(0, 0, 0, 0)");
-    expect(getComputedStyle(runtimeView).backgroundColor).toBe("rgb(250, 250, 250)");
+    expect(getComputedStyle(runtimeView).backgroundColor).toBe("rgba(0, 0, 0, 0)");
     expect(Number.parseFloat(getComputedStyle(runtimeView).paddingTop)).toBeGreaterThan(0);
     expect(getComputedStyle(runtimeSurface).backgroundColor).toBe("rgb(255, 255, 255)");
     expect(Number.parseFloat(getComputedStyle(runtimeSurface).paddingTop)).toBeGreaterThan(0);

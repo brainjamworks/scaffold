@@ -211,16 +211,17 @@ function ScaffoldAuthoringAppSession({
   const latestEditorRef = useRef<TiptapEditor | null>(null);
   const autosaveTimeoutRef = useRef<number | null>(null);
   const initialLatestContent = readyArtifact?.content ?? null;
+  const contentSessionSource = readyArtifact?.id ?? artifact.id ?? artifactStateSource;
   const latestContentRef = useRef<{
     source: unknown;
     value: unknown;
   }>({
-    source: artifactStateSource,
+    source: contentSessionSource,
     value: initialLatestContent,
   });
-  if (latestContentRef.current.source !== artifactStateSource) {
+  if (latestContentRef.current.source !== contentSessionSource) {
     latestContentRef.current = {
-      source: artifactStateSource,
+      source: contentSessionSource,
       value: initialLatestContent,
     };
   }
@@ -310,12 +311,12 @@ function ScaffoldAuthoringAppSession({
     (currentEditor: TiptapEditor | null = latestEditorRef.current) => {
       const content = currentEditor?.getJSON() ?? latestContentRef.current.value;
       latestContentRef.current = {
-        source: artifactStateSource,
+        source: contentSessionSource,
         value: content,
       };
       return content;
     },
-    [artifactStateSource],
+    [contentSessionSource],
   );
 
   const saveNow = useCallback(async (): Promise<boolean> => {
@@ -590,7 +591,7 @@ function ScaffoldAuthoringAppSession({
                 <ContentAuthorHost
                   agentIntegration={agentIntegration}
                   artifactId={resolvedArtifactId}
-                  content={readyArtifact.content}
+                  content={toJsonDocument(latestContentRef.current.value)}
                   editable
                   onChange={handleEditorChange}
                   onEditorReady={handleEditorReady}

@@ -71,6 +71,7 @@ vi.mock("./ContentAuthorHost", async () => {
     ContentAuthorHost: ({
       agentIntegration,
       agentOpen,
+      content,
       onAgentClose,
       onChange,
       onEditorReady,
@@ -81,6 +82,7 @@ vi.mock("./ContentAuthorHost", async () => {
     }: {
       agentIntegration?: unknown;
       agentOpen?: boolean;
+      content?: unknown;
       onAgentClose?: () => void;
       onChange?: (editor: unknown) => void;
       onEditorReady?: (editor: unknown) => void;
@@ -93,6 +95,7 @@ vi.mock("./ContentAuthorHost", async () => {
       mocks.contentAuthorHostProps.push({
         agentIntegration,
         agentOpen,
+        content,
         leftRail,
         onAgentClose,
         onChange,
@@ -506,6 +509,46 @@ describe("ScaffoldAuthoringApp preview", () => {
     await screen.findByTestId("scaffold-learner-app");
     expect(mocks.learnerModuleReads).toBe(1);
     expect(saveArtifact).toHaveBeenCalledTimes(2);
+  });
+
+  it("restores the current session document when returning from learner preview", async () => {
+    const user = userEvent.setup();
+    const initialContent = structuredClone(mocks.authorJSON);
+    const workingContent = structuredClone(initialContent);
+    workingContent.content![0]!.attrs!["theme"] = {
+      schemaVersion: 1,
+      preset: {
+        id: SCAFFOLD_EDITORIAL_PRESET.id,
+        revision: SCAFFOLD_EDITORIAL_PRESET.revision,
+      },
+      values: structuredClone(SCAFFOLD_EDITORIAL_PRESET.values),
+    };
+    mocks.authorJSON = workingContent;
+    mocks.fakeEditor.state.doc.firstChild.attrs = workingContent.content![0]!.attrs!;
+
+    render(
+      <ScaffoldAuthoringApp
+        artifact={{
+          id: "artifact-preview-session",
+          title: "Draft",
+          mode: "page",
+          content: initialContent,
+        }}
+        services={{
+          artifactPersistence: { saveArtifact: vi.fn(async () => ({})) },
+          media: null,
+        }}
+      />,
+    );
+
+    const previewButton = screen.getByRole("button", { name: "Switch to preview" });
+    await waitFor(() => expect(previewButton).toHaveProperty("disabled", false));
+    await user.click(previewButton);
+    await screen.findByTestId("scaffold-learner-app");
+    await user.click(screen.getByRole("button", { name: "Switch to editing" }));
+    await screen.findByTestId("content-author-host");
+
+    expect(mocks.contentAuthorHostProps.at(-1)?.["content"]).toEqual(workingContent);
   });
 
   it("shares application mode with the canvas and learner Preview without changing JSON", async () => {

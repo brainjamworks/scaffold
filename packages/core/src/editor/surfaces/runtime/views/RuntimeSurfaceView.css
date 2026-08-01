@@ -14,7 +14,7 @@
     width: 100%;
     min-width: 0;
     padding: 1rem;
-    background: var(--color-canvas);
+    background: transparent;
   }
 
   .scaffold-runtime-surface-view[data-course-mode="page"] [data-surface] {
