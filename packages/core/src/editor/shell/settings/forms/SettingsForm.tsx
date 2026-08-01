@@ -15,6 +15,9 @@ import { settingsFieldDomId } from "@/editor/shell/settings/controls/a11y";
 import type { SettingsFieldDocumentTarget } from "@/editor/shell/settings/controls/fields/types";
 import { Accordion } from "@/ui/components/Accordion/Accordion";
 import { Button } from "@/ui/components/Button/Button";
+import { IconButton } from "@/ui/components/IconButton/IconButton";
+import * as Tooltip from "@/ui/components/Tooltip/Tooltip";
+import { iconSm } from "@/ui/tokens/icon-sizes";
 
 import "./settings-form.css";
 
@@ -184,25 +187,55 @@ export function SettingsFormActions<TActionId extends string>({
   if (!actions?.length) return null;
 
   return (
-    <div className={`sc-settings-form__${location}-actions`}>
-      {actions.map((action) => (
-        <Button
-          key={action.id}
-          size={location === "section" ? "sm" : "md"}
-          variant={action.variant ?? (location === "section" ? "ghost" : "secondary")}
-          disabled={action.disabled}
-          {...(action.ariaLabel ? { "aria-label": action.ariaLabel } : {})}
-          onClick={() =>
+    <Tooltip.Provider delayDuration={350}>
+      <div className={`sc-settings-form__${location}-actions`}>
+        {actions.map((action) => {
+          const onClick = () =>
             onAction?.({
               actionId: action.id,
               ...(sectionId !== undefined ? { sectionId } : {}),
-            })
+            });
+
+          if (action.presentation === "icon") {
+            const ActionIcon = action.icon;
+
+            return (
+              <Tooltip.Root key={action.id}>
+                <Tooltip.Trigger asChild>
+                  <IconButton
+                    size={location === "section" ? "sm" : "md"}
+                    variant={action.variant ?? "ghost"}
+                    disabled={action.disabled}
+                    aria-label={action.ariaLabel}
+                    onClick={onClick}
+                  >
+                    <ActionIcon size={iconSm} aria-hidden />
+                  </IconButton>
+                </Tooltip.Trigger>
+                <Tooltip.Portal>
+                  <Tooltip.Content side="top" sideOffset={8}>
+                    {action.label}
+                  </Tooltip.Content>
+                </Tooltip.Portal>
+              </Tooltip.Root>
+            );
           }
-        >
-          {action.label}
-        </Button>
-      ))}
-    </div>
+
+          return (
+            <Button
+              key={action.id}
+              size={location === "section" ? "sm" : "md"}
+              variant={action.variant ?? (location === "section" ? "ghost" : "secondary")}
+              disabled={action.disabled}
+              {...(action.ariaLabel ? { "aria-label": action.ariaLabel } : {})}
+              onClick={onClick}
+            >
+              {action.label}
+            </Button>
+          );
+        })}
+      </div>
+    </Tooltip.Provider>
   );
 }
 

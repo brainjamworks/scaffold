@@ -3,6 +3,7 @@ import {
   type CourseThemeAuthorPalette,
   type CourseThemePaletteSlot,
 } from "@scaffold/contracts";
+import { ArrowCounterClockwiseIcon as ArrowCounterClockwise } from "@phosphor-icons/react";
 import { useEffect, useRef, type FocusEventHandler } from "react";
 import {
   useForm,
@@ -249,6 +250,8 @@ export function courseThemeFormDefinition({
         id: "reset-theme",
         label: "Reset theme",
         ariaLabel: "Reset complete theme",
+        presentation: "icon",
+        icon: ArrowCounterClockwise,
         disabled: !resetThemeEnabled,
       },
     ],

@@ -11,7 +11,9 @@ import {
   type PersistedCourseTheme,
 } from "@/schemas/course-document";
 import type { ResolvedCourseTheme, ThemeCatalogue } from "@/theme/model";
+import { IconButton } from "@/ui/components/IconButton/IconButton";
 import { Sheet } from "@/ui/components/Sheet/Sheet";
+import * as Tooltip from "@/ui/components/Tooltip/Tooltip";
 import { iconSm } from "@/ui/tokens/icon-sizes";
 
 import {
@@ -145,20 +147,27 @@ export function CourseThemePanel({
 
   return (
     <Sheet.Root>
-      <Sheet.Trigger asChild>
-        <button
-          type="button"
-          className="sc-scaffold-authoring-action"
-          aria-label="Open course theme"
-          title="Course theme"
-          data-compact-label
-          data-state="default"
-          disabled={!editor}
-        >
-          <Palette size={iconSm} aria-hidden />
-          <span className="sc-scaffold-authoring-action-label">Theme</span>
-        </button>
-      </Sheet.Trigger>
+      <Tooltip.Provider delayDuration={350}>
+        <Tooltip.Root>
+          <Sheet.Trigger asChild>
+            <Tooltip.Trigger asChild>
+              <IconButton
+                variant="ghost"
+                size="lg"
+                aria-label="Open course theme"
+                disabled={!editor}
+              >
+                <Palette size={iconSm} aria-hidden />
+              </IconButton>
+            </Tooltip.Trigger>
+          </Sheet.Trigger>
+          <Tooltip.Portal>
+            <Tooltip.Content side="bottom" sideOffset={8}>
+              Course theme
+            </Tooltip.Content>
+          </Tooltip.Portal>
+        </Tooltip.Root>
+      </Tooltip.Provider>
       <Sheet.Content side="right" className="sc-course-theme-panel">
         <Sheet.Header closeLabel="Close course theme">
           <Sheet.Title>Course theme</Sheet.Title>

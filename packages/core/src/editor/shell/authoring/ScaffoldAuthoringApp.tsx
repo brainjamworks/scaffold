@@ -19,8 +19,10 @@ import {
 import type { AssessmentGroupContract, AssessmentTargetContract } from "@scaffold/contracts";
 
 import { cn } from "@/lib/cn";
-import { iconSm } from "@/ui/tokens/icon-sizes";
+import { IconButton } from "@/ui/components/IconButton/IconButton";
 import { OverlayBoundary } from "@/ui/components/OverlayBoundary/OverlayBoundary";
+import * as Tooltip from "@/ui/components/Tooltip/Tooltip";
+import { iconSm } from "@/ui/tokens/icon-sizes";
 import {
   projectArtifactSaveBundle,
   validateArtifactSaveBundleSize,
@@ -452,6 +454,11 @@ function ScaffoldAuthoringAppSession({
     [],
   );
 
+  const colorModeActionLabel = `Switch authoring application to ${
+    applicationColorMode === "light" ? "dark" : "light"
+  } mode`;
+  const colorModeTooltip = `Use ${applicationColorMode === "light" ? "dark" : "light"} mode`;
+
   const appHeaderActions = (
     <div className="sc-scaffold-authoring-actions">
       {headerActions?.({
@@ -469,27 +476,30 @@ function ScaffoldAuthoringAppSession({
           onThemeChange={() => undefined}
         />
       ) : null}
-      <button
-        type="button"
-        onClick={toggleApplicationColorMode}
-        aria-pressed={applicationColorMode === "dark"}
-        aria-label={`Switch authoring application to ${
-          applicationColorMode === "light" ? "dark" : "light"
-        } mode`}
-        title={`Use ${applicationColorMode === "light" ? "dark" : "light"} appearance`}
-        className="sc-scaffold-authoring-action"
-        data-compact-label
-        data-state="default"
-      >
-        {applicationColorMode === "light" ? (
-          <Moon size={iconSm} aria-hidden />
-        ) : (
-          <Sun size={iconSm} aria-hidden />
-        )}
-        <span className="sc-scaffold-authoring-action-label">
-          {applicationColorMode === "light" ? "Dark" : "Light"}
-        </span>
-      </button>
+      <Tooltip.Provider delayDuration={350}>
+        <Tooltip.Root>
+          <Tooltip.Trigger asChild>
+            <IconButton
+              variant="ghost"
+              size="lg"
+              onClick={toggleApplicationColorMode}
+              aria-pressed={applicationColorMode === "dark"}
+              aria-label={colorModeActionLabel}
+            >
+              {applicationColorMode === "light" ? (
+                <Moon size={iconSm} aria-hidden />
+              ) : (
+                <Sun size={iconSm} aria-hidden />
+              )}
+            </IconButton>
+          </Tooltip.Trigger>
+          <Tooltip.Portal>
+            <Tooltip.Content side="bottom" sideOffset={8}>
+              {colorModeTooltip}
+            </Tooltip.Content>
+          </Tooltip.Portal>
+        </Tooltip.Root>
+      </Tooltip.Provider>
       {!preview ? (
         <button
           type="button"

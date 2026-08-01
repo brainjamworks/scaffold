@@ -320,9 +320,17 @@ describe("ScaffoldAuthoringApp preview", () => {
     const initialCourseTheme = mocks.authorJSON.content?.[0]?.attrs?.["theme"];
     expect(initialCourseTheme).toBeDefined();
 
-    await user.click(
-      screen.getByRole("button", { name: "Switch authoring application to dark mode" }),
-    );
+    const colorModeToggle = screen.getByRole("button", {
+      name: "Switch authoring application to dark mode",
+    });
+    expect(colorModeToggle).toHaveClass("sc-icon-button");
+    expect(colorModeToggle).toHaveTextContent("");
+    expect(colorModeToggle).toHaveAttribute("aria-pressed", "false");
+
+    await user.hover(colorModeToggle);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("Use dark mode");
+    await user.unhover(colorModeToggle);
+    await user.click(colorModeToggle);
 
     expect(application).toHaveAttribute("data-scaffold-color-mode", "dark");
     expect(application?.style.colorScheme).toBe("dark");
