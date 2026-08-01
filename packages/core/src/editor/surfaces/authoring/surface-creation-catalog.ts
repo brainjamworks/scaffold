@@ -14,7 +14,7 @@ export interface SurfaceCreationCatalogEntry {
 }
 
 export interface SurfaceCreationCatalog {
-  forMode(mode: CourseMode): readonly SurfaceCreationCatalogEntry[];
+  readonly forMode: (mode: CourseMode) => readonly SurfaceCreationCatalogEntry[];
 }
 
 const EMPTY_CREATION_CATALOG: readonly SurfaceCreationCatalogEntry[] = Object.freeze([]);
