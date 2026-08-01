@@ -47,8 +47,15 @@ describe("Scaffold capabilities storage", () => {
       expect(getScaffoldCapabilitiesForEditor(coreEditor).blocks.registry).toBe(
         coreCapabilities.blocks.registry,
       );
+      expect(coreCapabilities.surfaces.registry).not.toBe(hostCapabilities.surfaces.registry);
+      expect(getScaffoldCapabilitiesForEditor(coreEditor).surfaces.registry).toBe(
+        coreCapabilities.surfaces.registry,
+      );
       expect(getScaffoldCapabilitiesForState(hostEditor.state).blocks.registry).toBe(
         hostCapabilities.blocks.registry,
+      );
+      expect(getScaffoldCapabilitiesForState(hostEditor.state).surfaces.registry).toBe(
+        hostCapabilities.surfaces.registry,
       );
     } finally {
       coreEditor.destroy();

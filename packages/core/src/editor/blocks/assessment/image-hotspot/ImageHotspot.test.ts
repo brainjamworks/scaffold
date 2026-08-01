@@ -245,7 +245,11 @@ function makeBoundedRuntimeEditor(
 }
 
 function testCapabilities(blockDefinitions: readonly BlockDefinition[]) {
-  return resolveScaffoldCapabilities({ blockDefinitions, layoutDefinitions: [] });
+  return resolveScaffoldCapabilities({
+    blockDefinitions,
+    layoutDefinitions: [],
+    surfaceDefinitions: [],
+  });
 }
 
 function renderRuntimeEditor(

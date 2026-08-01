@@ -59,6 +59,7 @@ const outerEditors: Editor[] = [];
 const fullChromeCapabilities = resolveScaffoldCapabilities({
   blockDefinitions: builtInBlockRegistry.definitions,
   layoutDefinitions: builtInLayoutDefinitions,
+  surfaceDefinitions: [],
 });
 
 afterEach(() => {

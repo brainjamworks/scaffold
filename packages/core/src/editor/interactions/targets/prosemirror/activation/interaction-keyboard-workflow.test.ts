@@ -28,6 +28,7 @@ const testBlockRegistry = createBlockRegistry([defineBlock({ nodeType: BLOCK })]
 const testCapabilities = resolveScaffoldCapabilities({
   blockDefinitions: testBlockRegistry.definitions,
   layoutDefinitions: [],
+  surfaceDefinitions: [],
 });
 
 const publishInteractionOwnerSnapshot = (

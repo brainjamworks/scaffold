@@ -52,6 +52,7 @@ const testBlockRegistry = createBlockRegistry([
 const testCapabilities = resolveScaffoldCapabilities({
   blockDefinitions: testBlockRegistry.definitions,
   layoutDefinitions: [],
+  surfaceDefinitions: [],
 });
 
 const MovementTargetGridNode = GridNode.extend({

@@ -29,6 +29,7 @@ import type { LayoutComponentProps } from "@/editor/arrangements/layout/authorin
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import * as surfaceVariantRegistry from "@/editor/surfaces/model/surface-variant-registry";
 import { createCourseDocumentAuthoringExtensions } from "./create-authoring-composition";
+import { createCoreScaffoldAuthoringComposition } from "./scaffold-authoring-composition";
 
 const AUTHORING_ONLY_EXTENSION_NAMES = [
   "scaffoldInteractionOwner",
@@ -49,10 +50,11 @@ describe("createCourseDocumentAuthoringExtensions", () => {
   it("validates built-in Surface factories when resolving the default authoring composition", () => {
     const validateFactories = vi.spyOn(surfaceVariantRegistry, "validateSurfaceVariantFactories");
 
-    createCourseDocumentAuthoringExtensions({ editable: true });
+    const composition = createCoreScaffoldAuthoringComposition();
 
     expect(validateFactories).toHaveBeenCalledOnce();
-    expect(validateFactories).toHaveBeenCalledWith(builtInSurfaceVariantRegistry);
+    expect(validateFactories).toHaveBeenCalledWith(composition.capabilities.surfaces.registry);
+    expect(composition.capabilities.surfaces.registry).not.toBe(builtInSurfaceVariantRegistry);
   });
 
   it("returns each extension name only once", () => {

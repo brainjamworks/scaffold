@@ -11,7 +11,7 @@ import {
 } from "@/editor/arrangements/layout/runtime/layout-view-registry";
 import { builtInBlockDefinitions } from "@/editor/blocks/built-in-block-definitions";
 import { builtInBlockRuntimeBindings } from "@/editor/blocks/runtime-block-extensions";
-import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
+import { builtInSurfaceVariantDefinitions } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { validateSurfaceVariantFactories } from "@/editor/surfaces/model/surface-variant-registry";
 
 export interface ScaffoldRuntimeBlockComposition {
@@ -48,8 +48,9 @@ export function createCoreScaffoldRuntimeComposition(): ScaffoldRuntimeCompositi
   const capabilities = resolveScaffoldCapabilities({
     blockDefinitions: builtInBlockDefinitions,
     layoutDefinitions: builtInLayoutDefinitions,
+    surfaceDefinitions: builtInSurfaceVariantDefinitions,
   });
-  validateSurfaceVariantFactories(builtInSurfaceVariantRegistry);
+  validateSurfaceVariantFactories(capabilities.surfaces.registry);
 
   return createScaffoldRuntimeComposition(
     capabilities,

@@ -21,10 +21,14 @@ describe("createScaffoldApplication", () => {
   it("validates built-in Surface factories during explicit application construction", () => {
     const validateFactories = vi.spyOn(surfaceVariantRegistry, "validateSurfaceVariantFactories");
 
-    createScaffoldApplication();
+    const application = createScaffoldApplication();
 
     expect(validateFactories).toHaveBeenCalledOnce();
-    expect(validateFactories).toHaveBeenCalledWith(builtInSurfaceVariantRegistry);
+    expect(validateFactories).toHaveBeenCalledWith(application.capabilities.surfaces.registry);
+    expect(application.capabilities.surfaces.registry).not.toBe(builtInSurfaceVariantRegistry);
+    expect(application.capabilities.surfaces.registry.definitions.map(({ id }) => id)).toEqual(
+      builtInSurfaceVariantRegistry.definitions.map(({ id }) => id),
+    );
   });
 
   it("shares neutral capabilities while keeping authoring and runtime views lane-local", () => {
@@ -40,14 +44,21 @@ describe("createScaffoldApplication", () => {
 
     expect(application.authoring.capabilities).toBe(application.capabilities);
     expect(application.runtime.capabilities).toBe(application.capabilities);
-    expect(Object.keys(application.capabilities)).toEqual(["blocks", "layouts"]);
+    expect(Object.keys(application.capabilities)).toEqual(["blocks", "layouts", "surfaces"]);
     expect(Object.keys(application.capabilities.blocks)).toEqual(["registry"]);
     expect(Object.keys(application.capabilities.layouts)).toEqual(["registry"]);
+    expect(Object.keys(application.capabilities.surfaces)).toEqual(["registry"]);
     expect(application.authoring.capabilities.blocks.registry).toBe(
       application.capabilities.blocks.registry,
     );
     expect(application.runtime.capabilities.blocks.registry).toBe(
       application.capabilities.blocks.registry,
+    );
+    expect(application.authoring.capabilities.surfaces.registry).toBe(
+      application.capabilities.surfaces.registry,
+    );
+    expect(application.runtime.capabilities.surfaces.registry).toBe(
+      application.capabilities.surfaces.registry,
     );
     expect(Object.keys(application.authoring.blocks)).toEqual(["extensions"]);
     expect(Object.keys(application.runtime.blocks)).toEqual(["extensions"]);
@@ -61,7 +72,7 @@ describe("createScaffoldApplication", () => {
     );
   });
 
-  it("creates an isolated immutable Block registry for each application", () => {
+  it("creates isolated immutable Block and Surface registries for each application", () => {
     const firstApplication = createScaffoldApplication();
     const secondApplication = createScaffoldApplication();
 
@@ -69,8 +80,14 @@ describe("createScaffoldApplication", () => {
     expect(firstApplication.capabilities.blocks.registry).not.toBe(
       secondApplication.capabilities.blocks.registry,
     );
+    expect(firstApplication.capabilities.surfaces.registry.definitions).toHaveLength(18);
+    expect(firstApplication.capabilities.surfaces.registry).not.toBe(
+      secondApplication.capabilities.surfaces.registry,
+    );
     expect(Object.isFrozen(firstApplication.capabilities.blocks)).toBe(true);
     expect(Object.isFrozen(firstApplication.capabilities.blocks.registry)).toBe(true);
+    expect(Object.isFrozen(firstApplication.capabilities.surfaces)).toBe(true);
+    expect(Object.isFrozen(firstApplication.capabilities.surfaces.registry)).toBe(true);
   });
 
   it("projects one complete host Block after all mandatory Core Blocks", () => {

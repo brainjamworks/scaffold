@@ -27,6 +27,7 @@ import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
 
 export interface DescribeLayoutContractInput {
   blockDefinitions: BlockRegistry;
@@ -188,6 +189,7 @@ function createLayoutContractEditor(
   const capabilities = Object.freeze({
     blocks: Object.freeze({ registry: blockDefinitions }),
     layouts: Object.freeze({ registry: layoutDefinitions }),
+    surfaces: Object.freeze({ registry: createSurfaceVariantRegistry([]) }),
   });
 
   return new Editor({

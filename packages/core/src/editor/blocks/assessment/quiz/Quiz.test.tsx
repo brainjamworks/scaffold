@@ -459,6 +459,7 @@ const quizTestBlockRegistry = createBlockRegistry([
 const quizTestCapabilities = resolveScaffoldCapabilities({
   blockDefinitions: quizTestBlockRegistry.definitions,
   layoutDefinitions: builtInLayoutDefinitions,
+  surfaceDefinitions: [],
 });
 
 const publishInteractionOwnerSnapshot = (

@@ -39,6 +39,7 @@ const editors: Editor[] = [];
 const coreCapabilities = Object.freeze({
   blocks: Object.freeze({ registry: builtInBlockRegistry }),
   layouts: Object.freeze({ registry: builtInLayoutRegistry }),
+  surfaces: Object.freeze({ registry: builtInSurfaceVariantRegistry }),
 });
 const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: builtInBlockRegistry,

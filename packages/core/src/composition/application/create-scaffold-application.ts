@@ -19,7 +19,7 @@ import type { LayoutRuntimeViewRegistration } from "@/editor/arrangements/layout
 import { builtInBlockAuthoringBindings } from "@/editor/blocks/authoring-block-extensions";
 import { builtInBlockDefinitions } from "@/editor/blocks/built-in-block-definitions";
 import { builtInBlockRuntimeBindings } from "@/editor/blocks/runtime-block-extensions";
-import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
+import { builtInSurfaceVariantDefinitions } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { validateSurfaceVariantFactories } from "@/editor/surfaces/model/surface-variant-registry";
 
 import {
@@ -99,8 +99,9 @@ export function createScaffoldApplication(
   const capabilities = resolveScaffoldCapabilities({
     blockDefinitions: blockCapabilities.map((capability) => capability.definition),
     layoutDefinitions: layoutCapabilities.map((capability) => capability.definition),
+    surfaceDefinitions: builtInSurfaceVariantDefinitions,
   });
-  validateSurfaceVariantFactories(builtInSurfaceVariantRegistry);
+  validateSurfaceVariantFactories(capabilities.surfaces.registry);
   validateUniqueBlockExtensionNames(blockCapabilities, "authoring");
   validateUniqueBlockExtensionNames(blockCapabilities, "runtime");
   const authoring = createScaffoldAuthoringComposition(

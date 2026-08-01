@@ -46,6 +46,7 @@ const TestLayoutNode = Node.create({
 const testCapabilities = resolveScaffoldCapabilities({
   blockDefinitions: builtInBlockRegistry.definitions,
   layoutDefinitions: builtInLayoutDefinitions,
+  surfaceDefinitions: [],
 });
 
 function createContentEditor(id: string) {

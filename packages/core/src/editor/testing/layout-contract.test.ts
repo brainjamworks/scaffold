@@ -41,6 +41,7 @@ import { describeLayoutContract } from "@/editor/testing";
 import { assertLayoutContract } from "@/editor/testing/layout-contract";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
 import { DefaultLayoutContent } from "@/editor/arrangements/layout/authoring/default-layout-content";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
@@ -48,6 +49,7 @@ import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extens
 const coreCapabilities = Object.freeze({
   blocks: Object.freeze({ registry: builtInBlockRegistry }),
   layouts: Object.freeze({ registry: builtInLayoutRegistry }),
+  surfaces: Object.freeze({ registry: createSurfaceVariantRegistry([]) }),
 });
 
 const TestLayoutOptionsSchema = z.object({

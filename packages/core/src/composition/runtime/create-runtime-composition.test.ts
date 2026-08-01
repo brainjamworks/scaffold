@@ -26,6 +26,7 @@ import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-
 import * as surfaceVariantRegistry from "@/editor/surfaces/model/surface-variant-registry";
 
 import { createCourseDocumentRuntimeExtensions } from "./create-runtime-composition";
+import { createCoreScaffoldRuntimeComposition } from "./scaffold-runtime-composition";
 
 const AUTHORING_ONLY_EXTENSION_NAMES = [
   "scaffoldInteractionOwner",
@@ -44,10 +45,11 @@ describe("createCourseDocumentRuntimeExtensions", () => {
   it("validates built-in Surface factories when resolving the default runtime composition", () => {
     const validateFactories = vi.spyOn(surfaceVariantRegistry, "validateSurfaceVariantFactories");
 
-    createCourseDocumentRuntimeExtensions();
+    const composition = createCoreScaffoldRuntimeComposition();
 
     expect(validateFactories).toHaveBeenCalledOnce();
-    expect(validateFactories).toHaveBeenCalledWith(builtInSurfaceVariantRegistry);
+    expect(validateFactories).toHaveBeenCalledWith(composition.capabilities.surfaces.registry);
+    expect(composition.capabilities.surfaces.registry).not.toBe(builtInSurfaceVariantRegistry);
   });
 
   it("constructs one built-in runtime surface node", () => {

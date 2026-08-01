@@ -40,6 +40,7 @@ const alignmentTargetPort = createAlignmentTargetPort({
 const coreCapabilities = Object.freeze({
   blocks: Object.freeze({ registry: testBlockRegistry }),
   layouts: Object.freeze({ registry: builtInLayoutRegistry }),
+  surfaces: Object.freeze({ registry: testSurfaceVariants }),
 });
 const resolveBlockChromeTargetDescriptor = (
   state: Parameters<typeof resolveBlockChromeTargetDescriptorWithLookup>[0],

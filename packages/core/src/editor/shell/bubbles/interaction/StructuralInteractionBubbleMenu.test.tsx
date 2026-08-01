@@ -59,6 +59,7 @@ const alignmentTargetPort = createAlignmentTargetPort({
 const testCapabilities = resolveScaffoldCapabilities({
   blockDefinitions: builtInBlockRegistry.definitions,
   layoutDefinitions: builtInLayoutDefinitions,
+  surfaceDefinitions: [],
 });
 let testRendererBindings: StructuralInteractionBubbleRendererBinding[] = [];
 
