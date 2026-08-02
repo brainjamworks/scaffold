@@ -15,7 +15,6 @@ import { InlineIconAuthoringNode } from "@/editor/rich-text/inline-icon/authorin
 import { MathInlineNode } from "@/editor/rich-text/math/authoring/MathInlineNodeView";
 import { VocabularyTermAuthoringNode } from "@/editor/rich-text/vocabulary-term/authoring/VocabularyTermAuthoringNode";
 import { Placeholder } from "@/editor/prosemirror/placeholder/Placeholder";
-import { builtInInsertCatalog } from "@/editor/insertion/built-in-insert-catalog";
 import { createEmptyInsertionRowExtension } from "@/editor/suggestions/empty-row/EmptyInsertionRowExtension";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
 import { createBoundedContainerStructurePolicy } from "@/editor/bounded-containers/authoring/BoundedContainerStructurePolicy";
@@ -99,9 +98,13 @@ export function createCourseDocumentAuthoringExtensions({
       includeChildren: true,
       placeholder: resolveEditorPlaceholder,
     }),
-    createEmptyInsertionRowExtension({ surfaceVariants: surfaceRegistry }),
+    createEmptyInsertionRowExtension({
+      blockDefinitions: blockRegistry,
+      surfaceVariants: surfaceRegistry,
+    }),
     createSlashCommand({
-      items: builtInInsertCatalog.actions,
+      blockDefinitions: blockRegistry,
+      items: resolvedComposition.catalogues.inDocument.actions,
       surfaceVariants: surfaceRegistry,
     }),
     ...resolvedComposition.blocks.extensions,

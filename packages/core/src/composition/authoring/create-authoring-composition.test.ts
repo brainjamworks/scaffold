@@ -29,7 +29,6 @@ import {
 } from "@/editor/arrangements/layout/authoring/layout-nodes";
 import { LayoutAddGhost } from "@/editor/arrangements/layout/authoring/layout-chrome";
 import type { LayoutComponentProps } from "@/editor/arrangements/layout/authoring/layout-view-definition";
-import { builtInInsertCatalog } from "@/editor/insertion/built-in-insert-catalog";
 import * as emptyInsertionRow from "@/editor/suggestions/empty-row/EmptyInsertionRowExtension";
 import * as slashCommand from "@/editor/suggestions/slash/SlashCommand";
 import * as surfaceAuthoringNode from "@/editor/surfaces/authoring/nodes/surface-authoring-node";
@@ -334,9 +333,13 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     });
     expect(createRootSelection).toHaveBeenCalledWith({ surfaceVariants: surfaceRegistry });
     expect(createLifecycle).toHaveBeenCalledWith({ registry: surfaceRegistry });
-    expect(createEmptyRow).toHaveBeenCalledWith({ surfaceVariants: surfaceRegistry });
+    expect(createEmptyRow).toHaveBeenCalledWith({
+      blockDefinitions: application.capabilities.blocks.registry,
+      surfaceVariants: surfaceRegistry,
+    });
     expect(createSlash).toHaveBeenCalledWith({
-      items: builtInInsertCatalog.actions,
+      blockDefinitions: application.capabilities.blocks.registry,
+      items: application.authoring.catalogues.inDocument.actions,
       surfaceVariants: surfaceRegistry,
     });
   });

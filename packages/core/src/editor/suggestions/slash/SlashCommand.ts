@@ -5,7 +5,6 @@ import { PluginKey } from "@tiptap/pm/state";
 import { ReactRenderer } from "@tiptap/react";
 import Suggestion from "@tiptap/suggestion";
 
-import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import {
   insertCatalogItemChecked,
@@ -32,6 +31,7 @@ import { searchSlashItems, type SlashItem } from "../insert/items";
 import { SlashMenu, type SlashMenuHandle } from "./SlashMenu";
 
 export interface SlashCommandOptions {
+  blockDefinitions: BlockDefinitionLookup;
   items: readonly InsertAction[];
   surfaceVariants: SurfaceVariantLookup;
 }
@@ -108,7 +108,11 @@ function slashCommandReference(
   };
 }
 
-export function createSlashCommand({ items, surfaceVariants }: SlashCommandOptions) {
+export function createSlashCommand({
+  blockDefinitions,
+  items,
+  surfaceVariants,
+}: SlashCommandOptions) {
   return Extension.create({
     name: "slashCommand",
 
@@ -126,7 +130,7 @@ export function createSlashCommand({ items, surfaceVariants }: SlashCommandOptio
           },
           command: ({ editor, range, props }) => {
             const item = props as SlashItem;
-            insertSlashCommandItem(editor, range, item, builtInBlockRegistry, surfaceVariants);
+            insertSlashCommandItem(editor, range, item, blockDefinitions, surfaceVariants);
           },
           render: () => {
             let component: ReactRenderer<SlashMenuHandle> | null = null;

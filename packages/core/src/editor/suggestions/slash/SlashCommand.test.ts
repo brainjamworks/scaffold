@@ -1,12 +1,18 @@
 // @vitest-environment happy-dom
 
-import { Editor } from "@tiptap/core";
+import { CircleIcon } from "@phosphor-icons/react";
+import { Editor, Node, type JSONContent } from "@tiptap/core";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { EditorContent } from "@tiptap/react";
 import { createElement, Fragment } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
+import {
+  createScaffoldApplication,
+  defineScaffoldExtensionPack,
+  type BlockCapability,
+} from "@/composition/application/create-scaffold-application";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { builtInInsertCatalog } from "@/editor/insertion/built-in-insert-catalog";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
@@ -57,6 +63,7 @@ function makeEditor(items: readonly InsertAction[], ownerDocument: Document = do
   ownerRoot.append(element);
   ownerDocument.body.append(ownerRoot);
   const slashCommand = createSlashCommand({
+    blockDefinitions: builtInBlockRegistry,
     items,
     surfaceVariants: builtInSurfaceVariantRegistry,
   });
@@ -68,6 +75,28 @@ function makeEditor(items: readonly InsertAction[], ownerDocument: Document = do
     element,
     extensions: [...extensions, slashCommand],
     content: createScaffoldDocumentContent({ mode: "page" }),
+  });
+}
+
+function makeApplicationEditor(
+  application: ReturnType<typeof createScaffoldApplication>,
+  content: JSONContent = createScaffoldDocumentContent({ mode: "page" }),
+) {
+  const ownerRoot = document.createElement("div");
+  for (const [name, value] of Object.entries(authoringInteractionRootAttributes())) {
+    ownerRoot.setAttribute(name, value);
+  }
+  const element = document.createElement("div");
+  ownerRoot.append(element);
+  document.body.append(ownerRoot);
+
+  return new Editor({
+    element,
+    extensions: createCourseDocumentAuthoringExtensions({
+      editable: true,
+      composition: application.authoring,
+    }).filter(({ name }) => name !== "surfaceLifecycleAuthoringPolicy"),
+    content,
   });
 }
 
@@ -300,6 +329,85 @@ function editorHasNode(editor: Editor, nodeType: string): boolean {
 }
 
 describe("SlashCommand catalog inputs", () => {
+  it("discovers and inserts a host Block only in its resolved application", async () => {
+    const hostBlock = hostBlockCapability("host_slash_block");
+    const plusApplication = createScaffoldApplication({
+      packs: [defineScaffoldExtensionPack({ id: "host-slash-pack", blocks: [hostBlock] })],
+    });
+    const coreApplication = createScaffoldApplication();
+    const plusEditor = makeApplicationEditor(plusApplication);
+    const coreEditor = makeApplicationEditor(coreApplication);
+    const plusHost = document.createElement("div");
+    const coreHost = document.createElement("div");
+    document.body.append(plusHost, coreHost);
+    const rendered = render(
+      createElement(
+        Fragment,
+        null,
+        renderScopedEditor(plusEditor, plusHost),
+        renderScopedEditor(coreEditor, coreHost),
+      ),
+    );
+
+    await waitFor(() => {
+      expect(resolveSlashCommandPopupTarget(plusEditor)).not.toBeNull();
+      expect(resolveSlashCommandPopupTarget(coreEditor)).not.toBeNull();
+    });
+    const plusRoot = requireSlashRoot(plusEditor);
+    const coreRoot = requireSlashRoot(coreEditor);
+
+    plusEditor.commands.focus("end");
+    plusEditor.commands.insertContent("/host-slash");
+    coreEditor.commands.focus("end");
+    coreEditor.commands.insertContent("/host-slash");
+
+    await waitFor(() => {
+      expect(plusRoot.querySelector('[aria-label="Host Slash Block"]')).not.toBeNull();
+      expect(coreRoot.textContent).toContain("No block matches");
+    });
+
+    plusEditor.view.dom.dispatchEvent(
+      new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }),
+    );
+
+    await waitFor(() =>
+      expect(editorHasNode(plusEditor, hostBlock.definition.nodeType)).toBe(true),
+    );
+    expect(editorHasNode(coreEditor, hostBlock.definition.nodeType)).toBe(false);
+
+    plusEditor.destroy();
+    coreEditor.destroy();
+    rendered.unmount();
+  });
+
+  it("uses host Block placement metadata during checked slash insertion", async () => {
+    const hostBlock = hostBlockCapability("host_fill_slash_block", "fill");
+    const application = createScaffoldApplication({
+      packs: [defineScaffoldExtensionPack({ id: "host-fill-slash-pack", blocks: [hostBlock] })],
+    });
+    const editor = makeApplicationEditor(application, boundedRegionDocument());
+    const host = document.createElement("div");
+    document.body.append(host);
+    const rendered = render(renderScopedEditor(editor, host));
+
+    await waitFor(() => expect(resolveSlashCommandPopupTarget(editor)).not.toBeNull());
+    const root = requireSlashRoot(editor);
+    setCursorInFirstEmptyParagraph(editor);
+    expect(editor.commands.insertContent("/host-fill-slash")).toBe(true);
+    expect(isSlashCommandActive(editor.state)).toBe(true);
+
+    await waitFor(() => {
+      expect(root.querySelector('[aria-label="Host Fill Slash Block"]')).not.toBeNull();
+    });
+    editor.view.dom.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+
+    expect(editorHasNode(editor, hostBlock.definition.nodeType)).toBe(false);
+    expect(editor.state.doc.textContent).toContain("Existing region content");
+
+    editor.destroy();
+    rendered.unmount();
+  });
+
   it("searches the explicitly supplied built-in catalog", () => {
     const editor = makeEditor(builtInInsertCatalog.actions);
 
@@ -350,3 +458,82 @@ describe("SlashCommand catalog inputs", () => {
     editor.destroy();
   });
 });
+
+function hostBlockCapability(nodeType: string, boundedPlacement?: "fill"): BlockCapability {
+  const title = nodeType
+    .split("_")
+    .map((word) => `${word[0]?.toUpperCase()}${word.slice(1)}`)
+    .join(" ");
+  const createNode = () =>
+    Node.create({
+      name: nodeType,
+      group: "block",
+      atom: true,
+      renderHTML: () => ["div", { "data-host-test-block": nodeType }],
+    });
+
+  return {
+    definition: {
+      nodeType,
+      ...(boundedPlacement ? { boundedPlacement } : {}),
+      insert: {
+        id: nodeType.replaceAll("_", "-"),
+        title,
+        description: `Insert ${title}`,
+        icon: CircleIcon,
+        category: "content",
+        content: () => ({ type: nodeType }),
+      },
+    },
+    authoringExtension: createNode(),
+    runtimeExtension: createNode(),
+  };
+}
+
+function boundedRegionDocument(): JSONContent {
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "courseDocument",
+        attrs: { mode: "slideshow" },
+        content: [
+          {
+            type: "surface",
+            attrs: {
+              id: "surface-host-fill",
+              variant: "slide-content",
+              settings: { slideTitle: { enabled: false } },
+            },
+            content: [
+              { type: "slide_title" },
+              {
+                type: "region",
+                attrs: { id: "region-host-fill", role: "main" },
+                content: [
+                  { type: "paragraph" },
+                  {
+                    type: "paragraph",
+                    content: [{ type: "text", text: "Existing region content" }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function setCursorInFirstEmptyParagraph(editor: Editor): void {
+  let position: number | null = null;
+  editor.state.doc.descendants((node, pos) => {
+    if (position !== null) return false;
+    if (node.type.name !== "paragraph" || node.content.size !== 0) return true;
+    position = pos + 1;
+    return false;
+  });
+  if (position === null) throw new Error("Expected an empty paragraph.");
+  editor.commands.setTextSelection(position);
+}

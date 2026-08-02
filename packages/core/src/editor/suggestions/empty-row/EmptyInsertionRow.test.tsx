@@ -1,12 +1,18 @@
 // @vitest-environment happy-dom
 
-import { Editor, type JSONContent } from "@tiptap/core";
+import { CircleIcon } from "@phosphor-icons/react";
+import { Editor, Node, type JSONContent } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import {
+  createScaffoldApplication,
+  defineScaffoldExtensionPack,
+  type BlockCapability,
+} from "@/composition/application/create-scaffold-application";
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
@@ -22,7 +28,8 @@ import {
 
 const resolveEmptyInsertionTarget = (
   state: Parameters<typeof resolveEmptyInsertionTargetWithLookup>[0],
-) => resolveEmptyInsertionTargetWithLookup(state, builtInSurfaceVariantRegistry);
+) =>
+  resolveEmptyInsertionTargetWithLookup(state, builtInBlockRegistry, builtInSurfaceVariantRegistry);
 
 const ownedEditors = new Map<Editor, HTMLElement | null>();
 
@@ -39,6 +46,22 @@ function makeEditor(content = createScaffoldDocumentContent({ mode: "page" }), a
 
 function makeEditorWithRegisteredBlocks(content = createScaffoldDocumentContent({ mode: "page" })) {
   return makeEditor(content);
+}
+
+function makeApplicationEditor(
+  application: ReturnType<typeof createScaffoldApplication>,
+  content: JSONContent,
+) {
+  const editor = new Editor({
+    extensions: createCourseDocumentAuthoringExtensions({
+      editable: true,
+      composition: application.authoring,
+    }),
+    content,
+  });
+  document.body.append(editor.view.dom);
+  ownedEditors.set(editor, editor.view.dom);
+  return editor;
 }
 
 function setCursorInFirstEmptyParagraph(editor: Editor) {
@@ -244,6 +267,42 @@ afterEach(() => {
 });
 
 describe("EmptyInsertionRow", () => {
+  it("keeps simultaneous editor placement policies isolated for host Blocks", async () => {
+    const nodeType = "isolated_host_placement_block";
+    const fillApplication = createScaffoldApplication({
+      packs: [
+        defineScaffoldExtensionPack({
+          id: "fill-host-placement",
+          blocks: [hostPlacementBlockCapability(nodeType, "fill")],
+        }),
+      ],
+    });
+    const flowApplication = createScaffoldApplication({
+      packs: [
+        defineScaffoldExtensionPack({
+          id: "flow-host-placement",
+          blocks: [hostPlacementBlockCapability(nodeType)],
+        }),
+      ],
+    });
+    const fillEditor = makeApplicationEditor(
+      fillApplication,
+      hostPlacementDocument(nodeType, "fill"),
+    );
+    const flowEditor = makeApplicationEditor(
+      flowApplication,
+      hostPlacementDocument(nodeType, "flow"),
+    );
+
+    setCursorInEmptyParagraphOwnedBy(fillEditor, "region");
+    setCursorInEmptyParagraphOwnedBy(flowEditor, "region");
+
+    await waitFor(() => {
+      expect(fillEditor.view.dom.querySelector("[data-empty-insertion-row]")).toBeNull();
+      expect(flowEditor.view.dom.querySelector("[data-empty-insertion-row]")).not.toBeNull();
+    });
+  });
+
   it("renders for the active empty paragraph in a structural surface", async () => {
     const editor = makeEditor();
 
@@ -1082,3 +1141,63 @@ describe("EmptyInsertionRow", () => {
     editor.destroy();
   });
 });
+
+function hostPlacementBlockCapability(
+  nodeType: string,
+  boundedPlacement?: "fill",
+): BlockCapability {
+  const createNode = () =>
+    Node.create({
+      name: nodeType,
+      group: "block",
+      atom: true,
+      renderHTML: () => ["div", { "data-host-test-block": nodeType }],
+    });
+
+  return {
+    definition: {
+      nodeType,
+      ...(boundedPlacement ? { boundedPlacement } : {}),
+      insert: {
+        id: nodeType.replaceAll("_", "-"),
+        title: "Isolated host placement Block",
+        description: "Host Block used to prove editor-scoped placement",
+        icon: CircleIcon,
+        category: "content",
+        content: () => ({ type: nodeType }),
+      },
+    },
+    authoringExtension: createNode(),
+    runtimeExtension: createNode(),
+  };
+}
+
+function hostPlacementDocument(nodeType: string, id: string): JSONContent {
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "courseDocument",
+        attrs: { mode: "slideshow" },
+        content: [
+          {
+            type: "surface",
+            attrs: {
+              id: `surface-host-placement-${id}`,
+              variant: "slide-content",
+              settings: { slideTitle: { enabled: false } },
+            },
+            content: [
+              { type: "slide_title" },
+              {
+                type: "region",
+                attrs: { id: `region-host-placement-${id}`, role: "main" },
+                content: [{ type: nodeType }, { type: "paragraph" }],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}

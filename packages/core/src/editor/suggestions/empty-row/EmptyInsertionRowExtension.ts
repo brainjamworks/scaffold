@@ -3,7 +3,7 @@ import type { EditorState } from "@tiptap/pm/state";
 import { Plugin, PluginKey, Selection, type Transaction } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 
-import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import {
   InteractionTargetKind,
   type InteractionTargetRef,
@@ -58,13 +58,16 @@ export function setEmptyInsertionRowMovementDragActive(
   );
 }
 
-export function isEmptyInsertionRowSuppressed(state: EditorState): boolean {
+export function isEmptyInsertionRowSuppressed(
+  state: EditorState,
+  blockDefinitions: BlockDefinitionLookup,
+): boolean {
   if (EMPTY_INSERTION_ROW_PLUGIN_KEY.getState(state)?.movementDragActive) {
     return true;
   }
 
   const { owners } = publishInteractionOwnerSnapshot(state, null, {
-    blockDefinitions: builtInBlockRegistry,
+    blockDefinitions,
   });
   return isGridOrCellInsertionConflict(owners.menuOwner.target);
 }
@@ -75,6 +78,7 @@ function isGridOrCellInsertionConflict(target: InteractionTargetRef | null): boo
 
 export function resolveEmptyInsertionTarget(
   state: EditorState,
+  blockDefinitions: BlockDefinitionLookup,
   surfaceVariants: SurfaceVariantLookup,
 ): EmptyInsertionTarget | null {
   const { selection } = state;
@@ -95,7 +99,7 @@ export function resolveEmptyInsertionTarget(
   if (!allowsSurfaceRootInsertion(insertionParent, surfaceVariants)) return null;
   if (
     !allowsBoundedContainerRootInsertionAtPosition({
-      blockDefinitions: builtInBlockRegistry,
+      blockDefinitions,
       doc: state.doc,
       pos: insertionParentPos,
     })
@@ -111,8 +115,10 @@ export function resolveEmptyInsertionTarget(
 }
 
 export function createEmptyInsertionRowExtension({
+  blockDefinitions,
   surfaceVariants,
 }: {
+  blockDefinitions: BlockDefinitionLookup;
   surfaceVariants: SurfaceVariantLookup;
 }) {
   return Extension.create({
@@ -142,6 +148,7 @@ export function createEmptyInsertionRowExtension({
                 editor,
                 editorView,
                 event,
+                blockDefinitions,
                 surfaceVariants,
               );
               if (!tr) return;
@@ -163,9 +170,9 @@ export function createEmptyInsertionRowExtension({
           props: {
             decorations(state) {
               if (!editor.isEditable) return null;
-              if (!shouldShowEmptyInsertionRowChrome(editor, state)) return null;
+              if (!shouldShowEmptyInsertionRowChrome(editor, state, blockDefinitions)) return null;
 
-              const target = resolveEmptyInsertionTarget(state, surfaceVariants);
+              const target = resolveEmptyInsertionTarget(state, blockDefinitions, surfaceVariants);
               if (!target) return null;
 
               return DecorationSet.create(state.doc, [
@@ -192,7 +199,11 @@ export function createEmptyInsertionRowExtension({
             },
             handleKeyDown(view, event) {
               if (event.key !== "Backspace" && event.key !== "Delete") return false;
-              const tr = removeActiveEmptyInsertionLine(view.state, surfaceVariants);
+              const tr = removeActiveEmptyInsertionLine(
+                view.state,
+                blockDefinitions,
+                surfaceVariants,
+              );
               if (!tr) return false;
 
               event.preventDefault();
@@ -206,14 +217,19 @@ export function createEmptyInsertionRowExtension({
   });
 }
 
-function shouldShowEmptyInsertionRowChrome(editor: Editor, state: EditorState): boolean {
-  return editor.isEditable && !isEmptyInsertionRowSuppressed(state);
+function shouldShowEmptyInsertionRowChrome(
+  editor: Editor,
+  state: EditorState,
+  blockDefinitions: BlockDefinitionLookup,
+): boolean {
+  return editor.isEditable && !isEmptyInsertionRowSuppressed(state, blockDefinitions);
 }
 
 function insertEmptyParagraphForBlankParentClick(
   editor: Editor,
   view: Editor["view"],
   event: MouseEvent,
+  blockDefinitions: BlockDefinitionLookup,
   surfaceVariants: SurfaceVariantLookup,
 ): Transaction | null {
   if (!editor.isEditable) return null;
@@ -227,7 +243,7 @@ function insertEmptyParagraphForBlankParentClick(
   if (!allowsSurfaceRootInsertion(parentContext.node, surfaceVariants)) return null;
   if (
     !allowsBoundedContainerRootInsertionAtPosition({
-      blockDefinitions: builtInBlockRegistry,
+      blockDefinitions,
       doc: view.state.doc,
       pos: parentContext.pos,
     })
@@ -269,9 +285,10 @@ function insertEmptyParagraphForBlankParentClick(
 
 function removeActiveEmptyInsertionLine(
   state: EditorState,
+  blockDefinitions: BlockDefinitionLookup,
   surfaceVariants: SurfaceVariantLookup,
 ): Transaction | null {
-  const target = resolveEmptyInsertionTarget(state, surfaceVariants);
+  const target = resolveEmptyInsertionTarget(state, blockDefinitions, surfaceVariants);
   if (!target) return null;
 
   const { $from } = state.selection;
