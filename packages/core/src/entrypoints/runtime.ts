@@ -11,6 +11,13 @@ export {
 } from "@/host/providers/ScaffoldServicesProvider";
 export type { ScaffoldRuntimePorts } from "@/host/ports/runtime-ports";
 export {
+  CourseThemePortalBoundary,
+  CourseThemeProvider,
+  useCourseTheme,
+  type CourseThemePortalBoundaryProps,
+  type CourseThemeProviderProps,
+} from "@/theme/course/CourseThemeProvider";
+export {
   migrateCourseDocumentJSON,
   readCourseDocumentFormatVersion,
   type CourseDocumentMigrationErrorCode,

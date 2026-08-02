@@ -1,0 +1,71 @@
+.sc-course.sc-course-theme-scaffold-flow-v1 {
+  min-width: 0;
+  font-family: var(--default-font-family);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 :where(h1, h2, h3, h4, h5, h6, .rt-Heading) {
+  font-family: var(--heading-font-family);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 :where(code, kbd, pre, samp) {
+  font-family: var(--code-font-family);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 :where([data-course-state]) {
+  border-style: solid;
+  border-width: 1px;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 :where([data-course-state="info"]) {
+  color: var(--sc-course-state-info-text);
+  background-color: var(--sc-course-state-info-background);
+  border-color: var(--sc-course-state-info-border);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 :where([data-course-state="warning"]) {
+  color: var(--sc-course-state-warning-text);
+  background-color: var(--sc-course-state-warning-background);
+  border-color: var(--sc-course-state-warning-border);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 :where([data-course-state="error"]) {
+  color: var(--sc-course-state-error-text);
+  background-color: var(--sc-course-state-error-background);
+  border-color: var(--sc-course-state-error-border);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 :where([data-course-state="correct"]) {
+  color: var(--sc-course-state-correct-text);
+  background-color: var(--sc-course-state-correct-background);
+  border-color: var(--sc-course-state-correct-border);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 :where([data-course-state="incorrect"]) {
+  color: var(--sc-course-state-incorrect-text);
+  background-color: var(--sc-course-state-incorrect-background);
+  border-color: var(--sc-course-state-incorrect-border);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 :where([data-course-state="current"]) {
+  color: var(--sc-course-state-current-text);
+  background-color: var(--sc-course-state-current-background);
+  border-color: var(--sc-course-state-current-border);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 :where([data-course-state="completed"]) {
+  color: var(--sc-course-state-completed-text);
+  background-color: var(--sc-course-state-completed-background);
+  border-color: var(--sc-course-state-completed-border);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 :where([data-course-state="available"]) {
+  color: var(--sc-course-state-available-text);
+  background-color: var(--sc-course-state-available-background);
+  border-color: var(--sc-course-state-available-border);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 :where([data-course-state="locked"]) {
+  color: var(--sc-course-state-locked-text);
+  background-color: var(--sc-course-state-locked-background);
+  border-color: var(--sc-course-state-locked-border);
+}

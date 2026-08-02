@@ -1,0 +1,35 @@
+.sc-course [data-course-state="info"] .sc-course-state__indicator {
+  color: var(--sc-course-state-info-indicator);
+}
+
+.sc-course [data-course-state="warning"] .sc-course-state__indicator {
+  color: var(--sc-course-state-warning-indicator);
+}
+
+.sc-course [data-course-state="error"] .sc-course-state__indicator {
+  color: var(--sc-course-state-error-indicator);
+}
+
+.sc-course [data-course-state="correct"] .sc-course-state__indicator {
+  color: var(--sc-course-state-correct-indicator);
+}
+
+.sc-course [data-course-state="incorrect"] .sc-course-state__indicator {
+  color: var(--sc-course-state-incorrect-indicator);
+}
+
+.sc-course [data-course-state="current"] .sc-course-state__indicator {
+  color: var(--sc-course-state-current-indicator);
+}
+
+.sc-course [data-course-state="completed"] .sc-course-state__indicator {
+  color: var(--sc-course-state-completed-indicator);
+}
+
+.sc-course [data-course-state="available"] .sc-course-state__indicator {
+  color: var(--sc-course-state-available-indicator);
+}
+
+.sc-course [data-course-state="locked"] .sc-course-state__indicator {
+  color: var(--sc-course-state-locked-indicator);
+}
