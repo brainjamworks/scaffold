@@ -1,6 +1,12 @@
 import { describe, expect, expectTypeOf, it } from "vite-plus/test";
 
-import * as extensions from "@scaffold/core/extensions";
+import * as extensions from "./extensions";
+import type { BlockInsertVariantDefinition as CoreBlockInsertVariantDefinition } from "../editor/blocks/block-definition";
+import type { ScaffoldAuthoringCatalogues as CoreScaffoldAuthoringCatalogues } from "../composition/extensions/scaffold-authoring-catalogues-storage";
+import type {
+  BlockInsertVariantDefinition as ExtensionBlockInsertVariantDefinition,
+  ScaffoldAuthoringCatalogues as ExtensionScaffoldAuthoringCatalogues,
+} from "./extensions";
 import type {
   BlockCapability,
   BlockDefinition,
@@ -31,8 +37,10 @@ import type {
 } from "@scaffold/core/extensions";
 
 type ExtensionTypeSurface = {
+  authoringCatalogues: ExtensionScaffoldAuthoringCatalogues;
   blockDefinitionInput: BlockDefinitionInput;
   blockDefinition: BlockDefinition;
+  blockInsertVariant: ExtensionBlockInsertVariantDefinition;
   blockCapability: BlockCapability;
   layoutCapability: LayoutCapability;
   surfaceCapability: SurfaceCapability;
@@ -79,12 +87,15 @@ describe("@scaffold/core/extensions", () => {
       "createScaffoldCapabilitiesStorageExtension",
       "defineBlock",
       "defineScaffoldExtensionPack",
+      "getScaffoldAuthoringCataloguesForEditor",
       "getScaffoldCapabilitiesForEditor",
     ]);
   });
 
   it("publishes only the complete Block, Layout, and Surface composition contracts", () => {
     expectTypeOf<ExtensionTypeSurface>().toBeObject();
+    expectTypeOf<CoreBlockInsertVariantDefinition>().toEqualTypeOf<ExtensionBlockInsertVariantDefinition>();
+    expectTypeOf<CoreScaffoldAuthoringCatalogues>().toEqualTypeOf<ExtensionScaffoldAuthoringCatalogues>();
     expectTypeOf<keyof ScaffoldExtensionPackInput>().toEqualTypeOf<
       "blocks" | "id" | "layouts" | "surfaces"
     >();

@@ -31,6 +31,17 @@ const runtimeOwnerPath = [
 ];
 const authoringCatalogueStoragePath =
   "^packages/core/src/composition/extensions/scaffold-authoring-catalogues-storage\\.[^/]+$";
+const legacyBuiltInInsertCatalogPath =
+  "^packages/core/src/editor/insertion/built-in-insert-catalog\\.[^/]+$";
+const legacyCreationInventoryPath = [
+  legacyBuiltInInsertCatalogPath,
+  "^packages/core/src/editor/insertion/core-structural-insert-actions\\.[^/]+$",
+];
+const builtInCreationRegistrySourcePath = [
+  "^packages/core/src/editor/blocks/built-in-block-definitions\\.[^/]+$",
+  "^packages/core/src/editor/arrangements/layout/model/built-in-layout-definitions\\.[^/]+$",
+  "^packages/core/src/editor/surfaces/model/built-in-surface-variant-definitions\\.[^/]+$",
+];
 const authoringOwnerPath = [
   "^packages/core/src/entrypoints/authoring\\.ts$",
   "^packages/core/src/authoring/",
@@ -805,6 +816,118 @@ module.exports = {
       to: {
         path: "^packages/core/src/composition/(?:application|authoring|runtime)/",
         reachable: true,
+      },
+    },
+    {
+      // Owner: the resolved authoring-catalogue contract for suggestion creation.
+      name: "suggestion-creation-does-not-reach-built-in-inventories",
+      severity: "error",
+      from: {
+        path: "^packages/core/src/editor/suggestions/(?:slash|empty-row)/",
+      },
+      to: {
+        path: legacyCreationInventoryPath,
+        reachable: true,
+      },
+    },
+    {
+      // Registry definitions remain legitimate dependencies of lower placement policy,
+      // so protect the migrated suggestion owner from direct shortcuts only.
+      name: "suggestion-creation-does-not-import-built-in-registries",
+      severity: "error",
+      from: {
+        path: "^packages/core/src/editor/suggestions/(?:slash|empty-row)/",
+      },
+      to: {
+        path: builtInCreationRegistrySourcePath,
+      },
+    },
+    {
+      // Owner: injectable Block Strip and Surface picker creation presentations.
+      name: "authoring-creation-ui-does-not-reach-built-in-inventories",
+      severity: "error",
+      from: {
+        path: [
+          "^packages/core/src/editor/shell/chrome/BlockStrip\\.[^/]+$",
+          "^packages/core/src/editor/surfaces/authoring/SurfaceTemplatePickerHost\\.[^/]+$",
+        ],
+      },
+      to: {
+        path: legacyCreationInventoryPath,
+        reachable: true,
+      },
+    },
+    {
+      // Presentation leaves receive registries explicitly and cannot import Core defaults.
+      name: "authoring-creation-ui-does-not-import-built-in-registries",
+      severity: "error",
+      from: {
+        path: [
+          "^packages/core/src/editor/shell/chrome/BlockStrip\\.[^/]+$",
+          "^packages/core/src/editor/surfaces/authoring/SurfaceTemplatePickerHost\\.[^/]+$",
+        ],
+      },
+      to: {
+        path: builtInCreationRegistrySourcePath,
+      },
+    },
+    {
+      // Owner: the mixed authoring shell may retain deferred settings/framing registries,
+      // but its creation wiring cannot regain the deleted catalogue through a relay.
+      name: "authoring-document-chrome-does-not-reach-legacy-insert-catalog",
+      severity: "error",
+      from: {
+        path: "^packages/core/src/editor/shell/authoring/AuthoringDocumentChrome\\.[^/]+$",
+      },
+      to: {
+        path: legacyBuiltInInsertCatalogPath,
+        reachable: true,
+      },
+    },
+    {
+      // Owner: Quiz creation and active-child controls use editor-installed inputs.
+      name: "quiz-authoring-does-not-reach-built-in-inventories",
+      severity: "error",
+      from: {
+        path: "^packages/core/src/editor/blocks/assessment/quiz/(?:quiz-authoring|quick-actions)\\.[^/]+$",
+      },
+      to: {
+        path: legacyCreationInventoryPath,
+        reachable: true,
+      },
+    },
+    {
+      // Quiz receives the installed Block registry through its current editor.
+      name: "quiz-authoring-does-not-import-built-in-registries",
+      severity: "error",
+      from: {
+        path: "^packages/core/src/editor/blocks/assessment/quiz/(?:quiz-authoring|quick-actions)\\.[^/]+$",
+      },
+      to: {
+        path: builtInCreationRegistrySourcePath,
+      },
+    },
+    {
+      // Owner: schema-only Agent insertion requires a caller-supplied catalogue.
+      name: "agent-insertion-does-not-reach-built-in-inventories",
+      severity: "error",
+      from: {
+        path: "^packages/core/src/host/agent/insertion\\.[^/]+$",
+      },
+      to: {
+        path: legacyCreationInventoryPath,
+        reachable: true,
+      },
+    },
+    {
+      // Agent insertion accepts a caller-supplied catalogue and imports no Core registry.
+      name: "agent-insertion-does-not-import-built-in-registries",
+      severity: "error",
+      from: {
+        path: "^packages/core/src/host/agent/insertion\\.[^/]+$",
+      },
+      to: {
+        path: builtInCreationRegistrySourcePath,
       },
     },
     {

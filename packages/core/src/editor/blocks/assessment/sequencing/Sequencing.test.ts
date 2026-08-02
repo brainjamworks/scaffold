@@ -8,7 +8,8 @@ import userEvent from "@testing-library/user-event";
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 
-import { builtInInsertCatalog } from "@/editor/insertion/built-in-insert-catalog";
+import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";
+import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
 import {
   assessmentProblemOutcome,
   createAssessmentRuntimeTestRoot,
@@ -43,6 +44,9 @@ import {
   revealedSequenceOrder,
 } from "./sequencing-fields";
 
+const blockInsertCatalog = createInsertCatalog(
+  createBlockInsertActions([sequencingBlockDefinition]),
+);
 const canonicalAssessmentResult = { maxScore: 1 as const, feedback: null, items: {} };
 
 const BoundedRegionTestNode = TiptapNode.create({
@@ -275,7 +279,7 @@ describe("composite sequencing node", () => {
   });
 
   it("registers only the outer sequencing block in the insert catalog", () => {
-    const nodeTypes = builtInInsertCatalog.actions.map((item) => item.nodeType);
+    const nodeTypes = blockInsertCatalog.actions.map((item) => item.nodeType);
 
     expect(nodeTypes).toContain("sequencing");
     expect(nodeTypes).not.toContain("sequencing_items_group");

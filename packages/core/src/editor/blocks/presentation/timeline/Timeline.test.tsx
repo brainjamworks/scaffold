@@ -10,7 +10,8 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
-import { builtInInsertCatalog } from "@/editor/insertion/built-in-insert-catalog";
+import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";
+import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { describeBlockContract } from "@/editor/testing";
 import { createDisposableEditor } from "@/editor/testing/disposable-editor";
@@ -25,6 +26,8 @@ import {
 import { TimelineAuthoringExtension } from "./timeline-authoring-extension";
 import { timelineBlockDefinition } from "./timeline-definition";
 import { TimelineRuntimeExtension } from "./timeline-runtime-extension";
+
+const blockInsertCatalog = createInsertCatalog(createBlockInsertActions([timelineBlockDefinition]));
 
 const BoundedRegionTestNode = TiptapNode.create({
   name: "region",
@@ -183,7 +186,7 @@ describe("timeline block", () => {
   });
 
   it("seeds catalog content as a timeline block with item-backed events", () => {
-    const insertContent = builtInInsertCatalog.getById("timeline")?.content() as
+    const insertContent = blockInsertCatalog.getById("timeline")?.content() as
       | JSONContent
       | undefined;
 

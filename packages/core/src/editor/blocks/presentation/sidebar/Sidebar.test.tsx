@@ -10,7 +10,8 @@ import { SidebarDataSchema as ContractSidebarDataSchema } from "@scaffold/contra
 
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
-import { builtInInsertCatalog } from "@/editor/insertion/built-in-insert-catalog";
+import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";
+import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { describeBlockContract } from "@/editor/testing";
 import { createDisposableEditor } from "@/editor/testing/disposable-editor";
@@ -23,8 +24,10 @@ import {
   SIDEBAR_TITLE_NODE,
   emptySidebarData,
 } from "./content";
-import "./sidebar-definition";
+import { sidebarBlockDefinition } from "./sidebar-definition";
 import { SidebarAuthoringExtension } from "./sidebar-authoring-extension";
+
+const blockInsertCatalog = createInsertCatalog(createBlockInsertActions([sidebarBlockDefinition]));
 
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
@@ -61,9 +64,7 @@ function renderSidebarEditor(content: JSONContent = sidebarFixture()) {
 }
 
 function sidebarFixture(): JSONContent {
-  const insertContent = builtInInsertCatalog.getById("sidebar")?.content() as
-    | JSONContent
-    | undefined;
+  const insertContent = blockInsertCatalog.getById("sidebar")?.content() as JSONContent | undefined;
 
   if (!insertContent) {
     throw new Error("Expected sidebar insert content to be registered.");
@@ -88,7 +89,7 @@ describe("sidebar block", () => {
   });
 
   it("seeds catalog content as a sidebar block with icon data and field slots", () => {
-    const insertContent = builtInInsertCatalog.getById("sidebar")?.content() as
+    const insertContent = blockInsertCatalog.getById("sidebar")?.content() as
       | JSONContent
       | undefined;
 

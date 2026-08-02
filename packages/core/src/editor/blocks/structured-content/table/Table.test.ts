@@ -12,11 +12,14 @@ import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions
 import { createStableId } from "@/document/model/identity/stable-ids";
 import { AUTHORING_FRAME_EDITABLE_ATTR } from "@/editor/interactions/dom/authoring-frame";
 import { resolveEditorPlaceholder } from "@/editor/prosemirror/placeholder/resolve-editor-placeholder";
-import { builtInInsertCatalog } from "@/editor/insertion/built-in-insert-catalog";
+import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";
 import { createCatalogNodeChecked } from "@/editor/insertion/checked-insertion";
+import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
 import { describeBlockContract } from "@/editor/testing";
 
-import "./table-definition";
+import { tableBlockDefinition } from "./table-definition";
+
+const blockInsertCatalog = createInsertCatalog(createBlockInsertActions([tableBlockDefinition]));
 
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
@@ -336,7 +339,7 @@ function createTableContractEditor(): Editor {
 
 function createTableJson(editor: Editor) {
   const result = createCatalogNodeChecked({
-    catalog: builtInInsertCatalog,
+    catalog: blockInsertCatalog,
     schema: editor.schema,
     actionId: "table",
   });

@@ -10,7 +10,8 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { RoadmapDataSchema as ContractRoadmapDataSchema } from "@scaffold/contracts";
 
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
-import { builtInInsertCatalog } from "@/editor/insertion/built-in-insert-catalog";
+import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";
+import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { describeBlockContract } from "@/editor/testing";
 import { createDisposableEditor } from "@/editor/testing/disposable-editor";
@@ -22,8 +23,10 @@ import {
   emptyRoadmapData,
   roadmapMilestoneContent,
 } from "./content";
-import "./roadmap-definition";
+import { roadmapBlockDefinition } from "./roadmap-definition";
 import { RoadmapAuthoringExtension } from "./roadmap-authoring-extension";
+
+const blockInsertCatalog = createInsertCatalog(createBlockInsertActions([roadmapBlockDefinition]));
 
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
@@ -111,7 +114,7 @@ describe("roadmap node", () => {
   });
 
   it("seeds catalog content with marker mode defaults and stable ids", () => {
-    const insertContent = builtInInsertCatalog.getById("roadmap")?.content() as
+    const insertContent = blockInsertCatalog.getById("roadmap")?.content() as
       | JSONContent
       | undefined;
 

@@ -11,7 +11,8 @@ import { NumberedListDataSchema as ContractNumberedListDataSchema } from "@scaff
 
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
-import { builtInInsertCatalog } from "@/editor/insertion/built-in-insert-catalog";
+import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";
+import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { describeBlockContract } from "@/editor/testing";
 import { createDisposableEditor } from "@/editor/testing/disposable-editor";
@@ -34,10 +35,14 @@ import {
   numberedListItemContent,
   numberedListTitleContent,
 } from "./content";
-import "./numbered-list-definition";
+import { numberedListBlockDefinition } from "./numbered-list-definition";
 import { NumberedListAuthoringExtension } from "./numbered-list-authoring-extension";
 import { NumberedListNode } from "./node";
 import { NumberedListItemNode, NumberedListTitleNode } from "./slots";
+
+const blockInsertCatalog = createInsertCatalog(
+  createBlockInsertActions([numberedListBlockDefinition]),
+);
 
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
@@ -196,7 +201,7 @@ describe("numbered list node", () => {
   });
 
   it("seeds catalog content with stable block and component ids", () => {
-    const insertContent = builtInInsertCatalog.getById("numbered-list")?.content() as
+    const insertContent = blockInsertCatalog.getById("numbered-list")?.content() as
       | JSONContent
       | undefined;
 

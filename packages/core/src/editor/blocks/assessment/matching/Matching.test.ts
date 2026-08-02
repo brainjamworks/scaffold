@@ -8,7 +8,8 @@ import userEvent from "@testing-library/user-event";
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 
-import { builtInInsertCatalog } from "@/editor/insertion/built-in-insert-catalog";
+import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";
+import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
 import {
   assessmentProblemOutcome,
   createAssessmentRuntimeTestRoot,
@@ -43,6 +44,7 @@ import {
 import { MatchingAuthoringExtension } from "./matching-authoring-extension";
 import { MatchingRuntimeExtension } from "./matching-runtime-extension";
 
+const blockInsertCatalog = createInsertCatalog(createBlockInsertActions([matchingBlockDefinition]));
 const canonicalAssessmentResult = { maxScore: 1 as const, feedback: null, items: {} };
 
 const BoundedRegionTestNode = TiptapNode.create({
@@ -309,7 +311,7 @@ describe("composite matching node", () => {
   });
 
   it("registers only the outer matching block in the insert catalog", () => {
-    const nodeTypes = builtInInsertCatalog.actions.map((item) => item.nodeType);
+    const nodeTypes = blockInsertCatalog.actions.map((item) => item.nodeType);
 
     expect(nodeTypes).toContain("matching");
     expect(nodeTypes).not.toContain("matching_pairs_group");

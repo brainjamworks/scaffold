@@ -9,7 +9,8 @@ import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
-import { builtInInsertCatalog } from "@/editor/insertion/built-in-insert-catalog";
+import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";
+import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
 import { describeBlockContract } from "@/editor/testing";
@@ -23,8 +24,12 @@ import {
   createComparisonRow,
   emptyComparisonData,
 } from "./content";
-import "./comparison-definition";
+import { comparisonBlockDefinition } from "./comparison-definition";
 import { ComparisonAuthoringExtension } from "./comparison-authoring-extension";
+
+const blockInsertCatalog = createInsertCatalog(
+  createBlockInsertActions([comparisonBlockDefinition]),
+);
 
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
@@ -100,7 +105,7 @@ describe("comparison block", () => {
   });
 
   it("seeds catalog content as a comparison block with row and cell nodes", () => {
-    const insertContent = builtInInsertCatalog.getById("comparison")?.content() as
+    const insertContent = blockInsertCatalog.getById("comparison")?.content() as
       | JSONContent
       | undefined;
 

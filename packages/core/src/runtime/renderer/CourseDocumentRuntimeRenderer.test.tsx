@@ -6,11 +6,17 @@ import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
-import { builtInInsertCatalog } from "@/editor/insertion/built-in-insert-catalog";
+import { calloutBlockDefinition } from "@/editor/blocks/presentation/callout/callout-definition";
+import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";
+import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { createScaffoldDefaultTheme } from "@/theme/model";
 
 import { CourseDocumentRuntimeRenderer } from "./CourseDocumentRuntimeRenderer";
+
+const calloutInsertCatalog = createInsertCatalog(
+  createBlockInsertActions([calloutBlockDefinition]),
+);
 
 afterEach(() => {
   cleanup();
@@ -402,7 +408,7 @@ describe("CourseDocumentRuntimeRenderer", () => {
 });
 
 function alignmentParityDocumentContent(): JSONContent {
-  const item = builtInInsertCatalog.getById("callout");
+  const item = calloutInsertCatalog.getById("callout");
   if (!item) throw new Error("Callout catalog item is not registered");
   const callout = item.content() as JSONContent;
 

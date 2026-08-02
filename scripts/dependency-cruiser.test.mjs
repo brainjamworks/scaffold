@@ -1015,6 +1015,138 @@ test("rejects authoring catalogue storage reachability to lane roots through an 
   );
 });
 
+test("allows application and authoring composition to derive Core creation inventories", async (t) => {
+  const fixtureRoot = await createFixture(t, {
+    "packages/core/src/editor/blocks/built-in-block-definitions.ts":
+      "export const builtInBlockDefinitions = [];\n",
+    "packages/core/src/editor/arrangements/layout/model/built-in-layout-definitions.ts":
+      "export const builtInLayoutDefinitions = [];\n",
+    "packages/core/src/editor/surfaces/model/built-in-surface-variant-definitions.ts":
+      "export const builtInSurfaceVariantDefinitions = [];\n",
+    "packages/core/src/editor/insertion/core-structural-insert-actions.ts":
+      "export const coreStructuralInsertActions = [];\n",
+    "packages/core/src/composition/application/create-scaffold-application.ts": [
+      'import { builtInBlockDefinitions } from "../../editor/blocks/built-in-block-definitions";',
+      'import { builtInLayoutDefinitions } from "../../editor/arrangements/layout/model/built-in-layout-definitions";',
+      'import { builtInSurfaceVariantDefinitions } from "../../editor/surfaces/model/built-in-surface-variant-definitions";',
+      "export const applicationDefaults = { builtInBlockDefinitions, builtInLayoutDefinitions, builtInSurfaceVariantDefinitions };",
+    ].join("\n"),
+    "packages/core/src/composition/authoring/scaffold-authoring-catalogues.ts": [
+      'import { coreStructuralInsertActions } from "../../editor/insertion/core-structural-insert-actions";',
+      "export const authoringDefaults = coreStructuralInsertActions;",
+    ].join("\n"),
+  });
+
+  const result = cruise(fixtureRoot, "err-long", ["packages/core/src"]);
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+});
+
+test("rejects direct and relayed built-in inventories from migrated creation owners", async (t) => {
+  const inventoryFiles = {
+    "packages/core/src/editor/insertion/built-in-insert-catalog.ts":
+      "export const builtInInsertCatalog = [];\n",
+    "packages/core/src/editor/insertion/core-structural-insert-actions.ts":
+      "export const coreStructuralInsertActions = [];\n",
+    "packages/core/src/editor/blocks/built-in-block-definitions.ts":
+      "export const builtInBlockDefinitions = [];\n",
+    "packages/core/src/editor/arrangements/layout/model/built-in-layout-definitions.ts":
+      "export const builtInLayoutDefinitions = [];\n",
+    "packages/core/src/editor/surfaces/model/built-in-surface-variant-definitions.ts":
+      "export const builtInSurfaceVariantDefinitions = [];\n",
+  };
+  const expectedDirectRuleNames = [
+    "suggestion-creation-does-not-import-built-in-registries",
+    "authoring-creation-ui-does-not-import-built-in-registries",
+    "authoring-document-chrome-does-not-reach-legacy-insert-catalog",
+    "quiz-authoring-does-not-import-built-in-registries",
+    "agent-insertion-does-not-reach-built-in-inventories",
+  ];
+  const expectedRelayRuleNames = [
+    "suggestion-creation-does-not-reach-built-in-inventories",
+    "authoring-creation-ui-does-not-reach-built-in-inventories",
+    "authoring-document-chrome-does-not-reach-legacy-insert-catalog",
+    "quiz-authoring-does-not-reach-built-in-inventories",
+    "agent-insertion-does-not-reach-built-in-inventories",
+  ];
+  const directFixtureRoot = await createFixture(t, {
+    ...inventoryFiles,
+    "packages/core/src/editor/suggestions/slash/SlashCommand.ts":
+      'export { builtInBlockDefinitions } from "../../blocks/built-in-block-definitions";\n',
+    "packages/core/src/editor/shell/chrome/BlockStrip.tsx":
+      'export { builtInSurfaceVariantDefinitions } from "../../surfaces/model/built-in-surface-variant-definitions";\n',
+    "packages/core/src/editor/shell/authoring/AuthoringDocumentChrome.tsx":
+      'export { builtInInsertCatalog } from "../../insertion/built-in-insert-catalog";\n',
+    "packages/core/src/editor/blocks/assessment/quiz/quiz-authoring.ts":
+      'export { builtInBlockDefinitions } from "../../built-in-block-definitions";\n',
+    "packages/core/src/host/agent/insertion.ts":
+      'export { builtInInsertCatalog } from "../../editor/insertion/built-in-insert-catalog";\n',
+  });
+  const directResult = cruise(directFixtureRoot, "err-long", ["packages/core/src"]);
+  const directOutput = `${directResult.stdout}\n${directResult.stderr}`;
+
+  assert.notEqual(directResult.status, 0, directOutput);
+  for (const ruleName of expectedDirectRuleNames) {
+    assert.match(directOutput, new RegExp(ruleName));
+  }
+  assert.match(directOutput, /SlashCommand\.ts[\s\S]*built-in-block-definitions\.ts/);
+  assert.match(directOutput, /BlockStrip\.tsx[\s\S]*built-in-surface-variant-definitions\.ts/);
+  assert.match(directOutput, /AuthoringDocumentChrome\.tsx[\s\S]*built-in-insert-catalog\.ts/);
+  assert.match(directOutput, /quiz-authoring\.ts[\s\S]*built-in-block-definitions\.ts/);
+  assert.match(directOutput, /host\/agent\/insertion\.ts[\s\S]*built-in-insert-catalog\.ts/);
+
+  const relayFixtureRoot = await createFixture(t, {
+    ...inventoryFiles,
+    "packages/core/src/editor/suggestions/empty-row/EmptyInsertionRowExtension.ts":
+      'export { suggestionInventory } from "./suggestion-inventory-relay";\n',
+    "packages/core/src/editor/suggestions/empty-row/suggestion-inventory-relay.ts":
+      'export { coreStructuralInsertActions as suggestionInventory } from "../../insertion/core-structural-insert-actions";\n',
+    "packages/core/src/editor/surfaces/authoring/SurfaceTemplatePickerHost.tsx":
+      'export { surfaceInventory } from "./surface-inventory-relay";\n',
+    "packages/core/src/editor/surfaces/authoring/surface-inventory-relay.ts":
+      'export { coreStructuralInsertActions as surfaceInventory } from "../../insertion/core-structural-insert-actions";\n',
+    "packages/core/src/editor/shell/authoring/AuthoringDocumentChrome.tsx":
+      'export { shellInventory } from "./authoring-document-inventory-relay";\n',
+    "packages/core/src/editor/shell/authoring/authoring-document-inventory-relay.ts":
+      'export { builtInInsertCatalog as shellInventory } from "../../insertion/built-in-insert-catalog";\n',
+    "packages/core/src/editor/blocks/assessment/quiz/quick-actions.ts":
+      'export { quizInventory } from "./quiz-inventory-relay";\n',
+    "packages/core/src/editor/blocks/assessment/quiz/quiz-inventory-relay.ts":
+      'export { coreStructuralInsertActions as quizInventory } from "../../../insertion/core-structural-insert-actions";\n',
+    "packages/core/src/host/agent/insertion.ts":
+      'export { agentInventory } from "./insertion-inventory-relay";\n',
+    "packages/core/src/host/agent/insertion-inventory-relay.ts":
+      'export { coreStructuralInsertActions as agentInventory } from "../../editor/insertion/core-structural-insert-actions";\n',
+  });
+  const relayResult = cruise(relayFixtureRoot, "err-long", ["packages/core/src"]);
+  const relayOutput = `${relayResult.stdout}\n${relayResult.stderr}`;
+
+  assert.notEqual(relayResult.status, 0, relayOutput);
+  for (const ruleName of expectedRelayRuleNames) {
+    assert.match(relayOutput, new RegExp(ruleName));
+  }
+  assert.match(
+    relayOutput,
+    /EmptyInsertionRowExtension\.ts[\s\S]*suggestion-inventory-relay\.ts[\s\S]*core-structural-insert-actions\.ts/,
+  );
+  assert.match(
+    relayOutput,
+    /SurfaceTemplatePickerHost\.tsx[\s\S]*surface-inventory-relay\.ts[\s\S]*core-structural-insert-actions\.ts/,
+  );
+  assert.match(
+    relayOutput,
+    /AuthoringDocumentChrome\.tsx[\s\S]*authoring-document-inventory-relay\.ts[\s\S]*built-in-insert-catalog\.ts/,
+  );
+  assert.match(
+    relayOutput,
+    /quick-actions\.ts[\s\S]*quiz-inventory-relay\.ts[\s\S]*core-structural-insert-actions\.ts/,
+  );
+  assert.match(
+    relayOutput,
+    /host\/agent\/insertion\.ts[\s\S]*insertion-inventory-relay\.ts[\s\S]*core-structural-insert-actions\.ts/,
+  );
+});
+
 test("rejects lane composition reachability back into application integration", async (t) => {
   const fixtureRoot = await createFixture(t, {
     "packages/core/src/composition/application/create-scaffold-application.ts":

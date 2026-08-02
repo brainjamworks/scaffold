@@ -4,8 +4,8 @@ import { Schema } from "@tiptap/pm/model";
 import { describe, expect, expectTypeOf, it } from "vite-plus/test";
 import { z } from "zod";
 
+import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { defineConfiguration } from "@/editor/configuration/definition";
-import { builtInInsertCatalog } from "@/editor/insertion/built-in-insert-catalog";
 import { builtInLayoutAuthoringViewRegistry } from "../authoring/built-in-layout-views";
 import { builtInLayoutRuntimeViewRegistry } from "../runtime/built-in-layout-views";
 import { accordionLayoutDefinition } from "../accordion/accordion-definition";
@@ -18,6 +18,8 @@ import {
   type RegisteredLayoutSectionDefinition,
 } from "./layout-definition";
 import { createLayoutRegistry } from "./layout-registry";
+
+const coreInsertCatalog = createCoreScaffoldAuthoringComposition().catalogues.inDocument;
 
 type BuiltInLayoutDefinitions =
   typeof import("./built-in-layout-definitions").builtInLayoutDefinitions;
@@ -249,7 +251,7 @@ describe("createLayoutRegistry", () => {
   it("normalizes definitions without mutating built-in registries or catalogs", () => {
     const definition = createDefinition("isolated-definition");
     const builtInIds = builtInLayoutRegistry.definitions.map(({ id }) => id);
-    const insertIds = builtInInsertCatalog.actions.map(({ id }) => id);
+    const insertIds = coreInsertCatalog.actions.map(({ id }) => id);
 
     const first = defineLayout(definition);
     const second = defineLayout(definition);
@@ -261,8 +263,8 @@ describe("createLayoutRegistry", () => {
     expect(builtInLayoutRegistry.getById(definition.id)).toBeUndefined();
     expect(builtInLayoutAuthoringViewRegistry.getById(definition.id)).toBeUndefined();
     expect(builtInLayoutRuntimeViewRegistry.getById(definition.id)).toBeUndefined();
-    expect(builtInInsertCatalog.actions.map(({ id }) => id)).toEqual(insertIds);
-    expect(builtInInsertCatalog.getById(definition.id)).toBeUndefined();
+    expect(coreInsertCatalog.actions.map(({ id }) => id)).toEqual(insertIds);
+    expect(coreInsertCatalog.getById(definition.id)).toBeUndefined();
   });
 });
 

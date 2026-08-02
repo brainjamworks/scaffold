@@ -148,7 +148,6 @@ describe("@scaffold/core/agent-host", () => {
     for (const key of [
       "builtInBlockRegistry",
       "builtInBlockDefinitions",
-      "builtInInsertCatalog",
       "AuthoringSurfaceView",
       "createBlockRegistry",
       "createInsertCatalog",

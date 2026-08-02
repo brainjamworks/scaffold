@@ -20,6 +20,10 @@ export {
   getScaffoldCapabilitiesForEditor,
   type ScaffoldCapabilitiesStorage,
 } from "@/composition/extensions/scaffold-capabilities-storage";
+export {
+  getScaffoldAuthoringCataloguesForEditor,
+  type ScaffoldAuthoringCatalogues,
+} from "@/composition/extensions/scaffold-authoring-catalogues-storage";
 export type {
   ResolvedBlockCapabilities,
   ResolvedLayoutCapabilities,
@@ -36,6 +40,7 @@ export {
   defineBlock,
   type BlockDefinition,
   type BlockDefinitionInput,
+  type BlockInsertVariantDefinition,
 } from "@/editor/blocks/block-definition";
 export type {
   SurfaceAuthoringViewBinding,

@@ -36,11 +36,16 @@ import {
   AUTHORING_FRAME_WRAPPER_ACTIVE_ATTR,
   AUTHORING_RESIZE_HANDLE_ATTR,
 } from "@/editor/interactions/dom/authoring-chrome";
-import { builtInInsertCatalog } from "@/editor/insertion/built-in-insert-catalog";
+import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";
 import { createCatalogNodeChecked } from "@/editor/insertion/checked-insertion";
+import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { describeBlockContract } from "@/editor/testing";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
+
+import { audioBlockDefinition } from "./audio-block-definition";
+
+const blockInsertCatalog = createInsertCatalog(createBlockInsertActions([audioBlockDefinition]));
 
 let editor: Editor | null = null;
 
@@ -64,7 +69,7 @@ describe("AudioBlock resize frame", () => {
     editor = createAudioBlockTestEditor();
 
     const nodeResult = createCatalogNodeChecked({
-      catalog: builtInInsertCatalog,
+      catalog: blockInsertCatalog,
       schema: editor.schema,
       actionId: "audio",
     });
@@ -96,7 +101,7 @@ describe("AudioBlock resize frame", () => {
     editor = createAudioBlockTestEditor();
 
     const nodeResult = createCatalogNodeChecked({
-      catalog: builtInInsertCatalog,
+      catalog: blockInsertCatalog,
       schema: editor.schema,
       actionId: "audio",
     });

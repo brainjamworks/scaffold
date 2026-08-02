@@ -13,15 +13,18 @@ import { CalloutDataSchema as ContractCalloutDataSchema } from "@scaffold/contra
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { AUTHORING_FRAME_ATTR } from "@/editor/interactions/dom/authoring-frame";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
-import { builtInInsertCatalog } from "@/editor/insertion/built-in-insert-catalog";
+import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";
+import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { describeBlockContract } from "@/editor/testing";
 import { catalogIconValue } from "@/schemas/media/icon";
 
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
-import "./callout-definition";
+import { calloutBlockDefinition } from "./callout-definition";
 import { CalloutAuthoringExtension } from "./callout-authoring-extension";
 import { emptyCalloutData } from "./content";
+
+const blockInsertCatalog = createInsertCatalog(createBlockInsertActions([calloutBlockDefinition]));
 
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
@@ -127,7 +130,7 @@ describe("composite callout node", () => {
   });
 
   it("seeds the inserted field content with the authoring defaults", () => {
-    const insertContent = builtInInsertCatalog.getById("callout")?.content() as
+    const insertContent = blockInsertCatalog.getById("callout")?.content() as
       | JSONContent
       | undefined;
 

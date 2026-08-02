@@ -9,7 +9,6 @@ import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
-import { builtInInsertCatalog } from "@/editor/insertion/built-in-insert-catalog";
 import { createScaffoldTextAlignExtension } from "@/editor/rich-text/model/text-alignment";
 import { pageDefaultSurfaceDefinition } from "@/editor/surfaces/model/templates/page-default";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
@@ -30,6 +29,17 @@ const TestManualBlock = Node.create({
     return ["div", { "data-test-manual-catalog-block": "" }];
   },
 });
+const nestedCellInsertCatalog = createInsertCatalog([
+  {
+    id: "test-nested-cell-block",
+    nodeType: "test_manual_catalog_block",
+    title: "Nested cell block",
+    description: "Test nested cell insertion",
+    icon: TestIcon,
+    category: "content",
+    content: () => ({ type: "test_manual_catalog_block" }),
+  },
+]);
 
 const RESIZABLE_CATALOG_BLOCK = "test_resizable_alignment_catalog_block";
 const TestResizableCatalogBlock = Node.create({
@@ -337,12 +347,12 @@ describe("insertCatalogItemChecked", () => {
       ]),
     );
     const from = findTextPosition(editor, "/block");
-    const calloutAction = builtInInsertCatalog.getById("callout");
-    if (!calloutAction) throw new Error("Expected the built-in callout action.");
+    const nestedCellAction = nestedCellInsertCatalog.getById("test-nested-cell-block");
+    if (!nestedCellAction) throw new Error("Expected the nested-cell test action.");
 
     const inserted = insertCatalogItemChecked(
       editor,
-      calloutAction,
+      nestedCellAction,
       testBlockRegistry,
       testSurfaceVariants,
       {
@@ -352,7 +362,7 @@ describe("insertCatalogItemChecked", () => {
     );
 
     expect(inserted).toBe(true);
-    expect(nodeTypesInJson(editor.getJSON())).toContain("callout");
+    expect(nodeTypesInJson(editor.getJSON())).toContain("test_manual_catalog_block");
   });
 });
 

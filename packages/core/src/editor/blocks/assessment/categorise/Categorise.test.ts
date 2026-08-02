@@ -11,7 +11,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 import { EditorMovementLayer } from "@/editor/drag/view/EditorMovementLayer";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
-import { builtInInsertCatalog } from "@/editor/insertion/built-in-insert-catalog";
+import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";
+import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
 import {
   assessmentProblemOutcome,
   createAssessmentRuntimeTestRoot,
@@ -53,6 +54,9 @@ import {
   describeCategoriseSourceItemAccessibilityState,
 } from "./categorise-fields";
 
+const blockInsertCatalog = createInsertCatalog(
+  createBlockInsertActions([categoriseBlockDefinition]),
+);
 const canonicalAssessmentResult = { maxScore: 1 as const, feedback: null, items: {} };
 
 const BoundedRegionTestNode = TiptapNode.create({
@@ -375,7 +379,7 @@ describe("composite categorise node", () => {
   });
 
   it("registers only the outer categorise block in the insert catalog", () => {
-    const nodeTypes = builtInInsertCatalog.actions.map((item) => item.nodeType);
+    const nodeTypes = blockInsertCatalog.actions.map((item) => item.nodeType);
 
     expect(nodeTypes).toContain("categorise");
     expect(nodeTypes).not.toContain("categorise_content");

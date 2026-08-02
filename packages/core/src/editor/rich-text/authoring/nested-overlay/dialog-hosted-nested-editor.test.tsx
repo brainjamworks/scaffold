@@ -13,6 +13,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
+import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
 import { WorkspaceDialog } from "@/ui/components/WorkspaceDialog/WorkspaceDialog";
@@ -39,7 +40,6 @@ import { getInteractionFacadeStoreForEditor } from "@/editor/interactions/target
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
 import { interactionOwnerPluginKey } from "@/editor/interactions/targets/prosemirror/state/interaction-owner-plugin-state";
 import type { NestedRichTextEditorTarget } from "@/editor/prosemirror/nested-rich-text-editor";
-import { builtInInsertCatalog } from "@/editor/insertion/built-in-insert-catalog";
 import type { InsertAction } from "@/editor/insertion/insert-action";
 import { BlockStrip } from "@/editor/shell/chrome/BlockStrip";
 import { Toolbar } from "@/editor/shell/chrome/Toolbar";
@@ -54,6 +54,7 @@ import {
 
 const TARGET_NODE_NAME = "test_dialog_content_target";
 const REACT_BLOCK_NODE_NAME = "test_dialog_react_block";
+const coreInsertCatalog = createCoreScaffoldAuthoringComposition().catalogues.inDocument;
 const ReactBlockContext = createContext("missing provider");
 const outerEditors: Editor[] = [];
 const fullChromeCapabilities = resolveScaffoldCapabilities({
@@ -959,7 +960,7 @@ function replaceTargetContent(outerEditor: Editor, text: string, blockLabel: str
 
 function restrictedCatalogItems(): readonly InsertAction[] {
   const allowedIds = new Set(["callout", "grid"]);
-  const items = builtInInsertCatalog.actions.filter((item) => allowedIds.has(item.id));
+  const items = coreInsertCatalog.actions.filter((item) => allowedIds.has(item.id));
   if (items.length !== allowedIds.size) {
     throw new Error("Expected Callout and Grid insert catalog items");
   }

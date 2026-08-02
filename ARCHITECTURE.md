@@ -87,9 +87,28 @@ Core uses explicit, closed-world construction for its built-in editor features:
   cannot relay either binding contract. `@scaffold/core/extensions` re-exports
   the minimum construction and projection types without exposing built-in
   registries, inventories, view maps, creation catalogues, or node factories.
-- Authoring insertion is derived from block/layout definitions plus explicit
-  non-block actions. Importing a definition never mutates a global registry or
-  insertion catalog.
+- Authoring composition derives two immutable creation catalogues from the
+  resolved application. The in-document catalogue has exactly three sources:
+  installed Block definitions, installed Layout definitions, and fixed Core
+  structural actions (currently Grid). The separate Surface-creation catalogue
+  is derived only from installed Surface definitions; Surface templates never
+  enter the in-document catalogue.
+- The authoring composer installs the exact catalogue pair in its Tiptap editor.
+  Editor-aware consumers resolve that session identity through
+  `getScaffoldAuthoringCataloguesForEditor`; composition-owned consumers receive
+  it directly. Learner runtime receives no authoring catalogue, and no consumer
+  reconstructs or falls back to a module-global Core inventory.
+- Neutral checked creation with only a schema requires an explicit
+  `InsertCatalog` from its caller. The operation does not discover or default a
+  capability universe.
+- `@scaffold/core/extensions` exposes only
+  `getScaffoldAuthoringCataloguesForEditor` and the
+  `ScaffoldAuthoringCatalogues` and `BlockInsertVariantDefinition` types for
+  catalogue consumption. Catalogue builders, storage constructors, Core
+  structural actions, built-in definitions, and built-in inventories remain
+  private.
+- Importing a Block, Layout, or Surface definition never mutates a global
+  registry or insertion catalogue.
 - `entrypoints/*` owns the public package seams, `host/ports` owns neutral host
   operations, and `ui/components` owns reusable Radix wrappers.
 

@@ -6,8 +6,8 @@ import { Editor } from "@tiptap/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
+import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
-import { builtInInsertCatalog } from "@/editor/insertion/built-in-insert-catalog";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import type { InsertAction } from "@/editor/insertion/insert-action";
 import {
@@ -17,6 +17,8 @@ import {
 import { createScaffoldDocumentContent } from "@/format/artifact";
 
 import { BlockStrip } from "./BlockStrip";
+
+const coreInsertCatalog = createCoreScaffoldAuthoringComposition().catalogues.inDocument;
 
 beforeEach(() => {
   vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(() =>
@@ -67,7 +69,7 @@ function makeEditor() {
 }
 
 function catalogItem(id: string): InsertAction {
-  const item = builtInInsertCatalog.getById(id);
+  const item = coreInsertCatalog.getById(id);
   if (!item) throw new Error(`Insert action "${id}" is not built in`);
   return item;
 }
@@ -77,7 +79,7 @@ function renderBuiltInBlockStrip(editor: Editor) {
     <BlockStrip
       blockDefinitions={builtInBlockRegistry}
       editor={editor}
-      items={builtInInsertCatalog.actions}
+      items={coreInsertCatalog.actions}
       surfaceVariants={builtInSurfaceVariantRegistry}
     />,
   );
@@ -143,9 +145,7 @@ describe("BlockStrip", () => {
   it("renders only supplied categories and variants", async () => {
     const editor = makeEditor();
     const chart = catalogItem("chart");
-    const chartVariants = builtInInsertCatalog.actions.filter(
-      (item) => item.variantOf === chart.id,
-    );
+    const chartVariants = coreInsertCatalog.actions.filter((item) => item.variantOf === chart.id);
     const includedVariant = chartVariants[0];
     const excludedVariant = chartVariants[1];
     if (!includedVariant || !excludedVariant) {

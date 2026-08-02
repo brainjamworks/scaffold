@@ -14,7 +14,6 @@ import {
   type BlockCapability,
 } from "@/composition/application/create-scaffold-application";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
-import { builtInInsertCatalog } from "@/editor/insertion/built-in-insert-catalog";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import type { InsertAction } from "@/editor/insertion/insert-action";
 import { authoringInteractionRootAttributes } from "@/editor/interactions/dom/authoring-root";
@@ -34,6 +33,8 @@ import {
   resolveSlashCommandPopupTarget,
 } from "./SlashCommand";
 
+const coreInsertCatalog = createScaffoldApplication().authoring.catalogues.inDocument;
+
 afterEach(() => {
   cleanup();
   document.body.replaceChildren();
@@ -49,7 +50,7 @@ afterEach(() => {
 });
 
 function catalogItem(id: string): InsertAction {
-  const item = builtInInsertCatalog.getById(id);
+  const item = coreInsertCatalog.getById(id);
   if (!item) throw new Error(`Insert action "${id}" is not built in`);
   return item;
 }
@@ -102,8 +103,8 @@ function makeApplicationEditor(
 
 describe("SlashCommand popup destination", () => {
   it("resolves the registered authoring root for the same editor", async () => {
-    const firstEditor = makeEditor(builtInInsertCatalog.actions);
-    const secondEditor = makeEditor(builtInInsertCatalog.actions);
+    const firstEditor = makeEditor(coreInsertCatalog.actions);
+    const secondEditor = makeEditor(coreInsertCatalog.actions);
     const firstHost = document.createElement("div");
     const secondHost = document.createElement("div");
     document.body.append(firstHost, secondHost);
@@ -143,7 +144,7 @@ describe("SlashCommand popup destination", () => {
 
   it("keeps an active popup in the current authoring root through replacement and reopen", async () => {
     const createPositionerSpy = vi.spyOn(floatingPositioner, "createOverlayFloatingPositioner");
-    const editor = makeEditor(builtInInsertCatalog.actions);
+    const editor = makeEditor(coreInsertCatalog.actions);
     const firstHost = document.createElement("div");
     const secondHost = document.createElement("div");
     document.body.append(firstHost, secondHost);
@@ -207,7 +208,7 @@ describe("SlashCommand popup destination", () => {
           },
         };
       });
-    const editor = makeEditor(builtInInsertCatalog.actions);
+    const editor = makeEditor(coreInsertCatalog.actions);
     const firstHost = document.createElement("div");
     const secondHost = document.createElement("div");
     document.body.append(firstHost, secondHost);
@@ -256,7 +257,7 @@ describe("SlashCommand popup destination", () => {
 
   it("stays pending in the editor owner document without a registered boundary root", () => {
     const ownerDocument = document.implementation.createHTMLDocument("slash owner");
-    const editor = makeEditor(builtInInsertCatalog.actions, ownerDocument);
+    const editor = makeEditor(coreInsertCatalog.actions, ownerDocument);
 
     expect(resolveSlashCommandPopupTarget(editor)).toBeNull();
     expect(resolveSlashCommandPopupTarget(editor)).not.toBe(document.body);
@@ -409,9 +410,9 @@ describe("SlashCommand catalog inputs", () => {
   });
 
   it("searches the explicitly supplied built-in catalog", () => {
-    const editor = makeEditor(builtInInsertCatalog.actions);
+    const editor = makeEditor(coreInsertCatalog.actions);
 
-    const results = getSlashCommandItems(editor, "callout", builtInInsertCatalog.actions);
+    const results = getSlashCommandItems(editor, "callout", coreInsertCatalog.actions);
 
     expect(results[0]?.id).toBe("callout");
     expect(results.map((item) => item.id)).toContain("callout");

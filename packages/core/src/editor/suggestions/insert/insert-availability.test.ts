@@ -21,8 +21,8 @@ import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { defineConfiguration } from "@/editor/configuration/definition";
-import { builtInInsertCatalog } from "@/editor/insertion/built-in-insert-catalog";
 import type { InsertAction } from "@/editor/insertion/insert-action";
+import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
 
 import {
   canInsertCatalogItem,
@@ -120,6 +120,8 @@ function itemFor(nodeType: string): InsertAction {
   };
 }
 
+const structuralInsertCatalog = createInsertCatalog([itemFor("grid"), itemFor("layout")]);
+
 function makeEditor() {
   return new Editor({
     extensions: [
@@ -174,7 +176,7 @@ function setCursorInsideText(editor: Editor, text: string, offset = 0) {
 }
 
 function availableNodeTypes(editor: Editor): string[] {
-  return getInsertableCatalogItems(editor, builtInInsertCatalog.actions).map(
+  return getInsertableCatalogItems(editor, structuralInsertCatalog.actions).map(
     (item) => item.nodeType,
   );
 }

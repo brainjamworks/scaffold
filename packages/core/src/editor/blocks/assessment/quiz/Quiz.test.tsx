@@ -42,7 +42,8 @@ import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions
 import { defineAssessmentCapability, defineBlock } from "@/editor/blocks/block-definition";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
-import { builtInInsertCatalog } from "@/editor/insertion/built-in-insert-catalog";
+import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";
+import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
 import { projectAssessmentDocument } from "@/authoring/publication/document-projection";
 import { applySettingsSheetSettings } from "@/editor/shell/settings/sheets/ConfigurationSettingsSheet";
 import { createAuthoringNodeTarget } from "@/editor/prosemirror/authoring-target";
@@ -105,6 +106,9 @@ import { McqAuthoringExtension, McqRuntimeExtension } from "../mcq";
 import { QuizNode } from "./node";
 import { QuizAuthoringExtension, QuizRuntimeExtension } from "./index";
 import { getQuizChildBlock } from "./quiz-authoring";
+import { quizBlockDefinition } from "./quiz-definition";
+
+const blockInsertCatalog = createInsertCatalog(createBlockInsertActions([quizBlockDefinition]));
 
 import "@/editor/blocks/presentation/callout/callout-definition";
 import "../mcq/mcq-definition";
@@ -831,7 +835,7 @@ describe("quiz block skeleton", () => {
   );
 
   it("creates empty quiz insert catalog content", () => {
-    const quiz = builtInInsertCatalog.actions.find((item) => item.nodeType === "quiz");
+    const quiz = blockInsertCatalog.actions.find((item) => item.nodeType === "quiz");
 
     expect(quiz).toBeDefined();
     expect(quiz?.category).toBe("assessment");

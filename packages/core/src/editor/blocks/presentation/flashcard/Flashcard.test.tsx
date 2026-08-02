@@ -11,7 +11,8 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { AUTHORING_FRAME_WRAPPER_ATTR } from "@/editor/interactions/dom/authoring-chrome";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
-import { builtInInsertCatalog } from "@/editor/insertion/built-in-insert-catalog";
+import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";
+import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { describeBlockContract } from "@/editor/testing";
 import { createDisposableEditor } from "@/editor/testing/disposable-editor";
@@ -25,6 +26,10 @@ import {
 } from "./content";
 import { flashcardBlockDefinition } from "./flashcard-definition";
 import { FlashcardAuthoringExtension } from "./flashcard-authoring-extension";
+
+const blockInsertCatalog = createInsertCatalog(
+  createBlockInsertActions([flashcardBlockDefinition]),
+);
 
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
@@ -167,7 +172,7 @@ describe("flashcard block", () => {
   });
 
   it("seeds catalog content as a flashcard block with private cards", () => {
-    const insertContent = builtInInsertCatalog.getById("flashcard")?.content() as
+    const insertContent = blockInsertCatalog.getById("flashcard")?.content() as
       | JSONContent
       | undefined;
 

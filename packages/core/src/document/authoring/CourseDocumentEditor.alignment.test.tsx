@@ -6,6 +6,7 @@ import { undo } from "@tiptap/pm/history";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
+import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import { createAlignmentTargetPort } from "@/editor/interactions/alignment/alignment-target";
@@ -14,7 +15,6 @@ import { InteractionTargetKind } from "@/editor/interactions/targets/model/inter
 import { resolveBlockChromeTargetDescriptor } from "@/editor/interactions/targets/prosemirror/projection/block-chrome-target-projection";
 import { resolveStructuralChromeTargetDescriptor } from "@/editor/interactions/targets/prosemirror/projection/structural-chrome-target-projection";
 import { AlignmentControls } from "@/editor/shell/bubbles/interaction/AlignmentControls";
-import { builtInInsertCatalog } from "@/editor/insertion/built-in-insert-catalog";
 import { insertCatalogItemChecked } from "@/editor/insertion/checked-insertion";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
@@ -24,6 +24,7 @@ import { createScaffoldDefaultTheme } from "@/theme/model";
 
 import { CourseDocumentEditor } from "./CourseDocumentEditor";
 
+const coreInsertCatalog = createCoreScaffoldAuthoringComposition().catalogues.inDocument;
 const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: builtInBlockRegistry,
   surfaceVariants: builtInSurfaceVariantRegistry,
@@ -187,7 +188,7 @@ describe("CourseDocumentEditor unified alignment", () => {
 
   it("inherits alignment through the checked direct-insertion path", async () => {
     const editor = await mountEditor(pageDocument([paragraph("Replace me", "right")]));
-    const item = builtInInsertCatalog.getById("callout");
+    const item = coreInsertCatalog.getById("callout");
     if (!item) throw new Error("Callout catalog item is not registered");
     const range = textRange(editor, "Replace me");
 
@@ -389,7 +390,7 @@ function paragraph(text: string, textAlign: "left" | "center" | "right" | "justi
 }
 
 function callout(id: string, align: "start" | "center" | "end"): JSONContent {
-  const item = builtInInsertCatalog.getById("callout");
+  const item = coreInsertCatalog.getById("callout");
   if (!item) throw new Error("Callout catalog item is not registered");
   const content = item.content() as JSONContent;
   return {
