@@ -9,6 +9,30 @@ export {
 } from "./built-in-presets";
 export { builtInThemeFonts } from "./built-in-fonts";
 export {
+  resolveCourseThemePreset,
+  type CourseColorMode,
+  type CourseThemeAuthorColorAnchors,
+  type CourseThemeAuthorDefaults,
+  type CourseThemePresetRevision,
+  type ResolvedCourseThemePreset,
+} from "./course-theme-preset";
+export type {
+  CourseComponentTokenAliases,
+  CourseFunctionalTokenPath,
+  CourseFunctionalTokens,
+  ResolvedCourseComponentTokens,
+  ResolvedCourseUiTokens,
+  ScCourseCssProperties,
+  ScCourseCssProperty,
+} from "./course-ui-tokens";
+export { projectCourseThemeCss } from "./project-course-theme-css";
+export {
+  SCAFFOLD_FLOW_V1,
+  builtInCourseThemeRegistry,
+  createBuiltInCourseThemeRegistry,
+  type BuiltInCourseThemeRegistry,
+} from "./presets";
+export {
   materialiseCoursePalette,
   type CourseThemePaletteRecipe,
   type DarkAuthorPalette,

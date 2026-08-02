@@ -2,6 +2,14 @@ import type { CourseThemeFontDefinition } from "./theme-extension-schema";
 
 export const builtInThemeFonts = deepFreeze([
   {
+    id: "scaffold-satoshi",
+    label: "Satoshi",
+    category: "sans",
+    family: "Satoshi",
+    fallback: "sans-serif",
+    weights: [400, 500, 600, 700, 800],
+  },
+  {
     id: "scaffold-poppins",
     label: "Poppins",
     category: "sans",
