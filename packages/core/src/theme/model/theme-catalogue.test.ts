@@ -15,6 +15,7 @@ describe("theme catalogue", () => {
       "scaffold-minimal",
     ]);
     expect(catalogue.fonts.map(({ id }) => id)).toEqual([
+      "scaffold-satoshi",
       "scaffold-poppins",
       "scaffold-source-serif-4",
       "scaffold-inter",

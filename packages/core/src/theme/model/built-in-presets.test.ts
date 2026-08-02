@@ -153,6 +153,7 @@ describe("built-in course presets", () => {
 
     expect(first.presets.map(({ id }) => id)).toEqual(builtInThemePresets.map(({ id }) => id));
     expect(first.fonts.map(({ id }) => id)).toEqual([
+      "scaffold-satoshi",
       "scaffold-poppins",
       "scaffold-source-serif-4",
       "scaffold-inter",
