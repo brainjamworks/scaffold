@@ -1,13 +1,13 @@
 import type { JSONContent } from "@tiptap/core";
 import { describe, expect, it } from "vite-plus/test";
 
-import { SCAFFOLD_DEFAULT_PRESET } from "@/theme/model";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
 import { v3ToV4CourseDocumentMigration } from "./v3-to-v4";
 
 describe("v3-to-v4 Scaffold document migration", () => {
-  it.each([undefined, null])(
-    "materialises Scaffold Default for a legacy %s theme",
+  it.each([undefined, null, "uk.ac.example.editorial"])(
+    "installs the exact application default for a discarded %s theme",
     (legacyTheme) => {
       const source = v3Document("page", legacyTheme);
       const migrated = v3ToV4CourseDocumentMigration.migrate(structuredClone(source));
@@ -16,53 +16,24 @@ describe("v3-to-v4 Scaffold document migration", () => {
       expect(attrs).toMatchObject({
         schemaVersion: 4,
         mode: "page",
-        theme: {
-          schemaVersion: 1,
-          preset: {
-            id: SCAFFOLD_DEFAULT_PRESET.id,
-            revision: SCAFFOLD_DEFAULT_PRESET.revision,
-          },
-          values: SCAFFOLD_DEFAULT_PRESET.values,
-        },
+        theme: createDefaultPersistedCourseTheme(),
       });
-      expect((attrs?.["theme"] as { values?: unknown } | undefined)?.values).not.toBe(
-        SCAFFOLD_DEFAULT_PRESET.values,
-      );
-      expect(attrs?.["theme"]?.values.colors).toMatchObject({
-        author: {
-          light: {
-            background: SCAFFOLD_DEFAULT_PRESET.values.colors.resolved.light.background,
-            primary: SCAFFOLD_DEFAULT_PRESET.values.colors.resolved.light.primary,
-            link: SCAFFOLD_DEFAULT_PRESET.values.colors.resolved.light.primary,
-          },
-        },
-        recipe: SCAFFOLD_DEFAULT_PRESET.values.colors.recipe,
-        resolved: {
-          light: SCAFFOLD_DEFAULT_PRESET.values.colors.resolved.light,
-          dark: SCAFFOLD_DEFAULT_PRESET.values.colors.resolved.dark,
-        },
-      });
-      expect(attrs?.["theme"]?.values.colors).not.toHaveProperty("light");
-      expect(attrs?.["theme"]?.values.colors).not.toHaveProperty("dark");
     },
   );
 
-  it("preserves a named legacy theme as a recoverable reference", () => {
-    const migrated = v3ToV4CourseDocumentMigration.migrate(
-      v3Document("slideshow", "uk.ac.example.editorial"),
-    );
+  it("preserves slideshow attrs and document structure while installing the theme", () => {
+    const source = v3Document("slideshow", "discarded-theme");
+    const sourceContent = structuredClone(source.content?.[0]?.content);
+    const migrated = v3ToV4CourseDocumentMigration.migrate(source);
 
     expect(migrated.content?.[0]?.attrs).toMatchObject({
       schemaVersion: 4,
       mode: "slideshow",
       surfaceSize: "16x9",
       overflowMode: "clip",
-      theme: {
-        schemaVersion: 1,
-        preset: { id: "uk.ac.example.editorial", revision: null },
-        values: null,
-      },
+      theme: createDefaultPersistedCourseTheme(),
     });
+    expect(migrated.content?.[0]?.content).toEqual(sourceContent);
   });
 
   it("rejects malformed legacy theme values without mutating the source", () => {

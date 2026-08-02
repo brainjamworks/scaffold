@@ -1,5 +1,10 @@
 import type { CourseDocumentAttrs, CourseMode } from "@/schemas/course-document";
-type CourseDocumentViewDefaults = Pick<CourseDocumentAttrs, "mode" | "surfaceSize" | "overflowMode">;
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
+
+type CourseDocumentViewDefaults = Pick<
+  CourseDocumentAttrs,
+  "mode" | "surfaceSize" | "overflowMode" | "theme"
+>;
 
 export function getCourseDocumentDefaultsForMode(mode: CourseMode): CourseDocumentViewDefaults {
   if (mode === "slideshow") {
@@ -7,6 +12,7 @@ export function getCourseDocumentDefaultsForMode(mode: CourseMode): CourseDocume
       mode,
       surfaceSize: "16x9",
       overflowMode: "clip",
+      theme: createDefaultPersistedCourseTheme(),
     };
   }
 
@@ -14,5 +20,6 @@ export function getCourseDocumentDefaultsForMode(mode: CourseMode): CourseDocume
     mode,
     surfaceSize: "fluid",
     overflowMode: "grow",
+    theme: createDefaultPersistedCourseTheme(),
   };
 }

@@ -5,12 +5,15 @@ import {
   CourseDocumentAttrsSchema,
   CourseModeSchema,
   OverflowModeSchema,
+  PersistedCourseThemeSchema,
   SurfaceSizeSchema,
 } from "@/schemas/course-document";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
 const defaultAttrs = CourseDocumentAttrsSchema.parse({
   schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
   mode: "page",
+  theme: createDefaultPersistedCourseTheme(),
 });
 
 function parseAttrWithDefault<T>(
@@ -102,6 +105,20 @@ export const CourseDocumentNode = Node.create({
             OverflowModeSchema,
             attrs.overflowMode,
             defaultAttrs.overflowMode,
+          ),
+        }),
+      },
+      theme: {
+        default: defaultAttrs.theme,
+        parseHTML: (element: HTMLElement) =>
+          parseAttrWithDefault(
+            PersistedCourseThemeSchema,
+            parseJsonAttr(element.getAttribute("data-course-theme")),
+            defaultAttrs.theme,
+          ),
+        renderHTML: (attrs: { theme?: unknown }) => ({
+          "data-course-theme": JSON.stringify(
+            parseAttrWithDefault(PersistedCourseThemeSchema, attrs.theme, defaultAttrs.theme),
           ),
         }),
       },

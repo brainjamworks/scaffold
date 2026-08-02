@@ -6,6 +6,7 @@ import {
   OverflowModeSchema,
   SurfaceSizeSchema,
 } from "@/schemas/course-document";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import { defineCourseDocumentMigration } from "../migration-registry";
 import { asRecord, findCourseDocument } from "./helpers";
 
@@ -30,7 +31,7 @@ const V3CourseDocumentAttrsSchema = z
 export const v3ToV4CourseDocumentMigration = defineCourseDocumentMigration({
   from: 3,
   to: 4,
-  description: "Remove the unreleased course theme field.",
+  description: "Replace the unreleased course theme field with exact built-in references.",
   migrate(document) {
     const courseDocument = findCourseDocument(document);
     if (!courseDocument) throw new Error("the courseDocument node is missing");
@@ -49,6 +50,7 @@ export const v3ToV4CourseDocumentMigration = defineCourseDocumentMigration({
     const migrated = CourseDocumentAttrsSchema.safeParse({
       ...attrsWithoutTheme,
       schemaVersion: 4,
+      theme: createDefaultPersistedCourseTheme(),
     });
     if (!migrated.success) {
       throw new Error("courseDocument.attrs do not match the v4 courseDocument format");
