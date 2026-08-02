@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
+    "@radix-ui/themes": "3.3.0",
     "@scaffold/contracts": "workspace:*",
     "@scaffold/core": "workspace:*",
     "@scaffold/grading": "workspace:*",

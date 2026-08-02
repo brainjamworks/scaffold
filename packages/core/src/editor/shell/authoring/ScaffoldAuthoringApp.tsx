@@ -51,7 +51,6 @@ import { CourseThemePanel } from "@/theme/authoring/CourseThemePanel";
 import {
   createThemeCatalogue,
   resolveCourseTheme,
-  type ScaffoldThemeExtension,
 } from "@/theme/model";
 import { useAuthoringColorMode } from "@/theme/state/authoring-color-mode";
 
@@ -136,7 +135,6 @@ export interface ScaffoldAuthoringAppProps {
   className?: string;
   mainClassName?: string;
   workspaceClassName?: string;
-  themeExtension?: ScaffoldThemeExtension;
 }
 
 export function ScaffoldAuthoringApp(props: ScaffoldAuthoringAppProps) {
@@ -161,11 +159,10 @@ function ScaffoldAuthoringAppSession({
   className,
   mainClassName,
   workspaceClassName,
-  themeExtension,
 }: ScaffoldAuthoringAppProps) {
   const { mode: applicationColorMode, toggleMode: toggleApplicationColorMode } =
     useAuthoringColorMode();
-  const themeCatalogue = useMemo(() => createThemeCatalogue(themeExtension), [themeExtension]);
+  const themeCatalogue = useMemo(() => createThemeCatalogue(), []);
   const preparedArtifact = useMemo(() => prepareScaffoldArtifactForAuthoring(artifact), [artifact]);
   const readyArtifact = preparedArtifact.status === "ready" ? preparedArtifact.artifact : null;
   const readyCourseTheme = useMemo(
@@ -581,7 +578,6 @@ function ScaffoldAuthoringAppSession({
                     hostColorMode={applicationColorMode}
                     slideshowSizing="contained"
                     services={previewServices}
-                    {...(themeExtension === undefined ? {} : { themeExtension })}
                   />
                 </Suspense>
               ) : readyArtifact ? (

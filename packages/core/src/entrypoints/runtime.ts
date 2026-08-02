@@ -2,7 +2,6 @@ export { ContentRuntimeHost, type ContentRuntimeHostProps } from "@/runtime/app/
 export { ScaffoldLearnerApp, type ScaffoldLearnerAppProps } from "@/runtime/app/ScaffoldLearnerApp";
 export type { SlideshowPlayerSizing } from "@/runtime/players/player-types";
 export type { ScaffoldLearnerColorModeProps } from "@/theme/state/learner-color-mode";
-export type { ScaffoldColorMode, ScaffoldThemeExtension } from "@/theme/model";
 export {
   ScaffoldServicesProvider,
   useAssessmentPort,

@@ -6,8 +6,6 @@ import {
   OverflowModeSchema,
   SurfaceSizeSchema,
 } from "@/schemas/course-document";
-import { createScaffoldDefaultTheme } from "@/theme/model";
-
 import { defineCourseDocumentMigration } from "../migration-registry";
 import { asRecord, findCourseDocument } from "./helpers";
 
@@ -32,7 +30,7 @@ const V3CourseDocumentAttrsSchema = z
 export const v3ToV4CourseDocumentMigration = defineCourseDocumentMigration({
   from: 3,
   to: 4,
-  description: "Materialise complete course theme snapshots.",
+  description: "Remove the unreleased course theme field.",
   migrate(document) {
     const courseDocument = findCourseDocument(document);
     if (!courseDocument) throw new Error("the courseDocument node is missing");
@@ -47,18 +45,10 @@ export const v3ToV4CourseDocumentMigration = defineCourseDocumentMigration({
       throw new Error(`courseDocument.attrs${path} does not match the v3 courseDocument format`);
     }
 
-    const theme =
-      typeof legacy.data.theme === "string"
-        ? {
-            schemaVersion: 1 as const,
-            preset: { id: legacy.data.theme, revision: null },
-            values: null,
-          }
-        : createScaffoldDefaultTheme();
+    const { theme: _theme, ...attrsWithoutTheme } = legacy.data;
     const migrated = CourseDocumentAttrsSchema.safeParse({
-      ...legacy.data,
+      ...attrsWithoutTheme,
       schemaVersion: 4,
-      theme,
     });
     if (!migrated.success) {
       throw new Error("courseDocument.attrs do not match the v4 courseDocument format");

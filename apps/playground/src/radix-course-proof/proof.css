@@ -1,0 +1,269 @@
+@font-face {
+  font-family: "Satoshi";
+  src: url("../../../../packages/core/src/styles/fonts/Satoshi-Variable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 300 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Satoshi";
+  src: url("../../../../packages/core/src/styles/fonts/Satoshi-VariableItalic.woff2")
+    format("woff2");
+  font-style: italic;
+  font-weight: 300 900;
+  font-display: swap;
+}
+
+:root {
+  font-family: "Satoshi", ui-sans-serif, system-ui, sans-serif;
+  color: #17171b;
+  background: #e9e9ed;
+  font-synthesis: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+.proof-shell {
+  min-height: 100vh;
+  padding: clamp(2rem, 5vw, 5rem) clamp(1rem, 4vw, 4rem);
+  background:
+    radial-gradient(circle at 12% 8%, rgb(255 255 255 / 90%), transparent 30rem),
+    linear-gradient(135deg, #f4f4f6 0%, #e2e3e8 100%);
+}
+
+.proof-header {
+  width: min(100%, 72rem);
+  margin: 0 auto 2.5rem;
+}
+
+.proof-header h1 {
+  max-width: 52rem;
+  margin: 0;
+  font-size: clamp(2.4rem, 5vw, 4.75rem);
+  font-weight: 650;
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+}
+
+.proof-kicker {
+  margin: 0 0 0.75rem;
+  color: #303a8f;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+
+.proof-intro {
+  max-width: 43rem;
+  margin: 1.25rem 0 0;
+  color: #5f6068;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.proof-comparison {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: min(100%, 88rem);
+  margin: 0 auto;
+  overflow: hidden;
+  border: 1px solid rgb(17 17 19 / 15%);
+  border-radius: 1.5rem;
+  box-shadow: 0 1.5rem 5rem rgb(17 17 19 / 15%);
+}
+
+.sc-course {
+  min-width: 0;
+  font-family: "Satoshi", ui-sans-serif, system-ui, sans-serif;
+  --default-font-family: "Satoshi", ui-sans-serif, system-ui, sans-serif;
+  --heading-font-family: "Satoshi", ui-sans-serif, system-ui, sans-serif;
+
+  /* Scaffold educational semantics mapped once onto public Radix theme tokens. */
+  --sc-state-correct-bg: var(--green-3);
+  --sc-state-correct-border: var(--green-8);
+  --sc-state-correct-text: var(--green-11);
+  --sc-state-incorrect-bg: var(--red-3);
+  --sc-state-incorrect-border: var(--red-8);
+  --sc-state-incorrect-text: var(--red-11);
+  --sc-state-current-bg: var(--accent-3);
+  --sc-state-current-border: var(--accent-8);
+  --sc-state-current-text: var(--accent-11);
+  --sc-state-completed-bg: var(--green-3);
+  --sc-state-completed-border: var(--green-8);
+  --sc-state-completed-text: var(--green-11);
+  --sc-state-locked-bg: var(--gray-3);
+  --sc-state-locked-border: var(--gray-7);
+  --sc-state-locked-text: var(--gray-10);
+}
+
+.sc-course + .sc-course {
+  border-left: 1px solid var(--gray-a6);
+}
+
+.course-stage {
+  min-height: 100%;
+  padding: clamp(1.5rem, 4vw, 3.25rem);
+  background:
+    linear-gradient(var(--gray-a2) 1px, transparent 1px) 0 0 / 100% 4rem,
+    var(--color-background);
+}
+
+.course-progress {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+}
+
+.sc-course-state {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-2);
+  color: var(--sc-domain-text);
+  background: var(--sc-domain-bg);
+  border: 1px solid var(--sc-domain-border);
+  border-radius: var(--radius-3);
+}
+
+.sc-course-state--correct {
+  --sc-domain-bg: var(--sc-state-correct-bg);
+  --sc-domain-border: var(--sc-state-correct-border);
+  --sc-domain-text: var(--sc-state-correct-text);
+}
+
+.sc-course-state--incorrect {
+  --sc-domain-bg: var(--sc-state-incorrect-bg);
+  --sc-domain-border: var(--sc-state-incorrect-border);
+  --sc-domain-text: var(--sc-state-incorrect-text);
+}
+
+.sc-course-state--current {
+  --sc-domain-bg: var(--sc-state-current-bg);
+  --sc-domain-border: var(--sc-state-current-border);
+  --sc-domain-text: var(--sc-state-current-text);
+}
+
+.sc-course-state--completed {
+  --sc-domain-bg: var(--sc-state-completed-bg);
+  --sc-domain-border: var(--sc-state-completed-border);
+  --sc-domain-text: var(--sc-state-completed-text);
+}
+
+.sc-course-state--locked {
+  --sc-domain-bg: var(--sc-state-locked-bg);
+  --sc-domain-border: var(--sc-state-locked-border);
+  --sc-domain-text: var(--sc-state-locked-text);
+}
+
+.course-progress-index {
+  display: grid;
+  flex: 0 0 auto;
+  width: 1.5rem;
+  height: 1.5rem;
+  place-items: center;
+  font-size: var(--font-size-1);
+  font-weight: 700;
+  background: var(--color-background);
+  border-radius: 50%;
+}
+
+.course-choice {
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease,
+    transform 120ms ease;
+}
+
+.course-choice:hover {
+  transform: translateY(-1px);
+}
+
+.course-choice[data-course-state="correct"] {
+  color: var(--sc-state-correct-text);
+  background: var(--sc-state-correct-bg);
+  box-shadow: inset 0 0 0 1px var(--sc-state-correct-border);
+}
+
+.course-choice[data-course-state="incorrect"] {
+  color: var(--sc-state-incorrect-text);
+  background: var(--sc-state-incorrect-bg);
+  box-shadow: inset 0 0 0 1px var(--sc-state-incorrect-border);
+}
+
+.course-choice-label {
+  flex: 0 0 auto;
+  font-size: var(--font-size-1);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.course-flashcard {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 92% 8%, var(--accent-a5), transparent 9rem), var(--color-panel-solid);
+}
+
+.course-flashcard::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0.3rem;
+  content: "";
+  background: var(--accent-9);
+}
+
+.course-flashcard-eyebrow {
+  color: var(--accent-11);
+  letter-spacing: 0.12em;
+}
+
+.course-flashcard-action {
+  align-self: flex-start;
+}
+
+@media (max-width: 900px) {
+  .proof-comparison {
+    grid-template-columns: 1fr;
+  }
+
+  .sc-course + .sc-course {
+    border-top: 1px solid var(--gray-a6);
+    border-left: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .proof-shell {
+    padding: 1.25rem 0.75rem;
+  }
+
+  .proof-comparison {
+    border-radius: 1rem;
+  }
+
+  .course-progress {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .course-choice {
+    transition: none;
+  }
+}

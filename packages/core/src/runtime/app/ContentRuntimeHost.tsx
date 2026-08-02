@@ -12,7 +12,6 @@ import {
   resolveCourseTheme,
   type ResolvedCourseTheme,
   type ScaffoldColorMode,
-  type ScaffoldThemeExtension,
 } from "@/theme/model";
 import {
   useLearnerColorMode,
@@ -48,7 +47,6 @@ export interface ContentRuntimeHostProps extends ScaffoldLearnerColorModeProps {
   initialContent: JSONContent | null;
   slideshowSizing?: SlideshowPlayerSizing;
   onEditorReady?: (editor: TiptapEditor) => void;
-  themeExtension?: ScaffoldThemeExtension;
 }
 
 export function ContentRuntimeHost({
@@ -60,10 +58,9 @@ export function ContentRuntimeHost({
   hostColorMode,
   slideshowSizing,
   onEditorReady,
-  themeExtension,
 }: ContentRuntimeHostProps) {
   const colorMode = useLearnerColorMode(hostColorMode);
-  const themeCatalogue = useMemo(() => createThemeCatalogue(themeExtension), [themeExtension]);
+  const themeCatalogue = useMemo(() => createThemeCatalogue(), []);
   const runtimeArtifactId = artifactId ?? null;
   if (!initialContent) {
     return (

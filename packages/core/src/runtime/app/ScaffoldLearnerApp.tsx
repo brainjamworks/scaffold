@@ -3,7 +3,6 @@ import { useMemo } from "react";
 import type { ScaffoldLearnerBootstrap, ScaffoldLearnerHostServices } from "@/host/contracts";
 import type { SlideshowPlayerSizing } from "../players/player-types";
 import type { ScaffoldLearnerColorModeProps } from "@/theme/state/learner-color-mode";
-import type { ScaffoldThemeExtension } from "@/theme/model";
 
 import { ContentRuntimeHost } from "./ContentRuntimeHost";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
@@ -12,7 +11,6 @@ export interface ScaffoldLearnerAppProps extends ScaffoldLearnerColorModeProps {
   bootstrap: ScaffoldLearnerBootstrap;
   services: ScaffoldLearnerHostServices;
   slideshowSizing?: SlideshowPlayerSizing;
-  themeExtension?: ScaffoldThemeExtension;
 }
 
 export function ScaffoldLearnerApp({
@@ -20,7 +18,6 @@ export function ScaffoldLearnerApp({
   hostColorMode,
   services,
   slideshowSizing = "embedded",
-  themeExtension,
 }: ScaffoldLearnerAppProps) {
   const ports = useMemo(
     () => ({
@@ -50,7 +47,6 @@ export function ScaffoldLearnerApp({
         initialContent={bootstrap.learnerContent}
         {...(hostColorMode === undefined ? {} : { hostColorMode })}
         slideshowSizing={slideshowSizing}
-        {...(themeExtension === undefined ? {} : { themeExtension })}
       />
     </ScaffoldServicesProvider>
   );

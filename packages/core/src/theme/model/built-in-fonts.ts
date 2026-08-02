@@ -1,5 +1,3 @@
-import type { CourseThemeFontDefinition } from "./theme-extension-schema";
-
 export const builtInThemeFonts = deepFreeze([
   {
     id: "scaffold-satoshi",
@@ -41,7 +39,7 @@ export const builtInThemeFonts = deepFreeze([
     fallback: "monospace",
     weights: [400, 500, 600, 700, 800],
   },
-] satisfies CourseThemeFontDefinition[]);
+]);
 
 function deepFreeze<T>(value: T): T {
   if (value && typeof value === "object" && !Object.isFrozen(value)) {
