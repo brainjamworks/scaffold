@@ -3,7 +3,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import type { ScaffoldColorMode } from "@/theme/model";
+import type { ScaffoldColorMode } from "@/theme/state/color-mode";
 
 import { useLearnerColorMode } from "./learner-color-mode";
 

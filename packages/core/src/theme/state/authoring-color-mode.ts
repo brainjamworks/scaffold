@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 
-import type { ScaffoldColorMode } from "@/theme/model";
+import type { ScaffoldColorMode } from "@/theme/state/color-mode";
 
 export const AUTHORING_COLOR_MODE_STORAGE_KEY = "scaffold.authoring.color-mode.v1";
 

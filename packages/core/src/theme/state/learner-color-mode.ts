@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-import type { ScaffoldColorMode } from "@/theme/model";
+import type { ScaffoldColorMode } from "@/theme/state/color-mode";
 
 const DARK_MODE_QUERY = "(prefers-color-scheme: dark)";
 
