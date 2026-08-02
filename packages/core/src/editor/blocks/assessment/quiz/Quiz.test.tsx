@@ -1,19 +1,25 @@
 // @vitest-environment happy-dom
 
-import { Editor, Node, type JSONContent } from "@tiptap/core";
+import { CircleIcon } from "@phosphor-icons/react";
+import { Editor, Node, type AnyExtension, type JSONContent } from "@tiptap/core";
 import { Schema as ProseMirrorSchema } from "@tiptap/pm/model";
 import { NodeSelection } from "@tiptap/pm/state";
 import { EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { cleanup, fireEvent, render, screen, waitFor, act } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { useLayoutEffect, type ReactNode } from "react";
 
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
+import {
+  createScaffoldApplication,
+  defineScaffoldExtensionPack,
+  type BlockCapability,
+} from "@/composition/application/create-scaffold-application";
+import { createScaffoldAuthoringCataloguesStorageExtension } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
-import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
 import {
   AUTHORING_FRAME_ATTR,
   AuthoringFrameKind,
@@ -60,8 +66,8 @@ import {
   ASSESSMENT_QUESTION_CONTENT,
   COURSE_BLOCK_CONTENT,
 } from "@/document/model/content-model/content-groups";
+import { createStableId } from "@/document/model/identity/stable-ids";
 import { CellNode, GridNode } from "@/editor/arrangements/grid/model/grid-nodes";
-import { builtInLayoutDefinitions } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { LayoutNode, SectionNode } from "@/editor/arrangements/layout/model/layout-nodes";
 import { AssessmentActionsGroupNode } from "@/editor/blocks/assessment/shared/nodes/assessment-actions-group";
 import { AssessmentActionsGroupRuntimeNode } from "@/editor/blocks/assessment/shared/nodes/assessment-actions-group-runtime";
@@ -103,15 +109,6 @@ import { getQuizChildBlock } from "./quiz-authoring";
 import "@/editor/blocks/presentation/callout/callout-definition";
 import "../mcq/mcq-definition";
 import "./quiz-definition";
-
-describeBlockContract({
-  blockDefinitions: builtInBlockRegistry,
-  nodeType: "quiz",
-  actionId: "quiz",
-  expectsConfiguration: true,
-  expectsFrame: true,
-  expectsAuthoringFrame: true,
-});
 
 afterEach(() => {
   cleanup();
@@ -157,6 +154,7 @@ beforeEach(() => {
 });
 
 const canonicalAssessmentResult = { maxScore: 1 as const, feedback: null, items: {} };
+const STABLE_ID_PATTERN = /^[0-9A-Z_a-z-]{12}$/;
 
 interface ProblemSeed {
   [field: string]: unknown;
@@ -391,6 +389,31 @@ const testAssessmentQuestionSettingsSchema = z.object({
   legend: z.string().default("Question response"),
 });
 
+const testAssessmentCapability = defineAssessmentCapability({
+  interactionKind: "single-select",
+  experience: {
+    submit: true,
+    attempts: true,
+    hints: false,
+    showAnswer: true,
+    summaryFeedback: false,
+    perItemFeedback: false,
+  },
+  response: mcqResponseCodec,
+  projection: {
+    projectInteraction: () => ({
+      kind: "single-select",
+      options: [{ id: "a", label: "A" }],
+    }),
+    projectAssessment: () => ({
+      kind: "single-select",
+      correctOptionId: "a",
+      feedbackByOptionId: {},
+    }),
+    projectLearnerNode: (node) => node,
+  },
+});
+
 const testAssessmentQuestionDefinition = defineBlock({
   nodeType: "test_assessment_question",
   configuration: createAssessmentConfiguration({
@@ -425,41 +448,131 @@ const testAssessmentQuestionDefinition = defineBlock({
       },
     ],
   }),
-  capabilities: {
-    assessment: defineAssessmentCapability({
-      interactionKind: "single-select",
-      experience: {
-        submit: true,
-        attempts: true,
-        hints: false,
-        showAnswer: true,
-        summaryFeedback: false,
-        perItemFeedback: false,
+  capabilities: { assessment: testAssessmentCapability },
+});
+
+const testAssessmentQuestionCapability = blockCapability(
+  testAssessmentQuestionDefinition,
+  TestAssessmentQuestionNode,
+);
+const quizFixturePack = defineScaffoldExtensionPack({
+  id: "quiz-test-fixture",
+  blocks: [testAssessmentQuestionCapability],
+});
+const quizTestApplication = createScaffoldApplication({ packs: [quizFixturePack] });
+const quizTestBlockRegistry = quizTestApplication.capabilities.blocks.registry;
+
+describeBlockContract({
+  blockDefinitions: builtInBlockRegistry,
+  nodeType: "quiz",
+  actionId: "quiz",
+  extensions: [
+    createScaffoldCapabilitiesStorageExtension(quizTestApplication.capabilities),
+    createScaffoldAuthoringCataloguesStorageExtension(quizTestApplication.authoring.catalogues),
+  ],
+  expectsConfiguration: true,
+  expectsFrame: true,
+  expectsAuthoringFrame: true,
+});
+
+const PLUS_ASSESSMENT_NODE_TYPE = "plus_quiz_assessment";
+const PLUS_NON_ASSESSMENT_NODE_TYPE = "plus_quiz_non_assessment";
+const PLUS_SCHEMA_INCOMPATIBLE_NODE_TYPE = "plus_quiz_schema_incompatible";
+const PlusAssessmentQuestionNode = quizFixtureNode(
+  PLUS_ASSESSMENT_NODE_TYPE,
+  ASSESSMENT_QUESTION_CONTENT,
+);
+const PlusNonAssessmentQuestionNode = quizFixtureNode(
+  PLUS_NON_ASSESSMENT_NODE_TYPE,
+  ASSESSMENT_QUESTION_CONTENT,
+);
+const PlusSchemaIncompatibleQuestionNode = quizFixtureNode(
+  PLUS_SCHEMA_INCOMPATIBLE_NODE_TYPE,
+  "block",
+);
+let plusQuizQuickActionTargetId: string | null = null;
+
+const plusAssessmentQuestionDefinition = defineBlock({
+  nodeType: PLUS_ASSESSMENT_NODE_TYPE,
+  authoringControls: {
+    controls: ({ targetId }) => [
+      {
+        kind: "action",
+        id: "plus-quiz-assessment:run-action",
+        label: "Run Plus question action",
+        icon: CircleIcon,
+        run: () => {
+          plusQuizQuickActionTargetId = targetId ?? null;
+        },
       },
-      response: mcqResponseCodec,
-      projection: {
-        projectInteraction: () => ({
-          kind: "single-select",
-          options: [{ id: "a", label: "A" }],
-        }),
-        projectAssessment: () => ({
-          kind: "single-select",
-          correctOptionId: "a",
-          feedbackByOptionId: {},
-        }),
-        projectLearnerNode: (node) => node,
+      {
+        kind: "boolean",
+        name: "settings.fixtureToggle",
+        label: "Plus question path setting",
+        icon: CircleIcon,
       },
+    ],
+  },
+  capabilities: { assessment: testAssessmentCapability },
+  insert: {
+    id: "plus-quiz-assessment",
+    title: "Plus assessment question",
+    description: "A private assessment question installed for this editor",
+    icon: CircleIcon,
+    category: "assessment",
+    content: () => ({
+      type: PLUS_ASSESSMENT_NODE_TYPE,
+      attrs: { id: createStableId() },
     }),
   },
 });
-const quizTestBlockRegistry = createBlockRegistry([
-  ...builtInBlockRegistry.definitions,
-  testAssessmentQuestionDefinition,
-]);
-const quizTestCapabilities = resolveScaffoldCapabilities({
-  blockDefinitions: quizTestBlockRegistry.definitions,
-  layoutDefinitions: builtInLayoutDefinitions,
-  surfaceDefinitions: [],
+
+const plusNonAssessmentQuestionDefinition = defineBlock({
+  nodeType: PLUS_NON_ASSESSMENT_NODE_TYPE,
+  insert: {
+    id: "plus-quiz-non-assessment",
+    title: "Plus non-assessment question",
+    description: "Schema-compatible content without assessment capability",
+    icon: CircleIcon,
+    category: "assessment",
+    content: () => ({ type: PLUS_NON_ASSESSMENT_NODE_TYPE }),
+  },
+});
+
+const plusSchemaIncompatibleQuestionDefinition = defineBlock({
+  nodeType: PLUS_SCHEMA_INCOMPATIBLE_NODE_TYPE,
+  capabilities: { assessment: testAssessmentCapability },
+  insert: {
+    id: "plus-quiz-schema-incompatible",
+    title: "Plus schema-incompatible question",
+    description: "Assessment content outside the quiz question schema group",
+    icon: CircleIcon,
+    category: "assessment",
+    content: () => ({ type: PLUS_SCHEMA_INCOMPATIBLE_NODE_TYPE }),
+  },
+});
+
+const plusQuizBlockExtensions = [
+  TestAssessmentQuestionNode,
+  PlusAssessmentQuestionNode,
+  PlusNonAssessmentQuestionNode,
+  PlusSchemaIncompatibleQuestionNode,
+] as const;
+const plusQuizApplication = createScaffoldApplication({
+  packs: [
+    quizFixturePack,
+    defineScaffoldExtensionPack({
+      id: "plus-quiz-fixtures",
+      blocks: [
+        blockCapability(plusAssessmentQuestionDefinition, PlusAssessmentQuestionNode),
+        blockCapability(plusNonAssessmentQuestionDefinition, PlusNonAssessmentQuestionNode),
+        blockCapability(
+          plusSchemaIncompatibleQuestionDefinition,
+          PlusSchemaIncompatibleQuestionNode,
+        ),
+      ],
+    }),
+  ],
 });
 
 const publishInteractionOwnerSnapshot = (
@@ -2057,6 +2170,74 @@ describe("quiz block skeleton", () => {
     editor.destroy();
   });
 
+  it("keeps Plus assessment discovery isolated across two simultaneous editors", async () => {
+    const coreEditor = createQuizEditor({
+      editable: true,
+      content: { type: "doc", content: [{ type: "quiz" }] },
+    });
+    const plusEditor = createQuizEditor({
+      editable: true,
+      content: { type: "doc", content: [{ type: "quiz" }] },
+      application: plusQuizApplication,
+      blockExtensions: plusQuizBlockExtensions,
+    });
+
+    render(
+      assessmentRuntimeTree(
+        <>
+          <div data-testid="core-quiz-editor">
+            <EditorContent editor={coreEditor} />
+          </div>
+          <div data-testid="plus-quiz-editor">
+            <EditorContent editor={plusEditor} />
+          </div>
+        </>,
+        null,
+      ),
+    );
+
+    const core = within(screen.getByTestId("core-quiz-editor"));
+    const plus = within(screen.getByTestId("plus-quiz-editor"));
+    await core.findByTestId("quiz-add-question-stage");
+    await plus.findByTestId("quiz-add-question-stage");
+
+    expect(core.queryByRole("button", { name: /Plus assessment question/ })).toBeNull();
+    expect(plus.queryByRole("button", { name: /Plus assessment question/ })).toBeInTheDocument();
+    expect(plus.queryByRole("button", { name: /Plus non-assessment question/ })).toBeNull();
+    expect(plus.queryByRole("button", { name: /Plus schema-incompatible question/ })).toBeNull();
+
+    coreEditor.destroy();
+    plusEditor.destroy();
+  });
+
+  it("inserts a Plus assessment with a stable ID and exposes only its declared action control", async () => {
+    plusQuizQuickActionTargetId = null;
+    const editor = createQuizEditor({
+      editable: true,
+      content: { type: "doc", content: [{ type: "quiz" }] },
+      application: plusQuizApplication,
+      blockExtensions: plusQuizBlockExtensions,
+    });
+
+    renderEditor(editor);
+    await screen.findByTestId("quiz-add-question-stage");
+    fireEvent.click(screen.getByRole("button", { name: /Plus assessment question/ }));
+
+    const child = editor.getJSON().content?.[0]?.content?.[0];
+    const insertedId = child && "attrs" in child ? child.attrs?.["id"] : undefined;
+    expect(child?.type).toBe(PLUS_ASSESSMENT_NODE_TYPE);
+    expect(insertedId).toEqual(expect.stringMatching(STABLE_ID_PATTERN));
+
+    const quickAction = await screen.findByRole("button", {
+      name: "Run Plus question action",
+    });
+    expect(screen.queryByRole("button", { name: "Plus question path setting" })).toBeNull();
+    fireEvent.click(quickAction);
+    expect(plusQuizQuickActionTargetId).toBe(insertedId);
+
+    editor.destroy();
+  });
+
   it("inserts an MCQ catalog item as a direct quiz child", async () => {
     const editor = createQuizEditor({
       editable: true,
@@ -2762,12 +2943,22 @@ function createQuizEditor({
   editable,
   content,
   undoRedo = false,
+  application = quizTestApplication,
+  blockExtensions = [TestAssessmentQuestionNode],
 }: {
   editable: boolean;
   content: JSONContent;
   undoRedo?: boolean;
+  application?: ReturnType<typeof createScaffoldApplication>;
+  blockExtensions?: readonly AnyExtension[];
 }) {
-  return createDisposableQuizEditor({ editable, content, undoRedo }).editor;
+  return createDisposableQuizEditor({
+    editable,
+    content,
+    undoRedo,
+    application,
+    blockExtensions,
+  }).editor;
 }
 
 function getQuizEditorFacadeStore(editor: Editor) {
@@ -2778,11 +2969,16 @@ function createDisposableQuizEditor({
   editable,
   content,
   undoRedo = false,
+  application = quizTestApplication,
+  blockExtensions = [TestAssessmentQuestionNode],
 }: {
   editable: boolean;
   content: JSONContent;
   undoRedo?: boolean;
+  application?: ReturnType<typeof createScaffoldApplication>;
+  blockExtensions?: readonly AnyExtension[];
 }) {
+  const blockRegistry = application.capabilities.blocks.registry;
   const fixture = createDisposableEditor({
     editable,
     content,
@@ -2800,20 +2996,51 @@ function createDisposableQuizEditor({
       editable ? AssessmentActionsGroupNode : AssessmentActionsGroupRuntimeNode,
       SelectableChoiceBodyNode,
       editable ? SelectableChoiceAuthoringNode : SelectableChoiceRuntimeNode,
-      createScaffoldCapabilitiesStorageExtension(quizTestCapabilities),
-      createScaffoldInteractionOwnerExtension(quizTestBlockRegistry),
+      createScaffoldCapabilitiesStorageExtension(application.capabilities),
+      ...(editable
+        ? [createScaffoldAuthoringCataloguesStorageExtension(application.authoring.catalogues)]
+        : []),
+      createScaffoldInteractionOwnerExtension(blockRegistry),
       TestRegionNode,
       GridNode,
       CellNode,
       LayoutNode,
       SectionNode,
-      TestAssessmentQuestionNode,
+      ...blockExtensions,
       CalloutAuthoringExtension,
       editable ? McqAuthoringExtension : McqRuntimeExtension,
       editable ? QuizAuthoringExtension : QuizRuntimeExtension,
     ],
   });
   return fixture;
+}
+
+function blockCapability(
+  definition: BlockCapability["definition"],
+  extension: AnyExtension,
+): BlockCapability {
+  return {
+    definition,
+    authoringExtension: extension,
+    runtimeExtension: extension,
+  };
+}
+
+function quizFixtureNode(nodeType: string, group: string): AnyExtension {
+  return Node.create({
+    name: nodeType,
+    group,
+    atom: true,
+    addAttributes() {
+      return { id: { default: null } };
+    },
+    parseHTML() {
+      return [{ tag: `div[data-node="${nodeType}"]` }];
+    },
+    renderHTML({ HTMLAttributes }) {
+      return ["div", { ...HTMLAttributes, "data-node": nodeType }];
+    },
+  });
 }
 
 function renderWithRuntime(editor: Editor, assessment: AssessmentPort = quizPort()) {

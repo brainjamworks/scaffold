@@ -11,6 +11,7 @@ import { z } from "zod";
 
 import { COURSE_BLOCK_CONTENT } from "@/document/model/content-model/content-groups";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
+import { createScaffoldAuthoringCataloguesStorageExtension } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { defineBlock } from "@/editor/blocks/block-definition";
@@ -48,6 +49,8 @@ import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-
 import { InteractionProvider } from "@/editor/interactions/targets/facade/interaction-provider";
 import { getInteractionFacadeStoreForEditor } from "@/editor/interactions/targets/prosemirror/facade/interaction-facade-storage";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
+
+const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 
 const TestContractDataSchema = z.object({
   label: z.string().default(""),
@@ -255,9 +258,8 @@ function createAuthoringFrameContractEditor(): Editor {
       SelectableChoiceNode,
       createRuntimeBlockFrameAttributesExtension(builtInBlockRegistry.resizableNodeTypes),
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
-      createScaffoldCapabilitiesStorageExtension(
-        createCoreScaffoldAuthoringComposition().capabilities,
-      ),
+      createScaffoldCapabilitiesStorageExtension(coreAuthoringComposition.capabilities),
+      createScaffoldAuthoringCataloguesStorageExtension(coreAuthoringComposition.catalogues),
       ...builtInBlockAuthoringBindings.map(({ extension }) => extension),
     ],
   });

@@ -3,12 +3,13 @@ import type { JSONContent } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Fragment } from "@tiptap/pm/model";
 
+import { getScaffoldAuthoringCataloguesForEditor } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
+import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import {
   deleteNodeChecked,
   replaceRangeWithNodeChecked,
 } from "@/document/model/commands/checked-transactions";
-import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
-import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
+import type { BlockDefinitionLookup, BlockRegistry } from "@/editor/blocks/block-registry";
 import { materializeCatalogNodeHorizontalAlignment } from "@/editor/interactions/alignment/alignment-insertion";
 import {
   createInteractionTargetRef,
@@ -19,17 +20,18 @@ import { moveSiblingNode } from "@/editor/prosemirror/move-sibling/move-sibling-
 import { ASSESSMENT_QUESTION_CONTENT } from "@/document/model/content-model/content-groups";
 import { cloneJsonWithNewStableIds } from "@/document/model/identity/clone-with-new-ids";
 import { createStableId } from "@/document/model/identity/stable-ids";
-import { builtInInsertCatalog } from "@/editor/insertion/built-in-insert-catalog";
 import { createCatalogNodeChecked } from "@/editor/insertion/checked-insertion";
+import type { InsertCatalog } from "@/editor/insertion/insert-catalog";
 import type { InsertAction } from "@/editor/insertion/insert-action";
 import type { ScaffoldBlockContext } from "@/editor/selection/block-context";
 
 import { getQuizChildKeys as getSharedQuizChildKeys } from "./quiz-shared";
 
 export function getQuizAssessmentCatalogItems(editor: Editor): readonly InsertAction[] {
-  const assessmentNodeTypes = new Set(builtInBlockRegistry.assessmentNodeTypes);
+  const { blockDefinitions, catalog } = getQuizAuthoringInputs(editor);
+  const assessmentNodeTypes = new Set(blockDefinitions.assessmentNodeTypes);
 
-  return builtInInsertCatalog.actions.filter((item) => {
+  return catalog.actions.filter((item) => {
     if (!assessmentNodeTypes.has(item.nodeType)) return false;
     const nodeType = editor.schema.nodes[item.nodeType];
     if (!nodeType) return false;
@@ -54,15 +56,16 @@ export function addQuizQuestion({
   if (typeof pos !== "number") return null;
 
   const insertAt = pos + node.nodeSize - 1;
+  const { blockDefinitions, catalog } = getQuizAuthoringInputs(editor);
   const nodeResult = createCatalogNodeChecked({
-    catalog: builtInInsertCatalog,
+    catalog,
     schema: editor.schema,
     actionId,
   });
   if (!nodeResult.ok) return null;
 
   const question = materializeCatalogNodeHorizontalAlignment({
-    blockDefinitions: builtInBlockRegistry,
+    blockDefinitions,
     doc: editor.state.doc,
     from: insertAt,
     node: nodeResult.node,
@@ -258,4 +261,14 @@ function quizChildIdAt(node: ProseMirrorNode, index: number): string | null {
   if (index < 0 || index >= node.childCount) return null;
   const id = node.child(index).attrs["id"];
   return typeof id === "string" && id.length > 0 ? id : null;
+}
+
+function getQuizAuthoringInputs(editor: Editor): {
+  blockDefinitions: BlockRegistry;
+  catalog: InsertCatalog;
+} {
+  return {
+    blockDefinitions: getScaffoldCapabilitiesForEditor(editor).blocks.registry,
+    catalog: getScaffoldAuthoringCataloguesForEditor(editor).inDocument,
+  };
 }

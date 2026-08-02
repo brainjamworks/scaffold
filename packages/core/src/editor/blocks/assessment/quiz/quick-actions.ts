@@ -2,7 +2,7 @@ import type { Editor as TiptapEditor } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { Icon } from "@phosphor-icons/react";
 
-import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 
 import { getQuizChildBlock } from "./quiz-authoring";
@@ -48,14 +48,15 @@ export function resolveActiveQuestionQuickActions({
 }): ResolvedQuickAction[] {
   if (activeIndex < 0) return [];
   const safeGetPosWrapper = getPos ? (): number | undefined => safeGetPos(getPos) : undefined;
+  const blockDefinitions = getScaffoldCapabilitiesForEditor(editor).blocks.registry;
   const child = getQuizChildBlock({
-    blockDefinitions: builtInBlockRegistry,
+    blockDefinitions,
     getPos: safeGetPosWrapper,
     index: activeIndex,
     node,
   });
-  if (!child) return [];
-  const authoringControls = builtInBlockRegistry.getByNodeType(nodeType)?.authoringControls;
+  if (!child || child.nodeType !== nodeType) return [];
+  const authoringControls = child.definition.authoringControls;
   if (!authoringControls) return [];
   const pos = child.pos;
   const id = child.node.attrs["id"];
@@ -64,7 +65,7 @@ export function resolveActiveQuestionQuickActions({
   const actions: ResolvedQuickAction[] = [];
   for (const control of authoringControls.controls({
     editor,
-    nodeType,
+    nodeType: child.nodeType,
     pos,
     ...(targetId ? { targetId } : {}),
   })) {
