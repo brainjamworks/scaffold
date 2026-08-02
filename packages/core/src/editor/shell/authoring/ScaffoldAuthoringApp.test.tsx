@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import type { JSONContent } from "@tiptap/core";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { ScaffoldUnavailableAgentIntegration } from "@/editor/shell/agent/ScaffoldUnavailableAgentIntegration";
 import type { ScaffoldAgentIntegration } from "@/editor/shell/agent/agent-integration";
@@ -18,6 +19,7 @@ const mocks = vi.hoisted(() => {
     blockStripProps: [] as Array<Record<string, unknown>>,
     fakeEditor: {
       getJSON: vi.fn(),
+      storage: {} as Record<string, unknown>,
       state: {
         doc: {
           firstChild: {
@@ -144,6 +146,16 @@ vi.mock("@/runtime/app/ScaffoldLearnerApp", async () => {
       return ScaffoldLearnerApp;
     },
   };
+});
+
+const testApplication = createScaffoldApplication();
+Object.assign(mocks.fakeEditor.storage, {
+  scaffoldAuthoringCatalogues: Object.freeze({
+    catalogues: testApplication.authoring.catalogues,
+  }),
+  scaffoldCapabilities: Object.freeze({
+    capabilities: testApplication.capabilities,
+  }),
 });
 
 import { ScaffoldAuthoringApp } from "./ScaffoldAuthoringApp";

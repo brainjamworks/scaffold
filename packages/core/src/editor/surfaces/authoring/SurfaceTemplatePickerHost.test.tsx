@@ -4,16 +4,9 @@ import { act, cleanup, render, screen, waitFor, within } from "@testing-library/
 import userEvent from "@testing-library/user-event";
 import { Editor, Node, type JSONContent } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
-import { createElement, Fragment } from "react";
+import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import {
-  createScaffoldApplication,
-  defineScaffoldExtensionPack,
-  type SurfaceCapability,
-} from "@/composition/application/create-scaffold-application";
-import { createScaffoldAuthoringCataloguesStorageExtension } from "@/composition/authoring/scaffold-authoring-catalogues-storage";
-import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import {
   ARRANGEMENT_CONTENT,
@@ -33,7 +26,7 @@ import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-va
 
 import { authoringSlideDividersPluginKey } from "./AuthoringSlideDividers";
 import { AuthoringSlideDividers } from "./AuthoringSlideDividers";
-import { SurfaceTemplatePicker, SurfaceTemplatePickerHost } from "./SurfaceTemplatePickerHost";
+import { SurfaceTemplatePicker } from "./SurfaceTemplatePickerHost";
 import { createSurfaceCreationCatalog } from "./surface-creation-catalog";
 import { insertSurfaceTemplateAfterSurface } from "./surface-template-insertion";
 
@@ -63,70 +56,6 @@ afterEach(async () => {
 });
 
 describe("SurfaceTemplatePickerHost", () => {
-  it("keeps cumulative Surface discovery and insertion isolated between simultaneous editors", async () => {
-    const hostSurface = hostSurfaceCapability("plus-private-surface");
-    const plusApplication = createScaffoldApplication({
-      packs: [
-        defineScaffoldExtensionPack({
-          id: "plus-surface-picker",
-          surfaces: [hostSurface],
-        }),
-      ],
-    });
-    const coreApplication = createScaffoldApplication();
-    const plusEditor = createEditor(["plus-slide-1"], undefined, plusApplication);
-    const coreEditor = createEditor(["core-slide-1"], undefined, coreApplication);
-    const user = userEvent.setup();
-
-    render(
-      createElement(
-        Fragment,
-        null,
-        createElement(SurfaceTemplatePickerHost, { editor: plusEditor }),
-        createElement(SurfaceTemplatePickerHost, { editor: coreEditor }),
-      ),
-    );
-    openPicker(coreEditor, "core-slide-1");
-    openPicker(plusEditor, "plus-slide-1");
-
-    const dialogs = await waitFor(() => {
-      const mountedDialogs = Array.from(
-        globalThis.document.body.querySelectorAll<HTMLElement>(
-          ".sc-surface-template-picker-dialog",
-        ),
-      );
-      expect(mountedDialogs).toHaveLength(2);
-      return mountedDialogs;
-    });
-    const plusDialog = dialogs.find((dialog) =>
-      dialog.textContent?.includes("Private Plus Surface"),
-    );
-    const coreDialog = dialogs.find(
-      (dialog) => !dialog.textContent?.includes("Private Plus Surface"),
-    );
-    if (!plusDialog || !coreDialog) {
-      throw new Error("Expected one isolated Plus Surface picker and one Core Surface picker.");
-    }
-    expect(dialogs.every((dialog) => dialog.textContent?.includes("Content"))).toBe(true);
-
-    const hostSurfaceCard = within(plusDialog)
-      .getByText("Private Plus Surface")
-      .closest<HTMLButtonElement>("button");
-    if (!hostSurfaceCard) throw new Error("Expected the private Plus Surface card.");
-    await user.click(hostSurfaceCard);
-
-    await waitFor(() => {
-      expect(readSurfaceVariants(plusEditor.getJSON())).toEqual([
-        "slide-cover",
-        hostSurface.definition.id,
-      ]);
-    });
-    expect(readSurfaceVariants(coreEditor.getJSON())).toEqual(["slide-cover"]);
-    expect(
-      globalThis.document.body.querySelectorAll(".sc-surface-template-picker-dialog"),
-    ).toHaveLength(1);
-  });
-
   it("groups labelled cards in explicit catalogue order", async () => {
     const { dialog } = await renderOpenPicker();
     const titleGroup = within(dialog).getByRole("region", { name: "Title layouts" });
@@ -319,11 +248,7 @@ async function renderOpenPicker({
   return { dialog, editor, user };
 }
 
-function createEditor(
-  surfaceIds: readonly string[],
-  editorElement?: HTMLElement,
-  application?: ReturnType<typeof createScaffoldApplication>,
-): Editor {
+function createEditor(surfaceIds: readonly string[], editorElement?: HTMLElement): Editor {
   const element = editorElement ?? globalThis.document.createElement("div");
   if (!editorElement) {
     globalThis.document.body.append(element);
@@ -349,59 +274,11 @@ function createEditor(
       TestArrangementNode,
       TestSectionArrangementNode,
       AuthoringSlideDividers,
-      ...(application
-        ? [
-            createScaffoldCapabilitiesStorageExtension(application.capabilities),
-            createScaffoldAuthoringCataloguesStorageExtension(application.authoring.catalogues),
-          ]
-        : []),
     ],
     content: slideshowDocument(surfaceIds),
   });
   editors.push(editor);
   return editor;
-}
-
-function openPicker(editor: Editor, afterSurfaceId: string): void {
-  act(() => {
-    editor.view.dispatch(
-      editor.state.tr.setMeta(authoringSlideDividersPluginKey, {
-        type: "open-template-picker",
-        afterSurfaceId,
-      }),
-    );
-  });
-}
-
-function hostSurfaceCapability(id: string): SurfaceCapability {
-  return {
-    definition: {
-      id,
-      modes: ["slideshow"],
-      title: "Private Plus Surface",
-      description: "A private Surface installed only in the Plus editor.",
-      catalogue: {
-        section: "content",
-        order: 9_999,
-        preview: { kind: "slot", role: "content" },
-      },
-      structurePolicy: {
-        fixedChildren: [{ type: "paragraph" }],
-        allowRootInsertion: false,
-      },
-      createSurface: ({ surfaceId }) => ({
-        type: "surface",
-        attrs: { id: surfaceId, variant: id, settings: {} },
-        content: [{ type: "paragraph" }],
-      }),
-    },
-    authoringView: { variantId: id, component: HostSurfaceView },
-    runtimeView: { variantId: id, component: HostSurfaceView },
-  };
-}
-
-function HostSurfaceView() {
-  return null;
 }
 
 function slideshowDocument(surfaceIds: readonly string[]): JSONContent {

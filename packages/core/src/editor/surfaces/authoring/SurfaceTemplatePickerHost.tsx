@@ -1,8 +1,6 @@
 import { XIcon as X } from "@phosphor-icons/react";
 import { useEditorState, type Editor } from "@tiptap/react";
 
-import { getScaffoldAuthoringCataloguesForEditor } from "@/composition/authoring/scaffold-authoring-catalogues-storage";
-import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import * as Dialog from "@/ui/components/Dialog/Dialog";
 import * as VisuallyHidden from "@/ui/components/VisuallyHidden/VisuallyHidden";
 import { zIndex } from "@/ui/overlays/z-index";
@@ -25,11 +23,8 @@ import { insertSurfaceTemplateAfterSurface } from "./surface-template-insertion"
 
 import "./SurfaceTemplatePickerHost.css";
 
-interface SurfaceTemplatePickerHostProps {
+interface SurfaceTemplatePickerProps {
   editor: Editor;
-}
-
-interface SurfaceTemplatePickerProps extends SurfaceTemplatePickerHostProps {
   surfaceCreationCatalog: SurfaceCreationCatalog;
   surfaceVariants: SurfaceVariantRegistry;
 }
@@ -42,19 +37,6 @@ const CATALOGUE_SECTIONS: readonly {
   { id: "content", label: "Content layouts" },
   { id: "image", label: "Image layouts" },
 ];
-
-export function SurfaceTemplatePickerHost({ editor }: SurfaceTemplatePickerHostProps) {
-  const { surfaceCreation } = getScaffoldAuthoringCataloguesForEditor(editor);
-  const { surfaces } = getScaffoldCapabilitiesForEditor(editor);
-
-  return (
-    <SurfaceTemplatePicker
-      editor={editor}
-      surfaceCreationCatalog={surfaceCreation}
-      surfaceVariants={surfaces.registry}
-    />
-  );
-}
 
 export function SurfaceTemplatePicker({
   editor,

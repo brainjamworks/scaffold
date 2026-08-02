@@ -7,7 +7,7 @@ import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions
 import { BlockStrip } from "@/editor/shell/chrome/BlockStrip";
 import { SURFACE_FLOATING_AUTHORING_CONTROLS } from "@/editor/surfaces/authoring/chrome/surface-floating-controls";
 import { builtInSurfaceAuthoringChromeResolver } from "@/editor/surfaces/authoring/surface-authoring-views";
-import { SurfaceTemplatePickerHost } from "@/editor/surfaces/authoring/SurfaceTemplatePickerHost";
+import { SurfaceTemplatePicker } from "@/editor/surfaces/authoring/SurfaceTemplatePickerHost";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 
 import { AuthoringContentChrome } from "./AuthoringContentChrome";
@@ -33,6 +33,19 @@ export function AuthoringDocumentBlockStrip({ editor }: { editor: Editor }) {
   );
 }
 
+export function AuthoringDocumentSurfaceTemplatePickerHost({ editor }: { editor: Editor }) {
+  const { surfaceCreation } = getScaffoldAuthoringCataloguesForEditor(editor);
+  const { surfaces } = getScaffoldCapabilitiesForEditor(editor);
+
+  return (
+    <SurfaceTemplatePicker
+      editor={editor}
+      surfaceCreationCatalog={surfaceCreation}
+      surfaceVariants={surfaces.registry}
+    />
+  );
+}
+
 export function AuthoringDocumentChrome({
   children,
   editable,
@@ -54,7 +67,9 @@ export function AuthoringDocumentChrome({
       >
         {children}
       </AuthoringContentChrome>
-      {canShowAuthoringChrome ? <SurfaceTemplatePickerHost editor={editor} /> : null}
+      {canShowAuthoringChrome ? (
+        <AuthoringDocumentSurfaceTemplatePickerHost editor={editor} />
+      ) : null}
     </>
   );
 }

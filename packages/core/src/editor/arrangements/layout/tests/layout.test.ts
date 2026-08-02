@@ -10,6 +10,7 @@ import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
+import { createScaffoldAuthoringCataloguesStorageExtension } from "@/composition/authoring/scaffold-authoring-catalogues-storage";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import {
@@ -100,7 +101,8 @@ const alignmentTargetPort = createAlignmentTargetPort({
 const layoutStructuralRenderers = createStructuralInteractionBubbleRendererMap(
   layoutStructuralInteractionBubbleRendererBindings,
 );
-const testScaffoldCapabilities = createScaffoldApplication().capabilities;
+const testScaffoldApplication = createScaffoldApplication();
+const testScaffoldCapabilities = testScaffoldApplication.capabilities;
 
 const elementGetBoundingClientRectDescriptor = Object.getOwnPropertyDescriptor(
   Element.prototype,
@@ -165,6 +167,9 @@ function makeEditor(content?: JSONContent) {
   const editor = new Editor({
     extensions: [
       createScaffoldCapabilitiesStorageExtension(testScaffoldCapabilities),
+      createScaffoldAuthoringCataloguesStorageExtension(
+        testScaffoldApplication.authoring.catalogues,
+      ),
       DocumentNode,
       StarterKit.configure({
         document: false,

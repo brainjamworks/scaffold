@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { CircleIcon } from "@phosphor-icons/react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Editor, Node, type JSONContent } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
@@ -13,6 +13,7 @@ import {
   defineScaffoldExtensionPack,
   type BlockCapability,
   type LayoutCapability,
+  type SurfaceCapability,
 } from "@/composition/application/create-scaffold-application";
 import { createScaffoldAuthoringCataloguesStorageExtension } from "@/composition/authoring/scaffold-authoring-catalogues-storage";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
@@ -30,7 +31,11 @@ import { authoringSlideDividersPluginKey } from "@/editor/surfaces/authoring/Aut
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 
-import { AuthoringDocumentBlockStrip, AuthoringDocumentChrome } from "./AuthoringDocumentChrome";
+import {
+  AuthoringDocumentBlockStrip,
+  AuthoringDocumentChrome,
+  AuthoringDocumentSurfaceTemplatePickerHost,
+} from "./AuthoringDocumentChrome";
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 
 function createTestEditor() {
@@ -109,6 +114,80 @@ describe("AuthoringDocumentChrome", () => {
     await userEvent.keyboard("{Escape}");
     await userEvent.click(within(coreStrip).getByRole("button", { name: "Containers" }));
     expect(screen.queryByRole("button", { name: "Plus Block Strip Layout" })).toBeNull();
+
+    rendered.unmount();
+    plusEditor.destroy();
+    coreEditor.destroy();
+  });
+
+  it("keeps cumulative Surface discovery and insertion isolated at the shell boundary", async () => {
+    const hostSurface = hostSurfaceCapability("plus-private-surface");
+    const plusApplication = createScaffoldApplication({
+      packs: [
+        defineScaffoldExtensionPack({
+          id: "plus-surface-picker",
+          surfaces: [hostSurface],
+        }),
+      ],
+    });
+    const plusEditor = createApplicationAuthoringEditor(
+      plusApplication,
+      createSlideshowDocumentJSON({
+        regionId: "plus-region",
+        surfaceId: "plus-slide-1",
+        text: "Plus slide content",
+      }),
+    );
+    const coreEditor = createApplicationAuthoringEditor(
+      createScaffoldApplication(),
+      createSlideshowDocumentJSON({
+        regionId: "core-region",
+        surfaceId: "core-slide-1",
+        text: "Core slide content",
+      }),
+    );
+    const user = userEvent.setup();
+    const rendered = render(
+      <>
+        <AuthoringDocumentSurfaceTemplatePickerHost editor={plusEditor} />
+        <AuthoringDocumentSurfaceTemplatePickerHost editor={coreEditor} />
+      </>,
+    );
+    openSurfaceTemplatePicker(coreEditor, "core-slide-1");
+    openSurfaceTemplatePicker(plusEditor, "plus-slide-1");
+
+    const dialogs = await waitFor(() => {
+      const mountedDialogs = Array.from(
+        document.body.querySelectorAll<HTMLElement>(".sc-surface-template-picker-dialog"),
+      );
+      expect(mountedDialogs).toHaveLength(2);
+      return mountedDialogs;
+    });
+    const plusDialog = dialogs.find((dialog) =>
+      dialog.textContent?.includes("Private Plus Surface"),
+    );
+    const coreDialog = dialogs.find(
+      (dialog) => !dialog.textContent?.includes("Private Plus Surface"),
+    );
+    if (!plusDialog || !coreDialog) {
+      throw new Error("Expected one isolated Plus Surface picker and one Core Surface picker.");
+    }
+    expect(dialogs.every((dialog) => dialog.textContent?.includes("Content"))).toBe(true);
+
+    const hostSurfaceCard = within(plusDialog)
+      .getByText("Private Plus Surface")
+      .closest<HTMLButtonElement>("button");
+    if (!hostSurfaceCard) throw new Error("Expected the private Plus Surface card.");
+    await user.click(hostSurfaceCard);
+
+    await waitFor(() => {
+      expect(readSurfaceVariants(plusEditor.getJSON())).toEqual([
+        "slide-content",
+        hostSurface.definition.id,
+      ]);
+    });
+    expect(readSurfaceVariants(coreEditor.getJSON())).toEqual(["slide-content"]);
+    expect(document.body.querySelectorAll(".sc-surface-template-picker-dialog")).toHaveLength(1);
 
     rendered.unmount();
     plusEditor.destroy();
@@ -368,13 +447,14 @@ describe("AuthoringDocumentChrome", () => {
 
 function createApplicationAuthoringEditor(
   application: ReturnType<typeof createScaffoldApplication>,
+  content: JSONContent = createScaffoldDocumentContent({ mode: "page" }),
 ) {
   return new Editor({
     extensions: createCourseDocumentAuthoringExtensions({
       editable: true,
       composition: application.authoring,
     }),
-    content: createScaffoldDocumentContent({ mode: "page" }),
+    content,
   });
 }
 
@@ -429,6 +509,52 @@ function hostLayoutCapability(id: string, title: string): LayoutCapability {
 
 function HostLayoutView() {
   return null;
+}
+
+function hostSurfaceCapability(id: string): SurfaceCapability {
+  return {
+    definition: {
+      id,
+      modes: ["slideshow"],
+      title: "Private Plus Surface",
+      description: "A private Surface installed only in the Plus editor.",
+      catalogue: {
+        section: "content",
+        order: 9_999,
+        preview: { kind: "slot", role: "content" },
+      },
+      structurePolicy: {
+        fixedChildren: [{ type: "paragraph" }],
+        allowRootInsertion: false,
+      },
+      createSurface: ({ surfaceId }) => ({
+        type: "surface",
+        attrs: { id: surfaceId, variant: id, settings: {} },
+        content: [{ type: "paragraph" }],
+      }),
+    },
+    authoringView: { variantId: id, component: HostSurfaceView },
+    runtimeView: { variantId: id, component: HostSurfaceView },
+  };
+}
+
+function HostSurfaceView() {
+  return null;
+}
+
+function openSurfaceTemplatePicker(editor: Editor, afterSurfaceId: string): void {
+  act(() => {
+    editor.view.dispatch(
+      editor.state.tr.setMeta(authoringSlideDividersPluginKey, {
+        type: "open-template-picker",
+        afterSurfaceId,
+      }),
+    );
+  });
+}
+
+function readSurfaceVariants(documentJSON: JSONContent): unknown[] {
+  return (documentJSON.content?.[0]?.content ?? []).map((surface) => surface.attrs?.["variant"]);
 }
 
 function createSlideshowDocumentJSON({
