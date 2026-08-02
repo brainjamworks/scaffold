@@ -16,6 +16,7 @@ import {
   type SurfaceCapability,
 } from "@/composition/application/create-scaffold-application";
 import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
+import { getScaffoldAuthoringCataloguesForEditor } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
 import * as surfaceLifecyclePolicy from "@/document/authoring/surface-lifecycle-authoring-policy";
 import {
   CellAuthoringNode,
@@ -37,7 +38,6 @@ import type { SurfaceAuthoringViewProps } from "@/editor/surfaces/authoring/surf
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import * as surfaceVariantRegistry from "@/editor/surfaces/model/surface-variant-registry";
-import { getScaffoldAuthoringCataloguesForEditor } from "./scaffold-authoring-catalogues-storage";
 import { createCourseDocumentAuthoringExtensions } from "./create-authoring-composition";
 
 const AUTHORING_ONLY_EXTENSION_NAMES = [

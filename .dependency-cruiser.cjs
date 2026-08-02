@@ -29,11 +29,14 @@ const runtimeOwnerPath = [
   "^packages/core/src/editor/rich-text/(?:runtime/|[^/]+/runtime/)",
   "^packages/core/src/editor/surfaces/runtime/",
 ];
+const authoringCatalogueStoragePath =
+  "^packages/core/src/composition/extensions/scaffold-authoring-catalogues-storage\\.[^/]+$";
 const authoringOwnerPath = [
   "^packages/core/src/entrypoints/authoring\\.ts$",
   "^packages/core/src/authoring/",
   "^packages/core/src/document/authoring/",
   "^packages/core/src/composition/authoring/",
+  authoringCatalogueStoragePath,
   "^packages/core/src/editor/blocks/authoring-block-extensions\\.[^/]+$",
   "^packages/core/src/editor/(?:drag|interactions|shell|suggestions)/",
   "^packages/core/src/editor/(?:bounded-containers|frame|media)/authoring/",
@@ -789,6 +792,19 @@ module.exports = {
       },
       to: {
         path: "^packages/core/src/composition/(?:application|authoring|runtime)/",
+      },
+    },
+    {
+      // Owner: the authoring catalogue editor-storage dependency inversion.
+      // Lane roots construct and install this lower seam; it cannot relay back upward.
+      name: "authoring-catalogue-storage-does-not-reach-lane-composition-roots",
+      severity: "error",
+      from: {
+        path: authoringCatalogueStoragePath,
+      },
+      to: {
+        path: "^packages/core/src/composition/(?:application|authoring|runtime)/",
+        reachable: true,
       },
     },
     {

@@ -10,7 +10,7 @@ import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
-import { createScaffoldAuthoringCataloguesStorageExtension } from "@/composition/authoring/scaffold-authoring-catalogues-storage";
+import { createScaffoldAuthoringCataloguesStorageExtension } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import {

@@ -1,8 +1,8 @@
 import type { Editor } from "@tiptap/core";
 import type { ReactNode } from "react";
 
-import { getScaffoldAuthoringCataloguesForEditor } from "@/composition/authoring/scaffold-authoring-catalogues-storage";
 import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
+import { getScaffoldAuthoringCataloguesForEditor } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { BlockStrip } from "@/editor/shell/chrome/BlockStrip";
 import { SURFACE_FLOATING_AUTHORING_CONTROLS } from "@/editor/surfaces/authoring/chrome/surface-floating-controls";

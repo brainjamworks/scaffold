@@ -2,6 +2,7 @@ import {
   resolveScaffoldCapabilities,
   type ResolvedScaffoldCapabilities,
 } from "@/composition/model/resolved-scaffold-capabilities";
+import type { ScaffoldAuthoringCatalogues } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
 import { builtInLayoutAuthoringViews } from "@/editor/arrangements/layout/authoring/built-in-layout-views";
 import type { LayoutViewRegistration } from "@/editor/arrangements/layout/authoring/layout-view-definition";
 import {
@@ -22,10 +23,7 @@ import { builtInSurfaceAuthoringViewBindings } from "@/editor/surfaces/authoring
 import { builtInSurfaceVariantDefinitions } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { validateSurfaceVariantFactories } from "@/editor/surfaces/model/surface-variant-registry";
 
-import {
-  createScaffoldAuthoringCatalogues,
-  type ScaffoldAuthoringCatalogues,
-} from "./scaffold-authoring-catalogues";
+import { createScaffoldAuthoringCatalogues } from "./scaffold-authoring-catalogues";
 
 export interface ScaffoldAuthoringBlockComposition {
   readonly extensions: readonly AnyExtension[];

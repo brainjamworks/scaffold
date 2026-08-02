@@ -934,6 +934,87 @@ test("allows named neutral adaptation and downward lane composition", async (t) 
   assert.equal(result.status, 0, result.stderr || result.stdout);
 });
 
+test("allows authoring composition and Quiz to consume the lower authoring catalogue storage seam", async (t) => {
+  const fixtureRoot = await createFixture(t, {
+    "packages/core/src/editor/insertion/insert-catalog.ts":
+      "export interface InsertCatalog { readonly id: string }\n",
+    "packages/core/src/editor/surfaces/authoring/surface-creation-catalog.ts":
+      "export interface SurfaceCreationCatalog { readonly id: string }\n",
+    "packages/core/src/composition/extensions/scaffold-authoring-catalogues-storage.ts": [
+      'import type { InsertCatalog } from "../../editor/insertion/insert-catalog";',
+      'import type { SurfaceCreationCatalog } from "../../editor/surfaces/authoring/surface-creation-catalog";',
+      "export interface ScaffoldAuthoringCatalogues { readonly inDocument: InsertCatalog; readonly surfaceCreation: SurfaceCreationCatalog }",
+      "export const getScaffoldAuthoringCataloguesForEditor = () => ({}) as ScaffoldAuthoringCatalogues;",
+    ].join("\n"),
+    "packages/core/src/composition/authoring/scaffold-authoring-catalogues.ts": [
+      'import type { ScaffoldAuthoringCatalogues } from "../extensions/scaffold-authoring-catalogues-storage";',
+      "export const createScaffoldAuthoringCatalogues = (): ScaffoldAuthoringCatalogues => ({}) as ScaffoldAuthoringCatalogues;",
+    ].join("\n"),
+    "packages/core/src/composition/authoring/create-authoring-composition.ts": [
+      'import { getScaffoldAuthoringCataloguesForEditor } from "../extensions/scaffold-authoring-catalogues-storage";',
+      "export const authoringCatalogues = getScaffoldAuthoringCataloguesForEditor();",
+    ].join("\n"),
+    "packages/core/src/editor/blocks/assessment/quiz/quiz-authoring.ts": [
+      'import { getScaffoldAuthoringCataloguesForEditor } from "../../../../composition/extensions/scaffold-authoring-catalogues-storage";',
+      "export const quizCatalogues = getScaffoldAuthoringCataloguesForEditor();",
+    ].join("\n"),
+  });
+
+  const result = cruise(fixtureRoot, "err-long", ["packages/core/src"]);
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+});
+
+test("rejects learner runtime reachability to authoring catalogue storage", async (t) => {
+  const fixtureRoot = await createFixture(t, {
+    "packages/core/src/composition/extensions/scaffold-authoring-catalogues-storage.ts":
+      "export interface ScaffoldAuthoringCataloguesStorage { id: string }\n",
+    "packages/core/src/composition/runtime/create-runtime-composition.ts": [
+      'import type { RuntimeCatalogueRelay } from "./runtime-catalogue-relay";',
+      "export type RuntimeComposition = RuntimeCatalogueRelay;",
+    ].join("\n"),
+    "packages/core/src/composition/runtime/runtime-catalogue-relay.ts": [
+      'import type { ScaffoldAuthoringCataloguesStorage } from "../extensions/scaffold-authoring-catalogues-storage";',
+      "export type RuntimeCatalogueRelay = ScaffoldAuthoringCataloguesStorage;",
+    ].join("\n"),
+  });
+
+  const result = cruise(fixtureRoot, "err-long", ["packages/core/src"]);
+  const output = `${result.stdout}\n${result.stderr}`;
+
+  assert.notEqual(result.status, 0, output);
+  assert.match(output, /runtime-does-not-reach-authoring/);
+  assert.match(
+    output,
+    /create-runtime-composition\.ts[\s\S]*runtime-catalogue-relay\.ts[\s\S]*scaffold-authoring-catalogues-storage\.ts/,
+  );
+});
+
+test("rejects authoring catalogue storage reachability to lane roots through an upward relay", async (t) => {
+  const fixtureRoot = await createFixture(t, {
+    "packages/core/src/composition/authoring/create-authoring-composition.ts":
+      "export interface AuthoringComposition { id: string }\n",
+    "packages/core/src/composition/extensions/scaffold-authoring-catalogues-storage.ts": [
+      'import type { CatalogueStorageUpwardRelay } from "./catalogue-storage-upward-relay";',
+      "export type ScaffoldAuthoringCataloguesStorage = CatalogueStorageUpwardRelay;",
+    ].join("\n"),
+    "packages/core/src/composition/extensions/catalogue-storage-upward-relay.ts": [
+      'import type { AuthoringComposition } from "../authoring/create-authoring-composition";',
+      "export type CatalogueStorageUpwardRelay = AuthoringComposition;",
+    ].join("\n"),
+  });
+
+  const result = cruise(fixtureRoot, "err-long", ["packages/core/src"]);
+  const output = `${result.stdout}\n${result.stderr}`;
+
+  assert.notEqual(result.status, 0, output);
+  assert.match(output, /authoring-catalogue-storage-does-not-reach-lane-composition-roots/);
+  assert.match(
+    output,
+    /scaffold-authoring-catalogues-storage\.ts[\s\S]*catalogue-storage-upward-relay\.ts[\s\S]*create-authoring-composition\.ts/,
+  );
+});
+
 test("rejects lane composition reachability back into application integration", async (t) => {
   const fixtureRoot = await createFixture(t, {
     "packages/core/src/composition/application/create-scaffold-application.ts":

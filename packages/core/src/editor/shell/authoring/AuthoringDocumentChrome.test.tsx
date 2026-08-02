@@ -15,8 +15,8 @@ import {
   type LayoutCapability,
   type SurfaceCapability,
 } from "@/composition/application/create-scaffold-application";
-import { createScaffoldAuthoringCataloguesStorageExtension } from "@/composition/authoring/scaffold-authoring-catalogues-storage";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { createScaffoldAuthoringCataloguesStorageExtension } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { AUTHORING_ANCHOR_ATTR } from "@/editor/interactions/dom/authoring-frame";

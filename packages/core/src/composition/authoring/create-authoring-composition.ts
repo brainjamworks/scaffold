@@ -22,6 +22,7 @@ import { createSlashCommand } from "@/editor/suggestions/slash/SlashCommand";
 import { StableIdPasteNormalization } from "@/document/authoring/stable-id-paste-normalization";
 import { resolveEditorPlaceholder } from "@/editor/prosemirror/placeholder/resolve-editor-placeholder";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { createScaffoldAuthoringCataloguesStorageExtension } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
 import { createCourseDocumentBaseExtensions } from "@/composition/model/create-document-composition";
 import { createSurfaceLifecycleAuthoringPolicy } from "@/document/authoring/surface-lifecycle-authoring-policy";
 import { AuthoringSlideDividers } from "@/editor/surfaces/authoring/AuthoringSlideDividers";
@@ -35,7 +36,6 @@ import {
   createCoreScaffoldAuthoringComposition,
   type ScaffoldAuthoringComposition,
 } from "./scaffold-authoring-composition";
-import { createScaffoldAuthoringCataloguesStorageExtension } from "./scaffold-authoring-catalogues-storage";
 
 export function createCourseDocumentAuthoringExtensions({
   editable,

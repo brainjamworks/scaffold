@@ -1,8 +1,14 @@
 import { Extension, type Editor } from "@tiptap/core";
 
-import type { ScaffoldAuthoringCatalogues } from "./scaffold-authoring-catalogues";
+import type { InsertCatalog } from "@/editor/insertion/insert-catalog";
+import type { SurfaceCreationCatalog } from "@/editor/surfaces/authoring/surface-creation-catalog";
 
 const SCAFFOLD_AUTHORING_CATALOGUES_STORAGE = "scaffoldAuthoringCatalogues";
+
+export interface ScaffoldAuthoringCatalogues {
+  readonly inDocument: InsertCatalog;
+  readonly surfaceCreation: SurfaceCreationCatalog;
+}
 
 export interface ScaffoldAuthoringCataloguesStorage {
   readonly catalogues: ScaffoldAuthoringCatalogues;

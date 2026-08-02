@@ -1,17 +1,10 @@
 import type { ResolvedScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
+import type { ScaffoldAuthoringCatalogues } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
 import { createLayoutInsertAction } from "@/editor/arrangements/layout/model/layout-definition";
 import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";
 import { coreStructuralInsertActions } from "@/editor/insertion/core-structural-insert-actions";
-import { createInsertCatalog, type InsertCatalog } from "@/editor/insertion/insert-catalog";
-import {
-  createSurfaceCreationCatalog,
-  type SurfaceCreationCatalog,
-} from "@/editor/surfaces/authoring/surface-creation-catalog";
-
-export interface ScaffoldAuthoringCatalogues {
-  readonly inDocument: InsertCatalog;
-  readonly surfaceCreation: SurfaceCreationCatalog;
-}
+import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
+import { createSurfaceCreationCatalog } from "@/editor/surfaces/authoring/surface-creation-catalog";
 
 export function createScaffoldAuthoringCatalogues(
   capabilities: ResolvedScaffoldCapabilities,
