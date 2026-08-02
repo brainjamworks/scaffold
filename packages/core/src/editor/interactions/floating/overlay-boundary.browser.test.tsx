@@ -610,6 +610,7 @@ async function mountAuthoringHarness(options: MountOptions = {}): Promise<Author
       TestGridNode,
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
       createSlashCommand({
+        blockDefinitions: builtInBlockRegistry,
         items: [slashParagraphItem],
         surfaceVariants: builtInSurfaceVariantRegistry,
       }),

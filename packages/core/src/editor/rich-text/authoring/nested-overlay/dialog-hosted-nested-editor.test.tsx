@@ -707,7 +707,11 @@ function makeFullChromeInnerExtensions(catalogItems: readonly InsertAction[]): E
     SectionAuthoringNode,
     CalloutAuthoringExtension,
     makeReactBlockNode(),
-    createSlashCommand({ items: catalogItems, surfaceVariants: builtInSurfaceVariantRegistry }),
+    createSlashCommand({
+      blockDefinitions: builtInBlockRegistry,
+      items: catalogItems,
+      surfaceVariants: builtInSurfaceVariantRegistry,
+    }),
   ];
 }
 

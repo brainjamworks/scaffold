@@ -298,7 +298,10 @@ function makeEditor({
         CellAuthoringNode,
         LayoutAuthoringNode,
         SectionAuthoringNode,
-        createEmptyInsertionRowExtension({ surfaceVariants: builtInSurfaceVariantRegistry }),
+        createEmptyInsertionRowExtension({
+          blockDefinitions: builtInBlockRegistry,
+          surfaceVariants: builtInSurfaceVariantRegistry,
+        }),
       ]
     : [GridRuntimeNode, CellRuntimeNode, LayoutRuntimeNode, SectionRuntimeNode];
   const surfaceContent =

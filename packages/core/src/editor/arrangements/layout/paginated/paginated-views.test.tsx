@@ -255,7 +255,10 @@ function makeEditor(editable: boolean, placement: "region" | "surface"): Editor 
         CellAuthoringNode,
         LayoutAuthoringNode,
         SectionAuthoringNode,
-        createEmptyInsertionRowExtension({ surfaceVariants: builtInSurfaceVariantRegistry }),
+        createEmptyInsertionRowExtension({
+          blockDefinitions: builtInBlockRegistry,
+          surfaceVariants: builtInSurfaceVariantRegistry,
+        }),
       ]
     : [GridRuntimeNode, CellRuntimeNode, LayoutRuntimeNode, SectionRuntimeNode];
   const editor = new Editor({
