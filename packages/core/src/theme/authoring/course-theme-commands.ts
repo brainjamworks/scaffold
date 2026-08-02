@@ -1,139 +1,55 @@
 import type { Editor } from "@tiptap/core";
 import { closeHistory } from "@tiptap/pm/history";
-import type { CourseThemeCssColor, CourseThemePaletteSlot } from "@scaffold/contracts";
+import type { CourseThemeRef } from "@scaffold/contracts";
 
 import { PersistedCourseThemeSchema, type PersistedCourseTheme } from "@/schemas/course-document";
-import { materialiseCoursePalette, type CourseThemePresetDefinition } from "@/theme/model";
+import type { CourseColourSystemRegistry } from "@/theme/course/colour-systems/registry";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
+import type { CourseDesignThemeRegistry } from "@/theme/course/designs/registry";
 
-export type CourseThemePaletteSection = "foundation" | "creative" | "link";
+export function selectCourseDesign(
+  editor: Editor,
+  reference: CourseThemeRef,
+  registry: CourseDesignThemeRegistry,
+): boolean {
+  const design = registry.get(reference);
+  if (!design) return false;
+  const theme = readCourseTheme(editor);
+  if (!theme) return false;
 
-const PALETTE_SECTION_SLOTS = {
-  foundation: ["background", "surface", "bodyText", "headingText"],
-  creative: ["primary", "secondary", "accent1", "accent2", "accent3", "accent4"],
-  link: ["link"],
-} as const satisfies Record<CourseThemePaletteSection, readonly CourseThemePaletteSlot[]>;
-
-export function selectCoursePreset(editor: Editor, preset: CourseThemePresetDefinition): boolean {
-  return replaceCourseTheme(editor, {
+  return writeCourseTheme(editor, {
     schemaVersion: 1,
-    preset: {
-      id: preset.id,
-      revision: preset.revision,
+    design: { id: design.id, revision: design.revision },
+    colourSystem: {
+      id: design.defaultColourSystem.id,
+      revision: design.defaultColourSystem.revision,
     },
-    values: structuredClone(preset.values),
+    overrides: {},
   });
 }
 
-export function resetCourseTheme(editor: Editor, preset: CourseThemePresetDefinition): boolean {
-  stopCollaborativeHistoryCapture(editor);
-  return replaceCourseTheme(
-    editor,
-    {
-      schemaVersion: 1,
-      preset: {
-        id: preset.id,
-        revision: preset.revision,
-      },
-      values: structuredClone(preset.values),
-    },
-    true,
-  );
-}
-
-export function updateCourseTheme(editor: Editor, theme: PersistedCourseTheme): boolean {
-  return replaceCourseTheme(editor, theme);
-}
-
-export function updateCourseThemePaletteSlot(
+export function selectCourseColourSystem(
   editor: Editor,
-  preset: CourseThemePresetDefinition,
-  variant: "light" | "dark",
-  slot: CourseThemePaletteSlot,
-  color: CourseThemeCssColor,
+  reference: CourseThemeRef,
+  registry: CourseColourSystemRegistry,
 ): boolean {
+  const colourSystem = registry.get(reference);
+  if (!colourSystem) return false;
   const theme = readCourseTheme(editor);
-  if (!theme?.values) return false;
-  const nextTheme = structuredClone(theme);
-  const values = nextTheme.values;
-  if (!values) return false;
+  if (!theme) return false;
 
-  if (variant === "light") {
-    values.colors.author.light[slot] = color;
-  } else {
-    values.colors.author.dark.values[slot] = color;
-    values.colors.author.dark.sourceBySlot[slot] = "custom";
-  }
-
-  materialiseThemeColors(values, preset);
-  return replaceCourseTheme(editor, nextTheme);
+  return writeCourseTheme(editor, {
+    schemaVersion: 1,
+    design: theme.design,
+    colourSystem: { id: colourSystem.id, revision: colourSystem.revision },
+    overrides: {},
+  });
 }
 
-export function resetCourseThemePaletteSection(
-  editor: Editor,
-  preset: CourseThemePresetDefinition,
-  section: CourseThemePaletteSection,
-): boolean {
-  const theme = readCourseTheme(editor);
-  if (!theme?.values) return false;
-  const nextTheme = structuredClone(theme);
-  const values = nextTheme.values;
-  if (!values) return false;
-
-  for (const slot of PALETTE_SECTION_SLOTS[section]) {
-    values.colors.author.light[slot] = preset.values.colors.author.light[slot];
-    values.colors.author.dark.values[slot] = preset.values.colors.author.dark.values[slot];
-    values.colors.author.dark.sourceBySlot[slot] = "derived";
-  }
-  materialiseThemeColors(values, preset);
+export function resetCourseTheme(editor: Editor): boolean {
+  if (!readCourseTheme(editor)) return false;
   stopCollaborativeHistoryCapture(editor);
-  return replaceCourseTheme(editor, nextTheme, true);
-}
-
-export function resetCourseThemeDarkDerivation(
-  editor: Editor,
-  preset: CourseThemePresetDefinition,
-  slot?: CourseThemePaletteSlot,
-): boolean {
-  const theme = readCourseTheme(editor);
-  if (!theme?.values) return false;
-  const nextTheme = structuredClone(theme);
-  const values = nextTheme.values;
-  if (!values) return false;
-
-  const slots = slot
-    ? [slot]
-    : (Object.keys(values.colors.author.dark.sourceBySlot) as CourseThemePaletteSlot[]);
-  for (const paletteSlot of slots) {
-    values.colors.author.dark.sourceBySlot[paletteSlot] = "derived";
-  }
-  materialiseThemeColors(values, preset);
-  stopCollaborativeHistoryCapture(editor);
-  return replaceCourseTheme(editor, nextTheme, true);
-}
-
-export function resetCourseThemeSection(
-  editor: Editor,
-  preset: CourseThemePresetDefinition,
-  section: "colors" | "typography" | "design",
-): boolean {
-  const theme = readCourseTheme(editor);
-  if (!theme?.values) return false;
-  const nextTheme = structuredClone(theme);
-  const values = nextTheme.values;
-  if (!values) return false;
-  switch (section) {
-    case "colors":
-      values.colors = structuredClone(preset.values.colors);
-      break;
-    case "typography":
-      values.typography = structuredClone(preset.values.typography);
-      break;
-    case "design":
-      values.design = structuredClone(preset.values.design);
-      break;
-  }
-  stopCollaborativeHistoryCapture(editor);
-  return replaceCourseTheme(editor, nextTheme, true);
+  return writeCourseTheme(editor, createDefaultPersistedCourseTheme(), true);
 }
 
 function stopCollaborativeHistoryCapture(editor: Editor): void {
@@ -148,29 +64,19 @@ function stopCollaborativeHistoryCapture(editor: Editor): void {
   }
 }
 
-function materialiseThemeColors(
-  values: NonNullable<PersistedCourseTheme["values"]>,
-  preset: CourseThemePresetDefinition,
-): void {
-  const materialised = materialiseCoursePalette({
-    recipe: preset.recipe,
-    light: values.colors.author.light,
-    dark: values.colors.author.dark,
-  });
-  values.colors = materialised;
-}
-
 function readCourseTheme(editor: Editor): PersistedCourseTheme | null {
-  const parsed = PersistedCourseThemeSchema.safeParse(editor.state.doc.firstChild?.attrs["theme"]);
+  const courseDocument = editor.state.doc.firstChild;
+  if (courseDocument?.type.name !== "courseDocument") return null;
+  const parsed = PersistedCourseThemeSchema.safeParse(courseDocument.attrs["theme"]);
   return parsed.success ? parsed.data : null;
 }
 
-function replaceCourseTheme(
+function writeCourseTheme(
   editor: Editor,
   theme: PersistedCourseTheme,
   startsNewHistoryGroup = false,
 ): boolean {
-  const parsed = PersistedCourseThemeSchema.safeParse(structuredClone(theme));
+  const parsed = PersistedCourseThemeSchema.safeParse(theme);
   const courseDocument = editor.state.doc.firstChild;
   if (!parsed.success || courseDocument?.type.name !== "courseDocument") return false;
 

@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 
+import type { CourseThemeRef, PersistedCourseTheme } from "@scaffold/contracts";
 import { Editor, Node, type JSONContent } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { afterEach, describe, expect, it } from "vite-plus/test";
@@ -7,23 +8,45 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import {
-  SCAFFOLD_DEFAULT_PRESET,
-  SCAFFOLD_EDITORIAL_PRESET,
-  SCAFFOLD_MINIMAL_PRESET,
-  createScaffoldDefaultTheme,
-} from "@/theme/model";
+  createCourseColourSystemRegistry,
+  type CourseColourSystemRevision,
+} from "@/theme/course/colour-systems/registry";
+import { SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1 } from "@/theme/course/colour-systems/scaffold-indigo/v1";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
+import {
+  createCourseDesignThemeRegistry,
+  type CourseDesignThemeRevision,
+} from "@/theme/course/designs/registry";
+import { SCAFFOLD_FLOW_DESIGN_V1 } from "@/theme/course/designs/scaffold-flow/v1/definition";
 
 import {
   resetCourseTheme,
-  resetCourseThemeDarkDerivation,
-  resetCourseThemePaletteSection,
-  resetCourseThemeSection,
-  selectCoursePreset,
-  updateCourseTheme,
-  updateCourseThemePaletteSlot,
+  selectCourseColourSystem,
+  selectCourseDesign,
 } from "./course-theme-commands";
 
 const editors: Editor[] = [];
+const alternateColourSystem = {
+  ...SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1,
+  id: "scaffold-coral",
+  label: "Scaffold Coral",
+  radix: { ...SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1.radix, accentColor: "crimson" },
+} satisfies CourseColourSystemRevision;
+const alternateDesign = {
+  ...SCAFFOLD_FLOW_DESIGN_V1,
+  id: "scaffold-editorial",
+  label: "Scaffold Editorial",
+  defaultColourSystem: { id: alternateColourSystem.id, revision: alternateColourSystem.revision },
+  rootClassName: "sc-course-theme-scaffold-editorial-v1",
+} satisfies CourseDesignThemeRevision;
+const designRegistry = createCourseDesignThemeRegistry([
+  SCAFFOLD_FLOW_DESIGN_V1,
+  alternateDesign,
+]);
+const colourSystemRegistry = createCourseColourSystemRegistry([
+  SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1,
+  alternateColourSystem,
+]);
 const TestArrangementNode = Node.create({
   name: "testArrangement",
   group: "arrangement",
@@ -40,176 +63,125 @@ afterEach(() => {
 });
 
 describe("course theme commands", () => {
-  it("selects a preset as a complete immutable snapshot", () => {
+  it("persists an exact design and its default colour-system reference", () => {
     const editor = createEditor();
 
-    expect(selectCoursePreset(editor, SCAFFOLD_EDITORIAL_PRESET)).toBe(true);
+    expect(selectCourseDesign(editor, reference(alternateDesign), designRegistry)).toBe(true);
 
     expect(readTheme(editor)).toEqual({
       schemaVersion: 1,
-      preset: {
-        id: SCAFFOLD_EDITORIAL_PRESET.id,
-        revision: SCAFFOLD_EDITORIAL_PRESET.revision,
-      },
-      values: SCAFFOLD_EDITORIAL_PRESET.values,
+      design: reference(alternateDesign),
+      colourSystem: reference(alternateColourSystem),
+      overrides: {},
     });
-    expect(readTheme(editor).values).not.toBe(SCAFFOLD_EDITORIAL_PRESET.values);
   });
 
-  it("replaces custom values when switching presets", () => {
-    const editor = createEditor();
-    const customised = createScaffoldDefaultTheme();
-    customised.values!.typography.typeScale = 1.33;
-    expect(updateCourseTheme(editor, customised)).toBe(true);
-
-    expect(selectCoursePreset(editor, SCAFFOLD_MINIMAL_PRESET)).toBe(true);
-
-    expect(readTheme(editor).values).toEqual(SCAFFOLD_MINIMAL_PRESET.values);
-    expect(readTheme(editor).values!.typography.typeScale).toBe(
-      SCAFFOLD_MINIMAL_PRESET.values.typography.typeScale,
-    );
-  });
-
-  it("resets the complete theme to its selected preset", () => {
-    const editor = createEditor();
-    expect(selectCoursePreset(editor, SCAFFOLD_EDITORIAL_PRESET)).toBe(true);
-    const customised = readTheme(editor);
-    customised.values!.design.roundness = 0.9;
-    expect(updateCourseTheme(editor, customised)).toBe(true);
-
-    expect(resetCourseTheme(editor, SCAFFOLD_EDITORIAL_PRESET)).toBe(true);
-
-    expect(readTheme(editor).values).toEqual(SCAFFOLD_EDITORIAL_PRESET.values);
-  });
-
-  it("participates in normal undo and redo history", () => {
-    const editor = createEditor();
-
-    expect(selectCoursePreset(editor, SCAFFOLD_EDITORIAL_PRESET)).toBe(true);
-    expect(editor.commands.undo()).toBe(true);
-    expect(readTheme(editor).preset.id).toBe(SCAFFOLD_DEFAULT_PRESET.id);
-    expect(editor.commands.redo()).toBe(true);
-    expect(readTheme(editor).preset.id).toBe(SCAFFOLD_EDITORIAL_PRESET.id);
-  });
-
-  it("materialises a light author-slot edit and updates only its derived dark slot", () => {
+  it("changes only the exact colour-system reference", () => {
     const editor = createEditor();
     const before = readTheme(editor);
-    const statuses = structuredClone(before.values!.colors.resolved.light.success);
-    const darkSecondary = before.values!.colors.author.dark.values.secondary;
 
     expect(
-      updateCourseThemePaletteSlot(editor, SCAFFOLD_DEFAULT_PRESET, "light", "primary", "#123456"),
-    ).toBe(true);
-
-    const colors = readTheme(editor).values!.colors;
-    expect(colors.author.light.primary).toBe("#123456");
-    expect(colors.author.dark.values.primary).not.toBe(
-      before.values!.colors.author.dark.values.primary,
-    );
-    expect(colors.author.dark.values.secondary).toBe(darkSecondary);
-    expect(colors.resolved.light.primary).toBe("#123456");
-    expect(colors.resolved.light.success).toEqual(statuses);
-  });
-
-  it("detaches only the edited dark slot from later light derivation", () => {
-    const editor = createEditor();
-    expect(
-      updateCourseThemePaletteSlot(editor, SCAFFOLD_DEFAULT_PRESET, "dark", "primary", "#abcdef"),
-    ).toBe(true);
-    expect(
-      updateCourseThemePaletteSlot(editor, SCAFFOLD_DEFAULT_PRESET, "light", "primary", "#123456"),
-    ).toBe(true);
-    expect(
-      updateCourseThemePaletteSlot(
+      selectCourseColourSystem(
         editor,
-        SCAFFOLD_DEFAULT_PRESET,
-        "light",
-        "secondary",
-        "#fedcba",
+        reference(alternateColourSystem),
+        colourSystemRegistry,
       ),
     ).toBe(true);
 
-    const dark = readTheme(editor).values!.colors.author.dark;
-    expect(dark.sourceBySlot.primary).toBe("custom");
-    expect(dark.values.primary).toBe("#abcdef");
-    expect(dark.sourceBySlot.secondary).toBe("derived");
-    expect(dark.values.secondary).not.toBe(
-      SCAFFOLD_DEFAULT_PRESET.values.colors.author.dark.values.secondary,
-    );
-  });
-
-  it("restores one or every dark slot to preset derivation", () => {
-    const editor = createEditor();
-    expect(
-      updateCourseThemePaletteSlot(editor, SCAFFOLD_DEFAULT_PRESET, "dark", "primary", "#abcdef"),
-    ).toBe(true);
-    expect(
-      updateCourseThemePaletteSlot(editor, SCAFFOLD_DEFAULT_PRESET, "dark", "secondary", "#fedcba"),
-    ).toBe(true);
-
-    expect(resetCourseThemeDarkDerivation(editor, SCAFFOLD_DEFAULT_PRESET, "primary")).toBe(true);
-    expect(readTheme(editor).values!.colors.author.dark.sourceBySlot).toMatchObject({
-      primary: "derived",
-      secondary: "custom",
+    expect(readTheme(editor)).toEqual({
+      ...before,
+      colourSystem: reference(alternateColourSystem),
     });
-
-    expect(resetCourseThemeDarkDerivation(editor, SCAFFOLD_DEFAULT_PRESET)).toBe(true);
-    expect(
-      new Set(Object.values(readTheme(editor).values!.colors.author.dark.sourceBySlot)),
-    ).toEqual(new Set(["derived"]));
   });
 
-  it("preserves deliberately poor author-selected contrast", () => {
+  it("refuses unknown exact references without changing the document", () => {
     const editor = createEditor();
+    const before = editor.getJSON();
+    const unknown = { id: "missing", revision: "1" };
 
-    expect(
-      updateCourseThemePaletteSlot(editor, SCAFFOLD_DEFAULT_PRESET, "light", "primary", "#ffffff"),
-    ).toBe(true);
-
-    expect(readTheme(editor).values!.colors.author.light.primary).toBe("#ffffff");
-    expect(readTheme(editor).values!.colors.resolved.light.primary).toBe("#ffffff");
+    expect(selectCourseDesign(editor, unknown, designRegistry)).toBe(false);
+    expect(selectCourseColourSystem(editor, unknown, colourSystemRegistry)).toBe(false);
+    expect(editor.getJSON()).toEqual(before);
   });
 
-  it("resets only colours to the selected preset and remains undoable", () => {
+  it("refuses to update a malformed persisted theme", () => {
     const editor = createEditor();
-    expect(selectCoursePreset(editor, SCAFFOLD_EDITORIAL_PRESET)).toBe(true);
-    const customised = readTheme(editor);
-    customised.values!.colors.resolved.light.primary = "#123456";
-    customised.values!.typography.typeScale = 1.33;
-    expect(updateCourseTheme(editor, customised)).toBe(true);
+    replaceThemeAttr(editor, {
+      schemaVersion: 1,
+      design: reference(SCAFFOLD_FLOW_DESIGN_V1),
+      colourSystem: reference(SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1),
+      overrides: { unsupported: true },
+    });
+    const before = editor.getJSON();
 
-    expect(resetCourseThemeSection(editor, SCAFFOLD_EDITORIAL_PRESET, "colors")).toBe(true);
-
-    expect(readTheme(editor).values!.colors).toEqual(SCAFFOLD_EDITORIAL_PRESET.values.colors);
-    expect(readTheme(editor).values!.typography.typeScale).toBe(1.33);
-    expect(editor.commands.undo()).toBe(true);
-    expect(readTheme(editor).values!.colors.resolved.light.primary).toBe("#123456");
-  });
-
-  it("resets one author palette section as one undoable materialisation", () => {
-    const editor = createEditor();
+    expect(selectCourseDesign(editor, reference(alternateDesign), designRegistry)).toBe(false);
     expect(
-      updateCourseThemePaletteSlot(editor, SCAFFOLD_DEFAULT_PRESET, "light", "primary", "#123456"),
-    ).toBe(true);
-    expect(
-      updateCourseThemePaletteSlot(
+      selectCourseColourSystem(
         editor,
-        SCAFFOLD_DEFAULT_PRESET,
-        "light",
-        "background",
-        "#abcdef",
+        reference(alternateColourSystem),
+        colourSystemRegistry,
+      ),
+    ).toBe(false);
+    expect(resetCourseTheme(editor)).toBe(false);
+    expect(editor.getJSON()).toEqual(before);
+  });
+
+  it("refuses to update a document with the wrong root node", () => {
+    const editor = createWrongRootEditor();
+    const before = editor.getJSON();
+
+    expect(selectCourseDesign(editor, reference(alternateDesign), designRegistry)).toBe(false);
+    expect(
+      selectCourseColourSystem(
+        editor,
+        reference(alternateColourSystem),
+        colourSystemRegistry,
+      ),
+    ).toBe(false);
+    expect(resetCourseTheme(editor)).toBe(false);
+    expect(editor.getJSON()).toEqual(before);
+  });
+
+  it("keeps ordinary selection in undo and redo history", () => {
+    const editor = createEditor();
+
+    expect(selectCourseDesign(editor, reference(alternateDesign), designRegistry)).toBe(true);
+    expect(editor.commands.undo()).toBe(true);
+    expect(readTheme(editor)).toEqual(createDefaultPersistedCourseTheme());
+    expect(editor.commands.redo()).toBe(true);
+    expect(readTheme(editor).design).toEqual(reference(alternateDesign));
+  });
+
+  it("resets to application defaults in a fresh history group", () => {
+    const editor = createEditor();
+    expect(selectCourseDesign(editor, reference(alternateDesign), designRegistry)).toBe(true);
+
+    expect(resetCourseTheme(editor)).toBe(true);
+    expect(readTheme(editor)).toEqual(createDefaultPersistedCourseTheme());
+    expect(editor.commands.undo()).toBe(true);
+    expect(readTheme(editor)).toEqual({
+      schemaVersion: 1,
+      design: reference(alternateDesign),
+      colourSystem: reference(alternateColourSystem),
+      overrides: {},
+    });
+  });
+
+  it("does not copy design or colour-system definitions into the document", () => {
+    const editor = createEditor();
+
+    expect(selectCourseDesign(editor, reference(alternateDesign), designRegistry)).toBe(true);
+    expect(
+      selectCourseColourSystem(
+        editor,
+        reference(alternateColourSystem),
+        colourSystemRegistry,
       ),
     ).toBe(true);
 
-    expect(resetCourseThemePaletteSection(editor, SCAFFOLD_DEFAULT_PRESET, "creative")).toBe(true);
-
-    expect(readTheme(editor).values!.colors.author.light.primary).toBe(
-      SCAFFOLD_DEFAULT_PRESET.values.colors.author.light.primary,
+    expect(JSON.stringify(readTheme(editor))).not.toMatch(
+      /label|description|radix|typography|semantics|rootClassName/,
     );
-    expect(readTheme(editor).values!.colors.author.light.background).toBe("#abcdef");
-    expect(editor.commands.undo()).toBe(true);
-    expect(readTheme(editor).values!.colors.author.light.primary).toBe("#123456");
   });
 });
 
@@ -229,13 +201,27 @@ function createEditor(): Editor {
   return editor;
 }
 
+function createWrongRootEditor(): Editor {
+  const WrongRootDocumentNode = Node.create({
+    name: "doc",
+    topNode: true,
+    content: "block+",
+  });
+  const editor = new Editor({
+    extensions: [WrongRootDocumentNode, StarterKit.configure({ document: false })],
+    content: { type: "doc", content: [{ type: "paragraph" }] },
+  });
+  editors.push(editor);
+  return editor;
+}
+
 function documentContent(): JSONContent {
   return {
     type: "doc",
     content: [
       {
         type: "courseDocument",
-        attrs: { mode: "page", theme: createScaffoldDefaultTheme() },
+        attrs: { mode: "page", theme: createDefaultPersistedCourseTheme() },
         content: [
           {
             type: "surface",
@@ -248,6 +234,20 @@ function documentContent(): JSONContent {
   };
 }
 
-function readTheme(editor: Editor) {
+function reference(definition: { id: string; revision: string }): CourseThemeRef {
+  return { id: definition.id, revision: definition.revision };
+}
+
+function readTheme(editor: Editor): PersistedCourseTheme {
   return structuredClone(editor.getJSON().content![0]!.attrs!["theme"]);
+}
+
+function replaceThemeAttr(editor: Editor, theme: unknown): void {
+  const courseDocument = editor.state.doc.firstChild!;
+  editor.view.dispatch(
+    editor.state.tr.setNodeMarkup(0, undefined, {
+      ...courseDocument.attrs,
+      theme,
+    }),
+  );
 }
