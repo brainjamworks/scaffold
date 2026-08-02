@@ -1,11 +1,21 @@
 // @vitest-environment happy-dom
 
-import { fireEvent, render, screen } from "@testing-library/react";
-import { Editor, type JSONContent } from "@tiptap/core";
+import { CircleIcon } from "@phosphor-icons/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { Editor, Node, type JSONContent } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it, vi } from "vite-plus/test";
 
+import {
+  createScaffoldApplication,
+  defineScaffoldExtensionPack,
+  type BlockCapability,
+  type LayoutCapability,
+} from "@/composition/application/create-scaffold-application";
+import { createScaffoldAuthoringCataloguesStorageExtension } from "@/composition/authoring/scaffold-authoring-catalogues-storage";
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { AUTHORING_ANCHOR_ATTR } from "@/editor/interactions/dom/authoring-frame";
@@ -18,14 +28,19 @@ import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/t
 import { interactionOwnerPluginKey } from "@/editor/interactions/targets/prosemirror/state/interaction-owner-plugin-state";
 import { authoringSlideDividersPluginKey } from "@/editor/surfaces/authoring/AuthoringSlideDividers";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
+import { createScaffoldDocumentContent } from "@/format/artifact";
 
 import { AuthoringDocumentBlockStrip, AuthoringDocumentChrome } from "./AuthoringDocumentChrome";
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 
 function createTestEditor() {
+  const application = createScaffoldApplication();
+
   return new Editor({
     extensions: [
       StarterKit.configure({ undoRedo: false }),
+      createScaffoldCapabilitiesStorageExtension(application.capabilities),
+      createScaffoldAuthoringCataloguesStorageExtension(application.authoring.catalogues),
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
     ],
     content: { type: "doc", content: [{ type: "paragraph" }] },
@@ -43,7 +58,7 @@ function createAuthoringEditor() {
 }
 
 describe("AuthoringDocumentChrome", () => {
-  it("binds the built-in insertion strip at document composition", () => {
+  it("binds the editor's Core insertion catalogue at document composition", () => {
     const editor = createTestEditor();
 
     render(<AuthoringDocumentBlockStrip editor={editor} />);
@@ -51,6 +66,53 @@ describe("AuthoringDocumentChrome", () => {
     expect(screen.getByLabelText("Insert block")).toBeInTheDocument();
 
     editor.destroy();
+  });
+
+  it("keeps cumulative Block and Layout discovery isolated between simultaneous editors", async () => {
+    const hostBlock = hostBlockCapability("plus_block_strip_block", "Plus Block Strip Block");
+    const hostLayout = hostLayoutCapability("plus-block-strip-layout", "Plus Block Strip Layout");
+    const plusApplication = createScaffoldApplication({
+      packs: [
+        defineScaffoldExtensionPack({
+          id: "plus-block-strip",
+          blocks: [hostBlock],
+          layouts: [hostLayout],
+        }),
+      ],
+    });
+    const coreEditor = createApplicationAuthoringEditor(createScaffoldApplication());
+    const plusEditor = createApplicationAuthoringEditor(plusApplication);
+    const rendered = render(
+      <>
+        <AuthoringDocumentBlockStrip editor={plusEditor} />
+        <AuthoringDocumentBlockStrip editor={coreEditor} />
+      </>,
+    );
+    const [plusStrip, coreStrip] = screen.getAllByRole("complementary", {
+      name: "Insert block",
+    });
+    if (!plusStrip || !coreStrip) throw new Error("Expected two mounted Block Strips.");
+
+    await userEvent.click(within(plusStrip).getByRole("button", { name: "Content" }));
+    expect(screen.getByRole("button", { name: "Plus Block Strip Block" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Callout" })).toBeInTheDocument();
+
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(within(coreStrip).getByRole("button", { name: "Content" }));
+    expect(screen.queryByRole("button", { name: "Plus Block Strip Block" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Callout" })).toBeInTheDocument();
+
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(within(plusStrip).getByRole("button", { name: "Containers" }));
+    expect(screen.getByRole("button", { name: "Plus Block Strip Layout" })).toBeInTheDocument();
+
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(within(coreStrip).getByRole("button", { name: "Containers" }));
+    expect(screen.queryByRole("button", { name: "Plus Block Strip Layout" })).toBeNull();
+
+    rendered.unmount();
+    plusEditor.destroy();
+    coreEditor.destroy();
   });
 
   it("renders authoring chrome only for editable mounts", () => {
@@ -303,6 +365,71 @@ describe("AuthoringDocumentChrome", () => {
     expect(focus).not.toHaveBeenCalled();
   });
 });
+
+function createApplicationAuthoringEditor(
+  application: ReturnType<typeof createScaffoldApplication>,
+) {
+  return new Editor({
+    extensions: createCourseDocumentAuthoringExtensions({
+      editable: true,
+      composition: application.authoring,
+    }),
+    content: createScaffoldDocumentContent({ mode: "page" }),
+  });
+}
+
+function hostBlockCapability(nodeType: string, title: string): BlockCapability {
+  const createNode = () =>
+    Node.create({
+      name: nodeType,
+      group: "block",
+      atom: true,
+    });
+
+  return {
+    definition: {
+      nodeType,
+      insert: {
+        id: nodeType.replaceAll("_", "-"),
+        title,
+        description: `Insert ${title}`,
+        icon: CircleIcon,
+        category: "content",
+        content: () => ({ type: nodeType }),
+      },
+    },
+    authoringExtension: createNode(),
+    runtimeExtension: createNode(),
+  };
+}
+
+function hostLayoutCapability(id: string, title: string): LayoutCapability {
+  return {
+    definition: {
+      id,
+      title,
+      description: `Insert ${title}`,
+      icon: CircleIcon,
+      createContent: () => ({
+        type: "layout",
+        attrs: { id: `${id}-instance`, variant: id },
+        content: [
+          {
+            type: "section",
+            attrs: { id: `${id}-section` },
+            content: [{ type: "paragraph" }],
+          },
+        ],
+      }),
+    },
+    authoringView: { id, layout: HostLayoutView },
+    runtimeView: { id, component: HostLayoutView },
+  };
+}
+
+function HostLayoutView() {
+  return null;
+}
 
 function createSlideshowDocumentJSON({
   regionId,

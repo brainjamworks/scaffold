@@ -1,11 +1,12 @@
 import { XIcon as X } from "@phosphor-icons/react";
 import { useEditorState, type Editor } from "@tiptap/react";
 
+import { getScaffoldAuthoringCataloguesForEditor } from "@/composition/authoring/scaffold-authoring-catalogues-storage";
+import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import * as Dialog from "@/ui/components/Dialog/Dialog";
 import * as VisuallyHidden from "@/ui/components/VisuallyHidden/VisuallyHidden";
 import { zIndex } from "@/ui/overlays/z-index";
 
-import { builtInSurfaceVariantRegistry } from "../model/built-in-surface-variant-definitions";
 import type {
   SurfaceCatalogueSection,
   SurfaceTemplatePreviewNode,
@@ -17,7 +18,6 @@ import {
   getAuthoringSlideDividersState,
 } from "./AuthoringSlideDividers";
 import {
-  createSurfaceCreationCatalog,
   type SurfaceCreationCatalog,
   type SurfaceCreationCatalogEntry,
 } from "./surface-creation-catalog";
@@ -34,8 +34,6 @@ interface SurfaceTemplatePickerProps extends SurfaceTemplatePickerHostProps {
   surfaceVariants: SurfaceVariantRegistry;
 }
 
-const builtInSurfaceCreationCatalog = createSurfaceCreationCatalog(builtInSurfaceVariantRegistry);
-
 const CATALOGUE_SECTIONS: readonly {
   id: SurfaceCatalogueSection;
   label: string;
@@ -46,11 +44,14 @@ const CATALOGUE_SECTIONS: readonly {
 ];
 
 export function SurfaceTemplatePickerHost({ editor }: SurfaceTemplatePickerHostProps) {
+  const { surfaceCreation } = getScaffoldAuthoringCataloguesForEditor(editor);
+  const { surfaces } = getScaffoldCapabilitiesForEditor(editor);
+
   return (
     <SurfaceTemplatePicker
       editor={editor}
-      surfaceCreationCatalog={builtInSurfaceCreationCatalog}
-      surfaceVariants={builtInSurfaceVariantRegistry}
+      surfaceCreationCatalog={surfaceCreation}
+      surfaceVariants={surfaces.registry}
     />
   );
 }
