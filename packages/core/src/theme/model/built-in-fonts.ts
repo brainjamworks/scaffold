@@ -39,7 +39,8 @@ export const builtInThemeFonts = deepFreeze([
     fallback: "monospace",
     weights: [400, 500, 600, 700, 800],
   },
-]);
+] as const);
+export type BuiltInThemeFontId = (typeof builtInThemeFonts)[number]["id"];
 
 function deepFreeze<T>(value: T): T {
   if (value && typeof value === "object" && !Object.isFrozen(value)) {
