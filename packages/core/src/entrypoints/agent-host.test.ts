@@ -2,8 +2,10 @@ import { describe, expect, expectTypeOf, it } from "vite-plus/test";
 
 import type { BlockDefinition as CoreBlockDefinition } from "../editor/blocks/block-definition";
 import type { InsertAction as CoreInsertAction } from "../editor/insertion/insert-action";
+import type { InsertCatalog as CoreInsertCatalog } from "../editor/insertion/insert-catalog";
 // @ts-expect-error The Agent facade does not expose raw authoring view contracts.
 import type { AuthoringSurfaceViewProps } from "./agent-host";
+import type { InsertCatalog as AgentInsertCatalog } from "./agent-host";
 // @ts-expect-error The Agent facade deliberately removed this compatibility type name.
 import type { InsertCatalogItem } from "./agent-host";
 // @ts-expect-error The Agent facade deliberately removed this compatibility type name.
@@ -107,6 +109,7 @@ type AgentHostTypeSurface = {
   blockDescriptor: BlockChromeTargetDescriptor;
   blockDefinition: BlockDefinition;
   catalogItem: AgentInsertAction;
+  catalog: AgentInsertCatalog;
   catalogNodeResult: CreateCatalogNodeCheckedResult;
   checkedIssue: CheckedMutationIssue;
   checkedResult: CheckedMutationResult;
@@ -133,6 +136,7 @@ describe("@scaffold/core/agent-host", () => {
   it("keeps public Agent block and insertion contracts type-aligned", () => {
     expectTypeOf<CoreBlockDefinition>().toEqualTypeOf<AgentBlockDefinition>();
     expectTypeOf<CoreInsertAction>().toEqualTypeOf<AgentInsertAction>();
+    expectTypeOf<CoreInsertCatalog>().toEqualTypeOf<AgentInsertCatalog>();
   });
 
   it("publishes the curated Agent host value surface", () => {

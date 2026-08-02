@@ -34,6 +34,7 @@ export {
 } from "@/host/agent/insertion";
 export type { BlockDefinition } from "@/editor/blocks/block-definition";
 export type { InsertAction } from "@/editor/insertion/insert-action";
+export type { InsertCatalog } from "@/editor/insertion/insert-catalog";
 
 export {
   insertNodeChecked,
