@@ -29,7 +29,7 @@ import { keyValueListBlockDefinition } from "./key-value-list-definition";
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
   nodeType: "key_value_list",
-  catalogId: "key-value-list",
+  actionId: "key-value-list",
   extensions: [createScaffoldInteractionOwnerExtension(builtInBlockRegistry)],
   expectsConfiguration: true,
   expectsFrame: true,

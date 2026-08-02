@@ -29,7 +29,7 @@ import { ComparisonAuthoringExtension } from "./comparison-authoring-extension";
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
   nodeType: COMPARISON_NODE,
-  catalogId: "comparison",
+  actionId: "comparison",
   extensions: [createScaffoldInteractionOwnerExtension(builtInBlockRegistry)],
   expectsConfiguration: true,
   expectsFrame: true,

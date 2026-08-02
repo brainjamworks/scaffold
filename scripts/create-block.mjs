@@ -1065,7 +1065,7 @@ import './index';
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
   nodeType: '${context.nodeType}',
-  catalogId: '${context.kebabName}',
+  actionId: '${context.kebabName}',
   expectsFrame: true,
   expectsConfiguration: true,
 ${expectsAssessment}

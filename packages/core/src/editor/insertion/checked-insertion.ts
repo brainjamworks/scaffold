@@ -47,21 +47,21 @@ export interface InsertActionCheckedRange {
 export function createCatalogNodeChecked({
   catalog,
   schema,
-  catalogId,
+  actionId,
   contentOverride,
 }: {
   catalog: InsertCatalog;
   schema: Schema;
-  catalogId: string;
+  actionId: string;
   contentOverride?: JSONContent;
 }): CreateCatalogNodeCheckedResult {
-  const action = catalog.getById(catalogId);
+  const action = catalog.getById(actionId);
   if (!action) {
     return {
       ok: false,
       issue: {
         code: "unknown_catalog_item",
-        message: `Insert action "${catalogId}" is not in the supplied catalog.`,
+        message: `Insert action "${actionId}" is not in the supplied catalog.`,
       },
     };
   }
@@ -77,7 +77,7 @@ export function replaceRangeWithCatalogNodeChecked<TTransform extends Transform>
   catalog,
   tr,
   schema,
-  catalogId,
+  actionId,
   from,
   to,
   contentOverride,
@@ -85,7 +85,7 @@ export function replaceRangeWithCatalogNodeChecked<TTransform extends Transform>
   catalog: InsertCatalog;
   tr: TTransform;
   schema: Schema;
-  catalogId: string;
+  actionId: string;
   from: number;
   to: number;
   contentOverride?: JSONContent;
@@ -93,7 +93,7 @@ export function replaceRangeWithCatalogNodeChecked<TTransform extends Transform>
   const nodeResult = createCatalogNodeChecked({
     catalog,
     schema,
-    catalogId,
+    actionId,
     ...(contentOverride ? { contentOverride } : {}),
   });
   if (!nodeResult.ok) return nodeResult;

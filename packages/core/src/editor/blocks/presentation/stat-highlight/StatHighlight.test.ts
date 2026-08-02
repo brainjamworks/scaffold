@@ -22,7 +22,7 @@ it("constructs serialized defaults in the Stat Highlight feature", () => {
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
   nodeType: "stat_highlight",
-  catalogId: "stat-highlight",
+  actionId: "stat-highlight",
   expectsConfiguration: true,
   expectsFrame: true,
   expectsAuthoringFrame: true,

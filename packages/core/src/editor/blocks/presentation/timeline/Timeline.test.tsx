@@ -50,7 +50,7 @@ const BoundedRegionTestNode = TiptapNode.create({
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
   nodeType: TIMELINE_NODE,
-  catalogId: "timeline",
+  actionId: "timeline",
   extensions: [createScaffoldInteractionOwnerExtension(builtInBlockRegistry)],
   expectsConfiguration: true,
   expectsFrame: true,

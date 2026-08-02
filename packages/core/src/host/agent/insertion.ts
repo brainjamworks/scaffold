@@ -16,17 +16,17 @@ export type { CreateCatalogNodeCheckedResult };
 
 export function createCatalogNodeChecked({
   schema,
-  catalogId,
+  actionId,
   contentOverride,
 }: {
   schema: Schema;
-  catalogId: string;
+  actionId: string;
   contentOverride?: JSONContent;
 }): CreateCatalogNodeCheckedResult {
   return createCatalogNodeWithCatalogChecked({
     catalog: builtInInsertCatalog,
     schema,
-    catalogId,
+    actionId,
     ...(contentOverride ? { contentOverride } : {}),
   });
 }

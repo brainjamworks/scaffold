@@ -182,7 +182,7 @@ function renderGalleryXapiRuntime(
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
   nodeType: "gallery",
-  catalogId: "gallery",
+  actionId: "gallery",
   expectsConfiguration: true,
   expectsFrame: true,
   expectsAuthoringFrame: true,

@@ -178,7 +178,7 @@ function makePointerCapturable(pin: HTMLElement) {
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
   nodeType: "annotated_figure",
-  catalogId: "annotated-figure",
+  actionId: "annotated-figure",
   expectsConfiguration: true,
   expectsFrame: true,
   expectsAuthoringFrame: true,

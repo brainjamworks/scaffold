@@ -12,7 +12,7 @@ import "./code-block-definition";
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
   nodeType: "code_block",
-  catalogId: "code-block",
+  actionId: "code-block",
   extensions: [createScaffoldInteractionOwnerExtension(builtInBlockRegistry)],
   expectsConfiguration: true,
   expectsFrame: true,

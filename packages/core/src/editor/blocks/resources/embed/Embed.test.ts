@@ -20,7 +20,7 @@ import "./embed-definition";
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
   nodeType: "embed",
-  catalogId: "embed",
+  actionId: "embed",
   expectsConfiguration: true,
   expectsFrame: true,
   expectsAuthoringFrame: true,

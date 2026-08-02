@@ -33,8 +33,8 @@ export function useQuizAuthoringController({
 
   return {
     actions: {
-      addQuestion: (catalogId: string) => {
-        const insertedId = addQuizQuestion({ catalogId, editor, getPos, node });
+      addQuestion: (actionId: string) => {
+        const insertedId = addQuizQuestion({ actionId, editor, getPos, node });
         setActiveChildId(insertedId);
       },
       deleteQuestion: () => {

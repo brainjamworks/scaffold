@@ -149,7 +149,7 @@ const testBlockRegistry = createBlockRegistry([
 describeBlockContract({
   blockDefinitions: testBlockRegistry,
   nodeType: "test_contract_block",
-  catalogId: "test-contract-block",
+  actionId: "test-contract-block",
   extensions: [TestContractNode],
   expectsConfiguration: true,
   expectsFrame: false,
@@ -162,7 +162,7 @@ describe("block contract assertions", () => {
       assertBlockContract({
         blockDefinitions: testBlockRegistry,
         nodeType: "test_contract_bad_id_block",
-        catalogId: "test-contract-bad-id-block",
+        actionId: "test-contract-bad-id-block",
         extensions: [TestContractBadIdNode],
       }),
     ).toThrow(/stable id/i);

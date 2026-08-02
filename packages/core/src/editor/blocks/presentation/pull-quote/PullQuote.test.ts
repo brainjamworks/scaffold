@@ -22,7 +22,7 @@ it("constructs serialized defaults in the Pull Quote feature", () => {
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
   nodeType: "pull_quote",
-  catalogId: "pull-quote",
+  actionId: "pull-quote",
   expectsConfiguration: true,
   expectsFrame: true,
   expectsAuthoringFrame: true,

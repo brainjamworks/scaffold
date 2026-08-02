@@ -10,7 +10,7 @@ import { pdfEmbedBlockDefinition } from "./pdf-embed-definition";
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
   nodeType: "pdf_embed",
-  catalogId: "pdf-embed",
+  actionId: "pdf-embed",
   expectsConfiguration: true,
   expectsFrame: true,
   expectsAuthoringFrame: true,

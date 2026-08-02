@@ -28,7 +28,7 @@ import { RoadmapAuthoringExtension } from "./roadmap-authoring-extension";
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
   nodeType: "roadmap",
-  catalogId: "roadmap",
+  actionId: "roadmap",
   expectsConfiguration: true,
   expectsFrame: true,
   expectsAuthoringFrame: true,

@@ -41,7 +41,7 @@ it("keeps the ProseMirror attributes wrapper in the Glossary feature", () => {
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
   nodeType: "glossary",
-  catalogId: "glossary",
+  actionId: "glossary",
   expectsFrame: true,
   expectsAuthoringFrame: true,
 });

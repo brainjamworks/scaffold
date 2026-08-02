@@ -29,7 +29,7 @@ import { FlashcardAuthoringExtension } from "./flashcard-authoring-extension";
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
   nodeType: FLASHCARD_NODE,
-  catalogId: "flashcard",
+  actionId: "flashcard",
   extensions: [createScaffoldInteractionOwnerExtension(builtInBlockRegistry)],
   expectsConfiguration: true,
   expectsFrame: true,

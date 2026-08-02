@@ -158,6 +158,10 @@ test("content recipe writes schema, node, view, index, and contract test", (t) =
   );
   assert.match(
     readFixtureFile(root, "packages/core/src/editor/blocks/Demo/Demo.test.ts"),
+    /actionId: 'demo'/,
+  );
+  assert.match(
+    readFixtureFile(root, "packages/core/src/editor/blocks/Demo/Demo.test.ts"),
     /expectsFrame: true/,
   );
 });

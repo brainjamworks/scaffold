@@ -21,7 +21,7 @@ import "./table-definition";
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
   nodeType: "table",
-  catalogId: "table",
+  actionId: "table",
   expectsFrame: true,
   expectsAuthoringResizeWrapper: false,
   expectsAuthoringFrame: true,
@@ -338,7 +338,7 @@ function createTableJson(editor: Editor) {
   const result = createCatalogNodeChecked({
     catalog: builtInInsertCatalog,
     schema: editor.schema,
-    catalogId: "table",
+    actionId: "table",
   });
   expect(result.ok).toBe(true);
   if (!result.ok) throw new Error(result.issue.message);

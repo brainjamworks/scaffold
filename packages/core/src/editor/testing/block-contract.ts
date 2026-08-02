@@ -42,7 +42,7 @@ import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 export interface DescribeBlockContractInput {
   blockDefinitions: BlockDefinitionLookup;
   nodeType: string;
-  catalogId: string;
+  actionId: string;
   extensions?: readonly AnyExtension[];
   expectsConfiguration?: boolean;
   expectsFrame?: boolean;
@@ -160,11 +160,11 @@ function createBlockContractNode(
   if (!action) {
     throw new Error(`Block "${input.nodeType}" has no insert definition.`);
   }
-  expect(action.id).toBe(input.catalogId);
+  expect(action.id).toBe(input.actionId);
   const catalog = createInsertCatalog([action]);
   const result = createCatalogNodeChecked({
     catalog,
-    catalogId: input.catalogId,
+    actionId: input.actionId,
     schema: editor.schema,
   });
   if (!result.ok) {

@@ -38,12 +38,12 @@ export function getQuizAssessmentCatalogItems(editor: Editor): readonly InsertAc
 }
 
 export function addQuizQuestion({
-  catalogId,
+  actionId,
   editor,
   getPos,
   node,
 }: {
-  catalogId: string;
+  actionId: string;
   editor: Editor;
   getPos: (() => number | undefined) | undefined;
   node: ProseMirrorNode;
@@ -57,7 +57,7 @@ export function addQuizQuestion({
   const nodeResult = createCatalogNodeChecked({
     catalog: builtInInsertCatalog,
     schema: editor.schema,
-    catalogId,
+    actionId,
   });
   if (!nodeResult.ok) return null;
 

@@ -42,7 +42,7 @@ import { NumberedListItemNode, NumberedListTitleNode } from "./slots";
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
   nodeType: "numbered_list",
-  catalogId: "numbered-list",
+  actionId: "numbered-list",
   extensions: [createScaffoldInteractionOwnerExtension(builtInBlockRegistry)],
   expectsConfiguration: true,
   expectsFrame: true,

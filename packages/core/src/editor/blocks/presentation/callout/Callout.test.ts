@@ -26,7 +26,7 @@ import { emptyCalloutData } from "./content";
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
   nodeType: "callout",
-  catalogId: "callout",
+  actionId: "callout",
   extensions: [createScaffoldInteractionOwnerExtension(builtInBlockRegistry)],
   expectsConfiguration: true,
   expectsFrame: true,

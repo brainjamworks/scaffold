@@ -377,7 +377,7 @@ describe("createCatalogNodeChecked", () => {
     const result = createCatalogNodeChecked({
       catalog,
       schema: editor.schema,
-      catalogId: "paragraph",
+      actionId: "paragraph",
     });
 
     expect(result).toEqual(
@@ -394,7 +394,7 @@ describe("createCatalogNodeChecked", () => {
     const result = createCatalogNodeChecked({
       catalog: createInsertCatalog([]),
       schema: editor.schema,
-      catalogId: "paragraph",
+      actionId: "paragraph",
     });
 
     expect(result).toEqual({

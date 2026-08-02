@@ -19,7 +19,7 @@ import { ResourceLinkSurface } from "./ResourceLinkSurface";
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
   nodeType: "resource_link",
-  catalogId: "resource-link",
+  actionId: "resource-link",
   expectsConfiguration: true,
   expectsFrame: true,
   expectsAuthoringFrame: true,

@@ -8,7 +8,7 @@ import "./image-block-definition";
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
   nodeType: "image_block",
-  catalogId: "image",
+  actionId: "image",
   expectsConfiguration: true,
   expectsFrame: true,
   expectsAuthoringFrame: true,

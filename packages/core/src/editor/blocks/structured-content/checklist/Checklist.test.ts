@@ -45,7 +45,7 @@ it("constructs serialized defaults in the Checklist feature", () => {
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
   nodeType: "checklist",
-  catalogId: "checklist",
+  actionId: "checklist",
   expectsConfiguration: true,
   expectsFrame: true,
   expectsAuthoringFrame: true,

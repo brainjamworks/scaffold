@@ -107,7 +107,7 @@ import "./quiz-definition";
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
   nodeType: "quiz",
-  catalogId: "quiz",
+  actionId: "quiz",
   expectsConfiguration: true,
   expectsFrame: true,
   expectsAuthoringFrame: true,

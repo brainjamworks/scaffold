@@ -14,7 +14,7 @@ import { TextWrapImageMediaSurface } from "./TextWrapImageSurface";
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
   nodeType: "text_wrap_image",
-  catalogId: "text-wrap-image",
+  actionId: "text-wrap-image",
   expectsConfiguration: true,
   expectsFrame: true,
   expectsAuthoringFrame: true,

@@ -17,7 +17,7 @@ import { chartBlockDefinition } from "./chart-definition";
 
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
-  catalogId: "chart",
+  actionId: "chart",
   nodeType: "chart_block",
   expectsAuthoringFrame: true,
   expectsConfiguration: true,

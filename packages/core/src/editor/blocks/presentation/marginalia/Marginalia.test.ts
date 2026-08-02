@@ -22,7 +22,7 @@ it("constructs serialized defaults in the Marginalia feature", () => {
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
   nodeType: "marginalia",
-  catalogId: "marginalia",
+  actionId: "marginalia",
   expectsConfiguration: true,
   expectsFrame: true,
   expectsAuthoringFrame: true,

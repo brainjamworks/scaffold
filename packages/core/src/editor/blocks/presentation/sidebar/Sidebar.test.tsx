@@ -29,7 +29,7 @@ import { SidebarAuthoringExtension } from "./sidebar-authoring-extension";
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
   nodeType: SIDEBAR_NODE,
-  catalogId: "sidebar",
+  actionId: "sidebar",
   extensions: [createScaffoldInteractionOwnerExtension(builtInBlockRegistry)],
   expectsFrame: true,
   expectsAuthoringFrame: true,

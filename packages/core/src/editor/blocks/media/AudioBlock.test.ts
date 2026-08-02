@@ -53,7 +53,7 @@ afterEach(() => {
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
   nodeType: "audio_block",
-  catalogId: "audio",
+  actionId: "audio",
   expectsConfiguration: true,
   expectsFrame: true,
   expectsAuthoringFrame: true,
@@ -66,7 +66,7 @@ describe("AudioBlock resize frame", () => {
     const nodeResult = createCatalogNodeChecked({
       catalog: builtInInsertCatalog,
       schema: editor.schema,
-      catalogId: "audio",
+      actionId: "audio",
     });
     expect(nodeResult.ok).toBe(true);
     if (!nodeResult.ok) return;
@@ -98,7 +98,7 @@ describe("AudioBlock resize frame", () => {
     const nodeResult = createCatalogNodeChecked({
       catalog: builtInInsertCatalog,
       schema: editor.schema,
-      catalogId: "audio",
+      actionId: "audio",
     });
     expect(nodeResult.ok).toBe(true);
     if (!nodeResult.ok) return;

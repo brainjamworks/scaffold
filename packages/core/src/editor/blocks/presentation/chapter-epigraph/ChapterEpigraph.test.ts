@@ -22,7 +22,7 @@ it("constructs serialized defaults in the Chapter Epigraph feature", () => {
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
   nodeType: "chapter_epigraph",
-  catalogId: "chapter-epigraph",
+  actionId: "chapter-epigraph",
   expectsConfiguration: true,
   expectsFrame: true,
   expectsAuthoringFrame: true,
