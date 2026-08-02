@@ -1,16 +1,18 @@
 import { PaletteIcon as Palette } from "@phosphor-icons/react";
-import type { CourseThemePaletteSlot } from "@scaffold/contracts";
+import type { CourseThemeRef } from "@scaffold/contracts";
 import type { Editor } from "@tiptap/core";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
+import { useForm } from "react-hook-form";
 
-import type { SettingsFormActionEvent } from "@/editor/configuration/settings-sheet";
+import type {
+  SettingsFormActionEvent,
+  SettingsFormDefinition,
+  SettingsSheetSelectOption,
+} from "@/editor/configuration/settings-sheet";
 import { SettingsForm, SettingsFormActions } from "@/editor/shell/settings/forms/SettingsForm";
-import {
-  PersistedCourseThemeSchema,
-  type CourseThemeValues,
-  type PersistedCourseTheme,
-} from "@/schemas/course-document";
-import type { ResolvedCourseTheme, ThemeCatalogue } from "@/theme/model";
+import { PersistedCourseThemeSchema, type PersistedCourseTheme } from "@/schemas/course-document";
+import type { CourseColourSystemRegistry } from "@/theme/course/colour-systems/registry";
+import type { CourseDesignThemeRegistry } from "@/theme/course/designs/registry";
 import { IconButton } from "@/ui/components/IconButton/IconButton";
 import { Sheet } from "@/ui/components/Sheet/Sheet";
 import * as Tooltip from "@/ui/components/Tooltip/Tooltip";
@@ -18,131 +20,89 @@ import { iconSm } from "@/ui/tokens/icon-sizes";
 
 import {
   resetCourseTheme,
-  resetCourseThemeDarkDerivation,
-  resetCourseThemePaletteSection,
-  resetCourseThemeSection,
-  selectCoursePreset,
-  updateCourseTheme,
-  updateCourseThemePaletteSlot,
+  selectCourseColourSystem,
+  selectCourseDesign,
 } from "./course-theme-commands";
-import {
-  COURSE_THEME_BLUR_FIELDS,
-  courseThemeFormDefinition,
-  derivedDarkPalette,
-  isCourseThemeDesignField,
-  isCourseThemePaletteField,
-  isCourseThemeTypographyField,
-  parseCourseThemeDesign,
-  parseCourseThemePalette,
-  parseCourseThemeTypography,
-  toCourseThemeFormValues,
-  useLiveThemeSettingsForm,
-  type CourseThemeActionId,
-  type CourseThemeFormValues,
-} from "./theme-settings-form";
 import "./CourseThemePanel.css";
+
+interface CourseThemeFormValues {
+  design: string;
+  colourSystem: string;
+}
+
+type CourseThemeActionId = "reset-theme";
 
 export interface CourseThemePanelProps {
   editor: Editor | null;
-  catalogue: ThemeCatalogue;
+  designs: CourseDesignThemeRegistry;
+  colourSystems: CourseColourSystemRegistry;
   theme: PersistedCourseTheme;
-  resolvedTheme: ResolvedCourseTheme;
   onThemeChange: (theme: PersistedCourseTheme) => void;
 }
 
 export function CourseThemePanel({
   editor,
-  catalogue,
+  designs,
+  colourSystems,
   theme,
-  resolvedTheme,
   onThemeChange,
 }: CourseThemePanelProps) {
-  const selectedPreset = catalogue.getPreset(theme.preset.id);
-  const effectivePreset = selectedPreset ?? catalogue.defaultPreset;
-  const editable = Boolean(editor && selectedPreset && theme.values);
-  const values = theme.values ?? effectivePreset.values;
-  const formValues = useMemo(
-    () => toCourseThemeFormValues(theme, values, resolvedTheme.mode),
-    [resolvedTheme.mode, theme, values],
-  );
+  const designAvailable = Boolean(designs.get(theme.design));
+  const colourSystemAvailable = Boolean(colourSystems.get(theme.colourSystem));
+  const designValue = designAvailable ? referenceValue(theme.design) : "";
+  const colourSystemValue = colourSystemAvailable ? referenceValue(theme.colourSystem) : "";
+  const form = useForm<CourseThemeFormValues>({
+    defaultValues: { design: designValue, colourSystem: colourSystemValue },
+  });
   const definition = useMemo(
     () =>
       courseThemeFormDefinition({
-        catalogue,
-        editable,
-        mode: resolvedTheme.mode,
-        preset: effectivePreset,
-        resetThemeEnabled: Boolean(editor && selectedPreset),
-        values,
+        designs,
+        colourSystems,
+        editable: Boolean(editor),
       }),
-    [catalogue, editable, editor, effectivePreset, resolvedTheme.mode, selectedPreset, values],
+    [colourSystems, designs, editor],
   );
 
-  const notifyThemeChange = () => {
-    const nextTheme = readEditorTheme(editor);
-    if (nextTheme) onThemeChange(nextTheme);
-  };
-
-  const commitField = (draft: CourseThemeFormValues, name: keyof CourseThemeFormValues) => {
-    if (!editor) return false;
-
-    if (name === "presetId") {
-      const nextPreset = catalogue.getPreset(draft.presetId);
-      if (!nextPreset || !selectCoursePreset(editor, nextPreset)) return false;
-      notifyThemeChange();
-      return true;
+  useEffect(() => {
+    const current = form.getValues();
+    if (current.design !== designValue || current.colourSystem !== colourSystemValue) {
+      form.reset({ design: designValue, colourSystem: colourSystemValue });
     }
+  }, [colourSystemValue, designValue, form]);
 
-    const persisted = readEditorTheme(editor);
-    const preset = persisted ? catalogue.getPreset(persisted.preset.id) : null;
-    if (!persisted?.values || !preset) return false;
+  useEffect(() => {
+    const subscription = form.watch((draft, { name, type }) => {
+      if (type !== "change" || (name !== "design" && name !== "colourSystem")) return;
 
-    if (isCourseThemePaletteField(name)) {
-      return commitPaletteField({
-        draft,
-        editor,
-        mode: resolvedTheme.mode,
-        name,
-        values: persisted.values,
-        preset,
-        notifyThemeChange,
-      });
-    }
+      const savedValue = name === "design" ? designValue : colourSystemValue;
+      const reference = parseReference(draft[name]);
+      if (!editor || !reference) {
+        queueMicrotask(() => form.setValue(name, savedValue));
+        return;
+      }
 
-    const nextTheme = structuredClone(persisted);
-    const nextValues = nextTheme.values;
-    if (!nextValues) return false;
-    if (isCourseThemeTypographyField(name)) {
-      const typography = parseCourseThemeTypography(draft);
-      if (!typography) return false;
-      nextValues.typography = typography;
-    } else if (isCourseThemeDesignField(name)) {
-      const design = parseCourseThemeDesign(draft);
-      if (!design) return false;
-      nextValues.design = design;
-    } else {
-      return false;
-    }
+      const changed =
+        name === "design"
+          ? Boolean(designs.get(reference)) && selectCourseDesign(editor, reference, designs)
+          : Boolean(colourSystems.get(reference)) &&
+            selectCourseColourSystem(editor, reference, colourSystems);
+      if (!changed) {
+        queueMicrotask(() => form.setValue(name, savedValue));
+        return;
+      }
 
-    if (!updateCourseTheme(editor, nextTheme)) return false;
-    notifyThemeChange();
-    return true;
-  };
+      const nextTheme = readEditorTheme(editor);
+      if (nextTheme) onThemeChange(nextTheme);
+    });
 
-  const { form, onBlur } = useLiveThemeSettingsForm<CourseThemeFormValues>({
-    values: formValues,
-    onCommit: commitField,
-    commitOnBlur: COURSE_THEME_BLUR_FIELDS,
-  });
+    return subscription.unsubscribe;
+  }, [colourSystemValue, colourSystems, designValue, designs, editor, form, onThemeChange]);
 
   const handleAction = ({ actionId }: SettingsFormActionEvent<CourseThemeActionId>) => {
-    if (!editor) return;
-    const persisted = readEditorTheme(editor);
-    const preset = persisted ? catalogue.getPreset(persisted.preset.id) : null;
-    if (!persisted || !preset) return;
-
-    const changed = runThemeAction(editor, preset, actionId);
-    if (changed) notifyThemeChange();
+    if (actionId !== "reset-theme" || !editor || !resetCourseTheme(editor)) return;
+    const nextTheme = readEditorTheme(editor);
+    if (nextTheme) onThemeChange(nextTheme);
   };
 
   return (
@@ -172,14 +132,19 @@ export function CourseThemePanel({
         <Sheet.Header closeLabel="Close course theme">
           <Sheet.Title>Course theme</Sheet.Title>
           <Sheet.Description>
-            Choose the course presentation and customise colours for the current application mode.
+            Choose a complete Course design and colour system for learner-facing content.
           </Sheet.Description>
         </Sheet.Header>
-        <Sheet.Body onBlur={onBlur}>
-          {!resolvedTheme.available ? (
-            <p className="sc-course-theme-panel-status" role="status">
-              The saved theme is unavailable. {catalogue.defaultPreset.label} is shown instead.
-            </p>
+        <Sheet.Body>
+          {!designAvailable || !colourSystemAvailable ? (
+            <div className="sc-course-theme-panel-status" role="status">
+              {!designAvailable ? (
+                <p>Saved design {formatReference(theme.design)} is unavailable.</p>
+              ) : null}
+              {!colourSystemAvailable ? (
+                <p>Saved colour system {formatReference(theme.colourSystem)} is unavailable.</p>
+              ) : null}
+            </div>
           ) : null}
 
           <SettingsForm definition={definition} form={form} onAction={handleAction} />
@@ -196,68 +161,109 @@ export function CourseThemePanel({
   );
 }
 
-function commitPaletteField({
-  draft,
-  editor,
-  mode,
-  name,
-  values,
-  preset,
-  notifyThemeChange,
+function courseThemeFormDefinition({
+  designs,
+  colourSystems,
+  editable,
 }: {
-  draft: CourseThemeFormValues;
-  editor: Editor;
-  mode: ResolvedCourseTheme["mode"];
-  name: CourseThemePaletteSlot;
-  values: CourseThemeValues;
-  preset: NonNullable<ReturnType<ThemeCatalogue["getPreset"]>>;
-  notifyThemeChange: () => void;
-}): boolean {
-  const palette = parseCourseThemePalette(draft);
-  if (!palette) return false;
-  const color = palette[name];
+  designs: CourseDesignThemeRegistry;
+  colourSystems: CourseColourSystemRegistry;
+  editable: boolean;
+}): SettingsFormDefinition<CourseThemeActionId> {
+  const disabled = editable
+    ? {}
+    : { disabledReason: "A live editor is required to change the Course theme." };
 
-  if (mode === "dark") {
-    const derivedColor = derivedDarkPalette(values, preset)[name];
-    if (color === derivedColor) {
-      if (values.colors.author.dark.sourceBySlot[name] === "derived") return true;
-      if (!resetCourseThemeDarkDerivation(editor, preset, name)) return false;
-      notifyThemeChange();
-      return true;
+  return {
+    defaultOpenSections: ["design", "colour-system"],
+    sections: [
+      {
+        id: "design",
+        title: "Design",
+        description: "Choose the complete visual character of the Course UI.",
+        items: [
+          {
+            kind: "select",
+            name: "design",
+            label: "Course design",
+            presentation: "cards",
+            options: designs.definitions.map((definition) =>
+              selectionOption(definition, `Use ${definition.label} design`),
+            ),
+            ...disabled,
+          },
+        ],
+      },
+      {
+        id: "colour-system",
+        title: "Colour system",
+        description: "Choose a complete curated colour system for the Course UI.",
+        items: [
+          {
+            kind: "select",
+            name: "colourSystem",
+            label: "Course colour system",
+            presentation: "cards",
+            options: colourSystems.definitions.map((definition) =>
+              selectionOption(definition, `Use ${definition.label} colour system`),
+            ),
+            ...disabled,
+          },
+        ],
+      },
+    ],
+    footerActions: [
+      {
+        id: "reset-theme",
+        label: "Reset theme",
+        ariaLabel: "Reset complete theme",
+        disabled: !editable,
+      },
+    ],
+  };
+}
+
+function selectionOption(
+  definition: { id: string; revision: string; label: string; description: string },
+  ariaLabel: string,
+): SettingsSheetSelectOption {
+  return {
+    value: referenceValue(definition),
+    label: definition.label,
+    description: definition.description,
+    ariaLabel,
+  };
+}
+
+function referenceValue(reference: CourseThemeRef): string {
+  return JSON.stringify([reference.id, reference.revision]);
+}
+
+function parseReference(value: unknown): CourseThemeRef | null {
+  if (typeof value !== "string") return null;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (
+      !Array.isArray(parsed) ||
+      parsed.length !== 2 ||
+      typeof parsed[0] !== "string" ||
+      typeof parsed[1] !== "string"
+    ) {
+      return null;
     }
-  }
-
-  if (!updateCourseThemePaletteSlot(editor, preset, mode, name, color)) return false;
-  notifyThemeChange();
-  return true;
-}
-
-function runThemeAction(
-  editor: Editor,
-  preset: NonNullable<ReturnType<ThemeCatalogue["getPreset"]>>,
-  actionId: CourseThemeActionId,
-): boolean {
-  switch (actionId) {
-    case "derive-dark":
-      return resetCourseThemeDarkDerivation(editor, preset);
-    case "reset-foundation":
-      return resetCourseThemePaletteSection(editor, preset, "foundation");
-    case "reset-creative":
-      return resetCourseThemePaletteSection(editor, preset, "creative");
-    case "reset-links":
-      return resetCourseThemePaletteSection(editor, preset, "link");
-    case "reset-typography":
-      return resetCourseThemeSection(editor, preset, "typography");
-    case "reset-design":
-      return resetCourseThemeSection(editor, preset, "design");
-    case "reset-theme":
-      return resetCourseTheme(editor, preset);
+    return { id: parsed[0], revision: parsed[1] };
+  } catch {
+    return null;
   }
 }
 
-function readEditorTheme(editor: Editor | null): PersistedCourseTheme | null {
-  const parsed = PersistedCourseThemeSchema.safeParse(
-    editor?.getJSON().content?.[0]?.attrs?.["theme"],
-  );
+function formatReference(reference: CourseThemeRef): string {
+  return `${reference.id}@${reference.revision}`;
+}
+
+function readEditorTheme(editor: Editor): PersistedCourseTheme | null {
+  const courseDocument = editor.state.doc.firstChild;
+  if (courseDocument?.type.name !== "courseDocument") return null;
+  const parsed = PersistedCourseThemeSchema.safeParse(courseDocument.attrs["theme"]);
   return parsed.success ? parsed.data : null;
 }
