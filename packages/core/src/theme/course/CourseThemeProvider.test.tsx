@@ -72,30 +72,34 @@ describe("CourseThemeProvider", () => {
     },
   );
 
-  it("recreates the resolved scope around custom portal content", () => {
-    const portalHost = document.createElement("div");
-    document.body.append(portalHost);
+  it("applies the resolved scope directly to a custom portal host", () => {
+    const portalContainer = document.createElement("div");
+    document.body.append(portalContainer);
 
     render(
       <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
         {createPortal(
           <CourseThemePortalBoundary>
-            <div data-testid="portal-content" />
+            <div data-testid="portal-host">
+              <span data-testid="portal-content" />
+            </div>
           </CourseThemePortalBoundary>,
-          portalHost,
+          portalContainer,
         )}
       </CourseThemeProvider>,
     );
 
-    const portalRoot = screen.getByTestId("portal-content").parentElement;
-    expect(portalRoot).toHaveClass(
+    const portalHost = screen.getByTestId("portal-host");
+    expect(portalHost.parentElement).toBe(portalContainer);
+    expect(screen.getByTestId("portal-content").parentElement).toBe(portalHost);
+    expect(portalHost).toHaveClass(
       "radix-themes",
       "light",
       "sc-course",
       "sc-course-theme-scaffold-flow-v1",
     );
-    expect(portalRoot).toHaveAttribute("data-accent-color", "indigo");
-    expect(portalRoot?.style.getPropertyValue("--sc-course-state-warning-border")).toBe(
+    expect(portalHost).toHaveAttribute("data-accent-color", "indigo");
+    expect(portalHost.style.getPropertyValue("--sc-course-state-warning-border")).toBe(
       "var(--amber-8)",
     );
   });

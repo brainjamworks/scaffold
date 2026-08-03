@@ -61,7 +61,7 @@ describe("PagePlayer presentation", () => {
     if (!portalRoot) throw new Error("Page portal host is missing its Course boundary.");
 
     expect(portalRoot).not.toBe(sourceRoot);
-    expect(portalRoot.className).toBe(sourceRoot.className);
+    for (const className of sourceRoot.classList) expect(portalRoot).toHaveClass(className);
     for (const attribute of [
       "data-accent-color",
       "data-gray-color",

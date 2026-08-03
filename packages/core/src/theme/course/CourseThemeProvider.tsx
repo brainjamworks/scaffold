@@ -47,7 +47,11 @@ export function CourseThemePortalBoundary({ children }: CourseThemePortalBoundar
     throw new Error("CourseThemePortalBoundary must be used within a ready CourseThemeProvider");
   }
 
-  return <CourseThemeScope theme={theme}>{children}</CourseThemeScope>;
+  return (
+    <CourseThemeScope theme={theme} asChild>
+      {children}
+    </CourseThemeScope>
+  );
 }
 
 export function useCourseTheme(): ResolvedCourseTheme {
@@ -58,12 +62,18 @@ export function useCourseTheme(): ResolvedCourseTheme {
 
 function CourseThemeScope({
   theme,
+  asChild = false,
   children,
-}: Readonly<{ theme: ResolvedCourseTheme; children: ReactNode }>) {
+}: Readonly<{ theme: ResolvedCourseTheme; asChild?: boolean; children: ReactNode }>) {
   const style: CSSProperties = { ...theme.rootStyle };
 
   return (
-    <Theme {...theme.radixThemeProps} className={theme.rootClassNames.join(" ")} style={style}>
+    <Theme
+      {...theme.radixThemeProps}
+      asChild={asChild}
+      className={theme.rootClassNames.join(" ")}
+      style={style}
+    >
       {children}
     </Theme>
   );

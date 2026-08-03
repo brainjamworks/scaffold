@@ -117,7 +117,7 @@ async function mountCourse(appearance: "light" | "dark", withPortal = false) {
   const sibling = requiredElement<HTMLElement>(host, '[data-testid="app-sibling"]');
   const state = requiredElement<HTMLElement>(host, '[data-course-state="correct"]');
   const portalContent = portalHost.querySelector<HTMLElement>('[data-testid="portal-content"]');
-  const portalRoot = portalContent?.parentElement;
+  const portalRoot = portalContent;
   if (withPortal && !portalRoot) throw new Error("Expected a custom portal Course theme root");
 
   return { courseRoot, portalRoot: portalRoot as HTMLElement, sibling, state };
