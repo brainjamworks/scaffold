@@ -66,7 +66,14 @@ describe("course theme commands", () => {
   it("persists an exact design and its default colour-system reference", () => {
     const editor = createEditor();
 
-    expect(selectCourseDesign(editor, reference(alternateDesign), designRegistry)).toBe(true);
+    expect(
+      selectCourseDesign(
+        editor,
+        reference(alternateDesign),
+        designRegistry,
+        colourSystemRegistry,
+      ),
+    ).toBe(true);
 
     expect(readTheme(editor)).toEqual({
       schemaVersion: 1,
@@ -74,6 +81,26 @@ describe("course theme commands", () => {
       colourSystem: reference(alternateColourSystem),
       overrides: {},
     });
+  });
+
+  it("refuses a design whose default colour system is not registered", () => {
+    const editor = createEditor();
+    const before = editor.getJSON();
+    const missingDefaultDesign = {
+      ...alternateDesign,
+      defaultColourSystem: { id: "missing-colours", revision: "1" },
+    } satisfies CourseDesignThemeRevision;
+    const registry = createCourseDesignThemeRegistry([missingDefaultDesign]);
+
+    expect(
+      selectCourseDesign(
+        editor,
+        reference(missingDefaultDesign),
+        registry,
+        colourSystemRegistry,
+      ),
+    ).toBe(false);
+    expect(editor.getJSON()).toEqual(before);
   });
 
   it("changes only the exact colour-system reference", () => {
@@ -99,7 +126,7 @@ describe("course theme commands", () => {
     const before = editor.getJSON();
     const unknown = { id: "missing", revision: "1" };
 
-    expect(selectCourseDesign(editor, unknown, designRegistry)).toBe(false);
+    expect(selectCourseDesign(editor, unknown, designRegistry, colourSystemRegistry)).toBe(false);
     expect(selectCourseColourSystem(editor, unknown, colourSystemRegistry)).toBe(false);
     expect(editor.getJSON()).toEqual(before);
   });
@@ -114,7 +141,14 @@ describe("course theme commands", () => {
     });
     const before = editor.getJSON();
 
-    expect(selectCourseDesign(editor, reference(alternateDesign), designRegistry)).toBe(false);
+    expect(
+      selectCourseDesign(
+        editor,
+        reference(alternateDesign),
+        designRegistry,
+        colourSystemRegistry,
+      ),
+    ).toBe(false);
     expect(
       selectCourseColourSystem(
         editor,
@@ -130,7 +164,14 @@ describe("course theme commands", () => {
     const editor = createWrongRootEditor();
     const before = editor.getJSON();
 
-    expect(selectCourseDesign(editor, reference(alternateDesign), designRegistry)).toBe(false);
+    expect(
+      selectCourseDesign(
+        editor,
+        reference(alternateDesign),
+        designRegistry,
+        colourSystemRegistry,
+      ),
+    ).toBe(false);
     expect(
       selectCourseColourSystem(
         editor,
@@ -145,7 +186,14 @@ describe("course theme commands", () => {
   it("keeps ordinary selection in undo and redo history", () => {
     const editor = createEditor();
 
-    expect(selectCourseDesign(editor, reference(alternateDesign), designRegistry)).toBe(true);
+    expect(
+      selectCourseDesign(
+        editor,
+        reference(alternateDesign),
+        designRegistry,
+        colourSystemRegistry,
+      ),
+    ).toBe(true);
     expect(editor.commands.undo()).toBe(true);
     expect(readTheme(editor)).toEqual(createDefaultPersistedCourseTheme());
     expect(editor.commands.redo()).toBe(true);
@@ -154,7 +202,14 @@ describe("course theme commands", () => {
 
   it("resets to application defaults in a fresh history group", () => {
     const editor = createEditor();
-    expect(selectCourseDesign(editor, reference(alternateDesign), designRegistry)).toBe(true);
+    expect(
+      selectCourseDesign(
+        editor,
+        reference(alternateDesign),
+        designRegistry,
+        colourSystemRegistry,
+      ),
+    ).toBe(true);
 
     expect(resetCourseTheme(editor)).toBe(true);
     expect(readTheme(editor)).toEqual(createDefaultPersistedCourseTheme());
@@ -170,7 +225,14 @@ describe("course theme commands", () => {
   it("does not copy design or colour-system definitions into the document", () => {
     const editor = createEditor();
 
-    expect(selectCourseDesign(editor, reference(alternateDesign), designRegistry)).toBe(true);
+    expect(
+      selectCourseDesign(
+        editor,
+        reference(alternateDesign),
+        designRegistry,
+        colourSystemRegistry,
+      ),
+    ).toBe(true);
     expect(
       selectCourseColourSystem(
         editor,

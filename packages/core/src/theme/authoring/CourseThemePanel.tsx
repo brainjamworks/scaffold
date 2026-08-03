@@ -84,7 +84,8 @@ export function CourseThemePanel({
 
       const changed =
         name === "design"
-          ? Boolean(designs.get(reference)) && selectCourseDesign(editor, reference, designs)
+          ? Boolean(designs.get(reference)) &&
+            selectCourseDesign(editor, reference, designs, colourSystems)
           : Boolean(colourSystems.get(reference)) &&
             selectCourseColourSystem(editor, reference, colourSystems);
       if (!changed) {

@@ -10,10 +10,11 @@ import type { CourseDesignThemeRegistry } from "@/theme/course/designs/registry"
 export function selectCourseDesign(
   editor: Editor,
   reference: CourseThemeRef,
-  registry: CourseDesignThemeRegistry,
+  designs: CourseDesignThemeRegistry,
+  colourSystems: CourseColourSystemRegistry,
 ): boolean {
-  const design = registry.get(reference);
-  if (!design) return false;
+  const design = designs.get(reference);
+  if (!design || !colourSystems.get(design.defaultColourSystem)) return false;
   const theme = readCourseTheme(editor);
   if (!theme) return false;
 
