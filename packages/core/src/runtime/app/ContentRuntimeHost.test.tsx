@@ -516,6 +516,72 @@ describe("ContentRuntimeHost", () => {
     expect(editableSurface?.getAttribute("contenteditable")).toBe("false");
   });
 
+  it.each([
+    ["page", "light"],
+    ["page", "dark"],
+    ["slideshow", "light"],
+    ["slideshow", "dark"],
+  ] as const)(
+    "mounts one exact Course root for %s playback in %s appearance",
+    async (mode, appearance) => {
+      const onEditorReady = vi.fn();
+      render(
+        <ContentRuntimeHost
+          artifactId="artifact-1"
+          hostColorMode={appearance}
+          initialContent={runtimeDocumentContent({ mode })}
+          onEditorReady={onEditorReady}
+        />,
+      );
+
+      await waitFor(() => expect(onEditorReady).toHaveBeenCalledOnce());
+      const runtimeHost = screen.getByTestId("scaffold-runtime-host");
+      const courseRoot = runtimeHost.querySelector<HTMLElement>(":scope > .sc-course");
+
+      expect(runtimeHost).toHaveAttribute("data-scaffold-color-mode", appearance);
+      expect(runtimeHost).not.toHaveClass("sc-course", "radix-themes");
+      expect(runtimeHost.closest(".sc-course")).toBeNull();
+      expect(courseRoot).toHaveClass(
+        "radix-themes",
+        appearance,
+        "sc-course",
+        "sc-course-theme-scaffold-flow-v1",
+      );
+      expect(courseRoot).toHaveAttribute("data-accent-color", "indigo");
+      expect(courseRoot).toHaveAttribute("data-gray-color", "slate");
+      expect(courseRoot?.querySelectorAll(":scope > .sc-course")).toHaveLength(0);
+    },
+  );
+
+  it.each(["design", "colourSystem"] as const)(
+    "renders the explicit unavailable status for a missing %s revision",
+    (missing) => {
+      const content = runtimeDocumentContent();
+      const attrs = content.content?.[0]?.attrs;
+      if (!attrs) throw new Error("runtime theme fixture is missing courseDocument attrs");
+      attrs.theme = {
+        ...createDefaultPersistedCourseTheme(),
+        [missing]: { id: `missing-${missing}`, revision: "1" },
+      };
+
+      render(<ContentRuntimeHost initialContent={content} />);
+
+      const runtimeHost = screen.getByTestId("scaffold-runtime-host");
+      const status = screen.getByRole("status");
+      expect(status).toHaveAttribute("data-course-theme-status", "unavailable");
+      expect(status).toHaveAttribute("data-course-theme-missing", missing);
+      expect(status).toHaveAttribute(
+        "data-course-theme-reference",
+        `missing-${missing}@1`,
+      );
+      expect(runtimeHost.contains(status)).toBe(true);
+      expect(runtimeHost.querySelector(".sc-course")).toBeNull();
+      expect(screen.queryByTestId("page-player")).toBeNull();
+      expect(screen.queryByTestId("slideshow-player")).toBeNull();
+      expect(screen.queryByTestId("course-document-runtime-renderer")).toBeNull();
+    },
+  );
+
   it("mounts independent assessment and learner activity stores for valid content", () => {
     render(
       <ContentRuntimeHost artifactId="artifact-1" initialContent={runtimeDocumentContent()} />,

@@ -159,11 +159,18 @@ describe("ScaffoldLearnerApp", () => {
 
     await screen.findByText("Projected learner content");
     const runtimeHost = screen.getByTestId("scaffold-runtime-host");
-    const courseScope = screen.getByTestId("course-theme-scope");
+    const courseRoot = runtimeHost.querySelector<HTMLElement>(":scope > .sc-course");
     expect(runtimeHost).toHaveAttribute("data-scaffold-color-mode", "dark");
-    expect(runtimeHost).toHaveClass("sc-course-theme-scope");
-    expect(runtimeHost.style.colorScheme).toBe("dark");
-    expect(courseScope).toHaveAttribute("data-course-color-mode", "dark");
+    expect(runtimeHost).not.toHaveClass("sc-course", "radix-themes");
+    expect(runtimeHost.closest(".sc-course")).toBeNull();
+    expect(courseRoot).toHaveClass(
+      "radix-themes",
+      "dark",
+      "sc-course",
+      "sc-course-theme-scaffold-flow-v1",
+    );
+    expect(courseRoot).toHaveAttribute("data-accent-color", "indigo");
+    expect(courseRoot).toHaveAttribute("data-gray-color", "slate");
 
     rerender(
       <ScaffoldLearnerApp bootstrap={learnerBootstrap()} hostColorMode="light" services={{}} />,
@@ -171,7 +178,8 @@ describe("ScaffoldLearnerApp", () => {
 
     await waitFor(() => {
       expect(runtimeHost).toHaveAttribute("data-scaffold-color-mode", "light");
-      expect(courseScope).toHaveAttribute("data-course-color-mode", "light");
+      expect(courseRoot).toHaveClass("light");
+      expect(courseRoot).not.toHaveClass("dark");
     });
   });
 
@@ -181,15 +189,16 @@ describe("ScaffoldLearnerApp", () => {
 
     await screen.findByText("Projected learner content");
     const runtimeHost = screen.getByTestId("scaffold-runtime-host");
-    const courseScope = screen.getByTestId("course-theme-scope");
+    const courseRoot = runtimeHost.querySelector<HTMLElement>(":scope > .sc-course");
     expect(runtimeHost).toHaveAttribute("data-scaffold-color-mode", "light");
-    expect(courseScope).toHaveAttribute("data-course-color-mode", "light");
+    expect(courseRoot).toHaveClass("light");
 
     act(() => media.setDark(true));
 
     await waitFor(() => {
       expect(runtimeHost).toHaveAttribute("data-scaffold-color-mode", "dark");
-      expect(courseScope).toHaveAttribute("data-course-color-mode", "dark");
+      expect(courseRoot).toHaveClass("dark");
+      expect(courseRoot).not.toHaveClass("light");
     });
   });
 

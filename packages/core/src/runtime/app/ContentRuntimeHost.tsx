@@ -1,5 +1,5 @@
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
-import { useCallback, useEffect, useMemo, useRef, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 import {
   validateCourseSurfaceLifecycle,
@@ -7,7 +7,7 @@ import {
 } from "@/document/model/validation";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { CourseDocumentAttrsSchema } from "@/schemas/course-document";
-import { createThemeCatalogue, resolveCourseTheme, type ResolvedCourseTheme } from "@/theme/model";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import type { ScaffoldColorMode } from "@/theme/state/color-mode";
 import { useLearnerColorMode } from "@/theme/state/learner-color-mode";
 
@@ -54,7 +54,6 @@ export function ContentRuntimeHost({
   onEditorReady,
 }: ContentRuntimeHostProps) {
   const colorMode = useLearnerColorMode(hostColorMode);
-  const themeCatalogue = useMemo(() => createThemeCatalogue(), []);
   const runtimeArtifactId = artifactId ?? null;
   if (!initialContent) {
     return (
@@ -78,11 +77,6 @@ export function ContentRuntimeHost({
 
   const playerSelection = selectRuntimePlayer(validation.value);
   const courseDocumentAttrs = CourseDocumentAttrsSchema.parse(initialContent.content?.[0]?.attrs);
-  const resolvedTheme = resolveCourseTheme({
-    catalogue: themeCatalogue,
-    mode: colorMode,
-    theme: courseDocumentAttrs.theme,
-  });
 
   return (
     <ScaffoldArtifactIdentityProvider artifactId={runtimeArtifactId}>
@@ -97,17 +91,19 @@ export function ContentRuntimeHost({
               ? {}
               : { initialSnapshot: initialLearnerActivitySnapshot })}
           >
-            <LearnerActivityReadinessGate>
-              <HydratedRuntimePlayer
-                initialContent={initialContent}
-                playerSelection={playerSelection}
-                colorMode={colorMode}
-                resolvedTheme={resolvedTheme}
-                runtimeArtifactId={runtimeArtifactId}
-                {...(onEditorReady ? { onEditorReady } : {})}
-                {...(slideshowSizing ? { slideshowSizing } : {})}
-              />
-            </LearnerActivityReadinessGate>
+            <div data-testid="scaffold-runtime-host" data-scaffold-color-mode={colorMode}>
+              <CourseThemeProvider theme={courseDocumentAttrs.theme} appearance={colorMode}>
+                <LearnerActivityReadinessGate>
+                  <HydratedRuntimePlayer
+                    initialContent={initialContent}
+                    playerSelection={playerSelection}
+                    runtimeArtifactId={runtimeArtifactId}
+                    {...(onEditorReady ? { onEditorReady } : {})}
+                    {...(slideshowSizing ? { slideshowSizing } : {})}
+                  />
+                </LearnerActivityReadinessGate>
+              </CourseThemeProvider>
+            </div>
           </LearnerActivityRuntimeProvider>
         </AssessmentRuntimeProvider>
       </XapiRuntimeProvider>
@@ -116,22 +112,18 @@ export function ContentRuntimeHost({
 }
 
 interface HydratedRuntimePlayerProps {
-  readonly colorMode: ScaffoldColorMode;
   readonly initialContent: JSONContent;
   readonly onEditorReady?: (editor: TiptapEditor) => void;
   readonly playerSelection: RuntimePlayerSelection;
   readonly runtimeArtifactId: string | null;
-  readonly resolvedTheme: ResolvedCourseTheme;
   readonly slideshowSizing?: SlideshowPlayerSizing;
 }
 
 function HydratedRuntimePlayer({
-  colorMode,
   initialContent,
   onEditorReady,
   playerSelection,
   runtimeArtifactId,
-  resolvedTheme,
   slideshowSizing,
 }: HydratedRuntimePlayerProps) {
   const xapiSession = useXapiSession();
@@ -192,7 +184,6 @@ function HydratedRuntimePlayer({
       <PagePlayer
         artifactId={runtimeArtifactId}
         initialContent={initialContent}
-        resolvedTheme={resolvedTheme}
         onRendererReady={handleRendererReady}
         surfaceId={playerSelection.surfaceIds[0]}
       />
@@ -200,28 +191,13 @@ function HydratedRuntimePlayer({
       <SlideshowPlayer
         artifactId={runtimeArtifactId}
         initialContent={initialContent}
-        resolvedTheme={resolvedTheme}
         onActiveSurfaceChange={recordSurfaceExperienced}
         onRendererReady={handleRendererReady}
         surfaceIds={playerSelection.surfaceIds}
         {...(slideshowSizing ? { sizing: slideshowSizing } : {})}
       />
     );
-  const runtimeThemeStyle: CSSProperties = {
-    ...resolvedTheme.cssTokens,
-    colorScheme: colorMode,
-  };
-
-  return (
-    <div
-      className="sc-course-theme-scope"
-      data-testid="scaffold-runtime-host"
-      data-scaffold-color-mode={colorMode}
-      style={runtimeThemeStyle}
-    >
-      {runtimeContent}
-    </div>
-  );
+  return runtimeContent;
 }
 
 type RuntimeUnavailableReason = RuntimePlayerUnavailableReason;
