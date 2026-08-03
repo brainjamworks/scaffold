@@ -3,7 +3,10 @@ import type { ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
-import { builtInBlockDefinitions } from "@/editor/blocks/built-in-block-definitions";
+import {
+  builtInBlockDefinitions,
+  builtInBlockRegistry,
+} from "@/editor/blocks/built-in-block-definitions";
 import { projectLearnerDocument } from "@/authoring/publication/document-projection";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { createAssessmentRuntimeTestRoot } from "@/runtime/assessment/test-utils";
@@ -333,7 +336,10 @@ function representativeDocument(mode: "page" | "slideshow", surfaceId: string): 
 }
 
 function learnerDocument(mode: "page" | "slideshow", surfaceId: string): JSONContent {
-  return projectLearnerDocument(representativeDocument(mode, surfaceId)).document;
+  return projectLearnerDocument(
+    representativeDocument(mode, surfaceId),
+    builtInBlockRegistry,
+  ).document;
 }
 
 function configuredBlockContent(definition: (typeof builtInBlockDefinitions)[number]): JSONContent {

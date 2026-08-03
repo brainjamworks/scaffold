@@ -2460,10 +2460,9 @@ describe("quiz block skeleton", () => {
       .getByTestId("quiz-stage-viewport")
       .closest("[data-quiz-view-id]") as HTMLElement | null;
     expect(quizShell?.getAttribute("data-active-question-id")).toBe("question-b");
-    expect(projectAssessmentDocument(editor.getJSON()).groups[0]?.targetIds).toEqual([
-      "question-b",
-      "question-a",
-    ]);
+    expect(
+      projectAssessmentDocument(editor.getJSON(), builtInBlockRegistry).groups[0]?.targetIds,
+    ).toEqual(["question-b", "question-a"]);
     expect(
       quiz?.content?.map((child) => ("attrs" in child ? child.attrs?.["frame"] : undefined)),
     ).toEqual([
