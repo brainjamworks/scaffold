@@ -17,7 +17,7 @@ export function renderNumberedListAddControl({
       contentEditable={false}
       className={className}
     >
-      <span aria-hidden className="sc-numbered-list__add-marker">
+      <span aria-hidden className="sc-app-numbered-list-add__marker">
         +
       </span>
       <span>Add item</span>
@@ -50,7 +50,7 @@ export function renderNumberedListIconControl({
           <IconRenderer
             value={displayValue}
             fallbackValue={fallbackValue}
-            className="sc-numbered-list__header-icon-glyph"
+            className="sc-course-numbered-list__header-icon-glyph"
           />
         </button>
       )}

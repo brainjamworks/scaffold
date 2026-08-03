@@ -1,0 +1,135 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-overlays {
+  .sc-app-numbered-list-delete__explanation {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .sc-ghost-add.sc-app-numbered-list-add {
+    display: flex;
+    width: 100%;
+    min-height: 2.25rem;
+    align-items: center;
+    gap: 0.875rem;
+    margin-top: 0.75rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--sc-app-color-text-muted);
+    font-family: var(--font-ui);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.5;
+    text-align: left;
+  }
+
+  .sc-app-numbered-list-add__marker {
+    display: inline-flex;
+    width: 2.25rem;
+    height: 2.25rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed var(--sc-app-color-border);
+    border-radius: 9999px;
+    background: var(--sc-app-color-background);
+    color: var(--sc-app-color-text-muted);
+    font-size: 1rem;
+  }
+
+  .sc-ghost-add.sc-app-numbered-list-add:hover:not(:disabled) {
+    background: transparent;
+    color: var(--sc-app-color-primary);
+  }
+
+  .sc-app-numbered-list-add:hover:not(:disabled) .sc-app-numbered-list-add__marker {
+    border-color: var(--sc-app-color-primary);
+    color: var(--sc-app-color-primary);
+  }
+
+  .sc-ghost-add.sc-app-numbered-list-add:focus-visible,
+  .sc-app-numbered-list-status-cycle:focus-visible,
+  .sc-app-numbered-list-icon-picker:focus-visible,
+  .sc-app-numbered-list-delete:focus-visible {
+    outline: 2px solid var(--sc-app-color-focus-outline);
+    outline-offset: 2px;
+  }
+
+  .sc-app-numbered-list-status-cycle,
+  .sc-app-numbered-list-icon-picker {
+    cursor: pointer;
+    transition:
+      outline-color 150ms ease,
+      transform 150ms ease;
+  }
+
+  .sc-app-numbered-list-status-cycle:hover:not(:focus-visible) {
+    outline: 4px solid var(--sc-app-color-focus-ring);
+    outline-offset: 0;
+  }
+
+  .sc-app-numbered-list-status-cycle:active {
+    transform: scale(0.95);
+  }
+
+  .sc-app-numbered-list-icon-picker:hover {
+    outline: 1px solid var(--sc-app-color-primary);
+    outline-offset: -1px;
+  }
+
+  .sc-app-numbered-list-delete {
+    display: inline-flex;
+    width: 1.75rem;
+    height: 1.75rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    margin-left: 0.5rem;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    color: var(--sc-app-color-text-muted);
+    opacity: 1;
+    cursor: pointer;
+    transition:
+      opacity 150ms ease,
+      background-color 150ms ease,
+      color 150ms ease;
+  }
+
+  .sc-app-numbered-list-delete:not([aria-disabled="true"]):hover,
+  .sc-app-numbered-list-delete:not([aria-disabled="true"]):focus-visible {
+    background: var(--sc-app-color-error-background);
+    color: var(--sc-app-color-error);
+    opacity: 1;
+  }
+
+  .sc-app-numbered-list-delete:focus-visible {
+    opacity: 1;
+  }
+
+  .sc-app-numbered-list-delete[aria-disabled="true"] {
+    color: var(--sc-app-color-text-placeholder);
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sc-app-numbered-list-add,
+    .sc-app-numbered-list-add__marker,
+    .sc-app-numbered-list-status-cycle,
+    .sc-app-numbered-list-icon-picker,
+    .sc-app-numbered-list-delete {
+      transition: none;
+    }
+
+    .sc-app-numbered-list-status-cycle:active {
+      transform: none;
+    }
+  }
+}
