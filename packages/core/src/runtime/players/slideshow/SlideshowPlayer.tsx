@@ -16,9 +16,8 @@ import {
   type SlideshowCanvasMetrics,
   type SlideshowCanvasScaleState,
 } from "@/editor/surfaces/view/slideshow-canvas";
+import { CourseThemePortalBoundary } from "@/theme/course/CourseThemeProvider";
 import { iconMd } from "@/ui/tokens/icon-sizes";
-import type { ResolvedCourseTheme } from "@/theme/model";
-import { DEFAULT_RESOLVED_COURSE_THEME } from "@/theme/presentation/CourseThemeScope";
 
 import { CourseDocumentRuntimeRenderer } from "../../renderer/CourseDocumentRuntimeRenderer";
 import type { SlideshowPlayerSizing } from "../player-types";
@@ -32,7 +31,6 @@ interface EmbeddedStageStyle extends CSSProperties {
 export interface SlideshowPlayerProps {
   artifactId?: string | null;
   initialContent: JSONContent;
-  resolvedTheme?: ResolvedCourseTheme;
   surfaceIds: [string, ...string[]];
   sizing?: SlideshowPlayerSizing;
   onRendererReady?: (editor: TiptapEditor) => void;
@@ -42,13 +40,11 @@ export interface SlideshowPlayerProps {
 export function SlideshowPlayer({
   artifactId,
   initialContent,
-  resolvedTheme,
   surfaceIds,
   sizing = "contained",
   onRendererReady,
   onActiveSurfaceChange,
 }: SlideshowPlayerProps) {
-  const effectiveTheme = resolvedTheme ?? DEFAULT_RESOLVED_COURSE_THEME;
   const [viewportElement, setViewportElement] = useState<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const [scaleState, setScaleState] = useState<SlideshowCanvasScaleState | null>(null);
@@ -221,15 +217,12 @@ export function SlideshowPlayer({
                   <OverlayBoundary
                     collisionBoundary={overlayCollisionBoundary}
                     container={overlayContainer}
-                    hostClassName="sc-course-theme-portal-scope"
-                    hostColorScheme={effectiveTheme.mode}
-                    hostCssVariables={effectiveTheme.cssTokens}
+                    hostBoundary={CourseThemePortalBoundary}
                     kind="viewport"
                   >
                     <CourseDocumentRuntimeRenderer
                       artifactId={artifactId ?? null}
                       initialContent={initialContent}
-                      {...(resolvedTheme ? { resolvedTheme } : {})}
                       surfaceStates={surfaceStates}
                       {...(onRendererReady ? { onReady: onRendererReady } : {})}
                     />

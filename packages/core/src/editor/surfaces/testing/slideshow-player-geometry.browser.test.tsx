@@ -1,4 +1,5 @@
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
+import type { ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
@@ -7,6 +8,8 @@ import { slideModuleCoverSurfaceDefinition } from "@/editor/surfaces/model/templ
 import { AssessmentRuntimeProvider } from "@/runtime/assessment/AssessmentRuntimeProvider";
 import { SlideshowPlayer } from "@/runtime/players/slideshow/SlideshowPlayer";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import "@/styles/globals.css";
 
 import { expandSlideCompositionCases } from "./slide-composition-cases";
@@ -76,6 +79,14 @@ let root: Root | null = null;
 let host: HTMLElement | null = null;
 let restoreFullscreenHarness: (() => void) | null = null;
 let adapterStyle: HTMLStyleElement | null = null;
+
+function withCourseTheme(children: ReactNode) {
+  return (
+    <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+      {children}
+    </CourseThemeProvider>
+  );
+}
 
 afterEach(() => {
   adapterStyle?.remove();
@@ -149,13 +160,15 @@ describe("slideshow player geometry", () => {
     `;
     document.head.append(adapterStyle);
     root.render(
-      <SlideshowPlayer
-        initialContent={initialContent}
-        surfaceIds={[surfaceId]}
-        onRendererReady={(readyEditor) => {
-          editor = readyEditor;
-        }}
-      />,
+      withCourseTheme(
+        <SlideshowPlayer
+          initialContent={initialContent}
+          surfaceIds={[surfaceId]}
+          onRendererReady={(readyEditor) => {
+            editor = readyEditor;
+          }}
+        />,
+      ),
     );
 
     await waitForCondition(() => editor !== null && host?.querySelector(".sc-slideshow-player"));
@@ -212,20 +225,26 @@ describe("slideshow player geometry", () => {
     document.body.append(host);
     root = createRoot(host);
     root.render(
-      <SlideshowPlayer
-        initialContent={initialContent}
-        surfaceIds={[`geometry-${state.composition}`]}
-        onRendererReady={(readyEditor) => {
-          editor = readyEditor;
-        }}
-      />,
+      withCourseTheme(
+        <SlideshowPlayer
+          initialContent={initialContent}
+          surfaceIds={[`geometry-${state.composition}`]}
+          onRendererReady={(readyEditor) => {
+            editor = readyEditor;
+          }}
+        />,
+      ),
     );
 
     await waitForCondition(() => editor !== null && host?.querySelector(".sc-slideshow-player"));
     const player = uniqueElement<HTMLElement>(host, ".sc-slideshow-player");
+    const courseRoot = uniqueElement<HTMLElement>(host, ".sc-course");
     const viewport = uniqueElement<HTMLElement>(player, ".sc-slideshow-player__viewport");
     const runtimeEditor = requireEditor(editor);
     const initialDocument = runtimeEditor.getJSON();
+    courseRoot.style.width = "100%";
+    courseRoot.style.height = "100%";
+    courseRoot.style.minHeight = "0";
     player.style.width = "100%";
     player.style.height = "100%";
     player.style.minHeight = "0";
@@ -299,14 +318,16 @@ describe("slideshow player geometry", () => {
     document.body.append(host);
     root = createRoot(host);
     root.render(
-      <SlideshowPlayer
-        initialContent={initialContent}
-        surfaceIds={[`geometry-${state.composition}`]}
-        sizing="embedded"
-        onRendererReady={(readyEditor) => {
-          editor = readyEditor;
-        }}
-      />,
+      withCourseTheme(
+        <SlideshowPlayer
+          initialContent={initialContent}
+          surfaceIds={[`geometry-${state.composition}`]}
+          sizing="embedded"
+          onRendererReady={(readyEditor) => {
+            editor = readyEditor;
+          }}
+        />,
+      ),
     );
 
     await waitForCondition(() => editor !== null && host?.querySelector(".sc-slideshow-player"));
@@ -378,23 +399,29 @@ describe("slideshow player geometry", () => {
     document.body.append(host);
     root = createRoot(host);
     root.render(
-      <ScaffoldArtifactIdentityProvider artifactId="artifact-slideshow-overlay-geometry">
-        <AssessmentRuntimeProvider>
-          <SlideshowPlayer
-            artifactId="artifact-slideshow-overlay-geometry"
-            initialContent={initialContent}
-            surfaceIds={["slide-overlay-geometry"]}
-            onRendererReady={(readyEditor) => {
-              editor = readyEditor;
-            }}
-          />
-        </AssessmentRuntimeProvider>
-      </ScaffoldArtifactIdentityProvider>,
+      withCourseTheme(
+        <ScaffoldArtifactIdentityProvider artifactId="artifact-slideshow-overlay-geometry">
+          <AssessmentRuntimeProvider>
+            <SlideshowPlayer
+              artifactId="artifact-slideshow-overlay-geometry"
+              initialContent={initialContent}
+              surfaceIds={["slide-overlay-geometry"]}
+              onRendererReady={(readyEditor) => {
+                editor = readyEditor;
+              }}
+            />
+          </AssessmentRuntimeProvider>
+        </ScaffoldArtifactIdentityProvider>,
+      ),
     );
 
     await waitForCondition(() => editor !== null && host?.querySelector(".sc-slideshow-player"));
     const player = uniqueElement<HTMLElement>(host, ".sc-slideshow-player");
+    const courseRoot = uniqueElement<HTMLElement>(host, ".sc-course");
     const viewport = uniqueElement<HTMLElement>(player, ".sc-slideshow-player__viewport");
+    courseRoot.style.width = "100%";
+    courseRoot.style.height = "100%";
+    courseRoot.style.minHeight = "0";
     player.style.width = "100%";
     player.style.height = "100%";
     player.style.minHeight = "0";
@@ -408,7 +435,7 @@ describe("slideshow player geometry", () => {
       const canvas = uniqueElement<HTMLElement>(player, ".sc-slideshow-player__canvas");
       const baseline = measureSlideshowShell(player);
       const normalHost = uniqueElement<HTMLElement>(document, "[data-scaffold-overlay-host]");
-      expect(normalHost.parentElement).toBe(document.body);
+      expect(normalHost.closest(".sc-course")?.parentElement).toBe(document.body);
       expect(canvas.contains(normalHost)).toBe(false);
 
       runtimeHintTrigger(player).click();
@@ -423,10 +450,7 @@ describe("slideshow player geometry", () => {
           buttonByNameOrNull(player, "Exit fullscreen") !== null &&
           viewport.querySelectorAll("[data-scaffold-overlay-host]").length === 1,
       );
-      const fullscreenHost = uniqueElement<HTMLElement>(
-        viewport,
-        ":scope > [data-scaffold-overlay-host]",
-      );
+      const fullscreenHost = uniqueElement<HTMLElement>(viewport, "[data-scaffold-overlay-host]");
       expect(normalHost.isConnected).toBe(false);
       expect(canvas.contains(fullscreenHost)).toBe(false);
       if (!popover.isConnected) {
@@ -443,7 +467,7 @@ describe("slideshow player geometry", () => {
       );
       const restoredHost = uniqueElement<HTMLElement>(document, "[data-scaffold-overlay-host]");
       expect(fullscreenHost.isConnected).toBe(false);
-      expect(restoredHost.parentElement).toBe(document.body);
+      expect(restoredHost.closest(".sc-course")?.parentElement).toBe(document.body);
       if (!popover.isConnected) {
         popover = await ensureRuntimeHintOpen(player, restoredHost);
       }

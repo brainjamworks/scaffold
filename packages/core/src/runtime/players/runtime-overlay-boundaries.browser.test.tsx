@@ -1,4 +1,5 @@
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
+import type { ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { page } from "vite-plus/test/browser/context";
@@ -7,6 +8,8 @@ import { createScaffoldDocumentContent } from "@/format/artifact";
 import { createAssessmentRuntimeTestRoot } from "@/runtime/assessment/test-utils";
 import { PagePlayer } from "@/runtime/players/page/PagePlayer";
 import { SlideshowPlayer } from "@/runtime/players/slideshow/SlideshowPlayer";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import "@/styles/globals.css";
 
 const PAGE_CASES = [
@@ -67,6 +70,17 @@ const mountedRuntimes: MountedRuntime[] = [];
 const foreignOwners: ForeignOwner[] = [];
 const fullscreenRestorers: Array<() => void> = [];
 
+function runtimeTestShell(children: ReactNode) {
+  return (
+    <>
+      <div className="sc-app" data-testid="app-sibling" />
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="dark">
+        {children}
+      </CourseThemeProvider>
+    </>
+  );
+}
+
 afterEach(() => {
   while (mountedRuntimes.length > 0) mountedRuntimes.pop()?.dispose();
   while (fullscreenRestorers.length > 0) fullscreenRestorers.pop()?.();
@@ -89,9 +103,7 @@ describe("runtime overlay boundary contract", () => {
       expect(playerStyle.borderTopWidth).toBe("0px");
       expect(playerStyle.boxShadow).toBe("none");
       expect(playerStyle.minHeight).toBe("0px");
-      expect(mounted.player.querySelectorAll(":scope > [data-scaffold-overlay-host]")).toHaveLength(
-        1,
-      );
+      expect(mounted.player.querySelectorAll("[data-scaffold-overlay-host]")).toHaveLength(1);
 
       owner.window.scrollTo(0, 120);
       await waitForCondition(() => mounted.player.getBoundingClientRect().top < before.top - 80);
@@ -110,19 +122,16 @@ describe("runtime overlay boundary contract", () => {
       );
       const overlayHost = uniqueElement<HTMLElement>(
         mounted.player,
-        ":scope > [data-scaffold-overlay-host]",
+        "[data-scaffold-overlay-host]",
       );
       const containedRect = popover.getBoundingClientRect();
 
       expect(popover.getAttribute("aria-label")).toMatch(/^Hint(?:s| 1 of 1)$/);
       expect(overlayHost.contains(popover)).toBe(true);
       expect(overlayHost.ownerDocument).toBe(owner.document);
-      expect(overlayHost.parentElement).toBe(mounted.player);
-      expectCourseThemeInheritance(popover, mounted.player);
+      expect(mounted.player.contains(overlayHost)).toBe(true);
+      expectCourseThemeParity(popover, mounted.player);
       expect(getComputedStyle(overlayHost).position).toBe("fixed");
-      expect(getComputedStyle(overlayHost).getPropertyValue("--color-background").trim()).toBe(
-        getComputedStyle(mounted.player).getPropertyValue("--color-background").trim(),
-      );
       expect(containedRect.left).toBeGreaterThanOrEqual(-1);
       expect(containedRect.right).toBeLessThanOrEqual(
         owner.document.documentElement.clientWidth + 1,
@@ -177,10 +186,7 @@ describe("runtime overlay boundary contract", () => {
       const canvas = uniqueElement<HTMLElement>(player, ".sc-slideshow-player__canvas");
       const controls = uniqueElement<HTMLElement>(player, ".sc-slideshow-player__controls");
       const baseline = measureSlideshowShell(player);
-      const normalHost = uniqueElement<HTMLElement>(
-        owner.document,
-        "body > [data-scaffold-overlay-host]",
-      );
+      const normalHost = uniqueElement<HTMLElement>(owner.document, "[data-scaffold-overlay-host]");
       const trigger = runtimeHintTrigger(player);
 
       expect(baseline.stageRect.width / baseline.stageRect.height).toBeCloseTo(16 / 9, 5);
@@ -194,9 +200,7 @@ describe("runtime overlay boundary contract", () => {
       expect(canvas.contains(normalHost)).toBe(false);
       expect(normalHost.ownerDocument).toBe(owner.document);
       expect(owner.document.querySelectorAll("[data-scaffold-overlay-host]")).toHaveLength(1);
-      expect(getComputedStyle(normalHost).getPropertyValue("--color-background").trim()).toBe(
-        getComputedStyle(player).getPropertyValue("--color-background").trim(),
-      );
+      expectCourseThemeParity(normalHost, player);
 
       trigger.focus({ preventScroll: true });
       expect(trigger.matches(":focus-visible")).toBe(true);
@@ -210,7 +214,7 @@ describe("runtime overlay boundary contract", () => {
 
       expect(popover.getAttribute("aria-label")).toBe("Hint 1 of 1");
       expect(popover.ownerDocument).toBe(owner.document);
-      expectCourseThemeInheritance(popover, player);
+      expectCourseThemeParity(popover, player);
       expect(containedRect.left).toBeGreaterThanOrEqual(-1);
       expect(containedRect.right).toBeLessThanOrEqual(
         owner.document.documentElement.clientWidth + 1,
@@ -246,29 +250,21 @@ describe("runtime overlay boundary contract", () => {
     );
 
     const fullscreenBaseline = measureSlideshowShell(player);
-    let normalHost = uniqueElement<HTMLElement>(
-      owner.document,
-      "body > [data-scaffold-overlay-host]",
-    );
+    let normalHost = uniqueElement<HTMLElement>(owner.document, "[data-scaffold-overlay-host]");
     let popover = await ensureRuntimeHintOpen(player, normalHost);
     expect(normalHost.contains(popover)).toBe(true);
     buttonByName(player, "Enter fullscreen").click();
     await waitForCondition(
       () =>
         buttonByNameOrNull(player, "Exit fullscreen") !== null &&
-        viewport.querySelectorAll(":scope > [data-scaffold-overlay-host]").length === 1,
+        viewport.querySelectorAll("[data-scaffold-overlay-host]").length === 1,
     );
-    const fullscreenHost = uniqueElement<HTMLElement>(
-      viewport,
-      ":scope > [data-scaffold-overlay-host]",
-    );
+    const fullscreenHost = uniqueElement<HTMLElement>(viewport, "[data-scaffold-overlay-host]");
 
     expect(normalHost.isConnected).toBe(false);
     expect(fullscreenHost.ownerDocument).toBe(owner.document);
     expect(canvas.contains(fullscreenHost)).toBe(false);
-    expect(getComputedStyle(fullscreenHost).getPropertyValue("--color-background").trim()).toBe(
-      getComputedStyle(player).getPropertyValue("--color-background").trim(),
-    );
+    expectCourseThemeParity(fullscreenHost, player);
     expect(owner.document.querySelectorAll("[data-scaffold-overlay-host]")).toHaveLength(1);
     popover = popover.isConnected ? popover : await ensureRuntimeHintOpen(player, fullscreenHost);
     expect(fullscreenHost.contains(popover)).toBe(true);
@@ -280,7 +276,7 @@ describe("runtime overlay boundary contract", () => {
         buttonByNameOrNull(player, "Enter fullscreen") !== null &&
         viewport.querySelector("[data-scaffold-overlay-host]") === null,
     );
-    normalHost = uniqueElement<HTMLElement>(owner.document, "body > [data-scaffold-overlay-host]");
+    normalHost = uniqueElement<HTMLElement>(owner.document, "[data-scaffold-overlay-host]");
     expect(fullscreenHost.isConnected).toBe(false);
     expect(normalHost.ownerDocument).toBe(owner.document);
     expect(canvas.contains(normalHost)).toBe(false);
@@ -336,17 +332,19 @@ async function mountPage(owner: ForeignOwner): Promise<MountedRuntime> {
   owner.document.body.append(host);
   const root = createRoot(host);
   root.render(
-    createAssessmentRuntimeTestRoot({
-      children: (
-        <PagePlayer
-          initialContent={runtimeHintDocument("page", "runtime-page")}
-          surfaceId="runtime-page"
-          onRendererReady={(readyEditor) => {
-            editor = readyEditor;
-          }}
-        />
-      ),
-    }),
+    runtimeTestShell(
+      createAssessmentRuntimeTestRoot({
+        children: (
+          <PagePlayer
+            initialContent={runtimeHintDocument("page", "runtime-page")}
+            surfaceId="runtime-page"
+            onRendererReady={(readyEditor) => {
+              editor = readyEditor;
+            }}
+          />
+        ),
+      }),
+    ),
   );
 
   await waitForCondition(() => editor !== null && host.querySelector(".sc-page-player") !== null);
@@ -365,18 +363,20 @@ async function mountSlideshow(owner: ForeignOwner): Promise<MountedRuntime> {
   owner.document.body.append(host);
   const root = createRoot(host);
   root.render(
-    createAssessmentRuntimeTestRoot({
-      children: (
-        <SlideshowPlayer
-          artifactId="runtime-boundary-contract"
-          initialContent={runtimeHintDocument("slideshow", "runtime-slide")}
-          surfaceIds={["runtime-slide"]}
-          onRendererReady={(readyEditor) => {
-            editor = readyEditor;
-          }}
-        />
-      ),
-    }),
+    runtimeTestShell(
+      createAssessmentRuntimeTestRoot({
+        children: (
+          <SlideshowPlayer
+            artifactId="runtime-boundary-contract"
+            initialContent={runtimeHintDocument("slideshow", "runtime-slide")}
+            surfaceIds={["runtime-slide"]}
+            onRendererReady={(readyEditor) => {
+              editor = readyEditor;
+            }}
+          />
+        ),
+      }),
+    ),
   );
 
   await waitForCondition(
@@ -667,15 +667,42 @@ function uniqueElement<T extends Element>(root: ParentNode, selector: string): T
   return matches[0];
 }
 
-function expectCourseThemeInheritance(overlay: HTMLElement, player: HTMLElement): void {
-  const courseScope = uniqueElement<HTMLElement>(
-    player,
-    ".sc-course-theme-scope:not([data-scaffold-overlay-host])",
+function expectCourseThemeParity(portalContent: HTMLElement, player: HTMLElement): void {
+  const sourceRoot = player.closest<HTMLElement>(".sc-course");
+  const portalRoot = portalContent.closest<HTMLElement>(".sc-course");
+  if (!sourceRoot || !portalRoot) throw new Error("Expected source and portal Course roots.");
+
+  expect(portalRoot).not.toBe(sourceRoot);
+  for (const className of sourceRoot.classList) expect(portalRoot).toHaveClass(className);
+  for (const attribute of [
+    "data-accent-color",
+    "data-gray-color",
+    "data-radius",
+    "data-scaling",
+    "data-panel-background",
+  ]) {
+    expect(portalRoot.getAttribute(attribute)).toBe(sourceRoot.getAttribute(attribute));
+  }
+  expect(getComputedStyle(portalRoot).getPropertyValue("--default-font-family")).toContain(
+    "Satoshi",
   );
-  const property = "--sc-course-color-background";
-  const expected = getComputedStyle(courseScope).getPropertyValue(property).trim();
-  expect(expected).not.toBe("");
-  expect(getComputedStyle(overlay).getPropertyValue(property).trim()).toBe(expected);
+  const semanticBackground = getComputedStyle(sourceRoot).getPropertyValue(
+    "--sc-course-state-correct-background",
+  );
+  expect(semanticBackground).not.toBe("");
+  expect(
+    getComputedStyle(portalRoot).getPropertyValue("--sc-course-state-correct-background"),
+  ).toBe(semanticBackground);
+
+  const appSibling = uniqueElement<HTMLElement>(
+    player.ownerDocument,
+    "[data-testid='app-sibling']",
+  );
+  expect(appSibling.closest(".sc-course")).toBeNull();
+  expect(appSibling).not.toHaveClass("dark", "sc-course-theme-scaffold-flow-v1");
+  expect(
+    getComputedStyle(appSibling).getPropertyValue("--sc-course-state-correct-background"),
+  ).toBe("");
 }
 
 async function waitForElement<T extends Element>(root: ParentNode, selector: string): Promise<T> {

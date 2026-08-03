@@ -1,19 +1,44 @@
 // @vitest-environment happy-dom
 
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  render as renderTest,
+  screen,
+  waitFor,
+  type RenderOptions,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
+import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { AssessmentRuntimeProvider } from "@/runtime/assessment/AssessmentRuntimeProvider";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
-import { createThemeCatalogue, resolveCourseTheme } from "@/theme/model";
+import type { ScaffoldColorMode } from "@/theme/state/color-mode";
 
 import { SlideshowPlayer } from "./SlideshowPlayer";
 
 let restoreFullscreenHarness: (() => void) | null = null;
+
+function render(children: ReactNode, options?: RenderOptions) {
+  return renderWithCourseAppearance(children, "light", options);
+}
+
+function renderWithCourseAppearance(
+  children: ReactNode,
+  appearance: ScaffoldColorMode,
+  options?: RenderOptions,
+) {
+  return renderTest(
+    <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance={appearance}>
+      {children}
+    </CourseThemeProvider>,
+    options,
+  );
+}
 
 class ResizeObserverStub implements ResizeObserver {
   static instances: ResizeObserverStub[] = [];
@@ -277,31 +302,25 @@ function restoreProperty(
 
 describe("SlideshowPlayer", () => {
   it.each(["light", "dark"] as const)(
-    "passes the resolved %s course mode into slideshow content",
+    "renders slideshow content under the ambient %s Course mode",
     async (mode) => {
       const onRendererReady = vi.fn();
-      const resolvedTheme = resolveCourseTheme({
-        catalogue: createThemeCatalogue(),
-        mode,
-        theme: createDefaultPersistedCourseTheme(),
-      });
 
-      render(
+      renderWithCourseAppearance(
         <SlideshowPlayer
           initialContent={slideshowDocumentContent([
             { id: "slide-themed", text: "Themed slide content" },
           ])}
-          resolvedTheme={resolvedTheme}
           surfaceIds={["slide-themed"]}
           onRendererReady={onRendererReady}
         />,
+        mode,
       );
 
       await waitFor(() => expect(onRendererReady).toHaveBeenCalledOnce());
-      expect(screen.getByTestId("course-theme-scope")).toHaveAttribute(
-        "data-course-color-mode",
-        mode,
-      );
+      expect(
+        screen.getByTestId("course-document-runtime-renderer").closest(".sc-course"),
+      ).toHaveClass(mode, "sc-course-theme-scaffold-flow-v1");
     },
   );
 
@@ -440,7 +459,7 @@ describe("SlideshowPlayer", () => {
     const normalHost = ownerDocument.querySelector<HTMLElement>("[data-scaffold-overlay-host]");
     if (normalHost === null) throw new Error("Expected normal Slideshow overlay host");
 
-    expect(normalHost.parentElement).toBe(ownerDocument.body);
+    expect(normalHost.closest(".sc-course")?.parentElement).toBe(ownerDocument.body);
     expect(canvas.contains(normalHost)).toBe(false);
     expect(normalHost.ownerDocument).toBe(ownerDocument);
 
@@ -482,7 +501,7 @@ describe("SlideshowPlayer", () => {
 
     expect(exitFullscreen).toHaveBeenCalledOnce();
     expect(fullscreenHost.isConnected).toBe(false);
-    expect(restoredHost.parentElement).toBe(ownerDocument.body);
+    expect(restoredHost.closest(".sc-course")?.parentElement).toBe(ownerDocument.body);
     const popoverAfterExit = ownerDocument.querySelector(".sc-assessment-hint-popover--runtime");
     if (popoverAfterExit === null) {
       await user.click(runtimeHintTriggerIn(ownerDocument));
