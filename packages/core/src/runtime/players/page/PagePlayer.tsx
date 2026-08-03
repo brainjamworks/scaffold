@@ -2,7 +2,7 @@ import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
 import { useState } from "react";
 
 import { CourseThemePortalBoundary } from "@/theme/course/CourseThemeProvider";
-import { OverlayBoundary } from "@/ui/components/OverlayBoundary/OverlayBoundary";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 
 import { CourseDocumentRuntimeRenderer } from "../../renderer/CourseDocumentRuntimeRenderer";
 import "./PagePlayer.css";

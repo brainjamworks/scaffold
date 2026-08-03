@@ -1,6 +1,6 @@
 import { useLayoutEffect, type ReactNode } from "react";
 
-import { OverlayBoundary } from "@/ui/components/OverlayBoundary/OverlayBoundary";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 import { registerOverlayHostOwner } from "@/editor/interactions/dom/overlay-ownership";
 import { useOverlayBoundary } from "@/ui/overlays/portal-host-context";
 

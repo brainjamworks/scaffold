@@ -11,7 +11,7 @@ import {
   type OverlayBoundaryEnvironment,
 } from "@/ui/overlays/portal-host-context";
 
-import { OverlayBoundary } from "../OverlayBoundary/OverlayBoundary";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 import { WorkspaceDialog, type WorkspaceDialogSize } from "./WorkspaceDialog";
 
 function ControlledWorkspaceDialog({ size = "medium" }: { size?: WorkspaceDialogSize }) {

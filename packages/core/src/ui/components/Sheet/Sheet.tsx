@@ -21,7 +21,7 @@ import { cn } from "@/lib/cn";
 import { zIndex } from "@/ui/overlays/z-index";
 
 import { IconButton } from "../IconButton/IconButton";
-import { OverlayBoundary } from "../OverlayBoundary/OverlayBoundary";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 import { useOverlayBoundary } from "@/ui/overlays/portal-host-context";
 
 import "./Sheet.css";

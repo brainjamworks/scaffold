@@ -1,5 +1,18 @@
 import { defineConfig } from "vite-plus";
 
+const coreSourceRestrictedImportPaths = [
+  {
+    name: "@tiptap/pm/state",
+    importNames: ["AllSelection", "NodeSelection", "TextSelection"],
+    message: "Raw ProseMirror selection classes belong to packages/core/src/editor/selection.",
+  },
+  {
+    name: "@phosphor-icons/react",
+    importNames: ["*"],
+    message: "Import Phosphor icons and types by name, not as a namespace.",
+  },
+];
+
 export default defineConfig({
   check: {
     fmt: false,
@@ -49,19 +62,7 @@ export default defineConfig({
           "no-restricted-imports": [
             "error",
             {
-              paths: [
-                {
-                  name: "@tiptap/pm/state",
-                  importNames: ["AllSelection", "NodeSelection", "TextSelection"],
-                  message:
-                    "Raw ProseMirror selection classes belong to packages/core/src/editor/selection.",
-                },
-                {
-                  name: "@phosphor-icons/react",
-                  importNames: ["*"],
-                  message: "Import Phosphor icons and types by name, not as a namespace.",
-                },
-              ],
+              paths: coreSourceRestrictedImportPaths,
             },
           ],
         },
@@ -94,17 +95,7 @@ export default defineConfig({
             "error",
             {
               paths: [
-                {
-                  name: "@tiptap/pm/state",
-                  importNames: ["AllSelection", "NodeSelection", "TextSelection"],
-                  message:
-                    "Raw ProseMirror selection classes belong to packages/core/src/editor/selection.",
-                },
-                {
-                  name: "@phosphor-icons/react",
-                  importNames: ["*"],
-                  message: "Import Phosphor icons and types by name, not as a namespace.",
-                },
+                ...coreSourceRestrictedImportPaths,
                 {
                   name: "@/host/providers/ScaffoldServicesProvider",
                   importNames: ["useAssessmentPort"],
@@ -134,17 +125,70 @@ export default defineConfig({
           "no-restricted-imports": [
             "error",
             {
-              paths: [
+              paths: coreSourceRestrictedImportPaths,
+            },
+          ],
+        },
+      },
+      {
+        files: ["packages/core/src/ui/components/app/**/*.{ts,tsx}"],
+        rules: {
+          "no-restricted-imports": [
+            "error",
+            {
+              paths: coreSourceRestrictedImportPaths,
+              patterns: [
                 {
-                  name: "@tiptap/pm/state",
-                  importNames: ["AllSelection", "NodeSelection", "TextSelection"],
+                  regex:
+                    "^(?:@/ui/components/course|@/theme/course|(?:\\.\\./)+course|(?:\\.\\./)+theme/course)(?:/|$)",
                   message:
-                    "Raw ProseMirror selection classes belong to packages/core/src/editor/selection.",
+                    "App components must not import Course components or Course theme configuration.",
+                },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        files: ["packages/core/src/ui/components/course/**/*.{ts,tsx}"],
+        rules: {
+          "no-restricted-imports": [
+            "error",
+            {
+              paths: coreSourceRestrictedImportPaths,
+              patterns: [
+                {
+                  regex:
+                    "^(?:@/ui/components/app|@/theme/app|(?:\\.\\./)+app|(?:\\.\\./)+theme/app)(?:/|$)",
+                  message:
+                    "Course components must not import App components or App theme configuration.",
+                },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        files: [
+          "packages/core/src/ui/accessibility/**/*.{ts,tsx}",
+          "packages/core/src/ui/icons/**/*.{ts,tsx}",
+          "packages/core/src/ui/overlays/**/*.{ts,tsx}",
+        ],
+        rules: {
+          "no-restricted-imports": [
+            "error",
+            {
+              paths: coreSourceRestrictedImportPaths,
+              patterns: [
+                {
+                  regex:
+                    "^(?:@/ui/components/(?:app|course)|@/theme/(?:app|course)|(?:\\.\\./)+(?:components/(?:app|course)|theme/(?:app|course)))(?:/|$)",
+                  message:
+                    "Neutral UI infrastructure must not import owner components or owner-specific theme configuration.",
                 },
                 {
-                  name: "@phosphor-icons/react",
-                  importNames: ["*"],
-                  message: "Import Phosphor icons and types by name, not as a namespace.",
+                  group: ["@radix-ui/themes", "@radix-ui/themes/**"],
+                  message: "Neutral UI infrastructure must not import Radix Themes presentation.",
                 },
               ],
             },

@@ -1,10 +1,4 @@
-import {
-  Fragment,
-  useMemo,
-  useState,
-  type ComponentType,
-  type ReactNode,
-} from "react";
+import { Fragment, useMemo, useState, type ComponentType, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 import { zIndex } from "@/ui/overlays/z-index";

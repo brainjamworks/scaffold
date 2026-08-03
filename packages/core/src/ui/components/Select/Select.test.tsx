@@ -6,7 +6,7 @@ import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import * as Dialog from "../Dialog/Dialog";
-import { OverlayBoundary } from "../OverlayBoundary/OverlayBoundary";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 import { Select, selectVariants } from "./Select";
 
 afterEach(() => {

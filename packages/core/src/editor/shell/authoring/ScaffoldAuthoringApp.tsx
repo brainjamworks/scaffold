@@ -19,7 +19,7 @@ import {
 import type { AssessmentGroupContract, AssessmentTargetContract } from "@scaffold/contracts";
 
 import { cn } from "@/lib/cn";
-import { OverlayBoundary } from "@/ui/components/OverlayBoundary/OverlayBoundary";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 import { iconSm } from "@/ui/tokens/icon-sizes";
 import {
   projectArtifactSaveBundle,

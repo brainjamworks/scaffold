@@ -5,7 +5,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import * as DropdownMenu from "./DropdownMenu";
-import { OverlayBoundary } from "../OverlayBoundary/OverlayBoundary";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 
 const dropdownMenuMock = vi.hoisted(() => ({
   subContentProps: [] as Array<Record<string, unknown>>,

@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import "@/styles/globals.css";
 
 import { Lightbox } from "./Lightbox/Lightbox";
-import { OverlayBoundary } from "./OverlayBoundary/OverlayBoundary";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 import * as Popover from "./Popover/Popover";
 import { PopoverSurface } from "./PopoverSurface/PopoverSurface";
 import * as Tooltip from "./Tooltip/Tooltip";

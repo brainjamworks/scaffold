@@ -1,7 +1,7 @@
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
-import { OverlayBoundary } from "./OverlayBoundary/OverlayBoundary";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 import * as Popover from "./Popover/Popover";
 
 import "./PopoverSurface/PopoverSurface.css";

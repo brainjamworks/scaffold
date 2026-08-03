@@ -11,7 +11,7 @@ import {
 } from "@/ui/overlays/portal-host-context";
 
 import * as Dialog from "../Dialog/Dialog";
-import { OverlayBoundary } from "../OverlayBoundary/OverlayBoundary";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 import { Select } from "../Select/Select";
 import { Sheet, sheetContentVariants } from "./Sheet";
 

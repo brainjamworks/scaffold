@@ -6,7 +6,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { render as renderBrowserReact, type RenderResult } from "vitest-browser-react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
-import { OverlayBoundary } from "@/ui/components/OverlayBoundary/OverlayBoundary";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 import { Select } from "@/ui/components/Select/Select";
 import { WorkspaceDialog } from "@/ui/components/WorkspaceDialog/WorkspaceDialog";
 import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";

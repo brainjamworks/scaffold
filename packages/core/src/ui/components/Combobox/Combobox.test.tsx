@@ -7,7 +7,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vite-plus/test";
 
 import { Combobox, type ComboboxOption } from "./Combobox";
 import * as Dialog from "../Dialog/Dialog";
-import { OverlayBoundary } from "../OverlayBoundary/OverlayBoundary";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 
 const languageOptions: ComboboxOption[] = [
   { value: "plain", label: "Plain text" },

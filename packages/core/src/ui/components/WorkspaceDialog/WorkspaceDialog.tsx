@@ -19,7 +19,7 @@ import { cn } from "@/lib/cn";
 import { zIndex } from "@/ui/overlays/z-index";
 import * as Dialog from "../Dialog/Dialog";
 import { IconButton, type IconButtonProps } from "../IconButton/IconButton";
-import { OverlayBoundary } from "../OverlayBoundary/OverlayBoundary";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 import * as ToolbarPrimitive from "../Toolbar/Toolbar";
 import * as Tooltip from "../Tooltip/Tooltip";
 

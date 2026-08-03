@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import * as Dialog from "../Dialog/Dialog";
 import { Lightbox, type LightboxItem } from "./Lightbox";
-import { OverlayBoundary } from "../OverlayBoundary/OverlayBoundary";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 import * as Popover from "../Popover/Popover";
 
 const ITEMS: LightboxItem[] = [

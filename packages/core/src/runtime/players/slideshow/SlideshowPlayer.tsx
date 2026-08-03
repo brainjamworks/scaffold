@@ -8,7 +8,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
 
 import { IconButton } from "@/ui/components/IconButton/IconButton";
-import { OverlayBoundary } from "@/ui/components/OverlayBoundary/OverlayBoundary";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 import { readSurfaceViewSettings } from "@/document/model/surface-view-settings";
 import {
   deriveSlideshowCanvasScale,

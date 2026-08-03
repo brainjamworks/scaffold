@@ -18,7 +18,7 @@ import {
 
 import { zIndex } from "@/ui/overlays/z-index";
 
-import { OverlayBoundary } from "../OverlayBoundary/OverlayBoundary";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 import { useOverlayBoundary } from "@/ui/overlays/portal-host-context";
 
 import "./Lightbox.css";

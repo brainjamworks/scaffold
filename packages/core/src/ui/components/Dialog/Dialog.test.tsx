@@ -6,7 +6,7 @@ import { useState } from "react";
 import { describe, expect, it } from "vite-plus/test";
 
 import * as Dialog from "./Dialog";
-import { OverlayBoundary } from "../OverlayBoundary/OverlayBoundary";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 
 function ControlledDialog() {
   const [open, setOpen] = useState(false);
