@@ -15,16 +15,15 @@ export function KeyValueListSurface({ node, trailing }: KeyValueListSurfaceProps
   const data = parsed.success ? parsed.data : emptyKeyValueListData();
 
   return (
-    <div
-      data-node="key-value-list"
-      data-layout={data.layout}
-      data-key-width={data.keyWidth}
-      className="sc-key-value-list"
-    >
-      <div className="sc-key-value-list__rows">
-        <NodeViewContent className="sc-key-value-list__content" />
-      </div>
+    <>
+      <NodeViewContent<"dl">
+        as="dl"
+        data-node="key-value-list"
+        data-layout={data.layout}
+        data-key-width={data.keyWidth}
+        className="sc-course-key-value-list__list"
+      />
       {trailing}
-    </div>
+    </>
   );
 }

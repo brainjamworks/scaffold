@@ -23,7 +23,14 @@ export const KeyValueRowKeyNode = Node.create({
   },
 
   renderHTML({ HTMLAttributes }) {
-    return ["dt", mergeAttributes(HTMLAttributes, { "data-slot": "key-value-row-key" }), 0];
+    return [
+      "dt",
+      mergeAttributes(HTMLAttributes, {
+        "data-slot": "key-value-row-key",
+        class: "sc-course-key-value-list__key",
+      }),
+      0,
+    ];
   },
 
   addNodeView() {
@@ -43,7 +50,14 @@ export const KeyValueRowValueNode = Node.create({
   },
 
   renderHTML({ HTMLAttributes }) {
-    return ["dd", mergeAttributes(HTMLAttributes, { "data-slot": "key-value-row-value" }), 0];
+    return [
+      "dd",
+      mergeAttributes(HTMLAttributes, {
+        "data-slot": "key-value-row-value",
+        class: "sc-course-key-value-list__value",
+      }),
+      0,
+    ];
   },
 
   addNodeView() {
@@ -71,7 +85,14 @@ export const KeyValueRowNode = Node.create({
   },
 
   renderHTML({ HTMLAttributes }) {
-    return ["div", mergeAttributes(HTMLAttributes, { "data-node": "key-value-row" }), 0];
+    return [
+      "div",
+      mergeAttributes(HTMLAttributes, {
+        "data-node": "key-value-row",
+        class: "sc-course-key-value-list__row",
+      }),
+      0,
+    ];
   },
 
   addNodeView() {
