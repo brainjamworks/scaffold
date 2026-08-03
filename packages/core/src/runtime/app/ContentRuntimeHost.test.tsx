@@ -505,7 +505,7 @@ describe("ContentRuntimeHost", () => {
 
     await waitFor(() => expect(onEditorReady).toHaveBeenCalledTimes(1));
 
-    expect(screen.getByTestId("scaffold-runtime-host")).toBeInTheDocument();
+    expect(screen.getByTestId("scaffold-runtime-host")).toHaveClass("sc-content-runtime-host");
     expect(screen.getByTestId("page-player")).toBeInTheDocument();
     expect(screen.getByTestId("course-document-runtime-renderer")).toBeInTheDocument();
     expect(screen.queryByTestId("course-document-editor")).toBeNull();
@@ -1355,6 +1355,7 @@ describe("ContentRuntimeHost", () => {
         .getByTestId("scaffold-runtime-unavailable")
         .getAttribute("data-runtime-unavailable-reason"),
     ).toBe("missing-initial-content");
+    expect(screen.getByTestId("scaffold-runtime-host")).toHaveClass("sc-content-runtime-host");
     expect(screen.queryByTestId("course-document-runtime-renderer")).toBeNull();
     expect(onEditorReady).not.toHaveBeenCalled();
   });
@@ -1375,6 +1376,7 @@ describe("ContentRuntimeHost", () => {
         .getByTestId("scaffold-runtime-unavailable")
         .getAttribute("data-runtime-unavailable-reason"),
     ).toBe("invalid-course-document");
+    expect(screen.getByTestId("scaffold-runtime-host")).toHaveClass("sc-content-runtime-host");
     expect(screen.queryByTestId("course-document-runtime-renderer")).toBeNull();
     expect(onEditorReady).not.toHaveBeenCalled();
   });

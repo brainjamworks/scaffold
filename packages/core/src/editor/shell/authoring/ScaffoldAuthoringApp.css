@@ -24,7 +24,11 @@
   }
 
   .sc-scaffold-authoring-workspace[data-preview-mode="slideshow"]
-    .sc-slideshow-player[data-slideshow-sizing="contained"] {
+    :is(
+      .sc-content-runtime-host,
+      .sc-content-runtime-host > .sc-course,
+      .sc-slideshow-player[data-slideshow-sizing="contained"]
+    ) {
     height: 100%;
     min-height: 0;
   }

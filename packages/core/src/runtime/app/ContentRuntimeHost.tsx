@@ -57,7 +57,7 @@ export function ContentRuntimeHost({
   const runtimeArtifactId = artifactId ?? null;
   if (!initialContent) {
     return (
-      <div data-testid="scaffold-runtime-host">
+      <div className="sc-content-runtime-host" data-testid="scaffold-runtime-host">
         <ContentRuntimeUnavailable reason="missing-initial-content" />
       </div>
     );
@@ -69,7 +69,7 @@ export function ContentRuntimeHost({
   });
   if (!validation.ok) {
     return (
-      <div data-testid="scaffold-runtime-host">
+      <div className="sc-content-runtime-host" data-testid="scaffold-runtime-host">
         <ContentRuntimeUnavailable reason={unavailableReasonFromIssues(validation.issues)} />
       </div>
     );
@@ -91,7 +91,11 @@ export function ContentRuntimeHost({
               ? {}
               : { initialSnapshot: initialLearnerActivitySnapshot })}
           >
-            <div data-testid="scaffold-runtime-host" data-scaffold-color-mode={colorMode}>
+            <div
+              className="sc-content-runtime-host"
+              data-testid="scaffold-runtime-host"
+              data-scaffold-color-mode={colorMode}
+            >
               <CourseThemeProvider theme={courseDocumentAttrs.theme} appearance={colorMode}>
                 <LearnerActivityReadinessGate>
                   <HydratedRuntimePlayer
