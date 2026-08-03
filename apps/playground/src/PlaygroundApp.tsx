@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { ScaffoldAuthoringEntry } from "@scaffold/core/authoring";
 import type { ScaffoldThemeExtension } from "@scaffold/core/authoring";
+import { createScaffoldApplication } from "@scaffold/core/extensions";
 import type { ScaffoldAuthoringArtifact } from "@scaffold/core/ports";
 
 import { browserMediaPort } from "./ports/browserMediaPort";
@@ -19,6 +20,7 @@ import "./PlaygroundApp.css";
  */
 
 const DEFAULT_TITLE = "Untitled";
+const scaffoldApplication = createScaffoldApplication();
 
 type LocalAssessmentPortModule = typeof import("./ports/createLocalAssessmentPort");
 
@@ -94,6 +96,7 @@ export function PlaygroundApp({
 
   return (
     <ScaffoldAuthoringEntry
+      application={scaffoldApplication}
       artifact={artifact}
       services={authoringServices}
       headerActions={() => headerExtras}

@@ -5,12 +5,15 @@ import {
   LearnerActivitySnapshotSchema,
 } from "@scaffold/contracts";
 import { ScaffoldAuthoringEntry } from "@scaffold/core/authoring";
+import { createScaffoldApplication } from "@scaffold/core/extensions";
 import { ContentRuntimeHost } from "@scaffold/core/runtime";
 import { ScaffoldArtifactSchema, prepareScaffoldArtifactForAuthoring } from "@scaffold/core/format";
 
 import { moodleCall, parseJsonField, type MoodleAjaxResponse } from "./api";
 import { createMoodleAuthoringHostServices } from "./authoring-ports";
 import type { MoodleApplicationConfig, MoodlePayload } from "./types";
+
+const scaffoldApplication = createScaffoldApplication();
 
 interface PayloadResponse extends MoodleAjaxResponse {
   artifactJson?: unknown;
@@ -130,6 +133,7 @@ function LoadedMoodleApp({ config, payload }: LoadedMoodleAppProps) {
     return (
       <div className="sc-moodle-root sc-moodle-student-shell">
         <ContentRuntimeHost
+          composition={scaffoldApplication.runtime}
           artifactId={payload.artifact.id}
           initialAssessmentSnapshot={payload.assessmentSnapshot}
           initialLearnerActivitySnapshot={payload.learnerActivitySnapshot}
@@ -164,6 +168,7 @@ function MoodleAuthoringApp({ artifact, cmid, metadata, returnUrl }: MoodleAutho
 
   const entry = (
     <ScaffoldAuthoringEntry
+      application={scaffoldApplication}
       artifact={artifact}
       services={services}
       className="sc-moodle-root sc-moodle-author-shell"

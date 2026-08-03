@@ -22,10 +22,24 @@ const mocks = vi.hoisted(() => {
     assessmentModuleReads: 0,
     learnerPreviewContent: {} as BrowserPreviewProjection,
     loadArtifact: vi.fn(async (): Promise<StoredArtifact | null> => null),
+    scaffoldApplications: [] as unknown[],
     previewProjectionReaders: [] as Array<() => unknown>,
     previewAssessmentPorts: [] as Array<{ type: string; projectionIndex: number }>,
     requestPersistentStorage: vi.fn(async () => false),
     saveArtifact: vi.fn(async (_bundle: ArtifactSaveBundle) => ({})),
+  };
+});
+
+vi.mock("@scaffold/core/extensions", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@scaffold/core/extensions")>();
+
+  return {
+    ...actual,
+    createScaffoldApplication: () => {
+      const application = actual.createScaffoldApplication();
+      mocks.scaffoldApplications.push(application);
+      return application;
+    },
   };
 });
 
@@ -231,6 +245,19 @@ function pageDocumentWithParagraph(surfaceId: string, text: string): JSONContent
 }
 
 describe("PlaygroundApp preview boundary", () => {
+  it("mounts the exact module-stable Scaffold application", async () => {
+    mocks.loadArtifact.mockResolvedValueOnce(storedArtifact());
+    const view = render(<PlaygroundApp artifactId="shell-doc" />);
+
+    await screen.findByTestId("content-author-workspace");
+    expect(mocks.scaffoldApplications).toHaveLength(1);
+    expect(mocks.authoringAppProps.at(-1)?.["application"]).toBe(mocks.scaffoldApplications[0]);
+
+    view.rerender(<PlaygroundApp artifactId="shell-doc" />);
+    expect(mocks.scaffoldApplications).toHaveLength(1);
+    expect(mocks.authoringAppProps.at(-1)?.["application"]).toBe(mocks.scaffoldApplications[0]);
+  });
+
   it("adds and removes a sample host theme extension at the public authoring seam", async () => {
     const sampleThemeExtension = { fonts: [] } satisfies ScaffoldThemeExtension;
     mocks.loadArtifact.mockResolvedValueOnce(storedArtifact());

@@ -11,7 +11,23 @@ const mocks = vi.hoisted(() => ({
   authoringEntryProps: [] as Array<Record<string, unknown>>,
   runtimeHostProps: [] as ContentRuntimeHostProps[],
   moodleCall: vi.fn(),
+  scaffoldApplications: [] as Array<{
+    runtime: ContentRuntimeHostProps["composition"];
+  }>,
 }));
+
+vi.mock("@scaffold/core/extensions", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@scaffold/core/extensions")>();
+
+  return {
+    ...actual,
+    createScaffoldApplication: () => {
+      const application = actual.createScaffoldApplication();
+      mocks.scaffoldApplications.push(application);
+      return application;
+    },
+  };
+});
 
 vi.mock("./api", () => ({
   moodleCall: mocks.moodleCall,
@@ -257,6 +273,8 @@ describe("MoodleApp", () => {
     });
 
     const props = mocks.authoringEntryProps.at(-1);
+    expect(mocks.scaffoldApplications).toHaveLength(1);
+    expect(props?.["application"]).toBe(mocks.scaffoldApplications[0]);
     expect(props?.["artifact"]).toEqual(readyArtifact);
     expect(props?.["services"]).toMatchObject({
       artifactPersistence: { saveArtifact: expect.any(Function) },
@@ -297,6 +315,10 @@ describe("MoodleApp", () => {
       initialLearnerActivitySnapshot: learnerActivitySnapshot,
       initialContent: readyArtifact.content,
     });
+    expect(mocks.scaffoldApplications).toHaveLength(1);
+    expect(mocks.runtimeHostProps.at(-1)?.composition).toBe(
+      mocks.scaffoldApplications[0]?.runtime,
+    );
     expect(screen.queryByTestId("scaffold-authoring-entry")).toBeNull();
     expect(screen.queryByRole("link", { name: "Back to activity" })).toBeNull();
   });
