@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import { builtInInsertCatalog } from "@/editor/insertion/built-in-insert-catalog";
 import { createScaffoldDocumentContent } from "@/format/artifact";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
 import { CourseDocumentRuntimeRenderer } from "./CourseDocumentRuntimeRenderer";
@@ -122,6 +123,26 @@ function surfaceById(surfaceId: string): HTMLElement {
 }
 
 describe("CourseDocumentRuntimeRenderer", () => {
+  it("consumes an ambient Course boundary without introducing another Course root", async () => {
+    const onReady = vi.fn();
+
+    render(
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="dark">
+        <CourseDocumentRuntimeRenderer
+          artifactId="artifact-themed-renderer"
+          initialContent={pageDocumentContent()}
+          onReady={onReady}
+        />
+      </CourseThemeProvider>,
+    );
+
+    await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
+    const renderer = screen.getByTestId("course-document-runtime-renderer");
+    const courseRoots = document.querySelectorAll(".sc-course");
+    expect(courseRoots).toHaveLength(1);
+    expect(renderer.closest(".sc-course")).toBe(courseRoots[0]);
+  });
+
   it("marks the visible surface and hides inactive surfaces", async () => {
     const onReady = vi.fn();
 
