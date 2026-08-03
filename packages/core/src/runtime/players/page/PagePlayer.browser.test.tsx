@@ -4,8 +4,8 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { createAssessmentRuntimeTestRoot } from "@/runtime/assessment/test-utils";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
-import { createThemeCatalogue, resolveCourseTheme, type ResolvedCourseTheme } from "@/theme/model";
 import "@/styles/globals.css";
 
 import { PagePlayer } from "./PagePlayer";
@@ -33,20 +33,59 @@ describe("PagePlayer presentation", () => {
         background: { color: "#123456" },
       },
     };
-    const resolvedTheme = resolveCourseTheme({
-      catalogue: createThemeCatalogue(),
-      mode: "dark",
-      theme: createDefaultPersistedCourseTheme(),
-    });
 
-    const mounted = await mountPage(content, 1200, resolvedTheme);
-    const scope = uniqueElement<HTMLElement>(mounted.host, ".sc-course-theme-scope");
+    const mounted = await mountPage(content, 1200, "dark");
+    const player = uniqueElement<HTMLElement>(mounted.host, ".sc-page-player");
+    const scope = player.closest<HTMLElement>(".sc-course");
+    if (!scope) throw new Error("Page player is missing its Course boundary.");
     const runtimeSurface = uniqueElement<HTMLElement>(scope, "[data-surface]");
     const paragraph = uniqueElement<HTMLElement>(runtimeSurface, "p");
 
-    expect(scope.dataset.courseColorMode).toBe("dark");
+    expect(scope).toHaveClass("dark", "sc-course-theme-scaffold-flow-v1");
     expect(getComputedStyle(paragraph).color).toBe(getComputedStyle(scope).color);
     expect(getComputedStyle(runtimeSurface).backgroundColor).toBe("rgb(18, 52, 86)");
+  });
+
+  it("recreates the dark Course presentation for Page portals without affecting App UI", async () => {
+    const mounted = await mountPage(pageDocumentWithRuntimeHint(), 1200, "dark");
+    const player = uniqueElement<HTMLElement>(mounted.host, ".sc-page-player");
+    const sourceRoot = player.closest<HTMLElement>(".sc-course");
+    const appSibling = uniqueElement<HTMLElement>(mounted.host, "[data-testid='app-sibling']");
+    if (!sourceRoot) throw new Error("Page player is missing its Course boundary.");
+
+    buttonByName(player, "Show a hint").click();
+    await waitForCondition(() => document.querySelector(".sc-assessment-hint-popover--runtime"));
+
+    const portalHost = uniqueElement<HTMLElement>(player, "[data-scaffold-overlay-host]");
+    const portalRoot = portalHost.closest<HTMLElement>(".sc-course");
+    if (!portalRoot) throw new Error("Page portal host is missing its Course boundary.");
+
+    expect(portalRoot).not.toBe(sourceRoot);
+    expect(portalRoot.className).toBe(sourceRoot.className);
+    for (const attribute of [
+      "data-accent-color",
+      "data-gray-color",
+      "data-radius",
+      "data-scaling",
+      "data-panel-background",
+    ]) {
+      expect(portalRoot.getAttribute(attribute)).toBe(sourceRoot.getAttribute(attribute));
+    }
+    expect(getComputedStyle(portalRoot).getPropertyValue("--default-font-family")).toContain(
+      "Satoshi",
+    );
+    const semanticBackground = getComputedStyle(sourceRoot).getPropertyValue(
+      "--sc-course-state-correct-background",
+    );
+    expect(semanticBackground).not.toBe("");
+    expect(
+      getComputedStyle(portalRoot).getPropertyValue("--sc-course-state-correct-background"),
+    ).toBe(semanticBackground);
+    expect(appSibling.closest(".sc-course")).toBeNull();
+    expect(appSibling).not.toHaveClass("dark", "sc-course-theme-scaffold-flow-v1");
+    expect(
+      getComputedStyle(appSibling).getPropertyValue("--sc-course-state-correct-background"),
+    ).toBe("");
   });
 
   it("presents the runtime Page as a sheet without painting the player", async () => {
@@ -111,12 +150,16 @@ describe("PagePlayer presentation", () => {
       trigger.click();
       await waitForCondition(() => document.querySelector(".sc-assessment-hint-popover--runtime"));
 
-      const host = player.querySelector<HTMLElement>(":scope > [data-scaffold-overlay-host]");
+      const host = player.querySelector<HTMLElement>("[data-scaffold-overlay-host]");
       const popover = uniqueElement<HTMLElement>(document, ".sc-assessment-hint-popover--runtime");
+      const sourceRoot = player.closest<HTMLElement>(".sc-course");
+      const portalRoot = host?.closest<HTMLElement>(".sc-course");
 
       expect(host).not.toBeNull();
       expect(host?.contains(popover)).toBe(true);
-      expect(host?.parentElement).toBe(player);
+      expect(player.contains(host)).toBe(true);
+      expect(portalRoot).not.toBeNull();
+      expect(portalRoot).not.toBe(sourceRoot);
       expect(getComputedStyle(host!).position).toBe("fixed");
 
       popover.style.width = `${width + 480}px`;
@@ -256,7 +299,7 @@ function buttonByName(root: ParentNode, name: string): HTMLButtonElement {
 async function mountPage(
   initialContent: JSONContent,
   width = 1200,
-  resolvedTheme?: ResolvedCourseTheme,
+  appearance: "light" | "dark" = "light",
 ): Promise<{ host: HTMLElement }> {
   let editor: TiptapEditor | null = null;
   const host = document.createElement("div");
@@ -267,18 +310,22 @@ async function mountPage(
   const root = createRoot(host);
   roots.push(root);
   root.render(
-    createAssessmentRuntimeTestRoot({
-      children: (
-        <PagePlayer
-          initialContent={initialContent}
-          {...(resolvedTheme ? { resolvedTheme } : {})}
-          surfaceId="surface-page-player-browser"
-          onRendererReady={(readyEditor) => {
-            editor = readyEditor;
-          }}
-        />
-      ),
-    }),
+    <>
+      <div className="sc-app" data-testid="app-sibling" />
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance={appearance}>
+        {createAssessmentRuntimeTestRoot({
+          children: (
+            <PagePlayer
+              initialContent={initialContent}
+              surfaceId="surface-page-player-browser"
+              onRendererReady={(readyEditor) => {
+                editor = readyEditor;
+              }}
+            />
+          ),
+        })}
+      </CourseThemeProvider>
+    </>,
   );
 
   await waitForCondition(

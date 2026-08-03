@@ -3,10 +3,13 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { JSONContent } from "@tiptap/core";
+import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { createAssessmentRuntimeTestRoot } from "@/runtime/assessment/test-utils";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
 import { PagePlayer } from "./PagePlayer";
 
@@ -130,18 +133,28 @@ function buttonByName(root: ParentNode, name: string): HTMLButtonElement {
   return button as HTMLButtonElement;
 }
 
+function withCourseTheme(children: ReactNode) {
+  return (
+    <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+      {children}
+    </CourseThemeProvider>
+  );
+}
+
 describe("PagePlayer", () => {
   it("renders one page through the runtime renderer", async () => {
     const onRendererReady = vi.fn();
     const initialContent = pageDocumentWithText("Learner page content");
 
     render(
-      <PagePlayer
-        artifactId="artifact-page-player"
-        initialContent={initialContent}
-        surfaceId="surface-page-player"
-        onRendererReady={onRendererReady}
-      />,
+      withCourseTheme(
+        <PagePlayer
+          artifactId="artifact-page-player"
+          initialContent={initialContent}
+          surfaceId="surface-page-player"
+          onRendererReady={onRendererReady}
+        />,
+      ),
     );
 
     await waitFor(() => expect(onRendererReady).toHaveBeenCalledTimes(1));
@@ -159,12 +172,14 @@ describe("PagePlayer", () => {
     const onRendererReady = vi.fn();
 
     render(
-      <PagePlayer
-        artifactId="artifact-page-player"
-        initialContent={pageDocumentWithText("Plain learner content")}
-        surfaceId="surface-page-player"
-        onRendererReady={onRendererReady}
-      />,
+      withCourseTheme(
+        <PagePlayer
+          artifactId="artifact-page-player"
+          initialContent={pageDocumentWithText("Plain learner content")}
+          surfaceId="surface-page-player"
+          onRendererReady={onRendererReady}
+        />,
+      ),
     );
 
     await waitFor(() => expect(onRendererReady).toHaveBeenCalledTimes(1));
@@ -199,12 +214,12 @@ describe("PagePlayer", () => {
     const user = userEvent.setup({ document: ownerDocument });
     const { unmount } = render(
       createAssessmentRuntimeTestRoot({
-        children: (
+        children: withCourseTheme(
           <PagePlayer
             artifactId="artifact-page-runtime-popover"
             initialContent={pageDocumentWithRuntimeHint()}
             surfaceId="surface-page-player"
-          />
+          />,
         ),
       }),
       { container: mount },
@@ -223,13 +238,14 @@ describe("PagePlayer", () => {
 
     const player = ownerDocument.querySelector<HTMLElement>(".sc-page-player");
     if (player === null) throw new Error("Expected Page player root");
-    const host = player.querySelector<HTMLElement>(":scope > [data-scaffold-overlay-host]");
+    const host = player.querySelector<HTMLElement>("[data-scaffold-overlay-host]");
     const OwnerHTMLElement = (ownerWindow as Window & typeof globalThis).HTMLElement;
 
     expect(host).toBeInstanceOf(OwnerHTMLElement);
     expect(host?.ownerDocument).toBe(ownerDocument);
     expect(host?.style.position).toBe("fixed");
     expect(host?.style.pointerEvents).toBe("none");
+    expect(host?.closest(".sc-course")).not.toBe(player.closest(".sc-course"));
 
     const popover = ownerDocument.querySelector<HTMLElement>(
       ".sc-assessment-hint-popover--runtime",

@@ -1,4 +1,12 @@
-import { useLayoutEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  Fragment,
+  useMemo,
+  useState,
+  type ComponentType,
+  type PropsWithChildren,
+  type ReactNode,
+} from "react";
+import { createPortal } from "react-dom";
 
 import { zIndex } from "@/ui/overlays/z-index";
 
@@ -16,9 +24,7 @@ import "./OverlayBoundary.css";
 export interface OverlayBoundaryProps {
   container: Element | null;
   collisionBoundary?: Element | null;
-  hostClassName?: string;
-  hostColorScheme?: "light" | "dark";
-  hostCssVariables?: Readonly<Record<string, string>>;
+  hostBoundary?: ComponentType<PropsWithChildren>;
   kind: OverlayBoundaryKind;
   children: ReactNode;
 }
@@ -30,66 +36,17 @@ function strategyForKind(kind: OverlayBoundaryKind): OverlayPositionStrategy {
 export function OverlayBoundary({
   container,
   collisionBoundary,
-  hostClassName,
-  hostColorScheme,
-  hostCssVariables,
+  hostBoundary: HostBoundary = Fragment,
   kind,
   children,
 }: OverlayBoundaryProps) {
   const [ownedHost, setOwnedHost] = useState<HTMLElement | null>(null);
 
-  useLayoutEffect(() => {
-    if (container === null || !container.isConnected) {
-      setOwnedHost(null);
-      return;
-    }
-
-    const { ownerDocument } = container;
-    if (ownerDocument.defaultView === null) {
-      setOwnedHost(null);
-      return;
-    }
-
-    const host = ownerDocument.createElement("div");
-    host.className = "sc-overlay-boundary-host";
-    host.dataset.scaffoldOverlayHost = "";
-    host.dataset.kind = kind;
-    host.style.inset = "0";
-    host.style.overflow = "clip";
-    host.style.pointerEvents = "none";
-    host.style.position = strategyForKind(kind);
-    if (kind === "viewport") host.style.zIndex = String(zIndex.overlayHost);
-    container.append(host);
-    setOwnedHost(host);
-
-    return () => {
-      host.remove();
-    };
-  }, [container, kind]);
-
-  useLayoutEffect(() => {
-    if (ownedHost === null) return;
-
-    if (hostClassName) ownedHost.classList.add(hostClassName);
-    if (hostColorScheme) ownedHost.style.colorScheme = hostColorScheme;
-    for (const [property, value] of Object.entries(hostCssVariables ?? {})) {
-      ownedHost.style.setProperty(property, value);
-    }
-
-    return () => {
-      if (hostClassName) ownedHost.classList.remove(hostClassName);
-      if (hostColorScheme) ownedHost.style.removeProperty("color-scheme");
-      for (const property of Object.keys(hostCssVariables ?? {})) {
-        ownedHost.style.removeProperty(property);
-      }
-    };
-  }, [hostClassName, hostColorScheme, hostCssVariables, ownedHost]);
-
   const resolution = useMemo<OverlayBoundaryResolution>(() => {
     if (
       container === null ||
       ownedHost === null ||
-      ownedHost.parentElement !== container ||
+      !container.contains(ownedHost) ||
       !ownedHost.isConnected
     ) {
       return pendingOverlayBoundaryResolution;
@@ -117,8 +74,30 @@ export function OverlayBoundary({
   }, [collisionBoundary, container, kind, ownedHost]);
 
   return (
-    <OverlayBoundaryResolutionProvider resolution={resolution}>
-      {children}
-    </OverlayBoundaryResolutionProvider>
+    <>
+      <OverlayBoundaryResolutionProvider resolution={resolution}>
+        {children}
+      </OverlayBoundaryResolutionProvider>
+      {container !== null && container.isConnected && container.ownerDocument.defaultView !== null
+        ? createPortal(
+            <HostBoundary>
+              <div
+                ref={setOwnedHost}
+                className="sc-overlay-boundary-host"
+                data-scaffold-overlay-host=""
+                data-kind={kind}
+                style={{
+                  inset: 0,
+                  overflow: "clip",
+                  pointerEvents: "none",
+                  position: strategyForKind(kind),
+                  ...(kind === "viewport" ? { zIndex: zIndex.overlayHost } : {}),
+                }}
+              />
+            </HostBoundary>,
+            container,
+          )
+        : null}
+    </>
   );
 }

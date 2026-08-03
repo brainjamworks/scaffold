@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { render, screen, waitFor } from "@testing-library/react";
-import type { ReactNode } from "react";
+import type { PropsWithChildren, ReactNode } from "react";
 import { describe, expect, it } from "vite-plus/test";
 
 import { zIndex } from "@/ui/overlays/z-index";
@@ -69,6 +69,10 @@ function EnvironmentCapture({
   return null;
 }
 
+function OwnerBoundary({ children }: PropsWithChildren) {
+  return <div data-testid="owner-boundary">{children}</div>;
+}
+
 describe("OverlayBoundary", () => {
   it("distinguishes an unscoped consumer from a scoped boundary whose host is pending", () => {
     const { rerender } = render(<BoundaryProbe label="resolution" />);
@@ -110,47 +114,28 @@ describe("OverlayBoundary", () => {
     container.remove();
   });
 
-  it("updates host theme tokens without replacing the active portal host", async () => {
+  it("renders the physical host beneath an owner-supplied boundary", async () => {
     const container = document.createElement("section");
     document.body.append(container);
 
     const { rerender } = render(
-      <OverlayBoundary
-        container={container}
-        hostClassName="sc-course-theme-portal-scope"
-        hostColorScheme="light"
-        hostCssVariables={{ "--sc-course-color-background": "#ffffff" }}
-        kind="viewport"
-      >
-        <BoundaryProbe label="themed" />
+      <OverlayBoundary container={container} hostBoundary={OwnerBoundary} kind="viewport">
+        <BoundaryProbe label="owned" />
       </OverlayBoundary>,
     );
 
-    await waitFor(() => expect(screen.getByTestId("themed").textContent).toBe("ready"));
+    await waitFor(() => expect(screen.getByTestId("owned").textContent).toBe("ready"));
     const firstHost = container.querySelector<HTMLElement>("[data-scaffold-overlay-host]");
-    expect(firstHost?.style.getPropertyValue("--sc-course-color-background")).toBe("#ffffff");
+    expect(screen.getByTestId("owner-boundary").contains(firstHost)).toBe(true);
 
     rerender(
-      <OverlayBoundary
-        container={container}
-        hostClassName="sc-course-theme-portal-scope"
-        hostColorScheme="dark"
-        hostCssVariables={{ "--sc-course-color-background": "#09090b" }}
-        kind="viewport"
-      >
-        <BoundaryProbe label="themed" />
+      <OverlayBoundary container={container} hostBoundary={OwnerBoundary} kind="viewport">
+        <BoundaryProbe label="owned" />
       </OverlayBoundary>,
     );
 
-    await waitFor(() =>
-      expect(
-        container
-          .querySelector<HTMLElement>("[data-scaffold-overlay-host]")
-          ?.style.getPropertyValue("--sc-course-color-background"),
-      ).toBe("#09090b"),
-    );
+    await waitFor(() => expect(screen.getByTestId("owned").textContent).toBe("ready"));
     expect(container.querySelector("[data-scaffold-overlay-host]")).toBe(firstHost);
-    expect(firstHost?.style.colorScheme).toBe("dark");
 
     container.remove();
   });
