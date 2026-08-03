@@ -576,6 +576,7 @@ function ScaffoldAuthoringAppSession({
                   agentIntegration={agentIntegration}
                   artifactId={resolvedArtifactId}
                   content={toJsonDocument(latestContentRef.current.value)}
+                  courseAppearance={applicationColorMode}
                   editable
                   onChange={handleEditorChange}
                   onEditorReady={handleEditorReady}

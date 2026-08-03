@@ -71,6 +71,7 @@ vi.mock("./ContentAuthorHost", async () => {
       agentIntegration,
       agentOpen,
       content,
+      courseAppearance,
       onAgentClose,
       onChange,
       onEditorReady,
@@ -81,6 +82,7 @@ vi.mock("./ContentAuthorHost", async () => {
       agentIntegration?: unknown;
       agentOpen?: boolean;
       content?: unknown;
+      courseAppearance?: "light" | "dark";
       onAgentClose?: () => void;
       onChange?: (editor: unknown) => void;
       onEditorReady?: (editor: unknown) => void;
@@ -93,6 +95,7 @@ vi.mock("./ContentAuthorHost", async () => {
         agentIntegration,
         agentOpen,
         content,
+        courseAppearance,
         leftRail,
         onAgentClose,
         onChange,
@@ -348,6 +351,7 @@ describe("ScaffoldAuthoringApp preview", () => {
 
   it("toggles and remembers the authoring application colour mode", async () => {
     const user = userEvent.setup();
+    const saveArtifact = vi.fn(async () => ({}));
     const props = {
       artifact: {
         id: "artifact-colour-mode",
@@ -356,7 +360,7 @@ describe("ScaffoldAuthoringApp preview", () => {
         content: mocks.authorJSON,
       },
       services: {
-        artifactPersistence: { saveArtifact: vi.fn(async () => ({})) },
+        artifactPersistence: { saveArtifact },
         media: null,
       },
     };
@@ -368,8 +372,10 @@ describe("ScaffoldAuthoringApp preview", () => {
       expect(application?.querySelector("[data-scaffold-overlay-host]")).toBeInTheDocument(),
     );
     expect(application?.style.colorScheme).toBe("light");
-    const initialCourseTheme = mocks.authorJSON.content?.[0]?.attrs?.["theme"];
+    const initialCourseTheme = structuredClone(mocks.authorJSON.content?.[0]?.attrs?.["theme"]);
     expect(initialCourseTheme).toBeDefined();
+    expect(mocks.contentAuthorHostProps.at(-1)?.["courseAppearance"]).toBe("light");
+    const editorDispatch = vi.spyOn(mocks.fakeEditor.view, "dispatch");
 
     const colorModeToggle = screen.getByRole("button", {
       name: "Switch authoring application to dark mode",
@@ -386,7 +392,11 @@ describe("ScaffoldAuthoringApp preview", () => {
     expect(application).toHaveAttribute("data-scaffold-color-mode", "dark");
     expect(application?.style.colorScheme).toBe("dark");
     expect(localStorage.getItem("scaffold.authoring.color-mode.v1")).toBe("dark");
+    expect(mocks.contentAuthorHostProps.at(-1)?.["courseAppearance"]).toBe("dark");
     expect(mocks.authorJSON.content?.[0]?.attrs?.["theme"]).toEqual(initialCourseTheme);
+    expect(initialCourseTheme).toEqual(createDefaultPersistedCourseTheme());
+    expect(editorDispatch).not.toHaveBeenCalled();
+    expect(saveArtifact).not.toHaveBeenCalled();
 
     first.unmount();
     render(<ScaffoldAuthoringApp {...props} />);

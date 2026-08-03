@@ -8,7 +8,7 @@ import {
 } from "@/editor/shell/agent/agent-integration";
 import { EditorShell, type EditorShellScrollModel } from "@/editor/shell/chrome/EditorShell";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
-import type { ResolvedCourseTheme } from "@/theme/model";
+import type { ScaffoldColorMode } from "@/theme/state/color-mode";
 
 function ignoreAgentClose() {}
 
@@ -20,7 +20,7 @@ export interface ContentAuthorHostProps {
   onChange?: (editor: TiptapEditor) => void;
   onEditorReady?: (editor: TiptapEditor) => void;
   onUpdate?: (json: JSONContent) => void;
-  resolvedTheme?: ResolvedCourseTheme;
+  courseAppearance?: ScaffoldColorMode;
   /**
    * Whether the Scaffold Agent dock is open. Defaults to true so the
    * dock renders when port is connected — preserves existing
@@ -51,7 +51,7 @@ export const ContentAuthorHost = memo(function ContentAuthorHost({
   onChange,
   onEditorReady,
   onUpdate,
-  resolvedTheme,
+  courseAppearance,
   agentOpen = true,
   onAgentClose,
   scrollModel = "page",
@@ -114,7 +114,7 @@ export const ContentAuthorHost = memo(function ContentAuthorHost({
               source={source}
               editable={editable}
               onReady={handleReady}
-              {...(resolvedTheme ? { resolvedTheme } : {})}
+              courseAppearance={courseAppearance}
               suspended={reviewing}
             />
             {contribution.mode === "review" ? (
