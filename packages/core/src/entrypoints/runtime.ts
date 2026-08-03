@@ -1,3 +1,7 @@
+export {
+  createCoreScaffoldRuntimeComposition,
+  type ScaffoldRuntimeComposition,
+} from "@/composition/runtime/scaffold-runtime-composition";
 export { ContentRuntimeHost, type ContentRuntimeHostProps } from "@/runtime/app/ContentRuntimeHost";
 export { ScaffoldLearnerApp, type ScaffoldLearnerAppProps } from "@/runtime/app/ScaffoldLearnerApp";
 export type { SlideshowPlayerSizing } from "@/runtime/players/player-types";

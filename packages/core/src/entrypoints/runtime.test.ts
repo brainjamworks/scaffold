@@ -1,11 +1,14 @@
 import { describe, expect, expectTypeOf, it } from "vite-plus/test";
 
 import * as runtime from "@scaffold/core/runtime";
+// @ts-expect-error The runtime entrypoint does not expose authoring composition.
+import type { ScaffoldAuthoringComposition } from "@scaffold/core/runtime";
 import type {
   ContentRuntimeHostProps,
   CourseDocumentMigrationErrorCode,
   CourseDocumentMigrationResult,
   ScaffoldLearnerAppProps,
+  ScaffoldRuntimeComposition,
   ScaffoldRuntimePorts,
   ScaffoldServicesProviderProps,
   ScaffoldThemeExtension,
@@ -13,6 +16,7 @@ import type {
 } from "@scaffold/core/runtime";
 
 type RuntimeTypeSurface = {
+  composition: ScaffoldRuntimeComposition;
   contentRuntimeHostProps: ContentRuntimeHostProps;
   documentMigrationErrorCode: CourseDocumentMigrationErrorCode;
   documentMigrationResult: CourseDocumentMigrationResult;
@@ -29,6 +33,7 @@ describe("@scaffold/core/runtime", () => {
       "ContentRuntimeHost",
       "ScaffoldLearnerApp",
       "ScaffoldServicesProvider",
+      "createCoreScaffoldRuntimeComposition",
       "migrateCourseDocumentJSON",
       "readCourseDocumentFormatVersion",
       "useAssessmentPort",

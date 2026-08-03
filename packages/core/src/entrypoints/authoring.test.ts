@@ -1,10 +1,13 @@
 import { describe, expect, expectTypeOf, it } from "vite-plus/test";
 
 import * as authoring from "@scaffold/core/authoring";
+// @ts-expect-error The authoring entrypoint does not expose runtime composition.
+import type { ScaffoldRuntimeComposition } from "@scaffold/core/authoring";
 import type {
   CourseDocumentAuthoringSource,
   CourseDocumentEditorProps,
   ScaffoldAuthoringArtifact,
+  ScaffoldAuthoringComposition,
   ScaffoldAuthoringEntryHostServices,
   ScaffoldAuthoringEntryProps,
   ScaffoldAuthoringHeaderActionsContext,
@@ -17,6 +20,7 @@ import type {
 } from "@scaffold/core/authoring";
 
 type AuthoringTypeSurface = {
+  composition: ScaffoldAuthoringComposition;
   courseDocumentEditorProps: CourseDocumentEditorProps;
   courseDocumentSource: CourseDocumentAuthoringSource;
   artifact: ScaffoldAuthoringArtifact;
@@ -37,6 +41,7 @@ describe("@scaffold/core/authoring", () => {
       "AuthoringHeaderIconButton",
       "CourseDocumentEditor",
       "ScaffoldAuthoringEntry",
+      "createCoreScaffoldAuthoringComposition",
     ]);
     expect(Object.values(authoring).every((value) => value !== undefined)).toBe(true);
   });

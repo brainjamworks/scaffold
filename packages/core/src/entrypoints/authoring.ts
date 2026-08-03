@@ -1,4 +1,8 @@
 export {
+  createCoreScaffoldAuthoringComposition,
+  type ScaffoldAuthoringComposition,
+} from "@/composition/authoring/scaffold-authoring-composition";
+export {
   CourseDocumentEditor,
   type CourseDocumentAuthoringSource,
   type CourseDocumentEditorProps,
