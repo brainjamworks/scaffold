@@ -1,8 +1,67 @@
 // @vitest-environment jsdom
 
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import type { ScaffoldLearnerAppProps } from "@scaffold/core/runtime";
 
 import { installWheelScrollForwarding, readDocumentHeight } from "./mount-inner-lifecycle";
+import { createScaffoldArtifact, ScaffoldArtifactSchema } from "@scaffold/core/format";
+import type { ScaffoldXBlockInnerInitPayload } from "../types";
+import { XBlockStudentApp } from "./XBlockStudentApp";
+import type { XBlockInnerBridge } from "./xblock-inner-bridge";
+
+const studentMountMocks = vi.hoisted(() => ({
+  learnerAppProps: [] as ScaffoldLearnerAppProps[],
+  runtimeCompositions: [] as ScaffoldLearnerAppProps["composition"][],
+}));
+
+vi.mock("@scaffold/core/runtime", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@scaffold/core/runtime")>();
+
+  return {
+    ...actual,
+    createCoreScaffoldRuntimeComposition: () => {
+      const composition = actual.createCoreScaffoldRuntimeComposition();
+      studentMountMocks.runtimeCompositions.push(composition);
+      return composition;
+    },
+    ScaffoldLearnerApp: (props: ScaffoldLearnerAppProps) => {
+      studentMountMocks.learnerAppProps.push(props);
+      return null;
+    },
+  };
+});
+
+describe("XBlockStudentApp mounted configuration", () => {
+  it("mounts the exact module-stable Core runtime composition", () => {
+    const data = {
+      view: "student" as const,
+      artifact: ScaffoldArtifactSchema.parse(
+        createScaffoldArtifact({
+          id: "xblock-student-artifact",
+          title: "Student content",
+          mode: "page",
+          surfaceId: "xblock-student-surface",
+        }),
+      ),
+      initialLearnerState: {},
+    } satisfies ScaffoldXBlockInnerInitPayload;
+    const bridge = createBridgeStub();
+
+    renderToStaticMarkup(createElement(XBlockStudentApp, { data, bridge }));
+    renderToStaticMarkup(createElement(XBlockStudentApp, { data, bridge }));
+
+    expect(studentMountMocks.runtimeCompositions).toHaveLength(1);
+    expect(studentMountMocks.learnerAppProps).toHaveLength(2);
+    expect(studentMountMocks.learnerAppProps[0]?.composition).toBe(
+      studentMountMocks.runtimeCompositions[0],
+    );
+    expect(studentMountMocks.learnerAppProps[1]?.composition).toBe(
+      studentMountMocks.runtimeCompositions[0],
+    );
+  });
+});
 
 describe("readDocumentHeight", () => {
   beforeEach(() => {
@@ -139,4 +198,16 @@ function scrollableRegion({ scrollTop }: { scrollTop: number }): HTMLElement {
     value: scrollTop,
   });
   return region;
+}
+
+function createBridgeStub(): XBlockInnerBridge {
+  return {
+    destroy: vi.fn(),
+    request: vi.fn(),
+    sendReady: vi.fn(),
+    reportHeight: vi.fn(),
+    requestHostScroll: vi.fn(),
+    reportDirty: vi.fn(),
+    reportFatalError: vi.fn(),
+  };
 }

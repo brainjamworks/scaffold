@@ -1,10 +1,15 @@
-import { ScaffoldLearnerApp } from "@scaffold/core/runtime";
+import {
+  createCoreScaffoldRuntimeComposition,
+  ScaffoldLearnerApp,
+} from "@scaffold/core/runtime";
 import { useMemo } from "react";
 
 import type { ScaffoldXBlockInnerInitPayload } from "../types";
 import type { XBlockInnerBridge } from "./xblock-inner-bridge";
 import { prepareXBlockArtifact } from "./xblock-content";
 import { createXBlockLearnerHostServices } from "./ports";
+
+const scaffoldRuntimeComposition = createCoreScaffoldRuntimeComposition();
 
 interface XBlockStudentAppProps {
   data: ScaffoldXBlockInnerInitPayload;
@@ -45,6 +50,7 @@ export function XBlockStudentApp({ data, bridge }: XBlockStudentAppProps) {
   return (
     <div className="sc-xblock-root sc-xblock-student-shell">
       <ScaffoldLearnerApp
+        composition={scaffoldRuntimeComposition}
         bootstrap={{
           artifactId: artifactState.artifact.id,
           title: artifactState.artifact.title,

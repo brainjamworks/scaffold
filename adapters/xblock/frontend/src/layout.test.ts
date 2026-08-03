@@ -1,8 +1,46 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import type { ScaffoldAuthoringEntryProps } from "@scaffold/core/authoring";
+import type { ScaffoldApplication } from "@scaffold/core/extensions";
 
 import { applyStudioLayoutCompat } from "./layout";
+import { createScaffoldArtifact, ScaffoldArtifactSchema } from "@scaffold/core/format";
+import type { ScaffoldXBlockInnerInitPayload } from "./types";
+import { XBlockStudioApp } from "./inner/XBlockStudioApp";
+import type { XBlockInnerBridge } from "./inner/xblock-inner-bridge";
+
+const studioMountMocks = vi.hoisted(() => ({
+  applications: [] as ScaffoldApplication[],
+  authoringEntryProps: [] as ScaffoldAuthoringEntryProps[],
+}));
+
+vi.mock("@scaffold/core/extensions", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@scaffold/core/extensions")>();
+
+  return {
+    ...actual,
+    createScaffoldApplication: () => {
+      const application = actual.createScaffoldApplication();
+      studioMountMocks.applications.push(application);
+      return application;
+    },
+  };
+});
+
+vi.mock("@scaffold/core/authoring", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@scaffold/core/authoring")>();
+
+  return {
+    ...actual,
+    ScaffoldAuthoringEntry: (props: ScaffoldAuthoringEntryProps) => {
+      studioMountMocks.authoringEntryProps.push(props);
+      return null;
+    },
+  };
+});
 
 afterEach(() => {
   document.body.innerHTML = "";
@@ -84,3 +122,45 @@ describe("applyStudioLayoutCompat", () => {
     expect(document.querySelector(".sc-xblock-host-modal")).toBeNull();
   });
 });
+
+describe("XBlockStudioApp mounted configuration", () => {
+  it("mounts the exact module-stable complete Core application", () => {
+    const data = {
+      view: "studio" as const,
+      artifact: ScaffoldArtifactSchema.parse(
+        createScaffoldArtifact({
+          id: "xblock-studio-artifact",
+          title: "Studio content",
+          mode: "page",
+          surfaceId: "xblock-studio-surface",
+        }),
+      ),
+      initialLearnerState: {},
+    } satisfies ScaffoldXBlockInnerInitPayload;
+    const bridge = createBridgeStub();
+
+    renderToStaticMarkup(createElement(XBlockStudioApp, { data, bridge }));
+    renderToStaticMarkup(createElement(XBlockStudioApp, { data, bridge }));
+
+    expect(studioMountMocks.applications).toHaveLength(1);
+    expect(studioMountMocks.authoringEntryProps).toHaveLength(2);
+    expect(studioMountMocks.authoringEntryProps[0]?.application).toBe(
+      studioMountMocks.applications[0],
+    );
+    expect(studioMountMocks.authoringEntryProps[1]?.application).toBe(
+      studioMountMocks.applications[0],
+    );
+  });
+});
+
+function createBridgeStub(): XBlockInnerBridge {
+  return {
+    destroy: vi.fn(),
+    request: vi.fn(),
+    sendReady: vi.fn(),
+    reportHeight: vi.fn(),
+    requestHostScroll: vi.fn(),
+    reportDirty: vi.fn(),
+    reportFatalError: vi.fn(),
+  };
+}

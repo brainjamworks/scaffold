@@ -2,6 +2,7 @@ import {
   ScaffoldAuthoringEntry,
   type ScaffoldAuthoringHeaderActionsContext,
 } from "@scaffold/core/authoring";
+import { createScaffoldApplication } from "@scaffold/core/extensions";
 import { useMemo } from "react";
 
 import type { ScaffoldXBlockInnerInitPayload } from "../types";
@@ -12,6 +13,8 @@ import {
 } from "./authoring-ports";
 import { prepareXBlockArtifact } from "./xblock-content";
 import { notifyXBlockDone, notifyXBlockSaveEnd, notifyXBlockSaveStart } from "./xblock-host";
+
+const scaffoldApplication = createScaffoldApplication();
 
 interface XBlockStudioAppProps {
   data: ScaffoldXBlockInnerInitPayload;
@@ -47,6 +50,7 @@ export function XBlockStudioApp({ data, bridge }: XBlockStudioAppProps) {
   return (
     <div className="sc-xblock-root sc-xblock-studio-shell">
       <ScaffoldAuthoringEntry
+        application={scaffoldApplication}
         artifact={artifactState.status === "ready" ? artifactState.artifact : null}
         services={authoringServices}
         createPreviewServices={() => previewServices}
