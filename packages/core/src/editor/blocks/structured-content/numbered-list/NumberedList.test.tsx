@@ -15,6 +15,7 @@ import { builtInInsertCatalog } from "@/editor/insertion/built-in-insert-catalog
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { describeBlockContract } from "@/editor/testing";
 import { createDisposableEditor } from "@/editor/testing/disposable-editor";
+import { projectLearnerDocument } from "@/authoring/publication/document-projection";
 
 import {
   ExtendedBlockquote,
@@ -243,6 +244,30 @@ it("exposes numbered state text at runtime while keeping markers noninteractive"
   expect(screen.queryByRole("button", { name: "Add item" })).toBeNull();
 
   fixture.destroy();
+});
+
+it("persists an author-selected item state into learner runtime", async () => {
+  const user = userEvent.setup();
+  const authoring = makeDisposableNumberedListEditor();
+
+  await user.click(
+    await screen.findByRole("button", {
+      name: "Set item 1 status. Current: neutral.",
+    }),
+  );
+
+  await waitFor(() => {
+    expect(authoring.json().content?.[0]?.content?.[1]?.attrs?.["status"]).toBe("inProgress");
+  });
+
+  const learnerContent = projectLearnerDocument(authoring.json()).document;
+  authoring.destroy();
+  cleanup();
+  const runtime = makeDisposableNumberedListEditor(learnerContent, { runtime: true });
+
+  expect(await screen.findByText("Item 1, in progress")).toBeInTheDocument();
+
+  runtime.destroy();
 });
 
 it("keeps the final delete action focusable and explains why it is unavailable", async () => {

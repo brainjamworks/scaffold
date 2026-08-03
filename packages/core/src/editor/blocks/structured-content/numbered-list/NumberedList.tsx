@@ -249,7 +249,9 @@ export function NumberedListItemNodeView(props: NodeViewProps) {
             data-course-state={courseState}
             className={markerClassName(markerState)}
           >
-            <span aria-hidden>{renderMarkerContent(markerState, index)}</span>
+            <span aria-hidden className="sc-course-numbered-list__marker-visual">
+              {renderMarkerContent(markerState, index)}
+            </span>
             <span className="sc-course-numbered-list__runtime-status">
               {runtimeMarkerLabel(markerState, index)}
             </span>

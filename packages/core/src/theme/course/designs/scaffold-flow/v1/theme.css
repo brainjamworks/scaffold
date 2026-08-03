@@ -1,6 +1,8 @@
 @import "./glossary.css";
 @import "./key-value-list.css";
 @import "./numbered-list.css";
+@import "./checklist.css";
+@import "./table.css";
 
 .sc-course.sc-course-theme-scaffold-flow-v1 {
   min-width: 0;

@@ -40,8 +40,10 @@ function ChecklistRuntimeView(props: NodeViewProps) {
           ? {
               label: "Reset checklist",
               onClick: () => {
-                activity.setData({ checked: {} });
-                activity.setCompleted(false);
+                activity.updateActivity({
+                  data: { checked: {} },
+                  completed: false,
+                });
               },
               text: "Reset",
             }
@@ -56,7 +58,7 @@ function ChecklistRuntimeView(props: NodeViewProps) {
 const ChecklistRuntimeRootNode = createChecklistNode({
   addNodeView: () =>
     createBlockRuntimeNodeView({
-      className: "sc-checklist",
+      className: "sc-course-checklist",
       definition: checklistBlockDefinition,
       view: { component: ChecklistRuntimeView },
     }),

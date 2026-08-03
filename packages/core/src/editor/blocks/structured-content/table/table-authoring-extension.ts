@@ -8,6 +8,7 @@ import {
 } from "./authoring-extensions";
 
 import "./Table.css";
+import "./TableAuthoringControls.css";
 
 export const TableAuthoringExtension = Extension.create({
   name: "table_authoring_bundle",

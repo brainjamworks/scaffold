@@ -6,11 +6,12 @@ import { ChecklistAuthoringView } from "./Checklist";
 import { checklistBlockDefinition } from "./checklist-definition";
 import { createChecklistNode } from "./node";
 import { ChecklistItemNode } from "./slots";
+import "./ChecklistAuthoringControls.css";
 
 const ChecklistAuthoringRootNode = createChecklistNode({
   addNodeView: () =>
     createBlockAuthoringNodeView({
-      className: "sc-checklist",
+      className: "sc-course-checklist",
       definition: checklistBlockDefinition,
       view: { component: ChecklistAuthoringView },
     }),

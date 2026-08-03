@@ -92,6 +92,13 @@ function checklistFixture(): JSONContent {
   };
 }
 
+function singleItemChecklistFixture(): JSONContent {
+  const content = checklistFixture();
+  const checklist = content.content?.[0];
+  if (checklist?.content) checklist.content = checklist.content.slice(0, 1);
+  return content;
+}
+
 function renderChecklistEditor(content: JSONContent = checklistFixture()) {
   const fixture = createDisposableEditor({
     extensions: [
@@ -116,14 +123,19 @@ it("renders an item-shaped add checklist affordance", async () => {
   const add = await screen.findByRole("button", { name: "Add item" });
 
   expect(add.classList.contains("sc-ghost-add--item")).toBe(true);
-  expect(add.querySelector(".sc-checklist-item__checkbox--ghost")).not.toBeNull();
+  expect(add.querySelector(".sc-app-checklist-add__checkbox")).not.toBeNull();
   fixture.destroy();
 });
 
 function renderChecklistRuntimeEditor({
+  initialActivity = { data: { checked: {} }, completed: false },
   learnerActivityPort,
   xapiPort,
 }: {
+  initialActivity?: {
+    data: { checked: Record<string, boolean> };
+    completed: boolean;
+  };
   learnerActivityPort: LearnerActivityPort;
   xapiPort: XapiPort;
 }) {
@@ -153,8 +165,8 @@ function renderChecklistRuntimeEditor({
               activities: {
                 "checklist-delete-fixture": {
                   activityKind: "checklist",
-                  data: { checked: {} },
-                  completed: false,
+                  data: initialActivity.data,
+                  completed: initialActivity.completed,
                   updatedAt: "2026-07-27T10:00:00Z",
                 },
               },
@@ -192,6 +204,26 @@ it("deletes the requested checklist item from a disposable editor fixture", asyn
   expect(fixture.editor.state.doc.textContent).toContain("Third checklist item");
   expect(itemIds).toEqual(["checklist-item-one", "checklist-item-three"]);
 
+  fixture.destroy();
+});
+
+it("keeps the final item delete action focusable and explains the minimum-item guard", async () => {
+  const user = userEvent.setup();
+  const fixture = renderChecklistEditor(singleItemChecklistFixture());
+  const deleteButton = await screen.findByRole("button", {
+    name: "Delete checklist item 1",
+  });
+
+  expect(deleteButton.getAttribute("aria-disabled")).toBe("true");
+  expect(deleteButton.hasAttribute("disabled")).toBe(false);
+  expect(screen.getByText("A checklist must contain at least one item.")).not.toBeNull();
+
+  deleteButton.focus();
+  expect(document.activeElement).toBe(deleteButton);
+  await user.click(deleteButton);
+
+  expect(fixture.editor.state.doc.textContent).toContain("First checklist item");
+  expect(fixture.json().content?.[0]?.content).toHaveLength(1);
   fixture.destroy();
 });
 
@@ -239,6 +271,49 @@ it("emits accepted checklist item details through one learner-activity save", as
       },
     },
   });
+
+  fixture.destroy();
+});
+
+it("resets checked data and completion through one atomic learner-activity save", async () => {
+  const user = userEvent.setup();
+  const save = vi.fn<LearnerActivityPort["save"]>(async ({ record }) => ({
+    ...record,
+    updatedAt: "2026-07-27T10:02:00Z",
+  }));
+  const send = vi.fn<XapiPort["send"]>(async () => undefined);
+  const fixture = renderChecklistRuntimeEditor({
+    initialActivity: {
+      data: {
+        checked: {
+          "checklist-item-one": true,
+          "checklist-item-two": true,
+          "checklist-item-three": true,
+        },
+      },
+      completed: true,
+    },
+    learnerActivityPort: {
+      load: async () => null,
+      save,
+    },
+    xapiPort: {
+      activityId: "https://lms.example.test/courses/checklist-course",
+      send,
+    },
+  });
+
+  await user.click(await screen.findByRole("button", { name: "Reset checklist" }));
+
+  await waitFor(() => expect(save).toHaveBeenCalledOnce());
+  await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+  expect(save.mock.calls[0]?.[0].record).toMatchObject({
+    data: { checked: {} },
+    completed: false,
+  });
+  expect(
+    send.mock.calls[1]?.[0].result?.extensions?.[XAPI_EXTENSIONS.learnerActivityEvent],
+  ).toBeUndefined();
 
   fixture.destroy();
 });

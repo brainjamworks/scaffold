@@ -128,7 +128,7 @@ describe("Table containment contract", () => {
     }
   });
 
-  it("marks table cells as editable interiors of the block authoring frame", async () => {
+  it("keeps the TableView wrapper as the block frame with editable cell interiors", async () => {
     const editor = createTableContractEditor();
     try {
       editor.commands.setContent({
@@ -150,9 +150,13 @@ describe("Table containment contract", () => {
       render(createElement(EditorContent, { editor }));
 
       await waitFor(() => {
-        const table = document.body.querySelector('table[data-authoring-frame="block"]');
+        const frame = document.body.querySelector(
+          '.tableWrapper.sc-course-table[data-authoring-frame="block"]',
+        );
+        const table = frame?.querySelector(":scope > table");
         const cells = Array.from(document.body.querySelectorAll("th, td"));
 
+        expect(frame).not.toBeNull();
         expect(table).not.toBeNull();
         expect(cells.length).toBeGreaterThan(0);
         expect(cells.every((cell) => cell.hasAttribute(AUTHORING_FRAME_EDITABLE_ATTR))).toBe(true);

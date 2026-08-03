@@ -8,7 +8,7 @@ import "@/ui/components/IconButton/IconButton.css";
 
 import "./assessment/shared/chrome/assessment-hints.css";
 import "./assessment/shared/chrome/choice-trailing-button.css";
-import "./structured-content/checklist/Checklist.css";
+import "./structured-content/checklist/ChecklistAuthoringControls.css";
 
 afterEach(() => {
   document.body.replaceChildren();
@@ -31,7 +31,7 @@ describe("authoring destructive colours", () => {
 
   it("keeps inline authoring delete controls on the application semantic", async () => {
     const course = createThemedAuthoringFixture();
-    const checklistDelete = appendButton(course, "sc-checklist-item__delete", "Delete item");
+    const checklistDelete = appendButton(course, "sc-app-checklist-item-delete", "Delete item");
     const hintDelete = appendButton(course, "sc-assessment-hint__delete", "Delete hint");
     const choiceDelete = appendButton(
       course,

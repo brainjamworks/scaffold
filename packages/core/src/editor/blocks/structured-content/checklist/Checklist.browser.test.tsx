@@ -1,141 +1,204 @@
+import { Button, Checkbox } from "@radix-ui/themes";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import { userEvent } from "vite-plus/test/browser/context";
 
 import "@/styles/globals.css";
 
+import { AuthoringSurfaceView } from "@/editor/surfaces/authoring/views/AuthoringSurfaceView";
+import { RuntimeSurfaceView } from "@/editor/surfaces/runtime/views/RuntimeSurfaceView";
+import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
+
 import "./Checklist.css";
+import "./ChecklistAuthoringControls.css";
 
 const mountedRoots: Root[] = [];
-const mountedStyles: HTMLStyleElement[] = [];
 
 afterEach(() => {
   for (const root of mountedRoots.splice(0)) root.unmount();
-  for (const style of mountedStyles.splice(0)) style.remove();
   document.body.replaceChildren();
 });
 
 describe("Checklist presentation", () => {
-  it("preserves item states while allowing adapter-layer overrides", async () => {
-    const adapterStyles = document.createElement("style");
-    adapterStyles.textContent = `
-      @layer sc-adapters {
-        .sc-checklist__section {
-          background: rgb(12 34 56);
-        }
-      }
-    `;
-    document.head.append(adapterStyles);
-    mountedStyles.push(adapterStyles);
-
+  it("keeps two learner columns and four authoring columns across Page and Slideshow themes", async () => {
     const host = document.createElement("div");
-    host.style.width = "480px";
+    host.style.width = "640px";
     document.body.append(host);
 
     const root = createRoot(host);
     mountedRoots.push(root);
     root.render(
-      <div className="sc-checklist">
-        <section className="sc-checklist__section" aria-label="Checklist">
-          <header className="sc-checklist__header">
-            <span className="sc-checklist__progress">
-              <span className="sc-checklist__progress-count">1</span>
-              <span className="sc-checklist__progress-divider">/</span>
-              <span className="sc-checklist__progress-total">2</span>
-              <span className="sc-checklist__progress-label">complete</span>
-            </span>
-          </header>
-          <ul role="list" className="sc-checklist__list">
-            <li role="listitem" className="sc-checklist-item" data-checked="false">
-              <div className="sc-checklist-item__shell">
-                <button type="button" className="sc-checklist-item__drag" aria-label="Move item">
+      <AppThemeProvider appearance="light">
+        <main>
+          <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+            <RuntimeSurfaceView
+              settings={{ mode: "page", overflowMode: "grow", surfaceSize: "fluid" }}
+            >
+              <section data-surface>
+                <ChecklistSpecimen owner="runtime" surface="page" />
+              </section>
+            </RuntimeSurfaceView>
+            <AuthoringSurfaceView
+              settings={{ mode: "page", overflowMode: "grow", surfaceSize: "fluid" }}
+            >
+              <section data-surface>
+                <ChecklistSpecimen owner="authoring" surface="page" />
+              </section>
+            </AuthoringSurfaceView>
+          </CourseThemeProvider>
+          <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="dark">
+            <RuntimeSurfaceView
+              settings={{ mode: "slideshow", overflowMode: "fit", surfaceSize: "16x9" }}
+            >
+              <section data-surface>
+                <ChecklistSpecimen owner="runtime" surface="slideshow" />
+              </section>
+            </RuntimeSurfaceView>
+            <AuthoringSurfaceView
+              settings={{ mode: "slideshow", overflowMode: "clip", surfaceSize: "16x9" }}
+            >
+              <section data-surface>
+                <ChecklistSpecimen owner="authoring" surface="slideshow" />
+              </section>
+            </AuthoringSurfaceView>
+          </CourseThemeProvider>
+        </main>
+      </AppThemeProvider>,
+    );
+
+    await waitForCondition(
+      () => host.querySelectorAll(".sc-course-checklist__item-shell").length === 4,
+    );
+
+    for (const surface of ["page", "slideshow"] as const) {
+      const runtime = requiredElement<HTMLElement>(
+        host,
+        `[data-checklist-owner="runtime"][data-checklist-surface="${surface}"]`,
+      );
+      const authoring = requiredElement<HTMLElement>(
+        host,
+        `[data-checklist-owner="authoring"][data-checklist-surface="${surface}"]`,
+      );
+      const runtimeShell = requiredElement<HTMLElement>(
+        runtime,
+        ".sc-course-checklist__item-shell",
+      );
+      const authoringShell = requiredElement<HTMLElement>(
+        authoring,
+        ".sc-course-checklist__item-shell",
+      );
+      const runtimeCheckbox = requiredElement<HTMLButtonElement>(
+        runtime,
+        ".sc-course-checklist__checkbox",
+      );
+      const runtimeText = requiredElement<HTMLElement>(runtime, ".sc-course-checklist__item-text");
+      const deleteButton = requiredElement<HTMLButtonElement>(
+        authoring,
+        ".sc-app-checklist-item-delete",
+      );
+
+      expect(getComputedStyle(runtimeShell).gridTemplateColumns.split(" ")).toHaveLength(2);
+      expect(getComputedStyle(authoringShell).gridTemplateColumns.split(" ")).toHaveLength(4);
+      expect(runtimeText.getBoundingClientRect().left).toBeGreaterThanOrEqual(
+        runtimeCheckbox.getBoundingClientRect().right,
+      );
+      expect(getComputedStyle(deleteButton).opacity).toBe("1");
+    }
+
+    const pageCheckbox = requiredElement<HTMLElement>(
+      host,
+      '[data-checklist-owner="runtime"][data-checklist-surface="page"] .sc-course-checklist__checkbox',
+    );
+    const slideCheckbox = requiredElement<HTMLElement>(
+      host,
+      '[data-checklist-owner="runtime"][data-checklist-surface="slideshow"] .sc-course-checklist__checkbox',
+    );
+    const pageText = requiredElement<HTMLElement>(
+      host,
+      '[data-checklist-owner="runtime"][data-checklist-surface="page"] .sc-course-checklist__item-text',
+    );
+    const slideText = requiredElement<HTMLElement>(
+      host,
+      '[data-checklist-owner="runtime"][data-checklist-surface="slideshow"] .sc-course-checklist__item-text',
+    );
+
+    expect(pageCheckbox.dataset["state"]).toBe("checked");
+    expect(slideCheckbox.dataset["state"]).toBe("checked");
+    expect(getComputedStyle(pageText).textDecorationLine).toContain("line-through");
+    expect(getComputedStyle(slideText).textDecorationLine).toContain("line-through");
+    expect(getComputedStyle(pageText).color).not.toBe(getComputedStyle(slideText).color);
+  });
+});
+
+function ChecklistSpecimen({
+  owner,
+  surface,
+}: {
+  owner: "authoring" | "runtime";
+  surface: "page" | "slideshow";
+}) {
+  const authoring = owner === "authoring";
+
+  return (
+    <div
+      className="sc-course-checklist"
+      data-checklist-owner={owner}
+      data-checklist-surface={surface}
+    >
+      <section className="sc-course-checklist__section" aria-label="Checklist">
+        <header className="sc-course-checklist__header">
+          <span className="sc-course-checklist__progress">
+            <span className="sc-course-checklist__progress-count">1</span>
+            <span className="sc-course-checklist__progress-divider">/</span>
+            <span className="sc-course-checklist__progress-total">1</span>
+            <span className="sc-course-checklist__progress-label">complete</span>
+          </span>
+          <Button type="button" size="1" variant="ghost" className="sc-course-checklist__reset">
+            Reset
+          </Button>
+        </header>
+        <ul role="list" className="sc-course-checklist__list">
+          <li
+            role="listitem"
+            className="sc-course-checklist__item"
+            data-checked={authoring ? "false" : "true"}
+          >
+            <div
+              className={`sc-course-checklist__item-shell${
+                authoring ? " sc-app-checklist-item-shell" : ""
+              }`}
+            >
+              {authoring ? (
+                <button type="button" className="sc-app-checklist-item-drag" aria-label="Move item">
                   Move
                 </button>
+              ) : null}
+              <Checkbox
+                size="2"
+                checked={!authoring}
+                disabled={authoring}
+                data-course-state={!authoring ? "completed" : undefined}
+                className="sc-course-checklist__checkbox"
+                aria-label={authoring ? "Completion preview" : "Mark item as not complete"}
+              />
+              <div className="sc-course-checklist__item-text">Review the course</div>
+              {authoring ? (
                 <button
                   type="button"
-                  role="checkbox"
-                  aria-checked="false"
-                  className="sc-checklist-item__checkbox"
-                  aria-label="Mark item as complete"
-                />
-                <div className="sc-checklist-item__text">Draft the course</div>
-                <button
-                  type="button"
-                  className="sc-checklist-item__delete"
-                  aria-label="Delete item"
+                  className="sc-app-checklist-item-delete"
+                  aria-label="Delete checklist item 1"
                 >
                   Delete
                 </button>
-              </div>
-            </li>
-            <li role="listitem" className="sc-checklist-item" data-checked="true">
-              <div className="sc-checklist-item__shell">
-                <span className="sc-checklist-item__drag" aria-hidden />
-                <button
-                  type="button"
-                  role="checkbox"
-                  aria-checked="true"
-                  className="sc-checklist-item__checkbox"
-                  aria-label="Mark item as incomplete"
-                >
-                  ✓
-                </button>
-                <div className="sc-checklist-item__text">Review the course</div>
-                <span />
-              </div>
-            </li>
-          </ul>
-        </section>
-      </div>,
-    );
-
-    await waitForCondition(() => host.querySelector(".sc-checklist-item__checkbox"));
-    const section = requiredElement<HTMLElement>(host, ".sc-checklist__section");
-    const firstItem = requiredElement<HTMLElement>(
-      host,
-      '.sc-checklist-item[data-checked="false"]',
-    );
-    const firstShell = requiredElement<HTMLElement>(firstItem, ".sc-checklist-item__shell");
-    const firstCheckbox = requiredElement<HTMLButtonElement>(
-      firstItem,
-      ".sc-checklist-item__checkbox",
-    );
-    const drag = requiredElement<HTMLButtonElement>(firstItem, ".sc-checklist-item__drag");
-    const deleteButton = requiredElement<HTMLButtonElement>(
-      firstItem,
-      ".sc-checklist-item__delete",
-    );
-    const checkedItem = requiredElement<HTMLElement>(
-      host,
-      '.sc-checklist-item[data-checked="true"]',
-    );
-    const checkedCheckbox = requiredElement<HTMLButtonElement>(
-      checkedItem,
-      ".sc-checklist-item__checkbox",
-    );
-    const checkedText = requiredElement<HTMLElement>(checkedItem, ".sc-checklist-item__text");
-
-    expect(getComputedStyle(firstShell).display).toBe("grid");
-    expect(firstCheckbox.getBoundingClientRect().width).toBeCloseTo(18, 0);
-    expect(firstCheckbox.getBoundingClientRect().height).toBeCloseTo(18, 0);
-    expect(getComputedStyle(drag).opacity).toBe("0");
-    expect(getComputedStyle(deleteButton).opacity).toBe("0");
-    expect(getComputedStyle(checkedCheckbox).backgroundColor).toBe(
-      getComputedStyle(document.documentElement).getPropertyValue("--color-primary").trim(),
-    );
-    expect(getComputedStyle(checkedText).textDecorationLine).toContain("line-through");
-
-    await userEvent.hover(firstItem);
-    await waitForCondition(
-      () =>
-        getComputedStyle(drag).opacity === "1" && getComputedStyle(deleteButton).opacity === "1",
-    );
-    expect(getComputedStyle(drag).opacity).toBe("1");
-    expect(getComputedStyle(deleteButton).opacity).toBe("1");
-
-    expect(getComputedStyle(section).backgroundColor).toBe("rgb(12, 34, 56)");
-  });
-});
+              ) : null}
+            </div>
+          </li>
+        </ul>
+      </section>
+    </div>
+  );
+}
 
 function requiredElement<T extends Element>(root: ParentNode, selector: string): T {
   const element = root.querySelector<T>(selector);
@@ -146,9 +209,7 @@ function requiredElement<T extends Element>(root: ParentNode, selector: string):
 async function waitForCondition(condition: () => unknown): Promise<void> {
   const deadline = performance.now() + 5_000;
   while (!condition()) {
-    if (performance.now() > deadline) {
-      throw new Error("Timed out waiting for Checklist state.");
-    }
+    if (performance.now() > deadline) throw new Error("Timed out waiting for Checklist state.");
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
   }
 }

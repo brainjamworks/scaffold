@@ -50,6 +50,14 @@ describe("Numbered List presentation", () => {
       '.sc-course-numbered-list__marker[data-course-state="current"]',
     );
     const content = requiredElement<HTMLElement>(items, ".sc-course-numbered-list__item-content");
+    const runtimeCurrentMarker = requiredElement<HTMLElement>(
+      items,
+      'span.sc-course-numbered-list__marker[data-course-state="current"]',
+    );
+    const runtimeCurrentDot = requiredElement<HTMLElement>(
+      runtimeCurrentMarker,
+      ".sc-course-numbered-list__marker-dot",
+    );
     const deleteButton = requiredElement<HTMLButtonElement>(host, ".sc-app-numbered-list-delete");
     const addButton = requiredElement<HTMLButtonElement>(host, ".sc-app-numbered-list-add");
     const addMarker = requiredElement<HTMLElement>(addButton, ".sc-app-numbered-list-add__marker");
@@ -61,6 +69,8 @@ describe("Numbered List presentation", () => {
     expect(contentRect.left - markerRect.right).toBeCloseTo(14, 0);
     expect(getComputedStyle(items, "::before").width).toBe("1px");
     expect(getComputedStyle(marker).backgroundColor).toBe("rgb(219, 234, 254)");
+    expect(runtimeCurrentDot.getBoundingClientRect().width).toBeCloseTo(10, 0);
+    expect(runtimeCurrentDot.getBoundingClientRect().height).toBeCloseTo(10, 0);
     expect(getComputedStyle(deleteButton).opacity).toBe("1");
     expect(getComputedStyle(deleteButton).color).toBe("rgb(82, 82, 91)");
     expect(addMarker.textContent).toContain("+");
@@ -68,7 +78,7 @@ describe("Numbered List presentation", () => {
     const courseCircles = host.querySelectorAll<HTMLElement>(
       ".sc-course-numbered-list__header-icon, .sc-course-numbered-list__marker, .sc-course-numbered-list__marker-dot",
     );
-    expect(courseCircles).toHaveLength(5);
+    expect(courseCircles).toHaveLength(7);
     for (const circle of courseCircles) {
       expect(circle.getBoundingClientRect().width).toBeCloseTo(
         circle.getBoundingClientRect().height,
@@ -123,12 +133,29 @@ function NumberedListSpecimen() {
           <div className="sc-course-numbered-list__item" role="listitem">
             <div className="sc-course-numbered-list__item-shell">
               <span
+                className="sc-course-numbered-list__marker sc-course-numbered-list__marker--inProgress"
+                data-status="inProgress"
+                data-course-state="current"
+              >
+                <span aria-hidden className="sc-course-numbered-list__marker-visual">
+                  <span className="sc-course-numbered-list__marker-dot" />
+                </span>
+                <span className="sc-course-numbered-list__runtime-status">
+                  Item 2, in progress
+                </span>
+              </span>
+              <div className="sc-course-numbered-list__item-content">Verify the learner view</div>
+            </div>
+          </div>
+          <div className="sc-course-numbered-list__item" role="listitem">
+            <div className="sc-course-numbered-list__item-shell">
+              <span
                 className="sc-course-numbered-list__marker sc-course-numbered-list__marker--neutral"
                 data-status="neutral"
               >
                 2
               </span>
-              <div className="sc-course-numbered-list__item-content">Verify the learner view</div>
+              <div className="sc-course-numbered-list__item-content">Prepare the learner view</div>
             </div>
           </div>
           <div className="sc-course-numbered-list__item" role="listitem">

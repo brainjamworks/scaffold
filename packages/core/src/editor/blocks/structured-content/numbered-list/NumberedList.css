@@ -46,7 +46,8 @@
   }
 
   .sc-course-numbered-list__header-icon,
-  .sc-course-numbered-list__marker {
+  .sc-course-numbered-list__marker,
+  .sc-course-numbered-list__marker-visual {
     display: inline-flex;
     flex-shrink: 0;
     align-items: center;
