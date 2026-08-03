@@ -48,6 +48,7 @@ import {
   type PersistedCourseTheme,
 } from "@/schemas/course-document";
 import { CourseThemePanel } from "@/theme/authoring/CourseThemePanel";
+import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
 import { builtInCourseColourSystemRegistry } from "@/theme/course/colour-systems/registry";
 import { builtInCourseDesignThemeRegistry } from "@/theme/course/designs/registry";
 import { useAuthoringColorMode } from "@/theme/state/authoring-color-mode";
@@ -534,64 +535,61 @@ function ScaffoldAuthoringAppSession({
         : null;
 
   return (
-    <div
-      ref={setApplicationElement}
-      className={cn("sc-scaffold-authoring-app", className)}
-      data-scaffold-color-mode={applicationColorMode}
-      style={{ colorScheme: applicationColorMode }}
-    >
-      <OverlayBoundary container={applicationElement} kind="viewport">
-        <Header
-          title={title}
-          onTitleChange={(nextTitle) => {
-            setTitleForCurrentArtifact(nextTitle);
-            titleRef.current = nextTitle;
-            if (!readyArtifact) return;
-            scheduleAutosave();
-          }}
-          brandSurface={applicationColorMode}
-          saveState={saveState}
-          actions={appHeaderActions}
-        />
+    <AppThemeProvider appearance={applicationColorMode}>
+      <div ref={setApplicationElement} className={cn("sc-scaffold-authoring-app", className)}>
+        <OverlayBoundary container={applicationElement} kind="viewport">
+          <Header
+            title={title}
+            onTitleChange={(nextTitle) => {
+              setTitleForCurrentArtifact(nextTitle);
+              titleRef.current = nextTitle;
+              if (!readyArtifact) return;
+              scheduleAutosave();
+            }}
+            brandSurface={applicationColorMode}
+            saveState={saveState}
+            actions={appHeaderActions}
+          />
 
-        <main className={cn("sc-scaffold-authoring-main", mainClassName)}>
-          <div
-            className={cn("sc-scaffold-authoring-workspace", workspaceClassName)}
-            data-preview-mode={activePreviewContent?.bootstrap.mode}
-          >
-            <ScaffoldServicesProvider ports={providerPorts}>
-              {authoringUnavailableMessage && !readyArtifact ? (
-                <ScaffoldAuthoringUnavailable message={authoringUnavailableMessage} />
-              ) : activePreviewContent && previewServices ? (
-                <Suspense fallback={<div role="status">Preparing preview...</div>}>
-                  <LazyScaffoldLearnerApp
-                    bootstrap={activePreviewContent.bootstrap}
-                    hostColorMode={applicationColorMode}
-                    slideshowSizing="contained"
-                    services={previewServices}
+          <main className={cn("sc-scaffold-authoring-main", mainClassName)}>
+            <div
+              className={cn("sc-scaffold-authoring-workspace", workspaceClassName)}
+              data-preview-mode={activePreviewContent?.bootstrap.mode}
+            >
+              <ScaffoldServicesProvider ports={providerPorts}>
+                {authoringUnavailableMessage && !readyArtifact ? (
+                  <ScaffoldAuthoringUnavailable message={authoringUnavailableMessage} />
+                ) : activePreviewContent && previewServices ? (
+                  <Suspense fallback={<div role="status">Preparing preview...</div>}>
+                    <LazyScaffoldLearnerApp
+                      bootstrap={activePreviewContent.bootstrap}
+                      hostColorMode={applicationColorMode}
+                      slideshowSizing="contained"
+                      services={previewServices}
+                    />
+                  </Suspense>
+                ) : readyArtifact ? (
+                  <ContentAuthorHost
+                    agentIntegration={agentIntegration}
+                    artifactId={resolvedArtifactId}
+                    content={toJsonDocument(latestContentRef.current.value)}
+                    courseAppearance={applicationColorMode}
+                    editable
+                    onChange={handleEditorChange}
+                    onEditorReady={handleEditorReady}
+                    agentOpen={resolvedAgentOpen}
+                    onAgentClose={handleAgentClose}
+                    scrollModel={scrollModel}
+                    leftRail={renderLeftRail}
+                    rightRail={renderRightRail}
                   />
-                </Suspense>
-              ) : readyArtifact ? (
-                <ContentAuthorHost
-                  agentIntegration={agentIntegration}
-                  artifactId={resolvedArtifactId}
-                  content={toJsonDocument(latestContentRef.current.value)}
-                  courseAppearance={applicationColorMode}
-                  editable
-                  onChange={handleEditorChange}
-                  onEditorReady={handleEditorReady}
-                  agentOpen={resolvedAgentOpen}
-                  onAgentClose={handleAgentClose}
-                  scrollModel={scrollModel}
-                  leftRail={renderLeftRail}
-                  rightRail={renderRightRail}
-                />
-              ) : null}
-            </ScaffoldServicesProvider>
-          </div>
-        </main>
-      </OverlayBoundary>
-    </div>
+                ) : null}
+              </ScaffoldServicesProvider>
+            </div>
+          </main>
+        </OverlayBoundary>
+      </div>
+    </AppThemeProvider>
   );
 }
 

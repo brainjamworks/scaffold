@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import "@/styles/globals.css";
+import "@/theme/app/AppThemeProvider.css";
 import "@/document/authoring/CourseDocumentEditor.css";
 import "./DocumentCreationGate.css";
 import "./ScaffoldAuthoringApp.css";
@@ -44,7 +45,7 @@ describe("Authoring document shell cascade layering", () => {
       }
     `);
     const application = document.createElement("div");
-    application.className = "sc-scaffold-authoring-app";
+    application.className = "radix-themes light sc-app sc-scaffold-authoring-app";
     const scope = document.createElement("div");
     scope.className = "sc-course-theme-scope";
     scope.style.setProperty("--sc-course-font-heading", '"Source Serif 4", serif');
@@ -133,7 +134,7 @@ describe("Authoring document shell cascade layering", () => {
       courseText,
     }) => {
       const application = document.createElement("div");
-      application.className = "sc-scaffold-authoring-app";
+      application.className = `radix-themes ${applicationMode} sc-app sc-scaffold-authoring-app`;
       application.dataset.scaffoldColorMode = applicationMode;
       application.style.colorScheme = applicationMode;
 

@@ -368,6 +368,14 @@ describe("ScaffoldAuthoringApp preview", () => {
     const first = render(<ScaffoldAuthoringApp {...props} />);
     const application = document.querySelector<HTMLElement>(".sc-scaffold-authoring-app");
 
+    expect(first.container.firstElementChild).toBe(application);
+    expect(application).toHaveClass("radix-themes", "light", "sc-app");
+    expect(application).toHaveAttribute("data-accent-color", "indigo");
+    expect(application).toHaveAttribute("data-gray-color", "slate");
+    expect(application).toHaveAttribute("data-radius", "medium");
+    expect(application).toHaveAttribute("data-scaling", "100%");
+    expect(application).toHaveAttribute("data-panel-background", "solid");
+    expect(application).toHaveAttribute("data-has-background", "false");
     expect(application).toHaveAttribute("data-scaffold-color-mode", "light");
     await waitFor(() =>
       expect(application?.querySelector("[data-scaffold-overlay-host]")).toBeInTheDocument(),
@@ -390,6 +398,8 @@ describe("ScaffoldAuthoringApp preview", () => {
     await user.unhover(colorModeToggle);
     await user.click(colorModeToggle);
 
+    expect(application).toHaveClass("radix-themes", "dark", "sc-app");
+    expect(application).not.toHaveClass("light");
     expect(application).toHaveAttribute("data-scaffold-color-mode", "dark");
     expect(application?.style.colorScheme).toBe("dark");
     expect(localStorage.getItem("scaffold.authoring.color-mode.v1")).toBe("dark");
