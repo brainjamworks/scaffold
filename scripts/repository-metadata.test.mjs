@@ -120,6 +120,27 @@ test("root owns the exact YAML parser version used by repository metadata valida
   assert.equal(rootManifest.devDependencies?.yaml, "2.9.0", "root devDependencies.yaml");
 });
 
+test("Vite Plus workspaces share the catalogued Node 24 type package", async () => {
+  const workspace = parseYaml(
+    await readFile(resolve(REPOSITORY_ROOT, "pnpm-workspace.yaml"), "utf8"),
+  );
+  assert.equal(workspace.catalog?.["@types/node"], "24.13.1", "pnpm catalog @types/node");
+
+  const manifests = [
+    { manifest: await readJson("package.json"), relativePath: "package.json" },
+    ...(await readWorkspaceManifests()),
+  ].filter(({ manifest }) => Object.hasOwn(manifest.devDependencies ?? {}, "vite-plus"));
+
+  assert.ok(manifests.length > 0, "repository must contain Vite Plus workspaces");
+  for (const { manifest, relativePath } of manifests) {
+    assert.equal(
+      manifest.devDependencies?.["@types/node"],
+      "catalog:",
+      `${relativePath} must use the catalogued @types/node`,
+    );
+  }
+});
+
 test("workspace manifests declare the selected Scaffold package DAG", async () => {
   const records = await readWorkspaceManifests();
 

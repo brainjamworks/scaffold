@@ -31,6 +31,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@types/node": "catalog:",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
     "typescript": "~5.9.3",

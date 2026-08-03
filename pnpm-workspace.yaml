@@ -3,6 +3,9 @@ packages:
   - "adapters/*"
   - "apps/*"
 
+catalog:
+  "@types/node": "24.13.1"
+
 allowBuilds:
   esbuild: true
 
