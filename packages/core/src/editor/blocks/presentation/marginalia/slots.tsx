@@ -45,19 +45,20 @@ export const MarginaliaMainNode = Node.create({
 
 function GutterView() {
   return (
-    <NodeViewWrapper data-slot="marginalia-gutter" className="sc-marginalia__gutter">
-      <div className="sc-marginalia__gutter-label" contentEditable={false}>
-        Gutter
-      </div>
-      <NodeViewContent className="sc-marginalia__gutter-content" />
+    <NodeViewWrapper
+      as="aside"
+      data-slot="marginalia-gutter"
+      className="sc-course-marginalia__gutter"
+    >
+      <NodeViewContent className="sc-course-marginalia__gutter-content" />
     </NodeViewWrapper>
   );
 }
 
 function MainView() {
   return (
-    <NodeViewWrapper data-slot="marginalia-main" className="sc-marginalia__main">
-      <NodeViewContent className="sc-marginalia__main-content" />
+    <NodeViewWrapper data-slot="marginalia-main" className="sc-course-marginalia__main">
+      <NodeViewContent className="sc-course-marginalia__main-content" />
     </NodeViewWrapper>
   );
 }

@@ -5,6 +5,7 @@
 @import "./table.css";
 @import "./callout.css";
 @import "./sidebar.css";
+@import "./marginalia.css";
 
 .sc-course.sc-course-theme-scaffold-flow-v1 {
   min-width: 0;

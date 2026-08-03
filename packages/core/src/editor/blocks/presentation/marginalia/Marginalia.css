@@ -1,99 +1,76 @@
 @layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
 
 @layer sc-components {
-  /* ─── Marginalia ────────────────────────────────────────────────
- * Constrained gutter slot + main column. Gutter is fixed at ~220px,
- * main column flexes. On viewports < 720px the layout collapses
- * to a stack with the gutter appearing as a quiet inline aside
- * above the main column.
- *
- * `data-position` swaps left/right gutter via grid-area assignment.
- * The gutter renders narrower content (small image + caption,
- * definition, sidenote) without competing with the body. */
-
-  .sc-marginalia {
-    position: relative;
+  .sc-course-marginalia {
+    min-width: 0;
+    max-width: 100%;
+    container-name: sc-course-marginalia;
+    container-type: inline-size;
   }
 
-  .sc-marginalia__content {
+  .sc-course-marginalia__content {
     display: grid;
-    gap: 1.5rem;
     align-items: start;
+    min-width: 0;
+    max-width: 100%;
   }
 
-  .sc-marginalia[data-position="right"] .sc-marginalia__content {
-    grid-template-columns: minmax(0, 1fr) 220px;
+  .sc-course-marginalia[data-position="right"] .sc-course-marginalia__content {
+    grid-template-columns: minmax(0, 1fr) clamp(10rem, 30%, 14rem);
     grid-template-areas: "main gutter";
   }
 
-  .sc-marginalia[data-position="left"] .sc-marginalia__content {
-    grid-template-columns: 220px minmax(0, 1fr);
+  .sc-course-marginalia[data-position="left"] .sc-course-marginalia__content {
+    grid-template-columns: clamp(10rem, 30%, 14rem) minmax(0, 1fr);
     grid-template-areas: "gutter main";
   }
 
-  @media (max-width: 720px) {
-    .sc-marginalia[data-position="right"] .sc-marginalia__content,
-    .sc-marginalia[data-position="left"] .sc-marginalia__content {
-      grid-template-columns: 1fr;
-      grid-template-areas: "gutter" "main";
-      gap: 1rem;
-    }
-  }
-
-  .sc-marginalia__gutter {
+  .sc-course-marginalia__gutter {
     grid-area: gutter;
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
     min-width: 0;
-    padding-top: 1.625rem;
-    font-size: 0.8125rem;
-    line-height: 1.5;
-    color: var(--color-text-secondary);
+    max-width: 100%;
+    overflow-wrap: anywhere;
   }
 
-  .sc-marginalia__gutter-label {
-    position: absolute;
-    top: 0;
-    left: 0;
-    font-family: var(--font-sans);
-    font-size: 0.625rem;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--color-text-muted);
-    border-bottom: var(--sc-border-width) solid var(--color-border);
-    padding-bottom: 0.25rem;
-    width: 100%;
-  }
-
-  .sc-marginalia__gutter-content > [data-node-view-content-react] > * {
-    margin: 0;
-  }
-
-  .sc-marginalia__gutter-content > [data-node-view-content-react] > * + * {
-    margin-top: 0.5rem;
-  }
-
-  /* Images and figures in the gutter scale to the gutter width. */
-  .sc-marginalia__gutter-content [data-node="image_block"] img,
-  .sc-marginalia__gutter-content img {
-    width: 100%;
-    height: auto;
-    display: block;
-  }
-
-  .sc-marginalia__main {
+  .sc-course-marginalia__main {
     grid-area: main;
     min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
   }
 
-  .sc-marginalia__main-content > [data-node-view-content-react] > * {
+  .sc-course-marginalia__gutter-content,
+  .sc-course-marginalia__main-content {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  :is(.sc-course-marginalia__gutter-content, .sc-course-marginalia__main-content)
+    > [data-node-view-content-react]
+    > *,
+  .ProseMirror
+    :is(.sc-course-marginalia__gutter-content, .sc-course-marginalia__main-content)
+    > [data-node-view-content-react]
+    > * {
+    min-width: 0;
+    max-width: 100%;
     margin: 0;
   }
 
-  .sc-marginalia__main-content > [data-node-view-content-react] > * + * {
-    margin-top: 0.75rem;
+  .sc-course-marginalia__gutter-content :where(img, video, iframe) {
+    max-width: 100%;
+  }
+
+  .sc-course-marginalia__gutter-content img {
+    display: block;
+    height: auto;
+  }
+
+  @container sc-course-marginalia (max-width: 32rem) {
+    .sc-course-marginalia[data-position="right"] .sc-course-marginalia__content,
+    .sc-course-marginalia[data-position="left"] .sc-course-marginalia__content {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas: "gutter" "main";
+    }
   }
 }
