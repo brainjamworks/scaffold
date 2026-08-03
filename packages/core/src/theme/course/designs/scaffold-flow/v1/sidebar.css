@@ -1,7 +1,6 @@
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-sidebar__surface {
   padding: var(--space-5) var(--space-6);
   border: 1px solid var(--gray-a6);
-  border-inline-start-color: var(--accent-a8);
   border-radius: var(--radius-3);
   background: var(--gray-a2);
   color: var(--gray-12);
