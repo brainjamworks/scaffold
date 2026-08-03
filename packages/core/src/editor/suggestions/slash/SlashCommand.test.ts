@@ -8,6 +8,7 @@ import { createElement, Fragment } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
+import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import {
   createScaffoldApplication,
   defineScaffoldExtensionPack,
@@ -33,7 +34,8 @@ import {
   resolveSlashCommandPopupTarget,
 } from "./SlashCommand";
 
-const coreInsertCatalog = createScaffoldApplication().authoring.catalogues.inDocument;
+const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
+const coreInsertCatalog = coreAuthoringComposition.catalogues.inDocument;
 
 afterEach(() => {
   cleanup();
@@ -68,9 +70,10 @@ function makeEditor(items: readonly InsertAction[], ownerDocument: Document = do
     items,
     surfaceVariants: builtInSurfaceVariantRegistry,
   });
-  const extensions = createCourseDocumentAuthoringExtensions({ editable: true }).filter(
-    (extension) => extension.name !== slashCommand.name,
-  );
+  const extensions = createCourseDocumentAuthoringExtensions({
+    composition: coreAuthoringComposition,
+    editable: true,
+  }).filter((extension) => extension.name !== slashCommand.name);
 
   return new Editor({
     element,

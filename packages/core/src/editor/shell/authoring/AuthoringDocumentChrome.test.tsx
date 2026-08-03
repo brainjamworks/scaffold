@@ -17,6 +17,7 @@ import {
 } from "@/composition/application/create-scaffold-application";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createScaffoldAuthoringCataloguesStorageExtension } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
+import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { AUTHORING_ANCHOR_ATTR } from "@/editor/interactions/dom/authoring-frame";
@@ -36,6 +37,8 @@ import {
   AuthoringDocumentChrome,
   AuthoringDocumentSurfaceTemplatePickerHost,
 } from "./AuthoringDocumentChrome";
+
+const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 
 function createTestEditor() {
@@ -56,6 +59,7 @@ function createAuthoringEditor() {
   return new Editor({
     editable: true,
     extensions: createCourseDocumentAuthoringExtensions({
+      composition: coreAuthoringComposition,
       editable: true,
     }),
     content: { type: "doc", content: [{ type: "paragraph" }] },

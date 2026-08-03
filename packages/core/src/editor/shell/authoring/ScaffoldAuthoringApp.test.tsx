@@ -318,6 +318,7 @@ describe("ScaffoldAuthoringApp preview", () => {
     });
     render(
       <ScaffoldAuthoringApp
+        application={testApplication}
         artifact={{
           id: "artifact-live-theme",
           title: "Draft",
@@ -364,6 +365,7 @@ describe("ScaffoldAuthoringApp preview", () => {
     const user = userEvent.setup();
     render(
       <ScaffoldAuthoringApp
+        application={testApplication}
         artifact={{
           id: "artifact-theme-panel",
           title: "Draft",
@@ -386,6 +388,7 @@ describe("ScaffoldAuthoringApp preview", () => {
   it("toggles and remembers the authoring application colour mode", async () => {
     const user = userEvent.setup();
     const props = {
+      application: testApplication,
       artifact: {
         id: "artifact-colour-mode",
         title: "Draft",
@@ -445,6 +448,7 @@ describe("ScaffoldAuthoringApp preview", () => {
 
     render(
       <ScaffoldAuthoringApp
+        application={testApplication}
         artifact={{
           id: "artifact-autosave",
           title: "Draft",
@@ -494,6 +498,7 @@ describe("ScaffoldAuthoringApp preview", () => {
 
     render(
       <ScaffoldAuthoringApp
+        application={testApplication}
         artifact={{
           id: "artifact-explicit-save",
           title: "Draft",
@@ -531,6 +536,7 @@ describe("ScaffoldAuthoringApp preview", () => {
 
     const rendered = render(
       <ScaffoldAuthoringApp
+        application={testApplication}
         artifact={{
           id: "artifact-unmount",
           title: "Draft",
@@ -635,6 +641,7 @@ describe("ScaffoldAuthoringApp preview", () => {
 
     render(
       <ScaffoldAuthoringApp
+        application={testApplication}
         artifact={{
           id: "artifact-preview-session",
           title: "Draft",
@@ -663,6 +670,7 @@ describe("ScaffoldAuthoringApp preview", () => {
     localStorage.setItem("scaffold.authoring.color-mode.v1", "dark");
     const initialJSON = JSON.stringify(mocks.authorJSON);
     const props = {
+      application: testApplication,
       artifact: {
         id: "artifact-contextual-colour-mode",
         title: "Preview modes",
@@ -718,6 +726,7 @@ describe("ScaffoldAuthoringApp preview", () => {
 
     render(
       <ScaffoldAuthoringApp
+        application={testApplication}
         artifact={{
           id: "artifact-async-preview-services",
           title: "Draft",
@@ -764,6 +773,7 @@ describe("ScaffoldAuthoringApp preview", () => {
 
     render(
       <ScaffoldAuthoringApp
+        application={testApplication}
         artifact={{
           id: "artifact-preview-service-retry",
           title: "Draft",
@@ -800,6 +810,7 @@ describe("ScaffoldAuthoringApp preview", () => {
 
     render(
       <ScaffoldAuthoringApp
+        application={testApplication}
         artifact={{
           id: "artifact-preview-focus",
           title: "Focused draft",
@@ -843,6 +854,7 @@ describe("ScaffoldAuthoringApp preview", () => {
 
     render(
       <ScaffoldAuthoringApp
+        application={testApplication}
         artifact={{
           id: "artifact-host-theme",
           title: "Host themed draft",
@@ -888,6 +900,7 @@ describe("ScaffoldAuthoringApp preview", () => {
 
     const view = render(
       <ScaffoldAuthoringApp
+        application={testApplication}
         artifact={{
           id: "artifact-stable-host-theme",
           title: "Stable host theme",
@@ -905,6 +918,7 @@ describe("ScaffoldAuthoringApp preview", () => {
 
     view.rerender(
       <ScaffoldAuthoringApp
+        application={testApplication}
         artifact={{
           id: "artifact-stable-host-theme",
           title: "Stable host theme",
@@ -930,6 +944,7 @@ describe("ScaffoldAuthoringApp preview", () => {
 
     render(
       <ScaffoldAuthoringEntry
+        application={testApplication}
         artifact={null}
         services={{
           artifactPersistence: { saveArtifact: vi.fn(async () => ({})) },
@@ -966,6 +981,7 @@ describe("ScaffoldAuthoringApp preview", () => {
 
     render(
       <ScaffoldAuthoringEntry
+        application={testApplication}
         artifact={null}
         services={{
           artifactPersistence: { saveArtifact },
@@ -1010,6 +1026,7 @@ describe("ScaffoldAuthoringApp preview", () => {
 
     render(
       <ScaffoldAuthoringEntry
+        application={testApplication}
         artifact={null}
         services={{
           artifactPersistence: { saveArtifact: vi.fn(async () => ({})) },
@@ -1037,6 +1054,7 @@ describe("ScaffoldAuthoringApp preview", () => {
 
     render(
       <ScaffoldAuthoringApp
+        application={testApplication}
         artifact={{
           id: "artifact-agent",
           title: "Draft",
@@ -1082,6 +1100,7 @@ describe("ScaffoldAuthoringApp preview", () => {
 
     render(
       <ScaffoldAuthoringApp
+        application={testApplication}
         agentIntegration={FakeAgentIntegration}
         artifact={{
           id: "artifact-agent",
@@ -1112,6 +1131,7 @@ describe("ScaffoldAuthoringApp preview", () => {
 
     render(
       <ScaffoldAuthoringApp
+        application={testApplication}
         artifact={{
           id: "artifact-preview",
           title: "Draft",
@@ -1168,6 +1188,7 @@ describe("ScaffoldAuthoringApp preview", () => {
 
     render(
       <ScaffoldAuthoringApp
+        application={testApplication}
         artifact={{
           id: "artifact-slideshow-preview",
           title: "Slides",

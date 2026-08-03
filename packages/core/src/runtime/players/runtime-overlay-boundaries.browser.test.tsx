@@ -4,10 +4,13 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { page } from "vite-plus/test/browser/context";
 
 import { createScaffoldDocumentContent } from "@/format/artifact";
+import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { createAssessmentRuntimeTestRoot } from "@/runtime/assessment/test-utils";
 import { PagePlayer } from "@/runtime/players/page/PagePlayer";
 import { SlideshowPlayer } from "@/runtime/players/slideshow/SlideshowPlayer";
 import "@/styles/globals.css";
+
+const runtimeComposition = createCoreScaffoldRuntimeComposition();
 
 const PAGE_CASES = [
   { name: "wide", width: 1120, height: 760 },
@@ -339,6 +342,7 @@ async function mountPage(owner: ForeignOwner): Promise<MountedRuntime> {
     createAssessmentRuntimeTestRoot({
       children: (
         <PagePlayer
+          composition={runtimeComposition}
           initialContent={runtimeHintDocument("page", "runtime-page")}
           surfaceId="runtime-page"
           onRendererReady={(readyEditor) => {
@@ -368,6 +372,7 @@ async function mountSlideshow(owner: ForeignOwner): Promise<MountedRuntime> {
     createAssessmentRuntimeTestRoot({
       children: (
         <SlideshowPlayer
+          composition={runtimeComposition}
           artifactId="runtime-boundary-contract"
           initialContent={runtimeHintDocument("slideshow", "runtime-slide")}
           surfaceIds={["runtime-slide"]}

@@ -54,6 +54,22 @@ Core uses explicit, closed-world construction for its built-in editor features:
   authoring and learner runtime only their own extension projection plus the
   same immutable neutral Block registry. Neither lane imports or traverses the
   opposite binding inventory.
+- Mounted configuration is explicit and differentiated. The top-level
+  `ScaffoldAuthoringEntry` requires one complete `ScaffoldApplication` because
+  it coordinates authoring, publication, and lazy learner preview.
+  `CourseDocumentEditor` requires one `ScaffoldAuthoringComposition`, while
+  `ScaffoldLearnerApp` and `ContentRuntimeHost` require one
+  `ScaffoldRuntimeComposition`. Internal Tiptap composers and renderers receive
+  that exact lane composition; omission never selects a hidden Core default.
+- Products that need both lanes construct a complete Core application with
+  `createScaffoldApplication` from `@scaffold/core/extensions`. Lane-only hosts
+  use `createCoreScaffoldAuthoringComposition` from
+  `@scaffold/core/authoring` or `createCoreScaffoldRuntimeComposition` from
+  `@scaffold/core/runtime`. These are the explicit Core-only constructors, not
+  compatibility fallbacks.
+- Mounted application or composition object identity participates in editor
+  session lifetime. Replacing it establishes a new session; ordinary content
+  updates using the same configuration identity retain the existing session.
 - Layout feature modules export pure definitions. An immutable definition
   registry is keyed by persisted layout variant, with separate authoring and
   runtime view registries.

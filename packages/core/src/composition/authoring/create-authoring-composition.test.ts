@@ -6,7 +6,7 @@ import { GapCursor } from "@tiptap/pm/gapcursor";
 import { EditorContent, NodeViewContent, NodeViewWrapper } from "@tiptap/react";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { createElement } from "react";
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, describe, expect, expectTypeOf, it, vi } from "vite-plus/test";
 
 import {
   createScaffoldApplication,
@@ -39,6 +39,9 @@ import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import * as surfaceVariantRegistry from "@/editor/surfaces/model/surface-variant-registry";
 import { createCourseDocumentAuthoringExtensions } from "./create-authoring-composition";
+import { createCoreScaffoldAuthoringComposition } from "./scaffold-authoring-composition";
+
+const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 
 const AUTHORING_ONLY_EXTENSION_NAMES = [
   "scaffoldInteractionOwner",
@@ -56,18 +59,29 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     vi.restoreAllMocks();
   });
 
-  it("validates built-in Surface factories when resolving the default authoring composition at call time", () => {
+  it("requires an explicit authoring composition", () => {
+    type Options = Parameters<typeof createCourseDocumentAuthoringExtensions>[0];
+    expectTypeOf<{} extends Pick<Options, "composition"> ? true : false>().toEqualTypeOf<false>();
+  });
+
+  it("uses the explicitly supplied Core authoring composition", () => {
     const validateFactories = vi.spyOn(surfaceVariantRegistry, "validateSurfaceVariantFactories");
 
-    createCourseDocumentAuthoringExtensions({ editable: true });
+    createCourseDocumentAuthoringExtensions({
+      editable: true,
+      composition: coreAuthoringComposition,
+    });
 
-    expect(validateFactories).toHaveBeenCalledOnce();
-    expect(validateFactories.mock.calls[0]?.[0]).not.toBe(builtInSurfaceVariantRegistry);
+    expect(validateFactories).not.toHaveBeenCalled();
+    expect(coreAuthoringComposition.capabilities.surfaces.registry).not.toBe(
+      builtInSurfaceVariantRegistry,
+    );
   });
 
   it("returns each extension name only once", () => {
     const extensionNames = createCourseDocumentAuthoringExtensions({
       editable: true,
+      composition: coreAuthoringComposition,
     })
       .map((extension) => extension.name)
       .filter((name): name is string => typeof name === "string");
@@ -113,9 +127,10 @@ describe("createCourseDocumentAuthoringExtensions", () => {
 
   it("includes course block extensions in authoring composition", () => {
     const documentExtensionNames = new Set(
-      createCourseDocumentAuthoringExtensions({ editable: true }).map(
-        (extension) => extension.name,
-      ),
+      createCourseDocumentAuthoringExtensions({
+        editable: true,
+        composition: coreAuthoringComposition,
+      }).map((extension) => extension.name),
     );
 
     const missingBlockNames = builtInBlockAuthoringBindings
@@ -126,9 +141,10 @@ describe("createCourseDocumentAuthoringExtensions", () => {
   });
 
   it("passes built-in stable-id node types into the authoring composition", () => {
-    const authoringUniqueId = createCourseDocumentAuthoringExtensions({ editable: true }).find(
-      (extension) => extension.name === "uniqueID",
-    );
+    const authoringUniqueId = createCourseDocumentAuthoringExtensions({
+      editable: true,
+      composition: coreAuthoringComposition,
+    }).find((extension) => extension.name === "uniqueID");
 
     expect(authoringUniqueId?.options["types"]).toEqual(
       expect.arrayContaining([...builtInBlockRegistry.stableIdNodeTypes]),
@@ -136,9 +152,10 @@ describe("createCourseDocumentAuthoringExtensions", () => {
   });
 
   it("passes built-in resizable node types into the authoring frame extension", () => {
-    const authoringFrame = createCourseDocumentAuthoringExtensions({ editable: true }).find(
-      (extension) => extension.name === "runtimeBlockFrameAttributes",
-    );
+    const authoringFrame = createCourseDocumentAuthoringExtensions({
+      editable: true,
+      composition: coreAuthoringComposition,
+    }).find((extension) => extension.name === "runtimeBlockFrameAttributes");
 
     expect(authoringFrame?.options["resizableBlockNodeTypes"]).toEqual(
       builtInBlockRegistry.resizableNodeTypes,
@@ -148,6 +165,7 @@ describe("createCourseDocumentAuthoringExtensions", () => {
   it("uses authoring arrangement nodes", () => {
     const authoringExtensions = createCourseDocumentAuthoringExtensions({
       editable: true,
+      composition: coreAuthoringComposition,
     });
 
     expect(authoringExtensions.find((extension) => extension.name === "grid")).toBe(
@@ -165,7 +183,10 @@ describe("createCourseDocumentAuthoringExtensions", () => {
   it("renders a persisted built-in layout through the authoring composition", async () => {
     const authoringEditor = new Editor({
       editable: true,
-      extensions: createCourseDocumentAuthoringExtensions({ editable: true }),
+      extensions: createCourseDocumentAuthoringExtensions({
+        editable: true,
+        composition: coreAuthoringComposition,
+      }),
       content: persistedTabsDocument("authoring"),
     });
 
@@ -494,6 +515,7 @@ describe("createCourseDocumentAuthoringExtensions", () => {
   it("adds authoring-only extensions in authoring composition", () => {
     const authoringExtensionNames = createCourseDocumentAuthoringExtensions({
       editable: true,
+      composition: coreAuthoringComposition,
     })
       .map((extension) => extension.name)
       .filter((name): name is string => typeof name === "string");
@@ -508,6 +530,7 @@ describe("createCourseDocumentAuthoringExtensions", () => {
   it("keeps the owner extension store editor-owned", () => {
     const ownerExtension = createCourseDocumentAuthoringExtensions({
       editable: true,
+      composition: coreAuthoringComposition,
     }).find((extension) => extension.name === "scaffoldInteractionOwner");
 
     expect(ownerExtension?.options).toEqual({});
@@ -516,6 +539,7 @@ describe("createCourseDocumentAuthoringExtensions", () => {
   it("installs interaction ownership and no old activation extensions", () => {
     const authoringExtensionNames = createCourseDocumentAuthoringExtensions({
       editable: true,
+      composition: coreAuthoringComposition,
     })
       .map((extension) => extension.name)
       .filter((name): name is string => typeof name === "string");

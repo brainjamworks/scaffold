@@ -10,6 +10,7 @@ import { createElement } from "react";
 import { expect, it, vi } from "vite-plus/test";
 
 import { createCourseDocumentInlineContentExtensions } from "@/composition/model/create-document-composition";
+import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { InlineIconRuntimeNode } from "@/editor/rich-text/inline-icon/runtime/InlineIconRuntimeNode";
@@ -28,6 +29,8 @@ import { AnnotatedFigureRuntimeExtension } from "./annotated-figure-runtime-exte
 import { AnnotatedFigureSurface } from "./AnnotatedFigureSurface";
 import { emptyAnnotatedFigureData } from "./content";
 import "./annotated-figure-definition";
+
+const coreRuntimeComposition = createCoreScaffoldRuntimeComposition();
 
 function annotatedFigureFixture(
   data: Record<string, unknown> = {
@@ -123,6 +126,7 @@ function renderAnnotatedFigureXapiRuntime(
         artifactId: "annotated-figure-artifact",
         children: createElement(XapiRuntimeProvider, {
           children: createElement(CourseDocumentRuntimeRenderer, {
+            composition: coreRuntimeComposition,
             initialContent: content,
             visibleSurfaceId,
           }),

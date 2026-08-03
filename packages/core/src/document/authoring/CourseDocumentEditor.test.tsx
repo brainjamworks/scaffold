@@ -16,12 +16,15 @@ import {
   defineScaffoldExtensionPack,
 } from "@/composition/application/create-scaffold-application";
 import type { SurfaceCapability } from "@/composition/application/surface-capability";
+import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { selectCoursePreset } from "@/theme/authoring";
 import { createScaffoldDefaultTheme, SCAFFOLD_EDITORIAL_PRESET } from "@/theme/model";
 import { CourseDocumentEditor } from "./CourseDocumentEditor";
+
+const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 
 afterEach(() => {
   cleanup();
@@ -70,6 +73,7 @@ describe("CourseDocumentEditor", () => {
 
     render(
       createElement(CourseDocumentEditor, {
+        composition: coreAuthoringComposition,
         source: { mode: "document", content },
         onChange,
         onReady,
@@ -97,6 +101,7 @@ describe("CourseDocumentEditor", () => {
         StrictMode,
         null,
         createElement(CourseDocumentEditor, {
+          composition: coreAuthoringComposition,
           source: { mode: "document", content },
           onReady,
         }),
@@ -119,6 +124,7 @@ describe("CourseDocumentEditor", () => {
 
     render(
       createElement(CourseDocumentEditor, {
+        composition: coreAuthoringComposition,
         source: { mode: "document", content, onUpdate },
         onReady,
       }),
@@ -169,6 +175,7 @@ describe("CourseDocumentEditor", () => {
 
     render(
       createElement(CourseDocumentEditor, {
+        composition: coreAuthoringComposition,
         source: { mode: "document", content },
         onReady,
       }),
@@ -192,6 +199,7 @@ describe("CourseDocumentEditor", () => {
 
     render(
       createElement(CourseDocumentEditor, {
+        composition: coreAuthoringComposition,
         source: { mode: "document", content },
         onReady,
       }),
@@ -218,6 +226,7 @@ describe("CourseDocumentEditor", () => {
 
     render(
       createElement(CourseDocumentEditor, {
+        composition: coreAuthoringComposition,
         source: { mode: "document", content },
         onReady,
       }),
@@ -244,6 +253,7 @@ describe("CourseDocumentEditor", () => {
 
     render(
       createElement(CourseDocumentEditor, {
+        composition: coreAuthoringComposition,
         source: { mode: "document", content },
         onReady,
       }),
@@ -263,6 +273,7 @@ describe("CourseDocumentEditor", () => {
 
     render(
       createElement(CourseDocumentEditor, {
+        composition: coreAuthoringComposition,
         source: { mode: "document", content },
         onReady,
       }),
@@ -303,6 +314,7 @@ describe("CourseDocumentEditor", () => {
 
     render(
       createElement(CourseDocumentEditor, {
+        composition: coreAuthoringComposition,
         source: { mode: "document", content },
         onReady,
       }),
@@ -329,6 +341,7 @@ describe("CourseDocumentEditor", () => {
 
     render(
       createElement(CourseDocumentEditor, {
+        composition: coreAuthoringComposition,
         source: { mode: "document", content },
         onReady,
       }),
@@ -347,6 +360,7 @@ describe("CourseDocumentEditor", () => {
 
     render(
       createElement(CourseDocumentEditor, {
+        composition: coreAuthoringComposition,
         source: { mode: "document", content },
         onReady,
       }),
@@ -380,6 +394,7 @@ describe("CourseDocumentEditor", () => {
 
     render(
       createElement(CourseDocumentEditor, {
+        composition: coreAuthoringComposition,
         source: { mode: "document", content },
         onReady,
       }),
@@ -412,6 +427,7 @@ describe("CourseDocumentEditor", () => {
 
     render(
       createElement(CourseDocumentEditor, {
+        composition: coreAuthoringComposition,
         source: { mode: "document", content },
         editable: false,
         onReady,
@@ -433,6 +449,7 @@ describe("CourseDocumentEditor", () => {
     const onReady = vi.fn();
     const { rerender } = render(
       createElement(CourseDocumentEditor, {
+        composition: coreAuthoringComposition,
         source: { mode: "document", content },
         onReady,
       }),
@@ -446,6 +463,7 @@ describe("CourseDocumentEditor", () => {
 
     rerender(
       createElement(CourseDocumentEditor, {
+        composition: coreAuthoringComposition,
         source: { mode: "document", content },
         onReady,
         suspended: true,
@@ -459,6 +477,7 @@ describe("CourseDocumentEditor", () => {
 
     rerender(
       createElement(CourseDocumentEditor, {
+        composition: coreAuthoringComposition,
         source: { mode: "document", content },
         onReady,
         suspended: false,
@@ -477,6 +496,7 @@ describe("CourseDocumentEditor", () => {
 
     render(
       createElement(CourseDocumentEditor, {
+        composition: coreAuthoringComposition,
         source: { mode: "document", content },
         onReady,
       }),
@@ -509,6 +529,7 @@ describe("CourseDocumentEditor", () => {
 
     render(
       createElement(CourseDocumentEditor, {
+        composition: coreAuthoringComposition,
         source: { mode: "document", content },
         onReady,
       }),
@@ -590,6 +611,7 @@ describe("CourseDocumentEditor", () => {
 
     render(
       createElement(CourseDocumentEditor, {
+        composition: coreAuthoringComposition,
         source: { mode: "document", content },
         onReady,
       }),

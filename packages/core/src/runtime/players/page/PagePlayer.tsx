@@ -13,7 +13,7 @@ import "./PagePlayer.css";
 
 export interface PagePlayerProps {
   artifactId?: string | null;
-  composition?: CourseDocumentRuntimeRendererProps["composition"];
+  composition: CourseDocumentRuntimeRendererProps["composition"];
   initialContent: JSONContent;
   resolvedTheme?: ResolvedCourseTheme;
   surfaceId: string;
@@ -52,7 +52,7 @@ export function PagePlayer({
         <div className="sc-page-player__content">
           <CourseDocumentRuntimeRenderer
             artifactId={artifactId ?? null}
-            {...(composition ? { composition } : {})}
+            composition={composition}
             initialContent={initialContent}
             {...(resolvedTheme ? { resolvedTheme } : {})}
             {...(onRendererReady ? { onReady: onRendererReady } : {})}

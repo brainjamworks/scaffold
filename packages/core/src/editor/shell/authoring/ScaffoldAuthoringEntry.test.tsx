@@ -71,6 +71,7 @@ vi.mock("@/authoring/publication/artifact-save-bundle", () => {
 import { ScaffoldAuthoringEntry } from "./ScaffoldAuthoringEntry";
 
 type EntryProps = Parameters<typeof ScaffoldAuthoringEntry>[0];
+const testApplication = createScaffoldApplication();
 
 afterEach(() => {
   cleanup();
@@ -105,7 +106,7 @@ function renderEntry({
   createArtifactMetadata = vi.fn(),
   saveArtifact = vi.fn(async (_bundle: ArtifactSaveBundle) => undefined),
   headerActions,
-  application,
+  application = testApplication,
 }: {
   artifact?: EntryProps["artifact"];
   createArtifactMetadata?: EntryProps["services"]["artifactCreation"]["createArtifactMetadata"];
@@ -116,7 +117,7 @@ function renderEntry({
   return render(
     <ScaffoldAuthoringEntry
       artifact={artifact}
-      {...(application ? { application } : {})}
+      application={application}
       services={{
         artifactCreation: { createArtifactMetadata },
         artifactPersistence: { saveArtifact },

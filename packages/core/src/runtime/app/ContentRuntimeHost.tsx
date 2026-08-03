@@ -5,10 +5,7 @@ import {
   validateCourseSurfaceLifecycle,
   type CourseDocumentIssue,
 } from "@/document/model/validation";
-import {
-  createCoreScaffoldRuntimeComposition,
-  type ScaffoldRuntimeComposition,
-} from "@/composition/runtime/scaffold-runtime-composition";
+import type { ScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { CourseDocumentAttrsSchema } from "@/schemas/course-document";
 import {
   createThemeCatalogue,
@@ -43,12 +40,9 @@ import {
   type XapiSession,
 } from "../xapi";
 
-// Temporary migration fallback until every public runtime caller supplies composition in Task 6.
-const migrationCoreRuntimeComposition = createCoreScaffoldRuntimeComposition();
-
 export interface ContentRuntimeHostProps extends ScaffoldLearnerColorModeProps {
   artifactId?: string | null;
-  composition?: ScaffoldRuntimeComposition;
+  composition: ScaffoldRuntimeComposition;
   courseTitle?: string | null;
   initialAssessmentSnapshot?: unknown;
   initialLearnerActivitySnapshot?: unknown;
@@ -70,7 +64,6 @@ export function ContentRuntimeHost({
   onEditorReady,
   themeExtension,
 }: ContentRuntimeHostProps) {
-  const resolvedComposition = composition ?? migrationCoreRuntimeComposition;
   const colorMode = useLearnerColorMode(hostColorMode);
   const themeCatalogue = useMemo(() => createThemeCatalogue(themeExtension), [themeExtension]);
   const runtimeArtifactId = artifactId ?? null;
@@ -84,7 +77,7 @@ export function ContentRuntimeHost({
 
   const validation = validateCourseSurfaceLifecycle({
     content: initialContent,
-    registry: resolvedComposition.capabilities.surfaces.registry,
+    registry: composition.capabilities.surfaces.registry,
   });
   if (!validation.ok) {
     return (
@@ -117,7 +110,7 @@ export function ContentRuntimeHost({
           >
             <LearnerActivityReadinessGate>
               <HydratedRuntimePlayer
-                composition={resolvedComposition}
+                composition={composition}
                 initialContent={initialContent}
                 playerSelection={playerSelection}
                 colorMode={colorMode}

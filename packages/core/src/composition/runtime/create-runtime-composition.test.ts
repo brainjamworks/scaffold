@@ -5,7 +5,7 @@ import { Editor, Extension, Node, getSchema } from "@tiptap/core";
 import { EditorContent, NodeViewContent } from "@tiptap/react";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { createElement } from "react";
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, describe, expect, expectTypeOf, it, vi } from "vite-plus/test";
 
 import {
   createScaffoldApplication,
@@ -31,7 +31,12 @@ import * as surfaceRuntimeNode from "@/editor/surfaces/runtime/nodes/surface-run
 import * as surfaceVariantRegistry from "@/editor/surfaces/model/surface-variant-registry";
 
 import { createCourseDocumentRuntimeExtensions } from "./create-runtime-composition";
-import type { ScaffoldRuntimeComposition } from "./scaffold-runtime-composition";
+import {
+  createCoreScaffoldRuntimeComposition,
+  type ScaffoldRuntimeComposition,
+} from "./scaffold-runtime-composition";
+
+const coreRuntimeComposition = createCoreScaffoldRuntimeComposition();
 
 const AUTHORING_ONLY_EXTENSION_NAMES = [
   "scaffoldAuthoringCatalogues",
@@ -48,13 +53,20 @@ describe("createCourseDocumentRuntimeExtensions", () => {
     vi.restoreAllMocks();
   });
 
-  it("validates built-in Surface factories when resolving the default runtime composition at call time", () => {
+  it("requires an explicit runtime composition", () => {
+    type Options = NonNullable<Parameters<typeof createCourseDocumentRuntimeExtensions>[0]>;
+    expectTypeOf<{} extends Pick<Options, "composition"> ? true : false>().toEqualTypeOf<false>();
+  });
+
+  it("uses the explicitly supplied Core runtime composition", () => {
     const validateFactories = vi.spyOn(surfaceVariantRegistry, "validateSurfaceVariantFactories");
 
-    createCourseDocumentRuntimeExtensions();
+    createCourseDocumentRuntimeExtensions({ composition: coreRuntimeComposition });
 
-    expect(validateFactories).toHaveBeenCalledOnce();
-    expect(validateFactories.mock.calls[0]?.[0]).not.toBe(builtInSurfaceVariantRegistry);
+    expect(validateFactories).not.toHaveBeenCalled();
+    expect(coreRuntimeComposition.capabilities.surfaces.registry).not.toBe(
+      builtInSurfaceVariantRegistry,
+    );
   });
 
   it("constructs one generic Surface node from an explicit runtime composition", () => {
@@ -118,7 +130,9 @@ describe("createCourseDocumentRuntimeExtensions", () => {
   });
 
   it("includes course block extensions and no authoring-only policies", () => {
-    const runtimeExtensionNames = createCourseDocumentRuntimeExtensions()
+    const runtimeExtensionNames = createCourseDocumentRuntimeExtensions({
+      composition: coreRuntimeComposition,
+    })
       .map((extension) => extension.name)
       .filter((name): name is string => typeof name === "string");
     const runtimeExtensionNameSet = new Set(runtimeExtensionNames);
@@ -138,7 +152,9 @@ describe("createCourseDocumentRuntimeExtensions", () => {
   });
 
   it("keeps runtime identity and frame policies tied to built-in Block definitions", () => {
-    const extensions = createCourseDocumentRuntimeExtensions();
+    const extensions = createCourseDocumentRuntimeExtensions({
+      composition: coreRuntimeComposition,
+    });
     const runtimeUniqueId = extensions.find((extension) => extension.name === "uniqueID");
     const runtimeFrame = extensions.find(
       (extension) => extension.name === "runtimeBlockFrameAttributes",
@@ -155,7 +171,9 @@ describe("createCourseDocumentRuntimeExtensions", () => {
   });
 
   it("uses runtime arrangement nodes", () => {
-    const extensions = createCourseDocumentRuntimeExtensions();
+    const extensions = createCourseDocumentRuntimeExtensions({
+      composition: coreRuntimeComposition,
+    });
 
     expect(extensions.find((extension) => extension.name === "grid")).toBe(GridRuntimeNode);
     expect(extensions.find((extension) => extension.name === "cell")).toBe(CellRuntimeNode);
@@ -168,7 +186,7 @@ describe("createCourseDocumentRuntimeExtensions", () => {
   it("renders a persisted built-in Layout through the runtime composition", async () => {
     const editor = new Editor({
       editable: false,
-      extensions: createCourseDocumentRuntimeExtensions(),
+      extensions: createCourseDocumentRuntimeExtensions({ composition: coreRuntimeComposition }),
       content: persistedTabsDocument(),
     });
 

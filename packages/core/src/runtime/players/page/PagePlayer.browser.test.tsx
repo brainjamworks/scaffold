@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { createScaffoldDocumentContent } from "@/format/artifact";
+import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { createAssessmentRuntimeTestRoot } from "@/runtime/assessment/test-utils";
 import {
   createScaffoldDefaultTheme,
@@ -13,6 +14,8 @@ import {
 import "@/styles/globals.css";
 
 import { PagePlayer } from "./PagePlayer";
+
+const runtimeComposition = createCoreScaffoldRuntimeComposition();
 
 let roots: Root[] = [];
 let hosts: HTMLElement[] = [];
@@ -274,6 +277,7 @@ async function mountPage(
     createAssessmentRuntimeTestRoot({
       children: (
         <PagePlayer
+          composition={runtimeComposition}
           initialContent={initialContent}
           {...(resolvedTheme ? { resolvedTheme } : {})}
           surfaceId="surface-page-player-browser"

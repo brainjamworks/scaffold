@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it } from "vite-plus/test";
+import { createCoreScaffoldAuthoringComposition } from "@scaffold/core/authoring";
+import { createCoreScaffoldRuntimeComposition } from "@scaffold/core/runtime";
 
 import "@/styles/globals.css";
 
@@ -14,6 +16,8 @@ import { expandSlideCompositionCases } from "./slide-composition-cases";
 const IMAGE_OVERLAY_STATES = expandSlideCompositionCases().filter((state) =>
   ["full-bleed-image", "image-backdrop-panel"].includes(state.composition),
 );
+const authoringComposition = createCoreScaffoldAuthoringComposition();
+const runtimeComposition = createCoreScaffoldRuntimeComposition();
 
 let rendered: RenderedCompositionStateCase | null = null;
 
@@ -26,7 +30,7 @@ describe("Image overlay composition geometry", () => {
   it.each(IMAGE_OVERLAY_STATES)(
     "$composition title=$title orientation=$orientation proportion=$proportion",
     async (state) => {
-      rendered = await renderCompositionStateCase(state, {
+      rendered = await renderCompositionStateCase(state, authoringComposition, runtimeComposition, {
         backgroundImageUrl: "https://example.test/overlay.png",
       });
       rendered.runtime.host.style.padding = "0";

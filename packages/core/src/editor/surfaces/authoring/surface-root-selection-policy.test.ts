@@ -5,7 +5,9 @@ import { GapCursor } from "@tiptap/pm/gapcursor";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
+import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 
+const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 const editors: Editor[] = [];
 
 afterEach(() => {
@@ -49,7 +51,10 @@ describe("SurfaceRootSelectionPolicy", () => {
 
 function makeEditor(content: JSONContent): Editor {
   const editor = new Editor({
-    extensions: createCourseDocumentAuthoringExtensions({ editable: true }),
+    extensions: createCourseDocumentAuthoringExtensions({
+      composition: coreAuthoringComposition,
+      editable: true,
+    }),
     content,
   });
   editors.push(editor);

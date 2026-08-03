@@ -1,11 +1,17 @@
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
 import { createRoot, type Root } from "react-dom/client";
 
-import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor";
+import {
+  CourseDocumentEditor,
+  type CourseDocumentEditorProps,
+} from "@/document/authoring/CourseDocumentEditor";
 import { isRegisteredSlideCompositionSurfaceDefinition } from "@/editor/surfaces/model/slide-composition-definition";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { createScaffoldDocumentContent } from "@/format/artifact";
-import { CourseDocumentRuntimeRenderer } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
+import {
+  CourseDocumentRuntimeRenderer,
+  type CourseDocumentRuntimeRendererProps,
+} from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
 import "@/runtime/players/slideshow/SlideshowPlayer.css";
 
 import type { CompositionStateCase } from "./slide-composition-cases";
@@ -73,6 +79,8 @@ export interface RenderRegisteredSurfaceVariantOptions {
 
 export async function renderCompositionStateCase(
   state: CompositionStateCase,
+  authoringComposition: CourseDocumentEditorProps["composition"],
+  runtimeComposition: CourseDocumentRuntimeRendererProps["composition"],
   options: RenderCompositionStateCaseOptions = {},
 ): Promise<RenderedCompositionStateCase> {
   const initialContent = createCompositionDocument(
@@ -86,11 +94,15 @@ export async function renderCompositionStateCase(
     `geometry-${state.composition}`,
     options.authoringEditable ?? false,
     describeState(state),
+    authoringComposition,
+    runtimeComposition,
   );
 }
 
 export async function renderRegisteredSurfaceVariant(
   variant: string,
+  authoringComposition: CourseDocumentEditorProps["composition"],
+  runtimeComposition: CourseDocumentRuntimeRendererProps["composition"],
   options: RenderRegisteredSurfaceVariantOptions = {},
 ): Promise<RenderedCompositionStateCase> {
   return renderDocumentPair(
@@ -98,6 +110,8 @@ export async function renderRegisteredSurfaceVariant(
     `geometry-${variant}`,
     options.authoringEditable ?? false,
     `variant=${variant}`,
+    authoringComposition,
+    runtimeComposition,
   );
 }
 
@@ -113,6 +127,8 @@ async function renderDocumentPair(
   visibleSurfaceId: string,
   authoringEditable: boolean,
   description: string,
+  authoringComposition: CourseDocumentEditorProps["composition"],
+  runtimeComposition: CourseDocumentRuntimeRendererProps["composition"],
 ): Promise<RenderedCompositionStateCase> {
   const harnessHost = globalThis.document.createElement("div");
   harnessHost.dataset["compositionBrowserHarness"] = "";
@@ -137,6 +153,7 @@ async function renderDocumentPair(
     });
     authoringRoot.render(
       <CourseDocumentEditor
+        composition={authoringComposition}
         source={{ mode: "document", content: cloneJSON(initialContent) }}
         editable={authoringEditable}
         onReady={authoringReady}
@@ -148,6 +165,7 @@ async function renderDocumentPair(
     });
     runtimeRoot.render(
       <CourseDocumentRuntimeRenderer
+        composition={runtimeComposition}
         initialContent={cloneJSON(initialContent)}
         visibleSurfaceId={visibleSurfaceId}
         onReady={runtimeReady}

@@ -3,9 +3,12 @@ import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor";
+import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import "@/styles/globals.css";
+
+const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 
 let dispose: (() => void) | null = null;
 
@@ -27,6 +30,7 @@ describe("bounded Region authoring geometry", () => {
 
     root.render(
       <CourseDocumentEditor
+        composition={coreAuthoringComposition}
         source={{ mode: "document", content }}
         editable
         onReady={(nextEditor) => {

@@ -12,6 +12,7 @@ import {
   type SurfaceCapability,
 } from "@/composition/application/create-scaffold-application";
 import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
+import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { emptyCalloutData } from "@/editor/blocks/presentation/callout/content";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
@@ -36,6 +37,8 @@ import {
   createSurfaceActivityId,
   type XapiSession,
 } from "../xapi";
+
+const runtimeComposition = createCoreScaffoldRuntimeComposition();
 
 const runtimeStoreFactories = vi.hoisted(() => ({
   assessment: vi.fn(),
@@ -557,6 +560,7 @@ describe("ContentRuntimeHost", () => {
     const onEditorReady = vi.fn();
     const view = render(
       <ContentRuntimeHost
+        composition={runtimeComposition}
         artifactId="private-runtime-artifact"
         initialContent={content}
         onEditorReady={onEditorReady}
@@ -580,18 +584,14 @@ describe("ContentRuntimeHost", () => {
 
     await waitFor(() => expect(onEditorReady).toHaveBeenCalledTimes(1));
     expect(
-      document.body.querySelector(
-        `[data-private-runtime-surface="${capability.definition.id}"]`,
-      ),
+      document.body.querySelector(`[data-private-runtime-surface="${capability.definition.id}"]`),
     ).not.toBeNull();
     expect(getScaffoldCapabilitiesForEditor(onEditorReady.mock.calls[0]![0])).toBe(
       application.runtime.capabilities,
     );
     expect(screen.getByTestId("slideshow-player")).toBeInTheDocument();
     expect(
-      document.body.querySelector(
-        `[data-private-runtime-surface="${capability.definition.id}"]`,
-      ),
+      document.body.querySelector(`[data-private-runtime-surface="${capability.definition.id}"]`),
     ).not.toBeNull();
   });
 
@@ -612,6 +612,7 @@ describe("ContentRuntimeHost", () => {
 
     const { rerender } = render(
       <ContentRuntimeHost
+        composition={runtimeComposition}
         artifactId="artifact-host-theme"
         initialContent={content}
         themeExtension={themeExtension}
@@ -625,7 +626,13 @@ describe("ContentRuntimeHost", () => {
       ),
     );
 
-    rerender(<ContentRuntimeHost artifactId="artifact-host-theme" initialContent={content} />);
+    rerender(
+      <ContentRuntimeHost
+        composition={runtimeComposition}
+        artifactId="artifact-host-theme"
+        initialContent={content}
+      />,
+    );
     await waitFor(() =>
       expect(screen.getByTestId("course-theme-scope")).toHaveAttribute(
         "data-effective-course-theme",
@@ -637,6 +644,7 @@ describe("ContentRuntimeHost", () => {
 
     rerender(
       <ContentRuntimeHost
+        composition={runtimeComposition}
         artifactId="artifact-host-theme"
         initialContent={content}
         themeExtension={themeExtension}
@@ -668,6 +676,7 @@ describe("ContentRuntimeHost", () => {
 
     render(
       <ContentRuntimeHost
+        composition={runtimeComposition}
         artifactId="artifact-invalid-host-theme"
         initialContent={content}
         themeExtension={invalidExtension}
@@ -688,6 +697,7 @@ describe("ContentRuntimeHost", () => {
 
     render(
       <ContentRuntimeHost
+        composition={runtimeComposition}
         artifactId="artifact-1"
         initialContent={runtimeDocumentContent()}
         onEditorReady={onEditorReady}
@@ -709,7 +719,11 @@ describe("ContentRuntimeHost", () => {
 
   it("mounts independent assessment and learner activity stores for valid content", () => {
     render(
-      <ContentRuntimeHost artifactId="artifact-1" initialContent={runtimeDocumentContent()} />,
+      <ContentRuntimeHost
+        composition={runtimeComposition}
+        artifactId="artifact-1"
+        initialContent={runtimeDocumentContent()}
+      />,
     );
 
     expect(screen.getByTestId("scaffold-runtime-host")).toBeInTheDocument();
@@ -720,7 +734,11 @@ describe("ContentRuntimeHost", () => {
 
   it("injects one recording-unavailable session accessor into both authoritative stores", () => {
     render(
-      <ContentRuntimeHost artifactId="artifact-1" initialContent={runtimeDocumentContent()} />,
+      <ContentRuntimeHost
+        composition={runtimeComposition}
+        artifactId="artifact-1"
+        initialContent={runtimeDocumentContent()}
+      />,
     );
 
     const assessmentOptions = runtimeStoreFactories.assessment.mock
@@ -740,6 +758,7 @@ describe("ContentRuntimeHost", () => {
     render(
       <ScaffoldServicesProvider ports={{ xapi: port }}>
         <ContentRuntimeHost
+          composition={runtimeComposition}
           artifactId="artifact-1"
           courseTitle="Course One"
           initialContent={runtimeDocumentContent()}
@@ -781,6 +800,7 @@ describe("ContentRuntimeHost", () => {
     render(
       <ScaffoldServicesProvider ports={{ xapi: port }}>
         <ContentRuntimeHost
+          composition={runtimeComposition}
           artifactId="artifact-slideshow"
           initialContent={runtimeDocumentContent({
             mode: "slideshow",
@@ -845,6 +865,7 @@ describe("ContentRuntimeHost", () => {
     render(
       <ScaffoldServicesProvider ports={{ xapi: port }}>
         <ContentRuntimeHost
+          composition={runtimeComposition}
           artifactId="artifact-tabs"
           initialContent={runtimeDocumentWithLayout("tabs")}
         />
@@ -906,6 +927,7 @@ describe("ContentRuntimeHost", () => {
     render(
       <ScaffoldServicesProvider ports={{ xapi: port }}>
         <ContentRuntimeHost
+          composition={runtimeComposition}
           artifactId="artifact-pages"
           initialContent={runtimeDocumentWithLayout("paginated")}
         />
@@ -965,6 +987,7 @@ describe("ContentRuntimeHost", () => {
     render(
       <ScaffoldServicesProvider ports={{ xapi: port }}>
         <ContentRuntimeHost
+          composition={runtimeComposition}
           artifactId="artifact-slide-tabs"
           initialContent={slideshowDocumentWithTabs()}
         />
@@ -1012,6 +1035,7 @@ describe("ContentRuntimeHost", () => {
     render(
       <ScaffoldServicesProvider ports={{ xapi: port }}>
         <ContentRuntimeHost
+          composition={runtimeComposition}
           artifactId="artifact-accordion"
           initialContent={runtimeDocumentWithAccordion()}
         />
@@ -1073,6 +1097,7 @@ describe("ContentRuntimeHost", () => {
     render(
       <ScaffoldServicesProvider ports={{ xapi: port }}>
         <ContentRuntimeHost
+          composition={runtimeComposition}
           artifactId="artifact-slide-accordions"
           initialContent={slideshowDocumentWithAccordions()}
         />
@@ -1123,6 +1148,7 @@ describe("ContentRuntimeHost", () => {
       render(
         <ScaffoldServicesProvider ports={{ xapi: port }}>
           <ContentRuntimeHost
+            composition={runtimeComposition}
             artifactId="artifact-1"
             initialContent={runtimeDocumentContent()}
             onEditorReady={onEditorReady}
@@ -1141,6 +1167,7 @@ describe("ContentRuntimeHost", () => {
     const root = render(
       <ScaffoldServicesProvider ports={{ xapi: port }}>
         <ContentRuntimeHost
+          composition={runtimeComposition}
           artifactId="artifact-1"
           courseTitle="Course One"
           initialContent={runtimeDocumentContent()}
@@ -1160,6 +1187,7 @@ describe("ContentRuntimeHost", () => {
     const runtime = (
       <ScaffoldServicesProvider ports={{ xapi: port }}>
         <ContentRuntimeHost
+          composition={runtimeComposition}
           artifactId="artifact-1"
           courseTitle="Course One"
           initialContent={runtimeDocumentContent()}
@@ -1194,6 +1222,7 @@ describe("ContentRuntimeHost", () => {
     const { rerender } = render(
       <ScaffoldServicesProvider ports={{ xapi: firstPort }}>
         <ContentRuntimeHost
+          composition={runtimeComposition}
           artifactId="artifact-1"
           courseTitle="Course One"
           initialContent={content}
@@ -1213,6 +1242,7 @@ describe("ContentRuntimeHost", () => {
     rerender(
       <ScaffoldServicesProvider ports={{ xapi: secondPort }}>
         <ContentRuntimeHost
+          composition={runtimeComposition}
           artifactId="artifact-1"
           courseTitle="Course One"
           initialContent={content}
@@ -1236,6 +1266,7 @@ describe("ContentRuntimeHost", () => {
     render(
       <StrictMode>
         <ContentRuntimeHost
+          composition={runtimeComposition}
           artifactId="artifact-strict-mcq"
           initialContent={runtimeDocumentWithBlock(runtimeMcqBlock())}
         />
@@ -1253,6 +1284,7 @@ describe("ContentRuntimeHost", () => {
     render(
       <StrictMode>
         <ContentRuntimeHost
+          composition={runtimeComposition}
           artifactId="artifact-strict-matching"
           initialContent={runtimeDocumentWithBlock(runtimeMatchingBlock())}
         />
@@ -1271,6 +1303,7 @@ describe("ContentRuntimeHost", () => {
     render(
       <StrictMode>
         <ContentRuntimeHost
+          composition={runtimeComposition}
           artifactId="artifact-strict-hotspot"
           initialContent={runtimeDocumentWithBlock(runtimeImageHotspotBlock())}
         />
@@ -1300,6 +1333,7 @@ describe("ContentRuntimeHost", () => {
     expect(() =>
       render(
         <ContentRuntimeHost
+          composition={runtimeComposition}
           artifactId="artifact-1"
           initialAssessmentSnapshot={{
             snapshotVersion: 2,
@@ -1316,6 +1350,7 @@ describe("ContentRuntimeHost", () => {
   it("passes an initial learner activity snapshot to its strict sibling provider", () => {
     render(
       <ContentRuntimeHost
+        composition={runtimeComposition}
         artifactId="artifact-1"
         initialLearnerActivitySnapshot={{
           snapshotVersion: 1,
@@ -1335,6 +1370,7 @@ describe("ContentRuntimeHost", () => {
 
     render(
       <ContentRuntimeHost
+        composition={runtimeComposition}
         artifactId="artifact-1"
         initialContent={runtimeDocumentWithBlock(calloutBlock(72))}
         onEditorReady={onEditorReady}
@@ -1354,6 +1390,7 @@ describe("ContentRuntimeHost", () => {
 
     render(
       <ContentRuntimeHost
+        composition={runtimeComposition}
         artifactId="artifact-1"
         initialContent={runtimeDocumentContent()}
         onEditorReady={onEditorReady}
@@ -1378,6 +1415,7 @@ describe("ContentRuntimeHost", () => {
 
     render(
       <ContentRuntimeHost
+        composition={runtimeComposition}
         artifactId="artifact-1"
         initialContent={runtimeDocumentContent()}
         onEditorReady={onEditorReady}
@@ -1399,6 +1437,7 @@ describe("ContentRuntimeHost", () => {
 
     render(
       <ContentRuntimeHost
+        composition={runtimeComposition}
         artifactId="artifact-1"
         initialContent={{ type: "doc", content: [{ type: "paragraph" }] }}
         onEditorReady={onEditorReady}
@@ -1423,6 +1462,7 @@ describe("ContentRuntimeHost", () => {
       render(
         <ScaffoldServicesProvider ports={{ xapi }}>
           <ContentRuntimeHost
+            composition={runtimeComposition}
             artifactId="artifact-1"
             initialAssessmentSnapshot={{ malformed: true }}
             initialLearnerActivitySnapshot={{ malformed: true }}
@@ -1452,6 +1492,7 @@ describe("ContentRuntimeHost", () => {
         }}
       >
         <ContentRuntimeHost
+          composition={runtimeComposition}
           artifactId="artifact-1"
           initialContent={{ type: "doc", content: [{ type: "paragraph" }] }}
         />
@@ -1469,6 +1510,7 @@ describe("ContentRuntimeHost", () => {
 
     render(
       <ContentRuntimeHost
+        composition={runtimeComposition}
         artifactId="artifact-1"
         initialContent={null}
         onEditorReady={onEditorReady}
@@ -1489,6 +1531,7 @@ describe("ContentRuntimeHost", () => {
 
     render(
       <ContentRuntimeHost
+        composition={runtimeComposition}
         artifactId="artifact-1"
         initialContent={{ type: "doc", content: [{ type: "paragraph" }] }}
         onEditorReady={onEditorReady}
@@ -1516,6 +1559,7 @@ describe("ContentRuntimeHost", () => {
 
     render(
       <ContentRuntimeHost
+        composition={runtimeComposition}
         artifactId="artifact-1"
         initialContent={content}
         onEditorReady={onEditorReady}
@@ -1541,6 +1585,7 @@ describe("ContentRuntimeHost", () => {
 
     render(
       <ContentRuntimeHost
+        composition={runtimeComposition}
         artifactId="artifact-1"
         initialContent={content}
         onEditorReady={onEditorReady}
@@ -1573,6 +1618,7 @@ describe("ContentRuntimeHost", () => {
 
     const { rerender } = render(
       <ContentRuntimeHost
+        composition={runtimeComposition}
         artifactId="artifact-1"
         initialContent={invalidSettings}
         onEditorReady={onEditorReady}
@@ -1592,6 +1638,7 @@ describe("ContentRuntimeHost", () => {
     structureSurface.content = [{ type: "paragraph" }];
     rerender(
       <ContentRuntimeHost
+        composition={runtimeComposition}
         artifactId="artifact-1"
         initialContent={invalidStructure}
         onEditorReady={onEditorReady}
@@ -1613,6 +1660,7 @@ describe("ContentRuntimeHost", () => {
 
     render(
       <ContentRuntimeHost
+        composition={runtimeComposition}
         artifactId="artifact-1"
         initialContent={runtimeDocumentContent({ surfaceIds: [] })}
         onEditorReady={onEditorReady}
@@ -1633,6 +1681,7 @@ describe("ContentRuntimeHost", () => {
 
     render(
       <ContentRuntimeHost
+        composition={runtimeComposition}
         artifactId="artifact-1"
         initialContent={runtimeDocumentContent({
           surfaceIds: ["surface-one", "surface-two"],
@@ -1655,6 +1704,7 @@ describe("ContentRuntimeHost", () => {
 
     render(
       <ContentRuntimeHost
+        composition={runtimeComposition}
         artifactId="artifact-1"
         initialContent={runtimeDocumentContent({ surfaceIds: [null] })}
         onEditorReady={onEditorReady}
@@ -1675,6 +1725,7 @@ describe("ContentRuntimeHost", () => {
 
     render(
       <ContentRuntimeHost
+        composition={runtimeComposition}
         artifactId="artifact-1"
         initialContent={runtimeDocumentContent({
           mode: "slideshow",
@@ -1699,6 +1750,7 @@ describe("ContentRuntimeHost", () => {
 
     render(
       <ContentRuntimeHost
+        composition={runtimeComposition}
         artifactId="artifact-1"
         initialContent={runtimeDocumentContent({
           mode: "slideshow",
@@ -1720,6 +1772,7 @@ describe("ContentRuntimeHost", () => {
 
     render(
       <ContentRuntimeHost
+        composition={runtimeComposition}
         artifactId="artifact-1"
         initialContent={runtimeDocumentContent()}
         slideshowSizing="embedded"
@@ -1738,6 +1791,7 @@ describe("ContentRuntimeHost", () => {
 
     render(
       <ContentRuntimeHost
+        composition={runtimeComposition}
         artifactId="artifact-1"
         initialContent={runtimeDocumentContent({
           mode: "slideshow",
@@ -1766,6 +1820,7 @@ describe("ContentRuntimeHost", () => {
 
     render(
       <ContentRuntimeHost
+        composition={runtimeComposition}
         artifactId="artifact-1"
         initialContent={runtimeDocumentContent({
           mode: "slideshow",
@@ -1789,6 +1844,7 @@ describe("ContentRuntimeHost", () => {
 
     render(
       <ContentRuntimeHost
+        composition={runtimeComposition}
         artifactId="artifact-1"
         initialContent={runtimeDocumentContent({
           mode: "slideshow",
@@ -1812,6 +1868,7 @@ describe("ContentRuntimeHost", () => {
 
     render(
       <ContentRuntimeHost
+        composition={runtimeComposition}
         artifactId="artifact-1"
         initialContent={runtimeDocumentContent({
           mode: "branching",
@@ -1852,6 +1909,7 @@ describe("ContentRuntimeHost", () => {
         }}
       >
         <ContentRuntimeHost
+          composition={runtimeComposition}
           artifactId="artifact-runtime"
           courseTitle="Runtime Course"
           initialContent={runtimeDocumentContent()}
@@ -1889,6 +1947,7 @@ describe("ContentRuntimeHost", () => {
         }}
       >
         <ContentRuntimeHost
+          composition={runtimeComposition}
           artifactId="artifact-runtime"
           courseTitle="Runtime Course"
           initialContent={runtimeDocumentContent()}
@@ -1914,6 +1973,7 @@ describe("ContentRuntimeHost", () => {
     const { rerender } = render(
       <ScaffoldServicesProvider ports={{ learnerActivity, xapi }}>
         <ContentRuntimeHost
+          composition={runtimeComposition}
           artifactId="artifact-one"
           courseTitle="Runtime Course"
           initialContent={content}
@@ -1926,6 +1986,7 @@ describe("ContentRuntimeHost", () => {
     rerender(
       <ScaffoldServicesProvider ports={{ learnerActivity, xapi }}>
         <ContentRuntimeHost
+          composition={runtimeComposition}
           artifactId="artifact-two"
           courseTitle="Runtime Course"
           initialContent={content}
@@ -1958,6 +2019,7 @@ describe("ContentRuntimeHost", () => {
 
     render(
       <ContentRuntimeHost
+        composition={runtimeComposition}
         artifactId="artifact-frame"
         initialContent={runtimeDocumentWithBlock(calloutBlock(widthPercent))}
         onEditorReady={onEditorReady}

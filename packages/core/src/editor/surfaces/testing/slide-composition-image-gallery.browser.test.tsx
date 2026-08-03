@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it } from "vite-plus/test";
+import { createCoreScaffoldAuthoringComposition } from "@scaffold/core/authoring";
+import { createCoreScaffoldRuntimeComposition } from "@scaffold/core/runtime";
 
 import "@/styles/globals.css";
 
@@ -14,6 +16,8 @@ import { expandSlideCompositionCases } from "./slide-composition-cases";
 const GALLERY_STATES = expandSlideCompositionCases().filter((state) =>
   ["diptych", "triptych"].includes(state.composition),
 );
+const authoringComposition = createCoreScaffoldAuthoringComposition();
+const runtimeComposition = createCoreScaffoldRuntimeComposition();
 
 let rendered: RenderedCompositionStateCase | null = null;
 
@@ -24,7 +28,7 @@ afterEach(() => {
 
 describe("Image gallery composition geometry", () => {
   it.each(GALLERY_STATES)("$composition title=$title", async (state) => {
-    rendered = await renderCompositionStateCase(state);
+    rendered = await renderCompositionStateCase(state, authoringComposition, runtimeComposition);
     rendered.runtime.host.style.padding = "0";
     const authoringDocument = rendered.authoring.editor.getJSON();
     const runtimeDocument = rendered.runtime.editor.getJSON();

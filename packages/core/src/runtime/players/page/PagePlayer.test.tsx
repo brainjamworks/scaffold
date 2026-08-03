@@ -6,9 +6,12 @@ import type { JSONContent } from "@tiptap/core";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { createScaffoldDocumentContent } from "@/format/artifact";
+import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { createAssessmentRuntimeTestRoot } from "@/runtime/assessment/test-utils";
 
 import { PagePlayer } from "./PagePlayer";
+
+const runtimeComposition = createCoreScaffoldRuntimeComposition();
 
 afterEach(() => {
   cleanup();
@@ -137,6 +140,7 @@ describe("PagePlayer", () => {
 
     render(
       <PagePlayer
+        composition={runtimeComposition}
         artifactId="artifact-page-player"
         initialContent={initialContent}
         surfaceId="surface-page-player"
@@ -160,6 +164,7 @@ describe("PagePlayer", () => {
 
     render(
       <PagePlayer
+        composition={runtimeComposition}
         artifactId="artifact-page-player"
         initialContent={pageDocumentWithText("Plain learner content")}
         surfaceId="surface-page-player"
@@ -201,6 +206,7 @@ describe("PagePlayer", () => {
       createAssessmentRuntimeTestRoot({
         children: (
           <PagePlayer
+            composition={runtimeComposition}
             artifactId="artifact-page-runtime-popover"
             initialContent={pageDocumentWithRuntimeHint()}
             surfaceId="surface-page-player"

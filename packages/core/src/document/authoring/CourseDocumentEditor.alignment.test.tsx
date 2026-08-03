@@ -20,11 +20,14 @@ import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 import { CourseDocumentRuntimeRenderer } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
+import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { createScaffoldDefaultTheme } from "@/theme/model";
 
 import { CourseDocumentEditor } from "./CourseDocumentEditor";
 
-const coreInsertCatalog = createCoreScaffoldAuthoringComposition().catalogues.inDocument;
+const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
+const coreRuntimeComposition = createCoreScaffoldRuntimeComposition();
+const coreInsertCatalog = coreAuthoringComposition.catalogues.inDocument;
 const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: builtInBlockRegistry,
   surfaceVariants: builtInSurfaceVariantRegistry,
@@ -219,11 +222,16 @@ describe("CourseDocumentEditor unified alignment", () => {
     const view = render(
       <div>
         <div data-testid="parity-authoring">
-          <CourseDocumentEditor source={{ mode: "document", content }} onReady={onAuthoringReady} />
+          <CourseDocumentEditor
+            composition={coreAuthoringComposition}
+            source={{ mode: "document", content }}
+            onReady={onAuthoringReady}
+          />
         </div>
         <div data-testid="parity-runtime">
           <CourseDocumentRuntimeRenderer
             artifactId="artifact-parity"
+            composition={coreRuntimeComposition}
             initialContent={content}
             onReady={onRuntimeReady}
           />
@@ -271,6 +279,7 @@ async function mountEditor(content: JSONContent): Promise<Editor> {
   const onReady = vi.fn();
   render(
     createElement(CourseDocumentEditor, {
+      composition: coreAuthoringComposition,
       source: { mode: "document", content },
       onReady,
     }),

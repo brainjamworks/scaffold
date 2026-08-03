@@ -16,6 +16,7 @@ import type {
 } from "@scaffold/core/runtime";
 
 type RuntimeTypeSurface = {
+  runtimeLaneViolation: ScaffoldAuthoringComposition;
   composition: ScaffoldRuntimeComposition;
   contentRuntimeHostProps: ContentRuntimeHostProps;
   documentMigrationErrorCode: CourseDocumentMigrationErrorCode;
@@ -45,5 +46,11 @@ describe("@scaffold/core/runtime", () => {
 
   it("publishes the runtime host, port, migration, and sizing types", () => {
     expectTypeOf<RuntimeTypeSurface>().toBeObject();
+    expectTypeOf<
+      {} extends Pick<ScaffoldLearnerAppProps, "composition"> ? true : false
+    >().toEqualTypeOf<false>();
+    expectTypeOf<
+      {} extends Pick<ContentRuntimeHostProps, "composition"> ? true : false
+    >().toEqualTypeOf<false>();
   });
 });

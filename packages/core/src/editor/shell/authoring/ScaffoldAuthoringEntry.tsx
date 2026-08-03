@@ -4,10 +4,7 @@ import type {
   ScaffoldAuthoringArtifact,
   ScaffoldAuthoringEntryHostServices,
 } from "@/host/contracts";
-import {
-  createScaffoldApplication,
-  type ScaffoldApplication,
-} from "@/composition/application/create-scaffold-application";
+import type { ScaffoldApplication } from "@/composition/application/create-scaffold-application";
 
 import {
   DocumentCreationGate,
@@ -21,8 +18,6 @@ type ArtifactCreationCapability = typeof import("./createAndPersistAuthoringArti
 
 let readyAuthoringCapabilityPromise: Promise<ReadyAuthoringCapability> | null = null;
 let artifactCreationCapabilityPromise: Promise<ArtifactCreationCapability> | null = null;
-// Migration-only while product roots adopt the required application prop in Task 4.
-const CORE_APPLICATION_FALLBACK = createScaffoldApplication();
 
 function loadReadyAuthoringCapability(): Promise<ReadyAuthoringCapability> {
   readyAuthoringCapabilityPromise ??= import("./ScaffoldAuthoringApp");
@@ -46,13 +41,13 @@ export interface ScaffoldAuthoringEntryProps extends Omit<
   ScaffoldAuthoringAppProps,
   "artifact" | "services"
 > {
-  application?: ScaffoldApplication;
+  application: ScaffoldApplication;
   artifact: ScaffoldAuthoringArtifact | null;
   services: ScaffoldAuthoringEntryHostServices;
 }
 
 export function ScaffoldAuthoringEntry({
-  application = CORE_APPLICATION_FALLBACK,
+  application,
   artifact,
   services,
   ...appProps

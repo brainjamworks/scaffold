@@ -11,7 +11,7 @@ import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvi
 
 export interface ScaffoldLearnerAppProps extends ScaffoldLearnerColorModeProps {
   bootstrap: ScaffoldLearnerBootstrap;
-  composition?: ScaffoldRuntimeComposition;
+  composition: ScaffoldRuntimeComposition;
   services: ScaffoldLearnerHostServices;
   slideshowSizing?: SlideshowPlayerSizing;
   themeExtension?: ScaffoldThemeExtension;
@@ -39,7 +39,7 @@ export function ScaffoldLearnerApp({
     <ScaffoldServicesProvider ports={ports}>
       <ContentRuntimeHost
         artifactId={bootstrap.artifactId}
-        {...(composition ? { composition } : {})}
+        composition={composition}
         courseTitle={bootstrap.title}
         {...(bootstrap.initialLearnerState?.assessmentSnapshot === undefined
           ? {}

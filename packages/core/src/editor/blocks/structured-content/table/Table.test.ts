@@ -8,6 +8,7 @@ import { createElement } from "react";
 import { describe, expect, it } from "vite-plus/test";
 
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
+import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { createStableId } from "@/document/model/identity/stable-ids";
 import { AUTHORING_FRAME_EDITABLE_ATTR } from "@/editor/interactions/dom/authoring-frame";
@@ -19,6 +20,7 @@ import { describeBlockContract } from "@/editor/testing";
 
 import { tableBlockDefinition } from "./table-definition";
 
+const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 const blockInsertCatalog = createInsertCatalog(createBlockInsertActions([tableBlockDefinition]));
 
 describeBlockContract({
@@ -333,7 +335,12 @@ describe("Table containment contract", () => {
 
 function createTableContractEditor(): Editor {
   return new Editor({
-    extensions: [...createCourseDocumentAuthoringExtensions({ editable: true })],
+    extensions: [
+      ...createCourseDocumentAuthoringExtensions({
+        composition: coreAuthoringComposition,
+        editable: true,
+      }),
+    ],
   });
 }
 

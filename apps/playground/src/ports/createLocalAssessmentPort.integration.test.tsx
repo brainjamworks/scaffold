@@ -6,11 +6,13 @@ import type { JSONContent } from "@tiptap/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { createScaffoldDocumentContent } from "@scaffold/core/format";
-import { ScaffoldLearnerApp } from "@scaffold/core/runtime";
+import { ScaffoldLearnerApp, createCoreScaffoldRuntimeComposition } from "@scaffold/core/runtime";
 
 import { createLocalAssessmentPortFromProjection } from "./createLocalAssessmentPort";
 import { LOCAL_ARTIFACT_ID } from "./local-artifact-id";
 import { quizAssessmentProjection } from "./localAssessmentProjection.test-fixture";
+
+const runtimeComposition = createCoreScaffoldRuntimeComposition();
 
 class ResizeObserverStub implements ResizeObserver {
   readonly observe = vi.fn();
@@ -40,6 +42,7 @@ describe("Playground local assessment runtime composition", () => {
 
     render(
       <ScaffoldLearnerApp
+        composition={runtimeComposition}
         bootstrap={{
           artifactId: LOCAL_ARTIFACT_ID,
           title: "Local quiz",

@@ -34,7 +34,7 @@ interface EmbeddedStageStyle extends CSSProperties {
 
 export interface SlideshowPlayerProps {
   artifactId?: string | null;
-  composition?: CourseDocumentRuntimeRendererProps["composition"];
+  composition: CourseDocumentRuntimeRendererProps["composition"];
   initialContent: JSONContent;
   resolvedTheme?: ResolvedCourseTheme;
   surfaceIds: [string, ...string[]];
@@ -233,7 +233,7 @@ export function SlideshowPlayer({
                   >
                     <CourseDocumentRuntimeRenderer
                       artifactId={artifactId ?? null}
-                      {...(composition ? { composition } : {})}
+                      composition={composition}
                       initialContent={initialContent}
                       {...(resolvedTheme ? { resolvedTheme } : {})}
                       surfaceStates={surfaceStates}

@@ -7,11 +7,14 @@ import { createElement } from "react";
 import { describe, expect, it } from "vite-plus/test";
 
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
+import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import {
   createScaffoldApplication,
   defineScaffoldExtensionPack,
   type LayoutCapability,
 } from "@/composition/application/create-scaffold-application";
+
+const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 
 describe("editor placeholder resolver", () => {
   it("resolves a host Layout paragraph placeholder from the editor composition", () => {
@@ -84,7 +87,12 @@ describe("editor placeholder resolver", () => {
 
   it("resolves block-owned field placeholders through block definitions", () => {
     const editor = new Editor({
-      extensions: [...createCourseDocumentAuthoringExtensions({ editable: true })],
+      extensions: [
+        ...createCourseDocumentAuthoringExtensions({
+          composition: coreAuthoringComposition,
+          editable: true,
+        }),
+      ],
       content: {
         type: "doc",
         content: [
@@ -134,7 +142,12 @@ describe("editor placeholder resolver", () => {
 
   it("resolves empty assessment title and instruction placeholders through the owning definition", () => {
     const editor = new Editor({
-      extensions: [...createCourseDocumentAuthoringExtensions({ editable: true })],
+      extensions: [
+        ...createCourseDocumentAuthoringExtensions({
+          composition: coreAuthoringComposition,
+          editable: true,
+        }),
+      ],
       content: {
         type: "doc",
         content: [
@@ -206,7 +219,12 @@ describe("editor placeholder resolver", () => {
 
   it("resolves placeholders for editorial field blocks", () => {
     const editor = new Editor({
-      extensions: [...createCourseDocumentAuthoringExtensions({ editable: true })],
+      extensions: [
+        ...createCourseDocumentAuthoringExtensions({
+          composition: coreAuthoringComposition,
+          editable: true,
+        }),
+      ],
       content: {
         type: "doc",
         content: [
@@ -292,7 +310,12 @@ describe("editor placeholder resolver", () => {
 
   it("resolves placeholders for editorial blocks with nested block containers", () => {
     const editor = new Editor({
-      extensions: [...createCourseDocumentAuthoringExtensions({ editable: true })],
+      extensions: [
+        ...createCourseDocumentAuthoringExtensions({
+          composition: coreAuthoringComposition,
+          editable: true,
+        }),
+      ],
       content: {
         type: "doc",
         content: [
@@ -374,7 +397,10 @@ describe("editor placeholder resolver", () => {
 
   it("resolves cover slide placeholders through surface slots", () => {
     const editor = new Editor({
-      extensions: createCourseDocumentAuthoringExtensions({ editable: true }),
+      extensions: createCourseDocumentAuthoringExtensions({
+        composition: coreAuthoringComposition,
+        editable: true,
+      }),
       content: {
         type: "doc",
         content: [

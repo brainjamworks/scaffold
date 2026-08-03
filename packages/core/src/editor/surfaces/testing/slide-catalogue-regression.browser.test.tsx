@@ -2,6 +2,8 @@ import type { Editor as TiptapEditor } from "@tiptap/core";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { userEvent } from "vite-plus/test/browser/context";
+import { createCoreScaffoldAuthoringComposition } from "@scaffold/core/authoring";
+import { createCoreScaffoldRuntimeComposition } from "@scaffold/core/runtime";
 
 import { AuthoringSurfaceView } from "@/editor/surfaces/authoring/views/AuthoringSurfaceView";
 import { RuntimeSurfaceView } from "@/editor/surfaces/runtime/views/RuntimeSurfaceView";
@@ -25,6 +27,8 @@ const TITLE_VARIANTS = [
 ] as const;
 const TITLE_TEXT = "Catalogue title";
 const IMAGE_ALT = "Catalogue acceptance image";
+const authoringComposition = createCoreScaffoldAuthoringComposition();
+const runtimeComposition = createCoreScaffoldRuntimeComposition();
 
 let rendered: RenderedCompositionStateCase | null = null;
 let fluidRoot: Root | null = null;
@@ -43,11 +47,16 @@ describe("slide catalogue regression", () => {
   it.each(TITLE_VARIANTS)(
     "keeps $variant specialised with intrinsic authoring/runtime geometry",
     async ({ variant, imageSlot }) => {
-      rendered = await renderRegisteredSurfaceVariant(variant, {
-        imageAlt: IMAGE_ALT,
-        imageUrl: inlineImageUrl(),
-        titleText: TITLE_TEXT,
-      });
+      rendered = await renderRegisteredSurfaceVariant(
+        variant,
+        authoringComposition,
+        runtimeComposition,
+        {
+          imageAlt: IMAGE_ALT,
+          imageUrl: inlineImageUrl(),
+          titleText: TITLE_TEXT,
+        },
+      );
       rendered.runtime.host.style.padding = "0";
       const authoringDocument = rendered.authoring.editor.getJSON();
       const runtimeDocument = rendered.runtime.editor.getJSON();
@@ -67,9 +76,14 @@ describe("slide catalogue regression", () => {
   );
 
   it("fits a long module-cover title in both authoring and runtime", async () => {
-    rendered = await renderRegisteredSurfaceVariant("slide-module-cover", {
-      titleText: "Explicit cascade ownership that remains readable with a longer module title",
-    });
+    rendered = await renderRegisteredSurfaceVariant(
+      "slide-module-cover",
+      authoringComposition,
+      runtimeComposition,
+      {
+        titleText: "Explicit cascade ownership that remains readable with a longer module title",
+      },
+    );
     rendered.runtime.host.style.padding = "0";
     await document.fonts.ready;
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
@@ -100,7 +114,7 @@ describe("slide catalogue regression", () => {
     );
     if (!state) throw new Error("Two columns acceptance state is not registered.");
 
-    rendered = await renderCompositionStateCase(state, {
+    rendered = await renderCompositionStateCase(state, authoringComposition, runtimeComposition, {
       authoringEditable: true,
       nestedGrid: true,
     });

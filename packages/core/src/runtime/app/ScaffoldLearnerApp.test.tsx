@@ -9,6 +9,7 @@ import {
   defineScaffoldExtensionPack,
   type SurfaceCapability,
 } from "@/composition/application/create-scaffold-application";
+import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import type { SurfaceAuthoringViewProps } from "@/editor/surfaces/authoring/surface-authoring-view-registry";
 import type { SurfaceRuntimeViewProps } from "@/editor/surfaces/runtime/surface-runtime-view-registry";
@@ -18,6 +19,8 @@ import type { XapiPort } from "@/host/ports";
 import { SCAFFOLD_DEFAULT_PRESET, type ScaffoldThemeExtension } from "@/theme/model";
 
 import { ScaffoldLearnerApp } from "./ScaffoldLearnerApp";
+
+const runtimeComposition = createCoreScaffoldRuntimeComposition();
 
 class ResizeObserverStub implements ResizeObserver {
   readonly observe = vi.fn((target: Element) => {
@@ -226,9 +229,7 @@ describe("ScaffoldLearnerApp", () => {
 
     await waitFor(() =>
       expect(
-        document.body.querySelector(
-          `[data-private-learner-surface="${capability.definition.id}"]`,
-        ),
+        document.body.querySelector(`[data-private-learner-surface="${capability.definition.id}"]`),
       ).not.toBeNull(),
     );
     expect(screen.queryByTestId("scaffold-runtime-unavailable")).toBeNull();
@@ -249,6 +250,7 @@ describe("ScaffoldLearnerApp", () => {
 
     render(
       <ScaffoldLearnerApp
+        composition={runtimeComposition}
         bootstrap={learnerBootstrap({ learnerContent })}
         services={{}}
         themeExtension={themeExtension}
@@ -277,7 +279,12 @@ describe("ScaffoldLearnerApp", () => {
     const savedTheme = structuredClone(learnerContent.content![0]!.attrs!["theme"]);
     const bootstrap = learnerBootstrap({ learnerContent });
     const view = render(
-      <ScaffoldLearnerApp bootstrap={bootstrap} services={{}} themeExtension={themeExtension} />,
+      <ScaffoldLearnerApp
+        composition={runtimeComposition}
+        bootstrap={bootstrap}
+        services={{}}
+        themeExtension={themeExtension}
+      />,
     );
 
     await screen.findByText("Recoverable host theme");
@@ -286,7 +293,9 @@ describe("ScaffoldLearnerApp", () => {
       hostPreset.id,
     );
 
-    view.rerender(<ScaffoldLearnerApp bootstrap={bootstrap} services={{}} />);
+    view.rerender(
+      <ScaffoldLearnerApp composition={runtimeComposition} bootstrap={bootstrap} services={{}} />,
+    );
     await waitFor(() =>
       expect(screen.getByTestId("course-theme-scope")).toHaveAttribute(
         "data-effective-course-theme",
@@ -296,7 +305,12 @@ describe("ScaffoldLearnerApp", () => {
     expect(screen.queryByRole("alert")).toBeNull();
 
     view.rerender(
-      <ScaffoldLearnerApp bootstrap={bootstrap} services={{}} themeExtension={themeExtension} />,
+      <ScaffoldLearnerApp
+        composition={runtimeComposition}
+        bootstrap={bootstrap}
+        services={{}}
+        themeExtension={themeExtension}
+      />,
     );
     await waitFor(() =>
       expect(screen.getByTestId("course-theme-scope")).toHaveAttribute(
@@ -309,7 +323,12 @@ describe("ScaffoldLearnerApp", () => {
 
   it("applies an explicit host mode to learner chrome and course presentation", async () => {
     const { rerender } = render(
-      <ScaffoldLearnerApp bootstrap={learnerBootstrap()} hostColorMode="dark" services={{}} />,
+      <ScaffoldLearnerApp
+        composition={runtimeComposition}
+        bootstrap={learnerBootstrap()}
+        hostColorMode="dark"
+        services={{}}
+      />,
     );
 
     await screen.findByText("Projected learner content");
@@ -321,7 +340,12 @@ describe("ScaffoldLearnerApp", () => {
     expect(courseScope).toHaveAttribute("data-course-color-mode", "dark");
 
     rerender(
-      <ScaffoldLearnerApp bootstrap={learnerBootstrap()} hostColorMode="light" services={{}} />,
+      <ScaffoldLearnerApp
+        composition={runtimeComposition}
+        bootstrap={learnerBootstrap()}
+        hostColorMode="light"
+        services={{}}
+      />,
     );
 
     await waitFor(() => {
@@ -332,7 +356,13 @@ describe("ScaffoldLearnerApp", () => {
 
   it("updates learner chrome and course presentation with the browser fallback", async () => {
     const media = installColorModePreference(false);
-    render(<ScaffoldLearnerApp bootstrap={learnerBootstrap()} services={{}} />);
+    render(
+      <ScaffoldLearnerApp
+        composition={runtimeComposition}
+        bootstrap={learnerBootstrap()}
+        services={{}}
+      />,
+    );
 
     await screen.findByText("Projected learner content");
     const runtimeHost = screen.getByTestId("scaffold-runtime-host");
@@ -349,7 +379,13 @@ describe("ScaffoldLearnerApp", () => {
   });
 
   it("renders projected learner content from learner bootstrap", async () => {
-    render(<ScaffoldLearnerApp bootstrap={learnerBootstrap()} services={{}} />);
+    render(
+      <ScaffoldLearnerApp
+        composition={runtimeComposition}
+        bootstrap={learnerBootstrap()}
+        services={{}}
+      />,
+    );
 
     expect(await screen.findByText("Projected learner content")).toBeInTheDocument();
     expect(screen.getByTestId("scaffold-runtime-host")).toBeInTheDocument();
@@ -363,6 +399,7 @@ describe("ScaffoldLearnerApp", () => {
   it("renders slideshow learner content through the slideshow player", async () => {
     render(
       <ScaffoldLearnerApp
+        composition={runtimeComposition}
         bootstrap={learnerBootstrap({
           mode: "slideshow",
           learnerContent: learnerDocumentForMode("slideshow"),
@@ -382,6 +419,7 @@ describe("ScaffoldLearnerApp", () => {
   it("allows a two-axis host to request contained slideshow fitting", async () => {
     render(
       <ScaffoldLearnerApp
+        composition={runtimeComposition}
         bootstrap={learnerBootstrap({
           mode: "slideshow",
           learnerContent: learnerDocumentForMode("slideshow"),
@@ -399,6 +437,7 @@ describe("ScaffoldLearnerApp", () => {
   it("renders an MCQ through runtime-only block registration", async () => {
     render(
       <ScaffoldLearnerApp
+        composition={runtimeComposition}
         bootstrap={learnerBootstrap({
           learnerContent: learnerDocumentWithMcq(),
         })}
@@ -431,6 +470,7 @@ describe("ScaffoldLearnerApp", () => {
 
     render(
       <ScaffoldLearnerApp
+        composition={runtimeComposition}
         bootstrap={learnerBootstrap({ artifactId: "artifact-services" })}
         services={services}
       />,
@@ -457,6 +497,7 @@ describe("ScaffoldLearnerApp", () => {
   it("accepts a strict assessment snapshot while keeping activity state separate", async () => {
     render(
       <ScaffoldLearnerApp
+        composition={runtimeComposition}
         bootstrap={learnerBootstrap({
           initialLearnerState: {
             assessmentSnapshot: {
@@ -515,7 +556,11 @@ describe("ScaffoldLearnerApp", () => {
       },
     });
 
-    expect(() => render(<ScaffoldLearnerApp bootstrap={bootstrap} services={{}} />)).toThrow();
+    expect(() =>
+      render(
+        <ScaffoldLearnerApp composition={runtimeComposition} bootstrap={bootstrap} services={{}} />,
+      ),
+    ).toThrow();
   });
 });
 

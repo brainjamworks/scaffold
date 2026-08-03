@@ -6,6 +6,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
+import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
@@ -20,6 +21,7 @@ import type { InsertAction } from "./insert-action";
 import { createInsertCatalog } from "./insert-catalog";
 
 const TestIcon = (() => null) as unknown as Icon;
+const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 const editors: Editor[] = [];
 
 const TestManualBlock = Node.create({
@@ -98,7 +100,13 @@ function makeAlignedEditor() {
 
 function makeCourseEditor(content: JSONContent) {
   const editor = new Editor({
-    extensions: [...createCourseDocumentAuthoringExtensions({ editable: true }), TestManualBlock],
+    extensions: [
+      ...createCourseDocumentAuthoringExtensions({
+        composition: coreAuthoringComposition,
+        editable: true,
+      }),
+      TestManualBlock,
+    ],
     content,
   });
   editors.push(editor);

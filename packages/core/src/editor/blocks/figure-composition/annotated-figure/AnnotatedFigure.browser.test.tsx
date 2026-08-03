@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser/context";
 
 import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor";
+import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
+import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
@@ -18,6 +20,8 @@ import "./AnnotatedFigure.css";
 
 const mountedRoots: Root[] = [];
 const mountedPairs: MountedPair[] = [];
+const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
+const coreRuntimeComposition = createCoreScaffoldRuntimeComposition();
 
 afterEach(() => {
   for (const pair of mountedPairs.splice(0)) pair.dispose();
@@ -515,6 +519,7 @@ async function mountBoundedPair(
   authoringRoot.render(
     <ScaffoldServicesProvider ports={ports}>
       <CourseDocumentEditor
+        composition={coreAuthoringComposition}
         source={{ mode: "document", content: cloneJSON(initialContent) }}
         editable
         onReady={(editor) => {
@@ -526,6 +531,7 @@ async function mountBoundedPair(
   runtimeRoot.render(
     <ScaffoldServicesProvider ports={ports}>
       <CourseDocumentRuntimeRenderer
+        composition={coreRuntimeComposition}
         initialContent={cloneJSON(initialContent)}
         visibleSurfaceId="annotated-figure-bounded"
         onReady={(editor) => {

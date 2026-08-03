@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser/context";
 
 import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor";
+import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
+import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import "@/editor/frame/view/bounded-placement.css";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { createScaffoldDocumentContent } from "@/format/artifact";
@@ -23,6 +25,8 @@ import {
 import "./flashcard.css";
 
 const mountedPairs: MountedFlashcardPair[] = [];
+const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
+const coreRuntimeComposition = createCoreScaffoldRuntimeComposition();
 
 afterEach(() => {
   for (const pair of mountedPairs.splice(0)) pair.dispose();
@@ -407,6 +411,7 @@ async function mountRealFlashcardPair(): Promise<MountedFlashcardPair> {
 
   authoringRoot.render(
     createElement(CourseDocumentEditor, {
+      composition: coreAuthoringComposition,
       source: { mode: "document", content: cloneJSON(initialContent) },
       editable: true,
       onReady: (editor) => {
@@ -419,6 +424,7 @@ async function mountRealFlashcardPair(): Promise<MountedFlashcardPair> {
       artifactId: "flashcard-browser-artifact",
       children: createElement(LearnerActivityRuntimeProvider, {
         children: createElement(CourseDocumentRuntimeRenderer, {
+          composition: coreRuntimeComposition,
           artifactId: "flashcard-browser-artifact",
           initialContent: cloneJSON(initialContent),
           visibleSurfaceId: surfaceId,

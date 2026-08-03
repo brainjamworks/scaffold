@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it } from "vite-plus/test";
+import { createCoreScaffoldAuthoringComposition } from "@scaffold/core/authoring";
+import { createCoreScaffoldRuntimeComposition } from "@scaffold/core/runtime";
 
 import "@/styles/globals.css";
 
@@ -9,6 +11,9 @@ import {
   renderCompositionStateCase,
   type RenderedCompositionStateCase,
 } from "./slide-composition-browser-harness";
+
+const authoringComposition = createCoreScaffoldAuthoringComposition();
+const runtimeComposition = createCoreScaffoldRuntimeComposition();
 
 let rendered: RenderedCompositionStateCase | null = null;
 
@@ -24,7 +29,7 @@ describe("slide composition browser harness", () => {
     );
     if (!state) throw new Error("Content visible composition state is not registered.");
 
-    rendered = await renderCompositionStateCase(state);
+    rendered = await renderCompositionStateCase(state, authoringComposition, runtimeComposition);
     rendered.runtime.host.style.padding = "0";
     const authoringBefore = rendered.authoring.editor.getJSON();
     const runtimeBefore = rendered.runtime.editor.getJSON();
@@ -68,7 +73,7 @@ describe("slide composition browser harness", () => {
       );
       if (!state) throw new Error(`Hidden ${composition} state is not registered.`);
 
-      rendered = await renderCompositionStateCase(state);
+      rendered = await renderCompositionStateCase(state, authoringComposition, runtimeComposition);
       rendered.runtime.host.style.padding = "0";
       for (const mounted of [rendered.authoring, rendered.runtime]) {
         const sample = measureCompositionGeometry(mounted, state);

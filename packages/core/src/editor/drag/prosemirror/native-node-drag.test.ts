@@ -4,6 +4,9 @@ import { Editor } from "@tiptap/core";
 import { describe, expect, it } from "vite-plus/test";
 
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
+import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
+
+const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 
 const SCAFFOLD_MOVEMENT_NODE_TYPES = [
   "surface",
@@ -26,7 +29,12 @@ const SCAFFOLD_MOVEMENT_NODE_TYPES = [
 describe("native node drag configuration", () => {
   it("does not rely on ProseMirror draggable true for Scaffold movement sources", () => {
     const editor = new Editor({
-      extensions: [...createCourseDocumentAuthoringExtensions({ editable: true })],
+      extensions: [
+        ...createCourseDocumentAuthoringExtensions({
+          composition: coreAuthoringComposition,
+          editable: true,
+        }),
+      ],
     });
 
     for (const nodeType of SCAFFOLD_MOVEMENT_NODE_TYPES) {

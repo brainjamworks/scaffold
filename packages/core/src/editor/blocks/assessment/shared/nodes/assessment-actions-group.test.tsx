@@ -9,7 +9,9 @@ import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
+import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createCourseDocumentRuntimeExtensions } from "@/composition/runtime/create-runtime-composition";
+import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import {
   assessmentProblemOutcome,
   createAssessmentRuntimeTestRoot,
@@ -33,6 +35,9 @@ import { AssessmentPromptNode } from "./assessment-prompt";
 import { AssessmentSummaryFeedbackNode } from "./assessment-summary-feedback";
 import { AssessmentSummaryFeedbackRuntimeNode } from "./assessment-summary-feedback-runtime";
 import { AssessmentTitleNode } from "./assessment-title";
+
+const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
+const coreRuntimeComposition = createCoreScaffoldRuntimeComposition();
 import { SelectableChoiceBodyNode } from "./selectable-choice";
 import { SelectableChoiceRuntimeNode } from "./selectable-choice-runtime";
 import { McqRuntimeExtension } from "../../mcq/mcq-runtime-extension";
@@ -134,7 +139,10 @@ describe("assessment_actions_group", () => {
 
   it("includes the authoring group node in course document composition", () => {
     const editor = new Editor({
-      extensions: createCourseDocumentAuthoringExtensions({ editable: true }),
+      extensions: createCourseDocumentAuthoringExtensions({
+        composition: coreAuthoringComposition,
+        editable: true,
+      }),
     });
     editors.push(editor);
 
@@ -143,7 +151,7 @@ describe("assessment_actions_group", () => {
 
   it("includes the runtime group node in course document composition", () => {
     const editor = new Editor({
-      extensions: createCourseDocumentRuntimeExtensions(),
+      extensions: createCourseDocumentRuntimeExtensions({ composition: coreRuntimeComposition }),
     });
     editors.push(editor);
 

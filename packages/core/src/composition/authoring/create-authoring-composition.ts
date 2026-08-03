@@ -32,34 +32,30 @@ import { RegionAuthoringNode } from "@/editor/surfaces/authoring/nodes/region-au
 import "@/editor/surfaces/authoring/AuthoringSlideDividers.css";
 import "@/editor/rich-text/view/text-alignment.css";
 
-import {
-  createCoreScaffoldAuthoringComposition,
-  type ScaffoldAuthoringComposition,
-} from "./scaffold-authoring-composition";
+import type { ScaffoldAuthoringComposition } from "./scaffold-authoring-composition";
 
 export function createCourseDocumentAuthoringExtensions({
   editable,
   composition,
 }: {
   editable: boolean;
-  composition?: ScaffoldAuthoringComposition;
+  composition: ScaffoldAuthoringComposition;
 }): Extensions {
-  const resolvedComposition = composition ?? createCoreScaffoldAuthoringComposition();
-  const blockRegistry = resolvedComposition.capabilities.blocks.registry;
-  const surfaceRegistry = resolvedComposition.capabilities.surfaces.registry;
+  const blockRegistry = composition.capabilities.blocks.registry;
+  const surfaceRegistry = composition.capabilities.surfaces.registry;
   const { layoutNode, sectionNode } = createLayoutAuthoringNodes({
-    registry: resolvedComposition.capabilities.layouts.registry,
-    authoringViews: resolvedComposition.layouts.views,
+    registry: composition.capabilities.layouts.registry,
+    authoringViews: composition.layouts.views,
     blockDefinitions: blockRegistry,
   });
   const surfaceNode = createSurfaceAuthoringNode({
     registry: surfaceRegistry,
-    views: resolvedComposition.surfaces.views,
+    views: composition.surfaces.views,
   });
 
   return [
-    createScaffoldCapabilitiesStorageExtension(resolvedComposition.capabilities),
-    createScaffoldAuthoringCataloguesStorageExtension(resolvedComposition.catalogues),
+    createScaffoldCapabilitiesStorageExtension(composition.capabilities),
+    createScaffoldAuthoringCataloguesStorageExtension(composition.catalogues),
     ...createCourseDocumentBaseExtensions({
       assessmentActionsGroupNode: AssessmentActionsGroupNode,
       assessmentChoicesGroupNode: AssessmentChoicesGroupNode,
@@ -83,10 +79,7 @@ export function createCourseDocumentAuthoringExtensions({
     AuthoringSlideDividers,
     createSurfaceRootSelectionPolicy({ surfaceVariants: surfaceRegistry }),
     createSurfaceLifecycleAuthoringPolicy({ registry: surfaceRegistry }),
-    createBoundedContainerStructurePolicy(
-      blockRegistry,
-      resolvedComposition.capabilities.layouts.registry,
-    ),
+    createBoundedContainerStructurePolicy(blockRegistry, composition.capabilities.layouts.registry),
     createScaffoldInteractionOwnerExtension(blockRegistry),
     StableIdPasteNormalization,
     Placeholder.configure({
@@ -104,9 +97,9 @@ export function createCourseDocumentAuthoringExtensions({
     }),
     createSlashCommand({
       blockDefinitions: blockRegistry,
-      items: resolvedComposition.catalogues.inDocument.actions,
+      items: composition.catalogues.inDocument.actions,
       surfaceVariants: surfaceRegistry,
     }),
-    ...resolvedComposition.blocks.extensions,
+    ...composition.blocks.extensions,
   ];
 }

@@ -12,6 +12,7 @@ import {
   type SurfaceCapability,
 } from "@/composition/application/create-scaffold-application";
 import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
+import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import { calloutBlockDefinition } from "@/editor/blocks/presentation/callout/callout-definition";
 import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";
@@ -23,6 +24,8 @@ import { SurfaceRuntimeFrame } from "@/editor/surfaces/runtime/views/SurfaceRunt
 import { createScaffoldDefaultTheme } from "@/theme/model";
 
 import { CourseDocumentRuntimeRenderer } from "./CourseDocumentRuntimeRenderer";
+
+const runtimeComposition = createCoreScaffoldRuntimeComposition();
 
 const calloutInsertCatalog = createInsertCatalog(
   createBlockInsertActions([calloutBlockDefinition]),
@@ -210,6 +213,7 @@ describe("CourseDocumentRuntimeRenderer", () => {
 
     render(
       <CourseDocumentRuntimeRenderer
+        composition={runtimeComposition}
         artifactId="artifact-renderer"
         initialContent={slideshowDocumentContent()}
         visibleSurfaceId="slide-2"
@@ -238,6 +242,7 @@ describe("CourseDocumentRuntimeRenderer", () => {
 
     render(
       <CourseDocumentRuntimeRenderer
+        composition={runtimeComposition}
         artifactId="artifact-renderer"
         initialContent={slideshowDocumentContent()}
         surfaceStates={{
@@ -280,6 +285,7 @@ describe("CourseDocumentRuntimeRenderer", () => {
     const initialContent = slideshowDocumentContent();
     const { rerender } = render(
       <CourseDocumentRuntimeRenderer
+        composition={runtimeComposition}
         artifactId="artifact-renderer"
         initialContent={initialContent}
         visibleSurfaceId="slide-1"
@@ -296,6 +302,7 @@ describe("CourseDocumentRuntimeRenderer", () => {
 
     rerender(
       <CourseDocumentRuntimeRenderer
+        composition={runtimeComposition}
         artifactId="artifact-renderer"
         initialContent={initialContent}
         visibleSurfaceId="slide-2"
@@ -318,6 +325,7 @@ describe("CourseDocumentRuntimeRenderer", () => {
     const initialContent = slideshowDocumentContent();
     const { rerender } = render(
       <CourseDocumentRuntimeRenderer
+        composition={runtimeComposition}
         artifactId="artifact-renderer"
         initialContent={initialContent}
         surfaceStates={{
@@ -338,6 +346,7 @@ describe("CourseDocumentRuntimeRenderer", () => {
 
     rerender(
       <CourseDocumentRuntimeRenderer
+        composition={runtimeComposition}
         artifactId="artifact-renderer"
         initialContent={initialContent}
         surfaceStates={{
@@ -361,6 +370,7 @@ describe("CourseDocumentRuntimeRenderer", () => {
 
     render(
       <CourseDocumentRuntimeRenderer
+        composition={runtimeComposition}
         artifactId="artifact-renderer"
         initialContent={pageDocumentContent()}
         onReady={onReady}
@@ -387,6 +397,7 @@ describe("CourseDocumentRuntimeRenderer", () => {
       <div>
         <div data-testid="first-runtime">
           <CourseDocumentRuntimeRenderer
+            composition={runtimeComposition}
             artifactId="first-artifact"
             initialContent={content}
             onReady={onFirstReady}
@@ -394,6 +405,7 @@ describe("CourseDocumentRuntimeRenderer", () => {
         </div>
         <div data-testid="second-runtime">
           <CourseDocumentRuntimeRenderer
+            composition={runtimeComposition}
             artifactId="second-artifact"
             initialContent={content}
             onReady={onSecondReady}
@@ -430,6 +442,7 @@ describe("CourseDocumentRuntimeRenderer", () => {
 
     render(
       <CourseDocumentRuntimeRenderer
+        composition={runtimeComposition}
         artifactId="artifact-gallery"
         initialContent={galleryDocumentContent()}
         onReady={onReady}
@@ -456,6 +469,7 @@ describe("CourseDocumentRuntimeRenderer", () => {
     const view = render(
       <div data-testid="alignment-runtime">
         <CourseDocumentRuntimeRenderer
+          composition={runtimeComposition}
           artifactId="artifact-alignment"
           initialContent={initialContent}
           onReady={onRuntimeReady}
@@ -609,10 +623,7 @@ function privateRuntimeBlockCapability(nodeType: string): BlockCapability {
 
 function privateRuntimeSurfaceCapability(id: string, viewId: string): SurfaceCapability {
   const RuntimeView = (props: SurfaceRuntimeViewProps) => (
-    <SurfaceRuntimeFrame
-      {...props}
-      attributes={{ "data-private-runtime-view": viewId }}
-    />
+    <SurfaceRuntimeFrame {...props} attributes={{ "data-private-runtime-view": viewId }} />
   );
 
   return {

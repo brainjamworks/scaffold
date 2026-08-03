@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it } from "vite-plus/test";
+import { createCoreScaffoldAuthoringComposition } from "@scaffold/core/authoring";
+import { createCoreScaffoldRuntimeComposition } from "@scaffold/core/runtime";
 
 import "@/styles/globals.css";
 
@@ -16,6 +18,8 @@ const ASYMMETRIC_STATES = expandSlideCompositionCases().filter((state) =>
 );
 const LONG_SIDE_TITLE =
   "A deliberately long vertical Side title that must remain readable without painting across the main content region";
+const authoringComposition = createCoreScaffoldAuthoringComposition();
+const runtimeComposition = createCoreScaffoldRuntimeComposition();
 
 let rendered: RenderedCompositionStateCase | null = null;
 
@@ -30,6 +34,8 @@ describe("Asymmetric content composition geometry", () => {
     async (state) => {
       rendered = await renderCompositionStateCase(
         state,
+        authoringComposition,
+        runtimeComposition,
         state.composition === "side-title"
           ? { authoringEditable: true, titleText: LONG_SIDE_TITLE }
           : undefined,
@@ -84,10 +90,15 @@ describe("Asymmetric content composition geometry", () => {
         expect(rendered.runtime.editor.getJSON()).toEqual(runtimeDocument);
 
         rendered.dispose();
-        rendered = await renderCompositionStateCase(state, {
-          authoringEditable: true,
-          titleText: "",
-        });
+        rendered = await renderCompositionStateCase(
+          state,
+          authoringComposition,
+          runtimeComposition,
+          {
+            authoringEditable: true,
+            titleText: "",
+          },
+        );
         authoringDocument = rendered.authoring.editor.getJSON();
         runtimeDocument = rendered.runtime.editor.getJSON();
         const authoringTitle = rendered.authoring.host.querySelector<HTMLElement>(

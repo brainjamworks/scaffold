@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { createScaffoldDocumentContent } from "@/format/artifact";
+import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { slideModuleCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-module-cover";
 import { AssessmentRuntimeProvider } from "@/runtime/assessment/AssessmentRuntimeProvider";
 import { SlideshowPlayer } from "@/runtime/players/slideshow/SlideshowPlayer";
@@ -16,6 +17,8 @@ import {
   measureCompositionGeometry,
   type CompositionGeometrySample,
 } from "./slide-composition-browser-harness";
+
+const runtimeComposition = createCoreScaffoldRuntimeComposition();
 
 const PLAYER_BOUNDS = [
   { name: "exact", hostWidth: 1024, hostHeight: 576, stageWidth: 1024, stageHeight: 576, scale: 1 },
@@ -150,6 +153,7 @@ describe("slideshow player geometry", () => {
     document.head.append(adapterStyle);
     root.render(
       <SlideshowPlayer
+        composition={runtimeComposition}
         initialContent={initialContent}
         surfaceIds={[surfaceId]}
         onRendererReady={(readyEditor) => {
@@ -213,6 +217,7 @@ describe("slideshow player geometry", () => {
     root = createRoot(host);
     root.render(
       <SlideshowPlayer
+        composition={runtimeComposition}
         initialContent={initialContent}
         surfaceIds={[`geometry-${state.composition}`]}
         onRendererReady={(readyEditor) => {
@@ -300,6 +305,7 @@ describe("slideshow player geometry", () => {
     root = createRoot(host);
     root.render(
       <SlideshowPlayer
+        composition={runtimeComposition}
         initialContent={initialContent}
         surfaceIds={[`geometry-${state.composition}`]}
         sizing="embedded"
@@ -381,6 +387,7 @@ describe("slideshow player geometry", () => {
       <ScaffoldArtifactIdentityProvider artifactId="artifact-slideshow-overlay-geometry">
         <AssessmentRuntimeProvider>
           <SlideshowPlayer
+            composition={runtimeComposition}
             artifactId="artifact-slideshow-overlay-geometry"
             initialContent={initialContent}
             surfaceIds={["slide-overlay-geometry"]}

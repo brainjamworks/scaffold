@@ -2,10 +2,13 @@ import { render as renderBrowserReact } from "vitest-browser-react";
 import { describe, expect, it } from "vite-plus/test";
 import { page } from "vite-plus/test/browser/context";
 
+import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
 import { ScaffoldAuthoringApp } from "@/editor/shell/authoring/ScaffoldAuthoringApp";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { createThemeCatalogue } from "@/theme/model";
 import "@/styles/globals.css";
+
+const testApplication = createScaffoldApplication();
 
 describe("course theme panel browser workflow", () => {
   it("customises, resets, undoes, autosaves, and remains usable in dark application chrome", async () => {
@@ -27,6 +30,7 @@ describe("course theme panel browser workflow", () => {
     ];
     const rendered = await renderBrowserReact(
       <ScaffoldAuthoringApp
+        application={testApplication}
         artifact={{
           id: "theme-browser-artifact",
           title: "Theme browser",

@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it } from "vite-plus/test";
+import { createCoreScaffoldAuthoringComposition } from "@scaffold/core/authoring";
+import { createCoreScaffoldRuntimeComposition } from "@scaffold/core/runtime";
 
 import "@/styles/globals.css";
 
@@ -21,6 +23,8 @@ const CONTENT_FLOW_COMPOSITIONS = new Set([
 const CONTENT_FLOW_STATES = expandSlideCompositionCases().filter((state) =>
   CONTENT_FLOW_COMPOSITIONS.has(state.composition),
 );
+const authoringComposition = createCoreScaffoldAuthoringComposition();
+const runtimeComposition = createCoreScaffoldRuntimeComposition();
 
 let rendered: RenderedCompositionStateCase | null = null;
 
@@ -33,7 +37,7 @@ describe("Content flow composition geometry", () => {
   it.each(CONTENT_FLOW_STATES)(
     "$composition title=$title orientation=$orientation proportion=$proportion",
     async (state) => {
-      rendered = await renderCompositionStateCase(state);
+      rendered = await renderCompositionStateCase(state, authoringComposition, runtimeComposition);
       rendered.runtime.host.style.padding = "0";
       const authoringDocument = rendered.authoring.editor.getJSON();
       const runtimeDocument = rendered.runtime.editor.getJSON();

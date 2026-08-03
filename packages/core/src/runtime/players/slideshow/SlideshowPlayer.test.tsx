@@ -6,6 +6,7 @@ import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { createScaffoldDocumentContent } from "@/format/artifact";
+import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { AssessmentRuntimeProvider } from "@/runtime/assessment/AssessmentRuntimeProvider";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
 import {
@@ -15,6 +16,8 @@ import {
 } from "@/theme/model";
 
 import { SlideshowPlayer } from "./SlideshowPlayer";
+
+const runtimeComposition = createCoreScaffoldRuntimeComposition();
 
 let restoreFullscreenHarness: (() => void) | null = null;
 
@@ -291,6 +294,7 @@ describe("SlideshowPlayer", () => {
 
       render(
         <SlideshowPlayer
+          composition={runtimeComposition}
           initialContent={slideshowDocumentContent([
             { id: "slide-themed", text: "Themed slide content" },
           ])}
@@ -313,6 +317,7 @@ describe("SlideshowPlayer", () => {
 
     render(
       <SlideshowPlayer
+        composition={runtimeComposition}
         artifactId="artifact-slideshow"
         initialContent={slideshowDocumentContent([{ id: "slide-1", text: "Only slide content" }])}
         surfaceIds={["slide-1"]}
@@ -353,6 +358,7 @@ describe("SlideshowPlayer", () => {
 
     render(
       <SlideshowPlayer
+        composition={runtimeComposition}
         initialContent={slideshowDocumentContent([{ id: "slide-1", text: "Fullscreen slide" }])}
         surfaceIds={["slide-1"]}
         sizing="embedded"
@@ -379,6 +385,7 @@ describe("SlideshowPlayer", () => {
       <ScaffoldArtifactIdentityProvider artifactId="artifact-fullscreen-popover">
         <AssessmentRuntimeProvider>
           <SlideshowPlayer
+            composition={runtimeComposition}
             artifactId="artifact-fullscreen-popover"
             initialContent={slideshowDocumentContentWithRuntimeHint()}
             surfaceIds={["slide-1"]}
@@ -424,6 +431,7 @@ describe("SlideshowPlayer", () => {
       <ScaffoldArtifactIdentityProvider artifactId="artifact-owner-document-popover">
         <AssessmentRuntimeProvider>
           <SlideshowPlayer
+            composition={runtimeComposition}
             artifactId="artifact-owner-document-popover"
             initialContent={slideshowDocumentContentWithRuntimeHint()}
             surfaceIds={["slide-1"]}
@@ -517,6 +525,7 @@ describe("SlideshowPlayer", () => {
 
     render(
       <SlideshowPlayer
+        composition={runtimeComposition}
         initialContent={slideshowDocumentContent([{ id: "slide-1", text: "Fullscreen slide" }])}
         surfaceIds={["slide-1"]}
       />,
@@ -535,6 +544,7 @@ describe("SlideshowPlayer", () => {
 
     render(
       <SlideshowPlayer
+        composition={runtimeComposition}
         initialContent={slideshowDocumentContent([{ id: "slide-1", text: "Fullscreen slide" }])}
         surfaceIds={["slide-1"]}
       />,
@@ -551,6 +561,7 @@ describe("SlideshowPlayer", () => {
 
     render(
       <SlideshowPlayer
+        composition={runtimeComposition}
         initialContent={slideshowDocumentContent([{ id: "slide-1", text: "Fullscreen slide" }])}
         surfaceIds={["slide-1"]}
         sizing="embedded"
@@ -578,6 +589,7 @@ describe("SlideshowPlayer", () => {
 
     render(
       <SlideshowPlayer
+        composition={runtimeComposition}
         initialContent={slideshowDocumentContent([{ id: "slide-1", text: "Fullscreen slide" }])}
         surfaceIds={["slide-1"]}
       />,
@@ -597,6 +609,7 @@ describe("SlideshowPlayer", () => {
 
     render(
       <SlideshowPlayer
+        composition={runtimeComposition}
         initialContent={slideshowDocumentContent([{ id: "slide-1", text: "Scaled slide" }])}
         surfaceIds={["slide-1"]}
         onRendererReady={onRendererReady}
@@ -647,6 +660,7 @@ describe("SlideshowPlayer", () => {
     ResizeObserverStub.initialSize = { width: 0, height: 0 };
     const { unmount } = render(
       <SlideshowPlayer
+        composition={runtimeComposition}
         initialContent={slideshowDocumentContent([{ id: "slide-1", text: "Deferred slide" }])}
         surfaceIds={["slide-1"]}
       />,
@@ -672,6 +686,7 @@ describe("SlideshowPlayer", () => {
     ResizeObserverStub.initialSize = { width: 0, height: 0 };
     render(
       <SlideshowPlayer
+        composition={runtimeComposition}
         initialContent={slideshowDocumentContent([{ id: "slide-1", text: "Embedded slide" }])}
         surfaceIds={["slide-1"]}
         sizing="embedded"
@@ -709,6 +724,7 @@ describe("SlideshowPlayer", () => {
     const onRendererReady = vi.fn();
     render(
       <SlideshowPlayer
+        composition={runtimeComposition}
         initialContent={slideshowDocumentContent([
           { id: "slide-1", text: "Measured embedded slide" },
         ])}
@@ -736,7 +752,13 @@ describe("SlideshowPlayer", () => {
     const initialContent = slideshowDocumentContent([{ id: "slide-1", text: "Invalid slide" }]);
     initialContent.content![0]!.attrs!.surfaceSize = "fluid";
 
-    render(<SlideshowPlayer initialContent={initialContent} surfaceIds={["slide-1"]} />);
+    render(
+      <SlideshowPlayer
+        composition={runtimeComposition}
+        initialContent={initialContent}
+        surfaceIds={["slide-1"]}
+      />,
+    );
 
     expect(screen.getByRole("alert").textContent).toContain("Slideshow surface size must be 16x9.");
     expect(ResizeObserverStub.instances).toHaveLength(0);
@@ -752,6 +774,7 @@ describe("SlideshowPlayer", () => {
 
     render(
       <SlideshowPlayer
+        composition={runtimeComposition}
         artifactId="artifact-slideshow"
         initialContent={slideshowDocumentContent([
           { id: "slide-1", text: "First slide content" },
@@ -817,6 +840,7 @@ describe("SlideshowPlayer", () => {
 
     render(
       <SlideshowPlayer
+        composition={runtimeComposition}
         artifactId="artifact-slideshow"
         initialContent={slideshowDocumentContent([
           { id: "slide-1", text: "First slide content" },

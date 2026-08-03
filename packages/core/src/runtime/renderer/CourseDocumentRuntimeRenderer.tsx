@@ -21,7 +21,7 @@ import "./CourseDocumentRuntimeRenderer.css";
 
 export interface CourseDocumentRuntimeRendererProps {
   artifactId?: string | null;
-  composition?: ScaffoldRuntimeComposition;
+  composition: ScaffoldRuntimeComposition;
   initialContent?: JSONContent | null;
   onReady?: (editor: TiptapEditor) => void;
   resolvedTheme?: ResolvedCourseTheme;
@@ -49,7 +49,7 @@ export function CourseDocumentRuntimeRenderer({
       editable: false,
       ...(initialContent ? { content: initialContent } : {}),
       extensions: [
-        ...createCourseDocumentRuntimeExtensions(composition ? { composition } : undefined),
+        ...createCourseDocumentRuntimeExtensions({ composition }),
         RuntimeSurfaceVisibility,
       ],
       onCreate: ({ editor: e }) => {

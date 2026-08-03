@@ -18,7 +18,8 @@ import { createScaffoldDocumentContent } from "@/format/artifact";
 
 import { BlockStrip } from "./BlockStrip";
 
-const coreInsertCatalog = createCoreScaffoldAuthoringComposition().catalogues.inDocument;
+const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
+const coreInsertCatalog = coreAuthoringComposition.catalogues.inDocument;
 
 beforeEach(() => {
   vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(() =>
@@ -63,7 +64,12 @@ afterEach(() => {
 
 function makeEditor() {
   return new Editor({
-    extensions: [...createCourseDocumentAuthoringExtensions({ editable: true })],
+    extensions: [
+      ...createCourseDocumentAuthoringExtensions({
+        composition: coreAuthoringComposition,
+        editable: true,
+      }),
+    ],
     content: createScaffoldDocumentContent({ mode: "page" }),
   });
 }

@@ -20,6 +20,7 @@ import type {
 } from "@scaffold/core/authoring";
 
 type AuthoringTypeSurface = {
+  authoringLaneViolation: ScaffoldRuntimeComposition;
   composition: ScaffoldAuthoringComposition;
   courseDocumentEditorProps: CourseDocumentEditorProps;
   courseDocumentSource: CourseDocumentAuthoringSource;
@@ -48,6 +49,12 @@ describe("@scaffold/core/authoring", () => {
 
   it("publishes the Course editor, authoring host, preview, save, artifact, and learner types", () => {
     expectTypeOf<AuthoringTypeSurface>().toBeObject();
+    expectTypeOf<
+      {} extends Pick<ScaffoldAuthoringEntryProps, "application"> ? true : false
+    >().toEqualTypeOf<false>();
+    expectTypeOf<
+      {} extends Pick<CourseDocumentEditorProps, "composition"> ? true : false
+    >().toEqualTypeOf<false>();
     expectTypeOf<
       "xapi" extends keyof Awaited<ReturnType<ScaffoldPreviewServicesFactory>> ? true : false
     >().toEqualTypeOf<false>();

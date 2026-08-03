@@ -3,6 +3,9 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vite-plus/test";
+import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
+
+const testApplication = createScaffoldApplication();
 
 vi.mock("./ScaffoldAuthoringApp", async () => {
   const { createElement } = await import("react");
@@ -23,6 +26,7 @@ describe("ScaffoldAuthoringEntry capability failure", () => {
 
     render(
       <ScaffoldAuthoringEntry
+        application={testApplication}
         artifact={null}
         services={{
           artifactCreation: { createArtifactMetadata: vi.fn() },

@@ -14,6 +14,8 @@ import { createScaffoldApplication } from "@/composition/application/create-scaf
 
 import { ContentAuthorHost } from "./ContentAuthorHost";
 
+const coreAuthoringComposition = createScaffoldApplication().authoring;
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -26,6 +28,7 @@ describe("ContentAuthorHost", () => {
 
     render(
       <ContentAuthorHost
+        composition={coreAuthoringComposition}
         agentIntegration={ScaffoldUnavailableAgentIntegration}
         artifactId="test-artifact"
         content={content}
@@ -57,6 +60,7 @@ describe("ContentAuthorHost", () => {
 
     const { container } = render(
       <ContentAuthorHost
+        composition={coreAuthoringComposition}
         agentIntegration={TrackingIntegration}
         agentOpen={false}
         content={content}
@@ -90,6 +94,7 @@ describe("ContentAuthorHost", () => {
     const onEditorReady = vi.fn();
     const { rerender } = render(
       <ContentAuthorHost
+        composition={coreAuthoringComposition}
         agentIntegration={ScaffoldUnavailableAgentIntegration}
         artifactId="first-artifact"
         content={firstContent}
@@ -102,6 +107,7 @@ describe("ContentAuthorHost", () => {
 
     rerender(
       <ContentAuthorHost
+        composition={coreAuthoringComposition}
         agentIntegration={ScaffoldUnavailableAgentIntegration}
         artifactId="next-artifact"
         content={nextContent}
@@ -175,6 +181,7 @@ describe("ContentAuthorHost", () => {
 
     const { rerender } = render(
       <ContentAuthorHost
+        composition={coreAuthoringComposition}
         agentIntegration={DockIntegration}
         agentOpen
         content={content}
@@ -188,6 +195,7 @@ describe("ContentAuthorHost", () => {
 
     rerender(
       <ContentAuthorHost
+        composition={coreAuthoringComposition}
         agentIntegration={DockIntegration}
         agentOpen={false}
         content={content}
@@ -198,6 +206,7 @@ describe("ContentAuthorHost", () => {
 
     rerender(
       <ContentAuthorHost
+        composition={coreAuthoringComposition}
         agentIntegration={DockIntegration}
         agentOpen
         content={content}
@@ -226,6 +235,7 @@ describe("ContentAuthorHost", () => {
 
     render(
       <ContentAuthorHost
+        composition={coreAuthoringComposition}
         agentIntegration={ClosableIntegration}
         agentOpen
         content={content}
@@ -267,6 +277,7 @@ describe("ContentAuthorHost", () => {
 
     render(
       <ContentAuthorHost
+        composition={coreAuthoringComposition}
         agentIntegration={ReviewingIntegration}
         agentOpen
         artifactId="review-artifact"

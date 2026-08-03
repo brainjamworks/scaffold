@@ -3,12 +3,15 @@ import { createRoot } from "react-dom/client";
 import { describe, expect, it } from "vite-plus/test";
 
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 
 import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor";
 import { InteractionTargetKind } from "@/editor/interactions/targets/model/interaction-owner-state";
 import { createInteractionOwnerCommandPorts } from "@/editor/interactions/targets/prosemirror/facade/interaction-facade-command-ports";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import "@/styles/globals.css";
+
+const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 
 describe("structural floating visibility at the authoring boundary", () => {
   it.each([
@@ -32,6 +35,7 @@ describe("structural floating visibility at the authoring boundary", () => {
     try {
       reactRoot.render(
         <CourseDocumentEditor
+          composition={coreAuthoringComposition}
           source={{ mode: "document", content }}
           onReady={(nextEditor) => {
             editorRef.current = nextEditor;

@@ -9,23 +9,45 @@ import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it } from "vite-plus/test";
 
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
+import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { resolveEditorPlaceholder } from "@/editor/prosemirror/placeholder/resolve-editor-placeholder";
 import { Placeholder } from "@/editor/prosemirror/placeholder/Placeholder";
 import { SlideTitleNode } from "@/editor/surfaces/model/nodes/slide-title";
 import { createCourseDocumentRuntimeExtensions } from "@/composition/runtime/create-runtime-composition";
+import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
+
+const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
+const coreRuntimeComposition = createCoreScaffoldRuntimeComposition();
 
 describe("SlideTitleNode", () => {
   it("is registered in the shared authoring and runtime schemas", () => {
-    const authoringSchema = getSchema(createCourseDocumentAuthoringExtensions({ editable: true }));
-    const runtimeSchema = getSchema(createCourseDocumentRuntimeExtensions());
+    const authoringSchema = getSchema(
+      createCourseDocumentAuthoringExtensions({
+        composition: coreAuthoringComposition,
+        editable: true,
+      }),
+    );
+    const runtimeSchema = getSchema(
+      createCourseDocumentRuntimeExtensions({ composition: coreRuntimeComposition }),
+    );
 
     expect(authoringSchema.nodes["slide_title"]).toBeDefined();
     expect(runtimeSchema.nodes["slide_title"]).toBeDefined();
   });
 
   it.each([
-    ["authoring", () => createCourseDocumentAuthoringExtensions({ editable: true })],
-    ["runtime", () => createCourseDocumentRuntimeExtensions()],
+    [
+      "authoring",
+      () =>
+        createCourseDocumentAuthoringExtensions({
+          composition: coreAuthoringComposition,
+          editable: true,
+        }),
+    ],
+    [
+      "runtime",
+      () => createCourseDocumentRuntimeExtensions({ composition: coreRuntimeComposition }),
+    ],
   ])("installs Left-default semantic alignment in the %s schema", (_name, createExtensions) => {
     const schema = getSchema(createExtensions());
     const slideTitle = schema.nodes["slide_title"];
@@ -45,8 +67,18 @@ describe("SlideTitleNode", () => {
   });
 
   it.each([
-    ["authoring", () => createCourseDocumentAuthoringExtensions({ editable: true })],
-    ["runtime", () => createCourseDocumentRuntimeExtensions()],
+    [
+      "authoring",
+      () =>
+        createCourseDocumentAuthoringExtensions({
+          composition: coreAuthoringComposition,
+          editable: true,
+        }),
+    ],
+    [
+      "runtime",
+      () => createCourseDocumentRuntimeExtensions({ composition: coreRuntimeComposition }),
+    ],
   ])("imports semantic slide titles through the %s composition", (_name, createExtensions) => {
     const element = document.createElement("div");
     element.innerHTML = `
@@ -158,7 +190,10 @@ describe("SlideTitleNode", () => {
     };
 
     const editor = new Editor({
-      extensions: createCourseDocumentAuthoringExtensions({ editable: true }),
+      extensions: createCourseDocumentAuthoringExtensions({
+        composition: coreAuthoringComposition,
+        editable: true,
+      }),
       content,
     });
     const initialized = editor.getJSON();

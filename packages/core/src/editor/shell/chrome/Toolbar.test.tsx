@@ -8,11 +8,14 @@ import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it } from "vite-plus/test";
 
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
+import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { selectCoursePreset } from "@/theme/authoring";
 import { SCAFFOLD_EDITORIAL_PRESET } from "@/theme/model";
 
 import { Toolbar } from "./Toolbar";
+
+const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 
 function makeEditor() {
   return new Editor({
@@ -119,7 +122,13 @@ describe("Toolbar", () => {
     const user = userEvent.setup();
     const editor = new Editor({
       content: createScaffoldDocumentContent({ mode: "page" }),
-      extensions: [...createCourseDocumentAuthoringExtensions({ editable: true }), UndoRedo],
+      extensions: [
+        ...createCourseDocumentAuthoringExtensions({
+          composition: coreAuthoringComposition,
+          editable: true,
+        }),
+        UndoRedo,
+      ],
     });
     render(<Toolbar editor={editor} />);
 

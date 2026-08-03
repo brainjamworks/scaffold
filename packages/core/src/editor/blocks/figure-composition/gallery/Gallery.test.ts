@@ -19,6 +19,7 @@ import { createElement } from "react";
 import { afterEach, it, expect, vi } from "vite-plus/test";
 
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import {
@@ -54,6 +55,8 @@ import {
 } from "./GalleryModel";
 import { GalleryCarousel, GalleryGrid } from "./GallerySurface";
 import { GalleryNode } from "./node";
+
+const coreRuntimeComposition = createCoreScaffoldRuntimeComposition();
 
 afterEach(() => {
   cleanup();
@@ -170,6 +173,7 @@ function renderGalleryXapiRuntime(
         artifactId: "gallery-artifact",
         children: createElement(XapiRuntimeProvider, {
           children: createElement(CourseDocumentRuntimeRenderer, {
+            composition: coreRuntimeComposition,
             initialContent: content,
             visibleSurfaceId,
           }),

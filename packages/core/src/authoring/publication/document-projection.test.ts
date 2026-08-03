@@ -20,7 +20,7 @@ import {
   projectLearnerDocument as projectLearnerDocumentWithBlocks,
 } from "./document-projection";
 
-function projectAssessmentDocument(authorDocument: JSONContent) {
+function projectBuiltInAssessmentDocument(authorDocument: JSONContent) {
   return projectAssessmentDocumentWithBlocks(authorDocument, builtInBlockRegistry);
 }
 
@@ -178,8 +178,9 @@ describe("authoring publication document projection", () => {
       ],
     };
 
-    const projection = await withBlockDefinitions([definition], ({ projectAssessmentDocument }) =>
-      projectAssessmentDocument(document),
+    const projection = await withBlockDefinitions(
+      [definition],
+      ({ projectConfiguredAssessmentDocument }) => projectConfiguredAssessmentDocument(document),
     );
 
     expect(projection.targets).toEqual([
@@ -239,7 +240,7 @@ describe("authoring publication document projection", () => {
       ],
     };
 
-    expect(projectAssessmentDocument(document)).toEqual({
+    expect(projectBuiltInAssessmentDocument(document)).toEqual({
       learnerDocument: document,
       targets: [],
       groups: [],
@@ -248,7 +249,7 @@ describe("authoring publication document projection", () => {
   });
 
   it("warns and emits no group for an empty quiz", () => {
-    const projection = projectAssessmentDocument({
+    const projection = projectBuiltInAssessmentDocument({
       type: "courseDocument",
       content: [
         {
@@ -276,7 +277,7 @@ describe("authoring publication document projection", () => {
   });
 
   it("projects quiz groups with ordered child assessment target ids", () => {
-    const projection = projectAssessmentDocument({
+    const projection = projectBuiltInAssessmentDocument({
       type: "courseDocument",
       content: [
         {
@@ -332,7 +333,7 @@ describe("authoring publication document projection", () => {
   });
 
   it("warns and skips quiz groups with duplicate target ids", () => {
-    const projection = projectAssessmentDocument({
+    const projection = projectBuiltInAssessmentDocument({
       type: "courseDocument",
       content: [
         {
@@ -361,7 +362,7 @@ describe("authoring publication document projection", () => {
   });
 
   it("warns and skips quiz groups with children missing projected targets", () => {
-    const projection = projectAssessmentDocument({
+    const projection = projectBuiltInAssessmentDocument({
       type: "courseDocument",
       content: [
         {
@@ -397,7 +398,7 @@ describe("authoring publication document projection", () => {
   });
 
   it("does not invent quiz target ids for malformed child content without ids", () => {
-    const projection = projectAssessmentDocument({
+    const projection = projectBuiltInAssessmentDocument({
       type: "courseDocument",
       content: [
         {
@@ -462,8 +463,8 @@ describe("authoring publication document projection", () => {
     });
 
     await expect(
-      withBlockDefinitions([definition], ({ projectAssessmentDocument }) =>
-        projectAssessmentDocument({
+      withBlockDefinitions([definition], ({ projectConfiguredAssessmentDocument }) =>
+        projectConfiguredAssessmentDocument({
           type: "courseDocument",
           content: [
             {
@@ -519,8 +520,8 @@ describe("authoring publication document projection", () => {
     });
 
     await expect(
-      withBlockDefinitions([definition], ({ projectAssessmentDocument }) =>
-        projectAssessmentDocument({
+      withBlockDefinitions([definition], ({ projectConfiguredAssessmentDocument }) =>
+        projectConfiguredAssessmentDocument({
           type: "courseDocument",
           content: [
             {
@@ -663,7 +664,7 @@ describe("authoring publication document projection", () => {
       ],
     };
 
-    const projection = projectAssessmentDocument(document);
+    const projection = projectBuiltInAssessmentDocument(document);
 
     expect(projection.targets).toEqual([
       {
@@ -985,7 +986,7 @@ describe("authoring publication document projection", () => {
 async function withBlockDefinitions<T>(
   definitions: readonly BlockDefinition[],
   run: (projection: {
-    projectAssessmentDocument: typeof projectAssessmentDocument;
+    projectConfiguredAssessmentDocument: typeof projectBuiltInAssessmentDocument;
     projectAssessmentTargets: typeof projectAssessmentTargets;
     projectLearnerDocument: typeof projectLearnerDocument;
   }) => T | Promise<T>,
@@ -995,7 +996,7 @@ async function withBlockDefinitions<T>(
 
   try {
     return await run({
-      projectAssessmentDocument,
+      projectConfiguredAssessmentDocument: projectBuiltInAssessmentDocument,
       projectAssessmentTargets,
       projectLearnerDocument,
     });

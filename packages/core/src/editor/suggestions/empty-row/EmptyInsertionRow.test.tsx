@@ -14,6 +14,7 @@ import {
   type BlockCapability,
 } from "@/composition/application/create-scaffold-application";
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
+import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { InteractionTargetKind } from "@/editor/interactions/targets/model/interaction-owner-state";
@@ -32,10 +33,14 @@ const resolveEmptyInsertionTarget = (
   resolveEmptyInsertionTargetWithLookup(state, builtInBlockRegistry, builtInSurfaceVariantRegistry);
 
 const ownedEditors = new Map<Editor, HTMLElement | null>();
+const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 
 function makeEditor(content = createScaffoldDocumentContent({ mode: "page" }), appendView = true) {
   const editor = new Editor({
-    extensions: createCourseDocumentAuthoringExtensions({ editable: true }),
+    extensions: createCourseDocumentAuthoringExtensions({
+      composition: coreAuthoringComposition,
+      editable: true,
+    }),
     content,
   });
   const ownedElement = appendView ? editor.view.dom : null;

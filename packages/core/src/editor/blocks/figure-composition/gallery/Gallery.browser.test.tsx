@@ -3,6 +3,8 @@ import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor";
+import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
+import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { CourseDocumentRuntimeRenderer } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
@@ -26,6 +28,8 @@ interface MountedPair {
 
 const mountedPairs: MountedPair[] = [];
 const mountedStyles: HTMLStyleElement[] = [];
+const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
+const coreRuntimeComposition = createCoreScaffoldRuntimeComposition();
 
 afterEach(() => {
   for (const pair of mountedPairs.splice(0)) pair.dispose();
@@ -330,6 +334,7 @@ async function mountPair(
 
   authoringRoot.render(
     <CourseDocumentEditor
+      composition={coreAuthoringComposition}
       source={{ mode: "document", content: cloneJSON(initialContent) }}
       editable={editable}
       onReady={(editor) => {
@@ -339,6 +344,7 @@ async function mountPair(
   );
   runtimeRoot.render(
     <CourseDocumentRuntimeRenderer
+      composition={coreRuntimeComposition}
       initialContent={cloneJSON(initialContent)}
       visibleSurfaceId={surfaceId}
       onReady={(editor) => {

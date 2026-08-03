@@ -7,6 +7,7 @@ import {
   builtInBlockDefinitions,
   builtInBlockRegistry,
 } from "@/editor/blocks/built-in-block-definitions";
+import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { projectLearnerDocument } from "@/authoring/publication/document-projection";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { createAssessmentRuntimeTestRoot } from "@/runtime/assessment/test-utils";
@@ -25,6 +26,8 @@ import "@/styles/globals.css";
 
 import { PagePlayer } from "@/runtime/players/page/PagePlayer";
 import { SlideshowPlayer } from "@/runtime/players/slideshow/SlideshowPlayer";
+
+const runtimeComposition = createCoreScaffoldRuntimeComposition();
 
 const SURFACE_BACKGROUND = "#123456";
 const REPRESENTATIVE_BLOCKS = [
@@ -336,10 +339,8 @@ function representativeDocument(mode: "page" | "slideshow", surfaceId: string): 
 }
 
 function learnerDocument(mode: "page" | "slideshow", surfaceId: string): JSONContent {
-  return projectLearnerDocument(
-    representativeDocument(mode, surfaceId),
-    builtInBlockRegistry,
-  ).document;
+  return projectLearnerDocument(representativeDocument(mode, surfaceId), builtInBlockRegistry)
+    .document;
 }
 
 function configuredBlockContent(definition: (typeof builtInBlockDefinitions)[number]): JSONContent {
@@ -378,6 +379,7 @@ async function mountPage(
 ): Promise<MountedPlayer> {
   return mountPlayer(
     <PagePlayer
+      composition={runtimeComposition}
       initialContent={initialContent}
       resolvedTheme={resolvedTheme}
       surfaceId="consumer-page"
@@ -392,6 +394,7 @@ async function mountSlideshow(
 ): Promise<MountedPlayer> {
   return mountPlayer(
     <SlideshowPlayer
+      composition={runtimeComposition}
       artifactId="course-theme-consumer-matrix"
       initialContent={initialContent}
       resolvedTheme={resolvedTheme}

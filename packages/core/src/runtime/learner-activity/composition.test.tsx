@@ -7,11 +7,14 @@ import { z } from "zod";
 
 import type { AssessmentPort, LearnerActivityPort } from "@/host/ports";
 import { createScaffoldDocumentContent } from "@/format/artifact";
+import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 
 import { ContentRuntimeHost } from "../app/ContentRuntimeHost";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 import type { AssessmentStoreApi } from "../assessment/types";
 import type { LearnerActivityStoreApi } from "./types";
+
+const runtimeComposition = createCoreScaffoldRuntimeComposition();
 
 const capturedStores = vi.hoisted(() => ({
   assessment: new Map<string, unknown>(),
@@ -128,6 +131,7 @@ describe("learner activity runtime composition", () => {
     const mounted = render(
       <ScaffoldServicesProvider ports={{}}>
         <ContentRuntimeHost
+          composition={runtimeComposition}
           artifactId="artifact-one"
           initialContent={runtimeContent("surface-no-port")}
         />
@@ -175,6 +179,7 @@ describe("learner activity runtime composition", () => {
         ports={{ assessment: assessmentPort, learnerActivity: learnerActivityPort }}
       >
         <ContentRuntimeHost
+          composition={runtimeComposition}
           artifactId="artifact-one"
           initialContent={runtimeContent("surface-failures")}
         />
@@ -210,6 +215,7 @@ describe("learner activity runtime composition", () => {
     const first = render(
       <ScaffoldServicesProvider ports={{}}>
         <ContentRuntimeHost
+          composition={runtimeComposition}
           artifactId="shared-artifact"
           initialContent={runtimeContent("surface-first")}
         />
@@ -218,6 +224,7 @@ describe("learner activity runtime composition", () => {
     render(
       <ScaffoldServicesProvider ports={{}}>
         <ContentRuntimeHost
+          composition={runtimeComposition}
           artifactId="shared-artifact"
           initialContent={runtimeContent("surface-second")}
         />

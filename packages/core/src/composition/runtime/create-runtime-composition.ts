@@ -17,30 +17,26 @@ import { createSurfaceRuntimeNode } from "@/editor/surfaces/runtime/nodes/surfac
 import { StudentGuard } from "@/runtime/guards/student-guard";
 import "@/editor/rich-text/view/text-alignment.css";
 
-import {
-  createCoreScaffoldRuntimeComposition,
-  type ScaffoldRuntimeComposition,
-} from "./scaffold-runtime-composition";
+import type { ScaffoldRuntimeComposition } from "./scaffold-runtime-composition";
 
 export function createCourseDocumentRuntimeExtensions({
   composition,
 }: {
-  composition?: ScaffoldRuntimeComposition;
-} = {}): Extensions {
-  const resolvedComposition = composition ?? createCoreScaffoldRuntimeComposition();
-  const blockRegistry = resolvedComposition.capabilities.blocks.registry;
-  const surfaceRegistry = resolvedComposition.capabilities.surfaces.registry;
+  composition: ScaffoldRuntimeComposition;
+}): Extensions {
+  const blockRegistry = composition.capabilities.blocks.registry;
+  const surfaceRegistry = composition.capabilities.surfaces.registry;
   const { layoutNode, sectionNode } = createLayoutRuntimeNodes({
-    registry: resolvedComposition.capabilities.layouts.registry,
-    runtimeViews: resolvedComposition.layouts.views,
+    registry: composition.capabilities.layouts.registry,
+    runtimeViews: composition.layouts.views,
   });
   const surfaceNode = createSurfaceRuntimeNode({
     registry: surfaceRegistry,
-    views: resolvedComposition.surfaces.views,
+    views: composition.surfaces.views,
   });
 
   return [
-    createScaffoldCapabilitiesStorageExtension(resolvedComposition.capabilities),
+    createScaffoldCapabilitiesStorageExtension(composition.capabilities),
     ...createCourseDocumentBaseExtensions({
       assessmentActionsGroupNode: AssessmentActionsGroupRuntimeNode,
       assessmentChoicesGroupNode: AssessmentChoicesGroupRuntimeNode,
@@ -61,6 +57,6 @@ export function createCourseDocumentRuntimeExtensions({
       updateDocumentIds: false,
       vocabularyTermNode: VocabularyTermRuntimeNode,
     }),
-    ...resolvedComposition.blocks.extensions,
+    ...composition.blocks.extensions,
   ];
 }

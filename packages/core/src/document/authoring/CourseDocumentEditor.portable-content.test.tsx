@@ -5,9 +5,12 @@ import { Extension, type Editor, type JSONContent } from "@tiptap/core";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
+import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import { createScaffoldDefaultTheme } from "@/theme/model";
 import { CourseDocumentEditor } from "./CourseDocumentEditor";
+
+const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 
 afterEach(cleanup);
 
@@ -19,6 +22,7 @@ describe("CourseDocumentEditor portable content", () => {
 
     render(
       createElement(CourseDocumentEditor, {
+        composition: coreAuthoringComposition,
         source: { mode: "document", content, onUpdate },
         onReady,
       }),
@@ -47,6 +51,7 @@ describe("CourseDocumentEditor portable content", () => {
 
     render(
       createElement(CourseDocumentEditor, {
+        composition: coreAuthoringComposition,
         source: {
           mode: "external",
           stateExtensions: [ownExternalState],
@@ -68,6 +73,7 @@ describe("CourseDocumentEditor portable content", () => {
     const onReady = vi.fn();
     const { rerender } = render(
       createElement(CourseDocumentEditor, {
+        composition: coreAuthoringComposition,
         source: { mode: "document", content: pageDocument("First artifact") },
         onReady,
       }),
@@ -78,6 +84,7 @@ describe("CourseDocumentEditor portable content", () => {
 
     rerender(
       createElement(CourseDocumentEditor, {
+        composition: coreAuthoringComposition,
         source: { mode: "document", content: pageDocument("Different artifact") },
         onReady,
       }),
@@ -94,6 +101,7 @@ describe("CourseDocumentEditor portable content", () => {
     const onReady = vi.fn();
     const { rerender } = render(
       createElement(CourseDocumentEditor, {
+        composition: coreAuthoringComposition,
         source: {
           mode: "document",
           content: pageDocument("First artifact"),
@@ -109,6 +117,7 @@ describe("CourseDocumentEditor portable content", () => {
 
     rerender(
       createElement(CourseDocumentEditor, {
+        composition: coreAuthoringComposition,
         source: {
           mode: "document",
           content: pageDocument("Ignored replacement"),

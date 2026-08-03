@@ -5,10 +5,13 @@ import { Editor, type JSONContent } from "@tiptap/core";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
+import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import { createScaffoldDefaultTheme } from "@/theme/model";
 
 import { CourseDocumentEditor } from "./CourseDocumentEditor";
+
+const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 
 afterEach(() => {
   cleanup();
@@ -22,6 +25,7 @@ describe("CourseDocumentEditor interaction guardrails", () => {
 
     render(
       createElement(CourseDocumentEditor, {
+        composition: coreAuthoringComposition,
         source: { mode: "document", content },
         onReady,
       }),
@@ -87,6 +91,7 @@ async function mountEditor(content: JSONContent): Promise<Editor> {
   const onReady = vi.fn();
   render(
     createElement(CourseDocumentEditor, {
+      composition: coreAuthoringComposition,
       source: { mode: "document", content },
       onReady,
     }),
