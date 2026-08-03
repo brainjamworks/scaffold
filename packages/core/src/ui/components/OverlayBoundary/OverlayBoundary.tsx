@@ -3,7 +3,6 @@ import {
   useMemo,
   useState,
   type ComponentType,
-  type PropsWithChildren,
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
@@ -24,7 +23,7 @@ import "./OverlayBoundary.css";
 export interface OverlayBoundaryProps {
   container: Element | null;
   collisionBoundary?: Element | null;
-  hostBoundary?: ComponentType<PropsWithChildren>;
+  hostBoundary?: ComponentType<Readonly<{ children: ReactNode }>>;
   kind: OverlayBoundaryKind;
   children: ReactNode;
 }

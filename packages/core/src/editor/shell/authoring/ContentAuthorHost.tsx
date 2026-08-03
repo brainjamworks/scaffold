@@ -114,7 +114,7 @@ export const ContentAuthorHost = memo(function ContentAuthorHost({
               source={source}
               editable={editable}
               onReady={handleReady}
-              courseAppearance={courseAppearance}
+              {...(courseAppearance ? { courseAppearance } : {})}
               suspended={reviewing}
             />
             {contribution.mode === "review" ? (

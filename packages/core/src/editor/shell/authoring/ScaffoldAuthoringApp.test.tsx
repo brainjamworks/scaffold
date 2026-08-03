@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => {
           },
         },
       },
+      view: { dispatch(_transaction: { attrs?: Record<string, unknown> }) {} },
     },
     learnerModuleReads: 0,
     learnerAppProps: [] as Array<Record<string, unknown>>,

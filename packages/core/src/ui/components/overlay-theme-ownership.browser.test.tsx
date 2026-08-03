@@ -1,4 +1,5 @@
 import { createRoot, type Root } from "react-dom/client";
+import type { CSSProperties, ReactNode } from "react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import "@/styles/globals.css";
@@ -80,8 +81,7 @@ describe("overlay theme ownership", () => {
     fixture.root.render(
       <OverlayBoundary
         container={fixture.boundaryContainer}
-        hostClassName="sc-course-theme-portal-scope"
-        hostCssVariables={{ "--sc-course-font-body": '"Course Body", serif' }}
+        hostBoundary={StandaloneCourseBoundary}
         kind="viewport"
       >
         <Popover.Root open>
@@ -183,6 +183,22 @@ describe("overlay theme ownership", () => {
     expect(getComputedStyle(tooltip).borderRadius).toBe("8px");
   });
 });
+
+function StandaloneCourseBoundary({ children }: Readonly<{ children: ReactNode }>) {
+  return (
+    <div
+      className="sc-course-theme-portal-scope"
+      style={
+        {
+          "--sc-course-font-body": '"Course Body", serif',
+          fontFamily: "var(--sc-course-font-body)",
+        } as CSSProperties
+      }
+    >
+      {children}
+    </div>
+  );
+}
 
 function createOwnershipFixture(owner: "application" | "course") {
   const application = document.createElement("div");
