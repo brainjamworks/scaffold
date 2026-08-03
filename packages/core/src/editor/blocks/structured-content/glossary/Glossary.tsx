@@ -4,7 +4,8 @@ import {
   useEditorState,
   type NodeViewProps,
 } from "@tiptap/react";
-import { PlusIcon as Plus, TrashIcon as Trash } from "@phosphor-icons/react";
+import { TrashIcon as Trash } from "@phosphor-icons/react";
+import { useId } from "react";
 
 import { isFieldContentEmpty } from "@/document/model/content-model/is-field-content-empty";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
@@ -49,15 +50,9 @@ export function GlossaryView(props: NodeViewProps) {
             contentEditable={false}
             onClick={addEntry}
             aria-label="Add term"
-            className="sc-glossary__add"
+            className="sc-app-glossary-add"
           >
-            <span className="sc-glossary__add-term">
-              <span aria-hidden className="sc-glossary__add-icon">
-                <Plus size={12} weight="bold" />
-              </span>
-              Add term
-            </span>
-            <span className="sc-glossary__add-definition">Brief definition</span>
+            Add term
           </button>
         ) : null
       }
@@ -76,6 +71,7 @@ export function GlossaryEntryNodeView(props: NodeViewProps) {
   });
   const { count, index } = readEntryPosition(props);
   const canDelete = editable && count > 1;
+  const deleteExplanationId = useId();
 
   const deleteEntry = () => {
     const pos = readNodePos(props);
@@ -90,18 +86,24 @@ export function GlossaryEntryNodeView(props: NodeViewProps) {
   };
 
   return (
-    <NodeViewWrapper data-node="glossary-entry" className="sc-glossary__entry">
-      <NodeViewContent />
+    <NodeViewWrapper as="div" data-node="glossary-entry" className="sc-course-glossary__entry">
+      <NodeViewContent as="div" />
       {editable ? (
         <button
           type="button"
           contentEditable={false}
-          disabled={!canDelete}
+          aria-disabled={!canDelete || undefined}
+          aria-describedby={!canDelete ? deleteExplanationId : undefined}
           aria-label={`Delete term ${index}`}
           onClick={deleteEntry}
-          className="sc-glossary__delete"
+          className="sc-app-glossary-delete"
         >
           <Trash size={14} aria-hidden />
+          {!canDelete ? (
+            <span id={deleteExplanationId} className="sc-app-glossary-delete__explanation">
+              A glossary must contain at least one term.
+            </span>
+          ) : null}
         </button>
       ) : null}
     </NodeViewWrapper>
@@ -121,15 +123,20 @@ export function GlossaryTermNodeView(props: NodeViewProps) {
 
   if (!editable && isEmpty) {
     return (
-      <NodeViewWrapper data-slot="glossary-term" aria-hidden className="sc-glossary__suppressed">
-        <NodeViewContent />
+      <NodeViewWrapper
+        as="dt"
+        data-slot="glossary-term"
+        aria-hidden
+        className="sc-course-glossary__suppressed"
+      >
+        <NodeViewContent as="div" />
       </NodeViewWrapper>
     );
   }
 
   return (
-    <NodeViewWrapper data-slot="glossary-term" className="sc-glossary__term">
-      <NodeViewContent />
+    <NodeViewWrapper as="dt" data-slot="glossary-term" className="sc-course-glossary__term">
+      <NodeViewContent as="div" />
     </NodeViewWrapper>
   );
 }
@@ -148,18 +155,23 @@ export function GlossaryDefinitionNodeView(props: NodeViewProps) {
   if (!editable && isEmpty) {
     return (
       <NodeViewWrapper
+        as="dd"
         data-slot="glossary-definition"
         aria-hidden
-        className="sc-glossary__suppressed"
+        className="sc-course-glossary__suppressed"
       >
-        <NodeViewContent />
+        <NodeViewContent as="div" />
       </NodeViewWrapper>
     );
   }
 
   return (
-    <NodeViewWrapper data-slot="glossary-definition" className="sc-glossary__definition">
-      <NodeViewContent />
+    <NodeViewWrapper
+      as="dd"
+      data-slot="glossary-definition"
+      className="sc-course-glossary__definition"
+    >
+      <NodeViewContent as="div" />
     </NodeViewWrapper>
   );
 }

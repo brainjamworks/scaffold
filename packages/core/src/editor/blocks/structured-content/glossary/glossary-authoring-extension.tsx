@@ -6,11 +6,12 @@ import { GlossaryView } from "./Glossary";
 import { glossaryBlockDefinition } from "./glossary-definition";
 import { createGlossaryNode } from "./node";
 import { GlossaryDefinitionNode, GlossaryEntryNode, GlossaryTermNode } from "./slots";
+import "./GlossaryAuthoringControls.css";
 
 const GlossaryAuthoringRootNode = createGlossaryNode({
   addNodeView: () =>
     createBlockAuthoringNodeView({
-      className: "sc-glossary",
+      className: "sc-course-glossary",
       definition: glossaryBlockDefinition,
       view: { component: GlossaryView },
     }),

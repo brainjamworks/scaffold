@@ -1,0 +1,76 @@
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-glossary__section {
+  padding-block: var(--space-3);
+  color: var(--gray-12);
+  font-family: var(--default-font-family);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-glossary__list {
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--gray-a6);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-glossary__entry {
+  grid-template-columns: minmax(0, 11rem) minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: var(--space-5);
+  row-gap: var(--space-1);
+  padding-block: var(--space-4);
+  border-bottom: 1px solid var(--gray-a6);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-glossary__term {
+  grid-column: 1;
+  grid-row: 1;
+  margin: 0;
+  color: var(--gray-12);
+  font-family: var(--heading-font-family);
+  font-size: var(--font-size-4);
+  font-weight: 600;
+  letter-spacing: var(--letter-spacing-4);
+  line-height: var(--line-height-4);
+  text-wrap: balance;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-glossary__term p,
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-glossary__definition p {
+  margin: 0 !important;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-glossary__definition {
+  grid-column: 2;
+  grid-row: 1;
+  margin: 0;
+  color: var(--gray-12);
+  font-size: var(--font-size-3);
+  font-weight: 400;
+  line-height: var(--line-height-3);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-glossary__definition p + p {
+  margin-top: var(--space-2) !important;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-glossary__definition a {
+  color: var(--accent-11);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+@container sc-course-glossary (max-width: 42rem) {
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-glossary__entry {
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: 0;
+    row-gap: var(--space-2);
+  }
+
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-glossary__term {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-glossary__definition {
+    grid-column: 1;
+    grid-row: 2;
+  }
+}

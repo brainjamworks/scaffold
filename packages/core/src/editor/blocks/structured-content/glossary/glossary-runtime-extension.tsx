@@ -10,7 +10,7 @@ import { GlossaryDefinitionNode, GlossaryEntryNode, GlossaryTermNode } from "./s
 const GlossaryRuntimeRootNode = createGlossaryNode({
   addNodeView: () =>
     createBlockRuntimeNodeView({
-      className: "sc-glossary",
+      className: "sc-course-glossary",
       definition: glossaryBlockDefinition,
       view: { component: GlossaryView },
     }),

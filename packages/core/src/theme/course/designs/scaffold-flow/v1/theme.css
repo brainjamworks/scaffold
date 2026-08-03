@@ -1,3 +1,5 @@
+@import "./glossary.css";
+
 .sc-course.sc-course-theme-scaffold-flow-v1 {
   min-width: 0;
   font-family: var(--default-font-family);
