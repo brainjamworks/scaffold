@@ -5,7 +5,10 @@ import {
   validateCourseSurfaceLifecycle,
   type CourseDocumentIssue,
 } from "@/document/model/validation";
-import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
+import {
+  createCoreScaffoldRuntimeComposition,
+  type ScaffoldRuntimeComposition,
+} from "@/composition/runtime/scaffold-runtime-composition";
 import { CourseDocumentAttrsSchema } from "@/schemas/course-document";
 import {
   createThemeCatalogue,
@@ -40,8 +43,12 @@ import {
   type XapiSession,
 } from "../xapi";
 
+// Temporary migration fallback until every public runtime caller supplies composition in Task 6.
+const migrationCoreRuntimeComposition = createCoreScaffoldRuntimeComposition();
+
 export interface ContentRuntimeHostProps extends ScaffoldLearnerColorModeProps {
   artifactId?: string | null;
+  composition?: ScaffoldRuntimeComposition;
   courseTitle?: string | null;
   initialAssessmentSnapshot?: unknown;
   initialLearnerActivitySnapshot?: unknown;
@@ -53,6 +60,7 @@ export interface ContentRuntimeHostProps extends ScaffoldLearnerColorModeProps {
 
 export function ContentRuntimeHost({
   artifactId,
+  composition,
   courseTitle,
   initialAssessmentSnapshot,
   initialLearnerActivitySnapshot,
@@ -62,6 +70,7 @@ export function ContentRuntimeHost({
   onEditorReady,
   themeExtension,
 }: ContentRuntimeHostProps) {
+  const resolvedComposition = composition ?? migrationCoreRuntimeComposition;
   const colorMode = useLearnerColorMode(hostColorMode);
   const themeCatalogue = useMemo(() => createThemeCatalogue(themeExtension), [themeExtension]);
   const runtimeArtifactId = artifactId ?? null;
@@ -75,7 +84,7 @@ export function ContentRuntimeHost({
 
   const validation = validateCourseSurfaceLifecycle({
     content: initialContent,
-    registry: builtInSurfaceVariantRegistry,
+    registry: resolvedComposition.capabilities.surfaces.registry,
   });
   if (!validation.ok) {
     return (
@@ -108,6 +117,7 @@ export function ContentRuntimeHost({
           >
             <LearnerActivityReadinessGate>
               <HydratedRuntimePlayer
+                composition={resolvedComposition}
                 initialContent={initialContent}
                 playerSelection={playerSelection}
                 colorMode={colorMode}
@@ -126,6 +136,7 @@ export function ContentRuntimeHost({
 
 interface HydratedRuntimePlayerProps {
   readonly colorMode: ScaffoldColorMode;
+  readonly composition: ScaffoldRuntimeComposition;
   readonly initialContent: JSONContent;
   readonly onEditorReady?: (editor: TiptapEditor) => void;
   readonly playerSelection: RuntimePlayerSelection;
@@ -136,6 +147,7 @@ interface HydratedRuntimePlayerProps {
 
 function HydratedRuntimePlayer({
   colorMode,
+  composition,
   initialContent,
   onEditorReady,
   playerSelection,
@@ -200,6 +212,7 @@ function HydratedRuntimePlayer({
     playerSelection.player === "page" ? (
       <PagePlayer
         artifactId={runtimeArtifactId}
+        composition={composition}
         initialContent={initialContent}
         resolvedTheme={resolvedTheme}
         onRendererReady={handleRendererReady}
@@ -208,6 +221,7 @@ function HydratedRuntimePlayer({
     ) : (
       <SlideshowPlayer
         artifactId={runtimeArtifactId}
+        composition={composition}
         initialContent={initialContent}
         resolvedTheme={resolvedTheme}
         onActiveSurfaceChange={recordSurfaceExperienced}

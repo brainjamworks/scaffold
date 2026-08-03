@@ -5,11 +5,15 @@ import { OverlayBoundary } from "@/ui/components/OverlayBoundary/OverlayBoundary
 import type { ResolvedCourseTheme } from "@/theme/model";
 import { DEFAULT_RESOLVED_COURSE_THEME } from "@/theme/presentation/CourseThemeScope";
 
-import { CourseDocumentRuntimeRenderer } from "../../renderer/CourseDocumentRuntimeRenderer";
+import {
+  CourseDocumentRuntimeRenderer,
+  type CourseDocumentRuntimeRendererProps,
+} from "../../renderer/CourseDocumentRuntimeRenderer";
 import "./PagePlayer.css";
 
 export interface PagePlayerProps {
   artifactId?: string | null;
+  composition?: CourseDocumentRuntimeRendererProps["composition"];
   initialContent: JSONContent;
   resolvedTheme?: ResolvedCourseTheme;
   surfaceId: string;
@@ -18,6 +22,7 @@ export interface PagePlayerProps {
 
 export function PagePlayer({
   artifactId,
+  composition,
   initialContent,
   resolvedTheme,
   surfaceId,
@@ -47,6 +52,7 @@ export function PagePlayer({
         <div className="sc-page-player__content">
           <CourseDocumentRuntimeRenderer
             artifactId={artifactId ?? null}
+            {...(composition ? { composition } : {})}
             initialContent={initialContent}
             {...(resolvedTheme ? { resolvedTheme } : {})}
             {...(onRendererReady ? { onReady: onRendererReady } : {})}

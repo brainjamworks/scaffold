@@ -6,10 +6,19 @@ import type { JSONContent } from "@tiptap/core";
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
+import {
+  createScaffoldApplication,
+  defineScaffoldExtensionPack,
+  type SurfaceCapability,
+} from "@/composition/application/create-scaffold-application";
+import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { emptyCalloutData } from "@/editor/blocks/presentation/callout/content";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
+import type { SurfaceAuthoringViewProps } from "@/editor/surfaces/authoring/surface-authoring-view-registry";
+import type { SurfaceRuntimeViewProps } from "@/editor/surfaces/runtime/surface-runtime-view-registry";
+import { SurfaceRuntimeFrame } from "@/editor/surfaces/runtime/views/SurfaceRuntimeFrame";
 import type { XapiPort } from "@/host/ports";
 import {
   createScaffoldDefaultTheme,
@@ -495,7 +504,97 @@ function calloutBlock(widthPercent: number): JSONContent {
   };
 }
 
+function privateRuntimeSurfaceCapability(id: string): SurfaceCapability {
+  return {
+    definition: {
+      id,
+      modes: ["slideshow"],
+      title: "Private runtime Surface",
+      description: "Private-pack Surface used to verify mounted runtime composition",
+      structurePolicy: {
+        fixedChildren: [{ type: "paragraph" }],
+        allowRootInsertion: true,
+      },
+      createSurface: ({ surfaceId }) => ({
+        type: "surface",
+        attrs: { id: surfaceId, variant: id, settings: {} },
+        content: [paragraph("Private runtime content")],
+      }),
+    },
+    authoringView: { variantId: id, component: PrivateSurfaceAuthoringView },
+    runtimeView: { variantId: id, component: PrivateSurfaceRuntimeView },
+  };
+}
+
+function PrivateSurfaceAuthoringView(_props: SurfaceAuthoringViewProps) {
+  return null;
+}
+
+function PrivateSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
+  return (
+    <SurfaceRuntimeFrame
+      {...props}
+      attributes={{ "data-private-runtime-surface": props.definition.id }}
+    />
+  );
+}
+
 describe("ContentRuntimeHost", () => {
+  it("validates and renders a private Surface only with its supplied runtime composition", async () => {
+    const capability = privateRuntimeSurfaceCapability("private-runtime-surface");
+    const application = createScaffoldApplication({
+      packs: [
+        defineScaffoldExtensionPack({
+          id: "private-runtime-surface-pack",
+          surfaces: [capability],
+        }),
+      ],
+    });
+    const content = runtimeDocumentContent({ mode: "slideshow" });
+    content.content![0]!.content = [
+      capability.definition.createSurface({ surfaceId: "private-slide" }),
+    ];
+    const onEditorReady = vi.fn();
+    const view = render(
+      <ContentRuntimeHost
+        artifactId="private-runtime-artifact"
+        initialContent={content}
+        onEditorReady={onEditorReady}
+      />,
+    );
+
+    expect(screen.getByTestId("scaffold-runtime-unavailable")).toHaveAttribute(
+      "data-runtime-unavailable-reason",
+      "invalid-surface-variant",
+    );
+    expect(onEditorReady).not.toHaveBeenCalled();
+
+    view.rerender(
+      <ContentRuntimeHost
+        artifactId="private-runtime-artifact"
+        composition={application.runtime}
+        initialContent={content}
+        onEditorReady={onEditorReady}
+      />,
+    );
+
+    await waitFor(() => expect(onEditorReady).toHaveBeenCalledTimes(1));
+    expect(
+      document.body.querySelector(
+        `[data-private-runtime-surface="${capability.definition.id}"]`,
+      ),
+    ).not.toBeNull();
+    expect(getScaffoldCapabilitiesForEditor(onEditorReady.mock.calls[0]![0])).toBe(
+      application.runtime.capabilities,
+    );
+    expect(screen.getByTestId("slideshow-player")).toBeInTheDocument();
+    expect(
+      document.body.querySelector(
+        `[data-private-runtime-surface="${capability.definition.id}"]`,
+      ),
+    ).not.toBeNull();
+  });
+
   it("falls back and recovers silently when a host theme extension is removed and restored", async () => {
     const themeExtension = hostThemeExtension();
     const hostPreset = themeExtension.presets![0]!;

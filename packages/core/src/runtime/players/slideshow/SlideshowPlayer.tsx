@@ -20,7 +20,10 @@ import { iconMd } from "@/ui/tokens/icon-sizes";
 import type { ResolvedCourseTheme } from "@/theme/model";
 import { DEFAULT_RESOLVED_COURSE_THEME } from "@/theme/presentation/CourseThemeScope";
 
-import { CourseDocumentRuntimeRenderer } from "../../renderer/CourseDocumentRuntimeRenderer";
+import {
+  CourseDocumentRuntimeRenderer,
+  type CourseDocumentRuntimeRendererProps,
+} from "../../renderer/CourseDocumentRuntimeRenderer";
 import type { SlideshowPlayerSizing } from "../player-types";
 import { getSlideshowNavigationState, getSlideshowSurfaceStates } from "./slideshow-navigation";
 import "./SlideshowPlayer.css";
@@ -31,6 +34,7 @@ interface EmbeddedStageStyle extends CSSProperties {
 
 export interface SlideshowPlayerProps {
   artifactId?: string | null;
+  composition?: CourseDocumentRuntimeRendererProps["composition"];
   initialContent: JSONContent;
   resolvedTheme?: ResolvedCourseTheme;
   surfaceIds: [string, ...string[]];
@@ -41,6 +45,7 @@ export interface SlideshowPlayerProps {
 
 export function SlideshowPlayer({
   artifactId,
+  composition,
   initialContent,
   resolvedTheme,
   surfaceIds,
@@ -228,6 +233,7 @@ export function SlideshowPlayer({
                   >
                     <CourseDocumentRuntimeRenderer
                       artifactId={artifactId ?? null}
+                      {...(composition ? { composition } : {})}
                       initialContent={initialContent}
                       {...(resolvedTheme ? { resolvedTheme } : {})}
                       surfaceStates={surfaceStates}

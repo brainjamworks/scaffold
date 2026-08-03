@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 
+import type { ScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import type { ScaffoldLearnerBootstrap, ScaffoldLearnerHostServices } from "@/host/contracts";
 import type { SlideshowPlayerSizing } from "../players/player-types";
 import type { ScaffoldLearnerColorModeProps } from "@/theme/state/learner-color-mode";
@@ -10,6 +11,7 @@ import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvi
 
 export interface ScaffoldLearnerAppProps extends ScaffoldLearnerColorModeProps {
   bootstrap: ScaffoldLearnerBootstrap;
+  composition?: ScaffoldRuntimeComposition;
   services: ScaffoldLearnerHostServices;
   slideshowSizing?: SlideshowPlayerSizing;
   themeExtension?: ScaffoldThemeExtension;
@@ -17,6 +19,7 @@ export interface ScaffoldLearnerAppProps extends ScaffoldLearnerColorModeProps {
 
 export function ScaffoldLearnerApp({
   bootstrap,
+  composition,
   hostColorMode,
   services,
   slideshowSizing = "embedded",
@@ -36,6 +39,7 @@ export function ScaffoldLearnerApp({
     <ScaffoldServicesProvider ports={ports}>
       <ContentRuntimeHost
         artifactId={bootstrap.artifactId}
+        {...(composition ? { composition } : {})}
         courseTitle={bootstrap.title}
         {...(bootstrap.initialLearnerState?.assessmentSnapshot === undefined
           ? {}

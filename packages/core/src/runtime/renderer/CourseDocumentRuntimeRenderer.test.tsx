@@ -2,14 +2,24 @@
 
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
+import { Extension, Node, type Editor as TiptapEditor, type JSONContent } from "@tiptap/core";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
+import {
+  createScaffoldApplication,
+  defineScaffoldExtensionPack,
+  type BlockCapability,
+  type SurfaceCapability,
+} from "@/composition/application/create-scaffold-application";
+import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import { calloutBlockDefinition } from "@/editor/blocks/presentation/callout/callout-definition";
 import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";
 import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
 import { createScaffoldDocumentContent } from "@/format/artifact";
+import type { SurfaceAuthoringViewProps } from "@/editor/surfaces/authoring/surface-authoring-view-registry";
+import type { SurfaceRuntimeViewProps } from "@/editor/surfaces/runtime/surface-runtime-view-registry";
+import { SurfaceRuntimeFrame } from "@/editor/surfaces/runtime/views/SurfaceRuntimeFrame";
 import { createScaffoldDefaultTheme } from "@/theme/model";
 
 import { CourseDocumentRuntimeRenderer } from "./CourseDocumentRuntimeRenderer";
@@ -128,6 +138,73 @@ function surfaceById(surfaceId: string): HTMLElement {
 }
 
 describe("CourseDocumentRuntimeRenderer", () => {
+  it("starts a fresh editor when runtime composition identity changes", async () => {
+    const surfaceVariant = "private-identity-surface";
+    const firstBlock = privateRuntimeBlockCapability("first_private_runtime_block");
+    const secondBlock = privateRuntimeBlockCapability("second_private_runtime_block");
+    const firstComposition = createScaffoldApplication({
+      packs: [
+        defineScaffoldExtensionPack({
+          id: "first-private-runtime-identity",
+          blocks: [firstBlock],
+          surfaces: [privateRuntimeSurfaceCapability(surfaceVariant, "first")],
+        }),
+      ],
+    }).runtime;
+    const secondComposition = createScaffoldApplication({
+      packs: [
+        defineScaffoldExtensionPack({
+          id: "second-private-runtime-identity",
+          blocks: [secondBlock],
+          surfaces: [privateRuntimeSurfaceCapability(surfaceVariant, "second")],
+        }),
+      ],
+    }).runtime;
+    const initialContent = privateSurfaceDocumentContent(surfaceVariant);
+    const readyEditors: TiptapEditor[] = [];
+    const onReady = vi.fn((editor: TiptapEditor) => readyEditors.push(editor));
+    const { rerender } = render(
+      <CourseDocumentRuntimeRenderer
+        composition={firstComposition}
+        initialContent={initialContent}
+        onReady={onReady}
+      />,
+    );
+
+    await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
+    expect(getScaffoldCapabilitiesForEditor(readyEditors[0]!)).toBe(firstComposition.capabilities);
+    expect(readyEditors[0]?.schema.nodes[firstBlock.definition.nodeType]).toBeDefined();
+    expect(readyEditors[0]?.schema.nodes[secondBlock.definition.nodeType]).toBeUndefined();
+    expect(document.body.querySelector('[data-private-runtime-view="first"]')).not.toBeNull();
+
+    rerender(
+      <CourseDocumentRuntimeRenderer
+        composition={firstComposition}
+        initialContent={initialContent}
+        onReady={onReady}
+      />,
+    );
+    expect(onReady).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <CourseDocumentRuntimeRenderer
+        composition={secondComposition}
+        initialContent={initialContent}
+        onReady={onReady}
+      />,
+    );
+
+    await waitFor(() => expect(onReady).toHaveBeenCalledTimes(2));
+    expect(readyEditors[1]).not.toBe(readyEditors[0]);
+    expect(readyEditors[0]?.isDestroyed).toBe(true);
+    expect(getScaffoldCapabilitiesForEditor(readyEditors[1]!)).toBe(secondComposition.capabilities);
+    expect(readyEditors[1]?.schema.nodes[secondBlock.definition.nodeType]).toBeDefined();
+    expect(readyEditors[1]?.schema.nodes[firstBlock.definition.nodeType]).toBeUndefined();
+    expect(readyEditors[1]?.state).not.toBe(readyEditors[0]?.state);
+    expect(document.body.querySelector('[data-private-runtime-view="second"]')).not.toBeNull();
+    expect(document.body.querySelector('[data-private-runtime-view="first"]')).toBeNull();
+  });
+
   it("marks the visible surface and hides inactive surfaces", async () => {
     const onReady = vi.fn();
 
@@ -514,4 +591,63 @@ function requiredElement(root: HTMLElement, selector: string): HTMLElement {
   const element = root.querySelector(selector);
   if (!(element instanceof HTMLElement)) throw new Error(`Missing element ${selector}`);
   return element;
+}
+
+function privateRuntimeBlockCapability(nodeType: string): BlockCapability {
+  return {
+    definition: { nodeType },
+    authoringExtension: Extension.create({
+      name: `${nodeType}_authoring_bundle`,
+      addExtensions: () => [Node.create({ name: nodeType, group: "block", atom: true })],
+    }),
+    runtimeExtension: Extension.create({
+      name: `${nodeType}_runtime_bundle`,
+      addExtensions: () => [Node.create({ name: nodeType, group: "block", atom: true })],
+    }),
+  };
+}
+
+function privateRuntimeSurfaceCapability(id: string, viewId: string): SurfaceCapability {
+  const RuntimeView = (props: SurfaceRuntimeViewProps) => (
+    <SurfaceRuntimeFrame
+      {...props}
+      attributes={{ "data-private-runtime-view": viewId }}
+    />
+  );
+
+  return {
+    definition: {
+      id,
+      modes: ["page"],
+      title: `Private ${viewId} Surface`,
+      description: "Private Surface used to verify runtime view isolation",
+      structurePolicy: {
+        fixedChildren: [{ type: "paragraph" }],
+        allowRootInsertion: true,
+      },
+      createSurface: ({ surfaceId }) => ({
+        type: "surface",
+        attrs: { id: surfaceId, variant: id, settings: {} },
+        content: [paragraph("Private composition identity")],
+      }),
+    },
+    authoringView: { variantId: id, component: PrivateIdentitySurfaceAuthoringView },
+    runtimeView: { variantId: id, component: RuntimeView },
+  };
+}
+
+function PrivateIdentitySurfaceAuthoringView(_props: SurfaceAuthoringViewProps) {
+  return null;
+}
+
+function privateSurfaceDocumentContent(variant: string): JSONContent {
+  const content = pageDocumentContent();
+  content.content![0]!.content = [
+    {
+      type: "surface",
+      attrs: { id: "private-identity-surface-instance", variant, settings: {} },
+      content: [paragraph("Private composition identity")],
+    },
+  ];
+  return content;
 }

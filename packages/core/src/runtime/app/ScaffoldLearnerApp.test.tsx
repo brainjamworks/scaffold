@@ -4,7 +4,15 @@ import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import type { JSONContent } from "@tiptap/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
+import {
+  createScaffoldApplication,
+  defineScaffoldExtensionPack,
+  type SurfaceCapability,
+} from "@/composition/application/create-scaffold-application";
 import { createScaffoldDocumentContent } from "@/format/artifact";
+import type { SurfaceAuthoringViewProps } from "@/editor/surfaces/authoring/surface-authoring-view-registry";
+import type { SurfaceRuntimeViewProps } from "@/editor/surfaces/runtime/surface-runtime-view-registry";
+import { SurfaceRuntimeFrame } from "@/editor/surfaces/runtime/views/SurfaceRuntimeFrame";
 import type { ScaffoldLearnerBootstrap, ScaffoldLearnerHostServices } from "@/host/contracts";
 import type { XapiPort } from "@/host/ports";
 import { SCAFFOLD_DEFAULT_PRESET, type ScaffoldThemeExtension } from "@/theme/model";
@@ -152,7 +160,80 @@ function learnerBootstrap(
   };
 }
 
+function privateLearnerSurfaceCapability(id: string): SurfaceCapability {
+  return {
+    definition: {
+      id,
+      modes: ["page"],
+      title: "Private learner Surface",
+      description: "Private-pack Surface used to verify the public learner mount",
+      structurePolicy: {
+        fixedChildren: [{ type: "paragraph" }],
+        allowRootInsertion: true,
+      },
+      createSurface: ({ surfaceId }) => ({
+        type: "surface",
+        attrs: { id: surfaceId, variant: id, settings: {} },
+        content: [
+          {
+            type: "paragraph",
+            content: [{ type: "text", text: "Private learner Surface content" }],
+          },
+        ],
+      }),
+    },
+    authoringView: { variantId: id, component: PrivateLearnerSurfaceAuthoringView },
+    runtimeView: { variantId: id, component: PrivateLearnerSurfaceRuntimeView },
+  };
+}
+
+function PrivateLearnerSurfaceAuthoringView(_props: SurfaceAuthoringViewProps) {
+  return null;
+}
+
+function PrivateLearnerSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
+  return (
+    <SurfaceRuntimeFrame
+      {...props}
+      attributes={{ "data-private-learner-surface": props.definition.id }}
+    />
+  );
+}
+
 describe("ScaffoldLearnerApp", () => {
+  it("renders private-pack content through the supplied runtime composition", async () => {
+    const capability = privateLearnerSurfaceCapability("private-learner-surface");
+    const application = createScaffoldApplication({
+      packs: [
+        defineScaffoldExtensionPack({
+          id: "private-learner-surface-pack",
+          surfaces: [capability],
+        }),
+      ],
+    });
+    const learnerContent = learnerDocumentWithText("Core content replaced by private Surface");
+    learnerContent.content![0]!.content = [
+      capability.definition.createSurface({ surfaceId: "private-learner-surface-instance" }),
+    ];
+
+    render(
+      <ScaffoldLearnerApp
+        bootstrap={learnerBootstrap({ learnerContent })}
+        composition={application.runtime}
+        services={{}}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(
+        document.body.querySelector(
+          `[data-private-learner-surface="${capability.definition.id}"]`,
+        ),
+      ).not.toBeNull(),
+    );
+    expect(screen.queryByTestId("scaffold-runtime-unavailable")).toBeNull();
+  });
+
   it("applies a validated host theme extension to learner content", async () => {
     const themeExtension = hostThemeExtension();
     const hostPreset = themeExtension.presets![0]!;

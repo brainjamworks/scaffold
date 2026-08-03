@@ -4,6 +4,7 @@ import { useEffect } from "react";
 
 import { readSurfaceViewSettings } from "@/document/model/surface-view-settings";
 import { createCourseDocumentRuntimeExtensions } from "@/composition/runtime/create-runtime-composition";
+import type { ScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
 import {
@@ -20,6 +21,7 @@ import "./CourseDocumentRuntimeRenderer.css";
 
 export interface CourseDocumentRuntimeRendererProps {
   artifactId?: string | null;
+  composition?: ScaffoldRuntimeComposition;
   initialContent?: JSONContent | null;
   onReady?: (editor: TiptapEditor) => void;
   resolvedTheme?: ResolvedCourseTheme;
@@ -29,6 +31,7 @@ export interface CourseDocumentRuntimeRendererProps {
 
 export function CourseDocumentRuntimeRenderer({
   artifactId,
+  composition,
   initialContent = null,
   onReady,
   resolvedTheme,
@@ -45,12 +48,15 @@ export function CourseDocumentRuntimeRenderer({
       immediatelyRender: false,
       editable: false,
       ...(initialContent ? { content: initialContent } : {}),
-      extensions: [...createCourseDocumentRuntimeExtensions(), RuntimeSurfaceVisibility],
+      extensions: [
+        ...createCourseDocumentRuntimeExtensions(composition ? { composition } : undefined),
+        RuntimeSurfaceVisibility,
+      ],
       onCreate: ({ editor: e }) => {
         onReady?.(e);
       },
     },
-    [initialContent],
+    [composition, initialContent],
   );
 
   useEffect(() => {
