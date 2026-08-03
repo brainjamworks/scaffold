@@ -11,8 +11,6 @@ import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 import { EditorMovementLayer } from "@/editor/drag/view/EditorMovementLayer";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
-import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";
-import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
 import {
   assessmentProblemOutcome,
   createAssessmentRuntimeTestRoot,
@@ -54,9 +52,6 @@ import {
   describeCategoriseSourceItemAccessibilityState,
 } from "./categorise-fields";
 
-const blockInsertCatalog = createInsertCatalog(
-  createBlockInsertActions([categoriseBlockDefinition]),
-);
 const canonicalAssessmentResult = { maxScore: 1 as const, feedback: null, items: {} };
 
 const BoundedRegionTestNode = TiptapNode.create({
@@ -376,15 +371,6 @@ describe("composite categorise node", () => {
         submitted: true,
       }),
     ).toBe("Placed item. Revealed correct placement. Feedback available");
-  });
-
-  it("registers only the outer categorise block in the insert catalog", () => {
-    const nodeTypes = blockInsertCatalog.actions.map((item) => item.nodeType);
-
-    expect(nodeTypes).toContain("categorise");
-    expect(nodeTypes).not.toContain("categorise_content");
-    expect(nodeTypes).not.toContain("categorise_bin");
-    expect(nodeTypes).not.toContain("categorise_item");
   });
 
   it("declares fill placement for bounded containers", () => {

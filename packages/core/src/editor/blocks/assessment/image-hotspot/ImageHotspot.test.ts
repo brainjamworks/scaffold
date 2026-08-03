@@ -59,8 +59,6 @@ import {
   ImageHotspotPrivateAssessmentSchema,
   type ImageHotspotCanvasData,
 } from "@scaffold/contracts";
-import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";
-import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import type { AssessmentPort } from "@/host/ports";
@@ -79,9 +77,6 @@ import {
 import { ImageHotspotAuthoringExtension } from "./image-hotspot-authoring-extension";
 import { ImageHotspotRuntimeExtension } from "./image-hotspot-runtime-extension";
 
-const blockInsertCatalog = createInsertCatalog(
-  createBlockInsertActions([imageHotspotBlockDefinition]),
-);
 const canonicalAssessmentResult = { maxScore: 1 as const, feedback: null, items: {} };
 const sessionBoundedHostNodeType = "image_hotspot_session_bounded_host";
 const sessionBoundedHostDefinition: BlockDefinition = {
@@ -610,13 +605,6 @@ describe("composite image_hotspot node", () => {
     );
 
     editor.destroy();
-  });
-
-  it("registers only the outer hotspot block in the insert catalog", () => {
-    const nodeTypes = blockInsertCatalog.actions.map((item) => item.nodeType);
-
-    expect(nodeTypes).toContain("image_hotspot");
-    expect(nodeTypes).not.toContain("image_hotspot_canvas");
   });
 
   it("declares fill capability but fits a normal compact canvas by width", async () => {

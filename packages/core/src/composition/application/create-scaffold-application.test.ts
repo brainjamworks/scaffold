@@ -150,9 +150,24 @@ describe("createScaffoldApplication", () => {
     const coreActionIds = coreApplication.authoring.catalogues.inDocument.actions.map(
       ({ id }) => id,
     );
+    const coreActionNodeTypes = coreApplication.authoring.catalogues.inDocument.actions.map(
+      ({ nodeType }) => nodeType,
+    );
     const hostActionIds = hostApplication.authoring.catalogues.inDocument.actions.map(
       ({ id }) => id,
     );
+
+    for (const [outerNodeType, implementationNodeTypes] of [
+      ["categorise", ["categorise_content", "categorise_bin", "categorise_item"]],
+      ["image_hotspot", ["image_hotspot_canvas"]],
+      ["matching", ["matching_pairs_group", "matching_pair", "matching_item", "matching_target"]],
+      ["sequencing", ["sequencing_items_group", "sequencing_item"]],
+    ] as const) {
+      expect(coreActionNodeTypes).toContain(outerNodeType);
+      for (const implementationNodeType of implementationNodeTypes) {
+        expect(coreActionNodeTypes).not.toContain(implementationNodeType);
+      }
+    }
 
     expect(hostActionIds.filter((id) => coreActionIds.includes(id))).toEqual(coreActionIds);
     expect(hostActionIds).toHaveLength(coreActionIds.length + 2);

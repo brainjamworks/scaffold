@@ -1061,6 +1061,7 @@ test("rejects direct and relayed built-in inventories from migrated creation own
     "authoring-document-chrome-does-not-reach-legacy-insert-catalog",
     "quiz-authoring-does-not-import-built-in-registries",
     "agent-insertion-does-not-reach-built-in-inventories",
+    "agent-insertion-does-not-import-built-in-registries",
   ];
   const expectedRelayRuleNames = [
     "suggestion-creation-does-not-reach-built-in-inventories",
@@ -1079,8 +1080,10 @@ test("rejects direct and relayed built-in inventories from migrated creation own
       'export { builtInInsertCatalog } from "../../insertion/built-in-insert-catalog";\n',
     "packages/core/src/editor/blocks/assessment/quiz/quiz-authoring.ts":
       'export { builtInBlockDefinitions } from "../../built-in-block-definitions";\n',
-    "packages/core/src/host/agent/insertion.ts":
-      'export { builtInInsertCatalog } from "../../editor/insertion/built-in-insert-catalog";\n',
+    "packages/core/src/host/agent/insertion.ts": [
+      'export { builtInInsertCatalog } from "../../editor/insertion/built-in-insert-catalog";',
+      'export { builtInBlockDefinitions } from "../../editor/blocks/built-in-block-definitions";',
+    ].join("\n"),
   });
   const directResult = cruise(directFixtureRoot, "err-long", ["packages/core/src"]);
   const directOutput = `${directResult.stdout}\n${directResult.stderr}`;
@@ -1094,6 +1097,7 @@ test("rejects direct and relayed built-in inventories from migrated creation own
   assert.match(directOutput, /AuthoringDocumentChrome\.tsx[\s\S]*built-in-insert-catalog\.ts/);
   assert.match(directOutput, /quiz-authoring\.ts[\s\S]*built-in-block-definitions\.ts/);
   assert.match(directOutput, /host\/agent\/insertion\.ts[\s\S]*built-in-insert-catalog\.ts/);
+  assert.match(directOutput, /host\/agent\/insertion\.ts[\s\S]*built-in-block-definitions\.ts/);
 
   const relayFixtureRoot = await createFixture(t, {
     ...inventoryFiles,

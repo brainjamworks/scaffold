@@ -1,12 +1,12 @@
 import { describe, expect, expectTypeOf, it } from "vite-plus/test";
 
-import * as extensions from "./extensions";
+import * as extensions from "@scaffold/core/extensions";
 import type { BlockInsertVariantDefinition as CoreBlockInsertVariantDefinition } from "../editor/blocks/block-definition";
 import type { ScaffoldAuthoringCatalogues as CoreScaffoldAuthoringCatalogues } from "../composition/extensions/scaffold-authoring-catalogues-storage";
 import type {
   BlockInsertVariantDefinition as ExtensionBlockInsertVariantDefinition,
   ScaffoldAuthoringCatalogues as ExtensionScaffoldAuthoringCatalogues,
-} from "./extensions";
+} from "@scaffold/core/extensions";
 import type {
   BlockCapability,
   BlockDefinition,

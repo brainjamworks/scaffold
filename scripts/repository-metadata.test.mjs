@@ -239,6 +239,10 @@ test("Core exposes exactly the supported public subpaths", async () => {
       types: "./dist/agent-host.d.ts",
       default: "./dist/agent-host.js",
     },
+    "./extensions": {
+      types: "./dist/extensions.d.ts",
+      default: "./dist/extensions.js",
+    },
     "./format": {
       types: "./dist/format.d.ts",
       default: "./dist/format.js",
@@ -278,6 +282,7 @@ test("architecture TypeScript mappings match the supported package source entryp
     "@scaffold/core/runtime": ["packages/core/src/entrypoints/runtime.ts"],
     "@scaffold/core/authoring": ["packages/core/src/entrypoints/authoring.ts"],
     "@scaffold/core/agent-host": ["packages/core/src/entrypoints/agent-host.ts"],
+    "@scaffold/core/extensions": ["packages/core/src/entrypoints/extensions.ts"],
     "@scaffold/core/format": ["packages/core/src/entrypoints/format.ts"],
     "@scaffold/core/ports": ["packages/core/src/entrypoints/ports.ts"],
     "@scaffold/core/media-policy": ["packages/core/src/entrypoints/media-policy.ts"],
