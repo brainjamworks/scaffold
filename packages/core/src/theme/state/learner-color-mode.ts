@@ -4,10 +4,6 @@ import type { ScaffoldColorMode } from "@/theme/state/color-mode";
 
 const DARK_MODE_QUERY = "(prefers-color-scheme: dark)";
 
-export interface ScaffoldLearnerColorModeProps {
-  hostColorMode?: ScaffoldColorMode;
-}
-
 export function useLearnerColorMode(hostColorMode?: ScaffoldColorMode): ScaffoldColorMode {
   const browserColorMode = useSyncExternalStore(
     subscribeToBrowserColorMode,

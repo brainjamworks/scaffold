@@ -1,14 +1,15 @@
 import { useMemo } from "react";
 
 import type { ScaffoldLearnerBootstrap, ScaffoldLearnerHostServices } from "@/host/contracts";
+import type { ScaffoldColorMode } from "@/theme/state/color-mode";
 import type { SlideshowPlayerSizing } from "../players/player-types";
-import type { ScaffoldLearnerColorModeProps } from "@/theme/state/learner-color-mode";
 
 import { ContentRuntimeHost } from "./ContentRuntimeHost";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 
-export interface ScaffoldLearnerAppProps extends ScaffoldLearnerColorModeProps {
+export interface ScaffoldLearnerAppProps {
   bootstrap: ScaffoldLearnerBootstrap;
+  hostColorMode?: ScaffoldColorMode;
   services: ScaffoldLearnerHostServices;
   slideshowSizing?: SlideshowPlayerSizing;
 }

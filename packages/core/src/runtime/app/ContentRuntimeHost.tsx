@@ -7,16 +7,9 @@ import {
 } from "@/document/model/validation";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { CourseDocumentAttrsSchema } from "@/schemas/course-document";
-import {
-  createThemeCatalogue,
-  resolveCourseTheme,
-  type ResolvedCourseTheme,
-  type ScaffoldColorMode,
-} from "@/theme/model";
-import {
-  useLearnerColorMode,
-  type ScaffoldLearnerColorModeProps,
-} from "@/theme/state/learner-color-mode";
+import { createThemeCatalogue, resolveCourseTheme, type ResolvedCourseTheme } from "@/theme/model";
+import type { ScaffoldColorMode } from "@/theme/state/color-mode";
+import { useLearnerColorMode } from "@/theme/state/learner-color-mode";
 
 import { AssessmentRuntimeProvider } from "../assessment/AssessmentRuntimeProvider";
 import {
@@ -39,9 +32,10 @@ import {
   type XapiSession,
 } from "../xapi";
 
-export interface ContentRuntimeHostProps extends ScaffoldLearnerColorModeProps {
+export interface ContentRuntimeHostProps {
   artifactId?: string | null;
   courseTitle?: string | null;
+  hostColorMode?: ScaffoldColorMode;
   initialAssessmentSnapshot?: unknown;
   initialLearnerActivitySnapshot?: unknown;
   initialContent: JSONContent | null;
