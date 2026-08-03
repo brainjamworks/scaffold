@@ -22,12 +22,12 @@ export function renderSidebarAuthoringIconControl({
           contentEditable={false}
           onClick={(event) => event.stopPropagation()}
           onMouseDown={(event) => event.stopPropagation()}
-          className="sc-sidebar__icon sc-sidebar__icon--interactive"
+          className="sc-app-sidebar-icon-trigger"
         >
           <IconRenderer
             value={displayValue}
             fallbackValue={fallbackValue}
-            className="sc-sidebar__icon-glyph"
+            className="sc-app-sidebar-icon-trigger__glyph"
           />
         </button>
       )}

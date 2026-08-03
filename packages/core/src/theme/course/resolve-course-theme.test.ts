@@ -58,7 +58,7 @@ describe("Course theme resolution", () => {
         "--heading-font-family": '"Satoshi", sans-serif',
         "--code-font-family": '"JetBrains Mono Variable", monospace',
       });
-      expect(Object.keys(result.rootStyle)).toHaveLength(39);
+      expect(Object.keys(result.rootStyle)).toHaveLength(43);
       expect(Object.isFrozen(result)).toBe(true);
       expect(Object.isFrozen(result.design)).toBe(true);
       expect(Object.isFrozen(result.colourSystem)).toBe(true);
@@ -68,7 +68,7 @@ describe("Course theme resolution", () => {
     },
   );
 
-  it("includes all 36 Course semantic-state properties and no broad token projection", () => {
+  it("includes all 40 Course semantic-state properties and no broad token projection", () => {
     const result = resolveCourseTheme({
       theme: createDefaultPersistedCourseTheme(),
       appearance: "light",
@@ -81,7 +81,7 @@ describe("Course theme resolution", () => {
     const semanticKeys = Object.keys(result.rootStyle).filter((key) =>
       key.startsWith("--sc-course-state-"),
     );
-    expect(semanticKeys).toHaveLength(36);
+    expect(semanticKeys).toHaveLength(40);
     for (const state of COURSE_SEMANTIC_STATES) {
       for (const role of ["background", "border", "text", "indicator"] as const) {
         expect(result.rootStyle).toHaveProperty(`--sc-course-state-${state}-${role}`);

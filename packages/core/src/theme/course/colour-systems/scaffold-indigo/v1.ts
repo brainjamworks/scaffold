@@ -12,6 +12,7 @@ export const SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1 = Object.freeze({
   semantics: Object.freeze({
     info: "blue",
     warning: "amber",
+    success: "green",
     error: "ruby",
     correct: "green",
     incorrect: "ruby",

@@ -10,6 +10,7 @@ export type RadixColourScaleName = RadixAccentColour;
 export const COURSE_ASSIGNED_SEMANTIC_STATES = Object.freeze([
   "info",
   "warning",
+  "success",
   "error",
   "correct",
   "incorrect",

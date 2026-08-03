@@ -3,6 +3,8 @@
 @import "./numbered-list.css";
 @import "./checklist.css";
 @import "./table.css";
+@import "./callout.css";
+@import "./sidebar.css";
 
 .sc-course.sc-course-theme-scaffold-flow-v1 {
   min-width: 0;
@@ -32,6 +34,12 @@
   color: var(--sc-course-state-warning-text);
   background-color: var(--sc-course-state-warning-background);
   border-color: var(--sc-course-state-warning-border);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 :where([data-course-state="success"]) {
+  color: var(--sc-course-state-success-text);
+  background-color: var(--sc-course-state-success-background);
+  border-color: var(--sc-course-state-success-border);
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1 :where([data-course-state="error"]) {

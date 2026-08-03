@@ -25,6 +25,7 @@ import {
 } from "./content";
 import "./sidebar-definition";
 import { SidebarAuthoringExtension } from "./sidebar-authoring-extension";
+import { SidebarRuntimeExtension } from "./sidebar-runtime-extension";
 
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
@@ -51,6 +52,27 @@ function renderSidebarEditor(content: JSONContent = sidebarFixture()) {
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
       createRuntimeBlockFrameAttributesExtension([SIDEBAR_NODE]),
       SidebarAuthoringExtension,
+    ],
+    content,
+  });
+
+  render(createElement(EditorContent, { editor: fixture.editor }));
+
+  return fixture;
+}
+
+function renderSidebarRuntime(content: JSONContent = sidebarFixture()) {
+  const fixture = createDisposableEditor({
+    editable: false,
+    extensions: [
+      StarterKit.configure({
+        undoRedo: false,
+        paragraph: false,
+      }),
+      ExtendedParagraph,
+      createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
+      createRuntimeBlockFrameAttributesExtension([SIDEBAR_NODE]),
+      SidebarRuntimeExtension,
     ],
     content,
   });
@@ -118,6 +140,37 @@ describe("sidebar block", () => {
     expect(document.body.querySelector('[data-authoring-frame="layout"]')).toBeNull();
     expect(document.body.querySelector("[data-layout-kind]")).toBeNull();
     expect(document.body.querySelector("[data-variant]")).toBeNull();
+
+    fixture.destroy();
+  });
+
+  it("keeps the authoring icon trigger under App visual ownership", async () => {
+    const fixture = renderSidebarEditor();
+
+    const trigger = await screen.findByRole("button", { name: "Choose sidebar icon" });
+
+    expect(trigger).toHaveClass("sc-app-sidebar-icon-trigger");
+    expect(trigger).not.toHaveClass("sc-course-sidebar__icon-chip");
+    expect(trigger.querySelector(".sc-app-sidebar-icon-trigger__glyph")).not.toBeNull();
+    expect(document.body.querySelector(".sc-course-sidebar")).not.toBeNull();
+    expect(document.body.querySelector(".sc-sidebar")).toBeNull();
+
+    fixture.destroy();
+  });
+
+  it("renders the learner aside with Course-owned classes and preserved semantics", async () => {
+    const fixture = renderSidebarRuntime();
+
+    const aside = await waitFor(() => {
+      const element = document.body.querySelector<HTMLElement>("aside.sc-course-sidebar__surface");
+      if (!element) throw new Error("Expected the Course-owned Sidebar aside to render.");
+      return element;
+    });
+
+    expect(document.body.querySelector(".sc-course-sidebar")).not.toBeNull();
+    expect(document.body.querySelector(".sc-sidebar")).toBeNull();
+    expect(aside.querySelector('[aria-hidden="true"].sc-course-sidebar__icon-chip')).not.toBeNull();
+    expect(await screen.findByRole("heading", { level: 4 })).not.toBeNull();
 
     fixture.destroy();
   });

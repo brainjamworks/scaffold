@@ -81,7 +81,7 @@ function CalloutTitleNodeView(props: NodeViewProps) {
 
   if (!isEditable && isEmpty) {
     return (
-      <NodeViewWrapper data-slot="callout-title" className="sc-callout__slot--hidden">
+      <NodeViewWrapper data-slot="callout-title" className="sc-course-callout__slot--hidden">
         <NodeViewContent />
       </NodeViewWrapper>
     );
@@ -92,7 +92,7 @@ function CalloutTitleNodeView(props: NodeViewProps) {
       data-slot="callout-title"
       role="heading"
       aria-level={resolveHeadingLevel(props)}
-      className="sc-callout__title"
+      className="sc-course-callout__title"
     >
       <NodeViewContent />
     </NodeViewWrapper>
@@ -108,14 +108,14 @@ function CalloutPromptNodeView(props: NodeViewProps) {
 
   if (!isEditable && isEmpty) {
     return (
-      <NodeViewWrapper data-slot="callout-prompt" className="sc-callout__slot--hidden">
+      <NodeViewWrapper data-slot="callout-prompt" className="sc-course-callout__slot--hidden">
         <NodeViewContent />
       </NodeViewWrapper>
     );
   }
 
   return (
-    <NodeViewWrapper data-slot="callout-prompt" className="sc-callout__prompt">
+    <NodeViewWrapper data-slot="callout-prompt" className="sc-course-callout__prompt">
       <NodeViewContent />
     </NodeViewWrapper>
   );

@@ -28,7 +28,7 @@ export function renderCalloutAuthoringIconControl({
           <IconRenderer
             value={displayValue}
             fallbackValue={fallbackValue}
-            className="sc-callout__icon"
+            className="sc-course-callout__icon-glyph"
           />
         </button>
       )}

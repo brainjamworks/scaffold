@@ -570,10 +570,7 @@ describe("ContentRuntimeHost", () => {
       const status = screen.getByRole("status");
       expect(status).toHaveAttribute("data-course-theme-status", "unavailable");
       expect(status).toHaveAttribute("data-course-theme-missing", missing);
-      expect(status).toHaveAttribute(
-        "data-course-theme-reference",
-        `missing-${missing}@1`,
-      );
+      expect(status).toHaveAttribute("data-course-theme-reference", `missing-${missing}@1`);
       expect(runtimeHost.contains(status)).toBe(true);
       expect(runtimeHost.querySelector(".sc-course")).toBeNull();
       expect(screen.queryByTestId("page-player")).toBeNull();
@@ -1855,7 +1852,7 @@ describe("ContentRuntimeHost", () => {
 
     expect(frameElement.style.width).toBe(`${widthPercent}%`);
     expect(frameElement.getAttribute("data-frame")).toContain(`"widthPercent":${widthPercent}`);
-    expect(frameElement.classList.contains("sc-callout-node")).toBe(true);
+    expect(frameElement.classList.contains("sc-course-callout-node")).toBe(true);
     expect(document.body.querySelector("[data-authoring-frame-wrapper]")).toBeNull();
     expect(document.body.querySelector("[data-authoring-resize-handle]")).toBeNull();
   });

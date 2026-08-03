@@ -47,7 +47,7 @@ export function SidebarView(props: SidebarViewProps) {
       onIconChange={(icon) => updateData({ icon })}
       {...(props.renderIconControl ? { renderIconControl: props.renderIconControl } : {})}
     >
-      <NodeViewContent className="sc-sidebar__slots" />
+      <NodeViewContent className="sc-course-sidebar__slots" />
     </Sidebar>
   );
 }
@@ -66,14 +66,16 @@ export function Sidebar({
   renderIconControl?: SidebarIconControlRenderer;
 }) {
   return (
-    <aside className="sc-sidebar__card">
-      <div className="sc-sidebar__grid">
-        <SidebarIcon
-          editable={editable}
-          icon={icon}
-          onIconChange={onIconChange}
-          {...(renderIconControl ? { renderIconControl } : {})}
-        />
+    <aside className="sc-course-sidebar__surface">
+      <div className="sc-course-sidebar__layout">
+        <div className="sc-course-sidebar__icon-slot">
+          <SidebarIcon
+            editable={editable}
+            icon={icon}
+            onIconChange={onIconChange}
+            {...(renderIconControl ? { renderIconControl } : {})}
+          />
+        </div>
         {children}
       </div>
     </aside>
@@ -82,7 +84,7 @@ export function Sidebar({
 
 export function SidebarLabelView() {
   return (
-    <NodeViewWrapper data-slot="sidebar-label" className="sc-sidebar__label">
+    <NodeViewWrapper data-slot="sidebar-label" className="sc-course-sidebar__label">
       <NodeViewContent />
     </NodeViewWrapper>
   );
@@ -94,7 +96,7 @@ export function SidebarTitleView() {
       data-slot="sidebar-title"
       role="heading"
       aria-level={4}
-      className="sc-sidebar__title"
+      className="sc-course-sidebar__title"
     >
       <NodeViewContent />
     </NodeViewWrapper>
@@ -103,8 +105,8 @@ export function SidebarTitleView() {
 
 export function SidebarBodyView() {
   return (
-    <NodeViewWrapper data-slot="sidebar-body" className="sc-sidebar__body">
-      <div className="sc-sidebar__body-content">
+    <NodeViewWrapper data-slot="sidebar-body" className="sc-course-sidebar__body">
+      <div className="sc-course-sidebar__body-content">
         <NodeViewContent />
       </div>
     </NodeViewWrapper>
@@ -136,11 +138,11 @@ function SidebarIcon({
   }
 
   return (
-    <span aria-hidden className="sc-sidebar__icon">
+    <span aria-hidden className="sc-course-sidebar__icon-chip">
       <IconRenderer
         value={icon}
         fallbackValue={SIDEBAR_ICON_FALLBACK}
-        className="sc-sidebar__icon-glyph"
+        className="sc-course-sidebar__icon-glyph"
       />
     </span>
   );

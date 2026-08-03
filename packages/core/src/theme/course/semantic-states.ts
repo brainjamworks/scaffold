@@ -3,6 +3,7 @@ import type { CourseColourSystemRevision, RadixColourScaleName } from "./colour-
 export const COURSE_SEMANTIC_STATES = Object.freeze([
   "info",
   "warning",
+  "success",
   "error",
   "correct",
   "incorrect",

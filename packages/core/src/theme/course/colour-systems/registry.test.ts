@@ -18,6 +18,7 @@ describe("Course colour-system registry", () => {
       semantics: {
         info: "blue",
         warning: "amber",
+        success: "green",
         error: "ruby",
         correct: "green",
         incorrect: "ruby",

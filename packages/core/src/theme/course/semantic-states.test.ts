@@ -6,6 +6,7 @@ import { COURSE_SEMANTIC_STATES, createCourseSemanticStateProperties } from "./s
 const EXPECTED_STATES = [
   "info",
   "warning",
+  "success",
   "error",
   "correct",
   "incorrect",
@@ -16,9 +17,9 @@ const EXPECTED_STATES = [
 ] as const;
 
 describe("Course semantic states", () => {
-  it("defines exactly the nine independent Course domain states", () => {
+  it("defines exactly the ten independent Course domain states", () => {
     expect(COURSE_SEMANTIC_STATES).toEqual(EXPECTED_STATES);
-    expect(new Set(COURSE_SEMANTIC_STATES).size).toBe(9);
+    expect(new Set(COURSE_SEMANTIC_STATES).size).toBe(10);
   });
 
   it("creates all four stable properties for every state", () => {
@@ -31,7 +32,7 @@ describe("Course semantic states", () => {
         ),
       ).sort(),
     );
-    expect(Object.keys(properties)).toHaveLength(36);
+    expect(Object.keys(properties)).toHaveLength(40);
     expect(Object.isFrozen(properties)).toBe(true);
   });
 
@@ -40,6 +41,7 @@ describe("Course semantic states", () => {
     const scales = {
       info: "blue",
       warning: "amber",
+      success: "green",
       error: "ruby",
       correct: "green",
       incorrect: "ruby",
@@ -66,6 +68,7 @@ describe("Course semantic states", () => {
     );
     expect(properties).toHaveProperty("--sc-course-state-correct-background");
     expect(properties).toHaveProperty("--sc-course-state-completed-background");
+    expect(properties).toHaveProperty("--sc-course-state-success-background");
     expect(properties).toHaveProperty("--sc-course-state-error-background");
     expect(properties).toHaveProperty("--sc-course-state-incorrect-background");
   });
