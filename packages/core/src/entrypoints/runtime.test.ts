@@ -8,7 +8,6 @@ import type {
   ScaffoldLearnerAppProps,
   ScaffoldRuntimePorts,
   ScaffoldServicesProviderProps,
-  ScaffoldThemeExtension,
   SlideshowPlayerSizing,
 } from "@scaffold/core/runtime";
 
@@ -20,7 +19,6 @@ type RuntimeTypeSurface = {
   runtimePorts: ScaffoldRuntimePorts;
   servicesProviderProps: ScaffoldServicesProviderProps;
   slideshowPlayerSizing: SlideshowPlayerSizing;
-  themeExtension: ScaffoldThemeExtension;
 };
 
 describe("@scaffold/core/runtime", () => {

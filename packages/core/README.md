@@ -1,51 +1,34 @@
 # `@scaffold/core`
 
 Core is Scaffold's platform-neutral React/Tiptap authoring and learner-runtime package. It owns the
-editor, runtime renderers, built-in blocks, course theme resolution, and host port interfaces. It
+editor, runtime renderers, built-in blocks, Course theme definitions, and host port interfaces. It
 does not own persistence, LMS protocols, private branding, or arbitrary host CSS.
 
 ## Theming boundary
 
-A persisted course theme and a Scaffold colour mode are different concepts:
+A persisted Course theme and application appearance are different concepts:
 
-- `theme` belongs to the course document. It contains publication author inputs, recipe
-  provenance, typography/design choices, and complete resolved light/dark snapshots.
+- `theme` belongs to the Course document. It contains exact, versioned references to one built-in
+  design and one built-in colour system, plus strict sparse non-colour overrides.
+- Scaffold owns the design and colour-system registries and their definitions. Integrations do not
+  inject visual definitions, presets, fonts, CSS strings, or generator callbacks.
+- Persisted Course state does not contain resolved style data, copied definition values, or an
+  application appearance setting.
+- An unavailable exact reference remains explicit until the author deliberately selects or resets
+  to a supported value; it is not silently replaced.
 - Authoring application mode belongs to the author's local Scaffold preference.
 - Course Preview mode is temporary authoring-session state.
 - Learner mode comes from the host when supplied and otherwise follows the browser preference.
 
-Authors edit eleven publication colour roles: four foundation roles, six creative roles, and link.
-The versioned preset recipe materialises those exact anchors into the larger semantic token set.
-Information, success, warning, and error families remain preset-owned. Core does not warn about or
-block valid author colours with poor contrast.
+Course presentation is applied through a scoped Course boundary. Page, Slideshow, charts, and
+Course-owned overlays consume the selected design and colour system. Scaffold chrome and app-owned
+overlays retain application appearance. Explicit authored presentation remains separate.
 
-Course presentation is applied through a scoped custom-property boundary. Page, Slideshow, charts,
-and course-owned overlays consume the resolved course theme. Scaffold chrome and app-owned
-overlays remain application-themed. Explicit authored presentation is preserved.
+## Generic extensions
 
-## Host extensions
-
-`ScaffoldAuthoringEntry`, `ScaffoldLearnerApp`, and `ContentRuntimeHost` accept an optional
-`themeExtension`. A host may contribute validated structured preset and font definitions. The seam
-does not accept CSS strings or generator callbacks.
-
-When a saved host preset is unavailable, learner runtime silently renders Scaffold Default without
-mutating the saved snapshot. Restoring the extension restores the saved course appearance.
-
-```tsx
-import { ScaffoldAuthoringEntry } from "@scaffold/core/authoring";
-import type { ScaffoldThemeExtension } from "@scaffold/core/authoring";
-
-const themeExtension: ScaffoldThemeExtension = {
-  presets: [hostPresetDefinition],
-  fonts: [hostFontDefinition],
-};
-
-<ScaffoldAuthoringEntry artifact={artifact} services={services} themeExtension={themeExtension} />;
-```
-
-Hosts remain responsible for making any declared font assets available. Private themes and branding
-are host-owned data and are not shipped by Core.
+`@scaffold/core/extensions` remains the supported entrypoint for generic block, layout, and surface
+extension contracts. Those content-structure extensions are independent of the application-owned
+Course design and colour-system registries.
 
 ## Supported imports
 
@@ -56,5 +39,6 @@ import { ... } from "@scaffold/core/authoring";
 import { ... } from "@scaffold/core/runtime";
 import { ... } from "@scaffold/core/format";
 import { ... } from "@scaffold/core/ports";
+import { ... } from "@scaffold/core/extensions";
 import "@scaffold/core/styles.css";
 ```
