@@ -1,7 +1,7 @@
 @layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
 
 @layer sc-components {
-  .sc-pill {
+  .sc-app-pill {
     display: inline-flex;
     align-items: center;
     gap: 0.375rem;
@@ -11,58 +11,58 @@
     white-space: nowrap;
   }
 
-  .sc-pill[data-size="sm"] {
+  .sc-app-pill[data-size="sm"] {
     padding: 0.125rem 0.5rem;
     font-size: 0.625rem;
   }
 
-  .sc-pill[data-size="md"] {
+  .sc-app-pill[data-size="md"] {
     padding: 0.25rem 0.75rem;
     font-size: 0.71875rem;
   }
 
-  .sc-pill[data-variant="neutral"] {
+  .sc-app-pill[data-variant="neutral"] {
     background: var(--color-muted);
     color: var(--color-text-secondary);
   }
 
-  .sc-pill[data-variant="ink"] {
+  .sc-app-pill[data-variant="ink"] {
     background: var(--color-ink);
     color: var(--color-background);
   }
 
-  .sc-pill[data-variant="navy"] {
+  .sc-app-pill[data-variant="navy"] {
     background: var(--color-primary);
     color: var(--color-primary-foreground);
   }
 
-  .sc-pill[data-variant="success"] {
+  .sc-app-pill[data-variant="success"] {
     background: var(--color-success-bg);
     color: var(--color-success-text);
   }
 
-  .sc-pill[data-variant="warning"] {
+  .sc-app-pill[data-variant="warning"] {
     background: var(--color-warning-bg);
     color: var(--color-warning-text);
   }
 
-  .sc-pill[data-variant="error"] {
+  .sc-app-pill[data-variant="error"] {
     background: var(--color-error-bg);
     color: var(--color-error-text);
   }
 
-  .sc-pill[data-variant="info"] {
+  .sc-app-pill[data-variant="info"] {
     background: var(--color-info-bg);
     color: var(--color-info-text);
   }
 
-  .sc-pill[data-tabular="true"] {
+  .sc-app-pill[data-tabular="true"] {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.01em;
   }
 
-  .sc-pill[data-case="upper"] {
+  .sc-app-pill[data-case="upper"] {
     text-transform: uppercase;
     letter-spacing: 0.06em;
   }

@@ -7,7 +7,7 @@ import type { ZodTypeAny } from "zod";
 import type { CheckedMutationResult } from "@/document/model/commands/checked-transactions";
 import type { ResolvedStableNode } from "@/document/model/identity/resolve-stable-node";
 import type { ButtonVariant } from "@/ui/components/Button/Button";
-import type { PillVariant } from "@/ui/components/Pill/Pill";
+import type { PillVariant } from "@/ui/components/app/Pill/Pill";
 
 export type SettingsSheetAttrSurface = "data" | "settings" | "options";
 export type SettingsSheetFieldName = FieldPath<FieldValues>;

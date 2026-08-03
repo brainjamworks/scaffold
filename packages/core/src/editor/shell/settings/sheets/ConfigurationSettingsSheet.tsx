@@ -5,7 +5,7 @@ import { useForm, type FieldErrors, type FieldValues, type Resolver } from "reac
 import type { ZodTypeAny } from "zod";
 
 import { Button } from "@/ui/components/Button/Button";
-import { EmptyState } from "@/ui/components/EmptyState/EmptyState";
+import { EmptyState } from "@/ui/components/app/EmptyState/EmptyState";
 import { Sheet } from "@/ui/components/Sheet/Sheet";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { updateNodeSettingsChecked } from "@/document/model/commands/settings";

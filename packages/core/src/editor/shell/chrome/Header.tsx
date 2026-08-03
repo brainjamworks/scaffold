@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
 
-import { Wordmark } from "@/ui/components/Mark/Mark";
-import { Pill, type PillVariant } from "@/ui/components/Pill/Pill";
+import { Wordmark } from "@/ui/components/app/Mark/Mark";
+import { Pill, type PillVariant } from "@/ui/components/app/Pill/Pill";
 import "./Header.css";
 
 interface HeaderProps {

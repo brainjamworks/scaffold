@@ -99,7 +99,7 @@ export function Mark({
       viewBox="0 0 64 64"
       width={size}
       height={size}
-      className={cn("sc-mark", className)}
+      className={cn("sc-app-mark", className)}
     >
       <title>scaffold</title>
       {/* Registration corners — the dashed add-slot reduced to its four
@@ -140,7 +140,7 @@ export function Mark({
  * the aurora gradient backdrop (see BrandSplash / splash CSS).
  *
  * Respects `prefers-reduced-transparency`: tiles fall back to solid
- * fills via the @media rule on `.sc-mark-material`.
+ * fills via the @media rule on `.sc-app-mark-material`.
  */
 interface MarkMaterialProps {
   size: number;
@@ -157,7 +157,7 @@ function MarkMaterial({ size, showPlus, className }: MarkMaterialProps) {
     <div
       role="img"
       aria-label="scaffold mark"
-      className={cn("sc-mark-material", className)}
+      className={cn("sc-app-mark-material", className)}
       style={
         {
           "--mk-size": `${size}px`,
@@ -166,8 +166,8 @@ function MarkMaterial({ size, showPlus, className }: MarkMaterialProps) {
         } as React.CSSProperties
       }
     >
-      <span className="sc-mark-tile sc-mark-tile--tl" />
-      <span className="sc-mark-tile sc-mark-tile--slot">
+      <span className="sc-app-mark-tile sc-app-mark-tile--tl" />
+      <span className="sc-app-mark-tile sc-app-mark-tile--slot">
         {showPlusResolved && (
           <svg
             viewBox="0 0 24 24"
@@ -183,8 +183,8 @@ function MarkMaterial({ size, showPlus, className }: MarkMaterialProps) {
           </svg>
         )}
       </span>
-      <span className="sc-mark-tile sc-mark-tile--bl" />
-      <span className="sc-mark-tile sc-mark-tile--br" />
+      <span className="sc-app-mark-tile sc-app-mark-tile--bl" />
+      <span className="sc-app-mark-tile sc-app-mark-tile--br" />
     </div>
   );
 }
@@ -219,7 +219,7 @@ export function Wordmark({
   const dotColor = surface === "navy" ? BRAND_TEAL : BRAND_CORAL;
 
   return (
-    <span className={cn("sc-wordmark", className)} data-scaffold-wordmark="">
+    <span className={cn("sc-app-wordmark", className)} data-scaffold-wordmark="">
       {showMark && <Mark surface={surface} variant={variant} size={markSize} />}
       <span
         style={{

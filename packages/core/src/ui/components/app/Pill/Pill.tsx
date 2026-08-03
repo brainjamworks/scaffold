@@ -29,7 +29,7 @@ export const Pill = forwardRef<HTMLSpanElement, PillProps>(function Pill(
   return (
     <span
       ref={ref}
-      className={cn("sc-pill", className)}
+      className={cn("sc-app-pill", className)}
       data-case={textCase}
       data-size={size}
       data-tabular={tabular ? "true" : undefined}

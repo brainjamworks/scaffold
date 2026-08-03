@@ -547,7 +547,7 @@
 
   /* ─── Brand-presence surface — aurora field ────────────────────────
  * Apply to the wrapping element on any dark splash / login / OG /
- * marketing hero. Pairs with `.sc-mark-material` to produce the full
+ * marketing hero. Pairs with `.sc-app-mark-material` to produce the full
  * brand-presence treatment.
  *
  * The aurora is a pair of low-opacity radial gradients (navy + teal)

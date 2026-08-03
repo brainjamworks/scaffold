@@ -40,16 +40,16 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <div
-      className={cn("sc-empty-state", className)}
+      className={cn("sc-app-empty-state", className)}
       data-scaffold-empty-state=""
       data-surface={surface}
     >
       <Mark surface={surface} size={36} />
-      <div className="sc-empty-state-copy">
-        <div className="sc-empty-state-title">{title}</div>
-        {description && <div className="sc-empty-state-description">{description}</div>}
+      <div className="sc-app-empty-state-copy">
+        <div className="sc-app-empty-state-title">{title}</div>
+        {description && <div className="sc-app-empty-state-description">{description}</div>}
       </div>
-      {action && <div className="sc-empty-state-action">{action}</div>}
+      {action && <div className="sc-app-empty-state-action">{action}</div>}
     </div>
   );
 }

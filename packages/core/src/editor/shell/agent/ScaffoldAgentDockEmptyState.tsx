@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { Mark } from "@/ui/components/Mark/Mark";
+import { Mark } from "@/ui/components/app/Mark/Mark";
 
 export interface ScaffoldAgentDockEmptyStateProps {
   suggestions: ReactNode;
