@@ -1,6 +1,6 @@
 import { type Editor as TiptapEditor, type Extension, type JSONContent } from "@tiptap/core";
 import { UndoRedo } from "@tiptap/extensions";
-import { EditorContent, useEditor } from "@tiptap/react";
+import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 
 import "@/editor/shell/authoring/cursors.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -11,8 +11,9 @@ import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtif
 import { AuthoringDocumentChrome } from "@/editor/shell/authoring/AuthoringDocumentChrome";
 import { readSurfaceViewSettingsFromProseMirrorDoc } from "@/document/model/surface-view-settings";
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
-import type { ResolvedCourseTheme } from "@/theme/model";
-import { CourseThemeScope } from "@/theme/presentation";
+import { PersistedCourseThemeSchema } from "@/schemas/course-document";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import type { ScaffoldColorMode } from "@/theme/state/color-mode";
 import { AuthoringSurfaceView } from "@/editor/surfaces/authoring/views/AuthoringSurfaceView";
 import "./CourseDocumentEditor.css";
 
@@ -53,7 +54,7 @@ export interface CourseDocumentEditorProps {
   schemaExtensions?: readonly Extension[];
   onChange?: (editor: TiptapEditor) => void;
   onReady?: (editor: TiptapEditor) => void;
-  resolvedTheme?: ResolvedCourseTheme;
+  courseAppearance?: ScaffoldColorMode;
   suspended?: boolean;
 }
 
@@ -66,7 +67,7 @@ export function CourseDocumentEditor({
   schemaExtensions = DEFAULT_SCHEMA_EXTENSIONS,
   onChange,
   onReady,
-  resolvedTheme,
+  courseAppearance = "light",
   suspended = false,
 }: CourseDocumentEditorProps) {
   const [initialSource] = useState(source);
@@ -114,7 +115,7 @@ export function CourseDocumentEditor({
       onChange={handleChange}
       onReady={handleReady}
       onUpdate={handleUpdate}
-      resolvedTheme={resolvedTheme}
+      courseAppearance={courseAppearance}
       suspended={suspended}
     />
   );
@@ -128,7 +129,7 @@ interface RequiredEditorProps {
   onChange: ((editor: TiptapEditor) => void) | undefined;
   onReady: ((editor: TiptapEditor) => void) | undefined;
   onUpdate: (editor: TiptapEditor) => void;
-  resolvedTheme: ResolvedCourseTheme | undefined;
+  courseAppearance: ScaffoldColorMode;
   suspended: boolean;
 }
 
@@ -140,7 +141,7 @@ function MountedCourseDocumentEditor({
   onChange,
   onReady,
   onUpdate,
-  resolvedTheme,
+  courseAppearance,
   suspended,
 }: RequiredEditorProps) {
   const [overlayContainer, setOverlayContainer] = useState<HTMLDivElement | null>(null);
@@ -192,13 +193,44 @@ function MountedCourseDocumentEditor({
           editor={editor}
           overlayContainer={overlayContainer}
         >
-          <CourseThemeScope resolvedTheme={resolvedTheme}>
-            <AuthoringSurfaceView settings={surfaceViewSettings}>
-              <EditorContent className="sc-course-document-editor__content" editor={editor} />
-            </AuthoringSurfaceView>
-          </CourseThemeScope>
+          <ThemedCourseDocumentContent
+            editor={editor}
+            courseAppearance={courseAppearance}
+            surfaceViewSettings={surfaceViewSettings}
+          />
         </AuthoringDocumentChrome>
       </ScaffoldArtifactIdentityProvider>
     </div>
+  );
+}
+
+function ThemedCourseDocumentContent({
+  editor,
+  courseAppearance,
+  surfaceViewSettings,
+}: Readonly<{
+  editor: TiptapEditor;
+  courseAppearance: ScaffoldColorMode;
+  surfaceViewSettings: NonNullable<
+    ReturnType<typeof readSurfaceViewSettingsFromProseMirrorDoc>
+  >;
+}>) {
+  const liveTheme = useEditorState({
+    editor,
+    selector: ({ editor: liveEditor }) =>
+      liveEditor.state.doc.firstChild?.type.name === "courseDocument"
+        ? liveEditor.state.doc.firstChild.attrs["theme"]
+        : null,
+  });
+  const parsedTheme = PersistedCourseThemeSchema.safeParse(liveTheme);
+
+  if (!parsedTheme.success) return null;
+
+  return (
+    <CourseThemeProvider theme={parsedTheme.data} appearance={courseAppearance}>
+      <AuthoringSurfaceView settings={surfaceViewSettings}>
+        <EditorContent className="sc-course-document-editor__content" editor={editor} />
+      </AuthoringSurfaceView>
+    </CourseThemeProvider>
   );
 }

@@ -30,6 +30,144 @@ function createSlideshowDocumentWithSurfaces(surfaceIds: string[]): JSONContent 
 }
 
 describe("CourseDocumentEditor", () => {
+  it.each(["light", "dark"] as const)(
+    "mounts Scaffold Flow Course content in %s appearance",
+    async (courseAppearance) => {
+      const onReady = vi.fn();
+
+      render(
+        createElement(CourseDocumentEditor, {
+          source: { mode: "document", content: createInitializedDocument() },
+          courseAppearance,
+          onReady,
+        }),
+      );
+
+      await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
+      const courseRoot = globalThis.document.querySelector(".sc-course");
+      expect(courseRoot).toHaveClass(
+        "radix-themes",
+        courseAppearance,
+        "sc-course-theme-scaffold-flow-v1",
+      );
+      expect(courseRoot).toHaveAttribute("data-accent-color", "indigo");
+      expect(courseRoot).toHaveAttribute("data-gray-color", "slate");
+    },
+  );
+
+  it("updates the Course boundary from accepted live root-theme transactions", async () => {
+    const onReady = vi.fn();
+
+    render(
+      createElement(CourseDocumentEditor, {
+        source: { mode: "document", content: createInitializedDocument() },
+        onReady,
+      }),
+    );
+
+    await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
+    const editor = onReady.mock.calls[0]?.[0];
+    if (!editor) throw new Error("CourseDocumentEditor did not provide an editor");
+    expect(globalThis.document.querySelector(".sc-course")).toBeInTheDocument();
+
+    const courseDocument = editor.state.doc.firstChild;
+    if (!courseDocument) throw new Error("expected a live course document root");
+    editor.view.dispatch(
+      editor.state.tr.setNodeMarkup(0, undefined, {
+        ...courseDocument.attrs,
+        theme: {
+          ...createDefaultPersistedCourseTheme(),
+          design: { id: "missing-design", revision: "1" },
+        },
+      }),
+    );
+
+    await waitFor(() =>
+      expect(
+        globalThis.document.querySelector('[data-course-theme-status="unavailable"]'),
+      ).toBeInTheDocument(),
+    );
+    const status = globalThis.document.querySelector('[data-course-theme-status="unavailable"]');
+    expect(status).toHaveAttribute("data-course-theme-missing", "design");
+    expect(status).toHaveAttribute("data-course-theme-reference", "missing-design@1");
+    expect(globalThis.document.querySelector(".sc-course")).toBeNull();
+  });
+
+  it("renders unavailable exact colour-system references without Course content", async () => {
+    const theme = {
+      ...createDefaultPersistedCourseTheme(),
+      colourSystem: { id: "missing-colour", revision: "7" },
+    };
+    const content = createInitializedDocument();
+    const courseDocument = content.content?.[0];
+    if (!courseDocument?.attrs) throw new Error("expected initialized Course attributes");
+    courseDocument.attrs["theme"] = theme;
+
+    render(createElement(CourseDocumentEditor, { source: { mode: "document", content } }));
+
+    await waitFor(() =>
+      expect(
+        globalThis.document.querySelector('[data-course-theme-status="unavailable"]'),
+      ).toBeInTheDocument(),
+    );
+    const status = globalThis.document.querySelector('[data-course-theme-status="unavailable"]');
+    expect(status).toHaveAttribute("data-course-theme-missing", "colourSystem");
+    expect(status).toHaveAttribute("data-course-theme-reference", "missing-colour@7");
+    expect(globalThis.document.querySelector(".sc-course")).toBeNull();
+  });
+
+  it("keeps the previous Course presentation when a malformed theme transaction is rejected", async () => {
+    const onReady = vi.fn();
+
+    render(
+      createElement(CourseDocumentEditor, {
+        source: { mode: "document", content: createInitializedDocument() },
+        courseAppearance: "dark",
+        onReady,
+      }),
+    );
+
+    await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
+    const editor = onReady.mock.calls[0]?.[0];
+    if (!editor) throw new Error("CourseDocumentEditor did not provide an editor");
+    const previousTheme = editor.state.doc.firstChild?.attrs["theme"];
+    const courseDocument = editor.state.doc.firstChild;
+    if (!courseDocument) throw new Error("expected a live course document root");
+
+    editor.view.dispatch(
+      editor.state.tr.setNodeMarkup(0, undefined, {
+        ...courseDocument.attrs,
+        theme: { schemaVersion: 1 },
+      }),
+    );
+
+    expect(editor.state.doc.firstChild?.attrs["theme"]).toEqual(previousTheme);
+    expect(globalThis.document.querySelector(".sc-course")).toHaveClass(
+      "dark",
+      "sc-course-theme-scaffold-flow-v1",
+    );
+    expect(globalThis.document.querySelector("[data-course-theme-status]")).toBeNull();
+  });
+
+  it("keeps authoring chrome outside the Course theme root", async () => {
+    const onReady = vi.fn();
+
+    render(
+      createElement(CourseDocumentEditor, {
+        source: { mode: "document", content: createInitializedDocument() },
+        onReady,
+      }),
+    );
+
+    await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
+    const chrome = globalThis.document.querySelector(".sc-authoring-chrome-root");
+    const courseRoot = globalThis.document.querySelector(".sc-course");
+    expect(chrome).toBeInTheDocument();
+    expect(chrome).not.toHaveClass("sc-course", "sc-course-theme-scaffold-flow-v1");
+    expect(courseRoot).toBeInTheDocument();
+    expect(courseRoot?.contains(chrome)).toBe(false);
+  });
+
   it("reports document changes without serializing the editor", async () => {
     const content = createInitializedDocument();
     const onChange = vi.fn();
