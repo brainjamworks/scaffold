@@ -69,6 +69,8 @@ describe("CourseThemeProvider browser scope", () => {
     );
     expect(getComputedStyle(portalRoot).fontFamily).toBe(getComputedStyle(courseRoot).fontFamily);
     const portalStyle = getComputedStyle(portalRoot);
+    expect(portalRoot).toHaveAttribute("data-has-background", "false");
+    expect(portalStyle.backgroundColor).toBe("rgba(0, 0, 0, 0)");
     expect(portalStyle.getPropertyValue("--sc-course-state-warning-background").trim()).toBe(
       portalStyle.getPropertyValue("--amber-3").trim(),
     );

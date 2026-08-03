@@ -15,6 +15,7 @@ import {
 export type CourseThemeProviderProps = Readonly<{
   theme: PersistedCourseTheme;
   appearance: ScaffoldColorMode;
+  hasBackground?: boolean;
   children: ReactNode;
 }>;
 
@@ -24,7 +25,12 @@ export type CourseThemePortalBoundaryProps = Readonly<{
 
 const CourseThemeContext = createContext<ResolvedCourseTheme | undefined>(undefined);
 
-export function CourseThemeProvider({ theme, appearance, children }: CourseThemeProviderProps) {
+export function CourseThemeProvider({
+  theme,
+  appearance,
+  hasBackground = true,
+  children,
+}: CourseThemeProviderProps) {
   const resolved = resolveCourseTheme({
     theme,
     appearance,
@@ -36,7 +42,9 @@ export function CourseThemeProvider({ theme, appearance, children }: CourseTheme
 
   return (
     <CourseThemeContext.Provider value={resolved}>
-      <CourseThemeScope theme={resolved}>{children}</CourseThemeScope>
+      <CourseThemeScope theme={resolved} hasBackground={hasBackground}>
+        {children}
+      </CourseThemeScope>
     </CourseThemeContext.Provider>
   );
 }
@@ -48,7 +56,7 @@ export function CourseThemePortalBoundary({ children }: CourseThemePortalBoundar
   }
 
   return (
-    <CourseThemeScope theme={theme} asChild>
+    <CourseThemeScope theme={theme} asChild hasBackground={false}>
       {children}
     </CourseThemeScope>
   );
@@ -63,8 +71,14 @@ export function useCourseTheme(): ResolvedCourseTheme {
 function CourseThemeScope({
   theme,
   asChild = false,
+  hasBackground = true,
   children,
-}: Readonly<{ theme: ResolvedCourseTheme; asChild?: boolean; children: ReactNode }>) {
+}: Readonly<{
+  theme: ResolvedCourseTheme;
+  asChild?: boolean;
+  hasBackground?: boolean;
+  children: ReactNode;
+}>) {
   const style: CSSProperties = { ...theme.rootStyle };
 
   return (
@@ -72,6 +86,7 @@ function CourseThemeScope({
       {...theme.radixThemeProps}
       asChild={asChild}
       className={theme.rootClassNames.join(" ")}
+      hasBackground={hasBackground}
       style={style}
     >
       {children}

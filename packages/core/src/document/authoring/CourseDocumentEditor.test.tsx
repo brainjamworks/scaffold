@@ -52,6 +52,7 @@ describe("CourseDocumentEditor", () => {
       );
       expect(courseRoot).toHaveAttribute("data-accent-color", "indigo");
       expect(courseRoot).toHaveAttribute("data-gray-color", "slate");
+      expect(courseRoot).toHaveAttribute("data-has-background", "false");
     },
   );
 

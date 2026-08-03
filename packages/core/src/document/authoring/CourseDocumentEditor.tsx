@@ -227,7 +227,11 @@ function ThemedCourseDocumentContent({
   if (!parsedTheme.success) return null;
 
   return (
-    <CourseThemeProvider theme={parsedTheme.data} appearance={courseAppearance}>
+    <CourseThemeProvider
+      theme={parsedTheme.data}
+      appearance={courseAppearance}
+      hasBackground={false}
+    >
       <AuthoringSurfaceView settings={surfaceViewSettings}>
         <EditorContent className="sc-course-document-editor__content" editor={editor} />
       </AuthoringSurfaceView>

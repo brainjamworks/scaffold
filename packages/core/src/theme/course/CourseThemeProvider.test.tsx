@@ -34,6 +34,7 @@ describe("CourseThemeProvider", () => {
     expect(root).toHaveAttribute("data-radius", "large");
     expect(root).toHaveAttribute("data-scaling", "100%");
     expect(root).toHaveAttribute("data-panel-background", "solid");
+    expect(root).toHaveAttribute("data-has-background", "true");
     expect(root?.style.getPropertyValue("--default-font-family")).toContain("Satoshi");
     expect(root?.style.getPropertyValue("--heading-font-family")).toContain("Satoshi");
     expect(root?.style.getPropertyValue("--code-font-family")).toContain("JetBrains Mono");
@@ -99,6 +100,7 @@ describe("CourseThemeProvider", () => {
       "sc-course-theme-scaffold-flow-v1",
     );
     expect(portalHost).toHaveAttribute("data-accent-color", "indigo");
+    expect(portalHost).toHaveAttribute("data-has-background", "false");
     expect(portalHost.style.getPropertyValue("--sc-course-state-warning-border")).toBe(
       "var(--amber-8)",
     );
