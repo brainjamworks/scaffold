@@ -251,8 +251,12 @@ test("Core exposes exactly the supported public subpaths", async () => {
       types: "./dist/media-policy.d.ts",
       default: "./dist/media-policy.js",
     },
+    "./extensions": {
+      types: "./dist/extensions.d.ts",
+      default: "./dist/extensions.js",
+    },
     "./styles.css": {
-      default: "./dist/styles.css",
+      default: "./dist/styles/globals.css",
     },
   };
 
@@ -269,6 +273,28 @@ test("Core exposes exactly the supported public subpaths", async () => {
   );
 });
 
+test("Core preserves the public stylesheet dependency tree in its pack output", async () => {
+  const config = await loadViteConfig("packages/core/vite.config.ts");
+
+  assert.deepEqual(config.pack?.copy, [
+    {
+      from: "src/styles",
+      flatten: false,
+    },
+    {
+      from: "src/theme/course/**/*.css",
+      to: "dist",
+      flatten: false,
+    },
+  ]);
+
+  const globals = await readFile(
+    resolve(REPOSITORY_ROOT, "packages/core/src/styles/globals.css"),
+    "utf8",
+  );
+  assert.match(globals, /@import "\.\.\/theme\/course\/styles\.css";/);
+});
+
 test("architecture TypeScript mappings match the supported package source entrypoints", async () => {
   const parsed = parseTypeScriptConfig("tsconfig.architecture.json");
   const expectedPaths = {
@@ -281,6 +307,7 @@ test("architecture TypeScript mappings match the supported package source entryp
     "@scaffold/core/format": ["packages/core/src/entrypoints/format.ts"],
     "@scaffold/core/ports": ["packages/core/src/entrypoints/ports.ts"],
     "@scaffold/core/media-policy": ["packages/core/src/entrypoints/media-policy.ts"],
+    "@scaffold/core/extensions": ["packages/core/src/entrypoints/extensions.ts"],
     "@scaffold/core/styles.css": ["packages/core/src/styles/globals.css"],
   };
   assert.deepEqual(parsed.options.paths, expectedPaths, "tsconfig.architecture.json paths");

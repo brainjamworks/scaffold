@@ -38,7 +38,7 @@
       "default": "./dist/extensions.js"
     },
     "./styles.css": {
-      "default": "./dist/styles.css"
+      "default": "./dist/styles/globals.css"
     }
   },
   "scripts": {
