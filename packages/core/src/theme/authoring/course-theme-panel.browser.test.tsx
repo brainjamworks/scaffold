@@ -1,29 +1,101 @@
+import type { PersistedCourseTheme } from "@scaffold/contracts";
+import type { Editor, JSONContent } from "@tiptap/core";
+import type { ReactNode } from "react";
 import { render as renderBrowserReact } from "vitest-browser-react";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { page } from "vite-plus/test/browser/context";
 
-import { ScaffoldAuthoringApp } from "@/editor/shell/authoring/ScaffoldAuthoringApp";
 import { createScaffoldDocumentContent } from "@/format/artifact";
-import { createThemeCatalogue } from "@/theme/model";
+import type { ArtifactSaveBundle } from "@/host/ports";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import "@/styles/globals.css";
 
+vi.mock("@/document/authoring/CourseDocumentEditor", () => ({
+  CourseDocumentEditor: () => null,
+}));
+
+vi.mock("@/editor/shell/authoring/ContentAuthorHost", async () => {
+  const { Editor, Node } = await import("@tiptap/core");
+  const StarterKit = (await import("@tiptap/starter-kit")).default;
+  const { createElement, useEffect, useState } = await import("react");
+  const { EditorContent } = await import("@tiptap/react");
+  const { CourseDocumentNode, DocumentNode } = await import("@/document/model/nodes");
+  const { SurfaceNode } = await import("@/editor/surfaces/model/nodes/surface-node");
+  const TestArrangementNode = Node.create({
+    name: "testArrangement",
+    group: "arrangement",
+    content: "block+",
+  });
+  const TestRegionNode = Node.create({
+    name: "testRegion",
+    group: "region",
+    content: "block+",
+  });
+
+  return {
+    ContentAuthorHost: ({
+      content,
+      leftRail,
+      onChange,
+      onEditorReady,
+    }: {
+      content: JSONContent;
+      leftRail?: (editor: Editor) => ReactNode;
+      onChange?: (editor: Editor) => void;
+      onEditorReady?: (editor: Editor) => void;
+    }) => {
+      const [editor] = useState(
+        () =>
+          new Editor({
+            extensions: [
+              DocumentNode,
+              StarterKit.configure({ document: false }),
+              CourseDocumentNode,
+              SurfaceNode,
+              TestArrangementNode,
+              TestRegionNode,
+            ],
+            content,
+            onUpdate: ({ editor: updatedEditor }) => onChange?.(updatedEditor),
+          }),
+      );
+
+      useEffect(() => {
+        onEditorReady?.(editor);
+        return () => editor.destroy();
+      }, [editor, onEditorReady]);
+
+      return createElement(
+        "section",
+        { "data-testid": "browser-content-author-host" },
+        leftRail?.(editor),
+        createElement(EditorContent, { editor }),
+      );
+    },
+  };
+});
+
+const unavailableTheme: PersistedCourseTheme = {
+  schemaVersion: 1,
+  design: { id: "unavailable-design", revision: "7" },
+  colourSystem: { id: "unavailable-colours", revision: "3" },
+  overrides: {},
+};
+
 describe("course theme panel browser workflow", () => {
-  it("customises, resets, undoes, autosaves, and remains usable in dark application chrome", async () => {
-    await page.viewport(1_000, 650);
-    let saveCalls = 0;
+  it("selects, resets, undoes, autosaves, and stays independent from dark App chrome", async () => {
+    const { ScaffoldAuthoringApp } = await import("@/editor/shell/authoring/ScaffoldAuthoringApp");
+    await page.viewport(480, 650);
+    let editor: Editor | null = null;
+    const savedBundles: ArtifactSaveBundle[] = [];
     const content = createScaffoldDocumentContent({
       mode: "page",
       surfaceId: "theme-browser-page",
     });
-    const editorial = createThemeCatalogue().presets.find(({ label }) => label === "Editorial")!;
+    content.content![0]!.attrs!["theme"] = unavailableTheme;
     content.content![0]!.content![0]!.content = [
       { type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: "Theme heading" }] },
       { type: "paragraph", content: [{ type: "text", text: "Theme body copy" }] },
-      {
-        type: "codeBlock",
-        attrs: { language: "typescript" },
-        content: [{ type: "text", text: "const themed = true" }],
-      },
     ];
     const rendered = await renderBrowserReact(
       <ScaffoldAuthoringApp
@@ -35,68 +107,44 @@ describe("course theme panel browser workflow", () => {
         }}
         services={{
           artifactPersistence: {
-            saveArtifact: async () => {
-              saveCalls += 1;
+            saveArtifact: async (bundle) => {
+              savedBundles.push(bundle);
               return {};
             },
           },
           media: null,
         }}
+        onEditorReady={(nextEditor) => {
+          editor = nextEditor;
+        }}
       />,
     );
 
     try {
+      await waitForCondition(() => editor !== null);
       const openTheme = await waitForElement<HTMLButtonElement>(
         document,
         'button[aria-label="Open course theme"]',
       );
       openTheme.click();
-      const panel = await waitForElement<HTMLElement>(
+      let panel = await waitForElement<HTMLElement>(
         document,
         '[role="dialog"].sc-course-theme-panel',
       );
-      const courseScope = requireElement<HTMLElement>(document, ".sc-course-theme-scope");
 
-      expect(panel.querySelectorAll('.sc-settings-segmented[role="radiogroup"]')).toHaveLength(0);
-      expect(panel.querySelectorAll(".sc-accordion-trigger")).toHaveLength(6);
-      expect(panel.querySelectorAll(".sc-settings-color-field__trigger")).toHaveLength(11);
-      expect(document.querySelectorAll(".sc-color-picker-control-stack")).toHaveLength(0);
-      expect(
-        requireElement(panel, '.sc-settings-card-select[role="radiogroup"]'),
-      ).toHaveAccessibleName("Course theme preset");
+      expect(panel.getBoundingClientRect().width).toBeLessThanOrEqual(480);
+      expect(panel.textContent).toContain("Saved design unavailable-design@7 is unavailable.");
       expect(panel.textContent).toContain(
-        "Editing light colours for the current application mode.",
+        "Saved colour system unavailable-colours@3 is unavailable.",
       );
+      expect(panel.querySelectorAll('.sc-settings-card-select[role="radiogroup"]')).toHaveLength(2);
+      expect(panel.querySelectorAll('[role="radio"][data-state="on"]')).toHaveLength(0);
+      expect(panel.querySelectorAll(".sc-settings-color-field__trigger")).toHaveLength(0);
 
-      requireElement<HTMLButtonElement>(panel, 'button[aria-label="Use Editorial theme"]').click();
-      await waitForCondition(() =>
-        courseScope.style.getPropertyValue("--sc-course-font-heading").includes("Source Serif 4"),
-      );
-
-      await chooseThemeColour(panel, "Primary", "Secondary course primary");
-      await waitForCondition(
-        () =>
-          courseScope.style.getPropertyValue("--sc-course-color-primary") ===
-          editorial.values.colors.author.light.secondary,
-      );
-
-      await chooseSelectOption(panel, "Heading font", "Inter");
-      await waitForCondition(() =>
-        courseScope.style.getPropertyValue("--sc-course-font-heading").includes("Inter"),
-      );
-
-      const roundness = requireElement<HTMLInputElement>(panel, 'input[name="roundness"]');
-      roundness.focus();
-      roundness.value = "0.9";
-      roundness.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
-      await waitForCondition(
-        () => courseScope.style.getPropertyValue("--sc-course-roundness") === "0.9",
-      );
-
-      requireElement<HTMLButtonElement>(panel, 'button[aria-label="Reset course design"]').click();
-      await waitForCondition(
-        () => courseScope.style.getPropertyValue("--sc-course-roundness") !== "0.9",
-      );
+      requireElement<HTMLButtonElement>(panel, 'button[aria-label="Reset complete theme"]').click();
+      await waitForCondition(() => themesEqual(readEditorTheme(editor), defaultTheme()));
+      await waitForCondition(() => savedBundles.length > 0, 1_500);
+      expect(readBundleTheme(savedBundles.at(-1))).toEqual(defaultTheme());
 
       requireElement<HTMLButtonElement>(panel, 'button[aria-label="Close course theme"]').click();
       const undo = await waitForElement<HTMLButtonElement>(
@@ -104,11 +152,24 @@ describe("course theme panel browser workflow", () => {
         'button[aria-label="Undo"]:not(:disabled)',
       );
       undo.click();
-      await waitForCondition(
-        () => courseScope.style.getPropertyValue("--sc-course-roundness") === "0.9",
-      );
-      await waitForCondition(() => saveCalls > 0, 1_500);
+      await waitForCondition(() => themesEqual(readEditorTheme(editor), unavailableTheme));
 
+      openTheme.click();
+      panel = await waitForElement<HTMLElement>(document, '[role="dialog"].sc-course-theme-panel');
+      requireElement<HTMLButtonElement>(
+        panel,
+        'button[aria-label="Use Scaffold Flow design"]',
+      ).click();
+      await waitForCondition(() => themesEqual(readEditorTheme(editor), defaultTheme()));
+      await waitForCondition(
+        () =>
+          panel
+            .querySelector('[role="radio"][aria-label="Use Scaffold Flow design"]')
+            ?.getAttribute("data-state") === "on",
+      );
+
+      requireElement<HTMLButtonElement>(panel, 'button[aria-label="Close course theme"]').click();
+      const themeBeforeAppearanceChange = readEditorTheme(editor);
       requireElement<HTMLButtonElement>(
         document,
         'button[aria-label="Switch authoring application to dark mode"]',
@@ -119,166 +180,42 @@ describe("course theme panel browser workflow", () => {
             "scaffoldColorMode"
           ] === "dark",
       );
-      await waitForCondition(() => courseScope.dataset["courseColorMode"] === "dark");
+      expect(readEditorTheme(editor)).toEqual(themeBeforeAppearanceChange);
+
       openTheme.click();
       const darkPanel = await waitForElement<HTMLElement>(
         document,
         '[role="dialog"].sc-course-theme-panel',
       );
-      const foundationTrigger = requireElementWithText<HTMLButtonElement>(
-        darkPanel,
-        ".sc-accordion-trigger",
-        "Foundation colours",
-      );
-      const panelBody = requireElement<HTMLElement>(darkPanel, ".sc-sheet-body");
-      foundationTrigger.scrollIntoView();
-      foundationTrigger.focus();
-
-      expect(document.activeElement).toBe(foundationTrigger);
-      expect(darkPanel.textContent).toContain(
-        "Editing dark colours for the current application mode.",
-      );
-      expect(darkPanel.querySelectorAll(".sc-settings-color-field__trigger")).toHaveLength(11);
-      expect(document.querySelectorAll(".sc-color-picker-control-stack")).toHaveLength(0);
-      expect(
-        [...darkPanel.querySelectorAll(".sc-pill")].filter(
-          (status) => status.textContent === "Automatic",
-        ),
-      ).toHaveLength(11);
       expect(getComputedStyle(darkPanel).colorScheme).toBe("dark");
-      expect(getComputedStyle(panelBody).overflowY).toBe("auto");
-      expect(panelBody.scrollHeight).toBeGreaterThan(panelBody.clientHeight);
       expect(requireElement(document, "h1").textContent).toBe("Theme heading");
-      expect(requireElement(document, "pre").textContent).toContain("const themed = true");
-
-      const primaryPopover = await openThemeColourPicker(darkPanel, "Primary");
-      const primaryOptions = [
-        ...primaryPopover.querySelectorAll<HTMLButtonElement>(".sc-color-picker-swatch-button"),
-      ];
-      expect(primaryOptions.length).toBeGreaterThanOrEqual(2);
-      await waitForCondition(() => primaryPopover.contains(document.activeElement));
-      primaryOptions[0]!.focus();
-      primaryOptions[0]!.dispatchEvent(
-        new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "ArrowRight" }),
-      );
-      expect(document.activeElement).toBe(primaryOptions[1]);
-
-      requireElement<HTMLButtonElement>(
-        primaryPopover,
-        'button[aria-label="Secondary course primary"]',
-      ).click();
-      await waitForCondition(
-        () =>
-          courseScope.style.getPropertyValue("--sc-course-color-primary") ===
-          editorial.values.colors.author.dark.values.secondary,
-      );
-      requireElement<HTMLButtonElement>(
-        primaryPopover,
-        'button[aria-label="Use automatic primary colour"]',
-      ).click();
-      await waitForCondition(
-        () =>
-          courseScope.style.getPropertyValue("--sc-course-color-primary") !==
-          editorial.values.colors.author.dark.values.secondary,
-      );
-      findThemeColourTrigger(darkPanel, "Primary").click();
-      await waitForCondition(
-        () => document.querySelector(".sc-settings-color-field__popover") === null,
-      );
-      await chooseThemeColour(darkPanel, "Primary", "Accent 1 course primary");
-      await waitForCondition(
-        () =>
-          courseScope.style.getPropertyValue("--sc-course-color-primary") ===
-          editorial.values.colors.author.dark.values.accent1,
-      );
-      requireElement<HTMLButtonElement>(
-        darkPanel,
-        'button[aria-label="Reset complete theme"]',
-      ).click();
-      await waitForCondition(
-        () =>
-          courseScope.style.getPropertyValue("--sc-course-color-primary") !==
-          editorial.values.colors.author.dark.values.accent1,
-      );
-      requireElement<HTMLButtonElement>(
-        darkPanel,
-        'button[aria-label="Close course theme"]',
-      ).click();
-      const darkModeUndo = await waitForElement<HTMLButtonElement>(
-        document,
-        'button[aria-label="Undo"]:not(:disabled)',
-      );
-      darkModeUndo.click();
-      await waitForCondition(
-        () =>
-          courseScope.style.getPropertyValue("--sc-course-color-primary") ===
-          editorial.values.colors.author.dark.values.accent1,
-      );
+      expect(requireElement(document, "p").textContent).toBe("Theme body copy");
     } finally {
       await rendered.unmount();
     }
   });
 });
 
-async function chooseSelectOption(
-  panel: HTMLElement,
-  fieldLabel: string,
-  optionLabel: string,
-): Promise<void> {
-  const label = [...panel.querySelectorAll<HTMLLabelElement>("label")].find(
-    (candidate) => candidate.textContent?.trim() === fieldLabel,
-  );
-  const controlId = label?.htmlFor;
-  if (!controlId) throw new Error(`Expected label for ${fieldLabel}`);
-  requireElement<HTMLButtonElement>(panel, `#${CSS.escape(controlId)}`).click();
-  const option = await waitForElement<HTMLElement>(document, '[role="option"]');
-  const matchingOption = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
-    (candidate) => candidate.textContent?.trim() === optionLabel,
-  );
-  (matchingOption ?? option).click();
+function defaultTheme(): PersistedCourseTheme {
+  return structuredClone(createDefaultPersistedCourseTheme());
 }
 
-async function openThemeColourPicker(panel: HTMLElement, fieldLabel: string): Promise<HTMLElement> {
-  findThemeColourTrigger(panel, fieldLabel).click();
-  return waitForElement(document, ".sc-settings-color-field__popover");
+function readEditorTheme(editor: Editor | null): PersistedCourseTheme | null {
+  if (!editor) return null;
+  return structuredClone(editor.state.doc.firstChild?.attrs["theme"] ?? null);
 }
 
-async function chooseThemeColour(
-  panel: HTMLElement,
-  fieldLabel: string,
-  optionLabel: string,
-): Promise<void> {
-  const popover = await openThemeColourPicker(panel, fieldLabel);
-  requireElement<HTMLButtonElement>(popover, `button[aria-label="${optionLabel}"]`).click();
-  findThemeColourTrigger(panel, fieldLabel).click();
-  await waitForCondition(
-    () => document.querySelector(".sc-settings-color-field__popover") === null,
-  );
+function readBundleTheme(bundle: ArtifactSaveBundle | undefined): unknown {
+  return bundle?.artifact.content.content?.[0]?.attrs?.["theme"];
 }
 
-function findThemeColourTrigger(panel: HTMLElement, fieldLabel: string): HTMLButtonElement {
-  const trigger = [
-    ...panel.querySelectorAll<HTMLButtonElement>(".sc-settings-color-field__trigger"),
-  ].find((candidate) => candidate.getAttribute("aria-label")?.startsWith(`Edit ${fieldLabel}, `));
-  if (!trigger) throw new Error(`Expected Theme colour trigger ${fieldLabel}`);
-  return trigger;
+function themesEqual(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function requireElement<T extends Element = HTMLElement>(root: ParentNode, selector: string): T {
   const element = root.querySelector<T>(selector);
   if (!element) throw new Error(`Expected element matching ${selector}`);
-  return element;
-}
-
-function requireElementWithText<T extends Element = HTMLElement>(
-  root: ParentNode,
-  selector: string,
-  text: string,
-): T {
-  const element = [...root.querySelectorAll<T>(selector)].find(
-    (candidate) => candidate.textContent?.trim() === text,
-  );
-  if (!element) throw new Error(`Expected element matching ${selector} with text ${text}`);
   return element;
 }
 

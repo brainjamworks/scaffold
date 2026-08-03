@@ -48,10 +48,8 @@ import {
   type PersistedCourseTheme,
 } from "@/schemas/course-document";
 import { CourseThemePanel } from "@/theme/authoring/CourseThemePanel";
-import {
-  createThemeCatalogue,
-  resolveCourseTheme,
-} from "@/theme/model";
+import { builtInCourseColourSystemRegistry } from "@/theme/course/colour-systems/registry";
+import { builtInCourseDesignThemeRegistry } from "@/theme/course/designs/registry";
 import { useAuthoringColorMode } from "@/theme/state/authoring-color-mode";
 
 import { ContentAuthorHost } from "./ContentAuthorHost";
@@ -162,7 +160,6 @@ function ScaffoldAuthoringAppSession({
 }: ScaffoldAuthoringAppProps) {
   const { mode: applicationColorMode, toggleMode: toggleApplicationColorMode } =
     useAuthoringColorMode();
-  const themeCatalogue = useMemo(() => createThemeCatalogue(), []);
   const preparedArtifact = useMemo(() => prepareScaffoldArtifactForAuthoring(artifact), [artifact]);
   const readyArtifact = preparedArtifact.status === "ready" ? preparedArtifact.artifact : null;
   const readyCourseTheme = useMemo(
@@ -178,14 +175,6 @@ function ScaffoldAuthoringAppSession({
   }>(() => ({ source: readyArtifact, value: readyCourseTheme }));
   const courseTheme =
     courseThemeState.source === readyArtifact ? courseThemeState.value : readyCourseTheme;
-  const resolvedCourseTheme = useMemo(() => {
-    if (!courseTheme) return undefined;
-    return resolveCourseTheme({
-      catalogue: themeCatalogue,
-      mode: applicationColorMode,
-      theme: courseTheme,
-    });
-  }, [applicationColorMode, courseTheme, themeCatalogue]);
   const artifactStateSource = readyArtifact ?? artifact;
   const initialTitle = readyArtifact?.title ?? artifact.title;
   const [titleState, setTitleState] = useState<{
@@ -463,13 +452,15 @@ function ScaffoldAuthoringAppSession({
         saveState,
         title,
       })}
-      {courseTheme && resolvedCourseTheme ? (
+      {courseTheme ? (
         <CourseThemePanel
           editor={editor}
-          catalogue={themeCatalogue}
+          designs={builtInCourseDesignThemeRegistry}
+          colourSystems={builtInCourseColourSystemRegistry}
           theme={courseTheme}
-          resolvedTheme={resolvedCourseTheme}
-          onThemeChange={() => undefined}
+          onThemeChange={(nextTheme) => {
+            setCourseThemeState({ source: readyArtifact, value: nextTheme });
+          }}
         />
       ) : null}
       <AuthoringHeaderIconButton
@@ -588,7 +579,6 @@ function ScaffoldAuthoringAppSession({
                   editable
                   onChange={handleEditorChange}
                   onEditorReady={handleEditorReady}
-                  {...(resolvedCourseTheme ? { resolvedTheme: resolvedCourseTheme } : {})}
                   agentOpen={resolvedAgentOpen}
                   onAgentClose={handleAgentClose}
                   scrollModel={scrollModel}
