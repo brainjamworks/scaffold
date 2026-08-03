@@ -316,9 +316,7 @@ describe("MoodleApp", () => {
       initialContent: readyArtifact.content,
     });
     expect(mocks.scaffoldApplications).toHaveLength(1);
-    expect(mocks.runtimeHostProps.at(-1)?.composition).toBe(
-      mocks.scaffoldApplications[0]?.runtime,
-    );
+    expect(mocks.runtimeHostProps.at(-1)?.composition).toBe(mocks.scaffoldApplications[0]?.runtime);
     expect(screen.queryByTestId("scaffold-authoring-entry")).toBeNull();
     expect(screen.queryByRole("link", { name: "Back to activity" })).toBeNull();
   });

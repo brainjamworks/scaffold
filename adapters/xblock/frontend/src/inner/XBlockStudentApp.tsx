@@ -1,7 +1,4 @@
-import {
-  createCoreScaffoldRuntimeComposition,
-  ScaffoldLearnerApp,
-} from "@scaffold/core/runtime";
+import { createCoreScaffoldRuntimeComposition, ScaffoldLearnerApp } from "@scaffold/core/runtime";
 import { useMemo } from "react";
 
 import type { ScaffoldXBlockInnerInitPayload } from "../types";
