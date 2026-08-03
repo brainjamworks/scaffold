@@ -10,6 +10,7 @@ import { ScaffoldUnavailableAgentIntegration } from "@/editor/shell/agent/Scaffo
 import type { ScaffoldAgentIntegrationProps } from "@/editor/shell/agent/agent-integration";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { useScaffoldArtifactIdentity } from "@/host/providers/ScaffoldArtifactIdentityProvider";
+import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
 
 import { ContentAuthorHost } from "./ContentAuthorHost";
 
@@ -114,6 +115,51 @@ describe("ContentAuthorHost", () => {
     expect(nextEditor).not.toBe(firstEditor);
     const nextCourseDocument = nextEditor.getJSON().content?.[0] as JSONContent | undefined;
     expect(nextCourseDocument?.content?.[0]?.attrs?.["id"]).toBe("next-surface");
+  });
+
+  it("starts a fresh editor session only when authoring composition identity changes", async () => {
+    const content = createScaffoldDocumentContent({ mode: "page" });
+    const firstApplication = createScaffoldApplication();
+    const nextApplication = createScaffoldApplication();
+    const onEditorReady = vi.fn();
+    const { rerender } = render(
+      <ContentAuthorHost
+        agentIntegration={ScaffoldUnavailableAgentIntegration}
+        artifactId="stable-artifact"
+        composition={firstApplication.authoring}
+        content={content}
+        onEditorReady={onEditorReady}
+      />,
+    );
+
+    await waitFor(() => expect(onEditorReady).toHaveBeenCalledTimes(1));
+    const firstEditor = onEditorReady.mock.calls[0]?.[0] as TiptapEditor;
+
+    rerender(
+      <ContentAuthorHost
+        agentIntegration={ScaffoldUnavailableAgentIntegration}
+        artifactId="stable-artifact"
+        composition={firstApplication.authoring}
+        content={structuredClone(content)}
+        onEditorReady={onEditorReady}
+      />,
+    );
+    expect(onEditorReady).toHaveBeenCalledTimes(1);
+    expect(firstEditor.isDestroyed).toBe(false);
+
+    rerender(
+      <ContentAuthorHost
+        agentIntegration={ScaffoldUnavailableAgentIntegration}
+        artifactId="stable-artifact"
+        composition={nextApplication.authoring}
+        content={content}
+        onEditorReady={onEditorReady}
+      />,
+    );
+
+    await waitFor(() => expect(onEditorReady).toHaveBeenCalledTimes(2));
+    expect(firstEditor.isDestroyed).toBe(true);
+    expect(onEditorReady.mock.calls[1]?.[0]).not.toBe(firstEditor);
   });
 
   it("gates contributed dock content on readiness, open state, and editability", async () => {

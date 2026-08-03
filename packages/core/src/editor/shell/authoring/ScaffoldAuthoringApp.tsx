@@ -17,6 +17,10 @@ import {
   type ReactNode,
 } from "react";
 import type { AssessmentGroupContract, AssessmentTargetContract } from "@scaffold/contracts";
+import {
+  createScaffoldApplication,
+  type ScaffoldApplication,
+} from "@/composition/application/create-scaffold-application";
 
 import { cn } from "@/lib/cn";
 import { OverlayBoundary } from "@/ui/components/OverlayBoundary/OverlayBoundary";
@@ -62,6 +66,8 @@ import "./ScaffoldAuthoringApp.css";
 export type ScaffoldAuthoringSaveState = "idle" | "saving" | "saved" | "error";
 const SAVE_DEBOUNCE_MS = 500;
 const SAVE_OK_DISPLAY_MS = 2_000;
+// Migration-only while direct authoring consumers adopt the application prop.
+const CORE_APPLICATION_FALLBACK = createScaffoldApplication();
 
 function importScaffoldLearnerApp() {
   return import("@/runtime/app/ScaffoldLearnerApp").then(({ ScaffoldLearnerApp }) => ({
@@ -110,6 +116,7 @@ function withoutXapiCapability(services: ScaffoldLearnerHostServices): ScaffoldP
 }
 
 export interface ScaffoldAuthoringAppProps {
+  application?: ScaffoldApplication;
   agentIntegration?: ScaffoldAgentIntegration;
   artifact: ScaffoldAuthoringArtifact;
   services: ScaffoldAuthoringHostServices;
@@ -144,6 +151,7 @@ export function ScaffoldAuthoringApp(props: ScaffoldAuthoringAppProps) {
 }
 
 function ScaffoldAuthoringAppSession({
+  application = CORE_APPLICATION_FALLBACK,
   agentIntegration = ScaffoldUnavailableAgentIntegration,
   artifact,
   services,
@@ -286,13 +294,16 @@ function ScaffoldAuthoringAppSession({
 
       setResolvedSaveState("saving");
       try {
-        const bundle = projectArtifactSaveBundle({
-          artifact: toSaveableArtifact({
-            artifact: readyArtifact,
-            title: nextTitle,
-            content,
-          }),
-        });
+        const bundle = projectArtifactSaveBundle(
+          {
+            artifact: toSaveableArtifact({
+              artifact: readyArtifact,
+              title: nextTitle,
+              content,
+            }),
+          },
+          application.capabilities.blocks.registry,
+        );
         validateArtifactSaveBundleSize(bundle);
         const result = await services.artifactPersistence.saveArtifact(bundle);
         if (typeof result?.artifact?.title === "string" && result.artifact.title) {
@@ -305,7 +316,13 @@ function ScaffoldAuthoringAppSession({
         throw new Error("Scaffold authoring save failed.");
       }
     },
-    [readyArtifact, services.artifactPersistence, setResolvedSaveState, setTitleForCurrentArtifact],
+    [
+      application,
+      readyArtifact,
+      services.artifactPersistence,
+      setResolvedSaveState,
+      setTitleForCurrentArtifact,
+    ],
   );
 
   const readLatestContent = useCallback(
@@ -577,6 +594,7 @@ function ScaffoldAuthoringAppSession({
               ) : activePreviewContent && previewServices ? (
                 <Suspense fallback={<div role="status">Preparing preview...</div>}>
                   <LazyScaffoldLearnerApp
+                    composition={application.runtime}
                     bootstrap={activePreviewContent.bootstrap}
                     hostColorMode={applicationColorMode}
                     slideshowSizing="contained"
@@ -586,6 +604,7 @@ function ScaffoldAuthoringAppSession({
                 </Suspense>
               ) : readyArtifact ? (
                 <ContentAuthorHost
+                  composition={application.authoring}
                   agentIntegration={agentIntegration}
                   artifactId={resolvedArtifactId}
                   content={toJsonDocument(latestContentRef.current.value)}

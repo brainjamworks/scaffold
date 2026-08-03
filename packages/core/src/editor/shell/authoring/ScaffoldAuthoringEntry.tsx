@@ -4,6 +4,10 @@ import type {
   ScaffoldAuthoringArtifact,
   ScaffoldAuthoringEntryHostServices,
 } from "@/host/contracts";
+import {
+  createScaffoldApplication,
+  type ScaffoldApplication,
+} from "@/composition/application/create-scaffold-application";
 
 import {
   DocumentCreationGate,
@@ -17,6 +21,8 @@ type ArtifactCreationCapability = typeof import("./createAndPersistAuthoringArti
 
 let readyAuthoringCapabilityPromise: Promise<ReadyAuthoringCapability> | null = null;
 let artifactCreationCapabilityPromise: Promise<ArtifactCreationCapability> | null = null;
+// Migration-only while product roots adopt the required application prop in Task 4.
+const CORE_APPLICATION_FALLBACK = createScaffoldApplication();
 
 function loadReadyAuthoringCapability(): Promise<ReadyAuthoringCapability> {
   readyAuthoringCapabilityPromise ??= import("./ScaffoldAuthoringApp");
@@ -40,11 +46,13 @@ export interface ScaffoldAuthoringEntryProps extends Omit<
   ScaffoldAuthoringAppProps,
   "artifact" | "services"
 > {
+  application?: ScaffoldApplication;
   artifact: ScaffoldAuthoringArtifact | null;
   services: ScaffoldAuthoringEntryHostServices;
 }
 
 export function ScaffoldAuthoringEntry({
+  application = CORE_APPLICATION_FALLBACK,
   artifact,
   services,
   ...appProps
@@ -95,7 +103,11 @@ export function ScaffoldAuthoringEntry({
           throw new CapabilityLoadError("artifact_creation");
         })
         .then(({ createAndPersistAuthoringArtifact }) =>
-          createAndPersistAuthoringArtifact({ mode, services }),
+          createAndPersistAuthoringArtifact({
+            mode,
+            services,
+            blockDefinitions: application.capabilities.blocks.registry,
+          }),
         )
         .then((savedArtifact) => {
           setCreatedArtifactState({
@@ -120,7 +132,7 @@ export function ScaffoldAuthoringEntry({
           creationPendingRef.current = false;
         });
     },
-    [artifact, services],
+    [application, artifact, services],
   );
 
   if (failedCapability) {
@@ -136,7 +148,14 @@ export function ScaffoldAuthoringEntry({
   }
 
   const { ScaffoldAuthoringApp } = readyCapability;
-  return <ScaffoldAuthoringApp {...appProps} artifact={activeArtifact} services={services} />;
+  return (
+    <ScaffoldAuthoringApp
+      {...appProps}
+      application={application}
+      artifact={activeArtifact}
+      services={services}
+    />
+  );
 }
 
 function ScaffoldAuthoringCapabilityUnavailable({ capability }: { capability: FailedCapability }) {

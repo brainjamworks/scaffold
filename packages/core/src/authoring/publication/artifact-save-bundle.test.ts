@@ -2,6 +2,8 @@ import { describe, expect, it } from "vite-plus/test";
 import type { JSONContent } from "@tiptap/core";
 
 import { createScaffoldDocumentContent } from "@/format/artifact";
+import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { createBlockRegistry } from "@/editor/blocks/block-registry";
 
 import {
   ARTIFACT_SAVE_PAYLOAD_LIMITS,
@@ -16,9 +18,10 @@ describe("artifact save bundle publication", () => {
       content: [{ type: "paragraph" }],
     };
 
-    const bundle = projectArtifactSaveBundle({
-      artifact: artifact("doc-1", "Draft title", authorDocument),
-    });
+    const bundle = projectArtifactSaveBundle(
+      { artifact: artifact("doc-1", "Draft title", authorDocument) },
+      builtInBlockRegistry,
+    );
 
     expect(bundle).toMatchObject({
       artifact: {
@@ -49,9 +52,10 @@ describe("artifact save bundle publication", () => {
       ],
     };
 
-    const bundle = projectArtifactSaveBundle({
-      artifact: artifact("doc-1", "Oversized", authorDocument),
-    });
+    const bundle = projectArtifactSaveBundle(
+      { artifact: artifact("doc-1", "Oversized", authorDocument) },
+      builtInBlockRegistry,
+    );
 
     expect(() => validateArtifactSaveBundleSize(bundle)).toThrow(
       /Artifact content is too large to save/,
@@ -63,9 +67,10 @@ describe("artifact save bundle publication", () => {
       persistenceMcqBlock("assessment-1", { points: 2, maxAttempts: 3 }),
     ]);
 
-    const bundle = projectArtifactSaveBundle({
-      artifact: artifact("doc-1", "Migrated title", authorDocument),
-    });
+    const bundle = projectArtifactSaveBundle(
+      { artifact: artifact("doc-1", "Migrated title", authorDocument) },
+      builtInBlockRegistry,
+    );
 
     expect(bundle).toMatchObject({
       artifact: {
@@ -107,6 +112,20 @@ describe("artifact save bundle publication", () => {
     expect(learnerMcqAttrs).not.toHaveProperty("assessment");
   });
 
+  it("uses the explicitly installed Block lookup", () => {
+    const authorDocument = pageDocumentWithSurfaceContent("surface-1", [
+      persistenceMcqBlock("assessment-1", { points: 2, maxAttempts: 3 }),
+    ]);
+
+    const bundle = projectArtifactSaveBundle(
+      { artifact: artifact("doc-1", "Private application", authorDocument) },
+      createBlockRegistry([]),
+    );
+
+    expect(bundle.assessmentTargets).toEqual([]);
+    expect(firstDescendant(bundle.learnerContent, "mcq")?.attrs).toHaveProperty("assessment");
+  });
+
   it("projects quiz assessment groups into the save bundle", () => {
     const authorDocument = pageDocumentWithSurfaceContent("surface-quiz", [
       {
@@ -126,9 +145,10 @@ describe("artifact save bundle publication", () => {
       },
     ]);
 
-    const bundle = projectArtifactSaveBundle({
-      artifact: artifact("doc-quiz", "Quiz title", authorDocument),
-    });
+    const bundle = projectArtifactSaveBundle(
+      { artifact: artifact("doc-quiz", "Quiz title", authorDocument) },
+      builtInBlockRegistry,
+    );
 
     expect(bundle.assessmentGroups).toEqual([
       {

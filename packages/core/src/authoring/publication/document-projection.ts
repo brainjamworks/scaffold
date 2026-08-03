@@ -20,7 +20,7 @@ import {
   type BlockAssessmentCapabilityDefinition,
   type BlockDefinition,
 } from "@/editor/blocks/block-definition";
-import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 
 export type AssessmentBlockNodeType = string;
 
@@ -79,10 +79,11 @@ interface VisitedAssessmentBlock {
  */
 export function projectAssessmentDocument(
   authorDocument: JSONContent,
+  blockDefinitions: BlockDefinitionLookup,
 ): AssessmentDocumentProjection {
-  const learner = projectLearnerDocument(authorDocument);
-  const targets = projectAssessmentTargets(authorDocument);
-  const groupProjection = projectAssessmentGroups(authorDocument, targets);
+  const learner = projectLearnerDocument(authorDocument, blockDefinitions);
+  const targets = projectAssessmentTargets(authorDocument, blockDefinitions);
+  const groupProjection = projectAssessmentGroups(authorDocument, targets, blockDefinitions);
   return {
     learnerDocument: learner.document,
     targets,
@@ -95,20 +96,26 @@ export function projectAssessmentDocument(
  * Redacts private answer data from authoring JSON by asking each registered
  * assessment block capability for its learner-facing projection.
  */
-export function projectLearnerDocument(authorDocument: JSONContent): LearnerDocumentProjection {
+export function projectLearnerDocument(
+  authorDocument: JSONContent,
+  blockDefinitions: BlockDefinitionLookup,
+): LearnerDocumentProjection {
   const warnings: AssessmentProjectionWarning[] = [];
-  collectAssessmentBlocks(authorDocument).forEach((block) => {
+  collectAssessmentBlocks(authorDocument, blockDefinitions).forEach((block) => {
     if (!block.blockId) warnings.push(missingBlockIdWarning(block));
   });
 
   return {
-    document: redactLearnerNode(authorDocument),
+    document: redactLearnerNode(authorDocument, blockDefinitions),
     warnings,
   };
 }
 
-export function projectAssessmentTargets(authorDocument: JSONContent): AssessmentTargetContract[] {
-  return collectAssessmentBlocks(authorDocument)
+export function projectAssessmentTargets(
+  authorDocument: JSONContent,
+  blockDefinitions: BlockDefinitionLookup,
+): AssessmentTargetContract[] {
+  return collectAssessmentBlocks(authorDocument, blockDefinitions)
     .filter((block) => block.blockId.length > 0)
     .map((block) => {
       const projection = requireProjection(block);
@@ -146,12 +153,13 @@ interface AssessmentGroupProjection {
 function projectAssessmentGroups(
   authorDocument: JSONContent,
   targets: AssessmentTargetContract[],
+  blockDefinitions: BlockDefinitionLookup,
 ): AssessmentGroupProjection {
   const targetIds = new Set(targets.map((target) => target.targetId));
   const groups: AssessmentGroupContract[] = [];
   const warnings: AssessmentProjectionWarning[] = [];
 
-  collectQuizBlocks(authorDocument).forEach((quiz) => {
+  collectQuizBlocks(authorDocument, blockDefinitions).forEach((quiz) => {
     if (!quiz.blockId) {
       warnings.push({
         code: "missing-block-id",
@@ -198,13 +206,16 @@ interface VisitedQuizBlock {
   surfaceId: string | null;
 }
 
-function collectQuizBlocks(root: JSONContent): VisitedQuizBlock[] {
+function collectQuizBlocks(
+  root: JSONContent,
+  blockDefinitions: BlockDefinitionLookup,
+): VisitedQuizBlock[] {
   const quizzes: VisitedQuizBlock[] = [];
 
   function walk(node: JSONContent, surfaceId: string | null) {
     const nextSurfaceId = node.type === "surface" ? readStringAttr(node, "id") || null : surfaceId;
 
-    if (node.type === "quiz") {
+    if (node.type === "quiz" && blockDefinitions.getByNodeType("quiz")) {
       quizzes.push({
         node,
         blockId: readStringAttr(node, "id"),
@@ -221,12 +232,15 @@ function collectQuizBlocks(root: JSONContent): VisitedQuizBlock[] {
   return quizzes;
 }
 
-function collectAssessmentBlocks(root: JSONContent): VisitedAssessmentBlock[] {
+function collectAssessmentBlocks(
+  root: JSONContent,
+  blockDefinitions: BlockDefinitionLookup,
+): VisitedAssessmentBlock[] {
   const blocks: VisitedAssessmentBlock[] = [];
 
   function walk(node: JSONContent, surfaceId: string | null) {
     const nextSurfaceId = node.type === "surface" ? readStringAttr(node, "id") || null : surfaceId;
-    const registered = assessmentDefinitionForNode(node);
+    const registered = assessmentDefinitionForNode(node, blockDefinitions);
 
     if (registered) {
       blocks.push({
@@ -247,12 +261,15 @@ function collectAssessmentBlocks(root: JSONContent): VisitedAssessmentBlock[] {
   return blocks;
 }
 
-function assessmentDefinitionForNode(node: JSONContent): {
+function assessmentDefinitionForNode(
+  node: JSONContent,
+  blockDefinitions: BlockDefinitionLookup,
+): {
   definition: BlockDefinition;
   assessment: BlockAssessmentCapabilityDefinition;
 } | null {
   if (!node.type) return null;
-  const definition = builtInBlockRegistry.getByNodeType(node.type);
+  const definition = blockDefinitions.getByNodeType(node.type);
   const assessment = definition?.capabilities?.assessment;
   if (!definition || !assessment) return null;
   return { definition, assessment };
@@ -290,8 +307,11 @@ function invalidAssessmentGroupWarning(quiz: VisitedQuizBlock): AssessmentProjec
   };
 }
 
-function redactLearnerNode(node: JSONContent): JSONContent {
-  const registered = assessmentDefinitionForNode(node);
+function redactLearnerNode(
+  node: JSONContent,
+  blockDefinitions: BlockDefinitionLookup,
+): JSONContent {
+  const registered = assessmentDefinitionForNode(node, blockDefinitions);
   if (registered) {
     const projection = requireProjection({
       node,
@@ -305,7 +325,9 @@ function redactLearnerNode(node: JSONContent): JSONContent {
 
   return {
     ...cloneJsonNodeWithoutContent(node),
-    ...(node.content ? { content: readContent(node).map(redactLearnerNode) } : {}),
+    ...(node.content
+      ? { content: readContent(node).map((child) => redactLearnerNode(child, blockDefinitions)) }
+      : {}),
   };
 }
 

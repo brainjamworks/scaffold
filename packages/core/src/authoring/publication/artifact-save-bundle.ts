@@ -1,4 +1,5 @@
 import type { ArtifactSaveBundle, SaveableScaffoldArtifact } from "@/host/ports";
+import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 
 import { projectAssessmentDocument } from "./document-projection";
 
@@ -54,8 +55,11 @@ export function validateArtifactSaveBundleSize(bundle: ArtifactSaveBundle): void
   );
 }
 
-export function projectArtifactSaveBundle(input: ArtifactSaveProjectionInput): ArtifactSaveBundle {
-  const projection = projectAssessmentDocument(input.artifact.content);
+export function projectArtifactSaveBundle(
+  input: ArtifactSaveProjectionInput,
+  blockDefinitions: BlockDefinitionLookup,
+): ArtifactSaveBundle {
+  const projection = projectAssessmentDocument(input.artifact.content, blockDefinitions);
   return {
     artifact: input.artifact,
     learnerContent: projection.learnerDocument,

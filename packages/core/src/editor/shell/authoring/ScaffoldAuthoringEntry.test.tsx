@@ -2,22 +2,33 @@
 
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, describe, expect, expectTypeOf, it, vi } from "vite-plus/test";
 
 import type { ArtifactSaveBundle } from "@/host/ports";
+import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
 
 const mocks = vi.hoisted(() => ({
   creationFormatModuleReads: 0,
   creationPublicationModuleReads: 0,
   readyModuleReads: 0,
+  readyApplications: [] as unknown[],
+  publicationLookups: [] as unknown[],
 }));
 
 vi.mock("./ScaffoldAuthoringApp", async () => {
   const { createElement } = await import("react");
   mocks.readyModuleReads += 1;
   return {
-    ScaffoldAuthoringApp: ({ artifact }: { artifact: { title: string } }) =>
-      createElement("section", { "data-testid": "ready-authoring-app" }, artifact.title),
+    ScaffoldAuthoringApp: ({
+      application,
+      artifact,
+    }: {
+      application: unknown;
+      artifact: { title: string };
+    }) => {
+      mocks.readyApplications.push(application);
+      return createElement("section", { "data-testid": "ready-authoring-app" }, artifact.title);
+    },
   };
 });
 
@@ -44,12 +55,15 @@ vi.mock("@/format/artifact", () => {
 vi.mock("@/authoring/publication/artifact-save-bundle", () => {
   mocks.creationPublicationModuleReads += 1;
   return {
-    projectArtifactSaveBundle: ({ artifact }: { artifact: unknown }) => ({
-      artifact,
-      assessmentGroups: [],
-      assessmentTargets: [],
-      learnerContent: { type: "doc", content: [] },
-    }),
+    projectArtifactSaveBundle: ({ artifact }: { artifact: unknown }, blockDefinitions: unknown) => {
+      mocks.publicationLookups.push(blockDefinitions);
+      return {
+        artifact,
+        assessmentGroups: [],
+        assessmentTargets: [],
+        learnerContent: { type: "doc", content: [] },
+      };
+    },
     validateArtifactSaveBundleSize: vi.fn(),
   };
 });
@@ -61,6 +75,8 @@ type EntryProps = Parameters<typeof ScaffoldAuthoringEntry>[0];
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  mocks.readyApplications.length = 0;
+  mocks.publicationLookups.length = 0;
 });
 
 function createDeferred<T>() {
@@ -89,15 +105,18 @@ function renderEntry({
   createArtifactMetadata = vi.fn(),
   saveArtifact = vi.fn(async (_bundle: ArtifactSaveBundle) => undefined),
   headerActions,
+  application,
 }: {
   artifact?: EntryProps["artifact"];
   createArtifactMetadata?: EntryProps["services"]["artifactCreation"]["createArtifactMetadata"];
   saveArtifact?: EntryProps["services"]["artifactPersistence"]["saveArtifact"];
   headerActions?: EntryProps["headerActions"];
+  application?: EntryProps["application"];
 } = {}) {
   return render(
     <ScaffoldAuthoringEntry
       artifact={artifact}
+      {...(application ? { application } : {})}
       services={{
         artifactCreation: { createArtifactMetadata },
         artifactPersistence: { saveArtifact },
@@ -125,7 +144,8 @@ describe("ScaffoldAuthoringEntry loading boundary", () => {
     const createArtifactMetadata = vi.fn(() => metadata.promise);
     const saveArtifact = vi.fn((_: ArtifactSaveBundle) => persistence.promise);
 
-    renderEntry({ createArtifactMetadata, saveArtifact });
+    const application = createScaffoldApplication();
+    renderEntry({ application, createArtifactMetadata, saveArtifact });
     await user.click(screen.getByRole("button", { name: "Create page" }));
 
     await waitFor(() => {
@@ -138,6 +158,7 @@ describe("ScaffoldAuthoringEntry loading boundary", () => {
 
     act(() => metadata.resolve({ id: "created-page", title: "Local title" }));
     await waitFor(() => expect(saveArtifact).toHaveBeenCalledTimes(1));
+    expect(mocks.publicationLookups).toEqual([application.capabilities.blocks.registry]);
     expect(screen.queryByTestId("ready-authoring-app")).toBeNull();
 
     act(() => persistence.resolve({ artifact: { title: "Host title" } }));
@@ -146,6 +167,13 @@ describe("ScaffoldAuthoringEntry loading boundary", () => {
       "textContent",
       "Host title",
     );
+    expect(mocks.readyApplications).toEqual([application]);
+  });
+
+  it("accepts only one complete application configuration at the top prop surface", () => {
+    expectTypeOf<"composition" extends keyof EntryProps ? true : false>().toEqualTypeOf<false>();
+    expectTypeOf<"runtime" extends keyof EntryProps ? true : false>().toEqualTypeOf<false>();
+    expectTypeOf<"capabilities" extends keyof EntryProps ? true : false>().toEqualTypeOf<false>();
   });
 
   it("loads the ready capability for an existing artifact", async () => {

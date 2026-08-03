@@ -8,8 +8,14 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { EditorView } from "@tiptap/pm/view";
 import { createElement, StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { z } from "zod";
 
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
+import {
+  createScaffoldApplication,
+  defineScaffoldExtensionPack,
+} from "@/composition/application/create-scaffold-application";
+import type { SurfaceCapability } from "@/composition/application/surface-capability";
 
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 import { createScaffoldDocumentContent } from "@/format/artifact";
@@ -31,6 +37,32 @@ function createSlideshowDocumentWithSurfaces(surfaceIds: string[]): JSONContent 
 }
 
 describe("CourseDocumentEditor", () => {
+  it("validates and constructs Tiptap from the supplied authoring composition", async () => {
+    const privateSurface = privateSurfaceCapability("private-assessment-surface");
+    const application = createScaffoldApplication({
+      packs: [defineScaffoldExtensionPack({ id: "private-authoring", surfaces: [privateSurface] })],
+    });
+    const content = createInitializedDocument("slideshow");
+    const surface = content.content?.[0]?.content?.[0];
+    if (!surface?.attrs) throw new Error("expected initialized Surface");
+    surface.attrs["variant"] = privateSurface.definition.id;
+    surface.attrs["settings"] = {};
+    const onReady = vi.fn();
+
+    render(
+      createElement(CourseDocumentEditor, {
+        composition: application.authoring,
+        source: { mode: "document", content },
+        onReady,
+      }),
+    );
+
+    await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
+    const editor = onReady.mock.calls[0]?.[0];
+    expect(editor.storage.scaffoldCapabilities.capabilities).toBe(application.capabilities);
+    expect(screen.queryByText(/invalid and cannot be edited/)).toBeNull();
+  });
+
   it("reports document changes without serializing the editor", async () => {
     const content = createInitializedDocument();
     const onChange = vi.fn();
@@ -585,6 +617,30 @@ describe("CourseDocumentEditor", () => {
     expect(pasted?.content).toEqual(source.content);
   });
 });
+
+function privateSurfaceCapability(id: string): SurfaceCapability {
+  const settingsSchema = z.object({}).strict();
+  return {
+    definition: {
+      id,
+      modes: ["slideshow"],
+      title: "Private assessment Surface",
+      description: "Private fixture Surface",
+      settingsSchema,
+      createSurface: ({ surfaceId }) => ({
+        type: "surface",
+        attrs: { id: surfaceId, variant: id, settings: {} },
+        content: [{ type: "paragraph" }],
+      }),
+    },
+    authoringView: { variantId: id, component: PrivateSurfaceView },
+    runtimeView: { variantId: id, component: PrivateSurfaceView },
+  };
+}
+
+function PrivateSurfaceView() {
+  return null;
+}
 
 function authoringDocumentWithMcq(): JSONContent {
   return {

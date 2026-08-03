@@ -5,7 +5,14 @@ import userEvent from "@testing-library/user-event";
 import type { JSONContent } from "@tiptap/core";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
+import {
+  createScaffoldApplication,
+  defineScaffoldExtensionPack,
+} from "@/composition/application/create-scaffold-application";
+import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { defineBlock } from "@/editor/blocks/block-definition";
+import { McqAuthoringExtension } from "@/editor/blocks/assessment/mcq/mcq-authoring-extension";
+import { McqRuntimeExtension } from "@/editor/blocks/assessment/mcq/mcq-runtime-extension";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { ScaffoldUnavailableAgentIntegration } from "@/editor/shell/agent/ScaffoldUnavailableAgentIntegration";
 import type { ScaffoldAgentIntegration } from "@/editor/shell/agent/agent-integration";
@@ -74,6 +81,7 @@ vi.mock("./ContentAuthorHost", async () => {
       agentIntegration,
       agentOpen,
       content,
+      composition,
       onAgentClose,
       onChange,
       onEditorReady,
@@ -85,6 +93,7 @@ vi.mock("./ContentAuthorHost", async () => {
       agentIntegration?: unknown;
       agentOpen?: boolean;
       content?: unknown;
+      composition?: unknown;
       onAgentClose?: () => void;
       onChange?: (editor: unknown) => void;
       onEditorReady?: (editor: unknown) => void;
@@ -98,6 +107,7 @@ vi.mock("./ContentAuthorHost", async () => {
         agentIntegration,
         agentOpen,
         content,
+        composition,
         leftRail,
         onAgentClose,
         onChange,
@@ -149,6 +159,55 @@ vi.mock("@/runtime/app/ScaffoldLearnerApp", async () => {
 });
 
 const testApplication = createScaffoldApplication();
+const PRIVATE_ASSESSMENT_NODE_TYPE = "private_assessment_fixture";
+const coreMcqDefinition = builtInBlockRegistry.getByNodeType("mcq");
+if (!coreMcqDefinition?.capabilities?.assessment || !coreMcqDefinition.insert) {
+  throw new Error("expected installed Core MCQ definition");
+}
+const privateAssessmentDefinition = defineBlock({
+  ...coreMcqDefinition,
+  nodeType: PRIVATE_ASSESSMENT_NODE_TYPE,
+  capabilities: {
+    ...coreMcqDefinition.capabilities,
+    assessment: {
+      ...coreMcqDefinition.capabilities.assessment,
+      projection: {
+        projectInteraction: () => ({
+          kind: "single-select" as const,
+          options: [{ id: "private-option", label: "Private option" }],
+        }),
+        projectAssessment: () => ({
+          kind: "single-select" as const,
+          correctOptionId: "private-option",
+          feedbackByOptionId: {},
+        }),
+        projectLearnerNode: (node) => ({
+          ...node,
+          attrs: { id: node.attrs?.["id"], settings: node.attrs?.["settings"] },
+        }),
+      },
+    },
+  },
+  insert: {
+    ...coreMcqDefinition.insert,
+    id: "private-assessment-fixture",
+    content: () => ({ type: PRIVATE_ASSESSMENT_NODE_TYPE }),
+  },
+});
+const privateAssessmentApplication = createScaffoldApplication({
+  packs: [
+    defineScaffoldExtensionPack({
+      id: "private-assessment-fixture",
+      blocks: [
+        {
+          definition: privateAssessmentDefinition,
+          authoringExtension: McqAuthoringExtension.extend({ name: PRIVATE_ASSESSMENT_NODE_TYPE }),
+          runtimeExtension: McqRuntimeExtension.extend({ name: PRIVATE_ASSESSMENT_NODE_TYPE }),
+        },
+      ],
+    }),
+  ],
+});
 Object.assign(mocks.fakeEditor.storage, {
   scaffoldAuthoringCatalogues: Object.freeze({
     catalogues: testApplication.authoring.catalogues,
@@ -211,6 +270,23 @@ function pageDocumentWithParagraph(surfaceId: string, text: string): JSONContent
 
 function slideshowDocument(surfaceId: string): JSONContent {
   return createScaffoldDocumentContent({ mode: "slideshow", surfaceId });
+}
+
+function privateAssessmentDocument(): JSONContent {
+  const document = createScaffoldDocumentContent({ mode: "page", surfaceId: "private-surface" });
+  const surface = document.content?.[0]?.content?.[0];
+  if (!surface) throw new Error("expected default page Surface");
+  surface.content = [
+    {
+      type: PRIVATE_ASSESSMENT_NODE_TYPE,
+      attrs: {
+        id: "private-assessment-1",
+        settings: {},
+        assessment: { privateAnswer: "must-not-reach-preview" },
+      },
+    },
+  ];
+  return document;
 }
 
 function createDeferred<T>() {
@@ -487,12 +563,14 @@ describe("ScaffoldAuthoringApp preview", () => {
   it("loads learner preview on demand while projected content is being persisted", async () => {
     const user = userEvent.setup();
     const saveResult = createDeferred<Record<string, never>>();
-    const saveArtifact = vi.fn(() => saveResult.promise);
+    const saveArtifact = vi.fn((_bundle: ArtifactSaveBundle) => saveResult.promise);
+    mocks.authorJSON = privateAssessmentDocument();
 
     expect(mocks.learnerModuleReads).toBe(0);
 
     render(
       <ScaffoldAuthoringApp
+        application={privateAssessmentApplication}
         artifact={{
           id: "artifact-lazy-preview",
           title: "Draft",
@@ -507,18 +585,27 @@ describe("ScaffoldAuthoringApp preview", () => {
     );
 
     await screen.findByTestId("content-author-host");
+    expect(mocks.contentAuthorHostProps.at(-1)?.["composition"]).toBe(
+      privateAssessmentApplication.authoring,
+    );
     const previewButton = screen.getByRole("button", { name: "Switch to preview" });
     await waitFor(() => expect(previewButton).toHaveProperty("disabled", false));
     await user.click(previewButton);
 
     await waitFor(() => expect(mocks.learnerModuleReads).toBe(1));
     expect(saveArtifact).toHaveBeenCalledTimes(1);
+    const savedBundle = saveArtifact.mock.calls[0]?.[0];
+    expect(savedBundle?.assessmentTargets[0]?.blockType).toBe(PRIVATE_ASSESSMENT_NODE_TYPE);
+    expect(JSON.stringify(savedBundle?.learnerContent)).not.toContain("must-not-reach-preview");
     expect(previewButton.textContent).toBe("Preparing...");
     expect(screen.queryByTestId("scaffold-learner-app")).toBeNull();
 
     saveResult.resolve({});
 
     await screen.findByTestId("scaffold-learner-app");
+    expect(mocks.learnerAppProps.at(-1)?.["composition"]).toBe(
+      privateAssessmentApplication.runtime,
+    );
 
     await user.click(screen.getByRole("button", { name: "Switch to editing" }));
     await screen.findByTestId("content-author-host");

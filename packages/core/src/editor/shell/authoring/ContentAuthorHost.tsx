@@ -9,13 +9,21 @@ import {
 import { EditorShell, type EditorShellScrollModel } from "@/editor/shell/chrome/EditorShell";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
 import type { ResolvedCourseTheme } from "@/theme/model";
+import {
+  createCoreScaffoldAuthoringComposition,
+  type ScaffoldAuthoringComposition,
+} from "@/composition/authoring/scaffold-authoring-composition";
 
 function ignoreAgentClose() {}
+
+// Migration-only while direct authoring-lane consumers adopt the composition prop.
+const CORE_AUTHORING_COMPOSITION_FALLBACK = createCoreScaffoldAuthoringComposition();
 
 export interface ContentAuthorHostProps {
   agentIntegration: ScaffoldAgentIntegration;
   artifactId?: string | null;
   content: JSONContent;
+  composition?: ScaffoldAuthoringComposition;
   editable?: boolean;
   onChange?: (editor: TiptapEditor) => void;
   onEditorReady?: (editor: TiptapEditor) => void;
@@ -47,6 +55,7 @@ export const ContentAuthorHost = memo(function ContentAuthorHost({
   agentIntegration: AgentIntegration,
   artifactId,
   content,
+  composition = CORE_AUTHORING_COMPOSITION_FALLBACK,
   editable = true,
   onChange,
   onEditorReady,
@@ -61,14 +70,20 @@ export const ContentAuthorHost = memo(function ContentAuthorHost({
   const sessionIdentity = artifactId ?? content;
   const sessionRef = useRef<{
     identity: string | JSONContent;
+    composition: ScaffoldAuthoringComposition;
     key: number;
   }>({
     identity: sessionIdentity,
+    composition,
     key: 0,
   });
-  if (!Object.is(sessionRef.current.identity, sessionIdentity)) {
+  if (
+    !Object.is(sessionRef.current.identity, sessionIdentity) ||
+    !Object.is(sessionRef.current.composition, composition)
+  ) {
     sessionRef.current = {
       identity: sessionIdentity,
+      composition,
       key: sessionRef.current.key + 1,
     };
   }
@@ -109,6 +124,7 @@ export const ContentAuthorHost = memo(function ContentAuthorHost({
           <>
             <CourseDocumentEditor
               key={sessionKey}
+              composition={composition}
               {...artifactProps}
               {...changeProps}
               source={source}

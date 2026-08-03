@@ -9,15 +9,28 @@ import {
   type BlockDefinition,
 } from "@/editor/blocks/block-definition";
 import { createBlockRegistry, type BlockRegistry } from "@/editor/blocks/block-registry";
+import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
 import { mcqResponseCodec } from "@/editor/blocks/assessment/mcq/assessment";
 import { SCAFFOLD_EDITORIAL_PRESET } from "@/theme/model";
 
 import {
-  projectAssessmentDocument,
-  projectAssessmentTargets,
-  projectLearnerDocument,
+  projectAssessmentDocument as projectAssessmentDocumentWithBlocks,
+  projectAssessmentTargets as projectAssessmentTargetsWithBlocks,
+  projectLearnerDocument as projectLearnerDocumentWithBlocks,
 } from "./document-projection";
+
+function projectAssessmentDocument(authorDocument: JSONContent) {
+  return projectAssessmentDocumentWithBlocks(authorDocument, builtInBlockRegistry);
+}
+
+function projectAssessmentTargets(authorDocument: JSONContent) {
+  return projectAssessmentTargetsWithBlocks(authorDocument, builtInBlockRegistry);
+}
+
+function projectLearnerDocument(authorDocument: JSONContent) {
+  return projectLearnerDocumentWithBlocks(authorDocument, builtInBlockRegistry);
+}
 
 const blockRegistryOverride = vi.hoisted<{ current: BlockRegistry | null }>(() => ({
   current: null,

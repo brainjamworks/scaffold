@@ -6,11 +6,14 @@ import "@/editor/shell/authoring/cursors.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { validateCourseSurfaceLifecycle } from "@/document/model/validation";
-import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
 import { AuthoringDocumentChrome } from "@/editor/shell/authoring/AuthoringDocumentChrome";
 import { readSurfaceViewSettingsFromProseMirrorDoc } from "@/document/model/surface-view-settings";
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
+import {
+  createCoreScaffoldAuthoringComposition,
+  type ScaffoldAuthoringComposition,
+} from "@/composition/authoring/scaffold-authoring-composition";
 import type { ResolvedCourseTheme } from "@/theme/model";
 import { CourseThemeScope } from "@/theme/presentation";
 import { AuthoringSurfaceView } from "@/editor/surfaces/authoring/views/AuthoringSurfaceView";
@@ -45,6 +48,7 @@ export interface CourseDocumentEditorProps {
    * immutable after mounting; callers remount to change source or artifact.
    */
   source: CourseDocumentAuthoringSource;
+  composition?: ScaffoldAuthoringComposition;
   editable?: boolean;
   /**
    * Schema and content-capability contributions. These remain distinct from
@@ -58,10 +62,13 @@ export interface CourseDocumentEditorProps {
 }
 
 const DEFAULT_SCHEMA_EXTENSIONS: readonly Extension[] = [];
+// Migration-only while direct authoring-lane consumers adopt the composition prop.
+const CORE_AUTHORING_COMPOSITION_FALLBACK = createCoreScaffoldAuthoringComposition();
 
 export function CourseDocumentEditor({
   artifactId,
   source,
+  composition = CORE_AUTHORING_COMPOSITION_FALLBACK,
   editable = true,
   schemaExtensions = DEFAULT_SCHEMA_EXTENSIONS,
   onChange,
@@ -95,10 +102,10 @@ export function CourseDocumentEditor({
       initialSource.mode === "document"
         ? validateCourseSurfaceLifecycle({
             content: initialSource.content,
-            registry: builtInSurfaceVariantRegistry,
+            registry: composition.capabilities.surfaces.registry,
           })
         : { ok: true as const },
-    [initialSource],
+    [composition, initialSource],
   );
 
   if (!validation.ok) {
@@ -109,6 +116,7 @@ export function CourseDocumentEditor({
     <MountedCourseDocumentEditor
       artifactId={artifactId}
       source={initialSource}
+      composition={composition}
       editable={editable}
       schemaExtensions={schemaExtensions}
       onChange={handleChange}
@@ -123,6 +131,7 @@ export function CourseDocumentEditor({
 interface RequiredEditorProps {
   artifactId: string | null | undefined;
   source: CourseDocumentAuthoringSource;
+  composition: ScaffoldAuthoringComposition;
   editable: boolean;
   schemaExtensions: readonly Extension[];
   onChange: ((editor: TiptapEditor) => void) | undefined;
@@ -135,6 +144,7 @@ interface RequiredEditorProps {
 function MountedCourseDocumentEditor({
   artifactId,
   source,
+  composition,
   editable,
   schemaExtensions,
   onChange,
@@ -146,11 +156,11 @@ function MountedCourseDocumentEditor({
   const [overlayContainer, setOverlayContainer] = useState<HTMLDivElement | null>(null);
   const authoringExtensions = useMemo(
     () => [
-      ...createCourseDocumentAuthoringExtensions({ editable }),
+      ...createCourseDocumentAuthoringExtensions({ editable, composition }),
       ...schemaExtensions,
       ...(source.mode === "document" ? [UndoRedo] : source.stateExtensions),
     ],
-    [editable, schemaExtensions, source],
+    [composition, editable, schemaExtensions, source],
   );
 
   const editor = useEditor({
