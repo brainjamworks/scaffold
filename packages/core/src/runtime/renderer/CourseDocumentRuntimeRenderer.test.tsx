@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import { builtInInsertCatalog } from "@/editor/insertion/built-in-insert-catalog";
 import { createScaffoldDocumentContent } from "@/format/artifact";
-import { createScaffoldDefaultTheme } from "@/theme/model";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
 import { CourseDocumentRuntimeRenderer } from "./CourseDocumentRuntimeRenderer";
 
@@ -416,7 +416,7 @@ function alignmentParityDocumentContent(): JSONContent {
           mode: "page",
           surfaceSize: "fluid",
           overflowMode: "grow",
-          theme: createScaffoldDefaultTheme(),
+          theme: createDefaultPersistedCourseTheme(),
         },
         content: [
           {

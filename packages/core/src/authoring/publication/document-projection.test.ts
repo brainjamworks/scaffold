@@ -11,7 +11,6 @@ import {
 import { createBlockRegistry, type BlockRegistry } from "@/editor/blocks/block-registry";
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
 import { mcqResponseCodec } from "@/editor/blocks/assessment/mcq/assessment";
-import { SCAFFOLD_EDITORIAL_PRESET } from "@/theme/model";
 
 import {
   projectAssessmentDocument,
@@ -53,14 +52,12 @@ vi.mock("@/editor/blocks/built-in-block-definitions", async (importOriginal) => 
 });
 
 describe("authoring publication document projection", () => {
-  it("preserves the complete course theme snapshot for learners", () => {
+  it("preserves exact Course theme references for learners", () => {
     const theme = {
       schemaVersion: 1 as const,
-      preset: {
-        id: SCAFFOLD_EDITORIAL_PRESET.id,
-        revision: SCAFFOLD_EDITORIAL_PRESET.revision,
-      },
-      values: structuredClone(SCAFFOLD_EDITORIAL_PRESET.values),
+      design: { id: "scaffold-flow", revision: "1" },
+      colourSystem: { id: "scaffold-indigo", revision: "1" },
+      overrides: {},
     };
     const document: JSONContent = {
       type: "courseDocument",
@@ -76,11 +73,8 @@ describe("authoring publication document projection", () => {
 
     const projectedTheme = projectLearnerDocument(document).document.attrs?.["theme"];
     expect(projectedTheme).toEqual(theme);
-    expect(projectedTheme.values.colors).toMatchObject({
-      author: theme.values.colors.author,
-      recipe: theme.values.colors.recipe,
-      resolved: theme.values.colors.resolved,
-    });
+    expect(projectedTheme).not.toHaveProperty("preset");
+    expect(projectedTheme).not.toHaveProperty("values");
   });
 
   it("reads assessment projection from the explicit built-in registry", async () => {

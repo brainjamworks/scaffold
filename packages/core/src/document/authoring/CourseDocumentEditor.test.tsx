@@ -13,8 +13,7 @@ import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 import { createScaffoldDocumentContent } from "@/format/artifact";
-import { selectCoursePreset } from "@/theme/authoring";
-import { createScaffoldDefaultTheme, SCAFFOLD_EDITORIAL_PRESET } from "@/theme/model";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import { CourseDocumentEditor } from "./CourseDocumentEditor";
 
 afterEach(() => {
@@ -56,7 +55,7 @@ describe("CourseDocumentEditor", () => {
     expect(getJSON).not.toHaveBeenCalled();
   });
 
-  it("preserves redo after undoing a course theme change", async () => {
+  it("preserves redo after undoing a document change", async () => {
     const content = createInitializedDocument();
     const onReady = vi.fn();
 
@@ -75,7 +74,7 @@ describe("CourseDocumentEditor", () => {
     const editor = onReady.mock.calls[0]?.[0];
     if (!editor) throw new Error("CourseDocumentEditor did not provide an editor");
 
-    expect(selectCoursePreset(editor, SCAFFOLD_EDITORIAL_PRESET)).toBe(true);
+    expect(editor.commands.insertContent("history entry")).toBe(true);
     expect(editor.chain().focus().undo().run()).toBe(true);
     expect(editor.can().redo()).toBe(true);
   });
@@ -597,7 +596,7 @@ function authoringDocumentWithMcq(): JSONContent {
           mode: "page",
           surfaceSize: "fluid",
           overflowMode: "grow",
-          theme: createScaffoldDefaultTheme(),
+          theme: createDefaultPersistedCourseTheme(),
         },
         content: [
           {
@@ -708,7 +707,7 @@ function authoringDocumentWithGallery(): JSONContent {
           mode: "page",
           surfaceSize: "fluid",
           overflowMode: "grow",
-          theme: createScaffoldDefaultTheme(),
+          theme: createDefaultPersistedCourseTheme(),
         },
         content: [
           {
@@ -769,7 +768,7 @@ function authoringSlideshowDocument(surfaceIds: string[]): JSONContent {
           mode: "slideshow",
           surfaceSize: "16x9",
           overflowMode: "clip",
-          theme: createScaffoldDefaultTheme(),
+          theme: createDefaultPersistedCourseTheme(),
         },
         content: surfaceIds.map((surfaceId) =>
           slideCoverSurfaceDefinition.createSurface({ surfaceId }),

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
-import { createScaffoldDefaultTheme } from "@/theme/model";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
 import { validateCourseSurfaceLifecycle } from "./surface-lifecycle-validation";
 
@@ -422,7 +422,7 @@ function document(
           mode,
           surfaceSize: mode === "slideshow" ? "16x9" : "fluid",
           overflowMode: "grow",
-          theme: createScaffoldDefaultTheme(),
+          theme: createDefaultPersistedCourseTheme(),
         },
         content: [...surfaces],
       },

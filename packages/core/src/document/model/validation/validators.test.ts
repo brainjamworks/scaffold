@@ -6,7 +6,7 @@ import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 
 import { createScaffoldDocumentContent } from "@/format/artifact";
-import { createScaffoldDefaultTheme } from "@/theme/model";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import { validateCourseDocumentJSON } from "./validators";
 
 describe("course document JSON helpers", () => {
@@ -113,7 +113,7 @@ describe("course document JSON helpers", () => {
             mode: "page",
             surfaceSize: "fluid",
             overflowMode: "grow",
-            theme: createScaffoldDefaultTheme(),
+            theme: createDefaultPersistedCourseTheme(),
           },
           content: [
             {
@@ -213,7 +213,7 @@ describe("course document JSON helpers", () => {
             mode: "slideshow",
             surfaceSize: "16x9",
             overflowMode: "clip",
-            theme: createScaffoldDefaultTheme(),
+            theme: createDefaultPersistedCourseTheme(),
           },
           content: [],
         },
@@ -227,7 +227,7 @@ describe("course document JSON helpers", () => {
           attrs: {
             schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
             mode: "branching",
-            theme: createScaffoldDefaultTheme(),
+            theme: createDefaultPersistedCourseTheme(),
           },
           content: [],
         },
@@ -251,7 +251,7 @@ describe("course document JSON helpers", () => {
           attrs: {
             schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
             mode: "deck",
-            theme: createScaffoldDefaultTheme(),
+            theme: createDefaultPersistedCourseTheme(),
           },
           content: [
             {
@@ -301,7 +301,7 @@ describe("course document JSON helpers", () => {
             mode: "page",
             surfaceSize: "fluid",
             overflowMode: "grow",
-            theme: createScaffoldDefaultTheme(),
+            theme: createDefaultPersistedCourseTheme(),
           },
           content: [{ type: "surface", attrs: { id: "surface-1" } }],
         },
@@ -325,7 +325,7 @@ describe("course document JSON helpers", () => {
           attrs: {
             schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
             mode: "page",
-            theme: createScaffoldDefaultTheme(),
+            theme: createDefaultPersistedCourseTheme(),
           },
           content: [
             {
@@ -358,7 +358,7 @@ describe("course document JSON helpers", () => {
           attrs: {
             schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
             mode: "page",
-            theme: createScaffoldDefaultTheme(),
+            theme: createDefaultPersistedCourseTheme(),
           },
           content: [
             {
@@ -392,7 +392,7 @@ describe("course document JSON helpers", () => {
             schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
             mode: "slideshow",
             surfaceSize: "16x9",
-            theme: createScaffoldDefaultTheme(),
+            theme: createDefaultPersistedCourseTheme(),
           },
           content: [
             {
@@ -427,7 +427,7 @@ describe("course document JSON helpers", () => {
             mode: "slideshow",
             surfaceSize: "16x9",
             overflowMode: "clip",
-            theme: createScaffoldDefaultTheme(),
+            theme: createDefaultPersistedCourseTheme(),
           },
           content: [
             slideCoverSurfaceDefinition.createSurface({ surfaceId: "surface-1" }),
@@ -452,7 +452,7 @@ describe("course document JSON helpers", () => {
           attrs: {
             schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
             mode: "page",
-            theme: createScaffoldDefaultTheme(),
+            theme: createDefaultPersistedCourseTheme(),
           },
           content: [{ type: "surface", attrs: { id: "surface-1", variant: null } }],
         },
@@ -483,7 +483,7 @@ describe("course document JSON helpers", () => {
             mode: "page",
             surfaceSize: "fluid",
             overflowMode: "grow",
-            theme: createScaffoldDefaultTheme(),
+            theme: createDefaultPersistedCourseTheme(),
           },
           content: [
             {
@@ -522,7 +522,7 @@ describe("course document JSON helpers", () => {
           attrs: {
             schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
             mode: "page",
-            theme: createScaffoldDefaultTheme(),
+            theme: createDefaultPersistedCourseTheme(),
           },
           content: [
             {
@@ -661,7 +661,7 @@ function fixedDocument(surfaceContent: Array<Record<string, unknown>>) {
           mode: "slideshow",
           surfaceSize: "16x9",
           overflowMode: "clip",
-          theme: createScaffoldDefaultTheme(),
+          theme: createDefaultPersistedCourseTheme(),
         },
         content: [fixedSurface("surface-fixed", surfaceContent)],
       },

@@ -8,11 +8,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { AssessmentRuntimeProvider } from "@/runtime/assessment/AssessmentRuntimeProvider";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
-import {
-  createScaffoldDefaultTheme,
-  createThemeCatalogue,
-  resolveCourseTheme,
-} from "@/theme/model";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
+import { createThemeCatalogue, resolveCourseTheme } from "@/theme/model";
 
 import { SlideshowPlayer } from "./SlideshowPlayer";
 
@@ -286,7 +283,7 @@ describe("SlideshowPlayer", () => {
       const resolvedTheme = resolveCourseTheme({
         catalogue: createThemeCatalogue(),
         mode,
-        theme: createScaffoldDefaultTheme(),
+        theme: createDefaultPersistedCourseTheme(),
       });
 
       render(

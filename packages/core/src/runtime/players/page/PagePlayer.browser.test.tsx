@@ -4,12 +4,8 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { createAssessmentRuntimeTestRoot } from "@/runtime/assessment/test-utils";
-import {
-  createScaffoldDefaultTheme,
-  createThemeCatalogue,
-  resolveCourseTheme,
-  type ResolvedCourseTheme,
-} from "@/theme/model";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
+import { createThemeCatalogue, resolveCourseTheme, type ResolvedCourseTheme } from "@/theme/model";
 import "@/styles/globals.css";
 
 import { PagePlayer } from "./PagePlayer";
@@ -40,7 +36,7 @@ describe("PagePlayer presentation", () => {
     const resolvedTheme = resolveCourseTheme({
       catalogue: createThemeCatalogue(),
       mode: "dark",
-      theme: createScaffoldDefaultTheme(),
+      theme: createDefaultPersistedCourseTheme(),
     });
 
     const mounted = await mountPage(content, 1200, resolvedTheme);
