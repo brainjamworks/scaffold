@@ -9,12 +9,14 @@ import { ScaffoldArtifactIdentityProvider } from "../../host/providers/ScaffoldA
 import { ScaffoldServicesProvider } from "../../host/providers/ScaffoldServicesProvider";
 
 import {
-  XapiRuntimeProvider,
-  useXapiSession,
-  useXapiSessionAccessor,
-  type XapiSessionAccessor,
-} from "./XapiRuntimeProvider";
-import type { XapiSession } from "./session";
+  LearningEventRuntimeProvider,
+  useLearningEventReporter,
+  useLearningEventSession,
+  useLearningEventSessionAccessor,
+  type LearningEventSessionAccessor,
+} from "./LearningEventRuntimeProvider";
+import type { LearningEventReporter } from "./LearningEventRuntimeProvider";
+import type { LearningEventSession } from "./session";
 
 afterEach(() => {
   cleanup();
@@ -36,9 +38,9 @@ function createPort(activityId = "https://learning.example.test/courses/course-1
   };
 }
 
-interface XapiObservation {
-  readonly session: XapiSession | null;
-  readonly getSession: XapiSessionAccessor;
+interface LearningEventObservation {
+  readonly session: LearningEventSession | null;
+  readonly getSession: LearningEventSessionAccessor;
 }
 
 function SessionProbe({
@@ -46,10 +48,10 @@ function SessionProbe({
   onObservation,
 }: {
   autoStart?: boolean;
-  onObservation: (observation: XapiObservation) => void;
+  onObservation: (observation: LearningEventObservation) => void;
 }) {
-  const session = useXapiSession();
-  const getSession = useXapiSessionAccessor();
+  const session = useLearningEventSession();
+  const getSession = useLearningEventSessionAccessor();
 
   useEffect(() => {
     onObservation({ session, getSession });
@@ -62,31 +64,108 @@ function SessionProbe({
 function RuntimeRoot({
   artifactId,
   autoStart,
-  courseTitle = "Course One",
+  artefactTitle = "Course One",
   onObservation,
   port,
 }: {
   artifactId: string | null;
   autoStart?: boolean;
-  courseTitle?: string | null;
-  onObservation: (observation: XapiObservation) => void;
+  artefactTitle?: string | null;
+  onObservation: (observation: LearningEventObservation) => void;
   port: XapiPort | null;
 }) {
   return (
     <ScaffoldServicesProvider ports={{ xapi: port }}>
       <ScaffoldArtifactIdentityProvider artifactId={artifactId}>
-        <XapiRuntimeProvider courseTitle={courseTitle}>
+        <LearningEventRuntimeProvider artefactTitle={artefactTitle}>
           <SessionProbe
             onObservation={onObservation}
             {...(autoStart === undefined ? {} : { autoStart })}
           />
-        </XapiRuntimeProvider>
+        </LearningEventRuntimeProvider>
       </ScaffoldArtifactIdentityProvider>
     </ScaffoldServicesProvider>
   );
 }
 
-describe("XapiRuntimeProvider", () => {
+function ReporterProbe({ onReporter }: { onReporter: (reporter: LearningEventReporter) => void }) {
+  const reporter = useLearningEventReporter();
+
+  useEffect(() => {
+    onReporter(reporter);
+  }, [onReporter, reporter]);
+
+  return null;
+}
+
+describe("LearningEventRuntimeProvider", () => {
+  it("returns one stable no-op reporter when reporting is absent", async () => {
+    const reporters: LearningEventReporter[] = [];
+    const onReporter = (reporter: LearningEventReporter) => reporters.push(reporter);
+    const { rerender } = render(
+      <ScaffoldServicesProvider ports={{ xapi: null }}>
+        <ScaffoldArtifactIdentityProvider artifactId="artifact-one">
+          <LearningEventRuntimeProvider artefactTitle="Artefact One">
+            <ReporterProbe onReporter={onReporter} />
+          </LearningEventRuntimeProvider>
+        </ScaffoldArtifactIdentityProvider>
+      </ScaffoldServicesProvider>,
+    );
+
+    await waitFor(() => expect(reporters).toHaveLength(1));
+    expect(() =>
+      reporters[0]?.report({
+        type: "surface.experienced",
+        surfaceId: "surface-1",
+        surfaceKind: "page",
+        position: 1,
+        count: 1,
+      }),
+    ).not.toThrow();
+
+    rerender(
+      <ScaffoldServicesProvider ports={{ xapi: null }}>
+        <ScaffoldArtifactIdentityProvider artifactId="artifact-one">
+          <LearningEventRuntimeProvider artefactTitle="Renamed">
+            <ReporterProbe onReporter={onReporter} />
+          </LearningEventRuntimeProvider>
+        </ScaffoldArtifactIdentityProvider>
+      </ScaffoldServicesProvider>,
+    );
+    expect(reporters).toHaveLength(1);
+  });
+
+  it("reports only closed block-safe inputs without exposing acceptance", async () => {
+    const port = createPort();
+    const reporters: LearningEventReporter[] = [];
+
+    render(
+      <ScaffoldServicesProvider ports={{ xapi: port }}>
+        <ScaffoldArtifactIdentityProvider artifactId="artifact-one">
+          <LearningEventRuntimeProvider artefactTitle="Artefact One">
+            <ReporterProbe onReporter={(value) => reporters.push(value)} />
+          </LearningEventRuntimeProvider>
+        </ScaffoldArtifactIdentityProvider>
+      </ScaffoldServicesProvider>,
+    );
+
+    await waitFor(() => expect(reporters).toHaveLength(1));
+    const result = reporters[0]?.report({
+      type: "surface.experienced",
+      surfaceId: "surface-1",
+      surfaceKind: "page",
+      position: 1,
+      count: 1,
+    });
+
+    expect(result).toBeUndefined();
+    await waitFor(() => expect(port.send).toHaveBeenCalledTimes(2));
+    expect(port.send.mock.calls.map(([event]) => event.verb.display.en)).toStrictEqual([
+      "initialized",
+      "experienced",
+    ]);
+  });
+
   it("creates UUIDs from secure random bytes when randomUUID is unavailable", async () => {
     const getRandomValues = vi.fn(<T extends ArrayBufferView | null>(array: T): T => {
       if (array instanceof Uint8Array) {
@@ -118,7 +197,7 @@ describe("XapiRuntimeProvider", () => {
       label: "invalid Activity IRI",
     },
   ])("makes recording unavailable for $label", async ({ artifactId, port }) => {
-    const observations: XapiObservation[] = [];
+    const observations: LearningEventObservation[] = [];
 
     render(
       <RuntimeRoot
@@ -132,7 +211,7 @@ describe("XapiRuntimeProvider", () => {
 
     await waitFor(() => expect(observations).toHaveLength(1));
     const observation = observations[0];
-    if (!observation) throw new Error("expected an xAPI observation");
+    if (!observation) throw new Error("expected an Learning Event observation");
     expect(observation.session).toBeNull();
     expect(observation.getSession()).toBeNull();
     if (port) expect(port.send).not.toHaveBeenCalled();
@@ -140,14 +219,14 @@ describe("XapiRuntimeProvider", () => {
 
   it("retains one session and accessor for a stable tuple, including title changes", async () => {
     const port = createPort();
-    const observations: XapiObservation[] = [];
-    const onObservation = (observation: XapiObservation) => {
+    const observations: LearningEventObservation[] = [];
+    const onObservation = (observation: LearningEventObservation) => {
       observations.push(observation);
     };
     const { rerender } = render(
       <RuntimeRoot
         artifactId=" course-one "
-        courseTitle="Course One"
+        artefactTitle="Course One"
         port={port}
         onObservation={onObservation}
       />,
@@ -155,12 +234,12 @@ describe("XapiRuntimeProvider", () => {
 
     await waitFor(() => expect(observations).toHaveLength(1));
     const first = observations[0];
-    if (!first?.session) throw new Error("expected an xAPI session");
+    if (!first?.session) throw new Error("expected an Learning Event session");
 
     rerender(
       <RuntimeRoot
         artifactId="course-one"
-        courseTitle="Renamed Course"
+        artefactTitle="Renamed Course"
         port={port}
         onObservation={onObservation}
       />,
@@ -179,8 +258,8 @@ describe("XapiRuntimeProvider", () => {
         replacement === "port"
           ? createPort("https://learning.example.test/courses/course-2")
           : firstPort;
-      const observations: XapiObservation[] = [];
-      const onObservation = (observation: XapiObservation) => {
+      const observations: LearningEventObservation[] = [];
+      const onObservation = (observation: LearningEventObservation) => {
         observations.push(observation);
       };
       const { rerender } = render(
@@ -189,7 +268,7 @@ describe("XapiRuntimeProvider", () => {
 
       await waitFor(() => expect(observations).toHaveLength(1));
       const first = observations[0];
-      if (!first?.session) throw new Error("expected the first xAPI session");
+      if (!first?.session) throw new Error("expected the first Learning Event session");
 
       rerender(
         <RuntimeRoot
@@ -202,7 +281,7 @@ describe("XapiRuntimeProvider", () => {
       await waitFor(() => expect(observations).toHaveLength(2));
       await flushPromises();
       const second = observations[1];
-      if (!second?.session) throw new Error("expected the replacement xAPI session");
+      if (!second?.session) throw new Error("expected the replacement Learning Event session");
 
       expect(second.session).not.toBe(first.session);
       expect(second.getSession).toBe(first.getSession);
@@ -210,7 +289,7 @@ describe("XapiRuntimeProvider", () => {
       expect(first.session.getState()).toEqual({
         status: "terminated",
         startedAt: null,
-        delivery: "not-started",
+        acceptance: "not-started",
       });
       expect(second.session.getState()).toEqual({ status: "dormant" });
     },
@@ -218,7 +297,7 @@ describe("XapiRuntimeProvider", () => {
 
   it("creates isolated sessions for simultaneous provider roots", async () => {
     const port = createPort();
-    const observations: Array<XapiObservation | null> = [null, null];
+    const observations: Array<LearningEventObservation | null> = [null, null];
 
     render(
       <>
@@ -247,7 +326,7 @@ describe("XapiRuntimeProvider", () => {
 
   it("terminates a started session on real unmount", async () => {
     const port = createPort();
-    const observations: XapiObservation[] = [];
+    const observations: LearningEventObservation[] = [];
     const root = render(
       <RuntimeRoot
         artifactId="course-one"
@@ -261,7 +340,7 @@ describe("XapiRuntimeProvider", () => {
 
     await waitFor(() => expect(port.send).toHaveBeenCalledTimes(1));
     const session = observations[0]?.session;
-    if (!session) throw new Error("expected a started xAPI session");
+    if (!session) throw new Error("expected a started Learning Event session");
 
     root.unmount();
     await waitFor(() => expect(port.send).toHaveBeenCalledTimes(2));
@@ -272,13 +351,13 @@ describe("XapiRuntimeProvider", () => {
     ]);
     expect(session.getState()).toMatchObject({
       status: "terminated",
-      delivery: "accepted",
+      acceptance: "accepted",
     });
   });
 
   it("does not terminate during StrictMode effect replay", async () => {
     const port = createPort();
-    const sessions: XapiSession[] = [];
+    const sessions: LearningEventSession[] = [];
     const root = render(
       <StrictMode>
         <RuntimeRoot

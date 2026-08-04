@@ -1,18 +1,12 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import {
-  XapiStatementTemplateSchema,
-  type XapiPort,
-  type XapiStatementDraft,
-  type XapiStatementTemplate,
-} from "../../host/ports/xapi";
-import { XAPI_SESSION_MAX_PENDING_STATEMENTS, createXapiSession } from "./session";
-import {
-  XAPI_VERBS,
-  buildInitializedStatementDraft,
-  buildLearnerActivityInteractedStatementDraft,
-  buildTerminatedStatementDraft,
-} from "./statement-catalogue";
+  LearningEventSchema,
+  type LearningEventPort,
+  type LearningEvent,
+} from "../../host/ports/learning-events";
+import { LEARNING_EVENT_SESSION_MAX_PENDING_EVENTS, createLearningEventSession } from "./session";
+import { LEARNING_EVENT_VERBS, type CoreLearningEventInput } from "./catalogue";
 
 const ROOT_ACTIVITY_ID = "https://example.com/courses/course-1";
 const STARTED_AT = "2026-07-25T10:00:00.000Z";
@@ -33,12 +27,12 @@ async function flushPromises(): Promise<void> {
   }
 }
 
-function learningDraft(blockId = "block-1"): XapiStatementDraft {
-  return buildLearnerActivityInteractedStatementDraft({
-    rootActivityId: ROOT_ACTIVITY_ID,
+function learningInput(blockId = "block-1"): CoreLearningEventInput {
+  return {
+    type: "learner-activity.interacted",
     blockId,
     activityKind: "flashcard",
-  });
+  };
 }
 
 function createSequentialUuidFactory() {
@@ -49,20 +43,20 @@ function createSequentialUuidFactory() {
   });
 }
 
-function createHarness(sendImplementation: XapiPort["send"] = async () => undefined) {
+function createHarness(acceptImplementation: LearningEventPort["accept"] = async () => undefined) {
   let wallTime = Date.parse(STARTED_AT);
   let monotonicTime = 1_000;
   const createUuid = createSequentialUuidFactory();
   const now = vi.fn(() => new Date(wallTime));
   const monotonicNow = vi.fn(() => monotonicTime);
-  const send = vi.fn<XapiPort["send"]>(sendImplementation);
-  const port: XapiPort = {
-    activityId: ROOT_ACTIVITY_ID,
-    send,
+  const accept = vi.fn<LearningEventPort["accept"]>(acceptImplementation);
+  const port: LearningEventPort = {
+    rootActivityId: ROOT_ACTIVITY_ID,
+    accept,
   };
-  const session = createXapiSession({
+  const session = createLearningEventSession({
     port,
-    courseTitle: "Course One",
+    artefactTitle: "Course One",
     createUuid,
     now,
     monotonicNow,
@@ -70,7 +64,7 @@ function createHarness(sendImplementation: XapiPort["send"] = async () => undefi
 
   return {
     session,
-    send,
+    accept,
     createUuid,
     now,
     monotonicNow,
@@ -92,15 +86,15 @@ function expectDeeplyFrozen(value: unknown): void {
   }
 }
 
-describe("createXapiSession", () => {
+describe("createLearningEventSession", () => {
   it("validates the root Activity IRI before returning a dormant session", () => {
     expect(() =>
-      createXapiSession({
+      createLearningEventSession({
         port: {
-          activityId: "not an absolute IRI",
-          send: async () => undefined,
+          rootActivityId: "not an absolute IRI",
+          accept: async () => undefined,
         },
-        courseTitle: "Course One",
+        artefactTitle: "Course One",
         createUuid: createSequentialUuidFactory(),
         now: () => new Date(STARTED_AT),
         monotonicNow: () => 0,
@@ -117,7 +111,7 @@ describe("createXapiSession", () => {
   });
 
   it("starts explicitly once with initialized first", async () => {
-    const { session, send, createUuid, now } = createHarness();
+    const { session, accept, createUuid, now } = createHarness();
 
     session.start();
     session.start();
@@ -126,56 +120,48 @@ describe("createXapiSession", () => {
     expect(session.getState()).toEqual({
       status: "active",
       startedAt: STARTED_AT,
-      delivery: "accepting",
+      acceptance: "accepting",
     });
-    expect(send).toHaveBeenCalledTimes(1);
-    expect(send.mock.calls[0]?.[0]).toMatchObject({
+    expect(accept).toHaveBeenCalledTimes(1);
+    expect(accept.mock.calls[0]?.[0]).toMatchObject({
       id: "00000000-0000-4000-8000-000000000001",
       timestamp: STARTED_AT,
-      verb: XAPI_VERBS.initialized,
+      verb: LEARNING_EVENT_VERBS.initialized,
     });
-    expect(XapiStatementTemplateSchema.safeParse(send.mock.calls[0]?.[0]).success).toBe(true);
+    expect(LearningEventSchema.safeParse(accept.mock.calls[0]?.[0]).success).toBe(true);
     expect(createUuid).toHaveBeenCalledTimes(1);
     expect(now).toHaveBeenCalledTimes(1);
   });
 
   it("lazily initializes before the first valid learning draft", async () => {
-    const { session, send } = createHarness();
+    const { session, accept } = createHarness();
 
-    session.record(learningDraft());
+    session.record(learningInput());
     await flushPromises();
 
-    expect(send.mock.calls.map(([statement]) => statement.verb.id)).toEqual([
-      XAPI_VERBS.initialized.id,
-      XAPI_VERBS.interacted.id,
+    expect(accept.mock.calls.map(([event]) => event.verb.id)).toEqual([
+      LEARNING_EVENT_VERBS.initialized.id,
+      LEARNING_EVENT_VERBS.interacted.id,
     ]);
   });
 
-  it("ignores invalid and caller-owned lifecycle drafts without leaving dormancy", async () => {
-    const { session, send, createUuid, now, monotonicNow } = createHarness();
-    const invalidDraft = {
-      verb: { id: "invalid", display: { en: "invalid" } },
-      object: { objectType: "Activity", id: "invalid" },
-    } as XapiStatementDraft;
+  it("contains invalid producer input and caller-owned lifecycle inputs", async () => {
+    const { session, accept, createUuid, now, monotonicNow } = createHarness();
+    const invalidInput = {
+      type: "not.registered",
+    } as unknown as CoreLearningEventInput;
 
-    session.record(invalidDraft);
-    session.record(
-      buildInitializedStatementDraft({
-        rootActivityId: ROOT_ACTIVITY_ID,
-        title: "Course One",
-      }),
-    );
-    session.record(
-      buildTerminatedStatementDraft({
-        rootActivityId: ROOT_ACTIVITY_ID,
-        title: "Course One",
-        durationMs: 0,
-      }),
-    );
+    session.record(invalidInput);
+    session.record({ type: "session.initialized" });
+    session.record({ type: "session.terminated", durationMs: 0 });
     await flushPromises();
 
-    expect(session.getState()).toEqual({ status: "dormant" });
-    expect(send).not.toHaveBeenCalled();
+    expect(session.getState()).toEqual({
+      status: "terminated",
+      startedAt: null,
+      acceptance: "failed",
+    });
+    expect(accept).not.toHaveBeenCalled();
     expect(createUuid).not.toHaveBeenCalled();
     expect(now).not.toHaveBeenCalled();
     expect(monotonicNow).not.toHaveBeenCalled();
@@ -183,19 +169,19 @@ describe("createXapiSession", () => {
 
   it("assigns stable distinct identity at admission while acceptance is delayed", async () => {
     const firstAcceptance = deferred<void>();
-    const { session, send, createUuid, now, setWallTime } = createHarness(
+    const { session, accept, createUuid, now, setWallTime } = createHarness(
       () => firstAcceptance.promise,
     );
 
     session.start();
-    session.record(learningDraft("block-1"));
+    session.record(learningInput("block-1"));
     setWallTime("2030-01-01T00:00:00.000Z");
     await flushPromises();
 
-    expect(send).toHaveBeenCalledTimes(1);
+    expect(accept).toHaveBeenCalledTimes(1);
     expect(createUuid).toHaveBeenCalledTimes(2);
     expect(now).toHaveBeenCalledTimes(2);
-    expect(send.mock.calls[0]?.[0]).toMatchObject({
+    expect(accept.mock.calls[0]?.[0]).toMatchObject({
       id: "00000000-0000-4000-8000-000000000001",
       timestamp: STARTED_AT,
     });
@@ -203,61 +189,61 @@ describe("createXapiSession", () => {
     firstAcceptance.resolve();
     await flushPromises();
 
-    expect(send).toHaveBeenCalledTimes(2);
-    expect(send.mock.calls[1]?.[0]).toMatchObject({
+    expect(accept).toHaveBeenCalledTimes(2);
+    expect(accept.mock.calls[1]?.[0]).toMatchObject({
       id: "00000000-0000-4000-8000-000000000002",
       timestamp: STARTED_AT,
     });
-    expect(send.mock.calls[0]?.[0].id).not.toBe(send.mock.calls[1]?.[0].id);
+    expect(accept.mock.calls[0]?.[0].id).not.toBe(accept.mock.calls[1]?.[0].id);
   });
 
-  it("serializes delivery and closes with one final terminated Statement", async () => {
+  it("serializes acceptance and closes with one final terminated Event", async () => {
     const acceptances: Array<ReturnType<typeof deferred<void>>> = [];
-    const { session, send, createUuid, setMonotonicTime } = createHarness(() => {
+    const { session, accept, createUuid, setMonotonicTime } = createHarness(() => {
       const acceptance = deferred<void>();
       acceptances.push(acceptance);
       return acceptance.promise;
     });
 
     session.start();
-    session.record(learningDraft("block-1"));
-    session.record(learningDraft("block-2"));
+    session.record(learningInput("block-1"));
+    session.record(learningInput("block-2"));
     setMonotonicTime(1_090.067);
     const termination = session.terminate();
     const repeatedTermination = session.terminate();
-    session.record(learningDraft("ignored"));
+    session.record(learningInput("ignored"));
     session.start();
 
     expect(termination).toBe(repeatedTermination);
     expect(session.getState()).toEqual({
       status: "terminating",
       startedAt: STARTED_AT,
-      delivery: "accepting",
+      acceptance: "accepting",
     });
     expect(createUuid).toHaveBeenCalledTimes(4);
 
     await flushPromises();
-    expect(send).toHaveBeenCalledTimes(1);
-    expect(send.mock.calls[0]?.[0].verb.id).toBe(XAPI_VERBS.initialized.id);
+    expect(accept).toHaveBeenCalledTimes(1);
+    expect(accept.mock.calls[0]?.[0].verb.id).toBe(LEARNING_EVENT_VERBS.initialized.id);
 
     acceptances[0]?.resolve();
     await flushPromises();
-    expect(send).toHaveBeenCalledTimes(2);
+    expect(accept).toHaveBeenCalledTimes(2);
 
     acceptances[1]?.resolve();
     await flushPromises();
-    expect(send).toHaveBeenCalledTimes(3);
+    expect(accept).toHaveBeenCalledTimes(3);
 
     acceptances[2]?.resolve();
     await flushPromises();
-    expect(send).toHaveBeenCalledTimes(4);
-    expect(send.mock.calls.map(([statement]) => statement.verb.id)).toEqual([
-      XAPI_VERBS.initialized.id,
-      XAPI_VERBS.interacted.id,
-      XAPI_VERBS.interacted.id,
-      XAPI_VERBS.terminated.id,
+    expect(accept).toHaveBeenCalledTimes(4);
+    expect(accept.mock.calls.map(([event]) => event.verb.id)).toEqual([
+      LEARNING_EVENT_VERBS.initialized.id,
+      LEARNING_EVENT_VERBS.interacted.id,
+      LEARNING_EVENT_VERBS.interacted.id,
+      LEARNING_EVENT_VERBS.terminated.id,
     ]);
-    expect(send.mock.calls[3]?.[0].result?.duration).toBe("PT0.09S");
+    expect(accept.mock.calls[3]?.[0].result?.duration).toBe("PT0.09S");
 
     let terminationSettled = false;
     void termination.then(() => {
@@ -272,7 +258,7 @@ describe("createXapiSession", () => {
     expect(session.getState()).toEqual({
       status: "terminated",
       startedAt: STARTED_AT,
-      delivery: "accepted",
+      acceptance: "accepted",
     });
   });
 
@@ -282,7 +268,7 @@ describe("createXapiSession", () => {
   ])(
     "uses non-negative hundredth-second monotonic duration for $start to $finish",
     async ({ start, finish, expected }) => {
-      const { session, send, setMonotonicTime } = createHarness();
+      const { session, accept, setMonotonicTime } = createHarness();
 
       setMonotonicTime(start);
       session.start();
@@ -290,13 +276,13 @@ describe("createXapiSession", () => {
       await session.terminate();
       await flushPromises();
 
-      expect(send.mock.calls.at(-1)?.[0].verb.id).toBe(XAPI_VERBS.terminated.id);
-      expect(send.mock.calls.at(-1)?.[0].result?.duration).toBe(expected);
+      expect(accept.mock.calls.at(-1)?.[0].verb.id).toBe(LEARNING_EVENT_VERBS.terminated.id);
+      expect(accept.mock.calls.at(-1)?.[0].result?.duration).toBe(expected);
     },
   );
 
-  it("terminates a dormant session without starting delivery", async () => {
-    const { session, send, createUuid, now, monotonicNow } = createHarness();
+  it("terminates a dormant session without starting acceptance", async () => {
+    const { session, accept, createUuid, now, monotonicNow } = createHarness();
 
     const termination = session.terminate();
 
@@ -305,23 +291,23 @@ describe("createXapiSession", () => {
     expect(session.getState()).toEqual({
       status: "terminated",
       startedAt: null,
-      delivery: "not-started",
+      acceptance: "not-started",
     });
-    expect(send).not.toHaveBeenCalled();
+    expect(accept).not.toHaveBeenCalled();
     expect(createUuid).not.toHaveBeenCalled();
     expect(now).not.toHaveBeenCalled();
     expect(monotonicNow).not.toHaveBeenCalled();
   });
 
-  it("isolates asynchronous rejection and discards every waiting template", async () => {
+  it("isolates asynchronous rejection and discards every waiting event", async () => {
     const firstAcceptance = deferred<void>();
-    const { session, send, createUuid } = createHarness(() => firstAcceptance.promise);
+    const { session, accept, createUuid } = createHarness(() => firstAcceptance.promise);
 
     session.start();
-    session.record(learningDraft("block-1"));
-    session.record(learningDraft("block-2"));
+    session.record(learningInput("block-1"));
+    session.record(learningInput("block-2"));
     await flushPromises();
-    expect(send).toHaveBeenCalledTimes(1);
+    expect(accept).toHaveBeenCalledTimes(1);
 
     firstAcceptance.reject(new Error("host unavailable"));
     await flushPromises();
@@ -329,104 +315,104 @@ describe("createXapiSession", () => {
     expect(session.getState()).toEqual({
       status: "active",
       startedAt: STARTED_AT,
-      delivery: "failed",
+      acceptance: "failed",
     });
-    expect(send).toHaveBeenCalledTimes(1);
+    expect(accept).toHaveBeenCalledTimes(1);
 
     const admittedBeforeFailure = createUuid.mock.calls.length;
-    expect(() => session.record(learningDraft("ignored"))).not.toThrow();
+    expect(() => session.record(learningInput("ignored"))).not.toThrow();
     expect(createUuid).toHaveBeenCalledTimes(admittedBeforeFailure);
     await expect(session.terminate()).resolves.toBeUndefined();
     expect(session.getState()).toEqual({
       status: "terminated",
       startedAt: STARTED_AT,
-      delivery: "failed",
+      acceptance: "failed",
     });
   });
 
   it("handles a synchronous port throw behind the asynchronous seam", async () => {
-    const { session, send } = createHarness(() => {
+    const { session, accept } = createHarness(() => {
       throw new Error("synchronous adapter failure");
     });
 
     expect(() => session.start()).not.toThrow();
-    expect(send).not.toHaveBeenCalled();
+    expect(accept).not.toHaveBeenCalled();
     await flushPromises();
 
-    expect(send).toHaveBeenCalledTimes(1);
+    expect(accept).toHaveBeenCalledTimes(1);
     expect(session.getState()).toEqual({
       status: "active",
       startedAt: STARTED_AT,
-      delivery: "failed",
+      acceptance: "failed",
     });
   });
 
-  it("settles termination without later sends when acceptance rejects during close", async () => {
+  it("settles termination without later accepts when acceptance rejects during close", async () => {
     const firstAcceptance = deferred<void>();
-    const { session, send } = createHarness(() => firstAcceptance.promise);
+    const { session, accept } = createHarness(() => firstAcceptance.promise);
 
     session.start();
-    session.record(learningDraft());
+    session.record(learningInput());
     const termination = session.terminate();
     await flushPromises();
 
     firstAcceptance.reject(new Error("not accepted"));
     await expect(termination).resolves.toBeUndefined();
 
-    expect(send).toHaveBeenCalledTimes(1);
+    expect(accept).toHaveBeenCalledTimes(1);
     expect(session.getState()).toEqual({
       status: "terminated",
       startedAt: STARTED_AT,
-      delivery: "failed",
+      acceptance: "failed",
     });
   });
 
-  it("fails open at the 257th pending template without assigning it identity", async () => {
+  it("fails open at the 257th pending event without assigning it identity", async () => {
     const firstAcceptance = deferred<void>();
-    const { session, send, createUuid, now } = createHarness(() => firstAcceptance.promise);
+    const { session, accept, createUuid, now } = createHarness(() => firstAcceptance.promise);
 
     session.start();
-    for (let index = 1; index < XAPI_SESSION_MAX_PENDING_STATEMENTS; index += 1) {
-      session.record(learningDraft(`block-${index}`));
+    for (let index = 1; index < LEARNING_EVENT_SESSION_MAX_PENDING_EVENTS; index += 1) {
+      session.record(learningInput(`block-${index}`));
     }
-    expect(createUuid).toHaveBeenCalledTimes(XAPI_SESSION_MAX_PENDING_STATEMENTS);
-    expect(now).toHaveBeenCalledTimes(XAPI_SESSION_MAX_PENDING_STATEMENTS);
+    expect(createUuid).toHaveBeenCalledTimes(LEARNING_EVENT_SESSION_MAX_PENDING_EVENTS);
+    expect(now).toHaveBeenCalledTimes(LEARNING_EVENT_SESSION_MAX_PENDING_EVENTS);
 
-    expect(() => session.record(learningDraft("overflow"))).not.toThrow();
-    expect(createUuid).toHaveBeenCalledTimes(XAPI_SESSION_MAX_PENDING_STATEMENTS);
-    expect(now).toHaveBeenCalledTimes(XAPI_SESSION_MAX_PENDING_STATEMENTS);
+    expect(() => session.record(learningInput("overflow"))).not.toThrow();
+    expect(createUuid).toHaveBeenCalledTimes(LEARNING_EVENT_SESSION_MAX_PENDING_EVENTS);
+    expect(now).toHaveBeenCalledTimes(LEARNING_EVENT_SESSION_MAX_PENDING_EVENTS);
     expect(session.getState()).toEqual({
       status: "active",
       startedAt: STARTED_AT,
-      delivery: "failed",
+      acceptance: "failed",
     });
 
     await flushPromises();
-    expect(send).not.toHaveBeenCalled();
+    expect(accept).not.toHaveBeenCalled();
     firstAcceptance.resolve();
     await flushPromises();
-    expect(send).not.toHaveBeenCalled();
+    expect(accept).not.toHaveBeenCalled();
     await expect(session.terminate()).resolves.toBeUndefined();
   });
 
   it("fails termination rather than exceeding a full pending queue", async () => {
     const firstAcceptance = deferred<void>();
-    const { session, send, createUuid, now } = createHarness(() => firstAcceptance.promise);
+    const { session, accept, createUuid, now } = createHarness(() => firstAcceptance.promise);
 
     session.start();
-    for (let index = 1; index < XAPI_SESSION_MAX_PENDING_STATEMENTS; index += 1) {
-      session.record(learningDraft(`block-${index}`));
+    for (let index = 1; index < LEARNING_EVENT_SESSION_MAX_PENDING_EVENTS; index += 1) {
+      session.record(learningInput(`block-${index}`));
     }
 
     await expect(session.terminate()).resolves.toBeUndefined();
 
-    expect(createUuid).toHaveBeenCalledTimes(XAPI_SESSION_MAX_PENDING_STATEMENTS);
-    expect(now).toHaveBeenCalledTimes(XAPI_SESSION_MAX_PENDING_STATEMENTS);
-    expect(send).not.toHaveBeenCalled();
+    expect(createUuid).toHaveBeenCalledTimes(LEARNING_EVENT_SESSION_MAX_PENDING_EVENTS);
+    expect(now).toHaveBeenCalledTimes(LEARNING_EVENT_SESSION_MAX_PENDING_EVENTS);
+    expect(accept).not.toHaveBeenCalled();
     expect(session.getState()).toEqual({
       status: "terminated",
       startedAt: STARTED_AT,
-      delivery: "failed",
+      acceptance: "failed",
     });
   });
 
@@ -456,10 +442,10 @@ describe("createXapiSession", () => {
       },
     },
   ])("contains initial $name failure", async ({ createUuid, now }) => {
-    const send = vi.fn<XapiPort["send"]>(async () => undefined);
-    const session = createXapiSession({
-      port: { activityId: ROOT_ACTIVITY_ID, send },
-      courseTitle: "Course One",
+    const accept = vi.fn<LearningEventPort["accept"]>(async () => undefined);
+    const session = createLearningEventSession({
+      port: { rootActivityId: ROOT_ACTIVITY_ID, accept },
+      artefactTitle: "Course One",
       createUuid,
       now,
       monotonicNow: () => 0,
@@ -468,11 +454,11 @@ describe("createXapiSession", () => {
     expect(() => session.start()).not.toThrow();
     await flushPromises();
 
-    expect(send).not.toHaveBeenCalled();
+    expect(accept).not.toHaveBeenCalled();
     expect(session.getState()).toEqual({
       status: "terminated",
       startedAt: null,
-      delivery: "failed",
+      acceptance: "failed",
     });
     await expect(session.terminate()).resolves.toBeUndefined();
   });
@@ -482,47 +468,46 @@ describe("createXapiSession", () => {
       .fn<() => string>()
       .mockReturnValueOnce("00000000-0000-4000-8000-000000000001")
       .mockReturnValueOnce("invalid");
-    const send = vi.fn<XapiPort["send"]>(async () => undefined);
-    const session = createXapiSession({
-      port: { activityId: ROOT_ACTIVITY_ID, send },
-      courseTitle: "Course One",
+    const accept = vi.fn<LearningEventPort["accept"]>(async () => undefined);
+    const session = createLearningEventSession({
+      port: { rootActivityId: ROOT_ACTIVITY_ID, accept },
+      artefactTitle: "Course One",
       createUuid,
       now: () => new Date(STARTED_AT),
       monotonicNow: () => 0,
     });
 
     session.start();
-    expect(() => session.record(learningDraft())).not.toThrow();
+    expect(() => session.record(learningInput())).not.toThrow();
     await flushPromises();
 
-    expect(send).not.toHaveBeenCalled();
+    expect(accept).not.toHaveBeenCalled();
     expect(session.getState()).toEqual({
       status: "active",
       startedAt: STARTED_AT,
-      delivery: "failed",
+      acceptance: "failed",
     });
     await expect(session.terminate()).resolves.toBeUndefined();
   });
 
   it("deeply freezes a validated clone before exposing it to the port", async () => {
-    const received: XapiStatementTemplate[] = [];
-    const send = vi.fn<XapiPort["send"]>(async (statement) => {
-      expectDeeplyFrozen(statement);
+    const received: LearningEvent[] = [];
+    const accept = vi.fn<LearningEventPort["accept"]>(async (event) => {
+      expectDeeplyFrozen(event);
       expect(() => {
-        (statement.object as { id: string }).id = "https://attacker.example/mutated";
+        (event.object as { id: string }).id = "https://attacker.example/mutated";
       }).toThrow();
-      received.push(statement);
+      received.push(event);
     });
-    const { session } = createHarness(send);
-    const draft = structuredClone(learningDraft()) as XapiStatementDraft;
+    const { session } = createHarness(accept);
+    const input = structuredClone(learningInput()) as CoreLearningEventInput;
 
-    session.record(draft);
-    (draft.verb.display as Record<string, string>).en = "mutated";
-    (draft.object as { id: string }).id = "https://attacker.example/caller-mutation";
+    session.record(input);
+    (input as { blockId: string }).blockId = "caller-mutation";
     await flushPromises();
 
     expect(received).toHaveLength(2);
     expect(received[1]?.verb.display.en).toBe("interacted");
-    expect(received[1]?.object.id).not.toBe("https://attacker.example/caller-mutation");
+    expect(received[1]?.object.id).not.toContain("caller-mutation");
   });
 });
