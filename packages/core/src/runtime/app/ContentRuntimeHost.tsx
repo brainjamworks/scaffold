@@ -33,12 +33,8 @@ import type {
 import { PagePlayer } from "../players/page/PagePlayer";
 import { SlideshowPlayer } from "../players/slideshow/SlideshowPlayer";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
-import {
-  XapiRuntimeProvider,
-  buildSurfaceExperiencedStatementDraft,
-  useXapiSession,
-  type XapiSession,
-} from "../xapi";
+import { buildSurfaceExperiencedStatementDraft, useXapiSession, type XapiSession } from "../xapi";
+import { LearningEventRuntimeProvider } from "../learning-events/LearningEventRuntimeProvider";
 
 export interface ContentRuntimeHostProps extends ScaffoldLearnerColorModeProps {
   artifactId?: string | null;
@@ -97,7 +93,9 @@ export function ContentRuntimeHost({
 
   return (
     <ScaffoldArtifactIdentityProvider artifactId={runtimeArtifactId}>
-      <XapiRuntimeProvider {...(courseTitle === undefined ? {} : { courseTitle })}>
+      <LearningEventRuntimeProvider
+        {...(courseTitle === undefined ? {} : { artefactTitle: courseTitle })}
+      >
         <AssessmentRuntimeProvider
           {...(initialAssessmentSnapshot === undefined
             ? {}
@@ -122,7 +120,7 @@ export function ContentRuntimeHost({
             </LearnerActivityReadinessGate>
           </LearnerActivityRuntimeProvider>
         </AssessmentRuntimeProvider>
-      </XapiRuntimeProvider>
+      </LearningEventRuntimeProvider>
     </ScaffoldArtifactIdentityProvider>
   );
 }

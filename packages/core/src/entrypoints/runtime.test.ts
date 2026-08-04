@@ -11,6 +11,7 @@ import type {
   ScaffoldRuntimeComposition,
   ScaffoldRuntimePorts,
   ScaffoldServicesProviderProps,
+  LearningEventRuntimeProviderProps,
   ScaffoldThemeExtension,
   SlideshowPlayerSizing,
 } from "@scaffold/core/runtime";
@@ -26,12 +27,14 @@ type RuntimeTypeSurface = {
   servicesProviderProps: ScaffoldServicesProviderProps;
   slideshowPlayerSizing: SlideshowPlayerSizing;
   themeExtension: ScaffoldThemeExtension;
+  learningEventRuntimeProviderProps: LearningEventRuntimeProviderProps;
 };
 
 describe("@scaffold/core/runtime", () => {
   it("publishes the exact runtime value surface", () => {
     expect(Object.keys(runtime).sort()).toEqual([
       "ContentRuntimeHost",
+      "LearningEventRuntimeProvider",
       "ScaffoldLearnerApp",
       "ScaffoldServicesProvider",
       "createCoreScaffoldRuntimeComposition",
@@ -39,6 +42,7 @@ describe("@scaffold/core/runtime", () => {
       "readCourseDocumentFormatVersion",
       "useAssessmentPort",
       "useLearnerActivityPort",
+      "useLearningEventPort",
       "useMediaPort",
     ]);
     expect(Object.values(runtime).every((value) => value !== undefined)).toBe(true);

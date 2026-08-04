@@ -35,6 +35,25 @@ export type {
   LearnerActivitySaveRecord,
   LearnerActivitySaveRequest,
 } from "./learner-activity";
+export { LearningEventIriSchema, LearningEventSchema } from "./learning-events";
+export type {
+  LearningEvent,
+  LearningEventActivity,
+  LearningEventActivityDefinition,
+  LearningEventContext,
+  LearningEventDuration,
+  LearningEventInteractionComponent,
+  LearningEventInteractionType,
+  LearningEventIri,
+  LearningEventJsonValue,
+  LearningEventLanguageMap,
+  LearningEventPort,
+  LearningEventResult,
+  LearningEventScore,
+  LearningEventTimestamp,
+  LearningEventUuid,
+  LearningEventVerb,
+} from "./learning-events";
 export { SCAFFOLD_MEDIA_CONTEXTS, MEDIA_UPLOAD_TYPES } from "./media";
 export type {
   ScaffoldMediaContext,

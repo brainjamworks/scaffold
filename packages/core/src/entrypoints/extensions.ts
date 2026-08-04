@@ -51,3 +51,8 @@ export type {
   SurfaceRuntimeViewBinding,
   SurfaceRuntimeViewProps,
 } from "@/editor/surfaces/runtime/surface-runtime-view-registry";
+export {
+  useLearningEventReporter,
+  type LearningEventReporter,
+} from "@/runtime/learning-events/LearningEventRuntimeProvider";
+export type { BlockLearningEventInput } from "@/runtime/learning-events/catalogue";

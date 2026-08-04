@@ -4,6 +4,7 @@ import * as extensions from "@scaffold/core/extensions";
 import type { BlockInsertVariantDefinition as CoreBlockInsertVariantDefinition } from "../editor/blocks/block-definition";
 import type { ScaffoldAuthoringCatalogues as CoreScaffoldAuthoringCatalogues } from "../composition/extensions/scaffold-authoring-catalogues-storage";
 import type {
+  BlockLearningEventInput,
   BlockInsertVariantDefinition as ExtensionBlockInsertVariantDefinition,
   ScaffoldAuthoringCatalogues as ExtensionScaffoldAuthoringCatalogues,
 } from "@scaffold/core/extensions";
@@ -34,9 +35,18 @@ import type {
   SurfaceRuntimeViewBinding,
   SurfaceRuntimeViewProps,
   SurfaceVariantDefinition,
+  LearningEventReporter,
 } from "@scaffold/core/extensions";
+// @ts-expect-error Raw event drafts are not available to host blocks.
+import type { LearningEventDraft } from "@scaffold/core/extensions";
+// @ts-expect-error Core-only catalogue inputs are not available to host blocks.
+import type { CoreLearningEventInput } from "@scaffold/core/extensions";
+// @ts-expect-error Host blocks cannot access the underlying session.
+import type { LearningEventSession } from "@scaffold/core/extensions";
 
 type ExtensionTypeSurface = {
+  coreInputViolation: CoreLearningEventInput;
+  draftViolation: LearningEventDraft;
   authoringCatalogues: ExtensionScaffoldAuthoringCatalogues;
   blockDefinitionInput: BlockDefinitionInput;
   blockDefinition: BlockDefinition;
@@ -65,6 +75,9 @@ type ExtensionTypeSurface = {
   runtimeBlocks: ScaffoldRuntimeBlockComposition;
   runtimeLayouts: ScaffoldRuntimeLayoutComposition;
   runtimeSurfaces: ScaffoldRuntimeSurfaceComposition;
+  learningEventInput: BlockLearningEventInput;
+  learningEventReporter: LearningEventReporter;
+  sessionViolation: LearningEventSession;
 };
 
 type SurfaceDefinitionRequiredExtensionMembers = Pick<
@@ -89,6 +102,7 @@ describe("@scaffold/core/extensions", () => {
       "defineScaffoldExtensionPack",
       "getScaffoldAuthoringCataloguesForEditor",
       "getScaffoldCapabilitiesForEditor",
+      "useLearningEventReporter",
     ]);
   });
 

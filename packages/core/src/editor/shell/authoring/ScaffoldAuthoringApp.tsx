@@ -98,14 +98,17 @@ export interface ScaffoldAuthoringHeaderActionsContext {
   preview: boolean;
 }
 
-type ScaffoldPreviewHostServices = Omit<ScaffoldLearnerHostServices, "xapi">;
+type ScaffoldPreviewHostServices = Omit<ScaffoldLearnerHostServices, "learningEvents" | "xapi">;
 
 export type ScaffoldPreviewServicesFactory = (
   content: ScaffoldLearnerPreviewContent,
 ) => ScaffoldPreviewHostServices | Promise<ScaffoldPreviewHostServices>;
 
-function withoutXapiCapability(services: ScaffoldLearnerHostServices): ScaffoldPreviewHostServices {
+function withoutLearningEventCapability(
+  services: ScaffoldLearnerHostServices,
+): ScaffoldPreviewHostServices {
   const previewServices = { ...services };
+  delete previewServices.learningEvents;
   delete previewServices.xapi;
   return previewServices;
 }
@@ -414,7 +417,7 @@ function ScaffoldAuthoringAppSession({
         const resolvedServices = createPreviewServices
           ? await createPreviewServices(nextContent)
           : { media: services.media ?? null };
-        const nextServices = withoutXapiCapability(resolvedServices);
+        const nextServices = withoutLearningEventCapability(resolvedServices);
         onAuthoringEditorChange?.(null);
         latestEditorRef.current = null;
         setEditor(null);

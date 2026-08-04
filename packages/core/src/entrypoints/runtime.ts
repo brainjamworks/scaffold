@@ -11,9 +11,14 @@ export {
   ScaffoldServicesProvider,
   useAssessmentPort,
   useLearnerActivityPort,
+  useLearningEventPort,
   useMediaPort,
   type ScaffoldServicesProviderProps,
 } from "@/host/providers/ScaffoldServicesProvider";
+export {
+  LearningEventRuntimeProvider,
+  type LearningEventRuntimeProviderProps,
+} from "@/runtime/learning-events/LearningEventRuntimeProvider";
 export type { ScaffoldRuntimePorts } from "@/host/ports/runtime-ports";
 export {
   migrateCourseDocumentJSON,

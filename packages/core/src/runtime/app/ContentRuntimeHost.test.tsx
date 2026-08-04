@@ -21,6 +21,7 @@ import type { SurfaceAuthoringViewProps } from "@/editor/surfaces/authoring/surf
 import type { SurfaceRuntimeViewProps } from "@/editor/surfaces/runtime/surface-runtime-view-registry";
 import { SurfaceRuntimeFrame } from "@/editor/surfaces/runtime/views/SurfaceRuntimeFrame";
 import type { XapiPort } from "@/host/ports";
+import type { LearningEventPort } from "@/host/ports/learning-events";
 import {
   createScaffoldDefaultTheme,
   SCAFFOLD_DEFAULT_PRESET,
@@ -112,8 +113,21 @@ function createXapiPort(
   };
 }
 
+function createLearningEventPort(): LearningEventPort & {
+  accept: ReturnType<typeof vi.fn<LearningEventPort["accept"]>>;
+} {
+  return {
+    rootActivityId: "https://learning.example.test/artifacts/runtime",
+    accept: vi.fn<LearningEventPort["accept"]>(async () => undefined),
+  };
+}
+
 function statementVerbs(port: ReturnType<typeof createXapiPort>): string[] {
   return port.send.mock.calls.map(([statement]) => statement.verb.display.en ?? "");
+}
+
+function learningEventVerbs(port: ReturnType<typeof createLearningEventPort>): string[] {
+  return port.accept.mock.calls.map(([event]) => event.verb.display.en ?? "");
 }
 
 interface StoreXapiOptions {
@@ -747,8 +761,9 @@ describe("ContentRuntimeHost", () => {
       .calls[0]?.[0] as StoreXapiOptions;
 
     expect(assessmentOptions.getXapiSession).toEqual(expect.any(Function));
-    expect(learnerActivityOptions.getXapiSession).toBe(assessmentOptions.getXapiSession);
+    expect(learnerActivityOptions.getXapiSession).toEqual(expect.any(Function));
     expect(assessmentOptions.getXapiSession?.()).toBeNull();
+    expect(learnerActivityOptions.getXapiSession?.()).toBeNull();
   });
 
   it("starts xAPI only when valid content has a ready renderer", async () => {
@@ -791,6 +806,26 @@ describe("ContentRuntimeHost", () => {
         },
       },
     });
+  });
+
+  it("starts one general Learning Event session without dual emission", async () => {
+    const port = createLearningEventPort();
+
+    render(
+      <ScaffoldServicesProvider ports={{ learningEvents: port }}>
+        <ContentRuntimeHost
+          composition={runtimeComposition}
+          artifactId="artifact-general-events"
+          courseTitle="General Events"
+          initialContent={runtimeDocumentContent()}
+        />
+      </ScaffoldServicesProvider>,
+    );
+
+    await waitFor(() => expect(learningEventVerbs(port)).toEqual(["initialized", "experienced"]));
+    expect(
+      port.accept.mock.calls.filter(([event]) => event.verb.display.en === "initialized"),
+    ).toHaveLength(1);
   });
 
   it("records every active slideshow surface transition as experienced", async () => {
@@ -1257,8 +1292,9 @@ describe("ContentRuntimeHost", () => {
 
     expect(runtimeStoreFactories.assessment).toHaveBeenCalledTimes(1);
     expect(runtimeStoreFactories.learnerActivity).toHaveBeenCalledTimes(1);
-    expect(learnerActivityOptions.getXapiSession).toBe(getSession);
-    expect(getSession?.()).not.toBe(firstSession);
+    const replacementSession = getSession?.();
+    expect(replacementSession).not.toBe(firstSession);
+    expect(learnerActivityOptions.getXapiSession?.()).toBe(replacementSession);
   });
 
   it("keeps MCQ selection interactive through StrictMode replay", async () => {

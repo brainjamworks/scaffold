@@ -30,6 +30,22 @@ import type {
   LearnerActivityPort,
   LearnerActivitySaveRecord,
   LearnerActivitySaveRequest,
+  LearningEvent,
+  LearningEventActivity,
+  LearningEventActivityDefinition,
+  LearningEventContext,
+  LearningEventDuration,
+  LearningEventInteractionComponent,
+  LearningEventInteractionType,
+  LearningEventIri,
+  LearningEventJsonValue,
+  LearningEventLanguageMap,
+  LearningEventPort,
+  LearningEventResult,
+  LearningEventScore,
+  LearningEventTimestamp,
+  LearningEventUuid,
+  LearningEventVerb,
   MediaPort,
   MediaUploadMeta,
   MediaUploadResult,
@@ -56,8 +72,16 @@ import type {
   XapiUuid,
   XapiVerb,
 } from "@scaffold/core/ports";
+// @ts-expect-error Drafts are private to the Core learning-event runtime.
+import type { LearningEventDraft } from "@scaffold/core/ports";
+// @ts-expect-error Core-only catalogue inputs are not host port contracts.
+import type { CoreLearningEventInput } from "@scaffold/core/ports";
+// @ts-expect-error Session access is not part of the host port contract.
+import type { LearningEventSession } from "@scaffold/core/ports";
 
 type PortsTypeSurface = {
+  coreInputViolation: CoreLearningEventInput;
+  draftViolation: LearningEventDraft;
   artifactCreationInput: ScaffoldArtifactCreationInput;
   artifactCreationMetadata: ScaffoldArtifactCreationMetadata;
   artifactCreationMode: ScaffoldArtifactCreationMode;
@@ -83,6 +107,22 @@ type PortsTypeSurface = {
   learnerBootstrap: ScaffoldLearnerBootstrap;
   learnerHostServices: ScaffoldLearnerHostServices;
   learnerInitialState: ScaffoldLearnerInitialState;
+  learningEvent: LearningEvent;
+  learningEventActivity: LearningEventActivity;
+  learningEventActivityDefinition: LearningEventActivityDefinition;
+  learningEventContext: LearningEventContext;
+  learningEventDuration: LearningEventDuration;
+  learningEventInteractionComponent: LearningEventInteractionComponent;
+  learningEventInteractionType: LearningEventInteractionType;
+  learningEventIri: LearningEventIri;
+  learningEventJsonValue: LearningEventJsonValue;
+  learningEventLanguageMap: LearningEventLanguageMap;
+  learningEventPort: LearningEventPort;
+  learningEventResult: LearningEventResult;
+  learningEventScore: LearningEventScore;
+  learningEventTimestamp: LearningEventTimestamp;
+  learningEventUuid: LearningEventUuid;
+  learningEventVerb: LearningEventVerb;
   mediaContext: ScaffoldMediaContext;
   mediaPort: MediaPort;
   mediaUploadMeta: MediaUploadMeta;
@@ -95,6 +135,7 @@ type PortsTypeSurface = {
   quizSubmitQuestionRequest: QuizSubmitQuestionRequest;
   resolvedMediaMap: ScaffoldResolvedMediaMap;
   runtimePorts: ScaffoldRuntimePorts;
+  sessionViolation: LearningEventSession;
   saveableArtifact: SaveableScaffoldArtifact;
   xapiActivity: XapiActivity;
   xapiActivityDefinition: XapiActivityDefinition;
@@ -118,6 +159,8 @@ describe("@scaffold/core/ports", () => {
     expect(Object.keys(ports).sort()).toEqual([
       "AssessmentProblemCommandOutcomeSchema",
       "AssessmentQuizCommandOutcomeSchema",
+      "LearningEventIriSchema",
+      "LearningEventSchema",
       "MEDIA_UPLOAD_TYPES",
       "SCAFFOLD_MEDIA_CONTEXTS",
       "XapiIriSchema",
@@ -137,6 +180,7 @@ describe("@scaffold/core/ports", () => {
       "text",
       "other",
     ]);
+    expect(ports).not.toHaveProperty("LearningEventDraftSchema");
   });
 
   it("publishes every port, request, result, and host contract type", () => {
