@@ -12,7 +12,7 @@ import type {
   SettingsFormDefinition,
 } from "@/editor/configuration/settings-sheet";
 
-import { SettingsForm, SettingsFormActions } from "./SettingsForm";
+import { SettingsForm, SettingsFormFooter } from "./SettingsForm";
 
 interface TypedSettingsValues {
   title: string;
@@ -60,12 +60,14 @@ function TypedSettingsFormHarness() {
 function TypedActionSettingsFormHarness({
   onAction,
 }: {
-  onAction: (event: SettingsFormActionEvent<"duplicate" | "restore">) => void;
+  onAction: (
+    event: SettingsFormActionEvent<"duplicate" | "restore" | "unavailable">
+  ) => void;
 }) {
   const form = useForm<TypedSettingsValues>({
     defaultValues: { title: "Typed title" },
   });
-  const definition: SettingsFormDefinition<"duplicate" | "restore"> = {
+  const definition: SettingsFormDefinition<"duplicate" | "restore" | "unavailable"> = {
     sections: [
       {
         id: "content",
@@ -74,17 +76,21 @@ function TypedActionSettingsFormHarness({
         actions: [{ id: "duplicate", label: "Duplicate section" }],
       },
     ],
-    footerActions: [{ id: "restore", label: "Restore defaults", variant: "danger" }],
+    footerActions: [
+      {
+        id: "restore",
+        label: "Restore defaults",
+        ariaLabel: "Restore default settings",
+        variant: "danger",
+      },
+      { id: "unavailable", label: "Unavailable footer action", disabled: true },
+    ],
   };
 
   return (
     <>
       <SettingsForm definition={definition} form={form} onAction={onAction} />
-      <SettingsFormActions
-        actions={definition.footerActions}
-        location="footer"
-        onAction={onAction}
-      />
+      <SettingsFormFooter actions={definition.footerActions ?? []} onAction={onAction} />
     </>
   );
 }
@@ -290,12 +296,18 @@ describe("SettingsForm", () => {
   });
 
   it("renders shared section and footer actions and emits typed action events", async () => {
-    const onAction = vi.fn<(event: SettingsFormActionEvent<"duplicate" | "restore">) => void>();
+    const onAction =
+      vi.fn<
+        (event: SettingsFormActionEvent<"duplicate" | "restore" | "unavailable">) => void
+      >();
 
     render(<TypedActionSettingsFormHarness onAction={onAction} />);
 
     const sectionAction = screen.getByRole("button", { name: "Duplicate section" });
-    const footerAction = screen.getByRole("button", { name: "Restore defaults" });
+    const footerAction = screen.getByRole("button", { name: "Restore default settings" });
+    const disabledFooterAction = screen.getByRole("button", {
+      name: "Unavailable footer action",
+    });
 
     expect(sectionAction).toHaveClass("sc-button");
     expect(sectionAction).toHaveAttribute("data-size", "sm");
@@ -303,15 +315,20 @@ describe("SettingsForm", () => {
     expect(footerAction).toHaveClass("sc-button");
     expect(footerAction).toHaveAttribute("data-size", "md");
     expect(footerAction).toHaveAttribute("data-variant", "danger");
+    expect(footerAction).toHaveAttribute("aria-label", "Restore default settings");
+    expect(footerAction.closest("footer")).toHaveClass("sc-sheet-footer");
+    expect(disabledFooterAction).toBeDisabled();
 
     await userEvent.click(sectionAction);
     await userEvent.click(footerAction);
+    await userEvent.click(disabledFooterAction);
 
     expect(onAction).toHaveBeenNthCalledWith(1, {
       actionId: "duplicate",
       sectionId: "content",
     });
     expect(onAction).toHaveBeenNthCalledWith(2, { actionId: "restore" });
+    expect(onAction).toHaveBeenCalledTimes(2);
   });
 
   it("keeps disabled declarative actions inert", async () => {
