@@ -30,7 +30,7 @@ function AnnotatedFigureRuntimeView(props: NodeViewProps) {
 
   return (
     <NodeViewContent
-      className="sc-annotated-figure__content"
+      className="sc-course-annotated-figure__content"
       data-caption-display={data.captionDisplay}
     />
   );
@@ -50,7 +50,7 @@ function AnnotatedFigureRuntimeLegendView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper
-      className="sc-annotated-figure__runtime-caption-host"
+      className="sc-course-annotated-figure__runtime-caption-host"
       data-caption-display={data.captionDisplay}
       data-slot="annotated-figure-legend"
     >
@@ -71,7 +71,7 @@ const AnnotatedFigureRuntimeLegendNode = AnnotatedFigureLegendNode.extend({
 const AnnotatedFigureRuntimeRootNode = createAnnotatedFigureNode({
   addNodeView: () =>
     createBlockRuntimeNodeView({
-      className: "sc-annotated-figure",
+      className: "sc-course-annotated-figure",
       definition: annotatedFigureDefinition,
       view: { component: AnnotatedFigureRuntimeView },
     }),

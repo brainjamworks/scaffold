@@ -6,8 +6,8 @@ import {
   nodeViewUiKey,
   usePickerOpen,
 } from "@/editor/media/authoring/picker/file-picker-open-state";
-import { MediaEmptyAction } from "@/editor/media/authoring/shared-components/MediaEmptyAction";
-import { MediaReplaceButton } from "@/editor/media/authoring/shared-components/MediaReplaceButton";
+import { MediaEmptyAction } from "@/ui/components/app/MediaEmptyAction/MediaEmptyAction";
+import { MediaReplaceButton } from "@/ui/components/app/MediaReplaceButton/MediaReplaceButton";
 import { useMediaPort } from "@/host/providers/ScaffoldServicesProvider";
 import {
   FilePickerModal,
@@ -19,8 +19,6 @@ import {
   useResolvedTextWrapImageSource,
 } from "./TextWrapImageModel";
 import { TextWrapImageMediaSurface } from "./TextWrapImageSurface";
-
-import "./TextWrapImage.css";
 
 function pickerResultToSource(result: FilePickerResult): TextWrapImageSource {
   if (result.source === "upload" && result.upload) {
@@ -70,7 +68,7 @@ export function TextWrapImageAuthoringView(props: NodeViewProps) {
   return (
     <>
       <div
-        className="sc-text-wrap-image__shell"
+        className="sc-course-text-wrap-image__shell"
         data-position={data.position}
         data-size={data.size}
         data-shape={data.shape}
@@ -82,16 +80,20 @@ export function TextWrapImageAuthoringView(props: NodeViewProps) {
               onClick={openPicker}
               aria-label="Add wrapped image"
               label="Add image"
-              className="sc-text-wrap-image__empty"
+              className="sc-app-text-wrap-image__empty-action"
             />
           }
           errorMessage={errorMessage}
           fileUrl={resolvedUrl}
           replaceAction={
-            <MediaReplaceButton onClick={openPicker} aria-label="Replace wrapped image" />
+            <MediaReplaceButton
+              onClick={openPicker}
+              aria-label="Replace wrapped image"
+              className="sc-app-text-wrap-image__replace-button"
+            />
           }
         />
-        <NodeViewContent className="sc-text-wrap-image__content" />
+        <NodeViewContent className="sc-course-text-wrap-image__content" />
       </div>
       {/* Keep the picker mounted from this NodeView so usePickerOpen
        * can survive ProseMirror remounts during block selection. */}

@@ -45,6 +45,31 @@ it("renders wrapped image alt text and replace action semantics", async () => {
   expect(replace).toHaveBeenCalledTimes(1);
 });
 
+it("keeps learner media Course-owned and uses behaviour-neutral deferred image decoding", () => {
+  const { container } = render(
+    createElement(TextWrapImageMediaSurface, {
+      data: emptyTextWrapImageData({
+        source: {
+          mode: "external",
+          src: "https://example.com/wrapped.jpg",
+        },
+        alt: "Course pathway diagram",
+      }),
+      fileUrl: "https://example.com/wrapped.jpg",
+    }),
+  );
+
+  const media = container.querySelector(".sc-course-text-wrap-image__media");
+  const image = screen.getByRole("img", { name: "Course pathway diagram" });
+
+  expect(media).not.toBeNull();
+  expect(image).toHaveClass("sc-course-text-wrap-image__img");
+  expect(image).toHaveAttribute("loading", "lazy");
+  expect(image).toHaveAttribute("decoding", "async");
+  expect(container.querySelector('[class^="sc-app-"], [class*=" sc-app-"]')).toBeNull();
+  expect(container.querySelector('[class^="sc-text-wrap-image"]')).toBeNull();
+});
+
 it("keeps wrapped image missing, loading, and error states semantic", () => {
   const { rerender } = render(
     createElement(TextWrapImageMediaSurface, {

@@ -6,6 +6,9 @@ import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor"
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { CourseDocumentRuntimeRenderer } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
+import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import "@/runtime/players/slideshow/SlideshowPlayer.css";
 import "@/styles/globals.css";
 
@@ -39,7 +42,7 @@ describe("Gallery container geometry", () => {
     const adapterStyles = document.createElement("style");
     adapterStyles.textContent = `
       @layer sc-adapters {
-        .sc-gallery__shell {
+        .sc-course-gallery__shell {
           gap: 1px;
         }
       }
@@ -48,7 +51,7 @@ describe("Gallery container geometry", () => {
     mountedStyles.push(adapterStyles);
 
     const shell = document.createElement("div");
-    shell.className = "sc-gallery__shell";
+    shell.className = "sc-course-gallery__shell";
     document.body.append(shell);
 
     const style = getComputedStyle(shell);
@@ -79,6 +82,16 @@ describe("Gallery container geometry", () => {
       expectUniformCells(runtime.cells);
       expect(authoring.objectFits).toEqual(["contain", "contain", "contain", "contain"]);
       expect(runtime.objectFits).toEqual(authoring.objectFits);
+      for (const sample of [authoring, runtime]) {
+        const tileButton = requiredElement<HTMLElement>(
+          sample.cells[0]!,
+          ".sc-course-gallery__tile-button",
+        );
+        expect(tileButton.getBoundingClientRect().height).toBeCloseTo(
+          sample.cells[0]!.getBoundingClientRect().height,
+          0,
+        );
+      }
       expect(authoring.grid.scrollHeight).toBeLessThanOrEqual(authoring.grid.clientHeight + 1);
       expect(runtime.grid.scrollHeight).toBeLessThanOrEqual(runtime.grid.clientHeight + 1);
       expect(authoring.shell.scrollHeight).toBeLessThanOrEqual(authoring.shell.clientHeight + 1);
@@ -92,9 +105,9 @@ describe("Gallery container geometry", () => {
       expectRectSizeParity(authoring.cells[0]!, runtime.cells[0]!);
       expect(authoring.grid.querySelectorAll('[role="listitem"]')).toHaveLength(4);
       expect(runtime.grid.querySelectorAll('[role="listitem"]')).toHaveLength(4);
-      expect(authoring.frame.querySelector(".sc-gallery__grid-add")).not.toBeNull();
-      expect(authoring.grid.querySelector(".sc-gallery__grid-add")).toBeNull();
-      expect(runtime.frame.querySelector(".sc-gallery__grid-add")).toBeNull();
+      expect(authoring.frame.querySelector(".sc-app-gallery__grid-add")).not.toBeNull();
+      expect(authoring.grid.querySelector(".sc-app-gallery__grid-add")).toBeNull();
+      expect(runtime.frame.querySelector(".sc-app-gallery__grid-add")).toBeNull();
     },
   );
 
@@ -117,7 +130,10 @@ describe("Gallery container geometry", () => {
       expectUniformCells(sample.cells);
       expect(sample.objectFits.every((value) => value === "contain")).toBe(true);
       expect(sample.grid.scrollHeight).toBe(sample.grid.clientHeight);
-      const tileButton = requiredElement<HTMLElement>(sample.cells[0]!, ".sc-gallery__tile-button");
+      const tileButton = requiredElement<HTMLElement>(
+        sample.cells[0]!,
+        ".sc-course-gallery__tile-button",
+      );
       const tileRect = tileButton.getBoundingClientRect();
       expect(getComputedStyle(tileButton).aspectRatio).toBe("auto");
       expect(Math.abs(tileRect.width - tileRect.height)).toBeGreaterThan(16);
@@ -139,13 +155,40 @@ describe("Gallery container geometry", () => {
     await nextLayoutFrames(2);
 
     const authoringFrame = galleryFrame(pair.authoring);
-    const addAction = requiredElement<HTMLElement>(authoringFrame, ".sc-gallery__grid-add-action");
+    const addAction = requiredElement<HTMLElement>(
+      authoringFrame,
+      ".sc-app-gallery__grid-add-action",
+    );
     const style = getComputedStyle(addAction);
 
     expect(style.borderStyle).toBe("dashed");
     expect(style.boxShadow).toBe("none");
-    expect(addAction.querySelector(".sc-ghost-add__icon")).not.toBeNull();
-    expect(galleryFrame(pair.runtime).querySelector(".sc-gallery__grid-add-action")).toBeNull();
+    expect(addAction.querySelector(".sc-app-block-add__icon")).not.toBeNull();
+    expect(galleryFrame(pair.runtime).querySelector(".sc-app-gallery__grid-add-action")).toBeNull();
+  });
+
+  it("keeps author delete controls visible, keyboard-focusable, and App-owned", async () => {
+    const pair = await mountPair(unboundedGalleryDocument(), "gallery-page", true);
+    mountedPairs.push(pair);
+    await nextLayoutFrames(2);
+
+    const authoringFrame = galleryFrame(pair.authoring);
+    const deleteAction = authoringFrame.querySelector<HTMLButtonElement>(
+      ".sc-app-gallery__tile-delete",
+    );
+    expect(deleteAction).toBeInstanceOf(HTMLButtonElement);
+    if (!deleteAction) throw new Error("Expected a Gallery tile delete control.");
+    const restingStyle = getComputedStyle(deleteAction);
+
+    expect(restingStyle.opacity).toBe("1");
+    expect(restingStyle.width).toBe("24px");
+    expect(restingStyle.height).toBe("24px");
+    expect(restingStyle.boxShadow).toBe("none");
+
+    expect(deleteAction.tabIndex).toBe(0);
+    deleteAction.focus();
+    expect(document.activeElement).toBe(deleteAction);
+    expect(galleryFrame(pair.runtime).querySelector(".sc-app-gallery__tile-delete")).toBeNull();
   });
 
   it("scores narrow bounded tracks with the effective eight-pixel gap", async () => {
@@ -156,7 +199,7 @@ describe("Gallery container geometry", () => {
     for (const mounted of [pair.authoring, pair.runtime]) {
       const composition = requiredElement<HTMLElement>(
         galleryFrame(mounted),
-        ".sc-gallery__grid-composition",
+        ".sc-course-gallery__grid-composition",
       );
       composition.style.width = "320px";
       composition.style.height = "210px";
@@ -165,16 +208,19 @@ describe("Gallery container geometry", () => {
     await waitForCondition(() =>
       [pair.authoring, pair.runtime].every(
         (mounted) =>
-          requiredElement<HTMLElement>(galleryFrame(mounted), ".sc-gallery__grid").dataset[
+          requiredElement<HTMLElement>(galleryFrame(mounted), ".sc-course-gallery__grid").dataset[
             "galleryGridLayout"
           ] === "3x2",
       ),
     );
 
     for (const mounted of [pair.authoring, pair.runtime]) {
-      const grid = requiredElement<HTMLElement>(galleryFrame(mounted), ".sc-gallery__grid");
+      const grid = requiredElement<HTMLElement>(galleryFrame(mounted), ".sc-course-gallery__grid");
+      const cells = Array.from(grid.querySelectorAll<HTMLElement>('[role="listitem"]'));
       expect(Number.parseFloat(getComputedStyle(grid).columnGap)).toBeCloseTo(8, 0);
       expect(grid.dataset["galleryGridLayout"]).toBe("3x2");
+      expect(trackCount(cells)).toBe(3);
+      expect(rowCount(cells)).toBe(2);
     }
   });
 
@@ -189,11 +235,11 @@ describe("Gallery container geometry", () => {
 
     for (const mounted of [pair.authoring, pair.runtime]) {
       const frame = galleryFrame(mounted);
-      const shell = requiredElement<HTMLElement>(frame, ".sc-gallery__shell");
-      const composition = requiredElement<HTMLElement>(frame, ".sc-gallery__composition");
-      const stage = requiredElement<HTMLElement>(frame, ".sc-gallery__stage");
-      const image = requiredElement<HTMLElement>(frame, ".sc-gallery__stage-image");
-      const thumbs = requiredElement<HTMLElement>(frame, ".sc-gallery__thumbs");
+      const shell = requiredElement<HTMLElement>(frame, ".sc-course-gallery__shell");
+      const composition = requiredElement<HTMLElement>(frame, ".sc-course-gallery__composition");
+      const stage = requiredElement<HTMLElement>(frame, ".sc-course-gallery__stage");
+      const image = requiredElement<HTMLElement>(frame, ".sc-course-gallery__stage-image");
+      const thumbs = requiredElement<HTMLElement>(frame, ".sc-course-gallery__thumbs");
 
       expect(frame.getAttribute("data-bounded-placement")).toBe("fill");
       expect(getComputedStyle(image).objectFit).toBe("contain");
@@ -329,31 +375,41 @@ async function mountPair(
   let runtimeEditor: TiptapEditor | null = null;
 
   authoringRoot.render(
-    <CourseDocumentEditor
-      source={{ mode: "document", content: cloneJSON(initialContent) }}
-      editable={editable}
-      onReady={(editor) => {
-        authoringEditor = editor;
-      }}
-    />,
+    <AppThemeProvider appearance="light">
+      <div>
+        <CourseDocumentEditor
+          source={{ mode: "document", content: cloneJSON(initialContent) }}
+          editable={editable}
+          onReady={(editor) => {
+            authoringEditor = editor;
+          }}
+        />
+      </div>
+    </AppThemeProvider>,
   );
   runtimeRoot.render(
-    <CourseDocumentRuntimeRenderer
-      initialContent={cloneJSON(initialContent)}
-      visibleSurfaceId={surfaceId}
-      onReady={(editor) => {
-        runtimeEditor = editor;
-      }}
-    />,
+    <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+      <CourseDocumentRuntimeRenderer
+        initialContent={cloneJSON(initialContent)}
+        visibleSurfaceId={surfaceId}
+        onReady={(editor) => {
+          runtimeEditor = editor;
+        }}
+      />
+    </CourseThemeProvider>,
   );
 
   await waitForCondition(
     () =>
       authoringEditor !== null &&
       runtimeEditor !== null &&
-      authoringHost.querySelector(".sc-gallery") &&
-      runtimeHost.querySelector(".sc-gallery"),
+      authoringHost.querySelector(".sc-course-gallery") &&
+      runtimeHost.querySelector(".sc-course-gallery"),
   );
+  const runtimeCourseRoot = requiredElement<HTMLElement>(runtimeHost, ":scope > .sc-course");
+  runtimeCourseRoot.style.width = "100%";
+  runtimeCourseRoot.style.height = "100%";
+  runtimeCourseRoot.style.minHeight = "0";
   if (!authoringEditor || !runtimeEditor)
     throw new Error("Gallery browser editors were not ready.");
   await nextLayoutFrames(2);
@@ -379,22 +435,24 @@ function rendererHost(kind: RendererKind): HTMLElement {
   host.dataset["galleryRenderer"] = kind;
   host.style.width = "1024px";
   host.style.height = "576px";
-  if (kind === "runtime")
+  if (kind === "runtime") {
     host.className = "sc-slideshow-player__viewport sc-slideshow-player__canvas";
+    host.style.display = "grid";
+  }
   return host;
 }
 
 function measureGrid(mounted: MountedRenderer) {
   const frame = galleryFrame(mounted);
-  const grid = requiredElement<HTMLElement>(frame, ".sc-gallery__grid");
+  const grid = requiredElement<HTMLElement>(frame, ".sc-course-gallery__grid");
   return {
     frame,
     grid,
-    shell: requiredElement<HTMLElement>(frame, ".sc-gallery__shell"),
-    caption: requiredElement<HTMLElement>(frame, ".sc-gallery__shared-caption"),
-    cells: Array.from(grid.querySelectorAll<HTMLElement>(".sc-gallery__tile")),
+    shell: requiredElement<HTMLElement>(frame, ".sc-course-gallery__shell"),
+    caption: requiredElement<HTMLElement>(frame, ".sc-course-gallery__shared-caption"),
+    cells: Array.from(grid.querySelectorAll<HTMLElement>(".sc-course-gallery__tile")),
     objectFits: Array.from(
-      grid.querySelectorAll<HTMLElement>(".sc-gallery__tile-image"),
+      grid.querySelectorAll<HTMLElement>(".sc-course-gallery__tile-image"),
       (image) => getComputedStyle(image).objectFit,
     ),
   };
@@ -403,8 +461,8 @@ function measureGrid(mounted: MountedRenderer) {
 function galleryFrame(mounted: MountedRenderer): HTMLElement {
   const frameSelector =
     mounted.kind === "authoring"
-      ? '.sc-gallery[data-authoring-frame="block"]'
-      : '.sc-gallery[data-runtime-frame="block"]';
+      ? '.sc-course-gallery[data-authoring-frame="block"]'
+      : '.sc-course-gallery[data-runtime-frame="block"]';
   return requiredElement(mounted.host, frameSelector);
 }
 
@@ -413,7 +471,7 @@ async function waitForGridLayout(pair: MountedPair): Promise<void> {
     [pair.authoring, pair.runtime].every(
       (mounted) =>
         galleryFrame(mounted)
-          .querySelector(".sc-gallery__grid")
+          .querySelector(".sc-course-gallery__grid")
           ?.hasAttribute("data-gallery-grid-layout") === true,
     ),
   );

@@ -10,7 +10,13 @@ import { GALLERY_ITEM_NODE } from "./content";
  * reads each item's data and composes the gallery UI. ProseMirror still
  * needs a NodeView root so positions and stable IDs resolve. */
 export function GalleryItemNodeView() {
-  return <NodeViewWrapper data-node="gallery-item" className="sc-gallery__item-node" aria-hidden />;
+  return (
+    <NodeViewWrapper
+      data-node="gallery-item"
+      className="sc-course-gallery__item-node"
+      aria-hidden
+    />
+  );
 }
 
 export const GalleryItemNode = Node.create({

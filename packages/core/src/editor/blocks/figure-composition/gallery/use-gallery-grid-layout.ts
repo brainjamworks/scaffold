@@ -27,8 +27,8 @@ export function useGalleryGridLayout(itemCount: number): RefObject<HTMLDivElemen
       current = next;
       grid.dataset["galleryGridBounded"] = "";
       grid.dataset["galleryGridLayout"] = `${next.columns}x${next.rows}`;
-      grid.style.setProperty("--sc-gallery-grid-columns", String(next.columns));
-      grid.style.setProperty("--sc-gallery-grid-rows", String(next.rows));
+      grid.style.setProperty("--sc-course-gallery-grid-columns", String(next.columns));
+      grid.style.setProperty("--sc-course-gallery-grid-rows", String(next.rows));
     };
 
     applyMeasurement(grid.getBoundingClientRect());
@@ -45,8 +45,8 @@ export function useGalleryGridLayout(itemCount: number): RefObject<HTMLDivElemen
       observer?.disconnect();
       delete grid.dataset["galleryGridBounded"];
       delete grid.dataset["galleryGridLayout"];
-      grid.style.removeProperty("--sc-gallery-grid-columns");
-      grid.style.removeProperty("--sc-gallery-grid-rows");
+      grid.style.removeProperty("--sc-course-gallery-grid-columns");
+      grid.style.removeProperty("--sc-course-gallery-grid-rows");
     };
   }, [itemCount]);
 

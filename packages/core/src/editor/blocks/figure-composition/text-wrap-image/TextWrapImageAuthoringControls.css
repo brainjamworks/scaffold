@@ -1,0 +1,16 @@
+.sc-app-media-empty-action.sc-app-text-wrap-image__empty-action {
+  aspect-ratio: 4 / 3;
+  border-radius: inherit;
+}
+
+.sc-course-text-wrap-image__shell[data-shape="circle"] .sc-app-text-wrap-image__empty-action {
+  aspect-ratio: 1;
+}
+
+.radix-themes
+  .sc-course-text-wrap-image__shell[data-shape="circle"]
+  .sc-app-text-wrap-image__replace-button {
+  top: 8%;
+  inset-inline-end: 50%;
+  transform: translateX(50%);
+}

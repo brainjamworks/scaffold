@@ -6,6 +6,7 @@ import {
   mediaLoadingMessage,
   mediaMissingMessage,
 } from "@/editor/media/accessibility/media-accessibility";
+import { cn } from "@/lib/cn";
 
 export function TextWrapImageMediaSurface({
   data,
@@ -23,23 +24,35 @@ export function TextWrapImageMediaSurface({
   const hasSource = data.source !== null;
 
   return (
-    <div className="sc-text-wrap-image__media sc-media-replace-host" contentEditable={false}>
+    <div
+      className={cn(
+        "sc-course-text-wrap-image__media",
+        fileUrl && replaceAction && "sc-app-media-replace-host",
+      )}
+      contentEditable={false}
+    >
       {errorMessage ? (
-        <div className="sc-text-wrap-image__empty" role="alert">
+        <div className="sc-course-text-wrap-image__empty" role="alert">
           <ImagePlaceholder size={18} weight="regular" aria-hidden />
           <span>{errorMessage}</span>
         </div>
       ) : fileUrl ? (
-        <img src={fileUrl} alt={data.alt} className="sc-text-wrap-image__img" />
+        <img
+          src={fileUrl}
+          alt={data.alt}
+          className="sc-course-text-wrap-image__img"
+          loading="lazy"
+          decoding="async"
+        />
       ) : hasSource ? (
-        <div className="sc-text-wrap-image__empty" role="status">
+        <div className="sc-course-text-wrap-image__empty" role="status">
           <ImagePlaceholder size={18} weight="regular" aria-hidden />
           <span>{mediaLoadingMessage("image")}</span>
         </div>
       ) : emptyAction ? (
         emptyAction
       ) : (
-        <div className="sc-text-wrap-image__empty" role="status">
+        <div className="sc-course-text-wrap-image__empty" role="status">
           <ImagePlaceholder size={18} weight="regular" aria-hidden />
           <span>{mediaMissingMessage("image")}</span>
         </div>

@@ -8,6 +8,7 @@ import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 import { CourseDocumentRuntimeRenderer } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
+import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
 import type { MediaPort } from "@/host/ports/media";
 import "@/runtime/players/slideshow/SlideshowPlayer.css";
 import "@/styles/globals.css";
@@ -15,6 +16,7 @@ import "@/styles/globals.css";
 import { AnnotatedFigureSurface } from "./AnnotatedFigureSurface";
 import { resolveAnnotatedFigureModel } from "./annotated-figure-document-model";
 import "./AnnotatedFigure.css";
+import "./AnnotatedFigureAuthoring.css";
 
 const mountedRoots: Root[] = [];
 const mountedPairs: MountedPair[] = [];
@@ -26,9 +28,50 @@ afterEach(() => {
 });
 
 describe("Annotated Figure image geometry", () => {
+  it("uses one centred Page column for the image stage and annotation list", async () => {
+    const themeScope = document.createElement("div");
+    themeScope.className = "radix-themes light sc-course sc-course-theme-scaffold-flow-v1";
+    const root = document.createElement("div");
+    root.className = "sc-course-annotated-figure";
+    root.style.width = "760px";
+    const content = document.createElement("div");
+    content.className = "sc-course-annotated-figure__content";
+    content.dataset["captionDisplay"] = "list";
+    const stage = document.createElement("div");
+    stage.className = "sc-course-annotated-figure__stage";
+    stage.dataset["presentation"] = "compact";
+    const legend = document.createElement("ol");
+    legend.className = "sc-course-annotated-figure__legend";
+    const captionFrame = document.createElement("div");
+    captionFrame.className = "sc-course-annotated-figure__caption-frame";
+    captionFrame.dataset["boundedScrollFrame"] = "";
+    captionFrame.append(legend);
+    content.append(stage, captionFrame);
+    root.append(content);
+    themeScope.append(root);
+    document.body.append(themeScope);
+
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    const rootRect = root.getBoundingClientRect();
+    const stageRect = stage.getBoundingClientRect();
+    const legendRect = legend.getBoundingClientRect();
+
+    expect(rootRect.width).toBeCloseTo(760, 0);
+    expect(stageRect.width).toBeLessThanOrEqual(640.5);
+    expect(stageRect.left).toBeCloseTo(legendRect.left, 0);
+    expect(stageRect.width).toBeCloseTo(legendRect.width, 0);
+    expect(Number.parseFloat(getComputedStyle(content).rowGap)).toBe(0);
+    expect(Number.parseFloat(getComputedStyle(legend).paddingBlockStart)).toBe(0);
+
+    root.dataset["boundedPlacement"] = "fill";
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    expect(stage.getBoundingClientRect().width).toBeCloseTo(rootRect.width, 0);
+    expect(legend.getBoundingClientRect().width).toBeCloseTo(rootRect.width, 0);
+  });
+
   it("fits the image coordinate canvas inside the available stage", async () => {
     const host = document.createElement("div");
-    host.className = "sc-annotated-figure";
+    host.className = "sc-course-annotated-figure";
     host.style.width = "500px";
     document.body.append(host);
     let canvasActivations = 0;
@@ -37,39 +80,43 @@ describe("Annotated Figure image geometry", () => {
     const root = createRoot(host);
     mountedRoots.push(root);
     root.render(
-      <AnnotatedFigureSurface
-        data={{
-          type: "annotated_figure",
-          source: { mode: "managed", mediaId: "annotated-figure-browser-test" },
-          alt: "Two-to-one test image",
-          captionDisplay: "list",
-        }}
-        annotations={[
-          { id: "pin-top-left", number: 1, x: 0, y: 0 },
-          { id: "pin-bottom-right", number: 2, x: 100, y: 100 },
-        ]}
-        fileUrl={twoToOneImageUrl()}
-        onStageClick={() => {
-          canvasActivations += 1;
-        }}
-        onRemovePin={(annotationId) => {
-          removedPins.push(annotationId);
-        }}
-      />,
+      <AppThemeProvider appearance="light">
+        <div>
+          <AnnotatedFigureSurface
+            data={{
+              type: "annotated_figure",
+              source: { mode: "managed", mediaId: "annotated-figure-browser-test" },
+              alt: "Two-to-one test image",
+              captionDisplay: "list",
+            }}
+            annotations={[
+              { id: "pin-top-left", number: 1, x: 0, y: 0 },
+              { id: "pin-bottom-right", number: 2, x: 100, y: 100 },
+            ]}
+            fileUrl={twoToOneImageUrl()}
+            onStageClick={() => {
+              canvasActivations += 1;
+            }}
+            onRemovePin={(annotationId) => {
+              removedPins.push(annotationId);
+            }}
+          />
+        </div>
+      </AppThemeProvider>,
     );
 
-    await waitForCondition(() => host.querySelector(".sc-annotated-figure__stage"));
-    const stage = requiredElement<HTMLElement>(host, ".sc-annotated-figure__stage");
+    await waitForCondition(() => host.querySelector(".sc-course-annotated-figure__stage"));
+    const stage = requiredElement<HTMLElement>(host, ".sc-course-annotated-figure__stage");
     stage.style.height = "400px";
 
     await waitForCondition(() => {
-      const canvas = host.querySelector<HTMLElement>(".sc-annotated-figure__canvas");
+      const canvas = host.querySelector<HTMLElement>(".sc-course-annotated-figure__canvas");
       if (!canvas) return false;
       const rect = canvas.getBoundingClientRect();
       return rect.width > 0 && rect.height > 0;
     });
 
-    const canvas = requiredElement<HTMLElement>(host, ".sc-annotated-figure__canvas");
+    const canvas = requiredElement<HTMLElement>(host, ".sc-course-annotated-figure__canvas");
     const topLeftPin = requiredElement<HTMLElement>(canvas, '[data-pin="pin-top-left"]');
     const bottomRightPin = requiredElement<HTMLElement>(canvas, '[data-pin="pin-bottom-right"]');
     const topLeftRemove = requiredElement<HTMLElement>(topLeftPin, "button");
@@ -124,7 +171,7 @@ describe("Annotated Figure image geometry", () => {
 
   it("reserves a finite responsive stage for portrait images in page flow", async () => {
     const host = document.createElement("div");
-    host.className = "sc-annotated-figure";
+    host.className = "sc-course-annotated-figure";
     host.style.width = "480px";
     document.body.append(host);
 
@@ -145,10 +192,11 @@ describe("Annotated Figure image geometry", () => {
 
     await waitForCondition(
       () =>
-        host.querySelector('.sc-annotated-figure__canvas[data-media-fit-ready="true"]') !== null,
+        host.querySelector('.sc-course-annotated-figure__canvas[data-media-fit-ready="true"]') !==
+        null,
     );
-    const stage = requiredElement<HTMLElement>(host, ".sc-annotated-figure__stage");
-    const canvas = requiredElement<HTMLElement>(host, ".sc-annotated-figure__canvas");
+    const stage = requiredElement<HTMLElement>(host, ".sc-course-annotated-figure__stage");
+    const canvas = requiredElement<HTMLElement>(host, ".sc-course-annotated-figure__canvas");
     const firstStageHeight = stage.getBoundingClientRect().height;
     const firstCanvasRect = canvas.getBoundingClientRect();
     expect(firstStageHeight).toBeGreaterThan(200);
@@ -157,7 +205,11 @@ describe("Annotated Figure image geometry", () => {
     expect(firstCanvasRect.bottom).toBeLessThanOrEqual(stage.getBoundingClientRect().bottom + 1);
 
     host.style.width = "320px";
-    await waitForCondition(() => stage.getBoundingClientRect().height < firstStageHeight);
+    await waitForCondition(
+      () =>
+        stage.getBoundingClientRect().height < firstStageHeight &&
+        canvas.getBoundingClientRect().bottom <= stage.getBoundingClientRect().bottom + 1,
+    );
     expect(canvas.getBoundingClientRect().bottom).toBeLessThanOrEqual(
       stage.getBoundingClientRect().bottom + 1,
     );
@@ -171,8 +223,8 @@ describe("Annotated Figure image geometry", () => {
     await waitForCondition(() =>
       [pair.authoring, pair.runtime].every(
         ({ host }) =>
-          host.querySelector('.sc-annotated-figure[data-bounded-placement="fill"]') &&
-          host.querySelector('.sc-annotated-figure__canvas[data-media-fit-ready="true"]'),
+          host.querySelector('.sc-course-annotated-figure[data-bounded-placement="fill"]') &&
+          host.querySelector('.sc-course-annotated-figure__canvas[data-media-fit-ready="true"]'),
       ),
     );
 
@@ -193,8 +245,15 @@ describe("Annotated Figure image geometry", () => {
         sample.frame.getBoundingClientRect().bottom + 1,
       );
       const rows = Array.from(
-        sample.legend.querySelectorAll<HTMLElement>(".sc-annotated-figure__annotation"),
+        sample.legend.querySelectorAll<HTMLElement>(".sc-course-annotated-figure__annotation"),
       );
+      expect(
+        requiredElement<HTMLElement>(rows[0]!, ".sc-course-annotated-figure__annotation-title")
+          .textContent,
+      ).toBe("Annotation heading 1");
+      for (const row of rows) {
+        expect(row.scrollHeight).toBeLessThanOrEqual(row.clientHeight + 1);
+      }
       const legendRect = sample.legend.getBoundingClientRect();
       const fullyVisibleRows = rows.filter((row) => {
         const rect = row.getBoundingClientRect();
@@ -202,17 +261,40 @@ describe("Annotated Figure image geometry", () => {
       });
       expect(fullyVisibleRows.length).toBeGreaterThanOrEqual(3);
       expect(fullyVisibleRows.length).toBeLessThanOrEqual(4);
-      expect(rows[0]!.getBoundingClientRect().top).toBeGreaterThan(legendRect.top);
-      expect(sample.legend.dataset["overflowAfter"]).toBe("true");
+      const firstRowLeftBeforeHover = rows[0]!.getBoundingClientRect().left;
+      await userEvent.hover(sample.legend);
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      expect(rows[0]!.getBoundingClientRect().left).toBeCloseTo(firstRowLeftBeforeHover, 1);
+      const boundedScroll = sample.legend.hasAttribute("data-bounded-scroll");
+      if (boundedScroll) {
+        const hint = requiredElement<HTMLElement>(
+          sample.captionFrame,
+          "[data-bounded-scroll-hint]",
+        );
+        expect(sample.legend.hasAttribute("data-bounded-scroll-overflow")).toBe(true);
+        expect(sample.legend.hasAttribute("data-bounded-scroll-end")).toBe(false);
+        expect(getComputedStyle(hint).visibility).toBe("visible");
+        expect(hint.getBoundingClientRect().top).toBeGreaterThanOrEqual(
+          sample.legend.getBoundingClientRect().bottom - 1,
+        );
+      } else {
+        expect(rows[0]!.getBoundingClientRect().top).toBeGreaterThan(legendRect.top);
+      }
 
       sample.legend.scrollTop = sample.legend.scrollHeight;
       sample.legend.dispatchEvent(new Event("scroll"));
-      await waitForCondition(() => sample.legend.dataset["overflowAfter"] === "false");
+      if (boundedScroll) {
+        await waitForCondition(() => sample.legend.hasAttribute("data-bounded-scroll-end"));
+        expect(
+          getComputedStyle(requiredElement(sample.captionFrame, "[data-bounded-scroll-hint]"))
+            .visibility,
+        ).toBe("hidden");
+      }
       const finalRowRect = rows.at(-1)!.getBoundingClientRect();
-      expect(finalRowRect.top).toBeGreaterThan(legendRect.top);
-      expect(finalRowRect.bottom).toBeLessThan(legendRect.bottom);
-      expect(sample.legend.dataset["overflowBefore"]).toBe("true");
-      const gap = Number.parseFloat(getComputedStyle(sample.frame).rowGap);
+      const finalLegendRect = sample.legend.getBoundingClientRect();
+      expect(finalRowRect.top).toBeGreaterThan(finalLegendRect.top);
+      expect(finalRowRect.bottom).toBeLessThanOrEqual(finalLegendRect.bottom + 1);
+      const gap = Number.parseFloat(getComputedStyle(sample.content).rowGap);
       const toolbarHeight = sample.toolbar?.getBoundingClientRect().height ?? 0;
       const toolbarMargin = sample.toolbar
         ? Number.parseFloat(getComputedStyle(sample.toolbar).marginBlockEnd)
@@ -221,7 +303,7 @@ describe("Annotated Figure image geometry", () => {
         toolbarHeight +
         toolbarMargin +
         sample.stage.getBoundingClientRect().height +
-        sample.legend.getBoundingClientRect().height +
+        sample.captionFrame.getBoundingClientRect().height +
         gap;
       expect(
         Math.abs(allocatedHeight - sample.frame.getBoundingClientRect().height),
@@ -236,12 +318,12 @@ describe("Annotated Figure image geometry", () => {
     await waitForCondition(
       () =>
         pair.authoring.host.querySelector(
-          '.sc-annotated-figure__canvas[data-media-fit-ready="true"]',
+          '.sc-course-annotated-figure__canvas[data-media-fit-ready="true"]',
         ) !== null,
     );
     const canvas = requiredElement<HTMLElement>(
       pair.authoring.host,
-      ".sc-annotated-figure__canvas",
+      ".sc-course-annotated-figure__canvas",
     );
     const pin = requiredElement<HTMLButtonElement>(
       canvas,
@@ -378,6 +460,7 @@ describe("Annotated Figure image geometry", () => {
     const wideListRect = list.getBoundingClientRect();
     const wideCaptionPanelRect = captionPanel.getBoundingClientRect();
     expect(getComputedStyle(layout).display).toBe("grid");
+    expect(stage.classList.contains("sc-course-theme-scaffold-flow-v1")).toBe(true);
     expect(wideStageRect.height).toBeGreaterThan(240);
     expect(wideListRect.height).toBeGreaterThan(240);
     expect(wideStageRect.top).toBeCloseTo(wideCaptionPanelRect.top, 0);
@@ -453,7 +536,7 @@ describe("Annotated Figure image geometry", () => {
     pin.click();
     const popover = await waitForElement<HTMLElement>(
       dialog,
-      ".sc-annotated-figure__caption-popover",
+      ".sc-course-annotated-figure__caption-popover",
     );
     const childHost = requiredElement<HTMLElement>(
       dialog,
@@ -539,8 +622,8 @@ async function mountBoundedPair(
     () =>
       authoringEditor !== null &&
       runtimeEditor !== null &&
-      authoringHost.querySelector(".sc-annotated-figure") &&
-      runtimeHost.querySelector(".sc-annotated-figure"),
+      authoringHost.querySelector(".sc-course-annotated-figure") &&
+      runtimeHost.querySelector(".sc-course-annotated-figure"),
   );
   if (!authoringEditor || !runtimeEditor)
     throw new Error("Annotated Figure browser editors were not ready.");
@@ -588,7 +671,12 @@ function boundedAnnotatedFigureDocument(
           type: "annotated_figure_legend",
           content: Array.from({ length: 18 }, (_, index) => ({
             type: "annotated_figure_annotation",
-            attrs: { id: `annotation-${index + 1}`, x: 50, y: 50 },
+            attrs: {
+              id: `annotation-${index + 1}`,
+              title: index === 0 ? "Annotation heading 1" : "",
+              x: 50,
+              y: 50,
+            },
             content: [
               {
                 type: "paragraph",
@@ -640,15 +728,17 @@ function testMediaPort(): MediaPort {
 }
 
 function measureBoundedFigure({ host }: MountedRenderer) {
-  const frame = requiredElement<HTMLElement>(host, ".sc-annotated-figure");
+  const frame = requiredElement<HTMLElement>(host, ".sc-course-annotated-figure");
   return {
     frame,
+    content: requiredElement<HTMLElement>(frame, ".sc-course-annotated-figure__content"),
+    captionFrame: requiredElement<HTMLElement>(frame, "[data-bounded-scroll-frame]"),
     toolbar: frame.querySelector<HTMLElement>(
-      '.sc-annotated-figure__toolbar[data-presentation="compact"]',
+      '.sc-course-annotated-figure__toolbar[data-presentation="compact"]',
     ),
-    stage: requiredElement<HTMLElement>(frame, ".sc-annotated-figure__stage"),
-    canvas: requiredElement<HTMLElement>(frame, ".sc-annotated-figure__canvas"),
-    legend: requiredElement<HTMLElement>(frame, ".sc-annotated-figure__legend"),
+    stage: requiredElement<HTMLElement>(frame, ".sc-course-annotated-figure__stage"),
+    canvas: requiredElement<HTMLElement>(frame, ".sc-course-annotated-figure__canvas"),
+    legend: requiredElement<HTMLElement>(frame, ".sc-course-annotated-figure__legend"),
   };
 }
 

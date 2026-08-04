@@ -111,8 +111,8 @@ function GalleryRuntimeView(props: NodeViewProps) {
 
   return (
     <>
-      <div className="sc-gallery__shell">
-        <div className="sc-gallery__composition">
+      <div className="sc-course-gallery__shell">
+        <div className="sc-course-gallery__composition">
           {resolved.length === 0 ? (
             <GalleryEmptyState hint="No images added." />
           ) : data.layout === "grid" ? (
@@ -137,7 +137,7 @@ function GalleryRuntimeView(props: NodeViewProps) {
         <GallerySharedCaption caption={data.caption} />
       </div>
 
-      <div className="sc-gallery__items-host" aria-hidden>
+      <div className="sc-course-gallery__items-host" aria-hidden>
         <NodeViewContent />
       </div>
 
@@ -156,7 +156,7 @@ function GalleryRuntimeView(props: NodeViewProps) {
 const GalleryRuntimeRootNode = createGalleryNode({
   addNodeView: () =>
     createBlockRuntimeNodeView({
-      className: "sc-gallery",
+      className: "sc-course-gallery",
       definition: galleryDefinition,
       view: { component: GalleryRuntimeView },
     }),

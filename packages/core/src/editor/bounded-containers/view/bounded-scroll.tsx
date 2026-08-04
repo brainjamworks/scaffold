@@ -27,92 +27,94 @@ export function resolveBoundedScrollAffordanceState({
 }
 
 export function useBoundedScrollAffordance(rootRef: RefObject<HTMLElement | null>) {
-  useEffect(() => {
-    const root = rootRef.current;
-    if (!root) return undefined;
-    const boundedRoot: HTMLElement = root;
+  useEffect(() => mountBoundedScrollAffordance(rootRef.current), [rootRef]);
+}
 
-    const cleanupByViewport = new Map<HTMLElement, () => void>();
-    let resizeObserver: ResizeObserver | null = null;
+/** Mount the shared bounded-scroll behaviour in non-React editor node views. */
+export function mountBoundedScrollAffordance(root: HTMLElement | null) {
+  if (!root) return undefined;
+  const boundedRoot: HTMLElement = root;
 
-    const getResizeObserver = () => {
-      if (resizeObserver || typeof ResizeObserver === "undefined") return resizeObserver;
-      resizeObserver = new ResizeObserver(() => {
-        refreshViewports();
-      });
-      resizeObserver.observe(boundedRoot);
-      return resizeObserver;
-    };
+  const cleanupByViewport = new Map<HTMLElement, () => void>();
+  let resizeObserver: ResizeObserver | null = null;
 
-    const updateViewport = (viewport: HTMLElement) => {
-      const frame = viewport.closest<HTMLElement>("[data-bounded-scroll-frame]");
-      const state = resolveBoundedScrollAffordanceState({
-        availableHeight: frame?.clientHeight,
-        clientHeight: viewport.clientHeight,
-        scrollHeight: viewport.scrollHeight,
-        scrollTop: viewport.scrollTop,
-      });
+  const getResizeObserver = () => {
+    if (resizeObserver || typeof ResizeObserver === "undefined") return resizeObserver;
+    resizeObserver = new ResizeObserver(() => {
+      refreshViewports();
+    });
+    resizeObserver.observe(boundedRoot);
+    return resizeObserver;
+  };
 
-      viewport.toggleAttribute(BOUNDED_SCROLL_OVERFLOW_ATTR, state.overflowing);
-      viewport.toggleAttribute(BOUNDED_SCROLL_END_ATTR, state.atEnd);
-    };
+  const updateViewport = (viewport: HTMLElement) => {
+    const frame = viewport.closest<HTMLElement>("[data-bounded-scroll-frame]");
+    const state = resolveBoundedScrollAffordanceState({
+      availableHeight: frame?.clientHeight,
+      clientHeight: viewport.clientHeight,
+      scrollHeight: viewport.scrollHeight,
+      scrollTop: viewport.scrollTop,
+    });
 
-    const registerViewport = (viewport: HTMLElement) => {
-      if (cleanupByViewport.has(viewport)) {
-        updateViewport(viewport);
-        return;
-      }
+    viewport.toggleAttribute(BOUNDED_SCROLL_OVERFLOW_ATTR, state.overflowing);
+    viewport.toggleAttribute(BOUNDED_SCROLL_END_ATTR, state.atEnd);
+  };
 
-      const handleScroll = () => updateViewport(viewport);
-      viewport.addEventListener("scroll", handleScroll, { passive: true });
-      getResizeObserver()?.observe(viewport);
-      cleanupByViewport.set(viewport, () => {
-        viewport.removeEventListener("scroll", handleScroll);
-        resizeObserver?.unobserve(viewport);
-      });
+  const registerViewport = (viewport: HTMLElement) => {
+    if (cleanupByViewport.has(viewport)) {
       updateViewport(viewport);
-    };
-
-    function refreshViewports() {
-      const viewports = new Set(
-        Array.from(boundedRoot.querySelectorAll<HTMLElement>(BOUNDED_SCROLL_VIEWPORT_SELECTOR)),
-      );
-
-      if (boundedRoot.matches(BOUNDED_SCROLL_VIEWPORT_SELECTOR)) viewports.add(boundedRoot);
-
-      for (const [viewport, cleanup] of cleanupByViewport) {
-        if (!viewports.has(viewport)) {
-          cleanup();
-          cleanupByViewport.delete(viewport);
-        }
-      }
-
-      for (const viewport of viewports) registerViewport(viewport);
+      return;
     }
 
-    const mutationObserver =
-      typeof MutationObserver === "undefined"
-        ? null
-        : new MutationObserver(() => {
-            refreshViewports();
-          });
-
-    mutationObserver?.observe(boundedRoot, {
-      attributeFilter: ["style"],
-      attributes: true,
-      characterData: true,
-      childList: true,
-      subtree: true,
+    const handleScroll = () => updateViewport(viewport);
+    viewport.addEventListener("scroll", handleScroll, { passive: true });
+    getResizeObserver()?.observe(viewport);
+    cleanupByViewport.set(viewport, () => {
+      viewport.removeEventListener("scroll", handleScroll);
+      resizeObserver?.unobserve(viewport);
     });
-    refreshViewports();
+    updateViewport(viewport);
+  };
 
-    return () => {
-      mutationObserver?.disconnect();
-      resizeObserver?.disconnect();
-      for (const cleanup of cleanupByViewport.values()) cleanup();
-      cleanupByViewport.clear();
-    };
-  }, [rootRef]);
+  function refreshViewports() {
+    const viewports = new Set(
+      Array.from(boundedRoot.querySelectorAll<HTMLElement>(BOUNDED_SCROLL_VIEWPORT_SELECTOR)),
+    );
+
+    if (boundedRoot.matches(BOUNDED_SCROLL_VIEWPORT_SELECTOR)) viewports.add(boundedRoot);
+
+    for (const [viewport, cleanup] of cleanupByViewport) {
+      if (!viewports.has(viewport)) {
+        cleanup();
+        cleanupByViewport.delete(viewport);
+      }
+    }
+
+    for (const viewport of viewports) registerViewport(viewport);
+  }
+
+  const mutationObserver =
+    typeof MutationObserver === "undefined"
+      ? null
+      : new MutationObserver(() => {
+          refreshViewports();
+        });
+
+  mutationObserver?.observe(boundedRoot, {
+    attributeFilter: ["style"],
+    attributes: true,
+    characterData: true,
+    childList: true,
+    subtree: true,
+  });
+  refreshViewports();
+
+  return () => {
+    mutationObserver?.disconnect();
+    resizeObserver?.disconnect();
+    for (const cleanup of cleanupByViewport.values()) cleanup();
+    cleanupByViewport.clear();
+  };
 }
 
 export function BoundedScrollHint({ editable = false }: { editable?: boolean }) {

@@ -304,19 +304,52 @@ it("selects gallery from passive surface clicks through the shared surface activ
   editor.destroy();
 });
 
-it("labels carousel thumbnail tabs and preserves selected state", async () => {
+it("uses ordinary labelled carousel picker buttons and preserves current state", async () => {
   const editor = renderGalleryEditor();
 
-  const firstTab = await screen.findByRole("tab", { name: "Image 1" });
-  const secondTab = screen.getByRole("tab", { name: "Image 2" });
+  const picker = await screen.findByRole("group", { name: "Gallery images" });
+  const firstButton = within(picker).getByRole("button", { name: "Show image 1" });
+  const secondButton = within(picker).getByRole("button", { name: "Show image 2" });
 
-  expect(firstTab.getAttribute("aria-selected")).toBe("true");
-  expect(secondTab.getAttribute("aria-selected")).toBe("false");
+  expect(firstButton.getAttribute("aria-current")).toBe("true");
+  expect(secondButton.getAttribute("aria-current")).toBeNull();
+  expect(within(picker).queryByRole("tab")).toBeNull();
 
-  fireEvent.click(secondTab);
+  fireEvent.click(secondButton);
 
-  expect(firstTab.getAttribute("aria-selected")).toBe("false");
-  expect(secondTab.getAttribute("aria-selected")).toBe("true");
+  expect(firstButton.getAttribute("aria-current")).toBeNull();
+  expect(secondButton.getAttribute("aria-current")).toBe("true");
+
+  editor.destroy();
+});
+
+it("separates Course gallery composition from App-only author controls", async () => {
+  const editor = renderGalleryEditor();
+
+  const authoring = await waitFor(() => {
+    const element = document.querySelector<HTMLElement>(
+      '.sc-course-gallery[data-authoring-frame="block"]',
+    );
+    expect(element).toBeInstanceOf(HTMLElement);
+    return element!;
+  });
+  expect(authoring.querySelector(".sc-app-gallery__thumb-delete")).toHaveClass("rt-IconButton");
+  expect(authoring.querySelector('[class^="sc-gallery"], [class*=" sc-gallery"]')).toBeNull();
+
+  renderGalleryXapiRuntime(galleryFixture(), {
+    activityId: "https://lms.example.test/courses/gallery",
+    send: async () => undefined,
+  });
+
+  const runtime = await waitFor(() => {
+    const element = document.querySelector<HTMLElement>(
+      '.sc-course-gallery[data-runtime-frame="block"]',
+    );
+    expect(element).toBeInstanceOf(HTMLElement);
+    return element!;
+  });
+  expect(runtime.querySelector('[class*="sc-app-gallery"]')).toBeNull();
+  expect(runtime.querySelector('[class^="sc-gallery"], [class*=" sc-gallery"]')).toBeNull();
 
   editor.destroy();
 });
@@ -362,7 +395,7 @@ it("records each successfully displayed carousel item once per xAPI session", as
   fireEvent.load(firstStageImage);
   await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
 
-  fireEvent.click(screen.getByRole("tab", { name: "Image 2" }));
+  fireEvent.click(screen.getByRole("button", { name: "Show image 2" }));
   const secondStageImage = await screen.findByRole("img", { name: "Second image" });
   fireEvent.load(secondStageImage);
   await waitFor(() => expect(send).toHaveBeenCalledTimes(3));
@@ -424,8 +457,12 @@ it("does not record loaded gallery items on a non-presented runtime surface", as
     "another-surface",
   );
 
-  await waitFor(() => expect(document.querySelector(".sc-gallery__stage-image")).not.toBeNull());
-  const hiddenStageImage = document.querySelector<HTMLImageElement>(".sc-gallery__stage-image");
+  await waitFor(() =>
+    expect(document.querySelector(".sc-course-gallery__stage-image")).not.toBeNull(),
+  );
+  const hiddenStageImage = document.querySelector<HTMLImageElement>(
+    ".sc-course-gallery__stage-image",
+  );
   if (!hiddenStageImage) throw new Error("Expected a hidden-surface gallery stage image.");
   fireEvent.load(hiddenStageImage);
   await act(async () => {
@@ -657,7 +694,7 @@ it("derives bounded tracks from the measured grid viewport and disconnects clean
       createElement(GalleryGrid, { items, onTileClick: () => undefined }),
     ),
   );
-  const grid = container.querySelector<HTMLElement>(".sc-gallery__grid");
+  const grid = container.querySelector<HTMLElement>(".sc-course-gallery__grid");
 
   expect(grid).not.toBeNull();
   act(() => resize?.(0, 400));
@@ -666,8 +703,8 @@ it("derives bounded tracks from the measured grid viewport and disconnects clean
   act(() => resize?.(800, 400));
   expect(grid?.getAttribute("data-gallery-grid-bounded")).toBe("");
   expect(grid?.getAttribute("data-gallery-grid-layout")).toBe("3x2");
-  expect(grid?.style.getPropertyValue("--sc-gallery-grid-columns")).toBe("3");
-  expect(grid?.style.getPropertyValue("--sc-gallery-grid-rows")).toBe("2");
+  expect(grid?.style.getPropertyValue("--sc-course-gallery-grid-columns")).toBe("3");
+  expect(grid?.style.getPropertyValue("--sc-course-gallery-grid-rows")).toBe("2");
 
   unmount();
   expect(disconnect).toHaveBeenCalledTimes(1);
@@ -702,7 +739,7 @@ it("does not observe or apply measured tracks outside bounded placement", () => 
       onTileClick: () => undefined,
     }),
   );
-  const grid = container.querySelector<HTMLElement>(".sc-gallery__grid");
+  const grid = container.querySelector<HTMLElement>(".sc-course-gallery__grid");
 
   expect(construct).not.toHaveBeenCalled();
   expect(grid?.hasAttribute("data-gallery-grid-bounded")).toBe(false);
@@ -757,22 +794,22 @@ it("derives bounded tracks from the effective narrow-container gap", () => {
   act(() => resize?.(320, 210));
 
   expect(
-    container.querySelector(".sc-gallery__grid")?.getAttribute("data-gallery-grid-layout"),
+    container.querySelector(".sc-course-gallery__grid")?.getAttribute("data-gallery-grid-layout"),
   ).toBe("3x1");
 });
 
 it("labels carousel remove controls and removes the requested image", async () => {
   const editor = renderGalleryEditor();
 
-  expect(await screen.findByRole("tab", { name: "Image 1" })).toBeInTheDocument();
-  expect(screen.getByRole("tab", { name: "Image 2" })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Show image 1" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Show image 2" })).toBeInTheDocument();
   const dispatch = vi.spyOn(editor.view, "dispatch");
 
   fireEvent.click(screen.getByRole("button", { name: "Remove image 1" }));
 
   await waitFor(() => {
-    expect(screen.queryByRole("tab", { name: "Image 2" })).toBeNull();
-    expect(screen.getByRole("tab", { name: "Image 1" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Show image 2" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Show image 1" })).toBeInTheDocument();
   });
 
   expect(galleryItemIds(editor)).toEqual(["gallery-image-2"]);

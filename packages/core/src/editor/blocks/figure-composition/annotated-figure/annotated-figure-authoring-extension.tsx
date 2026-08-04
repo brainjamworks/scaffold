@@ -16,7 +16,7 @@ import "./AnnotatedFigure.css";
 const AnnotatedFigureAuthoringRootNode = createAnnotatedFigureNode({
   addNodeView: () =>
     createBlockAuthoringNodeView({
-      className: "sc-annotated-figure",
+      className: "sc-course-annotated-figure",
       definition: annotatedFigureDefinition,
       view: { component: AnnotatedFigureAuthoringView },
     }),

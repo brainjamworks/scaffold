@@ -8,11 +8,12 @@ import { createGalleryNode } from "./node";
 import { GalleryItemNode } from "./slots";
 
 import "./Gallery.css";
+import "./GalleryAuthoringControls.css";
 
 const GalleryAuthoringRootNode = createGalleryNode({
   addNodeView: () =>
     createBlockAuthoringNodeView({
-      className: "sc-gallery",
+      className: "sc-course-gallery",
       definition: galleryDefinition,
       view: { component: GalleryAuthoringView },
     }),

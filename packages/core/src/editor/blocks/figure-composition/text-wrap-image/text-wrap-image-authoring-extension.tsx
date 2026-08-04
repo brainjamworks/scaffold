@@ -8,11 +8,12 @@ import { createTextWrapImageNode } from "./node";
 import { TextWrapImageBodyNode } from "./slots";
 
 import "./TextWrapImage.css";
+import "./TextWrapImageAuthoringControls.css";
 
 const TextWrapImageAuthoringRootNode = createTextWrapImageNode({
   addNodeView: () =>
     createBlockAuthoringNodeView({
-      className: "sc-text-wrap-image",
+      className: "sc-course-text-wrap-image",
       definition: textWrapImageDefinition,
       view: { component: TextWrapImageAuthoringView },
     }),

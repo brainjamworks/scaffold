@@ -19,13 +19,13 @@ function TextWrapImageRuntimeView(props: NodeViewProps) {
 
   return (
     <div
-      className="sc-text-wrap-image__shell"
+      className="sc-course-text-wrap-image__shell"
       data-position={data.position}
       data-size={data.size}
       data-shape={data.shape}
     >
       <TextWrapImageMediaSurface data={data} errorMessage={errorMessage} fileUrl={resolvedUrl} />
-      <NodeViewContent className="sc-text-wrap-image__content" />
+      <NodeViewContent className="sc-course-text-wrap-image__content" />
     </div>
   );
 }
@@ -33,7 +33,7 @@ function TextWrapImageRuntimeView(props: NodeViewProps) {
 const TextWrapImageRuntimeRootNode = createTextWrapImageNode({
   addNodeView: () =>
     createBlockRuntimeNodeView({
-      className: "sc-text-wrap-image",
+      className: "sc-course-text-wrap-image",
       definition: textWrapImageDefinition,
       view: { component: TextWrapImageRuntimeView },
     }),

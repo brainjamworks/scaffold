@@ -90,7 +90,7 @@ function AnnotatedFigureRuntimeComposition({
   ) => {
     const projectedAnnotation = annotations.find((candidate) => candidate.id === annotation.id);
     if (!projectedAnnotation || !hasAnnotatedFigureRuntimeCaption(projectedAnnotation)) {
-      return <span className="sc-annotated-figure__pin-number">{annotation.number}</span>;
+      return <span className="sc-course-annotated-figure__pin-number">{annotation.number}</span>;
     }
 
     const open = liveOpenAnnotation?.id === annotation.id;
@@ -112,7 +112,7 @@ function AnnotatedFigureRuntimeComposition({
           <Popover.Portal>
             <Popover.Content
               aria-labelledby={titleId}
-              className="sc-annotated-figure__caption-popover"
+              className="sc-course-annotated-figure__caption-popover"
               collisionPadding={12}
               onClick={(event) => event.stopPropagation()}
               onEscapeKeyDown={(event) => {
@@ -129,7 +129,7 @@ function AnnotatedFigureRuntimeComposition({
                 titleId={titleId}
               >
                 {projectedAnnotation.captionNode.content.size > 0 ? (
-                  <div className="sc-annotated-figure__runtime-popover-caption">
+                  <div className="sc-course-annotated-figure__runtime-popover-caption">
                     {renderRuntimeRichTextNode(
                       projectedAnnotation.captionNode.toJSON(),
                       `annotated-figure-popover:${projectedAnnotation.id}`,
@@ -243,7 +243,7 @@ export function AnnotatedFigureCanvasRuntimeView(props: NodeViewProps) {
         alt: data.alt,
         render: () => (
           <div
-            className="sc-annotated-figure__runtime-lightbox-composition"
+            className="sc-course-annotated-figure__runtime-lightbox-composition"
             data-caption-display={data.captionDisplay}
           >
             <AnnotatedFigureRuntimeComposition
@@ -263,7 +263,7 @@ export function AnnotatedFigureCanvasRuntimeView(props: NodeViewProps) {
   return (
     <NodeViewWrapper
       data-node="annotated-figure-canvas"
-      className="sc-annotated-figure__canvas-node"
+      className="sc-course-annotated-figure__canvas-node"
     >
       <AnnotatedFigureRuntimeComposition
         annotations={annotations}
@@ -274,6 +274,7 @@ export function AnnotatedFigureCanvasRuntimeView(props: NodeViewProps) {
             <MediaExpandButton
               ref={expandButtonRef}
               aria-label="Expand annotated figure"
+              className="sc-course-annotated-figure__expand-action"
               onClick={() => setLightboxOpen(true)}
               tooltipLabel="Expand annotated figure"
             />

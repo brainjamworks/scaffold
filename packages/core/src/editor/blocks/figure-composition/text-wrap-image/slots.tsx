@@ -32,8 +32,8 @@ export const TextWrapImageBodyNode = Node.create({
 
 function BodyView() {
   return (
-    <NodeViewWrapper data-slot="text-wrap-image-body" className="sc-text-wrap-image__body">
-      <NodeViewContent className="sc-text-wrap-image__body-content" />
+    <NodeViewWrapper data-slot="text-wrap-image-body" className="sc-course-text-wrap-image__body">
+      <NodeViewContent className="sc-course-text-wrap-image__body-content" />
     </NodeViewWrapper>
   );
 }
