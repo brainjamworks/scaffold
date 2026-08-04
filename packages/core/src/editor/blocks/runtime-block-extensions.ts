@@ -18,7 +18,7 @@ import { ChartRuntimeExtension } from "./media/chart/chart-runtime-extension";
 import { ImageBlockRuntimeExtension } from "./media/image-block-runtime-extension";
 import { CalloutRuntimeExtension } from "./presentation/callout/callout-runtime-extension";
 import { ChapterEpigraphRuntimeExtension } from "./presentation/chapter-epigraph/chapter-epigraph-runtime-extension";
-import { ComparisonRuntimeExtension } from "./presentation/comparison/comparison-runtime-extension";
+import { ComparisonRuntimeExtension } from "./structured-content/comparison/comparison-runtime-extension";
 import { FlashcardRuntimeExtension } from "./presentation/flashcard/flashcard-runtime-extension";
 import { MarginaliaRuntimeExtension } from "./presentation/marginalia/marginalia-runtime-extension";
 import { PullQuoteRuntimeExtension } from "./presentation/pull-quote/pull-quote-runtime-extension";

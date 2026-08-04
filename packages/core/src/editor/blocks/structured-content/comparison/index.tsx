@@ -7,9 +7,10 @@ export {
   createComparisonRow,
 } from "./content";
 export {
-  Comparison,
+  ComparisonSurface,
   ComparisonCell,
   ComparisonCellView,
+  ComparisonRow,
   ComparisonRowView,
   ComparisonView,
 } from "./Comparison";

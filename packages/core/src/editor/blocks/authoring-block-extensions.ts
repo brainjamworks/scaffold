@@ -18,7 +18,7 @@ import { ChartAuthoringExtension } from "./media/chart/chart-authoring-extension
 import { ImageBlockAuthoringExtension } from "./media/image-block-authoring-extension";
 import { CalloutAuthoringExtension } from "./presentation/callout/callout-authoring-extension";
 import { ChapterEpigraphAuthoringExtension } from "./presentation/chapter-epigraph/chapter-epigraph-authoring-extension";
-import { ComparisonAuthoringExtension } from "./presentation/comparison/comparison-authoring-extension";
+import { ComparisonAuthoringExtension } from "./structured-content/comparison/comparison-authoring-extension";
 import { FlashcardAuthoringExtension } from "./presentation/flashcard/flashcard-authoring-extension";
 import { MarginaliaAuthoringExtension } from "./presentation/marginalia/marginalia-authoring-extension";
 import { PullQuoteAuthoringExtension } from "./presentation/pull-quote/pull-quote-authoring-extension";

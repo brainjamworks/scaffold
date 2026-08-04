@@ -1,26 +1,26 @@
 import { Extension } from "@tiptap/core";
-import { ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
+import { ReactNodeViewRenderer } from "@tiptap/react";
 
 import { createBlockAuthoringNodeView } from "@/editor/frame/authoring/create-block-authoring-node-view";
 
-import { ComparisonCellView, ComparisonRowView, ComparisonView } from "./Comparison";
-import { renderComparisonAddControl } from "./comparison-authoring-controls";
+import { ComparisonCellView } from "./Comparison";
+import {
+  ComparisonAuthoringView,
+  ComparisonRowAuthoringView,
+} from "./comparison-authoring-controls";
 import { comparisonBlockDefinition } from "./comparison-definition";
 import { createComparisonNode } from "./node";
 import { ComparisonCellNode, createComparisonRowNode } from "./slots";
-
-function ComparisonAuthoringView(props: NodeViewProps) {
-  return <ComparisonView {...props} renderAddControl={renderComparisonAddControl} />;
-}
+import "./ComparisonAuthoringControls.css";
 
 const ComparisonRowAuthoringNode = createComparisonRowNode({
-  addNodeView: () => ReactNodeViewRenderer(ComparisonRowView),
+  addNodeView: () => ReactNodeViewRenderer(ComparisonRowAuthoringView),
 });
 
 const ComparisonAuthoringRootNode = createComparisonNode({
   addNodeView: () =>
     createBlockAuthoringNodeView({
-      className: "sc-comparison",
+      className: "sc-course-comparison",
       definition: comparisonBlockDefinition,
       view: { component: ComparisonAuthoringView },
     }),

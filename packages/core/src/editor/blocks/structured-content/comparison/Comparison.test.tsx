@@ -25,6 +25,7 @@ import {
 } from "./content";
 import "./comparison-definition";
 import { ComparisonAuthoringExtension } from "./comparison-authoring-extension";
+import { ComparisonRuntimeExtension } from "./comparison-runtime-extension";
 
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
@@ -85,7 +86,47 @@ function renderComparisonEditor(content: JSONContent = comparisonFixture()) {
   return fixture;
 }
 
+function renderComparisonRuntime(content: JSONContent = comparisonFixture()) {
+  const fixture = createDisposableEditor({
+    editable: false,
+    extensions: [
+      StarterKit.configure({
+        undoRedo: false,
+        paragraph: false,
+      }),
+      ExtendedParagraph,
+      createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
+      createRuntimeBlockFrameAttributesExtension([COMPARISON_NODE]),
+      ComparisonRuntimeExtension,
+    ],
+    content,
+  });
+
+  render(createElement(EditorContent, { editor: fixture.editor }));
+
+  return fixture;
+}
+
 describe("comparison block", () => {
+  it("renders configured labels as Course-owned ARIA table semantics", async () => {
+    const fixture = renderComparisonEditor();
+
+    const table = await screen.findByRole("table", {
+      name: "Before compared with After",
+    });
+
+    expect(table.classList.contains("sc-course-comparison__surface")).toBe(true);
+    expect(screen.getAllByRole("columnheader").map((header) => header.textContent)).toEqual([
+      "Before",
+      "After",
+    ]);
+    expect(screen.getAllByRole("row")).toHaveLength(3);
+    expect(screen.getAllByRole("cell")).toHaveLength(4);
+    expect(document.body.querySelector('[class*="sc-comparison"]')).toBeNull();
+
+    fixture.destroy();
+  });
+
   it("constructs serialized defaults in the Comparison feature", () => {
     expect(emptyComparisonData()).toEqual({
       type: "comparison",
@@ -153,6 +194,54 @@ describe("comparison block", () => {
 
     expect(fixture.topLevelNodeTypes()).toEqual(["comparison", "paragraph"]);
     expect(fixture.editor.state.doc.textContent).toContain("Keep after comparison");
+
+    fixture.destroy();
+  });
+
+  it("keeps the last row delete control focusable with a minimum-row explanation", async () => {
+    const content = comparisonFixture();
+    content.content![0]!.content = [createComparisonRow(0)];
+    const fixture = renderComparisonEditor(content);
+
+    const deleteButton = await screen.findByRole("button", {
+      name: "Delete comparison row 1",
+    });
+    const explanationId = deleteButton.getAttribute("aria-describedby");
+
+    expect(deleteButton.getAttribute("aria-disabled")).toBe("true");
+    expect(deleteButton).not.toHaveAttribute("disabled");
+    expect(explanationId).not.toBeNull();
+    expect(document.getElementById(explanationId!)?.textContent).toBe(
+      "A comparison must contain at least one row.",
+    );
+
+    fixture.destroy();
+  });
+
+  it("derives cell labels from parent data without rendering App controls at runtime", async () => {
+    const fixture = renderComparisonRuntime();
+
+    const table = await screen.findByRole("table", {
+      name: "Before compared with After",
+    });
+    const labels = table.querySelectorAll<HTMLElement>(".sc-course-comparison__cell-label");
+    const cells = screen.getAllByRole("cell");
+
+    expect(Array.from(labels, (label) => label.textContent)).toEqual([
+      "Before",
+      "After",
+      "Before",
+      "After",
+    ]);
+    expect(cells[0]?.getAttribute("aria-labelledby")).toBe(
+      "sc-course-comparison-comparison-fixture-left-header",
+    );
+    expect(cells[1]?.getAttribute("aria-labelledby")).toBe(
+      "sc-course-comparison-comparison-fixture-right-header",
+    );
+    expect(table.querySelector('[class*="sc-app-comparison-"]')).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add row" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Delete comparison row/ })).toBeNull();
 
     fixture.destroy();
   });

@@ -1,0 +1,94 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-overlays {
+  .sc-app-comparison-delete__explanation {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .sc-course-comparison__row:has(.sc-app-comparison-delete)
+    .sc-course-comparison__cell--right
+    .sc-course-comparison__cell-content {
+    margin-inline-end: 2.75rem;
+  }
+
+  .sc-app-comparison-delete {
+    position: absolute;
+    inset-block-start: 50%;
+    inset-inline-end: 0.5rem;
+    z-index: var(--z-interactive);
+    display: inline-flex;
+    width: 1.75rem;
+    height: 1.75rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--sc-app-color-border);
+    border-radius: 9999px;
+    background: var(--sc-app-color-background);
+    color: var(--sc-app-color-text-muted);
+    cursor: pointer;
+    transform: translateY(-50%);
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease,
+      color 150ms ease,
+      opacity 150ms ease;
+  }
+
+  .sc-app-comparison-delete:not([aria-disabled="true"]):hover,
+  .sc-app-comparison-delete:not([aria-disabled="true"]):focus-visible {
+    border-color: var(--sc-app-color-error);
+    background: var(--sc-app-color-error-background);
+    color: var(--sc-app-color-error);
+  }
+
+  .sc-app-comparison-delete:focus-visible {
+    outline: 2px solid var(--sc-app-color-focus-outline);
+    outline-offset: 2px;
+  }
+
+  .sc-app-comparison-delete[aria-disabled="true"] {
+    color: var(--sc-app-color-text-placeholder);
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .sc-app-block-add.sc-app-comparison-add {
+    display: flex;
+    width: 100%;
+    min-height: 2.75rem;
+    justify-content: center;
+    border: 0;
+    border-top: 1px dashed var(--sc-app-color-border);
+    border-radius: 0;
+    padding: 0.75rem 1.25rem;
+    background: var(--sc-app-color-background);
+    color: var(--sc-app-color-text-muted);
+    font-family: var(--font-ui);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+
+  .sc-app-block-add.sc-app-comparison-add:hover:not(:disabled) {
+    border-top-color: var(--sc-app-color-primary);
+    background: var(--sc-app-color-primary-muted);
+    color: var(--sc-app-color-primary);
+  }
+
+  .sc-app-block-add.sc-app-comparison-add:focus-visible {
+    outline: 2px solid var(--sc-app-color-focus-outline);
+    outline-offset: -3px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sc-app-comparison-add,
+    .sc-app-comparison-delete {
+      transition: none;
+    }
+  }
+}

@@ -15,7 +15,7 @@ const ComparisonRowRuntimeNode = createComparisonRowNode({
 const ComparisonRuntimeRootNode = createComparisonNode({
   addNodeView: () =>
     createBlockRuntimeNodeView({
-      className: "sc-comparison",
+      className: "sc-course-comparison",
       definition: comparisonBlockDefinition,
       view: { component: ComparisonView },
     }),
