@@ -1,30 +1,38 @@
 // @vitest-environment happy-dom
 
-import { describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 
 import { cartesianGridLabelBounds } from "./chart-profiles/shared";
 import {
   applyChartCourseColours,
   applyChartCourseTypography,
+  applyChartAccessibility,
   applyProfileResponsive,
-  observeChartThemeScope,
 } from "./chart-renderer";
-import { buildChartTheme, readChartTokens } from "./chart-theme";
+import {
+  buildChartTheme,
+  CHART_BODY_FONT_ROLE,
+  CHART_INK_COLOUR_ROLE,
+  CHART_MUTED_COLOUR_ROLE,
+  readChartTokens,
+} from "./chart-theme";
 
 describe("chart theme baseline", () => {
-  it("reads the current shared CSS token names from its supplied scope", () => {
+  it("reads public Course/Radix values and the Flow canvas recipe from its supplied scope", () => {
     const originalGetComputedStyle = globalThis.getComputedStyle;
     globalThis.getComputedStyle = (() =>
       ({
         getPropertyValue: (name: string) =>
           ({
-            "--color-background": "#fefefe",
-            "--color-border": "#dedede",
-            "--color-border-subtle": "#eeeeee",
-            "--color-ink": "#111111",
-            "--color-text-muted": "#666666",
-            "--font-mono": "Baseline Mono",
-            "--font-sans": "Baseline Sans",
+            "--accent-a3": "rgba(79, 70, 229, 0.12)",
+            "--color-panel-solid": "#fefefe",
+            "--gray-11": "#666666",
+            "--gray-12": "#111111",
+            "--gray-a4": "rgba(17, 17, 17, 0.08)",
+            "--gray-a6": "rgba(17, 17, 17, 0.16)",
+            "--shadow-4": "0 8px 24px rgba(0, 0, 0, 0.12)",
+            "--default-font-family": "Baseline Sans",
+            "--heading-font-family": "Baseline Heading",
             "--sc-course-data-series-1": "#110000",
             "--sc-course-data-series-2": "#220000",
             "--sc-course-data-series-3": "#330000",
@@ -33,6 +41,18 @@ describe("chart theme baseline", () => {
             "--sc-course-data-series-6": "#660000",
             "--sc-course-data-series-7": "#770000",
             "--sc-course-data-series-8": "#880000",
+            "--sc-course-chart-axis-font-size": "11",
+            "--sc-course-chart-compact-font-size": "10",
+            "--sc-course-chart-supporting-font-size": "12",
+            "--sc-course-chart-body-font-size": "13",
+            "--sc-course-chart-title-font-size": "17",
+            "--sc-course-chart-bar-radius": "6",
+            "--sc-course-chart-tooltip-radius": "12",
+            "--sc-course-chart-pie-radius": "6",
+            "--sc-course-chart-symbol-size": "8",
+            "--sc-course-chart-line-width": "2.5",
+            "--sc-course-chart-line-emphasis-scale": "1.3",
+            "--sc-course-chart-series-emphasis-size": "6",
           })[name] ?? "",
       }) as CSSStyleDeclaration) as typeof getComputedStyle;
 
@@ -42,12 +62,14 @@ describe("chart theme baseline", () => {
 
       expect(tokens).toMatchObject({
         background: "#fefefe",
-        border: "#dedede",
-        borderSubtle: "#eeeeee",
+        border: "rgba(17, 17, 17, 0.16)",
+        borderSubtle: "rgba(17, 17, 17, 0.08)",
         ink: "#111111",
         muted: "#666666",
-        mono: "Baseline Mono",
         sans: "Baseline Sans",
+        heading: "Baseline Heading",
+        axisPointerWash: "rgba(79, 70, 229, 0.12)",
+        tooltipShadow: "0 8px 24px rgba(0, 0, 0, 0.12)",
         palette: [
           "#110000",
           "#220000",
@@ -58,6 +80,18 @@ describe("chart theme baseline", () => {
           "#770000",
           "#880000",
         ],
+        fontSizeAxis: 11,
+        fontSizeCompact: 10,
+        fontSizeSupporting: 12,
+        fontSizeBody: 13,
+        fontSizeTitle: 17,
+        radiusBar: 6,
+        radiusTooltip: 12,
+        radiusPie: 6,
+        symbolSize: 8,
+        lineWidth: 2.5,
+        emphasisScaleLine: 1.3,
+        emphasisScaleSize: 6,
       });
       expect(theme["textStyle"]).toMatchObject({
         color: "#111111",
@@ -65,6 +99,9 @@ describe("chart theme baseline", () => {
       });
       expect(theme["categoryAxis"]).toMatchObject({
         axisLabel: { fontFamily: "Baseline Sans" },
+      });
+      expect(theme["title"]).toMatchObject({
+        textStyle: { fontFamily: "Baseline Heading", fontSize: 17 },
       });
     } finally {
       globalThis.getComputedStyle = originalGetComputedStyle;
@@ -78,7 +115,7 @@ describe("chart theme baseline", () => {
           type: "text",
           style: {
             text: "No data to display",
-            fontFamily: "var(--font-sans)",
+            fontFamily: CHART_BODY_FONT_ROLE,
           },
         },
       ],
@@ -87,7 +124,7 @@ describe("chart theme baseline", () => {
           label: {
             rich: {
               percent: {
-                fontFamily: "var(--font-sans)",
+                fontFamily: CHART_BODY_FONT_ROLE,
               },
             },
           },
@@ -104,11 +141,11 @@ describe("chart theme baseline", () => {
   it("projects course text colours through profile-generated chart text", () => {
     const option = {
       graphic: [
-        { style: { fill: "var(--color-ink)" } },
-        { style: { fill: "var(--color-text-muted)" } },
+        { style: { fill: CHART_INK_COLOUR_ROLE } },
+        { style: { fill: CHART_MUTED_COLOUR_ROLE } },
       ],
       xAxis: {
-        nameTextStyle: { color: "var(--color-text-muted)" },
+        nameTextStyle: { color: CHART_MUTED_COLOUR_ROLE },
       },
     };
 
@@ -125,28 +162,14 @@ describe("chart theme baseline", () => {
     });
   });
 
-  it("observes only the renderer's nearest course scope for live theme changes", async () => {
-    const outerScope = document.createElement("section");
-    const innerScope = document.createElement("section");
-    const renderer = document.createElement("div");
-    outerScope.className = "sc-course-theme-scope";
-    innerScope.className = "sc-course-theme-scope";
-    innerScope.append(renderer);
-    outerScope.append(innerScope);
-    document.body.append(outerScope);
-    const onChange = vi.fn();
-
-    const disconnect = observeChartThemeScope(renderer, onChange);
-    outerScope.style.setProperty("--sc-course-data-series-1", "#111111");
-    await Promise.resolve();
-    expect(onChange).not.toHaveBeenCalled();
-
-    innerScope.style.setProperty("--sc-course-data-series-1", "#222222");
-    await Promise.resolve();
-    expect(onChange).toHaveBeenCalledOnce();
-
-    disconnect();
-    outerScope.remove();
+  it("sets explicit ECharts naming and restrained non-colour differentiation", () => {
+    expect(applyChartAccessibility({ aria: { enabled: false } }, "Learner confidence")).toEqual({
+      aria: {
+        enabled: true,
+        label: { enabled: true, description: "Learner confidence" },
+        decal: { show: true },
+      },
+    });
   });
 });
 
@@ -300,9 +323,44 @@ describe("chart profile responsive dispatch", () => {
       width: 280,
     });
     const series = (responsive["series"] as Array<Record<string, unknown>>)[0];
-    expect(series).toBeDefined();
-    expect((series?.["labelLine"] as Record<string, unknown>)["show"]).toBe(false);
-    expect((series?.["label"] as Record<string, unknown>)["position"]).toBe("inside");
+    if (!series) throw new Error("Expected a responsive pie series");
+    expect((series["labelLine"] as Record<string, unknown>)["show"]).toBe(false);
+    expect((series["label"] as Record<string, unknown>)["position"]).toBe("inside");
+  });
+
+  it("reserves space and edge-aligns outer pie labels", () => {
+    const option = {
+      series: [
+        {
+          type: "pie",
+          radius: "68%",
+          data: [
+            { name: "Apples", value: 34 },
+            { name: "Bananas", value: 22 },
+            { name: "Cherries", value: 18 },
+            { name: "Dates", value: 11 },
+            { name: "Grapes", value: 15 },
+          ],
+          label: { formatter: "{b}\n{d}%" },
+          labelLine: { length: 12, length2: 8 },
+        },
+      ],
+    };
+    const responsive = applyProfileResponsive(option, "pie", {
+      height: 325,
+      width: 394,
+    });
+    const series = (responsive["series"] as Array<Record<string, unknown>>)[0];
+    if (!series) throw new Error("Expected a responsive pie series");
+
+    expect(series["radius"]).toBeLessThanOrEqual(110);
+    expect(series["label"]).toMatchObject({
+      alignTo: "edge",
+      bleedMargin: 4,
+      distanceToLabelLine: 6,
+      edgeDistance: 16,
+      position: "outside",
+    });
   });
 
   it("returns option unchanged when chartType is missing", () => {

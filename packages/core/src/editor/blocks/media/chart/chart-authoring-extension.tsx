@@ -7,8 +7,8 @@ import "./chart.css";
 
 function ChartAuthoringFallback() {
   return (
-    <figure className="sc-chart-block__figure">
-      <div aria-hidden="true" className="sc-chart-block__fallback" />
+    <figure className="sc-course-chart__figure">
+      <div aria-hidden="true" className="sc-course-chart__fallback" />
     </figure>
   );
 }
@@ -24,6 +24,6 @@ export const ChartAuthoringExtension = createChartNode({
           return { default: mod.ChartBody };
         },
       },
-      className: "sc-chart-block",
+      className: "sc-course-chart",
     }),
 });

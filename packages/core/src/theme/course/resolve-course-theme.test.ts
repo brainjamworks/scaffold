@@ -6,9 +6,23 @@ import {
   COURSE_SEMANTIC_STATES,
   builtInCourseColourSystemRegistry,
   builtInCourseDesignThemeRegistry,
+  createCourseColourSystemRegistry,
   createDefaultPersistedCourseTheme,
   resolveCourseTheme,
+  type CourseColourSystemRevision,
 } from ".";
+import { SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1 } from "./colour-systems/scaffold-indigo/v1";
+
+const COURSE_DATA_SERIES_PROPERTIES = [
+  "--sc-course-data-series-1",
+  "--sc-course-data-series-2",
+  "--sc-course-data-series-3",
+  "--sc-course-data-series-4",
+  "--sc-course-data-series-5",
+  "--sc-course-data-series-6",
+  "--sc-course-data-series-7",
+  "--sc-course-data-series-8",
+] as const;
 
 describe("Course theme resolution", () => {
   it("creates the application-owned exact default references", () => {
@@ -57,8 +71,10 @@ describe("Course theme resolution", () => {
         "--default-font-family": '"Satoshi", sans-serif',
         "--heading-font-family": '"Satoshi", sans-serif',
         "--code-font-family": '"JetBrains Mono Variable", monospace',
+        "--sc-course-data-series-1": SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1.dataSeries[appearance][0],
+        "--sc-course-data-series-8": SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1.dataSeries[appearance][7],
       });
-      expect(Object.keys(result.rootStyle)).toHaveLength(43);
+      expect(Object.keys(result.rootStyle)).toHaveLength(51);
       expect(Object.isFrozen(result)).toBe(true);
       expect(Object.isFrozen(result.design)).toBe(true);
       expect(Object.isFrozen(result.colourSystem)).toBe(true);
@@ -93,9 +109,48 @@ describe("Course theme resolution", () => {
           key === "--default-font-family" ||
           key === "--heading-font-family" ||
           key === "--code-font-family" ||
+          COURSE_DATA_SERIES_PROPERTIES.includes(
+            key as (typeof COURSE_DATA_SERIES_PROPERTIES)[number],
+          ) ||
           key.startsWith("--sc-course-state-"),
       ),
     ).toBe(true);
+  });
+
+  it("projects the selected colour system's data-series palette", () => {
+    const alternate: CourseColourSystemRevision = {
+      ...structuredClone(SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1),
+      id: "alternate-chart-colours",
+      dataSeries: {
+        ...structuredClone(SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1.dataSeries),
+        light: [
+          "#101010",
+          "#202020",
+          "#303030",
+          "#404040",
+          "#505050",
+          "#606060",
+          "#707070",
+          "#808080",
+        ],
+      },
+    };
+    const colourSystems = createCourseColourSystemRegistry([
+      SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1,
+      alternate,
+    ]);
+    const result = resolveCourseTheme({
+      theme: withReferences(undefined, { id: alternate.id, revision: alternate.revision }),
+      appearance: "light",
+      designs: builtInCourseDesignThemeRegistry,
+      colourSystems,
+    });
+
+    expect(result.status).toBe("ready");
+    if (result.status !== "ready") throw new Error("Expected a ready Course theme");
+    expect(
+      COURSE_DATA_SERIES_PROPERTIES.map((property) => result.rootStyle[property]),
+    ).toEqual(alternate.dataSeries.light);
   });
 
   it("returns the exact missing design reference without fallback", () => {

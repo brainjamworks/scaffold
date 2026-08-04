@@ -268,6 +268,7 @@ describe("chart compiler", () => {
       visualMap: {
         min: 48,
         max: 86,
+        calculable: true,
         orient: "horizontal",
       },
     });

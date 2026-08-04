@@ -1,5 +1,9 @@
 import type { ChartBlockData } from "@/schemas/shared";
 
+import {
+  CHART_BODY_FONT_ROLE,
+  CHART_MUTED_COLOUR_ROLE,
+} from "../chart-theme";
 import { findCategoryAxis, isRecord } from "./axis-utils";
 import { withInsidePan } from "./zoom";
 
@@ -49,7 +53,7 @@ export function withAxisName(
     nameGap: isY ? 44 : 28,
     ...(isY ? { nameRotate: 90 } : {}),
     nameTextStyle: {
-      color: "var(--color-text-muted)",
+      color: CHART_MUTED_COLOUR_ROLE,
       fontSize: 11,
       fontWeight: 600,
     },
@@ -195,9 +199,9 @@ function withDensityChip(
         silent: true,
         style: {
           text: `Showing ${visible} of ${total} — scroll`,
-          fontFamily: "var(--font-sans)",
+          fontFamily: CHART_BODY_FONT_ROLE,
           fontSize: 10,
-          fill: "var(--color-text-muted)",
+          fill: CHART_MUTED_COLOUR_ROLE,
         },
       },
     ],

@@ -1,5 +1,6 @@
 import type { ChartBlockData } from "@/schemas/shared";
 
+import { CHART_BODY_FONT_ROLE } from "../chart-theme";
 import { isRecord } from "./axis-utils";
 import { chartHeaderReserve } from "./shared";
 
@@ -9,11 +10,14 @@ import { chartHeaderReserve } from "./shared";
  * compile functions.
  */
 
-const CHART_BODY_FONT = "var(--font-sans)";
 /** Minimum segment percent that still earns an in-circle label. */
 const SMALL_SEGMENT_PERCENT_CUTOFF = 8;
 /** Below this rendered radius the pie can't accommodate any labels. */
 const NO_LABEL_RADIUS_THRESHOLD = 44;
+/** Horizontal room reserved on each side for an outer label and leader line. */
+const OUTER_LABEL_GUTTER = 72;
+/** Keep edge-aligned outer labels inside the canvas padding. */
+const OUTER_LABEL_EDGE_DISTANCE = 16;
 /** Reserve when legend sits at the bottom (single-row scroll). */
 const LEGEND_BOTTOM_RESERVE = 32;
 /** Scroll legend bottom inset within its reserve band. */
@@ -28,17 +32,23 @@ export function defaultPieCenter(chart: ChartBlockData): [string, string] {
 }
 
 /**
- * Full label set with brand-mono percentage chip — used at wider
+ * Full label set with a compact percentage line — used at wider
  * canvases where the leader lines have room to breathe.
  */
 export function pieRichLabel(): Record<string, unknown> {
   return {
+    show: true,
+    position: "outside",
+    alignTo: "edge",
+    edgeDistance: OUTER_LABEL_EDGE_DISTANCE,
+    bleedMargin: 4,
+    distanceToLabelLine: 6,
     formatter: "{name|{b}}\n{percent|{d}%}",
     lineHeight: 16,
     rich: {
       name: { fontSize: 12, fontWeight: 500, color: "inherit" },
       percent: {
-        fontFamily: CHART_BODY_FONT,
+        fontFamily: CHART_BODY_FONT_ROLE,
         fontSize: 11,
         fontWeight: 500,
         color: "inherit",
@@ -78,8 +88,18 @@ export function pieResponsive(
   const bottomReserve = hasLegend ? LEGEND_BOTTOM_RESERVE : 0;
   const availableHeight = Math.max(0, viewport.height - headerTop - bottomReserve);
   const availableWidth = Math.max(0, viewport.width - 32);
-  const diameter = Math.max(0, Math.min(availableHeight, availableWidth) - 8);
-  const radius = Math.max(0, diameter / 2);
+  const fullDiameter = Math.max(0, Math.min(availableHeight, availableWidth) - 8);
+  const fullRadius = Math.max(0, fullDiameter / 2);
+  const outerLabelDiameter = Math.max(
+    0,
+    Math.min(availableHeight, availableWidth - OUTER_LABEL_GUTTER * 2) - 8,
+  );
+  const outerLabelRadius = Math.max(0, outerLabelDiameter / 2);
+  const useOuterLabels =
+    !hasLegend &&
+    outerLabelRadius >= NO_LABEL_RADIUS_THRESHOLD &&
+    viewport.width >= 320;
+  const radius = useOuterLabels ? outerLabelRadius : fullRadius;
   const centerX = Math.round(viewport.width / 2);
   const centerY = Math.round(headerTop + availableHeight / 2);
 
@@ -105,8 +125,6 @@ export function pieResponsive(
     legend: legendOption,
     series: (Array.isArray(option["series"]) ? option["series"] : []).map((entry) => {
       if (!isRecord(entry) || entry["type"] !== "pie") return entry;
-      const useOuterLabels =
-        !hasLegend && radius >= NO_LABEL_RADIUS_THRESHOLD && viewport.width >= 320;
       return {
         ...entry,
         radius: radiusOption,
@@ -122,7 +140,7 @@ export function pieResponsive(
  * Label strategy:
  * - Cramped radius (<44px) → no labels; legend + tooltip carry meaning.
  * - Outer rich labels only when there's no legend AND the canvas is
- *   wide enough for leader-line breathing room. With a legend on,
+ *   wide enough to reserve a label gutter on both sides. With a legend on,
  *   names are already covered there and outer labels punch through
  *   the bottom legend band.
  * - Otherwise inside %-only for segments ≥8%.
@@ -138,7 +156,7 @@ function labelForState(radius: number, useOuterLabels: boolean): Record<string, 
     show: true,
     position: "inside",
     color: "#fff",
-    fontFamily: CHART_BODY_FONT,
+    fontFamily: CHART_BODY_FONT_ROLE,
     fontSize: 11,
     fontWeight: 600,
     formatter: (params: { percent?: number }) =>

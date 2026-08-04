@@ -18,10 +18,12 @@ export type CourseThemeFontCssProperty =
   | "--default-font-family"
   | "--heading-font-family"
   | "--code-font-family";
+export type CourseDataSeriesCssProperty =
+  `--sc-course-data-series-${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8}`;
 export type CourseThemeCssProperty =
   | CourseThemeFontCssProperty
-  | CourseSemanticStateCssProperty
-  | CourseApprovedAuthorOverrideProperty;
+  | CourseDataSeriesCssProperty
+  | CourseSemanticStateCssProperty;
 export type CourseThemeRootStyle = Readonly<Record<CourseThemeCssProperty, string>>;
 
 export type ResolvedCourseRadixThemeProps = Readonly<
@@ -75,6 +77,7 @@ export function resolveCourseTheme(input: ResolveCourseThemeInput): ResolveCours
     "--default-font-family": fontFamily(design.typography.defaultFontId),
     "--heading-font-family": fontFamily(design.typography.headingFontId),
     "--code-font-family": fontFamily(design.typography.codeFontId),
+    ...createCourseDataSeriesProperties(colourSystem, input.appearance),
     ...createCourseSemanticStateProperties(colourSystem),
   }) satisfies CourseThemeRootStyle;
 
@@ -86,6 +89,23 @@ export function resolveCourseTheme(input: ResolveCourseThemeInput): ResolveCours
     radixThemeProps,
     rootClassNames,
     rootStyle,
+  });
+}
+
+function createCourseDataSeriesProperties(
+  colourSystem: CourseColourSystemRevision,
+  appearance: ScaffoldColorMode,
+): Readonly<Record<CourseDataSeriesCssProperty, string>> {
+  const palette = colourSystem.dataSeries[appearance];
+  return Object.freeze({
+    "--sc-course-data-series-1": palette[0],
+    "--sc-course-data-series-2": palette[1],
+    "--sc-course-data-series-3": palette[2],
+    "--sc-course-data-series-4": palette[3],
+    "--sc-course-data-series-5": palette[4],
+    "--sc-course-data-series-6": palette[5],
+    "--sc-course-data-series-7": palette[6],
+    "--sc-course-data-series-8": palette[7],
   });
 }
 

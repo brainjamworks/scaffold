@@ -21,6 +21,20 @@ export type CourseSemanticScaleAssignments = Record<
   CourseAssignedSemanticState,
   RadixColourScaleName
 >;
+export type CourseDataSeriesPalette = readonly [
+  string,
+  string,
+  string,
+  string,
+  string,
+  string,
+  string,
+  string,
+];
+export type CourseDataSeriesPalettes = Readonly<{
+  light: CourseDataSeriesPalette;
+  dark: CourseDataSeriesPalette;
+}>;
 
 export type CourseColourSystemRevision = {
   id: string;
@@ -31,6 +45,7 @@ export type CourseColourSystemRevision = {
     accentColor: RadixAccentColour;
     grayColor: RadixGrayColour;
   };
+  dataSeries: CourseDataSeriesPalettes;
   semantics: CourseSemanticScaleAssignments;
 };
 
@@ -124,6 +139,22 @@ function validateDefinition(definition: CourseColourSystemRevision): void {
   }
   if (!SUPPORTED_GRAY_COLOURS.has(definition.radix.grayColor)) {
     throw new Error(`Unsupported Radix gray colour: ${definition.radix.grayColor}`);
+  }
+  const dataSeriesKeys = Object.keys(definition.dataSeries);
+  if (
+    dataSeriesKeys.length !== 2 ||
+    !dataSeriesKeys.includes("light") ||
+    !dataSeriesKeys.includes("dark")
+  ) {
+    throw new Error("Course colour-system data-series palettes must define light and dark");
+  }
+  for (const appearance of ["light", "dark"] as const) {
+    const palette = definition.dataSeries[appearance];
+    if (palette.length !== 8 || palette.some((colour) => !isNonEmpty(colour))) {
+      throw new Error(
+        `Course colour-system ${appearance} data-series palette must contain eight colours`,
+      );
+    }
   }
 
   const semanticKeys = Object.keys(definition.semantics);

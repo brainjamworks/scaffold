@@ -7,8 +7,8 @@ import "./chart.css";
 
 function ChartRuntimeFallback() {
   return (
-    <figure className="sc-chart-block__figure">
-      <div aria-hidden="true" className="sc-chart-block__fallback" />
+    <figure className="sc-course-chart__figure">
+      <div aria-hidden="true" className="sc-course-chart__fallback" />
     </figure>
   );
 }
@@ -22,6 +22,6 @@ export const ChartRuntimeExtension = createChartNode({
         const mod = await import("./chart-body");
         return { default: mod.ChartBody };
       },
-      wrapperClassName: "sc-chart-block",
+      wrapperClassName: "sc-course-chart",
     }),
 });

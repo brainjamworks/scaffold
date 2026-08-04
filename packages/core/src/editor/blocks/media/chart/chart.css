@@ -1,47 +1,37 @@
 @layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
 
 @layer sc-components {
-  .sc-chart-block {
+  .sc-course-chart {
     position: relative;
+    min-width: 0;
+    min-height: 0;
+    container: sc-course-chart / inline-size;
   }
 
-  .sc-chart-block__figure {
+  .sc-course-chart__figure {
     display: grid;
+    min-width: 0;
+    min-height: 0;
     height: 100%;
     margin: 0;
     grid-template-rows: minmax(0, 1fr) auto;
   }
 
-  .sc-chart-block__renderer {
+  .sc-course-chart__visual {
+    width: 100%;
     height: 100%;
+    min-width: 0;
     min-height: 0;
   }
 
-  .sc-chart-renderer {
-    width: 100%;
-    height: 100%;
-  }
-
-  .sc-chart-renderer__error {
-    margin: 0.5rem 0 0;
-    color: var(--color-error-text);
-    font-size: 0.875rem;
-    line-height: 1.25rem;
-  }
-
-  .sc-chart-block__fallback {
+  .sc-course-chart__fallback {
     min-height: 16rem;
-    border: var(--sc-border-width) dashed var(--color-border);
-    border-radius: var(--radius-md);
-    background: var(--color-canvas);
   }
 
-  .sc-chart-block__caption {
-    padding-top: 0.5rem;
-    color: var(--color-text-secondary);
-    font-size: 0.875rem;
-    line-height: 1.375;
-    text-align: center;
+  .sc-course-chart__caption,
+  .sc-course-chart__error {
+    min-width: 0;
+    overflow-wrap: anywhere;
     text-wrap: pretty;
   }
 }

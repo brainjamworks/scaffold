@@ -13,9 +13,16 @@ import { CanvasRenderer } from "echarts/renderers";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { ChartType } from "@/schemas/shared";
-import { cn } from "@/lib/cn";
+import { useCourseTheme } from "@/theme/course/CourseThemeProvider";
 
-import { buildChartTheme, readChartTokens, type ChartTokens } from "./chart-theme";
+import {
+  buildChartTheme,
+  CHART_BODY_FONT_ROLE,
+  CHART_INK_COLOUR_ROLE,
+  CHART_MUTED_COLOUR_ROLE,
+  readChartTokens,
+  type ChartTokens,
+} from "./chart-theme";
 import { chartProfiles } from "./chart-profiles";
 import type { ChartViewport } from "./chart-profiles/types";
 
@@ -39,7 +46,6 @@ interface ChartRendererProps {
   option: Record<string, unknown>;
   ariaLabel: string;
   chartType?: ChartType | undefined;
-  className?: string;
 }
 
 /** Floor below which ECharts struggles to render axes / pie radius cleanly. */
@@ -51,7 +57,15 @@ const MIN_CHART_HEIGHT = 120;
  * layout decisions live on each profile's `responsive()` method, not
  * here — see `chart-profiles/*.ts`. The renderer only dispatches.
  */
-export function ChartRenderer({ option, ariaLabel, chartType, className }: ChartRendererProps) {
+export function ChartRenderer({ option, ariaLabel, chartType }: ChartRendererProps) {
+  const courseTheme = useCourseTheme();
+  const courseThemeRevision = [
+    courseTheme.design.id,
+    courseTheme.design.revision,
+    courseTheme.colourSystem.id,
+    courseTheme.colourSystem.revision,
+    courseTheme.appearance,
+  ].join(":");
   const containerRef = useRef<HTMLDivElement | null>(null);
   const instanceRef = useRef<ReturnType<typeof init> | null>(null);
   const [viewport, setViewport] = useState<ChartViewport | null>(null);
@@ -60,6 +74,7 @@ export function ChartRenderer({ option, ariaLabel, chartType, className }: Chart
     [option, chartType, viewport],
   );
   const latestOptionRef = useRef(responsiveOption);
+  const latestAriaLabelRef = useRef(ariaLabel);
   const errorFrameRef = useRef<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -76,6 +91,9 @@ export function ChartRenderer({ option, ariaLabel, chartType, className }: Chart
   useEffect(() => {
     latestOptionRef.current = responsiveOption;
   }, [responsiveOption]);
+  useEffect(() => {
+    latestAriaLabelRef.current = ariaLabel;
+  }, [ariaLabel]);
 
   useEffect(
     () => () => {
@@ -92,7 +110,6 @@ export function ChartRenderer({ option, ariaLabel, chartType, className }: Chart
 
     let disposed = false;
     let resizeObserver: ResizeObserver | null = null;
-    let disconnectThemeObserver: (() => void) | null = null;
     let frame = 0;
 
     const publishViewport = () => {
@@ -107,22 +124,22 @@ export function ChartRenderer({ option, ariaLabel, chartType, className }: Chart
     };
 
     const mountChart = () => {
-      const tokens = readChartTokens(container);
-      const instance = init(container, buildChartTheme(tokens), {
-        renderer: "canvas",
-      });
-      instanceRef.current = instance;
+      let instance: ReturnType<typeof init> | null = null;
 
       try {
+        const tokens = readChartTokens(container);
+        instance = init(container, buildChartTheme(tokens), {
+          renderer: "canvas",
+        });
+        instanceRef.current = instance;
         instance.setOption(
-          applyChartCourseColours(
-            applyChartCourseTypography(latestOptionRef.current, tokens.sans),
-            tokens,
-          ),
+          prepareChartOption(latestOptionRef.current, tokens, latestAriaLabelRef.current),
           { notMerge: true },
         );
         publishRenderError(null);
       } catch {
+        instance?.dispose();
+        instanceRef.current = null;
         publishRenderError("Chart could not be rendered.");
       }
 
@@ -147,41 +164,35 @@ export function ChartRenderer({ option, ariaLabel, chartType, className }: Chart
               instanceRef.current?.resize();
             });
       resizeObserver?.observe(container);
-      disconnectThemeObserver = observeChartThemeScope(container, () => {
-        if (disposed) return;
-        instanceRef.current?.dispose();
-        instanceRef.current = null;
-        mountChart();
-      });
     };
 
-    mountWhenMeasured();
+    frame = requestAnimationFrame(mountWhenMeasured);
 
     return () => {
       disposed = true;
       cancelAnimationFrame(frame);
       resizeObserver?.disconnect();
-      disconnectThemeObserver?.();
       instanceRef.current?.dispose();
       instanceRef.current = null;
     };
-  }, [publishRenderError]);
+  }, [courseThemeRevision, publishRenderError]);
 
   useEffect(() => {
     const instance = instanceRef.current;
-    if (!instance) return;
+    const container = containerRef.current;
+    if (!instance || !container) return;
 
     try {
-      const tokens = readChartTokens(containerRef.current);
+      const tokens = readChartTokens(container);
       instance.setOption(
-        applyChartCourseColours(applyChartCourseTypography(responsiveOption, tokens.sans), tokens),
+        prepareChartOption(responsiveOption, tokens, ariaLabel),
         { notMerge: true },
       );
       publishRenderError(null);
     } catch {
       publishRenderError("Chart could not be rendered.");
     }
-  }, [responsiveOption, publishRenderError]);
+  }, [ariaLabel, responsiveOption, publishRenderError]);
 
   return (
     <>
@@ -190,26 +201,15 @@ export function ChartRenderer({ option, ariaLabel, chartType, className }: Chart
         role="img"
         aria-label={ariaLabel}
         style={{ height: "100%", minHeight: `${MIN_CHART_HEIGHT}px` }}
-        className={cn("sc-chart-renderer", className)}
+        className="sc-course-chart__visual"
       />
       {error && (
-        <p role="status" className="sc-chart-renderer__error">
+        <p role="status" className="sc-course-chart__error">
           {error}
         </p>
       )}
     </>
   );
-}
-
-export function observeChartThemeScope(container: Element, onChange: () => void): () => void {
-  if (typeof MutationObserver === "undefined") return () => {};
-  const scope = container.closest(".sc-course-theme-scope") ?? container;
-  const observer = new MutationObserver(onChange);
-  observer.observe(scope, {
-    attributes: true,
-    attributeFilter: ["style", "data-course-color-mode", "data-effective-course-theme"],
-  });
-  return () => observer.disconnect();
 }
 
 /**
@@ -243,6 +243,35 @@ export function applyChartCourseColours(
   return replaceChartColourRoles(option, colours) as Record<string, unknown>;
 }
 
+export function applyChartAccessibility(
+  option: Record<string, unknown>,
+  accessibleName: string,
+): Record<string, unknown> {
+  const aria = isRecord(option["aria"]) ? option["aria"] : {};
+  const label = isRecord(aria["label"]) ? aria["label"] : {};
+  const decal = isRecord(aria["decal"]) ? aria["decal"] : {};
+  return {
+    ...option,
+    aria: {
+      ...aria,
+      enabled: true,
+      label: { ...label, enabled: true, description: accessibleName },
+      decal: { ...decal, show: true },
+    },
+  };
+}
+
+function prepareChartOption(
+  option: Record<string, unknown>,
+  tokens: ChartTokens,
+  accessibleName: string,
+): Record<string, unknown> {
+  return applyChartAccessibility(
+    applyChartCourseColours(applyChartCourseTypography(option, tokens.sans), tokens),
+    accessibleName,
+  );
+}
+
 function replaceChartFontRoles(value: unknown, bodyFont: string): unknown {
   if (Array.isArray(value)) {
     return value.map((entry) => replaceChartFontRoles(entry, bodyFont));
@@ -252,7 +281,7 @@ function replaceChartFontRoles(value: unknown, bodyFont: string): unknown {
   return Object.fromEntries(
     Object.entries(value).map(([key, entry]) => [
       key,
-      key === "fontFamily" && entry === "var(--font-sans)"
+      key === "fontFamily" && entry === CHART_BODY_FONT_ROLE
         ? bodyFont
         : replaceChartFontRoles(entry, bodyFont),
     ]),
@@ -266,11 +295,15 @@ function replaceChartColourRoles(
   if (Array.isArray(value)) {
     return value.map((entry) => replaceChartColourRoles(entry, colours));
   }
-  if (value === "var(--color-ink)") return colours.ink;
-  if (value === "var(--color-text-muted)") return colours.muted;
+  if (value === CHART_INK_COLOUR_ROLE) return colours.ink;
+  if (value === CHART_MUTED_COLOUR_ROLE) return colours.muted;
   if (value === null || typeof value !== "object") return value;
 
   return Object.fromEntries(
     Object.entries(value).map(([key, entry]) => [key, replaceChartColourRoles(entry, colours)]),
   );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }

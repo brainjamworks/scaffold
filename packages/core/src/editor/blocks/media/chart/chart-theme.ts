@@ -20,11 +20,14 @@ export interface ChartTokens {
 
   // Typography
   sans: string;
-  mono: string;
+  heading: string;
+  fontSizeAxis: number;
+  fontSizeCompact: number;
+  fontSizeSupporting: number;
+  fontSizeBody: number;
+  fontSizeTitle: number;
 
-  // Series palette — categorical-encoding ramp. Triple-in-reserve
-  // anchors slots 1-3 (navy / coral / teal); rules about chrome don't
-  // apply to data-viz categorical encoding.
+  // Series palette — supplied by the selected Course colour system.
   palette: readonly string[];
 
   // Geometry
@@ -39,46 +42,48 @@ export interface ChartTokens {
   emphasisScaleSize: number;
 }
 
-const DEFAULT_TOKENS: ChartTokens = {
-  ink: "#18181b",
-  muted: "#71717a",
-  border: "#e4e4e7",
-  borderSubtle: "#f4f4f5",
-  background: "#ffffff",
-  axisPointerWash: "rgba(33, 43, 88, 0.06)",
-  tooltipShadow: "0 8px 24px -4px rgb(0 0 0 / 0.12), 0 2px 6px -2px rgb(0 0 0 / 0.08)",
-  sans: "Poppins, ui-sans-serif, system-ui, sans-serif",
-  mono: "'JetBrains Mono', ui-monospace, SFMono-Regular, monospace",
-  palette: ["#161D77", "#F43A57", "#00BA92", "#5b6790", "#f47398", "#33bda5", "#52525b", "#a1a1aa"],
-  radiusBar: 6,
-  radiusTooltip: 12,
-  radiusPie: 6,
-  symbolSize: 8,
-  lineWidth: 2.5,
-  emphasisScaleLine: 1.3,
-  emphasisScaleSize: 6,
-};
+export const CHART_BODY_FONT_ROLE = "__sc_course_chart_body_font__";
+export const CHART_INK_COLOUR_ROLE = "__sc_course_chart_ink__";
+export const CHART_MUTED_COLOUR_ROLE = "__sc_course_chart_muted__";
 
-export function readChartTokens(scope: Element | null): ChartTokens {
-  if (!scope || typeof getComputedStyle !== "function") return DEFAULT_TOKENS;
+export function readChartTokens(scope: Element): ChartTokens {
   const style = getComputedStyle(scope);
-  const read = (name: string, fallback: string) => {
+  const read = (name: string): string => {
     const value = style.getPropertyValue(name).trim();
-    return value || fallback;
+    if (!value) throw new Error(`Missing Course Chart token: ${name}`);
+    return value;
   };
-  const palette = DEFAULT_TOKENS.palette.map((fallback, index) =>
-    read(`--sc-course-data-series-${index + 1}`, fallback),
+  const readNumber = (name: string): number => {
+    const value = Number(read(name));
+    if (!Number.isFinite(value)) throw new Error(`Invalid Course Chart number: ${name}`);
+    return value;
+  };
+  const palette = Array.from({ length: 8 }, (_, index) =>
+    read(`--sc-course-data-series-${index + 1}`),
   );
   return {
-    ...DEFAULT_TOKENS,
-    ink: read("--color-ink", DEFAULT_TOKENS.ink),
-    muted: read("--color-text-muted", DEFAULT_TOKENS.muted),
-    border: read("--color-border", DEFAULT_TOKENS.border),
-    borderSubtle: read("--color-border-subtle", DEFAULT_TOKENS.borderSubtle),
-    background: read("--color-background", DEFAULT_TOKENS.background),
-    sans: read("--font-sans", DEFAULT_TOKENS.sans),
-    mono: read("--font-mono", DEFAULT_TOKENS.mono),
+    ink: read("--gray-12"),
+    muted: read("--gray-11"),
+    border: read("--gray-a6"),
+    borderSubtle: read("--gray-a4"),
+    background: read("--color-panel-solid"),
+    axisPointerWash: read("--accent-a3"),
+    tooltipShadow: read("--shadow-4"),
+    sans: read("--default-font-family"),
+    heading: read("--heading-font-family"),
+    fontSizeAxis: readNumber("--sc-course-chart-axis-font-size"),
+    fontSizeCompact: readNumber("--sc-course-chart-compact-font-size"),
+    fontSizeSupporting: readNumber("--sc-course-chart-supporting-font-size"),
+    fontSizeBody: readNumber("--sc-course-chart-body-font-size"),
+    fontSizeTitle: readNumber("--sc-course-chart-title-font-size"),
     palette,
+    radiusBar: readNumber("--sc-course-chart-bar-radius"),
+    radiusTooltip: readNumber("--sc-course-chart-tooltip-radius"),
+    radiusPie: readNumber("--sc-course-chart-pie-radius"),
+    symbolSize: readNumber("--sc-course-chart-symbol-size"),
+    lineWidth: readNumber("--sc-course-chart-line-width"),
+    emphasisScaleLine: readNumber("--sc-course-chart-line-emphasis-scale"),
+    emphasisScaleSize: readNumber("--sc-course-chart-series-emphasis-size"),
   };
 }
 
@@ -92,6 +97,12 @@ export function buildChartTheme(tokens: ChartTokens): Record<string, unknown> {
     axisPointerWash,
     tooltipShadow,
     sans,
+    heading,
+    fontSizeAxis,
+    fontSizeCompact,
+    fontSizeSupporting,
+    fontSizeBody,
+    fontSizeTitle,
     palette,
     radiusBar,
     radiusTooltip,
@@ -103,14 +114,14 @@ export function buildChartTheme(tokens: ChartTokens): Record<string, unknown> {
   } = tokens;
 
   const axisShared = {
-    axisLabel: { color: muted, fontFamily: sans, fontSize: 11 },
+    axisLabel: { color: muted, fontFamily: sans, fontSize: fontSizeAxis },
     axisLine: { show: false, lineStyle: { color: border } },
     axisTick: { show: false, lineStyle: { color: border } },
     nameLocation: "middle" as const,
     nameTextStyle: {
       color: muted,
       fontFamily: sans,
-      fontSize: 11,
+      fontSize: fontSizeAxis,
       fontWeight: 600,
     },
     splitLine: { lineStyle: { color: borderSubtle, type: "dashed" as const } },
@@ -119,19 +130,19 @@ export function buildChartTheme(tokens: ChartTokens): Record<string, unknown> {
   return {
     color: [...palette],
     backgroundColor: "transparent",
-    textStyle: { color: ink, fontFamily: sans, fontSize: 13 },
+    textStyle: { color: ink, fontFamily: sans, fontSize: fontSizeBody },
     title: {
       left: "center",
       textStyle: {
         color: ink,
-        fontFamily: sans,
-        fontSize: 17,
+        fontFamily: heading,
+        fontSize: fontSizeTitle,
         fontWeight: 700,
       },
       subtextStyle: {
         color: muted,
         fontFamily: sans,
-        fontSize: 12,
+        fontSize: fontSizeSupporting,
         fontWeight: 500,
       },
     },
@@ -143,7 +154,7 @@ export function buildChartTheme(tokens: ChartTokens): Record<string, unknown> {
       textStyle: {
         color: muted,
         fontFamily: sans,
-        fontSize: 12,
+        fontSize: fontSizeSupporting,
         fontWeight: 500,
       },
     },
@@ -152,7 +163,7 @@ export function buildChartTheme(tokens: ChartTokens): Record<string, unknown> {
       borderColor: border,
       borderWidth: 1,
       padding: 12,
-      textStyle: { color: ink, fontFamily: sans, fontSize: 12 },
+      textStyle: { color: ink, fontFamily: sans, fontSize: fontSizeSupporting },
       extraCssText: [
         `border-radius: ${radiusTooltip}px`,
         `box-shadow: ${tooltipShadow}`,
@@ -197,7 +208,7 @@ export function buildChartTheme(tokens: ChartTokens): Record<string, unknown> {
         borderRadius: radiusPie,
         borderWidth: 3,
       },
-      label: { fontFamily: sans, fontSize: 12, color: ink },
+      label: { fontFamily: sans, fontSize: fontSizeSupporting, color: ink },
       emphasis: {
         focus: "self" as const,
         scale: true,
@@ -221,9 +232,7 @@ export function buildChartTheme(tokens: ChartTokens): Record<string, unknown> {
     visualMap: {
       itemWidth: 12,
       itemHeight: 96,
-      // Numbers on the visualMap are tabular values, not labels —
-      // use mono so the digits align across hover and resize.
-      textStyle: { color: muted, fontFamily: sans, fontSize: 11 },
+      textStyle: { color: muted, fontFamily: sans, fontSize: fontSizeAxis },
       inRange: { color: [background, palette[0]] },
       handleStyle: { color: palette[0], borderColor: background },
       indicatorStyle: { color: palette[0] },
@@ -256,7 +265,7 @@ export function buildChartTheme(tokens: ChartTokens): Record<string, unknown> {
           lineStyle: { color: palette[0], width: 1 },
           areaStyle: { color: `${palette[0]}1a` },
         },
-        textStyle: { color: muted, fontFamily: sans, fontSize: 10 },
+        textStyle: { color: muted, fontFamily: sans, fontSize: fontSizeCompact },
       },
       { type: "inside" },
     ],

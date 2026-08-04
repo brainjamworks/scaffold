@@ -14,37 +14,40 @@ export interface ChartProps {
 
 export function Chart({ chart, showCaption }: ChartProps) {
   const compiled = useMemo(() => (chart ? compileChart(chart) : null), [chart]);
+  const accessibleName = chart
+    ? chart.caption.trim() || chart.title?.trim() || "Chart"
+    : "Chart";
 
   return (
-    <figure className="sc-chart-block__figure">
+    <figure className="sc-course-chart__figure">
       {compiled ? (
         <>
           <ChartRenderer
             option={compiled.option}
-            ariaLabel={chart?.caption ?? ""}
+            ariaLabel={accessibleName}
             chartType={chart?.chartType}
-            className="sc-chart-block__renderer"
           />
-          <ChartDataTable table={compiled.table} />
+          <ChartDataTable accessibleName={accessibleName} table={compiled.table} />
         </>
       ) : (
-        <div aria-hidden="true" className="sc-chart-block__fallback" />
+        <div aria-hidden="true" className="sc-course-chart__fallback" />
       )}
       {showCaption && chart?.caption && chart.caption !== chart.title && (
-        <figcaption className="sc-chart-block__caption">{chart.caption}</figcaption>
+        <figcaption className="sc-course-chart__caption">{chart.caption}</figcaption>
       )}
     </figure>
   );
 }
 
 interface ChartDataTableProps {
+  accessibleName: string;
   table: ReturnType<typeof compileChart>["table"];
 }
 
-function ChartDataTable({ table }: ChartDataTableProps) {
+function ChartDataTable({ accessibleName, table }: ChartDataTableProps) {
   return (
     <div className="sc-sr-only">
-      <table aria-label={`${table.caption} data table`}>
+      <table aria-label={`${accessibleName} data table`}>
         <thead>
           <tr>
             {table.columns.map((column) => (

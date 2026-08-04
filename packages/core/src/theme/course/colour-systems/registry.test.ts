@@ -15,6 +15,10 @@ describe("Course colour-system registry", () => {
       label: "Scaffold Indigo",
       description: expect.any(String),
       radix: { accentColor: "indigo", grayColor: "slate" },
+      dataSeries: {
+        light: expect.any(Array),
+        dark: expect.any(Array),
+      },
       semantics: {
         info: "blue",
         warning: "amber",
@@ -28,6 +32,11 @@ describe("Course colour-system registry", () => {
     expect(SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1.description.length).toBeGreaterThan(0);
     expect(Object.isFrozen(SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1)).toBe(true);
     expect(Object.isFrozen(SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1.radix)).toBe(true);
+    expect(SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1.dataSeries.light).toHaveLength(8);
+    expect(SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1.dataSeries.dark).toHaveLength(8);
+    expect(Object.isFrozen(SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1.dataSeries)).toBe(true);
+    expect(Object.isFrozen(SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1.dataSeries.light)).toBe(true);
+    expect(Object.isFrozen(SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1.dataSeries.dark)).toBe(true);
     expect(Object.isFrozen(SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1.semantics)).toBe(true);
   });
 
@@ -81,6 +90,16 @@ describe("Course colour-system registry", () => {
     definition.semantics.error = "#cc0000" as CourseColourSystemRevision["semantics"]["error"];
 
     expect(() => createCourseColourSystemRegistry([definition])).toThrow(/semantic/i);
+  });
+
+  it("rejects incomplete or empty data-series palettes", () => {
+    const incomplete = cloneDefinition(SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1);
+    (incomplete.dataSeries.light as unknown as string[]).pop();
+    const empty = cloneDefinition(SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1);
+    (empty.dataSeries.dark as unknown as string[])[3] = "";
+
+    expect(() => createCourseColourSystemRegistry([incomplete])).toThrow(/data.series/i);
+    expect(() => createCourseColourSystemRegistry([empty])).toThrow(/data.series/i);
   });
 
   it("rejects malformed definitions", () => {
