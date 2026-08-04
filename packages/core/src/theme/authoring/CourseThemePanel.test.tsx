@@ -201,9 +201,7 @@ describe("CourseThemePanel", () => {
     expect(status).toHaveTextContent("Saved design missing-design@7 is unavailable.");
     expect(status).toHaveTextContent("Saved colour system missing-colours@3 is unavailable.");
     expect(
-      screen
-        .getAllByRole("radio")
-        .every((option) => option.getAttribute("data-state") !== "on"),
+      screen.getAllByRole("radio").every((option) => option.getAttribute("data-state") !== "on"),
     ).toBe(true);
 
     await user.click(screen.getByRole("radio", { name: "Use Scaffold Editorial design" }));
@@ -285,15 +283,145 @@ describe("CourseThemePanel", () => {
     expect(screen.getByRole("button", { name: "Open course theme" })).toBeDisabled();
   });
 
-  it("contains no arbitrary colour or provisional non-colour controls", async () => {
+  it("shows effective inherited typography values from registered options", async () => {
+    const user = userEvent.setup();
+    render(<PanelHarness editor={createEditor()} />);
+    await user.click(screen.getByRole("button", { name: "Open course theme" }));
+
+    const panel = screen.getByRole("dialog", { name: "Course theme" });
+    const typography = within(panel).getByRole("region", { name: "Typography" });
+    expect(within(typography).getByRole("combobox", { name: "Body font" })).toHaveTextContent(
+      "Satoshi",
+    );
+    expect(within(typography).getByRole("combobox", { name: "Heading font" })).toHaveTextContent(
+      "Satoshi",
+    );
+    expect(within(typography).getByRole("combobox", { name: "Code font" })).toHaveTextContent(
+      "JetBrains Mono",
+    );
+    expect(within(typography).getByRole("combobox", { name: "Body weight" })).toHaveTextContent(
+      "400",
+    );
+    expect(within(typography).getByRole("combobox", { name: "Heading weight" })).toHaveTextContent(
+      "600",
+    );
+    expect(within(typography).getAllByText("Inherited")).toHaveLength(5);
+    expect(within(typography).getAllByRole("button", { name: /^Use inherited / })).toHaveLength(5);
+    for (const reset of within(typography).getAllByRole("button", { name: /^Use inherited / })) {
+      expect(reset).toBeDisabled();
+    }
+
+    const bodyFont = within(typography).getByRole("combobox", { name: "Body font" });
+    await user.click(bodyFont);
+    expect(screen.queryByRole("option", { name: "JetBrains Mono" })).toBeNull();
+    await user.keyboard("{Escape}");
+    const codeFont = within(typography).getByRole("combobox", { name: "Code font" });
+    await user.click(codeFont);
+    expect(screen.queryByRole("option", { name: "Satoshi" })).toBeNull();
+    await user.keyboard("{Escape}");
+    expect(within(typography).queryByRole("button", { name: /apply|save/i })).toBeNull();
+  });
+
+  it("writes each typography choice immediately and reports the live theme", async () => {
+    const user = userEvent.setup();
+    const editor = createEditor();
+    const onThemeChange = vi.fn();
+    render(<PanelHarness editor={editor} onThemeChange={onThemeChange} />);
+    await user.click(screen.getByRole("button", { name: "Open course theme" }));
+
+    await chooseSelectOption(user, "Body font", "Poppins");
+    await chooseSelectOption(user, "Heading font", "Source Serif 4");
+    await chooseSelectOption(user, "Body weight", "500");
+    await chooseSelectOption(user, "Heading weight", "700");
+
+    expect(readTheme(editor).overrides).toEqual({
+      typography: {
+        defaultFontId: "scaffold-poppins",
+        headingFontId: "scaffold-source-serif-4",
+        bodyWeight: 500,
+        headingWeight: 700,
+      },
+    });
+    expect(onThemeChange).toHaveBeenLastCalledWith(readTheme(editor));
+    expect(screen.getAllByText("Custom")).toHaveLength(4);
+  });
+
+  it("resets only its associated sparse typography field", async () => {
+    const user = userEvent.setup();
+    const editor = createEditor({
+      ...createDefaultPersistedCourseTheme(),
+      overrides: {
+        typography: {
+          defaultFontId: "scaffold-poppins",
+          headingFontId: "scaffold-source-serif-4",
+          bodyWeight: 500,
+        },
+      },
+    });
+    render(<PanelHarness editor={editor} />);
+    await user.click(screen.getByRole("button", { name: "Open course theme" }));
+
+    await user.click(screen.getByRole("button", { name: "Use inherited body font" }));
+
+    expect(readTheme(editor).overrides).toEqual({
+      typography: { headingFontId: "scaffold-source-serif-4", bodyWeight: 500 },
+    });
+    expect(screen.getByRole("combobox", { name: "Body font" })).toHaveTextContent("Satoshi");
+    expect(screen.getByRole("button", { name: "Use inherited body font" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Use inherited heading font" })).toBeEnabled();
+  });
+
+  it("resynchronizes external typography values without dispatching a transaction", async () => {
+    const user = userEvent.setup();
+    const editor = createEditor();
+    const onTransaction = vi.fn();
+    editor.on("transaction", onTransaction);
+    const defaults = createDefaultPersistedCourseTheme();
+    const view = render(
+      <CourseThemePanel
+        editor={editor}
+        designs={designs}
+        colourSystems={colourSystems}
+        theme={defaults}
+        onThemeChange={() => undefined}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Open course theme" }));
+
+    const externalTheme: PersistedCourseTheme = {
+      ...defaults,
+      overrides: { typography: { defaultFontId: "scaffold-poppins", headingWeight: 700 } },
+    };
+    replaceThemeAttr(editor, externalTheme);
+    expect(onTransaction).toHaveBeenCalledTimes(1);
+    onTransaction.mockClear();
+
+    view.rerender(
+      <CourseThemePanel
+        editor={editor}
+        designs={designs}
+        colourSystems={colourSystems}
+        theme={externalTheme}
+        onThemeChange={() => undefined}
+      />,
+    );
+
+    expect(screen.getByRole("combobox", { name: "Body font" })).toHaveTextContent("Poppins");
+    expect(screen.getByRole("combobox", { name: "Heading weight" })).toHaveTextContent("700");
+    expect(onTransaction).not.toHaveBeenCalled();
+  });
+
+  it("contains no arbitrary colour or remaining non-colour controls", async () => {
     const user = userEvent.setup();
     render(<PanelHarness editor={createEditor()} />);
     await user.click(screen.getByRole("button", { name: "Open course theme" }));
 
     expect(screen.queryByRole("button", { name: /edit .*current value/i })).toBeNull();
-    expect(screen.queryByRole("combobox", { name: /font/i })).toBeNull();
     expect(screen.queryByRole("spinbutton")).toBeNull();
     expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(
+      screen.queryByRole("combobox", { name: /text size|line spacing|letter spacing/i }),
+    ).toBeNull();
   });
 });
 
@@ -348,6 +476,15 @@ function replaceThemeAttr(editor: Editor, theme: unknown): void {
       theme,
     }),
   );
+}
+
+async function chooseSelectOption(
+  user: ReturnType<typeof userEvent.setup>,
+  label: string,
+  option: string,
+): Promise<void> {
+  await user.click(screen.getByRole("combobox", { name: label }));
+  await user.click(await screen.findByRole("option", { name: option }));
 }
 
 function PanelHarness({

@@ -1,0 +1,91 @@
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-pull-quote {
+  gap: var(--space-4);
+  padding-block: var(--space-5);
+  color: var(--gray-12);
+  font-family: var(--default-font-family);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-pull-quote::before {
+  content: "";
+  width: var(--space-9);
+  height: 2px;
+  flex: none;
+  align-self: flex-start;
+  background: var(--accent-9);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-pull-quote[data-align="center"]::before {
+  align-self: center;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-pull-quote[data-align="right"]::before {
+  align-self: flex-end;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-pull-quote__content {
+  gap: var(--space-3);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-pull-quote__body {
+  width: 100%;
+  max-width: 31ch;
+  color: var(--gray-12);
+  font-family: var(--heading-font-family);
+  font-size: var(--font-size-7);
+  font-weight: 500;
+  letter-spacing: var(--letter-spacing-7);
+  line-height: var(--line-height-7);
+  text-wrap: balance;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-pull-quote__body
+  [data-node-view-content-react]
+  > *
+  + * {
+  margin-top: var(--space-2);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-pull-quote__body a {
+  color: var(--accent-11);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-pull-quote__attribution {
+  display: block;
+  color: var(--gray-11);
+  font-family: var(--default-font-family);
+  font-size: var(--font-size-2);
+  font-weight: 500;
+  letter-spacing: var(--letter-spacing-2);
+  line-height: var(--line-height-2);
+}
+
+@container sc-course-pull-quote (max-width: 28rem) {
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-pull-quote {
+    gap: var(--space-3);
+    padding-block: var(--space-3);
+  }
+
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-pull-quote::before {
+    width: var(--space-8);
+  }
+
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-pull-quote__content {
+    gap: var(--space-2);
+  }
+
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-pull-quote__body {
+    max-width: none;
+    font-size: var(--font-size-5);
+    letter-spacing: var(--letter-spacing-5);
+    line-height: var(--line-height-5);
+  }
+
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-pull-quote__attribution {
+    font-size: var(--font-size-1);
+    letter-spacing: var(--letter-spacing-1);
+    line-height: var(--line-height-1);
+  }
+}

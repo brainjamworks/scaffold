@@ -5,8 +5,20 @@
 @import "./table.css";
 @import "./callout.css";
 @import "./sidebar.css";
+@import "./pull-quote.css";
+@import "./chapter-epigraph.css";
 @import "./marginalia.css";
+@import "./stat-highlight.css";
+@import "./comparison.css";
+@import "./timeline.css";
+@import "./roadmap.css";
+@import "./flashcard.css";
+@import "./image-block.css";
+@import "./audio-block.css";
 @import "./chart.css";
+@import "./annotated-figure.css";
+@import "./gallery.css";
+@import "./text-wrap-image.css";
 
 .sc-course.sc-course-theme-scaffold-flow-v1 {
   min-width: 0;

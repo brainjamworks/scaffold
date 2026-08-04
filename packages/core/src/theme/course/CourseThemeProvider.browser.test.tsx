@@ -3,6 +3,8 @@ import { createRoot, type Root } from "react-dom/client";
 import type { CSSProperties } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
+import type { PersistedCourseTheme } from "@scaffold/contracts";
+
 import "@/styles/globals.css";
 
 import { createDefaultPersistedCourseTheme } from "./default-course-theme";
@@ -56,9 +58,13 @@ describe("CourseThemeProvider browser scope", () => {
     },
   );
 
-  it("recreates identical computed Course scope for custom portal content", async () => {
+  it("recreates identical non-default Course scope without leaking into an App sibling", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const { courseRoot, portalRoot } = await mountCourse("dark", true);
+    const { courseRoot, portalRoot, sibling } = await mountCourse(
+      "dark",
+      true,
+      themeWithAuthorOverrides(),
+    );
 
     expect(portalRoot.className).toBe(courseRoot.className);
     expect(portalRoot.getAttribute("data-accent-color")).toBe(
@@ -67,13 +73,45 @@ describe("CourseThemeProvider browser scope", () => {
     expect(portalRoot.getAttribute("data-gray-color")).toBe(
       courseRoot.getAttribute("data-gray-color"),
     );
+    expect(courseRoot).toHaveAttribute("data-radius", "full");
+    expect(portalRoot).toHaveAttribute("data-radius", "full");
     expect(getComputedStyle(portalRoot).fontFamily).toBe(getComputedStyle(courseRoot).fontFamily);
+    expect(getComputedStyle(courseRoot).fontFamily).toContain("Poppins");
+    const courseStyle = getComputedStyle(courseRoot);
     const portalStyle = getComputedStyle(portalRoot);
+    for (const property of [
+      "--heading-font-family",
+      "--sc-course-author-heading-weight",
+      "--sc-course-author-heading-text-transform",
+      "--sc-course-author-density",
+    ]) {
+      expect(portalStyle.getPropertyValue(property).trim()).toBe(
+        courseStyle.getPropertyValue(property).trim(),
+      );
+    }
+    expect(courseStyle.getPropertyValue("--heading-font-family")).toContain("Source Serif 4");
+    expect(courseStyle.getPropertyValue("--sc-course-author-heading-weight").trim()).toBe("800");
+    expect(courseStyle.getPropertyValue("--sc-course-author-heading-text-transform").trim()).toBe(
+      "uppercase",
+    );
+    expect(courseStyle.getPropertyValue("--sc-course-author-density").trim()).toBe("1.125");
     expect(portalRoot).toHaveAttribute("data-has-background", "false");
     expect(portalStyle.backgroundColor).toBe("rgba(0, 0, 0, 0)");
     expect(portalStyle.getPropertyValue("--sc-course-state-warning-background").trim()).toBe(
       portalStyle.getPropertyValue("--amber-3").trim(),
     );
+    expect(sibling).not.toHaveClass("radix-themes", "sc-course", "dark");
+    expect(sibling).not.toHaveAttribute("data-radius");
+    expect(sibling).not.toHaveAttribute("data-accent-color");
+    const siblingStyle = getComputedStyle(sibling);
+    expect(siblingStyle.getPropertyValue("--default-font-family").trim()).toBe(
+      "AppSiblingSentinel",
+    );
+    expect(siblingStyle.getPropertyValue("--heading-font-family")).toBe("");
+    expect(siblingStyle.getPropertyValue("--sc-course-author-density")).toBe("");
+    expect(
+      siblingStyle.getPropertyValue("--sc-course-author-heading-text-transform"),
+    ).toBe("");
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
       document.documentElement.clientWidth + 1,
     );
@@ -81,7 +119,11 @@ describe("CourseThemeProvider browser scope", () => {
   });
 });
 
-async function mountCourse(appearance: "light" | "dark", withPortal = false) {
+async function mountCourse(
+  appearance: "light" | "dark",
+  withPortal = false,
+  theme: PersistedCourseTheme = createDefaultPersistedCourseTheme(),
+) {
   const host = document.createElement("div");
   const portalHost = document.createElement("div");
   host.style.width = "320px";
@@ -92,7 +134,7 @@ async function mountCourse(appearance: "light" | "dark", withPortal = false) {
   root.render(
     <div style={{ "--default-font-family": "AppSiblingSentinel" } as CSSProperties}>
       <div data-testid="app-sibling">App sibling</div>
-      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance={appearance}>
+      <CourseThemeProvider theme={theme} appearance={appearance}>
         <div data-testid="course-content">
           <div data-course-state="correct">
             <span className="sc-course-state__indicator">Correct</span>
@@ -123,6 +165,22 @@ async function mountCourse(appearance: "light" | "dark", withPortal = false) {
   if (withPortal && !portalRoot) throw new Error("Expected a custom portal Course theme root");
 
   return { courseRoot, portalRoot: portalRoot as HTMLElement, sibling, state };
+}
+
+function themeWithAuthorOverrides(): PersistedCourseTheme {
+  const theme = createDefaultPersistedCourseTheme();
+  return {
+    ...theme,
+    overrides: {
+      typography: {
+        defaultFontId: "scaffold-poppins",
+        headingFontId: "scaffold-source-serif-4",
+        headingWeight: 800,
+        uppercaseHeadings: true,
+      },
+      design: { roundness: "full", density: "spacious" },
+    },
+  };
 }
 
 function requiredElement<T extends Element>(container: ParentNode, selector: string): T {

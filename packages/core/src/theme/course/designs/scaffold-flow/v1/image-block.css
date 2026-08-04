@@ -1,0 +1,28 @@
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-image-block__fallback {
+  border: var(--sc-course-author-stroke-width) dashed var(--gray-a6);
+  border-radius: var(--radius-3);
+  background: var(--gray-a2);
+  box-shadow: var(--sc-course-author-shadow);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-image-block__media {
+  border: var(--sc-course-author-stroke-width) solid var(--gray-a6);
+  border-radius: var(--radius-3);
+  background: var(--gray-a2);
+  box-shadow: var(--sc-course-author-shadow);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  :is(.sc-course-image-block__loading, .sc-course-image-block__error) {
+  font-family: var(--default-font-family);
+  font-size: var(--font-size-1);
+  line-height: var(--line-height-1);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-image-block__loading {
+  color: var(--gray-11);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-image-block__error {
+  color: var(--red-11);
+}

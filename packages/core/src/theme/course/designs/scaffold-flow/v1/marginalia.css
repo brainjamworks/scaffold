@@ -1,4 +1,6 @@
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-marginalia {
+  --sc-course-marginalia-gutter-width: clamp(10rem, 30%, 14rem);
+
   color: var(--gray-12);
   font-family: var(--default-font-family);
 }

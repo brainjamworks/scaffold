@@ -168,6 +168,41 @@ describe("course theme panel browser workflow", () => {
             ?.getAttribute("data-state") === "on",
       );
 
+      const bodyFont = requireElement<HTMLButtonElement>(
+        panel,
+        '[role="combobox"][id$="-defaultFontId"]',
+      );
+      bodyFont.click();
+      const poppins = await waitForElement<HTMLElement>(document, '[role="option"]');
+      const poppinsOption = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
+        (option) => option.textContent?.includes("Poppins"),
+      );
+      expect(poppins.textContent).not.toBe("");
+      if (!poppinsOption) throw new Error("Expected Poppins font option");
+      poppinsOption.click();
+      await waitForCondition(
+        () => readEditorTheme(editor)?.overrides.typography?.defaultFontId === "scaffold-poppins",
+      );
+      await waitForCondition(
+        () =>
+          readBundleTheme(savedBundles.at(-1)) !== undefined &&
+          JSON.stringify(readBundleTheme(savedBundles.at(-1))) ===
+            JSON.stringify(readEditorTheme(editor)),
+        1_500,
+      );
+      expect(panel.textContent).toContain("Custom");
+      expect(panel.querySelector('button[aria-label="Apply"]')).toBeNull();
+      expect(panel.querySelector('button[aria-label="Save"]')).toBeNull();
+
+      requireElement<HTMLButtonElement>(
+        panel,
+        'button[aria-label="Use inherited body font"]',
+      ).click();
+      await waitForCondition(
+        () => readEditorTheme(editor)?.overrides.typography?.defaultFontId === undefined,
+      );
+      expect(bodyFont.textContent).toContain("Satoshi");
+
       requireElement<HTMLButtonElement>(panel, 'button[aria-label="Close course theme"]').click();
       const themeBeforeAppearanceChange = readEditorTheme(editor);
       requireElement<HTMLButtonElement>(

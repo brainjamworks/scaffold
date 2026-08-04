@@ -83,14 +83,181 @@ describe("course document contracts", () => {
     }
   });
 
-  it("keeps Phase 1 author overrides strictly empty", () => {
+  it("accepts the complete approved non-colour author override contract", () => {
+    const overrides = {
+      typography: {
+        defaultFontId: "scaffold-satoshi",
+        headingFontId: "scaffold-source-serif",
+        codeFontId: "scaffold-jetbrains-mono",
+        bodyWeight: 500,
+        headingWeight: 700,
+        courseTextSize: "larger",
+        bodyLineSpacing: "relaxed",
+        headingLineSpacing: "tight",
+        headingLetterSpacing: "wide",
+        uppercaseHeadings: true,
+      },
+      design: {
+        roundness: "rounded",
+        stroke: "strong",
+        shadow: "defined",
+        density: "spacious",
+      },
+    } as const;
+
+    expect(CourseThemeNonColourAuthorOverridesSchema.parse(overrides)).toEqual(overrides);
+  });
+
+  it("accepts empty outer overrides and sparse one-field sections", () => {
     expect(CourseThemeNonColourAuthorOverridesSchema.parse({})).toEqual({});
+
+    expect(
+      CourseThemeNonColourAuthorOverridesSchema.parse({
+        typography: { defaultFontId: " future-font-id " },
+      }),
+    ).toEqual({ typography: { defaultFontId: "future-font-id" } });
+    expect(
+      CourseThemeNonColourAuthorOverridesSchema.parse({ design: { shadow: "soft" } }),
+    ).toEqual({ design: { shadow: "soft" } });
+  });
+
+  it("accepts every approved semantic value and weight", () => {
+    for (const courseTextSize of ["smaller", "standard", "larger"] as const) {
+      expect(
+        CourseThemeNonColourAuthorOverridesSchema.safeParse({
+          typography: { courseTextSize },
+        }).success,
+      ).toBe(true);
+    }
+
+    for (const lineSpacing of ["tight", "standard", "relaxed"] as const) {
+      expect(
+        CourseThemeNonColourAuthorOverridesSchema.safeParse({
+          typography: {
+            bodyLineSpacing: lineSpacing,
+            headingLineSpacing: lineSpacing,
+          },
+        }).success,
+      ).toBe(true);
+    }
+
+    for (const headingLetterSpacing of ["tight", "standard", "wide"] as const) {
+      expect(
+        CourseThemeNonColourAuthorOverridesSchema.safeParse({
+          typography: { headingLetterSpacing },
+        }).success,
+      ).toBe(true);
+    }
+
+    for (const bodyWeight of [400, 500, 600] as const) {
+      expect(
+        CourseThemeNonColourAuthorOverridesSchema.safeParse({
+          typography: { bodyWeight },
+        }).success,
+      ).toBe(true);
+    }
+
+    for (const headingWeight of [400, 500, 600, 700, 800] as const) {
+      expect(
+        CourseThemeNonColourAuthorOverridesSchema.safeParse({
+          typography: { headingWeight },
+        }).success,
+      ).toBe(true);
+    }
+
+    for (const roundness of ["square", "subtle", "rounded", "full"] as const) {
+      expect(
+        CourseThemeNonColourAuthorOverridesSchema.safeParse({ design: { roundness } })
+          .success,
+      ).toBe(true);
+    }
+
+    for (const stroke of ["light", "standard", "strong"] as const) {
+      expect(
+        CourseThemeNonColourAuthorOverridesSchema.safeParse({ design: { stroke } }).success,
+      ).toBe(true);
+    }
+
+    for (const shadow of ["none", "soft", "defined"] as const) {
+      expect(
+        CourseThemeNonColourAuthorOverridesSchema.safeParse({ design: { shadow } }).success,
+      ).toBe(true);
+    }
+
+    for (const density of ["compact", "comfortable", "spacious"] as const) {
+      expect(
+        CourseThemeNonColourAuthorOverridesSchema.safeParse({ design: { density } }).success,
+      ).toBe(true);
+    }
+  });
+
+  it("rejects empty nested override sections", () => {
     expect(
       CourseThemeNonColourAuthorOverridesSchema.safeParse({ typography: {} }).success,
     ).toBe(false);
-    expect(CourseThemeNonColourAuthorOverridesSchema.safeParse({ colors: {} }).success).toBe(
-      false,
-    );
+    expect(
+      CourseThemeNonColourAuthorOverridesSchema.safeParse({ design: {} }).success,
+    ).toBe(false);
+  });
+
+  it("rejects invalid author override values", () => {
+    for (const overrides of [
+      { typography: { defaultFontId: " " } },
+      { typography: { headingFontId: "" } },
+      { typography: { codeFontId: null } },
+      { typography: { bodyWeight: 300 } },
+      { typography: { bodyWeight: 700 } },
+      { typography: { headingWeight: 300 } },
+      { typography: { headingWeight: 900 } },
+      { typography: { courseTextSize: "extra-large" } },
+      { typography: { bodyLineSpacing: "loose" } },
+      { typography: { headingLineSpacing: "normal" } },
+      { typography: { headingLetterSpacing: "extra-wide" } },
+      { typography: { uppercaseHeadings: "true" } },
+      { design: { roundness: "medium" } },
+      { design: { stroke: "heavy" } },
+      { design: { shadow: "hard" } },
+      { design: { density: "dense" } },
+    ]) {
+      expect(CourseThemeNonColourAuthorOverridesSchema.safeParse(overrides).success).toBe(
+        false,
+      );
+    }
+  });
+
+  it("rejects unknown keys and arbitrary colours at every override level", () => {
+    for (const overrides of [
+      { unknown: true },
+      { colors: { primary: "#161d77" } },
+      { primaryColor: "#161d77" },
+      { typography: { defaultFontId: "scaffold-satoshi", fontFamily: "Satoshi" } },
+      { typography: { defaultFontId: "scaffold-satoshi", color: "#161d77" } },
+      { design: { shadow: "soft", radius: "large" } },
+      { design: { shadow: "soft", accentColor: "indigo" } },
+    ]) {
+      expect(CourseThemeNonColourAuthorOverridesSchema.safeParse(overrides).success).toBe(
+        false,
+      );
+    }
+  });
+
+  it("rejects raw CSS, Radix and resolved runtime values", () => {
+    for (const overrides of [
+      { typography: { courseTextSize: "1.125rem" } },
+      { typography: { bodyLineSpacing: 1.5 } },
+      { typography: { headingLetterSpacing: "-0.02em" } },
+      { design: { roundness: "8px" } },
+      { design: { stroke: "1px" } },
+      { design: { shadow: "0 2px 8px rgb(0 0 0 / 20%)" } },
+      { design: { density: "var(--space-4)" } },
+      { radixThemeProps: { radius: "large" } },
+      { cssVariables: { "--sc-radius": "8px" } },
+      { resolved: { rootClassNames: ["sc-course"] } },
+    ]) {
+      expect(CourseThemeNonColourAuthorOverridesSchema.safeParse(overrides).success).toBe(
+        false,
+      );
+    }
   });
 
   it("rejects retired theme snapshots and runtime implementation data", () => {

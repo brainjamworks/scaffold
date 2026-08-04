@@ -44,7 +44,7 @@ describe("CourseThemeProvider", () => {
     expect(root?.style.getPropertyValue("--sc-course-state-locked-indicator")).toBe(
       "var(--gray-9)",
     );
-    expect(root?.style.length).toBe(39);
+    expect(root?.style.length).toBe(53);
 
     const context = screen.getByTestId("resolved-theme");
     expect(context).toHaveTextContent("scaffold-flow@1/scaffold-indigo@1/dark");
@@ -78,7 +78,8 @@ describe("CourseThemeProvider", () => {
     document.body.append(portalContainer);
 
     render(
-      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+      <CourseThemeProvider theme={themeWithAuthorOverrides()} appearance="light">
+        <div data-testid="course-content" />
         {createPortal(
           <CourseThemePortalBoundary>
             <div data-testid="portal-host">
@@ -90,6 +91,7 @@ describe("CourseThemeProvider", () => {
       </CourseThemeProvider>,
     );
 
+    const courseRoot = screen.getByTestId("course-content").parentElement;
     const portalHost = screen.getByTestId("portal-host");
     expect(portalHost.parentElement).toBe(portalContainer);
     expect(screen.getByTestId("portal-content").parentElement).toBe(portalHost);
@@ -100,7 +102,27 @@ describe("CourseThemeProvider", () => {
       "sc-course-theme-scaffold-flow-v1",
     );
     expect(portalHost).toHaveAttribute("data-accent-color", "indigo");
+    expect(courseRoot).toHaveAttribute("data-radius", "full");
+    expect(portalHost).toHaveAttribute("data-radius", "full");
     expect(portalHost).toHaveAttribute("data-has-background", "false");
+    for (const property of [
+      "--default-font-family",
+      "--heading-font-family",
+      "--sc-course-author-heading-weight",
+      "--sc-course-author-heading-text-transform",
+      "--sc-course-author-density",
+    ]) {
+      expect(portalHost.style.getPropertyValue(property)).toBe(
+        courseRoot?.style.getPropertyValue(property),
+      );
+    }
+    expect(portalHost.style.getPropertyValue("--default-font-family")).toContain("Poppins");
+    expect(portalHost.style.getPropertyValue("--heading-font-family")).toContain("Source Serif 4");
+    expect(portalHost.style.getPropertyValue("--sc-course-author-heading-weight")).toBe("800");
+    expect(portalHost.style.getPropertyValue("--sc-course-author-heading-text-transform")).toBe(
+      "uppercase",
+    );
+    expect(portalHost.style.getPropertyValue("--sc-course-author-density")).toBe("1.125");
     expect(portalHost.style.getPropertyValue("--sc-course-state-warning-border")).toBe(
       "var(--amber-8)",
     );
@@ -131,5 +153,21 @@ function themeWithReference(key: "design" | "colourSystem", id: string): Persist
   return {
     ...theme,
     [key]: { id, revision: "1" },
+  };
+}
+
+function themeWithAuthorOverrides(): PersistedCourseTheme {
+  const theme = createDefaultPersistedCourseTheme();
+  return {
+    ...theme,
+    overrides: {
+      typography: {
+        defaultFontId: "scaffold-poppins",
+        headingFontId: "scaffold-source-serif-4",
+        headingWeight: 800,
+        uppercaseHeadings: true,
+      },
+      design: { roundness: "full", density: "spacious" },
+    },
   };
 }

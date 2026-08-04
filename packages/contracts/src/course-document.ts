@@ -10,7 +10,71 @@ export const CourseThemeRefSchema = z
   .strict();
 export type CourseThemeRef = z.infer<typeof CourseThemeRefSchema>;
 
-export const CourseThemeNonColourAuthorOverridesSchema = z.object({}).strict();
+export const CourseTextSizeSchema = z.enum(["smaller", "standard", "larger"]);
+export type CourseTextSize = z.infer<typeof CourseTextSizeSchema>;
+
+export const CourseLineSpacingSchema = z.enum(["tight", "standard", "relaxed"]);
+export type CourseLineSpacing = z.infer<typeof CourseLineSpacingSchema>;
+
+export const CourseHeadingLetterSpacingSchema = z.enum(["tight", "standard", "wide"]);
+export type CourseHeadingLetterSpacing = z.infer<typeof CourseHeadingLetterSpacingSchema>;
+
+export const CourseRoundnessSchema = z.enum(["square", "subtle", "rounded", "full"]);
+export type CourseRoundness = z.infer<typeof CourseRoundnessSchema>;
+
+export const CourseStrokeSchema = z.enum(["light", "standard", "strong"]);
+export type CourseStroke = z.infer<typeof CourseStrokeSchema>;
+
+export const CourseShadowSchema = z.enum(["none", "soft", "defined"]);
+export type CourseShadow = z.infer<typeof CourseShadowSchema>;
+
+export const CourseDensitySchema = z.enum(["compact", "comfortable", "spacious"]);
+export type CourseDensity = z.infer<typeof CourseDensitySchema>;
+
+const CourseThemeTypographyAuthorOverridesSchema = z
+  .object({
+    defaultFontId: z.string().trim().min(1).optional(),
+    headingFontId: z.string().trim().min(1).optional(),
+    codeFontId: z.string().trim().min(1).optional(),
+    bodyWeight: z.union([z.literal(400), z.literal(500), z.literal(600)]).optional(),
+    headingWeight: z
+      .union([
+        z.literal(400),
+        z.literal(500),
+        z.literal(600),
+        z.literal(700),
+        z.literal(800),
+      ])
+      .optional(),
+    courseTextSize: CourseTextSizeSchema.optional(),
+    bodyLineSpacing: CourseLineSpacingSchema.optional(),
+    headingLineSpacing: CourseLineSpacingSchema.optional(),
+    headingLetterSpacing: CourseHeadingLetterSpacingSchema.optional(),
+    uppercaseHeadings: z.boolean().optional(),
+  })
+  .strict()
+  .refine((overrides) => Object.values(overrides).some((value) => value !== undefined), {
+    message: "Typography overrides must contain at least one value",
+  });
+
+const CourseThemeDesignAuthorOverridesSchema = z
+  .object({
+    roundness: CourseRoundnessSchema.optional(),
+    stroke: CourseStrokeSchema.optional(),
+    shadow: CourseShadowSchema.optional(),
+    density: CourseDensitySchema.optional(),
+  })
+  .strict()
+  .refine((overrides) => Object.values(overrides).some((value) => value !== undefined), {
+    message: "Design overrides must contain at least one value",
+  });
+
+export const CourseThemeNonColourAuthorOverridesSchema = z
+  .object({
+    typography: CourseThemeTypographyAuthorOverridesSchema.optional(),
+    design: CourseThemeDesignAuthorOverridesSchema.optional(),
+  })
+  .strict();
 export type CourseThemeNonColourAuthorOverrides = z.infer<
   typeof CourseThemeNonColourAuthorOverridesSchema
 >;
