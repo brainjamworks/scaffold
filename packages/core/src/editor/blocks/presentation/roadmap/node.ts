@@ -42,16 +42,23 @@ export function createRoadmapNode(options: RoadmapNodeOptions = {}) {
     },
 
     parseHTML() {
-      return [{ tag: 'section[data-node="roadmap"]' }];
+      return [
+        {
+          tag: 'section[data-node="roadmap"]',
+          contentElement: (element: HTMLElement) =>
+            element.querySelector<HTMLElement>(":scope > ol") ?? element,
+        },
+      ];
     },
 
     renderHTML({ HTMLAttributes }) {
       return [
         "section",
         mergeAttributes(HTMLAttributes, {
+          "aria-label": "Roadmap",
           "data-node": "roadmap",
         }),
-        0,
+        ["ol", { "aria-label": "Roadmap milestones" }, 0],
       ];
     },
 

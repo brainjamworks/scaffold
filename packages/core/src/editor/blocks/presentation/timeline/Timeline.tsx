@@ -17,16 +17,21 @@ export function TimelineView({ footer, props }: { footer?: ReactNode; props: Nod
   const data = parseTimelineData(props.node.attrs["data"]);
 
   return (
-    <div
-      className="sc-timeline__shell"
+    <section
+      className="sc-course-timeline__shell"
+      aria-label="Timeline"
       data-presentation={data.presentation}
       data-show-axis={data.showAxis ? "true" : "false"}
       data-alignment={data.alignment}
     >
       <TimelineTrack eventCount={props.node.childCount} footer={footer} options={data}>
-        <NodeViewContent />
+        <NodeViewContent<"ol">
+          as="ol"
+          aria-label="Timeline events"
+          className="sc-course-timeline__events"
+        />
       </TimelineTrack>
-    </div>
+    </section>
   );
 }
 
@@ -43,10 +48,11 @@ export function TimelineItemRuntimeView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper
+      as="li"
       data-node="timeline-item"
       data-timeline-side={side}
       data-timeline-event=""
-      className={`sc-timeline__event sc-timeline__event--${side}`}
+      className={`sc-course-timeline__event sc-course-timeline__event--${side}`}
     >
       <TimelineEventCard>
         <NodeViewContent />

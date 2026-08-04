@@ -17,7 +17,7 @@ export function FlashcardRuntimeView(props: NodeViewProps) {
   return (
     <FlashcardDeckReader
       controller={deckController}
-      renderContent={() => <NodeViewContent className="sc-flashcard-content" />}
+      renderContent={() => <NodeViewContent className="sc-course-flashcard-content" />}
     />
   );
 }

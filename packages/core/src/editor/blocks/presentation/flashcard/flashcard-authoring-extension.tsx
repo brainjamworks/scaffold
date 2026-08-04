@@ -20,7 +20,7 @@ const FlashcardCardAuthoringNode = createFlashcardCardNode({
 const FlashcardAuthoringRootNode = createFlashcardNode({
   addNodeView: () =>
     createBlockAuthoringNodeView({
-      className: "sc-flashcard-block",
+      className: "sc-course-flashcard-block",
       definition: flashcardBlockDefinition,
       view: { component: FlashcardAuthoringRootView },
     }),

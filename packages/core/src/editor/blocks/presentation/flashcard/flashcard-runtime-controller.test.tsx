@@ -17,12 +17,27 @@ import {
   useFlashcardCardController,
   useFlashcardDeckController,
 } from "./flashcard-runtime-controller";
+import { FlashcardDeckReader } from "./FlashcardComponents";
 import type { FlashcardDeckNodeLike } from "./flashcard-shared";
 
 const deckNode: FlashcardDeckNodeLike = {
+  attrs: { data: { type: "flashcard", shuffle: false } },
   childCount: 2,
   child(index) {
     return { attrs: { id: index === 0 ? "card-a" : "card-b" } };
+  },
+};
+
+const shuffledDeckNode: FlashcardDeckNodeLike = {
+  ...deckNode,
+  attrs: { data: { type: "flashcard", shuffle: true } },
+};
+
+const singleCardDeckNode: FlashcardDeckNodeLike = {
+  attrs: { data: { type: "flashcard", shuffle: false } },
+  childCount: 1,
+  child() {
+    return { attrs: { id: "card-a" } };
   },
 };
 
@@ -52,24 +67,32 @@ function createXapiPort() {
   return { xapiPort, send };
 }
 
-function RuntimeControllerProbe() {
+function RuntimeControllerProbe({ node = deckNode }: { node?: FlashcardDeckNodeLike }) {
   const deck = useFlashcardDeckController({
     blockId: "flashcard-one",
-    deckNode,
+    deckNode: node,
   });
   const cardA = useFlashcardCardController({
     blockId: "flashcard-one",
-    deckNode,
+    deckNode: node,
     cardId: "card-a",
   });
   const cardB = useFlashcardCardController({
     blockId: "flashcard-one",
-    deckNode,
+    deckNode: node,
     cardId: "card-b",
   });
 
   return (
-    <section>
+    <>
+      <button type="button">Dark mode</button>
+      <section
+        role="region"
+        aria-label="Flashcard deck"
+        aria-keyshortcuts="ArrowLeft ArrowRight Space G N"
+        tabIndex={0}
+        onKeyDown={deck.handleKeyDown}
+      >
       <output data-testid="flashcard-runtime-state">
         {JSON.stringify({
           currentCardId: deck.currentCardId,
@@ -78,6 +101,7 @@ function RuntimeControllerProbe() {
           currentMastery: deck.currentMastery,
           masteredCount: deck.masteredCount,
           allMastered: deck.allMastered,
+          order: deck.cardSummaries.map((card) => card.id),
           cardA,
           cardB,
         })}
@@ -103,11 +127,43 @@ function RuntimeControllerProbe() {
       <button type="button" onClick={deck.resetDeck}>
         Reset
       </button>
-    </section>
+      <div
+        className={
+          cardA.isCurrent
+            ? "sc-course-flashcard-card"
+            : "sc-course-flashcard-card sc-course-flashcard-card--inactive"
+        }
+      >
+        <div data-flashcard-visible-face="" aria-label="Card A face" tabIndex={-1} />
+      </div>
+      <div
+        className={
+          cardB.isCurrent
+            ? "sc-course-flashcard-card"
+            : "sc-course-flashcard-card sc-course-flashcard-card--inactive"
+        }
+      >
+        <div data-flashcard-visible-face="" aria-label="Card B face" tabIndex={-1} />
+      </div>
+      </section>
+    </>
   );
 }
 
-function renderRuntimeController(learnerActivityPort: LearnerActivityPort, xapiPort?: XapiPort) {
+function CompletionProbe() {
+  const deck = useFlashcardDeckController({
+    blockId: "flashcard-one",
+    deckNode: singleCardDeckNode,
+  });
+
+  return <FlashcardDeckReader controller={deck} renderContent={() => <p>Card content</p>} />;
+}
+
+function renderRuntimeController(
+  learnerActivityPort: LearnerActivityPort,
+  xapiPort?: XapiPort,
+  node?: FlashcardDeckNodeLike,
+) {
   return render(
     <ScaffoldServicesProvider
       ports={{ learnerActivity: learnerActivityPort, ...(xapiPort ? { xapi: xapiPort } : {}) }}
@@ -116,7 +172,23 @@ function renderRuntimeController(learnerActivityPort: LearnerActivityPort, xapiP
         <XapiRuntimeProvider>
           <LearnerActivityRuntimeProvider>
             <LearnerActivityReadinessGate>
-              <RuntimeControllerProbe />
+              {node ? <RuntimeControllerProbe node={node} /> : <RuntimeControllerProbe />}
+            </LearnerActivityReadinessGate>
+          </LearnerActivityRuntimeProvider>
+        </XapiRuntimeProvider>
+      </ScaffoldArtifactIdentityProvider>
+    </ScaffoldServicesProvider>,
+  );
+}
+
+function renderCompletionProbe(learnerActivityPort: LearnerActivityPort) {
+  return render(
+    <ScaffoldServicesProvider ports={{ learnerActivity: learnerActivityPort }}>
+      <ScaffoldArtifactIdentityProvider artifactId="artifact-one">
+        <XapiRuntimeProvider>
+          <LearnerActivityRuntimeProvider>
+            <LearnerActivityReadinessGate>
+              <CompletionProbe />
             </LearnerActivityReadinessGate>
           </LearnerActivityRuntimeProvider>
         </XapiRuntimeProvider>
@@ -127,6 +199,12 @@ function renderRuntimeController(learnerActivityPort: LearnerActivityPort, xapiP
 
 function runtimeState(): unknown {
   return JSON.parse(screen.getByTestId("flashcard-runtime-state").textContent ?? "{}");
+}
+
+function readCardIds(node: FlashcardDeckNodeLike): string[] {
+  return Array.from({ length: node.childCount }, (_, index) => node.child(index).attrs["id"]).filter(
+    (id): id is string => typeof id === "string",
+  );
 }
 
 describe("flashcard runtime controller", () => {
@@ -254,6 +332,23 @@ describe("flashcard runtime controller", () => {
     );
   });
 
+  it("focuses and politely announces completion from the visible Got it button", async () => {
+    const user = userEvent.setup();
+    const { learnerActivityPort } = createPort();
+
+    renderCompletionProbe(learnerActivityPort);
+
+    await user.click(await screen.findByRole("button", { name: "Mark as got it (G)" }));
+
+    const status = await screen.findByRole("status");
+    expect(status).toHaveAttribute("aria-live", "polite");
+    expect(status).toHaveAttribute("aria-atomic", "true");
+    expect(status).toHaveTextContent("Deck complete.");
+    const completion = status.closest<HTMLElement>("[data-flashcard-focus-target]");
+    expect(completion).not.toBeNull();
+    await waitFor(() => expect(completion).toHaveFocus());
+  });
+
   it("applies learner keyboard shortcuts through the persistence seam", async () => {
     const user = userEvent.setup();
     const { learnerActivityPort, save } = createPort();
@@ -261,8 +356,10 @@ describe("flashcard runtime controller", () => {
     renderRuntimeController(learnerActivityPort);
 
     await waitFor(() => expect(runtimeState()).toMatchObject({ currentCardId: "card-a" }));
+    screen.getByRole("region", { name: "Flashcard deck" }).focus();
     await user.keyboard("{ArrowRight}");
     await waitFor(() => expect(runtimeState()).toMatchObject({ currentCardId: "card-b" }));
+    await waitFor(() => expect(screen.getByLabelText("Card B face")).toHaveFocus());
 
     await user.keyboard(" ");
     await waitFor(() => expect(runtimeState()).toMatchObject({ currentFlipped: true }));
@@ -293,6 +390,45 @@ describe("flashcard runtime controller", () => {
         },
       }),
     );
+  });
+
+  it("only applies shortcuts while this deck owns focus", async () => {
+    const user = userEvent.setup();
+    const { learnerActivityPort } = createPort();
+
+    renderRuntimeController(learnerActivityPort);
+    await waitFor(() => expect(runtimeState()).toMatchObject({ masteredCount: 0 }));
+
+    screen.getByRole("button", { name: "Dark mode" }).focus();
+    await user.keyboard("g");
+    expect(runtimeState()).toMatchObject({ masteredCount: 0 });
+
+    screen.getByRole("region", { name: "Flashcard deck" }).focus();
+    await user.keyboard("g");
+    await waitFor(() => expect(runtimeState()).toMatchObject({ masteredCount: 1 }));
+  });
+
+  it("uses and persists the configured learner shuffle without changing authored order", async () => {
+    const { learnerActivityPort, save } = createPort();
+
+    renderRuntimeController(learnerActivityPort, undefined, shuffledDeckNode);
+
+    await waitFor(() =>
+      expect(runtimeState()).toMatchObject({
+        currentCardId: "card-b",
+        order: ["card-b", "card-a"],
+      }),
+    );
+    await waitFor(() =>
+      expect(save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          record: expect.objectContaining({
+            data: expect.objectContaining({ order: ["card-b", "card-a"] }),
+          }),
+        }),
+      ),
+    );
+    expect(readCardIds(shuffledDeckNode)).toEqual(["card-a", "card-b"]);
   });
 
   it("emits the accepted face from both flashcard flip controls", async () => {

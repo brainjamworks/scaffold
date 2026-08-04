@@ -1,0 +1,98 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-overlays {
+  .sc-app-flashcard-card-delete__explanation {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .sc-app-flashcard-card-chrome {
+    position: absolute;
+    z-index: var(--z-interactive);
+    top: 0.5rem;
+    right: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .sc-app-contained-movement-handle.sc-app-flashcard-card-movement,
+  .sc-app-flashcard-card-delete {
+    display: inline-flex;
+    width: 2.25rem;
+    height: 2.25rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--sc-app-color-border);
+    border-radius: 50%;
+    background: var(--sc-app-color-background);
+    color: var(--sc-app-color-text-muted);
+    opacity: 1;
+    transition:
+      background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .sc-app-contained-movement-handle.sc-app-flashcard-card-movement {
+    cursor: grab;
+  }
+
+  .sc-app-flashcard-card-delete {
+    cursor: pointer;
+  }
+
+  .sc-app-contained-movement-handle.sc-app-flashcard-card-movement:hover:not(
+      .sc-app-movement-handle--disabled
+    ) {
+    border-color: var(--sc-app-color-primary);
+    background: var(--sc-app-color-primary-muted);
+    color: var(--sc-app-color-primary);
+  }
+
+  .sc-app-flashcard-card-delete:not([aria-disabled="true"]):hover,
+  .sc-app-flashcard-card-delete:not([aria-disabled="true"]):focus-visible {
+    border-color: var(--sc-app-color-error);
+    background: var(--sc-app-color-error-background);
+    color: var(--sc-app-color-error);
+  }
+
+  .sc-app-contained-movement-handle.sc-app-flashcard-card-movement:focus-visible,
+  .sc-app-flashcard-card-delete:focus-visible,
+  .sc-app-block-add.sc-app-flashcard-add-card:focus-visible {
+    outline: 2px solid var(--sc-app-color-focus-outline);
+    outline-offset: 2px;
+    box-shadow: none;
+  }
+
+  .sc-app-flashcard-card-delete[aria-disabled="true"] {
+    color: var(--sc-app-color-text-placeholder);
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .sc-app-block-add.sc-app-flashcard-add-card {
+    align-self: center;
+    min-height: 2.75rem;
+    border-radius: 0.5rem;
+    padding-inline: 0.875rem;
+    color: var(--sc-app-color-text-muted);
+  }
+
+  .sc-app-block-add.sc-app-flashcard-add-card:hover:not(:disabled) {
+    color: var(--sc-app-color-primary);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sc-app-contained-movement-handle.sc-app-flashcard-card-movement,
+    .sc-app-flashcard-card-delete,
+    .sc-app-flashcard-add-card {
+      transition: none;
+    }
+  }
+}

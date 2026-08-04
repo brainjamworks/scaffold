@@ -89,9 +89,9 @@ export const roadmapBlockDefinition = defineBlock({
     id: ROADMAP_BLOCK_ID,
     category: "display",
     title: "Roadmap",
-    description: "A sequence of milestone chapters",
+    description: "A sequence of learning milestones",
     icon: Map,
-    keywords: ["roadmap", "milestones", "chapters", "syllabus", "progression"],
+    keywords: ["roadmap", "milestones", "sequence", "syllabus", "progression"],
     validateNode: validateCatalogNodeAttrs([
       {
         nodeType: ROADMAP_MILESTONE_NODE,

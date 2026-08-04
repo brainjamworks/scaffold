@@ -6,6 +6,7 @@ import {
   useEditorState,
   type NodeViewProps,
 } from "@tiptap/react";
+import { useId } from "react";
 
 import { BlockAddGhost } from "@/editor/suggestions/insert/BlockAddGhost";
 import { CONTAINED_MOVEMENT_TARGET_ATTR } from "@/editor/drag/view/movement-dom";
@@ -50,6 +51,7 @@ export function TimelineItemAuthoringView(props: NodeViewProps) {
   const itemPos = readNodePos(props);
   const sourcePos = typeof itemPos === "number" && Number.isFinite(itemPos) ? itemPos : null;
   const canDelete = itemCount > 1;
+  const deleteExplanationId = useId();
 
   const deleteItem = () => {
     const pos = readNodePos(props);
@@ -65,11 +67,12 @@ export function TimelineItemAuthoringView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper
+      as="li"
       data-node="timeline-item"
       data-timeline-side={side}
       data-timeline-event=""
       {...{ [CONTAINED_MOVEMENT_TARGET_ATTR]: "" }}
-      className={`sc-timeline__event sc-timeline__event--${side}`}
+      className={`sc-course-timeline__event sc-course-timeline__event--${side}`}
     >
       <TimelineEventCard
         chrome={
@@ -79,17 +82,23 @@ export function TimelineItemAuthoringView(props: NodeViewProps) {
               sourcePos={sourcePos}
               getSourcePos={() => readNodePos(props) ?? null}
               sourceKey={itemId}
-              className="sc-timeline__movement"
+              className="sc-app-timeline-movement"
             />
             <button
               type="button"
               contentEditable={false}
-              disabled={!canDelete}
+              aria-disabled={!canDelete || undefined}
+              aria-describedby={!canDelete ? deleteExplanationId : undefined}
               aria-label={`Delete timeline event ${itemIndex + 1}`}
               onClick={deleteItem}
-              className="sc-timeline__action sc-timeline__delete"
+              className="sc-app-timeline-delete"
             >
               <Trash size={14} aria-hidden />
+              {!canDelete ? (
+                <span id={deleteExplanationId} className="sc-app-timeline-delete__explanation">
+                  A timeline must contain at least one event.
+                </span>
+              ) : null}
             </button>
           </>
         }
@@ -130,16 +139,16 @@ function TimelineAddGhost({
 
   return (
     <div
-      className={`sc-timeline__event sc-timeline__event--ghost sc-timeline__event--${side}`}
+      className="sc-app-timeline-add-row"
       data-timeline-side={side}
     >
-      <span aria-hidden className="sc-timeline__dot sc-timeline__dot--ghost" />
+      <span aria-hidden className="sc-app-timeline-add-dot" />
       <BlockAddGhost
         label="Add event"
         presentation="tile"
         contentEditable={false}
         onClick={addItem}
-        className="sc-timeline__add"
+        className="sc-app-timeline-add"
       />
     </div>
   );

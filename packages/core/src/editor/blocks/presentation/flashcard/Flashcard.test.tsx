@@ -41,7 +41,7 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
-function flashcardFixture(): JSONContent {
+function flashcardFixture(cardCount = 1): JSONContent {
   return {
     type: "doc",
     content: [
@@ -54,32 +54,30 @@ function flashcardFixture(): JSONContent {
             shuffle: false,
           },
         },
-        content: [
-          {
-            type: FLASHCARD_CARD_NODE,
-            attrs: { id: "card-a" },
-            content: [
-              {
-                type: FLASHCARD_CARD_FRONT_NODE,
-                content: [
-                  {
-                    type: "paragraph",
-                    content: [{ type: "text", text: "First front" }],
-                  },
-                ],
-              },
-              {
-                type: FLASHCARD_CARD_BACK_NODE,
-                content: [
-                  {
-                    type: "paragraph",
-                    content: [{ type: "text", text: "First back" }],
-                  },
-                ],
-              },
-            ],
-          },
-        ],
+        content: Array.from({ length: cardCount }, (_, index) => ({
+          type: FLASHCARD_CARD_NODE,
+          attrs: { id: `card-${String.fromCharCode(97 + index)}` },
+          content: [
+            {
+              type: FLASHCARD_CARD_FRONT_NODE,
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: `Front ${index + 1}` }],
+                },
+              ],
+            },
+            {
+              type: FLASHCARD_CARD_BACK_NODE,
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: `Back ${index + 1}` }],
+                },
+              ],
+            },
+          ],
+        })),
       },
       {
         type: "paragraph",
@@ -138,11 +136,13 @@ describe("flashcard block", () => {
       expect(back.inert).toBe(true);
     });
     expect(
-      document.body.querySelector(".sc-flashcard-card__rotator")?.hasAttribute("aria-hidden"),
+      document.body
+        .querySelector(".sc-course-flashcard-card__rotator")
+        ?.hasAttribute("aria-hidden"),
     ).toBe(false);
 
     const flipButton = document.body.querySelector<HTMLButtonElement>(
-      ".sc-flashcard-reader-controls__flip-button",
+      ".sc-course-flashcard-reader-controls__flip-button",
     );
     expect(flipButton).not.toBeNull();
     await user.click(flipButton!);
@@ -193,15 +193,60 @@ describe("flashcard block", () => {
     const fixture = renderFlashcardEditor();
 
     await waitFor(() => {
-      expect(document.body.querySelector(".sc-flashcard-deck")).not.toBeNull();
+      expect(document.body.querySelector(".sc-course-flashcard-deck")).not.toBeNull();
     });
 
-    expect(document.body.querySelector(".sc-flashcard-card__surface")).not.toBeNull();
+    expect(document.body.querySelector(".sc-course-flashcard-card__surface")).not.toBeNull();
     expect(document.body.querySelector(`[${AUTHORING_FRAME_WRAPPER_ATTR}]`)).not.toBeNull();
     expect(document.body.querySelector("[data-layout-kind]")).toBeNull();
     expect(document.body.querySelector("[data-layout-menu-trigger]")).toBeNull();
     expect(document.body.querySelector('[data-authoring-frame="layout"]')).toBeNull();
     expect(await screen.findByRole("button", { name: "Add card" })).not.toBeNull();
+
+    fixture.destroy();
+  });
+
+  it("mounts the same editable surface and App management controls for every selected card", async () => {
+    const user = userEvent.setup();
+    const fixture = renderFlashcardEditor(flashcardFixture(2));
+
+    await user.click(await screen.findByRole("button", { name: "Next card" }));
+
+    await waitFor(() => {
+      const selected = document.body.querySelector<HTMLElement>('[data-id="card-b"]');
+      expect(selected?.classList.contains("sc-course-flashcard-card")).toBe(true);
+      expect(selected?.querySelector(".sc-course-flashcard-card__surface")).not.toBeNull();
+    });
+
+    expect(screen.getByRole("button", { name: "Move flashcard card 2" })).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Delete flashcard card 2" })).not.toBeNull();
+    expect(screen.queryByRole("button", { name: /Mark as/u })).toBeNull();
+    expect(document.body.querySelector(".sc-course-flashcard-deck-header__progress")).toBeNull();
+
+    fixture.destroy();
+  });
+
+  it("keeps the final card delete action visible with its invariant explained", async () => {
+    const fixture = renderFlashcardEditor();
+    const deleteButton = await screen.findByRole("button", { name: "Delete flashcard card 1" });
+
+    expect(deleteButton.getAttribute("aria-disabled")).toBe("true");
+    expect(screen.getByText("A flashcard deck must contain at least one card.")).not.toBeNull();
+
+    fixture.destroy();
+  });
+
+  it("deletes cards while exposing the contained App reorder control", async () => {
+    const user = userEvent.setup();
+    const fixture = renderFlashcardEditor(flashcardFixture(2));
+
+    expect(await screen.findByRole("button", { name: "Move flashcard card 1" })).not.toBeNull();
+    await user.click(screen.getByRole("button", { name: "Delete flashcard card 1" }));
+    await waitFor(() => {
+      expect(fixture.json().content?.[0]?.content?.map((card) => card.attrs?.["id"])).toEqual([
+        "card-b",
+      ]);
+    });
 
     fixture.destroy();
   });

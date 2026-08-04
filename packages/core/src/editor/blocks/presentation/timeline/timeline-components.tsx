@@ -1,19 +1,14 @@
 import {
-  CaretDownIcon as CaretDown,
   CaretLeftIcon as CaretLeft,
   CaretRightIcon as CaretRight,
-  CaretUpIcon as CaretUp,
 } from "@phosphor-icons/react";
-import type { ReactNode } from "react";
-import { useLayoutEffect, useRef } from "react";
+import { useId, useLayoutEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 
 export interface TimelineOptions {
   showAxis: boolean;
   alignment: "alternate" | "left" | "right";
   presentation: "vertical" | "carousel";
 }
-
-type TimelineNavAxis = "x" | "y";
 
 export function readTimelineOptions(value: unknown): TimelineOptions {
   const raw = readObject(value);
@@ -47,58 +42,88 @@ export function TimelineTrack({
   options: TimelineOptions;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
-  const navAxis = resolveTimelineNavAxis(options);
+  const initialisedPresentationRef = useRef<TimelineOptions["presentation"] | null>(null);
+  const trackId = useId();
+  const [navigation, setNavigation] = useState({
+    canNext: false,
+    canPrevious: false,
+    currentIndex: 0,
+    visible: false,
+  });
 
-  // Both vertical + horizontal carousel-style timelines use a sub-scroll
-  // container with leading + trailing padding so first / last events can
-  // snap-centre. That padding pushes the scroll origin, so scroll the first
-  // event into view on mount instead of leaving blank padding in view.
   useLayoutEffect(() => {
     const track = trackRef.current;
     if (!track) return;
-    const firstEvent = track.querySelector<HTMLElement>("[data-timeline-event]");
-    if (!firstEvent) return;
 
-    const eventRect = firstEvent.getBoundingClientRect();
-    const trackRect = track.getBoundingClientRect();
-    if (navAxis === "x") {
-      const offset = eventRect.left + eventRect.width / 2 - (trackRect.left + trackRect.width / 2);
-      track.scrollBy({ left: offset, behavior: "auto" });
-      return;
+    if (
+      options.presentation === "carousel" &&
+      initialisedPresentationRef.current !== "carousel"
+    ) {
+      scrollTimelineEventIntoView(track, 0, "auto");
     }
+    initialisedPresentationRef.current = options.presentation;
 
-    const offset = eventRect.top + eventRect.height / 2 - (trackRect.top + trackRect.height / 2);
-    track.scrollBy({ top: offset, behavior: "auto" });
-  }, [navAxis]);
+    const updateNavigation = () => {
+      if (options.presentation !== "carousel") {
+        setNavigation((current) =>
+          current.visible
+            ? { canNext: false, canPrevious: false, currentIndex: 0, visible: false }
+            : current,
+        );
+        return;
+      }
 
-  const scrollByOneSlot = (direction: 1 | -1) => {
+      const events = timelineEvents(track);
+      const hasOverflow = track.scrollWidth > track.clientWidth + 1;
+      const currentIndex = nearestTimelineEventIndex(track, events);
+      setNavigation({
+        canNext: hasOverflow && currentIndex < events.length - 1,
+        canPrevious: hasOverflow && currentIndex > 0,
+        currentIndex,
+        visible: hasOverflow && events.length > 1,
+      });
+    };
+
+    updateNavigation();
+    track.addEventListener("scroll", updateNavigation, { passive: true });
+    const resizeObserver =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateNavigation);
+    resizeObserver?.observe(track);
+
+    return () => {
+      track.removeEventListener("scroll", updateNavigation);
+      resizeObserver?.disconnect();
+    };
+  }, [eventCount, options.presentation]);
+
+  const scrollByOneEvent = (direction: 1 | -1, event: MouseEvent<HTMLButtonElement>) => {
     const track = trackRef.current;
     if (!track) return;
-    const firstSlot = track.querySelector<HTMLElement>("[data-timeline-event]");
-    const rect = firstSlot?.getBoundingClientRect();
-    if (navAxis === "x") {
-      const slot = rect ? rect.width : track.clientWidth * 0.3;
-      track.scrollBy({ left: direction * (slot + 16), behavior: "smooth" });
-      return;
-    }
-
-    const slot = rect ? rect.height : track.clientHeight * 0.3;
-    track.scrollBy({ top: direction * (slot + 36), behavior: "smooth" });
+    const events = timelineEvents(track);
+    const targetIndex = Math.max(
+      0,
+      Math.min(events.length - 1, navigation.currentIndex + direction),
+    );
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+    const behavior = event.detail === 0 || reduceMotion ? "auto" : "smooth";
+    scrollTimelineEventIntoView(track, targetIndex, behavior);
   };
 
   return (
     <>
-      <div className="sc-timeline__track" ref={trackRef}>
-        <div className="sc-timeline__rail">
+      <div id={trackId} className="sc-course-timeline__track" ref={trackRef}>
+        <div className="sc-course-timeline__rail">
           {children}
           {footer}
         </div>
       </div>
-      {eventCount > 0 ? (
+      {navigation.visible ? (
         <TimelineNavigation
-          axis={navAxis}
-          onNext={() => scrollByOneSlot(1)}
-          onPrevious={() => scrollByOneSlot(-1)}
+          canNext={navigation.canNext}
+          canPrevious={navigation.canPrevious}
+          controls={trackId}
+          onNext={(event) => scrollByOneEvent(1, event)}
+          onPrevious={(event) => scrollByOneEvent(-1, event)}
         />
       ) : null}
     </>
@@ -114,61 +139,99 @@ export function TimelineEventCard({
 }) {
   return (
     <>
-      <span aria-hidden className="sc-timeline__dot" />
-      <div data-timeline-card="" className="sc-timeline__card">
-        {chrome}
-        <div className="sc-timeline__content">{children}</div>
+      <span aria-hidden className="sc-course-timeline__dot" />
+      <div data-timeline-card="" className="sc-course-timeline__card">
+        {chrome ? (
+          <div contentEditable={false} className="sc-app-timeline-chrome">
+            {chrome}
+          </div>
+        ) : null}
+        <div className="sc-course-timeline__content">{children}</div>
       </div>
     </>
   );
 }
 
 function TimelineNavigation({
-  axis,
+  canNext,
+  canPrevious,
+  controls,
   onNext,
   onPrevious,
 }: {
-  axis: TimelineNavAxis;
-  onNext: () => void;
-  onPrevious: () => void;
+  canNext: boolean;
+  canPrevious: boolean;
+  controls: string;
+  onNext: (event: MouseEvent<HTMLButtonElement>) => void;
+  onPrevious: (event: MouseEvent<HTMLButtonElement>) => void;
 }) {
   return (
-    <div
-      className="sc-timeline__carousel-nav"
-      data-axis={axis}
+    <nav
+      className="sc-course-timeline__navigation"
       contentEditable={false}
       aria-label="Timeline navigation"
     >
       <button
         type="button"
-        className="sc-timeline__carousel-button"
-        aria-label={axis === "x" ? "Previous event" : "Earlier event"}
+        className="sc-course-timeline__navigation-button"
+        aria-controls={controls}
+        aria-label="Previous event"
+        disabled={!canPrevious}
         onClick={onPrevious}
       >
-        {axis === "x" ? (
-          <CaretLeft size={14} weight="bold" aria-hidden />
-        ) : (
-          <CaretUp size={14} weight="bold" aria-hidden />
-        )}
+        <CaretLeft size={16} weight="bold" aria-hidden />
       </button>
       <button
         type="button"
-        className="sc-timeline__carousel-button"
-        aria-label={axis === "x" ? "Next event" : "Later event"}
+        className="sc-course-timeline__navigation-button"
+        aria-controls={controls}
+        aria-label="Next event"
+        disabled={!canNext}
         onClick={onNext}
       >
-        {axis === "x" ? (
-          <CaretRight size={14} weight="bold" aria-hidden />
-        ) : (
-          <CaretDown size={14} weight="bold" aria-hidden />
-        )}
+        <CaretRight size={16} weight="bold" aria-hidden />
       </button>
-    </div>
+    </nav>
   );
 }
 
-function resolveTimelineNavAxis(options: TimelineOptions): TimelineNavAxis {
-  return options.presentation === "carousel" ? "x" : "y";
+function timelineEvents(track: HTMLElement): HTMLElement[] {
+  return Array.from(track.querySelectorAll<HTMLElement>("[data-timeline-event]"));
+}
+
+function nearestTimelineEventIndex(track: HTMLElement, events: HTMLElement[]): number {
+  if (events.length === 0) return 0;
+  const trackRect = track.getBoundingClientRect();
+  const trackCenter = trackRect.left + trackRect.width / 2;
+  let nearestIndex = 0;
+  let nearestDistance = Number.POSITIVE_INFINITY;
+
+  events.forEach((timelineEvent, index) => {
+    const eventRect = timelineEvent.getBoundingClientRect();
+    const distance = Math.abs(eventRect.left + eventRect.width / 2 - trackCenter);
+    if (distance >= nearestDistance) return;
+    nearestDistance = distance;
+    nearestIndex = index;
+  });
+
+  return nearestIndex;
+}
+
+function scrollTimelineEventIntoView(
+  track: HTMLElement,
+  eventIndex: number,
+  behavior: ScrollBehavior,
+) {
+  const timelineEvent = timelineEvents(track)[eventIndex];
+  if (!timelineEvent) return;
+  const trackRect = track.getBoundingClientRect();
+  const eventRect = timelineEvent.getBoundingClientRect();
+  const centeredLeft =
+    track.scrollLeft +
+    eventRect.left -
+    trackRect.left -
+    (track.clientWidth - eventRect.width) / 2;
+  track.scrollTo({ left: centeredLeft, behavior });
 }
 
 function readObject(value: unknown): Record<string, unknown> {

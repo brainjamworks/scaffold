@@ -1,34 +1,43 @@
 import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 
 import {
+  courseStateForRoadmapStatus,
   readMilestonePosition,
   readMilestoneStatus,
+  roadmapMarkerClassName,
+  roadmapStatusLabel,
   renderRoadmapTileContent,
   resolveRoadmapData,
-  tileClassName,
 } from "./roadmap-view-helpers";
 
 export function RoadmapMilestoneRuntimeView(props: NodeViewProps) {
   const { index } = readMilestonePosition(props);
   const roadmapData = resolveRoadmapData(props);
   const status = readMilestoneStatus(props.node);
+  const courseState = courseStateForRoadmapStatus(status);
 
   return (
     <NodeViewWrapper
+      as="li"
       data-node="roadmap-milestone"
-      role="listitem"
-      className="sc-roadmap__milestone"
+      aria-current={status === "current" ? "step" : undefined}
+      className="sc-course-roadmap__milestone"
     >
-      <div className="sc-roadmap__milestone-shell">
+      <div className="sc-course-roadmap__milestone-shell">
         <span
           contentEditable={false}
-          aria-hidden
           data-status={status}
-          className={tileClassName(status)}
+          data-course-state={courseState}
+          className={roadmapMarkerClassName(status)}
         >
-          {renderRoadmapTileContent(status, index, roadmapData)}
+          <span aria-hidden className="sc-course-roadmap__marker-visual">
+            {renderRoadmapTileContent(status, index, roadmapData)}
+          </span>
+          <span className="sc-course-roadmap__runtime-status sc-sr-only">
+            {roadmapStatusLabel(status, index)}
+          </span>
         </span>
-        <div className="sc-roadmap__content">
+        <div className="sc-course-roadmap__content">
           <NodeViewContent />
         </div>
       </div>

@@ -42,11 +42,24 @@ export function createTimelineNode(options: TimelineNodeOptions = {}) {
     },
 
     parseHTML() {
-      return [{ tag: 'section[data-node="timeline"]' }];
+      return [
+        {
+          tag: 'section[data-node="timeline"]',
+          contentElement: (element: HTMLElement) =>
+            element.querySelector<HTMLElement>(":scope > ol") ?? element,
+        },
+      ];
     },
 
     renderHTML({ HTMLAttributes }) {
-      return ["section", mergeAttributes(HTMLAttributes, { "data-node": "timeline" }), 0];
+      return [
+        "section",
+        mergeAttributes(HTMLAttributes, {
+          "aria-label": "Timeline",
+          "data-node": "timeline",
+        }),
+        ["ol", { "aria-label": "Timeline events" }, 0],
+      ];
     },
 
     ...(options.addNodeView

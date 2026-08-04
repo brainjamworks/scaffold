@@ -21,11 +21,14 @@ export function createTimelineItemNode(options: TimelineItemNodeOptions = {}) {
     },
 
     parseHTML() {
-      return [{ tag: 'div[data-node="timeline-item"]' }];
+      return [
+        { tag: 'li[data-node="timeline-item"]' },
+        { tag: 'div[data-node="timeline-item"]' },
+      ];
     },
 
     renderHTML({ HTMLAttributes }) {
-      return ["div", mergeAttributes(HTMLAttributes, { "data-node": "timeline-item" }), 0];
+      return ["li", mergeAttributes(HTMLAttributes, { "data-node": "timeline-item" }), 0];
     },
 
     ...(options.addNodeView

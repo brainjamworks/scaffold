@@ -7,6 +7,7 @@ import {
   getRelativeFlashcardCardId,
   isCurrentFlashcardCard,
   rateFlashcardDeck,
+  reconcileFlashcardCardOrder,
   resolveFlashcardKeyboardAction,
   resolveFlashcardDeckState,
   shouldIgnoreFlashcardEnterFlip,
@@ -43,6 +44,30 @@ describe("flashcard shared deck policy", () => {
     expect(getRelativeFlashcardCardId(cards, 0, -1)).toBe("card-c");
     expect(getRelativeFlashcardCardId(cards, 2, 1)).toBe("card-a");
     expect(getRelativeFlashcardCardId([], 0, 1)).toBeNull();
+  });
+
+  it("keeps learner shuffle order stable while reconciling authored card changes", () => {
+    const firstOrder = reconcileFlashcardCardOrder(cards, [], true, "flashcard-one");
+
+    expect(firstOrder.map((card) => card.id)).not.toEqual(cards.map((card) => card.id));
+
+    const reconciled = reconcileFlashcardCardOrder(
+      [{ id: "card-a" }, { id: "card-c" }, { id: "card-d" }],
+      firstOrder.map((card) => card.id),
+      true,
+      "flashcard-one",
+    );
+
+    expect(reconciled.slice(0, 2).map((card) => card.id)).toEqual(
+      firstOrder.filter((card) => card.id !== "card-b").map((card) => card.id),
+    );
+    expect(reconciled.map((card) => card.id)).toContain("card-d");
+  });
+
+  it("uses authored order when learner shuffling is disabled", () => {
+    expect(
+      reconcileFlashcardCardOrder(cards, ["card-c", "card-a", "card-b"], false, "deck"),
+    ).toEqual(cards);
   });
 
   it("rates the current card and advances to the next unmastered card", () => {
@@ -109,6 +134,14 @@ describe("flashcard shared deck policy", () => {
         cardId: "card-a",
       }),
     ).toBe(false);
+    expect(
+      isCurrentFlashcardCard({
+        deck: { ...EMPTY_FLASHCARD_DATA, currentCardId: "removed-card" },
+        deckNode,
+        cardId: "card-b",
+        cardSummaries: [{ id: "card-b" }, { id: "card-a" }],
+      }),
+    ).toBe(true);
   });
 
   it("toggles a card flip flag without mutating the existing deck", () => {

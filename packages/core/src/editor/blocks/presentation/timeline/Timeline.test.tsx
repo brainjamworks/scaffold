@@ -203,12 +203,16 @@ describe("timeline block", () => {
     expect(insertContent?.attrs?.["variant"]).toBeUndefined();
   });
 
-  it("renders timeline event chrome without layout-specific targets", async () => {
+  it("renders a labelled event list with separate App authoring controls", async () => {
     const fixture = renderTimelineEditor();
 
     await waitFor(() => {
       expect(document.body.querySelector("[data-timeline-event]")).not.toBeNull();
     });
+    const region = screen.getByRole("region", { name: "Timeline" });
+    const eventList = screen.getByRole("list", { name: "Timeline events" });
+    expect(region.contains(eventList)).toBe(true);
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
     expect(document.body.querySelector("[data-contained-movement-target]")).not.toBeNull();
     expect(document.body.querySelector("[data-contained-movement-handle]")).not.toBeNull();
     expect(document.body.querySelector("[data-layout-kind]")).toBeNull();
@@ -217,7 +221,59 @@ describe("timeline block", () => {
     const deleteButton = await screen.findByRole("button", {
       name: "Delete timeline event 2",
     });
-    expect(deleteButton).not.toBeNull();
+    expect(deleteButton.classList.contains("sc-app-timeline-delete")).toBe(true);
+    const addButton = screen.getByRole("button", { name: "Add event" });
+    expect(addButton.closest("ol")).toBeNull();
+    expect(document.body.querySelector(".sc-course-timeline")).not.toBeNull();
+
+    fixture.destroy();
+  });
+
+  it("keeps the final delete action focusable with its minimum-event explanation", async () => {
+    const user = userEvent.setup();
+    const content = timelineFixture();
+    const timeline = content.content?.[0];
+    if (!timeline?.content) throw new Error("Timeline fixture is missing events.");
+    timeline.content = timeline.content.slice(0, 1);
+    const fixture = renderTimelineEditor(content);
+
+    const deleteButton = await screen.findByRole("button", {
+      name: "Delete timeline event 1",
+    });
+    expect(deleteButton.getAttribute("aria-disabled")).toBe("true");
+    expect(deleteButton.hasAttribute("disabled")).toBe(false);
+    expect(screen.getByText("A timeline must contain at least one event.")).not.toBeNull();
+
+    await user.click(deleteButton);
+    expect(fixture.json().content?.[0]?.content).toHaveLength(1);
+
+    fixture.destroy();
+  });
+
+  it("keeps App authoring controls out of learner runtime", async () => {
+    const fixture = renderTimelineEditor(timelineFixture(), { editable: false });
+
+    await waitFor(() => {
+      expect(screen.getAllByRole("listitem")).toHaveLength(3);
+    });
+    expect(screen.getByRole("region", { name: "Timeline" })).not.toBeNull();
+    expect(document.body.querySelector('[class*="sc-app-timeline-"]')).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add event" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Delete timeline event/ })).toBeNull();
+
+    fixture.destroy();
+  });
+
+  it("serializes Timeline and event list semantics", () => {
+    const fixture = renderTimelineEditor();
+    const serialized = document.createElement("div");
+    serialized.innerHTML = fixture.editor.getHTML();
+
+    const section = serialized.querySelector('section[data-node="timeline"]');
+    expect(section?.getAttribute("aria-label")).toBe("Timeline");
+    const eventList = section?.querySelector('ol[aria-label="Timeline events"]');
+    expect(eventList?.querySelectorAll(':scope > li[data-node="timeline-item"]')).toHaveLength(3);
+    expect(section?.querySelector('div[data-node="timeline-item"]')).toBeNull();
 
     fixture.destroy();
   });
