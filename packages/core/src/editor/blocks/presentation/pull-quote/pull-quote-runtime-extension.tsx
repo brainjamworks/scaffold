@@ -10,6 +10,7 @@ import { PullQuoteAttributionNode, PullQuoteBodyNode } from "./slots";
 const PullQuoteRuntimeNode = createPullQuoteNode({
   addNodeView: () =>
     createBlockRuntimeNodeView({
+      className: "sc-course-pull-quote-node",
       definition: pullQuoteBlockDefinition,
       view: { component: PullQuoteView },
     }),

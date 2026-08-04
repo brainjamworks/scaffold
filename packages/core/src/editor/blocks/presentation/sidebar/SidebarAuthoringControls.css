@@ -1,5 +1,11 @@
 @layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
 
+@layer sc-components {
+  .sc-course-sidebar__label p[data-placeholder].is-empty::before {
+    text-transform: none;
+  }
+}
+
 @layer sc-overlays {
   .sc-app-sidebar-icon-trigger {
     display: inline-flex;

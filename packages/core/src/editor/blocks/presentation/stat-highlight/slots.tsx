@@ -73,7 +73,10 @@ export const StatHighlightContextNode = Node.create({
 
 function StatValueView() {
   return (
-    <NodeViewWrapper data-slot="stat-highlight-value" className="sc-stat-highlight__value">
+    <NodeViewWrapper
+      data-slot="stat-highlight-value"
+      className="sc-course-stat-highlight__value"
+    >
       <NodeViewContent />
     </NodeViewWrapper>
   );
@@ -81,7 +84,10 @@ function StatValueView() {
 
 function StatLabelView() {
   return (
-    <NodeViewWrapper data-slot="stat-highlight-label" className="sc-stat-highlight__label">
+    <NodeViewWrapper
+      data-slot="stat-highlight-label"
+      className="sc-course-stat-highlight__label"
+    >
       <NodeViewContent />
     </NodeViewWrapper>
   );
@@ -99,7 +105,7 @@ function StatContextView(props: NodeViewProps) {
       <NodeViewWrapper
         data-slot="stat-highlight-context"
         aria-hidden
-        className="sc-stat-highlight__context--hidden"
+        className="sc-course-stat-highlight__context--hidden"
       >
         <NodeViewContent />
       </NodeViewWrapper>
@@ -110,7 +116,7 @@ function StatContextView(props: NodeViewProps) {
     <NodeViewWrapper
       data-slot="stat-highlight-context"
       data-empty={isEmpty ? "true" : undefined}
-      className="sc-stat-highlight__context"
+      className="sc-course-stat-highlight__context"
     >
       <NodeViewContent />
     </NodeViewWrapper>

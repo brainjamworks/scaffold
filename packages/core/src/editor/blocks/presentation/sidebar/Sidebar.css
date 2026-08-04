@@ -13,10 +13,6 @@
     display: contents;
   }
 
-  .sc-course-sidebar__label p[data-placeholder].is-empty::before {
-    text-transform: none;
-  }
-
   .sc-course-sidebar__surface,
   .sc-course-sidebar__layout,
   .sc-course-sidebar__slots,

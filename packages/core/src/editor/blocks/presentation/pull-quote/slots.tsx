@@ -58,7 +58,7 @@ export const PullQuoteAttributionNode = Node.create({
 
 function PullQuoteBodyView() {
   return (
-    <NodeViewWrapper data-slot="pull-quote-body" className="sc-pull-quote__body">
+    <NodeViewWrapper data-slot="pull-quote-body" className="sc-course-pull-quote__body">
       <NodeViewContent />
     </NodeViewWrapper>
   );
@@ -76,7 +76,7 @@ function PullQuoteAttributionView(props: NodeViewProps) {
       <NodeViewWrapper
         data-slot="pull-quote-attribution"
         aria-hidden
-        className="sc-pull-quote__attribution--hidden"
+        className="sc-course-pull-quote__attribution--hidden"
       >
         <NodeViewContent />
       </NodeViewWrapper>
@@ -87,7 +87,7 @@ function PullQuoteAttributionView(props: NodeViewProps) {
     <NodeViewWrapper
       data-slot="pull-quote-attribution"
       data-empty={isEmpty ? "true" : undefined}
-      className="sc-pull-quote__attribution"
+      className="sc-course-pull-quote__attribution"
     >
       <NodeViewContent />
     </NodeViewWrapper>

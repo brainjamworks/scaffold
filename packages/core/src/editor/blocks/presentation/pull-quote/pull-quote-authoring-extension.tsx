@@ -10,6 +10,7 @@ import { PullQuoteAttributionNode, PullQuoteBodyNode } from "./slots";
 const PullQuoteAuthoringNode = createPullQuoteNode({
   addNodeView: () =>
     createBlockAuthoringNodeView({
+      className: "sc-course-pull-quote-node",
       definition: pullQuoteBlockDefinition,
       view: { component: PullQuoteView },
     }),

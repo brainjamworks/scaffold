@@ -10,6 +10,7 @@ import { StatHighlightContextNode, StatHighlightLabelNode, StatHighlightValueNod
 const StatHighlightAuthoringNode = createStatHighlightNode({
   addNodeView: () =>
     createBlockAuthoringNodeView({
+      className: "sc-course-stat-highlight-node",
       definition: statHighlightBlockDefinition,
       view: { component: StatHighlightView },
     }),
