@@ -23,10 +23,7 @@ import {
   useAuthoringNodeTarget,
 } from "@/editor/prosemirror/authoring-target";
 import type { SettingsFieldDocumentTarget } from "@/editor/shell/settings/controls/fields/types";
-import {
-  SettingsForm,
-  SettingsFormFooter,
-} from "@/editor/shell/settings/forms/SettingsForm";
+import { SettingsForm, SettingsFormFooter } from "@/editor/shell/settings/forms/SettingsForm";
 
 import { resolveSettingsContext, type SettingsContext } from "./settings-context";
 

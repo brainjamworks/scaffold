@@ -10,10 +10,7 @@ import type {
   SettingsFormDefinition,
   SettingsSheetSelectOption,
 } from "@/editor/configuration/settings-sheet";
-import {
-  SettingsForm,
-  SettingsFormFooter,
-} from "@/editor/shell/settings/forms/SettingsForm";
+import { SettingsForm, SettingsFormFooter } from "@/editor/shell/settings/forms/SettingsForm";
 import { PersistedCourseThemeSchema, type PersistedCourseTheme } from "@/schemas/course-document";
 import type { CourseColourSystemRegistry } from "@/theme/course/colour-systems/registry";
 import type { CourseDesignThemeRegistry } from "@/theme/course/designs/registry";
