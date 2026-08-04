@@ -1,5 +1,7 @@
 // @vitest-environment happy-dom
 
+import "@testing-library/jest-dom/vitest";
+
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import type { JSONContent } from "@tiptap/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -16,6 +18,7 @@ import type { SurfaceRuntimeViewProps } from "@/editor/surfaces/runtime/surface-
 import { SurfaceRuntimeFrame } from "@/editor/surfaces/runtime/views/SurfaceRuntimeFrame";
 import type { ScaffoldLearnerBootstrap, ScaffoldLearnerHostServices } from "@/host/contracts";
 import type { XapiPort } from "@/host/ports";
+import type { LearningEventPort } from "@/host/ports/learning-events";
 import { SCAFFOLD_DEFAULT_PRESET, type ScaffoldThemeExtension } from "@/theme/model";
 
 import { ScaffoldLearnerApp } from "./ScaffoldLearnerApp";
@@ -453,7 +456,7 @@ describe("ScaffoldLearnerApp", () => {
 
   it("passes learner host services through the runtime provider", async () => {
     const load = vi.fn(async () => null);
-    const send = vi.fn<XapiPort["send"]>(async () => undefined);
+    const accept = vi.fn<LearningEventPort["accept"]>(async () => undefined);
     const services = {
       learnerActivity: {
         load,
@@ -462,9 +465,9 @@ describe("ScaffoldLearnerApp", () => {
           updatedAt: "2026-07-17T08:00:00Z",
         })),
       },
-      xapi: {
-        activityId: "https://learning.example.test/courses/artifact-services",
-        send,
+      learningEvents: {
+        rootActivityId: "https://learning.example.test/artifacts/artifact-services",
+        accept,
       },
     } satisfies ScaffoldLearnerHostServices;
 
@@ -481,17 +484,44 @@ describe("ScaffoldLearnerApp", () => {
         artifactId: "artifact-services",
       }),
     );
-    await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
-    expect(send.mock.calls[0]?.[0]).toMatchObject({
+    await waitFor(() => expect(accept).toHaveBeenCalledTimes(2));
+    expect(accept.mock.calls[0]?.[0]).toMatchObject({
       verb: { display: { en: "initialized" } },
       object: {
-        id: services.xapi.activityId,
+        id: services.learningEvents.rootActivityId,
         definition: { name: { en: "Learner artifact" } },
       },
     });
-    expect(send.mock.calls[1]?.[0]).toMatchObject({
+    expect(accept.mock.calls[1]?.[0]).toMatchObject({
       verb: { display: { en: "experienced" } },
     });
+  });
+
+  it("disables reporting when old and general capabilities conflict", async () => {
+    const accept = vi.fn<LearningEventPort["accept"]>(async () => undefined);
+    const send = vi.fn<XapiPort["send"]>(async () => undefined);
+
+    render(
+      <ScaffoldLearnerApp
+        composition={runtimeComposition}
+        bootstrap={learnerBootstrap()}
+        services={{
+          learningEvents: {
+            rootActivityId: "https://learning.example.test/artifacts/artifact-conflict",
+            accept,
+          },
+          xapi: {
+            activityId: "https://learning.example.test/artifacts/artifact-conflict",
+            send,
+          },
+        }}
+      />,
+    );
+
+    await screen.findByText("Projected learner content");
+    await act(async () => Promise.resolve());
+    expect(accept).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
   });
 
   it("accepts a strict assessment snapshot while keeping activity state separate", async () => {
