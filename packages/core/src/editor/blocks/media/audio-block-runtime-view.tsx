@@ -78,7 +78,6 @@ export function AudioBlockRuntimeView(props: NodeViewProps) {
       onPlaybackEnded={recordCompleted}
       onPlaybackStarted={recordAttempted}
       resolvedUrl={resolvedUrl}
-      withWrapper={false}
     />
   );
 }

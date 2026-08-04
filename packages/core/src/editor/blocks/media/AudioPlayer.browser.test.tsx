@@ -3,7 +3,11 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import "@/styles/globals.css";
 
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
+
 import { AudioPlayer } from "./AudioPlayer";
+import "./AudioBlockAuthoringControls.css";
 import "./AudioPlayer.css";
 
 const mountedRoots: Root[] = [];
@@ -16,13 +20,13 @@ afterEach(() => {
 describe("Audio Player responsive controls", () => {
   it("keeps essential controls available while progressively reducing secondary chrome", async () => {
     const { host, player } = await mountAudioPlayer();
-    const play = requiredElement<HTMLElement>(player, ".sc-audio-player__play");
-    const progress = requiredElement<HTMLElement>(player, ".sc-audio-player__progress");
-    const volume = requiredElement<HTMLElement>(player, ".sc-audio-player__volume");
-    const rate = requiredElement<HTMLElement>(player, ".sc-audio-player__rate");
-    const time = requiredElement<HTMLElement>(player, ".sc-audio-player__time");
+    const play = requiredElement<HTMLElement>(player, ".sc-course-audio-player__play");
+    const progress = requiredElement<HTMLElement>(player, ".sc-course-audio-player__progress");
+    const volume = requiredElement<HTMLElement>(player, ".sc-course-audio-player__volume");
+    const rate = requiredElement<HTMLElement>(player, ".sc-course-audio-player__rate");
+    const time = requiredElement<HTMLElement>(player, ".sc-course-audio-player__time");
 
-    expect(getComputedStyle(player).containerName).toBe("sc-audio-player");
+    expect(getComputedStyle(player).containerName).toBe("sc-course-audio-player");
     expect(isVisible(play)).toBe(true);
     expect(isVisible(progress)).toBe(true);
     expect(isVisible(volume)).toBe(true);
@@ -46,8 +50,8 @@ describe("Audio Player responsive controls", () => {
 
   it("preserves mute and playback-rate interactions", async () => {
     const { player } = await mountAudioPlayer();
-    const mute = requiredElement<HTMLButtonElement>(player, ".sc-audio-player__mute");
-    const rate = requiredElement<HTMLButtonElement>(player, ".sc-audio-player__rate");
+    const mute = requiredElement<HTMLButtonElement>(player, ".sc-course-audio-player__mute");
+    const rate = requiredElement<HTMLButtonElement>(player, ".sc-course-audio-player__rate");
 
     expect(mute.getAttribute("aria-label")).toBe("Mute");
     mute.click();
@@ -65,6 +69,28 @@ describe("Audio Player responsive controls", () => {
     rate.click();
     await waitForCondition(() => rate.getAttribute("aria-label") === "Playback speed, 1x");
   });
+
+  it("centers the reserved replace rail against the player bar", async () => {
+    const { host, player } = await mountAudioPlayer();
+    const frame = document.createElement("div");
+    frame.className = "sc-app-audio-block__populated-media";
+    const courseCell = document.createElement("div");
+    courseCell.className = "sc-app-audio-block__course-cell";
+    const rail = document.createElement("div");
+    rail.className = "sc-app-audio-block__replace-rail";
+    const replace = document.createElement("button");
+    replace.type = "button";
+    replace.style.width = "32px";
+    replace.style.height = "32px";
+    rail.append(replace);
+    player.parentElement?.replaceChildren(frame);
+    courseCell.append(player);
+    frame.append(courseCell, rail);
+
+    await waitForCondition(() => getComputedStyle(rail).display === "flex");
+    expect(getComputedStyle(rail).alignItems).toBe("center");
+    expect(host.contains(player)).toBe(true);
+  });
 });
 
 async function mountAudioPlayer() {
@@ -74,12 +100,16 @@ async function mountAudioPlayer() {
 
   const root = createRoot(host);
   mountedRoots.push(root);
-  root.render(<AudioPlayer src="data:audio/wav;base64," title="Browser test audio" />);
+  root.render(
+    <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+      <AudioPlayer src="data:audio/wav;base64," title="Browser test audio" />
+    </CourseThemeProvider>,
+  );
 
-  await waitForCondition(() => host.querySelector(".sc-audio-player"));
+  await waitForCondition(() => host.querySelector(".sc-course-audio-player"));
   return {
     host,
-    player: requiredElement<HTMLElement>(host, ".sc-audio-player"),
+    player: requiredElement<HTMLElement>(host, ".sc-course-audio-player"),
   };
 }
 

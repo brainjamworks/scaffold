@@ -15,7 +15,6 @@ export function ImageBlockRuntimeView(props: NodeViewProps) {
       data={data}
       errorMessage={errorMessage}
       resolvedUrl={resolvedUrl}
-      withWrapper={false}
     />
   );
 }

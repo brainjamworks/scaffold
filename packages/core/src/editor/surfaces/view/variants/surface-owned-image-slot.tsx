@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { imagePositionToCss } from "@/editor/media/model/image-position";
+import { cn } from "@/lib/cn";
 import type { SurfaceImageSlotRole } from "@/editor/surfaces/model/slide-composition-definition";
 import type { SurfaceOwnedImage } from "@/editor/surfaces/model/surface-owned-image";
 import { DEFAULT_IMAGE_POSITION } from "@/schemas/course-document";
@@ -25,7 +26,10 @@ export function SurfaceOwnedImageSlot({
 
   return (
     <div
-      className="sc-surface-owned-image-slot sc-media-replace-host"
+      className={cn(
+        "sc-surface-owned-image-slot",
+        imageUrl && replaceAction && "sc-app-media-replace-host",
+      )}
       contentEditable={false}
       data-image-role={role}
       data-image-status={status}

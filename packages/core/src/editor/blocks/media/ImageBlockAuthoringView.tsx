@@ -1,7 +1,7 @@
 import { type NodeViewProps } from "@tiptap/react";
 
-import { MediaEmptyAction } from "@/editor/media/authoring/shared-components/MediaEmptyAction";
-import { MediaReplaceButton } from "@/editor/media/authoring/shared-components/MediaReplaceButton";
+import { MediaEmptyAction } from "@/ui/components/app/MediaEmptyAction/MediaEmptyAction";
+import { MediaReplaceButton } from "@/ui/components/app/MediaReplaceButton/MediaReplaceButton";
 import {
   nodeViewUiKey,
   usePickerOpen,
@@ -62,13 +62,12 @@ export function ImageBlockAuthoringView(props: NodeViewProps) {
       data={data}
       errorMessage={errorMessage}
       resolvedUrl={resolvedUrl}
-      withWrapper={false}
       emptyAction={
         <MediaEmptyAction
           onClick={() => setOpen(true)}
           aria-label="Add image"
           label="Add image"
-          className="sc-image-block__empty-action"
+          className="sc-app-image-block-empty-action"
         />
       }
       replaceAction={

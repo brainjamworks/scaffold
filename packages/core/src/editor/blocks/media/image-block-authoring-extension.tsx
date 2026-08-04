@@ -4,9 +4,10 @@ import { createImageBlockNode } from "./image-block-node";
 import { imageBlockDefinition } from "./image-block-definition";
 
 import "./ImageBlock.css";
+import "./ImageBlockAuthoringControls.css";
 
 function ImageBlockAuthoringFallback() {
-  return <div aria-hidden="true" className="sc-image-block__fallback" />;
+  return <div aria-hidden="true" className="sc-course-image-block__fallback" />;
 }
 
 export const ImageBlockAuthoringExtension = createImageBlockNode({
@@ -20,6 +21,6 @@ export const ImageBlockAuthoringExtension = createImageBlockNode({
           return { default: mod.ImageBlockAuthoringView };
         },
       },
-      className: "sc-image-block",
+      className: "sc-course-image-block",
     }),
 });

@@ -4,24 +4,20 @@ import {
   SpeakerHighIcon as SpeakerHigh,
   SpeakerSlashIcon as SpeakerSlash,
 } from "@phosphor-icons/react";
-import { useEffect, useId, useRef, useState, type CSSProperties, type MouseEvent } from "react";
-
-import { cn } from "@/lib/cn";
+import { Button, IconButton, Slider } from "@radix-ui/themes";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ComponentPropsWithoutRef,
+  type MouseEvent,
+} from "react";
 
 import "./AudioPlayer.css";
 
-/**
- * AudioPlayer — scaffold audio control bar.
- *
- * Custom controls over a hidden native `<audio>` element. Pill-
- * shaped chrome with play/pause, progress, time, speed cycle, mute,
- * and volume. Designed for use inside the AudioBlock NodeView but
- * exportable for other contexts (e.g. assessment choices) later.
- *
- * Accessibility: every interactive element has an aria-label, range
- * inputs announce position via aria-valuetext, controls meet the
- * 44px touch-target rule, transitions disabled under reduced-motion.
- */
+/** Course-owned controls over a hidden native audio media engine. */
 
 const PLAYBACK_RATES = [0.5, 1, 1.5, 2] as const;
 
@@ -49,10 +45,6 @@ interface AudioPlayerProps {
   src: string;
   /** Visible / accessible title. */
   title?: string;
-  /** Optional extra className for the outer wrapper. */
-  className?: string;
-  /** Inline style passthrough (rare; used by the block to align). */
-  style?: CSSProperties;
   /** Called after the native media element confirms playback started. */
   onStarted?: () => void;
   /** Called when the native media element reports playback reached the end. */
@@ -62,8 +54,6 @@ interface AudioPlayerProps {
 export function AudioPlayer({
   src,
   title,
-  className,
-  style,
   onStarted,
   onEnded,
 }: AudioPlayerProps) {
@@ -108,6 +98,14 @@ export function AudioPlayer({
     audio.addEventListener("durationchange", onMeta);
     audio.addEventListener("volumechange", onVolume);
     audio.addEventListener("ratechange", onRate);
+
+    // Cached metadata can be ready before effects attach after Edit/Preview remounts.
+    setPlaying(!audio.paused);
+    onTime();
+    onMeta();
+    onVolume();
+    onRate();
+
     return () => {
       audio.removeEventListener("play", onPlay);
       audio.removeEventListener("pause", onPause);
@@ -167,8 +165,7 @@ export function AudioPlayer({
 
   return (
     <div
-      className={cn("sc-audio-player", className)}
-      style={style}
+      className="sc-course-audio-player"
       aria-labelledby={title ? titleId : undefined}
       aria-label={title ? undefined : "Audio player"}
       onClick={(event) => event.stopPropagation()}
@@ -177,7 +174,7 @@ export function AudioPlayer({
       <audio ref={audioRef} src={src} preload="metadata" />
 
       {title ? (
-        <div id={titleId} className="sc-audio-player__title">
+        <div id={titleId} className="sc-course-audio-player__title">
           {title}
         </div>
       ) : null}
@@ -185,75 +182,101 @@ export function AudioPlayer({
       <div
         role="group"
         aria-label={title ? `${title} controls` : "Audio player controls"}
-        className="sc-audio-player__bar"
+        className="sc-course-audio-player__bar"
       >
-        <button
+        <IconButton
           type="button"
           onClick={togglePlay}
           aria-label={playing ? "Pause" : "Play"}
-          className="sc-audio-player__play"
+          className="sc-course-audio-player__play"
+          radius="full"
+          size="2"
+          variant="solid"
         >
           {playing ? (
             <Pause size={14} weight="fill" aria-hidden />
           ) : (
             <Play size={14} weight="fill" aria-hidden />
           )}
-        </button>
+        </IconButton>
 
-        <input
-          type="range"
+        <AccessibleAudioSlider
           min={0}
           max={duration || 0}
           step={1}
-          value={Math.min(currentTime, duration || 0)}
-          aria-label="Seek"
-          aria-valuetext={seekValueText}
-          onChange={(e) => onSeek(Number(e.currentTarget.value))}
-          className="sc-audio-player__progress"
+          value={duration > 0 ? [Math.min(currentTime, duration)] : []}
+          label="Seek"
+          valueText={seekValueText}
+          onValueChange={(next) => onSeek(next[0] ?? 0)}
+          className="sc-course-audio-player__progress"
         />
 
-        <span className="sc-audio-player__time">
+        <span className="sc-course-audio-player__time">
           {formatTime(currentTime)}
           <span aria-hidden> / </span>
           {formatTime(duration)}
         </span>
 
-        <button
+        <Button
           type="button"
           onClick={cycleRate}
           aria-label={`Playback speed, ${rate}x`}
-          className="sc-audio-player__rate"
+          className="sc-course-audio-player__rate"
+          radius="full"
+          size="1"
+          variant="ghost"
         >
           {rate}x
-        </button>
+        </Button>
 
-        <div className="sc-audio-player__volume-group">
-          <button
+        <div className="sc-course-audio-player__volume-group">
+          <IconButton
             type="button"
             onClick={toggleMute}
             aria-label={muted ? "Unmute" : "Mute"}
-            className="sc-audio-player__mute"
+            className="sc-course-audio-player__mute"
+            radius="full"
+            size="1"
+            variant="ghost"
           >
             {muted || volume === 0 ? (
               <SpeakerSlash size={14} weight="regular" aria-hidden />
             ) : (
               <SpeakerHigh size={14} weight="regular" aria-hidden />
             )}
-          </button>
+          </IconButton>
 
-          <input
-            type="range"
+          <AccessibleAudioSlider
             min={0}
             max={1}
             step={0.05}
-            value={effectiveVolume}
-            aria-label="Volume"
-            aria-valuetext={volumeValueText}
-            onChange={(e) => onVolumeChange(Number(e.currentTarget.value))}
-            className="sc-audio-player__volume"
+            value={[effectiveVolume]}
+            label="Volume"
+            valueText={volumeValueText}
+            onValueChange={(next) => onVolumeChange(next[0] ?? 0)}
+            className="sc-course-audio-player__volume"
           />
         </div>
       </div>
     </div>
   );
+}
+
+interface AccessibleAudioSliderProps
+  extends Omit<ComponentPropsWithoutRef<typeof Slider>, "aria-label" | "aria-valuetext"> {
+  label: string;
+  valueText: string;
+}
+
+function AccessibleAudioSlider({ label, valueText, ...props }: AccessibleAudioSliderProps) {
+  const rootRef = useRef<HTMLSpanElement | null>(null);
+
+  useLayoutEffect(() => {
+    const thumb = rootRef.current?.querySelector<HTMLElement>('[role="slider"]');
+    if (!thumb) return;
+    thumb.setAttribute("aria-label", label);
+    thumb.setAttribute("aria-valuetext", valueText);
+  }, [label, valueText]);
+
+  return <Slider {...props} ref={rootRef} />;
 }

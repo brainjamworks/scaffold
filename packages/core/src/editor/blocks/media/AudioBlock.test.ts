@@ -41,6 +41,7 @@ import { createCatalogNodeChecked } from "@/editor/insertion/checked-insertion";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { describeBlockContract } from "@/editor/testing";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
+import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
 
 let editor: Editor | null = null;
 
@@ -75,7 +76,12 @@ describe("AudioBlock resize frame", () => {
       type: "doc",
       content: [nodeResult.node.toJSON()],
     });
-    render(createElement(EditorContent, { editor }));
+    render(
+      createElement(AppThemeProvider, {
+        appearance: "light",
+        children: createElement("div", null, createElement(EditorContent, { editor })),
+      }),
+    );
 
     act(() => {
       editor?.view.focus();
@@ -118,6 +124,38 @@ describe("AudioBlock resize frame", () => {
       ).not.toBeNull();
       expect(visibleResizeHandle("bottom-right")?.style.display).toBe("block");
     });
+  });
+
+  it("reserves an App-owned inline rail for the populated replace action", async () => {
+    editor = createAudioBlockTestEditor();
+    editor.commands.setContent({
+      type: "doc",
+      content: [
+        {
+          type: "audio_block",
+          attrs: {
+            id: "audio-1",
+            data: {
+              mode: "external",
+              src: "https://example.com/audio.mp3",
+              title: "A title long enough to wrap beside authoring chrome",
+            },
+          },
+        },
+      ],
+    });
+    render(
+      createElement(AppThemeProvider, {
+        appearance: "light",
+        children: createElement("div", null, createElement(EditorContent, { editor })),
+      }),
+    );
+
+    const replace = await screen.findByRole("button", { name: "Replace audio" });
+    expect(replace).toHaveAttribute("data-placement", "inline");
+    expect(replace.closest(".sc-app-audio-block__replace-rail")).not.toBeNull();
+    expect(replace.closest(".sc-app-audio-block__populated-media")).not.toBeNull();
+    expect(document.body.querySelector(".sc-course-audio-block__stage")).not.toBeNull();
   });
 });
 

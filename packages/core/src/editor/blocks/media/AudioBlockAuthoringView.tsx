@@ -1,11 +1,11 @@
 import { type NodeViewProps } from "@tiptap/react";
 import {
-  ArrowsClockwiseIcon as ArrowsClockwise,
   SpeakerHighIcon as Speaker,
 } from "@phosphor-icons/react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 
-import { BlockAddGhost } from "@/editor/suggestions/insert/BlockAddGhost";
+import { MediaEmptyAction } from "@/ui/components/app/MediaEmptyAction/MediaEmptyAction";
+import { MediaReplaceButton } from "@/ui/components/app/MediaReplaceButton/MediaReplaceButton";
 import {
   nodeViewUiKey,
   usePickerOpen,
@@ -20,6 +20,8 @@ import {
   FilePickerModal,
   type FilePickerResult,
 } from "@/editor/media/authoring/picker/LazyFilePickerModal";
+
+import "./AudioBlockAuthoringControls.css";
 
 function applyAudioPickerResult(result: FilePickerResult): AudioBlockAttrs | null {
   if (result.source === "upload" && result.upload) {
@@ -80,36 +82,40 @@ export function AudioBlockAuthoringView(props: NodeViewProps) {
   };
 
   return (
-    <AudioBlockSurface
-      data={data}
-      emptyAction={
-        <BlockAddGhost
-          label="Add audio"
-          presentation="pill"
-          icon={<Speaker size={18} weight="regular" aria-hidden />}
-          onClick={openPicker}
-          contentEditable={false}
-          className="sc-audio-block__ghost"
-        />
-      }
-      errorMessage={errorMessage}
-      onMouseDownCapture={selectAudioBlock}
-      replaceAction={
-        data ? (
-          <button
-            type="button"
+    <>
+      <div
+        className="sc-app-audio-block"
+        contentEditable={false}
+        onMouseDownCapture={selectAudioBlock}
+      >
+        {!data ? (
+          <MediaEmptyAction
+            aria-label="Add audio"
+            className="sc-app-audio-block__empty-action"
+            icon={<Speaker size={24} weight="regular" />}
+            label="Add audio"
             onClick={openPicker}
-            aria-label="Replace audio"
-            className="sc-audio-block__replace"
-          >
-            <ArrowsClockwise size={12} weight="bold" aria-hidden />
-            <span>Replace</span>
-          </button>
-        ) : null
-      }
-      resolvedUrl={resolvedUrl}
-      withWrapper={false}
-    >
+          />
+        ) : (
+          <div className="sc-app-audio-block__populated-media">
+            <div className="sc-app-audio-block__course-cell">
+              <AudioBlockSurface
+                data={data}
+                errorMessage={errorMessage}
+                resolvedUrl={resolvedUrl}
+              />
+            </div>
+            <div className="sc-app-audio-block__replace-rail">
+              <MediaReplaceButton
+                aria-label="Replace audio"
+                onClick={openPicker}
+                placement="inline"
+                tooltip="Replace audio"
+              />
+            </div>
+          </div>
+        )}
+      </div>
       <FilePickerModal
         open={pickerOpen}
         onOpenChange={setPickerOpen}
@@ -119,6 +125,6 @@ export function AudioBlockAuthoringView(props: NodeViewProps) {
         metadataFields={["title"]}
         onResolved={handlePickerResolved}
       />
-    </AudioBlockSurface>
+    </>
   );
 }

@@ -1,5 +1,5 @@
 import { ImageIcon as Image } from "@phosphor-icons/react";
-import { forwardRef, type ButtonHTMLAttributes } from "react";
+import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
 
@@ -10,24 +10,34 @@ export interface MediaEmptyActionProps extends Omit<
   "aria-label" | "children"
 > {
   "aria-label": string;
+  icon?: ReactNode;
   label: string;
 }
 
-/** Shared first-image action. Collection additions continue to use BlockAddGhost. */
+/** App-owned first-media action. Collection additions continue to use BlockAddGhost. */
 export const MediaEmptyAction = forwardRef<HTMLButtonElement, MediaEmptyActionProps>(
   function MediaEmptyAction(
-    { "aria-label": ariaLabel, className, label, type = "button", ...rest },
+    {
+      "aria-label": ariaLabel,
+      className,
+      icon = <Image size={24} weight="regular" />,
+      label,
+      type = "button",
+      ...rest
+    },
     ref,
   ) {
     return (
       <button
         ref={ref}
         type={type}
-        className={cn("sc-media-empty-action", className)}
+        className={cn("sc-app-media-empty-action", className)}
         aria-label={ariaLabel}
         {...rest}
       >
-        <Image size={24} weight="regular" aria-hidden />
+        <span className="sc-app-media-empty-action__icon" aria-hidden>
+          {icon}
+        </span>
         <span>{label}</span>
       </button>
     );

@@ -1,0 +1,9 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-overlays {
+  .sc-app-media-empty-action.sc-app-image-block-empty-action {
+    min-height: 12rem;
+    padding-block: 2rem;
+    border-width: 2px;
+  }
+}

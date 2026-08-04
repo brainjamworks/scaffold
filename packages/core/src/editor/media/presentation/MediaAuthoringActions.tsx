@@ -1,7 +1,7 @@
 import { PlusIcon as Plus } from "@phosphor-icons/react";
 import type { MouseEvent, PointerEvent, ReactNode } from "react";
 
-import { MediaReplaceButton } from "@/editor/media/authoring/shared-components/MediaReplaceButton";
+import { MediaReplaceButton } from "@/ui/components/app/MediaReplaceButton/MediaReplaceButton";
 import { IconButton } from "@/ui/components/IconButton/IconButton";
 import * as Tooltip from "@/ui/components/Tooltip/Tooltip";
 import { iconSm } from "@/ui/tokens/icon-sizes";
