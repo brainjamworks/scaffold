@@ -97,6 +97,7 @@ describe("CourseThemePanel", () => {
     );
     const reset = within(panel).getByRole("button", { name: "Reset complete theme" });
     expect(reset.closest(".sc-sheet-footer")).not.toBeNull();
+    expect(reset.closest(".sc-settings-form__footer-actions")).not.toBeNull();
     expect(reset.closest(".sc-sheet-body")).toBeNull();
   });
 

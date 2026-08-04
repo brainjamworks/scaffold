@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm, type FieldErrors, type FieldValues, type Resolver } from "react-hook-form";
 import type { ZodTypeAny } from "zod";
 
-import { Button } from "@/ui/components/Button/Button";
 import { EmptyState } from "@/ui/components/app/EmptyState/EmptyState";
 import { Sheet } from "@/ui/components/Sheet/Sheet";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
@@ -15,6 +14,8 @@ import {
   type SettingsSheetAttrSurface,
   type SettingsSheetDraftTransform,
   type SettingsSheetFieldDescriptor,
+  type SettingsFormAction,
+  type SettingsFormActionEvent,
   type SettingsFormItemDescriptor,
 } from "@/editor/configuration/settings-sheet";
 import {
@@ -22,7 +23,10 @@ import {
   useAuthoringNodeTarget,
 } from "@/editor/prosemirror/authoring-target";
 import type { SettingsFieldDocumentTarget } from "@/editor/shell/settings/controls/fields/types";
-import { SettingsForm } from "@/editor/shell/settings/forms/SettingsForm";
+import {
+  SettingsForm,
+  SettingsFormFooter,
+} from "@/editor/shell/settings/forms/SettingsForm";
 
 import { resolveSettingsContext, type SettingsContext } from "./settings-context";
 
@@ -330,6 +334,8 @@ interface ConfigurationSettingsSheetContentProps {
   onOpenChange: (open: boolean) => void;
 }
 
+type ConfigurationSettingsActionId = "cancel" | "save";
+
 function ConfigurationSettingsSheetContent({
   attr,
   targetTitle,
@@ -433,6 +439,24 @@ function ConfigurationSettingsSheetContent({
     handleSheetOpenChange(false);
   };
   const handleSave = form.handleSubmit(handleSubmit, handleInvalidSubmit);
+  const footerActions: readonly SettingsFormAction<ConfigurationSettingsActionId>[] = [
+    { id: "cancel", label: "Cancel", variant: "secondary" },
+    {
+      id: "save",
+      label: "Save",
+      variant: "primary",
+      disabled: !entry || Boolean(loadError),
+    },
+  ];
+  const handleFooterAction = ({
+    actionId,
+  }: SettingsFormActionEvent<ConfigurationSettingsActionId>) => {
+    if (actionId === "cancel") {
+      handleCancel();
+      return;
+    }
+    void handleSave();
+  };
 
   return (
     <Sheet.Root open={sheetOpen} onOpenChange={handleSheetOpenChange}>
@@ -502,20 +526,7 @@ function ConfigurationSettingsSheetContent({
             )}
           </Sheet.Body>
 
-          <Sheet.Footer>
-            <Button type="button" variant="secondary" size="md" onClick={handleCancel}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="primary"
-              size="md"
-              disabled={!entry || Boolean(loadError)}
-              onClick={handleSave}
-            >
-              Save
-            </Button>
-          </Sheet.Footer>
+          <SettingsFormFooter actions={footerActions} onAction={handleFooterAction} />
         </div>
       </Sheet.Content>
     </Sheet.Root>

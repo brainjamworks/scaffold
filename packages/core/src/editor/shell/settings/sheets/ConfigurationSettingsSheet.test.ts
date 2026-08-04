@@ -541,7 +541,10 @@ describe("ConfigurationSettingsSheet", () => {
     await userEvent.type(points!, "4");
     await userEvent.clear(legend!);
     await userEvent.type(legend!, "Updated response label");
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    const save = screen.getByRole("button", { name: "Save" });
+    expect(save.closest(".sc-sheet-footer")).not.toBeNull();
+    expect(save.closest(".sc-settings-form__footer-actions")).not.toBeNull();
+    await userEvent.click(save);
 
     const after = readFirstMcqSettings(editor);
     expect(after["feedbackMode"]).toBe(before.feedbackMode);
@@ -797,7 +800,10 @@ describe("ConfigurationSettingsSheet", () => {
 
     await userEvent.clear(screen.getByLabelText("Points"));
     await userEvent.type(screen.getByLabelText("Points"), "8");
-    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    const cancel = screen.getByRole("button", { name: "Cancel" });
+    expect(cancel.closest(".sc-sheet-footer")).not.toBeNull();
+    expect(cancel.closest(".sc-settings-form__footer-actions")).not.toBeNull();
+    await userEvent.click(cancel);
 
     expect(readMcqSettings(editor)).toMatchObject(before);
     expect(onOpenChange).toHaveBeenLastCalledWith(false);
@@ -816,6 +822,7 @@ describe("ConfigurationSettingsSheet", () => {
 
     expect(screen.getByRole("alert").textContent).toMatch(/settings/i);
     expect(screen.queryByLabelText("Points")).toBeNull();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     editor.destroy();
   });
 });

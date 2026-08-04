@@ -5,11 +5,15 @@ import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 
 import type {
+  SettingsFormAction,
   SettingsFormActionEvent,
   SettingsFormDefinition,
   SettingsSheetSelectOption,
 } from "@/editor/configuration/settings-sheet";
-import { SettingsForm, SettingsFormActions } from "@/editor/shell/settings/forms/SettingsForm";
+import {
+  SettingsForm,
+  SettingsFormFooter,
+} from "@/editor/shell/settings/forms/SettingsForm";
 import { PersistedCourseThemeSchema, type PersistedCourseTheme } from "@/schemas/course-document";
 import type { CourseColourSystemRegistry } from "@/theme/course/colour-systems/registry";
 import type { CourseDesignThemeRegistry } from "@/theme/course/designs/registry";
@@ -63,6 +67,14 @@ export function CourseThemePanel({
       }),
     [colourSystems, designs, editor],
   );
+  const footerActions: readonly SettingsFormAction<CourseThemeActionId>[] = [
+    {
+      id: "reset-theme",
+      label: "Reset theme",
+      ariaLabel: "Reset complete theme",
+      disabled: !editor,
+    },
+  ];
 
   useEffect(() => {
     const current = form.getValues();
@@ -150,13 +162,7 @@ export function CourseThemePanel({
 
           <SettingsForm definition={definition} form={form} onAction={handleAction} />
         </Sheet.Body>
-        <Sheet.Footer>
-          <SettingsFormActions
-            actions={definition.footerActions}
-            location="footer"
-            onAction={handleAction}
-          />
-        </Sheet.Footer>
+        <SettingsFormFooter actions={footerActions} onAction={handleAction} />
       </Sheet.Content>
     </Sheet.Root>
   );
@@ -211,14 +217,6 @@ function courseThemeFormDefinition({
             ...disabled,
           },
         ],
-      },
-    ],
-    footerActions: [
-      {
-        id: "reset-theme",
-        label: "Reset theme",
-        ariaLabel: "Reset complete theme",
-        disabled: !editable,
       },
     ],
   };
