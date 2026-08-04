@@ -203,6 +203,49 @@ describe("course theme panel browser workflow", () => {
       );
       expect(bodyFont.textContent).toContain("Satoshi");
 
+      const courseTextSize = requireElement<HTMLButtonElement>(
+        panel,
+        '[role="combobox"][id$="-courseTextSize"]',
+      );
+      courseTextSize.click();
+      await waitForElement<HTMLElement>(document, '[role="option"]');
+      const largerOption = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
+        (option) => option.textContent?.includes("Larger"),
+      );
+      if (!largerOption) throw new Error("Expected Larger Course text size option");
+      largerOption.click();
+      const uppercaseHeadings = requireElement<HTMLElement>(panel, '[role="checkbox"]');
+      uppercaseHeadings.click();
+      await waitForCondition(
+        () =>
+          readEditorTheme(editor)?.overrides.typography?.courseTextSize === "larger" &&
+          readEditorTheme(editor)?.overrides.typography?.uppercaseHeadings === true,
+      );
+      await waitForCondition(
+        () =>
+          JSON.stringify(readBundleTheme(savedBundles.at(-1))) ===
+          JSON.stringify(readEditorTheme(editor)),
+        1_500,
+      );
+      expect(requireElement(document, "h1").textContent).toBe("Theme heading");
+
+      const resetTypography = requireElement<HTMLButtonElement>(
+        panel,
+        'button[aria-label="Reset all typography overrides"]',
+      );
+      expect(resetTypography.closest(".sc-settings-form__section-actions")).not.toBeNull();
+      expect(resetTypography.closest(".sc-sheet-footer")).toBeNull();
+      resetTypography.click();
+      await waitForCondition(() => readEditorTheme(editor)?.overrides.typography === undefined);
+      await waitForCondition(
+        () =>
+          JSON.stringify(readBundleTheme(savedBundles.at(-1))) ===
+          JSON.stringify(readEditorTheme(editor)),
+        1_500,
+      );
+      expect(courseTextSize.textContent).toContain("Standard");
+      expect(uppercaseHeadings.getAttribute("data-state")).toBe("unchecked");
+
       requireElement<HTMLButtonElement>(panel, 'button[aria-label="Close course theme"]').click();
       const themeBeforeAppearanceChange = readEditorTheme(editor);
       requireElement<HTMLButtonElement>(

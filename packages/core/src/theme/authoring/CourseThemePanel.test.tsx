@@ -305,11 +305,29 @@ describe("CourseThemePanel", () => {
     expect(within(typography).getByRole("combobox", { name: "Heading weight" })).toHaveTextContent(
       "600",
     );
-    expect(within(typography).getAllByText("Inherited")).toHaveLength(5);
-    expect(within(typography).getAllByRole("button", { name: /^Use inherited / })).toHaveLength(5);
+    expect(
+      within(typography).getByRole("combobox", { name: "Course text size" }),
+    ).toHaveTextContent("Standard");
+    expect(
+      within(typography).getByRole("combobox", { name: "Body line spacing" }),
+    ).toHaveTextContent("Standard");
+    expect(
+      within(typography).getByRole("combobox", { name: "Heading line spacing" }),
+    ).toHaveTextContent("Standard");
+    expect(
+      within(typography).getByRole("combobox", { name: "Heading letter spacing" }),
+    ).toHaveTextContent("Standard");
+    expect(
+      within(typography).getByRole("checkbox", { name: "Uppercase headings" }),
+    ).not.toBeChecked();
+    expect(within(typography).getAllByText("Inherited")).toHaveLength(10);
+    expect(within(typography).getAllByRole("button", { name: /^Use inherited / })).toHaveLength(10);
     for (const reset of within(typography).getAllByRole("button", { name: /^Use inherited / })) {
       expect(reset).toBeDisabled();
     }
+    expect(
+      within(typography).getByRole("button", { name: "Reset all typography overrides" }),
+    ).toBeDisabled();
 
     const bodyFont = within(typography).getByRole("combobox", { name: "Body font" });
     await user.click(bodyFont);
@@ -333,6 +351,11 @@ describe("CourseThemePanel", () => {
     await chooseSelectOption(user, "Heading font", "Source Serif 4");
     await chooseSelectOption(user, "Body weight", "500");
     await chooseSelectOption(user, "Heading weight", "700");
+    await chooseSelectOption(user, "Course text size", "Larger");
+    await chooseSelectOption(user, "Body line spacing", "Relaxed");
+    await chooseSelectOption(user, "Heading line spacing", "Tight");
+    await chooseSelectOption(user, "Heading letter spacing", "Wide");
+    await user.click(screen.getByRole("checkbox", { name: "Uppercase headings" }));
 
     expect(readTheme(editor).overrides).toEqual({
       typography: {
@@ -340,10 +363,15 @@ describe("CourseThemePanel", () => {
         headingFontId: "scaffold-source-serif-4",
         bodyWeight: 500,
         headingWeight: 700,
+        courseTextSize: "larger",
+        bodyLineSpacing: "relaxed",
+        headingLineSpacing: "tight",
+        headingLetterSpacing: "wide",
+        uppercaseHeadings: true,
       },
     });
     expect(onThemeChange).toHaveBeenLastCalledWith(readTheme(editor));
-    expect(screen.getAllByText("Custom")).toHaveLength(4);
+    expect(screen.getAllByText("Custom")).toHaveLength(9);
   });
 
   it("resets only its associated sparse typography field", async () => {
@@ -371,6 +399,72 @@ describe("CourseThemePanel", () => {
     expect(screen.getByRole("button", { name: "Use inherited heading font" })).toBeEnabled();
   });
 
+  it("individually resets each semantic typography field", async () => {
+    const user = userEvent.setup();
+    const editor = createEditor({
+      ...createDefaultPersistedCourseTheme(),
+      overrides: {
+        typography: {
+          courseTextSize: "larger",
+          bodyLineSpacing: "relaxed",
+          headingLineSpacing: "tight",
+          headingLetterSpacing: "wide",
+          uppercaseHeadings: true,
+        },
+      },
+    });
+    render(<PanelHarness editor={editor} />);
+    await user.click(screen.getByRole("button", { name: "Open course theme" }));
+
+    await user.click(screen.getByRole("button", { name: "Use inherited course text size" }));
+    expect(readTheme(editor).overrides.typography).toEqual({
+      bodyLineSpacing: "relaxed",
+      headingLineSpacing: "tight",
+      headingLetterSpacing: "wide",
+      uppercaseHeadings: true,
+    });
+    await user.click(screen.getByRole("button", { name: "Use inherited body line spacing" }));
+    await user.click(screen.getByRole("button", { name: "Use inherited heading line spacing" }));
+    await user.click(screen.getByRole("button", { name: "Use inherited heading letter spacing" }));
+    await user.click(screen.getByRole("button", { name: "Use inherited uppercase headings" }));
+
+    expect(readTheme(editor).overrides).toEqual({});
+    expect(screen.getByRole("combobox", { name: "Course text size" })).toHaveTextContent(
+      "Standard",
+    );
+    expect(screen.getByRole("checkbox", { name: "Uppercase headings" })).not.toBeChecked();
+  });
+
+  it("resets the Typography section while preserving unrelated theme intent", async () => {
+    const user = userEvent.setup();
+    const initialTheme: PersistedCourseTheme = {
+      schemaVersion: 1,
+      design: reference(SCAFFOLD_FLOW_DESIGN_V1),
+      colourSystem: reference(alternateColourSystem),
+      overrides: {
+        typography: { defaultFontId: "scaffold-poppins", courseTextSize: "larger" },
+        design: { density: "compact" },
+      },
+    };
+    const editor = createEditor(initialTheme);
+    const onThemeChange = vi.fn();
+    render(<PanelHarness editor={editor} onThemeChange={onThemeChange} />);
+    await user.click(screen.getByRole("button", { name: "Open course theme" }));
+
+    const reset = screen.getByRole("button", { name: "Reset all typography overrides" });
+    expect(reset.closest(".sc-settings-form__section-actions")).not.toBeNull();
+    expect(reset.closest(".sc-sheet-footer")).toBeNull();
+    await user.click(reset);
+
+    expect(readTheme(editor)).toEqual({
+      ...initialTheme,
+      overrides: { design: { density: "compact" } },
+    });
+    expect(onThemeChange).toHaveBeenLastCalledWith(readTheme(editor));
+    expect(editor.commands.undo()).toBe(true);
+    expect(readTheme(editor)).toEqual(initialTheme);
+  });
+
   it("resynchronizes external typography values without dispatching a transaction", async () => {
     const user = userEvent.setup();
     const editor = createEditor();
@@ -390,7 +484,17 @@ describe("CourseThemePanel", () => {
 
     const externalTheme: PersistedCourseTheme = {
       ...defaults,
-      overrides: { typography: { defaultFontId: "scaffold-poppins", headingWeight: 700 } },
+      overrides: {
+        typography: {
+          defaultFontId: "scaffold-poppins",
+          headingWeight: 700,
+          courseTextSize: "larger",
+          bodyLineSpacing: "relaxed",
+          headingLineSpacing: "tight",
+          headingLetterSpacing: "wide",
+          uppercaseHeadings: true,
+        },
+      },
     };
     replaceThemeAttr(editor, externalTheme);
     expect(onTransaction).toHaveBeenCalledTimes(1);
@@ -408,20 +512,29 @@ describe("CourseThemePanel", () => {
 
     expect(screen.getByRole("combobox", { name: "Body font" })).toHaveTextContent("Poppins");
     expect(screen.getByRole("combobox", { name: "Heading weight" })).toHaveTextContent("700");
+    expect(screen.getByRole("combobox", { name: "Course text size" })).toHaveTextContent("Larger");
+    expect(screen.getByRole("combobox", { name: "Body line spacing" })).toHaveTextContent(
+      "Relaxed",
+    );
+    expect(screen.getByRole("combobox", { name: "Heading line spacing" })).toHaveTextContent(
+      "Tight",
+    );
+    expect(screen.getByRole("combobox", { name: "Heading letter spacing" })).toHaveTextContent(
+      "Wide",
+    );
+    expect(screen.getByRole("checkbox", { name: "Uppercase headings" })).toBeChecked();
     expect(onTransaction).not.toHaveBeenCalled();
   });
 
-  it("contains no arbitrary colour or remaining non-colour controls", async () => {
+  it("contains no arbitrary colour or Design controls", async () => {
     const user = userEvent.setup();
     render(<PanelHarness editor={createEditor()} />);
     await user.click(screen.getByRole("button", { name: "Open course theme" }));
 
     expect(screen.queryByRole("button", { name: /edit .*current value/i })).toBeNull();
     expect(screen.queryByRole("spinbutton")).toBeNull();
-    expect(screen.queryByRole("checkbox")).toBeNull();
-    expect(
-      screen.queryByRole("combobox", { name: /text size|line spacing|letter spacing/i }),
-    ).toBeNull();
+    expect(screen.getByRole("checkbox", { name: "Uppercase headings" })).not.toBeChecked();
+    expect(screen.queryByRole("combobox", { name: /roundness|stroke|shadow|density/i })).toBeNull();
   });
 });
 

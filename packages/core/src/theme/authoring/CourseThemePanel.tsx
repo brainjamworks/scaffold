@@ -8,6 +8,7 @@ import type {
   SettingsFormAction,
   SettingsFormActionEvent,
   SettingsFormDefinition,
+  SettingsSheetBooleanFieldDescriptor,
   SettingsSheetSelectFieldDescriptor,
   SettingsSheetSelectOption,
 } from "@/editor/configuration/settings-sheet";
@@ -28,6 +29,7 @@ import { iconSm } from "@/ui/tokens/icon-sizes";
 import {
   resetCourseTheme,
   resetCourseThemeOverride,
+  resetCourseThemeOverrideSection,
   selectCourseColourSystem,
   selectCourseDesign,
   setCourseTypographyOverride,
@@ -42,15 +44,25 @@ interface CourseThemeFormValues {
   codeFontId: string;
   bodyWeight: string;
   headingWeight: string;
+  courseTextSize: string;
+  bodyLineSpacing: string;
+  headingLineSpacing: string;
+  headingLetterSpacing: string;
+  uppercaseHeadings: boolean;
 }
 
-type CourseThemeActionId = "reset-theme";
+type CourseThemeActionId = "reset-theme" | "reset-typography";
 type CourseTypographyField =
   | "defaultFontId"
   | "headingFontId"
   | "codeFontId"
   | "bodyWeight"
-  | "headingWeight";
+  | "headingWeight"
+  | "courseTextSize"
+  | "bodyLineSpacing"
+  | "headingLineSpacing"
+  | "headingLetterSpacing"
+  | "uppercaseHeadings";
 
 export interface CourseThemePanelProps {
   editor: Editor | null;
@@ -143,16 +155,12 @@ export function CourseThemePanel({
 
       if (!isCourseTypographyField(name)) return;
       const savedValue = formValues[name];
-      const value = draft[name];
-      if (!editor || typeof value !== "string") {
+      if (!editor) {
         queueMicrotask(() => form.setValue(name, savedValue));
         return;
       }
 
-      const changed =
-        name === "bodyWeight" || name === "headingWeight"
-          ? setCourseTypographyOverride(editor, name, Number(value) as 400, designs)
-          : setCourseTypographyOverride(editor, name, value, designs);
+      const changed = setCourseTypographyFormValue(editor, name, draft[name], designs);
       if (!changed) {
         queueMicrotask(() => form.setValue(name, savedValue));
         return;
@@ -174,9 +182,14 @@ export function CourseThemePanel({
   ]);
 
   const handleAction = ({ actionId }: SettingsFormActionEvent<CourseThemeActionId>) => {
-    if (actionId !== "reset-theme" || !editor || !resetCourseTheme(editor)) return;
-    const nextTheme = readEditorTheme(editor);
-    if (nextTheme) onThemeChange(nextTheme);
+    if (!editor) return;
+    const changed =
+      actionId === "reset-theme"
+        ? resetCourseTheme(editor)
+        : actionId === "reset-typography"
+          ? resetCourseThemeOverrideSection(editor, "typography", designs)
+          : false;
+    if (changed) notifyThemeChange(editor, onThemeChange);
   };
 
   return (
@@ -288,13 +301,22 @@ function courseThemeFormDefinition({
       {
         id: "typography",
         title: "Typography",
-        description: "Choose the fonts and weights used throughout learner-facing Course content.",
+        description:
+          "Choose the type, spacing and casing used throughout learner-facing Course content.",
         items: typographyFields({
           editable,
           selectedDesign,
           theme,
           onResetTypography,
         }),
+        actions: [
+          {
+            id: "reset-typography",
+            label: "Reset typography",
+            ariaLabel: "Reset all typography overrides",
+            disabled: !editable || !selectedDesign || !theme.overrides.typography,
+          },
+        ],
       },
     ],
   };
@@ -326,6 +348,27 @@ function typographyFields({
     typographySelect("codeFontId", "Code font", codeFonts),
     typographySelect("bodyWeight", "Body weight", bodyWeights),
     typographySelect("headingWeight", "Heading weight", headingWeights),
+    typographySelect("courseTextSize", "Course text size", [
+      { value: "smaller", label: "Smaller" },
+      { value: "standard", label: "Standard" },
+      { value: "larger", label: "Larger" },
+    ]),
+    typographySelect("bodyLineSpacing", "Body line spacing", [
+      { value: "tight", label: "Tight" },
+      { value: "standard", label: "Standard" },
+      { value: "relaxed", label: "Relaxed" },
+    ]),
+    typographySelect("headingLineSpacing", "Heading line spacing", [
+      { value: "tight", label: "Tight" },
+      { value: "standard", label: "Standard" },
+      { value: "relaxed", label: "Relaxed" },
+    ]),
+    typographySelect("headingLetterSpacing", "Heading letter spacing", [
+      { value: "tight", label: "Tight" },
+      { value: "standard", label: "Standard" },
+      { value: "wide", label: "Wide" },
+    ]),
+    typographyBoolean("uppercaseHeadings", "Uppercase headings"),
   ];
 
   function typographySelect(
@@ -333,22 +376,50 @@ function typographyFields({
     label: string,
     options: readonly SettingsSheetSelectOption[],
   ): SettingsSheetSelectFieldDescriptor {
-    const customized = Object.hasOwn(theme.overrides.typography ?? {}, field);
-    const unavailableReason = !selectedDesign
-      ? "The saved Course design is unavailable, so its inherited typography cannot be resolved."
-      : undefined;
     return {
       kind: "select" as const,
       name: field,
       label,
       options,
+      ...typographyFieldPresentation(field, label),
+    };
+  }
+
+  function typographyBoolean(
+    field: CourseTypographyField,
+    label: string,
+  ): SettingsSheetBooleanFieldDescriptor {
+    return {
+      kind: "boolean",
+      name: field,
+      label,
+      presentation: "checkbox",
+      ...typographyFieldPresentation(
+        field,
+        label,
+        "This changes visual casing only; stored text and accessible wording stay unchanged.",
+      ),
+    };
+  }
+
+  function typographyFieldPresentation(
+    field: CourseTypographyField,
+    label: string,
+    detail?: string,
+  ) {
+    const customized = Object.hasOwn(theme.overrides.typography ?? {}, field);
+    const unavailableReason = !selectedDesign
+      ? "The saved Course design is unavailable, so its inherited typography cannot be resolved."
+      : undefined;
+    return {
       status: {
         label: customized ? "Custom" : "Inherited",
-        variant: customized ? "info" : "neutral",
+        variant: customized ? ("info" as const) : ("neutral" as const),
       },
       description: (
         <span className="sc-course-theme-field-help">
           <span>
+            {detail ? `${detail} ` : null}
             {customized ? "Overrides the selected design." : "Inherited from the selected design."}
           </span>
           <Button
@@ -392,6 +463,11 @@ function courseThemeFormValues(
     codeFontId: typography?.codeFontId ?? defaults?.codeFontId ?? "",
     bodyWeight: String(typography?.bodyWeight ?? defaults?.bodyWeight ?? ""),
     headingWeight: String(typography?.headingWeight ?? defaults?.headingWeight ?? ""),
+    courseTextSize: typography?.courseTextSize ?? defaults?.courseTextSize ?? "",
+    bodyLineSpacing: typography?.bodyLineSpacing ?? defaults?.bodyLineSpacing ?? "",
+    headingLineSpacing: typography?.headingLineSpacing ?? defaults?.headingLineSpacing ?? "",
+    headingLetterSpacing: typography?.headingLetterSpacing ?? defaults?.headingLetterSpacing ?? "",
+    uppercaseHeadings: typography?.uppercaseHeadings ?? defaults?.uppercaseHeadings ?? false,
   };
 }
 
@@ -410,8 +486,63 @@ function isCourseTypographyField(name: string): name is CourseTypographyField {
     name === "headingFontId" ||
     name === "codeFontId" ||
     name === "bodyWeight" ||
-    name === "headingWeight"
+    name === "headingWeight" ||
+    name === "courseTextSize" ||
+    name === "bodyLineSpacing" ||
+    name === "headingLineSpacing" ||
+    name === "headingLetterSpacing" ||
+    name === "uppercaseHeadings"
   );
+}
+
+function setCourseTypographyFormValue(
+  editor: Editor,
+  field: CourseTypographyField,
+  value: unknown,
+  designs: CourseDesignThemeRegistry,
+): boolean {
+  switch (field) {
+    case "defaultFontId":
+    case "headingFontId":
+    case "codeFontId":
+      return typeof value === "string"
+        ? setCourseTypographyOverride(editor, field, value, designs)
+        : false;
+    case "bodyWeight":
+      return value === "400" || value === "500" || value === "600"
+        ? setCourseTypographyOverride(editor, field, Number(value) as 400 | 500 | 600, designs)
+        : false;
+    case "headingWeight":
+      return value === "400" ||
+        value === "500" ||
+        value === "600" ||
+        value === "700" ||
+        value === "800"
+        ? setCourseTypographyOverride(
+            editor,
+            field,
+            Number(value) as 400 | 500 | 600 | 700 | 800,
+            designs,
+          )
+        : false;
+    case "courseTextSize":
+      return value === "smaller" || value === "standard" || value === "larger"
+        ? setCourseTypographyOverride(editor, field, value, designs)
+        : false;
+    case "bodyLineSpacing":
+    case "headingLineSpacing":
+      return value === "tight" || value === "standard" || value === "relaxed"
+        ? setCourseTypographyOverride(editor, field, value, designs)
+        : false;
+    case "headingLetterSpacing":
+      return value === "tight" || value === "standard" || value === "wide"
+        ? setCourseTypographyOverride(editor, field, value, designs)
+        : false;
+    case "uppercaseHeadings":
+      return typeof value === "boolean"
+        ? setCourseTypographyOverride(editor, field, value, designs)
+        : false;
+  }
 }
 
 function notifyThemeChange(
