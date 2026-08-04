@@ -208,7 +208,7 @@ describe("CourseThemePanel", () => {
     );
   });
 
-  it("edits typography and design values and resets each section undoably", async () => {
+  it("resets edited typography through one undo step", async () => {
     const user = userEvent.setup();
     const editor = createEditor();
     render(<PanelHarness editor={editor} />);
@@ -224,10 +224,6 @@ describe("CourseThemePanel", () => {
     await replaceNumber(user, "Heading line height", "1.1");
     await replaceNumber(user, "Heading letter spacing", "0.1");
     await user.click(screen.getByRole("checkbox", { name: "Uppercase headings" }));
-    await replaceNumber(user, "Roundness", "0.9");
-    await replaceNumber(user, "Stroke", "2");
-    await selectMenuOption(user, "Shadow", "Defined");
-    await selectMenuOption(user, "Density", "Spacious");
 
     expect(readTheme(editor).values!.typography).toMatchObject({
       headingFontId: "scaffold-inter",
@@ -241,6 +237,27 @@ describe("CourseThemePanel", () => {
       headingLetterSpacing: 0.1,
       uppercaseHeadings: true,
     });
+
+    const resetTypography = screen.getByRole("button", { name: "Reset course typography" });
+    expect(resetTypography).toHaveClass("sc-button");
+
+    await user.click(resetTypography);
+    expect(readTheme(editor).values!.typography).toEqual(SCAFFOLD_DEFAULT_PRESET.values.typography);
+    expect(editor.commands.undo()).toBe(true);
+    expect(readTheme(editor).values!.typography.uppercaseHeadings).toBe(true);
+  });
+
+  it("resets edited design values through one undo step", async () => {
+    const user = userEvent.setup();
+    const editor = createEditor();
+    render(<PanelHarness editor={editor} />);
+
+    await user.click(screen.getByRole("button", { name: "Open course theme" }));
+    await replaceNumber(user, "Roundness", "0.9");
+    await replaceNumber(user, "Stroke", "2");
+    await selectMenuOption(user, "Shadow", "Defined");
+    await selectMenuOption(user, "Density", "Spacious");
+
     expect(readTheme(editor).values!.design).toMatchObject({
       roundness: 0.9,
       stroke: 2,
@@ -248,16 +265,8 @@ describe("CourseThemePanel", () => {
       density: "spacious",
     });
 
-    const resetTypography = screen.getByRole("button", { name: "Reset course typography" });
     const resetDesign = screen.getByRole("button", { name: "Reset course design" });
-    expect(resetTypography).toHaveClass("sc-button");
     expect(resetDesign).toHaveClass("sc-button");
-
-    await user.click(resetTypography);
-    expect(readTheme(editor).values!.typography).toEqual(SCAFFOLD_DEFAULT_PRESET.values.typography);
-    expect(editor.commands.undo()).toBe(true);
-    expect(readTheme(editor).values!.typography.uppercaseHeadings).toBe(true);
-
     await user.click(resetDesign);
     expect(readTheme(editor).values!.design).toEqual(SCAFFOLD_DEFAULT_PRESET.values.design);
     expect(editor.commands.undo()).toBe(true);

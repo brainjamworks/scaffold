@@ -1,6 +1,6 @@
 import { render as renderBrowserReact } from "vitest-browser-react";
 import { describe, expect, it } from "vite-plus/test";
-import { page } from "vite-plus/test/browser/context";
+import { page, userEvent } from "vite-plus/test/browser/context";
 
 import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
 import { ScaffoldAuthoringApp } from "@/editor/shell/authoring/ScaffoldAuthoringApp";
@@ -90,24 +90,27 @@ describe("course theme panel browser workflow", () => {
       );
 
       const roundness = requireElement<HTMLInputElement>(panel, 'input[name="roundness"]');
-      roundness.focus();
-      roundness.value = "0.9";
-      roundness.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+      await userEvent.fill(roundness, "0.9");
+      await userEvent.tab();
       await waitForCondition(
         () => courseScope.style.getPropertyValue("--sc-course-roundness") === "0.9",
       );
 
-      requireElement<HTMLButtonElement>(panel, 'button[aria-label="Reset course design"]').click();
+      await userEvent.click(
+        requireElement<HTMLButtonElement>(panel, 'button[aria-label="Reset course design"]'),
+      );
       await waitForCondition(
         () => courseScope.style.getPropertyValue("--sc-course-roundness") !== "0.9",
       );
 
-      requireElement<HTMLButtonElement>(panel, 'button[aria-label="Close course theme"]').click();
+      await userEvent.click(
+        requireElement<HTMLButtonElement>(panel, 'button[aria-label="Close course theme"]'),
+      );
       const undo = await waitForElement<HTMLButtonElement>(
         document,
         'button[aria-label="Undo"]:not(:disabled)',
       );
-      undo.click();
+      await userEvent.click(undo);
       await waitForCondition(
         () => courseScope.style.getPropertyValue("--sc-course-roundness") === "0.9",
       );

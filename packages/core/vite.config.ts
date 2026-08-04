@@ -60,6 +60,8 @@ export default defineConfig({
         test: {
           name: "unit",
           exclude: ["**/node_modules/**", "**/dist/**", "src/**/*.browser.test.{ts,tsx}"],
+          maxWorkers: 2,
+          sequence: { groupOrder: 0 },
           setupFiles: ["./vitest.setup.ts"],
         },
       },
@@ -67,7 +69,9 @@ export default defineConfig({
         extends: true,
         test: {
           name: "browser",
+          fileParallelism: false,
           include: ["src/**/*.browser.test.{ts,tsx}"],
+          sequence: { groupOrder: 1 },
           browser: {
             enabled: true,
             headless: true,

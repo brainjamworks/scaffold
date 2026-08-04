@@ -248,7 +248,7 @@ jobs:
     needs: [classify, build]
     if: ${{ needs.classify.outputs.code == 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -279,11 +279,15 @@ jobs:
         run: vp exec --filter @scaffold/core -- vp test run --project unit --shard "${{ matrix.shard }}"
 
   core-browser:
-    name: Core browser tests
+    name: Core browser tests (${{ matrix.shard }})
     needs: [classify, build]
     if: ${{ needs.classify.outputs.code == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1/2, 2/2]
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -309,8 +313,8 @@ jobs:
       - name: Install Chromium
         run: vp exec --filter @scaffold/core -- playwright install --with-deps chromium
 
-      - name: Test Core in Chromium
-        run: vp exec --filter @scaffold/core -- vp test run --project browser
+      - name: Test Core browser shard in Chromium
+        run: vp exec --filter @scaffold/core -- vp test run --project browser --shard "${{ matrix.shard }}"
 
   workspace-tests:
     name: Workspace tests
