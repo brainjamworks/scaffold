@@ -160,7 +160,7 @@ export function LayoutAddGhost({
       className={cn(
         // Visual contract: border, hover, focus, transition, font.
         // Defined in editor/suggestions/insert/ghost-add.css.
-        "sc-ghost-add",
+        "sc-app-block-add",
         // Geometry / placement per presentation. No visual rules here.
         "sc-layout-add-ghost",
         presentation === "inline" && "sc-layout-add-ghost--inline",
@@ -178,7 +178,7 @@ export function LayoutAddGhost({
           <span
             aria-hidden
             className={cn(
-              "sc-ghost-add__icon",
+              "sc-app-block-add__icon",
               presentation === "flow-item" && "sc-layout-add-ghost__icon--flow-item",
             )}
           >

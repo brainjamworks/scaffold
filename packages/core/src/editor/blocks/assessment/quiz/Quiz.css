@@ -367,7 +367,7 @@
     opacity: 0.85;
   }
 
-  /* Geometry only — visual contract comes from `.sc-ghost-add`. */
+  /* Geometry only — visual contract comes from `.sc-app-block-add`. */
   .sc-quiz__strip-add {
     gap: 0.375rem;
     padding: 0.25rem 0.625rem;

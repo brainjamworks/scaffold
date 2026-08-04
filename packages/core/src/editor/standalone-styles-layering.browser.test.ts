@@ -37,7 +37,7 @@ describe("Standalone editor style cascade layering", () => {
 
   it.each([
     [".sc-authoring-agent-dock", "display", "grid"],
-    [".sc-ghost-add", "display", "block"],
+    [".sc-app-block-add", "display", "block"],
     [".sc-icon-renderer", "line-height", "3px"],
   ] as const)("allows adapter overrides on %s", (selector, property, value) => {
     mountAdapterStyles(`${selector} { ${property}: ${value}; }`);

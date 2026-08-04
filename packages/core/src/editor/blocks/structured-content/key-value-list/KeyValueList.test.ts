@@ -153,7 +153,7 @@ describe("key-value list block", () => {
     const fixture = renderKeyValueListEditor();
     const add = await screen.findByRole("button", { name: "Add item" });
 
-    expect(add.classList.contains("sc-ghost-add--item")).toBe(true);
+    expect(add.classList.contains("sc-app-block-add--item")).toBe(true);
     expect(add.classList.contains("sc-app-key-value-list-add")).toBe(true);
     expect(add).toHaveTextContent(/^Add item$/);
     expect(add.querySelector("svg")).toBeNull();

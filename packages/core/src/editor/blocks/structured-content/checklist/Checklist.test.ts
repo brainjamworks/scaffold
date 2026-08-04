@@ -122,7 +122,7 @@ it("renders an item-shaped add checklist affordance", async () => {
   const fixture = renderChecklistEditor();
   const add = await screen.findByRole("button", { name: "Add item" });
 
-  expect(add.classList.contains("sc-ghost-add--item")).toBe(true);
+  expect(add.classList.contains("sc-app-block-add--item")).toBe(true);
   expect(add.querySelector(".sc-app-checklist-add__checkbox")).not.toBeNull();
   fixture.destroy();
 });

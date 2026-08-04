@@ -675,6 +675,7 @@ describe("EditorMovementLayer", () => {
 
     const movementLayer = screen.getByTestId("scaffold-editor-movement-layer");
     expect(movementLayer).toBeInTheDocument();
+    expect(movementLayer).toHaveClass("sc-app-movement-layer");
     expect(movementLayer.parentElement?.dataset.scaffoldEditorFloatingLayer).toBe("");
     expect(movementLayer.closest("[data-scaffold-overlay-host]")).not.toBeNull();
     expect(movementLayer.parentElement).not.toBe(document.body);
@@ -688,6 +689,7 @@ describe("EditorMovementLayer", () => {
     ).toBe(String(pos));
     const handle = document.querySelector("[data-authoring-move-handle]");
     expect(handle).toBeInstanceOf(HTMLElement);
+    expect(handle).toHaveClass("sc-app-movement-layer__handle");
     expect(handle?.getAttribute(AUTHORING_CHROME_ATTR)).toBe("handle");
     const floatingContent = handle?.parentElement;
     expect(floatingContent?.className).toContain("sc-editor-floating-content");
@@ -934,6 +936,7 @@ describe("EditorMovementLayer", () => {
     );
 
     const handle = screen.getByRole("button", { name: "Move choice" });
+    expect(handle).toHaveClass("sc-app-contained-movement-handle");
     expect(handle.getAttribute("aria-keyshortcuts")).toBe("ArrowUp ArrowDown");
     expect(describedText(handle)).toBe("Press Arrow Up or Arrow Down to move this choice.");
 
@@ -962,6 +965,10 @@ describe("EditorMovementLayer", () => {
     );
 
     const handle = screen.getByRole("button", { name: "Move section" });
+    expect(handle).toHaveClass(
+      "sc-app-structure-movement-handle",
+      "sc-app-structure-movement-handle--pill",
+    );
     const mouseDown = new MouseEvent("mousedown", {
       bubbles: true,
       cancelable: true,

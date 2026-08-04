@@ -130,7 +130,7 @@ it("renders an item-shaped add numbered-list affordance", async () => {
   const fixture = makeDisposableNumberedListEditor();
   const add = await screen.findByRole("button", { name: "Add item" });
 
-  expect(add.classList.contains("sc-ghost-add--item")).toBe(true);
+  expect(add.classList.contains("sc-app-block-add--item")).toBe(true);
   expect(add.classList.contains("sc-app-numbered-list-add")).toBe(true);
   expect(add.querySelector(".sc-app-numbered-list-add__marker")).not.toBeNull();
   expect(add.textContent).toContain("+");

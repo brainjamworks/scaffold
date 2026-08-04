@@ -3,9 +3,15 @@
 import { Editor, Node, type JSONContent } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  cleanup,
+  render as renderWithTestingLibrary,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { createElement } from "react";
+import { createElement, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
@@ -25,6 +31,7 @@ import {
 } from "@/document/model/content-model/content-groups";
 import { createScaffoldTextAlignExtension } from "@/editor/rich-text/model/text-alignment";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
+import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
 
 import { PageDefaultSurfaceAuthoringView } from "../variants/page-default";
 import { SlideCompositionSurfaceAuthoringView } from "../variants/slide-composition";
@@ -60,6 +67,18 @@ import {
   SurfaceHeaderNode,
   SurfaceHeaderFooterSlotNode,
 } from "../../model/nodes/header-footer-slots";
+
+function render(ui: ReactNode) {
+  return renderWithTestingLibrary(ui, { wrapper: AppTestBoundary });
+}
+
+function AppTestBoundary({ children }: Readonly<{ children: ReactNode }>) {
+  return (
+    <AppThemeProvider appearance="light">
+      <div>{children}</div>
+    </AppThemeProvider>
+  );
+}
 
 const TestArrangementNode = Node.create({
   name: "testArrangement",

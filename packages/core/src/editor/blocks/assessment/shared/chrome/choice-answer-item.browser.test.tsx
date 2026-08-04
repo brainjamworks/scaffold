@@ -49,7 +49,7 @@ describe("ChoiceAnswerItem compact geometry", () => {
               <button
                 type="button"
                 aria-label="Move choice"
-                className="sc-contained-movement-handle"
+                className="sc-app-contained-movement-handle"
                 style={{ flex: "0 0 16px", width: 16 }}
               />
             }
@@ -154,6 +154,7 @@ describe("ChoiceAnswerItem compact geometry", () => {
 
   it("uses status tokens for hotspot results and media errors", () => {
     host = document.createElement("section");
+    host.className = "sc-course sc-course-theme-scaffold-flow-v1";
     host.style.cssText = [
       "--color-accent: rgb(1 2 3)",
       "--color-secondary: rgb(4 5 6)",
@@ -161,18 +162,18 @@ describe("ChoiceAnswerItem compact geometry", () => {
       "--color-success-foreground: rgb(240 253 244)",
       "--color-error: rgb(220 38 38)",
       "--color-error-foreground: rgb(254 242 242)",
-      "--color-error-text: rgb(127 29 29)",
+      "--sc-course-state-error-text: rgb(127 29 29)",
     ].join(";");
     host.innerHTML = `
       <span class="sc-image-hotspot-marker sc-image-hotspot-marker--hit sc-image-hotspot-marker--correct"></span>
       <span class="sc-image-hotspot-marker sc-image-hotspot-marker--hit sc-image-hotspot-marker--incorrect"></span>
-      <p class="sc-audio-block__error">Unable to load audio</p>
+      <p class="sc-course-audio-block__error" data-course-state="error">Unable to load audio</p>
     `;
     document.body.append(host);
 
     const correct = requireElement<HTMLElement>(host, ".sc-image-hotspot-marker--correct");
     const incorrect = requireElement<HTMLElement>(host, ".sc-image-hotspot-marker--incorrect");
-    const audioError = requireElement<HTMLElement>(host, ".sc-audio-block__error");
+    const audioError = requireElement<HTMLElement>(host, ".sc-course-audio-block__error");
 
     expect(getComputedStyle(correct).backgroundColor).toBe("rgb(22, 163, 74)");
     expect(getComputedStyle(correct).color).toBe("rgb(240, 253, 244)");

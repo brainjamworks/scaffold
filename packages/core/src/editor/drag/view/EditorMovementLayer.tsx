@@ -293,7 +293,7 @@ export function EditorMovementLayer({
       aria-hidden={!movementHandleTarget}
       data-testid="scaffold-editor-movement-layer"
       data-scaffold-editor-movement-layer=""
-      className="sc-editor-movement-layer"
+      className="sc-app-movement-layer"
       style={{ zIndex: zIndex.interactive }}
     >
       <MovementHandle
@@ -313,7 +313,7 @@ export function EditorMovementLayer({
       </div>
       <MovementDropIndicator candidate={candidate} />
       <DragOverlay dropAnimation={null}>
-        <div className="sc-editor-movement-overlay-ghost" />
+        <div className="sc-app-movement-layer__ghost" />
       </DragOverlay>
     </div>
   );
@@ -504,7 +504,7 @@ function MovementHandle({
         {...{ [AUTHORING_MOVE_POS_ATTR]: target.context.pos }}
         onMouseDown={(event) => event.preventDefault()}
         onKeyDown={handleKeyDown}
-        className="sc-editor-movement-handle"
+        className="sc-app-movement-layer__handle"
         type="button"
       >
         <span id={descriptionId} className="sc-sr-only">

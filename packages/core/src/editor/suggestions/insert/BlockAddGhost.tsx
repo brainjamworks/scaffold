@@ -15,7 +15,7 @@ import "./ghost-add.css";
 /**
  * `BlockAddGhost` is the block-level counterpart to `LayoutAddGhost`.
  * It owns the semantic primitive (button + plus chip + label) and
- * picks up the visual contract from `.sc-ghost-add`. The host block
+ * picks up the visual contract from `.sc-app-block-add`. The host block
  * supplies geometry / placement via `className` and decides what
  * "add" means by passing `onClick`.
  *
@@ -33,7 +33,7 @@ export type BlockAddGhostTone = "default" | "warning";
 export interface BlockAddGhostProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /** Visible label and aria-label. */
   label: string;
-  /** Geometry. Visual rules come from `.sc-ghost-add`. */
+  /** Geometry. Visual rules come from `.sc-app-block-add`. */
   presentation: BlockAddGhostPresentation;
   /** Render into a wrapping component (Popover.Trigger, Tooltip, etc.). */
   asChild?: boolean;
@@ -78,17 +78,17 @@ export const BlockAddGhost = forwardRef<HTMLButtonElement, BlockAddGhostProps>(
         aria-label={label}
         onClick={handleClick}
         className={cn(
-          "sc-ghost-add",
-          presentation === "row" && "sc-ghost-add--row",
-          presentation === "item" && "sc-ghost-add--item",
-          tone === "warning" && "sc-ghost-add--tone-warning",
+          "sc-app-block-add",
+          presentation === "row" && "sc-app-block-add--row",
+          presentation === "item" && "sc-app-block-add--item",
+          tone === "warning" && "sc-app-block-add--tone-warning",
           className,
         )}
         {...rest}
       >
         {children ?? (
           <>
-            <span aria-hidden className="sc-ghost-add__icon">
+            <span aria-hidden className="sc-app-block-add__icon">
               {icon ?? <Plus size={iconSm} weight="bold" />}
             </span>
             {iconOnly ? null : <span>{label}</span>}

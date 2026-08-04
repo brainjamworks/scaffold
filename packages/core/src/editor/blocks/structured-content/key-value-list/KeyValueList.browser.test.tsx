@@ -168,7 +168,7 @@ function KeyValueListSpecimen({ label = "Key-value list" }: { label?: string }) 
           </dd>
         </div>
       </dl>
-      <button type="button" className="sc-ghost-add sc-ghost-add--item sc-app-key-value-list-add">
+      <button type="button" className="sc-app-block-add sc-app-block-add--item sc-app-key-value-list-add">
         Add item
       </button>
     </div>

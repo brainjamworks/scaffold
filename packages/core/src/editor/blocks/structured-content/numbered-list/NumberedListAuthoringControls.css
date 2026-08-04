@@ -10,7 +10,7 @@
     white-space: nowrap;
   }
 
-  .sc-ghost-add.sc-app-numbered-list-add {
+  .sc-app-block-add.sc-app-numbered-list-add {
     display: flex;
     width: 100%;
     min-height: 2.25rem;
@@ -42,7 +42,7 @@
     font-size: 1rem;
   }
 
-  .sc-ghost-add.sc-app-numbered-list-add:hover:not(:disabled) {
+  .sc-app-block-add.sc-app-numbered-list-add:hover:not(:disabled) {
     background: transparent;
     color: var(--sc-app-color-primary);
   }
@@ -52,7 +52,7 @@
     color: var(--sc-app-color-primary);
   }
 
-  .sc-ghost-add.sc-app-numbered-list-add:focus-visible,
+  .sc-app-block-add.sc-app-numbered-list-add:focus-visible,
   .sc-app-numbered-list-status-cycle:focus-visible,
   .sc-app-numbered-list-icon-picker:focus-visible,
   .sc-app-numbered-list-delete:focus-visible {

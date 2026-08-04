@@ -1,15 +1,15 @@
-/* ─── sc-ghost-add ──────────────────────────────────────────────
+/* ─── sc-app-block-add ──────────────────────────────────────────────
  * Visual contract for "add another" affordances anywhere in the
  * editor: dashed border, hover / focus treatment, transition, plus
  * icon chip. Geometry (shape, padding, where it sits) is owned by
  * the host block — that's what makes a ghost-add feel contextual.
  *
  * Apply on a `<button>` next to whichever block class drives the
- * shape. The plus icon goes inside `.sc-ghost-add__icon`.
+ * shape. The plus icon goes inside `.sc-app-block-add__icon`.
  *
  * Per-instance reskinning via custom properties is intentionally
  * NOT supported. If a real visual variant is needed (e.g. emphasis),
- * add a named class here (`sc-ghost-add--solid`, etc.) rather than
+ * add a named class here (`sc-app-block-add--solid`, etc.) rather than
  * letting each block override --ghost-add-* tokens. That's how the
  * Timeline drift happened in the first place. */
 
@@ -18,17 +18,18 @@
    * sibling can override `display`, `align-items`, `gap`, etc. without
    * specificity gymnastics. Visual properties below this block stay at
    * normal specificity — the contract wins over per-block drift. */
-  :where(.sc-ghost-add) {
+  :where(.sc-app-block-add) {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
   }
 
-  .sc-ghost-add {
-    border: 1px dashed var(--color-border);
+  .sc-app-block-add {
+    border: 1px dashed var(--sc-app-color-border);
     background: transparent;
-    color: var(--color-text-muted);
+    color: var(--sc-app-color-text-muted);
+    font-family: var(--font-ui);
     font-size: 0.875rem;
     font-weight: 500;
     cursor: pointer;
@@ -39,18 +40,18 @@
       opacity 150ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  .sc-ghost-add:hover:not(:disabled) {
-    border-color: var(--color-primary);
-    background: color-mix(in oklch, var(--color-primary) 4%, transparent);
-    color: var(--color-primary);
+  .sc-app-block-add:hover:not(:disabled) {
+    border-color: var(--sc-app-color-primary);
+    background: color-mix(in oklch, var(--sc-app-color-primary) 4%, transparent);
+    color: var(--sc-app-color-primary);
   }
 
-  .sc-ghost-add:focus-visible {
-    outline: 2px solid var(--color-focus-ring);
+  .sc-app-block-add:focus-visible {
+    outline: 2px solid var(--sc-app-color-focus-outline);
     outline-offset: 2px;
   }
 
-  .sc-ghost-add:disabled {
+  .sc-app-block-add:disabled {
     cursor: not-allowed;
     opacity: 0.5;
   }
@@ -59,7 +60,7 @@
  * border (would clash with the surrounding list items, which have
  * none), but inherits the same hover (primary-muted bg + primary
  * text + primary chip color) and focus ring as the bordered shapes. */
-  .sc-ghost-add--row {
+  .sc-app-block-add--row {
     border: 0;
     background: transparent;
     justify-content: flex-start;
@@ -72,19 +73,19 @@
  * carries the ghost styling; hover still cascades primary colour
  * through currentColor so children can opt in via
  * `border-color: currentColor` / `color: currentColor`. */
-  .sc-ghost-add--item {
+  .sc-app-block-add--item {
     border: 0;
     background: transparent;
     padding: 0;
     justify-content: flex-start;
     font-weight: inherit;
-    color: var(--color-text-muted);
+    color: var(--sc-app-color-text-muted);
   }
 
-  .sc-ghost-add--item:hover:not(:disabled) {
-    border-color: var(--color-primary);
+  .sc-app-block-add--item:hover:not(:disabled) {
+    border-color: var(--sc-app-color-primary);
     background: transparent;
-    color: var(--color-primary);
+    color: var(--sc-app-color-primary);
   }
 
   /* Warning-tone variant — reserved for hint affordances. The brand
@@ -92,28 +93,28 @@
  * the add-hint button shifts to warning on hover instead of primary.
  * This is the only sanctioned tone variant; do not add more without
  * a real brand-semantic reason. */
-  .sc-ghost-add--tone-warning:hover:not(:disabled) {
-    border-color: var(--color-warning);
-    background: color-mix(in oklch, var(--color-warning) 4%, transparent);
-    color: var(--color-warning-text, var(--color-warning));
+  .sc-app-block-add--tone-warning:hover:not(:disabled) {
+    border-color: var(--sc-app-color-warning);
+    background: color-mix(in oklch, var(--sc-app-color-warning) 4%, transparent);
+    color: var(--sc-app-color-warning);
   }
 
   /* Plus chip — dashed-bordered circle that adopts the current color
  * so it tracks with the parent's resting + hover text colour. */
-  .sc-ghost-add__icon {
+  .sc-app-block-add__icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 1.25rem;
     height: 1.25rem;
     border: 1px dashed currentColor;
-    border-radius: 9999px;
+    border-radius: 50%;
     color: inherit;
     flex-shrink: 0;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .sc-ghost-add {
+    .sc-app-block-add {
       transition: none;
     }
   }

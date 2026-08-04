@@ -13,7 +13,7 @@
     pointer-events: none;
   }
 
-  .sc-ghost-add.sc-app-key-value-list-add {
+  .sc-app-block-add.sc-app-key-value-list-add {
     display: block;
     width: 100%;
     margin-top: 0.75rem;
@@ -29,13 +29,13 @@
     text-align: left;
   }
 
-  .sc-ghost-add.sc-app-key-value-list-add:hover:not(:disabled) {
+  .sc-app-block-add.sc-app-key-value-list-add:hover:not(:disabled) {
     border-bottom-color: var(--sc-app-color-primary);
     background: transparent;
     color: var(--sc-app-color-primary);
   }
 
-  .sc-ghost-add.sc-app-key-value-list-add:focus-visible {
+  .sc-app-block-add.sc-app-key-value-list-add:focus-visible {
     outline: 2px solid var(--sc-app-color-focus-outline);
     outline-offset: 2px;
   }

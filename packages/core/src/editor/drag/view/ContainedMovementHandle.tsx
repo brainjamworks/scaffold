@@ -90,9 +90,9 @@ export function ContainedMovementHandle({
       onKeyDown={handleKeyDown}
       {...{ [CONTAINED_MOVEMENT_HANDLE_ATTR]: "" }}
       className={cn(
-        "sc-contained-movement-handle",
-        disabled && "sc-movement-handle--disabled",
-        isDragging && "sc-movement-handle--dragging",
+        "sc-app-contained-movement-handle",
+        disabled && "sc-app-movement-handle--disabled",
+        isDragging && "sc-app-movement-handle--dragging",
         className,
       )}
     >

@@ -147,7 +147,7 @@ function SequencingItemNodeView(props: NodeViewProps) {
         label="sequencing item"
         sourceKey={itemId}
         sourcePos={pos}
-        className="sc-contained-movement-handle--row-offset"
+        className="sc-app-contained-movement-handle--row-offset"
       />
       <div className="sc-sequencing-item__content">
         <NodeViewContent />

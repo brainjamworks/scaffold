@@ -173,7 +173,7 @@ function NumberedListSpecimen() {
         </div>
         <button
           type="button"
-          className="sc-ghost-add sc-ghost-add--item sc-app-numbered-list-add"
+          className="sc-app-block-add sc-app-block-add--item sc-app-numbered-list-add"
           aria-label="Add item"
         >
           <span aria-hidden className="sc-app-numbered-list-add__marker">

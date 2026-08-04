@@ -1,140 +1,143 @@
 @layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
 
 @layer sc-overlays {
-  .sc-structure-movement-handle,
-  .sc-contained-movement-handle {
+  .sc-app-structure-movement-handle,
+  .sc-app-contained-movement-handle {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     cursor: grab;
     transition:
-      opacity 150ms var(--ease-out-soft),
-      background-color 150ms var(--ease-out-soft),
-      color 150ms var(--ease-out-soft);
+      opacity 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      color 150ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
-  .sc-structure-movement-handle:focus-visible,
-  .sc-contained-movement-handle:focus-visible {
+  .sc-app-structure-movement-handle:focus-visible,
+  .sc-app-contained-movement-handle:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 2px var(--color-focus-ring);
+    box-shadow: 0 0 0 2px var(--sc-app-color-focus-outline);
   }
 
-  .sc-structure-movement-handle--pill {
+  .sc-app-structure-movement-handle--pill {
     width: 1.25rem;
     height: 2.25rem;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-pill);
-    background: var(--color-background);
-    color: var(--color-text-secondary);
-    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--sc-app-color-border);
+    border-radius: max(var(--radius-2), var(--radius-full));
+    background: var(--sc-app-color-background);
+    color: var(--sc-app-color-text-secondary);
+    box-shadow: 0 2px 4px
+      color-mix(in srgb, var(--sc-app-color-ink) 12%, transparent);
   }
 
-  .sc-structure-movement-handle--pill:hover {
-    background: var(--color-canvas);
-    color: var(--color-ink);
+  .sc-app-structure-movement-handle--pill:hover {
+    background: var(--sc-app-color-canvas);
+    color: var(--sc-app-color-ink);
   }
 
-  .sc-structure-movement-handle--bare {
+  .sc-app-structure-movement-handle--bare {
     width: 1rem;
     height: 1.25rem;
-    border-radius: var(--radius-sm);
-    color: currentColor;
+    border-radius: var(--radius-2);
+    color: var(--sc-app-color-text-muted);
   }
 
-  .sc-structure-movement-handle--bare:hover {
-    color: var(--color-text-primary);
+  .sc-app-structure-movement-handle--bare:hover {
+    color: var(--sc-app-color-text-primary);
   }
 
-  .sc-contained-movement-handle {
+  .sc-app-contained-movement-handle {
     width: 1rem;
     height: 1.25rem;
     flex-shrink: 0;
-    border-radius: var(--radius-sm);
-    color: currentColor;
+    border-radius: var(--radius-2);
+    color: var(--sc-app-color-text-muted);
     opacity: 0;
   }
 
   [data-contained-movement-target]:hover
-    .sc-contained-movement-handle:not(.sc-movement-handle--disabled):not(
-      .sc-movement-handle--dragging
+    .sc-app-contained-movement-handle:not(.sc-app-movement-handle--disabled):not(
+      .sc-app-movement-handle--dragging
     ),
   [data-contained-movement-target]:focus-within
-    .sc-contained-movement-handle:not(.sc-movement-handle--disabled):not(
-      .sc-movement-handle--dragging
+    .sc-app-contained-movement-handle:not(.sc-app-movement-handle--disabled):not(
+      .sc-app-movement-handle--dragging
     ) {
     opacity: 0.5;
   }
 
-  .sc-contained-movement-handle:hover:not(.sc-movement-handle--disabled):not(
-    .sc-movement-handle--dragging
+  .sc-app-contained-movement-handle:hover:not(.sc-app-movement-handle--disabled):not(
+    .sc-app-movement-handle--dragging
   ),
-  .sc-contained-movement-handle:focus-visible:not(.sc-movement-handle--disabled):not(
-    .sc-movement-handle--dragging
+  .sc-app-contained-movement-handle:focus-visible:not(.sc-app-movement-handle--disabled):not(
+    .sc-app-movement-handle--dragging
   ) {
     opacity: 1;
   }
 
-  .sc-contained-movement-handle:hover {
-    background: rgb(0 0 0 / 10%);
+  .sc-app-contained-movement-handle:hover {
+    background: var(--sc-app-color-muted);
   }
 
-  .sc-contained-movement-handle--row-offset {
+  .sc-app-contained-movement-handle--row-offset {
     margin-left: -0.25rem;
   }
 
-  .sc-editor-movement-layer {
+  .sc-app-movement-layer {
     pointer-events: none;
     position: fixed;
     inset: 0;
     z-index: var(--z-interactive);
   }
 
-  .sc-editor-movement-handle {
+  .sc-app-movement-layer__handle {
     pointer-events: auto;
     display: flex;
     width: 1.25rem;
     height: 2.25rem;
     align-items: center;
     justify-content: center;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-pill);
-    background: var(--color-background);
-    color: var(--color-text-secondary);
-    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--sc-app-color-border);
+    border-radius: max(var(--radius-2), var(--radius-full));
+    background: var(--sc-app-color-background);
+    color: var(--sc-app-color-text-secondary);
+    box-shadow: 0 2px 4px
+      color-mix(in srgb, var(--sc-app-color-ink) 12%, transparent);
   }
 
-  .sc-editor-movement-handle:hover {
-    background: var(--color-canvas);
-    color: var(--color-ink);
+  .sc-app-movement-layer__handle:hover {
+    background: var(--sc-app-color-canvas);
+    color: var(--sc-app-color-ink);
   }
 
-  .sc-editor-movement-handle:focus-visible {
+  .sc-app-movement-layer__handle:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 2px var(--color-focus-ring);
+    box-shadow: 0 0 0 2px var(--sc-app-color-focus-outline);
   }
 
-  .sc-editor-movement-overlay-ghost {
+  .sc-app-movement-layer__ghost {
     width: 1.25rem;
     height: 2.25rem;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-pill);
-    background: var(--color-background);
-    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--sc-app-color-border);
+    border-radius: max(var(--radius-2), var(--radius-full));
+    background: var(--sc-app-color-background);
+    box-shadow: 0 2px 4px
+      color-mix(in srgb, var(--sc-app-color-ink) 12%, transparent);
   }
 
-  .sc-movement-handle--disabled {
+  .sc-app-movement-handle--disabled {
     cursor: not-allowed;
     opacity: 0.3;
   }
 
-  .sc-movement-handle--dragging {
+  .sc-app-movement-handle--dragging {
     opacity: 0;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .sc-structure-movement-handle,
-    .sc-contained-movement-handle,
-    .sc-editor-movement-handle {
+    .sc-app-structure-movement-handle,
+    .sc-app-contained-movement-handle,
+    .sc-app-movement-layer__handle {
       transition: none;
     }
   }

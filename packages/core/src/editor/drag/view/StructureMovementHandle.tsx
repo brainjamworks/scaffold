@@ -58,11 +58,11 @@ export function StructureMovementHandle({
       disabled={disabled}
       onMouseDown={(event) => event.preventDefault()}
       className={cn(
-        "sc-structure-movement-handle",
-        variant === "pill" && "sc-structure-movement-handle--pill",
-        variant === "bare" && "sc-structure-movement-handle--bare",
-        disabled && "sc-movement-handle--disabled",
-        isDragging && "sc-movement-handle--dragging",
+        "sc-app-structure-movement-handle",
+        variant === "pill" && "sc-app-structure-movement-handle--pill",
+        variant === "bare" && "sc-app-structure-movement-handle--bare",
+        disabled && "sc-app-movement-handle--disabled",
+        isDragging && "sc-app-movement-handle--dragging",
         className,
       )}
     >

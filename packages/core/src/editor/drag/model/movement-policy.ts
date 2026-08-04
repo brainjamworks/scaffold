@@ -42,7 +42,9 @@ const CONTAINED_MOVEMENT_NODE_NAMES = new Set([
   "matching_pair",
   "categorise_bin",
   "categorise_item",
+  "flashcard_card",
   "timeline_item",
+  "roadmap_milestone",
 ]);
 
 export function createStructureMovementPolicy(

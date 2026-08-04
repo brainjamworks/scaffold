@@ -209,7 +209,7 @@ function SelectableChoiceAuthoringNodeView(props: NodeViewProps) {
             label="choice"
             sourceKey={attrs.id}
             sourcePos={pos}
-            className="sc-contained-movement-handle--row-offset"
+            className="sc-app-contained-movement-handle--row-offset"
           />
         }
       >

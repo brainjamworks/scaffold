@@ -58,7 +58,7 @@ describe("Frame cascade layering", () => {
 
   it.each([
     ["[data-authoring-frame-wrapper-active]", "data-authoring-frame-wrapper-active"],
-    [".sc-editor-movement-layer", "sc-editor-movement-layer"],
+    [".sc-app-movement-layer", "sc-app-movement-layer"],
     [".sc-drop-indicator", "sc-drop-indicator"],
   ] as const)("allows adapter positioning overrides on %s", (selector, marker) => {
     mountAdapterStyles(`${selector} { position: static; }`);
