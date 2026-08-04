@@ -6,28 +6,34 @@ import type {
   AssessmentResponseValue,
   AssessmentResult,
 } from "@scaffold/contracts";
-import type { XapiActivityDefinition, XapiStatementDraft } from "../../host/ports/xapi";
+import type {
+  LearningEventActivityDefinition,
+  LearningEventDraft,
+} from "../../host/ports/learning-events";
 import {
-  XAPI_ACTIVITY_TYPES,
-  XAPI_EXTENSIONS,
-  XAPI_VERBS,
+  LEARNING_EVENT_ACTIVITY_TYPES,
+  LEARNING_EVENT_EXTENSIONS,
+  LEARNING_EVENT_VERBS,
+  BlockLearningEventInputSchema,
+  CoreLearningEventInputSchema,
   buildAssessmentActivityDefinition,
-  buildAnsweredStatementDraft,
-  buildHintInteractedStatementDraft,
-  buildInitializedStatementDraft,
-  buildLearnerActivityCompletedStatementDraft,
-  buildLearnerActivityInteractedStatementDraft,
-  buildLayoutSectionExperiencedStatementDraft,
-  buildResourceLaunchedStatementDraft,
-  buildResourceAttemptedStatementDraft,
-  buildResourceCompletedStatementDraft,
-  buildResourcePageExperiencedStatementDraft,
-  buildQuizAttemptedStatementDraft,
-  buildQuizCompletedStatementDraft,
-  buildQuizSuccessStatementDraft,
-  buildSurfaceExperiencedStatementDraft,
-  buildTerminatedStatementDraft,
-  buildVisualItemExperiencedStatementDraft,
+  buildAnsweredLearningEventDraft,
+  buildHintInteractedLearningEventDraft,
+  buildInitializedLearningEventDraft,
+  buildLearningEventDraft,
+  buildLearnerActivityCompletedLearningEventDraft,
+  buildLearnerActivityInteractedLearningEventDraft,
+  buildLayoutSectionExperiencedLearningEventDraft,
+  buildResourceLaunchedLearningEventDraft,
+  buildResourceAttemptedLearningEventDraft,
+  buildResourceCompletedLearningEventDraft,
+  buildResourcePageExperiencedLearningEventDraft,
+  buildQuizAttemptedLearningEventDraft,
+  buildQuizCompletedLearningEventDraft,
+  buildQuizSuccessLearningEventDraft,
+  buildSurfaceExperiencedLearningEventDraft,
+  buildTerminatedLearningEventDraft,
+  buildVisualItemExperiencedLearningEventDraft,
   createAssessmentActivityId,
   createHintActivityId,
   createLearnerActivityId,
@@ -39,8 +45,8 @@ import {
   createVisualCompositionActivityId,
   createVisualItemActivityId,
   encodeAssessmentResponse,
-  isXapiLearnerActivityKind,
-} from "./statement-catalogue";
+  isLearningEventLearnerActivityKind,
+} from "./catalogue";
 
 const ROOT_ACTIVITY_ID = "https://lms.example.test/courses/course-one";
 
@@ -54,9 +60,9 @@ function normalizedResult(
   };
 }
 
-describe("xAPI catalogue vocabulary", () => {
+describe("Learning Event catalogue vocabulary", () => {
   it("defines the approved immutable verbs, Activity types, and extensions", () => {
-    expect(XAPI_VERBS).toStrictEqual({
+    expect(LEARNING_EVENT_VERBS).toStrictEqual({
       initialized: {
         id: "http://adlnet.gov/expapi/verbs/initialized",
         display: { en: "initialized" },
@@ -102,9 +108,8 @@ describe("xAPI catalogue vocabulary", () => {
         display: { en: "terminated" },
       },
     });
-    expect(XAPI_ACTIVITY_TYPES).toStrictEqual({
+    expect(LEARNING_EVENT_ACTIVITY_TYPES).toStrictEqual({
       artefact: "https://scaffold.ac/xapi/activity-types/artifact",
-      course: "https://scaffold.ac/xapi/activity-types/artifact",
       quiz: "http://adlnet.gov/expapi/activities/assessment",
       assessmentQuestion: "http://adlnet.gov/expapi/activities/cmi.interaction",
       learnerActivity: "https://scaffold.ac/xapi/activity-types/learner-activity",
@@ -116,7 +121,7 @@ describe("xAPI catalogue vocabulary", () => {
       visualComposition: "https://scaffold.ac/xapi/activity-types/visual-composition",
       visualItem: "https://scaffold.ac/xapi/activity-types/visual-item",
     });
-    expect(XAPI_EXTENSIONS).toStrictEqual({
+    expect(LEARNING_EVENT_EXTENSIONS).toStrictEqual({
       assessmentAttemptNumber: "https://scaffold.ac/xapi/extensions/assessment-attempt-number",
       assessmentInteractionKind: "https://scaffold.ac/xapi/extensions/assessment-interaction-kind",
       quizAttemptId: "https://scaffold.ac/xapi/extensions/quiz-attempt-id",
@@ -138,11 +143,13 @@ describe("xAPI catalogue vocabulary", () => {
       progress: "https://w3id.org/xapi/cmi5/result/extensions/progress",
     });
 
-    expect(Object.isFrozen(XAPI_VERBS)).toBe(true);
-    expect(Object.values(XAPI_VERBS).every(Object.isFrozen)).toBe(true);
-    expect(Object.values(XAPI_VERBS).every((verb) => Object.isFrozen(verb.display))).toBe(true);
-    expect(Object.isFrozen(XAPI_ACTIVITY_TYPES)).toBe(true);
-    expect(Object.isFrozen(XAPI_EXTENSIONS)).toBe(true);
+    expect(Object.isFrozen(LEARNING_EVENT_VERBS)).toBe(true);
+    expect(Object.values(LEARNING_EVENT_VERBS).every(Object.isFrozen)).toBe(true);
+    expect(Object.values(LEARNING_EVENT_VERBS).every((verb) => Object.isFrozen(verb.display))).toBe(
+      true,
+    );
+    expect(Object.isFrozen(LEARNING_EVENT_ACTIVITY_TYPES)).toBe(true);
+    expect(Object.isFrozen(LEARNING_EVENT_EXTENSIONS)).toBe(true);
   });
 
   it.each([
@@ -154,10 +161,10 @@ describe("xAPI catalogue vocabulary", () => {
     ["fill-blanks", "other"],
     ["spatial-hotspot", "other"],
   ] satisfies readonly (readonly [AssessmentInteractionKind, string])[])(
-    "maps %s to the %s xAPI interaction type",
+    "maps %s to the %s Learning Event interaction type",
     (interactionKind, interactionType) => {
       expect(
-        buildAnsweredStatementDraft({
+        buildAnsweredLearningEventDraft({
           rootActivityId: ROOT_ACTIVITY_ID,
           targetId: "question-one",
           activityDescription: "Which answer is correct?",
@@ -252,7 +259,7 @@ describe("xAPI catalogue vocabulary", () => {
     },
   ] satisfies readonly {
     readonly interaction: AssessmentInteractionContract;
-    readonly expected: Partial<XapiActivityDefinition>;
+    readonly expected: Partial<LearningEventActivityDefinition>;
   }[])(
     "derives the standard component lists for $interaction.kind without an answer key",
     ({ interaction, expected }) => {
@@ -263,9 +270,9 @@ describe("xAPI catalogue vocabulary", () => {
 
       expect(definition).toMatchObject({
         description: { en: "What is the answer?" },
-        type: XAPI_ACTIVITY_TYPES.assessmentQuestion,
+        type: LEARNING_EVENT_ACTIVITY_TYPES.assessmentQuestion,
         extensions: {
-          [XAPI_EXTENSIONS.assessmentInteractionKind]: interaction.kind,
+          [LEARNING_EVENT_EXTENSIONS.assessmentInteractionKind]: interaction.kind,
         },
         ...expected,
       });
@@ -279,7 +286,141 @@ describe("xAPI catalogue vocabulary", () => {
   );
 });
 
-describe("xAPI assessment response encoding", () => {
+describe("closed producer inputs", () => {
+  it.each([
+    {
+      type: "surface.experienced",
+      surfaceId: "surface-1",
+      surfaceKind: "slide",
+      position: 1,
+      count: 2,
+    },
+    {
+      type: "layout-section.experienced",
+      layoutId: "tabs-1",
+      sectionId: "tab-1",
+      layoutKind: "tabs",
+      position: 1,
+      count: 2,
+    },
+    {
+      type: "visual-item.experienced",
+      compositionId: "gallery-1",
+      itemId: "image-1",
+      itemKind: "gallery-image",
+      position: 1,
+      count: 2,
+    },
+    {
+      type: "resource.launched",
+      resourceId: "resource-1",
+      resourceKind: "video",
+    },
+    {
+      type: "resource-page.experienced",
+      resourceId: "resource-1",
+      pageNumber: 2,
+      pageCount: 4,
+    },
+  ])("accepts the block-safe $type input", (input) => {
+    expect(BlockLearningEventInputSchema.parse(input)).toStrictEqual(input);
+  });
+
+  it.each([
+    { type: "session.initialized" },
+    { type: "assessment.hint-interacted", targetId: "question-1", hintNumber: 1 },
+    { type: "quiz.attempted", quizId: "quiz-1", attemptId: "attempt-1" },
+    { type: "artefact.completed", completion: true },
+    {
+      type: "surface.experienced",
+      surfaceId: "surface-1",
+      surfaceKind: "slide",
+      position: 1,
+      count: 2,
+      verb: "experienced",
+    },
+  ])("rejects non-block-safe or open input: %o", (input) => {
+    expect(BlockLearningEventInputSchema.safeParse(input).success).toBe(false);
+  });
+
+  it.each([
+    {
+      type: "surface.experienced",
+      surfaceId: "surface-1",
+      surfaceKind: "slide",
+      position: 3,
+      count: 2,
+    },
+    {
+      type: "resource-page.experienced",
+      resourceId: "resource-1",
+      pageNumber: 0,
+      pageCount: 2,
+    },
+    { type: "artefact.progressed", progressPercent: 100 },
+    { type: "not.registered", payload: {} },
+  ])("rejects invalid closed input: %o", (input) => {
+    expect(CoreLearningEventInputSchema.safeParse(input).success).toBe(false);
+  });
+
+  it("builds governed block-safe input without serializing the catalogue key", () => {
+    const draft = buildLearningEventDraft(
+      {
+        type: "surface.experienced",
+        surfaceId: "surface-1",
+        surfaceKind: "page",
+        position: 1,
+        count: 1,
+      },
+      { rootActivityId: ROOT_ACTIVITY_ID },
+    );
+
+    expect(draft).toStrictEqual(
+      buildSurfaceExperiencedLearningEventDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        surfaceId: "surface-1",
+        surfaceKind: "page",
+        position: 1,
+        count: 1,
+      }),
+    );
+    expect(draft).not.toHaveProperty("type");
+  });
+
+  it("builds dormant artefact outcomes only from the Core-owned union", () => {
+    const progressed = buildLearningEventDraft(
+      { type: "artefact.progressed", progressPercent: 42 },
+      { rootActivityId: ROOT_ACTIVITY_ID, title: "Artefact One" },
+    );
+    const completed = buildLearningEventDraft(
+      {
+        type: "artefact.completed",
+        completion: true,
+        score: { scaled: 0.75, raw: 3, min: 0, max: 4 },
+        duration: "PT2M",
+      },
+      { rootActivityId: ROOT_ACTIVITY_ID },
+    );
+    const passed = buildLearningEventDraft(
+      { type: "artefact.passed", score: { scaled: 0.75 } },
+      { rootActivityId: ROOT_ACTIVITY_ID },
+    );
+
+    expect(progressed).toMatchObject({
+      verb: LEARNING_EVENT_VERBS.progressed,
+      object: { definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.artefact } },
+      result: { extensions: { [LEARNING_EVENT_EXTENSIONS.progress]: 42 } },
+    });
+    expect(completed.result).toStrictEqual({
+      completion: true,
+      score: { scaled: 0.75, raw: 3, min: 0, max: 4 },
+      duration: "PT2M",
+    });
+    expect(passed.result).toStrictEqual({ success: true, score: { scaled: 0.75 } });
+  });
+});
+
+describe("Learning Event assessment response encoding", () => {
   it.each([
     {
       interactionKind: "single-select",
@@ -394,7 +535,7 @@ describe("xAPI assessment response encoding", () => {
   });
 });
 
-describe("xAPI Activity identities", () => {
+describe("Learning Event Activity identities", () => {
   it("derives every child identity with stable query ordering", () => {
     expect(createQuizActivityId(ROOT_ACTIVITY_ID, "quiz-one")).toBe(
       "https://scaffold.ac/xapi/activities/quiz?root=https%3A%2F%2Flms.example.test%2Fcourses%2Fcourse-one&id=quiz-one",
@@ -439,23 +580,23 @@ describe("xAPI Activity identities", () => {
   });
 });
 
-describe("xAPI Statement catalogue builders", () => {
+describe("Learning Event Event catalogue builders", () => {
   it("builds a privacy-safe launched resource Activity", () => {
     expect(
-      buildResourceLaunchedStatementDraft({
+      buildResourceLaunchedLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         resourceId: "resource-one",
         resourceKind: "pdf",
       }),
     ).toStrictEqual({
-      verb: XAPI_VERBS.launched,
+      verb: LEARNING_EVENT_VERBS.launched,
       object: {
         objectType: "Activity",
         id: createResourceActivityId(ROOT_ACTIVITY_ID, "resource-one"),
         definition: {
-          type: XAPI_ACTIVITY_TYPES.resource,
+          type: LEARNING_EVENT_ACTIVITY_TYPES.resource,
           extensions: {
-            [XAPI_EXTENSIONS.resourceKind]: "pdf",
+            [LEARNING_EVENT_EXTENSIONS.resourceKind]: "pdf",
           },
         },
       },
@@ -465,7 +606,7 @@ describe("xAPI Statement catalogue builders", () => {
             {
               objectType: "Activity",
               id: ROOT_ACTIVITY_ID,
-              definition: { type: XAPI_ACTIVITY_TYPES.artefact },
+              definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.artefact },
             },
           ],
         },
@@ -473,7 +614,7 @@ describe("xAPI Statement catalogue builders", () => {
     });
     expect(
       JSON.stringify(
-        buildResourceLaunchedStatementDraft({
+        buildResourceLaunchedLearningEventDraft({
           rootActivityId: ROOT_ACTIVITY_ID,
           resourceId: "resource-one",
           resourceKind: "pdf",
@@ -492,9 +633,9 @@ describe("xAPI Statement catalogue builders", () => {
       objectType: "Activity" as const,
       id: createResourceActivityId(ROOT_ACTIVITY_ID, "audio-one"),
       definition: {
-        type: XAPI_ACTIVITY_TYPES.resource,
+        type: LEARNING_EVENT_ACTIVITY_TYPES.resource,
         extensions: {
-          [XAPI_EXTENSIONS.resourceKind]: "audio",
+          [LEARNING_EVENT_EXTENSIONS.resourceKind]: "audio",
         },
       },
     };
@@ -504,19 +645,19 @@ describe("xAPI Statement catalogue builders", () => {
           {
             objectType: "Activity" as const,
             id: ROOT_ACTIVITY_ID,
-            definition: { type: XAPI_ACTIVITY_TYPES.artefact },
+            definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.artefact },
           },
         ],
       },
     };
 
-    expect(buildResourceAttemptedStatementDraft(input)).toStrictEqual({
-      verb: XAPI_VERBS.attempted,
+    expect(buildResourceAttemptedLearningEventDraft(input)).toStrictEqual({
+      verb: LEARNING_EVENT_VERBS.attempted,
       object,
       context,
     });
-    expect(buildResourceCompletedStatementDraft(input)).toStrictEqual({
-      verb: XAPI_VERBS.completed,
+    expect(buildResourceCompletedLearningEventDraft(input)).toStrictEqual({
+      verb: LEARNING_EVENT_VERBS.completed,
       object,
       result: { completion: true },
       context,
@@ -525,22 +666,22 @@ describe("xAPI Statement catalogue builders", () => {
 
   it("builds an experienced PDF page parented by its resource", () => {
     expect(
-      buildResourcePageExperiencedStatementDraft({
+      buildResourcePageExperiencedLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         resourceId: "resource-one",
         pageNumber: 2,
         pageCount: 8,
       }),
     ).toStrictEqual({
-      verb: XAPI_VERBS.experienced,
+      verb: LEARNING_EVENT_VERBS.experienced,
       object: {
         objectType: "Activity",
         id: createResourcePageActivityId(ROOT_ACTIVITY_ID, "resource-one", 2),
         definition: {
-          type: XAPI_ACTIVITY_TYPES.resourcePage,
+          type: LEARNING_EVENT_ACTIVITY_TYPES.resourcePage,
           extensions: {
-            [XAPI_EXTENSIONS.resourcePageNumber]: 2,
-            [XAPI_EXTENSIONS.resourcePageCount]: 8,
+            [LEARNING_EVENT_EXTENSIONS.resourcePageNumber]: 2,
+            [LEARNING_EVENT_EXTENSIONS.resourcePageCount]: 8,
           },
         },
       },
@@ -551,9 +692,9 @@ describe("xAPI Statement catalogue builders", () => {
               objectType: "Activity",
               id: createResourceActivityId(ROOT_ACTIVITY_ID, "resource-one"),
               definition: {
-                type: XAPI_ACTIVITY_TYPES.resource,
+                type: LEARNING_EVENT_ACTIVITY_TYPES.resource,
                 extensions: {
-                  [XAPI_EXTENSIONS.resourceKind]: "pdf",
+                  [LEARNING_EVENT_EXTENSIONS.resourceKind]: "pdf",
                 },
               },
             },
@@ -565,34 +706,34 @@ describe("xAPI Statement catalogue builders", () => {
 
   it("builds initialized with the root artefact Activity and a normalized title", () => {
     expect(
-      buildInitializedStatementDraft({
+      buildInitializedLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         title: "  Course One  ",
       }),
     ).toStrictEqual({
-      verb: XAPI_VERBS.initialized,
+      verb: LEARNING_EVENT_VERBS.initialized,
       object: {
         objectType: "Activity",
         id: ROOT_ACTIVITY_ID,
         definition: {
           name: { en: "Course One" },
-          type: XAPI_ACTIVITY_TYPES.artefact,
+          type: LEARNING_EVENT_ACTIVITY_TYPES.artefact,
         },
       },
     });
 
     expect(
-      buildInitializedStatementDraft({ rootActivityId: ROOT_ACTIVITY_ID, title: " " }).object,
+      buildInitializedLearningEventDraft({ rootActivityId: ROOT_ACTIVITY_ID, title: " " }).object,
     ).toStrictEqual({
       objectType: "Activity",
       id: ROOT_ACTIVITY_ID,
-      definition: { type: XAPI_ACTIVITY_TYPES.artefact },
+      definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.artefact },
     });
   });
 
   it("builds an authoritative standalone answered draft", () => {
     expect(
-      buildAnsweredStatementDraft({
+      buildAnsweredLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
         interactionKind: "single-select",
@@ -601,15 +742,15 @@ describe("xAPI Statement catalogue builders", () => {
         attemptNumber: 2,
       }),
     ).toStrictEqual({
-      verb: XAPI_VERBS.answered,
+      verb: LEARNING_EVENT_VERBS.answered,
       object: {
         objectType: "Activity",
         id: createAssessmentActivityId(ROOT_ACTIVITY_ID, "question-one"),
         definition: {
-          type: XAPI_ACTIVITY_TYPES.assessmentQuestion,
+          type: LEARNING_EVENT_ACTIVITY_TYPES.assessmentQuestion,
           interactionType: "choice",
           extensions: {
-            [XAPI_EXTENSIONS.assessmentInteractionKind]: "single-select",
+            [LEARNING_EVENT_EXTENSIONS.assessmentInteractionKind]: "single-select",
           },
         },
       },
@@ -617,7 +758,7 @@ describe("xAPI Statement catalogue builders", () => {
         success: false,
         score: { scaled: 0.25, raw: 0.25, min: 0, max: 1 },
         response: "option%2Fa",
-        extensions: { [XAPI_EXTENSIONS.assessmentAttemptNumber]: 2 },
+        extensions: { [LEARNING_EVENT_EXTENSIONS.assessmentAttemptNumber]: 2 },
       },
       context: {
         contextActivities: {
@@ -625,7 +766,7 @@ describe("xAPI Statement catalogue builders", () => {
             {
               objectType: "Activity",
               id: ROOT_ACTIVITY_ID,
-              definition: { type: XAPI_ACTIVITY_TYPES.artefact },
+              definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.artefact },
             },
           ],
         },
@@ -635,7 +776,7 @@ describe("xAPI Statement catalogue builders", () => {
 
   it("builds quiz answer Context from explicit quiz and attempt identities", () => {
     expect(
-      buildAnsweredStatementDraft({
+      buildAnsweredLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
         interactionKind: "sequence",
@@ -650,31 +791,31 @@ describe("xAPI Statement catalogue builders", () => {
           {
             objectType: "Activity",
             id: createQuizActivityId(ROOT_ACTIVITY_ID, "quiz-one"),
-            definition: { type: XAPI_ACTIVITY_TYPES.quiz },
+            definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.quiz },
           },
         ],
       },
-      extensions: { [XAPI_EXTENSIONS.quizAttemptId]: "attempt-one" },
+      extensions: { [LEARNING_EVENT_EXTENSIONS.quizAttemptId]: "attempt-one" },
     });
   });
 
   it("builds a persisted hint interaction without hint content", () => {
     expect(
-      buildHintInteractedStatementDraft({
+      buildHintInteractedLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
         activityDescription: "Which answer is correct?",
         hintNumber: 2,
       }),
     ).toStrictEqual({
-      verb: XAPI_VERBS.interacted,
+      verb: LEARNING_EVENT_VERBS.interacted,
       object: {
         objectType: "Activity",
         id: createHintActivityId(ROOT_ACTIVITY_ID, "question-one", 2),
-        definition: { type: XAPI_ACTIVITY_TYPES.hint },
+        definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.hint },
       },
       result: {
-        extensions: { [XAPI_EXTENSIONS.hintNumber]: 2 },
+        extensions: { [LEARNING_EVENT_EXTENSIONS.hintNumber]: 2 },
       },
       context: {
         contextActivities: {
@@ -684,7 +825,7 @@ describe("xAPI Statement catalogue builders", () => {
               id: createAssessmentActivityId(ROOT_ACTIVITY_ID, "question-one"),
               definition: {
                 description: { en: "Which answer is correct?" },
-                type: XAPI_ACTIVITY_TYPES.assessmentQuestion,
+                type: LEARNING_EVENT_ACTIVITY_TYPES.assessmentQuestion,
               },
             },
           ],
@@ -703,8 +844,8 @@ describe("xAPI Statement catalogue builders", () => {
       objectType: "Activity",
       id: createLearnerActivityId(ROOT_ACTIVITY_ID, "flashcards-one"),
       definition: {
-        type: XAPI_ACTIVITY_TYPES.learnerActivity,
-        extensions: { [XAPI_EXTENSIONS.learnerActivityKind]: "flashcard" },
+        type: LEARNING_EVENT_ACTIVITY_TYPES.learnerActivity,
+        extensions: { [LEARNING_EVENT_EXTENSIONS.learnerActivityKind]: "flashcard" },
       },
     };
     const context = {
@@ -713,19 +854,19 @@ describe("xAPI Statement catalogue builders", () => {
           {
             objectType: "Activity",
             id: ROOT_ACTIVITY_ID,
-            definition: { type: XAPI_ACTIVITY_TYPES.artefact },
+            definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.artefact },
           },
         ],
       },
     };
 
-    expect(buildLearnerActivityInteractedStatementDraft(input)).toStrictEqual({
-      verb: XAPI_VERBS.interacted,
+    expect(buildLearnerActivityInteractedLearningEventDraft(input)).toStrictEqual({
+      verb: LEARNING_EVENT_VERBS.interacted,
       object,
       context,
     });
-    expect(buildLearnerActivityCompletedStatementDraft(input)).toStrictEqual({
-      verb: XAPI_VERBS.completed,
+    expect(buildLearnerActivityCompletedLearningEventDraft(input)).toStrictEqual({
+      verb: LEARNING_EVENT_VERBS.completed,
       object,
       result: { completion: true },
       context,
@@ -738,7 +879,7 @@ describe("xAPI Statement catalogue builders", () => {
       "https://scaffold.ac/xapi/activities/surface?root=https%3A%2F%2Flms.example.test%2Fcourses%2Fcourse-one&id=slide-two",
     );
     expect(
-      buildSurfaceExperiencedStatementDraft({
+      buildSurfaceExperiencedLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         surfaceId: "slide-two",
         surfaceKind: "slide",
@@ -746,16 +887,16 @@ describe("xAPI Statement catalogue builders", () => {
         count: 4,
       }),
     ).toStrictEqual({
-      verb: XAPI_VERBS.experienced,
+      verb: LEARNING_EVENT_VERBS.experienced,
       object: {
         objectType: "Activity",
         id: surfaceActivityId,
         definition: {
-          type: XAPI_ACTIVITY_TYPES.surface,
+          type: LEARNING_EVENT_ACTIVITY_TYPES.surface,
           extensions: {
-            [XAPI_EXTENSIONS.surfaceKind]: "slide",
-            [XAPI_EXTENSIONS.surfacePosition]: 2,
-            [XAPI_EXTENSIONS.surfaceCount]: 4,
+            [LEARNING_EVENT_EXTENSIONS.surfaceKind]: "slide",
+            [LEARNING_EVENT_EXTENSIONS.surfacePosition]: 2,
+            [LEARNING_EVENT_EXTENSIONS.surfaceCount]: 4,
           },
         },
       },
@@ -765,14 +906,14 @@ describe("xAPI Statement catalogue builders", () => {
             {
               objectType: "Activity",
               id: ROOT_ACTIVITY_ID,
-              definition: { type: XAPI_ACTIVITY_TYPES.artefact },
+              definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.artefact },
             },
           ],
         },
       },
     });
     expect(() =>
-      buildSurfaceExperiencedStatementDraft({
+      buildSurfaceExperiencedLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         surfaceId: "slide-two",
         surfaceKind: "slide",
@@ -794,7 +935,7 @@ describe("xAPI Statement catalogue builders", () => {
     );
 
     expect(
-      buildVisualItemExperiencedStatementDraft({
+      buildVisualItemExperiencedLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         compositionId: "annotated-figure-one",
         itemId: "annotation-two",
@@ -803,16 +944,16 @@ describe("xAPI Statement catalogue builders", () => {
         count: 4,
       }),
     ).toStrictEqual({
-      verb: XAPI_VERBS.experienced,
+      verb: LEARNING_EVENT_VERBS.experienced,
       object: {
         objectType: "Activity",
         id: itemId,
         definition: {
-          type: XAPI_ACTIVITY_TYPES.visualItem,
+          type: LEARNING_EVENT_ACTIVITY_TYPES.visualItem,
           extensions: {
-            [XAPI_EXTENSIONS.visualItemKind]: "annotation",
-            [XAPI_EXTENSIONS.visualItemPosition]: 2,
-            [XAPI_EXTENSIONS.visualItemCount]: 4,
+            [LEARNING_EVENT_EXTENSIONS.visualItemKind]: "annotation",
+            [LEARNING_EVENT_EXTENSIONS.visualItemPosition]: 2,
+            [LEARNING_EVENT_EXTENSIONS.visualItemCount]: 4,
           },
         },
       },
@@ -822,7 +963,7 @@ describe("xAPI Statement catalogue builders", () => {
             {
               objectType: "Activity",
               id: compositionId,
-              definition: { type: XAPI_ACTIVITY_TYPES.visualComposition },
+              definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.visualComposition },
             },
           ],
         },
@@ -840,7 +981,7 @@ describe("xAPI Statement catalogue builders", () => {
       "https://scaffold.ac/xapi/activities/layout-section?root=https%3A%2F%2Flms.example.test%2Fcourses%2Fcourse-one&layout=layout-tabs&id=tab-two",
     );
     expect(
-      buildLayoutSectionExperiencedStatementDraft({
+      buildLayoutSectionExperiencedLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         layoutId: "layout-tabs",
         sectionId: "tab-two",
@@ -849,16 +990,16 @@ describe("xAPI Statement catalogue builders", () => {
         count: 3,
       }),
     ).toStrictEqual({
-      verb: XAPI_VERBS.experienced,
+      verb: LEARNING_EVENT_VERBS.experienced,
       object: {
         objectType: "Activity",
         id: sectionActivityId,
         definition: {
-          type: XAPI_ACTIVITY_TYPES.layoutSection,
+          type: LEARNING_EVENT_ACTIVITY_TYPES.layoutSection,
           extensions: {
-            [XAPI_EXTENSIONS.layoutKind]: "tabs",
-            [XAPI_EXTENSIONS.layoutSectionPosition]: 2,
-            [XAPI_EXTENSIONS.layoutSectionCount]: 3,
+            [LEARNING_EVENT_EXTENSIONS.layoutKind]: "tabs",
+            [LEARNING_EVENT_EXTENSIONS.layoutSectionPosition]: 2,
+            [LEARNING_EVENT_EXTENSIONS.layoutSectionCount]: 3,
           },
         },
       },
@@ -868,14 +1009,14 @@ describe("xAPI Statement catalogue builders", () => {
             {
               objectType: "Activity",
               id: ROOT_ACTIVITY_ID,
-              definition: { type: XAPI_ACTIVITY_TYPES.artefact },
+              definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.artefact },
             },
           ],
         },
       },
     });
     expect(() =>
-      buildLayoutSectionExperiencedStatementDraft({
+      buildLayoutSectionExperiencedLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         layoutId: "layout-tabs",
         sectionId: "tab-two",
@@ -888,7 +1029,7 @@ describe("xAPI Statement catalogue builders", () => {
 
   it("describes an experienced accordion section with the shared layout-section shape", () => {
     expect(
-      buildLayoutSectionExperiencedStatementDraft({
+      buildLayoutSectionExperiencedLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         layoutId: "layout-accordion",
         sectionId: "section-two",
@@ -897,15 +1038,15 @@ describe("xAPI Statement catalogue builders", () => {
         count: 3,
       }),
     ).toMatchObject({
-      verb: XAPI_VERBS.experienced,
+      verb: LEARNING_EVENT_VERBS.experienced,
       object: {
         id: createLayoutSectionActivityId(ROOT_ACTIVITY_ID, "layout-accordion", "section-two"),
         definition: {
-          type: XAPI_ACTIVITY_TYPES.layoutSection,
+          type: LEARNING_EVENT_ACTIVITY_TYPES.layoutSection,
           extensions: {
-            [XAPI_EXTENSIONS.layoutKind]: "accordion",
-            [XAPI_EXTENSIONS.layoutSectionPosition]: 2,
-            [XAPI_EXTENSIONS.layoutSectionCount]: 3,
+            [LEARNING_EVENT_EXTENSIONS.layoutKind]: "accordion",
+            [LEARNING_EVENT_EXTENSIONS.layoutSectionPosition]: 2,
+            [LEARNING_EVENT_EXTENSIONS.layoutSectionCount]: 3,
           },
         },
       },
@@ -914,7 +1055,7 @@ describe("xAPI Statement catalogue builders", () => {
 
   it("describes an accepted checklist item toggle without learner state", () => {
     expect(
-      buildLearnerActivityInteractedStatementDraft({
+      buildLearnerActivityInteractedLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         blockId: "checklist-one",
         activityKind: "checklist",
@@ -927,7 +1068,7 @@ describe("xAPI Statement catalogue builders", () => {
         },
       }),
     ).toMatchObject({
-      verb: XAPI_VERBS.interacted,
+      verb: LEARNING_EVENT_VERBS.interacted,
       result: {
         extensions: {
           "https://scaffold.ac/xapi/extensions/learner-activity-event": {
@@ -944,7 +1085,7 @@ describe("xAPI Statement catalogue builders", () => {
 
   it("describes which flashcard face the learner revealed", () => {
     expect(
-      buildLearnerActivityInteractedStatementDraft({
+      buildLearnerActivityInteractedLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         blockId: "flashcards-one",
         activityKind: "flashcard",
@@ -955,7 +1096,7 @@ describe("xAPI Statement catalogue builders", () => {
         },
       }),
     ).toMatchObject({
-      verb: XAPI_VERBS.interacted,
+      verb: LEARNING_EVENT_VERBS.interacted,
       result: {
         extensions: {
           "https://scaffold.ac/xapi/extensions/learner-activity-event": {
@@ -970,7 +1111,7 @@ describe("xAPI Statement catalogue builders", () => {
 
   it("describes a flashcard rating and the resulting deck progress", () => {
     expect(
-      buildLearnerActivityInteractedStatementDraft({
+      buildLearnerActivityInteractedLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         blockId: "flashcards-one",
         activityKind: "flashcard",
@@ -983,7 +1124,7 @@ describe("xAPI Statement catalogue builders", () => {
         },
       }),
     ).toMatchObject({
-      verb: XAPI_VERBS.interacted,
+      verb: LEARNING_EVENT_VERBS.interacted,
       result: {
         extensions: {
           "https://scaffold.ac/xapi/extensions/learner-activity-event": {
@@ -1000,17 +1141,17 @@ describe("xAPI Statement catalogue builders", () => {
 
   it("builds a Quiz attempted draft from authoritative Quiz and attempt identity", () => {
     expect(
-      buildQuizAttemptedStatementDraft({
+      buildQuizAttemptedLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         quizId: "quiz-one",
         attemptId: "attempt-one",
       }),
     ).toStrictEqual({
-      verb: XAPI_VERBS.attempted,
+      verb: LEARNING_EVENT_VERBS.attempted,
       object: {
         objectType: "Activity",
         id: createQuizActivityId(ROOT_ACTIVITY_ID, "quiz-one"),
-        definition: { type: XAPI_ACTIVITY_TYPES.quiz },
+        definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.quiz },
       },
       context: {
         contextActivities: {
@@ -1018,18 +1159,18 @@ describe("xAPI Statement catalogue builders", () => {
             {
               objectType: "Activity",
               id: ROOT_ACTIVITY_ID,
-              definition: { type: XAPI_ACTIVITY_TYPES.artefact },
+              definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.artefact },
             },
           ],
         },
-        extensions: { [XAPI_EXTENSIONS.quizAttemptId]: "attempt-one" },
+        extensions: { [LEARNING_EVENT_EXTENSIONS.quizAttemptId]: "attempt-one" },
       },
     });
   });
 
   it("builds terminal quiz completion with a valid authoritative duration", () => {
     expect(
-      buildQuizCompletedStatementDraft({
+      buildQuizCompletedLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         quizId: "quiz-one",
         attemptId: "attempt-one",
@@ -1037,11 +1178,11 @@ describe("xAPI Statement catalogue builders", () => {
         finishedAt: "2026-07-25T10:05:00.250Z",
       }),
     ).toStrictEqual({
-      verb: XAPI_VERBS.completed,
+      verb: LEARNING_EVENT_VERBS.completed,
       object: {
         objectType: "Activity",
         id: createQuizActivityId(ROOT_ACTIVITY_ID, "quiz-one"),
-        definition: { type: XAPI_ACTIVITY_TYPES.quiz },
+        definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.quiz },
       },
       result: { completion: true, duration: "PT300.25S" },
       context: {
@@ -1050,11 +1191,11 @@ describe("xAPI Statement catalogue builders", () => {
             {
               objectType: "Activity",
               id: ROOT_ACTIVITY_ID,
-              definition: { type: XAPI_ACTIVITY_TYPES.artefact },
+              definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.artefact },
             },
           ],
         },
-        extensions: { [XAPI_EXTENSIONS.quizAttemptId]: "attempt-one" },
+        extensions: { [LEARNING_EVENT_EXTENSIONS.quizAttemptId]: "attempt-one" },
       },
     });
   });
@@ -1066,7 +1207,7 @@ describe("xAPI Statement catalogue builders", () => {
     ["2026-02-30T10:00:00.000Z", "2026-03-01T10:00:00.000Z"],
   ])("omits invented duration for invalid authoritative instants", (startedAt, finishedAt) => {
     expect(
-      buildQuizCompletedStatementDraft({
+      buildQuizCompletedLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         quizId: "quiz-one",
         attemptId: "attempt-one",
@@ -1077,11 +1218,11 @@ describe("xAPI Statement catalogue builders", () => {
   });
 
   it.each([
-    ["passed", true, XAPI_VERBS.passed],
-    ["failed", false, XAPI_VERBS.failed],
+    ["passed", true, LEARNING_EVENT_VERBS.passed],
+    ["failed", false, LEARNING_EVENT_VERBS.failed],
   ] as const)("builds an explicit authoritative %s draft", (successStatus, success, verb) => {
     expect(
-      buildQuizSuccessStatementDraft({
+      buildQuizSuccessLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         quizId: "quiz-one",
         attemptId: "attempt-one",
@@ -1094,7 +1235,7 @@ describe("xAPI Statement catalogue builders", () => {
       object: {
         objectType: "Activity",
         id: createQuizActivityId(ROOT_ACTIVITY_ID, "quiz-one"),
-        definition: { type: XAPI_ACTIVITY_TYPES.quiz },
+        definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.quiz },
       },
       result: {
         success,
@@ -1106,30 +1247,30 @@ describe("xAPI Statement catalogue builders", () => {
             {
               objectType: "Activity",
               id: ROOT_ACTIVITY_ID,
-              definition: { type: XAPI_ACTIVITY_TYPES.artefact },
+              definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.artefact },
             },
           ],
         },
-        extensions: { [XAPI_EXTENSIONS.quizAttemptId]: "attempt-one" },
+        extensions: { [LEARNING_EVENT_EXTENSIONS.quizAttemptId]: "attempt-one" },
       },
     });
   });
 
   it("builds termination for the same root Activity with session duration", () => {
     expect(
-      buildTerminatedStatementDraft({
+      buildTerminatedLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         title: "Course One",
         durationMs: 90_061,
       }),
     ).toStrictEqual({
-      verb: XAPI_VERBS.terminated,
+      verb: LEARNING_EVENT_VERBS.terminated,
       object: {
         objectType: "Activity",
         id: ROOT_ACTIVITY_ID,
         definition: {
           name: { en: "Course One" },
-          type: XAPI_ACTIVITY_TYPES.artefact,
+          type: LEARNING_EVENT_ACTIVITY_TYPES.artefact,
         },
       },
       result: { duration: "PT90.061S" },
@@ -1137,10 +1278,10 @@ describe("xAPI Statement catalogue builders", () => {
   });
 });
 
-describe("xAPI catalogue invariants", () => {
+describe("Learning Event catalogue invariants", () => {
   it.each([0, -1, 1.5])("rejects invalid assessment attempt number %s", (attemptNumber) => {
     expect(() =>
-      buildAnsweredStatementDraft({
+      buildAnsweredLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
         interactionKind: "single-select",
@@ -1153,7 +1294,7 @@ describe("xAPI catalogue invariants", () => {
 
   it("rejects blank authoritative quiz attempt identity", () => {
     expect(() =>
-      buildAnsweredStatementDraft({
+      buildAnsweredLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
         interactionKind: "single-select",
@@ -1164,7 +1305,7 @@ describe("xAPI catalogue invariants", () => {
       }),
     ).toThrow();
     expect(() =>
-      buildQuizCompletedStatementDraft({
+      buildQuizCompletedLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         quizId: "quiz-one",
         attemptId: "",
@@ -1175,12 +1316,12 @@ describe("xAPI catalogue invariants", () => {
   });
 
   it("admits only the two approved learner-activity kinds", () => {
-    expect(isXapiLearnerActivityKind("flashcard")).toBe(true);
-    expect(isXapiLearnerActivityKind("checklist")).toBe(true);
-    expect(isXapiLearnerActivityKind("video")).toBe(false);
+    expect(isLearningEventLearnerActivityKind("flashcard")).toBe(true);
+    expect(isLearningEventLearnerActivityKind("checklist")).toBe(true);
+    expect(isLearningEventLearnerActivityKind("video")).toBe(false);
 
     expect(() =>
-      buildLearnerActivityInteractedStatementDraft({
+      buildLearnerActivityInteractedLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         blockId: "video-one",
         activityKind: "video" as "flashcard",
@@ -1196,7 +1337,7 @@ describe("xAPI catalogue invariants", () => {
     { score: 1, maxScore: Number.POSITIVE_INFINITY },
   ])("rejects an invalid terminal score range: %o", ({ score, maxScore }) => {
     expect(() =>
-      buildQuizSuccessStatementDraft({
+      buildQuizSuccessLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         quizId: "quiz-one",
         attemptId: "attempt-one",
@@ -1209,7 +1350,7 @@ describe("xAPI catalogue invariants", () => {
 
   it("cannot infer pass or fail when authoritative success status is absent", () => {
     expect(() =>
-      buildQuizSuccessStatementDraft({
+      buildQuizSuccessLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         quizId: "quiz-one",
         attemptId: "attempt-one",
@@ -1224,7 +1365,7 @@ describe("xAPI catalogue invariants", () => {
     "rejects invalid explicit session duration %s",
     (durationMs) => {
       expect(() =>
-        buildTerminatedStatementDraft({
+        buildTerminatedLearningEventDraft({
           rootActivityId: ROOT_ACTIVITY_ID,
           durationMs,
         }),
@@ -1249,13 +1390,13 @@ describe("xAPI catalogue invariants", () => {
       ...normalizedResult(),
       ...privateCanaries,
     } as Pick<AssessmentResult, "isCorrect" | "score">;
-    const drafts: readonly XapiStatementDraft[] = [
-      buildInitializedStatementDraft({
+    const drafts: readonly LearningEventDraft[] = [
+      buildInitializedLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         title: "Course One",
         ...privateCanaries,
       }),
-      buildAnsweredStatementDraft({
+      buildAnsweredLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
         interactionKind: "single-select",
@@ -1264,7 +1405,7 @@ describe("xAPI catalogue invariants", () => {
         attemptNumber: 1,
         ...privateCanaries,
       }),
-      buildAnsweredStatementDraft({
+      buildAnsweredLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
         interactionKind: "single-select",
@@ -1273,31 +1414,31 @@ describe("xAPI catalogue invariants", () => {
         attemptNumber: 1,
         quiz: { quizId: "quiz-one", attemptId: "attempt-one", ...privateCanaries },
       }),
-      buildHintInteractedStatementDraft({
+      buildHintInteractedLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
         hintNumber: 1,
         ...privateCanaries,
       }),
-      buildLearnerActivityInteractedStatementDraft({
+      buildLearnerActivityInteractedLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         blockId: "flashcards-one",
         activityKind: "flashcard",
         ...privateCanaries,
       }),
-      buildLearnerActivityCompletedStatementDraft({
+      buildLearnerActivityCompletedLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         blockId: "checklist-one",
         activityKind: "checklist",
         ...privateCanaries,
       }),
-      buildQuizAttemptedStatementDraft({
+      buildQuizAttemptedLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         quizId: "quiz-one",
         attemptId: "attempt-one",
         ...privateCanaries,
       }),
-      buildQuizCompletedStatementDraft({
+      buildQuizCompletedLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         quizId: "quiz-one",
         attemptId: "attempt-one",
@@ -1305,7 +1446,7 @@ describe("xAPI catalogue invariants", () => {
         finishedAt: "2026-07-25T10:05:00.000Z",
         ...privateCanaries,
       }),
-      buildQuizSuccessStatementDraft({
+      buildQuizSuccessLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         quizId: "quiz-one",
         attemptId: "attempt-one",
@@ -1314,7 +1455,7 @@ describe("xAPI catalogue invariants", () => {
         maxScore: 4,
         ...privateCanaries,
       }),
-      buildTerminatedStatementDraft({
+      buildTerminatedLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         title: "Course One",
         durationMs: 300_000,
@@ -1346,7 +1487,7 @@ describe("xAPI catalogue invariants", () => {
       "duration",
       "contextActivities",
       "parent",
-      ...Object.values(XAPI_EXTENSIONS),
+      ...Object.values(LEARNING_EVENT_EXTENSIONS),
     ]);
 
     const observedKeys = new Set<string>();
