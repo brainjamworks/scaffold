@@ -209,10 +209,16 @@ export interface SettingsFormSection<TActionId extends string = string> {
 export interface SettingsFormDefinition<TActionId extends string = string> {
   sections: readonly SettingsFormSection<TActionId>[];
   defaultOpenSections?: readonly string[];
-  footerActions?: readonly SettingsFormAction<TActionId>[];
 }
 
-export interface SettingsSheetDefinition extends SettingsFormDefinition {
+export interface SettingsSheetSection {
+  id: string;
+  title: string;
+  description?: ReactNode;
+  items: readonly SettingsFormItemDescriptor[];
+}
+
+export interface SettingsSheetDefinition {
   attr: SettingsSheetAttrSurface;
   /** Persisted schema for the configured node attr. */
   schema: ZodTypeAny;
@@ -223,6 +229,8 @@ export interface SettingsSheetDefinition extends SettingsFormDefinition {
   apply?: SettingsSheetApply;
   title: string;
   description?: string;
+  sections: readonly SettingsSheetSection[];
+  defaultOpenSections?: readonly string[];
 }
 
 export type NodeSettingsSheetDefinition = SettingsSheetDefinition & {
