@@ -10,11 +10,9 @@ import {
 } from "@scaffold/contracts";
 import type { LearnerActivitySaveRecord } from "../../host/ports/learner-activity";
 import {
-  buildLearnerActivityCompletedStatementDraft,
-  buildLearnerActivityInteractedStatementDraft,
-  isXapiLearnerActivityKind,
-  type LearnerActivityXapiEvent,
-} from "../xapi/statement-catalogue";
+  isLearningEventLearnerActivityKind,
+  type LearnerActivityLearningEvent,
+} from "../learning-events/catalogue";
 import type {
   CreateLearnerActivityStoreOptions,
   LearnerActivityRuntimeRecord,
@@ -114,11 +112,11 @@ function positiveInteger(data: LearnerActivityData, key: string): number | null 
   return Number.isInteger(value) && Number(value) > 0 ? Number(value) : null;
 }
 
-function authoritativeXapiEvent(
+function authoritativeLearningEvent(
   previous: LearnerActivityRuntimeRecord,
   current: LearnerActivityRuntimeRecord,
-  event: LearnerActivityXapiEvent,
-): LearnerActivityXapiEvent | undefined {
+  event: LearnerActivityLearningEvent,
+): LearnerActivityLearningEvent | undefined {
   switch (event.kind) {
     case "checklist-item-toggled": {
       if (current.activityKind !== "checklist") return undefined;
@@ -192,7 +190,7 @@ function authoritativeTransition(
   previous: LearnerActivityRuntimeRecord,
   current: LearnerActivityRuntimeRecord,
 ): LearnerActivityTransition | null {
-  if (!isXapiLearnerActivityKind(current.activityKind)) return null;
+  if (!isLearningEventLearnerActivityKind(current.activityKind)) return null;
   if (!previous.completed && current.completed) return "completed";
   return structurallyEqualJson(previous.data, current.data) ? null : "interacted";
 }
@@ -200,7 +198,7 @@ function authoritativeTransition(
 export function createLearnerActivityStore({
   artifactId,
   learnerActivityPort,
-  getXapiSession,
+  getLearningEventSession,
 }: CreateLearnerActivityStoreOptions): LearnerActivityStoreApi {
   const normalizedArtifactId = artifactId.trim();
   if (!normalizedArtifactId) {
@@ -216,43 +214,37 @@ export function createLearnerActivityStore({
       previousRecord: LearnerActivityRuntimeRecord,
       record: LearnerActivityRuntimeRecord,
       transition: LearnerActivityTransition,
-      xapiEvent?: LearnerActivityXapiEvent,
-      xapiEventIsAuthoritative = false,
+      learningEvent?: LearnerActivityLearningEvent,
+      learningEventIsAuthoritative = false,
     ): void => {
       try {
-        const session = getXapiSession?.();
-        if (!session || !isXapiLearnerActivityKind(record.activityKind)) return;
+        const session = getLearningEventSession?.();
+        if (!session || !isLearningEventLearnerActivityKind(record.activityKind)) return;
 
         const input = {
-          rootActivityId: session.rootActivityId,
           blockId,
           activityKind: record.activityKind,
         };
         let eventRecorded = false;
-        if (xapiEvent && xapiEventIsAuthoritative) {
-          const authoritativeEvent = authoritativeXapiEvent(previousRecord, record, xapiEvent);
+        if (learningEvent && learningEventIsAuthoritative) {
+          const authoritativeEvent = authoritativeLearningEvent(previousRecord, record, learningEvent);
           try {
             if (authoritativeEvent) {
-              session.record(
-                buildLearnerActivityInteractedStatementDraft({
-                  ...input,
-                  event: authoritativeEvent,
-                }),
-              );
+              session.record({ type: "learner-activity.interacted", ...input, event: authoritativeEvent });
               eventRecorded = true;
             }
           } catch {
             // Invalid observational metadata falls back to the generic transition.
           }
         }
-        if (xapiEvent && !eventRecorded) {
-          session.record(buildLearnerActivityInteractedStatementDraft(input));
+        if (learningEvent && !eventRecorded) {
+          session.record({ type: "learner-activity.interacted", ...input });
           eventRecorded = true;
         }
         if (transition === "completed") {
-          session.record(buildLearnerActivityCompletedStatementDraft(input));
+          session.record({ type: "learner-activity.completed", ...input });
         } else if (!eventRecorded) {
-          session.record(buildLearnerActivityInteractedStatementDraft(input));
+          session.record({ type: "learner-activity.interacted", ...input });
         }
       } catch {
         // Learning-record delivery is observational and cannot change persistence authority.
@@ -273,7 +265,7 @@ export function createLearnerActivityStore({
       blockId: string,
       generation: number,
       record: LearnerActivityRuntimeRecord,
-      xapiEvent?: LearnerActivityXapiEvent,
+      learningEvent?: LearnerActivityLearningEvent,
     ): void => {
       if (!learnerActivityPort) return;
 
@@ -313,7 +305,7 @@ export function createLearnerActivityStore({
                 previousAuthoritative,
                 authoritative,
                 transition,
-                xapiEvent,
+                learningEvent,
                 structurallyEqualJson(saveRecord(record), saveRecord(authoritative)),
               );
             }
@@ -332,7 +324,7 @@ export function createLearnerActivityStore({
     const commitMutation = (
       blockId: string,
       record: LearnerActivityRuntimeRecord,
-      xapiEvent?: LearnerActivityXapiEvent,
+      learningEvent?: LearnerActivityLearningEvent,
     ): boolean => {
       const state = get();
       const current = state.activities[blockId];
@@ -345,7 +337,7 @@ export function createLearnerActivityStore({
       }
 
       const generation = (state.saves[blockId]?.generation ?? 0) + 1;
-      enqueueSave(blockId, generation, record, xapiEvent);
+      enqueueSave(blockId, generation, record, learningEvent);
       set((state) => ({
         activities: { ...state.activities, [blockId]: record },
         saves: {
@@ -423,7 +415,7 @@ export function createLearnerActivityStore({
         return commitMutation(
           blockId,
           { ...current, data, completed: update.completed },
-          update.xapiEvent,
+          update.learningEvent,
         );
       },
     };

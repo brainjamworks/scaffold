@@ -9,6 +9,7 @@ import {
   createXapiSession,
   type XapiSession,
 } from "../xapi";
+import { buildLearningEventDraft } from "../learning-events/catalogue";
 import { createLearnerActivityStore } from "./store";
 
 const ROOT_ACTIVITY_ID = "https://example.com/courses/course-1";
@@ -57,7 +58,12 @@ function createSessionDouble(
   const session: XapiSession = Object.freeze({
     rootActivityId: ROOT_ACTIVITY_ID,
     start: vi.fn(),
-    record,
+    record: (input) =>
+      record(
+        "type" in input
+          ? buildLearningEventDraft(input, { rootActivityId: ROOT_ACTIVITY_ID })
+          : input,
+      ),
     terminate: vi.fn(async () => undefined),
     getState: () => ({ status: "dormant" as const }),
   });
@@ -77,7 +83,19 @@ function createRecordingXapiSession() {
     now: () => new Date(XAPI_TIMESTAMP),
     monotonicNow: () => 0,
   });
-  return { session, send };
+  return {
+    session: Object.freeze({
+      ...session,
+      record: (input: Parameters<XapiSession["record"]>[0]) => {
+        session.record(
+          "type" in input
+            ? buildLearningEventDraft(input, { rootActivityId: ROOT_ACTIVITY_ID })
+            : input,
+        );
+      },
+    }) as XapiSession,
+    send,
+  };
 }
 
 function hydrateBlock(
@@ -472,7 +490,7 @@ describe("createLearnerActivityStore", () => {
           completed: record.completed,
         }),
       ),
-      getXapiSession: () => session,
+      getLearningEventSession: () => session,
     });
     hydrateBlock(hydratedStore, hostRecord({ checked: [] }));
     await flushPromises();
@@ -486,7 +504,7 @@ describe("createLearnerActivityStore", () => {
           completed: record.completed,
         }),
       ),
-      getXapiSession: () => session,
+      getLearningEventSession: () => session,
     });
     initializedStore.getState().ensureActivity({
       blockId: "block-1",
@@ -507,7 +525,7 @@ describe("createLearnerActivityStore", () => {
     const store = createLearnerActivityStore({
       artifactId: "course-1",
       learnerActivityPort: createPort(() => save.promise),
-      getXapiSession: () => session,
+      getLearningEventSession: () => session,
     });
     hydrateBlock(store, hostRecord({ checked: [] }));
 
@@ -553,7 +571,7 @@ describe("createLearnerActivityStore", () => {
     const store = createLearnerActivityStore({
       artifactId: "course-1",
       learnerActivityPort: createPort(() => save.promise),
-      getXapiSession: () => session,
+      getLearningEventSession: () => session,
     });
     hydrateBlock(store, hostRecord({ checked: {} }));
 
@@ -564,7 +582,7 @@ describe("createLearnerActivityStore", () => {
         privateLearnerState: "PRIVATE_LEARNER_STATE",
       },
       completed: true,
-      xapiEvent: {
+      learningEvent: {
         kind: "checklist-item-toggled",
         itemId: "item-one",
         checked: true,
@@ -619,14 +637,14 @@ describe("createLearnerActivityStore", () => {
           updatedAt: "2026-07-25T11:00:00Z",
         }),
       ),
-      getXapiSession: () => session,
+      getLearningEventSession: () => session,
     });
     hydrateBlock(store, hostRecord({ checked: {}, total: 2 }));
 
     store.getState().updateActivity("block-1", {
       data: { checked: { "item-one": true }, total: 2 },
       completed: false,
-      xapiEvent: {
+      learningEvent: {
         kind: "checklist-item-toggled",
         itemId: "item-two",
         checked: true,
@@ -653,14 +671,14 @@ describe("createLearnerActivityStore", () => {
       learnerActivityPort: createPort(async () =>
         hostRecord({ checked: { "item-one": false } }, { updatedAt: "2026-07-25T11:00:00Z" }),
       ),
-      getXapiSession: () => session,
+      getLearningEventSession: () => session,
     });
     hydrateBlock(store, hostRecord({ checked: {} }));
 
     store.getState().updateActivity("block-1", {
       data: { checked: { "item-one": true } },
       completed: false,
-      xapiEvent: {
+      learningEvent: {
         kind: "checklist-item-toggled",
         itemId: "item-one",
         checked: true,
@@ -690,14 +708,14 @@ describe("createLearnerActivityStore", () => {
           { activityKind: "flashcard", updatedAt: "2026-07-25T11:00:00Z" },
         ),
       ),
-      getXapiSession: () => session,
+      getLearningEventSession: () => session,
     });
     hydrateBlock(store, hostRecord({ flipped: {} }, { activityKind: "flashcard" }));
 
     store.getState().updateActivity("block-1", {
       data: { flipped: { "card-one": true } },
       completed: false,
-      xapiEvent: {
+      learningEvent: {
         kind: "flashcard-flipped",
         cardId: "card-one",
         face: "back",
@@ -726,7 +744,7 @@ describe("createLearnerActivityStore", () => {
           updatedAt: "2026-07-25T11:00:00Z",
         }),
       ),
-      getXapiSession: () => session,
+      getLearningEventSession: () => session,
     });
     hydrateBlock(
       store,
@@ -744,7 +762,7 @@ describe("createLearnerActivityStore", () => {
         total: 2,
       },
       completed: false,
-      xapiEvent: {
+      learningEvent: {
         kind: "flashcard-flipped",
         cardId: "card-two",
         face: "back",
@@ -773,7 +791,7 @@ describe("createLearnerActivityStore", () => {
     const store = createLearnerActivityStore({
       artifactId: "course-1",
       learnerActivityPort: createPort(save),
-      getXapiSession: () => session,
+      getLearningEventSession: () => session,
     });
     hydrateBlock(store, hostRecord({ step: 0 }));
 
@@ -805,7 +823,7 @@ describe("createLearnerActivityStore", () => {
           completed: record.completed,
         }),
       ),
-      getXapiSession: () => changed.session,
+      getLearningEventSession: () => changed.session,
     });
     hydrateBlock(changedStore, hostRecord({ step: 2 }, { completed: true }));
 
@@ -824,7 +842,7 @@ describe("createLearnerActivityStore", () => {
           completed: record.completed,
         }),
       ),
-      getXapiSession: () => completionOnly.session,
+      getLearningEventSession: () => completionOnly.session,
     });
     hydrateBlock(completionOnlyStore, hostRecord({ step: 0 }, { completed: true }));
 
@@ -862,7 +880,7 @@ describe("createLearnerActivityStore", () => {
     const store = createLearnerActivityStore({
       artifactId: "course-1",
       learnerActivityPort: createPort(save),
-      getXapiSession: () => session,
+      getLearningEventSession: () => session,
     });
     hydrateBlock(
       store,
@@ -914,7 +932,7 @@ describe("createLearnerActivityStore", () => {
     const store = createLearnerActivityStore({
       artifactId: "course-1",
       learnerActivityPort: createPort(save),
-      getXapiSession: () => session,
+      getLearningEventSession: () => session,
     });
     hydrateBlock(store, hostRecord({ step: 0 }, { activityKind: "flashcards" }));
 
@@ -952,7 +970,7 @@ describe("createLearnerActivityStore", () => {
       learnerActivityPort: createPort(async () => {
         throw new Error("save rejected");
       }),
-      getXapiSession: () => xapi.session,
+      getLearningEventSession: () => xapi.session,
     });
     hydrateBlock(rejected, hostRecord({ step: 0 }));
     rejected.getState().setData("block-1", { step: 1 });
@@ -970,7 +988,7 @@ describe("createLearnerActivityStore", () => {
     const invalid = createLearnerActivityStore({
       artifactId: "course-1",
       learnerActivityPort: createPort(invalidSave),
-      getXapiSession: () => xapi.session,
+      getLearningEventSession: () => xapi.session,
     });
     hydrateBlock(invalid, hostRecord({ step: 0 }));
     invalid.getState().setCompleted("block-1", true);
@@ -1001,7 +1019,7 @@ describe("createLearnerActivityStore", () => {
     const absent = createLearnerActivityStore({
       artifactId: "course-1",
       learnerActivityPort: savingPort,
-      getXapiSession: () => currentSession,
+      getLearningEventSession: () => currentSession,
     });
     hydrateBlock(absent, hostRecord({ step: 0 }));
     absent.getState().setData("block-1", { step: 1 });
@@ -1009,7 +1027,7 @@ describe("createLearnerActivityStore", () => {
     const throwingAccessor = createLearnerActivityStore({
       artifactId: "course-1",
       learnerActivityPort: savingPort,
-      getXapiSession: () => {
+      getLearningEventSession: () => {
         throw new Error("session unavailable");
       },
     });
@@ -1022,7 +1040,7 @@ describe("createLearnerActivityStore", () => {
     const throwingSession = createLearnerActivityStore({
       artifactId: "course-1",
       learnerActivityPort: savingPort,
-      getXapiSession: () => throwingRecord.session,
+      getLearningEventSession: () => throwingRecord.session,
     });
     hydrateBlock(throwingSession, hostRecord({ step: 0 }));
     throwingSession.getState().setData("block-1", { step: 1 });
@@ -1055,7 +1073,7 @@ describe("createLearnerActivityStore", () => {
     const store = createLearnerActivityStore({
       artifactId: "course-1",
       learnerActivityPort: createPort(() => save.promise),
-      getXapiSession: () => currentSession,
+      getLearningEventSession: () => currentSession,
     });
     hydrateBlock(store, hostRecord({ step: 0 }));
 
