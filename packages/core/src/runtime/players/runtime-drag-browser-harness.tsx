@@ -1,7 +1,6 @@
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
-import { NodeViewContent, NodeViewWrapper } from "@tiptap/react";
 import { createRoot } from "react-dom/client";
-import { useLayoutEffect } from "react";
+import { useLayoutEffect, type ComponentType } from "react";
 
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { createSurfaceRuntimeViewMap } from "@/editor/surfaces/runtime/surface-runtime-view-registry";
@@ -16,6 +15,9 @@ import {
 
 import { PagePlayer } from "./page/PagePlayer";
 import { SlideshowPlayer } from "./slideshow/SlideshowPlayer";
+
+const SEQUENCING_PROBLEM_ID = "artifact:artifact-1/block:seq-1";
+const RUNTIME_DRAG_SURFACE_ID = "runtime_drag";
 
 export interface RuntimeDragBrowserHarnessOptions {
   readonly surface: "page" | "slideshow";
@@ -45,16 +47,20 @@ export interface RuntimeDragBrowserHarness {
   getSource(selector?: string): HTMLElement | null;
   getPlaceholder(selector?: string): HTMLElement | null;
   getTargets(selector?: string): HTMLElement[];
-  getResult(): string;
   getResponseOrder(): string[];
+  getResponseRevision(): number;
   getActivationAreas(): HTMLElement[];
+  getAnnouncements(): string[];
   getFullscreenControl(): HTMLButtonElement | null;
   setCanvasTransform(transform: string): void;
   disconnectEnvironment(): void;
   waitForEnvironment(status: "pending" | "ready"): Promise<void>;
-  waitForResult(result: "dropped" | "cancelled"): Promise<void>;
+  waitForIdle(): Promise<void>;
+  waitForResponse(expectedOrder: readonly string[], expectedRevision: number): Promise<void>;
   dispose(): void;
 }
+
+type RuntimeDragEnvironmentSnapshot = ReturnType<RuntimeDragBrowserHarness["getEnvironment"]>;
 
 export async function mountRuntimeDragHarness(
   options: RuntimeDragBrowserHarnessOptions,
@@ -73,6 +79,13 @@ export async function mountRuntimeDragHarness(
 
   let editor: TiptapEditor | null = null;
   let assessmentStore: Parameters<typeof localAssessmentResponse>[0] = null;
+  let environmentSnapshot: RuntimeDragEnvironmentSnapshot = {
+    status: "pending",
+    reason: "unavailable",
+  };
+  const composition = createRuntimeDragComposition(harnessId, (snapshot) => {
+    environmentSnapshot = snapshot;
+  });
   const root = createRoot(host);
   const initialContent = runtimeDragDocument(options.surface);
   root.render(
@@ -80,18 +93,18 @@ export async function mountRuntimeDragHarness(
       children:
         options.surface === "page" ? (
           <PagePlayer
-            composition={createRuntimeDragComposition(harnessId)}
+            composition={composition}
             initialContent={initialContent}
-            surfaceId="runtime-drag-harness"
+            surfaceId={RUNTIME_DRAG_SURFACE_ID}
             onRendererReady={(readyEditor) => {
               editor = readyEditor;
             }}
           />
         ) : (
           <SlideshowPlayer
-            composition={createRuntimeDragComposition(harnessId)}
+            composition={composition}
             initialContent={initialContent}
-            surfaceIds={["runtime-drag-harness"]}
+            surfaceIds={[RUNTIME_DRAG_SURFACE_ID]}
             sizing="embedded"
             onRendererReady={(readyEditor) => {
               editor = readyEditor;
@@ -107,10 +120,7 @@ export async function mountRuntimeDragHarness(
   await waitFor(ownerWindow, () => editor !== null && playerFor(host, options.surface) !== null);
   const player = playerFor(host, options.surface);
   if (!player || !editor) throw new Error("Runtime drag harness did not mount its player.");
-  await waitFor(
-    ownerWindow,
-    () => player.querySelector('[data-drag-environment][data-status="ready"]') !== null,
-  );
+  await waitFor(ownerWindow, () => environmentSnapshot.status === "ready");
   await new Promise<void>((resolve) => ownerWindow.requestAnimationFrame(() => resolve()));
 
   if (options.surface === "slideshow") {
@@ -119,6 +129,38 @@ export async function mountRuntimeDragHarness(
     player.style.minHeight = "0";
     const viewport = player.querySelector<HTMLElement>(".sc-slideshow-player__viewport");
     if (viewport) viewport.style.padding = "0";
+  }
+
+  await waitFor(ownerWindow, () => responseOrder(assessmentStore).length === 3);
+  const responseStore = assessmentStore as NonNullable<
+    Parameters<typeof localAssessmentResponse>[0]
+  > | null;
+  if (!responseStore) throw new Error("Runtime drag harness did not mount its assessment store.");
+  let responseRevision = 0;
+  const stopResponseObservation = responseStore.subscribe((state, previousState) => {
+    if (
+      state.durable.problems[SEQUENCING_PROBLEM_ID]?.response !==
+      previousState.durable.problems[SEQUENCING_PROBLEM_ID]?.response
+    ) {
+      responseRevision += 1;
+    }
+  });
+  const announcementLog: string[] = [];
+  const announcementHost = ownerDocument.querySelector<HTMLElement>(
+    `[data-scaffold-overlay-host][data-runtime-drag-harness-id="${harnessId}"]`,
+  );
+  const announcementObserver = new ownerWindow.MutationObserver(() => {
+    const announcement = Array.from(
+      announcementHost?.querySelectorAll<HTMLElement>('[role="status"]') ?? [],
+    )
+      .map((element) => element.textContent?.trim() ?? "")
+      .find(Boolean);
+    if (announcement && announcementLog.at(-1) !== announcement) {
+      announcementLog.push(announcement);
+    }
+  });
+  if (announcementHost) {
+    announcementObserver.observe(announcementHost, { childList: true, subtree: true });
   }
 
   return {
@@ -132,16 +174,7 @@ export async function mountRuntimeDragHarness(
     getCanvasRect: () =>
       player.querySelector<HTMLElement>(".sc-slideshow-player__canvas")?.getBoundingClientRect() ??
       player.getBoundingClientRect(),
-    getEnvironment: () => {
-      const element = player.querySelector<HTMLElement>("[data-drag-environment]");
-      return {
-        status: element?.dataset.status ?? "missing",
-        reason: element?.dataset.reason,
-        ownerDocument,
-        ownerWindow,
-        positionStrategy: element?.dataset.positionStrategy,
-      };
-    },
+    getEnvironment: () => environmentSnapshot,
     getOverlayHost: () =>
       ownerDocument.querySelector<HTMLElement>(
         `[data-scaffold-overlay-host][data-runtime-drag-harness-id="${harnessId}"]`,
@@ -152,13 +185,11 @@ export async function mountRuntimeDragHarness(
       player.querySelector<HTMLElement>(selector),
     getTargets: (selector = "[data-item-id]") =>
       Array.from(player.querySelectorAll<HTMLElement>(selector)),
-    getResult: () => harnessResult(player),
-    getResponseOrder: () => {
-      const response = localAssessmentResponse(assessmentStore, "artifact:artifact-1/block:seq-1");
-      return Array.isArray(response?.order) ? response.order.map(String) : [];
-    },
+    getResponseOrder: () => responseOrder(assessmentStore),
+    getResponseRevision: () => responseRevision,
     getActivationAreas: () =>
       Array.from(player.querySelectorAll<HTMLElement>("[data-interaction-drag-activation-area]")),
+    getAnnouncements: () => [...announcementLog],
     getFullscreenControl: () =>
       player.querySelector<HTMLButtonElement>(".sc-slideshow-player__fullscreen-button"),
     setCanvasTransform: (transform) => {
@@ -172,22 +203,30 @@ export async function mountRuntimeDragHarness(
       hostElement?.remove();
     },
     waitForEnvironment: async (status) => {
+      await waitFor(ownerWindow, () => environmentSnapshot.status === status);
+    },
+    waitForIdle: async () => {
       await waitFor(
         ownerWindow,
         () =>
-          player.querySelector<HTMLElement>(`[data-drag-environment][data-status="${status}"]`) !==
-          null,
+          !player.querySelector("[data-interaction-drag-placeholder]") &&
+          !ownerDocument.querySelector(
+            `[data-runtime-drag-harness-id="${harnessId}"] [data-interaction-drag-overlay]`,
+          ),
       );
     },
-    waitForResult: async (expected) => {
-      await waitFor(ownerWindow, () =>
-        expected === "dropped"
-          ? localAssessmentResponse(assessmentStore, "artifact:artifact-1/block:seq-1")?.order !==
-            undefined
-          : !player.querySelector("[data-interaction-drag-placeholder]"),
+    waitForResponse: async (expectedOrder, expectedRevision) => {
+      await waitFor(
+        ownerWindow,
+        () =>
+          responseRevision >= expectedRevision &&
+          responseOrder(assessmentStore).every((id, index) => id === expectedOrder[index]) &&
+          responseOrder(assessmentStore).length === expectedOrder.length,
       );
     },
     dispose: () => {
+      announcementObserver.disconnect();
+      stopResponseObservation();
       root.unmount();
       host.remove();
     },
@@ -212,7 +251,7 @@ async function waitFor(ownerWindow: Window, predicate: () => boolean): Promise<v
 }
 
 function runtimeDragDocument(mode: "page" | "slideshow"): JSONContent {
-  const content = createScaffoldDocumentContent({ mode, surfaceId: "runtime-drag-harness" });
+  const content = createScaffoldDocumentContent({ mode, surfaceId: RUNTIME_DRAG_SURFACE_ID });
   const courseDocument = content.content?.[0];
   if (!courseDocument) throw new Error("Runtime drag harness document is incomplete.");
   courseDocument.attrs = { ...courseDocument.attrs, mode };
@@ -222,7 +261,11 @@ function runtimeDragDocument(mode: "page" | "slideshow"): JSONContent {
     if (mode === "page") {
       surface.content = [block];
     } else {
-      surface.attrs = { ...surface.attrs, variant: "slide-content" };
+      surface.attrs = {
+        ...surface.attrs,
+        variant: "slide-content",
+        settings: { slideTitle: { enabled: true } },
+      };
       surface.content = [
         { type: "slide_title" },
         { type: "region", attrs: { role: "main" }, content: [block] },
@@ -260,7 +303,10 @@ function sequencingRuntimeBlock(): JSONContent {
   };
 }
 
-function createRuntimeDragComposition(harnessId: string) {
+function createRuntimeDragComposition(
+  harnessId: string,
+  onEnvironment: (snapshot: RuntimeDragEnvironmentSnapshot) => void,
+) {
   const composition = createCoreScaffoldRuntimeComposition();
   const bindings = builtInSurfaceRuntimeViewBindings.map((binding) =>
     binding.variantId === "page-default" ||
@@ -268,8 +314,14 @@ function createRuntimeDragComposition(harnessId: string) {
     binding.variantId === "slide-content"
       ? {
           ...binding,
-          component: (props: SurfaceRuntimeViewProps) =>
-            RuntimeDragSurface({ ...props, harnessId }),
+          component: (props: SurfaceRuntimeViewProps) => (
+            <RuntimeDragSurface
+              {...props}
+              SurfaceComponent={binding.component}
+              harnessId={harnessId}
+              onEnvironment={onEnvironment}
+            />
+          ),
         }
       : binding,
   );
@@ -284,35 +336,46 @@ function createRuntimeDragComposition(harnessId: string) {
   };
 }
 
-function RuntimeDragSurface({ harnessId }: SurfaceRuntimeViewProps & { harnessId: string }) {
+function RuntimeDragSurface({
+  SurfaceComponent,
+  harnessId,
+  onEnvironment,
+  ...props
+}: SurfaceRuntimeViewProps & {
+  SurfaceComponent: ComponentType<SurfaceRuntimeViewProps>;
+  harnessId: string;
+  onEnvironment: (snapshot: RuntimeDragEnvironmentSnapshot) => void;
+}) {
   const environment = useInteractionDragEnvironmentResolution();
 
   useLayoutEffect(() => {
-    if (environment.status !== "ready") return;
+    if (environment.status !== "ready") {
+      onEnvironment(
+        environment.status === "pending"
+          ? { status: environment.status, reason: environment.reason }
+          : { status: environment.status },
+      );
+      return;
+    }
     const host = environment.environment.overlayHost;
+    onEnvironment({
+      status: environment.status,
+      ownerDocument: environment.environment.ownerDocument,
+      ownerWindow: environment.environment.ownerWindow,
+      positionStrategy: environment.environment.positionStrategy,
+    });
     host.dataset.runtimeDragHarnessId = harnessId;
     return () => {
       if (host.dataset.runtimeDragHarnessId === harnessId) {
         delete host.dataset.runtimeDragHarnessId;
       }
     };
-  }, [environment, harnessId]);
+  }, [environment, harnessId, onEnvironment]);
 
-  return (
-    <NodeViewWrapper
-      data-drag-environment=""
-      data-status={environment.status}
-      data-reason={environment.status === "pending" ? environment.reason : undefined}
-      data-position-strategy={
-        environment.status === "ready" ? environment.environment.positionStrategy : undefined
-      }
-      style={{ position: "relative", minHeight: "200px", padding: "24px" }}
-    >
-      <NodeViewContent />
-    </NodeViewWrapper>
-  );
+  return <SurfaceComponent {...props} />;
 }
 
-function harnessResult(player: HTMLElement): string {
-  return player.querySelector("[data-interaction-drag-placeholder]") ? "dragging" : "idle";
+function responseOrder(store: Parameters<typeof localAssessmentResponse>[0]): string[] {
+  const response = localAssessmentResponse(store, SEQUENCING_PROBLEM_ID);
+  return Array.isArray(response?.order) ? response.order.map(String) : [];
 }

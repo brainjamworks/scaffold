@@ -1,9 +1,10 @@
 import {
+  forwardRef,
   useEffect,
   useLayoutEffect,
   useState,
+  type ButtonHTMLAttributes,
   type CSSProperties,
-  type HTMLAttributes,
 } from "react";
 
 import type { CoordinateSpaceSnapshot } from "../model/coordinate-space";
@@ -13,7 +14,7 @@ import {
 } from "../model/interaction-target-size";
 import { useInteractionDragEnvironmentResolution } from "./interaction-drag-environment";
 
-export interface InteractionDragActivationAreaProps extends HTMLAttributes<HTMLDivElement> {
+export interface InteractionDragActivationAreaProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   readonly safeLocalHeight: number;
   readonly safeLocalWidth: number;
 }
@@ -23,14 +24,13 @@ type ActivationAreaStyle = CSSProperties & {
   "--sc-interaction-drag-target-min-width"?: string;
 };
 
-export function InteractionDragActivationArea({
-  children,
-  className,
-  safeLocalHeight,
-  safeLocalWidth,
-  style,
-  ...props
-}: InteractionDragActivationAreaProps) {
+export const InteractionDragActivationArea = forwardRef<
+  HTMLButtonElement,
+  InteractionDragActivationAreaProps
+>(function InteractionDragActivationArea(
+  { children, className, safeLocalHeight, safeLocalWidth, style, type = "button", ...props },
+  ref,
+) {
   const resolution = useInteractionDragEnvironmentResolution();
   const environment = resolution.status === "ready" ? resolution.environment : null;
   const [snapshot, setSnapshot] = useState<CoordinateSpaceSnapshot | null>(
@@ -77,8 +77,10 @@ export function InteractionDragActivationArea({
     : { ...style, pointerEvents: "none" };
 
   return (
-    <div
+    <button
       {...props}
+      ref={ref}
+      type={type}
       data-interaction-drag-activation-area=""
       data-interaction-drag-activation-valid={String(targetSize !== null)}
       data-interaction-drag-preferred-height={String(
@@ -91,6 +93,6 @@ export function InteractionDragActivationArea({
       style={activationStyle}
     >
       {children}
-    </div>
+    </button>
   );
-}
+});

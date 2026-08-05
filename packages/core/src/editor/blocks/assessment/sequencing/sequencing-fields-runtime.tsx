@@ -231,10 +231,11 @@ function SequencingRuntimeItem({
   });
   const { localTransform } = sortable;
   const style: CSSProperties = {
-    transform: localTransform
-      ? `translate3d(${localTransform.x}px, ${localTransform.y}px, 0) scale(${localTransform.scaleX}, ${localTransform.scaleY})`
-      : undefined,
-    transition: sortable.transition,
+    transform:
+      !sortable.isPlaceholder && localTransform
+        ? `translate3d(${localTransform.x}px, ${localTransform.y}px, 0) scale(${localTransform.scaleX}, ${localTransform.scaleY})`
+        : undefined,
+    transition: sortable.isPlaceholder ? undefined : sortable.transition,
   };
   const parsedFeedback = AssessmentFeedbackContentSchema.safeParse(feedback);
 
@@ -256,20 +257,16 @@ function SequencingRuntimeItem({
     >
       {canReorder && (
         <InteractionDragActivationArea
+          {...sortable.activatorProps}
+          ref={sortable.setActivatorNodeRef}
+          type="button"
+          aria-label={`Drag sequencing item ${index + 1}`}
+          data-runtime-sequencing-handle=""
           className="sc-sequencing-runtime-activation"
           safeLocalHeight={55}
           safeLocalWidth={55}
         >
-          <button
-            {...sortable.activatorProps}
-            ref={sortable.setActivatorNodeRef}
-            type="button"
-            aria-label={`Drag sequencing item ${index + 1}`}
-            data-runtime-sequencing-handle=""
-            className="sc-sequencing-runtime-handle"
-          >
-            <DotsSixVertical size={iconXs} weight="bold" />
-          </button>
+          <DotsSixVertical size={iconXs} weight="bold" />
         </InteractionDragActivationArea>
       )}
       <div className="sc-sequencing-item__content">

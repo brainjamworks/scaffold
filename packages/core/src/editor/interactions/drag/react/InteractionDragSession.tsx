@@ -219,7 +219,7 @@ export function InteractionDragSession<ActiveData, OverData>({
     const activeEnvironment = activeSessionRef.current?.environment;
     if (!activeEnvironment) return;
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") cancelActiveSession("escape");
+      if (event.key === "Escape") cancelActiveSession("escape", false);
     };
     const handleBlur = () => cancelActiveSession("owner-window-blur");
     activeEnvironment.ownerDocument.addEventListener("keydown", handleKeyDown, true);
