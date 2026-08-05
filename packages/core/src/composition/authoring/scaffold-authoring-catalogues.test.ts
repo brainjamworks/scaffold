@@ -9,8 +9,13 @@ import { createScaffoldAuthoringCatalogues } from "./scaffold-authoring-catalogu
 
 describe("createScaffoldAuthoringCatalogues", () => {
   it("projects installed Block, Layout, Surface, and fixed structural entries in source order", () => {
-    const catalogues = createScaffoldAuthoringCatalogues(createTestCapabilities());
+    const capabilities = createTestCapabilities();
+    const catalogues = createScaffoldAuthoringCatalogues(capabilities);
 
+    expect(capabilities.blocks.registry.definitions[0]).toMatchObject({
+      nodeType: "host_block",
+      insert: { id: "host-block" },
+    });
     expect(catalogues.inDocument.actions.map(({ id }) => id)).toEqual([
       "host-block",
       "host-block-variant",
@@ -23,7 +28,7 @@ describe("createScaffoldAuthoringCatalogues", () => {
   });
 
   it("owns frozen catalogue and entry copies while retaining opaque callback references", () => {
-    const blockContent = () => ({ type: "host-block" });
+    const blockContent = () => ({ type: "host_block" });
     const capabilities = createTestCapabilities({ blockContent });
 
     const first = createScaffoldAuthoringCatalogues(capabilities);
@@ -50,7 +55,7 @@ describe("createScaffoldAuthoringCatalogues", () => {
   });
 
   it("keeps Block action, Layout action, and Surface creation factories dormant", () => {
-    const blockContent = vi.fn(() => ({ type: "host-block" }));
+    const blockContent = vi.fn(() => ({ type: "host_block" }));
     const layoutContent = vi.fn(() => ({
       type: "layout",
       attrs: { variant: "host-layout" },
@@ -77,7 +82,7 @@ interface TestCapabilitiesOptions {
 }
 
 function createTestCapabilities({
-  blockContent = () => ({ type: "host-block" }),
+  blockContent = () => ({ type: "host_block" }),
   layoutContent = () => ({ type: "layout", attrs: { variant: "host-layout" } }),
   surfaceContent = ({ surfaceId }) => ({
     type: "surface",
@@ -87,7 +92,7 @@ function createTestCapabilities({
   return resolveScaffoldCapabilities({
     blockDefinitions: [
       {
-        nodeType: "host-block",
+        nodeType: "host_block",
         insert: {
           id: "host-block",
           title: "Host Block",
@@ -101,7 +106,7 @@ function createTestCapabilities({
               id: "host-block-variant",
               title: "Host Block Variant",
               description: "A host Block variant",
-              content: () => ({ type: "host-block", attrs: { variant: true } }),
+              content: () => ({ type: "host_block", attrs: { variant: true } }),
             },
           ],
         },
