@@ -184,23 +184,6 @@ describe("XBlock iframe bridge protocol", () => {
     });
   });
 
-  it("rejects the removed xAPI request operation", () => {
-    const result = validateXBlockBridgeMessage({
-      channel: SCAFFOLD_XBLOCK_BRIDGE_CHANNEL,
-      protocolVersion: SCAFFOLD_XBLOCK_BRIDGE_PROTOCOL_VERSION,
-      sessionId: "session-1",
-      kind: "request",
-      requestId: "request-1",
-      messageType: "xapi.accept",
-      payload: { statement: {} },
-    });
-
-    expect(result).toMatchObject({
-      ok: false,
-      error: { code: "invalid_type" },
-    });
-  });
-
   it("rejects session mismatches", () => {
     const message = createXBlockBridgeRequest({
       requestId: "request-1",

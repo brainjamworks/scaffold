@@ -4,7 +4,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import type { LearnerActivityPort, XapiPort } from "@/host/ports";
+import type { LearnerActivityPort, LearningEventPort } from "@/host/ports";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 import {
@@ -12,7 +12,10 @@ import {
   LearnerActivityRuntimeProvider,
 } from "@/runtime/learner-activity/LearnerActivityRuntimeProvider";
 import { LearningEventRuntimeProvider } from "@/runtime/learning-events/LearningEventRuntimeProvider";
-import { LEARNING_EVENT_EXTENSIONS, LEARNING_EVENT_VERBS } from "@/runtime/learning-events/catalogue";
+import {
+  LEARNING_EVENT_EXTENSIONS,
+  LEARNING_EVENT_VERBS,
+} from "@/runtime/learning-events/catalogue";
 
 import {
   useFlashcardCardController,
@@ -44,13 +47,13 @@ function createPort() {
   return { learnerActivityPort, save };
 }
 
-function createXapiPort() {
-  const send = vi.fn<XapiPort["send"]>(async () => undefined);
-  const xapiPort: XapiPort = {
-    activityId: "https://lms.example.test/courses/flashcards-course",
-    send,
+function createLearningEventPort() {
+  const accept = vi.fn<LearningEventPort["accept"]>(async () => undefined);
+  const learningEventPort: LearningEventPort = {
+    rootActivityId: "https://lms.example.test/courses/flashcards-course",
+    accept,
   };
-  return { xapiPort, send };
+  return { learningEventPort, accept };
 }
 
 function RuntimeControllerProbe() {
@@ -108,10 +111,16 @@ function RuntimeControllerProbe() {
   );
 }
 
-function renderRuntimeController(learnerActivityPort: LearnerActivityPort, xapiPort?: XapiPort) {
+function renderRuntimeController(
+  learnerActivityPort: LearnerActivityPort,
+  learningEventPort?: LearningEventPort,
+) {
   return render(
     <ScaffoldServicesProvider
-      ports={{ learnerActivity: learnerActivityPort, ...(xapiPort ? { xapi: xapiPort } : {}) }}
+      ports={{
+        learnerActivity: learnerActivityPort,
+        ...(learningEventPort ? { learningEvents: learningEventPort } : {}),
+      }}
     >
       <ScaffoldArtifactIdentityProvider artifactId="artifact-one">
         <LearningEventRuntimeProvider>
@@ -299,15 +308,15 @@ describe("flashcard runtime controller", () => {
   it("emits the accepted face from both flashcard flip controls", async () => {
     const user = userEvent.setup();
     const { learnerActivityPort, save } = createPort();
-    const { xapiPort, send } = createXapiPort();
+    const { learningEventPort, accept } = createLearningEventPort();
 
-    renderRuntimeController(learnerActivityPort, xapiPort);
+    renderRuntimeController(learnerActivityPort, learningEventPort);
 
     await waitFor(() => expect(save).toHaveBeenCalledOnce());
     await user.click(screen.getByRole("button", { name: /^Flip$/u }));
     await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
-    expect(send.mock.calls[1]?.[0]).toMatchObject({
+    await waitFor(() => expect(accept).toHaveBeenCalledTimes(2));
+    expect(accept.mock.calls[1]?.[0]).toMatchObject({
       verb: LEARNING_EVENT_VERBS.interacted,
       result: {
         extensions: {
@@ -322,8 +331,8 @@ describe("flashcard runtime controller", () => {
 
     await user.click(screen.getByRole("button", { name: "Flip card A" }));
     await waitFor(() => expect(save).toHaveBeenCalledTimes(3));
-    await waitFor(() => expect(send).toHaveBeenCalledTimes(3));
-    expect(send.mock.calls[2]?.[0]).toMatchObject({
+    await waitFor(() => expect(accept).toHaveBeenCalledTimes(3));
+    expect(accept.mock.calls[2]?.[0]).toMatchObject({
       verb: LEARNING_EVENT_VERBS.interacted,
       result: {
         extensions: {
@@ -340,9 +349,9 @@ describe("flashcard runtime controller", () => {
   it("emits accepted ratings with deck progress and terminal completion", async () => {
     const user = userEvent.setup();
     const { learnerActivityPort, save } = createPort();
-    const { xapiPort, send } = createXapiPort();
+    const { learningEventPort, accept } = createLearningEventPort();
 
-    renderRuntimeController(learnerActivityPort, xapiPort);
+    renderRuntimeController(learnerActivityPort, learningEventPort);
 
     await waitFor(() => expect(save).toHaveBeenCalledOnce());
     await user.click(screen.getByRole("button", { name: "Not yet" }));
@@ -358,8 +367,8 @@ describe("flashcard runtime controller", () => {
     await user.click(screen.getByRole("button", { name: "Got it" }));
 
     await waitFor(() => expect(save).toHaveBeenCalledTimes(4));
-    await waitFor(() => expect(send).toHaveBeenCalledTimes(5));
-    expect(send.mock.calls.slice(1).map(([statement]) => statement)).toMatchObject([
+    await waitFor(() => expect(accept).toHaveBeenCalledTimes(5));
+    expect(accept.mock.calls.slice(1).map(([event]) => event)).toMatchObject([
       {
         verb: LEARNING_EVENT_VERBS.interacted,
         result: {

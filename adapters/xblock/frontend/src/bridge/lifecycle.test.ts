@@ -1,8 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import {
-  SCAFFOLD_XBLOCK_BRIDGE_CHANNEL,
-  SCAFFOLD_XBLOCK_BRIDGE_PROTOCOL_VERSION,
   createXBlockBridgeLifecycleMessage,
   createXBlockBridgeRequest,
   type XBlockBridgeEventLike,
@@ -361,39 +359,6 @@ describe("XBlock iframe lifecycle bridge", () => {
         body: JSON.stringify({ event, protocolVersion: 1 }),
       }),
     );
-  });
-
-  it("does not route the removed xAPI request operation", () => {
-    const innerWindow = new FakeWindowTarget();
-    const outerHost = new FakeMessageHost();
-    const innerSource = {};
-    const onRequest = vi.fn();
-
-    createXBlockOuterBridge({
-      sessionId: "session-1",
-      expectedInnerOrigin: "https://scaffold.example",
-      expectedInnerSource: innerSource,
-      innerWindow,
-      messageHost: outerHost,
-      initPayload: {},
-      onRequest,
-    });
-
-    outerHost.emit({
-      data: {
-        channel: SCAFFOLD_XBLOCK_BRIDGE_CHANNEL,
-        protocolVersion: SCAFFOLD_XBLOCK_BRIDGE_PROTOCOL_VERSION,
-        sessionId: "session-1",
-        kind: "request",
-        requestId: "request-1",
-        messageType: "xapi.accept",
-        payload: { statement: {} },
-      },
-      origin: "https://scaffold.example",
-      source: innerSource,
-    });
-
-    expect(onRequest).not.toHaveBeenCalled();
   });
 
   it("removes message listeners when bridges are destroyed", () => {

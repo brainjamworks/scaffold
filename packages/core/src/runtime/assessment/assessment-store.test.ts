@@ -111,17 +111,34 @@ function hintInput(input: {
   return { type: "assessment.hint-interacted", ...event };
 }
 
-function quizAttemptedInput(input: { readonly rootActivityId: string; readonly quizId: string; readonly attemptId: string }): CoreLearningEventInput {
+function quizAttemptedInput(input: {
+  readonly rootActivityId: string;
+  readonly quizId: string;
+  readonly attemptId: string;
+}): CoreLearningEventInput {
   const { rootActivityId: _rootActivityId, ...event } = input;
   return { type: "quiz.attempted", ...event };
 }
 
-function quizCompletedInput(input: { readonly rootActivityId: string; readonly quizId: string; readonly attemptId: string; readonly startedAt: string | null; readonly finishedAt: string | null }): CoreLearningEventInput {
+function quizCompletedInput(input: {
+  readonly rootActivityId: string;
+  readonly quizId: string;
+  readonly attemptId: string;
+  readonly startedAt: string | null;
+  readonly finishedAt: string | null;
+}): CoreLearningEventInput {
   const { rootActivityId: _rootActivityId, ...event } = input;
   return { type: "quiz.completed", ...event };
 }
 
-function quizSuccessInput(input: { readonly rootActivityId: string; readonly quizId: string; readonly attemptId: string; readonly successStatus: "passed" | "failed"; readonly score: number; readonly maxScore: number }): CoreLearningEventInput {
+function quizSuccessInput(input: {
+  readonly rootActivityId: string;
+  readonly quizId: string;
+  readonly attemptId: string;
+  readonly successStatus: "passed" | "failed";
+  readonly score: number;
+  readonly maxScore: number;
+}): CoreLearningEventInput {
   const { rootActivityId: _rootActivityId, ...event } = input;
   const { successStatus, ...success } = event;
   return { type: successStatus === "passed" ? "quiz.passed" : "quiz.failed", ...success };
@@ -430,7 +447,7 @@ describe("createAssessmentStore", () => {
     );
   });
 
-  it("keeps an authoritative Quiz start successful when xAPI is unavailable", async () => {
+  it("keeps an authoritative Quiz start successful when Learning Events are unavailable", async () => {
     const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
     const hostAttempt = createQuizAttempt(groupId);
     const store = createAssessmentStore({
@@ -456,7 +473,7 @@ describe("createAssessmentStore", () => {
   });
 
   it.each(["session accessor", "statement builder", "session record"] as const)(
-    "keeps an authoritative Quiz start successful when the xAPI %s throws",
+    "keeps an authoritative Quiz start successful when the Learning Event %s throws",
     async (failurePoint) => {
       const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
       const hostAttempt = createQuizAttempt(groupId);
@@ -1087,7 +1104,7 @@ describe("createAssessmentStore", () => {
             finishAttempt: () => pending.promise,
           },
         }),
-      getLearningEventSession: () => sessionDouble.session,
+        getLearningEventSession: () => sessionDouble.session,
       });
       const secondIdentity = registrationIdentity({
         authoredBlockId: "block-two",
@@ -1462,7 +1479,7 @@ describe("createAssessmentStore", () => {
           }),
         },
       }),
-    getLearningEventSession: getLearningEventSession,
+      getLearningEventSession: getLearningEventSession,
     });
     const secondIdentity = registrationIdentity({
       authoredBlockId: "block-two",
@@ -2308,7 +2325,7 @@ describe("createAssessmentStore", () => {
     expect(sessionDouble.record).not.toHaveBeenCalled();
   });
 
-  it("resolves the current xAPI session when a standalone answer becomes authoritative", async () => {
+  it("resolves the current Learning Event session when a standalone answer becomes authoritative", async () => {
     const pending = deferred<{ problem: AssessmentProblemSnapshot }>();
     const sessionDouble = createSessionDouble();
     let currentSession: LearningEventSession | null = null;
@@ -2339,7 +2356,7 @@ describe("createAssessmentStore", () => {
     expect(sessionDouble.record).toHaveBeenCalledOnce();
   });
 
-  it("keeps a successful standalone submission when xAPI recording throws", async () => {
+  it("keeps a successful standalone submission when Learning Event recording throws", async () => {
     const canonicalProblem = {
       ...createProblemSnapshot(),
       attemptNumber: 1,
@@ -2391,7 +2408,7 @@ describe("createAssessmentStore", () => {
     expect(sessionDouble.record).not.toHaveBeenCalled();
   });
 
-  it("keeps non-authoritative assessment operations out of xAPI", async () => {
+  it("keeps non-authoritative assessment operations out of Learning Events", async () => {
     const sessionDouble = createSessionDouble();
     const store = createAssessmentStore({
       artifactId: "artifact-one",
@@ -2597,7 +2614,7 @@ describe("createAssessmentStore", () => {
     expect(sessionDouble.record).not.toHaveBeenCalled();
   });
 
-  it("keeps a persisted hint reveal when xAPI recording throws", async () => {
+  it("keeps a persisted hint reveal when Learning Event recording throws", async () => {
     const sessionDouble = createSessionDouble(() => {
       throw new Error("recording unavailable");
     });

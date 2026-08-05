@@ -14,12 +14,15 @@ import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions
 import { describeBlockContract } from "@/editor/testing";
 import { createDisposableEditor } from "@/editor/testing/disposable-editor";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
-import type { LearnerActivityPort, XapiPort } from "@/host/ports";
+import type { LearnerActivityPort, LearningEventPort } from "@/host/ports";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 import { LearnerActivityRuntimeProvider } from "@/runtime/learner-activity";
 import { LearningEventRuntimeProvider } from "@/runtime/learning-events/LearningEventRuntimeProvider";
-import { LEARNING_EVENT_EXTENSIONS, LEARNING_EVENT_VERBS } from "@/runtime/learning-events/catalogue";
+import {
+  LEARNING_EVENT_EXTENSIONS,
+  LEARNING_EVENT_VERBS,
+} from "@/runtime/learning-events/catalogue";
 import { ChecklistAuthoringExtension } from "./checklist-authoring-extension";
 import { ChecklistRuntimeExtension } from "./checklist-runtime-extension";
 import {
@@ -123,10 +126,10 @@ it("renders an item-shaped add checklist affordance", async () => {
 
 function renderChecklistRuntimeEditor({
   learnerActivityPort,
-  xapiPort,
+  learningEventPort,
 }: {
   learnerActivityPort: LearnerActivityPort;
-  xapiPort: XapiPort;
+  learningEventPort: LearningEventPort;
 }) {
   const fixture = createDisposableEditor({
     extensions: [
@@ -143,7 +146,7 @@ function renderChecklistRuntimeEditor({
 
   render(
     createElement(ScaffoldServicesProvider, {
-      ports: { learnerActivity: learnerActivityPort, xapi: xapiPort },
+      ports: { learnerActivity: learnerActivityPort, learningEvents: learningEventPort },
       children: createElement(ScaffoldArtifactIdentityProvider, {
         artifactId: "checklist-artifact",
         children: createElement(LearningEventRuntimeProvider, {
@@ -202,15 +205,15 @@ it("emits accepted checklist item details through one learner-activity save", as
     ...record,
     updatedAt: "2026-07-27T10:01:00Z",
   }));
-  const send = vi.fn<XapiPort["send"]>(async () => undefined);
+  const accept = vi.fn<LearningEventPort["accept"]>(async () => undefined);
   const fixture = renderChecklistRuntimeEditor({
     learnerActivityPort: {
       load: async () => null,
       save,
     },
-    xapiPort: {
-      activityId: "https://lms.example.test/courses/checklist-course",
-      send,
+    learningEventPort: {
+      rootActivityId: "https://lms.example.test/courses/checklist-course",
+      accept,
     },
   });
 
@@ -220,13 +223,13 @@ it("emits accepted checklist item details through one learner-activity save", as
   await user.click(checkboxes[0]!);
 
   await waitFor(() => expect(save).toHaveBeenCalledOnce());
-  await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(accept).toHaveBeenCalledTimes(2));
 
   expect(save.mock.calls[0]?.[0].record).toMatchObject({
     data: { checked: { "checklist-item-one": true } },
     completed: false,
   });
-  expect(send.mock.calls[1]?.[0]).toMatchObject({
+  expect(accept.mock.calls[1]?.[0]).toMatchObject({
     verb: LEARNING_EVENT_VERBS.interacted,
     result: {
       extensions: {
@@ -252,15 +255,15 @@ it("does not report a checklist interaction when the authoritative save is a no-
     completed: false,
     updatedAt: "2026-07-27T10:01:00Z",
   }));
-  const send = vi.fn<XapiPort["send"]>(async () => undefined);
+  const accept = vi.fn<LearningEventPort["accept"]>(async () => undefined);
   const fixture = renderChecklistRuntimeEditor({
     learnerActivityPort: {
       load: async () => null,
       save,
     },
-    xapiPort: {
-      activityId: "https://lms.example.test/courses/checklist-course",
-      send,
+    learningEventPort: {
+      rootActivityId: "https://lms.example.test/courses/checklist-course",
+      accept,
     },
   });
 
@@ -271,7 +274,7 @@ it("does not report a checklist interaction when the authoritative save is a no-
 
   await waitFor(() => expect(save).toHaveBeenCalledOnce());
   await new Promise((resolve) => setTimeout(resolve, 0));
-  expect(send).not.toHaveBeenCalled();
+  expect(accept).not.toHaveBeenCalled();
 
   fixture.destroy();
 });

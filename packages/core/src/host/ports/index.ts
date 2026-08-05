@@ -66,21 +66,3 @@ export type {
   MediaUploadType,
 } from "./media";
 export type { ScaffoldRuntimePorts } from "./runtime-ports";
-export { XapiIriSchema, XapiStatementTemplateSchema } from "./xapi";
-export type {
-  XapiActivity,
-  XapiActivityDefinition,
-  XapiContextTemplate,
-  XapiDuration,
-  XapiInteractionType,
-  XapiIri,
-  XapiJsonValue,
-  XapiLanguageMap,
-  XapiPort,
-  XapiResult,
-  XapiScore,
-  XapiStatementTemplate,
-  XapiTimestamp,
-  XapiUuid,
-  XapiVerb,
-} from "./xapi";

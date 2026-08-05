@@ -940,8 +940,7 @@ describe("ContentRuntimeHost", () => {
       port.accept.mock.calls
         .map(([event]) => event)
         .filter(
-          (event) =>
-            event.object.definition?.type === LEARNING_EVENT_ACTIVITY_TYPES.layoutSection,
+          (event) => event.object.definition?.type === LEARNING_EVENT_ACTIVITY_TYPES.layoutSection,
         );
 
     await waitFor(() => expect(layoutSectionEvents()).toHaveLength(1));
@@ -1015,8 +1014,7 @@ describe("ContentRuntimeHost", () => {
       port.accept.mock.calls
         .map(([event]) => event)
         .filter(
-          (event) =>
-            event.object.definition?.type === LEARNING_EVENT_ACTIVITY_TYPES.layoutSection,
+          (event) => event.object.definition?.type === LEARNING_EVENT_ACTIVITY_TYPES.layoutSection,
         );
 
     await waitFor(() => expect(layoutSectionEvents()).toHaveLength(1));
@@ -1088,8 +1086,7 @@ describe("ContentRuntimeHost", () => {
       port.accept.mock.calls
         .map(([event]) => event)
         .filter(
-          (event) =>
-            event.object.definition?.type === LEARNING_EVENT_ACTIVITY_TYPES.layoutSection,
+          (event) => event.object.definition?.type === LEARNING_EVENT_ACTIVITY_TYPES.layoutSection,
         )
         .map((event) => event.object.id);
 
@@ -1161,8 +1158,7 @@ describe("ContentRuntimeHost", () => {
       port.accept.mock.calls
         .map(([event]) => event)
         .filter(
-          (event) =>
-            event.object.definition?.type === LEARNING_EVENT_ACTIVITY_TYPES.layoutSection,
+          (event) => event.object.definition?.type === LEARNING_EVENT_ACTIVITY_TYPES.layoutSection,
         );
 
     await waitFor(() => expect(layoutSectionEvents()).toHaveLength(1));
@@ -1236,8 +1232,7 @@ describe("ContentRuntimeHost", () => {
       port.accept.mock.calls
         .map(([event]) => event)
         .filter(
-          (event) =>
-            event.object.definition?.type === LEARNING_EVENT_ACTIVITY_TYPES.layoutSection,
+          (event) => event.object.definition?.type === LEARNING_EVENT_ACTIVITY_TYPES.layoutSection,
         )
         .map((event) => event.object.id);
 
@@ -1302,9 +1297,7 @@ describe("ContentRuntimeHost", () => {
       },
     });
     expect(JSON.stringify(resourceEvents[0])).not.toContain("private-resource");
-    expect(link.getAttribute("href")).toBe(
-      "https://example.com/private-resource?token=SECRET",
-    );
+    expect(link.getAttribute("href")).toBe("https://example.com/private-resource?token=SECRET");
   });
 
   it("keeps learning available when the Learning Event root Activity IRI is invalid", async () => {
@@ -1420,11 +1413,7 @@ describe("ContentRuntimeHost", () => {
     );
 
     await waitFor(() =>
-      expect(learningEventVerbs(firstPort)).toEqual([
-        "initialized",
-        "experienced",
-        "terminated",
-      ]),
+      expect(learningEventVerbs(firstPort)).toEqual(["initialized", "experienced", "terminated"]),
     );
     await waitFor(() =>
       expect(learningEventVerbs(secondPort)).toEqual(["initialized", "experienced"]),

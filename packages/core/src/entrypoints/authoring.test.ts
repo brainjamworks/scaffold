@@ -56,7 +56,9 @@ describe("@scaffold/core/authoring", () => {
       {} extends Pick<CourseDocumentEditorProps, "composition"> ? true : false
     >().toEqualTypeOf<false>();
     expectTypeOf<
-      "xapi" extends keyof Awaited<ReturnType<ScaffoldPreviewServicesFactory>> ? true : false
+      "learningEvents" extends keyof Awaited<ReturnType<ScaffoldPreviewServicesFactory>>
+        ? true
+        : false
     >().toEqualTypeOf<false>();
   });
 });

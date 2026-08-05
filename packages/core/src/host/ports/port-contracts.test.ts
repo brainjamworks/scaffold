@@ -17,8 +17,8 @@ import type {
   QuizStartAttemptRequest,
   QuizSubmitQuestionRequest,
   ScaffoldRuntimePorts,
-  XapiPort,
-  XapiStatementTemplate,
+  LearningEvent,
+  LearningEventPort,
 } from "@/host/ports";
 import type {
   ScaffoldAuthoringArtifact,
@@ -127,10 +127,10 @@ describe("host app contracts", () => {
       type: "preview",
       submit: async () => successfulProblemOutcome,
     };
-    const xapi = {
-      activityId: "https://learning.example.test/courses/artifact-1",
-      send: async () => undefined,
-    } satisfies XapiPort;
+    const learningEvents = {
+      rootActivityId: "https://learning.example.test/artifacts/artifact-1",
+      accept: async () => undefined,
+    } satisfies LearningEventPort;
 
     const learnerServices = {
       assessment,
@@ -142,13 +142,13 @@ describe("host app contracts", () => {
         }),
       },
       media: null,
-      xapi,
+      learningEvents,
     } satisfies ScaffoldLearnerHostServices;
 
     expect(authoringServices.artifactPersistence).toBe(artifactPersistence);
-    expect(learnerServices.xapi).toBe(xapi);
+    expect(learnerServices.learningEvents).toBe(learningEvents);
     expectTypeOf<
-      "xapi" extends keyof ScaffoldAuthoringEntryHostServices ? true : false
+      "learningEvents" extends keyof ScaffoldAuthoringEntryHostServices ? true : false
     >().toEqualTypeOf<false>();
     await expect(
       learnerServices.assessment?.submit({
@@ -162,17 +162,17 @@ describe("host app contracts", () => {
   });
 });
 
-describe("xAPI port contract", () => {
+describe("Learning Event port contract", () => {
   it("allows runtime hosts to omit the capability entirely", () => {
     const runtimePorts = {} satisfies ScaffoldRuntimePorts;
     const learnerServices = {} satisfies ScaffoldLearnerHostServices;
 
-    expect(runtimePorts).not.toHaveProperty("xapi");
-    expect(learnerServices).not.toHaveProperty("xapi");
+    expect(runtimePorts).not.toHaveProperty("learningEvents");
+    expect(learnerServices).not.toHaveProperty("learningEvents");
   });
 
-  it("defines one optional ordered Statement-acceptance seam", async () => {
-    const statement: XapiStatementTemplate = {
+  it("defines one optional ordered event-acceptance seam", async () => {
+    const event: LearningEvent = {
       id: "550e8400-e29b-41d4-a716-446655440000",
       timestamp: "2026-07-25T10:15:30.123Z",
       verb: {
@@ -184,21 +184,21 @@ describe("xAPI port contract", () => {
         id: "https://learning.example.test/courses/artifact-1",
       },
     };
-    const accepted: XapiStatementTemplate[] = [];
-    const xapi = {
-      activityId: statement.object.id,
-      send: async (template: XapiStatementTemplate) => {
-        accepted.push(template);
+    const accepted: LearningEvent[] = [];
+    const learningEvents = {
+      rootActivityId: event.object.id,
+      accept: async (acceptedEvent: LearningEvent) => {
+        accepted.push(acceptedEvent);
       },
-    } satisfies XapiPort;
-    const runtimePorts = { xapi } satisfies ScaffoldRuntimePorts;
-    const learnerServices = { xapi } satisfies ScaffoldLearnerHostServices;
+    } satisfies LearningEventPort;
+    const runtimePorts = { learningEvents } satisfies ScaffoldRuntimePorts;
+    const learnerServices = { learningEvents } satisfies ScaffoldLearnerHostServices;
 
-    await xapi.send(statement);
+    await learningEvents.accept(event);
 
-    expect(accepted).toStrictEqual([statement]);
-    expect(runtimePorts.xapi).toBe(xapi);
-    expect(learnerServices.xapi).toBe(xapi);
+    expect(accepted).toStrictEqual([event]);
+    expect(runtimePorts.learningEvents).toBe(learningEvents);
+    expect(learnerServices.learningEvents).toBe(learningEvents);
   });
 });
 

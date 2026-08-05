@@ -1,6 +1,5 @@
 import {
   LearningEventIriSchema,
-  LearningEventDraftSchema,
   LearningEventSchema,
   type LearningEventDraft,
   type LearningEventIri,
@@ -70,20 +69,6 @@ function deepFreeze<T>(value: T, visited = new WeakSet<object>()): T {
     deepFreeze(child, visited);
   }
   return Object.freeze(value);
-}
-
-interface LearningEventSessionMigrationAccess {
-  recordDraft(draft: LearningEventDraft): void;
-}
-
-const migrationAccess = new WeakMap<LearningEventSession, LearningEventSessionMigrationAccess>();
-
-/** @internal Remove with the xAPI migration façade in Phase 6. */
-export function recordLearningEventDraftForMigration(
-  session: LearningEventSession,
-  draft: LearningEventDraft,
-): void {
-  migrationAccess.get(session)?.recordDraft(draft);
 }
 
 export function createLearningEventSession(
@@ -311,31 +296,6 @@ export function createLearningEventSession(
     }
   }
 
-  function recordDraft(draftValue: LearningEventDraft): void {
-    if (
-      acceptanceStopped ||
-      (state.status !== "dormant" &&
-        !(state.status === "active" && state.acceptance === "accepting"))
-    ) {
-      return;
-    }
-
-    const result = LearningEventDraftSchema.safeParse(draftValue);
-    if (!result.success) return;
-    const draft = result.data;
-    if (
-      draft.verb.id === "http://adlnet.gov/expapi/verbs/initialized" ||
-      draft.verb.id === "http://adlnet.gov/expapi/verbs/terminated"
-    ) {
-      return;
-    }
-
-    startSession();
-    if (state.status === "active" && state.acceptance === "accepting") {
-      admitDraft(draft, "learning");
-    }
-  }
-
   function terminate(): Promise<void> {
     if (terminationPromise !== null) return terminationPromise;
 
@@ -397,6 +357,5 @@ export function createLearningEventSession(
     terminate,
     getState: () => state,
   });
-  migrationAccess.set(session, { recordDraft });
   return session;
 }

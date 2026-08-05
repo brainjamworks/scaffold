@@ -400,6 +400,5 @@ describe("createMoodleRuntimePorts learning event port", () => {
       rootActivityId: "https://moodle.example/mod/scaffold/view.php?id=42",
       accept: expect.any(Function),
     });
-    expect(ports).not.toHaveProperty("xapi");
   });
 });

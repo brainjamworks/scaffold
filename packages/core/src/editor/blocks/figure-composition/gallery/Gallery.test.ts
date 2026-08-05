@@ -48,7 +48,6 @@ import {
   createVisualItemActivityId,
 } from "@/runtime/learning-events/catalogue";
 import { LearningEventRuntimeProvider } from "@/runtime/learning-events/LearningEventRuntimeProvider";
-import * as runtimeXapi from "@/runtime/xapi";
 import { EmptyScaffoldRichTextDocument } from "@/schemas/rich-text";
 
 import "./gallery-definition";
@@ -362,7 +361,6 @@ it("reports a carousel item only after its full-size stage image loads", () => {
 });
 
 it("reports each successfully displayed carousel item once per Learning Event reporter", async () => {
-  vi.spyOn(runtimeXapi, "useXapiSession").mockReturnValue(null);
   const rootActivityId = "https://lms.example.test/courses/gallery";
   const accept = vi.fn<LearningEventPort["accept"]>(async () => undefined);
   renderGalleryLearningEventRuntime(galleryFixture(), {
@@ -390,11 +388,7 @@ it("reports each successfully displayed carousel item once per Learning Event re
   expect(accept.mock.calls[1]?.[0]).toMatchObject({
     verb: { display: { en: "experienced" } },
     object: {
-      id: createVisualItemActivityId(
-        rootActivityId,
-        "block-gallery-proof",
-        "gallery-image-1",
-      ),
+      id: createVisualItemActivityId(rootActivityId, "block-gallery-proof", "gallery-image-1"),
       definition: {
         type: LEARNING_EVENT_ACTIVITY_TYPES.visualItem,
         extensions: {

@@ -178,9 +178,9 @@ describe("LearningEventRuntimeProvider", () => {
     if (!session) throw new Error("expected a started Learning Event session");
 
     const secondServices = createUnrelatedPorts();
-    rerender(root({ ...firstServices, assessment: secondServices.assessment }));
-    rerender(root({ ...firstServices, learnerActivity: secondServices.learnerActivity }));
-    rerender(root({ ...firstServices, media: secondServices.media }));
+    rerender(root({ ...firstServices, assessment: secondServices.assessment! }));
+    rerender(root({ ...firstServices, learnerActivity: secondServices.learnerActivity! }));
+    rerender(root({ ...firstServices, media: secondServices.media! }));
     await flushPromises();
 
     expect(observations.at(-1)?.session).toBe(session);
@@ -503,10 +503,7 @@ describe("LearningEventRuntimeProvider", () => {
     async (replacement) => {
       const rootActivityId = "https://learning.example.test/courses/course-1";
       const firstPort = createPort(rootActivityId);
-      const secondPort =
-        replacement === "port"
-          ? createPort(rootActivityId)
-          : firstPort;
+      const secondPort = replacement === "port" ? createPort(rootActivityId) : firstPort;
       const observations: LearningEventObservation[] = [];
       const onObservation = (observation: LearningEventObservation) => {
         observations.push(observation);

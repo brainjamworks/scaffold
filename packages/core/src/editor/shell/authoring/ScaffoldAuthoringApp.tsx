@@ -98,7 +98,7 @@ export interface ScaffoldAuthoringHeaderActionsContext {
   preview: boolean;
 }
 
-type ScaffoldPreviewHostServices = Omit<ScaffoldLearnerHostServices, "learningEvents" | "xapi">;
+type ScaffoldPreviewHostServices = Omit<ScaffoldLearnerHostServices, "learningEvents">;
 
 export type ScaffoldPreviewServicesFactory = (
   content: ScaffoldLearnerPreviewContent,
@@ -109,7 +109,6 @@ function withoutLearningEventCapability(
 ): ScaffoldPreviewHostServices {
   const previewServices = { ...services };
   delete previewServices.learningEvents;
-  delete previewServices.xapi;
   return previewServices;
 }
 

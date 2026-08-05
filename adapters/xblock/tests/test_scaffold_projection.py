@@ -3219,9 +3219,6 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             with self.subTest(private_value=private_value):
                 self.assertNotIn(private_value, log_output)
 
-    def test_removed_xapi_handler_has_no_compatibility_alias(self):
-        self.assertFalse(hasattr(make_xblock(), "accept_xapi_statement"))
-
     def test_reveal_answer_reads_stored_target_contract_not_author_document(self):
         target = single_select_target()
         block = make_xblock([target])

@@ -175,7 +175,7 @@ describe("assessment snapshot hydration", () => {
     expect(AssessmentLearnerSnapshotSchema.parse(projectAssessmentSnapshot(store))).toEqual(value);
   });
 
-  it("preserves historical null success without consulting the xAPI session", () => {
+  it("preserves historical null success without consulting the Learning Event session", () => {
     const getLearningEventSession = vi.fn();
     const historicalQuiz: QuizAttemptSnapshot = {
       ...quiz,

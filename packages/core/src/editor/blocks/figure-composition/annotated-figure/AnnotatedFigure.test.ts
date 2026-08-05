@@ -29,7 +29,6 @@ import {
   createVisualItemActivityId,
 } from "@/runtime/learning-events/catalogue";
 import { LearningEventRuntimeProvider } from "@/runtime/learning-events/LearningEventRuntimeProvider";
-import * as runtimeXapi from "@/runtime/xapi";
 import { AnnotatedFigureAuthoringExtension } from "./annotated-figure-authoring-extension";
 import { resolveAnnotatedFigureModel } from "./annotated-figure-document-model";
 import { AnnotatedFigureRuntimeExtension } from "./annotated-figure-runtime-extension";
@@ -1553,7 +1552,6 @@ it("uses an authored annotation title in the runtime popover", async () => {
 });
 
 it("reports each opened runtime annotation once per Learning Event reporter", async () => {
-  vi.spyOn(runtimeXapi, "useXapiSession").mockReturnValue(null);
   const user = userEvent.setup();
   const rootActivityId = "https://lms.example.test/courses/annotated-figure";
   const accept = vi.fn<LearningEventPort["accept"]>(async () => undefined);
@@ -1590,11 +1588,7 @@ it("reports each opened runtime annotation once per Learning Event reporter", as
   expect(accept.mock.calls[1]?.[0]).toMatchObject({
     verb: { display: { en: "experienced" } },
     object: {
-      id: createVisualItemActivityId(
-        rootActivityId,
-        "annotated-figure-proof",
-        "annotation-one",
-      ),
+      id: createVisualItemActivityId(rootActivityId, "annotated-figure-proof", "annotation-one"),
       definition: {
         type: LEARNING_EVENT_ACTIVITY_TYPES.visualItem,
         extensions: {

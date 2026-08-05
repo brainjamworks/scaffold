@@ -1,10 +1,6 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 
-import type {
-  AssessmentPort,
-  ScaffoldRuntimePorts,
-  LearnerActivityPort,
-} from "@/host/ports";
+import type { AssessmentPort, ScaffoldRuntimePorts, LearnerActivityPort } from "@/host/ports";
 import type { MediaPort } from "@/host/ports/media";
 import type { LearningEventPort } from "@/host/ports/learning-events";
 

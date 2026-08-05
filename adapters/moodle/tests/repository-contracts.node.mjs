@@ -90,7 +90,6 @@ test("routes Learning Events through genuine Moodle core_xapi without adding an 
   const event = await readAdapterFile("scaffold/classes/event/statement_received.php");
 
   assert.match(services, /'mod_scaffold_accept_learning_event'/);
-  assert.doesNotMatch(services, /accept_xapi_statement/);
   assert.match(endpoint, /validator::validate_json\(\$params\['eventjson'\]\)/);
   assert.match(endpoint, /item_agent::create_from_user\(\$USER\)/);
   assert.match(validator, /MAX_JSON_BYTES = 65536/);
@@ -103,5 +102,8 @@ test("routes Learning Events through genuine Moodle core_xapi without adding an 
   assert.match(handler, /statement_to_event\(statement \$statement\)/);
   assert.match(handler, /statement_received::create\(\$params\)/);
   assert.match(event, /class statement_received extends \\core\\event\\base/);
-  assert.doesNotMatch(services + endpoint + validator + handler + event, /\bLRS\b|learning record store/i);
+  assert.doesNotMatch(
+    services + endpoint + validator + handler + event,
+    /\bLRS\b|learning record store/i,
+  );
 });

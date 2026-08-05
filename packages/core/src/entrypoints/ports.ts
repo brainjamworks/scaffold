@@ -26,8 +26,6 @@ export {
   AssessmentQuizCommandOutcomeSchema,
   LearningEventIriSchema,
   LearningEventSchema,
-  XapiIriSchema,
-  XapiStatementTemplateSchema,
 } from "@/host/ports";
 export type {
   AssessmentProblemCommandOutcome,
@@ -63,21 +61,6 @@ export type {
   QuizRevealAnswersRequest,
   QuizStartAttemptRequest,
   QuizSubmitQuestionRequest,
-  XapiActivity,
-  XapiActivityDefinition,
-  XapiContextTemplate,
-  XapiDuration,
-  XapiInteractionType,
-  XapiIri,
-  XapiJsonValue,
-  XapiLanguageMap,
-  XapiPort,
-  XapiResult,
-  XapiScore,
-  XapiStatementTemplate,
-  XapiTimestamp,
-  XapiUuid,
-  XapiVerb,
 } from "@/host/ports";
 
 export type {
