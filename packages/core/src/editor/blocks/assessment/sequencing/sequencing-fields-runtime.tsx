@@ -1,34 +1,14 @@
-import {
-  DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragStartEvent,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { DotsSixVerticalIcon as DotsSixVertical } from "@phosphor-icons/react";
 import { DOMSerializer, type Node as PMNode } from "@tiptap/pm/model";
 import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
-import { useEffect, useId, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useId, useMemo, type CSSProperties } from "react";
 
 import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { RichFeedbackRuntimePopover } from "@/editor/blocks/assessment/shared/chrome/RichFeedbackRuntimePopover";
 import { useAssessmentRuntimeById } from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
-import {
-  RUNTIME_DRAG_HANDLE_CLASS,
-  RUNTIME_DRAG_SOURCE_PLACEHOLDER_CLASS,
-  RuntimeDragOverlay,
-  RuntimeDragPreview,
-} from "@/editor/blocks/assessment/shared/runtime/runtime-dnd";
+import { InteractionDragActivationArea } from "@/editor/interactions/drag/react/InteractionDragActivationArea";
+import { InteractionDragSession } from "@/editor/interactions/drag/react/InteractionDragSession";
+import { useInteractionSortable } from "@/editor/interactions/drag/react/use-interaction-sortable";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 import { serializeStaticRichTextHtml } from "@/editor/rich-text/static/render-rich-text";
 import { cn } from "@/lib/cn";
@@ -51,6 +31,11 @@ interface SequencingProjectionItem {
   html: string;
 }
 
+interface SequencingDragData {
+  readonly html: string;
+  readonly itemId: string;
+}
+
 export const SequencingItemRuntimeNode = createSequencingItemNode();
 
 export const SequencingItemsGroupRuntimeNode = createSequencingItemsGroupNode({
@@ -58,13 +43,6 @@ export const SequencingItemsGroupRuntimeNode = createSequencingItemsGroupNode({
 });
 
 function SequencingItemsGroupRuntimeNodeView(props: NodeViewProps) {
-  const [draggingItemId, setDraggingItemId] = useState<string | null>(null);
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  );
   const pos = safeGetPos(props.getPos);
   const authoredBlockId = findAncestorAssessmentBlockId(props.editor, pos ?? undefined, [
     "sequencing",
@@ -123,7 +101,6 @@ function SequencingItemsGroupRuntimeNodeView(props: NodeViewProps) {
     responseOrder,
   });
   const itemById = new Map(items.map((item) => [item.id, item]));
-  const draggingItem = draggingItemId ? (itemById.get(draggingItemId) ?? null) : null;
   const orderedItems = effectiveOrder
     .map((id) => itemById.get(id))
     .filter((item): item is SequencingProjectionItem => Boolean(item));
@@ -143,19 +120,16 @@ function SequencingItemsGroupRuntimeNodeView(props: NodeViewProps) {
     if (nextOrder.every((id, index) => id === orderedItemIds[index])) return;
     setOrder(nextOrder);
   };
-  const handleDragStart = (event: DragStartEvent) => {
-    if (!canReorder) return;
-    setDraggingItemId(String(event.active.id));
-  };
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = (event: {
+    active: { id: string; data: SequencingDragData };
+    over: { id: string; data: SequencingDragData } | null;
+  }) => {
     if (!canReorder) {
-      setDraggingItemId(null);
       return;
     }
-    const sourceId = String(event.active.id);
-    const targetId = event.over ? String(event.over.id) : null;
+    const sourceId = event.active.data.itemId;
+    const targetId = event.over?.data.itemId ?? null;
     if (targetId) commitRuntimeReorder(sourceId, targetId);
-    setDraggingItemId(null);
   };
 
   return (
@@ -165,63 +139,60 @@ function SequencingItemsGroupRuntimeNodeView(props: NodeViewProps) {
       className="sc-sequencing-items-group"
     >
       <div data-bounded-scroll="" className="sc-sequencing-items-scroll">
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragCancel={() => setDraggingItemId(null)}
-          onDragEnd={handleDragEnd}
-          onDragStart={handleDragStart}
+        <InteractionDragSession<SequencingDragData, SequencingDragData>
+          accessibilityMode="sortable"
+          collisionPolicy="closest-center"
+          labels={{
+            draggable: "Sequencing item",
+            instructions: "Use arrow keys to reorder the item.",
+          }}
+          onEnd={handleDragEnd}
+          profile="sortable-vertical"
+          renderPreview={(active) => (
+            <div className="sc-sequencing-runtime-preview">
+              <div className="sc-sequencing-runtime-preview__content">
+                {renderStaticHtml(active.html, "Item")}
+              </div>
+            </div>
+          )}
+          sessionId={`sequencing-${authoredBlockId ?? "runtime"}`}
+          sortableItems={orderedItemIds}
         >
-          <SortableContext items={orderedItemIds} strategy={verticalListSortingStrategy}>
-            <ul className="sc-sequencing-runtime-list">
-              {orderedItems.map((item, idx) => {
-                const detail = itemPositionCorrect?.[item.id] ?? null;
-                const correct = detail?.correct ?? null;
-                const feedback =
-                  answerKeyVisible && revealedAssessment.feedbackByItemId[item.id] !== undefined
-                    ? revealedAssessment.feedbackByItemId[item.id]
-                    : detail?.feedback;
-                const parsedFeedback = AssessmentFeedbackContentSchema.safeParse(feedback);
-                const accessibilityDescription = describeSequencingItemAccessibilityState({
-                  canReorder,
-                  correct,
-                  hasFeedback: showFeedback && parsedFeedback.success,
-                  position: idx + 1,
-                  revealed: answerKeyVisible,
-                  submitted,
-                  total: orderedItems.length,
-                });
-                return (
-                  <SequencingRuntimeItem
-                    key={item.id}
-                    accessibilityDescription={accessibilityDescription}
-                    answerKeyVisible={answerKeyVisible}
-                    canReorder={canReorder}
-                    correct={correct}
-                    draggingItemId={draggingItemId}
-                    feedback={parsedFeedback.success ? parsedFeedback.data : null}
-                    index={idx}
-                    item={item}
-                    showFeedback={showFeedback}
-                    showPositionDots={showPositionDots}
-                  />
-                );
-              })}
-            </ul>
-          </SortableContext>
-          <RuntimeDragOverlay>
-            {draggingItem ? (
-              <RuntimeDragPreview className="sc-sequencing-runtime-preview">
-                <span aria-hidden className="sc-sequencing-runtime-preview__handle">
-                  <DotsSixVertical size={iconXs} weight="bold" />
-                </span>
-                <div className="sc-sequencing-runtime-preview__content">
-                  {renderStaticHtml(draggingItem.html, "Item")}
-                </div>
-              </RuntimeDragPreview>
-            ) : null}
-          </RuntimeDragOverlay>
-        </DndContext>
+          <ul className="sc-sequencing-runtime-list">
+            {orderedItems.map((item, idx) => {
+              const detail = itemPositionCorrect?.[item.id] ?? null;
+              const correct = detail?.correct ?? null;
+              const feedback =
+                answerKeyVisible && revealedAssessment.feedbackByItemId[item.id] !== undefined
+                  ? revealedAssessment.feedbackByItemId[item.id]
+                  : detail?.feedback;
+              const parsedFeedback = AssessmentFeedbackContentSchema.safeParse(feedback);
+              const accessibilityDescription = describeSequencingItemAccessibilityState({
+                canReorder,
+                correct,
+                hasFeedback: showFeedback && parsedFeedback.success,
+                position: idx + 1,
+                revealed: answerKeyVisible,
+                submitted,
+                total: orderedItems.length,
+              });
+              return (
+                <SequencingRuntimeItem
+                  key={item.id}
+                  accessibilityDescription={accessibilityDescription}
+                  answerKeyVisible={answerKeyVisible}
+                  canReorder={canReorder}
+                  correct={correct}
+                  feedback={parsedFeedback.success ? parsedFeedback.data : null}
+                  index={idx}
+                  item={item}
+                  showFeedback={showFeedback}
+                  showPositionDots={showPositionDots}
+                />
+              );
+            })}
+          </ul>
+        </InteractionDragSession>
       </div>
       <div data-bounded-scroll-hint="" aria-hidden="true">
         Scroll for more ↓
@@ -235,7 +206,6 @@ function SequencingRuntimeItem({
   answerKeyVisible,
   canReorder,
   correct,
-  draggingItemId,
   feedback,
   index,
   item,
@@ -246,7 +216,6 @@ function SequencingRuntimeItem({
   answerKeyVisible: boolean;
   canReorder: boolean;
   correct: boolean | null;
-  draggingItemId: string | null;
   feedback: unknown;
   index: number;
   item: SequencingProjectionItem;
@@ -254,51 +223,54 @@ function SequencingRuntimeItem({
   showPositionDots: boolean;
 }) {
   const descriptionId = useId();
-  const {
-    attributes,
-    isDragging,
-    listeners,
-    setActivatorNodeRef,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({
-    id: item.id,
+  const sortable = useInteractionSortable<SequencingDragData>({
+    data: { html: item.html, itemId: item.id },
     disabled: !canReorder,
+    id: item.id,
+    label: `Drag sequencing item ${index + 1}`,
   });
+  const { localTransform } = sortable;
   const style: CSSProperties = {
-    transform: isDragging ? undefined : CSS.Transform.toString(transform),
-    transition: isDragging ? undefined : transition,
+    transform: localTransform
+      ? `translate3d(${localTransform.x}px, ${localTransform.y}px, 0) scale(${localTransform.scaleX}, ${localTransform.scaleY})`
+      : undefined,
+    transition: sortable.transition,
   };
   const parsedFeedback = AssessmentFeedbackContentSchema.safeParse(feedback);
 
   return (
     <li
-      ref={setNodeRef}
       aria-label={`Sequencing item ${index + 1}`}
       aria-describedby={descriptionId}
       data-item-id={item.id}
+      {...sortable.sourceProps}
+      ref={sortable.setNodeRef}
       style={style}
       className={cn(
         "sc-sequencing-item",
         "sc-sequencing-item--runtime",
         canReorder && "sc-sequencing-item--draggable",
-        (draggingItemId === item.id || isDragging) && RUNTIME_DRAG_SOURCE_PLACEHOLDER_CLASS,
+        sortable.isPlaceholder && "sc-sequencing-item--placeholder",
         answerKeyVisible && "sc-sequencing-item--answer-key",
       )}
     >
       {canReorder && (
+        <InteractionDragActivationArea
+          className="sc-sequencing-runtime-activation"
+          safeLocalHeight={55}
+          safeLocalWidth={55}
+        >
         <button
-          {...attributes}
-          {...listeners}
-          ref={setActivatorNodeRef}
+          {...sortable.activatorProps}
+          ref={sortable.setActivatorNodeRef}
           type="button"
           aria-label={`Drag sequencing item ${index + 1}`}
           data-runtime-sequencing-handle=""
-          className={RUNTIME_DRAG_HANDLE_CLASS}
+          className="sc-sequencing-runtime-handle"
         >
           <DotsSixVertical size={iconXs} weight="bold" />
         </button>
+        </InteractionDragActivationArea>
       )}
       <div className="sc-sequencing-item__content">
         {renderStaticHtml(item.html, `Item ${index + 1}`)}

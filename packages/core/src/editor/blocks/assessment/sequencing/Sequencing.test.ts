@@ -812,6 +812,11 @@ describe("composite sequencing node", () => {
     expect(firstItem.className).toContain("sc-sequencing-item--runtime");
     const runtimeHandle = document.body.querySelector("[data-runtime-sequencing-handle]");
     expect(runtimeHandle).not.toBeNull();
+    expect(document.body.querySelectorAll("[data-interaction-drag-activation-area]")).toHaveLength(
+      3,
+    );
+    expect(document.body.querySelectorAll("[data-runtime-sequencing-handle]")).toHaveLength(3);
+    expect(document.body.querySelectorAll(".sc-runtime-dnd-handle")).toHaveLength(0);
 
     editor.destroy();
   });
