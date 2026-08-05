@@ -61,6 +61,7 @@ export function QuizNodeView(props: NodeViewProps) {
             items={quiz.assessmentCatalogItems}
             onAdd={(item) => quiz.actions.addQuestion(item.id)}
             onMove={quiz.actions.moveQuestion}
+            onReorder={quiz.actions.reorderQuestion}
             onSelect={quiz.actions.selectAuthoringChild}
           />
         ) : null}

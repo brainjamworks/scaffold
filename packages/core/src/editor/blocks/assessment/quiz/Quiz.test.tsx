@@ -2,7 +2,7 @@
 
 import { CircleIcon } from "@phosphor-icons/react";
 import { Editor, Node, type AnyExtension, type JSONContent } from "@tiptap/core";
-import { Schema as ProseMirrorSchema } from "@tiptap/pm/model";
+import { Schema as ProseMirrorSchema, type Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { NodeSelection } from "@tiptap/pm/state";
 import { EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -107,7 +107,7 @@ import { QuizNode } from "./node";
 import { QuizAuthoringExtension, QuizRuntimeExtension } from "./index";
 import { getQuizChildBlock } from "./quiz-authoring";
 import { quizBlockDefinition } from "./quiz-definition";
-import { getQuizStripReorderSteps } from "./QuizStrip";
+import { useQuizAuthoringController } from "./use-quiz-authoring-controller";
 
 const blockInsertCatalog = createInsertCatalog(createBlockInsertActions([quizBlockDefinition]));
 
@@ -2478,33 +2478,47 @@ describe("quiz block skeleton", () => {
     editor.destroy();
   });
 
-  it("maps a completed strip reorder from stable question ids to adjacent controller steps", () => {
-    expect(
-      getQuizStripReorderSteps(
-        ["question-a", "question-b", "question-c", "question-d"],
-        "question-d",
-        "question-b",
-      ),
-    ).toEqual([
-      { childKey: "question-d", direction: "up", index: 3 },
-      { childKey: "question-d", direction: "up", index: 2 },
-    ]);
-    expect(
-      getQuizStripReorderSteps(
-        ["question-a", "question-b", "question-c"],
-        "question-a",
-        "question-c",
-      ),
-    ).toEqual([
-      { childKey: "question-a", direction: "down", index: 0 },
-      { childKey: "question-a", direction: "down", index: 1 },
-    ]);
-    expect(getQuizStripReorderSteps(["question-a", "question-b"], "question-a", "missing")).toEqual(
-      [],
+  it("reorders differently sized questions non-adjacently with one dispatch and one undo", () => {
+    const editor = createQuizEditor({
+      editable: true,
+      undoRedo: true,
+      content: {
+        type: "doc",
+        content: [
+          {
+            type: "quiz",
+            attrs: { id: "quiz-atomic-reorder" },
+            content: [
+              mcqQuestion("question-a"),
+              { type: "test_assessment_question", attrs: { id: "question-b" } },
+              mcqQuestion("question-c"),
+            ],
+          },
+        ],
+      },
+    });
+    const quizNode = editor.state.doc.child(0);
+    expect(quizNode.child(0).nodeSize).not.toBe(quizNode.child(1).nodeSize);
+    let reorderQuestion: ((sourceKey: string, targetKey: string) => void) | null = null;
+    render(
+      <QuizReorderControllerHarness
+        editor={editor}
+        node={quizNode}
+        onReady={(action) => {
+          reorderQuestion = action;
+        }}
+      />,
     );
-    expect(
-      getQuizStripReorderSteps(["question-a", "question-b"], "question-a", "question-a"),
-    ).toEqual([]);
+    const dispatch = vi.spyOn(editor.view, "dispatch");
+
+    act(() => reorderQuestion?.("question-a", "question-c"));
+
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(quizQuestionIds(editor)).toEqual(["question-b", "question-c", "question-a"]);
+    expect(editor.commands.undo()).toBe(true);
+    expect(quizQuestionIds(editor)).toEqual(["question-a", "question-b", "question-c"]);
+    expect(editor.commands.undo()).toBe(false);
+    editor.destroy();
   });
 
   it("opens active question settings from Quiz chrome while Quiz remains selected", async () => {
@@ -2996,6 +3010,33 @@ function createQuizEditor({
     application,
     blockExtensions,
   }).editor;
+}
+
+function QuizReorderControllerHarness({
+  editor,
+  node,
+  onReady,
+}: {
+  editor: Editor;
+  node: ProseMirrorNode;
+  onReady: (action: (sourceKey: string, targetKey: string) => void) => void;
+}) {
+  const quiz = useQuizAuthoringController({ editor, getPos: () => 0, node });
+  useLayoutEffect(
+    () => onReady(quiz.actions.reorderQuestion),
+    [onReady, quiz.actions.reorderQuestion],
+  );
+  return null;
+}
+
+function quizQuestionIds(editor: Editor): string[] {
+  const quiz = editor.state.doc.child(0);
+  const ids: string[] = [];
+  quiz.forEach((child) => {
+    const id = child.attrs["id"];
+    if (typeof id === "string") ids.push(id);
+  });
+  return ids;
 }
 
 function getQuizEditorFacadeStore(editor: Editor) {

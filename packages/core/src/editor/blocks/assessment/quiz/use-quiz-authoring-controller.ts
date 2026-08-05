@@ -11,6 +11,7 @@ import {
   getQuizAssessmentCatalogItems,
   getQuizChildInteractionTarget,
   moveQuizQuestion,
+  reorderQuizQuestion,
 } from "./quiz-authoring";
 import { getQuizSummary } from "./quiz-shared";
 
@@ -54,6 +55,11 @@ export function useQuizAuthoringController({
       moveQuestion: (childKey: string, index: number, direction: "up" | "down") => {
         if (moveQuizQuestion({ direction, editor, getPos, index, node })) {
           setActiveChildId(childKey);
+        }
+      },
+      reorderQuestion: (sourceKey: string, targetKey: string) => {
+        if (reorderQuizQuestion({ editor, getPos, node, sourceKey, targetKey })) {
+          setActiveChildId(sourceKey);
         }
       },
       openQuestionSettings: () => {

@@ -17,9 +17,15 @@ interface MoveCall {
   readonly index: number;
 }
 
+interface ReorderCall {
+  readonly sourceKey: string;
+  readonly targetKey: string;
+}
+
 interface QuizStripBrowserHarness {
   readonly host: HTMLElement;
   readonly moveCalls: MoveCall[];
+  readonly reorderCalls: ReorderCall[];
   readonly rendered: RenderResult;
   handle(childKey: string): HTMLButtonElement;
   order(): string[];
@@ -42,12 +48,12 @@ afterEach(async () => {
 });
 
 describe("QuizStrip shared horizontal sorting", () => {
-  it("commits one adjacent pointer reorder and keeps central presentation and focus", async () => {
+  it("commits one non-adjacent pointer reorder and keeps central presentation and focus", async () => {
     await page.viewport(1000, 700);
     const harness = await mountQuizStrip();
     mounted.push(harness);
     const source = harness.handle("question-a");
-    const target = harness.handle("question-b");
+    const target = harness.handle("question-c");
     const sourceCenter = centerOf(source.getBoundingClientRect());
     const targetCenter = centerOf(target.getBoundingClientRect());
     const pointer = {
@@ -70,8 +76,9 @@ describe("QuizStrip shared horizontal sorting", () => {
     await finishPointerDrag(pointer);
     await harness.waitForIdle();
 
-    expect(harness.order()).toEqual(["question-b", "question-a", "question-c"]);
-    expect(harness.moveCalls).toEqual([{ childKey: "question-a", direction: "down", index: 0 }]);
+    expect(harness.order()).toEqual(["question-b", "question-c", "question-a"]);
+    expect(harness.reorderCalls).toEqual([{ sourceKey: "question-a", targetKey: "question-c" }]);
+    expect(harness.moveCalls).toEqual([]);
     expect(document.activeElement).toBe(source);
   });
 
@@ -87,6 +94,8 @@ describe("QuizStrip shared horizontal sorting", () => {
     await animationFrames(2);
     expect(harness.placeholder()).toBe(pill(harness.host, "question-b"));
     expect(harness.overlay()).not.toBeNull();
+    expect(document.activeElement).toBe(source);
+    expect(source.closest('[aria-hidden="true"]')).toBeNull();
 
     fireEvent.keyDown(source, { code: "ArrowLeft", key: "ArrowLeft" });
     await animationFrames(2);
@@ -98,7 +107,8 @@ describe("QuizStrip shared horizontal sorting", () => {
     await waitFor(() => harness.order().join("|") === "question-b|question-a|question-c");
     await harness.waitForIdle();
 
-    expect(harness.moveCalls).toEqual([{ childKey: "question-b", direction: "up", index: 1 }]);
+    expect(harness.reorderCalls).toEqual([{ sourceKey: "question-b", targetKey: "question-a" }]);
+    expect(harness.moveCalls).toEqual([]);
     expect(document.activeElement).toBe(source);
     expect(window.matchMedia("(prefers-reduced-motion: reduce)").matches).toBe(true);
   });
@@ -129,6 +139,7 @@ describe("QuizStrip shared horizontal sorting", () => {
     await harness.waitForIdle();
 
     expect(harness.order()).toEqual(before);
+    expect(harness.reorderCalls).toEqual([]);
     expect(harness.moveCalls).toEqual([]);
     expect(document.activeElement).toBe(source);
   });
@@ -149,6 +160,7 @@ async function mountQuizStrip(): Promise<QuizStripBrowserHarness> {
   host.append(ownerRoot);
   document.body.append(host);
   const moveCalls: MoveCall[] = [];
+  const reorderCalls: ReorderCall[] = [];
 
   const rendered = await renderBrowserReact(
     <TestInteractionDragEnvironment
@@ -157,7 +169,7 @@ async function mountQuizStrip(): Promise<QuizStripBrowserHarness> {
       overlayHost={host}
       root={ownerRoot}
     >
-      <QuizStripHarness moveCalls={moveCalls} />
+      <QuizStripHarness moveCalls={moveCalls} reorderCalls={reorderCalls} />
     </TestInteractionDragEnvironment>,
     { baseElement: host, container: reactElement },
   );
@@ -166,6 +178,7 @@ async function mountQuizStrip(): Promise<QuizStripBrowserHarness> {
   return {
     host,
     moveCalls,
+    reorderCalls,
     rendered,
     handle: (childKey) =>
       requiredElement<HTMLButtonElement>(pill(host, childKey), "[data-quiz-strip-drag-handle]"),
@@ -179,7 +192,13 @@ async function mountQuizStrip(): Promise<QuizStripBrowserHarness> {
   };
 }
 
-function QuizStripHarness({ moveCalls }: { moveCalls: MoveCall[] }) {
+function QuizStripHarness({
+  moveCalls,
+  reorderCalls,
+}: {
+  moveCalls: MoveCall[];
+  reorderCalls: ReorderCall[];
+}) {
   const [childKeys, setChildKeys] = useState(["question-a", "question-b", "question-c"]);
   const [activeChildKey, setActiveChildKey] = useState<string | null>("question-a");
   const typeByKey: Record<string, string> = {
@@ -201,10 +220,30 @@ function QuizStripHarness({ moveCalls }: { moveCalls: MoveCall[] }) {
           setChildKeys((current) => moveAdjacent(current, childKey, direction));
           setActiveChildKey(childKey);
         }}
+        onReorder={(sourceKey, targetKey) => {
+          reorderCalls.push({ sourceKey, targetKey });
+          setChildKeys((current) => reorderToTarget(current, sourceKey, targetKey));
+          setActiveChildKey(sourceKey);
+        }}
         onSelect={setActiveChildKey}
       />
     </div>
   );
+}
+
+function reorderToTarget(
+  childKeys: readonly string[],
+  sourceKey: string,
+  targetKey: string,
+): string[] {
+  const sourceIndex = childKeys.indexOf(sourceKey);
+  const targetIndex = childKeys.indexOf(targetKey);
+  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return [...childKeys];
+  const next = [...childKeys];
+  const [source] = next.splice(sourceIndex, 1);
+  if (!source) return next;
+  next.splice(targetIndex, 0, source);
+  return next;
 }
 
 function moveAdjacent(

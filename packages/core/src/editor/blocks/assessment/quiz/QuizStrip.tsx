@@ -22,8 +22,8 @@ import { questionTypeTag } from "./question-type-tags";
 /**
  * Sortable horizontal strip of question pills + a "+ Add" picker.
  * The shared drag session owns pointer/keyboard mechanics and presentation.
- * A completed drop is translated to the controller's existing adjacent
- * `moveQuestion('up' | 'down')` contract at the session end boundary.
+ * A completed drop is committed through the controller's stable-ID reorder
+ * operation. Menu alternatives retain the adjacent movement operation.
  */
 export function QuizStrip({
   activeChildKey,
@@ -32,6 +32,7 @@ export function QuizStrip({
   items,
   onAdd,
   onMove,
+  onReorder,
   onSelect,
 }: {
   activeChildKey: string | null;
@@ -40,15 +41,15 @@ export function QuizStrip({
   items: readonly InsertAction[];
   onAdd: (item: InsertAction) => void;
   onMove: (childKey: string, index: number, direction: "up" | "down") => void;
+  onReorder: (sourceKey: string, targetKey: string) => void;
   onSelect: (childKey: string) => void;
 }) {
   const sessionId = useId();
   const handleDragEnd = (event: InteractionDragEvent<QuizStripDragData, QuizStripDragData>) => {
     const targetKey = event.over?.data.childKey ?? null;
-    if (!targetKey) return;
-    for (const step of getQuizStripReorderSteps(childKeys, event.active.data.childKey, targetKey)) {
-      onMove(step.childKey, step.index, step.direction);
-    }
+    const sourceKey = event.active.data.childKey;
+    if (!targetKey || targetKey === sourceKey) return;
+    onReorder(sourceKey, targetKey);
   };
 
   return (
@@ -92,30 +93,6 @@ interface QuizStripDragData {
   readonly childKey: string;
   readonly index: number;
   readonly type: string | undefined;
-}
-
-export interface QuizStripReorderStep {
-  readonly childKey: string;
-  readonly direction: "up" | "down";
-  readonly index: number;
-}
-
-export function getQuizStripReorderSteps(
-  childKeys: readonly string[],
-  sourceKey: string,
-  targetKey: string,
-): QuizStripReorderStep[] {
-  const sourceIndex = childKeys.indexOf(sourceKey);
-  const targetIndex = childKeys.indexOf(targetKey);
-  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return [];
-
-  const direction = targetIndex < sourceIndex ? "up" : "down";
-  const indexDelta = direction === "up" ? -1 : 1;
-  const steps: QuizStripReorderStep[] = [];
-  for (let index = sourceIndex; index !== targetIndex; index += indexDelta) {
-    steps.push({ childKey: sourceKey, direction, index });
-  }
-  return steps;
 }
 
 function QuizStripPill({

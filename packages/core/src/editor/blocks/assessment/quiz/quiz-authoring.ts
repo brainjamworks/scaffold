@@ -16,7 +16,10 @@ import {
   InteractionTargetKind,
   type InteractionTargetRef,
 } from "@/editor/interactions/targets/model/interaction-owner-state";
-import { moveSiblingNode } from "@/editor/prosemirror/move-sibling/move-sibling-node";
+import {
+  moveSiblingNode,
+  moveSiblingNodeTo,
+} from "@/editor/prosemirror/move-sibling/move-sibling-node";
 import { ASSESSMENT_QUESTION_CONTENT } from "@/document/model/content-model/content-groups";
 import { cloneJsonWithNewStableIds } from "@/document/model/identity/clone-with-new-ids";
 import { createStableId } from "@/document/model/identity/stable-ids";
@@ -106,6 +109,38 @@ export function moveQuizQuestion({
   const childPos = quizChildPosAt(node, pos, index);
   if (childPos === null) return false;
   return moveSiblingNode(editor, childPos, direction);
+}
+
+export function reorderQuizQuestion({
+  editor,
+  getPos,
+  node,
+  sourceKey,
+  targetKey,
+}: {
+  editor: Editor;
+  getPos: (() => number | undefined) | undefined;
+  node: ProseMirrorNode;
+  sourceKey: string;
+  targetKey: string;
+}): boolean {
+  const quizPos = getQuizPos(getPos);
+  if (quizPos === null || sourceKey === targetKey) return false;
+
+  const sourceIndex = quizChildIndexById(node, sourceKey);
+  const targetIndex = quizChildIndexById(node, targetKey);
+  if (sourceIndex < 0 || targetIndex < 0) return false;
+
+  const sourcePos = quizChildPosAt(node, quizPos, sourceIndex);
+  const targetPos = quizChildPosAt(node, quizPos, targetIndex);
+  if (sourcePos === null || targetPos === null) return false;
+
+  return moveSiblingNodeTo(
+    editor,
+    sourcePos,
+    targetPos,
+    sourceIndex < targetIndex ? "after" : "before",
+  );
 }
 
 export function duplicateQuizQuestion({
@@ -261,6 +296,13 @@ function quizChildIdAt(node: ProseMirrorNode, index: number): string | null {
   if (index < 0 || index >= node.childCount) return null;
   const id = node.child(index).attrs["id"];
   return typeof id === "string" && id.length > 0 ? id : null;
+}
+
+function quizChildIndexById(node: ProseMirrorNode, childId: string): number {
+  for (let index = 0; index < node.childCount; index += 1) {
+    if (quizChildIdAt(node, index) === childId) return index;
+  }
+  return -1;
 }
 
 function getQuizAuthoringInputs(editor: Editor): {
