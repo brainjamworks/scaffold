@@ -395,6 +395,154 @@ describe("Matching shared drag runtime", () => {
   });
 });
 
+describe("Categorise shared drag runtime", () => {
+  it.each([
+    { label: "Page", surface: "page" as const, scale: 1, targetClientSize: 44 },
+    { label: "Slideshow 0.5", surface: "slideshow" as const, scale: 0.5, targetClientSize: 27.5 },
+    { label: "Slideshow 0.83", surface: "slideshow" as const, scale: 0.83, targetClientSize: 44 },
+    { label: "Slideshow 1", surface: "slideshow" as const, scale: 1, targetClientSize: 44 },
+    { label: "Slideshow 2", surface: "slideshow" as const, scale: 2, targetClientSize: 44 },
+  ])(
+    "assigns exactly with non-overlapping hit-tested geometry on $label",
+    async ({ surface, scale, targetClientSize }) => {
+      await page.viewport(
+        Math.max(1024, Math.ceil(scale * 1024 + 100)),
+        Math.max(900, Math.ceil(scale * 576 + 100)),
+      );
+      const harness = await mountRuntimeDragHarness({
+        interaction: "categorise",
+        surface,
+        scale,
+      });
+      mounted.push(harness);
+      const source = harness.getActivationAreas()[0]!;
+      const itemId = source.dataset.itemId;
+      expect(itemId).toBeTruthy();
+      const target = categoriseCategory(harness, "birds");
+      assertCategoriseActivationGeometry(harness, targetClientSize);
+      expect(harness.getResponsePlacements()).toEqual({});
+
+      const sourceRect = source.getBoundingClientRect();
+      const drag = await startPointerDrag(
+        harness,
+        source,
+        centerOf(target.getBoundingClientRect()),
+        scale === 0.5 ? "touch" : "mouse",
+        centerOf(sourceRect),
+      );
+      const placeholder = harness.getPlaceholder();
+      expect(placeholder).toBe(source);
+      expect(harness.ownerWindow.getComputedStyle(placeholder!).pointerEvents).toBe("none");
+      const overlay = requiredOverlay(harness);
+      expect(overlay.hasAttribute("inert")).toBe(true);
+      expect(overlay.querySelector("button, [data-interaction-drag-activation-area]")).toBeNull();
+      expectClose(overlay.getBoundingClientRect().width, sourceRect.width, 1);
+      expectClose(overlay.getBoundingClientRect().height, sourceRect.height, 1);
+
+      await finishPointerDrag(harness, drag.pointer, drag.pointerType);
+      await harness.waitForPlacements({ [itemId!]: "birds" }, 1);
+      await harness.waitForIdle();
+      expect(harness.getResponsePlacements()).toEqual({ [itemId!]: "birds" });
+      expect(harness.getResponseRevision()).toBe(1);
+      expect(target.querySelector(`[data-placed-item-id="${itemId}"]`)).not.toBeNull();
+      expect(harness.getAnnouncements()).toEqual([]);
+    },
+  );
+
+  it("cancels and rejects invalid pointer assignments without a response write", async () => {
+    await page.viewport(1024, 768);
+    const harness = await mountRuntimeDragHarness({
+      interaction: "categorise",
+      surface: "page",
+    });
+    mounted.push(harness);
+    const source = harness.getActivationAreas()[0]!;
+    source.focus();
+    await startPointerDrag(
+      harness,
+      source,
+      centerOf(categoriseCategory(harness, "birds").getBoundingClientRect()),
+      "mouse",
+      centerOf(source.getBoundingClientRect()),
+    );
+    fireEvent.keyDown(harness.ownerDocument, { code: "Escape", key: "Escape" });
+    await harness.waitForIdle();
+    expect(harness.getResponsePlacements()).toEqual({});
+    expect(harness.getResponseRevision()).toBe(0);
+    expect(harness.ownerDocument.activeElement).toBe(source);
+
+    const invalid = await startPointerDrag(
+      harness,
+      source,
+      { x: source.getBoundingClientRect().left, y: source.getBoundingClientRect().top - 20 },
+      "mouse",
+      centerOf(source.getBoundingClientRect()),
+    );
+    await finishPointerDrag(harness, invalid.pointer, invalid.pointerType);
+    await harness.waitForIdle();
+    expect(harness.getResponsePlacements()).toEqual({});
+    expect(harness.getResponseRevision()).toBe(0);
+  });
+
+  it("uses Enter then Space selection without draggable announcements", async () => {
+    await page.viewport(1024, 768);
+    const harness = await mountRuntimeDragHarness({
+      interaction: "categorise",
+      surface: "page",
+    });
+    mounted.push(harness);
+    const source = harness.getActivationAreas()[0]!;
+    const itemId = source.dataset.itemId!;
+    const target = categoriseCategory(harness, "fish");
+    expect(source).not.toHaveAttribute("aria-roledescription");
+    expect(source).not.toHaveAttribute("aria-description");
+
+    fireEvent.keyDown(source, { code: "Enter", key: "Enter" });
+    await animationFrames(harness, 1);
+    fireEvent.keyDown(target, { code: "Space", key: " " });
+    await harness.waitForPlacements({ [itemId]: "fish" }, 1);
+    expect(harness.getResponseRevision()).toBe(1);
+    expect(harness.getAnnouncements()).toEqual([]);
+  });
+});
+
+function categoriseCategory(harness: RuntimeDragBrowserHarness, categoryId: string): HTMLElement {
+  const category = harness.player.querySelector<HTMLElement>(`[data-bin-id="${categoryId}"]`);
+  if (!category) throw new Error(`Expected Categorise category ${categoryId}.`);
+  return category;
+}
+
+function assertCategoriseActivationGeometry(
+  harness: RuntimeDragBrowserHarness,
+  targetClientSize: number,
+) {
+  const activators = harness.getActivationAreas();
+  expect(activators).toHaveLength(2);
+  const sourceRects = activators.map((activator, index) => {
+    expect(activator.tagName).toBe("BUTTON");
+    const rect = activator.getBoundingClientRect();
+    expect(rect.height).toBeGreaterThanOrEqual(targetClientSize - 0.75);
+    if (index === 0) {
+      const hit = harness.ownerDocument.elementFromPoint(
+        rect.left + rect.width / 2,
+        rect.top + rect.height / 2,
+      );
+      expect(hit).not.toBeNull();
+      expect(activator.contains(hit)).toBe(true);
+    }
+    return rect;
+  });
+  expect(rectanglesOverlap(sourceRects[0]!, sourceRects[1]!)).toBe(false);
+  const categoryRects = ["birds", "fish"].map((id) =>
+    categoriseCategory(harness, id).getBoundingClientRect(),
+  );
+  expect(rectanglesOverlap(categoryRects[0]!, categoryRects[1]!)).toBe(false);
+}
+
+function rectanglesOverlap(a: DOMRect, b: DOMRect): boolean {
+  return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+}
+
 function matchingSource(harness: RuntimeDragBrowserHarness, itemId: string): HTMLElement {
   const source = harness.player.querySelector<HTMLElement>(
     `[data-matching-draggable-item][data-item-id="${itemId}"]`,

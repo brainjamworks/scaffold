@@ -1,17 +1,3 @@
-import {
-  DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  closestCenter,
-  useDraggable,
-  useDroppable,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragOverEvent,
-  type DragStartEvent,
-} from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
 import { XIcon as X } from "@phosphor-icons/react";
 import { DOMSerializer } from "@tiptap/pm/model";
 import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
@@ -20,11 +6,10 @@ import { useId, useMemo, useState } from "react";
 import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { RichFeedbackRuntimePopover } from "@/editor/blocks/assessment/shared/chrome/RichFeedbackRuntimePopover";
 import { useAssessmentRuntimeById } from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
-import {
-  RUNTIME_DRAG_SOURCE_PLACEHOLDER_CLASS,
-  RuntimeDragOverlay,
-  RuntimeDragPreview,
-} from "@/editor/blocks/assessment/shared/runtime/runtime-dnd";
+import { InteractionDragActivationArea } from "@/editor/interactions/drag/react/InteractionDragActivationArea";
+import { InteractionDragSession } from "@/editor/interactions/drag/react/InteractionDragSession";
+import { useInteractionDragSource } from "@/editor/interactions/drag/react/use-interaction-drag-source";
+import { useInteractionDropTarget } from "@/editor/interactions/drag/react/use-interaction-drop-target";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 import { cn } from "@/lib/cn";
 import { AssessmentFeedbackContentSchema } from "@scaffold/contracts";
@@ -74,14 +59,18 @@ type CategoriseFeedbackResultItems = Record<
   { correct: boolean; expected?: unknown; given?: unknown; feedback?: unknown }
 >;
 
+interface CategoriseDragData {
+  readonly html: string;
+  readonly itemId: string;
+}
+
+interface CategoriseDropData {
+  readonly categoryId: string;
+}
+
 function CategoriseContentRuntimeNodeView(props: NodeViewProps) {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  const [draggingItemId, setDraggingItemId] = useState<string | null>(null);
   const [hoveredCategoryId, setHoveredCategoryId] = useState<string | null>(null);
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(KeyboardSensor),
-  );
   const pos = safeGetPos(props.getPos);
   const authoredBlockId = findAncestorAssessmentBlockId(props.editor, pos ?? undefined, [
     "categorise",
@@ -119,41 +108,36 @@ function CategoriseContentRuntimeNodeView(props: NodeViewProps) {
   );
   const sourceItems = orderedItems.filter((item) => displayPlacements[item.id] === undefined);
   const itemById = new Map(items.map((item) => [item.id, item]));
-  const draggingItem = draggingItemId ? (itemById.get(draggingItemId) ?? null) : null;
 
   const commitPlacement = (itemId: string, categoryId: string) => {
     if (interactionLocked) return;
     problem?.setPlacement(itemId, categoryId);
     setSelectedItemId(null);
-    setDraggingItemId(null);
     setHoveredCategoryId(null);
   };
   const clearDragState = () => {
-    setDraggingItemId(null);
     setHoveredCategoryId(null);
   };
-  const handleDragStart = (event: DragStartEvent) => {
-    if (interactionLocked) return;
-    const itemId = runtimeCategoriseItemId(event.active.data.current);
-    if (!itemId) {
-      clearDragState();
-      return;
-    }
-    setDraggingItemId(itemId);
+  const handleDragStart = () => {
     setSelectedItemId(null);
   };
-  const handleDragOver = (event: DragOverEvent) => {
-    if (interactionLocked) return;
-    setHoveredCategoryId(runtimeCategoriseCategoryId(event.over?.data.current) ?? null);
+  const handleDragMove = (event: { over: { data: CategoriseDropData } | null }) => {
+    setHoveredCategoryId(interactionLocked ? null : (event.over?.data.categoryId ?? null));
   };
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = (event: {
+    active: { data: CategoriseDragData };
+    over: { data: CategoriseDropData } | null;
+  }) => {
     if (interactionLocked) {
       clearDragState();
       return;
     }
-    const itemId = runtimeCategoriseItemId(event.active.data.current);
-    const categoryId = runtimeCategoriseCategoryId(event.over?.data.current);
-    if (itemId && categoryId) {
+    const itemId = event.active.data.itemId;
+    const categoryId = event.over?.data.categoryId ?? null;
+    const itemAvailable = itemById.has(itemId) && displayPlacements[itemId] === undefined;
+    const categoryAvailable =
+      categoryId !== null && categories.some((category) => category.id === categoryId);
+    if (itemAvailable && categoryAvailable && categoryId) {
       commitPlacement(itemId, categoryId);
       return;
     }
@@ -167,13 +151,21 @@ function CategoriseContentRuntimeNodeView(props: NodeViewProps) {
       className="sc-categorise-content sc-categorise-content--runtime"
     >
       <div data-bounded-scroll="" className="sc-categorise-content-scroll">
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragCancel={clearDragState}
-          onDragEnd={handleDragEnd}
-          onDragOver={handleDragOver}
-          onDragStart={handleDragStart}
+        <InteractionDragSession<CategoriseDragData, CategoriseDropData>
+          accessibilityMode="selection-alternative"
+          collisionPolicy="pointer"
+          labels={{ draggable: "Categorise item" }}
+          onCancel={clearDragState}
+          onEnd={handleDragEnd}
+          onMove={handleDragMove}
+          onStart={handleDragStart}
+          profile="pointer"
+          renderPreview={(active) => (
+            <div className="sc-categorise-runtime-preview">
+              {renderStaticHtml(active.html, "Item")}
+            </div>
+          )}
+          sessionId={`categorise-${authoredBlockId ?? "runtime"}`}
         >
           {sourceItems.length > 0 && (
             <div className="sc-categorise-runtime-source">
@@ -193,6 +185,7 @@ function CategoriseContentRuntimeNodeView(props: NodeViewProps) {
                       interactionLocked={interactionLocked}
                       item={item}
                       selected={selected}
+                      onEscape={() => setSelectedItemId(null)}
                       onSelect={() => {
                         if (interactionLocked) return;
                         setSelectedItemId(selected ? null : item.id);
@@ -229,14 +222,7 @@ function CategoriseContentRuntimeNodeView(props: NodeViewProps) {
               );
             })}
           </div>
-          <RuntimeDragOverlay>
-            {draggingItem ? (
-              <RuntimeDragPreview className="sc-categorise-runtime-preview">
-                {renderStaticHtml(draggingItem.html, "Item")}
-              </RuntimeDragPreview>
-            ) : null}
-          </RuntimeDragOverlay>
-        </DndContext>
+        </InteractionDragSession>
       </div>
       <div data-bounded-scroll-hint="" aria-hidden="true">
         Scroll for more ↓
@@ -250,6 +236,7 @@ function CategoriseRuntimeSourceItem({
   index,
   interactionLocked,
   item,
+  onEscape,
   onSelect,
   selected,
 }: {
@@ -257,46 +244,56 @@ function CategoriseRuntimeSourceItem({
   index: number;
   interactionLocked: boolean;
   item: CategoriseItemProjection;
+  onEscape: () => void;
   onSelect: () => void;
   selected: boolean;
 }) {
   const descriptionId = useId();
-  const { attributes, isDragging, listeners, setNodeRef, transform } = useDraggable({
-    id: `categorise-runtime-item:${item.id}`,
+  const drag = useInteractionDragSource<CategoriseDragData>({
+    data: { html: item.html, itemId: item.id },
     disabled: interactionLocked,
-    data: {
-      categoriseRuntimeItem: true,
-      itemId: item.id,
-    },
+    id: `categorise-runtime-item:${item.id}`,
+    label: `Categorise item ${index + 1}`,
   });
-  const style =
-    transform && !isDragging ? { transform: CSS.Translate.toString(transform) } : undefined;
 
   return (
-    <div
-      {...attributes}
-      {...listeners}
-      ref={setNodeRef}
-      role="button"
+    <InteractionDragActivationArea
+      {...drag.activatorProps}
+      {...drag.sourceProps}
+      ref={(element) => {
+        drag.setNodeRef(element);
+        drag.setActivatorNodeRef(element);
+      }}
+      type="button"
+      safeLocalHeight={55}
+      safeLocalWidth={55}
       tabIndex={interactionLocked ? -1 : 0}
+      aria-disabled={interactionLocked || undefined}
       aria-pressed={selected}
       aria-label={`Select item ${index + 1}`}
       aria-describedby={descriptionId}
       data-item-id={item.id}
       onClick={onSelect}
-      style={style}
+      onKeyDown={(event) => {
+        if (interactionLocked) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onSelect();
+        }
+        if (event.key === "Escape") onEscape();
+      }}
       className={cn(
         "sc-categorise-runtime-source-item",
         selected && "sc-categorise-runtime-source-item--selected",
         !interactionLocked && "sc-categorise-runtime-source-item--interactive",
-        isDragging && RUNTIME_DRAG_SOURCE_PLACEHOLDER_CLASS,
+        drag.isPlaceholder && "sc-categorise-runtime-source-item--placeholder",
       )}
     >
       {renderStaticHtml(item.html, `Item ${index + 1}`)}
       <span id={descriptionId} className="sc-sr-only">
         {description}
       </span>
-    </div>
+    </InteractionDragActivationArea>
   );
 }
 
@@ -329,16 +326,15 @@ function CategoriseRuntimeCategory({
   showFeedback: boolean;
   submitted: boolean;
 }) {
-  const { isOver, setNodeRef } = useDroppable({
-    id: `categorise-runtime-category:${category.id}`,
+  const drop = useInteractionDropTarget<CategoriseDropData>({
+    data: { categoryId: category.id },
     disabled: interactionLocked,
-    data: {
-      categoriseRuntimeCategory: true,
-      categoryId: category.id,
-    },
+    id: `categorise-runtime-category:${category.id}`,
   });
   const activeDrop =
-    isOver || hoveredCategoryId === category.id || (selectedItemId !== null && !interactionLocked);
+    drop.isOver ||
+    hoveredCategoryId === category.id ||
+    (selectedItemId !== null && !interactionLocked);
   const categoryDescription = describeCategoriseCategoryAccessibilityState({
     activeDrop,
     placedCount: items.length,
@@ -347,13 +343,21 @@ function CategoriseRuntimeCategory({
 
   return (
     <div
-      ref={setNodeRef}
+      {...drop.targetProps}
+      ref={drop.setNodeRef}
       role="button"
       tabIndex={interactionLocked ? -1 : 0}
       aria-label={`Category ${index + 1}`}
       aria-describedby={categoryDescriptionId}
       data-bin-id={category.id}
       onClick={onPlaceSelected}
+      onKeyDown={(event) => {
+        if (interactionLocked || !selectedItemId) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onPlaceSelected();
+        }
+      }}
       className={cn(
         "sc-categorise-runtime-category",
         activeDrop && "sc-categorise-runtime-category--active",
@@ -469,18 +473,6 @@ function CategoriseRuntimePlacedItem({
       </span>
     </div>
   );
-}
-
-function runtimeCategoriseItemId(data: Record<string, unknown> | undefined) {
-  if (data?.["categoriseRuntimeItem"] !== true) return null;
-  const itemId = data["itemId"];
-  return typeof itemId === "string" && itemId.length > 0 ? itemId : null;
-}
-
-function runtimeCategoriseCategoryId(data: Record<string, unknown> | undefined) {
-  if (data?.["categoriseRuntimeCategory"] !== true) return null;
-  const categoryId = data["categoryId"];
-  return typeof categoryId === "string" && categoryId.length > 0 ? categoryId : null;
 }
 
 function renderStaticHtml(html: string, fallback: string) {

@@ -15,6 +15,7 @@ import {
   assessmentProblemOutcome,
   createAssessmentRuntimeTestRoot,
   hasAssessmentRegistration,
+  localAssessmentResponse,
   setAssessmentResponseField,
 } from "@/runtime/assessment/test-utils";
 import type { AssessmentStoreApi } from "@/runtime/assessment/types";
@@ -517,7 +518,8 @@ describe("composite categorise node", () => {
     expect(source).toBeInstanceOf(HTMLElement);
     expect(bins).toBeInstanceOf(HTMLElement);
     expect(source?.nextElementSibling).toBe(bins);
-    expect(source?.querySelectorAll('[role="button"][data-item-id]')).toHaveLength(2);
+    expect(source?.querySelectorAll("button[data-item-id]")).toHaveLength(2);
+    expect(source?.querySelectorAll("[data-interaction-drag-activation-area]")).toHaveLength(2);
     expect(bins?.querySelectorAll('[role="button"][data-bin-id]')).toHaveLength(2);
     expect(bins?.querySelector("[data-bounded-scroll]")).toBeNull();
     expect(shell?.hasAttribute("data-bounded-scroll")).toBe(false);
@@ -1029,6 +1031,42 @@ describe("composite categorise node", () => {
     await waitFor(() => {
       expect(describedText('[data-bin-id="birds"]')).toBe("Contains 1 item");
       expect(describedText('[data-placed-item-id="salmon"]')).toBe("Placed item");
+    });
+
+    editor.destroy();
+  });
+
+  it("places once through the Enter then Space selection contract", async () => {
+    const editor = makeEditor(false);
+    editor.commands.setContent(learnerCategoriseDoc({ showAnswer: true }));
+    const problemId = "artifact:artifact-1/block:categorise-1";
+    renderAssessmentEditor(editor);
+
+    await waitFor(() => {
+      expect(hasAssessmentRegistration(assessmentStore, problemId)).toBe(true);
+    });
+    const source = screen.getByRole("button", { name: "Select item 1" });
+    expect(source).toBeInstanceOf(HTMLButtonElement);
+    expect(source).not.toHaveAttribute("role");
+    expect(source).not.toHaveAttribute("aria-roledescription");
+    expect(source).not.toHaveAttribute("aria-description");
+    expect(source).toHaveAttribute("data-interaction-drag-activation-area", "");
+    const selectedItemId = source.getAttribute("data-item-id");
+    expect(selectedItemId).not.toBeNull();
+    const category = document.body.querySelector<HTMLElement>('[data-bin-id="birds"]');
+    expect(category).toBeInstanceOf(HTMLElement);
+
+    fireEvent.keyDown(source, { key: "Enter" });
+    fireEvent.keyDown(category!, { key: " " });
+
+    await waitFor(() => {
+      expect(localAssessmentResponse(assessmentStore, problemId)).toMatchObject({
+        placements: { [selectedItemId!]: "birds" },
+      });
+    });
+    fireEvent.keyDown(category!, { key: " " });
+    expect(localAssessmentResponse(assessmentStore, problemId)).toMatchObject({
+      placements: { [selectedItemId!]: "birds" },
     });
 
     editor.destroy();

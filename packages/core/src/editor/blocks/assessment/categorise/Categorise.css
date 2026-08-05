@@ -243,11 +243,17 @@
   }
 
   .sc-categorise-runtime-source-item {
+    position: relative;
+    width: 100%;
+    justify-content: flex-start;
     border-radius: var(--radius-xl);
     background: var(--color-background);
     padding: 0.75rem 1rem;
+    color: var(--color-ink);
+    font: inherit;
     font-size: var(--text-sm);
     line-height: var(--leading-snug);
+    text-align: left;
   }
 
   .sc-categorise-runtime-source-item p {
@@ -270,6 +276,41 @@
 
   .sc-categorise-runtime-source-item--interactive:active {
     cursor: grabbing;
+  }
+
+  .sc-categorise-runtime-source-item--placeholder {
+    pointer-events: none;
+    border-style: dashed;
+    border-color: var(--color-border);
+    background: var(--color-canvas);
+    cursor: default;
+  }
+
+  .sc-categorise-runtime-source-item--placeholder > * {
+    visibility: hidden;
+  }
+
+  .sc-categorise-runtime-source-item--placeholder::after {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: var(--color-text-muted);
+    content: "Item being categorised";
+  }
+
+  .sc-categorise-runtime-preview {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: calc(100vw - 2rem);
+    min-height: var(--spacing-touch-target);
+    padding: 0.75rem 1rem;
+    border: calc(var(--sc-border-width) * 1.5) solid var(--color-primary);
+    border-radius: var(--radius-xl);
+    background: var(--color-background);
+    box-shadow: var(--shadow-overlay);
+    pointer-events: none;
+    user-select: none;
   }
 
   .sc-categorise-runtime-placed-item--correct {

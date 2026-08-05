@@ -18,10 +18,11 @@ import { SlideshowPlayer } from "./slideshow/SlideshowPlayer";
 
 const SEQUENCING_PROBLEM_ID = "artifact:artifact-1/block:seq-1";
 const MATCHING_PROBLEM_ID = "artifact:artifact-1/block:matching-1";
+const CATEGORISE_PROBLEM_ID = "artifact:artifact-1/block:categorise-1";
 const RUNTIME_DRAG_SURFACE_ID = "runtime_drag";
 
 export interface RuntimeDragBrowserHarnessOptions {
-  readonly interaction?: "matching" | "sequencing";
+  readonly interaction?: "categorise" | "matching" | "sequencing";
   readonly surface: "page" | "slideshow";
   readonly ownerDocument?: Document;
   readonly width?: number;
@@ -51,6 +52,7 @@ export interface RuntimeDragBrowserHarness {
   getTargets(selector?: string): HTMLElement[];
   getResponseOrder(): string[];
   getResponseMatches(): Record<string, string>;
+  getResponsePlacements(): Record<string, string>;
   getResponseRevision(): number;
   getActivationAreas(): HTMLElement[];
   getAnnouncements(): string[];
@@ -63,6 +65,10 @@ export interface RuntimeDragBrowserHarness {
   waitForResponse(expectedOrder: readonly string[], expectedRevision: number): Promise<void>;
   waitForMatches(
     expectedMatches: Readonly<Record<string, string>>,
+    expectedRevision: number,
+  ): Promise<void>;
+  waitForPlacements(
+    expectedPlacements: Readonly<Record<string, string>>,
     expectedRevision: number,
   ): Promise<void>;
   dispose(): void;
@@ -78,7 +84,12 @@ export async function mountRuntimeDragHarness(
   if (!ownerWindow) throw new Error("Runtime drag harness requires an owner window.");
   const harnessId = `runtime-drag-harness-${Math.random().toString(36).slice(2)}`;
   const interaction = options.interaction ?? "sequencing";
-  const problemId = interaction === "matching" ? MATCHING_PROBLEM_ID : SEQUENCING_PROBLEM_ID;
+  const problemId =
+    interaction === "matching"
+      ? MATCHING_PROBLEM_ID
+      : interaction === "categorise"
+        ? CATEGORISE_PROBLEM_ID
+        : SEQUENCING_PROBLEM_ID;
 
   const host = ownerDocument.createElement("div");
   const scale = options.scale ?? 1;
@@ -142,9 +153,9 @@ export async function mountRuntimeDragHarness(
   }
 
   await waitFor(ownerWindow, () =>
-    interaction === "matching"
+    interaction !== "sequencing"
       ? assessmentStore !== null &&
-        player.querySelector('[data-matching-draggable-item][data-item-id="i1"]') !== null
+        player.querySelector("[data-interaction-drag-activation-area][data-item-id]") !== null
       : responseOrder(assessmentStore).length === 3,
   );
   const responseStore = assessmentStore as NonNullable<
@@ -202,6 +213,7 @@ export async function mountRuntimeDragHarness(
       Array.from(player.querySelectorAll<HTMLElement>(selector)),
     getResponseOrder: () => responseOrder(assessmentStore),
     getResponseMatches: () => responseMatches(assessmentStore),
+    getResponsePlacements: () => responsePlacements(assessmentStore),
     getResponseRevision: () => responseRevision,
     getActivationAreas: () =>
       Array.from(player.querySelectorAll<HTMLElement>("[data-interaction-drag-activation-area]")),
@@ -254,6 +266,14 @@ export async function mountRuntimeDragHarness(
           sameStringRecord(responseMatches(assessmentStore), expectedMatches),
       );
     },
+    waitForPlacements: async (expectedPlacements, expectedRevision) => {
+      await waitFor(
+        ownerWindow,
+        () =>
+          responseRevision >= expectedRevision &&
+          sameStringRecord(responsePlacements(assessmentStore), expectedPlacements),
+      );
+    },
     dispose: () => {
       announcementObserver.disconnect();
       stopResponseObservation();
@@ -282,13 +302,18 @@ async function waitFor(ownerWindow: Window, predicate: () => boolean): Promise<v
 
 function runtimeDragDocument(
   mode: "page" | "slideshow",
-  interaction: "matching" | "sequencing",
+  interaction: "categorise" | "matching" | "sequencing",
 ): JSONContent {
   const content = createScaffoldDocumentContent({ mode, surfaceId: RUNTIME_DRAG_SURFACE_ID });
   const courseDocument = content.content?.[0];
   if (!courseDocument) throw new Error("Runtime drag harness document is incomplete.");
   courseDocument.attrs = { ...courseDocument.attrs, mode };
-  const block = interaction === "matching" ? matchingRuntimeBlock() : sequencingRuntimeBlock();
+  const block =
+    interaction === "matching"
+      ? matchingRuntimeBlock()
+      : interaction === "categorise"
+        ? categoriseRuntimeBlock()
+        : sequencingRuntimeBlock();
   const surface = courseDocument.content?.[0];
   if (surface) {
     if (mode === "page") {
@@ -306,6 +331,65 @@ function runtimeDragDocument(
     }
   }
   return content;
+}
+
+function categoriseRuntimeBlock(): JSONContent {
+  return {
+    type: "categorise",
+    attrs: {
+      id: "categorise-1",
+      assessment: {
+        feedbackByItemId: {},
+      },
+      settings: {
+        feedbackMode: "on_submit",
+        isGraded: true,
+        showAnswer: true,
+        points: 1,
+      },
+    },
+    content: [
+      { type: "assessment_title", content: [{ type: "paragraph" }] },
+      { type: "assessment_instructions", content: [{ type: "paragraph" }] },
+      { type: "assessment_prompt", content: [{ type: "paragraph" }] },
+      {
+        type: "categorise_content",
+        content: [
+          {
+            type: "categorise_bins_group",
+            content: [
+              { id: "birds", label: "Birds" },
+              { id: "fish", label: "Fish" },
+            ].map(({ id, label }) => ({
+              type: "categorise_bin",
+              attrs: { id },
+              content: [{ type: "paragraph", content: [{ type: "text", text: label }] }],
+            })),
+          },
+          {
+            type: "categorise_items_group",
+            content: [
+              { id: "eagle", label: "Eagle" },
+              { id: "salmon", label: "Salmon" },
+            ].map(({ id, label }) => ({
+              type: "categorise_item",
+              attrs: { id },
+              content: [
+                {
+                  type: "categorise_item_body",
+                  content: [{ type: "paragraph", content: [{ type: "text", text: label }] }],
+                },
+              ],
+            })),
+          },
+        ],
+      },
+      {
+        type: "assessment_actions_group",
+        content: [{ type: "assessment_hints_group" }, { type: "assessment_summary_feedback" }],
+      },
+    ],
+  };
 }
 
 function matchingRuntimeBlock(): JSONContent {
@@ -473,6 +557,19 @@ function responseMatches(
   return Object.fromEntries(
     Object.entries(matches).flatMap(([itemId, targetId]) =>
       typeof targetId === "string" ? [[itemId, targetId]] : [],
+    ),
+  );
+}
+
+function responsePlacements(
+  store: Parameters<typeof localAssessmentResponse>[0],
+): Record<string, string> {
+  const response = localAssessmentResponse(store, CATEGORISE_PROBLEM_ID);
+  const placements = response?.placements;
+  if (!placements || typeof placements !== "object" || Array.isArray(placements)) return {};
+  return Object.fromEntries(
+    Object.entries(placements).flatMap(([itemId, categoryId]) =>
+      typeof categoryId === "string" ? [[itemId, categoryId]] : [],
     ),
   );
 }
