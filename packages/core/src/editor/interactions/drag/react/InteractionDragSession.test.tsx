@@ -352,7 +352,7 @@ describe("InteractionDragSession", () => {
   it("cancels for source removal and environment loss", () => {
     const onCancel = vi.fn();
     const fixture = createFixtureGeometry(1);
-    const view = render(<CancelableFixture fixture={fixture} onCancel={onCancel} />);
+    render(<CancelableFixture fixture={fixture} onCancel={onCancel} />);
     document.dispatchEvent(pointerEvent("pointermove", 20, 20));
     startDrag("source", pointerEvent("pointerdown", 20, 20));
 
@@ -362,7 +362,7 @@ describe("InteractionDragSession", () => {
     act(() => screen.getByRole("button", { name: "Restore source" }).click());
     startDrag("source", pointerEvent("pointerdown", 20, 20));
     fixture.overlayHost.remove();
-    view.rerender(<CancelableFixture fixture={fixture} onCancel={onCancel} />);
+    moveDrag("source", "source", { x: 5, y: 5 });
     expect(onCancel).toHaveBeenLastCalledWith("environment-lost");
   });
 

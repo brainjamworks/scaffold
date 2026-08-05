@@ -276,6 +276,10 @@ export function InteractionDragSession<ActiveData, OverData>({
       activeSessionRef.current = activeSession;
       activeSession.stopCoordinateSubscription = environment.coordinateSpace.subscribe(() => {
         if (activeSessionRef.current !== activeSession) return;
+        if (!environmentElementsAreLive(environment)) {
+          cancelActiveSession("environment-lost");
+          return;
+        }
         const nextSnapshot = environment.coordinateSpace.measure();
         if (!nextSnapshot) {
           cancelActiveSession("environment-lost");
@@ -317,35 +321,53 @@ export function InteractionDragSession<ActiveData, OverData>({
     [cancelActiveSession, environment],
   );
 
-  const handleDragMove = useCallback((event: DragMoveEvent) => {
-    const activeSession = activeSessionRef.current;
-    if (!activeSession) return;
-    const over = overEntity<OverData>(event.over);
-    if (activeSession.input === "keyboard") {
+  const handleDragMove = useCallback(
+    (event: DragMoveEvent) => {
+      const activeSession = activeSessionRef.current;
+      if (!activeSession) return;
+      if (!environmentElementsAreLive(activeSession.environment)) {
+        cancelActiveSession("environment-lost");
+        return;
+      }
+      const over = overEntity<OverData>(event.over);
+      if (activeSession.input === "keyboard") {
+        callbacksRef.current.onMove?.(
+          normalizedEvent(
+            activeSession.active,
+            over,
+            "keyboard",
+            null,
+            null,
+            activeSession.snapshot,
+          ),
+        );
+        return;
+      }
+      const clientDelta = createClientDelta(event.delta.x, event.delta.y);
+      if (!clientDelta) return;
+      activeSession.latestMove = { clientDelta, over };
       callbacksRef.current.onMove?.(
-        normalizedEvent(activeSession.active, over, "keyboard", null, null, activeSession.snapshot),
+        normalizedEvent(
+          activeSession.active,
+          over,
+          "pointer",
+          pointerTrackerRef.current?.getLatestClientPoint() ?? null,
+          clientDelta,
+          activeSession.snapshot,
+        ),
       );
-      return;
-    }
-    const clientDelta = createClientDelta(event.delta.x, event.delta.y);
-    if (!clientDelta) return;
-    activeSession.latestMove = { clientDelta, over };
-    callbacksRef.current.onMove?.(
-      normalizedEvent(
-        activeSession.active,
-        over,
-        "pointer",
-        pointerTrackerRef.current?.getLatestClientPoint() ?? null,
-        clientDelta,
-        activeSession.snapshot,
-      ),
-    );
-  }, []);
+    },
+    [cancelActiveSession],
+  );
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       const activeSession = activeSessionRef.current;
       if (!activeSession) return;
+      if (!environmentElementsAreLive(activeSession.environment)) {
+        cancelActiveSession("environment-lost", false);
+        return;
+      }
       const over = overEntity<OverData>(event.over);
       if (!over) {
         cancelActiveSession("invalid-drop", false);
@@ -723,6 +745,20 @@ function restoreFocus(element: HTMLElement | null): void {
   } catch {
     element.focus();
   }
+}
+
+function environmentElementsAreLive(environment: ReadyInteractionDragEnvironment): boolean {
+  const { collisionBoundary, coordinateRoot, overlayHost, ownerDocument, ownerWindow } =
+    environment;
+  return (
+    coordinateRoot.isConnected &&
+    overlayHost.isConnected &&
+    collisionBoundary.isConnected &&
+    coordinateRoot.ownerDocument === ownerDocument &&
+    overlayHost.ownerDocument === ownerDocument &&
+    collisionBoundary.ownerDocument === ownerDocument &&
+    ownerDocument.defaultView === ownerWindow
+  );
 }
 
 function useReducedMotion(ownerWindow: Window | null): boolean {
