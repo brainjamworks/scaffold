@@ -28,8 +28,7 @@ def target(target_id, points, is_graded=True):
 def result(score):
     return {
         "isCorrect": score == 1,
-        "score": score,
-        "maxScore": 1,
+        "score": {"scaled": score},
         "feedback": None,
         "items": {},
     }

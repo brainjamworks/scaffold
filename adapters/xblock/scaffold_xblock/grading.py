@@ -59,10 +59,24 @@ def summary_feedback(assessment):
 def empty_grade_result(feedback=None):
     return {
         "isCorrect": False,
-        "score": 0,
-        "maxScore": 1,
+        "score": scaled_score(0),
         "feedback": feedback,
         "items": {},
+    }
+
+
+def scaled_score(scaled):
+    return {"scaled": scaled}
+
+
+def count_score(raw, maximum):
+    if maximum <= 0:
+        return scaled_score(0)
+    return {
+        "scaled": raw / maximum,
+        "raw": raw,
+        "min": 0,
+        "max": maximum,
     }
 
 
@@ -126,8 +140,7 @@ def grade_single_select_target(interaction, assessment, response):
         items[option_id] = item
     return {
         "isCorrect": is_correct,
-        "score": 1 if is_correct else 0,
-        "maxScore": 1,
+        "score": count_score(1 if is_correct else 0, 1),
         "feedback": summary_feedback(assessment),
         "items": items,
     }
@@ -156,29 +169,21 @@ def grade_multi_select_target(interaction, assessment, response):
     if not expected:
         return {
             "isCorrect": False,
-            "score": 0,
-            "maxScore": 1,
+            "score": scaled_score(0),
             "feedback": summary_feedback(assessment),
             "items": items,
         }
     if len(selected) == len(expected) and selected == expected:
         return {
             "isCorrect": True,
-            "score": 1,
-            "maxScore": 1,
+            "score": count_score(len(expected), len(expected)),
             "feedback": summary_feedback(assessment),
             "items": items,
         }
-    per_correct = 1 / len(expected)
-    score = max(
-        0,
-        (len(selected & expected) * per_correct)
-        - (len([item for item in selected if item not in expected]) * per_correct),
-    )
+    raw = max(0, len(selected & expected) - len(selected - expected))
     return {
         "isCorrect": False,
-        "score": score,
-        "maxScore": 1,
+        "score": count_score(raw, len(expected)),
         "feedback": summary_feedback(assessment),
         "items": items,
     }
@@ -216,8 +221,7 @@ def grade_sequence_target(assessment, response):
     is_correct = same_set and correct_count == len(expected)
     return {
         "isCorrect": is_correct,
-        "score": 1 if is_correct else correct_count / len(expected),
-        "maxScore": 1,
+        "score": count_score(correct_count, len(expected)),
         "feedback": summary_feedback(assessment),
         "items": items,
     }
@@ -269,8 +273,7 @@ def grade_pair_target(
         return empty_grade_result(feedback)
     return {
         "isCorrect": correct_count == total,
-        "score": correct_count / total,
-        "maxScore": 1,
+        "score": count_score(correct_count, total),
         "feedback": feedback,
         "items": items,
     }
@@ -325,8 +328,7 @@ def grade_fill_blanks_target(assessment, response):
         return empty_grade_result(summary_feedback(assessment))
     return {
         "isCorrect": correct_count == total,
-        "score": correct_count / total,
-        "maxScore": 1,
+        "score": count_score(correct_count, total),
         "feedback": summary_feedback(assessment),
         "items": items,
     }
@@ -365,10 +367,9 @@ def grade_hotspot_target(interaction, assessment, response):
     all_correct = correct_count == len(hotspot_ids)
     return {
         "isCorrect": all_correct,
-        "score": (1 if all_correct else 0)
+        "score": count_score(1 if all_correct else 0, 1)
         if assessment.get("gradingMode") == "all-or-nothing"
-        else correct_count / len(hotspot_ids),
-        "maxScore": 1,
+        else count_score(correct_count, len(hotspot_ids)),
         "feedback": summary_feedback(assessment),
         "items": items,
     }

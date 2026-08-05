@@ -91,7 +91,6 @@ class RecordingBridge implements XBlockInnerBridge {
           finishedAt: null,
           expiresAt: null,
           score: null,
-          maxScore: null,
           successStatus: null,
           resultsByTargetId: {},
           answerReviewAuthorized: false,
@@ -110,8 +109,7 @@ class RecordingBridge implements XBlockInnerBridge {
           submitted: true,
           submissionResult: {
             isCorrect: true,
-            score: 1,
-            maxScore: 1,
+            score: { scaled: 1, raw: 1, min: 0, max: 1 },
             feedback: null,
             items: {},
           },
@@ -172,8 +170,7 @@ describe("XBlock assessment ports", () => {
         submitted: true,
         submissionResult: {
           isCorrect: true,
-          score: 1,
-          maxScore: 1,
+          score: { scaled: 1, raw: 1, min: 0, max: 1 },
           feedback: null,
           items: {},
         },

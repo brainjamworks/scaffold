@@ -122,8 +122,10 @@ class AssessmentMigrationTest(unittest.TestCase):
             upgraded["quizzes"]["quiz-1"]["finishedAt"],
             "2026-07-20T10:05:00Z",
         )
-        self.assertEqual(upgraded["quizzes"]["quiz-1"]["score"], 1.0)
-        self.assertEqual(upgraded["quizzes"]["quiz-1"]["maxScore"], 2.0)
+        self.assertEqual(
+            upgraded["quizzes"]["quiz-1"]["score"],
+            {"scaled": 0.5, "raw": 1, "min": 0, "max": 2},
+        )
         self.assertIsNone(upgraded["quizzes"]["quiz-1"]["successStatus"])
         self.assertIsNone(upgraded["quizzes"]["quiz-2"]["successStatus"])
         self.assertEqual(
@@ -233,8 +235,7 @@ def assessment_snapshot(version):
                 "startedAt": "2026-07-20T10:00:00Z",
                 "finishedAt": "2026-07-20T10:05:00Z",
                 "expiresAt": None,
-                "score": 1.0,
-                "maxScore": 2.0,
+                "score": {"scaled": 0.5, "raw": 1, "min": 0, "max": 2},
                 "resultsByTargetId": {},
                 "answerReviewAuthorized": True,
             },
@@ -247,7 +248,6 @@ def assessment_snapshot(version):
                 "finishedAt": None,
                 "expiresAt": None,
                 "score": None,
-                "maxScore": None,
                 "resultsByTargetId": {},
                 "answerReviewAuthorized": False,
             },

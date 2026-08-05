@@ -750,11 +750,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         self.assertTrue(outcome["response"]["success"])
         self.assertTrue(outcome["response"]["isCorrect"])
-        self.assertEqual(outcome["response"]["maxScore"], 1)
+        self.assertNotIn("maxScore", outcome["response"])
         canonical_result = {
             "isCorrect": True,
-            "score": 1,
-            "maxScore": 1,
+            "score": {"scaled": 1, "raw": 1, "min": 0, "max": 1},
             "feedback": rich_feedback("Summary feedback"),
             "items": {
                 "a": {
@@ -832,7 +831,6 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             "finishedAt": None,
             "expiresAt": None,
             "score": None,
-            "maxScore": None,
             "successStatus": None,
             "resultsByTargetId": "invalid",
             "answerReviewAuthorized": False,
@@ -852,7 +850,6 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
                 "finishedAt": None,
                 "expiresAt": None,
                 "score": None,
-                "maxScore": None,
                 "successStatus": None,
                 "resultsByTargetId": {},
                 "answerReviewAuthorized": False,
@@ -899,8 +896,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             "startedAt": "2026-06-27T10:00:00Z",
             "finishedAt": "2026-06-27T10:05:00Z",
             "expiresAt": None,
-            "score": 1.0,
-            "maxScore": 1.0,
+            "score": {"scaled": 1, "raw": 1, "min": 0, "max": 1},
             "successStatus": None,
             "resultsByTargetId": {},
             "answerReviewAuthorized": True,
@@ -950,23 +946,22 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
     def test_quiz_aggregate_uses_normalized_target_units(self):
         result = {
             "isCorrect": False,
-            "score": 0.5,
-            "maxScore": 1,
+            "score": {"scaled": 0.5},
             "feedback": None,
             "items": {},
         }
 
         self.assertEqual(
             quiz_module.aggregate_quiz_results({"mcq-1": result}, ["mcq-1", "mcq-2"]),
-            (0.5, 2.0),
+            {"scaled": 0.25},
         )
-        self.assertEqual(quiz_module.aggregate_quiz_results({}, []), (0.0, 0.0))
+        self.assertEqual(quiz_module.aggregate_quiz_results({}, []), {"scaled": 0.0})
 
     def test_quiz_module_terminal_success_uses_authored_threshold(self):
         cases = [
-            ("equal threshold passes", 0.5, "b", "a", 1.0, "passed"),
-            ("below threshold fails", 0.75, "b", "a", 1.0, "failed"),
-            ("no threshold has no status", None, "b", "b", 2.0, None),
+            ("equal threshold passes", 0.5, "b", "a", {"scaled": 0.5, "raw": 1, "min": 0, "max": 2}, "passed"),
+            ("below threshold fails", 0.75, "b", "a", {"scaled": 0.5, "raw": 1, "min": 0, "max": 2}, "failed"),
+            ("no threshold has no status", None, "b", "b", {"scaled": 1.0, "raw": 2, "min": 0, "max": 2}, None),
         ]
 
         for (
@@ -991,7 +986,6 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
                     "finishedAt": None,
                     "expiresAt": None,
                     "score": None,
-                    "maxScore": None,
                     "successStatus": None,
                     "resultsByTargetId": {},
                     "answerReviewAuthorized": False,
@@ -1025,7 +1019,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
                 terminal = outcome["state"]["quiz-1"]
                 self.assertEqual(terminal["score"], expected_score)
-                self.assertEqual(terminal["maxScore"], 2.0)
+                self.assertNotIn("maxScore", terminal)
                 self.assertEqual(
                     terminal["successStatus"],
                     expected_success,
@@ -1050,7 +1044,6 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             "finishedAt": None,
             "expiresAt": None,
             "score": None,
-            "maxScore": None,
             "successStatus": None,
             "resultsByTargetId": {},
             "answerReviewAuthorized": False,
@@ -1076,8 +1069,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         terminal = outcome["state"]["quiz-1"]
         self.assertEqual(terminal["status"], "completed")
         self.assertIsNone(terminal["currentTargetId"])
-        self.assertEqual(terminal["score"], 1.0)
-        self.assertEqual(terminal["maxScore"], 1.0)
+        self.assertEqual(terminal["score"], {"scaled": 1.0, "raw": 1, "min": 0, "max": 1})
         self.assertEqual(terminal["successStatus"], "passed")
 
     def test_quiz_module_returns_expired_attempt_finalization_action(self):
@@ -1091,7 +1083,6 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             "finishedAt": None,
             "expiresAt": "2000-01-01T00:00:00Z",
             "score": None,
-            "maxScore": None,
             "resultsByTargetId": {},
             "answerReviewAuthorized": False,
         }
@@ -1139,7 +1130,6 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             "finishedAt": None,
             "expiresAt": None,
             "score": None,
-            "maxScore": None,
             "resultsByTargetId": {},
             "answerReviewAuthorized": False,
         }
@@ -1169,7 +1159,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertIsNone(stored_attempt["successStatus"])
         self.assertIsNone(outcome["response"]["successStatus"])
         self.assertNotIn("attemptCountsByTargetId", stored_attempt)
-        self.assertEqual(stored_attempt["resultsByTargetId"]["mcq-1"]["score"], 1.0)
+        self.assertEqual(
+            stored_attempt["resultsByTargetId"]["mcq-1"]["score"],
+            {"scaled": 1.0, "raw": 1, "min": 0, "max": 1},
+        )
         self.assertEqual(
             outcome["submissions"],
             [
@@ -1180,8 +1173,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
                     "response": {"kind": "single-select", "optionId": "b"},
                     "result": {
                         "isCorrect": True,
-                        "score": 1,
-                        "maxScore": 1,
+                        "score": {"scaled": 1, "raw": 1, "min": 0, "max": 1},
                         "feedback": rich_feedback("Summary feedback"),
                         "items": {
                             "a": {
@@ -1247,7 +1239,6 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             "finishedAt": None,
             "expiresAt": None,
             "score": None,
-            "maxScore": None,
             "resultsByTargetId": {},
             "answerReviewAuthorized": False,
         }
@@ -1292,12 +1283,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             "finishedAt": None,
             "expiresAt": "2000-01-01T00:00:00Z",
             "score": None,
-            "maxScore": None,
             "resultsByTargetId": {
                 "mcq-1": {
                     "isCorrect": True,
-                    "score": 1.0,
-                    "maxScore": 1,
+                    "score": {"scaled": 1, "raw": 1, "min": 0, "max": 1},
                     "feedback": None,
                     "items": {},
                 }
@@ -1327,8 +1316,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertTrue(outcome["response"]["success"])
         self.assertEqual(outcome["response"]["status"], "expired")
         self.assertEqual(outcome["response"]["submittedTargetIds"], ["mcq-1"])
-        self.assertEqual(outcome["response"]["score"], 1.0)
-        self.assertEqual(outcome["response"]["maxScore"], 2.0)
+        self.assertEqual(outcome["response"]["score"], {"scaled": 0.5, "raw": 1, "min": 0, "max": 2})
         self.assertEqual(outcome["response"]["successStatus"], "passed")
         self.assertEqual(outcome["submissions"], [])
         self.assertTrue(outcome["publish_grade"])
@@ -1350,7 +1338,6 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             "finishedAt": None,
             "expiresAt": None,
             "score": None,
-            "maxScore": None,
             "resultsByTargetId": {},
             "answerReviewAuthorized": False,
         }
@@ -1407,8 +1394,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         self.assertTrue(outcome["response"]["success"])
         self.assertEqual(outcome["response"]["status"], "completed")
-        self.assertEqual(outcome["response"]["score"], 2.0)
-        self.assertEqual(outcome["response"]["maxScore"], 2.0)
+        self.assertEqual(outcome["response"]["score"], {"scaled": 1.0, "raw": 2, "min": 0, "max": 2})
         self.assertEqual(outcome["response"]["successStatus"], "passed")
         self.assertTrue(outcome["publish_grade"])
         self.assertIsNone(outcome["finalize_expired"])
@@ -1437,7 +1423,6 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             "finishedAt": None,
             "expiresAt": "2000-01-01T00:00:00Z",
             "score": None,
-            "maxScore": None,
             "resultsByTargetId": {},
             "answerReviewAuthorized": False,
         }
@@ -1495,7 +1480,6 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             "finishedAt": None,
             "expiresAt": "2000-01-01T00:00:00Z",
             "score": None,
-            "maxScore": None,
             "resultsByTargetId": {},
             "answerReviewAuthorized": False,
         }
@@ -1545,12 +1529,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             "finishedAt": None,
             "expiresAt": "2000-01-01T00:00:00Z",
             "score": None,
-            "maxScore": None,
             "resultsByTargetId": {
                 "mcq-1": {
                     "isCorrect": True,
-                    "score": 1.0,
-                    "maxScore": 1,
+                    "score": {"scaled": 1, "raw": 1, "min": 0, "max": 1},
                     "feedback": None,
                     "items": {},
                 }
@@ -1572,8 +1554,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertEqual(outcome["response"]["status"], "expired")
         self.assertIsNone(outcome["response"]["currentTargetId"])
         self.assertEqual(outcome["response"]["submittedTargetIds"], ["mcq-1"])
-        self.assertEqual(outcome["response"]["score"], 1.0)
-        self.assertEqual(outcome["response"]["maxScore"], 2.0)
+        self.assertEqual(outcome["response"]["score"], {"scaled": 0.5, "raw": 1, "min": 0, "max": 2})
         self.assertEqual(outcome["response"]["successStatus"], "passed")
         self.assertTrue(outcome["publish_grade"])
         finalized = outcome["state"]["quiz-1"]
@@ -1594,7 +1575,6 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             "finishedAt": None,
             "expiresAt": "2000-01-01T00:00:00Z",
             "score": None,
-            "maxScore": None,
             "resultsByTargetId": {},
             "answerReviewAuthorized": False,
         }
@@ -1609,8 +1589,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         )
 
         self.assertFalse(outcome["publish_grade"])
-        self.assertEqual(outcome["response"]["score"], 0.0)
-        self.assertEqual(outcome["response"]["maxScore"], 2.0)
+        self.assertEqual(outcome["response"]["score"], {"scaled": 0.0, "raw": 0, "min": 0, "max": 2})
 
     def test_quiz_module_reveal_answers_reads_completed_attempt_without_mutation(self):
         group = quiz_group(
@@ -1626,14 +1605,12 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             "startedAt": "2026-06-27T10:00:00Z",
             "finishedAt": "2026-06-27T10:05:00Z",
             "expiresAt": None,
-            "score": 1.0,
-            "maxScore": 1.0,
+            "score": {"scaled": 1, "raw": 1, "min": 0, "max": 1},
             "successStatus": None,
             "resultsByTargetId": {
                 "mcq-1": {
                     "isCorrect": True,
-                    "score": 1.0,
-                    "maxScore": 1,
+                    "score": {"scaled": 1, "raw": 1, "min": 0, "max": 1},
                     "feedback": rich_feedback("Summary feedback"),
                     "items": {
                         "b": {
@@ -1677,7 +1654,6 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             "finishedAt": None,
             "expiresAt": None,
             "score": None,
-            "maxScore": None,
             "resultsByTargetId": {},
             "answerReviewAuthorized": False,
         }
@@ -2167,8 +2143,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         block = make_xblock([single_select_target(show_answer=False)])
         stored_result = {
             "isCorrect": False,
-            "score": 0,
-            "maxScore": 1,
+            "score": {"scaled": 0, "raw": 0, "min": 0, "max": 1},
             "feedback": rich_feedback("Bootstrap summary feedback"),
             "items": {
                 "a": {
@@ -2337,8 +2312,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
     def test_assessment_projection_redacts_items_and_requires_feedback_authorization(self):
         result = {
             "isCorrect": False,
-            "score": 0,
-            "maxScore": 1,
+            "score": {"scaled": 0, "raw": 0, "min": 0, "max": 1},
             "feedback": rich_feedback("Binary summary feedback"),
             "items": {
                 "multi-select-option": {
@@ -2364,8 +2338,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             redacted,
             {
                 "isCorrect": False,
-                "score": 0,
-                "maxScore": 1,
+                "score": {"scaled": 0, "raw": 0, "min": 0, "max": 1},
                 "feedback": None,
                 "items": {},
             },
@@ -2379,8 +2352,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         block = make_xblock([single_select_target()], groups=[group])
         stored_result = {
             "isCorrect": False,
-            "score": 0,
-            "maxScore": 1,
+            "score": {"scaled": 0, "raw": 0, "min": 0, "max": 1},
             "feedback": rich_feedback("Quiz bootstrap feedback"),
             "items": {
                 "a": {"correct": False, "expected": False, "given": True},
@@ -2409,8 +2381,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
                     "startedAt": "2026-06-27T10:00:00Z",
                     "finishedAt": "2026-06-27T10:01:00Z",
                     "expiresAt": None,
-                    "score": 0,
-                    "maxScore": 1,
+                    "score": {"scaled": 0, "raw": 0, "min": 0, "max": 1},
                     "successStatus": None,
                     "resultsByTargetId": {"mcq-1": stored_result},
                     "answerReviewAuthorized": True,
@@ -3376,8 +3347,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
                     "submitted": True,
                     "submissionResult": {
                         "isCorrect": False,
-                        "score": 0,
-                        "maxScore": 1,
+                        "score": {"scaled": 0, "raw": 0, "min": 0, "max": 1},
                         "feedback": None,
                         "items": {},
                     },
@@ -3571,7 +3541,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         self.assertTrue(result["success"])
         self.assertTrue(result["isCorrect"])
-        self.assertEqual(result["score"], 1)
+        self.assertEqual(result["score"], {"scaled": 1.0, "raw": 1, "min": 0, "max": 1})
         public_json = json.dumps(result, sort_keys=True)
         self.assertNotIn('"expected"', public_json)
         self.assertIn("Summary feedback", public_json)
@@ -3900,8 +3870,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertEqual(restarted["attemptId"], attempt["attemptId"])
         self.assertEqual(restarted["status"], "expired")
         self.assertIsNone(restarted["currentTargetId"])
-        self.assertEqual(restarted["score"], 0.0)
-        self.assertEqual(restarted["maxScore"], 2.0)
+        self.assertEqual(restarted["score"], {"scaled": 0.0, "raw": 0, "min": 0, "max": 2})
         self.assertEqual(restarted["successStatus"], "failed")
         self.assertEqual(restarted["submittedTargetIds"], [])
         snapshot = json.loads(block.assessment_snapshot_json)
@@ -3956,8 +3925,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         self.assertEqual(restarted["attemptId"], attempt["attemptId"])
         self.assertEqual(restarted["status"], "expired")
-        self.assertEqual(restarted["score"], 1.0)
-        self.assertEqual(restarted["maxScore"], 2.0)
+        self.assertEqual(restarted["score"], {"scaled": 0.5, "raw": 1, "min": 0, "max": 2})
         self.assertEqual(restarted["successStatus"], "passed")
         self.assertEqual(restarted["submittedTargetIds"], ["mcq-1"])
         snapshot = json.loads(block.assessment_snapshot_json)
@@ -4341,8 +4309,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         self.assertTrue(result["success"])
         self.assertEqual(result["status"], "completed")
-        self.assertEqual(result["score"], 2.0)
-        self.assertEqual(result["maxScore"], 2.0)
+        self.assertEqual(result["score"], {"scaled": 1.0, "raw": 2, "min": 0, "max": 2})
         self.assertTrue(result["answerReviewAuthorized"])
         snapshot = json.loads(block.assessment_snapshot_json)
         self.assertEqual(set(snapshot["problems"]), {"mcq-1", "mcq-2"})
@@ -4393,7 +4360,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         )
 
         self.assertTrue(quiz_result["success"])
-        self.assertEqual(quiz_result["score"], 2.0)
+        self.assertEqual(quiz_result["score"], {"scaled": 1.0, "raw": 2, "min": 0, "max": 2})
         self.assertTrue(standalone_result["success"])
         self.assertFalse(standalone_result["isCorrect"])
         self.assertEqual(block.current_score, 0.0)
@@ -4535,8 +4502,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertEqual(second["problemsByTargetId"], first["problemsByTargetId"])
         snapshot = json.loads(block.assessment_snapshot_json)
         stored_attempt = snapshot["quizzes"]["quiz-1"]
-        self.assertEqual(stored_attempt["score"], 2.0)
-        self.assertEqual(stored_attempt["maxScore"], 2.0)
+        self.assertEqual(stored_attempt["score"], {"scaled": 1.0, "raw": 2, "min": 0, "max": 2})
         self.assertEqual(block.current_score, 1.0)
         self.assertEqual(len(block.runtime.published), 1)
 
@@ -4685,8 +4651,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         self.assertTrue(first["success"])
         self.assertEqual(first["status"], "expired")
-        self.assertEqual(first["score"], 0.0)
-        self.assertEqual(first["maxScore"], 2.0)
+        self.assertEqual(first["score"], {"scaled": 0.0, "raw": 0, "min": 0, "max": 2})
         self.assertEqual(first["submittedTargetIds"], [])
         self.assertEqual(first["resultsByTargetId"], {})
         self.assertEqual(second["quizAttempt"], first["quizAttempt"])
@@ -4738,8 +4703,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         self.assertTrue(result["success"])
         self.assertEqual(result["status"], "expired")
-        self.assertEqual(result["score"], 1.0)
-        self.assertEqual(result["maxScore"], 2.0)
+        self.assertEqual(result["score"], {"scaled": 0.5, "raw": 1, "min": 0, "max": 2})
         self.assertEqual(result["submittedTargetIds"], ["mcq-1"])
         self.assertEqual(set(result["resultsByTargetId"]), {"mcq-1"})
         stored = block._assessment_snapshot()
@@ -4854,7 +4818,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         self.assertTrue(result["success"])
         self.assertTrue(result["isCorrect"])
-        self.assertEqual(result["score"], 1)
+        self.assertEqual(result["score"], {"scaled": 1.0, "raw": 1, "min": 0, "max": 1})
         self.assertEqual(json.loads(block.assessment_snapshot_json), existing_snapshot)
         self.assertEqual(block.attempts_count, 1)
         self.assertEqual(block.current_score, 0.0)
@@ -4920,7 +4884,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         stored = snapshot["problems"]["mcq-1"]
         self.assertFalse(stored["submitted"])
         self.assertEqual(stored["attemptNumber"], 1)
-        self.assertEqual(stored["checkResult"]["score"], 1)
+        self.assertEqual(
+            stored["checkResult"]["score"],
+            {"scaled": 1.0, "raw": 1, "min": 0, "max": 1},
+        )
         self.assertIsNone(stored["submissionResult"])
         self.assertEqual(block.current_score, 1.0)
         self.assertEqual(len(block.runtime.published), 1)
@@ -5020,9 +4987,9 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             single_select_target("practice-1", points=50, is_graded=False),
         ]
         problems = {
-            "mcq-1": {"submissionResult": {"score": 1}},
-            "mcq-2": {"submissionResult": {"score": 0.5}},
-            "practice-1": {"submissionResult": {"score": 1}},
+            "mcq-1": {"submissionResult": {"score": {"scaled": 1}}},
+            "mcq-2": {"submissionResult": {"score": {"scaled": 0.5}}},
+            "practice-1": {"submissionResult": {"score": {"scaled": 1}}},
         }
 
         projection = scorebook_module.build_assessment_grade_projection(

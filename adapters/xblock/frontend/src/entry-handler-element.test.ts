@@ -78,7 +78,6 @@ const assessmentSnapshot: AssessmentLearnerSnapshot = {
       finishedAt: null,
       expiresAt: "2026-06-27T10:05:00Z",
       score: null,
-      maxScore: null,
       successStatus: null,
       resultsByTargetId: {},
       answerReviewAuthorized: false,

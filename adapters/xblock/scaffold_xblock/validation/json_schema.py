@@ -80,6 +80,8 @@ def validate_schema_definition(
         ) from exc
 
     _validate(value, schema, bundle, path)
+    if definition_name == "Score":
+        _validate_score_contract(value, path)
     return value
 
 
@@ -126,11 +128,12 @@ def _assert_supported_schema(schema, schema_path=""):
 def _validate(value, schema, root_schema, path):
     if "$ref" in schema:
         _validate(value, _resolve_ref(root_schema, schema["$ref"]), root_schema, path)
+        if schema["$ref"] == "#/definitions/Score":
+            _validate_score_contract(value, path)
 
     if "allOf" in schema:
         for child_schema in schema["allOf"]:
             _validate(value, child_schema, root_schema, path)
-
     if "anyOf" in schema:
         errors = []
         for child_schema in schema["anyOf"]:
@@ -236,6 +239,15 @@ def _validate(value, schema, root_schema, path):
             raise JsonSchemaValidationError("%s has an invalid format" % path)
     if isinstance(value, str) and "format" in schema:
         _validate_format(value, schema["format"], path)
+
+
+def _validate_score_contract(value, path):
+    if not isinstance(value, dict) or set(value) == {"scaled"}:
+        return
+    if value["min"] >= value["max"]:
+        raise JsonSchemaValidationError("%s.min must be less than max" % path)
+    if not value["min"] <= value["raw"] <= value["max"]:
+        raise JsonSchemaValidationError("%s.raw must be within min and max" % path)
 
 
 def _resolve_ref(root_schema, reference):

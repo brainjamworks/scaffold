@@ -210,17 +210,22 @@ def _validate_result(value):
 
 
 def _validate_score(value):
-    _require_non_empty_object(value, {"scaled", "raw", "min", "max"})
-    for field in ("scaled", "raw", "min", "max"):
-        if field in value and not _is_finite_number(value[field]):
-            _reject("Learning Event score is invalid")
-    if "scaled" in value and not -1 <= value["scaled"] <= 1:
+    if type(value) is not dict or set(value) not in (
+        {"scaled"},
+        {"scaled", "raw", "min", "max"},
+    ):
+        _reject("Learning Event score is invalid")
+    if not _is_finite_number(value["scaled"]) or not 0 <= value["scaled"] <= 1:
         _reject("Learning Event scaled score is invalid")
-    if "min" in value and "max" in value and value["min"] >= value["max"]:
+    if set(value) == {"scaled"}:
+        return
+    if any(type(value[field]) is not int for field in ("raw", "min", "max")):
+        _reject("Learning Event score is invalid")
+    if value["min"] >= value["max"]:
         _reject("Learning Event score range is invalid")
-    if "raw" in value and "min" in value and value["raw"] < value["min"]:
+    if value["raw"] < value["min"]:
         _reject("Learning Event raw score is invalid")
-    if "raw" in value and "max" in value and value["raw"] > value["max"]:
+    if value["raw"] > value["max"]:
         _reject("Learning Event raw score is invalid")
 
 

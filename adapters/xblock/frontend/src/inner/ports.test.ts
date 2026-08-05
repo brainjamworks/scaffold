@@ -7,8 +7,7 @@ import type { XBlockInnerBridge } from "./xblock-inner-bridge";
 
 const result = {
   isCorrect: true,
-  score: 1,
-  maxScore: 1 as const,
+  score: { scaled: 1, raw: 1, min: 0, max: 1 },
   feedback: null,
   items: {},
 };
@@ -32,7 +31,6 @@ const quizAttempt = {
   finishedAt: null,
   expiresAt: null,
   score: null,
-  maxScore: null,
   successStatus: null,
   resultsByTargetId: {},
   answerReviewAuthorized: false,

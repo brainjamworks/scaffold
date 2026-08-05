@@ -1,4 +1,5 @@
 import math
+from copy import deepcopy
 
 from .validation.assessment_groups import quiz_group_id_by_target_id
 from .validation.json_schema import validate_assessment_definition
@@ -47,7 +48,7 @@ def build_assessment_grade_projection(
         if result is None:
             continue
         has_numeric_result = True
-        earned_points += float(result["score"]) * points
+        earned_points += float(result["score"]["scaled"]) * points
 
     normalized_score = None
     if has_numeric_result and total_points > 0:
@@ -111,8 +112,7 @@ def map_grade_projection_to_xblock_event(projection, weight):
 def stored_assessment_result(result):
     return {
         "isCorrect": bool(result.get("isCorrect")),
-        "score": float(result.get("score") or 0),
-        "maxScore": 1,
+        "score": deepcopy(result.get("score")),
         "feedback": result.get("feedback"),
         "items": result.get("items") if isinstance(result.get("items"), dict) else {},
     }
@@ -246,9 +246,10 @@ def _authoritative_stored_result(result):
         return None
     score = result.get("score")
     if (
-        not isinstance(score, (int, float))
-        or isinstance(score, bool)
-        or not math.isfinite(score)
+        not isinstance(score, dict)
+        or not isinstance(score.get("scaled"), (int, float))
+        or isinstance(score.get("scaled"), bool)
+        or not math.isfinite(score["scaled"])
     ):
         return None
     return result
@@ -267,9 +268,10 @@ def _has_authoritative_quiz_result(assessment_groups, quizzes):
         score = attempt.get("score")
         if (
             attempt.get("status") in {"completed", "expired"}
-            and isinstance(score, (int, float))
-            and not isinstance(score, bool)
-            and math.isfinite(score)
+            and isinstance(score, dict)
+            and isinstance(score.get("scaled"), (int, float))
+            and not isinstance(score.get("scaled"), bool)
+            and math.isfinite(score["scaled"])
         ):
             return True
     return False

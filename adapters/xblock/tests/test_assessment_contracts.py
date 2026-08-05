@@ -88,7 +88,6 @@ QUIZ_ATTEMPT_SNAPSHOT = {
     "finishedAt": None,
     "expiresAt": None,
     "score": None,
-    "maxScore": None,
     "successStatus": None,
     "resultsByTargetId": {},
     "answerReviewAuthorized": False,
@@ -269,6 +268,28 @@ class AssessmentArtifactSyncTest(unittest.TestCase):
 
 
 class AssessmentContractSemanticTest(unittest.TestCase):
+    def test_score_boundary_accepts_only_the_canonical_shapes(self):
+        json_schema = load_validation_module("json_schema")
+        for score in (
+            {"scaled": 0.25},
+            {"scaled": 0.5, "raw": 1, "min": 0, "max": 2},
+        ):
+            with self.subTest(score=score):
+                json_schema.validate_assessment_definition("Score", score)
+
+        for score in (
+            {},
+            {"scaled": -0.1},
+            {"scaled": 1.1},
+            {"scaled": 0.5, "raw": 1, "min": 0},
+            {"scaled": 0.5, "raw": 0.5, "min": 0, "max": 1},
+            {"scaled": 0.5, "raw": 3, "min": 0, "max": 2},
+            {"scaled": 0.5, "raw": 1, "min": 2, "max": 2},
+        ):
+            with self.subTest(score=score):
+                with self.assertRaises(json_schema.JsonSchemaValidationError):
+                    json_schema.validate_assessment_definition("Score", score)
+
     def test_accepts_the_four_xblock_boundary_definitions(self):
         json_schema = load_validation_module("json_schema")
         cases = [
