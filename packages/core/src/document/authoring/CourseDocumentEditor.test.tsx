@@ -9,7 +9,7 @@ import type { EditorView } from "@tiptap/pm/view";
 import { createElement, StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
-import type { EmbeddedNodeId } from "@scaffold/contracts";
+import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
 
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import {
@@ -31,6 +31,8 @@ const FIRST_SLIDE_ID = createEmbeddedNodeId();
 const SECOND_SLIDE_ID = createEmbeddedNodeId();
 const THIRD_SLIDE_ID = createEmbeddedNodeId();
 const PASTED_SLIDE_ID = createEmbeddedNodeId();
+const MCQ_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00021");
+const GALLERY_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00022");
 
 afterEach(() => {
   cleanup();
@@ -690,7 +692,7 @@ function authoringDocumentWithMcq(): JSONContent {
         content: [
           {
             type: "surface",
-            attrs: { id: "surface-mcq", variant: "page-default" },
+            attrs: { id: MCQ_SURFACE_ID, variant: "page-default" },
             content: [
               {
                 type: "mcq",
@@ -801,7 +803,7 @@ function authoringDocumentWithGallery(): JSONContent {
         content: [
           {
             type: "surface",
-            attrs: { id: "surface-gallery", variant: "page-default" },
+            attrs: { id: GALLERY_SURFACE_ID, variant: "page-default" },
             content: [
               {
                 type: "gallery",

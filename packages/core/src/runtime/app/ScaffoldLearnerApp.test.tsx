@@ -2,6 +2,7 @@
 
 import "@testing-library/jest-dom/vitest";
 
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import type { JSONContent } from "@tiptap/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -24,6 +25,12 @@ import { SCAFFOLD_DEFAULT_PRESET, type ScaffoldThemeExtension } from "@/theme/mo
 import { ScaffoldLearnerApp } from "./ScaffoldLearnerApp";
 
 const runtimeComposition = createCoreScaffoldRuntimeComposition();
+const LEARNER_TEXT_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00011");
+const LEARNER_MCQ_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00012");
+const LEARNER_SURFACE_ID_BY_MODE = {
+  slideshow: EmbeddedNodeIdSchema.parse("surface00013"),
+  branching: EmbeddedNodeIdSchema.parse("surface00014"),
+} as const;
 
 class ResizeObserverStub implements ResizeObserver {
   readonly observe = vi.fn((target: Element) => {
@@ -52,7 +59,7 @@ afterEach(() => {
 function learnerDocumentWithText(text: string): JSONContent {
   const content = createScaffoldDocumentContent({
     mode: "page",
-    surfaceId: "surface-learner",
+    surfaceId: LEARNER_TEXT_SURFACE_ID,
   });
   const courseDocument = content.content?.[0];
   const surface = courseDocument?.content?.[0];
@@ -74,7 +81,7 @@ function learnerDocumentWithText(text: string): JSONContent {
 function learnerDocumentWithMcq(): JSONContent {
   const content = createScaffoldDocumentContent({
     mode: "page",
-    surfaceId: "surface-mcq",
+    surfaceId: LEARNER_MCQ_SURFACE_ID,
   });
   const courseDocument = content.content?.[0];
   const surface = courseDocument?.content?.[0];
@@ -150,7 +157,7 @@ function selectableChoice(id: string, text: string): JSONContent {
 function learnerDocumentForMode(mode: "slideshow" | "branching"): JSONContent {
   return createScaffoldDocumentContent({
     mode,
-    surfaceId: `${mode}-surface`,
+    surfaceId: LEARNER_SURFACE_ID_BY_MODE[mode],
   });
 }
 

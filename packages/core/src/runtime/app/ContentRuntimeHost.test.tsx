@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
 import userEvent from "@testing-library/user-event";
 import type { JSONContent } from "@tiptap/core";
 import { StrictMode } from "react";
@@ -39,6 +40,13 @@ import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvi
 import type { LearningEventSession } from "../learning-events/session";
 
 const runtimeComposition = createCoreScaffoldRuntimeComposition();
+const DEFAULT_RUNTIME_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00001");
+const FIRST_SLIDESHOW_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00002");
+const SECOND_SLIDESHOW_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00003");
+const DUPLICATE_SLIDESHOW_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00004");
+const FIRST_PAGE_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00005");
+const SECOND_PAGE_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00006");
+const BRANCHING_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00007");
 
 const runtimeStoreFactories = vi.hoisted(() => ({
   assessment: vi.fn(),
@@ -244,17 +252,15 @@ function runtimeResourceLinkBlock(): JSONContent {
 function slideshowDocumentWithTabs(): JSONContent {
   const content = runtimeDocumentContent({
     mode: "slideshow",
-    surfaceIds: ["slide-one", "slide-two"],
+    surfaceIds: [FIRST_SLIDESHOW_SURFACE_ID, SECOND_SLIDESHOW_SURFACE_ID],
   });
   const courseDocument = content.content?.[0];
   const definition = builtInSurfaceVariantRegistry.get("slide-content");
   if (!courseDocument || !definition) {
     throw new Error("runtime slideshow test document is missing its slide definition");
   }
-  const firstSurface = definition.createSurface({ surfaceId: createEmbeddedNodeId() });
-  const secondSurface = definition.createSurface({ surfaceId: createEmbeddedNodeId() });
-  firstSurface.attrs = { ...firstSurface.attrs, id: "slide-one" };
-  secondSurface.attrs = { ...secondSurface.attrs, id: "slide-two" };
+  const firstSurface = definition.createSurface({ surfaceId: FIRST_SLIDESHOW_SURFACE_ID });
+  const secondSurface = definition.createSurface({ surfaceId: SECOND_SLIDESHOW_SURFACE_ID });
   courseDocument.content = [firstSurface, secondSurface];
   const firstRegion = courseDocument.content[0]?.content?.find((node) => node.type === "region");
   const secondRegion = courseDocument.content[1]?.content?.find((node) => node.type === "region");
@@ -319,10 +325,10 @@ function slideshowDocumentWithAccordions(): JSONContent {
 
 function runtimeDocumentContent({
   mode = "page",
-  surfaceIds = ["surface-runtime"],
+  surfaceIds = [DEFAULT_RUNTIME_SURFACE_ID],
 }: {
   mode?: "page" | "slideshow" | "branching";
-  surfaceIds?: Array<string | null>;
+  surfaceIds?: Array<EmbeddedNodeId | null>;
 } = {}): JSONContent {
   if (mode === "branching") {
     const pageDefinition = builtInSurfaceVariantRegistry.get("page-default");
@@ -343,8 +349,7 @@ function runtimeDocumentContent({
             if (id === null) {
               return { type: "surface", attrs: {}, content: [{ type: "paragraph" }] };
             }
-            const surface = pageDefinition.createSurface({ surfaceId: createEmbeddedNodeId() });
-            return { ...surface, attrs: { ...surface.attrs, id } };
+            return pageDefinition.createSurface({ surfaceId: id });
           }),
         },
       ],
@@ -367,8 +372,7 @@ function runtimeDocumentContent({
     if (id === null) {
       return { type: "surface", attrs: {}, content: [{ type: "paragraph" }] };
     }
-    const surface = definition.createSurface({ surfaceId: createEmbeddedNodeId() });
-    return { ...surface, attrs: { ...surface.attrs, id } };
+    return definition.createSurface({ surfaceId: id });
   });
 
   return content;
@@ -510,7 +514,7 @@ function runtimeImageHotspotBlock(): JSONContent {
   };
 }
 
-function surfaceById(surfaceId: string): HTMLElement {
+function surfaceById(surfaceId: EmbeddedNodeId): HTMLElement {
   const surface = document.body.querySelector(`[data-surface-id="${surfaceId}"]`);
 
   if (!(surface instanceof HTMLElement)) {
@@ -809,7 +813,7 @@ describe("ContentRuntimeHost", () => {
     expect(port.accept.mock.calls[1]?.[0]).toMatchObject({
       verb: { display: { en: "experienced" } },
       object: {
-        id: createLearningEventSurfaceActivityId(port.rootActivityId, "surface-runtime"),
+        id: createLearningEventSurfaceActivityId(port.rootActivityId, DEFAULT_RUNTIME_SURFACE_ID),
         definition: {
           type: LEARNING_EVENT_ACTIVITY_TYPES.surface,
           extensions: {
@@ -871,7 +875,7 @@ describe("ContentRuntimeHost", () => {
           artifactId="artifact-slideshow"
           initialContent={runtimeDocumentContent({
             mode: "slideshow",
-            surfaceIds: ["slide-one", "slide-two"],
+            surfaceIds: [FIRST_SLIDESHOW_SURFACE_ID, SECOND_SLIDESHOW_SURFACE_ID],
           })}
         />
       </ScaffoldServicesProvider>,
@@ -899,7 +903,7 @@ describe("ContentRuntimeHost", () => {
       })),
     ).toStrictEqual([
       {
-        id: createLearningEventSurfaceActivityId(port.rootActivityId, "slide-one"),
+        id: createLearningEventSurfaceActivityId(port.rootActivityId, FIRST_SLIDESHOW_SURFACE_ID),
         extensions: {
           [LEARNING_EVENT_EXTENSIONS.surfaceKind]: "slide",
           [LEARNING_EVENT_EXTENSIONS.surfacePosition]: 1,
@@ -907,7 +911,7 @@ describe("ContentRuntimeHost", () => {
         },
       },
       {
-        id: createLearningEventSurfaceActivityId(port.rootActivityId, "slide-two"),
+        id: createLearningEventSurfaceActivityId(port.rootActivityId, SECOND_SLIDESHOW_SURFACE_ID),
         extensions: {
           [LEARNING_EVENT_EXTENSIONS.surfaceKind]: "slide",
           [LEARNING_EVENT_EXTENSIONS.surfacePosition]: 2,
@@ -915,7 +919,7 @@ describe("ContentRuntimeHost", () => {
         },
       },
       {
-        id: createLearningEventSurfaceActivityId(port.rootActivityId, "slide-one"),
+        id: createLearningEventSurfaceActivityId(port.rootActivityId, FIRST_SLIDESHOW_SURFACE_ID),
         extensions: {
           [LEARNING_EVENT_EXTENSIONS.surfaceKind]: "slide",
           [LEARNING_EVENT_EXTENSIONS.surfacePosition]: 1,
@@ -1748,7 +1752,7 @@ describe("ContentRuntimeHost", () => {
     const onEditorReady = vi.fn();
     const content = runtimeDocumentContent({
       mode: "slideshow",
-      surfaceIds: ["duplicate-slide", "duplicate-slide"],
+      surfaceIds: [DUPLICATE_SLIDESHOW_SURFACE_ID, DUPLICATE_SLIDESHOW_SURFACE_ID],
     });
 
     render(
@@ -1852,7 +1856,7 @@ describe("ContentRuntimeHost", () => {
         composition={runtimeComposition}
         artifactId="artifact-1"
         initialContent={runtimeDocumentContent({
-          surfaceIds: ["surface-one", "surface-two"],
+          surfaceIds: [FIRST_PAGE_SURFACE_ID, SECOND_PAGE_SURFACE_ID],
         })}
         onEditorReady={onEditorReady}
       />,
@@ -1897,7 +1901,7 @@ describe("ContentRuntimeHost", () => {
         artifactId="artifact-1"
         initialContent={runtimeDocumentContent({
           mode: "slideshow",
-          surfaceIds: ["slide-1"],
+          surfaceIds: [FIRST_SLIDESHOW_SURFACE_ID],
         })}
         onEditorReady={onEditorReady}
       />,
@@ -1922,7 +1926,7 @@ describe("ContentRuntimeHost", () => {
         artifactId="artifact-1"
         initialContent={runtimeDocumentContent({
           mode: "slideshow",
-          surfaceIds: ["slide-1"],
+          surfaceIds: [FIRST_SLIDESHOW_SURFACE_ID],
         })}
         slideshowSizing="embedded"
         onEditorReady={onEditorReady}
@@ -1963,7 +1967,7 @@ describe("ContentRuntimeHost", () => {
         artifactId="artifact-1"
         initialContent={runtimeDocumentContent({
           mode: "slideshow",
-          surfaceIds: ["slide-1", "slide-2"],
+          surfaceIds: [FIRST_SLIDESHOW_SURFACE_ID, SECOND_SLIDESHOW_SURFACE_ID],
         })}
         onEditorReady={onEditorReady}
       />,
@@ -1972,13 +1976,19 @@ describe("ContentRuntimeHost", () => {
     await waitFor(() => expect(onEditorReady).toHaveBeenCalledTimes(1));
 
     expect(screen.getByText("1 of 2")).toBeInTheDocument();
-    expect(surfaceById("slide-1").getAttribute("data-runtime-surface-visible")).toBe("true");
-    expect(surfaceById("slide-2").getAttribute("data-runtime-surface-hidden")).toBe("true");
+    expect(
+      surfaceById(FIRST_SLIDESHOW_SURFACE_ID).getAttribute("data-runtime-surface-visible"),
+    ).toBe("true");
+    expect(
+      surfaceById(SECOND_SLIDESHOW_SURFACE_ID).getAttribute("data-runtime-surface-hidden"),
+    ).toBe("true");
 
     await user.click(screen.getByRole("button", { name: "Next slide" }));
 
     await waitFor(() =>
-      expect(surfaceById("slide-2").getAttribute("data-runtime-surface-visible")).toBe("true"),
+      expect(
+        surfaceById(SECOND_SLIDESHOW_SURFACE_ID).getAttribute("data-runtime-surface-visible"),
+      ).toBe("true"),
     );
     expect(screen.getByText("2 of 2")).toBeInTheDocument();
   });
@@ -2016,7 +2026,7 @@ describe("ContentRuntimeHost", () => {
         artifactId="artifact-1"
         initialContent={runtimeDocumentContent({
           mode: "slideshow",
-          surfaceIds: ["slide-1", null],
+          surfaceIds: [FIRST_SLIDESHOW_SURFACE_ID, null],
         })}
         onEditorReady={onEditorReady}
       />,
@@ -2040,7 +2050,7 @@ describe("ContentRuntimeHost", () => {
         artifactId="artifact-1"
         initialContent={runtimeDocumentContent({
           mode: "branching",
-          surfaceIds: ["screen-1"],
+          surfaceIds: [BRANCHING_SURFACE_ID],
         })}
         onEditorReady={onEditorReady}
       />,
