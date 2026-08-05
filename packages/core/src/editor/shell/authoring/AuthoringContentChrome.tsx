@@ -7,6 +7,8 @@ import type { SurfaceAuthoringChromeResolver } from "@/editor/surfaces/authoring
 import { createGridFloatingAuthoringControls } from "@/editor/arrangements/grid/authoring/grid-floating-controls";
 import { createLayoutFloatingAuthoringControls } from "@/editor/arrangements/layout/authoring/layout-floating-controls";
 import { EditorMovementLayer } from "@/editor/drag/view/EditorMovementLayer";
+import { createViewportCoordinateSpace } from "@/editor/interactions/drag/dom/dom-coordinate-space";
+import { InteractionDragEnvironmentProvider } from "@/editor/interactions/drag/react/interaction-drag-environment";
 import { authoringInteractionRootAttributes } from "@/editor/interactions/dom/authoring-root";
 import { AuthoringOverlayBoundary } from "@/editor/interactions/floating/AuthoringOverlayBoundary";
 import { InteractionProvider } from "@/editor/interactions/targets/facade/interaction-provider";
@@ -37,6 +39,14 @@ export function AuthoringContentChrome({
   surfaceVariants,
 }: AuthoringContentChromeProps) {
   const [ownerRoot, setOwnerRoot] = useState<HTMLDivElement | null>(null);
+  const coordinateSpace = useMemo(
+    () =>
+      createViewportCoordinateSpace({
+        getRoot: () => ownerRoot,
+        ownerDocument: ownerRoot?.ownerDocument ?? document,
+      }),
+    [ownerRoot],
+  );
   const canShowAuthoringChrome = editable && editor.isEditable;
   const contentFloatingControls = useMemo(
     () => [
@@ -62,20 +72,25 @@ export function AuthoringContentChrome({
           className="sc-authoring-chrome-root"
           {...authoringInteractionRootAttributes()}
         >
-          <EditorMovementLayer
-            blockDefinitions={blockDefinitions}
-            editor={editor}
-            surfaceVariants={surfaceVariants}
+          <InteractionDragEnvironmentProvider
+            coordinateRoot={ownerRoot}
+            coordinateSpace={coordinateSpace}
           >
-            {children}
-          </EditorMovementLayer>
-          <FloatingAuthoringChrome controls={floatingControls} editor={editor} />
-          <BubbleMenus
-            blockDefinitions={blockDefinitions}
-            editor={editor}
-            surfaceAuthoringChrome={surfaceAuthoringChrome}
-            surfaceVariants={surfaceVariants}
-          />
+            <EditorMovementLayer
+              blockDefinitions={blockDefinitions}
+              editor={editor}
+              surfaceVariants={surfaceVariants}
+            >
+              {children}
+            </EditorMovementLayer>
+            <FloatingAuthoringChrome controls={floatingControls} editor={editor} />
+            <BubbleMenus
+              blockDefinitions={blockDefinitions}
+              editor={editor}
+              surfaceAuthoringChrome={surfaceAuthoringChrome}
+              surfaceVariants={surfaceVariants}
+            />
+          </InteractionDragEnvironmentProvider>
         </div>
       </AuthoringOverlayBoundary>
     </InteractionProvider>
