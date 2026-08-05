@@ -3,10 +3,9 @@ import { useEffect, useRef } from "react";
 
 import { useLayoutInteractionStore } from "../shared/model/layout-interaction-store";
 import {
-  buildLayoutSectionExperiencedStatementDraft,
-  useXapiSession,
-  type XapiSession,
-} from "@/runtime/xapi";
+  useLearningEventReporter,
+  type LearningEventReporter,
+} from "@/runtime/learning-events/LearningEventRuntimeProvider";
 import {
   resolveOwningRuntimeSurfaceId,
   useRuntimePresentedSurfaceId,
@@ -38,25 +37,25 @@ export function AccordionLayoutRuntimeView(props: LayoutRuntimeViewProps) {
     (state) => state.openAccordionSectionsByLayoutId[layoutId],
   );
   const openSectionIds = accordionOpenSectionIds({ defaultOpenIds, storedOpenIds });
-  const xapiSession = useXapiSession();
+  const learningEventReporter = useLearningEventReporter();
   const presentedSurfaceId = useRuntimePresentedSurfaceId();
   const owningSurfaceId = resolveOwningRuntimeSurfaceId(props.editor.state.doc, props.getPos);
   const isPresented =
     presentedSurfaceId === undefined ||
     (presentedSurfaceId !== null && owningSurfaceId === presentedSurfaceId);
   const recordedOpenRef = useRef<{
-    session: XapiSession;
+    reporter: LearningEventReporter;
     sectionIds: ReadonlySet<string>;
   } | null>(null);
 
   useEffect(() => {
-    if (!isPresented || !xapiSession) {
+    if (!isPresented) {
       recordedOpenRef.current = null;
       return;
     }
 
     const previous =
-      recordedOpenRef.current?.session === xapiSession
+      recordedOpenRef.current?.reporter === learningEventReporter
         ? recordedOpenRef.current.sectionIds
         : new Set<string>();
 
@@ -66,26 +65,24 @@ export function AccordionLayoutRuntimeView(props: LayoutRuntimeViewProps) {
       if (sectionIndex < 0) continue;
 
       try {
-        xapiSession.record(
-          buildLayoutSectionExperiencedStatementDraft({
-            rootActivityId: xapiSession.rootActivityId,
-            layoutId,
-            sectionId,
-            layoutKind: "accordion",
-            position: sectionIndex + 1,
-            count: sections.length,
-          }),
-        );
+        learningEventReporter.report({
+          type: "layout-section.experienced",
+          layoutId,
+          sectionId,
+          layoutKind: "accordion",
+          position: sectionIndex + 1,
+          count: sections.length,
+        });
       } catch {
         // Layout recording is observational and cannot make content unavailable.
       }
     }
 
     recordedOpenRef.current = {
-      session: xapiSession,
+      reporter: learningEventReporter,
       sectionIds: new Set(openSectionIds),
     };
-  }, [isPresented, layoutId, openSectionIds, sections, xapiSession]);
+  }, [isPresented, layoutId, learningEventReporter, openSectionIds, sections]);
 
   return (
     <div className="sc-accordion-layout">

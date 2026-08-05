@@ -3,10 +3,9 @@ import { useEffect, useRef } from "react";
 
 import { useLayoutInteractionStore } from "../shared/model/layout-interaction-store";
 import {
-  buildLayoutSectionExperiencedStatementDraft,
-  useXapiSession,
-  type XapiSession,
-} from "@/runtime/xapi";
+  useLearningEventReporter,
+  type LearningEventReporter,
+} from "@/runtime/learning-events/LearningEventRuntimeProvider";
 import {
   resolveOwningRuntimeSurfaceId,
   useRuntimePresentedSurfaceId,
@@ -37,14 +36,14 @@ export function PaginatedLayoutRuntimeView(props: LayoutRuntimeViewProps) {
   );
   const setActivePage = useLayoutInteractionStore(props.editor, (state) => state.setActivePage);
   const activeId = normalizeActivePageId(storedActiveId, pages);
-  const xapiSession = useXapiSession();
+  const learningEventReporter = useLearningEventReporter();
   const presentedSurfaceId = useRuntimePresentedSurfaceId();
   const owningSurfaceId = resolveOwningRuntimeSurfaceId(props.editor.state.doc, props.getPos);
   const isPresented =
     presentedSurfaceId === undefined ||
     (presentedSurfaceId !== null && owningSurfaceId === presentedSurfaceId);
   const recordedSectionRef = useRef<{
-    session: XapiSession;
+    reporter: LearningEventReporter;
     sectionId: string;
   } | null>(null);
   const activeIndex = pages.findIndex((page) => page.id === activeId);
@@ -54,26 +53,29 @@ export function PaginatedLayoutRuntimeView(props: LayoutRuntimeViewProps) {
       recordedSectionRef.current = null;
       return;
     }
-    if (!xapiSession || !activeId || activeIndex < 0) return;
+    if (!activeId || activeIndex < 0) return;
     const previous = recordedSectionRef.current;
-    if (previous?.session === xapiSession && previous.sectionId === activeId) return;
+    if (
+      previous?.reporter === learningEventReporter &&
+      previous.sectionId === activeId
+    ) {
+      return;
+    }
 
     try {
-      xapiSession.record(
-        buildLayoutSectionExperiencedStatementDraft({
-          rootActivityId: xapiSession.rootActivityId,
-          layoutId,
-          sectionId: activeId,
-          layoutKind: "paginated",
-          position: activeIndex + 1,
-          count: pages.length,
-        }),
-      );
-      recordedSectionRef.current = { session: xapiSession, sectionId: activeId };
+      learningEventReporter.report({
+        type: "layout-section.experienced",
+        layoutId,
+        sectionId: activeId,
+        layoutKind: "paginated",
+        position: activeIndex + 1,
+        count: pages.length,
+      });
+      recordedSectionRef.current = { reporter: learningEventReporter, sectionId: activeId };
     } catch {
       // Layout recording is observational and cannot make content unavailable.
     }
-  }, [activeId, activeIndex, isPresented, layoutId, pages.length, xapiSession]);
+  }, [activeId, activeIndex, isPresented, layoutId, learningEventReporter, pages.length]);
 
   return (
     <div className="sc-paginated-layout">

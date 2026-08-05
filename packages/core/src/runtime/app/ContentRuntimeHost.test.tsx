@@ -23,6 +23,12 @@ import { SurfaceRuntimeFrame } from "@/editor/surfaces/runtime/views/SurfaceRunt
 import type { XapiPort } from "@/host/ports";
 import type { LearningEventPort } from "@/host/ports/learning-events";
 import {
+  LEARNING_EVENT_ACTIVITY_TYPES,
+  LEARNING_EVENT_EXTENSIONS,
+  createLayoutSectionActivityId as createLearningEventLayoutSectionActivityId,
+  createSurfaceActivityId as createLearningEventSurfaceActivityId,
+} from "../learning-events/catalogue";
+import {
   createScaffoldDefaultTheme,
   SCAFFOLD_DEFAULT_PRESET,
   type ScaffoldThemeExtension,
@@ -30,14 +36,8 @@ import {
 
 import { ContentRuntimeHost } from "./ContentRuntimeHost";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
-import {
-  XAPI_ACTIVITY_TYPES,
-  XAPI_EXTENSIONS,
-  XAPI_VERBS,
-  createLayoutSectionActivityId,
-  createSurfaceActivityId,
-  type XapiSession,
-} from "../xapi";
+import * as runtimeXapi from "../xapi";
+import type { XapiSession } from "../xapi";
 
 const runtimeComposition = createCoreScaffoldRuntimeComposition();
 
@@ -766,12 +766,12 @@ describe("ContentRuntimeHost", () => {
     expect(learnerActivityOptions.getXapiSession?.()).toBeNull();
   });
 
-  it("starts xAPI only when valid content has a ready renderer", async () => {
-    const port = createXapiPort();
+  it("initializes Learning Events only when valid content has a ready renderer", async () => {
+    const port = createLearningEventPort();
     const onEditorReady = vi.fn();
 
     render(
-      <ScaffoldServicesProvider ports={{ xapi: port }}>
+      <ScaffoldServicesProvider ports={{ learningEvents: port }}>
         <ContentRuntimeHost
           composition={runtimeComposition}
           artifactId="artifact-1"
@@ -783,25 +783,25 @@ describe("ContentRuntimeHost", () => {
     );
 
     await waitFor(() => expect(onEditorReady).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(port.send).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(port.accept).toHaveBeenCalledTimes(2));
 
-    expect(port.send.mock.calls[0]?.[0]).toMatchObject({
+    expect(port.accept.mock.calls[0]?.[0]).toMatchObject({
       verb: { display: { en: "initialized" } },
       object: {
-        id: port.activityId,
+        id: port.rootActivityId,
         definition: { name: { en: "Course One" } },
       },
     });
-    expect(port.send.mock.calls[1]?.[0]).toMatchObject({
-      verb: XAPI_VERBS.experienced,
+    expect(port.accept.mock.calls[1]?.[0]).toMatchObject({
+      verb: { display: { en: "experienced" } },
       object: {
-        id: createSurfaceActivityId(port.activityId, "surface-runtime"),
+        id: createLearningEventSurfaceActivityId(port.rootActivityId, "surface-runtime"),
         definition: {
-          type: XAPI_ACTIVITY_TYPES.surface,
+          type: LEARNING_EVENT_ACTIVITY_TYPES.surface,
           extensions: {
-            [XAPI_EXTENSIONS.surfaceKind]: "page",
-            [XAPI_EXTENSIONS.surfacePosition]: 1,
-            [XAPI_EXTENSIONS.surfaceCount]: 1,
+            [LEARNING_EVENT_EXTENSIONS.surfaceKind]: "page",
+            [LEARNING_EVENT_EXTENSIONS.surfacePosition]: 1,
+            [LEARNING_EVENT_EXTENSIONS.surfaceCount]: 1,
           },
         },
       },
@@ -828,12 +828,31 @@ describe("ContentRuntimeHost", () => {
     ).toHaveLength(1);
   });
 
-  it("records every active slideshow surface transition as experienced", async () => {
-    const user = userEvent.setup();
-    const port = createXapiPort();
+  it("reports surface and layout experiences without legacy session access", async () => {
+    vi.spyOn(runtimeXapi, "useXapiSession").mockReturnValue(null);
+    const port = createLearningEventPort();
 
     render(
-      <ScaffoldServicesProvider ports={{ xapi: port }}>
+      <ScaffoldServicesProvider ports={{ learningEvents: port }}>
+        <ContentRuntimeHost
+          composition={runtimeComposition}
+          artifactId="artifact-reporter-only"
+          initialContent={runtimeDocumentWithLayout("tabs")}
+        />
+      </ScaffoldServicesProvider>,
+    );
+
+    await waitFor(() =>
+      expect(learningEventVerbs(port)).toEqual(["initialized", "experienced", "experienced"]),
+    );
+  });
+
+  it("records every active slideshow surface transition as experienced", async () => {
+    const user = userEvent.setup();
+    const port = createLearningEventPort();
+
+    render(
+      <ScaffoldServicesProvider ports={{ learningEvents: port }}>
         <ContentRuntimeHost
           composition={runtimeComposition}
           artifactId="artifact-slideshow"
@@ -845,14 +864,14 @@ describe("ContentRuntimeHost", () => {
       </ScaffoldServicesProvider>,
     );
 
-    await waitFor(() => expect(statementVerbs(port)).toEqual(["initialized", "experienced"]));
+    await waitFor(() => expect(learningEventVerbs(port)).toEqual(["initialized", "experienced"]));
     await user.click(screen.getByRole("button", { name: "Next slide" }));
     await waitFor(() =>
-      expect(statementVerbs(port)).toEqual(["initialized", "experienced", "experienced"]),
+      expect(learningEventVerbs(port)).toEqual(["initialized", "experienced", "experienced"]),
     );
     await user.click(screen.getByRole("button", { name: "Previous slide" }));
     await waitFor(() =>
-      expect(statementVerbs(port)).toEqual([
+      expect(learningEventVerbs(port)).toEqual([
         "initialized",
         "experienced",
         "experienced",
@@ -861,33 +880,33 @@ describe("ContentRuntimeHost", () => {
     );
 
     expect(
-      port.send.mock.calls.slice(1).map(([statement]) => ({
-        id: statement.object.id,
-        extensions: statement.object.definition?.extensions,
+      port.accept.mock.calls.slice(1).map(([event]) => ({
+        id: event.object.id,
+        extensions: event.object.definition?.extensions,
       })),
     ).toStrictEqual([
       {
-        id: createSurfaceActivityId(port.activityId, "slide-one"),
+        id: createLearningEventSurfaceActivityId(port.rootActivityId, "slide-one"),
         extensions: {
-          [XAPI_EXTENSIONS.surfaceKind]: "slide",
-          [XAPI_EXTENSIONS.surfacePosition]: 1,
-          [XAPI_EXTENSIONS.surfaceCount]: 2,
+          [LEARNING_EVENT_EXTENSIONS.surfaceKind]: "slide",
+          [LEARNING_EVENT_EXTENSIONS.surfacePosition]: 1,
+          [LEARNING_EVENT_EXTENSIONS.surfaceCount]: 2,
         },
       },
       {
-        id: createSurfaceActivityId(port.activityId, "slide-two"),
+        id: createLearningEventSurfaceActivityId(port.rootActivityId, "slide-two"),
         extensions: {
-          [XAPI_EXTENSIONS.surfaceKind]: "slide",
-          [XAPI_EXTENSIONS.surfacePosition]: 2,
-          [XAPI_EXTENSIONS.surfaceCount]: 2,
+          [LEARNING_EVENT_EXTENSIONS.surfaceKind]: "slide",
+          [LEARNING_EVENT_EXTENSIONS.surfacePosition]: 2,
+          [LEARNING_EVENT_EXTENSIONS.surfaceCount]: 2,
         },
       },
       {
-        id: createSurfaceActivityId(port.activityId, "slide-one"),
+        id: createLearningEventSurfaceActivityId(port.rootActivityId, "slide-one"),
         extensions: {
-          [XAPI_EXTENSIONS.surfaceKind]: "slide",
-          [XAPI_EXTENSIONS.surfacePosition]: 1,
-          [XAPI_EXTENSIONS.surfaceCount]: 2,
+          [LEARNING_EVENT_EXTENSIONS.surfaceKind]: "slide",
+          [LEARNING_EVENT_EXTENSIONS.surfacePosition]: 1,
+          [LEARNING_EVENT_EXTENSIONS.surfaceCount]: 2,
         },
       },
     ]);
@@ -895,10 +914,10 @@ describe("ContentRuntimeHost", () => {
 
   it("records initial and changed active tab sections as experienced", async () => {
     const user = userEvent.setup();
-    const port = createXapiPort();
+    const port = createLearningEventPort();
 
     render(
-      <ScaffoldServicesProvider ports={{ xapi: port }}>
+      <ScaffoldServicesProvider ports={{ learningEvents: port }}>
         <ContentRuntimeHost
           composition={runtimeComposition}
           artifactId="artifact-tabs"
@@ -907,49 +926,62 @@ describe("ContentRuntimeHost", () => {
       </ScaffoldServicesProvider>,
     );
 
-    const layoutSectionStatements = () =>
-      port.send.mock.calls
-        .map(([statement]) => statement)
+    const layoutSectionEvents = () =>
+      port.accept.mock.calls
+        .map(([event]) => event)
         .filter(
-          (statement) => statement.object.definition?.type === XAPI_ACTIVITY_TYPES.layoutSection,
+          (event) =>
+            event.object.definition?.type === LEARNING_EVENT_ACTIVITY_TYPES.layoutSection,
         );
 
-    await waitFor(() => expect(layoutSectionStatements()).toHaveLength(1));
+    await waitFor(() => expect(layoutSectionEvents()).toHaveLength(1));
     await user.click(screen.getByRole("tab", { name: "Overview" }));
-    expect(layoutSectionStatements()).toHaveLength(1);
+    expect(layoutSectionEvents()).toHaveLength(1);
     await user.click(screen.getByRole("tab", { name: "Practice" }));
-    await waitFor(() => expect(layoutSectionStatements()).toHaveLength(2));
+    await waitFor(() => expect(layoutSectionEvents()).toHaveLength(2));
     await user.click(screen.getByRole("tab", { name: "Overview" }));
-    await waitFor(() => expect(layoutSectionStatements()).toHaveLength(3));
+    await waitFor(() => expect(layoutSectionEvents()).toHaveLength(3));
 
     expect(
-      layoutSectionStatements().map((statement) => ({
-        id: statement.object.id,
-        extensions: statement.object.definition?.extensions,
+      layoutSectionEvents().map((event) => ({
+        id: event.object.id,
+        extensions: event.object.definition?.extensions,
       })),
     ).toStrictEqual([
       {
-        id: createLayoutSectionActivityId(port.activityId, "layout-tabs", "tab-one"),
+        id: createLearningEventLayoutSectionActivityId(
+          port.rootActivityId,
+          "layout-tabs",
+          "tab-one",
+        ),
         extensions: {
-          [XAPI_EXTENSIONS.layoutKind]: "tabs",
-          [XAPI_EXTENSIONS.layoutSectionPosition]: 1,
-          [XAPI_EXTENSIONS.layoutSectionCount]: 2,
+          [LEARNING_EVENT_EXTENSIONS.layoutKind]: "tabs",
+          [LEARNING_EVENT_EXTENSIONS.layoutSectionPosition]: 1,
+          [LEARNING_EVENT_EXTENSIONS.layoutSectionCount]: 2,
         },
       },
       {
-        id: createLayoutSectionActivityId(port.activityId, "layout-tabs", "tab-two"),
+        id: createLearningEventLayoutSectionActivityId(
+          port.rootActivityId,
+          "layout-tabs",
+          "tab-two",
+        ),
         extensions: {
-          [XAPI_EXTENSIONS.layoutKind]: "tabs",
-          [XAPI_EXTENSIONS.layoutSectionPosition]: 2,
-          [XAPI_EXTENSIONS.layoutSectionCount]: 2,
+          [LEARNING_EVENT_EXTENSIONS.layoutKind]: "tabs",
+          [LEARNING_EVENT_EXTENSIONS.layoutSectionPosition]: 2,
+          [LEARNING_EVENT_EXTENSIONS.layoutSectionCount]: 2,
         },
       },
       {
-        id: createLayoutSectionActivityId(port.activityId, "layout-tabs", "tab-one"),
+        id: createLearningEventLayoutSectionActivityId(
+          port.rootActivityId,
+          "layout-tabs",
+          "tab-one",
+        ),
         extensions: {
-          [XAPI_EXTENSIONS.layoutKind]: "tabs",
-          [XAPI_EXTENSIONS.layoutSectionPosition]: 1,
-          [XAPI_EXTENSIONS.layoutSectionCount]: 2,
+          [LEARNING_EVENT_EXTENSIONS.layoutKind]: "tabs",
+          [LEARNING_EVENT_EXTENSIONS.layoutSectionPosition]: 1,
+          [LEARNING_EVENT_EXTENSIONS.layoutSectionCount]: 2,
         },
       },
     ]);
@@ -957,10 +989,10 @@ describe("ContentRuntimeHost", () => {
 
   it("records initial and changed active paginated sections as experienced", async () => {
     const user = userEvent.setup();
-    const port = createXapiPort();
+    const port = createLearningEventPort();
 
     render(
-      <ScaffoldServicesProvider ports={{ xapi: port }}>
+      <ScaffoldServicesProvider ports={{ learningEvents: port }}>
         <ContentRuntimeHost
           composition={runtimeComposition}
           artifactId="artifact-pages"
@@ -969,47 +1001,60 @@ describe("ContentRuntimeHost", () => {
       </ScaffoldServicesProvider>,
     );
 
-    const layoutSectionStatements = () =>
-      port.send.mock.calls
-        .map(([statement]) => statement)
+    const layoutSectionEvents = () =>
+      port.accept.mock.calls
+        .map(([event]) => event)
         .filter(
-          (statement) => statement.object.definition?.type === XAPI_ACTIVITY_TYPES.layoutSection,
+          (event) =>
+            event.object.definition?.type === LEARNING_EVENT_ACTIVITY_TYPES.layoutSection,
         );
 
-    await waitFor(() => expect(layoutSectionStatements()).toHaveLength(1));
+    await waitFor(() => expect(layoutSectionEvents()).toHaveLength(1));
     await user.click(screen.getByRole("button", { name: "Next page" }));
-    await waitFor(() => expect(layoutSectionStatements()).toHaveLength(2));
+    await waitFor(() => expect(layoutSectionEvents()).toHaveLength(2));
     await user.click(screen.getByRole("button", { name: "Previous page" }));
-    await waitFor(() => expect(layoutSectionStatements()).toHaveLength(3));
+    await waitFor(() => expect(layoutSectionEvents()).toHaveLength(3));
 
     expect(
-      layoutSectionStatements().map((statement) => ({
-        id: statement.object.id,
-        extensions: statement.object.definition?.extensions,
+      layoutSectionEvents().map((event) => ({
+        id: event.object.id,
+        extensions: event.object.definition?.extensions,
       })),
     ).toStrictEqual([
       {
-        id: createLayoutSectionActivityId(port.activityId, "layout-pages", "page-one"),
+        id: createLearningEventLayoutSectionActivityId(
+          port.rootActivityId,
+          "layout-pages",
+          "page-one",
+        ),
         extensions: {
-          [XAPI_EXTENSIONS.layoutKind]: "paginated",
-          [XAPI_EXTENSIONS.layoutSectionPosition]: 1,
-          [XAPI_EXTENSIONS.layoutSectionCount]: 2,
+          [LEARNING_EVENT_EXTENSIONS.layoutKind]: "paginated",
+          [LEARNING_EVENT_EXTENSIONS.layoutSectionPosition]: 1,
+          [LEARNING_EVENT_EXTENSIONS.layoutSectionCount]: 2,
         },
       },
       {
-        id: createLayoutSectionActivityId(port.activityId, "layout-pages", "page-two"),
+        id: createLearningEventLayoutSectionActivityId(
+          port.rootActivityId,
+          "layout-pages",
+          "page-two",
+        ),
         extensions: {
-          [XAPI_EXTENSIONS.layoutKind]: "paginated",
-          [XAPI_EXTENSIONS.layoutSectionPosition]: 2,
-          [XAPI_EXTENSIONS.layoutSectionCount]: 2,
+          [LEARNING_EVENT_EXTENSIONS.layoutKind]: "paginated",
+          [LEARNING_EVENT_EXTENSIONS.layoutSectionPosition]: 2,
+          [LEARNING_EVENT_EXTENSIONS.layoutSectionCount]: 2,
         },
       },
       {
-        id: createLayoutSectionActivityId(port.activityId, "layout-pages", "page-one"),
+        id: createLearningEventLayoutSectionActivityId(
+          port.rootActivityId,
+          "layout-pages",
+          "page-one",
+        ),
         extensions: {
-          [XAPI_EXTENSIONS.layoutKind]: "paginated",
-          [XAPI_EXTENSIONS.layoutSectionPosition]: 1,
-          [XAPI_EXTENSIONS.layoutSectionCount]: 2,
+          [LEARNING_EVENT_EXTENSIONS.layoutKind]: "paginated",
+          [LEARNING_EVENT_EXTENSIONS.layoutSectionPosition]: 1,
+          [LEARNING_EVENT_EXTENSIONS.layoutSectionCount]: 2,
         },
       },
     ]);
@@ -1017,10 +1062,10 @@ describe("ContentRuntimeHost", () => {
 
   it("records layout sections only when their slideshow surface is presented", async () => {
     const user = userEvent.setup();
-    const port = createXapiPort();
+    const port = createLearningEventPort();
 
     render(
-      <ScaffoldServicesProvider ports={{ xapi: port }}>
+      <ScaffoldServicesProvider ports={{ learningEvents: port }}>
         <ContentRuntimeHost
           composition={runtimeComposition}
           artifactId="artifact-slide-tabs"
@@ -1030,16 +1075,21 @@ describe("ContentRuntimeHost", () => {
     );
 
     const layoutSectionIds = () =>
-      port.send.mock.calls
-        .map(([statement]) => statement)
+      port.accept.mock.calls
+        .map(([event]) => event)
         .filter(
-          (statement) => statement.object.definition?.type === XAPI_ACTIVITY_TYPES.layoutSection,
+          (event) =>
+            event.object.definition?.type === LEARNING_EVENT_ACTIVITY_TYPES.layoutSection,
         )
-        .map((statement) => statement.object.id);
+        .map((event) => event.object.id);
 
     await waitFor(() =>
       expect(layoutSectionIds()).toStrictEqual([
-        createLayoutSectionActivityId(port.activityId, "layout-slide-one", "tab-slide-one"),
+        createLearningEventLayoutSectionActivityId(
+          port.rootActivityId,
+          "layout-slide-one",
+          "tab-slide-one",
+        ),
       ]),
     );
 
@@ -1047,8 +1097,16 @@ describe("ContentRuntimeHost", () => {
 
     await waitFor(() =>
       expect(layoutSectionIds()).toStrictEqual([
-        createLayoutSectionActivityId(port.activityId, "layout-slide-one", "tab-slide-one"),
-        createLayoutSectionActivityId(port.activityId, "layout-slide-two", "tab-slide-two"),
+        createLearningEventLayoutSectionActivityId(
+          port.rootActivityId,
+          "layout-slide-one",
+          "tab-slide-one",
+        ),
+        createLearningEventLayoutSectionActivityId(
+          port.rootActivityId,
+          "layout-slide-two",
+          "tab-slide-two",
+        ),
       ]),
     );
 
@@ -1056,19 +1114,31 @@ describe("ContentRuntimeHost", () => {
 
     await waitFor(() =>
       expect(layoutSectionIds()).toStrictEqual([
-        createLayoutSectionActivityId(port.activityId, "layout-slide-one", "tab-slide-one"),
-        createLayoutSectionActivityId(port.activityId, "layout-slide-two", "tab-slide-two"),
-        createLayoutSectionActivityId(port.activityId, "layout-slide-one", "tab-slide-one"),
+        createLearningEventLayoutSectionActivityId(
+          port.rootActivityId,
+          "layout-slide-one",
+          "tab-slide-one",
+        ),
+        createLearningEventLayoutSectionActivityId(
+          port.rootActivityId,
+          "layout-slide-two",
+          "tab-slide-two",
+        ),
+        createLearningEventLayoutSectionActivityId(
+          port.rootActivityId,
+          "layout-slide-one",
+          "tab-slide-one",
+        ),
       ]),
     );
   });
 
   it("records accordion sections when they open and not when they close", async () => {
     const user = userEvent.setup();
-    const port = createXapiPort();
+    const port = createLearningEventPort();
 
     render(
-      <ScaffoldServicesProvider ports={{ xapi: port }}>
+      <ScaffoldServicesProvider ports={{ learningEvents: port }}>
         <ContentRuntimeHost
           composition={runtimeComposition}
           artifactId="artifact-accordion"
@@ -1077,49 +1147,62 @@ describe("ContentRuntimeHost", () => {
       </ScaffoldServicesProvider>,
     );
 
-    const layoutSectionStatements = () =>
-      port.send.mock.calls
-        .map(([statement]) => statement)
+    const layoutSectionEvents = () =>
+      port.accept.mock.calls
+        .map(([event]) => event)
         .filter(
-          (statement) => statement.object.definition?.type === XAPI_ACTIVITY_TYPES.layoutSection,
+          (event) =>
+            event.object.definition?.type === LEARNING_EVENT_ACTIVITY_TYPES.layoutSection,
         );
 
-    await waitFor(() => expect(layoutSectionStatements()).toHaveLength(1));
+    await waitFor(() => expect(layoutSectionEvents()).toHaveLength(1));
     await user.click(screen.getByRole("button", { name: "Expand After class" }));
-    await waitFor(() => expect(layoutSectionStatements()).toHaveLength(2));
+    await waitFor(() => expect(layoutSectionEvents()).toHaveLength(2));
     await user.click(screen.getByRole("button", { name: "Collapse Before class" }));
-    expect(layoutSectionStatements()).toHaveLength(2);
+    expect(layoutSectionEvents()).toHaveLength(2);
     await user.click(screen.getByRole("button", { name: "Expand Before class" }));
-    await waitFor(() => expect(layoutSectionStatements()).toHaveLength(3));
+    await waitFor(() => expect(layoutSectionEvents()).toHaveLength(3));
 
     expect(
-      layoutSectionStatements().map((statement) => ({
-        id: statement.object.id,
-        extensions: statement.object.definition?.extensions,
+      layoutSectionEvents().map((event) => ({
+        id: event.object.id,
+        extensions: event.object.definition?.extensions,
       })),
     ).toStrictEqual([
       {
-        id: createLayoutSectionActivityId(port.activityId, "layout-accordion", "accordion-one"),
+        id: createLearningEventLayoutSectionActivityId(
+          port.rootActivityId,
+          "layout-accordion",
+          "accordion-one",
+        ),
         extensions: {
-          [XAPI_EXTENSIONS.layoutKind]: "accordion",
-          [XAPI_EXTENSIONS.layoutSectionPosition]: 1,
-          [XAPI_EXTENSIONS.layoutSectionCount]: 2,
+          [LEARNING_EVENT_EXTENSIONS.layoutKind]: "accordion",
+          [LEARNING_EVENT_EXTENSIONS.layoutSectionPosition]: 1,
+          [LEARNING_EVENT_EXTENSIONS.layoutSectionCount]: 2,
         },
       },
       {
-        id: createLayoutSectionActivityId(port.activityId, "layout-accordion", "accordion-two"),
+        id: createLearningEventLayoutSectionActivityId(
+          port.rootActivityId,
+          "layout-accordion",
+          "accordion-two",
+        ),
         extensions: {
-          [XAPI_EXTENSIONS.layoutKind]: "accordion",
-          [XAPI_EXTENSIONS.layoutSectionPosition]: 2,
-          [XAPI_EXTENSIONS.layoutSectionCount]: 2,
+          [LEARNING_EVENT_EXTENSIONS.layoutKind]: "accordion",
+          [LEARNING_EVENT_EXTENSIONS.layoutSectionPosition]: 2,
+          [LEARNING_EVENT_EXTENSIONS.layoutSectionCount]: 2,
         },
       },
       {
-        id: createLayoutSectionActivityId(port.activityId, "layout-accordion", "accordion-one"),
+        id: createLearningEventLayoutSectionActivityId(
+          port.rootActivityId,
+          "layout-accordion",
+          "accordion-one",
+        ),
         extensions: {
-          [XAPI_EXTENSIONS.layoutKind]: "accordion",
-          [XAPI_EXTENSIONS.layoutSectionPosition]: 1,
-          [XAPI_EXTENSIONS.layoutSectionCount]: 2,
+          [LEARNING_EVENT_EXTENSIONS.layoutKind]: "accordion",
+          [LEARNING_EVENT_EXTENSIONS.layoutSectionPosition]: 1,
+          [LEARNING_EVENT_EXTENSIONS.layoutSectionCount]: 2,
         },
       },
     ]);
@@ -1127,10 +1210,10 @@ describe("ContentRuntimeHost", () => {
 
   it("records open accordion sections only on the presented slideshow surface", async () => {
     const user = userEvent.setup();
-    const port = createXapiPort();
+    const port = createLearningEventPort();
 
     render(
-      <ScaffoldServicesProvider ports={{ xapi: port }}>
+      <ScaffoldServicesProvider ports={{ learningEvents: port }}>
         <ContentRuntimeHost
           composition={runtimeComposition}
           artifactId="artifact-slide-accordions"
@@ -1140,17 +1223,18 @@ describe("ContentRuntimeHost", () => {
     );
 
     const layoutSectionIds = () =>
-      port.send.mock.calls
-        .map(([statement]) => statement)
+      port.accept.mock.calls
+        .map(([event]) => event)
         .filter(
-          (statement) => statement.object.definition?.type === XAPI_ACTIVITY_TYPES.layoutSection,
+          (event) =>
+            event.object.definition?.type === LEARNING_EVENT_ACTIVITY_TYPES.layoutSection,
         )
-        .map((statement) => statement.object.id);
+        .map((event) => event.object.id);
 
     await waitFor(() =>
       expect(layoutSectionIds()).toStrictEqual([
-        createLayoutSectionActivityId(
-          port.activityId,
+        createLearningEventLayoutSectionActivityId(
+          port.rootActivityId,
           "layout-accordion-one",
           "accordion-slide-one-one",
         ),
@@ -1161,13 +1245,13 @@ describe("ContentRuntimeHost", () => {
 
     await waitFor(() =>
       expect(layoutSectionIds()).toStrictEqual([
-        createLayoutSectionActivityId(
-          port.activityId,
+        createLearningEventLayoutSectionActivityId(
+          port.rootActivityId,
           "layout-accordion-one",
           "accordion-slide-one-one",
         ),
-        createLayoutSectionActivityId(
-          port.activityId,
+        createLearningEventLayoutSectionActivityId(
+          port.rootActivityId,
           "layout-accordion-two",
           "accordion-slide-two-one",
         ),

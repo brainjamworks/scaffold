@@ -3,10 +3,9 @@ import { useEffect, useRef, type KeyboardEvent } from "react";
 
 import { useLayoutInteractionStore } from "../shared/model/layout-interaction-store";
 import {
-  buildLayoutSectionExperiencedStatementDraft,
-  useXapiSession,
-  type XapiSession,
-} from "@/runtime/xapi";
+  useLearningEventReporter,
+  type LearningEventReporter,
+} from "@/runtime/learning-events/LearningEventRuntimeProvider";
 import {
   resolveOwningRuntimeSurfaceId,
   useRuntimePresentedSurfaceId,
@@ -45,14 +44,14 @@ export function TabsLayoutRuntimeView(props: LayoutRuntimeViewProps) {
   );
   const setActiveTab = useLayoutInteractionStore(props.editor, (state) => state.setActiveTab);
   const activeId = normalizeActiveTabId(storedActiveId, sections);
-  const xapiSession = useXapiSession();
+  const learningEventReporter = useLearningEventReporter();
   const presentedSurfaceId = useRuntimePresentedSurfaceId();
   const owningSurfaceId = resolveOwningRuntimeSurfaceId(props.editor.state.doc, props.getPos);
   const isPresented =
     presentedSurfaceId === undefined ||
     (presentedSurfaceId !== null && owningSurfaceId === presentedSurfaceId);
   const recordedSectionRef = useRef<{
-    session: XapiSession;
+    reporter: LearningEventReporter;
     sectionId: string;
   } | null>(null);
   const activeIndex = sections.findIndex((section) => section.id === activeId);
@@ -62,26 +61,29 @@ export function TabsLayoutRuntimeView(props: LayoutRuntimeViewProps) {
       recordedSectionRef.current = null;
       return;
     }
-    if (!xapiSession || !activeId || activeIndex < 0) return;
+    if (!activeId || activeIndex < 0) return;
     const previous = recordedSectionRef.current;
-    if (previous?.session === xapiSession && previous.sectionId === activeId) return;
+    if (
+      previous?.reporter === learningEventReporter &&
+      previous.sectionId === activeId
+    ) {
+      return;
+    }
 
     try {
-      xapiSession.record(
-        buildLayoutSectionExperiencedStatementDraft({
-          rootActivityId: xapiSession.rootActivityId,
-          layoutId,
-          sectionId: activeId,
-          layoutKind: "tabs",
-          position: activeIndex + 1,
-          count: sections.length,
-        }),
-      );
-      recordedSectionRef.current = { session: xapiSession, sectionId: activeId };
+      learningEventReporter.report({
+        type: "layout-section.experienced",
+        layoutId,
+        sectionId: activeId,
+        layoutKind: "tabs",
+        position: activeIndex + 1,
+        count: sections.length,
+      });
+      recordedSectionRef.current = { reporter: learningEventReporter, sectionId: activeId };
     } catch {
       // Layout recording is observational and cannot make content unavailable.
     }
-  }, [activeId, activeIndex, isPresented, layoutId, sections.length, xapiSession]);
+  }, [activeId, activeIndex, isPresented, layoutId, learningEventReporter, sections.length]);
 
   return (
     <div className="sc-tabs">
