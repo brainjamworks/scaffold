@@ -14,22 +14,19 @@ describe("resolveInteractionTargetSize", () => {
     { scale: 0.83, expectedLocal: 44 / 0.83, guarantees: true },
     { scale: 1, expectedLocal: 44, guarantees: true },
     { scale: 2, expectedLocal: 22, guarantees: true },
-  ])(
-    "resolves the approved minimum at scale $scale",
-    ({ scale, expectedLocal, guarantees }) => {
-      const result = resolveInteractionTargetSize({
-        scaleX: scale,
-        scaleY: scale,
-        safeLocalWidth: 200,
-        safeLocalHeight: 200,
-      });
+  ])("resolves the approved minimum at scale $scale", ({ scale, expectedLocal, guarantees }) => {
+    const result = resolveInteractionTargetSize({
+      scaleX: scale,
+      scaleY: scale,
+      safeLocalWidth: 200,
+      safeLocalHeight: 200,
+    });
 
-      expect(result?.minimumLocalWidth).toBeCloseTo(expectedLocal);
-      expect(result?.minimumLocalHeight).toBeCloseTo(expectedLocal);
-      expect(result?.guaranteesPreferredClientWidth).toBe(guarantees);
-      expect(result?.guaranteesPreferredClientHeight).toBe(guarantees);
-    },
-  );
+    expect(result?.minimumLocalWidth).toBeCloseTo(expectedLocal);
+    expect(result?.minimumLocalHeight).toBeCloseTo(expectedLocal);
+    expect(result?.guaranteesPreferredClientWidth).toBe(guarantees);
+    expect(result?.guaranteesPreferredClientHeight).toBe(guarantees);
+  });
 
   it("resolves each axis independently and clips to safe local extents", () => {
     const result = resolveInteractionTargetSize({

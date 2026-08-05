@@ -1,7 +1,6 @@
 // @vitest-environment happy-dom
 
 import { render, screen } from "@testing-library/react";
-import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import {
@@ -160,7 +159,9 @@ describe("InteractionDragEnvironmentProvider", () => {
       getRoot: () => secondRoot,
       ownerDocument: document,
     });
-    rerender(environmentTree({ collisionBoundary, coordinateSpace: secondSpace, host, root: secondRoot }));
+    rerender(
+      environmentTree({ collisionBoundary, coordinateSpace: secondSpace, host, root: secondRoot }),
+    );
 
     expect(screen.getByTestId("resolution").dataset.root).toBe("second");
   });
@@ -206,9 +207,19 @@ function ResolutionProbe() {
   return (
     <output
       data-testid="resolution"
-      data-host={resolution.status === "ready" ? resolution.environment.overlayHost.dataset.testId : undefined}
-      data-root={resolution.status === "ready" ? resolution.environment.coordinateRoot.dataset.testId : undefined}
-      data-strategy={resolution.status === "ready" ? resolution.environment.positionStrategy : undefined}
+      data-host={
+        resolution.status === "ready"
+          ? resolution.environment.overlayHost.dataset.testId
+          : undefined
+      }
+      data-root={
+        resolution.status === "ready"
+          ? resolution.environment.coordinateRoot.dataset.testId
+          : undefined
+      }
+      data-strategy={
+        resolution.status === "ready" ? resolution.environment.positionStrategy : undefined
+      }
       data-strict-ready={String(ready !== null)}
     >
       {resolution.status}:{resolution.status === "pending" ? resolution.reason : resolution.status}
@@ -244,7 +255,8 @@ function readyBoundary(input?: {
   host?: HTMLElement;
   kind?: "viewport" | "contained";
 }): OverlayBoundaryResolution {
-  const host = input?.host ?? connectedElement("host", { left: 0, top: 0, width: 800, height: 600 });
+  const host =
+    input?.host ?? connectedElement("host", { left: 0, top: 0, width: 800, height: 600 });
   const collisionBoundary =
     input?.collisionBoundary ??
     connectedElement("collision", { left: 0, top: 0, width: 800, height: 600 });

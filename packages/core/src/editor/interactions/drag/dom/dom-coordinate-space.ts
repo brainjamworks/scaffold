@@ -83,16 +83,12 @@ function createDOMCoordinateSpace(
     subscribe(listener) {
       listeners.add(listener);
       if (listeners.size === 1 && ownerWindow) {
-        stopObserving = observeInvalidations(
-          options,
-          ownerWindow,
-          (reasons) => {
-            revision += 1;
-            for (const reason of reasons) {
-              for (const currentListener of listeners) currentListener(reason);
-            }
-          },
-        );
+        stopObserving = observeInvalidations(options, ownerWindow, (reasons) => {
+          revision += 1;
+          for (const reason of reasons) {
+            for (const currentListener of listeners) currentListener(reason);
+          }
+        });
       }
 
       let subscribed = true;
@@ -149,13 +145,15 @@ function observeInvalidations(
   options.ownerDocument.addEventListener("transitionend", handleTransform, true);
   ownerWindow.addEventListener("resize", handleResize);
 
-  const ResizeObserverConstructor = ownerWindow.ResizeObserver;
+  const ownerGlobal = ownerWindow as Window & typeof globalThis;
+  const ResizeObserverConstructor = ownerGlobal.ResizeObserver;
   if (ResizeObserverConstructor) {
-    resizeObserver = new ResizeObserverConstructor(handleResize);
-    if (observedRoot) resizeObserver.observe(observedRoot);
+    const nextResizeObserver = new ResizeObserverConstructor(handleResize);
+    resizeObserver = nextResizeObserver;
+    if (observedRoot) nextResizeObserver.observe(observedRoot);
   }
 
-  const MutationObserverConstructor = ownerWindow.MutationObserver;
+  const MutationObserverConstructor = ownerGlobal.MutationObserver;
   const mutationObserver = MutationObserverConstructor
     ? new MutationObserverConstructor(handleTransform)
     : null;

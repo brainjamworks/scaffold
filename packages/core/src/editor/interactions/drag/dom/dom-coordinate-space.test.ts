@@ -8,6 +8,8 @@ import {
   createViewportCoordinateSpace,
 } from "./dom-coordinate-space";
 
+const rectReaders = new WeakMap<HTMLElement, ReturnType<typeof vi.fn>>();
+
 describe("DOM coordinate spaces", () => {
   it("measures a live scaled root once and accepts the slideshow's computed 2D matrix", () => {
     const root = connectedRoot({ left: 120, top: 80, width: 512, height: 288 });
@@ -20,7 +22,7 @@ describe("DOM coordinate spaces", () => {
 
     const snapshot = coordinateSpace.measure();
 
-    expect(root.getBoundingClientRect).toHaveBeenCalledOnce();
+    expect(rectReaders.get(root)).toHaveBeenCalledOnce();
     expect(snapshot).toMatchObject({ kind: "scaled-canvas", scaleX: 0.5, scaleY: 0.5 });
     expect(snapshot?.clientPointToLocal({ space: "client", x: 376, y: 224 })).toEqual({
       space: "local",
@@ -33,7 +35,7 @@ describe("DOM coordinate spaces", () => {
     const scheduler = createControlledFrameScheduler();
     let rect = { left: 10, top: 20, width: 600, height: 400 };
     const root = connectedRoot(rect);
-    vi.mocked(root.getBoundingClientRect).mockImplementation(() => domRect(rect));
+    rectReaders.get(root)?.mockImplementation(() => domRect(rect));
     const reasons: string[] = [];
     const coordinateSpace = createViewportCoordinateSpace({
       getRoot: () => root,
@@ -163,7 +165,9 @@ describe("DOM coordinate spaces", () => {
 function connectedRoot(rect: { left: number; top: number; width: number; height: number }) {
   const root = document.createElement("div");
   document.body.append(root);
-  vi.spyOn(root, "getBoundingClientRect").mockReturnValue(domRect(rect));
+  const rectReader = vi.fn(() => domRect(rect));
+  root.getBoundingClientRect = rectReader;
+  rectReaders.set(root, rectReader);
   return root;
 }
 

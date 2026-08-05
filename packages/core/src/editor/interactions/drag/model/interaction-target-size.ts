@@ -27,20 +27,13 @@ export function resolveInteractionTargetSize(input: TargetSizeInput): TargetSize
     return null;
   }
 
-  const minimumLocalWidth = Math.min(
-    requestedLocalMinimum(input.scaleX),
-    input.safeLocalWidth,
-  );
-  const minimumLocalHeight = Math.min(
-    requestedLocalMinimum(input.scaleY),
-    input.safeLocalHeight,
-  );
+  const minimumLocalWidth = Math.min(requestedLocalMinimum(input.scaleX), input.safeLocalWidth);
+  const minimumLocalHeight = Math.min(requestedLocalMinimum(input.scaleY), input.safeLocalHeight);
 
   return Object.freeze({
     minimumLocalWidth,
     minimumLocalHeight,
-    guaranteesPreferredClientWidth:
-      minimumLocalWidth * input.scaleX >= PREFERRED_CLIENT_TARGET_PX,
+    guaranteesPreferredClientWidth: minimumLocalWidth * input.scaleX >= PREFERRED_CLIENT_TARGET_PX,
     guaranteesPreferredClientHeight:
       minimumLocalHeight * input.scaleY >= PREFERRED_CLIENT_TARGET_PX,
   });

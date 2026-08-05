@@ -138,11 +138,13 @@ export function createCoordinateSpaceSnapshot(
   });
 }
 
-function createTaggedVector<Space extends ClientPoint["space"] | LocalPoint["space"] | ClientDelta["space"] | LocalDelta["space"]>(
-  space: Space,
-  x: number,
-  y: number,
-): Readonly<{ space: Space; x: number; y: number }> | null {
+function createTaggedVector<
+  Space extends
+    | ClientPoint["space"]
+    | LocalPoint["space"]
+    | ClientDelta["space"]
+    | LocalDelta["space"],
+>(space: Space, x: number, y: number): Readonly<{ space: Space; x: number; y: number }> | null {
   if (!areFinite(x, y)) return null;
   return Object.freeze({ space, x, y });
 }

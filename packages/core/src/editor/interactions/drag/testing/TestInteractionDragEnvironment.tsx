@@ -26,14 +26,8 @@ type TestInteractionDragEnvironmentProps = TestInteractionDragEnvironmentBasePro
       }>
   );
 
-export function TestInteractionDragEnvironment({
-  children,
-  collisionBoundary,
-  coordinateKind,
-  overlayHost,
-  root,
-  ...props
-}: TestInteractionDragEnvironmentProps) {
+export function TestInteractionDragEnvironment(props: TestInteractionDragEnvironmentProps) {
+  const { children, collisionBoundary, coordinateKind, overlayHost, root } = props;
   const coordinateSpace = useMemo(
     () =>
       coordinateKind === "viewport"
@@ -67,10 +61,7 @@ export function TestInteractionDragEnvironment({
 
   return (
     <OverlayBoundaryResolutionProvider resolution={overlayResolution}>
-      <InteractionDragEnvironmentProvider
-        coordinateRoot={root}
-        coordinateSpace={coordinateSpace}
-      >
+      <InteractionDragEnvironmentProvider coordinateRoot={root} coordinateSpace={coordinateSpace}>
         {children}
       </InteractionDragEnvironmentProvider>
     </OverlayBoundaryResolutionProvider>

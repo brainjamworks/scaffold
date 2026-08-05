@@ -115,7 +115,8 @@ export function useReadyInteractionDragEnvironment(): ReadyInteractionDragEnviro
 }
 
 function isHTMLElementInWindow(value: Element | null, ownerWindow: Window): value is HTMLElement {
-  return value !== null && value instanceof ownerWindow.HTMLElement;
+  const OwnerHTMLElement = (ownerWindow as Window & typeof globalThis).HTMLElement;
+  return value !== null && value instanceof OwnerHTMLElement;
 }
 
 function coordinateSpaceMatchesRoot(
@@ -127,7 +128,8 @@ function coordinateSpaceMatchesRoot(
     getRoot?: () => HTMLElement | null;
   };
   return (
-    (domSpace.ownerDocument === undefined || domSpace.ownerDocument === coordinateRoot.ownerDocument) &&
+    (domSpace.ownerDocument === undefined ||
+      domSpace.ownerDocument === coordinateRoot.ownerDocument) &&
     (domSpace.getRoot === undefined || domSpace.getRoot() === coordinateRoot)
   );
 }

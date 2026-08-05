@@ -66,7 +66,9 @@ describe("createCoordinateSpaceSnapshot", () => {
     expectTypeOf<ClientPoint>().not.toEqualTypeOf<LocalPoint>();
     expectTypeOf(createClientPoint).returns.toEqualTypeOf<ClientPoint | null>();
     expectTypeOf(createLocalPoint).returns.toEqualTypeOf<LocalPoint | null>();
-    expectTypeOf(createLocalDelta).returns.toMatchTypeOf<{ readonly space: "local-delta" } | null>();
+    expectTypeOf(createLocalDelta).returns.toMatchTypeOf<{
+      readonly space: "local-delta";
+    } | null>();
   });
 
   it("rejects non-finite coordinates and invalid snapshot dimensions", () => {
