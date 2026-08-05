@@ -4,15 +4,18 @@ import {
   CornersInIcon as CornersIn,
   CornersOutIcon as CornersOut,
 } from "@phosphor-icons/react";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
 
 import { IconButton } from "@/ui/components/IconButton/IconButton";
 import { OverlayBoundary } from "@/ui/components/OverlayBoundary/OverlayBoundary";
+import { createScaledCanvasCoordinateSpace } from "@/editor/interactions/drag/dom/dom-coordinate-space";
+import { InteractionDragEnvironmentProvider } from "@/editor/interactions/drag/react/interaction-drag-environment";
 import { readSurfaceViewSettings } from "@/document/model/surface-view-settings";
 import {
   deriveSlideshowCanvasScale,
   getSlideshowCanvasMetrics,
+  SLIDESHOW_CANVAS_METRICS,
   type SlideshowCanvasMetrics,
   type SlideshowCanvasScaleState,
 } from "@/editor/surfaces/view/slideshow-canvas";
@@ -56,6 +59,7 @@ export function SlideshowPlayer({
   const effectiveTheme = resolvedTheme ?? DEFAULT_RESOLVED_COURSE_THEME;
   const [viewportElement, setViewportElement] = useState<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
+  const [canvasElement, setCanvasElement] = useState<HTMLDivElement | null>(null);
   const [scaleState, setScaleState] = useState<SlideshowCanvasScaleState | null>(null);
   const [activeSurfaceId, setActiveSurfaceId] = useState(surfaceIds[0]);
   const [fullscreenAvailable, setFullscreenAvailable] = useState(false);
@@ -157,7 +161,16 @@ export function SlideshowPlayer({
       ? viewportElement
       : viewportElement.ownerDocument.body
     : null;
-  const overlayCollisionBoundary = isFullscreen ? viewportElement : null;
+  const overlayCollisionBoundary = viewportElement;
+  const coordinateSpace = useMemo(
+    () =>
+      createScaledCanvasCoordinateSpace({
+        getRoot: () => canvasElement,
+        ownerDocument: canvasElement?.ownerDocument ?? document,
+        localSize: metrics ?? SLIDESHOW_CANVAS_METRICS,
+      }),
+    [canvasElement, metrics],
+  );
 
   const toggleFullscreen = async () => {
     if (!viewportElement || fullscreenPending) {
@@ -215,6 +228,7 @@ export function SlideshowPlayer({
             {metrics && scaleState ? (
               <>
                 <div
+                  ref={setCanvasElement}
                   className="sc-slideshow-player__canvas"
                   style={{
                     width: metrics.intrinsicWidth,
@@ -231,14 +245,19 @@ export function SlideshowPlayer({
                     hostCssVariables={effectiveTheme.cssTokens}
                     kind="viewport"
                   >
-                    <CourseDocumentRuntimeRenderer
-                      artifactId={artifactId ?? null}
-                      composition={composition}
-                      initialContent={initialContent}
-                      {...(resolvedTheme ? { resolvedTheme } : {})}
-                      surfaceStates={surfaceStates}
-                      {...(onRendererReady ? { onReady: onRendererReady } : {})}
-                    />
+                    <InteractionDragEnvironmentProvider
+                      coordinateRoot={canvasElement}
+                      coordinateSpace={coordinateSpace}
+                    >
+                      <CourseDocumentRuntimeRenderer
+                        artifactId={artifactId ?? null}
+                        composition={composition}
+                        initialContent={initialContent}
+                        {...(resolvedTheme ? { resolvedTheme } : {})}
+                        surfaceStates={surfaceStates}
+                        {...(onRendererReady ? { onReady: onRendererReady } : {})}
+                      />
+                    </InteractionDragEnvironmentProvider>
                   </OverlayBoundary>
                 </div>
                 <div
