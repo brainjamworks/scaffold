@@ -2,10 +2,16 @@
 
 @layer sc-overlays {
   .sc-structure-movement-handle,
-  .sc-contained-movement-handle {
+  .sc-contained-movement-handle,
+  .sc-editor-movement-handle {
     display: inline-flex;
+    width: 2.75rem;
+    height: 2.75rem;
     align-items: center;
     justify-content: center;
+    padding: 0;
+    border: 0;
+    background: transparent;
     cursor: grab;
     transition:
       opacity 150ms var(--ease-out-soft),
@@ -14,12 +20,25 @@
   }
 
   .sc-structure-movement-handle:focus-visible,
-  .sc-contained-movement-handle:focus-visible {
+  .sc-contained-movement-handle:focus-visible,
+  .sc-editor-movement-handle:focus-visible {
     outline: none;
     box-shadow: 0 0 0 2px var(--color-focus-ring);
   }
 
-  .sc-structure-movement-handle--pill {
+  .sc-structure-movement-handle__visual,
+  .sc-contained-movement-handle__visual,
+  .sc-editor-movement-handle__visual {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+      background-color 150ms var(--ease-out-soft),
+      color 150ms var(--ease-out-soft);
+  }
+
+  .sc-structure-movement-handle--pill .sc-structure-movement-handle__visual,
+  .sc-editor-movement-handle__visual {
     width: 1.25rem;
     height: 2.25rem;
     border: 1px solid var(--color-border);
@@ -29,52 +48,51 @@
     box-shadow: var(--shadow-sm);
   }
 
-  .sc-structure-movement-handle--pill:hover {
+  .sc-structure-movement-handle--pill:hover .sc-structure-movement-handle__visual,
+  .sc-editor-movement-handle:hover .sc-editor-movement-handle__visual {
     background: var(--color-canvas);
     color: var(--color-ink);
   }
 
-  .sc-structure-movement-handle--bare {
+  .sc-structure-movement-handle--bare .sc-structure-movement-handle__visual,
+  .sc-contained-movement-handle__visual {
     width: 1rem;
     height: 1.25rem;
     border-radius: var(--radius-sm);
     color: currentColor;
   }
 
-  .sc-structure-movement-handle--bare:hover {
+  .sc-structure-movement-handle--bare:hover .sc-structure-movement-handle__visual {
     color: var(--color-text-primary);
   }
 
   .sc-contained-movement-handle {
-    width: 1rem;
-    height: 1.25rem;
     flex-shrink: 0;
-    border-radius: var(--radius-sm);
     color: currentColor;
     opacity: 0;
   }
 
   [data-contained-movement-target]:hover
     .sc-contained-movement-handle:not(.sc-movement-handle--disabled):not(
-      .sc-movement-handle--dragging
+      .sc-movement-handle--placeholder
     ),
   [data-contained-movement-target]:focus-within
     .sc-contained-movement-handle:not(.sc-movement-handle--disabled):not(
-      .sc-movement-handle--dragging
+      .sc-movement-handle--placeholder
     ) {
     opacity: 0.5;
   }
 
   .sc-contained-movement-handle:hover:not(.sc-movement-handle--disabled):not(
-    .sc-movement-handle--dragging
+    .sc-movement-handle--placeholder
   ),
   .sc-contained-movement-handle:focus-visible:not(.sc-movement-handle--disabled):not(
-    .sc-movement-handle--dragging
+    .sc-movement-handle--placeholder
   ) {
     opacity: 1;
   }
 
-  .sc-contained-movement-handle:hover {
+  .sc-contained-movement-handle:hover .sc-contained-movement-handle__visual {
     background: rgb(0 0 0 / 10%);
   }
 
@@ -91,35 +109,6 @@
 
   .sc-editor-movement-handle {
     pointer-events: auto;
-    display: flex;
-    width: 1.25rem;
-    height: 2.25rem;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-pill);
-    background: var(--color-background);
-    color: var(--color-text-secondary);
-    box-shadow: var(--shadow-sm);
-  }
-
-  .sc-editor-movement-handle:hover {
-    background: var(--color-canvas);
-    color: var(--color-ink);
-  }
-
-  .sc-editor-movement-handle:focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 2px var(--color-focus-ring);
-  }
-
-  .sc-editor-movement-overlay-ghost {
-    width: 1.25rem;
-    height: 2.25rem;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-pill);
-    background: var(--color-background);
-    box-shadow: var(--shadow-sm);
   }
 
   .sc-movement-handle--disabled {
@@ -127,14 +116,46 @@
     opacity: 0.3;
   }
 
-  .sc-movement-handle--dragging {
-    opacity: 0;
+  .sc-movement-handle--placeholder {
+    border: 1px dashed var(--color-primary);
+    border-radius: var(--radius-md);
+    background: var(--color-primary-muted);
+    color: transparent;
+    opacity: 1;
+    pointer-events: none;
+  }
+
+  .sc-movement-handle--placeholder > :not(.sc-sr-only) {
+    visibility: hidden;
+  }
+
+  .sc-authoring-movement-preview {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--color-border);
+    background: var(--color-background);
+    color: var(--color-text-secondary);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .sc-authoring-movement-preview--block {
+    border-radius: var(--radius-pill);
+  }
+
+  .sc-authoring-movement-preview--contained {
+    border-radius: var(--radius-sm);
   }
 
   @media (prefers-reduced-motion: reduce) {
     .sc-structure-movement-handle,
     .sc-contained-movement-handle,
-    .sc-editor-movement-handle {
+    .sc-editor-movement-handle,
+    .sc-structure-movement-handle__visual,
+    .sc-contained-movement-handle__visual,
+    .sc-editor-movement-handle__visual {
       transition: none;
     }
   }

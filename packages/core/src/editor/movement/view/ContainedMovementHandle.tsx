@@ -1,4 +1,3 @@
-import { useDraggable } from "@dnd-kit/core";
 import { DotsSixVerticalIcon as DotsSixVertical } from "@phosphor-icons/react";
 import { useId, type KeyboardEvent } from "react";
 
@@ -8,8 +7,11 @@ import {
 } from "@/editor/interactions/dom/authoring-chrome";
 import { cn } from "@/lib/cn";
 import { iconXs } from "@/ui/tokens/icon-sizes";
+import { InteractionDragActivationArea } from "@/editor/interactions/drag/react/InteractionDragActivationArea";
+import { useInteractionDragSource } from "@/editor/interactions/drag/react/use-interaction-drag-source";
 
 import type { KeyboardMovementDirection } from "../prosemirror/commands";
+import type { AuthoringMovementDragData } from "./EditorMovementLayer";
 import { useMovementKeyboardContext } from "./movement-keyboard-context";
 import { CONTAINED_MOVEMENT_HANDLE_ATTR } from "./movement-dom";
 import "./movement-handles.css";
@@ -34,14 +36,18 @@ export function ContainedMovementHandle({
   const keyboardMovement = useMovementKeyboardContext();
   const draggableKey =
     sourceKey !== null && sourceKey !== undefined && sourceKey !== "" ? sourceKey : sourcePos;
-  const { attributes, isDragging, listeners, setActivatorNodeRef, setNodeRef } = useDraggable({
-    id: `scaffold-contained-movement-${draggableKey ?? "missing"}`,
-    disabled,
+  const accessibleLabel = `Move ${label} within its group`;
+  const drag = useInteractionDragSource<AuthoringMovementDragData>({
     data: {
       containedMovement: true,
       getSourcePos,
+      label,
+      previewKind: "contained",
       sourcePos,
     },
+    disabled,
+    id: `scaffold-contained-movement-${draggableKey ?? "missing"}`,
+    label: accessibleLabel,
   });
 
   const resolveSourcePos = () => {
@@ -70,17 +76,16 @@ export function ContainedMovementHandle({
   };
 
   return (
-    <button
-      {...attributes}
-      {...listeners}
+    <InteractionDragActivationArea
+      {...drag.activatorProps}
+      {...drag.sourceProps}
       ref={(node) => {
-        setNodeRef(node);
-        setActivatorNodeRef(node);
+        drag.setNodeRef(node);
+        drag.setActivatorNodeRef(node);
       }}
-      type="button"
       aria-describedby={descriptionId}
       aria-keyshortcuts="ArrowUp ArrowDown"
-      aria-label={`Move ${label}`}
+      aria-label={accessibleLabel}
       contentEditable={false}
       {...authoringChromeAttributes(AuthoringChromeKind.Handle)}
       data-contained-movement-pos={sourcePos ?? undefined}
@@ -88,19 +93,23 @@ export function ContainedMovementHandle({
       disabled={disabled}
       onMouseDown={(event) => event.preventDefault()}
       onKeyDown={handleKeyDown}
+      safeLocalHeight={44}
+      safeLocalWidth={44}
       {...{ [CONTAINED_MOVEMENT_HANDLE_ATTR]: "" }}
       className={cn(
         "sc-contained-movement-handle",
         disabled && "sc-movement-handle--disabled",
-        isDragging && "sc-movement-handle--dragging",
+        drag.isPlaceholder && "sc-movement-handle--placeholder",
         className,
       )}
     >
       <span id={descriptionId} className="sc-sr-only">
-        Press Arrow Up or Arrow Down to move this {label}.
+        Press Arrow Up or Arrow Down to move this {label} within its group.
       </span>
-      <DotsSixVertical size={iconXs} weight="bold" aria-hidden />
-    </button>
+      <span aria-hidden className="sc-contained-movement-handle__visual">
+        <DotsSixVertical size={iconXs} weight="bold" />
+      </span>
+    </InteractionDragActivationArea>
   );
 }
 

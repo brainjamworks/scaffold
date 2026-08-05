@@ -21,6 +21,8 @@ import {
   resolveAuthoringInteractionRoot,
 } from "@/editor/interactions/dom/authoring-root";
 import { registerOverlayHostOwner } from "@/editor/interactions/dom/overlay-ownership";
+import { createViewportCoordinateSpace } from "@/editor/interactions/drag/dom/dom-coordinate-space";
+import { InteractionDragEnvironmentProvider } from "@/editor/interactions/drag/react/interaction-drag-environment";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { InteractionProvider } from "@/editor/interactions/targets/facade/interaction-provider";
@@ -41,9 +43,8 @@ import { ContainedMovementHandle } from "./ContainedMovementHandle";
 import {
   EditorMovementLayer,
   MovementDropIndicator,
-  isStructureMovementDragEventSource,
   resolveLiveMovementSourcePos,
-  sourcePosFromDragEvent,
+  resolveMovementSourcePos,
 } from "./EditorMovementLayer";
 import { StructureMovementHandle } from "./StructureMovementHandle";
 import {
@@ -567,16 +568,8 @@ function movementRect(overrides: Partial<MovementTargetRect>): MovementTargetRec
   };
 }
 
-function dragSourceEvent(
-  current: Record<string, unknown>,
-): Parameters<typeof sourcePosFromDragEvent>[0] {
-  return {
-    active: {
-      data: {
-        current,
-      },
-    },
-  } as unknown as Parameters<typeof sourcePosFromDragEvent>[0];
+function mockElementRect(element: Element, rect: DOMRect): void {
+  vi.spyOn(element, "getBoundingClientRect").mockReturnValue(rect);
 }
 
 afterEach(() => {
@@ -588,42 +581,17 @@ afterEach(() => {
 });
 
 describe("EditorMovementLayer", () => {
-  it("resolves a live contained source position before using rendered drag data", () => {
+  it("resolves a live movement source position before using rendered source data", () => {
+    expect(resolveMovementSourcePos({ getSourcePos: () => 42, sourcePos: 12 })).toBe(42);
     expect(
-      isStructureMovementDragEventSource(
-        dragSourceEvent({
-          nonStructureDrag: true,
-        }),
-      ),
-    ).toBe(false);
-
-    expect(
-      sourcePosFromDragEvent(
-        dragSourceEvent({
-          getSourcePos: () => 42,
-          sourcePos: 12,
-        }),
-      ),
-    ).toBe(42);
-    expect(
-      isStructureMovementDragEventSource(
-        dragSourceEvent({
-          getSourcePos: () => 42,
-          sourcePos: 12,
-        }),
-      ),
-    ).toBe(true);
-
-    expect(
-      sourcePosFromDragEvent(
-        dragSourceEvent({
-          getSourcePos: () => {
-            throw new Error("disposed NodeView");
-          },
-          sourcePos: 12,
-        }),
-      ),
+      resolveMovementSourcePos({
+        getSourcePos: () => {
+          throw new Error("disposed NodeView");
+        },
+        sourcePos: 12,
+      }),
     ).toBe(12);
+    expect(resolveMovementSourcePos({ sourcePos: null })).toBeNull();
   });
 
   it("resolves a live structure source position before using rendered drag data", () => {
@@ -933,9 +901,11 @@ describe("EditorMovementLayer", () => {
       />,
     );
 
-    const handle = screen.getByRole("button", { name: "Move choice" });
+    const handle = screen.getByRole("button", { name: "Move choice within its group" });
     expect(handle.getAttribute("aria-keyshortcuts")).toBe("ArrowUp ArrowDown");
-    expect(describedText(handle)).toBe("Press Arrow Up or Arrow Down to move this choice.");
+    expect(describedText(handle)).toBe(
+      "Press Arrow Up or Arrow Down to move this choice within its group.",
+    );
 
     const mouseDown = new MouseEvent("mousedown", {
       bubbles: true,
@@ -950,6 +920,33 @@ describe("EditorMovementLayer", () => {
       expect(containedChoiceIds(editor)).toEqual(["b", "a", "c"]);
       expect(screen.getByTestId("scaffold-movement-status").textContent).toBe("Moved choice up.");
     });
+    editor.destroy();
+  });
+
+  it("keeps authoring Arrow-key semantics on distinct block and contained activation areas", async () => {
+    const editor = makeEditor([block("a")]);
+    const pos = nodePos(editor, TEST_BLOCK, "a");
+    const dom = editor.view.nodeDOM(pos);
+    if (!(dom instanceof HTMLElement)) throw new Error("Expected block DOM");
+    mockElementRect(dom, new DOMRect(40, 20, 200, 80));
+    editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, pos)));
+
+    renderMovementLayer(
+      editor,
+      <ContainedMovementHandle label="choice" sourceKey="choice-a" sourcePos={3} />,
+    );
+
+    const blockHandle = await screen.findByRole("button", { name: "Move block" });
+    const containedHandle = screen.getByRole("button", {
+      name: "Move choice within its group",
+    });
+    for (const handle of [blockHandle, containedHandle]) {
+      expect(handle).toHaveAttribute("data-interaction-drag-activation-area");
+      expect(handle).not.toHaveAttribute("aria-roledescription");
+      expect(handle).toHaveAttribute("aria-keyshortcuts", "ArrowUp ArrowDown");
+    }
+    expect(blockHandle.className).toContain("sc-editor-movement-handle");
+    expect(containedHandle.className).toContain("sc-contained-movement-handle");
     editor.destroy();
   });
 
@@ -1080,20 +1077,33 @@ describe("EditorMovementLayer", () => {
         },
       },
     });
+    const ownerRoot = resolveAuthoringInteractionRoot(editor.view.dom);
+    if (!(ownerRoot instanceof HTMLElement)) throw new Error("Expected owner root");
+    mockElementRect(ownerRoot, new DOMRect(0, 0, 800, 600));
+    const coordinateSpace = createViewportCoordinateSpace({
+      getRoot: () => ownerRoot,
+      ownerDocument: ownerRoot.ownerDocument,
+    });
 
     render(
       <InteractionProvider store={store}>
-        <AuthoringOverlayBoundary ownerRoot={resolveAuthoringInteractionRoot(editor.view.dom)}>
-          <EditorMovementLayer
-            blockDefinitions={testBlockRegistry}
-            editor={editor}
-            surfaceVariants={testSurfaceVariants}
-          />
+        <AuthoringOverlayBoundary ownerRoot={ownerRoot}>
+          <InteractionDragEnvironmentProvider
+            coordinateRoot={ownerRoot}
+            coordinateSpace={coordinateSpace}
+          >
+            <EditorMovementLayer
+              blockDefinitions={testBlockRegistry}
+              editor={editor}
+              surfaceVariants={testSurfaceVariants}
+            />
+          </InteractionDragEnvironmentProvider>
         </AuthoringOverlayBoundary>
       </InteractionProvider>,
     );
 
     const handle = await screen.findByRole("button", { name: "Move block" });
+    mockElementRect(handle, new DOMRect(20, 20, 44, 44));
     fireEvent.pointerDown(handle, {
       button: 0,
       clientX: 30,

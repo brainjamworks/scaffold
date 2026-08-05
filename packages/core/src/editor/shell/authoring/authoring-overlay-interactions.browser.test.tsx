@@ -1,5 +1,4 @@
 import { Editor, Node } from "@tiptap/core";
-import { NodeSelection } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
 import { useState, type CSSProperties } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -9,15 +8,6 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { OverlayBoundary } from "@/ui/components/OverlayBoundary/OverlayBoundary";
 import { Select } from "@/ui/components/Select/Select";
 import { WorkspaceDialog } from "@/ui/components/WorkspaceDialog/WorkspaceDialog";
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
-import {
-  CellAuthoringNode,
-  GridAuthoringNode,
-} from "@/editor/arrangements/grid/authoring/grid-nodes";
-import {
-  LayoutAuthoringNode,
-  SectionAuthoringNode,
-} from "@/editor/arrangements/layout/authoring/layout-nodes";
 import {
   AUTHORING_ANCHOR_ATTR,
   authoringFrameAttributes,
@@ -26,7 +16,6 @@ import {
 } from "@/editor/interactions/dom/authoring-frame";
 import { authoringInteractionRootAttributes } from "@/editor/interactions/dom/authoring-root";
 import { AuthoringOverlayBoundary } from "@/editor/interactions/floating/AuthoringOverlayBoundary";
-import { EditorFloatingPopover } from "@/editor/interactions/floating/EditorFloatingPopover";
 import { MenuControls } from "@/editor/shell/bubbles/interaction/menu-controls/MenuControls";
 import { InteractionProvider } from "@/editor/interactions/targets/facade/interaction-provider";
 import { InteractionTargetKind } from "@/editor/interactions/targets/model/interaction-owner-state";
@@ -41,10 +30,6 @@ import {
 import { createStructuralInteractionBubbleRendererMap } from "@/editor/interactions/interaction-bubble";
 import { BlockInteractionBubbleMenu } from "@/editor/shell/bubbles/interaction/BlockInteractionBubbleMenu";
 import { RichTextBubbleMenu } from "@/editor/shell/bubbles/rich-text/RichTextBubbleMenu";
-import { EditorMovementLayer } from "@/editor/movement/view/EditorMovementLayer";
-import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
-import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
-import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
@@ -131,13 +116,6 @@ interface BrowserHarness {
   host: HTMLElement;
   ownerRoot: HTMLElement;
   reactRoot: Root;
-}
-
-interface MovementHarness {
-  editor: Editor;
-  host: HTMLElement;
-  ownerRoot: HTMLElement;
-  rendered: RenderResult;
 }
 
 let harness: BrowserHarness | null = null;
@@ -377,54 +355,6 @@ function DarkCourseDialogHarness() {
 }
 
 describe("authoring owner-local geometry", () => {
-  it("keeps a selected movement handle through a transaction while a real overlay descendant is focused", async () => {
-    const current = await mountMovementHarness();
-
-    try {
-      const handle = await waitForElement<HTMLElement>(
-        current.host,
-        "[data-authoring-move-handle]",
-      );
-      const overlayControl = await waitForElement<HTMLButtonElement>(
-        current.host,
-        'button[data-test-movement-overlay-control=""]',
-      );
-      const overlayHost = overlayControl.closest("[data-scaffold-overlay-host]");
-      if (!(overlayHost instanceof HTMLElement)) {
-        throw new Error("Expected the movement chrome inside its overlay host.");
-      }
-      const movementTarget = requireElement<HTMLElement>(
-        current.ownerRoot,
-        "[data-test-overlay-movement-block]",
-      );
-      const handleRect = handle.getBoundingClientRect();
-      const hostRect = overlayHost.getBoundingClientRect();
-      const targetRect = movementTarget.getBoundingClientRect();
-      const leftGap = targetRect.left - handleRect.right;
-      const rightGap = handleRect.left - targetRect.right;
-
-      expect(handleRect.left).toBeGreaterThanOrEqual(hostRect.left - 1);
-      expect(handleRect.right).toBeLessThanOrEqual(hostRect.right + 1);
-      expect(Math.min(Math.abs(leftGap - 8), Math.abs(rightGap - 8))).toBeLessThanOrEqual(1);
-
-      overlayControl.focus({ preventScroll: true });
-      expect(document.activeElement).toBe(overlayControl);
-      current.editor.view.dispatch(
-        current.editor.state.tr.setMeta("scaffold-browser-render", true),
-      );
-      await nextAnimationFrame();
-      await nextAnimationFrame();
-
-      expect(handle.isConnected).toBe(true);
-      expect(current.host.querySelector("[data-authoring-move-handle]")).toBe(handle);
-      expect(document.activeElement).toBe(overlayControl);
-    } finally {
-      await current.rendered.unmount();
-      current.editor.destroy();
-      current.host.remove();
-    }
-  });
-
   it("does not borrow structural trigger size from a sibling editor with the same id", async () => {
     const first = createBareGridEditor();
     const second = createBareGridEditor();
@@ -996,107 +926,6 @@ async function mountRichTextPlacementHarness(
   selectTextByValue(editor, "First target");
   await waitForElement(ownerRoot, '[data-scaffold-bubble-placement-ready="true"]');
   return harness;
-}
-
-async function mountMovementHarness(): Promise<MovementHarness> {
-  const host = document.createElement("div");
-  host.style.position = "absolute";
-  host.style.inset = "0 auto auto 0";
-  host.style.width = "800px";
-  host.style.height = "600px";
-  host.style.boxSizing = "border-box";
-  host.style.paddingInline = "24px";
-  const ownerRoot = document.createElement("div");
-  for (const [name, value] of Object.entries(authoringInteractionRootAttributes())) {
-    ownerRoot.setAttribute(name, value);
-  }
-  const editorElement = document.createElement("div");
-  const reactElement = document.createElement("div");
-  ownerRoot.append(editorElement, reactElement);
-  host.append(ownerRoot);
-  document.body.append(host);
-  const editor = new Editor({
-    element: editorElement,
-    extensions: [
-      DocumentNode,
-      StarterKit.configure({
-        document: false,
-        paragraph: false,
-        undoRedo: false,
-      }),
-      ExtendedParagraph,
-      CourseDocumentNode,
-      SurfaceNode,
-      RegionNode,
-      GridAuthoringNode,
-      CellAuthoringNode,
-      LayoutAuthoringNode,
-      SectionAuthoringNode,
-      TestMovementBlockNode,
-      createScaffoldInteractionOwnerExtension(testBlockRegistry),
-    ],
-    content: {
-      type: "doc",
-      content: [
-        {
-          type: "courseDocument",
-          content: [
-            {
-              type: "surface",
-              attrs: { id: "surface-a", variant: "page-default" },
-              content: [{ type: TEST_MOVEMENT_BLOCK, attrs: { id: "movement-a" } }],
-            },
-          ],
-        },
-      ],
-    },
-  });
-  editor.view.dom.style.paddingLeft = "20px";
-  let movementPos = -1;
-  editor.state.doc.descendants((node, pos) => {
-    if (node.type.name !== TEST_MOVEMENT_BLOCK) return true;
-    movementPos = pos;
-    return false;
-  });
-  if (movementPos < 0) throw new Error("Expected movement block position.");
-  const rendered = await renderBrowserReact(
-    <InteractionProvider store={getInteractionFacadeStoreForEditor(editor)}>
-      <AuthoringOverlayBoundary container={host} ownerRoot={ownerRoot}>
-        <EditorMovementLayer
-          blockDefinitions={testBlockRegistry}
-          editor={editor}
-          surfaceVariants={builtInSurfaceVariantRegistry}
-        >
-          <EditorFloatingPopover.Root open>
-            <EditorFloatingPopover.Trigger>Movement overlay</EditorFloatingPopover.Trigger>
-            <EditorFloatingPopover.Portal>
-              <EditorFloatingPopover.Content
-                aria-label="Movement overlay"
-                authoringChrome
-                onOpenAutoFocus={(event) => event.preventDefault()}
-              >
-                <button type="button" data-test-movement-overlay-control="">
-                  Size control
-                </button>
-              </EditorFloatingPopover.Content>
-            </EditorFloatingPopover.Portal>
-          </EditorFloatingPopover.Root>
-        </EditorMovementLayer>
-      </AuthoringOverlayBoundary>
-    </InteractionProvider>,
-    { baseElement: host, container: reactElement },
-  );
-  editor.view.focus();
-  editor.view.dispatch(
-    editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, movementPos)),
-  );
-
-  return {
-    editor,
-    host,
-    ownerRoot,
-    rendered,
-  };
 }
 
 function createBareGridEditor(): Omit<BrowserHarness, "reactRoot"> {

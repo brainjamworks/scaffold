@@ -1,19 +1,6 @@
-import {
-  DndContext,
-  DragOverlay,
-  PointerSensor,
-  useDraggable,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragMoveEvent,
-  type DragStartEvent,
-  type Translate,
-} from "@dnd-kit/core";
 import { DotsSixVerticalIcon as DotsSixVertical } from "@phosphor-icons/react";
 import type { Editor } from "@tiptap/core";
 import {
-  type CSSProperties,
   type KeyboardEvent,
   type ReactNode,
   useEffect,
@@ -36,6 +23,11 @@ import {
 } from "@/editor/interactions/dom/authoring-chrome";
 import { resolveAuthoringInteractionRoot } from "@/editor/interactions/dom/authoring-root";
 import { useInteractionCommands } from "@/editor/interactions/targets/facade/interaction-provider";
+import type { InteractionDragEvent } from "@/editor/interactions/drag/model/interaction-drag-event";
+import { InteractionDragActivationArea } from "@/editor/interactions/drag/react/InteractionDragActivationArea";
+import { InteractionDragSession } from "@/editor/interactions/drag/react/InteractionDragSession";
+import { useInteractionDragSource } from "@/editor/interactions/drag/react/use-interaction-drag-source";
+import { useInteractionDropTarget } from "@/editor/interactions/drag/react/use-interaction-drop-target";
 import { zIndex } from "@/ui/overlays/z-index";
 import { iconXs } from "@/ui/tokens/icon-sizes";
 
@@ -87,10 +79,17 @@ export interface EditorMovementLayerProps {
   surfaceVariants: SurfaceVariantLookup;
 }
 
-type Point = {
-  x: number;
-  y: number;
-};
+export interface AuthoringMovementDragData {
+  readonly containedMovement: boolean;
+  readonly getSourcePos?: () => number | null | undefined;
+  readonly label: string;
+  readonly previewKind: "block" | "contained";
+  readonly sourcePos: number | null | undefined;
+}
+
+interface AuthoringMovementDropData {
+  readonly movementSurface: true;
+}
 
 export function EditorMovementLayer({
   blockDefinitions,
@@ -106,17 +105,11 @@ export function EditorMovementLayer({
     target,
     resizeGestureActive,
   );
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 4 },
-    }),
-  );
+  const movementSessionId = useId();
   const [candidate, setCandidate] = useState<MovementCandidate | null>(null);
   const latestTargetRef = useRef<EditorMovementTarget | null>(target);
   const activeSourceRef = useRef<MovementNodeContext | null>(null);
-  const candidateRef = useRef<MovementCandidate | null>(null);
   const containedSourceActiveRef = useRef(false);
-  const startPointRef = useRef<Point | null>(null);
   const [keyboardMovementStatus, setKeyboardMovementStatus] = useState("");
 
   useEffect(() => {
@@ -129,23 +122,19 @@ export function EditorMovementLayer({
     commands.endGesture();
     setEmptyInsertionRowMovementDragActive(editor, false);
     activeSourceRef.current = null;
-    candidateRef.current = null;
     containedSourceActiveRef.current = false;
-    startPointRef.current = null;
     setCandidate(null);
   };
 
   const setMovementCandidate = (nextCandidate: MovementCandidate | null) => {
-    candidateRef.current = nextCandidate;
     setCandidate(nextCandidate);
   };
 
   const primeMovementSource = (
     sourcePos: number | null,
-    activatorEvent: Event | null,
     containedMovement: boolean,
   ): EditorMovementTarget | null => {
-    if (activeSourceRef.current && startPointRef.current) {
+    if (activeSourceRef.current) {
       return latestTargetRef.current;
     }
 
@@ -155,7 +144,6 @@ export function EditorMovementLayer({
       if (!context) return null;
       activeSourceRef.current = context;
       containedSourceActiveRef.current = true;
-      startPointRef.current = pointFromEvent(activatorEvent) ?? null;
       return null;
     }
 
@@ -170,27 +158,19 @@ export function EditorMovementLayer({
     if (!nextTarget) return null;
 
     activeSourceRef.current = nextTarget.context;
-    startPointRef.current = pointFromEvent(activatorEvent) ?? rectCenter(nextTarget.rect);
     latestTargetRef.current = nextTarget;
     return nextTarget;
   };
 
   const resolveCandidate = (
-    delta: Translate,
-    sourcePos: number | null,
-    activatorEvent: Event | null,
+    point: Readonly<{ x: number; y: number }>,
+    sourceData: AuthoringMovementDragData,
   ): MovementCandidate | null => {
-    const containedMovement = containedSourceActiveRef.current;
-    primeMovementSource(sourcePos, activatorEvent, containedMovement);
+    const sourcePos = resolveMovementSourcePos(sourceData);
+    primeMovementSource(sourcePos, sourceData.containedMovement);
 
     const source = activeSourceRef.current;
-    const startPoint = startPointRef.current;
-    if (!source || !startPoint) return null;
-
-    const point = {
-      x: startPoint.x + delta.x,
-      y: startPoint.y + delta.y,
-    };
+    if (!source) return null;
 
     if (containedSourceActiveRef.current) {
       return deriveContainedMovementCandidate({
@@ -210,16 +190,13 @@ export function EditorMovementLayer({
     });
   };
 
-  const handleDragStart = (event: DragStartEvent) => {
-    if (!isStructureMovementDragEventSource(event)) return;
-
+  const handleDragStart = (
+    event: InteractionDragEvent<AuthoringMovementDragData, AuthoringMovementDropData>,
+  ) => {
     setEmptyInsertionRowMovementDragActive(editor, true);
-    const handleSourcePos = sourcePosFromDragEvent(event);
-    const containedMovement = isContainedMovementDragEventSource(event);
     const nextTarget = primeMovementSource(
-      handleSourcePos,
-      event.activatorEvent,
-      containedMovement,
+      resolveMovementSourcePos(event.active.data),
+      event.active.data.containedMovement,
     );
     if (!nextTarget && !containedSourceActiveRef.current) {
       clearMovement();
@@ -232,26 +209,21 @@ export function EditorMovementLayer({
     setMovementCandidate(null);
   };
 
-  const handleDragMove = (event: DragMoveEvent) => {
-    if (!isStructureMovementDragEventSource(event)) return;
-
-    const nextCandidate = resolveCandidate(
-      event.delta,
-      sourcePosFromDragEvent(event),
-      event.activatorEvent,
-    );
+  const handleDragMove = (
+    event: InteractionDragEvent<AuthoringMovementDragData, AuthoringMovementDropData>,
+  ) => {
+    if (event.input !== "pointer" || !event.clientPoint) return;
+    const nextCandidate = resolveCandidate(event.clientPoint, event.active.data);
     setMovementCandidate(nextCandidate);
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    if (!isStructureMovementDragEventSource(event)) return;
-
-    const resolvedCandidate = resolveCandidate(
-      event.delta,
-      sourcePosFromDragEvent(event),
-      event.activatorEvent,
-    );
-    const nextCandidate = resolvedCandidate ?? candidateRef.current;
+  const handleDragEnd = (
+    event: InteractionDragEvent<AuthoringMovementDragData, AuthoringMovementDropData>,
+  ) => {
+    const nextCandidate =
+      event.input === "pointer" && event.clientPoint
+        ? resolveCandidate(event.clientPoint, event.active.data)
+        : null;
     if (nextCandidate) {
       if (isContainedMoveIntent(nextCandidate.intent)) {
         applyContainedMovementIntent(editor, nextCandidate.source.pos, nextCandidate.intent);
@@ -289,42 +261,31 @@ export function EditorMovementLayer({
   };
 
   const movementChromeLayer = (
-    <div
-      aria-hidden={!movementHandleTarget}
-      data-testid="scaffold-editor-movement-layer"
-      data-scaffold-editor-movement-layer=""
-      className="sc-editor-movement-layer"
-      style={{ zIndex: zIndex.interactive }}
-    >
-      <MovementHandle
-        blockDefinitions={blockDefinitions}
-        editor={editor}
-        onKeyboardMove={handleKeyboardMove}
-        target={movementHandleTarget}
-      />
-      <div
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-        data-testid="scaffold-movement-status"
-        className="sc-sr-only"
-      >
-        {keyboardMovementStatus}
-      </div>
-      <MovementDropIndicator candidate={candidate} />
-      <DragOverlay dropAnimation={null}>
-        <div className="sc-editor-movement-overlay-ghost" />
-      </DragOverlay>
-    </div>
+    <MovementChromeLayer
+      blockDefinitions={blockDefinitions}
+      candidate={candidate}
+      editor={editor}
+      keyboardMovementStatus={keyboardMovementStatus}
+      onKeyboardMove={handleKeyboardMove}
+      target={movementHandleTarget}
+    />
   );
 
   return (
-    <DndContext
-      sensors={sensors}
-      onDragCancel={handleDragCancel}
-      onDragEnd={handleDragEnd}
-      onDragMove={handleDragMove}
-      onDragStart={handleDragStart}
+    <InteractionDragSession<AuthoringMovementDragData, AuthoringMovementDropData>
+      accessibilityMode="selection-alternative"
+      collisionPolicy="feature-resolver"
+      labels={{ draggable: "Authoring movement handle" }}
+      onCancel={handleDragCancel}
+      onEnd={handleDragEnd}
+      onMove={handleDragMove}
+      onStart={handleDragStart}
+      profile="pointer"
+      renderPreview={renderMovementPreview}
+      resolveCollision={({ candidates }) =>
+        candidates.find((candidate) => candidate.data.movementSurface)?.id ?? null
+      }
+      sessionId={`authoring-movement-${movementSessionId}`}
     >
       <EditorFloatingLayer editor={editor}>
         <MovementKeyboardProvider value={{ moveContained: handleContainedKeyboardMove }}>
@@ -332,7 +293,7 @@ export function EditorMovementLayer({
           <EditorMovementChromePortal>{movementChromeLayer}</EditorMovementChromePortal>
         </MovementKeyboardProvider>
       </EditorFloatingLayer>
-    </DndContext>
+    </InteractionDragSession>
   );
 }
 
@@ -378,10 +339,10 @@ function resolveMovementHandleChromeTarget(
   return target;
 }
 
-export function sourcePosFromDragEvent(
-  event: DragStartEvent | DragMoveEvent | DragEndEvent,
+export function resolveMovementSourcePos(
+  source: Pick<AuthoringMovementDragData, "getSourcePos" | "sourcePos">,
 ): number | null {
-  const getSourcePos = event.active.data.current?.["getSourcePos"];
+  const getSourcePos = source.getSourcePos;
   if (typeof getSourcePos === "function") {
     try {
       const resolvedSourcePos = getSourcePos();
@@ -392,18 +353,8 @@ export function sourcePosFromDragEvent(
     }
   }
 
-  const sourcePos = event.active.data.current?.["sourcePos"];
+  const sourcePos = source.sourcePos;
   return Number.isInteger(sourcePos) ? sourcePos : null;
-}
-
-export function isStructureMovementDragEventSource(
-  event: Pick<DragStartEvent | DragMoveEvent | DragEndEvent, "active">,
-): boolean {
-  if (isContainedMovementDragEventSource(event)) return true;
-  const current = event.active.data.current;
-  return (
-    typeof current?.["getSourcePos"] === "function" || Number.isInteger(current?.["sourcePos"])
-  );
 }
 
 export function resolveLiveMovementSourcePos(
@@ -414,27 +365,60 @@ export function resolveLiveMovementSourcePos(
   return resolveCurrentTarget(editor, blockDefinitions)?.context.pos ?? fallbackPos;
 }
 
-function isContainedMovementDragEventSource(
-  event: Pick<DragStartEvent | DragMoveEvent | DragEndEvent, "active">,
-): boolean {
-  return event.active.data.current?.["containedMovement"] === true;
-}
-
 function isContainedMoveIntent(
   intent: MovementCandidate["intent"],
 ): intent is MoveContainedBeforeTarget | MoveContainedAfterTarget {
   return intent instanceof MoveContainedBeforeTarget || intent instanceof MoveContainedAfterTarget;
 }
 
-function pointFromEvent(event: Event | null): Point | null {
-  if (event && "clientX" in event && "clientY" in event) {
-    return {
-      x: Number(event.clientX),
-      y: Number(event.clientY),
-    };
-  }
+function MovementChromeLayer({
+  blockDefinitions,
+  candidate,
+  editor,
+  keyboardMovementStatus,
+  onKeyboardMove,
+  target,
+}: {
+  blockDefinitions: BlockDefinitionLookup;
+  candidate: MovementCandidate | null;
+  editor: Editor;
+  keyboardMovementStatus: string;
+  onKeyboardMove: (sourcePos: number, direction: KeyboardMovementDirection) => void;
+  target: EditorMovementTarget | null;
+}) {
+  const dropSurface = useInteractionDropTarget<AuthoringMovementDropData>({
+    data: { movementSurface: true },
+    id: "scaffold-authoring-movement-surface",
+  });
 
-  return null;
+  return (
+    <div
+      ref={dropSurface.setNodeRef}
+      {...dropSurface.targetProps}
+      aria-hidden={!target}
+      data-testid="scaffold-editor-movement-layer"
+      data-scaffold-editor-movement-layer=""
+      className="sc-editor-movement-layer"
+      style={{ zIndex: zIndex.interactive }}
+    >
+      <MovementHandle
+        blockDefinitions={blockDefinitions}
+        editor={editor}
+        onKeyboardMove={onKeyboardMove}
+        target={target}
+      />
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        data-testid="scaffold-movement-status"
+        className="sc-sr-only"
+      >
+        {keyboardMovementStatus}
+      </div>
+      <MovementDropIndicator candidate={candidate} />
+    </div>
+  );
 }
 
 function MovementHandle({
@@ -453,22 +437,23 @@ function MovementHandle({
     () => createElementFloatingAnchor(target?.element ?? null),
     [target?.element],
   );
-  const { attributes, listeners, setActivatorNodeRef, setNodeRef, transform } = useDraggable({
+  const label = target ? movementHandleLabel(target.context) : "block";
+  const drag = useInteractionDragSource<AuthoringMovementDragData>({
+    data: {
+      containedMovement: false,
+      getSourcePos: target
+        ? () => resolveLiveMovementSourcePos(editor, target.context.pos, blockDefinitions)
+        : undefined,
+      label,
+      previewKind: "block",
+      sourcePos: target?.context.pos,
+    },
     id: MOVEMENT_HANDLE_ID,
     disabled: !target,
-    ...(target
-      ? {
-          data: {
-            getSourcePos: () =>
-              resolveLiveMovementSourcePos(editor, target.context.pos, blockDefinitions),
-            sourcePos: target.context.pos,
-          },
-        }
-      : {}),
+    label: `Move ${label}`,
   });
 
   if (!target) return null;
-  const label = movementHandleLabel(target.context);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
     if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
@@ -486,14 +471,13 @@ function MovementHandle({
       offset={MOVEMENT_HANDLE_INSET}
       open
       placement="left-start"
-      style={movementHandleStyle(transform)}
     >
-      <button
-        {...attributes}
-        {...listeners}
+      <InteractionDragActivationArea
+        {...drag.activatorProps}
+        {...drag.sourceProps}
         ref={(node) => {
-          setNodeRef(node);
-          setActivatorNodeRef(node);
+          drag.setNodeRef(node);
+          drag.setActivatorNodeRef(node);
         }}
         aria-describedby={descriptionId}
         aria-keyshortcuts="ArrowUp ArrowDown"
@@ -504,28 +488,37 @@ function MovementHandle({
         {...{ [AUTHORING_MOVE_POS_ATTR]: target.context.pos }}
         onMouseDown={(event) => event.preventDefault()}
         onKeyDown={handleKeyDown}
-        className="sc-editor-movement-handle"
-        type="button"
+        safeLocalHeight={44}
+        safeLocalWidth={44}
+        className={`sc-editor-movement-handle${drag.isPlaceholder ? " sc-movement-handle--placeholder" : ""}`}
       >
         <span id={descriptionId} className="sc-sr-only">
           Press Arrow Up or Arrow Down to move this {label}.
         </span>
-        <DotsSixVertical size={iconXs} weight="bold" aria-hidden />
-      </button>
+        <span aria-hidden className="sc-editor-movement-handle__visual">
+          <DotsSixVertical size={iconXs} weight="bold" />
+        </span>
+      </InteractionDragActivationArea>
     </EditorFloatingContent>
   );
-}
-
-function movementHandleStyle(transform: Translate | null): CSSProperties {
-  return {
-    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
-  };
 }
 
 function movementHandleLabel(context: MovementNodeContext): string {
   if (context.nodeType.name === "layout") return "layout";
   if (context.nodeType.name === "section") return "section";
   return "block";
+}
+
+function renderMovementPreview(active: AuthoringMovementDragData): ReactNode {
+  return (
+    <div
+      data-authoring-movement-preview={active.previewKind}
+      className={`sc-authoring-movement-preview sc-authoring-movement-preview--${active.previewKind}`}
+    >
+      <DotsSixVertical size={iconXs} weight="bold" aria-hidden />
+      <span className="sc-sr-only">Moving {active.label}</span>
+    </div>
+  );
 }
 
 export function MovementDropIndicator({ candidate }: { candidate: MovementCandidate | null }) {
@@ -555,11 +548,4 @@ function resolveCurrentTarget(
   blockDefinitions: BlockDefinitionLookup,
 ): EditorMovementTarget | null {
   return resolveEditorMovementTarget(editor, blockDefinitions);
-}
-
-function rectCenter(rect: DOMRect): Point {
-  return {
-    x: rect.left + rect.width / 2,
-    y: rect.top + rect.height / 2,
-  };
 }

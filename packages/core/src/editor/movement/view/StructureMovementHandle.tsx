@@ -1,4 +1,3 @@
-import { useDraggable } from "@dnd-kit/core";
 import { DotsSixVerticalIcon as DotsSixVertical } from "@phosphor-icons/react";
 
 import {
@@ -9,6 +8,9 @@ import {
 } from "@/editor/interactions/dom/authoring-chrome";
 import { cn } from "@/lib/cn";
 import { iconXs } from "@/ui/tokens/icon-sizes";
+import { InteractionDragActivationArea } from "@/editor/interactions/drag/react/InteractionDragActivationArea";
+import { useInteractionDragSource } from "@/editor/interactions/drag/react/use-interaction-drag-source";
+import type { AuthoringMovementDragData } from "./EditorMovementLayer";
 import "./movement-handles.css";
 
 export interface StructureMovementHandleProps {
@@ -31,24 +33,27 @@ export function StructureMovementHandle({
   const disabled = !Number.isInteger(sourcePos);
   const draggableKey =
     sourceKey !== null && sourceKey !== undefined && sourceKey !== "" ? sourceKey : sourcePos;
-  const { attributes, isDragging, listeners, setActivatorNodeRef, setNodeRef } = useDraggable({
-    id: `scaffold-structure-movement-${draggableKey ?? "missing"}`,
-    disabled,
+  const drag = useInteractionDragSource<AuthoringMovementDragData>({
     data: {
+      containedMovement: false,
       getSourcePos,
+      label,
+      previewKind: "block",
       sourcePos,
     },
+    disabled,
+    id: `scaffold-structure-movement-${draggableKey ?? "missing"}`,
+    label: `Move ${label}`,
   });
 
   return (
-    <button
-      {...attributes}
-      {...listeners}
+    <InteractionDragActivationArea
+      {...drag.activatorProps}
+      {...drag.sourceProps}
       ref={(node) => {
-        setNodeRef(node);
-        setActivatorNodeRef(node);
+        drag.setNodeRef(node);
+        drag.setActivatorNodeRef(node);
       }}
-      type="button"
       aria-label={`Move ${label}`}
       contentEditable={false}
       {...authoringChromeAttributes(AuthoringChromeKind.Handle)}
@@ -57,16 +62,20 @@ export function StructureMovementHandle({
       data-no-select=""
       disabled={disabled}
       onMouseDown={(event) => event.preventDefault()}
+      safeLocalHeight={44}
+      safeLocalWidth={44}
       className={cn(
         "sc-structure-movement-handle",
         variant === "pill" && "sc-structure-movement-handle--pill",
         variant === "bare" && "sc-structure-movement-handle--bare",
         disabled && "sc-movement-handle--disabled",
-        isDragging && "sc-movement-handle--dragging",
+        drag.isPlaceholder && "sc-movement-handle--placeholder",
         className,
       )}
     >
-      <DotsSixVertical size={iconXs} weight="bold" aria-hidden />
-    </button>
+      <span aria-hidden className="sc-structure-movement-handle__visual">
+        <DotsSixVertical size={iconXs} weight="bold" />
+      </span>
+    </InteractionDragActivationArea>
   );
 }
