@@ -42,7 +42,7 @@ describe("createMoodleLearningEventPort", () => {
   });
 
   it("propagates host acceptance rejection without retrying", async () => {
-    const call = vi.fn(async () => {
+    const call = vi.fn(async (_methodName: string, _args: Record<string, unknown>) => {
       throw new Error("Moodle call failed");
     });
     window.ScaffoldMoodleAjax = {
