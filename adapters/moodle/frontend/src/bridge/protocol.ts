@@ -1,7 +1,7 @@
 import type { MoodleApplicationConfig } from "../types";
 
 export const SCAFFOLD_MOODLE_BRIDGE_CHANNEL = "scaffold.moodle.bridge";
-export const SCAFFOLD_MOODLE_BRIDGE_PROTOCOL_VERSION = 1;
+export const SCAFFOLD_MOODLE_BRIDGE_PROTOCOL_VERSION = 2;
 
 export const MOODLE_AJAX_METHODS = [
   "mod_scaffold_get_payload",
@@ -19,7 +19,7 @@ export const MOODLE_AJAX_METHODS = [
   "mod_scaffold_upload_media",
   "mod_scaffold_resolve_media",
   "mod_scaffold_list_media",
-  "mod_scaffold_accept_xapi_statement",
+  "mod_scaffold_accept_learning_event",
 ] as const;
 
 export type MoodleAjaxMethod = (typeof MOODLE_AJAX_METHODS)[number];

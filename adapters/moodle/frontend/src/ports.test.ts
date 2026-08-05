@@ -390,3 +390,16 @@ describe("createMoodleRuntimePorts learner activity port", () => {
     ]);
   });
 });
+
+describe("createMoodleRuntimePorts learning event port", () => {
+  it("exposes only the optional general learning event capability", () => {
+    expect(createMoodleRuntimePorts(42)).not.toHaveProperty("learningEvents");
+
+    const ports = createMoodleRuntimePorts(42, "https://moodle.example");
+    expect(ports.learningEvents).toEqual({
+      rootActivityId: "https://moodle.example/mod/scaffold/view.php?id=42",
+      accept: expect.any(Function),
+    });
+    expect(ports).not.toHaveProperty("xapi");
+  });
+});
