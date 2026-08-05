@@ -167,6 +167,50 @@ describe("createLearningEventSession", () => {
     expect(monotonicNow).not.toHaveBeenCalled();
   });
 
+  it.each([
+    {
+      name: "a throwing assessment definition getter",
+      input: () => ({
+        type: "assessment.answered",
+        targetId: "question-one",
+        get definition() {
+          throw new Error("private definition unavailable");
+        },
+      }),
+    },
+    {
+      name: "a hostile assessment definition proxy",
+      input: () => ({
+        type: "assessment.answered",
+        targetId: "question-one",
+        definition: new Proxy(
+          {},
+          {
+            get() {
+              throw new Error("hostile definition access");
+            },
+          },
+        ),
+      }),
+    },
+  ])("contains $name before lazy initialization", async ({ input }) => {
+    const { session, accept, createUuid, now, monotonicNow } = createHarness();
+
+    expect(() => session.record(input() as unknown as CoreLearningEventInput)).not.toThrow();
+    expect(() => session.record(learningInput("suppressed"))).not.toThrow();
+    await flushPromises();
+
+    expect(session.getState()).toEqual({
+      status: "terminated",
+      startedAt: null,
+      acceptance: "failed",
+    });
+    expect(accept).not.toHaveBeenCalled();
+    expect(createUuid).not.toHaveBeenCalled();
+    expect(now).not.toHaveBeenCalled();
+    expect(monotonicNow).not.toHaveBeenCalled();
+  });
+
   it("keeps block and Core authority recording paths separate on the same session type", async () => {
     const publicHarness = createHarness();
 

@@ -17,8 +17,6 @@ import {
   type BlockAssessmentCapabilityDefinition,
   type BlockDefinition,
 } from "@/editor/blocks/block-definition";
-import { buildAssessmentActivityDefinition } from "@/runtime/xapi/statement-catalogue";
-
 import { countAssessmentHints } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { textBetween } from "@/editor/blocks/assessment/shared/publication/projection";
 import type { AssessmentExperienceConfig } from "../model/assessment-capability";
@@ -420,9 +418,7 @@ function runtimeProblemConfigFromFacade(
     kind: interactionKind,
     targetId,
     interactionKind,
-    ...(config.getXapiActivityDefinition === undefined
-      ? {}
-      : { getXapiActivityDefinition: config.getXapiActivityDefinition }),
+    learningEventDefinition: config.learningEventDefinition,
     choiceMode: choiceModeForInteraction(interactionKind),
     feedbackMode: settings.feedbackMode,
     maxAttempts: settings.maxAttempts,
@@ -492,19 +488,17 @@ function createRuntimeProblemConfig(
     ...assessment.response,
     hasResponse: (response: unknown) => assessment.response.hasResponse(response, interaction),
   };
-  const getXapiActivityDefinition = () => {
-    const activityDescription = assessmentActivityDescription(node);
-    return buildAssessmentActivityDefinition({
-      ...(activityDescription === undefined ? {} : { activityDescription }),
-      interaction,
-    });
+  const activityDescription = assessmentActivityDescription(node);
+  const learningEventDefinition = {
+    ...(activityDescription === undefined ? {} : { activityDescription }),
+    interaction,
   };
 
   return {
     kind,
     targetId: blockId,
     interactionKind: kind,
-    getXapiActivityDefinition,
+    learningEventDefinition,
     choiceMode: choiceModeForInteraction(kind),
     feedbackMode: settings.feedbackMode,
     maxAttempts: settings.maxAttempts,

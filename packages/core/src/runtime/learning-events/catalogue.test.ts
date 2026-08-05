@@ -46,6 +46,7 @@ import {
   createVisualItemActivityId,
   encodeAssessmentResponse,
   isLearningEventLearnerActivityKind,
+  type AssessmentLearningEventDefinition,
 } from "./catalogue";
 
 const ROOT_ACTIVITY_ID = "https://lms.example.test/courses/course-one";
@@ -58,6 +59,42 @@ function normalizedResult(
     score: 1,
     ...overrides,
   };
+}
+
+function singleSelectAssessmentDefinition() {
+  return {
+    activityDescription: "Which answer is correct?",
+    interaction: {
+      kind: "single-select" as const,
+      options: [
+        { id: "option/a", label: "Paris" },
+        { id: "option-b", label: "Madrid" },
+      ],
+    },
+  };
+}
+
+function assessmentDefinitionForKind(
+  kind: AssessmentInteractionKind,
+  activityDescription?: string,
+): AssessmentLearningEventDefinition {
+  const description = activityDescription === undefined ? {} : { activityDescription };
+  switch (kind) {
+    case "single-select":
+      return { ...description, interaction: { kind, options: [] } };
+    case "multi-select":
+      return { ...description, interaction: { kind, options: [], maxSelections: null } };
+    case "sequence":
+      return { ...description, interaction: { kind, items: [] } };
+    case "match":
+      return { ...description, interaction: { kind, items: [], targets: [] } };
+    case "classify":
+      return { ...description, interaction: { kind, items: [], categories: [] } };
+    case "fill-blanks":
+      return { ...description, interaction: { kind, blanks: [] } };
+    case "spatial-hotspot":
+      return { ...description, interaction: { kind, hotspots: [], maxSelections: null } };
+  }
 }
 
 describe("Learning Event catalogue vocabulary", () => {
@@ -167,8 +204,7 @@ describe("Learning Event catalogue vocabulary", () => {
         buildAnsweredLearningEventDraft({
           rootActivityId: ROOT_ACTIVITY_ID,
           targetId: "question-one",
-          activityDescription: "Which answer is correct?",
-          interactionKind,
+          definition: assessmentDefinitionForKind(interactionKind, "Which answer is correct?"),
           response: null,
           result: normalizedResult(),
           attemptNumber: 1,
@@ -361,6 +397,92 @@ describe("closed producer inputs", () => {
     { type: "not.registered", payload: {} },
   ])("rejects invalid closed input: %o", (input) => {
     expect(CoreLearningEventInputSchema.safeParse(input).success).toBe(false);
+  });
+
+  it("accepts a strict domain-shaped assessment definition and derives its wire definition", () => {
+    const input = {
+      type: "assessment.answered" as const,
+      targetId: "question-1",
+      definition: singleSelectAssessmentDefinition(),
+      response: { kind: "single-select" as const, optionId: "option/a" },
+      result: { isCorrect: true, score: 1 },
+      attemptNumber: 2,
+    };
+
+    expect(CoreLearningEventInputSchema.parse(input)).toStrictEqual(input);
+    const draft = buildLearningEventDraft(input, { rootActivityId: ROOT_ACTIVITY_ID });
+
+    expect(draft.object.definition).toStrictEqual({
+      description: { en: "Which answer is correct?" },
+      type: LEARNING_EVENT_ACTIVITY_TYPES.assessmentQuestion,
+      interactionType: "choice",
+      choices: [
+        { id: "option%2Fa", description: { en: "Paris" } },
+        { id: "option-b", description: { en: "Madrid" } },
+      ],
+      extensions: {
+        [LEARNING_EVENT_EXTENSIONS.assessmentInteractionKind]: "single-select",
+      },
+    });
+    expect(draft.result).toMatchObject({
+      response: "option%2Fa",
+      success: true,
+      score: { scaled: 1 },
+      extensions: { [LEARNING_EVENT_EXTENSIONS.assessmentAttemptNumber]: 2 },
+    });
+  });
+
+  it("rejects the legacy wire-shaped assessment definition and arbitrary extensions", () => {
+    expect(
+      CoreLearningEventInputSchema.safeParse({
+        type: "assessment.answered",
+        targetId: "question-1",
+        activityDefinition: {
+          type: "https://attacker.example/activity-type",
+          interactionType: "choice",
+          extensions: { "https://attacker.example/private-answer": "PRIVATE_ANSWER" },
+        },
+        interactionKind: "single-select",
+        response: { kind: "single-select", optionId: "option-a" },
+        result: { isCorrect: true, score: 1 },
+        attemptNumber: 1,
+      }).success,
+    ).toBe(false);
+  });
+
+  it.each([
+    { label: "null", definition: null },
+    { label: "a primitive", definition: 42 },
+    {
+      label: "an unknown definition field",
+      definition: { ...singleSelectAssessmentDefinition(), privateState: "PRIVATE_STATE" },
+    },
+    {
+      label: "a private answer key",
+      definition: {
+        ...singleSelectAssessmentDefinition(),
+        interaction: {
+          ...singleSelectAssessmentDefinition().interaction,
+          correctOptionId: "option/a",
+        },
+      },
+    },
+    {
+      label: "an arbitrary extension map",
+      definition: {
+        ...singleSelectAssessmentDefinition(),
+        extensions: { "https://attacker.example/private": "PRIVATE_EXTENSION" },
+      },
+    },
+  ])("rejects $label in assessment definition data", ({ definition }) => {
+    expect(
+      CoreLearningEventInputSchema.safeParse({
+        type: "assessment.hint-interacted",
+        targetId: "question-1",
+        definition,
+        hintNumber: 1,
+      }).success,
+    ).toBe(false);
   });
 
   it("builds governed block-safe input without serializing the catalogue key", () => {
@@ -736,7 +858,7 @@ describe("Learning Event Event catalogue builders", () => {
       buildAnsweredLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
-        interactionKind: "single-select",
+        definition: singleSelectAssessmentDefinition(),
         response: { kind: "single-select", optionId: "option/a" },
         result: normalizedResult({ isCorrect: false, score: 0.25 }),
         attemptNumber: 2,
@@ -747,8 +869,13 @@ describe("Learning Event Event catalogue builders", () => {
         objectType: "Activity",
         id: createAssessmentActivityId(ROOT_ACTIVITY_ID, "question-one"),
         definition: {
+          description: { en: "Which answer is correct?" },
           type: LEARNING_EVENT_ACTIVITY_TYPES.assessmentQuestion,
           interactionType: "choice",
+          choices: [
+            { id: "option%2Fa", description: { en: "Paris" } },
+            { id: "option-b", description: { en: "Madrid" } },
+          ],
           extensions: {
             [LEARNING_EVENT_EXTENSIONS.assessmentInteractionKind]: "single-select",
           },
@@ -779,7 +906,7 @@ describe("Learning Event Event catalogue builders", () => {
       buildAnsweredLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
-        interactionKind: "sequence",
+        definition: assessmentDefinitionForKind("sequence"),
         response: null,
         result: normalizedResult(),
         attemptNumber: 1,
@@ -804,7 +931,7 @@ describe("Learning Event Event catalogue builders", () => {
       buildHintInteractedLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
-        activityDescription: "Which answer is correct?",
+        definition: singleSelectAssessmentDefinition(),
         hintNumber: 2,
       }),
     ).toStrictEqual({
@@ -826,6 +953,14 @@ describe("Learning Event Event catalogue builders", () => {
               definition: {
                 description: { en: "Which answer is correct?" },
                 type: LEARNING_EVENT_ACTIVITY_TYPES.assessmentQuestion,
+                interactionType: "choice",
+                choices: [
+                  { id: "option%2Fa", description: { en: "Paris" } },
+                  { id: "option-b", description: { en: "Madrid" } },
+                ],
+                extensions: {
+                  [LEARNING_EVENT_EXTENSIONS.assessmentInteractionKind]: "single-select",
+                },
               },
             },
           ],
@@ -1284,7 +1419,7 @@ describe("Learning Event catalogue invariants", () => {
       buildAnsweredLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
-        interactionKind: "single-select",
+        definition: singleSelectAssessmentDefinition(),
         response: null,
         result: normalizedResult(),
         attemptNumber,
@@ -1297,7 +1432,7 @@ describe("Learning Event catalogue invariants", () => {
       buildAnsweredLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
-        interactionKind: "single-select",
+        definition: singleSelectAssessmentDefinition(),
         response: null,
         result: normalizedResult(),
         attemptNumber: 1,
@@ -1399,7 +1534,7 @@ describe("Learning Event catalogue invariants", () => {
       buildAnsweredLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
-        interactionKind: "single-select",
+        definition: singleSelectAssessmentDefinition(),
         response: { kind: "single-select", optionId: "authorized-response" },
         result: privateResult,
         attemptNumber: 1,
@@ -1408,7 +1543,7 @@ describe("Learning Event catalogue invariants", () => {
       buildAnsweredLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
-        interactionKind: "single-select",
+        definition: singleSelectAssessmentDefinition(),
         response: { kind: "single-select", optionId: "authorized-response" },
         result: privateResult,
         attemptNumber: 1,
@@ -1417,6 +1552,7 @@ describe("Learning Event catalogue invariants", () => {
       buildHintInteractedLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
+        definition: singleSelectAssessmentDefinition(),
         hintNumber: 1,
         ...privateCanaries,
       }),
@@ -1472,9 +1608,11 @@ describe("Learning Event catalogue invariants", () => {
       "en",
       "objectType",
       "definition",
+      "description",
       "name",
       "type",
       "interactionType",
+      "choices",
       "extensions",
       "score",
       "scaled",

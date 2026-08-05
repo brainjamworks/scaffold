@@ -39,6 +39,9 @@ const config: AssessmentBlockSetupConfig = {
   showAnswerEnabled: true,
   experience: pageAssessmentExperience,
   hintsTotal: 1,
+  learningEventDefinition: {
+    interaction: { kind: "single-select", options: [] },
+  },
   points: 2,
   isGraded: true,
   responseCodec: mcqResponseCodec,

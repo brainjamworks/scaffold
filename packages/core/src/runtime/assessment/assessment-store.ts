@@ -315,12 +315,7 @@ export function createAssessmentStore({
           buildAnsweredStatementDraft({
             rootActivityId: session.rootActivityId,
             targetId: registration.targetId,
-            ...(registration.config.getXapiActivityDefinition === undefined
-              ? {}
-              : {
-                  activityDefinition: registration.config.getXapiActivityDefinition(),
-                }),
-            interactionKind: registration.interactionKind,
+            definition: registration.config.learningEventDefinition,
             response: problem.response,
             result: problem.submissionResult,
             attemptNumber: problem.attemptNumber,
@@ -344,11 +339,7 @@ export function createAssessmentStore({
           buildHintInteractedStatementDraft({
             rootActivityId: session.rootActivityId,
             targetId: registration.targetId,
-            ...(registration.config.getXapiActivityDefinition === undefined
-              ? {}
-              : {
-                  activityDefinition: registration.config.getXapiActivityDefinition(),
-                }),
+            definition: registration.config.learningEventDefinition,
             hintNumber: problem.hintsShown,
           }),
         );
@@ -431,12 +422,7 @@ export function createAssessmentStore({
             buildAnsweredStatementDraft({
               rootActivityId: session.rootActivityId,
               targetId: problemRegistration.targetId,
-              ...(problemRegistration.config.getXapiActivityDefinition === undefined
-                ? {}
-                : {
-                    activityDefinition: problemRegistration.config.getXapiActivityDefinition(),
-                  }),
-              interactionKind: problemRegistration.interactionKind,
+              definition: problemRegistration.config.learningEventDefinition,
               response: problem.response,
               result: problem.submissionResult,
               attemptNumber: problem.attemptNumber,

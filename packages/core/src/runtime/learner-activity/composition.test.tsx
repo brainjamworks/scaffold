@@ -112,6 +112,9 @@ function registerAssessment(store: AssessmentStoreApi, problemId: string) {
         maxAttempts: null,
       },
       hintsTotal: 0,
+      learningEventDefinition: {
+        interaction: { kind: "single-select", options: [] },
+      },
     },
   });
 

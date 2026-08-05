@@ -14,7 +14,7 @@ import type {
   AssessmentExperienceDefinition,
 } from "../../editor/blocks/block-definition";
 import type { AssessmentPort } from "../../host/ports/assessment";
-import type { XapiActivityDefinition } from "../../host/ports/xapi";
+import type { AssessmentLearningEventDefinition } from "../learning-events/catalogue";
 import type { XapiSessionAccessor } from "../xapi";
 
 export type AssessmentProblemId = `artifact:${string}/block:${string}`;
@@ -62,7 +62,7 @@ export interface AssessmentRegistrationConfig {
   readonly experience: AssessmentExperienceDefinition;
   readonly settings: AssessmentTargetSettings;
   readonly hintsTotal: number;
-  readonly getXapiActivityDefinition?: () => XapiActivityDefinition;
+  readonly learningEventDefinition: AssessmentLearningEventDefinition;
 }
 
 export interface AssessmentRegistrationIdentity {

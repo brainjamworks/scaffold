@@ -89,6 +89,9 @@ function registerResponse(store: AssessmentStoreApi) {
         maxAttempts: null,
       },
       hintsTotal: 0,
+      learningEventDefinition: {
+        interaction: { kind: "single-select", options: [] },
+      },
     },
   });
   store.getState().setLocalResponse(identity, { choice: "option-one" });

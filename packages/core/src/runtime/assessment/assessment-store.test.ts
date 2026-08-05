@@ -13,7 +13,8 @@ import {
   QuizAttemptStateSchema,
 } from "@scaffold/contracts";
 import type { AssessmentPort, AssessmentQuizCommandOutcome } from "../../host/ports/assessment";
-import type { XapiActivityDefinition, XapiPort, XapiStatementDraft } from "../../host/ports/xapi";
+import type { XapiPort, XapiStatementDraft } from "../../host/ports/xapi";
+import type { AssessmentLearningEventDefinition } from "../learning-events/catalogue";
 import {
   buildAnsweredStatementDraft,
   buildHintInteractedStatementDraft,
@@ -87,15 +88,16 @@ function createSessionDouble(
   return { session, record };
 }
 
-function assessmentActivityDefinition(): XapiActivityDefinition {
+function assessmentLearningEventDefinition(): AssessmentLearningEventDefinition {
   return {
-    description: { en: "Which answer is correct?" },
-    type: "http://adlnet.gov/expapi/activities/cmi.interaction",
-    interactionType: "choice",
-    choices: [
-      { id: "option-a", description: { en: "Paris" } },
-      { id: "option-b", description: { en: "Madrid" } },
-    ],
+    activityDescription: "Which answer is correct?",
+    interaction: {
+      kind: "single-select",
+      options: [
+        { id: "option-a", label: "Paris" },
+        { id: "option-b", label: "Madrid" },
+      ],
+    },
   };
 }
 
@@ -177,6 +179,7 @@ function createRegistration(
         maxAttempts: null,
       },
       hintsTotal: 2,
+      learningEventDefinition: assessmentLearningEventDefinition(),
     },
     ...overrides,
   };
@@ -551,10 +554,10 @@ describe("createAssessmentStore", () => {
     });
     const identity = registrationIdentity();
     const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
-    const getXapiActivityDefinition = vi.fn(assessmentActivityDefinition);
+    const learningEventDefinition = assessmentLearningEventDefinition();
     const registrationConfig = {
       ...createRegistration().config,
-      getXapiActivityDefinition,
+      learningEventDefinition,
     };
 
     store.getState().register(
@@ -562,7 +565,6 @@ describe("createAssessmentStore", () => {
         config: registrationConfig,
       }),
     );
-    expect(getXapiActivityDefinition).not.toHaveBeenCalled();
     store.getState().registerQuiz(createQuizRegistration());
     store.setState({
       durable: {
@@ -583,13 +585,11 @@ describe("createAssessmentStore", () => {
       expectedAttemptNumber: 0,
     });
     expect(store.getState().durable.problems[problemId]).toEqual(canonicalProblem);
-    expect(getXapiActivityDefinition).toHaveBeenCalledOnce();
     expect(xapi.record).toHaveBeenCalledExactlyOnceWith(
       buildAnsweredStatementDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "target-one",
-        activityDefinition: assessmentActivityDefinition(),
-        interactionKind: "single-select",
+        definition: learningEventDefinition,
         response: canonicalProblem.response,
         result,
         attemptNumber: 5,
@@ -672,7 +672,7 @@ describe("createAssessmentStore", () => {
       buildAnsweredStatementDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "target-one",
-        interactionKind: "single-select",
+        definition: assessmentLearningEventDefinition(),
         response: problem.response,
         result,
         attemptNumber: 1,
@@ -764,7 +764,7 @@ describe("createAssessmentStore", () => {
         buildAnsweredStatementDraft({
           rootActivityId: ROOT_ACTIVITY_ID,
           targetId: "target-one",
-          interactionKind: "single-select",
+          definition: assessmentLearningEventDefinition(),
           response: { kind: "single-select", optionId: "option-a" },
           result,
           attemptNumber,
@@ -953,7 +953,7 @@ describe("createAssessmentStore", () => {
       buildAnsweredStatementDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "target-one",
-        interactionKind: "single-select",
+        definition: assessmentLearningEventDefinition(),
         response: canonicalFirstProblem.response,
         result: firstResult,
         attemptNumber: 7,
@@ -962,7 +962,7 @@ describe("createAssessmentStore", () => {
       buildAnsweredStatementDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "target-two",
-        interactionKind: "single-select",
+        definition: assessmentLearningEventDefinition(),
         response: canonicalSecondProblem.response,
         result: secondResult,
         attemptNumber: 8,
@@ -1083,7 +1083,7 @@ describe("createAssessmentStore", () => {
         buildAnsweredStatementDraft({
           rootActivityId: ROOT_ACTIVITY_ID,
           targetId: "target-one",
-          interactionKind: "single-select",
+          definition: assessmentLearningEventDefinition(),
           response: firstProblem.response,
           result: firstResult,
           attemptNumber: 1,
@@ -1092,7 +1092,7 @@ describe("createAssessmentStore", () => {
         buildAnsweredStatementDraft({
           rootActivityId: ROOT_ACTIVITY_ID,
           targetId: "target-two",
-          interactionKind: "single-select",
+          definition: assessmentLearningEventDefinition(),
           response: secondProblem.response,
           result: secondResult,
           attemptNumber: 1,
@@ -1770,7 +1770,7 @@ describe("createAssessmentStore", () => {
       buildAnsweredStatementDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "target-one",
-        interactionKind: "single-select",
+        definition: assessmentLearningEventDefinition(),
         response: { kind: "single-select", optionId: "option-a" },
         result,
         attemptNumber: 2,
@@ -1965,7 +1965,7 @@ describe("createAssessmentStore", () => {
       buildAnsweredStatementDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "target-one",
-        interactionKind: "single-select",
+        definition: assessmentLearningEventDefinition(),
         response: { kind: "single-select", optionId: "option-a" },
         result,
         attemptNumber: 1,
@@ -2212,10 +2212,10 @@ describe("createAssessmentStore", () => {
       getXapiSession: () => xapi.session,
     });
     const identity = registrationIdentity();
-    const getXapiActivityDefinition = vi.fn(assessmentActivityDefinition);
+    const learningEventDefinition = assessmentLearningEventDefinition();
     const registrationConfig = {
       ...createRegistration().config,
-      getXapiActivityDefinition,
+      learningEventDefinition,
     };
 
     store.getState().register(
@@ -2223,7 +2223,6 @@ describe("createAssessmentStore", () => {
         config: registrationConfig,
       }),
     );
-    expect(getXapiActivityDefinition).not.toHaveBeenCalled();
     store.getState().setLocalResponse(identity, { choice: "option-a" });
 
     await expect(store.getState().submit(identity)).resolves.toEqual(
@@ -2231,13 +2230,11 @@ describe("createAssessmentStore", () => {
     );
 
     expect(problemAtRecord).toEqual(canonicalProblem);
-    expect(getXapiActivityDefinition).toHaveBeenCalledOnce();
     expect(xapi.record).toHaveBeenCalledExactlyOnceWith(
       buildAnsweredStatementDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "target-one",
-        activityDefinition: assessmentActivityDefinition(),
-        interactionKind: "single-select",
+        definition: learningEventDefinition,
         response: canonicalProblem.response,
         result: canonicalProblem.submissionResult,
         attemptNumber: 3,
@@ -2501,10 +2498,10 @@ describe("createAssessmentStore", () => {
       getXapiSession: () => xapi.session,
     });
     const identity = registrationIdentity();
-    const getXapiActivityDefinition = vi.fn(assessmentActivityDefinition);
+    const learningEventDefinition = assessmentLearningEventDefinition();
     const registrationConfig = {
       ...createRegistration().config,
-      getXapiActivityDefinition,
+      learningEventDefinition,
     };
 
     store.getState().register(
@@ -2514,18 +2511,16 @@ describe("createAssessmentStore", () => {
     );
     const reveal = store.getState().revealHint(identity);
     expect(xapi.record).not.toHaveBeenCalled();
-    expect(getXapiActivityDefinition).not.toHaveBeenCalled();
 
     pending.resolve({ problem: { ...createProblemSnapshot(), hintsShown: 1 } });
     await expect(reveal).resolves.toBe(true);
 
     expect(hintsAtRecord).toBe(1);
-    expect(getXapiActivityDefinition).toHaveBeenCalledOnce();
     expect(xapi.record).toHaveBeenCalledExactlyOnceWith(
       buildHintInteractedStatementDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "target-one",
-        activityDefinition: assessmentActivityDefinition(),
+        definition: learningEventDefinition,
         hintNumber: 1,
       }),
     );

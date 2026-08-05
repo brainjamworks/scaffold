@@ -3512,6 +3512,9 @@ function registerQuizQuestionProblem(problemId: string, targetId: string) {
         maxAttempts: null,
       },
       hintsTotal: 0,
+      learningEventDefinition: {
+        interaction: { kind: "single-select", options: [] },
+      },
     },
   };
   pendingRegistrations[authoredBlockId] = registration;

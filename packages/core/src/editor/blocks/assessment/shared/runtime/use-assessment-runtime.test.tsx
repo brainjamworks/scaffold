@@ -22,6 +22,7 @@ import type {
   AssessmentRevealRequest,
   AssessmentSubmitRequest,
 } from "@/host/ports";
+import type { AssessmentLearningEventDefinition } from "@/runtime/learning-events/catalogue";
 
 import { AssessmentChoicesGroupNode } from "../nodes/assessment-choices-group";
 import { AssessmentActionsGroupNode } from "../nodes/assessment-actions-group";
@@ -73,6 +74,27 @@ function ScopedStoreCapture() {
   return null;
 }
 
+function learningEventDefinitionForKind(
+  kind: AssessmentInteractionKind,
+): AssessmentLearningEventDefinition {
+  switch (kind) {
+    case "single-select":
+      return { interaction: { kind, options: [] } };
+    case "multi-select":
+      return { interaction: { kind, options: [], maxSelections: null } };
+    case "sequence":
+      return { interaction: { kind, items: [] } };
+    case "match":
+      return { interaction: { kind, items: [], targets: [] } };
+    case "classify":
+      return { interaction: { kind, items: [], categories: [] } };
+    case "fill-blanks":
+      return { interaction: { kind, blanks: [] } };
+    case "spatial-hotspot":
+      return { interaction: { kind, hotspots: [], maxSelections: null } };
+  }
+}
+
 function ScopedProblemRegistration({
   interactionKind = "single-select",
   problemId,
@@ -106,6 +128,7 @@ function ScopedProblemRegistration({
           maxAttempts: null,
         },
         hintsTotal,
+        learningEventDefinition: learningEventDefinitionForKind(interactionKind),
       },
     }),
     [feedbackMode, hintsTotal, interactionKind, problemId, response, showAnswer, targetId],
@@ -677,25 +700,26 @@ describe("useAssessmentRuntime", () => {
     await waitFor(() => {
       const registration =
         scopedAssessmentStore?.getState().registrations["artifact:artifact-1/block:mcq-1"];
-      expect(registration?.config.getXapiActivityDefinition).toBeTypeOf("function");
+      expect(registration?.config.learningEventDefinition).toBeDefined();
     });
     const registration =
       scopedAssessmentStore?.getState().registrations["artifact:artifact-1/block:mcq-1"];
-    expect(registration?.config).not.toHaveProperty("activityDescription");
-    const xapiDefinition = registration?.config.getXapiActivityDefinition?.();
-    expect(xapiDefinition).toMatchObject({
-      description: { en: "What is x^2 called? square 💡 a^2 + b^2 = c^2" },
-      interactionType: "choice",
-      choices: [
-        {
-          id: "a",
-          description: { en: "Formula y^2 means square ✅ y^2 = y × y" },
-        },
-        { id: "b", description: { en: "b" } },
-      ],
+    const learningEventDefinition = registration?.config.learningEventDefinition;
+    expect(learningEventDefinition).toStrictEqual({
+      activityDescription: "What is x^2 called? square 💡 a^2 + b^2 = c^2",
+      interaction: {
+        kind: "single-select",
+        options: [
+          { id: "a", label: "Formula y^2 means square ✅ y^2 = y × y" },
+          { id: "b", label: "b" },
+        ],
+      },
     });
-    expect(xapiDefinition).not.toHaveProperty("correctResponsesPattern");
-    expect(JSON.stringify(xapiDefinition)).not.toContain("PRIVATE_CHOICE_DEFINITION");
+    expect(learningEventDefinition).not.toHaveProperty("type");
+    expect(learningEventDefinition).not.toHaveProperty("interactionType");
+    expect(learningEventDefinition).not.toHaveProperty("extensions");
+    expect(learningEventDefinition).not.toHaveProperty("correctResponsesPattern");
+    expect(JSON.stringify(learningEventDefinition)).not.toContain("PRIVATE_CHOICE_DEFINITION");
     expect(JSON.stringify(scopedAssessmentStore?.getState().registrations)).not.toContain(
       "PRIVATE_VOCABULARY_DEFINITION",
     );

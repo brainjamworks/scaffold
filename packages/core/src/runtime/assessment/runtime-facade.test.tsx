@@ -76,6 +76,9 @@ function problemRegistration(
         maxAttempts: null,
       },
       hintsTotal: 2,
+      learningEventDefinition: {
+        interaction: { kind: "single-select", options: [] },
+      },
     },
     ...overrides,
   };

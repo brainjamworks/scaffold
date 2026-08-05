@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 import {
+  AssessmentInteractionContractSchema,
   AssessmentResponseValueSchema,
-  type AssessmentInteractionContract,
   type AssessmentInteractionKind,
   type AssessmentResponseValue,
   type AssessmentResult,
@@ -285,10 +285,21 @@ function learningEventInteractionComponent(component: {
   };
 }
 
-export function buildAssessmentActivityDefinition(input: {
-  readonly activityDescription?: string;
-  readonly interaction: AssessmentInteractionContract;
-}): LearningEventActivityDefinition {
+export const AssessmentLearningEventDefinitionSchema = z
+  .object({
+    activityDescription: z.string().optional(),
+    interaction: AssessmentInteractionContractSchema,
+  })
+  .strict();
+
+export type AssessmentLearningEventDefinition = z.infer<
+  typeof AssessmentLearningEventDefinitionSchema
+>;
+
+export function buildAssessmentActivityDefinition(
+  inputValue: AssessmentLearningEventDefinition,
+): LearningEventActivityDefinition {
+  const input = AssessmentLearningEventDefinitionSchema.parse(inputValue);
   const description = input.activityDescription?.replace(/\s+/gu, " ").trim() ?? "";
   const base: LearningEventActivityDefinition = {
     ...(description ? { description: { en: description } } : {}),
@@ -439,32 +450,13 @@ function assessmentActivity(
   rootId: LearningEventIri,
   targetId: string,
   options: {
-    readonly activityDescription?: string;
-    readonly activityDefinition?: LearningEventActivityDefinition;
-    readonly interaction?: {
-      readonly kind: AssessmentInteractionKind;
-      readonly interactionType: LearningEventInteractionType;
-    };
-  } = {},
+    readonly definition: AssessmentLearningEventDefinition;
+  },
 ): LearningEventActivity {
-  const description = options.activityDescription?.replace(/\s+/gu, " ").trim() ?? "";
   return {
     objectType: "Activity",
     id: createAssessmentActivityId(rootId, targetId),
-    definition: {
-      ...options.activityDefinition,
-      ...(description ? { description: { en: description } } : {}),
-      type: LEARNING_EVENT_ACTIVITY_TYPES.assessmentQuestion,
-      ...(options.interaction === undefined
-        ? {}
-        : {
-            interactionType: options.interaction.interactionType,
-            extensions: {
-              ...options.activityDefinition?.extensions,
-              [LEARNING_EVENT_EXTENSIONS.assessmentInteractionKind]: options.interaction.kind,
-            },
-          }),
-    },
+    definition: buildAssessmentActivityDefinition(options.definition),
   };
 }
 
@@ -795,9 +787,7 @@ export function buildLayoutSectionExperiencedLearningEventDraft(input: {
 export function buildAnsweredLearningEventDraft(input: {
   readonly rootActivityId: LearningEventIri;
   readonly targetId: string;
-  readonly activityDescription?: string;
-  readonly activityDefinition?: LearningEventActivityDefinition;
-  readonly interactionKind: AssessmentInteractionKind;
+  readonly definition: AssessmentLearningEventDefinition;
   readonly response: AssessmentResponseValue | null;
   readonly result: Pick<AssessmentResult, "isCorrect" | "score">;
   readonly attemptNumber: number;
@@ -808,20 +798,14 @@ export function buildAnsweredLearningEventDraft(input: {
 }): LearningEventDraft {
   const result = validNormalizedResult(input.result);
   const attemptNumber = positiveInteger("attemptNumber", input.attemptNumber);
-  const encodedResponse = encodeAssessmentResponse(input.interactionKind, input.response);
+  const encodedResponse = encodeAssessmentResponse(
+    input.definition.interaction.kind,
+    input.response,
+  );
   return validatedDraft({
     verb: LEARNING_EVENT_VERBS.answered,
     object: assessmentActivity(input.rootActivityId, input.targetId, {
-      ...(input.activityDefinition === undefined
-        ? {}
-        : { activityDefinition: input.activityDefinition }),
-      ...(input.activityDescription === undefined
-        ? {}
-        : { activityDescription: input.activityDescription }),
-      interaction: {
-        kind: input.interactionKind,
-        interactionType: encodedResponse.interactionType,
-      },
+      definition: input.definition,
     }),
     result: {
       success: result.isCorrect,
@@ -845,8 +829,7 @@ export function buildAnsweredLearningEventDraft(input: {
 export function buildHintInteractedLearningEventDraft(input: {
   readonly rootActivityId: LearningEventIri;
   readonly targetId: string;
-  readonly activityDescription?: string;
-  readonly activityDefinition?: LearningEventActivityDefinition;
+  readonly definition: AssessmentLearningEventDefinition;
   readonly hintNumber: number;
 }): LearningEventDraft {
   const hintNumber = positiveInteger("hintNumber", input.hintNumber);
@@ -864,12 +847,7 @@ export function buildHintInteractedLearningEventDraft(input: {
     },
     context: parentContext(
       assessmentActivity(input.rootActivityId, input.targetId, {
-        ...(input.activityDefinition === undefined
-          ? {}
-          : { activityDefinition: input.activityDefinition }),
-        ...(input.activityDescription === undefined
-          ? {}
-          : { activityDescription: input.activityDescription }),
+        definition: input.definition,
       }),
     ),
   });
@@ -1252,17 +1230,7 @@ const AssessmentAnsweredInputSchema = z
   .object({
     type: z.literal("assessment.answered"),
     targetId: NonBlankIdentitySchema,
-    activityDescription: z.string().optional(),
-    activityDefinition: z.custom<LearningEventActivityDefinition>().optional(),
-    interactionKind: z.enum([
-      "single-select",
-      "multi-select",
-      "sequence",
-      "match",
-      "classify",
-      "fill-blanks",
-      "spatial-hotspot",
-    ]),
+    definition: AssessmentLearningEventDefinitionSchema,
     response: AssessmentResponseValueSchema.nullable(),
     result: z.object({ isCorrect: z.boolean(), score: z.number().finite().min(0).max(1) }).strict(),
     attemptNumber: PositiveIntegerSchema,
@@ -1278,8 +1246,7 @@ const AssessmentHintInputSchema = z
   .object({
     type: z.literal("assessment.hint-interacted"),
     targetId: NonBlankIdentitySchema,
-    activityDescription: z.string().optional(),
-    activityDefinition: z.custom<LearningEventActivityDefinition>().optional(),
+    definition: AssessmentLearningEventDefinitionSchema,
     hintNumber: PositiveIntegerSchema,
   })
   .strict();
@@ -1441,13 +1408,7 @@ export function buildLearningEventDraft(
       return buildAnsweredLearningEventDraft({
         rootActivityId,
         targetId: input.targetId,
-        ...(input.activityDescription === undefined
-          ? {}
-          : { activityDescription: input.activityDescription }),
-        ...(input.activityDefinition === undefined
-          ? {}
-          : { activityDefinition: input.activityDefinition }),
-        interactionKind: input.interactionKind,
+        definition: input.definition,
         response: input.response,
         result: input.result,
         attemptNumber: input.attemptNumber,
@@ -1457,12 +1418,7 @@ export function buildLearningEventDraft(
       return buildHintInteractedLearningEventDraft({
         rootActivityId,
         targetId: input.targetId,
-        ...(input.activityDescription === undefined
-          ? {}
-          : { activityDescription: input.activityDescription }),
-        ...(input.activityDefinition === undefined
-          ? {}
-          : { activityDefinition: input.activityDefinition }),
+        definition: input.definition,
         hintNumber: input.hintNumber,
       });
     case "learner-activity.interacted":

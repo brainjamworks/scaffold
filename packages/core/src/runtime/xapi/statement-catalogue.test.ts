@@ -7,6 +7,7 @@ import type {
   AssessmentResult,
 } from "@scaffold/contracts";
 import type { XapiActivityDefinition, XapiStatementDraft } from "../../host/ports/xapi";
+import type { AssessmentLearningEventDefinition } from "../learning-events/catalogue";
 import {
   XAPI_ACTIVITY_TYPES,
   XAPI_EXTENSIONS,
@@ -52,6 +53,29 @@ function normalizedResult(
     score: 1,
     ...overrides,
   };
+}
+
+function assessmentDefinitionForKind(
+  kind: AssessmentInteractionKind,
+  activityDescription?: string,
+): AssessmentLearningEventDefinition {
+  const description = activityDescription === undefined ? {} : { activityDescription };
+  switch (kind) {
+    case "single-select":
+      return { ...description, interaction: { kind, options: [] } };
+    case "multi-select":
+      return { ...description, interaction: { kind, options: [], maxSelections: null } };
+    case "sequence":
+      return { ...description, interaction: { kind, items: [] } };
+    case "match":
+      return { ...description, interaction: { kind, items: [], targets: [] } };
+    case "classify":
+      return { ...description, interaction: { kind, items: [], categories: [] } };
+    case "fill-blanks":
+      return { ...description, interaction: { kind, blanks: [] } };
+    case "spatial-hotspot":
+      return { ...description, interaction: { kind, hotspots: [], maxSelections: null } };
+  }
 }
 
 describe("xAPI catalogue vocabulary", () => {
@@ -160,8 +184,7 @@ describe("xAPI catalogue vocabulary", () => {
         buildAnsweredStatementDraft({
           rootActivityId: ROOT_ACTIVITY_ID,
           targetId: "question-one",
-          activityDescription: "Which answer is correct?",
-          interactionKind,
+          definition: assessmentDefinitionForKind(interactionKind, "Which answer is correct?"),
           response: null,
           result: normalizedResult(),
           attemptNumber: 1,
@@ -595,7 +618,7 @@ describe("xAPI Statement catalogue builders", () => {
       buildAnsweredStatementDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
-        interactionKind: "single-select",
+        definition: assessmentDefinitionForKind("single-select"),
         response: { kind: "single-select", optionId: "option/a" },
         result: normalizedResult({ isCorrect: false, score: 0.25 }),
         attemptNumber: 2,
@@ -608,6 +631,7 @@ describe("xAPI Statement catalogue builders", () => {
         definition: {
           type: XAPI_ACTIVITY_TYPES.assessmentQuestion,
           interactionType: "choice",
+          choices: [],
           extensions: {
             [XAPI_EXTENSIONS.assessmentInteractionKind]: "single-select",
           },
@@ -638,7 +662,7 @@ describe("xAPI Statement catalogue builders", () => {
       buildAnsweredStatementDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
-        interactionKind: "sequence",
+        definition: assessmentDefinitionForKind("sequence"),
         response: null,
         result: normalizedResult(),
         attemptNumber: 1,
@@ -663,7 +687,7 @@ describe("xAPI Statement catalogue builders", () => {
       buildHintInteractedStatementDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
-        activityDescription: "Which answer is correct?",
+        definition: assessmentDefinitionForKind("single-select", "Which answer is correct?"),
         hintNumber: 2,
       }),
     ).toStrictEqual({
@@ -685,6 +709,11 @@ describe("xAPI Statement catalogue builders", () => {
               definition: {
                 description: { en: "Which answer is correct?" },
                 type: XAPI_ACTIVITY_TYPES.assessmentQuestion,
+                interactionType: "choice",
+                choices: [],
+                extensions: {
+                  [XAPI_EXTENSIONS.assessmentInteractionKind]: "single-select",
+                },
               },
             },
           ],
@@ -1143,7 +1172,7 @@ describe("xAPI catalogue invariants", () => {
       buildAnsweredStatementDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
-        interactionKind: "single-select",
+        definition: assessmentDefinitionForKind("single-select"),
         response: null,
         result: normalizedResult(),
         attemptNumber,
@@ -1156,7 +1185,7 @@ describe("xAPI catalogue invariants", () => {
       buildAnsweredStatementDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
-        interactionKind: "single-select",
+        definition: assessmentDefinitionForKind("single-select"),
         response: null,
         result: normalizedResult(),
         attemptNumber: 1,
@@ -1258,7 +1287,7 @@ describe("xAPI catalogue invariants", () => {
       buildAnsweredStatementDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
-        interactionKind: "single-select",
+        definition: assessmentDefinitionForKind("single-select"),
         response: { kind: "single-select", optionId: "authorized-response" },
         result: privateResult,
         attemptNumber: 1,
@@ -1267,7 +1296,7 @@ describe("xAPI catalogue invariants", () => {
       buildAnsweredStatementDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
-        interactionKind: "single-select",
+        definition: assessmentDefinitionForKind("single-select"),
         response: { kind: "single-select", optionId: "authorized-response" },
         result: privateResult,
         attemptNumber: 1,
@@ -1276,6 +1305,7 @@ describe("xAPI catalogue invariants", () => {
       buildHintInteractedStatementDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
+        definition: assessmentDefinitionForKind("single-select"),
         hintNumber: 1,
         ...privateCanaries,
       }),
@@ -1334,6 +1364,7 @@ describe("xAPI catalogue invariants", () => {
       "name",
       "type",
       "interactionType",
+      "choices",
       "extensions",
       "score",
       "scaled",

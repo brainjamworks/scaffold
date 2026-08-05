@@ -98,6 +98,7 @@ const ALLOWED_TEMPLATE_KEYS = new Set([
   "name",
   "type",
   "interactionType",
+  "choices",
   "extensions",
   "score",
   "scaled",
@@ -223,6 +224,9 @@ function registration(authoredBlockId: string, targetId: string): AssessmentRegi
         maxAttempts: null,
       },
       hintsTotal: 2,
+      learningEventDefinition: {
+        interaction: { kind: "single-select", options: [] },
+      },
     },
   };
 }
