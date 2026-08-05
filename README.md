@@ -144,22 +144,31 @@ adapters.
 ### Optional Learning Events
 
 Learner-runtime hosts can omit Learning Event reporting entirely. When a host supplies the
-optional port, Core emits ordered, actorless, xAPI-compatible events from its approved catalogue:
+optional `learningEvents` capability, Core emits ordered, actorless, xAPI-compatible events from
+its closed catalogue:
 
 ```ts
 import type { LearningEvent, LearningEventPort } from "@scaffold/core/ports";
 ```
 
-Core owns each learning fact's verb, Activity, Result, event ID, occurrence timestamp, and order.
-The trusted host accepts responsibility through `LearningEventPort.accept`, then adds Actor
-identity and permitted placement or registration Context when projecting to xAPI or another
-supported destination. Rejected acceptance permanently stops reporting for that Core session
-without changing assessment, persistence, grading, or the learner-facing result.
+`LearningEventPort` has one stable `rootActivityId` IRI for the published Scaffold artefact and one
+`accept(event: LearningEvent)` operation. Core owns each learning fact's verb, Activity, Result,
+event ID, occurrence timestamp, Core Context, and order. Port resolution means the host has
+accepted responsibility for that immutable canonical event; it does not mean every configured
+destination has completed delivery.
+
+A trusted host can add Actor identity and non-conflicting placement or registration Context when
+forming an ordinary xAPI Statement. Projection remains host-owned: a destination may deliberately
+report an event as unsupported, and one destination's failure must not suppress another's result.
+Rejected Core acceptance permanently stops later reporting for that Core session, while reporting
+failure never changes assessment, persistence, grading, or the learner-facing result.
 
 Core does not collect Actor identity, configure endpoints, authenticate, send HTTP, retry after
-host acceptance, or operate an LRS. Those concerns belong to the host deployment. This API
-documents Core's canonical Learning Event boundary; ordinary xAPI remains an adapter-owned
-projection. Authoring preview services do not receive the capability.
+host acceptance, guarantee offline durability, or operate an LRS. Those concerns belong to the
+host deployment. The conformance tests prove semantic sufficiency for ordinary xAPI, cmi5, and
+applicable SCORM runtime projection; they do not provide cmi5 or SCORM transports. Child completion
+does not imply artefact completion, and Scaffold defines no automatic course-completion policy.
+Authoring preview services do not receive the capability.
 
 ## Development
 
