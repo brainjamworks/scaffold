@@ -7,10 +7,10 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import type { XapiPort, XapiStatementTemplate } from "../../host/ports";
 import { ScaffoldArtifactIdentityProvider } from "../../host/providers/ScaffoldArtifactIdentityProvider";
 import { ScaffoldServicesProvider } from "../../host/providers/ScaffoldServicesProvider";
+import { useLearningEventReporter } from "../../entrypoints/extensions";
 
 import {
   LearningEventRuntimeProvider,
-  useLearningEventReporter,
   useLearningEventSession,
   useLearningEventSessionAccessor,
   type LearningEventSessionAccessor,
@@ -98,6 +98,30 @@ function ReporterProbe({ onReporter }: { onReporter: (reporter: LearningEventRep
   return null;
 }
 
+interface ReportingBoundaryObservation {
+  readonly reporter: LearningEventReporter;
+  readonly session: LearningEventSession | null;
+}
+
+function ReportingBoundaryProbe({
+  onObservation,
+}: {
+  onObservation: (observation: ReportingBoundaryObservation) => void;
+}) {
+  const reporter = useLearningEventReporter();
+  const session = useLearningEventSession();
+
+  useEffect(() => {
+    onObservation({ reporter, session });
+  }, [onObservation, reporter, session]);
+
+  return null;
+}
+
+function invokePublicReporter(reporter: LearningEventReporter, input: unknown): unknown {
+  return (reporter.report as (input: unknown) => void)(input);
+}
+
 describe("LearningEventRuntimeProvider", () => {
   it("returns one stable no-op reporter when reporting is absent", async () => {
     const reporters: LearningEventReporter[] = [];
@@ -164,6 +188,165 @@ describe("LearningEventRuntimeProvider", () => {
       "initialized",
       "experienced",
     ]);
+  });
+
+  it.each([
+    {
+      family: "assessment",
+      input: { type: "assessment.hint-interacted", targetId: "question-1", hintNumber: 1 },
+    },
+    {
+      family: "learner activity",
+      input: {
+        type: "learner-activity.interacted",
+        blockId: "flashcards-1",
+        activityKind: "flashcard",
+      },
+    },
+    {
+      family: "quiz",
+      input: { type: "quiz.attempted", quizId: "quiz-1", attemptId: "attempt-1" },
+    },
+    {
+      family: "artefact outcome",
+      input: { type: "artefact.completed", completion: true },
+    },
+    {
+      family: "session lifecycle",
+      input: { type: "session.initialized" },
+    },
+  ])("rejects the Core-only $family family before initialization", async ({ input }) => {
+    const port = createPort();
+    const observations: ReportingBoundaryObservation[] = [];
+
+    render(
+      <ScaffoldServicesProvider ports={{ xapi: port }}>
+        <ScaffoldArtifactIdentityProvider artifactId="artifact-one">
+          <LearningEventRuntimeProvider artefactTitle="Artefact One">
+            <ReportingBoundaryProbe onObservation={(value) => observations.push(value)} />
+          </LearningEventRuntimeProvider>
+        </ScaffoldArtifactIdentityProvider>
+      </ScaffoldServicesProvider>,
+    );
+
+    await waitFor(() => expect(observations).toHaveLength(1));
+    const observation = observations[0];
+    if (!observation?.session) throw new Error("expected a Learning Event session");
+    let result: unknown;
+    expect(() => {
+      result = invokePublicReporter(observation.reporter, input);
+    }).not.toThrow();
+    expect(result).toBeUndefined();
+    await flushPromises();
+
+    expect(port.send).not.toHaveBeenCalled();
+    expect(observation.session.getState()).toEqual({
+      status: "terminated",
+      startedAt: null,
+      acceptance: "failed",
+    });
+    invokePublicReporter(observation.reporter, {
+      type: "surface.experienced",
+      surfaceId: "surface-1",
+      surfaceKind: "page",
+      position: 1,
+      count: 1,
+    });
+    await flushPromises();
+    expect(port.send).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { label: "null", input: null },
+    { label: "an unknown discriminant", input: { type: "not.registered" } },
+    {
+      label: "a malformed block input",
+      input: { type: "surface.experienced", surfaceId: "surface-1" },
+    },
+  ])("contains $label and fail-stops the public reporter", async ({ input }) => {
+    const port = createPort();
+    const observations: ReportingBoundaryObservation[] = [];
+
+    render(
+      <ScaffoldServicesProvider ports={{ xapi: port }}>
+        <ScaffoldArtifactIdentityProvider artifactId="artifact-one">
+          <LearningEventRuntimeProvider artefactTitle="Artefact One">
+            <ReportingBoundaryProbe onObservation={(value) => observations.push(value)} />
+          </LearningEventRuntimeProvider>
+        </ScaffoldArtifactIdentityProvider>
+      </ScaffoldServicesProvider>,
+    );
+
+    await waitFor(() => expect(observations).toHaveLength(1));
+    const observation = observations[0];
+    if (!observation?.session) throw new Error("expected a Learning Event session");
+    expect(() => invokePublicReporter(observation.reporter, input)).not.toThrow();
+    await flushPromises();
+
+    expect(port.send).not.toHaveBeenCalled();
+    expect(observation.session.getState()).toEqual({
+      status: "terminated",
+      startedAt: null,
+      acceptance: "failed",
+    });
+  });
+
+  it.each([
+    {
+      label: "a throwing getter",
+      input: Object.defineProperty({}, "type", {
+        enumerable: true,
+        get: () => {
+          throw new Error("hostile getter");
+        },
+      }),
+    },
+    {
+      label: "a hostile proxy",
+      input: new Proxy(
+        {},
+        {
+          get: () => {
+            throw new Error("hostile proxy");
+          },
+        },
+      ),
+    },
+  ])("contains parser exceptions from $label", async ({ input }) => {
+    const port = createPort();
+    const observations: ReportingBoundaryObservation[] = [];
+
+    render(
+      <ScaffoldServicesProvider ports={{ xapi: port }}>
+        <ScaffoldArtifactIdentityProvider artifactId="artifact-one">
+          <LearningEventRuntimeProvider artefactTitle="Artefact One">
+            <ReportingBoundaryProbe onObservation={(value) => observations.push(value)} />
+          </LearningEventRuntimeProvider>
+        </ScaffoldArtifactIdentityProvider>
+      </ScaffoldServicesProvider>,
+    );
+
+    await waitFor(() => expect(observations).toHaveLength(1));
+    const observation = observations[0];
+    if (!observation?.session) throw new Error("expected a Learning Event session");
+    expect(() => invokePublicReporter(observation.reporter, input)).not.toThrow();
+    await flushPromises();
+
+    expect(port.send).not.toHaveBeenCalled();
+    expect(observation.session.getState()).toEqual({
+      status: "terminated",
+      startedAt: null,
+      acceptance: "failed",
+    });
+    expect(() =>
+      invokePublicReporter(observation.reporter, {
+        type: "resource.launched",
+        resourceId: "resource-1",
+        resourceKind: "article",
+      }),
+    ).not.toThrow();
+    await flushPromises();
+    expect(port.send).not.toHaveBeenCalled();
   });
 
   it("creates UUIDs from secure random bytes when randomUUID is unavailable", async () => {

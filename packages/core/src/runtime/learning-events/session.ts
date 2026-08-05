@@ -8,6 +8,7 @@ import {
   type LearningEvent,
 } from "../../host/ports/learning-events";
 import {
+  BlockLearningEventInputSchema,
   CoreLearningEventInputSchema,
   buildLearningEventDraft,
   type CoreLearningEventInput,
@@ -34,6 +35,7 @@ export type LearningEventSessionState =
 export interface LearningEventSession {
   readonly rootActivityId: LearningEventIri;
   start(): void;
+  recordBlock(inputValue: unknown): void;
   record(inputValue: CoreLearningEventInput): void;
   terminate(): Promise<void>;
   getState(): LearningEventSessionState;
@@ -260,29 +262,53 @@ export function createLearningEventSession(
     startSession();
   }
 
-  function record(inputValue: CoreLearningEventInput): void {
-    if (
-      acceptanceStopped ||
-      (state.status !== "dormant" &&
-        !(state.status === "active" && state.acceptance === "accepting"))
-    ) {
-      return;
-    }
+  function canRecord(): boolean {
+    return (
+      !acceptanceStopped &&
+      (state.status === "dormant" ||
+        (state.status === "active" && state.acceptance === "accepting"))
+    );
+  }
 
-    const result = CoreLearningEventInputSchema.safeParse(inputValue);
-    if (!result.success) {
-      failDelivery();
-      return;
-    }
-
-    if (result.data.type === "session.initialized" || result.data.type === "session.terminated") {
+  function recordParsed(inputValue: CoreLearningEventInput): void {
+    if (inputValue.type === "session.initialized" || inputValue.type === "session.terminated") {
       return;
     }
 
     startSession();
     if (state.status !== "active" || state.acceptance !== "accepting") return;
-    const draft = draftFor(result.data);
+    const draft = draftFor(inputValue);
     if (draft !== null) admitDraft(draft, "learning");
+  }
+
+  function recordCore(inputValue: CoreLearningEventInput): void {
+    if (!canRecord()) return;
+
+    try {
+      const result = CoreLearningEventInputSchema.safeParse(inputValue);
+      if (!result.success) {
+        failDelivery();
+        return;
+      }
+      recordParsed(result.data);
+    } catch {
+      failDelivery();
+    }
+  }
+
+  function recordBlock(inputValue: unknown): void {
+    if (!canRecord()) return;
+
+    try {
+      const result = BlockLearningEventInputSchema.safeParse(inputValue);
+      if (!result.success) {
+        failDelivery();
+        return;
+      }
+      recordParsed(result.data);
+    } catch {
+      failDelivery();
+    }
   }
 
   function recordDraft(draftValue: LearningEventDraft): void {
@@ -366,7 +392,8 @@ export function createLearningEventSession(
   const session = Object.freeze({
     rootActivityId,
     start,
-    record,
+    recordBlock,
+    record: recordCore,
     terminate,
     getState: () => state,
   });

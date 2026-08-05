@@ -101,7 +101,9 @@ function createLearningEventRuntimeScope(
     reporter:
       session === null
         ? noOpReporter
-        : Object.freeze({ report: (input: BlockLearningEventInput) => session?.record(input) }),
+        : Object.freeze({
+            report: (input: BlockLearningEventInput) => session?.recordBlock(input),
+          }),
     cleanupGeneration: 0,
   };
 }

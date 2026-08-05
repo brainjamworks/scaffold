@@ -167,6 +167,29 @@ describe("createLearningEventSession", () => {
     expect(monotonicNow).not.toHaveBeenCalled();
   });
 
+  it("keeps block and Core authority recording paths separate on the same session type", async () => {
+    const publicHarness = createHarness();
+
+    publicHarness.session.recordBlock({ type: "artefact.completed", completion: true });
+    await flushPromises();
+
+    expect(publicHarness.accept).not.toHaveBeenCalled();
+    expect(publicHarness.session.getState()).toEqual({
+      status: "terminated",
+      startedAt: null,
+      acceptance: "failed",
+    });
+
+    const coreHarness = createHarness();
+    coreHarness.session.record({ type: "artefact.completed", completion: true });
+    await flushPromises();
+
+    expect(coreHarness.accept.mock.calls.map(([event]) => event.verb.display.en)).toEqual([
+      "initialized",
+      "completed",
+    ]);
+  });
+
   it("assigns stable distinct identity at admission while acceptance is delayed", async () => {
     const firstAcceptance = deferred<void>();
     const { session, accept, createUuid, now, setWallTime } = createHarness(
