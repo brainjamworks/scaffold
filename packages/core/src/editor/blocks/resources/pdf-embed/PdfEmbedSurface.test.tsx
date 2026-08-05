@@ -11,6 +11,8 @@ import { PdfEmbedSurface } from "./PdfEmbedSurface";
 const pdfPageRenders = vi.hoisted(
   () =>
     [] as Array<{
+      renderAnnotationLayer: boolean | undefined;
+      renderTextLayer: boolean | undefined;
       pageNumber: number;
       scale: number | undefined;
       width: number | undefined;
@@ -35,6 +37,8 @@ vi.mock("react-pdf", () => ({
   Page({
     onLoadSuccess,
     pageNumber,
+    renderAnnotationLayer,
+    renderTextLayer,
     scale,
     width,
   }: {
@@ -44,10 +48,12 @@ vi.mock("react-pdf", () => ({
       pageNumber: number;
     }) => void;
     pageNumber: number;
+    renderAnnotationLayer?: boolean;
+    renderTextLayer?: boolean;
     scale?: number;
     width?: number;
   }) {
-    pdfPageRenders.push({ pageNumber, scale, width });
+    pdfPageRenders.push({ pageNumber, renderAnnotationLayer, renderTextLayer, scale, width });
 
     useEffect(() => {
       onLoadSuccess?.({
@@ -120,11 +126,10 @@ it("announces the current PDF page and disables page navigation at bounds", asyn
         },
         title: "Course handbook",
       })}
-      editable
       mediaPort={null}
-      onAdd={() => {}}
       onOpen={onOpen}
       onPagePresented={onPagePresented}
+      replaceAction={<button type="button">Replace PDF</button>}
     />,
   );
 
@@ -136,7 +141,7 @@ it("announces the current PDF page and disables page navigation at bounds", asyn
 
   expect(screen.getByRole("figure", { name: "Course handbook" })).toBeInTheDocument();
   expect(preview.getAttribute("aria-describedby")).toBeNull();
-  expect(screen.getByRole("button", { name: "Replace Course handbook" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Replace PDF" })).toBeInTheDocument();
   const openLink = screen.getByRole("link", { name: "Open Course handbook in new tab" });
   expect(openLink).toBeInTheDocument();
   await user.click(openLink);
@@ -172,6 +177,24 @@ it("announces the current PDF page and disables page navigation at bounds", asyn
   });
 });
 
+it("enables react-pdf text and annotation layers", async () => {
+  render(
+    <PdfEmbedSurface
+      data={emptyPdfEmbedData({
+        source: { mode: "external", src: "https://example.com/sample.pdf" },
+      })}
+      mediaPort={null}
+    />,
+  );
+
+  await screen.findByText("PDF page 1");
+
+  expect(pdfPageRenders.at(-1)).toMatchObject({
+    renderAnnotationLayer: true,
+    renderTextLayer: true,
+  });
+});
+
 it("waits until an already-rendered PDF page is presented", async () => {
   const onPagePresented = vi.fn();
   const data = emptyPdfEmbedData({
@@ -183,7 +206,6 @@ it("waits until an already-rendered PDF page is presented", async () => {
   const { rerender } = render(
     <PdfEmbedSurface
       data={data}
-      editable={false}
       mediaPort={null}
       presented={false}
       onPagePresented={onPagePresented}
@@ -194,13 +216,7 @@ it("waits until an already-rendered PDF page is presented", async () => {
   expect(onPagePresented).not.toHaveBeenCalled();
 
   rerender(
-    <PdfEmbedSurface
-      data={data}
-      editable={false}
-      mediaPort={null}
-      presented
-      onPagePresented={onPagePresented}
-    />,
+    <PdfEmbedSurface data={data} mediaPort={null} presented onPagePresented={onPagePresented} />,
   );
 
   await waitFor(() => {
@@ -209,7 +225,13 @@ it("waits until an already-rendered PDF page is presented", async () => {
 });
 
 it("keeps PDF loading, empty, and error states semantic", async () => {
-  render(<PdfEmbedSurface data={emptyPdfEmbedData()} editable mediaPort={null} onAdd={() => {}} />);
+  render(
+    <PdfEmbedSurface
+      data={emptyPdfEmbedData()}
+      mediaPort={null}
+      emptyAction={<button type="button">Add PDF</button>}
+    />,
+  );
 
   expect(screen.getByRole("button", { name: "Add PDF" })).toBeInTheDocument();
 
@@ -223,13 +245,11 @@ it("keeps PDF loading, empty, and error states semantic", async () => {
           mediaId: "missing-pdf",
         },
       })}
-      editable
       mediaPort={{
         resolve: async () => {
           throw new Error("PDF unavailable");
         },
       }}
-      onAdd={() => {}}
     />,
   );
 
@@ -245,12 +265,8 @@ it("fits portrait and landscape pages within a bounded stage", async () => {
     src: "https://example.com/sample.pdf",
   };
   const { rerender } = render(
-    <div className="sc-pdf-embed" data-bounded-placement="fill">
-      <PdfEmbedSurface
-        data={emptyPdfEmbedData({ source, initialPage: 1 })}
-        editable={false}
-        mediaPort={null}
-      />
+    <div className="sc-course-pdf-embed" data-bounded-placement="fill">
+      <PdfEmbedSurface data={emptyPdfEmbedData({ source, initialPage: 1 })} mediaPort={null} />
     </div>,
   );
 
@@ -259,12 +275,8 @@ it("fits portrait and landscape pages within a bounded stage", async () => {
   });
 
   rerender(
-    <div className="sc-pdf-embed" data-bounded-placement="fill">
-      <PdfEmbedSurface
-        data={emptyPdfEmbedData({ source, initialPage: 2 })}
-        editable={false}
-        mediaPort={null}
-      />
+    <div className="sc-course-pdf-embed" data-bounded-placement="fill">
+      <PdfEmbedSurface data={emptyPdfEmbedData({ source, initialPage: 2 })} mediaPort={null} />
     </div>,
   );
 
@@ -276,7 +288,7 @@ it("fits portrait and landscape pages within a bounded stage", async () => {
 it("ignores bounded placement inherited from a different ancestor frame", async () => {
   render(
     <div data-bounded-placement="fill">
-      <div className="sc-pdf-embed">
+      <div className="sc-course-pdf-embed">
         <PdfEmbedSurface
           data={emptyPdfEmbedData({
             source: {
@@ -284,7 +296,6 @@ it("ignores bounded placement inherited from a different ancestor frame", async 
               src: "https://example.com/sample.pdf",
             },
           })}
-          editable={false}
           mediaPort={null}
         />
       </div>
@@ -305,7 +316,6 @@ it("keeps ordinary page-flow rendering width-driven", async () => {
           src: "https://example.com/sample.pdf",
         },
       })}
-      editable={false}
       mediaPort={null}
     />,
   );
@@ -325,7 +335,6 @@ it("starts in fit mode and advances to the next fixed zoom step", async () => {
           src: "https://example.com/sample.pdf",
         },
       })}
-      editable={false}
       mediaPort={null}
     />,
   );
@@ -349,7 +358,7 @@ it("starts in fit mode and advances to the next fixed zoom step", async () => {
 it("does not fit a new page using dimensions retained from the previous page", async () => {
   const user = userEvent.setup();
   render(
-    <div className="sc-pdf-embed" data-bounded-placement="fill">
+    <div className="sc-course-pdf-embed" data-bounded-placement="fill">
       <PdfEmbedSurface
         data={emptyPdfEmbedData({
           source: {
@@ -357,7 +366,6 @@ it("does not fit a new page using dimensions retained from the previous page", a
             src: "https://example.com/sample.pdf",
           },
         })}
-        editable={false}
         mediaPort={null}
       />
     </div>,
@@ -391,7 +399,6 @@ it("keeps stepped zoom between 50% and 300%", async () => {
           src: "https://example.com/sample.pdf",
         },
       })}
-      editable={false}
       mediaPort={null}
     />,
   );
@@ -425,7 +432,6 @@ it("resets percentage zoom to responsive fit", async () => {
           src: "https://example.com/sample.pdf",
         },
       })}
-      editable={false}
       mediaPort={null}
     />,
   );

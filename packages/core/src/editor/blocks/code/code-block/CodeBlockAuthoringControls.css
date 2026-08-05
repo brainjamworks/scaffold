@@ -1,0 +1,40 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-app-code-block__language-control {
+    min-width: 0;
+    flex: 0 1 auto;
+  }
+
+  .sc-app-code-block__language-trigger {
+    min-width: 0;
+    width: auto;
+    max-width: 14rem;
+    border-color: transparent;
+    background: transparent;
+    color: var(--sc-app-color-text-muted);
+    font-family: var(--font-ui);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    padding-inline: 0.625rem;
+  }
+
+  .sc-app-code-block__language-trigger:hover:not(:disabled),
+  .sc-app-code-block__language-trigger[data-state="open"] {
+    border-color: var(--sc-app-color-border);
+    background: var(--sc-app-color-muted);
+    color: var(--sc-app-color-ink);
+  }
+
+  .sc-app-code-block__language-trigger:focus-visible {
+    border-color: var(--sc-app-color-primary);
+    outline-color: var(--sc-app-color-focus-outline);
+  }
+}
+
+@container sc-course-code-block (max-width: 300px) {
+  .sc-app-code-block__language-trigger {
+    max-width: 9rem;
+  }
+}

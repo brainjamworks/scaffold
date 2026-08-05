@@ -19,7 +19,7 @@ import {
 import { cn } from "@/lib/cn";
 import { zIndex } from "@/ui/overlays/z-index";
 
-import * as PopoverPrimitive from "../Popover/Popover";
+import * as PopoverPrimitive from "@/ui/components/Popover/Popover";
 
 import "./Combobox.css";
 
@@ -103,7 +103,7 @@ export const Combobox = forwardRef<ComponentRef<typeof PopoverPrimitive.Trigger>
     const generatedId = useId();
     const inputRef = useRef<HTMLInputElement | null>(null);
     const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
-    const baseId = `sc-combobox-${generatedId.replace(/:/g, "")}`;
+    const baseId = `sc-app-combobox-${generatedId.replace(/:/g, "")}`;
     const listboxId = `${baseId}-listbox`;
     const controlLabel = ariaLabel ?? searchPlaceholder;
 
@@ -184,7 +184,9 @@ export const Combobox = forwardRef<ComponentRef<typeof PopoverPrimitive.Trigger>
     const triggerContent = renderTrigger ? (
       renderTrigger(selected)
     ) : (
-      <span className="sc-combobox-trigger-label">{selected?.label ?? emptyTriggerLabel}</span>
+      <span className="sc-app-combobox-trigger-label">
+        {selected?.label ?? emptyTriggerLabel}
+      </span>
     );
     const activeOption = filtered[activeIndex];
     const activeOptionId =
@@ -201,10 +203,10 @@ export const Combobox = forwardRef<ComponentRef<typeof PopoverPrimitive.Trigger>
             aria-expanded={open}
             aria-controls={open ? listboxId : undefined}
             aria-label={selected ? `${controlLabel}: ${selected.label}` : controlLabel}
-            className={cn("sc-combobox-trigger", className)}
+            className={cn("sc-app-combobox-trigger", className)}
           >
             {triggerContent}
-            <CaretDown size={14} aria-hidden className="sc-combobox-trigger-icon" />
+            <CaretDown size={14} aria-hidden className="sc-app-combobox-trigger-icon" />
           </button>
         </PopoverPrimitive.Trigger>
         <PopoverPrimitive.Portal>
@@ -214,14 +216,14 @@ export const Combobox = forwardRef<ComponentRef<typeof PopoverPrimitive.Trigger>
             side={side}
             sideOffset={4}
             style={{ zIndex: zIndex.popover }}
-            className={cn("sc-combobox-content", contentClassName)}
+            className={cn("sc-app-combobox-content", contentClassName)}
             onOpenAutoFocus={(event) => {
               event.preventDefault();
               inputRef.current?.focus();
             }}
           >
-            <div className="sc-combobox-search-row">
-              <Search size={14} aria-hidden className="sc-combobox-search-icon" />
+            <div className="sc-app-combobox-search-row">
+              <Search size={14} aria-hidden className="sc-app-combobox-search-icon" />
               <input
                 ref={inputRef}
                 type="text"
@@ -239,21 +241,21 @@ export const Combobox = forwardRef<ComponentRef<typeof PopoverPrimitive.Trigger>
                 aria-expanded={open}
                 aria-controls={listboxId}
                 aria-activedescendant={activeOptionId}
-                className="sc-combobox-search-input"
+                className="sc-app-combobox-search-input"
               />
             </div>
             <div
               id={listboxId}
               role="listbox"
               aria-label={`${controlLabel} options`}
-              className="sc-combobox-listbox"
+              className="sc-app-combobox-listbox"
               // Reset refs on every render so they match `filtered`.
               ref={() => {
                 itemRefs.current = itemRefs.current.slice(0, filtered.length);
               }}
             >
               {filtered.length === 0 ? (
-                <div role="status" aria-live="polite" className="sc-combobox-empty">
+                <div role="status" aria-live="polite" className="sc-app-combobox-empty">
                   {emptyStateLabel}
                 </div>
               ) : (
@@ -269,6 +271,7 @@ export const Combobox = forwardRef<ComponentRef<typeof PopoverPrimitive.Trigger>
                       }}
                       type="button"
                       role="option"
+                      tabIndex={-1}
                       aria-label={option.label}
                       aria-selected={isActive}
                       aria-describedby={
@@ -278,15 +281,15 @@ export const Combobox = forwardRef<ComponentRef<typeof PopoverPrimitive.Trigger>
                       }
                       onMouseEnter={() => setActiveIndex(index)}
                       onClick={() => handleSelect(option.value)}
-                      className="sc-combobox-option"
+                      className="sc-app-combobox-option"
                       data-active={isActive ? "true" : undefined}
                     >
-                      <span className="sc-combobox-option-copy">
-                        <span className="sc-combobox-option-label">{option.label}</span>
+                      <span className="sc-app-combobox-option-copy">
+                        <span className="sc-app-combobox-option-label">{option.label}</span>
                         {option.description ? (
                           <span
                             id={`${comboboxOptionId(baseId, option.value)}-description`}
-                            className="sc-combobox-option-description"
+                            className="sc-app-combobox-option-description"
                           >
                             {option.description}
                           </span>
@@ -297,7 +300,7 @@ export const Combobox = forwardRef<ComponentRef<typeof PopoverPrimitive.Trigger>
                           size={12}
                           weight="bold"
                           aria-hidden
-                          className="sc-combobox-option-check"
+                          className="sc-app-combobox-option-check"
                         />
                       ) : null}
                     </button>

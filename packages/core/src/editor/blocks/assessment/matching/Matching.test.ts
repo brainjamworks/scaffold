@@ -37,6 +37,7 @@ import {
   answerMatchesFromReveal,
   describeMatchingItemAccessibilityState,
   describeMatchingTargetAccessibilityState,
+  getMatchingConnectorCoordinates,
   getMatchingConnectorPath,
   matchingConnectorColor,
 } from "./matching-fields";
@@ -904,6 +905,23 @@ describe("matching reveal parsing", () => {
         endY: 80,
       }),
     ).toBe("M 10 20 C 40 20, 80 80, 110 80");
+  });
+
+  it("normalises matching connector coordinates for a scaled slideshow canvas", () => {
+    expect(
+      getMatchingConnectorCoordinates({
+        canvasHeight: 500,
+        canvasWidth: 1_000,
+        containerRect: { height: 250, left: 100, top: 50, width: 500 },
+        itemRect: { height: 40, right: 350, top: 100 },
+        targetRect: { height: 60, left: 500, top: 150 },
+      }),
+    ).toEqual({
+      endX: 795,
+      endY: 260,
+      startX: 505,
+      startY: 140,
+    });
   });
 
   it("reads revealed matches from the canonical match assessment schema", () => {

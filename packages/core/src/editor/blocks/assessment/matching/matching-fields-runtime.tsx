@@ -41,7 +41,6 @@ import { iconMd, iconSm, iconXs } from "@/ui/tokens/icon-sizes";
 
 import {
   EMPTY_MATCHES,
-  MATCHING_CONNECTOR_PADDING,
   createMatchingItemNode,
   createMatchingPairNode,
   createMatchingPairsGroupNode,
@@ -49,6 +48,7 @@ import {
   describeMatchingItemAccessibilityState,
   describeMatchingTargetAccessibilityState,
   deterministicShuffle,
+  getMatchingConnectorCoordinates,
   getMatchingConnectorPath,
   matchedItemId,
   matchingConnectorColor,
@@ -162,10 +162,13 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
         next.push({
           itemId,
           targetId,
-          startX: itemRect.right - containerRect.left + MATCHING_CONNECTOR_PADDING,
-          startY: itemRect.top - containerRect.top + itemRect.height / 2,
-          endX: targetRect.left - containerRect.left - MATCHING_CONNECTOR_PADDING,
-          endY: targetRect.top - containerRect.top + targetRect.height / 2,
+          ...getMatchingConnectorCoordinates({
+            canvasHeight: container.clientHeight,
+            canvasWidth: container.clientWidth,
+            containerRect,
+            itemRect,
+            targetRect,
+          }),
           state,
         });
       });

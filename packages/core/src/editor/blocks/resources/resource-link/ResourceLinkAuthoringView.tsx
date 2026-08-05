@@ -1,12 +1,12 @@
+import * as RadioGroup from "@radix-ui/react-radio-group";
 import { NodeViewContent, useEditorState, type NodeViewProps } from "@tiptap/react";
 import {
   ResourceLinkDataSchema,
+  ResourceLinkKindSchema,
   type ResourceLinkData,
   type ResourceLinkKind,
 } from "@scaffold/contracts";
 import { useId } from "react";
-
-import { cn } from "@/lib/cn";
 
 import { emptyResourceLinkData } from "./content";
 import { RESOURCE_LINK_KIND_LABELS } from "./resource-link-presentation";
@@ -60,7 +60,7 @@ function ResourceLinkAuthoringControls({
   return (
     <div
       contentEditable={false}
-      className="sc-resource-link__controls"
+      className="sc-app-resource-link__controls"
       onMouseDown={(event) => event.stopPropagation()}
     >
       <label htmlFor={urlInputId} className="sc-sr-only">
@@ -73,14 +73,14 @@ function ResourceLinkAuthoringControls({
         placeholder="https://..."
         onChange={(event) => onUpdate({ url: event.target.value })}
         onMouseDown={(event) => event.stopPropagation()}
-        className="sc-resource-link__url-input"
+        className="sc-app-resource-link__url-input"
       />
-      <KindPicker value={data.kind} onChange={(kind) => onUpdate({ kind })} />
+      <ResourceLinkKindPicker value={data.kind} onChange={(kind) => onUpdate({ kind })} />
     </div>
   );
 }
 
-function KindPicker({
+export function ResourceLinkKindPicker({
   value,
   onChange,
 }: {
@@ -88,30 +88,28 @@ function KindPicker({
   onChange: (kind: ResourceLinkKind) => void;
 }) {
   return (
-    <div role="radiogroup" aria-label="Resource kind" className="sc-resource-link__kind-picker">
+    <RadioGroup.Root
+      aria-label="Resource kind"
+      className="sc-app-resource-link__kind-picker"
+      orientation="horizontal"
+      value={value}
+      onValueChange={(next) => onChange(ResourceLinkKindSchema.parse(next))}
+    >
       {(Object.keys(RESOURCE_LINK_KIND_LABELS) as ResourceLinkKind[]).map((kind) => {
         const Icon = RESOURCE_LINK_KIND_ICONS[kind];
         const selected = value === kind;
         return (
-          <button
+          <RadioGroup.Item
             key={kind}
-            type="button"
-            role="radio"
-            aria-checked={selected}
+            value={kind}
             aria-label={RESOURCE_LINK_KIND_LABELS[kind]}
             title={RESOURCE_LINK_KIND_LABELS[kind]}
-            onClick={() => onChange(kind)}
-            onMouseDown={(event) => event.preventDefault()}
-            className={cn(
-              selected
-                ? "sc-resource-link__kind-button sc-resource-link__kind-button--selected"
-                : "sc-resource-link__kind-button sc-resource-link__kind-button--idle",
-            )}
+            className="sc-app-resource-link__kind-option"
           >
-            <Icon size={14} weight={selected ? "fill" : "regular"} />
-          </button>
+            <Icon size={16} weight={selected ? "fill" : "regular"} aria-hidden />
+          </RadioGroup.Item>
         );
       })}
-    </div>
+    </RadioGroup.Root>
   );
 }

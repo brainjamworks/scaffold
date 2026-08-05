@@ -1,0 +1,144 @@
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-code-block__shell {
+  border: var(--sc-course-author-stroke-width) solid var(--gray-a6);
+  border-radius: var(--radius-3);
+  background: var(--gray-1);
+  box-shadow: var(--sc-course-author-shadow);
+  transition: border-color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-code-block__shell:focus-within {
+  border-color: var(--accent-a8);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-code-block__header {
+  min-height: 2.75rem;
+  gap: var(--space-2);
+  border-bottom: var(--sc-course-author-stroke-width) solid var(--gray-a5);
+  background: var(--gray-1);
+  padding-inline: var(--space-2);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-code-block__language-label {
+  display: inline-flex;
+  min-width: 0;
+  min-height: 2.75rem;
+  align-items: center;
+  padding-inline: var(--space-2);
+  color: var(--gray-11);
+  font-family: var(--default-font-family);
+  font-size: var(--font-size-1);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-2);
+  line-height: var(--line-height-1);
+  text-transform: uppercase;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-code-block__copy {
+  min-height: 2.75rem;
+  margin: 0;
+  border-radius: var(--radius-3);
+  padding-inline: var(--space-2);
+  color: var(--gray-11);
+  font-family: var(--default-font-family);
+  font-size: var(--font-size-1);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--letter-spacing-1);
+  cursor: pointer;
+  transition:
+    background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-code-block__copy:hover {
+  background: var(--accent-a3);
+  color: var(--accent-11);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-code-block__copy:focus-visible {
+  outline: 2px solid var(--accent-8);
+  outline-offset: 2px;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-code-block__copy[data-copy-state="success"] {
+  color: var(--accent-11);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-code-block__body {
+  background: var(--gray-2);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-code-block__pre {
+  padding: var(--space-3) var(--space-4);
+  color: var(--gray-12);
+  font-family: var(--code-font-family);
+  font-size: var(--font-size-2);
+  line-height: 1.65;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-code-block__pre
+  :is(.hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-meta) {
+  color: var(--accent-11);
+  font-weight: var(--font-weight-bold);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-code-block__pre
+  :is(.hljs-string, .hljs-attr, .hljs-template-tag, .hljs-template-variable) {
+  color: var(--gray-12);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-code-block__pre
+  :is(.hljs-number, .hljs-literal, .hljs-symbol) {
+  color: var(--accent-12);
+  font-weight: var(--font-weight-medium);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-code-block__pre
+  :is(.hljs-title, .hljs-name, .hljs-section, .hljs-title.class_, .hljs-title.function_) {
+  color: var(--gray-12);
+  font-weight: var(--font-weight-bold);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-code-block__pre
+  :is(.hljs-comment, .hljs-quote) {
+  color: var(--gray-10);
+  font-style: italic;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-code-block__pre
+  :is(.hljs-tag, .hljs-punctuation, .hljs-operator) {
+  color: var(--gray-11);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-code-block__pre
+  :is(.hljs-variable, .hljs-params) {
+  color: var(--gray-12);
+}
+
+@container sc-course-code-block (max-width: 320px) {
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-code-block__header {
+    gap: var(--space-1);
+    padding-inline: var(--space-1);
+  }
+
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-code-block__pre {
+    padding: var(--space-3);
+    font-size: var(--font-size-1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-course.sc-course-theme-scaffold-flow-v1 :where(
+      .sc-course-code-block__shell,
+      .sc-course-code-block__copy
+    ) {
+    transition: none;
+  }
+}

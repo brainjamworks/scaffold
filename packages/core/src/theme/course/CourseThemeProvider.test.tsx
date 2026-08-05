@@ -44,7 +44,10 @@ describe("CourseThemeProvider", () => {
     expect(root?.style.getPropertyValue("--sc-course-state-locked-indicator")).toBe(
       "var(--gray-9)",
     );
-    expect(root?.style.length).toBe(53);
+    for (let series = 1; series <= 8; series += 1) {
+      expect(root?.style.getPropertyValue(`--sc-course-data-series-${series}`)).not.toBe("");
+    }
+    expect(root?.style.length).toBe(61);
 
     const context = screen.getByTestId("resolved-theme");
     expect(context).toHaveTextContent("scaffold-flow@1/scaffold-indigo@1/dark");

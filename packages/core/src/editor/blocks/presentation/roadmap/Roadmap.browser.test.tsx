@@ -88,35 +88,21 @@ describe("Roadmap responsive ownership", () => {
     expect(lightItems[1]!.getBoundingClientRect().left).toBeGreaterThan(
       lightItems[0]!.getBoundingClientRect().left,
     );
+    expect(light.scrollWidth - light.clientWidth).toBeLessThanOrEqual(1);
 
     light.style.width = "320px";
-    await waitForCondition(() => getComputedStyle(lightList).flexDirection === "column");
-    expect(lightItems[1]!.getBoundingClientRect().top).toBeGreaterThanOrEqual(
-      lightItems[0]!.getBoundingClientRect().bottom,
+    await waitForCondition(() => light.getBoundingClientRect().width === 320);
+    expect(getComputedStyle(lightList).flexDirection).toBe("row");
+    expect(lightItems[1]!.getBoundingClientRect().left).toBeGreaterThan(
+      lightItems[0]!.getBoundingClientRect().left,
     );
-    const firstChrome = requiredElement<HTMLElement>(
-      lightItems[0]!,
-      ".sc-app-roadmap-milestone-chrome",
-    );
-    const firstContent = requiredElement<HTMLElement>(
-      lightItems[0]!,
-      ".sc-course-roadmap__content",
-    );
-    expect(firstContent.getBoundingClientRect().top).toBeGreaterThanOrEqual(
-      firstChrome.getBoundingClientRect().bottom,
-    );
+    expect(getComputedStyle(light).overflowX).toBe("auto");
+    expect(light.scrollWidth).toBeGreaterThan(light.clientWidth);
 
     light.style.width = "220px";
     await waitForCondition(() => light.getBoundingClientRect().width === 220);
-    const lightRight = light.getBoundingClientRect().right;
-    const overflowers = Array.from(light.querySelectorAll<HTMLElement>("*"))
-      .filter((element) => element.getBoundingClientRect().right > lightRight + 0.01)
-      .map((element) => ({
-        className: element.className,
-        right: element.getBoundingClientRect().right,
-      }));
-    expect(overflowers).toEqual([]);
-    expect(light.scrollWidth - light.clientWidth).toBeLessThanOrEqual(1);
+    expect(light.scrollWidth).toBeGreaterThan(light.clientWidth);
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
     expect(window.innerWidth).toBe(1000);
   });
 });

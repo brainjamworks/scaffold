@@ -6,7 +6,7 @@ import { useState } from "react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vite-plus/test";
 
 import { Combobox, type ComboboxOption } from "./Combobox";
-import * as Dialog from "../Dialog/Dialog";
+import * as Dialog from "@/ui/components/Dialog/Dialog";
 import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 
 const languageOptions: ComboboxOption[] = [
@@ -107,7 +107,7 @@ describe("Combobox", () => {
     expect(trigger.getAttribute("aria-haspopup")).toBe("listbox");
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
     expect(trigger.getAttribute("aria-controls")).toBeNull();
-    expect(trigger.classList.contains("sc-combobox-trigger")).toBe(true);
+    expect(trigger.classList.contains("sc-app-combobox-trigger")).toBe(true);
 
     await userEvent.click(trigger);
 
@@ -126,9 +126,9 @@ describe("Combobox", () => {
     expect(combobox.getAttribute("aria-controls")).toBe(listbox.id);
     expect(combobox.getAttribute("aria-autocomplete")).toBe("list");
     expect(combobox.getAttribute("aria-activedescendant")).toBe(activeOption.id);
-    expect(combobox.classList.contains("sc-combobox-search-input")).toBe(true);
-    expect(listbox.classList.contains("sc-combobox-listbox")).toBe(true);
-    expect(activeOption.classList.contains("sc-combobox-option")).toBe(true);
+    expect(combobox.classList.contains("sc-app-combobox-search-input")).toBe(true);
+    expect(listbox.classList.contains("sc-app-combobox-listbox")).toBe(true);
+    expect(activeOption.classList.contains("sc-app-combobox-option")).toBe(true);
     expect(activeOption.getAttribute("data-active")).toBe("true");
     expect(activeOption.getAttribute("aria-selected")).toBe("true");
     expect(inactiveOption.getAttribute("aria-selected")).toBe("false");
@@ -175,6 +175,31 @@ describe("Combobox", () => {
     await waitFor(() => {
       expect(screen.queryByRole("combobox")).toBeNull();
     });
+  });
+
+  it("keeps listbox options out of the sequential Tab order", async () => {
+    render(
+      <Combobox
+        aria-label="Code language"
+        value="plain"
+        onChange={vi.fn()}
+        options={languageOptions}
+        searchPlaceholder="Search languages"
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Code language: Plain text" }));
+
+    const combobox = await screen.findByRole("combobox", {
+      name: "Code language search",
+    });
+    await waitFor(() => {
+      expect(document.activeElement).toBe(combobox);
+    });
+
+    for (const option of screen.getAllByRole("option")) {
+      expect(option.tabIndex).toBe(-1);
+    }
   });
 
   it("announces empty searches without leaving a stale active descendant", async () => {
@@ -284,12 +309,16 @@ describe("Combobox", () => {
       { container: mount },
     );
 
-    const trigger = ownerDocument.querySelector<HTMLButtonElement>(".sc-combobox-trigger");
+    const trigger = ownerDocument.querySelector<HTMLButtonElement>(
+      ".sc-app-combobox-trigger",
+    );
     if (trigger === null) throw new Error("Expected combobox trigger");
     await user.click(trigger);
 
     await new Promise<void>((resolve) => ownerWindow.setTimeout(resolve, 20));
-    expect(ownerDocument.querySelector<HTMLInputElement>(".sc-combobox-search-input")).toBeNull();
+    expect(
+      ownerDocument.querySelector<HTMLInputElement>(".sc-app-combobox-search-input"),
+    ).toBeNull();
 
     rerender(
       <OverlayBoundary container={container} collisionBoundary={collisionBoundary} kind="contained">
@@ -304,7 +333,7 @@ describe("Combobox", () => {
 
     await waitFor(() => {
       const searchInput = ownerDocument.querySelector<HTMLInputElement>(
-        ".sc-combobox-search-input",
+        ".sc-app-combobox-search-input",
       );
       expect(searchInput).not.toBeNull();
       expect(ownerDocument.activeElement).toBe(searchInput);
@@ -334,20 +363,24 @@ describe("Combobox", () => {
       { container: mount },
     );
 
-    const trigger = ownerDocument.querySelector<HTMLButtonElement>(".sc-combobox-trigger");
+    const trigger = ownerDocument.querySelector<HTMLButtonElement>(
+      ".sc-app-combobox-trigger",
+    );
     if (trigger === null) throw new Error("Expected combobox trigger");
     await user.click(trigger);
 
     await waitFor(() => {
       expect(
-        ownerDocument.querySelector<HTMLInputElement>(".sc-combobox-search-input"),
+        ownerDocument.querySelector<HTMLInputElement>(".sc-app-combobox-search-input"),
       ).not.toBeNull();
     });
 
-    const searchInput = ownerDocument.querySelector<HTMLInputElement>(".sc-combobox-search-input");
+    const searchInput = ownerDocument.querySelector<HTMLInputElement>(
+      ".sc-app-combobox-search-input",
+    );
     if (searchInput === null) throw new Error("Expected combobox search input");
 
-    const content = searchInput.closest<HTMLElement>(".sc-combobox-content");
+    const content = searchInput.closest<HTMLElement>(".sc-app-combobox-content");
     expect(content?.ownerDocument).toBe(ownerDocument);
     expect(content?.ownerDocument.defaultView).toBe(ownerWindow);
     expect(content?.closest("[data-scaffold-overlay-host]")).not.toBeNull();

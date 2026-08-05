@@ -68,7 +68,7 @@ function ResourceLinkTitleNodeView(props: NodeViewProps) {
       <NodeViewWrapper
         data-slot="resource-link-title"
         aria-hidden
-        className="sc-resource-link__suppressed"
+        className="sc-course-resource-link__title sc-course-resource-link__slot--hidden"
       >
         <NodeViewContent />
       </NodeViewWrapper>
@@ -76,7 +76,7 @@ function ResourceLinkTitleNodeView(props: NodeViewProps) {
   }
 
   return (
-    <NodeViewWrapper data-slot="resource-link-title" className="sc-resource-link__title">
+    <NodeViewWrapper data-slot="resource-link-title" className="sc-course-resource-link__title">
       <NodeViewContent />
     </NodeViewWrapper>
   );
@@ -94,7 +94,7 @@ function ResourceLinkDescriptionNodeView(props: NodeViewProps) {
       <NodeViewWrapper
         data-slot="resource-link-description"
         aria-hidden
-        className="sc-resource-link__suppressed"
+        className="sc-course-resource-link__description sc-course-resource-link__slot--hidden"
       >
         <NodeViewContent />
       </NodeViewWrapper>
@@ -104,7 +104,7 @@ function ResourceLinkDescriptionNodeView(props: NodeViewProps) {
   return (
     <NodeViewWrapper
       data-slot="resource-link-description"
-      className="sc-resource-link__description"
+      className="sc-course-resource-link__description"
     >
       <NodeViewContent />
     </NodeViewWrapper>

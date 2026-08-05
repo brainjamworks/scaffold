@@ -49,6 +49,7 @@ export {
   answerMatchesFromReveal,
   describeMatchingItemAccessibilityState,
   describeMatchingTargetAccessibilityState,
+  getMatchingConnectorCoordinates,
   getMatchingConnectorPath,
   matchingConnectorColor,
   matchingFieldContent,

@@ -176,21 +176,23 @@ describe("roadmap node", () => {
     fixture.destroy();
   });
 
-  it("keeps icon selection block-level while every icon marker still edits status", async () => {
+  it("opens the shared marker icon picker from every milestone marker", async () => {
     const user = userEvent.setup();
     const fixture = renderRoadmapEditor(roadmapFixture({ useIconMarkers: true }));
 
-    expect(await screen.findAllByRole("button", { name: "Choose roadmap marker icon" })).toHaveLength(
-      1,
-    );
-    const statusButton = screen.getByRole("button", {
-      name: "Set milestone 1 status. Current: available.",
+    const iconTriggers = await screen.findAllByRole("button", {
+      name: /Choose icon for milestone/,
     });
-    await user.click(statusButton);
+    expect(iconTriggers).toHaveLength(3);
+    expect(iconTriggers.map((trigger) => trigger.getAttribute("aria-label"))).toEqual([
+      "Choose icon for milestone 1",
+      "Choose icon for milestone 2",
+      "Choose icon for milestone 3",
+    ]);
+    expect(document.querySelector(".sc-app-roadmap-icon-control")).toBeNull();
 
-    await waitFor(() => {
-      expect(fixture.json().content?.[0]?.content?.[0]?.attrs?.["status"]).toBe("current");
-    });
+    await user.click(iconTriggers[1]!);
+    expect(await screen.findByRole("searchbox", { name: "Search icons" })).not.toBeNull();
 
     fixture.destroy();
   });

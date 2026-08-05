@@ -6,13 +6,13 @@ import { pdfEmbedBlockDefinition } from "./pdf-embed-definition";
 import "./PdfEmbed.css";
 
 function PdfEmbedRuntimeFallback() {
-  return <div aria-hidden="true" className="sc-pdf-embed__fallback" />;
+  return <div aria-hidden="true" className="sc-course-pdf-embed__fallback" />;
 }
 
 export const PdfEmbedRuntimeExtension = createPdfEmbedNode({
   addNodeView: () =>
     createBlockRuntimeNodeView({
-      className: "sc-pdf-embed",
+      className: "sc-course-pdf-embed",
       definition: pdfEmbedBlockDefinition,
       view: {
         fallback: PdfEmbedRuntimeFallback,

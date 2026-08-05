@@ -1,5 +1,5 @@
 import { TrashIcon as Trash } from "@phosphor-icons/react";
-import type { RoadmapMilestoneStatus } from "@scaffold/contracts";
+import type { RoadmapData, RoadmapMilestoneStatus } from "@scaffold/contracts";
 import {
   NodeViewContent,
   NodeViewWrapper,
@@ -10,11 +10,14 @@ import { useId } from "react";
 
 import { CONTAINED_MOVEMENT_TARGET_ATTR } from "@/editor/drag/view/movement-dom";
 import { ContainedMovementHandle } from "@/editor/drag/view/ContainedMovementHandle";
+import { IconPicker } from "@/editor/media/authoring/icon-picker/IconPicker";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
+import { IconRenderer } from "@/ui/icons/IconRenderer";
 
-import { ROADMAP_MILESTONE_NODE } from "./content";
-import { parseRoadmapData } from "./RoadmapModel";
+import { ROADMAP_MILESTONE_NODE, ROADMAP_NODE } from "./content";
+import { normalizeRoadmapData, parseRoadmapData } from "./RoadmapModel";
 import {
+  MARKER_ICON_FALLBACK,
   courseStateForRoadmapStatus,
   readRequiredRoadmapMilestoneId,
   readMilestonePosition,
@@ -60,6 +63,9 @@ export function RoadmapMilestoneAuthoringView(props: NodeViewProps) {
   const cycleStatus = () => {
     if (!editable) return;
     props.updateAttributes({ status: nextMilestoneStatus(status) });
+  };
+  const updateRoadmapData = (patch: Partial<RoadmapData>) => {
+    updateParentRoadmapData(props, { ...roadmapData, ...patch });
   };
   const deleteMilestone = () => {
     const pos = readNodePos(props);
@@ -108,7 +114,33 @@ export function RoadmapMilestoneAuthoringView(props: NodeViewProps) {
             </button>
           </div>
         ) : null}
-        {editable ? (
+        {editable && roadmapData.useIconMarkers ? (
+          <IconPicker
+            value={roadmapData.icon}
+            fallbackValue={MARKER_ICON_FALLBACK}
+            align="center"
+            side="bottom"
+            onValueChange={(icon) => updateRoadmapData({ icon })}
+            renderTrigger={({ displayValue }) => (
+              <button
+                type="button"
+                contentEditable={false}
+                data-status={status}
+                data-course-state={courseState}
+                aria-label={`Choose icon for milestone ${index}`}
+                onClick={(event) => event.stopPropagation()}
+                onMouseDown={(event) => event.stopPropagation()}
+                className={`${roadmapMarkerClassName(status)} sc-app-roadmap-icon-picker`}
+              >
+                <IconRenderer
+                  value={displayValue}
+                  fallbackValue={MARKER_ICON_FALLBACK}
+                  className="sc-course-roadmap__marker-icon"
+                />
+              </button>
+            )}
+          />
+        ) : editable ? (
           <button
             type="button"
             contentEditable={false}
@@ -142,4 +174,31 @@ export function RoadmapMilestoneAuthoringView(props: NodeViewProps) {
       </div>
     </NodeViewWrapper>
   );
+}
+
+function updateParentRoadmapData(props: NodeViewProps, next: Partial<RoadmapData>) {
+  const pos = readNodePos(props);
+  if (!isValidEditorDocPos(props.editor, pos)) return;
+
+  let parsed: RoadmapData;
+  try {
+    parsed = normalizeRoadmapData(next);
+  } catch {
+    return;
+  }
+
+  const $pos = props.editor.state.doc.resolve(pos);
+  for (let depth = $pos.depth; depth >= 0; depth -= 1) {
+    const parent = $pos.node(depth);
+    if (parent.type.name !== ROADMAP_NODE) continue;
+
+    const parentPos = depth === 0 ? 0 : $pos.before(depth);
+    props.editor.view.dispatch(
+      props.editor.state.tr.setNodeMarkup(parentPos, undefined, {
+        ...parent.attrs,
+        data: parsed,
+      }),
+    );
+    return;
+  }
 }

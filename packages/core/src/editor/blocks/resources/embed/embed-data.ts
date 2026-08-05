@@ -26,7 +26,8 @@ export function updateEmbedDataUrl(current: EmbedData, rawUrl: string): EmbedDat
       ...current,
       url,
       provider: info.provider.id,
-      aspectRatio: info.provider.aspectRatio,
+      aspectRatio: info.provider.legacyAspectRatio,
+      sizingMode: "provider",
     });
   }
 
@@ -38,7 +39,8 @@ export function updateEmbedDataUrl(current: EmbedData, rawUrl: string): EmbedDat
     ...current,
     url,
     provider: "generic",
-    aspectRatio: generic.aspectRatio,
+    aspectRatio: generic.legacyAspectRatio,
+    sizingMode: "provider",
   });
 }
 
@@ -53,7 +55,14 @@ export function normalizeEmbedSettingsUpdate({
   const nextData = readEmbedData(next);
 
   if (nextData.url === currentData.url) {
-    return nextData;
+    const sizingMode =
+      nextData.aspectRatio !== currentData.aspectRatio
+        ? "aspect-ratio"
+        : (nextData.sizingMode ?? currentData.sizingMode);
+    return EmbedDataSchema.parse({
+      ...nextData,
+      ...(sizingMode ? { sizingMode } : {}),
+    });
   }
 
   return updateEmbedDataUrl(nextData, nextData.url);

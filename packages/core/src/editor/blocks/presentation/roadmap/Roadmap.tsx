@@ -7,11 +7,9 @@ import { parseRoadmapData } from "./RoadmapModel";
 import "./Roadmap.css";
 
 export function RoadmapView({
-  chrome,
   footer,
   props,
 }: {
-  chrome?: ReactNode;
   footer?: ReactNode;
   props: NodeViewProps;
 }) {
@@ -25,7 +23,6 @@ export function RoadmapView({
       data-block-align={blockAlign}
       data-orientation={data.orientation}
     >
-      {chrome ?? null}
       <div className="sc-course-roadmap__track">
         <NodeViewContent<"ol">
           as="ol"

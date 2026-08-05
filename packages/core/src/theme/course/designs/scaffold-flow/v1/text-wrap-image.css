@@ -86,7 +86,7 @@
   font-family: var(--default-font-family);
   font-size: calc(var(--font-size-3) * var(--sc-course-author-text-scale));
   font-weight: var(--sc-course-author-body-weight);
-  line-height: 1.6;
+  line-height: var(--sc-course-author-body-line-height);
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1

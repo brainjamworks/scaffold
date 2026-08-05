@@ -44,6 +44,25 @@ export interface MatchingConnector {
   state: "default" | "correct" | "incorrect";
 }
 
+interface MatchingConnectorContainerRect {
+  height: number;
+  left: number;
+  top: number;
+  width: number;
+}
+
+interface MatchingConnectorItemRect {
+  height: number;
+  right: number;
+  top: number;
+}
+
+interface MatchingConnectorTargetRect {
+  height: number;
+  left: number;
+  top: number;
+}
+
 export interface MatchingFieldNodeOptions {
   addNodeView?: () => NodeViewRenderer;
 }
@@ -180,6 +199,36 @@ export function getMatchingConnectorPath({
   const cp1X = startX + (endX - startX) * 0.3;
   const cp2X = startX + (endX - startX) * 0.7;
   return `M ${startX} ${startY} C ${cp1X} ${startY}, ${cp2X} ${endY}, ${endX} ${endY}`;
+}
+
+export function getMatchingConnectorCoordinates({
+  canvasHeight,
+  canvasWidth,
+  containerRect,
+  itemRect,
+  targetRect,
+}: {
+  canvasHeight: number;
+  canvasWidth: number;
+  containerRect: MatchingConnectorContainerRect;
+  itemRect: MatchingConnectorItemRect;
+  targetRect: MatchingConnectorTargetRect;
+}): Pick<MatchingConnector, "startX" | "startY" | "endX" | "endY"> {
+  const scaleX = matchingConnectorScale(containerRect.width, canvasWidth);
+  const scaleY = matchingConnectorScale(containerRect.height, canvasHeight);
+
+  return {
+    startX: (itemRect.right - containerRect.left) / scaleX + MATCHING_CONNECTOR_PADDING,
+    startY: (itemRect.top - containerRect.top + itemRect.height / 2) / scaleY,
+    endX: (targetRect.left - containerRect.left) / scaleX - MATCHING_CONNECTOR_PADDING,
+    endY: (targetRect.top - containerRect.top + targetRect.height / 2) / scaleY,
+  };
+}
+
+function matchingConnectorScale(renderedSize: number, canvasSize: number): number {
+  if (!Number.isFinite(renderedSize) || !Number.isFinite(canvasSize)) return 1;
+  if (renderedSize <= 0 || canvasSize <= 0) return 1;
+  return renderedSize / canvasSize;
 }
 
 export function matchingConnectorColor(

@@ -10,38 +10,13 @@
     white-space: nowrap;
   }
 
-  .sc-app-roadmap-icon-control {
-    position: relative;
-    z-index: var(--z-interactive);
-    display: flex;
-    justify-content: flex-end;
-  }
-
   .sc-app-roadmap-icon-picker {
-    box-sizing: border-box;
-    display: inline-flex;
-    min-height: 2.75rem;
-    align-items: center;
-    gap: 0.5rem;
-    padding-inline: 0.75rem;
-    border: 1px solid var(--sc-app-color-border);
-    border-radius: 0.5rem;
-    background: var(--sc-app-color-background);
-    color: var(--sc-app-color-text-muted);
-    font-family: var(--font-ui);
-    font-size: 0.875rem;
-    font-weight: 600;
+    padding: 0;
+    font: inherit;
     cursor: pointer;
     transition:
-      background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
-      border-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
-      color 150ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .sc-app-roadmap-icon-picker__glyph {
-    width: 1.125rem;
-    height: 1.125rem;
-    font-size: 1.125rem;
+      outline-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      transform 150ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .sc-app-roadmap-milestone-chrome {
@@ -154,12 +129,7 @@
   }
 
   @media (hover: hover) and (pointer: fine) {
-    .sc-app-roadmap-icon-picker:hover {
-      border-color: var(--sc-app-color-primary);
-      background: var(--sc-app-color-primary-muted);
-      color: var(--sc-app-color-primary);
-    }
-
+    .sc-app-roadmap-icon-picker:hover:not(:focus-visible),
     .sc-app-roadmap-status:hover:not(:focus-visible) {
       outline: 3px solid var(--sc-app-color-focus-ring);
       outline-offset: 1px;
@@ -196,6 +166,7 @@
     }
   }
 
+  .sc-app-roadmap-icon-picker:active,
   .sc-app-roadmap-status:active {
     transform: scale(0.96);
   }
@@ -203,32 +174,6 @@
   .sc-app-roadmap-delete:not([aria-disabled="true"]):focus-visible {
     background: var(--sc-app-color-error-background);
     color: var(--sc-app-color-error);
-  }
-
-  @container sc-course-roadmap (max-width: 34rem) {
-    .sc-course-roadmap[data-orientation="horizontal"]:has(.sc-app-roadmap-milestone-chrome)
-      .sc-course-roadmap__track {
-      margin-top: 0;
-    }
-
-    .sc-course-roadmap[data-orientation="horizontal"] .sc-app-roadmap-milestone-chrome {
-      top: 0;
-      right: 0;
-      left: auto;
-      transform: none;
-    }
-
-    .sc-course-roadmap__milestone-shell:has(.sc-app-roadmap-milestone-chrome)
-      .sc-course-roadmap__content {
-      margin-top: 2.75rem;
-    }
-
-    .sc-course-roadmap[data-orientation="horizontal"] .sc-app-block-add.sc-app-roadmap-add {
-      width: 100%;
-      flex: none;
-      flex-direction: row;
-      text-align: left;
-    }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -241,6 +186,7 @@
       transition: none;
     }
 
+    .sc-app-roadmap-icon-picker:active,
     .sc-app-roadmap-status:active {
       transform: none;
     }

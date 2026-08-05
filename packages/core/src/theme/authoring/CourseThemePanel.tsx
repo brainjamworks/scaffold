@@ -32,6 +32,7 @@ import {
   resetCourseThemeOverrideSection,
   selectCourseColourSystem,
   selectCourseDesign,
+  setCourseDesignOverride,
   setCourseTypographyOverride,
 } from "./course-theme-commands";
 import "./CourseThemePanel.css";
@@ -49,9 +50,13 @@ interface CourseThemeFormValues {
   headingLineSpacing: string;
   headingLetterSpacing: string;
   uppercaseHeadings: boolean;
+  roundness: string;
+  stroke: string;
+  shadow: string;
+  density: string;
 }
 
-type CourseThemeActionId = "reset-theme" | "reset-typography";
+type CourseThemeActionId = "reset-theme" | "reset-typography" | "reset-design";
 type CourseTypographyField =
   | "defaultFontId"
   | "headingFontId"
@@ -63,6 +68,7 @@ type CourseTypographyField =
   | "headingLineSpacing"
   | "headingLetterSpacing"
   | "uppercaseHeadings";
+type CourseDesignField = "roundness" | "stroke" | "shadow" | "density";
 
 export interface CourseThemePanelProps {
   editor: Editor | null;
@@ -97,6 +103,13 @@ export function CourseThemePanel({
     },
     [designs, editor, onThemeChange],
   );
+  const resetDesignField = useCallback(
+    (field: CourseDesignField) => {
+      if (!editor || !resetCourseThemeOverride(editor, "design", field, designs)) return;
+      notifyThemeChange(editor, onThemeChange);
+    },
+    [designs, editor, onThemeChange],
+  );
 
   const definition = useMemo(
     () =>
@@ -107,8 +120,9 @@ export function CourseThemePanel({
         selectedDesign,
         theme,
         onResetTypography: resetTypographyField,
+        onResetDesign: resetDesignField,
       }),
-    [colourSystems, designs, editor, resetTypographyField, selectedDesign, theme],
+    [colourSystems, designs, editor, resetDesignField, resetTypographyField, selectedDesign, theme],
   );
   const footerActions: readonly SettingsFormAction<CourseThemeActionId>[] = [
     {
@@ -153,14 +167,16 @@ export function CourseThemePanel({
         return;
       }
 
-      if (!isCourseTypographyField(name)) return;
+      if (!isCourseTypographyField(name) && !isCourseDesignField(name)) return;
       const savedValue = formValues[name];
       if (!editor) {
         queueMicrotask(() => form.setValue(name, savedValue));
         return;
       }
 
-      const changed = setCourseTypographyFormValue(editor, name, draft[name], designs);
+      const changed = isCourseTypographyField(name)
+        ? setCourseTypographyFormValue(editor, name, draft[name], designs)
+        : setCourseDesignFormValue(editor, name, draft[name], designs);
       if (!changed) {
         queueMicrotask(() => form.setValue(name, savedValue));
         return;
@@ -188,7 +204,9 @@ export function CourseThemePanel({
         ? resetCourseTheme(editor)
         : actionId === "reset-typography"
           ? resetCourseThemeOverrideSection(editor, "typography", designs)
-          : false;
+          : actionId === "reset-design"
+            ? resetCourseThemeOverrideSection(editor, "design", designs)
+            : false;
     if (changed) notifyThemeChange(editor, onThemeChange);
   };
 
@@ -249,6 +267,7 @@ function courseThemeFormDefinition({
   selectedDesign,
   theme,
   onResetTypography,
+  onResetDesign,
 }: {
   designs: CourseDesignThemeRegistry;
   colourSystems: CourseColourSystemRegistry;
@@ -256,6 +275,7 @@ function courseThemeFormDefinition({
   selectedDesign: CourseDesignThemeRevision | undefined;
   theme: PersistedCourseTheme;
   onResetTypography: (field: CourseTypographyField) => void;
+  onResetDesign: (field: CourseDesignField) => void;
 }): SettingsFormDefinition<CourseThemeActionId> {
   const disabled = editable
     ? {}
@@ -278,6 +298,20 @@ function courseThemeFormDefinition({
               selectionOption(definition, `Use ${definition.label} design`),
             ),
             ...disabled,
+          },
+          ...designFields({
+            editable,
+            selectedDesign,
+            theme,
+            onResetDesign,
+          }),
+        ],
+        actions: [
+          {
+            id: "reset-design",
+            label: "Reset Design overrides",
+            ariaLabel: "Reset all Design overrides",
+            disabled: !editable || !selectedDesign || !theme.overrides.design,
           },
         ],
       },
@@ -381,7 +415,15 @@ function typographyFields({
       name: field,
       label,
       options,
-      ...typographyFieldPresentation(field, label),
+      ...courseThemeFieldPresentation({
+        editable,
+        selectedDesign,
+        theme,
+        section: "typography",
+        field,
+        label,
+        onReset: () => onResetTypography(field),
+      }),
     };
   }
 
@@ -394,53 +436,131 @@ function typographyFields({
       name: field,
       label,
       presentation: "checkbox",
-      ...typographyFieldPresentation(
+      ...courseThemeFieldPresentation({
+        editable,
+        selectedDesign,
+        theme,
+        section: "typography",
         field,
         label,
-        "This changes visual casing only; stored text and accessible wording stay unchanged.",
-      ),
+        detail:
+          "This changes visual casing only; stored text and accessible wording stay unchanged.",
+        onReset: () => onResetTypography(field),
+      }),
     };
   }
+}
 
-  function typographyFieldPresentation(
-    field: CourseTypographyField,
+function designFields({
+  editable,
+  selectedDesign,
+  theme,
+  onResetDesign,
+}: {
+  editable: boolean;
+  selectedDesign: CourseDesignThemeRevision | undefined;
+  theme: PersistedCourseTheme;
+  onResetDesign: (field: CourseDesignField) => void;
+}): readonly SettingsSheetSelectFieldDescriptor[] {
+  return [
+    designSelect("roundness", "Roundness", [
+      { value: "square", label: "Square" },
+      { value: "subtle", label: "Subtle" },
+      { value: "rounded", label: "Rounded" },
+      { value: "full", label: "Full" },
+    ]),
+    designSelect("stroke", "Stroke", [
+      { value: "light", label: "Light" },
+      { value: "standard", label: "Standard" },
+      { value: "strong", label: "Strong" },
+    ]),
+    designSelect("shadow", "Shadow", [
+      { value: "none", label: "None" },
+      { value: "soft", label: "Soft" },
+      { value: "defined", label: "Defined" },
+    ]),
+    designSelect("density", "Density", [
+      { value: "compact", label: "Compact" },
+      { value: "comfortable", label: "Comfortable" },
+      { value: "spacious", label: "Spacious" },
+    ]),
+  ];
+
+  function designSelect(
+    field: CourseDesignField,
     label: string,
-    detail?: string,
-  ) {
-    const customized = Object.hasOwn(theme.overrides.typography ?? {}, field);
-    const unavailableReason = !selectedDesign
-      ? "The saved Course design is unavailable, so its inherited typography cannot be resolved."
-      : undefined;
+    options: readonly SettingsSheetSelectOption[],
+  ): SettingsSheetSelectFieldDescriptor {
     return {
-      status: {
-        label: customized ? "Custom" : "Inherited",
-        variant: customized ? ("info" as const) : ("neutral" as const),
-      },
-      description: (
-        <span className="sc-course-theme-field-help">
-          <span>
-            {detail ? `${detail} ` : null}
-            {customized ? "Overrides the selected design." : "Inherited from the selected design."}
-          </span>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            aria-label={`Use inherited ${label.toLowerCase()}`}
-            disabled={!editable || !selectedDesign || !customized}
-            onClick={() => onResetTypography(field)}
-          >
-            Use inherited
-          </Button>
-        </span>
-      ),
-      ...(!editable
-        ? { disabledReason: "A live editor is required to change the Course theme." }
-        : unavailableReason
-          ? { disabledReason: unavailableReason }
-          : {}),
+      kind: "select",
+      name: field,
+      label,
+      options,
+      ...courseThemeFieldPresentation({
+        editable,
+        selectedDesign,
+        theme,
+        section: "design",
+        field,
+        label,
+        onReset: () => onResetDesign(field),
+      }),
     };
   }
+}
+
+function courseThemeFieldPresentation({
+  editable,
+  selectedDesign,
+  theme,
+  section,
+  field,
+  label,
+  detail,
+  onReset,
+}: {
+  editable: boolean;
+  selectedDesign: CourseDesignThemeRevision | undefined;
+  theme: PersistedCourseTheme;
+  section: "typography" | "design";
+  field: CourseTypographyField | CourseDesignField;
+  label: string;
+  detail?: string;
+  onReset: () => void;
+}) {
+  const customized = Object.hasOwn(theme.overrides[section] ?? {}, field);
+  const unavailableReason = !selectedDesign
+    ? `The saved Course design is unavailable, so its inherited ${section} cannot be resolved.`
+    : undefined;
+  return {
+    status: {
+      label: customized ? "Custom" : "Inherited",
+      variant: customized ? ("info" as const) : ("neutral" as const),
+    },
+    description: (
+      <span className="sc-course-theme-field-help">
+        <span>
+          {detail ? `${detail} ` : null}
+          {customized ? "Overrides the selected design." : "Inherited from the selected design."}
+        </span>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          aria-label={`Use inherited ${label.toLowerCase()}`}
+          disabled={!editable || !selectedDesign || !customized}
+          onClick={onReset}
+        >
+          Use inherited
+        </Button>
+      </span>
+    ),
+    ...(!editable
+      ? { disabledReason: "A live editor is required to change the Course theme." }
+      : unavailableReason
+        ? { disabledReason: unavailableReason }
+        : {}),
+  };
 }
 
 function weightOption(weight: number): SettingsSheetSelectOption {
@@ -454,20 +574,29 @@ function courseThemeFormValues(
   colourSystemValue: string,
 ): CourseThemeFormValues {
   const typography = theme.overrides.typography;
-  const defaults = design?.authorDefaults.typography;
+  const designOverrides = theme.overrides.design;
+  const typographyDefaults = design?.authorDefaults.typography;
+  const designDefaults = design?.authorDefaults.design;
   return {
     design: designValue,
     colourSystem: colourSystemValue,
-    defaultFontId: typography?.defaultFontId ?? defaults?.defaultFontId ?? "",
-    headingFontId: typography?.headingFontId ?? defaults?.headingFontId ?? "",
-    codeFontId: typography?.codeFontId ?? defaults?.codeFontId ?? "",
-    bodyWeight: String(typography?.bodyWeight ?? defaults?.bodyWeight ?? ""),
-    headingWeight: String(typography?.headingWeight ?? defaults?.headingWeight ?? ""),
-    courseTextSize: typography?.courseTextSize ?? defaults?.courseTextSize ?? "",
-    bodyLineSpacing: typography?.bodyLineSpacing ?? defaults?.bodyLineSpacing ?? "",
-    headingLineSpacing: typography?.headingLineSpacing ?? defaults?.headingLineSpacing ?? "",
-    headingLetterSpacing: typography?.headingLetterSpacing ?? defaults?.headingLetterSpacing ?? "",
-    uppercaseHeadings: typography?.uppercaseHeadings ?? defaults?.uppercaseHeadings ?? false,
+    defaultFontId: typography?.defaultFontId ?? typographyDefaults?.defaultFontId ?? "",
+    headingFontId: typography?.headingFontId ?? typographyDefaults?.headingFontId ?? "",
+    codeFontId: typography?.codeFontId ?? typographyDefaults?.codeFontId ?? "",
+    bodyWeight: String(typography?.bodyWeight ?? typographyDefaults?.bodyWeight ?? ""),
+    headingWeight: String(typography?.headingWeight ?? typographyDefaults?.headingWeight ?? ""),
+    courseTextSize: typography?.courseTextSize ?? typographyDefaults?.courseTextSize ?? "",
+    bodyLineSpacing: typography?.bodyLineSpacing ?? typographyDefaults?.bodyLineSpacing ?? "",
+    headingLineSpacing:
+      typography?.headingLineSpacing ?? typographyDefaults?.headingLineSpacing ?? "",
+    headingLetterSpacing:
+      typography?.headingLetterSpacing ?? typographyDefaults?.headingLetterSpacing ?? "",
+    uppercaseHeadings:
+      typography?.uppercaseHeadings ?? typographyDefaults?.uppercaseHeadings ?? false,
+    roundness: designOverrides?.roundness ?? designDefaults?.roundness ?? "",
+    stroke: designOverrides?.stroke ?? designDefaults?.stroke ?? "",
+    shadow: designOverrides?.shadow ?? designDefaults?.shadow ?? "",
+    density: designOverrides?.density ?? designDefaults?.density ?? "",
   };
 }
 
@@ -493,6 +622,10 @@ function isCourseTypographyField(name: string): name is CourseTypographyField {
     name === "headingLetterSpacing" ||
     name === "uppercaseHeadings"
   );
+}
+
+function isCourseDesignField(name: string): name is CourseDesignField {
+  return name === "roundness" || name === "stroke" || name === "shadow" || name === "density";
 }
 
 function setCourseTypographyFormValue(
@@ -541,6 +674,32 @@ function setCourseTypographyFormValue(
     case "uppercaseHeadings":
       return typeof value === "boolean"
         ? setCourseTypographyOverride(editor, field, value, designs)
+        : false;
+  }
+}
+
+function setCourseDesignFormValue(
+  editor: Editor,
+  field: CourseDesignField,
+  value: unknown,
+  designs: CourseDesignThemeRegistry,
+): boolean {
+  switch (field) {
+    case "roundness":
+      return value === "square" || value === "subtle" || value === "rounded" || value === "full"
+        ? setCourseDesignOverride(editor, field, value, designs)
+        : false;
+    case "stroke":
+      return value === "light" || value === "standard" || value === "strong"
+        ? setCourseDesignOverride(editor, field, value, designs)
+        : false;
+    case "shadow":
+      return value === "none" || value === "soft" || value === "defined"
+        ? setCourseDesignOverride(editor, field, value, designs)
+        : false;
+    case "density":
+      return value === "compact" || value === "comfortable" || value === "spacious"
+        ? setCourseDesignOverride(editor, field, value, designs)
         : false;
   }
 }

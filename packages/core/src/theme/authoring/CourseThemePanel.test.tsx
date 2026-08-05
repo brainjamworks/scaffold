@@ -40,6 +40,15 @@ const alternateDesign = {
   label: "Scaffold Editorial",
   description: "An editorial Course design.",
   defaultColourSystem: reference(alternateColourSystem),
+  authorDefaults: {
+    ...SCAFFOLD_FLOW_DESIGN_V1.authorDefaults,
+    design: {
+      roundness: "full",
+      stroke: "strong",
+      shadow: "soft",
+      density: "spacious",
+    },
+  },
   rootClassName: "sc-course-theme-scaffold-editorial-v1",
 } satisfies CourseDesignThemeRevision;
 const designs = createCourseDesignThemeRegistry([SCAFFOLD_FLOW_DESIGN_V1, alternateDesign]);
@@ -208,6 +217,141 @@ describe("CourseThemePanel", () => {
     expect(screen.queryByRole("status")).toBeNull();
     expect(readTheme(editor).design).toEqual(reference(alternateDesign));
     expect(readTheme(editor).colourSystem).toEqual(reference(alternateColourSystem));
+  });
+
+  it("shows the four effective inherited Design overrides after the complete design selector", async () => {
+    const user = userEvent.setup();
+    render(<PanelHarness editor={createEditor()} />);
+    await user.click(screen.getByRole("button", { name: "Open course theme" }));
+
+    const panel = screen.getByRole("dialog", { name: "Course theme" });
+    const design = within(panel).getByRole("region", { name: "Design" });
+    const selector = within(design).getByRole("radiogroup", { name: "Course design" });
+    const roundness = within(design).getByRole("combobox", { name: "Roundness" });
+    expect(
+      selector.compareDocumentPosition(roundness) & globalThis.Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(roundness).toHaveTextContent("Rounded");
+    expect(within(design).getByRole("combobox", { name: "Stroke" })).toHaveTextContent("Standard");
+    expect(within(design).getByRole("combobox", { name: "Shadow" })).toHaveTextContent("None");
+    expect(within(design).getByRole("combobox", { name: "Density" })).toHaveTextContent(
+      "Comfortable",
+    );
+    expect(within(design).getAllByText("Inherited")).toHaveLength(4);
+    expect(within(design).getAllByRole("button", { name: /^Use inherited / })).toHaveLength(4);
+    expect(
+      within(design).getByRole("button", { name: "Reset all Design overrides" }),
+    ).toBeDisabled();
+  });
+
+  it("writes each Design override immediately as semantic intent", async () => {
+    const user = userEvent.setup();
+    const editor = createEditor();
+    const onThemeChange = vi.fn();
+    render(<PanelHarness editor={editor} onThemeChange={onThemeChange} />);
+    await user.click(screen.getByRole("button", { name: "Open course theme" }));
+
+    await chooseSelectOption(user, "Roundness", "Square");
+    await chooseSelectOption(user, "Stroke", "Strong");
+    await chooseSelectOption(user, "Shadow", "Defined");
+    await chooseSelectOption(user, "Density", "Spacious");
+
+    expect(readTheme(editor).overrides).toEqual({
+      design: { roundness: "square", stroke: "strong", shadow: "defined", density: "spacious" },
+    });
+    expect(onThemeChange).toHaveBeenLastCalledWith(readTheme(editor));
+    expect(
+      within(screen.getByRole("region", { name: "Design" })).getAllByText("Custom"),
+    ).toHaveLength(4);
+  });
+
+  it("individually resets each sparse Design override", async () => {
+    const user = userEvent.setup();
+    const editor = createEditor({
+      ...createDefaultPersistedCourseTheme(),
+      overrides: {
+        typography: { courseTextSize: "larger" },
+        design: { roundness: "square", stroke: "strong", shadow: "defined", density: "spacious" },
+      },
+    });
+    render(<PanelHarness editor={editor} />);
+    await user.click(screen.getByRole("button", { name: "Open course theme" }));
+
+    await user.click(screen.getByRole("button", { name: "Use inherited roundness" }));
+    expect(readTheme(editor).overrides.design).toEqual({
+      stroke: "strong",
+      shadow: "defined",
+      density: "spacious",
+    });
+    await user.click(screen.getByRole("button", { name: "Use inherited stroke" }));
+    await user.click(screen.getByRole("button", { name: "Use inherited shadow" }));
+    await user.click(screen.getByRole("button", { name: "Use inherited density" }));
+
+    expect(readTheme(editor).overrides).toEqual({ typography: { courseTextSize: "larger" } });
+    expect(screen.getByRole("combobox", { name: "Roundness" })).toHaveTextContent("Rounded");
+  });
+
+  it("resets only Design overrides through the Design section action", async () => {
+    const user = userEvent.setup();
+    const initialTheme: PersistedCourseTheme = {
+      schemaVersion: 1,
+      design: reference(SCAFFOLD_FLOW_DESIGN_V1),
+      colourSystem: reference(alternateColourSystem),
+      overrides: {
+        typography: { courseTextSize: "larger", uppercaseHeadings: true },
+        design: { roundness: "square", density: "spacious" },
+      },
+    };
+    const editor = createEditor(initialTheme);
+    const onThemeChange = vi.fn();
+    render(<PanelHarness editor={editor} onThemeChange={onThemeChange} />);
+    await user.click(screen.getByRole("button", { name: "Open course theme" }));
+
+    const reset = screen.getByRole("button", { name: "Reset all Design overrides" });
+    expect(reset).toHaveTextContent("Reset Design overrides");
+    expect(reset.closest(".sc-settings-form__section-actions")).not.toBeNull();
+    expect(reset.closest(".sc-sheet-footer")).toBeNull();
+    await user.click(reset);
+
+    expect(readTheme(editor)).toEqual({
+      ...initialTheme,
+      overrides: { typography: initialTheme.overrides.typography },
+    });
+    expect(onThemeChange).toHaveBeenLastCalledWith(readTheme(editor));
+    expect(editor.commands.undo()).toBe(true);
+    expect(readTheme(editor)).toEqual(initialTheme);
+  });
+
+  it("re-normalizes and resynchronizes Design overrides when selecting a complete design", async () => {
+    const user = userEvent.setup();
+    const editor = createEditor({
+      ...createDefaultPersistedCourseTheme(),
+      overrides: {
+        typography: { courseTextSize: "larger" },
+        design: { roundness: "full", stroke: "light" },
+      },
+    });
+    const onTransaction = vi.fn();
+    editor.on("transaction", onTransaction);
+    render(<PanelHarness editor={editor} />);
+    await user.click(screen.getByRole("button", { name: "Open course theme" }));
+
+    await user.click(screen.getByRole("radio", { name: "Use Scaffold Editorial design" }));
+
+    expect(onTransaction).toHaveBeenCalledTimes(1);
+    expect(readTheme(editor)).toEqual({
+      schemaVersion: 1,
+      design: reference(alternateDesign),
+      colourSystem: reference(alternateColourSystem),
+      overrides: {
+        typography: { courseTextSize: "larger" },
+        design: { stroke: "light" },
+      },
+    });
+    expect(screen.getByRole("combobox", { name: "Roundness" })).toHaveTextContent("Full");
+    expect(screen.getByRole("button", { name: "Use inherited roundness" })).toBeDisabled();
+    expect(screen.getByRole("combobox", { name: "Stroke" })).toHaveTextContent("Light");
+    expect(screen.getByRole("button", { name: "Use inherited stroke" })).toBeEnabled();
   });
 
   it("synchronizes selected cards when the persisted theme prop changes", async () => {
@@ -494,6 +638,12 @@ describe("CourseThemePanel", () => {
           headingLetterSpacing: "wide",
           uppercaseHeadings: true,
         },
+        design: {
+          roundness: "square",
+          stroke: "strong",
+          shadow: "defined",
+          density: "spacious",
+        },
       },
     };
     replaceThemeAttr(editor, externalTheme);
@@ -523,10 +673,14 @@ describe("CourseThemePanel", () => {
       "Wide",
     );
     expect(screen.getByRole("checkbox", { name: "Uppercase headings" })).toBeChecked();
+    expect(screen.getByRole("combobox", { name: "Roundness" })).toHaveTextContent("Square");
+    expect(screen.getByRole("combobox", { name: "Stroke" })).toHaveTextContent("Strong");
+    expect(screen.getByRole("combobox", { name: "Shadow" })).toHaveTextContent("Defined");
+    expect(screen.getByRole("combobox", { name: "Density" })).toHaveTextContent("Spacious");
     expect(onTransaction).not.toHaveBeenCalled();
   });
 
-  it("contains no arbitrary colour or Design controls", async () => {
+  it("contains exactly the fourteen approved non-colour controls and no arbitrary colour", async () => {
     const user = userEvent.setup();
     render(<PanelHarness editor={createEditor()} />);
     await user.click(screen.getByRole("button", { name: "Open course theme" }));
@@ -534,7 +688,9 @@ describe("CourseThemePanel", () => {
     expect(screen.queryByRole("button", { name: /edit .*current value/i })).toBeNull();
     expect(screen.queryByRole("spinbutton")).toBeNull();
     expect(screen.getByRole("checkbox", { name: "Uppercase headings" })).not.toBeChecked();
-    expect(screen.queryByRole("combobox", { name: /roundness|stroke|shadow|density/i })).toBeNull();
+    expect(screen.getAllByRole("combobox")).toHaveLength(13);
+    expect(screen.getAllByRole("checkbox")).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: /apply|save/i })).toBeNull();
   });
 });
 

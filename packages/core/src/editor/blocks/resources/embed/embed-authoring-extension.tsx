@@ -6,13 +6,13 @@ import { createEmbedNode } from "./node";
 import "./Embed.css";
 
 function EmbedAuthoringFallback() {
-  return <div aria-hidden="true" className="sc-embed__fallback" />;
+  return <div aria-hidden="true" className="sc-course-embed__fallback" />;
 }
 
 export const EmbedAuthoringExtension = createEmbedNode({
   addNodeView: () =>
     createBlockAuthoringNodeView({
-      className: "sc-embed",
+      className: "sc-course-embed",
       definition: embedBlockDefinition,
       view: {
         fallback: EmbedAuthoringFallback,

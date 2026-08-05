@@ -11,7 +11,7 @@ const AuthoringCodeBlockBodyNode = createCodeBlockBodyNode();
 const CodeBlockAuthoringRootNode = createCodeBlockNode({
   addNodeView: () =>
     createBlockAuthoringNodeView({
-      className: "sc-code-block",
+      className: "sc-course-code-block",
       definition: codeBlockDefinition,
       view: { component: CodeBlockAuthoringView },
     }),

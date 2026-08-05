@@ -134,38 +134,3 @@
   text-decoration: underline;
   text-underline-offset: 0.15em;
 }
-
-@container sc-course-roadmap (max-width: 34rem) {
-  .sc-course.sc-course-theme-scaffold-flow-v1
-    .sc-course-roadmap[data-orientation="horizontal"]
-    .sc-course-roadmap__track::before {
-    top: calc(var(--sc-course-roadmap-marker-size) / 2);
-    right: auto;
-    bottom: calc(var(--sc-course-roadmap-marker-size) / 2);
-    left: calc(var(--sc-course-roadmap-marker-size) / 2);
-    width: 1px;
-    height: auto;
-  }
-
-  .sc-course.sc-course-theme-scaffold-flow-v1
-    .sc-course-roadmap[data-orientation="horizontal"]
-    .sc-course-roadmap__milestones {
-    gap: var(--space-5);
-  }
-
-  .sc-course.sc-course-theme-scaffold-flow-v1
-    .sc-course-roadmap[data-orientation="horizontal"]
-    .sc-course-roadmap__content {
-    padding-top: var(--space-1);
-    font-size: var(--font-size-3);
-    line-height: var(--line-height-3);
-  }
-
-  .sc-course.sc-course-theme-scaffold-flow-v1
-    .sc-course-roadmap[data-orientation="horizontal"]
-    .sc-course-roadmap__content
-    p:first-child {
-    font-size: var(--font-size-4);
-    line-height: var(--line-height-4);
-  }
-}

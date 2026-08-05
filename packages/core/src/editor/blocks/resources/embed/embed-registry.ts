@@ -2,7 +2,7 @@
  * Embed provider registry. Mirrors tldraw's pattern: each provider has
  * a list of hostnames it claims, a function that derives the embed URL
  * from a paste URL, and metadata that controls how the embed renders
- * (default aspect ratio, sandbox attributes).
+ * (provider frame geometry and sandbox attributes).
  *
  * Storing the canonical user-facing URL in `data.url` and deriving the
  * embed URL at render time keeps the source authoritative: if a
@@ -23,6 +23,11 @@ import {
   YoutubeLogoIcon as YoutubeLogo,
 } from "@phosphor-icons/react";
 import type { Icon } from "@phosphor-icons/react";
+import type { EmbedAspectRatio, EmbedData } from "@scaffold/contracts";
+
+export type EmbedProviderFrame =
+  | { kind: "aspect-ratio"; aspectRatio: EmbedAspectRatio }
+  | { kind: "fixed-height"; height: number };
 
 export interface EmbedProvider {
   /** Stable id stored in `data.provider`. */
@@ -31,8 +36,12 @@ export interface EmbedProvider {
   title: string;
   /** Phosphor icon for the catalog entry. */
   icon: Icon;
-  /** Default aspect ratio for the iframe container. */
-  aspectRatio: "16/9" | "4/3" | "1/1" | "9/16";
+  /** Automatic responsive frame geometry for this provider. */
+  frame: EmbedProviderFrame;
+  /** Optional URL-specific automatic geometry owned by this provider. */
+  resolveFrame?: (url: string) => EmbedProviderFrame;
+  /** Pre-migration default used to preserve detectable authored overrides. */
+  legacyAspectRatio: EmbedAspectRatio;
   /** Hostnames this provider claims. */
   hostnames: readonly string[];
   /** Iframe `allow` attribute. */
@@ -102,7 +111,8 @@ const youtube: EmbedProvider = {
   id: "youtube",
   title: "YouTube",
   icon: YoutubeLogo,
-  aspectRatio: "16/9",
+  frame: { kind: "aspect-ratio", aspectRatio: "16/9" },
+  legacyAspectRatio: "16/9",
   hostnames: ["youtube.com", "youtu.be", "youtube-nocookie.com"],
   allow: COMMON_VIDEO_ALLOW,
   toEmbedUrl: (url) => {
@@ -132,7 +142,8 @@ const vimeo: EmbedProvider = {
   id: "vimeo",
   title: "Vimeo",
   icon: VideoCamera,
-  aspectRatio: "16/9",
+  frame: { kind: "aspect-ratio", aspectRatio: "16/9" },
+  legacyAspectRatio: "16/9",
   hostnames: ["vimeo.com", "player.vimeo.com"],
   allow: COMMON_VIDEO_ALLOW,
   toEmbedUrl: (url) => {
@@ -157,7 +168,8 @@ const loom: EmbedProvider = {
   id: "loom",
   title: "Loom",
   icon: PlayCircle,
-  aspectRatio: "16/9",
+  frame: { kind: "aspect-ratio", aspectRatio: "16/9" },
+  legacyAspectRatio: "16/9",
   hostnames: ["loom.com"],
   allow: COMMON_VIDEO_ALLOW,
   toEmbedUrl: (url) => {
@@ -174,7 +186,12 @@ const spotify: EmbedProvider = {
   id: "spotify",
   title: "Spotify",
   icon: SpotifyLogo,
-  aspectRatio: "16/9",
+  frame: { kind: "fixed-height", height: 152 },
+  resolveFrame: (url) =>
+    /open\.spotify\.com\/track\//.test(url)
+      ? { kind: "fixed-height", height: 80 }
+      : { kind: "fixed-height", height: 152 },
+  legacyAspectRatio: "16/9",
   hostnames: ["spotify.com", "open.spotify.com"],
   allow: COMMON_AUDIO_ALLOW,
   toEmbedUrl: (url) => {
@@ -199,7 +216,8 @@ const soundcloud: EmbedProvider = {
   id: "soundcloud",
   title: "SoundCloud",
   icon: SoundcloudLogo,
-  aspectRatio: "16/9",
+  frame: { kind: "aspect-ratio", aspectRatio: "16/9" },
+  legacyAspectRatio: "16/9",
   hostnames: ["soundcloud.com"],
   allow: COMMON_AUDIO_ALLOW,
   toEmbedUrl: (url) => {
@@ -217,7 +235,8 @@ const figma: EmbedProvider = {
   id: "figma",
   title: "Figma",
   icon: FigmaLogo,
-  aspectRatio: "4/3",
+  frame: { kind: "aspect-ratio", aspectRatio: "4/3" },
+  legacyAspectRatio: "4/3",
   hostnames: ["figma.com"],
   toEmbedUrl: (url) => {
     if (!/figma\.com\/(file|proto|design|board)\//.test(url)) return null;
@@ -233,7 +252,8 @@ const codepen: EmbedProvider = {
   id: "codepen",
   title: "CodePen",
   icon: PencilSimple,
-  aspectRatio: "4/3",
+  frame: { kind: "aspect-ratio", aspectRatio: "4/3" },
+  legacyAspectRatio: "4/3",
   hostnames: ["codepen.io"],
   toEmbedUrl: (url) => {
     const match = url.match(/codepen\.io\/([\w-]+)\/(?:pen|preview)\/(\w+)/);
@@ -255,7 +275,8 @@ const githubGist: EmbedProvider = {
   id: "github-gist",
   title: "GitHub Gist",
   icon: GithubLogo,
-  aspectRatio: "4/3",
+  frame: { kind: "aspect-ratio", aspectRatio: "4/3" },
+  legacyAspectRatio: "4/3",
   hostnames: ["gist.github.com"],
   toEmbedUrl: (url) => {
     // Gists embed via a script tag, not an iframe. For an iframe-first
@@ -269,7 +290,8 @@ const wikipedia: EmbedProvider = {
   id: "wikipedia",
   title: "Wikipedia",
   icon: Article,
-  aspectRatio: "4/3",
+  frame: { kind: "aspect-ratio", aspectRatio: "4/3" },
+  legacyAspectRatio: "4/3",
   hostnames: ["wikipedia.org", "en.wikipedia.org"],
   toEmbedUrl: (url) => url,
 };
@@ -279,7 +301,8 @@ const generic: EmbedProvider = {
   id: "generic",
   title: "Supported URL",
   icon: Globe,
-  aspectRatio: "4/3",
+  frame: { kind: "aspect-ratio", aspectRatio: "4/3" },
+  legacyAspectRatio: "4/3",
   hostnames: [],
   toEmbedUrl: () => null,
 };
@@ -303,6 +326,19 @@ const PROVIDERS_BY_ID = new Map(
 
 export function getEmbedProvider(id: string): EmbedProvider | null {
   return PROVIDERS_BY_ID.get(id) ?? null;
+}
+
+export function resolveEmbedFrame(data: EmbedData): EmbedProviderFrame {
+  const provider = getEmbedProvider(data.provider) ?? generic;
+  const providerFrame = provider.resolveFrame?.(data.url) ?? provider.frame;
+  if (data.sizingMode === "aspect-ratio") {
+    return { kind: "aspect-ratio", aspectRatio: data.aspectRatio };
+  }
+  if (data.sizingMode === "provider") return providerFrame;
+
+  return data.aspectRatio === provider.legacyAspectRatio
+    ? providerFrame
+    : { kind: "aspect-ratio", aspectRatio: data.aspectRatio };
 }
 
 export interface EmbedInfo {
@@ -340,6 +376,8 @@ export function resolveEmbedUrl(providerId: string, url: string): string | null 
   if (!provider) return null;
   const normalized = normalizeUrl(url);
   if (!normalized) return null;
+  const host = hostnameOf(normalized);
+  if (!host || !hostMatches(host, provider.hostnames)) return null;
   const embedUrl = provider.toEmbedUrl(normalized);
   if (!embedUrl || !isAllowedIframeProtocol(embedUrl)) return null;
   return embedUrl;

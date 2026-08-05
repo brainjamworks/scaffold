@@ -6,6 +6,8 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import type { PersistedCourseTheme } from "@scaffold/contracts";
 
 import "@/styles/globals.css";
+import "@/editor/surfaces/view/region.css";
+import "@/theme/course/designs/scaffold-flow/v1/theme.css";
 
 import { createDefaultPersistedCourseTheme } from "./default-course-theme";
 import { CourseThemePortalBoundary, CourseThemeProvider } from "./CourseThemeProvider";
@@ -117,6 +119,52 @@ describe("CourseThemeProvider browser scope", () => {
     );
     expect(consoleError).not.toHaveBeenCalled();
   });
+
+  it("applies approved typography and density only to semantic Course roles", async () => {
+    const { courseRoot, sibling } = await mountCourse(
+      "light",
+      false,
+      themeWithAuthorOverrides(),
+    );
+    const body = requiredElement<HTMLElement>(courseRoot, '[data-testid="body-reading"]');
+    const strong = requiredElement<HTMLElement>(courseRoot, '[data-testid="strong-reading"]');
+    const explicitSize = requiredElement<HTMLElement>(
+      courseRoot,
+      '[data-testid="explicit-size"]',
+    );
+    const heading = requiredElement<HTMLElement>(courseRoot, '[data-testid="course-heading"]');
+    const runtimeHeading = requiredElement<HTMLElement>(
+      courseRoot,
+      '[data-testid="runtime-heading"]',
+    );
+    const region = requiredElement<HTMLElement>(courseRoot, '[data-testid="course-region"]');
+
+    const bodyStyle = getComputedStyle(body);
+    expect(bodyStyle.fontSize).toBe("17.6px");
+    expect(bodyStyle.fontWeight).toBe("600");
+    expect(Number.parseFloat(bodyStyle.lineHeight)).toBeCloseTo(29.92, 2);
+    expect(Number.parseInt(getComputedStyle(strong).fontWeight, 10)).toBeGreaterThan(600);
+    expect(getComputedStyle(explicitSize).fontSize).toBe("24px");
+
+    for (const semanticHeading of [heading, runtimeHeading]) {
+      const headingStyle = getComputedStyle(semanticHeading);
+      expect(headingStyle.fontWeight).toBe("800");
+      expect(Number.parseFloat(headingStyle.lineHeight)).toBeCloseTo(
+        Number.parseFloat(headingStyle.fontSize) * 1.35,
+        2,
+      );
+      expect(Number.parseFloat(headingStyle.letterSpacing)).toBeCloseTo(
+        Number.parseFloat(headingStyle.fontSize) * 0.04,
+        2,
+      );
+      expect(headingStyle.textTransform).toBe("uppercase");
+      expect(semanticHeading).toHaveTextContent("Stored heading text");
+    }
+
+    expect(getComputedStyle(region).gap).toBe("13.5px");
+    expect(getComputedStyle(sibling).fontSize).toBe("16px");
+    expect(getComputedStyle(sibling).textTransform).toBe("none");
+  });
 });
 
 async function mountCourse(
@@ -136,6 +184,26 @@ async function mountCourse(
       <div data-testid="app-sibling">App sibling</div>
       <CourseThemeProvider theme={theme} appearance={appearance}>
         <div data-testid="course-content">
+          <div className="ProseMirror">
+            <div data-surface-content="">
+              <div data-node-view-content-react="">
+                <p data-testid="body-reading">
+                  Course body <strong data-testid="strong-reading">strong text</strong>{" "}
+                  <span data-testid="explicit-size" style={{ fontSize: "24px" }}>
+                    explicit size
+                  </span>
+                </p>
+                <h2 data-testid="course-heading">Stored heading text</h2>
+                <p className="sc-runtime-rich-text-heading" data-testid="runtime-heading">
+                  Stored heading text
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="sc-region" data-testid="course-region">
+            <span>First item</span>
+            <span>Second item</span>
+          </div>
           <div data-course-state="correct">
             <span className="sc-course-state__indicator">Correct</span>
           </div>
@@ -175,7 +243,12 @@ function themeWithAuthorOverrides(): PersistedCourseTheme {
       typography: {
         defaultFontId: "scaffold-poppins",
         headingFontId: "scaffold-source-serif-4",
+        bodyWeight: 600,
         headingWeight: 800,
+        courseTextSize: "larger",
+        bodyLineSpacing: "relaxed",
+        headingLineSpacing: "relaxed",
+        headingLetterSpacing: "wide",
         uppercaseHeadings: true,
       },
       design: { roundness: "full", density: "spacious" },

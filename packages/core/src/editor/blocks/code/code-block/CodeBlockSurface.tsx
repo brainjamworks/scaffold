@@ -4,6 +4,7 @@ import {
   CodeBlockDataSchema,
   type CodeBlockData,
 } from "@scaffold/contracts";
+import { Button } from "@radix-ui/themes";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
@@ -32,7 +33,7 @@ export function CodeBlockSurface({
   data: CodeBlockData;
   languageControl: ReactNode;
 }) {
-  const [copied, setCopied] = useState(false);
+  const [copyState, setCopyState] = useState<"idle" | "success" | "error">("idle");
   const copyTimer = useRef<number | null>(null);
 
   useEffect(
@@ -43,46 +44,71 @@ export function CodeBlockSurface({
   );
 
   const copyCode = async () => {
+    if (copyTimer.current !== null) window.clearTimeout(copyTimer.current);
+    setCopyState("idle");
+
     try {
       await navigator.clipboard.writeText(code);
+      setCopyState("success");
     } catch {
-      /* clipboard unavailable */
+      setCopyState("error");
     }
-    setCopied(true);
-    if (copyTimer.current !== null) window.clearTimeout(copyTimer.current);
-    copyTimer.current = window.setTimeout(() => setCopied(false), 1500);
+
+    copyTimer.current = window.setTimeout(() => setCopyState("idle"), 2000);
   };
 
+  const copyMessage =
+    copyState === "success"
+      ? "Code copied to clipboard"
+      : copyState === "error"
+        ? "Could not copy code to clipboard"
+        : "";
+
   return (
-    <div className="sc-code-block__shell">
-      <header contentEditable={false} className="sc-code-block__header">
+    <div className="sc-course-code-block__shell">
+      <header contentEditable={false} className="sc-course-code-block__header">
         {languageControl}
         {data.showCopyButton ? (
-          <button
-            type="button"
-            className="sc-code-block__copy"
-            aria-label={copied ? "Copied to clipboard" : "Copy code"}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={(event) => {
-              event.stopPropagation();
-              void copyCode();
-            }}
-          >
-            {copied ? (
-              <>
-                <Check size={12} weight="bold" aria-hidden />
-                <span>Copied</span>
-              </>
-            ) : (
-              <>
-                <Copy size={12} aria-hidden />
-                <span>Copy</span>
-              </>
-            )}
-          </button>
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              size="2"
+              className="sc-course-code-block__copy"
+              data-copy-state={copyState}
+              aria-label={copyState === "success" ? "Code copied to clipboard" : "Copy code"}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={(event) => {
+                event.stopPropagation();
+                void copyCode();
+              }}
+            >
+              {copyState === "success" ? (
+                <>
+                  <Check size={14} weight="bold" aria-hidden />
+                  <span>Copied</span>
+                </>
+              ) : (
+                <>
+                  <Copy size={14} aria-hidden />
+                  <span>Copy</span>
+                </>
+              )}
+            </Button>
+            <span
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              className="sc-course-code-block__copy-status sc-sr-only"
+            >
+              {copyMessage}
+            </span>
+          </>
         ) : null}
       </header>
-      <div className={cn("sc-code-block__body", `language-${data.language}`)}>{children}</div>
+      <div className={cn("sc-course-code-block__body", `language-${data.language}`)}>
+        {children}
+      </div>
     </div>
   );
 }
@@ -90,7 +116,7 @@ export function CodeBlockSurface({
 export function CodeBlockLanguageLabel({ data }: { data: CodeBlockData }) {
   return (
     <span
-      className="sc-code-block__language-static"
+      className="sc-course-code-block__language-label"
       aria-label={`Language: ${CODE_BLOCK_LANGUAGE_LABELS[data.language]}`}
     >
       {CODE_BLOCK_LANGUAGE_LABELS[data.language]}

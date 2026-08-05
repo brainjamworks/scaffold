@@ -72,7 +72,6 @@ export function PdfEmbedRuntimeView(props: NodeViewProps) {
   return (
     <PdfEmbedSurface
       data={data}
-      editable={false}
       mediaPort={mediaPort}
       onOpen={recordLaunch}
       onPagePresented={recordPagePresented}

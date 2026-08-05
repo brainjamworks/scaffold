@@ -85,17 +85,25 @@
 
   .sc-course-roadmap[data-orientation="horizontal"] .sc-course-roadmap__track {
     display: flex;
+    width: max-content;
+    min-width: 100%;
     align-items: flex-start;
   }
 
+  .sc-course-roadmap[data-orientation="horizontal"] {
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+  }
+
   .sc-course-roadmap[data-orientation="horizontal"] .sc-course-roadmap__milestones {
+    min-width: min-content;
     flex: 1 1 auto;
     flex-flow: row nowrap;
     align-items: flex-start;
   }
 
   .sc-course-roadmap[data-orientation="horizontal"] .sc-course-roadmap__milestone {
-    flex: 1 1 0;
+    flex: 1 0 8rem;
   }
 
   .sc-course-roadmap[data-orientation="horizontal"] .sc-course-roadmap__milestone-shell {
@@ -120,38 +128,6 @@
     min-height: 0;
     overflow: auto;
     overscroll-behavior: contain;
-  }
-
-  @container sc-course-roadmap (max-width: 34rem) {
-    .sc-course-roadmap[data-orientation="horizontal"] .sc-course-roadmap__track {
-      display: block;
-    }
-
-    .sc-course-roadmap[data-orientation="horizontal"] .sc-course-roadmap__milestones {
-      flex-direction: column;
-    }
-
-    .sc-course-roadmap[data-orientation="horizontal"] .sc-course-roadmap__milestone {
-      width: 100%;
-      flex: none;
-    }
-
-    .sc-course-roadmap[data-orientation="horizontal"] .sc-course-roadmap__milestone-shell {
-      grid-template-columns: var(--sc-course-roadmap-marker-size) minmax(0, 1fr);
-      grid-template-rows: auto;
-      justify-items: stretch;
-      text-align: start;
-    }
-
-    .sc-course-roadmap[data-orientation="horizontal"] .sc-course-roadmap__marker {
-      grid-column: 1;
-      grid-row: 1;
-    }
-
-    .sc-course-roadmap[data-orientation="horizontal"] .sc-course-roadmap__content {
-      grid-column: 2;
-      grid-row: 1;
-    }
   }
 
 }

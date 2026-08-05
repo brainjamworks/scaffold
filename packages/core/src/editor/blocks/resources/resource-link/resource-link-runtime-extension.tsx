@@ -10,7 +10,7 @@ import { ResourceLinkDescriptionNode, ResourceLinkTitleNode } from "./slots";
 const ResourceLinkRuntimeNode = createResourceLinkNode({
   addNodeView: () =>
     createBlockRuntimeNodeView({
-      className: "sc-resource-link-node",
+      className: "sc-course-resource-link-node",
       definition: resourceLinkBlockDefinition,
       view: { component: ResourceLinkRuntimeView },
     }),

@@ -117,9 +117,12 @@ describe("Text Wrap Image geometry", () => {
     const lightOutline = getComputedStyle(image).boxShadow;
     const paragraphStyle = getComputedStyle(paragraph);
 
+    const expectedLineHeight = Number.parseFloat(
+      paragraphStyle.getPropertyValue("--sc-course-author-body-line-height"),
+    );
     expect(
       Number.parseFloat(paragraphStyle.lineHeight) / Number.parseFloat(paragraphStyle.fontSize),
-    ).toBeCloseTo(1.6, 2);
+    ).toBeCloseTo(expectedLineHeight, 2);
 
     renderAppearance("dark");
     await waitForCondition(() => getComputedStyle(paragraph).color !== lightText);

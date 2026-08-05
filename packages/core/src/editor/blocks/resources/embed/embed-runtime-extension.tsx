@@ -6,13 +6,13 @@ import { createEmbedNode } from "./node";
 import "./Embed.css";
 
 function EmbedRuntimeFallback() {
-  return <div aria-hidden="true" className="sc-embed__fallback" />;
+  return <div aria-hidden="true" className="sc-course-embed__fallback" />;
 }
 
 export const EmbedRuntimeExtension = createEmbedNode({
   addNodeView: () =>
     createBlockRuntimeNodeView({
-      className: "sc-embed",
+      className: "sc-course-embed",
       definition: embedBlockDefinition,
       view: {
         fallback: EmbedRuntimeFallback,

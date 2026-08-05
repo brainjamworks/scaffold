@@ -246,6 +246,69 @@ describe("course theme panel browser workflow", () => {
       expect(courseTextSize.textContent).toContain("Standard");
       expect(uppercaseHeadings.getAttribute("data-state")).toBe("unchecked");
 
+      courseTextSize.click();
+      await waitForElement<HTMLElement>(document, '[role="option"]');
+      const retainedLargerOption = [
+        ...document.querySelectorAll<HTMLElement>('[role="option"]'),
+      ].find((option) => option.textContent?.includes("Larger"));
+      if (!retainedLargerOption) throw new Error("Expected retained Larger option");
+      retainedLargerOption.click();
+
+      const roundness = requireElement<HTMLButtonElement>(
+        panel,
+        '[role="combobox"][id$="-roundness"]',
+      );
+      roundness.click();
+      await waitForElement<HTMLElement>(document, '[role="option"]');
+      const squareOption = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
+        (option) => option.textContent?.includes("Square"),
+      );
+      if (!squareOption) throw new Error("Expected Square roundness option");
+      squareOption.click();
+      const density = requireElement<HTMLButtonElement>(panel, '[role="combobox"][id$="-density"]');
+      density.click();
+      await waitForElement<HTMLElement>(document, '[role="option"]');
+      const spaciousOption = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
+        (option) => option.textContent?.includes("Spacious"),
+      );
+      if (!spaciousOption) throw new Error("Expected Spacious density option");
+      spaciousOption.click();
+      await waitForCondition(
+        () =>
+          readEditorTheme(editor)?.overrides.design?.roundness === "square" &&
+          readEditorTheme(editor)?.overrides.design?.density === "spacious",
+      );
+
+      requireElement<HTMLButtonElement>(
+        panel,
+        'button[aria-label="Use inherited roundness"]',
+      ).click();
+      await waitForCondition(
+        () => readEditorTheme(editor)?.overrides.design?.roundness === undefined,
+      );
+      expect(roundness.textContent).toContain("Rounded");
+
+      const resetDesign = requireElement<HTMLButtonElement>(
+        panel,
+        'button[aria-label="Reset all Design overrides"]',
+      );
+      expect(resetDesign.textContent).toContain("Reset Design overrides");
+      expect(resetDesign.closest(".sc-settings-form__section-actions")).not.toBeNull();
+      expect(resetDesign.closest(".sc-sheet-footer")).toBeNull();
+      resetDesign.click();
+      await waitForCondition(
+        () =>
+          readEditorTheme(editor)?.overrides.design === undefined &&
+          readEditorTheme(editor)?.overrides.typography?.courseTextSize === "larger",
+      );
+      await waitForCondition(
+        () =>
+          JSON.stringify(readBundleTheme(savedBundles.at(-1))) ===
+          JSON.stringify(readEditorTheme(editor)),
+        1_500,
+      );
+      expect(density.textContent).toContain("Comfortable");
+
       requireElement<HTMLButtonElement>(panel, 'button[aria-label="Close course theme"]').click();
       const themeBeforeAppearanceChange = readEditorTheme(editor);
       requireElement<HTMLButtonElement>(
