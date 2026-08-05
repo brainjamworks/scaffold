@@ -18,7 +18,8 @@ import type { LearnerActivityPort, XapiPort } from "@/host/ports";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 import { LearnerActivityRuntimeProvider } from "@/runtime/learner-activity";
-import { XAPI_EXTENSIONS, XAPI_VERBS, XapiRuntimeProvider } from "@/runtime/xapi";
+import { LearningEventRuntimeProvider } from "@/runtime/learning-events/LearningEventRuntimeProvider";
+import { LEARNING_EVENT_EXTENSIONS, LEARNING_EVENT_VERBS } from "@/runtime/learning-events/catalogue";
 import { ChecklistAuthoringExtension } from "./checklist-authoring-extension";
 import { ChecklistRuntimeExtension } from "./checklist-runtime-extension";
 import {
@@ -145,7 +146,7 @@ function renderChecklistRuntimeEditor({
       ports: { learnerActivity: learnerActivityPort, xapi: xapiPort },
       children: createElement(ScaffoldArtifactIdentityProvider, {
         artifactId: "checklist-artifact",
-        children: createElement(XapiRuntimeProvider, {
+        children: createElement(LearningEventRuntimeProvider, {
           children: createElement(LearnerActivityRuntimeProvider, {
             initialSnapshot: {
               snapshotVersion: SCAFFOLD_LEARNER_ACTIVITY_SNAPSHOT_VERSION,
@@ -226,10 +227,10 @@ it("emits accepted checklist item details through one learner-activity save", as
     completed: false,
   });
   expect(send.mock.calls[1]?.[0]).toMatchObject({
-    verb: XAPI_VERBS.interacted,
+    verb: LEARNING_EVENT_VERBS.interacted,
     result: {
       extensions: {
-        [XAPI_EXTENSIONS.learnerActivityEvent]: {
+        [LEARNING_EVENT_EXTENSIONS.learnerActivityEvent]: {
           action: "item-toggled",
           itemId: "checklist-item-one",
           checked: true,
@@ -239,6 +240,38 @@ it("emits accepted checklist item details through one learner-activity save", as
       },
     },
   });
+
+  fixture.destroy();
+});
+
+it("does not report a checklist interaction when the authoritative save is a no-op", async () => {
+  const user = userEvent.setup();
+  const save = vi.fn<LearnerActivityPort["save"]>(async ({ record }) => ({
+    ...record,
+    data: { checked: {} },
+    completed: false,
+    updatedAt: "2026-07-27T10:01:00Z",
+  }));
+  const send = vi.fn<XapiPort["send"]>(async () => undefined);
+  const fixture = renderChecklistRuntimeEditor({
+    learnerActivityPort: {
+      load: async () => null,
+      save,
+    },
+    xapiPort: {
+      activityId: "https://lms.example.test/courses/checklist-course",
+      send,
+    },
+  });
+
+  const checkboxes = await screen.findAllByRole("checkbox", {
+    name: "Mark item as complete",
+  });
+  await user.click(checkboxes[0]!);
+
+  await waitFor(() => expect(save).toHaveBeenCalledOnce());
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(send).not.toHaveBeenCalled();
 
   fixture.destroy();
 });

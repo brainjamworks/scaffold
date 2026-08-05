@@ -400,7 +400,7 @@ export function createAssessmentStore({
 
       let session: ReturnType<LearningEventSessionAccessor>;
       try {
-        session = getLearningEventSession?.();
+        session = getLearningEventSession?.() ?? null;
       } catch {
         return;
       }

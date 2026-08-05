@@ -2,18 +2,11 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 import type { LearnerActivityRecord } from "@scaffold/contracts";
 import type { LearnerActivityPort } from "../../host/ports/learner-activity";
-import type { XapiPort, XapiStatementDraft, XapiStatementTemplate } from "../../host/ports/xapi";
-import {
-  XAPI_VERBS,
-  buildLearnerActivityInteractedStatementDraft,
-  createXapiSession,
-  type XapiSession,
-} from "../xapi";
-import { buildLearningEventDraft } from "../learning-events/catalogue";
+import type { CoreLearningEventInput, LearnerActivityLearningEvent } from "../learning-events/catalogue";
+import type { LearningEventSession } from "../learning-events/session";
 import { createLearnerActivityStore } from "./store";
 
 const ROOT_ACTIVITY_ID = "https://example.com/courses/course-1";
-const XAPI_TIMESTAMP = "2026-07-25T10:00:00.000Z";
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -52,50 +45,28 @@ function createPort(save: LearnerActivityPort["save"]): LearnerActivityPort {
 }
 
 function createSessionDouble(
-  recordImplementation: (statement: XapiStatementDraft) => void = () => undefined,
+  recordImplementation: (input: CoreLearningEventInput) => void = () => undefined,
 ) {
-  const record = vi.fn<(statement: XapiStatementDraft) => void>(recordImplementation);
-  const session: XapiSession = Object.freeze({
+  const record = vi.fn<(input: CoreLearningEventInput) => void>(recordImplementation);
+  const session: LearningEventSession = Object.freeze({
     rootActivityId: ROOT_ACTIVITY_ID,
     start: vi.fn(),
-    record: (input) =>
-      record(
-        "type" in input
-          ? buildLearningEventDraft(input, { rootActivityId: ROOT_ACTIVITY_ID })
-          : input,
-      ),
+    record,
+    recordBlock: vi.fn(),
     terminate: vi.fn(async () => undefined),
     getState: () => ({ status: "dormant" as const }),
   });
   return { session, record };
 }
 
-function createRecordingXapiSession() {
-  let uuidSequence = 0;
-  const send = vi.fn<XapiPort["send"]>(async () => undefined);
-  const session = createXapiSession({
-    port: { activityId: ROOT_ACTIVITY_ID, send },
-    courseTitle: "Course One",
-    createUuid: () => {
-      uuidSequence += 1;
-      return `00000000-0000-4000-8000-${uuidSequence.toString(16).padStart(12, "0")}`;
-    },
-    now: () => new Date(XAPI_TIMESTAMP),
-    monotonicNow: () => 0,
-  });
-  return {
-    session: Object.freeze({
-      ...session,
-      record: (input: Parameters<XapiSession["record"]>[0]) => {
-        session.record(
-          "type" in input
-            ? buildLearningEventDraft(input, { rootActivityId: ROOT_ACTIVITY_ID })
-            : input,
-        );
-      },
-    }) as XapiSession,
-    send,
-  };
+function learnerActivityInput(input: {
+  readonly rootActivityId: string;
+  readonly blockId: string;
+  readonly activityKind: "checklist" | "flashcard";
+  readonly event?: LearnerActivityLearningEvent;
+}): CoreLearningEventInput {
+  const { rootActivityId: _rootActivityId, ...event } = input;
+  return { type: "learner-activity.interacted", ...event };
 }
 
 function hydrateBlock(
@@ -481,7 +452,7 @@ describe("createLearnerActivityStore", () => {
   });
 
   it("keeps hydration and the first authoritative initialization silent", async () => {
-    const { session, send } = createRecordingXapiSession();
+    const { session, record } = createSessionDouble();
     const hydratedStore = createLearnerActivityStore({
       artifactId: "course-1",
       learnerActivityPort: createPort(async ({ record }) =>
@@ -494,7 +465,7 @@ describe("createLearnerActivityStore", () => {
     });
     hydrateBlock(hydratedStore, hostRecord({ checked: [] }));
     await flushPromises();
-    expect(send).not.toHaveBeenCalled();
+    expect(record).not.toHaveBeenCalled();
 
     const initializedStore = createLearnerActivityStore({
       artifactId: "course-1",
@@ -516,12 +487,12 @@ describe("createLearnerActivityStore", () => {
       expect(initializedStore.getState().saves["block-1"]?.status).toBe("idle"),
     );
     await flushPromises();
-    expect(send).not.toHaveBeenCalled();
+    expect(record).not.toHaveBeenCalled();
   });
 
   it("records an authoritative data transition only after save acceptance without learner data", async () => {
     const save = deferred<LearnerActivityRecord>();
-    const { session, send } = createRecordingXapiSession();
+    const { session, record } = createSessionDouble();
     const store = createLearnerActivityStore({
       artifactId: "course-1",
       learnerActivityPort: createPort(() => save.promise),
@@ -534,7 +505,7 @@ describe("createLearnerActivityStore", () => {
       privateAnswer: "must stay in learner state",
     });
     await flushPromises();
-    expect(send).not.toHaveBeenCalled();
+    expect(record).not.toHaveBeenCalled();
 
     save.resolve(
       hostRecord(
@@ -545,24 +516,16 @@ describe("createLearnerActivityStore", () => {
     await vi.waitFor(() => expect(store.getState().saves["block-1"]?.status).toBe("idle"));
     await flushPromises();
 
-    expect(send).toHaveBeenCalledTimes(2);
-    expect(send.mock.calls.map(([statement]) => statement.verb.id)).toEqual([
-      XAPI_VERBS.initialized.id,
-      XAPI_VERBS.interacted.id,
-    ]);
-    const expectedDraft = buildLearnerActivityInteractedStatementDraft({
-      rootActivityId: ROOT_ACTIVITY_ID,
-      blockId: "block-1",
-      activityKind: "checklist",
-    });
-    const learningStatement = send.mock.calls[1]?.[0] as XapiStatementTemplate;
-    expect(learningStatement).toEqual({
-      ...expectedDraft,
-      id: "00000000-0000-4000-8000-000000000002",
-      timestamp: XAPI_TIMESTAMP,
-    });
-    expect(JSON.stringify(learningStatement)).not.toContain("privateAnswer");
-    expect(JSON.stringify(learningStatement)).not.toContain("2026-07-25T11:00:00Z");
+    expect(record).toHaveBeenCalledOnce();
+    expect(record).toHaveBeenCalledWith(
+      learnerActivityInput({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        blockId: "block-1",
+        activityKind: "checklist",
+      }),
+    );
+    expect(JSON.stringify(record.mock.calls)).not.toContain("privateAnswer");
+    expect(JSON.stringify(record.mock.calls)).not.toContain("2026-07-25T11:00:00Z");
   });
 
   it("records an accepted checklist item event before completing the activity", async () => {
@@ -607,7 +570,7 @@ describe("createLearnerActivityStore", () => {
 
     expect(record).toHaveBeenCalledTimes(2);
     expect(record.mock.calls[0]?.[0]).toEqual(
-      buildLearnerActivityInteractedStatementDraft({
+      learnerActivityInput({
         rootActivityId: ROOT_ACTIVITY_ID,
         blockId: "block-1",
         activityKind: "checklist",
@@ -621,8 +584,9 @@ describe("createLearnerActivityStore", () => {
       }),
     );
     expect(record.mock.calls[1]?.[0]).toMatchObject({
-      verb: XAPI_VERBS.completed,
-      result: { completion: true },
+      type: "learner-activity.completed",
+      blockId: "block-1",
+      activityKind: "checklist",
     });
     expect(JSON.stringify(record.mock.calls)).not.toContain("PRIVATE_LEARNER_STATE");
   });
@@ -656,7 +620,7 @@ describe("createLearnerActivityStore", () => {
 
     expect(record).toHaveBeenCalledTimes(1);
     expect(record).toHaveBeenCalledWith(
-      buildLearnerActivityInteractedStatementDraft({
+      learnerActivityInput({
         rootActivityId: ROOT_ACTIVITY_ID,
         blockId: "block-1",
         activityKind: "checklist",
@@ -690,7 +654,7 @@ describe("createLearnerActivityStore", () => {
 
     expect(record).toHaveBeenCalledTimes(1);
     expect(record).toHaveBeenCalledWith(
-      buildLearnerActivityInteractedStatementDraft({
+      learnerActivityInput({
         rootActivityId: ROOT_ACTIVITY_ID,
         blockId: "block-1",
         activityKind: "checklist",
@@ -725,7 +689,7 @@ describe("createLearnerActivityStore", () => {
 
     expect(record).toHaveBeenCalledTimes(1);
     expect(record).toHaveBeenCalledWith(
-      buildLearnerActivityInteractedStatementDraft({
+      learnerActivityInput({
         rootActivityId: ROOT_ACTIVITY_ID,
         blockId: "block-1",
         activityKind: "flashcard",
@@ -772,7 +736,7 @@ describe("createLearnerActivityStore", () => {
 
     expect(record).toHaveBeenCalledTimes(1);
     expect(record).toHaveBeenCalledWith(
-      buildLearnerActivityInteractedStatementDraft({
+      learnerActivityInput({
         rootActivityId: ROOT_ACTIVITY_ID,
         blockId: "block-1",
         activityKind: "flashcard",
@@ -808,8 +772,8 @@ describe("createLearnerActivityStore", () => {
 
     expect(record).toHaveBeenCalledTimes(1);
     expect(record.mock.calls[0]?.[0]).toMatchObject({
-      verb: XAPI_VERBS.completed,
-      result: { completion: true },
+      type: "learner-activity.completed",
+      blockId: "block-1",
     });
   });
 
@@ -831,7 +795,7 @@ describe("createLearnerActivityStore", () => {
     changedStore.getState().setCompleted("block-1", false);
     await vi.waitFor(() => expect(changedStore.getState().saves["block-1"]?.status).toBe("idle"));
     expect(changed.record).toHaveBeenCalledTimes(1);
-    expect(changed.record.mock.calls[0]?.[0].verb.id).toBe(XAPI_VERBS.interacted.id);
+    expect(changed.record.mock.calls[0]?.[0].type).toBe("learner-activity.interacted");
 
     const completionOnly = createSessionDouble();
     const completionOnlyStore = createLearnerActivityStore({
@@ -916,7 +880,7 @@ describe("createLearnerActivityStore", () => {
       }),
     );
     expect(record).toHaveBeenCalledTimes(1);
-    expect(record.mock.calls[0]?.[0].verb.id).toBe(XAPI_VERBS.interacted.id);
+    expect(record.mock.calls[0]?.[0].type).toBe("learner-activity.interacted");
   });
 
   it("advances the authoritative baseline while an activity kind is not allowlisted", async () => {
@@ -964,13 +928,13 @@ describe("createLearnerActivityStore", () => {
   });
 
   it("ignores rejected or invalid responses and preserves the baseline for recovery", async () => {
-    const xapi = createSessionDouble();
+    const sessionDouble = createSessionDouble();
     const rejected = createLearnerActivityStore({
       artifactId: "course-1",
       learnerActivityPort: createPort(async () => {
         throw new Error("save rejected");
       }),
-      getLearningEventSession: () => xapi.session,
+      getLearningEventSession: () => sessionDouble.session,
     });
     hydrateBlock(rejected, hostRecord({ step: 0 }));
     rejected.getState().setData("block-1", { step: 1 });
@@ -988,12 +952,12 @@ describe("createLearnerActivityStore", () => {
     const invalid = createLearnerActivityStore({
       artifactId: "course-1",
       learnerActivityPort: createPort(invalidSave),
-      getLearningEventSession: () => xapi.session,
+      getLearningEventSession: () => sessionDouble.session,
     });
     hydrateBlock(invalid, hostRecord({ step: 0 }));
     invalid.getState().setCompleted("block-1", true);
     await vi.waitFor(() => expect(invalid.getState().saves["block-1"]?.status).toBe("error"));
-    expect(xapi.record).not.toHaveBeenCalled();
+    expect(sessionDouble.record).not.toHaveBeenCalled();
 
     invalid.getState().setCompleted("block-1", true);
     await vi.waitFor(() =>
@@ -1002,8 +966,8 @@ describe("createLearnerActivityStore", () => {
         generation: 2,
       }),
     );
-    expect(xapi.record).toHaveBeenCalledTimes(1);
-    expect(xapi.record.mock.calls[0]?.[0].verb.id).toBe(XAPI_VERBS.completed.id);
+    expect(sessionDouble.record).toHaveBeenCalledTimes(1);
+    expect(sessionDouble.record.mock.calls[0]?.[0].type).toBe("learner-activity.completed");
   });
 
   it("keeps persistence authoritative when recording is absent or throws", async () => {
@@ -1014,8 +978,8 @@ describe("createLearnerActivityStore", () => {
         updatedAt: "2026-07-25T11:00:00Z",
       }),
     );
-    const laterXapi = createSessionDouble();
-    let currentSession: XapiSession | null = null;
+    const laterSession = createSessionDouble();
+    let currentSession: LearningEventSession | null = null;
     const absent = createLearnerActivityStore({
       artifactId: "course-1",
       learnerActivityPort: savingPort,
@@ -1054,7 +1018,7 @@ describe("createLearnerActivityStore", () => {
     expect(throwingAccessor.getState().activities["block-1"]?.data).toEqual({ step: 1 });
     expect(throwingSession.getState().activities["block-1"]?.data).toEqual({ step: 1 });
 
-    currentSession = laterXapi.session;
+    currentSession = laterSession.session;
     absent.getState().setData("block-1", { step: 1 });
     await vi.waitFor(() =>
       expect(absent.getState().saves["block-1"]).toMatchObject({
@@ -1062,14 +1026,14 @@ describe("createLearnerActivityStore", () => {
         generation: 2,
       }),
     );
-    expect(laterXapi.record).not.toHaveBeenCalled();
+    expect(laterSession.record).not.toHaveBeenCalled();
   });
 
   it("resolves the current session only when a save becomes authoritative", async () => {
     const save = deferred<LearnerActivityRecord>();
-    const oldXapi = createSessionDouble();
-    const newXapi = createSessionDouble();
-    let currentSession = oldXapi.session;
+    const oldSession = createSessionDouble();
+    const newSession = createSessionDouble();
+    let currentSession = oldSession.session;
     const store = createLearnerActivityStore({
       artifactId: "course-1",
       learnerActivityPort: createPort(() => save.promise),
@@ -1078,12 +1042,12 @@ describe("createLearnerActivityStore", () => {
     hydrateBlock(store, hostRecord({ step: 0 }));
 
     store.getState().setData("block-1", { step: 1 });
-    currentSession = newXapi.session;
+    currentSession = newSession.session;
     save.resolve(hostRecord({ step: 1 }, { updatedAt: "2026-07-25T11:00:00Z" }));
     await vi.waitFor(() => expect(store.getState().saves["block-1"]?.status).toBe("idle"));
 
-    expect(oldXapi.record).not.toHaveBeenCalled();
-    expect(newXapi.record).toHaveBeenCalledTimes(1);
-    expect(newXapi.record.mock.calls[0]?.[0].verb.id).toBe(XAPI_VERBS.interacted.id);
+    expect(oldSession.record).not.toHaveBeenCalled();
+    expect(newSession.record).toHaveBeenCalledTimes(1);
+    expect(newSession.record.mock.calls[0]?.[0].type).toBe("learner-activity.interacted");
   });
 });

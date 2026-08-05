@@ -11,7 +11,8 @@ import {
   LearnerActivityReadinessGate,
   LearnerActivityRuntimeProvider,
 } from "@/runtime/learner-activity/LearnerActivityRuntimeProvider";
-import { XAPI_EXTENSIONS, XAPI_VERBS, XapiRuntimeProvider } from "@/runtime/xapi";
+import { LearningEventRuntimeProvider } from "@/runtime/learning-events/LearningEventRuntimeProvider";
+import { LEARNING_EVENT_EXTENSIONS, LEARNING_EVENT_VERBS } from "@/runtime/learning-events/catalogue";
 
 import {
   useFlashcardCardController,
@@ -113,13 +114,13 @@ function renderRuntimeController(learnerActivityPort: LearnerActivityPort, xapiP
       ports={{ learnerActivity: learnerActivityPort, ...(xapiPort ? { xapi: xapiPort } : {}) }}
     >
       <ScaffoldArtifactIdentityProvider artifactId="artifact-one">
-        <XapiRuntimeProvider>
+        <LearningEventRuntimeProvider>
           <LearnerActivityRuntimeProvider>
             <LearnerActivityReadinessGate>
               <RuntimeControllerProbe />
             </LearnerActivityReadinessGate>
           </LearnerActivityRuntimeProvider>
-        </XapiRuntimeProvider>
+        </LearningEventRuntimeProvider>
       </ScaffoldArtifactIdentityProvider>
     </ScaffoldServicesProvider>,
   );
@@ -307,10 +308,10 @@ describe("flashcard runtime controller", () => {
     await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
     expect(send.mock.calls[1]?.[0]).toMatchObject({
-      verb: XAPI_VERBS.interacted,
+      verb: LEARNING_EVENT_VERBS.interacted,
       result: {
         extensions: {
-          [XAPI_EXTENSIONS.learnerActivityEvent]: {
+          [LEARNING_EVENT_EXTENSIONS.learnerActivityEvent]: {
             action: "card-flipped",
             cardId: "card-a",
             face: "back",
@@ -323,10 +324,10 @@ describe("flashcard runtime controller", () => {
     await waitFor(() => expect(save).toHaveBeenCalledTimes(3));
     await waitFor(() => expect(send).toHaveBeenCalledTimes(3));
     expect(send.mock.calls[2]?.[0]).toMatchObject({
-      verb: XAPI_VERBS.interacted,
+      verb: LEARNING_EVENT_VERBS.interacted,
       result: {
         extensions: {
-          [XAPI_EXTENSIONS.learnerActivityEvent]: {
+          [LEARNING_EVENT_EXTENSIONS.learnerActivityEvent]: {
             action: "card-flipped",
             cardId: "card-a",
             face: "front",
@@ -360,10 +361,10 @@ describe("flashcard runtime controller", () => {
     await waitFor(() => expect(send).toHaveBeenCalledTimes(5));
     expect(send.mock.calls.slice(1).map(([statement]) => statement)).toMatchObject([
       {
-        verb: XAPI_VERBS.interacted,
+        verb: LEARNING_EVENT_VERBS.interacted,
         result: {
           extensions: {
-            [XAPI_EXTENSIONS.learnerActivityEvent]: {
+            [LEARNING_EVENT_EXTENSIONS.learnerActivityEvent]: {
               action: "card-rated",
               cardId: "card-a",
               rating: "not-yet",
@@ -374,10 +375,10 @@ describe("flashcard runtime controller", () => {
         },
       },
       {
-        verb: XAPI_VERBS.interacted,
+        verb: LEARNING_EVENT_VERBS.interacted,
         result: {
           extensions: {
-            [XAPI_EXTENSIONS.learnerActivityEvent]: {
+            [LEARNING_EVENT_EXTENSIONS.learnerActivityEvent]: {
               action: "card-rated",
               cardId: "card-b",
               rating: "got-it",
@@ -388,10 +389,10 @@ describe("flashcard runtime controller", () => {
         },
       },
       {
-        verb: XAPI_VERBS.interacted,
+        verb: LEARNING_EVENT_VERBS.interacted,
         result: {
           extensions: {
-            [XAPI_EXTENSIONS.learnerActivityEvent]: {
+            [LEARNING_EVENT_EXTENSIONS.learnerActivityEvent]: {
               action: "card-rated",
               cardId: "card-a",
               rating: "got-it",
@@ -402,7 +403,7 @@ describe("flashcard runtime controller", () => {
         },
       },
       {
-        verb: XAPI_VERBS.completed,
+        verb: LEARNING_EVENT_VERBS.completed,
         result: { completion: true },
       },
     ]);

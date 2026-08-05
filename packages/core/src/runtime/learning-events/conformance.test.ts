@@ -11,10 +11,10 @@ import {
   type QuizAttemptState,
 } from "@scaffold/contracts";
 import {
-  XapiStatementTemplateSchema,
-  type XapiPort,
-  type XapiStatementTemplate,
-} from "@scaffold/core/ports";
+  LearningEventSchema,
+  type LearningEvent,
+  type LearningEventPort,
+} from "../../host/ports/learning-events";
 import type { AssessmentPort } from "../../host/ports/assessment";
 import type { LearnerActivityPort } from "../../host/ports/learner-activity";
 import { createAssessmentStore, scopeAssessmentProblemId } from "../assessment/assessment-store";
@@ -24,20 +24,19 @@ import type {
 } from "../assessment/types";
 import { createLearnerActivityStore } from "../learner-activity/store";
 import type { LearningEventSession } from "./session";
-import { buildLearningEventDraft } from "./catalogue";
 import {
-  XAPI_ACTIVITY_TYPES,
-  XAPI_EXTENSIONS,
-  XAPI_SESSION_MAX_PENDING_STATEMENTS,
-  XAPI_VERBS,
-  buildLearnerActivityInteractedStatementDraft,
+  LEARNING_EVENT_ACTIVITY_TYPES,
+  LEARNING_EVENT_EXTENSIONS,
+  LEARNING_EVENT_VERBS,
   createAssessmentActivityId,
   createHintActivityId,
   createLearnerActivityId,
   createQuizActivityId,
-  createXapiSession,
-  type XapiSessionAccessor,
-} from "../xapi";
+} from "./catalogue";
+import {
+  LEARNING_EVENT_SESSION_MAX_PENDING_EVENTS,
+  createLearningEventSession,
+} from "./session";
 
 const ROOT_ACTIVITY_ID = "https://lms.example.test/courses/course-one";
 const EVENT_START = "2026-07-25T10:00:00.000Z";
@@ -54,20 +53,6 @@ const QUIZ_ATTEMPT_ID = "quiz-attempt-one";
 const LOCAL_RESPONSE_ID = "local option";
 const AUTHORITATIVE_RESPONSE_ID = "authoritative option";
 
-function learningSession(getXapiSession: XapiSessionAccessor): () => LearningEventSession | null {
-  return () => {
-    const session = getXapiSession();
-    if (!session) return null;
-    return {
-      rootActivityId: session.rootActivityId,
-      start: () => session.start(),
-      record: (input) =>
-        session.record(buildLearningEventDraft(input, { rootActivityId: session.rootActivityId })),
-      terminate: () => session.terminate(),
-      getState: () => ({ status: "dormant" as const }),
-    };
-  };
-}
 
 const PRIVATE_VALUES = Object.freeze([
   "PRIVATE_ITEM_RESPONSE",
@@ -128,12 +113,12 @@ const ALLOWED_TEMPLATE_KEYS = new Set([
   "duration",
   "contextActivities",
   "parent",
-  ...Object.values(XAPI_EXTENSIONS),
+  ...Object.values(LEARNING_EVENT_EXTENSIONS),
 ]);
 
-const APPROVED_VERB_IDS = new Set(Object.values(XAPI_VERBS).map((verb) => verb.id));
-const APPROVED_ACTIVITY_TYPES: ReadonlySet<string> = new Set(Object.values(XAPI_ACTIVITY_TYPES));
-const APPROVED_EXTENSION_IDS: ReadonlySet<string> = new Set(Object.values(XAPI_EXTENSIONS));
+const APPROVED_VERB_IDS = new Set(Object.values(LEARNING_EVENT_VERBS).map((verb) => verb.id));
+const APPROVED_ACTIVITY_TYPES: ReadonlySet<string> = new Set(Object.values(LEARNING_EVENT_ACTIVITY_TYPES));
+const APPROVED_EXTENSION_IDS: ReadonlySet<string> = new Set(Object.values(LEARNING_EVENT_EXTENSIONS));
 
 function assessmentResult(overrides: Partial<AssessmentResult> = {}): AssessmentResult {
   return {
@@ -326,30 +311,30 @@ function createAssessmentPort(successStatus: "passed" | "failed"): AssessmentPor
   };
 }
 
-function createInMemoryXapiPort(accept: XapiPort["send"] = async () => undefined): {
-  readonly port: XapiPort;
-  readonly accepted: XapiStatementTemplate[];
+function createInMemoryLearningEventPort(accept: LearningEventPort["accept"] = async () => undefined): {
+  readonly port: LearningEventPort;
+  readonly accepted: LearningEvent[];
 } {
-  const accepted: XapiStatementTemplate[] = [];
+  const accepted: LearningEvent[] = [];
   return {
     port: {
-      activityId: ROOT_ACTIVITY_ID,
-      send: async (statement) => {
-        await accept(statement);
-        accepted.push(statement);
+      rootActivityId: ROOT_ACTIVITY_ID,
+      accept: async (event) => {
+        await accept(event);
+        accepted.push(event);
       },
     },
     accepted,
   };
 }
 
-function createDeterministicSession(port: XapiPort) {
+function createDeterministicLearningEventSession(port: LearningEventPort) {
   let uuidSequence = 0;
   let eventSequence = 0;
   let monotonicTime = 1_000;
-  const session = createXapiSession({
+  const session = createLearningEventSession({
     port,
-    courseTitle: "Course One",
+    artefactTitle: "Course One",
     createUuid: () => {
       uuidSequence += 1;
       return `00000000-0000-4000-8000-${uuidSequence.toString(16).padStart(12, "0")}`;
@@ -383,14 +368,14 @@ function learnerActivityRecord(
   };
 }
 
-async function recordLearnerActivitySequence(getXapiSession: XapiSessionAccessor): Promise<void> {
-  const store = createConformanceLearnerActivityStore(getXapiSession);
+async function recordLearnerActivitySequence(getLearningEventSession: () => LearningEventSession | null): Promise<void> {
+  const store = createConformanceLearnerActivityStore(getLearningEventSession);
   await recordLearnerActivityProgress(store);
   await recordLearnerActivityCompletion(store);
 }
 
 function createConformanceLearnerActivityStore(
-  getXapiSession?: XapiSessionAccessor,
+  getLearningEventSession?: () => LearningEventSession | null,
 ): ReturnType<typeof createLearnerActivityStore> {
   const learnerActivityPort: LearnerActivityPort = {
     load: async () => null,
@@ -404,7 +389,7 @@ function createConformanceLearnerActivityStore(
   const store = createLearnerActivityStore({
     artifactId: ARTIFACT_ID,
     learnerActivityPort,
-    ...(getXapiSession ? { getLearningEventSession: learningSession(getXapiSession) } : {}),
+    ...(getLearningEventSession ? { getLearningEventSession: getLearningEventSession } : {}),
   });
   store.setState({
     activities: {
@@ -439,13 +424,13 @@ async function recordLearnerActivityCompletion(
 }
 
 function createConformanceAssessmentStore(
-  getXapiSession: XapiSessionAccessor | undefined,
+  getLearningEventSession: (() => LearningEventSession | null) | undefined,
   successStatus: "passed" | "failed",
 ): ReturnType<typeof createAssessmentStore> {
   return createAssessmentStore({
     artifactId: ARTIFACT_ID,
     assessmentPort: createAssessmentPort(successStatus),
-    ...(getXapiSession ? { getLearningEventSession: learningSession(getXapiSession) } : {}),
+    ...(getLearningEventSession ? { getLearningEventSession: getLearningEventSession } : {}),
   });
 }
 
@@ -522,10 +507,10 @@ interface OperationalResult {
   readonly assessmentProblem: AssessmentProblemSnapshot;
 }
 
-function createOperationalStores(getXapiSession?: XapiSessionAccessor): OperationalStores {
+function createOperationalStores(getLearningEventSession?: () => LearningEventSession | null): OperationalStores {
   return {
-    learnerActivity: createConformanceLearnerActivityStore(getXapiSession),
-    assessment: createConformanceAssessmentStore(getXapiSession, "passed"),
+    learnerActivity: createConformanceLearnerActivityStore(getLearningEventSession),
+    assessment: createConformanceAssessmentStore(getLearningEventSession, "passed"),
   };
 }
 
@@ -551,10 +536,10 @@ function operationalResult(
 }
 
 async function recordOperationalScenario(
-  getXapiSession?: XapiSessionAccessor,
+  getLearningEventSession?: () => LearningEventSession | null,
   afterLearnerActivity?: () => Promise<void>,
 ): Promise<OperationalResult> {
-  const stores = createOperationalStores(getXapiSession);
+  const stores = createOperationalStores(getLearningEventSession);
   await recordLearnerActivityProgress(stores.learnerActivity);
   await afterLearnerActivity?.();
   const result = await recordStandalone(stores.assessment);
@@ -616,22 +601,22 @@ function collectTemplateDetails(
   }
 }
 
-function expectConformantTemplates(
-  statements: readonly XapiStatementTemplate[],
+function expectLearningEvents(
+  events: readonly LearningEvent[],
   approvedActivityIds: ReadonlySet<string>,
 ): void {
-  expect(statements.length).toBeGreaterThan(0);
-  expect(new Set(statements.map((statement) => statement.id)).size).toBe(statements.length);
+  expect(events.length).toBeGreaterThan(0);
+  expect(new Set(events.map((statement) => statement.id)).size).toBe(events.length);
 
-  for (const statement of statements) {
-    expect(XapiStatementTemplateSchema.parse(statement)).toStrictEqual(statement);
-    expect(APPROVED_VERB_IDS.has(statement.verb.id)).toBe(true);
+  for (const event of events) {
+    expect(LearningEventSchema.parse(event)).toStrictEqual(event);
+    expect(APPROVED_VERB_IDS.has(event.verb.id)).toBe(true);
 
     const keys = new Set<string>();
     const activityIds: string[] = [];
     const activityTypes: string[] = [];
     const extensionIds: string[] = [];
-    collectTemplateDetails(statement, keys, activityIds, activityTypes, extensionIds);
+    collectTemplateDetails(event, keys, activityIds, activityTypes, extensionIds);
 
     expect([...keys].filter((key) => !ALLOWED_TEMPLATE_KEYS.has(key))).toStrictEqual([]);
     expect([...keys].filter((key) => PROHIBITED_KEYS.has(key))).toStrictEqual([]);
@@ -645,7 +630,7 @@ function expectConformantTemplates(
       extensionIds.filter((extensionId) => !APPROVED_EXTENSION_IDS.has(extensionId)),
     ).toStrictEqual([]);
 
-    const serialized = JSON.stringify(statement);
+    const serialized = JSON.stringify(event);
     for (const privateValue of PRIVATE_VALUES) {
       expect(serialized).not.toContain(privateValue);
     }
@@ -668,31 +653,31 @@ function approvedActivityIds(includeLearnerAndStandalone: boolean): Set<string> 
   ]);
 }
 
-describe("Core xAPI conformance", () => {
+describe("Core learning event conformance", () => {
   it("accepts one ordered lifecycle, learner-activity, and assessment sequence", async () => {
-    const { port, accepted } = createInMemoryXapiPort();
-    const { session, setMonotonicTime } = createDeterministicSession(port);
-    const getXapiSession = () => session;
-    const assessmentStore = createConformanceAssessmentStore(getXapiSession, "passed");
+    const { port, accepted } = createInMemoryLearningEventPort();
+    const { session, setMonotonicTime } = createDeterministicLearningEventSession(port);
+    const getLearningEventSession = () => session;
+    const assessmentStore = createConformanceAssessmentStore(getLearningEventSession, "passed");
 
     session.start();
-    await recordLearnerActivitySequence(getXapiSession);
+    await recordLearnerActivitySequence(getLearningEventSession);
     await recordStandaloneAndHint(assessmentStore);
     await recordTerminalQuiz(assessmentStore, "passed");
     setMonotonicTime(31_000);
     await session.terminate();
 
     expect(accepted.map((statement) => statement.verb.id)).toStrictEqual([
-      XAPI_VERBS.initialized.id,
-      XAPI_VERBS.interacted.id,
-      XAPI_VERBS.completed.id,
-      XAPI_VERBS.answered.id,
-      XAPI_VERBS.interacted.id,
-      XAPI_VERBS.attempted.id,
-      XAPI_VERBS.answered.id,
-      XAPI_VERBS.completed.id,
-      XAPI_VERBS.passed.id,
-      XAPI_VERBS.terminated.id,
+      LEARNING_EVENT_VERBS.initialized.id,
+      LEARNING_EVENT_VERBS.interacted.id,
+      LEARNING_EVENT_VERBS.completed.id,
+      LEARNING_EVENT_VERBS.answered.id,
+      LEARNING_EVENT_VERBS.interacted.id,
+      LEARNING_EVENT_VERBS.attempted.id,
+      LEARNING_EVENT_VERBS.answered.id,
+      LEARNING_EVENT_VERBS.completed.id,
+      LEARNING_EVENT_VERBS.passed.id,
+      LEARNING_EVENT_VERBS.terminated.id,
     ]);
     expect(accepted.map((statement) => statement.id)).toStrictEqual(
       Array.from(
@@ -709,7 +694,7 @@ describe("Core xAPI conformance", () => {
     expect(accepted[0]).toMatchObject({
       object: {
         id: ROOT_ACTIVITY_ID,
-        definition: { type: XAPI_ACTIVITY_TYPES.course },
+        definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.artefact },
       },
     });
     expect(accepted[1]).toMatchObject({
@@ -717,7 +702,7 @@ describe("Core xAPI conformance", () => {
         id: createLearnerActivityId(ROOT_ACTIVITY_ID, LEARNER_ACTIVITY_BLOCK_ID),
         definition: {
           extensions: {
-            [XAPI_EXTENSIONS.learnerActivityKind]: "checklist",
+            [LEARNING_EVENT_EXTENSIONS.learnerActivityKind]: "checklist",
           },
         },
       },
@@ -734,7 +719,7 @@ describe("Core xAPI conformance", () => {
         definition: {
           interactionType: "choice",
           extensions: {
-            [XAPI_EXTENSIONS.assessmentInteractionKind]: "single-select",
+            [LEARNING_EVENT_EXTENSIONS.assessmentInteractionKind]: "single-select",
           },
         },
       },
@@ -743,7 +728,7 @@ describe("Core xAPI conformance", () => {
         score: { scaled: 0.25 },
         response: "authoritative%20option",
         extensions: {
-          [XAPI_EXTENSIONS.assessmentAttemptNumber]: 3,
+          [LEARNING_EVENT_EXTENSIONS.assessmentAttemptNumber]: 3,
         },
       },
       context: {
@@ -755,7 +740,7 @@ describe("Core xAPI conformance", () => {
         id: createHintActivityId(ROOT_ACTIVITY_ID, HINT_TARGET_ID, 1),
       },
       result: {
-        extensions: { [XAPI_EXTENSIONS.hintNumber]: 1 },
+        extensions: { [LEARNING_EVENT_EXTENSIONS.hintNumber]: 1 },
       },
       context: {
         contextActivities: {
@@ -772,7 +757,7 @@ describe("Core xAPI conformance", () => {
       context: {
         contextActivities: { parent: [{ id: ROOT_ACTIVITY_ID }] },
         extensions: {
-          [XAPI_EXTENSIONS.quizAttemptId]: QUIZ_ATTEMPT_ID,
+          [LEARNING_EVENT_EXTENSIONS.quizAttemptId]: QUIZ_ATTEMPT_ID,
         },
       },
     });
@@ -783,7 +768,7 @@ describe("Core xAPI conformance", () => {
       result: {
         response: "authoritative%20option",
         extensions: {
-          [XAPI_EXTENSIONS.assessmentAttemptNumber]: 1,
+          [LEARNING_EVENT_EXTENSIONS.assessmentAttemptNumber]: 1,
         },
       },
       context: {
@@ -791,7 +776,7 @@ describe("Core xAPI conformance", () => {
           parent: [{ id: createQuizActivityId(ROOT_ACTIVITY_ID, QUIZ_ID) }],
         },
         extensions: {
-          [XAPI_EXTENSIONS.quizAttemptId]: QUIZ_ATTEMPT_ID,
+          [LEARNING_EVENT_EXTENSIONS.quizAttemptId]: QUIZ_ATTEMPT_ID,
         },
       },
     });
@@ -801,7 +786,7 @@ describe("Core xAPI conformance", () => {
       context: {
         contextActivities: { parent: [{ id: ROOT_ACTIVITY_ID }] },
         extensions: {
-          [XAPI_EXTENSIONS.quizAttemptId]: QUIZ_ATTEMPT_ID,
+          [LEARNING_EVENT_EXTENSIONS.quizAttemptId]: QUIZ_ATTEMPT_ID,
         },
       },
     });
@@ -816,12 +801,12 @@ describe("Core xAPI conformance", () => {
       result: { duration: "PT30S" },
     });
 
-    expectConformantTemplates(accepted, approvedActivityIds(true));
+    expectLearningEvents(accepted, approvedActivityIds(true));
   });
 
-  it("copies an authoritative failed quiz outcome into conformant templates", async () => {
-    const { port, accepted } = createInMemoryXapiPort();
-    const { session, setMonotonicTime } = createDeterministicSession(port);
+  it("copies an authoritative failed quiz outcome into conformant learning events", async () => {
+    const { port, accepted } = createInMemoryLearningEventPort();
+    const { session, setMonotonicTime } = createDeterministicLearningEventSession(port);
     const assessmentStore = createConformanceAssessmentStore(() => session, "failed");
 
     await recordTerminalQuiz(assessmentStore, "failed");
@@ -829,12 +814,12 @@ describe("Core xAPI conformance", () => {
     await session.terminate();
 
     expect(accepted.map((statement) => statement.verb.id)).toStrictEqual([
-      XAPI_VERBS.initialized.id,
-      XAPI_VERBS.attempted.id,
-      XAPI_VERBS.answered.id,
-      XAPI_VERBS.completed.id,
-      XAPI_VERBS.failed.id,
-      XAPI_VERBS.terminated.id,
+      LEARNING_EVENT_VERBS.initialized.id,
+      LEARNING_EVENT_VERBS.attempted.id,
+      LEARNING_EVENT_VERBS.answered.id,
+      LEARNING_EVENT_VERBS.completed.id,
+      LEARNING_EVENT_VERBS.failed.id,
+      LEARNING_EVENT_VERBS.terminated.id,
     ]);
     expect(accepted[4]).toMatchObject({
       result: {
@@ -843,130 +828,130 @@ describe("Core xAPI conformance", () => {
       },
     });
 
-    expectConformantTemplates(accepted, approvedActivityIds(false));
+    expectLearningEvents(accepted, approvedActivityIds(false));
   });
 
   it("preserves operational authority across unavailable and failed recording", async () => {
-    const acceptingPort = createInMemoryXapiPort();
-    const acceptingSession = createDeterministicSession(acceptingPort.port);
+    const acceptingPort = createInMemoryLearningEventPort();
+    const acceptingSession = createDeterministicLearningEventSession(acceptingPort.port);
     const baseline = await recordOperationalScenario(() => acceptingSession.session);
     acceptingSession.setMonotonicTime(31_000);
     await acceptingSession.session.terminate();
     expect(acceptingPort.accepted.map((statement) => statement.verb.id)).toStrictEqual([
-      XAPI_VERBS.initialized.id,
-      XAPI_VERBS.interacted.id,
-      XAPI_VERBS.answered.id,
-      XAPI_VERBS.terminated.id,
+      LEARNING_EVENT_VERBS.initialized.id,
+      LEARNING_EVENT_VERBS.interacted.id,
+      LEARNING_EVENT_VERBS.answered.id,
+      LEARNING_EVENT_VERBS.terminated.id,
     ]);
-    expectConformantTemplates(acceptingPort.accepted, operationalActivityIds());
+    expectLearningEvents(acceptingPort.accepted, operationalActivityIds());
 
     const absent = await recordOperationalScenario();
 
     let rejectionAttempt = 0;
-    const rejectSecondAcceptance = vi.fn<XapiPort["send"]>(async () => {
+    const rejectSecondAcceptance = vi.fn<LearningEventPort["accept"]>(async () => {
       rejectionAttempt += 1;
       if (rejectionAttempt === 2) {
-        throw new Error("host rejected the learning Statement");
+        throw new Error("host rejected the learning event");
       }
     });
-    const rejectingPort = createInMemoryXapiPort(rejectSecondAcceptance);
-    const rejectingSession = createDeterministicSession(rejectingPort.port);
+    const rejectingPort = createInMemoryLearningEventPort(rejectSecondAcceptance);
+    const rejectingSession = createDeterministicLearningEventSession(rejectingPort.port);
     const rejected = await recordOperationalScenario(
       () => rejectingSession.session,
       async () => {
         await vi.waitFor(() =>
           expect(rejectingSession.session.getState()).toMatchObject({
             status: "active",
-            delivery: "failed",
+            acceptance: "failed",
           }),
         );
       },
     );
     expect(rejectSecondAcceptance).toHaveBeenCalledTimes(2);
     expect(rejectingPort.accepted.map((statement) => statement.verb.id)).toStrictEqual([
-      XAPI_VERBS.initialized.id,
+      LEARNING_EVENT_VERBS.initialized.id,
     ]);
-    expectConformantTemplates(rejectingPort.accepted, new Set([ROOT_ACTIVITY_ID]));
+    expectLearningEvents(rejectingPort.accepted, new Set([ROOT_ACTIVITY_ID]));
     await rejectingSession.session.terminate();
     expect(rejectingSession.session.getState()).toMatchObject({
       status: "terminated",
-      delivery: "failed",
+      acceptance: "failed",
     });
 
     const heldOverflowAcceptance = deferredAcceptance();
-    const acceptOverflow = vi.fn<XapiPort["send"]>(() => heldOverflowAcceptance.promise);
-    const overflowPort = createInMemoryXapiPort(acceptOverflow);
-    const overflowSession = createDeterministicSession(overflowPort.port);
+    const acceptOverflow = vi.fn<LearningEventPort["accept"]>(() => heldOverflowAcceptance.promise);
+    const overflowPort = createInMemoryLearningEventPort(acceptOverflow);
+    const overflowSession = createDeterministicLearningEventSession(overflowPort.port);
     overflowSession.session.start();
     await vi.waitFor(() => expect(acceptOverflow).toHaveBeenCalledOnce());
-    for (let index = 1; index < XAPI_SESSION_MAX_PENDING_STATEMENTS; index += 1) {
+    for (let index = 1; index < LEARNING_EVENT_SESSION_MAX_PENDING_EVENTS; index += 1) {
       overflowSession.session.record(
-        buildLearnerActivityInteractedStatementDraft({
-          rootActivityId: ROOT_ACTIVITY_ID,
+        {
+          type: "learner-activity.interacted",
           blockId: `overflow-${index}`,
           activityKind: "checklist",
-        }),
+        },
       );
     }
     overflowSession.session.record(
-      buildLearnerActivityInteractedStatementDraft({
-        rootActivityId: ROOT_ACTIVITY_ID,
+      {
+        type: "learner-activity.interacted",
         blockId: "overflow",
         activityKind: "checklist",
-      }),
+      },
     );
     expect(overflowSession.session.getState()).toMatchObject({
       status: "active",
-      delivery: "failed",
+      acceptance: "failed",
     });
     const overflowed = await recordOperationalScenario(() => overflowSession.session);
     expect(acceptOverflow).toHaveBeenCalledOnce();
     heldOverflowAcceptance.resolve();
     await vi.waitFor(() => expect(overflowPort.accepted).toHaveLength(1));
-    expectConformantTemplates(overflowPort.accepted, new Set([ROOT_ACTIVITY_ID]));
+    expectLearningEvents(overflowPort.accepted, new Set([ROOT_ACTIVITY_ID]));
     await overflowSession.session.terminate();
     expect(overflowSession.session.getState()).toMatchObject({
       status: "terminated",
-      delivery: "failed",
+      acceptance: "failed",
     });
 
     const heldShutdownAcceptance = deferredAcceptance();
     let shutdownAttempt = 0;
-    const acceptShutdown = vi.fn<XapiPort["send"]>(() => {
+    const acceptShutdown = vi.fn<LearningEventPort["accept"]>(() => {
       shutdownAttempt += 1;
       return shutdownAttempt === 1 ? heldShutdownAcceptance.promise : Promise.resolve();
     });
-    const shutdownPort = createInMemoryXapiPort(acceptShutdown);
-    const shutdownSession = createDeterministicSession(shutdownPort.port);
+    const shutdownPort = createInMemoryLearningEventPort(acceptShutdown);
+    const shutdownSession = createDeterministicLearningEventSession(shutdownPort.port);
     shutdownSession.session.start();
     await vi.waitFor(() => expect(acceptShutdown).toHaveBeenCalledOnce());
     shutdownSession.setMonotonicTime(31_000);
     const termination = shutdownSession.session.terminate();
     expect(shutdownSession.session.getState()).toMatchObject({
       status: "terminating",
-      delivery: "accepting",
+      acceptance: "accepting",
     });
     const shutdownStores = createOperationalStores(() => shutdownSession.session);
     await recordLearnerActivityProgress(shutdownStores.learnerActivity);
     expect(shutdownSession.session.getState()).toMatchObject({
       status: "terminating",
-      delivery: "accepting",
+      acceptance: "accepting",
     });
     expect(acceptShutdown).toHaveBeenCalledOnce();
     heldShutdownAcceptance.resolve();
     await termination;
     expect(shutdownSession.session.getState()).toMatchObject({
       status: "terminated",
-      delivery: "accepted",
+      acceptance: "accepted",
     });
     const shutdownAssessmentResult = await recordStandalone(shutdownStores.assessment);
     const shutDown = operationalResult(shutdownStores, shutdownAssessmentResult);
     expect(acceptShutdown).toHaveBeenCalledTimes(2);
     expect(shutdownPort.accepted.map((statement) => statement.verb.id)).toStrictEqual([
-      XAPI_VERBS.initialized.id,
-      XAPI_VERBS.terminated.id,
+      LEARNING_EVENT_VERBS.initialized.id,
+      LEARNING_EVENT_VERBS.terminated.id,
     ]);
-    expectConformantTemplates(shutdownPort.accepted, new Set([ROOT_ACTIVITY_ID]));
+    expectLearningEvents(shutdownPort.accepted, new Set([ROOT_ACTIVITY_ID]));
 
     for (const [condition, result] of Object.entries({
       absent,
