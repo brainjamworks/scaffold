@@ -12,6 +12,7 @@ import {
   assessmentProblemOutcome,
   createAssessmentRuntimeTestRoot,
   hasAssessmentRegistration,
+  localAssessmentResponse,
   setAssessmentResponseField,
 } from "@/runtime/assessment/test-utils";
 import type { AssessmentStoreApi } from "@/runtime/assessment/types";
@@ -529,7 +530,7 @@ describe("composite matching node", () => {
     editor.destroy();
   });
 
-  it("keeps runtime matching as item-to-target drag, not contained reordering", async () => {
+  it("uses one shared pointer activation area without draggable keyboard semantics", async () => {
     const editor = makeEditor(false);
     editor.commands.setContent(matchingDoc());
     const view = renderAssessmentEditor(editor);
@@ -539,13 +540,56 @@ describe("composite matching node", () => {
       expect(document.body.querySelectorAll("[data-matching-drop-target]")).toHaveLength(2);
     });
 
-    const item = document.body.querySelector("[data-matching-draggable-item]");
+    const item = document.body.querySelector<HTMLElement>("[data-matching-draggable-item]");
+    expect(item).toBeInstanceOf(HTMLButtonElement);
     expect(item?.hasAttribute("draggable")).toBe(false);
+    expect(item).not.toHaveAttribute("role");
+    expect(item).not.toHaveAttribute("aria-roledescription");
+    expect(item).not.toHaveAttribute("aria-description");
+    expect(item).toHaveAttribute("data-interaction-drag-activation-area", "");
+    expect(item?.querySelectorAll("[data-runtime-matching-handle]")).toHaveLength(1);
+    expect(document.body.querySelectorAll("[data-interaction-drag-activation-area]")).toHaveLength(
+      2,
+    );
     expect(document.body.querySelector("[data-contained-movement-target]")).toBeNull();
     expect(document.body.querySelector("[data-contained-movement-handle]")).toBeNull();
     expect(document.body.querySelector('button[aria-label="Move matching pair up"]')).toBeNull();
 
     view.unmount();
+    editor.destroy();
+  });
+
+  it("pairs once through the Enter then Space selection contract", async () => {
+    const editor = makeEditor(false);
+    const problemId = "artifact:artifact-1/block:matching-1";
+    editor.commands.setContent(matchingRuntimeDoc());
+    renderAssessmentEditor(editor);
+
+    await waitFor(() => {
+      expect(hasAssessmentRegistration(assessmentStore, problemId)).toBe(true);
+    });
+
+    const item = screen.getByRole("button", { name: "Select matching item 1" });
+    const target = document.body.querySelector<HTMLElement>(
+      '[data-target-id="t2"][data-matching-drop-target]',
+    );
+    expect(target).toBeInstanceOf(HTMLElement);
+    fireEvent.keyDown(item, { key: "Enter" });
+    fireEvent.keyDown(target!, { key: " " });
+
+    await waitFor(() => {
+      expect(localAssessmentResponse(assessmentStore, problemId)).toMatchObject({
+        matches: { i1: "t2" },
+      });
+    });
+    expect(item).toHaveAttribute("aria-disabled", "true");
+    expect(item).toHaveAttribute("tabindex", "-1");
+
+    fireEvent.keyDown(target!, { key: " " });
+    expect(localAssessmentResponse(assessmentStore, problemId)).toMatchObject({
+      matches: { i1: "t2" },
+    });
+
     editor.destroy();
   });
 

@@ -1,18 +1,4 @@
 import {
-  DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  closestCenter,
-  useDraggable,
-  useDroppable,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragOverEvent,
-  type DragStartEvent,
-} from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
-import {
   CheckCircleIcon as CheckCircle,
   DotsSixVerticalIcon as DotsSixVertical,
   XIcon as X,
@@ -27,12 +13,10 @@ import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared
 import type { AssessmentItemDetail } from "@scaffold/contracts";
 import { RichFeedbackRuntimePopover } from "@/editor/blocks/assessment/shared/chrome/RichFeedbackRuntimePopover";
 import { useAssessmentRuntimeById } from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
-import {
-  RUNTIME_DRAG_HANDLE_CLASS,
-  RUNTIME_DRAG_SOURCE_PLACEHOLDER_CLASS,
-  RuntimeDragOverlay,
-  RuntimeDragPreview,
-} from "@/editor/blocks/assessment/shared/runtime/runtime-dnd";
+import { InteractionDragActivationArea } from "@/editor/interactions/drag/react/InteractionDragActivationArea";
+import { InteractionDragSession } from "@/editor/interactions/drag/react/InteractionDragSession";
+import { useInteractionDragSource } from "@/editor/interactions/drag/react/use-interaction-drag-source";
+import { useInteractionDropTarget } from "@/editor/interactions/drag/react/use-interaction-drop-target";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 import { serializeStaticRichTextHtml } from "@/editor/rich-text/static/render-rich-text";
 import { cn } from "@/lib/cn";
@@ -72,20 +56,24 @@ export const MatchingPairRuntimeNode = createMatchingPairNode();
 
 const EMPTY_FEEDBACK_ITEMS: Record<string, AssessmentItemDetail> = {};
 
+interface MatchingDragData {
+  readonly itemHtml: string;
+  readonly itemId: string;
+}
+
+interface MatchingDropData {
+  readonly targetId: string;
+}
+
 export const MatchingPairsGroupRuntimeNode = createMatchingPairsGroupNode({
   addNodeView: () => ReactNodeViewRenderer(MatchingPairsGroupRuntimeNodeView),
 });
 
 function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  const [draggingItemId, setDraggingItemId] = useState<string | null>(null);
   const [hoverTargetId, setHoverTargetId] = useState<string | null>(null);
   const [connectors, setConnectors] = useState<MatchingConnector[]>([]);
   const matchingCanvasRef = useRef<HTMLDivElement | null>(null);
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(KeyboardSensor),
-  );
 
   const pos = safeGetPos(props.getPos);
   const authoredBlockId = findAncestorAssessmentBlockId(props.editor, pos ?? undefined, [
@@ -111,7 +99,6 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
     `${authoredBlockId ?? "matching"}|${pairs.map((pair) => pair.targetId).join("|")}`,
   );
   const pairByItemId = new Map(pairs.map((pair) => [pair.itemId, pair]));
-  const draggingPair = draggingItemId ? (pairByItemId.get(draggingItemId) ?? null) : null;
   const responseMatches = problem?.matches ?? EMPTY_MATCHES;
   const answerKeyVisible = runtimeProblem?.answerKeyVisible ?? false;
   const hasRevealPayload = (runtimeProblem?.state.revealedAnswer ?? null) !== null;
@@ -191,35 +178,33 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
     if (interactionLocked) return;
     problem?.setMatch(itemId, targetId);
     setSelectedItemId(null);
-    setDraggingItemId(null);
     setHoverTargetId(null);
   };
   const clearDragState = () => {
-    setDraggingItemId(null);
     setHoverTargetId(null);
   };
-  const handleDragStart = (event: DragStartEvent) => {
-    if (interactionLocked) return;
-    const itemId = runtimeMatchingItemId(event.active.data.current);
-    if (!itemId || displayMatches[itemId] !== undefined) {
-      clearDragState();
-      return;
-    }
-    setDraggingItemId(itemId);
+  const handleDragStart = () => {
     setSelectedItemId(null);
   };
-  const handleDragOver = (event: DragOverEvent) => {
-    if (interactionLocked) return;
-    setHoverTargetId(runtimeMatchingTargetId(event.over?.data.current) ?? null);
+  const handleDragMove = (event: {
+    over: { data: MatchingDropData } | null;
+  }) => {
+    setHoverTargetId(interactionLocked ? null : (event.over?.data.targetId ?? null));
   };
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = (event: {
+    active: { data: MatchingDragData };
+    over: { data: MatchingDropData } | null;
+  }) => {
     if (interactionLocked) {
       clearDragState();
       return;
     }
-    const itemId = runtimeMatchingItemId(event.active.data.current);
-    const targetId = runtimeMatchingTargetId(event.over?.data.current);
-    if (itemId && targetId) {
+    const itemId = event.active.data.itemId;
+    const targetId = event.over?.data.targetId ?? null;
+    const itemAvailable = pairByItemId.has(itemId) && displayMatches[itemId] === undefined;
+    const targetAvailable =
+      targetId !== null && orderedTargets.some((target) => target.targetId === targetId);
+    if (itemAvailable && targetAvailable && targetId) {
       commitMatch(itemId, targetId);
       return;
     }
@@ -237,13 +222,23 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
           {runtimeProblem?.state.legend && (
             <legend className="sc-matching-runtime-legend">{runtimeProblem.state.legend}</legend>
           )}
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragCancel={clearDragState}
-            onDragEnd={handleDragEnd}
-            onDragOver={handleDragOver}
-            onDragStart={handleDragStart}
+          <InteractionDragSession<MatchingDragData, MatchingDropData>
+            accessibilityMode="selection-alternative"
+            collisionPolicy="pointer"
+            labels={{ draggable: "Matching item" }}
+            onCancel={clearDragState}
+            onEnd={handleDragEnd}
+            onMove={handleDragMove}
+            onStart={handleDragStart}
+            profile="pointer"
+            renderPreview={(active) => (
+              <div className="sc-matching-runtime-preview">
+                <div className="sc-matching-runtime-preview__content">
+                  {renderStaticHtml(active.itemHtml, "Item")}
+                </div>
+              </div>
+            )}
+            sessionId={`matching-${authoredBlockId ?? "runtime"}`}
           >
             <div ref={matchingCanvasRef} className="sc-matching-runtime-canvas">
               {connectors.length > 0 && (
@@ -297,7 +292,6 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
                       <MatchingRuntimeItem
                         key={pair.itemId}
                         description={itemDescription}
-                        draggingItemId={draggingItemId}
                         index={idx}
                         interactionLocked={interactionLocked}
                         matched={matched}
@@ -421,19 +415,7 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
                 </div>
               </div>
             </div>
-            <RuntimeDragOverlay>
-              {draggingPair ? (
-                <RuntimeDragPreview className="sc-matching-runtime-preview">
-                  <span aria-hidden className="sc-matching-runtime-preview__handle">
-                    <DotsSixVertical size={iconXs} weight="bold" />
-                  </span>
-                  <div className="sc-matching-runtime-preview__content">
-                    {renderStaticHtml(draggingPair.itemHtml, "Item")}
-                  </div>
-                </RuntimeDragPreview>
-              ) : null}
-            </RuntimeDragOverlay>
-          </DndContext>
+          </InteractionDragSession>
         </fieldset>
       </div>
       <div data-bounded-scroll-hint="" aria-hidden="true">
@@ -445,7 +427,6 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
 
 function MatchingRuntimeItem({
   description,
-  draggingItemId,
   index,
   interactionLocked,
   matched,
@@ -455,7 +436,6 @@ function MatchingRuntimeItem({
   selected,
 }: {
   description: string;
-  draggingItemId: string | null;
   index: number;
   interactionLocked: boolean;
   matched: boolean;
@@ -466,23 +446,24 @@ function MatchingRuntimeItem({
 }) {
   const descriptionId = useId();
   const disabled = interactionLocked || matched;
-  const { attributes, isDragging, listeners, setNodeRef, transform } = useDraggable({
-    id: `matching-runtime-item:${pair.itemId}`,
+  const drag = useInteractionDragSource<MatchingDragData>({
+    data: { itemHtml: pair.itemHtml, itemId: pair.itemId },
     disabled,
-    data: {
-      matchingRuntimeItem: true,
-      itemId: pair.itemId,
-    },
+    id: `matching-runtime-item:${pair.itemId}`,
+    label: `Matching item ${index + 1}`,
   });
-  const style =
-    transform && !isDragging ? { transform: CSS.Translate.toString(transform) } : undefined;
 
   return (
-    <div
-      {...attributes}
-      {...listeners}
-      ref={setNodeRef}
-      role="button"
+    <InteractionDragActivationArea
+      {...drag.activatorProps}
+      {...drag.sourceProps}
+      ref={(element) => {
+        drag.setNodeRef(element);
+        drag.setActivatorNodeRef(element);
+      }}
+      type="button"
+      safeLocalHeight={55}
+      safeLocalWidth={55}
       tabIndex={disabled ? -1 : 0}
       aria-disabled={disabled || undefined}
       aria-pressed={selected}
@@ -499,18 +480,16 @@ function MatchingRuntimeItem({
         }
         if (e.key === "Escape") onEscape();
       }}
-      style={style}
       className={cn(
         "sc-matching-runtime-item",
         selected && "sc-matching-runtime-item--selected",
         !disabled && !selected && "sc-matching-runtime-item--interactive",
         matched && !selected && "sc-matching-runtime-item--dimmed",
-        draggingItemId === pair.itemId && "sc-matching-runtime-item--dimmed",
-        isDragging && RUNTIME_DRAG_SOURCE_PLACEHOLDER_CLASS,
+        drag.isPlaceholder && "sc-matching-runtime-item--placeholder",
         disabled && "sc-matching-runtime-item--disabled",
       )}
     >
-      <span aria-hidden className={RUNTIME_DRAG_HANDLE_CLASS}>
+      <span aria-hidden data-runtime-matching-handle="" className="sc-matching-runtime-handle">
         <DotsSixVertical size={iconXs} weight="bold" />
       </span>
       <div className="sc-matching-runtime-item__content">
@@ -519,7 +498,7 @@ function MatchingRuntimeItem({
       <span id={descriptionId} className="sc-sr-only">
         {description}
       </span>
-    </div>
+    </InteractionDragActivationArea>
   );
 }
 
@@ -549,19 +528,17 @@ function MatchingRuntimeTarget({
   targetId: string;
 }) {
   const descriptionId = useId();
-  const { isOver, setNodeRef } = useDroppable({
-    id: `matching-runtime-target:${targetId}`,
+  const drop = useInteractionDropTarget<MatchingDropData>({
+    data: { targetId },
     disabled: interactionLocked,
-    data: {
-      matchingRuntimeTarget: true,
-      targetId,
-    },
+    id: `matching-runtime-target:${targetId}`,
   });
-  const isActiveDrop = isOver || activeDrop;
+  const isActiveDrop = drop.isOver || activeDrop;
 
   return (
     <div
-      ref={setNodeRef}
+      {...drop.targetProps}
+      ref={drop.setNodeRef}
       role="button"
       tabIndex={interactionLocked ? -1 : 0}
       aria-label={`Match target ${index + 1}`}
@@ -594,18 +571,6 @@ function MatchingRuntimeTarget({
       </span>
     </div>
   );
-}
-
-function runtimeMatchingItemId(data: Record<string, unknown> | undefined) {
-  if (data?.["matchingRuntimeItem"] !== true) return null;
-  const itemId = data["itemId"];
-  return typeof itemId === "string" && itemId.length > 0 ? itemId : null;
-}
-
-function runtimeMatchingTargetId(data: Record<string, unknown> | undefined) {
-  if (data?.["matchingRuntimeTarget"] !== true) return null;
-  const targetId = data["targetId"];
-  return typeof targetId === "string" && targetId.length > 0 ? targetId : null;
 }
 
 function childByType(node: PMNode, typeName: string): PMNode | null {
