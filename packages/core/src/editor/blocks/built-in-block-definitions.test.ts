@@ -7,6 +7,43 @@ import { builtInBlockAuthoringBindings } from "./authoring-block-extensions";
 import { builtInBlockDefinitions, builtInBlockRegistry } from "./built-in-block-definitions";
 import { builtInBlockRuntimeBindings } from "./runtime-block-extensions";
 
+const EXPECTED_STABLE_CHILD_NODE_TYPES: Readonly<Record<string, readonly string[]>> = {
+  code_block: [],
+  callout: [],
+  comparison: ["comparison_row"],
+  flashcard: ["flashcard_card"],
+  categorise: ["categorise_bin", "categorise_item"],
+  dropdown: ["dropdown_choice"],
+  fill_blanks: ["fill_blank"],
+  image_hotspot: [],
+  matching: ["matching_pair"],
+  mcq: ["selectable_choice"],
+  multiselect: ["selectable_choice"],
+  quiz: [],
+  sequencing: ["sequencing_item"],
+  annotated_figure: ["annotated_figure_annotation"],
+  gallery: ["gallery_item"],
+  text_wrap_image: [],
+  audio_block: [],
+  chart_block: [],
+  image_block: [],
+  embed: [],
+  pdf_embed: [],
+  resource_link: [],
+  checklist: ["checklist_item"],
+  glossary: ["glossary_entry"],
+  key_value_list: ["key_value_row"],
+  numbered_list: ["numbered_list_item"],
+  table: [],
+  chapter_epigraph: [],
+  marginalia: [],
+  pull_quote: [],
+  roadmap: ["roadmap_milestone"],
+  sidebar: [],
+  stat_highlight: [],
+  timeline: ["timeline_item"],
+};
+
 describe("built-in block definitions", () => {
   it("constructs the registry from 34 explicit unique node types", () => {
     const nodeTypes = builtInBlockDefinitions.map((definition) => definition.nodeType);
@@ -16,6 +53,18 @@ describe("built-in block definitions", () => {
     expect(builtInBlockRegistry.definitions).toEqual(builtInBlockDefinitions);
     for (const definition of builtInBlockDefinitions) {
       expect(builtInBlockRegistry.getByNodeType(definition.nodeType)).toBe(definition);
+    }
+  });
+
+  it("declares the complete independently addressable child-node classification", () => {
+    expect(Object.keys(EXPECTED_STABLE_CHILD_NODE_TYPES)).toEqual(
+      builtInBlockDefinitions.map(({ nodeType }) => nodeType),
+    );
+
+    for (const definition of builtInBlockDefinitions) {
+      expect(definition.identity?.stableChildNodeTypes ?? [], definition.nodeType).toEqual(
+        EXPECTED_STABLE_CHILD_NODE_TYPES[definition.nodeType],
+      );
     }
   });
 

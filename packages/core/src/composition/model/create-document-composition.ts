@@ -1,4 +1,9 @@
-import type { AnyExtension, Extensions, Node as TiptapNode } from "@tiptap/core";
+import {
+  Extension,
+  type AnyExtension,
+  type Extensions,
+  type Node as TiptapNode,
+} from "@tiptap/core";
 import UniqueID from "@tiptap/extension-unique-id";
 import Highlight from "@tiptap/extension-highlight";
 import Link from "@tiptap/extension-link";
@@ -59,6 +64,8 @@ export const CORE_STRUCTURAL_SEMANTIC_NODE_TYPES = Object.freeze([
   GRID_NODE_TYPE,
   CELL_NODE_TYPE,
 ] as const);
+
+const SEMANTIC_NODE_SCHEMA_VALIDATION_EXTENSION = "scaffoldSemanticNodeSchemaValidation";
 
 export function createCourseDocumentInlineContentExtensions({
   inlineIconNode = InlineIconNode,
@@ -134,6 +141,8 @@ export function createCourseDocumentBaseExtensions({
   updateDocumentIds: boolean;
   vocabularyTermNode: TiptapNode;
 }): Extensions {
+  const semanticNodeTypes = createSemanticNodeTypes(blockStableIdNodeTypes);
+
   return [
     DocumentNode,
     StarterKit.configure({
@@ -166,8 +175,12 @@ export function createCourseDocumentBaseExtensions({
     AccordionSectionPanelNode,
     ExtendedParagraph,
     createRuntimeBlockFrameAttributesExtension(resizableBlockNodeTypes),
+    createSemanticNodeSchemaValidationExtension({
+      semanticNodeTypes,
+      blockSemanticNodeTypes: blockStableIdNodeTypes,
+    }),
     UniqueID.configure({
-      types: [...CORE_STRUCTURAL_SEMANTIC_NODE_TYPES, ...blockStableIdNodeTypes],
+      types: semanticNodeTypes as string[],
       attributeName: "id",
       updateDocument: updateDocumentIds,
       generateID: () => createEmbeddedNodeId(),
@@ -198,4 +211,54 @@ export function createCourseDocumentBaseExtensions({
     selectableChoiceNode,
     ...(studentGuardExtension ? [studentGuardExtension] : []),
   ];
+}
+
+function createSemanticNodeTypes(blockSemanticNodeTypes: readonly string[]): readonly string[] {
+  return Object.freeze([
+    ...new Set([...CORE_STRUCTURAL_SEMANTIC_NODE_TYPES, ...blockSemanticNodeTypes]),
+  ]);
+}
+
+function createSemanticNodeSchemaValidationExtension({
+  semanticNodeTypes,
+  blockSemanticNodeTypes,
+}: {
+  semanticNodeTypes: readonly string[];
+  blockSemanticNodeTypes: readonly string[];
+}): Extension {
+  const blockNodeTypeSet = new Set(blockSemanticNodeTypes);
+  const ownerName = (nodeType: string) =>
+    blockNodeTypeSet.has(nodeType) ? "Mounted Block" : "Core structural";
+
+  return Extension.create({
+    name: SEMANTIC_NODE_SCHEMA_VALIDATION_EXTENSION,
+
+    addGlobalAttributes() {
+      const mountedNodeTypes = new Set(
+        this.extensions
+          .filter((extension) => extension.type === "node")
+          .map((extension) => extension.name),
+      );
+
+      for (const nodeType of semanticNodeTypes) {
+        if (!mountedNodeTypes.has(nodeType)) {
+          throw new Error(
+            `${ownerName(nodeType)} semantic node "${nodeType}" is missing from the exact mounted Tiptap schema.`,
+          );
+        }
+      }
+
+      return [];
+    },
+
+    onBeforeCreate() {
+      for (const nodeType of semanticNodeTypes) {
+        if (!this.editor.schema.nodes[nodeType]?.spec.attrs?.["id"]) {
+          throw new Error(
+            `${ownerName(nodeType)} semantic node "${nodeType}" must declare the shared "id" attribute in the exact mounted Tiptap schema.`,
+          );
+        }
+      }
+    },
+  });
 }

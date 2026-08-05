@@ -65,7 +65,7 @@ export interface BlockStagedBoundedHostDefinition {
 }
 
 export interface BlockIdentityDefinition {
-  /** Private child node types that also carry persisted stable ids. */
+  /** Independently addressable child node types that carry persisted semantic-node ids. */
   readonly stableChildNodeTypes?: readonly string[];
 }
 

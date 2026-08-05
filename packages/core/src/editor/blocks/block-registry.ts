@@ -24,6 +24,11 @@ export function createBlockRegistry(input: readonly BlockDefinition[]): BlockReg
     if (definitionsByNodeType.has(definition.nodeType)) {
       throw new Error(`Duplicate block node type "${definition.nodeType}".`);
     }
+    if (definition.identity?.stableChildNodeTypes?.includes(definition.nodeType)) {
+      throw new Error(
+        `Block "${definition.nodeType}" must not declare its root node type as a stable child.`,
+      );
+    }
     definitionsByNodeType.set(definition.nodeType, definition);
   }
 

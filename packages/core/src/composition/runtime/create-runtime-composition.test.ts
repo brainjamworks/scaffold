@@ -16,6 +16,7 @@ import {
 } from "@/composition/application/create-scaffold-application";
 import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import { CORE_STRUCTURAL_SEMANTIC_NODE_TYPES } from "@/composition/model/create-document-composition";
+import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 import { CellRuntimeNode, GridRuntimeNode } from "@/editor/arrangements/grid/runtime/grid-nodes";
 import {
   LayoutRuntimeNode,
@@ -152,7 +153,7 @@ describe("createCourseDocumentRuntimeExtensions", () => {
     }
   });
 
-  it("keeps runtime identity and frame policies tied to built-in Block definitions", () => {
+  it("keeps runtime identity and frame policies tied to the exact mounted inventory", () => {
     const extensions = createCourseDocumentRuntimeExtensions({
       composition: coreRuntimeComposition,
     });
@@ -163,9 +164,13 @@ describe("createCourseDocumentRuntimeExtensions", () => {
     const options = runtimeUniqueId?.options as { updateDocument?: boolean } | undefined;
 
     expect(options?.updateDocument).toBe(false);
-    expect(runtimeUniqueId?.options["types"]).toEqual(
-      expect.arrayContaining([...builtInBlockRegistry.stableIdNodeTypes]),
-    );
+    const semanticNodeTypes = runtimeUniqueId?.options["types"] as readonly string[];
+
+    expect(semanticNodeTypes).toEqual([
+      ...CORE_STRUCTURAL_SEMANTIC_NODE_TYPES,
+      ...builtInBlockRegistry.stableIdNodeTypes,
+    ]);
+    expect(Object.isFrozen(semanticNodeTypes)).toBe(true);
     expect(runtimeFrame?.options["resizableBlockNodeTypes"]).toEqual(
       builtInBlockRegistry.resizableNodeTypes,
     );
@@ -321,13 +326,39 @@ describe("createCourseDocumentRuntimeExtensions", () => {
       extensions.filter((extension) => extension === capability.runtimeExtension),
     ).toHaveLength(1);
     expect(extensions).not.toContain(capability.authoringExtension);
-    expect(uniqueId?.options["types"]).toEqual(
-      expect.arrayContaining([
-        capability.definition.nodeType,
-        ...capability.definition.identity!.stableChildNodeTypes!,
-      ]),
-    );
+    const semanticNodeTypes = uniqueId?.options["types"] as readonly string[];
+    const expectedSemanticNodeTypes = [
+      ...CORE_STRUCTURAL_SEMANTIC_NODE_TYPES,
+      ...application.capabilities.blocks.registry.stableIdNodeTypes,
+    ];
+
+    expect(semanticNodeTypes).toEqual(expectedSemanticNodeTypes);
+    expect(Object.isFrozen(semanticNodeTypes)).toBe(true);
+    for (const nodeType of semanticNodeTypes) {
+      expect(schema.nodes[nodeType]?.spec.attrs?.["id"], nodeType).toBeDefined();
+    }
+    expect(schema.nodes["paragraph"]?.spec.attrs?.["id"]).toBeUndefined();
+    expect(schema.nodes["text"]?.spec.attrs?.["id"]).toBeUndefined();
+    expect(semanticNodeTypes).not.toContain("chart_row");
+    expect(semanticNodeTypes).not.toContain("chart_column");
+    expect(semanticNodeTypes).not.toContain("image_hotspot_region");
+    expect(semanticNodeTypes).not.toContain("private_payload_record");
     expect(frame?.options["resizableBlockNodeTypes"]).toContain(capability.definition.nodeType);
+  });
+
+  it("rejects a declared Block semantic child missing from the runtime schema", () => {
+    const capability = hostBlockCapability("host_missing_runtime_child", {
+      omitRuntimeChild: true,
+    });
+    const application = createScaffoldApplication({
+      packs: [defineScaffoldExtensionPack({ id: "missing-runtime-child", blocks: [capability] })],
+    });
+
+    expect(() =>
+      getSchema(createCourseDocumentRuntimeExtensions({ composition: application.runtime })),
+    ).toThrow(
+      'Mounted Block semantic node "host_missing_runtime_child_child" is missing from the exact mounted Tiptap schema.',
+    );
   });
 
   it("keeps host Block registries and runtime schemas isolated between applications", () => {
@@ -359,6 +390,17 @@ describe("createCourseDocumentRuntimeExtensions", () => {
     expect(firstSchema.nodes[second.definition.nodeType]).toBeUndefined();
     expect(secondSchema.nodes[second.definition.nodeType]).toBeDefined();
     expect(secondSchema.nodes[first.definition.nodeType]).toBeUndefined();
+    const firstSemanticNodeTypes = createCourseDocumentRuntimeExtensions({
+      composition: firstApplication.runtime,
+    }).find(({ name }) => name === "uniqueID")?.options["types"] as readonly string[];
+    const secondSemanticNodeTypes = createCourseDocumentRuntimeExtensions({
+      composition: secondApplication.runtime,
+    }).find(({ name }) => name === "uniqueID")?.options["types"] as readonly string[];
+
+    expect(firstSemanticNodeTypes).toContain(first.definition.nodeType);
+    expect(firstSemanticNodeTypes).not.toContain(second.definition.nodeType);
+    expect(secondSemanticNodeTypes).toContain(second.definition.nodeType);
+    expect(secondSemanticNodeTypes).not.toContain(first.definition.nodeType);
   });
 
   it("keeps host Surface registries, views, and schemas isolated between applications", () => {
@@ -426,7 +468,10 @@ function runtimeSurface(id?: string) {
   };
 }
 
-function hostBlockCapability(nodeType: string): BlockCapability {
+function hostBlockCapability(
+  nodeType: string,
+  options: { omitRuntimeChild?: boolean } = {},
+): BlockCapability {
   const childNodeType = `${nodeType}_child`;
   return {
     definition: {
@@ -437,15 +482,35 @@ function hostBlockCapability(nodeType: string): BlockCapability {
     authoringExtension: Extension.create({
       name: `${nodeType}_authoring_bundle`,
       addExtensions: () => [
-        Node.create({ name: nodeType, group: "block", content: `${childNodeType}?` }),
-        Node.create({ name: childNodeType }),
+        Node.create({
+          name: nodeType,
+          group: "block",
+          content: `${childNodeType}?`,
+          addAttributes: () => ({ id: stableNodeIdAttribute() }),
+        }),
+        Node.create({
+          name: childNodeType,
+          addAttributes: () => ({ id: stableNodeIdAttribute() }),
+        }),
       ],
     }),
     runtimeExtension: Extension.create({
       name: `${nodeType}_runtime_bundle`,
       addExtensions: () => [
-        Node.create({ name: nodeType, group: "block", content: `${childNodeType}?` }),
-        Node.create({ name: childNodeType }),
+        Node.create({
+          name: nodeType,
+          group: "block",
+          content: `${childNodeType}?`,
+          addAttributes: () => ({ id: stableNodeIdAttribute() }),
+        }),
+        ...(options.omitRuntimeChild
+          ? []
+          : [
+              Node.create({
+                name: childNodeType,
+                addAttributes: () => ({ id: stableNodeIdAttribute() }),
+              }),
+            ]),
       ],
     }),
   };

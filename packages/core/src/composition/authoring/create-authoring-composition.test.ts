@@ -19,6 +19,7 @@ import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaff
 import { getScaffoldAuthoringCataloguesForEditor } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
 import { CORE_STRUCTURAL_SEMANTIC_NODE_TYPES } from "@/composition/model/create-document-composition";
 import * as surfaceLifecyclePolicy from "@/document/authoring/surface-lifecycle-authoring-policy";
+import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 import {
   CellAuthoringNode,
   GridAuthoringNode,
@@ -141,15 +142,18 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     expect(missingBlockNames).toEqual([]);
   });
 
-  it("passes built-in stable-id node types into the authoring composition", () => {
+  it("uses the exact immutable mounted semantic-node inventory in authoring", () => {
     const authoringUniqueId = createCourseDocumentAuthoringExtensions({
       editable: true,
       composition: coreAuthoringComposition,
     }).find((extension) => extension.name === "uniqueID");
+    const semanticNodeTypes = authoringUniqueId?.options["types"] as readonly string[];
 
-    expect(authoringUniqueId?.options["types"]).toEqual(
-      expect.arrayContaining([...builtInBlockRegistry.stableIdNodeTypes]),
-    );
+    expect(semanticNodeTypes).toEqual([
+      ...CORE_STRUCTURAL_SEMANTIC_NODE_TYPES,
+      ...builtInBlockRegistry.stableIdNodeTypes,
+    ]);
+    expect(Object.isFrozen(semanticNodeTypes)).toBe(true);
   });
 
   it("uses the immutable Core structural semantic-node inventory", () => {
@@ -597,13 +601,44 @@ describe("createCourseDocumentAuthoringExtensions", () => {
       extensions.filter((extension) => extension === capability.authoringExtension),
     ).toHaveLength(1);
     expect(extensions).not.toContain(capability.runtimeExtension);
-    expect(uniqueId?.options["types"]).toEqual(
-      expect.arrayContaining([
-        capability.definition.nodeType,
-        ...capability.definition.identity!.stableChildNodeTypes!,
-      ]),
-    );
+    const semanticNodeTypes = uniqueId?.options["types"] as readonly string[];
+    const expectedSemanticNodeTypes = [
+      ...CORE_STRUCTURAL_SEMANTIC_NODE_TYPES,
+      ...application.capabilities.blocks.registry.stableIdNodeTypes,
+    ];
+
+    expect(semanticNodeTypes).toEqual(expectedSemanticNodeTypes);
+    expect(Object.isFrozen(semanticNodeTypes)).toBe(true);
+    for (const nodeType of semanticNodeTypes) {
+      expect(schema.nodes[nodeType]?.spec.attrs?.["id"], nodeType).toBeDefined();
+    }
+    expect(schema.nodes["paragraph"]?.spec.attrs?.["id"]).toBeUndefined();
+    expect(schema.nodes["text"]?.spec.attrs?.["id"]).toBeUndefined();
+    expect(semanticNodeTypes).not.toContain("chart_row");
+    expect(semanticNodeTypes).not.toContain("chart_column");
+    expect(semanticNodeTypes).not.toContain("image_hotspot_region");
+    expect(semanticNodeTypes).not.toContain("private_payload_record");
     expect(frame?.options["resizableBlockNodeTypes"]).toContain(capability.definition.nodeType);
+  });
+
+  it("rejects a declared Block semantic child missing from the authoring schema", () => {
+    const capability = hostBlockCapability("host_missing_authoring_child", {
+      omitAuthoringChild: true,
+    });
+    const application = createScaffoldApplication({
+      packs: [defineScaffoldExtensionPack({ id: "missing-authoring-child", blocks: [capability] })],
+    });
+
+    expect(() =>
+      getSchema(
+        createCourseDocumentAuthoringExtensions({
+          editable: true,
+          composition: application.authoring,
+        }),
+      ),
+    ).toThrow(
+      'Mounted Block semantic node "host_missing_authoring_child_child" is missing from the exact mounted Tiptap schema.',
+    );
   });
 
   it("keeps host Block registries and authoring schemas isolated between applications", () => {
@@ -641,10 +676,26 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     expect(firstSchema.nodes[second.definition.nodeType]).toBeUndefined();
     expect(secondSchema.nodes[second.definition.nodeType]).toBeDefined();
     expect(secondSchema.nodes[first.definition.nodeType]).toBeUndefined();
+    const firstSemanticNodeTypes = createCourseDocumentAuthoringExtensions({
+      editable: true,
+      composition: firstApplication.authoring,
+    }).find(({ name }) => name === "uniqueID")?.options["types"] as readonly string[];
+    const secondSemanticNodeTypes = createCourseDocumentAuthoringExtensions({
+      editable: true,
+      composition: secondApplication.authoring,
+    }).find(({ name }) => name === "uniqueID")?.options["types"] as readonly string[];
+
+    expect(firstSemanticNodeTypes).toContain(first.definition.nodeType);
+    expect(firstSemanticNodeTypes).not.toContain(second.definition.nodeType);
+    expect(secondSemanticNodeTypes).toContain(second.definition.nodeType);
+    expect(secondSemanticNodeTypes).not.toContain(first.definition.nodeType);
   });
 });
 
-function hostBlockCapability(nodeType: string): BlockCapability {
+function hostBlockCapability(
+  nodeType: string,
+  options: { omitAuthoringChild?: boolean } = {},
+): BlockCapability {
   const childNodeType = `${nodeType}_child`;
   return {
     definition: {
@@ -655,15 +706,35 @@ function hostBlockCapability(nodeType: string): BlockCapability {
     authoringExtension: Extension.create({
       name: `${nodeType}_authoring_bundle`,
       addExtensions: () => [
-        Node.create({ name: nodeType, group: "block", content: `${childNodeType}?` }),
-        Node.create({ name: childNodeType }),
+        Node.create({
+          name: nodeType,
+          group: "block",
+          content: `${childNodeType}?`,
+          addAttributes: () => ({ id: stableNodeIdAttribute() }),
+        }),
+        ...(options.omitAuthoringChild
+          ? []
+          : [
+              Node.create({
+                name: childNodeType,
+                addAttributes: () => ({ id: stableNodeIdAttribute() }),
+              }),
+            ]),
       ],
     }),
     runtimeExtension: Extension.create({
       name: `${nodeType}_runtime_bundle`,
       addExtensions: () => [
-        Node.create({ name: nodeType, group: "block", content: `${childNodeType}?` }),
-        Node.create({ name: childNodeType }),
+        Node.create({
+          name: nodeType,
+          group: "block",
+          content: `${childNodeType}?`,
+          addAttributes: () => ({ id: stableNodeIdAttribute() }),
+        }),
+        Node.create({
+          name: childNodeType,
+          addAttributes: () => ({ id: stableNodeIdAttribute() }),
+        }),
       ],
     }),
   };

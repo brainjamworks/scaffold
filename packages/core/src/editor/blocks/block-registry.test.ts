@@ -151,6 +151,16 @@ describe("createBlockRegistry", () => {
     );
   });
 
+  it("rejects a Block that redundantly declares its own root as a stable child", () => {
+    const definition = createDefinition("self_declared", {
+      identity: { stableChildNodeTypes: ["self_declared"] },
+    });
+
+    expect(() => createBlockRegistry([definition])).toThrow(
+      'Block "self_declared" must not declare its root node type as a stable child.',
+    );
+  });
+
   it("rejects persisted Block node types that are not snake_case", () => {
     expect(() => createBlockRegistry([createDefinition("stat-highlight")])).toThrow(
       'Block node type "stat-highlight" must be a stable snake_case name.',
