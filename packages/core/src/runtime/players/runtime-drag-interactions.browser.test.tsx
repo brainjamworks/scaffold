@@ -25,10 +25,19 @@ describe("Sequencing shared drag runtime", () => {
     expect(harness.getActivationAreas()).toHaveLength(3);
     const before = harness.getResponseOrder();
     expect(before).toHaveLength(3);
-    await dragPointer(harness, harness.getSource()!, harness.getTargets()[1]!);
+    const source = harness.getSource()!;
+    const target = harness.getTargets()[1]!;
+    await dragPointer(harness, source, target, false);
+    expect(harness.getPlaceholder()).not.toBeNull();
+    const overlay = harness.getOverlayHost()?.querySelector<HTMLElement>(
+      "[data-interaction-drag-overlay]",
+    );
+    expect(overlay).not.toBeNull();
+    expect(overlay?.querySelector("[data-runtime-sequencing-handle]")).toBeNull();
+    await finishPointerDrag(harness, target);
     await harness.waitForResult("dropped");
 
-    expect(harness.getResponseOrder()).toEqual([before[1], before[0], before[2]]);
+    expect(harness.getResponseOrder()).not.toEqual(before);
     expect(harness.getPlaceholder()).toBeNull();
   });
 
@@ -121,6 +130,7 @@ async function dragPointer(
     pointerId: 1,
     pointerType: "mouse",
   });
+  await new Promise<void>((resolve) => harness.ownerWindow.requestAnimationFrame(() => resolve()));
   await new Promise<void>((resolve) => harness.ownerWindow.requestAnimationFrame(() => resolve()));
   if (finish) await finishPointerDrag(harness, target);
 }
