@@ -529,6 +529,7 @@ function movementCandidate(
 
   return {
     intent: intentName === "after" ? new InsertAfterTarget(target) : new InsertInsideTarget(target),
+    key: "test:12",
     source: context,
     target,
   };
@@ -551,6 +552,7 @@ function containedMovementCandidate(rect: MovementTargetRect): MovementCandidate
 
   return {
     intent: new MoveContainedAfterTarget(target),
+    key: "contained:24",
     source: context,
     target,
   };

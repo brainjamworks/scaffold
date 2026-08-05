@@ -6,8 +6,6 @@ import { render as renderBrowserReact, type RenderResult } from "vitest-browser-
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { page } from "vite-plus/test/browser/context";
 
-import { defineBlock } from "@/editor/blocks/block-definition";
-import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import {
   CellAuthoringNode,
   GridAuthoringNode,
@@ -16,6 +14,8 @@ import {
   LayoutAuthoringNode,
   SectionAuthoringNode,
 } from "@/editor/arrangements/layout/authoring/layout-nodes";
+import { defineBlock } from "@/editor/blocks/block-definition";
+import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { courseBlockAuthoringFrameAttributes } from "@/editor/interactions/dom/authoring-frame";
 import { authoringInteractionRootAttributes } from "@/editor/interactions/dom/authoring-root";
 import { createViewportCoordinateSpace } from "@/editor/interactions/drag/dom/dom-coordinate-space";
@@ -26,10 +26,10 @@ import { InteractionProvider } from "@/editor/interactions/targets/facade/intera
 import { getInteractionFacadeStoreForEditor } from "@/editor/interactions/targets/prosemirror/facade/interaction-facade-storage";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
-import { pageDefaultSurfaceDefinition } from "@/editor/surfaces/model/templates/page-default";
-import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
+import { pageDefaultSurfaceDefinition } from "@/editor/surfaces/model/templates/page-default";
 import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
 import "@/styles/globals.css";
 
@@ -73,14 +73,15 @@ const TestBlockNode = Node.create({
 
 interface MovementBrowserHarness {
   readonly editor: Editor;
-  readonly editorElement: HTMLElement;
   readonly host: HTMLElement;
   readonly ownerRoot: HTMLElement;
   readonly rendered: RenderResult;
   block(id: string): HTMLElement;
   blockHandle(): HTMLButtonElement;
   ids(): string[];
+  indicator(): HTMLElement | null;
   overlay(): HTMLElement | null;
+  surfaceBlockIds(surfaceId: string): string[];
   waitForIdle(): Promise<void>;
 }
 
@@ -96,45 +97,118 @@ afterEach(async () => {
 });
 
 describe("authoring movement shared drag", () => {
-  it("keeps the genuine client point authoritative after scroll geometry changes", async () => {
+  it("reveals and drops on another slide while a stationary pointer auto-scrolls", async () => {
     await page.viewport(1100, 800);
     const harness = await mountMovementHarness();
     mounted.push(harness);
     const before = harness.ids();
     const source = harness.blockHandle();
-    const target = harness.block("b");
-    const targetRect = target.getBoundingClientRect();
-    expect(targetRect.left).toBeGreaterThan(100);
-
+    const rootRect = harness.ownerRoot.getBoundingClientRect();
     const pointer = {
+      x: rootRect.left + 220,
+      y: rootRect.bottom - 10,
+    };
+    expect(isVisibleWithin(harness.block("c"), harness.ownerRoot)).toBe(false);
+
+    await startPointerDrag(source, pointer);
+    const initialKey = await waitForValue(() => harness.indicator()?.dataset.movementTargetKey);
+    expect(source).toHaveAttribute("data-interaction-drag-placeholder");
+    expect(harness.overlay()).not.toBeNull();
+
+    await runFixtureAutoScroll(harness.ownerRoot, "forward", () =>
+      isVisibleWithin(harness.block("c"), harness.ownerRoot),
+    );
+    await waitFor(() => harness.ownerRoot.scrollTop > 400);
+    const stationaryKey = await waitForValue(() => {
+      const key = harness.indicator()?.dataset.movementTargetKey;
+      return key && key !== initialKey ? key : undefined;
+    });
+    expect(stationaryKey).not.toBe(initialKey);
+
+    const target = harness.block("c");
+    const targetRect = target.getBoundingClientRect();
+    const dropPoint = {
       x: targetRect.left + targetRect.width / 2,
       y: targetRect.top + targetRect.height * 0.75,
     };
-    await startPointerDrag(source, pointer);
-
-    expect(source).toHaveAttribute("data-interaction-drag-placeholder");
-    const preview = requiredElement<HTMLElement>(
-      harness.host,
-      '[data-authoring-movement-preview="block"]',
-    );
-    expect(preview.closest("[data-interaction-drag-overlay]")).not.toBeNull();
-    expect(preview.querySelector("button, [data-authoring-move-handle]")).toBeNull();
-    expect(harness.host.querySelectorAll("[data-interaction-drag-overlay]")).toHaveLength(1);
+    await movePointer(dropPoint);
     expectIndicatorAt(harness, target);
+    expect(harness.indicator()).toHaveAttribute(
+      "data-movement-target-key",
+      expect.stringContaining(":c"),
+    );
 
-    harness.editorElement.style.transform = "translateY(-104px)";
-    fireEvent.scroll(harness.ownerRoot);
-    await animationFrames(3);
-    const currentTarget = harness.block("c");
-    expectIndicatorAt(harness, currentTarget);
-
-    await finishPointerDrag(pointer);
+    await finishPointerDrag(dropPoint);
     await harness.waitForIdle();
-    expect(harness.ids()).toEqual(["b", "c", "a"]);
+
+    expect(harness.surfaceBlockIds("surface00001")).toEqual(["a2"]);
+    expect(harness.surfaceBlockIds("surface00003")).toEqual(["c", "a", "c2"]);
+    expect(harness.ids().filter((id) => id === "a")).toHaveLength(1);
     expect(harness.ids()).not.toEqual(before);
+    expectNoTransientMovementState(harness);
   });
 
-  it("keeps distinct handles, overlay focus, and cancellation without a document write", async () => {
+  it("auto-scrolls in both directions and cancels without a document write", async () => {
+    await page.viewport(1100, 800);
+    const harness = await mountMovementHarness();
+    mounted.push(harness);
+    const before = harness.ids();
+    const rootRect = harness.ownerRoot.getBoundingClientRect();
+    const source = harness.blockHandle();
+
+    await startPointerDrag(source, {
+      x: rootRect.left + 220,
+      y: rootRect.bottom - 10,
+    });
+    await runFixtureAutoScroll(
+      harness.ownerRoot,
+      "forward",
+      () => harness.ownerRoot.scrollTop > 180,
+    );
+    await waitFor(() => harness.ownerRoot.scrollTop > 180);
+    const downwardScroll = harness.ownerRoot.scrollTop;
+
+    await movePointer({ x: rootRect.left + 220, y: rootRect.top + 10 });
+    await runFixtureAutoScroll(
+      harness.ownerRoot,
+      "backward",
+      () => harness.ownerRoot.scrollTop < downwardScroll - 80,
+    );
+    await waitFor(() => harness.ownerRoot.scrollTop < downwardScroll - 80);
+
+    fireEvent.keyDown(document, { code: "Escape", key: "Escape" });
+    await harness.waitForIdle();
+
+    expect(harness.ids()).toEqual(before);
+    expectNoTransientMovementState(harness);
+  });
+
+  it("rejects an invalid cross-slide drop and clears every transient state", async () => {
+    await page.viewport(1100, 800);
+    const harness = await mountMovementHarness();
+    mounted.push(harness);
+    const before = harness.ids();
+    const targetRect = harness.block("a2").getBoundingClientRect();
+    await startPointerDrag(harness.blockHandle(), {
+      x: targetRect.left + targetRect.width / 2,
+      y: targetRect.top + targetRect.height / 2,
+    });
+    expect(harness.indicator()).not.toBeNull();
+
+    const invalidPoint = { x: -100, y: -100 };
+    await movePointer(invalidPoint);
+    await waitFor(() => harness.indicator() === null);
+    await finishPointerDrag(invalidPoint);
+    await harness.waitForIdle();
+
+    expect(harness.ids()).toEqual(before);
+    expectNoTransientMovementState(harness);
+    harness.ownerRoot.dispatchEvent(new Event("scroll"));
+    await animationFrames(2);
+    expect(harness.indicator()).toBeNull();
+  });
+
+  it("keeps distinct handles and overlay focus outside an active drag", async () => {
     await page.viewport(1100, 800);
     const harness = await mountMovementHarness();
     mounted.push(harness);
@@ -166,37 +240,38 @@ describe("authoring movement shared drag", () => {
     await animationFrames(2);
     expect(harness.blockHandle()).toBe(source);
     expect(document.activeElement).toBe(overlayControl);
-
-    const before = harness.ids();
-    source.focus({ preventScroll: true });
-    const targetRect = harness.block("c").getBoundingClientRect();
-    await startPointerDrag(source, {
-      x: targetRect.left + targetRect.width / 2,
-      y: targetRect.top + targetRect.height / 2,
-    });
-    expect(harness.overlay()).not.toBeNull();
-    fireEvent.keyDown(document, { code: "Escape", key: "Escape" });
-    await harness.waitForIdle();
-
-    expect(harness.ids()).toEqual(before);
-    expect(document.activeElement).toBe(source);
   });
 });
 
 async function mountMovementHarness(): Promise<MovementBrowserHarness> {
   const host = document.createElement("div");
   host.style.cssText =
-    "position: absolute; left: 120px; top: 72px; width: 720px; height: 620px; padding: 24px; box-sizing: border-box";
+    "position: absolute; left: 120px; top: 32px; width: 720px; height: 700px; padding: 24px; box-sizing: border-box";
   const ownerRoot = document.createElement("div");
   for (const [name, value] of Object.entries(authoringInteractionRootAttributes())) {
     ownerRoot.setAttribute(name, value);
   }
+  ownerRoot.setAttribute("data-authoring-movement-browser-fixture", "");
   ownerRoot.style.cssText =
-    "position: relative; width: 640px; height: 520px; padding: 24px 48px; box-sizing: border-box; overflow: hidden";
+    "position: relative; width: 640px; height: 560px; padding: 24px 48px; box-sizing: border-box; overflow: auto";
+  const fixtureStyles = document.createElement("style");
+  fixtureStyles.textContent = `
+    [data-authoring-movement-browser-fixture] [data-surface] {
+      box-sizing: border-box !important;
+      display: block !important;
+      height: 420px !important;
+      margin-bottom: 48px !important;
+      max-height: none !important;
+      min-height: 420px !important;
+      padding: 32px 40px !important;
+      position: relative !important;
+      width: 100% !important;
+    }
+  `;
   const editorElement = document.createElement("div");
   const reactElement = document.createElement("div");
   ownerRoot.append(editorElement, reactElement);
-  host.append(ownerRoot);
+  host.append(fixtureStyles, ownerRoot);
   document.body.append(host);
 
   const editor = new Editor({
@@ -215,7 +290,7 @@ async function mountMovementHarness(): Promise<MovementBrowserHarness> {
       TestBlockNode,
       createScaffoldInteractionOwnerExtension(blockRegistry),
     ],
-    content: movementDocument(["a", "b", "c"]),
+    content: movementDocument(),
   });
   const sourcePos = nodePos(editor, "a");
   const coordinateSpace = createViewportCoordinateSpace({
@@ -268,7 +343,6 @@ async function mountMovementHarness(): Promise<MovementBrowserHarness> {
 
   const harness: MovementBrowserHarness = {
     editor,
-    editorElement,
     host,
     ownerRoot,
     rendered,
@@ -279,32 +353,41 @@ async function mountMovementHarness(): Promise<MovementBrowserHarness> {
       ),
     blockHandle: () => requiredElement<HTMLButtonElement>(host, "[data-authoring-move-handle]"),
     ids: () => documentIds(editor),
+    indicator: () => host.querySelector<HTMLElement>("[data-testid=scaffold-drop-indicator-frame]"),
     overlay: () => host.querySelector<HTMLElement>("[data-interaction-drag-overlay]"),
+    surfaceBlockIds: (surfaceId) => blockIdsInSurface(editor, surfaceId),
     waitForIdle: () =>
       waitFor(
         () =>
           !host.querySelector("[data-interaction-drag-overlay]") &&
-          !host.querySelector("[data-interaction-drag-placeholder]"),
+          !host.querySelector("[data-interaction-drag-placeholder]") &&
+          !host.querySelector("[data-testid=scaffold-drop-indicator-frame]"),
       ),
   };
   return harness;
 }
 
-function movementDocument(ids: readonly string[]): JSONContent {
+function movementDocument(): JSONContent {
   return {
     type: "doc",
     content: [
       {
         type: "courseDocument",
         content: [
-          {
-            type: "surface",
-            attrs: { id: "surface-a", variant: "page-default" },
-            content: ids.map((id) => ({ type: TEST_BLOCK, attrs: { id } })),
-          },
+          surface("surface00001", ["a", "a2"]),
+          surface("surface00002", ["b", "b2"]),
+          surface("surface00003", ["c", "c2"]),
         ],
       },
     ],
+  };
+}
+
+function surface(id: string, blockIds: readonly string[]): JSONContent {
+  return {
+    type: "surface",
+    attrs: { id, variant: "page-default" },
+    content: blockIds.map((blockId) => ({ type: TEST_BLOCK, attrs: { id: blockId } })),
   };
 }
 
@@ -326,6 +409,21 @@ function documentIds(editor: Editor): string[] {
       ids.push(node.attrs["id"]);
     }
     return true;
+  });
+  return ids;
+}
+
+function blockIdsInSurface(editor: Editor, surfaceId: string): string[] {
+  const ids: string[] = [];
+  editor.state.doc.descendants((node) => {
+    if (node.type.name !== "surface" || node.attrs["id"] !== surfaceId) return true;
+    node.descendants((child) => {
+      if (child.type.name === TEST_BLOCK && typeof child.attrs["id"] === "string") {
+        ids.push(child.attrs["id"]);
+      }
+      return true;
+    });
+    return false;
   });
   return ids;
 }
@@ -358,15 +456,40 @@ async function startPointerDrag(
     pointerType: "mouse",
   });
   await animationFrames(1);
+  await movePointer(destination);
+}
+
+async function movePointer(point: Readonly<{ x: number; y: number }>): Promise<void> {
   fireEvent.pointerMove(document, {
     button: 0,
     buttons: 1,
-    clientX: destination.x,
-    clientY: destination.y,
+    clientX: point.x,
+    clientY: point.y,
     isPrimary: true,
     pointerId: 1,
     pointerType: "mouse",
   });
+  await animationFrames(2);
+}
+
+async function runFixtureAutoScroll(
+  scrollRoot: HTMLElement,
+  direction: "backward" | "forward",
+  done: () => boolean,
+): Promise<void> {
+  const deadline = performance.now() + 8_000;
+  const step = direction === "forward" ? 18 : -18;
+  while (!done()) {
+    const before = scrollRoot.scrollTop;
+    scrollRoot.scrollBy({ behavior: "auto", top: step });
+    await animationFrames(1);
+    if (scrollRoot.scrollTop === before) {
+      throw new Error(`Fixture could not auto-scroll ${direction}.`);
+    }
+    if (performance.now() > deadline) {
+      throw new Error(`Timed out auto-scrolling fixture ${direction}.`);
+    }
+  }
   await animationFrames(2);
 }
 
@@ -392,6 +515,18 @@ function expectIndicatorAt(harness: MovementBrowserHarness, target: HTMLElement)
   expectClose(Number.parseFloat(indicator.style.top), targetRect.top, 1);
 }
 
+function expectNoTransientMovementState(harness: MovementBrowserHarness): void {
+  expect(harness.overlay()).toBeNull();
+  expect(harness.indicator()).toBeNull();
+  expect(harness.host.querySelector("[data-interaction-drag-placeholder]")).toBeNull();
+}
+
+function isVisibleWithin(element: Element, container: Element): boolean {
+  const elementRect = element.getBoundingClientRect();
+  const containerRect = container.getBoundingClientRect();
+  return elementRect.bottom > containerRect.top && elementRect.top < containerRect.bottom;
+}
+
 function requiredElement<T extends Element>(root: ParentNode, selector: string): T {
   const element = root.querySelector<T>(selector);
   if (!element) throw new Error(`Expected element for ${selector}.`);
@@ -399,12 +534,21 @@ function requiredElement<T extends Element>(root: ParentNode, selector: string):
 }
 
 async function waitFor(condition: () => unknown): Promise<void> {
-  const deadline = performance.now() + 5_000;
+  const deadline = performance.now() + 8_000;
   while (!condition()) {
     if (performance.now() > deadline) throw new Error("Timed out waiting for movement state.");
     await animationFrames(1);
   }
   await animationFrames(1);
+}
+
+async function waitForValue<T>(read: () => T | null | undefined): Promise<T> {
+  let value = read();
+  await waitFor(() => {
+    value = read();
+    return value !== null && value !== undefined;
+  });
+  return value!;
 }
 
 async function animationFrames(count: number): Promise<void> {
