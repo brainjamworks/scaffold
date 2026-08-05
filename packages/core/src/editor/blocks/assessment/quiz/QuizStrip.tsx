@@ -1,25 +1,19 @@
 import {
-  DndContext,
-  PointerSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import { SortableContext, horizontalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import {
   ArrowLineLeftIcon as ArrowLineLeft,
   ArrowLineRightIcon as ArrowLineRight,
   CaretDownIcon as CaretDown,
   DotsSixVerticalIcon as DotsSixVertical,
   PlusIcon as Plus,
 } from "@phosphor-icons/react";
-import { useState, type CSSProperties } from "react";
+import { useId, useState, type CSSProperties } from "react";
 
 import * as DropdownMenu from "@/ui/components/DropdownMenu/DropdownMenu";
 import { BlockAddGhost } from "@/editor/suggestions/insert/BlockAddGhost";
 import { EditorFloatingPopover as EditorFloating } from "@/editor/interactions/floating/EditorFloatingPopover";
+import type { InteractionDragEvent } from "@/editor/interactions/drag/model/interaction-drag-event";
+import { InteractionDragActivationArea } from "@/editor/interactions/drag/react/InteractionDragActivationArea";
+import { InteractionDragSession } from "@/editor/interactions/drag/react/InteractionDragSession";
+import { useInteractionSortable } from "@/editor/interactions/drag/react/use-interaction-sortable";
 import type { InsertAction } from "@/editor/insertion/insert-action";
 import { zIndex } from "@/ui/overlays/z-index";
 
@@ -27,10 +21,9 @@ import { questionTypeTag } from "./question-type-tags";
 
 /**
  * Sortable horizontal strip of question pills + a "+ Add" picker.
- * Drag-and-drop is wired through dnd-kit (`useSortable`) so reorder
- * snaps before commit; on drop we walk the controller's adjacent
- * `moveQuestion('up' | 'down')` step-by-step until the from→to swap
- * lands. The controller's API stays small (no `moveTo(index)`).
+ * The shared drag session owns pointer/keyboard mechanics and presentation.
+ * A completed drop is translated to the controller's existing adjacent
+ * `moveQuestion('up' | 'down')` contract at the session end boundary.
  */
 export function QuizStrip({
   activeChildKey,
@@ -49,31 +42,31 @@ export function QuizStrip({
   onMove: (childKey: string, index: number, direction: "up" | "down") => void;
   onSelect: (childKey: string) => void;
 }) {
-  // Drag has to traverse a small distance before the click handler on
-  // the pill stops winning — otherwise tapping to switch questions
-  // would also try to drag.
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const activeId = String(event.active.id);
-    const overId = event.over ? String(event.over.id) : null;
-    if (!overId || activeId === overId) return;
-    const fromIndex = childKeys.indexOf(activeId);
-    const toIndex = childKeys.indexOf(overId);
-    if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return;
-    const direction = toIndex < fromIndex ? "up" : "down";
-    const step = direction === "up" ? -1 : 1;
-    let current = fromIndex;
-    while (current !== toIndex) {
-      onMove(activeId, current, direction);
-      current += step;
+  const sessionId = useId();
+  const handleDragEnd = (event: InteractionDragEvent<QuizStripDragData, QuizStripDragData>) => {
+    const targetKey = event.over?.data.childKey ?? null;
+    if (!targetKey) return;
+    for (const step of getQuizStripReorderSteps(childKeys, event.active.data.childKey, targetKey)) {
+      onMove(step.childKey, step.index, step.direction);
     }
   };
 
   return (
-    <div className="sc-quiz__strip" contentEditable={false} data-testid="quiz-stage-selector">
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext items={childKeys} strategy={horizontalListSortingStrategy}>
+    <InteractionDragSession<QuizStripDragData, QuizStripDragData>
+      accessibilityMode="sortable"
+      collisionPolicy="closest-center"
+      labels={{
+        draggable: "Quiz question",
+        instructions: "Use the left and right arrow keys to reorder the question.",
+      }}
+      onEnd={handleDragEnd}
+      profile="sortable-horizontal"
+      renderPreview={(active) => <QuizStripPreview data={active} />}
+      sessionId={`quiz-strip-${sessionId}`}
+      sortableItems={childKeys}
+    >
+      <div className="sc-quiz__strip" contentEditable={false} data-testid="quiz-stage-selector">
+        <div className="sc-quiz__strip-sortable-items">
           {childKeys.map((childKey, index) => (
             <QuizStripPill
               key={childKey}
@@ -86,14 +79,44 @@ export function QuizStrip({
               onSelect={onSelect}
             />
           ))}
-        </SortableContext>
-      </DndContext>
-      {items.length > 0 ? <QuizStripAdd items={items} onAdd={onAdd} /> : null}
-    </div>
+        </div>
+        {items.length > 0 ? <QuizStripAdd items={items} onAdd={onAdd} /> : null}
+      </div>
+    </InteractionDragSession>
   );
 }
 
 const quizMenuItemClass = "sc-quiz__strip-menu-item";
+
+interface QuizStripDragData {
+  readonly childKey: string;
+  readonly index: number;
+  readonly type: string | undefined;
+}
+
+export interface QuizStripReorderStep {
+  readonly childKey: string;
+  readonly direction: "up" | "down";
+  readonly index: number;
+}
+
+export function getQuizStripReorderSteps(
+  childKeys: readonly string[],
+  sourceKey: string,
+  targetKey: string,
+): QuizStripReorderStep[] {
+  const sourceIndex = childKeys.indexOf(sourceKey);
+  const targetIndex = childKeys.indexOf(targetKey);
+  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return [];
+
+  const direction = targetIndex < sourceIndex ? "up" : "down";
+  const indexDelta = direction === "up" ? -1 : 1;
+  const steps: QuizStripReorderStep[] = [];
+  for (let index = sourceIndex; index !== targetIndex; index += indexDelta) {
+    steps.push({ childKey: sourceKey, direction, index });
+  }
+  return steps;
+}
 
 function QuizStripPill({
   activeChildKey,
@@ -112,34 +135,43 @@ function QuizStripPill({
   onMove: (childKey: string, index: number, direction: "up" | "down") => void;
   onSelect: (childKey: string) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  const sortable = useInteractionSortable<QuizStripDragData>({
+    data: { childKey, index, type },
     id: childKey,
+    label: `Drag question ${index + 1}`,
   });
   const isActive = childKey === activeChildKey;
-
+  const { localTransform } = sortable;
   const style: CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
+    transform:
+      !sortable.isPlaceholder && localTransform
+        ? `translate3d(${localTransform.x}px, ${localTransform.y}px, 0) scale(${localTransform.scaleX}, ${localTransform.scaleY})`
+        : undefined,
+    transition: sortable.isPlaceholder ? undefined : sortable.transition,
   };
 
   return (
     <DropdownMenu.Root>
       <div
-        ref={setNodeRef}
+        {...sortable.sourceProps}
+        ref={sortable.setNodeRef}
         style={style}
         className="sc-quiz__strip-pill"
         data-active={isActive ? "true" : undefined}
-        data-dragging={isDragging ? "true" : undefined}
+        data-dragging={sortable.isDragging ? "true" : undefined}
+        data-quiz-question-id={childKey}
       >
-        <button
-          type="button"
+        <InteractionDragActivationArea
+          {...sortable.activatorProps}
+          ref={sortable.setActivatorNodeRef}
           aria-label={`Drag question ${index + 1}`}
           className="sc-quiz__strip-pill-drag"
-          {...attributes}
-          {...listeners}
+          data-quiz-strip-drag-handle=""
+          safeLocalHeight={44}
+          safeLocalWidth={44}
         >
           <DotsSixVertical size={14} weight="regular" aria-hidden />
-        </button>
+        </InteractionDragActivationArea>
         <button
           type="button"
           aria-current={isActive ? "true" : undefined}
@@ -186,6 +218,28 @@ function QuizStripPill({
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>
+  );
+}
+
+function QuizStripPreview({ data }: { data: QuizStripDragData }) {
+  return (
+    <div
+      className="sc-quiz__strip-pill sc-quiz__strip-pill--preview"
+      data-quiz-strip-preview={data.childKey}
+    >
+      <span className="sc-quiz__strip-pill-drag" aria-hidden>
+        <DotsSixVertical size={14} weight="regular" />
+      </span>
+      <span className="sc-quiz__strip-button">
+        <span className="sc-quiz__strip-number">Q{data.index + 1}</span>
+        {data.type ? (
+          <span className="sc-quiz__strip-type">{questionTypeTag(data.type)}</span>
+        ) : null}
+      </span>
+      <span className="sc-quiz__strip-pill-kebab" aria-hidden>
+        <CaretDown size={11} weight="bold" />
+      </span>
+    </div>
   );
 }
 

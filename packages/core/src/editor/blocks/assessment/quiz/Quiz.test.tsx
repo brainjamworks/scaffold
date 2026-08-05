@@ -107,12 +107,17 @@ import { QuizNode } from "./node";
 import { QuizAuthoringExtension, QuizRuntimeExtension } from "./index";
 import { getQuizChildBlock } from "./quiz-authoring";
 import { quizBlockDefinition } from "./quiz-definition";
+import { getQuizStripReorderSteps } from "./QuizStrip";
 
 const blockInsertCatalog = createInsertCatalog(createBlockInsertActions([quizBlockDefinition]));
 
 import "@/editor/blocks/presentation/callout/callout-definition";
 import "../mcq/mcq-definition";
 import "./quiz-definition";
+
+vi.mock("@/editor/movement/view/ContainedMovementHandle", () => ({
+  ContainedMovementHandle: () => null,
+}));
 
 afterEach(() => {
   cleanup();
@@ -2471,6 +2476,35 @@ describe("quiz block skeleton", () => {
     ]);
 
     editor.destroy();
+  });
+
+  it("maps a completed strip reorder from stable question ids to adjacent controller steps", () => {
+    expect(
+      getQuizStripReorderSteps(
+        ["question-a", "question-b", "question-c", "question-d"],
+        "question-d",
+        "question-b",
+      ),
+    ).toEqual([
+      { childKey: "question-d", direction: "up", index: 3 },
+      { childKey: "question-d", direction: "up", index: 2 },
+    ]);
+    expect(
+      getQuizStripReorderSteps(
+        ["question-a", "question-b", "question-c"],
+        "question-a",
+        "question-c",
+      ),
+    ).toEqual([
+      { childKey: "question-a", direction: "down", index: 0 },
+      { childKey: "question-a", direction: "down", index: 1 },
+    ]);
+    expect(getQuizStripReorderSteps(["question-a", "question-b"], "question-a", "missing")).toEqual(
+      [],
+    );
+    expect(
+      getQuizStripReorderSteps(["question-a", "question-b"], "question-a", "question-a"),
+    ).toEqual([]);
   });
 
   it("opens active question settings from Quiz chrome while Quiz remains selected", async () => {
