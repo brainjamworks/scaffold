@@ -37,7 +37,6 @@ import {
   answerMatchesFromReveal,
   describeMatchingItemAccessibilityState,
   describeMatchingTargetAccessibilityState,
-  getMatchingConnectorPath,
   matchingConnectorColor,
 } from "./matching-fields";
 import { MatchingAuthoringExtension } from "./matching-authoring-extension";
@@ -926,17 +925,6 @@ describe("matching reveal parsing", () => {
     expect(matchingConnectorColor("correct")).toBe("var(--color-success)");
     expect(matchingConnectorColor("incorrect")).toBe("var(--color-error)");
     expect(matchingConnectorColor("default")).toBe("var(--color-primary)");
-  });
-
-  it("draws matching connectors as cubic bezier paths", () => {
-    expect(
-      getMatchingConnectorPath({
-        startX: 10,
-        startY: 20,
-        endX: 110,
-        endY: 80,
-      }),
-    ).toBe("M 10 20 C 40 20, 80 80, 110 80");
   });
 
   it("reads revealed matches from the canonical match assessment schema", () => {

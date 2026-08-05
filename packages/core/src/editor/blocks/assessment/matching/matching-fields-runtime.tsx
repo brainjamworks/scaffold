@@ -15,8 +15,10 @@ import { RichFeedbackRuntimePopover } from "@/editor/blocks/assessment/shared/ch
 import { useAssessmentRuntimeById } from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
 import { InteractionDragActivationArea } from "@/editor/interactions/drag/react/InteractionDragActivationArea";
 import { InteractionDragSession } from "@/editor/interactions/drag/react/InteractionDragSession";
+import { useInteractionDragEnvironmentResolution } from "@/editor/interactions/drag/react/interaction-drag-environment";
 import { useInteractionDragSource } from "@/editor/interactions/drag/react/use-interaction-drag-source";
 import { useInteractionDropTarget } from "@/editor/interactions/drag/react/use-interaction-drop-target";
+import { observeInteractionGeometry } from "@/editor/interactions/drag/dom/observe-interaction-geometry";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 import { serializeStaticRichTextHtml } from "@/editor/rich-text/static/render-rich-text";
 import { cn } from "@/lib/cn";
@@ -25,7 +27,6 @@ import { iconMd, iconSm, iconXs } from "@/ui/tokens/icon-sizes";
 
 import {
   EMPTY_MATCHES,
-  MATCHING_CONNECTOR_PADDING,
   createMatchingItemNode,
   createMatchingPairNode,
   createMatchingPairsGroupNode,
@@ -40,6 +41,11 @@ import {
   type MatchingConnector,
   type MatchingProjectionPair,
 } from "./matching-fields-shared";
+import {
+  measureMatchingConnectorGeometry,
+  sameMatchingConnectors,
+  type MatchingConnectorConnection,
+} from "./matching-connector-geometry";
 import "./Matching.css";
 
 export {
@@ -74,6 +80,10 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
   const [hoverTargetId, setHoverTargetId] = useState<string | null>(null);
   const [connectors, setConnectors] = useState<MatchingConnector[]>([]);
   const matchingCanvasRef = useRef<HTMLDivElement | null>(null);
+  const connectorSvgRef = useRef<SVGSVGElement | null>(null);
+  const dragEnvironment = useInteractionDragEnvironmentResolution();
+  const connectorCoordinateSpace =
+    dragEnvironment.status === "ready" ? dragEnvironment.environment.coordinateSpace : null;
 
   const pos = safeGetPos(props.getPos);
   const authoredBlockId = findAncestorAssessmentBlockId(props.editor, pos ?? undefined, [
@@ -124,20 +134,14 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
     .join("|");
 
   useLayoutEffect(() => {
-    const updateConnectors = () => {
-      const container = matchingCanvasRef.current;
-      if (!container) return;
-
-      const containerRect = container.getBoundingClientRect();
-      const next: MatchingConnector[] = [];
-
-      Object.entries(displayMatches).forEach(([itemId, targetId]) => {
-        const itemEl = elementByDataAttr(container, "data-item-id", itemId);
-        const targetEl = elementByDataAttr(container, "data-target-id", targetId);
-        if (!itemEl || !targetEl) return;
-
-        const itemRect = itemEl.getBoundingClientRect();
-        const targetRect = targetEl.getBoundingClientRect();
+    const container = matchingCanvasRef.current;
+    const svg = connectorSvgRef.current;
+    if (!container || !svg) {
+      setConnectors([]);
+      return undefined;
+    }
+    const connections: MatchingConnectorConnection[] = Object.entries(displayMatches).map(
+      ([itemId, targetId]) => {
         const feedbackItem = feedbackItems[itemId] ?? null;
         const state =
           answerKeyVisible || (showFeedback && feedbackItem?.correct === true)
@@ -145,34 +149,24 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
             : showFeedback && feedbackItem?.correct === false
               ? "incorrect"
               : "default";
-
-        next.push({
-          itemId,
-          targetId,
-          startX: itemRect.right - containerRect.left + MATCHING_CONNECTOR_PADDING,
-          startY: itemRect.top - containerRect.top + itemRect.height / 2,
-          endX: targetRect.left - containerRect.left - MATCHING_CONNECTOR_PADDING,
-          endY: targetRect.top - containerRect.top + targetRect.height / 2,
-          state,
-        });
-      });
-
-      setConnectors((current) => (sameConnectors(current, next) ? current : next));
+        return { itemId, targetId, state };
+      },
+    );
+    const updateConnectors = () => {
+      const next = measureMatchingConnectorGeometry({ connections, container, svg });
+      setConnectors((current) => (sameMatchingConnectors(current, next) ? current : next));
     };
-
-    updateConnectors();
-    if (typeof window === "undefined") return undefined;
-    window.addEventListener("resize", updateConnectors);
-    return () => window.removeEventListener("resize", updateConnectors);
-  }, [
-    answerKeyVisible,
-    displayMatches,
-    feedbackItems,
-    feedbackSignature,
-    matchSignature,
-    pairs,
-    showFeedback,
-  ]);
+    return observeInteractionGeometry({
+      coordinateSpace: connectorCoordinateSpace,
+      getElements: () => [
+        container,
+        svg,
+        ...container.querySelectorAll<HTMLElement>("[data-item-id], [data-target-id]"),
+      ],
+      onMeasure: updateConnectors,
+      ownerDocument: container.ownerDocument,
+    });
+  }, [answerKeyVisible, connectorCoordinateSpace, feedbackSignature, matchSignature, showFeedback]);
 
   const commitMatch = (itemId: string, targetId: string) => {
     if (interactionLocked) return;
@@ -186,9 +180,7 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
   const handleDragStart = () => {
     setSelectedItemId(null);
   };
-  const handleDragMove = (event: {
-    over: { data: MatchingDropData } | null;
-  }) => {
+  const handleDragMove = (event: { over: { data: MatchingDropData } | null }) => {
     setHoverTargetId(interactionLocked ? null : (event.over?.data.targetId ?? null));
   };
   const handleDragEnd = (event: {
@@ -241,42 +233,49 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
             sessionId={`matching-${authoredBlockId ?? "runtime"}`}
           >
             <div ref={matchingCanvasRef} className="sc-matching-runtime-canvas">
-              {connectors.length > 0 && (
-                <svg aria-hidden data-matching-connectors="" className="sc-matching-connectors">
-                  {connectors.map((connector) => {
-                    const color = matchingConnectorColor(connector.state);
-                    return (
-                      <g
-                        key={`${connector.itemId}:${connector.targetId}`}
-                        data-matching-connector-state={connector.state}
-                      >
-                        <path
-                          d={getMatchingConnectorPath(connector)}
-                          fill="none"
-                          stroke={color}
-                          strokeLinecap="round"
-                          strokeWidth={3}
-                          opacity={connector.state === "default" ? 0.72 : 0.85}
-                        />
-                        <circle
-                          cx={connector.startX}
-                          cy={connector.startY}
-                          r={5}
-                          fill={color}
-                          opacity={connector.state === "default" ? 0.72 : 0.85}
-                        />
-                        <circle
-                          cx={connector.endX}
-                          cy={connector.endY}
-                          r={5}
-                          fill={color}
-                          opacity={connector.state === "default" ? 0.72 : 0.85}
-                        />
-                      </g>
-                    );
-                  })}
-                </svg>
-              )}
+              <svg
+                ref={connectorSvgRef}
+                aria-hidden
+                data-matching-connectors=""
+                className="sc-matching-connectors"
+              >
+                {connectors.map((connector) => {
+                  const color = matchingConnectorColor(connector.state);
+                  return (
+                    <g
+                      key={`${connector.itemId}:${connector.targetId}`}
+                      data-matching-connector-item-id={connector.itemId}
+                      data-matching-connector-state={connector.state}
+                      data-matching-connector-target-id={connector.targetId}
+                    >
+                      <path
+                        d={getMatchingConnectorPath(connector)}
+                        fill="none"
+                        stroke={color}
+                        strokeLinecap="round"
+                        strokeWidth={3}
+                        opacity={connector.state === "default" ? 0.72 : 0.85}
+                      />
+                      <circle
+                        data-matching-connector-endpoint="start"
+                        cx={connector.startX}
+                        cy={connector.startY}
+                        r={5}
+                        fill={color}
+                        opacity={connector.state === "default" ? 0.72 : 0.85}
+                      />
+                      <circle
+                        data-matching-connector-endpoint="end"
+                        cx={connector.endX}
+                        cy={connector.endY}
+                        r={5}
+                        fill={color}
+                        opacity={connector.state === "default" ? 0.72 : 0.85}
+                      />
+                    </g>
+                  );
+                })}
+              </svg>
               <div className="sc-matching-runtime-column sc-matching-runtime-column--items">
                 <div className="sc-matching-runtime-heading">Items</div>
                 <div className="sc-matching-runtime-list">
@@ -608,32 +607,4 @@ function projectionsFromGroup(node: PMNode, serializer: DOMSerializer): Matching
 function renderStaticHtml(html: string, fallback: string) {
   if (!html) return fallback;
   return <div className="sc-matching-static-html" dangerouslySetInnerHTML={{ __html: html }} />;
-}
-
-function elementByDataAttr(
-  container: HTMLElement,
-  attr: string,
-  value: string,
-): HTMLElement | null {
-  const elements = Array.from(container.querySelectorAll<HTMLElement>(`[${attr}]`));
-  return elements.find((element) => element.getAttribute(attr) === value) ?? null;
-}
-
-function sameConnectors(a: readonly MatchingConnector[], b: readonly MatchingConnector[]): boolean {
-  return (
-    a.length === b.length &&
-    a.every((connector, index) => {
-      const other = b[index];
-      return (
-        other !== undefined &&
-        connector.itemId === other.itemId &&
-        connector.targetId === other.targetId &&
-        connector.startX === other.startX &&
-        connector.startY === other.startY &&
-        connector.endX === other.endX &&
-        connector.endY === other.endY &&
-        connector.state === other.state
-      );
-    })
-  );
 }

@@ -11,11 +11,14 @@ import {
 
 const mounted: RuntimeDragBrowserHarness[] = [];
 let restoreReducedMotion: (() => void) | null = null;
+let restoreFullscreen: (() => void) | null = null;
 
 afterEach(() => {
   while (mounted.length > 0) mounted.pop()?.dispose();
   restoreReducedMotion?.();
   restoreReducedMotion = null;
+  restoreFullscreen?.();
+  restoreFullscreen = null;
 });
 
 describe("Sequencing shared drag runtime", () => {
@@ -204,6 +207,263 @@ describe("Sequencing shared drag runtime", () => {
   });
 });
 
+describe("Matching connector coordinate gate", () => {
+  it("round-trips the real no-viewBox SVG through its Slideshow screen CTM", async () => {
+    await page.viewport(1024, 768);
+    const harness = await mountRuntimeDragHarness({
+      interaction: "matching",
+      surface: "slideshow",
+      scale: 0.5,
+    });
+    mounted.push(harness);
+
+    harness.getSource('[data-item-id="i1"]')?.click();
+    await animationFrames(harness, 1);
+    harness.getSource('[data-matching-drop-target][data-target-id="t1"]')?.click();
+    await harness.waitForMatches({ i1: "t1" }, 1);
+    await animationFrames(harness, 2);
+
+    const connectorSvg = harness.player.querySelector<SVGSVGElement>(
+      "svg[data-matching-connectors]",
+    );
+    expect(connectorSvg).not.toBeNull();
+    expect(connectorSvg?.getAttribute("viewBox")).toBeNull();
+    const matrix = connectorSvg?.getScreenCTM();
+    expect(matrix).not.toBeNull();
+    expect(matrix?.b).toBeCloseTo(0, 6);
+    expect(matrix?.c).toBeCloseTo(0, 6);
+    expect(matrix?.a).toBeCloseTo(harness.getCanvasRect().width / 1024, 2);
+    expect(matrix?.d).toBeCloseTo(harness.getCanvasRect().height / 576, 2);
+
+    const local = connectorSvg!.createSVGPoint();
+    local.x = 0;
+    local.y = 0;
+    const client = local.matrixTransform(matrix!);
+    const rect = connectorSvg!.getBoundingClientRect();
+    expectClose(client.x, rect.left, 0.5);
+    expectClose(client.y, rect.top, 0.5);
+  });
+});
+
+describe("Matching shared drag runtime", () => {
+  it.each([
+    { label: "Page", surface: "page" as const, scale: 1 },
+    { label: "Slideshow 0.5", surface: "slideshow" as const, scale: 0.5 },
+    { label: "Slideshow 0.83", surface: "slideshow" as const, scale: 0.83 },
+    { label: "Slideshow 1", surface: "slideshow" as const, scale: 1 },
+    { label: "Slideshow 2", surface: "slideshow" as const, scale: 2 },
+  ])("pairs once with aligned connector geometry on $label", async ({ surface, scale }) => {
+    await page.viewport(Math.max(1024, Math.ceil(scale * 1024 + 100)), 900);
+    const harness = await mountRuntimeDragHarness({ interaction: "matching", surface, scale });
+    mounted.push(harness);
+    const source = matchingSource(harness, "i1");
+    const target = matchingTarget(harness, "t1");
+    assertMatchingActivationGeometry(harness);
+    expect(harness.getResponseMatches()).toEqual({});
+    expect(harness.getResponseRevision()).toBe(0);
+
+    source.focus();
+    const sourceRect = source.getBoundingClientRect();
+    const drag = await startPointerDrag(
+      harness,
+      source,
+      centerOf(target.getBoundingClientRect()),
+      scale === 0.5 ? "touch" : "mouse",
+      centerOf(source.getBoundingClientRect()),
+    );
+    const placeholder = harness.getPlaceholder();
+    expect(placeholder).toBe(source);
+    expect(harness.ownerWindow.getComputedStyle(placeholder!).pointerEvents).toBe("none");
+    expect(
+      harness.ownerWindow.getComputedStyle(
+        placeholder!.querySelector<HTMLElement>("[data-runtime-matching-handle]")!,
+      ).visibility,
+    ).toBe("hidden");
+    const overlay = requiredOverlay(harness);
+    expect(overlay.hasAttribute("inert")).toBe(true);
+    expect(overlay.querySelector("button, [data-runtime-matching-handle]")).toBeNull();
+    expectClose(overlay.getBoundingClientRect().width, sourceRect.width, 1);
+    expectClose(overlay.getBoundingClientRect().height, sourceRect.height, 1);
+
+    await finishPointerDrag(harness, drag.pointer, drag.pointerType);
+    await harness.waitForMatches({ i1: "t1" }, 1);
+    await harness.waitForIdle();
+    await animationFrames(harness, 2);
+    expect(harness.getResponseMatches()).toEqual({ i1: "t1" });
+    expect(harness.getResponseRevision()).toBe(1);
+    assertMatchingConnectorAligned(harness, "i1", "t1");
+    expect(harness.getAnnouncements()).toEqual([]);
+  });
+
+  it("cancels and rejects invalid pointer drops without a response write", async () => {
+    await page.viewport(1024, 768);
+    const harness = await mountRuntimeDragHarness({ interaction: "matching", surface: "page" });
+    mounted.push(harness);
+    const source = matchingSource(harness, "i1");
+    source.focus();
+    await startPointerDrag(
+      harness,
+      source,
+      centerOf(matchingTarget(harness, "t1").getBoundingClientRect()),
+      "mouse",
+      centerOf(source.getBoundingClientRect()),
+    );
+    fireEvent.keyDown(harness.ownerDocument, { code: "Escape", key: "Escape" });
+    await harness.waitForIdle();
+    expect(harness.getResponseMatches()).toEqual({});
+    expect(harness.getResponseRevision()).toBe(0);
+    expect(harness.ownerDocument.activeElement).toBe(source);
+
+    const invalid = await startPointerDrag(
+      harness,
+      source,
+      { x: source.getBoundingClientRect().left, y: source.getBoundingClientRect().top - 20 },
+      "mouse",
+      centerOf(source.getBoundingClientRect()),
+    );
+    await finishPointerDrag(harness, invalid.pointer, invalid.pointerType);
+    await harness.waitForIdle();
+    expect(harness.getResponseMatches()).toEqual({});
+    expect(harness.getResponseRevision()).toBe(0);
+  });
+
+  it("uses Enter then Space selection without draggable announcements", async () => {
+    await page.viewport(1024, 768);
+    const harness = await mountRuntimeDragHarness({ interaction: "matching", surface: "page" });
+    mounted.push(harness);
+    const source = matchingSource(harness, "i1");
+    const target = matchingTarget(harness, "t2");
+    expect(source).not.toHaveAttribute("aria-roledescription");
+    expect(source).not.toHaveAttribute("aria-description");
+
+    fireEvent.keyDown(source, { code: "Enter", key: "Enter" });
+    await animationFrames(harness, 1);
+    fireEvent.keyDown(target, { code: "Space", key: " " });
+    await harness.waitForMatches({ i1: "t2" }, 1);
+    expect(harness.getResponseRevision()).toBe(1);
+    expect(harness.getAnnouncements()).toEqual([]);
+  });
+
+  it("refreshes connectors through resize, scroll, fullscreen, unpairing, and endpoint loss", async () => {
+    await page.viewport(1200, 900);
+    restoreFullscreen = installFullscreenHarness(document, window);
+    const harness = await mountRuntimeDragHarness({
+      interaction: "matching",
+      surface: "slideshow",
+      scale: 0.83,
+    });
+    mounted.push(harness);
+    matchingSource(harness, "i1").click();
+    await animationFrames(harness, 1);
+    matchingTarget(harness, "t1").click();
+    await harness.waitForMatches({ i1: "t1" }, 1);
+    await animationFrames(harness, 2);
+    assertMatchingConnectorAligned(harness, "i1", "t1");
+
+    harness.setPlayerSize(720, 500);
+    await animationFrames(harness, 4);
+    assertMatchingConnectorAligned(harness, "i1", "t1");
+
+    const scrollLane = harness.player.querySelector<HTMLElement>(".sc-matching-pairs-scroll")!;
+    scrollLane.scrollTop += 16;
+    scrollLane.dispatchEvent(new Event("scroll"));
+    await animationFrames(harness, 2);
+    assertMatchingConnectorAligned(harness, "i1", "t1");
+
+    harness.getFullscreenControl()?.click();
+    await animationFrames(harness, 3);
+    assertMatchingConnectorAligned(harness, "i1", "t1");
+
+    const remove = matchingTarget(harness, "t1").querySelector<HTMLButtonElement>(
+      'button[aria-label^="Remove match"]',
+    );
+    expect(remove).not.toBeNull();
+    remove!.click();
+    await harness.waitForMatches({}, 2);
+    await animationFrames(harness, 2);
+    expect(harness.player.querySelector("[data-matching-connector-item-id]")).toBeNull();
+
+    matchingSource(harness, "i2").click();
+    await animationFrames(harness, 1);
+    matchingTarget(harness, "t2").click();
+    await harness.waitForMatches({ i2: "t2" }, 3);
+    await animationFrames(harness, 2);
+    assertMatchingConnectorAligned(harness, "i2", "t2");
+    matchingTarget(harness, "t2").remove();
+    await animationFrames(harness, 2);
+    expect(harness.player.querySelector("[data-matching-connector-item-id]")).toBeNull();
+  });
+});
+
+function matchingSource(harness: RuntimeDragBrowserHarness, itemId: string): HTMLElement {
+  const source = harness.player.querySelector<HTMLElement>(
+    `[data-matching-draggable-item][data-item-id="${itemId}"]`,
+  );
+  if (!source) throw new Error(`Expected Matching source ${itemId}.`);
+  return source;
+}
+
+function matchingTarget(harness: RuntimeDragBrowserHarness, targetId: string): HTMLElement {
+  const target = harness.player.querySelector<HTMLElement>(
+    `[data-matching-drop-target][data-target-id="${targetId}"]`,
+  );
+  if (!target) throw new Error(`Expected Matching target ${targetId}.`);
+  return target;
+}
+
+function assertMatchingActivationGeometry(harness: RuntimeDragBrowserHarness) {
+  const activators = harness.getActivationAreas();
+  expect(activators).toHaveLength(2);
+  const rects = activators.map((activator, index) => {
+    expect(activator.tagName).toBe("BUTTON");
+    const rect = activator.getBoundingClientRect();
+    if (index === 0) {
+      const hit = harness.ownerDocument.elementFromPoint(
+        rect.left + rect.width / 2,
+        rect.top + rect.height / 2,
+      );
+      expect(hit).not.toBeNull();
+      expect(activator.contains(hit)).toBe(true);
+    }
+    return rect;
+  });
+  expect(rects[0]!.bottom).toBeLessThanOrEqual(rects[1]!.top);
+}
+
+function assertMatchingConnectorAligned(
+  harness: RuntimeDragBrowserHarness,
+  itemId: string,
+  targetId: string,
+) {
+  const group = harness.player.querySelector<SVGGElement>(
+    `[data-matching-connector-item-id="${itemId}"][data-matching-connector-target-id="${targetId}"]`,
+  );
+  expect(group).not.toBeNull();
+  const svg = group!.ownerSVGElement!;
+  const matrix = svg.getScreenCTM();
+  expect(matrix).not.toBeNull();
+  const start = group!.querySelector<SVGCircleElement>(
+    '[data-matching-connector-endpoint="start"]',
+  )!;
+  const end = group!.querySelector<SVGCircleElement>('[data-matching-connector-endpoint="end"]')!;
+  expect(start).not.toBeNull();
+  expect(end).not.toBeNull();
+  const startClient = svg.createSVGPoint();
+  startClient.x = start.cx.baseVal.value - start.r.baseVal.value;
+  startClient.y = start.cy.baseVal.value;
+  const startEdge = startClient.matrixTransform(matrix!);
+  const endClient = svg.createSVGPoint();
+  endClient.x = end.cx.baseVal.value + end.r.baseVal.value;
+  endClient.y = end.cy.baseVal.value;
+  const endEdge = endClient.matrixTransform(matrix!);
+  const itemRect = matchingSource(harness, itemId).getBoundingClientRect();
+  const targetRect = matchingTarget(harness, targetId).getBoundingClientRect();
+  expectClose(startEdge.x, itemRect.right, 1);
+  expectClose(startEdge.y, itemRect.top + itemRect.height / 2, 1);
+  expectClose(endEdge.x, targetRect.left, 1);
+  expectClose(endEdge.y, targetRect.top + targetRect.height / 2, 1);
+}
+
 function assertActivationGeometry(
   harness: RuntimeDragBrowserHarness,
   activators: readonly HTMLElement[],
@@ -235,9 +495,13 @@ async function startPointerDrag(
   source: HTMLElement,
   destination: Readonly<{ x: number; y: number }>,
   pointerType: "mouse" | "touch",
+  activationPoint?: Readonly<{ x: number; y: number }>,
 ) {
   const sourceRect = source.getBoundingClientRect();
-  const start = { x: sourceRect.left + 2, y: sourceRect.top + sourceRect.height / 2 };
+  const start = activationPoint ?? {
+    x: sourceRect.left + 2,
+    y: sourceRect.top + sourceRect.height / 2,
+  };
   const hit = harness.ownerDocument.elementFromPoint(start.x, start.y);
   if (!(hit instanceof Element) || !source.contains(hit)) {
     throw new Error("Activation point did not hit the Sequencing activator.");
@@ -363,4 +627,55 @@ function emulateReducedMotionPreference(): () => void {
       value: original,
     });
   };
+}
+
+function installFullscreenHarness(ownerDocument: Document, ownerWindow: Window): () => void {
+  const fullscreenEnabledDescriptor = Object.getOwnPropertyDescriptor(
+    ownerDocument,
+    "fullscreenEnabled",
+  );
+  const fullscreenElementDescriptor = Object.getOwnPropertyDescriptor(
+    ownerDocument,
+    "fullscreenElement",
+  );
+  const exitFullscreenDescriptor = Object.getOwnPropertyDescriptor(ownerDocument, "exitFullscreen");
+  const OwnerHTMLElement = (ownerWindow as Window & typeof globalThis).HTMLElement;
+  const requestFullscreenDescriptor = Object.getOwnPropertyDescriptor(
+    OwnerHTMLElement.prototype,
+    "requestFullscreen",
+  );
+  let fullscreenElement: Element | null = null;
+  Object.defineProperties(ownerDocument, {
+    fullscreenEnabled: { configurable: true, value: true },
+    fullscreenElement: { configurable: true, get: () => fullscreenElement },
+    exitFullscreen: {
+      configurable: true,
+      value: async () => {
+        fullscreenElement = null;
+        ownerDocument.dispatchEvent(new Event("fullscreenchange"));
+      },
+    },
+  });
+  Object.defineProperty(OwnerHTMLElement.prototype, "requestFullscreen", {
+    configurable: true,
+    value: async function requestFullscreen(this: HTMLElement) {
+      fullscreenElement = this;
+      ownerDocument.dispatchEvent(new Event("fullscreenchange"));
+    },
+  });
+  return () => {
+    restoreProperty(ownerDocument, "fullscreenEnabled", fullscreenEnabledDescriptor);
+    restoreProperty(ownerDocument, "fullscreenElement", fullscreenElementDescriptor);
+    restoreProperty(ownerDocument, "exitFullscreen", exitFullscreenDescriptor);
+    restoreProperty(OwnerHTMLElement.prototype, "requestFullscreen", requestFullscreenDescriptor);
+  };
+}
+
+function restoreProperty(
+  target: object,
+  key: PropertyKey,
+  descriptor: PropertyDescriptor | undefined,
+) {
+  if (descriptor) Object.defineProperty(target, key, descriptor);
+  else Reflect.deleteProperty(target, key);
 }
