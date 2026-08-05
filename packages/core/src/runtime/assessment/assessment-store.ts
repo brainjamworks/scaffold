@@ -16,14 +16,7 @@ import {
   AssessmentProblemCommandOutcomeSchema,
   AssessmentQuizCommandOutcomeSchema,
 } from "../../host/ports/assessment";
-import {
-  buildAnsweredStatementDraft,
-  buildHintInteractedStatementDraft,
-  buildQuizAttemptedStatementDraft,
-  buildQuizCompletedStatementDraft,
-  buildQuizSuccessStatementDraft,
-} from "../xapi/statement-catalogue";
-import type { XapiSession } from "../xapi/session";
+import type { LearningEventSessionAccessor } from "../learning-events/LearningEventRuntimeProvider";
 import type {
   AssessmentDurableState,
   AssessmentGroupId,
@@ -293,7 +286,7 @@ export function redactQuizResult(
 export function createAssessmentStore({
   artifactId,
   assessmentPort,
-  getXapiSession,
+  getLearningEventSession,
 }: CreateAssessmentStoreOptions): AssessmentStoreApi {
   const normalizedArtifactId = artifactId.trim();
   if (!normalizedArtifactId) {
@@ -309,18 +302,19 @@ export function createAssessmentStore({
     ): void => {
       if (!problem.submitted) return;
       try {
-        const session = getXapiSession?.();
+        const session = getLearningEventSession?.();
         if (!session) return;
-        session.record(
-          buildAnsweredStatementDraft({
-            rootActivityId: session.rootActivityId,
+        session.record({
+            type: "assessment.answered",
             targetId: registration.targetId,
             definition: registration.config.learningEventDefinition,
             response: problem.response,
-            result: problem.submissionResult,
+            result: {
+              isCorrect: problem.submissionResult!.isCorrect,
+              score: problem.submissionResult!.score,
+            },
             attemptNumber: problem.attemptNumber,
-          }),
-        );
+          });
       } catch {
         // Learning-record delivery is observational and cannot change assessment authority.
       }
@@ -333,16 +327,14 @@ export function createAssessmentStore({
     ): void => {
       if (problem.hintsShown <= previousProblem.hintsShown) return;
       try {
-        const session = getXapiSession?.();
+        const session = getLearningEventSession?.();
         if (!session) return;
-        session.record(
-          buildHintInteractedStatementDraft({
-            rootActivityId: session.rootActivityId,
+        session.record({
+            type: "assessment.hint-interacted",
             targetId: registration.targetId,
             definition: registration.config.learningEventDefinition,
             hintNumber: problem.hintsShown,
-          }),
-        );
+          });
       } catch {
         // Learning-record delivery is observational and cannot change assessment authority.
       }
@@ -361,15 +353,13 @@ export function createAssessmentStore({
           return;
         }
         try {
-          const session = getXapiSession?.();
+          const session = getLearningEventSession?.();
           if (!session) return;
-          session.record(
-            buildQuizAttemptedStatementDraft({
-              rootActivityId: session.rootActivityId,
+          session.record({
+              type: "quiz.attempted",
               quizId: registration.authoredGroupId,
               attemptId: attempt.attemptId,
-            }),
-          );
+            });
         } catch {
           // Learning-record failure cannot change an authoritative Quiz start.
         }
@@ -408,9 +398,9 @@ export function createAssessmentStore({
       });
       if (answers.length === 0 && !newlyTerminal) return;
 
-      let session: XapiSession | null | undefined;
+      let session: ReturnType<LearningEventSessionAccessor>;
       try {
-        session = getXapiSession?.();
+        session = getLearningEventSession?.();
       } catch {
         return;
       }
@@ -418,20 +408,21 @@ export function createAssessmentStore({
 
       for (const { problemRegistration, problem } of answers) {
         try {
-          session.record(
-            buildAnsweredStatementDraft({
-              rootActivityId: session.rootActivityId,
+          session.record({
+              type: "assessment.answered",
               targetId: problemRegistration.targetId,
               definition: problemRegistration.config.learningEventDefinition,
               response: problem.response,
-              result: problem.submissionResult,
+              result: {
+                isCorrect: problem.submissionResult!.isCorrect,
+                score: problem.submissionResult!.score,
+              },
               attemptNumber: problem.attemptNumber,
               quiz: {
                 quizId: registration.authoredGroupId,
                 attemptId: attempt.attemptId,
               },
-            }),
-          );
+            });
         } catch {
           // One learning-record failure cannot change authority or suppress later answers.
         }
@@ -439,31 +430,26 @@ export function createAssessmentStore({
 
       if (!newlyTerminal) return;
       try {
-        session.record(
-          buildQuizCompletedStatementDraft({
-            rootActivityId: session.rootActivityId,
+        session.record({
+            type: "quiz.completed",
             quizId: registration.authoredGroupId,
             attemptId: attempt.attemptId,
             startedAt: attempt.startedAt,
             finishedAt: attempt.finishedAt,
-          }),
-        );
+          });
       } catch {
         // Learning-record failure cannot change an authoritative terminal Quiz.
       }
 
       if (attempt.successStatus === null) return;
       try {
-        session.record(
-          buildQuizSuccessStatementDraft({
-            rootActivityId: session.rootActivityId,
+        session.record({
+            type: attempt.successStatus === "passed" ? "quiz.passed" : "quiz.failed",
             quizId: registration.authoredGroupId,
             attemptId: attempt.attemptId,
-            successStatus: attempt.successStatus,
             score: attempt.score,
             maxScore: attempt.maxScore,
-          }),
-        );
+          });
       } catch {
         // Success recording is observational and independent of completion delivery.
       }

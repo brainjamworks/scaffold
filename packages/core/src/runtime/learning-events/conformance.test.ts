@@ -23,6 +23,8 @@ import type {
   AssessmentRegistrationInput,
 } from "../assessment/types";
 import { createLearnerActivityStore } from "../learner-activity/store";
+import type { LearningEventSession } from "./session";
+import { buildLearningEventDraft } from "./catalogue";
 import {
   XAPI_ACTIVITY_TYPES,
   XAPI_EXTENSIONS,
@@ -35,7 +37,7 @@ import {
   createQuizActivityId,
   createXapiSession,
   type XapiSessionAccessor,
-} from "./index";
+} from "../xapi";
 
 const ROOT_ACTIVITY_ID = "https://lms.example.test/courses/course-one";
 const EVENT_START = "2026-07-25T10:00:00.000Z";
@@ -51,6 +53,21 @@ const QUIZ_ID = "quiz-one";
 const QUIZ_ATTEMPT_ID = "quiz-attempt-one";
 const LOCAL_RESPONSE_ID = "local option";
 const AUTHORITATIVE_RESPONSE_ID = "authoritative option";
+
+function learningSession(getXapiSession: XapiSessionAccessor): () => LearningEventSession | null {
+  return () => {
+    const session = getXapiSession();
+    if (!session) return null;
+    return {
+      rootActivityId: session.rootActivityId,
+      start: () => session.start(),
+      record: (input) =>
+        session.record(buildLearningEventDraft(input, { rootActivityId: session.rootActivityId })),
+      terminate: () => session.terminate(),
+      getState: () => ({ status: "dormant" as const }),
+    };
+  };
+}
 
 const PRIVATE_VALUES = Object.freeze([
   "PRIVATE_ITEM_RESPONSE",
@@ -387,7 +404,7 @@ function createConformanceLearnerActivityStore(
   const store = createLearnerActivityStore({
     artifactId: ARTIFACT_ID,
     learnerActivityPort,
-    ...(getXapiSession ? { getXapiSession } : {}),
+    ...(getXapiSession ? { getLearningEventSession: learningSession(getXapiSession) } : {}),
   });
   store.setState({
     activities: {
@@ -428,7 +445,7 @@ function createConformanceAssessmentStore(
   return createAssessmentStore({
     artifactId: ARTIFACT_ID,
     assessmentPort: createAssessmentPort(successStatus),
-    ...(getXapiSession ? { getXapiSession } : {}),
+    ...(getXapiSession ? { getLearningEventSession: learningSession(getXapiSession) } : {}),
   });
 }
 

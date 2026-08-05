@@ -15,6 +15,7 @@ import {
 import type { AssessmentPort, AssessmentQuizCommandOutcome } from "../../host/ports/assessment";
 import type { XapiPort, XapiStatementDraft } from "../../host/ports/xapi";
 import type { AssessmentLearningEventDefinition } from "../learning-events/catalogue";
+import { buildLearningEventDraft } from "../learning-events/catalogue";
 import {
   buildAnsweredStatementDraft,
   buildHintInteractedStatementDraft,
@@ -81,7 +82,12 @@ function createSessionDouble(
   const session: XapiSession = Object.freeze({
     rootActivityId: ROOT_ACTIVITY_ID,
     start: vi.fn(),
-    record,
+    record: (input) =>
+      record(
+        "type" in input
+          ? buildLearningEventDraft(input, { rootActivityId: ROOT_ACTIVITY_ID })
+          : input,
+      ),
     terminate: vi.fn(async () => undefined),
     getState: () => ({ status: "dormant" as const }),
   });
@@ -293,7 +299,7 @@ describe("createAssessmentStore", () => {
           finishAttempt: vi.fn(),
         },
       }),
-      getXapiSession,
+      getLearningEventSession: getXapiSession,
     });
 
     store.getState().registerQuiz(createQuizRegistration());
@@ -333,7 +339,7 @@ describe("createAssessmentStore", () => {
           finishAttempt: vi.fn(),
         },
       }),
-      getXapiSession,
+      getLearningEventSession: getXapiSession,
     });
     store.getState().registerQuiz(createQuizRegistration());
 
@@ -369,7 +375,7 @@ describe("createAssessmentStore", () => {
           finishAttempt: vi.fn(),
         },
       }),
-      getXapiSession: () => xapi.session,
+      getLearningEventSession: () => xapi.session,
     });
     store.getState().registerQuiz(createQuizRegistration());
 
@@ -406,7 +412,7 @@ describe("createAssessmentStore", () => {
           finishAttempt: vi.fn(),
         },
       }),
-      getXapiSession: () => null,
+      getLearningEventSession: () => null,
     });
     store.getState().registerQuiz(createQuizRegistration());
 
@@ -440,7 +446,7 @@ describe("createAssessmentStore", () => {
             finishAttempt: vi.fn(),
           },
         }),
-        getXapiSession:
+        getLearningEventSession:
           failurePoint === "session accessor"
             ? () => {
                 throw new Error("session unavailable");
@@ -470,7 +476,7 @@ describe("createAssessmentStore", () => {
           finishAttempt: vi.fn(),
         },
       }),
-      getXapiSession,
+      getLearningEventSession: getXapiSession,
     });
     store.getState().registerQuiz(createQuizRegistration());
 
@@ -507,7 +513,7 @@ describe("createAssessmentStore", () => {
           finishAttempt: vi.fn(),
         },
       }),
-      getXapiSession,
+      getLearningEventSession: getXapiSession,
     });
     store.getState().registerQuiz(
       createQuizRegistration({
@@ -550,7 +556,7 @@ describe("createAssessmentStore", () => {
           finishAttempt: vi.fn(),
         },
       }),
-      getXapiSession: () => xapi.session,
+      getLearningEventSession: () => xapi.session,
     });
     const identity = registrationIdentity();
     const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
@@ -645,7 +651,7 @@ describe("createAssessmentStore", () => {
           finishAttempt: vi.fn(),
         },
       }),
-      getXapiSession: () => xapi.session,
+      getLearningEventSession: () => xapi.session,
     });
     const identity = registrationIdentity();
 
@@ -735,7 +741,7 @@ describe("createAssessmentStore", () => {
           finishAttempt: vi.fn(),
         },
       }),
-      getXapiSession,
+      getLearningEventSession: getXapiSession,
     });
     const identity = registrationIdentity();
 
@@ -823,7 +829,7 @@ describe("createAssessmentStore", () => {
           finishAttempt: vi.fn(),
         },
       }),
-      getXapiSession,
+      getLearningEventSession: getXapiSession,
     });
     const identity = registrationIdentity();
     const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
@@ -907,7 +913,7 @@ describe("createAssessmentStore", () => {
       assessmentPort: createAssessmentPort({
         quiz: { startAttempt: vi.fn(), submitQuestion: vi.fn(), finishAttempt },
       }),
-      getXapiSession,
+      getLearningEventSession: getXapiSession,
     });
     const secondIdentity = registrationIdentity({
       authoredBlockId: "block-two",
@@ -1048,7 +1054,7 @@ describe("createAssessmentStore", () => {
             finishAttempt: () => pending.promise,
           },
         }),
-        getXapiSession: () => xapi.session,
+      getLearningEventSession: () => xapi.session,
       });
       const secondIdentity = registrationIdentity({
         authoredBlockId: "block-two",
@@ -1146,7 +1152,7 @@ describe("createAssessmentStore", () => {
       assessmentPort: createAssessmentPort({
         quiz: { startAttempt: vi.fn(), submitQuestion: vi.fn(), finishAttempt },
       }),
-      getXapiSession: () => xapi.session,
+      getLearningEventSession: () => xapi.session,
     });
 
     store.getState().register(createRegistration());
@@ -1238,7 +1244,7 @@ describe("createAssessmentStore", () => {
             }),
           },
         }),
-        getXapiSession,
+        getLearningEventSession: getXapiSession,
       });
 
       store.getState().register(createRegistration());
@@ -1262,7 +1268,7 @@ describe("createAssessmentStore", () => {
 
       expect(store.getState().durable.quizzes[groupId]).toEqual(terminalAttempt);
       expect(store.getState().requests[groupId]).toBeUndefined();
-      expect(record).not.toHaveBeenCalled();
+      expect(record).toHaveBeenCalledTimes(failureMode === "invalid builder root" ? 2 : 0);
     },
   );
 
@@ -1304,7 +1310,11 @@ describe("createAssessmentStore", () => {
           }),
         },
       }),
-      getXapiSession: () => session,
+      getLearningEventSession: () => ({
+        ...session,
+        record: (input) =>
+          session.record(buildLearningEventDraft(input, { rootActivityId: ROOT_ACTIVITY_ID })),
+      }) as never,
     });
 
     store.getState().register(createRegistration());
@@ -1348,7 +1358,7 @@ describe("createAssessmentStore", () => {
           }),
         },
       }),
-      getXapiSession,
+      getLearningEventSession: getXapiSession,
     });
 
     store.getState().register(createRegistration());
@@ -1434,7 +1444,7 @@ describe("createAssessmentStore", () => {
           }),
         },
       }),
-      getXapiSession,
+    getLearningEventSession: getXapiSession,
     });
     const secondIdentity = registrationIdentity({
       authoredBlockId: "block-two",
@@ -1478,7 +1488,7 @@ describe("createAssessmentStore", () => {
       assessmentPort: createAssessmentPort({
         quiz: { startAttempt: vi.fn(), submitQuestion: vi.fn(), finishAttempt },
       }),
-      getXapiSession,
+      getLearningEventSession: getXapiSession,
     });
 
     store.getState().register(createRegistration());
@@ -1530,7 +1540,7 @@ describe("createAssessmentStore", () => {
           revealAnswers,
         },
       }),
-      getXapiSession,
+      getLearningEventSession: getXapiSession,
     });
 
     store.getState().register(createRegistration());
@@ -1612,7 +1622,7 @@ describe("createAssessmentStore", () => {
           finishAttempt: vi.fn(),
         },
       }),
-      getXapiSession,
+      getLearningEventSession: getXapiSession,
     });
     store.getState().registerQuiz(createQuizRegistration());
 
@@ -1639,7 +1649,7 @@ describe("createAssessmentStore", () => {
           finishAttempt: vi.fn(),
         },
       }),
-      getXapiSession,
+      getLearningEventSession: getXapiSession,
     });
     const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
     store.getState().register(createRegistration());
@@ -1737,7 +1747,7 @@ describe("createAssessmentStore", () => {
           finishAttempt: vi.fn(),
         },
       }),
-      getXapiSession: () => xapi.session,
+      getLearningEventSession: () => xapi.session,
     });
     const identity = registrationIdentity();
 
@@ -1807,7 +1817,7 @@ describe("createAssessmentStore", () => {
           finishAttempt: vi.fn().mockRejectedValue(new Error("finish rejected")),
         },
       }),
-      getXapiSession,
+      getLearningEventSession: getXapiSession,
     });
     const secondIdentity = registrationIdentity({
       authoredBlockId: "block-two",
@@ -1855,7 +1865,7 @@ describe("createAssessmentStore", () => {
       assessmentPort: createAssessmentPort({
         quiz: { startAttempt: vi.fn(), submitQuestion: vi.fn(), finishAttempt },
       }),
-      getXapiSession: () => xapi.session,
+      getLearningEventSession: () => xapi.session,
     });
     store.getState().register(createRegistration());
     store.getState().registerQuiz(
@@ -1937,7 +1947,7 @@ describe("createAssessmentStore", () => {
       assessmentPort: createAssessmentPort({
         quiz: { startAttempt: vi.fn(), submitQuestion, finishAttempt },
       }),
-      getXapiSession,
+      getLearningEventSession: getXapiSession,
     });
 
     store.getState().register(createRegistration());
@@ -2209,7 +2219,7 @@ describe("createAssessmentStore", () => {
       assessmentPort: createAssessmentPort({
         submit: vi.fn().mockResolvedValue({ problem: canonicalProblem }),
       }),
-      getXapiSession: () => xapi.session,
+      getLearningEventSession: () => xapi.session,
     });
     const identity = registrationIdentity();
     const learningEventDefinition = assessmentLearningEventDefinition();
@@ -2258,7 +2268,7 @@ describe("createAssessmentStore", () => {
       assessmentPort: createAssessmentPort({
         submit: vi.fn().mockResolvedValue({ problem: invalidProblem }),
       }),
-      getXapiSession: () => xapi.session,
+      getLearningEventSession: () => xapi.session,
     });
     const identity = registrationIdentity();
     const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
@@ -2294,7 +2304,7 @@ describe("createAssessmentStore", () => {
     const store = createAssessmentStore({
       artifactId: "artifact-one",
       assessmentPort: createAssessmentPort({ submit: () => pending.promise }),
-      getXapiSession,
+      getLearningEventSession: getXapiSession,
     });
     const identity = registrationIdentity();
 
@@ -2326,7 +2336,7 @@ describe("createAssessmentStore", () => {
       assessmentPort: createAssessmentPort({
         submit: vi.fn().mockResolvedValue({ problem: canonicalProblem }),
       }),
-      getXapiSession: () => xapi.session,
+      getLearningEventSession: () => xapi.session,
     });
     const identity = registrationIdentity();
     const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
@@ -2352,7 +2362,7 @@ describe("createAssessmentStore", () => {
       assessmentPort: createAssessmentPort({
         submit: vi.fn().mockResolvedValue({ problem: canonicalProblem }),
       }),
-      getXapiSession: () => xapi.session,
+      getLearningEventSession: () => xapi.session,
     });
     const identity = registrationIdentity();
 
@@ -2383,7 +2393,7 @@ describe("createAssessmentStore", () => {
           },
         }),
       }),
-      getXapiSession: () => xapi.session,
+      getLearningEventSession: () => xapi.session,
     });
     const identity = registrationIdentity();
 
@@ -2495,7 +2505,7 @@ describe("createAssessmentStore", () => {
     store = createAssessmentStore({
       artifactId: "artifact-one",
       assessmentPort: createAssessmentPort({ revealHint: () => pending.promise }),
-      getXapiSession: () => xapi.session,
+      getLearningEventSession: () => xapi.session,
     });
     const identity = registrationIdentity();
     const learningEventDefinition = assessmentLearningEventDefinition();
@@ -2535,7 +2545,7 @@ describe("createAssessmentStore", () => {
           problem: { ...createProblemSnapshot(), hintsShown: 1 },
         }),
       }),
-      getXapiSession: () => xapi.session,
+      getLearningEventSession: () => xapi.session,
     });
     const identity = registrationIdentity();
     const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
@@ -2559,7 +2569,7 @@ describe("createAssessmentStore", () => {
     const store = createAssessmentStore({
       artifactId: "artifact-one",
       assessmentPort: createAssessmentPort(),
-      getXapiSession: () => xapi.session,
+      getLearningEventSession: () => xapi.session,
     });
     const identity = registrationIdentity();
 
@@ -2580,7 +2590,7 @@ describe("createAssessmentStore", () => {
           problem: { ...createProblemSnapshot(), hintsShown: 1 },
         }),
       }),
-      getXapiSession: () => xapi.session,
+      getLearningEventSession: () => xapi.session,
     });
     const identity = registrationIdentity();
     const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
@@ -2643,7 +2653,7 @@ describe("createAssessmentStore", () => {
     const store = createAssessmentStore({
       artifactId: "artifact-one",
       assessmentPort: createAssessmentPort({ revealHint: () => stale.promise }),
-      getXapiSession: () => xapi.session,
+      getLearningEventSession: () => xapi.session,
     });
     const identity = registrationIdentity();
     const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
@@ -2793,7 +2803,7 @@ describe("createAssessmentStore", () => {
     const store = createAssessmentStore({
       artifactId: "artifact-one",
       assessmentPort: createAssessmentPort({ submit }),
-      getXapiSession: () => xapi.session,
+      getLearningEventSession: () => xapi.session,
     });
     const identity = registrationIdentity();
     const problemId = scopeAssessmentProblemId("artifact-one", "block-one");

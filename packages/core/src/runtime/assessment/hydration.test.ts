@@ -176,7 +176,7 @@ describe("assessment snapshot hydration", () => {
   });
 
   it("preserves historical null success without consulting the xAPI session", () => {
-    const getXapiSession = vi.fn();
+    const getLearningEventSession = vi.fn();
     const historicalQuiz: QuizAttemptSnapshot = {
       ...quiz,
       status: "completed",
@@ -190,7 +190,7 @@ describe("assessment snapshot hydration", () => {
     const store = createAssessmentStore({
       artifactId: "artifact-one",
       assessmentPort: null,
-      getXapiSession,
+      getLearningEventSession,
     });
 
     hydrateAssessmentSnapshot(store, snapshot({ quizzes: { "quiz-one": historicalQuiz } }));
@@ -198,7 +198,7 @@ describe("assessment snapshot hydration", () => {
     const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
     expect(store.getState().durable.quizzes[groupId]?.successStatus).toBeNull();
     expect(projectAssessmentSnapshot(store).quizzes["quiz-one"]?.successStatus).toBeNull();
-    expect(getXapiSession).not.toHaveBeenCalled();
+    expect(getLearningEventSession).not.toHaveBeenCalled();
   });
 
   it.each([

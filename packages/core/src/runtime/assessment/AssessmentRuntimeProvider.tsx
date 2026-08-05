@@ -7,7 +7,10 @@ import { useScaffoldArtifactIdentity } from "@/host/providers/ScaffoldArtifactId
 import { createAssessmentStore } from "./assessment-store";
 import { hydrateAssessmentSnapshot } from "./hydration";
 import type { AssessmentStore, AssessmentStoreApi } from "./types";
-import { useXapiSessionAccessor, type XapiSessionAccessor } from "../xapi";
+import {
+  useLearningEventSessionAccessor,
+  type LearningEventSessionAccessor,
+} from "../learning-events/LearningEventRuntimeProvider";
 
 const missingProvider = Symbol("missing AssessmentRuntimeProvider");
 
@@ -25,11 +28,11 @@ function createAssessmentRuntimeScope(
   artifactId: string | null,
   assessmentPort: AssessmentPort | null,
   initialSnapshot: unknown,
-  getXapiSession: XapiSessionAccessor,
+  getLearningEventSession: LearningEventSessionAccessor,
 ): AssessmentRuntimeScope | null {
   if (!artifactId) return null;
 
-  const store = createAssessmentStore({ artifactId, assessmentPort, getXapiSession });
+  const store = createAssessmentStore({ artifactId, assessmentPort, getLearningEventSession });
   if (initialSnapshot !== undefined) {
     hydrateAssessmentSnapshot(store, initialSnapshot);
   }
@@ -45,9 +48,9 @@ export function AssessmentRuntimeProvider({
 }) {
   const { artifactId } = useScaffoldArtifactIdentity();
   const assessmentPort = useAssessmentPort();
-  const getXapiSession = useXapiSessionAccessor();
+  const getLearningEventSession = useLearningEventSessionAccessor();
   const [scope, setScope] = useState<AssessmentRuntimeScope | null>(() =>
-    createAssessmentRuntimeScope(artifactId, assessmentPort, initialSnapshot, getXapiSession),
+    createAssessmentRuntimeScope(artifactId, assessmentPort, initialSnapshot, getLearningEventSession),
   );
   let currentScope = scope;
   const scopeMatches = currentScope
@@ -59,7 +62,7 @@ export function AssessmentRuntimeProvider({
       artifactId,
       assessmentPort,
       initialSnapshot,
-      getXapiSession,
+      getLearningEventSession,
     );
     setScope(currentScope);
   }
