@@ -260,16 +260,16 @@ function SequencingRuntimeItem({
           safeLocalHeight={55}
           safeLocalWidth={55}
         >
-        <button
-          {...sortable.activatorProps}
-          ref={sortable.setActivatorNodeRef}
-          type="button"
-          aria-label={`Drag sequencing item ${index + 1}`}
-          data-runtime-sequencing-handle=""
-          className="sc-sequencing-runtime-handle"
-        >
-          <DotsSixVertical size={iconXs} weight="bold" />
-        </button>
+          <button
+            {...sortable.activatorProps}
+            ref={sortable.setActivatorNodeRef}
+            type="button"
+            aria-label={`Drag sequencing item ${index + 1}`}
+            data-runtime-sequencing-handle=""
+            className="sc-sequencing-runtime-handle"
+          >
+            <DotsSixVertical size={iconXs} weight="bold" />
+          </button>
         </InteractionDragActivationArea>
       )}
       <div className="sc-sequencing-item__content">

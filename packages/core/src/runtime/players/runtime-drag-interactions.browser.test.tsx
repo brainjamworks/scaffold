@@ -29,9 +29,9 @@ describe("Sequencing shared drag runtime", () => {
     const target = harness.getTargets()[1]!;
     await dragPointer(harness, source, target, false);
     expect(harness.getPlaceholder()).not.toBeNull();
-    const overlay = harness.getOverlayHost()?.querySelector<HTMLElement>(
-      "[data-interaction-drag-overlay]",
-    );
+    const overlay = harness
+      .getOverlayHost()
+      ?.querySelector<HTMLElement>("[data-interaction-drag-overlay]");
     expect(overlay).not.toBeNull();
     expect(overlay?.querySelector("[data-runtime-sequencing-handle]")).toBeNull();
     await finishPointerDrag(harness, target);
@@ -54,9 +54,9 @@ describe("Sequencing shared drag runtime", () => {
       const target = harness.getTargets()[2]!;
       await dragPointer(harness, source, target, false);
 
-      const overlay = harness.getOverlayHost()?.querySelector<HTMLElement>(
-        "[data-interaction-drag-overlay]",
-      );
+      const overlay = harness
+        .getOverlayHost()
+        ?.querySelector<HTMLElement>("[data-interaction-drag-overlay]");
       if (overlay) {
         expect(overlay.querySelector("[data-runtime-sequencing-handle]")).toBeNull();
         expect(overlay.querySelector("button")).toBeNull();
@@ -78,7 +78,9 @@ describe("Sequencing shared drag runtime", () => {
     source.focus();
     fireEvent.keyDown(harness.ownerDocument, { key: "Escape" });
 
-    await new Promise<void>((resolve) => harness.ownerWindow.requestAnimationFrame(() => resolve()));
+    await new Promise<void>((resolve) =>
+      harness.ownerWindow.requestAnimationFrame(() => resolve()),
+    );
     expect(harness.getPlaceholder()).toBeNull();
     expect(harness.getResponseOrder()).toEqual(before);
     expect(harness.ownerDocument.activeElement).toBe(source);

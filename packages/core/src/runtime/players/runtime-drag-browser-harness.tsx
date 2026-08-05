@@ -107,7 +107,10 @@ export async function mountRuntimeDragHarness(
   await waitFor(ownerWindow, () => editor !== null && playerFor(host, options.surface) !== null);
   const player = playerFor(host, options.surface);
   if (!player || !editor) throw new Error("Runtime drag harness did not mount its player.");
-  await waitFor(ownerWindow, () => player.querySelector('[data-drag-environment][data-status="ready"]') !== null);
+  await waitFor(
+    ownerWindow,
+    () => player.querySelector('[data-drag-environment][data-status="ready"]') !== null,
+  );
   await new Promise<void>((resolve) => ownerWindow.requestAnimationFrame(() => resolve()));
 
   if (options.surface === "slideshow") {
@@ -149,13 +152,9 @@ export async function mountRuntimeDragHarness(
       player.querySelector<HTMLElement>(selector),
     getTargets: (selector = "[data-item-id]") =>
       Array.from(player.querySelectorAll<HTMLElement>(selector)),
-    getResult: () =>
-      harnessResult(player),
+    getResult: () => harnessResult(player),
     getResponseOrder: () => {
-      const response = localAssessmentResponse(
-        assessmentStore,
-        "artifact:artifact-1/block:seq-1",
-      );
+      const response = localAssessmentResponse(assessmentStore, "artifact:artifact-1/block:seq-1");
       return Array.isArray(response?.order) ? response.order.map(String) : [];
     },
     getActivationAreas: () =>
