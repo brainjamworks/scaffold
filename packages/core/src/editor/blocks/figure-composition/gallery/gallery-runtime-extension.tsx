@@ -10,10 +10,9 @@ import {
   useRuntimePresentedSurfaceId,
 } from "@/runtime/renderer/runtime-surface-presentation";
 import {
-  buildVisualItemExperiencedStatementDraft,
-  useXapiSession,
-  type XapiSession,
-} from "@/runtime/xapi";
+  useLearningEventReporter,
+  type LearningEventReporter,
+} from "@/runtime/learning-events/LearningEventRuntimeProvider";
 
 import {
   parseGalleryData,
@@ -37,7 +36,7 @@ function GalleryRuntimeView(props: NodeViewProps) {
   const data = parseGalleryData(props.node.attrs["data"]);
   const rawItems = useMemo(() => readGalleryItems(props.node), [props.node]);
   const mediaPort = useMediaPort();
-  const xapiSession = useXapiSession();
+  const learningEventReporter = useLearningEventReporter();
   const presentedSurfaceId = useRuntimePresentedSurfaceId();
   const owningSurfaceId = resolveOwningRuntimeSurfaceId(props.editor.state.doc, props.getPos);
   const isPresented =
@@ -46,42 +45,44 @@ function GalleryRuntimeView(props: NodeViewProps) {
   const resolved = useResolvedGalleryItems(rawItems, mediaPort);
   const galleryId = props.node.attrs["id"];
   const recordedItemsRef = useRef<{
-    session: XapiSession;
+    reporter: LearningEventReporter;
     galleryId: string;
     itemIds: Set<string>;
   } | null>(null);
   const recordDisplayedItem = useCallback(
     (itemId: string) => {
-      if (!isPresented || !xapiSession || typeof galleryId !== "string" || !galleryId.trim()) {
+      if (!isPresented || typeof galleryId !== "string" || !galleryId.trim()) {
         return;
       }
       const position = resolved.findIndex((item) => item.key === itemId) + 1;
       if (position <= 0) return;
 
       let recorded = recordedItemsRef.current;
-      if (recorded?.session !== xapiSession || recorded.galleryId !== galleryId) {
-        recorded = { session: xapiSession, galleryId, itemIds: new Set() };
+      if (
+        !recorded ||
+        recorded.reporter !== learningEventReporter ||
+        recorded.galleryId !== galleryId
+      ) {
+        recorded = { reporter: learningEventReporter, galleryId, itemIds: new Set() };
         recordedItemsRef.current = recorded;
       }
       if (recorded.itemIds.has(itemId)) return;
 
       try {
-        xapiSession.record(
-          buildVisualItemExperiencedStatementDraft({
-            rootActivityId: xapiSession.rootActivityId,
-            compositionId: galleryId,
-            itemId,
-            itemKind: "gallery-image",
-            position,
-            count: resolved.length,
-          }),
-        );
+        learningEventReporter.report({
+          type: "visual-item.experienced",
+          compositionId: galleryId,
+          itemId,
+          itemKind: "gallery-image",
+          position,
+          count: resolved.length,
+        });
         recorded.itemIds.add(itemId);
       } catch {
         // Gallery recording is observational and cannot prevent image presentation.
       }
     },
-    [galleryId, isPresented, resolved, xapiSession],
+    [galleryId, isPresented, learningEventReporter, resolved],
   );
 
   const [activeId, setActiveId] = useState<string | null>(rawItems[0]?.id ?? null);

@@ -17,12 +17,19 @@ import { InlineIconRuntimeNode } from "@/editor/rich-text/inline-icon/runtime/In
 import { MathInlineRuntimeNode } from "@/editor/rich-text/math/runtime/MathInlineRuntime";
 import { VocabularyTermRuntimeNode } from "@/editor/rich-text/vocabulary-term/runtime/VocabularyTermRuntimeNode";
 import { describeBlockContract } from "@/editor/testing";
-import type { XapiPort } from "@/host/ports/xapi";
+import type { LearningEventPort } from "@/host/ports/learning-events";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { CourseDocumentRuntimeRenderer } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
-import { XAPI_EXTENSIONS, XAPI_VERBS, XapiRuntimeProvider } from "@/runtime/xapi";
+import {
+  LEARNING_EVENT_ACTIVITY_TYPES,
+  LEARNING_EVENT_EXTENSIONS,
+  createVisualCompositionActivityId,
+  createVisualItemActivityId,
+} from "@/runtime/learning-events/catalogue";
+import { LearningEventRuntimeProvider } from "@/runtime/learning-events/LearningEventRuntimeProvider";
+import * as runtimeXapi from "@/runtime/xapi";
 import { AnnotatedFigureAuthoringExtension } from "./annotated-figure-authoring-extension";
 import { resolveAnnotatedFigureModel } from "./annotated-figure-document-model";
 import { AnnotatedFigureRuntimeExtension } from "./annotated-figure-runtime-extension";
@@ -103,9 +110,9 @@ function renderAnnotatedFigureRuntime(content: JSONContent) {
   return editor;
 }
 
-function renderAnnotatedFigureXapiRuntime(
+function renderAnnotatedFigureLearningEventRuntime(
   figure: JSONContent,
-  xapiPort: XapiPort,
+  learningEventPort: LearningEventPort,
   visibleSurfaceId = "annotated-figure-surface",
 ) {
   const surfaceId = "annotated-figure-surface";
@@ -121,10 +128,10 @@ function renderAnnotatedFigureXapiRuntime(
 
   render(
     createElement(ScaffoldServicesProvider, {
-      ports: { xapi: xapiPort },
+      ports: { learningEvents: learningEventPort },
       children: createElement(ScaffoldArtifactIdentityProvider, {
         artifactId: "annotated-figure-artifact",
-        children: createElement(XapiRuntimeProvider, {
+        children: createElement(LearningEventRuntimeProvider, {
           children: createElement(CourseDocumentRuntimeRenderer, {
             composition: coreRuntimeComposition,
             initialContent: content,
@@ -1545,23 +1552,25 @@ it("uses an authored annotation title in the runtime popover", async () => {
   editor.destroy();
 });
 
-it("records each opened runtime annotation once per xAPI session", async () => {
+it("reports each opened runtime annotation once per Learning Event reporter", async () => {
+  vi.spyOn(runtimeXapi, "useXapiSession").mockReturnValue(null);
   const user = userEvent.setup();
-  const send = vi.fn<XapiPort["send"]>(async () => undefined);
-  renderAnnotatedFigureXapiRuntime(
+  const rootActivityId = "https://lms.example.test/courses/annotated-figure";
+  const accept = vi.fn<LearningEventPort["accept"]>(async () => undefined);
+  renderAnnotatedFigureLearningEventRuntime(
     annotatedFigureFixture(popoverFigureData(), [
       { id: "annotation-one", x: 20, y: 30, caption: "First private caption" },
       { id: "annotation-two", x: 70, y: 80, caption: "Second private caption" },
     ]),
     {
-      activityId: "https://lms.example.test/courses/annotated-figure",
-      send,
+      rootActivityId,
+      accept,
     },
   );
 
   const firstPin = await screen.findByRole("button", { name: "View annotation 1" });
   await user.click(firstPin);
-  await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(accept).toHaveBeenCalledTimes(2));
   await user.keyboard("{Escape}");
   await user.click(firstPin);
   await user.keyboard("{Escape}");
@@ -1571,33 +1580,56 @@ it("records each opened runtime annotation once per xAPI session", async () => {
   await user.click(within(dialog).getByRole("button", { name: "View annotation 1" }));
   await user.keyboard("{Escape}");
   await user.click(within(dialog).getByRole("button", { name: "View annotation 2" }));
-  await waitFor(() => expect(send).toHaveBeenCalledTimes(3));
+  await waitFor(() => expect(accept).toHaveBeenCalledTimes(3));
 
-  expect(send.mock.calls[1]?.[0]).toMatchObject({
-    verb: XAPI_VERBS.experienced,
+  expect(accept.mock.calls.map(([event]) => event.verb.display.en)).toStrictEqual([
+    "initialized",
+    "experienced",
+    "experienced",
+  ]);
+  expect(accept.mock.calls[1]?.[0]).toMatchObject({
+    verb: { display: { en: "experienced" } },
     object: {
+      id: createVisualItemActivityId(
+        rootActivityId,
+        "annotated-figure-proof",
+        "annotation-one",
+      ),
       definition: {
+        type: LEARNING_EVENT_ACTIVITY_TYPES.visualItem,
         extensions: {
-          [XAPI_EXTENSIONS.visualItemKind]: "annotation",
-          [XAPI_EXTENSIONS.visualItemPosition]: 1,
-          [XAPI_EXTENSIONS.visualItemCount]: 2,
+          [LEARNING_EVENT_EXTENSIONS.visualItemKind]: "annotation",
+          [LEARNING_EVENT_EXTENSIONS.visualItemPosition]: 1,
+          [LEARNING_EVENT_EXTENSIONS.visualItemCount]: 2,
         },
       },
     },
+    context: {
+      contextActivities: {
+        parent: [
+          {
+            id: createVisualCompositionActivityId(rootActivityId, "annotated-figure-proof"),
+            definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.visualComposition },
+          },
+        ],
+      },
+    },
   });
-  expect(JSON.stringify(send.mock.calls.slice(1))).not.toContain("private caption");
+  const serializedEvents = JSON.stringify(accept.mock.calls.slice(1));
+  expect(serializedEvents).not.toContain("private caption");
+  expect(serializedEvents).not.toContain("figure.jpg");
 });
 
-it("does not record annotation openings on a non-presented runtime surface", async () => {
+it("does not report annotation openings on a non-presented runtime surface", async () => {
   const user = userEvent.setup();
-  const send = vi.fn<XapiPort["send"]>(async () => undefined);
-  renderAnnotatedFigureXapiRuntime(
+  const accept = vi.fn<LearningEventPort["accept"]>(async () => undefined);
+  renderAnnotatedFigureLearningEventRuntime(
     annotatedFigureFixture(popoverFigureData(), [
       { id: "annotation-one", x: 20, y: 30, caption: "Hidden caption" },
     ]),
     {
-      activityId: "https://lms.example.test/courses/annotated-figure",
-      send,
+      rootActivityId: "https://lms.example.test/courses/annotated-figure",
+      accept,
     },
     "another-surface",
   );
@@ -1609,7 +1641,7 @@ it("does not record annotation openings on a non-presented runtime surface", asy
   if (!hiddenPin) throw new Error("Expected a hidden-surface annotation pin.");
   await user.click(hiddenPin);
 
-  expect(send).not.toHaveBeenCalled();
+  expect(accept).not.toHaveBeenCalled();
 });
 
 it("projects rich runtime captions without mounting authoring editor DOM", async () => {

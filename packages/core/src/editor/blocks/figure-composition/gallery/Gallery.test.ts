@@ -37,11 +37,18 @@ import {
 } from "@/document/model/commands/content-collections";
 import { ConfigurationSettingsSheet } from "@/editor/shell/settings/sheets/ConfigurationSettingsSheet";
 import { createScaffoldDocumentContent } from "@/format/artifact";
-import type { XapiPort } from "@/host/ports/xapi";
+import type { LearningEventPort } from "@/host/ports/learning-events";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 import { CourseDocumentRuntimeRenderer } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
-import { XAPI_EXTENSIONS, XAPI_VERBS, XapiRuntimeProvider } from "@/runtime/xapi";
+import {
+  LEARNING_EVENT_ACTIVITY_TYPES,
+  LEARNING_EVENT_EXTENSIONS,
+  createVisualCompositionActivityId,
+  createVisualItemActivityId,
+} from "@/runtime/learning-events/catalogue";
+import { LearningEventRuntimeProvider } from "@/runtime/learning-events/LearningEventRuntimeProvider";
+import * as runtimeXapi from "@/runtime/xapi";
 import { EmptyScaffoldRichTextDocument } from "@/schemas/rich-text";
 
 import "./gallery-definition";
@@ -150,9 +157,9 @@ function renderGalleryEditor(content: JSONContent = galleryFixture()) {
   return editor;
 }
 
-function renderGalleryXapiRuntime(
+function renderGalleryLearningEventRuntime(
   gallery: JSONContent,
-  xapiPort: XapiPort,
+  learningEventPort: LearningEventPort,
   visibleSurfaceId = "gallery-surface",
 ) {
   const surfaceId = "gallery-surface";
@@ -168,10 +175,10 @@ function renderGalleryXapiRuntime(
 
   render(
     createElement(ScaffoldServicesProvider, {
-      ports: { xapi: xapiPort },
+      ports: { learningEvents: learningEventPort },
       children: createElement(ScaffoldArtifactIdentityProvider, {
         artifactId: "gallery-artifact",
-        children: createElement(XapiRuntimeProvider, {
+        children: createElement(LearningEventRuntimeProvider, {
           children: createElement(CourseDocumentRuntimeRenderer, {
             composition: coreRuntimeComposition,
             initialContent: content,
@@ -354,51 +361,77 @@ it("reports a carousel item only after its full-size stage image loads", () => {
   expect(onActiveItemLoad).toHaveBeenCalledWith("gallery-image-1");
 });
 
-it("records each successfully displayed carousel item once per xAPI session", async () => {
-  const send = vi.fn<XapiPort["send"]>(async () => undefined);
-  renderGalleryXapiRuntime(galleryFixture(), {
-    activityId: "https://lms.example.test/courses/gallery",
-    send,
+it("reports each successfully displayed carousel item once per Learning Event reporter", async () => {
+  vi.spyOn(runtimeXapi, "useXapiSession").mockReturnValue(null);
+  const rootActivityId = "https://lms.example.test/courses/gallery";
+  const accept = vi.fn<LearningEventPort["accept"]>(async () => undefined);
+  renderGalleryLearningEventRuntime(galleryFixture(), {
+    rootActivityId,
+    accept,
   });
 
   const firstStageImage = await screen.findByRole("img", { name: "First image" });
-  expect(send).not.toHaveBeenCalled();
+  expect(accept).not.toHaveBeenCalled();
   fireEvent.load(firstStageImage);
-  await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(accept).toHaveBeenCalledTimes(2));
 
   fireEvent.click(screen.getByRole("tab", { name: "Image 2" }));
   const secondStageImage = await screen.findByRole("img", { name: "Second image" });
   fireEvent.load(secondStageImage);
-  await waitFor(() => expect(send).toHaveBeenCalledTimes(3));
+  await waitFor(() => expect(accept).toHaveBeenCalledTimes(3));
   fireEvent.load(secondStageImage);
-  expect(send).toHaveBeenCalledTimes(3);
+  expect(accept).toHaveBeenCalledTimes(3);
 
-  expect(send.mock.calls[1]?.[0]).toMatchObject({
-    verb: XAPI_VERBS.experienced,
+  expect(accept.mock.calls.map(([event]) => event.verb.display.en)).toStrictEqual([
+    "initialized",
+    "experienced",
+    "experienced",
+  ]);
+  expect(accept.mock.calls[1]?.[0]).toMatchObject({
+    verb: { display: { en: "experienced" } },
     object: {
+      id: createVisualItemActivityId(
+        rootActivityId,
+        "block-gallery-proof",
+        "gallery-image-1",
+      ),
       definition: {
+        type: LEARNING_EVENT_ACTIVITY_TYPES.visualItem,
         extensions: {
-          [XAPI_EXTENSIONS.visualItemKind]: "gallery-image",
-          [XAPI_EXTENSIONS.visualItemPosition]: 1,
-          [XAPI_EXTENSIONS.visualItemCount]: 2,
+          [LEARNING_EVENT_EXTENSIONS.visualItemKind]: "gallery-image",
+          [LEARNING_EVENT_EXTENSIONS.visualItemPosition]: 1,
+          [LEARNING_EVENT_EXTENSIONS.visualItemCount]: 2,
         },
       },
     },
+    context: {
+      contextActivities: {
+        parent: [
+          {
+            id: createVisualCompositionActivityId(rootActivityId, "block-gallery-proof"),
+            definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.visualComposition },
+          },
+        ],
+      },
+    },
   });
-  expect(JSON.stringify(send.mock.calls.slice(1))).not.toContain("First image");
-  expect(JSON.stringify(send.mock.calls.slice(1))).not.toContain("image-1.jpg");
+  const serializedEvents = JSON.stringify(accept.mock.calls.slice(1));
+  expect(serializedEvents).not.toContain("First image");
+  expect(serializedEvents).not.toContain("image-1.jpg");
+  expect(serializedEvents).not.toContain("First caption");
+  expect(serializedEvents).not.toContain("Shared gallery caption");
 });
 
-it("records grid items only after their active lightbox images load", async () => {
-  const send = vi.fn<XapiPort["send"]>(async () => undefined);
-  renderGalleryXapiRuntime(galleryFixture("grid"), {
-    activityId: "https://lms.example.test/courses/gallery",
-    send,
+it("reports grid items only after their active lightbox images load", async () => {
+  const accept = vi.fn<LearningEventPort["accept"]>(async () => undefined);
+  renderGalleryLearningEventRuntime(galleryFixture("grid"), {
+    rootActivityId: "https://lms.example.test/courses/gallery",
+    accept,
   });
 
   const firstTileImage = await screen.findByRole("img", { name: "First image" });
   fireEvent.load(firstTileImage);
-  expect(send).not.toHaveBeenCalled();
+  expect(accept).not.toHaveBeenCalled();
 
   fireEvent.click(
     screen.getByRole("button", {
@@ -407,23 +440,23 @@ it("records grid items only after their active lightbox images load", async () =
   );
   const dialog = await screen.findByRole("dialog", { name: "Gallery viewer" });
   fireEvent.load(within(dialog).getByRole("img", { name: "First image" }));
-  await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(accept).toHaveBeenCalledTimes(2));
 
   fireEvent.click(within(dialog).getByRole("button", { name: "Next image" }));
   const secondLightboxImage = await within(dialog).findByRole("img", {
     name: "Second image",
   });
   fireEvent.load(secondLightboxImage);
-  await waitFor(() => expect(send).toHaveBeenCalledTimes(3));
+  await waitFor(() => expect(accept).toHaveBeenCalledTimes(3));
 });
 
-it("does not record loaded gallery items on a non-presented runtime surface", async () => {
-  const send = vi.fn<XapiPort["send"]>(async () => undefined);
-  renderGalleryXapiRuntime(
+it("does not report loaded gallery items on a non-presented runtime surface", async () => {
+  const accept = vi.fn<LearningEventPort["accept"]>(async () => undefined);
+  renderGalleryLearningEventRuntime(
     galleryFixture(),
     {
-      activityId: "https://lms.example.test/courses/gallery",
-      send,
+      rootActivityId: "https://lms.example.test/courses/gallery",
+      accept,
     },
     "another-surface",
   );
@@ -437,7 +470,7 @@ it("does not record loaded gallery items on a non-presented runtime surface", as
     await Promise.resolve();
   });
 
-  expect(send).not.toHaveBeenCalled();
+  expect(accept).not.toHaveBeenCalled();
 });
 
 it("closes the gallery lightbox on Escape", async () => {

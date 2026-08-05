@@ -15,10 +15,9 @@ import {
   useRuntimePresentedSurfaceId,
 } from "@/runtime/renderer/runtime-surface-presentation";
 import {
-  buildVisualItemExperiencedStatementDraft,
-  useXapiSession,
-  type XapiSession,
-} from "@/runtime/xapi";
+  useLearningEventReporter,
+  type LearningEventReporter,
+} from "@/runtime/learning-events/LearningEventRuntimeProvider";
 import type { AnnotatedFigureData } from "@scaffold/contracts";
 import { Lightbox, type LightboxItem } from "@/ui/components/Lightbox/Lightbox";
 import * as Popover from "@/ui/components/Popover/Popover";
@@ -185,7 +184,7 @@ export function AnnotatedFigureCanvasRuntimeView(props: NodeViewProps) {
   );
   const model = owner ? resolveAnnotatedFigureModel(owner) : null;
   const mediaPort = useMediaPort();
-  const xapiSession = useXapiSession();
+  const learningEventReporter = useLearningEventReporter();
   const presentedSurfaceId = useRuntimePresentedSurfaceId();
   const owningSurfaceId = resolveOwningRuntimeSurfaceId(props.editor.state.doc, props.getPos);
   const isPresented =
@@ -198,40 +197,46 @@ export function AnnotatedFigureCanvasRuntimeView(props: NodeViewProps) {
   const annotations = model?.annotations ?? EMPTY_ANNOTATIONS;
   const ownerId = String(model?.owner.node.attrs["id"] ?? "annotated-figure");
   const recordedAnnotationsRef = useRef<{
-    session: XapiSession;
+    reporter: LearningEventReporter;
     ownerId: string;
     annotationIds: Set<string>;
   } | null>(null);
   const recordAnnotationOpened = useCallback(
     (annotationId: string) => {
-      if (!isPresented || !xapiSession || !ownerId.trim()) return;
+      if (!isPresented || !ownerId.trim()) return;
       const position = annotations.findIndex((annotation) => annotation.id === annotationId) + 1;
       if (position <= 0) return;
 
       let recorded = recordedAnnotationsRef.current;
-      if (recorded?.session !== xapiSession || recorded.ownerId !== ownerId) {
-        recorded = { session: xapiSession, ownerId, annotationIds: new Set() };
+      if (
+        !recorded ||
+        recorded.reporter !== learningEventReporter ||
+        recorded.ownerId !== ownerId
+      ) {
+        recorded = {
+          reporter: learningEventReporter,
+          ownerId,
+          annotationIds: new Set(),
+        };
         recordedAnnotationsRef.current = recorded;
       }
       if (recorded.annotationIds.has(annotationId)) return;
 
       try {
-        xapiSession.record(
-          buildVisualItemExperiencedStatementDraft({
-            rootActivityId: xapiSession.rootActivityId,
-            compositionId: ownerId,
-            itemId: annotationId,
-            itemKind: "annotation",
-            position,
-            count: annotations.length,
-          }),
-        );
+        learningEventReporter.report({
+          type: "visual-item.experienced",
+          compositionId: ownerId,
+          itemId: annotationId,
+          itemKind: "annotation",
+          position,
+          count: annotations.length,
+        });
         recorded.annotationIds.add(annotationId);
       } catch {
         // Annotation recording is observational and cannot prevent caption access.
       }
     },
-    [annotations, isPresented, ownerId, xapiSession],
+    [annotations, isPresented, learningEventReporter, ownerId],
   );
 
   const lightboxItems = useMemo<LightboxItem[]>(() => {
