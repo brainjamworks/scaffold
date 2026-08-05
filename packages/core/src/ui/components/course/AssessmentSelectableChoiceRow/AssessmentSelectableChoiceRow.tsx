@@ -1,14 +1,14 @@
 import { CheckIcon as Check, XIcon as X } from "@phosphor-icons/react";
 import { useId, type ReactNode } from "react";
 
+import { describeChoiceAccessibilityState } from "@/editor/blocks/assessment/shared/chrome/choice-accessibility";
+import type { ChoiceState } from "@/editor/blocks/assessment/shared/runtime/types";
 import { cn } from "@/lib/cn";
 import { iconXs } from "@/ui/tokens/icon-sizes";
 
-import { describeChoiceAccessibilityState } from "./choice-accessibility";
-import type { ChoiceState } from "../runtime/types";
-import "./selectable-choice-runtime-row.css";
+import "../AssessmentChoiceSurface/AssessmentChoiceSurface.css";
 
-interface SelectableChoiceRuntimeRowProps {
+interface AssessmentSelectableChoiceRowProps {
   checked: boolean;
   children: ReactNode;
   disabled: boolean;
@@ -22,7 +22,7 @@ interface SelectableChoiceRuntimeRowProps {
 }
 
 /** Course-owned learner row shared only by MCQ and Multi-select runtimes. */
-export function SelectableChoiceRuntimeRow({
+export function AssessmentSelectableChoiceRow({
   checked,
   children,
   disabled,
@@ -33,7 +33,7 @@ export function SelectableChoiceRuntimeRow({
   onSelect,
   state,
   submitted = false,
-}: SelectableChoiceRuntimeRowProps) {
+}: AssessmentSelectableChoiceRowProps) {
   const descriptionId = useId();
   const accessibilityDescription = describeChoiceAccessibilityState({
     checked,
@@ -65,7 +65,7 @@ export function SelectableChoiceRuntimeRow({
 
   return (
     <>
-      <label
+      <div
         className={cn(
           "sc-course-assessment-choice",
           !disabled && "sc-course-assessment-choice--interactive",
@@ -75,28 +75,31 @@ export function SelectableChoiceRuntimeRow({
         data-selected={checked || undefined}
         data-disabled={disabled || undefined}
       >
-        <span className="sc-course-assessment-choice__native-control">
-          <input
-            type={inputType}
-            name={name}
-            value={id}
-            checked={checked}
-            disabled={disabled}
-            onChange={onSelect}
-            aria-describedby={accessibilityDescription ? descriptionId : undefined}
-            className="sc-course-assessment-choice__input"
-          />
-          <span
-            className="sc-course-assessment-choice__indicator"
-            data-shape={inputType}
-            data-state={state ?? (checked ? "selected" : "idle")}
-          >
-            {indicatorMark}
+        <label className="sc-course-assessment-choice__label">
+          <span className="sc-course-assessment-choice__native-control">
+            <input
+              type={inputType}
+              name={name}
+              value={id}
+              checked={checked}
+              disabled={disabled}
+              required={inputType === "radio"}
+              onChange={onSelect}
+              aria-describedby={accessibilityDescription ? descriptionId : undefined}
+              className="sc-course-assessment-choice__input"
+            />
+            <span
+              className="sc-course-assessment-choice__indicator"
+              data-shape={inputType}
+              data-state={state ?? (checked ? "selected" : "idle")}
+            >
+              {indicatorMark}
+            </span>
           </span>
-        </span>
-        <span className="sc-course-assessment-choice__content">{children}</span>
+          <span className="sc-course-assessment-choice__content">{children}</span>
+        </label>
         {state !== null ? feedbackControl : null}
-      </label>
+      </div>
       {accessibilityDescription ? (
         <span id={descriptionId} className="sc-sr-only">
           {accessibilityDescription.text}

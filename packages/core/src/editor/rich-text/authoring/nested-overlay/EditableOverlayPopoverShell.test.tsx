@@ -123,12 +123,12 @@ describe("EditableOverlayPopoverShell", () => {
         tone="hint"
         headerActions={
           <EditableOverlayPopoverPager aria-label="Hint navigation">
-            <button type="button" aria-label="Previous hint" disabled>
+            <EditableOverlayPopover.PagerAction aria-label="Previous hint" disabled>
               Previous
-            </button>
-            <button type="button" aria-label="Next hint">
+            </EditableOverlayPopover.PagerAction>
+            <EditableOverlayPopover.PagerAction aria-label="Next hint">
               Next
-            </button>
+            </EditableOverlayPopover.PagerAction>
           </EditableOverlayPopoverPager>
         }
         footerStart={
@@ -228,6 +228,7 @@ describe("EditableOverlayPopoverShell", () => {
     const dialog = screen.getByTestId("overlay-shell");
     expect(dialog.getAttribute("contenteditable")).toBe("false");
     expect(dialog.getAttribute("data-authoring-chrome")).toBe("popover");
+    expect(dialog).toHaveAttribute("data-scaffold-suppress-authoring-chrome", "");
     expect(dialog.classList.contains("custom-popover-class")).toBe(true);
     expect(dialog.querySelector("[data-scaffold-popover-surface]")).toBeInstanceOf(HTMLElement);
     await waitFor(() => {
@@ -236,7 +237,7 @@ describe("EditableOverlayPopoverShell", () => {
     expect(onCloseAutoFocus).not.toHaveBeenCalled();
   });
 
-  it("keeps text actions transparent and button-like without taking over persistence", async () => {
+  it("composes Course-owned text and pager actions without taking over behavior", async () => {
     const onClick = vi.fn();
 
     render(
@@ -247,18 +248,31 @@ describe("EditableOverlayPopoverShell", () => {
         <EditableOverlayPopoverTextAction tone="danger">
           Delete hint
         </EditableOverlayPopoverTextAction>
+        <EditableOverlayPopoverPager aria-label="Hint navigation">
+          <EditableOverlayPopover.PagerAction aria-label="Previous hint" disabled>
+            Previous
+          </EditableOverlayPopover.PagerAction>
+          <EditableOverlayPopover.PagerAction aria-label="Next hint">Next</EditableOverlayPopover.PagerAction>
+        </EditableOverlayPopoverPager>
       </>,
     );
 
     const addAction = screen.getByRole("button", { name: "Add hint" });
     const deleteAction = screen.getByRole("button", { name: "Delete hint" });
+    const previousAction = screen.getByRole("button", { name: "Previous hint" });
+    const nextAction = screen.getByRole("button", { name: "Next hint" });
 
     await userEvent.click(addAction);
 
     expect(onClick).toHaveBeenCalledTimes(1);
     expect(addAction.getAttribute("type")).toBe("button");
-    expect(addAction.className).toContain("sc-app-editable-popover__text-action");
+    expect(addAction).toHaveClass("sc-course-popover-action");
+    expect(addAction.className).not.toContain("sc-app-");
     expect(deleteAction.getAttribute("data-tone")).toBe("danger");
+    expect(previousAction).toHaveClass("sc-course-popover-pager__action");
+    expect(previousAction).toBeDisabled();
+    expect(nextAction).toHaveClass("sc-course-popover-pager__action");
+    expect(previousAction.parentElement).toHaveClass("sc-course-popover-pager");
   });
 
   it("exposes a namespace compatible with the editor floating popover", () => {
@@ -274,6 +288,7 @@ describe("EditableOverlayPopoverShell", () => {
     expect(EditableOverlayPopover.Shell).not.toBe(EditableOverlayPopoverContent);
     expect(EditableOverlayPopover.TextAction).toBe(EditableOverlayPopoverTextAction);
     expect(EditableOverlayPopover.Pager).toBe(EditableOverlayPopoverPager);
+    expect(EditableOverlayPopover.PagerAction).toBeDefined();
   });
 });
 

@@ -51,8 +51,8 @@ function AssessmentTitleNodeView(props: NodeViewProps) {
   }
 
   return (
-    <NodeViewWrapper data-slot="assessment-title" className="sc-assessment-meta-title">
-      <NodeViewContent className="sc-assessment-meta-content--inline" />
+    <NodeViewWrapper data-slot="assessment-title" className="sc-course-assessment-meta-title">
+      <NodeViewContent className="sc-course-assessment-meta-content--inline" />
     </NodeViewWrapper>
   );
 }

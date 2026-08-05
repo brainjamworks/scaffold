@@ -1,5 +1,8 @@
 import type { Editor } from "@tiptap/core";
-import { InfoIcon as Info } from "@phosphor-icons/react";
+import {
+  DotsSixVerticalIcon as DotsSixVertical,
+  InfoIcon as Info,
+} from "@phosphor-icons/react";
 import {
   NodeViewContent,
   NodeViewWrapper,
@@ -13,7 +16,6 @@ import {
   type AssessmentFeedbackContent,
 } from "@scaffold/contracts";
 
-import { BlockAddGhost } from "@/editor/suggestions/insert/BlockAddGhost";
 import { deleteAssessmentChoice } from "@/editor/blocks/assessment/shared/model/delete-assessment-choice";
 import {
   nextAssessmentFeedbackRecord,
@@ -30,12 +32,15 @@ import {
   toTiptapRichTextDocument,
   type ScaffoldRichTextDocument,
 } from "@/schemas/rich-text";
-import { iconSm } from "@/ui/tokens/icon-sizes";
-import { AssessmentAuthoringIconAction } from "@/ui/components/app/AssessmentAuthoringIconAction/AssessmentAuthoringIconAction";
-import { AssessmentChoiceAuthoringRow } from "@/ui/components/app/AssessmentChoiceAuthoringRow/AssessmentChoiceAuthoringRow";
+import { iconSm, iconXs } from "@/ui/tokens/icon-sizes";
+import {
+  AssessmentChoiceAddButton,
+  AssessmentChoiceAuthoringAction,
+  AssessmentChoiceAuthoringRow,
+} from "@/ui/components/course/AssessmentChoiceAuthoringRow/AssessmentChoiceAuthoringRow";
 import "@/editor/blocks/assessment/shared/chrome/assessment-feedback-popover.css";
 import { CONTAINED_MOVEMENT_TARGET_ATTR } from "@/editor/drag/view/movement-dom";
-import { ContainedMovementHandle } from "@/editor/drag/view/ContainedMovementHandle";
+import { useContainedMovementHandle } from "@/editor/drag/view/use-contained-movement-handle";
 
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
@@ -177,7 +182,13 @@ function DropdownChoiceNodeView(props: NodeViewProps) {
     },
   });
   const pos = safeGetPos(props.getPos);
+  const movement = useContainedMovementHandle({
+    getSourcePos: () => safeGetPos(props.getPos),
+    sourceKey: attrs.id,
+    sourcePos: pos,
+  });
   const hasFeedback = !isScaffoldRichTextDocumentEmpty(privateChoiceState.feedback?.document);
+  const choiceLabel = props.node.textContent.trim() || `choice ${choicePosition.index}`;
   const fieldKey = `dropdown:${attrs.id}:feedback`;
 
   useEffect(() => {
@@ -226,12 +237,13 @@ function DropdownChoiceNodeView(props: NodeViewProps) {
   const feedbackControl = (
     <EditableOverlayPopover.Root>
       <EditableOverlayPopover.Trigger asChild>
-        <AssessmentAuthoringIconAction
+        <AssessmentChoiceAuthoringAction
           active={hasFeedback}
+          intent="feedback"
           label={hasFeedback ? "Edit feedback" : "Add feedback"}
         >
           <Info size={iconSm} weight={hasFeedback ? "fill" : "regular"} />
-        </AssessmentAuthoringIconAction>
+        </AssessmentChoiceAuthoringAction>
       </EditableOverlayPopover.Trigger>
       <EditableOverlayPopover.Portal>
         <EditableOverlayPopover.Content
@@ -266,6 +278,7 @@ function DropdownChoiceNodeView(props: NodeViewProps) {
     >
       <AssessmentChoiceAuthoringRow
         correct={privateChoiceState.isCorrect}
+        correctnessLabel={`Toggle whether ${choiceLabel} is correct`}
         feedbackControl={feedbackControl}
         onToggleCorrect={toggleCorrect}
         deleteAction={{
@@ -276,12 +289,20 @@ function DropdownChoiceNodeView(props: NodeViewProps) {
             : {}),
         }}
         movementControl={
-          <ContainedMovementHandle
-            getSourcePos={() => safeGetPos(props.getPos)}
-            label="choice"
-            sourceKey={attrs.id}
-            sourcePos={pos}
-          />
+          <>
+            <AssessmentChoiceAuthoringAction
+              {...movement.buttonProps}
+              ref={movement.setHandleRef}
+              intent="move"
+              label="Move choice"
+              data-dragging={movement.isDragging || undefined}
+            >
+              <DotsSixVertical size={iconXs} weight="bold" aria-hidden />
+            </AssessmentChoiceAuthoringAction>
+            <span id={movement.descriptionId} className="sc-sr-only">
+              Press Arrow Up or Arrow Down to move this choice.
+            </span>
+          </>
         }
       >
         <NodeViewContent />
@@ -354,17 +375,18 @@ function DropdownChoicesGroupNodeView(props: NodeViewProps) {
     <NodeViewWrapper
       data-bounded-scroll-frame=""
       data-slot="dropdown-choices-group"
-      className="sc-app-dropdown-choices-group"
+      className="sc-course-assessment-choices-group sc-course-dropdown-choices-group"
     >
-      <div data-bounded-scroll="" className="sc-app-dropdown-choices-scroll">
+      <div
+        data-bounded-scroll=""
+        className="sc-course-assessment-choices-scroll sc-course-dropdown-choices-scroll"
+      >
         <NodeViewContent />
         {isEditable && (
-          <BlockAddGhost
+          <AssessmentChoiceAddButton
             label="Add choice"
-            presentation="pill"
             contentEditable={false}
             onClick={addChoice}
-            className="sc-app-dropdown-add-choice"
           />
         )}
       </div>

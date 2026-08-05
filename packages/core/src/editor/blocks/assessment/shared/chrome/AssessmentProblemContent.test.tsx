@@ -14,7 +14,7 @@ describe("AssessmentProblemContent", () => {
     const { container } = render(
       <AssessmentProblemContent
         editable
-        blockClass="sc-mcq"
+        blockClass="sc-course-mcq"
         surfaceAttributes={{
           "aria-label": "Knowledge check",
           "data-surface-variant": "compact",
@@ -26,7 +26,7 @@ describe("AssessmentProblemContent", () => {
 
     expect(shell).not.toBeNull();
     expect(shell?.classList.contains("sc-course-assessment-shell")).toBe(true);
-    expect(shell?.classList.contains("sc-mcq")).toBe(true);
+    expect(shell?.classList.contains("sc-course-mcq")).toBe(true);
     expect(shell?.classList.contains("sc-assessment-shell")).toBe(false);
     expect(shell?.getAttribute("data-editable")).toBe("true");
     expect(shell?.getAttribute("aria-label")).toBe("Knowledge check");

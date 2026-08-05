@@ -992,41 +992,26 @@
  * feedback, etc., all continue to render — only the surrounding
  * card chrome is suppressed.
  *
- * This is purely visual; no component code branches on quiz
- * membership. Move a question out of a quiz and its chrome is back.
+ * The assessment adapter exposes DOM-only quiz containment; persisted
+ * question settings stay untouched. Move a question out and its standalone
+ * chrome returns automatically.
  * ──────────────────────────────────────────────────────────── */
-
-  /* The outer node-type wrappers have no chrome of their own; the real
- * card chrome lives on `<section data-assessment-shell>`. Flatten
- * that one element inside the quiz container. */
-  .sc-quiz [data-assessment-shell] {
-    border: 0 !important;
-    background: transparent !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    box-shadow: none !important;
-    border-radius: 0 !important;
-  }
-
-  .sc-quiz [data-assessment-shell]:hover {
-    border: 0 !important;
-  }
 
   /* Suppress the per-question authored title + instructions row
  * (`MULTIPLE CHOICE · CHOOSE ONE · 1 POINT`) since the quiz stage
  * meta row already conveys position + type. The authored title /
  * instructions content is preserved in the document, only hidden
  * inside the quiz authoring surface. */
-  .sc-quiz [data-slot="assessment-title"],
-  .sc-quiz [data-slot="assessment-instructions"] {
-    display: none !important;
+  [data-assessment-container="quiz"] [data-slot="assessment-title"],
+  [data-assessment-container="quiz"] [data-slot="assessment-instructions"] {
+    display: none;
   }
 
   /* Suppress the embedded question action group inside quiz — the quiz
  * owns runtime flow through its stage navigation and quiz-level
  * controls. */
-  .sc-quiz [data-slot="assessment-actions-group"] {
-    display: none !important;
+  [data-assessment-container="quiz"] [data-slot="assessment-actions-group"] {
+    display: none;
   }
 
   /* Suppress per-question resize handles inside quiz. The quiz block

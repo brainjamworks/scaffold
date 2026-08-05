@@ -12,6 +12,14 @@
     align-items: center;
   }
 
+  .sc-course-assessment-choice__label {
+    display: flex;
+    min-width: 0;
+    min-height: inherit;
+    flex: 1 1 auto;
+    align-items: center;
+  }
+
   .sc-course-assessment-choice__native-control {
     position: relative;
     display: inline-flex;

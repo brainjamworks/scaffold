@@ -73,6 +73,7 @@ export const ContentAuthorHost = memo(function ContentAuthorHost({
     };
   }
   const sessionKey = sessionRef.current.key;
+  const [stageElement, setStageElement] = useState<HTMLDivElement | null>(null);
   const [editorState, setEditorState] = useState<{
     sessionKey: number;
     editor: TiptapEditor | null;
@@ -100,6 +101,7 @@ export const ContentAuthorHost = memo(function ContentAuthorHost({
     return (
       <EditorShell
         data-testid="content-author-workspace"
+        stageRef={setStageElement}
         scrollModel={scrollModel}
         reserveLeftRail={editable && leftRail !== undefined}
         reserveRightRail={editable && rightRail !== undefined}
@@ -109,6 +111,7 @@ export const ContentAuthorHost = memo(function ContentAuthorHost({
           <>
             <CourseDocumentEditor
               key={sessionKey}
+              authoringOverlayCollisionBoundary={stageElement}
               {...artifactProps}
               {...changeProps}
               source={source}

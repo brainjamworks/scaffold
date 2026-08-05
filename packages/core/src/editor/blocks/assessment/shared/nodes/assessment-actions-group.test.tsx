@@ -209,10 +209,10 @@ describe("assessment_actions_group", () => {
     await waitFor(() => {
       const group = actionGroup();
       expect(within(group).getByRole("button", { name: "Add hint" })).toHaveClass(
-        "sc-app-assessment-support-button",
+        "sc-course-assessment-support-button",
       );
       expect(within(group).getByRole("button", { name: "Show feedback" })).toHaveClass(
-        "sc-app-assessment-support-button",
+        "sc-course-assessment-support-button",
       );
     });
 
@@ -257,9 +257,11 @@ describe("assessment_actions_group", () => {
     expect(surface?.getAttribute("data-tone")).toBe("hint");
     const addHintAction = dialog.querySelector('[data-action="add-hint"]');
     expect(addHintAction).toBeInstanceOf(HTMLButtonElement);
-    expect(addHintAction?.classList.contains("sc-app-assessment-hint-popover__add")).toBe(true);
+    expect(addHintAction).toHaveClass("sc-course-popover-action");
+    expect(addHintAction?.className).not.toContain("sc-app-");
     const deleteHintAction = dialog.querySelector('[aria-label="Delete hint 1"]');
     expect(deleteHintAction).toBeInstanceOf(HTMLButtonElement);
+    expect(deleteHintAction).toHaveClass("sc-course-popover-action");
     expect(deleteHintAction?.getAttribute("data-tone")).toBe("danger");
 
     const bubbleAppendTarget = hostProps?.appendTo?.();
@@ -313,11 +315,15 @@ describe("assessment_actions_group", () => {
 
     const nextHintAction = authoringHintDialog().querySelector('[aria-label="Next hint"]');
     expect(nextHintAction).toBeInstanceOf(HTMLButtonElement);
+    (nextHintAction as HTMLButtonElement).focus();
     fireEvent.click(nextHintAction as HTMLButtonElement);
 
     await waitFor(() => {
       expect(authoringHintDialog().getAttribute("aria-label")).toBe("Hint 2");
       expect(nestedRichTextBubbleMenuHostMock.props.at(-1)?.editor?.getText()).toBe("Second hint");
+      expect(document.activeElement).toBe(
+        authoringHintDialog().querySelector('[aria-label="Previous hint"]'),
+      );
     });
 
     const addHintAction = authoringHintDialog().querySelector('[data-action="add-hint"]');

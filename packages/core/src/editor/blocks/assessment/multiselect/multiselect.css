@@ -16,10 +16,6 @@
   .sc-assessment-node-view[data-bounded-placement="fill"]
     > .sc-multiselect
     [data-slot="assessment-choices-group"]
-    .sc-app-assessment-choices-scroll,
-  .sc-assessment-node-view[data-bounded-placement="fill"]
-    > .sc-multiselect
-    [data-slot="assessment-choices-group"]
     .sc-course-assessment-choices-scroll {
     justify-content: safe center;
   }
@@ -27,7 +23,7 @@
   .sc-assessment-node-view[data-bounded-placement="fill"]
     > .sc-multiselect
     [data-slot="assessment-choices-group"]
-    :is(.sc-app-assessment-choices-scroll, .sc-course-assessment-choices-scroll)[data-bounded-scroll-overflow] {
+    .sc-course-assessment-choices-scroll[data-bounded-scroll-overflow] {
     justify-content: flex-start;
   }
 

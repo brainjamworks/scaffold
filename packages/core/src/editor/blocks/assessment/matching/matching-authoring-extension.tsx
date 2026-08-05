@@ -1,4 +1,5 @@
 import { Extension } from "@tiptap/core";
+import type { NodeViewProps } from "@tiptap/react";
 
 import { AssessmentProblemContent } from "@/editor/blocks/assessment/shared/chrome/AssessmentProblemContent";
 import { createBlockAuthoringNodeView } from "@/editor/frame/authoring/create-block-authoring-node-view";
@@ -12,8 +13,8 @@ import {
 } from "./matching-fields";
 import { createMatchingNode } from "./node";
 
-function MatchingAuthoringView() {
-  return <AssessmentProblemContent editable blockClass="sc-matching" />;
+function MatchingAuthoringView(props: NodeViewProps) {
+  return <AssessmentProblemContent editable blockClass="sc-matching" nodeViewProps={props} />;
 }
 
 const MatchingAuthoringNode = createMatchingNode({

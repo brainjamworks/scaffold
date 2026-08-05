@@ -1,0 +1,100 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-course-assessment-choice.sc-course-assessment-choice--authoring {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+    align-items: center;
+  }
+
+  .sc-course-assessment-choice__authoring-movement,
+  .sc-course-assessment-choice__authoring-feedback {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sc-course-assessment-choice__authoring-action {
+    display: inline-flex;
+    box-sizing: border-box;
+    width: 2.75rem;
+    height: 2.75rem;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    flex: 0 0 2.75rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+  }
+
+  .sc-course-assessment-choice__authoring-content {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .sc-course-assessment-choice__authoring-content p {
+    margin-block: 0;
+    line-height: inherit;
+  }
+
+  .sc-course-assessment-choice-add {
+    display: inline-flex;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 2.75rem;
+    align-items: center;
+  }
+
+  @container (max-width: 20rem) {
+    .sc-course-assessment-choice.sc-course-assessment-choice--authoring {
+      grid-template-columns: repeat(2, 2.75rem) minmax(0, 1fr) repeat(2, 2.75rem);
+      grid-template-rows: auto auto;
+    }
+
+    .sc-course-assessment-choice__authoring-content {
+      grid-column: 1 / -1;
+      grid-row: 1;
+    }
+
+    .sc-course-assessment-choice__authoring-movement {
+      grid-column: 1;
+      grid-row: 2;
+    }
+
+    .sc-course-assessment-choice__authoring-correctness {
+      grid-column: 2;
+      grid-row: 2;
+    }
+
+    .sc-course-assessment-choice__authoring-feedback {
+      grid-column: 4;
+      grid-row: 2;
+    }
+
+    .sc-course-assessment-choice__authoring-delete {
+      grid-column: 5;
+      grid-row: 2;
+    }
+  }
+
+  @container (max-width: 12rem) {
+    .sc-course-assessment-choice.sc-course-assessment-choice--authoring {
+      grid-template-columns: repeat(2, 2.75rem) minmax(0, 1fr);
+      grid-template-rows: auto auto auto;
+    }
+
+    .sc-course-assessment-choice__authoring-feedback {
+      grid-column: 1;
+      grid-row: 3;
+    }
+
+    .sc-course-assessment-choice__authoring-delete {
+      grid-column: 2;
+      grid-row: 3;
+    }
+  }
+}

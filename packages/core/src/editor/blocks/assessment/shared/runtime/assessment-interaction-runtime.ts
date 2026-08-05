@@ -267,8 +267,7 @@ export function useAssessmentInteractionRuntime<K extends AssessmentInteractionK
     }
 
     const response = problem.state.response;
-    const locked =
-      problem.state.submitted || problem.exhausted || problem.state.revealedAnswer !== null;
+    const locked = problem.interactionLocked;
     const writeField = (field: string, value: unknown) => {
       if (locked) return;
       facade.actions.setLocalResponse({ ...response, [field]: value });

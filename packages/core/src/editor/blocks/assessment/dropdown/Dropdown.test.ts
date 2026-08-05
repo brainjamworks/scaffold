@@ -20,6 +20,8 @@ import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model
 import { createDisposableEditor } from "@/editor/testing/disposable-editor";
 import { AUTHORING_FRAME_ATTR } from "@/editor/interactions/dom/authoring-frame";
 import type { AssessmentPort } from "@/host/ports";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
 import { AssessmentActionsGroupNode } from "@/editor/blocks/assessment/shared/nodes/assessment-actions-group";
 import { AssessmentActionsGroupRuntimeNode } from "@/editor/blocks/assessment/shared/nodes/assessment-actions-group-runtime";
@@ -100,10 +102,14 @@ function createDisposableDropdownEditor(content: JSONContent) {
 
 function renderRuntimeEditor(editor: Editor, assessmentPort: AssessmentPort) {
   render(
-    createAssessmentRuntimeTestRoot({
-      assessment: assessmentPort,
-      children: createElement(EditorContent, { editor }),
-      onStore: captureAssessmentStore,
+    createElement(CourseThemeProvider, {
+      appearance: "light",
+      theme: createDefaultPersistedCourseTheme(),
+      children: createAssessmentRuntimeTestRoot({
+        assessment: assessmentPort,
+        children: createElement(EditorContent, { editor }),
+        onStore: captureAssessmentStore,
+      }),
     }),
   );
 }
@@ -114,9 +120,13 @@ function captureAssessmentStore(store: AssessmentStoreApi | null) {
 }
 function renderAssessmentEditor(editor: Editor) {
   return render(
-    createAssessmentRuntimeTestRoot({
-      children: createElement(EditorContent, { editor }),
-      onStore: captureAssessmentStore,
+    createElement(CourseThemeProvider, {
+      appearance: "light",
+      theme: createDefaultPersistedCourseTheme(),
+      children: createAssessmentRuntimeTestRoot({
+        children: createElement(EditorContent, { editor }),
+        onStore: captureAssessmentStore,
+      }),
     }),
   );
 }

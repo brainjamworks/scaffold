@@ -1,0 +1,25 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-course-popover-action {
+    max-inline-size: 100%;
+    min-inline-size: 0;
+    min-block-size: 2.75rem;
+  }
+
+  .sc-course-popover-pager {
+    display: inline-flex;
+    min-inline-size: 0;
+    min-block-size: 2.75rem;
+    flex: none;
+    align-items: center;
+  }
+
+  .sc-course-popover-pager__action {
+    inline-size: 2.75rem;
+    min-inline-size: 2.75rem;
+    block-size: 2.75rem;
+    min-block-size: 2.75rem;
+    flex: none;
+  }
+}

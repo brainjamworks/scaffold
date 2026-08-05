@@ -69,26 +69,28 @@ function AssessmentInstructionsNodeView(props: NodeViewProps) {
   return (
     <NodeViewWrapper
       data-slot="assessment-instructions"
-      className="sc-assessment-meta-instructions"
+      className="sc-course-assessment-meta-instructions"
     >
       {showFieldContent && (
-        <span contentEditable={false} className="sc-assessment-meta-default">
+        <span contentEditable={false} className="sc-course-assessment-meta-default">
           ·
         </span>
       )}
       <NodeViewContent
         className={
-          showFieldContent ? "sc-assessment-meta-content--inline" : "sc-assessment-field--hidden"
+          showFieldContent
+            ? "sc-course-assessment-meta-content--inline"
+            : "sc-assessment-field--hidden"
         }
       />
       {pointsLabel && (
         <>
           {showFieldContent && (
-            <span contentEditable={false} className="sc-assessment-meta-default">
+            <span contentEditable={false} className="sc-course-assessment-meta-default">
               ·
             </span>
           )}
-          <span contentEditable={false} className="sc-assessment-meta-default">
+          <span contentEditable={false} className="sc-course-assessment-meta-default">
             {pointsLabel}
           </span>
         </>

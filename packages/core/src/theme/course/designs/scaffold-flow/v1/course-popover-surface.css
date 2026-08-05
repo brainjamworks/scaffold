@@ -119,6 +119,76 @@
   fill: var(--gray-1);
 }
 
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-popover-action {
+  box-sizing: border-box;
+  min-block-size: 2.75rem;
+  gap: var(--space-1);
+  margin: 0;
+  padding-inline: var(--space-2);
+  border-radius: max(var(--radius-3), var(--radius-full));
+  color: var(--sc-course-popover-tone-text);
+  font-family: var(--default-font-family);
+  font-size: var(--font-size-1);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-1);
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out,
+    opacity 150ms ease-out;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-popover-action[data-tone="danger"] {
+  color: var(--sc-course-state-error-text);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-popover-pager {
+  gap: var(--space-1);
+  color: var(--sc-course-popover-tone-text);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-popover-pager__action {
+  box-sizing: border-box;
+  inline-size: 2.75rem;
+  min-inline-size: 2.75rem;
+  block-size: 2.75rem;
+  min-block-size: 2.75rem;
+  border-radius: max(var(--radius-3), var(--radius-full));
+  color: currentColor;
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out,
+    opacity 150ms ease-out;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-course-popover-action:hover:not(:disabled),
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-course-popover-pager__action:hover:not(:disabled) {
+    background: var(--sc-course-popover-tone-background);
+    color: var(--gray-12);
+  }
+
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-course-popover-action[data-tone="danger"]:hover:not(:disabled) {
+    background: var(--sc-course-state-error-background);
+    color: var(--sc-course-state-error-text);
+  }
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  :is(.sc-course-popover-action, .sc-course-popover-pager__action):focus-visible {
+  outline: 2px solid var(--accent-8);
+  outline-offset: 2px;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  :is(.sc-course-popover-action, .sc-course-popover-pager__action):disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-hint-pager {
   gap: var(--space-1);
   color: var(--sc-course-state-warning-text);
@@ -166,6 +236,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-popover-action,
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-popover-pager__action,
   .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-hint-pager__button,
   .sc-course.sc-course-theme-scaffold-flow-v1
     .sc-course-assessment-hint-popover
@@ -184,7 +256,11 @@
   }
 
   .sc-course.sc-course-theme-scaffold-flow-v1
-    .sc-course-assessment-hint-pager__button:focus-visible {
+    :is(
+      .sc-course-popover-action,
+      .sc-course-popover-pager__action,
+      .sc-course-assessment-hint-pager__button
+    ):focus-visible {
     outline-color: Highlight;
   }
 }

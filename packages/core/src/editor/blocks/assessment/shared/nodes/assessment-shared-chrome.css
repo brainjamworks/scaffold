@@ -5,63 +5,42 @@
     display: none;
   }
 
-  .sc-assessment-meta-title {
+  .sc-course-assessment-meta-title {
     position: relative;
     display: flex;
     flex: 0 0 auto;
-    min-height: 1.25rem;
     align-items: center;
-    color: var(--color-text-muted);
-    font-size: 0.6875rem;
-    font-weight: 600;
-    line-height: var(--leading-snug);
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
   }
 
-  .sc-assessment-meta-instructions {
+  .sc-course-assessment-meta-instructions {
     position: relative;
     display: flex;
     flex: 0 1 auto;
     min-width: 0;
-    min-height: 1.25rem;
     flex-wrap: wrap;
     align-items: center;
-    column-gap: 0.75rem;
-    color: var(--color-text-muted);
-    font-size: 0.6875rem;
-    font-weight: 600;
-    line-height: var(--leading-snug);
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
   }
 
-  .sc-assessment-meta-title p,
-  .sc-assessment-meta-instructions p {
+  .sc-course-assessment-meta-title p,
+  .sc-course-assessment-meta-instructions p {
     margin: 0;
   }
 
-  .sc-assessment-meta-default {
+  .sc-course-assessment-meta-default {
     pointer-events: none;
   }
 
-  .sc-assessment-meta-content--inline {
+  .sc-course-assessment-meta-content--inline {
     display: contents;
   }
 
-  .sc-assessment-prompt {
-    font-family: var(--font-heading);
+  .sc-course-assessment-prompt {
+    min-width: 0;
     max-width: none;
-    color: var(--color-ink);
-    font-size: calc(1.1875rem * var(--sc-course-type-scale));
-    font-weight: var(--font-weight-bold);
-    line-height: var(--leading-snug);
-    letter-spacing: var(--sc-course-letter-spacing-heading);
-    text-transform: var(--sc-course-text-transform-heading);
-    text-wrap: balance;
+    overflow-wrap: anywhere;
   }
 
-  .sc-assessment-prompt p {
+  .sc-course-assessment-prompt p {
     margin-top: 0;
     margin-bottom: 0;
   }

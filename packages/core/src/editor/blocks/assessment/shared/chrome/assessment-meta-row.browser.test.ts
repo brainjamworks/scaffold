@@ -4,6 +4,7 @@ import { page } from "vite-plus/test/browser/context";
 import "@/styles/globals.css";
 import "@/editor/rich-text/view/text-alignment.css";
 import "@/ui/components/course/AssessmentShell/AssessmentShell.css";
+import "@/theme/course/designs/scaffold-flow/v1/theme.css";
 
 import "./assessment-node-view.css";
 import "../nodes/assessment-shared-chrome.css";
@@ -19,21 +20,22 @@ describe("bounded assessment metadata", () => {
   it("keeps the points beside left-aligned instructions", async () => {
     await page.viewport(1000, 600);
     host = document.createElement("div");
-    host.className = "sc-assessment-node-view";
+    host.className =
+      "sc-course sc-course-theme-scaffold-flow-v1 radix-themes light sc-assessment-node-view";
     host.dataset["boundedPlacement"] = "fill";
-    host.style.cssText = "width: 700px; height: 360px;";
+    host.style.cssText = "width: 700px; height: 360px; --space-3: 12px;";
     host.innerHTML = `
       <section class="sc-course-assessment-shell">
-        <div class="sc-assessment-meta-title" data-slot="assessment-title">
+        <div class="sc-course-assessment-meta-title" data-slot="assessment-title">
           <p data-text-align="left">Question title</p>
         </div>
-        <div class="sc-assessment-meta-instructions" data-slot="assessment-instructions">
-          <span class="sc-assessment-meta-default">·</span>
-          <div class="sc-assessment-meta-content--inline">
+        <div class="sc-course-assessment-meta-instructions" data-slot="assessment-instructions">
+          <span class="sc-course-assessment-meta-default">·</span>
+          <div class="sc-course-assessment-meta-content--inline">
             <p data-text-align="left">Click the fungal sheath</p>
           </div>
-          <span class="sc-assessment-meta-default" data-testid="points-separator">·</span>
-          <span class="sc-assessment-meta-default">2 points</span>
+          <span class="sc-course-assessment-meta-default" data-testid="points-separator">·</span>
+          <span class="sc-course-assessment-meta-default">2 points</span>
         </div>
         <div data-slot="assessment-prompt">Prompt</div>
         <div data-slot="sequencing-items-group">Items</div>

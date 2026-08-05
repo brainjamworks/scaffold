@@ -28,6 +28,11 @@
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-support-button[data-assessment-support-intent="feedback"][data-has-content="true"] {
+  color: var(--accent-11);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
   .sc-course-assessment-support-button[data-assessment-support-outcome="correct"] {
   color: var(--sc-course-state-correct-text);
 }

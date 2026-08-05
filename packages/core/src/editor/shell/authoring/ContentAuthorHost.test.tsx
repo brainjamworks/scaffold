@@ -44,6 +44,34 @@ describe("ContentAuthorHost", () => {
     expect(courseDocument?.attrs).toMatchObject({ mode: "page" });
   });
 
+  it("uses an unscaled viewport overlay host for slideshow authoring", async () => {
+    const content = createScaffoldDocumentContent({ mode: "slideshow" });
+    const onEditorReady = vi.fn();
+
+    const { container } = render(
+      <ContentAuthorHost
+        agentIntegration={ScaffoldUnavailableAgentIntegration}
+        agentOpen={false}
+        content={content}
+        onEditorReady={onEditorReady}
+      />,
+    );
+
+    await waitFor(() => expect(onEditorReady).toHaveBeenCalledTimes(1));
+
+    const editorStage = container.querySelector<HTMLElement>(".sc-editor-stage");
+    const courseEditor = screen.getByTestId("course-document-editor");
+
+    expect(editorStage).not.toBeNull();
+    await waitFor(() => {
+      expect(
+        courseEditor.querySelector<HTMLElement>(
+          ':scope > [data-scaffold-overlay-host][data-kind="viewport"]',
+        ),
+      ).not.toBeNull();
+    });
+  });
+
   it("provides the initial null editor before the live editor without remounting", async () => {
     const content = createScaffoldDocumentContent({ mode: "page" });
     const onEditorReady = vi.fn();

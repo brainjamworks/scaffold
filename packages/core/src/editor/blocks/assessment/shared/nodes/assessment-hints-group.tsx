@@ -130,6 +130,7 @@ function AssessmentHintsGroupNodeView(props: NodeViewProps) {
         popover={EditorFloatingPopover}
         renderAuthorPopover={({
           activeIndex,
+          contentRef,
           hasVisibleHints,
           onAddHint,
           onDeleteHint,
@@ -157,6 +158,7 @@ function AssessmentHintsGroupNodeView(props: NodeViewProps) {
           return (
             <EditableOverlayPopover.Portal>
               <EditableOverlayPopover.Content
+                ref={contentRef}
                 aria-label={title}
                 align="start"
                 className="sc-course-assessment-hint-popover sc-course-assessment-hint-popover--authoring"
@@ -180,22 +182,20 @@ function AssessmentHintsGroupNodeView(props: NodeViewProps) {
                 headerActions={
                   total > 1 ? (
                     <EditableOverlayPopover.Pager aria-label="Hint navigation">
-                      <button
-                        type="button"
+                      <EditableOverlayPopover.PagerAction
                         onClick={onPrevious}
                         disabled={activeIndex === 0}
                         aria-label="Previous hint"
                       >
                         <CaretLeft size={iconXs} weight="bold" aria-hidden />
-                      </button>
-                      <button
-                        type="button"
+                      </EditableOverlayPopover.PagerAction>
+                      <EditableOverlayPopover.PagerAction
                         onClick={onNext}
                         disabled={activeIndex >= total - 1}
                         aria-label="Next hint"
                       >
                         <CaretRight size={iconXs} weight="bold" aria-hidden />
-                      </button>
+                      </EditableOverlayPopover.PagerAction>
                     </EditableOverlayPopover.Pager>
                   ) : undefined
                 }
@@ -214,7 +214,6 @@ function AssessmentHintsGroupNodeView(props: NodeViewProps) {
                 footerEnd={
                   hasVisibleHints ? (
                     <EditableOverlayPopover.TextAction
-                      className="sc-app-assessment-hint-popover__add"
                       data-action="add-hint"
                       onClick={onAddHint}
                     >

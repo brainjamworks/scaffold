@@ -5,13 +5,16 @@ import {
   useEditorState,
   type NodeViewProps,
 } from "@tiptap/react";
-import { InfoIcon as Info } from "@phosphor-icons/react";
+import {
+  DotsSixVerticalIcon as DotsSixVertical,
+  InfoIcon as Info,
+} from "@phosphor-icons/react";
 import { useEffect, useId, useMemo, useRef } from "react";
 
 import { richTextDocumentToAssessmentFeedback } from "../model/private-assessment-attrs";
 import { deleteAssessmentChoice } from "../model/delete-assessment-choice";
 import { CONTAINED_MOVEMENT_TARGET_ATTR } from "@/editor/drag/view/movement-dom";
-import { ContainedMovementHandle } from "@/editor/drag/view/ContainedMovementHandle";
+import { useContainedMovementHandle } from "@/editor/drag/view/use-contained-movement-handle";
 import { Placeholder } from "@/editor/prosemirror/placeholder/Placeholder";
 import { createFieldContentEditorExtensions } from "@/editor/rich-text/authoring/field-content-extensions";
 import { EditableOverlayPopover } from "@/editor/rich-text/authoring/nested-overlay/EditableOverlayPopoverShell";
@@ -21,9 +24,11 @@ import {
   type ScaffoldRichTextDocument,
 } from "@/schemas/rich-text";
 import { SelectableChoiceAttrsSchema, type SelectableChoiceAttrs } from "@/schemas/shared";
-import { iconSm } from "@/ui/tokens/icon-sizes";
-import { AssessmentAuthoringIconAction } from "@/ui/components/app/AssessmentAuthoringIconAction/AssessmentAuthoringIconAction";
-import { AssessmentChoiceAuthoringRow } from "@/ui/components/app/AssessmentChoiceAuthoringRow/AssessmentChoiceAuthoringRow";
+import { iconSm, iconXs } from "@/ui/tokens/icon-sizes";
+import {
+  AssessmentChoiceAuthoringAction,
+  AssessmentChoiceAuthoringRow,
+} from "@/ui/components/course/AssessmentChoiceAuthoringRow/AssessmentChoiceAuthoringRow";
 import "@/editor/blocks/assessment/shared/chrome/assessment-feedback-popover.css";
 
 import {
@@ -85,7 +90,13 @@ function SelectableChoiceAuthoringNodeView(props: NodeViewProps) {
     },
   });
   const pos = safeGetPos(props.getPos);
+  const movement = useContainedMovementHandle({
+    getSourcePos: () => safeGetPos(props.getPos),
+    sourceKey: attrs.id,
+    sourcePos: pos,
+  });
   const hasFeedback = !isScaffoldRichTextDocumentEmpty(privateChoiceState.feedback?.document);
+  const choiceLabel = props.node.textContent.trim() || `choice ${choicePosition.index}`;
   const fieldKey = `assessment:${attrs.id}:feedback`;
 
   useEffect(() => {
@@ -134,12 +145,13 @@ function SelectableChoiceAuthoringNodeView(props: NodeViewProps) {
   const feedbackControl = (
     <EditableOverlayPopover.Root>
       <EditableOverlayPopover.Trigger asChild>
-        <AssessmentAuthoringIconAction
+        <AssessmentChoiceAuthoringAction
           active={hasFeedback}
+          intent="feedback"
           label={hasFeedback ? "Edit feedback" : "Add feedback"}
         >
           <Info size={iconSm} weight={hasFeedback ? "fill" : "regular"} />
-        </AssessmentAuthoringIconAction>
+        </AssessmentChoiceAuthoringAction>
       </EditableOverlayPopover.Trigger>
       <EditableOverlayPopover.Portal>
         <EditableOverlayPopover.Content
@@ -174,6 +186,7 @@ function SelectableChoiceAuthoringNodeView(props: NodeViewProps) {
     >
       <AssessmentChoiceAuthoringRow
         correct={privateChoiceState.isCorrect}
+        correctnessLabel={`Toggle whether ${choiceLabel} is correct`}
         feedbackControl={feedbackControl}
         onToggleCorrect={toggleCorrect}
         deleteAction={{
@@ -184,12 +197,20 @@ function SelectableChoiceAuthoringNodeView(props: NodeViewProps) {
             : {}),
         }}
         movementControl={
-          <ContainedMovementHandle
-            getSourcePos={() => safeGetPos(props.getPos)}
-            label="choice"
-            sourceKey={attrs.id}
-            sourcePos={pos}
-          />
+          <>
+            <AssessmentChoiceAuthoringAction
+              {...movement.buttonProps}
+              ref={movement.setHandleRef}
+              intent="move"
+              label="Move choice"
+              data-dragging={movement.isDragging || undefined}
+            >
+              <DotsSixVertical size={iconXs} weight="bold" aria-hidden />
+            </AssessmentChoiceAuthoringAction>
+            <span id={movement.descriptionId} className="sc-sr-only">
+              Press Arrow Up or Arrow Down to move this choice.
+            </span>
+          </>
         }
       >
         <NodeViewContent />

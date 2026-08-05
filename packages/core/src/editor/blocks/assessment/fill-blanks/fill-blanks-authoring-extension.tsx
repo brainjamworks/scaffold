@@ -1,4 +1,5 @@
 import { Extension } from "@tiptap/core";
+import type { NodeViewProps } from "@tiptap/react";
 
 import { AssessmentProblemContent } from "@/editor/blocks/assessment/shared/chrome/AssessmentProblemContent";
 import { createBlockAuthoringNodeView } from "@/editor/frame/authoring/create-block-authoring-node-view";
@@ -8,8 +9,8 @@ import { fillBlanksBlockDefinition } from "./fill-blanks-definition";
 import { FillBlanksBodyNode } from "./fill-blanks-body";
 import { createFillBlanksNode } from "./node";
 
-function FillBlanksAuthoringView() {
-  return <AssessmentProblemContent editable blockClass="sc-fill-blanks" />;
+function FillBlanksAuthoringView(props: NodeViewProps) {
+  return <AssessmentProblemContent editable blockClass="sc-fill-blanks" nodeViewProps={props} />;
 }
 
 const FillBlanksAuthoringNode = createFillBlanksNode({

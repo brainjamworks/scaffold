@@ -1,4 +1,5 @@
 import { Extension } from "@tiptap/core";
+import type { NodeViewProps } from "@tiptap/react";
 
 import { AssessmentProblemContent } from "@/editor/blocks/assessment/shared/chrome/AssessmentProblemContent";
 import { createBlockAuthoringNodeView } from "@/editor/frame/authoring/create-block-authoring-node-view";
@@ -15,8 +16,8 @@ import {
 } from "./categorise-fields";
 import { createCategoriseNode } from "./node";
 
-function CategoriseAuthoringView() {
-  return <AssessmentProblemContent editable blockClass="sc-categorise" />;
+function CategoriseAuthoringView(props: NodeViewProps) {
+  return <AssessmentProblemContent editable blockClass="sc-categorise" nodeViewProps={props} />;
 }
 
 const CategoriseAuthoringNode = createCategoriseNode({

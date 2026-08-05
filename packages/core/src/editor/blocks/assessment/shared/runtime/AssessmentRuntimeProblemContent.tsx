@@ -23,5 +23,7 @@ export function AssessmentRuntimeProblemContent({
     node: props.node,
   });
 
-  return <AssessmentProblemContent editable={false} blockClass={blockClass} />;
+  return (
+    <AssessmentProblemContent editable={false} blockClass={blockClass} nodeViewProps={props} />
+  );
 }

@@ -600,6 +600,7 @@ describe("quiz block skeleton", () => {
     expect(quizFrame?.hasAttribute("data-bounded-scroll")).toBe(false);
     expect(stage.hasAttribute("data-bounded-scroll")).toBe(false);
     expect(shell?.hasAttribute("data-bounded-scroll")).toBe(false);
+    expect(shell?.getAttribute("data-assessment-container")).toBe("quiz");
     expect(lanes).toHaveLength(1);
 
     editor.destroy();
@@ -844,6 +845,57 @@ describe("quiz block skeleton", () => {
       expect(quizShell?.getAttribute("data-quiz-status")).toBe("in_progress");
       expect(quizShell?.getAttribute("data-active-question-id")).toBe("question-a");
     });
+    editor.destroy();
+  });
+
+  it("lets Quiz policy override an immediate, single-attempt MCQ child", async () => {
+    seedAssessmentStore({
+      problems: {
+        "question-a": {
+          attemptNumber: 1,
+          submitted: false,
+        },
+      },
+      quizzes: {
+        "quiz-child-policy": {
+          attemptId: "attempt-child-policy",
+          status: "in_progress",
+          currentTargetId: "question-a",
+        },
+      },
+    });
+    const check = vi.fn(async () =>
+      assessmentProblemOutcome({ ...canonicalAssessmentResult, isCorrect: false, score: 0 }),
+    );
+    const content = runtimeQuizMcqDocument("quiz-child-policy", {
+      attemptsPerQuestion: 2,
+      reviewTiming: "after_each_answer",
+    });
+    const mcq = content.content?.[0]?.content?.[0];
+    if (!mcq?.attrs) throw new Error("Expected quiz MCQ fixture");
+    mcq.attrs["settings"] = {
+      ...mcq.attrs["settings"],
+      feedbackMode: "immediate",
+      maxAttempts: 1,
+    };
+    const editor = createQuizEditor({ editable: false, content });
+
+    renderWithRuntime(editor, { ...quizPort(), check });
+
+    const alpha = await screen.findByRole("radio", { name: "Alpha" });
+    await waitFor(() => {
+      expect(alpha).not.toBeDisabled();
+      expect(alpha).toHaveAttribute("name", "assessment-question-a");
+    });
+    fireEvent.click(alpha);
+
+    await waitFor(() => expect((alpha as HTMLInputElement).checked).toBe(true));
+    expect(alpha).not.toBeDisabled();
+    expect(check).not.toHaveBeenCalled();
+    expect(
+      alpha.closest("[data-assessment-shell]")?.getAttribute("data-assessment-container"),
+    ).toBe("quiz");
+
     editor.destroy();
   });
 

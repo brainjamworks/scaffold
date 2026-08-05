@@ -1,25 +1,10 @@
 @layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
 
 @layer sc-components {
-  .sc-assessment-attempt-counter {
+  .sc-course-assessment-attempt-counter {
     display: flex;
     align-items: center;
-    min-height: 2.25rem;
-    color: var(--color-text-muted);
-    font-family: var(--font-sans);
-    font-size: 0.75rem;
     font-variant-numeric: tabular-nums;
-    font-weight: 500;
-    line-height: var(--leading-tight);
     white-space: nowrap;
   }
-
-  .sc-assessment-attempt-counter[data-state="warning"] {
-    color: var(--color-warning-text);
-  }
-
-  .sc-assessment-attempt-counter[data-state="final"] {
-    color: var(--color-error-text);
-  }
-
 }

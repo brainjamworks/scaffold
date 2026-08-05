@@ -1,4 +1,4 @@
-import type { HTMLAttributes, ReactNode } from "react";
+import type { HTMLAttributes, ReactNode, Ref } from "react";
 
 import { cn } from "@/lib/cn";
 
@@ -10,6 +10,8 @@ export type EditorShellScrollModel = "page" | "contained";
 export interface EditorShellProps extends Omit<HTMLAttributes<HTMLDivElement>, "children"> {
   /** Primary work surface — the document editor or any future stage mode. */
   stage: ReactNode;
+  /** Optional ref for overlay geometry that must use the unscaled editor stage. */
+  stageRef?: Ref<HTMLDivElement>;
   /**
    * Optional vertical left-rail tool surface (rich-text formatting pill,
    * etc.). Vertically centered in the viewport.
@@ -54,6 +56,7 @@ export interface EditorShellProps extends Omit<HTMLAttributes<HTMLDivElement>, "
  */
 export function EditorShell({
   stage,
+  stageRef,
   leftRail,
   reserveLeftRail = false,
   rightRail,
@@ -74,7 +77,9 @@ export function EditorShell({
           ) : null}
         </div>
       ) : null}
-      <div className="sc-editor-stage">{stage}</div>
+      <div ref={stageRef} className="sc-editor-stage">
+        {stage}
+      </div>
       {rightRail || reserveRightRail ? (
         <div className="sc-editor-rail-slot" data-side="right">
           {rightRail ? (

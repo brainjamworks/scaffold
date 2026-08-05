@@ -172,9 +172,14 @@ describe("Hints", () => {
     expect(visibleHints[0]).toHaveAttribute("aria-hidden", "true");
     expect(visibleHints[1]).not.toHaveAttribute("aria-hidden");
 
-    fireEvent.click(within(dialog).getByRole("button", { name: "Next hint" }));
+    const nextHintAction = within(dialog).getByRole("button", { name: "Next hint" });
+    nextHintAction.focus();
+    fireEvent.click(nextHintAction);
     dialog = screen.getByRole("dialog", { name: "Hint 3 of 3" });
     expect(within(dialog).getByText("Check the final wording.")).toBeInTheDocument();
+    expect(document.activeElement).toBe(
+      within(dialog).getByRole("button", { name: "Previous hint" }),
+    );
     const updatedHints = Array.from(
       within(dialog)
         .getByLabelText("Revealed hints")

@@ -10,7 +10,7 @@ import "./mcq.css";
 function McqRuntimeView(props: NodeViewProps) {
   return (
     <AssessmentRuntimeProblemContent
-      blockClass="sc-mcq"
+      blockClass="sc-course-mcq"
       definition={mcqBlockDefinition}
       props={props}
     />

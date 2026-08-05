@@ -4,13 +4,15 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { AssessmentAuthoringIconAction } from "../AssessmentAuthoringIconAction/AssessmentAuthoringIconAction";
-import { AssessmentChoiceAuthoringRow } from "./AssessmentChoiceAuthoringRow";
+import {
+  AssessmentChoiceAuthoringAction,
+  AssessmentChoiceAuthoringRow,
+} from "./AssessmentChoiceAuthoringRow";
 
 afterEach(cleanup);
 
 describe("AssessmentChoiceAuthoringRow", () => {
-  it("owns authoring choice chrome and keeps rich content independent from correctness", async () => {
+  it("uses the Course choice surface while keeping author actions independent", async () => {
     const user = userEvent.setup();
     const onToggleCorrect = vi.fn();
     const onDelete = vi.fn();
@@ -18,12 +20,17 @@ describe("AssessmentChoiceAuthoringRow", () => {
     render(
       <AssessmentChoiceAuthoringRow
         correct={false}
+        correctnessLabel="Toggle whether Editable answer is correct"
         onToggleCorrect={onToggleCorrect}
-        movementControl={<button type="button">Move choice</button>}
+        movementControl={
+          <AssessmentChoiceAuthoringAction intent="move" label="Move choice">
+            Move
+          </AssessmentChoiceAuthoringAction>
+        }
         feedbackControl={
-          <AssessmentAuthoringIconAction label="Add feedback">
-            i
-          </AssessmentAuthoringIconAction>
+          <AssessmentChoiceAuthoringAction intent="feedback" label="Add feedback">
+            Feedback
+          </AssessmentChoiceAuthoringAction>
         }
         deleteAction={{ label: "Delete choice 1", onAction: onDelete }}
       >
@@ -31,15 +38,16 @@ describe("AssessmentChoiceAuthoringRow", () => {
       </AssessmentChoiceAuthoringRow>,
     );
 
-    const row = screen.getByText("Editable answer").closest(".sc-app-assessment-choice-row");
+    const row = screen.getByText("Editable answer").closest(".sc-course-assessment-choice");
     expect(row).not.toBeNull();
-    expect(row?.querySelector(".sc-course-assessment-choice")).toBeNull();
+    expect(row).toHaveClass("sc-course-assessment-choice--authoring");
+    expect(row?.querySelector("[class*='sc-app-']")).toBeNull();
 
     await user.click(screen.getByText("Editable answer"));
     expect(onToggleCorrect).not.toHaveBeenCalled();
 
     await user.click(
-      screen.getByRole("button", { name: "Toggle whether this choice is correct" }),
+      screen.getByRole("button", { name: "Toggle whether Editable answer is correct" }),
     );
     expect(onToggleCorrect).toHaveBeenCalledOnce();
 
@@ -47,13 +55,14 @@ describe("AssessmentChoiceAuthoringRow", () => {
     expect(onDelete).toHaveBeenCalledOnce();
   });
 
-  it("keeps the final delete action focusable and explains why it is unavailable", async () => {
+  it("keeps the final Course delete action focusable and explains why it is unavailable", async () => {
     const user = userEvent.setup();
     const onDelete = vi.fn();
 
     render(
       <AssessmentChoiceAuthoringRow
         correct
+        correctnessLabel="Toggle whether Only choice is correct"
         onToggleCorrect={() => undefined}
         deleteAction={{
           label: "Delete choice 1",

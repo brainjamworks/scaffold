@@ -11,6 +11,7 @@ import {
   type CSSProperties,
   type ElementType,
   type ReactNode,
+  type RefObject,
   type RefAttributes,
 } from "react";
 import { flushSync } from "react-dom";
@@ -22,11 +23,11 @@ import { iconSm, iconXs } from "@/ui/tokens/icon-sizes";
 import { AssessmentSupportButton } from "@/ui/components/course/AssessmentSupportButton/AssessmentSupportButton";
 
 import { AssessmentRuntimePopoverShell } from "./AssessmentRuntimePopoverShell";
-import "./assessment-authoring-controls.css";
 import "./assessment-hints.css";
 
 export interface HintsAuthorPopoverRenderProps {
   activeIndex: number;
+  contentRef: RefObject<HTMLDivElement | null>;
   hasVisibleHints: boolean;
   onAddHint: () => void;
   onDeleteHint: () => void;
@@ -112,6 +113,7 @@ export function Hints({
   const [activeIndex, setActiveIndex] = useState(0);
   const [open, setOpen] = useState(false);
   const contentRef = useRef<HTMLDivElement | null>(null);
+  const pendingPagerFocusRef = useRef<"next" | "previous" | null>(null);
 
   const revealedHints = isEditable ? hintsTotal : hintsShown;
   const hasVisibleHints = revealedHints > 0;
@@ -121,24 +123,51 @@ export function Hints({
   const runtimeHintsVisible = !isEditable && !submitted && hintsShown > 0;
 
   const goToPreviousHint = () => {
-    setActiveIndex(Math.max(0, visibleActiveIndex - 1));
+    const nextIndex = Math.max(0, visibleActiveIndex - 1);
+    pendingPagerFocusRef.current = nextIndex === 0 ? "next" : "previous";
+    setActiveIndex(nextIndex);
   };
 
   const goToNextHint = () => {
     if (!isEditable) {
       if (visibleActiveIndex < hintsShown - 1) {
-        setActiveIndex(visibleActiveIndex + 1);
+        const nextIndex = visibleActiveIndex + 1;
+        pendingPagerFocusRef.current =
+          nextIndex >= pagerTotal - 1 ? "previous" : "next";
+        setActiveIndex(nextIndex);
         return;
       }
       if (hintsShown < hintsTotal) {
+        pendingPagerFocusRef.current =
+          hintsShown >= pagerTotal - 1 ? "previous" : "next";
         setActiveIndex(hintsShown);
         onReveal();
       }
       return;
     }
 
-    setActiveIndex(pagerTotal > 0 ? Math.min(pagerTotal - 1, visibleActiveIndex + 1) : 0);
+    const nextIndex =
+      pagerTotal > 0 ? Math.min(pagerTotal - 1, visibleActiveIndex + 1) : 0;
+    pendingPagerFocusRef.current =
+      nextIndex >= pagerTotal - 1 ? "previous" : "next";
+    setActiveIndex(nextIndex);
   };
+
+  useLayoutEffect(() => {
+    const preferred = pendingPagerFocusRef.current;
+    const root = contentRef.current;
+    if (!preferred || !root || !open) return;
+
+    const labels =
+      preferred === "next" ? ["Next hint", "Previous hint"] : ["Previous hint", "Next hint"];
+    const target = labels
+      .map((label) => root.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`))
+      .find((button) => button && !button.disabled);
+
+    if (!target) return;
+    pendingPagerFocusRef.current = null;
+    target.focus();
+  }, [hintsShown, open, revealedHints, visibleActiveIndex]);
 
   const addHint = () => {
     setActiveIndex(hintsTotal);
@@ -206,44 +235,21 @@ export function Hints({
       <div className="sc-assessment-hints__bar">
         <HintPopover.Root open={open} onOpenChange={setOpen}>
           <HintPopover.Trigger asChild>
-            {isEditable ? (
-              <button
-                type="button"
-                onClick={onTriggerClick}
-                className="sc-app-assessment-support-button"
-                data-app-assessment-support-intent="hint"
-                aria-expanded={open}
-              >
-                <Lightbulb size={iconSm} weight="fill" aria-hidden />
-                <span>{label}</span>
-                {hasVisibleHints ? (
-                  <CaretDown
-                    size={iconXs}
-                    weight="bold"
-                    className="sc-app-assessment-support-button__disclosure"
-                    data-expanded={open ? "true" : undefined}
-                    aria-hidden
-                  />
-                ) : null}
-              </button>
-            ) : (
-              <AssessmentSupportButton
-                intent="hint"
-                icon={<Lightbulb size={iconSm} weight="fill" />}
-                endIcon={
-                  hasVisibleHints ? <CaretDown size={iconXs} weight="bold" /> : undefined
-                }
-                expanded={open}
-                onClick={onTriggerClick}
-                disabled={!hasMoreRuntimeHints && hintsShown === 0}
-              >
-                {label}
-              </AssessmentSupportButton>
-            )}
+            <AssessmentSupportButton
+              intent="hint"
+              icon={<Lightbulb size={iconSm} weight="fill" />}
+              endIcon={hasVisibleHints ? <CaretDown size={iconXs} weight="bold" /> : undefined}
+              expanded={open}
+              onClick={onTriggerClick}
+              disabled={!isEditable && !hasMoreRuntimeHints && hintsShown === 0}
+            >
+              {label}
+            </AssessmentSupportButton>
           </HintPopover.Trigger>
           {isEditable ? (
             renderAuthorPopover?.({
               activeIndex: visibleActiveIndex,
+              contentRef,
               hasVisibleHints,
               onAddHint: addHint,
               onDeleteHint: deleteActiveHint,

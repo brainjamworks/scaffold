@@ -17,6 +17,8 @@ import {
   hasAssessmentRegistration,
 } from "@/runtime/assessment/test-utils";
 import type { AssessmentStoreApi } from "@/runtime/assessment/types";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
 import { AssessmentActionsGroupNode } from "./assessment-actions-group";
 import { AssessmentActionsGroupRuntimeNode } from "./assessment-actions-group-runtime";
@@ -63,6 +65,7 @@ function makeEditor(
     legend: string;
   }> = {},
   includeHistory = false,
+  promptText = "",
 ) {
   const assessment =
     blockType === "mcq"
@@ -118,7 +121,17 @@ function makeEditor(
               type: "assessment_instructions",
               content: [{ type: "paragraph" }],
             },
-            { type: "assessment_prompt", content: [{ type: "paragraph" }] },
+            {
+              type: "assessment_prompt",
+              content: [
+                promptText
+                  ? {
+                      type: "paragraph",
+                      content: [{ type: "text", text: promptText }],
+                    }
+                  : { type: "paragraph" },
+              ],
+            },
             {
               type: "assessment_choices_group",
               content: choices.map((c) => ({
@@ -228,10 +241,17 @@ function captureAssessmentStore(store: AssessmentStoreApi | null) {
 
 function renderAssessmentEditor(editor: Editor) {
   return render(
-    createAssessmentRuntimeTestRoot({
-      children: createElement(EditorContent, { editor }),
-      onStore: captureAssessmentStore,
-    }),
+    createElement(
+      CourseThemeProvider,
+      {
+        theme: createDefaultPersistedCourseTheme(),
+        appearance: "light",
+        children: createAssessmentRuntimeTestRoot({
+          children: createElement(EditorContent, { editor }),
+          onStore: captureAssessmentStore,
+        }),
+      },
+    ),
   );
 }
 
@@ -1048,6 +1068,8 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
     const feedbackButton = screen.getByRole("button", {
       name: "Show feedback for Alpha",
     });
+    expect(feedbackButton.closest("label")).toBeNull();
+    expect(screen.getByRole("radio", { name: "Alpha" })).toBeDisabled();
     fireEvent.click(feedbackButton);
 
     await waitFor(() => {
@@ -1071,6 +1093,40 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
       expect(screen.getByRole("status", { name: "Answer revealed" })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Correct answer revealed" })).toBeNull();
     });
+
+    editor.destroy();
+  });
+
+  it("names an unconfigured required MCQ choice group from its visible prompt", async () => {
+    const editor = makeEditor(
+      [
+        { id: "a", isCorrect: false, text: "Alpha" },
+        { id: "b", isCorrect: true, text: "Beta" },
+      ],
+      false,
+      "mcq",
+      { legend: "" },
+      false,
+      "Which option is correct?",
+    );
+
+    renderRuntimeEditor(editor, {
+      type: "runtime",
+      submit: async (args) =>
+        assessmentProblemOutcome(
+          { ...canonicalAssessmentResult, isCorrect: true, score: 1 },
+          { response: args.response },
+        ),
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("group", { name: "Which option is correct?" }),
+      ).toBeInTheDocument();
+    });
+    for (const radio of screen.getAllByRole("radio")) {
+      expect((radio as HTMLInputElement).required).toBe(true);
+    }
 
     editor.destroy();
   });
@@ -1212,6 +1268,45 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
         }),
       ).toBeInTheDocument();
       expect(screen.getByText("Answer submitted. Incorrect.")).toBeInTheDocument();
+    });
+
+    editor.destroy();
+  });
+
+  it("keeps native radio disabled state in parity with an exhausted immediate-check MCQ", async () => {
+    const editor = makeEditor(
+      [
+        { id: "a", isCorrect: false, text: "Alpha" },
+        { id: "b", isCorrect: true, text: "Beta" },
+      ],
+      false,
+      "mcq",
+      { feedbackMode: "immediate", maxAttempts: 1 },
+    );
+    const result = { ...canonicalAssessmentResult, isCorrect: false, score: 0 };
+
+    renderRuntimeEditor(editor, {
+      type: "runtime",
+      check: async (args) =>
+        assessmentProblemOutcome(result, {
+          response: args.response,
+          submitted: false,
+          checkResult: result,
+          submissionResult: null,
+        }),
+      submit: async () => assessmentProblemOutcome(result),
+    });
+
+    await waitFor(() => {
+      expect(hasAssessmentRegistration(assessmentStore, "artifact:artifact-1/block:mcq-1")).toBe(
+        true,
+      );
+    });
+    fireEvent.click(screen.getByText("Alpha"));
+
+    await waitFor(() => {
+      expect(screen.getByRole("radio", { name: "Alpha" })).toBeDisabled();
+      expect(screen.getByRole("radio", { name: "Beta" })).toBeDisabled();
     });
 
     editor.destroy();

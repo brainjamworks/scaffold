@@ -3,13 +3,20 @@ import {
   useId,
   useRef,
   useState,
-  type ButtonHTMLAttributes,
   type ComponentPropsWithoutRef,
   type ElementRef,
   type Ref,
   type ReactNode,
 } from "react";
 
+import {
+  CoursePopoverAction,
+  CoursePopoverPager,
+  CoursePopoverPagerAction,
+  type CoursePopoverActionProps,
+  type CoursePopoverActionTone,
+  type CoursePopoverPagerProps,
+} from "@/ui/components/course/CoursePopoverSurface/CoursePopoverActions";
 import {
   CoursePopoverSurface,
   type CoursePopoverSurfaceTone,
@@ -18,6 +25,7 @@ import {
   EditorFloatingPopover,
   type EditorFloatingPopoverContentProps,
 } from "@/editor/interactions/floating/EditorFloatingPopover";
+import { AUTHORING_CHROME_SUPPRESSION_ATTR } from "@/editor/interactions/dom/authoring-chrome";
 import { cn } from "@/lib/cn";
 import { CourseThemePortalBoundary } from "@/theme/course/CourseThemeProvider";
 
@@ -25,7 +33,6 @@ import {
   NestedRichTextEditorField,
   type NestedRichTextEditorFieldConfig,
 } from "./NestedRichTextEditorField";
-import "./EditableOverlayPopoverShell.css";
 
 export type EditableOverlayPopoverTone = CoursePopoverSurfaceTone;
 
@@ -57,11 +64,8 @@ export type EditableOverlayPopoverContentProps =
       editor: EditableOverlayPopoverEditorConfig;
     });
 
-export type EditableOverlayPopoverTextActionTone = "default" | "danger";
-
-export interface EditableOverlayPopoverTextActionProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  tone?: EditableOverlayPopoverTextActionTone;
-}
+export type EditableOverlayPopoverTextActionTone = CoursePopoverActionTone;
+export type EditableOverlayPopoverTextActionProps = CoursePopoverActionProps;
 
 export const EditableOverlayPopoverRoot = EditorFloatingPopover.Root;
 export const EditableOverlayPopoverTrigger = EditorFloatingPopover.Trigger;
@@ -126,6 +130,7 @@ export const EditableOverlayPopoverShell = forwardRef<
         align={align}
         authoringChrome={authoringChrome}
         contentEditable={false}
+        {...{ [AUTHORING_CHROME_SUPPRESSION_ATTR]: "" }}
         side={side}
         sideOffset={sideOffset}
         className={className}
@@ -194,36 +199,10 @@ const EditableOverlayPopoverEditorContent = forwardRef<
   );
 });
 
-export const EditableOverlayPopoverTextAction = forwardRef<
-  HTMLButtonElement,
-  EditableOverlayPopoverTextActionProps
->(function EditableOverlayPopoverTextAction(
-  { children, className, tone = "default", type = "button", ...props },
-  ref,
-) {
-  return (
-    <button
-      {...props}
-      ref={ref}
-      type={type}
-      data-tone={tone}
-      className={cn("sc-app-editable-popover__text-action", className)}
-    >
-      {children}
-    </button>
-  );
-});
-
-export const EditableOverlayPopoverPager = forwardRef<
-  HTMLDivElement,
-  ComponentPropsWithoutRef<"div">
->(function EditableOverlayPopoverPager({ children, className, ...props }, ref) {
-  return (
-    <div {...props} ref={ref} className={cn("sc-app-editable-popover__pager", className)}>
-      {children}
-    </div>
-  );
-});
+export const EditableOverlayPopoverTextAction = CoursePopoverAction;
+export const EditableOverlayPopoverPager = CoursePopoverPager;
+export type EditableOverlayPopoverPagerProps = CoursePopoverPagerProps;
+export const EditableOverlayPopoverPagerAction = CoursePopoverPagerAction;
 
 export const EditableOverlayPopover = {
   Anchor: EditableOverlayPopoverAnchor,
@@ -231,6 +210,7 @@ export const EditableOverlayPopover = {
   Close: EditableOverlayPopoverClose,
   Content: EditableOverlayPopoverContent,
   Pager: EditableOverlayPopoverPager,
+  PagerAction: EditableOverlayPopoverPagerAction,
   Portal: EditableOverlayPopoverPortal,
   Root: EditableOverlayPopoverRoot,
   Shell: EditableOverlayPopoverShell,

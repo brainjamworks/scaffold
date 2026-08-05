@@ -173,6 +173,16 @@ function storedQuizRegistration(
   };
 }
 
+function effectiveProblemMaxAttempts(
+  quizRegistrations: Readonly<Record<string, AssessmentQuizRegistration>>,
+  registration: AssessmentRegistration,
+): number | null {
+  const quiz = Object.values(quizRegistrations).find((candidate) =>
+    candidate.targetIds.includes(registration.targetId),
+  );
+  return quiz?.settings.attemptsPerQuestion ?? registration.config.settings.maxAttempts;
+}
+
 function validatedQuizAttempt(
   value: unknown,
   registration: AssessmentQuizRegistration,
@@ -717,9 +727,11 @@ export function createAssessmentStore({
           }
 
           const current = get().durable.problems[problemId] ?? emptyProblem();
-          const exhausted =
-            registration.config.settings.maxAttempts !== null &&
-            current.attemptNumber >= registration.config.settings.maxAttempts;
+          const maxAttempts = effectiveProblemMaxAttempts(
+            get().quizRegistrations,
+            registration,
+          );
+          const exhausted = maxAttempts !== null && current.attemptNumber >= maxAttempts;
           if (current.submitted || exhausted) return false;
 
           set((state) => {

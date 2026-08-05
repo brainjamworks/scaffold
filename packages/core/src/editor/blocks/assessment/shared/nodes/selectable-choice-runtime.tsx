@@ -3,7 +3,7 @@ import { DOMSerializer } from "@tiptap/pm/model";
 import { InfoIcon as Info } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, type RefObject } from "react";
 
-import { SelectableChoiceRuntimeRow } from "@/editor/blocks/assessment/shared/chrome/SelectableChoiceRuntimeRow";
+import { AssessmentSelectableChoiceRow } from "@/ui/components/course/AssessmentSelectableChoiceRow/AssessmentSelectableChoiceRow";
 import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { isAssessmentQuestionNode } from "./assessment-meta";
 import { RichFeedbackRuntimePopover } from "@/editor/blocks/assessment/shared/chrome/RichFeedbackRuntimePopover";
@@ -122,7 +122,7 @@ function SelectableChoiceRuntimeNodeView(props: NodeViewProps) {
   const submitted = assessment?.problem?.state.submitted ?? false;
   const answerKeyVisible = assessment?.problem?.answerKeyVisible ?? false;
   const runtimeReady = Boolean(assessment?.problem);
-  const disabled = Boolean(submitted);
+  const disabled = assessment?.problem?.interactionLocked ?? false;
   const inputType = choice?.inputType ?? "radio";
   const revealTarget = answerKeyVisible && (state === "correct" || state === "missed");
   const submitTarget = submitted && checked;
@@ -148,7 +148,7 @@ function SelectableChoiceRuntimeNodeView(props: NodeViewProps) {
       {...(submitTarget ? { [SUBMIT_SCROLL_TARGET_ATTR]: "" } : {})}
       {...(revealTarget ? { [REVEAL_SCROLL_TARGET_ATTR]: "" } : {})}
     >
-      <SelectableChoiceRuntimeRow
+      <AssessmentSelectableChoiceRow
         id={attrs.id}
         {...(assessment?.problem?.state.responseName
           ? { name: assessment.problem.state.responseName }
@@ -162,7 +162,7 @@ function SelectableChoiceRuntimeNodeView(props: NodeViewProps) {
         onSelect={handleSelect}
       >
         <div dangerouslySetInnerHTML={{ __html: staticContentHtml }} />
-      </SelectableChoiceRuntimeRow>
+      </AssessmentSelectableChoiceRow>
     </NodeViewWrapper>
   );
 }

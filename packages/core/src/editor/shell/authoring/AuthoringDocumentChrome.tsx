@@ -1,6 +1,8 @@
 import type { Editor } from "@tiptap/core";
 import type { ReactNode } from "react";
 
+import type { OverlayBoundaryKind } from "@/ui/overlays/portal-host-context";
+
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { builtInInsertCatalog } from "@/editor/insertion/built-in-insert-catalog";
 import { BlockStrip } from "@/editor/shell/chrome/BlockStrip";
@@ -15,7 +17,9 @@ export interface AuthoringDocumentChromeProps {
   children: ReactNode;
   editable: boolean;
   editor: Editor;
+  overlayCollisionBoundary?: Element | null;
   overlayContainer?: Element | null;
+  overlayKind?: OverlayBoundaryKind;
 }
 
 export function AuthoringDocumentBlockStrip({ editor }: { editor: Editor }) {
@@ -33,7 +37,9 @@ export function AuthoringDocumentChrome({
   children,
   editable,
   editor,
+  overlayCollisionBoundary,
   overlayContainer,
+  overlayKind,
 }: AuthoringDocumentChromeProps) {
   const canShowAuthoringChrome = editable && editor.isEditable;
 
@@ -46,7 +52,9 @@ export function AuthoringDocumentChrome({
         editor={editor}
         surfaceAuthoringChrome={builtInSurfaceAuthoringChromeResolver}
         surfaceVariants={builtInSurfaceVariantRegistry}
+        {...(overlayCollisionBoundary !== undefined ? { overlayCollisionBoundary } : {})}
         {...(overlayContainer !== undefined ? { overlayContainer } : {})}
+        {...(overlayKind !== undefined ? { overlayKind } : {})}
       >
         {children}
       </AuthoringContentChrome>

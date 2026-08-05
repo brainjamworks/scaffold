@@ -1,6 +1,7 @@
 import type { Editor } from "@tiptap/core";
 import { useMemo, useState, type ReactNode } from "react";
 
+import type { OverlayBoundaryKind } from "@/ui/overlays/portal-host-context";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import type { SurfaceVariantLookup } from "@/editor/surfaces/model/surface-variant-registry";
 import type { SurfaceAuthoringChromeResolver } from "@/editor/surfaces/authoring/surface-authoring-view-registry";
@@ -21,7 +22,9 @@ export interface AuthoringContentChromeProps {
   children: ReactNode;
   editable: boolean;
   editor: Editor;
+  overlayCollisionBoundary?: Element | null;
   overlayContainer?: Element | null;
+  overlayKind?: OverlayBoundaryKind;
   surfaceAuthoringChrome: SurfaceAuthoringChromeResolver;
   surfaceVariants: SurfaceVariantLookup;
 }
@@ -32,7 +35,9 @@ export function AuthoringContentChrome({
   children,
   editable,
   editor,
+  overlayCollisionBoundary,
   overlayContainer,
+  overlayKind,
   surfaceAuthoringChrome,
   surfaceVariants,
 }: AuthoringContentChromeProps) {
@@ -55,7 +60,11 @@ export function AuthoringContentChrome({
     <InteractionProvider store={interactionFacade}>
       <AuthoringOverlayBoundary
         ownerRoot={ownerRoot}
+        {...(overlayCollisionBoundary !== undefined
+          ? { collisionBoundary: overlayCollisionBoundary }
+          : {})}
         {...(overlayContainer !== undefined ? { container: overlayContainer } : {})}
+        {...(overlayKind !== undefined ? { kind: overlayKind } : {})}
       >
         <div
           ref={setOwnerRoot}

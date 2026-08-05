@@ -24,6 +24,76 @@
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-meta-title,
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-meta-instructions {
+  min-height: var(--space-5);
+  color: var(--gray-10);
+  font-family: var(--default-font-family);
+  font-size: var(--font-size-1);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-1);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-meta-instructions {
+  column-gap: var(--space-3);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-prompt {
+  color: var(--gray-12);
+  font-family: var(--heading-font-family);
+  font-size: calc(var(--font-size-5) * var(--sc-course-author-text-scale));
+  font-weight: var(--sc-course-author-heading-weight);
+  line-height: var(--sc-course-author-heading-line-height);
+  letter-spacing: var(--sc-course-author-heading-letter-spacing);
+  text-transform: var(--sc-course-author-heading-text-transform);
+  text-wrap: balance;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-assessment-control-layout {
+  gap: var(--space-5);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  :is(.sc-assessment-control-layout__support, .sc-assessment-control-layout__submission) {
+  gap: var(--space-3);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-attempt-counter {
+  min-height: var(--space-6);
+  color: var(--gray-10);
+  font-family: var(--default-font-family);
+  font-size: var(--font-size-1);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-1);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-attempt-counter[data-state="warning"] {
+  color: var(--sc-course-state-warning-text);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-attempt-counter[data-state="final"] {
+  color: var(--sc-course-state-error-text);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-shell[data-assessment-container="quiz"] {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
   .sc-assessment-node-view[data-bounded-placement="fill"]
   > .sc-course-assessment-shell {
   --sc-assessment-bounded-section-gap: clamp(0.75rem, 2cqw, 1rem);

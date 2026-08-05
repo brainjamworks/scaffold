@@ -6,7 +6,10 @@ import {
   type NodeViewProps,
 } from "@tiptap/react";
 
-import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import {
+  assessmentPromptDomId,
+  findAncestorAssessmentBlockId,
+} from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { useAssessmentRuntimeById } from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
 import { isAssessmentQuestionNode } from "./assessment-meta";
 
@@ -49,6 +52,8 @@ function AssessmentChoicesGroupRuntimeNodeView(props: NodeViewProps) {
     isAssessmentQuestionNode,
   );
   const problem = useAssessmentRuntimeById(authoredBlockId)?.problem ?? null;
+  const legend = problem?.state.legend.trim() ?? "";
+  const promptId = assessmentPromptDomId(authoredBlockId);
 
   return (
     <NodeViewWrapper
@@ -57,9 +62,13 @@ function AssessmentChoicesGroupRuntimeNodeView(props: NodeViewProps) {
       className="sc-course-assessment-choices-group"
     >
       <div data-bounded-scroll="" className="sc-course-assessment-choices-scroll">
-        <fieldset className="sc-course-assessment-choices-fieldset" aria-required="true">
-          {problem?.state.legend && (
-            <legend className="sc-course-assessment-choices-legend">{problem.state.legend}</legend>
+        <fieldset
+          className="sc-course-assessment-choices-fieldset"
+          aria-required="true"
+          aria-labelledby={legend ? undefined : promptId}
+        >
+          {legend && (
+            <legend className="sc-course-assessment-choices-legend">{legend}</legend>
           )}
           <div className="sc-course-assessment-choices-list">
             <NodeViewContent />

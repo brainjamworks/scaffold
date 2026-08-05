@@ -41,6 +41,8 @@ export type CourseDocumentAuthoringSource =
 
 export interface CourseDocumentEditorProps {
   artifactId?: string | null;
+  /** Unscaled host geometry used by Slideshow authoring overlays. */
+  authoringOverlayCollisionBoundary?: Element | null;
   /**
    * Initial state source for this mounted editor session. The source is
    * immutable after mounting; callers remount to change source or artifact.
@@ -62,6 +64,7 @@ const DEFAULT_SCHEMA_EXTENSIONS: readonly Extension[] = [];
 
 export function CourseDocumentEditor({
   artifactId,
+  authoringOverlayCollisionBoundary,
   source,
   editable = true,
   schemaExtensions = DEFAULT_SCHEMA_EXTENSIONS,
@@ -109,6 +112,7 @@ export function CourseDocumentEditor({
   return (
     <MountedCourseDocumentEditor
       artifactId={artifactId}
+      authoringOverlayCollisionBoundary={authoringOverlayCollisionBoundary}
       source={initialSource}
       editable={editable}
       schemaExtensions={schemaExtensions}
@@ -123,6 +127,7 @@ export function CourseDocumentEditor({
 
 interface RequiredEditorProps {
   artifactId: string | null | undefined;
+  authoringOverlayCollisionBoundary: Element | null | undefined;
   source: CourseDocumentAuthoringSource;
   editable: boolean;
   schemaExtensions: readonly Extension[];
@@ -135,6 +140,7 @@ interface RequiredEditorProps {
 
 function MountedCourseDocumentEditor({
   artifactId,
+  authoringOverlayCollisionBoundary,
   source,
   editable,
   schemaExtensions,
@@ -180,6 +186,8 @@ function MountedCourseDocumentEditor({
   if (!surfaceViewSettings) {
     return null;
   }
+  const useUnscaledSlideshowOverlayBoundary =
+    surfaceViewSettings.mode === "slideshow" && authoringOverlayCollisionBoundary != null;
 
   return (
     <div
@@ -192,6 +200,12 @@ function MountedCourseDocumentEditor({
           editable={editable}
           editor={editor}
           overlayContainer={overlayContainer}
+          {...(useUnscaledSlideshowOverlayBoundary
+            ? {
+                overlayCollisionBoundary: authoringOverlayCollisionBoundary,
+                overlayKind: "viewport" as const,
+              }
+            : {})}
         >
           <ThemedCourseDocumentContent
             editor={editor}
