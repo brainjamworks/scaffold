@@ -32,7 +32,17 @@ interface LearningEventRuntimeScope {
   readonly port: LearningEventPort;
   readonly session: LearningEventSession | null;
   readonly reporter: LearningEventReporter;
-  cleanupGeneration: number;
+}
+
+interface RequestedLearningEventRuntimeScope {
+  readonly artifactId: string | null;
+  readonly port: LearningEventPort | null;
+  readonly artefactTitle: string | null | undefined;
+}
+
+interface RetiringLearningEventRuntimeScope {
+  readonly scope: LearningEventRuntimeScope;
+  readonly termination: Promise<void>;
 }
 
 interface LearningEventRuntimeContextValue {
@@ -96,8 +106,17 @@ function createLearningEventRuntimeScope(
         : Object.freeze({
             report: (input: BlockLearningEventInput) => session?.recordBlock(input),
           }),
-    cleanupGeneration: 0,
   };
+}
+
+function scopeMatchesRequest(
+  scope: LearningEventRuntimeScope | null,
+  artifactId: string | null,
+  port: LearningEventPort | null,
+): boolean {
+  return scope
+    ? scope.artifactId === artifactId && scope.port === port
+    : artifactId === null || port === null;
 }
 
 export function LearningEventRuntimeProvider({
@@ -106,18 +125,20 @@ export function LearningEventRuntimeProvider({
 }: LearningEventRuntimeProviderProps): ReactNode {
   const { artifactId } = useScaffoldArtifactIdentity();
   const port = useLearningEventPort();
-  const [scope, setScope] = useState<LearningEventRuntimeScope | null>(() =>
+  const requestedScopeRef = useRef<RequestedLearningEventRuntimeScope>({
+    artifactId,
+    port,
+    artefactTitle,
+  });
+  requestedScopeRef.current = { artifactId, port, artefactTitle };
+  const [activeScope, setActiveScope] = useState<LearningEventRuntimeScope | null>(() =>
     createLearningEventRuntimeScope(artifactId, port, artefactTitle),
   );
-  let currentScope = scope;
-  const scopeMatches = currentScope
-    ? currentScope.artifactId === artifactId && currentScope.port === port
-    : artifactId === null || port === null;
-
-  if (!scopeMatches) {
-    currentScope = createLearningEventRuntimeScope(artifactId, port, artefactTitle);
-    setScope(currentScope);
-  }
+  const activeScopeRef = useRef(activeScope);
+  const retiringScopeRef = useRef<RetiringLearningEventRuntimeScope | null>(null);
+  const transitionGenerationRef = useRef(0);
+  const providerGenerationRef = useRef(0);
+  const currentScope = scopeMatchesRequest(activeScope, artifactId, port) ? activeScope : null;
 
   const currentSession = currentScope?.session ?? null;
   const sessionRef = useRef<LearningEventSession | null>(currentSession);
@@ -128,20 +149,70 @@ export function LearningEventRuntimeProvider({
   }, [currentSession]);
 
   useEffect(() => {
-    if (!currentScope?.session) return undefined;
+    const generation = transitionGenerationRef.current + 1;
+    transitionGenerationRef.current = generation;
+    let cancelled = false;
 
-    const closingScope = currentScope;
-    const generation = closingScope.cleanupGeneration + 1;
-    closingScope.cleanupGeneration = generation;
+    const transition = async () => {
+      const requestedScope = requestedScopeRef.current;
+      const active = activeScopeRef.current;
+      let retirement = retiringScopeRef.current;
+
+      if (
+        active !== null &&
+        !scopeMatchesRequest(active, requestedScope.artifactId, requestedScope.port)
+      ) {
+        activeScopeRef.current = null;
+        setActiveScope(null);
+        retirement = {
+          scope: active,
+          termination: active.session?.terminate() ?? Promise.resolve(),
+        };
+        retiringScopeRef.current = retirement;
+      } else if (active !== null) {
+        return;
+      }
+
+      if (retirement !== null) {
+        await retirement.termination;
+        if (retiringScopeRef.current === retirement) {
+          retiringScopeRef.current = null;
+        }
+      }
+
+      if (cancelled || transitionGenerationRef.current !== generation) return;
+      const latestRequest = requestedScopeRef.current;
+      if (latestRequest.artifactId !== artifactId || latestRequest.port !== port) return;
+
+      const nextScope = createLearningEventRuntimeScope(
+        latestRequest.artifactId,
+        latestRequest.port,
+        latestRequest.artefactTitle,
+      );
+      activeScopeRef.current = nextScope;
+      setActiveScope(nextScope);
+    };
+
+    void transition();
+    return () => {
+      cancelled = true;
+    };
+  }, [artifactId, port]);
+
+  useEffect(() => {
+    const generation = providerGenerationRef.current + 1;
+    providerGenerationRef.current = generation;
 
     return () => {
       void Promise.resolve().then(() => {
-        if (closingScope.cleanupGeneration === generation) {
-          void closingScope.session?.terminate();
-        }
+        if (providerGenerationRef.current !== generation) return;
+        const active = activeScopeRef.current;
+        activeScopeRef.current = null;
+        void active?.session?.terminate();
+        void retiringScopeRef.current?.scope.session?.terminate();
       });
     };
-  }, [currentScope]);
+  }, []);
 
   const value: LearningEventRuntimeContextValue = {
     session: currentSession,

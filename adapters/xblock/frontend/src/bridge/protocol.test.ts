@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   SCAFFOLD_XBLOCK_BRIDGE_CHANNEL,
   SCAFFOLD_XBLOCK_BRIDGE_PROTOCOL_VERSION,
+  SCAFFOLD_XBLOCK_BRIDGE_REQUEST_TYPES,
   createXBlockBridgeError,
   createXBlockBridgeFailureResponse,
   createXBlockBridgeLifecycleMessage,
@@ -13,6 +14,32 @@ import {
 } from "./protocol";
 
 describe("XBlock iframe bridge protocol", () => {
+  it("publishes the exact current request-type allowlist", () => {
+    expect(SCAFFOLD_XBLOCK_BRIDGE_REQUEST_TYPES).toEqual([
+      "persistence.createArtifact",
+      "persistence.saveArtifact",
+      "media.resolve",
+      "media.list",
+      "media.upload",
+      "assessment.check",
+      "assessment.submit",
+      "assessment.previewCheck",
+      "assessment.previewSubmit",
+      "assessment.revealHint",
+      "assessment.revealAnswer",
+      "assessment.quiz.startAttempt",
+      "assessment.quiz.submitQuestion",
+      "assessment.quiz.finishAttempt",
+      "assessment.quiz.revealAnswers",
+      "learnerActivity.load",
+      "learnerActivity.save",
+      "learningEvents.accept",
+      "host.notifySaveStart",
+      "host.notifySaveEnd",
+      "host.done",
+    ]);
+  });
+
   it("accepts a valid request envelope", () => {
     const message = createXBlockBridgeRequest({
       requestId: "request-1",

@@ -30,6 +30,14 @@ async function flushPromises(): Promise<void> {
   }
 }
 
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
 function createPort(
   rootActivityId = "https://learning.example.test/courses/course-1",
 ): LearningEventPort & {
@@ -39,6 +47,19 @@ function createPort(
     rootActivityId,
     accept: vi.fn(async () => undefined),
   };
+}
+
+function createDeferredPort(rootActivityId = "https://learning.example.test/courses/course-1") {
+  const acceptances: Array<ReturnType<typeof deferred<void>>> = [];
+  const port = {
+    rootActivityId,
+    accept: vi.fn<LearningEventPort["accept"]>(() => {
+      const acceptance = deferred<void>();
+      acceptances.push(acceptance);
+      return acceptance.promise;
+    }),
+  } satisfies LearningEventPort;
+  return { acceptances, port };
 }
 
 function createUnrelatedPorts(): Pick<
@@ -70,6 +91,7 @@ function createUnrelatedPorts(): Pick<
 interface LearningEventObservation {
   readonly session: LearningEventSession | null;
   readonly getSession: LearningEventSessionAccessor;
+  readonly reporter: LearningEventReporter;
 }
 
 function SessionProbe({
@@ -81,11 +103,12 @@ function SessionProbe({
 }) {
   const session = useLearningEventSession();
   const getSession = useLearningEventSessionAccessor();
+  const reporter = useLearningEventReporter();
 
   useEffect(() => {
-    onObservation({ session, getSession });
+    onObservation({ session, getSession, reporter });
     if (autoStart) session?.start();
-  }, [autoStart, getSession, onObservation, session]);
+  }, [autoStart, getSession, onObservation, reporter, session]);
 
   return null;
 }
@@ -504,6 +527,15 @@ describe("LearningEventRuntimeProvider", () => {
       const rootActivityId = "https://learning.example.test/courses/course-1";
       const firstPort = createPort(rootActivityId);
       const secondPort = replacement === "port" ? createPort(rootActivityId) : firstPort;
+      const acceptanceOrder: string[] = [];
+      firstPort.accept.mockImplementation(async (event) => {
+        acceptanceOrder.push(`first:${event.verb.display.en}`);
+      });
+      if (secondPort !== firstPort) {
+        secondPort.accept.mockImplementation(async (event) => {
+          acceptanceOrder.push(`second:${event.verb.display.en}`);
+        });
+      }
       const observations: LearningEventObservation[] = [];
       const onObservation = (observation: LearningEventObservation) => {
         observations.push(observation);
@@ -531,9 +563,11 @@ describe("LearningEventRuntimeProvider", () => {
         />,
       );
 
-      await waitFor(() => expect(observations).toHaveLength(2));
+      await waitFor(() =>
+        expect(observations.filter(({ session }) => session !== null)).toHaveLength(2),
+      );
       await flushPromises();
-      const second = observations[1];
+      const second = observations.filter(({ session }) => session !== null)[1];
       if (!second?.session) throw new Error("expected the replacement Learning Event session");
 
       expect(second.session).not.toBe(first.session);
@@ -545,21 +579,121 @@ describe("LearningEventRuntimeProvider", () => {
         acceptance: "accepted",
       });
       expect(second.session.getState()).toMatchObject({ status: "active" });
-      if (replacement === "artifact") {
-        const verbs = firstPort.accept.mock.calls.map(([event]) => event.verb.display.en);
-        expect(verbs.filter((verb) => verb === "initialized")).toHaveLength(2);
-        expect(verbs.filter((verb) => verb === "terminated")).toHaveLength(1);
-      } else {
-        expect(firstPort.accept.mock.calls.map(([event]) => event.verb.display.en)).toEqual([
-          "initialized",
-          "terminated",
-        ]);
-        expect(secondPort.accept.mock.calls.map(([event]) => event.verb.display.en)).toEqual([
-          "initialized",
-        ]);
-      }
+      expect(acceptanceOrder).toEqual(
+        replacement === "artifact"
+          ? ["first:initialized", "first:terminated", "first:initialized"]
+          : ["first:initialized", "first:terminated", "second:initialized"],
+      );
     },
   );
+
+  it("keeps reporting unavailable until in-flight acceptance and termination finish", async () => {
+    const { acceptances, port } = createDeferredPort();
+    const observations: LearningEventObservation[] = [];
+    const onObservation = (observation: LearningEventObservation) => observations.push(observation);
+    const { rerender } = render(
+      <RuntimeRoot artifactId="course-one" autoStart port={port} onObservation={onObservation} />,
+    );
+
+    await waitFor(() => expect(port.accept).toHaveBeenCalledTimes(1));
+    rerender(
+      <RuntimeRoot artifactId="course-two" autoStart port={port} onObservation={onObservation} />,
+    );
+
+    await waitFor(() => expect(observations.at(-1)?.session).toBeNull());
+    observations.at(-1)?.reporter.report({
+      type: "surface.experienced",
+      surfaceId: "surface-1",
+      surfaceKind: "page",
+      position: 1,
+      count: 1,
+    });
+    await flushPromises();
+    expect(port.accept).toHaveBeenCalledTimes(1);
+
+    acceptances[0]?.resolve();
+    await waitFor(() => expect(port.accept).toHaveBeenCalledTimes(2));
+    expect(port.accept.mock.calls.map(([event]) => event.verb.display.en)).toEqual([
+      "initialized",
+      "terminated",
+    ]);
+
+    acceptances[1]?.resolve();
+    await waitFor(() => expect(port.accept).toHaveBeenCalledTimes(3));
+    expect(port.accept.mock.calls.map(([event]) => event.verb.display.en)).toEqual([
+      "initialized",
+      "terminated",
+      "initialized",
+    ]);
+  });
+
+  it("activates only the latest scope requested while retirement is pending", async () => {
+    const { acceptances, port } = createDeferredPort();
+    const activeLabels: string[] = [];
+    const observe = (label: string) => (observation: LearningEventObservation) => {
+      if (observation.session) activeLabels.push(label);
+    };
+    const { rerender } = render(
+      <RuntimeRoot artifactId="course-a" autoStart port={port} onObservation={observe("A")} />,
+    );
+
+    await waitFor(() => expect(port.accept).toHaveBeenCalledTimes(1));
+    acceptances[0]?.resolve();
+    await flushPromises();
+    rerender(
+      <RuntimeRoot artifactId="course-b" autoStart port={port} onObservation={observe("B")} />,
+    );
+    await waitFor(() => expect(port.accept).toHaveBeenCalledTimes(2));
+    rerender(
+      <RuntimeRoot artifactId="course-c" autoStart port={port} onObservation={observe("C")} />,
+    );
+    await flushPromises();
+
+    expect(port.accept.mock.calls.map(([event]) => event.verb.display.en)).toEqual([
+      "initialized",
+      "terminated",
+    ]);
+    acceptances[1]?.resolve();
+    await waitFor(() => expect(port.accept).toHaveBeenCalledTimes(3));
+    expect(activeLabels).toEqual(["A", "C"]);
+    expect(port.accept.mock.calls.map(([event]) => event.verb.display.en)).toEqual([
+      "initialized",
+      "terminated",
+      "initialized",
+    ]);
+  });
+
+  it("keeps an unsafe request disabled during handoff and later creates one fresh session", async () => {
+    const { acceptances, port } = createDeferredPort();
+    const observations: LearningEventObservation[] = [];
+    const onObservation = (observation: LearningEventObservation) => observations.push(observation);
+    const { rerender } = render(
+      <RuntimeRoot artifactId="course-a" autoStart port={port} onObservation={onObservation} />,
+    );
+
+    await waitFor(() => expect(port.accept).toHaveBeenCalledTimes(1));
+    const firstSession = observations.find(({ session }) => session !== null)?.session;
+    if (!firstSession) throw new Error("expected the initial Learning Event session");
+    acceptances[0]?.resolve();
+    await flushPromises();
+    rerender(
+      <RuntimeRoot artifactId="course-b" autoStart port={port} onObservation={onObservation} />,
+    );
+    await waitFor(() => expect(port.accept).toHaveBeenCalledTimes(2));
+    rerender(<RuntimeRoot artifactId={null} autoStart port={port} onObservation={onObservation} />);
+    acceptances[1]?.resolve();
+    await flushPromises();
+
+    expect(observations.at(-1)?.session).toBeNull();
+    expect(port.accept).toHaveBeenCalledTimes(2);
+    rerender(
+      <RuntimeRoot artifactId="course-d" autoStart port={port} onObservation={onObservation} />,
+    );
+    await waitFor(() => expect(port.accept).toHaveBeenCalledTimes(3));
+    const replacementSession = observations.at(-1)?.session;
+    expect(replacementSession).not.toBeNull();
+    expect(replacementSession).not.toBe(firstSession);
+  });
 
   it("creates isolated sessions for simultaneous provider roots", async () => {
     const port = createPort();

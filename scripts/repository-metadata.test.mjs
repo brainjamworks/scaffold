@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
-import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
@@ -11,6 +12,38 @@ import { parse as parseYaml } from "yaml";
 const REPOSITORY_ROOT = fileURLToPath(new URL("..", import.meta.url));
 const CORE_SOURCE_ROOT = resolve(REPOSITORY_ROOT, "packages/core/src");
 const PRIVATE_AGENT_PACKAGE = "@scaffold/agent";
+const LEGACY_LEARNING_EVENT_PATHS = [
+  "packages/core/src/host/ports/xapi.test.ts",
+  "packages/core/src/host/ports/xapi.ts",
+  "packages/core/src/runtime/xapi",
+];
+const LEGACY_LEARNING_EVENT_SCAN_ROOTS = ["packages/core/src", "adapters"];
+const LEGACY_LEARNING_EVENT_SOURCE_EXTENSIONS = [
+  ".cjs",
+  ".html",
+  ".js",
+  ".jsx",
+  ".md",
+  ".mjs",
+  ".php",
+  ".py",
+  ".ts",
+  ".tsx",
+];
+const LEGACY_LEARNING_EVENT_SYMBOLS = [
+  /\b(?:XapiActivity|XapiActivityDefinition|XapiContextTemplate|XapiDuration|XapiInteractionComponent|XapiInteractionType|XapiIri|XapiIriSchema|XapiJsonValue|XapiLanguageMap|XapiPort|XapiResult|XapiScore|XapiStatementDraft|XapiStatementDraftSchema|XapiStatementTemplate|XapiStatementTemplateSchema|XapiTimestamp|XapiUuid|XapiVerb)\b/,
+  /\b(?:ChecklistItemToggledXapiEvent|EncodedXapiAssessmentResponse|FlashcardFlippedXapiEvent|FlashcardRatedXapiEvent|LearnerActivityXapiEvent|XapiLayoutKind|XapiLearnerActivityKind|XapiResourceKind|XapiSurfaceKind|XapiVisualItemKind)\b/,
+  /\b(?:CreateXapiSessionInput|XapiRuntimeProvider|XapiRuntimeProviderProps|XapiSession|XapiSessionAccessor|XapiSessionState)\b/,
+  /\b(?:XAPI_ACTIVITY_TYPES|XAPI_EXTENSIONS|XAPI_SESSION_MAX_PENDING_STATEMENTS|XAPI_VERBS)\b/,
+  /\b(?:adaptLearningEventSessionForXapiMigration|createXapiSession|isXapiLearnerActivityKind|recordLearningEventDraftForMigration)\b/,
+  /\bbuild[A-Za-z0-9_]*StatementDraft\b/,
+  /\brecordDraft\b/,
+  /\buseXapi[A-Za-z0-9_]*\b/,
+  /\bxapiActivityId\b/,
+  /\b(?:ports|services)\.xapi\b/,
+  /\bxapi\.accept\b/,
+  /\baccept_xapi_statement\b/,
+];
 const DEPENDENCY_SECTIONS = [
   "dependencies",
   "devDependencies",
@@ -20,6 +53,44 @@ const DEPENDENCY_SECTIONS = [
 
 async function readJson(relativePath) {
   return JSON.parse(await readFile(resolve(REPOSITORY_ROOT, relativePath), "utf8"));
+}
+
+function findLegacyLearningEventSeams(repositoryRoot) {
+  const violations = [];
+
+  for (const relativePath of LEGACY_LEARNING_EVENT_PATHS) {
+    const absolutePath = resolve(repositoryRoot, relativePath);
+    if (ts.sys.fileExists(absolutePath) || ts.sys.directoryExists(absolutePath)) {
+      violations.push(`${relativePath}: deleted compatibility path exists`);
+    }
+  }
+
+  const sourceFiles = LEGACY_LEARNING_EVENT_SCAN_ROOTS.flatMap((relativeRoot) =>
+    ts.sys.readDirectory(
+      resolve(repositoryRoot, relativeRoot),
+      LEGACY_LEARNING_EVENT_SOURCE_EXTENSIONS,
+      undefined,
+      ["**/*"],
+    ),
+  );
+  const readmePath = resolve(repositoryRoot, "README.md");
+  if (ts.sys.fileExists(readmePath)) sourceFiles.push(readmePath);
+
+  for (const absolutePath of new Set(sourceFiles)) {
+    const source = ts.sys.readFile(absolutePath);
+    if (source === undefined) continue;
+
+    for (const pattern of LEGACY_LEARNING_EVENT_SYMBOLS) {
+      const match = pattern.exec(source);
+      if (!match) continue;
+      const line = source.slice(0, match.index).split("\n").length;
+      violations.push(
+        `${relative(repositoryRoot, absolutePath)}:${line}: forbidden compatibility symbol ${match[0]}`,
+      );
+    }
+  }
+
+  return violations.sort();
 }
 
 async function readWorkspaceManifests() {
@@ -118,6 +189,51 @@ async function loadViteConfig(relativePath) {
 test("root owns the exact YAML parser version used by repository metadata validation", async () => {
   const rootManifest = await readJson("package.json");
   assert.equal(rootManifest.devDependencies?.yaml, "2.9.0", "root devDependencies.yaml");
+});
+
+test("generalised Learning Events retain no legacy producer or runtime seam", () => {
+  assert.deepEqual(findLegacyLearningEventSeams(REPOSITORY_ROOT), []);
+});
+
+test("the Learning Event contraction guard detects paths and type-only aliases", async (t) => {
+  const fixtureRoot = await mkdtemp(join(tmpdir(), "scaffold-learning-event-contraction-"));
+  t.after(() => rm(fixtureRoot, { force: true, recursive: true }));
+  const hostPortTestPath = resolve(fixtureRoot, "packages/core/src/host/ports/xapi.test.ts");
+  const typeAliasPath = resolve(fixtureRoot, "packages/core/src/entrypoints/ports.ts");
+  const excludedTestPath = resolve(fixtureRoot, "scripts/repository-metadata.test.mjs");
+
+  await Promise.all([
+    mkdir(resolve(fixtureRoot, "packages/core/src/runtime/xapi"), { recursive: true }),
+    mkdir(dirname(hostPortTestPath), { recursive: true }).then(() =>
+      writeFile(hostPortTestPath, "export {};\n", "utf8"),
+    ),
+    mkdir(dirname(typeAliasPath), { recursive: true }).then(() =>
+      writeFile(
+        typeAliasPath,
+        [
+          "export type XapiPort = unknown;",
+          "export const XAPI_VERBS = {};",
+          "export function buildInitializedStatementDraft() {}",
+          "",
+        ].join("\n"),
+        "utf8",
+      ),
+    ),
+    mkdir(dirname(excludedTestPath), { recursive: true }).then(() =>
+      writeFile(excludedTestPath, "const fixture = 'XapiSession';\n", "utf8"),
+    ),
+  ]);
+
+  const violations = findLegacyLearningEventSeams(fixtureRoot);
+  assert.ok(violations.some((violation) => violation.includes("runtime/xapi")));
+  assert.ok(violations.some((violation) => violation.includes("host/ports/xapi.test.ts")));
+  assert.ok(violations.some((violation) => violation.includes("XapiPort")));
+  assert.ok(violations.some((violation) => violation.includes("XAPI_VERBS")));
+  assert.ok(violations.some((violation) => violation.includes("buildInitializedStatementDraft")));
+  assert.equal(
+    violations.some((violation) => violation.includes("repository-metadata")),
+    false,
+  );
 });
 
 test("workspace manifests declare the selected Scaffold package DAG", async () => {
