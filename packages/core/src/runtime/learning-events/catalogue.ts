@@ -1340,6 +1340,7 @@ const ContentSuccessInputSchema = z
   .object({
     type: z.enum(["content.passed", "content.failed"]),
     score: ContentScoreSchema.optional(),
+    duration: z.string().duration().optional(),
   })
   .strict();
 
@@ -1473,6 +1474,7 @@ export function buildLearningEventDraft(
         result: {
           success: input.type === "content.passed",
           ...(input.score === undefined ? {} : { score: input.score }),
+          ...(input.duration === undefined ? {} : { duration: input.duration }),
         },
       });
   }

@@ -10,28 +10,47 @@ import { LEARNING_EVENT_EXTENSIONS, buildLearningEventDraft } from "./catalogue"
 const ROOT_ACTIVITY_ID = "https://lms.example.test/contents/fan-out-one";
 const EVENT_ID = "00000000-0000-4000-8000-000000000001";
 const EVENT_TIMESTAMP = "2026-08-05T11:00:00.000Z";
-const SAFE_REASON_CODE = /^[a-z][a-z0-9.-]{0,63}$/u;
-const SAFE_DESTINATION_ID = /^[a-z][a-z0-9.-]{0,63}$/u;
+const PROJECTION_REASON_CODES = [
+  "meaning-unsupported",
+  "destination-unavailable",
+  "enrichment-rejected",
+  "projector-exception",
+  "invalid-projector-outcome",
+] as const;
+const TRUSTED_DESTINATION_IDS = Object.freeze({
+  nativeLms: "destination-1",
+  externalLrs: "destination-2",
+  throwingProjector: "destination-3",
+  acceptingProjector: "destination-4",
+} as const);
+
+type ProjectionReasonCode = (typeof PROJECTION_REASON_CODES)[number];
+type TrustedDestinationId = (typeof TRUSTED_DESTINATION_IDS)[keyof typeof TRUSTED_DESTINATION_IDS];
+
+const PROJECTION_REASON_CODE_SET: ReadonlySet<string> = new Set(PROJECTION_REASON_CODES);
+const TRUSTED_DESTINATION_ID_SET: ReadonlySet<string> = new Set(
+  Object.values(TRUSTED_DESTINATION_IDS),
+);
 
 type ProjectionOutcome =
   | { readonly status: "accepted" }
-  | { readonly status: "unsupported"; readonly reasonCode: string }
-  | { readonly status: "retryable-failure"; readonly reasonCode: string }
-  | { readonly status: "permanent-failure"; readonly reasonCode: string };
+  | { readonly status: "unsupported"; readonly reasonCode: ProjectionReasonCode }
+  | { readonly status: "retryable-failure"; readonly reasonCode: ProjectionReasonCode }
+  | { readonly status: "permanent-failure"; readonly reasonCode: ProjectionReasonCode };
 
 interface TestProjector {
-  readonly destinationId: string;
+  readonly destinationId: TrustedDestinationId;
   project(event: LearningEvent): ProjectionOutcome | Promise<ProjectionOutcome>;
 }
 
 interface SafeDiagnostic {
   readonly eventId: string;
-  readonly destinationId: string;
-  readonly reasonCode: string;
+  readonly destinationId: TrustedDestinationId;
+  readonly reasonCode: ProjectionReasonCode;
 }
 
 interface ProjectionAttempt {
-  readonly destinationId: string;
+  readonly destinationId: TrustedDestinationId;
   readonly event: LearningEvent;
   readonly outcome: ProjectionOutcome;
 }
@@ -40,7 +59,7 @@ interface TestProjectionHost {
   readonly port: LearningEventPort;
   readonly attempts: readonly ProjectionAttempt[];
   readonly diagnostics: readonly SafeDiagnostic[];
-  retry(destinationId: string, eventId: string): Promise<void>;
+  retry(destinationId: TrustedDestinationId, eventId: string): Promise<void>;
 }
 
 function deepFreeze<T>(value: T, visited = new WeakSet<object>()): T {
@@ -83,14 +102,16 @@ function canonicalEvent(): LearningEvent {
   );
 }
 
-function safeReasonCode(reasonCode: string): string {
-  return SAFE_REASON_CODE.test(reasonCode) ? reasonCode : "unsafe-reason-code";
+function safeReasonCode(reasonCode: unknown): ProjectionReasonCode {
+  return typeof reasonCode === "string" && PROJECTION_REASON_CODE_SET.has(reasonCode)
+    ? (reasonCode as ProjectionReasonCode)
+    : "invalid-projector-outcome";
 }
 
 function createTestProjectionHost(projectors: readonly TestProjector[]): TestProjectionHost {
   for (const projector of projectors) {
-    if (!SAFE_DESTINATION_ID.test(projector.destinationId)) {
-      throw new Error("destinationId must be a safe diagnostic identifier");
+    if (!TRUSTED_DESTINATION_ID_SET.has(projector.destinationId)) {
+      throw new Error("destinationId must be a trusted configured identifier");
     }
   }
 
@@ -175,8 +196,8 @@ describe("independent Learning Event projection", () => {
         return secondOutcome;
       });
       const host = createTestProjectionHost([
-        { destinationId: "native-lms", project: first },
-        { destinationId: "external-lrs", project: second },
+        { destinationId: TRUSTED_DESTINATION_IDS.nativeLms, project: first },
+        { destinationId: TRUSTED_DESTINATION_IDS.externalLrs, project: second },
       ]);
       const original = JSON.stringify(event);
 
@@ -199,8 +220,8 @@ describe("independent Learning Event projection", () => {
     });
     const accepting = vi.fn<TestProjector["project"]>(() => ({ status: "accepted" }));
     const host = createTestProjectionHost([
-      { destinationId: "throwing-projector", project: throwing },
-      { destinationId: "accepting-projector", project: accepting },
+      { destinationId: TRUSTED_DESTINATION_IDS.throwingProjector, project: throwing },
+      { destinationId: TRUSTED_DESTINATION_IDS.acceptingProjector, project: accepting },
     ]);
 
     await expect(host.port.accept(event)).resolves.toBeUndefined();
@@ -211,6 +232,14 @@ describe("independent Learning Event projection", () => {
       { status: "permanent-failure", reasonCode: "projector-exception" },
       { status: "accepted" },
     ]);
+    expect(host.diagnostics).toStrictEqual([
+      {
+        eventId: EVENT_ID,
+        destinationId: TRUSTED_DESTINATION_IDS.throwingProjector,
+        reasonCode: "projector-exception",
+      },
+    ]);
+    expect(JSON.stringify(host.diagnostics)).not.toContain("PRIVATE_PROJECTOR_RESPONSE");
   });
 
   it("retries the held canonical event without regenerating identity, time, or meaning", async () => {
@@ -224,13 +253,13 @@ describe("independent Learning Event projection", () => {
         : { status: "accepted" };
     });
     const host = createTestProjectionHost([
-      { destinationId: "native-lms", project: native },
-      { destinationId: "external-lrs", project: external },
+      { destinationId: TRUSTED_DESTINATION_IDS.nativeLms, project: native },
+      { destinationId: TRUSTED_DESTINATION_IDS.externalLrs, project: external },
     ]);
     const original = JSON.stringify(event);
 
     await host.port.accept(event);
-    await host.retry("external-lrs", event.id);
+    await host.retry(TRUSTED_DESTINATION_IDS.externalLrs, event.id);
 
     expect(native).toHaveBeenCalledOnce();
     expect(external).toHaveBeenCalledTimes(2);
@@ -263,7 +292,7 @@ describe("independent Learning Event projection", () => {
     } as unknown as ProjectionOutcome;
     const host = createTestProjectionHost([
       {
-        destinationId: "external-lrs",
+        destinationId: TRUSTED_DESTINATION_IDS.externalLrs,
         project: () => unsafeOutcome,
       },
     ]);
@@ -273,8 +302,8 @@ describe("independent Learning Event projection", () => {
     expect(host.diagnostics).toStrictEqual([
       {
         eventId: EVENT_ID,
-        destinationId: "external-lrs",
-        reasonCode: "unsafe-reason-code",
+        destinationId: TRUSTED_DESTINATION_IDS.externalLrs,
+        reasonCode: "invalid-projector-outcome",
       },
     ]);
     expect(Object.keys(host.diagnostics[0] ?? {}).sort()).toStrictEqual([
@@ -297,11 +326,17 @@ describe("independent Learning Event projection", () => {
     }
   });
 
-  it("rejects unsafe configured destination identifiers before accepting events", () => {
+  it.each([
+    "learner-42",
+    "records.example.test",
+    "credential",
+    "private-token",
+    "actor-account-name",
+  ])("rejects slug-shaped but untrusted destination identifier %s", (destinationId) => {
     expect(() =>
       createTestProjectionHost([
         {
-          destinationId: "PRIVATE_ENDPOINT https://records.example.test",
+          destinationId: destinationId as TrustedDestinationId,
           project: () => ({ status: "accepted" }),
         },
       ]),

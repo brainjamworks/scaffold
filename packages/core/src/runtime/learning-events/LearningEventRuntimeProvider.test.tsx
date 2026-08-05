@@ -177,7 +177,7 @@ function invokePublicReporter(reporter: LearningEventReporter, input: unknown): 
 describe("LearningEventRuntimeProvider", () => {
   it("retains one started session when unrelated service identities change", async () => {
     const port = {
-      rootActivityId: "https://learning.example.test/artifacts/artifact-one",
+      rootActivityId: "https://learning.example.test/contents/content-one",
       accept: vi.fn<LearningEventPort["accept"]>(async () => undefined),
     } satisfies LearningEventPort;
     const observations: LearningEventObservation[] = [];

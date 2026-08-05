@@ -530,10 +530,14 @@ describe("closed producer inputs", () => {
       { rootActivityId: ROOT_ACTIVITY_ID },
     );
     const passed = buildLearningEventDraft(
-      { type: "content.passed", score: { scaled: 0.75 } },
+      { type: "content.passed", score: { scaled: 0.75 }, duration: "PT3M" },
       { rootActivityId: ROOT_ACTIVITY_ID },
     );
     const failed = buildLearningEventDraft(
+      { type: "content.failed", duration: "PT4M" },
+      { rootActivityId: ROOT_ACTIVITY_ID },
+    );
+    const failedWithoutMeasurement = buildLearningEventDraft(
       { type: "content.failed" },
       { rootActivityId: ROOT_ACTIVITY_ID },
     );
@@ -557,14 +561,20 @@ describe("closed producer inputs", () => {
       duration: "PT2M",
     });
     expect(completedWithoutMeasurement.result).toStrictEqual({ completion: true });
-    expect(passed.result).toStrictEqual({ success: true, score: { scaled: 0.75 } });
-    expect(failed.result).toStrictEqual({ success: false });
+    expect(passed.result).toStrictEqual({
+      success: true,
+      score: { scaled: 0.75 },
+      duration: "PT3M",
+    });
+    expect(failed.result).toStrictEqual({ success: false, duration: "PT4M" });
+    expect(failedWithoutMeasurement.result).toStrictEqual({ success: false });
     expect(completed.result).not.toHaveProperty("success");
     expect(passed.result).not.toHaveProperty("completion");
     expect(failed.result).not.toHaveProperty("completion");
     expect(completedWithoutMeasurement.result).not.toHaveProperty("score");
     expect(completedWithoutMeasurement.result).not.toHaveProperty("duration");
     expect(failed.result).not.toHaveProperty("score");
+    expect(failedWithoutMeasurement.result).not.toHaveProperty("duration");
   });
 
   it.each([-1, 100, 1.5, Number.NaN])(
@@ -594,6 +604,15 @@ describe("closed producer inputs", () => {
       }).success,
     ).toBe(false);
   });
+
+  it.each(["content.passed", "content.failed"] as const)(
+    "rejects invalid authoritative duration for %s",
+    (type) => {
+      expect(
+        CoreLearningEventInputSchema.safeParse({ type, duration: "two minutes" }).success,
+      ).toBe(false);
+    },
+  );
 });
 
 describe("Learning Event assessment response encoding", () => {

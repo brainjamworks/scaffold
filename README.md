@@ -155,7 +155,8 @@ import type { LearningEvent, LearningEventPort } from "@scaffold/core/ports";
 `accept(event: LearningEvent)` operation. Core owns each learning fact's verb, Activity, Result,
 event ID, occurrence timestamp, Core Context, and order. Port resolution means the host has
 accepted responsibility for that immutable canonical event; it does not mean every configured
-destination has completed delivery.
+destination has completed delivery. The root content may be an individual LMS activity; Core does
+not define the surrounding LMS course boundary.
 
 A trusted host can add Actor identity and non-conflicting placement or registration Context when
 forming an ordinary xAPI Statement. Projection remains host-owned: a destination may deliberately
@@ -165,10 +166,11 @@ failure never changes assessment, persistence, grading, or the learner-facing re
 
 Core does not collect Actor identity, configure endpoints, authenticate, send HTTP, retry after
 host acceptance, guarantee offline durability, or operate an LRS. Those concerns belong to the
-host deployment. The conformance tests prove semantic sufficiency for ordinary xAPI, cmi5, and
-applicable SCORM runtime projection; they do not provide cmi5 or SCORM transports. Child completion
-does not imply content completion, and Scaffold defines no automatic content-completion policy.
-Authoring preview services do not receive the capability.
+host deployment. Test-only conformance fixtures exercise ordinary xAPI enrichment, cmi5-required
+semantic inputs plus trusted launch context, and applicable SCORM runtime reduction; they do not
+provide cmi5 or SCORM transports. Child completion does not imply content completion, and Scaffold
+defines no automatic content-completion policy. Authoring preview services do not receive the
+capability.
 
 ## Development
 

@@ -13,14 +13,19 @@ import {
   LEARNING_EVENT_EXTENSIONS,
   LEARNING_EVENT_VERBS,
   buildLearningEventDraft,
+  CoreLearningEventInputSchema,
   type CoreLearningEventInput,
 } from "./catalogue";
 
 const ROOT_ACTIVITY_ID = "https://lms.example.test/contents/standards-one";
 const EVENT_TIMESTAMP = "2026-08-05T10:00:00.000Z";
 const CMI5_CATEGORY_ID = "https://w3id.org/xapi/cmi5/context/categories/cmi5";
+const CMI5_MOVEON_CATEGORY_ID = "https://w3id.org/xapi/cmi5/context/categories/moveon";
+const CMI5_SESSION_ID_EXTENSION = "https://w3id.org/xapi/cmi5/context/extensions/sessionid";
 const HOST_PLACEMENT_EXTENSION = "https://lms.example.test/xapi/extensions/placement";
 const REGISTRATION_ID = "00000000-0000-4000-8000-000000000099";
+const PUBLISHER_ACTIVITY_ID = "https://publisher.example.test/content/standards-one";
+const CMI5_SESSION_ID = "session-42";
 
 const TRUSTED_ACTOR = Object.freeze({
   objectType: "Agent" as const,
@@ -28,6 +33,12 @@ const TRUSTED_ACTOR = Object.freeze({
     homePage: "https://lms.example.test",
     name: "learner-42",
   }),
+});
+
+const TRUSTED_CMI5_LAUNCH_CONTEXT = Object.freeze({
+  registration: REGISTRATION_ID,
+  publisherActivityId: PUBLISHER_ACTIVITY_ID,
+  sessionId: CMI5_SESSION_ID,
 });
 
 const ANSWERED_INPUT = {
@@ -83,6 +94,12 @@ interface OrdinaryXapiStatement extends LearningEvent {
   readonly context?: EnrichedContext;
 }
 
+interface TrustedCmi5LaunchContext {
+  readonly registration: string;
+  readonly publisherActivityId: string;
+  readonly sessionId: string;
+}
+
 function rejectCollisions(
   core: Readonly<Record<string, unknown>> | undefined,
   host: Readonly<Record<string, unknown>> | undefined,
@@ -129,25 +146,58 @@ function enrichOrdinaryXapi(
   };
 }
 
+function buildCmi5HostContext(
+  event: LearningEvent,
+  launchContext: TrustedCmi5LaunchContext,
+): HostContext {
+  const hasCompletionOrSuccess =
+    event.result?.completion !== undefined || event.result?.success !== undefined;
+
+  return {
+    registration: launchContext.registration,
+    contextActivities: {
+      grouping: [
+        {
+          objectType: "Activity",
+          id: launchContext.publisherActivityId,
+        },
+      ],
+      category: [
+        { objectType: "Activity", id: CMI5_CATEGORY_ID },
+        ...(hasCompletionOrSuccess
+          ? [{ objectType: "Activity" as const, id: CMI5_MOVEON_CATEGORY_ID }]
+          : []),
+      ],
+    },
+    extensions: {
+      [CMI5_SESSION_ID_EXTENSION]: launchContext.sessionId,
+    },
+  };
+}
+
 type Cmi5Projection =
   | { readonly status: "unsupported" }
   | {
       readonly status: "accepted";
-      readonly lifecycle: "initialized" | "terminated";
-      readonly duration?: string;
+      readonly lifecycle: "initialized";
+    }
+  | {
+      readonly status: "accepted";
+      readonly lifecycle: "terminated";
+      readonly duration: string;
     }
   | { readonly status: "accepted"; readonly outcome: "progressed"; readonly progress: number }
   | {
       readonly status: "accepted";
       readonly outcome: "completed";
       readonly completion: true;
-      readonly duration?: string;
-      readonly score?: LearningEventScore;
+      readonly duration: string;
     }
   | {
       readonly status: "accepted";
       readonly outcome: "passed" | "failed";
       readonly success: boolean;
+      readonly duration: string;
       readonly score?: LearningEventScore;
     };
 
@@ -163,10 +213,11 @@ function projectCmi5Semantics(event: LearningEvent): Cmi5Projection {
     case LEARNING_EVENT_VERBS.initialized.id:
       return { status: "accepted", lifecycle: "initialized" };
     case LEARNING_EVENT_VERBS.terminated.id:
+      if (event.result?.duration === undefined) return { status: "unsupported" };
       return {
         status: "accepted",
         lifecycle: "terminated",
-        ...(event.result?.duration === undefined ? {} : { duration: event.result.duration }),
+        duration: event.result.duration,
       };
     case LEARNING_EVENT_VERBS.progressed.id: {
       const progress = event.result?.extensions?.[LEARNING_EVENT_EXTENSIONS.progress];
@@ -181,21 +232,25 @@ function projectCmi5Semantics(event: LearningEvent): Cmi5Projection {
       return { status: "accepted", outcome: "progressed", progress };
     }
     case LEARNING_EVENT_VERBS.completed.id:
-      if (event.result?.completion !== true) return { status: "unsupported" };
+      if (event.result?.completion !== true || event.result.duration === undefined) {
+        return { status: "unsupported" };
+      }
       return {
         status: "accepted",
         outcome: "completed",
         completion: true,
-        ...(event.result.duration === undefined ? {} : { duration: event.result.duration }),
-        ...(event.result.score === undefined ? {} : { score: event.result.score }),
+        duration: event.result.duration,
       };
     case LEARNING_EVENT_VERBS.passed.id:
     case LEARNING_EVENT_VERBS.failed.id:
-      if (event.result?.success === undefined) return { status: "unsupported" };
+      if (event.result?.success === undefined || event.result.duration === undefined) {
+        return { status: "unsupported" };
+      }
       return {
         status: "accepted",
         outcome: event.result.success ? "passed" : "failed",
         success: event.result.success,
+        duration: event.result.duration,
         ...(event.result.score === undefined ? {} : { score: event.result.score }),
       };
     default:
@@ -401,8 +456,8 @@ describe("cmi5 projection sufficiency", () => {
         },
         4,
       ),
-      materializeEvent({ type: "content.passed", score: { scaled: 0.75 } }, 5),
-      materializeEvent({ type: "content.failed" }, 6),
+      materializeEvent({ type: "content.passed", score: { scaled: 0.75 }, duration: "PT3M" }, 5),
+      materializeEvent({ type: "content.failed", duration: "PT4M" }, 6),
       materializeEvent({ type: "session.terminated", durationMs: 125_000 }, 7),
     ];
 
@@ -415,36 +470,94 @@ describe("cmi5 projection sufficiency", () => {
         outcome: "completed",
         completion: true,
         duration: "PT2M",
-        score: { scaled: 0.75, raw: 3, min: 0, max: 4 },
       },
       {
         status: "accepted",
         outcome: "passed",
         success: true,
+        duration: "PT3M",
         score: { scaled: 0.75 },
       },
-      { status: "accepted", outcome: "failed", success: false },
+      { status: "accepted", outcome: "failed", success: false, duration: "PT4M" },
       { status: "accepted", lifecycle: "terminated", duration: "PT125S" },
     ]);
   });
 
-  it("becomes registration-ready only through trusted host Context", () => {
-    const event = materializeEvent({ type: "session.initialized" });
-    const statement = enrichOrdinaryXapi(event, TRUSTED_ACTOR, {
-      registration: REGISTRATION_ID,
-      contextActivities: {
-        category: [{ objectType: "Activity", id: CMI5_CATEGORY_ID }],
-      },
+  it("returns unsupported when a required outcome or lifecycle duration is absent", () => {
+    const initialized = materializeEvent({ type: "session.initialized" });
+    const terminatedWithoutDuration = LearningEventSchema.parse({
+      ...initialized,
+      verb: LEARNING_EVENT_VERBS.terminated,
     });
 
+    expect(
+      [
+        materializeEvent({ type: "content.completed", completion: true }),
+        materializeEvent({ type: "content.passed", score: { scaled: 0.75 } }),
+        materializeEvent({ type: "content.failed" }),
+        terminatedWithoutDuration,
+      ].map(projectCmi5Semantics),
+    ).toStrictEqual([
+      { status: "unsupported" },
+      { status: "unsupported" },
+      { status: "unsupported" },
+      { status: "unsupported" },
+    ]);
+  });
+
+  it("adds the required launch Context only from trusted host configuration", () => {
+    const event = materializeEvent({ type: "session.initialized" });
+    const statement = enrichOrdinaryXapi(
+      event,
+      TRUSTED_ACTOR,
+      buildCmi5HostContext(event, TRUSTED_CMI5_LAUNCH_CONTEXT),
+    );
+
     expect(statement.actor).toStrictEqual(TRUSTED_ACTOR);
-    expect(statement.context).toMatchObject({
+    expect(statement.context).toStrictEqual({
       registration: REGISTRATION_ID,
-      contextActivities: { category: [{ id: CMI5_CATEGORY_ID }] },
+      contextActivities: {
+        grouping: [{ objectType: "Activity", id: PUBLISHER_ACTIVITY_ID }],
+        category: [{ objectType: "Activity", id: CMI5_CATEGORY_ID }],
+      },
+      extensions: { [CMI5_SESSION_ID_EXTENSION]: CMI5_SESSION_ID },
     });
     expect(event).not.toHaveProperty("actor");
     expect(event.context).toBeUndefined();
   });
+
+  it.each([
+    {
+      label: "completed",
+      input: { type: "content.completed", completion: true, duration: "PT2M" },
+    },
+    { label: "passed", input: { type: "content.passed", duration: "PT3M" } },
+    { label: "failed", input: { type: "content.failed", duration: "PT4M" } },
+  ] satisfies readonly { label: string; input: CoreLearningEventInput }[])(
+    "adds the conditional moveOn category to $label statements",
+    ({ input }) => {
+      const event = materializeEvent(input);
+      const statement = enrichOrdinaryXapi(
+        event,
+        TRUSTED_ACTOR,
+        buildCmi5HostContext(event, TRUSTED_CMI5_LAUNCH_CONTEXT),
+      );
+
+      expect(statement.context).toStrictEqual({
+        registration: REGISTRATION_ID,
+        contextActivities: {
+          grouping: [{ objectType: "Activity", id: PUBLISHER_ACTIVITY_ID }],
+          category: [
+            { objectType: "Activity", id: CMI5_CATEGORY_ID },
+            { objectType: "Activity", id: CMI5_MOVEON_CATEGORY_ID },
+          ],
+        },
+        extensions: { [CMI5_SESSION_ID_EXTENSION]: CMI5_SESSION_ID },
+      });
+      expect(event).not.toHaveProperty("actor");
+      expect(event.context).toBeUndefined();
+    },
+  );
 });
 
 describe("SCORM projection sufficiency", () => {
@@ -554,31 +667,156 @@ describe("SCORM projection sufficiency", () => {
 });
 
 describe("projection privacy", () => {
-  it("keeps answer keys, credentials, endpoints, and arbitrary state out of projected values", () => {
+  const PRIVATE_ANSWER_KEY = "PRIVATE_ANSWER_KEY";
+  const PRIVATE_CREDENTIAL = "PRIVATE_CREDENTIAL";
+  const PRIVATE_ENDPOINT = "https://private.example.test/xapi";
+  const PRIVATE_RAW_EVENT = "PRIVATE_RAW_EVENT";
+  const PRIVATE_SAVED_STATE = Object.freeze({ page: 4, completedBlocks: ["block-one"] });
+  const FORBIDDEN_STRUCTURAL_KEYS = new Set([
+    "answerkey",
+    "correctresponsespattern",
+    "credential",
+    "credentials",
+    "endpoint",
+    "learnersavedstate",
+    "learnerstate",
+    "raweventjson",
+    "savestate",
+    "savedlearnerstate",
+    "statesnapshot",
+  ]);
+  const FORBIDDEN_VALUES = new Set<unknown>([
+    PRIVATE_ANSWER_KEY,
+    PRIVATE_CREDENTIAL,
+    PRIVATE_ENDPOINT,
+    PRIVATE_RAW_EVENT,
+    PRIVATE_SAVED_STATE,
+  ]);
+
+  function normalizedStructuralKey(key: string): string {
+    return key.toLowerCase().replaceAll(/[^a-z0-9]/gu, "");
+  }
+
+  function findForbiddenProjectionData(
+    value: unknown,
+    path = "$",
+    findings: string[] = [],
+  ): string[] {
+    if (FORBIDDEN_VALUES.has(value)) findings.push(`${path}:forbidden-value`);
+    if (Array.isArray(value)) {
+      value.forEach((item, index) =>
+        findForbiddenProjectionData(item, `${path}[${index}]`, findings),
+      );
+      return findings;
+    }
+    if (value === null || typeof value !== "object") return findings;
+
+    for (const [key, nestedValue] of Object.entries(value)) {
+      const nestedPath = `${path}.${key}`;
+      if (FORBIDDEN_STRUCTURAL_KEYS.has(normalizedStructuralKey(key))) {
+        findings.push(`${nestedPath}:forbidden-key`);
+      }
+      findForbiddenProjectionData(nestedValue, nestedPath, findings);
+    }
+    return findings;
+  }
+
+  it.each([
+    {
+      label: "correct-response patterns",
+      input: {
+        ...ANSWERED_INPUT,
+        definition: {
+          ...ANSWERED_INPUT.definition,
+          interaction: {
+            ...ANSWERED_INPUT.definition.interaction,
+            correctResponsesPattern: [PRIVATE_ANSWER_KEY],
+          },
+        },
+      },
+    },
+    {
+      label: "answer keys",
+      input: {
+        ...ANSWERED_INPUT,
+        definition: { ...ANSWERED_INPUT.definition, answerKey: PRIVATE_ANSWER_KEY },
+      },
+    },
+    {
+      label: "credentials",
+      input: { ...ANSWERED_INPUT, delivery: { credentials: PRIVATE_CREDENTIAL } },
+    },
+    { label: "endpoints", input: { ...ANSWERED_INPUT, endpoint: PRIVATE_ENDPOINT } },
+    { label: "raw event payloads", input: { ...ANSWERED_INPUT, rawEventJson: PRIVATE_RAW_EVENT } },
+    {
+      label: "arbitrary learner state",
+      input: { ...ANSWERED_INPUT, savedLearnerState: PRIVATE_SAVED_STATE },
+    },
+  ])("rejects untrusted $label at the closed Core input boundary", ({ input }) => {
+    expect(CoreLearningEventInputSchema.safeParse(input).success).toBe(false);
+  });
+
+  it("detects forbidden structures and values recursively, including non-string state", () => {
+    expect(
+      findForbiddenProjectionData({
+        mapped: {
+          nested: [
+            { correctResponsesPattern: [PRIVATE_ANSWER_KEY] },
+            { credentials: { token: PRIVATE_CREDENTIAL } },
+            { endpoint: PRIVATE_ENDPOINT },
+            { rawEventJson: PRIVATE_RAW_EVENT },
+            { savedLearnerState: PRIVATE_SAVED_STATE },
+          ],
+        },
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        "$.mapped.nested[0].correctResponsesPattern:forbidden-key",
+        "$.mapped.nested[0].correctResponsesPattern[0]:forbidden-value",
+        "$.mapped.nested[1].credentials:forbidden-key",
+        "$.mapped.nested[1].credentials.token:forbidden-value",
+        "$.mapped.nested[2].endpoint:forbidden-key",
+        "$.mapped.nested[2].endpoint:forbidden-value",
+        "$.mapped.nested[3].rawEventJson:forbidden-key",
+        "$.mapped.nested[3].rawEventJson:forbidden-value",
+        "$.mapped.nested[4].savedLearnerState:forbidden-key",
+        "$.mapped.nested[4].savedLearnerState:forbidden-value",
+      ]),
+    );
+  });
+
+  it("keeps forbidden private data out of explicitly mapped projection values", () => {
     const answered = materializeEvent(ANSWERED_INPUT);
     const ordinaryXapi = enrichOrdinaryXapi(answered, TRUSTED_ACTOR, {
       registration: REGISTRATION_ID,
       extensions: { [HOST_PLACEMENT_EXTENSION]: "placement-one" },
     });
-    const cmi5 = projectCmi5Semantics(
-      materializeEvent({ type: "content.completed", completion: true }),
+    const cmi5Event = materializeEvent({
+      type: "content.completed",
+      completion: true,
+      duration: "PT2M",
+    });
+    const cmi5 = projectCmi5Semantics(cmi5Event);
+    const cmi5Statement = enrichOrdinaryXapi(
+      cmi5Event,
+      TRUSTED_ACTOR,
+      buildCmi5HostContext(cmi5Event, TRUSTED_CMI5_LAUNCH_CONTEXT),
     );
     const scorm = reduceScorm(EMPTY_SCORM_STATE, answered);
-    const serialized = JSON.stringify([ordinaryXapi, cmi5, scorm]);
 
-    expect(serialized).toContain("option-a");
-    for (const prohibited of [
-      "answerKey",
-      "correctResponsesPattern",
-      "PRIVATE_ANSWER",
-      "PRIVATE_CREDENTIAL",
-      "PRIVATE_ENDPOINT",
-      "PRIVATE_ARBITRARY_STATE",
-      "credential",
-      "endpoint",
-      "rawEventJson",
-    ]) {
-      expect(serialized).not.toContain(prohibited);
-    }
+    expect(findForbiddenProjectionData([ordinaryXapi, cmi5, cmi5Statement, scorm])).toStrictEqual(
+      [],
+    );
+    expect(ordinaryXapi.actor).toStrictEqual(TRUSTED_ACTOR);
+    expect(ordinaryXapi.context?.registration).toBe(REGISTRATION_ID);
+    expect(ordinaryXapi.result?.response).toBe("option-a");
+    expect(cmi5Statement.actor).toStrictEqual(TRUSTED_ACTOR);
+    expect(cmi5Statement.context).toStrictEqual(
+      buildCmi5HostContext(cmi5Event, TRUSTED_CMI5_LAUNCH_CONTEXT),
+    );
+    expect(scorm).toMatchObject({
+      status: "accepted",
+      state: { interactions: [{ learnerResponse: "option-a" }] },
+    });
   });
 });
