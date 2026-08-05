@@ -8,6 +8,7 @@ import { createElement } from "react";
 import { describe, expect, it } from "vite-plus/test";
 
 import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import {
   ARRANGEMENT_CONTENT,
   SECTION_ARRANGEMENT_CONTENT,
@@ -309,7 +310,7 @@ describe("surface runtime node views", () => {
     for (const [variant, composition, regions, title, orientation, proportion] of cases) {
       const definition = builtInSurfaceVariantRegistry.get(variant);
       if (!definition) throw new Error(`expected definition for ${variant}`);
-      const created = definition.createSurface({ surfaceId: "surface-a" });
+      const created = definition.createSurface({ surfaceId: createEmbeddedNodeId() });
       const settings = {
         ...(created.attrs?.["settings"] as Record<string, unknown>),
         ...(title === "hidden" ? { slideTitle: { enabled: false } } : {}),
@@ -344,7 +345,7 @@ describe("surface runtime node views", () => {
   it("renders the full-bleed image through the common surface background", async () => {
     const definition = builtInSurfaceVariantRegistry.get("slide-full-bleed-image");
     if (!definition) throw new Error("expected full-bleed image definition");
-    const created = definition.createSurface({ surfaceId: "surface-a" });
+    const created = definition.createSurface({ surfaceId: createEmbeddedNodeId() });
     const settings = definition.settingsSchema?.parse({
       ...(created.attrs?.["settings"] as Record<string, unknown>),
       background: {
@@ -381,7 +382,7 @@ describe("surface runtime node views", () => {
   it("renders the backdrop panel through the common surface background", async () => {
     const definition = builtInSurfaceVariantRegistry.get("slide-image-backdrop-panel");
     if (!definition) throw new Error("expected backdrop panel definition");
-    const created = definition.createSurface({ surfaceId: "surface-a" });
+    const created = definition.createSurface({ surfaceId: createEmbeddedNodeId() });
     const settings = definition.settingsSchema?.parse({
       ...(created.attrs?.["settings"] as Record<string, unknown>),
       background: {
@@ -422,7 +423,7 @@ describe("surface runtime node views", () => {
       if (!definition || !isRegisteredSlideCompositionSurfaceDefinition(definition)) {
         throw new Error(`expected ${variant}`);
       }
-      const created = definition.createSurface({ surfaceId: "surface-a" });
+      const created = definition.createSurface({ surfaceId: createEmbeddedNodeId() });
       const images = Object.fromEntries(
         definition.slideComposition.imageSlots.map((role) => [
           role,

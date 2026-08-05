@@ -9,6 +9,7 @@ import {
   SECTION_ARRANGEMENT_CONTENT,
 } from "@/document/model/content-model/content-groups";
 import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { ExtendedHeading } from "@/editor/rich-text/model/rich-text-blocks";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import {
@@ -173,7 +174,7 @@ describe("surface structure policy validation", () => {
 
   it("accepts the built-in slide cover skeleton", () => {
     const surface = proseMirrorSurface(
-      slideCoverSurfaceDefinition.createSurface({ surfaceId: "surface-a" }),
+      slideCoverSurfaceDefinition.createSurface({ surfaceId: createEmbeddedNodeId() }),
     );
 
     expect(validateCourseSurfaceStructure(surface, surfaceVariants)).toEqual({

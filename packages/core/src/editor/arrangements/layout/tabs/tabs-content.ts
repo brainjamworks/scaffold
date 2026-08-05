@@ -1,6 +1,6 @@
 import type { JSONContent } from "@tiptap/core";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 
 export function createTabsContent(options: Record<string, unknown> | undefined): JSONContent {
   const variant = parseTabsVariant(options?.["variant"]);
@@ -11,7 +11,7 @@ export function createTabsContent(options: Record<string, unknown> | undefined):
   return {
     type: "layout",
     attrs: {
-      id: createStableId(),
+      id: createEmbeddedNodeId(),
       variant: "tabs",
       options: { variant, label },
     },
@@ -25,7 +25,7 @@ export function createTabSection(index: number, label: string | undefined): JSON
   return {
     type: "section",
     attrs: {
-      id: createStableId(),
+      id: createEmbeddedNodeId(),
       role: "tab-panel",
       label: resolvedLabel,
       options: { label: resolvedLabel },

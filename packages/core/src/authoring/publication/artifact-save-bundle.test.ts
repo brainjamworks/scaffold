@@ -63,7 +63,7 @@ describe("artifact save bundle publication", () => {
   });
 
   it("projects migrated author content with regenerated learner content and assessment targets", () => {
-    const authorDocument = pageDocumentWithSurfaceContent("surface-1", [
+    const authorDocument = pageDocumentWithSurfaceContent("surface00001", [
       persistenceMcqBlock("assessment-1", { points: 2, maxAttempts: 3 }),
     ]);
 
@@ -113,7 +113,7 @@ describe("artifact save bundle publication", () => {
   });
 
   it("uses the explicitly installed Block lookup", () => {
-    const authorDocument = pageDocumentWithSurfaceContent("surface-1", [
+    const authorDocument = pageDocumentWithSurfaceContent("surface00001", [
       persistenceMcqBlock("assessment-1", { points: 2, maxAttempts: 3 }),
     ]);
 

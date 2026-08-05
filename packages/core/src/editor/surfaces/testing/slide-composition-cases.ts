@@ -8,6 +8,7 @@ import {
   type SurfaceImageSlotRole,
 } from "../model/slide-composition-definition";
 import { builtInSurfaceVariantRegistry } from "../model/built-in-surface-variant-definitions";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 
 export type TitlePresentationState = "required" | "visible" | "hidden";
 export type OrientationPresentationState = SlideCompositionOrientation;
@@ -53,7 +54,7 @@ export function expandSlideCompositionCases(): readonly CompositionStateCase[] {
               images: definition.slideComposition.imageSlots,
             });
             const surface = definition.createSurface({
-              surfaceId: `geometry-${definition.slideComposition.id}`,
+              surfaceId: createEmbeddedNodeId(),
             });
             const baseSettings = surface.attrs?.["settings"];
             const candidateSettings = {

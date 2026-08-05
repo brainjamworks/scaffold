@@ -326,7 +326,7 @@ describe("closed producer inputs", () => {
   it.each([
     {
       type: "surface.experienced",
-      surfaceId: "surface-1",
+      surfaceId: "surface00001",
       surfaceKind: "slide",
       position: 1,
       count: 2,
@@ -369,7 +369,7 @@ describe("closed producer inputs", () => {
     { type: "content.completed", completion: true },
     {
       type: "surface.experienced",
-      surfaceId: "surface-1",
+      surfaceId: "surface00001",
       surfaceKind: "slide",
       position: 1,
       count: 2,
@@ -382,7 +382,7 @@ describe("closed producer inputs", () => {
   it.each([
     {
       type: "surface.experienced",
-      surfaceId: "surface-1",
+      surfaceId: "surface00001",
       surfaceKind: "slide",
       position: 3,
       count: 2,
@@ -489,7 +489,7 @@ describe("closed producer inputs", () => {
     const draft = buildLearningEventDraft(
       {
         type: "surface.experienced",
-        surfaceId: "surface-1",
+        surfaceId: "surface00001",
         surfaceKind: "page",
         position: 1,
         count: 1,
@@ -500,7 +500,7 @@ describe("closed producer inputs", () => {
     expect(draft).toStrictEqual(
       buildSurfaceExperiencedLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
-        surfaceId: "surface-1",
+        surfaceId: "surface00001",
         surfaceKind: "page",
         position: 1,
         count: 1,

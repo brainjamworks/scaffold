@@ -616,7 +616,7 @@ describe("authoring publication document projection", () => {
         {
           type: "surface",
           attrs: {
-            id: "surface-1",
+            id: "surface00001",
             title: "Lesson",
             variant: "page-default",
           },

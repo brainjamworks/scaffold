@@ -22,6 +22,7 @@ import { SlideCoverSubtitleNode } from "@/editor/surfaces/model/nodes/slide-cove
 import { SlideTitleNode } from "@/editor/surfaces/model/nodes/slide-title";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import { SurfaceSettingsSchema } from "@/schemas/course-document";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 
 import { DEFAULT_SURFACE_SETTINGS, readSurfaceVerticalPosition } from "../surface-settings";
 import { slideCoverSurfaceDefinition } from "../templates/slide-cover";
@@ -342,7 +343,9 @@ describe("updateSurfaceSettingsChecked", () => {
   });
 
   it("persists Content title visibility without changing authored children", () => {
-    const created = slideContentSurfaceDefinition.createSurface({ surfaceId: "surface-a" });
+    const created = slideContentSurfaceDefinition.createSurface({
+      surfaceId: createEmbeddedNodeId(),
+    });
     const content = created.content ?? [];
     content[0] = {
       type: "slide_title",
@@ -373,7 +376,9 @@ describe("updateSurfaceSettingsChecked", () => {
   });
 
   it("changes Two columns orientation and proportion without rewriting logical children", () => {
-    const created = slideTwoColumnsSurfaceDefinition.createSurface({ surfaceId: "surface-a" });
+    const created = slideTwoColumnsSurfaceDefinition.createSurface({
+      surfaceId: createEmbeddedNodeId(),
+    });
     const editor = makeEditor({
       variant: slideTwoColumnsSurfaceDefinition.id,
       settings: created.attrs?.["settings"] as Record<string, unknown>,
@@ -403,7 +408,9 @@ describe("updateSurfaceSettingsChecked", () => {
   });
 
   it("strips legacy Side title proportion while preserving orientation and logical children", () => {
-    const created = slideSideTitleSurfaceDefinition.createSurface({ surfaceId: "surface-a" });
+    const created = slideSideTitleSurfaceDefinition.createSurface({
+      surfaceId: createEmbeddedNodeId(),
+    });
     const editor = makeEditor({
       variant: slideSideTitleSurfaceDefinition.id,
       settings: created.attrs?.["settings"] as Record<string, unknown>,

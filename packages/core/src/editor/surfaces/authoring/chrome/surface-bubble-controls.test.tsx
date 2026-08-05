@@ -64,10 +64,10 @@ function surfaceDescriptor(editor: Editor, surfaceId: string): SurfaceChromeTarg
 describe("SurfaceMenuBubbleContent", () => {
   it("renders default slide actions before variant quick controls", () => {
     const editor = createEditor("slideshow", [
-      surface("surface-1", "slide-cover"),
+      surface("surface00001", "slide-cover"),
       surface("surface-2", "slide-cover"),
     ]);
-    const descriptor = surfaceDescriptor(editor, "surface-1");
+    const descriptor = surfaceDescriptor(editor, "surface00001");
     const snapshot = resolveSurfaceMenuSnapshot(
       editor,
       descriptor,
@@ -93,8 +93,8 @@ describe("SurfaceMenuBubbleContent", () => {
   });
 
   it("disables deleting the final remaining slide", () => {
-    const editor = createEditor("slideshow", [surface("surface-1", "slide-cover")]);
-    const descriptor = surfaceDescriptor(editor, "surface-1");
+    const editor = createEditor("slideshow", [surface("surface00001", "slide-cover")]);
+    const descriptor = surfaceDescriptor(editor, "surface00001");
     const snapshot = resolveSurfaceMenuSnapshot(
       editor,
       descriptor,
@@ -115,8 +115,8 @@ describe("SurfaceMenuBubbleContent", () => {
   });
 
   it("renders common surface controls for page surfaces", () => {
-    const editor = createEditor("page", [surface("surface-1", "page-default")]);
-    const descriptor = surfaceDescriptor(editor, "surface-1");
+    const editor = createEditor("page", [surface("surface00001", "page-default")]);
+    const descriptor = surfaceDescriptor(editor, "surface00001");
     const snapshot = resolveSurfaceMenuSnapshot(
       editor,
       descriptor,
@@ -137,8 +137,8 @@ describe("SurfaceMenuBubbleContent", () => {
   });
 
   it("updates surface background colour from the quick menu", async () => {
-    const editor = createEditor("slideshow", [surface("surface-1", "slide-cover")]);
-    const descriptor = surfaceDescriptor(editor, "surface-1");
+    const editor = createEditor("slideshow", [surface("surface00001", "slide-cover")]);
+    const descriptor = surfaceDescriptor(editor, "surface00001");
     const snapshot = resolveSurfaceMenuSnapshot(
       editor,
       descriptor,
@@ -153,7 +153,7 @@ describe("SurfaceMenuBubbleContent", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Navy background" }));
 
     await waitFor(() => {
-      expect(readSurfaceBackground(editor, "surface-1")).toEqual({
+      expect(readSurfaceBackground(editor, "surface00001")).toEqual({
         color: "#161D77",
       });
     });
@@ -163,9 +163,9 @@ describe("SurfaceMenuBubbleContent", () => {
 
   it("resets empty surface backgrounds by removing the settings key", async () => {
     const editor = createEditor("slideshow", [
-      surface("surface-1", "slide-cover", { color: "#161D77" }),
+      surface("surface00001", "slide-cover", { color: "#161D77" }),
     ]);
-    const descriptor = surfaceDescriptor(editor, "surface-1");
+    const descriptor = surfaceDescriptor(editor, "surface00001");
     const snapshot = resolveSurfaceMenuSnapshot(
       editor,
       descriptor,
@@ -184,7 +184,7 @@ describe("SurfaceMenuBubbleContent", () => {
     );
 
     await waitFor(() => {
-      expect(readSurfaceBackground(editor, "surface-1")).toBeUndefined();
+      expect(readSurfaceBackground(editor, "surface00001")).toBeUndefined();
     });
 
     editor.destroy();

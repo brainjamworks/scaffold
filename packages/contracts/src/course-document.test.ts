@@ -409,6 +409,10 @@ describe("course document contracts", () => {
     expect(SurfaceAttrsSchema.safeParse({ id: "surface-1", variant: "page-default" }).success).toBe(
       false,
     );
+    expect(SurfaceAttrsSchema.safeParse({ id: "", variant: "page-default" }).success).toBe(false);
+    expect(SurfaceAttrsSchema.safeParse({ id: "not-an-id", variant: "page-default" }).success).toBe(
+      false,
+    );
     expect(SurfaceAttrsSchema.safeParse({ variant: "page-default" }).success).toBe(false);
     expect(SurfaceAttrsSchema.safeParse({ id: null, variant: "page-default" }).success).toBe(false);
   });

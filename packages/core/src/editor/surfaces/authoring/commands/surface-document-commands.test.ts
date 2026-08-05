@@ -14,6 +14,7 @@ import {
   SectionAuthoringNode,
 } from "@/editor/arrangements/layout/authoring/layout-nodes";
 import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 
 import {
   canDeleteSurfaceAt,
@@ -31,6 +32,8 @@ import { pageDefaultSurfaceDefinition } from "@/editor/surfaces/model/templates/
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 
 const STABLE_ID_PATTERN = /^[0-9A-Z_a-z-]{12}$/;
+const FIRST_CREATED_SURFACE_ID = createEmbeddedNodeId();
+const SECOND_CREATED_SURFACE_ID = createEmbeddedNodeId();
 
 function paragraph(text: string): JSONContent {
   return {
@@ -124,7 +127,7 @@ function surfacePos(editor: Editor, surfaceId: string): number {
 
 describe("surface document commands", () => {
   it("updates page surface title, background, and notes through transactions", () => {
-    const editor = makeEditor("page", [surface("surface-1", "Only")]);
+    const editor = makeEditor("page", [surface("surface00001", "Only")]);
 
     expect(setPageSurfaceTitle(editor, "Visible section")).toBe(true);
     expect(setPageSurfaceBackground(editor, { color: "#123456" })).toBe(true);
@@ -139,7 +142,9 @@ describe("surface document commands", () => {
   });
 
   it("keeps the surface variant stable across generic page authoring commands", () => {
-    const original = pageDefaultSurfaceDefinition.createSurface({ surfaceId: "surface-1" });
+    const original = pageDefaultSurfaceDefinition.createSurface({
+      surfaceId: FIRST_CREATED_SURFACE_ID,
+    });
     const editor = makeEditor("page", [original]);
 
     expect(setPageSurfaceTitle(editor, "Visible section")).toBe(true);
@@ -151,7 +156,7 @@ describe("surface document commands", () => {
   });
 
   it("creates a visible title heading when setting the page surface title", () => {
-    const editor = makeEditor("page", [surface("surface-1", "Body")]);
+    const editor = makeEditor("page", [surface("surface00001", "Body")]);
 
     expect(setPageSurfaceTitle(editor, "Introduction")).toBe(true);
 
@@ -173,7 +178,7 @@ describe("surface document commands", () => {
 
   it("updates the existing visible title heading without inserting a duplicate", () => {
     const editor = makeEditor("page", [
-      surfaceWithContent("surface-1", [
+      surfaceWithContent("surface00001", [
         {
           type: "heading",
           attrs: { level: 1 },
@@ -201,10 +206,10 @@ describe("surface document commands", () => {
 
   it("rejects page surface commands for slideshow or branching mode", () => {
     const slideshow = makeEditor("slideshow", [
-      surface("surface-1", "First"),
+      surface("surface00001", "First"),
       surface("surface-2", "Second"),
     ]);
-    const branching = makeEditor("branching", [surface("surface-1", "Only")]);
+    const branching = makeEditor("branching", [surface("surface00001", "Only")]);
     const beforeSlideshow = slideshow.getJSON();
     const beforeBranching = branching.getJSON();
 
@@ -218,31 +223,37 @@ describe("surface document commands", () => {
   });
 
   it("duplicates a non-page surface with fresh stable ids", () => {
-    const first = slideCoverSurfaceDefinition.createSurface({ surfaceId: "surface-1" });
-    const second = slideCoverSurfaceDefinition.createSurface({ surfaceId: "surface-2" });
+    const first = slideCoverSurfaceDefinition.createSurface({
+      surfaceId: FIRST_CREATED_SURFACE_ID,
+    });
+    const second = slideCoverSurfaceDefinition.createSurface({
+      surfaceId: SECOND_CREATED_SURFACE_ID,
+    });
     const editor = makeEditor("slideshow", [first, second]);
 
-    const pos = surfacePos(editor, "surface-1");
+    const pos = surfacePos(editor, FIRST_CREATED_SURFACE_ID);
     expect(canDuplicateSurfaceAt(editor, pos)).toBe(true);
     expect(duplicateSurfaceAt(editor, pos)).toBe(true);
 
     const nextSurfaces = surfaces(editor);
     expect(nextSurfaces).toHaveLength(3);
-    expect(nextSurfaces[0]?.attrs?.["id"]).toBe("surface-1");
+    expect(nextSurfaces[0]?.attrs?.["id"]).toBe(FIRST_CREATED_SURFACE_ID);
     expect(nextSurfaces[1]?.attrs?.["id"]).toEqual(expect.stringMatching(STABLE_ID_PATTERN));
-    expect(nextSurfaces[1]?.attrs?.["id"]).not.toBe("surface-1");
+    expect(nextSurfaces[1]?.attrs?.["id"]).not.toBe(FIRST_CREATED_SURFACE_ID);
     expect(nextSurfaces[1]?.attrs?.["variant"]).toBe("slide-cover");
     expect(nextSurfaces[1]?.attrs?.["settings"]).toEqual(nextSurfaces[0]?.attrs?.["settings"]);
     expect(nextSurfaces[1]?.content).toEqual(nextSurfaces[0]?.content);
-    expect(nextSurfaces[2]?.attrs?.["id"]).toBe("surface-2");
+    expect(nextSurfaces[2]?.attrs?.["id"]).toBe(SECOND_CREATED_SURFACE_ID);
 
     editor.destroy();
   });
 
   it("does not duplicate page surfaces", () => {
-    const editor = makeEditor("page", [surface("surface-1", "Only", { variant: "page-default" })]);
+    const editor = makeEditor("page", [
+      surface("surface00001", "Only", { variant: "page-default" }),
+    ]);
     const before = editor.getJSON();
-    const pos = surfacePos(editor, "surface-1");
+    const pos = surfacePos(editor, "surface00001");
 
     expect(canDuplicateSurfaceAt(editor, pos)).toBe(false);
     expect(duplicateSurfaceAt(editor, pos)).toBe(false);
@@ -253,11 +264,11 @@ describe("surface document commands", () => {
 
   it("deletes a non-page surface while preserving a neighboring surface", () => {
     const editor = makeEditor("slideshow", [
-      surface("surface-1", "First", { variant: "slide-cover" }),
+      surface("surface00001", "First", { variant: "slide-cover" }),
       surface("surface-2", "Second", { variant: "slide-cover" }),
     ]);
 
-    const pos = surfacePos(editor, "surface-1");
+    const pos = surfacePos(editor, "surface00001");
     expect(canDeleteSurfaceAt(editor, pos)).toBe(true);
     expect(deleteSurfaceAt(editor, pos)).toBe(true);
 
@@ -271,10 +282,10 @@ describe("surface document commands", () => {
 
   it("does not delete the final remaining surface", () => {
     const editor = makeEditor("slideshow", [
-      surface("surface-1", "Only", { variant: "slide-cover" }),
+      surface("surface00001", "Only", { variant: "slide-cover" }),
     ]);
     const before = editor.getJSON();
-    const pos = surfacePos(editor, "surface-1");
+    const pos = surfacePos(editor, "surface00001");
 
     expect(canDeleteSurfaceAt(editor, pos)).toBe(false);
     expect(deleteSurfaceAt(editor, pos)).toBe(false);

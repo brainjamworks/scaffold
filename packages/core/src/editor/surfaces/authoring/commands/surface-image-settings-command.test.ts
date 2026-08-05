@@ -10,6 +10,8 @@ import {
   SECTION_ARRANGEMENT_CONTENT,
 } from "@/document/model/content-model/content-groups";
 import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import type { EmbeddedNodeId } from "@scaffold/contracts";
 import { ExtendedHeading } from "@/editor/rich-text/model/rich-text-blocks";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import {
@@ -38,6 +40,8 @@ const registeredSlideCoverSurfaceDefinition = builtInSurfaceVariantRegistry.get(
 if (!registeredSlideCoverSurfaceDefinition) {
   throw new Error("Expected the built-in slide-cover surface definition.");
 }
+
+const SURFACE_ID = createEmbeddedNodeId();
 
 const TestArrangementNode = Node.create({
   name: "testArrangement",
@@ -100,7 +104,7 @@ const testImageLayoutDefinition = defineSlideCompositionSurface({
       { type: "slide_title" },
       {
         type: "region",
-        attrs: { id: `${surfaceId}-main`, role: "main" },
+        attrs: { id: createEmbeddedNodeId(), role: "main" },
         content: [{ type: "paragraph" }],
       },
     ],
@@ -110,12 +114,12 @@ const testImageLayoutDefinition = defineSlideCompositionSurface({
 function makeEditor({
   definition = testImageLayoutDefinition,
   settings,
-  surfaceIds = ["surface-a"],
+  surfaceIds = [SURFACE_ID],
   variant = definition.id,
 }: {
   definition?: RegisteredSlideCompositionSurfaceDefinition;
   settings?: Record<string, unknown>;
-  surfaceIds?: readonly string[];
+  surfaceIds?: readonly EmbeddedNodeId[];
   variant?: string;
 } = {}): Editor {
   return new Editor({
@@ -177,7 +181,7 @@ describe("setSurfaceOwnedImageChecked", () => {
   ] as const)(
     "clears one $id role while preserving every neighbouring role",
     (definition, roles) => {
-      const created = definition.createSurface({ surfaceId: "surface-a" });
+      const created = definition.createSurface({ surfaceId: SURFACE_ID });
       const images = Object.fromEntries(
         roles.map((role) => [
           role,
@@ -199,7 +203,7 @@ describe("setSurfaceOwnedImageChecked", () => {
         setSurfaceOwnedImageChecked({
           editor,
           definition,
-          surfaceId: "surface-a",
+          surfaceId: SURFACE_ID,
           role: roles[1],
           image: {},
         }),
@@ -216,7 +220,7 @@ describe("setSurfaceOwnedImageChecked", () => {
   it.each([slideImageContentSplitSurfaceDefinition, slideImageContentStackedSurfaceDefinition])(
     "positions $id primary images without rewriting fixed content",
     (definition) => {
-      const created = definition.createSurface({ surfaceId: "surface-a" });
+      const created = definition.createSurface({ surfaceId: SURFACE_ID });
       const settings = definition.settingsSchema.parse({
         ...(created.attrs?.["settings"] as Record<string, unknown>),
         orientation: "reversed",
@@ -240,7 +244,7 @@ describe("setSurfaceOwnedImageChecked", () => {
           setSurfaceOwnedImageChecked({
             editor,
             definition,
-            surfaceId: "surface-a",
+            surfaceId: SURFACE_ID,
             role: "primary",
             image: {
               imageUrl: "https://example.test/subject.png",
@@ -287,7 +291,7 @@ describe("setSurfaceOwnedImageChecked", () => {
       setSurfaceOwnedImageChecked({
         editor,
         definition: testImageLayoutDefinition,
-        surfaceId: "surface-a",
+        surfaceId: SURFACE_ID,
         role: "primary",
         image: { imageUrl: "https://example.test/new.png", imageAlt: "New image" },
       }),
@@ -314,7 +318,7 @@ describe("setSurfaceOwnedImageChecked", () => {
       setSurfaceOwnedImageChecked({
         editor,
         definition: testImageLayoutDefinition,
-        surfaceId: "surface-a",
+        surfaceId: SURFACE_ID,
         role: "primary",
         image: {},
       }),
@@ -326,10 +330,10 @@ describe("setSurfaceOwnedImageChecked", () => {
 
   it.each([
     ["missing target", { surfaceId: "missing", role: "primary", image: {} }],
-    ["undeclared role", { surfaceId: "surface-a", role: "secondary", image: {} }],
+    ["undeclared role", { surfaceId: SURFACE_ID, role: "secondary", image: {} }],
     [
       "malformed image",
-      { surfaceId: "surface-a", role: "primary", image: { imagePosition: "middle" } },
+      { surfaceId: SURFACE_ID, role: "primary", image: { imagePosition: "middle" } },
     ],
   ])("rejects %s without dispatching", (_label, input) => {
     const editor = makeEditor();
@@ -371,7 +375,7 @@ describe("setSurfaceOwnedImageChecked", () => {
         setSurfaceOwnedImageChecked({
           editor,
           definition,
-          surfaceId: "surface-a",
+          surfaceId: SURFACE_ID,
           role: "primary",
           image: { imageUrl: "https://example.test/new.png" },
         }).ok,
@@ -391,7 +395,7 @@ describe("setSurfaceOwnedImageChecked", () => {
       setSurfaceOwnedImageChecked({
         editor,
         definition: registeredSlideCoverSurfaceDefinition,
-        surfaceId: "surface-a",
+        surfaceId: SURFACE_ID,
         role: "primary",
         image: { imageUrl: "https://example.test/new.png" },
       }).ok,
@@ -411,8 +415,8 @@ describe("setSurfaceOwnedImageChecked", () => {
     },
     {
       label: "invalid",
-      editor: () => makeEditor({ surfaceIds: ["surface-a", "surface-a"] }),
-      surfaceId: "surface-a",
+      editor: () => makeEditor({ surfaceIds: [SURFACE_ID, SURFACE_ID] }),
+      surfaceId: SURFACE_ID,
       error: "The authoring target identity is invalid.",
     },
   ])("rejects a $label live image target without dispatching", ({ editor: create, ...input }) => {
@@ -442,7 +446,7 @@ describe("setSurfaceOwnedImageChecked", () => {
       setSurfaceOwnedImageChecked({
         editor,
         definition: testImageLayoutDefinition,
-        surfaceId: "surface-a",
+        surfaceId: SURFACE_ID,
         role: "primary",
         image: {},
       }),
@@ -460,7 +464,7 @@ describe("setSurfaceOwnedImageChecked", () => {
       setSurfaceOwnedImageChecked({
         editor,
         definition: testImageLayoutDefinition,
-        surfaceId: "surface-a",
+        surfaceId: SURFACE_ID,
         role: "primary",
         image: { imageUrl: "https://example.test/new.png" },
       }),

@@ -9,6 +9,7 @@ import { createElement } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { CellNode, GridNode } from "@/editor/arrangements/grid/model/grid-nodes";
 import { LayoutNode, SectionNode } from "@/editor/arrangements/layout/model/layout-nodes";
 import { defineBlock } from "@/editor/blocks/block-definition";
@@ -260,7 +261,9 @@ describe("surface authoring node views", () => {
       "slide-image-band",
       "slide-module-cover",
     ]) {
-      const surface = resolveBuiltInDefinition(variant)?.createSurface({ surfaceId: "surface-a" });
+      const surface = resolveBuiltInDefinition(variant)?.createSurface({
+        surfaceId: createEmbeddedNodeId(),
+      });
       if (!surface) throw new Error(`expected ${variant} definition`);
 
       const textBlocks = (surface.content ?? []).flatMap((child) =>
@@ -441,7 +444,7 @@ describe("surface authoring node views", () => {
     const user = userEvent.setup();
     const definition = resolveBuiltInSlideCompositionDefinition("slide-diptych");
     if (!definition) throw new Error("expected diptych definition");
-    const created = definition.createSurface({ surfaceId: "surface-a" });
+    const created = definition.createSurface({ surfaceId: createEmbeddedNodeId() });
     const editor = createEditor(
       definition.id,
       created.content,
@@ -952,7 +955,7 @@ describe("surface authoring node views", () => {
     for (const [variant, composition, regions, title, orientation, proportion] of cases) {
       const definition = resolveBuiltInDefinition(variant);
       if (!definition) throw new Error(`expected definition for ${variant}`);
-      const created = definition.createSurface({ surfaceId: "surface-a" });
+      const created = definition.createSurface({ surfaceId: createEmbeddedNodeId() });
       const settings = {
         ...(created.attrs?.["settings"] as Record<string, unknown>),
         ...(title === "hidden" ? { slideTitle: { enabled: false } } : {}),
@@ -987,7 +990,7 @@ describe("surface authoring node views", () => {
   it("renders the full-bleed image through the common surface background", async () => {
     const definition = resolveBuiltInDefinition("slide-full-bleed-image");
     if (!definition) throw new Error("expected full-bleed image definition");
-    const created = definition.createSurface({ surfaceId: "surface-a" });
+    const created = definition.createSurface({ surfaceId: createEmbeddedNodeId() });
     const settings = definition.settingsSchema?.parse({
       ...(created.attrs?.["settings"] as Record<string, unknown>),
       background: {
@@ -1025,7 +1028,7 @@ describe("surface authoring node views", () => {
   it("renders the backdrop panel through the common surface background", async () => {
     const definition = resolveBuiltInDefinition("slide-image-backdrop-panel");
     if (!definition) throw new Error("expected backdrop panel definition");
-    const created = definition.createSurface({ surfaceId: "surface-a" });
+    const created = definition.createSurface({ surfaceId: createEmbeddedNodeId() });
     const settings = definition.settingsSchema?.parse({
       ...(created.attrs?.["settings"] as Record<string, unknown>),
       background: {
@@ -1065,7 +1068,7 @@ describe("surface authoring node views", () => {
     async (variant) => {
       const definition = resolveBuiltInSlideCompositionDefinition(variant);
       if (!definition) throw new Error(`expected ${variant}`);
-      const created = definition.createSurface({ surfaceId: "surface-a" });
+      const created = definition.createSurface({ surfaceId: createEmbeddedNodeId() });
       const images = Object.fromEntries(
         definition.slideComposition.imageSlots.map((role) => [
           role,

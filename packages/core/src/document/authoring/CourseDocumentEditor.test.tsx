@@ -9,6 +9,7 @@ import type { EditorView } from "@tiptap/pm/view";
 import { createElement, StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
+import type { EmbeddedNodeId } from "@scaffold/contracts";
 
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import {
@@ -17,6 +18,7 @@ import {
 } from "@/composition/application/create-scaffold-application";
 import type { SurfaceCapability } from "@/composition/application/surface-capability";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 import { createScaffoldDocumentContent } from "@/format/artifact";
@@ -25,6 +27,10 @@ import { createScaffoldDefaultTheme, SCAFFOLD_EDITORIAL_PRESET } from "@/theme/m
 import { CourseDocumentEditor } from "./CourseDocumentEditor";
 
 const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
+const FIRST_SLIDE_ID = createEmbeddedNodeId();
+const SECOND_SLIDE_ID = createEmbeddedNodeId();
+const THIRD_SLIDE_ID = createEmbeddedNodeId();
+const PASTED_SLIDE_ID = createEmbeddedNodeId();
 
 afterEach(() => {
   cleanup();
@@ -35,7 +41,7 @@ function createInitializedDocument(mode: "page" | "slideshow" = "page"): JSONCon
   return createScaffoldDocumentContent({ mode });
 }
 
-function createSlideshowDocumentWithSurfaces(surfaceIds: string[]): JSONContent {
+function createSlideshowDocumentWithSurfaces(surfaceIds: EmbeddedNodeId[]): JSONContent {
   return authoringSlideshowDocument(surfaceIds);
 }
 
@@ -194,7 +200,11 @@ describe("CourseDocumentEditor", () => {
   });
 
   it("renders authoring-only dividers after slideshow surfaces", async () => {
-    const content = createSlideshowDocumentWithSurfaces(["slide-1", "slide-2", "slide-3"]);
+    const content = createSlideshowDocumentWithSurfaces([
+      FIRST_SLIDE_ID,
+      SECOND_SLIDE_ID,
+      THIRD_SLIDE_ID,
+    ]);
     const onReady = vi.fn();
 
     render(
@@ -217,11 +227,11 @@ describe("CourseDocumentEditor", () => {
       globalThis.document.body.querySelectorAll("[data-surface-id]"),
       (element) => element.getAttribute("data-surface-id"),
     );
-    expect(surfaceIds).toEqual(["slide-1", "slide-2", "slide-3"]);
+    expect(surfaceIds).toEqual([FIRST_SLIDE_ID, SECOND_SLIDE_ID, THIRD_SLIDE_ID]);
   });
 
   it("scopes slideshow transforms to each surface while dividers stay in document flow", async () => {
-    const content = createSlideshowDocumentWithSurfaces(["slide-1", "slide-2"]);
+    const content = createSlideshowDocumentWithSurfaces([FIRST_SLIDE_ID, SECOND_SLIDE_ID]);
     const onReady = vi.fn();
 
     render(
@@ -248,7 +258,7 @@ describe("CourseDocumentEditor", () => {
   });
 
   it("renders an authoring-only divider after a single slideshow surface", async () => {
-    const content = createSlideshowDocumentWithSurfaces(["slide-1"]);
+    const content = createSlideshowDocumentWithSurfaces([FIRST_SLIDE_ID]);
     const onReady = vi.fn();
 
     render(
@@ -268,7 +278,7 @@ describe("CourseDocumentEditor", () => {
 
   it("opens the slide template picker from the divider control", async () => {
     const user = userEvent.setup();
-    const content = createSlideshowDocumentWithSurfaces(["slide-1"]);
+    const content = createSlideshowDocumentWithSurfaces([FIRST_SLIDE_ID]);
     const onReady = vi.fn();
 
     render(
@@ -309,7 +319,7 @@ describe("CourseDocumentEditor", () => {
   });
 
   it("does not persist slideshow dividers into document JSON", async () => {
-    const content = createSlideshowDocumentWithSurfaces(["slide-1", "slide-2"]);
+    const content = createSlideshowDocumentWithSurfaces([FIRST_SLIDE_ID, SECOND_SLIDE_ID]);
     const onReady = vi.fn();
 
     render(
@@ -606,7 +616,7 @@ describe("CourseDocumentEditor", () => {
   });
 
   it("regenerates a pasted surface instance id while preserving its variant and current shape", async () => {
-    const content = createSlideshowDocumentWithSurfaces(["slide-1"]);
+    const content = createSlideshowDocumentWithSurfaces([FIRST_SLIDE_ID]);
     const onReady = vi.fn();
 
     render(
@@ -619,7 +629,7 @@ describe("CourseDocumentEditor", () => {
 
     await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
     const editor = onReady.mock.calls[0]?.[0];
-    const source = slideCoverSurfaceDefinition.createSurface({ surfaceId: "pasted-slide" });
+    const source = slideCoverSurfaceDefinition.createSurface({ surfaceId: PASTED_SLIDE_ID });
     const sourceNode = editor.schema.nodeFromJSON(source);
     let slice = new Slice(Fragment.from(sourceNode), 0, 0);
 
@@ -633,7 +643,7 @@ describe("CourseDocumentEditor", () => {
 
     const pasted = slice.content.firstChild?.toJSON();
     expect(pasted?.attrs?.["id"]).toEqual(expect.stringMatching(/^[0-9A-Z_a-z-]{12}$/));
-    expect(pasted?.attrs?.["id"]).not.toBe("pasted-slide");
+    expect(pasted?.attrs?.["id"]).not.toBe(PASTED_SLIDE_ID);
     expect(pasted?.attrs?.["variant"]).toBe("slide-cover");
     expect(pasted?.attrs?.["settings"]).toEqual(source.attrs?.["settings"]);
     expect(pasted?.content).toEqual(source.content);
@@ -836,7 +846,7 @@ function richTextDocument(text: string): JSONContent {
   };
 }
 
-function authoringSlideshowDocument(surfaceIds: string[]): JSONContent {
+function authoringSlideshowDocument(surfaceIds: EmbeddedNodeId[]): JSONContent {
   return {
     type: "doc",
     content: [

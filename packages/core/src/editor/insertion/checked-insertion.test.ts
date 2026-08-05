@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
@@ -115,7 +116,7 @@ function makeCourseEditor(content: JSONContent) {
 
 function slideCoverDocument(surfaceContent: JSONContent[]): JSONContent {
   const surface: JSONContent = slideCoverSurfaceDefinition.createSurface({
-    surfaceId: "surface-slide-cover",
+    surfaceId: createEmbeddedNodeId(),
   });
   surface.content = surfaceContent;
   return {
@@ -132,7 +133,7 @@ function slideCoverDocument(surfaceContent: JSONContent[]): JSONContent {
 
 function slideContentDocument(regionContent: JSONContent[]): JSONContent {
   const surface: JSONContent = slideContentSurfaceDefinition.createSurface({
-    surfaceId: "surface-slide-content",
+    surfaceId: createEmbeddedNodeId(),
   });
   const region = surface.content?.find((node) => node.type === "region");
   if (!region) throw new Error("Expected slide content surface to include its main region.");

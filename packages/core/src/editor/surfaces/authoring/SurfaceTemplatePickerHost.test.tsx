@@ -6,6 +6,7 @@ import { Editor, Node, type JSONContent } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import type { EmbeddedNodeId } from "@scaffold/contracts";
 
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import {
@@ -13,6 +14,7 @@ import {
   SECTION_ARRANGEMENT_CONTENT,
 } from "@/document/model/content-model/content-groups";
 import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { validateCourseSurfaceLifecycle } from "@/document/model/validation";
 import { ExtendedHeading } from "@/editor/rich-text/model/rich-text-blocks";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
@@ -31,6 +33,8 @@ import { createSurfaceCreationCatalog } from "./surface-creation-catalog";
 import { insertSurfaceTemplateAfterSurface } from "./surface-template-insertion";
 
 const surfaceVariants = createSurfaceVariantRegistry(builtInSurfaceVariantDefinitions);
+const FIRST_SURFACE_ID = createEmbeddedNodeId();
+const SECOND_SURFACE_ID = createEmbeddedNodeId();
 
 const editors: Editor[] = [];
 const editorElements: HTMLElement[] = [];
@@ -137,8 +141,8 @@ describe("SurfaceTemplatePickerHost", () => {
 
   it("inserts the selected layout immediately after the requesting surface", async () => {
     const { dialog, editor, user } = await renderOpenPicker({
-      afterSurfaceId: "slide-1",
-      surfaceIds: ["slide-1", "slide-2"],
+      afterSurfaceId: FIRST_SURFACE_ID,
+      surfaceIds: [FIRST_SURFACE_ID, SECOND_SURFACE_ID],
     });
 
     await user.click(within(dialog).getByRole("button", { name: "Content" }));
@@ -151,17 +155,17 @@ describe("SurfaceTemplatePickerHost", () => {
   });
 
   it("uses the variant ID for repeated insertion while allocating distinct stable instance IDs", () => {
-    const editor = createEditor(["slide-1"]);
+    const editor = createEditor([FIRST_SURFACE_ID]);
 
     expect(
       insertSurfaceTemplateAfterSurface(editor, surfaceVariants, {
-        afterSurfaceId: "slide-1",
+        afterSurfaceId: FIRST_SURFACE_ID,
         variantId: "slide-content",
       }),
     ).toBe(true);
     expect(
       insertSurfaceTemplateAfterSurface(editor, surfaceVariants, {
-        afterSurfaceId: "slide-1",
+        afterSurfaceId: FIRST_SURFACE_ID,
         variantId: "slide-content",
       }),
     ).toBe(true);
@@ -214,12 +218,12 @@ describe("SurfaceTemplatePickerHost", () => {
 });
 
 async function renderOpenPicker({
-  afterSurfaceId = "slide-1",
-  surfaceIds = ["slide-1"],
+  afterSurfaceId = FIRST_SURFACE_ID,
+  surfaceIds = [FIRST_SURFACE_ID],
   surfaceVariants: pickerSurfaceVariants = surfaceVariants,
 }: {
   afterSurfaceId?: string;
-  surfaceIds?: readonly string[];
+  surfaceIds?: readonly EmbeddedNodeId[];
   surfaceVariants?: typeof surfaceVariants;
 } = {}) {
   const user = userEvent.setup();
@@ -248,7 +252,7 @@ async function renderOpenPicker({
   return { dialog, editor, user };
 }
 
-function createEditor(surfaceIds: readonly string[], editorElement?: HTMLElement): Editor {
+function createEditor(surfaceIds: readonly EmbeddedNodeId[], editorElement?: HTMLElement): Editor {
   const element = editorElement ?? globalThis.document.createElement("div");
   if (!editorElement) {
     globalThis.document.body.append(element);
@@ -281,7 +285,7 @@ function createEditor(surfaceIds: readonly string[], editorElement?: HTMLElement
   return editor;
 }
 
-function slideshowDocument(surfaceIds: readonly string[]): JSONContent {
+function slideshowDocument(surfaceIds: readonly EmbeddedNodeId[]): JSONContent {
   return {
     type: "doc",
     content: [

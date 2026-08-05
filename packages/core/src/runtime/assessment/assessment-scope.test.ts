@@ -37,7 +37,7 @@ const editors: Editor[] = [];
 
 function makeEditor({
   blockId = "block-1",
-  surfaceId = "surface-1",
+  surfaceId = "surface00001",
 }: {
   blockId?: string | null;
   surfaceId?: string | null;
@@ -108,7 +108,7 @@ describe("resolveAssessmentSurfaceScope", () => {
         doc: editor.state.doc,
         blockPos,
       }),
-    ).toEqual({ ok: true, surfaceId: "surface-1" });
+    ).toEqual({ ok: true, surfaceId: "surface00001" });
   });
 
   it("reports unsafe identity when the ancestor surface id is missing", () => {

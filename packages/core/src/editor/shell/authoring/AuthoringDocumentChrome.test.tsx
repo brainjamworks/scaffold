@@ -7,6 +7,7 @@ import { Editor, Node, type JSONContent } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it, vi } from "vite-plus/test";
+import type { EmbeddedNodeId } from "@scaffold/contracts";
 
 import {
   createScaffoldApplication,
@@ -18,6 +19,7 @@ import {
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createScaffoldAuthoringCataloguesStorageExtension } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { AUTHORING_ANCHOR_ATTR } from "@/editor/interactions/dom/authoring-frame";
@@ -26,6 +28,12 @@ import { InteractionTargetKind } from "@/editor/interactions/targets/model/inter
 import { createInteractionOwnerCommandPorts } from "@/editor/interactions/targets/prosemirror/facade/interaction-facade-command-ports";
 import { getInteractionFacadeStoreForEditor } from "@/editor/interactions/targets/prosemirror/facade/interaction-facade-storage";
 import { publishInteractionOwnerSnapshot } from "@/editor/interactions/targets/prosemirror/facade/interaction-owner-snapshot-publisher";
+
+const PLUS_SURFACE_ID = createEmbeddedNodeId();
+const CORE_SURFACE_ID = createEmbeddedNodeId();
+const REGION_MENU_SURFACE_ID = createEmbeddedNodeId();
+const TEMPLATE_PICKER_SURFACE_ID = createEmbeddedNodeId();
+const TEMPLATE_PICKER_TEARDOWN_SURFACE_ID = createEmbeddedNodeId();
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
 import { interactionOwnerPluginKey } from "@/editor/interactions/targets/prosemirror/state/interaction-owner-plugin-state";
 import { authoringSlideDividersPluginKey } from "@/editor/surfaces/authoring/AuthoringSlideDividers";
@@ -138,7 +146,7 @@ describe("AuthoringDocumentChrome", () => {
       plusApplication,
       createSlideshowDocumentJSON({
         regionId: "plus-region",
-        surfaceId: "plus-slide-1",
+        surfaceId: PLUS_SURFACE_ID,
         text: "Plus slide content",
       }),
     );
@@ -146,7 +154,7 @@ describe("AuthoringDocumentChrome", () => {
       createScaffoldApplication(),
       createSlideshowDocumentJSON({
         regionId: "core-region",
-        surfaceId: "core-slide-1",
+        surfaceId: CORE_SURFACE_ID,
         text: "Core slide content",
       }),
     );
@@ -157,8 +165,8 @@ describe("AuthoringDocumentChrome", () => {
         <AuthoringDocumentSurfaceTemplatePickerHost editor={coreEditor} />
       </>,
     );
-    openSurfaceTemplatePicker(coreEditor, "core-slide-1");
-    openSurfaceTemplatePicker(plusEditor, "plus-slide-1");
+    openSurfaceTemplatePicker(coreEditor, CORE_SURFACE_ID);
+    openSurfaceTemplatePicker(plusEditor, PLUS_SURFACE_ID);
 
     const dialogs = await waitFor(() => {
       const mountedDialogs = Array.from(
@@ -250,7 +258,7 @@ describe("AuthoringDocumentChrome", () => {
     const editor = createAuthoringEditor();
     const documentJSON = createSlideshowDocumentJSON({
       regionId: "region-a",
-      surfaceId: "surface-region-menu-smoke",
+      surfaceId: REGION_MENU_SURFACE_ID,
       text: "Region content",
     });
     editor.commands.setContent(documentJSON);
@@ -272,7 +280,7 @@ describe("AuthoringDocumentChrome", () => {
 
     const surface = await waitUntil(() => {
       const element = document.body.querySelector<HTMLElement>(
-        '[data-authoring-frame="surface"][data-id="surface-region-menu-smoke"]',
+        `[data-authoring-frame="surface"][data-id="${REGION_MENU_SURFACE_ID}"]`,
       );
       if (!element) throw new Error("Expected surface frame.");
       return element;
@@ -310,9 +318,9 @@ describe("AuthoringDocumentChrome", () => {
     const ports = createInteractionOwnerCommandPorts(editor.view, builtInBlockRegistry);
     expect(
       ports.activateStructuralTarget({
-        id: "surface-region-menu-smoke",
+        id: REGION_MENU_SURFACE_ID,
         kind: InteractionTargetKind.Surface,
-        pos: nodePos(editor, "surface", "surface-region-menu-smoke"),
+        pos: nodePos(editor, "surface", REGION_MENU_SURFACE_ID),
       }),
     ).toBe(true);
 
@@ -325,21 +333,21 @@ describe("AuthoringDocumentChrome", () => {
     });
     expect(surface.contains(surfaceTrigger)).toBe(false);
     expect(surfaceTrigger.getAttribute(AUTHORING_ANCHOR_ATTR)).toBe(
-      "surface-menu:surface-region-menu-smoke",
+      `surface-menu:${REGION_MENU_SURFACE_ID}`,
     );
 
     fireEvent.click(surfaceTrigger);
 
     await waitUntil(() => {
       expect(interactionOwnerPluginKey.getState(editor.state)?.menuOwner).toMatchObject({
-        id: "surface-region-menu-smoke",
+        id: REGION_MENU_SURFACE_ID,
         kind: InteractionTargetKind.Surface,
       });
     });
     expect(
       getInteractionFacadeStoreForEditor(editor).getState().snapshot.owners.menuOwner.target,
     ).toMatchObject({
-      id: "surface-region-menu-smoke",
+      id: REGION_MENU_SURFACE_ID,
       kind: InteractionTargetKind.Surface,
     });
 
@@ -388,7 +396,7 @@ describe("AuthoringDocumentChrome", () => {
     editor.commands.setContent(
       createSlideshowDocumentJSON({
         regionId: "region-template-picker",
-        surfaceId: "surface-template-picker",
+        surfaceId: TEMPLATE_PICKER_SURFACE_ID,
         text: "Template picker content",
       }),
     );
@@ -402,7 +410,7 @@ describe("AuthoringDocumentChrome", () => {
     editor.view.dispatch(
       editor.state.tr.setMeta(authoringSlideDividersPluginKey, {
         type: "open-template-picker",
-        afterSurfaceId: "surface-template-picker",
+        afterSurfaceId: TEMPLATE_PICKER_SURFACE_ID,
       }),
     );
 
@@ -420,7 +428,7 @@ describe("AuthoringDocumentChrome", () => {
     editor.commands.setContent(
       createSlideshowDocumentJSON({
         regionId: "region-template-picker-teardown",
-        surfaceId: "surface-template-picker-teardown",
+        surfaceId: TEMPLATE_PICKER_TEARDOWN_SURFACE_ID,
         text: "Template picker teardown content",
       }),
     );
@@ -434,7 +442,7 @@ describe("AuthoringDocumentChrome", () => {
     editor.view.dispatch(
       editor.state.tr.setMeta(authoringSlideDividersPluginKey, {
         type: "open-template-picker",
-        afterSurfaceId: "surface-template-picker-teardown",
+        afterSurfaceId: TEMPLATE_PICKER_TEARDOWN_SURFACE_ID,
       }),
     );
     expect(
@@ -567,7 +575,7 @@ function createSlideshowDocumentJSON({
   text,
 }: {
   regionId: string;
-  surfaceId: string;
+  surfaceId: EmbeddedNodeId;
   text: string;
 }): JSONContent {
   const surface = slideContentSurfaceDefinition.createSurface({ surfaceId });

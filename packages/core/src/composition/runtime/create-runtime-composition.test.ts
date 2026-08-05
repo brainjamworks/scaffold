@@ -171,6 +171,39 @@ describe("createCourseDocumentRuntimeExtensions", () => {
     );
   });
 
+  it("does not mutate missing, malformed or valid Surface identity during load", () => {
+    const editor = new Editor({
+      editable: false,
+      extensions: createCourseDocumentRuntimeExtensions({ composition: coreRuntimeComposition }),
+      content: {
+        type: "doc",
+        content: [
+          {
+            type: "courseDocument",
+            attrs: { mode: "slideshow" },
+            content: [
+              runtimeSurface(),
+              runtimeSurface("not-an-id"),
+              runtimeSurface("AbCdEf123_--"),
+            ],
+          },
+        ],
+      },
+    });
+
+    try {
+      expect(
+        editor
+          .getJSON()
+          .content?.[0]?.content?.map((surface) =>
+            "attrs" in surface ? surface.attrs?.["id"] : undefined,
+          ),
+      ).toEqual([null, "not-an-id", "AbCdEf123_--"]);
+    } finally {
+      editor.destroy();
+    }
+  });
+
   it("uses the same immutable Core structural semantic-node inventory", () => {
     const runtimeUniqueId = createCourseDocumentRuntimeExtensions({
       composition: coreRuntimeComposition,
@@ -384,6 +417,14 @@ describe("createCourseDocumentRuntimeExtensions", () => {
     expect(firstSurfaceNode).not.toBe(secondSurfaceNode);
   });
 });
+
+function runtimeSurface(id?: string) {
+  return {
+    type: "surface",
+    attrs: { ...(id === undefined ? {} : { id }), variant: "slide-cover" },
+    content: [{ type: "paragraph" }],
+  };
+}
 
 function hostBlockCapability(nodeType: string): BlockCapability {
   const childNodeType = `${nodeType}_child`;

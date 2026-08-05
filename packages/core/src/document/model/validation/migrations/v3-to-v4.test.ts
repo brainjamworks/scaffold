@@ -95,7 +95,7 @@ function v3Document(mode: "page" | "slideshow", theme: unknown): JSONContent {
           {
             type: "surface",
             attrs: {
-              id: "surface-1",
+              id: "surface00001",
               variant: mode === "slideshow" ? "slide-cover" : "page-default",
             },
             content: [{ type: "paragraph" }],

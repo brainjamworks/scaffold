@@ -55,7 +55,7 @@ function courseDocumentContent(): JSONContent {
           {
             type: "surface",
             attrs: {
-              id: "surface-1",
+              id: "surface00001",
               title: "Introduction",
               variant: "page-default",
             },
@@ -188,7 +188,7 @@ describe("course document nodes", () => {
           content: [
             {
               type: "surface",
-              attrs: { id: "surface-1", variant: "page-default" },
+              attrs: { id: "surface00001", variant: "page-default" },
               content: [{ type: "paragraph" }],
             },
           ],
@@ -213,7 +213,7 @@ describe("course document nodes", () => {
     expect(html).toContain('data-course-theme="scaffold-default"');
     expect(html).toContain("data-course-theme-values=");
     expect(html).toContain("data-surface");
-    expect(html).toContain('data-surface-id="surface-1"');
+    expect(html).toContain('data-surface-id="surface00001"');
     expect(html).toContain('data-surface-variant="page-default"');
 
     const nextEditor = makeEditor(html);
@@ -228,7 +228,7 @@ describe("course document nodes", () => {
       theme: createScaffoldDefaultTheme(),
     });
     expect(surface?.attrs).toMatchObject({
-      id: "surface-1",
+      id: "surface00001",
       title: "Introduction",
       variant: "page-default",
     });
@@ -245,7 +245,7 @@ describe("course document nodes", () => {
         data-course-mode="page"
         data-scaffold-document-format-version="${futureVersion}"
       >
-        <section data-surface data-surface-id="surface-1">
+        <section data-surface data-surface-id="surface00001">
           <p>Future content</p>
         </section>
       </section>

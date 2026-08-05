@@ -5,6 +5,8 @@ import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import type { EmbeddedNodeId } from "@scaffold/contracts";
 import { ARRANGEMENT_CONTENT } from "@/document/model/content-model/content-groups";
 import { createAuthoringNodeTarget } from "@/editor/prosemirror/authoring-target";
 import { ExtendedHeading } from "@/editor/rich-text/model/rich-text-blocks";
@@ -29,7 +31,9 @@ const TestArrangementNode = Node.create({
   content: "paragraph*",
 });
 
-function makeEditor(surfaceIds: readonly string[] = ["surface-a"]): Editor {
+const SURFACE_ID = createEmbeddedNodeId();
+
+function makeEditor(surfaceIds: readonly EmbeddedNodeId[] = [SURFACE_ID]): Editor {
   return new Editor({
     extensions: [
       DocumentNode,
@@ -83,7 +87,7 @@ describe("surface authoring settings commands", () => {
     expect(
       setSurfaceSettingsChecked({
         editor,
-        surfaceId: "surface-a",
+        surfaceId: SURFACE_ID,
         schema: SurfaceSettingsSchema,
         value,
       }),
@@ -107,7 +111,7 @@ describe("surface authoring settings commands", () => {
     expect(
       setSurfaceSettingsChecked({
         editor,
-        surfaceId: "surface-a",
+        surfaceId: SURFACE_ID,
         schema: SurfaceSettingsSchema,
         value: { background: { imagePosition: "middle" } },
       }).ok,
@@ -127,8 +131,8 @@ describe("surface authoring settings commands", () => {
     },
     {
       label: "invalid",
-      create: () => makeEditor(["surface-a", "surface-a"]),
-      surfaceId: "surface-a",
+      create: () => makeEditor([SURFACE_ID, SURFACE_ID]),
+      surfaceId: SURFACE_ID,
       error: "The authoring target identity is invalid.",
     },
   ])("rejects a $label live target without dispatching", ({ create, surfaceId, error }) => {
@@ -156,7 +160,7 @@ describe("surface authoring settings commands", () => {
     expect(
       setSurfaceSettingsChecked({
         editor,
-        surfaceId: "surface-a",
+        surfaceId: SURFACE_ID,
         schema: SurfaceSettingsSchema,
         value: DEFAULT_SURFACE_SETTINGS,
       }),
@@ -167,7 +171,7 @@ describe("surface authoring settings commands", () => {
   it("adapts only a live surface settings target without dispatching itself", () => {
     const editor = makeEditor();
     const target = createAuthoringNodeTarget(editor, {
-      id: "surface-a",
+      id: SURFACE_ID,
       nodeType: "surface",
     }).read();
     if (!target) throw new Error("Expected a live surface target.");

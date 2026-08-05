@@ -1,6 +1,6 @@
 import type { JSONContent } from "@tiptap/core";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 
 export interface ProcessFlowOptions {
   showNumbers: boolean;
@@ -20,7 +20,7 @@ export function createProcessFlowContent(
   return {
     type: "layout",
     attrs: {
-      id: createStableId(),
+      id: createEmbeddedNodeId(),
       variant: "process-flow",
       options: {
         showNumbers: options?.showNumbers ?? true,
@@ -39,7 +39,7 @@ export function createProcessFlowSection(
   return {
     type: "section",
     attrs: {
-      id: createStableId(),
+      id: createEmbeddedNodeId(),
       role: "process-flow-section",
     },
     content: [

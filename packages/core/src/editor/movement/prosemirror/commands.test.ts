@@ -318,7 +318,7 @@ function courseDocument(content: JSONContent[], surfaceVariant = "page-default")
         content: [
           {
             type: "surface",
-            attrs: { id: "surface-1", variant: surfaceVariant },
+            attrs: { id: "surface00001", variant: surfaceVariant },
             content,
           },
         ],

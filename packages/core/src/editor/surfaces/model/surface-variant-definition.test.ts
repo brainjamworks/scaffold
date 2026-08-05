@@ -11,6 +11,7 @@ import {
 import { ExtendedHeading } from "@/editor/rich-text/model/rich-text-blocks";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import {
   builtInSurfaceVariantDefinitions,
   builtInSurfaceVariantRegistry,
@@ -27,6 +28,8 @@ import {
   createSurfaceVariantRegistry,
   validateSurfaceVariantFactories,
 } from "./surface-variant-registry";
+
+const TEST_SURFACE_ID = createEmbeddedNodeId();
 import {
   matchFixedSurfaceChildren,
   snapshotSurfaceStructureChildrenFromJSON,
@@ -127,7 +130,7 @@ function expectFixedSurfaceStructure(
   expect(
     matchFixedSurfaceChildren(
       snapshotSurfaceStructureChildrenFromJSON(
-        definition.createSurface({ surfaceId: "signature-test" }),
+        definition.createSurface({ surfaceId: TEST_SURFACE_ID }),
       ),
       fixedChildren,
     ),
@@ -232,12 +235,12 @@ describe("surface definitions", () => {
 
   it("creates valid page-default surface content", () => {
     const surface = pageDefaultSurfaceDefinition.createSurface({
-      surfaceId: "surface-1",
+      surfaceId: TEST_SURFACE_ID,
     });
 
     expect(surface).toEqual({
       type: "surface",
-      attrs: { id: "surface-1", variant: "page-default" },
+      attrs: { id: TEST_SURFACE_ID, variant: "page-default" },
       content: [{ type: "paragraph" }],
     });
     expect(pageDefaultSurfaceDefinition.modes).toEqual(["page"]);
@@ -249,13 +252,13 @@ describe("surface definitions", () => {
 
   it("creates valid slide-cover surface content", () => {
     const surface = slideCoverSurfaceDefinition.createSurface({
-      surfaceId: "surface-1",
+      surfaceId: TEST_SURFACE_ID,
     });
 
     expect(surface).toEqual({
       type: "surface",
       attrs: {
-        id: "surface-1",
+        id: TEST_SURFACE_ID,
         variant: "slide-cover",
         settings: {
           header: { enabled: false },
@@ -280,13 +283,13 @@ describe("surface definitions", () => {
 
   it("creates valid slide-content surface content", () => {
     const surface = slideContentSurfaceDefinition.createSurface({
-      surfaceId: "surface-1",
+      surfaceId: TEST_SURFACE_ID,
     });
 
     expect(surface).toEqual({
       type: "surface",
       attrs: {
-        id: "surface-1",
+        id: TEST_SURFACE_ID,
         variant: "slide-content",
         settings: {
           header: { enabled: false },
@@ -382,7 +385,7 @@ describe("surface definitions", () => {
   ] as const)(
     "declares %s with its exact reversible two-region contract",
     (definition, id, order, composition, roles, optionalTitle, proportion) => {
-      const surface = definition.createSurface({ surfaceId: id });
+      const surface = definition.createSurface({ surfaceId: TEST_SURFACE_ID });
       const settings = surface.attrs?.["settings"] as Record<string, unknown>;
 
       expect(definition.id).toBe(id);
@@ -414,7 +417,7 @@ describe("surface definitions", () => {
 
   it("declares the background-owned full-bleed image overlay", () => {
     const surface = slideFullBleedImageSurfaceDefinition.createSurface({
-      surfaceId: "full-bleed",
+      surfaceId: TEST_SURFACE_ID,
     });
     expect(slideFullBleedImageSurfaceDefinition.catalogue).toMatchObject({
       section: "image",
@@ -439,7 +442,7 @@ describe("surface definitions", () => {
 
   it("declares the reversible backdrop panel overlay", () => {
     const surface = slideImageBackdropPanelSurfaceDefinition.createSurface({
-      surfaceId: "backdrop-panel",
+      surfaceId: TEST_SURFACE_ID,
     });
     expect(slideImageBackdropPanelSurfaceDefinition.catalogue).toMatchObject({
       section: "image",
@@ -471,7 +474,7 @@ describe("surface definitions", () => {
   ] as const)(
     "declares %s with an exact fixed gallery role map",
     (definition, id, order, roles) => {
-      const surface = definition.createSurface({ surfaceId: id });
+      const surface = definition.createSurface({ surfaceId: TEST_SURFACE_ID });
       const settings = surface.attrs?.["settings"] as Record<string, unknown>;
       expect(definition.catalogue).toMatchObject({ section: "image", order });
       expect(definition.slideComposition).toEqual({
@@ -523,7 +526,7 @@ describe("surface definitions", () => {
   ] as const)(
     "declares %s with its exact distinctive Content contract",
     (definition, id, order, composition, roles, orientation) => {
-      const surface = definition.createSurface({ surfaceId: id });
+      const surface = definition.createSurface({ surfaceId: TEST_SURFACE_ID });
       const settings = surface.attrs?.["settings"] as Record<string, unknown>;
 
       expect(definition.id).toBe(id);
@@ -574,7 +577,7 @@ describe("surface definitions", () => {
   ] as const)(
     "declares %s with one strict primary image and stable main content",
     (definition, id, order, composition, previewKind) => {
-      const surface = definition.createSurface({ surfaceId: id });
+      const surface = definition.createSurface({ surfaceId: TEST_SURFACE_ID });
       const settings = surface.attrs?.["settings"] as Record<string, unknown>;
 
       expect(definition.id).toBe(id);
@@ -614,13 +617,13 @@ describe("surface definitions", () => {
 
   it("creates valid slide-image-cover surface content", () => {
     const surface = slideImageCoverSurfaceDefinition.createSurface({
-      surfaceId: "surface-1",
+      surfaceId: TEST_SURFACE_ID,
     });
 
     expect(surface).toEqual({
       type: "surface",
       attrs: {
-        id: "surface-1",
+        id: TEST_SURFACE_ID,
         variant: "slide-image-cover",
         settings: {
           header: { enabled: false },
@@ -647,13 +650,13 @@ describe("surface definitions", () => {
 
   it("creates valid slide-image-band surface content", () => {
     const surface = slideImageBandSurfaceDefinition.createSurface({
-      surfaceId: "surface-1",
+      surfaceId: TEST_SURFACE_ID,
     });
 
     expect(surface).toEqual({
       type: "surface",
       attrs: {
-        id: "surface-1",
+        id: TEST_SURFACE_ID,
         variant: "slide-image-band",
         settings: {
           header: { enabled: false },
@@ -679,13 +682,13 @@ describe("surface definitions", () => {
 
   it("creates valid slide-module-cover surface content", () => {
     const surface = slideModuleCoverSurfaceDefinition.createSurface({
-      surfaceId: "surface-1",
+      surfaceId: TEST_SURFACE_ID,
     });
 
     expect(surface).toEqual({
       type: "surface",
       attrs: {
-        id: "surface-1",
+        id: TEST_SURFACE_ID,
         variant: "slide-module-cover",
       },
       content: [
@@ -1288,21 +1291,21 @@ describe("surface definitions", () => {
 
   it("creates default surfaces for page and slideshow modes", () => {
     expect(
-      builtInSurfaceVariantRegistry.createDefault({ mode: "page", surfaceId: "surface-1" }),
-    ).toEqual(pageDefaultSurfaceDefinition.createSurface({ surfaceId: "surface-1" }));
+      builtInSurfaceVariantRegistry.createDefault({ mode: "page", surfaceId: TEST_SURFACE_ID }),
+    ).toEqual(pageDefaultSurfaceDefinition.createSurface({ surfaceId: TEST_SURFACE_ID }));
     expect(
       builtInSurfaceVariantRegistry.createDefault({
         mode: "slideshow",
-        surfaceId: "surface-1",
+        surfaceId: TEST_SURFACE_ID,
       }),
-    ).toEqual(slideCoverSurfaceDefinition.createSurface({ surfaceId: "surface-1" }));
+    ).toEqual(slideCoverSurfaceDefinition.createSurface({ surfaceId: TEST_SURFACE_ID }));
   });
 
   it("rejects modes without a built-in default surface", () => {
     expect(() =>
       builtInSurfaceVariantRegistry.createDefault({
         mode: "branching",
-        surfaceId: "surface-1",
+        surfaceId: TEST_SURFACE_ID,
       }),
     ).toThrow('No default surface definition registered for course mode "branching".');
   });

@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import "@/styles/globals.css";
@@ -88,7 +89,7 @@ describe("bounded Region authoring geometry", () => {
 function tabsDocument(): JSONContent {
   const definition = builtInSurfaceVariantRegistry.get("slide-content");
   if (!definition) throw new Error("Missing slide-content surface definition.");
-  const surface = definition.createSurface({ surfaceId: "surface-tabs" });
+  const surface = definition.createSurface({ surfaceId: createEmbeddedNodeId() });
   if (!surface.content) throw new Error("Slide-content surface has no Region content.");
   const populatedSurface: JSONContent = {
     ...surface,

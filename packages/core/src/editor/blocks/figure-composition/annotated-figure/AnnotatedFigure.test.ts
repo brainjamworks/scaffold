@@ -21,6 +21,7 @@ import type { LearningEventPort } from "@/host/ports/learning-events";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 import { createScaffoldDocumentContent } from "@/format/artifact";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { CourseDocumentRuntimeRenderer } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
 import {
   LEARNING_EVENT_ACTIVITY_TYPES,
@@ -112,9 +113,9 @@ function renderAnnotatedFigureRuntime(content: JSONContent) {
 function renderAnnotatedFigureLearningEventRuntime(
   figure: JSONContent,
   learningEventPort: LearningEventPort,
-  visibleSurfaceId = "annotated-figure-surface",
+  visibleSurfaceId?: string,
 ) {
-  const surfaceId = "annotated-figure-surface";
+  const surfaceId = createEmbeddedNodeId();
   const surface = slideContentSurfaceDefinition.createSurface({ surfaceId });
   const region = surface.content?.find((child) => child.type === "region");
   if (!region) throw new Error("Annotated Figure fixture is missing its Region.");
@@ -134,7 +135,7 @@ function renderAnnotatedFigureLearningEventRuntime(
           children: createElement(CourseDocumentRuntimeRenderer, {
             composition: coreRuntimeComposition,
             initialContent: content,
-            visibleSurfaceId,
+            visibleSurfaceId: visibleSurfaceId ?? surfaceId,
           }),
         }),
       }),

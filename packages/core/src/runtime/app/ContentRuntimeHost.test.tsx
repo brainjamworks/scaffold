@@ -13,6 +13,7 @@ import {
 } from "@/composition/application/create-scaffold-application";
 import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { emptyCalloutData } from "@/editor/blocks/presentation/callout/content";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
@@ -250,10 +251,11 @@ function slideshowDocumentWithTabs(): JSONContent {
   if (!courseDocument || !definition) {
     throw new Error("runtime slideshow test document is missing its slide definition");
   }
-  courseDocument.content = [
-    definition.createSurface({ surfaceId: "slide-one" }),
-    definition.createSurface({ surfaceId: "slide-two" }),
-  ];
+  const firstSurface = definition.createSurface({ surfaceId: createEmbeddedNodeId() });
+  const secondSurface = definition.createSurface({ surfaceId: createEmbeddedNodeId() });
+  firstSurface.attrs = { ...firstSurface.attrs, id: "slide-one" };
+  secondSurface.attrs = { ...secondSurface.attrs, id: "slide-two" };
+  courseDocument.content = [firstSurface, secondSurface];
   const firstRegion = courseDocument.content[0]?.content?.find((node) => node.type === "region");
   const secondRegion = courseDocument.content[1]?.content?.find((node) => node.type === "region");
 
@@ -337,20 +339,19 @@ function runtimeDocumentContent({
             overflowMode: "grow",
             theme: createScaffoldDefaultTheme(),
           },
-          content: surfaceIds.map((id) =>
-            id === null
-              ? { type: "surface", attrs: {}, content: [{ type: "paragraph" }] }
-              : pageDefinition.createSurface({ surfaceId: id }),
-          ),
+          content: surfaceIds.map((id) => {
+            if (id === null) {
+              return { type: "surface", attrs: {}, content: [{ type: "paragraph" }] };
+            }
+            const surface = pageDefinition.createSurface({ surfaceId: createEmbeddedNodeId() });
+            return { ...surface, attrs: { ...surface.attrs, id } };
+          }),
         },
       ],
     };
   }
 
-  const content = createScaffoldDocumentContent({
-    mode,
-    surfaceId: surfaceIds[0] ?? "surface-runtime",
-  });
+  const content = createScaffoldDocumentContent({ mode });
   const courseDocument = content.content?.[0];
 
   if (!courseDocument) {
@@ -362,11 +363,13 @@ function runtimeDocumentContent({
     mode === "slideshow" ? "slide-cover" : "page-default",
   );
   if (!definition) throw new Error("runtime test definition is missing");
-  courseDocument.content = surfaceIds.map((id) =>
-    id === null
-      ? { type: "surface", attrs: {}, content: [{ type: "paragraph" }] }
-      : definition.createSurface({ surfaceId: id }),
-  );
+  courseDocument.content = surfaceIds.map((id) => {
+    if (id === null) {
+      return { type: "surface", attrs: {}, content: [{ type: "paragraph" }] };
+    }
+    const surface = definition.createSurface({ surfaceId: createEmbeddedNodeId() });
+    return { ...surface, attrs: { ...surface.attrs, id } };
+  });
 
   return content;
 }
@@ -580,7 +583,7 @@ describe("ContentRuntimeHost", () => {
     });
     const content = runtimeDocumentContent({ mode: "slideshow" });
     content.content![0]!.content = [
-      capability.definition.createSurface({ surfaceId: "private-slide" }),
+      capability.definition.createSurface({ surfaceId: createEmbeddedNodeId() }),
     ];
     const onEditorReady = vi.fn();
     const view = render(

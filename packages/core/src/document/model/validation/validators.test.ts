@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import "@/editor/blocks/assessment/mcq/mcq-definition";
@@ -10,6 +11,8 @@ import { createScaffoldDefaultTheme } from "@/theme/model";
 import { validateCourseDocumentJSON } from "./validators";
 
 const FIXED_SURFACE_ID = "surfaceFixed";
+const FIRST_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface_0001");
+const SECOND_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface_0002");
 
 describe("course document JSON helpers", () => {
   it("accepts a fixed signature with optional leading header and trailing footer", () => {
@@ -432,8 +435,8 @@ describe("course document JSON helpers", () => {
             theme: createScaffoldDefaultTheme(),
           },
           content: [
-            slideCoverSurfaceDefinition.createSurface({ surfaceId: "surface_0001" }),
-            slideContentSurfaceDefinition.createSurface({ surfaceId: "surface_0002" }),
+            slideCoverSurfaceDefinition.createSurface({ surfaceId: FIRST_SURFACE_ID }),
+            slideContentSurfaceDefinition.createSurface({ surfaceId: SECOND_SURFACE_ID }),
           ],
         },
       ],

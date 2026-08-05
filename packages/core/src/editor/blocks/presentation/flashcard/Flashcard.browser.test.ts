@@ -10,6 +10,8 @@ import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaf
 import "@/editor/frame/view/bounded-placement.css";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { createScaffoldDocumentContent } from "@/format/artifact";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import type { EmbeddedNodeId } from "@scaffold/contracts";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
 import { LearnerActivityRuntimeProvider } from "@/runtime/learner-activity";
 import { CourseDocumentRuntimeRenderer } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
@@ -391,7 +393,7 @@ interface MountedFlashcardPair {
 }
 
 async function mountRealFlashcardPair(): Promise<MountedFlashcardPair> {
-  const surfaceId = "flashcard-browser-surface";
+  const surfaceId = createEmbeddedNodeId();
   const initialContent = boundedFlashcardDocument(surfaceId);
   const outer = document.createElement("div");
   outer.style.display = "grid";
@@ -473,7 +475,7 @@ async function mountRealFlashcardPair(): Promise<MountedFlashcardPair> {
   return pair;
 }
 
-function boundedFlashcardDocument(surfaceId: string): JSONContent {
+function boundedFlashcardDocument(surfaceId: EmbeddedNodeId): JSONContent {
   const surface = slideContentSurfaceDefinition.createSurface({ surfaceId });
   const region = surface.content?.find((child) => child.type === "region");
   if (!region) throw new Error("Slide content fixture is missing its Region.");

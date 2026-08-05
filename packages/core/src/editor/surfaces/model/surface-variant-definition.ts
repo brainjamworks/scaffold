@@ -1,3 +1,4 @@
+import type { EmbeddedNodeId } from "@scaffold/contracts";
 import type { JSONContent } from "@tiptap/core";
 import type { ZodTypeAny } from "zod";
 
@@ -8,7 +9,7 @@ import {
 } from "@/schemas/course-document";
 
 export interface CreateSurfaceInput {
-  surfaceId: string;
+  surfaceId: EmbeddedNodeId;
 }
 
 export type SurfaceCatalogueSection = "title" | "content" | "image";

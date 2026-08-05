@@ -239,7 +239,7 @@ function documentContent(): JSONContent {
         content: [
           {
             type: "surface",
-            attrs: { id: "surface-1", variant: "page-default" },
+            attrs: { id: "surface00001", variant: "page-default" },
             content: [{ type: "paragraph" }],
           },
         ],

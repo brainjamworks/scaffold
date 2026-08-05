@@ -1,6 +1,6 @@
 import type { JSONContent } from "@tiptap/core";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 
 export function createAccordionContent(options: Record<string, unknown> | undefined): JSONContent {
   const variant = parseAccordionVariant(options?.["variant"]);
@@ -12,7 +12,7 @@ export function createAccordionContent(options: Record<string, unknown> | undefi
   return {
     type: "layout",
     attrs: {
-      id: createStableId(),
+      id: createEmbeddedNodeId(),
       variant: "accordion",
       options: { variant, allowMultiple, label },
     },
@@ -32,7 +32,7 @@ export function createAccordionSection(
   return {
     type: "section",
     attrs: {
-      id: createStableId(),
+      id: createEmbeddedNodeId(),
       role: "accordion-panel",
       options: { defaultOpen },
     },

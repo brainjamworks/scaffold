@@ -12,6 +12,7 @@ import {
   type SurfaceCapability,
 } from "@/composition/application/create-scaffold-application";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import type { SurfaceAuthoringViewProps } from "@/editor/surfaces/authoring/surface-authoring-view-registry";
 import type { SurfaceRuntimeViewProps } from "@/editor/surfaces/runtime/surface-runtime-view-registry";
@@ -218,7 +219,7 @@ describe("ScaffoldLearnerApp", () => {
     });
     const learnerContent = learnerDocumentWithText("Core content replaced by private Surface");
     learnerContent.content![0]!.content = [
-      capability.definition.createSurface({ surfaceId: "private-learner-surface-instance" }),
+      capability.definition.createSurface({ surfaceId: createEmbeddedNodeId() }),
     ];
 
     render(

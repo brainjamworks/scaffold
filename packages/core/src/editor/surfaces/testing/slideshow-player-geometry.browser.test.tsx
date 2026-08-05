@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { createScaffoldDocumentContent } from "@/format/artifact";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { slideModuleCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-module-cover";
 import { AssessmentRuntimeProvider } from "@/runtime/assessment/AssessmentRuntimeProvider";
@@ -13,12 +14,14 @@ import "@/styles/globals.css";
 import { expandSlideCompositionCases } from "./slide-composition-cases";
 import {
   createCompositionDocumentForTest,
+  COMPOSITION_TEST_SURFACE_ID,
   expectCompositionGeometry,
   measureCompositionGeometry,
   type CompositionGeometrySample,
 } from "./slide-composition-browser-harness";
 
 const runtimeComposition = createCoreScaffoldRuntimeComposition();
+const OVERLAY_SURFACE_ID = createEmbeddedNodeId();
 
 const PLAYER_BOUNDS = [
   { name: "exact", hostWidth: 1024, hostHeight: 576, stageWidth: 1024, stageHeight: 576, scale: 1 },
@@ -93,7 +96,7 @@ afterEach(() => {
 
 describe("slideshow player geometry", () => {
   it("contains a representative long module-cover title in the real player canvas", async () => {
-    const surfaceId = "player-module-cover";
+    const surfaceId = createEmbeddedNodeId();
     const initialContent = createScaffoldDocumentContent({ mode: "slideshow", surfaceId });
     const courseDocument = initialContent.content?.[0];
     if (courseDocument?.type !== "courseDocument") {
@@ -219,7 +222,7 @@ describe("slideshow player geometry", () => {
       <SlideshowPlayer
         composition={runtimeComposition}
         initialContent={initialContent}
-        surfaceIds={[`geometry-${state.composition}`]}
+        surfaceIds={[COMPOSITION_TEST_SURFACE_ID]}
         onRendererReady={(readyEditor) => {
           editor = readyEditor;
         }}
@@ -307,7 +310,7 @@ describe("slideshow player geometry", () => {
       <SlideshowPlayer
         composition={runtimeComposition}
         initialContent={initialContent}
-        surfaceIds={[`geometry-${state.composition}`]}
+        surfaceIds={[COMPOSITION_TEST_SURFACE_ID]}
         sizing="embedded"
         onRendererReady={(readyEditor) => {
           editor = readyEditor;
@@ -390,7 +393,7 @@ describe("slideshow player geometry", () => {
             composition={runtimeComposition}
             artifactId="artifact-slideshow-overlay-geometry"
             initialContent={initialContent}
-            surfaceIds={["slide-overlay-geometry"]}
+            surfaceIds={[OVERLAY_SURFACE_ID]}
             onRendererReady={(readyEditor) => {
               editor = readyEditor;
             }}
@@ -507,13 +510,13 @@ function expectSlideshowShellUnchanged(
 function slideshowDocumentWithRuntimeHint(): JSONContent {
   const content = createScaffoldDocumentContent({
     mode: "slideshow",
-    surfaceId: "slide-overlay-geometry",
+    surfaceId: OVERLAY_SURFACE_ID,
   });
   const courseDocument = content.content?.[0];
   const surface = courseDocument?.content?.[0];
   if (!courseDocument || !surface) throw new Error("Missing overlay geometry slideshow surface.");
   courseDocument.attrs = { ...courseDocument.attrs, mode: "slideshow" };
-  surface.attrs = { ...surface.attrs, id: "slide-overlay-geometry", variant: "slide-cover" };
+  surface.attrs = { ...surface.attrs, id: OVERLAY_SURFACE_ID, variant: "slide-cover" };
   surface.content = [
     {
       type: "mcq",

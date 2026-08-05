@@ -1,4 +1,5 @@
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import { createRoot, type Root } from "react-dom/client";
 
 import {
@@ -22,6 +23,7 @@ import {
 } from "./slide-composition-geometry-oracle";
 
 const INTRINSIC_WIDTH = 1024;
+export const COMPOSITION_TEST_SURFACE_ID = EmbeddedNodeIdSchema.parse("geometry0001");
 const INTRINSIC_HEIGHT = 576;
 const RECT_TOLERANCE = 0.5;
 
@@ -722,7 +724,8 @@ function createCompositionDocument(
     throw new Error(`No matching registered definition exists for ${describeState(state)}.`);
   }
 
-  const surface = definition.createSurface({ surfaceId: `geometry-${state.composition}` });
+  const surfaceId = COMPOSITION_TEST_SURFACE_ID;
+  const surface = definition.createSurface({ surfaceId });
   const baseSettings = isRecord(surface.attrs?.["settings"]) ? surface.attrs?.["settings"] : {};
   const settings = definition.settingsSchema.parse({
     ...baseSettings,
@@ -764,7 +767,7 @@ function createCompositionDocument(
   };
   const content = createScaffoldDocumentContent({
     mode: "slideshow",
-    surfaceId: `geometry-${state.composition}`,
+    surfaceId,
   });
   const courseDocument = content.content?.[0];
   if (courseDocument?.type !== "courseDocument") {
@@ -783,7 +786,7 @@ function createRegisteredSurfaceDocument(
     throw new Error(`No registered slideshow surface definition exists for variant=${variant}.`);
   }
 
-  const surfaceId = `geometry-${variant}`;
+  const surfaceId = COMPOSITION_TEST_SURFACE_ID;
   const surface = definition.createSurface({ surfaceId });
   const baseSettings = isRecord(surface.attrs?.["settings"]) ? surface.attrs?.["settings"] : {};
   const settingsInput =

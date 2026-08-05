@@ -2,10 +2,12 @@ import type { JSONContent } from "@tiptap/core";
 import { describe, expect, it } from "vite-plus/test";
 
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
+import { createEmbeddedNodeId } from "./stable-ids";
 
 import { cloneJsonWithNewStableIds } from "./clone-with-new-ids";
 
 const STABLE_ID_PATTERN = /^[0-9A-Z_a-z-]{12}$/;
+const SOURCE_SURFACE_ID = createEmbeddedNodeId();
 
 function firstNodeByType(node: JSONContent, type: string): JSONContent | undefined {
   if (node.type === type) return node;
@@ -31,13 +33,13 @@ function assessmentOf(node: JSONContent | undefined): Record<string, unknown> {
 
 describe("cloneJsonWithNewStableIds", () => {
   it("allocates a fresh surface instance id without changing its variant or current shape", () => {
-    const source = slideCoverSurfaceDefinition.createSurface({ surfaceId: "slide-original" });
+    const source = slideCoverSurfaceDefinition.createSurface({ surfaceId: SOURCE_SURFACE_ID });
 
     const clone = cloneJsonWithNewStableIds(source);
 
-    expect(source.attrs?.["id"]).toBe("slide-original");
+    expect(source.attrs?.["id"]).toBe(SOURCE_SURFACE_ID);
     expect(clone.attrs?.["id"]).toEqual(expect.stringMatching(STABLE_ID_PATTERN));
-    expect(clone.attrs?.["id"]).not.toBe("slide-original");
+    expect(clone.attrs?.["id"]).not.toBe(SOURCE_SURFACE_ID);
     expect(clone.attrs?.["variant"]).toBe("slide-cover");
     expect(clone.attrs?.["settings"]).toEqual(source.attrs?.["settings"]);
     expect(clone.content).toEqual(source.content);

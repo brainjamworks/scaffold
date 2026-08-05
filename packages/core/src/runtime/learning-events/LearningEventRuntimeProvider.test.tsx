@@ -228,7 +228,7 @@ describe("LearningEventRuntimeProvider", () => {
     expect(() =>
       reporters[0]?.report({
         type: "surface.experienced",
-        surfaceId: "surface-1",
+        surfaceId: "surface00001",
         surfaceKind: "page",
         position: 1,
         count: 1,
@@ -264,7 +264,7 @@ describe("LearningEventRuntimeProvider", () => {
     await waitFor(() => expect(reporters).toHaveLength(1));
     const result = reporters[0]?.report({
       type: "surface.experienced",
-      surfaceId: "surface-1",
+      surfaceId: "surface00001",
       surfaceKind: "page",
       position: 1,
       count: 1,
@@ -335,7 +335,7 @@ describe("LearningEventRuntimeProvider", () => {
     });
     invokePublicReporter(observation.reporter, {
       type: "surface.experienced",
-      surfaceId: "surface-1",
+      surfaceId: "surface00001",
       surfaceKind: "page",
       position: 1,
       count: 1,
@@ -349,7 +349,7 @@ describe("LearningEventRuntimeProvider", () => {
     { label: "an unknown discriminant", input: { type: "not.registered" } },
     {
       label: "a malformed block input",
-      input: { type: "surface.experienced", surfaceId: "surface-1" },
+      input: { type: "surface.experienced", surfaceId: "surface00001" },
     },
   ])("contains $label and fail-stops the public reporter", async ({ input }) => {
     const port = createPort();
@@ -603,7 +603,7 @@ describe("LearningEventRuntimeProvider", () => {
     await waitFor(() => expect(observations.at(-1)?.session).toBeNull());
     observations.at(-1)?.reporter.report({
       type: "surface.experienced",
-      surfaceId: "surface-1",
+      surfaceId: "surface00001",
       surfaceKind: "page",
       position: 1,
       count: 1,

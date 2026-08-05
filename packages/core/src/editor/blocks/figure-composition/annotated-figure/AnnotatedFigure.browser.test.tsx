@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser/context";
 
 import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
@@ -571,7 +572,7 @@ function boundedAnnotatedFigureDocument(
   captionDisplay: "list" | "popover" = "list",
   longFirstCaption = false,
 ): JSONContent {
-  const surfaceId = "annotated-figure-bounded";
+  const surfaceId = createEmbeddedNodeId();
   const surface = slideContentSurfaceDefinition.createSurface({ surfaceId });
   const region = surface.content?.find((child) => child.type === "region");
   if (!region) throw new Error("Slide content fixture is missing its Region.");

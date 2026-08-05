@@ -22,12 +22,14 @@ import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/s
 import { CourseDocumentRuntimeRenderer } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { createScaffoldDefaultTheme } from "@/theme/model";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 
 import { CourseDocumentEditor } from "./CourseDocumentEditor";
 
 const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 const coreRuntimeComposition = createCoreScaffoldRuntimeComposition();
 const coreInsertCatalog = coreAuthoringComposition.catalogues.inDocument;
+const COVER_SURFACE_ID = createEmbeddedNodeId();
 const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: builtInBlockRegistry,
   surfaceVariants: builtInSurfaceVariantRegistry,
@@ -97,7 +99,7 @@ describe("CourseDocumentEditor unified alignment", () => {
   it("gates vertical controls to capable Surfaces and bounded Sections", async () => {
     const editor = await mountEditor(slideshowAlignmentDocument());
 
-    expect(snapshot(editor, InteractionTargetKind.Surface, "surface-cover")).toMatchObject({
+    expect(snapshot(editor, InteractionTargetKind.Surface, COVER_SURFACE_ID)).toMatchObject({
       horizontal: { kind: "indeterminate", reason: "mixed" },
       vertical: { kind: "value", value: "bottom" },
     });
@@ -347,7 +349,7 @@ function pageDocument(content: JSONContent[]): JSONContent {
 }
 
 function slideshowAlignmentDocument(): JSONContent {
-  const cover = slideCoverSurfaceDefinition.createSurface({ surfaceId: "surface-cover" });
+  const cover = slideCoverSurfaceDefinition.createSurface({ surfaceId: COVER_SURFACE_ID });
   const coverTitle = cover.content?.[0] as JSONContent | undefined;
   const coverSubtitle = cover.content?.[1]?.content?.[0] as JSONContent | undefined;
   if (!coverTitle || !coverSubtitle) throw new Error("Expected slide cover fields");
@@ -361,7 +363,7 @@ function slideshowAlignmentDocument(): JSONContent {
   coverSubtitle.content = [{ type: "text", text: "Cover subtitle" }];
 
   const contentSurface = slideContentSurfaceDefinition.createSurface({
-    surfaceId: "surface-content",
+    surfaceId: createEmbeddedNodeId(),
   });
   const mainRegion = contentSurface.content?.[1];
   if (!mainRegion) throw new Error("Expected slide content Region");

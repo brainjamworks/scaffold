@@ -1,3 +1,4 @@
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import type { JSONContent } from "@tiptap/core";
 
 import type { CourseMode } from "@/schemas/course-document";
@@ -33,7 +34,7 @@ export interface SurfaceVariantLookup {
 }
 
 const EMPTY_SURFACE_DEFINITIONS: readonly RegisteredSurfaceVariantDefinition[] = Object.freeze([]);
-const SURFACE_VARIANT_REGISTRY_VALIDATION_ID = "surface-variant-registry-validation";
+const SURFACE_VARIANT_REGISTRY_VALIDATION_ID = EmbeddedNodeIdSchema.parse("surface00001");
 
 export function createSurfaceVariantRegistry(
   definitions: readonly SurfaceVariantDefinition[],

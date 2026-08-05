@@ -4,6 +4,7 @@ import {
   SortAscendingIcon as SortAscending,
   SortDescendingIcon as SortDescending,
 } from "@phosphor-icons/react";
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
 import {
   DEFAULT_SLIDE_IMAGE_BAND_SURFACE_SETTINGS,
@@ -42,6 +43,8 @@ import { SlideCoverSurfaceAuthoringView } from "./variants/slide-cover";
 import { SlideImageBandSurfaceAuthoringView } from "./variants/slide-image-band";
 import { SlideImageCoverSurfaceAuthoringView } from "./variants/slide-image-cover";
 import { SlideModuleCoverSurfaceAuthoringView } from "./variants/slide-module-cover";
+
+const SURFACE_SETTINGS_DRAFT_ID = EmbeddedNodeIdSchema.parse("settings0001");
 
 const COMMON_SURFACE_CONTROLS = [
   {
@@ -216,7 +219,7 @@ function defineSlideCompositionSettingsConfiguration(
   return defineSurfaceSettingsConfiguration({
     schema: definition.settingsSchema,
     createInitialDraft: () =>
-      definition.createSurface({ surfaceId: "surface-settings-draft" }).attrs?.["settings"],
+      definition.createSurface({ surfaceId: SURFACE_SETTINGS_DRAFT_ID }).attrs?.["settings"],
     controls,
     sections,
     defaultOpenSections,

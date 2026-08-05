@@ -2,7 +2,7 @@ import type { Editor } from "@tiptap/core";
 import { Fragment, type Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { Transaction } from "@tiptap/pm/state";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { isValidDocPos } from "@/editor/prosemirror/position/document-position";
 
 import { insertGridCellInTransaction } from "./grid-commands";
@@ -116,7 +116,7 @@ function buildSiblingGridTransaction(
   if (!columnWidths) return null;
 
   const grid = gridType.createChecked(
-    { id: createStableId(), columnWidths },
+    { id: createEmbeddedNodeId(), columnWidths },
     Fragment.fromArray(cells),
   );
 

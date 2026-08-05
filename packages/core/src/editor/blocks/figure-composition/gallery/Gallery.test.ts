@@ -37,6 +37,7 @@ import {
 } from "@/document/model/commands/content-collections";
 import { ConfigurationSettingsSheet } from "@/editor/shell/settings/sheets/ConfigurationSettingsSheet";
 import { createScaffoldDocumentContent } from "@/format/artifact";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import type { LearningEventPort } from "@/host/ports/learning-events";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
@@ -159,9 +160,9 @@ function renderGalleryEditor(content: JSONContent = galleryFixture()) {
 function renderGalleryLearningEventRuntime(
   gallery: JSONContent,
   learningEventPort: LearningEventPort,
-  visibleSurfaceId = "gallery-surface",
+  visibleSurfaceId?: string,
 ) {
-  const surfaceId = "gallery-surface";
+  const surfaceId = createEmbeddedNodeId();
   const surface = slideContentSurfaceDefinition.createSurface({ surfaceId });
   const region = surface.content?.find((child) => child.type === "region");
   if (!region) throw new Error("Gallery fixture is missing its Region.");
@@ -181,7 +182,7 @@ function renderGalleryLearningEventRuntime(
           children: createElement(CourseDocumentRuntimeRenderer, {
             composition: coreRuntimeComposition,
             initialContent: content,
-            visibleSurfaceId,
+            visibleSurfaceId: visibleSurfaceId ?? surfaceId,
           }),
         }),
       }),

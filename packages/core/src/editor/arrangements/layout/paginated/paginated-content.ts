@@ -1,6 +1,6 @@
 import type { JSONContent } from "@tiptap/core";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 
 export function createPaginatedContent(options: Record<string, unknown> | undefined): JSONContent {
   const pageCount = readPositiveInteger(options?.["pages"] ?? options?.["sections"], 2);
@@ -8,7 +8,7 @@ export function createPaginatedContent(options: Record<string, unknown> | undefi
   return {
     type: "layout",
     attrs: {
-      id: createStableId(),
+      id: createEmbeddedNodeId(),
       variant: "paginated",
     },
     content: Array.from({ length: pageCount }, (_, index) => createPaginatedPage(index)),
@@ -19,7 +19,7 @@ export function createPaginatedPage(index: number): JSONContent {
   return {
     type: "section",
     attrs: {
-      id: createStableId(),
+      id: createEmbeddedNodeId(),
       role: "page",
       label: `Page ${index + 1}`,
     },

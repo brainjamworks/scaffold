@@ -2,6 +2,9 @@ import { describe, expect, it } from "vite-plus/test";
 import { z } from "zod";
 
 import { SurfaceSettingsSchema } from "@/schemas/course-document";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+
+const TEST_SURFACE_ID = createEmbeddedNodeId();
 
 import {
   defineSlideCompositionSurface,
@@ -408,9 +411,9 @@ describe("slide composition definitions", () => {
       regions: expected.regions,
       imageSlots: expected.imageSlots,
     });
-    expect(registered.createSurface({ surfaceId: expected.id }).attrs?.["settings"]).toEqual(
+    expect(registered.createSurface({ surfaceId: TEST_SURFACE_ID }).attrs?.["settings"]).toEqual(
       registered.settingsSchema.parse(
-        registered.createSurface({ surfaceId: expected.id }).attrs?.["settings"],
+        registered.createSurface({ surfaceId: TEST_SURFACE_ID }).attrs?.["settings"],
       ),
     );
   });
@@ -510,9 +513,7 @@ describe("slide composition definitions", () => {
     });
 
     expect(
-      registered
-        .createSurface({ surfaceId: "factory-reassignment" })
-        .content?.map(({ type }) => type),
+      registered.createSurface({ surfaceId: TEST_SURFACE_ID }).content?.map(({ type }) => type),
     ).toEqual(["slide_title", "region"]);
   });
 
@@ -532,7 +533,7 @@ describe("slide composition definitions", () => {
     };
     const registered = defineSlideCompositionSurface(definition);
 
-    expect(() => registered.createSurface({ surfaceId: "requested-surface-id" })).toThrow(
+    expect(() => registered.createSurface({ surfaceId: TEST_SURFACE_ID })).toThrow(
       `Slide composition definition "${definitionId}" must create the requested surface instance id.`,
     );
   });
@@ -555,7 +556,7 @@ describe("slide composition definitions", () => {
     expect(() => validateSurfaceVariantFactories(registry)).not.toThrow();
     expect(factoryCalls).toBe(1);
 
-    expect(() => registered.createSurface({ surfaceId: "stateful-factory-drift" })).toThrow(
+    expect(() => registered.createSurface({ surfaceId: TEST_SURFACE_ID })).toThrow(
       `Surface definition "${definitionId}" createSurface result does not match its declared fixedChildren signature.`,
     );
   });
@@ -618,9 +619,7 @@ describe("slide composition definitions", () => {
 
     const registeredDefaultMismatch = defineSlideCompositionSurface(defaultMismatch);
 
-    expect(() =>
-      registeredDefaultMismatch.createSurface({ surfaceId: "default-mismatch" }),
-    ).toThrow(
+    expect(() => registeredDefaultMismatch.createSurface({ surfaceId: TEST_SURFACE_ID })).toThrow(
       'Slide composition definition "slide-composition-definition-default-mismatch-test" must default slideTitle.enabled to true.',
     );
   });
@@ -897,7 +896,7 @@ describe("slide composition definitions", () => {
 
     const registered = defineSlideCompositionSurface(definition);
 
-    expect(registered.createSurface({ surfaceId: "parsed-settings" }).attrs?.["settings"]).toEqual({
+    expect(registered.createSurface({ surfaceId: TEST_SURFACE_ID }).attrs?.["settings"]).toEqual({
       slideTitle: { enabled: true },
     });
   });
@@ -1054,7 +1053,7 @@ describe("slide composition definitions", () => {
       }),
     });
 
-    expect(() => registered.createSurface({ surfaceId: "image-default-mismatch" })).toThrow(
+    expect(() => registered.createSurface({ surfaceId: TEST_SURFACE_ID })).toThrow(
       'Slide composition definition "slide-composition-definition-image-default-mismatch-test" createSurface settings do not match its settings schema.',
     );
   });
@@ -1127,7 +1126,7 @@ describe("slide composition definitions", () => {
 
     const registered = defineSlideCompositionSurface(definition);
 
-    expect(() => registered.createSurface({ surfaceId: "fixed-signature-mismatch" })).toThrow(
+    expect(() => registered.createSurface({ surfaceId: TEST_SURFACE_ID })).toThrow(
       `Surface definition "${definitionId}" createSurface result does not match its declared fixedChildren signature.`,
     );
   });

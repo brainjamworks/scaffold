@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vite-plus/test";
 
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+
 import {
   builtInSurfaceVariantDefinitions,
   builtInSurfaceVariantRegistry,
@@ -82,7 +84,7 @@ describe("built-in surface variant definitions", () => {
   it("preserves factory identity and validates every factory default", () => {
     for (const definition of builtInSurfaceVariantDefinitions) {
       const registered = builtInSurfaceVariantRegistry.get(definition.id);
-      const surfaceId = `surface-${definition.id}`;
+      const surfaceId = createEmbeddedNodeId();
       const surface = definition.createSurface({ surfaceId });
 
       expect(registered?.createSurface).toBe(definition.createSurface);

@@ -1,10 +1,12 @@
-import { describe, expect, it } from "vite-plus/test";
+import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
+import { describe, expect, expectTypeOf, it } from "vite-plus/test";
 import { z } from "zod";
 
 import { SurfaceSettingsSchema, type CourseMode } from "@/schemas/course-document";
 
 import {
   normalizeSurfaceDefinition,
+  type CreateSurfaceInput,
   type FixedSurfaceChild,
   type SurfaceAlignmentDefinition,
   type SurfaceCatalogueEntry,
@@ -17,6 +19,8 @@ import {
   createSurfaceVariantRegistry,
   validateSurfaceVariantFactories,
 } from "./surface-variant-registry";
+
+const MODERN_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00001");
 
 function createSurfaceDefinition(
   id: string,
@@ -37,6 +41,10 @@ function createSurfaceDefinition(
 }
 
 describe("surface variant registry foundation", () => {
+  it("requires the owner-facing Surface input to carry Node identity", () => {
+    expectTypeOf<CreateSurfaceInput["surfaceId"]>().toEqualTypeOf<EmbeddedNodeId>();
+  });
+
   it("normalizes a definition as a fresh value", () => {
     const definition = createSurfaceDefinition("isolated-normalization-test");
 
@@ -105,10 +113,13 @@ describe("surface variant registry foundation", () => {
   it("constructs a registry without executing content factories", () => {
     let firstFactoryCalls = 0;
     let secondFactoryCalls = 0;
+    let firstSurfaceId: unknown;
+    let secondSurfaceId: unknown;
     const first = createSurfaceDefinition("isolated-inert-registry-first-test", {
       defaultForModes: ["page"],
       createSurface: ({ surfaceId }) => {
         firstFactoryCalls += 1;
+        firstSurfaceId = surfaceId;
         return {
           type: "surface",
           attrs: { id: surfaceId, variant: "isolated-inert-registry-first-test" },
@@ -118,6 +129,7 @@ describe("surface variant registry foundation", () => {
     const second = createSurfaceDefinition("isolated-inert-registry-second-test", {
       createSurface: ({ surfaceId }) => {
         secondFactoryCalls += 1;
+        secondSurfaceId = surfaceId;
         return {
           type: "surface",
           attrs: { id: surfaceId, variant: "isolated-inert-registry-second-test" },
@@ -134,6 +146,8 @@ describe("surface variant registry foundation", () => {
 
     expect(firstFactoryCalls).toBe(1);
     expect(secondFactoryCalls).toBe(1);
+    expect(firstSurfaceId).toBe(secondSurfaceId);
+    expect(EmbeddedNodeIdSchema.safeParse(firstSurfaceId).success).toBe(true);
   });
 
   it("keeps registries isolated when they contain the same variant id", () => {
@@ -289,9 +303,12 @@ describe("surface variant registry foundation", () => {
       slideTitle.id,
     ]);
     expect(registry.defaultForMode("page")?.id).toBe(pageDefault.id);
-    expect(registry.createDefault({ mode: "page", surfaceId: "surface-1" })).toEqual(
-      pageDefault.createSurface({ surfaceId: "surface-1" }),
+    expect(registry.createDefault({ mode: "page", surfaceId: MODERN_SURFACE_ID })).toEqual(
+      pageDefault.createSurface({ surfaceId: MODERN_SURFACE_ID }),
     );
+    expect(
+      registry.createDefault({ mode: "page", surfaceId: MODERN_SURFACE_ID }).attrs?.["id"],
+    ).toBe(MODERN_SURFACE_ID);
     expect(Object.isFrozen(registry.forMode("slideshow"))).toBe(true);
   });
 

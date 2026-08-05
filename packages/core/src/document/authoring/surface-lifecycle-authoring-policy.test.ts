@@ -5,6 +5,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { ARRANGEMENT_CONTENT } from "@/document/model/content-model/content-groups";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
@@ -17,6 +18,11 @@ import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import { createSurfaceLifecycleAuthoringPolicy } from "./surface-lifecycle-authoring-policy";
 
 const editors: Editor[] = [];
+const PAGE_SURFACE_ID = createEmbeddedNodeId();
+const FIRST_SLIDE_ID = createEmbeddedNodeId();
+const SECOND_SLIDE_ID = createEmbeddedNodeId();
+const THIRD_SLIDE_ID = createEmbeddedNodeId();
+const COMPATIBLE_SLIDE_ID = createEmbeddedNodeId();
 const TestArrangementNode = Node.create({
   name: "testArrangement",
   group: ARRANGEMENT_CONTENT,
@@ -41,7 +47,7 @@ describe("surface lifecycle authoring policy", () => {
     );
 
     expect(firstSurfaceAttrs(editor)).toMatchObject({
-      id: "surface-page",
+      id: PAGE_SURFACE_ID,
       variant: "page-default",
     });
   });
@@ -50,9 +56,11 @@ describe("surface lifecycle authoring policy", () => {
     const editor = makeEditor(slideshowDocument());
     const surfacePositions = allSurfacePositions(editor);
 
-    editor.view.dispatch(editor.state.tr.setNodeAttribute(surfacePositions[1]!, "id", "slide-one"));
+    editor.view.dispatch(
+      editor.state.tr.setNodeAttribute(surfacePositions[1]!, "id", FIRST_SLIDE_ID),
+    );
 
-    expect(allSurfaceIds(editor)).toEqual(["slide-one", "slide-two"]);
+    expect(allSurfaceIds(editor)).toEqual([FIRST_SLIDE_ID, SECOND_SLIDE_ID]);
   });
 
   it("rejects relabelling an existing surface to a compatible registered variant", () => {
@@ -68,7 +76,7 @@ describe("surface lifecycle authoring policy", () => {
     );
 
     expect(firstSurfaceAttrs(editor)).toMatchObject({
-      id: "slide-compatible",
+      id: COMPATIBLE_SLIDE_ID,
       variant: "slide-image-content-split",
     });
   });
@@ -77,12 +85,12 @@ describe("surface lifecycle authoring policy", () => {
     const editor = makeEditor(slideshowDocument());
     const definition = builtInSurfaceVariantRegistry.get("slide-cover")!;
     const inserted = editor.schema.nodeFromJSON(
-      definition.createSurface({ surfaceId: "slide-three" }),
+      definition.createSurface({ surfaceId: THIRD_SLIDE_ID }),
     );
 
     editor.view.dispatch(editor.state.tr.insert(editor.state.doc.content.size - 1, inserted));
 
-    expect(allSurfaceIds(editor)).toEqual(["slide-one", "slide-two", "slide-three"]);
+    expect(allSurfaceIds(editor)).toEqual([FIRST_SLIDE_ID, SECOND_SLIDE_ID, THIRD_SLIDE_ID]);
   });
 
   it("rejects invalid settings and fixed surface structure", () => {
@@ -124,7 +132,7 @@ describe("surface lifecycle authoring policy", () => {
     expect(editor.commands.setContent(pageDocument(), { emitUpdate: false })).toBe(true);
 
     expect(firstSurfaceAttrs(editor)).toMatchObject({
-      id: "surface-page",
+      id: PAGE_SURFACE_ID,
       variant: "page-default",
     });
   });
@@ -164,7 +172,7 @@ function pageDocument(): JSONContent {
         },
         content: [
           builtInSurfaceVariantRegistry.get("page-default")!.createSurface({
-            surfaceId: "surface-page",
+            surfaceId: PAGE_SURFACE_ID,
           }),
         ],
       },
@@ -186,8 +194,8 @@ function slideshowDocument(): JSONContent {
           overflowMode: "clip",
         },
         content: [
-          definition.createSurface({ surfaceId: "slide-one" }),
-          definition.createSurface({ surfaceId: "slide-two" }),
+          definition.createSurface({ surfaceId: FIRST_SLIDE_ID }),
+          definition.createSurface({ surfaceId: SECOND_SLIDE_ID }),
         ],
       },
     ],
@@ -207,7 +215,7 @@ function compatibleSlideshowDocument(): JSONContent {
           surfaceSize: "16x9",
           overflowMode: "clip",
         },
-        content: [definition.createSurface({ surfaceId: "slide-compatible" })],
+        content: [definition.createSurface({ surfaceId: COMPATIBLE_SLIDE_ID })],
       },
     ],
   };

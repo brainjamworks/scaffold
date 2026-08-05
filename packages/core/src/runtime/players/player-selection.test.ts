@@ -1,5 +1,6 @@
 import type { JSONContent } from "@tiptap/core";
 import { describe, expect, it } from "vite-plus/test";
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
 import { validateCourseSurfaceLifecycle } from "@/document/model/validation";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
@@ -7,24 +8,28 @@ import { createScaffoldDocumentContent } from "@/format/artifact";
 
 import { selectRuntimePlayer } from "./player-selection";
 
+const PAGE_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface-page");
+const FIRST_SLIDE_ID = EmbeddedNodeIdSchema.parse("slide_000002");
+const SECOND_SLIDE_ID = EmbeddedNodeIdSchema.parse("slide_000001");
+
 describe("selectRuntimePlayer", () => {
   it("selects a page only from its validated surface instance", () => {
     const projection = validatedProjection(
-      createScaffoldDocumentContent({ mode: "page", surfaceId: "surface-page" }),
+      createScaffoldDocumentContent({ mode: "page", surfaceId: PAGE_SURFACE_ID }),
     );
 
     expect(selectRuntimePlayer(projection)).toEqual({
       status: "available",
       player: "page",
       mode: "page",
-      surfaceIds: ["surface-page"],
+      surfaceIds: [PAGE_SURFACE_ID],
     });
   });
 
   it("preserves validated slideshow instance order", () => {
     const content = createScaffoldDocumentContent({
       mode: "slideshow",
-      surfaceId: "slide_000002",
+      surfaceId: FIRST_SLIDE_ID,
     });
     const courseDocument = content.content?.[0];
     const firstSurface = courseDocument?.content?.[0];
@@ -33,7 +38,7 @@ describe("selectRuntimePlayer", () => {
     if (!slideCover) throw new Error("missing slide-cover definition");
     courseDocument.content = [
       firstSurface,
-      slideCover.createSurface({ surfaceId: "slide_000001" }),
+      slideCover.createSurface({ surfaceId: SECOND_SLIDE_ID }),
     ];
     const before = structuredClone(content);
 
@@ -43,7 +48,7 @@ describe("selectRuntimePlayer", () => {
       status: "available",
       player: "slideshow",
       mode: "slideshow",
-      surfaceIds: ["slide_000002", "slide_000001"],
+      surfaceIds: [FIRST_SLIDE_ID, SECOND_SLIDE_ID],
     });
     expect(content).toEqual(before);
   });

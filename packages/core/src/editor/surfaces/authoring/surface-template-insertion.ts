@@ -2,7 +2,7 @@ import type { Editor } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
 import { CourseModeSchema, type CourseMode } from "@/schemas/course-document";
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { setTextSelectionNearInTransaction } from "@/editor/selection/selection-transactions";
 
 import type { SurfaceVariantRegistry } from "../model/surface-variant-registry";
@@ -45,7 +45,7 @@ export function insertSurfaceTemplateAfterSurface(
 
   const insertPos = previousSurface.pos + previousSurface.node.nodeSize;
   const nextSurface = editor.state.schema.nodeFromJSON(
-    definition.createSurface({ surfaceId: createStableId() }),
+    definition.createSurface({ surfaceId: createEmbeddedNodeId() }),
   );
   const tr = editor.state.tr.insert(insertPos, nextSurface);
   const selectionPos = Math.min(insertPos + 2, tr.doc.content.size);

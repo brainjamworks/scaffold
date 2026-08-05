@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
@@ -214,7 +215,7 @@ describe("Gallery container geometry", () => {
 });
 
 function boundedGalleryDocument(owner: BoundedOwner, layout: "carousel" | "grid"): JSONContent {
-  const surfaceId = `gallery-${owner}`;
+  const surfaceId = createEmbeddedNodeId();
   const surface = slideContentSurfaceDefinition.createSurface({ surfaceId });
   const region = surface.content?.find((child) => child.type === "region");
   if (!region) throw new Error("Slide content fixture is missing its Region.");
