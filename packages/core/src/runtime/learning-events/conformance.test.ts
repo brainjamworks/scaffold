@@ -893,6 +893,27 @@ describe("Core learning event conformance", () => {
 
     const absent = await recordOperationalScenario();
 
+    const postAcceptanceProjector = vi.fn((event: LearningEvent) => ({
+      eventId: event.id,
+      status: "retryable-failure" as const,
+      reasonCode: "destination-unavailable",
+    }));
+    const projectorFailurePort = createInMemoryLearningEventPort(async (event) => {
+      postAcceptanceProjector(event);
+    });
+    const projectorFailureSession = createDeterministicLearningEventSession(
+      projectorFailurePort.port,
+    );
+    const projectorFailed = await recordOperationalScenario(() => projectorFailureSession.session);
+    projectorFailureSession.setMonotonicTime(31_000);
+    await projectorFailureSession.session.terminate();
+    expect(postAcceptanceProjector).toHaveBeenCalledTimes(4);
+    expect(projectorFailureSession.session.getState()).toMatchObject({
+      status: "terminated",
+      acceptance: "accepted",
+    });
+    expect(projectorFailurePort.accepted).toHaveLength(4);
+
     let rejectionAttempt = 0;
     const rejectSecondAcceptance = vi.fn<LearningEventPort["accept"]>(async () => {
       rejectionAttempt += 1;
@@ -997,6 +1018,7 @@ describe("Core learning event conformance", () => {
 
     for (const [condition, result] of Object.entries({
       absent,
+      projectorFailed,
       rejected,
       overflowed,
       shutDown,

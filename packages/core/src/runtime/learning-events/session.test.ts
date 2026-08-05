@@ -375,6 +375,12 @@ describe("createLearningEventSession", () => {
     session.record(learningInput("block-2"));
     await flushPromises();
     expect(accept).toHaveBeenCalledTimes(1);
+    const rejectedEvent = accept.mock.calls[0]?.[0];
+    expect(rejectedEvent).toMatchObject({
+      id: "00000000-0000-4000-8000-000000000001",
+      timestamp: STARTED_AT,
+      verb: LEARNING_EVENT_VERBS.initialized,
+    });
 
     firstAcceptance.reject(new Error("host unavailable"));
     await flushPromises();
@@ -389,6 +395,7 @@ describe("createLearningEventSession", () => {
     const admittedBeforeFailure = createUuid.mock.calls.length;
     expect(() => session.record(learningInput("ignored"))).not.toThrow();
     expect(createUuid).toHaveBeenCalledTimes(admittedBeforeFailure);
+    expect(accept.mock.calls[0]?.[0]).toBe(rejectedEvent);
     await expect(session.terminate()).resolves.toBeUndefined();
     expect(session.getState()).toEqual({
       status: "terminated",
