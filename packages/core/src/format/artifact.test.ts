@@ -15,7 +15,7 @@ describe("Scaffold format", () => {
   it("creates a course document content envelope", () => {
     const content = createScaffoldDocumentContent({
       mode: "page",
-      surfaceId: "surface-1",
+      surfaceId: "surface_0001",
     });
 
     expect(content).toMatchObject({
@@ -40,7 +40,7 @@ describe("Scaffold format", () => {
           content: [
             {
               type: "surface",
-              attrs: { id: "surface-1", variant: "page-default" },
+              attrs: { id: "surface_0001", variant: "page-default" },
               content: [{ type: "paragraph" }],
             },
           ],
@@ -52,12 +52,12 @@ describe("Scaffold format", () => {
   it("keeps the surface definition identity separate from the occurrence identity", () => {
     const supplied = createScaffoldDocumentContent({
       mode: "slideshow",
-      surfaceId: "surface-supplied",
+      surfaceId: "surface_0002",
     });
     const generated = createScaffoldDocumentContent({ mode: "page" });
 
     expect(supplied.content?.[0]?.content?.[0]?.attrs).toMatchObject({
-      id: "surface-supplied",
+      id: "surface_0002",
       variant: "slide-cover",
     });
     expect(generated.content?.[0]?.content?.[0]?.attrs).toMatchObject({
@@ -65,6 +65,24 @@ describe("Scaffold format", () => {
       variant: "page-default",
     });
     expect(generated.content?.[0]?.content?.[0]?.attrs?.["id"]).not.toBe("page-default");
+  });
+
+  it("rejects malformed caller-supplied surface identities instead of normalizing them", () => {
+    expect(() =>
+      createScaffoldDocumentContent({
+        mode: "page",
+        surfaceId: "surface-1",
+      }),
+    ).toThrow();
+
+    expect(() =>
+      createScaffoldArtifact({
+        id: "artifact-1",
+        title: "Untitled",
+        mode: "page",
+        surfaceId: "",
+      }),
+    ).toThrow();
   });
 
   it("detects an uninitialized authoring bootstrap", () => {

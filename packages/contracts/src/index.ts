@@ -11,6 +11,7 @@ export * from "./comparison";
 export * from "./course-document";
 export * from "./dropdown";
 export * from "./embed";
+export * from "./embedded-id";
 export * from "./flashcard";
 export * from "./fill-blanks";
 export * from "./gallery";

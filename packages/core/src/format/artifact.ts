@@ -1,5 +1,6 @@
 import type { JSONContent } from "@tiptap/core";
-import { nanoid } from "nanoid";
+
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
 import {
   SCAFFOLD_DOCUMENT_FORMAT_VERSION,
@@ -12,10 +13,9 @@ import {
   type SurfaceSize,
 } from "@/schemas/course-document";
 import { getCourseDocumentDefaultsForMode } from "@/document/model/course-document-defaults";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { migrateCourseDocumentJSON } from "@/document/model/validation/migrations";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
-
-const ID_TOKEN_SIZE = 12;
 
 export interface CreateScaffoldDocumentContentInput {
   mode: CourseMode;
@@ -63,7 +63,10 @@ export function createScaffoldDocumentContent(
     overflowMode: input.overflowMode ?? defaults.overflowMode,
     theme: defaults.theme,
   });
-  const surfaceId = input.surfaceId ?? nanoid(ID_TOKEN_SIZE);
+  const surfaceId =
+    input.surfaceId === undefined
+      ? createEmbeddedNodeId()
+      : EmbeddedNodeIdSchema.parse(input.surfaceId);
 
   return {
     type: "doc",
@@ -117,7 +120,7 @@ export function createScaffoldArtifact({
       mode,
       ...(surfaceSize ? { surfaceSize } : {}),
       ...(overflowMode ? { overflowMode } : {}),
-      ...(surfaceId ? { surfaceId } : {}),
+      ...(surfaceId !== undefined ? { surfaceId } : {}),
     }),
   };
 }
