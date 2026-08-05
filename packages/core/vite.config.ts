@@ -54,6 +54,7 @@ export default defineConfig({
     },
   },
   test: {
+    env: { SCAFFOLD_DRAG_PERF: process.env["SCAFFOLD_DRAG_PERF"] ?? "" },
     projects: [
       {
         extends: true,
