@@ -31,15 +31,8 @@ export function ScaffoldLearnerApp({
       learnerActivity: services.learnerActivity ?? null,
       learningEvents: services.learningEvents ?? null,
       media: services.media ?? null,
-      xapi: services.xapi ?? null,
     }),
-    [
-      services.assessment,
-      services.learnerActivity,
-      services.learningEvents,
-      services.media,
-      services.xapi,
-    ],
+    [services.assessment, services.learnerActivity, services.learningEvents, services.media],
   );
 
   return (

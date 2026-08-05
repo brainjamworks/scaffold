@@ -20,7 +20,6 @@ import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-
 import type { SurfaceAuthoringViewProps } from "@/editor/surfaces/authoring/surface-authoring-view-registry";
 import type { SurfaceRuntimeViewProps } from "@/editor/surfaces/runtime/surface-runtime-view-registry";
 import { SurfaceRuntimeFrame } from "@/editor/surfaces/runtime/views/SurfaceRuntimeFrame";
-import type { XapiPort } from "@/host/ports";
 import type { LearningEventPort } from "@/host/ports/learning-events";
 import {
   LEARNING_EVENT_ACTIVITY_TYPES,
@@ -36,8 +35,7 @@ import {
 
 import { ContentRuntimeHost } from "./ContentRuntimeHost";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
-import * as runtimeXapi from "../xapi";
-import type { XapiSession } from "../xapi";
+import type { LearningEventSession } from "../learning-events/session";
 
 const runtimeComposition = createCoreScaffoldRuntimeComposition();
 
@@ -104,34 +102,23 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-function createXapiPort(
-  activityId = "https://learning.example.test/courses/artifact-1",
-): XapiPort & { send: ReturnType<typeof vi.fn<XapiPort["send"]>> } {
-  return {
-    activityId,
-    send: vi.fn(async () => undefined),
-  };
-}
-
-function createLearningEventPort(): LearningEventPort & {
+function createLearningEventPort(
+  rootActivityId = "https://learning.example.test/artifacts/runtime",
+): LearningEventPort & {
   accept: ReturnType<typeof vi.fn<LearningEventPort["accept"]>>;
 } {
   return {
-    rootActivityId: "https://learning.example.test/artifacts/runtime",
+    rootActivityId,
     accept: vi.fn<LearningEventPort["accept"]>(async () => undefined),
   };
-}
-
-function statementVerbs(port: ReturnType<typeof createXapiPort>): string[] {
-  return port.send.mock.calls.map(([statement]) => statement.verb.display.en ?? "");
 }
 
 function learningEventVerbs(port: ReturnType<typeof createLearningEventPort>): string[] {
   return port.accept.mock.calls.map(([event]) => event.verb.display.en ?? "");
 }
 
-interface StoreXapiOptions {
-  readonly getXapiSession?: () => XapiSession | null;
+interface StoreLearningEventOptions {
+  readonly getLearningEventSession?: () => LearningEventSession | null;
 }
 
 function runtimeDocumentWithBlock(block: JSONContent): JSONContent {
@@ -780,14 +767,14 @@ describe("ContentRuntimeHost", () => {
     );
 
     const assessmentOptions = runtimeStoreFactories.assessment.mock
-      .calls[0]?.[0] as StoreXapiOptions;
+      .calls[0]?.[0] as StoreLearningEventOptions;
     const learnerActivityOptions = runtimeStoreFactories.learnerActivity.mock
-      .calls[0]?.[0] as StoreXapiOptions;
+      .calls[0]?.[0] as StoreLearningEventOptions;
 
-    expect(assessmentOptions.getXapiSession).toEqual(expect.any(Function));
-    expect(learnerActivityOptions.getXapiSession).toEqual(expect.any(Function));
-    expect(assessmentOptions.getXapiSession?.()).toBeNull();
-    expect(learnerActivityOptions.getXapiSession?.()).toBeNull();
+    expect(assessmentOptions.getLearningEventSession).toEqual(expect.any(Function));
+    expect(learnerActivityOptions.getLearningEventSession).toEqual(expect.any(Function));
+    expect(assessmentOptions.getLearningEventSession?.()).toBeNull();
+    expect(learnerActivityOptions.getLearningEventSession?.()).toBeNull();
   });
 
   it("initializes Learning Events only when valid content has a ready renderer", async () => {
@@ -852,8 +839,7 @@ describe("ContentRuntimeHost", () => {
     ).toHaveLength(1);
   });
 
-  it("reports surface and layout experiences without legacy session access", async () => {
-    vi.spyOn(runtimeXapi, "useXapiSession").mockReturnValue(null);
+  it("reports surface and layout experiences through the Learning Event session", async () => {
     const port = createLearningEventPort();
 
     render(
@@ -1284,7 +1270,6 @@ describe("ContentRuntimeHost", () => {
   });
 
   it("launches a private resource link through the Learning Event reporter", async () => {
-    vi.spyOn(runtimeXapi, "useXapiSession").mockReturnValue(null);
     const user = userEvent.setup();
     const port = createLearningEventPort();
 
@@ -1322,13 +1307,13 @@ describe("ContentRuntimeHost", () => {
     );
   });
 
-  it("keeps learning available when the xAPI Activity IRI is invalid", async () => {
-    const port = createXapiPort("not an absolute IRI");
+  it("keeps learning available when the Learning Event root Activity IRI is invalid", async () => {
+    const port = createLearningEventPort("not an absolute IRI");
     const onEditorReady = vi.fn();
 
     expect(() =>
       render(
-        <ScaffoldServicesProvider ports={{ xapi: port }}>
+        <ScaffoldServicesProvider ports={{ learningEvents: port }}>
           <ContentRuntimeHost
             composition={runtimeComposition}
             artifactId="artifact-1"
@@ -1341,13 +1326,13 @@ describe("ContentRuntimeHost", () => {
 
     await waitFor(() => expect(onEditorReady).toHaveBeenCalledTimes(1));
     expect(screen.getByTestId("page-player")).toBeInTheDocument();
-    expect(port.send).not.toHaveBeenCalled();
+    expect(port.accept).not.toHaveBeenCalled();
   });
 
-  it("terminates a started xAPI session when the learner runtime unmounts", async () => {
-    const port = createXapiPort();
+  it("terminates a started Learning Event session when the learner runtime unmounts", async () => {
+    const port = createLearningEventPort();
     const root = render(
-      <ScaffoldServicesProvider ports={{ xapi: port }}>
+      <ScaffoldServicesProvider ports={{ learningEvents: port }}>
         <ContentRuntimeHost
           composition={runtimeComposition}
           artifactId="artifact-1"
@@ -1357,17 +1342,17 @@ describe("ContentRuntimeHost", () => {
       </ScaffoldServicesProvider>,
     );
 
-    await waitFor(() => expect(statementVerbs(port)).toEqual(["initialized", "experienced"]));
+    await waitFor(() => expect(learningEventVerbs(port)).toEqual(["initialized", "experienced"]));
     root.unmount();
     await waitFor(() =>
-      expect(statementVerbs(port)).toEqual(["initialized", "experienced", "terminated"]),
+      expect(learningEventVerbs(port)).toEqual(["initialized", "experienced", "terminated"]),
     );
   });
 
-  it("starts a fresh xAPI session when the learner runtime remounts", async () => {
-    const port = createXapiPort();
+  it("starts a fresh Learning Event session when the learner runtime remounts", async () => {
+    const port = createLearningEventPort();
     const runtime = (
-      <ScaffoldServicesProvider ports={{ xapi: port }}>
+      <ScaffoldServicesProvider ports={{ learningEvents: port }}>
         <ContentRuntimeHost
           composition={runtimeComposition}
           artifactId="artifact-1"
@@ -1378,16 +1363,16 @@ describe("ContentRuntimeHost", () => {
     );
     const firstRoot = render(runtime);
 
-    await waitFor(() => expect(statementVerbs(port)).toEqual(["initialized", "experienced"]));
+    await waitFor(() => expect(learningEventVerbs(port)).toEqual(["initialized", "experienced"]));
     firstRoot.unmount();
     await waitFor(() =>
-      expect(statementVerbs(port)).toEqual(["initialized", "experienced", "terminated"]),
+      expect(learningEventVerbs(port)).toEqual(["initialized", "experienced", "terminated"]),
     );
 
     render(runtime);
 
     await waitFor(() =>
-      expect(statementVerbs(port)).toEqual([
+      expect(learningEventVerbs(port)).toEqual([
         "initialized",
         "experienced",
         "terminated",
@@ -1397,32 +1382,12 @@ describe("ContentRuntimeHost", () => {
     );
   });
 
-  it("starts a replacement xAPI session without reconstructing authoritative stores", async () => {
-    const firstPort = createXapiPort("https://learning.example.test/courses/placement-1");
-    const secondPort = createXapiPort("https://learning.example.test/courses/placement-2");
+  it("starts a replacement Learning Event session without reconstructing authoritative stores", async () => {
+    const firstPort = createLearningEventPort("https://learning.example.test/courses/placement-1");
+    const secondPort = createLearningEventPort("https://learning.example.test/courses/placement-2");
     const content = runtimeDocumentContent();
     const { rerender } = render(
-      <ScaffoldServicesProvider ports={{ xapi: firstPort }}>
-        <ContentRuntimeHost
-          composition={runtimeComposition}
-          artifactId="artifact-1"
-          courseTitle="Course One"
-          initialContent={content}
-        />
-      </ScaffoldServicesProvider>,
-    );
-
-    await waitFor(() => expect(statementVerbs(firstPort)).toEqual(["initialized", "experienced"]));
-    const assessmentOptions = runtimeStoreFactories.assessment.mock
-      .calls[0]?.[0] as StoreXapiOptions;
-    const learnerActivityOptions = runtimeStoreFactories.learnerActivity.mock
-      .calls[0]?.[0] as StoreXapiOptions;
-    const getSession = assessmentOptions.getXapiSession;
-    const firstSession = getSession?.();
-    expect(firstSession).not.toBeNull();
-
-    rerender(
-      <ScaffoldServicesProvider ports={{ xapi: secondPort }}>
+      <ScaffoldServicesProvider ports={{ learningEvents: firstPort }}>
         <ContentRuntimeHost
           composition={runtimeComposition}
           artifactId="artifact-1"
@@ -1433,15 +1398,43 @@ describe("ContentRuntimeHost", () => {
     );
 
     await waitFor(() =>
-      expect(statementVerbs(firstPort)).toEqual(["initialized", "experienced", "terminated"]),
+      expect(learningEventVerbs(firstPort)).toEqual(["initialized", "experienced"]),
     );
-    await waitFor(() => expect(statementVerbs(secondPort)).toEqual(["initialized", "experienced"]));
+    const assessmentOptions = runtimeStoreFactories.assessment.mock
+      .calls[0]?.[0] as StoreLearningEventOptions;
+    const learnerActivityOptions = runtimeStoreFactories.learnerActivity.mock
+      .calls[0]?.[0] as StoreLearningEventOptions;
+    const getSession = assessmentOptions.getLearningEventSession;
+    const firstSession = getSession?.();
+    expect(firstSession).not.toBeNull();
+
+    rerender(
+      <ScaffoldServicesProvider ports={{ learningEvents: secondPort }}>
+        <ContentRuntimeHost
+          composition={runtimeComposition}
+          artifactId="artifact-1"
+          courseTitle="Course One"
+          initialContent={content}
+        />
+      </ScaffoldServicesProvider>,
+    );
+
+    await waitFor(() =>
+      expect(learningEventVerbs(firstPort)).toEqual([
+        "initialized",
+        "experienced",
+        "terminated",
+      ]),
+    );
+    await waitFor(() =>
+      expect(learningEventVerbs(secondPort)).toEqual(["initialized", "experienced"]),
+    );
 
     expect(runtimeStoreFactories.assessment).toHaveBeenCalledTimes(1);
     expect(runtimeStoreFactories.learnerActivity).toHaveBeenCalledTimes(1);
     const replacementSession = getSession?.();
     expect(replacementSession).not.toBe(firstSession);
-    expect(learnerActivityOptions.getXapiSession?.()).toBe(replacementSession);
+    expect(learnerActivityOptions.getLearningEventSession?.()).toBe(replacementSession);
   });
 
   it("keeps MCQ selection interactive through StrictMode replay", async () => {
@@ -1639,11 +1632,11 @@ describe("ContentRuntimeHost", () => {
   });
 
   it("rejects invalid content before malformed ancillary snapshots can hydrate stores", () => {
-    const xapi = createXapiPort();
+    const learningEvents = createLearningEventPort();
 
     expect(() =>
       render(
-        <ScaffoldServicesProvider ports={{ xapi }}>
+        <ScaffoldServicesProvider ports={{ learningEvents }}>
           <ContentRuntimeHost
             composition={runtimeComposition}
             artifactId="artifact-1"
@@ -1659,7 +1652,7 @@ describe("ContentRuntimeHost", () => {
     expect(screen.getByTestId("scaffold-runtime-unavailable")).toBeInTheDocument();
     expect(runtimeStoreFactories.assessment).not.toHaveBeenCalled();
     expect(runtimeStoreFactories.learnerActivity).not.toHaveBeenCalled();
-    expect(xapi.send).not.toHaveBeenCalled();
+    expect(learningEvents.accept).not.toHaveBeenCalled();
   });
 
   it("rejects invalid content before learner activity loading or store construction", () => {
@@ -2072,7 +2065,7 @@ describe("ContentRuntimeHost", () => {
 
   it("gates runtime players while learner activity loads", async () => {
     const onEditorReady = vi.fn();
-    const xapi = createXapiPort();
+    const learningEvents = createLearningEventPort();
     let resolveLoad!: (value: null) => void;
     const load = vi.fn(
       () =>
@@ -2088,7 +2081,7 @@ describe("ContentRuntimeHost", () => {
             load,
             save: vi.fn(),
           },
-          xapi,
+          learningEvents,
         }}
       >
         <ContentRuntimeHost
@@ -2104,17 +2097,19 @@ describe("ContentRuntimeHost", () => {
     expect(screen.getByTestId("learner-activity-runtime-loading")).toBeInTheDocument();
     expect(screen.queryByTestId("page-player")).toBeNull();
     expect(onEditorReady).not.toHaveBeenCalled();
-    expect(xapi.send).not.toHaveBeenCalled();
+    expect(learningEvents.accept).not.toHaveBeenCalled();
 
     resolveLoad(null);
 
     await waitFor(() => expect(onEditorReady).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(statementVerbs(xapi)).toEqual(["initialized", "experienced"]));
+    await waitFor(() =>
+      expect(learningEventVerbs(learningEvents)).toEqual(["initialized", "experienced"]),
+    );
     expect(screen.getByTestId("page-player")).toBeInTheDocument();
   });
 
-  it("does not start xAPI when learner activity hydration fails", async () => {
-    const xapi = createXapiPort();
+  it("does not start Learning Events when learner activity hydration fails", async () => {
+    const learningEvents = createLearningEventPort();
     const load = vi.fn(async () => {
       throw new Error("progress unavailable");
     });
@@ -2126,7 +2121,7 @@ describe("ContentRuntimeHost", () => {
             load,
             save: vi.fn(),
           },
-          xapi,
+          learningEvents,
         }}
       >
         <ContentRuntimeHost
@@ -2140,11 +2135,11 @@ describe("ContentRuntimeHost", () => {
 
     expect(await screen.findByTestId("learner-activity-runtime-error")).toBeInTheDocument();
     expect(screen.queryByTestId("page-player")).toBeNull();
-    expect(xapi.send).not.toHaveBeenCalled();
+    expect(learningEvents.accept).not.toHaveBeenCalled();
   });
 
-  it("waits for replacement-artifact hydration before starting its xAPI session", async () => {
-    const xapi = createXapiPort();
+  it("waits for replacement-artifact hydration before starting its Learning Event session", async () => {
+    const learningEvents = createLearningEventPort();
     const replacementLoad = deferred<null>();
     const learnerActivity = {
       load: vi.fn(({ artifactId }: { artifactId: string }) =>
@@ -2154,7 +2149,7 @@ describe("ContentRuntimeHost", () => {
     };
     const content = runtimeDocumentContent();
     const { rerender } = render(
-      <ScaffoldServicesProvider ports={{ learnerActivity, xapi }}>
+      <ScaffoldServicesProvider ports={{ learnerActivity, learningEvents }}>
         <ContentRuntimeHost
           composition={runtimeComposition}
           artifactId="artifact-one"
@@ -2164,10 +2159,12 @@ describe("ContentRuntimeHost", () => {
       </ScaffoldServicesProvider>,
     );
 
-    await waitFor(() => expect(statementVerbs(xapi)).toEqual(["initialized", "experienced"]));
+    await waitFor(() =>
+      expect(learningEventVerbs(learningEvents)).toEqual(["initialized", "experienced"]),
+    );
 
     rerender(
-      <ScaffoldServicesProvider ports={{ learnerActivity, xapi }}>
+      <ScaffoldServicesProvider ports={{ learnerActivity, learningEvents }}>
         <ContentRuntimeHost
           composition={runtimeComposition}
           artifactId="artifact-two"
@@ -2178,14 +2175,18 @@ describe("ContentRuntimeHost", () => {
     );
 
     await waitFor(() =>
-      expect(statementVerbs(xapi)).toEqual(["initialized", "experienced", "terminated"]),
+      expect(learningEventVerbs(learningEvents)).toEqual([
+        "initialized",
+        "experienced",
+        "terminated",
+      ]),
     );
     expect(screen.getByTestId("learner-activity-runtime-loading")).toBeInTheDocument();
 
     replacementLoad.resolve(null);
 
     await waitFor(() =>
-      expect(statementVerbs(xapi)).toEqual([
+      expect(learningEventVerbs(learningEvents)).toEqual([
         "initialized",
         "experienced",
         "terminated",

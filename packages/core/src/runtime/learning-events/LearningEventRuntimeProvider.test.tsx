@@ -4,7 +4,8 @@ import { cleanup, render, waitFor } from "@testing-library/react";
 import { StrictMode, useEffect } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import type { XapiPort, XapiStatementTemplate } from "../../host/ports";
+import type { ScaffoldRuntimePorts } from "../../host/ports";
+import type { LearningEvent, LearningEventPort } from "../../host/ports/learning-events";
 import { ScaffoldArtifactIdentityProvider } from "../../host/providers/ScaffoldArtifactIdentityProvider";
 import { ScaffoldServicesProvider } from "../../host/providers/ScaffoldServicesProvider";
 import { useLearningEventReporter } from "../../entrypoints/extensions";
@@ -29,12 +30,40 @@ async function flushPromises(): Promise<void> {
   }
 }
 
-function createPort(activityId = "https://learning.example.test/courses/course-1"): XapiPort & {
-  send: ReturnType<typeof vi.fn<(statement: XapiStatementTemplate) => Promise<void>>>;
+function createPort(
+  rootActivityId = "https://learning.example.test/courses/course-1",
+): LearningEventPort & {
+  accept: ReturnType<typeof vi.fn<(event: LearningEvent) => Promise<void>>>;
 } {
   return {
-    activityId,
-    send: vi.fn(async () => undefined),
+    rootActivityId,
+    accept: vi.fn(async () => undefined),
+  };
+}
+
+function createUnrelatedPorts(): Pick<
+  ScaffoldRuntimePorts,
+  "assessment" | "learnerActivity" | "media"
+> {
+  return {
+    assessment: {
+      type: "runtime",
+      submit: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+    },
+    learnerActivity: {
+      load: vi.fn(async () => null),
+      save: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+    },
+    media: {
+      resolve: vi.fn(async () => "https://media.example.test/file"),
+      upload: vi.fn(async () => {
+        throw new Error("not used");
+      }),
+    },
   };
 }
 
@@ -72,10 +101,10 @@ function RuntimeRoot({
   autoStart?: boolean;
   artefactTitle?: string | null;
   onObservation: (observation: LearningEventObservation) => void;
-  port: XapiPort | null;
+  port: LearningEventPort | null;
 }) {
   return (
-    <ScaffoldServicesProvider ports={{ xapi: port }}>
+    <ScaffoldServicesProvider ports={{ learningEvents: port }}>
       <ScaffoldArtifactIdentityProvider artifactId={artifactId}>
         <LearningEventRuntimeProvider artefactTitle={artefactTitle}>
           <SessionProbe
@@ -123,11 +152,47 @@ function invokePublicReporter(reporter: LearningEventReporter, input: unknown): 
 }
 
 describe("LearningEventRuntimeProvider", () => {
+  it("retains one started session when unrelated service identities change", async () => {
+    const port = {
+      rootActivityId: "https://learning.example.test/artifacts/artifact-one",
+      accept: vi.fn<LearningEventPort["accept"]>(async () => undefined),
+    } satisfies LearningEventPort;
+    const observations: LearningEventObservation[] = [];
+    const onObservation = (observation: LearningEventObservation) => observations.push(observation);
+    const firstServices = createUnrelatedPorts();
+    const root = (
+      services: Pick<ScaffoldRuntimePorts, "assessment" | "learnerActivity" | "media">,
+    ) => (
+      <ScaffoldServicesProvider ports={{ ...services, learningEvents: port }}>
+        <ScaffoldArtifactIdentityProvider artifactId="artifact-one">
+          <LearningEventRuntimeProvider artefactTitle="Artefact One">
+            <SessionProbe autoStart onObservation={onObservation} />
+          </LearningEventRuntimeProvider>
+        </ScaffoldArtifactIdentityProvider>
+      </ScaffoldServicesProvider>
+    );
+    const { rerender } = render(root(firstServices));
+
+    await waitFor(() => expect(port.accept).toHaveBeenCalledTimes(1));
+    const session = observations[0]?.session;
+    if (!session) throw new Error("expected a started Learning Event session");
+
+    const secondServices = createUnrelatedPorts();
+    rerender(root({ ...firstServices, assessment: secondServices.assessment }));
+    rerender(root({ ...firstServices, learnerActivity: secondServices.learnerActivity }));
+    rerender(root({ ...firstServices, media: secondServices.media }));
+    await flushPromises();
+
+    expect(observations.at(-1)?.session).toBe(session);
+    expect(session.getState()).toMatchObject({ status: "active" });
+    expect(port.accept).toHaveBeenCalledTimes(1);
+  });
+
   it("returns one stable no-op reporter when reporting is absent", async () => {
     const reporters: LearningEventReporter[] = [];
     const onReporter = (reporter: LearningEventReporter) => reporters.push(reporter);
     const { rerender } = render(
-      <ScaffoldServicesProvider ports={{ xapi: null }}>
+      <ScaffoldServicesProvider ports={{ learningEvents: null }}>
         <ScaffoldArtifactIdentityProvider artifactId="artifact-one">
           <LearningEventRuntimeProvider artefactTitle="Artefact One">
             <ReporterProbe onReporter={onReporter} />
@@ -148,7 +213,7 @@ describe("LearningEventRuntimeProvider", () => {
     ).not.toThrow();
 
     rerender(
-      <ScaffoldServicesProvider ports={{ xapi: null }}>
+      <ScaffoldServicesProvider ports={{ learningEvents: null }}>
         <ScaffoldArtifactIdentityProvider artifactId="artifact-one">
           <LearningEventRuntimeProvider artefactTitle="Renamed">
             <ReporterProbe onReporter={onReporter} />
@@ -164,7 +229,7 @@ describe("LearningEventRuntimeProvider", () => {
     const reporters: LearningEventReporter[] = [];
 
     render(
-      <ScaffoldServicesProvider ports={{ xapi: port }}>
+      <ScaffoldServicesProvider ports={{ learningEvents: port }}>
         <ScaffoldArtifactIdentityProvider artifactId="artifact-one">
           <LearningEventRuntimeProvider artefactTitle="Artefact One">
             <ReporterProbe onReporter={(value) => reporters.push(value)} />
@@ -183,8 +248,8 @@ describe("LearningEventRuntimeProvider", () => {
     });
 
     expect(result).toBeUndefined();
-    await waitFor(() => expect(port.send).toHaveBeenCalledTimes(2));
-    expect(port.send.mock.calls.map(([event]) => event.verb.display.en)).toStrictEqual([
+    await waitFor(() => expect(port.accept).toHaveBeenCalledTimes(2));
+    expect(port.accept.mock.calls.map(([event]) => event.verb.display.en)).toStrictEqual([
       "initialized",
       "experienced",
     ]);
@@ -220,7 +285,7 @@ describe("LearningEventRuntimeProvider", () => {
     const observations: ReportingBoundaryObservation[] = [];
 
     render(
-      <ScaffoldServicesProvider ports={{ xapi: port }}>
+      <ScaffoldServicesProvider ports={{ learningEvents: port }}>
         <ScaffoldArtifactIdentityProvider artifactId="artifact-one">
           <LearningEventRuntimeProvider artefactTitle="Artefact One">
             <ReportingBoundaryProbe onObservation={(value) => observations.push(value)} />
@@ -239,7 +304,7 @@ describe("LearningEventRuntimeProvider", () => {
     expect(result).toBeUndefined();
     await flushPromises();
 
-    expect(port.send).not.toHaveBeenCalled();
+    expect(port.accept).not.toHaveBeenCalled();
     expect(observation.session.getState()).toEqual({
       status: "terminated",
       startedAt: null,
@@ -253,7 +318,7 @@ describe("LearningEventRuntimeProvider", () => {
       count: 1,
     });
     await flushPromises();
-    expect(port.send).not.toHaveBeenCalled();
+    expect(port.accept).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -268,7 +333,7 @@ describe("LearningEventRuntimeProvider", () => {
     const observations: ReportingBoundaryObservation[] = [];
 
     render(
-      <ScaffoldServicesProvider ports={{ xapi: port }}>
+      <ScaffoldServicesProvider ports={{ learningEvents: port }}>
         <ScaffoldArtifactIdentityProvider artifactId="artifact-one">
           <LearningEventRuntimeProvider artefactTitle="Artefact One">
             <ReportingBoundaryProbe onObservation={(value) => observations.push(value)} />
@@ -283,7 +348,7 @@ describe("LearningEventRuntimeProvider", () => {
     expect(() => invokePublicReporter(observation.reporter, input)).not.toThrow();
     await flushPromises();
 
-    expect(port.send).not.toHaveBeenCalled();
+    expect(port.accept).not.toHaveBeenCalled();
     expect(observation.session.getState()).toEqual({
       status: "terminated",
       startedAt: null,
@@ -317,7 +382,7 @@ describe("LearningEventRuntimeProvider", () => {
     const observations: ReportingBoundaryObservation[] = [];
 
     render(
-      <ScaffoldServicesProvider ports={{ xapi: port }}>
+      <ScaffoldServicesProvider ports={{ learningEvents: port }}>
         <ScaffoldArtifactIdentityProvider artifactId="artifact-one">
           <LearningEventRuntimeProvider artefactTitle="Artefact One">
             <ReportingBoundaryProbe onObservation={(value) => observations.push(value)} />
@@ -332,7 +397,7 @@ describe("LearningEventRuntimeProvider", () => {
     expect(() => invokePublicReporter(observation.reporter, input)).not.toThrow();
     await flushPromises();
 
-    expect(port.send).not.toHaveBeenCalled();
+    expect(port.accept).not.toHaveBeenCalled();
     expect(observation.session.getState()).toEqual({
       status: "terminated",
       startedAt: null,
@@ -346,7 +411,7 @@ describe("LearningEventRuntimeProvider", () => {
       }),
     ).not.toThrow();
     await flushPromises();
-    expect(port.send).not.toHaveBeenCalled();
+    expect(port.accept).not.toHaveBeenCalled();
   });
 
   it("creates UUIDs from secure random bytes when randomUUID is unavailable", async () => {
@@ -366,9 +431,9 @@ describe("LearningEventRuntimeProvider", () => {
       <RuntimeRoot artifactId="course-one" autoStart port={port} onObservation={() => undefined} />,
     );
 
-    await waitFor(() => expect(port.send).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(port.accept).toHaveBeenCalledTimes(1));
     expect(getRandomValues).toHaveBeenCalledTimes(1);
-    expect(port.send.mock.calls[0]?.[0].id).toBe("00112233-4455-4677-8899-aabbccddeeff");
+    expect(port.accept.mock.calls[0]?.[0].id).toBe("00112233-4455-4677-8899-aabbccddeeff");
   });
 
   it.each([
@@ -397,7 +462,7 @@ describe("LearningEventRuntimeProvider", () => {
     if (!observation) throw new Error("expected an Learning Event observation");
     expect(observation.session).toBeNull();
     expect(observation.getSession()).toBeNull();
-    if (port) expect(port.send).not.toHaveBeenCalled();
+    if (port) expect(port.accept).not.toHaveBeenCalled();
   });
 
   it("retains one session and accessor for a stable tuple, including title changes", async () => {
@@ -436,26 +501,34 @@ describe("LearningEventRuntimeProvider", () => {
   it.each(["artifact", "port"] as const)(
     "replaces the session when the %s identity changes and keeps one accessor",
     async (replacement) => {
-      const firstPort = createPort("https://learning.example.test/courses/course-1");
+      const rootActivityId = "https://learning.example.test/courses/course-1";
+      const firstPort = createPort(rootActivityId);
       const secondPort =
         replacement === "port"
-          ? createPort("https://learning.example.test/courses/course-2")
+          ? createPort(rootActivityId)
           : firstPort;
       const observations: LearningEventObservation[] = [];
       const onObservation = (observation: LearningEventObservation) => {
         observations.push(observation);
       };
       const { rerender } = render(
-        <RuntimeRoot artifactId="course-one" port={firstPort} onObservation={onObservation} />,
+        <RuntimeRoot
+          artifactId="course-one"
+          autoStart
+          port={firstPort}
+          onObservation={onObservation}
+        />,
       );
 
       await waitFor(() => expect(observations).toHaveLength(1));
+      await waitFor(() => expect(firstPort.accept).toHaveBeenCalledTimes(1));
       const first = observations[0];
       if (!first?.session) throw new Error("expected the first Learning Event session");
 
       rerender(
         <RuntimeRoot
           artifactId={replacement === "artifact" ? "course-two" : "course-one"}
+          autoStart
           port={secondPort}
           onObservation={onObservation}
         />,
@@ -471,10 +544,23 @@ describe("LearningEventRuntimeProvider", () => {
       expect(second.getSession()).toBe(second.session);
       expect(first.session.getState()).toEqual({
         status: "terminated",
-        startedAt: null,
-        acceptance: "not-started",
+        startedAt: expect.any(String),
+        acceptance: "accepted",
       });
-      expect(second.session.getState()).toEqual({ status: "dormant" });
+      expect(second.session.getState()).toMatchObject({ status: "active" });
+      if (replacement === "artifact") {
+        const verbs = firstPort.accept.mock.calls.map(([event]) => event.verb.display.en);
+        expect(verbs.filter((verb) => verb === "initialized")).toHaveLength(2);
+        expect(verbs.filter((verb) => verb === "terminated")).toHaveLength(1);
+      } else {
+        expect(firstPort.accept.mock.calls.map(([event]) => event.verb.display.en)).toEqual([
+          "initialized",
+          "terminated",
+        ]);
+        expect(secondPort.accept.mock.calls.map(([event]) => event.verb.display.en)).toEqual([
+          "initialized",
+        ]);
+      }
     },
   );
 
@@ -521,14 +607,14 @@ describe("LearningEventRuntimeProvider", () => {
       />,
     );
 
-    await waitFor(() => expect(port.send).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(port.accept).toHaveBeenCalledTimes(1));
     const session = observations[0]?.session;
     if (!session) throw new Error("expected a started Learning Event session");
 
     root.unmount();
-    await waitFor(() => expect(port.send).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(port.accept).toHaveBeenCalledTimes(2));
 
-    expect(port.send.mock.calls.map(([statement]) => statement.verb.display.en)).toEqual([
+    expect(port.accept.mock.calls.map(([event]) => event.verb.display.en)).toEqual([
       "initialized",
       "terminated",
     ]);
@@ -556,13 +642,13 @@ describe("LearningEventRuntimeProvider", () => {
       </StrictMode>,
     );
 
-    await waitFor(() => expect(port.send).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(port.accept).toHaveBeenCalledTimes(1));
     await flushPromises();
-    expect(port.send).toHaveBeenCalledTimes(1);
+    expect(port.accept).toHaveBeenCalledTimes(1);
     expect(sessions.at(-1)?.getState()).toMatchObject({ status: "active" });
 
     root.unmount();
-    await waitFor(() => expect(port.send).toHaveBeenCalledTimes(2));
-    expect(port.send.mock.calls[1]?.[0].verb.display.en).toBe("terminated");
+    await waitFor(() => expect(port.accept).toHaveBeenCalledTimes(2));
+    expect(port.accept.mock.calls[1]?.[0].verb.display.en).toBe("terminated");
   });
 });

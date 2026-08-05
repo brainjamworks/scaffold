@@ -17,7 +17,6 @@ import type { SurfaceAuthoringViewProps } from "@/editor/surfaces/authoring/surf
 import type { SurfaceRuntimeViewProps } from "@/editor/surfaces/runtime/surface-runtime-view-registry";
 import { SurfaceRuntimeFrame } from "@/editor/surfaces/runtime/views/SurfaceRuntimeFrame";
 import type { ScaffoldLearnerBootstrap, ScaffoldLearnerHostServices } from "@/host/contracts";
-import type { XapiPort } from "@/host/ports";
 import type { LearningEventPort } from "@/host/ports/learning-events";
 import { SCAFFOLD_DEFAULT_PRESET, type ScaffoldThemeExtension } from "@/theme/model";
 
@@ -495,33 +494,6 @@ describe("ScaffoldLearnerApp", () => {
     expect(accept.mock.calls[1]?.[0]).toMatchObject({
       verb: { display: { en: "experienced" } },
     });
-  });
-
-  it("disables reporting when old and general capabilities conflict", async () => {
-    const accept = vi.fn<LearningEventPort["accept"]>(async () => undefined);
-    const send = vi.fn<XapiPort["send"]>(async () => undefined);
-
-    render(
-      <ScaffoldLearnerApp
-        composition={runtimeComposition}
-        bootstrap={learnerBootstrap()}
-        services={{
-          learningEvents: {
-            rootActivityId: "https://learning.example.test/artifacts/artifact-conflict",
-            accept,
-          },
-          xapi: {
-            activityId: "https://learning.example.test/artifacts/artifact-conflict",
-            send,
-          },
-        }}
-      />,
-    );
-
-    await screen.findByText("Projected learner content");
-    await act(async () => Promise.resolve());
-    expect(accept).not.toHaveBeenCalled();
-    expect(send).not.toHaveBeenCalled();
   });
 
   it("accepts a strict assessment snapshot while keeping activity state separate", async () => {

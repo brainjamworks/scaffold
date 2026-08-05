@@ -9,10 +9,9 @@ import {
   type ReactNode,
 } from "react";
 
-import type { XapiPort } from "../../host/ports";
-import type { LearningEvent, LearningEventPort } from "../../host/ports/learning-events";
+import type { LearningEventPort } from "../../host/ports/learning-events";
 import { useScaffoldArtifactIdentity } from "../../host/providers/ScaffoldArtifactIdentityProvider";
-import { useXapiPort } from "../../host/providers/ScaffoldServicesProvider";
+import { useLearningEventPort } from "../../host/providers/ScaffoldServicesProvider";
 
 import { createLearningEventSession, type LearningEventSession } from "./session";
 import type { BlockLearningEventInput } from "./catalogue";
@@ -30,7 +29,6 @@ export interface LearningEventRuntimeProviderProps {
 
 interface LearningEventRuntimeScope {
   readonly artifactId: string;
-  readonly sourcePort: XapiPort;
   readonly port: LearningEventPort;
   readonly session: LearningEventSession | null;
   readonly reporter: LearningEventReporter;
@@ -70,33 +68,27 @@ function createUuid(): string {
 
 function createLearningEventRuntimeScope(
   artifactId: string | null,
-  port: XapiPort | null,
+  port: LearningEventPort | null,
   artefactTitle: string | null | undefined,
 ): LearningEventRuntimeScope | null {
   if (!artifactId || !port) return null;
 
-  const learningEventPort: LearningEventPort = Object.freeze({
-    rootActivityId: port.activityId,
-    accept: (event: LearningEvent) => port.send(event),
-  });
-
   let session: LearningEventSession | null = null;
   try {
     session = createLearningEventSession({
-      port: learningEventPort,
+      port,
       artefactTitle: artefactTitle ?? "",
       createUuid,
       now: () => new Date(),
       monotonicNow: () => globalThis.performance.now(),
     });
   } catch {
-    // Invalid host xAPI configuration makes recording unavailable, not learning unavailable.
+    // Invalid host Learning Event configuration makes reporting unavailable, not learning unavailable.
   }
 
   return {
     artifactId,
-    sourcePort: port,
-    port: learningEventPort,
+    port,
     session,
     reporter:
       session === null
@@ -113,13 +105,13 @@ export function LearningEventRuntimeProvider({
   artefactTitle,
 }: LearningEventRuntimeProviderProps): ReactNode {
   const { artifactId } = useScaffoldArtifactIdentity();
-  const port = useXapiPort();
+  const port = useLearningEventPort();
   const [scope, setScope] = useState<LearningEventRuntimeScope | null>(() =>
     createLearningEventRuntimeScope(artifactId, port, artefactTitle),
   );
   let currentScope = scope;
   const scopeMatches = currentScope
-    ? currentScope.artifactId === artifactId && currentScope.sourcePort === port
+    ? currentScope.artifactId === artifactId && currentScope.port === port
     : artifactId === null || port === null;
 
   if (!scopeMatches) {
