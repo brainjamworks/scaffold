@@ -1,18 +1,18 @@
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
 import { NodeViewContent, NodeViewWrapper } from "@tiptap/react";
 import { createRoot } from "react-dom/client";
-import { useLayoutEffect, useState } from "react";
+import { useLayoutEffect } from "react";
 
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { createSurfaceRuntimeViewMap } from "@/editor/surfaces/runtime/surface-runtime-view-registry";
 import { builtInSurfaceRuntimeViewBindings } from "@/editor/surfaces/runtime/surface-runtime-views";
 import type { SurfaceRuntimeViewProps } from "@/editor/surfaces/runtime/surface-runtime-view-registry";
-import { InteractionDragSession } from "@/editor/interactions/drag/react/InteractionDragSession";
-import { useInteractionDragSource } from "@/editor/interactions/drag/react/use-interaction-drag-source";
-import { useInteractionDropTarget } from "@/editor/interactions/drag/react/use-interaction-drop-target";
 import { useInteractionDragEnvironmentResolution } from "@/editor/interactions/drag/react/interaction-drag-environment";
 import { createScaffoldDocumentContent } from "@/format/artifact";
-import { createAssessmentRuntimeTestRoot } from "@/runtime/assessment/test-utils";
+import {
+  createAssessmentRuntimeTestRoot,
+  localAssessmentResponse,
+} from "@/runtime/assessment/test-utils";
 
 import { PagePlayer } from "./page/PagePlayer";
 import { SlideshowPlayer } from "./slideshow/SlideshowPlayer";
@@ -46,6 +46,8 @@ export interface RuntimeDragBrowserHarness {
   getPlaceholder(selector?: string): HTMLElement | null;
   getTargets(selector?: string): HTMLElement[];
   getResult(): string;
+  getResponseOrder(): string[];
+  getActivationAreas(): HTMLElement[];
   getFullscreenControl(): HTMLButtonElement | null;
   setCanvasTransform(transform: string): void;
   disconnectEnvironment(): void;
@@ -70,6 +72,7 @@ export async function mountRuntimeDragHarness(
   ownerDocument.body.append(host);
 
   let editor: TiptapEditor | null = null;
+  let assessmentStore: Parameters<typeof localAssessmentResponse>[0] = null;
   const root = createRoot(host);
   const initialContent = runtimeDragDocument(options.surface);
   root.render(
@@ -95,12 +98,17 @@ export async function mountRuntimeDragHarness(
             }}
           />
         ),
+      onStore: (store) => {
+        assessmentStore = store;
+      },
     }),
   );
 
   await waitFor(ownerWindow, () => editor !== null && playerFor(host, options.surface) !== null);
   const player = playerFor(host, options.surface);
   if (!player || !editor) throw new Error("Runtime drag harness did not mount its player.");
+  await waitFor(ownerWindow, () => player.querySelector('[data-drag-environment][data-status="ready"]') !== null);
+  await new Promise<void>((resolve) => ownerWindow.requestAnimationFrame(() => resolve()));
 
   if (options.surface === "slideshow") {
     player.style.width = `${width}px`;
@@ -135,14 +143,23 @@ export async function mountRuntimeDragHarness(
       ownerDocument.querySelector<HTMLElement>(
         `[data-scaffold-overlay-host][data-runtime-drag-harness-id="${harnessId}"]`,
       ),
-    getSource: (selector = "[data-drag-source], [data-sortable-source]") =>
+    getSource: (selector = "[data-runtime-sequencing-handle]") =>
       player.querySelector<HTMLElement>(selector),
     getPlaceholder: (selector = "[data-interaction-drag-placeholder]") =>
       player.querySelector<HTMLElement>(selector),
-    getTargets: (selector = "[data-drop-target], [data-drag-target]") =>
+    getTargets: (selector = "[data-item-id]") =>
       Array.from(player.querySelectorAll<HTMLElement>(selector)),
     getResult: () =>
-      player.querySelector<HTMLElement>("[data-drag-result]")?.dataset.dragResult ?? "missing",
+      harnessResult(player),
+    getResponseOrder: () => {
+      const response = localAssessmentResponse(
+        assessmentStore,
+        "artifact:artifact-1/block:seq-1",
+      );
+      return Array.isArray(response?.order) ? response.order.map(String) : [];
+    },
+    getActivationAreas: () =>
+      Array.from(player.querySelectorAll<HTMLElement>("[data-interaction-drag-activation-area]")),
     getFullscreenControl: () =>
       player.querySelector<HTMLButtonElement>(".sc-slideshow-player__fullscreen-button"),
     setCanvasTransform: (transform) => {
@@ -165,9 +182,10 @@ export async function mountRuntimeDragHarness(
     },
     waitForResult: async (expected) => {
       await waitFor(ownerWindow, () =>
-        [expected, "cancelled"].some(
-          (result) => player.querySelector<HTMLElement>(`[data-drag-result="${result}"]`) !== null,
-        ),
+        expected === "dropped"
+          ? localAssessmentResponse(assessmentStore, "artifact:artifact-1/block:seq-1")?.order !==
+            undefined
+          : !player.querySelector("[data-interaction-drag-placeholder]"),
       );
     },
     dispose: () => {
@@ -199,7 +217,48 @@ function runtimeDragDocument(mode: "page" | "slideshow"): JSONContent {
   const courseDocument = content.content?.[0];
   if (!courseDocument) throw new Error("Runtime drag harness document is incomplete.");
   courseDocument.attrs = { ...courseDocument.attrs, mode };
+  const block = sequencingRuntimeBlock();
+  const surface = courseDocument.content?.[0];
+  if (surface) {
+    if (mode === "page") {
+      surface.content = [block];
+    } else {
+      surface.attrs = { ...surface.attrs, variant: "slide-content" };
+      surface.content = [
+        { type: "slide_title" },
+        { type: "region", attrs: { role: "main" }, content: [block] },
+      ];
+    }
+  }
   return content;
+}
+
+function sequencingRuntimeBlock(): JSONContent {
+  return {
+    type: "sequencing",
+    attrs: {
+      id: "seq-1",
+      assessment: { correctOrder: ["a", "b", "c"] },
+      settings: { feedbackMode: "on_submit", isGraded: true, showAnswer: true, points: 1 },
+    },
+    content: [
+      { type: "assessment_title", content: [{ type: "paragraph" }] },
+      { type: "assessment_instructions", content: [{ type: "paragraph" }] },
+      { type: "assessment_prompt", content: [{ type: "paragraph" }] },
+      {
+        type: "sequencing_items_group",
+        content: ["a", "b", "c"].map((id) => ({
+          type: "sequencing_item",
+          attrs: { id },
+          content: [{ type: "paragraph", content: [{ type: "text", text: id.toUpperCase() }] }],
+        })),
+      },
+      {
+        type: "assessment_actions_group",
+        content: [{ type: "assessment_hints_group" }, { type: "assessment_summary_feedback" }],
+      },
+    ],
+  };
 }
 
 function createRuntimeDragComposition(harnessId: string) {
@@ -228,7 +287,6 @@ function createRuntimeDragComposition(harnessId: string) {
 
 function RuntimeDragSurface({ harnessId }: SurfaceRuntimeViewProps & { harnessId: string }) {
   const environment = useInteractionDragEnvironmentResolution();
-  const [result, setResult] = useState<"idle" | "dropped" | "cancelled">("idle");
 
   useLayoutEffect(() => {
     if (environment.status !== "ready") return;
@@ -251,51 +309,11 @@ function RuntimeDragSurface({ harnessId }: SurfaceRuntimeViewProps & { harnessId
       }
       style={{ position: "relative", minHeight: "200px", padding: "24px" }}
     >
-      <InteractionDragSession
-        accessibilityMode="draggable"
-        collisionPolicy="feature-resolver"
-        labels={{ draggable: "Source", instructions: "Move the source to the target" }}
-        onCancel={() => setResult("cancelled")}
-        onEnd={(event) => setResult(event.over?.id === "harness-target" ? "dropped" : "cancelled")}
-        profile="sortable-vertical"
-        renderPreview={() => <div data-drag-preview="">Source</div>}
-        resolveCollision={() => "harness-target"}
-        sessionId="runtime-drag-harness"
-      >
-        <RuntimeDragControls result={result} />
-      </InteractionDragSession>
       <NodeViewContent />
     </NodeViewWrapper>
   );
 }
 
-function RuntimeDragControls({ result }: { result: "idle" | "dropped" | "cancelled" }) {
-  const source = useInteractionDragSource({
-    data: { title: "Source" },
-    id: "harness-source",
-    label: "Source",
-  });
-  const target = useInteractionDropTarget({ data: { title: "Target" }, id: "harness-target" });
-  return (
-    <>
-      <div
-        ref={source.setNodeRef}
-        data-drag-source=""
-        style={{ width: "120px", height: "48px", marginBottom: "24px" }}
-        {...source.activatorProps}
-        {...source.sourceProps}
-      >
-        Source
-      </div>
-      <div
-        ref={target.setNodeRef}
-        data-drop-target=""
-        style={{ width: "180px", height: "72px" }}
-        {...target.targetProps}
-      >
-        Target
-      </div>
-      <output data-drag-result={result}>{result}</output>
-    </>
-  );
+function harnessResult(player: HTMLElement): string {
+  return player.querySelector("[data-interaction-drag-placeholder]") ? "dragging" : "idle";
 }

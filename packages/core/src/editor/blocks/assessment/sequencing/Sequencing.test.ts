@@ -20,6 +20,7 @@ import { createDisposableEditor } from "@/editor/testing/disposable-editor";
 import type { AssessmentPort } from "@/host/ports";
 import { moveSiblingNode } from "@/editor/prosemirror/move-sibling/move-sibling-node";
 import { AUTHORING_FRAME_ATTR } from "@/editor/interactions/dom/authoring-frame";
+import { resolveInteractionTargetSize } from "@/editor/interactions/drag/model/interaction-target-size";
 import { AssessmentActionsGroupNode } from "@/editor/blocks/assessment/shared/nodes/assessment-actions-group";
 import { AssessmentActionsGroupRuntimeNode } from "@/editor/blocks/assessment/shared/nodes/assessment-actions-group-runtime";
 import { AssessmentHintNode } from "@/editor/blocks/assessment/shared/nodes/assessment-hint";
@@ -937,6 +938,38 @@ describe("composite sequencing node", () => {
 });
 
 describe("sequencing display order", () => {
+  it.each([
+    [0.5, 55, 27.5],
+    [0.8, 55, 44],
+    [0.83, 44 / 0.83, 44],
+    [1, 44, 44],
+    [2, 22, 44],
+  ])("uses the shared activation target policy at scale %s", (scale, local, rendered) => {
+    const target = resolveInteractionTargetSize({
+      safeLocalHeight: 55,
+      safeLocalWidth: 55,
+      scaleX: scale,
+      scaleY: scale,
+    });
+
+    expect(target?.minimumLocalWidth).toBeCloseTo(local);
+    expect(target?.minimumLocalHeight).toBeCloseTo(local);
+    expect(target?.minimumLocalWidth * scale).toBeCloseTo(rendered);
+    expect(target?.minimumLocalHeight * scale).toBeCloseTo(rendered);
+  });
+
+  it("clips activation sizing to the declared safe row bounds", () => {
+    const target = resolveInteractionTargetSize({
+      safeLocalHeight: 40,
+      safeLocalWidth: 48,
+      scaleX: 0.5,
+      scaleY: 0.5,
+    });
+
+    expect(target).toMatchObject({ minimumLocalWidth: 48, minimumLocalHeight: 40 });
+    expect(target?.minimumLocalHeight).toBeLessThanOrEqual(55);
+  });
+
   it("reads revealed order from the canonical sequence assessment schema", () => {
     expect(
       revealedSequenceOrder({

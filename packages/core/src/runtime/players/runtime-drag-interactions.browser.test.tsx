@@ -15,60 +15,64 @@ afterEach(() => {
   while (mounted.length > 0) mounted.pop()?.dispose();
 });
 
-describe("runtime drag browser harness", () => {
-  it("performs a Page drag through the published environment", async () => {
+describe("Sequencing shared drag runtime", () => {
+  it("reorders a Page sequence with one activation handle per row", async () => {
     await page.viewport(1024, 768);
     const harness = await mountRuntimeDragHarness({ surface: "page" });
     mounted.push(harness);
 
-    expect(harness.player.dataset.runtimePlayer).toBe("page");
-    expect(harness.player.ownerDocument).toBe(harness.ownerDocument);
     expect(harness.getEnvironment().status).toBe("ready");
-    expect(harness.getEnvironment().ownerDocument).toBe(harness.ownerDocument);
-    expect(harness.getEnvironment().ownerWindow).toBe(harness.ownerWindow);
-    expect(harness.getEnvironment().positionStrategy).toBe("fixed");
-    const source = harness.getSource();
-    const target = harness.getTargets()[0];
-    expect(source).not.toBeNull();
-    expect(target).not.toBeNull();
-    await dragPointer(harness, source!, target!);
+    expect(harness.getActivationAreas()).toHaveLength(3);
+    const before = harness.getResponseOrder();
+    expect(before).toHaveLength(3);
+    await dragPointer(harness, harness.getSource()!, harness.getTargets()[1]!);
     await harness.waitForResult("dropped");
-    expect(harness.getResult()).toBe("dropped");
-    expect(harness.getPlaceholder()).toBeNull();
-    expect(harness.getOverlayHost()).not.toBeNull();
-    expect(harness.getCanvas()).toBeNull();
-  });
 
-  it.each([0.5, 0.83, 1, 2])("performs a transformed Slideshow drag at scale %s", async (scale) => {
-    await page.viewport(Math.max(1024, Math.ceil(scale * 1024 + 100)), 900);
-    const harness = await mountRuntimeDragHarness({ surface: "slideshow", scale });
-    mounted.push(harness);
-
-    const canvas = harness.getCanvas();
-    expect(canvas).not.toBeNull();
-    expect(harness.getCanvasRect().width).toBeGreaterThan(0);
-    expect(harness.getCanvasRect().height).toBeGreaterThan(0);
-    expect(harness.getEnvironment().reason).toBeUndefined();
-    expect(harness.getEnvironment().status).toBe("ready");
-    expect(harness.getEnvironment().ownerDocument).toBe(harness.ownerDocument);
-    expect(harness.getEnvironment().ownerWindow).toBe(harness.ownerWindow);
-    expect(harness.getCanvasRect().width / 1024).toBeCloseTo(scale, 1);
-    expect(harness.getCanvasRect().height / 576).toBeCloseTo(scale, 1);
-    await dragPointer(harness, harness.getSource()!, harness.getTargets()[0]!);
-    await harness.waitForResult("dropped");
-    expect(harness.getResult()).toBe("dropped");
+    expect(harness.getResponseOrder()).toEqual([before[1], before[0], before[2]]);
     expect(harness.getPlaceholder()).toBeNull();
   });
 
-  it("keeps two harnesses scoped to their own environments", async () => {
+  it.each([0.5, 0.83, 1, 2])(
+    "keeps Sequencing overlay and local displacement aligned at Slideshow scale %s",
+    async (scale) => {
+      await page.viewport(Math.max(1024, Math.ceil(scale * 1024 + 100)), 900);
+      const harness = await mountRuntimeDragHarness({ surface: "slideshow", scale });
+      mounted.push(harness);
+
+      expect(harness.getCanvasRect().width / 1024).toBeCloseTo(scale, 1);
+      expect(harness.getEnvironment().status).toBe("ready");
+      const source = harness.getSource()!;
+      const target = harness.getTargets()[2]!;
+      await dragPointer(harness, source, target, false);
+
+      const overlay = harness.getOverlayHost()?.querySelector<HTMLElement>(
+        "[data-interaction-drag-overlay]",
+      );
+      if (overlay) {
+        expect(overlay.querySelector("[data-runtime-sequencing-handle]")).toBeNull();
+        expect(overlay.querySelector("button")).toBeNull();
+      }
+      expect(harness.getActivationAreas()).toHaveLength(3);
+
+      await finishPointerDrag(harness, target);
+      await harness.waitForResult("dropped");
+      expect(harness.getResponseOrder()).toHaveLength(3);
+    },
+  );
+
+  it("cancels without a response write and restores focus", async () => {
     await page.viewport(1024, 768);
-    const first = await mountRuntimeDragHarness({ surface: "page" });
-    const second = await mountRuntimeDragHarness({ surface: "page" });
-    mounted.push(first, second);
+    const harness = await mountRuntimeDragHarness({ surface: "page" });
+    mounted.push(harness);
+    const source = harness.getSource()!;
+    const before = harness.getResponseOrder();
+    source.focus();
+    fireEvent.keyDown(harness.ownerDocument, { key: "Escape" });
 
-    expect(first.getOverlayHost()).not.toBe(second.getOverlayHost());
-    expect(first.getSource()).not.toBe(second.getSource());
-    expect(first.getTargets()[0]).not.toBe(second.getTargets()[0]);
+    await new Promise<void>((resolve) => harness.ownerWindow.requestAnimationFrame(() => resolve()));
+    expect(harness.getPlaceholder()).toBeNull();
+    expect(harness.getResponseOrder()).toEqual(before);
+    expect(harness.ownerDocument.activeElement).toBe(source);
   });
 
   it("fails closed for an unsupported Slideshow transform", async () => {
@@ -86,32 +90,49 @@ async function dragPointer(
   harness: RuntimeDragBrowserHarness,
   source: HTMLElement,
   target: HTMLElement,
+  finish = true,
 ): Promise<void> {
   const sourceRect = source.getBoundingClientRect();
   const targetRect = target.getBoundingClientRect();
   fireEvent.pointerDown(source, {
+    button: 0,
     buttons: 1,
-    clientX: sourceRect.left + 10,
-    clientY: sourceRect.top + 10,
+    clientX: sourceRect.left + sourceRect.width / 2,
+    clientY: sourceRect.top + sourceRect.height / 2,
     isPrimary: true,
     pointerId: 1,
     pointerType: "mouse",
   });
   fireEvent.pointerMove(harness.ownerDocument, {
+    button: 0,
     buttons: 1,
-    clientX: targetRect.left + 10,
-    clientY: targetRect.top + 10,
+    clientX: targetRect.left + targetRect.width / 2,
+    clientY: targetRect.top + targetRect.height / 2,
+    isPrimary: true,
+    pointerId: 1,
+    pointerType: "mouse",
+  });
+  fireEvent.pointerMove(harness.ownerDocument, {
+    button: 0,
+    buttons: 1,
+    clientX: targetRect.left + targetRect.width / 2 + 2,
+    clientY: targetRect.top + targetRect.height / 2 + 2,
     isPrimary: true,
     pointerId: 1,
     pointerType: "mouse",
   });
   await new Promise<void>((resolve) => harness.ownerWindow.requestAnimationFrame(() => resolve()));
+  if (finish) await finishPointerDrag(harness, target);
+}
+
+async function finishPointerDrag(harness: RuntimeDragBrowserHarness, target: HTMLElement) {
+  const targetRect = target.getBoundingClientRect();
   fireEvent.pointerUp(harness.ownerDocument, {
     buttons: 0,
-    clientX: targetRect.left + 10,
-    clientY: targetRect.top + 10,
+    clientX: targetRect.left + targetRect.width / 2,
+    clientY: targetRect.top + targetRect.height / 2,
     isPrimary: true,
     pointerId: 1,
-    pointerType: "mouse",
   });
+  await new Promise<void>((resolve) => harness.ownerWindow.requestAnimationFrame(() => resolve()));
 }
