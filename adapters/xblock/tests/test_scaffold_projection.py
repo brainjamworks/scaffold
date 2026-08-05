@@ -3164,7 +3164,19 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
     def test_learning_event_handler_returns_a_safe_tracking_failure(self):
         block = make_xblock()
-        block.runtime.publish = Mock(side_effect=RuntimeError("private backend detail"))
+        private_response = "learner-response-secret"
+        private_extension = "extension-value-secret"
+        private_identity = "learner@example.test"
+        private_credential = "Bearer private-token"
+        private_endpoint = "https://tracking.private.example/statements"
+        block.runtime.publish = Mock(
+            side_effect=RuntimeError(
+                "private backend detail "
+                f"response={private_response} extension={private_extension} "
+                f"learner={private_identity} credential={private_credential} "
+                f"endpoint={private_endpoint}"
+            )
+        )
         event = {
             "id": "00000000-0000-4000-8000-000000000001",
             "timestamp": "2026-07-27T12:00:00.000Z",
@@ -3176,6 +3188,14 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
                 "objectType": "Activity",
                 "id": "https://scaffold.ac/xapi/activities/openedx/usage-v1",
             },
+            "result": {
+                "response": private_response,
+                "extensions": {
+                    "https://scaffold.example/xapi/extensions/private": (
+                        private_extension
+                    ),
+                },
+            },
         }
 
         with self.assertLogs(scaffold.log, level="ERROR") as captured:
@@ -3185,7 +3205,19 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             result,
             {"success": False, "error": "Learning Event could not be accepted"},
         )
-        self.assertNotIn(event["id"], "\n".join(captured.output))
+        log_output = "\n".join(captured.output)
+        self.assertIn("accept_learning_event failed", log_output)
+        for private_value in (
+            "private backend detail",
+            event["id"],
+            private_response,
+            private_extension,
+            private_identity,
+            private_credential,
+            private_endpoint,
+        ):
+            with self.subTest(private_value=private_value):
+                self.assertNotIn(private_value, log_output)
 
     def test_removed_xapi_handler_has_no_compatibility_alias(self):
         self.assertFalse(hasattr(make_xblock(), "accept_xapi_statement"))

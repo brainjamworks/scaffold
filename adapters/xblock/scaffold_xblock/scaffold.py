@@ -593,6 +593,7 @@ class ScaffoldXBlock(ScorableXBlockMixin, XBlock):
                 log,
                 "accept_learning_event",
                 "Learning Event could not be accepted",
+                include_exception=False,
             )
 
     @XBlock.json_handler

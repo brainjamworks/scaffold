@@ -125,7 +125,23 @@ export interface LearningEventPort {
 const absoluteIriScheme = /^[A-Za-z][A-Za-z\d+.-]*:/;
 
 function isAbsoluteIri(value: string): boolean {
-  if (value !== value.trim() || /\s/u.test(value) || !absoluteIriScheme.test(value)) {
+  const scheme = absoluteIriScheme.exec(value)?.[0];
+  if (
+    value !== value.trim() ||
+    /[\s\\]/u.test(value) ||
+    /%(?![0-9A-Fa-f]{2})/u.test(value) ||
+    scheme === undefined
+  ) {
+    return false;
+  }
+  const schemeSpecificPart = value.slice(scheme.length);
+  if (schemeSpecificPart.length === 0) {
+    return false;
+  }
+  if (
+    (scheme.toLowerCase() === "http:" || scheme.toLowerCase() === "https:") &&
+    !schemeSpecificPart.startsWith("//")
+  ) {
     return false;
   }
 
@@ -141,7 +157,12 @@ export const LearningEventIriSchema = z.string().refine(isAbsoluteIri, {
   message: "Must be an absolute IRI",
 });
 
-const LearningEventUuidSchema = z.string().uuid();
+const learningEventUuid =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+
+const LearningEventUuidSchema = z.string().regex(learningEventUuid, {
+  message: "Must be an RFC UUID using an assigned version and IETF variant",
+});
 
 const LearningEventTimestampSchema = z
   .string()
@@ -150,7 +171,38 @@ const LearningEventTimestampSchema = z
     message: "Must be an RFC 3339 UTC timestamp with at least millisecond precision",
   });
 
-const LearningEventDurationSchema = z.string().duration();
+const learningEventDuration =
+  /^P(?:(\d+(?:[.,]\d+)?)W|(?:(\d+(?:[.,]\d+)?)Y)?(?:(\d+(?:[.,]\d+)?)M)?(?:(\d+(?:[.,]\d+)?)D)?(?:T(?:(\d+(?:[.,]\d+)?)H)?(?:(\d+(?:[.,]\d+)?)M)?(?:(\d+(?:[.,]\d+)?)S)?)?)$/u;
+
+function isLearningEventDuration(value: string): boolean {
+  const match = learningEventDuration.exec(value);
+  if (match === null) {
+    return false;
+  }
+
+  const week = match[1];
+  const components = match.slice(2);
+  const presentComponents = components.filter((component): component is string =>
+    Boolean(component),
+  );
+  if (week !== undefined) {
+    return true;
+  }
+  if (presentComponents.length === 0) {
+    return false;
+  }
+  if (value.includes("T") && components.slice(3).every((component) => !component)) {
+    return false;
+  }
+
+  return presentComponents
+    .slice(0, -1)
+    .every((component) => !component.includes(".") && !component.includes(","));
+}
+
+const LearningEventDurationSchema = z.string().refine(isLearningEventDuration, {
+  message: "Must be an xAPI-compatible ISO 8601 duration",
+});
 
 const grandfatheredLanguageTags = new Set([
   "art-lojban",
@@ -181,6 +233,8 @@ const grandfatheredLanguageTags = new Set([
   "zh-xiang",
 ]);
 const privateUseLanguageTag = /^x(?:-[A-Za-z\d]{1,8})+$/iu;
+const structuredLanguageTag =
+  /^(?:(?:[A-Za-z]{2,3}(?:-[A-Za-z]{3}){0,1}|[A-Za-z]{5,8})(?:-[A-Za-z]{4})?(?:-(?:[A-Za-z]{2}|\d{3}))?(?:-(?:[A-Za-z\d]{5,8}|\d[A-Za-z\d]{3}))*(?:-[0-9A-WY-Za-wy-z](?:-[A-Za-z\d]{2,8})+)*(?:-x(?:-[A-Za-z\d]{1,8})+)?)$/u;
 
 function isLanguageTag(value: string): boolean {
   if (value !== value.trim() || value.length === 0) {
@@ -191,11 +245,34 @@ function isLanguageTag(value: string): boolean {
     return true;
   }
 
-  try {
-    return Intl.getCanonicalLocales(value).length === 1;
-  } catch {
+  if (!structuredLanguageTag.test(value)) {
     return false;
   }
+
+  const variants = new Set<string>();
+  const extensionSingletons = new Set<string>();
+  let inExtensions = false;
+  for (const subtag of value.toLowerCase().split("-").slice(1)) {
+    if (subtag === "x") {
+      break;
+    }
+    if (subtag.length === 1) {
+      if (extensionSingletons.has(subtag)) {
+        return false;
+      }
+      extensionSingletons.add(subtag);
+      inExtensions = true;
+    } else if (
+      !inExtensions &&
+      ((subtag.length === 4 && /^\d/u.test(subtag)) || (subtag.length >= 5 && subtag.length <= 8))
+    ) {
+      if (variants.has(subtag)) {
+        return false;
+      }
+      variants.add(subtag);
+    }
+  }
+  return true;
 }
 
 const LearningEventLanguageTagSchema = z.string().refine(isLanguageTag, {
@@ -217,6 +294,7 @@ const LearningEventJsonPrimitiveSchema = z.union([
 
 const invalidJsonObject = Symbol("invalid Learning Event JSON object");
 const invalidLearningEventTree = Symbol("invalid Learning Event tree");
+const LEARNING_EVENT_JSON_MAX_DEPTH = 32;
 
 function requireNonEmptyPlainObject(value: unknown): unknown {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -231,47 +309,95 @@ function requireNonEmptyPlainObject(value: unknown): unknown {
   return Object.keys(value).length > 0 ? value : invalidJsonObject;
 }
 
-function containsUndefined(value: unknown, visited = new Set<object>()): boolean {
-  if (value === undefined) {
-    return true;
+function containsUndefined(value: unknown): boolean {
+  const active = new Set<object>();
+  const pending: { readonly value: unknown; readonly leaving: boolean }[] = [
+    { value, leaving: false },
+  ];
+
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (current === undefined) {
+      break;
+    }
+    if (current.leaving) {
+      active.delete(current.value as object);
+      continue;
+    }
+    if (current.value === undefined) {
+      return true;
+    }
+    if (typeof current.value !== "object" || current.value === null) {
+      continue;
+    }
+    if (active.has(current.value)) {
+      return true;
+    }
+
+    active.add(current.value);
+    pending.push({ value: current.value, leaving: true });
+    for (const child of Array.isArray(current.value)
+      ? current.value
+      : Object.values(current.value)) {
+      pending.push({ value: child, leaving: false });
+    }
   }
 
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
-
-  if (visited.has(value)) {
-    return true;
-  }
-  visited.add(value);
-
-  const result = (Array.isArray(value) ? value : Object.values(value)).some((child) =>
-    containsUndefined(child, visited),
-  );
-  visited.delete(value);
-  return result;
+  return false;
 }
 
 function requireDefinedLearningEventTree(value: unknown): unknown {
   return containsUndefined(value) ? invalidLearningEventTree : value;
 }
 
-const LearningEventJsonValueSchema: z.ZodType<LearningEventJsonValue, z.ZodTypeDef, unknown> = z.lazy(() =>
-  z.union([
-    LearningEventJsonPrimitiveSchema,
-    z.array(LearningEventJsonValueSchema),
-    z.preprocess(
-      requireNonEmptyPlainObject,
-      z.record(z.string(), LearningEventJsonValueSchema),
-    ) as z.ZodType<{ readonly [key: string]: LearningEventJsonValue }, z.ZodTypeDef, unknown>,
-  ]),
-);
+const LearningEventJsonValueSchema: z.ZodType<LearningEventJsonValue, z.ZodTypeDef, unknown> =
+  z.lazy(() =>
+    z.union([
+      LearningEventJsonPrimitiveSchema,
+      z.array(LearningEventJsonValueSchema),
+      z.preprocess(
+        requireNonEmptyPlainObject,
+        z.record(z.string(), LearningEventJsonValueSchema),
+      ) as z.ZodType<{ readonly [key: string]: LearningEventJsonValue }, z.ZodTypeDef, unknown>,
+    ]),
+  );
+
+function requireBoundedLearningEventExtensions(value: unknown): unknown {
+  const extensions = requireNonEmptyPlainObject(value);
+  if (extensions === invalidJsonObject) {
+    return extensions;
+  }
+
+  const pending = Object.values(extensions as Record<string, unknown>).map((extensionValue) => ({
+    value: extensionValue,
+    depth: 0,
+  }));
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (current === undefined || typeof current.value !== "object" || current.value === null) {
+      continue;
+    }
+    if (current.depth >= LEARNING_EVENT_JSON_MAX_DEPTH) {
+      return invalidJsonObject;
+    }
+    for (const child of Array.isArray(current.value)
+      ? current.value
+      : Object.values(current.value)) {
+      pending.push({ value: child, depth: current.depth + 1 });
+    }
+  }
+
+  return extensions;
+}
 
 const LearningEventExtensionsSchema: z.ZodType<
   Readonly<Record<LearningEventIri, LearningEventJsonValue>>,
   z.ZodTypeDef,
   unknown
-> = z.preprocess(requireNonEmptyPlainObject, z.record(LearningEventIriSchema, LearningEventJsonValueSchema));
+> = z.preprocess(
+  requireBoundedLearningEventExtensions,
+  z.record(LearningEventIriSchema, LearningEventJsonValueSchema),
+);
 
 const LearningEventInteractionTypeSchema = z.enum([
   "true-false",
@@ -419,9 +545,8 @@ const LearningEventValueSchema = z
   })
   .strict();
 
-export const LearningEventSchema: z.ZodType<LearningEvent, z.ZodTypeDef, unknown> =
-  z
-    .preprocess(requireDefinedLearningEventTree, LearningEventValueSchema)
-    // The preprocessor rejects explicit undefined recursively, narrowing Zod's
-    // exact-optional output to the public interface.
-    .transform((value): LearningEvent => value as LearningEvent);
+export const LearningEventSchema: z.ZodType<LearningEvent, z.ZodTypeDef, unknown> = z
+  .preprocess(requireDefinedLearningEventTree, LearningEventValueSchema)
+  // The preprocessor rejects explicit undefined recursively, narrowing Zod's
+  // exact-optional output to the public interface.
+  .transform((value): LearningEvent => value as LearningEvent);

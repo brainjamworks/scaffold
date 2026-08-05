@@ -6,6 +6,7 @@ from urllib.parse import urlsplit
 
 
 MAX_LEARNING_EVENT_BYTES = 65536
+MAX_LEARNING_EVENT_JSON_DEPTH = 32
 
 _EVENT_FIELDS = {"id", "timestamp", "verb", "object", "result", "context"}
 _INTERACTION_TYPES = {
@@ -35,6 +36,7 @@ _GRANDFATHERED_LANGUAGE_TAGS = {
     "i-navajo",
     "i-pwn",
     "i-tao",
+    "i-tay",
     "i-tsu",
     "no-bok",
     "no-nyn",
@@ -49,16 +51,24 @@ _GRANDFATHERED_LANGUAGE_TAGS = {
 }
 
 _IRI_SCHEME = re.compile(r"^[A-Za-z][A-Za-z\d+.-]*:")
-_UUID_V4 = re.compile(
-    r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+_INVALID_PERCENT_ENCODING = re.compile(r"%(?![0-9A-Fa-f]{2})")
+_UUID = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
     re.IGNORECASE,
 )
 _UTC_TIMESTAMP = re.compile(
     r"^(?!0000)(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})\.\d{3,}Z$"
 )
 _DURATION = re.compile(
-    r"^P(?=\d|T\d)(?:\d+Y)?(?:\d+M)?(?:\d+D)?"
-    r"(?:T(?=\d)(?:\d+H)?(?:\d+M)?(?:\d+(?:\.\d+)?S)?)?$"
+    r"^P(?:"
+    r"(\d+(?:[.,]\d+)?)W"
+    r"|(?:(\d+(?:[.,]\d+)?)Y)?"
+    r"(?:(\d+(?:[.,]\d+)?)M)?"
+    r"(?:(\d+(?:[.,]\d+)?)D)?"
+    r"(?:T(?:(\d+(?:[.,]\d+)?)H)?"
+    r"(?:(\d+(?:[.,]\d+)?)M)?"
+    r"(?:(\d+(?:[.,]\d+)?)S)?)?"
+    r")$"
 )
 _PRIVATE_USE_LANGUAGE_TAG = re.compile(
     r"^x(?:-[A-Za-z\d]{1,8})+$",
@@ -66,7 +76,7 @@ _PRIVATE_USE_LANGUAGE_TAG = re.compile(
 )
 _LANGUAGE_TAG = re.compile(
     r"^(?:"
-    r"(?:[A-Za-z]{2,3}(?:-[A-Za-z]{3}){0,3}|[A-Za-z]{4}|[A-Za-z]{5,8})"
+    r"(?:[A-Za-z]{2,3}(?:-[A-Za-z]{3}){0,1}|[A-Za-z]{5,8})"
     r"(?:-[A-Za-z]{4})?"
     r"(?:-(?:[A-Za-z]{2}|\d{3}))?"
     r"(?:-(?:[A-Za-z\d]{5,8}|\d[A-Za-z\d]{3}))*"
@@ -191,7 +201,7 @@ def _validate_result(value):
     if "response" in value and type(value["response"]) is not str:
         _reject("Learning Event result is invalid")
     if "duration" in value:
-        if type(value["duration"]) is not str or not _DURATION.fullmatch(
+        if type(value["duration"]) is not str or not _is_duration(
             value["duration"]
         ):
             _reject("Learning Event duration is invalid")
@@ -249,10 +259,50 @@ def _validate_language_map(value):
 def _is_language_tag(value):
     if not value or value != value.strip():
         return False
-    return (
+    if (
         value.lower() in _GRANDFATHERED_LANGUAGE_TAGS
         or _PRIVATE_USE_LANGUAGE_TAG.fullmatch(value) is not None
-        or _LANGUAGE_TAG.fullmatch(value) is not None
+    ):
+        return True
+    if _LANGUAGE_TAG.fullmatch(value) is None:
+        return False
+
+    variants = set()
+    extension_singletons = set()
+    in_extensions = False
+    for subtag in value.lower().split("-")[1:]:
+        if subtag == "x":
+            break
+        if len(subtag) == 1:
+            if subtag in extension_singletons:
+                return False
+            extension_singletons.add(subtag)
+            in_extensions = True
+        elif not in_extensions and (
+            (len(subtag) == 4 and subtag[0].isdigit())
+            or 5 <= len(subtag) <= 8
+        ):
+            if subtag in variants:
+                return False
+            variants.add(subtag)
+    return True
+
+
+def _is_duration(value):
+    match = _DURATION.fullmatch(value)
+    if match is None:
+        return False
+    week, *components = match.groups()
+    if week is not None:
+        return True
+    present_components = [component for component in components if component]
+    if not present_components:
+        return False
+    if "T" in value and not any(components[3:]):
+        return False
+    return all(
+        "." not in component and "," not in component
+        for component in present_components[:-1]
     )
 
 
@@ -264,20 +314,24 @@ def _validate_extensions(value):
         _validate_json_value(extension_value)
 
 
-def _validate_json_value(value):
+def _validate_json_value(value, depth=0):
     if value is None or type(value) in (bool, str):
         return
     if _is_finite_number(value):
         return
     if type(value) is list:
+        if depth >= MAX_LEARNING_EVENT_JSON_DEPTH:
+            _reject("Learning Event JSON value exceeds the maximum depth")
         for child in value:
-            _validate_json_value(child)
+            _validate_json_value(child, depth + 1)
         return
     if type(value) is dict and value:
+        if depth >= MAX_LEARNING_EVENT_JSON_DEPTH:
+            _reject("Learning Event JSON value exceeds the maximum depth")
         for key, child in value.items():
             if type(key) is not str:
                 _reject("Learning Event JSON value is invalid")
-            _validate_json_value(child)
+            _validate_json_value(child, depth + 1)
         return
     _reject("Learning Event JSON value is invalid")
 
@@ -287,6 +341,8 @@ def _validate_iri(value):
         type(value) is not str
         or value != value.strip()
         or any(character.isspace() for character in value)
+        or "\\" in value
+        or _INVALID_PERCENT_ENCODING.search(value) is not None
         or _IRI_SCHEME.match(value) is None
     ):
         _reject("Learning Event IRI is invalid")
@@ -296,12 +352,24 @@ def _validate_iri(value):
         _reject("Learning Event IRI is invalid")
     if not parsed.scheme or len(value) <= len(parsed.scheme) + 1:
         _reject("Learning Event IRI is invalid")
-    if parsed.scheme.lower() in {"http", "https"} and not parsed.netloc:
+    try:
+        parsed_port = parsed.port
+        parsed_hostname = parsed.hostname
+    except ValueError:
+        _reject("Learning Event IRI is invalid")
+    scheme_specific_part = value[len(parsed.scheme) + 1 :]
+    if parsed.scheme.lower() in {"http", "https"} and (
+        not scheme_specific_part.startswith("//")
+        or not parsed.netloc
+        or not parsed_hostname
+    ):
+        _reject("Learning Event IRI is invalid")
+    if parsed_port is not None and not 0 <= parsed_port <= 65535:
         _reject("Learning Event IRI is invalid")
 
 
 def _validate_uuid(value):
-    if type(value) is not str or _UUID_V4.fullmatch(value) is None:
+    if type(value) is not str or _UUID.fullmatch(value) is None:
         _reject("Learning Event id is invalid")
 
 

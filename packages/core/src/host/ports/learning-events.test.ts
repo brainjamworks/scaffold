@@ -15,7 +15,29 @@ interface LearningEventConformanceCase {
   readonly event: unknown;
 }
 
+interface LearningEventScalarConformanceCase {
+  readonly name: string;
+  readonly value: string;
+  readonly valid: boolean;
+}
+
+type LearningEventScalarFamily = "uuid" | "duration" | "languageTag" | "iri";
+
+interface LearningEventJsonDepthConformanceCase {
+  readonly name: string;
+  readonly depth: number;
+  readonly valid: boolean;
+}
+
 const conformanceCases = conformance.cases as readonly LearningEventConformanceCase[];
+const scalarConformanceCases = Object.entries(conformance.scalarCases).flatMap(([family, cases]) =>
+  (cases as readonly LearningEventScalarConformanceCase[]).map((testCase) => ({
+    family: family as LearningEventScalarFamily,
+    ...testCase,
+  })),
+);
+const jsonDepthConformanceCases =
+  conformance.jsonDepthCases as readonly LearningEventJsonDepthConformanceCase[];
 
 function validEvent(): LearningEvent {
   return {
@@ -68,10 +90,57 @@ function validEvent(): LearningEvent {
   };
 }
 
+function eventWithScalar(family: LearningEventScalarFamily, value: string): LearningEvent {
+  const event = validEvent();
+  switch (family) {
+    case "uuid":
+      return { ...event, id: value };
+    case "duration":
+      return { ...event, result: { duration: value } };
+    case "languageTag":
+      return { ...event, verb: { ...event.verb, display: { [value]: "answered" } } };
+    case "iri":
+      return { ...event, object: { ...event.object, id: value } };
+  }
+}
+
+function nestedJsonValue(depth: number): unknown {
+  let value: unknown = "leaf";
+  for (let level = 0; level < depth; level += 1) {
+    value = [value];
+  }
+  return value;
+}
+
 describe("Learning Event contract", () => {
   it.each(conformanceCases)("matches the shared conformance fixture: $name", (testCase) => {
-    expect(LearningEventSchema.safeParse(testCase.event).success).toBe(testCase.coreValid ?? testCase.valid);
+    expect(LearningEventSchema.safeParse(testCase.event).success).toBe(
+      testCase.coreValid ?? testCase.valid,
+    );
   });
+
+  it.each(scalarConformanceCases)(
+    "matches the shared $family scalar fixture: $name",
+    ({ family, value, valid }) => {
+      expect(LearningEventSchema.safeParse(eventWithScalar(family, value)).success).toBe(valid);
+    },
+  );
+
+  it.each(jsonDepthConformanceCases)(
+    "matches the shared extension depth fixture: $name",
+    ({ depth, valid }) => {
+      const event = {
+        ...validEvent(),
+        result: {
+          extensions: {
+            "https://scaffold.example/xapi/extensions/value": nestedJsonValue(depth),
+          },
+        },
+      };
+
+      expect(LearningEventSchema.safeParse(event).success).toBe(valid);
+    },
+  );
 
   it("parses the strict actorless standard-compatible shape", () => {
     const event = validEvent();
@@ -125,9 +194,9 @@ describe("Learning Event contract", () => {
   it.each(["actor", "stored", "authority", "version", "attachments", "type", "payload"])(
     "rejects the adapter-owned or unsupported %s property",
     (property) => {
-      expect(
-        LearningEventSchema.safeParse({ ...validEvent(), [property]: {} }).success,
-      ).toBe(false);
+      expect(LearningEventSchema.safeParse({ ...validEvent(), [property]: {} }).success).toBe(
+        false,
+      );
     },
   );
 

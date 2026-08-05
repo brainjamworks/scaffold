@@ -26,13 +26,15 @@ namespace mod_scaffold\learning_event;
 final class validator {
     /** Maximum accepted JSON payload in bytes. */
     public const MAX_JSON_BYTES = 65536;
+    /** Maximum nested array/object containers in one extension JSON value. */
+    public const MAX_JSON_DEPTH = 32;
     /** Moodle-owned context extension. */
     public const CMID_EXTENSION = 'https://scaffold.ac/xapi/extensions/moodle-course-module-id';
     /** BCP 47 grandfathered language tags accepted by Core. */
     private const GRANDFATHERED_LANGUAGE_TAGS = [
         'art-lojban', 'cel-gaulish', 'en-gb-oed', 'i-ami', 'i-bnn', 'i-default',
         'i-enochian', 'i-hak', 'i-klingon', 'i-lux', 'i-mingo', 'i-navajo',
-        'i-pwn', 'i-tao', 'i-tsu', 'no-bok', 'no-nyn', 'sgn-be-fr', 'sgn-be-nl',
+        'i-pwn', 'i-tao', 'i-tay', 'i-tsu', 'no-bok', 'no-nyn', 'sgn-be-fr', 'sgn-be-nl',
         'sgn-ch-de', 'zh-guoyu', 'zh-hakka', 'zh-min', 'zh-min-nan', 'zh-xiang',
     ];
 
@@ -155,7 +157,7 @@ final class validator {
             if (property_exists($value, $field) && !is_bool($value->{$field})) self::reject('Learning Event boolean is invalid');
         }
         if (property_exists($value, 'response') && !is_string($value->response)) self::reject('Learning Event response is invalid');
-        if (property_exists($value, 'duration') && (!is_string($value->duration) || !preg_match('/^P(?=\d|T\d)(?:\d+Y)?(?:\d+M)?(?:\d+D)?(?:T(?=\d)(?:\d+H)?(?:\d+M)?(?:\d+(?:\.\d+)?S)?)?$/', $value->duration))) {
+        if (property_exists($value, 'duration') && (!is_string($value->duration) || !self::duration($value->duration))) {
             self::reject('Learning Event duration is invalid');
         }
         if (property_exists($value, 'extensions')) self::extensions($value->extensions);
@@ -218,12 +220,79 @@ final class validator {
     private static function language_map(mixed $value): void {
         if (!$value instanceof \stdClass || get_object_vars($value) === []) self::reject('Learning Event language map is invalid');
         foreach (get_object_vars($value) as $language => $text) {
-            $lowerlanguage = strtolower($language);
-            $validlanguage = in_array($lowerlanguage, self::GRANDFATHERED_LANGUAGE_TAGS, true)
-                || preg_match('/^x(?:-[A-Za-z\d]{1,8})+$/i', $language)
-                || preg_match('/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/', $language);
-            if (!$validlanguage || !is_string($text) || trim($text) === '') self::reject('Learning Event language map is invalid');
+            if (!self::language_tag($language) || !is_string($text) || trim($text) === '') {
+                self::reject('Learning Event language map is invalid');
+            }
         }
+    }
+
+    /**
+     * Validates one BCP 47 language tag and its uniqueness constraints.
+     * @param string $value Language tag.
+     */
+    private static function language_tag(string $value): bool {
+        if ($value !== trim($value) || $value === '') return false;
+        $lower = strtolower($value);
+        if (in_array($lower, self::GRANDFATHERED_LANGUAGE_TAGS, true)
+                || preg_match('/^x(?:-[A-Za-z\d]{1,8})+$/i', $value)) {
+            return true;
+        }
+        if (!preg_match(
+            '/^(?:(?:[A-Za-z]{2,3}(?:-[A-Za-z]{3}){0,1}|[A-Za-z]{5,8})'
+                . '(?:-[A-Za-z]{4})?(?:-(?:[A-Za-z]{2}|\d{3}))?'
+                . '(?:-(?:[A-Za-z\d]{5,8}|\d[A-Za-z\d]{3}))*'
+                . '(?:-[0-9A-WY-Za-wy-z](?:-[A-Za-z\d]{2,8})+)*'
+                . '(?:-x(?:-[A-Za-z\d]{1,8})+)?)$/',
+            $value,
+        )) {
+            return false;
+        }
+
+        $variants = [];
+        $singletons = [];
+        $inextensions = false;
+        foreach (array_slice(explode('-', $lower), 1) as $subtag) {
+            if ($subtag === 'x') break;
+            if (strlen($subtag) === 1) {
+                if (isset($singletons[$subtag])) return false;
+                $singletons[$subtag] = true;
+                $inextensions = true;
+            } elseif (!$inextensions && ((strlen($subtag) === 4 && ctype_digit($subtag[0]))
+                    || (strlen($subtag) >= 5 && strlen($subtag) <= 8))) {
+                if (isset($variants[$subtag])) return false;
+                $variants[$subtag] = true;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Validates the unsigned xAPI ISO 8601 duration grammar.
+     * @param string $value Duration.
+     */
+    private static function duration(string $value): bool {
+        if (!preg_match(
+            '/^P(?:(\d+(?:[.,]\d+)?)W|(?:(\d+(?:[.,]\d+)?)Y)?'
+                . '(?:(\d+(?:[.,]\d+)?)M)?(?:(\d+(?:[.,]\d+)?)D)?'
+                . '(?:T(?:(\d+(?:[.,]\d+)?)H)?(?:(\d+(?:[.,]\d+)?)M)?'
+                . '(?:(\d+(?:[.,]\d+)?)S)?)?)$/',
+            $value,
+            $parts,
+            PREG_UNMATCHED_AS_NULL,
+        )) {
+            return false;
+        }
+        if ($parts[1] !== null) return true;
+        $components = array_slice($parts, 2);
+        $present = array_values(array_filter($components, fn($component) => $component !== null));
+        if ($present === [] || (str_contains($value, 'T')
+                && !array_filter(array_slice($components, 3), fn($component) => $component !== null))) {
+            return false;
+        }
+        foreach (array_slice($present, 0, -1) as $component) {
+            if (str_contains($component, '.') || str_contains($component, ',')) return false;
+        }
+        return true;
     }
 
     /**
@@ -242,17 +311,20 @@ final class validator {
      * Validates a finite JSON-safe tree.
      * @param mixed $value Value.
      */
-    private static function json_value(mixed $value): void {
+    private static function json_value(mixed $value, int $depth = 0): void {
         if ($value === null || is_bool($value) || is_string($value)) return;
         if (is_int($value) || is_float($value)) {
             if (!is_finite((float) $value)) self::reject('Learning Event JSON value is invalid');
             return;
         }
         if ($value instanceof \stdClass || is_array($value)) {
+            if ($depth >= self::MAX_JSON_DEPTH) {
+                self::reject('Learning Event JSON value exceeds the maximum depth');
+            }
             if ($value instanceof \stdClass && get_object_vars($value) === []) {
                 self::reject('Learning Event JSON value is invalid');
             }
-            foreach ((array) $value as $child) self::json_value($child);
+            foreach ((array) $value as $child) self::json_value($child, $depth + 1);
             return;
         }
         self::reject('Learning Event JSON value is invalid');
@@ -263,16 +335,25 @@ final class validator {
      * @param mixed $value Value.
      */
     private static function iri(mixed $value): void {
-        if (!is_string($value) || $value !== trim($value) || preg_match('/\s/', $value) ||
-                !preg_match('/^[A-Za-z][A-Za-z\d+.-]*:/', $value) || parse_url($value, PHP_URL_SCHEME) === false) self::reject('Learning Event IRI is invalid');
+        if (!is_string($value) || $value !== trim($value) || preg_match('/\s/', $value) || str_contains($value, '\\') ||
+                preg_match('/%(?![0-9A-Fa-f]{2})/', $value)
+                || !preg_match('/^([A-Za-z][A-Za-z\d+.-]*:)(.+)$/', $value, $match)) {
+            self::reject('Learning Event IRI is invalid');
+        }
+        $parts = parse_url($value);
+        if ($parts === false) self::reject('Learning Event IRI is invalid');
+        if (in_array(strtolower(rtrim($match[1], ':')), ['http', 'https'], true)
+                && (!str_starts_with($match[2], '//') || empty($parts['host']))) {
+            self::reject('Learning Event IRI is invalid');
+        }
     }
 
     /**
-     * Validates a version-four UUID.
+     * Validates an assigned-version RFC UUID using the IETF variant.
      * @param mixed $value Value.
      */
     private static function uuid(mixed $value): void {
-        if (!is_string($value) || !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $value)) self::reject('Learning Event id is invalid');
+        if (!is_string($value) || !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $value)) self::reject('Learning Event id is invalid');
     }
 
     /**

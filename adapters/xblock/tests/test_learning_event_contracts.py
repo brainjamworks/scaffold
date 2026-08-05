@@ -41,6 +41,28 @@ def valid_learning_event():
     }
 
 
+def event_with_scalar(family, value):
+    event = valid_learning_event()
+    if family == "uuid":
+        event["id"] = value
+    elif family == "duration":
+        event["result"] = {"duration": value}
+    elif family == "languageTag":
+        event["verb"]["display"] = {value: "answered"}
+    elif family == "iri":
+        event["object"]["id"] = value
+    else:
+        raise AssertionError(f"Unknown scalar family: {family}")
+    return event
+
+
+def nested_json_value(depth):
+    value = "leaf"
+    for _level in range(depth):
+        value = [value]
+    return value
+
+
 class LearningEventContractTest(unittest.TestCase):
     def test_accepts_an_actorless_canonical_event_as_an_owned_copy(self):
         event = valid_learning_event()
@@ -92,6 +114,43 @@ class LearningEventContractTest(unittest.TestCase):
         ):
             learning_event.validate_learning_event(event)
 
+    def test_accepts_exactly_64_kib_of_multibyte_json(self):
+        learning_event = load_learning_event_module()
+        event = valid_learning_event()
+        event["result"]["response"] = ""
+        encoded = json.dumps(
+            event,
+            allow_nan=False,
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        remaining_bytes = 65536 - len(encoded)
+        event["result"]["response"] = (
+            "é" * (remaining_bytes // 2) + "x" * (remaining_bytes % 2)
+        )
+
+        validated = learning_event.validate_learning_event(event)
+
+        self.assertEqual(validated, event)
+        self.assertEqual(
+            len(
+                json.dumps(
+                    event,
+                    allow_nan=False,
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                ).encode("utf-8")
+            ),
+            65536,
+        )
+
+        event["result"]["response"] += "é"
+        with self.assertRaisesRegex(
+            learning_event.LearningEventValidationError,
+            "maximum accepted size",
+        ):
+            learning_event.validate_learning_event(event)
+
     def test_rejects_non_json_finite_or_cyclic_values(self):
         learning_event = load_learning_event_module()
         cyclic = []
@@ -126,6 +185,57 @@ class LearningEventContractTest(unittest.TestCase):
                 self.assertEqual(accepted, case["valid"])
                 if accepted:
                     self.assertEqual(validated, case["event"])
+
+        for family, cases in fixture["scalarCases"].items():
+            for case in cases:
+                with self.subTest(family=family, case=case["name"]):
+                    try:
+                        validated = learning_event.validate_learning_event(
+                            event_with_scalar(family, case["value"])
+                        )
+                        accepted = True
+                    except learning_event.LearningEventValidationError:
+                        validated = None
+                        accepted = False
+
+                    self.assertEqual(accepted, case["valid"])
+                    if accepted:
+                        self.assertEqual(
+                            validated,
+                            event_with_scalar(family, case["value"]),
+                        )
+
+        for case in fixture["jsonDepthCases"]:
+            with self.subTest(case=case["name"]):
+                event = valid_learning_event()
+                event["result"] = {
+                    "extensions": {
+                        "https://scaffold.example/xapi/extensions/value": (
+                            nested_json_value(case["depth"])
+                        ),
+                    },
+                }
+                try:
+                    learning_event.validate_learning_event(event)
+                    accepted = True
+                except learning_event.LearningEventValidationError:
+                    accepted = False
+
+                self.assertEqual(accepted, case["valid"])
+
+    def test_large_hostile_nesting_is_a_safe_validation_error(self):
+        learning_event = load_learning_event_module()
+        event = valid_learning_event()
+        event["result"] = {
+            "extensions": {
+                "https://scaffold.example/xapi/extensions/value": (
+                    nested_json_value(1000)
+                ),
+            },
+        }
+
+        with self.assertRaises(learning_event.LearningEventValidationError):
+            learning_event.validate_learning_event(event)
 
 
 if __name__ == "__main__":

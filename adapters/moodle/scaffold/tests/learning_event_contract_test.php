@@ -49,6 +49,50 @@ final class learning_event_contract_test extends \advanced_testcase {
                 $this->assertSame($case->event->timestamp, $validated->timestamp, $case->name . ' preserves timestamp');
             }
         }
+
+        foreach (get_object_vars($fixture->scalarCases) as $family => $cases) {
+            foreach ($cases as $case) {
+                $event = json_decode(json_encode($fixture->cases[0]->event, JSON_THROW_ON_ERROR), false, 512, JSON_THROW_ON_ERROR);
+                if ($family === 'uuid') {
+                    $event->id = $case->value;
+                } elseif ($family === 'duration') {
+                    $event->result = (object) ['duration' => $case->value];
+                } elseif ($family === 'languageTag') {
+                    $event->verb->display = (object) [$case->value => 'answered'];
+                } elseif ($family === 'iri') {
+                    $event->object->id = $case->value;
+                } else {
+                    $this->fail('Unknown scalar family: ' . $family);
+                }
+
+                try {
+                    validator::validate_json(json_encode($event, JSON_THROW_ON_ERROR));
+                    $actual = true;
+                } catch (\invalid_parameter_exception) {
+                    $actual = false;
+                }
+                $this->assertSame($case->valid, $actual, $case->name);
+            }
+        }
+
+        foreach ($fixture->jsonDepthCases as $case) {
+            $event = json_decode(json_encode($fixture->cases[0]->event, JSON_THROW_ON_ERROR), false, 512, JSON_THROW_ON_ERROR);
+            $value = 'leaf';
+            for ($depth = 0; $depth < $case->depth; $depth++) {
+                $value = [$value];
+            }
+            $event->result = (object) [
+                'extensions' => (object) ['https://scaffold.example/xapi/extensions/value' => $value],
+            ];
+
+            try {
+                validator::validate_json(json_encode($event, JSON_THROW_ON_ERROR));
+                $actual = true;
+            } catch (\invalid_parameter_exception) {
+                $actual = false;
+            }
+            $this->assertSame($case->valid, $actual, $case->name);
+        }
     }
 
     /**

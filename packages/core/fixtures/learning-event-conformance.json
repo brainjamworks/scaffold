@@ -1,4 +1,47 @@
 {
+  "scalarCases": {
+    "uuid": [
+      { "name": "uuid-version-1", "value": "550e8400-e29b-11d4-a716-446655440000", "valid": true },
+      { "name": "uuid-version-7", "value": "018f1f6e-7b20-7cc3-98c8-2f6f876e7a10", "valid": true },
+      { "name": "uuid-nil-sentinel", "value": "00000000-0000-0000-0000-000000000000", "valid": false },
+      { "name": "uuid-unsupported-version", "value": "550e8400-e29b-91d4-a716-446655440000", "valid": false },
+      { "name": "uuid-non-ietf-variant", "value": "550e8400-e29b-41d4-7716-446655440000", "valid": false }
+    ],
+    "duration": [
+      { "name": "duration-week", "value": "P1W", "valid": true },
+      { "name": "duration-fractional-year", "value": "P0.5Y", "valid": true },
+      { "name": "duration-fractional-hour", "value": "PT1.5H", "valid": true },
+      { "name": "duration-decimal-comma", "value": "PT0,5S", "valid": true },
+      { "name": "duration-negative", "value": "-P1D", "valid": false },
+      { "name": "duration-component-sign", "value": "P-1D", "valid": false },
+      { "name": "duration-week-mixed-with-day", "value": "P1W1D", "valid": false },
+      { "name": "duration-fraction-before-lower-component", "value": "P0.5Y1M", "valid": false }
+    ],
+    "languageTag": [
+      { "name": "language-grandfathered-i-tay", "value": "i-tay", "valid": true },
+      { "name": "language-one-extlang", "value": "zh-cmn", "valid": true },
+      { "name": "language-complete-structured-tag", "value": "en-Latn-US-1901-a-foo-x-bar", "valid": true },
+      { "name": "language-reserved-four-letter-primary", "value": "abcd", "valid": false },
+      { "name": "language-multiple-extlangs", "value": "zh-cmn-gan", "valid": false },
+      { "name": "language-duplicate-variant", "value": "sl-rozaj-rozaj", "valid": false },
+      { "name": "language-duplicate-extension-singleton", "value": "en-a-foo-a-bar", "valid": false }
+    ],
+    "iri": [
+      { "name": "iri-urn", "value": "urn:uuid:550e8400-e29b-41d4-a716-446655440000", "valid": true },
+      { "name": "iri-custom-scheme", "value": "scaffold:artifact:artifact-1", "valid": true },
+      { "name": "iri-unicode-host-and-path", "value": "https://例子.测试/路径", "valid": true },
+      { "name": "iri-backslash-authority", "value": "https:\\\\example.com/path", "valid": false },
+      { "name": "iri-http-without-authority", "value": "https:example.com/path", "valid": false },
+      { "name": "iri-empty-scheme-specific-part", "value": "urn:", "valid": false },
+      { "name": "iri-invalid-percent-encoding", "value": "urn:example:%ZZ", "valid": false },
+      { "name": "iri-nonnumeric-port", "value": "https://example.com:bad/path", "valid": false },
+      { "name": "iri-out-of-range-port", "value": "https://example.com:99999/path", "valid": false }
+    ]
+  },
+  "jsonDepthCases": [
+    { "name": "json-depth-at-limit", "depth": 32, "valid": true },
+    { "name": "json-depth-over-limit", "depth": 33, "valid": false }
+  ],
   "cases": [
     {
       "name": "valid-boundary-event",
