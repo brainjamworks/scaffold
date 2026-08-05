@@ -3,11 +3,12 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { page } from "vite-plus/test/browser/context";
 
 import "@/styles/globals.css";
+import "@/ui/components/course/AssessmentShell/AssessmentShell.css";
 
 import { ChoiceAnswerItem, CHOICE_TRAILING_BTN } from "./ChoiceAnswerItem";
 import "../../image-hotspot/ImageHotspot.css";
 import "../../../media/AudioBlock.css";
-import "./assessment-problem-shell.css";
+import "./assessment-node-view.css";
 
 let root: Root | null = null;
 let host: HTMLElement | null = null;
@@ -29,7 +30,7 @@ describe("ChoiceAnswerItem compact geometry", () => {
 
     root = createRoot(host);
     root.render(
-      <section className="sc-assessment-shell">
+      <section className="sc-course-assessment-shell" data-editable="true">
         <div data-slot="assessment-prompt">
           <p className="is-empty" data-placeholder="Ask your question" />
         </div>

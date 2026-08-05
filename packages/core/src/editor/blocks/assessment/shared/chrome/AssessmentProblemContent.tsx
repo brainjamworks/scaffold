@@ -1,6 +1,7 @@
 import { NodeViewContent } from "@tiptap/react";
 
-import { ProblemShell } from "./ProblemShell";
+import { AssessmentShell } from "@/ui/components/course/AssessmentShell/AssessmentShell";
+
 import "./assessment-node-view.css";
 
 interface AssessmentProblemContentProps {
@@ -15,12 +16,12 @@ export function AssessmentProblemContent({
   surfaceAttributes,
 }: AssessmentProblemContentProps) {
   return (
-    <ProblemShell
-      isEditable={editable}
-      blockClass={blockClass}
+    <AssessmentShell
+      editable={editable}
+      className={blockClass}
       {...(surfaceAttributes ? { surfaceAttributes } : {})}
     >
       <NodeViewContent />
-    </ProblemShell>
+    </AssessmentShell>
   );
 }

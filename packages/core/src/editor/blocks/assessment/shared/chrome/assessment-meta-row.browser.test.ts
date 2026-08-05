@@ -3,9 +3,9 @@ import { page } from "vite-plus/test/browser/context";
 
 import "@/styles/globals.css";
 import "@/editor/rich-text/view/text-alignment.css";
+import "@/ui/components/course/AssessmentShell/AssessmentShell.css";
 
 import "./assessment-node-view.css";
-import "./assessment-problem-shell.css";
 import "../nodes/assessment-shared-chrome.css";
 
 let host: HTMLElement | null = null;
@@ -23,7 +23,7 @@ describe("bounded assessment metadata", () => {
     host.dataset["boundedPlacement"] = "fill";
     host.style.cssText = "width: 700px; height: 360px;";
     host.innerHTML = `
-      <section class="sc-assessment-shell">
+      <section class="sc-course-assessment-shell">
         <div class="sc-assessment-meta-title" data-slot="assessment-title">
           <p data-text-align="left">Question title</p>
         </div>

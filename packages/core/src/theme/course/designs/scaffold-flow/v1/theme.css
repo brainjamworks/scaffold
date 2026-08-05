@@ -19,6 +19,7 @@
 @import "./annotated-figure.css";
 @import "./gallery.css";
 @import "./text-wrap-image.css";
+@import "./assessment-shell.css";
 
 .sc-course.sc-course-theme-scaffold-flow-v1 {
   min-width: 0;

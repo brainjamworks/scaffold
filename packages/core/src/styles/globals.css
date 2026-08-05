@@ -739,7 +739,7 @@
   /* Tiptap React NodeView wrappers — layout-invisible. ProseMirror /
  * Tiptap insert several wrapper divs around each child NodeView for
  * tracking. Without flattening, gap/flex utilities applied at
- * composite-block level (ProblemShell, choices group, hints group)
+ * composite-block level (AssessmentShell, choices group, hints group)
  * never reach the child NodeViews because these wrappers absorb them.
  *
  * Our layout lives on each NodeViewWrapper's own className. */
