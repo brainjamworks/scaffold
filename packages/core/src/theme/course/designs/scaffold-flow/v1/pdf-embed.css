@@ -105,8 +105,9 @@
     .sc-course-pdf-embed__zoom-button,
     .sc-course-pdf-embed__zoom-value,
     .sc-course-pdf-embed__open
-  ) {
+) {
   min-height: 2.5rem;
+  border-radius: max(var(--radius-6), var(--radius-full));
   cursor: pointer;
 }
 

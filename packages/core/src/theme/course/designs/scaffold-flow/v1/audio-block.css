@@ -66,7 +66,12 @@
 
 .sc-course.sc-course-theme-scaffold-flow-v1
   :is(.sc-course-audio-player__play, .sc-course-audio-player__mute) {
+  border-radius: max(var(--radius-6), var(--radius-full));
   cursor: pointer;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-audio-player__rate {
+  border-radius: max(var(--radius-6), var(--radius-full));
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-audio-player__play {

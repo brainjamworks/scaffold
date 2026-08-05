@@ -200,7 +200,7 @@
   inset-inline-start: var(--space-2);
   inset-block-end: var(--space-2);
   padding: 0.1875rem 0.4375rem;
-  border-radius: var(--radius-full);
+  border-radius: max(var(--radius-6), var(--radius-full));
   background: color-mix(in srgb, var(--gray-12) 84%, transparent);
   color: var(--gray-1);
   font-family: var(--default-font-family);

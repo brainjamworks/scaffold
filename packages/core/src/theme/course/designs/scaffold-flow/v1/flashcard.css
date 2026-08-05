@@ -105,6 +105,7 @@
   align-items: center;
   gap: var(--space-1);
   padding-inline: var(--space-2);
+  border-radius: max(var(--radius-6), var(--radius-full));
   font-size: var(--font-size-1);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -156,6 +157,7 @@
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-flashcard-deck-header__progress {
   width: 100%;
   height: var(--space-1);
+  border-radius: max(var(--radius-6), var(--radius-full));
   background: var(--gray-a4);
 }
 
@@ -191,9 +193,11 @@
     .sc-course-flashcard-reader-controls__flip-button,
     .sc-course-flashcard-reader-controls__icon-button,
     .sc-course-flashcard-rating-button,
+    .sc-course-flashcard-reader-controls__reset-button,
     .sc-course-flashcard-mastered__reset
-  ) {
+) {
   min-height: 2.75rem;
+  border-radius: max(var(--radius-6), var(--radius-full));
   border-color: var(--gray-a6);
   background: var(--gray-1);
   color: var(--gray-12);
@@ -215,7 +219,6 @@
   width: 2.75rem;
   height: 2.75rem;
   flex: 0 0 2.75rem;
-  border-radius: 50%;
   color: var(--gray-11);
 }
 
@@ -224,6 +227,7 @@
     .sc-course-flashcard-reader-controls__flip-button,
     .sc-course-flashcard-reader-controls__icon-button,
     .sc-course-flashcard-rating-button,
+    .sc-course-flashcard-reader-controls__reset-button,
     .sc-course-flashcard-mastered__reset
   ):not(:disabled):hover {
   border-color: var(--gray-a8);

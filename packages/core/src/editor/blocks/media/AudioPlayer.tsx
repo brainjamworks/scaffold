@@ -189,7 +189,6 @@ export function AudioPlayer({
           onClick={togglePlay}
           aria-label={playing ? "Pause" : "Play"}
           className="sc-course-audio-player__play"
-          radius="full"
           size="2"
           variant="solid"
         >
@@ -222,7 +221,6 @@ export function AudioPlayer({
           onClick={cycleRate}
           aria-label={`Playback speed, ${rate}x`}
           className="sc-course-audio-player__rate"
-          radius="full"
           size="1"
           variant="ghost"
         >
@@ -235,7 +233,6 @@ export function AudioPlayer({
             onClick={toggleMute}
             aria-label={muted ? "Unmute" : "Mute"}
             className="sc-course-audio-player__mute"
-            radius="full"
             size="1"
             variant="ghost"
           >

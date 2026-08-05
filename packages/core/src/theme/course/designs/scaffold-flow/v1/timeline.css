@@ -368,7 +368,7 @@
   align-items: center;
   justify-content: center;
   border: 1px solid var(--gray-a6);
-  border-radius: 50%;
+  border-radius: max(var(--radius-6), var(--radius-full));
   background: var(--gray-2);
   color: var(--gray-11);
   cursor: pointer;

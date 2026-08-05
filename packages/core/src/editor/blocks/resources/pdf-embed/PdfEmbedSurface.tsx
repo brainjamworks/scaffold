@@ -362,7 +362,6 @@ export function PdfEmbedSurface({
             disabled={pageNumber <= 1 || numPages === null}
             className="sc-course-pdf-embed__nav-button"
             aria-label="Previous page"
-            radius="full"
             size="3"
             variant="soft"
           >
@@ -391,7 +390,6 @@ export function PdfEmbedSurface({
             disabled={numPages === null || pageNumber >= numPages}
             className="sc-course-pdf-embed__nav-button"
             aria-label="Next page"
-            radius="full"
             size="3"
             variant="soft"
           >
@@ -412,7 +410,6 @@ export function PdfEmbedSurface({
             disabled={!showStats || zoomOutScale === null}
             className="sc-course-pdf-embed__zoom-button"
             aria-label="Zoom out"
-            radius="full"
             size="3"
             variant="soft"
           >
@@ -424,7 +421,6 @@ export function PdfEmbedSurface({
             disabled={!showStats || zoom === "fit"}
             className="sc-course-pdf-embed__zoom-value"
             aria-label={zoom === "fit" ? "PDF zoom set to fit" : `Zoom ${zoomLabel}. Reset to fit`}
-            radius="full"
             size="3"
             variant="soft"
           >
@@ -438,7 +434,6 @@ export function PdfEmbedSurface({
             disabled={!showStats || zoomInScale === null}
             className="sc-course-pdf-embed__zoom-button"
             aria-label="Zoom in"
-            radius="full"
             size="3"
             variant="soft"
           >
@@ -461,7 +456,6 @@ export function PdfEmbedSurface({
             <Button
               asChild
               className="sc-course-pdf-embed__open"
-              radius="full"
               size="3"
               variant="soft"
             >

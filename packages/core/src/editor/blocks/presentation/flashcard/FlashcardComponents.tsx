@@ -136,7 +136,6 @@ function LearnerDeckHeader({
       <Progress
         value={mastered}
         max={total}
-        radius="full"
         aria-label={`${mastered} of ${total} cards mastered`}
         className="sc-course-flashcard-deck-header__progress"
       />
@@ -211,7 +210,6 @@ export function ReaderControls({
           <Button
             type="button"
             variant="ghost"
-            radius="full"
             onClick={onReset}
             className="sc-course-flashcard-reader-controls__reset-button"
           >
@@ -252,7 +250,6 @@ function NavigationControls({
       <Button
         type="button"
         variant="surface"
-        radius="full"
         onClick={onFlip}
         aria-keyshortcuts="Space"
         className="sc-course-flashcard-reader-controls__flip-button"
@@ -290,7 +287,6 @@ function IconCircleButton({
     <IconButton
       type="button"
       variant="surface"
-      radius="full"
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
@@ -316,7 +312,6 @@ function RatingButton({
     <Button
       type="button"
       variant="surface"
-      radius="full"
       onClick={onClick}
       aria-pressed={active}
       aria-keyshortcuts={isGotIt ? "G" : "N"}
@@ -381,7 +376,6 @@ export function MasteredState({ onReset, children }: { onReset: () => void; chil
       <Button
         type="button"
         variant="surface"
-        radius="full"
         onClick={onReset}
         className="sc-course-flashcard-mastered__reset"
       >
@@ -534,7 +528,6 @@ export function FlashcardCardSurface({
       <div className="sc-course-flashcard-card__rotator">{children}</div>
       {mastery ? (
         <Badge
-          radius="full"
           data-scaffold-card-no-flip
           contentEditable={false}
           data-course-state={mastery === "gotIt" ? "completed" : "available"}
