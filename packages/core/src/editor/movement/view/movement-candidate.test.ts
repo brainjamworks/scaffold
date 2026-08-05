@@ -5,7 +5,7 @@ import { EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { render } from "@testing-library/react";
 import { createElement } from "react";
-import { describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 
 import { CellNode, GridNode } from "@/editor/arrangements/grid/model/grid-nodes";
 import { LayoutNode, SectionNode } from "@/editor/arrangements/layout/model/layout-nodes";
@@ -30,20 +30,12 @@ import {
 import {
   deriveContainedMovementCandidate,
   deriveMovementCandidate as deriveMovementCandidateWithLookup,
+  movementCandidatesAreSemanticallyEqual,
 } from "./movement-candidate";
-import { resolveMovementAnchorElement as resolveMovementAnchorElementWithLookup } from "./movement-dom";
-import {
-  AddCellAfterTarget,
-  AddCellAtGridEnd,
-  InsertAfterTarget,
-  InsertBeforeTarget,
-  InsertInsideTarget,
-  MoveContainedAfterTarget,
-  MoveContainedBeforeTarget,
-} from "../model/movement-intents";
+import { InsertAfterTarget, MoveContainedBeforeTarget } from "../model/movement-intents";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
-import { RegionMovementTarget } from "../model/movement-target";
+import { ContainedMovementTarget, createMovementTarget } from "../model/movement-target";
 
 const testBlockRegistry = createBlockRegistry([
   ...builtInBlockRegistry.definitions,
@@ -56,19 +48,6 @@ const testBlockRegistry = createBlockRegistry([
 const createStructureMovementPolicy = (
   schema: Parameters<typeof createStructureMovementPolicyWithLookup>[0],
 ) => createStructureMovementPolicyWithLookup(schema, testBlockRegistry);
-
-const deriveMovementCandidate = (
-  input: Omit<Parameters<typeof deriveMovementCandidateWithLookup>[0], "blockDefinitions">,
-) =>
-  deriveMovementCandidateWithLookup({
-    ...input,
-    blockDefinitions: testBlockRegistry,
-  });
-
-const resolveMovementAnchorElement = (
-  dom: Parameters<typeof resolveMovementAnchorElementWithLookup>[0],
-  context: Parameters<typeof resolveMovementAnchorElementWithLookup>[1],
-) => resolveMovementAnchorElementWithLookup(dom, context, testBlockRegistry);
 
 const MovementGridNode = GridNode.extend({
   renderHTML({ node, HTMLAttributes }) {
@@ -420,10 +399,6 @@ function block(id: string): JSONContent {
   return { type: "test_block", attrs: { id } };
 }
 
-function framedBlock(id: string): JSONContent {
-  return { type: "test_framed_block", attrs: { id } };
-}
-
 function containedFieldNode(name: string) {
   return Node.create({
     name,
@@ -493,23 +468,6 @@ function containedGroupNode(name: string, content: string, attr: string, value: 
       return ["div", { [attr]: value }, 0];
     },
   });
-}
-
-function compositeBlock(text: string): JSONContent {
-  return {
-    type: "test_composite_block",
-    content: [
-      {
-        type: "test_field",
-        content: [
-          {
-            type: "paragraph",
-            content: [{ type: "text", text }],
-          },
-        ],
-      },
-    ],
-  };
 }
 
 function section(content: JSONContent[]): JSONContent {
@@ -589,13 +547,6 @@ function categoriseBin(id: string, itemId: string): JSONContent {
 
 function containedGroup(type: string, children: JSONContent[]): JSONContent {
   return { type, content: children };
-}
-
-function framedAssessment(children: JSONContent[]): JSONContent {
-  return {
-    type: "test_framed_assessment",
-    content: [containedGroup("assessment_choices_group", children)],
-  };
 }
 
 function courseDocument(content: JSONContent[]): JSONContent {
@@ -708,42 +659,6 @@ function rect(overrides: Partial<DOMRect> = {}): DOMRect {
     toJSON: () => ({}),
     ...overrides,
   };
-}
-
-function stubPosAtCoords(editor: Editor, pos: number) {
-  return vi.spyOn(editor.view, "posAtCoords").mockReturnValue({ inside: -1, pos });
-}
-
-function stubNodeRect(editor: Editor, pos: number, nextRect: DOMRect = rect()) {
-  const dom = editor.view.nodeDOM(pos);
-  const context = resolveMovementNodeContext(editor.state.doc, pos);
-  if (!(dom instanceof HTMLElement)) {
-    throw new Error(`No element for node at ${pos}`);
-  }
-  if (!context) {
-    throw new Error(`No movement context for node at ${pos}`);
-  }
-
-  const anchor = resolveMovementAnchorElement(dom, context);
-  if (!anchor) {
-    throw new Error(`No movement anchor for node at ${pos}`);
-  }
-
-  vi.spyOn(anchor, "getBoundingClientRect").mockReturnValue(nextRect);
-}
-
-function stubContainedNodeRect(editor: Editor, pos: number, nextRect: DOMRect = rect()) {
-  const dom = editor.view.nodeDOM(pos);
-  if (!(dom instanceof HTMLElement)) {
-    throw new Error(`No element for contained node at ${pos}`);
-  }
-  const anchor = dom.matches("[data-contained-movement-target]")
-    ? dom
-    : dom.querySelector("[data-contained-movement-target]");
-  if (!(anchor instanceof HTMLElement)) {
-    throw new Error(`No contained movement anchor for node at ${pos}`);
-  }
-  vi.spyOn(anchor, "getBoundingClientRect").mockReturnValue(nextRect);
 }
 
 describe("structure movement policy", () => {
@@ -891,137 +806,6 @@ describe("contained authored movement policy", () => {
     editor.destroy();
   });
 
-  it("resolves before and after targets only inside the source owner boundary", () => {
-    const editor = makeEditor([
-      containedGroup("assessment_choices_group", [
-        containedChild("selectable_choice", "a"),
-        containedChild("selectable_choice", "b"),
-        containedChild("selectable_choice", "c"),
-      ]),
-    ]);
-    const sourcePos = nodePos(editor, "selectable_choice", "a");
-    const targetPos = nodePos(editor, "selectable_choice", "c");
-    stubContainedNodeRect(
-      editor,
-      targetPos,
-      rect({
-        bottom: 130,
-        height: 120,
-        left: 10,
-        right: 210,
-        top: 10,
-        width: 200,
-      }),
-    );
-
-    const before = deriveContainedMovementCandidate({
-      point: { x: 100, y: 20 },
-      sourcePos,
-      view: editor.view,
-    });
-    const after = deriveContainedMovementCandidate({
-      point: { x: 100, y: 125 },
-      sourcePos,
-      view: editor.view,
-    });
-
-    expect(before?.intent).toBeInstanceOf(MoveContainedBeforeTarget);
-    expect(before?.intent.target.pos).toBe(targetPos);
-    expect(after?.intent).toBeInstanceOf(MoveContainedAfterTarget);
-    expect(after?.intent.target.pos).toBe(targetPos);
-    editor.destroy();
-  });
-
-  it("resolves contained row targets inside a framed assessment owner", () => {
-    const editor = makeEditor([
-      framedAssessment([
-        containedChild("selectable_choice", "a"),
-        containedChild("selectable_choice", "b"),
-        containedChild("selectable_choice", "c"),
-      ]),
-    ]);
-    const sourcePos = nodePos(editor, "selectable_choice", "a");
-    const targetPos = nodePos(editor, "selectable_choice", "c");
-    stubContainedNodeRect(
-      editor,
-      targetPos,
-      rect({
-        bottom: 130,
-        height: 120,
-        left: 10,
-        right: 210,
-        top: 10,
-        width: 200,
-      }),
-    );
-
-    const candidate = deriveContainedMovementCandidate({
-      point: { x: 100, y: 125 },
-      sourcePos,
-      view: editor.view,
-    });
-
-    expect(candidate?.intent).toBeInstanceOf(MoveContainedAfterTarget);
-    expect(candidate?.intent.target.pos).toBe(targetPos);
-    expect(candidate?.source.parentPos).toBe(
-      resolveMovementNodeContext(editor.state.doc, targetPos)?.parentPos,
-    );
-    editor.destroy();
-  });
-
-  it("resolves an after target from the bottom gutter of the last contained row", () => {
-    const editor = makeEditor([
-      containedGroup("assessment_choices_group", [
-        containedChild("selectable_choice", "a"),
-        containedChild("selectable_choice", "b"),
-        containedChild("selectable_choice", "c"),
-      ]),
-    ]);
-    const sourcePos = nodePos(editor, "selectable_choice", "a");
-    const targetPos = nodePos(editor, "selectable_choice", "c");
-    stubContainedNodeRect(
-      editor,
-      targetPos,
-      rect({
-        bottom: 130,
-        height: 120,
-        left: 10,
-        right: 210,
-        top: 10,
-        width: 200,
-      }),
-    );
-
-    const after = deriveContainedMovementCandidate({
-      point: { x: 100, y: 150 },
-      sourcePos,
-      view: editor.view,
-    });
-
-    expect(after?.intent).toBeInstanceOf(MoveContainedAfterTarget);
-    expect(after?.intent.target.pos).toBe(targetPos);
-    editor.destroy();
-  });
-
-  it("rejects contained row targets outside the owner boundary", () => {
-    const editor = makeEditor([
-      containedGroup("assessment_choices_group", [containedChild("selectable_choice", "a")]),
-      containedGroup("assessment_choices_group", [containedChild("selectable_choice", "b")]),
-    ]);
-    const sourcePos = nodePos(editor, "selectable_choice", "a");
-    const targetPos = nodePos(editor, "selectable_choice", "b");
-    stubContainedNodeRect(editor, targetPos);
-
-    expect(
-      deriveContainedMovementCandidate({
-        point: { x: 100, y: 70 },
-        sourcePos,
-        view: editor.view,
-      }),
-    ).toBeNull();
-    editor.destroy();
-  });
-
   it("does not resolve editable field content as a contained movement source", () => {
     const editor = makeEditor([
       containedGroup("sequencing_items_group", [containedChild("sequencing_item", "Nested text")]),
@@ -1034,542 +818,117 @@ describe("contained authored movement policy", () => {
   });
 });
 
-describe("structure movement candidate resolution", () => {
-  it("returns a validated candidate for block-edge targets without mutating the document", () => {
+describe("movement candidate construction", () => {
+  it("constructs and semantically keys a movement intent from a cached query result", () => {
     const editor = makeEditor([block("a"), block("b")]);
-    const sourcePos = nodePos(editor, "test_block", "a");
-    const targetPos = nodePos(editor, "test_block", "b");
-    const before = editor.getJSON();
+    const source = resolveMovementNodeContext(
+      editor.state.doc,
+      nodePos(editor, "test_block", "a"),
+    )!;
+    const targetContext = resolveMovementNodeContext(
+      editor.state.doc,
+      nodePos(editor, "test_block", "b"),
+    )!;
+    const target = createMovementTarget(targetContext, rect());
 
-    stubPosAtCoords(editor, targetPos);
-    stubNodeRect(editor, targetPos);
-
-    const candidate = deriveMovementCandidate({
+    const candidate = deriveMovementCandidateWithLookup({
       canApplyMovementResult: () => true,
       point: { x: 100, y: 125 },
-      sourcePos,
-      view: editor.view,
+      queryResult: { key: "structure:test_block:b", placement: null, target },
+      source,
     });
 
     expect(candidate?.intent).toBeInstanceOf(InsertAfterTarget);
-    expect(candidate?.intent.target.pos).toBe(targetPos);
-    expect(candidate?.source).toMatchObject({
-      pos: sourcePos,
-      nodeType: editor.schema.nodes["test_block"],
-    });
-    expect(candidate?.target).toMatchObject({
-      pos: targetPos,
-      nodeType: editor.schema.nodes["test_block"],
-    });
-    expect(candidate?.target.context).toMatchObject({
-      pos: targetPos,
-      nodeType: editor.schema.nodes["test_block"],
-    });
-    expect(candidate?.target.node.attrs["id"]).toBe("b");
-    expect(editor.getJSON()).toEqual(before);
+    expect(candidate?.key).toBe("structure:test_block:b");
     editor.destroy();
   });
 
-  it("attaches structural movement context to movement target wrappers", () => {
-    const editor = makeEditor([block("source"), grid([cell([block("inside")])])]);
-    const sourcePos = nodePos(editor, "test_block", "source");
-    const cellPos = nodePos(editor, "cell");
-    const containedBlockPos = nodePos(editor, "test_block", "inside");
-    const posAtCoords = vi.spyOn(editor.view, "posAtCoords").mockReturnValue(null);
-
-    stubNodeRect(
-      editor,
-      cellPos,
-      rect({
-        bottom: 180,
-        height: 140,
-        left: 20,
-        right: 220,
-        top: 40,
-        width: 200,
-      }),
-    );
-    stubNodeRect(
-      editor,
-      containedBlockPos,
-      rect({
-        bottom: 100,
-        height: 40,
-        left: 40,
-        right: 180,
-        top: 60,
-        width: 140,
-      }),
-    );
-
-    const candidate = deriveMovementCandidate({
-      canApplyMovementResult: () => true,
-      point: { x: 80, y: 150 },
-      sourcePos,
-      view: editor.view,
-    });
-
-    expect(candidate?.target.context).toMatchObject({
-      index: 0,
-      parentPos: nodePos(editor, "grid"),
-      pos: cellPos,
-      nodeType: editor.schema.nodes["cell"],
-    });
-    expect(posAtCoords).not.toHaveBeenCalled();
-    editor.destroy();
-  });
-
-  it("returns beside results for existing cell edge targets", () => {
-    const editor = makeEditor([block("a"), grid([cell([]), cell([block("b")])])]);
-    const sourcePos = nodePos(editor, "test_block", "a");
-    const targetPos = nodePos(editor, "cell");
-
-    stubPosAtCoords(editor, targetPos);
-    stubNodeRect(editor, targetPos);
+  it("keeps final movement policy authoritative after a cached geometry hit", () => {
+    const editor = makeEditor([block("a"), block("b")]);
+    const source = resolveMovementNodeContext(
+      editor.state.doc,
+      nodePos(editor, "test_block", "a"),
+    )!;
+    const targetContext = resolveMovementNodeContext(
+      editor.state.doc,
+      nodePos(editor, "test_block", "b"),
+    )!;
 
     expect(
-      deriveMovementCandidate({
-        canApplyMovementResult: () => true,
-        point: { x: 205, y: 70 },
-        sourcePos,
-        view: editor.view,
-      })?.intent,
-    ).toBeInstanceOf(AddCellAfterTarget);
+      deriveMovementCandidateWithLookup({
+        canApplyMovementResult: () => false,
+        point: { x: 100, y: 125 },
+        queryResult: {
+          key: "structure:test_block:b",
+          placement: null,
+          target: createMovementTarget(targetContext, rect()),
+        },
+        source,
+      }),
+    ).toBeNull();
     editor.destroy();
   });
 
-  it("uses visual Scaffold anchors so empty cells stay valid drop targets", () => {
-    const editor = makeEditor([block("a"), grid([cell([]), cell([block("b")])])]);
-    const sourcePos = nodePos(editor, "test_block", "a");
-    const targetPos = nodePos(editor, "cell");
-    const posAtCoords = vi.spyOn(editor.view, "posAtCoords").mockReturnValue(null);
+  it("constructs contained placement intents from the cached query result", () => {
+    const editor = makeEditor([
+      containedGroup("assessment_choices_group", [
+        containedChild("selectable_choice", "a"),
+        containedChild("selectable_choice", "b"),
+      ]),
+    ]);
+    const source = resolveMovementNodeContext(
+      editor.state.doc,
+      nodePos(editor, "selectable_choice", "a"),
+    )!;
+    const targetContext = resolveMovementNodeContext(
+      editor.state.doc,
+      nodePos(editor, "selectable_choice", "b"),
+    )!;
+    const target = new ContainedMovementTarget(targetContext, rect());
 
-    stubNodeRect(editor, targetPos);
-
-    const candidate = deriveMovementCandidate({
-      canApplyMovementResult: () => true,
-      point: { x: 100, y: 70 },
-      sourcePos,
-      view: editor.view,
+    const candidate = deriveContainedMovementCandidate({
+      point: { x: 100, y: 20 },
+      queryResult: { key: "contained:selectable_choice:b", placement: "before", target },
+      source,
     });
 
-    expect(candidate?.intent).toBeInstanceOf(InsertInsideTarget);
-    expect(candidate?.intent.target.pos).toBe(targetPos);
-    expect(posAtCoords).not.toHaveBeenCalled();
+    expect(candidate?.intent).toBeInstanceOf(MoveContainedBeforeTarget);
+    expect(candidate?.key).toBe("contained:selectable_choice:b");
     editor.destroy();
   });
 
-  it("resolves framed child blank cell space as a cell insertion target", () => {
-    const editor = makeEditor([block("source"), grid([cell([framedBlock("framed")]), cell([])])]);
-    const sourcePos = nodePos(editor, "test_block", "source");
-    const cellPos = nodePos(editor, "cell");
-    const framedPos = nodePos(editor, "test_framed_block", "framed");
-    const posAtCoords = vi.spyOn(editor.view, "posAtCoords").mockReturnValue(null);
-
-    stubNodeRect(
-      editor,
-      cellPos,
-      rect({
-        bottom: 180,
-        height: 140,
-        left: 20,
-        right: 220,
-        top: 40,
-        width: 200,
-      }),
-    );
-    stubNodeRect(
-      editor,
-      framedPos,
-      rect({
-        bottom: 100,
-        height: 40,
-        left: 40,
-        right: 180,
-        top: 60,
-        width: 140,
-      }),
-    );
-
-    const candidate = deriveMovementCandidate({
-      canApplyMovementResult: () => true,
-      point: { x: 80, y: 150 },
-      sourcePos,
-      view: editor.view,
-    });
-
-    expect(candidate?.intent).toBeInstanceOf(InsertInsideTarget);
-    expect(candidate?.intent.target.pos).toBe(cellPos);
-    expect(posAtCoords).not.toHaveBeenCalled();
-    editor.destroy();
-  });
-
-  it("resolves grid gutters as grid-boundary cell insertion targets", () => {
-    const editor = makeEditor([block("a"), grid([cell([]), cell([block("b")])])]);
-    const sourcePos = nodePos(editor, "test_block", "a");
-    const gridPos = nodePos(editor, "grid");
-    const posAtCoords = vi.spyOn(editor.view, "posAtCoords").mockReturnValue(null);
-
-    stubNodeRect(editor, gridPos);
-
-    const candidate = deriveMovementCandidate({
-      canApplyMovementResult: () => true,
-      point: { x: 230, y: 70 },
-      sourcePos,
-      view: editor.view,
-    });
-
-    expect(candidate?.intent).toBeInstanceOf(AddCellAtGridEnd);
-    expect(candidate?.intent.target.pos).toBe(gridPos);
-    expect(posAtCoords).not.toHaveBeenCalled();
-    editor.destroy();
-  });
-
-  it("resolves framed child grid-end drags as grid-boundary cell insertion targets", () => {
-    const editor = makeEditor([block("source"), grid([cell([framedBlock("framed")]), cell([])])]);
-    const sourcePos = nodePos(editor, "test_block", "source");
-    const gridPos = nodePos(editor, "grid");
-    const framedPos = nodePos(editor, "test_framed_block", "framed");
-    const posAtCoords = vi.spyOn(editor.view, "posAtCoords").mockReturnValue(null);
-
-    stubNodeRect(
-      editor,
-      gridPos,
-      rect({
-        bottom: 180,
-        height: 140,
-        left: 20,
-        right: 420,
-        top: 40,
-        width: 400,
-      }),
-    );
-    stubNodeRect(
-      editor,
-      framedPos,
-      rect({
-        bottom: 120,
-        height: 60,
-        left: 40,
-        right: 200,
-        top: 60,
-        width: 160,
-      }),
-    );
-
-    const candidate = deriveMovementCandidate({
-      canApplyMovementResult: () => true,
-      point: { x: 410, y: 90 },
-      sourcePos,
-      view: editor.view,
-    });
-
-    expect(candidate?.intent).toBeInstanceOf(AddCellAtGridEnd);
-    expect(candidate?.intent.target.pos).toBe(gridPos);
-    expect(posAtCoords).not.toHaveBeenCalled();
-    editor.destroy();
-  });
-
-  it("resolves the visual row gap below a grid as an insert-after-grid target", () => {
-    const editor = makeEditor([grid([cell([block("a")]), cell([])]), block("b")]);
-    const sourcePos = nodePos(editor, "test_block", "a");
-    const gridPos = nodePos(editor, "grid");
-    const posAtCoords = vi.spyOn(editor.view, "posAtCoords").mockReturnValue(null);
-
-    stubNodeRect(editor, gridPos);
-
-    const candidate = deriveMovementCandidate({
-      canApplyMovementResult: () => true,
-      point: { x: 100, y: 150 },
-      sourcePos,
-      view: editor.view,
-    });
-
-    expect(candidate?.intent).toBeInstanceOf(InsertAfterTarget);
-    expect(candidate?.intent.target.pos).toBe(gridPos);
-    expect(posAtCoords).not.toHaveBeenCalled();
-    editor.destroy();
-  });
-
-  it("prefers the grid row edge over a framed child frame after the pointer leaves the grid", () => {
-    const editor = makeEditor([grid([cell([framedBlock("framed")]), cell([])]), block("source")]);
-    const sourcePos = nodePos(editor, "test_block", "source");
-    const gridPos = nodePos(editor, "grid");
-    const framedPos = nodePos(editor, "test_framed_block", "framed");
-    const posAtCoords = vi.spyOn(editor.view, "posAtCoords").mockReturnValue(null);
-
-    stubNodeRect(
-      editor,
-      gridPos,
-      rect({
-        bottom: 160,
-        height: 120,
-        left: 10,
-        right: 410,
-        top: 40,
-        width: 400,
-      }),
-    );
-    stubNodeRect(
-      editor,
-      framedPos,
-      rect({
-        bottom: 210,
-        height: 150,
-        left: 20,
-        right: 220,
-        top: 60,
-        width: 200,
-      }),
-    );
-
-    const candidate = deriveMovementCandidate({
-      canApplyMovementResult: () => true,
-      point: { x: 120, y: 170 },
-      sourcePos,
-      view: editor.view,
-    });
-
-    expect(candidate?.intent).toBeInstanceOf(InsertAfterTarget);
-    expect(candidate?.intent.target.pos).toBe(gridPos);
-    expect(candidate?.target.rect).toMatchObject({
-      left: 10,
-      right: 410,
-      width: 400,
-    });
-    expect(posAtCoords).not.toHaveBeenCalled();
-    editor.destroy();
-  });
-
-  it("uses the grid wrapper rect for row-drop indicators when a grid contains blocks", () => {
-    const editor = makeEditor([grid([cell([block("a")]), cell([])]), block("b")]);
-    const sourcePos = nodePos(editor, "test_block", "b");
-    const gridPos = nodePos(editor, "grid");
-    const blockPos = nodePos(editor, "test_block", "a");
-    const posAtCoords = vi.spyOn(editor.view, "posAtCoords").mockReturnValue(null);
-
-    stubNodeRect(
-      editor,
-      gridPos,
-      rect({
-        bottom: 160,
-        height: 120,
-        left: 10,
-        right: 410,
-        top: 40,
-        width: 400,
-      }),
-    );
-    stubNodeRect(
-      editor,
-      blockPos,
-      rect({
-        bottom: 150,
-        height: 80,
-        left: 20,
-        right: 100,
-        top: 70,
-        width: 80,
-      }),
-    );
-
-    const candidate = deriveMovementCandidate({
-      canApplyMovementResult: () => true,
-      point: { x: 200, y: 170 },
-      sourcePos,
-      view: editor.view,
-    });
-
-    expect(candidate?.intent).toBeInstanceOf(InsertAfterTarget);
-    expect(candidate?.intent.target.pos).toBe(gridPos);
-    expect(candidate?.target.rect).toMatchObject({
-      left: 10,
-      right: 410,
-      width: 400,
-    });
-    expect(posAtCoords).not.toHaveBeenCalled();
-    editor.destroy();
-  });
-
-  it("prefers the grid row edge over a child block edge after the pointer leaves the grid", () => {
-    const editor = makeEditor([grid([cell([block("a")]), cell([])]), block("b")]);
-    const sourcePos = nodePos(editor, "test_block", "b");
-    const gridPos = nodePos(editor, "grid");
-    const blockPos = nodePos(editor, "test_block", "a");
-    const posAtCoords = vi.spyOn(editor.view, "posAtCoords").mockReturnValue(null);
-
-    stubNodeRect(
-      editor,
-      gridPos,
-      rect({
-        bottom: 160,
-        height: 120,
-        left: 10,
-        right: 210,
-        top: 40,
-        width: 200,
-      }),
-    );
-    stubNodeRect(
-      editor,
-      blockPos,
-      rect({
-        bottom: 150,
-        height: 80,
-        left: 20,
-        right: 100,
-        top: 70,
-        width: 80,
-      }),
-    );
-
-    const candidate = deriveMovementCandidate({
-      canApplyMovementResult: () => true,
-      point: { x: 80, y: 170 },
-      sourcePos,
-      view: editor.view,
-    });
-
-    expect(candidate?.intent).toBeInstanceOf(InsertAfterTarget);
-    expect(candidate?.intent.target.pos).toBe(gridPos);
-    expect(posAtCoords).not.toHaveBeenCalled();
-    editor.destroy();
-  });
-
-  it("resolves the visual row gap above a grid as an insert-before-grid target", () => {
-    const editor = makeEditor([block("a"), grid([cell([block("b")]), cell([])])]);
-    const sourcePos = nodePos(editor, "test_block", "b");
-    const gridPos = nodePos(editor, "grid");
-    const posAtCoords = vi.spyOn(editor.view, "posAtCoords").mockReturnValue(null);
-
-    stubNodeRect(editor, gridPos);
-
-    const candidate = deriveMovementCandidate({
-      canApplyMovementResult: () => true,
-      point: { x: 100, y: 0 },
-      sourcePos,
-      view: editor.view,
-    });
-
-    expect(candidate?.intent).toBeInstanceOf(InsertBeforeTarget);
-    expect(candidate?.intent.target.pos).toBe(gridPos);
-    expect(posAtCoords).not.toHaveBeenCalled();
-    editor.destroy();
-  });
-
-  it("climbs from nested field content to the owning registered block target", () => {
-    const editor = makeEditor([block("a"), compositeBlock("Nested target")]);
-    const sourcePos = nodePos(editor, "test_block", "a");
-    const targetPos = nodePos(editor, "test_composite_block");
-
-    stubPosAtCoords(editor, textPos(editor, "target") + 2);
-    stubNodeRect(editor, targetPos);
-
-    const candidate = deriveMovementCandidate({
-      canApplyMovementResult: () => true,
+  it("compares semantic target keys plus intent instead of rectangle identity", () => {
+    const editor = makeEditor([block("a"), block("b")]);
+    const source = resolveMovementNodeContext(
+      editor.state.doc,
+      nodePos(editor, "test_block", "a"),
+    )!;
+    const targetContext = resolveMovementNodeContext(
+      editor.state.doc,
+      nodePos(editor, "test_block", "b"),
+    )!;
+    const first = deriveMovementCandidateWithLookup({
       point: { x: 100, y: 125 },
-      sourcePos,
-      view: editor.view,
+      queryResult: {
+        key: "structure:test_block:b",
+        placement: null,
+        target: createMovementTarget(targetContext, rect()),
+      },
+      source,
+    });
+    const second = deriveMovementCandidateWithLookup({
+      point: { x: 120, y: 225 },
+      queryResult: {
+        key: "structure:test_block:b",
+        placement: null,
+        target: createMovementTarget(targetContext, rect({ bottom: 230, top: 110 })),
+      },
+      source,
     });
 
-    expect(candidate?.intent).toBeInstanceOf(InsertAfterTarget);
-    expect(candidate?.intent.target.pos).toBe(targetPos);
-    expect(candidate?.target).toMatchObject({
-      pos: targetPos,
-      nodeType: editor.schema.nodes["test_composite_block"],
-    });
-    editor.destroy();
-  });
-
-  it("returns inside results for surface and section interiors", () => {
-    const editor = makeEditor([block("a"), layout([block("b")])]);
-    const sourcePos = nodePos(editor, "test_block", "a");
-    const surfacePos = nodePos(editor, "surface");
-    const sectionPos = nodePos(editor, "section");
-
-    stubPosAtCoords(editor, surfacePos);
-    stubNodeRect(editor, surfacePos);
-    expect(
-      deriveMovementCandidate({
-        canApplyMovementResult: () => true,
-        point: { x: 100, y: 70 },
-        sourcePos,
-        view: editor.view,
-      })?.intent,
-    ).toBeInstanceOf(InsertInsideTarget);
-
-    vi.restoreAllMocks();
-    stubPosAtCoords(editor, sectionPos);
-    stubNodeRect(editor, sectionPos);
-    expect(
-      deriveMovementCandidate({
-        canApplyMovementResult: () => true,
-        point: { x: 100, y: 70 },
-        sourcePos,
-        view: editor.view,
-      })?.intent,
-    ).toBeInstanceOf(InsertInsideTarget);
-    editor.destroy();
-  });
-
-  it("resolves region whitespace as an explicit inside target", () => {
-    const editor = makeEditor([block("source"), region([{ type: "paragraph" }])]);
-    const sourcePos = nodePos(editor, "test_block", "source");
-    const regionPos = nodePos(editor, "region");
-    const regionDom = editor.view.nodeDOM(regionPos);
-    const regionAnchor =
-      regionDom instanceof Element && regionDom.matches('[data-authoring-frame="region"]')
-        ? regionDom
-        : regionDom instanceof Element
-          ? regionDom.querySelector('[data-authoring-frame="region"]')
-          : null;
-    if (!(regionAnchor instanceof HTMLElement)) {
-      throw new Error("No authoring frame for region target");
-    }
-    vi.spyOn(regionAnchor, "getBoundingClientRect").mockReturnValue(rect());
-    const posAtCoords = vi.spyOn(editor.view, "posAtCoords").mockReturnValue(null);
-
-    const candidate = deriveMovementCandidate({
-      canApplyMovementResult: () => true,
-      point: { x: 100, y: 70 },
-      sourcePos,
-      view: editor.view,
-    });
-
-    expect(candidate?.target).toBeInstanceOf(RegionMovementTarget);
-    expect(candidate?.target.pos).toBe(regionPos);
-    expect(candidate?.intent).toBeInstanceOf(InsertInsideTarget);
-    expect(posAtCoords).not.toHaveBeenCalled();
-    editor.destroy();
-  });
-
-  it("rejects self and descendant targets before command dispatch", () => {
-    const editor = makeEditor([layout([block("a")]), block("b")]);
-    const layoutPos = nodePos(editor, "layout");
-    const sectionPos = nodePos(editor, "section");
-
-    stubPosAtCoords(editor, layoutPos);
-    stubNodeRect(editor, layoutPos);
-    expect(
-      deriveMovementCandidate({
-        canApplyMovementResult: () => true,
-        point: { x: 100, y: 70 },
-        sourcePos: layoutPos,
-        view: editor.view,
-      }),
-    ).toBeNull();
-
-    vi.restoreAllMocks();
-    stubPosAtCoords(editor, sectionPos);
-    stubNodeRect(editor, sectionPos);
-    expect(
-      deriveMovementCandidate({
-        canApplyMovementResult: () => true,
-        point: { x: 100, y: 70 },
-        sourcePos: layoutPos,
-        view: editor.view,
-      }),
-    ).toBeNull();
+    expect(first).not.toBeNull();
+    expect(second).not.toBeNull();
+    expect(movementCandidatesAreSemanticallyEqual(first, second)).toBe(true);
     editor.destroy();
   });
 });
