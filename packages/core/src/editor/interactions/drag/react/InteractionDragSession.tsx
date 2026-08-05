@@ -127,6 +127,7 @@ interface ActiveSession<ActiveData, OverData> {
   readonly environment: ReadyInteractionDragEnvironment;
   readonly focusTarget: HTMLElement | null;
   readonly input: DragInputKind;
+  started: boolean;
   snapshot: CoordinateSpaceSnapshot;
   stopCoordinateSubscription: (() => void) | null;
   latestMove: {
@@ -168,6 +169,7 @@ export function InteractionDragSession<ActiveData, OverData>({
   const pointerTrackerRef = useRef<ReturnType<typeof createOwnerDocumentPointerTracker> | null>(
     null,
   );
+  const pendingStartFrameRef = useRef<number | null>(null);
   const callbacksRef = useRef({ onCancel, onEnd, onMove, onStart });
   callbacksRef.current = { onCancel, onEnd, onMove, onStart };
   const reducedMotion = useReducedMotion(environment?.ownerWindow ?? null);
@@ -190,6 +192,10 @@ export function InteractionDragSession<ActiveData, OverData>({
     const activeSession = activeSessionRef.current;
     if (!activeSession) return null;
     activeSessionRef.current = null;
+    if (pendingStartFrameRef.current !== null) {
+      activeSession.environment.ownerWindow.cancelAnimationFrame(pendingStartFrameRef.current);
+      pendingStartFrameRef.current = null;
+    }
     activeSession.stopCoordinateSubscription?.();
     activeSession.stopCoordinateSubscription = null;
     setActivePresentation(null);
@@ -235,6 +241,10 @@ export function InteractionDragSession<ActiveData, OverData>({
       const activeSession = activeSessionRef.current;
       if (!activeSession) return;
       activeSessionRef.current = null;
+      if (pendingStartFrameRef.current !== null) {
+        activeSession.environment.ownerWindow.cancelAnimationFrame(pendingStartFrameRef.current);
+        pendingStartFrameRef.current = null;
+      }
       activeSession.stopCoordinateSubscription?.();
       callbacksRef.current.onCancel?.("unmount");
       restoreFocus(activeSession.focusTarget);
@@ -262,7 +272,6 @@ export function InteractionDragSession<ActiveData, OverData>({
         id: String(event.active.id),
         data: registration.activeData as ActiveData,
       });
-      const initialRect = event.active.rect.current.initial;
       const activeSession: ActiveSession<ActiveData, OverData> = {
         active,
         collisionBoundaryRect,
@@ -270,6 +279,7 @@ export function InteractionDragSession<ActiveData, OverData>({
         focusTarget: focusedHTMLElement(environment.ownerDocument),
         input,
         latestMove: null,
+        started: false,
         snapshot: measuredSnapshot,
         stopCoordinateSubscription: null,
       };
@@ -301,22 +311,39 @@ export function InteractionDragSession<ActiveData, OverData>({
         );
       });
       setSnapshot(measuredSnapshot);
-      setActivePresentation({
-        data: active.data,
-        height: initialRect?.height ?? 0,
-        id: active.id,
-        width: initialRect?.width ?? 0,
-      });
-      callbacksRef.current.onStart?.(
-        normalizedEvent(
-          active,
-          null,
-          input,
-          pointerPointForEvent(input, event.activatorEvent, pointerTrackerRef.current, environment),
-          input === "pointer" ? createClientDelta(0, 0)! : null,
-          measuredSnapshot,
-        ),
-      );
+      const presentSource = () => {
+        const sourceSize = positiveSourceSize(event.active);
+        if (!sourceSize || activeSessionRef.current !== activeSession) return false;
+        activeSession.started = true;
+        setActivePresentation({
+          data: active.data,
+          height: sourceSize.height,
+          id: active.id,
+          width: sourceSize.width,
+        });
+        callbacksRef.current.onStart?.(
+          normalizedEvent(
+            active,
+            null,
+            input,
+            pointerPointForEvent(
+              input,
+              event.activatorEvent,
+              pointerTrackerRef.current,
+              environment,
+            ),
+            input === "pointer" ? createClientDelta(0, 0)! : null,
+            measuredSnapshot,
+          ),
+        );
+        return true;
+      };
+      if (!presentSource()) {
+        pendingStartFrameRef.current = environment.ownerWindow.requestAnimationFrame(() => {
+          pendingStartFrameRef.current = null;
+          if (!presentSource()) cancelActiveSession("dnd-kit");
+        });
+      }
     },
     [cancelActiveSession, environment],
   );
@@ -325,6 +352,7 @@ export function InteractionDragSession<ActiveData, OverData>({
     (event: DragMoveEvent) => {
       const activeSession = activeSessionRef.current;
       if (!activeSession) return;
+      if (!activeSession.started) return;
       if (!environmentElementsAreLive(activeSession.environment)) {
         cancelActiveSession("environment-lost");
         return;
@@ -364,6 +392,10 @@ export function InteractionDragSession<ActiveData, OverData>({
     (event: DragEndEvent) => {
       const activeSession = activeSessionRef.current;
       if (!activeSession) return;
+      if (!activeSession.started) {
+        cancelActiveSession("dnd-kit", false);
+        return;
+      }
       if (!environmentElementsAreLive(activeSession.environment)) {
         cancelActiveSession("environment-lost", false);
         return;
@@ -582,6 +614,15 @@ function useCollisionDetection<ActiveData, OverData>(
     },
     [activeSessionRef, policy, resolveCollision],
   );
+}
+
+function positiveSourceSize(
+  active: DragStartEvent["active"],
+): Readonly<{ width: number; height: number }> | null {
+  const rect = active.rect.current.initial ?? active.rect.current.translated;
+  if (!rect || !Number.isFinite(rect.width) || !Number.isFinite(rect.height)) return null;
+  if (rect.width <= 0 || rect.height <= 0) return null;
+  return Object.freeze({ width: rect.width, height: rect.height });
 }
 
 function constrainCollisionInput(

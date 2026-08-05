@@ -105,7 +105,7 @@ beforeEach(() => {
 });
 
 describe("InteractionDragSession", () => {
-  it("normalizes pointer events, renders one client-space preview, and exposes a source placeholder", () => {
+  it("normalizes pointer events, renders one client-space preview, and exposes a source placeholder", async () => {
     const onStart = vi.fn();
     const onMove = vi.fn();
     const onEnd = vi.fn();
@@ -131,7 +131,22 @@ describe("InteractionDragSession", () => {
     );
 
     document.dispatchEvent(pointerEvent("pointermove", 160, 120));
-    startDrag("source", pointerEvent("pointerdown", 140, 100));
+    const active = {
+      ...activeRecord("source"),
+      rect: { current: { initial: null as DOMRect | null, translated: null } },
+    };
+    act(() => {
+      callback("onDragStart")({
+        active,
+        activatorEvent: pointerEvent("pointerdown", 140, 100),
+      });
+    });
+
+    expect(screen.getByTestId("source")).not.toHaveAttribute("data-interaction-drag-placeholder");
+    expect(fixture.overlayHost.querySelector("[data-interaction-drag-overlay]")).toBeNull();
+
+    active.rect.current.initial = clientRect(100, 80, 80, 40);
+    await act(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
 
     expect(onStart).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -146,6 +161,7 @@ describe("InteractionDragSession", () => {
       "[data-interaction-drag-overlay]",
     );
     expect(overlay).not.toBeNull();
+    expect(screen.getByTestId("source")).not.toHaveAttribute("aria-hidden");
     expect(overlay?.style.width).toBe("80px");
     expect(overlay?.style.height).toBe("40px");
     expect(overlay).toHaveAttribute("inert");

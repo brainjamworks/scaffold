@@ -89,9 +89,7 @@ export function useInteractionSortable<Data>({
     localTransform: normalizeInteractionSortableTransform(sortable.transform, session.snapshot),
     setActivatorNodeRef: sortable.setActivatorNodeRef,
     setNodeRef: sortable.setNodeRef,
-    sourceProps: isPlaceholder
-      ? { "aria-hidden": true, "data-interaction-drag-placeholder": "" }
-      : {},
+    sourceProps: isPlaceholder ? { "data-interaction-drag-placeholder": "" } : {},
     transition: session.reducedMotion ? undefined : sortable.transition,
   };
 }

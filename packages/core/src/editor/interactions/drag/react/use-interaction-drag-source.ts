@@ -76,8 +76,6 @@ export function useInteractionDragSource<Data>({
     isPlaceholder,
     setActivatorNodeRef: draggable.setActivatorNodeRef,
     setNodeRef: draggable.setNodeRef,
-    sourceProps: isPlaceholder
-      ? { "aria-hidden": true, "data-interaction-drag-placeholder": "" }
-      : {},
+    sourceProps: isPlaceholder ? { "data-interaction-drag-placeholder": "" } : {},
   };
 }
