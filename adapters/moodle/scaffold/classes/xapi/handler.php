@@ -37,6 +37,7 @@ class handler extends handler_base {
     private const VERBS = [
         'http://adlnet.gov/expapi/verbs/initialized',
         'http://adlnet.gov/expapi/verbs/launched',
+        'http://adlnet.gov/expapi/verbs/progressed',
         'http://adlnet.gov/expapi/verbs/experienced',
         'http://adlnet.gov/expapi/verbs/attempted',
         'http://adlnet.gov/expapi/verbs/answered',

@@ -82,20 +82,26 @@ test("runs the packaged plugin through Moodle's developer-debug Behat smoke gate
   assert.match(workflow, /Upload Behat faildump/);
 });
 
-test("routes Core xAPI templates through Moodle core_xapi without adding an LRS", async () => {
+test("routes Learning Events through genuine Moodle core_xapi without adding an LRS", async () => {
   const services = await readAdapterFile("scaffold/db/services.php");
-  const endpoint = await readAdapterFile("scaffold/classes/external/accept_xapi_statement.php");
+  const endpoint = await readAdapterFile("scaffold/classes/external/accept_learning_event.php");
+  const validator = await readAdapterFile("scaffold/classes/learning_event/validator.php");
   const handler = await readAdapterFile("scaffold/classes/xapi/handler.php");
   const event = await readAdapterFile("scaffold/classes/event/statement_received.php");
 
-  assert.match(services, /'mod_scaffold_accept_xapi_statement'/);
+  assert.match(services, /'mod_scaffold_accept_learning_event'/);
+  assert.doesNotMatch(services, /accept_xapi_statement/);
+  assert.match(endpoint, /validator::validate_json\(\$params\['eventjson'\]\)/);
   assert.match(endpoint, /item_agent::create_from_user\(\$USER\)/);
-  assert.match(endpoint, /strlen\(\$params\['statementjson'\]\) > 65536/);
+  assert.match(validator, /MAX_JSON_BYTES = 65536/);
+  assert.match(validator, /CMID_EXTENSION/);
+  assert.match(validator, /Learning Event contains an unsupported field/);
   assert.match(endpoint, /handler::create\('mod_scaffold'\)/);
   assert.match(endpoint, /process_statements\(\[\$statement\]\)/);
   assert.match(handler, /class handler extends handler_base/);
+  assert.match(handler, /expapi\/verbs\/progressed/);
   assert.match(handler, /statement_to_event\(statement \$statement\)/);
   assert.match(handler, /statement_received::create\(\$params\)/);
   assert.match(event, /class statement_received extends \\core\\event\\base/);
-  assert.doesNotMatch(endpoint + handler + event, /\bLRS\b|learning record store/i);
+  assert.doesNotMatch(services + endpoint + validator + handler + event, /\bLRS\b|learning record store/i);
 });
