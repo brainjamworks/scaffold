@@ -18,6 +18,9 @@ import {
   type ThemePresetId,
   type ThemeRecipeName,
 } from "./course-document";
+import { type EmbeddedNodeId } from "./embedded-id";
+
+const SURFACE_ID = "AbCdEf123_--";
 
 const IMAGE_POSITIONS = [
   "top-left",
@@ -340,7 +343,7 @@ describe("course document contracts", () => {
   it("accepts persisted surface variants", () => {
     expect(
       SurfaceAttrsSchema.parse({
-        id: "surface-1",
+        id: SURFACE_ID,
         variant: "slide-title-content",
         settings: {
           verticalPosition: "bottom",
@@ -350,7 +353,7 @@ describe("course document contracts", () => {
         },
       }),
     ).toEqual({
-      id: "surface-1",
+      id: SURFACE_ID,
       variant: "slide-title-content",
       settings: {
         verticalPosition: "bottom",
@@ -364,7 +367,7 @@ describe("course document contracts", () => {
   it("rejects invalid persisted surface vertical positions", () => {
     expect(
       SurfaceAttrsSchema.safeParse({
-        id: "surface-1",
+        id: SURFACE_ID,
         variant: "slide-cover",
         settings: { verticalPosition: "center" },
       }).success,
@@ -384,15 +387,30 @@ describe("course document contracts", () => {
   it("requires persisted surface variants", () => {
     expect(() =>
       SurfaceAttrsSchema.parse({
-        id: "surface-1",
+        id: SURFACE_ID,
       }),
     ).toThrow();
     expect(() =>
       SurfaceAttrsSchema.parse({
-        id: "surface-1",
+        id: SURFACE_ID,
         variant: null,
       }),
     ).toThrow();
+  });
+
+  it("requires persisted Surface identity to use the EmbeddedNodeId wire format", () => {
+    const parsed = SurfaceAttrsSchema.parse({
+      id: SURFACE_ID,
+      variant: "page-default",
+    });
+
+    expect(parsed.id).toBe(SURFACE_ID);
+    expectTypeOf(parsed.id).toEqualTypeOf<EmbeddedNodeId>();
+    expect(SurfaceAttrsSchema.safeParse({ id: "surface-1", variant: "page-default" }).success).toBe(
+      false,
+    );
+    expect(SurfaceAttrsSchema.safeParse({ variant: "page-default" }).success).toBe(false);
+    expect(SurfaceAttrsSchema.safeParse({ id: null, variant: "page-default" }).success).toBe(false);
   });
 
   it("accepts the nine standard image positions", () => {

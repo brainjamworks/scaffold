@@ -10,6 +10,8 @@ import {
 
 const DEFAULT_REGION_ROLE = "main";
 
+export const REGION_NODE_TYPE = "region" as const;
+
 export interface RegionNodeOptions {
   addNodeView?: () => NodeViewRenderer;
 }
@@ -20,7 +22,7 @@ function parseRegionRole(value: string | null): string {
 
 export function createRegionNode(options: RegionNodeOptions = {}) {
   return Node.create({
-    name: "region",
+    name: REGION_NODE_TYPE,
     content: `(block | ${ARRANGEMENT_CONTENT})+`,
     selectable: false,
     draggable: false,

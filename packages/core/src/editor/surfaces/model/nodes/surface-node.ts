@@ -5,7 +5,7 @@ import { SurfaceAttrsSchema, SurfaceSettingsSchema } from "@/schemas/course-docu
 import { ARRANGEMENT_CONTENT } from "@/document/model/content-model/content-groups";
 import { isFieldContentEmpty } from "@/document/model/content-model/is-field-content-empty";
 
-const DEFAULT_SURFACE_ID = "surface-1";
+export const SURFACE_NODE_TYPE = "surface" as const;
 
 export interface SurfaceNodeOptions {
   addNodeView?: () => NodeViewRenderer;
@@ -19,11 +19,6 @@ function parseJsonAttr(value: string | null): unknown {
   } catch {
     return null;
   }
-}
-
-function parseSurfaceId(value: string | null): string {
-  const parsed = SurfaceAttrsSchema.shape.id.safeParse(value);
-  return parsed.success ? parsed.data : DEFAULT_SURFACE_ID;
 }
 
 function parseSurfaceVariant(value: string | null): string | null {
@@ -42,7 +37,7 @@ function renderJsonAttr(name: string, value: unknown) {
 
 export function createSurfaceNode(options: SurfaceNodeOptions = {}) {
   return Node.create({
-    name: "surface",
+    name: SURFACE_NODE_TYPE,
     content: `(block | ${ARRANGEMENT_CONTENT} | region)+`,
     selectable: false,
     draggable: false,
@@ -52,13 +47,10 @@ export function createSurfaceNode(options: SurfaceNodeOptions = {}) {
     addAttributes() {
       return {
         id: {
-          default: DEFAULT_SURFACE_ID,
-          parseHTML: (element: HTMLElement) =>
-            parseSurfaceId(element.getAttribute("data-surface-id")),
-          renderHTML: (attrs: { id?: unknown }) => ({
-            "data-surface-id":
-              typeof attrs.id === "string" ? parseSurfaceId(attrs.id) : DEFAULT_SURFACE_ID,
-          }),
+          default: null,
+          parseHTML: (element: HTMLElement) => element.getAttribute("data-surface-id"),
+          renderHTML: (attrs: { id?: unknown }) =>
+            typeof attrs.id === "string" ? { "data-surface-id": attrs.id } : {},
         },
         title: {
           default: null,

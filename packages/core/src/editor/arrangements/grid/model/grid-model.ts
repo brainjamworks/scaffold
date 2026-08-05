@@ -3,7 +3,7 @@ import { Fragment } from "@tiptap/pm/model";
 
 import { createEditableRegionFragment } from "@/document/model/content-model/editable-region";
 import { isFieldContentEmpty } from "@/document/model/content-model/is-field-content-empty";
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import {
   VerticalContentPositionSchema,
   type VerticalContentPosition,
@@ -139,7 +139,7 @@ export function createGridTemplate(
 
   return gridType.createChecked(
     {
-      id: createStableId(),
+      id: createEmbeddedNodeId(),
       columnWidths: normalizeColumnWidths(options.columnWidths, cellCount),
     },
     Fragment.fromArray(cells),
@@ -157,7 +157,7 @@ export function createGridCell(
     content === null ? createEditableCellFragment(schema) : contentToFragment(content);
   if (!cellType.validContent(fragment)) return null;
 
-  return cellType.createChecked({ id: createStableId() }, fragment);
+  return cellType.createChecked({ id: createEmbeddedNodeId() }, fragment);
 }
 
 export function isGridCellEmpty(cell: ProseMirrorNode): boolean {

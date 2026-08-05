@@ -12,6 +12,9 @@ import {
   type VerticalContentPosition,
 } from "@/schemas/course-document";
 
+export const LAYOUT_NODE_TYPE = "layout" as const;
+export const SECTION_NODE_TYPE = "section" as const;
+
 export interface LayoutNodeOptions {
   addNodeView?: () => NodeViewRenderer;
 }
@@ -22,7 +25,7 @@ export interface SectionNodeOptions {
 
 export function createLayoutNode(options: LayoutNodeOptions = {}) {
   return Node.create({
-    name: "layout",
+    name: LAYOUT_NODE_TYPE,
     group: `${ARRANGEMENT_CONTENT} ${CELL_ARRANGEMENT_CONTENT}`,
     content: "section+",
     selectable: true,
@@ -83,7 +86,7 @@ export function createLayoutNode(options: LayoutNodeOptions = {}) {
 
 export function createSectionNode(options: SectionNodeOptions = {}) {
   return Node.create({
-    name: "section",
+    name: SECTION_NODE_TYPE,
     content: `(block | ${SECTION_ARRANGEMENT_CONTENT})+`,
     selectable: true,
     draggable: false,

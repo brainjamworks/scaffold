@@ -15,6 +15,7 @@ import {
   type SurfaceCapability,
 } from "@/composition/application/create-scaffold-application";
 import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
+import { CORE_STRUCTURAL_SEMANTIC_NODE_TYPES } from "@/composition/model/create-document-composition";
 import { CellRuntimeNode, GridRuntimeNode } from "@/editor/arrangements/grid/runtime/grid-nodes";
 import {
   LayoutRuntimeNode,
@@ -168,6 +169,30 @@ describe("createCourseDocumentRuntimeExtensions", () => {
     expect(runtimeFrame?.options["resizableBlockNodeTypes"]).toEqual(
       builtInBlockRegistry.resizableNodeTypes,
     );
+  });
+
+  it("uses the same immutable Core structural semantic-node inventory", () => {
+    const runtimeUniqueId = createCourseDocumentRuntimeExtensions({
+      composition: coreRuntimeComposition,
+    }).find((extension) => extension.name === "uniqueID");
+    const types = runtimeUniqueId?.options["types"] as readonly string[];
+
+    expect(Object.isFrozen(CORE_STRUCTURAL_SEMANTIC_NODE_TYPES)).toBe(true);
+    expect(CORE_STRUCTURAL_SEMANTIC_NODE_TYPES).toEqual([
+      "surface",
+      "region",
+      "layout",
+      "section",
+      "grid",
+      "cell",
+    ]);
+    expect(types.slice(0, CORE_STRUCTURAL_SEMANTIC_NODE_TYPES.length)).toEqual(
+      CORE_STRUCTURAL_SEMANTIC_NODE_TYPES,
+    );
+    expect(types).not.toContain("page-default");
+    expect(types).not.toContain("tabs");
+    expect(types).not.toContain("activeTabByLayoutId");
+    expect(types).not.toContain("openAccordionSectionsByLayoutId");
   });
 
   it("uses runtime arrangement nodes", () => {

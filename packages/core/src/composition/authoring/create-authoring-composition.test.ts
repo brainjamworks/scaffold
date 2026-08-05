@@ -17,6 +17,7 @@ import {
 } from "@/composition/application/create-scaffold-application";
 import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import { getScaffoldAuthoringCataloguesForEditor } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
+import { CORE_STRUCTURAL_SEMANTIC_NODE_TYPES } from "@/composition/model/create-document-composition";
 import * as surfaceLifecyclePolicy from "@/document/authoring/surface-lifecycle-authoring-policy";
 import {
   CellAuthoringNode,
@@ -149,6 +150,31 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     expect(authoringUniqueId?.options["types"]).toEqual(
       expect.arrayContaining([...builtInBlockRegistry.stableIdNodeTypes]),
     );
+  });
+
+  it("uses the immutable Core structural semantic-node inventory", () => {
+    const authoringUniqueId = createCourseDocumentAuthoringExtensions({
+      editable: true,
+      composition: coreAuthoringComposition,
+    }).find((extension) => extension.name === "uniqueID");
+    const types = authoringUniqueId?.options["types"] as readonly string[];
+
+    expect(Object.isFrozen(CORE_STRUCTURAL_SEMANTIC_NODE_TYPES)).toBe(true);
+    expect(CORE_STRUCTURAL_SEMANTIC_NODE_TYPES).toEqual([
+      "surface",
+      "region",
+      "layout",
+      "section",
+      "grid",
+      "cell",
+    ]);
+    expect(types.slice(0, CORE_STRUCTURAL_SEMANTIC_NODE_TYPES.length)).toEqual(
+      CORE_STRUCTURAL_SEMANTIC_NODE_TYPES,
+    );
+    expect(types).not.toContain("page-default");
+    expect(types).not.toContain("tabs");
+    expect(types).not.toContain("activeTabByLayoutId");
+    expect(types).not.toContain("openAccordionSectionsByLayoutId");
   });
 
   it("passes built-in resizable node types into the authoring frame extension", () => {

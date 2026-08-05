@@ -9,6 +9,8 @@ import { createScaffoldDocumentContent } from "@/format/artifact";
 import { createScaffoldDefaultTheme } from "@/theme/model";
 import { validateCourseDocumentJSON } from "./validators";
 
+const FIXED_SURFACE_ID = "surfaceFixed";
+
 describe("course document JSON helpers", () => {
   it("accepts a fixed signature with optional leading header and trailing footer", () => {
     const content = fixedDocument([
@@ -663,7 +665,7 @@ function fixedDocument(surfaceContent: Array<Record<string, unknown>>) {
           overflowMode: "clip",
           theme: createScaffoldDefaultTheme(),
         },
-        content: [fixedSurface("surface-fixed", surfaceContent)],
+        content: [fixedSurface(FIXED_SURFACE_ID, surfaceContent)],
       },
     ],
   };

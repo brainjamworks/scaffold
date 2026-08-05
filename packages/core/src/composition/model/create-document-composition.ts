@@ -9,7 +9,12 @@ import { Color, FontSize, TextStyle } from "@tiptap/extension-text-style";
 import Underline from "@tiptap/extension-underline";
 import StarterKit from "@tiptap/starter-kit";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { CELL_NODE_TYPE, GRID_NODE_TYPE } from "@/editor/arrangements/grid/model/grid-nodes";
+import {
+  LAYOUT_NODE_TYPE,
+  SECTION_NODE_TYPE,
+} from "@/editor/arrangements/layout/model/layout-nodes";
 import {
   AccordionSectionPanelNode,
   AccordionSectionTitleNode,
@@ -24,7 +29,8 @@ import {
   SurfaceHeaderNode,
   SurfaceHeaderFooterSlotNode,
 } from "@/editor/surfaces/model/nodes/header-footer-slots";
-import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
+import { REGION_NODE_TYPE, RegionNode } from "@/editor/surfaces/model/nodes/region-node";
+import { SURFACE_NODE_TYPE } from "@/editor/surfaces/model/nodes/surface-node";
 import { SlideCoverSubtitleNode } from "@/editor/surfaces/model/nodes/slide-cover-subtitle";
 import { SlideTitleNode } from "@/editor/surfaces/model/nodes/slide-title";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
@@ -45,14 +51,14 @@ import { VocabularyTermStaticNode } from "@/editor/rich-text/vocabulary-term/sta
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { createScaffoldTextAlignExtension } from "@/editor/rich-text/model/text-alignment";
 
-const STRUCTURAL_STABLE_ID_NODE_TYPES = [
-  "surface",
-  "grid",
-  "cell",
-  "layout",
-  "section",
-  "region",
-] as const;
+export const CORE_STRUCTURAL_SEMANTIC_NODE_TYPES = Object.freeze([
+  SURFACE_NODE_TYPE,
+  REGION_NODE_TYPE,
+  LAYOUT_NODE_TYPE,
+  SECTION_NODE_TYPE,
+  GRID_NODE_TYPE,
+  CELL_NODE_TYPE,
+] as const);
 
 export function createCourseDocumentInlineContentExtensions({
   inlineIconNode = InlineIconNode,
@@ -161,10 +167,10 @@ export function createCourseDocumentBaseExtensions({
     ExtendedParagraph,
     createRuntimeBlockFrameAttributesExtension(resizableBlockNodeTypes),
     UniqueID.configure({
-      types: [...STRUCTURAL_STABLE_ID_NODE_TYPES, ...blockStableIdNodeTypes],
+      types: [...CORE_STRUCTURAL_SEMANTIC_NODE_TYPES, ...blockStableIdNodeTypes],
       attributeName: "id",
       updateDocument: updateDocumentIds,
-      generateID: () => createStableId(),
+      generateID: () => createEmbeddedNodeId(),
     }),
     ExtendedHeading,
     ...createCourseDocumentInlineContentExtensions({

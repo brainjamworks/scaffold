@@ -55,6 +55,12 @@ const registry = createSurfaceVariantRegistry([
   },
 ]);
 
+const PAGE_ID_1 = "page_0000001";
+const PAGE_ID_2 = "page_0000002";
+const SLIDE_ID_1 = "slide_000001";
+const SLIDE_ID_2 = "slide_000002";
+const DUPLICATE_ID = "duplicate001";
+
 const invalidSettingsCases: [unknown, string, readonly (string | number)[]][] = [
   [{ density: "dense" }, "invalid value", ["density"]],
   [{ density: 1, unknown: true }, "stripped unknown value", ["unknown"]],
@@ -69,17 +75,17 @@ const invalidModeCases: [
   ["page", [], "invalid_surface_cardinality"],
   [
     "page",
-    [surface("page-1", "test-page"), surface("page-2", "test-page")],
+    [surface(PAGE_ID_1, "test-page"), surface(PAGE_ID_2, "test-page")],
     "invalid_surface_cardinality",
   ],
   ["slideshow", [], "invalid_surface_cardinality"],
-  ["branching", [surface("page-1", "test-page")], "unsupported_surface_mode"],
+  ["branching", [surface(PAGE_ID_1, "test-page")], "unsupported_surface_mode"],
 ];
 
 describe("surface lifecycle validation", () => {
   it("returns a frozen ordered page projection without mutating input", () => {
     const content = document("page", [
-      surface("page-1", "test-page", [{ type: "paragraph" }], { tone: "quiet" }),
+      surface(PAGE_ID_1, "test-page", [{ type: "paragraph" }], { tone: "quiet" }),
     ]);
     const before = structuredClone(content);
 
@@ -89,7 +95,7 @@ describe("surface lifecycle validation", () => {
       ok: true,
       value: {
         mode: "page",
-        surfaces: [{ instanceId: "page-1", variantId: "test-page" }],
+        surfaces: [{ instanceId: PAGE_ID_1, variantId: "test-page" }],
       },
     });
     expect(content).toEqual(before);
@@ -102,8 +108,8 @@ describe("surface lifecycle validation", () => {
   });
 
   it("preserves slideshow order and allows one variant with distinct instance IDs", () => {
-    const first = surface("slide-2", "test-slide", fixedSlideChildren(), { density: 2 });
-    const second = surface("slide-1", "test-slide", fixedSlideChildren(), { density: 3 });
+    const first = surface(SLIDE_ID_2, "test-slide", fixedSlideChildren(), { density: 2 });
+    const second = surface(SLIDE_ID_1, "test-slide", fixedSlideChildren(), { density: 3 });
 
     const result = validateCourseSurfaceLifecycle({
       content: document("slideshow", [first, second]),
@@ -115,21 +121,21 @@ describe("surface lifecycle validation", () => {
       value: {
         mode: "slideshow",
         surfaces: [
-          { instanceId: "slide-2", variantId: "test-slide" },
-          { instanceId: "slide-1", variantId: "test-slide" },
+          { instanceId: SLIDE_ID_2, variantId: "test-slide" },
+          { instanceId: SLIDE_ID_1, variantId: "test-slide" },
         ],
       },
     });
   });
 
   it("rejects missing and unknown course attrs without normalizing the input", () => {
-    const missingDefaults = document("page", [surface("page-1", "test-page")]);
+    const missingDefaults = document("page", [surface(PAGE_ID_1, "test-page")]);
     const missingAttrs = missingDefaults.content?.[0]?.attrs;
     if (!missingAttrs) throw new Error("missing course attrs fixture");
     delete missingAttrs["overflowMode"];
-    const unknownAttrs = document("page", [surface("page-1", "test-page")]);
+    const unknownAttrs = document("page", [surface(PAGE_ID_1, "test-page")]);
     unknownAttrs.content![0]!.attrs!["unknown"] = true;
-    const absentAttrs = document("page", [surface("page-1", "test-page")]);
+    const absentAttrs = document("page", [surface(PAGE_ID_1, "test-page")]);
     delete absentAttrs.content![0]!.attrs;
     const before = [missingDefaults, unknownAttrs, absentAttrs].map((content) =>
       structuredClone(content),
@@ -209,7 +215,7 @@ describe("surface lifecycle validation", () => {
   });
 
   it("rejects unknown surface attrs at the first differing field without mutation", () => {
-    const content = document("page", [surface("page-1", "test-page")]);
+    const content = document("page", [surface(PAGE_ID_1, "test-page")]);
     content.content![0]!.content![0]!.attrs!["unknown"] = true;
     const before = structuredClone(content);
 
@@ -230,8 +236,8 @@ describe("surface lifecycle validation", () => {
   it("rejects duplicate instance IDs at the second id path", () => {
     const result = validateCourseSurfaceLifecycle({
       content: document("slideshow", [
-        surface("duplicate", "test-slide", fixedSlideChildren(), { density: 1 }),
-        surface("duplicate", "test-slide", fixedSlideChildren(), { density: 2 }),
+        surface(DUPLICATE_ID, "test-slide", fixedSlideChildren(), { density: 1 }),
+        surface(DUPLICATE_ID, "test-slide", fixedSlideChildren(), { density: 2 }),
       ]),
       registry,
     });
@@ -249,7 +255,8 @@ describe("surface lifecycle validation", () => {
 
   it.each([
     [{ id: "", variant: "test-page" }, ["attrs", "id"]],
-    [{ id: "page-1", variant: "" }, ["attrs", "variant"]],
+    [{ id: "page-1", variant: "test-page" }, ["attrs", "id"]],
+    [{ id: PAGE_ID_1, variant: "" }, ["attrs", "variant"]],
   ])("rejects invalid identity attrs with a precise path", (attrs, suffix) => {
     const result = validateCourseSurfaceLifecycle({
       content: document("page", [{ type: "surface", attrs, content: [{ type: "paragraph" }] }]),
@@ -269,12 +276,12 @@ describe("surface lifecycle validation", () => {
 
   it("rejects unknown and mode-incompatible variants", () => {
     const unknown = validateCourseSurfaceLifecycle({
-      content: document("page", [surface("page-1", "missing", [{ type: "paragraph" }])]),
+      content: document("page", [surface(PAGE_ID_1, "missing", [{ type: "paragraph" }])]),
       registry,
     });
     const mismatch = validateCourseSurfaceLifecycle({
       content: document("page", [
-        surface("page-1", "test-slide", fixedSlideChildren(), { density: 1 }),
+        surface(PAGE_ID_1, "test-slide", fixedSlideChildren(), { density: 1 }),
       ]),
       registry,
     });
@@ -292,7 +299,7 @@ describe("surface lifecycle validation", () => {
   it.each(invalidSettingsCases)("rejects settings with an %s", (settings, _label, suffix) => {
     const result = validateCourseSurfaceLifecycle({
       content: document("slideshow", [
-        surface("slide-1", "test-slide", fixedSlideChildren(), settings),
+        surface(SLIDE_ID_1, "test-slide", fixedSlideChildren(), settings),
       ]),
       registry,
     });
@@ -311,7 +318,7 @@ describe("surface lifecycle validation", () => {
   it("rejects settings transformed by the registered schema", () => {
     const result = validateCourseSurfaceLifecycle({
       content: document("slideshow", [
-        surface("slide-1", "test-slide-transformed-settings", [{ type: "paragraph" }], {
+        surface(SLIDE_ID_1, "test-slide-transformed-settings", [{ type: "paragraph" }], {
           label: "  trimmed  ",
         }),
       ]),
@@ -333,7 +340,7 @@ describe("surface lifecycle validation", () => {
     const result = validateCourseSurfaceLifecycle({
       content: document("slideshow", [
         surface(
-          "slide-1",
+          SLIDE_ID_1,
           "test-slide",
           [
             { type: "region", attrs: { role: "main" } },
@@ -360,7 +367,7 @@ describe("surface lifecycle validation", () => {
     const result = validateCourseSurfaceLifecycle({
       content: document("slideshow", [
         surface(
-          "slide-1",
+          SLIDE_ID_1,
           "test-slide",
           [
             header("surface_header"),

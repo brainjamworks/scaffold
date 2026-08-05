@@ -9,6 +9,9 @@ import { boundedPlacementAttributes } from "@/editor/frame/model/bounded-placeme
 import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 import { isGridCellEmpty, isGridCellVerticalPosition } from "./grid-model";
 
+export const GRID_NODE_TYPE = "grid" as const;
+export const CELL_NODE_TYPE = "cell" as const;
+
 export interface GridNodeOptions {
   addNodeView?: () => NodeViewRenderer;
 }
@@ -19,7 +22,7 @@ export interface CellNodeOptions {
 
 export function createGridNode(options: GridNodeOptions = {}) {
   return Node.create({
-    name: "grid",
+    name: GRID_NODE_TYPE,
     group: `${ARRANGEMENT_CONTENT} ${SECTION_ARRANGEMENT_CONTENT}`,
     content: "cell+",
     selectable: false,
@@ -71,7 +74,7 @@ export function createGridNode(options: GridNodeOptions = {}) {
 
 export function createCellNode(options: CellNodeOptions = {}) {
   return Node.create({
-    name: "cell",
+    name: CELL_NODE_TYPE,
     content: `(block | ${CELL_ARRANGEMENT_CONTENT})+`,
     selectable: false,
     draggable: false,

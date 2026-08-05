@@ -8,6 +8,8 @@ import {
   SurfaceBackgroundSchema,
 } from "./course-document";
 
+const SURFACE_ID = "AbCdEf123_--";
+
 describe("course document schemas", () => {
   it("requires schemaVersion and defaults surface sizing for page documents", () => {
     expect(
@@ -40,13 +42,13 @@ describe("course document schemas", () => {
 
     expect(
       SurfaceAttrsSchema.parse({
-        id: "surface-1",
+        id: SURFACE_ID,
         title: null,
         variant: "page-default",
         notes: null,
       }),
     ).toEqual({
-      id: "surface-1",
+      id: SURFACE_ID,
       title: null,
       variant: "page-default",
       notes: null,
@@ -105,7 +107,7 @@ describe("course document schemas", () => {
   it("parses optional surface metadata", () => {
     expect(
       SurfaceAttrsSchema.parse({
-        id: "surface-1",
+        id: SURFACE_ID,
         title: "Introduction",
         variant: "slide-title",
         settings: {
@@ -116,7 +118,7 @@ describe("course document schemas", () => {
         notes: "Presenter notes",
       }),
     ).toEqual({
-      id: "surface-1",
+      id: SURFACE_ID,
       title: "Introduction",
       variant: "slide-title",
       settings: {
@@ -151,7 +153,7 @@ describe("course document schemas", () => {
   it("rejects untyped surface backgrounds", () => {
     expect(() =>
       SurfaceAttrsSchema.parse({
-        id: "surface-1",
+        id: SURFACE_ID,
         variant: "page-default",
         settings: {
           background: { videoUrl: "https://example.com/background.mp4" },
@@ -161,7 +163,7 @@ describe("course document schemas", () => {
 
     expect(() =>
       SurfaceAttrsSchema.parse({
-        id: "surface-1",
+        id: SURFACE_ID,
         variant: "page-default",
         settings: { background: { color: "" } },
       }),
@@ -180,7 +182,7 @@ describe("course document schemas", () => {
 
     expect(
       SurfaceAttrsSchema.parse({
-        id: "surface-1",
+        id: SURFACE_ID,
         variant: "page-default",
         playback: { durationSec: 12 },
       }),
@@ -188,8 +190,8 @@ describe("course document schemas", () => {
   });
 
   it("requires surface variants", () => {
-    expect(() => SurfaceAttrsSchema.parse({ id: "surface-1" })).toThrow();
-    expect(() => SurfaceAttrsSchema.parse({ id: "surface-1", variant: null })).toThrow();
+    expect(() => SurfaceAttrsSchema.parse({ id: SURFACE_ID })).toThrow();
+    expect(() => SurfaceAttrsSchema.parse({ id: SURFACE_ID, variant: null })).toThrow();
   });
 
   it("rejects invalid surface ids", () => {

@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { EmbeddedNodeIdSchema } from "./embedded-id";
+
 export const SCAFFOLD_DOCUMENT_FORMAT_VERSION = 4;
 
 export const COURSE_THEME_NUMERIC_BOUNDS = Object.freeze({
@@ -389,7 +391,7 @@ export const SurfaceSettingsSchema = z
 export type SurfaceSettings = z.infer<typeof SurfaceSettingsSchema>;
 
 export const SurfaceAttrsSchema = z.object({
-  id: z.string().min(1),
+  id: EmbeddedNodeIdSchema,
   title: z.string().nullable().optional(),
   variant: z.string().min(1),
   settings: SurfaceSettingsSchema.optional(),
