@@ -15,6 +15,7 @@ import { createSelectableChoiceNode, selectableChoiceBodyContent } from "./selec
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 import { serializeStaticRichTextHtml } from "@/editor/rich-text/static/render-rich-text";
 import { iconSm } from "@/ui/tokens/icon-sizes";
+import { describeMultiSelectLimitState } from "../runtime/assessment-interaction-runtime";
 
 export const SelectableChoiceRuntimeNode = createSelectableChoiceNode({
   addNodeView: () => ReactNodeViewRenderer(SelectableChoiceRuntimeNodeView),
@@ -122,7 +123,17 @@ function SelectableChoiceRuntimeNodeView(props: NodeViewProps) {
   const submitted = assessment?.problem?.state.submitted ?? false;
   const answerKeyVisible = assessment?.problem?.answerKeyVisible ?? false;
   const runtimeReady = Boolean(assessment?.problem);
-  const disabled = assessment?.problem?.interactionLocked ?? false;
+  const interactionLocked = assessment?.problem?.interactionLocked ?? false;
+  const limitUnavailable =
+    choice?.kind === "multi-select" ? choice.isChoiceUnavailable(attrs.id) : false;
+  const disabled = interactionLocked || limitUnavailable;
+  const disabledReason =
+    limitUnavailable && choice?.kind === "multi-select"
+      ? describeMultiSelectLimitState({
+          maxSelections: choice.maxSelections,
+          selectedCount: choice.selectedCount,
+        })
+      : null;
   const inputType = choice?.inputType ?? "radio";
   const revealTarget = answerKeyVisible && (state === "correct" || state === "missed");
   const submitTarget = submitted && checked;
@@ -159,6 +170,7 @@ function SelectableChoiceRuntimeNodeView(props: NodeViewProps) {
         checked={checked}
         submitted={submitted}
         disabled={disabled}
+        {...(disabledReason ? { disabledReason } : {})}
         onSelect={handleSelect}
       >
         <div dangerouslySetInnerHTML={{ __html: staticContentHtml }} />

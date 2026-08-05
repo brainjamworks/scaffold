@@ -79,6 +79,7 @@ export interface AssessmentChoiceAuthoringRowProps {
   children: ReactNode;
   correct: boolean;
   correctnessLabel: string;
+  correctnessUnavailableReason?: string;
   deleteAction: {
     label: string;
     onAction: () => void;
@@ -94,6 +95,7 @@ export function AssessmentChoiceAuthoringRow({
   children,
   correct,
   correctnessLabel,
+  correctnessUnavailableReason,
   deleteAction,
   feedbackControl,
   movementControl,
@@ -114,6 +116,7 @@ export function AssessmentChoiceAuthoringRow({
         intent="correctness"
         label={correctnessLabel}
         onClick={onToggleCorrect}
+        {...(correctnessUnavailableReason ? { unavailableReason: correctnessUnavailableReason } : {})}
       >
         <Check size={iconSm} weight="bold" aria-hidden />
       </AssessmentChoiceAuthoringAction>

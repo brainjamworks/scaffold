@@ -112,6 +112,7 @@ export interface AssessmentRuntimeProblemConfig extends AssessmentBlockSetupConf
   responseName: string;
   legend: string;
   placeholder: string;
+  currentOptionIds: readonly string[];
   experience: AssessmentExperienceConfig;
 }
 
@@ -445,6 +446,7 @@ function runtimeProblemConfigFromFacade(
     feedbackMode: settings.feedbackMode,
     maxAttempts: settings.maxAttempts,
     maxSelect: settings.maxSelections ?? null,
+    currentOptionIds: config.optionIds ?? [],
     responseName: assessmentResponseName(facade.authoredBlockId),
     legend: settings.legend ?? settings.label ?? "",
     placeholder: settings.placeholder ?? "",
@@ -527,6 +529,10 @@ function createRuntimeProblemConfig(
     feedbackMode: settings.feedbackMode,
     maxAttempts: settings.maxAttempts,
     maxSelect: settingsProjection?.maxSelections ?? settings.maxSelect ?? null,
+    currentOptionIds:
+      interaction.kind === "single-select" || interaction.kind === "multi-select"
+        ? interaction.options.map((option) => option.id)
+        : [],
     responseName: assessmentResponseName(blockId),
     legend: settingsProjection?.legend ?? settingsProjection?.label ?? "",
     placeholder: settingsProjection?.placeholder ?? "",

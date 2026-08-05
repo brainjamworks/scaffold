@@ -608,7 +608,13 @@ describe("runtime selectable choice bounded scrolling", () => {
     );
 
     fireEvent.click(screen.getByText("Beta"));
+    await waitFor(() => {
+      expect(screen.getByRole("checkbox", { name: "Beta" })).toBeChecked();
+    });
     fireEvent.click(screen.getByText("Gamma"));
+    await waitFor(() => {
+      expect(screen.getByRole("checkbox", { name: "Gamma" })).toBeChecked();
+    });
     fireEvent.click(screen.getByText("Delta"));
 
     await waitFor(() => {
@@ -627,6 +633,14 @@ describe("runtime selectable choice bounded scrolling", () => {
         }),
       ).toBeInTheDocument();
       expect(screen.getByRole("checkbox", { name: "Delta", checked: false })).toBeInTheDocument();
+    });
+
+    await waitFor(() => {
+      expect(
+        assessmentStore?.getState().transient.responseReady[
+          "artifact:artifact-1/block:multiselect-1"
+        ],
+      ).toBe(true);
     });
 
     fireEvent.click(screen.getByText("Submit"));
@@ -1561,6 +1575,60 @@ describe("toggleChoiceCorrect — checkbox mode (Multiselect)", () => {
     editor.destroy();
   });
 
+  it("enforces and explains the learner maximum while keeping selected choices repairable", async () => {
+    const editor = makeEditor(
+      [
+        { id: "a", isCorrect: true, text: "Alpha" },
+        { id: "b", isCorrect: true, text: "Beta" },
+        { id: "c", isCorrect: false, text: "Gamma" },
+      ],
+      false,
+      "multiselect",
+      { maxSelect: 2 },
+    );
+    renderRuntimeEditor(editor, {
+      type: "runtime",
+      submit: async (args) =>
+        assessmentProblemOutcome(
+          { ...canonicalAssessmentResult, isCorrect: true, score: 1 },
+          { response: args.response },
+        ),
+    });
+
+    expect(await screen.findByText("Choose up to 2 answers.")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Alpha"));
+    await waitFor(() => {
+      expect(screen.getByRole("checkbox", { name: "Alpha" })).toBeChecked();
+    });
+    fireEvent.click(screen.getByText("Beta"));
+
+    await waitFor(() => {
+      expect(screen.getByRole("checkbox", { name: "Alpha" })).not.toBeDisabled();
+      expect(screen.getByRole("checkbox", { name: "Beta" })).not.toBeDisabled();
+      expect(
+        screen.getByRole("checkbox", {
+          name: "Gamma",
+          description: /maximum 2 selected/i,
+        }),
+      ).toBeDisabled();
+      expect(
+        document.querySelector<HTMLElement>(
+          '.sc-course-assessment-choices-limit-status[role="status"]',
+        )?.textContent,
+      ).toBe("Maximum 2 selected. Deselect an option before choosing another.");
+    });
+
+    fireEvent.click(screen.getByText("Gamma"));
+    expect(screen.getByRole("checkbox", { name: "Gamma" })).not.toBeChecked();
+
+    fireEvent.click(screen.getByText("Alpha"));
+    await waitFor(() => {
+      expect(screen.getByRole("checkbox", { name: "Gamma" })).not.toBeDisabled();
+    });
+
+    editor.destroy();
+  });
+
   it("exposes a named required runtime Multiselect choice group when configured", async () => {
     const editor = makeEditor(
       [
@@ -1662,6 +1730,33 @@ describe("toggleChoiceCorrect — checkbox mode (Multiselect)", () => {
       { id: "b", isCorrect: false },
       { id: "c", isCorrect: true },
     ]);
+    editor.destroy();
+  });
+
+  it("makes another correctness toggle unavailable when correct answers reach max selections", async () => {
+    const editor = makeEditor(
+      [
+        { id: "a", isCorrect: true, text: "Alpha" },
+        { id: "b", isCorrect: false, text: "Beta" },
+      ],
+      true,
+      "multiselect",
+      { maxSelect: 1 },
+    );
+
+    renderAssessmentEditor(editor);
+
+    const toggle = await screen.findByRole("button", {
+      name: "Toggle whether Beta is correct",
+      description: /increase max selections or unmark another correct answer/i,
+    });
+    expect(toggle).toHaveAttribute("aria-disabled", "true");
+    fireEvent.click(toggle);
+    expect(getChoices(editor)).toEqual([
+      { id: "a", isCorrect: true },
+      { id: "b", isCorrect: false },
+    ]);
+
     editor.destroy();
   });
 

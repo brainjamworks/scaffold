@@ -62,6 +62,7 @@ export interface AssessmentRegistrationConfig {
   readonly experience: AssessmentExperienceDefinition;
   readonly settings: AssessmentTargetSettings;
   readonly hintsTotal: number;
+  readonly optionIds?: readonly string[];
   readonly getXapiActivityDefinition?: () => XapiActivityDefinition;
 }
 

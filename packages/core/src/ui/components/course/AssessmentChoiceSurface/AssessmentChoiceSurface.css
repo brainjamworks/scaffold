@@ -50,6 +50,10 @@
     border-radius: 50%;
   }
 
+  .sc-course-assessment-choice__indicator[data-shape="checkbox"] {
+    border-radius: 0.25rem;
+  }
+
   .sc-course-assessment-choice__content {
     min-width: 0;
     flex: 1 1 auto;

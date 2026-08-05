@@ -28,6 +28,7 @@ export interface AssessmentBlockSetupConfig {
   legend?: string;
   placeholder?: string;
   maxSelect?: number | null;
+  currentOptionIds?: readonly string[];
   responseCodec: AssessmentCapabilityResponseDefinition;
 }
 
@@ -70,6 +71,7 @@ export function useAssessmentBlockSetup({
         experience: config.experience,
         settings,
         hintsTotal: config.hintsTotal,
+        ...(config.currentOptionIds === undefined ? {} : { optionIds: config.currentOptionIds }),
         ...(config.getXapiActivityDefinition === undefined
           ? {}
           : { getXapiActivityDefinition: config.getXapiActivityDefinition }),

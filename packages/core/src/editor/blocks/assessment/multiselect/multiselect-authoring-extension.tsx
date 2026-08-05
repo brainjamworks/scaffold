@@ -7,7 +7,9 @@ import { createMultiselectNode } from "./node";
 import "./multiselect.css";
 
 function MultiselectAuthoringView(props: NodeViewProps) {
-  return <AssessmentProblemContent editable blockClass="sc-multiselect" nodeViewProps={props} />;
+  return (
+    <AssessmentProblemContent editable blockClass="sc-course-multiselect" nodeViewProps={props} />
+  );
 }
 
 export const MultiselectAuthoringExtension = createMultiselectNode({

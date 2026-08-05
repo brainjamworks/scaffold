@@ -2,7 +2,7 @@
 
 @layer sc-components {
   .sc-assessment-node-view[data-bounded-placement="fill"]
-    > .sc-multiselect
+    > .sc-course-multiselect
     [data-slot="assessment-choices-group"] {
     position: relative;
     grid-column: 1 / -1;
@@ -14,25 +14,25 @@
   }
 
   .sc-assessment-node-view[data-bounded-placement="fill"]
-    > .sc-multiselect
+    > .sc-course-multiselect
     [data-slot="assessment-choices-group"]
     .sc-course-assessment-choices-scroll {
     justify-content: safe center;
   }
 
   .sc-assessment-node-view[data-bounded-placement="fill"]
-    > .sc-multiselect
+    > .sc-course-multiselect
     [data-slot="assessment-choices-group"]
     .sc-course-assessment-choices-scroll[data-bounded-scroll-overflow] {
     justify-content: flex-start;
   }
 
   .sc-assessment-node-view[data-bounded-placement="fill"]
-    > .sc-multiselect
+    > .sc-course-multiselect
     [data-slot="assessment-choices-group"]
     .sc-course-assessment-choices-fieldset,
   .sc-assessment-node-view[data-bounded-placement="fill"]
-    > .sc-multiselect
+    > .sc-course-multiselect
     [data-slot="assessment-choices-group"]
     .sc-course-assessment-choices-list {
     width: 100%;

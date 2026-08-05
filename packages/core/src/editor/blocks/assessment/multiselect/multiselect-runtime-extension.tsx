@@ -10,7 +10,7 @@ import "./multiselect.css";
 function MultiselectRuntimeView(props: NodeViewProps) {
   return (
     <AssessmentRuntimeProblemContent
-      blockClass="sc-multiselect"
+      blockClass="sc-course-multiselect"
       definition={multiselectBlockDefinition}
       props={props}
     />

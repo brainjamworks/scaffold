@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { createAssessmentRuntimeTestRoot } from "@/runtime/assessment/test-utils";
 
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
+import { resolveStableNode } from "@/document/model/identity/resolve-stable-node";
 import { AUTHORING_FRAME_ATTR } from "@/editor/interactions/dom/authoring-frame";
 import { AssessmentActionsGroupNode } from "@/editor/blocks/assessment/shared/nodes/assessment-actions-group";
 import { AssessmentActionsGroupRuntimeNode } from "@/editor/blocks/assessment/shared/nodes/assessment-actions-group-runtime";
@@ -30,6 +31,10 @@ import { SelectableChoiceRuntimeNode } from "@/editor/blocks/assessment/shared/n
 import { multiselectBlockDefinition } from "./multiselect-definition";
 import { MultiselectAuthoringExtension } from "./multiselect-authoring-extension";
 import { MultiselectRuntimeExtension } from "./multiselect-runtime-extension";
+import {
+  hasMultiselectResponse,
+  projectMultiselectInteraction,
+} from "./assessment";
 
 const BoundedRegionTestNode = TiptapNode.create({
   name: "region",
@@ -174,6 +179,68 @@ describe("composite multiselect node", () => {
 
   it("declares bounded fill placement", () => {
     expect(multiselectBlockDefinition.boundedPlacement).toBe("fill");
+  });
+
+  it("rejects a max selection limit below the authored correct answer count", () => {
+    const node = multiselectDoc({
+      assessment: {
+        correctOptionIds: ["a", "b"],
+        feedbackByOptionId: {},
+        summaryFeedback: null,
+      },
+    });
+
+    expect(() => projectMultiselectInteraction(node, { maxSelect: 1 })).toThrow(
+      /max selections.*correct answers/i,
+    );
+  });
+
+  it("rejects lowering max selections below the correct answer count in settings", () => {
+    const editor = makeEditor();
+    editor.commands.setContent({
+      type: "doc",
+      content: [
+        multiselectDoc({
+          assessment: {
+            correctOptionIds: ["a", "b"],
+            feedbackByOptionId: {},
+            summaryFeedback: null,
+          },
+        }),
+      ],
+    });
+    const target = resolveStableNode(editor.state.doc, {
+      id: "block-multiselect-test",
+      nodeType: "multiselect",
+    });
+    if (target.status !== "ready") throw new Error("expected resolved Multi-select node");
+    const configuration = multiselectBlockDefinition.configuration;
+    if (!configuration?.apply) throw new Error("expected Multi-select settings apply handler");
+
+    const result = configuration.apply({
+      tr: editor.state.tr,
+      target,
+      attr: "settings",
+      schema: configuration.schema,
+      value: { maxSelect: 1 },
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      issue: {
+        code: "invalid_multiselect_selection_limit",
+        field: "maxSelect",
+      },
+    });
+    editor.destroy();
+  });
+
+  it("derives readiness from unique current choices without consuming the limit for stale ids", () => {
+    const interaction = projectMultiselectInteraction(multiselectDoc(), { maxSelect: 1 });
+
+    expect(hasMultiselectResponse({ choices: ["a", "deleted-choice"] }, interaction)).toBe(true);
+    expect(hasMultiselectResponse({ choices: ["deleted-choice"] }, interaction)).toBe(false);
+    expect(hasMultiselectResponse({ choices: ["a", "b"] }, interaction)).toBe(false);
   });
 
   it("round-trips a full composite tree across settings attrs", () => {
@@ -387,6 +454,8 @@ describe("composite multiselect node", () => {
         ),
       ).toBeInstanceOf(HTMLElement);
     });
+    expect(document.body.querySelector(".sc-course-multiselect")).toBeInstanceOf(HTMLElement);
+    expect(document.body.querySelector(".sc-multiselect")).toBeNull();
     expect(document.body.querySelector("[data-authoring-frame-wrapper]")).toBeNull();
 
     editor.destroy();

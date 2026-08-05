@@ -644,9 +644,22 @@ export function createAssessmentStore({
         const current = get().registrations[next.problemId];
         if (!current) return false;
         assertRegistrationIdentity(current, next);
-        set((state) => ({
-          registrations: { ...state.registrations, [next.problemId]: next },
-        }));
+        const responseReady = validatedHydratedResponseReady(
+          get().durable.problems[next.problemId],
+          next,
+        );
+        set((state) => {
+          const nextResponseReady = { ...state.transient.responseReady };
+          if (responseReady === undefined) delete nextResponseReady[next.problemId];
+          else nextResponseReady[next.problemId] = responseReady;
+          return {
+            registrations: { ...state.registrations, [next.problemId]: next },
+            transient: {
+              ...state.transient,
+              responseReady: nextResponseReady,
+            },
+          };
+        });
         return true;
       },
       unregister: (identity) => {

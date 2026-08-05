@@ -33,7 +33,12 @@ export interface MultiSelectInteractionRuntime {
   inputType: "checkbox";
   selectedIds: readonly string[];
   selected: ReadonlySet<string>;
+  selectedCount: number;
+  maxSelections: number | null;
+  limitReached: boolean;
+  overLimitCount: number;
   isSelected: (choiceId: string) => boolean;
+  isChoiceUnavailable: (choiceId: string) => boolean;
   toggle: (choiceId: string) => void;
   select: (choiceId: string) => void;
   stateFor: (choiceId: string) => ChoiceState | null;
@@ -174,7 +179,12 @@ export function createPendingAssessmentInteractionRuntime<K extends AssessmentIn
         inputType: "radio",
         selectedIds: [],
         selected: emptySelected,
+        selectedCount: 0,
+        maxSelections: null,
+        limitReached: false,
+        overLimitCount: 0,
         isSelected: () => false,
+        isChoiceUnavailable: () => false,
         select: noop,
         revealedSelectedId: null,
         stateFor: () => null,
@@ -308,30 +318,37 @@ export function useAssessmentInteractionRuntime<K extends AssessmentInteractionK
       case "multi-select": {
         const selectedIds = stringArray(response["choices"]);
         const selected = new Set(selectedIds);
+        const currentOptionIds = problem.state.currentOptionIds ?? [];
+        const currentOptionIdSet = new Set(currentOptionIds);
+        const selectedCount = Array.from(selected).filter((id) => currentOptionIdSet.has(id)).length;
+        const maxSelections = problem.state.maxSelect;
+        const limitReached = maxSelections !== null && selectedCount >= maxSelections;
+        const overLimitCount = maxSelections === null ? 0 : Math.max(0, selectedCount - maxSelections);
+        const changeSelection = (choiceId: string) => {
+          const change = resolveMultiSelectChoiceChange({
+            choiceId,
+            currentOptionIds,
+            maxSelections,
+            selectedIds,
+          });
+          if (!change.changed || change.choices === null) return;
+          writeField("choices", change.choices);
+          checkImmediate();
+        };
         return {
           kind: "multi-select",
           inputType: "checkbox",
           selectedIds,
           selected,
+          selectedCount,
+          maxSelections,
+          limitReached,
+          overLimitCount,
           isSelected: (choiceId: string) => selected.has(choiceId),
-          toggle: (choiceId: string) => {
-            const next = new Set(selectedIds);
-            if (next.has(choiceId)) next.delete(choiceId);
-            else if (problem.state.maxSelect === null || next.size < problem.state.maxSelect) {
-              next.add(choiceId);
-            }
-            writeField("choices", Array.from(next));
-            checkImmediate();
-          },
-          select: (choiceId: string) => {
-            const next = new Set(selectedIds);
-            if (next.has(choiceId)) next.delete(choiceId);
-            else if (problem.state.maxSelect === null || next.size < problem.state.maxSelect) {
-              next.add(choiceId);
-            }
-            writeField("choices", Array.from(next));
-            checkImmediate();
-          },
+          isChoiceUnavailable: (choiceId: string) =>
+            !selected.has(choiceId) && maxSelections !== null && selectedCount >= maxSelections,
+          toggle: changeSelection,
+          select: changeSelection,
           stateFor: (choiceId: string) =>
             choiceStateForProblem({
               choiceId,
@@ -437,6 +454,47 @@ export function useAssessmentInteractionRuntime<K extends AssessmentInteractionK
       }
     }
   }, [expectedKind, facade, problem]);
+}
+
+export function resolveMultiSelectChoiceChange({
+  choiceId,
+  currentOptionIds,
+  maxSelections,
+  selectedIds,
+}: {
+  choiceId: string;
+  currentOptionIds: readonly string[];
+  maxSelections: number | null;
+  selectedIds: readonly string[];
+}): { changed: boolean; choices: string[] | null } {
+  const currentOptionIdSet = new Set(currentOptionIds);
+  if (!currentOptionIdSet.has(choiceId)) return { changed: false, choices: null };
+
+  const next = new Set(selectedIds.filter((id) => currentOptionIdSet.has(id)));
+  if (next.has(choiceId)) {
+    next.delete(choiceId);
+    return { changed: true, choices: Array.from(next) };
+  }
+  if (maxSelections !== null && next.size >= maxSelections) {
+    return { changed: false, choices: null };
+  }
+  next.add(choiceId);
+  return { changed: true, choices: Array.from(next) };
+}
+
+export function describeMultiSelectLimitState({
+  maxSelections,
+  selectedCount,
+}: {
+  maxSelections: number | null;
+  selectedCount: number;
+}): string | null {
+  if (maxSelections === null || selectedCount < maxSelections) return null;
+  const excess = selectedCount - maxSelections;
+  if (excess > 0) {
+    return `Remove ${excess} ${excess === 1 ? "selection" : "selections"} to continue.`;
+  }
+  return `Maximum ${maxSelections} selected. Deselect an option before choosing another.`;
 }
 
 function stringArray(value: unknown): string[] {

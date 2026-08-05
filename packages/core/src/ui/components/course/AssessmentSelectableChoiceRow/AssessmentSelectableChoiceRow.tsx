@@ -12,6 +12,7 @@ interface AssessmentSelectableChoiceRowProps {
   checked: boolean;
   children: ReactNode;
   disabled: boolean;
+  disabledReason?: string;
   feedbackControl?: ReactNode;
   id: string;
   inputType: "radio" | "checkbox";
@@ -26,6 +27,7 @@ export function AssessmentSelectableChoiceRow({
   checked,
   children,
   disabled,
+  disabledReason,
   feedbackControl,
   id,
   inputType,
@@ -42,6 +44,9 @@ export function AssessmentSelectableChoiceRow({
     state,
     submitted,
   });
+  const accessibilityText = [accessibilityDescription?.text, disabledReason]
+    .filter(Boolean)
+    .join(" ");
   const courseState = state === "incorrect" ? "incorrect" : state ? "correct" : undefined;
   const showCheck = inputType === "checkbox" || state === "correct" || state === "missed";
   const indicatorMark =
@@ -85,7 +90,7 @@ export function AssessmentSelectableChoiceRow({
               disabled={disabled}
               required={inputType === "radio"}
               onChange={onSelect}
-              aria-describedby={accessibilityDescription ? descriptionId : undefined}
+              aria-describedby={accessibilityText ? descriptionId : undefined}
               className="sc-course-assessment-choice__input"
             />
             <span
@@ -100,9 +105,9 @@ export function AssessmentSelectableChoiceRow({
         </label>
         {state !== null ? feedbackControl : null}
       </div>
-      {accessibilityDescription ? (
+      {accessibilityText ? (
         <span id={descriptionId} className="sc-sr-only">
-          {accessibilityDescription.text}
+          {accessibilityText}
         </span>
       ) : null}
     </>

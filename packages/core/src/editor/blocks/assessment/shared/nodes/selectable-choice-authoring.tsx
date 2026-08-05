@@ -33,6 +33,7 @@ import "@/editor/blocks/assessment/shared/chrome/assessment-feedback-popover.css
 
 import {
   createSelectableChoiceNode,
+  choiceCorrectnessUnavailableReason,
   emptyPrivateChoiceState,
   readPrivateChoiceState,
   setPrivateChoiceFeedback,
@@ -87,6 +88,15 @@ function SelectableChoiceAuthoringNodeView(props: NodeViewProps) {
       return currentPos !== null
         ? readSiblingPosition(editor, currentPos, "selectable_choice")
         : { count: 1, index: 1 };
+    },
+  });
+  const correctnessUnavailableReason = useEditorState({
+    editor: props.editor,
+    selector: ({ editor }) => {
+      const currentPos = currentChoicePos(editor);
+      return currentPos === null
+        ? undefined
+        : choiceCorrectnessUnavailableReason(editor, currentPos);
     },
   });
   const pos = safeGetPos(props.getPos);
@@ -187,6 +197,7 @@ function SelectableChoiceAuthoringNodeView(props: NodeViewProps) {
       <AssessmentChoiceAuthoringRow
         correct={privateChoiceState.isCorrect}
         correctnessLabel={`Toggle whether ${choiceLabel} is correct`}
+        {...(correctnessUnavailableReason ? { correctnessUnavailableReason } : {})}
         feedbackControl={feedbackControl}
         onToggleCorrect={toggleCorrect}
         deleteAction={{
