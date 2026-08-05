@@ -100,7 +100,7 @@ describe("course document JSON helpers", () => {
   it("creates a valid empty course document with one surface", () => {
     const content = createScaffoldDocumentContent({
       mode: "page",
-      surfaceId: "surface-1",
+      surfaceId: "surface_0001",
     });
 
     expect(content).toMatchObject({
@@ -119,7 +119,7 @@ describe("course document JSON helpers", () => {
             {
               type: "surface",
               attrs: {
-                id: "surface-1",
+                id: "surface_0001",
                 variant: "page-default",
               },
             },
@@ -159,13 +159,13 @@ describe("course document JSON helpers", () => {
   it("creates a surface with an editable paragraph anchor", () => {
     const content = createScaffoldDocumentContent({
       mode: "page",
-      surfaceId: "surface-1",
+      surfaceId: "surface_0001",
     });
     const surface = content.content?.[0]?.content?.[0];
 
     expect(surface).toMatchObject({
       type: "surface",
-      attrs: { id: "surface-1", variant: "page-default" },
+      attrs: { id: "surface_0001", variant: "page-default" },
       content: [{ type: "paragraph" }],
     });
     expect(validateCourseDocumentJSON(content).ok).toBe(true);
@@ -174,11 +174,11 @@ describe("course document JSON helpers", () => {
   it("reports page documents with multiple surfaces without repair instructions", () => {
     const first = createScaffoldDocumentContent({
       mode: "page",
-      surfaceId: "surface-1",
+      surfaceId: "surface_0001",
     });
     const secondSurface = {
       type: "surface",
-      attrs: { id: "surface-2", variant: "page-default" },
+      attrs: { id: "surface_0002", variant: "page-default" },
       content: [{ type: "paragraph" }],
     };
     const courseDocument = first.content?.[0];
@@ -256,7 +256,7 @@ describe("course document JSON helpers", () => {
           content: [
             {
               type: "surface",
-              attrs: { id: "surface-1", variant: "page-default" },
+              attrs: { id: "surface_0001", variant: "page-default" },
             },
           ],
         },
@@ -278,7 +278,7 @@ describe("course document JSON helpers", () => {
           content: [
             {
               type: "surface",
-              attrs: { id: "surface-1", variant: "page-default" },
+              attrs: { id: "surface_0001", variant: "page-default" },
             },
           ],
         },
@@ -303,7 +303,7 @@ describe("course document JSON helpers", () => {
             overflowMode: "grow",
             theme: createScaffoldDefaultTheme(),
           },
-          content: [{ type: "surface", attrs: { id: "surface-1" } }],
+          content: [{ type: "surface", attrs: { id: "surface_0001" } }],
         },
       ],
     };
@@ -330,7 +330,7 @@ describe("course document JSON helpers", () => {
           content: [
             {
               type: "surface",
-              attrs: { id: "surface-1", variant: "mystery-surface" },
+              attrs: { id: "surface_0001", variant: "mystery-surface" },
               content: [{ type: "paragraph" }],
             },
           ],
@@ -363,7 +363,7 @@ describe("course document JSON helpers", () => {
           content: [
             {
               type: "surface",
-              attrs: { id: "surface-1", variant: "slide-cover" },
+              attrs: { id: "surface_0001", variant: "slide-cover" },
               content: [{ type: "paragraph" }],
             },
           ],
@@ -397,7 +397,7 @@ describe("course document JSON helpers", () => {
           content: [
             {
               type: "surface",
-              attrs: { id: "surface-1", variant: "page-default" },
+              attrs: { id: "surface_0001", variant: "page-default" },
               content: [{ type: "paragraph" }],
             },
           ],
@@ -430,8 +430,8 @@ describe("course document JSON helpers", () => {
             theme: createScaffoldDefaultTheme(),
           },
           content: [
-            slideCoverSurfaceDefinition.createSurface({ surfaceId: "surface-1" }),
-            slideContentSurfaceDefinition.createSurface({ surfaceId: "surface-2" }),
+            slideCoverSurfaceDefinition.createSurface({ surfaceId: "surface_0001" }),
+            slideContentSurfaceDefinition.createSurface({ surfaceId: "surface_0002" }),
           ],
         },
       ],
@@ -454,7 +454,7 @@ describe("course document JSON helpers", () => {
             mode: "page",
             theme: createScaffoldDefaultTheme(),
           },
-          content: [{ type: "surface", attrs: { id: "surface-1", variant: null } }],
+          content: [{ type: "surface", attrs: { id: "surface_0001", variant: null } }],
         },
       ],
     };
@@ -488,7 +488,7 @@ describe("course document JSON helpers", () => {
           content: [
             {
               type: "surface",
-              attrs: { id: "surface-1", variant: "page-default" },
+              attrs: { id: "surface_0001", variant: "page-default" },
               content: [
                 {
                   type: "quiz",
@@ -527,7 +527,7 @@ describe("course document JSON helpers", () => {
           content: [
             {
               type: "surface",
-              attrs: { id: "surface-1", variant: "page-default" },
+              attrs: { id: "surface_0001", variant: "page-default" },
               content: [
                 {
                   type: "quiz",
@@ -697,7 +697,7 @@ function header(type: "surface_header" | "surface_footer") {
 }
 
 function documentWithAnnotatedFigure() {
-  const document = createScaffoldDocumentContent({ mode: "page", surfaceId: "surface-1" });
+  const document = createScaffoldDocumentContent({ mode: "page", surfaceId: "surface_0001" });
   document.content![0]!.content![0]!.content = [
     {
       type: "annotated_figure",

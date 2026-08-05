@@ -24,14 +24,17 @@ describe("selectRuntimePlayer", () => {
   it("preserves validated slideshow instance order", () => {
     const content = createScaffoldDocumentContent({
       mode: "slideshow",
-      surfaceId: "slide-two",
+      surfaceId: "slide_000002",
     });
     const courseDocument = content.content?.[0];
     const firstSurface = courseDocument?.content?.[0];
     if (!courseDocument || !firstSurface) throw new Error("missing slideshow fixture");
     const slideCover = builtInSurfaceVariantRegistry.get("slide-cover");
     if (!slideCover) throw new Error("missing slide-cover definition");
-    courseDocument.content = [firstSurface, slideCover.createSurface({ surfaceId: "slide-one" })];
+    courseDocument.content = [
+      firstSurface,
+      slideCover.createSurface({ surfaceId: "slide_000001" }),
+    ];
     const before = structuredClone(content);
 
     const selection = selectRuntimePlayer(validatedProjection(content));
@@ -40,7 +43,7 @@ describe("selectRuntimePlayer", () => {
       status: "available",
       player: "slideshow",
       mode: "slideshow",
-      surfaceIds: ["slide-two", "slide-one"],
+      surfaceIds: ["slide_000002", "slide_000001"],
     });
     expect(content).toEqual(before);
   });
