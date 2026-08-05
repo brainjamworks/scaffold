@@ -562,7 +562,10 @@ function runtimeHintTrigger(root: ParentNode): HTMLButtonElement {
 }
 
 function runtimeHintToggle(root: ParentNode): HTMLButtonElement {
-  return uniqueElement<HTMLButtonElement>(root, ".sc-assessment-hints__toggle");
+  return uniqueElement<HTMLButtonElement>(
+    root,
+    '.sc-course-assessment-support-button[data-assessment-support-intent="hint"]',
+  );
 }
 
 function runtimeHintTriggerOrNull(root: ParentNode): HTMLButtonElement | null {

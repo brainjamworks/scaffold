@@ -46,7 +46,10 @@ describe("Hints", () => {
     expect(screen.queryByText("Try the smallest option first.")).toBeNull();
     expect(screen.queryByLabelText("Hint navigation")).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Show next hint" }));
+    const trigger = screen.getByRole("button", { name: "Show next hint" });
+    expect(trigger).toHaveClass("sc-course-assessment-support-button");
+    expect(trigger).toHaveAttribute("data-assessment-support-intent", "hint");
+    fireEvent.click(trigger);
 
     const dialog = screen.getByRole("dialog", { name: "Hint 1 of 2" });
     expect(within(dialog).getByRole("heading", { name: "Hint 1", level: 2 })).toBeInTheDocument();

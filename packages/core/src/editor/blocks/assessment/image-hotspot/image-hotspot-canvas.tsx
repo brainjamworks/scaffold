@@ -28,7 +28,7 @@ import {
   resolveAssessmentAttrParent,
   richTextDocumentToAssessmentFeedback,
 } from "@/editor/blocks/assessment/shared/model/private-assessment-attrs";
-import { CHOICE_TRAILING_BTN } from "@/editor/blocks/assessment/shared/chrome/ChoiceAnswerItem";
+import { AssessmentAuthoringIconAction } from "@/ui/components/app/AssessmentAuthoringIconAction/AssessmentAuthoringIconAction";
 import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { createStableId } from "@/document/model/identity/stable-ids";
 import {
@@ -1177,19 +1177,16 @@ function HotspotEditorContent({
 
 function HotspotDeleteButton({ index, onDelete }: { index: number; onDelete: () => void }) {
   return (
-    <button
-      type="button"
+    <AssessmentAuthoringIconAction
       onMouseDown={(event) => event.preventDefault()}
-      onClick={(event) => {
-        event.stopPropagation();
+      onClick={() => {
         onDelete();
       }}
-      aria-label={`Delete hotspot ${index + 1}`}
-      data-no-select
-      className={cn(CHOICE_TRAILING_BTN, "sc-choice-trailing-button--danger")}
+      label={`Delete hotspot ${index + 1}`}
+      tone="danger"
     >
       <Trash size={iconSm} />
-    </button>
+    </AssessmentAuthoringIconAction>
   );
 }
 

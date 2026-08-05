@@ -42,7 +42,7 @@ export const AssessmentChoicesGroupNode = Node.create({
         "data-bounded-scroll-frame": "",
         "data-slot": "assessment-choices-group",
       }),
-      ["div", { "data-bounded-scroll": "", class: "sc-assessment-choices-scroll" }, 0],
+      ["div", { "data-bounded-scroll": "", class: "sc-app-assessment-choices-scroll" }, 0],
       ["div", { "data-bounded-scroll-hint": "", "aria-hidden": "true" }, "Scroll for more ↓"],
     ];
   },
@@ -84,9 +84,9 @@ function AssessmentChoicesGroupNodeView(props: NodeViewProps) {
     <NodeViewWrapper
       data-bounded-scroll-frame=""
       data-slot="assessment-choices-group"
-      className="sc-assessment-choices-group"
+      className="sc-app-assessment-choices-group"
     >
-      <div data-bounded-scroll="" className="sc-assessment-choices-scroll">
+      <div data-bounded-scroll="" className="sc-app-assessment-choices-scroll">
         <NodeViewContent />
         {isEditable ? (
           <BlockAddGhost
@@ -94,7 +94,7 @@ function AssessmentChoicesGroupNodeView(props: NodeViewProps) {
             presentation="pill"
             contentEditable={false}
             onClick={addChoice}
-            className="sc-assessment-choices-add"
+            className="sc-app-assessment-choices-add"
           />
         ) : null}
       </div>

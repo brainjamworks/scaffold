@@ -8,7 +8,7 @@ import {
 
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 
-import { AssessmentActionsRow } from "../chrome/AssessmentActionsRow";
+import { AssessmentControlLayout } from "../chrome/AssessmentControlLayout";
 import { RuntimeAssessmentControls } from "../chrome/AssessmentControls";
 import { ShowAnswerButton } from "../chrome/ShowAnswerButton";
 import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
@@ -55,12 +55,12 @@ function AssessmentActionsGroupRuntimeNodeView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper data-slot="assessment-actions-group">
-      <AssessmentActionsRow
-        leading={
+      <AssessmentControlLayout
+        support={
           <>
             {showShowAnswerHelper ? (
               <span
-                className="sc-assessment-actions-row__chrome sc-assessment-actions-row__chrome--show-answer"
+                className="sc-assessment-control-layout__feature-control sc-assessment-control-layout__feature-control--show-answer"
                 contentEditable={false}
               >
                 <ShowAnswerButton
@@ -69,10 +69,10 @@ function AssessmentActionsGroupRuntimeNodeView(props: NodeViewProps) {
                 />
               </span>
             ) : null}
-            <NodeViewContent className="sc-assessment-actions-row__content" />
+            <NodeViewContent className="sc-assessment-control-layout__content" />
           </>
         }
-        commit={
+        submission={
           <RuntimeAssessmentControls
             problem={problem}
             maxAttempts={problem?.state.maxAttempts ?? null}

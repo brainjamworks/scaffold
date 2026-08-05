@@ -8,14 +8,13 @@ import {
 import { InfoIcon as Info } from "@phosphor-icons/react";
 import { useEffect, useId, useMemo, useRef } from "react";
 
-import { CHOICE_TRAILING_BTN, ChoiceAnswerItem } from "../chrome/ChoiceAnswerItem";
 import { richTextDocumentToAssessmentFeedback } from "../model/private-assessment-attrs";
+import { deleteAssessmentChoice } from "../model/delete-assessment-choice";
 import { CONTAINED_MOVEMENT_TARGET_ATTR } from "@/editor/drag/view/movement-dom";
 import { ContainedMovementHandle } from "@/editor/drag/view/ContainedMovementHandle";
 import { Placeholder } from "@/editor/prosemirror/placeholder/Placeholder";
 import { createFieldContentEditorExtensions } from "@/editor/rich-text/authoring/field-content-extensions";
 import { EditableOverlayPopover } from "@/editor/rich-text/authoring/nested-overlay/EditableOverlayPopoverShell";
-import { cn } from "@/lib/cn";
 import {
   isScaffoldRichTextDocumentEmpty,
   toTiptapRichTextDocument,
@@ -23,13 +22,14 @@ import {
 } from "@/schemas/rich-text";
 import { SelectableChoiceAttrsSchema, type SelectableChoiceAttrs } from "@/schemas/shared";
 import { iconSm } from "@/ui/tokens/icon-sizes";
+import { AssessmentAuthoringIconAction } from "@/ui/components/app/AssessmentAuthoringIconAction/AssessmentAuthoringIconAction";
+import { AssessmentChoiceAuthoringRow } from "@/ui/components/app/AssessmentChoiceAuthoringRow/AssessmentChoiceAuthoringRow";
 import "@/editor/blocks/assessment/shared/chrome/assessment-feedback-popover.css";
 
 import {
   createSelectableChoiceNode,
   emptyPrivateChoiceState,
   readPrivateChoiceState,
-  resolveChoiceAssessmentParent,
   setPrivateChoiceFeedback,
   toggleChoiceCorrect,
 } from "./selectable-choice";
@@ -75,19 +75,13 @@ function SelectableChoiceAuthoringNodeView(props: NodeViewProps) {
         : emptyPrivateChoiceState;
     },
   });
-  const parentTypeName = useEditorState({
+  const choicePosition = useEditorState({
     editor: props.editor,
     selector: ({ editor }) => {
       const currentPos = currentChoicePos(editor);
-      if (currentPos === null) return null;
-      return resolveChoiceAssessmentParent(editor, currentPos)?.typeName ?? null;
-    },
-  });
-  const choiceIndex = useEditorState({
-    editor: props.editor,
-    selector: ({ editor }) => {
-      const currentPos = currentChoicePos(editor);
-      return currentPos !== null ? readSiblingIndex(editor, currentPos, "selectable_choice") : 1;
+      return currentPos !== null
+        ? readSiblingPosition(editor, currentPos, "selectable_choice")
+        : { count: 1, index: 1 };
     },
   });
   const pos = safeGetPos(props.getPos);
@@ -134,30 +128,18 @@ function SelectableChoiceAuthoringNodeView(props: NodeViewProps) {
   const deleteChoice = () => {
     const currentPos = currentChoicePos();
     if (currentPos === null) return;
-    const currentNode = props.editor.state.doc.nodeAt(currentPos);
-    if (!currentNode) return;
-    props.editor
-      .chain()
-      .focus()
-      .deleteRange({ from: currentPos, to: currentPos + currentNode.nodeSize })
-      .run();
+    deleteAssessmentChoice(props.editor, currentPos);
   };
 
   const feedbackControl = (
     <EditableOverlayPopover.Root>
       <EditableOverlayPopover.Trigger asChild>
-        <button
-          type="button"
-          aria-label={hasFeedback ? "Edit feedback" : "Add feedback"}
-          onClick={(event) => event.stopPropagation()}
-          data-no-select
-          className={cn(
-            CHOICE_TRAILING_BTN,
-            hasFeedback && "sc-assessment-feedback-trigger--visible",
-          )}
+        <AssessmentAuthoringIconAction
+          active={hasFeedback}
+          label={hasFeedback ? "Edit feedback" : "Add feedback"}
         >
           <Info size={iconSm} weight={hasFeedback ? "fill" : "regular"} />
-        </button>
+        </AssessmentAuthoringIconAction>
       </EditableOverlayPopover.Trigger>
       <EditableOverlayPopover.Portal>
         <EditableOverlayPopover.Content
@@ -189,32 +171,28 @@ function SelectableChoiceAuthoringNodeView(props: NodeViewProps) {
       data-choice-id={attrs.id}
       {...{ [CONTAINED_MOVEMENT_TARGET_ATTR]: "" }}
     >
-      <ChoiceAnswerItem
-        id={attrs.id}
-        inputType={parentTypeName === "multiselect" ? "checkbox" : "radio"}
-        isCorrect={privateChoiceState.isCorrect}
+      <AssessmentChoiceAuthoringRow
+        correct={privateChoiceState.isCorrect}
         feedbackControl={feedbackControl}
-        isEditable
-        state={privateChoiceState.isCorrect ? "correct" : null}
-        checked={privateChoiceState.isCorrect}
-        submitted={false}
-        disabled={false}
-        onSelect={() => {}}
         onToggleCorrect={toggleCorrect}
-        onDelete={deleteChoice}
-        deleteLabel={`Delete choice ${choiceIndex}`}
-        leading={
+        deleteAction={{
+          label: `Delete choice ${choicePosition.index}`,
+          onAction: deleteChoice,
+          ...(choicePosition.count <= 1
+            ? { unavailableReason: "An assessment must contain at least one choice." }
+            : {}),
+        }}
+        movementControl={
           <ContainedMovementHandle
             getSourcePos={() => safeGetPos(props.getPos)}
             label="choice"
             sourceKey={attrs.id}
             sourcePos={pos}
-            className="sc-app-contained-movement-handle--row-offset"
           />
         }
       >
         <NodeViewContent />
-      </ChoiceAnswerItem>
+      </AssessmentChoiceAuthoringRow>
     </NodeViewWrapper>
   );
 }
@@ -229,7 +207,11 @@ function resolveSelectableChoicePos(
   return currentNode?.type.name === "selectable_choice" ? currentPos : null;
 }
 
-function readSiblingIndex(editor: NodeViewProps["editor"], pos: number, typeName: string): number {
+function readSiblingPosition(
+  editor: NodeViewProps["editor"],
+  pos: number,
+  typeName: string,
+): { count: number; index: number } {
   const $pos = editor.state.doc.resolve(pos);
   const parent = $pos.parent;
   const parentStart = $pos.start();
@@ -244,5 +226,5 @@ function readSiblingIndex(editor: NodeViewProps["editor"], pos: number, typeName
     }
   });
 
-  return index;
+  return { count, index };
 }

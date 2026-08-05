@@ -32,6 +32,7 @@ import { AssessmentSummaryFeedbackNode } from "./assessment-summary-feedback";
 import { AssessmentSummaryFeedbackRuntimeNode } from "./assessment-summary-feedback-runtime";
 import { AssessmentTitleNode } from "./assessment-title";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
+import { deleteAssessmentChoice } from "../model/delete-assessment-choice";
 import { SelectableChoiceBodyNode, toggleChoiceCorrect } from "./selectable-choice";
 import { SelectableChoiceAuthoringNode } from "./selectable-choice-authoring";
 import {
@@ -648,6 +649,58 @@ describe("runtime selectable choice bounded scrolling", () => {
 });
 
 describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
+  it("deletes a choice and prunes its single-answer key and feedback in one history step", () => {
+    const editor = makeEditor(
+      [
+        { id: "a", isCorrect: false },
+        { id: "b", isCorrect: true },
+      ],
+      true,
+      "mcq",
+      {},
+      true,
+    );
+    const block = editor.state.doc.firstChild;
+    if (!block) throw new Error("expected MCQ block");
+    editor.view.dispatch(
+      editor.state.tr.setNodeMarkup(0, null, {
+        ...block.attrs,
+        assessment: {
+          ...block.attrs["assessment"],
+          feedbackByOptionId: { b: richFeedback("Remove me") },
+        },
+      }),
+    );
+    editor.view.dispatch(closeHistory(editor.state.tr));
+
+    expect(deleteAssessmentChoice(editor, choicePosByIndex(editor, 1))).toBe(true);
+    expect(getChoices(editor)).toEqual([{ id: "a", isCorrect: false }]);
+    expect(editor.getJSON().content?.[0]?.attrs?.["assessment"]).toMatchObject({
+      correctOptionId: null,
+      feedbackByOptionId: {},
+    });
+
+    expect(editor.commands.undo()).toBe(true);
+    expect(getChoices(editor)).toEqual([
+      { id: "a", isCorrect: false },
+      { id: "b", isCorrect: true },
+    ]);
+    expect(editor.getJSON().content?.[0]?.attrs?.["assessment"]).toMatchObject({
+      correctOptionId: "b",
+      feedbackByOptionId: { b: richFeedback("Remove me") },
+    });
+    editor.destroy();
+  });
+
+  it("protects the final selectable choice", () => {
+    const editor = makeEditor([{ id: "a", isCorrect: true }]);
+
+    expect(deleteAssessmentChoice(editor, choicePosByIndex(editor, 0))).toBe(false);
+    expect(getChoices(editor)).toEqual([{ id: "a", isCorrect: true }]);
+
+    editor.destroy();
+  });
+
   it("keeps selectable choices as internal assessment children", () => {
     const editor = makeEditor([{ id: "a", isCorrect: true }]);
     const spec = editor.schema.nodes["selectable_choice"]?.spec;
@@ -1015,10 +1068,8 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
           description: /correct answer/i,
         }),
       ).toBeInTheDocument();
-      const revealedButton = screen.getByRole("button", {
-        name: "Correct answer revealed",
-      });
-      expect((revealedButton as HTMLButtonElement).disabled).toBe(true);
+      expect(screen.getByRole("status", { name: "Answer revealed" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Correct answer revealed" })).toBeNull();
     });
 
     editor.destroy();
@@ -1230,6 +1281,39 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
 });
 
 describe("toggleChoiceCorrect — checkbox mode (Multiselect)", () => {
+  it("deletes a choice and prunes its multi-answer key and feedback", () => {
+    const editor = makeEditor(
+      [
+        { id: "a", isCorrect: false },
+        { id: "b", isCorrect: true },
+        { id: "c", isCorrect: true },
+      ],
+      true,
+      "multiselect",
+    );
+    const block = editor.state.doc.firstChild;
+    if (!block) throw new Error("expected Multiselect block");
+    editor.view.dispatch(
+      editor.state.tr.setNodeMarkup(0, null, {
+        ...block.attrs,
+        assessment: {
+          ...block.attrs["assessment"],
+          feedbackByOptionId: {
+            b: richFeedback("Keep me"),
+            c: richFeedback("Remove me"),
+          },
+        },
+      }),
+    );
+
+    expect(deleteAssessmentChoice(editor, choicePosByIndex(editor, 2))).toBe(true);
+    expect(editor.getJSON().content?.[0]?.attrs?.["assessment"]).toMatchObject({
+      correctOptionIds: ["b"],
+      feedbackByOptionId: { b: richFeedback("Keep me") },
+    });
+    editor.destroy();
+  });
+
   it("exposes selected, submitted, and revealed answer state through checkbox semantics", async () => {
     const editor = makeEditor(
       [
@@ -1330,10 +1414,8 @@ describe("toggleChoiceCorrect — checkbox mode (Multiselect)", () => {
           description: /correct answer/i,
         }),
       ).toBeInTheDocument();
-      const revealedButton = screen.getByRole("button", {
-        name: "Correct answer revealed",
-      });
-      expect((revealedButton as HTMLButtonElement).disabled).toBe(true);
+      expect(screen.getByRole("status", { name: "Answer revealed" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Correct answer revealed" })).toBeNull();
     });
 
     editor.destroy();
@@ -1460,7 +1542,7 @@ describe("toggleChoiceCorrect — checkbox mode (Multiselect)", () => {
           name: "Final attempt used.",
         }),
       ).toBeInTheDocument();
-      expect(screen.getByText("Answer submitted. Correct.")).toBeInTheDocument();
+      expect(screen.getByRole("status", { name: "Correct" })).toBeInTheDocument();
     });
 
     editor.destroy();

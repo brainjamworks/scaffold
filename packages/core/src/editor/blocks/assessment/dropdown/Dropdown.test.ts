@@ -439,8 +439,8 @@ describe("composite dropdown node", () => {
           attrs: {
             id: "dropdown-choice-delete",
             assessment: {
-              correctOptionId: "a",
-              feedbackByOptionId: {},
+              correctOptionId: "b",
+              feedbackByOptionId: { b: richFeedback("Remove me") },
               summaryFeedback: null,
             },
           },
@@ -510,6 +510,10 @@ describe("composite dropdown node", () => {
     expect(fixture.editor.state.doc.textContent).toContain("Alpha");
     expect(fixture.editor.state.doc.textContent).toContain("Gamma");
     expect(choiceIds).toEqual(["a", "c"]);
+    expect(dropdown?.attrs?.["assessment"]).toMatchObject({
+      correctOptionId: null,
+      feedbackByOptionId: {},
+    });
 
     fixture.destroy();
   });

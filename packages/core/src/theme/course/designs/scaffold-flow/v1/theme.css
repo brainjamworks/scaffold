@@ -24,6 +24,10 @@
 @import "./code-block.css";
 @import "./resource-link.css";
 @import "./assessment-shell.css";
+@import "./assessment-support-controls.css";
+@import "./assessment-submission-control.css";
+@import "./assessment-choice.css";
+@import "./assessment-matching-action.css";
 
 .sc-course.sc-course-theme-scaffold-flow-v1 {
   --sc-container-flow-gap: calc(0.75rem * var(--sc-course-author-density));

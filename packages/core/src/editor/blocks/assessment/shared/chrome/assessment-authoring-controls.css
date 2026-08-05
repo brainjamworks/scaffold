@@ -1,0 +1,76 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-app-assessment-support-button {
+    display: inline-flex;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 2.75rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding-inline: 0.875rem;
+    border: 1px solid var(--sc-app-color-border);
+    border-radius: 9999px;
+    background: var(--sc-app-color-background);
+    color: var(--sc-app-color-text-primary);
+    font-family: var(--font-ui);
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.25rem;
+    transition:
+      border-color 150ms ease-out,
+      background-color 150ms ease-out,
+      color 150ms ease-out;
+  }
+
+  .sc-app-assessment-support-button:hover:not(:disabled) {
+    border-color: var(--sc-app-color-primary);
+    background: var(--sc-app-color-primary-muted);
+    color: var(--sc-app-color-primary);
+  }
+
+  .sc-app-assessment-support-button:focus-visible {
+    outline: 2px solid var(--sc-app-color-focus-outline);
+    outline-offset: 2px;
+  }
+
+  .sc-app-assessment-support-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  .sc-app-assessment-support-button__icon,
+  .sc-app-assessment-support-button__disclosure {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sc-app-assessment-support-button__icon,
+  .sc-app-assessment-support-button[data-has-content="true"] {
+    color: var(--sc-app-color-primary);
+  }
+
+  .sc-app-assessment-support-button__disclosure {
+    transition: transform 150ms ease-out;
+  }
+
+  .sc-app-assessment-support-button__disclosure[data-expanded="true"] {
+    transform: rotate(180deg);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sc-app-assessment-support-button,
+    .sc-app-assessment-support-button__disclosure {
+      transition: none;
+    }
+  }
+
+  @media (forced-colors: active) {
+    .sc-app-assessment-support-button {
+      border-color: ButtonText;
+    }
+  }
+}

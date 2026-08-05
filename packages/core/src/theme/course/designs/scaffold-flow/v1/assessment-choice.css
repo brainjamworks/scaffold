@@ -1,0 +1,198 @@
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-choices-group,
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-choices-scroll,
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-choices-list {
+  gap: var(--space-2);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-choices-legend {
+  margin-block: 0 var(--space-2);
+  color: var(--gray-12);
+  font-family: var(--default-font-family);
+  font-size: var(--font-size-3);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-3);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-choice {
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-4);
+  border: var(--sc-course-author-stroke-width) solid var(--gray-a6);
+  border-radius: max(var(--radius-3), var(--radius-full));
+  background: var(--gray-1);
+  color: var(--gray-12);
+  font-family: var(--default-font-family);
+  font-size: var(--font-size-2);
+  line-height: var(--line-height-3);
+  transition:
+    border-color 150ms ease-out,
+    background-color 150ms ease-out,
+    color 150ms ease-out;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-choice--interactive {
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-course-assessment-choice--interactive:hover {
+    border-color: var(--gray-a9);
+    background: var(--gray-2);
+  }
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-choice[data-selected]:not([data-course-state]) {
+  border-color: var(--accent-a8);
+  background: var(--accent-a3);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-choice[data-disabled]:not([data-course-state]) {
+  color: var(--gray-10);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-choice[data-course-state="correct"] {
+  border-color: var(--sc-course-state-correct-border);
+  background: var(--sc-course-state-correct-background);
+  color: var(--sc-course-state-correct-text);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-choice[data-course-state="incorrect"] {
+  border-color: var(--sc-course-state-incorrect-border);
+  background: var(--sc-course-state-incorrect-background);
+  color: var(--sc-course-state-incorrect-text);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-choice[data-result-state="missed"] {
+  border-style: dashed;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-choice__indicator {
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 1.5px solid var(--gray-a10);
+  background: var(--gray-1);
+  color: var(--accent-9);
+  transition:
+    border-color 150ms ease-out,
+    background-color 150ms ease-out,
+    color 150ms ease-out;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-choice__indicator[data-shape="checkbox"] {
+  border-radius: max(var(--radius-1), var(--radius-full));
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-choice__indicator[data-state="selected"] {
+  border-color: var(--accent-9);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-choice[data-course-state="correct"]
+  .sc-course-assessment-choice__indicator {
+  border-color: var(--sc-course-state-correct-indicator);
+  color: var(--sc-course-state-correct-indicator);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-choice[data-course-state="incorrect"]
+  .sc-course-assessment-choice__indicator {
+  border-color: var(--sc-course-state-incorrect-indicator);
+  color: var(--sc-course-state-incorrect-indicator);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-choice__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  background: var(--accent-9);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-choice__input:focus-visible
+  + .sc-course-assessment-choice__indicator {
+  outline: 2px solid var(--accent-9);
+  outline-offset: 2px;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-choice__feedback-action {
+  display: inline-flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: 0 0 2.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: max(var(--radius-2), var(--radius-full));
+  color: currentColor;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-feedback-action {
+  border-radius: max(var(--radius-2), var(--radius-full));
+  color: var(--gray-11);
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-choice__feedback-action:hover,
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-choice__feedback-action:focus-visible {
+  background: var(--gray-a3);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-feedback-action:hover,
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-feedback-action:focus-visible {
+  background: var(--gray-a3);
+  color: var(--accent-11);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-feedback-action:focus-visible {
+  outline: 2px solid var(--accent-9);
+  outline-offset: -2px;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-choice__feedback-action:focus-visible {
+  outline: 2px solid var(--accent-9);
+  outline-offset: -2px;
+}
+
+@media (forced-colors: active) {
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-choice {
+    border-color: CanvasText;
+  }
+
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-course-assessment-choice__input:focus-visible
+    + .sc-course-assessment-choice__indicator,
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-course-assessment-choice__feedback-action:focus-visible {
+    outline-color: Highlight;
+  }
+
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-course-assessment-feedback-action:focus-visible {
+    outline-color: Highlight;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-choice,
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-choice__indicator {
+    transition: none;
+  }
+
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-feedback-action {
+    transition: none;
+  }
+}

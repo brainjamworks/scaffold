@@ -18,8 +18,10 @@ import * as Popover from "@/ui/components/Popover/Popover";
 import { cn } from "@/lib/cn";
 import { zIndex } from "@/ui/overlays/z-index";
 import { iconSm, iconXs } from "@/ui/tokens/icon-sizes";
+import { AssessmentSupportButton } from "@/ui/components/course/AssessmentSupportButton/AssessmentSupportButton";
 
 import { AssessmentRuntimePopoverShell } from "./AssessmentRuntimePopoverShell";
+import "./assessment-authoring-controls.css";
 import "./assessment-hints.css";
 
 export interface HintsAuthorPopoverRenderProps {
@@ -203,24 +205,40 @@ export function Hints({
       <div className="sc-assessment-hints__bar">
         <HintPopover.Root open={open} onOpenChange={setOpen}>
           <HintPopover.Trigger asChild>
-            <button
-              type="button"
-              onClick={onTriggerClick}
-              disabled={!isEditable && !hasMoreRuntimeHints && hintsShown === 0}
-              className="sc-assessment-hints__toggle"
-              aria-expanded={open}
-            >
-              <Lightbulb size={iconSm} weight="fill" aria-hidden />
-              <span>{label}</span>
-              {hasVisibleHints && (
-                <CaretDown
-                  size={iconXs}
-                  weight="bold"
-                  className={cn("sc-assessment-hints__toggle-caret", open && "is-expanded")}
-                  aria-hidden
-                />
-              )}
-            </button>
+            {isEditable ? (
+              <button
+                type="button"
+                onClick={onTriggerClick}
+                className="sc-app-assessment-support-button"
+                data-app-assessment-support-intent="hint"
+                aria-expanded={open}
+              >
+                <Lightbulb size={iconSm} weight="fill" aria-hidden />
+                <span>{label}</span>
+                {hasVisibleHints ? (
+                  <CaretDown
+                    size={iconXs}
+                    weight="bold"
+                    className="sc-app-assessment-support-button__disclosure"
+                    data-expanded={open ? "true" : undefined}
+                    aria-hidden
+                  />
+                ) : null}
+              </button>
+            ) : (
+              <AssessmentSupportButton
+                intent="hint"
+                icon={<Lightbulb size={iconSm} weight="fill" />}
+                endIcon={
+                  hasVisibleHints ? <CaretDown size={iconXs} weight="bold" /> : undefined
+                }
+                expanded={open}
+                onClick={onTriggerClick}
+                disabled={!hasMoreRuntimeHints && hintsShown === 0}
+              >
+                {label}
+              </AssessmentSupportButton>
+            )}
           </HintPopover.Trigger>
           {isEditable ? (
             renderAuthorPopover?.({

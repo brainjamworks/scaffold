@@ -7,7 +7,8 @@ import "@/ui/components/Button/Button.css";
 import "@/ui/components/IconButton/IconButton.css";
 
 import "./assessment/shared/chrome/assessment-hints.css";
-import "./assessment/shared/chrome/choice-trailing-button.css";
+import "@/ui/components/app/AssessmentAuthoringIconAction/AssessmentAuthoringIconAction.css";
+import "@/theme/course/designs/scaffold-flow/v1/assessment-matching-action.css";
 import "./structured-content/checklist/ChecklistAuthoringControls.css";
 
 afterEach(() => {
@@ -35,9 +36,10 @@ describe("authoring destructive colours", () => {
     const hintDelete = appendButton(course, "sc-assessment-hint__delete", "Delete hint");
     const choiceDelete = appendButton(
       course,
-      "sc-choice-trailing-button sc-choice-trailing-button--danger",
+      "sc-app-assessment-authoring-icon-action",
       "Delete choice",
     );
+    choiceDelete.dataset["tone"] = "danger";
 
     for (const control of [checklistDelete, hintDelete, choiceDelete]) {
       await userEvent.hover(control);
@@ -49,7 +51,7 @@ describe("authoring destructive colours", () => {
     const course = createThemedAuthoringFixture();
     const removeMatch = appendButton(
       course,
-      "sc-choice-trailing-button sc-choice-trailing-button--course-danger",
+      "sc-course-matching-remove-action",
       "Remove match",
     );
 
@@ -67,10 +69,10 @@ function createThemedAuthoringFixture(): HTMLDivElement {
   application.style.setProperty("--sc-app-color-error-text", "rgb(153 27 27)");
 
   const course = document.createElement("div");
-  course.className = "sc-course-theme-scope";
+  course.className = "sc-course sc-course-theme-scaffold-flow-v1";
   course.style.setProperty("--color-secondary", "rgb(8 145 178)");
   course.style.setProperty("--color-secondary-foreground", "rgb(255 255 255)");
-  course.style.setProperty("--color-error", "rgb(220 38 38)");
+  course.style.setProperty("--sc-course-state-error-indicator", "rgb(220 38 38)");
   course.style.setProperty("--color-error-foreground", "rgb(255 255 255)");
   course.style.setProperty("--color-muted", "rgb(241 245 249)");
   course.style.setProperty("--color-background", "rgb(255 255 255)");

@@ -76,37 +76,6 @@
     justify-content: flex-start;
   }
 
-  .sc-button.sc-assessment-summary-feedback-trigger {
-    --sc-summary-feedback-icon-color: var(--color-text-muted);
-
-    gap: 0.5rem;
-    padding-inline: 0.25rem;
-    border-color: transparent;
-    background: transparent;
-    color: var(--color-ink);
-  }
-
-  .sc-button.sc-assessment-summary-feedback-trigger:hover:not(:disabled) {
-    --sc-summary-feedback-icon-color: var(--color-primary);
-
-    border-color: transparent;
-    background: transparent;
-    color: var(--color-primary);
-  }
-
-  .sc-assessment-summary-feedback-trigger--has-feedback {
-    --sc-summary-feedback-icon-color: var(--color-primary);
-  }
-
-  .sc-assessment-summary-feedback-trigger__icon {
-    flex-shrink: 0;
-    color: var(--sc-summary-feedback-icon-color);
-  }
-
-  .sc-assessment-summary-feedback-trigger__text {
-    white-space: nowrap;
-  }
-
   .sc-assessment-summary-feedback__editor {
     min-height: 5rem;
   }

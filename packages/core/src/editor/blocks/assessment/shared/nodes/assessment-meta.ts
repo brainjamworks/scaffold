@@ -8,6 +8,8 @@ export interface AssessmentMeta {
   points: number | null;
 }
 
+export type AssessmentFeedbackMode = "immediate" | "on_submit";
+
 export function isAssessmentQuestionNode(node: ProseMirrorNode): boolean {
   return node.type.spec.group?.split(/\s+/).includes(ASSESSMENT_QUESTION_CONTENT) ?? false;
 }
@@ -48,6 +50,23 @@ export function resolveAssessmentMeta(
       : null;
 
   return { points };
+}
+
+export function resolveAssessmentFeedbackMode(
+  editor: Editor,
+  pos: number | undefined,
+): AssessmentFeedbackMode {
+  const node = resolveParentAssessmentNode(editor, pos);
+  const settings = node?.attrs["settings"];
+  if (
+    settings &&
+    typeof settings === "object" &&
+    "feedbackMode" in settings &&
+    settings.feedbackMode === "immediate"
+  ) {
+    return "immediate";
+  }
+  return "on_submit";
 }
 
 export function formatAssessmentPoints(points: number | null): string | null {

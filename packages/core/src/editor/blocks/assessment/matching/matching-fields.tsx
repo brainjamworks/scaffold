@@ -12,7 +12,7 @@ import {
   type AssessmentFeedbackContent,
 } from "@scaffold/contracts";
 
-import { CHOICE_TRAILING_BTN } from "@/editor/blocks/assessment/shared/chrome/ChoiceAnswerItem";
+import { AssessmentAuthoringIconAction } from "@/ui/components/app/AssessmentAuthoringIconAction/AssessmentAuthoringIconAction";
 import {
   nextAssessmentFeedbackRecord,
   resolveAssessmentAttrParent,
@@ -27,7 +27,6 @@ import { createFieldContentEditorExtensions } from "@/editor/rich-text/authoring
 import { EditableOverlayPopover } from "@/editor/rich-text/authoring/nested-overlay/EditableOverlayPopoverShell";
 import { currentNodeViewPos, safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 import { createStableId } from "@/document/model/identity/stable-ids";
-import { cn } from "@/lib/cn";
 import {
   isScaffoldRichTextDocumentEmpty,
   toTiptapRichTextDocument,
@@ -193,18 +192,12 @@ function MatchingPairNodeView(props: NodeViewProps) {
         <div className="sc-matching-pair__actions">
           <EditableOverlayPopover.Root>
             <EditableOverlayPopover.Trigger asChild>
-              <button
-                type="button"
-                aria-label={hasFeedback ? "Edit feedback" : "Add feedback"}
-                onClick={(event) => event.stopPropagation()}
-                data-no-select
-                className={cn(
-                  CHOICE_TRAILING_BTN,
-                  hasFeedback && "sc-assessment-feedback-trigger--visible",
-                )}
+              <AssessmentAuthoringIconAction
+                active={hasFeedback}
+                label={hasFeedback ? "Edit feedback" : "Add feedback"}
               >
                 <Info size={iconSm} weight={hasFeedback ? "fill" : "regular"} />
-              </button>
+              </AssessmentAuthoringIconAction>
             </EditableOverlayPopover.Trigger>
             <EditableOverlayPopover.Portal>
               <EditableOverlayPopover.Content
@@ -228,23 +221,15 @@ function MatchingPairNodeView(props: NodeViewProps) {
               />
             </EditableOverlayPopover.Portal>
           </EditableOverlayPopover.Root>
-          <button
-            type="button"
-            contentEditable={false}
-            onClick={(e) => {
-              e.stopPropagation();
+          <AssessmentAuthoringIconAction
+            onClick={() => {
               deletePair();
             }}
-            aria-label={`Delete matching pair ${pairIndex}`}
-            data-no-select
-            className={cn(
-              CHOICE_TRAILING_BTN,
-              "sc-choice-trailing-button--muted",
-              "sc-choice-trailing-button--danger",
-            )}
+            label={`Delete matching pair ${pairIndex}`}
+            tone="danger"
           >
             <Trash size={iconSm} />
-          </button>
+          </AssessmentAuthoringIconAction>
         </div>
       </div>
     </NodeViewWrapper>

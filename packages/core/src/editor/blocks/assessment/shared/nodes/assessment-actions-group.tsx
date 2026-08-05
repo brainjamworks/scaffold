@@ -1,8 +1,17 @@
 import { Node, mergeAttributes } from "@tiptap/core";
-import { NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer } from "@tiptap/react";
+import {
+  NodeViewContent,
+  NodeViewWrapper,
+  ReactNodeViewRenderer,
+  useEditorState,
+  type NodeViewProps,
+} from "@tiptap/react";
 
-import { AssessmentActionsRow } from "../chrome/AssessmentActionsRow";
+import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
+
+import { AssessmentControlLayout } from "../chrome/AssessmentControlLayout";
 import { AuthoringAssessmentControls } from "../chrome/AssessmentControls";
+import { resolveAssessmentFeedbackMode } from "./assessment-meta";
 
 export const AssessmentActionsGroupNode = Node.create({
   name: "assessment_actions_group",
@@ -30,12 +39,20 @@ export const AssessmentActionsGroupNode = Node.create({
   },
 });
 
-function AssessmentActionsGroupNodeView() {
+function AssessmentActionsGroupNodeView(props: NodeViewProps) {
+  const feedbackMode = useEditorState({
+    editor: props.editor,
+    selector: ({ editor }) =>
+      resolveAssessmentFeedbackMode(editor, safeGetPos(props.getPos)),
+  });
+
   return (
     <NodeViewWrapper data-slot="assessment-actions-group">
-      <AssessmentActionsRow
-        leading={<NodeViewContent className="sc-assessment-actions-row__content" />}
-        commit={<AuthoringAssessmentControls problem={null} />}
+      <AssessmentControlLayout
+        support={<NodeViewContent className="sc-assessment-control-layout__content" />}
+        submission={
+          <AuthoringAssessmentControls feedbackMode={feedbackMode} />
+        }
       />
     </NodeViewWrapper>
   );

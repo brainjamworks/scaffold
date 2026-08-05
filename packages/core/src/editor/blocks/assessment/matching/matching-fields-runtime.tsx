@@ -15,14 +15,12 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   CheckCircleIcon as CheckCircle,
   DotsSixVerticalIcon as DotsSixVertical,
-  XIcon as X,
   XCircleIcon as XCircle,
 } from "@phosphor-icons/react";
 import { DOMSerializer, type Node as PMNode } from "@tiptap/pm/model";
 import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
 import { useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { CHOICE_TRAILING_BTN } from "@/editor/blocks/assessment/shared/chrome/ChoiceAnswerItem";
 import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import type { AssessmentItemDetail } from "@scaffold/contracts";
 import { RichFeedbackRuntimePopover } from "@/editor/blocks/assessment/shared/chrome/RichFeedbackRuntimePopover";
@@ -37,7 +35,7 @@ import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 import { serializeStaticRichTextHtml } from "@/editor/rich-text/static/render-rich-text";
 import { cn } from "@/lib/cn";
 import { AssessmentFeedbackContentSchema } from "@scaffold/contracts";
-import { iconMd, iconSm, iconXs } from "@/ui/tokens/icon-sizes";
+import { iconMd, iconXs } from "@/ui/tokens/icon-sizes";
 
 import {
   EMPTY_MATCHES,
@@ -56,6 +54,7 @@ import {
   type MatchingConnector,
   type MatchingProjectionPair,
 } from "./matching-fields-shared";
+import { MatchingRuntimeRemoveAction } from "./MatchingRuntimeRemoveAction";
 import "./Matching.css";
 
 export {
@@ -378,20 +377,10 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
                               {renderStaticHtml(matchedPair.itemHtml, "Matched item")}
                             </div>
                             {!interactionLocked && (
-                              <button
-                                type="button"
-                                aria-label={`Remove match from target ${idx + 1}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  problem?.removeTargetMatch(target.targetId);
-                                }}
-                                className={cn(
-                                  CHOICE_TRAILING_BTN,
-                                  "sc-choice-trailing-button--course-danger",
-                                )}
-                              >
-                                <X size={iconSm} />
-                              </button>
+                              <MatchingRuntimeRemoveAction
+                                label={`Remove match from target ${idx + 1}`}
+                                onAction={() => problem?.removeTargetMatch(target.targetId)}
+                              />
                             )}
                             {showFeedback && correct === true && (
                               <CheckCircle

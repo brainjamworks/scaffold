@@ -70,57 +70,6 @@
     text-align: center;
   }
 
-  .sc-assessment-hints__toggle {
-    display: inline-flex;
-    min-height: 2.25rem;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    align-self: flex-start;
-    padding-inline: 1rem;
-    border: var(--sc-border-width) solid
-      color-mix(in srgb, var(--color-warning) 42%, var(--color-border));
-    border-radius: var(--radius-pill);
-    background: var(--color-background);
-    color: var(--color-ink);
-    font-size: var(--text-sm);
-    font-weight: 600;
-    transition:
-      background-color 150ms var(--ease-out-soft),
-      color 150ms var(--ease-out-soft),
-      opacity 150ms var(--ease-out-soft);
-  }
-
-  .sc-assessment-hints__toggle:hover {
-    border-color: color-mix(in srgb, var(--color-warning) 72%, var(--color-border));
-    background: color-mix(in srgb, var(--color-warning-bg) 38%, var(--color-background));
-    color: var(--color-ink);
-  }
-
-  .sc-assessment-hints__toggle:focus-visible {
-    outline: 2px solid var(--color-focus-ring);
-    outline-offset: 2px;
-  }
-
-  .sc-assessment-hints__toggle:disabled {
-    cursor: not-allowed;
-    opacity: 0.5;
-  }
-
-  .sc-assessment-hints__toggle:disabled:hover {
-    border-color: color-mix(in srgb, var(--color-warning) 42%, var(--color-border));
-    background: var(--color-background);
-    color: var(--color-ink);
-  }
-
-  .sc-assessment-hints__toggle-caret {
-    transition: transform 150ms var(--ease-out-soft);
-  }
-
-  .sc-assessment-hints__toggle-caret.is-expanded {
-    transform: rotate(180deg);
-  }
-
   .sc-assessment-hints__list {
     display: block;
     width: 100%;
@@ -424,8 +373,6 @@
   @media (prefers-reduced-motion: reduce) {
     .sc-assessment-hints__track,
     .sc-assessment-hints__pager-button,
-    .sc-assessment-hints__toggle,
-    .sc-assessment-hints__toggle-caret,
     .sc-assessment-hint__edit-icon {
       transition: none;
     }

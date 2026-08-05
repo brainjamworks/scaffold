@@ -17,7 +17,6 @@ import {
 import { Placeholder } from "@/editor/prosemirror/placeholder/Placeholder";
 import { createFieldContentEditorExtensions } from "@/editor/rich-text/authoring/field-content-extensions";
 import { EditableOverlayPopover } from "@/editor/rich-text/authoring/nested-overlay/EditableOverlayPopoverShell";
-import { cn } from "@/lib/cn";
 import {
   isScaffoldRichTextDocumentEmpty,
   toTiptapRichTextDocument,
@@ -27,6 +26,7 @@ import type { AssessmentFeedbackContent } from "@scaffold/contracts";
 import { iconSm } from "@/ui/tokens/icon-sizes";
 
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
+import "../chrome/assessment-authoring-controls.css";
 import "./assessment-shared-chrome.css";
 
 /**
@@ -180,22 +180,18 @@ function renderSummaryFeedbackActionTrigger({ hasFeedback }: { hasFeedback: bool
     <button
       type="button"
       aria-label="Show feedback"
-      className={cn(
-        "sc-button",
-        "sc-assessment-summary-feedback-trigger",
-        hasFeedback && "sc-assessment-summary-feedback-trigger--has-feedback",
-      )}
-      data-size="md"
-      data-variant="secondary"
+      className="sc-app-assessment-support-button"
+      data-app-assessment-support-intent="feedback"
+      data-has-content={hasFeedback ? "true" : undefined}
       data-no-select
     >
       <Info
         size={iconSm}
         weight={hasFeedback ? "fill" : "regular"}
         aria-hidden
-        className="sc-assessment-summary-feedback-trigger__icon"
+        className="sc-app-assessment-support-button__icon"
       />
-      <span className="sc-assessment-summary-feedback-trigger__text">Show feedback</span>
+      <span>Show feedback</span>
     </button>
   );
 }

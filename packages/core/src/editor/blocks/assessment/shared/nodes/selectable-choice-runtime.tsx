@@ -1,8 +1,9 @@
 import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
 import { DOMSerializer } from "@tiptap/pm/model";
+import { InfoIcon as Info } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, type RefObject } from "react";
 
-import { ChoiceAnswerItem } from "@/editor/blocks/assessment/shared/chrome/ChoiceAnswerItem";
+import { SelectableChoiceRuntimeRow } from "@/editor/blocks/assessment/shared/chrome/SelectableChoiceRuntimeRow";
 import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { isAssessmentQuestionNode } from "./assessment-meta";
 import { RichFeedbackRuntimePopover } from "@/editor/blocks/assessment/shared/chrome/RichFeedbackRuntimePopover";
@@ -13,6 +14,7 @@ import { SelectableChoiceAttrsSchema, type SelectableChoiceAttrs } from "@/schem
 import { createSelectableChoiceNode, selectableChoiceBodyContent } from "./selectable-choice";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 import { serializeStaticRichTextHtml } from "@/editor/rich-text/static/render-rich-text";
+import { iconSm } from "@/ui/tokens/icon-sizes";
 
 export const SelectableChoiceRuntimeNode = createSelectableChoiceNode({
   addNodeView: () => ReactNodeViewRenderer(SelectableChoiceRuntimeNodeView),
@@ -102,6 +104,16 @@ function SelectableChoiceRuntimeNodeView(props: NodeViewProps) {
     <RichFeedbackRuntimePopover
       feedback={runtimeFeedback.data}
       triggerLabel={feedbackTriggerLabel}
+      trigger={
+        <button
+          type="button"
+          aria-label={feedbackTriggerLabel}
+          className="sc-course-assessment-choice__feedback-action"
+          data-no-select
+        >
+          <Info size={iconSm} weight="fill" aria-hidden />
+        </button>
+      }
     />
   ) : null;
 
@@ -136,25 +148,21 @@ function SelectableChoiceRuntimeNodeView(props: NodeViewProps) {
       {...(submitTarget ? { [SUBMIT_SCROLL_TARGET_ATTR]: "" } : {})}
       {...(revealTarget ? { [REVEAL_SCROLL_TARGET_ATTR]: "" } : {})}
     >
-      <ChoiceAnswerItem
+      <SelectableChoiceRuntimeRow
         id={attrs.id}
         {...(assessment?.problem?.state.responseName
           ? { name: assessment.problem.state.responseName }
           : {})}
         inputType={inputType}
-        isCorrect={false}
         feedbackControl={feedbackControl}
-        isEditable={false}
         state={state}
         checked={checked}
         submitted={submitted}
         disabled={disabled}
         onSelect={handleSelect}
-        onToggleCorrect={() => {}}
-        onDelete={() => {}}
       >
         <div dangerouslySetInnerHTML={{ __html: staticContentHtml }} />
-      </ChoiceAnswerItem>
+      </SelectableChoiceRuntimeRow>
     </NodeViewWrapper>
   );
 }

@@ -31,7 +31,7 @@ export const AssessmentChoicesGroupRuntimeNode = Node.create({
         "data-bounded-scroll-frame": "",
         "data-slot": "assessment-choices-group",
       }),
-      ["div", { "data-bounded-scroll": "", class: "sc-assessment-choices-scroll" }, 0],
+      ["div", { "data-bounded-scroll": "", class: "sc-course-assessment-choices-scroll" }, 0],
       ["div", { "data-bounded-scroll-hint": "", "aria-hidden": "true" }, "Scroll for more ↓"],
     ];
   },
@@ -51,13 +51,17 @@ function AssessmentChoicesGroupRuntimeNodeView(props: NodeViewProps) {
   const problem = useAssessmentRuntimeById(authoredBlockId)?.problem ?? null;
 
   return (
-    <NodeViewWrapper data-bounded-scroll-frame="" data-slot="assessment-choices-group">
-      <div data-bounded-scroll="" className="sc-assessment-choices-scroll">
-        <fieldset className="sc-assessment-choices-fieldset" aria-required="true">
+    <NodeViewWrapper
+      data-bounded-scroll-frame=""
+      data-slot="assessment-choices-group"
+      className="sc-course-assessment-choices-group"
+    >
+      <div data-bounded-scroll="" className="sc-course-assessment-choices-scroll">
+        <fieldset className="sc-course-assessment-choices-fieldset" aria-required="true">
           {problem?.state.legend && (
-            <legend className="sc-assessment-choices-legend">{problem.state.legend}</legend>
+            <legend className="sc-course-assessment-choices-legend">{problem.state.legend}</legend>
           )}
-          <div className="sc-assessment-choices-list">
+          <div className="sc-course-assessment-choices-list">
             <NodeViewContent />
           </div>
         </fieldset>

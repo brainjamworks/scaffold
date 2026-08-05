@@ -20,9 +20,15 @@
     --sc-app-color-primary: oklch(0.3 0.15 270);
     --sc-app-color-primary-foreground: #ffffff;
     --sc-app-color-primary-muted: oklch(0.95 0.025 270);
+    --sc-app-color-success: #15803d;
+    --sc-app-color-success-background: #dcfce7;
+    --sc-app-color-success-text: #166534;
     --sc-app-color-warning: #a16207;
     --sc-app-color-focus-outline: oklch(0.3 0.15 270);
     --sc-app-color-focus-ring: rgb(22 29 119 / 0.35);
+    --sc-app-font-family: var(--font-ui);
+    --sc-app-radius-control: 0.375rem;
+    --sc-app-radius-surface: 0.5rem;
   }
 
   .sc-app[data-scaffold-color-mode="dark"] {
@@ -46,6 +52,9 @@
     --sc-app-color-primary: #a5b4fc;
     --sc-app-color-primary-foreground: #18181b;
     --sc-app-color-primary-muted: #252a44;
+    --sc-app-color-success: #4ade80;
+    --sc-app-color-success-background: #143322;
+    --sc-app-color-success-text: #bbf7d0;
     --sc-app-color-warning: #fbbf24;
     --sc-app-color-focus-outline: #a5b4fc;
     --sc-app-color-focus-ring: rgb(165 180 252 / 0.5);

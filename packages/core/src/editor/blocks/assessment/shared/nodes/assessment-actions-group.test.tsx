@@ -20,6 +20,7 @@ import type { AssessmentStoreApi } from "@/runtime/assessment/types";
 import type { NestedRichTextBubbleMenuHostProps } from "@/editor/rich-text/authoring/nested-overlay/NestedRichTextBubbleMenuHost";
 import type { AssessmentPort } from "@/host/ports";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
+import { ASSESSMENT_QUESTION_CONTENT } from "@/document/model/content-model/content-groups";
 
 import { AssessmentActionsGroupNode } from "./assessment-actions-group";
 import { AssessmentActionsGroupRuntimeNode } from "./assessment-actions-group-runtime";
@@ -69,6 +70,26 @@ const TestAssessmentHostNode = Node.create({
 
   renderHTML() {
     return ["div", { "data-test-assessment-host": "" }, 0];
+  },
+});
+
+const TestImmediateAssessmentHostNode = Node.create({
+  name: "test_immediate_assessment_host",
+  group: `block ${ASSESSMENT_QUESTION_CONTENT}`,
+  content: "assessment_actions_group",
+
+  addAttributes() {
+    return {
+      settings: { default: { feedbackMode: "immediate" } },
+    };
+  },
+
+  parseHTML() {
+    return [{ tag: "div[data-test-immediate-assessment-host]" }];
+  },
+
+  renderHTML() {
+    return ["div", { "data-test-immediate-assessment-host": "" }, 0];
   },
 });
 
@@ -166,6 +187,17 @@ describe("assessment_actions_group", () => {
     expect(submit.disabled).toBe(true);
   });
 
+  it("suppresses authoring Submit when the ancestor assessment uses immediate feedback", async () => {
+    const editor = makeImmediateFeedbackAuthoringEditor();
+
+    renderAssessmentEditor(editor);
+
+    await waitFor(() => {
+      expect(actionGroup()).toBeInstanceOf(HTMLElement);
+    });
+    expect(within(actionGroup()).queryByRole("button", { name: "Submit" })).toBeNull();
+  });
+
   it("renders authoring hint and summary children inside the action group", async () => {
     const editor = makeStructuralEditor();
     editor.commands.setContent(validActionsGroupDocument());
@@ -174,11 +206,11 @@ describe("assessment_actions_group", () => {
 
     await waitFor(() => {
       const group = actionGroup();
-      expect(within(group).getByRole("button", { name: "Add hint" })).toBeInstanceOf(
-        HTMLButtonElement,
+      expect(within(group).getByRole("button", { name: "Add hint" })).toHaveClass(
+        "sc-app-assessment-support-button",
       );
-      expect(within(group).getByRole("button", { name: "Show feedback" })).toBeInstanceOf(
-        HTMLButtonElement,
+      expect(within(group).getByRole("button", { name: "Show feedback" })).toHaveClass(
+        "sc-app-assessment-support-button",
       );
     });
 
@@ -364,8 +396,8 @@ describe("assessment_actions_group", () => {
 
     await waitFor(() => {
       const group = actionGroup();
-      expect(within(group).getByRole("button", { name: "Show feedback" })).toBeInstanceOf(
-        HTMLButtonElement,
+      expect(within(group).getByRole("button", { name: "Show feedback" })).toHaveClass(
+        "sc-course-assessment-support-button",
       );
     });
 
@@ -405,9 +437,10 @@ describe("assessment_actions_group", () => {
     expect(within(dialog).getByText("Use elimination.")).toBeInstanceOf(HTMLElement);
   });
 
-  it("renders runtime Show answer in the action group behind the existing gate", async () => {
+  it("replaces runtime Show answer with a visible announced terminal status after reveal", async () => {
+    const user = userEvent.setup();
     const editor = makeRuntimeMcqEditor();
-    const port = incorrectRuntimePort();
+    const port = revealableIncorrectRuntimePort();
 
     renderRuntimeEditor(editor, port);
 
@@ -421,8 +454,17 @@ describe("assessment_actions_group", () => {
     expect(
       within(actionGroup())
         .getByRole("button", { name: "Show correct answer" })
-        .closest(".sc-assessment-actions-row__chrome--show-answer"),
+        .closest(".sc-assessment-control-layout__feature-control--show-answer"),
     ).toBeInstanceOf(HTMLElement);
+
+    await user.click(within(actionGroup()).getByRole("button", { name: "Show correct answer" }));
+
+    await waitFor(() => {
+      expect(within(actionGroup()).getByRole("status", { name: "Answer revealed" })).toBeVisible();
+    });
+    expect(
+      within(actionGroup()).queryByRole("button", { name: "Correct answer revealed" }),
+    ).toBeNull();
   });
 });
 
@@ -437,6 +479,39 @@ function makeStructuralEditor(runtime = false) {
       runtime ? AssessmentHintsGroupRuntimeNode : AssessmentHintsGroupNode,
       runtime ? AssessmentSummaryFeedbackRuntimeNode : AssessmentSummaryFeedbackNode,
     ],
+  });
+  editors.push(editor);
+  return editor;
+}
+
+function makeImmediateFeedbackAuthoringEditor() {
+  const editor = new Editor({
+    extensions: [
+      StarterKit.configure({ undoRedo: false, paragraph: false }),
+      ExtendedParagraph,
+      TestImmediateAssessmentHostNode,
+      AssessmentHintNode,
+      AssessmentActionsGroupNode,
+      AssessmentHintsGroupNode,
+      AssessmentSummaryFeedbackNode,
+    ],
+    content: {
+      type: "doc",
+      content: [
+        {
+          type: "test_immediate_assessment_host",
+          content: [
+            {
+              type: "assessment_actions_group",
+              content: [
+                { type: "assessment_hints_group" },
+                { type: "assessment_summary_feedback" },
+              ],
+            },
+          ],
+        },
+      ],
+    },
   });
   editors.push(editor);
   return editor;
@@ -504,6 +579,15 @@ function incorrectRuntimePort(): AssessmentPort {
         },
         { response: args.response },
       ),
+  };
+}
+
+function revealableIncorrectRuntimePort(): AssessmentPort {
+  return {
+    ...incorrectRuntimePort(),
+    revealAnswer: async () => ({
+      answerKey: { kind: "single-select", correctOptionId: "b", feedbackByOptionId: {} },
+    }),
   };
 }
 

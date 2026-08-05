@@ -1,0 +1,36 @@
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-matching-remove-action {
+  border-radius: max(var(--radius-2), var(--radius-full));
+  color: var(--gray-11);
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-matching-remove-action:hover,
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-matching-remove-action:focus-visible {
+  background: var(--sc-course-state-error-background);
+  color: var(--sc-course-state-error-indicator);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-matching-remove-action:focus-visible {
+  outline: 2px solid var(--accent-9);
+  outline-offset: -2px;
+}
+
+@media (forced-colors: active) {
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-matching-remove-action {
+    color: ButtonText;
+  }
+
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-course-matching-remove-action:focus-visible {
+    outline-color: Highlight;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-matching-remove-action {
+    transition: none;
+  }
+}

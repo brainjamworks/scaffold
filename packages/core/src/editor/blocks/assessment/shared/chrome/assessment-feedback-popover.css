@@ -1,8 +1,13 @@
 @layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
 
 @layer sc-overlays {
-  .sc-assessment-feedback-trigger--visible {
-    opacity: 1;
+  .sc-course-assessment-feedback-action {
+    display: inline-flex;
+    width: 2.75rem;
+    height: 2.75rem;
+    flex: 0 0 2.75rem;
+    align-items: center;
+    justify-content: center;
   }
 
   .sc-assessment-feedback-rich-text {
