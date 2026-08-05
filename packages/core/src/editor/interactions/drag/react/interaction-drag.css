@@ -1,0 +1,33 @@
+@layer sc-components {
+  .sc-interaction-drag-activation-area {
+    box-sizing: border-box;
+    display: inline-flex;
+    min-width: min(var(--sc-interaction-drag-target-min-width, 0px), 100%);
+    min-height: min(var(--sc-interaction-drag-target-min-height, 0px), 100%);
+    max-width: 100%;
+    max-height: 100%;
+    align-items: center;
+    justify-content: center;
+    overflow: clip;
+    touch-action: none;
+  }
+
+  [data-interaction-drag-placeholder] {
+    visibility: hidden;
+  }
+
+  .sc-interaction-drag-overlay {
+    box-sizing: border-box;
+    overflow: clip;
+    pointer-events: none;
+    touch-action: none;
+    user-select: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sc-interaction-drag-overlay,
+    [data-interaction-drag-placeholder] {
+      transition: none;
+    }
+  }
+}
