@@ -49,7 +49,9 @@ const authoringOwnerPath = [
   "^packages/core/src/composition/authoring/",
   authoringCatalogueStoragePath,
   "^packages/core/src/editor/blocks/authoring-block-extensions\\.[^/]+$",
-  "^packages/core/src/editor/(?:drag|interactions|shell|suggestions)/",
+  "^packages/core/src/editor/(?:shell|suggestions)/",
+  "^packages/core/src/editor/movement/",
+  "^packages/core/src/editor/interactions/(?!drag(?:/|$))",
   "^packages/core/src/editor/(?:bounded-containers|frame|media)/authoring/",
   "^packages/core/src/editor/arrangements/(?:grid|layout)/authoring/",
   "^packages/core/src/editor/blocks/[^/]+/[^/]+/[^/]*(?:authoring|Authoring)[^/]*\\.[^/]+$",
@@ -82,7 +84,6 @@ const classifiedNeutralOwnerPath = [
   "^packages/core/src/editor/arrangements/layout/model/",
   "^packages/core/src/editor/surfaces/model/",
   "^packages/core/src/editor/frame/model/",
-  "^packages/core/src/editor/movement/model/",
   "^packages/core/src/editor/interactions/targets/(?:model|engine)/",
   auditedNeutralSelectionPath,
 ];

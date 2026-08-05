@@ -472,6 +472,50 @@ test("reports transitive and type-only runtime leaks with native dependency path
   assert.match(output, /editor\/selection\/native-drag-guard\.ts/);
 });
 
+test("rejects runtime and authoring movement ownership crossings", async (t) => {
+  const fixtureRoot = await createFixture(t, {
+    "packages/core/src/runtime/app/root.ts": [
+      'import type { MovementPolicy } from "../../editor/movement/model/movement-policy";',
+      "export type RuntimeMovementLeak = MovementPolicy;",
+    ].join("\n"),
+    "packages/core/src/editor/movement/model/movement-policy.ts":
+      "export interface MovementPolicy { id: string }\n",
+    "packages/core/src/editor/movement/view/runtime-leak.ts": [
+      'import { runtimeValue } from "../../../runtime/app/value";',
+      "export const movementRuntimeLeak = runtimeValue;",
+    ].join("\n"),
+    "packages/core/src/runtime/app/value.ts": "export const runtimeValue = true;\n",
+  });
+
+  const result = cruise(fixtureRoot, "err-long", ["packages/core/src"]);
+  const output = `${result.stdout}\n${result.stderr}`;
+
+  assert.notEqual(result.status, 0, output);
+  assert.match(output, /runtime-does-not-reach-authoring/);
+  assert.match(output, /authoring-does-not-import-runtime-except-preview/);
+  assert.match(output, /runtime\/app\/root\.ts[\s\S]*movement\/model\/movement-policy\.ts/);
+  assert.match(output, /movement\/view\/runtime-leak\.ts[\s\S]*runtime\/app\/value\.ts/);
+});
+
+test("allows runtime and movement to share the central drag infrastructure", async (t) => {
+  const fixtureRoot = await createFixture(t, {
+    "packages/core/src/editor/interactions/drag/react/session.ts":
+      "export interface SharedDragSession { id: string }\n",
+    "packages/core/src/runtime/app/root.ts": [
+      'import type { SharedDragSession } from "../../editor/interactions/drag/react/session";',
+      "export type RuntimeDragSession = SharedDragSession;",
+    ].join("\n"),
+    "packages/core/src/editor/movement/view/session.ts": [
+      'import type { SharedDragSession } from "../../interactions/drag/react/session";',
+      "export type MovementDragSession = SharedDragSession;",
+    ].join("\n"),
+  });
+
+  const result = cruise(fixtureRoot, "err-long", ["packages/core/src"]);
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+});
+
 test("permits only the exact lazy Preview source and target", async (t) => {
   const fixtureRoot = await createFixture(t, {
     "packages/core/src/editor/shell/authoring/ScaffoldAuthoringApp.tsx": [
