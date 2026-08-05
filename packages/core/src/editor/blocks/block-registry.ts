@@ -1,3 +1,5 @@
+import { isBlockNodeType } from "@/lib/code-defined-identifiers";
+
 import type { BlockDefinition } from "./block-definition";
 
 export interface BlockDefinitionLookup {
@@ -16,6 +18,9 @@ export function createBlockRegistry(input: readonly BlockDefinition[]): BlockReg
   const definitionsByNodeType = new Map<string, BlockDefinition>();
 
   for (const definition of definitions) {
+    if (!isBlockNodeType(definition.nodeType)) {
+      throw new Error(`Block node type "${definition.nodeType}" must be a stable snake_case name.`);
+    }
     if (definitionsByNodeType.has(definition.nodeType)) {
       throw new Error(`Duplicate block node type "${definition.nodeType}".`);
     }

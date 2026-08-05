@@ -307,7 +307,7 @@ describe("surface variant registry foundation", () => {
     const definition = createSurfaceDefinition("", { defaultForModes: ["page"] });
 
     expect(() => createSurfaceVariantRegistry([definition])).toThrow(
-      'Surface definition ID "" must not be blank.',
+      'Surface definition ID "" must be a stable kebab-case name.',
     );
   });
 
@@ -315,19 +315,23 @@ describe("surface variant registry foundation", () => {
     const definition = createSurfaceDefinition("   ", { defaultForModes: ["page"] });
 
     expect(() => createSurfaceVariantRegistry([definition])).toThrow(
-      'Surface definition ID "   " must not be blank.',
+      'Surface definition ID "   " must be a stable kebab-case name.',
     );
   });
 
-  it("preserves the original value of a nonblank definition id", () => {
+  it("rejects a definition id instead of normalizing it", () => {
     const definition = createSurfaceDefinition("  isolated-preserved-id-test  ", {
       defaultForModes: ["page"],
     });
 
-    const registry = createSurfaceVariantRegistry([definition]);
-
-    expect(registry.definitions[0]?.id).toBe(definition.id);
-    expect(registry.get(definition.id)?.id).toBe(definition.id);
+    expect(() => createSurfaceVariantRegistry([definition])).toThrow(
+      'Surface definition ID "  isolated-preserved-id-test  " must be a stable kebab-case name.',
+    );
+    expect(() =>
+      createSurfaceVariantRegistry([
+        createSurfaceDefinition("Slide_Cover", { defaultForModes: ["page"] }),
+      ]),
+    ).toThrow('Surface definition ID "Slide_Cover" must be a stable kebab-case name.');
   });
 
   it("rejects a factory that creates a non-surface node", () => {

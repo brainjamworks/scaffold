@@ -1,5 +1,7 @@
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
+import { isLayoutVariantId } from "@/lib/code-defined-identifiers";
+
 import {
   defineLayout,
   getLayoutKindFromAttrs,
@@ -24,8 +26,8 @@ export function createLayoutRegistry(definitions: readonly LayoutDefinition[]): 
   const definitionsById = new Map<string, RegisteredLayoutDefinition>();
 
   for (const definition of definitions) {
-    if (definition.id.trim().length === 0) {
-      throw new Error(`Layout definition ID "${definition.id}" must not be blank.`);
+    if (!isLayoutVariantId(definition.id)) {
+      throw new Error(`Layout definition ID "${definition.id}" must be a stable kebab-case name.`);
     }
     if (definitionsById.has(definition.id)) {
       throw new Error(`Layout definition ID "${definition.id}" is duplicated.`);

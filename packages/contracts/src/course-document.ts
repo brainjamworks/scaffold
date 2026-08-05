@@ -11,7 +11,15 @@ export const COURSE_THEME_NUMERIC_BOUNDS = Object.freeze({
   stroke: Object.freeze({ min: 0, max: 2 }),
 });
 
-const CourseThemeIdSchema = z.string().trim().min(1).max(200);
+export const ThemePresetIdSchema = z.string().trim().min(1).max(200);
+export type ThemePresetId = z.infer<typeof ThemePresetIdSchema>;
+
+export const FontCatalogueIdSchema = z.string().trim().min(1).max(200);
+export type FontCatalogueId = z.infer<typeof FontCatalogueIdSchema>;
+
+export const ThemeRecipeNameSchema = z.string().trim().min(1).max(200);
+export type ThemeRecipeName = z.infer<typeof ThemeRecipeNameSchema>;
+
 const HexColorSchema = z.string().regex(/^#(?:[\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})$/i);
 const OklchColorSchema = z.string().superRefine((value, context) => {
   const match =
@@ -163,7 +171,7 @@ const ExpandedCourseThemeColorsSchema = z
       .strict(),
     recipe: z
       .object({
-        id: CourseThemeIdSchema,
+        id: ThemeRecipeNameSchema,
         version: z.number().int().positive(),
       })
       .strict(),
@@ -238,9 +246,9 @@ const boundedNumber = (bounds: { min: number; max: number }) =>
 
 export const CourseThemeTypographySchema = z
   .object({
-    headingFontId: CourseThemeIdSchema,
-    bodyFontId: CourseThemeIdSchema,
-    codeFontId: CourseThemeIdSchema,
+    headingFontId: FontCatalogueIdSchema,
+    bodyFontId: FontCatalogueIdSchema,
+    codeFontId: FontCatalogueIdSchema,
     headingWeight: z.union([
       z.literal(400),
       z.literal(500),
@@ -282,7 +290,7 @@ export const PersistedCourseThemeSchema = z
     schemaVersion: z.literal(1),
     preset: z
       .object({
-        id: CourseThemeIdSchema,
+        id: ThemePresetIdSchema,
         revision: z.string().trim().min(1).max(200).nullable(),
       })
       .strict(),

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, expectTypeOf, it } from "vite-plus/test";
 
 import {
   SCAFFOLD_DOCUMENT_FORMAT_VERSION,
@@ -10,7 +10,13 @@ import {
   SurfaceBackgroundSchema,
   SurfaceSettingsSchema,
   SurfaceSizeSchema,
+  FontCatalogueIdSchema,
+  ThemePresetIdSchema,
+  ThemeRecipeNameSchema,
   VerticalContentPositionSchema,
+  type FontCatalogueId,
+  type ThemePresetId,
+  type ThemeRecipeName,
 } from "./course-document";
 
 const IMAGE_POSITIONS = [
@@ -64,6 +70,30 @@ describe("course document contracts", () => {
         },
       },
     });
+  });
+
+  it("keeps preset, font-catalogue, and recipe identities semantically separate", () => {
+    const parsed = PersistedCourseThemeSchema.parse(completeTheme());
+
+    expect(ThemePresetIdSchema).not.toBe(FontCatalogueIdSchema);
+    expect(FontCatalogueIdSchema).not.toBe(ThemeRecipeNameSchema);
+    expect(ThemeRecipeNameSchema).not.toBe(ThemePresetIdSchema);
+    expect(parsed).toMatchObject({
+      preset: { id: "scaffold-default", revision: "1" },
+      values: {
+        colors: { recipe: { id: "scaffold.legacy-palette", version: 1 } },
+        typography: {
+          headingFontId: "scaffold-poppins",
+          bodyFontId: "scaffold-poppins",
+          codeFontId: "scaffold-jetbrains-mono",
+        },
+      },
+    });
+    expectTypeOf(parsed.preset.id).toEqualTypeOf<ThemePresetId>();
+    expectTypeOf(parsed.values!.colors.recipe.id).toEqualTypeOf<ThemeRecipeName>();
+    expectTypeOf(parsed.values!.typography.headingFontId).toEqualTypeOf<FontCatalogueId>();
+    expectTypeOf(parsed.preset.revision).toEqualTypeOf<string | null>();
+    expectTypeOf(parsed.values!.colors.recipe.version).toEqualTypeOf<number>();
   });
 
   it("preserves valid author colours even when they provide no visual contrast", () => {

@@ -1,3 +1,5 @@
+import { isInsertActionId } from "@/lib/code-defined-identifiers";
+
 import type { InsertAction, InsertCategory } from "./insert-action";
 
 export interface InsertCatalog {
@@ -11,6 +13,9 @@ export function createInsertCatalog(input: readonly InsertAction[]): InsertCatal
   const actionsById = new Map<string, InsertAction>();
 
   for (const action of actions) {
+    if (!isInsertActionId(action.id)) {
+      throw new Error(`Insert action id "${action.id}" must be a stable kebab-case name.`);
+    }
     if (actionsById.has(action.id)) {
       throw new Error(`Duplicate insert action id "${action.id}".`);
     }

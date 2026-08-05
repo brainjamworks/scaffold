@@ -1,9 +1,24 @@
 import { z } from "zod";
-import { CourseThemeAuthorPaletteSchema, CourseThemeColorPaletteSchema } from "@scaffold/contracts";
+import {
+  CourseThemeAuthorPaletteSchema,
+  CourseThemeColorPaletteSchema,
+  FontCatalogueIdSchema,
+  ThemePresetIdSchema,
+  ThemeRecipeNameSchema,
+} from "@scaffold/contracts";
 
 import { CourseThemeValuesSchema } from "@/schemas/course-document";
 
-const DefinitionIdSchema = z.string().trim().min(1).max(200);
+export {
+  FontCatalogueIdSchema,
+  ThemePresetIdSchema,
+  ThemeRecipeNameSchema,
+  type FontCatalogueId,
+  type ThemePresetId,
+  type ThemeRecipeName,
+} from "@scaffold/contracts";
+
+const DefinitionRevisionSchema = z.string().trim().min(1).max(200);
 const DefinitionTextSchema = z.string().trim().min(1).max(500);
 
 export const CourseThemeFontWeightSchema = z.union([
@@ -21,7 +36,7 @@ const CourseThemeSupplementalDataSchema = z.tuple([
 
 export const CourseThemePaletteRecipeSchema = z
   .object({
-    id: DefinitionIdSchema,
+    id: ThemeRecipeNameSchema,
     version: z.literal(1),
     defaults: z
       .object({
@@ -46,8 +61,8 @@ export const CourseThemePaletteRecipeSchema = z
 
 export const CourseThemePresetDefinitionSchema = z
   .object({
-    id: DefinitionIdSchema,
-    revision: DefinitionIdSchema,
+    id: ThemePresetIdSchema,
+    revision: DefinitionRevisionSchema,
     label: DefinitionTextSchema,
     description: DefinitionTextSchema,
     recipe: CourseThemePaletteRecipeSchema,
@@ -69,7 +84,7 @@ export const CourseThemePresetDefinitionSchema = z
 
 export const CourseThemeFontDefinitionSchema = z
   .object({
-    id: DefinitionIdSchema,
+    id: FontCatalogueIdSchema,
     label: DefinitionTextSchema,
     category: z.enum(["sans", "serif", "mono"]),
     family: DefinitionTextSchema,

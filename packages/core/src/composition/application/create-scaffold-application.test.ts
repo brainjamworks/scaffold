@@ -107,11 +107,11 @@ describe("createScaffoldApplication", () => {
   });
 
   it("derives isolated immutable authoring catalogues from each application's cumulative capabilities", () => {
-    const hostBlockContent = () => ({ type: "host-catalogue-block" });
+    const hostBlockContent = () => ({ type: "host_catalogue_block" });
     const hostBlock = {
-      ...testBlockCapability("host-catalogue-block"),
+      ...testBlockCapability("host_catalogue_block"),
       definition: {
-        nodeType: "host-catalogue-block",
+        nodeType: "host_catalogue_block",
         insert: {
           id: "host-catalogue-block",
           title: "Host catalogue Block",

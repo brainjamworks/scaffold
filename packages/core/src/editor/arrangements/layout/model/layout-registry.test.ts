@@ -96,12 +96,15 @@ describe("createLayoutRegistry", () => {
     expect(registry.resolvePlaceholder("unknown", "title", context)).toBeUndefined();
   });
 
-  it("rejects blank and duplicate definition IDs", () => {
+  it("rejects invalid and duplicate definition IDs", () => {
     expect(() => createLayoutRegistry([createDefinition("")])).toThrow(
-      'Layout definition ID "" must not be blank.',
+      'Layout definition ID "" must be a stable kebab-case name.',
     );
     expect(() => createLayoutRegistry([createDefinition("   ")])).toThrow(
-      'Layout definition ID "   " must not be blank.',
+      'Layout definition ID "   " must be a stable kebab-case name.',
+    );
+    expect(() => createLayoutRegistry([createDefinition("Process_Flow")])).toThrow(
+      'Layout definition ID "Process_Flow" must be a stable kebab-case name.',
     );
     expect(() =>
       createLayoutRegistry([createDefinition("duplicate"), createDefinition("duplicate")]),
@@ -216,6 +219,27 @@ describe("createLayoutRegistry", () => {
     expect(Object.isFrozen(sectionConfiguration)).toBe(false);
     expect(Object.isFrozen(layoutSchema)).toBe(false);
     expect(Object.isFrozen(sectionSchema)).toBe(false);
+  });
+
+  it("does not consume definition-local settings and configuration keys", () => {
+    const configuration = defineConfiguration({
+      attr: "options",
+      schema: z.object({}).strict(),
+      controls: [{ kind: "text", name: "font.family", label: "Font family" }],
+      sheet: {
+        title: "Layout settings",
+        sections: [{ id: "Layout:Appearance", title: "Appearance" }],
+      },
+    });
+    const definition: LayoutDefinition = {
+      ...createDefinition("local-key-owner"),
+      configuration,
+    };
+
+    const registered = createLayoutRegistry([definition]).getById(definition.id);
+
+    expect(registered?.configuration?.controls[0]?.name).toBe("font.family");
+    expect(registered?.settingsSheet?.sections[0]?.id).toBe("Layout:Appearance");
   });
 
   it("exposes the approved readonly layout contracts", () => {

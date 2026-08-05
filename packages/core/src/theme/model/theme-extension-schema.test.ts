@@ -1,10 +1,20 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, expectTypeOf, it } from "vite-plus/test";
 
 import { SCAFFOLD_DEFAULT_PRESET } from "./built-in-presets";
 import {
   CourseThemeFontDefinitionSchema,
+  CourseThemePaletteRecipeSchema,
   CourseThemePresetDefinitionSchema,
+  FontCatalogueIdSchema,
   ScaffoldThemeExtensionSchema,
+  ThemePresetIdSchema,
+  ThemeRecipeNameSchema,
+  type CourseThemeFontDefinition,
+  type CourseThemePaletteRecipeDefinition,
+  type CourseThemePresetDefinition,
+  type FontCatalogueId,
+  type ThemePresetId,
+  type ThemeRecipeName,
 } from "./theme-extension-schema";
 
 describe("theme extension schemas", () => {
@@ -33,6 +43,24 @@ describe("theme extension schemas", () => {
         ],
       }).success,
     ).toBe(true);
+  });
+
+  it("routes each theme identity through its named schema without renaming JSON fields", () => {
+    const parsed = CourseThemePresetDefinitionSchema.parse(SCAFFOLD_DEFAULT_PRESET);
+
+    expect(CourseThemePresetDefinitionSchema.innerType().shape.id).toBe(ThemePresetIdSchema);
+    expect(CourseThemeFontDefinitionSchema.shape.id).toBe(FontCatalogueIdSchema);
+    expect(CourseThemePaletteRecipeSchema.shape.id).toBe(ThemeRecipeNameSchema);
+    expect(parsed).toHaveProperty("id", "scaffold-default");
+    expect(parsed.recipe).toHaveProperty("id", "scaffold.default-palette");
+    expect(parsed.recipe).toHaveProperty("version", 1);
+    expect(parsed).toHaveProperty("revision", "1");
+    expect(parsed.recipe).not.toHaveProperty("name");
+    expectTypeOf<CourseThemePresetDefinition["id"]>().toEqualTypeOf<ThemePresetId>();
+    expectTypeOf<CourseThemeFontDefinition["id"]>().toEqualTypeOf<FontCatalogueId>();
+    expectTypeOf<CourseThemePaletteRecipeDefinition["id"]>().toEqualTypeOf<ThemeRecipeName>();
+    expectTypeOf<CourseThemePresetDefinition["revision"]>().toEqualTypeOf<string>();
+    expectTypeOf<CourseThemePaletteRecipeDefinition["version"]>().toEqualTypeOf<1>();
   });
 
   it("rejects incomplete preset values and unknown definition fields", () => {

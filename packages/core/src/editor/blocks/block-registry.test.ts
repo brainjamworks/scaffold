@@ -9,11 +9,12 @@ import { createBlockRegistry, type BlockDefinitionLookup } from "./block-registr
 function createDefinition(
   nodeType: string,
   options: Partial<BlockDefinition> = {},
+  insertActionId = nodeType,
 ): BlockDefinition {
   return {
     nodeType,
     insert: {
-      id: `insert-${nodeType}`,
+      id: insertActionId,
       title: nodeType,
       description: `Insert ${nodeType}`,
       icon: ArticleIcon,
@@ -95,16 +96,18 @@ describe("createBlockRegistry", () => {
 
   it("copies and freezes owned arrays without freezing caller-owned values", () => {
     const schema = z.object({ label: z.string() });
-    const definition = createDefinition("mutable-caller-value", {
-      attrSchemas: { data: schema },
-    });
+    const definition = createDefinition(
+      "mutable_caller_value",
+      { attrSchemas: { data: schema } },
+      "mutable-caller-value",
+    );
     const input = [definition];
 
     const registry = createBlockRegistry(input);
-    input.push(createDefinition("late-addition"));
+    input.push(createDefinition("late_addition", {}, "late-addition"));
 
     expect(registry.definitions).toEqual([definition]);
-    expect(registry.getByNodeType("late-addition")).toBeUndefined();
+    expect(registry.getByNodeType("late_addition")).toBeUndefined();
     expect(Object.isFrozen(registry)).toBe(true);
     expect(Object.isFrozen(registry.definitions)).toBe(true);
     expect(Object.isFrozen(registry.stableIdNodeTypes)).toBe(true);
@@ -116,7 +119,7 @@ describe("createBlockRegistry", () => {
     expect(Object.isFrozen(definition)).toBe(false);
     expect(Object.isFrozen(definition.insert)).toBe(false);
     expect(Object.isFrozen(schema)).toBe(false);
-    expect(definition.insert?.content()).toEqual({ type: "mutable-caller-value" });
+    expect(definition.insert?.content()).toEqual({ type: "mutable_caller_value" });
     expect(schema.safeParse({ label: "still usable" }).success).toBe(true);
     expectTypeOf(registry.definitions).toEqualTypeOf<readonly BlockDefinition[]>();
   });
@@ -145,6 +148,12 @@ describe("createBlockRegistry", () => {
 
     expect(() => createBlockRegistry([first, second])).toThrow(
       'Duplicate block node type "duplicate".',
+    );
+  });
+
+  it("rejects persisted Block node types that are not snake_case", () => {
+    expect(() => createBlockRegistry([createDefinition("stat-highlight")])).toThrow(
+      'Block node type "stat-highlight" must be a stable snake_case name.',
     );
   });
 });

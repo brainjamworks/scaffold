@@ -23,6 +23,7 @@ import { builtInSurfaceAuthoringViewBindings } from "@/editor/surfaces/authoring
 import { builtInSurfaceVariantDefinitions } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { validateSurfaceVariantFactories } from "@/editor/surfaces/model/surface-variant-registry";
 import { builtInSurfaceRuntimeViewBindings } from "@/editor/surfaces/runtime/surface-runtime-views";
+import { isExtensionPackName } from "@/lib/code-defined-identifiers";
 
 import {
   createBlockCapabilitiesFromBindings,
@@ -262,7 +263,7 @@ function validateLayoutCapability(capability: LayoutCapability): void {
 }
 
 function validatePackId(id: string): void {
-  if (id.trim().length === 0) {
-    throw new Error("Scaffold extension pack ID must not be blank.");
+  if (!isExtensionPackName(id)) {
+    throw new Error(`Scaffold extension pack ID "${id}" must be a stable kebab-case name.`);
   }
 }

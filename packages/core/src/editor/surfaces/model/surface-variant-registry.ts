@@ -1,6 +1,7 @@
 import type { JSONContent } from "@tiptap/core";
 
 import type { CourseMode } from "@/schemas/course-document";
+import { isSurfaceVariantId } from "@/lib/code-defined-identifiers";
 
 import {
   matchFixedSurfaceChildren,
@@ -44,8 +45,8 @@ export function createSurfaceVariantRegistry(
   const defaultDefinitionsByMode = new Map<CourseMode, RegisteredSurfaceVariantDefinition>();
 
   for (const input of definitions) {
-    if (input.id.trim().length === 0) {
-      throw new Error(`Surface definition ID "${input.id}" must not be blank.`);
+    if (!isSurfaceVariantId(input.id)) {
+      throw new Error(`Surface definition ID "${input.id}" must be a stable kebab-case name.`);
     }
     if (definitionsById.has(input.id)) {
       throw new Error(`Surface definition "${input.id}" is already registered.`);

@@ -19,7 +19,7 @@ import {
   projectImageHotspotSettings,
 } from "./assessment";
 
-export const IMAGE_HOTSPOT_BLOCK_ID = "image_hotspot";
+export const IMAGE_HOTSPOT_INSERT_ACTION_ID = "image-hotspot";
 
 const imageHotspotConfiguration = createAssessmentConfiguration({
   schema: ImageHotspotSettingsSchema,
@@ -87,7 +87,7 @@ export const imageHotspotBlockDefinition = defineBlock({
     resizeMode: "responsive",
   },
   insert: {
-    id: IMAGE_HOTSPOT_BLOCK_ID,
+    id: IMAGE_HOTSPOT_INSERT_ACTION_ID,
     category: "assessment",
     title: "Image hotspot",
     description: "Click on regions of an image to answer",

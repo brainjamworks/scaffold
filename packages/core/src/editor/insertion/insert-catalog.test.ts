@@ -40,6 +40,27 @@ describe("createInsertCatalog", () => {
     );
   });
 
+  it("rejects insertion action ids that are not kebab-case", () => {
+    expect(() =>
+      createInsertCatalog([action("stat_highlight", { nodeType: "stat_highlight" })]),
+    ).toThrow('Insert action id "stat_highlight" must be a stable kebab-case name.');
+  });
+
+  it("keeps several authoring actions distinct from one persisted Block node type", () => {
+    const catalog = createInsertCatalog([
+      action("stat-highlight", { nodeType: "stat_highlight" }),
+      action("stat-highlight-emphasis", {
+        nodeType: "stat_highlight",
+        variantOf: "stat-highlight",
+      }),
+    ]);
+
+    expect(catalog.actions.map(({ id, nodeType }) => ({ id, nodeType }))).toEqual([
+      { id: "stat-highlight", nodeType: "stat_highlight" },
+      { id: "stat-highlight-emphasis", nodeType: "stat_highlight" },
+    ]);
+  });
+
   it("fails when a variant parent is missing", () => {
     expect(() => createInsertCatalog([action("variant", { variantOf: "missing" })])).toThrow(
       'Insert action "variant" references missing variant parent "missing".',
@@ -105,6 +126,20 @@ describe("createInsertCatalog", () => {
     expect(() => {
       Reflect.apply(Array.prototype.push, contentActions, [action("third")]);
     }).toThrow();
+  });
+
+  it("does not consume command, provider, DOM, or transient lookalikes in local metadata", () => {
+    const localKeys = [
+      "table:add-row-after",
+      "heading.toggle:H2",
+      "YouTube/Vimeo",
+      "palette:derive-dark",
+      ":r0:",
+      "surface@pending",
+    ];
+    const catalog = createInsertCatalog([action("local-key-owner", { keywords: localKeys })]);
+
+    expect(catalog.getById("local-key-owner")?.keywords).toEqual(localKeys);
   });
 });
 

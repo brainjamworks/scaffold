@@ -26,7 +26,7 @@ import {
   createFillBlankAssessmentEntry,
 } from "./commands";
 
-export const FILL_BLANKS_BLOCK_ID = "fill_blanks";
+export const FILL_BLANKS_INSERT_ACTION_ID = "fill-blanks";
 
 const fillBlanksConfiguration = createAssessmentConfiguration({
   schema: FillBlanksSettingsSchema,
@@ -136,7 +136,7 @@ export const fillBlanksBlockDefinition = defineBlock({
     resizeMode: "responsive",
   },
   insert: {
-    id: FILL_BLANKS_BLOCK_ID,
+    id: FILL_BLANKS_INSERT_ACTION_ID,
     category: "assessment",
     title: "Fill in the blanks",
     description: "Learners type missing words into a sentence",

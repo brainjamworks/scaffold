@@ -51,7 +51,7 @@ describe("createScaffoldApplication", () => {
   });
 
   it("copies and freezes pack collections without mutating caller inputs", () => {
-    const blockCapability = testBlockCapability("host-immutable-block");
+    const blockCapability = testBlockCapability("host_immutable_block");
     const blocks = [blockCapability];
     const capability = testLayoutCapability("host-immutable-layout");
     const layouts = [capability];
@@ -327,7 +327,23 @@ describe("createScaffoldApplication", () => {
 
   it("rejects blank pack IDs clearly", () => {
     expect(() => defineScaffoldExtensionPack({ id: "  " })).toThrow(
-      "Scaffold extension pack ID must not be blank.",
+      'Scaffold extension pack ID "  " must be a stable kebab-case name.',
+    );
+  });
+
+  it("rejects extension pack names that are not kebab-case at both composition seams", () => {
+    expect(() => defineScaffoldExtensionPack({ id: "Scaffold_Plus" })).toThrow(
+      'Scaffold extension pack ID "Scaffold_Plus" must be a stable kebab-case name.',
+    );
+
+    const rawPack = {
+      id: "host_content",
+      blocks: [],
+      layouts: [],
+      surfaces: [],
+    };
+    expect(() => createScaffoldApplication({ packs: [rawPack] })).toThrow(
+      'Scaffold extension pack ID "host_content" must be a stable kebab-case name.',
     );
   });
 
@@ -371,7 +387,8 @@ describe("createScaffoldApplication", () => {
   it.each(["authoring", "runtime"] as const)(
     "rejects a Block capability missing its %s bundle",
     (lane) => {
-      const capability = testBlockCapability(`missing-${lane}`);
+      const nodeType = `missing_${lane}`;
+      const capability = testBlockCapability(nodeType);
       const incomplete = {
         ...capability,
         ...(lane === "authoring"
@@ -384,7 +401,7 @@ describe("createScaffoldApplication", () => {
       });
 
       expect(() => createScaffoldApplication({ packs: [pack] })).toThrow(
-        `Block capability "missing-${lane}" is missing its ${lane} extension bundle.`,
+        `Block capability "${nodeType}" is missing its ${lane} extension bundle.`,
       );
     },
   );
@@ -392,9 +409,9 @@ describe("createScaffoldApplication", () => {
   it.each(["authoring", "runtime"] as const)(
     "rejects a Block capability whose %s bundle lacks its persisted root Node",
     (lane) => {
-      const nodeType = `mismatched-${lane}`;
+      const nodeType = `mismatched_${lane}`;
       const capability = testBlockCapability(nodeType, {
-        [`${lane}Extension`]: Node.create({ name: `different-${lane}-root` }),
+        [`${lane}Extension`]: Node.create({ name: `different_${lane}_root` }),
       });
       const pack = defineScaffoldExtensionPack({
         id: `mismatched-${lane}-block-host`,
@@ -420,7 +437,7 @@ describe("createScaffoldApplication", () => {
   });
 
   it("rejects the same Block node type contributed by two host packs", () => {
-    const nodeType = "duplicate-host-block";
+    const nodeType = "duplicate_host_block";
     const first = defineScaffoldExtensionPack({
       id: "first-block-host",
       blocks: [testBlockCapability(nodeType)],
@@ -439,16 +456,16 @@ describe("createScaffoldApplication", () => {
     const coreActionId = builtInBlockDefinitions.find((definition) => definition.insert)?.insert
       ?.id;
     if (!coreActionId) throw new Error("Expected an insertable Core Block definition.");
-    const capability = testBlockCapability("host-duplicate-action", {
+    const capability = testBlockCapability("host_duplicate_action", {
       definition: {
-        nodeType: "host-duplicate-action",
+        nodeType: "host_duplicate_action",
         insert: {
           id: coreActionId,
           title: "Duplicate action",
           description: "A host action that collides with Core",
           icon: CircleIcon,
           category: "content",
-          content: () => ({ type: "host-duplicate-action" }),
+          content: () => ({ type: "host_duplicate_action" }),
         },
       },
     });
@@ -465,17 +482,17 @@ describe("createScaffoldApplication", () => {
   it.each(["authoring", "runtime"] as const)(
     "rejects duplicate flattened %s extension names across complete capabilities",
     (lane) => {
-      const first = testBlockCapability("first-private-owner", {
+      const first = testBlockCapability("first_private_owner", {
         [`${lane}Extension`]: testBlockBundle(
           `first-${lane}-bundle`,
-          "first-private-owner",
+          "first_private_owner",
           "shared-private-node",
         ),
       });
-      const second = testBlockCapability("second-private-owner", {
+      const second = testBlockCapability("second_private_owner", {
         [`${lane}Extension`]: testBlockBundle(
           `second-${lane}-bundle`,
-          "second-private-owner",
+          "second_private_owner",
           "shared-private-node",
         ),
       });
@@ -485,16 +502,16 @@ describe("createScaffoldApplication", () => {
       });
 
       expect(() => createScaffoldApplication({ packs: [pack] })).toThrow(
-        `${lane === "authoring" ? "Authoring" : "Runtime"} Block extension name "shared-private-node" is duplicated by capabilities "first-private-owner" and "second-private-owner".`,
+        `${lane === "authoring" ? "Authoring" : "Runtime"} Block extension name "shared-private-node" is duplicated by capabilities "first_private_owner" and "second_private_owner".`,
       );
     },
   );
 
   it("keeps Block insertion content factories dormant during composition validation", () => {
-    const content = vi.fn(() => ({ type: "host-dormant-block" }));
-    const capability = testBlockCapability("host-dormant-block", {
+    const content = vi.fn(() => ({ type: "host_dormant_block" }));
+    const capability = testBlockCapability("host_dormant_block", {
       definition: {
-        nodeType: "host-dormant-block",
+        nodeType: "host_dormant_block",
         insert: {
           id: "host-dormant-block",
           title: "Dormant Block",
