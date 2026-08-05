@@ -7,7 +7,7 @@ import {
 } from "../../host/ports/learning-events";
 import { LEARNING_EVENT_EXTENSIONS, buildLearningEventDraft } from "./catalogue";
 
-const ROOT_ACTIVITY_ID = "https://lms.example.test/artefacts/fan-out-one";
+const ROOT_ACTIVITY_ID = "https://lms.example.test/contents/fan-out-one";
 const EVENT_ID = "00000000-0000-4000-8000-000000000001";
 const EVENT_TIMESTAMP = "2026-08-05T11:00:00.000Z";
 const SAFE_REASON_CODE = /^[a-z][a-z0-9.-]{0,63}$/u;

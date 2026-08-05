@@ -146,7 +146,7 @@ describe("Learning Event catalogue vocabulary", () => {
       },
     });
     expect(LEARNING_EVENT_ACTIVITY_TYPES).toStrictEqual({
-      artefact: "https://scaffold.ac/xapi/activity-types/artifact",
+      content: "https://scaffold.ac/xapi/activity-types/content",
       quiz: "http://adlnet.gov/expapi/activities/assessment",
       assessmentQuestion: "http://adlnet.gov/expapi/activities/cmi.interaction",
       learnerActivity: "https://scaffold.ac/xapi/activity-types/learner-activity",
@@ -366,7 +366,7 @@ describe("closed producer inputs", () => {
     { type: "session.initialized" },
     { type: "assessment.hint-interacted", targetId: "question-1", hintNumber: 1 },
     { type: "quiz.attempted", quizId: "quiz-1", attemptId: "attempt-1" },
-    { type: "artefact.completed", completion: true },
+    { type: "content.completed", completion: true },
     {
       type: "surface.experienced",
       surfaceId: "surface-1",
@@ -393,7 +393,7 @@ describe("closed producer inputs", () => {
       pageNumber: 0,
       pageCount: 2,
     },
-    { type: "artefact.progressed", progressPercent: 100 },
+    { type: "content.progressed", progressPercent: 100 },
     { type: "not.registered", payload: {} },
   ])("rejects invalid closed input: %o", (input) => {
     expect(CoreLearningEventInputSchema.safeParse(input).success).toBe(false);
@@ -509,16 +509,16 @@ describe("closed producer inputs", () => {
     expect(draft).not.toHaveProperty("type");
   });
 
-  it("builds dormant artefact outcomes only from the Core-owned union", () => {
+  it("builds dormant content outcomes only from the Core-owned union", () => {
     const progressed = Array.from({ length: 100 }, (_, progressPercent) =>
       buildLearningEventDraft(
-        { type: "artefact.progressed", progressPercent },
-        { rootActivityId: ROOT_ACTIVITY_ID, title: "Artefact One" },
+        { type: "content.progressed", progressPercent },
+        { rootActivityId: ROOT_ACTIVITY_ID, title: "Content One" },
       ),
     );
     const completed = buildLearningEventDraft(
       {
-        type: "artefact.completed",
+        type: "content.completed",
         completion: true,
         score: { scaled: 0.75, raw: 3, min: 0, max: 4 },
         duration: "PT2M",
@@ -526,15 +526,15 @@ describe("closed producer inputs", () => {
       { rootActivityId: ROOT_ACTIVITY_ID },
     );
     const completedWithoutMeasurement = buildLearningEventDraft(
-      { type: "artefact.completed", completion: true },
+      { type: "content.completed", completion: true },
       { rootActivityId: ROOT_ACTIVITY_ID },
     );
     const passed = buildLearningEventDraft(
-      { type: "artefact.passed", score: { scaled: 0.75 } },
+      { type: "content.passed", score: { scaled: 0.75 } },
       { rootActivityId: ROOT_ACTIVITY_ID },
     );
     const failed = buildLearningEventDraft(
-      { type: "artefact.failed" },
+      { type: "content.failed" },
       { rootActivityId: ROOT_ACTIVITY_ID },
     );
 
@@ -546,7 +546,7 @@ describe("closed producer inputs", () => {
         (event) =>
           event.verb.id === LEARNING_EVENT_VERBS.progressed.id &&
           event.verb.display.en === LEARNING_EVENT_VERBS.progressed.display.en &&
-          event.object.definition?.type === LEARNING_EVENT_ACTIVITY_TYPES.artefact &&
+          event.object.definition?.type === LEARNING_EVENT_ACTIVITY_TYPES.content &&
           event.result?.completion === undefined &&
           event.result?.success === undefined,
       ),
@@ -568,11 +568,11 @@ describe("closed producer inputs", () => {
   });
 
   it.each([-1, 100, 1.5, Number.NaN])(
-    "rejects artefact progress outside the integer 0 through 99 contract: %s",
+    "rejects content progress outside the integer 0 through 99 contract: %s",
     (progressPercent) => {
       expect(
         CoreLearningEventInputSchema.safeParse({
-          type: "artefact.progressed",
+          type: "content.progressed",
           progressPercent,
         }).success,
       ).toBe(false);
@@ -582,14 +582,14 @@ describe("closed producer inputs", () => {
   it("rejects root outcome fields that would couple completion and success", () => {
     expect(
       CoreLearningEventInputSchema.safeParse({
-        type: "artefact.completed",
+        type: "content.completed",
         completion: true,
         success: true,
       }).success,
     ).toBe(false);
     expect(
       CoreLearningEventInputSchema.safeParse({
-        type: "artefact.passed",
+        type: "content.passed",
         completion: true,
       }).success,
     ).toBe(false);
@@ -782,7 +782,7 @@ describe("Learning Event Event catalogue builders", () => {
             {
               objectType: "Activity",
               id: ROOT_ACTIVITY_ID,
-              definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.artefact },
+              definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.content },
             },
           ],
         },
@@ -821,7 +821,7 @@ describe("Learning Event Event catalogue builders", () => {
           {
             objectType: "Activity" as const,
             id: ROOT_ACTIVITY_ID,
-            definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.artefact },
+            definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.content },
           },
         ],
       },
@@ -880,7 +880,7 @@ describe("Learning Event Event catalogue builders", () => {
     });
   });
 
-  it("builds initialized with the root artefact Activity and a normalized title", () => {
+  it("builds initialized with the root content Activity and a normalized title", () => {
     expect(
       buildInitializedLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
@@ -893,7 +893,7 @@ describe("Learning Event Event catalogue builders", () => {
         id: ROOT_ACTIVITY_ID,
         definition: {
           name: { en: "Course One" },
-          type: LEARNING_EVENT_ACTIVITY_TYPES.artefact,
+          type: LEARNING_EVENT_ACTIVITY_TYPES.content,
         },
       },
     });
@@ -903,7 +903,7 @@ describe("Learning Event Event catalogue builders", () => {
     ).toStrictEqual({
       objectType: "Activity",
       id: ROOT_ACTIVITY_ID,
-      definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.artefact },
+      definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.content },
     });
   });
 
@@ -947,7 +947,7 @@ describe("Learning Event Event catalogue builders", () => {
             {
               objectType: "Activity",
               id: ROOT_ACTIVITY_ID,
-              definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.artefact },
+              definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.content },
             },
           ],
         },
@@ -1043,7 +1043,7 @@ describe("Learning Event Event catalogue builders", () => {
           {
             objectType: "Activity",
             id: ROOT_ACTIVITY_ID,
-            definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.artefact },
+            definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.content },
           },
         ],
       },
@@ -1095,7 +1095,7 @@ describe("Learning Event Event catalogue builders", () => {
             {
               objectType: "Activity",
               id: ROOT_ACTIVITY_ID,
-              definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.artefact },
+              definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.content },
             },
           ],
         },
@@ -1198,7 +1198,7 @@ describe("Learning Event Event catalogue builders", () => {
             {
               objectType: "Activity",
               id: ROOT_ACTIVITY_ID,
-              definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.artefact },
+              definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.content },
             },
           ],
         },
@@ -1348,7 +1348,7 @@ describe("Learning Event Event catalogue builders", () => {
             {
               objectType: "Activity",
               id: ROOT_ACTIVITY_ID,
-              definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.artefact },
+              definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.content },
             },
           ],
         },
@@ -1380,7 +1380,7 @@ describe("Learning Event Event catalogue builders", () => {
             {
               objectType: "Activity",
               id: ROOT_ACTIVITY_ID,
-              definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.artefact },
+              definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.content },
             },
           ],
         },
@@ -1436,7 +1436,7 @@ describe("Learning Event Event catalogue builders", () => {
             {
               objectType: "Activity",
               id: ROOT_ACTIVITY_ID,
-              definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.artefact },
+              definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.content },
             },
           ],
         },
@@ -1459,7 +1459,7 @@ describe("Learning Event Event catalogue builders", () => {
         id: ROOT_ACTIVITY_ID,
         definition: {
           name: { en: "Course One" },
-          type: LEARNING_EVENT_ACTIVITY_TYPES.artefact,
+          type: LEARNING_EVENT_ACTIVITY_TYPES.content,
         },
       },
       result: { duration: "PT90.061S" },

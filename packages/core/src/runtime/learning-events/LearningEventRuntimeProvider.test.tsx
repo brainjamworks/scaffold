@@ -116,20 +116,20 @@ function SessionProbe({
 function RuntimeRoot({
   artifactId,
   autoStart,
-  artefactTitle = "Course One",
+  contentTitle = "Course One",
   onObservation,
   port,
 }: {
   artifactId: string | null;
   autoStart?: boolean;
-  artefactTitle?: string | null;
+  contentTitle?: string | null;
   onObservation: (observation: LearningEventObservation) => void;
   port: LearningEventPort | null;
 }) {
   return (
     <ScaffoldServicesProvider ports={{ learningEvents: port }}>
       <ScaffoldArtifactIdentityProvider artifactId={artifactId}>
-        <LearningEventRuntimeProvider artefactTitle={artefactTitle}>
+        <LearningEventRuntimeProvider contentTitle={contentTitle}>
           <SessionProbe
             onObservation={onObservation}
             {...(autoStart === undefined ? {} : { autoStart })}
@@ -188,7 +188,7 @@ describe("LearningEventRuntimeProvider", () => {
     ) => (
       <ScaffoldServicesProvider ports={{ ...services, learningEvents: port }}>
         <ScaffoldArtifactIdentityProvider artifactId="artifact-one">
-          <LearningEventRuntimeProvider artefactTitle="Artefact One">
+          <LearningEventRuntimeProvider contentTitle="Content One">
             <SessionProbe autoStart onObservation={onObservation} />
           </LearningEventRuntimeProvider>
         </ScaffoldArtifactIdentityProvider>
@@ -217,7 +217,7 @@ describe("LearningEventRuntimeProvider", () => {
     const { rerender } = render(
       <ScaffoldServicesProvider ports={{ learningEvents: null }}>
         <ScaffoldArtifactIdentityProvider artifactId="artifact-one">
-          <LearningEventRuntimeProvider artefactTitle="Artefact One">
+          <LearningEventRuntimeProvider contentTitle="Content One">
             <ReporterProbe onReporter={onReporter} />
           </LearningEventRuntimeProvider>
         </ScaffoldArtifactIdentityProvider>
@@ -238,7 +238,7 @@ describe("LearningEventRuntimeProvider", () => {
     rerender(
       <ScaffoldServicesProvider ports={{ learningEvents: null }}>
         <ScaffoldArtifactIdentityProvider artifactId="artifact-one">
-          <LearningEventRuntimeProvider artefactTitle="Renamed">
+          <LearningEventRuntimeProvider contentTitle="Renamed">
             <ReporterProbe onReporter={onReporter} />
           </LearningEventRuntimeProvider>
         </ScaffoldArtifactIdentityProvider>
@@ -254,7 +254,7 @@ describe("LearningEventRuntimeProvider", () => {
     render(
       <ScaffoldServicesProvider ports={{ learningEvents: port }}>
         <ScaffoldArtifactIdentityProvider artifactId="artifact-one">
-          <LearningEventRuntimeProvider artefactTitle="Artefact One">
+          <LearningEventRuntimeProvider contentTitle="Content One">
             <ReporterProbe onReporter={(value) => reporters.push(value)} />
           </LearningEventRuntimeProvider>
         </ScaffoldArtifactIdentityProvider>
@@ -296,8 +296,8 @@ describe("LearningEventRuntimeProvider", () => {
       input: { type: "quiz.attempted", quizId: "quiz-1", attemptId: "attempt-1" },
     },
     {
-      family: "artefact outcome",
-      input: { type: "artefact.completed", completion: true },
+      family: "content outcome",
+      input: { type: "content.completed", completion: true },
     },
     {
       family: "session lifecycle",
@@ -310,7 +310,7 @@ describe("LearningEventRuntimeProvider", () => {
     render(
       <ScaffoldServicesProvider ports={{ learningEvents: port }}>
         <ScaffoldArtifactIdentityProvider artifactId="artifact-one">
-          <LearningEventRuntimeProvider artefactTitle="Artefact One">
+          <LearningEventRuntimeProvider contentTitle="Content One">
             <ReportingBoundaryProbe onObservation={(value) => observations.push(value)} />
           </LearningEventRuntimeProvider>
         </ScaffoldArtifactIdentityProvider>
@@ -358,7 +358,7 @@ describe("LearningEventRuntimeProvider", () => {
     render(
       <ScaffoldServicesProvider ports={{ learningEvents: port }}>
         <ScaffoldArtifactIdentityProvider artifactId="artifact-one">
-          <LearningEventRuntimeProvider artefactTitle="Artefact One">
+          <LearningEventRuntimeProvider contentTitle="Content One">
             <ReportingBoundaryProbe onObservation={(value) => observations.push(value)} />
           </LearningEventRuntimeProvider>
         </ScaffoldArtifactIdentityProvider>
@@ -407,7 +407,7 @@ describe("LearningEventRuntimeProvider", () => {
     render(
       <ScaffoldServicesProvider ports={{ learningEvents: port }}>
         <ScaffoldArtifactIdentityProvider artifactId="artifact-one">
-          <LearningEventRuntimeProvider artefactTitle="Artefact One">
+          <LearningEventRuntimeProvider contentTitle="Content One">
             <ReportingBoundaryProbe onObservation={(value) => observations.push(value)} />
           </LearningEventRuntimeProvider>
         </ScaffoldArtifactIdentityProvider>
@@ -497,7 +497,7 @@ describe("LearningEventRuntimeProvider", () => {
     const { rerender } = render(
       <RuntimeRoot
         artifactId=" course-one "
-        artefactTitle="Course One"
+        contentTitle="Course One"
         port={port}
         onObservation={onObservation}
       />,
@@ -510,7 +510,7 @@ describe("LearningEventRuntimeProvider", () => {
     rerender(
       <RuntimeRoot
         artifactId="course-one"
-        artefactTitle="Renamed Course"
+        contentTitle="Renamed Course"
         port={port}
         onObservation={onObservation}
       />,

@@ -42,7 +42,7 @@ export interface LearningEventSession {
 
 export interface CreateLearningEventSessionInput {
   readonly port: LearningEventPort;
-  readonly artefactTitle: string;
+  readonly contentTitle: string;
   readonly createUuid: () => string;
   readonly now: () => Date;
   readonly monotonicNow: () => number;
@@ -206,7 +206,7 @@ export function createLearningEventSession(
     try {
       return buildLearningEventDraft(inputValue, {
         rootActivityId,
-        title: input.artefactTitle,
+        title: input.contentTitle,
       });
     } catch {
       failDelivery();

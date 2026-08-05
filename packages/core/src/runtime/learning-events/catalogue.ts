@@ -43,7 +43,7 @@ export const LEARNING_EVENT_VERBS = Object.freeze({
 });
 
 export const LEARNING_EVENT_ACTIVITY_TYPES = Object.freeze({
-  artefact: "https://scaffold.ac/xapi/activity-types/artifact",
+  content: "https://scaffold.ac/xapi/activity-types/content",
   quiz: "http://adlnet.gov/expapi/activities/assessment",
   assessmentQuestion: "http://adlnet.gov/expapi/activities/cmi.interaction",
   learnerActivity: "https://scaffold.ac/xapi/activity-types/learner-activity",
@@ -235,7 +235,7 @@ function rootActivity(rootId: LearningEventIri, title?: string | null): Learning
     id: rootActivityId(rootId),
     definition: {
       ...(normalizedTitle ? { name: { en: normalizedTitle } } : {}),
-      type: LEARNING_EVENT_ACTIVITY_TYPES.artefact,
+      type: LEARNING_EVENT_ACTIVITY_TYPES.content,
     },
   };
 }
@@ -1312,7 +1312,7 @@ const QuizSuccessInputSchema = z
   })
   .strict();
 
-const ArtefactScoreSchema = z
+const ContentScoreSchema = z
   .object({
     scaled: z.number().finite().min(0).max(1).optional(),
     raw: z.number().finite().optional(),
@@ -1322,24 +1322,24 @@ const ArtefactScoreSchema = z
   .strict()
   .refine((score) => Object.keys(score).length > 0, { message: "Scores must not be empty" })
   .transform((score): LearningEventScore => score as LearningEventScore);
-const ArtefactProgressedInputSchema = z
+const ContentProgressedInputSchema = z
   .object({
-    type: z.literal("artefact.progressed"),
+    type: z.literal("content.progressed"),
     progressPercent: z.number().int().min(0).max(99),
   })
   .strict();
-const ArtefactCompletedInputSchema = z
+const ContentCompletedInputSchema = z
   .object({
-    type: z.literal("artefact.completed"),
+    type: z.literal("content.completed"),
     completion: z.literal(true),
-    score: ArtefactScoreSchema.optional(),
+    score: ContentScoreSchema.optional(),
     duration: z.string().duration().optional(),
   })
   .strict();
-const ArtefactSuccessInputSchema = z
+const ContentSuccessInputSchema = z
   .object({
-    type: z.enum(["artefact.passed", "artefact.failed"]),
-    score: ArtefactScoreSchema.optional(),
+    type: z.enum(["content.passed", "content.failed"]),
+    score: ContentScoreSchema.optional(),
   })
   .strict();
 
@@ -1358,9 +1358,9 @@ export const CoreLearningEventInputSchema = z.union([
   QuizAttemptedInputSchema,
   QuizCompletedInputSchema,
   QuizSuccessInputSchema,
-  ArtefactProgressedInputSchema,
-  ArtefactCompletedInputSchema,
-  ArtefactSuccessInputSchema,
+  ContentProgressedInputSchema,
+  ContentCompletedInputSchema,
+  ContentSuccessInputSchema,
   RuntimeLifecycleInputSchema,
 ]);
 
@@ -1446,13 +1446,13 @@ export function buildLearningEventDraft(
         ...input,
         successStatus: input.type === "quiz.passed" ? "passed" : "failed",
       });
-    case "artefact.progressed":
+    case "content.progressed":
       return validatedDraft({
         verb: LEARNING_EVENT_VERBS.progressed,
         object: rootActivity(rootActivityId, context.title),
         result: { extensions: { [LEARNING_EVENT_EXTENSIONS.progress]: input.progressPercent } },
       });
-    case "artefact.completed":
+    case "content.completed":
       return validatedDraft({
         verb: LEARNING_EVENT_VERBS.completed,
         object: rootActivity(rootActivityId, context.title),
@@ -1462,16 +1462,16 @@ export function buildLearningEventDraft(
           ...(input.duration === undefined ? {} : { duration: input.duration }),
         },
       });
-    case "artefact.passed":
-    case "artefact.failed":
+    case "content.passed":
+    case "content.failed":
       return validatedDraft({
         verb:
-          input.type === "artefact.passed"
+          input.type === "content.passed"
             ? LEARNING_EVENT_VERBS.passed
             : LEARNING_EVENT_VERBS.failed,
         object: rootActivity(rootActivityId, context.title),
         result: {
-          success: input.type === "artefact.passed",
+          success: input.type === "content.passed",
           ...(input.score === undefined ? {} : { score: input.score }),
         },
       });

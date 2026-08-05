@@ -151,7 +151,7 @@ its closed catalogue:
 import type { LearningEvent, LearningEventPort } from "@scaffold/core/ports";
 ```
 
-`LearningEventPort` has one stable `rootActivityId` IRI for the published Scaffold artefact and one
+`LearningEventPort` has one stable `rootActivityId` IRI for the published Scaffold content and one
 `accept(event: LearningEvent)` operation. Core owns each learning fact's verb, Activity, Result,
 event ID, occurrence timestamp, Core Context, and order. Port resolution means the host has
 accepted responsibility for that immutable canonical event; it does not mean every configured
@@ -167,7 +167,7 @@ Core does not collect Actor identity, configure endpoints, authenticate, send HT
 host acceptance, guarantee offline durability, or operate an LRS. Those concerns belong to the
 host deployment. The conformance tests prove semantic sufficiency for ordinary xAPI, cmi5, and
 applicable SCORM runtime projection; they do not provide cmi5 or SCORM transports. Child completion
-does not imply artefact completion, and Scaffold defines no automatic course-completion policy.
+does not imply content completion, and Scaffold defines no automatic content-completion policy.
 Authoring preview services do not receive the capability.
 
 ## Development

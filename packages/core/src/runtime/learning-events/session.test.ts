@@ -56,7 +56,7 @@ function createHarness(acceptImplementation: LearningEventPort["accept"] = async
   };
   const session = createLearningEventSession({
     port,
-    artefactTitle: "Course One",
+    contentTitle: "Course One",
     createUuid,
     now,
     monotonicNow,
@@ -94,7 +94,7 @@ describe("createLearningEventSession", () => {
           rootActivityId: "not an absolute IRI",
           accept: async () => undefined,
         },
-        artefactTitle: "Course One",
+        contentTitle: "Course One",
         createUuid: createSequentialUuidFactory(),
         now: () => new Date(STARTED_AT),
         monotonicNow: () => 0,
@@ -214,7 +214,7 @@ describe("createLearningEventSession", () => {
   it("keeps block and Core authority recording paths separate on the same session type", async () => {
     const publicHarness = createHarness();
 
-    publicHarness.session.recordBlock({ type: "artefact.completed", completion: true });
+    publicHarness.session.recordBlock({ type: "content.completed", completion: true });
     await flushPromises();
 
     expect(publicHarness.accept).not.toHaveBeenCalled();
@@ -225,7 +225,7 @@ describe("createLearningEventSession", () => {
     });
 
     const coreHarness = createHarness();
-    coreHarness.session.record({ type: "artefact.completed", completion: true });
+    coreHarness.session.record({ type: "content.completed", completion: true });
     await flushPromises();
 
     expect(coreHarness.accept.mock.calls.map(([event]) => event.verb.display.en)).toEqual([
@@ -519,7 +519,7 @@ describe("createLearningEventSession", () => {
     const accept = vi.fn<LearningEventPort["accept"]>(async () => undefined);
     const session = createLearningEventSession({
       port: { rootActivityId: ROOT_ACTIVITY_ID, accept },
-      artefactTitle: "Course One",
+      contentTitle: "Course One",
       createUuid,
       now,
       monotonicNow: () => 0,
@@ -545,7 +545,7 @@ describe("createLearningEventSession", () => {
     const accept = vi.fn<LearningEventPort["accept"]>(async () => undefined);
     const session = createLearningEventSession({
       port: { rootActivityId: ROOT_ACTIVITY_ID, accept },
-      artefactTitle: "Course One",
+      contentTitle: "Course One",
       createUuid,
       now: () => new Date(STARTED_AT),
       monotonicNow: () => 0,

@@ -336,7 +336,7 @@ function createDeterministicLearningEventSession(port: LearningEventPort) {
   let monotonicTime = 1_000;
   const session = createLearningEventSession({
     port,
-    artefactTitle: "Course One",
+    contentTitle: "Course One",
     createUuid: () => {
       uuidSequence += 1;
       return `00000000-0000-4000-8000-${uuidSequence.toString(16).padStart(12, "0")}`;
@@ -700,7 +700,7 @@ describe("Core learning event conformance", () => {
     expect(accepted[0]).toMatchObject({
       object: {
         id: ROOT_ACTIVITY_ID,
-        definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.artefact },
+        definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.content },
       },
     });
     expect(accepted[1]).toMatchObject({
@@ -867,7 +867,7 @@ describe("Core learning event conformance", () => {
     ).toStrictEqual([]);
     expect(accepted.filter((event) => event.result?.completion === true)).toHaveLength(3);
 
-    session.record({ type: "artefact.completed", completion: true });
+    session.record({ type: "content.completed", completion: true });
 
     await vi.waitFor(() => expect(accepted).toHaveLength(5));
     expect(

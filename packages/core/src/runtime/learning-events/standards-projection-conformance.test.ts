@@ -16,7 +16,7 @@ import {
   type CoreLearningEventInput,
 } from "./catalogue";
 
-const ROOT_ACTIVITY_ID = "https://lms.example.test/artefacts/standards-one";
+const ROOT_ACTIVITY_ID = "https://lms.example.test/contents/standards-one";
 const EVENT_TIMESTAMP = "2026-08-05T10:00:00.000Z";
 const CMI5_CATEGORY_ID = "https://w3id.org/xapi/cmi5/context/categories/cmi5";
 const HOST_PLACEMENT_EXTENSION = "https://lms.example.test/xapi/extensions/placement";
@@ -53,7 +53,7 @@ function materializeEvent(input: CoreLearningEventInput, sequence = 1): Learning
   return LearningEventSchema.parse({
     ...buildLearningEventDraft(input, {
       rootActivityId: ROOT_ACTIVITY_ID,
-      title: "Standards artefact",
+      title: "Standards content",
     }),
     id: `00000000-0000-4000-8000-${sequence.toString(16).padStart(12, "0")}`,
     timestamp: new Date(Date.parse(EVENT_TIMESTAMP) + sequence * 1_000).toISOString(),
@@ -154,7 +154,7 @@ type Cmi5Projection =
 function projectCmi5Semantics(event: LearningEvent): Cmi5Projection {
   if (
     event.object.id !== ROOT_ACTIVITY_ID ||
-    event.object.definition?.type !== LEARNING_EVENT_ACTIVITY_TYPES.artefact
+    event.object.definition?.type !== LEARNING_EVENT_ACTIVITY_TYPES.content
   ) {
     return { status: "unsupported" };
   }
@@ -276,7 +276,7 @@ function reduceScorm(state: ScormRuntimeState, event: LearningEvent): ScormProje
 
   const isRootOutcome =
     event.object.id === ROOT_ACTIVITY_ID &&
-    event.object.definition?.type === LEARNING_EVENT_ACTIVITY_TYPES.artefact;
+    event.object.definition?.type === LEARNING_EVENT_ACTIVITY_TYPES.content;
   if (!isRootOutcome) return { status: "unsupported", state };
 
   switch (event.verb.id) {
@@ -390,19 +390,19 @@ describe("cmi5 projection sufficiency", () => {
   it("supplies lifecycle, progress, completion, pass, and fail semantics", () => {
     const events = [
       materializeEvent({ type: "session.initialized" }, 1),
-      materializeEvent({ type: "artefact.progressed", progressPercent: 0 }, 2),
-      materializeEvent({ type: "artefact.progressed", progressPercent: 99 }, 3),
+      materializeEvent({ type: "content.progressed", progressPercent: 0 }, 2),
+      materializeEvent({ type: "content.progressed", progressPercent: 99 }, 3),
       materializeEvent(
         {
-          type: "artefact.completed",
+          type: "content.completed",
           completion: true,
           score: { scaled: 0.75, raw: 3, min: 0, max: 4 },
           duration: "PT2M",
         },
         4,
       ),
-      materializeEvent({ type: "artefact.passed", score: { scaled: 0.75 } }, 5),
-      materializeEvent({ type: "artefact.failed" }, 6),
+      materializeEvent({ type: "content.passed", score: { scaled: 0.75 } }, 5),
+      materializeEvent({ type: "content.failed" }, 6),
       materializeEvent({ type: "session.terminated", durationMs: 125_000 }, 7),
     ];
 
@@ -471,25 +471,25 @@ describe("SCORM projection sufficiency", () => {
   it("reduces only explicit root progress, completion, success, and score", () => {
     const progressed = reduceScorm(
       EMPTY_SCORM_STATE,
-      materializeEvent({ type: "artefact.progressed", progressPercent: 99 }),
+      materializeEvent({ type: "content.progressed", progressPercent: 99 }),
     );
     const completed = reduceScorm(
       EMPTY_SCORM_STATE,
       materializeEvent({
-        type: "artefact.completed",
+        type: "content.completed",
         completion: true,
         score: { scaled: 0.6, raw: 6, min: 0, max: 10 },
       }),
     );
     const completedWithoutScore = reduceScorm(
       EMPTY_SCORM_STATE,
-      materializeEvent({ type: "artefact.completed", completion: true }),
+      materializeEvent({ type: "content.completed", completion: true }),
     );
     const passed = reduceScorm(
       EMPTY_SCORM_STATE,
-      materializeEvent({ type: "artefact.passed", score: { scaled: 0.6 } }),
+      materializeEvent({ type: "content.passed", score: { scaled: 0.6 } }),
     );
-    const failed = reduceScorm(EMPTY_SCORM_STATE, materializeEvent({ type: "artefact.failed" }));
+    const failed = reduceScorm(EMPTY_SCORM_STATE, materializeEvent({ type: "content.failed" }));
 
     expect(progressed).toMatchObject({
       status: "accepted",
@@ -561,7 +561,7 @@ describe("projection privacy", () => {
       extensions: { [HOST_PLACEMENT_EXTENSION]: "placement-one" },
     });
     const cmi5 = projectCmi5Semantics(
-      materializeEvent({ type: "artefact.completed", completion: true }),
+      materializeEvent({ type: "content.completed", completion: true }),
     );
     const scorm = reduceScorm(EMPTY_SCORM_STATE, answered);
     const serialized = JSON.stringify([ordinaryXapi, cmi5, scorm]);

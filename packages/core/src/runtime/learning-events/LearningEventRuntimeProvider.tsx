@@ -24,7 +24,7 @@ export interface LearningEventReporter {
 
 export interface LearningEventRuntimeProviderProps {
   readonly children?: ReactNode;
-  readonly artefactTitle?: string | null;
+  readonly contentTitle?: string | null;
 }
 
 interface LearningEventRuntimeScope {
@@ -37,7 +37,7 @@ interface LearningEventRuntimeScope {
 interface RequestedLearningEventRuntimeScope {
   readonly artifactId: string | null;
   readonly port: LearningEventPort | null;
-  readonly artefactTitle: string | null | undefined;
+  readonly contentTitle: string | null | undefined;
 }
 
 interface RetiringLearningEventRuntimeScope {
@@ -79,7 +79,7 @@ function createUuid(): string {
 function createLearningEventRuntimeScope(
   artifactId: string | null,
   port: LearningEventPort | null,
-  artefactTitle: string | null | undefined,
+  contentTitle: string | null | undefined,
 ): LearningEventRuntimeScope | null {
   if (!artifactId || !port) return null;
 
@@ -87,7 +87,7 @@ function createLearningEventRuntimeScope(
   try {
     session = createLearningEventSession({
       port,
-      artefactTitle: artefactTitle ?? "",
+      contentTitle: contentTitle ?? "",
       createUuid,
       now: () => new Date(),
       monotonicNow: () => globalThis.performance.now(),
@@ -121,18 +121,18 @@ function scopeMatchesRequest(
 
 export function LearningEventRuntimeProvider({
   children,
-  artefactTitle,
+  contentTitle,
 }: LearningEventRuntimeProviderProps): ReactNode {
   const { artifactId } = useScaffoldArtifactIdentity();
   const port = useLearningEventPort();
   const requestedScopeRef = useRef<RequestedLearningEventRuntimeScope>({
     artifactId,
     port,
-    artefactTitle,
+    contentTitle,
   });
-  requestedScopeRef.current = { artifactId, port, artefactTitle };
+  requestedScopeRef.current = { artifactId, port, contentTitle };
   const [activeScope, setActiveScope] = useState<LearningEventRuntimeScope | null>(() =>
-    createLearningEventRuntimeScope(artifactId, port, artefactTitle),
+    createLearningEventRuntimeScope(artifactId, port, contentTitle),
   );
   const activeScopeRef = useRef(activeScope);
   const retiringScopeRef = useRef<RetiringLearningEventRuntimeScope | null>(null);
@@ -187,7 +187,7 @@ export function LearningEventRuntimeProvider({
       const nextScope = createLearningEventRuntimeScope(
         latestRequest.artifactId,
         latestRequest.port,
-        latestRequest.artefactTitle,
+        latestRequest.contentTitle,
       );
       activeScopeRef.current = nextScope;
       setActiveScope(nextScope);

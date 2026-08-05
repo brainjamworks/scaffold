@@ -97,7 +97,7 @@ export function ContentRuntimeHost({
   return (
     <ScaffoldArtifactIdentityProvider artifactId={runtimeArtifactId}>
       <LearningEventRuntimeProvider
-        {...(courseTitle === undefined ? {} : { artefactTitle: courseTitle })}
+        {...(courseTitle === undefined ? {} : { contentTitle: courseTitle })}
       >
         <AssessmentRuntimeProvider
           {...(initialAssessmentSnapshot === undefined
@@ -166,10 +166,7 @@ function HydratedRuntimePlayer({
       const surfaceIndex = playerSelection.surfaceIds.indexOf(surfaceId);
       if (surfaceIndex < 0) return;
       const previous = recordedSurfaceRef.current;
-      if (
-        previous?.reporter === learningEventReporter &&
-        previous.surfaceId === surfaceId
-      ) {
+      if (previous?.reporter === learningEventReporter && previous.surfaceId === surfaceId) {
         return;
       }
 

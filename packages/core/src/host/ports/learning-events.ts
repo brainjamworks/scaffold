@@ -107,7 +107,7 @@ export interface LearningEvent extends LearningEventDraft {
  */
 export interface LearningEventPort {
   /**
-   * Stable absolute IRI for the root artefact Activity in this host placement.
+   * Stable absolute IRI for the root content Activity in this host placement.
    * It contains no learner identity, credential, or secret.
    */
   readonly rootActivityId: LearningEventIri;
