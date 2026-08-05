@@ -159,7 +159,7 @@ function AssessmentHintsGroupNodeView(props: NodeViewProps) {
               <EditableOverlayPopover.Content
                 aria-label={title}
                 align="start"
-                className="sc-assessment-hint-authoring-popover"
+                className="sc-course-assessment-hint-popover sc-course-assessment-hint-popover--authoring"
                 icon={<Lightbulb size={iconSm} weight="fill" />}
                 meta={total > 1 ? `${visibleHintNumber} / ${total}` : undefined}
                 side="top"
@@ -169,9 +169,9 @@ function AssessmentHintsGroupNodeView(props: NodeViewProps) {
                 editor={{
                   ariaLabel: `Hint ${visibleHintNumber} editor`,
                   bubbleMenuPluginKey: richTextPluginKey,
-                  className: "sc-assessment-hint-popover__editor",
+                  className: "sc-course-assessment-hint-popover__editor",
                   extensions,
-                  mountClassName: "sc-assessment-hint-popover__editor-shell",
+                  mountClassName: "sc-course-assessment-hint-popover__editor-shell",
                   outerEditor: props.editor,
                   placeholder: "Write a hint",
                   syncKey: resolvedTarget?.node,
@@ -214,7 +214,7 @@ function AssessmentHintsGroupNodeView(props: NodeViewProps) {
                 footerEnd={
                   hasVisibleHints ? (
                     <EditableOverlayPopover.TextAction
-                      className="sc-assessment-hint-popover__add"
+                      className="sc-app-assessment-hint-popover__add"
                       data-action="add-hint"
                       onClick={onAddHint}
                     >

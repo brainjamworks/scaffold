@@ -21,6 +21,8 @@ import type { NestedRichTextBubbleMenuHostProps } from "@/editor/rich-text/autho
 import type { AssessmentPort } from "@/host/ports";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { ASSESSMENT_QUESTION_CONTENT } from "@/document/model/content-model/content-groups";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
 import { AssessmentActionsGroupNode } from "./assessment-actions-group";
 import { AssessmentActionsGroupRuntimeNode } from "./assessment-actions-group-runtime";
@@ -255,7 +257,7 @@ describe("assessment_actions_group", () => {
     expect(surface?.getAttribute("data-tone")).toBe("hint");
     const addHintAction = dialog.querySelector('[data-action="add-hint"]');
     expect(addHintAction).toBeInstanceOf(HTMLButtonElement);
-    expect(addHintAction?.classList.contains("sc-assessment-hint-popover__add")).toBe(true);
+    expect(addHintAction?.classList.contains("sc-app-assessment-hint-popover__add")).toBe(true);
     const deleteHintAction = dialog.querySelector('[aria-label="Delete hint 1"]');
     expect(deleteHintAction).toBeInstanceOf(HTMLButtonElement);
     expect(deleteHintAction?.getAttribute("data-tone")).toBe("danger");
@@ -264,7 +266,7 @@ describe("assessment_actions_group", () => {
     expect(bubbleAppendTarget).toBeInstanceOf(HTMLElement);
     expect(bubbleAppendTarget).toBe(surface?.querySelector('[data-slot="popover-surface-body"]'));
 
-    const editorDom = dialog.querySelector(".sc-assessment-hint-popover__editor");
+    const editorDom = dialog.querySelector(".sc-course-assessment-hint-popover__editor");
     expect(editorDom).toBeInstanceOf(HTMLElement);
     expect(editorDom?.getAttribute("aria-label")).toBe("Hint 1 editor");
     expect(editorDom?.getAttribute("data-placeholder")).toBe("Write a hint");
@@ -327,7 +329,7 @@ describe("assessment_actions_group", () => {
       expect(dialog.getAttribute("aria-label")).toBe("Hint 3");
       expect(
         dialog.querySelector(
-          '.sc-assessment-hint-popover__editor p[data-placeholder="Write a hint"]',
+          '.sc-course-assessment-hint-popover__editor p[data-placeholder="Write a hint"]',
         ),
       ).toBeInstanceOf(HTMLElement);
     });
@@ -559,7 +561,11 @@ function captureAssessmentStore(store: AssessmentStoreApi | null) {
 function renderAssessmentEditor(editor: Editor) {
   return render(
     createAssessmentRuntimeTestRoot({
-      children: createElement(EditorContent, { editor }),
+      children: createElement(CourseThemeProvider, {
+        appearance: "light",
+        theme: createDefaultPersistedCourseTheme(),
+        children: createElement(EditorContent, { editor }),
+      }),
       onStore: captureAssessmentStore,
     }),
   );

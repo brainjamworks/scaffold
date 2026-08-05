@@ -439,8 +439,8 @@ describe("slideshow player geometry", () => {
       expect(canvas.contains(normalHost)).toBe(false);
 
       runtimeHintTrigger(player).click();
-      await waitForCondition(() => document.querySelector(".sc-assessment-hint-popover--runtime"));
-      let popover = uniqueElement<HTMLElement>(document, ".sc-assessment-hint-popover--runtime");
+      await waitForCondition(() => document.querySelector(".sc-course-assessment-hint-popover--runtime"));
+      let popover = uniqueElement<HTMLElement>(document, ".sc-course-assessment-hint-popover--runtime");
       expect(normalHost.contains(popover)).toBe(true);
       expectSlideshowShellUnchanged(measureSlideshowShell(player), baseline);
 
@@ -479,7 +479,7 @@ describe("slideshow player geometry", () => {
         new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Escape" }),
       );
       await waitForCondition(
-        () => document.querySelector(".sc-assessment-hint-popover--runtime") === null,
+        () => document.querySelector(".sc-course-assessment-hint-popover--runtime") === null,
       );
       expectSlideshowShellUnchanged(measureSlideshowShell(player), baseline);
     }
@@ -613,7 +613,7 @@ async function ensureRuntimeHintOpen(
   expectedHost: HTMLElement,
 ): Promise<HTMLElement> {
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-  const current = expectedHost.querySelector<HTMLElement>(".sc-assessment-hint-popover--runtime");
+  const current = expectedHost.querySelector<HTMLElement>(".sc-course-assessment-hint-popover--runtime");
   if (current !== null) return current;
 
   const hideTrigger = Array.from(rootNode.querySelectorAll("button")).find((candidate) =>
@@ -631,8 +631,8 @@ async function ensureRuntimeHintOpen(
   }
 
   runtimeHintTrigger(rootNode).click();
-  await waitForCondition(() => expectedHost.querySelector(".sc-assessment-hint-popover--runtime"));
-  return uniqueElement<HTMLElement>(expectedHost, ".sc-assessment-hint-popover--runtime");
+  await waitForCondition(() => expectedHost.querySelector(".sc-course-assessment-hint-popover--runtime"));
+  return uniqueElement<HTMLElement>(expectedHost, ".sc-course-assessment-hint-popover--runtime");
 }
 
 function buttonByName(rootNode: ParentNode, name: string): HTMLButtonElement {

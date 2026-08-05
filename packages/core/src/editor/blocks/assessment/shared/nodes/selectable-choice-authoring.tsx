@@ -152,7 +152,8 @@ function SelectableChoiceAuthoringNodeView(props: NodeViewProps) {
           editor={{
             ariaLabel: "Feedback editor",
             bubbleMenuPluginKey: richTextPluginKey,
-            className: "sc-assessment-feedback-editor-field sc-assessment-feedback-rich-text",
+            className:
+              "sc-course-assessment-feedback-editor-field sc-course-assessment-feedback-rich-text",
             extensions,
             fieldKey,
             outerEditor: props.editor,

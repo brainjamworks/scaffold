@@ -1,0 +1,190 @@
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-popover-surface {
+  --sc-course-popover-tone: var(--gray-9);
+  --sc-course-popover-tone-background: var(--gray-a3);
+  --sc-course-popover-tone-border: var(--gray-a6);
+  --sc-course-popover-tone-text: var(--gray-11);
+
+  inline-size: min(25rem, var(--sc-overlay-available-inline-size, 25rem));
+  max-block-size: min(20rem, var(--sc-overlay-available-block-size, 20rem));
+  padding: calc(var(--space-4) * var(--sc-course-author-density))
+    calc(var(--space-4) * var(--sc-course-author-density))
+    calc(var(--space-3) * var(--sc-course-author-density));
+  border: var(--sc-course-author-stroke-width) solid var(--sc-course-popover-tone-border);
+  border-radius: max(var(--radius-4), var(--radius-full));
+  background: var(--gray-1);
+  box-shadow: var(--shadow-4);
+  color: var(--gray-12);
+  font-family: var(--default-font-family);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-overlay-positioned-content:has(> .sc-course-popover-surface) {
+  border-radius: max(var(--radius-4), var(--radius-full));
+  box-shadow: var(--sc-course-author-shadow);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-popover-surface[data-tone="feedback"] {
+  --sc-course-popover-tone: var(--accent-9);
+  --sc-course-popover-tone-background: var(--accent-a3);
+  --sc-course-popover-tone-border: var(--accent-a7);
+  --sc-course-popover-tone-text: var(--accent-11);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-popover-surface[data-tone="hint"] {
+  --sc-course-popover-tone: var(--sc-course-state-warning-indicator);
+  --sc-course-popover-tone-background: var(--sc-course-state-warning-background);
+  --sc-course-popover-tone-border: var(--sc-course-state-warning-border);
+  --sc-course-popover-tone-text: var(--sc-course-state-warning-text);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-popover-surface[data-tone="annotation"] {
+  --sc-course-popover-tone: var(--accent-9);
+  --sc-course-popover-tone-background: var(--accent-a3);
+  --sc-course-popover-tone-border: var(--accent-a7);
+  --sc-course-popover-tone-text: var(--accent-11);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-popover-surface__header {
+  gap: var(--space-3);
+  margin-block-end: var(--space-3);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-popover-surface__icon {
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  border-radius: 50%;
+  background: var(--sc-course-popover-tone-background);
+  color: var(--sc-course-popover-tone-text);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-popover-surface__title-row {
+  gap: var(--space-1) var(--space-2);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-popover-surface__title {
+  color: var(--gray-12);
+  font-family: var(--heading-font-family);
+  font-size: var(--font-size-2);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-2);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-popover-surface__description {
+  margin-block-start: var(--space-1);
+  color: var(--gray-11);
+  font-size: var(--font-size-1);
+  line-height: var(--line-height-1);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-popover-surface__meta {
+  min-block-size: 1.25rem;
+  padding-inline: var(--space-2);
+  border-radius: max(var(--radius-6), var(--radius-full));
+  background: color-mix(in oklch, var(--sc-course-popover-tone-background) 64%, var(--gray-1));
+  color: var(--sc-course-popover-tone-text);
+  font-size: var(--font-size-1);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-1);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-popover-surface__header-actions {
+  gap: var(--space-1);
+  color: var(--gray-11);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-popover-surface__body {
+  padding-block: var(--space-1);
+  color: var(--gray-12);
+  font-family: var(--default-font-family);
+  font-size: var(--font-size-2);
+  line-height: var(--line-height-2);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-popover-surface__footer {
+  gap: var(--space-3);
+  margin-block-start: var(--space-2);
+  padding-block-start: var(--space-2);
+  border-block-start: var(--sc-course-author-stroke-width) solid
+    color-mix(in oklch, var(--sc-course-popover-tone) 18%, var(--gray-a6));
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  :is(.sc-course-popover-surface__footer-start, .sc-course-popover-surface__footer-end) {
+  gap: var(--space-2);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-popover-surface__arrow {
+  fill: var(--gray-1);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-hint-pager {
+  gap: var(--space-1);
+  color: var(--sc-course-state-warning-text);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-hint-pager__button {
+  border-radius: max(var(--radius-3), var(--radius-full));
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out,
+    opacity 150ms ease-out;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-course-assessment-hint-pager__button:hover:not(:disabled) {
+    background: var(--sc-course-state-warning-background);
+    color: var(--gray-12);
+  }
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-hint-pager__button:focus-visible {
+  outline: 2px solid var(--accent-8);
+  outline-offset: 2px;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-hint-pager__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-hint-pager__count {
+  color: currentColor;
+  font-size: var(--font-size-1);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-1);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-hint-popover
+  .sc-assessment-hints__track {
+  transition: transform 180ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-hint-pager__button,
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-course-assessment-hint-popover
+    .sc-assessment-hints__track {
+    transition: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-popover-surface {
+    border-color: CanvasText;
+  }
+
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-popover-surface__icon {
+    border: 1px solid CanvasText;
+  }
+
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-course-assessment-hint-pager__button:focus-visible {
+    outline-color: Highlight;
+  }
+}

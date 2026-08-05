@@ -840,7 +840,7 @@ function AnnotatedFigureCanvasAuthoringView(props: NodeViewProps) {
                   {open && captionTarget && openAnnotation ? (
                     <EditableOverlayPopover.Portal>
                       <EditableOverlayPopover.Content
-                        className="sc-app-annotated-figure__caption-popover"
+                        className="sc-course-annotated-figure__caption-popover"
                         collisionPadding={12}
                         footerStart={
                           <EditableOverlayPopover.TextAction
@@ -882,7 +882,7 @@ function AnnotatedFigureCanvasAuthoringView(props: NodeViewProps) {
                             value={openAnnotation.title}
                           />
                         }
-                        tone="feedback"
+                        tone="annotation"
                         editor={{
                           ariaLabel: `Annotation ${annotation.number} caption`,
                           bubbleMenuPluginKey: `annotated-figure-caption-${captionEditorId.replace(

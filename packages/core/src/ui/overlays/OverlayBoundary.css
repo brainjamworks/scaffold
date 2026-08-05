@@ -8,4 +8,17 @@
   .sc-overlay-boundary-host > :not([data-scaffold-overlay-click-through-root]) {
     pointer-events: auto;
   }
+
+  .sc-overlay-positioned-content {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  [data-radix-popper-content-wrapper][style*="--radix-popper-available-width"]:not(
+      [style*="-200%"]
+    )
+    > .sc-overlay-positioned-content {
+    visibility: visible;
+    pointer-events: auto;
+  }
 }

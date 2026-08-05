@@ -9,6 +9,8 @@ import { createScaffoldDocumentContent } from "@/format/artifact";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 import { CourseDocumentRuntimeRenderer } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
 import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import type { MediaPort } from "@/host/ports/media";
 import "@/runtime/players/slideshow/SlideshowPlayer.css";
 import "@/styles/globals.css";
@@ -219,6 +221,7 @@ describe("Annotated Figure image geometry", () => {
     await page.viewport(1280, 900);
     const pair = await mountBoundedPair();
     mountedPairs.push(pair);
+    pair.runtime.host.scrollIntoView({ block: "nearest" });
 
     await waitForCondition(() =>
       [pair.authoring, pair.runtime].every(
@@ -493,7 +496,7 @@ describe("Annotated Figure image geometry", () => {
       '[aria-label="Expand annotated figure"]',
     );
     expand.focus({ preventScroll: true });
-    await userEvent.click(expand);
+    expand.click();
     const dialog = await waitForElement<HTMLElement>(
       document,
       '[role="dialog"][aria-label="Annotated figure viewer"]',
@@ -523,7 +526,7 @@ describe("Annotated Figure image geometry", () => {
       '[aria-label="Expand annotated figure"]',
     );
     expand.focus({ preventScroll: true });
-    await userEvent.click(expand);
+    expand.click();
     const dialog = await waitForElement<HTMLElement>(
       document,
       '[role="dialog"][aria-label="Annotated figure viewer"]',
@@ -542,7 +545,7 @@ describe("Annotated Figure image geometry", () => {
       dialog,
       ':scope > [data-scaffold-overlay-host][data-kind="contained"]',
     );
-    const popoverBody = requiredElement<HTMLElement>(popover, ".sc-popover-surface__body");
+    const popoverBody = requiredElement<HTMLElement>(popover, ".sc-course-popover-surface__body");
     const dialogRect = dialog.getBoundingClientRect();
     const popoverRect = popover.getBoundingClientRect();
 
@@ -597,24 +600,28 @@ async function mountBoundedPair(
 
   authoringRoot.render(
     <ScaffoldServicesProvider ports={ports}>
-      <CourseDocumentEditor
-        source={{ mode: "document", content: cloneJSON(initialContent) }}
-        editable
-        onReady={(editor) => {
-          authoringEditor = editor;
-        }}
-      />
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <CourseDocumentEditor
+          source={{ mode: "document", content: cloneJSON(initialContent) }}
+          editable
+          onReady={(editor) => {
+            authoringEditor = editor;
+          }}
+        />
+      </CourseThemeProvider>
     </ScaffoldServicesProvider>,
   );
   runtimeRoot.render(
     <ScaffoldServicesProvider ports={ports}>
-      <CourseDocumentRuntimeRenderer
-        initialContent={cloneJSON(initialContent)}
-        visibleSurfaceId="annotated-figure-bounded"
-        onReady={(editor) => {
-          runtimeEditor = editor;
-        }}
-      />
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <CourseDocumentRuntimeRenderer
+          initialContent={cloneJSON(initialContent)}
+          visibleSurfaceId="annotated-figure-bounded"
+          onReady={(editor) => {
+            runtimeEditor = editor;
+          }}
+        />
+      </CourseThemeProvider>
     </ScaffoldServicesProvider>,
   );
 
@@ -627,6 +634,11 @@ async function mountBoundedPair(
   );
   if (!authoringEditor || !runtimeEditor)
     throw new Error("Annotated Figure browser editors were not ready.");
+
+  for (const host of [authoringHost, runtimeHost]) {
+    const themeRoot = requiredElement<HTMLElement>(host, ":scope > .radix-themes");
+    themeRoot.style.display = "contents";
+  }
 
   let disposed = false;
   return {

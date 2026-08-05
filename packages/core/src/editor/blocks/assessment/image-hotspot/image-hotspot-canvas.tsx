@@ -1033,7 +1033,7 @@ function CompactHotspotEditorPopover({
           onToggleCorrect={onToggleCorrect}
           target={target}
         />
-        <EditableOverlayPopover.Arrow fill="var(--color-background)" />
+        <EditableOverlayPopover.Arrow />
       </EditableOverlayPopover.Shell>
     </>
   );

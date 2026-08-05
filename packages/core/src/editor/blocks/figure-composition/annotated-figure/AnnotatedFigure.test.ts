@@ -885,7 +885,6 @@ it("opens one workspace canvas and selected caption field, then restores editor 
   expect(captionEditor.classList.contains("sc-textarea")).toBe(true);
   expect(captionEditor.getAttribute("aria-multiline")).toBe("true");
   expect(within(captionList).getAllByLabelText(/Annotation \d+ caption/)).toHaveLength(1);
-  expect(document.querySelector(".sc-app-annotated-figure__caption-popover")).toBeNull();
 
   await user.keyboard("{Escape}");
 
@@ -1145,7 +1144,6 @@ it("keeps the workspace caption list present in popover mode and selects a newly
 
   expect(await within(captionList).findByLabelText("Annotation 1 caption")).toBeInTheDocument();
   expect(within(captionList).getAllByLabelText(/Annotation \d+ caption/)).toHaveLength(1);
-  expect(document.querySelector(".sc-app-annotated-figure__caption-popover")).toBeNull();
   expect(
     resolveAnnotatedFigureModel({ node: editor.state.doc.firstChild!, pos: 0 })?.annotations,
   ).toHaveLength(1);
@@ -1600,7 +1598,7 @@ it("keeps empty Popover captions noninteractive and retains an ordered semantic 
     ".sc-course-annotated-figure__caption-popover",
   );
   if (!popover) throw new Error("Expected a runtime caption popover");
-  expect(popover.querySelector('[data-tone="neutral"]')).not.toBeNull();
+  expect(popover.querySelector('[data-tone="annotation"]')).not.toBeNull();
   expect(within(popover).getByText("Readable caption")).toBeInTheDocument();
 
   await user.keyboard("{Escape}");
@@ -1633,7 +1631,7 @@ it("uses an authored annotation title in the runtime popover", async () => {
     ".sc-course-annotated-figure__caption-popover",
   );
   if (!popover) throw new Error("Expected a runtime caption popover");
-  expect(popover.querySelector(".sc-popover-surface__title")?.textContent).toBe(
+  expect(popover.querySelector(".sc-course-popover-surface__title")?.textContent).toBe(
     "Salty global ocean",
   );
   expect(

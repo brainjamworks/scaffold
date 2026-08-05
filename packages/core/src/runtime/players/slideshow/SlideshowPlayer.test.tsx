@@ -409,9 +409,9 @@ describe("SlideshowPlayer", () => {
 
     const viewport = document.body.querySelector(".sc-slideshow-player__viewport");
     await waitFor(() =>
-      expect(document.body.querySelector(".sc-assessment-hint-popover--runtime")).not.toBeNull(),
+      expect(document.body.querySelector(".sc-course-assessment-hint-popover--runtime")).not.toBeNull(),
     );
-    const hintPopover = document.body.querySelector(".sc-assessment-hint-popover--runtime");
+    const hintPopover = document.body.querySelector(".sc-course-assessment-hint-popover--runtime");
 
     expect(viewport?.contains(hintPopover)).toBe(true);
   });
@@ -465,7 +465,7 @@ describe("SlideshowPlayer", () => {
 
     await user.click(buttonByNameIn(ownerDocument, "Show a hint"));
     await waitFor(() => {
-      expect(normalHost.querySelector(".sc-assessment-hint-popover--runtime")).not.toBeNull();
+      expect(normalHost.querySelector(".sc-course-assessment-hint-popover--runtime")).not.toBeNull();
     });
     await user.click(buttonByNameIn(ownerDocument, "Enter fullscreen"));
 
@@ -481,11 +481,11 @@ describe("SlideshowPlayer", () => {
     expect(normalHost.isConnected).toBe(false);
     expect(fullscreenHost).not.toBe(normalHost);
     expect(canvas.contains(fullscreenHost)).toBe(false);
-    const popoverAfterEntry = ownerDocument.querySelector(".sc-assessment-hint-popover--runtime");
+    const popoverAfterEntry = ownerDocument.querySelector(".sc-course-assessment-hint-popover--runtime");
     if (popoverAfterEntry === null) {
       await user.click(runtimeHintTriggerIn(ownerDocument));
       await waitFor(() => {
-        expect(fullscreenHost.querySelector(".sc-assessment-hint-popover--runtime")).not.toBeNull();
+        expect(fullscreenHost.querySelector(".sc-course-assessment-hint-popover--runtime")).not.toBeNull();
       });
     } else {
       expect(fullscreenHost.contains(popoverAfterEntry)).toBe(true);
@@ -502,11 +502,11 @@ describe("SlideshowPlayer", () => {
     expect(exitFullscreen).toHaveBeenCalledOnce();
     expect(fullscreenHost.isConnected).toBe(false);
     expect(restoredHost.closest(".sc-course")?.parentElement).toBe(ownerDocument.body);
-    const popoverAfterExit = ownerDocument.querySelector(".sc-assessment-hint-popover--runtime");
+    const popoverAfterExit = ownerDocument.querySelector(".sc-course-assessment-hint-popover--runtime");
     if (popoverAfterExit === null) {
       await user.click(runtimeHintTriggerIn(ownerDocument));
       await waitFor(() => {
-        expect(restoredHost.querySelector(".sc-assessment-hint-popover--runtime")).not.toBeNull();
+        expect(restoredHost.querySelector(".sc-course-assessment-hint-popover--runtime")).not.toBeNull();
       });
     } else {
       expect(restoredHost.contains(popoverAfterExit)).toBe(true);

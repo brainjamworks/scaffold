@@ -54,7 +54,7 @@ describe("PagePlayer presentation", () => {
     if (!sourceRoot) throw new Error("Page player is missing its Course boundary.");
 
     buttonByName(player, "Show a hint").click();
-    await waitForCondition(() => document.querySelector(".sc-assessment-hint-popover--runtime"));
+    await waitForCondition(() => document.querySelector(".sc-course-assessment-hint-popover--runtime"));
 
     const portalHost = uniqueElement<HTMLElement>(player, "[data-scaffold-overlay-host]");
     const portalRoot = portalHost.closest<HTMLElement>(".sc-course");
@@ -148,10 +148,10 @@ describe("PagePlayer presentation", () => {
       const before = player.getBoundingClientRect();
 
       trigger.click();
-      await waitForCondition(() => document.querySelector(".sc-assessment-hint-popover--runtime"));
+      await waitForCondition(() => document.querySelector(".sc-course-assessment-hint-popover--runtime"));
 
       const host = player.querySelector<HTMLElement>("[data-scaffold-overlay-host]");
-      const popover = uniqueElement<HTMLElement>(document, ".sc-assessment-hint-popover--runtime");
+      const popover = uniqueElement<HTMLElement>(document, ".sc-course-assessment-hint-popover--runtime");
       const sourceRoot = player.closest<HTMLElement>(".sc-course");
       const portalRoot = host?.closest<HTMLElement>(".sc-course");
 
@@ -181,7 +181,7 @@ describe("PagePlayer presentation", () => {
         new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Escape" }),
       );
       await waitForCondition(
-        () => document.querySelector(".sc-assessment-hint-popover--runtime") === null,
+        () => document.querySelector(".sc-course-assessment-hint-popover--runtime") === null,
       );
 
       const closed = player.getBoundingClientRect();

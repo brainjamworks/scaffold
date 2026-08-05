@@ -6,6 +6,7 @@ import {
 } from "@phosphor-icons/react";
 import {
   useRef,
+  useLayoutEffect,
   useState,
   type CSSProperties,
   type ElementType,
@@ -262,7 +263,7 @@ export function Hints({
                 side="top"
                 align="start"
                 sideOffset={8}
-                className="sc-assessment-hint-popover sc-assessment-hint-popover--runtime"
+                className="sc-course-assessment-hint-popover sc-course-assessment-hint-popover--runtime"
                 style={{ zIndex: zIndex.popover }}
               >
                 <AssessmentRuntimePopoverShell
@@ -280,7 +281,11 @@ export function Hints({
                   title={`Hint ${visibleActiveIndex + 1}`}
                   tone="hint"
                 >
-                  <HintPopoverBody hidden={!runtimeHintsVisible} trackStyle={trackStyle}>
+                  <HintPopoverBody
+                    activeIndex={visibleActiveIndex}
+                    hidden={!runtimeHintsVisible}
+                    trackStyle={trackStyle}
+                  >
                     {children}
                   </HintPopoverBody>
                 </AssessmentRuntimePopoverShell>
@@ -294,17 +299,36 @@ export function Hints({
 }
 
 interface HintPopoverBodyProps {
+  activeIndex: number;
   children: ReactNode;
   hidden: boolean;
   trackStyle: CSSProperties;
 }
 
-function HintPopoverBody({ children, hidden, trackStyle }: HintPopoverBodyProps) {
+function HintPopoverBody({ activeIndex, children, hidden, trackStyle }: HintPopoverBodyProps) {
+  const listRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const hints = listRef.current?.querySelectorAll<HTMLElement>(
+      '[data-slot="assessment-hint"]',
+    );
+    hints?.forEach((hint, index) => {
+      const inactive = index !== activeIndex;
+      if (inactive) {
+        hint.setAttribute("aria-hidden", "true");
+      } else {
+        hint.removeAttribute("aria-hidden");
+      }
+      hint.inert = inactive;
+    });
+  }, [activeIndex, children]);
+
   return (
     <div
+      ref={listRef}
       className={cn("sc-assessment-hints__list", hidden && "is-hidden")}
       aria-live="polite"
-      aria-atomic="false"
+      aria-atomic="true"
       aria-roledescription="carousel"
       aria-label="Revealed hints"
     >
@@ -325,25 +349,25 @@ interface HintCarouselPagerProps {
 function HintCarouselPager({ activeIndex, total, onNext, onPrevious }: HintCarouselPagerProps) {
   return (
     <div
-      className="sc-assessment-hints__pager"
+      className="sc-course-assessment-hint-pager"
       aria-label="Hint navigation"
       contentEditable={false}
     >
       <button
         type="button"
-        className="sc-assessment-hints__pager-button"
+        className="sc-course-assessment-hint-pager__button"
         onClick={onPrevious}
         disabled={activeIndex === 0}
         aria-label="Previous hint"
       >
         <CaretLeft size={iconXs} weight="bold" aria-hidden />
       </button>
-      <span className="sc-assessment-hints__pager-count">
+      <span className="sc-course-assessment-hint-pager__count">
         {activeIndex + 1} / {total}
       </span>
       <button
         type="button"
-        className="sc-assessment-hints__pager-button"
+        className="sc-course-assessment-hint-pager__button"
         onClick={onNext}
         disabled={activeIndex >= total - 1}
         aria-label="Next hint"

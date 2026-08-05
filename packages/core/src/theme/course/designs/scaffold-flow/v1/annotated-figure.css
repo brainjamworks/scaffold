@@ -168,14 +168,22 @@
   }
 }
 
-@layer sc-overlays {
+:is(
   .sc-course.sc-course-theme-scaffold-flow-v1
-    .sc-course-annotated-figure__caption-popover
-    .sc-popover-surface {
-    width: auto;
-    inline-size: max-content;
-    min-inline-size: min(14rem, var(--sc-overlay-available-inline-size, 14rem));
-    max-inline-size: min(28rem, var(--sc-overlay-available-inline-size, 28rem));
-    max-block-size: min(18rem, var(--sc-overlay-available-block-size, 18rem));
-  }
+    .sc-course-annotated-figure__caption-popover,
+  .sc-course.sc-course-theme-scaffold-flow-v1.sc-course-annotated-figure__caption-popover
+) {
+  inline-size: min(28rem, var(--sc-overlay-available-inline-size, 28rem));
+  min-inline-size: min(14rem, var(--sc-overlay-available-inline-size, 14rem));
+  max-inline-size: min(28rem, var(--sc-overlay-available-inline-size, 28rem));
+}
+
+:is(
+    .sc-course.sc-course-theme-scaffold-flow-v1
+      .sc-course-annotated-figure__caption-popover,
+    .sc-course.sc-course-theme-scaffold-flow-v1.sc-course-annotated-figure__caption-popover
+  )
+  .sc-course-popover-surface {
+  inline-size: 100%;
+  max-block-size: min(18rem, var(--sc-overlay-available-block-size, 18rem));
 }

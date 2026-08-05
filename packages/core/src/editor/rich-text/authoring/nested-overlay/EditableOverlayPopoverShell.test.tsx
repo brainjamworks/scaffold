@@ -10,6 +10,8 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { Button } from "@/ui/components/Button/Button";
 import type { RichTextBubbleMenuProps } from "@/editor/shell/bubbles/rich-text/RichTextBubbleMenu";
 import type { ScaffoldRichTextDocument } from "@/schemas/rich-text";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
 import {
   EditableOverlayPopover,
@@ -87,6 +89,30 @@ afterEach(() => {
 });
 
 describe("EditableOverlayPopoverShell", () => {
+  it("restores the resolved Course theme on editable portal content", async () => {
+    render(
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="dark">
+        <EditableOverlayPopover.Root defaultOpen>
+          <EditableOverlayPopover.Trigger>Open feedback</EditableOverlayPopover.Trigger>
+          <EditableOverlayPopover.Portal>
+            <EditableOverlayPopover.Content title="Feedback">
+              Course-owned text
+            </EditableOverlayPopover.Content>
+          </EditableOverlayPopover.Portal>
+        </EditableOverlayPopover.Root>
+      </CourseThemeProvider>,
+    );
+
+    const dialog = await screen.findByRole("dialog", { name: "Feedback" });
+    expect(dialog).toHaveClass(
+      "radix-themes",
+      "dark",
+      "sc-course",
+      "sc-course-theme-scaffold-flow-v1",
+    );
+    expect(dialog.querySelector(".sc-course-popover-surface")).toBeInstanceOf(HTMLElement);
+  });
+
   it("renders a labelled editor popover shell with consumer-owned slots", () => {
     renderOpenPopover(
       <EditableOverlayPopover.Content
@@ -231,7 +257,7 @@ describe("EditableOverlayPopoverShell", () => {
 
     expect(onClick).toHaveBeenCalledTimes(1);
     expect(addAction.getAttribute("type")).toBe("button");
-    expect(addAction.className).toContain("sc-popover-surface__text-action");
+    expect(addAction.className).toContain("sc-app-editable-popover__text-action");
     expect(deleteAction.getAttribute("data-tone")).toBe("danger");
   });
 
@@ -262,24 +288,25 @@ describe("EditableOverlayPopover editor composer", () => {
       write: (nextDocument: ScaffoldRichTextDocument) =>
         writeAttrDocument(outerEditor, nextDocument),
     };
-    const renderPopover = (open: boolean) => (
-      <EditableOverlayPopover.Root open={open}>
-        <EditableOverlayPopover.Trigger>Feedback</EditableOverlayPopover.Trigger>
-        <EditableOverlayPopover.Portal>
-          <EditableOverlayPopover.Content
-            ref={contentRef}
-            title="Feedback"
-            editor={{
-              ariaLabel: "Feedback editor",
-              bubbleMenuPluginKey: "feedback-editor-lifecycle-bubble",
-              extensions,
-              outerEditor,
-              target,
-            }}
-          />
-        </EditableOverlayPopover.Portal>
-      </EditableOverlayPopover.Root>
-    );
+    const renderPopover = (open: boolean) =>
+      withCourseTheme(
+        <EditableOverlayPopover.Root open={open}>
+          <EditableOverlayPopover.Trigger>Feedback</EditableOverlayPopover.Trigger>
+          <EditableOverlayPopover.Portal>
+            <EditableOverlayPopover.Content
+              ref={contentRef}
+              title="Feedback"
+              editor={{
+                ariaLabel: "Feedback editor",
+                bubbleMenuPluginKey: "feedback-editor-lifecycle-bubble",
+                extensions,
+                outerEditor,
+                target,
+              }}
+            />
+          </EditableOverlayPopover.Portal>
+        </EditableOverlayPopover.Root>,
+      );
     const { rerender } = render(renderPopover(true));
 
     await waitFor(() => {
@@ -619,11 +646,19 @@ describe("EditableOverlayPopover editor composer", () => {
 });
 
 function openPopover(content: ReactNode): ReactNode {
-  return (
+  return withCourseTheme(
     <EditableOverlayPopover.Root defaultOpen>
       <EditableOverlayPopover.Trigger aria-label="Open overlay" />
       <EditableOverlayPopover.Portal>{content}</EditableOverlayPopover.Portal>
-    </EditableOverlayPopover.Root>
+    </EditableOverlayPopover.Root>,
+  );
+}
+
+function withCourseTheme(children: ReactNode): ReactNode {
+  return (
+    <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+      {children}
+    </CourseThemeProvider>
   );
 }
 

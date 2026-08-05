@@ -23,6 +23,7 @@
 @import "./pdf-embed.css";
 @import "./code-block.css";
 @import "./resource-link.css";
+@import "./course-popover-surface.css";
 @import "./assessment-shell.css";
 @import "./assessment-support-controls.css";
 @import "./assessment-submission-control.css";

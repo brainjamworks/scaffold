@@ -118,7 +118,7 @@ describe("runtime overlay boundary contract", () => {
       trigger.click();
       const popover = await waitForElement<HTMLElement>(
         mounted.player,
-        '.sc-assessment-hint-popover--runtime[role="dialog"]',
+        '.sc-course-assessment-hint-popover--runtime[role="dialog"]',
       );
       const overlayHost = uniqueElement<HTMLElement>(
         mounted.player,
@@ -208,7 +208,7 @@ describe("runtime overlay boundary contract", () => {
       trigger.click();
       const popover = await waitForElement<HTMLElement>(
         normalHost,
-        '.sc-assessment-hint-popover--runtime[role="dialog"]',
+        '.sc-course-assessment-hint-popover--runtime[role="dialog"]',
       );
       const containedRect = popover.getBoundingClientRect();
 
@@ -540,7 +540,7 @@ async function ensureRuntimeHintOpen(
   player: HTMLElement,
   expectedHost: HTMLElement,
 ): Promise<HTMLElement> {
-  const current = expectedHost.querySelector<HTMLElement>(".sc-assessment-hint-popover--runtime");
+  const current = expectedHost.querySelector<HTMLElement>(".sc-course-assessment-hint-popover--runtime");
   if (current) return current;
 
   const hideTrigger = Array.from(player.querySelectorAll("button")).find((candidate) =>
@@ -552,7 +552,7 @@ async function ensureRuntimeHintOpen(
   }
 
   runtimeHintTrigger(player).click();
-  return waitForElement<HTMLElement>(expectedHost, ".sc-assessment-hint-popover--runtime");
+  return waitForElement<HTMLElement>(expectedHost, ".sc-course-assessment-hint-popover--runtime");
 }
 
 function runtimeHintTrigger(root: ParentNode): HTMLButtonElement {

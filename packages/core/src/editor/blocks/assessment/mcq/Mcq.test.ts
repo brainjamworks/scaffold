@@ -11,6 +11,8 @@ import StarterKit from "@tiptap/starter-kit";
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { createAssessmentRuntimeTestRoot } from "@/runtime/assessment/test-utils";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { MoveContainedAfterTarget } from "@/editor/drag/model/movement-intents";
@@ -314,7 +316,11 @@ async function openPopoverTrigger(name: string) {
 function renderAssessmentEditor(editor: Editor) {
   return render(
     createAssessmentRuntimeTestRoot({
-      children: createElement(EditorContent, { editor }),
+      children: createElement(CourseThemeProvider, {
+        appearance: "light",
+        theme: createDefaultPersistedCourseTheme(),
+        children: createElement(EditorContent, { editor }),
+      }),
     }),
   );
 }
@@ -709,7 +715,6 @@ describe("composite mcq node", () => {
     const dialog = await screen.findByRole("dialog", { name: "Hint 1" });
     const editor = await findHintPopoverEditor(1);
     expect(dialog.getAttribute("data-authoring-chrome")).toBe("popover");
-    expect(dialog.querySelector(".sc-assessment-hint-popover__arrow")).toBeNull();
     expect(editor.getAttribute("contenteditable")).toBe("true");
     expect(editor.textContent).toContain("Use the answer choices to narrow it down.");
 

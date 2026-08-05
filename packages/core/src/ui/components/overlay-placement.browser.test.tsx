@@ -4,8 +4,6 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 import * as Popover from "./Popover/Popover";
 
-import "./PopoverSurface/PopoverSurface.css";
-
 interface PlacementSample {
   isSentinel: boolean;
   pointerEvents: string;

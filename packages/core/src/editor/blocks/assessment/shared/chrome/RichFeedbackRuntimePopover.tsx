@@ -63,11 +63,11 @@ export function RichFeedbackRuntimePopover({
             title="Feedback"
             tone="feedback"
           >
-            <div className="sc-assessment-feedback-rich-text sc-assessment-feedback-rich-text--runtime">
+            <div className="sc-course-assessment-feedback-rich-text sc-course-assessment-feedback-rich-text--runtime">
               {renderRuntimeRichTextNode(document)}
             </div>
           </AssessmentRuntimePopoverShell>
-          <Popover.Arrow className="sc-assessment-feedback-arrow" />
+          <Popover.Arrow className="sc-course-popover-surface__arrow" />
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>

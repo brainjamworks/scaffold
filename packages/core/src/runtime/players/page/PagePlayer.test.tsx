@@ -231,8 +231,8 @@ describe("PagePlayer", () => {
 
     await waitFor(() => {
       expect(
-        ownerDocument.querySelector(".sc-assessment-hint-popover--runtime") ??
-          document.querySelector(".sc-assessment-hint-popover--runtime"),
+        ownerDocument.querySelector(".sc-course-assessment-hint-popover--runtime") ??
+          document.querySelector(".sc-course-assessment-hint-popover--runtime"),
       ).not.toBeNull();
     });
 
@@ -248,7 +248,7 @@ describe("PagePlayer", () => {
     expect(host?.closest(".sc-course")).not.toBe(player.closest(".sc-course"));
 
     const popover = ownerDocument.querySelector<HTMLElement>(
-      ".sc-assessment-hint-popover--runtime",
+      ".sc-course-assessment-hint-popover--runtime",
     );
     expect(popover).toBeInstanceOf(OwnerHTMLElement);
     expect(host?.contains(popover)).toBe(true);

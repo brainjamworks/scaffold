@@ -22,7 +22,8 @@ import {
 import type { AnnotatedFigureData } from "@scaffold/contracts";
 import { Lightbox, type LightboxItem } from "@/ui/components/Lightbox/Lightbox";
 import * as Popover from "@/ui/components/Popover/Popover";
-import { PopoverSurface } from "@/ui/components/PopoverSurface/PopoverSurface";
+import { CoursePopoverSurface } from "@/ui/components/course/CoursePopoverSurface/CoursePopoverSurface";
+import { CourseThemePortalBoundary } from "@/theme/course/CourseThemeProvider";
 import { zIndex } from "@/ui/overlays/z-index";
 
 import { createAnnotatedFigureCanvasNode } from "./annotated-figure-canvas-shared";
@@ -124,9 +125,10 @@ function AnnotatedFigureRuntimeComposition({
               sideOffset={8}
               style={{ zIndex: zIndex.popover }}
             >
-              <PopoverSurface
+              <CoursePopoverSurface
                 title={projectedAnnotation.title || `Annotation ${annotation.number}`}
                 titleId={titleId}
+                tone="annotation"
               >
                 {projectedAnnotation.captionNode.content.size > 0 ? (
                   <div className="sc-course-annotated-figure__runtime-popover-caption">
@@ -136,7 +138,7 @@ function AnnotatedFigureRuntimeComposition({
                     )}
                   </div>
                 ) : null}
-              </PopoverSurface>
+              </CoursePopoverSurface>
             </Popover.Content>
           </Popover.Portal>
         ) : null}
@@ -286,6 +288,7 @@ export function AnnotatedFigureCanvasRuntimeView(props: NodeViewProps) {
       />
       <Lightbox
         ariaLabel="Annotated figure viewer"
+        childOverlayHostBoundary={CourseThemePortalBoundary}
         items={lightboxItems}
         onOpenChange={setLightboxOpen}
         open={lightboxOpen && lightboxItems.length > 0}

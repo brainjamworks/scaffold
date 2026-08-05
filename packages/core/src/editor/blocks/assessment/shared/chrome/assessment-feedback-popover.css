@@ -10,27 +10,24 @@
     justify-content: center;
   }
 
-  .sc-assessment-feedback-rich-text {
-    color: var(--color-ink);
-    font-size: 0.875rem;
-    line-height: 1.55;
+  .sc-course-assessment-feedback-rich-text {
+    min-width: 0;
+    color: inherit;
+    font: inherit;
+    overflow-wrap: anywhere;
   }
 
-  .sc-assessment-feedback-editor-field {
+  .sc-course-assessment-feedback-editor-field {
     min-height: 5rem;
   }
 
-  .sc-assessment-feedback-rich-text p {
+  .sc-course-assessment-feedback-rich-text p {
     margin-top: 0;
     margin-bottom: 0;
     line-height: inherit;
   }
 
-  .sc-assessment-feedback-rich-text--runtime {
+  .sc-course-assessment-feedback-rich-text--runtime {
     max-width: none;
-  }
-
-  .sc-assessment-feedback-arrow {
-    fill: var(--color-background);
   }
 }

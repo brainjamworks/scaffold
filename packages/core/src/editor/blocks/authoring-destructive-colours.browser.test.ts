@@ -33,7 +33,6 @@ describe("authoring destructive colours", () => {
   it("keeps inline authoring delete controls on the application semantic", async () => {
     const course = createThemedAuthoringFixture();
     const checklistDelete = appendButton(course, "sc-app-checklist-item-delete", "Delete item");
-    const hintDelete = appendButton(course, "sc-assessment-hint__delete", "Delete hint");
     const choiceDelete = appendButton(
       course,
       "sc-app-assessment-authoring-icon-action",
@@ -41,7 +40,7 @@ describe("authoring destructive colours", () => {
     );
     choiceDelete.dataset["tone"] = "danger";
 
-    for (const control of [checklistDelete, hintDelete, choiceDelete]) {
+    for (const control of [checklistDelete, choiceDelete]) {
       await userEvent.hover(control);
       expect(getComputedStyle(control).color).toBe("rgb(185, 28, 28)");
     }
