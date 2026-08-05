@@ -1,4 +1,5 @@
 import { describe, expect, expectTypeOf, it, vi } from "vite-plus/test";
+import conformance from "../../../fixtures/learning-event-conformance.json" with { type: "json" };
 
 import {
   LearningEventIriSchema,
@@ -6,6 +7,15 @@ import {
   type LearningEvent,
   type LearningEventPort,
 } from "./learning-events";
+
+interface LearningEventConformanceCase {
+  readonly name: string;
+  readonly valid: boolean;
+  readonly coreValid?: boolean;
+  readonly event: unknown;
+}
+
+const conformanceCases = conformance.cases as readonly LearningEventConformanceCase[];
 
 function validEvent(): LearningEvent {
   return {
@@ -59,6 +69,10 @@ function validEvent(): LearningEvent {
 }
 
 describe("Learning Event contract", () => {
+  it.each(conformanceCases)("matches the shared conformance fixture: $name", (testCase) => {
+    expect(LearningEventSchema.safeParse(testCase.event).success).toBe(testCase.coreValid ?? testCase.valid);
+  });
+
   it("parses the strict actorless standard-compatible shape", () => {
     const event = validEvent();
     const parsed = LearningEventSchema.parse(event);

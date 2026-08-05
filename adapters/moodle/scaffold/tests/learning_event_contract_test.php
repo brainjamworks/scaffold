@@ -26,6 +26,31 @@ use mod_scaffold\learning_event\validator;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class learning_event_contract_test extends \advanced_testcase {
+    /** Executes the same named cases consumed by Core's LearningEventSchema test. */
+    public function test_shared_conformance_fixture_matches_core_boundary(): void {
+        $fixture = json_decode(
+            file_get_contents(__DIR__ . '/fixtures/learning-event-conformance.json'),
+            false,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        foreach ($fixture->cases as $case) {
+            $expected = $case->moodleValid ?? $case->valid;
+            try {
+                $validated = validator::validate_json(json_encode($case->event, JSON_THROW_ON_ERROR));
+                $actual = true;
+            } catch (\invalid_parameter_exception) {
+                $actual = false;
+            }
+            $this->assertSame($expected, $actual, $case->name);
+            if ($actual) {
+                $this->assertSame($case->event->id, $validated->id, $case->name . ' preserves id');
+                $this->assertSame($case->event->timestamp, $validated->timestamp, $case->name . ' preserves timestamp');
+            }
+        }
+    }
+
     /**
      * Builds a valid event with optional overrides.
      *

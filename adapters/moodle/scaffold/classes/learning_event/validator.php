@@ -28,6 +28,13 @@ final class validator {
     public const MAX_JSON_BYTES = 65536;
     /** Moodle-owned context extension. */
     public const CMID_EXTENSION = 'https://scaffold.ac/xapi/extensions/moodle-course-module-id';
+    /** BCP 47 grandfathered language tags accepted by Core. */
+    private const GRANDFATHERED_LANGUAGE_TAGS = [
+        'art-lojban', 'cel-gaulish', 'en-gb-oed', 'i-ami', 'i-bnn', 'i-default',
+        'i-enochian', 'i-hak', 'i-klingon', 'i-lux', 'i-mingo', 'i-navajo',
+        'i-pwn', 'i-tao', 'i-tsu', 'no-bok', 'no-nyn', 'sgn-be-fr', 'sgn-be-nl',
+        'sgn-ch-de', 'zh-guoyu', 'zh-hakka', 'zh-min', 'zh-min-nan', 'zh-xiang',
+    ];
 
     /**
      * Validates one canonical actorless Learning Event JSON payload.
@@ -103,6 +110,7 @@ final class validator {
      */
     private static function definition(mixed $value): void {
         if (!$value instanceof \stdClass) self::reject('Learning Event definition is invalid');
+        self::non_empty($value, 'Learning Event definition is invalid');
         self::keys($value, ['name', 'description', 'type', 'interactionType', 'choices', 'source', 'target', 'extensions']);
         foreach (['name', 'description'] as $field) {
             if (property_exists($value, $field)) self::language_map($value->{$field});
@@ -123,7 +131,7 @@ final class validator {
      * @param mixed $value Value.
      */
     private static function components(mixed $value): void {
-        if (!is_array($value) || $value === []) self::reject('Learning Event components are invalid');
+        if (!is_array($value)) self::reject('Learning Event components are invalid');
         foreach ($value as $component) {
             if (!$component instanceof \stdClass) self::reject('Learning Event component is invalid');
             self::keys($component, ['id', 'description']);
@@ -140,13 +148,14 @@ final class validator {
      */
     private static function result(mixed $value): void {
         if (!$value instanceof \stdClass) self::reject('Learning Event result is invalid');
+        self::non_empty($value, 'Learning Event result is invalid');
         self::keys($value, ['score', 'success', 'completion', 'response', 'duration', 'extensions']);
         if (property_exists($value, 'score')) self::score($value->score);
         foreach (['success', 'completion'] as $field) {
             if (property_exists($value, $field) && !is_bool($value->{$field})) self::reject('Learning Event boolean is invalid');
         }
         if (property_exists($value, 'response') && !is_string($value->response)) self::reject('Learning Event response is invalid');
-        if (property_exists($value, 'duration') && (!is_string($value->duration) || !preg_match('/^P(?:\d+Y)?(?:\d+M)?(?:\d+D)?(?:T(?=\d)(?:\d+H)?(?:\d+M)?(?:\d+(?:\.\d+)?S)?)?$/', $value->duration))) {
+        if (property_exists($value, 'duration') && (!is_string($value->duration) || !preg_match('/^P(?=\d|T\d)(?:\d+Y)?(?:\d+M)?(?:\d+D)?(?:T(?=\d)(?:\d+H)?(?:\d+M)?(?:\d+(?:\.\d+)?S)?)?$/', $value->duration))) {
             self::reject('Learning Event duration is invalid');
         }
         if (property_exists($value, 'extensions')) self::extensions($value->extensions);
@@ -158,6 +167,7 @@ final class validator {
      */
     private static function score(mixed $value): void {
         if (!$value instanceof \stdClass) self::reject('Learning Event score is invalid');
+        self::non_empty($value, 'Learning Event score is invalid');
         self::keys($value, ['scaled', 'raw', 'min', 'max']);
         foreach (['scaled', 'raw', 'min', 'max'] as $field) {
             if (property_exists($value, $field) && ((!is_int($value->{$field}) && !is_float($value->{$field})) || !is_finite((float) $value->{$field}))) {
@@ -165,6 +175,15 @@ final class validator {
             }
         }
         if (property_exists($value, 'scaled') && ($value->scaled < -1 || $value->scaled > 1)) self::reject('Learning Event scaled score is invalid');
+        if (property_exists($value, 'min') && property_exists($value, 'max') && $value->min >= $value->max) {
+            self::reject('Learning Event score range is invalid');
+        }
+        if (property_exists($value, 'raw') && property_exists($value, 'min') && $value->raw < $value->min) {
+            self::reject('Learning Event raw score is invalid');
+        }
+        if (property_exists($value, 'raw') && property_exists($value, 'max') && $value->raw > $value->max) {
+            self::reject('Learning Event raw score is invalid');
+        }
     }
 
     /**
@@ -173,9 +192,11 @@ final class validator {
      */
     private static function context(mixed $value): void {
         if (!$value instanceof \stdClass) self::reject('Learning Event context is invalid');
+        self::non_empty($value, 'Learning Event context is invalid');
         self::keys($value, ['contextActivities', 'extensions']);
         if (property_exists($value, 'contextActivities')) {
             if (!$value->contextActivities instanceof \stdClass) self::reject('Learning Event context activities are invalid');
+            self::non_empty($value->contextActivities, 'Learning Event context activities are invalid');
             self::keys($value->contextActivities, ['parent', 'grouping', 'category', 'other']);
             foreach (['parent', 'grouping', 'category', 'other'] as $field) {
                 if (property_exists($value->contextActivities, $field)) {
@@ -197,7 +218,11 @@ final class validator {
     private static function language_map(mixed $value): void {
         if (!$value instanceof \stdClass || get_object_vars($value) === []) self::reject('Learning Event language map is invalid');
         foreach (get_object_vars($value) as $language => $text) {
-            if (!preg_match('/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/', $language) || !is_string($text) || trim($text) === '') self::reject('Learning Event language map is invalid');
+            $lowerlanguage = strtolower($language);
+            $validlanguage = in_array($lowerlanguage, self::GRANDFATHERED_LANGUAGE_TAGS, true)
+                || preg_match('/^x(?:-[A-Za-z\d]{1,8})+$/i', $language)
+                || preg_match('/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/', $language);
+            if (!$validlanguage || !is_string($text) || trim($text) === '') self::reject('Learning Event language map is invalid');
         }
     }
 
@@ -224,6 +249,9 @@ final class validator {
             return;
         }
         if ($value instanceof \stdClass || is_array($value)) {
+            if ($value instanceof \stdClass && get_object_vars($value) === []) {
+                self::reject('Learning Event JSON value is invalid');
+            }
             foreach ((array) $value as $child) self::json_value($child);
             return;
         }
@@ -252,9 +280,24 @@ final class validator {
      * @param mixed $value Value.
      */
     private static function timestamp(mixed $value): void {
-        if (!is_string($value) || !preg_match('/^(?!0000)\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3,}Z$/', $value)) self::reject('Learning Event timestamp is invalid');
-        $date = \DateTimeImmutable::createFromFormat('!Y-m-d\\TH:i:s.u\\Z', $value);
-        if (!$date) self::reject('Learning Event timestamp is invalid');
+        if (!is_string($value) || !preg_match(
+            '/^(?!0000)(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})\.\d{3,}Z$/',
+            $value,
+            $parts,
+        )) self::reject('Learning Event timestamp is invalid');
+        if (!checkdate((int) $parts[2], (int) $parts[3], (int) $parts[1])
+                || (int) $parts[4] > 23 || (int) $parts[5] > 59 || (int) $parts[6] > 59) {
+            self::reject('Learning Event timestamp is invalid');
+        }
+    }
+
+    /**
+     * Rejects an empty structured object.
+     * @param \stdClass $value Object.
+     * @param string $message Error message.
+     */
+    private static function non_empty(\stdClass $value, string $message): void {
+        if (get_object_vars($value) === []) self::reject($message);
     }
 
     /**

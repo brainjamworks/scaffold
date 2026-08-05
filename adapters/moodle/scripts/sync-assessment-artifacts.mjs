@@ -16,6 +16,11 @@ const artifacts = [
     sourcePath: resolve(adapterRoot, "../../packages/grading/fixtures/assessment-grading.json"),
     vendoredPath: resolve(adapterRoot, "scaffold/tests/fixtures/assessment-grading.json"),
   },
+  {
+    label: "Learning Event conformance corpus",
+    sourcePath: resolve(adapterRoot, "../../packages/core/fixtures/learning-event-conformance.json"),
+    vendoredPath: resolve(adapterRoot, "scaffold/tests/fixtures/learning-event-conformance.json"),
+  },
 ];
 
 if (flags.size !== 1 || !["--write", "--check"].some((flag) => flags.has(flag))) {

@@ -25,6 +25,7 @@ use mod_scaffold\external\reveal_quiz_answers;
 use mod_scaffold\external\save_learner_activity;
 use mod_scaffold\external\start_quiz_attempt;
 use mod_scaffold\external\submit_quiz_question;
+use mod_scaffold\event\statement_received;
 
 
 /**
@@ -63,6 +64,90 @@ final class external_api_test extends \advanced_testcase {
             $returnkeys,
             array_keys($classname::execute_returns()->keys),
         );
+    }
+
+    public function test_accept_learning_event_projects_authenticated_identity_and_canonical_fields(): void {
+        $this->resetAfterTest(true);
+        [$cmid, $learner, $scaffoldid] = $this->create_activity('after_each_answer', false);
+        $this->setUser($learner);
+        $event = $this->learning_event($cmid, [
+            'result' => [
+                'response' => 'choice-a',
+                'success' => true,
+                'score' => ['scaled' => 1, 'raw' => 1, 'min' => 0, 'max' => 1],
+            ],
+            'context' => [
+                'extensions' => ['https://scaffold.example/xapi/extensions/source' => 'core'],
+            ],
+        ]);
+        $sink = $this->redirectEvents();
+
+        $result = accept_learning_event::execute($cmid, $event);
+
+        $this->assertTrue($result['success']);
+        $events = array_values(array_filter(
+            $sink->get_events(),
+            static fn($item): bool => $item instanceof statement_received,
+        ));
+        $this->assertCount(1, $events);
+        $native = $events[0];
+        $this->assertSame((int) $learner->id, (int) $native->userid);
+        $this->assertSame((int) $cmid, (int) $native->contextinstanceid);
+        $this->assertSame((int) $scaffoldid, (int) $native->objectid);
+        $statement = json_decode(
+            json_encode($native->other, JSON_THROW_ON_ERROR),
+            false,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+        $this->assertSame('https://w3id.org/xapi/verbs/progressed', $statement->verb->id);
+        $this->assertSame('choice-a', $statement->result->response);
+        $this->assertSame(
+            'core',
+            $statement->context->extensions->{'https://scaffold.example/xapi/extensions/source'},
+        );
+        $this->assertSame(
+            $cmid,
+            $statement->context->extensions->{'https://scaffold.ac/xapi/extensions/moodle-course-module-id'},
+        );
+    }
+
+    public function test_accept_learning_event_rejects_missing_access(): void {
+        $this->resetAfterTest(true);
+        [$cmid] = $this->create_activity('after_each_answer', false);
+        $this->setUser(null);
+        $this->expectException(\required_capability_exception::class);
+        accept_learning_event::execute($cmid, $this->learning_event($cmid));
+    }
+
+    public function test_accept_learning_event_rejects_a_non_scaffold_module(): void {
+        $this->resetAfterTest(true);
+        [, , , $course] = $this->create_activity('after_each_answer', false);
+        $page = $this->getDataGenerator()->create_module('page', ['course' => $course->id]);
+        $this->setAdminUser();
+
+        $this->expectException(\moodle_exception::class);
+        accept_learning_event::execute($page->cmid, $this->learning_event($page->cmid));
+    }
+
+    public function test_accept_learning_event_rejects_cmid_collision_and_unsupported_verb(): void {
+        $this->resetAfterTest(true);
+        [$cmid, $learner] = $this->create_activity('after_each_answer', false);
+        $this->setUser($learner);
+
+        $this->assert_invalid_parameter(function () use ($cmid): void {
+            accept_learning_event::execute($cmid, $this->learning_event($cmid, [
+                'context' => ['extensions' => [
+                    'https://scaffold.ac/xapi/extensions/moodle-course-module-id' => 999,
+                ]],
+            ]));
+        });
+
+        $this->assert_invalid_parameter(function () use ($cmid): void {
+            accept_learning_event::execute($cmid, $this->learning_event($cmid, [
+                'verb' => ['id' => 'https://attacker.example/verbs/arbitrary'],
+            ]));
+        });
     }
 
     /**
@@ -636,6 +721,28 @@ final class external_api_test extends \advanced_testcase {
         } catch (\moodle_exception) {
             $this->addToAssertionCount(1);
         }
+    }
+
+    /**
+     * Builds a canonical actorless Learning Event for the endpoint.
+     *
+     * @param int $cmid Course module ID.
+     * @param array $overrides Event fields to override.
+     * @return string JSON event.
+     */
+    private function learning_event(int $cmid, array $overrides = []): string {
+        return json_encode(array_replace_recursive([
+            'id' => '550e8400-e29b-41d4-a716-446655440100',
+            'timestamp' => '2026-07-25T10:15:30.123Z',
+            'verb' => [
+                'id' => 'https://w3id.org/xapi/verbs/progressed',
+                'display' => ['en' => 'progressed'],
+            ],
+            'object' => [
+                'objectType' => 'Activity',
+                'id' => 'https://learning.example.test/artifacts/artifact-1/questions/question-1',
+            ],
+        ], $overrides), JSON_THROW_ON_ERROR);
     }
 
     /**
