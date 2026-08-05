@@ -510,9 +510,11 @@ describe("closed producer inputs", () => {
   });
 
   it("builds dormant artefact outcomes only from the Core-owned union", () => {
-    const progressed = buildLearningEventDraft(
-      { type: "artefact.progressed", progressPercent: 42 },
-      { rootActivityId: ROOT_ACTIVITY_ID, title: "Artefact One" },
+    const progressed = Array.from({ length: 100 }, (_, progressPercent) =>
+      buildLearningEventDraft(
+        { type: "artefact.progressed", progressPercent },
+        { rootActivityId: ROOT_ACTIVITY_ID, title: "Artefact One" },
+      ),
     );
     const completed = buildLearningEventDraft(
       {
@@ -523,22 +525,74 @@ describe("closed producer inputs", () => {
       },
       { rootActivityId: ROOT_ACTIVITY_ID },
     );
+    const completedWithoutMeasurement = buildLearningEventDraft(
+      { type: "artefact.completed", completion: true },
+      { rootActivityId: ROOT_ACTIVITY_ID },
+    );
     const passed = buildLearningEventDraft(
       { type: "artefact.passed", score: { scaled: 0.75 } },
       { rootActivityId: ROOT_ACTIVITY_ID },
     );
+    const failed = buildLearningEventDraft(
+      { type: "artefact.failed" },
+      { rootActivityId: ROOT_ACTIVITY_ID },
+    );
 
-    expect(progressed).toMatchObject({
-      verb: LEARNING_EVENT_VERBS.progressed,
-      object: { definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.artefact } },
-      result: { extensions: { [LEARNING_EVENT_EXTENSIONS.progress]: 42 } },
-    });
+    expect(
+      progressed.map((event) => event.result?.extensions?.[LEARNING_EVENT_EXTENSIONS.progress]),
+    ).toStrictEqual(Array.from({ length: 100 }, (_, progressPercent) => progressPercent));
+    expect(
+      progressed.every(
+        (event) =>
+          event.verb.id === LEARNING_EVENT_VERBS.progressed.id &&
+          event.verb.display.en === LEARNING_EVENT_VERBS.progressed.display.en &&
+          event.object.definition?.type === LEARNING_EVENT_ACTIVITY_TYPES.artefact &&
+          event.result?.completion === undefined &&
+          event.result?.success === undefined,
+      ),
+    ).toBe(true);
     expect(completed.result).toStrictEqual({
       completion: true,
       score: { scaled: 0.75, raw: 3, min: 0, max: 4 },
       duration: "PT2M",
     });
+    expect(completedWithoutMeasurement.result).toStrictEqual({ completion: true });
     expect(passed.result).toStrictEqual({ success: true, score: { scaled: 0.75 } });
+    expect(failed.result).toStrictEqual({ success: false });
+    expect(completed.result).not.toHaveProperty("success");
+    expect(passed.result).not.toHaveProperty("completion");
+    expect(failed.result).not.toHaveProperty("completion");
+    expect(completedWithoutMeasurement.result).not.toHaveProperty("score");
+    expect(completedWithoutMeasurement.result).not.toHaveProperty("duration");
+    expect(failed.result).not.toHaveProperty("score");
+  });
+
+  it.each([-1, 100, 1.5, Number.NaN])(
+    "rejects artefact progress outside the integer 0 through 99 contract: %s",
+    (progressPercent) => {
+      expect(
+        CoreLearningEventInputSchema.safeParse({
+          type: "artefact.progressed",
+          progressPercent,
+        }).success,
+      ).toBe(false);
+    },
+  );
+
+  it("rejects root outcome fields that would couple completion and success", () => {
+    expect(
+      CoreLearningEventInputSchema.safeParse({
+        type: "artefact.completed",
+        completion: true,
+        success: true,
+      }).success,
+    ).toBe(false);
+    expect(
+      CoreLearningEventInputSchema.safeParse({
+        type: "artefact.passed",
+        completion: true,
+      }).success,
+    ).toBe(false);
   });
 });
 

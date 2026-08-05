@@ -33,10 +33,7 @@ import {
   createLearnerActivityId,
   createQuizActivityId,
 } from "./catalogue";
-import {
-  LEARNING_EVENT_SESSION_MAX_PENDING_EVENTS,
-  createLearningEventSession,
-} from "./session";
+import { LEARNING_EVENT_SESSION_MAX_PENDING_EVENTS, createLearningEventSession } from "./session";
 
 const ROOT_ACTIVITY_ID = "https://lms.example.test/courses/course-one";
 const EVENT_START = "2026-07-25T10:00:00.000Z";
@@ -52,7 +49,6 @@ const QUIZ_ID = "quiz-one";
 const QUIZ_ATTEMPT_ID = "quiz-attempt-one";
 const LOCAL_RESPONSE_ID = "local option";
 const AUTHORITATIVE_RESPONSE_ID = "authoritative option";
-
 
 const PRIVATE_VALUES = Object.freeze([
   "PRIVATE_ITEM_RESPONSE",
@@ -117,8 +113,12 @@ const ALLOWED_TEMPLATE_KEYS = new Set([
 ]);
 
 const APPROVED_VERB_IDS = new Set(Object.values(LEARNING_EVENT_VERBS).map((verb) => verb.id));
-const APPROVED_ACTIVITY_TYPES: ReadonlySet<string> = new Set(Object.values(LEARNING_EVENT_ACTIVITY_TYPES));
-const APPROVED_EXTENSION_IDS: ReadonlySet<string> = new Set(Object.values(LEARNING_EVENT_EXTENSIONS));
+const APPROVED_ACTIVITY_TYPES: ReadonlySet<string> = new Set(
+  Object.values(LEARNING_EVENT_ACTIVITY_TYPES),
+);
+const APPROVED_EXTENSION_IDS: ReadonlySet<string> = new Set(
+  Object.values(LEARNING_EVENT_EXTENSIONS),
+);
 
 function assessmentResult(overrides: Partial<AssessmentResult> = {}): AssessmentResult {
   return {
@@ -311,7 +311,9 @@ function createAssessmentPort(successStatus: "passed" | "failed"): AssessmentPor
   };
 }
 
-function createInMemoryLearningEventPort(accept: LearningEventPort["accept"] = async () => undefined): {
+function createInMemoryLearningEventPort(
+  accept: LearningEventPort["accept"] = async () => undefined,
+): {
   readonly port: LearningEventPort;
   readonly accepted: LearningEvent[];
 } {
@@ -368,7 +370,9 @@ function learnerActivityRecord(
   };
 }
 
-async function recordLearnerActivitySequence(getLearningEventSession: () => LearningEventSession | null): Promise<void> {
+async function recordLearnerActivitySequence(
+  getLearningEventSession: () => LearningEventSession | null,
+): Promise<void> {
   const store = createConformanceLearnerActivityStore(getLearningEventSession);
   await recordLearnerActivityProgress(store);
   await recordLearnerActivityCompletion(store);
@@ -507,7 +511,9 @@ interface OperationalResult {
   readonly assessmentProblem: AssessmentProblemSnapshot;
 }
 
-function createOperationalStores(getLearningEventSession?: () => LearningEventSession | null): OperationalStores {
+function createOperationalStores(
+  getLearningEventSession?: () => LearningEventSession | null,
+): OperationalStores {
   return {
     learnerActivity: createConformanceLearnerActivityStore(getLearningEventSession),
     assessment: createConformanceAssessmentStore(getLearningEventSession, "passed"),
@@ -831,6 +837,46 @@ describe("Core learning event conformance", () => {
     expectLearningEvents(accepted, approvedActivityIds(false));
   });
 
+  it("does not infer root completion from completed child Activities", async () => {
+    const { port, accepted } = createInMemoryLearningEventPort();
+    const { session } = createDeterministicLearningEventSession(port);
+
+    session.record({
+      type: "resource.completed",
+      resourceId: "resource-one",
+      resourceKind: "video",
+    });
+    session.record({
+      type: "learner-activity.completed",
+      blockId: "checklist-one",
+      activityKind: "checklist",
+    });
+    session.record({
+      type: "quiz.completed",
+      quizId: "quiz-one",
+      attemptId: "attempt-one",
+      startedAt: "2026-08-05T09:55:00.000Z",
+      finishedAt: "2026-08-05T10:00:00.000Z",
+    });
+
+    await vi.waitFor(() => expect(accepted).toHaveLength(4));
+    expect(
+      accepted.filter(
+        (event) => event.object.id === ROOT_ACTIVITY_ID && event.result?.completion === true,
+      ),
+    ).toStrictEqual([]);
+    expect(accepted.filter((event) => event.result?.completion === true)).toHaveLength(3);
+
+    session.record({ type: "artefact.completed", completion: true });
+
+    await vi.waitFor(() => expect(accepted).toHaveLength(5));
+    expect(
+      accepted.filter(
+        (event) => event.object.id === ROOT_ACTIVITY_ID && event.result?.completion === true,
+      ),
+    ).toHaveLength(1);
+  });
+
   it("preserves operational authority across unavailable and failed recording", async () => {
     const acceptingPort = createInMemoryLearningEventPort();
     const acceptingSession = createDeterministicLearningEventSession(acceptingPort.port);
@@ -885,21 +931,17 @@ describe("Core learning event conformance", () => {
     overflowSession.session.start();
     await vi.waitFor(() => expect(acceptOverflow).toHaveBeenCalledOnce());
     for (let index = 1; index < LEARNING_EVENT_SESSION_MAX_PENDING_EVENTS; index += 1) {
-      overflowSession.session.record(
-        {
-          type: "learner-activity.interacted",
-          blockId: `overflow-${index}`,
-          activityKind: "checklist",
-        },
-      );
-    }
-    overflowSession.session.record(
-      {
+      overflowSession.session.record({
         type: "learner-activity.interacted",
-        blockId: "overflow",
+        blockId: `overflow-${index}`,
         activityKind: "checklist",
-      },
-    );
+      });
+    }
+    overflowSession.session.record({
+      type: "learner-activity.interacted",
+      blockId: "overflow",
+      activityKind: "checklist",
+    });
     expect(overflowSession.session.getState()).toMatchObject({
       status: "active",
       acceptance: "failed",
