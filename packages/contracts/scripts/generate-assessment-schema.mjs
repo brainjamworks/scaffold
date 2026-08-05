@@ -18,6 +18,7 @@ import {
   AssessmentTargetContractSchema,
   QuizAttemptSnapshotSchema,
   QuizAttemptStateSchema,
+  ScoreSchema,
 } from "../dist/index.mjs";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -38,6 +39,7 @@ const definitions = {
   AssessmentTargetContract: AssessmentTargetContractSchema,
   QuizAttemptSnapshot: QuizAttemptSnapshotSchema,
   QuizAttemptState: QuizAttemptStateSchema,
+  Score: ScoreSchema,
 };
 
 const uniqueArrayProperties = new Set(["submittedTargetIds", "targetIds"]);

@@ -1,4 +1,7 @@
+import { ScoreSchema, type Score } from "@scaffold/contracts";
 import { z } from "zod";
+
+export type { Score } from "@scaffold/contracts";
 
 export type LearningEventIri = string;
 export type LearningEventUuid = string;
@@ -52,15 +55,8 @@ export interface LearningEventActivity {
   readonly definition?: LearningEventActivityDefinition;
 }
 
-export interface LearningEventScore {
-  readonly scaled?: number;
-  readonly raw?: number;
-  readonly min?: number;
-  readonly max?: number;
-}
-
 export interface LearningEventResult {
-  readonly score?: LearningEventScore;
+  readonly score?: Score;
   readonly success?: boolean;
   readonly completion?: boolean;
   readonly response?: string;
@@ -443,47 +439,9 @@ const LearningEventActivitySchema = z
   })
   .strict();
 
-const LearningEventScoreSchema = z
-  .object({
-    scaled: z.number().finite().min(-1).max(1).optional(),
-    raw: z.number().finite().optional(),
-    min: z.number().finite().optional(),
-    max: z.number().finite().optional(),
-  })
-  .strict()
-  .superRefine((score, context) => {
-    if (Object.keys(score).length === 0) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Scores must not be empty",
-      });
-    }
-
-    if (score.min !== undefined && score.max !== undefined && score.min >= score.max) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Score min must be less than max",
-      });
-    }
-
-    if (score.raw !== undefined && score.min !== undefined && score.raw < score.min) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Score raw must not be less than min",
-      });
-    }
-
-    if (score.raw !== undefined && score.max !== undefined && score.raw > score.max) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Score raw must not be greater than max",
-      });
-    }
-  });
-
 const LearningEventResultSchema = z
   .object({
-    score: LearningEventScoreSchema.optional(),
+    score: ScoreSchema.optional(),
     success: z.boolean().optional(),
     completion: z.boolean().optional(),
     response: z.string().optional(),

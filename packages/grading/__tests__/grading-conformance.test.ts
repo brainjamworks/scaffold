@@ -19,8 +19,7 @@ describe("@scaffold/grading assessment conformance corpus", () => {
       const expected = AssessmentResultSchema.parse(testCase.expected);
       const actual = AssessmentResultSchema.parse(gradeAssessment(target, response));
 
-      expect(actual.score).toBeCloseTo(expected.score, 4);
-      expect(actual.maxScore).toBe(expected.maxScore);
+      expect(actual.score).toEqual(expected.score);
       expect(actual.isCorrect).toBe(expected.isCorrect);
       expect(actual.feedback).toEqual(expected.feedback);
       expect(actual.items).toEqual(expected.items);

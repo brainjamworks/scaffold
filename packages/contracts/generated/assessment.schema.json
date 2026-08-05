@@ -863,17 +863,11 @@
           },
           "type": "object"
         },
-        "maxScore": {
-          "const": 1,
-          "type": "number"
-        },
         "score": {
-          "maximum": 1,
-          "minimum": 0,
-          "type": "number"
+          "$ref": "#/definitions/Score"
         }
       },
-      "required": ["isCorrect", "score", "maxScore", "feedback", "items"],
+      "required": ["isCorrect", "score", "feedback", "items"],
       "type": "object"
     },
     "AssessmentTargetContract": {
@@ -964,7 +958,7 @@
                 },
                 "points": {
                   "minimum": 0,
-                  "type": "number"
+                  "type": "integer"
                 },
                 "showAnswer": {
                   "type": "boolean"
@@ -1383,9 +1377,6 @@
             "finishedAt": {
               "type": ["string", "null"]
             },
-            "maxScore": {
-              "type": "null"
-            },
             "resultsByTargetId": {
               "additionalProperties": {
                 "$ref": "#/definitions/AssessmentResult"
@@ -1427,7 +1418,6 @@
             "answerReviewAuthorized",
             "status",
             "score",
-            "maxScore",
             "successStatus"
           ],
           "type": "object"
@@ -1450,16 +1440,11 @@
             "finishedAt": {
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/finishedAt"
             },
-            "maxScore": {
-              "exclusiveMinimum": 0,
-              "type": "number"
-            },
             "resultsByTargetId": {
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/resultsByTargetId"
             },
             "score": {
-              "minimum": 0,
-              "type": "number"
+              "$ref": "#/definitions/Score"
             },
             "startedAt": {
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/startedAt"
@@ -1494,7 +1479,6 @@
             "answerReviewAuthorized",
             "status",
             "score",
-            "maxScore",
             "successStatus"
           ],
           "type": "object"
@@ -1517,16 +1501,11 @@
             "finishedAt": {
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/finishedAt"
             },
-            "maxScore": {
-              "exclusiveMinimum": 0,
-              "type": "number"
-            },
             "resultsByTargetId": {
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/resultsByTargetId"
             },
             "score": {
-              "minimum": 0,
-              "type": "number"
+              "$ref": "#/definitions/Score"
             },
             "startedAt": {
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/startedAt"
@@ -1553,7 +1532,6 @@
             "answerReviewAuthorized",
             "status",
             "score",
-            "maxScore",
             "successStatus"
           ],
           "type": "object"
@@ -1582,9 +1560,6 @@
             },
             "groupId": {
               "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
-            },
-            "maxScore": {
-              "type": "null"
             },
             "resultsByTargetId": {
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/resultsByTargetId"
@@ -1618,7 +1593,6 @@
             "answerReviewAuthorized",
             "status",
             "score",
-            "maxScore",
             "successStatus"
           ],
           "type": "object"
@@ -1644,16 +1618,11 @@
             "groupId": {
               "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
             },
-            "maxScore": {
-              "exclusiveMinimum": 0,
-              "type": "number"
-            },
             "resultsByTargetId": {
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/resultsByTargetId"
             },
             "score": {
-              "minimum": 0,
-              "type": "number"
+              "$ref": "#/definitions/Score"
             },
             "startedAt": {
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/startedAt"
@@ -1681,7 +1650,6 @@
             "answerReviewAuthorized",
             "status",
             "score",
-            "maxScore",
             "successStatus"
           ],
           "type": "object"
@@ -1707,16 +1675,11 @@
             "groupId": {
               "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
             },
-            "maxScore": {
-              "exclusiveMinimum": 0,
-              "type": "number"
-            },
             "resultsByTargetId": {
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/resultsByTargetId"
             },
             "score": {
-              "minimum": 0,
-              "type": "number"
+              "$ref": "#/definitions/Score"
             },
             "startedAt": {
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/startedAt"
@@ -1744,9 +1707,43 @@
             "answerReviewAuthorized",
             "status",
             "score",
-            "maxScore",
             "successStatus"
           ],
+          "type": "object"
+        }
+      ]
+    },
+    "Score": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "scaled": {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          "required": ["scaled"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "max": {
+              "type": "integer"
+            },
+            "min": {
+              "type": "integer"
+            },
+            "raw": {
+              "type": "integer"
+            },
+            "scaled": {
+              "$ref": "#/definitions/Score/anyOf/0/properties/scaled"
+            }
+          },
+          "required": ["scaled", "raw", "min", "max"],
           "type": "object"
         }
       ]

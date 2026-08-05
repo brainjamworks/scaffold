@@ -64,7 +64,7 @@ import {
 import { assessmentProblemOutcome } from "@/runtime/assessment/test-utils";
 import { pageAssessmentExperience } from "../model/assessment-capability";
 
-const canonicalAssessmentResult = { maxScore: 1 as const, feedback: null, items: {} };
+const canonicalAssessmentResult = { feedback: null, items: {} };
 
 const editors: Editor[] = [];
 let scopedAssessmentStore: AssessmentStoreApi | null = null;
@@ -652,7 +652,6 @@ function setScopedQuizAttempt(overrides: Partial<QuizAttemptState>) {
           finishedAt: null,
           expiresAt: null,
           score: null,
-          maxScore: null,
           resultsByTargetId: {},
           answerReviewAuthorized: false,
           ...overrides,
@@ -680,7 +679,7 @@ describe("useAssessmentRuntime", () => {
       type: "runtime",
       submit: async (args) =>
         assessmentProblemOutcome(
-          { ...canonicalAssessmentResult, isCorrect: true, score: 1 },
+          { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
           { response: args.response },
         ),
     };
@@ -731,7 +730,7 @@ describe("useAssessmentRuntime", () => {
       type: "runtime",
       submit: async (args) =>
         assessmentProblemOutcome(
-          { ...canonicalAssessmentResult, isCorrect: true, score: 1 },
+          { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
           { response: args.response },
         ),
     };
@@ -763,7 +762,7 @@ describe("useAssessmentRuntime", () => {
       type: "runtime",
       check: async (args) => {
         checked = args;
-        const result = { ...canonicalAssessmentResult, isCorrect: true, score: 1 };
+        const result = { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } };
         return assessmentProblemOutcome(result, {
           response: args.response,
           checkResult: result,
@@ -777,7 +776,7 @@ describe("useAssessmentRuntime", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: true,
-            score: 1,
+            score: { scaled: 1 },
           },
           { response: args.response },
         );
@@ -862,7 +861,7 @@ describe("useAssessmentRuntime", () => {
       type: "runtime",
       submit: async (args) =>
         assessmentProblemOutcome(
-          { ...canonicalAssessmentResult, isCorrect: true, score: 1 },
+          { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
           { response: args.response },
         ),
     };
@@ -898,7 +897,7 @@ describe("useAssessmentRuntime", () => {
       type: "runtime",
       submit: async (args) =>
         assessmentProblemOutcome(
-          { ...canonicalAssessmentResult, isCorrect: true, score: 1 },
+          { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
           { response: args.response },
         ),
     };
@@ -936,7 +935,7 @@ describe("useAssessmentRuntime", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: {
               a: { correct: false, expected: false, given: true },
               b: { correct: false, expected: true, given: false },
@@ -983,7 +982,7 @@ describe("useAssessmentRuntime", () => {
       type: "runtime",
       submit: async (args) =>
         assessmentProblemOutcome(
-          { ...canonicalAssessmentResult, isCorrect: false, score: 0 },
+          { ...canonicalAssessmentResult, isCorrect: false, score: { scaled: 0 } },
           { response: args.response },
         ),
       revealAnswer: async () => ({
@@ -1042,7 +1041,7 @@ describe("useAssessmentRuntime", () => {
         const result = {
           ...canonicalAssessmentResult,
           isCorrect: false,
-          score: 0,
+          score: { scaled: 0 },
           items: {
             a: { correct: false, expected: false, given: true },
             b: { correct: false, expected: true, given: false },
@@ -1057,7 +1056,7 @@ describe("useAssessmentRuntime", () => {
       },
       submit: async (args) =>
         assessmentProblemOutcome(
-          { ...canonicalAssessmentResult, isCorrect: false, score: 0 },
+          { ...canonicalAssessmentResult, isCorrect: false, score: { scaled: 0 } },
           { response: args.response },
         ),
     };
@@ -1124,7 +1123,13 @@ describe("useAssessmentRuntime", () => {
     act(() =>
       setScopedProblem(
         problemId,
-        { submissionResult: { ...canonicalAssessmentResult, isCorrect: false, score: 0 } },
+        {
+          submissionResult: {
+            ...canonicalAssessmentResult,
+            isCorrect: false,
+            score: { scaled: 0 },
+          },
+        },
         true,
       ),
     );
@@ -1151,7 +1156,13 @@ describe("useAssessmentRuntime", () => {
     act(() => {
       setScopedProblem(
         problemId,
-        { submissionResult: { ...canonicalAssessmentResult, isCorrect: false, score: 0 } },
+        {
+          submissionResult: {
+            ...canonicalAssessmentResult,
+            isCorrect: false,
+            score: { scaled: 0 },
+          },
+        },
         true,
       );
       setScopedQuizAttempt({ status: "completed" });
@@ -1181,8 +1192,7 @@ describe("useAssessmentRuntime", () => {
         {
           submissionResult: {
             isCorrect: false,
-            score: 0,
-            maxScore: 1,
+            score: { scaled: 0 },
             feedback: { kind: "rich-text", document: { type: "doc" } },
             items: {
               a: {
@@ -1226,8 +1236,7 @@ describe("useAssessmentRuntime", () => {
         {
           submissionResult: {
             isCorrect: false,
-            score: 0,
-            maxScore: 1,
+            score: { scaled: 0 },
             feedback: { kind: "rich-text", document: { type: "doc" } },
             items: {
               a: {

@@ -222,7 +222,7 @@ export const AssessmentTargetSettingsSchema = z
     feedbackMode: AssessmentFeedbackModeSchema,
     isGraded: z.boolean(),
     showAnswer: z.boolean(),
-    points: z.number().nonnegative(),
+    points: z.number().int().nonnegative(),
     maxAttempts: z.number().int().positive().nullable(),
     legend: z.string().optional(),
     label: z.string().optional(),
@@ -441,11 +441,41 @@ export const AssessmentItemDetailSchema = z
   .strict();
 export type AssessmentItemDetail = z.infer<typeof AssessmentItemDetailSchema>;
 
+const ScaledScoreSchema = z.number().finite().min(0).max(1);
+
+export const ScoreSchema = z.union([
+  z.object({ scaled: ScaledScoreSchema }).strict(),
+  z
+    .object({
+      scaled: ScaledScoreSchema,
+      raw: z.number().int(),
+      min: z.number().int(),
+      max: z.number().int(),
+    })
+    .strict()
+    .superRefine((score, context) => {
+      if (score.min >= score.max) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["max"],
+          message: "Score max must be greater than min",
+        });
+      }
+      if (score.raw < score.min || score.raw > score.max) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["raw"],
+          message: "Score raw must be within min and max",
+        });
+      }
+    }),
+]);
+export type Score = z.infer<typeof ScoreSchema>;
+
 export const AssessmentResultSchema = z
   .object({
     isCorrect: z.boolean(),
-    score: z.number().finite().min(0).max(1),
-    maxScore: z.literal(1),
+    score: ScoreSchema,
     feedback: AssessmentFeedbackContentSchema.nullable(),
     items: z.record(z.string(), AssessmentItemDetailSchema),
   })
@@ -506,19 +536,16 @@ export const QuizAttemptStateSchema = z.union([
   QuizAttemptStateBaseSchema.extend({
     status: z.literal("in_progress"),
     score: z.null(),
-    maxScore: z.null(),
     successStatus: z.null(),
   }).strict(),
   QuizAttemptStateBaseSchema.extend({
     status: z.literal("completed"),
-    score: z.number().finite().nonnegative(),
-    maxScore: z.number().finite().positive(),
+    score: ScoreSchema,
     successStatus: QuizSuccessStatusSchema,
   }).strict(),
   QuizAttemptStateBaseSchema.extend({
     status: z.literal("expired"),
-    score: z.number().finite().nonnegative(),
-    maxScore: z.number().finite().positive(),
+    score: ScoreSchema,
     successStatus: QuizSuccessStatusSchema,
   }).strict(),
 ]);
@@ -530,19 +557,16 @@ export const QuizAttemptSnapshotSchema = z.union([
   QuizAttemptSnapshotBaseSchema.extend({
     status: z.literal("in_progress"),
     score: z.null(),
-    maxScore: z.null(),
     successStatus: z.null(),
   }).strict(),
   QuizAttemptSnapshotBaseSchema.extend({
     status: z.literal("completed"),
-    score: z.number().finite().nonnegative(),
-    maxScore: z.number().finite().positive(),
+    score: ScoreSchema,
     successStatus: QuizSuccessStatusSchema,
   }).strict(),
   QuizAttemptSnapshotBaseSchema.extend({
     status: z.literal("expired"),
-    score: z.number().finite().nonnegative(),
-    maxScore: z.number().finite().positive(),
+    score: ScoreSchema,
     successStatus: QuizSuccessStatusSchema,
   }).strict(),
 ]);

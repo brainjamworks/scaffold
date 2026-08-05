@@ -56,7 +56,7 @@ function normalizedResult(
 ): Pick<AssessmentResult, "isCorrect" | "score"> {
   return {
     isCorrect: true,
-    score: 1,
+    score: { scaled: 1 },
     ...overrides,
   };
 }
@@ -405,7 +405,7 @@ describe("closed producer inputs", () => {
       targetId: "question-1",
       definition: singleSelectAssessmentDefinition(),
       response: { kind: "single-select" as const, optionId: "option/a" },
-      result: { isCorrect: true, score: 1 },
+      result: { isCorrect: true, score: { scaled: 1 } },
       attemptNumber: 2,
     };
 
@@ -444,7 +444,7 @@ describe("closed producer inputs", () => {
         },
         interactionKind: "single-select",
         response: { kind: "single-select", optionId: "option-a" },
-        result: { isCorrect: true, score: 1 },
+        result: { isCorrect: true, score: { scaled: 1 } },
         attemptNumber: 1,
       }).success,
     ).toBe(false);
@@ -520,7 +520,6 @@ describe("closed producer inputs", () => {
       {
         type: "content.completed",
         completion: true,
-        score: { scaled: 0.75, raw: 3, min: 0, max: 4 },
         duration: "PT2M",
       },
       { rootActivityId: ROOT_ACTIVITY_ID },
@@ -557,7 +556,6 @@ describe("closed producer inputs", () => {
     ).toBe(true);
     expect(completed.result).toStrictEqual({
       completion: true,
-      score: { scaled: 0.75, raw: 3, min: 0, max: 4 },
       duration: "PT2M",
     });
     expect(completedWithoutMeasurement.result).toStrictEqual({ completion: true });
@@ -595,6 +593,13 @@ describe("closed producer inputs", () => {
         type: "content.completed",
         completion: true,
         success: true,
+      }).success,
+    ).toBe(false);
+    expect(
+      CoreLearningEventInputSchema.safeParse({
+        type: "content.completed",
+        completion: true,
+        score: { scaled: 0.75 },
       }).success,
     ).toBe(false);
     expect(
@@ -933,7 +938,7 @@ describe("Learning Event Event catalogue builders", () => {
         targetId: "question-one",
         definition: singleSelectAssessmentDefinition(),
         response: { kind: "single-select", optionId: "option/a" },
-        result: normalizedResult({ isCorrect: false, score: 0.25 }),
+        result: normalizedResult({ isCorrect: false, score: { scaled: 0.25 } }),
         attemptNumber: 2,
       }),
     ).toStrictEqual({
@@ -956,7 +961,7 @@ describe("Learning Event Event catalogue builders", () => {
       },
       result: {
         success: false,
-        score: { scaled: 0.25, raw: 0.25, min: 0, max: 1 },
+        score: { scaled: 0.25 },
         response: "option%2Fa",
         extensions: { [LEARNING_EVENT_EXTENSIONS.assessmentAttemptNumber]: 2 },
       },
@@ -1435,8 +1440,7 @@ describe("Learning Event Event catalogue builders", () => {
         quizId: "quiz-one",
         attemptId: "attempt-one",
         successStatus,
-        score: 3,
-        maxScore: 4,
+        score: { scaled: 0.75, raw: 3, min: 0, max: 4 },
       }),
     ).toStrictEqual({
       verb,
@@ -1538,20 +1542,22 @@ describe("Learning Event catalogue invariants", () => {
   });
 
   it.each([
-    { score: -1, maxScore: 4 },
-    { score: 5, maxScore: 4 },
-    { score: 1, maxScore: 0 },
-    { score: Number.NaN, maxScore: 4 },
-    { score: 1, maxScore: Number.POSITIVE_INFINITY },
-  ])("rejects an invalid terminal score range: %o", ({ score, maxScore }) => {
+    {},
+    { scaled: -0.01 },
+    { scaled: 1.01 },
+    { scaled: Number.NaN },
+    { scaled: 0.5, raw: 1, min: 0 },
+    { scaled: 0.5, raw: 1.5, min: 0, max: 2 },
+    { scaled: 0.5, raw: 3, min: 0, max: 2 },
+    { scaled: 0.5, raw: 1, min: 2, max: 2 },
+  ])("rejects an invalid canonical score: %o", (score) => {
     expect(() =>
       buildQuizSuccessLearningEventDraft({
         rootActivityId: ROOT_ACTIVITY_ID,
         quizId: "quiz-one",
         attemptId: "attempt-one",
         successStatus: "passed",
-        score,
-        maxScore,
+        score: score as never,
       }),
     ).toThrow();
   });
@@ -1563,8 +1569,7 @@ describe("Learning Event catalogue invariants", () => {
         quizId: "quiz-one",
         attemptId: "attempt-one",
         successStatus: undefined as never,
-        score: 3,
-        maxScore: 4,
+        score: { scaled: 0.75, raw: 3, min: 0, max: 4 },
       }),
     ).toThrow();
   });
@@ -1689,8 +1694,7 @@ describe("Learning Event catalogue invariants", () => {
         quizId: "quiz-one",
         attemptId: "attempt-one",
         successStatus: "passed",
-        score: 3,
-        maxScore: 4,
+        score: { scaled: 0.75, raw: 3, min: 0, max: 4 },
         ...privateCanaries,
       }),
       buildTerminatedLearningEventDraft({

@@ -123,8 +123,7 @@ const APPROVED_EXTENSION_IDS: ReadonlySet<string> = new Set(
 function assessmentResult(overrides: Partial<AssessmentResult> = {}): AssessmentResult {
   return {
     isCorrect: true,
-    score: 1,
-    maxScore: 1,
+    score: { scaled: 1 },
     feedback: {
       kind: "rich-text",
       document: {
@@ -175,7 +174,6 @@ function quizAttempt(groupId: string, overrides: Partial<QuizAttemptState> = {})
     finishedAt: null,
     expiresAt: null,
     score: null,
-    maxScore: null,
     successStatus: null,
     resultsByTargetId: {},
     answerReviewAuthorized: false,
@@ -254,11 +252,11 @@ const quizSettings: QuizAssessmentSettings = {
 function createAssessmentPort(successStatus: "passed" | "failed"): AssessmentPort {
   const standaloneResult = assessmentResult({
     isCorrect: false,
-    score: 0.25,
+    score: { scaled: 0.25 },
   });
   const quizResult = assessmentResult({
     isCorrect: successStatus === "passed",
-    score: successStatus === "passed" ? 1 : 0.25,
+    score: { scaled: successStatus === "passed" ? 1 : 0.25 },
   });
 
   return {
@@ -289,8 +287,7 @@ function createAssessmentPort(successStatus: "passed" | "failed"): AssessmentPor
           currentTargetId: null,
           submittedTargetIds: [QUIZ_TARGET_ID],
           finishedAt: "2026-07-25T10:00:30.000Z",
-          score: successStatus === "passed" ? 1 : 0.25,
-          maxScore: 1,
+          score: { scaled: successStatus === "passed" ? 1 : 0.25 },
           successStatus,
           resultsByTargetId: { [QUIZ_TARGET_ID]: quizResult },
         }),
@@ -459,7 +456,7 @@ async function recordStandalone(
   const result = await store.getState().submit(standaloneIdentity);
   expect(result).toMatchObject({
     isCorrect: false,
-    score: 0.25,
+    score: { scaled: 0.25 },
   });
   if (result === null) {
     throw new Error("Expected the authoritative standalone result");
@@ -799,7 +796,7 @@ describe("Core learning event conformance", () => {
     expect(accepted[8]).toMatchObject({
       result: {
         success: true,
-        score: { scaled: 1, raw: 1, min: 0, max: 1 },
+        score: { scaled: 1 },
       },
     });
     expect(accepted[9]).toMatchObject({
@@ -830,7 +827,7 @@ describe("Core learning event conformance", () => {
     expect(accepted[4]).toMatchObject({
       result: {
         success: false,
-        score: { scaled: 0.25, raw: 0.25, min: 0, max: 1 },
+        score: { scaled: 0.25 },
       },
     });
 

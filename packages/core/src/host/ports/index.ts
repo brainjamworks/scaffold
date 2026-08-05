@@ -49,10 +49,10 @@ export type {
   LearningEventLanguageMap,
   LearningEventPort,
   LearningEventResult,
-  LearningEventScore,
   LearningEventTimestamp,
   LearningEventUuid,
   LearningEventVerb,
+  Score,
 } from "./learning-events";
 export { SCAFFOLD_MEDIA_CONTEXTS, MEDIA_UPLOAD_TYPES } from "./media";
 export type {

@@ -42,7 +42,7 @@ import {
 import { MatchingAuthoringExtension } from "./matching-authoring-extension";
 import { MatchingRuntimeExtension } from "./matching-runtime-extension";
 
-const canonicalAssessmentResult = { maxScore: 1 as const, feedback: null, items: {} };
+const canonicalAssessmentResult = { feedback: null, items: {} };
 
 const BoundedRegionTestNode = TiptapNode.create({
   name: "region",
@@ -481,7 +481,7 @@ describe("composite matching node", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: {},
           },
           { response: args.response },
@@ -700,7 +700,7 @@ describe("composite matching node", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: {},
           },
           { response: args.response },
@@ -756,7 +756,7 @@ describe("composite matching node", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: {},
           },
           { response: args.response },
@@ -808,7 +808,7 @@ describe("composite matching node", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: {
               i1: { correct: false, expected: "t1", given: "t2" },
             },
@@ -865,7 +865,7 @@ describe("composite matching node", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: {
               i1: { correct: false, expected: "t1", given: "t2" },
             },

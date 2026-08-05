@@ -22,8 +22,7 @@ import {
 
 const result: AssessmentResult = {
   isCorrect: true,
-  score: 1,
-  maxScore: 1,
+  score: { scaled: 1 },
   feedback: null,
   items: {},
 };
@@ -46,7 +45,6 @@ const attempt: QuizAttemptState = {
   finishedAt: null,
   expiresAt: null,
   score: null,
-  maxScore: null,
   successStatus: null,
   resultsByTargetId: {},
   answerReviewAuthorized: false,

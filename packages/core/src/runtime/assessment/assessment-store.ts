@@ -194,10 +194,6 @@ function validatedQuizAttempt(
     }
   }
   if (attempt.status !== "in_progress") {
-    if (attempt.score > attempt.maxScore) {
-      throw new Error("Quiz host response score exceeds maxScore");
-    }
-
     const passingScore = registration.settings.passingScore;
     if (passingScore === null) {
       if (attempt.successStatus !== null) {
@@ -212,8 +208,7 @@ function validatedQuizAttempt(
           throw new Error("Quiz host response newly terminal successStatus is required");
         }
       } else {
-        const expectedSuccess =
-          attempt.score / attempt.maxScore >= passingScore ? "passed" : "failed";
+        const expectedSuccess = attempt.score.scaled >= passingScore ? "passed" : "failed";
         if (attempt.successStatus !== expectedSuccess) {
           throw new Error("Quiz host response successStatus does not match passingScore");
         }
@@ -277,7 +272,6 @@ export function redactQuizResult(
   return AssessmentResultSchema.parse({
     isCorrect: parsed.isCorrect,
     score: parsed.score,
-    maxScore: 1,
     feedback: null,
     items: {},
   });
@@ -305,16 +299,16 @@ export function createAssessmentStore({
         const session = getLearningEventSession?.();
         if (!session) return;
         session.record({
-            type: "assessment.answered",
-            targetId: registration.targetId,
-            definition: registration.config.learningEventDefinition,
-            response: problem.response,
-            result: {
-              isCorrect: problem.submissionResult!.isCorrect,
-              score: problem.submissionResult!.score,
-            },
-            attemptNumber: problem.attemptNumber,
-          });
+          type: "assessment.answered",
+          targetId: registration.targetId,
+          definition: registration.config.learningEventDefinition,
+          response: problem.response,
+          result: {
+            isCorrect: problem.submissionResult!.isCorrect,
+            score: problem.submissionResult!.score,
+          },
+          attemptNumber: problem.attemptNumber,
+        });
       } catch {
         // Learning-record delivery is observational and cannot change assessment authority.
       }
@@ -330,11 +324,11 @@ export function createAssessmentStore({
         const session = getLearningEventSession?.();
         if (!session) return;
         session.record({
-            type: "assessment.hint-interacted",
-            targetId: registration.targetId,
-            definition: registration.config.learningEventDefinition,
-            hintNumber: problem.hintsShown,
-          });
+          type: "assessment.hint-interacted",
+          targetId: registration.targetId,
+          definition: registration.config.learningEventDefinition,
+          hintNumber: problem.hintsShown,
+        });
       } catch {
         // Learning-record delivery is observational and cannot change assessment authority.
       }
@@ -356,10 +350,10 @@ export function createAssessmentStore({
           const session = getLearningEventSession?.();
           if (!session) return;
           session.record({
-              type: "quiz.attempted",
-              quizId: registration.authoredGroupId,
-              attemptId: attempt.attemptId,
-            });
+            type: "quiz.attempted",
+            quizId: registration.authoredGroupId,
+            attemptId: attempt.attemptId,
+          });
         } catch {
           // Learning-record failure cannot change an authoritative Quiz start.
         }
@@ -409,20 +403,20 @@ export function createAssessmentStore({
       for (const { problemRegistration, problem } of answers) {
         try {
           session.record({
-              type: "assessment.answered",
-              targetId: problemRegistration.targetId,
-              definition: problemRegistration.config.learningEventDefinition,
-              response: problem.response,
-              result: {
-                isCorrect: problem.submissionResult!.isCorrect,
-                score: problem.submissionResult!.score,
-              },
-              attemptNumber: problem.attemptNumber,
-              quiz: {
-                quizId: registration.authoredGroupId,
-                attemptId: attempt.attemptId,
-              },
-            });
+            type: "assessment.answered",
+            targetId: problemRegistration.targetId,
+            definition: problemRegistration.config.learningEventDefinition,
+            response: problem.response,
+            result: {
+              isCorrect: problem.submissionResult!.isCorrect,
+              score: problem.submissionResult!.score,
+            },
+            attemptNumber: problem.attemptNumber,
+            quiz: {
+              quizId: registration.authoredGroupId,
+              attemptId: attempt.attemptId,
+            },
+          });
         } catch {
           // One learning-record failure cannot change authority or suppress later answers.
         }
@@ -431,12 +425,12 @@ export function createAssessmentStore({
       if (!newlyTerminal) return;
       try {
         session.record({
-            type: "quiz.completed",
-            quizId: registration.authoredGroupId,
-            attemptId: attempt.attemptId,
-            startedAt: attempt.startedAt,
-            finishedAt: attempt.finishedAt,
-          });
+          type: "quiz.completed",
+          quizId: registration.authoredGroupId,
+          attemptId: attempt.attemptId,
+          startedAt: attempt.startedAt,
+          finishedAt: attempt.finishedAt,
+        });
       } catch {
         // Learning-record failure cannot change an authoritative terminal Quiz.
       }
@@ -444,12 +438,11 @@ export function createAssessmentStore({
       if (attempt.successStatus === null) return;
       try {
         session.record({
-            type: attempt.successStatus === "passed" ? "quiz.passed" : "quiz.failed",
-            quizId: registration.authoredGroupId,
-            attemptId: attempt.attemptId,
-            score: attempt.score,
-            maxScore: attempt.maxScore,
-          });
+          type: attempt.successStatus === "passed" ? "quiz.passed" : "quiz.failed",
+          quizId: registration.authoredGroupId,
+          attemptId: attempt.attemptId,
+          score: attempt.score,
+        });
       } catch {
         // Success recording is observational and independent of completion delivery.
       }

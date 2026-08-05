@@ -172,6 +172,12 @@ provide cmi5 or SCORM transports. Child completion does not imply content comple
 defines no automatic content-completion policy. Authoring preview services do not receive the
 capability.
 
+Assessment results and Learning Event Results share one portable `Score`: finite required
+`scaled` in `[0, 1]`, optionally accompanied by a complete integer `raw`/`min`/`max` tuple. Partial
+credit remains an exact scaled value, and raw units are included only when the grading authority
+actually has them. Content completion is score-free; an authoritative final content score belongs
+only to `content.passed` or `content.failed`.
+
 ## Development
 
 Use the smallest focused command while working, then run the release gate

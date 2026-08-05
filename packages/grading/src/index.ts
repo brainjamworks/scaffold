@@ -4,11 +4,11 @@ import type {
   AssessmentResponseValue,
   AssessmentResult,
   AssessmentTargetContract,
+  Score,
 } from "@scaffold/contracts";
 
 const EMPTY_RESULT: AssessmentResult = {
-  score: 0,
-  maxScore: 1,
+  score: { scaled: 0 },
   isCorrect: false,
   feedback: null,
   items: {},
@@ -80,8 +80,7 @@ function gradeSingleSelect(
   }
 
   return {
-    score: isCorrect ? 1 : 0,
-    maxScore: 1,
+    score: countScore(isCorrect ? 1 : 0, 1),
     isCorrect,
     feedback: summaryFeedbackFor(target),
     items,
@@ -109,8 +108,7 @@ function gradeMultiSelect(
 
   if (correctIds.size === 0) {
     return {
-      score: 0,
-      maxScore: 1,
+      score: { scaled: 0 },
       isCorrect: false,
       feedback: summaryFeedbackFor(target),
       items,
@@ -122,8 +120,7 @@ function gradeMultiSelect(
 
   if (exactMatch) {
     return {
-      score: 1,
-      maxScore: 1,
+      score: countScore(correctIds.size, correctIds.size),
       isCorrect: true,
       feedback: summaryFeedbackFor(target),
       items,
@@ -132,12 +129,10 @@ function gradeMultiSelect(
 
   const correctPicks = [...picked].filter((id) => correctIds.has(id)).length;
   const wrongPicks = [...picked].filter((id) => !correctIds.has(id)).length;
-  const perCorrect = 1 / correctIds.size;
-  const score = Math.max(0, correctPicks * perCorrect - wrongPicks * perCorrect);
+  const earnedUnits = Math.max(0, correctPicks - wrongPicks);
 
   return {
-    score,
-    maxScore: 1,
+    score: countScore(earnedUnits, correctIds.size),
     isCorrect: false,
     feedback: summaryFeedbackFor(target),
     items,
@@ -154,8 +149,7 @@ function gradeSequence(
 
   if (expected.length === 0) {
     return {
-      score: 0,
-      maxScore: 1,
+      score: { scaled: 0 },
       isCorrect: false,
       feedback: summaryFeedbackFor(target),
       items,
@@ -187,8 +181,7 @@ function gradeSequence(
   const isCorrect = sameSet && correctCount === expected.length;
 
   return {
-    score: isCorrect ? 1 : correctCount / expected.length,
-    maxScore: 1,
+    score: countScore(isCorrect ? expected.length : correctCount, expected.length),
     isCorrect,
     feedback: summaryFeedbackFor(target),
     items,
@@ -205,8 +198,7 @@ function gradeMatch(
 
   if (pairs.length === 0) {
     return {
-      score: 0,
-      maxScore: 1,
+      score: { scaled: 0 },
       isCorrect: false,
       feedback: summaryFeedbackFor(target),
       items,
@@ -227,8 +219,7 @@ function gradeMatch(
   }
 
   return {
-    score: correctCount / pairs.length,
-    maxScore: 1,
+    score: countScore(correctCount, pairs.length),
     isCorrect: correctCount === pairs.length,
     feedback: summaryFeedbackFor(target),
     items,
@@ -247,8 +238,7 @@ function gradeClassify(
 
   if (placements.length === 0) {
     return {
-      score: 0,
-      maxScore: 1,
+      score: { scaled: 0 },
       isCorrect: false,
       feedback: summaryFeedbackFor(target),
       items,
@@ -269,8 +259,7 @@ function gradeClassify(
   }
 
   return {
-    score: correctCount / placements.length,
-    maxScore: 1,
+    score: countScore(correctCount, placements.length),
     isCorrect: correctCount === placements.length,
     feedback: summaryFeedbackFor(target),
     items,
@@ -287,8 +276,7 @@ function gradeFillBlanks(
 
   if (blanks.length === 0) {
     return {
-      score: 0,
-      maxScore: 1,
+      score: { scaled: 0 },
       isCorrect: false,
       feedback: summaryFeedbackFor(target),
       items,
@@ -314,8 +302,7 @@ function gradeFillBlanks(
   }
 
   return {
-    score: correctCount / blanks.length,
-    maxScore: 1,
+    score: countScore(correctCount, blanks.length),
     isCorrect: correctCount === blanks.length,
     feedback: summaryFeedbackFor(target),
     items,
@@ -335,8 +322,7 @@ function gradeSpatialHotspot(
 
   if (hotspotIds.length === 0) {
     return {
-      score: 0,
-      maxScore: 1,
+      score: { scaled: 0 },
       isCorrect: false,
       feedback: summaryFeedbackFor(target),
       items,
@@ -358,18 +344,20 @@ function gradeSpatialHotspot(
   }
 
   const allCorrect = correctlyClassified === hotspotIds.length;
+  const score =
+    target.assessment.gradingMode === "all-or-nothing"
+      ? countScore(allCorrect ? 1 : 0, 1)
+      : countScore(correctlyClassified, hotspotIds.length);
   return {
-    score:
-      target.assessment.gradingMode === "all-or-nothing"
-        ? allCorrect
-          ? 1
-          : 0
-        : correctlyClassified / hotspotIds.length,
-    maxScore: 1,
+    score,
     isCorrect: allCorrect,
     feedback: summaryFeedbackFor(target),
     items,
   };
+}
+
+function countScore(raw: number, max: number): Score {
+  return { scaled: raw / max, raw, min: 0, max };
 }
 
 type ExtractTarget<Kind extends AssessmentTargetContract["interaction"]["kind"]> =

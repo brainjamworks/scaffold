@@ -53,7 +53,7 @@ import {
   describeCategoriseSourceItemAccessibilityState,
 } from "./categorise-fields";
 
-const canonicalAssessmentResult = { maxScore: 1 as const, feedback: null, items: {} };
+const canonicalAssessmentResult = { feedback: null, items: {} };
 
 const BoundedRegionTestNode = TiptapNode.create({
   name: "region",
@@ -484,7 +484,7 @@ describe("composite categorise node", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: {},
           },
           { response: args.response },
@@ -1006,7 +1006,7 @@ describe("composite categorise node", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: {},
           },
           { response: args.response },
@@ -1083,7 +1083,7 @@ describe("composite categorise node", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: {
               salmon: { correct: false, expected: "fish", given: "birds" },
             },
@@ -1134,7 +1134,7 @@ describe("composite categorise node", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: {
               salmon: { correct: false, expected: "birds", given: "fish" },
             },
@@ -1193,7 +1193,7 @@ describe("composite categorise node", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: {
               salmon: { correct: false, expected: "birds", given: "fish" },
             },

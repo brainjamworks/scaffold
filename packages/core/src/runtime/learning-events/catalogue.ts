@@ -3,9 +3,11 @@ import { z } from "zod";
 import {
   AssessmentInteractionContractSchema,
   AssessmentResponseValueSchema,
+  ScoreSchema,
   type AssessmentInteractionKind,
   type AssessmentResponseValue,
   type AssessmentResult,
+  type Score,
 } from "@scaffold/contracts";
 import {
   LearningEventIriSchema,
@@ -16,7 +18,6 @@ import {
   type LearningEventInteractionComponent,
   type LearningEventInteractionType,
   type LearningEventIri,
-  type LearningEventScore,
   type LearningEventDraft,
   type LearningEventVerb,
 } from "../../host/ports/learning-events";
@@ -663,15 +664,10 @@ function validatedDraft(value: LearningEventDraft): LearningEventDraft {
 function validNormalizedResult(
   result: Pick<AssessmentResult, "isCorrect" | "score">,
 ): Pick<AssessmentResult, "isCorrect" | "score"> {
-  if (
-    typeof result.isCorrect !== "boolean" ||
-    !Number.isFinite(result.score) ||
-    result.score < 0 ||
-    result.score > 1
-  ) {
+  if (typeof result.isCorrect !== "boolean") {
     throw new Error("Assessment result must contain a boolean outcome and normalized score");
   }
-  return result;
+  return { isCorrect: result.isCorrect, score: ScoreSchema.parse(result.score) };
 }
 
 export function buildInitializedLearningEventDraft(input: {
@@ -809,12 +805,7 @@ export function buildAnsweredLearningEventDraft(input: {
     }),
     result: {
       success: result.isCorrect,
-      score: {
-        scaled: result.score,
-        raw: result.score,
-        min: 0,
-        max: 1,
-      },
+      score: result.score,
       ...(encodedResponse.response === undefined ? {} : { response: encodedResponse.response }),
       extensions: {
         [LEARNING_EVENT_EXTENSIONS.assessmentAttemptNumber]: attemptNumber,
@@ -1094,34 +1085,20 @@ export function buildQuizCompletedLearningEventDraft(
 export function buildQuizSuccessLearningEventDraft(
   input: QuizLearningEventInput & {
     readonly successStatus: "passed" | "failed";
-    readonly score: number;
-    readonly maxScore: number;
+    readonly score: Score;
   },
 ): LearningEventDraft {
   if (input.successStatus !== "passed" && input.successStatus !== "failed") {
     throw new Error("successStatus must be passed or failed");
   }
-  if (
-    !Number.isFinite(input.score) ||
-    !Number.isFinite(input.maxScore) ||
-    input.maxScore <= 0 ||
-    input.score < 0 ||
-    input.score > input.maxScore
-  ) {
-    throw new Error("Quiz score must be within a positive authoritative score range");
-  }
+  const score = ScoreSchema.parse(input.score);
   const success = input.successStatus === "passed";
   return validatedDraft({
     verb: success ? LEARNING_EVENT_VERBS.passed : LEARNING_EVENT_VERBS.failed,
     ...quizLearningEventParts(input),
     result: {
       success,
-      score: {
-        scaled: input.score / input.maxScore,
-        raw: input.score,
-        min: 0,
-        max: input.maxScore,
-      },
+      score,
     },
   });
 }
@@ -1232,7 +1209,7 @@ const AssessmentAnsweredInputSchema = z
     targetId: NonBlankIdentitySchema,
     definition: AssessmentLearningEventDefinitionSchema,
     response: AssessmentResponseValueSchema.nullable(),
-    result: z.object({ isCorrect: z.boolean(), score: z.number().finite().min(0).max(1) }).strict(),
+    result: z.object({ isCorrect: z.boolean(), score: ScoreSchema }).strict(),
     attemptNumber: PositiveIntegerSchema,
     quiz: z
       .object({ quizId: NonBlankIdentitySchema, attemptId: NonBlankIdentitySchema })
@@ -1307,21 +1284,10 @@ const QuizSuccessInputSchema = z
   .object({
     type: z.enum(["quiz.passed", "quiz.failed"]),
     ...QuizBaseShape,
-    score: z.number().finite().nonnegative(),
-    maxScore: z.number().finite().positive(),
+    score: ScoreSchema,
   })
   .strict();
 
-const ContentScoreSchema = z
-  .object({
-    scaled: z.number().finite().min(0).max(1).optional(),
-    raw: z.number().finite().optional(),
-    min: z.number().finite().optional(),
-    max: z.number().finite().optional(),
-  })
-  .strict()
-  .refine((score) => Object.keys(score).length > 0, { message: "Scores must not be empty" })
-  .transform((score): LearningEventScore => score as LearningEventScore);
 const ContentProgressedInputSchema = z
   .object({
     type: z.literal("content.progressed"),
@@ -1332,14 +1298,13 @@ const ContentCompletedInputSchema = z
   .object({
     type: z.literal("content.completed"),
     completion: z.literal(true),
-    score: ContentScoreSchema.optional(),
     duration: z.string().duration().optional(),
   })
   .strict();
 const ContentSuccessInputSchema = z
   .object({
     type: z.enum(["content.passed", "content.failed"]),
-    score: ContentScoreSchema.optional(),
+    score: ScoreSchema.optional(),
     duration: z.string().duration().optional(),
   })
   .strict();
@@ -1459,7 +1424,6 @@ export function buildLearningEventDraft(
         object: rootActivity(rootActivityId, context.title),
         result: {
           completion: true,
-          ...(input.score === undefined ? {} : { score: input.score }),
           ...(input.duration === undefined ? {} : { duration: input.duration }),
         },
       });

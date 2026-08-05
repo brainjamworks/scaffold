@@ -27,8 +27,7 @@ function createAssessmentPort(): AssessmentPort {
 function assessmentResult(): AssessmentResult {
   return {
     isCorrect: true,
-    score: 1,
-    maxScore: 1,
+    score: { scaled: 1 },
     feedback: null,
     items: {},
   };

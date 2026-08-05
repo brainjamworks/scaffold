@@ -14,6 +14,7 @@ import {
   AssessmentTargetContractSchema,
   QuizAttemptSnapshotSchema,
   QuizAttemptStateSchema,
+  ScoreSchema,
 } from "./index";
 
 const ajv = new Ajv({ allErrors: true, strict: true });
@@ -81,8 +82,7 @@ const group = {
 
 const result = {
   isCorrect: true,
-  score: 1,
-  maxScore: 1,
+  score: { scaled: 1, raw: 1, min: 0, max: 1 },
   feedback: null,
   items: {},
 };
@@ -97,7 +97,6 @@ const quizAttempt = {
   finishedAt: null,
   expiresAt: null,
   score: null,
-  maxScore: null,
   successStatus: null,
   resultsByTargetId: {},
   answerReviewAuthorized: false,
@@ -112,7 +111,6 @@ const quizAttemptSnapshot = {
   finishedAt: null,
   expiresAt: null,
   score: null,
-  maxScore: null,
   successStatus: null,
   resultsByTargetId: {},
   answerReviewAuthorized: false,
@@ -152,6 +150,7 @@ describe("generated assessment JSON Schema", () => {
       "AssessmentTargetContract",
       "QuizAttemptSnapshot",
       "QuizAttemptState",
+      "Score",
     ]);
     expect(assessmentJsonSchema.$comment).toBe(
       "This bundle is generated from the strict version 2 Zod assessment contracts.",
@@ -167,6 +166,10 @@ describe("generated assessment JSON Schema", () => {
     expectRejected(AssessmentTargetContractSchema, "AssessmentTargetContract", {
       ...target,
       settings: { ...target.settings, points: -1 },
+    });
+    expectRejected(AssessmentTargetContractSchema, "AssessmentTargetContract", {
+      ...target,
+      settings: { ...target.settings, points: 0.5 },
     });
     expectRejected(AssessmentTargetContractSchema, "AssessmentTargetContract", {
       ...target,
@@ -246,8 +249,17 @@ describe("generated assessment JSON Schema", () => {
   });
 
   it("matches representable result and Quiz attempt constraints", () => {
+    expectAccepted(ScoreSchema, "Score", { scaled: 0.5 });
+    expectAccepted(ScoreSchema, "Score", { scaled: 0.5, raw: 1, min: 0, max: 2 });
+    expectRejected(ScoreSchema, "Score", { scaled: -0.01 });
+    expectRejected(ScoreSchema, "Score", { scaled: 0.5, raw: 0.5, min: 0, max: 1 });
+    expectRejected(ScoreSchema, "Score", { scaled: 0.5, raw: 1, min: 0 });
+
     expectAccepted(AssessmentResultSchema, "AssessmentResult", result);
-    expectRejected(AssessmentResultSchema, "AssessmentResult", { ...result, score: 1.01 });
+    expectRejected(AssessmentResultSchema, "AssessmentResult", {
+      ...result,
+      score: { scaled: 1.01 },
+    });
     expectRejected(AssessmentResultSchema, "AssessmentResult", { ...result, maxScore: 2 });
     expectRejected(AssessmentResultSchema, "AssessmentResult", {
       ...result,
@@ -261,8 +273,7 @@ describe("generated assessment JSON Schema", () => {
     });
     expectRejected(QuizAttemptStateSchema, "QuizAttemptState", {
       ...quizAttempt,
-      score: -1,
-      maxScore: 1,
+      score: { scaled: 0 },
     });
     const incompleteQuizAttempt = structuredClone(quizAttempt);
     Reflect.deleteProperty(incompleteQuizAttempt, "successStatus");
@@ -383,8 +394,7 @@ describe("generated assessment JSON Schema", () => {
           ...quizAttempt,
           status: "completed",
           currentTargetId: null,
-          score: 0,
-          maxScore: 0,
+          score: { scaled: 0.5, raw: 0.5, min: 0, max: 1 },
         },
       },
       {

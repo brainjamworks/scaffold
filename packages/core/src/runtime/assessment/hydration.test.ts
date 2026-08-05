@@ -30,8 +30,7 @@ const problem: AssessmentProblemSnapshot = {
   checkResult: null,
   submissionResult: {
     isCorrect: true,
-    score: 1,
-    maxScore: 1,
+    score: { scaled: 1 },
     feedback: null,
     items: {},
   },
@@ -46,7 +45,6 @@ const quiz: QuizAttemptSnapshot = {
   finishedAt: null,
   expiresAt: null,
   score: null,
-  maxScore: null,
   successStatus: null,
   resultsByTargetId: {},
   answerReviewAuthorized: false,
@@ -183,8 +181,7 @@ describe("assessment snapshot hydration", () => {
       currentTargetId: null,
       submittedTargetIds: ["target-one"],
       finishedAt: "2026-07-16T09:05:00Z",
-      score: 1,
-      maxScore: 1,
+      score: { scaled: 1 },
       successStatus: null,
     };
     const store = createAssessmentStore({

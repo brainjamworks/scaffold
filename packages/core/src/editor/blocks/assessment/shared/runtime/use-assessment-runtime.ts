@@ -395,7 +395,6 @@ function reviewResultForPolicy(
   return {
     isCorrect: result.isCorrect,
     score: result.score,
-    maxScore: result.maxScore,
     feedback: policy.authoredReviewVisible ? result.feedback : null,
     items: {},
   };

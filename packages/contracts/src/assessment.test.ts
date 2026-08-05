@@ -29,6 +29,7 @@ import {
   QuizPassingScoreSchema,
   QuizReviewDetailSchema,
   QuizReviewTimingSchema,
+  ScoreSchema,
   QuizSuccessStatusSchema,
   QuizTimerSettingsSchema,
   SequenceResponseSchema,
@@ -60,6 +61,7 @@ import {
   type QuizAttemptsPerQuestion,
   type QuizReviewDetail,
   type QuizReviewTiming,
+  type Score,
   type QuizTimerSettings,
   type SequenceResponse,
   type SingleSelectResponse,
@@ -69,8 +71,7 @@ import {
 describe("assessment learner snapshot contracts", () => {
   const result: AssessmentResult = {
     isCorrect: true,
-    score: 1,
-    maxScore: 1,
+    score: { scaled: 1, raw: 1, min: 0, max: 1 },
     feedback: null,
     items: {},
   };
@@ -93,7 +94,6 @@ describe("assessment learner snapshot contracts", () => {
     finishedAt: null,
     expiresAt: null,
     score: null,
-    maxScore: null,
     successStatus: null,
     resultsByTargetId: {},
     answerReviewAuthorized: false,
@@ -1150,6 +1150,7 @@ describe("assessment target contracts", () => {
 
     for (const settings of [
       { ...target.settings, points: -1 },
+      { ...target.settings, points: 0.5 },
       { ...target.settings, maxAttempts: 0 },
       { ...target.settings, maxAttempts: -1 },
       { ...target.settings, maxAttempts: 1.5 },
@@ -1851,6 +1852,44 @@ describe("assessment item detail contracts", () => {
   });
 });
 
+describe("score contracts", () => {
+  it("accepts scaled-only and complete integer score tuples", () => {
+    const scores: Score[] = [
+      { scaled: 0 },
+      { scaled: 0.5 },
+      { scaled: 1 },
+      { scaled: 0.5, raw: 1, min: 0, max: 2 },
+      { scaled: 0.5, raw: -1, min: -2, max: 0 },
+    ];
+
+    for (const score of scores) {
+      expect(ScoreSchema.parse(score)).toEqual(score);
+    }
+  });
+
+  it("rejects malformed, partial, fractional, and inconsistent score shapes", () => {
+    for (const score of [
+      {},
+      { raw: 1, min: 0, max: 2 },
+      { scaled: -0.01 },
+      { scaled: 1.01 },
+      { scaled: Number.NaN },
+      { scaled: Infinity },
+      { scaled: 0.5, raw: 1 },
+      { scaled: 0.5, raw: 1, min: 0 },
+      { scaled: 0.5, raw: 0.5, min: 0, max: 1 },
+      { scaled: 0.5, raw: 1, min: 0.5, max: 2 },
+      { scaled: 0.5, raw: 1, min: 0, max: 2.5 },
+      { scaled: 0.5, raw: 1, min: 1, max: 1 },
+      { scaled: 0.5, raw: 0, min: 1, max: 2 },
+      { scaled: 0.5, raw: 3, min: 0, max: 2 },
+      { scaled: 0.5, providerScale: 100 },
+    ]) {
+      expect(ScoreSchema.safeParse(score).success).toBe(false);
+    }
+  });
+});
+
 describe("assessment result contracts", () => {
   const feedback: AssessmentFeedbackContent = {
     kind: "rich-text",
@@ -1867,8 +1906,7 @@ describe("assessment result contracts", () => {
 
   const result: AssessmentResult = {
     isCorrect: false,
-    score: 0.5,
-    maxScore: 1,
+    score: { scaled: 0.5 },
     feedback,
     items: {
       "item-1": {
@@ -1884,16 +1922,14 @@ describe("assessment result contracts", () => {
     const results: AssessmentResult[] = [
       {
         isCorrect: false,
-        score: 0,
-        maxScore: 1,
+        score: { scaled: 0 },
         feedback: null,
         items: {},
       },
       result,
       {
         isCorrect: true,
-        score: 1,
-        maxScore: 1,
+        score: { scaled: 1, raw: 2, min: 0, max: 2 },
         feedback: null,
         items: {},
       },
@@ -1904,20 +1940,20 @@ describe("assessment result contracts", () => {
     }
   });
 
-  it("requires a finite normalized score from zero through one", () => {
-    for (const score of [-0.01, 1.01, Number.NaN, Infinity, Number.NEGATIVE_INFINITY]) {
+  it("requires the canonical structured score", () => {
+    for (const score of [0.5, {}, { scaled: 0.5, raw: 1 }]) {
       expect(AssessmentResultSchema.safeParse({ ...result, score }).success).toBe(false);
     }
   });
 
-  it("requires literal maxScore 1", () => {
+  it("rejects the removed maxScore field", () => {
     for (const maxScore of [0, 0.5, 2, "1", null]) {
       expect(AssessmentResultSchema.safeParse({ ...result, maxScore }).success).toBe(false);
     }
   });
 
   it("requires every result envelope field, including feedback and items", () => {
-    for (const field of ["isCorrect", "score", "maxScore", "feedback", "items"]) {
+    for (const field of ["isCorrect", "score", "feedback", "items"]) {
       const incomplete = structuredClone(result);
       Reflect.deleteProperty(incomplete, field);
       expect(AssessmentResultSchema.safeParse(incomplete).success).toBe(false);
@@ -1971,8 +2007,7 @@ describe("assessment result contracts", () => {
 describe("quiz attempt state contracts", () => {
   const result: AssessmentResult = {
     isCorrect: true,
-    score: 1,
-    maxScore: 1,
+    score: { scaled: 1, raw: 1, min: 0, max: 1 },
     feedback: null,
     items: {},
   };
@@ -1997,7 +2032,6 @@ describe("quiz attempt state contracts", () => {
     finishedAt: null,
     expiresAt: null,
     score: null,
-    maxScore: null,
     successStatus: null,
     resultsByTargetId: {},
     answerReviewAuthorized: false,
@@ -2009,8 +2043,7 @@ describe("quiz attempt state contracts", () => {
     currentTargetId: null,
     submittedTargetIds: ["question-1"],
     finishedAt: "2026-07-15T12:05:00Z",
-    score: 1,
-    maxScore: 1,
+    score: { scaled: 1, raw: 1, min: 0, max: 1 },
     successStatus: "passed",
     resultsByTargetId: { "question-1": result },
     answerReviewAuthorized: true,
@@ -2034,14 +2067,12 @@ describe("quiz attempt state contracts", () => {
       QuizAttemptStateSchema.parse({
         ...completedAttempt,
         status: "expired",
-        score: 0,
-        maxScore: 1,
+        score: { scaled: 0 },
       }),
     ).toEqual({
       ...completedAttempt,
       status: "expired",
-      score: 0,
-      maxScore: 1,
+      score: { scaled: 0 },
     });
   });
 
@@ -2054,15 +2085,13 @@ describe("quiz attempt state contracts", () => {
     expect(
       QuizAttemptStateSchema.safeParse({
         ...inProgressAttempt,
-        score: 0,
-        maxScore: 1,
+        score: { scaled: 0 },
       }).success,
     ).toBe(false);
     expect(
       QuizAttemptStateSchema.safeParse({
         ...completedAttempt,
         score: null,
-        maxScore: null,
         successStatus: null,
       }).success,
     ).toBe(false);
@@ -2124,28 +2153,22 @@ describe("quiz attempt state contracts", () => {
     }
   });
 
-  it("requires finite nonnegative aggregate score values", () => {
-    expect(
-      QuizAttemptStateSchema.safeParse({ ...completedAttempt, score: 0, maxScore: 0 }).success,
-    ).toBe(false);
-
-    for (const score of [-1, Number.NaN, Infinity, Number.NEGATIVE_INFINITY]) {
+  it("requires a canonical terminal score", () => {
+    for (const score of [0.5, {}, { scaled: 0.5, raw: 1 }]) {
       expect(QuizAttemptStateSchema.safeParse({ ...completedAttempt, score }).success).toBe(false);
-    }
-    for (const maxScore of [0, -1, Number.NaN, Infinity, Number.NEGATIVE_INFINITY]) {
-      expect(QuizAttemptStateSchema.safeParse({ ...completedAttempt, maxScore }).success).toBe(
-        false,
-      );
     }
   });
 
-  it("requires score and maxScore to be both null or both numeric", () => {
+  it("rejects terminal score during an in-progress attempt and removed maxScore fields", () => {
     expect(
-      QuizAttemptStateSchema.safeParse({ ...inProgressAttempt, score: null, maxScore: 1 }).success,
+      QuizAttemptStateSchema.safeParse({ ...inProgressAttempt, score: { scaled: 0 } }).success,
     ).toBe(false);
-    expect(
-      QuizAttemptStateSchema.safeParse({ ...inProgressAttempt, score: 0, maxScore: null }).success,
-    ).toBe(false);
+    expect(QuizAttemptStateSchema.safeParse({ ...inProgressAttempt, maxScore: null }).success).toBe(
+      false,
+    );
+    expect(QuizAttemptStateSchema.safeParse({ ...completedAttempt, maxScore: 1 }).success).toBe(
+      false,
+    );
   });
 
   it("validates every nested result against the canonical result schema", () => {
@@ -2179,7 +2202,6 @@ describe("quiz attempt state contracts", () => {
       "finishedAt",
       "expiresAt",
       "score",
-      "maxScore",
       "successStatus",
       "resultsByTargetId",
       "answerReviewAuthorized",

@@ -522,8 +522,7 @@ describe("ScaffoldLearnerApp", () => {
                   checkResult: null,
                   submissionResult: {
                     isCorrect: true,
-                    score: 1,
-                    maxScore: 1,
+                    score: { scaled: 1 },
                     feedback: null,
                     items: {},
                   },

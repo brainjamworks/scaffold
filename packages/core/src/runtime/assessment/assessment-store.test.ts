@@ -7,6 +7,7 @@ import type {
   AssessmentResult,
   QuizAssessmentSettings,
   QuizAttemptState,
+  Score,
 } from "@scaffold/contracts";
 import {
   AssessmentProblemSnapshotSchema,
@@ -45,8 +46,7 @@ function createAssessmentPort(overrides: Partial<AssessmentPort> = {}): Assessme
 function assessmentResult(overrides: Partial<AssessmentResult> = {}): AssessmentResult {
   return {
     isCorrect: true,
-    score: 1,
-    maxScore: 1,
+    score: { scaled: 1 },
     feedback: null,
     items: {},
     ...overrides,
@@ -136,8 +136,7 @@ function quizSuccessInput(input: {
   readonly quizId: string;
   readonly attemptId: string;
   readonly successStatus: "passed" | "failed";
-  readonly score: number;
-  readonly maxScore: number;
+  readonly score: Score;
 }): CoreLearningEventInput {
   const { rootActivityId: _rootActivityId, ...event } = input;
   const { successStatus, ...success } = event;
@@ -182,7 +181,6 @@ function createQuizAttempt(
     finishedAt: null,
     expiresAt: null,
     score: null,
-    maxScore: null,
     successStatus: null,
     resultsByTargetId: {},
     answerReviewAuthorized: false,
@@ -546,8 +544,7 @@ describe("createAssessmentStore", () => {
       status: "completed",
       currentTargetId: null,
       finishedAt: "2026-07-16T12:05:00.000Z",
-      score: 1,
-      maxScore: 1,
+      score: { scaled: 1 },
       successStatus: null,
     });
     const getLearningEventSession = vi.fn();
@@ -580,7 +577,7 @@ describe("createAssessmentStore", () => {
 
   it("submits a Quiz question with its canonical response and applies authoritative target state", async () => {
     const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
-    const result = assessmentResult({ isCorrect: false, score: 0 });
+    const result = assessmentResult({ isCorrect: false, score: { scaled: 0 } });
     const canonicalProblem = {
       ...createProblemSnapshot(),
       attemptNumber: 5,
@@ -677,8 +674,7 @@ describe("createAssessmentStore", () => {
       currentTargetId: null,
       submittedTargetIds: ["target-one"],
       finishedAt: "2026-07-16T12:05:00.000Z",
-      score: 1,
-      maxScore: 1,
+      score: { scaled: 1 },
       successStatus: "passed",
       resultsByTargetId: { "target-one": result },
     });
@@ -746,8 +742,7 @@ describe("createAssessmentStore", () => {
         quizId: "quiz-one",
         attemptId: "attempt-one",
         successStatus: "passed",
-        score: 1,
-        maxScore: 1,
+        score: { scaled: 1 },
       }),
     ]);
     expect(JSON.stringify(sessionDouble.record.mock.calls)).not.toContain("PRIVATE_");
@@ -755,7 +750,7 @@ describe("createAssessmentStore", () => {
 
   it("records equal-valued Quiz retries as distinct authoritative attempts", async () => {
     const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
-    const result = assessmentResult({ isCorrect: false, score: 0 });
+    const result = assessmentResult({ isCorrect: false, score: { scaled: 0 } });
     const submitQuestion = vi
       .fn()
       .mockResolvedValueOnce({
@@ -921,7 +916,7 @@ describe("createAssessmentStore", () => {
   it("records explicit-finish answers before completion and authoritative success", async () => {
     const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
     const firstResult = assessmentResult();
-    const secondResult = assessmentResult({ isCorrect: false, score: 0 });
+    const secondResult = assessmentResult({ isCorrect: false, score: { scaled: 0 } });
     const canonicalFirstProblem = {
       ...createProblemSnapshot(),
       attemptNumber: 7,
@@ -941,8 +936,7 @@ describe("createAssessmentStore", () => {
         currentTargetId: null,
         submittedTargetIds: ["target-one", "target-two"],
         finishedAt: "2026-07-16T12:05:00.000Z",
-        score: 2,
-        maxScore: 2,
+        score: { scaled: 1, raw: 2, min: 0, max: 2 },
         successStatus: "passed",
         resultsByTargetId: {
           "target-one": firstResult,
@@ -989,7 +983,10 @@ describe("createAssessmentStore", () => {
     store.getState().setLocalResponse(secondIdentity, { choice: "option-b" });
     await expect(
       store.getState().finishQuizAttempt({ groupId: "quiz-one" }),
-    ).resolves.toMatchObject({ status: "completed", score: 2, maxScore: 2 });
+    ).resolves.toMatchObject({
+      status: "completed",
+      score: { scaled: 1, raw: 2, min: 0, max: 2 },
+    });
     expect(finishAttempt).toHaveBeenCalledWith({
       attemptId: "attempt-one",
       groupId,
@@ -1036,8 +1033,7 @@ describe("createAssessmentStore", () => {
         quizId: "quiz-one",
         attemptId: "attempt-one",
         successStatus: "passed",
-        score: 2,
-        maxScore: 2,
+        score: { scaled: 1, raw: 2, min: 0, max: 2 },
       }),
     ]);
     expect(store.getState().durable.quizzes[groupId]).toMatchObject({
@@ -1063,7 +1059,7 @@ describe("createAssessmentStore", () => {
     async ({ replacementTargetIds }) => {
       const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
       const firstResult = assessmentResult();
-      const secondResult = assessmentResult({ isCorrect: false, score: 0 });
+      const secondResult = assessmentResult({ isCorrect: false, score: { scaled: 0 } });
       const firstProblem: AssessmentProblemSnapshot = {
         ...createProblemSnapshot(),
         attemptNumber: 1,
@@ -1082,8 +1078,7 @@ describe("createAssessmentStore", () => {
         currentTargetId: null,
         submittedTargetIds: ["target-one", "target-two"],
         finishedAt: "2026-07-16T12:05:00.000Z",
-        score: 1,
-        maxScore: 2,
+        score: { scaled: 0.5, raw: 1, min: 0, max: 2 },
         successStatus: null,
         resultsByTargetId: {
           "target-one": firstResult,
@@ -1169,15 +1164,13 @@ describe("createAssessmentStore", () => {
     {
       name: "failed success",
       passingScore: 0.75,
-      score: 1,
-      maxScore: 2,
+      score: { scaled: 0.5, raw: 1, min: 0, max: 2 },
       successStatus: "failed" as const,
     },
     {
       name: "completion without a threshold",
       passingScore: null,
-      score: 1,
-      maxScore: 2,
+      score: { scaled: 0.5, raw: 1, min: 0, max: 2 },
       successStatus: null,
     },
   ])("records explicit-finish $name from authoritative state", async (testCase) => {
@@ -1188,7 +1181,6 @@ describe("createAssessmentStore", () => {
       submittedTargetIds: ["target-one"],
       finishedAt: "2026-07-16T12:05:00.000Z",
       score: testCase.score,
-      maxScore: testCase.maxScore,
       successStatus: testCase.successStatus,
       resultsByTargetId: { "target-one": assessmentResult() },
     });
@@ -1245,7 +1237,6 @@ describe("createAssessmentStore", () => {
           attemptId: "attempt-one",
           successStatus: testCase.successStatus,
           score: testCase.score,
-          maxScore: testCase.maxScore,
         }),
       );
     }
@@ -1265,8 +1256,7 @@ describe("createAssessmentStore", () => {
         currentTargetId: null,
         submittedTargetIds: ["target-one"],
         finishedAt: "2026-07-16T12:05:00.000Z",
-        score: 1,
-        maxScore: 1,
+        score: { scaled: 1 },
         successStatus: "passed",
         resultsByTargetId: { "target-one": assessmentResult() },
       });
@@ -1329,8 +1319,7 @@ describe("createAssessmentStore", () => {
       currentTargetId: null,
       submittedTargetIds: ["target-one"],
       finishedAt: "2026-07-16T12:05:00.000Z",
-      score: 1,
-      maxScore: 1,
+      score: { scaled: 1 },
       successStatus: "passed",
       resultsByTargetId: { "target-one": assessmentResult() },
     });
@@ -1419,34 +1408,30 @@ describe("createAssessmentStore", () => {
 
   it.each([
     {
-      name: "score above maximum",
+      name: "success disagreeing with an invalidly high scaled score",
       passingScore: 0.5,
-      score: 2,
-      maxScore: 1,
-      successStatus: "passed" as const,
-      error: "Quiz host response score exceeds maxScore",
+      score: { scaled: 1 },
+      successStatus: "failed" as const,
+      error: "Quiz host response successStatus does not match passingScore",
     },
     {
       name: "success disagreeing with threshold",
       passingScore: 0.75,
-      score: 1,
-      maxScore: 2,
+      score: { scaled: 0.5, raw: 1, min: 0, max: 2 },
       successStatus: "passed" as const,
       error: "Quiz host response successStatus does not match passingScore",
     },
     {
       name: "missing success on a new terminal transition",
       passingScore: 0.75,
-      score: 1,
-      maxScore: 2,
+      score: { scaled: 0.5, raw: 1, min: 0, max: 2 },
       successStatus: null,
       error: "Quiz host response newly terminal successStatus is required",
     },
     {
       name: "success without a pass criterion",
       passingScore: null,
-      score: 1,
-      maxScore: 2,
+      score: { scaled: 0.5, raw: 1, min: 0, max: 2 },
       successStatus: "passed" as const,
       error: "Quiz host response successStatus requires passingScore",
     },
@@ -1459,7 +1444,6 @@ describe("createAssessmentStore", () => {
       submittedTargetIds: ["target-one", "target-two"],
       finishedAt: "2026-07-16T12:05:00.000Z",
       score: testCase.score,
-      maxScore: testCase.maxScore,
       successStatus: testCase.successStatus,
       resultsByTargetId: {
         "target-one": assessmentResult(),
@@ -1555,8 +1539,7 @@ describe("createAssessmentStore", () => {
       currentTargetId: null,
       submittedTargetIds: ["target-one"],
       finishedAt: "2026-07-16T12:05:00.000Z",
-      score: 1,
-      maxScore: 1,
+      score: { scaled: 1 },
       resultsByTargetId: { "target-one": assessmentResult() },
       answerReviewAuthorized: true,
     });
@@ -1593,8 +1576,7 @@ describe("createAssessmentStore", () => {
             status: "completed",
             currentTargetId: null,
             finishedAt: "2026-07-16T12:04:00.000Z",
-            score: 1,
-            maxScore: 1,
+            score: { scaled: 1 },
           }),
         },
       },
@@ -1611,7 +1593,7 @@ describe("createAssessmentStore", () => {
   it("prevents binary item answers from being reconstructed in result-only review", () => {
     const result = assessmentResult({
       isCorrect: false,
-      score: 0.5,
+      score: { scaled: 0.5 },
       items: {
         "multi-select-option": {
           correct: false,
@@ -1632,8 +1614,7 @@ describe("createAssessmentStore", () => {
     const resultOnly = redactQuizResult(result, "result_only", true);
     expect(AssessmentResultSchema.parse(resultOnly)).toEqual({
       isCorrect: false,
-      score: 0.5,
-      maxScore: 1,
+      score: { scaled: 0.5 },
       feedback: null,
       items: {},
     });
@@ -1760,8 +1741,7 @@ describe("createAssessmentStore", () => {
       currentTargetId: null,
       submittedTargetIds: ["target-one"],
       finishedAt: "2026-07-16T12:05:00.000Z",
-      score: 1,
-      maxScore: 1,
+      score: { scaled: 1 },
       successStatus: "passed",
       resultsByTargetId: { "target-one": result },
     });
@@ -1833,8 +1813,7 @@ describe("createAssessmentStore", () => {
         quizId: "quiz-one",
         attemptId: "attempt-one",
         successStatus: "passed",
-        score: 1,
-        maxScore: 1,
+        score: { scaled: 1 },
       }),
     ]);
   });
@@ -1879,14 +1858,13 @@ describe("createAssessmentStore", () => {
 
   it("records authoritative failed success for an expired attempt", async () => {
     const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
-    const result = assessmentResult({ isCorrect: false, score: 0 });
+    const result = assessmentResult({ isCorrect: false, score: { scaled: 0 } });
     const expired = createQuizAttempt(groupId, {
       status: "expired",
       currentTargetId: null,
       submittedTargetIds: ["target-one"],
       finishedAt: "2026-07-16T12:05:00.000Z",
-      score: 0,
-      maxScore: 1,
+      score: { scaled: 0 },
       successStatus: "failed",
       resultsByTargetId: { "target-one": result },
     });
@@ -1938,8 +1916,7 @@ describe("createAssessmentStore", () => {
         quizId: "quiz-one",
         attemptId: "attempt-one",
         successStatus: "failed",
-        score: 0,
-        maxScore: 1,
+        score: { scaled: 0 },
       }),
     ]);
   });
@@ -1963,8 +1940,7 @@ describe("createAssessmentStore", () => {
       currentTargetId: null,
       submittedTargetIds: ["target-one"],
       finishedAt: "2026-07-16T12:05:00.000Z",
-      score: 1,
-      maxScore: 1,
+      score: { scaled: 1 },
       resultsByTargetId: { "target-one": result },
     });
     const submitQuestion = vi.fn().mockResolvedValue({
@@ -2032,8 +2008,7 @@ describe("createAssessmentStore", () => {
       status: "completed",
       currentTargetId: null,
       finishedAt: "2026-07-16T12:05:00.000Z",
-      score: 0,
-      maxScore: 1,
+      score: { scaled: 0 },
     });
     const store = createAssessmentStore({
       artifactId: "artifact-one",
@@ -2143,7 +2118,7 @@ describe("createAssessmentStore", () => {
           problem: {
             ...createProblemSnapshot(),
             attemptNumber: 1,
-            checkResult: assessmentResult({ isCorrect: false, score: 0 }),
+            checkResult: assessmentResult({ isCorrect: false, score: { scaled: 0 } }),
           },
         })
         .mockRejectedValueOnce(new Error("offline")),
@@ -2165,7 +2140,7 @@ describe("createAssessmentStore", () => {
 
     expect(store.getState().durable.problems[problemId]).toMatchObject({
       attemptNumber: 1,
-      checkResult: assessmentResult({ isCorrect: false, score: 0 }),
+      checkResult: assessmentResult({ isCorrect: false, score: { scaled: 0 } }),
     });
     expect(store.getState().requests[problemId]).toMatchObject({
       operation: "check",
@@ -2233,7 +2208,7 @@ describe("createAssessmentStore", () => {
       submitted: true as const,
       submissionResult: assessmentResult({
         isCorrect: false,
-        score: 0.25,
+        score: { scaled: 0.25 },
         items: {
           "private-item": {
             correct: false,
@@ -2452,7 +2427,7 @@ describe("createAssessmentStore", () => {
             ...createProblemSnapshot(),
             attemptNumber: 1,
             submitted: true,
-            submissionResult: assessmentResult({ isCorrect: false, score: 0 }),
+            submissionResult: assessmentResult({ isCorrect: false, score: { scaled: 0 } }),
           },
         }),
       }),

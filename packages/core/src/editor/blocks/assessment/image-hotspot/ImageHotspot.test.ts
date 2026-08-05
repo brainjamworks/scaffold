@@ -77,7 +77,7 @@ import {
 import { ImageHotspotAuthoringExtension } from "./image-hotspot-authoring-extension";
 import { ImageHotspotRuntimeExtension } from "./image-hotspot-runtime-extension";
 
-const canonicalAssessmentResult = { maxScore: 1 as const, feedback: null, items: {} };
+const canonicalAssessmentResult = { feedback: null, items: {} };
 const sessionBoundedHostNodeType = "image_hotspot_session_bounded_host";
 const sessionBoundedHostDefinition: BlockDefinition = {
   nodeType: sessionBoundedHostNodeType,
@@ -392,8 +392,7 @@ function completedQuizSnapshot({
     startedAt: "2026-07-16T12:00:00.000Z",
     finishedAt: "2026-07-16T12:01:00.000Z",
     expiresAt: null,
-    score: 0,
-    maxScore: result.maxScore,
+    score: result.score,
     successStatus: null,
     resultsByTargetId: { [targetId]: result },
     answerReviewAuthorized: true,
@@ -830,7 +829,7 @@ describe("composite image_hotspot node", () => {
       type: "runtime",
       submit: async (args) =>
         assessmentProblemOutcome(
-          { ...canonicalAssessmentResult, isCorrect: true, score: 1 },
+          { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
           { response: args.response },
         ),
     };
@@ -1833,7 +1832,7 @@ describe("composite image_hotspot node", () => {
       type: "runtime",
       submit: async (args) =>
         assessmentProblemOutcome(
-          { ...canonicalAssessmentResult, isCorrect: true, score: 1 },
+          { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
           { response: args.response },
         ),
     });
@@ -2260,7 +2259,7 @@ describe("composite image_hotspot node", () => {
       type: "runtime",
       submit: async (args) =>
         assessmentProblemOutcome(
-          { ...canonicalAssessmentResult, isCorrect: true, score: 1 },
+          { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
           { response: args.response },
         ),
     };
@@ -2337,7 +2336,7 @@ describe("composite image_hotspot node", () => {
       type: "runtime",
       submit: async (args) =>
         assessmentProblemOutcome(
-          { ...canonicalAssessmentResult, isCorrect: true, score: 1 },
+          { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
           { response: args.response },
         ),
     };
@@ -2428,7 +2427,7 @@ describe("composite image_hotspot node", () => {
         type: "runtime",
         submit: async (args) =>
           assessmentProblemOutcome(
-            { ...canonicalAssessmentResult, isCorrect: true, score: 1 },
+            { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
             { response: args.response },
           ),
       },
@@ -2452,8 +2451,7 @@ describe("composite image_hotspot node", () => {
           clicks: [{ x: 20, y: 20, hotspotId: "h1" }],
           result: {
             isCorrect: true,
-            score: 1,
-            maxScore: 1,
+            score: { scaled: 1 },
             feedback: null,
             items: { h1: { correct: true, expected: true, given: true } },
           },
@@ -2473,7 +2471,7 @@ describe("composite image_hotspot node", () => {
         type: "runtime",
         submit: async (args) =>
           assessmentProblemOutcome(
-            { ...canonicalAssessmentResult, isCorrect: false, score: 0 },
+            { ...canonicalAssessmentResult, isCorrect: false, score: { scaled: 0 } },
             { response: args.response },
           ),
       },
@@ -2502,8 +2500,7 @@ describe("composite image_hotspot node", () => {
           clicks: [{ x: 60, y: 40, hotspotId: "h2" }],
           result: {
             isCorrect: false,
-            score: 0,
-            maxScore: 1,
+            score: { scaled: 0 },
             feedback: null,
             items: { h2: { correct: false, given: true } },
           },
@@ -2535,7 +2532,7 @@ describe("composite image_hotspot node", () => {
         type: "runtime",
         submit: async (args) =>
           assessmentProblemOutcome(
-            { ...canonicalAssessmentResult, isCorrect: false, score: 0 },
+            { ...canonicalAssessmentResult, isCorrect: false, score: { scaled: 0 } },
             { response: args.response },
           ),
       },
@@ -2559,8 +2556,7 @@ describe("composite image_hotspot node", () => {
     const problemId = `artifact:artifact-1/block:${targetId}`;
     const result: AssessmentResult = {
       isCorrect: false,
-      score: 0,
-      maxScore: 1,
+      score: { scaled: 0 },
       feedback: null,
       items: {
         h1: { correct: false, expected: true, given: false },
@@ -2595,7 +2591,7 @@ describe("composite image_hotspot node", () => {
         type: "runtime",
         submit: async (args) =>
           assessmentProblemOutcome(
-            { ...canonicalAssessmentResult, isCorrect: false, score: 0 },
+            { ...canonicalAssessmentResult, isCorrect: false, score: { scaled: 0 } },
             { response: args.response },
           ),
       },
@@ -2637,8 +2633,7 @@ describe("composite image_hotspot node", () => {
     const problemId = `artifact:artifact-1/block:${targetId}`;
     const result: AssessmentResult = {
       isCorrect: false,
-      score: 0,
-      maxScore: 1,
+      score: { scaled: 0 },
       feedback: null,
       items: {
         h1: { correct: false, expected: true, given: false },
@@ -2682,7 +2677,7 @@ describe("composite image_hotspot node", () => {
         type: "runtime",
         submit: async (args) =>
           assessmentProblemOutcome(
-            { ...canonicalAssessmentResult, isCorrect: false, score: 0 },
+            { ...canonicalAssessmentResult, isCorrect: false, score: { scaled: 0 } },
             { response: args.response },
           ),
       },
@@ -2767,7 +2762,7 @@ describe("composite image_hotspot node", () => {
       type: "runtime",
       submit: async (args) =>
         assessmentProblemOutcome(
-          { ...canonicalAssessmentResult, isCorrect: true, score: 1 },
+          { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
           { response: args.response },
         ),
     };
@@ -2853,7 +2848,7 @@ describe("composite image_hotspot node", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: {
               h2: {
                 correct: false,
@@ -2934,7 +2929,7 @@ describe("composite image_hotspot node", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: {
               h1: {
                 correct: false,
@@ -3019,7 +3014,7 @@ describe("composite image_hotspot node", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: { h2: { correct: false } },
           },
           { response: args.response },

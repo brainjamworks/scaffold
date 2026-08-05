@@ -13,6 +13,7 @@ import {
   type QuizAttemptState,
   type QuizAssessmentSettings,
   type QuizSuccessStatus,
+  type Score,
 } from "@scaffold/contracts";
 import type {
   AssessmentCheckRequest,
@@ -96,7 +97,7 @@ function gradeFromLocalDocument(
   args: AssessmentCheckRequest | AssessmentSubmitRequest,
 ): AssessmentResult {
   const entry = findLocalTarget(source, args);
-  if (!entry) return { isCorrect: false, score: 0, maxScore: 1, feedback: null, items: {} };
+  if (!entry) return { isCorrect: false, score: { scaled: 0 }, feedback: null, items: {} };
   return toAssessmentResult(gradeAssessment(entry, args.response));
 }
 
@@ -121,7 +122,7 @@ function gradeQuizResponse(
   response: AssessmentResponseValue,
 ): AssessmentResult {
   const target = targetById(source, targetId);
-  if (!target) return { isCorrect: false, score: 0, maxScore: 1, feedback: null, items: {} };
+  if (!target) return { isCorrect: false, score: { scaled: 0 }, feedback: null, items: {} };
   return toAssessmentResult(gradeAssessment(target, response));
 }
 
@@ -129,22 +130,30 @@ function aggregateQuizResults(
   targetIds: string[],
   resultsByTargetId: Record<string, AssessmentResult>,
 ) {
+  const scaledTotal = targetIds.reduce(
+    (total, targetId) => total + (resultsByTargetId[targetId]?.score.scaled ?? 0),
+    0,
+  );
+  const scaled = targetIds.length === 0 ? 0 : scaledTotal / targetIds.length;
+  const allBinary = targetIds.every((targetId) => {
+    const value = resultsByTargetId[targetId]?.score.scaled ?? 0;
+    return value === 0 || value === 1;
+  });
+  if (!allBinary || targetIds.length === 0) return { scaled } satisfies Score;
   return {
-    score: targetIds.reduce(
-      (total, targetId) => total + (resultsByTargetId[targetId]?.score ?? 0),
-      0,
-    ),
-    maxScore: targetIds.length,
-  };
+    scaled,
+    raw: targetIds.filter((targetId) => resultsByTargetId[targetId]?.score.scaled === 1).length,
+    min: 0,
+    max: targetIds.length,
+  } satisfies Score;
 }
 
 function calculateQuizSuccessStatus(
   passingScore: number | null | undefined,
-  score: number,
-  maxScore: number,
+  score: Score,
 ): QuizSuccessStatus {
   if (passingScore == null) return null;
-  return score / maxScore >= passingScore ? "passed" : "failed";
+  return score.scaled >= passingScore ? "passed" : "failed";
 }
 
 function isExpired(expiresAt: string | null): boolean {
@@ -165,7 +174,7 @@ function terminalQuizAttempt(
   submittedTargetIds: string[],
   resultsByTargetId: Record<string, AssessmentResult>,
 ): QuizAttemptState {
-  const { score, maxScore } = aggregateQuizResults(targetIds, resultsByTargetId);
+  const score = aggregateQuizResults(targetIds, resultsByTargetId);
   return {
     ...previous,
     status,
@@ -173,10 +182,9 @@ function terminalQuizAttempt(
     submittedTargetIds,
     finishedAt: new Date().toISOString(),
     score,
-    maxScore,
     resultsByTargetId,
     answerReviewAuthorized: true,
-    successStatus: calculateQuizSuccessStatus(settings.passingScore, score, maxScore),
+    successStatus: calculateQuizSuccessStatus(settings.passingScore, score),
   };
 }
 
@@ -265,7 +273,6 @@ export function createLocalAssessmentPortFromProjection(
           finishedAt: null,
           expiresAt,
           score: null,
-          maxScore: null,
           resultsByTargetId: {},
           answerReviewAuthorized: false,
           successStatus: null,
@@ -344,7 +351,6 @@ export function createLocalAssessmentPortFromProjection(
                 submittedTargetIds,
                 finishedAt: null,
                 score: null,
-                maxScore: null,
                 resultsByTargetId,
                 answerReviewAuthorized: true,
                 successStatus: null,

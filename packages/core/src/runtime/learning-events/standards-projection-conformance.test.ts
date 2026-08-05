@@ -6,7 +6,7 @@ import {
   type LearningEventActivity,
   type LearningEventContext,
   type LearningEventJsonValue,
-  type LearningEventScore,
+  type Score,
 } from "../../host/ports/learning-events";
 import {
   LEARNING_EVENT_ACTIVITY_TYPES,
@@ -55,7 +55,7 @@ const ANSWERED_INPUT = {
     },
   },
   response: { kind: "single-select", optionId: "option-a" },
-  result: { isCorrect: true, score: 1 },
+  result: { isCorrect: true, score: { scaled: 1 } },
   attemptNumber: 2,
   quiz: { quizId: "quiz-one", attemptId: "quiz-attempt-one" },
 } as const satisfies CoreLearningEventInput;
@@ -152,6 +152,7 @@ function buildCmi5HostContext(
 ): HostContext {
   const hasCompletionOrSuccess =
     event.result?.completion !== undefined || event.result?.success !== undefined;
+  const isCmi5Allowed = event.verb.id === LEARNING_EVENT_VERBS.progressed.id;
 
   return {
     registration: launchContext.registration,
@@ -162,12 +163,16 @@ function buildCmi5HostContext(
           id: launchContext.publisherActivityId,
         },
       ],
-      category: [
-        { objectType: "Activity", id: CMI5_CATEGORY_ID },
-        ...(hasCompletionOrSuccess
-          ? [{ objectType: "Activity" as const, id: CMI5_MOVEON_CATEGORY_ID }]
-          : []),
-      ],
+      ...(isCmi5Allowed
+        ? {}
+        : {
+            category: [
+              { objectType: "Activity" as const, id: CMI5_CATEGORY_ID },
+              ...(hasCompletionOrSuccess
+                ? [{ objectType: "Activity" as const, id: CMI5_MOVEON_CATEGORY_ID }]
+                : []),
+            ],
+          }),
     },
     extensions: {
       [CMI5_SESSION_ID_EXTENSION]: launchContext.sessionId,
@@ -198,7 +203,7 @@ type Cmi5Projection =
       readonly outcome: "passed" | "failed";
       readonly success: boolean;
       readonly duration: string;
-      readonly score?: LearningEventScore;
+      readonly score?: Score;
     };
 
 function projectCmi5Semantics(event: LearningEvent): Cmi5Projection {
@@ -270,7 +275,7 @@ interface ScormInteraction {
 interface ScormRuntimeState {
   readonly completionStatus: "unknown" | "completed";
   readonly successStatus: "unknown" | "passed" | "failed";
-  readonly score: LearningEventScore | null;
+  readonly score: Score | null;
   readonly progressMeasure: number | null;
   readonly interactions: readonly ScormInteraction[];
 }
@@ -287,10 +292,7 @@ const EMPTY_SCORM_STATE: ScormRuntimeState = Object.freeze({
   interactions: Object.freeze([]),
 });
 
-function withScore(
-  state: ScormRuntimeState,
-  score: LearningEventScore | undefined,
-): ScormRuntimeState {
+function withScore(state: ScormRuntimeState, score: Score | undefined): ScormRuntimeState {
   return score === undefined ? state : { ...state, score };
 }
 
@@ -354,7 +356,7 @@ function reduceScorm(state: ScormRuntimeState, event: LearningEvent): ScormProje
       if (event.result?.completion !== true) return { status: "unsupported", state };
       return {
         status: "accepted",
-        state: withScore({ ...state, completionStatus: "completed" }, event.result.score),
+        state: { ...state, completionStatus: "completed" },
       };
     case LEARNING_EVENT_VERBS.passed.id:
     case LEARNING_EVENT_VERBS.failed.id:
@@ -451,7 +453,6 @@ describe("cmi5 projection sufficiency", () => {
         {
           type: "content.completed",
           completion: true,
-          score: { scaled: 0.75, raw: 3, min: 0, max: 4 },
           duration: "PT2M",
         },
         4,
@@ -503,6 +504,21 @@ describe("cmi5 projection sufficiency", () => {
       { status: "unsupported" },
       { status: "unsupported" },
     ]);
+  });
+
+  it.each([
+    { label: "scaled-only", score: { scaled: 0.25 } },
+    { label: "integer tuple", score: { scaled: 0.5, raw: 1, min: 0, max: 2 } },
+  ] as const)("preserves a canonical $label cmi5 score", ({ score }) => {
+    expect(
+      projectCmi5Semantics(materializeEvent({ type: "content.passed", duration: "PT1S", score })),
+    ).toStrictEqual({
+      status: "accepted",
+      outcome: "passed",
+      success: true,
+      duration: "PT1S",
+      score,
+    });
   });
 
   it("adds the required launch Context only from trusted host configuration", () => {
@@ -558,6 +574,24 @@ describe("cmi5 projection sufficiency", () => {
       expect(event.context).toBeUndefined();
     },
   );
+
+  it("keeps progressed launch Context while omitting cmi5-defined categories", () => {
+    const event = materializeEvent({ type: "content.progressed", progressPercent: 42 });
+    const statement = enrichOrdinaryXapi(
+      event,
+      TRUSTED_ACTOR,
+      buildCmi5HostContext(event, TRUSTED_CMI5_LAUNCH_CONTEXT),
+    );
+
+    expect(statement.context).toStrictEqual({
+      registration: REGISTRATION_ID,
+      contextActivities: {
+        grouping: [{ objectType: "Activity", id: PUBLISHER_ACTIVITY_ID }],
+      },
+      extensions: { [CMI5_SESSION_ID_EXTENSION]: CMI5_SESSION_ID },
+    });
+    expect(statement.context?.contextActivities).not.toHaveProperty("category");
+  });
 });
 
 describe("SCORM projection sufficiency", () => {
@@ -591,12 +625,7 @@ describe("SCORM projection sufficiency", () => {
       materializeEvent({
         type: "content.completed",
         completion: true,
-        score: { scaled: 0.6, raw: 6, min: 0, max: 10 },
       }),
-    );
-    const completedWithoutScore = reduceScorm(
-      EMPTY_SCORM_STATE,
-      materializeEvent({ type: "content.completed", completion: true }),
     );
     const passed = reduceScorm(
       EMPTY_SCORM_STATE,
@@ -613,12 +642,8 @@ describe("SCORM projection sufficiency", () => {
       state: {
         completionStatus: "completed",
         successStatus: "unknown",
-        score: { scaled: 0.6, raw: 6, min: 0, max: 10 },
+        score: null,
       },
-    });
-    expect(completedWithoutScore).toMatchObject({
-      status: "accepted",
-      state: { completionStatus: "completed", score: null },
     });
     expect(passed).toMatchObject({
       status: "accepted",

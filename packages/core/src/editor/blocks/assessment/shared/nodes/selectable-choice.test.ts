@@ -46,7 +46,7 @@ import { McqRuntimeExtension } from "@/editor/blocks/assessment/mcq/mcq-runtime-
 import { MultiselectAuthoringExtension } from "@/editor/blocks/assessment/multiselect/multiselect-authoring-extension";
 import { MultiselectRuntimeExtension } from "@/editor/blocks/assessment/multiselect/multiselect-runtime-extension";
 
-const canonicalAssessmentResult = { maxScore: 1 as const, feedback: null, items: {} };
+const canonicalAssessmentResult = { feedback: null, items: {} };
 
 function makeEditor(
   choices: Array<{ id: string; isCorrect: boolean; text?: string }>,
@@ -423,7 +423,7 @@ describe("runtime selectable choice bounded scrolling", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: {
               a: { correct: false, expected: false, given: true },
               b: { correct: false, expected: true, given: false },
@@ -517,7 +517,7 @@ describe("runtime selectable choice bounded scrolling", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: {
               b: { correct: false, expected: false, given: true },
               c: { correct: true, expected: true, given: true },
@@ -928,7 +928,7 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: {
               a: {
                 correct: false,
@@ -1039,7 +1039,7 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             feedback: richFeedback("Review the concept before trying again."),
           },
           { response: args.response },
@@ -1084,7 +1084,7 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
       type: "runtime",
       submit: async (args) =>
         assessmentProblemOutcome(
-          { ...canonicalAssessmentResult, isCorrect: true, score: 1 },
+          { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
           { response: args.response },
         ),
     };
@@ -1133,7 +1133,7 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: {
               a: { correct: false, expected: false, given: true },
               b: { correct: false, expected: true, given: false },
@@ -1182,7 +1182,7 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
       type: "runtime",
       submit: async (args) =>
         assessmentProblemOutcome(
-          { ...canonicalAssessmentResult, isCorrect: true, score: 1 },
+          { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
           { response: args.response },
         ),
     };
@@ -1213,7 +1213,7 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
       type: "runtime",
       submit: async (args) =>
         assessmentProblemOutcome(
-          { ...canonicalAssessmentResult, isCorrect: true, score: 1 },
+          { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
           { response: args.response },
         ),
     };
@@ -1247,7 +1247,7 @@ describe("toggleChoiceCorrect — checkbox mode (Multiselect)", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: {
               a: { correct: false, expected: false, given: true },
               b: { correct: true, expected: true, given: true },
@@ -1352,7 +1352,7 @@ describe("toggleChoiceCorrect — checkbox mode (Multiselect)", () => {
       type: "runtime",
       submit: async (args) =>
         assessmentProblemOutcome(
-          { ...canonicalAssessmentResult, isCorrect: true, score: 1 },
+          { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
           { response: args.response },
         ),
     };
@@ -1400,7 +1400,7 @@ describe("toggleChoiceCorrect — checkbox mode (Multiselect)", () => {
       type: "runtime",
       submit: async (args) =>
         assessmentProblemOutcome(
-          { ...canonicalAssessmentResult, isCorrect: true, score: 1 },
+          { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
           { response: args.response },
         ),
     };
@@ -1434,7 +1434,7 @@ describe("toggleChoiceCorrect — checkbox mode (Multiselect)", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: true,
-            score: 1,
+            score: { scaled: 1 },
             items: {
               b: { correct: true, expected: true, given: true },
             },

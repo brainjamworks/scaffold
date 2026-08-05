@@ -52,6 +52,7 @@ import { builtInSurfaceAuthoringChromeResolver } from "@/editor/surfaces/authori
 import { createDisposableEditor, describeBlockContract } from "@/editor/testing";
 import {
   QuizAttemptStateSchema,
+  ScoreSchema,
   type QuizSettings,
   AssessmentProblemSnapshotSchema,
   AssessmentResultSchema,
@@ -162,7 +163,7 @@ beforeEach(() => {
   );
 });
 
-const canonicalAssessmentResult = { maxScore: 1 as const, feedback: null, items: {} };
+const canonicalAssessmentResult = { feedback: null, items: {} };
 const STABLE_ID_PATTERN = /^[0-9A-Z_a-z-]{12}$/;
 
 interface ProblemSeed {
@@ -223,8 +224,9 @@ function seedAssessmentStore(seed: ScopedAssessmentSeed) {
     const current = pendingQuizzes[groupId];
     const status = quizStatus(raw["status"], current?.status ?? "in_progress");
     const terminal = status !== "in_progress";
-    const score = terminal ? numberValue(raw["score"], current?.score ?? 0) : null;
-    const maxScore = terminal ? numberValue(raw["maxScore"], current?.maxScore ?? 1) : null;
+    const score = terminal
+      ? ScoreSchema.parse(raw["score"] ?? current?.score ?? { scaled: 0 })
+      : null;
     const successStatus =
       terminal && (raw["successStatus"] === "passed" || raw["successStatus"] === "failed")
         ? raw["successStatus"]
@@ -249,7 +251,6 @@ function seedAssessmentStore(seed: ScopedAssessmentSeed) {
       finishedAt: nullableStringValue(raw["finishedAt"], current?.finishedAt ?? null),
       expiresAt: nullableStringValue(raw["expiresAt"], current?.expiresAt ?? null),
       score,
-      maxScore,
       successStatus,
       resultsByTargetId: {
         ...(current?.resultsByTargetId ?? {}),
@@ -312,8 +313,7 @@ function assessmentResult(value: unknown): AssessmentResult {
   const rawItems = recordValue(raw["items"]);
   return AssessmentResultSchema.parse({
     isCorrect: booleanValue(raw["isCorrect"], false),
-    score: numberValue(raw["score"], 0),
-    maxScore: 1,
+    score: ScoreSchema.parse(raw["score"] ?? { scaled: 0 }),
     feedback: null,
     items: Object.fromEntries(
       Object.entries(rawItems).map(([itemId, itemValue]) => {
@@ -734,8 +734,7 @@ describe("quiz block skeleton", () => {
           attemptId: "attempt-bounded-review",
           status: "completed",
           currentTargetId: null,
-          score: 1,
-          maxScore: 2,
+          score: { scaled: 0.5, raw: 1, min: 0, max: 2 },
           answerReviewAuthorized: true,
         },
       },
@@ -778,8 +777,7 @@ describe("quiz block skeleton", () => {
           attemptId: "attempt-flow-review",
           status: "completed",
           currentTargetId: null,
-          score: 1,
-          maxScore: 2,
+          score: { scaled: 0.5, raw: 1, min: 0, max: 2 },
           answerReviewAuthorized: true,
         },
       },
@@ -1206,8 +1204,8 @@ describe("quiz block skeleton", () => {
             currentTargetId: null,
             submittedTargetIds: ["question-a", "question-b"],
             resultsByTargetId: {
-              "question-a": { ...canonicalAssessmentResult, isCorrect: true, score: 1 },
-              "question-b": { ...canonicalAssessmentResult, isCorrect: true, score: 1 },
+              "question-a": { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
+              "question-b": { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
             },
           }),
         );
@@ -1345,7 +1343,7 @@ describe("quiz block skeleton", () => {
             currentTargetId: "question-b",
             submittedTargetIds: ["question-a"],
             resultsByTargetId: {
-              "question-a": { ...canonicalAssessmentResult, isCorrect: true, score: 1 },
+              "question-a": { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
             },
           }),
         );
@@ -1412,7 +1410,7 @@ describe("quiz block skeleton", () => {
             currentTargetId: "question-b",
             submittedTargetIds: ["question-a"],
             resultsByTargetId: {
-              "question-a": { ...canonicalAssessmentResult, isCorrect: true, score: 1 },
+              "question-a": { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
             },
             answerReviewAuthorized: true,
           }),
@@ -1473,7 +1471,7 @@ describe("quiz block skeleton", () => {
             currentTargetId: "question-b",
             submittedTargetIds: ["question-a"],
             resultsByTargetId: {
-              "question-a": { ...canonicalAssessmentResult, isCorrect: true, score: 1 },
+              "question-a": { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
             },
             answerReviewAuthorized: true,
           }),
@@ -1528,8 +1526,8 @@ describe("quiz block skeleton", () => {
             resultsByTargetId: {
               "question-a":
                 submittedResponses.length === 1
-                  ? { ...canonicalAssessmentResult, isCorrect: false, score: 0 }
-                  : { ...canonicalAssessmentResult, isCorrect: true, score: 1 },
+                  ? { ...canonicalAssessmentResult, isCorrect: false, score: { scaled: 0 } }
+                  : { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
             },
             answerReviewAuthorized: true,
           }),
@@ -1563,7 +1561,7 @@ describe("quiz block skeleton", () => {
       attemptNumber: 1,
       submitted: false,
       response: { choices: "a" },
-      checkResult: { isCorrect: false, score: 0 },
+      checkResult: { isCorrect: false, score: { scaled: 0 } },
       submissionResult: null,
     });
 
@@ -1695,8 +1693,7 @@ describe("quiz block skeleton", () => {
           attemptId: "attempt-results",
           status: "completed",
           currentTargetId: null,
-          score: 1,
-          maxScore: 2,
+          score: { scaled: 0.5, raw: 1, min: 0, max: 2 },
         },
       },
     });
@@ -1719,8 +1716,7 @@ describe("quiz block skeleton", () => {
           attemptId: "attempt-results",
           status: "completed",
           currentTargetId: null,
-          score: 1,
-          maxScore: 2,
+          score: { scaled: 0.5, raw: 1, min: 0, max: 2 },
         },
       },
     });
@@ -1746,8 +1742,7 @@ describe("quiz block skeleton", () => {
           attemptId: "attempt-review",
           status: "completed",
           currentTargetId: null,
-          score: 2,
-          maxScore: 2,
+          score: { scaled: 1, raw: 2, min: 0, max: 2 },
           answerReviewAuthorized: true,
         },
       },
@@ -1793,8 +1788,7 @@ describe("quiz block skeleton", () => {
           attemptId: "attempt-review",
           status: "completed",
           currentTargetId: null,
-          score: 2,
-          maxScore: 2,
+          score: { scaled: 1, raw: 2, min: 0, max: 2 },
         },
       },
     });
@@ -1808,8 +1802,7 @@ describe("quiz block skeleton", () => {
             groupId: args.groupId,
             status: "completed",
             currentTargetId: null,
-            score: 2,
-            maxScore: 2,
+            score: { scaled: 1, raw: 2, min: 0, max: 2 },
             answerReviewAuthorized: true,
           }),
         );
@@ -1843,8 +1836,7 @@ describe("quiz block skeleton", () => {
           attemptId: "attempt-review",
           status: "completed",
           currentTargetId: null,
-          score: 2,
-          maxScore: 2,
+          score: { scaled: 1, raw: 2, min: 0, max: 2 },
           answerReviewAuthorized: true,
         },
       },
@@ -1954,8 +1946,7 @@ describe("quiz block skeleton", () => {
           attemptId: "attempt-review",
           status: "completed",
           currentTargetId: null,
-          score: 2,
-          maxScore: 2,
+          score: { scaled: 1, raw: 2, min: 0, max: 2 },
         },
       },
     });
@@ -3400,7 +3391,7 @@ function hydrateCompletedQuizMcqReview(
         attemptNumber: 1,
         submissionResult: {
           isCorrect: false,
-          score: 0,
+          score: { scaled: 0 },
           items: {
             a: { correct: false, expected: false, given: true },
             b: { correct: true, expected: true, given: false },
@@ -3414,13 +3405,12 @@ function hydrateCompletedQuizMcqReview(
         status: "completed",
         currentTargetId: null,
         submittedTargetIds: ["question-a"],
-        score: 0,
-        maxScore: 1,
+        score: { scaled: 0 },
         answerReviewAuthorized,
         resultsByTargetId: {
           "question-a": {
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: {
               a: { correct: false, expected: false, given: true },
               b: { correct: true, expected: true, given: false },
@@ -3476,8 +3466,7 @@ function attemptState(overrides: Partial<QuizAttemptState> = {}): QuizAttemptSta
     startedAt: "2026-06-18T08:00:00.000Z",
     finishedAt: null,
     expiresAt: null,
-    score: status === "in_progress" ? null : 0,
-    maxScore: status === "in_progress" ? null : 1,
+    score: status === "in_progress" ? null : { scaled: 0 },
     successStatus: null,
     resultsByTargetId: {},
     answerReviewAuthorized: false,
@@ -3489,7 +3478,11 @@ function quizPort(quiz: Partial<NonNullable<AssessmentPort["quiz"]>> = {}): Asse
   return {
     type: "runtime",
     submit: async () =>
-      assessmentProblemOutcome({ ...canonicalAssessmentResult, isCorrect: true, score: 1 }),
+      assessmentProblemOutcome({
+        ...canonicalAssessmentResult,
+        isCorrect: true,
+        score: { scaled: 1 },
+      }),
     quiz: {
       startAttempt: async (args) =>
         canonicalQuizOutcome(

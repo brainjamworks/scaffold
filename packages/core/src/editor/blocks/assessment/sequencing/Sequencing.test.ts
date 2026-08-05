@@ -42,7 +42,7 @@ import {
   revealedSequenceOrder,
 } from "./sequencing-fields";
 
-const canonicalAssessmentResult = { maxScore: 1 as const, feedback: null, items: {} };
+const canonicalAssessmentResult = { feedback: null, items: {} };
 
 const BoundedRegionTestNode = TiptapNode.create({
   name: "region",
@@ -553,7 +553,7 @@ describe("composite sequencing node", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: {},
           },
           { response: args.response },
@@ -785,7 +785,7 @@ describe("composite sequencing node", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: {},
           },
           { response: args.response },
@@ -837,7 +837,7 @@ describe("composite sequencing node", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: {
               c: { correct: false, expected: 3, given: 1 },
               a: { correct: false, expected: 1, given: 2 },
@@ -888,7 +888,7 @@ describe("composite sequencing node", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: {
               c: { correct: false, expected: 3, given: 1 },
               a: { correct: false, expected: 1, given: 2 },

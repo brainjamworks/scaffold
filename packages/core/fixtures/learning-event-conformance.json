@@ -3,9 +3,21 @@
     "uuid": [
       { "name": "uuid-version-1", "value": "550e8400-e29b-11d4-a716-446655440000", "valid": true },
       { "name": "uuid-version-7", "value": "018f1f6e-7b20-7cc3-98c8-2f6f876e7a10", "valid": true },
-      { "name": "uuid-nil-sentinel", "value": "00000000-0000-0000-0000-000000000000", "valid": false },
-      { "name": "uuid-unsupported-version", "value": "550e8400-e29b-91d4-a716-446655440000", "valid": false },
-      { "name": "uuid-non-ietf-variant", "value": "550e8400-e29b-41d4-7716-446655440000", "valid": false }
+      {
+        "name": "uuid-nil-sentinel",
+        "value": "00000000-0000-0000-0000-000000000000",
+        "valid": false
+      },
+      {
+        "name": "uuid-unsupported-version",
+        "value": "550e8400-e29b-91d4-a716-446655440000",
+        "valid": false
+      },
+      {
+        "name": "uuid-non-ietf-variant",
+        "value": "550e8400-e29b-41d4-7716-446655440000",
+        "valid": false
+      }
     ],
     "duration": [
       { "name": "duration-week", "value": "P1W", "valid": true },
@@ -20,14 +32,26 @@
     "languageTag": [
       { "name": "language-grandfathered-i-tay", "value": "i-tay", "valid": true },
       { "name": "language-one-extlang", "value": "zh-cmn", "valid": true },
-      { "name": "language-complete-structured-tag", "value": "en-Latn-US-1901-a-foo-x-bar", "valid": true },
+      {
+        "name": "language-complete-structured-tag",
+        "value": "en-Latn-US-1901-a-foo-x-bar",
+        "valid": true
+      },
       { "name": "language-reserved-four-letter-primary", "value": "abcd", "valid": false },
       { "name": "language-multiple-extlangs", "value": "zh-cmn-gan", "valid": false },
       { "name": "language-duplicate-variant", "value": "sl-rozaj-rozaj", "valid": false },
-      { "name": "language-duplicate-extension-singleton", "value": "en-a-foo-a-bar", "valid": false }
+      {
+        "name": "language-duplicate-extension-singleton",
+        "value": "en-a-foo-a-bar",
+        "valid": false
+      }
     ],
     "iri": [
-      { "name": "iri-urn", "value": "urn:uuid:550e8400-e29b-41d4-a716-446655440000", "valid": true },
+      {
+        "name": "iri-urn",
+        "value": "urn:uuid:550e8400-e29b-41d4-a716-446655440000",
+        "valid": true
+      },
       { "name": "iri-custom-scheme", "value": "scaffold:artifact:artifact-1", "valid": true },
       { "name": "iri-unicode-host-and-path", "value": "https://例子.测试/路径", "valid": true },
       { "name": "iri-backslash-authority", "value": "https:\\\\example.com/path", "valid": false },
@@ -49,7 +73,10 @@
       "event": {
         "id": "550e8400-e29b-41d4-a716-446655440000",
         "timestamp": "2026-07-25T10:15:30.123456Z",
-        "verb": { "id": "https://w3id.org/xapi/adl/verbs/answered", "display": { "i-klingon": "answered" } },
+        "verb": {
+          "id": "https://w3id.org/xapi/adl/verbs/answered",
+          "display": { "i-klingon": "answered" }
+        },
         "object": {
           "objectType": "Activity",
           "id": "https://learning.example.test/artifacts/artifact-1/questions/question-1",
@@ -60,12 +87,38 @@
           "success": true,
           "completion": true,
           "duration": "PT45S",
-          "extensions": { "https://scaffold.example/xapi/extensions/attempt": { "number": 1, "flags": [true, null] } }
+          "extensions": {
+            "https://scaffold.example/xapi/extensions/attempt": {
+              "number": 1,
+              "flags": [true, null]
+            }
+          }
         },
         "context": {
-          "contextActivities": { "parent": [{ "objectType": "Activity", "id": "https://learning.example.test/artifacts/artifact-1" }] },
+          "contextActivities": {
+            "parent": [
+              {
+                "objectType": "Activity",
+                "id": "https://learning.example.test/artifacts/artifact-1"
+              }
+            ]
+          },
           "extensions": { "https://scaffold.example/xapi/extensions/attempt-id": "attempt-1" }
         }
+      }
+    },
+    {
+      "name": "valid-scaled-only-score",
+      "valid": true,
+      "event": {
+        "id": "550e8400-e29b-41d4-a716-446655440030",
+        "timestamp": "2026-07-25T10:15:30.123Z",
+        "verb": {
+          "id": "https://w3id.org/xapi/adl/verbs/answered",
+          "display": { "en": "answered" }
+        },
+        "object": { "objectType": "Activity", "id": "https://learning.example.test/activity" },
+        "result": { "score": { "scaled": 0.25 } }
       }
     },
     {
@@ -74,8 +127,14 @@
       "event": {
         "id": "550e8400-e29b-41d4-a716-446655440001",
         "timestamp": "2026-07-25T10:15:30.123Z",
-        "verb": { "id": "https://w3id.org/xapi/adl/verbs/answered", "display": { "en": "answered" } },
-        "object": { "objectType": "Activity", "id": "https://learning.example.test/artifacts/artifact-1/questions/question-1" },
+        "verb": {
+          "id": "https://w3id.org/xapi/adl/verbs/answered",
+          "display": { "en": "answered" }
+        },
+        "object": {
+          "objectType": "Activity",
+          "id": "https://learning.example.test/artifacts/artifact-1/questions/question-1"
+        },
         "result": { "response": "choice-a" }
       }
     },
@@ -85,8 +144,15 @@
       "event": {
         "id": "550e8400-e29b-41d4-a716-446655440002",
         "timestamp": "2026-07-25T10:15:30.123Z",
-        "verb": { "id": "https://w3id.org/xapi/adl/verbs/answered", "display": { "en": "answered" } },
-        "object": { "objectType": "Activity", "id": "https://learning.example.test/activity", "definition": {} }
+        "verb": {
+          "id": "https://w3id.org/xapi/adl/verbs/answered",
+          "display": { "en": "answered" }
+        },
+        "object": {
+          "objectType": "Activity",
+          "id": "https://learning.example.test/activity",
+          "definition": {}
+        }
       }
     },
     {
@@ -95,7 +161,10 @@
       "event": {
         "id": "550e8400-e29b-41d4-a716-446655440003",
         "timestamp": "2026-07-25T10:15:30.123Z",
-        "verb": { "id": "https://w3id.org/xapi/adl/verbs/answered", "display": { "en": "answered" } },
+        "verb": {
+          "id": "https://w3id.org/xapi/adl/verbs/answered",
+          "display": { "en": "answered" }
+        },
         "object": { "objectType": "Activity", "id": "https://learning.example.test/activity" },
         "result": {}
       }
@@ -106,7 +175,10 @@
       "event": {
         "id": "550e8400-e29b-41d4-a716-446655440004",
         "timestamp": "2026-07-25T10:15:30.123Z",
-        "verb": { "id": "https://w3id.org/xapi/adl/verbs/answered", "display": { "en": "answered" } },
+        "verb": {
+          "id": "https://w3id.org/xapi/adl/verbs/answered",
+          "display": { "en": "answered" }
+        },
         "object": { "objectType": "Activity", "id": "https://learning.example.test/activity" },
         "context": {}
       }
@@ -117,7 +189,10 @@
       "event": {
         "id": "550e8400-e29b-41d4-a716-446655440005",
         "timestamp": "2026-07-25T10:15:30.123Z",
-        "verb": { "id": "https://w3id.org/xapi/adl/verbs/answered", "display": { "en": "answered" } },
+        "verb": {
+          "id": "https://w3id.org/xapi/adl/verbs/answered",
+          "display": { "en": "answered" }
+        },
         "object": { "objectType": "Activity", "id": "https://learning.example.test/activity" },
         "context": { "contextActivities": {} }
       }
@@ -128,7 +203,10 @@
       "event": {
         "id": "550e8400-e29b-41d4-a716-446655440006",
         "timestamp": "2026-07-25T10:15:30.123Z",
-        "verb": { "id": "https://w3id.org/xapi/adl/verbs/answered", "display": { "en": "answered" } },
+        "verb": {
+          "id": "https://w3id.org/xapi/adl/verbs/answered",
+          "display": { "en": "answered" }
+        },
         "object": { "objectType": "Activity", "id": "https://learning.example.test/activity" },
         "result": { "score": {} }
       }
@@ -139,9 +217,12 @@
       "event": {
         "id": "550e8400-e29b-41d4-a716-446655440007",
         "timestamp": "2026-07-25T10:15:30.123Z",
-        "verb": { "id": "https://w3id.org/xapi/adl/verbs/answered", "display": { "en": "answered" } },
+        "verb": {
+          "id": "https://w3id.org/xapi/adl/verbs/answered",
+          "display": { "en": "answered" }
+        },
         "object": { "objectType": "Activity", "id": "https://learning.example.test/activity" },
-        "result": { "score": { "raw": 1, "min": 2, "max": 2 } }
+        "result": { "score": { "scaled": 0.5, "raw": 1, "min": 2, "max": 2 } }
       }
     },
     {
@@ -150,9 +231,12 @@
       "event": {
         "id": "550e8400-e29b-41d4-a716-446655440008",
         "timestamp": "2026-07-25T10:15:30.123Z",
-        "verb": { "id": "https://w3id.org/xapi/adl/verbs/answered", "display": { "en": "answered" } },
+        "verb": {
+          "id": "https://w3id.org/xapi/adl/verbs/answered",
+          "display": { "en": "answered" }
+        },
         "object": { "objectType": "Activity", "id": "https://learning.example.test/activity" },
-        "result": { "score": { "raw": 0, "min": 1, "max": 2 } }
+        "result": { "score": { "scaled": 0.5, "raw": 0, "min": 1, "max": 2 } }
       }
     },
     {
@@ -161,9 +245,12 @@
       "event": {
         "id": "550e8400-e29b-41d4-a716-446655440009",
         "timestamp": "2026-07-25T10:15:30.123Z",
-        "verb": { "id": "https://w3id.org/xapi/adl/verbs/answered", "display": { "en": "answered" } },
+        "verb": {
+          "id": "https://w3id.org/xapi/adl/verbs/answered",
+          "display": { "en": "answered" }
+        },
         "object": { "objectType": "Activity", "id": "https://learning.example.test/activity" },
-        "result": { "score": { "raw": 3, "min": 0, "max": 2 } }
+        "result": { "score": { "scaled": 0.5, "raw": 3, "min": 0, "max": 2 } }
       }
     },
     {
@@ -172,9 +259,54 @@
       "event": {
         "id": "550e8400-e29b-41d4-a716-446655440010",
         "timestamp": "2026-07-25T10:15:30.123Z",
-        "verb": { "id": "https://w3id.org/xapi/adl/verbs/answered", "display": { "en": "answered" } },
+        "verb": {
+          "id": "https://w3id.org/xapi/adl/verbs/answered",
+          "display": { "en": "answered" }
+        },
         "object": { "objectType": "Activity", "id": "https://learning.example.test/activity" },
         "result": { "score": { "scaled": 2 } }
+      }
+    },
+    {
+      "name": "score-negative-scaled",
+      "valid": false,
+      "event": {
+        "id": "550e8400-e29b-41d4-a716-446655440031",
+        "timestamp": "2026-07-25T10:15:30.123Z",
+        "verb": {
+          "id": "https://w3id.org/xapi/adl/verbs/answered",
+          "display": { "en": "answered" }
+        },
+        "object": { "objectType": "Activity", "id": "https://learning.example.test/activity" },
+        "result": { "score": { "scaled": -0.1 } }
+      }
+    },
+    {
+      "name": "score-partial-integer-tuple",
+      "valid": false,
+      "event": {
+        "id": "550e8400-e29b-41d4-a716-446655440032",
+        "timestamp": "2026-07-25T10:15:30.123Z",
+        "verb": {
+          "id": "https://w3id.org/xapi/adl/verbs/answered",
+          "display": { "en": "answered" }
+        },
+        "object": { "objectType": "Activity", "id": "https://learning.example.test/activity" },
+        "result": { "score": { "scaled": 0.5, "raw": 1, "min": 0 } }
+      }
+    },
+    {
+      "name": "score-fractional-raw",
+      "valid": false,
+      "event": {
+        "id": "550e8400-e29b-41d4-a716-446655440033",
+        "timestamp": "2026-07-25T10:15:30.123Z",
+        "verb": {
+          "id": "https://w3id.org/xapi/adl/verbs/answered",
+          "display": { "en": "answered" }
+        },
+        "object": { "objectType": "Activity", "id": "https://learning.example.test/activity" },
+        "result": { "score": { "scaled": 0.5, "raw": 0.5, "min": 0, "max": 1 } }
       }
     },
     {
@@ -183,7 +315,10 @@
       "event": {
         "id": "550e8400-e29b-41d4-a716-446655440011",
         "timestamp": "2026-02-31T10:15:30.123Z",
-        "verb": { "id": "https://w3id.org/xapi/adl/verbs/answered", "display": { "en": "answered" } },
+        "verb": {
+          "id": "https://w3id.org/xapi/adl/verbs/answered",
+          "display": { "en": "answered" }
+        },
         "object": { "objectType": "Activity", "id": "https://learning.example.test/activity" }
       }
     },
@@ -193,7 +328,10 @@
       "event": {
         "id": "550e8400-e29b-41d4-a716-446655440012",
         "timestamp": "2026-07-25T10:15:30.123Z",
-        "verb": { "id": "https://w3id.org/xapi/adl/verbs/answered", "display": { "en": "answered", "unexpected": true } },
+        "verb": {
+          "id": "https://w3id.org/xapi/adl/verbs/answered",
+          "display": { "en": "answered", "unexpected": true }
+        },
         "object": { "objectType": "Activity", "id": "https://learning.example.test/activity" }
       }
     },
@@ -204,9 +342,14 @@
       "event": {
         "id": "550e8400-e29b-41d4-a716-446655440013",
         "timestamp": "2026-07-25T10:15:30.123Z",
-        "verb": { "id": "https://w3id.org/xapi/adl/verbs/answered", "display": { "en": "answered" } },
+        "verb": {
+          "id": "https://w3id.org/xapi/adl/verbs/answered",
+          "display": { "en": "answered" }
+        },
         "object": { "objectType": "Activity", "id": "https://learning.example.test/activity" },
-        "context": { "extensions": { "https://scaffold.ac/xapi/extensions/moodle-course-module-id": 99 } }
+        "context": {
+          "extensions": { "https://scaffold.ac/xapi/extensions/moodle-course-module-id": 99 }
+        }
       }
     },
     {
@@ -215,7 +358,10 @@
       "event": {
         "id": "550e8400-e29b-41d4-a716-446655440014",
         "timestamp": "2026-07-25T10:15:30.123Z",
-        "verb": { "id": "https://w3id.org/xapi/adl/verbs/answered", "display": { "en": "answered" } },
+        "verb": {
+          "id": "https://w3id.org/xapi/adl/verbs/answered",
+          "display": { "en": "answered" }
+        },
         "object": { "objectType": "Activity", "id": "https://learning.example.test/activity" },
         "context": { "extensions": {} }
       }
@@ -226,7 +372,10 @@
       "event": {
         "id": "550e8400-e29b-41d4-a716-446655440015",
         "timestamp": "2026-07-25T10:15:30.123Z",
-        "verb": { "id": "https://w3id.org/xapi/adl/verbs/answered", "display": { "en": "answered" } },
+        "verb": {
+          "id": "https://w3id.org/xapi/adl/verbs/answered",
+          "display": { "en": "answered" }
+        },
         "object": { "objectType": "Activity", "id": "https://learning.example.test/activity" },
         "result": { "extensions": { "https://scaffold.example/xapi/extensions/value": {} } }
       }
@@ -237,7 +386,10 @@
       "event": {
         "id": "550e8400-e29b-41d4-a716-446655440016",
         "timestamp": "2026-07-25T10:15:30.123Z",
-        "verb": { "id": "https://w3id.org/xapi/adl/verbs/answered", "display": { "en": "answered" } },
+        "verb": {
+          "id": "https://w3id.org/xapi/adl/verbs/answered",
+          "display": { "en": "answered" }
+        },
         "object": { "objectType": "Activity", "id": "https://learning.example.test/activity" },
         "result": { "duration": "P" }
       }

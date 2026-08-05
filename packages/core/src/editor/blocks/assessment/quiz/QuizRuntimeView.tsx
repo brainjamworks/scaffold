@@ -100,7 +100,6 @@ export function QuizRuntimeView(props: NodeViewProps) {
         {showExpired ? (
           <QuizExpired
             score={quiz.quiz?.score ?? null}
-            maxScore={quiz.quiz?.maxScore ?? null}
             resultsVisible={quiz.settings.reviewDetail !== "none"}
           />
         ) : null}
@@ -108,7 +107,6 @@ export function QuizRuntimeView(props: NodeViewProps) {
         {showCompletion ? (
           <QuizCompletion
             score={quiz.quiz?.score ?? null}
-            maxScore={quiz.quiz?.maxScore ?? null}
             resultsVisible={quiz.settings.reviewDetail !== "none"}
           />
         ) : null}

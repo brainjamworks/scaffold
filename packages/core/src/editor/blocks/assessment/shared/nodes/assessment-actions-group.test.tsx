@@ -42,7 +42,7 @@ import { SelectableChoiceBodyNode } from "./selectable-choice";
 import { SelectableChoiceRuntimeNode } from "./selectable-choice-runtime";
 import { McqRuntimeExtension } from "../../mcq/mcq-runtime-extension";
 
-const canonicalAssessmentResult = { maxScore: 1 as const, feedback: null, items: {} };
+const canonicalAssessmentResult = { feedback: null, items: {} };
 
 const nestedRichTextBubbleMenuHostMock = vi.hoisted(() => ({
   props: [] as NestedRichTextBubbleMenuHostProps[],
@@ -506,8 +506,7 @@ function incorrectRuntimePort(): AssessmentPort {
         {
           ...canonicalAssessmentResult,
           isCorrect: false,
-          score: 0,
-          maxScore: 1,
+          score: { scaled: 0 },
           feedback: richFeedback("Review the explanation."),
         },
         { response: args.response },

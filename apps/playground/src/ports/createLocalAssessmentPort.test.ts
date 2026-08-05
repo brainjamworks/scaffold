@@ -24,14 +24,16 @@ describe("createLocalAssessmentPort quiz runtime", () => {
       expectedAttemptNumber: 0,
     });
 
-    expect(result.problem.checkResult).toMatchObject({ isCorrect: true, score: 1 });
+    expect(result.problem.checkResult).toMatchObject({
+      isCorrect: true,
+      score: { scaled: 1, raw: 1, min: 0, max: 1 },
+    });
   });
 
   it("rejects a non-canonical local grading result", async () => {
     vi.spyOn(grading, "gradeAssessment").mockReturnValue({
       isCorrect: false,
-      score: 2,
-      maxScore: 1,
+      score: { scaled: 2 },
       feedback: null,
       items: {},
     });
@@ -91,8 +93,7 @@ describe("createLocalAssessmentPort quiz runtime", () => {
       problem: {
         submissionResult: {
           isCorrect: false,
-          score: 0,
-          maxScore: 1,
+          score: { scaled: 0, raw: 0, min: 0, max: 2 },
           feedback: null,
           items: {
             a: { correct: false, expected: true, given: false },
@@ -106,8 +107,7 @@ describe("createLocalAssessmentPort quiz runtime", () => {
       problem: {
         submissionResult: {
           isCorrect: false,
-          score: 0.5,
-          maxScore: 1,
+          score: { scaled: 0.5, raw: 1, min: 0, max: 2 },
           feedback: null,
           items: {
             a: { correct: true, expected: true, given: true },
@@ -121,8 +121,7 @@ describe("createLocalAssessmentPort quiz runtime", () => {
       problem: {
         submissionResult: {
           isCorrect: true,
-          score: 1,
-          maxScore: 1,
+          score: { scaled: 1, raw: 2, min: 0, max: 2 },
           feedback: null,
           items: {
             a: { correct: true, expected: true, given: true },
@@ -179,7 +178,6 @@ describe("createLocalAssessmentPort quiz runtime", () => {
       currentTargetId: "mcq-1",
       submittedTargetIds: [],
       score: null,
-      maxScore: null,
       successStatus: null,
     });
     expect(finished?.quizAttempt).toMatchObject({
@@ -188,12 +186,11 @@ describe("createLocalAssessmentPort quiz runtime", () => {
       currentTargetId: null,
       submittedTargetIds: ["mcq-1", "mcq-2"],
       answerReviewAuthorized: true,
-      score: 1,
-      maxScore: 2,
+      score: { scaled: 0.5, raw: 1, min: 0, max: 2 },
       successStatus: null,
       resultsByTargetId: {
-        "mcq-1": { isCorrect: true, score: 1 },
-        "mcq-2": { isCorrect: false, score: 0 },
+        "mcq-1": { isCorrect: true, score: { scaled: 1, raw: 1, min: 0, max: 1 } },
+        "mcq-2": { isCorrect: false, score: { scaled: 0, raw: 0, min: 0, max: 1 } },
       },
     });
   });
@@ -215,8 +212,7 @@ describe("createLocalAssessmentPort quiz runtime", () => {
 
     expect(finished?.quizAttempt).toMatchObject({
       status: "completed",
-      score: 1,
-      maxScore: 2,
+      score: { scaled: 0.5, raw: 1, min: 0, max: 2 },
       successStatus: "passed",
     });
   });
@@ -238,8 +234,7 @@ describe("createLocalAssessmentPort quiz runtime", () => {
 
     expect(finished?.quizAttempt).toMatchObject({
       status: "completed",
-      score: 1,
-      maxScore: 2,
+      score: { scaled: 0.5, raw: 1, min: 0, max: 2 },
       successStatus: "failed",
     });
   });
@@ -326,12 +321,11 @@ describe("createLocalAssessmentPort quiz runtime", () => {
       finishedAt: "2026-06-18T08:00:00.000Z",
       submittedTargetIds: ["mcq-1", "mcq-2"],
       answerReviewAuthorized: true,
-      score: 1,
-      maxScore: 2,
+      score: { scaled: 0.5, raw: 1, min: 0, max: 2 },
       successStatus: "passed",
       resultsByTargetId: {
-        "mcq-1": { isCorrect: true, score: 1 },
-        "mcq-2": { isCorrect: false, score: 0 },
+        "mcq-1": { isCorrect: true, score: { scaled: 1, raw: 1, min: 0, max: 1 } },
+        "mcq-2": { isCorrect: false, score: { scaled: 0, raw: 0, min: 0, max: 1 } },
       },
     });
   });
@@ -427,7 +421,7 @@ describe("createLocalAssessmentPort quiz runtime", () => {
       currentTargetId: "mcq-1",
       submittedTargetIds: ["mcq-1"],
       resultsByTargetId: {
-        "mcq-1": { isCorrect: false, score: 0 },
+        "mcq-1": { isCorrect: false, score: { scaled: 0, raw: 0, min: 0, max: 1 } },
       },
     });
     expect(second?.quizAttempt).toMatchObject({
@@ -435,7 +429,7 @@ describe("createLocalAssessmentPort quiz runtime", () => {
       currentTargetId: "mcq-2",
       submittedTargetIds: ["mcq-1"],
       resultsByTargetId: {
-        "mcq-1": { isCorrect: true, score: 1 },
+        "mcq-1": { isCorrect: true, score: { scaled: 1, raw: 1, min: 0, max: 1 } },
       },
     });
   });
@@ -481,14 +475,14 @@ describe("createLocalAssessmentPort quiz runtime", () => {
       status: "in_progress",
       currentTargetId: "mcq-1",
       resultsByTargetId: {
-        "mcq-1": { isCorrect: false, score: 0 },
+        "mcq-1": { isCorrect: false, score: { scaled: 0, raw: 0, min: 0, max: 1 } },
       },
     });
     expect(second?.quizAttempt).toMatchObject({
       status: "in_progress",
       currentTargetId: "mcq-1",
       resultsByTargetId: {
-        "mcq-1": { isCorrect: false, score: 0 },
+        "mcq-1": { isCorrect: false, score: { scaled: 0, raw: 0, min: 0, max: 1 } },
       },
     });
     expect(third?.quizAttempt).toMatchObject({
@@ -496,7 +490,7 @@ describe("createLocalAssessmentPort quiz runtime", () => {
       currentTargetId: "mcq-2",
       submittedTargetIds: ["mcq-1"],
       resultsByTargetId: {
-        "mcq-1": { isCorrect: true, score: 1 },
+        "mcq-1": { isCorrect: true, score: { scaled: 1, raw: 1, min: 0, max: 1 } },
       },
     });
   });
@@ -561,8 +555,7 @@ describe("createLocalAssessmentPort quiz runtime", () => {
       currentTargetId: null,
       submittedTargetIds: ["mcq-1"],
       answerReviewAuthorized: true,
-      score: 1,
-      maxScore: 2,
+      score: { scaled: 0.5, raw: 1, min: 0, max: 2 },
       successStatus: "passed",
     });
   });
@@ -598,8 +591,7 @@ describe("createLocalAssessmentPort quiz runtime", () => {
       currentTargetId: null,
       submittedTargetIds: ["mcq-1"],
       finishedAt: "2026-06-18T08:00:02.000Z",
-      score: 1,
-      maxScore: 2,
+      score: { scaled: 0.5, raw: 1, min: 0, max: 2 },
       successStatus: "passed",
     });
   });

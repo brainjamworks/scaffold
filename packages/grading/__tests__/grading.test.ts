@@ -53,8 +53,7 @@ describe("@scaffold/grading primitive targets", () => {
     const result = gradeAssessment(target, { kind: "single-select", optionId: "b" });
 
     expect(result).toEqual({
-      score: 1,
-      maxScore: 1,
+      score: { scaled: 1, raw: 1, min: 0, max: 1 },
       isCorrect: true,
       feedback: summaryFeedback,
       items: {
@@ -85,7 +84,7 @@ describe("@scaffold/grading primitive targets", () => {
       optionIds: ["a", "c"],
     });
 
-    expect(result.score).toBeCloseTo(0, 6);
+    expect(result.score).toEqual({ scaled: 0, raw: 0, min: 0, max: 2 });
     expect(result.isCorrect).toBe(false);
   });
 
@@ -109,7 +108,7 @@ describe("@scaffold/grading primitive targets", () => {
       orderedItemIds: ["a", "c", "b"],
     });
 
-    expect(result.score).toBeCloseTo(1 / 3, 6);
+    expect(result.score).toEqual({ scaled: 1 / 3, raw: 1, min: 0, max: 3 });
     expect(result.isCorrect).toBe(false);
     expect(result.items["b"]).toMatchObject({
       correct: false,
@@ -147,7 +146,7 @@ describe("@scaffold/grading primitive targets", () => {
       ],
     });
 
-    expect(result.score).toBe(0.5);
+    expect(result.score).toEqual({ scaled: 0.5, raw: 1, min: 0, max: 2 });
     expect(result.isCorrect).toBe(false);
     expect(result.items["es"]).toMatchObject({
       correct: false,
@@ -195,7 +194,7 @@ describe("@scaffold/grading primitive targets", () => {
     });
 
     expect(result).toMatchObject({
-      score: 0.5,
+      score: { scaled: 0.5, raw: 1, min: 0, max: 2 },
       isCorrect: false,
       items: {
         b1: { correct: true, expected: ["Paris"], given: " paris " },
@@ -240,7 +239,7 @@ describe("@scaffold/grading primitive targets", () => {
         kind: "spatial-hotspot",
         selections: [{ hotspotId: "h1", x: 50, y: 50 }],
       }),
-    ).toMatchObject({ score: 1, isCorrect: true });
+    ).toMatchObject({ score: { scaled: 1, raw: 2, min: 0, max: 2 }, isCorrect: true });
   });
 
   it("returns a complete canonical zero result for a mismatched response", () => {
@@ -260,8 +259,7 @@ describe("@scaffold/grading primitive targets", () => {
     const result = gradeAssessment(target, { kind: "multi-select", optionIds: ["b"] });
 
     expect(result).toEqual({
-      score: 0,
-      maxScore: 1,
+      score: { scaled: 0 },
       isCorrect: false,
       feedback: null,
       items: {},

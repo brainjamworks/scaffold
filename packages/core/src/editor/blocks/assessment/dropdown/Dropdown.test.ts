@@ -36,7 +36,7 @@ import { DropdownAuthoringExtension } from "./dropdown-authoring-extension";
 import { DropdownRuntimeExtension } from "./dropdown-runtime-extension";
 import { dropdownBlockDefinition } from "./dropdown-definition";
 
-const canonicalAssessmentResult = { maxScore: 1 as const, feedback: null, items: {} };
+const canonicalAssessmentResult = { feedback: null, items: {} };
 
 const BoundedRegionTestNode = TiptapNode.create({
   name: "region",
@@ -270,7 +270,7 @@ describe("composite dropdown node", () => {
       type: "runtime",
       submit: async (args) =>
         assessmentProblemOutcome(
-          { ...canonicalAssessmentResult, isCorrect: true, score: 1 },
+          { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
           { response: args.response },
         ),
     });
@@ -394,7 +394,7 @@ describe("composite dropdown node", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: {},
           },
           { response: args.response },
@@ -832,7 +832,7 @@ describe("composite dropdown node", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: {},
           },
           { response: args.response },
@@ -870,7 +870,7 @@ describe("composite dropdown node", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: {
               a: { correct: false, expected: false, given: true },
               b: { correct: false, expected: true, given: false },
@@ -914,7 +914,7 @@ describe("composite dropdown node", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: {
               a: { correct: false, expected: false, given: true },
               b: { correct: false, expected: true, given: false },
@@ -1038,7 +1038,7 @@ describe("composite dropdown node", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: {
               a: { correct: false, expected: false, given: true },
               c: { correct: false, expected: true, given: false },

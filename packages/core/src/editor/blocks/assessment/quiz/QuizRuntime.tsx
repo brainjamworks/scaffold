@@ -5,6 +5,7 @@ import {
   HourglassIcon as Hourglass,
   TimerIcon as Timer,
 } from "@phosphor-icons/react";
+import type { Score } from "@scaffold/contracts";
 
 /**
  * Learner-facing runtime surfaces of a quiz attempt. Five small shapes,
@@ -317,11 +318,9 @@ export function QuizTimesUpOverlay() {
 
 export function QuizExpired({
   score,
-  maxScore,
   resultsVisible,
 }: {
-  score: number | null;
-  maxScore: number | null;
+  score: Score | null;
   resultsVisible: boolean;
 }) {
   return (
@@ -331,14 +330,14 @@ export function QuizExpired({
       </span>
       <h3 className="sc-quiz__expired-title">Time's up</h3>
       <p className="sc-quiz__expired-meta">Your attempt ended when the timer ran out.</p>
-      {resultsVisible && score !== null && maxScore !== null ? (
+      {resultsVisible && score !== null ? (
         <>
-          <span className="sc-quiz__expired-score">
-            {score} / {maxScore}
-          </span>
-          <span className="sc-quiz__expired-percent">
-            {Math.round((score / Math.max(maxScore, 1)) * 100)}%
-          </span>
+          {"raw" in score ? (
+            <span className="sc-quiz__expired-score">
+              {score.raw} / {score.max}
+            </span>
+          ) : null}
+          <span className="sc-quiz__expired-percent">{Math.round(score.scaled * 100)}%</span>
         </>
       ) : null}
     </div>
@@ -347,11 +346,9 @@ export function QuizExpired({
 
 export function QuizCompletion({
   score,
-  maxScore,
   resultsVisible,
 }: {
-  score: number | null;
-  maxScore: number | null;
+  score: Score | null;
   resultsVisible: boolean;
 }) {
   return (
@@ -364,14 +361,14 @@ export function QuizCompletion({
         <CheckCircle size={20} weight="regular" />
       </span>
       <h3 className="sc-quiz__completion-title">Quiz complete</h3>
-      {resultsVisible && score !== null && maxScore !== null ? (
+      {resultsVisible && score !== null ? (
         <>
-          <span className="sc-quiz__completion-score">
-            {score} / {maxScore}
-          </span>
-          <span className="sc-quiz__completion-meta">
-            {Math.round((score / Math.max(maxScore, 1)) * 100)}%
-          </span>
+          {"raw" in score ? (
+            <span className="sc-quiz__completion-score">
+              {score.raw} / {score.max}
+            </span>
+          ) : null}
+          <span className="sc-quiz__completion-meta">{Math.round(score.scaled * 100)}%</span>
         </>
       ) : null}
     </div>

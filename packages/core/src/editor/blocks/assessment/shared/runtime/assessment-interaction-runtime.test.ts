@@ -8,7 +8,7 @@ describe("choiceStateForProblem", () => {
     const problem = {
       answerKeyVisible: false,
       feedbackResult: null,
-      officialResult: { isCorrect: true, score: 1, maxScore: 1, feedback: null, items: {} },
+      officialResult: { isCorrect: true, score: { scaled: 1 }, feedback: null, items: {} },
       state: { submitted: true, revealedAnswer: null },
     } as ProblemScope;
 

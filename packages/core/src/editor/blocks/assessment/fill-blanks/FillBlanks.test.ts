@@ -39,7 +39,7 @@ import { FillBlanksAuthoringExtension } from "./fill-blanks-authoring-extension"
 import { fillBlanksBlockDefinition } from "./fill-blanks-definition";
 import { FillBlanksRuntimeExtension } from "./fill-blanks-runtime-extension";
 
-const canonicalAssessmentResult = { maxScore: 1 as const, feedback: null, items: {} };
+const canonicalAssessmentResult = { feedback: null, items: {} };
 
 const fillBlankBubbleMenuMock = vi.hoisted(() => ({
   props: [] as RichTextBubbleMenuProps[],
@@ -540,7 +540,7 @@ describe("composite fill_blanks node", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: {
               "blank-1": { correct: false, expected: "Paris", given: "London" },
             },
@@ -591,7 +591,7 @@ describe("composite fill_blanks node", () => {
           {
             ...canonicalAssessmentResult,
             isCorrect: false,
-            score: 0,
+            score: { scaled: 0 },
             items: {
               "blank-1": { correct: false, expected: "Paris", given: "London" },
             },

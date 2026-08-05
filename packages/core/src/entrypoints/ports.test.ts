@@ -42,10 +42,10 @@ import type {
   LearningEventLanguageMap,
   LearningEventPort,
   LearningEventResult,
-  LearningEventScore,
   LearningEventTimestamp,
   LearningEventUuid,
   LearningEventVerb,
+  Score,
   MediaPort,
   MediaUploadMeta,
   MediaUploadResult,
@@ -104,7 +104,7 @@ type PortsTypeSurface = {
   learningEventLanguageMap: LearningEventLanguageMap;
   learningEventPort: LearningEventPort;
   learningEventResult: LearningEventResult;
-  learningEventScore: LearningEventScore;
+  score: Score;
   learningEventTimestamp: LearningEventTimestamp;
   learningEventUuid: LearningEventUuid;
   learningEventVerb: LearningEventVerb;

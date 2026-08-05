@@ -90,7 +90,7 @@ function canonicalEvent(): LearningEvent {
             },
           },
           response: { kind: "single-select", optionId: "PRIVATE_LEARNER_RESPONSE" },
-          result: { isCorrect: true, score: 1 },
+          result: { isCorrect: true, score: { scaled: 1 } },
           attemptNumber: 1,
           quiz: { quizId: "quiz-one", attemptId: "PRIVATE_ATTEMPT_CONTEXT" },
         },
