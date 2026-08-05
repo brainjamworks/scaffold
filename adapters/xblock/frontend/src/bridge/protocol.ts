@@ -1,5 +1,5 @@
 export const SCAFFOLD_XBLOCK_BRIDGE_CHANNEL = "scaffold.xblock.bridge";
-export const SCAFFOLD_XBLOCK_BRIDGE_PROTOCOL_VERSION = 1;
+export const SCAFFOLD_XBLOCK_BRIDGE_PROTOCOL_VERSION = 2;
 
 export const SCAFFOLD_XBLOCK_BRIDGE_REQUEST_TYPES = [
   "persistence.createArtifact",
@@ -19,7 +19,7 @@ export const SCAFFOLD_XBLOCK_BRIDGE_REQUEST_TYPES = [
   "assessment.quiz.revealAnswers",
   "learnerActivity.load",
   "learnerActivity.save",
-  "xapi.accept",
+  "learningEvents.accept",
   "host.notifySaveStart",
   "host.notifySaveEnd",
   "host.done",

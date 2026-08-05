@@ -20,7 +20,7 @@ export function XBlockStudentApp({ data, bridge }: XBlockStudentAppProps) {
       createXBlockLearnerHostServices(bridge, {
         mediaContext: data.mediaContext ?? "runtime",
         resolvedMedia: data.resolvedMedia,
-        xapiActivityId: `https://scaffold.ac/xapi/activities/openedx/${encodeURIComponent(
+        rootActivityId: `https://scaffold.ac/xapi/activities/openedx/${encodeURIComponent(
           data.artifact.id,
         )}`,
       }),

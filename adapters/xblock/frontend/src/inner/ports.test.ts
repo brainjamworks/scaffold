@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import type { XapiStatementTemplate } from "@scaffold/core/ports";
+import type { LearningEvent } from "@scaffold/core/ports";
 import type { XBlockBridgeRequestType } from "../bridge/protocol";
 import { createXBlockRuntimePorts } from "./ports";
 import type { XBlockInnerBridge } from "./xblock-inner-bridge";
@@ -116,15 +116,15 @@ describe("XBlock runtime assessment port", () => {
   });
 });
 
-describe("XBlock runtime xAPI port", () => {
-  it("accepts Core statements through the bridge when the host activity IRI is supplied", async () => {
+describe("XBlock runtime learning event port", () => {
+  it("accepts the exact canonical event once when the host root Activity IRI is supplied", async () => {
     const bridge = new AssessmentBridge({
-      "xapi.accept": { success: true },
+      "learningEvents.accept": { success: true },
     });
-    const xapi = createXBlockRuntimePorts(bridge, {
-      xapiActivityId: "https://scaffold.ac/xapi/activities/openedx/usage-v1",
-    }).xapi;
-    const statement = {
+    const learningEvents = createXBlockRuntimePorts(bridge, {
+      rootActivityId: "https://scaffold.ac/xapi/activities/openedx/usage-v1",
+    }).learningEvents;
+    const event: LearningEvent = {
       id: "00000000-0000-4000-8000-000000000001",
       timestamp: "2026-07-27T12:00:00.000Z",
       verb: {
@@ -135,19 +135,47 @@ describe("XBlock runtime xAPI port", () => {
         objectType: "Activity",
         id: "https://scaffold.ac/xapi/activities/openedx/usage-v1",
       },
-    } as XapiStatementTemplate;
+    };
 
-    expect(xapi?.activityId).toBe("https://scaffold.ac/xapi/activities/openedx/usage-v1");
-    await expect(xapi?.send(statement)).resolves.toBeUndefined();
-    expect(bridge.requests).toContainEqual({
-      type: "xapi.accept",
-      payload: { statement },
-    });
+    expect(learningEvents?.rootActivityId).toBe(
+      "https://scaffold.ac/xapi/activities/openedx/usage-v1",
+    );
+    await expect(learningEvents?.accept(event)).resolves.toBeUndefined();
+    expect(bridge.requests).toEqual([
+      {
+        type: "learningEvents.accept",
+        payload: { event },
+      },
+    ]);
   });
 
-  it("omits xAPI when no host activity IRI is supplied", () => {
+  it("propagates rejected host acceptance", async () => {
+    const bridge = new AssessmentBridge({
+      "learningEvents.accept": { success: false, error: "learning event rejected" },
+    });
+    const learningEvents = createXBlockRuntimePorts(bridge, {
+      rootActivityId: "https://scaffold.ac/xapi/activities/openedx/usage-v1",
+    }).learningEvents;
+
+    await expect(
+      learningEvents?.accept({
+        id: "00000000-0000-4000-8000-000000000001",
+        timestamp: "2026-07-27T12:00:00.000Z",
+        verb: {
+          id: "http://adlnet.gov/expapi/verbs/initialized",
+          display: { en: "initialized" },
+        },
+        object: {
+          objectType: "Activity",
+          id: "https://scaffold.ac/xapi/activities/openedx/usage-v1",
+        },
+      }),
+    ).rejects.toThrow("learning event rejected");
+  });
+
+  it("omits learning events when no host root Activity IRI is supplied", () => {
     const bridge = new AssessmentBridge({});
 
-    expect(createXBlockRuntimePorts(bridge).xapi).toBeUndefined();
+    expect(createXBlockRuntimePorts(bridge).learningEvents).toBeUndefined();
   });
 });

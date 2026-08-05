@@ -3,14 +3,14 @@ import type {
   ScaffoldMediaContext,
   ScaffoldResolvedMediaMap,
   ScaffoldRuntimePorts,
-  XapiIri,
+  LearningEventIri,
 } from "@scaffold/core/ports";
 
 import { createXBlockAssessmentPort } from "./assessment-port";
+import { createXBlockLearningEventPort } from "./learning-event-port";
 import { createXBlockLearnerActivityPort } from "./learner-activity-port";
 import { createXBlockMediaPort } from "./media-port";
 import type { XBlockInnerBridge } from "./xblock-inner-bridge";
-import { createXBlockXapiPort } from "./xapi-port";
 
 export { createXBlockArtifactPersistence } from "./artifact-persistence-port";
 export { unwrapXBlockHandlerResponse } from "./handler-response";
@@ -18,7 +18,7 @@ export { unwrapXBlockHandlerResponse } from "./handler-response";
 interface XBlockRuntimePortOptions {
   mediaContext?: ScaffoldMediaContext | undefined;
   resolvedMedia?: ScaffoldResolvedMediaMap | null | undefined;
-  xapiActivityId?: XapiIri | undefined;
+  rootActivityId?: LearningEventIri | undefined;
 }
 
 export function createXBlockRuntimePorts(
@@ -29,8 +29,8 @@ export function createXBlockRuntimePorts(
     assessment: createXBlockAssessmentPort(bridge),
     learnerActivity: createXBlockLearnerActivityPort(bridge),
     media: createXBlockMediaPort(bridge, options),
-    ...(options.xapiActivityId
-      ? { xapi: createXBlockXapiPort(bridge, options.xapiActivityId) }
+    ...(options.rootActivityId
+      ? { learningEvents: createXBlockLearningEventPort(bridge, options.rootActivityId) }
       : {}),
   };
 }
@@ -45,6 +45,6 @@ export function createXBlockLearnerHostServices(
     ...(runtimePorts.assessment ? { assessment: runtimePorts.assessment } : {}),
     ...(runtimePorts.media ? { media: runtimePorts.media } : {}),
     ...(runtimePorts.learnerActivity ? { learnerActivity: runtimePorts.learnerActivity } : {}),
-    ...(runtimePorts.xapi ? { xapi: runtimePorts.xapi } : {}),
+    ...(runtimePorts.learningEvents ? { learningEvents: runtimePorts.learningEvents } : {}),
   };
 }

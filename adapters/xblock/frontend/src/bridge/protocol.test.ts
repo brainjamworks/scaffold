@@ -89,19 +89,20 @@ describe("XBlock iframe bridge protocol", () => {
     expect(validateXBlockBridgeMessage(message)).toEqual({ ok: true, message });
   });
 
-  it("accepts xAPI statement delivery request envelopes", () => {
+  it("accepts version-2 learning event request envelopes", () => {
     const message = createXBlockBridgeRequest({
       requestId: "request-1",
       sessionId: "session-1",
-      type: "xapi.accept",
+      type: "learningEvents.accept",
       payload: {
-        statement: {
+        event: {
           id: "00000000-0000-4000-8000-000000000001",
           timestamp: "2026-07-27T12:00:00.000Z",
         },
       },
     });
 
+    expect(message.protocolVersion).toBe(2);
     expect(validateXBlockBridgeMessage(message)).toEqual({ ok: true, message });
   });
 
@@ -163,10 +164,10 @@ describe("XBlock iframe bridge protocol", () => {
     });
   });
 
-  it("rejects protocol mismatches", () => {
+  it("rejects version-1 messages", () => {
     const result = validateXBlockBridgeMessage({
       channel: SCAFFOLD_XBLOCK_BRIDGE_CHANNEL,
-      protocolVersion: SCAFFOLD_XBLOCK_BRIDGE_PROTOCOL_VERSION + 1,
+      protocolVersion: 1,
       sessionId: "session-1",
       kind: "request",
       requestId: "request-1",
@@ -180,6 +181,23 @@ describe("XBlock iframe bridge protocol", () => {
         code: "protocol_mismatch",
         message: "XBlock bridge message protocol version is not supported.",
       },
+    });
+  });
+
+  it("rejects the removed xAPI request operation", () => {
+    const result = validateXBlockBridgeMessage({
+      channel: SCAFFOLD_XBLOCK_BRIDGE_CHANNEL,
+      protocolVersion: SCAFFOLD_XBLOCK_BRIDGE_PROTOCOL_VERSION,
+      sessionId: "session-1",
+      kind: "request",
+      requestId: "request-1",
+      messageType: "xapi.accept",
+      payload: { statement: {} },
+    });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "invalid_type" },
     });
   });
 
