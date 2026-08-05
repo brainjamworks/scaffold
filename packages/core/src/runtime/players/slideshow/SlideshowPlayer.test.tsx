@@ -569,9 +569,9 @@ describe("SlideshowPlayer", () => {
     );
 
     await user.click(await screen.findByRole("button", { name: "Enter fullscreen" }));
-    await waitFor(() => expect(ResizeObserverStub.instances).toHaveLength(2));
+    await waitFor(() => expect(ResizeObserverStub.instances).toHaveLength(3));
 
-    const observer = ResizeObserverStub.instances[1]!;
+    const observer = ResizeObserverStub.instances[2]!;
     const viewport = document.body.querySelector(".sc-slideshow-player__viewport");
     expect(observer.observe).toHaveBeenCalledWith(viewport);
 
@@ -617,7 +617,7 @@ describe("SlideshowPlayer", () => {
     );
 
     await waitFor(() => expect(onRendererReady).toHaveBeenCalledTimes(1));
-    expect(ResizeObserverStub.instances).toHaveLength(1);
+    expect(ResizeObserverStub.instances).toHaveLength(2);
     const observer = ResizeObserverStub.instances[0]!;
     const viewport = document.body.querySelector(".sc-slideshow-player__viewport");
     expect(observer.observe).toHaveBeenCalledOnce();

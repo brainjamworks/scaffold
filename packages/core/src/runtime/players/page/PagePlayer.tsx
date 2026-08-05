@@ -33,10 +33,12 @@ export function PagePlayer({
   const [playerElement, setPlayerElement] = useState<HTMLDivElement | null>(null);
   const coordinateSpace = useMemo(
     () =>
-      createViewportCoordinateSpace({
-        getRoot: () => playerElement,
-        ownerDocument: playerElement?.ownerDocument ?? document,
-      }),
+      playerElement
+        ? createViewportCoordinateSpace({
+            getRoot: () => playerElement,
+            ownerDocument: playerElement.ownerDocument,
+          })
+        : null,
     [playerElement],
   );
   const effectiveTheme = resolvedTheme ?? DEFAULT_RESOLVED_COURSE_THEME;

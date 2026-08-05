@@ -164,11 +164,16 @@ export function SlideshowPlayer({
   const overlayCollisionBoundary = viewportElement;
   const coordinateSpace = useMemo(
     () =>
-      createScaledCanvasCoordinateSpace({
-        getRoot: () => canvasElement,
-        ownerDocument: canvasElement?.ownerDocument ?? document,
-        localSize: metrics ?? SLIDESHOW_CANVAS_METRICS,
-      }),
+      canvasElement
+        ? createScaledCanvasCoordinateSpace({
+            getRoot: () => canvasElement,
+            ownerDocument: canvasElement.ownerDocument,
+            localSize: {
+              width: (metrics ?? SLIDESHOW_CANVAS_METRICS).intrinsicWidth,
+              height: (metrics ?? SLIDESHOW_CANVAS_METRICS).intrinsicHeight,
+            },
+          })
+        : null,
     [canvasElement, metrics],
   );
 

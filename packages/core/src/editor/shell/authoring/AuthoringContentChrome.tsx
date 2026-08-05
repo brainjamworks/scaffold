@@ -41,10 +41,12 @@ export function AuthoringContentChrome({
   const [ownerRoot, setOwnerRoot] = useState<HTMLDivElement | null>(null);
   const coordinateSpace = useMemo(
     () =>
-      createViewportCoordinateSpace({
-        getRoot: () => ownerRoot,
-        ownerDocument: ownerRoot?.ownerDocument ?? document,
-      }),
+      ownerRoot
+        ? createViewportCoordinateSpace({
+            getRoot: () => ownerRoot,
+            ownerDocument: ownerRoot.ownerDocument,
+          })
+        : null,
     [ownerRoot],
   );
   const canShowAuthoringChrome = editable && editor.isEditable;

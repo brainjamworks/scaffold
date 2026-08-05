@@ -3,7 +3,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { Editor, Node } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
@@ -13,6 +13,7 @@ import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { builtInSurfaceAuthoringChromeResolver } from "@/editor/surfaces/authoring/surface-authoring-views";
 import { AUTHORING_INTERACTION_ROOT_ATTR } from "@/editor/interactions/dom/authoring-root";
+import { useInteractionDragEnvironmentResolution } from "@/editor/interactions/drag/react/interaction-drag-environment";
 import { InteractionTargetKind } from "@/editor/interactions/targets/model/interaction-owner-state";
 import { useInteractionStore } from "@/editor/interactions/targets/facade/interaction-provider";
 import type { InteractionStore } from "@/editor/interactions/targets/facade/interaction-store";
@@ -73,14 +74,32 @@ function createContentEditor(id: string) {
 
 describe("AuthoringContentChrome", () => {
   it("gives simultaneous and nested editors one nearest contained overlay host each", async () => {
+    const restoreRects = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockImplementation(() => ({
+        bottom: 300,
+        height: 300,
+        left: 0,
+        right: 400,
+        top: 0,
+        width: 400,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      }));
     const outerEditor = createContentEditor("layout-outer");
     const innerEditor = createContentEditor("layout-inner");
     const siblingEditor = createContentEditor("layout-sibling");
     const environments = new Map<string, OverlayBoundaryEnvironment>();
+    const dragEnvironments = new Map<string, HTMLElement>();
 
     function BoundaryProbe({ editorId }: { editorId: string }) {
       const resolution = useOverlayBoundary();
+      const dragResolution = useInteractionDragEnvironmentResolution();
       if (resolution.status === "ready") environments.set(editorId, resolution.environment);
+      if (dragResolution.status === "ready") {
+        dragEnvironments.set(editorId, dragResolution.environment.coordinateRoot);
+      }
       return <div data-testid={`boundary-${editorId}`} data-status={resolution.status} />;
     }
 
@@ -134,10 +153,15 @@ describe("AuthoringContentChrome", () => {
     expect(environments.get("sibling")?.kind).toBe("contained");
     expect(environments.get("inner")?.host).not.toBe(environments.get("outer")?.host);
     expect(environments.get("sibling")?.host).not.toBe(environments.get("outer")?.host);
+    expect(dragEnvironments.get("outer")?.ownerDocument).toBe(document);
+    expect(dragEnvironments.get("outer")?.ownerDocument.defaultView).toBe(window);
+    expect(dragEnvironments.get("inner")?.ownerDocument).toBe(document);
+    expect(dragEnvironments.get("sibling")?.ownerDocument).toBe(document);
 
     outerEditor.destroy();
     innerEditor.destroy();
     siblingEditor.destroy();
+    restoreRects.mockRestore();
   });
 
   it("composes only content controls for an editor schema without Surface nodes", () => {
