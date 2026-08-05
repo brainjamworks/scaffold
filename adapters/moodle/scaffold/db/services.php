@@ -117,9 +117,9 @@ $functions = [
         'type' => 'read',
         'ajax' => true,
     ],
-    'mod_scaffold_accept_xapi_statement' => [
-        'classname' => 'mod_scaffold\external\accept_xapi_statement',
-        'description' => 'Accept a Scaffold xAPI statement into Moodle events.',
+    'mod_scaffold_accept_learning_event' => [
+        'classname' => 'mod_scaffold\external\accept_learning_event',
+        'description' => 'Accept a Scaffold Learning Event into Moodle events.',
         'type' => 'write',
         'ajax' => true,
     ],
