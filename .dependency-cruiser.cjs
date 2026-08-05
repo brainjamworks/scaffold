@@ -82,7 +82,7 @@ const classifiedNeutralOwnerPath = [
   "^packages/core/src/editor/arrangements/layout/model/",
   "^packages/core/src/editor/surfaces/model/",
   "^packages/core/src/editor/frame/model/",
-  "^packages/core/src/editor/drag/model/",
+  "^packages/core/src/editor/movement/model/",
   "^packages/core/src/editor/interactions/targets/(?:model|engine)/",
   auditedNeutralSelectionPath,
 ];
@@ -97,7 +97,7 @@ const higherCoreOwnerPath = [
   "^packages/core/src/editor/arrangements/(?:grid|layout)/(?:authoring|runtime)/",
   "^packages/core/src/editor/surfaces/(?:authoring|runtime|view)/",
   "^packages/core/src/editor/frame/(?:authoring|runtime|view)/",
-  "^packages/core/src/editor/drag/view/",
+  "^packages/core/src/editor/movement/view/",
   "^packages/core/src/editor/blocks/(?:authoring-block-extensions|runtime-block-extensions)\\.[^/]+$",
   "^packages/core/src/editor/blocks/[^/]+/[^/]*(?:authoring|Authoring|runtime|Runtime|view|View)[^/]*\\.[^/]+$",
   "^packages/core/src/editor/blocks/[^/]+/[^/]+/[^/]*(?:authoring|Authoring|runtime|Runtime|view|View)[^/]*\\.[^/]+$",
@@ -113,7 +113,7 @@ const interactionFeaturePolicyPath = [
   "^packages/core/src/editor/arrangements/(?:grid|layout)/(?:authoring|runtime)/",
   "^packages/core/src/editor/surfaces/(?:authoring|runtime|view)/",
   "^packages/core/src/editor/frame/(?:authoring|runtime|view)/",
-  "^packages/core/src/editor/drag/view/",
+  "^packages/core/src/editor/movement/view/",
   "^packages/core/src/editor/shell/",
   "^packages/core/src/editor/suggestions/",
 ];
@@ -759,7 +759,7 @@ module.exports = {
       name: "drag-model-does-not-reach-higher-owners",
       severity: "error",
       from: {
-        path: "^packages/core/src/editor/drag/model/",
+        path: "^packages/core/src/editor/movement/model/",
       },
       to: {
         path: higherCoreOwnerPath,
@@ -1033,7 +1033,7 @@ module.exports = {
         path: "^packages/core/src/editor/frame/authoring/",
       },
       to: {
-        path: "^packages/core/src/editor/drag/view/",
+        path: "^packages/core/src/editor/movement/view/",
         reachable: true,
       },
     },
@@ -1042,7 +1042,7 @@ module.exports = {
       name: "drag-view-does-not-reach-frame-authoring-state",
       severity: "error",
       from: {
-        path: "^packages/core/src/editor/drag/view/",
+        path: "^packages/core/src/editor/movement/view/",
       },
       to: {
         path: "^packages/core/src/editor/frame/authoring/",

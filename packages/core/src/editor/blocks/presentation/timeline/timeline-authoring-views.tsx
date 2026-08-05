@@ -8,8 +8,8 @@ import {
 } from "@tiptap/react";
 
 import { BlockAddGhost } from "@/editor/suggestions/insert/BlockAddGhost";
-import { CONTAINED_MOVEMENT_TARGET_ATTR } from "@/editor/drag/view/movement-dom";
-import { ContainedMovementHandle } from "@/editor/drag/view/ContainedMovementHandle";
+import { CONTAINED_MOVEMENT_TARGET_ATTR } from "@/editor/movement/view/movement-dom";
+import { ContainedMovementHandle } from "@/editor/movement/view/ContainedMovementHandle";
 import { createStableId } from "@/document/model/identity/stable-ids";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 

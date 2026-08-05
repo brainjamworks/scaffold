@@ -39,7 +39,7 @@ import {
   AUTHORING_CHROME_ACTIVE_ATTR,
   AUTHORING_ANCHOR_ATTR,
 } from "@/editor/interactions/dom/authoring-frame";
-import { resolveEditorMovementTarget } from "@/editor/drag/view/use-editor-movement-target";
+import { resolveEditorMovementTarget } from "@/editor/movement/view/use-editor-movement-target";
 import {
   CourseSelectionMode,
   resolveCourseSelectionFacts,

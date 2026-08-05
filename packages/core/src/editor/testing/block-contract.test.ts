@@ -44,7 +44,7 @@ import {
 } from "@/editor/rich-text/model/rich-text-blocks";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
-import { EditorMovementLayer } from "@/editor/drag/view/EditorMovementLayer";
+import { EditorMovementLayer } from "@/editor/movement/view/EditorMovementLayer";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { InteractionProvider } from "@/editor/interactions/targets/facade/interaction-provider";
 import { getInteractionFacadeStoreForEditor } from "@/editor/interactions/targets/prosemirror/facade/interaction-facade-storage";

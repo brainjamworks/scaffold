@@ -8,7 +8,7 @@ import userEvent from "@testing-library/user-event";
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 
-import { EditorMovementLayer } from "@/editor/drag/view/EditorMovementLayer";
+import { EditorMovementLayer } from "@/editor/movement/view/EditorMovementLayer";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import {

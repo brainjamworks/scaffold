@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import "@/editor/bounded-containers/view/bounded-container.css";
-import "@/editor/drag/view/drop-indicator.css";
-import "@/editor/drag/view/movement-handles.css";
+import "@/editor/movement/view/drop-indicator.css";
+import "@/editor/movement/view/movement-handles.css";
 import "./authoring/resize/resize-frame.css";
 import "./view/bounded-placement.css";
 

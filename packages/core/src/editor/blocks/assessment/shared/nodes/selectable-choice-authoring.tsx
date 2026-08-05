@@ -10,8 +10,8 @@ import { useEffect, useId, useMemo, useRef } from "react";
 
 import { CHOICE_TRAILING_BTN, ChoiceAnswerItem } from "../chrome/ChoiceAnswerItem";
 import { richTextDocumentToAssessmentFeedback } from "../model/private-assessment-attrs";
-import { CONTAINED_MOVEMENT_TARGET_ATTR } from "@/editor/drag/view/movement-dom";
-import { ContainedMovementHandle } from "@/editor/drag/view/ContainedMovementHandle";
+import { CONTAINED_MOVEMENT_TARGET_ATTR } from "@/editor/movement/view/movement-dom";
+import { ContainedMovementHandle } from "@/editor/movement/view/ContainedMovementHandle";
 import { Placeholder } from "@/editor/prosemirror/placeholder/Placeholder";
 import { createFieldContentEditorExtensions } from "@/editor/rich-text/authoring/field-content-extensions";
 import { EditableOverlayPopover } from "@/editor/rich-text/authoring/nested-overlay/EditableOverlayPopoverShell";

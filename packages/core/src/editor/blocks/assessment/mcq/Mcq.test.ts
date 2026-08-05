@@ -13,10 +13,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { createAssessmentRuntimeTestRoot } from "@/runtime/assessment/test-utils";
 
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
-import { MoveContainedAfterTarget } from "@/editor/drag/model/movement-intents";
-import { resolveMovementNodeContext } from "@/editor/drag/model/movement-policy";
-import { ContainedMovementTarget } from "@/editor/drag/model/movement-target";
-import { applyContainedMovementIntent } from "@/editor/drag/prosemirror/commands";
+import { MoveContainedAfterTarget } from "@/editor/movement/model/movement-intents";
+import { resolveMovementNodeContext } from "@/editor/movement/model/movement-policy";
+import { ContainedMovementTarget } from "@/editor/movement/model/movement-target";
+import { applyContainedMovementIntent } from "@/editor/movement/prosemirror/commands";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { createDisposableEditor } from "@/editor/testing/disposable-editor";
 import {

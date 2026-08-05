@@ -24,7 +24,7 @@ import type { InsertAction } from "@/editor/insertion/insert-action";
 import { AuthoringOverlayBoundary } from "@/editor/interactions/floating/AuthoringOverlayBoundary";
 import { FloatingAuthoringChrome } from "@/editor/shell/authoring/floating/FloatingAuthoringChrome";
 import type { FloatingControl } from "@/editor/shell/authoring/floating/floating-control";
-import { EditorMovementLayer } from "@/editor/drag/view/EditorMovementLayer";
+import { EditorMovementLayer } from "@/editor/movement/view/EditorMovementLayer";
 import { createAlignmentTargetPort } from "@/editor/interactions/alignment/alignment-target";
 import { createStructuralInteractionBubbleRendererMap } from "@/editor/interactions/interaction-bubble";
 import { StructuralInteractionBubbleMenu } from "@/editor/shell/bubbles/interaction/StructuralInteractionBubbleMenu";

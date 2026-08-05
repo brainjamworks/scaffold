@@ -6,7 +6,7 @@ import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaff
 import * as Slot from "@/ui/components/Slot/Slot";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import "@/editor/suggestions/insert/ghost-add.css";
-import { StructureMovementHandle } from "@/editor/drag/view/StructureMovementHandle";
+import { StructureMovementHandle } from "@/editor/movement/view/StructureMovementHandle";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 import {
   AuthoringChromeKind,

@@ -6,7 +6,7 @@ import type { SurfaceVariantLookup } from "@/editor/surfaces/model/surface-varia
 import type { SurfaceAuthoringChromeResolver } from "@/editor/surfaces/authoring/surface-authoring-view-registry";
 import { createGridFloatingAuthoringControls } from "@/editor/arrangements/grid/authoring/grid-floating-controls";
 import { createLayoutFloatingAuthoringControls } from "@/editor/arrangements/layout/authoring/layout-floating-controls";
-import { EditorMovementLayer } from "@/editor/drag/view/EditorMovementLayer";
+import { EditorMovementLayer } from "@/editor/movement/view/EditorMovementLayer";
 import { createViewportCoordinateSpace } from "@/editor/interactions/drag/dom/dom-coordinate-space";
 import { InteractionDragEnvironmentProvider } from "@/editor/interactions/drag/react/interaction-drag-environment";
 import { authoringInteractionRootAttributes } from "@/editor/interactions/dom/authoring-root";

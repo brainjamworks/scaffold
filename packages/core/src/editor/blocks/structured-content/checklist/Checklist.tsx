@@ -2,7 +2,7 @@ import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from "@tiptap/re
 import { PlusIcon as Plus, TrashIcon as Trash } from "@phosphor-icons/react";
 
 import { BlockAddGhost } from "@/editor/suggestions/insert/BlockAddGhost";
-import { StructureMovementHandle } from "@/editor/drag/view/StructureMovementHandle";
+import { StructureMovementHandle } from "@/editor/movement/view/StructureMovementHandle";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 import { createStableId } from "@/document/model/identity/stable-ids";
 

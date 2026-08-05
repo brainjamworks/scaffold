@@ -909,13 +909,13 @@ test("allows named neutral adaptation and downward lane composition", async (t) 
     ].join("\n"),
     "packages/core/src/editor/frame/model/frame-model.ts":
       "export interface FrameModel { id: string }\n",
-    "packages/core/src/editor/drag/model/drag-model.ts": [
+    "packages/core/src/editor/movement/model/drag-model.ts": [
       'import type { FrameModel } from "../../frame/model/frame-model";',
       "export type DragModel = FrameModel;",
     ].join("\n"),
     "packages/core/src/composition/authoring/create-authoring-composition.ts": [
       'import type { DocumentComposition } from "../model/create-document-composition";',
-      'import type { DragModel } from "../../editor/drag/model/drag-model";',
+      'import type { DragModel } from "../../editor/movement/model/drag-model";',
       "export type AuthoringComposition = DocumentComposition | DragModel;",
     ].join("\n"),
     "packages/core/src/composition/runtime/create-runtime-composition.ts": [
@@ -1213,12 +1213,13 @@ test("reports named neutral owner and leaf-to-composition inversions", async (t)
       'import type { ShellLeak } from "../../shell/shell-leak";',
       "export type FrameModelLeak = ShellLeak;",
     ].join("\n"),
-    "packages/core/src/editor/drag/model/drag-model.ts": [
+    "packages/core/src/editor/movement/model/drag-model.ts": [
       'import "./drag-model.css";',
       'import type { AuthoringComposition } from "../../../composition/authoring/create-authoring-composition";',
       "export type DragModelLeak = AuthoringComposition;",
     ].join("\n"),
-    "packages/core/src/editor/drag/model/drag-model.css": ".drag-model-leak { display: block; }\n",
+    "packages/core/src/editor/movement/model/drag-model.css":
+      ".drag-model-leak { display: block; }\n",
     "packages/core/src/editor/selection/selection-facts.ts": [
       'import type { ShellLeak } from "../shell/shell-leak";',
       "export type SelectionOwnerLeak = ShellLeak;",
@@ -1389,16 +1390,16 @@ test("allows semantic Frame and Drag seams and reports private-state and inserti
       'import type { TargetSeam } from "../../interactions/targets/model/target";',
       "export type FrameCoordinator = GestureSeam | TargetSeam;",
     ].join("\n"),
-    "packages/core/src/editor/drag/view/drag-coordinator.ts": [
+    "packages/core/src/editor/movement/view/drag-coordinator.ts": [
       'import type { GestureSeam } from "../../interactions/gesture/gesture";',
       'import type { TargetSeam } from "../../interactions/targets/model/target";',
       "export type DragCoordinator = GestureSeam | TargetSeam;",
     ].join("\n"),
     "packages/core/src/editor/frame/authoring/resize/private-resize-state.ts": [
-      'import type { DragTransientState } from "../../../drag/view/private-drag-state";',
+      'import type { DragTransientState } from "../../../movement/view/private-drag-state";',
       "export type FrameDragLeak = DragTransientState;",
     ].join("\n"),
-    "packages/core/src/editor/drag/view/private-drag-state.ts": [
+    "packages/core/src/editor/movement/view/private-drag-state.ts": [
       'import type { PrivateResizeState } from "../../frame/authoring/resize/private-resize-state";',
       "export interface DragTransientState { id: string }",
       "export type DragFrameLeak = PrivateResizeState;",
