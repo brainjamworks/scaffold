@@ -77,8 +77,8 @@ export async function handleXBlockBridgeRequest(
     case "learnerActivity.save":
       return xblockPost(context.runtime, context.element, "save_learner_activity", request.payload);
 
-    case "xapi.accept":
-      return xblockPost(context.runtime, context.element, "accept_xapi_statement", request.payload);
+    case "learningEvents.accept":
+      return xblockPost(context.runtime, context.element, "accept_learning_event", request.payload);
 
     case "host.notifySaveStart":
       context.runtime.notify?.("save", {

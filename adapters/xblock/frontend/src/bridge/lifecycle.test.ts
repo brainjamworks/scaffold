@@ -1,17 +1,25 @@
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import {
+  SCAFFOLD_XBLOCK_BRIDGE_CHANNEL,
+  SCAFFOLD_XBLOCK_BRIDGE_PROTOCOL_VERSION,
   createXBlockBridgeLifecycleMessage,
+  createXBlockBridgeRequest,
   type XBlockBridgeEventLike,
   type XBlockBridgeMessage,
 } from "./protocol";
 import { createXBlockInnerBridge } from "../inner/xblock-inner-bridge";
+import { handleXBlockBridgeRequest } from "../outer/xblock-handler-client";
 import {
   createXBlockOuterBridge,
   type XBlockBridgeMessageHost,
   type XBlockBridgeMessageListener,
   type XBlockBridgeWindowTarget,
 } from "../outer/xblock-outer-bridge";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("XBlock iframe lifecycle bridge", () => {
   it("sends outer.init after inner.ready from the expected origin and source", () => {
@@ -304,6 +312,88 @@ describe("XBlock iframe lifecycle bridge", () => {
     await expect(resultPromise).resolves.toEqual({
       url: "https://cdn.example/media.png",
     });
+  });
+
+  it("routes one learning event request to accept_learning_event with the exact event", async () => {
+    const element = {};
+    const handlerUrl = vi.fn((_element: unknown, handlerName: string) => {
+      return `https://studio.example/handler/${handlerName}`;
+    });
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ success: true }),
+    }));
+    vi.stubGlobal("document", { cookie: "", querySelector: () => null });
+    vi.stubGlobal("fetch", fetchMock);
+    const event = {
+      id: "00000000-0000-4000-8000-000000000001",
+      timestamp: "2026-07-27T12:00:00.000Z",
+      verb: {
+        id: "http://adlnet.gov/expapi/verbs/initialized",
+        display: { en: "initialized" },
+      },
+      object: {
+        objectType: "Activity",
+        id: "https://scaffold.ac/xapi/activities/openedx/usage-v1",
+      },
+    };
+
+    await handleXBlockBridgeRequest(
+      createXBlockBridgeRequest({
+        requestId: "request-1",
+        sessionId: "session-1",
+        type: "learningEvents.accept",
+        payload: { event },
+      }),
+      {
+        runtime: { handlerUrl },
+        element,
+        artifactId: "usage-v1",
+      },
+    );
+
+    expect(handlerUrl).toHaveBeenCalledTimes(1);
+    expect(handlerUrl).toHaveBeenCalledWith(element, "accept_learning_event");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://studio.example/handler/accept_learning_event",
+      expect.objectContaining({
+        body: JSON.stringify({ event, protocolVersion: 1 }),
+      }),
+    );
+  });
+
+  it("does not route the removed xAPI request operation", () => {
+    const innerWindow = new FakeWindowTarget();
+    const outerHost = new FakeMessageHost();
+    const innerSource = {};
+    const onRequest = vi.fn();
+
+    createXBlockOuterBridge({
+      sessionId: "session-1",
+      expectedInnerOrigin: "https://scaffold.example",
+      expectedInnerSource: innerSource,
+      innerWindow,
+      messageHost: outerHost,
+      initPayload: {},
+      onRequest,
+    });
+
+    outerHost.emit({
+      data: {
+        channel: SCAFFOLD_XBLOCK_BRIDGE_CHANNEL,
+        protocolVersion: SCAFFOLD_XBLOCK_BRIDGE_PROTOCOL_VERSION,
+        sessionId: "session-1",
+        kind: "request",
+        requestId: "request-1",
+        messageType: "xapi.accept",
+        payload: { statement: {} },
+      },
+      origin: "https://scaffold.example",
+      source: innerSource,
+    });
+
+    expect(onRequest).not.toHaveBeenCalled();
   });
 
   it("removes message listeners when bridges are destroyed", () => {
