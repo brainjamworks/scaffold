@@ -8,7 +8,7 @@ import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 
 def install_xblock_import_stubs():
@@ -3115,9 +3115,9 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertFalse(result["success"])
         self.assertIn("valid JSON", result["error"])
 
-    def test_xapi_handler_accepts_core_template_into_openedx_tracking(self):
+    def test_learning_event_handler_publishes_one_openedx_xapi_projection(self):
         block = make_xblock()
-        statement = {
+        event = {
             "id": "00000000-0000-4000-8000-000000000001",
             "timestamp": "2026-07-27T12:00:00.000Z",
             "verb": {
@@ -3130,37 +3130,65 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             },
         }
 
-        result = block.accept_xapi_statement(
-            {"statement": statement, "protocolVersion": 1},
+        result = block.accept_learning_event(
+            {"event": event, "protocolVersion": 1},
         )
 
         self.assertEqual(result, {"success": True})
         self.assertEqual(
             block.runtime.published,
-            [(block, "scaffold.xapi", {"statement": statement})],
+            [(block, "scaffold.xapi", {"statement": event})],
         )
+        self.assertNotIn("actor", event)
 
-    def test_xapi_handler_rejects_caller_supplied_actor(self):
+    def test_learning_event_handler_rejects_caller_supplied_actor(self):
         block = make_xblock()
-
-        result = block.accept_xapi_statement(
-            {
-                "statement": {
-                    "id": "00000000-0000-4000-8000-000000000001",
-                    "timestamp": "2026-07-27T12:00:00.000Z",
-                    "verb": {"id": "http://adlnet.gov/expapi/verbs/initialized"},
-                    "object": {
-                        "objectType": "Activity",
-                        "id": "https://scaffold.ac/xapi/activities/openedx/usage-v1",
-                    },
-                    "actor": {"mbox": "mailto:spoofed@example.test"},
-                },
+        event = {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "timestamp": "2026-07-27T12:00:00.000Z",
+            "verb": {
+                "id": "http://adlnet.gov/expapi/verbs/initialized",
+                "display": {"en": "initialized"},
             },
-        )
+            "object": {
+                "objectType": "Activity",
+                "id": "https://scaffold.ac/xapi/activities/openedx/usage-v1",
+            },
+            "actor": {"mbox": "mailto:spoofed@example.test"},
+        }
+
+        result = block.accept_learning_event({"event": event})
 
         self.assertFalse(result["success"])
-        self.assertIn("actor", result["error"])
         self.assertEqual(block.runtime.published, [])
+
+    def test_learning_event_handler_returns_a_safe_tracking_failure(self):
+        block = make_xblock()
+        block.runtime.publish = Mock(side_effect=RuntimeError("private backend detail"))
+        event = {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "timestamp": "2026-07-27T12:00:00.000Z",
+            "verb": {
+                "id": "http://adlnet.gov/expapi/verbs/initialized",
+                "display": {"en": "initialized"},
+            },
+            "object": {
+                "objectType": "Activity",
+                "id": "https://scaffold.ac/xapi/activities/openedx/usage-v1",
+            },
+        }
+
+        with self.assertLogs(scaffold.log, level="ERROR") as captured:
+            result = block.accept_learning_event({"event": event})
+
+        self.assertEqual(
+            result,
+            {"success": False, "error": "Learning Event could not be accepted"},
+        )
+        self.assertNotIn(event["id"], "\n".join(captured.output))
+
+    def test_removed_xapi_handler_has_no_compatibility_alias(self):
+        self.assertFalse(hasattr(make_xblock(), "accept_xapi_statement"))
 
     def test_reveal_answer_reads_stored_target_contract_not_author_document(self):
         target = single_select_target()
