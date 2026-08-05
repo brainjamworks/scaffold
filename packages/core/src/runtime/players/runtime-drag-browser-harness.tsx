@@ -96,11 +96,11 @@ export async function mountRuntimeDragHarness(
     editor,
     getCanvas: () => player.querySelector<HTMLElement>(".sc-slideshow-player__canvas"),
     getOverlayHost: () => ownerDocument.querySelector<HTMLElement>("[data-scaffold-overlay-host]"),
-    getSource: (selector = '[data-drag-source], [data-sortable-source]') =>
+    getSource: (selector = "[data-drag-source], [data-sortable-source]") =>
       player.querySelector<HTMLElement>(selector),
-    getPlaceholder: (selector = '[data-drag-placeholder]') =>
+    getPlaceholder: (selector = "[data-drag-placeholder]") =>
       player.querySelector<HTMLElement>(selector),
-    getTargets: (selector = '[data-drop-target], [data-drag-target]') =>
+    getTargets: (selector = "[data-drop-target], [data-drag-target]") =>
       Array.from(player.querySelectorAll<HTMLElement>(selector)),
     dispose: () => {
       root.unmount();
