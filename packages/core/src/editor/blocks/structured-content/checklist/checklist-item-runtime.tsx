@@ -43,7 +43,7 @@ export function ChecklistItemRuntimeNodeView(props: NodeViewProps) {
     activity.updateActivity({
       data: { checked: nextChecked, total: siblingIds.length },
       completed,
-      xapiEvent: {
+      learningEvent: {
         kind: "checklist-item-toggled",
         itemId,
         checked: !checked,

@@ -63,7 +63,7 @@ export function useFlashcardDeckController({
     activity.updateActivity({
       data: flashcardDataForPersistence({ ...deck, flipped }, cardSummaries.length),
       completed: activity.activity?.completed ?? false,
-      xapiEvent: {
+      learningEvent: {
         kind: "flashcard-flipped",
         cardId: currentCardId,
         face: flipped[currentCardId] ? "back" : "front",
@@ -80,7 +80,7 @@ export function useFlashcardDeckController({
     activity.updateActivity({
       data: flashcardDataForPersistence(result.data, cardSummaries.length),
       completed: result.completed,
-      xapiEvent: {
+      learningEvent: {
         kind: "flashcard-rated",
         cardId: currentCardId,
         rating: status === "gotIt" ? "got-it" : "not-yet",
@@ -166,7 +166,7 @@ export function useFlashcardCardController({
     activity.updateActivity({
       data: flashcardDataForPersistence({ ...deck, flipped }, deckNode?.childCount),
       completed: activity.activity?.completed ?? false,
-      xapiEvent: {
+      learningEvent: {
         kind: "flashcard-flipped",
         cardId,
         face: flipped[cardId] ? "back" : "front",
