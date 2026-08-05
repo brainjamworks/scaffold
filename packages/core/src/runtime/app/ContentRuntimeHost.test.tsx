@@ -229,6 +229,30 @@ function runtimeDocumentWithAccordion(): JSONContent {
   return runtimeDocumentWithBlock(runtimeAccordionLayout("layout-accordion", "accordion"));
 }
 
+function runtimeResourceLinkBlock(): JSONContent {
+  return {
+    type: "resource_link",
+    attrs: {
+      id: "resource-link-runtime",
+      data: {
+        url: "https://example.com/private-resource?token=SECRET",
+        kind: "article",
+        showDescription: true,
+      },
+    },
+    content: [
+      {
+        type: "resource_link_title",
+        content: [paragraph("Private resource")],
+      },
+      {
+        type: "resource_link_description",
+        content: [paragraph("Resource description")],
+      },
+    ],
+  };
+}
+
 function slideshowDocumentWithTabs(): JSONContent {
   const content = runtimeDocumentContent({
     mode: "slideshow",
@@ -1256,6 +1280,45 @@ describe("ContentRuntimeHost", () => {
           "accordion-slide-two-one",
         ),
       ]),
+    );
+  });
+
+  it("launches a private resource link through the Learning Event reporter", async () => {
+    vi.spyOn(runtimeXapi, "useXapiSession").mockReturnValue(null);
+    const user = userEvent.setup();
+    const port = createLearningEventPort();
+
+    render(
+      <ScaffoldServicesProvider ports={{ learningEvents: port }}>
+        <ContentRuntimeHost
+          composition={runtimeComposition}
+          artifactId="artifact-resource-link"
+          initialContent={runtimeDocumentWithBlock(runtimeResourceLinkBlock())}
+        />
+      </ScaffoldServicesProvider>,
+    );
+
+    const link = await screen.findByRole("link", {
+      name: /Private resource.*Opens in new tab/i,
+    });
+    link.addEventListener("click", (event) => event.preventDefault());
+    await user.click(link);
+
+    const resourceEvents = port.accept.mock.calls
+      .map(([event]) => event)
+      .filter((event) => event.object.definition?.type === LEARNING_EVENT_ACTIVITY_TYPES.resource);
+    expect(resourceEvents).toHaveLength(1);
+    expect(resourceEvents[0]).toMatchObject({
+      verb: { display: { en: "launched" } },
+      object: {
+        definition: {
+          extensions: { [LEARNING_EVENT_EXTENSIONS.resourceKind]: "article" },
+        },
+      },
+    });
+    expect(JSON.stringify(resourceEvents[0])).not.toContain("private-resource");
+    expect(link.getAttribute("href")).toBe(
+      "https://example.com/private-resource?token=SECRET",
     );
   });
 

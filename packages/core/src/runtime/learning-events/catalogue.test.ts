@@ -1520,6 +1520,10 @@ describe("Learning Event catalogue invariants", () => {
       endpoint: "PRIVATE_ENDPOINT",
       registration: "PRIVATE_REGISTRATION",
       platform: "PRIVATE_PLATFORM",
+      url: "PRIVATE_RESOURCE_URL",
+      mediaMetadata: "PRIVATE_MEDIA_METADATA",
+      playerState: "PRIVATE_PLAYER_STATE",
+      destination: "PRIVATE_DESTINATION",
     };
     const privateResult = {
       ...normalizedResult(),
@@ -1566,6 +1570,31 @@ describe("Learning Event catalogue invariants", () => {
         rootActivityId: ROOT_ACTIVITY_ID,
         blockId: "checklist-one",
         activityKind: "checklist",
+        ...privateCanaries,
+      }),
+      buildResourceLaunchedLearningEventDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        resourceId: "pdf-one",
+        resourceKind: "pdf",
+        ...privateCanaries,
+      }),
+      buildResourceAttemptedLearningEventDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        resourceId: "audio-one",
+        resourceKind: "audio",
+        ...privateCanaries,
+      }),
+      buildResourceCompletedLearningEventDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        resourceId: "audio-one",
+        resourceKind: "audio",
+        ...privateCanaries,
+      }),
+      buildResourcePageExperiencedLearningEventDraft({
+        rootActivityId: ROOT_ACTIVITY_ID,
+        resourceId: "pdf-one",
+        pageNumber: 2,
+        pageCount: 4,
         ...privateCanaries,
       }),
       buildQuizAttemptedLearningEventDraft({

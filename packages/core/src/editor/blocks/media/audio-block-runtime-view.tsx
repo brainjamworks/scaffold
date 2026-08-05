@@ -3,11 +3,9 @@ import { useRef } from "react";
 
 import { useMediaPort } from "@/host/providers/ScaffoldServicesProvider";
 import {
-  buildResourceAttemptedStatementDraft,
-  buildResourceCompletedStatementDraft,
-  useXapiSession,
-  type XapiSession,
-} from "@/runtime/xapi";
+  useLearningEventReporter,
+  type LearningEventReporter,
+} from "@/runtime/learning-events/LearningEventRuntimeProvider";
 
 import { parseAudioBlockData, useResolvedAudioBlockSource } from "./AudioBlockModel";
 import { AudioBlockSurface } from "./AudioBlockSurface";
@@ -16,20 +14,24 @@ export function AudioBlockRuntimeView(props: NodeViewProps) {
   const mediaPort = useMediaPort();
   const data = parseAudioBlockData(props.node.attrs["data"]);
   const { errorMessage, resolvedUrl } = useResolvedAudioBlockSource(data, mediaPort);
-  const xapiSession = useXapiSession();
+  const learningEventReporter = useLearningEventReporter();
   const resourceId = props.node.attrs["id"];
   const recordedRef = useRef<{
-    session: XapiSession;
+    reporter: LearningEventReporter;
     resourceId: string;
     attempted: boolean;
     completed: boolean;
   } | null>(null);
   const getRecorded = () => {
-    if (!xapiSession || typeof resourceId !== "string" || !resourceId.trim()) return null;
+    if (typeof resourceId !== "string" || !resourceId.trim()) return null;
     let recorded = recordedRef.current;
-    if (recorded?.session !== xapiSession || recorded.resourceId !== resourceId) {
+    if (
+      !recorded ||
+      recorded.reporter !== learningEventReporter ||
+      recorded.resourceId !== resourceId
+    ) {
       recorded = {
-        session: xapiSession,
+        reporter: learningEventReporter,
         resourceId,
         attempted: false,
         completed: false,
@@ -42,13 +44,11 @@ export function AudioBlockRuntimeView(props: NodeViewProps) {
     const recorded = getRecorded();
     if (!recorded || recorded.attempted) return;
     try {
-      recorded.session.record(
-        buildResourceAttemptedStatementDraft({
-          rootActivityId: recorded.session.rootActivityId,
-          resourceId: recorded.resourceId,
-          resourceKind: "audio",
-        }),
-      );
+      recorded.reporter.report({
+        type: "resource.attempted",
+        resourceId: recorded.resourceId,
+        resourceKind: "audio",
+      });
       recorded.attempted = true;
     } catch {
       // Audio recording is observational and cannot change playback.
@@ -58,13 +58,11 @@ export function AudioBlockRuntimeView(props: NodeViewProps) {
     const recorded = getRecorded();
     if (!recorded || recorded.completed) return;
     try {
-      recorded.session.record(
-        buildResourceCompletedStatementDraft({
-          rootActivityId: recorded.session.rootActivityId,
-          resourceId: recorded.resourceId,
-          resourceKind: "audio",
-        }),
-      );
+      recorded.reporter.report({
+        type: "resource.completed",
+        resourceId: recorded.resourceId,
+        resourceKind: "audio",
+      });
       recorded.completed = true;
     } catch {
       // Audio recording is observational and cannot change playback.

@@ -4,11 +4,9 @@ import { useRef } from "react";
 
 import { useMediaPort } from "@/host/providers/ScaffoldServicesProvider";
 import {
-  buildResourceLaunchedStatementDraft,
-  buildResourcePageExperiencedStatementDraft,
-  useXapiSession,
-  type XapiSession,
-} from "@/runtime/xapi";
+  useLearningEventReporter,
+  type LearningEventReporter,
+} from "@/runtime/learning-events/LearningEventRuntimeProvider";
 import {
   resolveOwningRuntimeSurfaceId,
   useRuntimePresentedSurfaceId,
@@ -21,7 +19,7 @@ export function PdfEmbedRuntimeView(props: NodeViewProps) {
   const mediaPort = useMediaPort();
   const parsed = PdfEmbedDataSchema.safeParse(props.node.attrs["data"]);
   const data = parsed.success ? parsed.data : emptyPdfEmbedData();
-  const xapiSession = useXapiSession();
+  const learningEventReporter = useLearningEventReporter();
   const presentedSurfaceId = useRuntimePresentedSurfaceId();
   const owningSurfaceId = resolveOwningRuntimeSurfaceId(props.editor.state.doc, props.getPos);
   const isPresented =
@@ -29,40 +27,40 @@ export function PdfEmbedRuntimeView(props: NodeViewProps) {
     (presentedSurfaceId !== null && owningSurfaceId === presentedSurfaceId);
   const resourceId = props.node.attrs["id"];
   const recordedPagesRef = useRef<{
-    session: XapiSession;
+    reporter: LearningEventReporter;
     resourceId: string;
     pages: Set<number>;
   } | null>(null);
   const recordLaunch = () => {
-    if (!xapiSession || typeof resourceId !== "string" || !resourceId.trim()) return;
+    if (typeof resourceId !== "string" || !resourceId.trim()) return;
     try {
-      xapiSession.record(
-        buildResourceLaunchedStatementDraft({
-          rootActivityId: xapiSession.rootActivityId,
-          resourceId,
-          resourceKind: "pdf",
-        }),
-      );
+      learningEventReporter.report({
+        type: "resource.launched",
+        resourceId,
+        resourceKind: "pdf",
+      });
     } catch {
       // Resource launch recording is observational and cannot prevent navigation.
     }
   };
   const recordPagePresented = (page: { pageNumber: number; pageCount: number }) => {
-    if (!xapiSession || typeof resourceId !== "string" || !resourceId.trim()) return;
+    if (typeof resourceId !== "string" || !resourceId.trim()) return;
     let recorded = recordedPagesRef.current;
-    if (recorded?.session !== xapiSession || recorded.resourceId !== resourceId) {
-      recorded = { session: xapiSession, resourceId, pages: new Set() };
+    if (
+      !recorded ||
+      recorded.reporter !== learningEventReporter ||
+      recorded.resourceId !== resourceId
+    ) {
+      recorded = { reporter: learningEventReporter, resourceId, pages: new Set() };
       recordedPagesRef.current = recorded;
     }
     if (recorded.pages.has(page.pageNumber)) return;
     try {
-      xapiSession.record(
-        buildResourcePageExperiencedStatementDraft({
-          rootActivityId: xapiSession.rootActivityId,
-          resourceId,
-          ...page,
-        }),
-      );
+      learningEventReporter.report({
+        type: "resource-page.experienced",
+        resourceId,
+        ...page,
+      });
       recorded.pages.add(page.pageNumber);
     } catch {
       // Page recording is observational and cannot make the PDF unavailable.
