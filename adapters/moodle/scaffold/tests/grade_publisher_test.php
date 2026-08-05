@@ -330,7 +330,7 @@ final class grade_publisher_test extends \advanced_testcase {
             (int) $user->id,
             artifact_identity::for_course_module((int) $cm->id),
             static function (\stdClass $snapshot): \stdClass {
-                $snapshot->problems->{'question-1'}->submissionResult->score = 1;
+                $snapshot->problems->{'question-1'}->submissionResult->score = (object) ['scaled' => 1];
                 return $snapshot;
             },
         );
@@ -387,7 +387,7 @@ final class grade_publisher_test extends \advanced_testcase {
             (int) $user->id,
             artifact_identity::for_course_module((int) $cm->id),
             static function (\stdClass $snapshot): \stdClass {
-                $snapshot->problems->{'question-1'}->submissionResult->score = 1;
+                $snapshot->problems->{'question-1'}->submissionResult->score = (object) ['scaled' => 1];
                 return $snapshot;
             },
         );
@@ -570,8 +570,7 @@ final class grade_publisher_test extends \advanced_testcase {
                     'checkResult' => null,
                     'submissionResult' => (object) [
                         'isCorrect' => $score === 1.0,
-                        'score' => $score,
-                        'maxScore' => 1,
+                        'score' => (object) ['scaled' => $score],
                         'feedback' => null,
                         'items' => (object) [],
                     ],

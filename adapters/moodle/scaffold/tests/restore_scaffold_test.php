@@ -407,7 +407,6 @@ final class restore_scaffold_test extends advanced_testcase {
                     'finishedAt' => null,
                     'expiresAt' => gmdate('Y-m-d\\TH:i:s', $now - 60) . '.000000Z',
                     'score' => null,
-                    'maxScore' => null,
                     'resultsByTargetId' => (object) [],
                     'answerReviewAuthorized' => false,
                 ],

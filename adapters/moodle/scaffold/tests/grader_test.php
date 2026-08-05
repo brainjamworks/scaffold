@@ -37,8 +37,7 @@ final class grader_test extends \basic_testcase {
         ]);
 
         $this->assertTrue($result['isCorrect']);
-        $this->assertSame(1, $result['score']);
-        $this->assertSame(1, $result['maxScore']);
+        $this->assertSame(['scaled' => 1, 'raw' => 1, 'min' => 0, 'max' => 1], $result['score']);
         $this->assertSame($this->rich_feedback('Summary'), $result['feedback']);
         $this->assertTrue($result['items']['b']['correct']);
     }
@@ -59,7 +58,7 @@ final class grader_test extends \basic_testcase {
         ]);
 
         $this->assertFalse($result['isCorrect']);
-        $this->assertSame(0, $result['score']);
+        $this->assertSame(['scaled' => 0, 'raw' => 0, 'min' => 0, 'max' => 2], $result['score']);
     }
 
     public function test_fill_blanks_normalises_case_and_whitespace(): void {
@@ -83,7 +82,7 @@ final class grader_test extends \basic_testcase {
         ]);
 
         $this->assertTrue($result['isCorrect']);
-        $this->assertSame(1, $result['score']);
+        $this->assertSame(['scaled' => 1, 'raw' => 1, 'min' => 0, 'max' => 1], $result['score']);
     }
 
     public function test_empty_result_preserves_contract_object_shape(): void {
@@ -91,7 +90,7 @@ final class grader_test extends \basic_testcase {
 
         $this->assertNull($result['feedback']);
         $this->assertSame(
-            '{"isCorrect":false,"score":0,"maxScore":1,"feedback":null,"items":{}}',
+            '{"isCorrect":false,"score":{"scaled":0},"feedback":null,"items":{}}',
             json_encode($result, JSON_THROW_ON_ERROR),
         );
     }
@@ -124,8 +123,7 @@ final class grader_test extends \basic_testcase {
                 'kind' => 'single-select',
                 'optionId' => 'b',
             ]);
-            $this->assertSame(1, $result['score']);
-            $this->assertSame(1, $result['maxScore']);
+            $this->assertSame(['scaled' => 1, 'raw' => 1, 'min' => 0, 'max' => 1], $result['score']);
             $this->assertArrayNotHasKey('points', $result);
             $this->assertArrayNotHasKey('isGraded', $result);
         }
@@ -145,9 +143,9 @@ final class grader_test extends \basic_testcase {
         $validator = new json_schema_validator();
         $validator->validate_definition('AssessmentResult', $storedresult, 'storedResult');
 
-        $missingmaximum = clone $storedresult;
-        unset($missingmaximum->maxScore);
-        $this->assert_result_rejected($validator, $missingmaximum);
+        $partialscore = clone $storedresult;
+        unset($partialscore->score->max);
+        $this->assert_result_rejected($validator, $partialscore);
 
         $listitems = clone $storedresult;
         $listitems->items = [];
@@ -194,10 +192,10 @@ final class grader_test extends \basic_testcase {
             $actual,
             'case.' . $caseid . '.result',
         );
-        $this->assertSame(1, $actual->maxScore, $caseid);
-        $this->assertIsNumeric($actual->score, $caseid);
-        $this->assertGreaterThanOrEqual(0, $actual->score, $caseid);
-        $this->assertLessThanOrEqual(1, $actual->score, $caseid);
+        $this->assertInstanceOf(\stdClass::class, $actual->score, $caseid);
+        $this->assertIsNumeric($actual->score->scaled, $caseid);
+        $this->assertGreaterThanOrEqual(0, $actual->score->scaled, $caseid);
+        $this->assertLessThanOrEqual(1, $actual->score->scaled, $caseid);
         $this->assertInstanceOf(\stdClass::class, $actual->items, $caseid);
         $this->assertInstanceOf(\stdClass::class, $expected->items, $caseid);
         $this->assertSame(

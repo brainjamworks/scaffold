@@ -41,10 +41,19 @@ final class assessment_result_projection {
         // Item outcomes stay exclusive to explicit reveal and authorized full-review paths.
         return (object) [
             'isCorrect' => (bool) ($result->isCorrect ?? false),
-            'score' => $result->score ?? 0,
-            'maxScore' => $result->maxScore ?? 1,
+            'score' => self::copy($result->score),
             'feedback' => $includeauthoredfeedback ? ($result->feedback ?? null) : null,
             'items' => (object) [],
         ];
+    }
+
+    /**
+     * Deep-copies one JSON-compatible value.
+     *
+     * @param mixed $value Value.
+     * @return mixed
+     */
+    private static function copy(mixed $value): mixed {
+        return json_decode(json_encode($value, JSON_THROW_ON_ERROR), false, 512, JSON_THROW_ON_ERROR);
     }
 }

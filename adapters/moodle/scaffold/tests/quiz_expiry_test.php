@@ -490,7 +490,6 @@ final class quiz_expiry_test extends \advanced_testcase {
             'finishedAt' => null,
             'expiresAt' => $expiresat,
             'score' => null,
-            'maxScore' => null,
             'resultsByTargetId' => (object) [],
             'answerReviewAuthorized' => false,
             'successStatus' => null,

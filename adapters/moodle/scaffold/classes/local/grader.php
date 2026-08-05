@@ -105,8 +105,7 @@ class grader {
 
         return [
             'isCorrect' => $iscorrect,
-            'score' => $iscorrect ? 1 : 0,
-            'maxScore' => 1,
+            'score' => self::count_score($iscorrect ? 1 : 0, 1),
             'feedback' => self::summary_feedback($assessment),
             'items' => $items,
         ];
@@ -148,8 +147,7 @@ class grader {
         if (!$expected) {
             return [
                 'isCorrect' => false,
-                'score' => 0,
-                'maxScore' => 1,
+                'score' => self::scaled_score(0.0),
                 'feedback' => self::summary_feedback($assessment),
                 'items' => $items,
             ];
@@ -158,8 +156,7 @@ class grader {
         if (count($expected) === count($selected) && !array_diff_key($expected, $selected)) {
             return [
                 'isCorrect' => true,
-                'score' => 1,
-                'maxScore' => 1,
+                'score' => self::count_score(count($expected), count($expected)),
                 'feedback' => self::summary_feedback($assessment),
                 'items' => $items,
             ];
@@ -167,13 +164,11 @@ class grader {
 
         $correctpicks = count(array_intersect_key($selected, $expected));
         $wrongpicks = count(array_diff_key($selected, $expected));
-        $percorrect = 1 / count($expected);
-        $score = max(0, ($correctpicks * $percorrect) - ($wrongpicks * $percorrect));
+        $raw = max(0, $correctpicks - $wrongpicks);
 
         return [
             'isCorrect' => false,
-            'score' => $score,
-            'maxScore' => 1,
+            'score' => self::count_score($raw, count($expected)),
             'feedback' => self::summary_feedback($assessment),
             'items' => $items,
         ];
@@ -230,8 +225,7 @@ class grader {
 
         return [
             'isCorrect' => $iscorrect,
-            'score' => $iscorrect ? 1 : $correctcount / count($expected),
-            'maxScore' => 1,
+            'score' => self::count_score($correctcount, count($expected)),
             'feedback' => self::summary_feedback($assessment),
             'items' => $items,
         ];
@@ -308,8 +302,7 @@ class grader {
 
         return [
             'isCorrect' => $correctcount === $total,
-            'score' => $correctcount / $total,
-            'maxScore' => 1,
+            'score' => self::count_score($correctcount, $total),
             'feedback' => $feedback,
             'items' => $items,
         ];
@@ -381,8 +374,7 @@ class grader {
 
         return [
             'isCorrect' => $correctcount === $total,
-            'score' => $correctcount / $total,
-            'maxScore' => 1,
+            'score' => self::count_score($correctcount, $total),
             'feedback' => self::summary_feedback($assessment),
             'items' => $items,
         ];
@@ -441,13 +433,12 @@ class grader {
 
         $allcorrect = $correctcount === count($hotspotids);
         $score = ($assessment['gradingMode'] ?? null) === 'all-or-nothing'
-            ? ($allcorrect ? 1 : 0)
-            : $correctcount / count($hotspotids);
+            ? self::count_score($allcorrect ? 1 : 0, 1)
+            : self::count_score($correctcount, count($hotspotids));
 
         return [
             'isCorrect' => $allcorrect,
             'score' => $score,
-            'maxScore' => 1,
             'feedback' => self::summary_feedback($assessment),
             'items' => $items,
         ];
@@ -462,10 +453,38 @@ class grader {
     private static function empty_result(mixed $feedback = null): array {
         return [
             'isCorrect' => false,
-            'score' => 0,
-            'maxScore' => 1,
+            'score' => self::scaled_score(0.0),
             'feedback' => $feedback,
             'items' => new \stdClass(),
+        ];
+    }
+
+    /**
+     * Builds a scaled-only score when no authoritative point scale exists.
+     *
+     * @param float $scaled Scaled score.
+     * @return array
+     */
+    private static function scaled_score(float $scaled): array {
+        return ['scaled' => $scaled];
+    }
+
+    /**
+     * Builds a score from genuine integer earned and possible units.
+     *
+     * @param int $raw Earned units.
+     * @param int $max Possible units.
+     * @return array
+     */
+    private static function count_score(int $raw, int $max): array {
+        if ($max <= 0) {
+            return self::scaled_score(0.0);
+        }
+        return [
+            'scaled' => $raw / $max,
+            'raw' => $raw,
+            'min' => 0,
+            'max' => $max,
         ];
     }
 

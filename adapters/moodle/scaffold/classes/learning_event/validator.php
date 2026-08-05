@@ -169,21 +169,30 @@ final class validator {
      */
     private static function score(mixed $value): void {
         if (!$value instanceof \stdClass) self::reject('Learning Event score is invalid');
-        self::non_empty($value, 'Learning Event score is invalid');
-        self::keys($value, ['scaled', 'raw', 'min', 'max']);
-        foreach (['scaled', 'raw', 'min', 'max'] as $field) {
-            if (property_exists($value, $field) && ((!is_int($value->{$field}) && !is_float($value->{$field})) || !is_finite((float) $value->{$field}))) {
-                self::reject('Learning Event score is invalid');
-            }
+        $keys = array_keys(get_object_vars($value));
+        sort($keys);
+        $scaledonly = $keys === ['scaled'];
+        $full = $keys === ['max', 'min', 'raw', 'scaled'];
+        if (!$scaledonly && !$full) self::reject('Learning Event score is invalid');
+        if (
+            (!is_int($value->scaled) && !is_float($value->scaled))
+            || !is_finite((float) $value->scaled)
+            || $value->scaled < 0
+            || $value->scaled > 1
+        ) {
+            self::reject('Learning Event scaled score is invalid');
         }
-        if (property_exists($value, 'scaled') && ($value->scaled < -1 || $value->scaled > 1)) self::reject('Learning Event scaled score is invalid');
-        if (property_exists($value, 'min') && property_exists($value, 'max') && $value->min >= $value->max) {
+        if (!$full) return;
+        foreach (['raw', 'min', 'max'] as $field) {
+            if (!is_int($value->{$field})) self::reject('Learning Event score is invalid');
+        }
+        if ($value->min >= $value->max) {
             self::reject('Learning Event score range is invalid');
         }
-        if (property_exists($value, 'raw') && property_exists($value, 'min') && $value->raw < $value->min) {
+        if ($value->raw < $value->min) {
             self::reject('Learning Event raw score is invalid');
         }
-        if (property_exists($value, 'raw') && property_exists($value, 'max') && $value->raw > $value->max) {
+        if ($value->raw > $value->max) {
             self::reject('Learning Event raw score is invalid');
         }
     }

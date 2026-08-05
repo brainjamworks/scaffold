@@ -353,8 +353,7 @@ final class assessment_state_repository_test extends \advanced_testcase {
                     $quiz->status = 'expired';
                     $quiz->currentTargetId = null;
                     $quiz->finishedAt = '2100-01-01T00:00:01.000000Z';
-                    $quiz->score = 0.0;
-                    $quiz->maxScore = 1.0;
+                    $quiz->score = (object) ['scaled' => 0.0, 'raw' => 0, 'min' => 0, 'max' => 1];
                 }
                 return $snapshot;
             },
@@ -504,7 +503,6 @@ final class assessment_state_repository_test extends \advanced_testcase {
             'finishedAt' => null,
             'expiresAt' => $expiresat,
             'score' => null,
-            'maxScore' => null,
             'successStatus' => null,
             'resultsByTargetId' => (object) [],
             'answerReviewAuthorized' => false,

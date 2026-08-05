@@ -94,8 +94,7 @@ final class assessment_quiz_test extends \basic_testcase {
     public function test_result_only_projection_redacts_reconstructable_outcomes(): void {
         $result = (object) [
             'isCorrect' => false,
-            'score' => 0,
-            'maxScore' => 1,
+            'score' => ['scaled' => 0.0, 'raw' => 0, 'min' => 0, 'max' => 1],
             'feedback' => $this->feedback('Binary summary feedback'),
             'items' => (object) [
                 'multi-select-option' => (object) [
@@ -227,8 +226,7 @@ final class assessment_quiz_test extends \basic_testcase {
             0,
         );
         $this->assertSame('completed', $completed->status);
-        $this->assertSame(2.0, $completed->score);
-        $this->assertSame(2.0, $completed->maxScore);
+        $this->assertEquals((object) ['scaled' => 1.0, 'raw' => 2, 'min' => 0, 'max' => 2], $completed->score);
         $this->assertNull($completed->currentTargetId);
         $this->assertTrue($completed->answerReviewAuthorized);
         $this->assertNull($completed->successStatus);
@@ -284,8 +282,10 @@ final class assessment_quiz_test extends \basic_testcase {
             ],
         );
 
-        $this->assertSame($expectedscore, $finished->score);
-        $this->assertSame(2.0, $finished->maxScore);
+        $this->assertEquals(
+            (object) ['scaled' => $expectedscore / 2, 'raw' => (int) $expectedscore, 'min' => 0, 'max' => 2],
+            $finished->score,
+        );
         $this->assertSame($expectedsuccess, $finished->successStatus);
     }
 
@@ -350,8 +350,7 @@ final class assessment_quiz_test extends \basic_testcase {
         );
 
         $this->assertSame('expired', $expired->status);
-        $this->assertSame(1.0, $expired->score);
-        $this->assertSame(2.0, $expired->maxScore);
+        $this->assertEquals((object) ['scaled' => 0.5, 'raw' => 1, 'min' => 0, 'max' => 2], $expired->score);
         $this->assertSame('passed', $expired->successStatus);
     }
 
@@ -394,8 +393,7 @@ final class assessment_quiz_test extends \basic_testcase {
             ['question-1' => ['kind' => 'single-select', 'optionId' => 'option-b']],
         );
         $this->assertSame('expired', $expired->status);
-        $this->assertSame(0.0, $expired->score);
-        $this->assertSame(2.0, $expired->maxScore);
+        $this->assertEquals((object) ['scaled' => 0.0, 'raw' => 0, 'min' => 0, 'max' => 2], $expired->score);
         $this->assertSame('failed', $expired->successStatus);
         $this->assertSame(0, $gradecalls);
         $this->assertSame([], get_object_vars($snapshot->quizzes->{'quiz-1'}->resultsByTargetId));
@@ -436,8 +434,7 @@ final class assessment_quiz_test extends \basic_testcase {
         $attempt->status = 'completed';
         $attempt->currentTargetId = null;
         $attempt->finishedAt = '2026-07-17T10:00:30.000000Z';
-        $attempt->score = 2.0;
-        $attempt->maxScore = 2.0;
+        $attempt->score = (object) ['scaled' => 1.0, 'raw' => 2, 'min' => 0, 'max' => 2];
         $attempt->successStatus = null;
 
         $public = assessment_quiz::public_attempt($attempt, $group);
@@ -923,7 +920,6 @@ final class assessment_quiz_test extends \basic_testcase {
             'finishedAt' => null,
             'expiresAt' => $expiresat,
             'score' => null,
-            'maxScore' => null,
             'resultsByTargetId' => (object) [],
             'answerReviewAuthorized' => false,
             'successStatus' => null,

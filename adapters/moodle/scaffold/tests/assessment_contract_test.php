@@ -33,6 +33,28 @@ use mod_scaffold\local\json_schema_validator;
  * @covers \mod_scaffold\local\json_schema_validator
  */
 final class assessment_contract_test extends \advanced_testcase {
+    public function test_score_boundary_accepts_only_the_canonical_shapes(): void {
+        $validator = new json_schema_validator();
+        foreach ([
+            (object) ['scaled' => 0.25],
+            (object) ['scaled' => 0.5, 'raw' => 1, 'min' => 0, 'max' => 2],
+        ] as $score) {
+            $validator->validate_definition('Score', $score, 'score');
+        }
+
+        foreach ([
+            (object) [],
+            (object) ['scaled' => -0.1],
+            (object) ['scaled' => 1.1],
+            (object) ['scaled' => 0.5, 'raw' => 1, 'min' => 0],
+            (object) ['scaled' => 0.5, 'raw' => 0.5, 'min' => 0, 'max' => 1],
+            (object) ['scaled' => 0.5, 'raw' => 3, 'min' => 0, 'max' => 2],
+            (object) ['scaled' => 0.5, 'raw' => 1, 'min' => 2, 'max' => 2],
+        ] as $score) {
+            $this->assert_contract_rejected('Score', $score, $validator);
+        }
+    }
+
     public function test_target_contract_accepts_canonical_target(): void {
         (new json_schema_validator())->validate_definition(
             'AssessmentTargetContract',
@@ -120,9 +142,9 @@ final class assessment_contract_test extends \advanced_testcase {
      */
     public function test_result_contract_rejects_nonfinite_score(float $score): void {
         $result = $this->decode(
-            '{"isCorrect":true,"score":1,"maxScore":1,"feedback":null,"items":{}}',
+            '{"isCorrect":true,"score":{"scaled":1},"feedback":null,"items":{}}',
         );
-        $result->score = $score;
+        $result->score->scaled = $score;
 
         $this->assert_contract_rejected('AssessmentResult', $result);
     }
@@ -143,7 +165,7 @@ final class assessment_contract_test extends \advanced_testcase {
         (new json_schema_validator())->validate_definition(
             'AssessmentResult',
             $this->decode(
-                '{"isCorrect":true,"score":1,"maxScore":1,"feedback":null,"items":{}}',
+                '{"isCorrect":true,"score":{"scaled":1,"raw":1,"min":0,"max":1},"feedback":null,"items":{}}',
             ),
         );
         $this->addToAssertionCount(1);
@@ -192,7 +214,7 @@ JSON);
         $this->addToAssertionCount(1);
 
         $scorewithoutmaximum = $this->copy($quiz);
-        $scorewithoutmaximum->score = 1;
+        $scorewithoutmaximum->score = (object) ['scaled' => 0.5, 'raw' => 1, 'min' => 0];
         $this->assert_contract_rejected(
             'QuizAttemptSnapshot',
             $scorewithoutmaximum,
@@ -465,7 +487,6 @@ JSON);
   "finishedAt": null,
   "expiresAt": null,
   "score": null,
-  "maxScore": null,
   "successStatus": null,
   "resultsByTargetId": {},
   "answerReviewAuthorized": false

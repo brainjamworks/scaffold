@@ -24,8 +24,7 @@ describe("createMoodleRuntimePorts assessment port", () => {
   it("submits the expected attempt and returns canonical problem state", async () => {
     const result = {
       isCorrect: true,
-      score: 1,
-      maxScore: 1,
+      score: { scaled: 1, raw: 1, min: 0, max: 1 },
       feedback: null,
       items: {},
     };
@@ -136,7 +135,6 @@ describe("createMoodleRuntimePorts assessment port", () => {
       finishedAt: null,
       expiresAt: null,
       score: null,
-      maxScore: null,
       successStatus: null,
       resultsByTargetId: {},
       answerReviewAuthorized: false,
@@ -216,7 +214,6 @@ describe("createMoodleRuntimePorts assessment port", () => {
       finishedAt: null,
       expiresAt: null,
       score: null,
-      maxScore: null,
       successStatus: null,
       resultsByTargetId: {},
       answerReviewAuthorized: false,
@@ -285,8 +282,7 @@ describe("createMoodleRuntimePorts learner activity port", () => {
   it("keeps learner save rejection independent from assessment success", async () => {
     const result = {
       isCorrect: true,
-      score: 1,
-      maxScore: 1,
+      score: { scaled: 1, raw: 1, min: 0, max: 1 },
       feedback: null,
       items: {},
     };

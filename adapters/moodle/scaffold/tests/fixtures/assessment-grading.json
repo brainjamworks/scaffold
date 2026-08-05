@@ -42,8 +42,7 @@
       "response": { "kind": "single-select", "optionId": "b" },
       "expected": {
         "isCorrect": true,
-        "score": 1,
-        "maxScore": 1,
+        "score": { "scaled": 1, "raw": 1, "min": 0, "max": 1 },
         "feedback": {
           "kind": "rich-text",
           "document": {
@@ -103,8 +102,7 @@
       "response": { "kind": "single-select", "optionId": "a" },
       "expected": {
         "isCorrect": false,
-        "score": 0,
-        "maxScore": 1,
+        "score": { "scaled": 0, "raw": 0, "min": 0, "max": 1 },
         "feedback": null,
         "items": {
           "a": {
@@ -150,8 +148,7 @@
       "response": { "kind": "single-select", "optionId": null },
       "expected": {
         "isCorrect": false,
-        "score": 0,
-        "maxScore": 1,
+        "score": { "scaled": 0, "raw": 0, "min": 0, "max": 1 },
         "feedback": null,
         "items": {
           "a": { "correct": false, "expected": false, "given": false },
@@ -203,8 +200,7 @@
       "response": { "kind": "multi-select", "optionIds": ["a", "b"] },
       "expected": {
         "isCorrect": true,
-        "score": 1,
-        "maxScore": 1,
+        "score": { "scaled": 1, "raw": 2, "min": 0, "max": 2 },
         "feedback": {
           "kind": "rich-text",
           "document": {
@@ -258,8 +254,7 @@
       "response": { "kind": "multi-select", "optionIds": ["a", "c"] },
       "expected": {
         "isCorrect": false,
-        "score": 0,
-        "maxScore": 1,
+        "score": { "scaled": 0, "raw": 0, "min": 0, "max": 2 },
         "feedback": null,
         "items": {
           "a": { "correct": true, "expected": true, "given": true },
@@ -296,8 +291,7 @@
       "response": { "kind": "multi-select", "optionIds": [] },
       "expected": {
         "isCorrect": false,
-        "score": 0,
-        "maxScore": 1,
+        "score": { "scaled": 0 },
         "feedback": null,
         "items": {
           "a": { "correct": true, "expected": false, "given": false }
@@ -346,8 +340,7 @@
       "response": { "kind": "sequence", "orderedItemIds": ["a", "b", "c"] },
       "expected": {
         "isCorrect": true,
-        "score": 1,
-        "maxScore": 1,
+        "score": { "scaled": 1, "raw": 3, "min": 0, "max": 3 },
         "feedback": {
           "kind": "rich-text",
           "document": {
@@ -400,8 +393,7 @@
       "response": { "kind": "sequence", "orderedItemIds": ["a", "c"] },
       "expected": {
         "isCorrect": false,
-        "score": 0.3333333333333333,
-        "maxScore": 1,
+        "score": { "scaled": 0.3333333333333333, "raw": 1, "min": 0, "max": 3 },
         "feedback": null,
         "items": {
           "a": { "correct": true, "expected": 0, "given": 0 },
@@ -434,8 +426,7 @@
       "response": { "kind": "sequence", "orderedItemIds": [] },
       "expected": {
         "isCorrect": false,
-        "score": 0,
-        "maxScore": 1,
+        "score": { "scaled": 0 },
         "feedback": null,
         "items": {}
       }
@@ -489,8 +480,7 @@
       },
       "expected": {
         "isCorrect": true,
-        "score": 1,
-        "maxScore": 1,
+        "score": { "scaled": 1, "raw": 2, "min": 0, "max": 2 },
         "feedback": {
           "kind": "rich-text",
           "document": { "type": "doc", "content": [{ "type": "text", "text": "Match summary." }] }
@@ -546,8 +536,7 @@
       },
       "expected": {
         "isCorrect": false,
-        "score": 0.5,
-        "maxScore": 1,
+        "score": { "scaled": 0.5, "raw": 1, "min": 0, "max": 2 },
         "feedback": null,
         "items": {
           "i1": { "correct": true, "expected": "t1", "given": "t1" },
@@ -579,8 +568,7 @@
       "response": { "kind": "match", "pairs": [] },
       "expected": {
         "isCorrect": false,
-        "score": 0,
-        "maxScore": 1,
+        "score": { "scaled": 0 },
         "feedback": null,
         "items": {}
       }
@@ -637,8 +625,7 @@
       },
       "expected": {
         "isCorrect": true,
-        "score": 1,
-        "maxScore": 1,
+        "score": { "scaled": 1, "raw": 2, "min": 0, "max": 2 },
         "feedback": {
           "kind": "rich-text",
           "document": {
@@ -700,8 +687,7 @@
       },
       "expected": {
         "isCorrect": false,
-        "score": 0.5,
-        "maxScore": 1,
+        "score": { "scaled": 0.5, "raw": 1, "min": 0, "max": 2 },
         "feedback": null,
         "items": {
           "i1": { "correct": true, "expected": "c1", "given": "c1" },
@@ -733,8 +719,7 @@
       "response": { "kind": "classify", "placements": [] },
       "expected": {
         "isCorrect": false,
-        "score": 0,
-        "maxScore": 1,
+        "score": { "scaled": 0 },
         "feedback": null,
         "items": {}
       }
@@ -800,8 +785,7 @@
       },
       "expected": {
         "isCorrect": true,
-        "score": 1,
-        "maxScore": 1,
+        "score": { "scaled": 1, "raw": 2, "min": 0, "max": 2 },
         "feedback": {
           "kind": "rich-text",
           "document": {
@@ -872,8 +856,7 @@
       },
       "expected": {
         "isCorrect": false,
-        "score": 0.5,
-        "maxScore": 1,
+        "score": { "scaled": 0.5, "raw": 1, "min": 0, "max": 2 },
         "feedback": null,
         "items": {
           "b1": { "correct": true, "expected": ["Paris"], "given": " PARIS " },
@@ -905,8 +888,7 @@
       "response": { "kind": "fill-blanks", "blanks": [] },
       "expected": {
         "isCorrect": false,
-        "score": 0,
-        "maxScore": 1,
+        "score": { "scaled": 0 },
         "feedback": null,
         "items": {}
       }
@@ -967,8 +949,7 @@
       },
       "expected": {
         "isCorrect": true,
-        "score": 1,
-        "maxScore": 1,
+        "score": { "scaled": 1, "raw": 2, "min": 0, "max": 2 },
         "feedback": {
           "kind": "rich-text",
           "document": { "type": "doc", "content": [{ "type": "text", "text": "Hotspot summary." }] }
@@ -1032,8 +1013,7 @@
       },
       "expected": {
         "isCorrect": false,
-        "score": 0,
-        "maxScore": 1,
+        "score": { "scaled": 0, "raw": 0, "min": 0, "max": 1 },
         "feedback": null,
         "items": {
           "h1": { "correct": true, "expected": true, "given": true },
@@ -1073,8 +1053,7 @@
       },
       "expected": {
         "isCorrect": false,
-        "score": 0,
-        "maxScore": 1,
+        "score": { "scaled": 0 },
         "feedback": null,
         "items": {}
       }

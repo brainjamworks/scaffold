@@ -229,8 +229,7 @@ final class custom_completion_test extends \advanced_testcase {
             'checkResult' => null,
             'submissionResult' => $score === null ? null : (object) [
                 'isCorrect' => $score === 1.0,
-                'score' => $score,
-                'maxScore' => 1,
+                'score' => (object) ['scaled' => $score],
                 'feedback' => null,
                 'items' => (object) [],
             ],

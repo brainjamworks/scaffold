@@ -715,8 +715,7 @@ final class assessment_service_test extends \advanced_testcase {
     private static function assessment_result(bool $correct): array {
         return [
             'isCorrect' => $correct,
-            'score' => $correct ? 1 : 0,
-            'maxScore' => 1,
+            'score' => ['scaled' => $correct ? 1 : 0, 'raw' => $correct ? 1 : 0, 'min' => 0, 'max' => 1],
             'feedback' => null,
             'items' => new \stdClass(),
         ];

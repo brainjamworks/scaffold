@@ -94,7 +94,6 @@ class assessment_quiz {
             'finishedAt' => null,
             'expiresAt' => $expiresat,
             'score' => null,
-            'maxScore' => null,
             'resultsByTargetId' => (object) [],
             'answerReviewAuthorized' => false,
             'successStatus' => null,
@@ -426,7 +425,7 @@ class assessment_quiz {
         if (is_array($graded['items'])) {
             $graded['items'] = (object) $graded['items'];
         }
-        $result = (object) $graded;
+        $result = json_decode(json_encode($graded, JSON_THROW_ON_ERROR), false, 512, JSON_THROW_ON_ERROR);
         json_schema_validator::validate_plugin_definition(
             'AssessmentResult',
             $result,
@@ -498,22 +497,33 @@ class assessment_quiz {
         string $status,
         string $finishedat,
     ): void {
-        $score = 0.0;
+        $scaledtotal = 0.0;
+        $binarycount = 0;
+        $allbinary = true;
         foreach ($group['targetIds'] as $targetid) {
             if (property_exists($attempt->resultsByTargetId, $targetid)) {
-                $score += (float) $attempt->resultsByTargetId->{$targetid}->score;
+                $scaled = (float) $attempt->resultsByTargetId->{$targetid}->score->scaled;
+                $scaledtotal += $scaled;
+                if ($scaled === 0.0 || $scaled === 1.0) {
+                    $binarycount += $scaled === 1.0 ? 1 : 0;
+                } else {
+                    $allbinary = false;
+                }
             }
         }
+        $targetcount = count($group['targetIds']);
+        $scaled = $targetcount === 0 ? 0.0 : $scaledtotal / $targetcount;
         $attempt->status = $status;
         $attempt->currentTargetId = null;
         $attempt->finishedAt = $finishedat;
-        $attempt->score = $score;
-        $attempt->maxScore = (float) count($group['targetIds']);
+        $attempt->score = $allbinary && $targetcount > 0
+            ? (object) ['scaled' => $scaled, 'raw' => $binarycount, 'min' => 0, 'max' => $targetcount]
+            : (object) ['scaled' => $scaled];
         $attempt->answerReviewAuthorized = self::review_is_authorized($group);
         $passingscore = $group['settings']['passingScore'] ?? null;
         $attempt->successStatus = $passingscore === null
             ? null
-            : ($score / $attempt->maxScore >= (float) $passingscore ? 'passed' : 'failed');
+            : ($scaled >= (float) $passingscore ? 'passed' : 'failed');
     }
 
     /**

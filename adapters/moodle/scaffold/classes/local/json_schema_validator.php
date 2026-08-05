@@ -124,6 +124,9 @@ class json_schema_validator {
         }
 
         $this->validate_value($value, $schema, $path, 0);
+        if ($definition === 'Score') {
+            $this->validate_score_contract($value, $path);
+        }
     }
 
     /**
@@ -261,6 +264,9 @@ class json_schema_validator {
 
         if (property_exists($schema, '$ref')) {
             $this->validate_value($value, $this->resolve_reference($schema->{'$ref'}), $path, $depth + 1);
+            if ($schema->{'$ref'} === '#/definitions/Score') {
+                $this->validate_score_contract($value, $path);
+            }
             return;
         }
 
@@ -439,6 +445,31 @@ class json_schema_validator {
      * @param string $reference Reference.
      * @return \stdClass
      */
+    private function validate_score_contract(mixed $value, string $path): void {
+        if (!($value instanceof \stdClass)) {
+            return;
+        }
+        $keys = array_keys(get_object_vars($value));
+        sort($keys);
+        if ($keys === ['scaled']) {
+            return;
+        }
+        if (
+            $keys !== ['max', 'min', 'raw', 'scaled']
+            || !is_int($value->raw)
+            || !is_int($value->min)
+            || !is_int($value->max)
+        ) {
+            throw new \invalid_parameter_exception($path . ' must be a canonical Score');
+        }
+        if ($value->min >= $value->max) {
+            throw new \invalid_parameter_exception($path . '.min must be less than max');
+        }
+        if ($value->raw < $value->min || $value->raw > $value->max) {
+            throw new \invalid_parameter_exception($path . '.raw must be within min and max');
+        }
+    }
+
     private function resolve_reference(string $reference): \stdClass {
         if (!str_starts_with($reference, '#/')) {
             throw new \invalid_parameter_exception('Only local JSON schema references are supported');

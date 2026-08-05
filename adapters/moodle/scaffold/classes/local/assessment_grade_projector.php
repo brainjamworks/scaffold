@@ -73,7 +73,7 @@ class assessment_grade_projector {
                 continue;
             }
             $hasnumericresult = true;
-            $earnedpoints += (float) $result->score * $points;
+            $earnedpoints += (float) $result->score->scaled * $points;
         }
 
         $normalizedscore = null;
@@ -255,8 +255,9 @@ class assessment_grade_projector {
     private static function authoritative_stored_result(mixed $result): ?\stdClass {
         if (
             !($result instanceof \stdClass)
-            || !is_numeric($result->score ?? null)
-            || !is_finite((float) $result->score)
+            || !(($result->score ?? null) instanceof \stdClass)
+            || !is_numeric($result->score->scaled ?? null)
+            || !is_finite((float) $result->score->scaled)
         ) {
             return null;
         }
@@ -284,8 +285,9 @@ class assessment_grade_projector {
             if (
                 $attempt instanceof \stdClass
                 && in_array($attempt->status ?? null, ['completed', 'expired'], true)
-                && is_numeric($attempt->score ?? null)
-                && is_finite((float) $attempt->score)
+                && ($attempt->score ?? null) instanceof \stdClass
+                && is_numeric($attempt->score->scaled ?? null)
+                && is_finite((float) $attempt->score->scaled)
             ) {
                 return true;
             }

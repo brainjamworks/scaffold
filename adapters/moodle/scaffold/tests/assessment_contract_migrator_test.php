@@ -111,8 +111,10 @@ final class assessment_contract_migrator_test extends \advanced_testcase {
         $this->assertSame(2, $upgraded->snapshotVersion);
         $this->assertSame('moodle-cm-42', $upgraded->artifactId);
         $this->assertSame('2026-07-20T10:05:00.000000Z', $upgraded->quizzes->{'quiz-1'}->finishedAt);
-        $this->assertSame(1.0, $upgraded->quizzes->{'quiz-1'}->score);
-        $this->assertSame(2.0, $upgraded->quizzes->{'quiz-1'}->maxScore);
+        $this->assertEquals(
+            (object) ['scaled' => 0.5, 'raw' => 1, 'min' => 0, 'max' => 2],
+            $upgraded->quizzes->{'quiz-1'}->score,
+        );
         $this->assertNull($upgraded->quizzes->{'quiz-1'}->successStatus);
         $this->assertNull($upgraded->quizzes->{'quiz-2'}->successStatus);
         $this->assertSame(
@@ -234,8 +236,7 @@ final class assessment_contract_migrator_test extends \advanced_testcase {
                     'startedAt' => '2026-07-20T10:00:00.000000Z',
                     'finishedAt' => '2026-07-20T10:05:00.000000Z',
                     'expiresAt' => null,
-                    'score' => 1.0,
-                    'maxScore' => 2.0,
+                    'score' => ['scaled' => 0.5, 'raw' => 1, 'min' => 0, 'max' => 2],
                     'resultsByTargetId' => (object) [],
                     'answerReviewAuthorized' => true,
                 ],
@@ -248,7 +249,6 @@ final class assessment_contract_migrator_test extends \advanced_testcase {
                     'finishedAt' => null,
                     'expiresAt' => null,
                     'score' => null,
-                    'maxScore' => null,
                     'resultsByTargetId' => (object) [],
                     'answerReviewAuthorized' => false,
                 ],
