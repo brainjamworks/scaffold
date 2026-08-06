@@ -1088,7 +1088,7 @@ describe("EmptyInsertionRow", () => {
               {
                 type: "surface",
                 attrs: {
-                      id: "surfregtabs1",
+                  id: "surfregtabs1",
                   variant: "page-default",
                 },
                 content: [

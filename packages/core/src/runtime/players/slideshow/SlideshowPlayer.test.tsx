@@ -673,9 +673,7 @@ describe("SlideshowPlayer", () => {
     const { unmount } = render(
       <SlideshowPlayer
         composition={runtimeComposition}
-        initialContent={slideshowDocumentContent([
-          { id: "slide_000001", text: "Deferred slide" },
-        ])}
+        initialContent={slideshowDocumentContent([{ id: "slide_000001", text: "Deferred slide" }])}
         surfaceIds={["slide_000001"]}
       />,
     );
@@ -701,9 +699,7 @@ describe("SlideshowPlayer", () => {
     render(
       <SlideshowPlayer
         composition={runtimeComposition}
-        initialContent={slideshowDocumentContent([
-          { id: "slide_000001", text: "Embedded slide" },
-        ])}
+        initialContent={slideshowDocumentContent([{ id: "slide_000001", text: "Embedded slide" }])}
         surfaceIds={["slide_000001"]}
         sizing="embedded"
       />,
