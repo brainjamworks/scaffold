@@ -13,6 +13,17 @@ export function hasSupportedAxisAlignedTransformChain(
     const perspective = style.perspective?.trim() ?? "";
     if (perspective !== "" && perspective !== "none") return false;
 
+    const rotate = style.rotate?.trim() ?? "";
+    if (rotate !== "" && rotate !== "none") return false;
+
+    const individualScale = style.scale?.trim() ?? "";
+    if (individualScale !== "" && individualScale !== "none") {
+      const scale = readIndividualScale(individualScale);
+      if (!scale || (!allowScale && (!approximatelyOne(scale.x) || !approximatelyOne(scale.y)))) {
+        return false;
+      }
+    }
+
     const transform = style.transform?.trim() ?? "";
     if (transform !== "" && transform !== "none") {
       const scale = readAxisAlignedScale(transform);
@@ -23,6 +34,19 @@ export function hasSupportedAxisAlignedTransformChain(
     current = current.parentElement;
   }
   return true;
+}
+
+function readIndividualScale(scale: string): Readonly<{ x: number; y: number }> | null {
+  const values = scale.split(/\s+/).map(Number);
+  if (
+    values.length < 1 ||
+    values.length > 2 ||
+    values.some((value) => !Number.isFinite(value) || value <= 0)
+  ) {
+    return null;
+  }
+  const [scaleX, scaleY = scaleX] = values as [number, number?];
+  return { x: scaleX, y: scaleY };
 }
 
 function readAxisAlignedScale(transform: string): Readonly<{ x: number; y: number }> | null {

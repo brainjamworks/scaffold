@@ -261,6 +261,45 @@ describe("DOM coordinate spaces", () => {
     ).toMatchObject({ kind: "scaled-canvas", scaleX: 0.5, scaleY: 0.5 });
   });
 
+  it("rejects individual rotation and non-positive scale while accepting individual translation and scale", () => {
+    const ancestor = document.createElement("div");
+    const root = connectedRoot({ left: 120, top: 80, width: 512, height: 288 });
+    document.body.append(ancestor);
+    ancestor.append(root);
+    const readComputedStyle = window.getComputedStyle.bind(window);
+    const computedStyle = vi.spyOn(window, "getComputedStyle").mockImplementation((element) => {
+      const style = readComputedStyle(element);
+      if (element !== ancestor) return style;
+      return new Proxy(style, {
+        get(target, property) {
+          if (property === "rotate") return ancestor.style.rotate;
+          if (property === "scale") return ancestor.style.scale;
+          if (property === "translate") return ancestor.style.translate;
+          return Reflect.get(target, property, target) as unknown;
+        },
+      });
+    });
+    ancestor.style.rotate = "30deg";
+
+    const measure = () =>
+      createScaledCanvasCoordinateSpace({
+        getRoot: () => root,
+        ownerDocument: document,
+        localSize: { width: 1024, height: 576 },
+      }).measure();
+
+    expect(measure()).toBeNull();
+
+    ancestor.style.rotate = "none";
+    ancestor.style.scale = "2 3";
+    ancestor.style.translate = "16px 24px";
+    expect(measure()).toMatchObject({ kind: "scaled-canvas", scaleX: 0.5, scaleY: 0.5 });
+
+    ancestor.style.scale = "-1 1";
+    expect(measure()).toBeNull();
+    computedStyle.mockRestore();
+  });
+
   it("accepts translation but rejects scaling in a viewport identity chain", () => {
     const ancestor = document.createElement("div");
     const root = connectedRoot({ left: 120, top: 80, width: 512, height: 288 });

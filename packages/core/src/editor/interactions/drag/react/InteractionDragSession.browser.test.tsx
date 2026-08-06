@@ -42,7 +42,7 @@ describe("InteractionDragSession browser lifecycle", () => {
   it("keeps a rotated coordinate-root ancestor from publishing a ready source", async () => {
     await page.viewport(900, 700);
     const harness = await mountLifecycleHarness("ready", {
-      ancestorTransform: "rotate(15deg)",
+      ancestorRotate: "15deg",
     });
     mounted.push(harness);
 
@@ -212,12 +212,12 @@ describe("InteractionDragSession browser lifecycle", () => {
 
 async function mountLifecycleHarness(
   mode: EnvironmentMode,
-  options: Readonly<{ ancestorTransform?: string }> = {},
+  options: Readonly<{ ancestorRotate?: string }> = {},
 ): Promise<LifecycleHarness> {
   const mountHost = document.createElement("div");
   mountHost.style.cssText =
     "position: absolute; left: 80px; top: 64px; width: 620px; height: 420px";
-  if (options.ancestorTransform) mountHost.style.transform = options.ancestorTransform;
+  if (options.ancestorRotate) mountHost.style.rotate = options.ancestorRotate;
   const root = document.createElement("div");
   root.style.cssText =
     "position: relative; width: 520px; height: 320px; border: 1px solid transparent";
