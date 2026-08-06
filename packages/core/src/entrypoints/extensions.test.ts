@@ -117,7 +117,7 @@ describe("@scaffold/core/extensions", () => {
       "blocks" | "id" | "layouts" | "surfaces"
     >();
     expectTypeOf<keyof ScaffoldApplication>().toEqualTypeOf<
-      "capabilities" | "authoring" | "runtime"
+      "capabilities" | "courseStructure" | "authoring" | "runtime"
     >();
     expectTypeOf<keyof ResolvedScaffoldCapabilities>().toEqualTypeOf<
       "blocks" | "layouts" | "surfaces"
@@ -126,13 +126,13 @@ describe("@scaffold/core/extensions", () => {
     expectTypeOf<keyof ResolvedLayoutCapabilities>().toEqualTypeOf<"registry">();
     expectTypeOf<keyof ResolvedSurfaceCapabilities>().toEqualTypeOf<"registry">();
     expectTypeOf<keyof ScaffoldAuthoringComposition>().toEqualTypeOf<
-      "blocks" | "capabilities" | "catalogues" | "layouts" | "surfaces"
+      "blocks" | "capabilities" | "catalogues" | "courseStructure" | "layouts" | "surfaces"
     >();
     expectTypeOf<keyof ScaffoldAuthoringBlockComposition>().toEqualTypeOf<"extensions">();
     expectTypeOf<keyof ScaffoldAuthoringLayoutComposition>().toEqualTypeOf<"views">();
     expectTypeOf<keyof ScaffoldAuthoringSurfaceComposition>().toEqualTypeOf<"chrome" | "views">();
     expectTypeOf<keyof ScaffoldRuntimeComposition>().toEqualTypeOf<
-      "blocks" | "capabilities" | "layouts" | "surfaces"
+      "blocks" | "capabilities" | "courseStructure" | "layouts" | "surfaces"
     >();
     expectTypeOf<keyof ScaffoldRuntimeBlockComposition>().toEqualTypeOf<"extensions">();
     expectTypeOf<keyof ScaffoldRuntimeLayoutComposition>().toEqualTypeOf<"views">();
