@@ -13,8 +13,8 @@ import {
   localAssessmentResponse,
 } from "@/runtime/assessment/test-utils";
 
-import { PagePlayer } from "./page/PagePlayer";
-import { SlideshowPlayer } from "./slideshow/SlideshowPlayer";
+import { PagePlayer } from "../page/PagePlayer";
+import { SlideshowPlayer } from "../slideshow/SlideshowPlayer";
 
 const SEQUENCING_PROBLEM_ID = "artifact:artifact-1/block:seq-1";
 const MATCHING_PROBLEM_ID = "artifact:artifact-1/block:matching-1";

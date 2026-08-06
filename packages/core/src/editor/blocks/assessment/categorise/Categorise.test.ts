@@ -11,6 +11,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 import { EditorMovementLayer } from "@/editor/movement/view/EditorMovementLayer";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
+import { createViewportCoordinateSpace } from "@/editor/interactions/drag/dom/dom-coordinate-space";
+import { InteractionDragEnvironmentProvider } from "@/editor/interactions/drag/react/interaction-drag-environment";
+import { AuthoringOverlayBoundary } from "@/editor/interactions/floating/AuthoringOverlayBoundary";
 import {
   assessmentProblemOutcome,
   createAssessmentRuntimeTestRoot,
@@ -129,19 +132,32 @@ function renderRuntimeEditor(editor: Editor, assessmentPort: AssessmentPort) {
 }
 
 function renderMovementEditor(editor: Editor) {
+  const coordinateRoot = document.body;
+  const coordinateSpace = createViewportCoordinateSpace({
+    getRoot: () => coordinateRoot,
+    ownerDocument: coordinateRoot.ownerDocument,
+  });
   return render(
     createAssessmentRuntimeTestRoot({
       children: createElement(
         InteractionProvider,
         { store: getInteractionFacadeStoreForEditor(editor) },
         createElement(
-          EditorMovementLayer,
-          {
-            blockDefinitions: builtInBlockRegistry,
-            editor,
-            surfaceVariants: builtInSurfaceVariantRegistry,
-          },
-          createElement(EditorContent, { editor }),
+          AuthoringOverlayBoundary,
+          { ownerRoot: coordinateRoot },
+          createElement(
+            InteractionDragEnvironmentProvider,
+            { coordinateRoot, coordinateSpace },
+            createElement(
+              EditorMovementLayer,
+              {
+                blockDefinitions: builtInBlockRegistry,
+                editor,
+                surfaceVariants: builtInSurfaceVariantRegistry,
+              },
+              createElement(EditorContent, { editor }),
+            ),
+          ),
         ),
       ),
       onStore: captureAssessmentStore,
@@ -155,6 +171,7 @@ function captureAssessmentStore(store: AssessmentStoreApi | null) {
 }
 
 function renderAssessmentEditor(editor: Editor) {
+  if (editor.isEditable) return renderMovementEditor(editor);
   return render(
     createAssessmentRuntimeTestRoot({
       children: createElement(EditorContent, { editor }),
@@ -566,8 +583,12 @@ describe("composite categorise node", () => {
           '[data-node="categorise-bin"][data-contained-movement-target]',
         ).length,
       ).toBe(2);
-      expect(screen.getByRole("button", { name: "Move category 1" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Move category 2" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Move category 1 within its group" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Move category 2 within its group" }),
+      ).toBeInTheDocument();
       expect(
         document.body.querySelector(
           '[data-node="categorise-item"][data-contained-movement-target]',

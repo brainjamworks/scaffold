@@ -15,6 +15,15 @@ import {
   setAssessmentResponseField,
 } from "@/runtime/assessment/test-utils";
 import type { AssessmentStoreApi } from "@/runtime/assessment/types";
+import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { createViewportCoordinateSpace } from "@/editor/interactions/drag/dom/dom-coordinate-space";
+import { InteractionDragEnvironmentProvider } from "@/editor/interactions/drag/react/interaction-drag-environment";
+import { AuthoringOverlayBoundary } from "@/editor/interactions/floating/AuthoringOverlayBoundary";
+import { InteractionProvider } from "@/editor/interactions/targets/facade/interaction-provider";
+import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
+import { getInteractionFacadeStoreForEditor } from "@/editor/interactions/targets/prosemirror/facade/interaction-facade-storage";
+import { EditorMovementLayer } from "@/editor/movement/view/EditorMovementLayer";
+import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { createDisposableEditor } from "@/editor/testing/disposable-editor";
 import type { AssessmentPort } from "@/host/ports";
@@ -73,6 +82,7 @@ function makeEditor(editable = true) {
       ExtendedParagraph,
       createRuntimeBlockFrameAttributesExtension([sequencingBlockDefinition.nodeType]),
       BoundedRegionTestNode,
+      createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
       AssessmentTitleNode,
       AssessmentInstructionsNode,
       AssessmentPromptNode,
@@ -92,6 +102,7 @@ function createDisposableSequencingEditor(content: JSONContent) {
       ExtendedParagraph,
       createRuntimeBlockFrameAttributesExtension([sequencingBlockDefinition.nodeType]),
       BoundedRegionTestNode,
+      createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
       AssessmentTitleNode,
       AssessmentInstructionsNode,
       AssessmentPromptNode,
@@ -120,11 +131,41 @@ function captureAssessmentStore(store: AssessmentStoreApi | null) {
   assessmentStore = store;
 }
 function renderAssessmentEditor(editor: Editor) {
+  const editorContent = createElement(EditorContent, { editor });
   return render(
     createAssessmentRuntimeTestRoot({
-      children: createElement(EditorContent, { editor }),
+      children: editor.isEditable ? authoringMovementFixture(editor, editorContent) : editorContent,
       onStore: captureAssessmentStore,
     }),
+  );
+}
+
+function authoringMovementFixture(editor: Editor, children: ReturnType<typeof createElement>) {
+  const coordinateRoot = document.body;
+  const coordinateSpace = createViewportCoordinateSpace({
+    getRoot: () => coordinateRoot,
+    ownerDocument: coordinateRoot.ownerDocument,
+  });
+  return createElement(
+    InteractionProvider,
+    { store: getInteractionFacadeStoreForEditor(editor) },
+    createElement(
+      AuthoringOverlayBoundary,
+      { ownerRoot: coordinateRoot },
+      createElement(
+        InteractionDragEnvironmentProvider,
+        { coordinateRoot, coordinateSpace },
+        createElement(
+          EditorMovementLayer,
+          {
+            blockDefinitions: builtInBlockRegistry,
+            editor,
+            surfaceVariants: builtInSurfaceVariantRegistry,
+          },
+          children,
+        ),
+      ),
+    ),
   );
 }
 

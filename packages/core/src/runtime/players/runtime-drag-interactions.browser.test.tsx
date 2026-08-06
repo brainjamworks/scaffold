@@ -7,11 +7,19 @@ import "@/styles/globals.css";
 import {
   mountRuntimeDragHarness,
   type RuntimeDragBrowserHarness,
-} from "./runtime-drag-browser-harness";
+} from "./tests/runtime-drag-browser-harness";
 
 const mounted: RuntimeDragBrowserHarness[] = [];
 let restoreReducedMotion: (() => void) | null = null;
 let restoreFullscreen: (() => void) | null = null;
+
+const invalidDropMatrix = [
+  { label: "Page", surface: "page" as const, scale: 1 },
+  { label: "Slideshow 0.5", surface: "slideshow" as const, scale: 0.5 },
+  { label: "Slideshow 0.83", surface: "slideshow" as const, scale: 0.83 },
+  { label: "Slideshow 1", surface: "slideshow" as const, scale: 1 },
+  { label: "Slideshow 2", surface: "slideshow" as const, scale: 2 },
+] as const;
 
 afterEach(() => {
   while (mounted.length > 0) mounted.pop()?.dispose();
@@ -211,26 +219,32 @@ describe("Sequencing shared drag runtime", () => {
     );
   });
 
-  it("does not write when a completed drag never reaches a different target", async () => {
-    await page.viewport(1024, 768);
-    const harness = await mountRuntimeDragHarness({ surface: "page" });
-    mounted.push(harness);
-    const source = harness.getActivationAreas()[0]!;
-    const sourceRect = source.getBoundingClientRect();
-    const before = harness.getResponseOrder();
-    const drag = await startPointerDrag(
-      harness,
-      source,
-      { x: sourceRect.left + 2, y: sourceRect.top - 16 },
-      "mouse",
-    );
-    expect(harness.getPlaceholder()).not.toBeNull();
+  it.each(invalidDropMatrix)(
+    "does not write when a completed drag reaches no target on $label",
+    async ({ surface, scale }) => {
+      await page.viewport(
+        Math.max(1024, Math.ceil(scale * 1024 + 100)),
+        Math.max(768, Math.ceil(scale * 576 + 100)),
+      );
+      const harness = await mountRuntimeDragHarness({ surface, scale });
+      mounted.push(harness);
+      const source = harness.getActivationAreas()[0]!;
+      const sourceRect = source.getBoundingClientRect();
+      const before = harness.getResponseOrder();
+      const drag = await startPointerDrag(
+        harness,
+        source,
+        { x: sourceRect.left + 2, y: sourceRect.top - 16 },
+        scale === 0.5 ? "touch" : "mouse",
+      );
+      expect(harness.getPlaceholder()).not.toBeNull();
 
-    await finishPointerDrag(harness, drag.pointer, drag.pointerType);
-    await harness.waitForIdle();
-    expect(harness.getResponseOrder()).toEqual(before);
-    expect(harness.getResponseRevision()).toBe(0);
-  });
+      await finishPointerDrag(harness, drag.pointer, drag.pointerType);
+      await harness.waitForIdle();
+      expect(harness.getResponseOrder()).toEqual(before);
+      expect(harness.getResponseRevision()).toBe(0);
+    },
+  );
 
   it("fails closed for an unsupported Slideshow transform", async () => {
     await page.viewport(1024, 768);
@@ -255,16 +269,9 @@ describe("Sequencing shared drag runtime", () => {
     const before = harness.getResponseOrder();
     const targets = harness.getTargets();
     const source = harness.getActivationAreas()[0]!;
-    const sourceRect = source.getBoundingClientRect();
-    await startPointerDrag(
-      harness,
-      source,
-      {
-        x: sourceRect.left + sourceRect.width / 2,
-        y: sourceRect.top + sourceRect.height / 2 + 12,
-      },
-      "mouse",
-    );
+    const targetRects = targets.map((target) => target.getBoundingClientRect());
+    const initialDestination = targets[1]!;
+    const drag = await startPointerDrag(harness, source, centerOf(targetRects[1]!), "mouse");
     const overlayBeforeScroll = requiredOverlay(harness).getBoundingClientRect();
     const overlayHost = harness.getOverlayHost();
     expect(overlayHost).not.toBeNull();
@@ -275,25 +282,26 @@ describe("Sequencing shared drag runtime", () => {
     expect(harness.getEnvironment().positionStrategy).toBe("fixed");
     expect(harness.getCanvas()).toBeNull();
 
-    harness.host.scrollTop = 80;
+    const initialExpected = moveFirstItemToIndex(before, 1);
+    const rowPitch = targetRects[2]!.top - targetRects[1]!.top;
+    expect(rowPitch).toBeGreaterThan(0);
+
+    harness.host.scrollTop = rowPitch;
     harness.host.dispatchEvent(new Event("scroll"));
     await animationFrames(harness, 3);
-    expect(harness.host.scrollTop).toBeGreaterThanOrEqual(80);
+    expect(harness.host.scrollTop).toBeGreaterThanOrEqual(rowPitch - 1);
     const overlayAfterScroll = requiredOverlay(harness).getBoundingClientRect();
     expectClose(overlayAfterScroll.left, overlayBeforeScroll.left, 1);
     expectClose(overlayAfterScroll.top, overlayBeforeScroll.top, 1);
 
-    const destination = centerOf(targets[2]!.getBoundingClientRect());
-    const pointer = { x: destination.x, y: destination.y + 2 };
-    await moveActivePointer(harness, destination, "mouse");
-    await moveActivePointer(harness, pointer, "mouse");
     expect(requiredOverlay(harness).ownerDocument).toBe(harness.ownerDocument);
 
-    await finishPointerDrag(harness, pointer, "mouse");
-    const expected = [...before.slice(1), before[0]!];
+    await finishPointerDrag(harness, drag.pointer, "mouse");
+    const expected = moveFirstItemToIndex(before, 2);
     await harness.waitForResponse(expected, 1);
     await harness.waitForIdle();
     expect(harness.getResponseOrder()).toEqual(expected);
+    expect(harness.getResponseOrder()).not.toEqual(initialExpected);
     expect(harness.getResponseRevision()).toBe(1);
   });
 });
@@ -386,7 +394,7 @@ describe("Matching shared drag runtime", () => {
     expect(harness.getAnnouncements()).toEqual([]);
   });
 
-  it("cancels and rejects invalid pointer drops without a response write", async () => {
+  it("cancels a Page pointer drop without a response write", async () => {
     await page.viewport(1024, 768);
     const harness = await mountRuntimeDragHarness({ interaction: "matching", surface: "page" });
     mounted.push(harness);
@@ -404,19 +412,32 @@ describe("Matching shared drag runtime", () => {
     expect(harness.getResponseMatches()).toEqual({});
     expect(harness.getResponseRevision()).toBe(0);
     expect(harness.ownerDocument.activeElement).toBe(source);
-
-    const invalid = await startPointerDrag(
-      harness,
-      source,
-      { x: source.getBoundingClientRect().left, y: source.getBoundingClientRect().top - 20 },
-      "mouse",
-      centerOf(source.getBoundingClientRect()),
-    );
-    await finishPointerDrag(harness, invalid.pointer, invalid.pointerType);
-    await harness.waitForIdle();
-    expect(harness.getResponseMatches()).toEqual({});
-    expect(harness.getResponseRevision()).toBe(0);
   });
+
+  it.each(invalidDropMatrix)(
+    "rejects an invalid pointer drop without a response write on $label",
+    async ({ surface, scale }) => {
+      await page.viewport(
+        Math.max(1024, Math.ceil(scale * 1024 + 100)),
+        Math.max(768, Math.ceil(scale * 576 + 100)),
+      );
+      const harness = await mountRuntimeDragHarness({ interaction: "matching", surface, scale });
+      mounted.push(harness);
+      const source = matchingSource(harness, "i1");
+      const invalid = await startPointerDrag(
+        harness,
+        source,
+        { x: source.getBoundingClientRect().left, y: source.getBoundingClientRect().top - 20 },
+        scale === 0.5 ? "touch" : "mouse",
+        centerOf(source.getBoundingClientRect()),
+      );
+
+      await finishPointerDrag(harness, invalid.pointer, invalid.pointerType);
+      await harness.waitForIdle();
+      expect(harness.getResponseMatches()).toEqual({});
+      expect(harness.getResponseRevision()).toBe(0);
+    },
+  );
 
   it("uses Enter then Space selection without draggable announcements", async () => {
     await page.viewport(1024, 768);
@@ -566,7 +587,7 @@ describe("Categorise shared drag runtime", () => {
     },
   );
 
-  it("cancels and rejects invalid pointer assignments without a response write", async () => {
+  it("cancels a Page pointer assignment without a response write", async () => {
     await page.viewport(1024, 768);
     const harness = await mountRuntimeDragHarness({
       interaction: "categorise",
@@ -587,19 +608,36 @@ describe("Categorise shared drag runtime", () => {
     expect(harness.getResponsePlacements()).toEqual({});
     expect(harness.getResponseRevision()).toBe(0);
     expect(harness.ownerDocument.activeElement).toBe(source);
-
-    const invalid = await startPointerDrag(
-      harness,
-      source,
-      { x: source.getBoundingClientRect().left, y: source.getBoundingClientRect().top - 20 },
-      "mouse",
-      centerOf(source.getBoundingClientRect()),
-    );
-    await finishPointerDrag(harness, invalid.pointer, invalid.pointerType);
-    await harness.waitForIdle();
-    expect(harness.getResponsePlacements()).toEqual({});
-    expect(harness.getResponseRevision()).toBe(0);
   });
+
+  it.each(invalidDropMatrix)(
+    "rejects an invalid pointer assignment without a response write on $label",
+    async ({ surface, scale }) => {
+      await page.viewport(
+        Math.max(1024, Math.ceil(scale * 1024 + 100)),
+        Math.max(768, Math.ceil(scale * 576 + 100)),
+      );
+      const harness = await mountRuntimeDragHarness({
+        interaction: "categorise",
+        surface,
+        scale,
+      });
+      mounted.push(harness);
+      const source = harness.getActivationAreas()[0]!;
+      const invalid = await startPointerDrag(
+        harness,
+        source,
+        { x: source.getBoundingClientRect().left, y: source.getBoundingClientRect().top - 20 },
+        scale === 0.5 ? "touch" : "mouse",
+        centerOf(source.getBoundingClientRect()),
+      );
+
+      await finishPointerDrag(harness, invalid.pointer, invalid.pointerType);
+      await harness.waitForIdle();
+      expect(harness.getResponsePlacements()).toEqual({});
+      expect(harness.getResponseRevision()).toBe(0);
+    },
+  );
 
   it("uses Enter then Space selection without draggable announcements", async () => {
     await page.viewport(1024, 768);
@@ -842,23 +880,6 @@ async function finishPointerDrag(
   await animationFrames(harness, 1);
 }
 
-async function moveActivePointer(
-  harness: RuntimeDragBrowserHarness,
-  pointer: Readonly<{ x: number; y: number }>,
-  pointerType: "mouse" | "touch",
-) {
-  fireEvent.pointerMove(harness.ownerDocument, {
-    button: 0,
-    buttons: 1,
-    clientX: pointer.x,
-    clientY: pointer.y,
-    isPrimary: true,
-    pointerId: 1,
-    pointerType,
-  });
-  await animationFrames(harness, 1);
-}
-
 function requiredOverlay(harness: RuntimeDragBrowserHarness): HTMLElement {
   const overlay = harness
     .getOverlayHost()
@@ -869,6 +890,14 @@ function requiredOverlay(harness: RuntimeDragBrowserHarness): HTMLElement {
 
 function centerOf(rect: DOMRect): Readonly<{ x: number; y: number }> {
   return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+}
+
+function moveFirstItemToIndex(items: readonly string[], destinationIndex: number): string[] {
+  const result = [...items];
+  const [first] = result.splice(0, 1);
+  if (first === undefined || destinationIndex < 0) return result;
+  result.splice(destinationIndex, 0, first);
+  return result;
 }
 
 function localTranslateY(element: HTMLElement): number {

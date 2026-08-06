@@ -18,6 +18,7 @@ type EnvironmentMode = "unscoped" | "pending" | "ready";
 
 interface LifecycleHarness {
   readonly cancellations: DragCancellationReason[];
+  readonly endings: string[];
   readonly mountHost: HTMLElement;
   readonly overlayHost: HTMLElement;
   readonly rendered: RenderResult;
@@ -137,7 +138,7 @@ describe("InteractionDragSession browser lifecycle", () => {
     expect(harness.overlay()).toBeNull();
   });
 
-  it("resolves reduced motion from the ready owner window during a real drag", async () => {
+  it("removes preview and drop motion while completing a reduced-motion drag", async () => {
     await page.viewport(900, 700);
     restoreReducedMotion = emulateReducedMotionPreference();
     const harness = await mountLifecycleHarness("ready");
@@ -150,9 +151,34 @@ describe("InteractionDragSession browser lifecycle", () => {
 
     await startPointerDrag(requiredSource(harness));
     expect(window.matchMedia("(prefers-reduced-motion: reduce)").matches).toBe(true);
-    expect(harness.overlay()).not.toBeNull();
-    fireEvent.keyDown(document, { code: "Escape", key: "Escape" });
+    const overlay = requiredElement<HTMLElement>(
+      harness.overlayHost,
+      "[data-interaction-drag-overlay]",
+    );
+    const previewBeforeMove = overlay.getBoundingClientRect();
+    const overlayStyle = window.getComputedStyle(overlay);
+    expect(durationsAreZero(overlayStyle.transitionDuration)).toBe(true);
+    expect(durationsAreZero(overlayStyle.animationDuration)).toBe(true);
+    expect(harness.overlayHost.getAnimations({ subtree: true })).toHaveLength(0);
+
+    const destination = centerOf(
+      requiredElement<HTMLElement>(
+        harness.mountHost,
+        "[data-lifecycle-target]",
+      ).getBoundingClientRect(),
+    );
+    await movePointer(destination);
+    const previewAfterMove = overlay.getBoundingClientRect();
+    expect(Math.abs(previewAfterMove.left - previewBeforeMove.left)).toBeGreaterThan(1);
+    expect(Math.abs(previewAfterMove.top - previewBeforeMove.top)).toBeGreaterThan(1);
+    expect(harness.overlayHost.getAnimations({ subtree: true })).toHaveLength(0);
+
+    finishPointerDrag(destination);
+    await animationFrames(1);
+    expect(harness.overlayHost.getAnimations({ subtree: true })).toHaveLength(0);
     await harness.waitForIdle();
+    expect(harness.endings).toEqual(["lifecycle-source:lifecycle-target"]);
+    expect(harness.cancellations).toEqual([]);
   });
 });
 
@@ -171,6 +197,7 @@ async function mountLifecycleHarness(mode: EnvironmentMode): Promise<LifecycleHa
     "position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none";
   document.body.append(mountHost, overlayHost);
   const cancellations: DragCancellationReason[] = [];
+  const endings: string[] = [];
   let removeSource: () => void = () => {
     throw new Error("Lifecycle source-removal control is not ready.");
   };
@@ -180,6 +207,7 @@ async function mountLifecycleHarness(mode: EnvironmentMode): Promise<LifecycleHa
     <Environment mode={mode} overlayHost={overlayHost} root={root}>
       <LifecycleFixture
         cancellations={cancellations}
+        endings={endings}
         registerRemoveSource={(remove) => {
           removeSource = remove;
         }}
@@ -191,6 +219,7 @@ async function mountLifecycleHarness(mode: EnvironmentMode): Promise<LifecycleHa
 
   const harness: LifecycleHarness = {
     cancellations,
+    endings,
     mountHost,
     overlayHost,
     rendered,
@@ -247,9 +276,11 @@ function Environment({
 
 function LifecycleFixture({
   cancellations,
+  endings,
   registerRemoveSource,
 }: {
   cancellations: DragCancellationReason[];
+  endings: string[];
   registerRemoveSource: (remove: () => void) => void;
 }) {
   const [showSource, setShowSource] = useState(true);
@@ -260,7 +291,7 @@ function LifecycleFixture({
       collisionPolicy="pointer"
       labels={{ draggable: "Card", instructions: "Move the card" }}
       onCancel={(reason) => cancellations.push(reason)}
-      onEnd={() => undefined}
+      onEnd={(event) => endings.push(`${event.active.id}:${event.over?.id ?? "none"}`)}
       profile="pointer"
       renderPreview={(active) => <span data-lifecycle-preview="">{active.title}</span>}
       sessionId="browser-lifecycle"
@@ -343,6 +374,21 @@ async function movePointer(point: Readonly<{ x: number; y: number }>) {
     pointerType: "mouse",
   });
   await animationFrames(1);
+}
+
+function finishPointerDrag(point: Readonly<{ x: number; y: number }>) {
+  fireEvent.pointerUp(document, {
+    buttons: 0,
+    clientX: point.x,
+    clientY: point.y,
+    isPrimary: true,
+    pointerId: 1,
+    pointerType: "mouse",
+  });
+}
+
+function durationsAreZero(value: string): boolean {
+  return value.split(",").every((duration) => Number.parseFloat(duration) === 0);
 }
 
 function announcementText(host: HTMLElement): string {

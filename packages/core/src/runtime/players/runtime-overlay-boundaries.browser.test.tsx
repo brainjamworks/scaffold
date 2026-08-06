@@ -374,8 +374,8 @@ async function mountSlideshow(owner: ForeignOwner): Promise<MountedRuntime> {
         <SlideshowPlayer
           composition={runtimeComposition}
           artifactId="runtime-boundary-contract"
-          initialContent={runtimeHintDocument("slideshow", "runtime-slide")}
-          surfaceIds={["runtime-slide"]}
+          initialContent={runtimeHintDocument("slideshow", "runtime_sld1")}
+          surfaceIds={["runtime_sld1"]}
           onRendererReady={(readyEditor) => {
             editor = readyEditor;
           }}

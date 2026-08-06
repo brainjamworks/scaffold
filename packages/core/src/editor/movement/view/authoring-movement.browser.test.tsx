@@ -1,5 +1,6 @@
 import { fireEvent } from "@testing-library/react";
 import { Editor, Node, type JSONContent } from "@tiptap/core";
+import UniqueID from "@tiptap/extension-unique-id";
 import { NodeSelection } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
 import { render as renderBrowserReact, type RenderResult } from "vitest-browser-react";
@@ -289,6 +290,7 @@ async function mountMovementHarness(): Promise<MovementBrowserHarness> {
       LayoutAuthoringNode,
       SectionAuthoringNode,
       TestBlockNode,
+      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       createScaffoldInteractionOwnerExtension(blockRegistry),
     ],
     content: movementDocument(),

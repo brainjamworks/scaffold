@@ -46,7 +46,7 @@ function paragraph(text: string): JSONContent {
 function slideshowDocumentContent(): JSONContent {
   const content = createScaffoldDocumentContent({
     mode: "slideshow",
-    surfaceId: "slide-1",
+    surfaceId: "slide_000001",
   });
   const courseDocument = content.content?.[0];
 
@@ -61,17 +61,17 @@ function slideshowDocumentContent(): JSONContent {
   courseDocument.content = [
     {
       type: "surface",
-      attrs: { id: "slide-1", variant: "slide-cover" },
+      attrs: { id: "slide_000001", variant: "slide-cover" },
       content: [paragraph("First slide content")],
     },
     {
       type: "surface",
-      attrs: { id: "slide-2", variant: "slide-cover" },
+      attrs: { id: "slide_000002", variant: "slide-cover" },
       content: [paragraph("Second slide content")],
     },
     {
       type: "surface",
-      attrs: { id: "slide-3", variant: "slide-cover" },
+      attrs: { id: "slide_000003", variant: "slide-cover" },
       content: [paragraph("Third slide content")],
     },
   ];
@@ -257,15 +257,15 @@ describe("CourseDocumentRuntimeRenderer", () => {
         composition={runtimeComposition}
         artifactId="artifact-renderer"
         initialContent={slideshowDocumentContent()}
-        visibleSurfaceId="slide-2"
+        visibleSurfaceId="slide_000002"
         onReady={onReady}
       />,
     );
 
     await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
 
-    const inactiveSurface = surfaceById("slide-1");
-    const activeSurface = surfaceById("slide-2");
+    const inactiveSurface = surfaceById("slide_000001");
+    const activeSurface = surfaceById("slide_000002");
 
     expect(activeSurface.getAttribute("data-runtime-surface-visible")).toBe("true");
     expect(activeSurface.hasAttribute("data-runtime-surface-hidden")).toBe(false);
@@ -287,9 +287,9 @@ describe("CourseDocumentRuntimeRenderer", () => {
         artifactId="artifact-renderer"
         initialContent={slideshowDocumentContent()}
         surfaceStates={{
-          "slide-1": "previous",
-          "slide-2": "current",
-          "slide-3": "next",
+          slide_000001: "previous",
+          slide_000002: "current",
+          slide_000003: "next",
         }}
         onReady={onReady}
       />,
@@ -297,9 +297,9 @@ describe("CourseDocumentRuntimeRenderer", () => {
 
     await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
 
-    const previousSurface = surfaceById("slide-1");
-    const currentSurface = surfaceById("slide-2");
-    const nextSurface = surfaceById("slide-3");
+    const previousSurface = surfaceById("slide_000001");
+    const currentSurface = surfaceById("slide_000002");
+    const nextSurface = surfaceById("slide_000003");
 
     expect(previousSurface.getAttribute("data-runtime-surface-state")).toBe("previous");
     expect(previousSurface.getAttribute("data-runtime-surface-hidden")).toBe("true");
@@ -329,7 +329,7 @@ describe("CourseDocumentRuntimeRenderer", () => {
         composition={runtimeComposition}
         artifactId="artifact-renderer"
         initialContent={initialContent}
-        visibleSurfaceId="slide-1"
+        visibleSurfaceId="slide_000001"
         onReady={onReady}
       />,
     );
@@ -346,13 +346,13 @@ describe("CourseDocumentRuntimeRenderer", () => {
         composition={runtimeComposition}
         artifactId="artifact-renderer"
         initialContent={initialContent}
-        visibleSurfaceId="slide-2"
+        visibleSurfaceId="slide_000002"
         onReady={onReady}
       />,
     );
 
     await waitFor(() =>
-      expect(surfaceById("slide-2").getAttribute("data-runtime-surface-visible")).toBe("true"),
+      expect(surfaceById("slide_000002").getAttribute("data-runtime-surface-visible")).toBe("true"),
     );
 
     expect(editor.getJSON()).toEqual(beforeVisibilityChange);
@@ -370,9 +370,9 @@ describe("CourseDocumentRuntimeRenderer", () => {
         artifactId="artifact-renderer"
         initialContent={initialContent}
         surfaceStates={{
-          "slide-1": "current",
-          "slide-2": "next",
-          "slide-3": "hidden",
+          slide_000001: "current",
+          slide_000002: "next",
+          slide_000003: "hidden",
         }}
         onReady={onReady}
       />,
@@ -391,16 +391,18 @@ describe("CourseDocumentRuntimeRenderer", () => {
         artifactId="artifact-renderer"
         initialContent={initialContent}
         surfaceStates={{
-          "slide-1": "previous",
-          "slide-2": "current",
-          "slide-3": "next",
+          slide_000001: "previous",
+          slide_000002: "current",
+          slide_000003: "next",
         }}
         onReady={onReady}
       />,
     );
 
     await waitFor(() =>
-      expect(surfaceById("slide-2").getAttribute("data-runtime-surface-state")).toBe("current"),
+      expect(surfaceById("slide_000002").getAttribute("data-runtime-surface-state")).toBe(
+        "current",
+      ),
     );
 
     expect(editor.getJSON()).toEqual(beforeStateChange);
