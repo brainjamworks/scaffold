@@ -1451,7 +1451,7 @@ describe("ContentRuntimeHost", () => {
     await waitFor(() => expect((choice as HTMLInputElement).checked).toBe(true));
   });
 
-  it("keeps Matching connectors interactive through StrictMode replay", async () => {
+  it("keeps Matching keyboard selection interactive through StrictMode replay", async () => {
     const user = userEvent.setup();
     render(
       <StrictMode>
@@ -1463,8 +1463,12 @@ describe("ContentRuntimeHost", () => {
       </StrictMode>,
     );
 
-    await user.click(await screen.findByRole("button", { name: "Select matching item 1" }));
-    await user.click(screen.getByRole("button", { name: "Match target 1" }));
+    const item = await screen.findByRole("button", { name: "Select matching item 1" });
+    item.focus();
+    await user.keyboard("{Enter}");
+    const target = screen.getByRole("button", { name: "Match target 1" });
+    target.focus();
+    await user.keyboard("{Enter}");
 
     await waitFor(() =>
       expect(document.body.querySelector("[data-matching-connectors]")).not.toBeNull(),
