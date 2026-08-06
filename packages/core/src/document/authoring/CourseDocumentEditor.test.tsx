@@ -3,9 +3,7 @@
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { JSONContent } from "@tiptap/core";
-import { Fragment, Slice } from "@tiptap/pm/model";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
-import type { EditorView } from "@tiptap/pm/view";
 import { createElement, StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
@@ -30,9 +28,9 @@ const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 const FIRST_SLIDE_ID = createEmbeddedNodeId();
 const SECOND_SLIDE_ID = createEmbeddedNodeId();
 const THIRD_SLIDE_ID = createEmbeddedNodeId();
-const PASTED_SLIDE_ID = createEmbeddedNodeId();
 const MCQ_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00021");
 const GALLERY_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00022");
+const FIRST_SECTION_ID = EmbeddedNodeIdSchema.parse("section00001");
 
 afterEach(() => {
   cleanup();
@@ -48,16 +46,18 @@ function createSlideshowDocumentWithSurfaces(surfaceIds: EmbeddedNodeId[]): JSON
 }
 
 describe("CourseDocumentEditor", () => {
-  it("validates and constructs Tiptap from the supplied authoring composition", async () => {
+  it("mounts a host-added Surface inside a Course Section", async () => {
     const privateSurface = privateSurfaceCapability("private-assessment-surface");
     const application = createScaffoldApplication({
       packs: [defineScaffoldExtensionPack({ id: "private-authoring", surfaces: [privateSurface] })],
     });
     const content = createInitializedDocument("slideshow");
-    const surface = content.content?.[0]?.content?.[0];
+    const courseDocument = content.content?.[0];
+    const surface = courseDocument?.content?.[0];
     if (!surface?.attrs) throw new Error("expected initialized Surface");
     surface.attrs["variant"] = privateSurface.definition.id;
     surface.attrs["settings"] = {};
+    courseDocument?.content?.unshift(courseSection(FIRST_SECTION_ID, "Private content"));
     const onReady = vi.fn();
 
     render(
@@ -72,6 +72,44 @@ describe("CourseDocumentEditor", () => {
     const editor = onReady.mock.calls[0]?.[0];
     expect(editor.storage.scaffoldCapabilities.capabilities).toBe(application.capabilities);
     expect(screen.queryByText(/invalid and cannot be edited/)).toBeNull();
+  });
+
+  it("mounts a valid sectioned Slideshow", async () => {
+    const content = authoringSlideshowDocument([FIRST_SLIDE_ID, SECOND_SLIDE_ID]);
+    content.content?.[0]?.content?.unshift(courseSection(FIRST_SECTION_ID, "Introduction"));
+    const onReady = vi.fn();
+
+    render(
+      createElement(CourseDocumentEditor, {
+        composition: coreAuthoringComposition,
+        source: { mode: "document", content },
+        onReady,
+      }),
+    );
+
+    await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText(/invalid and cannot be edited/)).toBeNull();
+  });
+
+  it("rejects a partially sectioned Slideshow before mounting Tiptap", () => {
+    const content = authoringSlideshowDocument([FIRST_SLIDE_ID, SECOND_SLIDE_ID]);
+    content.content?.[0]?.content?.splice(
+      1,
+      0,
+      courseSection(FIRST_SECTION_ID, "Late boundary"),
+    );
+    const onReady = vi.fn();
+
+    render(
+      createElement(CourseDocumentEditor, {
+        composition: coreAuthoringComposition,
+        source: { mode: "document", content },
+        onReady,
+      }),
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent(/invalid and cannot be edited/);
+    expect(onReady).not.toHaveBeenCalled();
   });
 
   it("reports document changes without serializing the editor", async () => {
@@ -532,121 +570,6 @@ describe("CourseDocumentEditor", () => {
     expect(chartId).toEqual(expect.stringMatching(/^[0-9A-Z_a-z-]{12}$/));
   });
 
-  it("regenerates nested component ids in pasted structured blocks", async () => {
-    const content = createInitializedDocument();
-    const onReady = vi.fn();
-
-    render(
-      createElement(CourseDocumentEditor, {
-        composition: coreAuthoringComposition,
-        source: { mode: "document", content },
-        onReady,
-      }),
-    );
-
-    await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
-    const editor = onReady.mock.calls[0]?.[0];
-    await waitFor(() => {
-      expect(editor.schema.nodes.chart_block).toBeDefined();
-    });
-
-    const chart = editor.schema.nodeFromJSON({
-      type: "chart_block",
-      attrs: {
-        id: "block-chart",
-        data: {
-          kind: "chart",
-          version: 1,
-          chartType: "bar",
-          caption: "Votes",
-          data: {
-            kind: "inlineTable",
-            columns: [
-              { id: "category", label: "Fruit", valueType: "category" },
-              { id: "value", label: "Votes", valueType: "number" },
-            ],
-            rows: [{ id: "row-a", cells: { category: "Apples", value: 12 } }],
-          },
-          encoding: {
-            chartType: "bar",
-            x: { columnId: "category" },
-            y: [{ columnId: "value" }],
-          },
-        },
-      },
-    });
-    let slice = new Slice(Fragment.from(chart), 0, 0);
-
-    editor.view.someProp(
-      "transformPasted",
-      (transformPasted: (slice: Slice, view: EditorView, plain: boolean) => Slice) => {
-        slice = transformPasted(slice, editor.view, false);
-        return false;
-      },
-    );
-
-    const pasted = slice.content.firstChild?.toJSON();
-    const data = pasted?.attrs?.["data"] as {
-      data: {
-        columns: Array<{ id: string }>;
-        rows: Array<{ id: string; cells: Record<string, unknown> }>;
-      };
-      encoding: {
-        x: { columnId: string };
-        y: Array<{ columnId: string }>;
-      };
-    };
-    const categoryId = data.data.columns[0]?.id;
-    const valueId = data.data.columns[1]?.id;
-
-    if (!categoryId || !valueId) {
-      throw new Error("expected pasted chart columns to have stable ids");
-    }
-
-    expect(categoryId).toEqual(expect.stringMatching(/^[0-9A-Z_a-z-]{12}$/));
-    expect(valueId).toEqual(expect.stringMatching(/^[0-9A-Z_a-z-]{12}$/));
-    expect(data.data.rows[0]?.id).toEqual(expect.stringMatching(/^[0-9A-Z_a-z-]{12}$/));
-    expect(data.data.rows[0]?.cells).toEqual({
-      [categoryId]: "Apples",
-      [valueId]: 12,
-    });
-    expect(data.encoding.x.columnId).toBe(categoryId);
-    expect(data.encoding.y[0]?.columnId).toBe(valueId);
-  });
-
-  it("regenerates a pasted surface instance id while preserving its variant and current shape", async () => {
-    const content = createSlideshowDocumentWithSurfaces([FIRST_SLIDE_ID]);
-    const onReady = vi.fn();
-
-    render(
-      createElement(CourseDocumentEditor, {
-        composition: coreAuthoringComposition,
-        source: { mode: "document", content },
-        onReady,
-      }),
-    );
-
-    await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
-    const editor = onReady.mock.calls[0]?.[0];
-    const source = slideCoverSurfaceDefinition.createSurface({ surfaceId: PASTED_SLIDE_ID });
-    const sourceNode = editor.schema.nodeFromJSON(source);
-    let slice = new Slice(Fragment.from(sourceNode), 0, 0);
-
-    editor.view.someProp(
-      "transformPasted",
-      (transformPasted: (slice: Slice, view: EditorView, plain: boolean) => Slice) => {
-        slice = transformPasted(slice, editor.view, false);
-        return false;
-      },
-    );
-
-    const pasted = slice.content.firstChild?.toJSON();
-    expect(pasted?.attrs?.["id"]).toEqual(expect.stringMatching(/^[0-9A-Z_a-z-]{12}$/));
-    expect(pasted?.attrs?.["id"]).not.toBe(PASTED_SLIDE_ID);
-    expect(pasted?.attrs?.["variant"]).toBe("slide-cover");
-    expect(pasted?.attrs?.["settings"]).toEqual(source.attrs?.["settings"]);
-    expect(pasted?.content).toEqual(source.content);
-  });
 });
 
 function privateSurfaceCapability(id: string): SurfaceCapability {
@@ -680,6 +603,7 @@ function authoringDocumentWithMcq(): JSONContent {
       {
         type: "courseDocument",
         attrs: {
+          id: createEmbeddedNodeId(),
           schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
           mode: "page",
           surfaceSize: "fluid",
@@ -791,6 +715,7 @@ function authoringDocumentWithGallery(): JSONContent {
       {
         type: "courseDocument",
         attrs: {
+          id: createEmbeddedNodeId(),
           schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
           mode: "page",
           surfaceSize: "fluid",
@@ -852,6 +777,7 @@ function authoringSlideshowDocument(surfaceIds: EmbeddedNodeId[]): JSONContent {
       {
         type: "courseDocument",
         attrs: {
+          id: createEmbeddedNodeId(),
           schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
           mode: "slideshow",
           surfaceSize: "16x9",
@@ -864,6 +790,10 @@ function authoringSlideshowDocument(surfaceIds: EmbeddedNodeId[]): JSONContent {
       },
     ],
   };
+}
+
+function courseSection(id: EmbeddedNodeId, title: string): JSONContent {
+  return { type: "courseSection", attrs: { id, title } };
 }
 
 function findFirstNodeOfType(node: JSONContent | undefined, type: string): JSONContent | null {

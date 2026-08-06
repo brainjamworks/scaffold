@@ -5,7 +5,6 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import "@/editor/shell/authoring/cursors.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { validateCourseSurfaceLifecycle } from "@/document/model/validation";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
 import { AuthoringDocumentChrome } from "@/editor/shell/authoring/AuthoringDocumentChrome";
 import { readSurfaceViewSettingsFromProseMirrorDoc } from "@/document/model/surface-view-settings";
@@ -95,10 +94,7 @@ export function CourseDocumentEditor({
   const validation = useMemo(
     () =>
       initialSource.mode === "document"
-        ? validateCourseSurfaceLifecycle({
-            content: initialSource.content,
-            registry: composition.capabilities.surfaces.registry,
-          })
+        ? composition.courseStructure.validate(initialSource.content)
         : { ok: true as const },
     [composition, initialSource],
   );
