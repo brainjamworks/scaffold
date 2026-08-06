@@ -100,7 +100,7 @@ function makeApplicationEditor(
     extensions: createCourseDocumentAuthoringExtensions({
       editable: true,
       composition: application.authoring,
-    }).filter(({ name }) => name !== "courseStructureAuthoringPolicy"),
+    }),
     content,
   });
 }

@@ -1,7 +1,6 @@
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
 import { useCallback, useEffect, useMemo, useRef, type CSSProperties } from "react";
 
-import type { CourseStructureIssue } from "@/document/model/course-structure";
 import type { ScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { CourseDocumentAttrsSchema } from "@/schemas/course-document";
 import {
@@ -24,7 +23,6 @@ import {
 import { selectRuntimePlayer } from "../players/player-selection";
 import type {
   RuntimePlayerSelection,
-  RuntimePlayerUnavailableReason,
   SlideshowPlayerSizing,
 } from "../players/player-types";
 import { PagePlayer } from "../players/page/PagePlayer";
@@ -71,16 +69,7 @@ export function ContentRuntimeHost({
     );
   }
 
-  const validation = composition.courseStructure.validate(initialContent);
-  if (!validation.ok) {
-    return (
-      <div data-testid="scaffold-runtime-host">
-        <ContentRuntimeUnavailable reason={unavailableReasonFromIssues(validation.issues)} />
-      </div>
-    );
-  }
-
-  const playerSelection = selectRuntimePlayer(validation.value);
+  const playerSelection = selectRuntimePlayer(initialContent);
   const courseDocumentAttrs = CourseDocumentAttrsSchema.parse(initialContent.content?.[0]?.attrs);
   const resolvedTheme = resolveCourseTheme({
     catalogue: themeCatalogue,
@@ -239,42 +228,7 @@ function HydratedRuntimePlayer({
   );
 }
 
-type RuntimeUnavailableReason = RuntimePlayerUnavailableReason;
-
-function unavailableReasonFromIssues(
-  issues: readonly CourseStructureIssue[],
-): RuntimeUnavailableReason {
-  if (issues.some(({ code }) => code === "unsupported_surface_mode")) {
-    return "unsupported-mode";
-  }
-  if (issues.some(({ code }) => code === "duplicate_surface_id")) {
-    return "duplicate-surface-id";
-  }
-  if (issues.some(({ code }) => code === "invalid_surface_cardinality")) {
-    return "invalid-surface-cardinality";
-  }
-  if (
-    issues.some(
-      ({ code }) => code === "unknown_surface_variant" || code === "surface_variant_mode_mismatch",
-    )
-  ) {
-    return "invalid-surface-variant";
-  }
-  if (issues.some(({ code, path }) => code === "invalid_surface_attrs" && path.at(-1) === "id")) {
-    return "missing-surface-id";
-  }
-  if (
-    issues.some(({ code, path }) => code === "invalid_surface_attrs" && path.at(-1) === "variant")
-  ) {
-    return "invalid-surface-variant";
-  }
-  if (issues.some(({ code }) => code === "invalid_course_document_attrs")) {
-    return "invalid-mode";
-  }
-  return "invalid-course-document";
-}
-
-function ContentRuntimeUnavailable({ reason }: { reason: RuntimeUnavailableReason }) {
+function ContentRuntimeUnavailable({ reason }: { reason: "missing-initial-content" }) {
   return (
     <div
       data-testid="scaffold-runtime-unavailable"

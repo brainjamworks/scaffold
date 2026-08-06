@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, waitFor } from "@testing-library/react";
 import { Editor, type JSONContent } from "@tiptap/core";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
@@ -19,23 +19,6 @@ afterEach(() => {
 });
 
 describe("CourseDocumentEditor interaction guardrails", () => {
-  it("does not mount invalid initial portable surface state", async () => {
-    const content = pageDocument({ id: "surface-page", variant: "mystery-surface" });
-    const onReady = vi.fn();
-
-    render(
-      createElement(CourseDocumentEditor, {
-        composition: coreAuthoringComposition,
-        source: { mode: "document", content },
-        onReady,
-      }),
-    );
-
-    expect(await screen.findByText(/cannot be edited/)).toBeInTheDocument();
-    expect(screen.queryByTestId("course-document-editor")).toBeNull();
-    expect(onReady).not.toHaveBeenCalled();
-  });
-
   it("preserves the page surface variant through text click, typing, and Backspace", async () => {
     const content = pageDocument({ id: "surface-page", variant: "page-default" });
     const editor = await mountEditor(content);

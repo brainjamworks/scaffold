@@ -5,11 +5,9 @@ import type { CopiedBlockDefinitionLookup } from "@/document/model/identity/clon
 
 import {
   childIndexById,
-  failureMutation,
   removeVacatedBoundary,
   resolveSurfaceDestination,
-  successMutation,
-  type CandidateMutationResult,
+  type CandidateMutation,
   type CommandBuildContext,
 } from "./transaction-helpers";
 import type { CourseStructureCommand, SurfaceDestination, SurfaceId } from "./types";
@@ -20,7 +18,7 @@ type NonDuplicateSurfaceCommand = Exclude<SurfaceCommand, { type: "surface.dupli
 export function buildSurfaceCandidate(
   command: NonDuplicateSurfaceCommand,
   context: CommandBuildContext,
-): CandidateMutationResult {
+): CandidateMutation | null {
   switch (command.type) {
     case "surface.insert":
       return insertSurface(command.surface, command.destination, context.children);
@@ -35,7 +33,7 @@ export function buildSurfaceDuplicateCandidate(
   command: Extract<SurfaceCommand, { type: "surface.duplicate" }>,
   context: CommandBuildContext,
   blockDefinitions: CopiedBlockDefinitionLookup,
-): CandidateMutationResult {
+): CandidateMutation | null {
   return duplicateSurface(command.surfaceId, context, blockDefinitions);
 }
 
@@ -43,104 +41,83 @@ function insertSurface(
   surface: ProseMirrorNode,
   destination: SurfaceDestination,
   children: readonly ProseMirrorNode[],
-): CandidateMutationResult {
-  if (surface.type.name !== "surface") {
-    return failureMutation("invalid_destination", "Only a Surface node can be inserted.");
-  }
+): CandidateMutation | null {
+  if (surface.type.name !== "surface") return null;
   const destinationIndex = resolveSurfaceDestination(children, destination);
-  if (destinationIndex < 0) {
-    return failureMutation("invalid_destination", "The destination Surface does not exist.");
-  }
-  return successMutation([
-    ...children.slice(0, destinationIndex),
-    surface,
-    ...children.slice(destinationIndex),
-  ]);
+  if (destinationIndex < 0) return null;
+  return {
+    children: [
+      ...children.slice(0, destinationIndex),
+      surface,
+      ...children.slice(destinationIndex),
+    ],
+  };
 }
 
 function duplicateSurface(
   surfaceId: SurfaceId,
   { children, createId, schema }: CommandBuildContext,
   blockDefinitions: CopiedBlockDefinitionLookup,
-): CandidateMutationResult {
+): CandidateMutation | null {
   const sourceIndex = childIndexById(children, "surface", surfaceId);
-  if (sourceIndex < 0) {
-    return failureMutation("target_not_found", "The Surface does not exist.", surfaceId);
-  }
+  if (sourceIndex < 0) return null;
   const json = cloneJsonWithNewStableIds(children[sourceIndex]!.toJSON(), {
     blockDefinitions,
     createId,
   });
   const clone = schema.nodeFromJSON(json);
-  return successMutation([
-    ...children.slice(0, sourceIndex + 1),
-    clone,
-    ...children.slice(sourceIndex + 1),
-  ]);
+  return {
+    children: [
+      ...children.slice(0, sourceIndex + 1),
+      clone,
+      ...children.slice(sourceIndex + 1),
+    ],
+  };
 }
 
 function deleteSurface(
   surfaceId: SurfaceId,
-  { structure, children }: CommandBuildContext,
-): CandidateMutationResult {
+  { children }: CommandBuildContext,
+): CandidateMutation | null {
   const sourceIndex = childIndexById(children, "surface", surfaceId);
-  if (sourceIndex < 0) {
-    return failureMutation("target_not_found", "The Surface does not exist.", surfaceId);
-  }
-  if (structure.surfaceIds.length === 1) {
-    return failureMutation(
-      "cannot_delete_last_surface",
-      "The final Slideshow Surface cannot be deleted.",
-      surfaceId,
-    );
-  }
+  if (sourceIndex < 0) return null;
+  const surfaceIds = children.flatMap((node) =>
+    node.type.name === "surface" && typeof node.attrs["id"] === "string"
+      ? [node.attrs["id"] as SurfaceId]
+      : [],
+  );
+  if (surfaceIds.length === 1) return null;
 
-  const surfaceIndex = structure.surfaceIds.indexOf(surfaceId);
-  const selectionSurfaceId =
-    structure.surfaceIds[surfaceIndex + 1] ?? structure.surfaceIds[surfaceIndex - 1];
+  const surfaceIndex = surfaceIds.indexOf(surfaceId);
+  const selectionSurfaceId = surfaceIds[surfaceIndex + 1] ?? surfaceIds[surfaceIndex - 1];
   const next = [...children];
-  next.splice(sourceIndex, 1);
-  removeVacatedBoundary(next, structure, surfaceId);
-  return successMutation(next, selectionSurfaceId);
+  removeVacatedBoundary(next, sourceIndex);
+  const adjustedSourceIndex = childIndexById(next, "surface", surfaceId);
+  if (adjustedSourceIndex < 0) return null;
+  next.splice(adjustedSourceIndex, 1);
+  return { children: next, ...(selectionSurfaceId ? { selectionSurfaceId } : {}) };
 }
 
 function moveSurface(
   surfaceId: SurfaceId,
   destination: SurfaceDestination,
-  { structure, children }: CommandBuildContext,
-): CandidateMutationResult {
+  { children }: CommandBuildContext,
+): CandidateMutation | null {
   const sourceIndex = childIndexById(children, "surface", surfaceId);
-  if (sourceIndex < 0) {
-    return failureMutation("target_not_found", "The Surface does not exist.", surfaceId);
-  }
+  if (sourceIndex < 0) return null;
   const destinationSurfaceId =
     "beforeSurfaceId" in destination ? destination.beforeSurfaceId : destination.afterSurfaceId;
-  if (destinationSurfaceId === surfaceId) {
-    return failureMutation(
-      "invalid_destination",
-      "A Surface cannot move relative to itself.",
-      surfaceId,
-    );
-  }
-  if (childIndexById(children, "surface", destinationSurfaceId) < 0) {
-    return failureMutation(
-      "invalid_destination",
-      "The destination Surface does not exist.",
-      destinationSurfaceId,
-    );
-  }
+  if (destinationSurfaceId === surfaceId) return null;
+  if (childIndexById(children, "surface", destinationSurfaceId) < 0) return null;
 
   const next = [...children];
-  const [source] = next.splice(sourceIndex, 1);
-  removeVacatedBoundary(next, structure, surfaceId);
+  const source = next[sourceIndex];
+  removeVacatedBoundary(next, sourceIndex);
+  const adjustedSourceIndex = childIndexById(next, "surface", surfaceId);
+  if (!source || adjustedSourceIndex < 0) return null;
+  next.splice(adjustedSourceIndex, 1);
   const destinationIndex = resolveSurfaceDestination(next, destination);
-  if (destinationIndex < 0) {
-    return failureMutation(
-      "invalid_destination",
-      "The destination Surface does not exist.",
-      destinationSurfaceId,
-    );
-  }
+  if (destinationIndex < 0) return null;
   next.splice(destinationIndex, 0, source!);
-  return successMutation(next);
+  return { children: next };
 }

@@ -2,7 +2,6 @@ import type { JSONContent } from "@tiptap/core";
 
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 
-import { validateCourseDocumentJSON, type CourseDocumentIssue } from "./validators";
 import {
   runCourseDocumentMigrationSteps,
   validateCourseDocumentMigrationPlan,
@@ -18,8 +17,7 @@ export type CourseDocumentMigrationErrorCode =
   | "invalid_document_version"
   | "unsupported_document_version"
   | "missing_migration_step"
-  | "migration_failed"
-  | "invalid_migrated_document";
+  | "migration_failed";
 
 export type CourseDocumentMigrationResult =
   | {
@@ -35,7 +33,6 @@ export type CourseDocumentMigrationResult =
       message: string;
       fromVersion: number | null;
       toVersion: number;
-      issues?: CourseDocumentIssue[];
     };
 
 const MIGRATIONS: readonly CourseDocumentMigrationStep[] = validateCourseDocumentMigrationPlan(
@@ -105,18 +102,6 @@ export function migrateCourseDocumentJSON(content: unknown): CourseDocumentMigra
       `No Scaffold document migration exists from v${migrated.missingFromVersion}.`,
       fromVersion,
     );
-  }
-
-  const validation = validateCourseDocumentJSON(migrated.document);
-  if (!validation.ok) {
-    return {
-      ok: false,
-      code: "invalid_migrated_document",
-      message: "Migrated Scaffold document does not match the current schema.",
-      fromVersion,
-      toVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
-      issues: [...validation.issues],
-    };
   }
 
   return {

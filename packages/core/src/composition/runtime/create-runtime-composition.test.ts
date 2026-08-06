@@ -109,11 +109,8 @@ describe("createCourseDocumentRuntimeExtensions", () => {
     expect(schema.nodes["courseSection"]?.spec.attrs?.["title"]).toBeDefined();
   });
 
-  it("owns a validate-only Core Course Structure view", () => {
-    expect(coreRuntimeComposition.courseStructure).toEqual(
-      expect.objectContaining({ validate: expect.any(Function) }),
-    );
-    expectTypeOf<keyof typeof coreRuntimeComposition.courseStructure>().toEqualTypeOf<"validate">();
+  it("does not own a parallel Course Structure validator", () => {
+    expect(coreRuntimeComposition).not.toHaveProperty("courseStructure");
   });
 
   it("renders a persisted host Surface through its runtime component only", async () => {

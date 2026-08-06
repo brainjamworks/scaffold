@@ -14,7 +14,6 @@ import {
   ARRANGEMENT_CONTENT,
   SECTION_ARRANGEMENT_CONTENT,
 } from "@/document/model/content-model/content-groups";
-import { createCourseStructureModule } from "@/document/model";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { ExtendedHeading } from "@/editor/rich-text/model/rich-text-blocks";
@@ -35,9 +34,6 @@ import { createSurfaceCreationCatalog } from "./surface-creation-catalog";
 import { insertSurfaceTemplateAfterSurface } from "./surface-template-insertion";
 
 const surfaceVariants = createSurfaceVariantRegistry(builtInSurfaceVariantDefinitions);
-const courseStructure = createCourseStructureModule({
-  surfaceVariants,
-});
 const FIRST_SURFACE_ID = createEmbeddedNodeId();
 const SECOND_SURFACE_ID = createEmbeddedNodeId();
 
@@ -183,7 +179,6 @@ describe("SurfaceTemplatePickerHost", () => {
     ]);
     expect(new Set(surfaces.map(({ id }) => id)).size).toBe(3);
     expect(surfaces.slice(1).every(({ id }) => /^[0-9A-Z_a-z-]{12}$/.test(String(id)))).toBe(true);
-    expect(courseStructure.validate(editor.getJSON()).ok).toBe(true);
   });
 
   it("shows later catalogue definitions without picker-specific changes", async () => {

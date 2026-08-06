@@ -1,17 +1,9 @@
 import { CourseSectionTitleSchema } from "@scaffold/contracts";
 import type { Node as ProseMirrorNode, Schema } from "@tiptap/pm/model";
 
-import type {
-  CourseSectionId,
-  CourseStructure,
-  CourseStructureCommandIssue,
-  CourseStructureCommandIssueCode,
-  SurfaceDestination,
-  SurfaceId,
-} from "./types";
+import type { SurfaceDestination, SurfaceId } from "./types";
 
 export interface CommandBuildContext {
-  readonly structure: CourseStructure;
   readonly children: readonly ProseMirrorNode[];
   readonly createId: () => string;
   readonly schema: Schema;
@@ -20,36 +12,6 @@ export interface CommandBuildContext {
 export interface CandidateMutation {
   readonly children: readonly ProseMirrorNode[];
   readonly selectionSurfaceId?: SurfaceId;
-}
-
-export type CandidateMutationResult =
-  | { readonly ok: true; readonly value: CandidateMutation }
-  | { readonly ok: false; readonly issue: CourseStructureCommandIssue };
-
-export function successMutation(
-  children: readonly ProseMirrorNode[],
-  selectionSurfaceId?: SurfaceId,
-): CandidateMutationResult {
-  return {
-    ok: true,
-    value: { children, ...(selectionSurfaceId ? { selectionSurfaceId } : {}) },
-  };
-}
-
-export function failureMutation(
-  code: CourseStructureCommandIssueCode,
-  message: string,
-  targetId?: CourseSectionId,
-): CandidateMutationResult {
-  return { ok: false, issue: commandIssue(code, message, targetId) };
-}
-
-export function commandIssue(
-  code: CourseStructureCommandIssueCode,
-  message: string,
-  targetId?: CourseSectionId,
-): CourseStructureCommandIssue {
-  return Object.freeze({ code, message, ...(targetId ? { targetId } : {}) });
 }
 
 export function parseCourseSectionTitle(value: unknown): string | null {
@@ -102,17 +64,22 @@ export function resolveSurfaceDestination(
   return index < 0 ? -1 : index + 1;
 }
 
-export function removeVacatedBoundary(
-  children: ProseMirrorNode[],
-  structure: CourseStructure,
-  removedSurfaceId: SurfaceId,
-) {
-  const surface = structure.surfaceById.get(removedSurfaceId);
-  if (!surface?.courseSectionId || structure.sectioning !== "course-sections") return;
-  const section = structure.courseSectionById.get(surface.courseSectionId);
-  if (section?.surfaceIds.length !== 1) return;
-  const boundaryIndex = childIndexById(children, "courseSection", surface.courseSectionId);
-  if (boundaryIndex >= 0) children.splice(boundaryIndex, 1);
+export function removeVacatedBoundary(children: ProseMirrorNode[], removedSurfaceIndex: number) {
+  let boundaryIndex = -1;
+  for (let index = removedSurfaceIndex - 1; index >= 0; index -= 1) {
+    if (children[index]?.type.name !== "courseSection") continue;
+    boundaryIndex = index;
+    break;
+  }
+  if (boundaryIndex < 0) return;
+  const nextBoundaryIndex = children.findIndex(
+    (node, index) => index > boundaryIndex && node.type.name === "courseSection",
+  );
+  const sectionEnd = nextBoundaryIndex < 0 ? children.length : nextBoundaryIndex;
+  const surfaceCount = children
+    .slice(boundaryIndex + 1, sectionEnd)
+    .filter((node) => node.type.name === "surface").length;
+  if (surfaceCount === 1) children.splice(boundaryIndex, 1);
 }
 
 export function sameChildren(

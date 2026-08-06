@@ -40,13 +40,11 @@ import {
   resolveCourseSelectionProjection,
   resolveStructuralChromeTargetDescriptor,
   updateRegisteredNodeSettingsChecked,
-  validateCourseDocumentJSON,
   type AssessmentDocumentProjection,
   type BlockDefinition,
   type BlockChromeTargetDescriptor,
   type CheckedMutationIssue,
   type CheckedMutationResult,
-  type CourseDocumentValidationResult,
   type CourseMode,
   type CourseSelectionMode as CourseSelectionModeType,
   type CourseSelectionProjection,
@@ -100,7 +98,6 @@ const agentHostValues = {
   resolveCourseSelectionProjection,
   resolveStructuralChromeTargetDescriptor,
   updateRegisteredNodeSettingsChecked,
-  validateCourseDocumentJSON,
 };
 
 type AgentHostTypeSurface = {
@@ -126,7 +123,6 @@ type AgentHostTypeSurface = {
   selectionProjection: CourseSelectionProjection;
   structuralDescriptor: StructuralChromeTargetDescriptor;
   unavailableDockProps: ScaffoldUnavailableAgentDockProps;
-  validationResult: CourseDocumentValidationResult;
   viewSettings: SurfaceViewSettings;
   workspaceContribution: ScaffoldAgentWorkspaceContribution;
   gridTemplateOptions: GridTemplateOptions;

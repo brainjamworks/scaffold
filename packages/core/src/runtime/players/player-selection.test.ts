@@ -1,8 +1,6 @@
-import type { JSONContent } from "@tiptap/core";
 import { describe, expect, it } from "vite-plus/test";
 import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
-import { createCourseStructureModule } from "@/document/model/course-structure";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 
@@ -12,25 +10,18 @@ const PAGE_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface-page");
 const FIRST_SLIDE_ID = EmbeddedNodeIdSchema.parse("slide_000002");
 const SECOND_SLIDE_ID = EmbeddedNodeIdSchema.parse("slide_000001");
 const COURSE_SECTION_ID = EmbeddedNodeIdSchema.parse("section00001");
-const courseStructure = createCourseStructureModule({
-  surfaceVariants: builtInSurfaceVariantRegistry,
-});
-
 describe("selectRuntimePlayer", () => {
-  it("selects a page only from its validated surface instance", () => {
-    const structure = validatedStructure(
-      createScaffoldDocumentContent({ mode: "page", surfaceId: PAGE_SURFACE_ID }),
-    );
+  it("selects the page Surface from document content", () => {
+    const content = createScaffoldDocumentContent({ mode: "page", surfaceId: PAGE_SURFACE_ID });
 
-    expect(selectRuntimePlayer(structure)).toEqual({
-      status: "available",
+    expect(selectRuntimePlayer(content)).toEqual({
       player: "page",
       mode: "page",
       surfaceIds: [PAGE_SURFACE_ID],
     });
   });
 
-  it("preserves validated slideshow instance order", () => {
+  it("preserves slideshow Surface order", () => {
     const content = createScaffoldDocumentContent({
       mode: "slideshow",
       surfaceId: FIRST_SLIDE_ID,
@@ -46,10 +37,9 @@ describe("selectRuntimePlayer", () => {
     ];
     const before = structuredClone(content);
 
-    const selection = selectRuntimePlayer(validatedStructure(content));
+    const selection = selectRuntimePlayer(content);
 
     expect(selection).toEqual({
-      status: "available",
       player: "slideshow",
       mode: "slideshow",
       surfaceIds: [FIRST_SLIDE_ID, SECOND_SLIDE_ID],
@@ -74,21 +64,11 @@ describe("selectRuntimePlayer", () => {
       slideCover.createSurface({ surfaceId: SECOND_SLIDE_ID }),
     ];
 
-    const structure = validatedStructure(content);
-
-    expect(structure.sectioning).toBe("course-sections");
-    expect(selectRuntimePlayer(structure)).toEqual({
-      status: "available",
+    expect(selectRuntimePlayer(content)).toEqual({
       player: "slideshow",
       mode: "slideshow",
       surfaceIds: [FIRST_SLIDE_ID, SECOND_SLIDE_ID],
     });
-    expect(selectRuntimePlayer(structure).surfaceIds).not.toContain(COURSE_SECTION_ID);
+    expect(selectRuntimePlayer(content).surfaceIds).not.toContain(COURSE_SECTION_ID);
   });
 });
-
-function validatedStructure(content: JSONContent) {
-  const result = courseStructure.validate(content);
-  if (!result.ok) throw new Error(`invalid test fixture: ${JSON.stringify(result.issues)}`);
-  return result.value;
-}

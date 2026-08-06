@@ -10,10 +10,6 @@ import {
   createScaffoldRuntimeComposition,
   type ScaffoldRuntimeComposition,
 } from "@/composition/runtime/scaffold-runtime-composition";
-import {
-  createCourseStructureModule,
-  type CourseStructureModule,
-} from "@/document/model/course-structure";
 import { builtInLayoutAuthoringViews } from "@/editor/arrangements/layout/authoring/built-in-layout-views";
 import type { LayoutViewRegistration } from "@/editor/arrangements/layout/authoring/layout-view-definition";
 import { builtInLayoutDefinitions } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
@@ -70,7 +66,6 @@ export interface CreateScaffoldApplicationOptions {
 
 export interface ScaffoldApplication {
   readonly capabilities: ResolvedScaffoldCapabilities;
-  readonly courseStructure: CourseStructureModule;
   readonly authoring: ScaffoldAuthoringComposition;
   readonly runtime: ScaffoldRuntimeComposition;
 }
@@ -126,25 +121,20 @@ export function createScaffoldApplication(
   validateSurfaceVariantFactories(capabilities.surfaces.registry);
   validateUniqueBlockExtensionNames(blockCapabilities, "authoring");
   validateUniqueBlockExtensionNames(blockCapabilities, "runtime");
-  const courseStructure = createCourseStructureModule({
-    surfaceVariants: capabilities.surfaces.registry,
-  });
   const authoring = createScaffoldAuthoringComposition(
     capabilities,
-    courseStructure,
     blockCapabilities.map((capability) => capability.authoringExtension),
     layoutCapabilities.map((capability) => capability.authoringView),
     surfaceCapabilities.map((capability) => capability.authoringView),
   );
   const runtime = createScaffoldRuntimeComposition(
     capabilities,
-    courseStructure,
     blockCapabilities.map((capability) => capability.runtimeExtension),
     layoutCapabilities.map((capability) => capability.runtimeView),
     surfaceCapabilities.map((capability) => capability.runtimeView),
   );
 
-  return Object.freeze({ capabilities, courseStructure, authoring, runtime });
+  return Object.freeze({ capabilities, authoring, runtime });
 }
 
 function createBuiltInBlockCapabilities(): readonly BlockCapability[] {

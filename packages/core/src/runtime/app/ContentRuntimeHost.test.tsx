@@ -43,10 +43,6 @@ const runtimeComposition = createCoreScaffoldRuntimeComposition();
 const DEFAULT_RUNTIME_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00001");
 const FIRST_SLIDESHOW_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00002");
 const SECOND_SLIDESHOW_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00003");
-const DUPLICATE_SLIDESHOW_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00004");
-const FIRST_PAGE_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00005");
-const SECOND_PAGE_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00006");
-const BRANCHING_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00007");
 const COURSE_SECTION_ID = EmbeddedNodeIdSchema.parse("section00001");
 
 const runtimeStoreFactories = vi.hoisted(() => ({
@@ -579,7 +575,7 @@ function PrivateSurfaceRuntimeView(props: SurfaceRuntimeViewProps) {
 }
 
 describe("ContentRuntimeHost", () => {
-  it("validates and renders a private Surface only with its supplied runtime composition", async () => {
+  it("renders a private Surface with its supplied runtime composition", async () => {
     const capability = privateRuntimeSurfaceCapability("private-runtime-surface");
     const application = createScaffoldApplication({
       packs: [
@@ -595,22 +591,7 @@ describe("ContentRuntimeHost", () => {
       capability.definition.createSurface({ surfaceId: createEmbeddedNodeId() }),
     ];
     const onEditorReady = vi.fn();
-    const view = render(
-      <ContentRuntimeHost
-        composition={runtimeComposition}
-        artifactId="private-runtime-artifact"
-        initialContent={content}
-        onEditorReady={onEditorReady}
-      />,
-    );
-
-    expect(screen.getByTestId("scaffold-runtime-unavailable")).toHaveAttribute(
-      "data-runtime-unavailable-reason",
-      "invalid-surface-variant",
-    );
-    expect(onEditorReady).not.toHaveBeenCalled();
-
-    view.rerender(
+    render(
       <ContentRuntimeHost
         artifactId="private-runtime-artifact"
         composition={application.runtime}
@@ -1613,79 +1594,6 @@ describe("ContentRuntimeHost", () => {
     expect(document.body.querySelector("[data-authoring-resize-handle]")).toBeNull();
   });
 
-  it("renders an unavailable runtime state for invalid content without repair writes", () => {
-    const onEditorReady = vi.fn();
-
-    render(
-      <ContentRuntimeHost
-        composition={runtimeComposition}
-        artifactId="artifact-1"
-        initialContent={{ type: "doc", content: [{ type: "paragraph" }] }}
-        onEditorReady={onEditorReady}
-      />,
-    );
-
-    expect(
-      screen
-        .getByTestId("scaffold-runtime-unavailable")
-        .getAttribute("data-runtime-unavailable-reason"),
-    ).toBe("invalid-course-document");
-    expect(screen.queryByTestId("course-document-editor")).toBeNull();
-    expect(screen.queryByTestId("course-document-runtime-renderer")).toBeNull();
-    expect(onEditorReady).not.toHaveBeenCalled();
-    expect(screen.queryByText(/repair/i)).toBeNull();
-  });
-
-  it("rejects invalid content before malformed ancillary snapshots can hydrate stores", () => {
-    const learningEvents = createLearningEventPort();
-
-    expect(() =>
-      render(
-        <ScaffoldServicesProvider ports={{ learningEvents }}>
-          <ContentRuntimeHost
-            composition={runtimeComposition}
-            artifactId="artifact-1"
-            initialAssessmentSnapshot={{ malformed: true }}
-            initialLearnerActivitySnapshot={{ malformed: true }}
-            initialContent={{ type: "doc", content: [{ type: "paragraph" }] }}
-          />
-        </ScaffoldServicesProvider>,
-      ),
-    ).not.toThrow();
-
-    expect(screen.getByTestId("scaffold-runtime-host")).toBeInTheDocument();
-    expect(screen.getByTestId("scaffold-runtime-unavailable")).toBeInTheDocument();
-    expect(runtimeStoreFactories.assessment).not.toHaveBeenCalled();
-    expect(runtimeStoreFactories.learnerActivity).not.toHaveBeenCalled();
-    expect(learningEvents.accept).not.toHaveBeenCalled();
-  });
-
-  it("rejects invalid content before learner activity loading or store construction", () => {
-    const load = vi.fn(async () => null);
-
-    render(
-      <ScaffoldServicesProvider
-        ports={{
-          learnerActivity: {
-            load,
-            save: vi.fn(),
-          },
-        }}
-      >
-        <ContentRuntimeHost
-          composition={runtimeComposition}
-          artifactId="artifact-1"
-          initialContent={{ type: "doc", content: [{ type: "paragraph" }] }}
-        />
-      </ScaffoldServicesProvider>,
-    );
-
-    expect(screen.getByTestId("scaffold-runtime-unavailable")).toBeInTheDocument();
-    expect(load).not.toHaveBeenCalled();
-    expect(runtimeStoreFactories.assessment).not.toHaveBeenCalled();
-    expect(runtimeStoreFactories.learnerActivity).not.toHaveBeenCalled();
-  });
-
   it("renders unavailable when initial content is missing", () => {
     const onEditorReady = vi.fn();
 
@@ -1703,200 +1611,6 @@ describe("ContentRuntimeHost", () => {
         .getByTestId("scaffold-runtime-unavailable")
         .getAttribute("data-runtime-unavailable-reason"),
     ).toBe("missing-initial-content");
-    expect(screen.queryByTestId("course-document-runtime-renderer")).toBeNull();
-    expect(onEditorReady).not.toHaveBeenCalled();
-  });
-
-  it("renders unavailable when initial content is invalid", () => {
-    const onEditorReady = vi.fn();
-
-    render(
-      <ContentRuntimeHost
-        composition={runtimeComposition}
-        artifactId="artifact-1"
-        initialContent={{ type: "doc", content: [{ type: "paragraph" }] }}
-        onEditorReady={onEditorReady}
-      />,
-    );
-
-    expect(
-      screen
-        .getByTestId("scaffold-runtime-unavailable")
-        .getAttribute("data-runtime-unavailable-reason"),
-    ).toBe("invalid-course-document");
-    expect(screen.queryByTestId("course-document-runtime-renderer")).toBeNull();
-    expect(onEditorReady).not.toHaveBeenCalled();
-  });
-
-  it("renders unavailable for invalid surface variants without mounting the renderer", () => {
-    const onEditorReady = vi.fn();
-    const content = runtimeDocumentContent();
-    const surface = content.content?.[0]?.content?.[0];
-    if (!surface) {
-      throw new Error("runtime test document is missing its first surface");
-    }
-    surface.attrs = { ...surface.attrs, variant: "mystery-surface" };
-    const contentBeforeRender = JSON.stringify(content);
-
-    render(
-      <ContentRuntimeHost
-        composition={runtimeComposition}
-        artifactId="artifact-1"
-        initialContent={content}
-        onEditorReady={onEditorReady}
-      />,
-    );
-
-    expect(
-      screen
-        .getByTestId("scaffold-runtime-unavailable")
-        .getAttribute("data-runtime-unavailable-reason"),
-    ).toBe("invalid-surface-variant");
-    expect(screen.queryByTestId("course-document-runtime-renderer")).toBeNull();
-    expect(onEditorReady).not.toHaveBeenCalled();
-    expect(JSON.stringify(content)).toBe(contentBeforeRender);
-  });
-
-  it("renders a deterministic unavailable state for duplicate surface ids", () => {
-    const onEditorReady = vi.fn();
-    const content = runtimeDocumentContent({
-      mode: "slideshow",
-      surfaceIds: [DUPLICATE_SLIDESHOW_SURFACE_ID, DUPLICATE_SLIDESHOW_SURFACE_ID],
-    });
-
-    render(
-      <ContentRuntimeHost
-        composition={runtimeComposition}
-        artifactId="artifact-1"
-        initialContent={content}
-        onEditorReady={onEditorReady}
-      />,
-    );
-
-    expect(
-      screen
-        .getByTestId("scaffold-runtime-unavailable")
-        .getAttribute("data-runtime-unavailable-reason"),
-    ).toBe("duplicate-surface-id");
-    expect(screen.queryByTestId("page-player")).toBeNull();
-    expect(screen.queryByTestId("slideshow-player")).toBeNull();
-    expect(screen.queryByTestId("course-document-runtime-renderer")).toBeNull();
-    expect(onEditorReady).not.toHaveBeenCalled();
-  });
-
-  it("does not construct a player for invalid surface settings or structure", () => {
-    const onEditorReady = vi.fn();
-    const invalidSettings = runtimeDocumentContent({ mode: "slideshow" });
-    const settingsSurface = invalidSettings.content?.[0]?.content?.[0];
-    if (!settingsSurface) throw new Error("missing settings fixture surface");
-    settingsSurface.attrs = {
-      ...settingsSurface.attrs,
-      settings: {
-        ...settingsSurface.attrs?.["settings"],
-        header: { enabled: "invalid" },
-      },
-    };
-
-    const { rerender } = render(
-      <ContentRuntimeHost
-        composition={runtimeComposition}
-        artifactId="artifact-1"
-        initialContent={invalidSettings}
-        onEditorReady={onEditorReady}
-      />,
-    );
-
-    expect(
-      screen
-        .getByTestId("scaffold-runtime-unavailable")
-        .getAttribute("data-runtime-unavailable-reason"),
-    ).toBe("invalid-course-document");
-    expect(screen.queryByTestId("slideshow-player")).toBeNull();
-
-    const invalidStructure = runtimeDocumentContent({ mode: "slideshow" });
-    const structureSurface = invalidStructure.content?.[0]?.content?.[0];
-    if (!structureSurface) throw new Error("missing structure fixture surface");
-    structureSurface.content = [{ type: "paragraph" }];
-    rerender(
-      <ContentRuntimeHost
-        composition={runtimeComposition}
-        artifactId="artifact-1"
-        initialContent={invalidStructure}
-        onEditorReady={onEditorReady}
-      />,
-    );
-
-    expect(
-      screen
-        .getByTestId("scaffold-runtime-unavailable")
-        .getAttribute("data-runtime-unavailable-reason"),
-    ).toBe("invalid-course-document");
-    expect(screen.queryByTestId("slideshow-player")).toBeNull();
-    expect(screen.queryByTestId("course-document-runtime-renderer")).toBeNull();
-    expect(onEditorReady).not.toHaveBeenCalled();
-  });
-
-  it("renders unavailable when page mode has no surfaces", () => {
-    const onEditorReady = vi.fn();
-
-    render(
-      <ContentRuntimeHost
-        composition={runtimeComposition}
-        artifactId="artifact-1"
-        initialContent={runtimeDocumentContent({ surfaceIds: [] })}
-        onEditorReady={onEditorReady}
-      />,
-    );
-
-    expect(
-      screen
-        .getByTestId("scaffold-runtime-unavailable")
-        .getAttribute("data-runtime-unavailable-reason"),
-    ).toBe("invalid-surface-cardinality");
-    expect(screen.queryByTestId("course-document-runtime-renderer")).toBeNull();
-    expect(onEditorReady).not.toHaveBeenCalled();
-  });
-
-  it("renders unavailable when page mode has multiple surfaces", () => {
-    const onEditorReady = vi.fn();
-
-    render(
-      <ContentRuntimeHost
-        composition={runtimeComposition}
-        artifactId="artifact-1"
-        initialContent={runtimeDocumentContent({
-          surfaceIds: [FIRST_PAGE_SURFACE_ID, SECOND_PAGE_SURFACE_ID],
-        })}
-        onEditorReady={onEditorReady}
-      />,
-    );
-
-    expect(
-      screen
-        .getByTestId("scaffold-runtime-unavailable")
-        .getAttribute("data-runtime-unavailable-reason"),
-    ).toBe("invalid-surface-cardinality");
-    expect(screen.queryByTestId("course-document-runtime-renderer")).toBeNull();
-    expect(onEditorReady).not.toHaveBeenCalled();
-  });
-
-  it("renders unavailable when page mode has a missing surface id", () => {
-    const onEditorReady = vi.fn();
-
-    render(
-      <ContentRuntimeHost
-        composition={runtimeComposition}
-        artifactId="artifact-1"
-        initialContent={runtimeDocumentContent({ surfaceIds: [null] })}
-        onEditorReady={onEditorReady}
-      />,
-    );
-
-    expect(
-      screen
-        .getByTestId("scaffold-runtime-unavailable")
-        .getAttribute("data-runtime-unavailable-reason"),
-    ).toBe("missing-surface-id");
     expect(screen.queryByTestId("course-document-runtime-renderer")).toBeNull();
     expect(onEditorReady).not.toHaveBeenCalled();
   });
@@ -2000,78 +1714,6 @@ describe("ContentRuntimeHost", () => {
       ).toBe("true"),
     );
     expect(screen.getByText("2 of 2")).toBeInTheDocument();
-  });
-
-  it("renders unavailable when slideshow mode has no surfaces", () => {
-    const onEditorReady = vi.fn();
-
-    render(
-      <ContentRuntimeHost
-        composition={runtimeComposition}
-        artifactId="artifact-1"
-        initialContent={runtimeDocumentContent({
-          mode: "slideshow",
-          surfaceIds: [],
-        })}
-        onEditorReady={onEditorReady}
-      />,
-    );
-
-    expect(
-      screen
-        .getByTestId("scaffold-runtime-unavailable")
-        .getAttribute("data-runtime-unavailable-reason"),
-    ).toBe("invalid-surface-cardinality");
-    expect(screen.queryByTestId("course-document-runtime-renderer")).toBeNull();
-    expect(onEditorReady).not.toHaveBeenCalled();
-  });
-
-  it("renders unavailable when slideshow mode has a missing surface id", () => {
-    const onEditorReady = vi.fn();
-
-    render(
-      <ContentRuntimeHost
-        composition={runtimeComposition}
-        artifactId="artifact-1"
-        initialContent={runtimeDocumentContent({
-          mode: "slideshow",
-          surfaceIds: [FIRST_SLIDESHOW_SURFACE_ID, null],
-        })}
-        onEditorReady={onEditorReady}
-      />,
-    );
-
-    expect(
-      screen
-        .getByTestId("scaffold-runtime-unavailable")
-        .getAttribute("data-runtime-unavailable-reason"),
-    ).toBe("missing-surface-id");
-    expect(screen.queryByTestId("course-document-runtime-renderer")).toBeNull();
-    expect(onEditorReady).not.toHaveBeenCalled();
-  });
-
-  it("renders unavailable for branching mode until a branching player exists", () => {
-    const onEditorReady = vi.fn();
-
-    render(
-      <ContentRuntimeHost
-        composition={runtimeComposition}
-        artifactId="artifact-1"
-        initialContent={runtimeDocumentContent({
-          mode: "branching",
-          surfaceIds: [BRANCHING_SURFACE_ID],
-        })}
-        onEditorReady={onEditorReady}
-      />,
-    );
-
-    expect(
-      screen
-        .getByTestId("scaffold-runtime-unavailable")
-        .getAttribute("data-runtime-unavailable-reason"),
-    ).toBe("unsupported-mode");
-    expect(screen.queryByTestId("course-document-runtime-renderer")).toBeNull();
-    expect(onEditorReady).not.toHaveBeenCalled();
   });
 
   it("gates runtime players while learner activity loads", async () => {

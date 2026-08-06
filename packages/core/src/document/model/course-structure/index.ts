@@ -1,23 +1,6 @@
-export { createCourseStructureModule } from "./create-course-structure-module";
 export type {
-  CourseSection,
   CourseSectionId,
-  CourseStructure,
   CourseStructureCommand,
-  CourseStructureCommandIssue,
-  CourseStructureCommandIssueCode,
-  CourseStructureCommandResult,
-  CourseStructureCommandResultHandler,
-  CourseStructureIssue,
-  CourseStructureIssueCode,
-  CourseStructureModule,
-  CourseStructureValidationResult,
-  CourseStructureValidator,
-  CourseSurface,
-  NonEmptyReadonlyArray,
-  PageCourseStructure,
-  SectionedSlideshowCourseStructure,
   SurfaceDestination,
   SurfaceId,
-  UnsectionedSlideshowCourseStructure,
 } from "./types";

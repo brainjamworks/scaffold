@@ -1,95 +1,8 @@
 import type { EmbeddedNodeId } from "@scaffold/contracts";
-import type { JSONContent } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
 export type CourseSectionId = EmbeddedNodeId;
 export type SurfaceId = EmbeddedNodeId;
-export type NonEmptyReadonlyArray<T> = readonly [T, ...T[]];
-
-export interface CourseSurface {
-  readonly id: SurfaceId;
-  readonly variantId: string;
-  readonly index: number;
-  readonly courseSectionId: CourseSectionId | null;
-}
-
-export interface CourseSection {
-  readonly id: CourseSectionId;
-  readonly title: string;
-  readonly index: number;
-  readonly surfaceIds: NonEmptyReadonlyArray<SurfaceId>;
-  readonly firstSurfaceId: SurfaceId;
-}
-
-interface CourseStructureBase {
-  readonly surfaces: NonEmptyReadonlyArray<CourseSurface>;
-  readonly surfaceIds: NonEmptyReadonlyArray<SurfaceId>;
-  readonly surfaceById: ReadonlyMap<SurfaceId, CourseSurface>;
-}
-
-export interface PageCourseStructure extends CourseStructureBase {
-  readonly mode: "page";
-  readonly sectioning: "none";
-  readonly surfaces: readonly [CourseSurface];
-  readonly surfaceIds: readonly [SurfaceId];
-  readonly courseSections: readonly [];
-  readonly courseSectionById: ReadonlyMap<CourseSectionId, never>;
-}
-
-export interface UnsectionedSlideshowCourseStructure extends CourseStructureBase {
-  readonly mode: "slideshow";
-  readonly sectioning: "none";
-  readonly courseSections: readonly [];
-  readonly courseSectionById: ReadonlyMap<CourseSectionId, never>;
-}
-
-export interface SectionedSlideshowCourseStructure extends CourseStructureBase {
-  readonly mode: "slideshow";
-  readonly sectioning: "course-sections";
-  readonly courseSections: NonEmptyReadonlyArray<CourseSection>;
-  readonly courseSectionById: ReadonlyMap<CourseSectionId, CourseSection>;
-}
-
-export type CourseStructure =
-  | PageCourseStructure
-  | UnsectionedSlideshowCourseStructure
-  | SectionedSlideshowCourseStructure;
-
-export type CourseStructureIssueCode =
-  | "invalid_top_node"
-  | "missing_course_document"
-  | "multiple_course_documents"
-  | "invalid_course_document_attrs"
-  | "invalid_course_document_child"
-  | "duplicate_embedded_node_id"
-  | "invalid_surface_attrs"
-  | "duplicate_surface_id"
-  | "unknown_surface_variant"
-  | "surface_variant_mode_mismatch"
-  | "invalid_surface_settings"
-  | "duplicate_header_footer"
-  | "invalid_header_footer_slots"
-  | "fixed_surface_child_count_mismatch"
-  | "fixed_surface_child_type_mismatch"
-  | "fixed_surface_child_attribute_mismatch"
-  | "invalid_surface_cardinality"
-  | "unsupported_surface_mode"
-  | "incomplete_quiz"
-  | "invalid_course_section_attrs"
-  | "duplicate_course_section_id"
-  | "course_section_not_allowed_in_mode"
-  | "incomplete_course_section_partition"
-  | "empty_course_section";
-
-export interface CourseStructureIssue {
-  readonly code: CourseStructureIssueCode;
-  readonly message: string;
-  readonly path: readonly (string | number)[];
-}
-
-export type CourseStructureValidationResult =
-  | { readonly ok: true; readonly value: CourseStructure }
-  | { readonly ok: false; readonly issues: readonly CourseStructureIssue[] };
 
 export type SurfaceDestination =
   | { readonly beforeSurfaceId: SurfaceId }
@@ -133,44 +46,10 @@ export type CourseStructureCommand =
       readonly destination: SurfaceDestination;
     };
 
-export type CourseStructureCommandIssueCode =
-  | "invalid_source_document"
-  | "unsupported_mode"
-  | "target_not_found"
-  | "invalid_destination"
-  | "invalid_title"
-  | "leading_section_title_required"
-  | "section_already_starts_at_surface"
-  | "cannot_delete_last_surface"
-  | "no_change"
-  | "schema_rejected_transaction"
-  | "invalid_result";
-
-export interface CourseStructureCommandIssue {
-  readonly code: CourseStructureCommandIssueCode;
-  readonly message: string;
-  readonly targetId?: EmbeddedNodeId;
-}
-
-export type CourseStructureCommandResult =
-  | { readonly ok: true; readonly next: CourseStructure }
-  | { readonly ok: false; readonly issue: CourseStructureCommandIssue };
-
-export type CourseStructureCommandResultHandler = (result: CourseStructureCommandResult) => void;
-
-export interface CourseStructureModule {
-  validate(content: JSONContent): CourseStructureValidationResult;
-}
-
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     courseStructure: {
-      applyCourseStructureCommand: (
-        command: CourseStructureCommand,
-        onResult?: CourseStructureCommandResultHandler,
-      ) => ReturnType;
+      applyCourseStructureCommand: (command: CourseStructureCommand) => ReturnType;
     };
   }
 }
-
-export type CourseStructureValidator = Pick<CourseStructureModule, "validate">;

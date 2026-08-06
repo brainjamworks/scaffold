@@ -12,15 +12,3 @@ export {
   type CourseDocumentMigrationErrorCode,
   type CourseDocumentMigrationResult,
 } from "./migrations";
-export {
-  validateEmbeddedNodeIdentities,
-  type EmbeddedNodeIdentityIssue,
-  type EmbeddedNodeIdentityIssueCode,
-  type EmbeddedNodeIdentityValidationResult,
-} from "./embedded-node-identity-validation";
-export {
-  validateCourseDocumentJSON,
-  type CourseDocumentIssue,
-  type CourseDocumentIssueCode,
-  type CourseDocumentValidationResult,
-} from "./validators";

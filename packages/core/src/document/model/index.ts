@@ -9,28 +9,11 @@ export {
   type CheckedMutationResult,
 } from "./commands/checked-transactions";
 export * from "./content-model";
-export { createCourseStructureModule } from "./course-structure";
 export type {
-  CourseSection,
   CourseSectionId,
-  CourseStructure,
   CourseStructureCommand,
-  CourseStructureCommandIssue,
-  CourseStructureCommandIssueCode,
-  CourseStructureCommandResult,
-  CourseStructureCommandResultHandler,
-  CourseStructureIssue,
-  CourseStructureIssueCode,
-  CourseStructureModule,
-  CourseStructureValidationResult,
-  CourseStructureValidator,
-  CourseSurface,
-  NonEmptyReadonlyArray,
-  PageCourseStructure,
-  SectionedSlideshowCourseStructure,
   SurfaceDestination,
   SurfaceId,
-  UnsectionedSlideshowCourseStructure,
 } from "./course-structure";
 export { CourseDocumentNode, DocumentNode } from "./nodes";
 export {
@@ -38,20 +21,12 @@ export {
   migrateCourseDocumentJSON,
   readCourseDocumentFormatVersion,
   runCourseDocumentMigrationSteps,
-  validateCourseDocumentJSON,
   validateCourseDocumentMigrationPlan,
-  validateEmbeddedNodeIdentities,
   type AppliedCourseDocumentMigration,
-  type CourseDocumentIssue,
-  type CourseDocumentIssueCode,
   type CourseDocumentMigrationErrorCode,
   type CourseDocumentMigrationResult,
   type CourseDocumentMigrationStep,
   type CourseDocumentMigrationStepResult,
-  type CourseDocumentValidationResult,
-  type EmbeddedNodeIdentityIssue,
-  type EmbeddedNodeIdentityIssueCode,
-  type EmbeddedNodeIdentityValidationResult,
 } from "./validation";
 export {
   getSurfaceViewSettings,

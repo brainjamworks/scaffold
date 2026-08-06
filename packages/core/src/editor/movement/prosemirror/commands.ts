@@ -19,7 +19,6 @@ import {
   canMoveSurfaceStructureNode,
 } from "@/editor/surfaces/model/policies/surface-movement-policy";
 import { allowsSurfaceRootInsertion } from "@/editor/surfaces/model/policies/surface-root-insertion-policy";
-import { validateCourseSurfacesStructure } from "@/editor/surfaces/model/policies/surface-structure-policy";
 import type { SurfaceVariantLookup } from "@/editor/surfaces/model/surface-variant-registry";
 
 import {
@@ -269,7 +268,6 @@ function buildMovementTransaction(
     if (!tr || tr.doc.eq(editor.state.doc)) return null;
 
     tr.doc.check();
-    if (!validateCourseSurfacesStructure(tr.doc, surfaceVariants).ok) return null;
     if (!validateBoundedContainerStructure(tr.doc, blockDefinitions).ok) return null;
     return tr;
   } catch {

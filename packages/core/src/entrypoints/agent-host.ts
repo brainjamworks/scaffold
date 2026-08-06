@@ -74,10 +74,6 @@ export {
 } from "@/editor/interactions/targets/prosemirror/projection/structural-chrome-target-projection";
 
 export {
-  validateCourseDocumentJSON,
-  type CourseDocumentValidationResult,
-} from "@/document/model/validation";
-export {
   projectAssessmentDocument,
   type AssessmentDocumentProjection,
 } from "@/authoring/publication/document-projection";

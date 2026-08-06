@@ -24,9 +24,7 @@ import { createCourseSectionNode } from "@/document/model/nodes";
 import { resolveEditorPlaceholder } from "@/editor/prosemirror/placeholder/resolve-editor-placeholder";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createScaffoldAuthoringCataloguesStorageExtension } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
-import { createCourseStructureStorageExtension } from "@/composition/extensions/course-structure-storage";
 import { createCourseDocumentBaseExtensions } from "@/composition/model/create-document-composition";
-import { createCourseStructureAuthoringPolicy } from "@/document/authoring/course-structure-authoring-policy";
 import { createCourseStructureCommandsExtension } from "@/document/authoring/course-structure-commands";
 import { AuthoringSlideDividers } from "@/editor/surfaces/authoring/AuthoringSlideDividers";
 import { createSurfaceRootSelectionPolicy } from "@/editor/surfaces/authoring/surface-root-selection-policy";
@@ -60,8 +58,7 @@ export function createCourseDocumentAuthoringExtensions({
   return [
     createScaffoldCapabilitiesStorageExtension(composition.capabilities),
     createScaffoldAuthoringCataloguesStorageExtension(composition.catalogues),
-    createCourseStructureStorageExtension(composition.courseStructure),
-    createCourseStructureCommandsExtension({ courseStructure: composition.courseStructure }),
+    createCourseStructureCommandsExtension(),
     ...createCourseDocumentBaseExtensions({
       assessmentActionsGroupNode: AssessmentActionsGroupNode,
       assessmentChoicesGroupNode: AssessmentChoicesGroupNode,
@@ -84,7 +81,6 @@ export function createCourseDocumentAuthoringExtensions({
     }),
     AuthoringSlideDividers,
     createSurfaceRootSelectionPolicy({ surfaceVariants: surfaceRegistry }),
-    createCourseStructureAuthoringPolicy({ courseStructure: composition.courseStructure }),
     createBoundedContainerStructurePolicy(blockRegistry, layoutRegistry),
     createScaffoldInteractionOwnerExtension(blockRegistry),
     createStructuralClipboardPolicy({

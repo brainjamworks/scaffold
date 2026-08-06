@@ -17,8 +17,6 @@ import {
 } from "@/composition/application/create-scaffold-application";
 import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import { getScaffoldAuthoringCataloguesForEditor } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
-import { getCourseStructureForEditor } from "@/composition/extensions/course-structure-storage";
-import * as courseStructurePolicy from "@/document/authoring/course-structure-authoring-policy";
 import * as structuralClipboardPolicy from "@/document/authoring/structural-clipboard-policy";
 import {
   CellAuthoringNode,
@@ -39,7 +37,6 @@ import * as surfaceAuthoringNode from "@/editor/surfaces/authoring/nodes/surface
 import * as surfaceRootSelectionPolicy from "@/editor/surfaces/authoring/surface-root-selection-policy";
 import type { SurfaceAuthoringViewProps } from "@/editor/surfaces/authoring/surface-authoring-view-registry";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
-import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import * as surfaceVariantRegistry from "@/editor/surfaces/model/surface-variant-registry";
 import { createCourseDocumentAuthoringExtensions } from "./create-authoring-composition";
 import { createCoreScaffoldAuthoringComposition } from "./scaffold-authoring-composition";
@@ -113,19 +110,17 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     expect(schema.nodes["courseSection"]?.spec.attrs?.["title"]).toBeDefined();
   });
 
-  it("owns validation while installing authoring mutation as a Tiptap command", () => {
-    expect(coreAuthoringComposition.courseStructure).toEqual({
-      validate: expect.any(Function),
+  it("installs Course Structure commands without a parallel document validator", () => {
+    const extensions = createCourseDocumentAuthoringExtensions({
+      editable: true,
+      composition: coreAuthoringComposition,
     });
-    expect(
-      createCourseDocumentAuthoringExtensions({
-        editable: true,
-        composition: coreAuthoringComposition,
-      }).filter((extension) => extension.name === "courseStructureCommands"),
-    ).toHaveLength(1);
+
+    expect(coreAuthoringComposition).not.toHaveProperty("courseStructure");
+    expect(extensions.filter(({ name }) => name === "courseStructureCommands")).toHaveLength(1);
   });
 
-  it("installs the exact authoring catalogues and Course Structure once for a host editor", () => {
+  it("installs the exact authoring catalogues and Course Structure commands for a host editor", () => {
     const capability = hostLayoutCapability("host-catalogue-storage-layout");
     const application = createScaffoldApplication({
       packs: [
@@ -149,14 +144,10 @@ describe("createCourseDocumentAuthoringExtensions", () => {
       expect(
         extensions.filter((extension) => extension.name === "scaffoldAuthoringCatalogues"),
       ).toHaveLength(1);
-      expect(
-        extensions.filter((extension) => extension.name === "scaffoldCourseStructure"),
-      ).toHaveLength(1);
       expect(editor.commands.applyCourseStructureCommand).toBeTypeOf("function");
       expect(getScaffoldAuthoringCataloguesForEditor(editor)).toBe(
         application.authoring.catalogues,
       );
-      expect(getCourseStructureForEditor(editor)).toBe(application.authoring.courseStructure);
     } finally {
       editor.destroy();
     }
@@ -344,7 +335,7 @@ describe("createCourseDocumentAuthoringExtensions", () => {
       extensions: createCourseDocumentAuthoringExtensions({
         editable: true,
         composition: application.authoring,
-      }).filter(({ name }) => name !== "courseStructureAuthoringPolicy"),
+      }),
       content: persistedHostLayoutInBoundedCellDocument(fillCapability.definition.id, "cell-fill"),
     });
     const flowEditor = new Editor({
@@ -352,7 +343,7 @@ describe("createCourseDocumentAuthoringExtensions", () => {
       extensions: createCourseDocumentAuthoringExtensions({
         editable: true,
         composition: application.authoring,
-      }).filter(({ name }) => name !== "courseStructureAuthoringPolicy"),
+      }),
       content: persistedHostLayoutInBoundedCellDocument(flowCapability.definition.id, "cell-flow"),
     });
 
@@ -388,10 +379,6 @@ describe("createCourseDocumentAuthoringExtensions", () => {
       surfaceRootSelectionPolicy,
       "createSurfaceRootSelectionPolicy",
     );
-    const createStructurePolicy = vi.spyOn(
-      courseStructurePolicy,
-      "createCourseStructureAuthoringPolicy",
-    );
     const createEmptyRow = vi.spyOn(emptyInsertionRow, "createEmptyInsertionRowExtension");
     const createSlash = vi.spyOn(slashCommand, "createSlashCommand");
 
@@ -408,9 +395,6 @@ describe("createCourseDocumentAuthoringExtensions", () => {
       views: application.authoring.surfaces.views,
     });
     expect(createRootSelection).toHaveBeenCalledWith({ surfaceVariants: surfaceRegistry });
-    expect(createStructurePolicy).toHaveBeenCalledWith({
-      courseStructure: application.authoring.courseStructure,
-    });
     expect(createEmptyRow).toHaveBeenCalledWith({
       blockDefinitions: application.capabilities.blocks.registry,
       surfaceVariants: surfaceRegistry,
@@ -505,7 +489,7 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     }
   });
 
-  it("keeps host Surface views and policy interpretation isolated between applications", () => {
+  it("keeps host Surface views isolated between applications", () => {
     const firstCapability = hostSurfaceCapability("first-host-surface");
     const secondCapability = hostSurfaceCapability("second-host-surface");
     const firstApplication = createScaffoldApplication({
@@ -551,20 +535,9 @@ describe("createCourseDocumentAuthoringExtensions", () => {
       extensions: secondExtensions,
       content: persistedHostSurfaceDocument(secondCapability.definition.id),
     });
-    const firstPolicyWithSecondContent = new Editor({
-      extensions: replaceSurfaceNodeView(firstExtensions),
-      content: persistedHostSurfaceDocument(secondCapability.definition.id),
-    });
-    const secondPolicyWithFirstContent = new Editor({
-      extensions: replaceSurfaceNodeView(secondExtensions),
-      content: persistedHostSurfaceDocument(firstCapability.definition.id),
-    });
-
     try {
       const firstParagraph = firstNodePosition(firstEditor, "paragraph");
       const secondParagraph = firstNodePosition(secondEditor, "paragraph");
-      const foreignSecondParagraph = firstNodePosition(firstPolicyWithSecondContent, "paragraph");
-      const foreignFirstParagraph = firstNodePosition(secondPolicyWithFirstContent, "paragraph");
 
       expect(firstEditor.commands.insertContentAt(firstParagraph + 1, "First host edit")).toBe(
         true,
@@ -574,22 +547,9 @@ describe("createCourseDocumentAuthoringExtensions", () => {
       );
       expect(firstEditor.state.doc.textContent).toBe("First host edit");
       expect(secondEditor.state.doc.textContent).toBe("Second host edit");
-
-      firstPolicyWithSecondContent.commands.insertContentAt(
-        foreignSecondParagraph + 1,
-        "Foreign second host edit",
-      );
-      secondPolicyWithFirstContent.commands.insertContentAt(
-        foreignFirstParagraph + 1,
-        "Foreign first host edit",
-      );
-      expect(firstPolicyWithSecondContent.state.doc.textContent).toBe("");
-      expect(secondPolicyWithFirstContent.state.doc.textContent).toBe("");
     } finally {
       firstEditor.destroy();
       secondEditor.destroy();
-      firstPolicyWithSecondContent.destroy();
-      secondPolicyWithFirstContent.destroy();
     }
   });
 
@@ -1144,12 +1104,6 @@ function firstNodeSize(editor: Editor, type: string): number {
   const node = editor.state.doc.nodeAt(position);
   if (!node) throw new Error(`expected ${type} node at ${position}`);
   return node.nodeSize;
-}
-
-function replaceSurfaceNodeView(
-  extensions: ReturnType<typeof createCourseDocumentAuthoringExtensions>,
-) {
-  return extensions.map((extension) => (extension.name === "surface" ? SurfaceNode : extension));
 }
 
 function findNodeJsonById(editor: Editor, id: string): JSONContent | null {

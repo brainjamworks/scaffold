@@ -33,7 +33,7 @@ export type CourseDocumentAuthoringSource =
        */
       readonly mode: "external";
       readonly stateExtensions: readonly Extension[];
-      /** Optional checkpoint/validation signal; it does not grant Core persistence authority. */
+      /** Optional checkpoint signal; it does not grant Core persistence authority. */
       readonly onUpdate?: (json: JSONContent) => void;
     };
 
@@ -91,18 +91,6 @@ export function CourseDocumentEditor({
     const observer = callbackRef.current.onUpdate;
     if (observer) observer(editor.getJSON());
   }, []);
-  const validation = useMemo(
-    () =>
-      initialSource.mode === "document"
-        ? composition.courseStructure.validate(initialSource.content)
-        : { ok: true as const },
-    [composition, initialSource],
-  );
-
-  if (!validation.ok) {
-    return <div role="status">This course document is invalid and cannot be edited.</div>;
-  }
-
   return (
     <MountedCourseDocumentEditor
       artifactId={artifactId}

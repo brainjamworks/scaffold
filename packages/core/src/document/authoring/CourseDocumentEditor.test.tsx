@@ -71,7 +71,6 @@ describe("CourseDocumentEditor", () => {
     await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
     const editor = onReady.mock.calls[0]?.[0];
     expect(editor.storage.scaffoldCapabilities.capabilities).toBe(application.capabilities);
-    expect(screen.queryByText(/invalid and cannot be edited/)).toBeNull();
   });
 
   it("mounts a valid sectioned Slideshow", async () => {
@@ -88,28 +87,6 @@ describe("CourseDocumentEditor", () => {
     );
 
     await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
-    expect(screen.queryByText(/invalid and cannot be edited/)).toBeNull();
-  });
-
-  it("rejects a partially sectioned Slideshow before mounting Tiptap", () => {
-    const content = authoringSlideshowDocument([FIRST_SLIDE_ID, SECOND_SLIDE_ID]);
-    content.content?.[0]?.content?.splice(
-      1,
-      0,
-      courseSection(FIRST_SECTION_ID, "Late boundary"),
-    );
-    const onReady = vi.fn();
-
-    render(
-      createElement(CourseDocumentEditor, {
-        composition: coreAuthoringComposition,
-        source: { mode: "document", content },
-        onReady,
-      }),
-    );
-
-    expect(screen.getByRole("status")).toHaveTextContent(/invalid and cannot be edited/);
-    expect(onReady).not.toHaveBeenCalled();
   });
 
   it("reports document changes without serializing the editor", async () => {
