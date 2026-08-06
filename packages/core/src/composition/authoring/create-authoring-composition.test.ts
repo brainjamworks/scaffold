@@ -288,10 +288,10 @@ describe("createCourseDocumentAuthoringExtensions", () => {
       );
 
       await waitFor(() => {
-        const createdSection = findNodeJsonById(editor, "section-host-created-2");
+        const createdSection = findNodeJsonById(editor, "hostsection2");
 
         expect(createdSection?.attrs).toMatchObject({
-          id: "section-host-created-2",
+          id: "hostsection2",
           role: "host-created-section",
           label: "Host section 2",
           options: {
@@ -853,7 +853,7 @@ function hostLayoutCapability(
         create: ({ index }) => ({
           type: "section",
           attrs: {
-            id: `section-host-created-${index + 1}`,
+            id: `hostsection${index + 1}`,
             role: "host-created-section",
             label: `Host section ${index + 1}`,
             options: {
@@ -925,12 +925,12 @@ function persistedHostLayoutDocument(variant: string) {
         content: [
           {
             type: "surface",
-            attrs: { id: "surface-host-authoring", variant: "page-default" },
+            attrs: { id: "hostsurface1", variant: "page-default" },
             content: [
               {
                 type: "layout",
                 attrs: {
-                  id: "layout-host-authoring",
+                  id: "hostlayout01",
                   variant,
                   options: {},
                 },
@@ -938,7 +938,7 @@ function persistedHostLayoutDocument(variant: string) {
                   {
                     type: "section",
                     attrs: {
-                      id: "section-host-authoring",
+                      id: "hostsection1",
                       options: {},
                     },
                     content: [
@@ -968,7 +968,7 @@ function persistedHostSurfaceDocument(variant: string) {
         content: [
           {
             type: "surface",
-            attrs: { id: `surface-${variant}`, variant, settings: {} },
+            attrs: { id: "hostsurface1", variant, settings: {} },
             content: [{ type: "paragraph" }],
           },
         ],
