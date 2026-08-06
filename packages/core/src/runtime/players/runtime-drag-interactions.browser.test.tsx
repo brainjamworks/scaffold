@@ -25,33 +25,36 @@ describe("Runtime document accessibility", () => {
   it.each([
     { label: "Page", surface: "page" as const },
     { label: "Slideshow", surface: "slideshow" as const },
-  ])("exposes named read-only content and native assessment controls on $label", async ({ surface }) => {
-    await page.viewport(1024, 768);
-    const harness = await mountRuntimeDragHarness({ interaction: "matching", surface });
-    mounted.push(harness);
+  ])(
+    "exposes named read-only content and native assessment controls on $label",
+    async ({ surface }) => {
+      await page.viewport(1024, 768);
+      const harness = await mountRuntimeDragHarness({ interaction: "matching", surface });
+      mounted.push(harness);
 
-    const runtimeDocument = harness.player.querySelector<HTMLElement>(".ProseMirror");
-    expect(runtimeDocument).not.toBeNull();
-    expect(page.getByRole("document", { name: "Course content" }).elements()).toContain(
-      runtimeDocument,
-    );
-    expect(runtimeDocument).toHaveAttribute("contenteditable", "false");
-    expect(
-      page
-        .getByRole("textbox")
-        .elements()
-        .filter((element) => harness.player.contains(element)),
-    ).toHaveLength(0);
+      const runtimeDocument = harness.player.querySelector<HTMLElement>(".ProseMirror");
+      expect(runtimeDocument).not.toBeNull();
+      expect(page.getByRole("document", { name: "Course content" }).elements()).toContain(
+        runtimeDocument,
+      );
+      expect(runtimeDocument).toHaveAttribute("contenteditable", "false");
+      expect(
+        page
+          .getByRole("textbox")
+          .elements()
+          .filter((element) => harness.player.contains(element)),
+      ).toHaveLength(0);
 
-    const source = matchingSource(harness, "i1");
-    expect(page.getByRole("button").elements()).toContain(source);
-    source.focus();
-    expect(harness.ownerDocument.activeElement).toBe(source);
-    source.click();
-    await animationFrames(harness, 1);
-    matchingTarget(harness, "t1").click();
-    await harness.waitForMatches({ i1: "t1" }, 1);
-  });
+      const source = matchingSource(harness, "i1");
+      expect(page.getByRole("button").elements()).toContain(source);
+      source.focus();
+      expect(harness.ownerDocument.activeElement).toBe(source);
+      source.click();
+      await animationFrames(harness, 1);
+      matchingTarget(harness, "t1").click();
+      await harness.waitForMatches({ i1: "t1" }, 1);
+    },
+  );
 });
 
 describe("Sequencing shared drag runtime", () => {
@@ -238,6 +241,61 @@ describe("Sequencing shared drag runtime", () => {
     await harness.waitForEnvironment("pending");
     expect(harness.getEnvironment().reason).toBe("invalid");
   });
+
+  it("keeps a long Page drag in viewport coordinates while the page scrolls", async () => {
+    await page.viewport(1024, 768);
+    const harness = await mountRuntimeDragHarness({ surface: "page" });
+    mounted.push(harness);
+    harness.host.style.height = "300px";
+    harness.host.style.overflow = "auto";
+    harness.player.style.minHeight = "900px";
+    await animationFrames(harness, 2);
+    expect(harness.host.scrollHeight).toBeGreaterThan(harness.host.clientHeight);
+
+    const before = harness.getResponseOrder();
+    const targets = harness.getTargets();
+    const source = harness.getActivationAreas()[0]!;
+    const sourceRect = source.getBoundingClientRect();
+    await startPointerDrag(
+      harness,
+      source,
+      {
+        x: sourceRect.left + sourceRect.width / 2,
+        y: sourceRect.top + sourceRect.height / 2 + 12,
+      },
+      "mouse",
+    );
+    const overlayBeforeScroll = requiredOverlay(harness).getBoundingClientRect();
+    const overlayHost = harness.getOverlayHost();
+    expect(overlayHost).not.toBeNull();
+    expect(overlayHost).toHaveClass("sc-course-theme-portal-scope");
+    expect(overlayHost?.ownerDocument).toBe(harness.ownerDocument);
+    expect(overlayHost?.style.getPropertyValue("--sc-course-color-background")).not.toBe("");
+    expect(requiredOverlay(harness).ownerDocument).toBe(harness.ownerDocument);
+    expect(harness.getEnvironment().positionStrategy).toBe("fixed");
+    expect(harness.getCanvas()).toBeNull();
+
+    harness.host.scrollTop = 80;
+    harness.host.dispatchEvent(new Event("scroll"));
+    await animationFrames(harness, 3);
+    expect(harness.host.scrollTop).toBeGreaterThanOrEqual(80);
+    const overlayAfterScroll = requiredOverlay(harness).getBoundingClientRect();
+    expectClose(overlayAfterScroll.left, overlayBeforeScroll.left, 1);
+    expectClose(overlayAfterScroll.top, overlayBeforeScroll.top, 1);
+
+    const destination = centerOf(targets[2]!.getBoundingClientRect());
+    const pointer = { x: destination.x, y: destination.y + 2 };
+    await moveActivePointer(harness, destination, "mouse");
+    await moveActivePointer(harness, pointer, "mouse");
+    expect(requiredOverlay(harness).ownerDocument).toBe(harness.ownerDocument);
+
+    await finishPointerDrag(harness, pointer, "mouse");
+    const expected = [...before.slice(1), before[0]!];
+    await harness.waitForResponse(expected, 1);
+    await harness.waitForIdle();
+    expect(harness.getResponseOrder()).toEqual(expected);
+    expect(harness.getResponseRevision()).toBe(1);
+  });
 });
 
 describe("Matching connector coordinate gate", () => {
@@ -291,7 +349,7 @@ describe("Matching shared drag runtime", () => {
     mounted.push(harness);
     const source = matchingSource(harness, "i1");
     const target = matchingTarget(harness, "t1");
-    assertMatchingActivationGeometry(harness);
+    assertMatchingActivationGeometry(harness, scale === 0.5 ? 27.5 : 44);
     expect(harness.getResponseMatches()).toEqual({});
     expect(harness.getResponseRevision()).toBe(0);
 
@@ -398,13 +456,39 @@ describe("Matching shared drag runtime", () => {
     assertMatchingConnectorAligned(harness, "i1", "t1");
 
     const scrollLane = harness.player.querySelector<HTMLElement>(".sc-matching-pairs-scroll")!;
-    scrollLane.scrollTop += 16;
+    scrollLane.style.height = "180px";
+    scrollLane.style.overflow = "auto";
+    await animationFrames(harness, 2);
+    expect(scrollLane.scrollHeight).toBeGreaterThan(scrollLane.clientHeight);
+    const sourceBeforeScroll = matchingSource(harness, "i1").getBoundingClientRect();
+    const targetBeforeScroll = matchingTarget(harness, "t1").getBoundingClientRect();
+    scrollLane.scrollTop = Math.min(40, scrollLane.scrollHeight - scrollLane.clientHeight);
+    expect(scrollLane.scrollTop).toBeGreaterThan(0);
     scrollLane.dispatchEvent(new Event("scroll"));
     await animationFrames(harness, 2);
+    const sourceAfterScroll = matchingSource(harness, "i1").getBoundingClientRect();
+    const targetAfterScroll = matchingTarget(harness, "t1").getBoundingClientRect();
+    expect(Math.abs(sourceAfterScroll.top - sourceBeforeScroll.top)).toBeGreaterThan(1);
+    expect(Math.abs(targetAfterScroll.top - targetBeforeScroll.top)).toBeGreaterThan(1);
     assertMatchingConnectorAligned(harness, "i1", "t1");
 
-    harness.getFullscreenControl()?.click();
-    await animationFrames(harness, 3);
+    const canvasBeforeFullscreen = harness.getCanvasRect();
+    const enterFullscreen = harness.getFullscreenControl();
+    expect(enterFullscreen).toHaveAttribute("aria-label", "Enter fullscreen");
+    enterFullscreen!.click();
+    await animationFrames(harness, 4);
+    expect(harness.ownerDocument.fullscreenElement).not.toBeNull();
+    const canvasInFullscreen = harness.getCanvasRect();
+    expect(Math.abs(canvasInFullscreen.width - canvasBeforeFullscreen.width)).toBeGreaterThan(1);
+    assertMatchingConnectorAligned(harness, "i1", "t1");
+
+    const exitFullscreen = harness.getFullscreenControl();
+    expect(exitFullscreen).toHaveAttribute("aria-label", "Exit fullscreen");
+    exitFullscreen!.click();
+    await animationFrames(harness, 4);
+    expect(harness.ownerDocument.fullscreenElement).toBeNull();
+    const canvasAfterFullscreen = harness.getCanvasRect();
+    expect(Math.abs(canvasAfterFullscreen.width - canvasInFullscreen.width)).toBeGreaterThan(1);
     assertMatchingConnectorAligned(harness, "i1", "t1");
 
     const remove = matchingTarget(harness, "t1").querySelector<HTMLButtonElement>(
@@ -592,12 +676,24 @@ function matchingTarget(harness: RuntimeDragBrowserHarness, targetId: string): H
   return target;
 }
 
-function assertMatchingActivationGeometry(harness: RuntimeDragBrowserHarness) {
+function assertMatchingActivationGeometry(
+  harness: RuntimeDragBrowserHarness,
+  expectedClientSize: number,
+) {
   const activators = harness.getActivationAreas();
   expect(activators).toHaveLength(2);
   const rects = activators.map((activator, index) => {
     expect(activator.tagName).toBe("BUTTON");
     const rect = activator.getBoundingClientRect();
+    expect(rect.width).toBeGreaterThanOrEqual(expectedClientSize - 0.75);
+    expect(rect.height).toBeGreaterThanOrEqual(expectedClientSize - 0.75);
+    if (expectedClientSize === 27.5) {
+      expect(activator.style.getPropertyValue("--sc-interaction-drag-target-min-height")).toBe(
+        "55px",
+      );
+      expect(rect.width).toBeGreaterThanOrEqual(24);
+      expect(rect.height).toBeGreaterThanOrEqual(24);
+    }
     if (index === 0) {
       const hit = harness.ownerDocument.elementFromPoint(
         rect.left + rect.width / 2,
@@ -746,6 +842,23 @@ async function finishPointerDrag(
   await animationFrames(harness, 1);
 }
 
+async function moveActivePointer(
+  harness: RuntimeDragBrowserHarness,
+  pointer: Readonly<{ x: number; y: number }>,
+  pointerType: "mouse" | "touch",
+) {
+  fireEvent.pointerMove(harness.ownerDocument, {
+    button: 0,
+    buttons: 1,
+    clientX: pointer.x,
+    clientY: pointer.y,
+    isPrimary: true,
+    pointerId: 1,
+    pointerType,
+  });
+  await animationFrames(harness, 1);
+}
+
 function requiredOverlay(harness: RuntimeDragBrowserHarness): HTMLElement {
   const overlay = harness
     .getOverlayHost()
@@ -826,12 +939,20 @@ function installFullscreenHarness(ownerDocument: Document, ownerWindow: Window):
     "requestFullscreen",
   );
   let fullscreenElement: Element | null = null;
+  let fullscreenSize: Readonly<{ element: HTMLElement; height: string; width: string }> | undefined;
+  const restoreFullscreenSize = () => {
+    if (!fullscreenSize) return;
+    fullscreenSize.element.style.width = fullscreenSize.width;
+    fullscreenSize.element.style.height = fullscreenSize.height;
+    fullscreenSize = undefined;
+  };
   Object.defineProperties(ownerDocument, {
     fullscreenEnabled: { configurable: true, value: true },
     fullscreenElement: { configurable: true, get: () => fullscreenElement },
     exitFullscreen: {
       configurable: true,
       value: async () => {
+        restoreFullscreenSize();
         fullscreenElement = null;
         ownerDocument.dispatchEvent(new Event("fullscreenchange"));
       },
@@ -840,11 +961,20 @@ function installFullscreenHarness(ownerDocument: Document, ownerWindow: Window):
   Object.defineProperty(OwnerHTMLElement.prototype, "requestFullscreen", {
     configurable: true,
     value: async function requestFullscreen(this: HTMLElement) {
+      restoreFullscreenSize();
+      fullscreenSize = {
+        element: this,
+        height: this.style.height,
+        width: this.style.width,
+      };
+      this.style.width = `${ownerWindow.innerWidth}px`;
+      this.style.height = `${ownerWindow.innerHeight}px`;
       fullscreenElement = this;
       ownerDocument.dispatchEvent(new Event("fullscreenchange"));
     },
   });
   return () => {
+    restoreFullscreenSize();
     restoreProperty(ownerDocument, "fullscreenEnabled", fullscreenEnabledDescriptor);
     restoreProperty(ownerDocument, "fullscreenElement", fullscreenElementDescriptor);
     restoreProperty(ownerDocument, "exitFullscreen", exitFullscreenDescriptor);
