@@ -17,6 +17,9 @@ import {
   hasAssessmentRegistration,
 } from "@/runtime/assessment/test-utils";
 import type { AssessmentStoreApi } from "@/runtime/assessment/types";
+import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
+import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
 
 import { AssessmentActionsGroupNode } from "./assessment-actions-group";
 import { AssessmentActionsGroupRuntimeNode } from "./assessment-actions-group-runtime";
@@ -92,6 +95,7 @@ function makeEditor(
       editable ? SelectableChoiceAuthoringNode : SelectableChoiceRuntimeNode,
       editable ? McqAuthoringExtension : McqRuntimeExtension,
       editable ? MultiselectAuthoringExtension : MultiselectRuntimeExtension,
+      createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
     ],
     content: {
       type: "doc",
@@ -214,7 +218,7 @@ function renderRuntimeEditor(editor: Editor, assessmentPort: AssessmentPort) {
   render(
     createAssessmentRuntimeTestRoot({
       assessment: assessmentPort,
-      children: createElement(EditorContent, { editor }),
+      children: createAuthoringMovementTestRoot(editor, createElement(EditorContent, { editor })),
       onStore: captureAssessmentStore,
     }),
   );
@@ -228,7 +232,7 @@ function captureAssessmentStore(store: AssessmentStoreApi | null) {
 function renderAssessmentEditor(editor: Editor) {
   return render(
     createAssessmentRuntimeTestRoot({
-      children: createElement(EditorContent, { editor }),
+      children: createAuthoringMovementTestRoot(editor, createElement(EditorContent, { editor })),
       onStore: captureAssessmentStore,
     }),
   );
