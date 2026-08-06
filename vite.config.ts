@@ -180,7 +180,7 @@ export default defineConfig({
       },
       "verify:architecture": {
         command:
-          "vp exec depcruise --config .dependency-cruiser.cjs --output-type err-long packages/contracts/src packages/grading/src packages/core/src apps/playground/src adapters",
+          "vp exec node --test scripts/drag-architecture.test.mjs && vp exec depcruise --config .dependency-cruiser.cjs --output-type err-long packages/contracts/src packages/grading/src packages/core/src apps/playground/src adapters",
         cache: false,
       },
       "verify:artifacts":

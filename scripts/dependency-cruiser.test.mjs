@@ -516,6 +516,117 @@ test("allows runtime and movement to share the central drag infrastructure", asy
   assert.equal(result.status, 0, result.stderr || result.stdout);
 });
 
+test("allows the inward central drag dependency shape and movement target bridge", async (t) => {
+  const fixtureRoot = await createFixture(t, {
+    "node_modules/@dnd-kit/core/package.json": JSON.stringify({
+      name: "@dnd-kit/core",
+      type: "module",
+      exports: "./index.js",
+    }),
+    "node_modules/@dnd-kit/core/index.js": "export const DndContext = true;\n",
+    "packages/core/src/editor/interactions/drag/model/coordinate.ts":
+      "export interface DragCoordinate { x: number }\n",
+    "packages/core/src/editor/interactions/drag/dom/coordinate.ts": [
+      'import type { DragCoordinate } from "../model/coordinate";',
+      "export type DOMDragCoordinate = DragCoordinate;",
+    ].join("\n"),
+    "packages/core/src/ui/overlays/portal-host-context.ts":
+      "export interface OverlayHost { id: string }\n",
+    "packages/core/src/editor/interactions/drag/react/session.ts": [
+      'import { DndContext } from "@dnd-kit/core";',
+      'import type { DOMDragCoordinate } from "../dom/coordinate";',
+      'import type { DragCoordinate } from "../model/coordinate";',
+      'import type { OverlayHost } from "../../../../ui/overlays/portal-host-context";',
+      "export const installedDndContext = DndContext;",
+      "export type DragSession = DOMDragCoordinate | DragCoordinate | OverlayHost;",
+    ].join("\n"),
+    "packages/core/src/editor/blocks/assessment/future/future-runtime.tsx": [
+      'import type { DragSession } from "../../../interactions/drag/react/session";',
+      "export type FeatureDragSession = DragSession;",
+    ].join("\n"),
+    "packages/core/src/editor/interactions/targets/model/target.ts":
+      "export interface MovementTarget { id: string }\n",
+    "packages/core/src/editor/movement/view/movement-session.ts": [
+      'import type { DragSession } from "../../interactions/drag/react/session";',
+      'import type { MovementTarget } from "../../interactions/targets/model/target";',
+      "export type AuthoringMovementSession = DragSession | MovementTarget;",
+    ].join("\n"),
+  });
+
+  const result = cruise(fixtureRoot, "err-long", ["packages/core/src"]);
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+});
+
+test("reports central drag, dnd-kit, target, and movement state inversions", async (t) => {
+  const fixtureRoot = await createFixture(t, {
+    "node_modules/@dnd-kit/core/package.json": JSON.stringify({
+      name: "@dnd-kit/core",
+      type: "module",
+      exports: "./index.js",
+    }),
+    "node_modules/@dnd-kit/core/index.js": "export const DndContext = true;\n",
+    "packages/core/src/editor/blocks/assessment/future/feature-policy.ts":
+      "export interface FeaturePolicy { id: string }\n",
+    "packages/core/src/editor/movement/view/movement-policy.ts":
+      "export interface MovementPolicy { id: string }\n",
+    "packages/core/src/editor/interactions/drag/react/session.ts":
+      "export interface DragReactSession { id: string }\n",
+    "packages/core/src/editor/interactions/drag/react/feature-leak.ts": [
+      'import type { FeaturePolicy } from "../../../blocks/assessment/future/feature-policy";',
+      'import type { MovementPolicy } from "../../../movement/view/movement-policy";',
+      "export type DragReactFeatureLeak = FeaturePolicy | MovementPolicy;",
+    ].join("\n"),
+    "packages/core/src/editor/interactions/drag/dom/dom-owner.ts":
+      "export interface DragDOMOwner { id: string }\n",
+    "packages/core/src/editor/interactions/drag/dom/outward-leak.ts": [
+      'import type { DragReactSession } from "../react/session";',
+      'import type { FeaturePolicy } from "../../../blocks/assessment/future/feature-policy";',
+      "export type DragDOMLeak = DragReactSession | FeaturePolicy;",
+    ].join("\n"),
+    "packages/core/src/editor/interactions/drag/model/outward-leak.ts": [
+      'import type { DragDOMOwner } from "../dom/dom-owner";',
+      'import type { DragReactSession } from "../react/session";',
+      'import type { FeaturePolicy } from "../../../blocks/assessment/future/feature-policy";',
+      "export type DragModelLeak = DragDOMOwner | DragReactSession | FeaturePolicy;",
+    ].join("\n"),
+    "packages/core/src/editor/interactions/targets/model/target.ts":
+      "export interface InteractionTarget { id: string }\n",
+    "packages/core/src/editor/interactions/drag/dom/target-leak.ts": [
+      'import type { InteractionTarget } from "../../targets/model/target";',
+      "export type SharedDragTargetLeak = InteractionTarget;",
+    ].join("\n"),
+    "packages/core/src/editor/blocks/assessment/future/direct-dnd.tsx": [
+      'import { DndContext } from "@dnd-kit/core";',
+      "export const featureDndContext = DndContext;",
+    ].join("\n"),
+    "packages/core/src/editor/frame/authoring/frame-private.ts":
+      "export interface FramePrivateState { id: string }\n",
+    "packages/core/src/editor/movement/view/frame-leak.ts": [
+      'import type { FramePrivateState } from "../../frame/authoring/frame-private";',
+      "export type MovementFrameLeak = FramePrivateState;",
+    ].join("\n"),
+    "packages/core/src/editor/movement/view/movement-private.ts":
+      "export interface MovementPrivateState { id: string }\n",
+    "packages/core/src/editor/frame/authoring/movement-leak.ts": [
+      'import type { MovementPrivateState } from "../../movement/view/movement-private";',
+      "export type FrameMovementLeak = MovementPrivateState;",
+    ].join("\n"),
+  });
+
+  const result = cruise(fixtureRoot, "err-long", ["packages/core/src"]);
+  const output = `${result.stdout}\n${result.stderr}`;
+
+  assert.notEqual(result.status, 0, output);
+  assert.match(output, /drag-model-does-not-reach-dom-react-or-feature-policy/);
+  assert.match(output, /drag-dom-does-not-reach-react-or-feature-policy/);
+  assert.match(output, /drag-react-does-not-reach-feature-policy/);
+  assert.match(output, /central-drag-does-not-reach-interaction-targets/);
+  assert.match(output, /dnd-kit-is-owned-by-central-drag-react-adapter/);
+  assert.match(output, /movement-view-does-not-reach-frame-authoring-state/);
+  assert.match(output, /frame-authoring-does-not-reach-movement-view-state/);
+});
+
 test("permits only the exact lazy Preview source and target", async (t) => {
   const fixtureRoot = await createFixture(t, {
     "packages/core/src/editor/shell/authoring/ScaffoldAuthoringApp.tsx": [
@@ -1293,7 +1404,7 @@ test("reports named neutral owner and leaf-to-composition inversions", async (t)
   assert.match(output, /grid-model-does-not-reach-higher-owners/);
   assert.match(output, /layout-model-does-not-reach-higher-owners/);
   assert.match(output, /frame-model-does-not-reach-higher-owners/);
-  assert.match(output, /drag-model-does-not-reach-higher-owners/);
+  assert.match(output, /movement-model-does-not-reach-higher-owners/);
   assert.match(output, /neutral-selection-does-not-reach-authoring-policy/);
   assert.match(output, /block-construction-does-not-reach-higher-owners/);
   assert.match(output, /core-leaves-do-not-reach-lane-composition-roots/);
@@ -1466,8 +1577,8 @@ test("allows semantic Frame and Drag seams and reports private-state and inserti
   const output = `${result.stdout}\n${result.stderr}`;
 
   assert.notEqual(result.status, 0, output);
-  assert.match(output, /frame-authoring-does-not-reach-drag-view-state/);
-  assert.match(output, /drag-view-does-not-reach-frame-authoring-state/);
+  assert.match(output, /frame-authoring-does-not-reach-movement-view-state/);
+  assert.match(output, /movement-view-does-not-reach-frame-authoring-state/);
   assert.match(output, /insertion-does-not-reach-shell-runtime-or-lane-construction/);
   assert.doesNotMatch(output, /frame-coordinator\.ts/);
   assert.doesNotMatch(output, /drag-coordinator\.ts/);

@@ -118,6 +118,15 @@ const interactionFeaturePolicyPath = [
   "^packages/core/src/editor/shell/",
   "^packages/core/src/editor/suggestions/",
 ];
+const centralDragPath = "^packages/core/src/editor/interactions/drag/";
+const centralDragModelPath = `${centralDragPath}model/`;
+const centralDragDOMPath = `${centralDragPath}dom/`;
+const centralDragReactPath = `${centralDragPath}react/`;
+const interactionTargetsPath = "^packages/core/src/editor/interactions/targets/";
+const dndKitDependencyPath = [
+  "^node_modules/@dnd-kit/",
+  "^node_modules/\\.pnpm/[^/]+/node_modules/@dnd-kit/",
+];
 const lowLevelFloatingInfrastructurePath = [
   "^packages/core/src/editor/interactions/bubble/bubble-anchor\\.ts$",
   "^packages/core/src/editor/interactions/floating/(?:editor-floating-layer-kind|floating-anchor|overlay-floating-positioner|structural-floating-geometry)\\.ts$",
@@ -756,8 +765,8 @@ module.exports = {
       },
     },
     {
-      // Owner: Drag intent, target, and geometry model in the tracked V2 architecture.
-      name: "drag-model-does-not-reach-higher-owners",
+      // Owner: authoring movement intent, target, and geometry model in the tracked V2 architecture.
+      name: "movement-model-does-not-reach-higher-owners",
       severity: "error",
       from: {
         path: "^packages/core/src/editor/movement/model/",
@@ -945,6 +954,71 @@ module.exports = {
       },
     },
     {
+      // Owner: framework-neutral central drag values. DOM and React adapt this model from above.
+      name: "drag-model-does-not-reach-dom-react-or-feature-policy",
+      severity: "error",
+      from: {
+        path: centralDragModelPath,
+      },
+      to: {
+        path: [centralDragDOMPath, centralDragReactPath, ...interactionFeaturePolicyPath],
+        reachable: true,
+      },
+    },
+    {
+      // Owner: central drag DOM utilities. React and feature policy consume this layer from above.
+      name: "drag-dom-does-not-reach-react-or-feature-policy",
+      severity: "error",
+      from: {
+        path: centralDragDOMPath,
+      },
+      to: {
+        path: [
+          centralDragReactPath,
+          ...interactionFeaturePolicyPath,
+          ...interactionFrameworkDependencyPath,
+        ],
+        reachable: true,
+      },
+    },
+    {
+      // Owner: central drag React adapter. Feature-specific policy is supplied by its consumers.
+      name: "drag-react-does-not-reach-feature-policy",
+      severity: "error",
+      from: {
+        path: centralDragReactPath,
+      },
+      to: {
+        path: interactionFeaturePolicyPath,
+        reachable: true,
+      },
+    },
+    {
+      // Owner: the shared drag session cannot discover feature-level interaction targets.
+      // Authoring movement remains the explicit bridge to targets.
+      name: "central-drag-does-not-reach-interaction-targets",
+      severity: "error",
+      from: {
+        path: centralDragPath,
+      },
+      to: {
+        path: interactionTargetsPath,
+        reachable: true,
+      },
+    },
+    {
+      // Owner: dnd-kit is an implementation detail of the central React drag adapter.
+      name: "dnd-kit-is-owned-by-central-drag-react-adapter",
+      severity: "error",
+      from: {
+        path: "^packages/core/src/",
+        pathNot: centralDragReactPath,
+      },
+      to: {
+        path: dndKitDependencyPath,
+      },
+    },
+    {
       // Owner: pure interaction-target model in the tracked V2 architecture.
       name: "interaction-target-model-does-not-reach-engine-adapters-or-feature-policy",
       severity: "error",
@@ -1027,8 +1101,8 @@ module.exports = {
       },
     },
     {
-      // Owner: Frame/Drag semantic coordination in the tracked V2 architecture.
-      name: "frame-authoring-does-not-reach-drag-view-state",
+      // Owner: Frame/Movement semantic coordination in the tracked V2 architecture.
+      name: "frame-authoring-does-not-reach-movement-view-state",
       severity: "error",
       from: {
         path: "^packages/core/src/editor/frame/authoring/",
@@ -1039,8 +1113,8 @@ module.exports = {
       },
     },
     {
-      // Owner: Frame/Drag semantic coordination in the tracked V2 architecture.
-      name: "drag-view-does-not-reach-frame-authoring-state",
+      // Owner: Frame/Movement semantic coordination in the tracked V2 architecture.
+      name: "movement-view-does-not-reach-frame-authoring-state",
       severity: "error",
       from: {
         path: "^packages/core/src/editor/movement/view/",
@@ -1093,7 +1167,7 @@ module.exports = {
     exclude: {
       path: [
         "(^|/)(?:__tests__|tests?|fixtures?|screenshots?)(?:/|$)",
-        "(^|/)(?:coverage|dist|generated|vendor|vendored|\\.tmp|tmp)(?:/|$)",
+        "(^|/)(?:coverage|generated|vendor|vendored|\\.tmp|tmp)(?:/|$)",
         "^adapters/(?:moodle/scaffold/public|xblock/scaffold_xblock/public)(?:/|$)",
         "\\.(?:browser\\.)?(?:test|spec)\\.[^/]+$",
       ],
