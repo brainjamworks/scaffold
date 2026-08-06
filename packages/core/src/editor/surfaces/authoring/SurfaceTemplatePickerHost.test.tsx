@@ -3,6 +3,7 @@
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Editor, Node, type JSONContent } from "@tiptap/core";
+import UniqueID from "@tiptap/extension-unique-id";
 import StarterKit from "@tiptap/starter-kit";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
@@ -13,9 +14,10 @@ import {
   ARRANGEMENT_CONTENT,
   SECTION_ARRANGEMENT_CONTENT,
 } from "@/document/model/content-model/content-groups";
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { createCourseStructureModule } from "@/document/model";
+import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
-import { validateCourseSurfaceLifecycle } from "@/document/model/validation";
+import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { ExtendedHeading } from "@/editor/rich-text/model/rich-text-blocks";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
@@ -25,6 +27,7 @@ import { SlideTitleNode } from "@/editor/surfaces/model/nodes/slide-title";
 import { builtInSurfaceVariantDefinitions } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
+import { createScaffoldDefaultTheme } from "@/theme/model";
 
 import { authoringSlideDividersPluginKey } from "./AuthoringSlideDividers";
 import { AuthoringSlideDividers } from "./AuthoringSlideDividers";
@@ -33,6 +36,10 @@ import { createSurfaceCreationCatalog } from "./surface-creation-catalog";
 import { insertSurfaceTemplateAfterSurface } from "./surface-template-insertion";
 
 const surfaceVariants = createSurfaceVariantRegistry(builtInSurfaceVariantDefinitions);
+const courseStructure = createCourseStructureModule({
+  blockDefinitions: builtInBlockRegistry,
+  surfaceVariants,
+});
 const FIRST_SURFACE_ID = createEmbeddedNodeId();
 const SECOND_SURFACE_ID = createEmbeddedNodeId();
 
@@ -178,12 +185,7 @@ describe("SurfaceTemplatePickerHost", () => {
     ]);
     expect(new Set(surfaces.map(({ id }) => id)).size).toBe(3);
     expect(surfaces.slice(1).every(({ id }) => /^[0-9A-Z_a-z-]{12}$/.test(String(id)))).toBe(true);
-    expect(
-      validateCourseSurfaceLifecycle({
-        content: editor.getJSON(),
-        registry: surfaceVariants,
-      }).ok,
-    ).toBe(true);
+    expect(courseStructure.validate(editor.getJSON()).ok).toBe(true);
   });
 
   it("shows later catalogue definitions without picker-specific changes", async () => {
@@ -271,6 +273,7 @@ function createEditor(surfaceIds: readonly EmbeddedNodeId[], editorElement?: HTM
       ExtendedParagraph,
       ExtendedHeading,
       CourseDocumentNode,
+      createCourseSectionNode(),
       SurfaceNode,
       RegionNode,
       SlideTitleNode,
@@ -278,6 +281,7 @@ function createEditor(surfaceIds: readonly EmbeddedNodeId[], editorElement?: HTM
       TestArrangementNode,
       TestSectionArrangementNode,
       AuthoringSlideDividers,
+      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
     ],
     content: slideshowDocument(surfaceIds),
   });
@@ -292,10 +296,12 @@ function slideshowDocument(surfaceIds: readonly EmbeddedNodeId[]): JSONContent {
       {
         type: "courseDocument",
         attrs: {
+          id: createEmbeddedNodeId(),
           schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
           mode: "slideshow",
           surfaceSize: "16x9",
           overflowMode: "clip",
+          theme: createScaffoldDefaultTheme(),
         },
         content: surfaceIds.map((surfaceId) =>
           slideCoverSurfaceDefinition.createSurface({ surfaceId }),

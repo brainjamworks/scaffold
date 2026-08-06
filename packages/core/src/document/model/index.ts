@@ -9,6 +9,28 @@ export {
   type CheckedMutationResult,
 } from "./commands/checked-transactions";
 export * from "./content-model";
+export { createCourseStructureModule } from "./course-structure";
+export type {
+  CourseSection,
+  CourseSectionId,
+  CourseStructure,
+  CourseStructureCommand,
+  CourseStructureIssue,
+  CourseStructureIssueCode,
+  CourseStructureModule,
+  CourseStructureTransactionIssue,
+  CourseStructureTransactionIssueCode,
+  CourseStructureTransactionResult,
+  CourseStructureValidationResult,
+  CourseStructureValidator,
+  CourseSurface,
+  NonEmptyReadonlyArray,
+  PageCourseStructure,
+  SectionedSlideshowCourseStructure,
+  SurfaceDestination,
+  SurfaceId,
+  UnsectionedSlideshowCourseStructure,
+} from "./course-structure";
 export { CourseDocumentNode, DocumentNode } from "./nodes";
 export {
   defineCourseDocumentMigration,

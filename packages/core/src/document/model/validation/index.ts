@@ -24,11 +24,3 @@ export {
   type CourseDocumentIssueCode,
   type CourseDocumentValidationResult,
 } from "./validators";
-export {
-  validateCourseSurfaceLifecycle,
-  type CourseSurfaceValidationResult,
-  type SurfaceInstanceId,
-  type SurfaceVariantId,
-  type ValidatedCourseSurfaceProjection,
-  type ValidatedSurfaceRef,
-} from "./surface-lifecycle-validation";
