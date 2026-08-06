@@ -20,8 +20,9 @@ import {
   setAssessmentAttr,
 } from "@/editor/blocks/assessment/shared/model/private-assessment-attrs";
 import { BlockAddGhost } from "@/editor/suggestions/insert/BlockAddGhost";
-import { CONTAINED_MOVEMENT_TARGET_ATTR } from "@/editor/movement/view/movement-dom";
+import { containedMovementTargetAttributes } from "@/editor/movement/view/movement-dom";
 import { ContainedMovementHandle } from "@/editor/movement/view/ContainedMovementHandle";
+import { authoringMovementSnapshotChromeAttributes } from "@/editor/movement/view/authoring-movement-presentation";
 import { Placeholder } from "@/editor/prosemirror/placeholder/Placeholder";
 import { createFieldContentEditorExtensions } from "@/editor/rich-text/authoring/field-content-extensions";
 import { EditableOverlayPopover } from "@/editor/rich-text/authoring/nested-overlay/EditableOverlayPopoverShell";
@@ -61,6 +62,7 @@ export const CategoriseBinNode = createCategoriseBinNode({
 });
 
 function CategoriseBinNodeView(props: NodeViewProps) {
+  const presentationRef = useRef<HTMLDivElement | null>(null);
   const isEditable = useCategoriseEditorEditable(props.editor);
   const rawPos = safeGetPos(props.getPos);
   const pos = typeof rawPos === "number" ? rawPos : null;
@@ -83,16 +85,18 @@ function CategoriseBinNodeView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper
+      ref={presentationRef}
       {...props.HTMLAttributes}
       data-node="categorise-bin"
       role="group"
       aria-label={`Category ${binPosition.index}`}
-      {...{ [CONTAINED_MOVEMENT_TARGET_ATTR]: "" }}
+      {...containedMovementTargetAttributes()}
       className="sc-categorise-bin"
     >
       <div className="sc-categorise-bin__header">
         {isEditable && (
           <ContainedMovementHandle
+            getPresentationElement={() => presentationRef.current}
             getSourcePos={() => safeGetPos(props.getPos)}
             label={`category ${binPosition.index}`}
             sourceKey={categoryId}
@@ -103,6 +107,7 @@ function CategoriseBinNodeView(props: NodeViewProps) {
         <NodeViewContent className="sc-categorise-bin__content" />
         {isEditable && binPosition.count > 1 && (
           <button
+            {...authoringMovementSnapshotChromeAttributes()}
             type="button"
             contentEditable={false}
             onClick={(event) => {
@@ -214,7 +219,9 @@ function CategoriseItemNodeView(props: NodeViewProps) {
 }
 
 function CategoriseEditableItemNodeView(props: NodeViewProps) {
+  const presentationRef = useRef<HTMLDivElement | null>(null);
   const itemId = String(props.node.attrs["id"] ?? "");
+  const pos = safeGetPos(props.getPos);
   const popoverId = useId();
   const richTextPluginKey = useMemo(
     () => `categorise-item-feedback-rich-text-${popoverId.replace(/[^A-Za-z0-9_-]/g, "")}`,
@@ -300,15 +307,26 @@ function CategoriseEditableItemNodeView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper
+      ref={presentationRef}
       {...props.HTMLAttributes}
       data-node="categorise-item"
+      {...containedMovementTargetAttributes()}
       className="sc-categorise-item sc-categorise-item--editable"
     >
       <div className="sc-categorise-item__row">
+        <ContainedMovementHandle
+          getPresentationElement={() => presentationRef.current}
+          getSourcePos={() => safeGetPos(props.getPos)}
+          label={`item ${itemIndex} in category ${categoryIndex}`}
+          sourceKey={itemId}
+          sourcePos={pos}
+          className="sc-contained-movement-handle--row-offset"
+        />
         <NodeViewContent className="sc-categorise-item__content" />
         <EditableOverlayPopover.Root>
           <EditableOverlayPopover.Trigger asChild>
             <button
+              {...authoringMovementSnapshotChromeAttributes()}
               type="button"
               aria-label={hasFeedback ? "Edit feedback" : "Add feedback"}
               onClick={(event) => event.stopPropagation()}
@@ -344,6 +362,7 @@ function CategoriseEditableItemNodeView(props: NodeViewProps) {
           </EditableOverlayPopover.Portal>
         </EditableOverlayPopover.Root>
         <button
+          {...authoringMovementSnapshotChromeAttributes()}
           type="button"
           contentEditable={false}
           onClick={(e) => {

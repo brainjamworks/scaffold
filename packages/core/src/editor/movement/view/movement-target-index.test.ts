@@ -43,9 +43,11 @@ function entry(
   rect: Readonly<{ height: number; left: number; top: number; width: number }>,
   kind: MovementTargetDescriptor["kind"] = "structure",
   scroll?: Readonly<{ element: Element | Document; measuredX: number; measuredY: number }>,
+  axis: MovementTargetDescriptor["axis"] = "vertical",
 ): MovementTargetEntry {
   return {
     descriptor: {
+      axis,
       context: targetContext,
       documentPosition: targetContext.pos,
       element: document.createElement("div"),
@@ -194,6 +196,31 @@ describe("movement target index", () => {
     expect(move?.placement).toBe("after");
   });
 
+  it("uses the owner-published axis without interpreting the node type", () => {
+    const target = entry(
+      "contained:owner_defined_item:20",
+      context(20, "owner_defined_item", { index: 2, parentPos: 5 }),
+      { height: 200, left: 20, top: 20, width: 200 },
+      "contained",
+      undefined,
+      "horizontal",
+    );
+    const snapshot = createMovementTargetIndexSnapshot({
+      documentRevision: 1,
+      entries: [target],
+      geometryRevision: 1,
+    });
+    const source = {
+      context: context(10, "owner_defined_item", { index: 0, parentPos: 5 }),
+      kind: "contained",
+    } as const;
+
+    expect(snapshot.query({ x: 40, y: 190 }, source)?.placement).toBe("before");
+    const after = snapshot.query({ x: 190, y: 40 }, source);
+    expect(after?.placement).toBe("after");
+    expect(after?.target.axis).toBe("horizontal");
+  });
+
   it("keeps semantic keys stable across geometry revisions", () => {
     const target = entry("structure:test_block:20:block-b", context(20, "test_block"), {
       height: 80,
@@ -223,6 +250,7 @@ describe("movement target index", () => {
     const readRect = vi.fn(() => new DOMRect(0, 0, 100, 80));
     disconnected.getBoundingClientRect = readRect;
     const descriptor: MovementTargetDescriptor = {
+      axis: "vertical",
       context: context(20, "test_block"),
       documentPosition: 20,
       element: disconnected,

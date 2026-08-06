@@ -1,6 +1,7 @@
 import { BracketsCurlyIcon as BracketsCurly } from "@phosphor-icons/react";
 
 import { assessmentShellPlaceholders } from "@/editor/blocks/assessment/shared/nodes/assessment-placeholders";
+import { rewriteFillBlanksCopiedContent } from "@/editor/blocks/assessment/shared/identity/copy-identity";
 import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/model/assessment-capability";
 import { createStableId } from "@/document/model/identity/stable-ids";
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
@@ -105,6 +106,7 @@ function fillBlanksAuthoringControls({
 
 export const fillBlanksBlockDefinition = defineBlock({
   nodeType: "fill_blanks",
+  rewriteCopiedContent: rewriteFillBlanksCopiedContent,
   boundedPlacement: "fill",
   authoringControls: {
     controls: fillBlanksAuthoringControls,

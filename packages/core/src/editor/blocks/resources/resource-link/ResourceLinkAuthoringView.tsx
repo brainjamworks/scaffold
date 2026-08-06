@@ -7,6 +7,7 @@ import {
 import { useId } from "react";
 
 import { cn } from "@/lib/cn";
+import { authoringMovementSnapshotChromeAttributes } from "@/editor/movement/view/authoring-movement-presentation";
 
 import { emptyResourceLinkData } from "./content";
 import { RESOURCE_LINK_KIND_LABELS } from "./resource-link-presentation";
@@ -59,6 +60,7 @@ function ResourceLinkAuthoringControls({
 }) {
   return (
     <div
+      {...authoringMovementSnapshotChromeAttributes()}
       contentEditable={false}
       className="sc-resource-link__controls"
       onMouseDown={(event) => event.stopPropagation()}

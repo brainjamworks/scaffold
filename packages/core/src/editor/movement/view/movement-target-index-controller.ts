@@ -9,8 +9,15 @@ import {
 import type { InteractionCoordinateSpace } from "@/editor/interactions/drag/model/coordinate-space";
 import type { ClientPoint } from "@/editor/interactions/drag/model/coordinate-space";
 
-import type { AnyMovementIntent } from "../model/movement-intents";
+import {
+  InsertAfterTarget,
+  InsertBeforeTarget,
+  MoveContainedAfterTarget,
+  MoveContainedBeforeTarget,
+  type AnyMovementIntent,
+} from "../model/movement-intents";
 import type { MovementNodeContext } from "../model/movement-policy";
+import { ContainedMovementTarget, createMovementTarget } from "../model/movement-target";
 import {
   deriveContainedMovementCandidate,
   deriveMovementCandidate,
@@ -79,9 +86,19 @@ export interface MovementTargetIndexController {
   getCandidate(): MovementCandidate | null;
   getSnapshot(): MovementTargetIndexSnapshot | null;
   invalidate(reason: MovementIndexInvalidation): void;
+  moveKeyboard(direction: MovementKeyboardDirection): MovementKeyboardNavigationResult | null;
   revalidate(point?: ClientPoint | null): MovementCandidate | null;
   start(point: ClientPoint | null): void;
   updatePoint(point: ClientPoint): void;
+}
+
+export type MovementKeyboardDirection = "backward" | "forward";
+
+export interface MovementKeyboardNavigationResult {
+  readonly candidate: MovementCandidate | null;
+  readonly changed: boolean;
+  readonly destinationIndex: number;
+  readonly total: number;
 }
 
 export function createMovementTargetIndexController(
@@ -102,6 +119,7 @@ export function createMovementTargetIndexController(
   let source: MovementTargetQuerySource | null = null;
   let sourceIdentity: string | null = null;
   let latestPoint: ClientPoint | null = null;
+  let keyboardDestinationIndex: number | null = null;
   let documentRevision = 0;
   let geometryRevision = 0;
   let structuralDirty = false;
@@ -236,7 +254,13 @@ export function createMovementTargetIndexController(
   }
 
   function queryAndPublish(): MovementCandidate | null {
-    const nextCandidate = queryCandidate();
+    if (latestPoint === null && keyboardDestinationIndex !== null) {
+      return publishCandidate(keyboardCandidateAt(keyboardDestinationIndex));
+    }
+    return publishCandidate(queryCandidate());
+  }
+
+  function publishCandidate(nextCandidate: MovementCandidate | null): MovementCandidate | null {
     const previousCandidate = candidate;
     candidate = nextCandidate;
     if (
@@ -246,6 +270,51 @@ export function createMovementTargetIndexController(
       options.onCandidateChange(candidate);
     }
     return nextCandidate;
+  }
+
+  function keyboardCandidateAt(destinationIndex: number): MovementCandidate | null {
+    if (!source || destinationIndex === source.context.index) return null;
+    const descriptor = descriptors.find(
+      (item) =>
+        item.kind === source?.kind &&
+        item.context.parentPos === source.context.parentPos &&
+        item.context.index === destinationIndex,
+    );
+    if (!descriptor?.element.isConnected) return null;
+    const domRect = descriptor.element.getBoundingClientRect();
+    if (
+      !Number.isFinite(domRect.width) ||
+      !Number.isFinite(domRect.height) ||
+      domRect.width <= 0 ||
+      domRect.height <= 0
+    ) {
+      return null;
+    }
+    const rect = Object.freeze({
+      bottom: domRect.bottom,
+      height: domRect.height,
+      left: domRect.left,
+      right: domRect.right,
+      top: domRect.top,
+      width: domRect.width,
+    });
+    const before = destinationIndex < source.context.index;
+    const target =
+      source.kind === "contained"
+        ? new ContainedMovementTarget(descriptor.context, rect, descriptor.axis)
+        : createMovementTarget(descriptor.context, rect, descriptor.axis);
+    const intent =
+      source.kind === "contained"
+        ? before
+          ? new MoveContainedBeforeTarget(target as ContainedMovementTarget)
+          : new MoveContainedAfterTarget(target as ContainedMovementTarget)
+        : before
+          ? new InsertBeforeTarget(target)
+          : new InsertAfterTarget(target);
+    if (options.canApplyMovementResult && !options.canApplyMovementResult(source.context, intent)) {
+      return null;
+    }
+    return Object.freeze({ intent, key: descriptor.key, source: source.context, target });
   }
 
   function syncResizeObservation(): void {
@@ -336,6 +405,7 @@ export function createMovementTargetIndexController(
     source = null;
     sourceIdentity = null;
     latestPoint = null;
+    keyboardDestinationIndex = null;
     relevantScrollTargets.clear();
     currentScrollOffsets.clear();
   }
@@ -362,6 +432,41 @@ export function createMovementTargetIndexController(
     getCandidate: () => candidate,
     getSnapshot: () => snapshot,
     invalidate,
+    moveKeyboard(direction) {
+      if (disposed || !started || !environmentIsValid()) return null;
+      if (!refreshSource() || !source?.context.parent) return null;
+      frame.cancel();
+      if (structuralDirty && !discoverNow()) return null;
+      if (geometryDirty || !snapshot) {
+        if (!measureNow()) return null;
+      }
+      const total = source.context.parent.childCount;
+      const currentIndex = keyboardDestinationIndex ?? source.context.index;
+      const destinationIndex = currentIndex + (direction === "backward" ? -1 : 1);
+      if (destinationIndex < 0 || destinationIndex >= total) {
+        return { candidate, changed: false, destinationIndex: currentIndex, total };
+      }
+      if (destinationIndex === source.context.index) {
+        keyboardDestinationIndex = destinationIndex;
+        return {
+          candidate: publishCandidate(null),
+          changed: true,
+          destinationIndex,
+          total,
+        };
+      }
+      const nextCandidate = keyboardCandidateAt(destinationIndex);
+      if (!nextCandidate) {
+        return { candidate, changed: false, destinationIndex: currentIndex, total };
+      }
+      keyboardDestinationIndex = destinationIndex;
+      return {
+        candidate: publishCandidate(nextCandidate),
+        changed: true,
+        destinationIndex,
+        total,
+      };
+    },
     revalidate(point = null) {
       if (disposed || !started) return null;
       if (point) latestPoint = point;
@@ -393,6 +498,7 @@ export function createMovementTargetIndexController(
       if (disposed || started) return;
       started = true;
       latestPoint = point;
+      keyboardDestinationIndex = null;
       if (!environmentIsValid()) {
         cancel("environment-lost");
         return;

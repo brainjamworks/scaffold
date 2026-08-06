@@ -1,7 +1,6 @@
 import { DotsSixVerticalIcon as DotsSixVertical } from "@phosphor-icons/react";
 import type { Editor } from "@tiptap/core";
 import {
-  type KeyboardEvent,
   type ReactNode,
   useEffect,
   useId,
@@ -23,11 +22,13 @@ import {
 } from "@/editor/interactions/dom/authoring-chrome";
 import { resolveAuthoringInteractionRoot } from "@/editor/interactions/dom/authoring-root";
 import { useInteractionCommands } from "@/editor/interactions/targets/facade/interaction-provider";
-import type { InteractionDragEvent } from "@/editor/interactions/drag/model/interaction-drag-event";
+import type {
+  DragKeyboardDirection,
+  InteractionDragEvent,
+} from "@/editor/interactions/drag/model/interaction-drag-event";
 import { InteractionDragActivationArea } from "@/editor/interactions/drag/react/InteractionDragActivationArea";
 import { InteractionDragSession } from "@/editor/interactions/drag/react/InteractionDragSession";
 import { useInteractionDragEnvironmentResolution } from "@/editor/interactions/drag/react/interaction-drag-environment";
-import { useInteractionDragSource } from "@/editor/interactions/drag/react/use-interaction-drag-source";
 import { useInteractionDropTarget } from "@/editor/interactions/drag/react/use-interaction-drop-target";
 import { zIndex } from "@/ui/overlays/z-index";
 import { iconXs } from "@/ui/tokens/icon-sizes";
@@ -43,12 +44,10 @@ import {
   RESIZE_GESTURE_ACTIVE_CHANGE_EVENT,
 } from "@/editor/interactions/gesture/editor-resize-gesture";
 import {
-  applyKeyboardContainedMovementIntent,
-  applyKeyboardMovementIntent,
   applyContainedMovementIntent,
   applyMovementIntent,
+  canApplyContainedMovementIntent,
   canApplyMovementIntent,
-  type KeyboardMovementDirection,
 } from "../prosemirror/commands";
 import { DropIndicator } from "./DropIndicator";
 import type { MovementCandidate } from "./movement-candidate";
@@ -62,10 +61,18 @@ import {
 import type { MovementTargetQuerySource } from "./movement-target-index";
 import {
   createMovementTargetIndexController,
+  type MovementKeyboardDirection,
   type MovementTargetIndexController,
 } from "./movement-target-index-controller";
 import { MoveContainedAfterTarget, MoveContainedBeforeTarget } from "../model/movement-intents";
-import { MovementKeyboardProvider } from "./movement-keyboard-context";
+import {
+  AUTHORING_MOVEMENT_ACTIVATION_ID_ATTR,
+  AuthoringMovementSnapshotPreview,
+  captureAuthoringMovementSnapshot,
+  useAuthoringMovementDragSource,
+  type AuthoringMovementDragData,
+  type AuthoringMovementSnapshot,
+} from "./authoring-movement-presentation";
 import {
   resolveEditorMovementTarget,
   resolveEditorMovementTargetAtPos,
@@ -76,6 +83,7 @@ import "./movement-handles.css";
 
 const MOVEMENT_HANDLE_ID = "scaffold-editor-movement-handle";
 const MOVEMENT_HANDLE_INSET = 8;
+const COMMITTED_KEYBOARD_FOCUS_RESTORE_FRAMES = 16;
 
 export interface EditorMovementLayerProps {
   blockDefinitions: BlockDefinitionLookup;
@@ -84,16 +92,16 @@ export interface EditorMovementLayerProps {
   surfaceVariants: SurfaceVariantLookup;
 }
 
-export interface AuthoringMovementDragData {
-  readonly containedMovement: boolean;
-  readonly getSourcePos?: () => number | null | undefined;
-  readonly label: string;
-  readonly previewKind: "block" | "contained";
-  readonly sourcePos: number | null | undefined;
-}
-
 interface AuthoringMovementDropData {
   readonly movementSurface: true;
+}
+
+interface ActiveKeyboardMovement {
+  readonly axis: AuthoringMovementDragData["axis"];
+  destinationIndex: number;
+  readonly initialIndex: number;
+  readonly label: string;
+  readonly total: number;
 }
 
 export function EditorMovementLayer({
@@ -117,6 +125,8 @@ export function EditorMovementLayer({
   const [candidate, setCandidate] = useState<MovementCandidate | null>(null);
   const latestTargetRef = useRef<EditorMovementTarget | null>(target);
   const activeSourceRef = useRef<MovementNodeContext | null>(null);
+  const activeSnapshotRef = useRef<AuthoringMovementSnapshot | null>(null);
+  const activeKeyboardMovementRef = useRef<ActiveKeyboardMovement | null>(null);
   const containedSourceActiveRef = useRef(false);
   const movementControllerRef = useRef<MovementTargetIndexController | null>(null);
   const movementEnvironmentRef = useRef(movementEnvironment);
@@ -135,6 +145,8 @@ export function EditorMovementLayer({
     commands.endGesture();
     setEmptyInsertionRowMovementDragActive(editor, false);
     activeSourceRef.current = null;
+    activeSnapshotRef.current = null;
+    activeKeyboardMovementRef.current = null;
     containedSourceActiveRef.current = false;
     setCandidate(null);
   };
@@ -175,6 +187,14 @@ export function EditorMovementLayer({
     event: InteractionDragEvent<AuthoringMovementDragData, AuthoringMovementDropData>,
   ) => {
     setEmptyInsertionRowMovementDragActive(editor, true);
+    const presentationElement = event.active.data.getPresentationElement();
+    activeSnapshotRef.current = presentationElement
+      ? captureAuthoringMovementSnapshot(presentationElement)
+      : null;
+    if (!activeSnapshotRef.current) {
+      clearMovement();
+      return;
+    }
     const nextTarget = primeMovementSource(
       resolveMovementSourcePos(event.active.data),
       event.active.data.containedMovement,
@@ -184,6 +204,7 @@ export function EditorMovementLayer({
       return;
     }
 
+    commands.dismissInteraction();
     if (nextTarget) {
       commands.beginGesture(nextTarget.targetRef);
     }
@@ -197,7 +218,15 @@ export function EditorMovementLayer({
     controller = createMovementTargetIndexController({
       blockDefinitions,
       canApplyMovementResult: (context, intent) =>
-        canApplyMovementIntent(editor, context.pos, intent, blockDefinitions, surfaceVariants),
+        isContainedMoveIntent(intent)
+          ? canApplyContainedMovementIntent(editor, context.pos, intent)
+          : canApplyMovementIntent(
+              editor,
+              context.pos,
+              intent,
+              blockDefinitions,
+              surfaceVariants,
+            ),
       coordinateSpace: environment.coordinateSpace,
       isEnvironmentValid: () =>
         movementEnvironmentRef.current === environment &&
@@ -221,13 +250,42 @@ export function EditorMovementLayer({
     movementControllerRef.current = controller;
     setCandidate(null);
     controller.start(event.input === "pointer" ? event.clientPoint : null);
+    const activeSource = activeSourceRef.current;
+    if (event.input === "keyboard" && activeSource?.parent) {
+      activeKeyboardMovementRef.current = {
+        axis: event.active.data.axis,
+        destinationIndex: activeSource.index,
+        initialIndex: activeSource.index,
+        label: event.active.data.label,
+        total: activeSource.parent.childCount,
+      };
+      setKeyboardMovementStatus(
+        `Picked up ${event.active.data.label}. Current position ${activeSource.index + 1} of ${activeSource.parent.childCount}.`,
+      );
+    }
   };
 
   const handleDragMove = (
     event: InteractionDragEvent<AuthoringMovementDragData, AuthoringMovementDropData>,
   ) => {
-    if (event.input !== "pointer" || !event.clientPoint) return;
-    movementControllerRef.current?.updatePoint(event.clientPoint);
+    if (event.input === "pointer") {
+      if (event.clientPoint) movementControllerRef.current?.updatePoint(event.clientPoint);
+      return;
+    }
+    const direction = keyboardMovementDirection(event.keyboardDirection, event.active.data.axis);
+    if (!direction) return;
+    const navigation = movementControllerRef.current?.moveKeyboard(direction);
+    const activeKeyboard = activeKeyboardMovementRef.current;
+    if (!navigation || !activeKeyboard) return;
+    if (!navigation.changed) {
+      const boundary = direction === "backward" ? "first" : "last";
+      setKeyboardMovementStatus(`${capitalize(activeKeyboard.label)} is already ${boundary}.`);
+      return;
+    }
+    activeKeyboard.destinationIndex = navigation.destinationIndex;
+    setKeyboardMovementStatus(
+      `Destination position ${navigation.destinationIndex + 1} of ${navigation.total} for ${activeKeyboard.label}. Press Space or Enter to drop.`,
+    );
   };
 
   const handleDragEnd = (
@@ -236,12 +294,17 @@ export function EditorMovementLayer({
     const nextCandidate =
       event.input === "pointer" && event.clientPoint
         ? (movementControllerRef.current?.revalidate(event.clientPoint) ?? null)
-        : null;
+        : (movementControllerRef.current?.getCandidate() ?? null);
+    let moved = false;
     if (nextCandidate) {
       if (isContainedMoveIntent(nextCandidate.intent)) {
-        applyContainedMovementIntent(editor, nextCandidate.source.pos, nextCandidate.intent);
+        moved = applyContainedMovementIntent(
+          editor,
+          nextCandidate.source.pos,
+          nextCandidate.intent,
+        );
       } else {
-        applyMovementIntent(
+        moved = applyMovementIntent(
           editor,
           nextCandidate.source.pos,
           nextCandidate.intent,
@@ -250,27 +313,28 @@ export function EditorMovementLayer({
         );
       }
     }
+    const activeKeyboard = activeKeyboardMovementRef.current;
     clearMovement();
+    if (event.input === "keyboard" && activeKeyboard) {
+      if (moved) {
+        restoreCommittedKeyboardMovementFocus(editor.view.dom.ownerDocument, event.active.id);
+        const direction =
+          activeKeyboard.destinationIndex < activeKeyboard.initialIndex ? "backward" : "forward";
+        setKeyboardMovementStatus(
+          `Moved ${activeKeyboard.label} ${keyboardDirectionLabel(activeKeyboard.axis, direction)}. Position ${activeKeyboard.destinationIndex + 1} of ${activeKeyboard.total}.`,
+        );
+      } else {
+        setKeyboardMovementStatus(`Dropped ${activeKeyboard.label} without moving.`);
+      }
+    }
   };
 
   const handleDragCancel = () => {
+    const activeKeyboard = activeKeyboardMovementRef.current;
     clearMovement();
-  };
-
-  const handleKeyboardMove = (sourcePos: number, direction: KeyboardMovementDirection) => {
-    const result = applyKeyboardMovementIntent(
-      editor,
-      sourcePos,
-      direction,
-      blockDefinitions,
-      surfaceVariants,
-    );
-    setKeyboardMovementStatus(result.status);
-  };
-
-  const handleContainedKeyboardMove = (sourcePos: number, direction: KeyboardMovementDirection) => {
-    const result = applyKeyboardContainedMovementIntent(editor, sourcePos, direction);
-    setKeyboardMovementStatus(result.status);
+    if (activeKeyboard) {
+      setKeyboardMovementStatus(`Cancelled moving ${activeKeyboard.label}.`);
+    }
   };
 
   useEffect(
@@ -288,32 +352,44 @@ export function EditorMovementLayer({
       candidate={candidate}
       editor={editor}
       keyboardMovementStatus={keyboardMovementStatus}
-      onKeyboardMove={handleKeyboardMove}
       target={movementHandleTarget}
     />
   );
 
   return (
     <InteractionDragSession<AuthoringMovementDragData, AuthoringMovementDropData>
-      accessibilityMode="selection-alternative"
+      accessibilityMode="draggable"
       collisionPolicy="feature-resolver"
-      labels={{ draggable: "Authoring movement handle" }}
+      labels={{
+        cancelled: "",
+        draggable: "Authoring movement handle",
+        dropped: "",
+        instructions:
+          "Press Space or Enter to pick up. Use the available arrow keys to choose a destination. Press Space or Enter to drop, or Escape to cancel.",
+        moved: "",
+      }}
       onCancel={handleDragCancel}
       onEnd={handleDragEnd}
       onMove={handleDragMove}
       onStart={handleDragStart}
-      profile="pointer"
-      renderPreview={renderMovementPreview}
+      previewOverflow="visible"
+      profile="pointer-keyboard"
+      renderPreview={() => {
+        const snapshot = activeSnapshotRef.current;
+        return snapshot ? <AuthoringMovementSnapshotPreview snapshot={snapshot} /> : null;
+      }}
+      resolvePreviewSize={() => {
+        const snapshot = activeSnapshotRef.current;
+        return snapshot ? { height: snapshot.height, width: snapshot.width } : null;
+      }}
       resolveCollision={({ candidates }) =>
         candidates.find((candidate) => candidate.data.movementSurface)?.id ?? null
       }
       sessionId={`authoring-movement-${movementSessionId}`}
     >
       <EditorFloatingLayer editor={editor}>
-        <MovementKeyboardProvider value={{ moveContained: handleContainedKeyboardMove }}>
-          {children}
-          <EditorMovementChromePortal>{movementChromeLayer}</EditorMovementChromePortal>
-        </MovementKeyboardProvider>
+        {children}
+        <EditorMovementChromePortal>{movementChromeLayer}</EditorMovementChromePortal>
       </EditorFloatingLayer>
     </InteractionDragSession>
   );
@@ -414,19 +490,68 @@ function isContainedMoveIntent(
   return intent instanceof MoveContainedBeforeTarget || intent instanceof MoveContainedAfterTarget;
 }
 
+function keyboardMovementDirection(
+  direction: DragKeyboardDirection | null,
+  axis: AuthoringMovementDragData["axis"],
+): MovementKeyboardDirection | null {
+  if (direction === (axis === "horizontal" ? "left" : "up")) return "backward";
+  if (direction === (axis === "horizontal" ? "right" : "down")) return "forward";
+  return null;
+}
+
+function keyboardDirectionLabel(
+  axis: AuthoringMovementDragData["axis"],
+  direction: MovementKeyboardDirection,
+): "down" | "left" | "right" | "up" {
+  if (axis === "horizontal") return direction === "backward" ? "left" : "right";
+  return direction === "backward" ? "up" : "down";
+}
+
+function capitalize(value: string): string {
+  return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
+}
+
+function restoreCommittedKeyboardMovementFocus(ownerDocument: Document, activationId: string): void {
+  const ownerWindow = ownerDocument.defaultView;
+  if (!ownerWindow) return;
+  let remainingFrames = COMMITTED_KEYBOARD_FOCUS_RESTORE_FRAMES;
+  const restore = () => {
+    let nextMatch: HTMLElement | null = null;
+    for (const element of ownerDocument.querySelectorAll<HTMLElement>(
+      `[${AUTHORING_MOVEMENT_ACTIVATION_ID_ATTR}]`,
+    )) {
+      if (element.getAttribute(AUTHORING_MOVEMENT_ACTIVATION_ID_ATTR) !== activationId) continue;
+      nextMatch = element;
+      break;
+    }
+    if (
+      nextMatch &&
+      (ownerDocument.activeElement === ownerDocument.body ||
+        ownerDocument.activeElement === nextMatch)
+    ) {
+      try {
+        nextMatch.focus({ preventScroll: true });
+      } catch {
+        nextMatch.focus();
+      }
+    }
+    remainingFrames -= 1;
+    if (remainingFrames > 0) ownerWindow.requestAnimationFrame(restore);
+  };
+  ownerWindow.requestAnimationFrame(restore);
+}
+
 function MovementChromeLayer({
   blockDefinitions,
   candidate,
   editor,
   keyboardMovementStatus,
-  onKeyboardMove,
   target,
 }: {
   blockDefinitions: BlockDefinitionLookup;
   candidate: MovementCandidate | null;
   editor: Editor;
   keyboardMovementStatus: string;
-  onKeyboardMove: (sourcePos: number, direction: KeyboardMovementDirection) => void;
   target: EditorMovementTarget | null;
 }) {
   const { targetRef: dropSurfaceRef } = useInteractionDropTarget<AuthoringMovementDropData>({
@@ -449,7 +574,6 @@ function MovementChromeLayer({
       <MovementHandle
         blockDefinitions={blockDefinitions}
         editor={editor}
-        onKeyboardMove={onKeyboardMove}
         target={target}
       />
       <div
@@ -469,12 +593,10 @@ function MovementChromeLayer({
 function MovementHandle({
   blockDefinitions,
   editor,
-  onKeyboardMove,
   target,
 }: {
   blockDefinitions: BlockDefinitionLookup;
   editor: Editor;
-  onKeyboardMove: (sourcePos: number, direction: KeyboardMovementDirection) => void;
   target: EditorMovementTarget | null;
 }) {
   const descriptionId = useId();
@@ -483,35 +605,27 @@ function MovementHandle({
     [target?.element],
   );
   const label = target ? movementHandleLabel(target.context) : "block";
-  const drag = useInteractionDragSource<AuthoringMovementDragData>({
-    data: {
-      containedMovement: false,
-      ...(target
-        ? {
-            getSourcePos: () =>
-              resolveLiveMovementSourcePos(editor, target.context.pos, blockDefinitions),
-          }
-        : {}),
-      label,
-      previewKind: "block",
-      sourcePos: target?.context.pos,
+  const drag = useAuthoringMovementDragSource({
+    axis: "vertical",
+    containedMovement: false,
+    getPresentationElement: () => {
+      const element = target?.element;
+      const HTMLElementConstructor = element?.ownerDocument.defaultView?.HTMLElement;
+      return HTMLElementConstructor && element instanceof HTMLElementConstructor ? element : null;
     },
+    ...(target
+      ? {
+          getSourcePos: () =>
+            resolveLiveMovementSourcePos(editor, target.context.pos, blockDefinitions),
+        }
+      : {}),
     id: MOVEMENT_HANDLE_ID,
     disabled: !target,
-    label: `Move ${label}`,
+    label,
+    sourcePos: target?.context.pos,
   });
 
   if (!target) return null;
-
-  const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
-    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
-    event.preventDefault();
-    event.stopPropagation();
-    onKeyboardMove(
-      resolveLiveMovementSourcePos(editor, target.context.pos, blockDefinitions),
-      event.key === "ArrowUp" ? "backward" : "forward",
-    );
-  };
 
   return (
     <EditorFloatingContent
@@ -521,23 +635,23 @@ function MovementHandle({
       placement="left-start"
     >
       <InteractionDragActivationArea
-        ref={drag.sourceRef}
+        ref={drag.handleRef}
         aria-describedby={descriptionId}
-        aria-keyshortcuts="ArrowUp ArrowDown"
+        aria-keyshortcuts="Space Enter ArrowUp ArrowDown Escape"
         aria-label={`Move ${label}`}
         contentEditable={false}
         {...authoringChromeAttributes(AuthoringChromeKind.Handle)}
+        {...{ [AUTHORING_MOVEMENT_ACTIVATION_ID_ATTR]: drag.activationId }}
         {...{ [AUTHORING_MOVE_HANDLE_ATTR]: "" }}
         {...{ [AUTHORING_MOVE_POS_ATTR]: target.context.pos }}
-        data-interaction-drag-placeholder={drag.isPlaceholder ? "" : undefined}
         onMouseDown={(event) => event.preventDefault()}
-        onKeyDown={handleKeyDown}
         safeLocalHeight={44}
         safeLocalWidth={44}
-        className={`sc-editor-movement-handle${drag.isPlaceholder ? " sc-movement-handle--placeholder" : ""}`}
+        className="sc-editor-movement-handle"
       >
         <span id={descriptionId} className="sc-sr-only">
-          Press Arrow Up or Arrow Down to move this {label}.
+          Press Space or Enter to pick up this {label}. Use Arrow Up or Arrow Down to choose a
+          destination. Press Space or Enter to drop, or Escape to cancel.
         </span>
         <span aria-hidden className="sc-editor-movement-handle__visual">
           <DotsSixVertical size={iconXs} weight="bold" />
@@ -551,18 +665,6 @@ function movementHandleLabel(context: MovementNodeContext): string {
   if (context.nodeType.name === "layout") return "layout";
   if (context.nodeType.name === "section") return "section";
   return "block";
-}
-
-function renderMovementPreview(active: AuthoringMovementDragData): ReactNode {
-  return (
-    <div
-      data-authoring-movement-preview={active.previewKind}
-      className={`sc-authoring-movement-preview sc-authoring-movement-preview--${active.previewKind}`}
-    >
-      <DotsSixVertical size={iconXs} weight="bold" aria-hidden />
-      <span className="sc-sr-only">Moving {active.label}</span>
-    </div>
-  );
 }
 
 export function MovementDropIndicator({ candidate }: { candidate: MovementCandidate | null }) {

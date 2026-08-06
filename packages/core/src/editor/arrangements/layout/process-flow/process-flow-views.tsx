@@ -4,6 +4,7 @@ import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-posi
 
 import {
   LayoutAddGhost,
+  resolveSectionPresentationElement,
   SectionActionTrigger,
   SectionMovementHandle,
 } from "../authoring/layout-chrome";
@@ -59,6 +60,13 @@ export function ProcessFlowSectionView(props: SectionComponentProps) {
       {props.editable && layoutPos !== null ? (
         <SectionMovementHandle
           editor={props.editor}
+          getPresentationElement={() =>
+            resolveSectionPresentationElement({
+              editor: props.editor,
+              layoutPos,
+              sectionIndex,
+            })
+          }
           layoutPos={layoutPos}
           sectionId={sectionId}
           sectionIndex={sectionIndex}

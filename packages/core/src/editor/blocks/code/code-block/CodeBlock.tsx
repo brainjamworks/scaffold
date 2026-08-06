@@ -6,6 +6,7 @@ import {
 import { NodeViewContent, type NodeViewProps } from "@tiptap/react";
 
 import { Combobox } from "@/ui/components/Combobox/Combobox";
+import { authoringMovementSnapshotChromeAttributes } from "@/editor/movement/view/authoring-movement-presentation";
 
 import { CodeBlockSurface, normalizeCodeBlockData, parseCodeBlockData } from "./CodeBlockSurface";
 
@@ -29,6 +30,7 @@ export function CodeBlockAuthoringView(props: NodeViewProps) {
       code={props.node.textContent}
       languageControl={
         <div
+          {...authoringMovementSnapshotChromeAttributes()}
           onMouseDown={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
         >

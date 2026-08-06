@@ -3,6 +3,7 @@
 import { Editor, type JSONContent } from "@tiptap/core";
 import { TabsIcon as Tabs } from "@phosphor-icons/react";
 import { EditorContent } from "@tiptap/react";
+import UniqueID from "@tiptap/extension-unique-id";
 import StarterKit from "@tiptap/starter-kit";
 import { Fragment } from "@tiptap/pm/model";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
@@ -28,7 +29,7 @@ import {
   ExtendedListItem,
   ExtendedOrderedList,
 } from "@/editor/rich-text/model/rich-text-blocks";
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import {
   CellAuthoringNode,
   GridAuthoringNode,
@@ -40,6 +41,8 @@ import {
   AUTHORING_ANCHOR_ATTR,
 } from "@/editor/interactions/dom/authoring-frame";
 import { resolveEditorMovementTarget } from "@/editor/movement/view/use-editor-movement-target";
+import { resolveMovementNodeContext } from "@/editor/movement/model/movement-policy";
+import { resolveStructureMovementTargetPresentation } from "@/editor/movement/view/movement-dom";
 import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import {
   CourseSelectionMode,
@@ -192,7 +195,9 @@ function makeEditor(content?: JSONContent) {
       ExtendedBlockquote,
       ExtendedCodeBlock,
       ExtendedHorizontalRule,
+      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       CourseDocumentNode,
+      createCourseSectionNode(),
       SurfaceNode,
       RegionNode,
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
@@ -1723,6 +1728,78 @@ describe("layout arrangement nodes", () => {
     editor.destroy();
   });
 
+  it("uses the tab item as the section movement presentation source", async () => {
+    mockDefaultFloatingControlRect();
+    const editor = makeEditor({
+      type: "doc",
+      content: [
+        {
+          type: "courseDocument",
+          content: [
+            {
+              type: "surface",
+              content: [
+                {
+                  type: "layout",
+                  attrs: {
+                    id: "layout-tabs-presentation",
+                    variant: "tabs",
+                    options: { variant: "default", label: "Lesson sections" },
+                  },
+                  content: [
+                    {
+                      type: "section",
+                      attrs: {
+                        id: "tab-presentation",
+                        role: "tab-panel",
+                        options: { label: "Overview" },
+                      },
+                      content: [{ type: "paragraph" }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    renderEditorContent(editor);
+
+    await waitFor(() => {
+      expect(document.body.querySelector("[data-scaffold-tabs-item]")).not.toBeNull();
+    });
+    const item = document.body.querySelector<HTMLElement>("[data-scaffold-tabs-item]");
+    if (!item) throw new Error("Expected tab item");
+    const handle = item.querySelector<HTMLButtonElement>("[data-authoring-move-handle]");
+    if (!handle) throw new Error("Expected tab movement handle");
+
+    fireEvent.pointerDown(handle, {
+      button: 0,
+      clientX: 140,
+      clientY: 100,
+      isPrimary: true,
+      pointerId: 1,
+    });
+    fireEvent.pointerMove(handle.ownerDocument, {
+      clientX: 150,
+      clientY: 110,
+      pointerId: 1,
+    });
+
+    await waitFor(() => {
+      expect(item).toHaveAttribute("data-authoring-movement-silhouette");
+    });
+    await waitFor(() => {
+      expect(document.body.querySelector("[data-authoring-movement-snapshot]")).not.toBeNull();
+    });
+    const snapshot = document.body.querySelector<HTMLElement>("[data-authoring-movement-snapshot]");
+    expect(snapshot?.textContent).toContain("Overview");
+    expect(snapshot?.querySelector("[data-authoring-move-handle]")).toBeNull();
+
+    editor.destroy();
+  });
+
   it("keeps accordion section chrome around the row header, outside the disclosure label and panel content", async () => {
     const editor = makeEditor({
       type: "doc",
@@ -1874,6 +1951,17 @@ describe("layout arrangement nodes", () => {
     expect(panels[0]?.id).toMatch(/^sc-tabs-panel-/);
     expect(tabs[0]?.id).not.toContain("layout-tabs");
     expect(tabs[0]?.id).not.toContain("tab-a");
+
+    const firstSectionPos = nodePos(editor, "section", "tab-a");
+    const firstSectionDom = editor.view.nodeDOM(firstSectionPos);
+    if (!(firstSectionDom instanceof Element)) throw new Error("Expected first section DOM");
+    const movementPresentation = resolveStructureMovementTargetPresentation(
+      firstSectionDom,
+      resolveMovementNodeContext(editor.state.doc, firstSectionPos),
+      builtInBlockRegistry,
+    );
+    expect(movementPresentation?.axis).toBe("horizontal");
+    expect(movementPresentation?.element).toBe(tabs[0]?.closest("[data-scaffold-tabs-item]"));
 
     fireEvent.keyDown(tabs[0]!, { key: "ArrowRight" });
 

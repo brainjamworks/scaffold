@@ -2,6 +2,7 @@ import { ListNumbersIcon as ListNumbers } from "@phosphor-icons/react";
 import { SequencingPrivateAssessmentSchema, SequencingSettingsSchema } from "@scaffold/contracts";
 
 import { assessmentShellPlaceholders } from "@/editor/blocks/assessment/shared/nodes/assessment-placeholders";
+import { rewriteSequencingCopiedContent } from "@/editor/blocks/assessment/shared/identity/copy-identity";
 import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/model/assessment-capability";
 import { createStableId } from "@/document/model/identity/stable-ids";
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
@@ -61,6 +62,7 @@ const sequencingConfiguration = createAssessmentConfiguration({
 
 export const sequencingBlockDefinition = defineBlock({
   nodeType: "sequencing",
+  rewriteCopiedContent: rewriteSequencingCopiedContent,
   boundedPlacement: "fill",
   configuration: sequencingConfiguration,
   placeholders: {

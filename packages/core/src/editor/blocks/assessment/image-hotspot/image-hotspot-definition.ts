@@ -1,6 +1,7 @@
 import { TargetIcon as Target } from "@phosphor-icons/react";
 
 import { assessmentShellPlaceholders } from "@/editor/blocks/assessment/shared/nodes/assessment-placeholders";
+import { rewriteImageHotspotCopiedContent } from "@/editor/blocks/assessment/shared/identity/copy-identity";
 import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/model/assessment-capability";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
@@ -65,6 +66,7 @@ const imageHotspotConfiguration = createAssessmentConfiguration({
 
 export const imageHotspotBlockDefinition = defineBlock({
   nodeType: "image_hotspot",
+  rewriteCopiedContent: rewriteImageHotspotCopiedContent,
   configuration: imageHotspotConfiguration,
   placeholders: assessmentShellPlaceholders,
   boundedPlacement: "fill",

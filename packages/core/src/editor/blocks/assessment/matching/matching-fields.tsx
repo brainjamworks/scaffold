@@ -20,8 +20,9 @@ import {
   setAssessmentAttr,
 } from "@/editor/blocks/assessment/shared/model/private-assessment-attrs";
 import { BlockAddGhost } from "@/editor/suggestions/insert/BlockAddGhost";
-import { CONTAINED_MOVEMENT_TARGET_ATTR } from "@/editor/movement/view/movement-dom";
+import { containedMovementTargetAttributes } from "@/editor/movement/view/movement-dom";
 import { ContainedMovementHandle } from "@/editor/movement/view/ContainedMovementHandle";
+import { authoringMovementSnapshotChromeAttributes } from "@/editor/movement/view/authoring-movement-presentation";
 import { Placeholder } from "@/editor/prosemirror/placeholder/Placeholder";
 import { createFieldContentEditorExtensions } from "@/editor/rich-text/authoring/field-content-extensions";
 import { EditableOverlayPopover } from "@/editor/rich-text/authoring/nested-overlay/EditableOverlayPopoverShell";
@@ -90,6 +91,7 @@ export const MatchingPairNode = createMatchingPairNode({
 });
 
 function MatchingPairNodeView(props: NodeViewProps) {
+  const presentationRef = useRef<HTMLDivElement | null>(null);
   const pos = safeGetPos(props.getPos);
   const itemId = String(props.node.firstChild?.attrs["id"] ?? "");
   const targetId = String(props.node.lastChild?.attrs["id"] ?? "");
@@ -172,15 +174,17 @@ function MatchingPairNodeView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper
+      ref={presentationRef}
       data-node="matching-pair"
       data-item-id={itemId}
       data-target-id={targetId}
-      {...{ [CONTAINED_MOVEMENT_TARGET_ATTR]: "" }}
+      {...containedMovementTargetAttributes()}
       className="sc-matching-pair"
     >
       <div className="sc-matching-pair__grid">
         <div className="sc-matching-pair__move-cell">
           <ContainedMovementHandle
+            getPresentationElement={() => presentationRef.current}
             getSourcePos={() => safeGetPos(props.getPos)}
             label="matching pair"
             sourceKey={`${itemId}:${targetId}`}
@@ -193,6 +197,7 @@ function MatchingPairNodeView(props: NodeViewProps) {
           <EditableOverlayPopover.Root>
             <EditableOverlayPopover.Trigger asChild>
               <button
+                {...authoringMovementSnapshotChromeAttributes()}
                 type="button"
                 aria-label={hasFeedback ? "Edit feedback" : "Add feedback"}
                 onClick={(event) => event.stopPropagation()}
@@ -228,6 +233,7 @@ function MatchingPairNodeView(props: NodeViewProps) {
             </EditableOverlayPopover.Portal>
           </EditableOverlayPopover.Root>
           <button
+            {...authoringMovementSnapshotChromeAttributes()}
             type="button"
             contentEditable={false}
             onClick={(e) => {

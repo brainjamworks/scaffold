@@ -31,6 +31,7 @@ import {
   readTabsOptions,
   readTabsSections,
   renderTabsVariant,
+  tabTriggerId,
   tabsGhostPresentation,
   tabsPanelAttributes,
   type TabsSectionSummary,
@@ -96,7 +97,13 @@ export function TabsLayoutView(props: LayoutComponentProps) {
             <TabsItem key={section.id} isActive={isActive}>
               {props.editable ? (
                 <SectionMovementHandle
+                  axis="horizontal"
                   editor={props.editor}
+                  getPresentationElement={() =>
+                    props.editor.view.dom.ownerDocument
+                      .getElementById(tabTriggerId(layoutId, section.id))
+                      ?.closest<HTMLElement>("[data-scaffold-tabs-item]") ?? null
+                  }
                   layoutPos={layoutPos}
                   sectionId={section.id}
                   sectionIndex={index}
@@ -185,9 +192,21 @@ export function TabsSectionView(props: SectionComponentProps) {
   );
 }
 
-export function tabsSectionFrame(_props: SectionComponentProps): SectionFrameProps {
+export function tabsSectionFrame(props: SectionComponentProps): SectionFrameProps {
+  const layoutId = readRequiredTabsNodeId(props.layoutNode?.attrs["id"], "layout");
+  const sectionId = readRequiredTabsNodeId(props.node.attrs["id"], "section");
+
   return {
     className: "sc-tabs__panel-frame",
+    movementTargetPresentation: {
+      axis: "horizontal",
+      resolveElement: (sectionFrame) => {
+        const tabItem = props.editor.view.dom.ownerDocument
+          .getElementById(tabTriggerId(layoutId, sectionId))
+          ?.closest("[data-scaffold-tabs-item]");
+        return tabItem?.closest(".sc-tabs") === sectionFrame.closest(".sc-tabs") ? tabItem : null;
+      },
+    },
   };
 }
 

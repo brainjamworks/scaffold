@@ -13,7 +13,7 @@ import { defineBlock } from "@/editor/blocks/block-definition";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { CourseDocumentNode, DocumentNode, createCourseSectionNode } from "@/document/model/nodes";
 import {
   courseBlockAuthoringFrameAttributes,
   structuralAuthoringFrameAttributes,
@@ -611,6 +611,7 @@ function makeEditor(content: JSONContent[]) {
       }),
       ExtendedParagraph,
       CourseDocumentNode,
+      createCourseSectionNode(),
       SurfaceNode,
       MovementRegionNode,
       MovementGridNode,
@@ -871,7 +872,7 @@ describe("structure movement policy", () => {
 });
 
 describe("contained authored movement policy", () => {
-  it("recognizes supported contained child nodes without making them structure sources", () => {
+  it("recognizes owner-rendered isolating children without a feature allowlist", () => {
     const editor = makeEditor([
       containedGroup("assessment_choices_group", [containedChild("selectable_choice", "choice-a")]),
       containedGroup("sequencing_items_group", [containedChild("sequencing_item", "sequence-a")]),

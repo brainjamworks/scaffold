@@ -7,6 +7,8 @@ import * as Slot from "@/ui/components/Slot/Slot";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import "@/editor/suggestions/insert/ghost-add.css";
 import { StructureMovementHandle } from "@/editor/movement/view/StructureMovementHandle";
+import type { MovementTargetAxis } from "@/editor/movement/model/movement-target";
+import { authoringMovementSnapshotChromeAttributes } from "@/editor/movement/view/authoring-movement-presentation";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 import {
   AuthoringChromeKind,
@@ -50,8 +52,10 @@ interface LayoutAddGhostProps extends LayoutNodeChromeProps {
 }
 
 interface SectionMovementHandleProps {
+  axis?: MovementTargetAxis;
   className?: string;
   editor: Editor;
+  getPresentationElement: () => HTMLElement | null;
   getPos?: (() => number | undefined) | boolean;
   layoutPos?: number | null;
   sectionIndex?: number;
@@ -68,7 +72,7 @@ interface SectionActionTriggerProps {
   sectionId?: unknown;
 }
 
-interface SectionTargetInput {
+export interface SectionTargetInput {
   editor: Editor;
   getPos?: (() => number | undefined) | boolean | undefined;
   layoutPos?: number | null | undefined;
@@ -192,8 +196,10 @@ export function LayoutAddGhost({
 }
 
 export function SectionMovementHandle({
+  axis = "vertical",
   className,
   editor,
+  getPresentationElement,
   getPos,
   layoutPos,
   sectionIndex,
@@ -208,6 +214,8 @@ export function SectionMovementHandle({
 
   return (
     <StructureMovementHandle
+      axis={axis}
+      getPresentationElement={getPresentationElement}
       label="section"
       variant="bare"
       sourcePos={sectionPos}
@@ -223,6 +231,19 @@ export function SectionMovementHandle({
       className={cn("sc-layout-section-movement-handle", className)}
     />
   );
+}
+
+export function resolveSectionPresentationElement({
+  editor,
+  getPos,
+  layoutPos,
+  sectionIndex,
+}: SectionTargetInput): HTMLElement | null {
+  const sectionPos = resolveSectionMovementPos({ editor, getPos, layoutPos, sectionIndex });
+  if (sectionPos === null) return null;
+  const element = editor.view.nodeDOM(sectionPos);
+  const HTMLElementConstructor = editor.view.dom.ownerDocument.defaultView?.HTMLElement;
+  return HTMLElementConstructor && element instanceof HTMLElementConstructor ? element : null;
 }
 
 export function SectionActionTrigger({
@@ -253,6 +274,7 @@ export function SectionActionTrigger({
 
   return (
     <button
+      {...authoringMovementSnapshotChromeAttributes()}
       type="button"
       contentEditable={false}
       {...authoringChromeAttributes(AuthoringChromeKind.Trigger)}

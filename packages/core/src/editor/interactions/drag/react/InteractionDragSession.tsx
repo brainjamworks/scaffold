@@ -5,14 +5,13 @@ import {
   configure,
   type CollisionDetector,
 } from "@dnd-kit/abstract";
-import {
-  RestrictToHorizontalAxis,
-  RestrictToVerticalAxis,
-} from "@dnd-kit/abstract/modifiers";
+import { RestrictToHorizontalAxis, RestrictToVerticalAxis } from "@dnd-kit/abstract/modifiers";
 import { closestCenter, pointerIntersection } from "@dnd-kit/collision";
 import {
   Accessibility,
+  Draggable,
   KeyboardSensor,
+  type KeyboardSensorOptions,
   PointerActivationConstraints,
   PointerSensor,
 } from "@dnd-kit/dom";
@@ -58,6 +57,7 @@ import type {
   DragCancellationReason,
   DragInputKind,
   DragInputProfile,
+  DragKeyboardDirection,
   InteractionCollisionPolicy,
   InteractionDragEntity,
   InteractionDragEvent,
@@ -73,6 +73,7 @@ const INTERACTION_DRAG_REGISTRATION_DATA = "__scaffoldInteractionDragRegistratio
 
 export interface InteractionDragRegistrationData {
   readonly activeData?: unknown;
+  readonly keyboardAxis?: "horizontal" | "vertical";
   readonly label?: string;
   readonly overData?: unknown;
   readonly source: boolean;
@@ -97,6 +98,16 @@ export interface InteractionFeatureCollisionInput<ActiveData, OverData> {
   readonly candidates: readonly InteractionCollisionCandidate<OverData>[];
 }
 
+export interface InteractionDragPreviewSize {
+  readonly height: number;
+  readonly width: number;
+}
+
+export interface InteractionDragPreviewContext {
+  readonly sourceElement: Element;
+  readonly sourceSize: InteractionDragPreviewSize;
+}
+
 export interface InteractionDragSessionProps<ActiveData, OverData> {
   readonly accessibilityMode: DragAccessibilityMode;
   readonly children: ReactNode;
@@ -106,8 +117,13 @@ export interface InteractionDragSessionProps<ActiveData, OverData> {
   readonly onEnd: (event: InteractionDragEvent<ActiveData, OverData>) => void;
   readonly onMove?: (event: InteractionDragEvent<ActiveData, OverData>) => void;
   readonly onStart?: (event: InteractionDragEvent<ActiveData, OverData>) => void;
+  readonly previewOverflow?: "clip" | "visible" | undefined;
   readonly profile: DragInputProfile;
-  readonly renderPreview: (active: ActiveData) => ReactNode;
+  readonly renderPreview: (active: ActiveData, context: InteractionDragPreviewContext) => ReactNode;
+  readonly resolvePreviewSize?: (
+    active: ActiveData,
+    sourceSize: InteractionDragPreviewSize,
+  ) => InteractionDragPreviewSize | null;
   readonly resolveCollision?: (
     input: InteractionFeatureCollisionInput<ActiveData, OverData>,
   ) => string | null;
@@ -154,6 +170,36 @@ const configuredPointerSensor = PointerSensor.configure({
   activationConstraints: () => [new PointerActivationConstraints.Distance({ value: 4 })],
 });
 
+class AxisOwnedKeyboardSensor extends KeyboardSensor {
+  protected override handleKeyDown(
+    event: globalThis.KeyboardEvent,
+    source: Draggable,
+    options: KeyboardSensorOptions | undefined,
+  ): void {
+    const axis = registrationFromData(source.data)?.keyboardAxis;
+    const wrongAxis =
+      (axis === "horizontal" && (event.code === "ArrowUp" || event.code === "ArrowDown")) ||
+      (axis === "vertical" && (event.code === "ArrowLeft" || event.code === "ArrowRight"));
+    if (wrongAxis) {
+      event.preventDefault();
+      return;
+    }
+    super.handleKeyDown(event, source, options);
+  }
+}
+
+const configuredKeyboardSensor = AxisOwnedKeyboardSensor.configure({
+  keyboardCodes: {
+    cancel: ["Escape"],
+    down: ["ArrowDown"],
+    end: ["Space", "Enter"],
+    left: ["ArrowLeft"],
+    right: ["ArrowRight"],
+    start: ["Space", "Enter"],
+    up: ["ArrowUp"],
+  },
+});
+
 export function InteractionDragSession<ActiveData, OverData>({
   accessibilityMode,
   children,
@@ -163,8 +209,10 @@ export function InteractionDragSession<ActiveData, OverData>({
   onEnd,
   onMove,
   onStart,
+  previewOverflow,
   profile,
   renderPreview,
+  resolvePreviewSize,
   resolveCollision,
   sessionId,
 }: InteractionDragSessionProps<ActiveData, OverData>) {
@@ -216,7 +264,7 @@ export function InteractionDragSession<ActiveData, OverData>({
     }
   }, [cancelActiveSession, environment]);
 
-  useEffect(
+  useLayoutEffect(
     () => () => {
       const activeSession = activeSessionRef.current;
       if (!activeSession) return;
@@ -329,6 +377,7 @@ export function InteractionDragSession<ActiveData, OverData>({
       }
       const over = entityFromTarget<OverData>(event.operation.target);
       if (activeSession.input === "keyboard") {
+        const keyboardDirection = keyboardDirectionFromMove(event);
         callbacksRef.current.onMove?.(
           normalizedEvent(
             activeSession.active,
@@ -337,6 +386,7 @@ export function InteractionDragSession<ActiveData, OverData>({
             null,
             null,
             activeSession.snapshot,
+            keyboardDirection,
           ),
         );
         return;
@@ -369,14 +419,7 @@ export function InteractionDragSession<ActiveData, OverData>({
     const over = entityFromTarget<OverData>(event.operation.target);
     if (activeSession.input === "keyboard") {
       callbacksRef.current.onMove?.(
-        normalizedEvent(
-          activeSession.active,
-          over,
-          "keyboard",
-          null,
-          null,
-          activeSession.snapshot,
-        ),
+        normalizedEvent(activeSession.active, over, "keyboard", null, null, activeSession.snapshot),
       );
       return;
     }
@@ -420,7 +463,10 @@ export function InteractionDragSession<ActiveData, OverData>({
           : null;
       const clientDelta =
         activeSession.input === "pointer"
-          ? createClientDelta(event.operation.position.delta.x, event.operation.position.delta.y)
+          ? createClientDelta(
+              event.operation.position.current.x - event.operation.position.initial.x,
+              event.operation.position.current.y - event.operation.position.initial.y,
+            )
           : null;
       const normalized = normalizedEvent(
         active,
@@ -444,11 +490,7 @@ export function InteractionDragSession<ActiveData, OverData>({
     [cancelActiveSession],
   );
   const collisionDetector = useInteractionCollisionDetector(collisionPolicy, activeSessionRef);
-  const handleCollision = useFeatureCollision(
-    collisionPolicy,
-    resolveCollision,
-    activeSessionRef,
-  );
+  const handleCollision = useFeatureCollision(collisionPolicy, resolveCollision, activeSessionRef);
   const context = useMemo<InteractionDragSessionContextValue>(
     () => ({
       accessibilityMode,
@@ -459,11 +501,16 @@ export function InteractionDragSession<ActiveData, OverData>({
     }),
     [accessibilityMode, collisionDetector, environment, reducedMotion, sourceRemoved],
   );
-  const sensors = useInteractionSensors(profile, accessibilityMode);
+  const sensors = useInteractionSensors(profile);
   const modifiers = useInteractionModifiers(profile);
   const accessibilityContainer =
     environment?.overlayHost ?? (typeof document === "undefined" ? null : document.body);
-  const plugins = useInteractionPlugins(accessibilityMode, accessibilityContainer, labels, sessionId);
+  const plugins = useInteractionPlugins(
+    accessibilityMode,
+    accessibilityContainer,
+    labels,
+    sessionId,
+  );
 
   return (
     <DragDropProvider
@@ -488,11 +535,22 @@ export function InteractionDragSession<ActiveData, OverData>({
             >
               {(source) => {
                 const registration = registrationFromData(source.data);
-                const sourceSize = positiveSourceSize(source.element);
-                if (!registration?.source || !sourceSize) return null;
+                const sourceElement = source.element;
+                const sourceSize = positiveSourceSize(sourceElement);
+                if (!registration?.source || !sourceElement || !sourceSize) return null;
+                const activeData = registration.activeData as ActiveData;
+                const previewSize = resolvePreviewSize?.(activeData, sourceSize) ?? sourceSize;
+                if (!positivePreviewSize(previewSize)) return null;
                 return (
-                  <InteractionDragPreview height={sourceSize.height} width={sourceSize.width}>
-                    {renderPreview(registration.activeData as ActiveData)}
+                  <InteractionDragPreview
+                    height={previewSize.height}
+                    overflow={previewOverflow}
+                    width={previewSize.width}
+                  >
+                    {renderPreview(activeData, {
+                      sourceElement,
+                      sourceSize,
+                    })}
                   </InteractionDragPreview>
                 );
               }}
@@ -507,10 +565,12 @@ export function InteractionDragSession<ActiveData, OverData>({
 function InteractionDragPreview({
   children,
   height,
+  overflow,
   width,
 }: {
   children: ReactNode;
   height: number;
+  overflow?: "clip" | "visible" | undefined;
   width: number;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
@@ -531,21 +591,22 @@ function InteractionDragPreview({
       data-interaction-drag-overlay=""
       data-interaction-drag-position-strategy="fixed"
       className="sc-interaction-drag-overlay"
-      style={{ height, width }}
+      style={{ height, overflow, width }}
     >
       {children}
     </div>
   );
 }
 
-function useInteractionSensors(profile: DragInputProfile, mode: DragAccessibilityMode) {
+function useInteractionSensors(profile: DragInputProfile) {
   return useMemo(
     () =>
-      mode !== "selection-alternative" &&
-      (profile === "sortable-vertical" || profile === "sortable-horizontal")
-        ? [configuredPointerSensor, KeyboardSensor]
+      profile === "pointer-keyboard" ||
+      profile === "sortable-vertical" ||
+      profile === "sortable-horizontal"
+        ? [configuredPointerSensor, configuredKeyboardSensor]
         : [configuredPointerSensor],
-    [mode, profile],
+    [profile],
   );
 }
 
@@ -732,9 +793,7 @@ class InteractionDragAccessibility extends Plugin<
       manager.monitor.addEventListener("dragstart", (event) => {
         const source = event.operation.source;
         if (!source) return;
-        this.announce(
-          this.options?.labels?.pickedUp ?? `Picked up ${labelFor(source.data)}.`,
-        );
+        this.announce(this.options?.labels?.pickedUp ?? `Picked up ${labelFor(source.data)}.`);
       }),
       manager.monitor.addEventListener("dragmove", (event) => {
         const { source, target } = event.operation;
@@ -819,9 +878,7 @@ function setManagedAttribute(element: Element, name: string, value: string): () 
 }
 
 function isNaturallyFocusable(element: Element): boolean {
-  return ["button", "input", "select", "textarea", "a"].includes(
-    element.tagName.toLowerCase(),
-  );
+  return ["button", "input", "select", "textarea", "a"].includes(element.tagName.toLowerCase());
 }
 
 function movementAnnouncement(
@@ -855,6 +912,14 @@ function moveCoordinates(event: DragMoveEvent): Readonly<{ x: number; y: number 
   };
 }
 
+function keyboardDirectionFromMove(event: DragMoveEvent): DragKeyboardDirection | null {
+  const x = event.by?.x ?? 0;
+  const y = event.by?.y ?? 0;
+  if (Math.abs(x) > Math.abs(y)) return x < 0 ? "left" : "right";
+  if (Math.abs(y) > 0) return y < 0 ? "up" : "down";
+  return null;
+}
+
 function normalizedEvent<ActiveData, OverData>(
   active: Readonly<InteractionDragEntity<ActiveData>>,
   over: Readonly<InteractionDragEntity<OverData>> | null,
@@ -862,11 +927,13 @@ function normalizedEvent<ActiveData, OverData>(
   clientPoint: ClientPoint | null,
   clientDelta: ClientDelta | null,
   snapshot: CoordinateSpaceSnapshot,
+  keyboardDirection: DragKeyboardDirection | null = null,
 ): InteractionDragEvent<ActiveData, OverData> {
   return Object.freeze({
     active,
     over,
     input,
+    keyboardDirection: input === "keyboard" ? keyboardDirection : null,
     clientPoint: input === "pointer" ? clientPoint : null,
     clientDelta: input === "pointer" ? clientDelta : null,
     localDelta:
@@ -948,6 +1015,12 @@ function positiveSourceSize(
   if (!Number.isFinite(rect.width) || !Number.isFinite(rect.height)) return null;
   if (rect.width <= 0 || rect.height <= 0) return null;
   return Object.freeze({ width: rect.width, height: rect.height });
+}
+
+function positivePreviewSize(size: InteractionDragPreviewSize): size is InteractionDragPreviewSize {
+  return (
+    Number.isFinite(size.width) && Number.isFinite(size.height) && size.width > 0 && size.height > 0
+  );
 }
 
 function rectsIntersect(

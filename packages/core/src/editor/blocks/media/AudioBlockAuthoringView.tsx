@@ -13,6 +13,7 @@ import {
 import { useMediaPort } from "@/host/providers/ScaffoldServicesProvider";
 import { selectNodeAt } from "@/editor/selection/selection-commands";
 import { type AudioBlockAttrs } from "@scaffold/contracts";
+import { authoringMovementSnapshotChromeAttributes } from "@/editor/movement/view/authoring-movement-presentation";
 
 import { parseAudioBlockData, useResolvedAudioBlockSource } from "./AudioBlockModel";
 import { AudioBlockSurface } from "./AudioBlockSurface";
@@ -84,6 +85,7 @@ export function AudioBlockAuthoringView(props: NodeViewProps) {
       data={data}
       emptyAction={
         <BlockAddGhost
+          {...authoringMovementSnapshotChromeAttributes()}
           label="Add audio"
           presentation="pill"
           icon={<Speaker size={18} weight="regular" aria-hidden />}
@@ -97,6 +99,7 @@ export function AudioBlockAuthoringView(props: NodeViewProps) {
       replaceAction={
         data ? (
           <button
+            {...authoringMovementSnapshotChromeAttributes()}
             type="button"
             onClick={openPicker}
             aria-label="Replace audio"

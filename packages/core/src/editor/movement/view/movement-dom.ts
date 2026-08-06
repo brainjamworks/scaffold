@@ -7,9 +7,26 @@ import {
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 
 import type { MovementNodeContext } from "../model/movement-policy";
+import type { MovementTargetAxis } from "../model/movement-target";
 
 export const CONTAINED_MOVEMENT_TARGET_ATTR = "data-contained-movement-target";
 export const CONTAINED_MOVEMENT_HANDLE_ATTR = "data-contained-movement-handle";
+export const MOVEMENT_TARGET_AXIS_ATTR = "data-movement-target-axis";
+
+export interface MovementTargetPresentation {
+  readonly axis: MovementTargetAxis;
+  readonly element: Element;
+}
+
+export interface MovementTargetPresentationOwner {
+  readonly axis: MovementTargetAxis;
+  readonly resolveElement: (ownerElement: HTMLElement) => Element | null;
+}
+
+const movementTargetPresentationOwners = new WeakMap<
+  HTMLElement,
+  MovementTargetPresentationOwner
+>();
 
 const SURFACE_ANCHOR_SELECTOR = "[data-surface]";
 const RESIZABLE_BLOCK_FRAME_SELECTOR = `[${AUTHORING_FRAME_WRAPPER_ATTR}]`;
@@ -22,37 +39,76 @@ const STRUCTURAL_FRAME_KIND_BY_NODE_NAME: Readonly<Record<string, AuthoringFrame
   section: AuthoringFrameKind.Section,
 };
 
-export function resolveMovementAnchorElement(
+export function containedMovementTargetAttributes(
+  axis: MovementTargetAxis = "vertical",
+): Record<typeof CONTAINED_MOVEMENT_TARGET_ATTR | typeof MOVEMENT_TARGET_AXIS_ATTR, string> {
+  return {
+    [CONTAINED_MOVEMENT_TARGET_ATTR]: "",
+    [MOVEMENT_TARGET_AXIS_ATTR]: axis,
+  };
+}
+
+export function registerMovementTargetPresentationOwner(
+  ownerElement: HTMLElement,
+  owner: MovementTargetPresentationOwner,
+): () => void {
+  movementTargetPresentationOwners.set(ownerElement, owner);
+  return () => {
+    if (movementTargetPresentationOwners.get(ownerElement) === owner) {
+      movementTargetPresentationOwners.delete(ownerElement);
+    }
+  };
+}
+
+export function resolveStructureMovementTargetPresentation(
   dom: Element,
   context: MovementNodeContext | null | undefined,
   blockDefinitions: BlockDefinitionLookup,
-): Element | null {
+): MovementTargetPresentation | null {
   if (!context) return null;
 
   if (context.nodeType.name === "surface") {
-    if (dom.matches(SURFACE_ANCHOR_SELECTOR)) return dom;
-    return dom.querySelector(SURFACE_ANCHOR_SELECTOR);
+    const element = dom.matches(SURFACE_ANCHOR_SELECTOR)
+      ? dom
+      : dom.querySelector(SURFACE_ANCHOR_SELECTOR);
+    return element ? { axis: readMovementTargetAxis(element), element } : null;
   }
 
   const locator = movementFrameLocator(context, blockDefinitions);
   const anchor = resolveAuthoringFrameElement(dom, locator);
   if (!anchor) return null;
 
-  if (
-    locator?.frameKind === AuthoringFrameKind.Section &&
-    anchor.getAttribute("data-layout-kind") === "tabs"
-  ) {
-    const labelledBy = anchor.querySelector('[role="tabpanel"]')?.getAttribute("aria-labelledby");
-    const trigger = labelledBy ? anchor.ownerDocument.getElementById(labelledBy) : null;
-    const tabItem = trigger?.closest("[data-scaffold-tabs-item]");
-    if (tabItem && tabItem.closest(".sc-tabs") === anchor.closest(".sc-tabs")) return tabItem;
-  }
-
   if (locator?.frameKind === AuthoringFrameKind.Block) {
-    return anchor.closest(RESIZABLE_BLOCK_FRAME_SELECTOR) ?? anchor;
+    const element = anchor.closest(RESIZABLE_BLOCK_FRAME_SELECTOR) ?? anchor;
+    return { axis: readMovementTargetAxis(element), element };
   }
 
-  return anchor;
+  const HTMLElementConstructor = anchor.ownerDocument.defaultView?.HTMLElement;
+  if (HTMLElementConstructor && anchor instanceof HTMLElementConstructor) {
+    const owner = movementTargetPresentationOwners.get(anchor);
+    if (owner) {
+      const element = owner.resolveElement(anchor);
+      if (element?.ownerDocument === anchor.ownerDocument) {
+        return { axis: owner.axis, element };
+      }
+    }
+  }
+
+  return { axis: readMovementTargetAxis(anchor), element: anchor };
+}
+
+export function resolveContainedMovementTargetPresentation(
+  dom: Element,
+): MovementTargetPresentation | null {
+  const selector = `[${CONTAINED_MOVEMENT_TARGET_ATTR}]`;
+  const element = dom.matches(selector) ? dom : dom.querySelector(selector);
+  return element ? { axis: readMovementTargetAxis(element), element } : null;
+}
+
+function readMovementTargetAxis(element: Element): MovementTargetAxis {
+  return element.getAttribute(MOVEMENT_TARGET_AXIS_ATTR) === "horizontal"
+    ? "horizontal"
+    : "vertical";
 }
 
 function movementFrameLocator(

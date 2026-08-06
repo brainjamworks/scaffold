@@ -2,6 +2,8 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
 import type { MovementNodeContext } from "./movement-policy";
 
+export type MovementTargetAxis = "horizontal" | "vertical";
+
 export type MovementTargetRect = {
   bottom: number;
   height: number;
@@ -15,6 +17,7 @@ export abstract class MovementTarget {
   protected constructor(
     readonly context: MovementNodeContext,
     readonly rect: MovementTargetRect,
+    readonly axis: MovementTargetAxis = "vertical",
   ) {}
 
   get node(): ProseMirrorNode {
@@ -31,50 +34,82 @@ export abstract class MovementTarget {
 }
 
 export class BlockMovementTarget extends MovementTarget {
-  constructor(context: MovementNodeContext, rect: MovementTargetRect) {
-    super(context, rect);
+  constructor(
+    context: MovementNodeContext,
+    rect: MovementTargetRect,
+    axis: MovementTargetAxis = "vertical",
+  ) {
+    super(context, rect, axis);
   }
 }
 
 export class SurfaceMovementTarget extends MovementTarget {
-  constructor(context: MovementNodeContext, rect: MovementTargetRect) {
-    super(context, rect);
+  constructor(
+    context: MovementNodeContext,
+    rect: MovementTargetRect,
+    axis: MovementTargetAxis = "vertical",
+  ) {
+    super(context, rect, axis);
   }
 }
 
 export class GridMovementTarget extends MovementTarget {
-  constructor(context: MovementNodeContext, rect: MovementTargetRect) {
-    super(context, rect);
+  constructor(
+    context: MovementNodeContext,
+    rect: MovementTargetRect,
+    axis: MovementTargetAxis = "vertical",
+  ) {
+    super(context, rect, axis);
   }
 }
 
 export class CellMovementTarget extends MovementTarget {
-  constructor(context: MovementNodeContext, rect: MovementTargetRect) {
-    super(context, rect);
+  constructor(
+    context: MovementNodeContext,
+    rect: MovementTargetRect,
+    axis: MovementTargetAxis = "vertical",
+  ) {
+    super(context, rect, axis);
   }
 }
 
 export class LayoutMovementTarget extends MovementTarget {
-  constructor(context: MovementNodeContext, rect: MovementTargetRect) {
-    super(context, rect);
+  constructor(
+    context: MovementNodeContext,
+    rect: MovementTargetRect,
+    axis: MovementTargetAxis = "vertical",
+  ) {
+    super(context, rect, axis);
   }
 }
 
 export class SectionMovementTarget extends MovementTarget {
-  constructor(context: MovementNodeContext, rect: MovementTargetRect) {
-    super(context, rect);
+  constructor(
+    context: MovementNodeContext,
+    rect: MovementTargetRect,
+    axis: MovementTargetAxis = "vertical",
+  ) {
+    super(context, rect, axis);
   }
 }
 
 export class RegionMovementTarget extends MovementTarget {
-  constructor(context: MovementNodeContext, rect: MovementTargetRect) {
-    super(context, rect);
+  constructor(
+    context: MovementNodeContext,
+    rect: MovementTargetRect,
+    axis: MovementTargetAxis = "vertical",
+  ) {
+    super(context, rect, axis);
   }
 }
 
 export class ContainedMovementTarget extends MovementTarget {
-  constructor(context: MovementNodeContext, rect: MovementTargetRect) {
-    super(context, rect);
+  constructor(
+    context: MovementNodeContext,
+    rect: MovementTargetRect,
+    axis: MovementTargetAxis = "vertical",
+  ) {
+    super(context, rect, axis);
   }
 }
 
@@ -88,43 +123,23 @@ export type AnyMovementTarget =
   | RegionMovementTarget
   | ContainedMovementTarget;
 
-export type MovementTargetAxis = "horizontal" | "vertical";
-
 export function movementTargetAxis(target: AnyMovementTarget): MovementTargetAxis {
-  const parent = target.context.parent;
-  if (!parent) return "vertical";
-
-  if (target instanceof SectionMovementTarget && parent.attrs?.["variant"] === "tabs") {
-    return "horizontal";
-  }
-
-  const parentData = parent.attrs?.["data"];
-  if (
-    target instanceof ContainedMovementTarget &&
-    target.context.nodeType.name === "timeline_item" &&
-    parentData !== null &&
-    typeof parentData === "object" &&
-    !Array.isArray(parentData) &&
-    (parentData as Record<string, unknown>)["presentation"] === "carousel"
-  ) {
-    return "horizontal";
-  }
-
-  return "vertical";
+  return target.axis;
 }
 
 export function createMovementTarget(
   context: MovementNodeContext,
   rect: MovementTargetRect,
+  axis: MovementTargetAxis = "vertical",
 ): AnyMovementTarget {
   const nodeName = context.nodeType.name;
 
-  if (nodeName === "surface") return new SurfaceMovementTarget(context, rect);
-  if (nodeName === "grid") return new GridMovementTarget(context, rect);
-  if (nodeName === "cell") return new CellMovementTarget(context, rect);
-  if (nodeName === "layout") return new LayoutMovementTarget(context, rect);
-  if (nodeName === "section") return new SectionMovementTarget(context, rect);
-  if (nodeName === "region") return new RegionMovementTarget(context, rect);
+  if (nodeName === "surface") return new SurfaceMovementTarget(context, rect, axis);
+  if (nodeName === "grid") return new GridMovementTarget(context, rect, axis);
+  if (nodeName === "cell") return new CellMovementTarget(context, rect, axis);
+  if (nodeName === "layout") return new LayoutMovementTarget(context, rect, axis);
+  if (nodeName === "section") return new SectionMovementTarget(context, rect, axis);
+  if (nodeName === "region") return new RegionMovementTarget(context, rect, axis);
 
-  return new BlockMovementTarget(context, rect);
+  return new BlockMovementTarget(context, rect, axis);
 }

@@ -5,6 +5,7 @@ import {
   assessmentShellPlaceholders,
   selectableChoicePlaceholders,
 } from "@/editor/blocks/assessment/shared/nodes/assessment-placeholders";
+import { rewriteMultiselectCopiedContent } from "@/editor/blocks/assessment/shared/identity/copy-identity";
 import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/model/assessment-capability";
 import { createStableId } from "@/document/model/identity/stable-ids";
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
@@ -75,6 +76,7 @@ const multiselectConfiguration = createAssessmentConfiguration({
 
 export const multiselectBlockDefinition = defineBlock({
   nodeType: "multiselect",
+  rewriteCopiedContent: rewriteMultiselectCopiedContent,
   boundedPlacement: "fill",
   configuration: multiselectConfiguration,
   placeholders: {

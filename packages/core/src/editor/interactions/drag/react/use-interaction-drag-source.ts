@@ -1,6 +1,8 @@
 import { useDraggable } from "@dnd-kit/react";
 import { useEffect, useId, useMemo } from "react";
 
+import type { DragKeyboardAxis } from "../model/interaction-drag-event";
+
 import {
   createInteractionDragData,
   useInteractionDragSession,
@@ -11,6 +13,7 @@ export interface InteractionDragSourceRegistration<Data> {
   readonly data: Data;
   readonly disabled?: boolean;
   readonly id: string;
+  readonly keyboardAxis?: DragKeyboardAxis;
   readonly label: string;
 }
 
@@ -25,6 +28,7 @@ export function useInteractionDragSource<Data>({
   data,
   disabled = false,
   id,
+  keyboardAxis,
   label,
 }: InteractionDragSourceRegistration<Data>): InteractionDragSourceResult {
   const session = useInteractionDragSession();
@@ -32,8 +36,14 @@ export function useInteractionDragSource<Data>({
   const fallbackId = useId();
   const valid = id.trim().length > 0 && label.trim().length > 0;
   const registration = useMemo<InteractionDragRegistrationData>(
-    () => ({ activeData: data, label, source: true, target: false }),
-    [data, label],
+    () => ({
+      activeData: data,
+      ...(keyboardAxis ? { keyboardAxis } : {}),
+      label,
+      source: true,
+      target: false,
+    }),
+    [data, keyboardAxis, label],
   );
   const draggable = useDraggable({
     id: valid ? id : `invalid-interaction-drag-source:${fallbackId}`,

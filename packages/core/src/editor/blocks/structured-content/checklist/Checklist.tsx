@@ -1,8 +1,11 @@
 import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import { PlusIcon as Plus, TrashIcon as Trash } from "@phosphor-icons/react";
+import { useRef } from "react";
 
 import { BlockAddGhost } from "@/editor/suggestions/insert/BlockAddGhost";
-import { StructureMovementHandle } from "@/editor/movement/view/StructureMovementHandle";
+import { ContainedMovementHandle } from "@/editor/movement/view/ContainedMovementHandle";
+import { containedMovementTargetAttributes } from "@/editor/movement/view/movement-dom";
+import { authoringMovementSnapshotChromeAttributes } from "@/editor/movement/view/authoring-movement-presentation";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 import { createStableId } from "@/document/model/identity/stable-ids";
 
@@ -69,6 +72,7 @@ export function ChecklistAuthoringView(props: NodeViewProps) {
  * ────────────────────────────────────────────────────────────────── */
 
 export function ChecklistItemNodeView(props: NodeViewProps) {
+  const presentationRef = useRef<HTMLDivElement | null>(null);
   const { count, index } = readChecklistItemPosition(props);
   const canDelete = count > 1;
 
@@ -89,16 +93,19 @@ export function ChecklistItemNodeView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper
+      ref={presentationRef}
       data-node="checklist-item"
       data-checked="false"
+      {...containedMovementTargetAttributes()}
       role="listitem"
       className="sc-checklist-item"
     >
       <div className="sc-checklist-item__shell">
-        <StructureMovementHandle
+        <ContainedMovementHandle
+          getPresentationElement={() => presentationRef.current}
+          getSourcePos={() => readNodePos(props) ?? null}
           label="checklist item"
           sourcePos={sourcePos}
-          variant="bare"
           className="sc-checklist-item__drag"
         />
         <button
@@ -116,6 +123,7 @@ export function ChecklistItemNodeView(props: NodeViewProps) {
           <NodeViewContent />
         </div>
         <button
+          {...authoringMovementSnapshotChromeAttributes()}
           type="button"
           contentEditable={false}
           disabled={!canDelete}

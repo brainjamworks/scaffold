@@ -345,6 +345,21 @@ function childOfType(node: JSONContent | undefined, type: string): JSONContent |
   return node?.content?.find((child) => child.type === type);
 }
 
+function categoriseItemIdsInBin(doc: JSONContent, binId: string): unknown[] {
+  let result: unknown[] = [];
+  const visit = (node: JSONContent) => {
+    if (node.type === "categorise_bin" && node.attrs?.["id"] === binId) {
+      result =
+        childOfType(node, "categorise_items_group")?.content?.map((item) => item.attrs?.["id"]) ??
+        [];
+      return;
+    }
+    for (const child of node.content ?? []) visit(child);
+  };
+  visit(doc);
+  return result;
+}
+
 function describedText(selector: string): string | null {
   const element = document.body.querySelector(selector);
   const describedBy = element?.getAttribute("aria-describedby");
@@ -592,11 +607,16 @@ describe("composite categorise node", () => {
         screen.getByRole("button", { name: "Move category 2 within its group" }),
       ).toBeInTheDocument();
       expect(
-        document.body.querySelector(
+        document.body.querySelectorAll(
           '[data-node="categorise-item"][data-contained-movement-target]',
-        ),
-      ).toBeNull();
-      expect(screen.queryByRole("button", { name: "Move categorise item" })).toBeNull();
+        ).length,
+      ).toBe(2);
+      expect(
+        screen.getByRole("button", { name: "Move item 1 in category 1 within its group" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Move item 1 in category 2 within its group" }),
+      ).toBeInTheDocument();
     });
     const doc = editableEditor.getJSON();
     editableView.unmount();
@@ -685,6 +705,42 @@ describe("composite categorise node", () => {
       type: "categorise_item",
       content: [{ type: "categorise_item_body", content: [{ type: "paragraph" }] }],
     });
+
+    view.unmount();
+    editor.destroy();
+  });
+
+  it("registers authored items for activated same-category movement", async () => {
+    const editor = makeEditor(true);
+    editor.commands.setContent(categoriseDoc());
+    const view = renderMovementEditor(editor);
+    const user = userEvent.setup();
+    const birdsBin = await waitFor(() => {
+      const element = document.body.querySelector<HTMLElement>(
+        '[data-node="categorise-bin"][data-id="birds_000001"]',
+      );
+      expect(element).not.toBeNull();
+      return element!;
+    });
+
+    await user.click(within(birdsBin).getByRole("button", { name: "Add item to category 1" }));
+    const handles = await within(birdsBin).findAllByRole("button", {
+      name: /Move item .* within its group/,
+    });
+    const before = editor.getJSON();
+    const beforeIds = categoriseItemIdsInBin(before, "birds_000001");
+    const fishIds = categoriseItemIdsInBin(before, "fish__000001");
+    expect(handles[1]).toHaveAttribute(
+      "aria-keyshortcuts",
+      "Space Enter ArrowUp ArrowDown Escape",
+    );
+    expect(birdsBin.querySelectorAll("[data-contained-movement-target]")).toHaveLength(2);
+
+    fireEvent.keyDown(handles[1]!, { key: "ArrowUp" });
+
+    const after = editor.getJSON();
+    expect(categoriseItemIdsInBin(after, "birds_000001")).toEqual(beforeIds);
+    expect(categoriseItemIdsInBin(after, "fish__000001")).toEqual(fishIds);
 
     view.unmount();
     editor.destroy();

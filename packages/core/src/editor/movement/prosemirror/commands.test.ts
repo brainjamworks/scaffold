@@ -1,7 +1,6 @@
 // @vitest-environment happy-dom
 
 import { Editor, Node, type JSONContent } from "@tiptap/core";
-import { NodeSelection } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -17,7 +16,7 @@ import { defineBlock } from "@/editor/blocks/block-definition";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { CourseDocumentNode, DocumentNode, createCourseSectionNode } from "@/document/model/nodes";
 import { pageDefaultSurfaceDefinition } from "@/editor/surfaces/model/templates/page-default";
 import type { SurfaceVariantDefinition } from "@/editor/surfaces/model/surface-variant-definition";
 import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
@@ -25,8 +24,6 @@ import { RegionAuthoringNode } from "@/editor/surfaces/authoring/nodes/region-au
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 
 import {
-  applyKeyboardContainedMovementIntent,
-  applyKeyboardMovementIntent as applyKeyboardMovementIntentWithLookup,
   applyMovementIntent as applyMovementIntentWithLookup,
   canApplyMovementIntent as canApplyMovementIntentWithLookup,
 } from "./commands";
@@ -76,19 +73,6 @@ const applyMovementIntent = (
   intent: Parameters<typeof applyMovementIntentWithLookup>[2],
 ) =>
   applyMovementIntentWithLookup(editor, sourcePos, intent, testBlockRegistry, testSurfaceVariants);
-
-const applyKeyboardMovementIntent = (
-  editor: Parameters<typeof applyKeyboardMovementIntentWithLookup>[0],
-  sourcePos: Parameters<typeof applyKeyboardMovementIntentWithLookup>[1],
-  direction: Parameters<typeof applyKeyboardMovementIntentWithLookup>[2],
-) =>
-  applyKeyboardMovementIntentWithLookup(
-    editor,
-    sourcePos,
-    direction,
-    testBlockRegistry,
-    testSurfaceVariants,
-  );
 
 const ROOT_INSERTION_DISABLED_VARIANT = "drag-root-insertion-disabled-test-surface";
 
@@ -195,71 +179,12 @@ const FillTestBlockNode = Node.create({
   },
 });
 
-const TestContainedChoiceNode = Node.create({
-  name: "selectable_choice",
-  content: "paragraph+",
-  defining: true,
-  isolating: true,
-  selectable: false,
-  draggable: false,
-
-  addAttributes() {
-    return {
-      id: {
-        default: null,
-        parseHTML: (element: HTMLElement) => element.getAttribute("data-id"),
-        renderHTML: (attrs: { id?: unknown }) =>
-          typeof attrs.id === "string" ? { "data-id": attrs.id } : {},
-      },
-    };
-  },
-
-  parseHTML() {
-    return [{ tag: "div[data-test-contained-choice]" }];
-  },
-
-  renderHTML({ HTMLAttributes }) {
-    return ["div", { ...HTMLAttributes, "data-test-contained-choice": "" }, 0];
-  },
-});
-
-const TestContainedChoicesGroupNode = Node.create({
-  name: "assessment_choices_group",
-  group: "block",
-  content: "selectable_choice+",
-  defining: true,
-  isolating: true,
-
-  parseHTML() {
-    return [{ tag: "div[data-test-contained-choices]" }];
-  },
-
-  renderHTML() {
-    return ["div", { "data-test-contained-choices": "" }, 0];
-  },
-});
-
 function block(id: string, attrs: Record<string, unknown> = {}): JSONContent {
   return { type: "test_block", attrs: { id, ...attrs } };
 }
 
 function fillBlock(id: string): JSONContent {
   return { type: FILL_TEST_BLOCK, attrs: { id } };
-}
-
-function containedChoice(id: string): JSONContent {
-  return {
-    type: "selectable_choice",
-    attrs: { id },
-    content: [paragraph()],
-  };
-}
-
-function containedChoices(ids: string[]): JSONContent {
-  return {
-    type: "assessment_choices_group",
-    content: ids.map(containedChoice),
-  };
 }
 
 function resizedBlock(id: string): JSONContent {
@@ -338,6 +263,7 @@ function makeEditor(content: JSONContent[], surfaceVariant = "page-default") {
       }),
       ExtendedParagraph,
       CourseDocumentNode,
+      createCourseSectionNode(),
       SurfaceNode,
       RegionAuthoringNode,
       GridAuthoringNode,
@@ -346,8 +272,6 @@ function makeEditor(content: JSONContent[], surfaceVariant = "page-default") {
       SectionAuthoringNode,
       TestBlockNode,
       FillTestBlockNode,
-      TestContainedChoicesGroupNode,
-      TestContainedChoiceNode,
     ],
     content: courseDocument(content, surfaceVariant),
   });
@@ -438,19 +362,6 @@ function idsInDocument(editor: Editor): string[] {
   return ids;
 }
 
-function containedChoiceIds(editor: Editor): string[] {
-  const ids: string[] = [];
-
-  editor.state.doc.descendants((node) => {
-    if (node.type.name === "selectable_choice" && typeof node.attrs["id"] === "string") {
-      ids.push(node.attrs["id"]);
-    }
-    return true;
-  });
-
-  return ids;
-}
-
 function blockAttrs(editor: Editor, id: string): Record<string, unknown> {
   let attrs: Record<string, unknown> | null = null;
 
@@ -508,114 +419,6 @@ function nodeTypesInJson(content: JSONContent): string[] {
 }
 
 describe("drag movement commands", () => {
-  it("moves a block between adjacent siblings through the keyboard command", () => {
-    const editor = makeEditor([block("a"), block("b"), block("c")]);
-
-    expect(
-      applyKeyboardMovementIntent(editor, nodePos(editor, "test_block", "b"), "backward"),
-    ).toEqual({
-      moved: true,
-      status: "Moved block up.",
-    });
-    expect(idsInDocument(editor)).toEqual(["b", "a", "c"]);
-    expect(editor.state.selection).toBeInstanceOf(NodeSelection);
-    expect(editor.state.selection.from).toBe(nodePos(editor, "test_block", "b"));
-
-    expect(
-      applyKeyboardMovementIntent(editor, nodePos(editor, "test_block", "b"), "forward"),
-    ).toEqual({
-      moved: true,
-      status: "Moved block down.",
-    });
-    expect(idsInDocument(editor)).toEqual(["a", "b", "c"]);
-    expect(editor.state.selection).toBeInstanceOf(NodeSelection);
-    expect(editor.state.selection.from).toBe(nodePos(editor, "test_block", "b"));
-
-    editor.destroy();
-  });
-
-  it("reports keyboard movement boundaries without mutating the document", () => {
-    const editor = makeEditor([block("a"), block("b")]);
-
-    expect(
-      applyKeyboardMovementIntent(editor, nodePos(editor, "test_block", "a"), "backward"),
-    ).toEqual({
-      moved: false,
-      status: "Block is already first.",
-    });
-    expect(idsInDocument(editor)).toEqual(["a", "b"]);
-
-    expect(
-      applyKeyboardMovementIntent(editor, nodePos(editor, "test_block", "b"), "forward"),
-    ).toEqual({
-      moved: false,
-      status: "Block is already last.",
-    });
-    expect(idsInDocument(editor)).toEqual(["a", "b"]);
-
-    editor.destroy();
-  });
-
-  it("moves a contained choice between adjacent siblings through the keyboard command", () => {
-    const editor = makeEditor([containedChoices(["a", "b", "c"])]);
-
-    expect(
-      applyKeyboardContainedMovementIntent(
-        editor,
-        nodePos(editor, "selectable_choice", "b"),
-        "backward",
-      ),
-    ).toEqual({
-      moved: true,
-      status: "Moved choice up.",
-    });
-    expect(containedChoiceIds(editor)).toEqual(["b", "a", "c"]);
-
-    expect(
-      applyKeyboardContainedMovementIntent(
-        editor,
-        nodePos(editor, "selectable_choice", "b"),
-        "forward",
-      ),
-    ).toEqual({
-      moved: true,
-      status: "Moved choice down.",
-    });
-    expect(containedChoiceIds(editor)).toEqual(["a", "b", "c"]);
-
-    editor.destroy();
-  });
-
-  it("reports contained keyboard movement boundaries without mutating the group", () => {
-    const editor = makeEditor([containedChoices(["a", "b"])]);
-
-    expect(
-      applyKeyboardContainedMovementIntent(
-        editor,
-        nodePos(editor, "selectable_choice", "a"),
-        "backward",
-      ),
-    ).toEqual({
-      moved: false,
-      status: "Choice is already first.",
-    });
-    expect(containedChoiceIds(editor)).toEqual(["a", "b"]);
-
-    expect(
-      applyKeyboardContainedMovementIntent(
-        editor,
-        nodePos(editor, "selectable_choice", "b"),
-        "forward",
-      ),
-    ).toEqual({
-      moved: false,
-      status: "Choice is already last.",
-    });
-    expect(containedChoiceIds(editor)).toEqual(["a", "b"]);
-
-    editor.destroy();
-  });
-
   it("moves a block after a sibling in the same parent", () => {
     const editor = makeEditor([block("a"), block("b"), block("c")]);
 

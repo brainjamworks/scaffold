@@ -55,6 +55,7 @@ export default defineConfig({
   },
   test: {
     env: { SCAFFOLD_DRAG_PERF: process.env["SCAFFOLD_DRAG_PERF"] ?? "" },
+    setupFiles: ["./vitest.setup.ts"],
     projects: [
       {
         extends: true,
@@ -63,11 +64,13 @@ export default defineConfig({
           exclude: ["**/node_modules/**", "**/dist/**", "src/**/*.browser.test.{ts,tsx}"],
           maxWorkers: 2,
           sequence: { groupOrder: 0 },
-          setupFiles: ["./vitest.setup.ts"],
         },
       },
       {
         extends: true,
+        optimizeDeps: {
+          include: ["vite-plus > vitest > expect-type"],
+        },
         test: {
           name: "browser",
           fileParallelism: false,

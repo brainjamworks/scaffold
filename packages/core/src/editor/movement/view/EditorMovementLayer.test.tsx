@@ -32,7 +32,7 @@ import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/t
 import { InteractionOwnerCommandKind } from "@/editor/interactions/targets/prosemirror/state/interaction-owner-command-model";
 import { setInteractionOwnerCommandMeta } from "@/editor/interactions/targets/prosemirror/state/interaction-owner-plugin-state";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { setEditorResizeGestureActive } from "@/editor/interactions/gesture/editor-resize-gesture";
 import { AuthoringOverlayBoundary } from "@/editor/interactions/floating/AuthoringOverlayBoundary";
 import { zIndex } from "@/ui/overlays/z-index";
@@ -131,7 +131,7 @@ const TestBlockNode = Node.create({
     return [{ tag: "div[data-test-block]" }];
   },
 
-  renderHTML({ HTMLAttributes }) {
+  renderHTML({ node, HTMLAttributes }) {
     return [
       "div",
       {
@@ -143,6 +143,33 @@ const TestBlockNode = Node.create({
         "data-node": TEST_BLOCK,
         "data-test-block": "",
       },
+      [
+        "span",
+        {
+          id: `movement-test-label-${String(node.attrs["id"] ?? "missing")}`,
+          "data-test-movement-snapshot-content": "",
+        },
+        `Block ${String(node.attrs["id"] ?? "missing")}`,
+      ],
+      [
+        "input",
+        {
+          id: `movement-test-control-${String(node.attrs["id"] ?? "missing")}`,
+          "data-test-movement-snapshot-control": "",
+          onclick: "window.__scaffoldMovementSnapshotActivated = true",
+          tabindex: "0",
+          value: "Recognizable control",
+        },
+      ],
+      [
+        "button",
+        {
+          "data-authoring-movement-snapshot-chrome": "",
+          "data-test-movement-snapshot-excluded": "",
+          type: "button",
+        },
+        "Authoring action",
+      ],
     ];
   },
 });
@@ -378,6 +405,7 @@ function makeEditor(content: JSONContent[]) {
       }),
       ExtendedParagraph,
       CourseDocumentNode,
+      createCourseSectionNode(),
       SurfaceNode,
       RegionNode,
       createScaffoldInteractionOwnerExtension(testBlockRegistry),
@@ -855,7 +883,7 @@ describe("EditorMovementLayer", () => {
     editor.destroy();
   });
 
-  it("moves the selected block with the keyboard handle and announces status", async () => {
+  it("exposes the activated keyboard drag contract without moving on an idle arrow", async () => {
     const editor = makeEditor([block("a"), block("b"), block("c")]);
     const pos = nodePos(editor, TEST_BLOCK, "b");
     const dom = editor.view.nodeDOM(pos);
@@ -877,25 +905,31 @@ describe("EditorMovementLayer", () => {
     renderMovementLayer(editor);
 
     const handle = await screen.findByRole("button", { name: "Move block" });
-    expect(handle.getAttribute("aria-keyshortcuts")).toBe("ArrowUp ArrowDown");
-    expect(describedText(handle)).toBe("Press Arrow Up or Arrow Down to move this block.");
+    expect(handle.getAttribute("aria-keyshortcuts")).toBe(
+      "Space Enter ArrowUp ArrowDown Escape",
+    );
+    expect(describedText(handle)).toBe(
+      "Press Space or Enter to pick up this block. Use Arrow Up or Arrow Down to choose a destination. Press Space or Enter to drop, or Escape to cancel.",
+    );
 
     fireEvent.keyDown(handle, { key: "ArrowUp" });
 
-    await waitFor(() => {
-      expect(idsInDocument(editor)).toEqual(["b", "a", "c"]);
-      expect(screen.getByTestId("scaffold-movement-status").textContent).toBe("Moved block up.");
-    });
+    expect(idsInDocument(editor)).toEqual(["a", "b", "c"]);
+    expect(screen.getByTestId("scaffold-movement-status").textContent).toBe("");
     editor.destroy();
   });
 
-  it("moves a contained item with the keyboard handle and announces status", async () => {
+  it("keeps contained idle arrows from competing with the drag session", async () => {
     const editor = makeEditor([containedChoices(["a", "b", "c"])]);
     const initialSourcePos = nodePos(editor, CONTAINED_CHOICE, "b");
 
     renderMovementLayer(
       editor,
       <ContainedMovementHandle
+        getPresentationElement={() => {
+          const element = editor.view.nodeDOM(initialSourcePos);
+          return element instanceof HTMLElement ? element : null;
+        }}
         getSourcePos={() => nodePos(editor, CONTAINED_CHOICE, "b")}
         label="choice"
         sourceKey="choice-b"
@@ -904,9 +938,11 @@ describe("EditorMovementLayer", () => {
     );
 
     const handle = screen.getByRole("button", { name: "Move choice within its group" });
-    expect(handle.getAttribute("aria-keyshortcuts")).toBe("ArrowUp ArrowDown");
+    expect(handle.getAttribute("aria-keyshortcuts")).toBe(
+      "Space Enter ArrowUp ArrowDown Escape",
+    );
     expect(describedText(handle)).toBe(
-      "Press Arrow Up or Arrow Down to move this choice within its group.",
+      "Press Space or Enter to pick up this choice. Use Arrow Up or Arrow Down to choose a destination within its group. Press Space or Enter to drop, or Escape to cancel.",
     );
 
     const mouseDown = new MouseEvent("mousedown", {
@@ -918,10 +954,8 @@ describe("EditorMovementLayer", () => {
 
     fireEvent.keyDown(handle, { key: "ArrowUp" });
 
-    await waitFor(() => {
-      expect(containedChoiceIds(editor)).toEqual(["b", "a", "c"]);
-      expect(screen.getByTestId("scaffold-movement-status").textContent).toBe("Moved choice up.");
-    });
+    expect(containedChoiceIds(editor)).toEqual(["a", "b", "c"]);
+    expect(screen.getByTestId("scaffold-movement-status").textContent).toBe("");
     editor.destroy();
   });
 
@@ -935,7 +969,12 @@ describe("EditorMovementLayer", () => {
 
     renderMovementLayer(
       editor,
-      <ContainedMovementHandle label="choice" sourceKey="choice-a" sourcePos={3} />,
+      <ContainedMovementHandle
+        getPresentationElement={() => dom}
+        label="choice"
+        sourceKey="choice-a"
+        sourcePos={3}
+      />,
     );
 
     const blockHandle = await screen.findByRole("button", { name: "Move block" });
@@ -945,7 +984,10 @@ describe("EditorMovementLayer", () => {
     for (const handle of [blockHandle, containedHandle]) {
       expect(handle).toHaveAttribute("data-interaction-drag-activation-area");
       expect(handle).not.toHaveAttribute("aria-roledescription");
-      expect(handle).toHaveAttribute("aria-keyshortcuts", "ArrowUp ArrowDown");
+      expect(handle).toHaveAttribute(
+        "aria-keyshortcuts",
+        "Space Enter ArrowUp ArrowDown Escape",
+      );
     }
     expect(blockHandle.className).toContain("sc-editor-movement-handle");
     expect(containedHandle.className).toContain("sc-contained-movement-handle");
@@ -957,7 +999,12 @@ describe("EditorMovementLayer", () => {
 
     renderMovementLayer(
       editor,
-      <StructureMovementHandle label="section" sourceKey="section-a" sourcePos={3} />,
+      <StructureMovementHandle
+        getPresentationElement={() => editor.view.dom}
+        label="section"
+        sourceKey="section-a"
+        sourcePos={3}
+      />,
     );
 
     const handle = screen.getByRole("button", { name: "Move section" });
@@ -1046,7 +1093,7 @@ describe("EditorMovementLayer", () => {
     editor.destroy();
   });
 
-  it("begins and ends a gesture around a movement handle drag", async () => {
+  it("dismisses transient UI before owning a movement handle drag gesture", async () => {
     const editor = makeEditor([block("a"), block("b")]);
     const pos = nodePos(editor, TEST_BLOCK, "a");
     const dom = editor.view.nodeDOM(pos);
@@ -1067,10 +1114,16 @@ describe("EditorMovementLayer", () => {
 
     const beginTargets: unknown[] = [];
     let endedGestures = 0;
+    const gestureLifecycle: string[] = [];
     const store = createInteractionStore({
       commandPorts: {
         beginGesture: (target) => {
           beginTargets.push(target);
+          gestureLifecycle.push("begin");
+          return true;
+        },
+        dismissInteraction: () => {
+          gestureLifecycle.push("dismiss");
           return true;
         },
         endGesture: () => {
@@ -1122,6 +1175,29 @@ describe("EditorMovementLayer", () => {
     await waitFor(() => {
       expect(beginTargets).toEqual([{ id: "a", kind: InteractionTargetKind.Block, pos }]);
     });
+    expect(gestureLifecycle).toEqual(["dismiss", "begin"]);
+
+    expect(handle).not.toHaveAttribute("data-interaction-drag-placeholder");
+    expect(dom).toHaveAttribute("data-authoring-movement-silhouette");
+    const overlay = document.querySelector<HTMLElement>("[data-interaction-drag-overlay]");
+    expect(overlay).not.toBeNull();
+    expect(overlay?.style.width).toBe("200px");
+    expect(overlay?.style.height).toBe("80px");
+    expect(overlay?.style.overflow).toBe("visible");
+    const snapshot = overlay?.querySelector<HTMLElement>("[data-authoring-movement-snapshot]");
+    expect(snapshot).not.toBeNull();
+    expect(snapshot).toHaveAttribute("aria-hidden", "true");
+    expect(snapshot).toHaveAttribute("inert");
+    expect(snapshot?.textContent).toContain("Block a");
+    expect(snapshot?.querySelector("[data-test-movement-snapshot-excluded]")).toBeNull();
+    expect(snapshot?.querySelector("[id]")).toBeNull();
+    const snapshotControl = snapshot?.querySelector<HTMLInputElement>(
+      "[data-test-movement-snapshot-control]",
+    );
+    expect(snapshotControl).not.toBeNull();
+    expect(snapshotControl?.value).toBe("Recognizable control");
+    expect(snapshotControl?.tabIndex).toBe(-1);
+    expect(snapshotControl).not.toHaveAttribute("onclick");
 
     fireEvent.pointerUp(handle.ownerDocument, {
       clientX: 60,
@@ -1131,6 +1207,7 @@ describe("EditorMovementLayer", () => {
 
     await waitFor(() => {
       expect(endedGestures).toBeGreaterThan(0);
+      expect(dom).not.toHaveAttribute("data-authoring-movement-silhouette");
     });
     editor.destroy();
   });

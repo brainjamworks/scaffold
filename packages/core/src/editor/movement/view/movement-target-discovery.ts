@@ -8,7 +8,10 @@ import {
   createStructureMovementPolicy,
   resolveMovementNodeContext,
 } from "../model/movement-policy";
-import { CONTAINED_MOVEMENT_TARGET_ATTR, resolveMovementAnchorElement } from "./movement-dom";
+import {
+  resolveContainedMovementTargetPresentation,
+  resolveStructureMovementTargetPresentation,
+} from "./movement-dom";
 import type {
   MovementTargetDescriptor,
   MovementTargetKey,
@@ -52,17 +55,18 @@ export function discoverMovementTargetDescriptors({
 
     const dom = view.nodeDOM(pos);
     if (!isElement(dom, view.dom.ownerDocument)) return true;
-    const element =
+    const presentation =
       source.kind === "structure"
-        ? resolveMovementAnchorElement(dom, context, blockDefinitions)
-        : resolveContainedMovementAnchorElement(dom);
-    if (!element) return true;
+        ? resolveStructureMovementTargetPresentation(dom, context, blockDefinitions)
+        : resolveContainedMovementTargetPresentation(dom);
+    if (!presentation) return true;
 
     descriptors.push(
       Object.freeze({
+        axis: presentation.axis,
         context,
         documentPosition: pos,
-        element,
+        element: presentation.element,
         key: movementTargetKey(source.kind, context),
         kind: source.kind,
       }),
@@ -84,11 +88,6 @@ function movementTargetKey(
   const identity =
     typeof id === "string" && id.trim() ? id : `${context.parentPos ?? "root"}:${context.index}`;
   return `${kind}:${context.nodeType.name}:${context.pos}:${identity}`;
-}
-
-function resolveContainedMovementAnchorElement(dom: Element): Element | null {
-  if (dom.matches(`[${CONTAINED_MOVEMENT_TARGET_ATTR}]`)) return dom;
-  return dom.querySelector(`[${CONTAINED_MOVEMENT_TARGET_ATTR}]`);
 }
 
 function isElement(value: unknown, ownerDocument: Document): value is Element {

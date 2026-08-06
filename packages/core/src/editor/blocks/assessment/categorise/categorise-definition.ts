@@ -2,6 +2,7 @@ import { ListBulletsIcon as ListBullets } from "@phosphor-icons/react";
 import { CategorisePrivateAssessmentSchema, CategoriseSettingsSchema } from "@scaffold/contracts";
 
 import { assessmentShellPlaceholders } from "@/editor/blocks/assessment/shared/nodes/assessment-placeholders";
+import { rewriteCategoriseCopiedContent } from "@/editor/blocks/assessment/shared/identity/copy-identity";
 import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/model/assessment-capability";
 import { createStableId } from "@/document/model/identity/stable-ids";
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
@@ -80,6 +81,7 @@ function makeBin(items: ReturnType<typeof makeItem>[]) {
 
 export const categoriseBlockDefinition = defineBlock({
   nodeType: "categorise",
+  rewriteCopiedContent: rewriteCategoriseCopiedContent,
   boundedPlacement: "fill",
   configuration: categoriseConfiguration,
   placeholders: {

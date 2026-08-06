@@ -1,8 +1,14 @@
 import type { ClientDelta, ClientPoint, LocalDelta } from "./coordinate-space";
 
-export type DragInputProfile = "pointer" | "sortable-vertical" | "sortable-horizontal";
+export type DragInputProfile =
+  | "pointer"
+  | "pointer-keyboard"
+  | "sortable-vertical"
+  | "sortable-horizontal";
 export type DragAccessibilityMode = "draggable" | "sortable" | "selection-alternative";
 export type DragInputKind = "pointer" | "keyboard";
+export type DragKeyboardAxis = "horizontal" | "vertical";
+export type DragKeyboardDirection = "down" | "left" | "right" | "up";
 export type InteractionCollisionPolicy = "pointer" | "closest-center" | "feature-resolver";
 
 export type DragCancellationReason =
@@ -34,6 +40,7 @@ export interface InteractionDragEntity<Data> {
 
 export interface InteractionDragEvent<ActiveData, OverData> {
   readonly input: DragInputKind;
+  readonly keyboardDirection: DragKeyboardDirection | null;
   readonly active: Readonly<InteractionDragEntity<ActiveData>>;
   readonly over: Readonly<InteractionDragEntity<OverData>> | null;
   readonly clientPoint: ClientPoint | null;

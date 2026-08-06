@@ -1,12 +1,13 @@
 // @vitest-environment happy-dom
 
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Node as TiptapNode, type JSONContent } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
+import UniqueID from "@tiptap/extension-unique-id";
 import StarterKit from "@tiptap/starter-kit";
 import { createElement } from "react";
-import { afterEach, describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
@@ -64,6 +65,7 @@ describeBlockContract({
 afterEach(() => {
   cleanup();
   document.body.replaceChildren();
+  vi.restoreAllMocks();
 });
 
 function timelineFixture(): JSONContent {
@@ -136,6 +138,7 @@ function renderTimelineEditor(
         paragraph: false,
       }),
       ExtendedParagraph,
+      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       BoundedRegionTestNode,
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
       createRuntimeBlockFrameAttributesExtension([TIMELINE_NODE]),
@@ -220,6 +223,14 @@ describe("timeline block", () => {
     });
     expect(document.body.querySelector("[data-contained-movement-target]")).not.toBeNull();
     expect(document.body.querySelector("[data-contained-movement-handle]")).not.toBeNull();
+    expect(document.body.querySelector("[data-contained-movement-target]")).toHaveAttribute(
+      "data-movement-target-axis",
+      "vertical",
+    );
+    expect(document.body.querySelector("[data-contained-movement-handle]")).toHaveAttribute(
+      "aria-keyshortcuts",
+      "Space Enter ArrowUp ArrowDown Escape",
+    );
     expect(document.body.querySelector("[data-layout-kind]")).toBeNull();
     expect(document.body.querySelector("[data-layout-section-menu-trigger]")).toBeNull();
     expect(document.body.querySelector('[data-authoring-frame="layout"]')).toBeNull();
@@ -228,6 +239,95 @@ describe("timeline block", () => {
     });
     expect(deleteButton).not.toBeNull();
 
+    fixture.destroy();
+  });
+
+  it("owns horizontal target geometry and the activated Left/Right keyboard contract", async () => {
+    const content = timelineFixture();
+    const timeline = content.content?.[0];
+    if (!timeline?.attrs?.["data"] || typeof timeline.attrs["data"] !== "object") {
+      throw new Error("Expected timeline fixture data");
+    }
+    timeline.attrs["data"] = { ...timeline.attrs["data"], presentation: "carousel" };
+    const initialIds = timeline.content?.map((item) => item.attrs?.["id"]);
+    const fixture = renderTimelineEditor(content);
+
+    const handles = await screen.findAllByRole("button", {
+      name: "Move timeline event within its group",
+    });
+    expect(handles[0]).toHaveAttribute(
+      "aria-keyshortcuts",
+      "Space Enter ArrowLeft ArrowRight Escape",
+    );
+    expect(handles[0]).toHaveAccessibleDescription(
+      "Press Space or Enter to pick up this timeline event. Use Arrow Left or Arrow Right to choose a destination within its group. Press Space or Enter to drop, or Escape to cancel.",
+    );
+    expect(document.body.querySelector("[data-contained-movement-target]")).toHaveAttribute(
+      "data-movement-target-axis",
+      "horizontal",
+    );
+
+    fireEvent.keyDown(handles[0]!, { key: "ArrowDown" });
+    expect(fixture.json().content?.[0]?.content?.map((item) => item.attrs?.["id"])).toEqual(
+      initialIds,
+    );
+
+    fireEvent.keyDown(handles[0]!, { key: "ArrowRight" });
+    expect(fixture.json().content?.[0]?.content?.map((item) => item.attrs?.["id"])).toEqual(
+      initialIds,
+    );
+
+    fixture.destroy();
+  });
+
+  it("uses the complete timeline event as its movement presentation source", async () => {
+    vi.spyOn(document.body, "getBoundingClientRect").mockReturnValue(
+      DOMRect.fromRect({ height: 800, width: 1000, x: 0, y: 0 }),
+    );
+    const fixture = renderTimelineEditor();
+    await waitFor(() => {
+      expect(document.body.querySelector("[data-timeline-event]")).not.toBeNull();
+    });
+    const event = document.body.querySelector<HTMLElement>("[data-timeline-event]");
+    if (!event) throw new Error("Expected timeline event");
+    const handle = event.querySelector<HTMLButtonElement>("[data-contained-movement-handle]");
+    if (!handle) throw new Error("Expected timeline movement handle");
+    vi.spyOn(event, "getBoundingClientRect").mockReturnValue(
+      DOMRect.fromRect({ height: 160, width: 360, x: 80, y: 60 }),
+    );
+    vi.spyOn(handle, "getBoundingClientRect").mockReturnValue(
+      DOMRect.fromRect({ height: 44, width: 44, x: 88, y: 68 }),
+    );
+
+    fireEvent.pointerDown(handle, {
+      button: 0,
+      clientX: 100,
+      clientY: 80,
+      isPrimary: true,
+      pointerId: 1,
+    });
+    fireEvent.pointerMove(handle.ownerDocument, {
+      clientX: 110,
+      clientY: 90,
+      pointerId: 1,
+    });
+
+    await waitFor(() => {
+      expect(event).toHaveAttribute("data-authoring-movement-silhouette");
+    });
+    const snapshot = document.body.querySelector<HTMLElement>("[data-authoring-movement-snapshot]");
+    expect(snapshot?.textContent).toContain("Landing");
+    expect(snapshot?.querySelector("[data-contained-movement-handle]")).toBeNull();
+    expect(snapshot?.querySelector('[aria-label^="Delete timeline event"]')).toBeNull();
+
+    fireEvent.pointerUp(handle.ownerDocument, {
+      clientX: 110,
+      clientY: 90,
+      pointerId: 1,
+    });
+    await waitFor(() => {
+      expect(event).not.toHaveAttribute("data-authoring-movement-silhouette");
+    });
     fixture.destroy();
   });
 

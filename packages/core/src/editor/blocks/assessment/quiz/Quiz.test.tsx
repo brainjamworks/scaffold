@@ -57,6 +57,7 @@ import {
   type QuizSettings,
   AssessmentProblemSnapshotSchema,
   AssessmentResultSchema,
+  EmbeddedNodeIdSchema,
   type AssessmentProblemSnapshot,
   type AssessmentResult,
   type QuizAttemptState,
@@ -364,6 +365,7 @@ const TestAssessmentQuestionNode = Node.create({
   addAttributes() {
     return {
       id: { default: null },
+      sourceRef: { default: null },
       settings: {
         default: {
           feedbackMode: "on_submit",
@@ -426,6 +428,18 @@ const testAssessmentCapability = defineAssessmentCapability({
 
 const testAssessmentQuestionDefinition = defineBlock({
   nodeType: "test_assessment_question",
+  rewriteCopiedContent: ({ content, nodeIdChanges }) => {
+    const sourceRef = EmbeddedNodeIdSchema.safeParse(content.attrs?.["sourceRef"]);
+    return {
+      ...content,
+      attrs: {
+        ...content.attrs,
+        sourceRef: sourceRef.success
+          ? (nodeIdChanges.get(sourceRef.data) ?? sourceRef.data)
+          : content.attrs?.["sourceRef"],
+      },
+    };
+  },
   configuration: createAssessmentConfiguration({
     schema: testAssessmentQuestionSettingsSchema,
     title: "Test quiz assessment question settings",
@@ -2594,7 +2608,10 @@ describe("quiz block skeleton", () => {
             type: "quiz",
             attrs: { id: "quiz-duplicate-question" },
             content: [
-              { type: "test_assessment_question", attrs: { id: "questn_00001" } },
+              {
+                type: "test_assessment_question",
+                attrs: { id: "questn_00001", sourceRef: "questn_00001" },
+              },
               { type: "test_assessment_question", attrs: { id: "questn_00002" } },
             ],
           },
@@ -2614,14 +2631,15 @@ describe("quiz block skeleton", () => {
     fireEvent.click(duplicateButton);
 
     const quiz = editor.getJSON().content?.[0];
-    const childIds = quiz?.content?.map((child) =>
-      "attrs" in child ? child.attrs?.["id"] : undefined,
-    );
+    const questions = quiz?.content as JSONContent[] | undefined;
+    const childIds = questions?.map((child) => child.attrs?.["id"]);
     expect(quiz?.type).toBe("quiz");
     expect(childIds).toHaveLength(3);
     expect(childIds?.[0]).toBe("questn_00001");
     expect(childIds?.[1]).not.toBe("questn_00001");
     expect(childIds?.[2]).toBe("questn_00002");
+    expect(questions?.[0]?.attrs?.["sourceRef"]).toBe("questn_00001");
+    expect(questions?.[1]?.attrs?.["sourceRef"]).toBe(childIds?.[1]);
 
     editor.destroy();
   });

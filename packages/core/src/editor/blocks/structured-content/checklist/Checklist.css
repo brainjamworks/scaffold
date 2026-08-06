@@ -135,9 +135,7 @@
     background: var(--color-muted);
   }
 
-  /* Drag handle column. Hidden until the row is hovered; floats over
- * the left edge of the shell. The shared StructureMovementHandle
- * owns the visual treatment (dots icon + dnd kit listeners). */
+  /* Movement handle column. Hidden until the row is hovered. */
 
   .sc-checklist-item__drag {
     display: inline-flex;

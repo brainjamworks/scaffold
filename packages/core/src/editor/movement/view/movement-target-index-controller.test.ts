@@ -8,6 +8,7 @@ import type { FrameScheduler } from "@/editor/interactions/drag/dom/frame-coales
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 
 import type { MovementNodeContext } from "../model/movement-policy";
+import { MoveContainedAfterTarget } from "../model/movement-intents";
 import type { MovementTargetDescriptor, MovementTargetEntry } from "./movement-target-index";
 import { createMovementTargetIndexController } from "./movement-target-index-controller";
 
@@ -50,12 +51,27 @@ function context(pos: number, id: string): MovementNodeContext {
 
 function descriptor(pos: number, id: string, element = document.createElement("div")) {
   return {
+    axis: "vertical",
     context: context(pos, id),
     documentPosition: pos,
     element,
     key: `structure:test_block:${pos}:${id}`,
     kind: "structure",
   } as const satisfies MovementTargetDescriptor;
+}
+
+function containedDescriptor(
+  context: MovementNodeContext,
+  element = document.createElement("div"),
+): MovementTargetDescriptor {
+  return {
+    axis: "horizontal",
+    context,
+    documentPosition: context.pos,
+    element,
+    key: `contained:${context.nodeType.name}:${context.pos}:${String(context.node.attrs["id"])}`,
+    kind: "contained",
+  };
 }
 
 function entry(
@@ -153,6 +169,43 @@ describe("movement target index controller", () => {
 
     expect(measure).toHaveBeenCalledTimes(1);
     expect(controller.getCandidate()?.target.pos).toBe(2);
+    controller.dispose();
+  });
+
+  it("preserves a keyboard destination while its presentation geometry is remeasured", () => {
+    const parent = { childCount: 3 } as MovementNodeContext["parent"];
+    const source = { ...context(1, "source"), index: 0, parent };
+    const targetContext = { ...context(2, "target"), index: 1, parent };
+    const target = containedDescriptor(targetContext);
+    document.body.append(target.element);
+    vi.spyOn(target.element, "getBoundingClientRect").mockReturnValue(
+      DOMRect.fromRect({ height: 80, width: 200, x: 20, y: 20 }),
+    );
+    const scheduler = new TestFrameScheduler();
+    const controller = createMovementTargetIndexController(
+      controllerOptions({
+        discoverDescriptors: ({ documentRevision }) => ({
+          descriptors: [target],
+          documentRevision,
+        }),
+        frameScheduler: scheduler,
+        measureEntries: () => [entry(target, 20)],
+        resolveSource: () => ({ context: source, kind: "contained" as const }),
+      }),
+    );
+
+    controller.start(null);
+    const navigation = controller.moveKeyboard("forward");
+
+    expect(navigation).toMatchObject({ changed: true, destinationIndex: 1, total: 3 });
+    expect(navigation?.candidate?.intent).toBeInstanceOf(MoveContainedAfterTarget);
+    expect(controller.getCandidate()?.target.pos).toBe(2);
+
+    controller.invalidate("resize");
+    scheduler.flush();
+
+    expect(controller.getCandidate()?.target.pos).toBe(2);
+    expect(controller.getCandidate()?.target.axis).toBe("horizontal");
     controller.dispose();
   });
 

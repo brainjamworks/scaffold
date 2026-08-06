@@ -2,6 +2,7 @@ import type { JSONContent } from "@tiptap/core";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { EmbeddedDataIdSchema, EmbeddedNodeIdSchema } from "@scaffold/contracts";
+import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
@@ -26,7 +27,7 @@ function cloneJsonWithNewStableIds<T extends JSONContent | JSONContent[]>(
   } = {},
 ): T {
   return cloneJsonWithNewStableIdsUsingLookup(content, {
-    blockDefinitions: EMPTY_BLOCK_DEFINITIONS,
+    blockDefinitions: builtInBlockRegistry,
     ...options,
   });
 }
@@ -170,6 +171,33 @@ describe("cloneJsonWithNewStableIds", () => {
     );
 
     expect(clone.attrs?.["id"]).toBe("ordinary0002");
+  });
+
+  it("does not discover private payload references without a mounted owner callback", () => {
+    const allocatedNodeIds = [
+      EmbeddedNodeIdSchema.parse("blocknew0002"),
+      EmbeddedNodeIdSchema.parse("choicenew002"),
+    ];
+    const source: JSONContent = {
+      type: "mcq",
+      attrs: {
+        id: "blockold0002",
+        assessment: { correctOptionId: "choiceold002" },
+      },
+      content: [{ type: "selectable_choice", attrs: { id: "choiceold002" } }],
+    };
+
+    const clone = cloneJsonWithNewStableIds(source, {
+      blockDefinitions: EMPTY_BLOCK_DEFINITIONS,
+      createId: () => {
+        const id = allocatedNodeIds.shift();
+        if (!id) throw new Error("unexpected node identity allocation");
+        return id;
+      },
+    });
+
+    expect(firstNodeByType(clone, "selectable_choice")?.attrs?.["id"]).toBe("choicenew002");
+    expect(assessmentOf(clone)["correctOptionId"]).toBe("choiceold002");
   });
 
   it("remaps a complete course section fragment through one coordinated identity source", () => {

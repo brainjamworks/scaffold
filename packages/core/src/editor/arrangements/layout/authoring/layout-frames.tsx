@@ -1,6 +1,6 @@
 import { NodeViewWrapper } from "@tiptap/react";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
-import type { ReactNode } from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { useStore } from "zustand";
 
 import {
@@ -26,6 +26,10 @@ import { cn } from "@/lib/cn";
 import { VerticalContentPositionSchema } from "@/schemas/course-document";
 
 import type { LayoutComponentProps } from "./layout-view-definition";
+import {
+  registerMovementTargetPresentationOwner,
+  type MovementTargetPresentationOwner,
+} from "@/editor/movement/view/movement-dom";
 
 import "@/editor/frame/view/bounded-placement.css";
 
@@ -45,6 +49,7 @@ interface SectionAuthoringFrameProps {
   children: ReactNode;
   className?: string;
   isEmpty?: boolean;
+  movementTargetPresentation?: MovementTargetPresentationOwner;
   node: ProseMirrorNode;
   sectionId: unknown;
   variant: string;
@@ -92,12 +97,22 @@ export function SectionAuthoringFrame({
   children,
   className,
   isEmpty,
+  movementTargetPresentation,
   node,
   sectionId,
   variant,
 }: SectionAuthoringFrameProps) {
+  const frameRef = useRef<HTMLElement | null>(null);
+
+  useLayoutEffect(() => {
+    const frame = frameRef.current;
+    if (!frame || !movementTargetPresentation) return;
+    return registerMovementTargetPresentationOwner(frame, movementTargetPresentation);
+  }, [movementTargetPresentation]);
+
   return (
     <NodeViewWrapper
+      ref={frameRef}
       data-empty={isEmpty ? "true" : undefined}
       data-layout-kind={variant === "section" ? undefined : variant}
       data-vertical-content-position={readVerticalPosition(node.attrs["verticalPosition"])}

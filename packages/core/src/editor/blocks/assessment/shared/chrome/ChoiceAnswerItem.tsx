@@ -1,5 +1,5 @@
 import { CheckIcon as Check, XIcon as X, TrashIcon as Trash } from "@phosphor-icons/react";
-import { useId, type ReactNode } from "react";
+import { useId, type ButtonHTMLAttributes, type ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
 import { iconSm, iconXs } from "@/ui/tokens/icon-sizes";
@@ -10,6 +10,8 @@ import "./choice-answer-item.css";
 import "./choice-trailing-button.css";
 
 interface ChoiceAnswerItemProps {
+  /** Attributes applied to authoring-only controls such as correctness and delete actions. */
+  authoringControlAttributes?: ButtonHTMLAttributes<HTMLButtonElement>;
   /** Stable choice id (uuid). */
   id: string;
   /** Group name for runtime radio/checkbox grouping (e.g. `mcq-{nodeId}`). */
@@ -70,6 +72,7 @@ interface ChoiceAnswerItemProps {
  * 999px pill is reserved for buttons.
  */
 export function ChoiceAnswerItem({
+  authoringControlAttributes,
   id,
   name,
   inputType,
@@ -205,6 +208,7 @@ export function ChoiceAnswerItem({
     <div className={pillClasses} data-author-correct={isCorrect || undefined}>
       {leading}
       <button
+        {...authoringControlAttributes}
         type="button"
         onClick={(e) => {
           e.stopPropagation();
@@ -222,6 +226,7 @@ export function ChoiceAnswerItem({
       <div className={contentClasses}>{children}</div>
       {feedbackControl}
       <button
+        {...authoringControlAttributes}
         type="button"
         onClick={(e) => {
           e.stopPropagation();

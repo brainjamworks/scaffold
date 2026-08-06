@@ -2,6 +2,7 @@ import { NodeViewContent } from "@tiptap/react";
 
 import {
   LayoutAddGhost,
+  resolveSectionPresentationElement,
   SectionActionTrigger,
   SectionMovementHandle,
 } from "../authoring/layout-chrome";
@@ -74,6 +75,12 @@ export function AccordionSectionView(props: SectionComponentProps) {
         props.editable ? (
           <SectionMovementHandle
             editor={props.editor}
+            getPresentationElement={() =>
+              resolveSectionPresentationElement({
+                editor: props.editor,
+                getPos: props.getPos,
+              })
+            }
             getPos={props.getPos}
             sectionId={sectionId}
             className="sc-accordion-section__handle"

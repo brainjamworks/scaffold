@@ -22,7 +22,6 @@ import {
 } from "@/editor/prosemirror/move-sibling/move-sibling-node";
 import { ASSESSMENT_QUESTION_CONTENT } from "@/document/model/content-model/content-groups";
 import { cloneJsonWithNewStableIds } from "@/document/model/identity/clone-with-new-ids";
-import { createStableId } from "@/document/model/identity/stable-ids";
 import { createCatalogNodeChecked } from "@/editor/insertion/checked-insertion";
 import type { InsertCatalog } from "@/editor/insertion/insert-catalog";
 import type { InsertAction } from "@/editor/insertion/insert-action";
@@ -159,19 +158,14 @@ export function duplicateQuizQuestion({
 
   const source = node.child(index);
   const sourceJson = source.toJSON() as JSONContent;
-  const duplicatedId = createStableId();
   const cloneJson = cloneJsonWithNewStableIds(sourceJson, {
     blockDefinitions: getScaffoldCapabilitiesForEditor(editor).blocks.registry,
   });
+  const duplicatedId = cloneJson.attrs?.["id"];
+  if (typeof duplicatedId !== "string") return null;
   let clone: ProseMirrorNode;
   try {
-    clone = source.type.schema.nodeFromJSON({
-      ...cloneJson,
-      attrs: {
-        ...(cloneJson.attrs ?? {}),
-        id: duplicatedId,
-      },
-    });
+    clone = source.type.schema.nodeFromJSON(cloneJson);
   } catch {
     return null;
   }

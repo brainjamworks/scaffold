@@ -3,7 +3,7 @@ import { useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { render as renderBrowserReact, type RenderResult } from "vitest-browser-react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import { page } from "vite-plus/test/browser/context";
+import { page, userEvent } from "vite-plus/test/browser/context";
 
 import { TestInteractionDragEnvironment } from "../testing/TestInteractionDragEnvironment";
 import type { DragCancellationReason } from "../model/interaction-drag-event";
@@ -91,7 +91,7 @@ describe("InteractionDragSession browser lifecycle", () => {
     await startPointerDrag(source);
     expect(ready.overlay()).not.toBeNull();
     expect(ready.sourceShape()).toHaveAttribute("data-interaction-drag-placeholder", "");
-    fireEvent.keyDown(document, { code: "Escape", key: "Escape" });
+    await userEvent.keyboard("{Escape}");
     await ready.waitForIdle();
   });
 
@@ -104,7 +104,7 @@ describe("InteractionDragSession browser lifecycle", () => {
 
     await startPointerDrag(source);
     await waitFor(() => announcementText(harness.overlayHost).includes("Picked up Alpha"));
-    fireEvent.keyDown(document, { code: "Escape", key: "Escape" });
+    await userEvent.keyboard("{Escape}");
     await harness.waitForIdle();
 
     expect(harness.cancellations).toContain("escape");
@@ -135,7 +135,7 @@ describe("InteractionDragSession browser lifecycle", () => {
     mounted.push(sourceRemoval);
     await startPointerDrag(requiredSource(sourceRemoval));
     sourceRemoval.removeSource();
-    await animationFrames(3);
+    await sourceRemoval.waitForIdle();
     expect(sourceRemoval.source()).toBeNull();
     expect(sourceRemoval.cancellations).toEqual(["source-removed"]);
     expect(sourceRemoval.mountHost.querySelector("[data-interaction-drag-placeholder]")).toBeNull();
@@ -149,9 +149,7 @@ describe("InteractionDragSession browser lifecycle", () => {
     await movePointer({ x: 340, y: 230 });
     await environmentLoss.waitForIdle();
     expect(environmentLoss.cancellations).toEqual(["environment-lost"]);
-    expect(environmentLoss.sourceShape()).not.toHaveAttribute(
-      "data-interaction-drag-placeholder",
-    );
+    expect(environmentLoss.sourceShape()).not.toHaveAttribute("data-interaction-drag-placeholder");
   });
 
   it("uses source geometry while a distinct handle activates the drag", async () => {
@@ -169,7 +167,7 @@ describe("InteractionDragSession browser lifecycle", () => {
     expect(overlay.style.width).toBe("100px");
     expect(overlay.style.height).toBe("56px");
 
-    fireEvent.keyDown(document, { code: "Escape", key: "Escape" });
+    await userEvent.keyboard("{Escape}");
     await harness.waitForIdle();
   });
 

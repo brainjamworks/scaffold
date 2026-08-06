@@ -10,8 +10,9 @@ import { useEffect, useId, useMemo, useRef } from "react";
 
 import { CHOICE_TRAILING_BTN, ChoiceAnswerItem } from "../chrome/ChoiceAnswerItem";
 import { richTextDocumentToAssessmentFeedback } from "../model/private-assessment-attrs";
-import { CONTAINED_MOVEMENT_TARGET_ATTR } from "@/editor/movement/view/movement-dom";
+import { containedMovementTargetAttributes } from "@/editor/movement/view/movement-dom";
 import { ContainedMovementHandle } from "@/editor/movement/view/ContainedMovementHandle";
+import { authoringMovementSnapshotChromeAttributes } from "@/editor/movement/view/authoring-movement-presentation";
 import { Placeholder } from "@/editor/prosemirror/placeholder/Placeholder";
 import { createFieldContentEditorExtensions } from "@/editor/rich-text/authoring/field-content-extensions";
 import { EditableOverlayPopover } from "@/editor/rich-text/authoring/nested-overlay/EditableOverlayPopoverShell";
@@ -41,6 +42,7 @@ export const SelectableChoiceAuthoringNode = createSelectableChoiceNode({
 });
 
 function SelectableChoiceAuthoringNodeView(props: NodeViewProps) {
+  const presentationRef = useRef<HTMLDivElement | null>(null);
   const parsed = SelectableChoiceAttrsSchema.safeParse(props.node.attrs);
   const attrs: SelectableChoiceAttrs = parsed.success ? parsed.data : { id: "" };
   const popoverId = useId();
@@ -147,6 +149,7 @@ function SelectableChoiceAuthoringNodeView(props: NodeViewProps) {
     <EditableOverlayPopover.Root>
       <EditableOverlayPopover.Trigger asChild>
         <button
+          {...authoringMovementSnapshotChromeAttributes()}
           type="button"
           aria-label={hasFeedback ? "Edit feedback" : "Add feedback"}
           onClick={(event) => event.stopPropagation()}
@@ -185,11 +188,13 @@ function SelectableChoiceAuthoringNodeView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper
+      ref={presentationRef}
       {...props.HTMLAttributes}
       data-node="selectable-choice"
-      {...{ [CONTAINED_MOVEMENT_TARGET_ATTR]: "" }}
+      {...containedMovementTargetAttributes()}
     >
       <ChoiceAnswerItem
+        authoringControlAttributes={authoringMovementSnapshotChromeAttributes()}
         id={attrs.id}
         inputType={parentTypeName === "multiselect" ? "checkbox" : "radio"}
         isCorrect={privateChoiceState.isCorrect}
@@ -205,6 +210,7 @@ function SelectableChoiceAuthoringNodeView(props: NodeViewProps) {
         deleteLabel={`Delete choice ${choiceIndex}`}
         leading={
           <ContainedMovementHandle
+            getPresentationElement={() => presentationRef.current}
             getSourcePos={() => safeGetPos(props.getPos)}
             label="choice"
             sourceKey={attrs.id}

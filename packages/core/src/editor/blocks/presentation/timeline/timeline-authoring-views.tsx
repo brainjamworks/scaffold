@@ -6,12 +6,15 @@ import {
   useEditorState,
   type NodeViewProps,
 } from "@tiptap/react";
+import { useRef } from "react";
 
 import { BlockAddGhost } from "@/editor/suggestions/insert/BlockAddGhost";
-import { CONTAINED_MOVEMENT_TARGET_ATTR } from "@/editor/movement/view/movement-dom";
+import { containedMovementTargetAttributes } from "@/editor/movement/view/movement-dom";
 import { ContainedMovementHandle } from "@/editor/movement/view/ContainedMovementHandle";
+import { authoringMovementSnapshotChromeAttributes } from "@/editor/movement/view/authoring-movement-presentation";
 import { createStableId } from "@/document/model/identity/stable-ids";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
+import type { MovementTargetAxis } from "@/editor/movement/model/movement-target";
 
 import { TIMELINE_ITEM_NODE, TIMELINE_NODE, createTimelineItem } from "./content";
 import { TimelineView } from "./Timeline";
@@ -37,6 +40,7 @@ export function TimelineAuthoringView(props: NodeViewProps) {
 }
 
 export function TimelineItemAuthoringView(props: NodeViewProps) {
+  const presentationRef = useRef<HTMLDivElement | null>(null);
   const itemId = readRequiredTimelineNodeId(props.node.attrs["id"], "timeline item");
   const itemIndex = useEditorState({
     editor: props.editor,
@@ -45,6 +49,10 @@ export function TimelineItemAuthoringView(props: NodeViewProps) {
   const itemCount = useEditorState({
     editor: props.editor,
     selector: () => resolveTimelineItemCount(props),
+  });
+  const movementAxis = useEditorState({
+    editor: props.editor,
+    selector: () => resolveTimelineMovementAxis(props),
   });
   const side = itemIndex % 2 === 0 ? "left" : "right";
   const itemPos = readNodePos(props);
@@ -65,16 +73,19 @@ export function TimelineItemAuthoringView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper
+      ref={presentationRef}
       data-node="timeline-item"
       data-timeline-side={side}
       data-timeline-event=""
-      {...{ [CONTAINED_MOVEMENT_TARGET_ATTR]: "" }}
+      {...containedMovementTargetAttributes(movementAxis)}
       className={`sc-timeline__event sc-timeline__event--${side}`}
     >
       <TimelineEventCard
         chrome={
           <>
             <ContainedMovementHandle
+              axis={movementAxis}
+              getPresentationElement={() => presentationRef.current}
               label="timeline event"
               sourcePos={sourcePos}
               getSourcePos={() => readNodePos(props) ?? null}
@@ -82,6 +93,7 @@ export function TimelineItemAuthoringView(props: NodeViewProps) {
               className="sc-timeline__movement"
             />
             <button
+              {...authoringMovementSnapshotChromeAttributes()}
               type="button"
               contentEditable={false}
               disabled={!canDelete}
@@ -178,4 +190,13 @@ function resolveTimelineItemCount(props: NodeViewProps): number {
   if (!isValidEditorDocPos(props.editor, pos)) return 1;
   const $pos = props.editor.state.doc.resolve(pos);
   return Math.max($pos.parent.childCount, 1);
+}
+
+function resolveTimelineMovementAxis(props: NodeViewProps): MovementTargetAxis {
+  const pos = readNodePos(props);
+  if (!isValidEditorDocPos(props.editor, pos)) return "vertical";
+  const parent = props.editor.state.doc.resolve(pos).parent;
+  return parseTimelineData(parent.attrs["data"]).presentation === "carousel"
+    ? "horizontal"
+    : "vertical";
 }

@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { courseBlockAuthoringFrameAttributes } from "@/editor/interactions/dom/authoring-frame";
-import { DocumentNode, CourseDocumentNode } from "@/document/model/nodes";
+import { DocumentNode, CourseDocumentNode, createCourseSectionNode } from "@/document/model/nodes";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 
@@ -60,6 +60,7 @@ const ContainedItemNode = Node.create({
       "div",
       {
         "data-contained-movement-target": "",
+        "data-movement-target-axis": "horizontal",
         "data-discovery-contained-item": "",
         "data-id": node.attrs["id"],
       },
@@ -157,6 +158,7 @@ describe("movement target discovery", () => {
       "b",
     ]);
     expect(result.descriptors[0]?.kind).toBe("contained");
+    expect(result.descriptors[0]?.axis).toBe("horizontal");
   });
 
   it("keeps repeated snapshot queries free of discovery, nodeDOM, posAtCoords, and rect reads", () => {
@@ -250,6 +252,7 @@ function makeEditor(content: JSONContent[]): DiscoveryHarness {
       StarterKit.configure({ document: false, paragraph: false, undoRedo: false }),
       ExtendedParagraph,
       CourseDocumentNode,
+      createCourseSectionNode(),
       SurfaceNode,
       TestArrangementNode,
       TestRegionNode,

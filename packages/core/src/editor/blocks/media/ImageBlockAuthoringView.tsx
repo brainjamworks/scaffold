@@ -8,6 +8,7 @@ import {
 } from "@/editor/media/authoring/picker/file-picker-open-state";
 import { type ImageBlockAttrs } from "@scaffold/contracts";
 import { useMediaPort } from "@/host/providers/ScaffoldServicesProvider";
+import { authoringMovementSnapshotChromeAttributes } from "@/editor/movement/view/authoring-movement-presentation";
 
 import {
   FilePickerModal,
@@ -65,6 +66,7 @@ export function ImageBlockAuthoringView(props: NodeViewProps) {
       withWrapper={false}
       emptyAction={
         <MediaEmptyAction
+          {...authoringMovementSnapshotChromeAttributes()}
           onClick={() => setOpen(true)}
           aria-label="Add image"
           label="Add image"
@@ -73,7 +75,11 @@ export function ImageBlockAuthoringView(props: NodeViewProps) {
       }
       replaceAction={
         resolvedUrl ? (
-          <MediaReplaceButton onClick={() => setOpen(true)} aria-label="Replace image" />
+          <MediaReplaceButton
+            {...authoringMovementSnapshotChromeAttributes()}
+            onClick={() => setOpen(true)}
+            aria-label="Replace image"
+          />
         ) : null
       }
     >

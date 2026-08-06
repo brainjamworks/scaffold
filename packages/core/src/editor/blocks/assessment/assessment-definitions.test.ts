@@ -53,6 +53,13 @@ const assessmentDefinitions = [
 ];
 
 describe("assessment block definitions", () => {
+  it.each(assessmentDefinitions)(
+    "$definition.nodeType explicitly owns copied private identity repair",
+    ({ definition }) => {
+      expect(definition.rewriteCopiedContent).toEqual(expect.any(Function));
+    },
+  );
+
   it("registers a required settings schema and bidirectional response codec for every assessment block", () => {
     for (const { definition } of assessmentDefinitions) {
       expect(definition.configuration?.schema).toEqual(expect.any(Object));

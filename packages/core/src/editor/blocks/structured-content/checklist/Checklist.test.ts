@@ -132,6 +132,23 @@ it("renders an item-shaped add checklist affordance", async () => {
   fixture.destroy();
 });
 
+it("registers checklist rows for activated contained movement", async () => {
+  const fixture = renderChecklistEditor();
+  const handles = await screen.findAllByRole("button", {
+    name: "Move checklist item within its group",
+  });
+
+  expect(handles).toHaveLength(3);
+  expect(document.body.querySelectorAll("[data-contained-movement-target]")).toHaveLength(3);
+  expect(document.body.querySelector("[data-authoring-move-handle]")).toBeNull();
+  expect(handles[1]).toHaveAttribute(
+    "aria-keyshortcuts",
+    "Space Enter ArrowUp ArrowDown Escape",
+  );
+
+  fixture.destroy();
+});
+
 function renderChecklistRuntimeEditor({
   learnerActivityPort,
   learningEventPort,

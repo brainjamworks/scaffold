@@ -87,6 +87,9 @@ export function createSectionAuthoringNodeView(
     return (
       <SectionAuthoringFrame
         isEmpty={isEmpty}
+        {...(frameProps?.movementTargetPresentation
+          ? { movementTargetPresentation: frameProps.movementTargetPresentation }
+          : {})}
         node={props.node}
         sectionId={props.node.attrs["id"]}
         variant={variant}

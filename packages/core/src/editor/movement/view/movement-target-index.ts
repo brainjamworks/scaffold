@@ -10,6 +10,7 @@ import {
   createMovementTarget,
   movementTargetAxis,
   type AnyMovementTarget,
+  type MovementTargetAxis,
   type MovementTargetRect,
 } from "../model/movement-target";
 
@@ -17,6 +18,7 @@ export type MovementTargetKey = string;
 export type MovementTargetKind = "contained" | "structure";
 
 export interface MovementTargetDescriptor {
+  readonly axis: MovementTargetAxis;
   readonly context: MovementNodeContext;
   readonly documentPosition: number;
   readonly element: Element;
@@ -269,8 +271,8 @@ function matchTarget(
 
   const target =
     entry.descriptor.kind === "contained"
-      ? new ContainedMovementTarget(entry.descriptor.context, rect)
-      : createMovementTarget(entry.descriptor.context, rect);
+      ? new ContainedMovementTarget(entry.descriptor.context, rect, entry.descriptor.axis)
+      : createMovementTarget(entry.descriptor.context, rect, entry.descriptor.axis);
   return {
     area: Math.max(rect.width, 1) * Math.max(rect.height, 1),
     depth: entry.descriptor.context.ancestors.length,

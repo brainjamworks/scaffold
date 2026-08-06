@@ -3,6 +3,7 @@ import type { NodeViewProps } from "@tiptap/react";
 import type { ComponentType } from "react";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import type { RegisteredLayoutDefinition } from "../model/layout-definition";
+import type { MovementTargetPresentationOwner } from "@/editor/movement/view/movement-dom";
 
 export interface LayoutComponentProps extends NodeViewProps {
   blockDefinitions: BlockDefinitionLookup;
@@ -21,6 +22,7 @@ export interface SectionComponentProps extends NodeViewProps {
 
 export interface SectionFrameProps {
   className?: string;
+  movementTargetPresentation?: MovementTargetPresentationOwner;
 }
 
 export interface LayoutViewRegistration {

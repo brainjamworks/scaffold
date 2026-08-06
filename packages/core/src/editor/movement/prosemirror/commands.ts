@@ -11,10 +11,6 @@ import {
   moveSiblingNodeTo,
 } from "@/editor/prosemirror/move-sibling/move-sibling-node";
 import {
-  isNodeSelectable,
-  setNodeSelectionInTransaction,
-} from "@/editor/selection/selection-transactions";
-import {
   canInsertSurfaceStructureChild,
   canMoveSurfaceStructureNode,
 } from "@/editor/surfaces/model/policies/surface-movement-policy";
@@ -38,39 +34,15 @@ import {
 } from "../model/movement-intents";
 import {
   canApplyStructureMovementBoundary,
-  canTargetContainedMovement,
   canStartStructureMovement,
-  canTargetStructureMovement,
   createStructureMovementPolicy,
   resolveMovementNodeContext,
-  resolveContainedMovementSourceContext,
-  type MovementNodeContext,
 } from "../model/movement-policy";
-import {
-  ContainedMovementTarget,
-  createMovementTarget,
-  type MovementTargetRect,
-} from "../model/movement-target";
 
 type DirectMoveIntent = InsertBeforeTarget | InsertAfterTarget | InsertInsideTarget;
 type ContainedMoveIntent = MoveContainedBeforeTarget | MoveContainedAfterTarget;
 
 type GridSide = "left" | "right";
-export type KeyboardMovementDirection = "backward" | "forward";
-
-export interface KeyboardMovementResult {
-  moved: boolean;
-  status: string;
-}
-
-const KEYBOARD_MOVEMENT_TARGET_RECT: MovementTargetRect = {
-  bottom: 0,
-  height: 0,
-  left: 0,
-  right: 0,
-  top: 0,
-  width: 0,
-};
 
 export function canApplyMovementIntent(
   editor: Editor,
@@ -112,122 +84,6 @@ export function applyContainedMovementIntent(
   intent: ContainedMoveIntent,
 ): boolean {
   return moveSiblingNodeTo(editor, sourcePos, intent.target.pos, containedPlacement(intent));
-}
-
-export function applyKeyboardMovementIntent(
-  editor: Editor,
-  sourcePos: number,
-  direction: KeyboardMovementDirection,
-  blockDefinitions: BlockDefinitionLookup,
-  surfaceVariants: SurfaceVariantLookup,
-): KeyboardMovementResult {
-  const sourceContext = resolveMovementNodeContext(editor.state.doc, sourcePos);
-  const kind = movementSourceKind(sourceContext);
-  const movementPolicy = createStructureMovementPolicy(editor.schema, blockDefinitions);
-
-  if (
-    !sourceContext ||
-    !sourceContext.parent ||
-    !canStartStructureMovement(movementPolicy, sourceContext)
-  ) {
-    return {
-      moved: false,
-      status: `${capitalize(kind)} cannot be moved.`,
-    };
-  }
-
-  const targetContext = resolveKeyboardSiblingTarget(editor.state.doc, sourceContext, direction);
-  if (!targetContext) {
-    return {
-      moved: false,
-      status:
-        direction === "backward"
-          ? `${capitalize(kind)} is already first.`
-          : `${capitalize(kind)} is already last.`,
-    };
-  }
-  if (!canTargetStructureMovement(movementPolicy, targetContext)) {
-    return {
-      moved: false,
-      status: `${capitalize(kind)} cannot be moved ${direction === "backward" ? "up" : "down"}.`,
-    };
-  }
-
-  const target = createMovementTarget(targetContext, KEYBOARD_MOVEMENT_TARGET_RECT);
-  const intent =
-    direction === "backward" ? new InsertBeforeTarget(target) : new InsertAfterTarget(target);
-  const sourceNode = editor.state.doc.nodeAt(sourcePos);
-  const tr = buildMovementTransaction(editor, sourcePos, intent, blockDefinitions, surfaceVariants);
-  if (!tr || !sourceNode) {
-    return {
-      moved: false,
-      status: `${capitalize(kind)} cannot be moved ${direction === "backward" ? "up" : "down"}.`,
-    };
-  }
-
-  const movedPos = findMovedSourcePos(tr.doc, sourceNode);
-  if (movedPos !== null) {
-    const movedNode = tr.doc.nodeAt(movedPos);
-    if (movedNode && isNodeSelectable(movedNode)) {
-      setNodeSelectionInTransaction(tr, movedPos);
-    }
-  }
-  editor.view.dispatch(tr.scrollIntoView());
-
-  return {
-    moved: true,
-    status: `Moved ${kind} ${direction === "backward" ? "up" : "down"}.`,
-  };
-}
-
-export function applyKeyboardContainedMovementIntent(
-  editor: Editor,
-  sourcePos: number,
-  direction: KeyboardMovementDirection,
-): KeyboardMovementResult {
-  const sourceContext = resolveContainedMovementSourceContext(editor.state.doc, sourcePos);
-  const kind = containedMovementSourceKind(sourceContext);
-
-  if (!sourceContext || !sourceContext.parent) {
-    return {
-      moved: false,
-      status: `${capitalize(kind)} cannot be moved.`,
-    };
-  }
-
-  const targetContext = resolveKeyboardSiblingTarget(editor.state.doc, sourceContext, direction);
-  if (!targetContext) {
-    return {
-      moved: false,
-      status:
-        direction === "backward"
-          ? `${capitalize(kind)} is already first.`
-          : `${capitalize(kind)} is already last.`,
-    };
-  }
-  if (!canTargetContainedMovement(sourceContext, targetContext)) {
-    return {
-      moved: false,
-      status: `${capitalize(kind)} cannot be moved ${direction === "backward" ? "up" : "down"}.`,
-    };
-  }
-
-  const intent =
-    direction === "backward"
-      ? new MoveContainedBeforeTarget(
-          new ContainedMovementTarget(targetContext, KEYBOARD_MOVEMENT_TARGET_RECT),
-        )
-      : new MoveContainedAfterTarget(
-          new ContainedMovementTarget(targetContext, KEYBOARD_MOVEMENT_TARGET_RECT),
-        );
-
-  const moved = applyContainedMovementIntent(editor, sourcePos, intent);
-  return {
-    moved,
-    status: moved
-      ? `Moved ${kind} ${direction === "backward" ? "up" : "down"}.`
-      : `${capitalize(kind)} cannot be moved ${direction === "backward" ? "up" : "down"}.`,
-  };
 }
 
 function buildMovementTransaction(
@@ -507,67 +363,6 @@ function emptySourceParentReplacement(
   const paragraph = createEditableTextblock(doc.type.schema);
   if (!paragraph) return null;
   return parent.type.validContent(Fragment.from(paragraph)) ? paragraph : null;
-}
-
-function resolveKeyboardSiblingTarget(
-  doc: ProseMirrorNode,
-  sourceContext: MovementNodeContext,
-  direction: KeyboardMovementDirection,
-): MovementNodeContext | null {
-  const parent = sourceContext.parent;
-  const parentPos = sourceContext.parentPos;
-  if (!parent || parentPos === null) return null;
-
-  const targetIndex = direction === "backward" ? sourceContext.index - 1 : sourceContext.index + 1;
-  if (targetIndex < 0 || targetIndex >= parent.childCount) return null;
-
-  const targetPos = childPos(parent, parentPos, targetIndex);
-  return resolveMovementNodeContext(doc, targetPos);
-}
-
-function childPos(parent: ProseMirrorNode, parentPos: number, childIndex: number): number {
-  let pos = parentPos + 1;
-  for (let index = 0; index < childIndex; index += 1) {
-    pos += parent.child(index).nodeSize;
-  }
-  return pos;
-}
-
-function movementSourceKind(
-  context: MovementNodeContext | null | undefined,
-): "block" | "layout" | "section" {
-  if (context?.nodeType.name === "layout") return "layout";
-  if (context?.nodeType.name === "section") return "section";
-  return "block";
-}
-
-function containedMovementSourceKind(
-  context: MovementNodeContext | null | undefined,
-): "category" | "choice" | "event" | "item" | "matching pair" | "sequencing item" {
-  if (context?.nodeType.name === "categorise_bin") return "category";
-  if (context?.nodeType.name === "matching_pair") return "matching pair";
-  if (context?.nodeType.name === "selectable_choice") return "choice";
-  if (context?.nodeType.name === "sequencing_item") return "sequencing item";
-  if (context?.nodeType.name === "timeline_item") return "event";
-  return "item";
-}
-
-function capitalize(value: string): string {
-  return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
-}
-
-function findMovedSourcePos(doc: ProseMirrorNode, sourceNode: ProseMirrorNode): number | null {
-  let found: number | null = null;
-
-  doc.descendants((node, pos) => {
-    if (node === sourceNode) {
-      found = pos;
-      return false;
-    }
-    return true;
-  });
-
-  return found;
 }
 
 function containsPosition(parentPos: number, parentNode: ProseMirrorNode, pos: number): boolean {

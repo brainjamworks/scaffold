@@ -2,6 +2,7 @@ import { CaretDownIcon as CaretDown } from "@phosphor-icons/react";
 import { DropdownPrivateAssessmentSchema, DropdownSettingsSchema } from "@scaffold/contracts";
 
 import { assessmentShellPlaceholders } from "@/editor/blocks/assessment/shared/nodes/assessment-placeholders";
+import { rewriteDropdownCopiedContent } from "@/editor/blocks/assessment/shared/identity/copy-identity";
 import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/model/assessment-capability";
 import { createStableId } from "@/document/model/identity/stable-ids";
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
@@ -68,6 +69,7 @@ const dropdownConfiguration = createAssessmentConfiguration({
 
 export const dropdownBlockDefinition = defineBlock({
   nodeType: "dropdown",
+  rewriteCopiedContent: rewriteDropdownCopiedContent,
   boundedPlacement: "fill",
   configuration: dropdownConfiguration,
   placeholders: {

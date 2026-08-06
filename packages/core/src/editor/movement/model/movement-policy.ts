@@ -36,15 +36,6 @@ const STRUCTURE_MOVEMENT_TARGET_NODE_NAMES = [
   "section",
 ] as const;
 const STRUCTURE_MOVEMENT_REJECTED_SOURCE_NODE_NAMES = ["grid", "cell"] as const;
-const CONTAINED_MOVEMENT_NODE_NAMES = new Set([
-  "selectable_choice",
-  "sequencing_item",
-  "matching_pair",
-  "categorise_bin",
-  "categorise_item",
-  "timeline_item",
-]);
-
 export function createStructureMovementPolicy(
   schema: Schema,
   blockDefinitions: BlockDefinitionLookup,
@@ -94,7 +85,7 @@ export function canTargetStructureMovement(
 export function canStartContainedMovement(
   context: MovementNodeContext | null | undefined,
 ): boolean {
-  return Boolean(context && CONTAINED_MOVEMENT_NODE_NAMES.has(context.nodeType.name));
+  return Boolean(context?.parent && context.nodeType.spec.isolating);
 }
 
 export function canTargetContainedMovement(
