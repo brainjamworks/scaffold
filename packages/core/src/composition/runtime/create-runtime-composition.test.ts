@@ -101,12 +101,21 @@ describe("createCourseDocumentRuntimeExtensions", () => {
     const schema = getSchema(extensions);
 
     expect(courseSectionNodes).toHaveLength(1);
-    expect(courseSectionNodes[0]?.config.addNodeView).toBeUndefined();
+    expect(courseSectionNodes[0]?.config).not.toHaveProperty("addNodeView");
     expect(Object.keys(schema.nodes).filter((name) => name === "courseSection")).toEqual([
       "courseSection",
     ]);
     expect(schema.nodes["courseSection"]?.spec.attrs?.["id"]).toBeDefined();
     expect(schema.nodes["courseSection"]?.spec.attrs?.["title"]).toBeDefined();
+  });
+
+  it("owns a validate-only Core Course Structure view", () => {
+    expect(coreRuntimeComposition.courseStructure).toEqual(
+      expect.objectContaining({ validate: expect.any(Function) }),
+    );
+    expectTypeOf<
+      "buildTransaction" extends keyof typeof coreRuntimeComposition.courseStructure ? true : false
+    >().toEqualTypeOf<false>();
   });
 
   it("renders a persisted host Surface through its runtime component only", async () => {

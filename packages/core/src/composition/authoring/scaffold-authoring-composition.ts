@@ -3,6 +3,10 @@ import {
   type ResolvedScaffoldCapabilities,
 } from "@/composition/model/resolved-scaffold-capabilities";
 import type { ScaffoldAuthoringCatalogues } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
+import {
+  createCourseStructureModule,
+  type CourseStructureModule,
+} from "@/document/model/course-structure";
 import { builtInLayoutAuthoringViews } from "@/editor/arrangements/layout/authoring/built-in-layout-views";
 import type { LayoutViewRegistration } from "@/editor/arrangements/layout/authoring/layout-view-definition";
 import {
@@ -40,6 +44,7 @@ export interface ScaffoldAuthoringSurfaceComposition {
 
 export interface ScaffoldAuthoringComposition {
   readonly capabilities: ResolvedScaffoldCapabilities;
+  readonly courseStructure: CourseStructureModule;
   readonly blocks: ScaffoldAuthoringBlockComposition;
   readonly layouts: ScaffoldAuthoringLayoutComposition;
   readonly surfaces: ScaffoldAuthoringSurfaceComposition;
@@ -48,6 +53,7 @@ export interface ScaffoldAuthoringComposition {
 
 export function createScaffoldAuthoringComposition(
   capabilities: ResolvedScaffoldCapabilities,
+  courseStructure: CourseStructureModule,
   blockExtensions: readonly AnyExtension[],
   layoutViews: readonly LayoutViewRegistration[],
   surfaceViews: readonly SurfaceAuthoringViewBinding[],
@@ -59,6 +65,7 @@ export function createScaffoldAuthoringComposition(
 
   return Object.freeze({
     capabilities,
+    courseStructure,
     blocks: Object.freeze({
       extensions: Object.freeze([...blockExtensions]),
     }),
@@ -80,9 +87,14 @@ export function createCoreScaffoldAuthoringComposition(): ScaffoldAuthoringCompo
     surfaceDefinitions: builtInSurfaceVariantDefinitions,
   });
   validateSurfaceVariantFactories(capabilities.surfaces.registry);
+  const courseStructure = createCourseStructureModule({
+    blockDefinitions: capabilities.blocks.registry,
+    surfaceVariants: capabilities.surfaces.registry,
+  });
 
   return createScaffoldAuthoringComposition(
     capabilities,
+    courseStructure,
     builtInBlockAuthoringBindings.map(({ extension }) => extension),
     builtInLayoutAuthoringViews,
     builtInSurfaceAuthoringViewBindings,

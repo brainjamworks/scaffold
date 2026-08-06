@@ -104,12 +104,21 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     const schema = getSchema(extensions);
 
     expect(courseSectionNodes).toHaveLength(1);
-    expect(courseSectionNodes[0]?.config.addNodeView).toBeUndefined();
+    expect(courseSectionNodes[0]?.config).not.toHaveProperty("addNodeView");
     expect(Object.keys(schema.nodes).filter((name) => name === "courseSection")).toEqual([
       "courseSection",
     ]);
     expect(schema.nodes["courseSection"]?.spec.attrs?.["id"]).toBeDefined();
     expect(schema.nodes["courseSection"]?.spec.attrs?.["title"]).toBeDefined();
+  });
+
+  it("owns the full Core-only Course Structure service", () => {
+    expect(coreAuthoringComposition.courseStructure).toEqual(
+      expect.objectContaining({
+        validate: expect.any(Function),
+        buildTransaction: expect.any(Function),
+      }),
+    );
   });
 
   it("installs the exact resolved authoring catalogues once for a host editor", () => {

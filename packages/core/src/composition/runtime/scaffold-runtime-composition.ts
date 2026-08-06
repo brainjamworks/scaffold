@@ -2,6 +2,10 @@ import {
   resolveScaffoldCapabilities,
   type ResolvedScaffoldCapabilities,
 } from "@/composition/model/resolved-scaffold-capabilities";
+import {
+  createCourseStructureModule,
+  type CourseStructureValidator,
+} from "@/document/model/course-structure";
 import { builtInLayoutDefinitions } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { builtInLayoutRuntimeViews } from "@/editor/arrangements/layout/runtime/built-in-layout-views";
 import type { LayoutRuntimeViewRegistration } from "@/editor/arrangements/layout/runtime/layout-view-definition";
@@ -34,6 +38,7 @@ export interface ScaffoldRuntimeSurfaceComposition {
 
 export interface ScaffoldRuntimeComposition {
   readonly capabilities: ResolvedScaffoldCapabilities;
+  readonly courseStructure: CourseStructureValidator;
   readonly blocks: ScaffoldRuntimeBlockComposition;
   readonly layouts: ScaffoldRuntimeLayoutComposition;
   readonly surfaces: ScaffoldRuntimeSurfaceComposition;
@@ -41,12 +46,14 @@ export interface ScaffoldRuntimeComposition {
 
 export function createScaffoldRuntimeComposition(
   capabilities: ResolvedScaffoldCapabilities,
+  courseStructure: CourseStructureValidator,
   blockExtensions: readonly AnyExtension[],
   layoutViews: readonly LayoutRuntimeViewRegistration[],
   surfaceViews: readonly SurfaceRuntimeViewBinding[],
 ): ScaffoldRuntimeComposition {
   return Object.freeze({
     capabilities,
+    courseStructure,
     blocks: Object.freeze({
       extensions: Object.freeze([...blockExtensions]),
     }),
@@ -69,9 +76,14 @@ export function createCoreScaffoldRuntimeComposition(): ScaffoldRuntimeCompositi
     surfaceDefinitions: builtInSurfaceVariantDefinitions,
   });
   validateSurfaceVariantFactories(capabilities.surfaces.registry);
+  const courseStructure = createCourseStructureModule({
+    blockDefinitions: capabilities.blocks.registry,
+    surfaceVariants: capabilities.surfaces.registry,
+  });
 
   return createScaffoldRuntimeComposition(
     capabilities,
+    courseStructure,
     builtInBlockRuntimeBindings.map(({ extension }) => extension),
     builtInLayoutRuntimeViews,
     builtInSurfaceRuntimeViewBindings,

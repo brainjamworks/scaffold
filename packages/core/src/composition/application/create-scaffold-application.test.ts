@@ -1,12 +1,14 @@
 import { CircleIcon } from "@phosphor-icons/react";
-import { Node } from "@tiptap/core";
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { Node, type JSONContent } from "@tiptap/core";
+import { afterEach, describe, expect, expectTypeOf, it, vi } from "vite-plus/test";
 import { z } from "zod";
 
 import { builtInBlockDefinitions } from "@/editor/blocks/built-in-block-definitions";
 import { builtInSurfaceVariantDefinitions } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import * as surfaceVariantRegistry from "@/editor/surfaces/model/surface-variant-registry";
+import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
+import { createScaffoldDefaultTheme } from "@/theme/model";
 
 import type { BlockCapability } from "./block-capability";
 import {
@@ -30,6 +32,7 @@ const hostTracerPack = defineScaffoldExtensionPack({
 describe("createScaffoldApplication", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    createHostTracerSurface.mockClear();
   });
 
   it("validates built-in Surface factories during explicit application construction", () => {
@@ -86,6 +89,26 @@ describe("createScaffoldApplication", () => {
     expect(application.runtime.layouts.views.getById(hostLayout.definition.id)?.component).toBe(
       TestLayoutRuntimeView,
     );
+  });
+
+  it("shares one cumulative Course Structure service through both typed lanes", () => {
+    const application = createScaffoldApplication({ packs: [hostTracerPack] });
+    const validation = application.courseStructure.validate(
+      courseDocument(hostTracerSurface.definition.id),
+    );
+
+    expect(validation).toMatchObject({
+      ok: true,
+      value: { mode: "slideshow", surfaceIds: ["surface00001"] },
+    });
+    expect(application.authoring.courseStructure).toBe(application.courseStructure);
+    expect(application.runtime.courseStructure).toBe(application.courseStructure);
+    expectTypeOf<
+      "buildTransaction" extends keyof typeof application.authoring.courseStructure ? true : false
+    >().toEqualTypeOf<true>();
+    expectTypeOf<
+      "buildTransaction" extends keyof typeof application.runtime.courseStructure ? true : false
+    >().toEqualTypeOf<false>();
   });
 
   it("creates isolated immutable Block and Surface registries for each application", () => {
@@ -311,6 +334,38 @@ function testBlockCapability(nodeType: string): BlockCapability {
     definition: { nodeType },
     authoringExtension: Node.create({ name: nodeType }),
     runtimeExtension: Node.create({ name: nodeType }),
+  };
+}
+
+function courseDocument(variant: string): JSONContent {
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "courseDocument",
+        attrs: {
+          id: "course000001",
+          schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+          mode: "slideshow",
+          surfaceSize: "16x9",
+          overflowMode: "grow",
+          theme: createScaffoldDefaultTheme(),
+        },
+        content: [
+          {
+            type: "surface",
+            attrs: {
+              id: "surface00001",
+              title: null,
+              variant,
+              settings: {},
+              notes: null,
+            },
+            content: [{ type: "paragraph" }],
+          },
+        ],
+      },
+    ],
   };
 }
 
