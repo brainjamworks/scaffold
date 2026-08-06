@@ -2,6 +2,7 @@ import type { JSONContent } from "@tiptap/core";
 import { describe, expect, it } from "vite-plus/test";
 
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
+import { createScaffoldDocumentContent } from "@/format/artifact";
 import { createScaffoldDefaultTheme } from "@/theme/model";
 
 import { migrateCourseDocumentJSON, readCourseDocumentFormatVersion } from "./migrations";
@@ -101,6 +102,29 @@ describe("course document migrations", () => {
     expect(result.ok ? [] : result.issues).toContainEqual(
       expect.objectContaining({ code: "invalid_course_document_attrs" }),
     );
+  });
+
+  it("rejects malformed Course Section boundaries in current v4 without another migration", () => {
+    const source = createScaffoldDocumentContent({ mode: "slideshow" });
+    source.content![0]!.content!.unshift({
+      type: "courseSection",
+      attrs: { id: "section00001", title: "   " },
+    });
+
+    const result = migrateCourseDocumentJSON(source);
+
+    expect(result).toMatchObject({
+      ok: false,
+      code: "invalid_migrated_document",
+      fromVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+      toVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+      issues: [
+        expect.objectContaining({
+          code: "invalid_course_section_attrs",
+          path: ["content", 0, "content", 0, "attrs", "title"],
+        }),
+      ],
+    });
   });
 
   it("rejects non-document JSON", () => {

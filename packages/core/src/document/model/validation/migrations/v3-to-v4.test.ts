@@ -469,6 +469,20 @@ describe("v3-to-v4 Scaffold document migration", () => {
       migrated: true,
     });
   });
+
+  it("keeps an unsectioned v3 Slideshow unsectioned after public v3-to-v4 migration", () => {
+    const source = v3Document("slideshow", null);
+    source.content![0]!.content![0]!.content = [
+      { type: "heading", attrs: { level: 1 } },
+      { type: "slide_cover_subtitle" },
+    ];
+    const migrated = migrateV3Public(source);
+    const directChildren = migrated.content?.[0]?.content ?? [];
+
+    expect(directChildren).toHaveLength(1);
+    expect(directChildren[0]?.type).toBe("surface");
+    expect(directChildren.some(({ type }) => type === "courseSection")).toBe(false);
+  });
 });
 
 function contentTreeNodes(node: JSONContent | undefined): JSONContent[] {
@@ -547,13 +561,15 @@ function feedbackSentinel(text: string): Record<string, unknown> {
 
 function migrateV3Public(source: JSONContent): JSONContent {
   const result = migrateCourseDocumentJSON(source);
+  if (!result.ok) {
+    throw new Error(`Expected public v3 migration success: ${JSON.stringify(result)}`);
+  }
   expect(result).toMatchObject({
     ok: true,
     fromVersion: 3,
     toVersion: 4,
     migrated: true,
   });
-  if (!result.ok) throw new Error(result.message);
   return result.document;
 }
 

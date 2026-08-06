@@ -6,14 +6,18 @@ import {
   AnnotatedFigureAnnotationAttrsSchema,
   AnnotatedFigureDataSchema,
 } from "@scaffold/contracts";
-
 import {
-  validateCourseSurfaceLifecycle,
-  type CourseDocumentIssueCode as SurfaceCourseDocumentIssueCode,
-} from "./surface-lifecycle-validation";
+  createCourseStructureModule,
+  type CourseStructureIssueCode,
+} from "@/document/model/course-structure";
+
+const coreCourseStructure = createCourseStructureModule({
+  blockDefinitions: builtInBlockRegistry,
+  surfaceVariants: builtInSurfaceVariantRegistry,
+});
 
 export type CourseDocumentIssueCode =
-  | SurfaceCourseDocumentIssueCode
+  | CourseStructureIssueCode
   | "invalid_annotated_figure_data"
   | "invalid_annotated_figure_structure"
   | "invalid_annotated_figure_annotation_attrs"
@@ -36,11 +40,8 @@ function getContent(node: JSONContent | undefined): JSONContent[] {
 }
 
 export function validateCourseDocumentJSON(content: JSONContent): CourseDocumentValidationResult {
-  const surfaceResult = validateCourseSurfaceLifecycle({
-    content,
-    registry: builtInSurfaceVariantRegistry,
-  });
-  const issues: CourseDocumentIssue[] = surfaceResult.ok ? [] : [...surfaceResult.issues];
+  const structureResult = coreCourseStructure.validate(content);
+  const issues: CourseDocumentIssue[] = structureResult.ok ? [] : [...structureResult.issues];
   collectQuizCompletenessIssues(content, []).forEach((quizIssue) => issues.push(quizIssue));
   collectAnnotatedFigureIssues(content, []).forEach((issue) => issues.push(issue));
 

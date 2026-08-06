@@ -458,6 +458,81 @@ describe("course document JSON helpers", () => {
     });
   });
 
+  it("accepts a complete sectioned Slideshow", () => {
+    expect(validateCourseDocumentJSON(sectionedSlideshowDocument())).toEqual({
+      ok: true,
+      issues: [],
+    });
+  });
+
+  it.each([
+    [
+      "invalid_course_section_attrs",
+      () => {
+        const content = sectionedSlideshowDocument();
+        content.content![0]!.content![0]!.attrs!["title"] = "   ";
+        return content;
+      },
+      ["content", 0, "content", 0, "attrs", "title"],
+    ],
+    [
+      "duplicate_course_section_id",
+      () => {
+        const content = sectionedSlideshowDocument();
+        content.content![0]!.content![2]!.attrs!["id"] = "section00001";
+        return content;
+      },
+      ["content", 0, "content", 2, "attrs", "id"],
+    ],
+    [
+      "course_section_not_allowed_in_mode",
+      () => {
+        const content = createScaffoldDocumentContent({ mode: "page" });
+        content.content![0]!.content!.unshift(courseSection("section00001", "Introduction"));
+        return content;
+      },
+      ["content", 0, "content", 0],
+    ],
+    [
+      "incomplete_course_section_partition",
+      () => {
+        const content = sectionedSlideshowDocument();
+        const children = content.content![0]!.content!;
+        children.unshift(children.splice(1, 1)[0]!);
+        return content;
+      },
+      ["content", 0, "content", 0],
+    ],
+    [
+      "empty_course_section",
+      () => {
+        const content = sectionedSlideshowDocument();
+        content.content![0]!.content!.splice(
+          1,
+          0,
+          courseSection("section00003", "Empty"),
+        );
+        return content;
+      },
+      ["content", 0, "content", 0],
+    ],
+  ] as const)("reports %s at its stable path", (code, createContent, path) => {
+    expect(validateCourseDocumentJSON(createContent()).issues).toContainEqual(
+      expect.objectContaining({ code, path }),
+    );
+  });
+
+  it("collects deeper issues independently from Course Structure failures", () => {
+    const content = createScaffoldDocumentContent({ mode: "page" });
+    content.content![0]!.content!.unshift(courseSection("section00001", "Introduction"));
+    content.content![0]!.content![1]!.content = [{ type: "quiz", attrs: { id: "quiz-empty" } }];
+
+    const codes = validateCourseDocumentJSON(content).issues.map(({ code }) => code);
+
+    expect(codes).toContain("course_section_not_allowed_in_mode");
+    expect(codes).toContain("incomplete_quiz");
+  });
+
   it("does not report variant issues for surfaces whose attrs already fail schema parsing", () => {
     const content = {
       type: "doc",
@@ -686,6 +761,26 @@ function fixedDocument(surfaceContent: Array<Record<string, unknown>>) {
       },
     ],
   };
+}
+
+function sectionedSlideshowDocument() {
+  const content = createScaffoldDocumentContent({ mode: "slideshow" });
+  const courseDocument = content.content![0]!;
+  const firstSurface = courseDocument.content![0]!;
+  const secondSurface = structuredClone(firstSurface);
+  firstSurface.attrs!["id"] = FIRST_SURFACE_ID;
+  secondSurface.attrs!["id"] = SECOND_SURFACE_ID;
+  courseDocument.content = [
+    courseSection("section00001", "Introduction"),
+    firstSurface,
+    courseSection("section00002", "Practice"),
+    secondSurface,
+  ];
+  return content;
+}
+
+function courseSection(id: string, title: string) {
+  return { type: "courseSection", attrs: { id, title } };
 }
 
 function fixedSurface(surfaceId: string, content: Array<Record<string, unknown>>) {
