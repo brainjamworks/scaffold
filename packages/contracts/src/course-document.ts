@@ -1,8 +1,19 @@
 import { z } from "zod";
 
-import { EmbeddedNodeIdSchema } from "./embedded-id";
+import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "./embedded-id";
 
 export const SCAFFOLD_DOCUMENT_FORMAT_VERSION = 4;
+
+export const CourseSectionTitleSchema = z.string().trim().min(1).max(200);
+
+export const CourseSectionAttrsSchema = z
+  .object({
+    id: EmbeddedNodeIdSchema,
+    title: CourseSectionTitleSchema,
+  })
+  .strict();
+export type CourseSectionAttrs = z.infer<typeof CourseSectionAttrsSchema>;
+export type CourseSectionId = EmbeddedNodeId;
 
 export const COURSE_THEME_NUMERIC_BOUNDS = Object.freeze({
   typeScale: Object.freeze({ min: 0.8, max: 1.4 }),

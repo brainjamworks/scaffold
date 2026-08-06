@@ -2,6 +2,8 @@ import { describe, expect, expectTypeOf, it } from "vite-plus/test";
 
 import {
   SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+  CourseSectionAttrsSchema,
+  CourseSectionTitleSchema,
   CourseDocumentAttrsSchema,
   PersistedCourseThemeSchema,
   HorizontalAlignmentSchema,
@@ -15,6 +17,8 @@ import {
   ThemeRecipeNameSchema,
   VerticalContentPositionSchema,
   type FontCatalogueId,
+  type CourseSectionAttrs,
+  type CourseSectionId,
   type ThemePresetId,
   type ThemeRecipeName,
 } from "./course-document";
@@ -22,6 +26,8 @@ import { type EmbeddedNodeId } from "./embedded-id";
 
 const SURFACE_ID = "AbCdEf123_--";
 const COURSE_DOCUMENT_ID = "CdEfGh456_--";
+const COURSE_SECTION_ID = "EfGhIj789_--";
+const SECOND_COURSE_SECTION_ID = "GhIjKl012_--";
 
 const IMAGE_POSITIONS = [
   "top-left",
@@ -36,6 +42,59 @@ const IMAGE_POSITIONS = [
 ] as const;
 
 describe("course document contracts", () => {
+  it("normalizes valid Course Section titles and preserves embedded identity", () => {
+    const parsed = CourseSectionAttrsSchema.parse({
+      id: COURSE_SECTION_ID,
+      title: "  Introduction  ",
+    });
+
+    expect(parsed).toEqual({ id: COURSE_SECTION_ID, title: "Introduction" });
+    expect(CourseSectionTitleSchema.parse("  Practice  ")).toBe("Practice");
+    expectTypeOf(parsed).toEqualTypeOf<CourseSectionAttrs>();
+    expectTypeOf(parsed.id).toEqualTypeOf<CourseSectionId>();
+    expectTypeOf(parsed.id).toEqualTypeOf<EmbeddedNodeId>();
+  });
+
+  it("allows repeated Course Section titles with independent identities", () => {
+    const sections = [COURSE_SECTION_ID, SECOND_COURSE_SECTION_ID].map((id) =>
+      CourseSectionAttrsSchema.parse({ id, title: "Practice" }),
+    );
+
+    expect(sections.map(({ title }) => title)).toEqual(["Practice", "Practice"]);
+    expect(sections.map(({ id }) => id)).toEqual([
+      COURSE_SECTION_ID,
+      SECOND_COURSE_SECTION_ID,
+    ]);
+  });
+
+  it("rejects blank and oversized Course Section titles", () => {
+    for (const title of ["", "   ", "a".repeat(201)]) {
+      expect(CourseSectionAttrsSchema.safeParse({ id: COURSE_SECTION_ID, title }).success).toBe(
+        false,
+      );
+    }
+
+    expect(
+      CourseSectionAttrsSchema.safeParse({ id: COURSE_SECTION_ID, title: "a".repeat(200) }).success,
+    ).toBe(true);
+  });
+
+  it("rejects malformed Course Section identities", () => {
+    for (const id of [undefined, "", "course-section-1", "too_short"]) {
+      expect(CourseSectionAttrsSchema.safeParse({ id, title: "Introduction" }).success).toBe(false);
+    }
+  });
+
+  it("rejects unknown Course Section attributes", () => {
+    expect(
+      CourseSectionAttrsSchema.safeParse({
+        id: COURSE_SECTION_ID,
+        title: "Introduction",
+        required: true,
+      }).success,
+    ).toBe(false);
+  });
+
   it("accepts only the current v4 document format", () => {
     expect(SCAFFOLD_DOCUMENT_FORMAT_VERSION).toBe(4);
     expect(
