@@ -1,7 +1,17 @@
 import { useSortable } from "@dnd-kit/sortable";
-import { useEffect, useId, useMemo, type HTMLAttributes } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  type HTMLAttributes,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 
-import { createClientDelta, type CoordinateSpaceSnapshot } from "../model/coordinate-space";
+import {
+  createClientDelta,
+  createClientPoint,
+  type CoordinateSpaceSnapshot,
+} from "../model/coordinate-space";
 import {
   INTERACTION_DRAG_REGISTRATION_DATA,
   useInteractionDragSessionAdapter,
@@ -70,16 +80,24 @@ export function useInteractionSortable<Data>({
   );
 
   const activatorProps = useMemo<HTMLAttributes<HTMLElement>>(() => {
+    const dndPointerDown = sortable.listeners?.onPointerDown;
+    const onPointerDown = dndPointerDown
+      ? (event: ReactPointerEvent<HTMLElement>) => {
+          const point = createClientPoint(event.clientX, event.clientY);
+          if (point) session.pointerActivationStarted(id, point);
+          dndPointerDown(event);
+        }
+      : undefined;
     if (session.accessibilityMode === "selection-alternative") {
-      const onPointerDown = sortable.listeners?.onPointerDown;
-      return onPointerDown ? { onPointerDown: onPointerDown as never } : {};
+      return onPointerDown ? { onPointerDown } : {};
     }
     return {
       ...sortable.attributes,
       ...sortable.listeners,
+      ...(onPointerDown ? { onPointerDown } : {}),
       "aria-label": label,
     } as HTMLAttributes<HTMLElement>;
-  }, [label, session.accessibilityMode, sortable.attributes, sortable.listeners]);
+  }, [id, label, session, sortable.attributes, sortable.listeners]);
 
   return {
     activatorProps,

@@ -1,7 +1,7 @@
 import { createClientPoint, type ClientPoint } from "../model/coordinate-space";
 
 export interface OwnerDocumentPointerTracker {
-  start(): void;
+  start(initialPoint: ClientPoint): void;
   stop(): void;
   getLatestClientPoint(): ClientPoint | null;
 }
@@ -25,17 +25,16 @@ export function createOwnerDocumentPointerTracker(
   };
 
   return {
-    start() {
+    start(initialPoint) {
       if (started) return;
       started = true;
-      ownerDocument.addEventListener("pointerdown", handlePointerInput, true);
+      latestClientPoint = initialPoint;
       ownerDocument.addEventListener("pointermove", handlePointerInput, true);
       ownerWindow?.addEventListener("blur", handleBlur);
     },
     stop() {
       if (!started) return;
       started = false;
-      ownerDocument.removeEventListener("pointerdown", handlePointerInput, true);
       ownerDocument.removeEventListener("pointermove", handlePointerInput, true);
       ownerWindow?.removeEventListener("blur", handleBlur);
       latestClientPoint = null;

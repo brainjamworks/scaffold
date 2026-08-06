@@ -106,6 +106,7 @@ export interface InteractionDragSessionAdapterContextValue {
   readonly accessibilityMode: DragAccessibilityMode;
   readonly activeId: string | null;
   readonly enabled: boolean;
+  readonly pointerActivationStarted: (sourceId: string, point: ClientPoint) => void;
   readonly reducedMotion: boolean;
   readonly snapshot: CoordinateSpaceSnapshot | null;
   readonly sourceRemoved: (id: string) => void;
@@ -169,41 +170,76 @@ export function InteractionDragSession<ActiveData, OverData>({
   const pointerTrackerRef = useRef<ReturnType<typeof createOwnerDocumentPointerTracker> | null>(
     null,
   );
+  const pendingPointerActivationCleanupRef = useRef<(() => void) | null>(null);
+  const pendingPointerSourceIdRef = useRef<string | null>(null);
   const pendingStartFrameRef = useRef<number | null>(null);
   const callbacksRef = useRef({ onCancel, onEnd, onMove, onStart });
   callbacksRef.current = { onCancel, onEnd, onMove, onStart };
   const reducedMotion = useReducedMotion(environment?.ownerWindow ?? null);
 
-  useEffect(() => {
-    if (!environment) {
-      pointerTrackerRef.current = null;
-      return;
-    }
-    const tracker = createOwnerDocumentPointerTracker(environment.ownerDocument);
-    tracker.start();
-    pointerTrackerRef.current = tracker;
-    return () => {
-      tracker.stop();
-      if (pointerTrackerRef.current === tracker) pointerTrackerRef.current = null;
-    };
-  }, [environment]);
-
-  const releaseActiveSession = useCallback((remountDndContext: boolean) => {
-    const activeSession = activeSessionRef.current;
-    if (!activeSession) return null;
-    activeSessionRef.current = null;
-    if (pendingStartFrameRef.current !== null) {
-      activeSession.environment.ownerWindow.cancelAnimationFrame(pendingStartFrameRef.current);
-      pendingStartFrameRef.current = null;
-    }
-    activeSession.stopCoordinateSubscription?.();
-    activeSession.stopCoordinateSubscription = null;
-    setActivePresentation(null);
-    setSnapshot(null);
-    if (remountDndContext) setContextGeneration((generation) => generation + 1);
-    restoreFocus(activeSession.focusTarget);
-    return activeSession;
+  const clearPendingPointerActivation = useCallback(() => {
+    const cleanup = pendingPointerActivationCleanupRef.current;
+    pendingPointerActivationCleanupRef.current = null;
+    pendingPointerSourceIdRef.current = null;
+    cleanup?.();
   }, []);
+
+  const releasePointerTracking = useCallback(() => {
+    clearPendingPointerActivation();
+    pointerTrackerRef.current?.stop();
+    pointerTrackerRef.current = null;
+  }, [clearPendingPointerActivation]);
+
+  const pointerActivationStarted = useCallback(
+    (sourceId: string, point: ClientPoint) => {
+      if (!environment || activeSessionRef.current || !environmentElementsAreLive(environment)) {
+        return;
+      }
+      releasePointerTracking();
+      const tracker = createOwnerDocumentPointerTracker(environment.ownerDocument);
+      tracker.start(point);
+      pointerTrackerRef.current = tracker;
+      pendingPointerSourceIdRef.current = sourceId;
+
+      const stopPendingActivation = () => {
+        if (!activeSessionRef.current && pointerTrackerRef.current === tracker) {
+          releasePointerTracking();
+        }
+      };
+      environment.ownerDocument.addEventListener("pointerup", stopPendingActivation, true);
+      environment.ownerDocument.addEventListener("pointercancel", stopPendingActivation, true);
+      environment.ownerWindow.addEventListener("blur", stopPendingActivation);
+      pendingPointerActivationCleanupRef.current = () => {
+        environment.ownerDocument.removeEventListener("pointerup", stopPendingActivation, true);
+        environment.ownerDocument.removeEventListener("pointercancel", stopPendingActivation, true);
+        environment.ownerWindow.removeEventListener("blur", stopPendingActivation);
+      };
+    },
+    [environment, releasePointerTracking],
+  );
+
+  useEffect(() => () => releasePointerTracking(), [environment, releasePointerTracking]);
+
+  const releaseActiveSession = useCallback(
+    (remountDndContext: boolean) => {
+      const activeSession = activeSessionRef.current;
+      if (!activeSession) return null;
+      activeSessionRef.current = null;
+      if (pendingStartFrameRef.current !== null) {
+        activeSession.environment.ownerWindow.cancelAnimationFrame(pendingStartFrameRef.current);
+        pendingStartFrameRef.current = null;
+      }
+      activeSession.stopCoordinateSubscription?.();
+      activeSession.stopCoordinateSubscription = null;
+      releasePointerTracking();
+      setActivePresentation(null);
+      setSnapshot(null);
+      if (remountDndContext) setContextGeneration((generation) => generation + 1);
+      restoreFocus(activeSession.focusTarget);
+      return activeSession;
+    },
+    [releasePointerTracking],
+  );
 
   const cancelActiveSession = useCallback(
     (reason: DragCancellationReason, remountDndContext = true) => {
@@ -246,23 +282,51 @@ export function InteractionDragSession<ActiveData, OverData>({
         pendingStartFrameRef.current = null;
       }
       activeSession.stopCoordinateSubscription?.();
+      releasePointerTracking();
       callbacksRef.current.onCancel?.("unmount");
       restoreFocus(activeSession.focusTarget);
     },
-    [],
+    [releasePointerTracking],
   );
 
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
-      if (!environment || activeSessionRef.current) return;
-      if (!environmentElementsAreLive(environment)) return;
+      if (activeSessionRef.current) return;
+      if (!environment || !environmentElementsAreLive(environment)) {
+        releasePointerTracking();
+        return;
+      }
       const registration = registrationFromData(event.active.data.current);
-      if (!registration?.source) return;
+      if (!registration?.source) {
+        releasePointerTracking();
+        return;
+      }
       const measuredSnapshot = environment.coordinateSpace.measure();
-      if (!measuredSnapshot) return;
+      if (!measuredSnapshot) {
+        releasePointerTracking();
+        return;
+      }
       const collisionBoundaryRect = measureCollisionBoundary(environment);
-      if (!collisionBoundaryRect) return;
+      if (!collisionBoundaryRect) {
+        releasePointerTracking();
+        return;
+      }
       const input = inputKindFromActivator(event.activatorEvent, environment.ownerWindow);
+      if (input === "keyboard") {
+        releasePointerTracking();
+      } else if (!pointerTrackerRef.current) {
+        const initialPoint = pointerPointForEvent(
+          "pointer",
+          event.activatorEvent,
+          null,
+          environment,
+        );
+        if (!initialPoint) return;
+        const tracker = createOwnerDocumentPointerTracker(environment.ownerDocument);
+        tracker.start(initialPoint);
+        pointerTrackerRef.current = tracker;
+      }
+      clearPendingPointerActivation();
       const active = Object.freeze({
         id: String(event.active.id),
         data: registration.activeData as ActiveData,
@@ -342,7 +406,7 @@ export function InteractionDragSession<ActiveData, OverData>({
         });
       }
     },
-    [cancelActiveSession, environment],
+    [cancelActiveSession, clearPendingPointerActivation, environment, releasePointerTracking],
   );
 
   const handleDragMove = useCallback(
@@ -426,15 +490,20 @@ export function InteractionDragSession<ActiveData, OverData>({
   );
   const sourceRemoved = useCallback(
     (id: string) => {
-      if (activeSessionRef.current?.active.id === id) cancelActiveSession("source-removed");
+      if (activeSessionRef.current?.active.id === id) {
+        cancelActiveSession("source-removed");
+      } else if (pendingPointerSourceIdRef.current === id) {
+        releasePointerTracking();
+      }
     },
-    [cancelActiveSession],
+    [cancelActiveSession, releasePointerTracking],
   );
   const adapterContext = useMemo<InteractionDragSessionAdapterContextValue>(
     () => ({
       accessibilityMode,
       activeId: activePresentation?.id ?? null,
       enabled: environment !== null,
+      pointerActivationStarted,
       reducedMotion,
       snapshot,
       sourceRemoved,
@@ -443,6 +512,7 @@ export function InteractionDragSession<ActiveData, OverData>({
       accessibilityMode,
       activePresentation?.id,
       environment,
+      pointerActivationStarted,
       reducedMotion,
       snapshot,
       sourceRemoved,

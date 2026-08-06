@@ -1,6 +1,13 @@
 import { useDraggable } from "@dnd-kit/core";
-import { useEffect, useId, useMemo, type HTMLAttributes } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  type HTMLAttributes,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 
+import { createClientPoint } from "../model/coordinate-space";
 import {
   INTERACTION_DRAG_REGISTRATION_DATA,
   useInteractionDragSessionAdapter,
@@ -59,16 +66,24 @@ export function useInteractionDragSource<Data>({
   );
 
   const activatorProps = useMemo<HTMLAttributes<HTMLElement>>(() => {
+    const dndPointerDown = draggable.listeners?.onPointerDown;
+    const onPointerDown = dndPointerDown
+      ? (event: ReactPointerEvent<HTMLElement>) => {
+          const point = createClientPoint(event.clientX, event.clientY);
+          if (point) session.pointerActivationStarted(id, point);
+          dndPointerDown(event);
+        }
+      : undefined;
     if (session.accessibilityMode === "selection-alternative") {
-      const onPointerDown = draggable.listeners?.onPointerDown;
-      return onPointerDown ? { onPointerDown: onPointerDown as never } : {};
+      return onPointerDown ? { onPointerDown } : {};
     }
     return {
       ...draggable.attributes,
       ...draggable.listeners,
+      ...(onPointerDown ? { onPointerDown } : {}),
       "aria-label": label,
     } as HTMLAttributes<HTMLElement>;
-  }, [draggable.attributes, draggable.listeners, label, session.accessibilityMode]);
+  }, [draggable.attributes, draggable.listeners, id, label, session]);
 
   return {
     activatorProps,

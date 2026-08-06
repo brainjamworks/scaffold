@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { useState, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
@@ -105,6 +105,60 @@ beforeEach(() => {
 });
 
 describe("InteractionDragSession", () => {
+  it("scopes pointer tracking to pending and active pointer input", async () => {
+    const pointerMoves = observePointerMoveListeners(document);
+    try {
+      const fixture = createFixtureGeometry(1);
+      render(
+        <FixtureEnvironment fixture={fixture}>
+          <InteractionDragSession
+            accessibilityMode="sortable"
+            collisionPolicy="closest-center"
+            labels={{ draggable: "Card" }}
+            onEnd={vi.fn()}
+            profile="sortable-vertical"
+            sessionId="fixture-pointer-lifetime"
+            sortableItems={["source"]}
+          >
+            <Sortable id="source" title="Alpha" />
+          </InteractionDragSession>
+        </FixtureEnvironment>,
+      );
+      const source = screen.getByTestId("sortable-source");
+
+      expect(pointerMoves.active()).toBe(0);
+      await startDrag("source", new KeyboardEvent("keydown", { code: "Space" }));
+      expect(pointerMoves.active()).toBe(0);
+      cancelFromDndKit("source");
+
+      fireEvent.pointerDown(source, pointerEventInit(20, 20));
+      expect(pointerMoves.active()).toBe(1);
+      fireEvent.pointerCancel(document, pointerEventInit(20, 20));
+      expect(pointerMoves.active()).toBe(0);
+
+      fireEvent.pointerDown(source, pointerEventInit(20, 20));
+      expect(pointerMoves.active()).toBe(1);
+      fireEvent.pointerUp(document, pointerEventInit(20, 20));
+      expect(pointerMoves.active()).toBe(0);
+
+      fireEvent.pointerDown(source, pointerEventInit(20, 20));
+      expect(pointerMoves.active()).toBe(1);
+      window.dispatchEvent(new Event("blur"));
+      expect(pointerMoves.active()).toBe(0);
+
+      fireEvent.pointerDown(source, pointerEventInit(20, 20));
+      document.dispatchEvent(pointerEvent("pointermove", 36, 40));
+      await startDrag("source", pointerEvent("pointerdown", 20, 20));
+      expect(pointerMoves.active()).toBe(1);
+      fireEvent.pointerUp(document, pointerEventInit(36, 40));
+      expect(pointerMoves.active()).toBe(1);
+      endDrag("source", "source", { x: 16, y: 20 });
+      expect(pointerMoves.active()).toBe(0);
+    } finally {
+      pointerMoves.restore();
+    }
+  });
+
   it("normalizes pointer events, renders one client-space preview, and exposes a source placeholder", async () => {
     const onStart = vi.fn();
     const onMove = vi.fn();
@@ -130,6 +184,7 @@ describe("InteractionDragSession", () => {
       </FixtureEnvironment>,
     );
 
+    fireEvent.pointerDown(screen.getByTestId("source"), pointerEventInit(140, 100));
     document.dispatchEvent(pointerEvent("pointermove", 160, 120));
     const active = {
       ...activeRecord("source"),
@@ -232,6 +287,7 @@ describe("InteractionDragSession", () => {
       </FixtureEnvironment>,
     );
 
+    fireEvent.pointerDown(screen.getByTestId("source"), pointerEventInit(140, 100));
     document.dispatchEvent(pointerEvent("pointermove", 190, 145));
     await startDrag("source", pointerEvent("pointerdown", 140, 100));
     const collisionDetection = dndHarness.contextProps?.["collisionDetection"] as (
@@ -313,6 +369,7 @@ describe("InteractionDragSession", () => {
         </InteractionDragSession>
       </FixtureEnvironment>,
     );
+    fireEvent.pointerDown(screen.getByTestId("source"), pointerEventInit(140, 100));
     document.dispatchEvent(pointerEvent("pointermove", 190, 145));
     await startDrag("source", pointerEvent("pointerdown", 140, 100));
     moveDrag("source", "target", { x: 20, y: 10 });
@@ -412,6 +469,11 @@ describe("InteractionDragSession", () => {
 
   it.each([
     [
+      "escape",
+      (fixture: FixtureGeometry) =>
+        fixture.root.ownerDocument.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })),
+    ],
+    [
       "owner-window-blur",
       (fixture: FixtureGeometry) =>
         fixture.root.ownerDocument.defaultView!.dispatchEvent(new Event("blur")),
@@ -420,51 +482,66 @@ describe("InteractionDragSession", () => {
   ] as const)("cancels an active pointer session for %s", async (reason, cancel) => {
     const onCancel = vi.fn();
     const fixture = createFixtureGeometry(1);
-    render(
-      <FixtureEnvironment fixture={fixture}>
-        <InteractionDragSession
-          accessibilityMode="draggable"
-          collisionPolicy="pointer"
-          labels={{ draggable: "Card" }}
-          onCancel={onCancel}
-          onEnd={vi.fn()}
-          profile="pointer"
-          sessionId={`fixture-${reason}`}
-        >
-          <Source id="source" title="Alpha" />
-        </InteractionDragSession>
-      </FixtureEnvironment>,
-    );
-    document.dispatchEvent(pointerEvent("pointermove", 20, 20));
-    await startDrag("source", pointerEvent("pointerdown", 20, 20));
+    const pointerMoves = observePointerMoveListeners(document);
+    try {
+      render(
+        <FixtureEnvironment fixture={fixture}>
+          <InteractionDragSession
+            accessibilityMode="draggable"
+            collisionPolicy="pointer"
+            labels={{ draggable: "Card" }}
+            onCancel={onCancel}
+            onEnd={vi.fn()}
+            profile="pointer"
+            sessionId={`fixture-${reason}`}
+          >
+            <Source id="source" title="Alpha" />
+          </InteractionDragSession>
+        </FixtureEnvironment>,
+      );
+      await startDrag("source", pointerEvent("pointerdown", 20, 20));
+      expect(pointerMoves.active()).toBe(1);
 
-    act(() => {
-      cancel(fixture);
-    });
+      act(() => {
+        cancel(fixture);
+      });
 
-    expect(onCancel).toHaveBeenCalledWith(reason);
+      expect(onCancel).toHaveBeenCalledWith(reason);
+      expect(pointerMoves.active()).toBe(0);
+    } finally {
+      pointerMoves.restore();
+    }
   });
 
   it("cancels for source removal and environment loss", async () => {
     const onCancel = vi.fn();
     const fixture = createFixtureGeometry(1);
-    render(<CancelableFixture fixture={fixture} onCancel={onCancel} />);
-    document.dispatchEvent(pointerEvent("pointermove", 20, 20));
-    await startDrag("source", pointerEvent("pointerdown", 20, 20));
+    const pointerMoves = observePointerMoveListeners(document);
+    try {
+      render(<CancelableFixture fixture={fixture} onCancel={onCancel} />);
+      await startDrag("source", pointerEvent("pointerdown", 20, 20));
+      expect(pointerMoves.active()).toBe(1);
 
-    act(() => screen.getByRole("button", { name: "Remove source" }).click());
-    expect(onCancel).toHaveBeenLastCalledWith("source-removed");
+      act(() => screen.getByRole("button", { name: "Remove source" }).click());
+      expect(onCancel).toHaveBeenLastCalledWith("source-removed");
+      expect(pointerMoves.active()).toBe(0);
 
-    act(() => screen.getByRole("button", { name: "Restore source" }).click());
-    await startDrag("source", pointerEvent("pointerdown", 20, 20));
-    fixture.overlayHost.remove();
-    moveDrag("source", "source", { x: 5, y: 5 });
-    expect(onCancel).toHaveBeenLastCalledWith("environment-lost");
+      act(() => screen.getByRole("button", { name: "Restore source" }).click());
+      await startDrag("source", pointerEvent("pointerdown", 20, 20));
+      expect(pointerMoves.active()).toBe(1);
+      fixture.overlayHost.remove();
+      moveDrag("source", "source", { x: 5, y: 5 });
+      expect(onCancel).toHaveBeenLastCalledWith("environment-lost");
+      expect(pointerMoves.active()).toBe(0);
+    } finally {
+      pointerMoves.restore();
+    }
   });
 
   it("cancels an active session on unmount", async () => {
     const onCancel = vi.fn();
     const fixture = createFixtureGeometry(1);
+    const pointerMoves = observePointerMoveListeners(document);
     const view = render(
       <FixtureEnvironment fixture={fixture}>
         <InteractionDragSession
@@ -480,18 +557,21 @@ describe("InteractionDragSession", () => {
         </InteractionDragSession>
       </FixtureEnvironment>,
     );
-    document.dispatchEvent(pointerEvent("pointermove", 20, 20));
     await startDrag("source", pointerEvent("pointerdown", 20, 20));
+    expect(pointerMoves.active()).toBe(1);
 
     view.unmount();
 
     expect(onCancel).toHaveBeenCalledWith("unmount");
+    expect(pointerMoves.active()).toBe(0);
+    pointerMoves.restore();
   });
 
   it("cancels an invalid drop without invoking the feature commit", async () => {
     const onCancel = vi.fn();
     const onEnd = vi.fn();
     const fixture = createFixtureGeometry(1);
+    const pointerMoves = observePointerMoveListeners(document);
     render(
       <FixtureEnvironment fixture={fixture}>
         <InteractionDragSession
@@ -507,8 +587,8 @@ describe("InteractionDragSession", () => {
         </InteractionDragSession>
       </FixtureEnvironment>,
     );
-    document.dispatchEvent(pointerEvent("pointermove", 20, 20));
     await startDrag("source", pointerEvent("pointerdown", 20, 20));
+    expect(pointerMoves.active()).toBe(1);
 
     act(() => {
       callback("onDragEnd")({
@@ -522,6 +602,8 @@ describe("InteractionDragSession", () => {
 
     expect(onCancel).toHaveBeenCalledWith("invalid-drop");
     expect(onEnd).not.toHaveBeenCalled();
+    expect(pointerMoves.active()).toBe(0);
+    pointerMoves.restore();
   });
 
   it("disables drop animation when the owner window prefers reduced motion", async () => {
@@ -821,6 +903,50 @@ function pointerEvent(type: string, clientX: number, clientY: number): Event {
     clientY: { value: clientY },
   });
   return event;
+}
+
+function pointerEventInit(clientX: number, clientY: number): PointerEventInit {
+  return {
+    button: 0,
+    buttons: 1,
+    clientX,
+    clientY,
+    isPrimary: true,
+    pointerId: 1,
+    pointerType: "mouse",
+  };
+}
+
+function observePointerMoveListeners(ownerDocument: Document): {
+  active(): number;
+  restore(): void;
+} {
+  const activeListeners = new Set<EventListenerOrEventListenerObject>();
+  const addEventListener = ownerDocument.addEventListener.bind(ownerDocument);
+  const removeEventListener = ownerDocument.removeEventListener.bind(ownerDocument);
+  const addSpy = vi.spyOn(ownerDocument, "addEventListener").mockImplementation(((
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: unknown,
+  ) => {
+    if (type === "pointermove") activeListeners.add(listener);
+    addEventListener(type, listener, options as boolean | AddEventListenerOptions | undefined);
+  }) as Document["addEventListener"]);
+  const removeSpy = vi.spyOn(ownerDocument, "removeEventListener").mockImplementation(((
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: unknown,
+  ) => {
+    if (type === "pointermove") activeListeners.delete(listener);
+    removeEventListener(type, listener, options as boolean | EventListenerOptions | undefined);
+  }) as Document["removeEventListener"]);
+  return {
+    active: () => activeListeners.size,
+    restore: () => {
+      addSpy.mockRestore();
+      removeSpy.mockRestore();
+    },
+  };
 }
 
 function clientRect(left: number, top: number, width: number, height: number): DOMRect {
