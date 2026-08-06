@@ -22,12 +22,19 @@ def copied_artifact_workspace():
             adapter / "scaffold_xblock" / "validation",
         )
         contract_schema = repository / "packages" / "contracts" / "generated"
+        contract_fixtures = repository / "packages" / "contracts" / "fixtures"
         grading_fixtures = repository / "packages" / "grading" / "fixtures"
         contract_schema.mkdir(parents=True)
+        contract_fixtures.mkdir(parents=True)
         grading_fixtures.mkdir(parents=True)
         shutil.copy2(
             REPOSITORY_ROOT / "packages/contracts/generated/assessment.schema.json",
             contract_schema,
+        )
+        shutil.copy2(
+            REPOSITORY_ROOT
+            / "packages/contracts/fixtures/score-transport-conformance.json",
+            contract_fixtures,
         )
         shutil.copy2(
             REPOSITORY_ROOT / "packages/grading/fixtures/assessment-grading.json",

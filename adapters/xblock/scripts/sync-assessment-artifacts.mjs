@@ -23,6 +23,17 @@ const artifacts = [
       "scaffold_xblock/validation/fixtures/assessment-grading.json",
     ),
   },
+  {
+    label: "Score transport conformance corpus",
+    sourcePath: resolve(
+      repositoryRoot,
+      "packages/contracts/fixtures/score-transport-conformance.json",
+    ),
+    destinationPath: resolve(
+      adapterRoot,
+      "scaffold_xblock/validation/fixtures/score-transport-conformance.json",
+    ),
+  },
 ];
 
 for (const artifact of artifacts) {

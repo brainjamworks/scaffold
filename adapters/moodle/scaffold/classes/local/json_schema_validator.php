@@ -27,6 +27,15 @@ namespace mod_scaffold\local;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class json_schema_validator {
+    /** Required extension marker for full canonical Score validation. */
+    private const SCORE_SEMANTIC_KEYWORD = 'x-scaffold-semantic';
+    /** Supported canonical Score semantic version. */
+    private const SCORE_SEMANTIC_VERSION = 'score-v1';
+    /** Smallest integer represented exactly by every supported JSON number runtime. */
+    private const MIN_SAFE_INTEGER = -9007199254740991;
+    /** Largest integer represented exactly by every supported JSON number runtime. */
+    private const MAX_SAFE_INTEGER = 9007199254740991;
+
     /**
      * SUPPORTED KEYWORDS.
      */
@@ -55,6 +64,7 @@ class json_schema_validator {
         'title',
         'type',
         'uniqueItems',
+        'x-scaffold-semantic',
     ];
 
     /** @var ?self Shared plugin schema validator. */
@@ -87,6 +97,7 @@ class json_schema_validator {
 
         $this->schema = $schema;
         $this->audit_schema($schema, '#');
+        $this->assert_score_semantic_marker();
     }
 
     /**
@@ -124,9 +135,6 @@ class json_schema_validator {
         }
 
         $this->validate_value($value, $schema, $path, 0);
-        if ($definition === 'Score') {
-            $this->validate_score_contract($value, $path);
-        }
     }
 
     /**
@@ -247,6 +255,9 @@ class json_schema_validator {
         if ($keyword === 'format' && $constraint !== 'date-time') {
             throw new \invalid_parameter_exception($path . '.format is not supported');
         }
+        if ($keyword === self::SCORE_SEMANTIC_KEYWORD && $constraint !== self::SCORE_SEMANTIC_VERSION) {
+            throw new \invalid_parameter_exception($path . ' declares an unsupported Score semantic');
+        }
     }
 
     /**
@@ -264,9 +275,6 @@ class json_schema_validator {
 
         if (property_exists($schema, '$ref')) {
             $this->validate_value($value, $this->resolve_reference($schema->{'$ref'}), $path, $depth + 1);
-            if ($schema->{'$ref'} === '#/definitions/Score') {
-                $this->validate_score_contract($value, $path);
-            }
             return;
         }
 
@@ -336,6 +344,9 @@ class json_schema_validator {
         }
         if (is_string($value)) {
             $this->validate_string($value, $schema, $path);
+        }
+        if (property_exists($schema, self::SCORE_SEMANTIC_KEYWORD)) {
+            $this->validate_score_contract($value, $path);
         }
     }
 
@@ -446,28 +457,61 @@ class json_schema_validator {
      * @return \stdClass
      */
     private function validate_score_contract(mixed $value, string $path): void {
-        if (!($value instanceof \stdClass)) {
-            return;
+        $properties = $this->object_properties($value);
+        if ($properties === null) {
+            throw new \invalid_parameter_exception($path . ' must be a canonical Score');
         }
-        $keys = array_keys(get_object_vars($value));
+        $keys = array_keys($properties);
         sort($keys);
         if ($keys === ['scaled']) {
             return;
         }
         if (
             $keys !== ['max', 'min', 'raw', 'scaled']
-            || !is_int($value->raw)
-            || !is_int($value->min)
-            || !is_int($value->max)
+            || !$this->is_safe_integer($properties['raw'])
+            || !$this->is_safe_integer($properties['min'])
+            || !$this->is_safe_integer($properties['max'])
         ) {
             throw new \invalid_parameter_exception($path . ' must be a canonical Score');
         }
-        if ($value->min >= $value->max) {
+        if ($properties['min'] >= $properties['max']) {
             throw new \invalid_parameter_exception($path . '.min must be less than max');
         }
-        if ($value->raw < $value->min || $value->raw > $value->max) {
+        if ($properties['raw'] < $properties['min'] || $properties['raw'] > $properties['max']) {
             throw new \invalid_parameter_exception($path . '.raw must be within min and max');
         }
+    }
+
+    /**
+     * Fails closed if a bundle exposing Score omits the semantic extension.
+     */
+    private function assert_score_semantic_marker(): void {
+        $definitions = $this->schema->definitions ?? null;
+        if (!($definitions instanceof \stdClass) || !property_exists($definitions, 'Score')) {
+            return;
+        }
+        $score = $definitions->Score;
+        if (
+            !($score instanceof \stdClass)
+            || !property_exists($score, self::SCORE_SEMANTIC_KEYWORD)
+            || $score->{self::SCORE_SEMANTIC_KEYWORD} !== self::SCORE_SEMANTIC_VERSION
+        ) {
+            throw new \invalid_parameter_exception('JSON schema Score semantic marker is missing or unsupported');
+        }
+    }
+
+    /**
+     * Checks the portable JSON integer domain used by canonical Score tuples.
+     *
+     * @param mixed $value Value.
+     * @return bool
+     */
+    private function is_safe_integer(mixed $value): bool {
+        return (is_int($value) || is_float($value))
+            && is_finite((float) $value)
+            && floor((float) $value) === (float) $value
+            && $value >= self::MIN_SAFE_INTEGER
+            && $value <= self::MAX_SAFE_INTEGER;
     }
 
     private function resolve_reference(string $reference): \stdClass {

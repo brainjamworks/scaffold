@@ -1,4 +1,5 @@
 import importlib
+import importlib.resources
 import json
 import subprocess
 import sys
@@ -19,6 +20,14 @@ from adapters.xblock.tests.artifact_test_support import (
 
 ADAPTER_ROOT = Path(__file__).resolve().parents[1]
 PACKAGE_ROOT = ADAPTER_ROOT / "scaffold_xblock"
+
+
+def score_conformance_fixture():
+    validation = importlib.import_module("scaffold_xblock.validation")
+    resource = importlib.resources.files(validation).joinpath(
+        "fixtures/score-transport-conformance.json"
+    )
+    return json.loads(resource.read_text(encoding="utf-8"))
 
 
 EMPTY_PROBLEM = {
@@ -169,6 +178,7 @@ class AssessmentContractResourceTest(unittest.TestCase):
         expected = {
             "scaffold_xblock/validation/schemas/assessment.schema.json",
             "scaffold_xblock/validation/fixtures/assessment-grading.json",
+            "scaffold_xblock/validation/fixtures/score-transport-conformance.json",
         }
         with copied_distribution_source() as source:
             distribution = source / "dist"
@@ -207,6 +217,7 @@ validation = importlib.import_module('scaffold_xblock.validation')
 resources = importlib.resources.files(validation)
 json.loads(resources.joinpath('schemas/assessment.schema.json').read_text())
 json.loads(resources.joinpath('fixtures/assessment-grading.json').read_text())
+json.loads(resources.joinpath('fixtures/score-transport-conformance.json').read_text())
 """
             for archive in (wheel, source_distribution):
                 installed = source / ("installed-" + archive.name.split(".", 1)[0])
@@ -268,6 +279,64 @@ class AssessmentArtifactSyncTest(unittest.TestCase):
 
 
 class AssessmentContractSemanticTest(unittest.TestCase):
+    def test_shared_score_transport_corpus_matches_root_and_nested_boundaries(self):
+        json_schema = load_validation_module("json_schema")
+        fixture = score_conformance_fixture()
+
+        for case in fixture["transportCases"]:
+            score = json.loads(case["json"])
+            result = {
+                "isCorrect": True,
+                "score": score,
+                "feedback": None,
+                "items": {},
+            }
+            for definition_name, value in (
+                ("Score", score),
+                ("AssessmentResult", result),
+            ):
+                with self.subTest(case=case["name"], definition=definition_name):
+                    try:
+                        json_schema.validate_assessment_definition(
+                            definition_name,
+                            value,
+                        )
+                        actual = True
+                    except json_schema.JsonSchemaValidationError:
+                        actual = False
+                    self.assertEqual(actual, case["valid"])
+
+        programmatic_values = {
+            "nan": float("nan"),
+            "positiveInfinity": float("inf"),
+            "negativeInfinity": float("-inf"),
+        }
+        for case in fixture["programmaticCases"]:
+            score = {"scaled": 0.5, "raw": 1, "min": 0, "max": 2}
+            score[case["field"]] = programmatic_values[case["value"]]
+            with self.subTest(case=case["name"]):
+                with self.assertRaises(json_schema.JsonSchemaValidationError):
+                    json_schema.validate_assessment_definition("Score", score)
+
+    def test_score_semantic_marker_is_mandatory_and_versioned(self):
+        json_schema = load_validation_module("json_schema")
+
+        for marker in (None, "unknown"):
+            schema = deepcopy(json_schema.load_assessment_schema())
+            score_schema = schema["definitions"]["Score"]
+            if marker is None:
+                score_schema.pop("x-scaffold-semantic", None)
+            else:
+                score_schema["x-scaffold-semantic"] = marker
+
+            with self.subTest(marker=marker):
+                with patch.object(json_schema, "load_assessment_schema", return_value=schema):
+                    with self.assertRaises(json_schema.JsonSchemaValidationError):
+                        json_schema.validate_assessment_definition(
+                            "Score",
+                            {"scaled": 0.5},
+                        )
+
     def test_score_boundary_accepts_only_the_canonical_shapes(self):
         json_schema = load_validation_module("json_schema")
         for score in (

@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "transportCases": [
+    {
+      "name": "scaled only",
+      "json": "{\"scaled\":0.5}",
+      "valid": true,
+      "normalized": { "scaled": 0.5 }
+    },
+    {
+      "name": "integer tuple",
+      "json": "{\"scaled\":0.5,\"raw\":1,\"min\":0,\"max\":2}",
+      "valid": true,
+      "normalized": { "scaled": 0.5, "raw": 1, "min": 0, "max": 2 }
+    },
+    {
+      "name": "integral decimal tuple",
+      "json": "{\"scaled\":0.5,\"raw\":1.0,\"min\":0.0,\"max\":2.0}",
+      "valid": true,
+      "normalized": { "scaled": 0.5, "raw": 1, "min": 0, "max": 2 }
+    },
+    {
+      "name": "safe integer upper boundary",
+      "json": "{\"scaled\":1,\"raw\":9007199254740991,\"min\":0,\"max\":9007199254740991}",
+      "valid": true,
+      "normalized": {
+        "scaled": 1,
+        "raw": 9007199254740991,
+        "min": 0,
+        "max": 9007199254740991
+      }
+    },
+    {
+      "name": "safe integer lower boundary",
+      "json": "{\"scaled\":0,\"raw\":-9007199254740991,\"min\":-9007199254740991,\"max\":0}",
+      "valid": true,
+      "normalized": {
+        "scaled": 0,
+        "raw": -9007199254740991,
+        "min": -9007199254740991,
+        "max": 0
+      }
+    },
+    {
+      "name": "unsafe integer above boundary",
+      "json": "{\"scaled\":1,\"raw\":9007199254740992,\"min\":0,\"max\":9007199254740992}",
+      "valid": false
+    },
+    {
+      "name": "unsafe integer below boundary",
+      "json": "{\"scaled\":0,\"raw\":-9007199254740992,\"min\":-9007199254740992,\"max\":0}",
+      "valid": false
+    },
+    {
+      "name": "boolean tuple member",
+      "json": "{\"scaled\":0.5,\"raw\":true,\"min\":0,\"max\":2}",
+      "valid": false
+    },
+    {
+      "name": "fractional tuple member",
+      "json": "{\"scaled\":0.5,\"raw\":0.5,\"min\":0,\"max\":1}",
+      "valid": false
+    },
+    {
+      "name": "partial tuple",
+      "json": "{\"scaled\":0.5,\"raw\":1,\"min\":0}",
+      "valid": false
+    },
+    {
+      "name": "extra key",
+      "json": "{\"scaled\":0.5,\"raw\":1,\"min\":0,\"max\":2,\"provider\":\"host\"}",
+      "valid": false
+    },
+    {
+      "name": "equal bounds",
+      "json": "{\"scaled\":0.5,\"raw\":1,\"min\":1,\"max\":1}",
+      "valid": false
+    },
+    {
+      "name": "reversed bounds",
+      "json": "{\"scaled\":0.5,\"raw\":1,\"min\":2,\"max\":0}",
+      "valid": false
+    },
+    {
+      "name": "raw below minimum",
+      "json": "{\"scaled\":0,\"raw\":-1,\"min\":0,\"max\":2}",
+      "valid": false
+    },
+    {
+      "name": "raw above maximum",
+      "json": "{\"scaled\":1,\"raw\":3,\"min\":0,\"max\":2}",
+      "valid": false
+    }
+  ],
+  "programmaticCases": [
+    { "name": "NaN scaled", "field": "scaled", "value": "nan" },
+    { "name": "positive infinite scaled", "field": "scaled", "value": "positiveInfinity" },
+    { "name": "negative infinite scaled", "field": "scaled", "value": "negativeInfinity" },
+    { "name": "NaN raw", "field": "raw", "value": "nan" },
+    { "name": "positive infinite minimum", "field": "min", "value": "positiveInfinity" },
+    { "name": "negative infinite maximum", "field": "max", "value": "negativeInfinity" }
+  ]
+}

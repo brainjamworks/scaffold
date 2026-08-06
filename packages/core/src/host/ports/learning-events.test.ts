@@ -1,4 +1,5 @@
 import { describe, expect, expectTypeOf, it, vi } from "vite-plus/test";
+import scoreConformance from "../../../../contracts/fixtures/score-transport-conformance.json" with { type: "json" };
 import conformance from "../../../fixtures/learning-event-conformance.json" with { type: "json" };
 
 import {
@@ -29,6 +30,19 @@ interface LearningEventJsonDepthConformanceCase {
   readonly valid: boolean;
 }
 
+interface ScoreTransportConformanceCase {
+  readonly name: string;
+  readonly json: string;
+  readonly valid: boolean;
+  readonly normalized?: unknown;
+}
+
+interface ScoreProgrammaticConformanceCase {
+  readonly name: string;
+  readonly field: "scaled" | "raw" | "min" | "max";
+  readonly value: "nan" | "positiveInfinity" | "negativeInfinity";
+}
+
 const conformanceCases = conformance.cases as readonly LearningEventConformanceCase[];
 const scalarConformanceCases = Object.entries(conformance.scalarCases).flatMap(([family, cases]) =>
   (cases as readonly LearningEventScalarConformanceCase[]).map((testCase) => ({
@@ -38,6 +52,16 @@ const scalarConformanceCases = Object.entries(conformance.scalarCases).flatMap((
 );
 const jsonDepthConformanceCases =
   conformance.jsonDepthCases as readonly LearningEventJsonDepthConformanceCase[];
+const scoreTransportConformanceCases =
+  scoreConformance.transportCases as readonly ScoreTransportConformanceCase[];
+const scoreProgrammaticConformanceCases =
+  scoreConformance.programmaticCases as readonly ScoreProgrammaticConformanceCase[];
+
+const programmaticNumbers = {
+  nan: Number.NaN,
+  positiveInfinity: Number.POSITIVE_INFINITY,
+  negativeInfinity: Number.NEGATIVE_INFINITY,
+} as const;
 
 function validEvent(): LearningEvent {
   return {
@@ -113,6 +137,32 @@ function nestedJsonValue(depth: number): unknown {
 }
 
 describe("Learning Event contract", () => {
+  it.each(scoreTransportConformanceCases)(
+    "matches the shared Score transport fixture: $name",
+    (testCase) => {
+      const score = JSON.parse(testCase.json) as unknown;
+      const event = { ...validEvent(), result: { score } };
+      const parsed = LearningEventSchema.safeParse(event);
+
+      expect(parsed.success).toBe(testCase.valid);
+      if (parsed.success && testCase.normalized !== undefined) {
+        expect(parsed.data.result?.score).toStrictEqual(testCase.normalized);
+      }
+    },
+  );
+
+  it.each(scoreProgrammaticConformanceCases)(
+    "rejects the shared programmatic Score case: $name",
+    (testCase) => {
+      const score: Record<string, unknown> = { scaled: 0.5, raw: 1, min: 0, max: 2 };
+      score[testCase.field] = programmaticNumbers[testCase.value];
+
+      expect(LearningEventSchema.safeParse({ ...validEvent(), result: { score } }).success).toBe(
+        false,
+      );
+    },
+  );
+
   it.each(conformanceCases)("matches the shared conformance fixture: $name", (testCase) => {
     expect(LearningEventSchema.safeParse(testCase.event).success).toBe(
       testCase.coreValid ?? testCase.valid,

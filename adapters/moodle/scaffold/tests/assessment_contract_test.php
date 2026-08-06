@@ -55,6 +55,47 @@ final class assessment_contract_test extends \advanced_testcase {
         }
     }
 
+    public function test_shared_score_transport_corpus_matches_root_and_nested_boundaries(): void {
+        $fixture = $this->decode(
+            file_get_contents(__DIR__ . '/fixtures/score-transport-conformance.json'),
+        );
+        $validator = new json_schema_validator();
+
+        foreach ($fixture->transportCases as $case) {
+            $score = json_decode(
+                $case->json,
+                false,
+                512,
+                JSON_THROW_ON_ERROR | JSON_BIGINT_AS_STRING,
+            );
+            $result = $this->decode(
+                '{"isCorrect":true,"score":{"scaled":1},"feedback":null,"items":{}}',
+            );
+            $result->score = $score;
+
+            foreach ([['Score', $score], ['AssessmentResult', $result]] as [$definition, $value]) {
+                try {
+                    $validator->validate_definition($definition, $value, $case->name);
+                    $actual = true;
+                } catch (\invalid_parameter_exception) {
+                    $actual = false;
+                }
+                $this->assertSame($case->valid, $actual, $case->name . ': ' . $definition);
+            }
+        }
+
+        $programmaticvalues = [
+            'nan' => NAN,
+            'positiveInfinity' => INF,
+            'negativeInfinity' => -INF,
+        ];
+        foreach ($fixture->programmaticCases as $case) {
+            $score = (object) ['scaled' => 0.5, 'raw' => 1, 'min' => 0, 'max' => 2];
+            $score->{$case->field} = $programmaticvalues[$case->value];
+            $this->assert_contract_rejected('Score', $score, $validator);
+        }
+    }
+
     public function test_target_contract_accepts_canonical_target(): void {
         (new json_schema_validator())->validate_definition(
             'AssessmentTargetContract',
@@ -282,6 +323,10 @@ JSON);
     public static function invalid_schema_resource_provider(): array {
         return [
             'unsupported keyword' => ['{"definitions":{"Invalid":{"oneOf":[]}}}'],
+            'missing Score semantic marker' => ['{"definitions":{"Score":{"type":"object"}}}'],
+            'unsupported Score semantic marker' => [
+                '{"definitions":{"Score":{"type":"object","x-scaffold-semantic":"unknown"}}}',
+            ],
             'invalid JSON' => ['{'],
         ];
     }

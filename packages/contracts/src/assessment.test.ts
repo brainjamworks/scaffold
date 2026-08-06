@@ -1860,6 +1860,18 @@ describe("score contracts", () => {
       { scaled: 1 },
       { scaled: 0.5, raw: 1, min: 0, max: 2 },
       { scaled: 0.5, raw: -1, min: -2, max: 0 },
+      {
+        scaled: 1,
+        raw: Number.MAX_SAFE_INTEGER,
+        min: 0,
+        max: Number.MAX_SAFE_INTEGER,
+      },
+      {
+        scaled: 0,
+        raw: Number.MIN_SAFE_INTEGER,
+        min: Number.MIN_SAFE_INTEGER,
+        max: 0,
+      },
     ];
 
     for (const score of scores) {
@@ -1883,6 +1895,8 @@ describe("score contracts", () => {
       { scaled: 0.5, raw: 1, min: 1, max: 1 },
       { scaled: 0.5, raw: 0, min: 1, max: 2 },
       { scaled: 0.5, raw: 3, min: 0, max: 2 },
+      { scaled: 1, raw: Number.MAX_SAFE_INTEGER + 1, min: 0, max: Number.MAX_SAFE_INTEGER + 1 },
+      { scaled: 0, raw: Number.MIN_SAFE_INTEGER - 1, min: Number.MIN_SAFE_INTEGER - 1, max: 0 },
       { scaled: 0.5, providerScale: 100 },
     ]) {
       expect(ScoreSchema.safeParse(score).success).toBe(false);

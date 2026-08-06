@@ -28,6 +28,10 @@ final class validator {
     public const MAX_JSON_BYTES = 65536;
     /** Maximum nested array/object containers in one extension JSON value. */
     public const MAX_JSON_DEPTH = 32;
+    /** Smallest portable IEEE-754 safe integer. */
+    private const MIN_SAFE_INTEGER = -9007199254740991;
+    /** Largest portable IEEE-754 safe integer. */
+    private const MAX_SAFE_INTEGER = 9007199254740991;
     /** Moodle-owned context extension. */
     public const CMID_EXTENSION = 'https://scaffold.ac/xapi/extensions/moodle-course-module-id';
     /** BCP 47 grandfathered language tags accepted by Core. */
@@ -184,7 +188,8 @@ final class validator {
         }
         if (!$full) return;
         foreach (['raw', 'min', 'max'] as $field) {
-            if (!is_int($value->{$field})) self::reject('Learning Event score is invalid');
+            if (!self::safe_integer($value->{$field})) self::reject('Learning Event score is invalid');
+            $value->{$field} = (int) $value->{$field};
         }
         if ($value->min >= $value->max) {
             self::reject('Learning Event score range is invalid');
@@ -195,6 +200,20 @@ final class validator {
         if ($value->raw > $value->max) {
             self::reject('Learning Event raw score is invalid');
         }
+    }
+
+    /**
+     * Validates the portable integer domain and excludes booleans.
+     *
+     * @param mixed $value Value.
+     * @return bool
+     */
+    private static function safe_integer(mixed $value): bool {
+        return (is_int($value) || is_float($value))
+            && is_finite((float) $value)
+            && floor((float) $value) === (float) $value
+            && $value >= self::MIN_SAFE_INTEGER
+            && $value <= self::MAX_SAFE_INTEGER;
     }
 
     /**

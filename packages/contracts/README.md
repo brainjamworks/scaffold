@@ -28,3 +28,16 @@ or adapter implementation details.
 editor behavior and port interfaces. `adapters/*` own concrete host
 implementations. Active Scaffold Agent protocol contracts belong to the
 separate private hosted product, not this package.
+
+## Generated assessment schema
+
+`assessment.schema.json` is a Draft-07 structural projection of the canonical
+runtime contracts. Its `Score` definition carries the required
+`x-scaffold-semantic: score-v1` extension. Draft-07 can enforce the closed
+Score shapes and IEEE-754 safe-integer bounds, but it cannot compare the
+sibling `raw`, `min`, and `max` values.
+
+Code claiming full canonical Score validation must register the `score-v1`
+semantic extension, enforce `min < max` and `min <= raw <= max`, and fail
+closed when the marker is missing or unsupported. A generic Draft-07 result
+without that extension is structural validation only.

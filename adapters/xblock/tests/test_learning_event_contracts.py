@@ -1,4 +1,5 @@
 import importlib
+import importlib.resources
 import json
 import sys
 import types
@@ -20,6 +21,14 @@ def load_learning_event_module():
         package.__path__ = [str(PACKAGE_ROOT)]
         sys.modules["scaffold_xblock"] = package
     return importlib.import_module("scaffold_xblock.validation.learning_event")
+
+
+def score_conformance_fixture():
+    validation = importlib.import_module("scaffold_xblock.validation")
+    resource = importlib.resources.files(validation).joinpath(
+        "fixtures/score-transport-conformance.json"
+    )
+    return json.loads(resource.read_text(encoding="utf-8"))
 
 
 def valid_learning_event():
@@ -64,6 +73,29 @@ def nested_json_value(depth):
 
 
 class LearningEventContractTest(unittest.TestCase):
+    def test_shared_score_transport_corpus_matches_request_ingress(self):
+        learning_event = load_learning_event_module()
+
+        for case in score_conformance_fixture()["transportCases"]:
+            event = valid_learning_event()
+            event["result"] = {"score": json.loads(case["json"])}
+            with self.subTest(case=case["name"]):
+                try:
+                    validated = learning_event.validate_learning_event_request(
+                        {"event": event}
+                    )
+                    actual = True
+                except learning_event.LearningEventValidationError:
+                    validated = None
+                    actual = False
+
+                self.assertEqual(actual, case["valid"])
+                if actual:
+                    self.assertEqual(validated["result"]["score"], case["normalized"])
+                    for field in ("raw", "min", "max"):
+                        if field in case["normalized"]:
+                            self.assertIs(type(validated["result"]["score"][field]), int)
+
     def test_accepts_an_actorless_canonical_event_as_an_owned_copy(self):
         event = valid_learning_event()
 

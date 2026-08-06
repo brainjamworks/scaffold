@@ -17,8 +17,19 @@ const artifacts = [
     vendoredPath: resolve(adapterRoot, "scaffold/tests/fixtures/assessment-grading.json"),
   },
   {
+    label: "Score transport conformance corpus",
+    sourcePath: resolve(
+      adapterRoot,
+      "../../packages/contracts/fixtures/score-transport-conformance.json",
+    ),
+    vendoredPath: resolve(adapterRoot, "scaffold/tests/fixtures/score-transport-conformance.json"),
+  },
+  {
     label: "Learning Event conformance corpus",
-    sourcePath: resolve(adapterRoot, "../../packages/core/fixtures/learning-event-conformance.json"),
+    sourcePath: resolve(
+      adapterRoot,
+      "../../packages/core/fixtures/learning-event-conformance.json",
+    ),
     vendoredPath: resolve(adapterRoot, "scaffold/tests/fixtures/learning-event-conformance.json"),
   },
 ];

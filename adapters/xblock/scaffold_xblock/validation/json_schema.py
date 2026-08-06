@@ -13,6 +13,12 @@ class UnsupportedJsonSchemaKeywordError(JsonSchemaValidationError):
     pass
 
 
+SCORE_SEMANTIC_KEYWORD = "x-scaffold-semantic"
+SCORE_SEMANTIC_VERSION = "score-v1"
+MIN_SAFE_INTEGER = -9007199254740991
+MAX_SAFE_INTEGER = 9007199254740991
+
+
 SUPPORTED_SCHEMA_KEYWORDS = {
     "$comment",
     "$id",
@@ -39,6 +45,7 @@ SUPPORTED_SCHEMA_KEYWORDS = {
     "title",
     "type",
     "uniqueItems",
+    SCORE_SEMANTIC_KEYWORD,
 }
 
 
@@ -70,6 +77,7 @@ def validate_schema_definition(
     definition_kind="JSON",
 ):
     _assert_supported_schema(bundle)
+    _assert_score_semantic_marker(bundle)
     definitions = bundle.get("definitions", {})
     try:
         schema = definitions[definition_name]
@@ -80,8 +88,6 @@ def validate_schema_definition(
         ) from exc
 
     _validate(value, schema, bundle, path)
-    if definition_name == "Score":
-        _validate_score_contract(value, path)
     return value
 
 
@@ -91,6 +97,13 @@ def _assert_supported_schema(schema, schema_path=""):
             path = ".".join(part for part in (schema_path, keyword) if part)
             raise UnsupportedJsonSchemaKeywordError(
                 "Unsupported JSON Schema keyword at %s" % path,
+            )
+        if (
+            keyword == SCORE_SEMANTIC_KEYWORD
+            and schema[keyword] != SCORE_SEMANTIC_VERSION
+        ):
+            raise UnsupportedJsonSchemaKeywordError(
+                "Unsupported Score semantic at %s" % schema_path,
             )
 
     for collection_keyword in ("definitions", "properties"):
@@ -128,8 +141,6 @@ def _assert_supported_schema(schema, schema_path=""):
 def _validate(value, schema, root_schema, path):
     if "$ref" in schema:
         _validate(value, _resolve_ref(root_schema, schema["$ref"]), root_schema, path)
-        if schema["$ref"] == "#/definitions/Score":
-            _validate_score_contract(value, path)
 
     if "allOf" in schema:
         for child_schema in schema["allOf"]:
@@ -239,15 +250,36 @@ def _validate(value, schema, root_schema, path):
             raise JsonSchemaValidationError("%s has an invalid format" % path)
     if isinstance(value, str) and "format" in schema:
         _validate_format(value, schema["format"], path)
+    if SCORE_SEMANTIC_KEYWORD in schema:
+        _validate_score_contract(value, path)
 
 
 def _validate_score_contract(value, path):
-    if not isinstance(value, dict) or set(value) == {"scaled"}:
+    if not isinstance(value, dict):
+        raise JsonSchemaValidationError("%s must be a canonical Score" % path)
+    if set(value) == {"scaled"}:
         return
+    if set(value) != {"scaled", "raw", "min", "max"} or any(
+        not _is_safe_integer(value[field]) for field in ("raw", "min", "max")
+    ):
+        raise JsonSchemaValidationError("%s must be a canonical Score" % path)
     if value["min"] >= value["max"]:
         raise JsonSchemaValidationError("%s.min must be less than max" % path)
     if not value["min"] <= value["raw"] <= value["max"]:
         raise JsonSchemaValidationError("%s.raw must be within min and max" % path)
+
+
+def _assert_score_semantic_marker(bundle):
+    score_schema = bundle.get("definitions", {}).get("Score")
+    if score_schema is None:
+        return
+    if (
+        not isinstance(score_schema, dict)
+        or score_schema.get(SCORE_SEMANTIC_KEYWORD) != SCORE_SEMANTIC_VERSION
+    ):
+        raise JsonSchemaValidationError(
+            "JSON schema Score semantic marker is missing or unsupported"
+        )
 
 
 def _resolve_ref(root_schema, reference):
@@ -426,7 +458,7 @@ def _matches_type(value, expected_type):
     if expected_type == "string":
         return isinstance(value, str)
     if expected_type == "integer":
-        return isinstance(value, int) and not isinstance(value, bool)
+        return _is_integer(value)
     if expected_type == "number":
         return _is_number(value)
     return False
@@ -447,11 +479,25 @@ def _type_description(expected_type):
 
 
 def _is_number(value):
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, int):
+        return True
+    return isinstance(value, float) and math.isfinite(value)
+
+
+def _is_integer(value):
     return (
-        isinstance(value, (int, float))
+        isinstance(value, int)
         and not isinstance(value, bool)
+        or isinstance(value, float)
         and math.isfinite(value)
+        and value.is_integer()
     )
+
+
+def _is_safe_integer(value):
+    return _is_integer(value) and MIN_SAFE_INTEGER <= value <= MAX_SAFE_INTEGER
 
 
 def _items_are_unique(items):

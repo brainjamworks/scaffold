@@ -442,15 +442,21 @@ export const AssessmentItemDetailSchema = z
 export type AssessmentItemDetail = z.infer<typeof AssessmentItemDetailSchema>;
 
 const ScaledScoreSchema = z.number().finite().min(0).max(1);
+const ScoreIntegerSchema = z
+  .number()
+  .finite()
+  .int()
+  .min(Number.MIN_SAFE_INTEGER)
+  .max(Number.MAX_SAFE_INTEGER);
 
 export const ScoreSchema = z.union([
   z.object({ scaled: ScaledScoreSchema }).strict(),
   z
     .object({
       scaled: ScaledScoreSchema,
-      raw: z.number().int(),
-      min: z.number().int(),
-      max: z.number().int(),
+      raw: ScoreIntegerSchema,
+      min: ScoreIntegerSchema,
+      max: ScoreIntegerSchema,
     })
     .strict()
     .superRefine((score, context) => {

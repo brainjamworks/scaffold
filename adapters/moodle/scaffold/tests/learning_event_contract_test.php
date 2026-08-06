@@ -26,6 +26,35 @@ use mod_scaffold\learning_event\validator;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class learning_event_contract_test extends \advanced_testcase {
+    public function test_shared_score_transport_corpus_matches_learning_event_ingress(): void {
+        $fixture = json_decode(
+            file_get_contents(__DIR__ . '/fixtures/score-transport-conformance.json'),
+            false,
+            512,
+            JSON_THROW_ON_ERROR,
+        );
+
+        foreach ($fixture->transportCases as $case) {
+            try {
+                $validated = validator::validate_json($this->event_with_score($case->json));
+                $actual = true;
+            } catch (\invalid_parameter_exception) {
+                $validated = null;
+                $actual = false;
+            }
+
+            $this->assertSame($case->valid, $actual, $case->name);
+            if ($actual) {
+                $this->assertEquals($case->normalized, $validated->result->score, $case->name);
+                if (property_exists($case->normalized, 'raw')) {
+                    $this->assertIsInt($validated->result->score->raw, $case->name . ': raw');
+                    $this->assertIsInt($validated->result->score->min, $case->name . ': min');
+                    $this->assertIsInt($validated->result->score->max, $case->name . ': max');
+                }
+            }
+        }
+    }
+
     /** Executes the same named cases consumed by Core's LearningEventSchema test. */
     public function test_shared_conformance_fixture_matches_core_boundary(): void {
         $fixture = json_decode(
@@ -109,6 +138,22 @@ final class learning_event_contract_test extends \advanced_testcase {
             'object' => ['objectType' => 'Activity', 'id' => 'https://moodle.example/mod/scaffold/view.php?id=42'],
             'result' => ['completion' => false],
         ], $overrides), JSON_THROW_ON_ERROR);
+    }
+
+    /**
+     * Builds a valid Learning Event while preserving the Score JSON number lexemes.
+     *
+     * @param string $scorejson Score JSON.
+     * @return string
+     */
+    private function event_with_score(string $scorejson): string {
+        return '{'
+            . '"id":"00000000-0000-4000-8000-000000000001",'
+            . '"timestamp":"2026-07-27T12:00:00.000Z",'
+            . '"verb":{"id":"http://adlnet.gov/expapi/verbs/answered","display":{"en":"answered"}},'
+            . '"object":{"objectType":"Activity","id":"https://moodle.example/mod/scaffold/view.php?id=42"},'
+            . '"result":{"score":' . $scorejson . '}'
+            . '}';
     }
 
     /** Accepts a response-bearing actorless event. */

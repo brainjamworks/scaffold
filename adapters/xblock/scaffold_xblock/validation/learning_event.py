@@ -7,6 +7,8 @@ from urllib.parse import urlsplit
 
 MAX_LEARNING_EVENT_BYTES = 65536
 MAX_LEARNING_EVENT_JSON_DEPTH = 32
+MIN_SAFE_INTEGER = -9007199254740991
+MAX_SAFE_INTEGER = 9007199254740991
 
 _EVENT_FIELDS = {"id", "timestamp", "verb", "object", "result", "context"}
 _INTERACTION_TYPES = {
@@ -219,14 +221,29 @@ def _validate_score(value):
         _reject("Learning Event scaled score is invalid")
     if set(value) == {"scaled"}:
         return
-    if any(type(value[field]) is not int for field in ("raw", "min", "max")):
+    if any(not _is_safe_integer(value[field]) for field in ("raw", "min", "max")):
         _reject("Learning Event score is invalid")
+    for field in ("raw", "min", "max"):
+        value[field] = int(value[field])
     if value["min"] >= value["max"]:
         _reject("Learning Event score range is invalid")
     if value["raw"] < value["min"]:
         _reject("Learning Event raw score is invalid")
     if value["raw"] > value["max"]:
         _reject("Learning Event raw score is invalid")
+
+
+def _is_safe_integer(value):
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, int):
+        return MIN_SAFE_INTEGER <= value <= MAX_SAFE_INTEGER
+    return (
+        isinstance(value, float)
+        and math.isfinite(value)
+        and value.is_integer()
+        and MIN_SAFE_INTEGER <= value <= MAX_SAFE_INTEGER
+    )
 
 
 def _validate_context(value):

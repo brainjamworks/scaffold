@@ -24,6 +24,8 @@ import {
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const generatedPath = resolve(packageRoot, "generated/assessment.schema.json");
 const packagedPath = resolve(packageRoot, "dist/schemas/assessment.schema.json");
+const scoreSemanticKeyword = "x-scaffold-semantic";
+const scoreSemanticVersion = "score-v1";
 
 const definitions = {
   AnswerReveal: AnswerRevealSchema,
@@ -106,12 +108,18 @@ function generateSchema() {
     strictUnions: true,
     target: "jsonSchema7",
   });
+  const scoreDefinition = converted.definitions?.Score;
+  if (scoreDefinition === null || typeof scoreDefinition !== "object") {
+    throw new Error("Generated assessment schema is missing the canonical Score definition.");
+  }
+  scoreDefinition[scoreSemanticKeyword] = scoreSemanticVersion;
 
   return sortJson({
     $schema: "http://json-schema.org/draft-07/schema#",
     $id: "https://scaffold.ac/schemas/assessment.schema.json",
     title: "Scaffold assessment contracts",
-    $comment: "This bundle is generated from the strict version 2 Zod assessment contracts.",
+    $comment:
+      "This bundle is generated from the strict version 2 Zod assessment contracts. Full canonical Score validation requires the x-scaffold-semantic score-v1 extension; standalone Draft-07 validation enforces structure and safe-integer bounds but cannot compare raw, min, and max.",
     definitions: converted.definitions,
   });
 }

@@ -3,6 +3,7 @@ import addFormats from "ajv-formats";
 import { describe, expect, it } from "vite-plus/test";
 import type { ZodTypeAny } from "zod";
 
+import scoreConformance from "../fixtures/score-transport-conformance.json" with { type: "json" };
 import assessmentJsonSchema from "../generated/assessment.schema.json";
 import {
   AssessmentGradeProjectionSchema,
@@ -17,9 +18,28 @@ import {
   ScoreSchema,
 } from "./index";
 
-const ajv = new Ajv({ allErrors: true, strict: true });
-addFormats(ajv);
-ajv.addSchema(assessmentJsonSchema);
+const scoreSemanticKeyword = "x-scaffold-semantic";
+const scoreSemanticVersion = "score-v1";
+
+function createCanonicalAssessmentAjv(schema: typeof assessmentJsonSchema): Ajv {
+  const scoreDefinition = schema.definitions.Score as Record<string, unknown>;
+  if (scoreDefinition[scoreSemanticKeyword] !== scoreSemanticVersion) {
+    throw new Error("Assessment schema is missing the supported canonical Score semantic marker");
+  }
+
+  const validator = new Ajv({ allErrors: true, strict: true });
+  addFormats(validator);
+  validator.addKeyword({
+    keyword: scoreSemanticKeyword,
+    schemaType: "string",
+    validate: (semantic: string, value: unknown) =>
+      semantic === scoreSemanticVersion && ScoreSchema.safeParse(value).success,
+  });
+  validator.addSchema(schema);
+  return validator;
+}
+
+const ajv = createCanonicalAssessmentAjv(assessmentJsonSchema);
 
 function validatorFor(definitionName: string): ValidateFunction {
   const validator = ajv.getSchema(`${assessmentJsonSchema.$id}#/definitions/${definitionName}`);
@@ -152,9 +172,26 @@ describe("generated assessment JSON Schema", () => {
       "QuizAttemptState",
       "Score",
     ]);
-    expect(assessmentJsonSchema.$comment).toBe(
-      "This bundle is generated from the strict version 2 Zod assessment contracts.",
-    );
+    expect(assessmentJsonSchema.$comment).toContain("x-scaffold-semantic");
+    expect(
+      (assessmentJsonSchema.definitions.Score as Record<string, unknown>)["x-scaffold-semantic"],
+    ).toBe("score-v1");
+  });
+
+  it("fails closed when the canonical Score semantic marker is missing or unsupported", () => {
+    for (const semantic of [undefined, "unknown"] as const) {
+      const schema = structuredClone(assessmentJsonSchema);
+      const scoreDefinition = schema.definitions.Score as Record<string, unknown>;
+      if (semantic === undefined) {
+        Reflect.deleteProperty(scoreDefinition, scoreSemanticKeyword);
+      } else {
+        scoreDefinition[scoreSemanticKeyword] = semantic;
+      }
+
+      expect(() => createCanonicalAssessmentAjv(schema)).toThrow(
+        "Assessment schema is missing the supported canonical Score semantic marker",
+      );
+    }
   });
 
   it("matches representable target and group structure", () => {
@@ -278,6 +315,40 @@ describe("generated assessment JSON Schema", () => {
     const incompleteQuizAttempt = structuredClone(quizAttempt);
     Reflect.deleteProperty(incompleteQuizAttempt, "successStatus");
     expectRejected(QuizAttemptStateSchema, "QuizAttemptState", incompleteQuizAttempt);
+  });
+
+  it("matches the canonical Score transport corpus at root and nested boundaries", () => {
+    for (const testCase of scoreConformance.transportCases) {
+      const score = JSON.parse(testCase.json) as unknown;
+      const rootValidator = validatorFor("Score");
+      const nestedValidator = validatorFor("AssessmentResult");
+      const nested = { ...result, score };
+
+      expect(ScoreSchema.safeParse(score).success, testCase.name).toBe(testCase.valid);
+      expect(
+        rootValidator(score),
+        `${testCase.name}: ${JSON.stringify(rootValidator.errors)}`,
+      ).toBe(testCase.valid);
+      expect(AssessmentResultSchema.safeParse(nested).success, `${testCase.name}: nested Zod`).toBe(
+        testCase.valid,
+      );
+      expect(
+        nestedValidator(nested),
+        `${testCase.name}: nested ${JSON.stringify(nestedValidator.errors)}`,
+      ).toBe(testCase.valid);
+    }
+  });
+
+  it("enforces canonical Score relations at root and nested boundaries", () => {
+    for (const score of [
+      { scaled: 0.5, raw: 1, min: 1, max: 1 },
+      { scaled: 0.5, raw: 1, min: 2, max: 0 },
+      { scaled: 0, raw: -1, min: 0, max: 2 },
+      { scaled: 1, raw: 3, min: 0, max: 2 },
+    ]) {
+      expectRejected(ScoreSchema, "Score", score);
+      expectRejected(AssessmentResultSchema, "AssessmentResult", { ...result, score });
+    }
   });
 
   it("matches representable grade projection constraints including timestamp checks", () => {
