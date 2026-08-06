@@ -38,7 +38,7 @@
       "default": "./dist/extensions.js"
     },
     "./styles.css": {
-      "default": "./dist/styles.css"
+      "default": "./dist/styles/globals.css"
     }
   },
   "scripts": {
@@ -75,6 +75,7 @@
     "@radix-ui/react-toolbar": "^1.1.13",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@radix-ui/react-visually-hidden": "^1.2.5",
+    "@radix-ui/themes": "3.3.0",
     "@revolist/react-datagrid": "4.21.9",
     "@scaffold/contracts": "workspace:*",
     "@tiptap/core": "^3.10.1",
@@ -106,7 +107,6 @@
     "aria-hidden": "^1.2.6",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "culori": "4.0.2",
     "dompurify": "^3.4.12",
     "echarts": "6.1.0",
     "katex": "^0.16.47",
@@ -127,9 +127,8 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
-    "@types/culori": "4.0.1",
     "@types/katex": "^0.16.8",
-    "@types/node": "^22.10.5",
+    "@types/node": "catalog:",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^6.0.2",

@@ -10,7 +10,7 @@ import { SidebarBodyNode, SidebarLabelNode, SidebarTitleNode } from "./slots";
 const SidebarRuntimeRootNode = createSidebarNode({
   addNodeView: () =>
     createBlockRuntimeNodeView({
-      className: "sc-sidebar",
+      className: "sc-course-sidebar",
       definition: sidebarBlockDefinition,
       view: { component: SidebarView },
     }),

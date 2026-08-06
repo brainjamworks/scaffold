@@ -19,6 +19,65 @@ describe("typed lint configuration", () => {
       },
     ]);
   });
+
+  it("enforces App, Course, and neutral UI ownership boundaries", () => {
+    expect(config.lint?.overrides).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          files: ["packages/core/src/ui/components/app/**/*.{ts,tsx}"],
+          rules: expect.objectContaining({
+            "no-restricted-imports": expect.arrayContaining([
+              expect.objectContaining({
+                patterns: expect.arrayContaining([
+                  expect.objectContaining({
+                    regex:
+                      "^(?:@/ui/components/course|@/theme/course|(?:\\.\\./)+course|(?:\\.\\./)+theme/course)(?:/|$)",
+                  }),
+                ]),
+              }),
+            ]),
+          }),
+        }),
+        expect.objectContaining({
+          files: ["packages/core/src/ui/components/course/**/*.{ts,tsx}"],
+          rules: expect.objectContaining({
+            "no-restricted-imports": expect.arrayContaining([
+              expect.objectContaining({
+                patterns: expect.arrayContaining([
+                  expect.objectContaining({
+                    regex:
+                      "^(?:@/ui/components/app|@/theme/app|(?:\\.\\./)+app|(?:\\.\\./)+theme/app)(?:/|$)",
+                  }),
+                ]),
+              }),
+            ]),
+          }),
+        }),
+        expect.objectContaining({
+          files: [
+            "packages/core/src/ui/accessibility/**/*.{ts,tsx}",
+            "packages/core/src/ui/icons/**/*.{ts,tsx}",
+            "packages/core/src/ui/overlays/**/*.{ts,tsx}",
+          ],
+          rules: expect.objectContaining({
+            "no-restricted-imports": expect.arrayContaining([
+              expect.objectContaining({
+                patterns: expect.arrayContaining([
+                  expect.objectContaining({
+                    regex:
+                      "^(?:@/ui/components/(?:app|course)|@/theme/(?:app|course)|(?:\\.\\./)+(?:components/(?:app|course)|theme/(?:app|course)))(?:/|$)",
+                  }),
+                  expect.objectContaining({
+                    group: ["@radix-ui/themes", "@radix-ui/themes/**"],
+                  }),
+                ]),
+              }),
+            ]),
+          }),
+        }),
+      ]),
+    );
+  });
 });
 
 function resolvePlaygroundConfig(command: "build" | "serve", mode: string) {

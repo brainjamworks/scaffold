@@ -12,23 +12,20 @@ import {
   type AssessmentFeedbackContent,
 } from "@scaffold/contracts";
 
-import { CHOICE_TRAILING_BTN } from "@/editor/blocks/assessment/shared/chrome/ChoiceAnswerItem";
 import {
-  nextAssessmentFeedbackRecord,
   resolveAssessmentAttrParent,
   richTextDocumentToAssessmentFeedback,
-  setAssessmentAttr,
 } from "@/editor/blocks/assessment/shared/model/private-assessment-attrs";
-import { BlockAddGhost } from "@/editor/suggestions/insert/BlockAddGhost";
-import { containedMovementTargetAttributes } from "@/editor/movement/view/movement-dom";
+import {
+  AssessmentChoiceAddButton,
+  AssessmentChoiceAuthoringAction,
+} from "@/ui/components/course/AssessmentChoiceAuthoringRow/AssessmentChoiceAuthoringRow";
 import { ContainedMovementHandle } from "@/editor/movement/view/ContainedMovementHandle";
-import { authoringMovementSnapshotChromeAttributes } from "@/editor/movement/view/authoring-movement-presentation";
+import { containedMovementTargetAttributes } from "@/editor/movement/view/movement-dom";
 import { Placeholder } from "@/editor/prosemirror/placeholder/Placeholder";
 import { createFieldContentEditorExtensions } from "@/editor/rich-text/authoring/field-content-extensions";
 import { EditableOverlayPopover } from "@/editor/rich-text/authoring/nested-overlay/EditableOverlayPopoverShell";
 import { currentNodeViewPos, safeGetPos } from "@/editor/prosemirror/position/node-view-position";
-import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
-import { cn } from "@/lib/cn";
 import {
   isScaffoldRichTextDocumentEmpty,
   toTiptapRichTextDocument,
@@ -42,18 +39,25 @@ import {
   createMatchingPairNode,
   createMatchingPairsGroupNode,
   createMatchingTargetNode,
-  matchingPairContent,
 } from "./matching-fields-shared";
+import {
+  addMatchingPair,
+  canDeleteMatchingPair,
+  deleteMatchingPair,
+  setMatchingPairFeedback,
+} from "./commands";
 import "./Matching.css";
 
 export {
   answerMatchesFromReveal,
   describeMatchingItemAccessibilityState,
   describeMatchingTargetAccessibilityState,
+  getMatchingConnectorCoordinates,
   getMatchingConnectorPath,
-  matchingConnectorColor,
   matchingFieldContent,
   matchingPairContent,
+  reconcileMatchingMatches,
+  resolveAuthorizedMatchingReveal,
 } from "./matching-fields-shared";
 
 export const MatchingItemNode = createMatchingItemNode({
@@ -64,7 +68,7 @@ function MatchingItemNodeView() {
   return (
     <NodeViewWrapper
       data-slot="matching-item"
-      className="sc-matching-field sc-matching-field--item"
+      className="sc-course-matching__field sc-course-matching__field--item"
     >
       <NodeViewContent />
     </NodeViewWrapper>
@@ -79,7 +83,7 @@ function MatchingTargetNodeView() {
   return (
     <NodeViewWrapper
       data-slot="matching-target"
-      className="sc-matching-field sc-matching-field--target"
+      className="sc-course-matching__field sc-course-matching__field--target"
     >
       <NodeViewContent />
     </NodeViewWrapper>
@@ -93,8 +97,8 @@ export const MatchingPairNode = createMatchingPairNode({
 function MatchingPairNodeView(props: NodeViewProps) {
   const presentationRef = useRef<HTMLDivElement | null>(null);
   const pos = safeGetPos(props.getPos);
-  const itemId = String(props.node.firstChild?.attrs["id"] ?? "");
-  const targetId = String(props.node.lastChild?.attrs["id"] ?? "");
+  const itemId = String(props.node.attrs["itemId"] ?? "");
+  const targetId = String(props.node.attrs["targetId"] ?? "");
   const popoverId = useId();
   const richTextPluginKey = useMemo(
     () => `matching-item-feedback-rich-text-${popoverId.replace(/[^A-Za-z0-9_-]/g, "")}`,
@@ -105,7 +109,7 @@ function MatchingPairNodeView(props: NodeViewProps) {
       ...createFieldContentEditorExtensions(),
       Placeholder.configure({
         includeChildren: false,
-        placeholder: "Feedback for this choice",
+        placeholder: "Feedback for this item",
         showOnlyCurrent: false,
         showOnlyWhenEditable: true,
       }),
@@ -128,6 +132,7 @@ function MatchingPairNodeView(props: NodeViewProps) {
     },
   });
   const hasFeedback = !isScaffoldRichTextDocumentEmpty(privateFeedback?.document);
+  const itemLabel = props.node.firstChild?.textContent.trim() || `Item ${pairIndex}`;
   const fieldKey = `matching:${itemId}:feedback`;
 
   useEffect(() => {
@@ -163,14 +168,15 @@ function MatchingPairNodeView(props: NodeViewProps) {
   const deletePair = () => {
     const currentPos = currentNodeViewPos(props.editor, props.getPos, "matching_pair");
     if (currentPos === null) return;
-    const currentNode = props.editor.state.doc.nodeAt(currentPos);
-    if (!currentNode) return;
-    props.editor
-      .chain()
-      .focus()
-      .deleteRange({ from: currentPos, to: currentPos + currentNode.nodeSize })
-      .run();
+    deleteMatchingPair(props.editor, currentPos);
   };
+  const deleteUnavailable = useEditorState({
+    editor: props.editor,
+    selector: ({ editor }) => {
+      const currentPos = currentNodeViewPos(editor, props.getPos, "matching_pair");
+      return currentPos === null || !canDeleteMatchingPair(editor, currentPos);
+    },
+  });
 
   return (
     <NodeViewWrapper
@@ -179,36 +185,36 @@ function MatchingPairNodeView(props: NodeViewProps) {
       data-item-id={itemId}
       data-target-id={targetId}
       {...containedMovementTargetAttributes()}
-      className="sc-matching-pair"
+      role="group"
+      aria-label={`Matching pair ${pairIndex}, ${itemLabel}`}
+      className="sc-course-matching__pair"
     >
-      <div className="sc-matching-pair__grid">
-        <div className="sc-matching-pair__move-cell">
+      <div className="sc-course-matching__pair-grid">
+        <div className="sc-course-matching__move-cell">
           <ContainedMovementHandle
             getPresentationElement={() => presentationRef.current}
             getSourcePos={() => safeGetPos(props.getPos)}
-            label="matching pair"
+            label={`Move matching pair ${pairIndex}, ${itemLabel}`}
             sourceKey={`${itemId}:${targetId}`}
             sourcePos={pos}
-            className="sc-matching-pair__move-handle"
+            className="sc-course-matching__move-action"
           />
         </div>
-        <NodeViewContent className="sc-matching-pair__content" />
-        <div className="sc-matching-pair__actions">
+        <NodeViewContent className="sc-course-matching__pair-content" />
+        <div className="sc-course-matching__pair-actions">
           <EditableOverlayPopover.Root>
             <EditableOverlayPopover.Trigger asChild>
-              <button
-                {...authoringMovementSnapshotChromeAttributes()}
-                type="button"
-                aria-label={hasFeedback ? "Edit feedback" : "Add feedback"}
-                onClick={(event) => event.stopPropagation()}
-                data-no-select
-                className={cn(
-                  CHOICE_TRAILING_BTN,
-                  hasFeedback && "sc-assessment-feedback-trigger--visible",
-                )}
+              <AssessmentChoiceAuthoringAction
+                active={hasFeedback}
+                intent="feedback"
+                label={
+                  hasFeedback
+                    ? `Edit feedback for item ‘${itemLabel}’`
+                    : `Add feedback for item ‘${itemLabel}’`
+                }
               >
                 <Info size={iconSm} weight={hasFeedback ? "fill" : "regular"} />
-              </button>
+              </AssessmentChoiceAuthoringAction>
             </EditableOverlayPopover.Trigger>
             <EditableOverlayPopover.Portal>
               <EditableOverlayPopover.Content
@@ -221,35 +227,31 @@ function MatchingPairNodeView(props: NodeViewProps) {
                 editor={{
                   ariaLabel: "Feedback editor",
                   bubbleMenuPluginKey: richTextPluginKey,
-                  className: "sc-assessment-feedback-editor-field sc-assessment-feedback-rich-text",
+                  className:
+                    "sc-course-assessment-feedback-editor-field sc-course-assessment-feedback-rich-text",
                   extensions,
                   fieldKey,
                   outerEditor: props.editor,
-                  placeholder: "Feedback for this choice",
+                  placeholder: "Feedback for this item",
                   syncKey: privateFeedback?.document,
                   target: feedbackTarget,
                 }}
               />
             </EditableOverlayPopover.Portal>
           </EditableOverlayPopover.Root>
-          <button
-            {...authoringMovementSnapshotChromeAttributes()}
-            type="button"
-            contentEditable={false}
-            onClick={(e) => {
-              e.stopPropagation();
+          <AssessmentChoiceAuthoringAction
+            disabled={deleteUnavailable}
+            onClick={() => {
               deletePair();
             }}
-            aria-label={`Delete matching pair ${pairIndex}`}
-            data-no-select
-            className={cn(
-              CHOICE_TRAILING_BTN,
-              "sc-choice-trailing-button--muted",
-              "sc-choice-trailing-button--danger",
-            )}
+            label={`Delete matching pair ${pairIndex}`}
+            intent="delete"
+            {...(deleteUnavailable
+              ? { unavailableReason: "Matching requires at least one pair." }
+              : {})}
           >
             <Trash size={iconSm} />
-          </button>
+          </AssessmentChoiceAuthoringAction>
         </div>
       </div>
     </NodeViewWrapper>
@@ -282,39 +284,28 @@ function MatchingPairsGroupNodeView(props: NodeViewProps) {
   const addPair = () => {
     const currentPos = currentNodeViewPos(props.editor, props.getPos, "matching_pairs_group");
     if (currentPos === null) return;
-    const currentNode = props.editor.state.doc.nodeAt(currentPos);
-    if (!currentNode) return;
-    props.editor
-      .chain()
-      .focus()
-      .insertContentAt(currentPos + currentNode.nodeSize - 1, {
-        type: "matching_pair",
-        attrs: { id: createEmbeddedNodeId() },
-        content: matchingPairContent(),
-      })
-      .run();
+    addMatchingPair(props.editor, currentPos);
   };
 
   return (
     <NodeViewWrapper
       data-bounded-scroll-frame=""
       data-slot="matching-pairs-group"
-      className="sc-matching-pairs-group"
+      className="sc-course-matching__group"
     >
-      <div data-bounded-scroll="" className="sc-matching-pairs-scroll">
-        <div className="sc-matching-pairs-header">
+      <div data-bounded-scroll="" className="sc-course-matching__scroll">
+        <div className="sc-course-matching__header">
           <span aria-hidden />
           <span>Items</span>
           <span>Matches</span>
           <span aria-hidden />
         </div>
-        <NodeViewContent className="sc-matching-pairs-list" />
-        <BlockAddGhost
+        <NodeViewContent className="sc-course-matching__pair-list" />
+        <AssessmentChoiceAddButton
           label="Add pair"
-          presentation="pill"
           contentEditable={false}
           onClick={addPair}
-          className="sc-matching-add"
+          className="sc-course-matching__add"
         />
       </div>
       <MatchingBoundedScrollHint />
@@ -339,19 +330,4 @@ function readMatchingPairFeedback(
   if (!parent || !itemId) return null;
   const assessment = MatchingPrivateAssessmentSchema.parse(parent.node.attrs["assessment"] ?? {});
   return assessment.feedbackByItemId[itemId] ?? null;
-}
-
-function setMatchingPairFeedback(
-  editor: NodeViewProps["editor"],
-  pairPos: number,
-  itemId: string,
-  feedback: AssessmentFeedbackContent | null,
-) {
-  const parent = resolveAssessmentAttrParent(editor, pairPos, ["matching"]);
-  if (!parent || !itemId) return;
-  const assessment = MatchingPrivateAssessmentSchema.parse(parent.node.attrs["assessment"] ?? {});
-  setAssessmentAttr(editor, parent, {
-    ...assessment,
-    feedbackByItemId: nextAssessmentFeedbackRecord(assessment.feedbackByItemId, itemId, feedback),
-  });
 }

@@ -15,10 +15,7 @@ import {
   ChartRowIdSchema,
   ChartTypeSchema,
 } from "@/schemas/shared";
-import {
-  createEmbeddedDataId,
-  createEmbeddedNodeId,
-} from "@/document/model/identity/stable-ids";
+import { createEmbeddedDataId, createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { z } from "zod";
 
 import { chartProfiles } from "./chart-profiles";

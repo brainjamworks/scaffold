@@ -171,6 +171,180 @@ describe("@scaffold/grading primitive targets", () => {
     expect(AssessmentResultSchema.parse(result)).toEqual(result);
   });
 
+  it("requires an exact unique current Matching mapping for correctness", () => {
+    const target: AssessmentTargetContract = {
+      ...baseTarget,
+      interaction: {
+        kind: "match",
+        items: [{ id: "fr" }, { id: "es" }],
+        targets: [{ id: "paris" }, { id: "madrid" }],
+      },
+      assessment: {
+        kind: "match",
+        correctPairs: [
+          { itemId: "fr", targetId: "paris" },
+          { itemId: "es", targetId: "madrid" },
+        ],
+        feedbackByItemId: {},
+      },
+    };
+
+    expect(
+      gradeAssessment(target, {
+        kind: "match",
+        pairs: [
+          { itemId: "fr", targetId: "paris" },
+          { itemId: "es", targetId: "madrid" },
+        ],
+      }),
+    ).toMatchObject({
+      isCorrect: true,
+      score: { scaled: 1, raw: 2, min: 0, max: 2 },
+    });
+
+    expect(
+      gradeAssessment(target, {
+        kind: "match",
+        pairs: [
+          { itemId: "fr", targetId: "paris" },
+          { itemId: "es", targetId: "madrid" },
+          { itemId: "stale", targetId: "madrid" },
+        ],
+      }),
+    ).toMatchObject({
+      isCorrect: false,
+      score: { scaled: 1, raw: 2, min: 0, max: 2 },
+    });
+
+    expect(
+      gradeAssessment(target, {
+        kind: "match",
+        pairs: [
+          { itemId: "fr", targetId: "paris" },
+          { itemId: "fr", targetId: "madrid" },
+          { itemId: "es", targetId: "madrid" },
+        ],
+      }).isCorrect,
+    ).toBe(false);
+
+    expect(
+      gradeAssessment(target, {
+        kind: "match",
+        pairs: [
+          { itemId: "fr", targetId: "paris" },
+          { itemId: "es", targetId: "unknown" },
+        ],
+      }),
+    ).toMatchObject({
+      isCorrect: false,
+      score: { scaled: 0.5, raw: 1, min: 0, max: 2 },
+    });
+
+    const duplicateExpected: AssessmentTargetContract = {
+      ...target,
+      assessment: {
+        ...target.assessment,
+        correctPairs: [
+          { itemId: "fr", targetId: "paris" },
+          { itemId: "fr", targetId: "madrid" },
+        ],
+      },
+    };
+    expect(
+      gradeAssessment(duplicateExpected, {
+        kind: "match",
+        pairs: [{ itemId: "fr", targetId: "paris" }],
+      }).isCorrect,
+    ).toBe(false);
+  });
+
+  it("requires an exact unique current Categorise mapping for correctness", () => {
+    const target: AssessmentTargetContract = {
+      ...baseTarget,
+      interaction: {
+        kind: "classify",
+        items: [{ id: "eagle" }, { id: "salmon" }],
+        categories: [{ id: "birds" }, { id: "fish" }],
+      },
+      assessment: {
+        kind: "classify",
+        correctPlacements: [
+          { itemId: "eagle", categoryId: "birds" },
+          { itemId: "salmon", categoryId: "fish" },
+        ],
+        feedbackByItemId: {},
+      },
+    };
+
+    expect(
+      gradeAssessment(target, {
+        kind: "classify",
+        placements: [
+          { itemId: "eagle", categoryId: "birds" },
+          { itemId: "salmon", categoryId: "fish" },
+        ],
+      }),
+    ).toMatchObject({
+      isCorrect: true,
+      score: { scaled: 1, raw: 2, min: 0, max: 2 },
+    });
+
+    expect(
+      gradeAssessment(target, {
+        kind: "classify",
+        placements: [
+          { itemId: "eagle", categoryId: "birds" },
+          { itemId: "salmon", categoryId: "fish" },
+          { itemId: "stale", categoryId: "birds" },
+        ],
+      }),
+    ).toMatchObject({
+      isCorrect: false,
+      score: { scaled: 1, raw: 2, min: 0, max: 2 },
+    });
+
+    expect(
+      gradeAssessment(target, {
+        kind: "classify",
+        placements: [
+          { itemId: "eagle", categoryId: "birds" },
+          { itemId: "eagle", categoryId: "fish" },
+          { itemId: "salmon", categoryId: "fish" },
+        ],
+      }).isCorrect,
+    ).toBe(false);
+
+    expect(
+      gradeAssessment(target, {
+        kind: "classify",
+        placements: [
+          { itemId: "eagle", categoryId: "birds" },
+          { itemId: "salmon", categoryId: "unknown" },
+        ],
+      }),
+    ).toMatchObject({
+      isCorrect: false,
+      score: { scaled: 0.5, raw: 1, min: 0, max: 2 },
+    });
+
+    const duplicateExpected: AssessmentTargetContract = {
+      ...target,
+      assessment: {
+        ...target.assessment,
+        correctPlacements: [
+          { itemId: "eagle", categoryId: "birds" },
+          { itemId: "eagle", categoryId: "birds" },
+        ],
+      },
+    };
+    expect(
+      gradeAssessment(duplicateExpected, {
+        kind: "classify",
+        placements: [{ itemId: "eagle", categoryId: "birds" }],
+      }).isCorrect,
+    ).toBe(false);
+  });
+
   it("grades fill-blanks targets with answer normalization", () => {
     const blankFeedback = richText("Review the river name.");
     const target: AssessmentTargetContract = {
@@ -223,6 +397,53 @@ describe("@scaffold/grading primitive targets", () => {
     expect(AssessmentResultSchema.parse(result)).toEqual(result);
   });
 
+  it("rejects whitespace-only accepted answers while preserving significant raw whitespace", () => {
+    const target: AssessmentTargetContract = {
+      ...baseTarget,
+      interaction: {
+        kind: "fill-blanks",
+        blanks: [{ id: "empty" }, { id: "spaced" }, { id: "case" }],
+      },
+      assessment: {
+        kind: "fill-blanks",
+        blanks: [
+          {
+            blankId: "empty",
+            acceptedAnswers: ["   "],
+            caseSensitive: false,
+            trimWhitespace: false,
+          },
+          {
+            blankId: "spaced",
+            acceptedAnswers: [" Paris "],
+            caseSensitive: true,
+            trimWhitespace: false,
+          },
+          {
+            blankId: "case",
+            acceptedAnswers: ["I"],
+            caseSensitive: false,
+            trimWhitespace: true,
+          },
+        ],
+        feedbackByBlankId: {},
+      },
+    };
+
+    const result = gradeAssessment(target, {
+      kind: "fill-blanks",
+      blanks: [
+        { blankId: "empty", value: "   " },
+        { blankId: "spaced", value: "Paris" },
+        { blankId: "case", value: "i" },
+      ],
+    });
+
+    expect(result.items["empty"]?.correct).toBe(false);
+    expect(result.items["spaced"]?.correct).toBe(false);
+    expect(result.items["case"]?.correct).toBe(true);
+  });
+
   it("grades spatial-hotspot targets", () => {
     const target: AssessmentTargetContract = {
       ...baseTarget,
@@ -253,7 +474,75 @@ describe("@scaffold/grading primitive targets", () => {
         kind: "spatial-hotspot",
         selections: [{ hotspotId: hotspotA, x: 50, y: 50 }],
       }),
-    ).toMatchObject({ score: { scaled: 1, raw: 2, min: 0, max: 2 }, isCorrect: true });
+    ).toMatchObject({ score: { scaled: 1, raw: 1, min: 0, max: 1 }, isCorrect: true });
+  });
+
+  it("grades spatial-hotspot partial credit from valid selections and all attempts", () => {
+    const target: AssessmentTargetContract = {
+      ...baseTarget,
+      interaction: {
+        kind: "spatial-hotspot",
+        hotspots: ["h1", "h2", "h3"].map((id, index) => ({
+          id,
+          geometry: { kind: "circle" as const, centerX: 20 + index * 30, centerY: 50, radius: 8 },
+        })),
+        maxSelections: null,
+      },
+      assessment: {
+        kind: "spatial-hotspot",
+        gradingMode: "partial-credit",
+        correctHotspotIds: ["h1", "h2"],
+        feedbackByHotspotId: {},
+      },
+    };
+
+    expect(
+      gradeAssessment(target, {
+        kind: "spatial-hotspot",
+        selections: [{ hotspotId: "h1", x: 20, y: 50 }],
+      }),
+    ).toMatchObject({
+      score: { scaled: 0.5, raw: 1, min: 0, max: 2 },
+      isCorrect: false,
+    });
+    expect(
+      gradeAssessment(target, {
+        kind: "spatial-hotspot",
+        selections: [
+          { hotspotId: "h1", x: 20, y: 50 },
+          { hotspotId: "h3", x: 80, y: 50 },
+        ],
+      }),
+    ).toMatchObject({
+      score: { scaled: 0.5, raw: 1, min: 0, max: 2 },
+      isCorrect: false,
+    });
+    expect(
+      gradeAssessment(target, {
+        kind: "spatial-hotspot",
+        selections: [
+          { hotspotId: "h1", x: 20, y: 50 },
+          { hotspotId: "h2", x: 50, y: 50 },
+          { hotspotId: null, x: 5, y: 5 },
+        ],
+      }),
+    ).toMatchObject({
+      score: { scaled: 2 / 3, raw: 2, min: 0, max: 3 },
+      isCorrect: false,
+    });
+    expect(
+      gradeAssessment(target, {
+        kind: "spatial-hotspot",
+        selections: [
+          { hotspotId: "h1", x: 20, y: 50 },
+          { hotspotId: "h1", x: 21, y: 50 },
+          { hotspotId: "stale", x: 90, y: 90 },
+        ],
+      }),
+    ).toMatchObject({
+      score: { scaled: 1 / 3, raw: 1, min: 0, max: 3 },
+      isCorrect: false,
+    });
   });
 
   it("returns a complete canonical zero result for a mismatched response", () => {

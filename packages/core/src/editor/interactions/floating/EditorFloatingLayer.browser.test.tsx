@@ -2,7 +2,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { page } from "vite-plus/test/browser/context";
 
-import { OverlayBoundary } from "@/ui/components/OverlayBoundary/OverlayBoundary";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 
 import { EditorFloatingLayer, type EditorFloatingLayerEditor } from "./EditorFloatingLayer";
 

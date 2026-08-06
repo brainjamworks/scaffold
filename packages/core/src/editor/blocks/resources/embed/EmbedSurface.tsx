@@ -6,6 +6,7 @@ import { cn } from "@/lib/cn";
 import {
   DEFAULT_EMBED_SANDBOX,
   getEmbedProvider,
+  resolveEmbedFrame,
   resolveEmbedUrl,
   type EmbedProvider,
 } from "./embed-registry";
@@ -31,25 +32,40 @@ export function EmbedSurface({
 }) {
   const provider = getEmbedProvider(data.provider) ?? getEmbedProvider("generic")!;
   const embedUrl = data.url ? resolveEmbedUrl(data.provider, data.url) : null;
-  const aspectStyle = { aspectRatio: ASPECT_RATIO_STYLES[data.aspectRatio] };
+  const frame = resolveEmbedFrame(data);
+  const frameStyle =
+    frame.kind === "fixed-height"
+      ? undefined
+      : { aspectRatio: ASPECT_RATIO_STYLES[frame.aspectRatio] };
+  const iframeStyle = frame.kind === "fixed-height" ? { height: `${frame.height}px` } : undefined;
+  const accessibleName = data.caption.trim() || `${provider.title} embed`;
 
   return (
-    <figure {...figureAttributes} className={cn("sc-embed__figure", figureAttributes?.className)}>
+    <figure
+      {...figureAttributes}
+      className={cn("sc-course-embed__figure", figureAttributes?.className)}
+    >
       {data.url && embedUrl ? (
-        <div className="sc-embed__frame" style={aspectStyle}>
+        <div
+          className="sc-course-embed__frame"
+          data-embed-provider={provider.id}
+          data-embed-frame={frame.kind}
+          style={frameStyle}
+        >
           <iframe
             src={embedUrl}
-            title={`${provider.title} embed`}
+            title={accessibleName}
             loading="lazy"
             allow={provider.allow}
             sandbox={provider.sandbox ?? DEFAULT_EMBED_SANDBOX}
             referrerPolicy="strict-origin-when-cross-origin"
-            className="sc-embed__iframe"
+            className="sc-course-embed__iframe"
+            style={iframeStyle}
           />
           {editable ? (
             <div
               aria-hidden
-              className="sc-embed__edit-overlay"
+              className="sc-app-embed__interaction-guard"
               title="Click outside to interact with the embed"
             />
           ) : null}
@@ -65,7 +81,9 @@ export function EmbedSurface({
         <EmbedRuntimeState provider={provider} hasSource={Boolean(data.url)} />
       )}
 
-      {data.caption ? <figcaption className="sc-embed__caption">{data.caption}</figcaption> : null}
+      {data.caption ? (
+        <figcaption className="sc-course-embed__caption">{data.caption}</figcaption>
+      ) : null}
     </figure>
   );
 }
@@ -84,14 +102,18 @@ function EmbedRuntimeState({
   return (
     <div
       role={role}
-      className={cn("sc-embed__empty sc-embed__state", hasSource && "sc-embed__state--error")}
+      className={cn(
+        "sc-course-embed__empty sc-course-embed__state",
+        hasSource && "sc-course-embed__state--error",
+      )}
+      {...(hasSource ? { "data-course-state": "error" as const } : {})}
     >
-      <span className="sc-embed__empty-chip" aria-hidden>
+      <span className="sc-course-embed__empty-chip" aria-hidden>
         <Icon size={20} weight="regular" />
       </span>
-      <div className="sc-embed__empty-text">
-        <p className="sc-embed__empty-title">{provider.title} embed</p>
-        <p className="sc-embed__empty-hint">{message}</p>
+      <div className="sc-course-embed__empty-text">
+        <p className="sc-course-embed__empty-title">{provider.title} embed</p>
+        <p className="sc-course-embed__empty-hint">{message}</p>
       </div>
     </div>
   );
@@ -110,19 +132,21 @@ function EmbedEmptyState({
 }) {
   const Icon = provider.icon;
   return (
-    <div className={cn("sc-embed__empty")}>
-      <span className="sc-embed__empty-chip" aria-hidden>
+    <div className="sc-course-embed__empty">
+      <span className="sc-course-embed__empty-chip" aria-hidden>
         <Icon size={20} weight="regular" />
       </span>
-      <div className="sc-embed__empty-text">
-        <p className="sc-embed__empty-title">{provider.title} embed</p>
-        <p className="sc-embed__empty-hint">
-          Paste a {provider.title.toLowerCase()} URL to embed it inline.
+      <div className="sc-course-embed__empty-text">
+        <p className="sc-course-embed__empty-title">{provider.title} embed</p>
+        <p className="sc-course-embed__empty-hint">
+          {provider.id === "generic"
+            ? "Paste a supported URL to embed it inline."
+            : `Paste a ${provider.title} URL to embed it inline.`}
         </p>
       </div>
       {disabled ? null : (
         <form
-          className="sc-embed__empty-form"
+          className="sc-app-embed__form"
           contentEditable={false}
           noValidate
           onSubmit={(event) => {
@@ -139,10 +163,9 @@ function EmbedEmptyState({
             defaultValue={initialUrl}
             placeholder="https://..."
             aria-label="Embed URL"
-            className="sc-embed__empty-input"
-            autoFocus
+            className="sc-app-embed__input"
           />
-          <button type="submit" className="sc-embed__empty-submit">
+          <button type="submit" className="sc-app-embed__submit">
             Embed
           </button>
         </form>

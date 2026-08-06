@@ -8,14 +8,14 @@ import {
   SurfaceSizeSchema,
   type CourseDocumentAttrs,
 } from "@/schemas/course-document";
-import { createScaffoldDefaultTheme } from "@/theme/model";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
 const defaultAttrs = {
   schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
   mode: "page" as const,
   surfaceSize: "fluid" as const,
   overflowMode: "grow" as const,
-  theme: createScaffoldDefaultTheme(),
+  theme: createDefaultPersistedCourseTheme(),
 } satisfies Omit<CourseDocumentAttrs, "id">;
 
 function parseAttrWithDefault<T>(
@@ -35,13 +35,6 @@ function parseJsonAttr(value: string | null): unknown {
   } catch {
     return null;
   }
-}
-
-function parseCourseTheme(element: HTMLElement) {
-  const parsed = PersistedCourseThemeSchema.safeParse(
-    parseJsonAttr(element.getAttribute("data-course-theme-values")),
-  );
-  return parsed.success ? parsed.data : createScaffoldDefaultTheme();
 }
 
 function parseDocumentFormatVersion(value: unknown): number {
@@ -119,15 +112,17 @@ export const CourseDocumentNode = Node.create({
       },
       theme: {
         default: defaultAttrs.theme,
-        parseHTML: parseCourseTheme,
-        renderHTML: (attrs: { theme?: unknown }) => {
-          const parsed = PersistedCourseThemeSchema.safeParse(attrs.theme);
-          const theme = parsed.success ? parsed.data : createScaffoldDefaultTheme();
-          return {
-            "data-course-theme": theme.preset.id,
-            "data-course-theme-values": JSON.stringify(theme),
-          };
-        },
+        parseHTML: (element: HTMLElement) =>
+          parseAttrWithDefault(
+            PersistedCourseThemeSchema,
+            parseJsonAttr(element.getAttribute("data-course-theme")),
+            defaultAttrs.theme,
+          ),
+        renderHTML: (attrs: { theme?: unknown }) => ({
+          "data-course-theme": JSON.stringify(
+            parseAttrWithDefault(PersistedCourseThemeSchema, attrs.theme, defaultAttrs.theme),
+          ),
+        }),
       },
       branching: {
         default: null,

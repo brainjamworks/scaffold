@@ -13,11 +13,7 @@ import {
   type AssessmentFeedbackContent,
 } from "@scaffold/contracts";
 
-import { BlockAddGhost } from "@/editor/suggestions/insert/BlockAddGhost";
-import {
-  CHOICE_TRAILING_BTN,
-  ChoiceAnswerItem,
-} from "@/editor/blocks/assessment/shared/chrome/ChoiceAnswerItem";
+import { deleteAssessmentChoice } from "@/editor/blocks/assessment/shared/model/delete-assessment-choice";
 import {
   nextAssessmentFeedbackRecord,
   resolveAssessmentAttrParent,
@@ -28,14 +24,21 @@ import { createStableId } from "@/document/model/identity/stable-ids";
 import { Placeholder } from "@/editor/prosemirror/placeholder/Placeholder";
 import { createFieldContentEditorExtensions } from "@/editor/rich-text/authoring/field-content-extensions";
 import { EditableOverlayPopover } from "@/editor/rich-text/authoring/nested-overlay/EditableOverlayPopoverShell";
-import { cn } from "@/lib/cn";
 import {
   isScaffoldRichTextDocumentEmpty,
   toTiptapRichTextDocument,
   type ScaffoldRichTextDocument,
 } from "@/schemas/rich-text";
 import { iconSm } from "@/ui/tokens/icon-sizes";
+import {
+  AssessmentChoiceAddButton,
+  AssessmentChoiceAuthoringAction,
+  AssessmentChoiceAuthoringRow,
+} from "@/ui/components/course/AssessmentChoiceAuthoringRow/AssessmentChoiceAuthoringRow";
 import "@/editor/blocks/assessment/shared/chrome/assessment-feedback-popover.css";
+import { containedMovementTargetAttributes } from "@/editor/movement/view/movement-dom";
+import { ContainedMovementHandle } from "@/editor/movement/view/ContainedMovementHandle";
+import { authoringMovementSnapshotChromeAttributes } from "@/editor/movement/view/authoring-movement-presentation";
 
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
@@ -134,11 +137,7 @@ export const DropdownChoicesGroupNode = createDropdownChoicesGroupNode({
 });
 
 function DropdownChoiceNodeView(props: NodeViewProps) {
-  const isEditable = useEditorState({
-    editor: props.editor,
-    selector: ({ editor }) => editor.isEditable,
-  });
-
+  const presentationRef = useRef<HTMLDivElement | null>(null);
   const attrs = dropdownChoiceAttrsFromNode(props.node.attrs);
   const popoverId = useId();
   const richTextPluginKey = useMemo(
@@ -172,14 +171,18 @@ function DropdownChoiceNodeView(props: NodeViewProps) {
         : { isCorrect: false, feedback: null };
     },
   });
-  const choiceIndex = useEditorState({
+  const choicePosition = useEditorState({
     editor: props.editor,
     selector: ({ editor }) => {
       const currentPos = currentChoicePos(editor);
-      return currentPos !== null ? readSiblingIndex(editor, currentPos, "dropdown_choice") : 1;
+      return currentPos !== null
+        ? readSiblingPosition(editor, currentPos, "dropdown_choice")
+        : { count: 1, index: 1 };
     },
   });
+  const pos = safeGetPos(props.getPos);
   const hasFeedback = !isScaffoldRichTextDocumentEmpty(privateChoiceState.feedback?.document);
+  const choiceLabel = props.node.textContent.trim() || `choice ${choicePosition.index}`;
   const fieldKey = `dropdown:${attrs.id}:feedback`;
 
   useEffect(() => {
@@ -222,30 +225,20 @@ function DropdownChoiceNodeView(props: NodeViewProps) {
   const deleteChoice = () => {
     const currentPos = currentChoicePos();
     if (currentPos === null) return;
-    const currentNode = props.editor.state.doc.nodeAt(currentPos);
-    if (!currentNode) return;
-    props.editor
-      .chain()
-      .focus()
-      .deleteRange({ from: currentPos, to: currentPos + currentNode.nodeSize })
-      .run();
+    deleteAssessmentChoice(props.editor, currentPos);
   };
 
   const feedbackControl = (
     <EditableOverlayPopover.Root>
       <EditableOverlayPopover.Trigger asChild>
-        <button
-          type="button"
-          aria-label={hasFeedback ? "Edit feedback" : "Add feedback"}
-          onClick={(event) => event.stopPropagation()}
-          data-no-select
-          className={cn(
-            CHOICE_TRAILING_BTN,
-            hasFeedback && "sc-assessment-feedback-trigger--visible",
-          )}
+        <AssessmentChoiceAuthoringAction
+          {...authoringMovementSnapshotChromeAttributes()}
+          active={hasFeedback}
+          intent="feedback"
+          label={hasFeedback ? "Edit feedback" : "Add feedback"}
         >
           <Info size={iconSm} weight={hasFeedback ? "fill" : "regular"} />
-        </button>
+        </AssessmentChoiceAuthoringAction>
       </EditableOverlayPopover.Trigger>
       <EditableOverlayPopover.Portal>
         <EditableOverlayPopover.Content
@@ -258,7 +251,8 @@ function DropdownChoiceNodeView(props: NodeViewProps) {
           editor={{
             ariaLabel: "Feedback editor",
             bubbleMenuPluginKey: richTextPluginKey,
-            className: "sc-assessment-feedback-editor-field sc-assessment-feedback-rich-text",
+            className:
+              "sc-course-assessment-feedback-editor-field sc-course-assessment-feedback-rich-text",
             extensions,
             fieldKey,
             outerEditor: props.editor,
@@ -272,23 +266,38 @@ function DropdownChoiceNodeView(props: NodeViewProps) {
   );
 
   return (
-    <NodeViewWrapper {...props.HTMLAttributes} data-node="dropdown-choice">
-      <ChoiceAnswerItem
-        id={attrs.id}
-        inputType="radio"
-        isCorrect={privateChoiceState.isCorrect}
+    <NodeViewWrapper
+      ref={presentationRef}
+      {...props.HTMLAttributes}
+      data-node="dropdown-choice"
+      data-choice-id={attrs.id}
+      {...containedMovementTargetAttributes()}
+    >
+      <AssessmentChoiceAuthoringRow
+        correct={privateChoiceState.isCorrect}
+        correctnessLabel={`Toggle whether ${choiceLabel} is correct`}
         feedbackControl={feedbackControl}
-        isEditable={isEditable}
-        state={isEditable && privateChoiceState.isCorrect ? "correct" : null}
-        checked={privateChoiceState.isCorrect}
-        disabled={!isEditable}
-        onSelect={() => undefined}
         onToggleCorrect={toggleCorrect}
-        onDelete={deleteChoice}
-        deleteLabel={`Delete choice ${choiceIndex}`}
+        deleteAction={{
+          label: `Delete choice ${choicePosition.index}`,
+          onAction: deleteChoice,
+          ...(choicePosition.count <= 1
+            ? { unavailableReason: "An assessment must contain at least one choice." }
+            : {}),
+        }}
+        movementControl={
+          <ContainedMovementHandle
+            getPresentationElement={() => presentationRef.current}
+            getSourcePos={() => safeGetPos(props.getPos)}
+            label="choice"
+            sourceKey={attrs.id}
+            sourcePos={pos}
+            className="sc-app-contained-movement-handle--row-offset"
+          />
+        }
       >
         <NodeViewContent />
-      </ChoiceAnswerItem>
+      </AssessmentChoiceAuthoringRow>
     </NodeViewWrapper>
   );
 }
@@ -303,7 +312,11 @@ function resolveDropdownChoicePos(
   return currentNode?.type.name === "dropdown_choice" ? currentPos : null;
 }
 
-function readSiblingIndex(editor: NodeViewProps["editor"], pos: number, typeName: string): number {
+function readSiblingPosition(
+  editor: NodeViewProps["editor"],
+  pos: number,
+  typeName: string,
+): { count: number; index: number } {
   const $pos = editor.state.doc.resolve(pos);
   const parent = $pos.parent;
   const parentStart = $pos.start();
@@ -318,7 +331,7 @@ function readSiblingIndex(editor: NodeViewProps["editor"], pos: number, typeName
     }
   });
 
-  return index;
+  return { count, index };
 }
 
 function DropdownChoicesGroupNodeView(props: NodeViewProps) {
@@ -353,17 +366,18 @@ function DropdownChoicesGroupNodeView(props: NodeViewProps) {
     <NodeViewWrapper
       data-bounded-scroll-frame=""
       data-slot="dropdown-choices-group"
-      className="sc-dropdown-choices-group"
+      className="sc-course-assessment-choices-group sc-course-dropdown-choices-group"
     >
-      <div data-bounded-scroll="" className="sc-dropdown-choices-scroll">
+      <div
+        data-bounded-scroll=""
+        className="sc-course-assessment-choices-scroll sc-course-dropdown-choices-scroll"
+      >
         <NodeViewContent />
         {isEditable && (
-          <BlockAddGhost
+          <AssessmentChoiceAddButton
             label="Add choice"
-            presentation="pill"
             contentEditable={false}
             onClick={addChoice}
-            className="sc-dropdown-add-choice"
           />
         )}
       </div>

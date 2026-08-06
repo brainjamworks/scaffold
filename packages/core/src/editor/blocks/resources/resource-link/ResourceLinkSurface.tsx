@@ -9,7 +9,6 @@ import {
 import type { ResourceLinkData, ResourceLinkKind } from "@scaffold/contracts";
 import type { ReactNode } from "react";
 
-import { cn } from "@/lib/cn";
 import { isHttpOrHttpsUrl } from "@scaffold/contracts";
 
 import { RESOURCE_LINK_KIND_LABELS, readResourceHost } from "./resource-link-presentation";
@@ -59,37 +58,39 @@ export function ResourceLinkSurface({
     <Surface
       {...surfaceProps}
       {...frameAttributes}
-      className={cn("sc-resource-link", interactive && "sc-resource-link--interactive")}
+      className={`sc-course-resource-link${interactive ? " sc-course-resource-link--interactive" : ""}`}
+      data-show-description={data.showDescription ? "true" : "false"}
     >
-      <span contentEditable={false} aria-hidden className="sc-resource-link__kind-icon">
+      <span contentEditable={false} aria-hidden className="sc-course-resource-link__kind-icon">
         <KindIcon size={20} weight="regular" />
       </span>
 
-      <div className="sc-resource-link__body">
+      <div className="sc-course-resource-link__body">
         {children}
-        <div contentEditable={false} className="sc-resource-link__meta">
+        <div contentEditable={false} className="sc-course-resource-link__meta">
           <span>{kindLabel}</span>
           {host ? (
             <>
               <span aria-hidden>·</span>
-              <span className="sc-resource-link__host">{host}</span>
+              <span className="sc-course-resource-link__host">{host}</span>
             </>
           ) : null}
         </div>
         {controls}
       </div>
 
-      <span
-        aria-hidden
-        contentEditable={false}
-        className={cn(
-          "sc-resource-link__open-icon",
-          interactive && "sc-resource-link__open-icon--interactive",
-        )}
-      >
-        <ArrowUpRight size={16} weight="bold" />
-      </span>
-      {interactive ? <span className="sc-resource-link__suppressed">Opens in new tab</span> : null}
+      {safeUrl ? (
+        <span
+          aria-hidden
+          contentEditable={false}
+          className={`sc-course-resource-link__open-icon${interactive ? " sc-course-resource-link__open-icon--interactive" : ""}`}
+        >
+          <ArrowUpRight size={16} weight="bold" />
+        </span>
+      ) : null}
+      {interactive ? (
+        <span className="sc-course-resource-link__external-hint">Opens in new tab</span>
+      ) : null}
     </Surface>
   );
 }

@@ -1,0 +1,44 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-overlays {
+  .sc-app-audio-block,
+  .sc-app-audio-block__populated-media,
+  .sc-app-audio-block__course-cell {
+    min-width: 0;
+  }
+
+  .sc-app-audio-block__populated-media {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 0.5rem;
+  }
+
+  .sc-app-audio-block__replace-rail {
+    display: flex;
+    min-width: var(--spacing-touch-target);
+    min-height: var(--spacing-touch-target);
+    align-items: center;
+    justify-content: center;
+  }
+
+  .radix-themes
+    .sc-app-audio-block__populated-media
+    .sc-app-media-replace-button[data-placement="inline"] {
+    opacity: 0;
+  }
+
+  .sc-app-audio-block__populated-media:hover .sc-app-media-replace-button[data-placement="inline"],
+  .sc-app-audio-block__populated-media:focus-within
+    .sc-app-media-replace-button[data-placement="inline"] {
+    opacity: 1;
+  }
+
+  @media (hover: none), (pointer: coarse) {
+    .radix-themes
+      .sc-app-audio-block__populated-media
+      .sc-app-media-replace-button[data-placement="inline"] {
+      opacity: 1;
+    }
+  }
+}

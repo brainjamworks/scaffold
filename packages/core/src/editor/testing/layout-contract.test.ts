@@ -32,7 +32,7 @@ import {
   GridAuthoringNode,
 } from "@/editor/arrangements/grid/authoring/grid-nodes";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { AUTHORING_FRAME_ATTR } from "@/editor/interactions/dom/authoring-frame";
 import { defineConfiguration } from "@/editor/configuration/definition";
@@ -237,6 +237,7 @@ function createUniversalLayoutContractEditor(): Editor {
       }),
       ExtendedParagraph,
       CourseDocumentNode,
+      createCourseSectionNode(),
       SurfaceNode,
       RegionNode,
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),

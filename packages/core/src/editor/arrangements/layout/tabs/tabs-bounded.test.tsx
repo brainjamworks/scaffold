@@ -10,7 +10,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/
 
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import {
   CellAuthoringNode,
   GridAuthoringNode,
@@ -331,6 +331,7 @@ function makeEditor({
       }),
       ExtendedParagraph,
       CourseDocumentNode,
+      createCourseSectionNode(),
       SurfaceNode,
       RegionNode,
       ...arrangementExtensions,

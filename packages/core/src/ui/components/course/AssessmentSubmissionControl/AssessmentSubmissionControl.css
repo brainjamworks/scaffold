@@ -1,0 +1,28 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-course-assessment-submission-control {
+    display: inline-flex;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 2.75rem;
+    align-items: center;
+  }
+
+  .sc-course-assessment-submission-control__button {
+    min-height: 2.75rem;
+  }
+
+  .sc-course-assessment-submission-control__status {
+    display: inline-flex;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 2.25rem;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sc-course-assessment-submission-control__status-icon {
+    flex: none;
+  }
+}

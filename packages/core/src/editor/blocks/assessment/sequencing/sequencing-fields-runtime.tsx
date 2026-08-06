@@ -12,7 +12,6 @@ import { InteractionDragSession } from "@/editor/interactions/drag/react/Interac
 import { useInteractionSortable } from "@/editor/interactions/drag/react/use-interaction-sortable";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 import { serializeStaticRichTextHtml } from "@/editor/rich-text/static/render-rich-text";
-import { cn } from "@/lib/cn";
 import { AssessmentFeedbackContentSchema } from "@scaffold/contracts";
 import { iconXs } from "@/ui/tokens/icon-sizes";
 
@@ -121,9 +120,7 @@ function SequencingItemsGroupRuntimeNodeView(props: NodeViewProps) {
     if (nextOrder.every((id, index) => id === orderedItemIds[index])) return;
     setOrder(nextOrder);
   };
-  const handleDragEnd = (
-    event: InteractionDragEvent<SequencingDragData, SequencingDragData>,
-  ) => {
+  const handleDragEnd = (event: InteractionDragEvent<SequencingDragData, SequencingDragData>) => {
     if (!canReorder) {
       return;
     }
@@ -137,9 +134,9 @@ function SequencingItemsGroupRuntimeNodeView(props: NodeViewProps) {
     <NodeViewWrapper
       data-bounded-scroll-frame=""
       data-slot="sequencing-items-group"
-      className="sc-sequencing-items-group"
+      className="sc-course-sequencing__group"
     >
-      <div data-bounded-scroll="" className="sc-sequencing-items-scroll">
+      <div data-bounded-scroll="" className="sc-course-sequencing__scroll">
         <InteractionDragSession<SequencingDragData, SequencingDragData>
           accessibilityMode="sortable"
           collisionPolicy="closest-center"
@@ -150,15 +147,15 @@ function SequencingItemsGroupRuntimeNodeView(props: NodeViewProps) {
           onEnd={handleDragEnd}
           profile="sortable-vertical"
           renderPreview={(active) => (
-            <div className="sc-sequencing-runtime-preview">
-              <div className="sc-sequencing-runtime-preview__content">
+            <div className="sc-course-sequencing__drag-preview">
+              <div className="sc-course-sequencing__item-content">
                 {renderStaticHtml(active.html, "Item")}
               </div>
             </div>
           )}
           sessionId={`sequencing-${authoredBlockId ?? "runtime"}`}
         >
-          <ul className="sc-sequencing-runtime-list">
+          <ul className="sc-course-sequencing__list">
             {orderedItems.map((item, idx) => {
               const detail = itemPositionCorrect?.[item.id] ?? null;
               const correct = detail?.correct ?? null;
@@ -180,7 +177,6 @@ function SequencingItemsGroupRuntimeNodeView(props: NodeViewProps) {
                 <SequencingRuntimeItem
                   key={item.id}
                   accessibilityDescription={accessibilityDescription}
-                  answerKeyVisible={answerKeyVisible}
                   canReorder={canReorder}
                   correct={correct}
                   feedback={parsedFeedback.success ? parsedFeedback.data : null}
@@ -203,7 +199,6 @@ function SequencingItemsGroupRuntimeNodeView(props: NodeViewProps) {
 
 function SequencingRuntimeItem({
   accessibilityDescription,
-  answerKeyVisible,
   canReorder,
   correct,
   feedback,
@@ -213,7 +208,6 @@ function SequencingRuntimeItem({
   showPositionDots,
 }: {
   accessibilityDescription: string;
-  answerKeyVisible: boolean;
   canReorder: boolean;
   correct: boolean | null;
   feedback: unknown;
@@ -237,15 +231,10 @@ function SequencingRuntimeItem({
       aria-label={`Sequencing item ${index + 1}`}
       aria-describedby={descriptionId}
       data-id={item.id}
+      data-draggable={canReorder || undefined}
       data-interaction-drag-placeholder={sortable.isPlaceholder ? "" : undefined}
       ref={sortable.sourceRef}
-      className={cn(
-        "sc-sequencing-item",
-        "sc-sequencing-item--runtime",
-        canReorder && "sc-sequencing-item--draggable",
-        sortable.isPlaceholder && "sc-sequencing-item--placeholder",
-        answerKeyVisible && "sc-sequencing-item--answer-key",
-      )}
+      className="sc-course-sequencing__item"
     >
       {canReorder && (
         <InteractionDragActivationArea
@@ -253,14 +242,14 @@ function SequencingRuntimeItem({
           type="button"
           aria-label={`Drag sequencing item ${index + 1}`}
           data-runtime-sequencing-handle=""
-          className="sc-sequencing-runtime-activation"
+          className="sc-course-sequencing__runtime-handle"
           safeLocalHeight={55}
           safeLocalWidth={55}
         >
           <DotsSixVertical size={iconXs} weight="bold" />
         </InteractionDragActivationArea>
       )}
-      <div className="sc-sequencing-item__content">
+      <div className="sc-course-sequencing__item-content">
         {renderStaticHtml(item.html, `Item ${index + 1}`)}
       </div>
       {showPositionDots && correct !== null && (
@@ -270,12 +259,8 @@ function SequencingRuntimeItem({
               ? `Item ${index + 1} is in the right place`
               : `Item ${index + 1} is not in the right place`
           }
-          className={cn(
-            "sc-sequencing-position-dot",
-            correct
-              ? "sc-sequencing-position-dot--correct"
-              : "sc-sequencing-position-dot--incorrect",
-          )}
+          data-course-state={correct ? "correct" : "incorrect"}
+          className="sc-course-sequencing__state-cue"
         />
       )}
       {showFeedback && parsedFeedback.success && (
@@ -307,5 +292,7 @@ function projectionItemsFromGroup(
 
 function renderStaticHtml(html: string, fallback: string) {
   if (!html) return fallback;
-  return <div className="sc-sequencing-static-html" dangerouslySetInnerHTML={{ __html: html }} />;
+  return (
+    <div className="sc-course-sequencing__static-html" dangerouslySetInnerHTML={{ __html: html }} />
+  );
 }

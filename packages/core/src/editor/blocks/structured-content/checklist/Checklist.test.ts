@@ -141,10 +141,7 @@ it("registers checklist rows for activated contained movement", async () => {
   expect(handles).toHaveLength(3);
   expect(document.body.querySelectorAll("[data-contained-movement-target]")).toHaveLength(3);
   expect(document.body.querySelector("[data-authoring-move-handle]")).toBeNull();
-  expect(handles[1]).toHaveAttribute(
-    "aria-keyshortcuts",
-    "Space Enter ArrowUp ArrowDown Escape",
-  );
+  expect(handles[1]).toHaveAttribute("aria-keyshortcuts", "Space Enter ArrowUp ArrowDown Escape");
 
   fixture.destroy();
 });

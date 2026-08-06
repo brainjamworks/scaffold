@@ -11,7 +11,7 @@ import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it } from "vite-plus/test";
 
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import {
   CellAuthoringNode,
   GridAuthoringNode,
@@ -138,6 +138,7 @@ describe("EditorFloatingPopover browser stacking", () => {
         StarterKit.configure({ document: false, paragraph: false, undoRedo: false }),
         ExtendedParagraph,
         CourseDocumentNode,
+        createCourseSectionNode(),
         SurfaceNode,
         RegionNode,
         GridAuthoringNode,

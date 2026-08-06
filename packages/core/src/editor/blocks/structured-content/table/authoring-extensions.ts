@@ -30,7 +30,7 @@ export const CourseTableAuthoringNode = createCourseTableNode({
 
             decorations.push(
               Decoration.node(pos, pos + node.nodeSize, {
-                class: "sc-table",
+                class: "sc-course-table",
                 ...courseBlockAuthoringFrameAttributes({
                   blockId: node.attrs["id"],
                   nodeType: "table",

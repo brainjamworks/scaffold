@@ -4,9 +4,7 @@ import type { SurfaceId } from "@/document/model/course-structure";
 
 import type { RuntimePlayerSelection } from "./player-types";
 
-export function selectRuntimePlayer(
-  content: JSONContent,
-): RuntimePlayerSelection {
+export function selectRuntimePlayer(content: JSONContent): RuntimePlayerSelection {
   const courseDocument = content.content?.[0];
   const surfaceIds = (courseDocument?.content ?? [])
     .filter((node) => node.type === "surface")

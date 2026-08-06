@@ -20,8 +20,9 @@ import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 import { createScaffoldDocumentContent } from "@/format/artifact";
-import { selectCoursePreset } from "@/theme/authoring";
-import { createScaffoldDefaultTheme, SCAFFOLD_EDITORIAL_PRESET } from "@/theme/model";
+import { setCourseDesignOverride } from "@/theme/authoring/course-theme-commands";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
+import { builtInCourseDesignThemeRegistry } from "@/theme/course/designs/registry";
 import { CourseDocumentEditor } from "./CourseDocumentEditor";
 
 const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
@@ -135,7 +136,9 @@ describe("CourseDocumentEditor", () => {
     const editor = onReady.mock.calls[0]?.[0];
     if (!editor) throw new Error("CourseDocumentEditor did not provide an editor");
 
-    expect(selectCoursePreset(editor, SCAFFOLD_EDITORIAL_PRESET)).toBe(true);
+    expect(
+      setCourseDesignOverride(editor, "roundness", "square", builtInCourseDesignThemeRegistry),
+    ).toBe(true);
     expect(editor.chain().focus().undo().run()).toBe(true);
     expect(editor.can().redo()).toBe(true);
   });
@@ -546,7 +549,6 @@ describe("CourseDocumentEditor", () => {
 
     expect(chartId).toEqual(expect.stringMatching(/^[0-9A-Z_a-z-]{12}$/));
   });
-
 });
 
 function privateSurfaceCapability(id: string): SurfaceCapability {
@@ -585,7 +587,7 @@ function authoringDocumentWithMcq(): JSONContent {
           mode: "page",
           surfaceSize: "fluid",
           overflowMode: "grow",
-          theme: createScaffoldDefaultTheme(),
+          theme: createDefaultPersistedCourseTheme(),
         },
         content: [
           {
@@ -697,7 +699,7 @@ function authoringDocumentWithGallery(): JSONContent {
           mode: "page",
           surfaceSize: "fluid",
           overflowMode: "grow",
-          theme: createScaffoldDefaultTheme(),
+          theme: createDefaultPersistedCourseTheme(),
         },
         content: [
           {
@@ -759,7 +761,7 @@ function authoringSlideshowDocument(surfaceIds: EmbeddedNodeId[]): JSONContent {
           mode: "slideshow",
           surfaceSize: "16x9",
           overflowMode: "clip",
-          theme: createScaffoldDefaultTheme(),
+          theme: createDefaultPersistedCourseTheme(),
         },
         content: surfaceIds.map((surfaceId) =>
           slideCoverSurfaceDefinition.createSurface({ surfaceId }),

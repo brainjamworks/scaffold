@@ -100,6 +100,7 @@ export const imageHotspotBlockDefinition = defineBlock({
       attrs: {
         id: createEmbeddedNodeId(),
         assessment: ImageHotspotPrivateAssessmentSchema.parse({}),
+        settings: ImageHotspotSettingsSchema.parse({ legend: "Select regions" }),
       },
       content: [
         {

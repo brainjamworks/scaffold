@@ -21,7 +21,7 @@ import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 import { CourseDocumentRuntimeRenderer } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
-import { createScaffoldDefaultTheme } from "@/theme/model";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 
 import { CourseDocumentEditor } from "./CourseDocumentEditor";
@@ -335,7 +335,7 @@ function pageDocument(content: JSONContent[]): JSONContent {
           mode: "page",
           surfaceSize: "fluid",
           overflowMode: "grow",
-          theme: createScaffoldDefaultTheme(),
+          theme: createDefaultPersistedCourseTheme(),
         },
         content: [
           {
@@ -385,7 +385,7 @@ function slideshowAlignmentDocument(): JSONContent {
           mode: "slideshow",
           surfaceSize: "16x9",
           overflowMode: "clip",
-          theme: createScaffoldDefaultTheme(),
+          theme: createDefaultPersistedCourseTheme(),
         },
         content: [cover, contentSurface],
       },

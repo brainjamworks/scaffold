@@ -1,10 +1,21 @@
 import { Node, mergeAttributes } from "@tiptap/core";
-import { NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer } from "@tiptap/react";
+import {
+  NodeViewContent,
+  NodeViewWrapper,
+  ReactNodeViewRenderer,
+  type NodeViewProps,
+} from "@tiptap/react";
 
 import {
   fieldContainerSpec,
   textContentExpression,
 } from "@/document/model/content-model/content-groups";
+import {
+  assessmentPromptDomId,
+  findAncestorAssessmentBlockId,
+} from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
+import { isAssessmentQuestionNode } from "./assessment-meta";
 import "./assessment-shared-chrome.css";
 
 const ASSESSMENT_PROMPT_CONTENT = textContentExpression();
@@ -38,14 +49,24 @@ export const AssessmentPromptNode = Node.create({
   },
 });
 
-function AssessmentPromptNodeView() {
+function AssessmentPromptNodeView(props: NodeViewProps) {
   // The prompt is the centrepiece of every assessment block — bigger
   // than body, semibold, ink, with `text-wrap: balance` so headline-
   // length questions break evenly. Per the rebrand spec, hierarchy
   // inside an assessment block comes from this single weight + size
   // contrast against the (quieter) title, instructions, and choices.
+  const authoredBlockId = findAncestorAssessmentBlockId(
+    props.editor,
+    safeGetPos(props.getPos),
+    isAssessmentQuestionNode,
+  );
+
   return (
-    <NodeViewWrapper data-slot="assessment-prompt" className="sc-assessment-prompt">
+    <NodeViewWrapper
+      id={assessmentPromptDomId(authoredBlockId)}
+      data-slot="assessment-prompt"
+      className="sc-course-assessment-prompt"
+    >
       <NodeViewContent />
     </NodeViewWrapper>
   );

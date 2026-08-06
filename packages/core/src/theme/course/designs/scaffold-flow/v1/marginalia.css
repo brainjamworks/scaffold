@@ -1,0 +1,69 @@
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-marginalia {
+  --sc-course-marginalia-gutter-width: clamp(10rem, 30%, 14rem);
+
+  color: var(--gray-12);
+  font-family: var(--default-font-family);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-marginalia__content {
+  gap: var(--space-5);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-marginalia__gutter {
+  color: var(--gray-11);
+  font-family: var(--default-font-family);
+  font-size: var(--font-size-2);
+  font-weight: 400;
+  letter-spacing: var(--letter-spacing-2);
+  line-height: var(--line-height-2);
+  text-wrap: pretty;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-marginalia[data-position="right"]
+  .sc-course-marginalia__gutter {
+  border-inline-start: 1px solid var(--gray-a6);
+  padding-inline-start: var(--space-4);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-marginalia[data-position="left"]
+  .sc-course-marginalia__gutter {
+  border-inline-end: 1px solid var(--gray-a6);
+  padding-inline-end: var(--space-4);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-marginalia__gutter-content
+  > [data-node-view-content-react]
+  > *
+  + * {
+  margin-block-start: var(--space-2);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-marginalia__main-content
+  > [data-node-view-content-react]
+  > *
+  + * {
+  margin-block-start: var(--space-3);
+}
+
+@container sc-course-marginalia (max-width: 32rem) {
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-marginalia__content {
+    gap: var(--space-4);
+  }
+
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-marginalia__gutter,
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-course-marginalia[data-position="left"]
+    .sc-course-marginalia__gutter,
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-course-marginalia[data-position="right"]
+    .sc-course-marginalia__gutter {
+    border-inline: 0;
+    border-block-end: 1px solid var(--gray-a6);
+    padding-inline: 0;
+    padding-block-end: var(--space-4);
+  }
+}

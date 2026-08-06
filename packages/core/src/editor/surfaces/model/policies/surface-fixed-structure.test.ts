@@ -8,7 +8,7 @@ import {
   ARRANGEMENT_CONTENT,
   SECTION_ARRANGEMENT_CONTENT,
 } from "@/document/model/content-model/content-groups";
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { ExtendedHeading } from "@/editor/rich-text/model/rich-text-blocks";
 import {
@@ -282,6 +282,7 @@ function proseMirrorSurface(surfaceJson: JSONContent) {
       ExtendedParagraph,
       ExtendedHeading,
       CourseDocumentNode,
+      createCourseSectionNode(),
       SurfaceNode,
       RegionNode,
       SurfaceHeaderNode,

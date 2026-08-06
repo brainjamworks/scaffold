@@ -9,7 +9,7 @@ import {
   ARRANGEMENT_CONTENT,
   SECTION_ARRANGEMENT_CONTENT,
 } from "@/document/model/content-model/content-groups";
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { ExtendedHeading } from "@/editor/rich-text/model/rich-text-blocks";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import {
@@ -83,6 +83,7 @@ function makeEditor({
       ExtendedParagraph,
       ExtendedHeading,
       CourseDocumentNode,
+      createCourseSectionNode(),
       SurfaceNode,
       RegionNode,
       SlideTitleNode,

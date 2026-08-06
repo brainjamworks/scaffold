@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { ScaffoldAuthoringEntry } from "@scaffold/core/authoring";
-import type { ScaffoldThemeExtension } from "@scaffold/core/authoring";
 import { createScaffoldApplication } from "@scaffold/core/extensions";
 import type { ScaffoldAuthoringArtifact } from "@scaffold/core/ports";
 
@@ -43,14 +42,11 @@ export interface PlaygroundAppProps {
    * button.
    */
   headerExtras?: ReactNode;
-  /** Optional structured host presets/fonts used to exercise the public theming seam. */
-  themeExtension?: ScaffoldThemeExtension;
 }
 
 export function PlaygroundApp({
   artifactId = LOCAL_ARTIFACT_ID,
   headerExtras,
-  themeExtension,
 }: PlaygroundAppProps) {
   const [artifact, setArtifact] = useState<ScaffoldAuthoringArtifact | null | undefined>(undefined);
   const [agentOpen, setAgentOpen] = useState(false);
@@ -111,7 +107,6 @@ export function PlaygroundApp({
         };
       }}
       className="sc-playground-authoring-app"
-      {...(themeExtension === undefined ? {} : { themeExtension })}
     />
   );
 }

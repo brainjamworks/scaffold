@@ -1,0 +1,45 @@
+.sc-course.sc-course-theme-scaffold-flow-v1
+  :is(table.sc-course-table, .tableWrapper.sc-course-table > table) {
+  border: 1px solid var(--gray-a6);
+  border-radius: var(--radius-3);
+  background: var(--gray-1);
+  color: var(--gray-12);
+  font-family: var(--default-font-family);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-table :is(th, td) {
+  padding: var(--space-3) var(--space-4);
+  border-right: 1px solid var(--gray-a6);
+  border-bottom: 1px solid var(--gray-a6);
+  text-align: left;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-table :is(th, td):last-child {
+  border-right: 0;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-table tr:last-child > :is(th, td) {
+  border-bottom: 0;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-table th {
+  background: var(--accent-a3);
+  color: var(--accent-11);
+  font-size: var(--font-size-2);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: var(--line-height-2);
+  text-transform: uppercase;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-table td {
+  background: var(--gray-1);
+  color: var(--gray-12);
+  font-size: var(--font-size-3);
+  font-weight: 400;
+  line-height: var(--line-height-3);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-table :is(th, td) p + p {
+  margin-top: var(--space-2);
+}

@@ -21,7 +21,7 @@ export function createFillBlankAttrs(selectedText = ""): FillBlankAttrs {
   });
 }
 
-export const defaultBlankAttrs = (): FillBlankAttrs => createFillBlankAttrs();
+export const defaultBlankAttrs = (): FillBlankAttrs => FillBlankAttrsSchema.parse({});
 
 export const defaultBlankAssessment = (): FillBlankPrivateAssessmentEntry =>
   FillBlankPrivateAssessmentEntrySchema.parse({});

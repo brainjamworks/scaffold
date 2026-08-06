@@ -1,0 +1,42 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-overlays {
+  .sc-course-key-value-list__key [data-node-view-content-react] > p.is-empty::before {
+    content: "Key";
+    color: var(--sc-app-color-text-placeholder);
+    pointer-events: none;
+  }
+
+  .sc-course-key-value-list__value [data-node-view-content-react] > p.is-empty::before {
+    content: "Value";
+    color: var(--sc-app-color-text-placeholder);
+    pointer-events: none;
+  }
+
+  .sc-app-block-add.sc-app-key-value-list-add {
+    display: block;
+    width: 100%;
+    margin-top: 0.75rem;
+    padding-block: 0.75rem;
+    border: 0;
+    border-bottom: 1px dashed var(--sc-app-color-border);
+    background: transparent;
+    color: var(--sc-app-color-text-muted);
+    font-family: var(--font-ui);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.5;
+    text-align: left;
+  }
+
+  .sc-app-block-add.sc-app-key-value-list-add:hover:not(:disabled) {
+    border-bottom-color: var(--sc-app-color-primary);
+    background: transparent;
+    color: var(--sc-app-color-primary);
+  }
+
+  .sc-app-block-add.sc-app-key-value-list-add:focus-visible {
+    outline: 2px solid var(--sc-app-color-focus-outline);
+    outline-offset: 2px;
+  }
+}

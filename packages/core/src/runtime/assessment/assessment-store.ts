@@ -166,6 +166,16 @@ function storedQuizRegistration(
   };
 }
 
+function effectiveProblemMaxAttempts(
+  quizRegistrations: Readonly<Record<string, AssessmentQuizRegistration>>,
+  registration: AssessmentRegistration,
+): number | null {
+  const quiz = Object.values(quizRegistrations).find((candidate) =>
+    candidate.targetIds.includes(registration.targetId),
+  );
+  return quiz?.settings.attemptsPerQuestion ?? registration.config.settings.maxAttempts;
+}
+
 function validatedQuizAttempt(
   value: unknown,
   registration: AssessmentQuizRegistration,
@@ -599,9 +609,22 @@ export function createAssessmentStore({
         const current = get().registrations[next.problemId];
         if (!current) return false;
         assertRegistrationIdentity(current, next);
-        set((state) => ({
-          registrations: { ...state.registrations, [next.problemId]: next },
-        }));
+        const responseReady = validatedHydratedResponseReady(
+          get().durable.problems[next.problemId],
+          next,
+        );
+        set((state) => {
+          const nextResponseReady = { ...state.transient.responseReady };
+          if (responseReady === undefined) delete nextResponseReady[next.problemId];
+          else nextResponseReady[next.problemId] = responseReady;
+          return {
+            registrations: { ...state.registrations, [next.problemId]: next },
+            transient: {
+              ...state.transient,
+              responseReady: nextResponseReady,
+            },
+          };
+        });
         return true;
       },
       unregister: (identity) => {
@@ -682,9 +705,8 @@ export function createAssessmentStore({
           }
 
           const current = get().durable.problems[problemId] ?? emptyProblem();
-          const exhausted =
-            registration.config.settings.maxAttempts !== null &&
-            current.attemptNumber >= registration.config.settings.maxAttempts;
+          const maxAttempts = effectiveProblemMaxAttempts(get().quizRegistrations, registration);
+          const exhausted = maxAttempts !== null && current.attemptNumber >= maxAttempts;
           if (current.submitted || exhausted) return false;
 
           set((state) => {

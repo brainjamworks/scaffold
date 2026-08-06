@@ -1,12 +1,24 @@
 import { createElement } from "react";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, expectTypeOf, it } from "vite-plus/test";
 import { z } from "zod";
 
 import type { ConfigurationDefinition } from "./definition";
-import type { SettingsSheetApplyInput } from "./settings-sheet";
+import type {
+  SettingsFormDefinition,
+  SettingsSheetApplyInput,
+  SettingsSheetDefinition,
+} from "./settings-sheet";
 import { deriveSettingsSheetDefinition } from "./settings-sheet-derivation";
 
 describe("deriveSettingsSheetDefinition", () => {
+  it("exposes a body-only block settings contract", () => {
+    type Section = SettingsSheetDefinition["sections"][number];
+
+    expectTypeOf<Extract<keyof SettingsSheetDefinition, "footerActions">>().toEqualTypeOf<never>();
+    expectTypeOf<Extract<keyof Section, "actions">>().toEqualTypeOf<never>();
+    expectTypeOf<SettingsSheetDefinition>().toMatchTypeOf<SettingsFormDefinition>();
+  });
+
   it("merges scalar fields and direct-child collections by declared sheet order", () => {
     const collectionSchema = z.object({ label: z.string() });
     const settingsSheet = deriveSettingsSheetDefinition({

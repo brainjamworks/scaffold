@@ -10,7 +10,7 @@ import {
 } from "@/document/model/content-model/content-groups";
 import { ExtendedHeading } from "@/editor/rich-text/model/rich-text-blocks";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import {
   builtInSurfaceVariantDefinitions,
@@ -87,6 +87,7 @@ function expectValidSurface(surface: JSONContent) {
       ExtendedParagraph,
       ExtendedHeading,
       CourseDocumentNode,
+      createCourseSectionNode(),
       SurfaceNode,
       RegionNode,
       SlideTitleNode,
@@ -331,6 +332,7 @@ describe("surface definitions", () => {
         }),
         ExtendedParagraph,
         CourseDocumentNode,
+        createCourseSectionNode(),
         SurfaceNode,
         RegionNode,
         TestArrangementNode,

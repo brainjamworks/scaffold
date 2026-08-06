@@ -9,26 +9,27 @@ import {
 import { useEffect, useId, useMemo, useRef } from "react";
 import {
   SequencingPrivateAssessmentSchema,
+  SequencingSettingsSchema,
   type AssessmentFeedbackContent,
 } from "@scaffold/contracts";
 
-import { CHOICE_TRAILING_BTN } from "@/editor/blocks/assessment/shared/chrome/ChoiceAnswerItem";
+import {
+  AssessmentChoiceAddButton,
+  AssessmentChoiceAuthoringAction,
+} from "@/ui/components/course/AssessmentChoiceAuthoringRow/AssessmentChoiceAuthoringRow";
 import {
   nextAssessmentFeedbackRecord,
   resolveAssessmentAttrParent,
   richTextDocumentToAssessmentFeedback,
   setAssessmentAttr,
 } from "@/editor/blocks/assessment/shared/model/private-assessment-attrs";
-import { BlockAddGhost } from "@/editor/suggestions/insert/BlockAddGhost";
-import { containedMovementTargetAttributes } from "@/editor/movement/view/movement-dom";
 import { ContainedMovementHandle } from "@/editor/movement/view/ContainedMovementHandle";
-import { authoringMovementSnapshotChromeAttributes } from "@/editor/movement/view/authoring-movement-presentation";
+import { containedMovementTargetAttributes } from "@/editor/movement/view/movement-dom";
 import { Placeholder } from "@/editor/prosemirror/placeholder/Placeholder";
 import { createFieldContentEditorExtensions } from "@/editor/rich-text/authoring/field-content-extensions";
 import { EditableOverlayPopover } from "@/editor/rich-text/authoring/nested-overlay/EditableOverlayPopoverShell";
 import { currentNodeViewPos, safeGetPos } from "@/editor/prosemirror/position/node-view-position";
-import { createStableId } from "@/document/model/identity/stable-ids";
-import { cn } from "@/lib/cn";
+import { assessmentPromptDomId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import {
   isScaffoldRichTextDocumentEmpty,
   toTiptapRichTextDocument,
@@ -40,16 +41,19 @@ import "@/editor/blocks/assessment/shared/chrome/assessment-feedback-popover.css
 import {
   createSequencingItemNode,
   createSequencingItemsGroupNode,
-  itemContent,
+  sequencingReorderLabel,
 } from "./sequencing-fields-shared";
+import { addSequencingItem, deleteSequencingItem } from "./commands";
 import "./Sequencing.css";
 
 export {
   describeSequencingItemAccessibilityState,
   getSequencingDisplayOrder,
   getSequencingReorderedOrder,
+  reconcileSequencingOrder,
   revealedSequenceAssessment,
   revealedSequenceOrder,
+  resolveAuthorizedSequenceOrder,
 } from "./sequencing-fields-shared";
 
 export const SequencingItemNode = createSequencingItemNode({
@@ -70,7 +74,7 @@ function SequencingItemNodeView(props: NodeViewProps) {
       ...createFieldContentEditorExtensions(),
       Placeholder.configure({
         includeChildren: false,
-        placeholder: "Feedback for this choice",
+        placeholder: "Feedback for this item",
         showOnlyCurrent: false,
         showOnlyWhenEditable: true,
       }),
@@ -83,6 +87,13 @@ function SequencingItemNodeView(props: NodeViewProps) {
     selector: ({ editor }) => {
       const currentPos = currentNodeViewPos(editor, props.getPos, "sequencing_item");
       return currentPos !== null ? readSiblingIndex(editor, currentPos, "sequencing_item") : 1;
+    },
+  });
+  const itemCount = useEditorState({
+    editor: props.editor,
+    selector: ({ editor }) => {
+      const currentPos = currentNodeViewPos(editor, props.getPos, "sequencing_item");
+      return currentPos !== null ? editor.state.doc.resolve(currentPos).parent.childCount : 0;
     },
   });
   const privateFeedback = useEditorState({
@@ -128,49 +139,40 @@ function SequencingItemNodeView(props: NodeViewProps) {
   const deleteItem = () => {
     const currentPos = currentNodeViewPos(props.editor, props.getPos, "sequencing_item");
     if (currentPos === null) return;
-    const currentNode = props.editor.state.doc.nodeAt(currentPos);
-    if (!currentNode) return;
-    props.editor
-      .chain()
-      .focus()
-      .deleteRange({ from: currentPos, to: currentPos + currentNode.nodeSize })
-      .run();
+    props.editor.commands.focus();
+    deleteSequencingItem(props.editor, currentPos);
   };
+  const deleteUnavailable = itemCount <= 2;
+  const reorderLabel = sequencingReorderLabel(props.node.textContent, itemIndex, itemCount);
 
   return (
     <NodeViewWrapper
+      as="li"
       ref={presentationRef}
-      {...props.HTMLAttributes}
       data-node="sequencing-item"
+      data-item-id={itemId}
       {...containedMovementTargetAttributes()}
-      className="sc-sequencing-item"
+      className="sc-course-sequencing__item"
     >
-      <ContainedMovementHandle
+      <SequencingAuthoringMovementAction
         getPresentationElement={() => presentationRef.current}
         getSourcePos={() => safeGetPos(props.getPos)}
-        label="sequencing item"
+        label={reorderLabel}
         sourceKey={itemId}
         sourcePos={pos}
-        className="sc-contained-movement-handle--row-offset"
       />
-      <div className="sc-sequencing-item__content">
+      <div className="sc-course-sequencing__item-content">
         <NodeViewContent />
       </div>
       <EditableOverlayPopover.Root>
         <EditableOverlayPopover.Trigger asChild>
-          <button
-            {...authoringMovementSnapshotChromeAttributes()}
-            type="button"
-            aria-label={hasFeedback ? "Edit feedback" : "Add feedback"}
-            onClick={(event) => event.stopPropagation()}
-            data-no-select
-            className={cn(
-              CHOICE_TRAILING_BTN,
-              hasFeedback && "sc-assessment-feedback-trigger--visible",
-            )}
+          <AssessmentChoiceAuthoringAction
+            active={hasFeedback}
+            intent="feedback"
+            label={hasFeedback ? "Edit feedback" : "Add feedback"}
           >
             <Info size={iconSm} weight={hasFeedback ? "fill" : "regular"} />
-          </button>
+          </AssessmentChoiceAuthoringAction>
         </EditableOverlayPopover.Trigger>
         <EditableOverlayPopover.Portal>
           <EditableOverlayPopover.Content
@@ -183,32 +185,57 @@ function SequencingItemNodeView(props: NodeViewProps) {
             editor={{
               ariaLabel: "Feedback editor",
               bubbleMenuPluginKey: richTextPluginKey,
-              className: "sc-assessment-feedback-editor-field sc-assessment-feedback-rich-text",
+              className:
+                "sc-course-assessment-feedback-editor-field sc-course-assessment-feedback-rich-text",
               extensions,
               fieldKey,
               outerEditor: props.editor,
-              placeholder: "Feedback for this choice",
+              placeholder: "Feedback for this item",
               syncKey: privateFeedback?.document,
               target: feedbackTarget,
             }}
           />
         </EditableOverlayPopover.Portal>
       </EditableOverlayPopover.Root>
-      <button
-        {...authoringMovementSnapshotChromeAttributes()}
-        type="button"
-        contentEditable={false}
-        onClick={(e) => {
-          e.stopPropagation();
+      <AssessmentChoiceAuthoringAction
+        disabled={deleteUnavailable}
+        intent="delete"
+        onClick={() => {
           deleteItem();
         }}
-        aria-label={`Delete sequencing item ${itemIndex}`}
-        data-no-select
-        className={cn(CHOICE_TRAILING_BTN, "sc-choice-trailing-button--danger")}
+        label={`Delete sequencing item ${itemIndex}`}
+        {...(deleteUnavailable
+          ? { unavailableReason: "Sequencing requires at least two items." }
+          : {})}
       >
         <Trash size={iconSm} />
-      </button>
+      </AssessmentChoiceAuthoringAction>
     </NodeViewWrapper>
+  );
+}
+
+function SequencingAuthoringMovementAction({
+  getPresentationElement,
+  getSourcePos,
+  label,
+  sourceKey,
+  sourcePos,
+}: {
+  getPresentationElement: () => HTMLElement | null;
+  getSourcePos: () => number | null | undefined;
+  label: string;
+  sourceKey: string;
+  sourcePos: number | null | undefined;
+}) {
+  return (
+    <ContainedMovementHandle
+      getPresentationElement={getPresentationElement}
+      getSourcePos={getSourcePos}
+      className="sc-course-sequencing__movement-action"
+      label={label}
+      sourceKey={sourceKey}
+      sourcePos={sourcePos}
+    />
   );
 }
 
@@ -235,57 +262,59 @@ export const SequencingItemsGroupNode = createSequencingItemsGroupNode({
 });
 
 function SequencingItemsGroupNodeView(props: NodeViewProps) {
-  const docOrderIds = useMemo(() => {
-    const ids: string[] = [];
-    props.node.forEach((child) => {
-      if (child.type.name !== "sequencing_item") return;
-      const id = String(child.attrs["id"] ?? "");
-      if (id) ids.push(id);
-    });
-    return ids;
-  }, [props.node]);
-
-  useEffect(() => {
-    const currentPos = currentNodeViewPos(props.editor, props.getPos, "sequencing_items_group");
-    if (currentPos === null) return;
-    syncSequencingCorrectOrder(props.editor, currentPos, docOrderIds);
-  }, [docOrderIds, props.editor, props.getPos]);
+  const group = authoringSequencingGroup(props);
 
   const addItem = () => {
     const currentPos = currentNodeViewPos(props.editor, props.getPos, "sequencing_items_group");
     if (currentPos === null) return;
-    const currentNode = props.editor.state.doc.nodeAt(currentPos);
-    if (!currentNode) return;
-    props.editor
-      .chain()
-      .focus()
-      .insertContentAt(currentPos + currentNode.nodeSize - 1, {
-        type: "sequencing_item",
-        attrs: { id: createStableId() },
-        content: itemContent(),
-      })
-      .run();
+    props.editor.commands.focus();
+    addSequencingItem(props.editor, currentPos);
   };
 
   return (
     <NodeViewWrapper
       data-bounded-scroll-frame=""
       data-slot="sequencing-items-group"
-      className="sc-sequencing-items-group"
+      className="sc-course-sequencing__group"
     >
-      <div data-bounded-scroll="" className="sc-sequencing-items-scroll">
-        <NodeViewContent className="sc-sequencing-items-content" />
-        <BlockAddGhost
+      <div data-bounded-scroll="" className="sc-course-sequencing__scroll">
+        <NodeViewContent<"ol">
+          as="ol"
+          role="list"
+          aria-label={group.legend || undefined}
+          aria-labelledby={group.legend ? undefined : assessmentPromptDomId(group.authoredBlockId)}
+          className="sc-course-sequencing__list"
+        />
+        <AssessmentChoiceAddButton
           label="Add item"
-          presentation="pill"
           contentEditable={false}
           onClick={addItem}
-          className="sc-sequencing-add"
+          className="sc-course-sequencing__add"
         />
       </div>
       <SequencingBoundedScrollHint />
     </NodeViewWrapper>
   );
+}
+
+function authoringSequencingGroup(props: NodeViewProps): {
+  authoredBlockId: string | null;
+  legend: string;
+} {
+  const pos = safeGetPos(props.getPos);
+  if (typeof pos !== "number") return { authoredBlockId: null, legend: "" };
+  const resolved = props.editor.state.doc.resolve(pos);
+  for (let depth = resolved.depth; depth >= 0; depth -= 1) {
+    const node = resolved.node(depth);
+    if (node.type.name !== "sequencing") continue;
+    const id = node.attrs["id"];
+    const settings = SequencingSettingsSchema.safeParse(node.attrs["settings"] ?? {});
+    return {
+      authoredBlockId: typeof id === "string" && id.trim() ? id : null,
+      legend: settings.success ? (settings.data.legend?.trim() ?? "") : "",
+    };
+  }
+  return { authoredBlockId: null, legend: "" };
 }
 
 function SequencingBoundedScrollHint() {
@@ -319,23 +348,5 @@ function setSequencingItemFeedback(
   setAssessmentAttr(editor, parent, {
     ...assessment,
     feedbackByItemId: nextAssessmentFeedbackRecord(assessment.feedbackByItemId, itemId, feedback),
-  });
-}
-
-function syncSequencingCorrectOrder(
-  editor: NodeViewProps["editor"],
-  groupPos: number,
-  itemIds: readonly string[],
-) {
-  const parent = resolveAssessmentAttrParent(editor, groupPos, ["sequencing"]);
-  if (!parent) return;
-  const assessment = SequencingPrivateAssessmentSchema.parse(parent.node.attrs["assessment"] ?? {});
-  const same =
-    assessment.correctOrder.length === itemIds.length &&
-    itemIds.every((id, index) => assessment.correctOrder[index] === id);
-  if (same) return;
-  setAssessmentAttr(editor, parent, {
-    ...assessment,
-    correctOrder: [...itemIds],
   });
 }

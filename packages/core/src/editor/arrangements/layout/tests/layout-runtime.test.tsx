@@ -9,7 +9,7 @@ import { createElement } from "react";
 import { describe, expect, it } from "vite-plus/test";
 
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { CellRuntimeNode, GridRuntimeNode } from "@/editor/arrangements/grid/runtime/grid-nodes";
 
 import { builtInLayoutDefinitions } from "../model/built-in-layout-definitions";
@@ -74,6 +74,7 @@ describe("layout runtime nodes", () => {
         }),
         ExtendedParagraph,
         CourseDocumentNode,
+        createCourseSectionNode(),
         SurfaceNode,
         RegionNode,
         GridRuntimeNode,
@@ -161,6 +162,7 @@ describe("layout runtime nodes", () => {
         }),
         ExtendedParagraph,
         CourseDocumentNode,
+        createCourseSectionNode(),
         SurfaceNode,
         RegionNode,
         GridRuntimeNode,
@@ -232,6 +234,7 @@ describe("layout runtime nodes", () => {
         }),
         ExtendedParagraph,
         CourseDocumentNode,
+        createCourseSectionNode(),
         SurfaceNode,
         RegionNode,
         GridRuntimeNode,
@@ -328,6 +331,7 @@ describe("layout runtime nodes", () => {
         }),
         ExtendedParagraph,
         CourseDocumentNode,
+        createCourseSectionNode(),
         SurfaceNode,
         RegionNode,
         GridRuntimeNode,
@@ -385,6 +389,7 @@ describe("layout runtime nodes", () => {
         }),
         ExtendedParagraph,
         CourseDocumentNode,
+        createCourseSectionNode(),
         SurfaceNode,
         RegionNode,
         GridRuntimeNode,

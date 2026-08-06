@@ -10,6 +10,7 @@ import { KeyValueRowKeyNode, KeyValueRowNode, KeyValueRowValueNode } from "./slo
 const KeyValueListRuntimeRootNode = createKeyValueListNode({
   addNodeView: () =>
     createBlockRuntimeNodeView({
+      className: "sc-course-key-value-list",
       definition: keyValueListBlockDefinition,
       view: { component: KeyValueListView },
     }),

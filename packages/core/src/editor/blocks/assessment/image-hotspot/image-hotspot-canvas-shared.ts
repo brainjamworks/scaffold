@@ -7,7 +7,6 @@ import {
 } from "@scaffold/contracts";
 
 export const IMAGE_HOTSPOT_CANVAS_NODE_TYPE = "image_hotspot_canvas";
-export const IMAGE_HOTSPOT_CORRECT_COLOR = "var(--color-success)";
 
 export interface ImageHotspotCanvasNodeOptions {
   addNodeView?: () => NodeViewRenderer;

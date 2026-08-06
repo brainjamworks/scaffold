@@ -8,6 +8,7 @@ import { renderKeyValueListAddControl } from "./key-value-list-authoring-control
 import { keyValueListBlockDefinition } from "./key-value-list-definition";
 import { createKeyValueListNode } from "./node";
 import { KeyValueRowKeyNode, KeyValueRowNode, KeyValueRowValueNode } from "./slots";
+import "./KeyValueListAuthoringControls.css";
 
 function KeyValueListAuthoringView(props: NodeViewProps) {
   return <KeyValueListView {...props} renderAddControl={renderKeyValueListAddControl} />;
@@ -16,6 +17,7 @@ function KeyValueListAuthoringView(props: NodeViewProps) {
 const KeyValueListAuthoringRootNode = createKeyValueListNode({
   addNodeView: () =>
     createBlockAuthoringNodeView({
+      className: "sc-course-key-value-list",
       definition: keyValueListBlockDefinition,
       view: { component: KeyValueListAuthoringView },
     }),

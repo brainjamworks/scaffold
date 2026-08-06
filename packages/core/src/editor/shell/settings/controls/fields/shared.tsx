@@ -2,7 +2,7 @@ import { createContext, useContext, type ReactNode } from "react";
 
 import type { SettingsSheetFieldStatus } from "@/editor/configuration/settings-sheet";
 import { FieldError, HelpText } from "@/ui/components/Input/Input";
-import { Pill } from "@/ui/components/Pill/Pill";
+import { Pill } from "@/ui/components/app/Pill/Pill";
 
 import { settingsFieldA11yIds, settingsFieldControlId } from "../a11y";
 

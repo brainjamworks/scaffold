@@ -7,9 +7,9 @@ import { readAssessmentFeedbackContent } from "@/editor/blocks/assessment/shared
 import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { useAssessmentRuntimeById } from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
 import { isAssessmentQuestionNode } from "./assessment-meta";
-import { cn } from "@/lib/cn";
 import { isScaffoldRichTextDocumentEmpty } from "@/schemas/rich-text";
 import { iconSm } from "@/ui/tokens/icon-sizes";
+import { AssessmentSupportButton } from "@/ui/components/course/AssessmentSupportButton/AssessmentSupportButton";
 
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 import "./assessment-shared-chrome.css";
@@ -72,16 +72,17 @@ function AssessmentSummaryFeedbackRuntimeNodeView(props: NodeViewProps) {
       data-slot="assessment-summary-feedback"
       className="sc-assessment-summary-feedback-runtime"
       contentEditable={false}
-      role="status"
-      aria-live="polite"
     >
       <RichFeedbackRuntimePopover
         feedback={feedback}
         triggerLabel="Show feedback"
-        trigger={renderSummaryFeedbackActionTrigger({
-          hasFeedback,
-          resultState: isCorrect ? "correct" : "incorrect",
-        })}
+        trigger={({ open }) =>
+          renderSummaryFeedbackActionTrigger({
+            hasFeedback,
+            open,
+            resultState: isCorrect ? "correct" : "incorrect",
+          })
+        }
       />
     </NodeViewWrapper>
   );
@@ -89,32 +90,23 @@ function AssessmentSummaryFeedbackRuntimeNodeView(props: NodeViewProps) {
 
 function renderSummaryFeedbackActionTrigger({
   hasFeedback,
+  open,
   resultState,
 }: {
   hasFeedback: boolean;
+  open: boolean;
   resultState?: "correct" | "incorrect";
 }) {
   return (
-    <button
-      type="button"
+    <AssessmentSupportButton
+      intent="feedback"
+      outcome={resultState}
+      expanded={open}
       aria-label="Show feedback"
-      className={cn(
-        "sc-button",
-        "sc-assessment-summary-feedback-trigger",
-        hasFeedback && "sc-assessment-summary-feedback-trigger--has-feedback",
-        resultState && `sc-assessment-summary-feedback-trigger--${resultState}`,
-      )}
-      data-size="md"
-      data-variant="secondary"
+      icon={<Info size={iconSm} weight={hasFeedback ? "fill" : "regular"} />}
       data-no-select
     >
-      <Info
-        size={iconSm}
-        weight={hasFeedback ? "fill" : "regular"}
-        aria-hidden
-        className="sc-assessment-summary-feedback-trigger__icon"
-      />
-      <span className="sc-assessment-summary-feedback-trigger__text">Show feedback</span>
-    </button>
+      Show feedback
+    </AssessmentSupportButton>
   );
 }

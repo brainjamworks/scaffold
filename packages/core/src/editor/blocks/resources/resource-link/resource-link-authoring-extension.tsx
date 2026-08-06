@@ -6,11 +6,12 @@ import { createResourceLinkNode } from "./node";
 import { ResourceLinkAuthoringView } from "./ResourceLinkAuthoringView";
 import { resourceLinkBlockDefinition } from "./resource-link-definition";
 import { ResourceLinkDescriptionNode, ResourceLinkTitleNode } from "./slots";
+import "./ResourceLinkAuthoringControls.css";
 
 const ResourceLinkAuthoringNode = createResourceLinkNode({
   addNodeView: () =>
     createBlockAuthoringNodeView({
-      className: "sc-resource-link-node",
+      className: "sc-course-resource-link-node",
       definition: resourceLinkBlockDefinition,
       view: { component: ResourceLinkAuthoringView },
     }),

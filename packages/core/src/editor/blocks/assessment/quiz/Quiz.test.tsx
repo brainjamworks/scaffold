@@ -106,6 +106,10 @@ import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/mode
 import { CalloutAuthoringExtension } from "@/editor/blocks/presentation/callout";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { McqAuthoringExtension, McqRuntimeExtension } from "../mcq";
+import { DropdownAuthoringExtension } from "../dropdown/dropdown-authoring-extension";
+import { DropdownRuntimeExtension } from "../dropdown/dropdown-runtime-extension";
+import { FillBlanksAuthoringExtension } from "../fill-blanks/fill-blanks-authoring-extension";
+import { FillBlanksRuntimeExtension } from "../fill-blanks/fill-blanks-runtime-extension";
 import { QuizNode } from "./node";
 import { QuizAuthoringExtension, QuizRuntimeExtension } from "./index";
 import { getQuizChildBlock } from "./quiz-authoring";
@@ -204,7 +208,9 @@ function seedAssessmentStore(seed: ScopedAssessmentSeed) {
       response:
         typeof response["choices"] === "string"
           ? { kind: "single-select", optionId: response["choices"] }
-          : (current?.response ?? null),
+          : Array.isArray(response["blanks"])
+            ? { kind: "fill-blanks", blanks: response["blanks"] }
+            : (current?.response ?? null),
       submitted,
       attemptNumber: numberValue(raw["attemptNumber"], current?.attemptNumber ?? 0),
       hintsShown: numberValue(raw["hintsShown"], current?.hintsShown ?? 0),
@@ -326,6 +332,7 @@ function assessmentResult(value: unknown): AssessmentResult {
             correct: booleanValue(item["correct"], false),
             ...(item["expected"] === undefined ? {} : { expected: item["expected"] }),
             ...(item["given"] === undefined ? {} : { given: item["given"] }),
+            ...(item["feedback"] === undefined ? {} : { feedback: item["feedback"] }),
           },
         ];
       }),
@@ -738,6 +745,7 @@ describe("quiz block skeleton", () => {
     expect(quizFrame?.hasAttribute("data-bounded-scroll")).toBe(false);
     expect(stage.hasAttribute("data-bounded-scroll")).toBe(false);
     expect(shell?.hasAttribute("data-bounded-scroll")).toBe(false);
+    expect(shell?.getAttribute("data-assessment-container")).toBe("quiz");
     expect(lanes).toHaveLength(1);
 
     editor.destroy();
@@ -980,6 +988,109 @@ describe("quiz block skeleton", () => {
       expect(quizShell?.getAttribute("data-quiz-status")).toBe("in_progress");
       expect(quizShell?.getAttribute("data-active-question-id")).toBe("questn_00001");
     });
+    editor.destroy();
+  });
+
+  it("lets Quiz policy override an immediate, single-attempt MCQ child", async () => {
+    seedAssessmentStore({
+      problems: {
+        "question-a": {
+          attemptNumber: 1,
+          submitted: false,
+        },
+      },
+      quizzes: {
+        "quiz-child-policy": {
+          attemptId: "attempt-child-policy",
+          status: "in_progress",
+          currentTargetId: "question-a",
+        },
+      },
+    });
+    const check = vi.fn(async () =>
+      assessmentProblemOutcome({
+        ...canonicalAssessmentResult,
+        isCorrect: false,
+        score: { scaled: 0 },
+      }),
+    );
+    const content = runtimeQuizMcqDocument("quiz-child-policy", {
+      attemptsPerQuestion: 2,
+      reviewTiming: "after_each_answer",
+    });
+    const mcq = content.content?.[0]?.content?.[0];
+    if (!mcq?.attrs) throw new Error("Expected quiz MCQ fixture");
+    mcq.attrs["settings"] = {
+      ...mcq.attrs["settings"],
+      feedbackMode: "immediate",
+      maxAttempts: 1,
+    };
+    const editor = createQuizEditor({ editable: false, content });
+
+    renderWithRuntime(editor, { ...quizPort(), check });
+
+    const alpha = await screen.findByRole("radio", { name: "Alpha" });
+    await waitFor(() => {
+      expect(alpha).not.toBeDisabled();
+      expect(alpha).toHaveAttribute("name", "assessment-question-a");
+    });
+    fireEvent.click(alpha);
+
+    await waitFor(() => expect((alpha as HTMLInputElement).checked).toBe(true));
+    expect(alpha).not.toBeDisabled();
+    expect(check).not.toHaveBeenCalled();
+    expect(
+      alpha.closest("[data-assessment-shell]")?.getAttribute("data-assessment-container"),
+    ).toBe("quiz");
+
+    editor.destroy();
+  });
+
+  it("lets Quiz policy override an immediate, single-attempt Dropdown child", async () => {
+    seedAssessmentStore({
+      problems: {
+        "question-a": {
+          attemptNumber: 1,
+          submitted: false,
+        },
+      },
+      quizzes: {
+        "quiz-dropdown-child-policy": {
+          attemptId: "attempt-dropdown-child-policy",
+          status: "in_progress",
+          currentTargetId: "question-a",
+        },
+      },
+    });
+    const check = vi.fn(async () =>
+      assessmentProblemOutcome({
+        ...canonicalAssessmentResult,
+        isCorrect: false,
+        score: { scaled: 0 },
+      }),
+    );
+    const editor = createQuizEditor({
+      editable: false,
+      content: runtimeQuizDropdownDocument("quiz-dropdown-child-policy", {
+        attemptsPerQuestion: 2,
+        reviewTiming: "after_each_answer",
+      }),
+    });
+
+    renderWithRuntime(editor, { ...quizPort(), check });
+
+    const user = userEvent.setup();
+    const trigger = await screen.findByRole("combobox", { name: "Question response" });
+    await user.click(trigger);
+    await user.click(await screen.findByRole("option", { name: "Alpha" }));
+
+    await waitFor(() => expect(trigger).toHaveTextContent("Alpha"));
+    expect(trigger).not.toHaveAttribute("data-locked");
+    expect(check).not.toHaveBeenCalled();
+    expect(
+      trigger.closest("[data-assessment-shell]")?.getAttribute("data-assessment-container"),
+    ).toBe("quiz");
+
     editor.destroy();
   });
 
@@ -1725,6 +1836,31 @@ describe("quiz block skeleton", () => {
     editor.destroy();
   });
 
+  it("rounds repeating aggregate scores for learner-facing display", async () => {
+    seedAssessmentStore({
+      quizzes: {
+        "quiz-rounded-score": {
+          attemptId: "attempt-rounded-score",
+          status: "completed",
+          currentTargetId: null,
+          score: 1 / 3,
+          maxScore: 1,
+        },
+      },
+    });
+    const editor = createQuizEditor({
+      editable: false,
+      content: runtimeQuizDocument("quiz-rounded-score"),
+    });
+
+    renderWithRuntime(editor);
+
+    await screen.findByText("0.33 / 1");
+    expect(screen.queryByText("0.3333333333333333 / 1")).toBeNull();
+
+    editor.destroy();
+  });
+
   it("suppresses aggregate score for completed quizzes when results are hidden", async () => {
     seedAssessmentStore({
       quizzes: {
@@ -1951,6 +2087,72 @@ describe("quiz block skeleton", () => {
     expect(answerRevealButtonLabel()).toBeNull();
     expect(choiceDescription("choice_00001")).toBe("Submitted answer, incorrect");
     expect(choiceDescription("choice_00002")).toBe("Correct answer");
+
+    editor.destroy();
+  });
+
+  it("keeps the given Fill response durable while visually substituting authorized detail in full review", async () => {
+    hydrateCompletedQuizFillReview("quiz-full-fill-review", {
+      answerReviewAuthorized: true,
+    });
+    const editor = createQuizEditor({
+      editable: false,
+      content: runtimeQuizFillBlanksDocument("quiz-full-fill-review", {
+        reviewDetail: "full_review",
+      }),
+    });
+
+    renderWithRuntime(editor);
+
+    await screen.findByTestId("quiz-answer-review-controls");
+    const input = screen.getByRole("textbox", { name: "Blank 1 of 1, city" });
+    expect(input).toHaveValue("Paris");
+    expect(input).toHaveAttribute("readonly");
+    expect(screen.queryByText("Correct answer: Paris")).toBeNull();
+    expect(assessmentProblem("artifact:artifact-1/block:question-a")?.response).toEqual({
+      kind: "fill-blanks",
+      blanks: [{ blankId: "blank-1", value: "London" }],
+    });
+    expect(screen.queryByText("Private authored answer")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Show feedback for blank 1 of 1" }));
+    expect(await screen.findByText("Authorized host feedback")).toBeInTheDocument();
+
+    editor.destroy();
+  });
+
+  it("renders the in-canvas Fill quick action through the Course control", async () => {
+    const editor = createQuizEditor({
+      editable: true,
+      content: runtimeQuizFillBlanksDocument("quiz-fill-authoring"),
+    });
+
+    renderEditor(editor);
+
+    const action = await screen.findByRole("button", { name: "Create blank" });
+    expect(action).toHaveClass("sc-course-quiz__quick-action");
+    expect(action).not.toHaveClass("sc-menu-icon-button");
+
+    editor.destroy();
+  });
+
+  it("keeps Fill expected answers and private feedback hidden in result-only review", async () => {
+    hydrateCompletedQuizFillReview("quiz-result-only-fill-review", {
+      answerReviewAuthorized: true,
+    });
+    const editor = createQuizEditor({
+      editable: false,
+      content: runtimeQuizFillBlanksDocument("quiz-result-only-fill-review", {
+        reviewDetail: "result_only",
+      }),
+    });
+
+    renderWithRuntime(editor);
+
+    await screen.findByTestId("quiz-answer-review-controls");
+    expect(screen.getByDisplayValue("London")).toBeInTheDocument();
+    expect(screen.queryByText("Correct answer: Paris")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Show feedback" })).toBeNull();
+    expect(screen.queryByText("Private authored answer")).toBeNull();
 
     editor.destroy();
   });
@@ -3075,7 +3277,13 @@ function createDisposableQuizEditor({
       StarterKit.configure({ undoRedo: undoRedo ? {} : false, paragraph: false }),
       UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       ExtendedParagraph,
-      createRuntimeBlockFrameAttributesExtension(["quiz", "mcq", "callout"]),
+      createRuntimeBlockFrameAttributesExtension([
+        "quiz",
+        "mcq",
+        "dropdown",
+        "fill_blanks",
+        "callout",
+      ]),
       AssessmentTitleNode,
       AssessmentInstructionsNode,
       AssessmentPromptNode,
@@ -3099,6 +3307,8 @@ function createDisposableQuizEditor({
       ...blockExtensions,
       CalloutAuthoringExtension,
       editable ? McqAuthoringExtension : McqRuntimeExtension,
+      editable ? DropdownAuthoringExtension : DropdownRuntimeExtension,
+      editable ? FillBlanksAuthoringExtension : FillBlanksRuntimeExtension,
       editable ? QuizAuthoringExtension : QuizRuntimeExtension,
     ],
   });
@@ -3396,6 +3606,174 @@ function runtimeQuizMcqDocument(quizId: string, settings: Partial<QuizSettings> 
   };
 }
 
+function runtimeQuizDropdownDocument(
+  quizId: string,
+  settings: Partial<QuizSettings> = {},
+): JSONContent {
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "quiz",
+        attrs: {
+          id: quizId,
+          settings: {
+            ...quizSettings(),
+            ...settings,
+            timer: {
+              ...quizSettings().timer,
+              ...settings.timer,
+            },
+          },
+        },
+        content: [
+          {
+            type: "dropdown",
+            attrs: {
+              id: "question-a",
+              assessment: {
+                correctOptionId: "b",
+                feedbackByOptionId: {},
+                summaryFeedback: null,
+              },
+              settings: {
+                feedbackMode: "immediate",
+                isGraded: true,
+                showAnswer: true,
+                points: 1,
+                maxAttempts: 1,
+                label: "Question response",
+                placeholder: "Choose...",
+              },
+            },
+            content: [
+              { type: "assessment_title", content: [{ type: "paragraph" }] },
+              { type: "assessment_instructions", content: [{ type: "paragraph" }] },
+              {
+                type: "assessment_prompt",
+                content: [
+                  {
+                    type: "paragraph",
+                    content: [{ type: "text", text: "Choose a response" }],
+                  },
+                ],
+              },
+              {
+                type: "dropdown_choices_group",
+                content: [dropdownQuizChoice("a", "Alpha"), dropdownQuizChoice("b", "Beta")],
+              },
+              {
+                type: "assessment_actions_group",
+                content: [
+                  { type: "assessment_hints_group" },
+                  { type: "assessment_summary_feedback" },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function runtimeQuizFillBlanksDocument(
+  quizId: string,
+  settings: Partial<QuizSettings> = {},
+): JSONContent {
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "quiz",
+        attrs: {
+          id: quizId,
+          settings: {
+            ...quizSettings(),
+            ...settings,
+            timer: { ...quizSettings().timer, ...settings.timer },
+          },
+        },
+        content: [
+          {
+            type: "fill_blanks",
+            attrs: {
+              id: "question-a",
+              assessment: {
+                blanksById: {
+                  "blank-1": {
+                    acceptedAnswers: ["Private authored answer"],
+                    feedback: null,
+                    caseSensitive: false,
+                    trimWhitespace: true,
+                  },
+                },
+                summaryFeedback: null,
+              },
+              settings: {
+                feedbackMode: "on_submit",
+                isGraded: true,
+                showAnswer: true,
+                points: 1,
+                maxAttempts: null,
+                legend: "Complete the sentence",
+              },
+            },
+            content: [
+              { type: "assessment_title", content: [{ type: "paragraph" }] },
+              { type: "assessment_instructions", content: [{ type: "paragraph" }] },
+              {
+                type: "assessment_prompt",
+                content: [
+                  { type: "paragraph", content: [{ type: "text", text: "Name the city" }] },
+                ],
+              },
+              {
+                type: "fill_blanks_body",
+                content: [
+                  {
+                    type: "paragraph",
+                    content: [
+                      { type: "text", text: "The city is " },
+                      { type: "fill_blank", attrs: { id: "blank-1", placeholder: "city" } },
+                      { type: "text", text: "." },
+                    ],
+                  },
+                ],
+              },
+              {
+                type: "assessment_actions_group",
+                content: [
+                  { type: "assessment_hints_group" },
+                  { type: "assessment_summary_feedback" },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function dropdownQuizChoice(id: string, label: string): JSONContent {
+  return {
+    type: "dropdown_choice",
+    attrs: { id },
+    content: [
+      {
+        type: "dropdown_choice_label",
+        content: [
+          {
+            type: "paragraph",
+            content: [{ type: "text", text: label }],
+          },
+        ],
+      },
+    ],
+  };
+}
+
 function hydrateCompletedQuizMcqReview(
   quizId: string,
   {
@@ -3439,6 +3817,58 @@ function hydrateCompletedQuizMcqReview(
             },
           },
         },
+      },
+    },
+  });
+}
+
+function hydrateCompletedQuizFillReview(
+  quizId: string,
+  { answerReviewAuthorized }: { answerReviewAuthorized: boolean },
+) {
+  const feedback = {
+    kind: "rich-text" as const,
+    document: {
+      type: "doc" as const,
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "Authorized host feedback" }],
+        },
+      ],
+    },
+  };
+  const result = {
+    isCorrect: false,
+    score: 0,
+    items: {
+      "blank-1": {
+        correct: false,
+        expected: ["Paris"],
+        given: "London",
+        feedback,
+      },
+    },
+  };
+  seedAssessmentStore({
+    problems: {
+      "artifact:artifact-1/block:question-a": {
+        response: { blanks: [{ blankId: "blank-1", value: "London" }] },
+        submitted: true,
+        attemptNumber: 1,
+        submissionResult: result,
+      },
+    },
+    quizzes: {
+      [quizId]: {
+        attemptId: "attempt-review",
+        status: "completed",
+        currentTargetId: null,
+        submittedTargetIds: ["question-a"],
+        score: 0,
+        maxScore: 1,
+        answerReviewAuthorized,
+        resultsByTargetId: { "question-a": result },
       },
     },
   });

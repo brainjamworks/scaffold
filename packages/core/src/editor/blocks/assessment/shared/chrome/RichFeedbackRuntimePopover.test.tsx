@@ -77,7 +77,7 @@ describe("RichFeedbackRuntimePopover", () => {
     expect(dialog.getAttribute("data-side")).toBe("bottom");
     expect(dialog.getAttribute("data-align")).toBe("start");
     expect(dialog.style.zIndex).toBe(String(zIndex.popover));
-    expect(dialog.querySelector(".sc-assessment-feedback-arrow")).toBeInstanceOf(SVGElement);
+    expect(dialog.querySelector(".sc-course-popover-surface__arrow")).toBeInstanceOf(SVGElement);
     expect(document.activeElement).toBe(trigger);
   });
 

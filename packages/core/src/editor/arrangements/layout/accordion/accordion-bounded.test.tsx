@@ -9,7 +9,7 @@ import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import {
   CellAuthoringNode,
@@ -243,6 +243,7 @@ function makeEditor({
       }),
       ExtendedParagraph,
       CourseDocumentNode,
+      createCourseSectionNode(),
       SurfaceNode,
       RegionNode,
       ...arrangementExtensions,

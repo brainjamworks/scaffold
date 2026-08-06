@@ -18,6 +18,8 @@ import {
   hasAssessmentRegistration,
 } from "@/runtime/assessment/test-utils";
 import type { AssessmentStoreApi } from "@/runtime/assessment/types";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
@@ -51,6 +53,12 @@ import { MultiselectAuthoringExtension } from "@/editor/blocks/assessment/multis
 import { MultiselectRuntimeExtension } from "@/editor/blocks/assessment/multiselect/multiselect-runtime-extension";
 
 const canonicalAssessmentResult = { feedback: null, items: {} };
+const CHOICE_A_ID = "choice_00001";
+const CHOICE_B_ID = "choice_00002";
+const CHOICE_C_ID = "choice_00003";
+const CHOICE_D_ID = "choice_00004";
+const MCQ_BLOCK_ID = "mcq___000001";
+const MULTISELECT_BLOCK_ID = "multi_000001";
 
 function makeEditor(
   choices: Array<{ id: string; isCorrect: boolean; text?: string }>,
@@ -96,7 +104,11 @@ function makeEditor(
       editable ? SelectableChoiceAuthoringNode : SelectableChoiceRuntimeNode,
       editable ? McqAuthoringExtension : McqRuntimeExtension,
       editable ? MultiselectAuthoringExtension : MultiselectRuntimeExtension,
-      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
+      UniqueID.configure({
+        attributeName: "id",
+        types: ["mcq", "multiselect", "selectable_choice"],
+        updateDocument: false,
+      }),
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
     ],
     content: {
@@ -105,7 +117,7 @@ function makeEditor(
         {
           type: blockType,
           attrs: {
-            id: `${blockType}-1`,
+            id: blockType === "mcq" ? MCQ_BLOCK_ID : MULTISELECT_BLOCK_ID,
             assessment,
             settings: {
               feedbackMode: "on_submit",
@@ -218,10 +230,14 @@ function mcqBlock(
 
 function renderRuntimeEditor(editor: Editor, assessmentPort: AssessmentPort) {
   render(
-    createAssessmentRuntimeTestRoot({
-      assessment: assessmentPort,
-      children: createAuthoringMovementTestRoot(editor, createElement(EditorContent, { editor })),
-      onStore: captureAssessmentStore,
+    createElement(CourseThemeProvider, {
+      appearance: "light",
+      theme: createDefaultPersistedCourseTheme(),
+      children: createAssessmentRuntimeTestRoot({
+        assessment: assessmentPort,
+        children: createAuthoringMovementTestRoot(editor, createElement(EditorContent, { editor })),
+        onStore: captureAssessmentStore,
+      }),
     }),
   );
 }
@@ -233,9 +249,13 @@ function captureAssessmentStore(store: AssessmentStoreApi | null) {
 
 function renderAssessmentEditor(editor: Editor) {
   return render(
-    createAssessmentRuntimeTestRoot({
-      children: createAuthoringMovementTestRoot(editor, createElement(EditorContent, { editor })),
-      onStore: captureAssessmentStore,
+    createElement(CourseThemeProvider, {
+      appearance: "light",
+      theme: createDefaultPersistedCourseTheme(),
+      children: createAssessmentRuntimeTestRoot({
+        children: createAuthoringMovementTestRoot(editor, createElement(EditorContent, { editor })),
+        onStore: captureAssessmentStore,
+      }),
     }),
   );
 }
@@ -417,8 +437,8 @@ describe("runtime selectable choice bounded scrolling", () => {
   it("scrolls submitted and revealed MCQ choices into the bounded runtime lane", async () => {
     const editor = makeEditor(
       [
-        { id: "a", isCorrect: false, text: "Alpha" },
-        { id: "b", isCorrect: true, text: "Beta" },
+        { id: CHOICE_A_ID, isCorrect: false, text: "Alpha" },
+        { id: CHOICE_B_ID, isCorrect: true, text: "Beta" },
       ],
       false,
     );
@@ -431,23 +451,27 @@ describe("runtime selectable choice bounded scrolling", () => {
             isCorrect: false,
             score: { scaled: 0 },
             items: {
-              a: { correct: false, expected: false, given: true },
-              b: { correct: false, expected: true, given: false },
+              [CHOICE_A_ID]: { correct: false, expected: false, given: true },
+              [CHOICE_B_ID]: { correct: false, expected: true, given: false },
             },
           },
           { response: args.response },
         ),
       revealAnswer: async () => ({
-        answerKey: { kind: "single-select", correctOptionId: "b", feedbackByOptionId: {} },
+        answerKey: {
+          kind: "single-select",
+          correctOptionId: CHOICE_B_ID,
+          feedbackByOptionId: {},
+        },
       }),
     };
 
     renderRuntimeEditor(editor, assessmentPort);
 
     await waitFor(() => {
-      expect(hasAssessmentRegistration(assessmentStore, "artifact:artifact-1/block:mcq-1")).toBe(
-        true,
-      );
+      expect(
+        hasAssessmentRegistration(assessmentStore, `artifact:artifact-1/block:${MCQ_BLOCK_ID}`),
+      ).toBe(true);
     });
 
     document
@@ -476,10 +500,10 @@ describe("runtime selectable choice bounded scrolling", () => {
         }
 
         const choiceId = element.getAttribute("data-id");
-        if (choiceId === "a") {
+        if (choiceId === CHOICE_A_ID) {
           return DOMRect.fromRect({ height: 44, width: 400, x: 0, y: 140 });
         }
-        if (choiceId === "b") {
+        if (choiceId === CHOICE_B_ID) {
           return DOMRect.fromRect({ height: 44, width: 400, x: 0, y: 220 });
         }
 
@@ -507,10 +531,10 @@ describe("runtime selectable choice bounded scrolling", () => {
   it("scrolls the full multiselect submitted and revealed choice set in the bounded runtime lane", async () => {
     const editor = makeEditor(
       [
-        { id: "a", isCorrect: false, text: "Alpha" },
-        { id: "b", isCorrect: false, text: "Beta" },
-        { id: "c", isCorrect: true, text: "Gamma" },
-        { id: "d", isCorrect: true, text: "Delta" },
+        { id: CHOICE_A_ID, isCorrect: false, text: "Alpha" },
+        { id: CHOICE_B_ID, isCorrect: false, text: "Beta" },
+        { id: CHOICE_C_ID, isCorrect: true, text: "Gamma" },
+        { id: CHOICE_D_ID, isCorrect: true, text: "Delta" },
       ],
       false,
       "multiselect",
@@ -525,9 +549,9 @@ describe("runtime selectable choice bounded scrolling", () => {
             isCorrect: false,
             score: { scaled: 0 },
             items: {
-              b: { correct: false, expected: false, given: true },
-              c: { correct: true, expected: true, given: true },
-              d: { correct: false, expected: true, given: false },
+              [CHOICE_B_ID]: { correct: false, expected: false, given: true },
+              [CHOICE_C_ID]: { correct: true, expected: true, given: true },
+              [CHOICE_D_ID]: { correct: false, expected: true, given: false },
             },
           },
           { response: args.response },
@@ -535,7 +559,7 @@ describe("runtime selectable choice bounded scrolling", () => {
       revealAnswer: async () => ({
         answerKey: {
           kind: "multi-select",
-          correctOptionIds: ["c", "d"],
+          correctOptionIds: [CHOICE_C_ID, CHOICE_D_ID],
           feedbackByOptionId: {},
         },
       }),
@@ -545,7 +569,10 @@ describe("runtime selectable choice bounded scrolling", () => {
 
     await waitFor(() => {
       expect(
-        hasAssessmentRegistration(assessmentStore, "artifact:artifact-1/block:multiselect-1"),
+        hasAssessmentRegistration(
+          assessmentStore,
+          `artifact:artifact-1/block:${MULTISELECT_BLOCK_ID}`,
+        ),
       ).toBe(true);
     });
 
@@ -575,16 +602,16 @@ describe("runtime selectable choice bounded scrolling", () => {
         }
 
         const choiceId = element.getAttribute("data-id");
-        if (choiceId === "a") {
+        if (choiceId === CHOICE_A_ID) {
           return DOMRect.fromRect({ height: 44, width: 400, x: 0, y: 40 });
         }
-        if (choiceId === "b") {
+        if (choiceId === CHOICE_B_ID) {
           return DOMRect.fromRect({ height: 44, width: 400, x: 0, y: 160 });
         }
-        if (choiceId === "c") {
+        if (choiceId === CHOICE_C_ID) {
           return DOMRect.fromRect({ height: 44, width: 400, x: 0, y: 208 });
         }
-        if (choiceId === "d") {
+        if (choiceId === CHOICE_D_ID) {
           return DOMRect.fromRect({ height: 44, width: 400, x: 0, y: 256 });
         }
 
@@ -655,7 +682,7 @@ describe("runtime selectable choice bounded scrolling", () => {
 
 describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
   it("keeps selectable choices as internal assessment children", () => {
-    const editor = makeEditor([{ id: "a", isCorrect: true }]);
+    const editor = makeEditor([{ id: CHOICE_A_ID, isCorrect: true }]);
     const spec = editor.schema.nodes["selectable_choice"]?.spec;
 
     expect(spec?.selectable).toBe(false);
@@ -665,7 +692,7 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
   });
 
   it("exposes contained movement anchors and handles in editable mode only", async () => {
-    const editableEditor = makeEditor([{ id: "a", isCorrect: true }], true);
+    const editableEditor = makeEditor([{ id: CHOICE_A_ID, isCorrect: true }], true);
     const editableView = renderAssessmentEditor(editableEditor);
 
     await waitFor(() => {
@@ -685,7 +712,7 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
     editableEditor.destroy();
     cleanup();
 
-    const runtimeEditor = makeEditor([{ id: "a", isCorrect: true }], false);
+    const runtimeEditor = makeEditor([{ id: CHOICE_A_ID, isCorrect: true }], false);
     const runtimeView = renderAssessmentEditor(runtimeEditor);
 
     expect(document.body.querySelector("[data-contained-movement-target]")).toBeNull();
@@ -695,7 +722,7 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
   });
 
   it("renders the author per-choice feedback popover in editable mode", async () => {
-    const editor = makeEditor([{ id: "a", isCorrect: true, text: "Alpha" }], true);
+    const editor = makeEditor([{ id: CHOICE_A_ID, isCorrect: true, text: "Alpha" }], true);
 
     renderAssessmentEditor(editor);
 
@@ -715,14 +742,16 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
   });
 
   it("persists author per-choice feedback through attr-backed rich text", async () => {
-    const editor = makeEditor([{ id: "a", isCorrect: true, text: "Alpha" }], true);
+    const editor = makeEditor([{ id: CHOICE_A_ID, isCorrect: true, text: "Alpha" }], true);
 
     renderAssessmentEditor(editor);
 
     fireEvent.click(await screen.findByRole("button", { name: "Add feedback" }));
     const feedbackEditor = await screen.findByLabelText("Feedback editor");
 
-    expect(feedbackEditor.getAttribute("data-attr-rich-text-field")).toBe("assessment:a:feedback");
+    expect(feedbackEditor.getAttribute("data-attr-rich-text-field")).toBe(
+      `assessment:${CHOICE_A_ID}:feedback`,
+    );
     expect(feedbackEditor.getAttribute("data-inline-editor-field")).toBeNull();
 
     fireEvent.paste(feedbackEditor, {
@@ -735,7 +764,7 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
       const block = editor.getJSON().content?.[0] as JSONContent | undefined;
       expect(block?.attrs?.["assessment"]).toMatchObject({
         feedbackByOptionId: {
-          a: richFeedback("Try the prime answer."),
+          [CHOICE_A_ID]: richFeedback("Try the prime answer."),
         },
       });
     });
@@ -744,7 +773,13 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
   });
 
   it("routes author per-choice feedback undo and redo through outer history", async () => {
-    const editor = makeEditor([{ id: "a", isCorrect: true, text: "Alpha" }], true, "mcq", {}, true);
+    const editor = makeEditor(
+      [{ id: CHOICE_A_ID, isCorrect: true, text: "Alpha" }],
+      true,
+      "mcq",
+      {},
+      true,
+    );
     const user = userEvent.setup();
 
     renderAssessmentEditor(editor);
@@ -760,7 +795,7 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
     await waitFor(() => {
       const block = editor.getJSON().content?.[0] as JSONContent | undefined;
       expect(block?.attrs?.["assessment"]).toMatchObject({
-        feedbackByOptionId: { a: richFeedback("Prime feedback.") },
+        feedbackByOptionId: { [CHOICE_A_ID]: richFeedback("Prime feedback.") },
       });
     });
 
@@ -777,7 +812,7 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
       expect(editor.getText()).not.toContain("Outer document edit");
     });
     expect(editor.getJSON().content?.[0]?.attrs?.["assessment"]).toMatchObject({
-      feedbackByOptionId: { a: richFeedback("Prime feedback.") },
+      feedbackByOptionId: { [CHOICE_A_ID]: richFeedback("Prime feedback.") },
     });
 
     fireEvent.keyDown(feedbackEditor, { key: "z", metaKey: true });
@@ -792,7 +827,7 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
 
     await waitFor(() => {
       expect(editor.getJSON().content?.[0]?.attrs?.["assessment"]).toMatchObject({
-        feedbackByOptionId: { a: richFeedback("Prime feedback.") },
+        feedbackByOptionId: { [CHOICE_A_ID]: richFeedback("Prime feedback.") },
       });
     });
 
@@ -806,7 +841,7 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
   });
 
   it("shows the shared rich text bubble when an author selects feedback text", async () => {
-    const editor = makeEditor([{ id: "a", isCorrect: true, text: "Alpha" }], true);
+    const editor = makeEditor([{ id: CHOICE_A_ID, isCorrect: true, text: "Alpha" }], true);
     const user = userEvent.setup();
 
     renderAssessmentEditor(editor);
@@ -827,7 +862,7 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
   });
 
   it("does not add a learner missing-response reason to the author preview submit button", async () => {
-    const editor = makeEditor([{ id: "a", isCorrect: true, text: "Alpha" }], true);
+    const editor = makeEditor([{ id: CHOICE_A_ID, isCorrect: true, text: "Alpha" }], true);
 
     renderAssessmentEditor(editor);
 
@@ -844,7 +879,7 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
   });
 
   it("adds choices to the live choices group after the mounted NodeView shifts", async () => {
-    const editor = makeEditor([{ id: "a", isCorrect: true, text: "Alpha" }], true);
+    const editor = makeEditor([{ id: CHOICE_A_ID, isCorrect: true, text: "Alpha" }], true);
 
     renderAssessmentEditor(editor);
 
@@ -852,7 +887,7 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
 
     editor.commands.insertContentAt(
       0,
-      mcqBlock("mcq-before", [{ id: "before", isCorrect: true, text: "Before" }]),
+      mcqBlock("mcq___000000", [{ id: "choice_00000", isCorrect: true, text: "Before" }]),
     );
 
     await waitFor(() => {
@@ -860,16 +895,16 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
     });
 
     const originalBlock = document.body.querySelector<HTMLElement>(
-      '[data-node="mcq"][data-id="mcq-1"]',
+      `[data-node="mcq"][data-id="${MCQ_BLOCK_ID}"]`,
     );
     if (!originalBlock) throw new Error("expected shifted original MCQ block");
 
     fireEvent.click(within(originalBlock).getByRole("button", { name: "Add choice" }));
 
     await waitFor(() => {
-      expect(choiceIdsByBlockId(editor, "mcq-1")).toHaveLength(2);
+      expect(choiceIdsByBlockId(editor, MCQ_BLOCK_ID)).toHaveLength(2);
     });
-    expect(choiceIdsByBlockId(editor, "mcq-before")).toHaveLength(1);
+    expect(choiceIdsByBlockId(editor, "mcq___000000")).toHaveLength(1);
     expect(topLevelNodeCount(editor, "mcq")).toBe(2);
 
     editor.destroy();
@@ -877,24 +912,24 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
 
   it("marking an unchecked choice clears every sibling in one transaction", () => {
     const editor = makeEditor([
-      { id: "a", isCorrect: true },
-      { id: "b", isCorrect: false },
-      { id: "c", isCorrect: false },
+      { id: CHOICE_A_ID, isCorrect: true },
+      { id: CHOICE_B_ID, isCorrect: false },
+      { id: CHOICE_C_ID, isCorrect: false },
     ]);
 
     const changed = toggleChoiceCorrect(editor, choicePosByIndex(editor, 1));
 
     expect(changed).toBe(true);
     expect(getChoices(editor)).toEqual([
-      { id: "a", isCorrect: false },
-      { id: "b", isCorrect: true },
-      { id: "c", isCorrect: false },
+      { id: CHOICE_A_ID, isCorrect: false },
+      { id: CHOICE_B_ID, isCorrect: true },
+      { id: CHOICE_C_ID, isCorrect: false },
     ]);
     editor.destroy();
   });
 
   it("ignores stale choice positions outside the current document", () => {
-    const editor = makeEditor([{ id: "a", isCorrect: true }]);
+    const editor = makeEditor([{ id: CHOICE_A_ID, isCorrect: true }]);
 
     expect(toggleChoiceCorrect(editor, editor.state.doc.content.size + 1)).toBe(false);
 
@@ -903,16 +938,16 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
 
   it("clicking the currently-correct choice is a no-op (at-least-one invariant)", () => {
     const editor = makeEditor([
-      { id: "a", isCorrect: true },
-      { id: "b", isCorrect: false },
+      { id: CHOICE_A_ID, isCorrect: true },
+      { id: CHOICE_B_ID, isCorrect: false },
     ]);
 
     const changed = toggleChoiceCorrect(editor, choicePosByIndex(editor, 0));
 
     expect(changed).toBe(false);
     expect(getChoices(editor)).toEqual([
-      { id: "a", isCorrect: true },
-      { id: "b", isCorrect: false },
+      { id: CHOICE_A_ID, isCorrect: true },
+      { id: CHOICE_B_ID, isCorrect: false },
     ]);
     editor.destroy();
   });
@@ -920,8 +955,8 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
   it("exposes selected, submitted, and revealed answer state through radio semantics", async () => {
     const editor = makeEditor(
       [
-        { id: "a", isCorrect: false, text: "Alpha" },
-        { id: "b", isCorrect: true, text: "Beta" },
+        { id: CHOICE_A_ID, isCorrect: false, text: "Alpha" },
+        { id: CHOICE_B_ID, isCorrect: true, text: "Beta" },
       ],
       false,
     );
@@ -934,28 +969,32 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
             isCorrect: false,
             score: { scaled: 0 },
             items: {
-              a: {
+              [CHOICE_A_ID]: {
                 correct: false,
                 expected: false,
                 given: true,
                 feedback: richFeedback("Review Alpha."),
               },
-              b: { correct: false, expected: true, given: false },
+              [CHOICE_B_ID]: { correct: false, expected: true, given: false },
             },
           },
           { response: args.response },
         ),
       revealAnswer: async () => ({
-        answerKey: { kind: "single-select", correctOptionId: "b", feedbackByOptionId: {} },
+        answerKey: {
+          kind: "single-select",
+          correctOptionId: CHOICE_B_ID,
+          feedbackByOptionId: {},
+        },
       }),
     };
 
     renderRuntimeEditor(editor, assessmentPort);
 
     await waitFor(() => {
-      expect(hasAssessmentRegistration(assessmentStore, "artifact:artifact-1/block:mcq-1")).toBe(
-        true,
-      );
+      expect(
+        hasAssessmentRegistration(assessmentStore, `artifact:artifact-1/block:${MCQ_BLOCK_ID}`),
+      ).toBe(true);
     });
 
     fireEvent.click(screen.getByText("Alpha"));
@@ -1019,10 +1058,8 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
           description: /correct answer/i,
         }),
       ).toBeInTheDocument();
-      const revealedButton = screen.getByRole("button", {
-        name: "Correct answer revealed",
-      });
-      expect((revealedButton as HTMLButtonElement).disabled).toBe(true);
+      expect(screen.getByRole("status", { name: "Answer revealed" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Show correct answer" })).toBeNull();
     });
 
     editor.destroy();
@@ -1031,8 +1068,8 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
   it("opens runtime summary feedback from a show feedback action", async () => {
     const editor = makeEditor(
       [
-        { id: "a", isCorrect: false, text: "Alpha" },
-        { id: "b", isCorrect: true, text: "Beta" },
+        { id: CHOICE_A_ID, isCorrect: false, text: "Alpha" },
+        { id: CHOICE_B_ID, isCorrect: true, text: "Beta" },
       ],
       false,
     );
@@ -1053,9 +1090,9 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
     renderRuntimeEditor(editor, assessmentPort);
 
     await waitFor(() => {
-      expect(hasAssessmentRegistration(assessmentStore, "artifact:artifact-1/block:mcq-1")).toBe(
-        true,
-      );
+      expect(
+        hasAssessmentRegistration(assessmentStore, `artifact:artifact-1/block:${MCQ_BLOCK_ID}`),
+      ).toBe(true);
     });
 
     fireEvent.click(screen.getByText("Alpha"));
@@ -1079,8 +1116,8 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
   it("explains why runtime MCQ submit is disabled before a response exists", async () => {
     const editor = makeEditor(
       [
-        { id: "a", isCorrect: false, text: "Alpha" },
-        { id: "b", isCorrect: true, text: "Beta" },
+        { id: CHOICE_A_ID, isCorrect: false, text: "Alpha" },
+        { id: CHOICE_B_ID, isCorrect: true, text: "Beta" },
       ],
       false,
     );
@@ -1123,8 +1160,8 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
   it("announces MCQ submission result and attempt count", async () => {
     const editor = makeEditor(
       [
-        { id: "a", isCorrect: false, text: "Alpha" },
-        { id: "b", isCorrect: true, text: "Beta" },
+        { id: CHOICE_A_ID, isCorrect: false, text: "Alpha" },
+        { id: CHOICE_B_ID, isCorrect: true, text: "Beta" },
       ],
       false,
       "mcq",
@@ -1139,8 +1176,8 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
             isCorrect: false,
             score: { scaled: 0 },
             items: {
-              a: { correct: false, expected: false, given: true },
-              b: { correct: false, expected: true, given: false },
+              [CHOICE_A_ID]: { correct: false, expected: false, given: true },
+              [CHOICE_B_ID]: { correct: false, expected: true, given: false },
             },
           },
           { response: args.response },
@@ -1150,9 +1187,9 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
     renderRuntimeEditor(editor, assessmentPort);
 
     await waitFor(() => {
-      expect(hasAssessmentRegistration(assessmentStore, "artifact:artifact-1/block:mcq-1")).toBe(
-        true,
-      );
+      expect(
+        hasAssessmentRegistration(assessmentStore, `artifact:artifact-1/block:${MCQ_BLOCK_ID}`),
+      ).toBe(true);
     });
 
     fireEvent.click(screen.getByText("Alpha"));
@@ -1173,8 +1210,8 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
   it("exposes a named required runtime MCQ choice group", async () => {
     const editor = makeEditor(
       [
-        { id: "a", isCorrect: false, text: "Alpha" },
-        { id: "b", isCorrect: true, text: "Beta" },
+        { id: CHOICE_A_ID, isCorrect: false, text: "Alpha" },
+        { id: CHOICE_B_ID, isCorrect: true, text: "Beta" },
       ],
       false,
       "mcq",
@@ -1204,8 +1241,8 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
   it("keeps every authored runtime MCQ choice group required", async () => {
     const editor = makeEditor(
       [
-        { id: "a", isCorrect: false, text: "Alpha" },
-        { id: "b", isCorrect: true, text: "Beta" },
+        { id: CHOICE_A_ID, isCorrect: false, text: "Alpha" },
+        { id: CHOICE_B_ID, isCorrect: true, text: "Beta" },
       ],
       false,
       "mcq",
@@ -1237,9 +1274,9 @@ describe("toggleChoiceCorrect — checkbox mode (Multiselect)", () => {
   it("exposes selected, submitted, and revealed answer state through checkbox semantics", async () => {
     const editor = makeEditor(
       [
-        { id: "a", isCorrect: false, text: "Alpha" },
-        { id: "b", isCorrect: true, text: "Beta" },
-        { id: "c", isCorrect: true, text: "Gamma" },
+        { id: CHOICE_A_ID, isCorrect: false, text: "Alpha" },
+        { id: CHOICE_B_ID, isCorrect: true, text: "Beta" },
+        { id: CHOICE_C_ID, isCorrect: true, text: "Gamma" },
       ],
       false,
       "multiselect",
@@ -1253,9 +1290,9 @@ describe("toggleChoiceCorrect — checkbox mode (Multiselect)", () => {
             isCorrect: false,
             score: { scaled: 0 },
             items: {
-              a: { correct: false, expected: false, given: true },
-              b: { correct: true, expected: true, given: true },
-              c: { correct: false, expected: true, given: false },
+              [CHOICE_A_ID]: { correct: false, expected: false, given: true },
+              [CHOICE_B_ID]: { correct: true, expected: true, given: true },
+              [CHOICE_C_ID]: { correct: false, expected: true, given: false },
             },
           },
           { response: args.response },
@@ -1263,7 +1300,7 @@ describe("toggleChoiceCorrect — checkbox mode (Multiselect)", () => {
       revealAnswer: async () => ({
         answerKey: {
           kind: "multi-select",
-          correctOptionIds: ["b", "c"],
+          correctOptionIds: [CHOICE_B_ID, CHOICE_C_ID],
           feedbackByOptionId: {},
         },
       }),
@@ -1273,7 +1310,10 @@ describe("toggleChoiceCorrect — checkbox mode (Multiselect)", () => {
 
     await waitFor(() => {
       expect(
-        hasAssessmentRegistration(assessmentStore, "artifact:artifact-1/block:multiselect-1"),
+        hasAssessmentRegistration(
+          assessmentStore,
+          `artifact:artifact-1/block:${MULTISELECT_BLOCK_ID}`,
+        ),
       ).toBe(true);
     });
 
@@ -1334,10 +1374,8 @@ describe("toggleChoiceCorrect — checkbox mode (Multiselect)", () => {
           description: /correct answer/i,
         }),
       ).toBeInTheDocument();
-      const revealedButton = screen.getByRole("button", {
-        name: "Correct answer revealed",
-      });
-      expect((revealedButton as HTMLButtonElement).disabled).toBe(true);
+      expect(screen.getByRole("status", { name: "Answer revealed" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Show correct answer" })).toBeNull();
     });
 
     editor.destroy();
@@ -1346,8 +1384,8 @@ describe("toggleChoiceCorrect — checkbox mode (Multiselect)", () => {
   it("explains why runtime Multiselect submit is disabled before a response exists", async () => {
     const editor = makeEditor(
       [
-        { id: "a", isCorrect: false, text: "Alpha" },
-        { id: "b", isCorrect: true, text: "Beta" },
+        { id: CHOICE_A_ID, isCorrect: false, text: "Alpha" },
+        { id: CHOICE_B_ID, isCorrect: true, text: "Beta" },
       ],
       false,
       "multiselect",
@@ -1391,8 +1429,8 @@ describe("toggleChoiceCorrect — checkbox mode (Multiselect)", () => {
   it("exposes a named required runtime Multiselect choice group when configured", async () => {
     const editor = makeEditor(
       [
-        { id: "a", isCorrect: false, text: "Alpha" },
-        { id: "b", isCorrect: true, text: "Beta" },
+        { id: CHOICE_A_ID, isCorrect: false, text: "Alpha" },
+        { id: CHOICE_B_ID, isCorrect: true, text: "Beta" },
       ],
       false,
       "multiselect",
@@ -1424,8 +1462,8 @@ describe("toggleChoiceCorrect — checkbox mode (Multiselect)", () => {
   it("announces final attempt state after a terminal Multiselect submission", async () => {
     const editor = makeEditor(
       [
-        { id: "a", isCorrect: false, text: "Alpha" },
-        { id: "b", isCorrect: true, text: "Beta" },
+        { id: CHOICE_A_ID, isCorrect: false, text: "Alpha" },
+        { id: CHOICE_B_ID, isCorrect: true, text: "Beta" },
       ],
       false,
       "multiselect",
@@ -1440,7 +1478,7 @@ describe("toggleChoiceCorrect — checkbox mode (Multiselect)", () => {
             isCorrect: true,
             score: { scaled: 1 },
             items: {
-              b: { correct: true, expected: true, given: true },
+              [CHOICE_B_ID]: { correct: true, expected: true, given: true },
             },
           },
           { response: args.response },
@@ -1451,7 +1489,10 @@ describe("toggleChoiceCorrect — checkbox mode (Multiselect)", () => {
 
     await waitFor(() => {
       expect(
-        hasAssessmentRegistration(assessmentStore, "artifact:artifact-1/block:multiselect-1"),
+        hasAssessmentRegistration(
+          assessmentStore,
+          `artifact:artifact-1/block:${MULTISELECT_BLOCK_ID}`,
+        ),
       ).toBe(true);
     });
 
@@ -1464,7 +1505,7 @@ describe("toggleChoiceCorrect — checkbox mode (Multiselect)", () => {
           name: "Final attempt used.",
         }),
       ).toBeInTheDocument();
-      expect(screen.getByText("Answer submitted. Correct.")).toBeInTheDocument();
+      expect(screen.getByRole("status", { name: "Correct" })).toBeInTheDocument();
     });
 
     editor.destroy();
@@ -1473,9 +1514,9 @@ describe("toggleChoiceCorrect — checkbox mode (Multiselect)", () => {
   it("marking an unchecked choice adds it without disturbing siblings", () => {
     const editor = makeEditor(
       [
-        { id: "a", isCorrect: true },
-        { id: "b", isCorrect: false },
-        { id: "c", isCorrect: false },
+        { id: CHOICE_A_ID, isCorrect: true },
+        { id: CHOICE_B_ID, isCorrect: false },
+        { id: CHOICE_C_ID, isCorrect: false },
       ],
       true,
       "multiselect",
@@ -1485,9 +1526,9 @@ describe("toggleChoiceCorrect — checkbox mode (Multiselect)", () => {
 
     expect(changed).toBe(true);
     expect(getChoices(editor)).toEqual([
-      { id: "a", isCorrect: true },
-      { id: "b", isCorrect: false },
-      { id: "c", isCorrect: true },
+      { id: CHOICE_A_ID, isCorrect: true },
+      { id: CHOICE_B_ID, isCorrect: false },
+      { id: CHOICE_C_ID, isCorrect: true },
     ]);
     editor.destroy();
   });
@@ -1495,8 +1536,8 @@ describe("toggleChoiceCorrect — checkbox mode (Multiselect)", () => {
   it("unchecking a correct choice when others are correct succeeds", () => {
     const editor = makeEditor(
       [
-        { id: "a", isCorrect: true },
-        { id: "b", isCorrect: true },
+        { id: CHOICE_A_ID, isCorrect: true },
+        { id: CHOICE_B_ID, isCorrect: true },
       ],
       true,
       "multiselect",
@@ -1506,8 +1547,8 @@ describe("toggleChoiceCorrect — checkbox mode (Multiselect)", () => {
 
     expect(changed).toBe(true);
     expect(getChoices(editor)).toEqual([
-      { id: "a", isCorrect: false },
-      { id: "b", isCorrect: true },
+      { id: CHOICE_A_ID, isCorrect: false },
+      { id: CHOICE_B_ID, isCorrect: true },
     ]);
     editor.destroy();
   });
@@ -1515,8 +1556,8 @@ describe("toggleChoiceCorrect — checkbox mode (Multiselect)", () => {
   it("unchecking the last correct choice is a no-op (at-least-one invariant)", () => {
     const editor = makeEditor(
       [
-        { id: "a", isCorrect: true },
-        { id: "b", isCorrect: false },
+        { id: CHOICE_A_ID, isCorrect: true },
+        { id: CHOICE_B_ID, isCorrect: false },
       ],
       true,
       "multiselect",
@@ -1526,8 +1567,8 @@ describe("toggleChoiceCorrect — checkbox mode (Multiselect)", () => {
 
     expect(changed).toBe(false);
     expect(getChoices(editor)).toEqual([
-      { id: "a", isCorrect: true },
-      { id: "b", isCorrect: false },
+      { id: CHOICE_A_ID, isCorrect: true },
+      { id: CHOICE_B_ID, isCorrect: false },
     ]);
     editor.destroy();
   });

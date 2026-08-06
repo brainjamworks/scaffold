@@ -48,12 +48,7 @@ function AssessmentHintRuntimeNodeView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper data-slot="assessment-hint">
-      <HintItem
-        index={getHintIndex(props)}
-        isEditable={false}
-        hintsShown={problem?.state.hintsShown ?? 0}
-        onDelete={() => undefined}
-      >
+      <HintItem index={getHintIndex(props)} hintsShown={problem?.state.hintsShown ?? 0}>
         <NodeViewContent />
       </HintItem>
     </NodeViewWrapper>

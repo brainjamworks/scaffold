@@ -6,29 +6,35 @@ import {
   PlusIcon as Plus,
   TrashIcon as Trash,
 } from "@phosphor-icons/react";
+import { Button, TextField } from "@radix-ui/themes";
 import {
   NodeViewWrapper,
   ReactNodeViewRenderer,
   useEditorState,
   type NodeViewProps,
 } from "@tiptap/react";
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type PointerEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent,
+  type RefObject,
+} from "react";
 
-import { WorkspaceDialog } from "@/ui/components/WorkspaceDialog/WorkspaceDialog";
 import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import { resolveActiveBoundedPlacement } from "@/editor/bounded-containers/model/bounded-container-structure-policy";
 import {
   nodeViewUiKey,
   usePickerOpen,
 } from "@/editor/media/authoring/picker/file-picker-open-state";
-import { MediaAuthoringActions } from "@/editor/media/presentation/MediaAuthoringActions";
-import { MediaExpandButton } from "@/editor/media/presentation/MediaExpandButton";
-import { MediaWorkspace } from "@/editor/media/presentation/MediaWorkspace";
 import {
   resolveAssessmentAttrParent,
   richTextDocumentToAssessmentFeedback,
 } from "@/editor/blocks/assessment/shared/model/private-assessment-attrs";
-import { CHOICE_TRAILING_BTN } from "@/editor/blocks/assessment/shared/chrome/ChoiceAnswerItem";
+import { AssessmentChoiceAuthoringAction } from "@/ui/components/course/AssessmentChoiceAuthoringRow/AssessmentChoiceAuthoringRow";
 import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { createEmbeddedDataId } from "@/document/model/identity/stable-ids";
 import {
@@ -50,27 +56,26 @@ function applyImageHotspotPick(result: FilePickerResult): ImageBlockAttrs | null
     return {
       mode: "managed",
       mediaId: result.upload.id,
-      ...(result.alt ? { alt: result.alt } : {}),
+      alt: result.alt?.trim() || result.title?.trim() || result.upload.fileName,
     };
   }
   if (result.source === "browse" && result.browse) {
     return {
       mode: "managed",
       mediaId: result.browse.id,
-      ...(result.alt ? { alt: result.alt } : {}),
+      alt: result.alt?.trim() || result.title?.trim() || result.browse.fileName,
     };
   }
   if (result.source === "url" && result.url) {
     return {
       mode: "external",
       src: result.url,
-      ...(result.alt ? { alt: result.alt } : {}),
+      alt: result.alt?.trim() || result.title?.trim() || "Hotspot image",
     };
   }
   return null;
 }
 import { useMediaPort } from "@/host/providers/ScaffoldServicesProvider";
-import { cn } from "@/lib/cn";
 import {
   ImageHotspotCanvasDataSchema,
   ImageHotspotPrivateAssessmentSchema,
@@ -84,19 +89,24 @@ import { iconMd, iconSm } from "@/ui/tokens/icon-sizes";
 
 import { ImageHotspotCanvasSurface } from "./image-hotspot-canvas-surface";
 import {
+  addImageHotspotChecked,
+  patchImageHotspotChecked,
   removeImageHotspotChecked,
+  replaceImageHotspotImageChecked,
   resolveImageHotspotAuthoringModel,
-  setImageHotspotCanvasDataChecked,
+  setImageHotspotAltTextChecked,
+  setImageHotspotClickLimitChecked,
   setImageHotspotFeedbackChecked,
+  setImageHotspotMissFeedbackChecked,
   toggleImageHotspotCorrectChecked,
 } from "./image-hotspot-authoring-commands";
 import {
-  IMAGE_HOTSPOT_CORRECT_COLOR,
   createImageHotspotCanvasNode,
   eventToPercent,
   findHitHotspot,
   patchHotspotInCanvasData,
 } from "./image-hotspot-canvas-shared";
+import { ImageHotspotCourseWorkspace } from "./ImageHotspotCourseWorkspace";
 
 import "./ImageHotspot.css";
 
@@ -195,9 +205,11 @@ interface AuthorCanvasProps {
   blockId: string | null;
   authoredBlockId: string | null;
   target: AuthoringNodeTarget | null;
-  popoverPortalContainer?: Element | null;
+  popoverPortalContainerRef?: RefObject<HTMLDivElement | null> | undefined;
   presentation?: "compact" | "expanded";
   selectedHotspotRequestId?: string | null;
+  onAnnounce?: ((message: string) => void) | undefined;
+  renderLiveRegion?: boolean | undefined;
 }
 
 function AuthorCanvas({
@@ -208,9 +220,11 @@ function AuthorCanvas({
   blockId,
   authoredBlockId,
   target,
-  popoverPortalContainer,
+  popoverPortalContainerRef,
   presentation = "compact",
   selectedHotspotRequestId,
+  onAnnounce,
+  renderLiveRegion = true,
 }: AuthorCanvasProps) {
   const isExpanded = presentation === "expanded";
   const mediaPort = useMediaPort();
@@ -220,13 +234,21 @@ function AuthorCanvas({
     id: blockId,
   });
   const [pickerOpen, setPickerOpen] = usePickerOpen(pickerKey);
-  const [workspaceOpen, setWorkspaceOpen] = useState(false);
-  const [workspaceElement, setWorkspaceElement] = useState<HTMLDivElement | null>(null);
+  const workspaceKey = nodeViewUiKey({
+    owner: "image-hotspot",
+    surface: "course-workspace-authoring",
+    id: blockId,
+  });
+  const [workspaceOpen, setWorkspaceOpen] = usePickerOpen(workspaceKey);
+  const workspaceElementRef = useRef<HTMLDivElement>(null);
   const [workspaceSelectionRequestId, setWorkspaceSelectionRequestId] = useState<string | null>(
     null,
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailsOpenId, setDetailsOpenId] = useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState("");
+  const announce = onAnnounce ?? setAnnouncement;
+  const [pendingFocusTarget, setPendingFocusTarget] = useState<string | null>(null);
   const [draftHotspotsState, setDraftHotspotsState] = useState<HotspotItem[] | null>(null);
   const [resolvedManagedSrc, setResolvedManagedSrc] = useState<{
     mediaId: string;
@@ -265,6 +287,20 @@ function AuthorCanvas({
   useEffect(() => {
     dataRef.current = data;
   }, [data]);
+
+  useEffect(() => {
+    if (!pendingFocusTarget) return;
+    const root =
+      popoverPortalContainerRef?.current instanceof HTMLElement
+        ? popoverPortalContainerRef.current
+        : containerRef.current?.closest<HTMLElement>(".sc-course-image-hotspot-shell");
+    const selector =
+      pendingFocusTarget === "add"
+        ? "[data-image-hotspot-add-region]"
+        : `[data-hotspot-author-marker-id="${CSS.escape(pendingFocusTarget)}"], [data-workspace-hotspot-id="${CSS.escape(pendingFocusTarget)}"] button`;
+    root?.querySelector<HTMLElement>(selector)?.focus();
+    setPendingFocusTarget(null);
+  }, [data.hotspots, pendingFocusTarget, popoverPortalContainerRef]);
 
   useEffect(() => {
     if (canEditInline) return;
@@ -334,17 +370,12 @@ function AuthorCanvas({
       ? resolvedManagedSrc.url
       : null);
 
-  const commitData = (next: ImageHotspotCanvasData): boolean => {
-    const result = target?.transact((tr, owner) =>
-      setImageHotspotCanvasDataChecked({ tr, target: owner, data: next }),
-    );
-    if (!result?.ok) return false;
-    dataRef.current = next;
-    return true;
-  };
-
-  const setHotspots = (hotspots: HotspotItem[]) => {
-    commitData({ ...dataRef.current, hotspots });
+  const announceMutationResult = (
+    result: ReturnType<NonNullable<AuthoringNodeTarget["transact"]>> | null | undefined,
+    successMessage: string,
+  ) => {
+    announce(result?.ok ? successMessage : (result?.issue.message ?? "Action rejected."));
+    return result?.ok === true;
   };
 
   const setDraftHotspots = (hotspots: HotspotItem[] | null) => {
@@ -366,21 +397,56 @@ function AuthorCanvas({
   const commitDraftHotspots = () => {
     const draftHotspots = draftHotspotsRef.current;
     if (!draftHotspots) return;
-    setHotspots(draftHotspots);
+    const activeId = interactionRef.current.activeId;
+    const draft = activeId ? draftHotspots.find((hotspot) => hotspot.id === activeId) : null;
+    const current = activeId
+      ? dataRef.current.hotspots.find((hotspot) => hotspot.id === activeId)
+      : null;
+    if (draft && current) {
+      const result = target?.transact((tr, owner) =>
+        patchImageHotspotChecked({
+          tr,
+          target: owner,
+          hotspotId: draft.id,
+          patch: {
+            centerX: draft.centerX,
+            centerY: draft.centerY,
+            radius: draft.radius,
+          },
+        }),
+      );
+      announceMutationResult(
+        result,
+        `Region ${dataRef.current.hotspots.indexOf(current) + 1} updated.`,
+      );
+    }
     setDraftHotspots(null);
   };
 
   const addHotspotRegion = (hotspot: Omit<HotspotItem, "id">) => {
     const id = createEmbeddedDataId();
-    setHotspots([
-      ...dataRef.current.hotspots,
-      {
-        id,
-        ...hotspot,
-      },
-    ]);
+    const result = target?.transact((tr, owner) =>
+      addImageHotspotChecked({
+        tr,
+        target: owner,
+        hotspot: { id, ...hotspot },
+      }),
+    );
+    if (!announceMutationResult(result, `${hotspot.label} added.`)) return null;
     setSelectedId(id);
     return id;
+  };
+
+  const replaceImage = (image: ImageBlockAttrs) => {
+    const result = target?.transact((tr, owner) =>
+      replaceImageHotspotImageChecked({ tr, target: owner, image }),
+    );
+    if (!announceMutationResult(result, "Image replaced. Regions and responses were reset.")) {
+      return false;
+    }
+    setSelectedId(null);
+    setDetailsOpenId(null);
+    return true;
   };
 
   const addKeyboardHotspotRegion = () => {
@@ -388,21 +454,56 @@ function AuthorCanvas({
       centerX: 50,
       centerY: 50,
       radius: KEYBOARD_HOTSPOT_RADIUS,
-      label: "",
+      label: `Region ${dataRef.current.hotspots.length + 1}`,
     });
   };
 
   const patchHotspot = (id: string, patch: HotspotPatch) => {
-    commitData(patchHotspotInCanvasData(dataRef.current, id, patch));
+    const index = dataRef.current.hotspots.findIndex((hotspot) => hotspot.id === id);
+    const result = target?.transact((tr, owner) =>
+      patchImageHotspotChecked({
+        tr,
+        target: owner,
+        hotspotId: id,
+        patch,
+      }),
+    );
+    return announceMutationResult(result, `Region ${index + 1} updated.`);
+  };
+
+  const setAltText = (alt: string) => {
+    const result = target?.transact((tr, owner) =>
+      setImageHotspotAltTextChecked({ tr, target: owner, alt }),
+    );
+    return announceMutationResult(result, "Alternative text updated.");
+  };
+
+  const setClickLimit = (maxClicks: number | null) => {
+    const result = target?.transact((tr, owner) =>
+      setImageHotspotClickLimitChecked({ tr, target: owner, maxClicks }),
+    );
+    return announceMutationResult(result, "Selection limit updated.");
   };
 
   const removeHotspot = (id: string) => {
+    const index = dataRef.current.hotspots.findIndex((hotspot) => hotspot.id === id);
+    const remaining = dataRef.current.hotspots.filter((hotspot) => hotspot.id !== id);
+    const focusId = remaining[index]?.id ?? remaining[index - 1]?.id ?? "add";
     const result = target?.transact((tr, owner) =>
       removeImageHotspotChecked({ tr, target: owner, hotspotId: id }),
     );
-    if (!result?.ok) return;
-    if (selectedId === id) setSelectedId(null);
+    if (!announceMutationResult(result, `Region ${index + 1} deleted.`)) return;
+    if (selectedId === id) setSelectedId(focusId === "add" ? null : focusId);
     if (detailsOpenId === id) setDetailsOpenId(null);
+    setPendingFocusTarget(focusId);
+  };
+
+  const toggleCorrect = (id: string) => {
+    const index = dataRef.current.hotspots.findIndex((hotspot) => hotspot.id === id);
+    const result = target?.transact((tr, owner) =>
+      toggleImageHotspotCorrectChecked({ tr, target: owner, hotspotId: id }),
+    );
+    announceMutationResult(result, `Correct state changed for region ${index + 1}.`);
   };
 
   const onPointerDown = (e: PointerEvent<HTMLDivElement>, aspectRatio: number) => {
@@ -533,7 +634,7 @@ function AuthorCanvas({
         centerX: clamp(i.drawCenter.x, 0, 100),
         centerY: clamp(i.drawCenter.y, 0, 100),
         radius: i.drawRadius,
-        label: "",
+        label: `Region ${dataRef.current.hotspots.length + 1}`,
       });
     }
 
@@ -571,19 +672,19 @@ function AuthorCanvas({
   // teal, per the Triple-In-Reserve Rule.
   if (!data.image || !resolvedSrc) {
     return (
-      <div className="sc-image-hotspot-empty">
+      <div className="sc-course-image-hotspot-empty">
         <button
           type="button"
           onClick={() => setPickerOpen(true)}
           aria-label="Add hotspot image"
-          className="sc-image-hotspot-empty__button"
+          className="sc-course-image-hotspot-empty__button"
         >
-          <span className="sc-image-hotspot-empty__icon">
+          <span className="sc-course-image-hotspot-empty__icon">
             <ImagePlaceholder size={iconSm} weight="regular" aria-hidden />
           </span>
           <span>
-            <span className="sc-image-hotspot-empty__title">Add hotspot image</span>
-            <span className="sc-image-hotspot-empty__description">
+            <span className="sc-course-image-hotspot-empty__title">Add hotspot image</span>
+            <span className="sc-course-image-hotspot-empty__description">
               Upload or paste a URL, then draw hotspot regions on top.
             </span>
           </span>
@@ -596,7 +697,7 @@ function AuthorCanvas({
           title="Add hotspot image"
           onResolved={(result) => {
             const image = applyImageHotspotPick(result);
-            if (image) commitData({ ...dataRef.current, image });
+            return image ? replaceImage(image) : false;
           }}
         />
       </div>
@@ -616,8 +717,8 @@ function AuthorCanvas({
       }
       className={
         canEditInline
-          ? "sc-image-hotspot-canvas--authoring"
-          : "sc-image-hotspot-canvas--authoring-preview"
+          ? "sc-course-image-hotspot-canvas--authoring"
+          : "sc-course-image-hotspot-canvas--authoring-preview"
       }
       contentEditable={false}
       {...(canEditInline
@@ -630,222 +731,253 @@ function AuthorCanvas({
               event: PointerEvent<HTMLDivElement>,
               surface: { aspectRatio: number },
             ) => onPointerMove(event, surface.aspectRatio),
-            onSurfacePointerUp: onPointerUp,
+            onSurfacePointerUp: (
+              event: PointerEvent<HTMLDivElement>,
+              _surface: { aspectRatio: number },
+            ) => onPointerUp(event),
           }
         : {})}
     >
-      {({ naturalSize }) => (
-        <>
-          {!isExpanded &&
-            (canEditInline ? (
-              <MediaAuthoringActions
-                addLabel="Add hotspot region"
-                ariaLabel="Image hotspot image tools"
-                editAction={
-                  <WorkspaceDialog.Trigger asChild>
-                    <MediaExpandButton
-                      aria-label="Edit hotspots in expanded workspace"
-                      glyph="edit"
-                      tooltipLabel="Edit hotspots"
-                    />
-                  </WorkspaceDialog.Trigger>
-                }
+      {({ naturalSize }) => {
+        return (
+          <>
+            {!isExpanded && (
+              <div
+                role="toolbar"
+                aria-label="Image hotspot image tools"
+                className="sc-course-image-hotspot__canvas-toolbar"
                 hidden={isInteracting}
-                onAdd={addKeyboardHotspotRegion}
-                onReplace={() => setPickerOpen(true)}
-              />
-            ) : (
-              <WorkspaceDialog.Trigger asChild>
-                <MediaExpandButton
-                  aria-label="Edit hotspots in expanded workspace"
-                  glyph="edit"
-                  tooltipLabel="Edit hotspots"
-                  hidden={isInteracting}
-                />
-              </WorkspaceDialog.Trigger>
-            ))}
-          {naturalSize && (
-            <svg
-              className="sc-image-hotspot-overlay"
-              viewBox={`0 0 ${naturalSize.w} ${naturalSize.h}`}
-              preserveAspectRatio="none"
-            >
-              {visibleHotspots.map((h, idx) => {
-                const isSel = h.id === selectedId;
-                const cx = (h.centerX / 100) * naturalSize.w;
-                const cy = (h.centerY / 100) * naturalSize.h;
-                const r = (h.radius / 100) * naturalSize.w;
-                // Semantic success = marked correct; primary = drawn but not yet marked correct.
-                const color = assessment.correctHotspotIds.includes(h.id)
-                  ? IMAGE_HOTSPOT_CORRECT_COLOR
-                  : "var(--color-primary)";
-                return (
-                  <g key={h.id}>
-                    <circle
-                      cx={cx}
-                      cy={cy}
-                      r={r}
-                      fill={color}
-                      fillOpacity={isSel ? 0.25 : 0.18}
-                      stroke={color}
-                      strokeWidth={isSel ? naturalSize.w * 0.004 : naturalSize.w * 0.002}
-                    />
-                    <text
-                      x={cx}
-                      y={cy}
-                      fontSize={naturalSize.w * 0.025}
-                      textAnchor="middle"
-                      dominantBaseline="central"
-                      fill={color}
-                      fontWeight={700}
-                      style={{ pointerEvents: "none" }}
+              >
+                <ImageHotspotCourseWorkspace.Action
+                  label="Replace image"
+                  intent="replace"
+                  onClick={() => setPickerOpen(true)}
+                >
+                  <ArrowsClockwise size={iconMd} aria-hidden />
+                </ImageHotspotCourseWorkspace.Action>
+                <ImageHotspotCourseWorkspace.Action
+                  data-image-hotspot-add-region=""
+                  label="Add hotspot region"
+                  intent="add"
+                  onClick={() => {
+                    const id = addKeyboardHotspotRegion();
+                    if (!canEditInline && id) {
+                      setWorkspaceSelectionRequestId(id);
+                      setWorkspaceOpen(true);
+                    }
+                  }}
+                >
+                  <Plus size={iconMd} aria-hidden />
+                </ImageHotspotCourseWorkspace.Action>
+                <ImageHotspotCourseWorkspace.Trigger asChild>
+                  <ImageHotspotCourseWorkspace.Action
+                    label="Edit hotspots in expanded workspace"
+                    intent="edit"
+                  >
+                    <PencilSimple size={iconMd} aria-hidden />
+                  </ImageHotspotCourseWorkspace.Action>
+                </ImageHotspotCourseWorkspace.Trigger>
+              </div>
+            )}
+            {naturalSize && (
+              <svg
+                className="sc-course-image-hotspot-overlay"
+                viewBox={`0 0 ${naturalSize.w} ${naturalSize.h}`}
+                preserveAspectRatio="none"
+              >
+                {visibleHotspots.map((h, idx) => {
+                  const isSel = h.id === selectedId;
+                  const cx = (h.centerX / 100) * naturalSize.w;
+                  const cy = (h.centerY / 100) * naturalSize.h;
+                  const r = (h.radius / 100) * naturalSize.w;
+                  const isCorrect = assessment.correctHotspotIds.includes(h.id);
+                  return (
+                    <g
+                      key={h.id}
+                      className="sc-course-image-hotspot__author-region"
+                      data-course-state={isCorrect ? "correct" : undefined}
+                      data-hotspot-state={isSel ? "selected" : "idle"}
                     >
-                      {idx + 1}
-                    </text>
-                    {isSel && (
                       <circle
-                        cx={((h.centerX + h.radius) / 100) * naturalSize.w}
+                        cx={cx}
                         cy={cy}
-                        r={naturalSize.w * 0.008}
-                        fill="#fff"
-                        stroke={color}
-                        strokeWidth={naturalSize.w * 0.003}
+                        r={r}
+                        className="sc-course-image-hotspot__author-region-shape"
                       />
+                      <text
+                        x={cx}
+                        y={cy}
+                        textAnchor="middle"
+                        dominantBaseline="central"
+                        className="sc-course-image-hotspot__author-region-number"
+                      >
+                        {idx + 1}
+                      </text>
+                      {isSel && (
+                        <circle
+                          cx={((h.centerX + h.radius) / 100) * naturalSize.w}
+                          cy={cy}
+                          className="sc-course-image-hotspot__author-resize-handle"
+                        />
+                      )}
+                    </g>
+                  );
+                })}
+                {drawingPreview && (
+                  <circle
+                    cx={(drawingPreview.cx / 100) * naturalSize.w}
+                    cy={(drawingPreview.cy / 100) * naturalSize.h}
+                    r={(drawingPreview.r / 100) * naturalSize.w}
+                    className="sc-course-image-hotspot__author-region-preview"
+                  />
+                )}
+              </svg>
+            )}
+
+            {canEditInline &&
+              visibleHotspots.map((h, idx) => {
+                const isSel = h.id === selectedId;
+                const detailsOpen = h.id === detailsOpenId;
+                const hotspotName = `Edit hotspot ${idx + 1}${h.label ? `: ${h.label}` : ""}`;
+                const markerButton = (
+                  <button
+                    key={h.id}
+                    type="button"
+                    aria-label={hotspotName}
+                    data-hotspot-selected={isSel ? "true" : "false"}
+                    data-hotspot-author-marker-id={h.id}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedId(h.id);
+                      if (isExpanded) setDetailsOpenId(null);
+                    }}
+                    className="sc-course-image-hotspot-author-marker"
+                    style={{
+                      left: `${h.centerX}%`,
+                      top: `${h.centerY}%`,
+                    }}
+                  >
+                    <span className="sc-course-image-hotspot-author-marker__number" aria-hidden>
+                      {idx + 1}
+                    </span>
+                    <span className="sc-course-image-hotspot-author-marker__edit" aria-hidden>
+                      <PencilSimple size={10} weight="bold" />
+                    </span>
+                  </button>
+                );
+
+                if (isExpanded) return markerButton;
+
+                return (
+                  <EditableOverlayPopover.Root
+                    key={h.id}
+                    open={detailsOpen}
+                    onOpenChange={(open) => {
+                      if (open) {
+                        setSelectedId(h.id);
+                        setDetailsOpenId(h.id);
+                        return;
+                      }
+                      setDetailsOpenId((current) => (current === h.id ? null : current));
+                    }}
+                  >
+                    <EditableOverlayPopover.Trigger asChild>
+                      {markerButton}
+                    </EditableOverlayPopover.Trigger>
+                    {detailsOpen && (
+                      <EditableOverlayPopover.Portal container={popoverPortalContainerRef?.current}>
+                        <CompactHotspotEditorPopover
+                          assessment={assessment}
+                          editor={editor}
+                          hotspot={h}
+                          index={idx}
+                          authoredBlockId={authoredBlockId}
+                          onPointerDownOutside={onDetailsPointerDownOutside}
+                          onPatch={(patch) => patchHotspot(h.id, patch)}
+                          onToggleCorrect={() => toggleCorrect(h.id)}
+                          onDelete={() => removeHotspot(h.id)}
+                          target={target}
+                        />
+                      </EditableOverlayPopover.Portal>
                     )}
-                  </g>
+                  </EditableOverlayPopover.Root>
                 );
               })}
-              {drawingPreview && (
-                <circle
-                  cx={(drawingPreview.cx / 100) * naturalSize.w}
-                  cy={(drawingPreview.cy / 100) * naturalSize.h}
-                  r={(drawingPreview.r / 100) * naturalSize.w}
-                  fill="var(--color-primary)"
-                  fillOpacity={0.18}
-                  stroke="var(--color-primary)"
-                  strokeWidth={naturalSize.w * 0.0025}
-                  strokeDasharray="8 4"
-                />
-              )}
-            </svg>
-          )}
-
-          {canEditInline &&
-            visibleHotspots.map((h, idx) => {
-              const isSel = h.id === selectedId;
-              const detailsOpen = h.id === detailsOpenId;
-              const hotspotName = `Edit hotspot ${idx + 1}${h.label ? `: ${h.label}` : ""}`;
-              const markerButton = (
-                <button
-                  key={h.id}
-                  type="button"
-                  aria-label={hotspotName}
-                  data-hotspot-selected={isSel ? "true" : "false"}
-                  data-hotspot-author-marker-id={h.id}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedId(h.id);
-                    if (isExpanded) setDetailsOpenId(null);
-                  }}
-                  className="sc-image-hotspot-author-marker"
-                  style={{
-                    left: `${h.centerX}%`,
-                    top: `${h.centerY}%`,
-                  }}
-                >
-                  <span className="sc-image-hotspot-author-marker__number" aria-hidden>
-                    {idx + 1}
-                  </span>
-                  <span className="sc-image-hotspot-author-marker__edit" aria-hidden>
-                    <PencilSimple size={10} weight="bold" />
-                  </span>
-                </button>
-              );
-
-              if (isExpanded) return markerButton;
-
-              return (
-                <EditableOverlayPopover.Root
-                  key={h.id}
-                  open={detailsOpen}
-                  onOpenChange={(open) => {
-                    if (open) {
-                      setSelectedId(h.id);
-                      setDetailsOpenId(h.id);
-                      return;
-                    }
-                    setDetailsOpenId((current) => (current === h.id ? null : current));
-                  }}
-                >
-                  <EditableOverlayPopover.Trigger asChild>
-                    {markerButton}
-                  </EditableOverlayPopover.Trigger>
-                  {detailsOpen && (
-                    <EditableOverlayPopover.Portal container={popoverPortalContainer}>
-                      <CompactHotspotEditorPopover
-                        assessment={assessment}
-                        editor={editor}
-                        hotspot={h}
-                        index={idx}
-                        authoredBlockId={authoredBlockId}
-                        onPointerDownOutside={onDetailsPointerDownOutside}
-                        onPatch={(patch) => patchHotspot(h.id, patch)}
-                        onToggleCorrect={() => toggleHotspotCorrect(target, h.id)}
-                        onDelete={() => removeHotspot(h.id)}
-                        target={target}
-                      />
-                    </EditableOverlayPopover.Portal>
-                  )}
-                </EditableOverlayPopover.Root>
-              );
-            })}
-        </>
-      )}
+          </>
+        );
+      }}
     </ImageHotspotCanvasSurface>
   );
 
   const expandedInspector = (
-    <MediaWorkspace.Sidebar aria-label="Selected hotspot details">
-      <MediaWorkspace.SidebarHeader
-        title="Hotspots"
-        description="Select a region or row to edit its details."
-        count={visibleHotspots.length}
-        countLabel={`${visibleHotspots.length} total hotspots`}
+    <aside
+      role="region"
+      aria-label="Selected hotspot details"
+      className="sc-course-image-hotspot-workspace__sidebar"
+    >
+      <header className="sc-course-image-hotspot-workspace__sidebar-header">
+        <div>
+          <h2>Hotspots</h2>
+          <p>Select a region or row to edit its details.</p>
+        </div>
+        <span
+          aria-label={`${visibleHotspots.length} total hotspots`}
+          className="sc-course-image-hotspot-workspace__count"
+        >
+          {visibleHotspots.length}
+        </span>
+      </header>
+      <ImageHotspotDefinitionFields
+        alt={data.image?.alt ?? ""}
+        maxClicks={data.maxClicks}
+        onAltCommit={setAltText}
+        onClickLimitCommit={setClickLimit}
       />
       {visibleHotspots.length > 0 ? (
-        <MediaWorkspace.List ref={hotspotListRef} aria-label="Hotspots">
+        <ol
+          ref={hotspotListRef}
+          aria-label="Hotspots"
+          className="sc-course-image-hotspot-workspace__list"
+        >
           {visibleHotspots.map((hotspot, index) => {
             const selected = hotspot.id === selectedHotspot?.id;
             const summary = hotspot.label.trim() || "Untitled hotspot";
 
             return (
-              <MediaWorkspace.Item
+              <li
                 key={hotspot.id}
-                selected={selected}
                 data-workspace-hotspot-id={hotspot.id}
+                data-hotspot-state={selected ? "selected" : "idle"}
+                className="sc-course-image-hotspot-workspace__item"
               >
-                <MediaWorkspace.ItemHeader>
-                  <MediaWorkspace.ItemSelect
+                <div className="sc-course-image-hotspot-workspace__item-header">
+                  <button
+                    type="button"
                     aria-label={`Select hotspot ${index + 1}: ${summary}`}
                     aria-pressed={selected}
+                    className="sc-course-image-hotspot-workspace__item-select"
                     onClick={() => {
                       setSelectedId(hotspot.id);
                       setDetailsOpenId(null);
                     }}
                   >
-                    <MediaWorkspace.ItemNumber aria-hidden>{index + 1}</MediaWorkspace.ItemNumber>
-                    <span className="sc-image-hotspot-workspace__row-summary">{summary}</span>
-                  </MediaWorkspace.ItemSelect>
-                </MediaWorkspace.ItemHeader>
+                    <span className="sc-course-image-hotspot-workspace__item-number" aria-hidden>
+                      {index + 1}
+                    </span>
+                    <span className="sc-course-image-hotspot-workspace__row-summary">
+                      {summary}
+                    </span>
+                  </button>
+                </div>
                 {selected && (
-                  <div className="sc-image-hotspot-workspace__row-editor">
+                  <div className="sc-course-image-hotspot-workspace__row-editor">
                     <HotspotEditorContent
                       hotspot={hotspot}
                       assessment={assessment}
                       bubbleMenuAppendTo={() =>
-                        popoverPortalContainer instanceof HTMLElement
-                          ? popoverPortalContainer
+                        popoverPortalContainerRef?.current instanceof HTMLElement
+                          ? popoverPortalContainerRef.current
                           : null
                       }
                       editor={editor}
@@ -853,23 +985,34 @@ function AuthorCanvas({
                       authoredBlockId={authoredBlockId}
                       showHeader
                       onPatch={(patch) => patchHotspot(hotspot.id, patch)}
-                      onToggleCorrect={() => toggleHotspotCorrect(target, hotspot.id)}
+                      onToggleCorrect={() => toggleCorrect(hotspot.id)}
                       onDelete={() => removeHotspot(hotspot.id)}
                       target={target}
                     />
                   </div>
                 )}
-              </MediaWorkspace.Item>
+              </li>
             );
           })}
-        </MediaWorkspace.List>
+        </ol>
       ) : (
-        <MediaWorkspace.Empty>
+        <div className="sc-course-image-hotspot-workspace__empty">
           <strong>No hotspots yet</strong>
           <span>Draw a region on the image or add one from the toolbar.</span>
-        </MediaWorkspace.Empty>
+        </div>
       )}
-    </MediaWorkspace.Sidebar>
+      <MissFeedbackEditor
+        assessment={assessment}
+        authoredBlockId={authoredBlockId}
+        bubbleMenuAppendTo={() =>
+          popoverPortalContainerRef?.current instanceof HTMLElement
+            ? popoverPortalContainerRef.current
+            : null
+        }
+        editor={editor}
+        target={target}
+      />
+    </aside>
   );
 
   const filePickerModal = (
@@ -881,7 +1024,7 @@ function AuthorCanvas({
       title="Replace hotspot image"
       onResolved={(result) => {
         const image = applyImageHotspotPick(result);
-        if (image) commitData({ ...dataRef.current, image });
+        return image ? replaceImage(image) : false;
       }}
     />
   );
@@ -889,60 +1032,69 @@ function AuthorCanvas({
   if (isExpanded) {
     return (
       <>
-        <MediaWorkspace.Root>
-          <MediaWorkspace.Canvas
+        <div className="sc-course-image-hotspot-workspace__body">
+          <section
             ref={fitStageRef}
+            role="region"
             aria-label="Image hotspot workspace canvas"
-            className="sc-image-hotspot-workspace__canvas"
+            className="sc-course-image-hotspot-workspace__canvas"
           >
             {canvasSurface}
-          </MediaWorkspace.Canvas>
+          </section>
           {expandedInspector}
-        </MediaWorkspace.Root>
+        </div>
+        {renderLiveRegion ? (
+          <span className="sc-sr-only" aria-live="polite" aria-atomic="true">
+            {announcement}
+          </span>
+        ) : null}
         {filePickerModal}
       </>
     );
   }
 
   return (
-    <div className="sc-image-hotspot-shell">
-      <WorkspaceDialog.Root
+    <div className="sc-course-image-hotspot-shell">
+      <ImageHotspotCourseWorkspace.Root
         open={workspaceOpen}
         onOpenChange={(open) => {
           setWorkspaceOpen(open);
           if (!open) setWorkspaceSelectionRequestId(null);
         }}
       >
-        <div ref={fitStageRef} className="sc-image-hotspot-fit-stage">
+        <div ref={fitStageRef} className="sc-course-image-hotspot-fit-stage">
           {canvasSurface}
         </div>
-        <WorkspaceDialog.Content ref={setWorkspaceElement} size="large" contentEditable={false}>
-          <WorkspaceDialog.Header>
-            <div>
-              <WorkspaceDialog.Title>Edit image hotspots</WorkspaceDialog.Title>
-              <WorkspaceDialog.Description>
-                {visibleHotspots.length} region{visibleHotspots.length === 1 ? "" : "s"} · Draw and
-                manage hotspot regions on the image.
-              </WorkspaceDialog.Description>
-            </div>
-            <WorkspaceDialog.Close aria-label="Close expanded hotspot workspace" />
-          </WorkspaceDialog.Header>
-          <WorkspaceDialog.Toolbar aria-label="Image hotspot tools" contentEditable={false}>
-            <WorkspaceDialog.ToolbarGroup aria-label="Image actions">
-              <WorkspaceDialog.ToolbarButton
-                label="Replace hotspot image"
-                onClick={() => setPickerOpen(true)}
-              >
-                <ArrowsClockwise size={iconMd} aria-hidden />
-              </WorkspaceDialog.ToolbarButton>
-              <WorkspaceDialog.ToolbarButton
-                label="Add hotspot region"
-                onClick={() => setWorkspaceSelectionRequestId(addKeyboardHotspotRegion())}
-              >
-                <Plus size={iconMd} aria-hidden />
-              </WorkspaceDialog.ToolbarButton>
-            </WorkspaceDialog.ToolbarGroup>
-          </WorkspaceDialog.Toolbar>
+        <ImageHotspotCourseWorkspace.Content
+          ref={workspaceElementRef}
+          open={workspaceOpen}
+          title="Edit image hotspots"
+          description={`${visibleHotspots.length} region${visibleHotspots.length === 1 ? "" : "s"}. Draw and manage hotspot regions on the image.`}
+          toolbar={
+            <ImageHotspotCourseWorkspace.Toolbar label="Image hotspot tools">
+              <div role="group" aria-label="Image actions">
+                <ImageHotspotCourseWorkspace.Action
+                  label="Replace hotspot image"
+                  intent="replace"
+                  onClick={() => setPickerOpen(true)}
+                >
+                  <ArrowsClockwise size={iconMd} aria-hidden />
+                </ImageHotspotCourseWorkspace.Action>
+                <ImageHotspotCourseWorkspace.Action
+                  data-image-hotspot-add-region=""
+                  label="Add hotspot region"
+                  intent="add"
+                  onClick={() => {
+                    const id = addKeyboardHotspotRegion();
+                    if (id) setWorkspaceSelectionRequestId(id);
+                  }}
+                >
+                  <Plus size={iconMd} aria-hidden />
+                </ImageHotspotCourseWorkspace.Action>
+              </div>
+            </ImageHotspotCourseWorkspace.Toolbar>
+          }
+        >
           <AuthorCanvas
             assessment={assessment}
             data={data}
@@ -950,13 +1102,21 @@ function AuthorCanvas({
             getCanvasPos={getCanvasPos}
             blockId={blockId}
             authoredBlockId={authoredBlockId}
-            popoverPortalContainer={workspaceElement}
+            popoverPortalContainerRef={workspaceElementRef}
             presentation="expanded"
             selectedHotspotRequestId={workspaceSelectionRequestId}
+            onAnnounce={announce}
+            renderLiveRegion={false}
             target={target}
           />
-        </WorkspaceDialog.Content>
-      </WorkspaceDialog.Root>
+        </ImageHotspotCourseWorkspace.Content>
+      </ImageHotspotCourseWorkspace.Root>
+
+      {renderLiveRegion ? (
+        <span className="sc-sr-only" aria-live="polite" aria-atomic="true">
+          {announcement}
+        </span>
+      ) : null}
 
       {filePickerModal}
     </div>
@@ -982,6 +1142,99 @@ function isImageHotspotBoundedFillActive(
   );
 }
 
+function ImageHotspotDefinitionFields({
+  alt,
+  maxClicks,
+  onAltCommit,
+  onClickLimitCommit,
+}: {
+  alt: string;
+  maxClicks: number | null;
+  onAltCommit: (alt: string) => boolean;
+  onClickLimitCommit: (maxClicks: number | null) => boolean;
+}) {
+  const altInputId = useId();
+  const limitInputId = useId();
+  const [altDraft, setAltDraft] = useState(alt);
+  const [limitDraft, setLimitDraft] = useState(maxClicks === null ? "" : String(maxClicks));
+
+  useEffect(() => setAltDraft(alt), [alt]);
+  useEffect(() => setLimitDraft(maxClicks === null ? "" : String(maxClicks)), [maxClicks]);
+
+  const commitAlt = () => {
+    const next = altDraft.trim();
+    if (next === alt) {
+      setAltDraft(next);
+      return;
+    }
+    if (!onAltCommit(next)) setAltDraft(alt);
+  };
+
+  const commitLimit = () => {
+    const current = maxClicks === null ? "" : String(maxClicks);
+    const normalized = limitDraft.trim();
+    if (normalized === current) {
+      setLimitDraft(normalized);
+      return;
+    }
+    if (normalized === "") {
+      if (!onClickLimitCommit(null)) setLimitDraft(current);
+      return;
+    }
+    const next = Number(normalized);
+    if (!Number.isInteger(next) || !onClickLimitCommit(next)) {
+      setLimitDraft(current);
+    }
+  };
+
+  return (
+    <div className="sc-course-image-hotspot-workspace__definition-fields">
+      <div className="sc-course-image-hotspot-editor__field">
+        <label htmlFor={altInputId} className="sc-course-image-hotspot-editor__label">
+          Image alternative text
+        </label>
+        <TextField.Root
+          id={altInputId}
+          value={altDraft}
+          data-no-select
+          onBlur={commitAlt}
+          onChange={(event) => setAltDraft(event.currentTarget.value)}
+          onKeyDown={(event) => {
+            event.stopPropagation();
+            if (event.key === "Enter") {
+              event.preventDefault();
+              event.currentTarget.blur();
+            }
+          }}
+        />
+      </div>
+      <div className="sc-course-image-hotspot-editor__field">
+        <label htmlFor={limitInputId} className="sc-course-image-hotspot-editor__label">
+          Maximum selections
+        </label>
+        <TextField.Root
+          id={limitInputId}
+          type="number"
+          min={1}
+          step={1}
+          value={limitDraft}
+          placeholder="No limit"
+          data-no-select
+          onBlur={commitLimit}
+          onChange={(event) => setLimitDraft(event.currentTarget.value)}
+          onKeyDown={(event) => {
+            event.stopPropagation();
+            if (event.key === "Enter") {
+              event.preventDefault();
+              event.currentTarget.blur();
+            }
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function CompactHotspotEditorPopover({
   assessment,
   editor,
@@ -1000,7 +1253,7 @@ function CompactHotspotEditorPopover({
   index: number;
   authoredBlockId: string | null;
   onDelete: () => void;
-  onPatch: (patch: HotspotPatch) => void;
+  onPatch: (patch: HotspotPatch) => boolean;
   onPointerDownOutside: (event: { target: EventTarget | null }) => void;
   onToggleCorrect: () => void;
   target: AuthoringNodeTarget | null;
@@ -1033,7 +1286,7 @@ function CompactHotspotEditorPopover({
           onToggleCorrect={onToggleCorrect}
           target={target}
         />
-        <EditableOverlayPopover.Arrow fill="var(--color-background)" />
+        <EditableOverlayPopover.Arrow />
       </EditableOverlayPopover.Shell>
     </>
   );
@@ -1060,7 +1313,7 @@ function HotspotEditorContent({
   index: number;
   authoredBlockId: string | null;
   showHeader?: boolean;
-  onPatch: (patch: HotspotPatch) => void;
+  onPatch: (patch: HotspotPatch) => boolean;
   onToggleCorrect: () => void;
   onDelete: () => void;
   target: AuthoringNodeTarget | null;
@@ -1068,6 +1321,14 @@ function HotspotEditorContent({
   const isCorrect = assessment.correctHotspotIds.includes(hotspot.id);
   const feedback = assessment.feedbackByHotspotId[hotspot.id] ?? null;
   const editorFieldId = useId();
+  const labelInputId = useId();
+  const centerXInputId = useId();
+  const centerYInputId = useId();
+  const radiusInputId = useId();
+  const [labelDraft, setLabelDraft] = useState(hotspot.label);
+  const [centerXDraft, setCenterXDraft] = useState(String(hotspot.centerX));
+  const [centerYDraft, setCenterYDraft] = useState(String(hotspot.centerY));
+  const [radiusDraft, setRadiusDraft] = useState(String(hotspot.radius));
   const bubbleMenuPluginKey = useMemo(
     () => `image-hotspot-feedback-${editorFieldId.replace(/[^A-Za-z0-9_-]/g, "")}`,
     [editorFieldId],
@@ -1106,56 +1367,179 @@ function HotspotEditorContent({
     [feedback?.document, hotspot.id],
   );
 
+  useEffect(() => setLabelDraft(hotspot.label), [hotspot.id, hotspot.label]);
+  useEffect(() => setCenterXDraft(String(hotspot.centerX)), [hotspot.centerX, hotspot.id]);
+  useEffect(() => setCenterYDraft(String(hotspot.centerY)), [hotspot.centerY, hotspot.id]);
+  useEffect(() => setRadiusDraft(String(hotspot.radius)), [hotspot.id, hotspot.radius]);
+
+  const commitLabel = () => {
+    const next = labelDraft.trim();
+    if (next === hotspot.label) {
+      setLabelDraft(next);
+      return;
+    }
+    if (!onPatch({ label: next })) setLabelDraft(hotspot.label);
+  };
+
+  const commitGeometry = (
+    field: "centerX" | "centerY" | "radius",
+    draft: string,
+    current: number,
+    resetDraft: (value: string) => void,
+  ) => {
+    const next = Number(draft);
+    if (!Number.isFinite(next)) {
+      resetDraft(String(current));
+      return;
+    }
+    if (next === current) {
+      resetDraft(String(next));
+      return;
+    }
+    const patch =
+      field === "centerX"
+        ? { centerX: next }
+        : field === "centerY"
+          ? { centerY: next }
+          : { radius: next };
+    if (!onPatch(patch)) resetDraft(String(current));
+  };
+
   return (
-    <div className="sc-image-hotspot-editor">
+    <div className="sc-course-image-hotspot-editor">
       {showHeader && (
-        <div className="sc-image-hotspot-editor__header">
-          <span className="sc-image-hotspot-editor__title">Hotspot {index + 1}</span>
+        <div className="sc-course-image-hotspot-editor__header">
+          <span className="sc-course-image-hotspot-editor__title">Hotspot {index + 1}</span>
           <HotspotDeleteButton index={index} onDelete={onDelete} />
         </div>
       )}
 
-      <div className="sc-image-hotspot-editor__field">
-        <label className="sc-image-hotspot-editor__label">Label</label>
-        <input
+      <div className="sc-course-image-hotspot-editor__field">
+        <label htmlFor={labelInputId} className="sc-course-image-hotspot-editor__label">
+          Public region label
+        </label>
+        <TextField.Root
+          id={labelInputId}
           type="text"
-          value={hotspot.label}
-          onChange={(e) => onPatch({ label: e.target.value })}
+          value={labelDraft}
+          data-no-select
+          onBlur={commitLabel}
+          onChange={(event) => setLabelDraft(event.currentTarget.value)}
+          onKeyDown={(event) => {
+            event.stopPropagation();
+            if (event.key === "Enter") {
+              event.preventDefault();
+              event.currentTarget.blur();
+            }
+          }}
           placeholder="Short label for this region"
-          className="sc-image-hotspot-editor__input"
+          className="sc-course-image-hotspot-editor__input"
         />
       </div>
 
-      <button
+      <fieldset className="sc-course-image-hotspot-editor__geometry">
+        <legend>Geometry (percent)</legend>
+        <div className="sc-course-image-hotspot-editor__geometry-grid">
+          <div className="sc-course-image-hotspot-editor__field">
+            <label htmlFor={centerXInputId} className="sc-course-image-hotspot-editor__label">
+              Centre X
+            </label>
+            <TextField.Root
+              id={centerXInputId}
+              type="number"
+              min={0}
+              max={100}
+              step={0.5}
+              value={centerXDraft}
+              data-no-select
+              onBlur={() =>
+                commitGeometry("centerX", centerXDraft, hotspot.centerX, setCenterXDraft)
+              }
+              onChange={(event) => setCenterXDraft(event.currentTarget.value)}
+              onKeyDown={(event) => {
+                event.stopPropagation();
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  event.currentTarget.blur();
+                }
+              }}
+            />
+          </div>
+          <div className="sc-course-image-hotspot-editor__field">
+            <label htmlFor={centerYInputId} className="sc-course-image-hotspot-editor__label">
+              Centre Y
+            </label>
+            <TextField.Root
+              id={centerYInputId}
+              type="number"
+              min={0}
+              max={100}
+              step={0.5}
+              value={centerYDraft}
+              data-no-select
+              onBlur={() =>
+                commitGeometry("centerY", centerYDraft, hotspot.centerY, setCenterYDraft)
+              }
+              onChange={(event) => setCenterYDraft(event.currentTarget.value)}
+              onKeyDown={(event) => {
+                event.stopPropagation();
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  event.currentTarget.blur();
+                }
+              }}
+            />
+          </div>
+          <div className="sc-course-image-hotspot-editor__field">
+            <label htmlFor={radiusInputId} className="sc-course-image-hotspot-editor__label">
+              Radius
+            </label>
+            <TextField.Root
+              id={radiusInputId}
+              type="number"
+              min={MIN_RADIUS}
+              max={100}
+              step={0.5}
+              value={radiusDraft}
+              data-no-select
+              onBlur={() => commitGeometry("radius", radiusDraft, hotspot.radius, setRadiusDraft)}
+              onChange={(event) => setRadiusDraft(event.currentTarget.value)}
+              onKeyDown={(event) => {
+                event.stopPropagation();
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  event.currentTarget.blur();
+                }
+              }}
+            />
+          </div>
+        </div>
+      </fieldset>
+
+      <Button
         type="button"
+        size="2"
+        variant="soft"
         onMouseDown={(e) => e.preventDefault()}
         onClick={(e) => {
           e.stopPropagation();
           onToggleCorrect();
         }}
         aria-pressed={isCorrect}
+        data-course-state={isCorrect ? "correct" : undefined}
         data-no-select
-        className={cn(
-          // Marked-correct uses the soft pattern: success-bg tint +
-          // 1.5px accent border + ink text + teal check — same vocab as
-          // marked-correct choice rows. The brand colour stays a
-          // signal, not a bath.
-          "sc-image-hotspot-editor__correct-toggle",
-          isCorrect
-            ? "sc-image-hotspot-editor__correct-toggle--correct"
-            : "sc-image-hotspot-editor__correct-toggle--neutral",
-        )}
+        className="sc-course-image-hotspot-editor__correct-toggle"
       >
         <CheckCircle
           size={iconSm}
           weight={isCorrect ? "fill" : "regular"}
-          className={isCorrect ? "sc-image-hotspot-editor__correct-icon" : undefined}
+          className={isCorrect ? "sc-course-image-hotspot-editor__correct-icon" : undefined}
         />
         {isCorrect ? "Marked correct" : "Mark as correct"}
-      </button>
+      </Button>
 
-      <div className="sc-image-hotspot-editor__field">
-        <label id={editorFieldId} className="sc-image-hotspot-editor__label">
+      <div className="sc-course-image-hotspot-editor__field">
+        <label id={editorFieldId} className="sc-course-image-hotspot-editor__label">
           Feedback
         </label>
         <RichTextArea
@@ -1177,25 +1561,86 @@ function HotspotEditorContent({
 
 function HotspotDeleteButton({ index, onDelete }: { index: number; onDelete: () => void }) {
   return (
-    <button
-      type="button"
+    <AssessmentChoiceAuthoringAction
       onMouseDown={(event) => event.preventDefault()}
-      onClick={(event) => {
-        event.stopPropagation();
+      onClick={() => {
         onDelete();
       }}
-      aria-label={`Delete hotspot ${index + 1}`}
-      data-no-select
-      className={cn(CHOICE_TRAILING_BTN, "sc-choice-trailing-button--danger")}
+      label={`Delete hotspot ${index + 1}`}
+      intent="delete"
     >
-      <Trash size={iconSm} />
-    </button>
+      <Trash size={iconSm} aria-hidden />
+    </AssessmentChoiceAuthoringAction>
   );
 }
 
-function toggleHotspotCorrect(target: AuthoringNodeTarget | null, hotspotId: string) {
-  target?.transact((tr, owner) =>
-    toggleImageHotspotCorrectChecked({ tr, target: owner, hotspotId }),
+function MissFeedbackEditor({
+  assessment,
+  authoredBlockId,
+  bubbleMenuAppendTo,
+  editor,
+  target,
+}: {
+  assessment: ImageHotspotPrivateAssessment;
+  authoredBlockId: string | null;
+  bubbleMenuAppendTo: () => HTMLElement | null;
+  editor: NodeViewProps["editor"];
+  target: AuthoringNodeTarget | null;
+}) {
+  const labelId = useId();
+  const pluginId = useId();
+  const feedback = assessment.missFeedback ?? null;
+  const extensions = useMemo(
+    () => [
+      ...createFieldContentEditorExtensions(),
+      Placeholder.configure({
+        includeChildren: false,
+        placeholder: "Feedback for a click outside every region",
+        showOnlyCurrent: false,
+        showOnlyWhenEditable: true,
+      }),
+    ],
+    [],
+  );
+  const feedbackTarget = useMemo(
+    () => ({
+      kind: "attr" as const,
+      read: () => {
+        const owner = target?.read();
+        const model = owner ? resolveImageHotspotAuthoringModel(owner) : null;
+        return toTiptapRichTextDocument(model?.assessment.missFeedback?.document);
+      },
+      write: (nextDocument: ScaffoldRichTextDocument) => {
+        target?.transact((tr, owner) =>
+          setImageHotspotMissFeedbackChecked({
+            tr,
+            target: owner,
+            feedback: richTextDocumentToAssessmentFeedback(nextDocument),
+          }),
+        );
+      },
+    }),
+    [target],
+  );
+
+  return (
+    <div className="sc-course-image-hotspot-workspace__miss-feedback">
+      <label id={labelId} className="sc-course-image-hotspot-editor__label">
+        Miss feedback
+      </label>
+      <RichTextArea
+        ariaLabel="Image hotspot miss feedback"
+        ariaLabelledBy={labelId}
+        bubbleMenuAppendTo={bubbleMenuAppendTo}
+        bubbleMenuPluginKey={`image-hotspot-miss-feedback-${pluginId.replace(/[^A-Za-z0-9_-]/g, "")}`}
+        extensions={extensions}
+        fieldKey={`image_hotspot:${authoredBlockId ?? "pending"}:miss-feedback`}
+        outerEditor={editor}
+        placeholder="Feedback for a click outside every region"
+        syncKey={JSON.stringify(feedback?.document ?? null)}
+        target={feedbackTarget}
+      />
+    </div>
   );
 }
 

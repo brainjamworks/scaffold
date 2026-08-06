@@ -1,0 +1,47 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-overlays {
+  .sc-app-callout-icon-trigger {
+    display: inline-flex;
+    width: 2rem;
+    height: 2rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    margin-top: 0.125rem;
+    padding: 0;
+    border: 1px solid var(--sc-app-color-border);
+    border-radius: 9999px;
+    background: var(--sc-app-color-background);
+    color: var(--sc-app-color-text-muted);
+    font: inherit;
+    cursor: pointer;
+    transition:
+      background-color 150ms ease,
+      border-color 150ms ease,
+      color 150ms ease;
+  }
+
+  .sc-app-callout-icon-trigger:hover {
+    border-color: var(--sc-app-color-primary);
+    background: var(--sc-app-color-primary-muted);
+    color: var(--sc-app-color-primary);
+  }
+
+  .sc-app-callout-icon-trigger:focus-visible {
+    outline: 2px solid var(--sc-app-color-focus-outline);
+    outline-offset: 2px;
+  }
+
+  .sc-app-callout-icon-trigger .sc-course-callout__icon-glyph {
+    width: 1.125rem;
+    height: 1.125rem;
+    font-size: 1.125rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sc-app-callout-icon-trigger {
+      transition: none;
+    }
+  }
+}

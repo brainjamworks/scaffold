@@ -14,6 +14,7 @@ import {
 } from "@/document/model/content-model/content-groups";
 import { isFieldContentEmpty } from "@/document/model/content-model/is-field-content-empty";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
+import { useAssessmentMetaOverflow } from "./use-assessment-meta-overflow";
 import "./assessment-shared-chrome.css";
 
 const ASSESSMENT_INSTRUCTIONS_CONTENT = textContentExpression();
@@ -57,6 +58,7 @@ function AssessmentInstructionsNodeView(props: NodeViewProps) {
   const meta = resolveAssessmentMeta(props.editor, pos);
   const pointsLabel = formatAssessmentPoints(meta?.points ?? null);
   const showFieldContent = isEditable || !isEmpty;
+  const { wrapperRef, hasOverflow } = useAssessmentMetaOverflow(props.node.textContent);
 
   if (!showFieldContent && !pointsLabel) {
     return (
@@ -68,27 +70,37 @@ function AssessmentInstructionsNodeView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper
+      ref={wrapperRef}
+      aria-label={
+        !isEditable && hasOverflow
+          ? [props.node.textContent.trim(), pointsLabel].filter(Boolean).join(" ")
+          : undefined
+      }
+      data-course-overflow={hasOverflow ? "true" : undefined}
       data-slot="assessment-instructions"
-      className="sc-assessment-meta-instructions"
+      className="sc-course-assessment-meta-instructions"
+      tabIndex={!isEditable && hasOverflow ? 0 : undefined}
     >
       {showFieldContent && (
-        <span contentEditable={false} className="sc-assessment-meta-default">
+        <span contentEditable={false} className="sc-course-assessment-meta-default">
           ·
         </span>
       )}
       <NodeViewContent
         className={
-          showFieldContent ? "sc-assessment-meta-content--inline" : "sc-assessment-field--hidden"
+          showFieldContent
+            ? "sc-course-assessment-meta-content--inline"
+            : "sc-assessment-field--hidden"
         }
       />
       {pointsLabel && (
         <>
           {showFieldContent && (
-            <span contentEditable={false} className="sc-assessment-meta-default">
+            <span contentEditable={false} className="sc-course-assessment-meta-default">
               ·
             </span>
           )}
-          <span contentEditable={false} className="sc-assessment-meta-default">
+          <span contentEditable={false} className="sc-course-assessment-meta-default">
             {pointsLabel}
           </span>
         </>

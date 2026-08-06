@@ -436,7 +436,7 @@ describe("authoring overlay boundary contract", () => {
     expect(first.overlayHost.querySelectorAll("[data-scaffold-editor-floating-layer]").length).toBe(
       2,
     );
-    expect(first.overlayHost.querySelector(".sc-editor-movement-layer")).not.toBeNull();
+    expect(first.overlayHost.querySelector(".sc-app-movement-layer")).not.toBeNull();
 
     const childTrigger = uniqueElement<HTMLButtonElement>(
       firstBubble,

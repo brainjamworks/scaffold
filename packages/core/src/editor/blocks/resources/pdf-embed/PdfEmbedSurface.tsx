@@ -2,11 +2,11 @@ import {
   ArrowSquareOutIcon as ArrowSquareOut,
   CaretLeftIcon as CaretLeft,
   CaretRightIcon as CaretRight,
-  FilePdfIcon as FilePdf,
   MinusIcon as Minus,
   PlusIcon as Plus,
   WarningCircleIcon as WarningCircle,
 } from "@phosphor-icons/react";
+import { Button, IconButton } from "@radix-ui/themes";
 import type { PdfEmbedData } from "@scaffold/contracts";
 import {
   Suspense,
@@ -22,7 +22,6 @@ import {
   type ReactNode,
 } from "react";
 
-import { cn } from "@/lib/cn";
 import {
   mediaLoadingMessage,
   mediaMissingMessage,
@@ -80,7 +79,7 @@ const PdfViewer = lazy<ComponentType<ViewerProps>>(async () => {
   }: ViewerProps) {
     return (
       <Document
-        className="sc-pdf-embed__document"
+        className="sc-course-pdf-embed__document"
         file={url}
         loading={<PdfStateMessage>{mediaLoadingMessage("pdf")}</PdfStateMessage>}
         error={
@@ -94,8 +93,8 @@ const PdfViewer = lazy<ComponentType<ViewerProps>>(async () => {
       >
         <Page
           pageNumber={pageNumber}
-          renderAnnotationLayer={false}
-          renderTextLayer={false}
+          renderAnnotationLayer
+          renderTextLayer
           {...(scale === undefined ? {} : { scale })}
           {...(width === undefined ? {} : { width })}
           onLoadSuccess={({ originalHeight, originalWidth, pageNumber: loadedPageNumber }) =>
@@ -115,27 +114,28 @@ const PdfViewer = lazy<ComponentType<ViewerProps>>(async () => {
 
 export function PdfEmbedSurface({
   data,
-  editable,
+  emptyAction,
   mediaPort,
-  onAdd,
   onOpen,
   onPagePresented,
   presented = true,
+  replaceAction,
 }: {
   data: PdfEmbedData;
-  editable: boolean;
+  emptyAction?: ReactNode;
   mediaPort: MediaPortLite | null;
-  onAdd?: () => void;
   onOpen?: () => void;
   onPagePresented?: (page: { pageNumber: number; pageCount: number }) => void;
   presented?: boolean;
+  replaceAction?: ReactNode;
 }) {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const generatedId = useId();
   const [stageSize, setStageSize] = useState<{
     boundedHeight: number | null;
+    borderBlockSize: number;
     width: number;
-  }>({ boundedHeight: null, width: 0 });
+  }>({ boundedHeight: null, borderBlockSize: 0, width: 0 });
   const [pageDimensions, setPageDimensions] = useState<PdfPageDimensions | null>(null);
   const [numPages, setNumPages] = useState<number | null>(null);
   const [pageNumber, setPageNumber] = useState<number>(data.initialPage);
@@ -201,14 +201,27 @@ export function PdfEmbedSurface({
     const stage = stageRef.current;
     if (!stage) return;
     const update = () => {
-      const frame = stage.closest(".sc-pdf-embed");
+      const frame = stage.closest(".sc-course-pdf-embed");
+      const computedStyle = getComputedStyle(stage);
+      const borderBlockSize =
+        (Number.parseFloat(computedStyle.borderTopWidth) || 0) +
+        (Number.parseFloat(computedStyle.borderBottomWidth) || 0);
+      const borderInlineSize =
+        (Number.parseFloat(computedStyle.borderLeftWidth) || 0) +
+        (Number.parseFloat(computedStyle.borderRightWidth) || 0);
+      const innerHeight =
+        stage.offsetHeight > 0 ? stage.offsetHeight - borderBlockSize : stage.clientHeight;
+      const innerWidth =
+        stage.offsetWidth > 0 ? stage.offsetWidth - borderInlineSize : stage.clientWidth;
       const next = {
-        boundedHeight:
-          frame?.getAttribute(BOUNDED_PLACEMENT_ATTR) === "fill" ? stage.clientHeight : null,
-        width: stage.clientWidth,
+        boundedHeight: frame?.getAttribute(BOUNDED_PLACEMENT_ATTR) === "fill" ? innerHeight : null,
+        borderBlockSize,
+        width: innerWidth,
       };
       setStageSize((current) =>
-        current.width === next.width && current.boundedHeight === next.boundedHeight
+        current.width === next.width &&
+        current.boundedHeight === next.boundedHeight &&
+        current.borderBlockSize === next.borderBlockSize
           ? current
           : next,
       );
@@ -272,32 +285,42 @@ export function PdfEmbedSurface({
     pageDimensions: activePageDimensions,
   });
   const fitScale = resolvePdfFitScale(fittedPageWidth, activePageDimensions);
+  const fittedPageHeight = resolvePdfPageHeight(fittedPageWidth, activePageDimensions);
+  const unboundedZoomStageHeight =
+    zoom !== "fit" && stageSize.boundedHeight === null && fittedPageHeight > 0
+      ? Math.floor(fittedPageHeight + stageSize.borderBlockSize)
+      : null;
   const zoomOutScale = resolveNextPdfZoomScale(zoom === "fit" ? fitScale : zoom, -1);
   const zoomInScale = resolveNextPdfZoomScale(zoom === "fit" ? fitScale : zoom, 1);
   const zoomLabel = zoom === "fit" ? "Fit" : `${Math.round(zoom * 100)}%`;
 
   if (!source) {
-    return <PdfEmptyState disabled={!editable || !onAdd} {...(onAdd ? { onAdd } : {})} />;
+    return emptyAction ?? <PdfStateMessage>{mediaMissingMessage("pdf")}</PdfStateMessage>;
   }
 
   return (
     <figure
-      className="sc-pdf-embed__figure"
+      className="sc-course-pdf-embed__figure"
       aria-labelledby={pdfTitle ? captionId : undefined}
       aria-label={pdfTitle ? undefined : "PDF embed"}
     >
       {pdfTitle ? (
-        <figcaption id={captionId} className="sc-pdf-embed__caption">
+        <figcaption id={captionId} className="sc-course-pdf-embed__caption">
           {pdfTitle}
         </figcaption>
       ) : null}
       <div
         ref={stageRef}
-        className="sc-pdf-embed__stage"
+        className="sc-course-pdf-embed__stage"
         role="group"
         aria-label={`${pdfLabel} preview`}
         aria-describedby={showStats ? pagerId : undefined}
         data-pdf-zoomed={zoom === "fit" ? undefined : ""}
+        style={
+          unboundedZoomStageHeight === null
+            ? undefined
+            : { blockSize: `${unboundedZoomStageHeight}px` }
+        }
         tabIndex={zoom === "fit" ? undefined : 0}
       >
         {fileUrl && fittedPageWidth > 0 ? (
@@ -331,81 +354,91 @@ export function PdfEmbedSurface({
           <PdfStateMessage>{mediaLoadingMessage("pdf")}</PdfStateMessage>
         )}
       </div>
-      <div className="sc-pdf-embed__chrome" contentEditable={false}>
-        <div className="sc-pdf-embed__nav">
-          <button
+      <div className="sc-course-pdf-embed__chrome" contentEditable={false}>
+        <div className="sc-course-pdf-embed__nav">
+          <IconButton
             type="button"
             onClick={() => goToPage(pageNumber - 1)}
             disabled={pageNumber <= 1 || numPages === null}
-            className="sc-pdf-embed__nav-button"
+            className="sc-course-pdf-embed__nav-button"
             aria-label="Previous page"
+            size="3"
+            variant="soft"
           >
-            <CaretLeft size={14} weight="bold" aria-hidden />
-          </button>
+            <CaretLeft size={16} weight="bold" aria-hidden />
+          </IconButton>
           <div
             id={pagerId}
-            className="sc-pdf-embed__pager"
+            className="sc-course-pdf-embed__pager"
             role="status"
             aria-live="polite"
             aria-label={pageStatusLabel}
           >
             {showStats ? (
               <>
-                <span className="sc-pdf-embed__page-current">{pageNumber}</span>
-                <span className="sc-pdf-embed__page-divider">/</span>
-                <span className="sc-pdf-embed__page-total">{numPages}</span>
+                <span className="sc-course-pdf-embed__page-current">{pageNumber}</span>
+                <span className="sc-course-pdf-embed__page-divider">/</span>
+                <span className="sc-course-pdf-embed__page-total">{numPages}</span>
               </>
             ) : (
-              <span className="sc-pdf-embed__page-stat">-</span>
+              <span className="sc-course-pdf-embed__page-stat">-</span>
             )}
           </div>
-          <button
+          <IconButton
             type="button"
             onClick={() => goToPage(pageNumber + 1)}
             disabled={numPages === null || pageNumber >= numPages}
-            className="sc-pdf-embed__nav-button"
+            className="sc-course-pdf-embed__nav-button"
             aria-label="Next page"
+            size="3"
+            variant="soft"
           >
-            <CaretRight size={14} weight="bold" aria-hidden />
-          </button>
+            <CaretRight size={16} weight="bold" aria-hidden />
+          </IconButton>
         </div>
         <div
-          className="sc-pdf-embed__zoom"
+          className="sc-course-pdf-embed__zoom"
           role="group"
           aria-label="PDF zoom controls"
           aria-describedby={zoomStatusId}
         >
-          <button
+          <IconButton
             type="button"
             onClick={() => {
               if (zoomOutScale !== null) setZoom(zoomOutScale);
             }}
             disabled={!showStats || zoomOutScale === null}
-            className="sc-pdf-embed__zoom-button"
+            className="sc-course-pdf-embed__zoom-button"
             aria-label="Zoom out"
+            size="3"
+            variant="soft"
           >
-            <Minus size={13} weight="bold" aria-hidden />
-          </button>
-          <button
+            <Minus size={16} weight="bold" aria-hidden />
+          </IconButton>
+          <Button
             type="button"
             onClick={() => setZoom("fit")}
             disabled={!showStats || zoom === "fit"}
-            className="sc-pdf-embed__zoom-value"
+            className="sc-course-pdf-embed__zoom-value"
             aria-label={zoom === "fit" ? "PDF zoom set to fit" : `Zoom ${zoomLabel}. Reset to fit`}
+            size="3"
+            variant="soft"
           >
             {zoomLabel}
-          </button>
-          <button
+          </Button>
+          <IconButton
             type="button"
             onClick={() => {
               if (zoomInScale !== null) setZoom(zoomInScale);
             }}
             disabled={!showStats || zoomInScale === null}
-            className="sc-pdf-embed__zoom-button"
+            className="sc-course-pdf-embed__zoom-button"
             aria-label="Zoom in"
+            size="3"
+            variant="soft"
           >
-            <Plus size={13} weight="bold" aria-hidden />
-          </button>
+            <Plus size={16} weight="bold" aria-hidden />
+          </IconButton>
         </div>
         <span
           id={zoomStatusId}
@@ -417,29 +450,21 @@ export function PdfEmbedSurface({
         >
           PDF zoom {zoomLabel}
         </span>
-        <div className="sc-pdf-embed__chrome-end">
-          {editable && onAdd ? (
-            <button
-              type="button"
-              onClick={onAdd}
-              aria-label={`Replace ${pdfLabel}`}
-              className="sc-pdf-embed__replace"
-            >
-              Replace
-            </button>
-          ) : null}
+        <div className="sc-course-pdf-embed__chrome-end">
+          {replaceAction}
           {fileUrl ? (
-            <a
-              href={fileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={onOpen}
-              className="sc-pdf-embed__open"
-              aria-label={`Open ${pdfLabel} in new tab`}
-            >
-              <ArrowSquareOut size={12} weight="bold" aria-hidden />
-              <span>Open</span>
-            </a>
+            <Button asChild className="sc-course-pdf-embed__open" size="3" variant="soft">
+              <a
+                href={fileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={onOpen}
+                aria-label={`Open ${pdfLabel} in new tab`}
+              >
+                <ArrowSquareOut size={16} weight="bold" aria-hidden />
+                <span>Open</span>
+              </a>
+            </Button>
           ) : null}
         </div>
       </div>
@@ -480,6 +505,14 @@ function resolvePdfFitScale(
   return fittedPageWidth / pageDimensions.originalWidth;
 }
 
+function resolvePdfPageHeight(
+  fittedPageWidth: number,
+  pageDimensions: PdfPageDimensions | null,
+): number {
+  if (!pageDimensions || pageDimensions.originalWidth <= 0) return 0;
+  return (fittedPageWidth * pageDimensions.originalHeight) / pageDimensions.originalWidth;
+}
+
 function resolveNextPdfZoomScale(currentScale: number, direction: -1 | 1): PdfZoomScale | null {
   if (direction === 1) {
     return PDF_ZOOM_STEPS.find((step) => step > currentScale + Number.EPSILON) ?? null;
@@ -493,35 +526,9 @@ function resolveNextPdfZoomScale(currentScale: number, direction: -1 | 1): PdfZo
   return null;
 }
 
-function PdfEmptyState({ disabled, onAdd }: { disabled: boolean; onAdd?: () => void }) {
-  return (
-    <div className="sc-pdf-embed__empty">
-      <span className="sc-pdf-embed__empty-chip" aria-hidden>
-        <FilePdf size={20} weight="regular" />
-      </span>
-      <div className="sc-pdf-embed__empty-text">
-        <p className="sc-pdf-embed__empty-title">PDF</p>
-        <p className="sc-pdf-embed__empty-hint">
-          Upload a PDF, pick from your library, or paste a URL.
-        </p>
-      </div>
-      {disabled ? null : (
-        <button
-          type="button"
-          className="sc-pdf-embed__empty-submit"
-          onClick={onAdd}
-          onMouseDown={(event) => event.stopPropagation()}
-        >
-          Add PDF
-        </button>
-      )}
-    </div>
-  );
-}
-
 function PdfStateMessage({ children }: { children: ReactNode }) {
   return (
-    <div className={cn("sc-pdf-embed__state")} role="status">
+    <div className="sc-course-pdf-embed__state" role="status">
       {children}
     </div>
   );
@@ -529,7 +536,11 @@ function PdfStateMessage({ children }: { children: ReactNode }) {
 
 function PdfErrorMessage({ children }: { children: ReactNode }) {
   return (
-    <div className="sc-pdf-embed__state sc-pdf-embed__state--error" role="alert">
+    <div
+      className="sc-course-pdf-embed__state sc-course-pdf-embed__state--error"
+      data-course-state="error"
+      role="alert"
+    >
       <WarningCircle size={14} weight="fill" aria-hidden />
       <span>{children}</span>
     </div>

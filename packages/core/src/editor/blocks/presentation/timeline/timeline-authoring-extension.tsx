@@ -7,6 +7,7 @@ import { createTimelineNode } from "./node";
 import { createTimelineItemNode } from "./slots";
 import { TimelineAuthoringView, TimelineItemAuthoringView } from "./timeline-authoring-views";
 import { timelineBlockDefinition } from "./timeline-definition";
+import "./TimelineAuthoringControls.css";
 
 const TimelineItemAuthoringNode = createTimelineItemNode({
   addNodeView: () => ReactNodeViewRenderer(TimelineItemAuthoringView),
@@ -15,7 +16,7 @@ const TimelineItemAuthoringNode = createTimelineItemNode({
 const TimelineAuthoringRootNode = createTimelineNode({
   addNodeView: () =>
     createBlockAuthoringNodeView({
-      className: "sc-timeline",
+      className: "sc-course-timeline",
       definition: timelineBlockDefinition,
       view: { component: TimelineAuthoringView },
     }),

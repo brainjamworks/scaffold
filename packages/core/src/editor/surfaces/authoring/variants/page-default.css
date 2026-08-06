@@ -5,4 +5,10 @@
     [data-surface].sc-page-default-surface-view {
     max-width: 48rem;
   }
+
+  .scaffold-authoring-surface-view[data-course-mode="page"]
+    [data-surface].sc-page-default-surface-authoring-view
+    [data-resize-container]:has(> [data-authoring-frame-wrapper-active]) {
+    --sc-authoring-node-flow-gap: calc(var(--sc-surface-flow-gap) + 2rem);
+  }
 }

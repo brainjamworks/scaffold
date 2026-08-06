@@ -1,5 +1,6 @@
 import { NodeViewContent, useEditorState, type NodeViewProps } from "@tiptap/react";
 import { PlusIcon as Plus, TrashIcon as Trash } from "@phosphor-icons/react";
+import { IconButton } from "@radix-ui/themes";
 import type { Transaction } from "@tiptap/pm/state";
 import { useEffect, useRef, useState } from "react";
 import { GalleryItemDataSchema, type GalleryItemData } from "@scaffold/contracts";
@@ -122,8 +123,8 @@ export function GalleryAuthoringView(props: NodeViewProps) {
 
   return (
     <>
-      <div className="sc-gallery__shell">
-        <div className="sc-gallery__composition">
+      <div className="sc-course-gallery__shell">
+        <div className="sc-course-gallery__composition">
           {resolved.length === 0 ? (
             <GalleryEmptyState
               hint="Add images to build a carousel or grid."
@@ -135,7 +136,7 @@ export function GalleryAuthoringView(props: NodeViewProps) {
                     selectBlock();
                     setPickerOpen(true);
                   }}
-                  className="sc-gallery__empty-cta"
+                  className="sc-app-gallery__empty-add"
                 />
               }
             />
@@ -149,17 +150,20 @@ export function GalleryAuthoringView(props: NodeViewProps) {
               }}
               onBeforeTileClick={selectBlock}
               renderTileAction={(item, index) => (
-                <button
+                <IconButton
                   type="button"
+                  size="1"
+                  radius="full"
+                  variant="surface"
                   onClick={(event) => {
                     event.stopPropagation();
                     removeItem(item.key);
                   }}
-                  className="sc-gallery__tile-delete"
+                  className="sc-app-gallery__tile-delete"
                   aria-label={`Remove image ${index + 1}`}
                 >
-                  <Trash size={13} aria-hidden />
-                </button>
+                  <Trash size={14} aria-hidden />
+                </IconButton>
               )}
               renderAddTile={
                 <BlockAddGhost
@@ -171,7 +175,7 @@ export function GalleryAuthoringView(props: NodeViewProps) {
                     selectBlock();
                     setPickerOpen(true);
                   }}
-                  className="sc-gallery__grid-add-action"
+                  className="sc-app-gallery__grid-add-action"
                 />
               }
             />
@@ -188,17 +192,20 @@ export function GalleryAuthoringView(props: NodeViewProps) {
               onBeforeSelect={selectBlock}
               onBeforeOpenLightbox={selectBlock}
               renderThumbAction={(item, index) => (
-                <button
+                <IconButton
                   type="button"
+                  size="1"
+                  radius="full"
+                  variant="surface"
                   onClick={(event) => {
                     event.stopPropagation();
                     removeItem(item.key);
                   }}
-                  className="sc-gallery__thumb-delete"
+                  className="sc-app-gallery__thumb-delete"
                   aria-label={`Remove image ${index + 1}`}
                 >
-                  <Trash size={11} aria-hidden />
-                </button>
+                  <Trash size={14} aria-hidden />
+                </IconButton>
               )}
               renderAddThumb={
                 <BlockAddGhost
@@ -209,9 +216,9 @@ export function GalleryAuthoringView(props: NodeViewProps) {
                     selectBlock();
                     setPickerOpen(true);
                   }}
-                  className="sc-gallery__thumb-item sc-gallery__thumb-item--ghost"
+                  className="sc-app-gallery__thumb-add"
                 >
-                  <span aria-hidden className="sc-gallery__thumb sc-gallery__thumb--ghost">
+                  <span aria-hidden className="sc-app-gallery__thumb-add-preview">
                     <Plus size={16} weight="bold" />
                   </span>
                 </BlockAddGhost>
@@ -222,7 +229,7 @@ export function GalleryAuthoringView(props: NodeViewProps) {
         <GallerySharedCaption caption={data.caption} />
       </div>
 
-      <div className="sc-gallery__items-host" aria-hidden>
+      <div className="sc-course-gallery__items-host" aria-hidden>
         <NodeViewContent />
       </div>
 

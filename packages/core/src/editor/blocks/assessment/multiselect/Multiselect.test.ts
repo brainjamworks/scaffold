@@ -34,6 +34,7 @@ import { SelectableChoiceRuntimeNode } from "@/editor/blocks/assessment/shared/n
 import { multiselectBlockDefinition } from "./multiselect-definition";
 import { MultiselectAuthoringExtension } from "./multiselect-authoring-extension";
 import { MultiselectRuntimeExtension } from "./multiselect-runtime-extension";
+import { hasMultiselectResponse, projectMultiselectInteraction } from "./assessment";
 
 const BoundedRegionTestNode = TiptapNode.create({
   name: "region",
@@ -181,6 +182,14 @@ describe("composite multiselect node", () => {
 
   it("declares bounded fill placement", () => {
     expect(multiselectBlockDefinition.boundedPlacement).toBe("fill");
+  });
+
+  it("derives readiness from unique current choices without consuming the limit for stale ids", () => {
+    const interaction = projectMultiselectInteraction(multiselectDoc(), { maxSelect: 1 });
+
+    expect(hasMultiselectResponse({ choices: ["a", "deleted-choice"] }, interaction)).toBe(true);
+    expect(hasMultiselectResponse({ choices: ["deleted-choice"] }, interaction)).toBe(false);
+    expect(hasMultiselectResponse({ choices: ["a", "b"] }, interaction)).toBe(false);
   });
 
   it("round-trips a full composite tree across settings attrs", () => {
@@ -398,6 +407,8 @@ describe("composite multiselect node", () => {
         ),
       ).toBeInstanceOf(HTMLElement);
     });
+    expect(document.body.querySelector(".sc-course-multiselect")).toBeInstanceOf(HTMLElement);
+    expect(document.body.querySelector(".sc-multiselect")).toBeNull();
     expect(document.body.querySelector("[data-authoring-frame-wrapper]")).toBeNull();
 
     editor.destroy();

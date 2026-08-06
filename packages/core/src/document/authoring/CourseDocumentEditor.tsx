@@ -1,6 +1,6 @@
 import { type Editor as TiptapEditor, type Extension, type JSONContent } from "@tiptap/core";
 import { UndoRedo } from "@tiptap/extensions";
-import { EditorContent, useEditor } from "@tiptap/react";
+import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 
 import "@/editor/shell/authoring/cursors.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -10,8 +10,9 @@ import { AuthoringDocumentChrome } from "@/editor/shell/authoring/AuthoringDocum
 import { readSurfaceViewSettingsFromProseMirrorDoc } from "@/document/model/surface-view-settings";
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 import type { ScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
-import type { ResolvedCourseTheme } from "@/theme/model";
-import { CourseThemeScope } from "@/theme/presentation";
+import { PersistedCourseThemeSchema } from "@/schemas/course-document";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import type { ScaffoldColorMode } from "@/theme/state/color-mode";
 import { AuthoringSurfaceView } from "@/editor/surfaces/authoring/views/AuthoringSurfaceView";
 import "./CourseDocumentEditor.css";
 
@@ -39,6 +40,8 @@ export type CourseDocumentAuthoringSource =
 
 export interface CourseDocumentEditorProps {
   artifactId?: string | null;
+  /** Unscaled host geometry used by Slideshow authoring overlays. */
+  authoringOverlayCollisionBoundary?: Element | null;
   /**
    * Initial state source for this mounted editor session. The source is
    * immutable after mounting; callers remount to change source or artifact.
@@ -53,7 +56,7 @@ export interface CourseDocumentEditorProps {
   schemaExtensions?: readonly Extension[];
   onChange?: (editor: TiptapEditor) => void;
   onReady?: (editor: TiptapEditor) => void;
-  resolvedTheme?: ResolvedCourseTheme;
+  courseAppearance?: ScaffoldColorMode;
   suspended?: boolean;
 }
 
@@ -61,13 +64,14 @@ const DEFAULT_SCHEMA_EXTENSIONS: readonly Extension[] = [];
 
 export function CourseDocumentEditor({
   artifactId,
+  authoringOverlayCollisionBoundary,
   source,
   composition,
   editable = true,
   schemaExtensions = DEFAULT_SCHEMA_EXTENSIONS,
   onChange,
   onReady,
-  resolvedTheme,
+  courseAppearance = "light",
   suspended = false,
 }: CourseDocumentEditorProps) {
   const [initialSource] = useState(source);
@@ -94,6 +98,7 @@ export function CourseDocumentEditor({
   return (
     <MountedCourseDocumentEditor
       artifactId={artifactId}
+      authoringOverlayCollisionBoundary={authoringOverlayCollisionBoundary}
       source={initialSource}
       composition={composition}
       editable={editable}
@@ -101,7 +106,7 @@ export function CourseDocumentEditor({
       onChange={handleChange}
       onReady={handleReady}
       onUpdate={handleUpdate}
-      resolvedTheme={resolvedTheme}
+      courseAppearance={courseAppearance}
       suspended={suspended}
     />
   );
@@ -109,6 +114,7 @@ export function CourseDocumentEditor({
 
 interface RequiredEditorProps {
   artifactId: string | null | undefined;
+  authoringOverlayCollisionBoundary: Element | null | undefined;
   source: CourseDocumentAuthoringSource;
   composition: ScaffoldAuthoringComposition;
   editable: boolean;
@@ -116,12 +122,13 @@ interface RequiredEditorProps {
   onChange: ((editor: TiptapEditor) => void) | undefined;
   onReady: ((editor: TiptapEditor) => void) | undefined;
   onUpdate: (editor: TiptapEditor) => void;
-  resolvedTheme: ResolvedCourseTheme | undefined;
+  courseAppearance: ScaffoldColorMode;
   suspended: boolean;
 }
 
 function MountedCourseDocumentEditor({
   artifactId,
+  authoringOverlayCollisionBoundary,
   source,
   composition,
   editable,
@@ -129,7 +136,7 @@ function MountedCourseDocumentEditor({
   onChange,
   onReady,
   onUpdate,
-  resolvedTheme,
+  courseAppearance,
   suspended,
 }: RequiredEditorProps) {
   const [overlayContainer, setOverlayContainer] = useState<HTMLDivElement | null>(null);
@@ -168,6 +175,8 @@ function MountedCourseDocumentEditor({
   if (!surfaceViewSettings) {
     return null;
   }
+  const useUnscaledSlideshowOverlayBoundary =
+    surfaceViewSettings.mode === "slideshow" && authoringOverlayCollisionBoundary != null;
 
   return (
     <div
@@ -180,14 +189,53 @@ function MountedCourseDocumentEditor({
           editable={editable}
           editor={editor}
           overlayContainer={overlayContainer}
+          {...(useUnscaledSlideshowOverlayBoundary
+            ? {
+                overlayCollisionBoundary: authoringOverlayCollisionBoundary,
+                overlayKind: "viewport" as const,
+              }
+            : {})}
         >
-          <CourseThemeScope resolvedTheme={resolvedTheme}>
-            <AuthoringSurfaceView settings={surfaceViewSettings}>
-              <EditorContent className="sc-course-document-editor__content" editor={editor} />
-            </AuthoringSurfaceView>
-          </CourseThemeScope>
+          <ThemedCourseDocumentContent
+            editor={editor}
+            courseAppearance={courseAppearance}
+            surfaceViewSettings={surfaceViewSettings}
+          />
         </AuthoringDocumentChrome>
       </ScaffoldArtifactIdentityProvider>
     </div>
+  );
+}
+
+function ThemedCourseDocumentContent({
+  editor,
+  courseAppearance,
+  surfaceViewSettings,
+}: Readonly<{
+  editor: TiptapEditor;
+  courseAppearance: ScaffoldColorMode;
+  surfaceViewSettings: NonNullable<ReturnType<typeof readSurfaceViewSettingsFromProseMirrorDoc>>;
+}>) {
+  const liveTheme = useEditorState({
+    editor,
+    selector: ({ editor: liveEditor }) =>
+      liveEditor.state.doc.firstChild?.type.name === "courseDocument"
+        ? liveEditor.state.doc.firstChild.attrs["theme"]
+        : null,
+  });
+  const parsedTheme = PersistedCourseThemeSchema.safeParse(liveTheme);
+
+  if (!parsedTheme.success) return null;
+
+  return (
+    <CourseThemeProvider
+      theme={parsedTheme.data}
+      appearance={courseAppearance}
+      hasBackground={false}
+    >
+      <AuthoringSurfaceView settings={surfaceViewSettings}>
+        <EditorContent className="sc-course-document-editor__content" editor={editor} />
+      </AuthoringSurfaceView>
+    </CourseThemeProvider>
   );
 }

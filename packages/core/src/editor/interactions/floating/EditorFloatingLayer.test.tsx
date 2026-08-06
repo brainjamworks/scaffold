@@ -3,7 +3,7 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { OverlayBoundary } from "@/ui/components/OverlayBoundary/OverlayBoundary";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 
 import { createElementFloatingAnchor } from "./floating-anchor";
 import { EditorFloatingContent } from "./EditorFloatingContent";

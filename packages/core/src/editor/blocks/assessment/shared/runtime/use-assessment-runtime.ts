@@ -61,7 +61,13 @@ export interface ProblemState extends AssessmentBlockSetupConfig {
 
 export interface ProblemScope {
   state: ProblemState;
+  context: "standalone" | "quiz";
   exhausted: boolean;
+  /**
+   * One interaction lock contract for both behavior and native control state.
+   * Review keeps feedback actions reachable while response controls leave the tab order.
+   */
+  interactionLocked: boolean;
   canRetry: boolean;
   hasMoreHints: boolean;
   hasResponse: boolean;
@@ -104,6 +110,7 @@ export interface AssessmentRuntimeProblemConfig extends AssessmentBlockSetupConf
   responseName: string;
   legend: string;
   placeholder: string;
+  currentOptionIds: readonly string[];
   experience: AssessmentExperienceConfig;
 }
 
@@ -120,6 +127,7 @@ export interface AssessmentRuntimeController<
     value: ProblemResponse;
     setValue: (response: ProblemResponse) => void;
     projected: AssessmentResponseValue;
+    durable: AssessmentResponseValue | null;
     hasValue: boolean;
   };
   actions: {
@@ -235,6 +243,7 @@ function useAssessmentRuntimeFacade<
     () => responseCodec?.toContractResponse(responseValue) ?? EMPTY_PROJECTED_RESPONSE,
     [responseCodec, responseValue],
   );
+  const durableResponse = facade.problem?.response ?? null;
   const feedbackSummary = problem?.officialResult ?? problem?.feedbackResult ?? null;
 
   return useMemo<AssessmentRuntimeController<K> | null>(() => {
@@ -253,6 +262,7 @@ function useAssessmentRuntimeFacade<
           facade.actions.setLocalResponse(response);
         },
         projected,
+        durable: durableResponse,
         hasValue: responseCodec?.hasResponse(responseValue) ?? false,
       },
       actions: {
@@ -270,6 +280,7 @@ function useAssessmentRuntimeFacade<
   }, [
     feedbackSummary,
     facade.actions,
+    durableResponse,
     hasUnsafeIdentity,
     problem,
     problemConfig,
@@ -300,8 +311,15 @@ function problemScopeFromFacade(
   const revealedAnswer = facade.revealedAnswer
     ? { answers: facade.revealedAnswer.answerKey }
     : null;
+  const context = facade.quiz ? "quiz" : "standalone";
+  const effectiveFeedbackMode = facade.quiz ? "on_submit" : config.feedbackMode;
+  const effectiveMaxAttempts = facade.quiz
+    ? facade.quiz.registration.settings.attemptsPerQuestion
+    : config.maxAttempts;
   const state: ProblemState = {
     ...config,
+    feedbackMode: effectiveFeedbackMode,
+    maxAttempts: effectiveMaxAttempts,
     response,
     submitted: snapshot.submitted,
     attemptNumber: snapshot.attemptNumber,
@@ -310,20 +328,23 @@ function problemScopeFromFacade(
     submissionResult: snapshot.submissionResult,
     revealedAnswer,
   };
-  const exhausted = config.maxAttempts !== null && snapshot.attemptNumber >= config.maxAttempts;
+  const exhausted = effectiveMaxAttempts !== null && snapshot.attemptNumber >= effectiveMaxAttempts;
+  const interactionLocked = snapshot.submitted || exhausted || revealedAnswer !== null;
   const rawFeedbackResult = snapshot.checkResult ?? snapshot.submissionResult;
   const reviewPolicy = quizReviewPolicy(facade);
   const feedbackResult = reviewResultForPolicy(rawFeedbackResult, reviewPolicy);
   const officialResult = reviewResultForPolicy(snapshot.submissionResult, reviewPolicy);
   const answerKeyVisible =
     reviewPolicy.correctAnswersVisible &&
-    ((config.feedbackMode === "immediate" && rawFeedbackResult !== null) ||
+    ((effectiveFeedbackMode === "immediate" && rawFeedbackResult !== null) ||
       (config.showAnswerEnabled && revealedAnswer !== null) ||
       Boolean(facade.quiz?.attempt?.answerReviewAuthorized && rawFeedbackResult));
 
   return {
     state,
+    context,
     exhausted,
+    interactionLocked,
     canRetry: snapshot.submitted && !exhausted && snapshot.submissionResult?.isCorrect !== true,
     hasMoreHints: reviewPolicy.hintsVisible && snapshot.hintsShown < config.hintsTotal,
     hasResponse: facade.responseReady,
@@ -422,6 +443,11 @@ function runtimeProblemConfigFromFacade(
     feedbackMode: settings.feedbackMode,
     maxAttempts: settings.maxAttempts,
     maxSelect: settings.maxSelections ?? null,
+    currentOptionIds:
+      config.learningEventDefinition.interaction.kind === "single-select" ||
+      config.learningEventDefinition.interaction.kind === "multi-select"
+        ? config.learningEventDefinition.interaction.options.map((option) => option.id)
+        : [],
     responseName: assessmentResponseName(facade.authoredBlockId),
     legend: settings.legend ?? settings.label ?? "",
     placeholder: settings.placeholder ?? "",
@@ -485,6 +511,10 @@ function createRuntimeProblemConfig(
   }
   const responseCodec = {
     ...assessment.response,
+    toContractResponse: (response: unknown) =>
+      assessment.response.toContractResponse(response, interaction),
+    fromContractResponse: (response: AssessmentResponseValue) =>
+      assessment.response.fromContractResponse(response, interaction),
     hasResponse: (response: unknown) => assessment.response.hasResponse(response, interaction),
   };
   const activityDescription = assessmentActivityDescription(node);
@@ -502,6 +532,10 @@ function createRuntimeProblemConfig(
     feedbackMode: settings.feedbackMode,
     maxAttempts: settings.maxAttempts,
     maxSelect: settingsProjection?.maxSelections ?? settings.maxSelect ?? null,
+    currentOptionIds:
+      interaction.kind === "single-select" || interaction.kind === "multi-select"
+        ? interaction.options.map((option) => option.id)
+        : [],
     responseName: assessmentResponseName(blockId),
     legend: settingsProjection?.legend ?? settingsProjection?.label ?? "",
     placeholder: settingsProjection?.placeholder ?? "",

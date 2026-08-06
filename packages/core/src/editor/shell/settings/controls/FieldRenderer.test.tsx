@@ -339,7 +339,7 @@ describe("FieldRenderer", () => {
     expect(screen.getAllByRole("radio").every((radio) => radio.hasAttribute("disabled"))).toBe(
       true,
     );
-    expect(status).toHaveClass("sc-pill", "sc-settings-field-status");
+    expect(status).toHaveClass("sc-app-pill", "sc-settings-field-status");
     expect(status).toHaveAttribute("data-variant", "info");
     expect(describedBy).toHaveLength(3);
     expect(document.getElementById(describedBy[0] ?? "")).toBe(status);

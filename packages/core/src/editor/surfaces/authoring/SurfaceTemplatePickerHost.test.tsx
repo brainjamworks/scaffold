@@ -25,7 +25,7 @@ import { SlideTitleNode } from "@/editor/surfaces/model/nodes/slide-title";
 import { builtInSurfaceVariantDefinitions } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
-import { createScaffoldDefaultTheme } from "@/theme/model";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
 import { authoringSlideDividersPluginKey } from "./AuthoringSlideDividers";
 import { AuthoringSlideDividers } from "./AuthoringSlideDividers";
@@ -294,7 +294,7 @@ function slideshowDocument(surfaceIds: readonly EmbeddedNodeId[]): JSONContent {
           mode: "slideshow",
           surfaceSize: "16x9",
           overflowMode: "clip",
-          theme: createScaffoldDefaultTheme(),
+          theme: createDefaultPersistedCourseTheme(),
         },
         content: surfaceIds.map((surfaceId) =>
           slideCoverSurfaceDefinition.createSurface({ surfaceId }),

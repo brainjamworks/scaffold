@@ -1,5 +1,7 @@
-import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
+import type { KeyboardEvent, MouseEvent, PointerEvent, ReactNode } from "react";
+import { useEffect, useRef } from "react";
 import { NodeViewContent, NodeViewWrapper } from "@tiptap/react";
+import { Badge, Button, IconButton, Progress } from "@radix-ui/themes";
 import {
   ArrowLeftIcon as ArrowLeft,
   ArrowRightIcon as ArrowRight,
@@ -10,6 +12,7 @@ import {
   XIcon as Cross,
 } from "@phosphor-icons/react";
 
+import { containedMovementTargetAttributes } from "@/editor/movement/view/movement-dom";
 import { cn } from "@/lib/cn";
 
 import type {
@@ -34,6 +37,7 @@ export interface FlashcardDeckController extends FlashcardDeckViewState {
   goNext: () => void;
   goPrev: () => void;
   rateCurrent: (status: FlashcardMasteryStatus) => void;
+  handleKeyDown?: (event: KeyboardEvent<HTMLElement>) => void;
 }
 
 export interface FlashcardCardController {
@@ -47,17 +51,23 @@ export function FlashcardCardView({
   editable,
   cardId,
   controller,
+  authoringChrome,
+  mountSurface = controller.isCurrent,
 }: {
   editable: boolean;
   cardId: string;
   controller: FlashcardCardController;
+  authoringChrome?: ReactNode;
+  mountSurface?: boolean;
 }) {
-  if (!controller.isCurrent) {
+  const movementAttributes = authoringChrome ? containedMovementTargetAttributes() : {};
+
+  if (!mountSurface) {
     return (
       <NodeViewWrapper
         data-node="flashcard-card"
         data-id={cardId}
-        className="sc-flashcard-card--inactive"
+        className="sc-course-flashcard-card--inactive"
       >
         <NodeViewContent />
       </NodeViewWrapper>
@@ -70,26 +80,30 @@ export function FlashcardCardView({
       data-id={cardId}
       data-flashcard-flipped={controller.flipped ? "true" : "false"}
       data-flashcard-mastery={controller.mastery ?? "unrated"}
-      className="sc-flashcard-card"
+      className={cn(
+        "sc-course-flashcard-card",
+        !controller.isCurrent && "sc-course-flashcard-card--inactive",
+      )}
+      {...movementAttributes}
     >
+      {authoringChrome}
       <FlashcardCardSurface
         flipped={controller.flipped}
         mastery={controller.mastery}
         editable={editable}
-        showFlipHint={editable}
         onFlip={controller.flip}
       >
-        <NodeViewContent className="sc-flashcard-content" />
+        <NodeViewContent className="sc-course-flashcard-content" />
       </FlashcardCardSurface>
     </NodeViewWrapper>
   );
 }
 
 export function CardStack({ children }: { children: ReactNode }) {
-  return <div className="sc-flashcard-stack">{children}</div>;
+  return <div className="sc-course-flashcard-stack">{children}</div>;
 }
 
-export function DeckHeader({
+function LearnerDeckHeader({
   mastered,
   total,
   currentIndex,
@@ -99,29 +113,49 @@ export function DeckHeader({
   currentIndex: number;
 }) {
   if (total === 0) return null;
-  const percent = Math.round((mastered / total) * 100);
+  const status =
+    mastered === 0
+      ? "Flip to study, rate as you go"
+      : mastered === total
+        ? "Deck complete"
+        : `${mastered} of ${total} mastered`;
+
   return (
-    <div className="sc-flashcard-deck-header">
-      <div className="sc-flashcard-deck-header__row">
-        <span className="sc-flashcard-deck-header__status">
-          {mastered === 0
-            ? "Flip to study, rate as you go"
-            : mastered === total
-              ? "Deck complete"
-              : `${mastered} of ${total} mastered`}
-        </span>
-        <span className="sc-flashcard-deck-header__counter">
-          {String(currentIndex + 1).padStart(String(total).length, "0")} / {total}
-        </span>
+    <div className="sc-course-flashcard-deck-header">
+      <div className="sc-course-flashcard-deck-header__row" aria-hidden>
+        <span className="sc-course-flashcard-deck-header__status">{status}</span>
+        <DeckCounter currentIndex={currentIndex} total={total} />
       </div>
-      <div className="sc-flashcard-deck-header__progress">
-        <div
-          className="sc-flashcard-deck-header__progress-value"
-          style={{ width: `${percent}%` }}
-          aria-hidden
-        />
+      <Progress
+        value={mastered}
+        max={total}
+        aria-label={`${mastered} of ${total} cards mastered`}
+        className="sc-course-flashcard-deck-header__progress"
+      />
+      <span className="sc-sr-only" aria-live="polite" aria-atomic="true">
+        Card {currentIndex + 1} of {total}. {status}.
+      </span>
+    </div>
+  );
+}
+
+function AuthoringDeckHeader({ total, currentIndex }: { total: number; currentIndex: number }) {
+  if (total === 0) return null;
+  return (
+    <div className="sc-course-flashcard-deck-header" data-flashcard-authoring-header="">
+      <div className="sc-course-flashcard-deck-header__row">
+        <span className="sc-course-flashcard-deck-header__status">Editing card</span>
+        <DeckCounter currentIndex={currentIndex} total={total} />
       </div>
     </div>
+  );
+}
+
+function DeckCounter({ currentIndex, total }: { currentIndex: number; total: number }) {
+  return (
+    <span className="sc-course-flashcard-deck-header__counter">
+      {String(currentIndex + 1).padStart(String(total).length, "0")} / {total}
+    </span>
   );
 }
 
@@ -147,25 +181,16 @@ export function ReaderControls({
   masteredCount: number;
 }) {
   return (
-    <div className="sc-flashcard-reader-controls">
-      <div className="sc-flashcard-reader-controls__nav">
-        <IconCircleButton label="Previous card" onClick={onPrev} disabled={!canNavigate}>
-          <ArrowLeft size={16} weight="bold" aria-hidden />
-        </IconCircleButton>
-        <button
-          type="button"
-          onClick={onFlip}
-          className="sc-flashcard-reader-controls__flip-button"
-        >
-          <FlipIcon size={14} weight="bold" aria-hidden />
-          <span>{flipped ? "Show front" : "Flip card"}</span>
-          <KeyCap>Space</KeyCap>
-        </button>
-        <IconCircleButton label="Next card" onClick={onNext} disabled={!canNavigate}>
-          <ArrowRight size={16} weight="bold" aria-hidden />
-        </IconCircleButton>
-      </div>
-      <div className="sc-flashcard-reader-controls__ratings">
+    <div className="sc-course-flashcard-reader-controls">
+      <NavigationControls
+        flipped={flipped}
+        onFlip={onFlip}
+        onPrev={onPrev}
+        onNext={onNext}
+        canNavigate={canNavigate}
+        showKeycaps
+      />
+      <div className="sc-course-flashcard-reader-controls__ratings">
         <RatingButton
           status="notYet"
           active={mastery === "notYet"}
@@ -174,42 +199,95 @@ export function ReaderControls({
         <RatingButton status="gotIt" active={mastery === "gotIt"} onClick={() => onRate("gotIt")} />
       </div>
       {masteredCount > 0 ? (
-        <div className="sc-flashcard-reader-controls__reset-row">
-          <button
+        <div className="sc-course-flashcard-reader-controls__reset-row">
+          <Button
             type="button"
+            variant="ghost"
             onClick={onReset}
-            className="sc-flashcard-reader-controls__reset-button"
+            className="sc-course-flashcard-reader-controls__reset-button"
           >
-            <ResetIcon size={11} weight="bold" aria-hidden />
+            <ResetIcon size={14} weight="bold" aria-hidden />
             Reset deck
-          </button>
+          </Button>
         </div>
       ) : null}
     </div>
   );
 }
 
+function NavigationControls({
+  flipped,
+  onFlip,
+  onPrev,
+  onNext,
+  canNavigate,
+  showKeycaps,
+}: {
+  flipped: boolean;
+  onFlip: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+  canNavigate: boolean;
+  showKeycaps: boolean;
+}) {
+  return (
+    <div className="sc-course-flashcard-reader-controls__nav">
+      <IconCircleButton
+        label="Previous card"
+        shortcut="ArrowLeft"
+        onClick={onPrev}
+        disabled={!canNavigate}
+      >
+        <ArrowLeft size={18} weight="bold" aria-hidden />
+      </IconCircleButton>
+      <Button
+        type="button"
+        variant="surface"
+        onClick={onFlip}
+        aria-keyshortcuts="Space"
+        className="sc-course-flashcard-reader-controls__flip-button"
+      >
+        <FlipIcon size={16} weight="bold" aria-hidden />
+        <span>{flipped ? "Show front" : "Flip card"}</span>
+        {showKeycaps ? <KeyCap>Space</KeyCap> : null}
+      </Button>
+      <IconCircleButton
+        label="Next card"
+        shortcut="ArrowRight"
+        onClick={onNext}
+        disabled={!canNavigate}
+      >
+        <ArrowRight size={18} weight="bold" aria-hidden />
+      </IconCircleButton>
+    </div>
+  );
+}
+
 function IconCircleButton({
   label,
+  shortcut,
   onClick,
   disabled,
   children,
 }: {
   label: string;
+  shortcut: string;
   onClick: () => void;
   disabled?: boolean;
   children: ReactNode;
 }) {
   return (
-    <button
+    <IconButton
       type="button"
+      variant="surface"
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
-      className="sc-flashcard-reader-controls__icon-button"
+      aria-keyshortcuts={shortcut}
+      className="sc-course-flashcard-reader-controls__icon-button"
     >
       {children}
-    </button>
+    </IconButton>
   );
 }
 
@@ -224,27 +302,29 @@ function RatingButton({
 }) {
   const isGotIt = status === "gotIt";
   return (
-    <button
+    <Button
       type="button"
+      variant="surface"
       onClick={onClick}
       aria-pressed={active}
+      aria-keyshortcuts={isGotIt ? "G" : "N"}
       aria-label={isGotIt ? "Mark as got it (G)" : "Mark as not yet (N)"}
+      data-course-state={active ? (isGotIt ? "completed" : "available") : undefined}
       className={cn(
-        "sc-flashcard-rating-button",
-        isGotIt && active && "sc-flashcard-rating-button--got-it-active",
-        isGotIt && !active && "sc-flashcard-rating-button--got-it-idle",
-        !isGotIt && active && "sc-flashcard-rating-button--not-yet-active",
-        !isGotIt && !active && "sc-flashcard-rating-button--not-yet-idle",
+        "sc-course-flashcard-rating-button",
+        isGotIt
+          ? "sc-course-flashcard-rating-button--got-it"
+          : "sc-course-flashcard-rating-button--not-yet",
       )}
     >
       {isGotIt ? (
-        <Check size={12} weight="bold" aria-hidden />
+        <Check size={14} weight="bold" aria-hidden />
       ) : (
-        <Cross size={12} weight="bold" aria-hidden />
+        <Cross size={14} weight="bold" aria-hidden />
       )}
       <span>{isGotIt ? "Got it" : "Not yet"}</span>
       <KeyCap inverted={active}>{isGotIt ? "G" : "N"}</KeyCap>
-    </button>
+    </Button>
   );
 }
 
@@ -252,8 +332,8 @@ function KeyCap({ children, inverted }: { children: ReactNode; inverted?: boolea
   return (
     <kbd
       className={cn(
-        "sc-flashcard-keycap",
-        inverted ? "sc-flashcard-keycap--inverted" : "sc-flashcard-keycap--default",
+        "sc-course-flashcard-keycap",
+        inverted ? "sc-course-flashcard-keycap--inverted" : "sc-course-flashcard-keycap--default",
       )}
     >
       {children}
@@ -263,20 +343,110 @@ function KeyCap({ children, inverted }: { children: ReactNode; inverted?: boolea
 
 export function MasteredState({ onReset, children }: { onReset: () => void; children: ReactNode }) {
   return (
-    <div className="sc-flashcard-mastered">
-      <Trophy size={36} weight="duotone" className="sc-flashcard-mastered__icon" aria-hidden />
-      <p className="sc-flashcard-mastered__title">Deck complete.</p>
-      <p className="sc-flashcard-mastered__body">Reset to study from the top.</p>
-      <button type="button" onClick={onReset} className="sc-flashcard-mastered__reset">
-        <ResetIcon size={12} weight="bold" aria-hidden />
+    <div
+      className="sc-course-flashcard-mastered"
+      data-course-state="completed"
+      data-flashcard-focus-target=""
+      tabIndex={-1}
+    >
+      <Trophy
+        size={36}
+        weight="duotone"
+        className="sc-course-flashcard-mastered__icon sc-course-state__indicator"
+        aria-hidden
+      />
+      <p
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sc-course-flashcard-mastered__title"
+      >
+        Deck complete.
+      </p>
+      <p className="sc-course-flashcard-mastered__body">Reset to study from the top.</p>
+      <Button
+        type="button"
+        variant="surface"
+        onClick={onReset}
+        className="sc-course-flashcard-mastered__reset"
+      >
+        <ResetIcon size={14} weight="bold" aria-hidden />
         Reset deck
-      </button>
+      </Button>
       {children}
     </div>
   );
 }
 
 export function FlashcardDeckReader({
+  controller,
+  renderContent,
+}: {
+  controller: FlashcardDeckController;
+  renderContent: () => ReactNode;
+}) {
+  const deckRef = useRef<HTMLElement | null>(null);
+  const wasAllMastered = useRef(controller.allMastered);
+
+  useEffect(() => {
+    const completedNow = !wasAllMastered.current && controller.allMastered;
+    wasAllMastered.current = controller.allMastered;
+    if (!completedNow) return undefined;
+
+    const focusFrame = requestAnimationFrame(() => {
+      deckRef.current
+        ?.querySelector<HTMLElement>("[data-flashcard-focus-target]")
+        ?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(focusFrame);
+  }, [controller.allMastered]);
+
+  const handlePointerDown = (event: PointerEvent<HTMLElement>) => {
+    if (shouldIgnoreFlashcardPointerFlip(event.target)) return;
+    event.currentTarget.focus({ preventScroll: true });
+  };
+
+  return (
+    <section
+      ref={deckRef}
+      aria-label="Flashcard deck"
+      aria-keyshortcuts="ArrowLeft ArrowRight Space G N"
+      tabIndex={0}
+      onKeyDown={controller.handleKeyDown}
+      onPointerDownCapture={handlePointerDown}
+      className="sc-course-flashcard-deck"
+      data-flashcard-mode="learner"
+    >
+      {controller.allMastered ? (
+        <MasteredState onReset={controller.resetDeck}>
+          <div className="sc-course-flashcard-hidden-content">{renderContent()}</div>
+        </MasteredState>
+      ) : (
+        <>
+          <LearnerDeckHeader
+            mastered={controller.masteredCount}
+            total={controller.totalCards}
+            currentIndex={controller.currentIndex}
+          />
+          <CardStack>{renderContent()}</CardStack>
+          <ReaderControls
+            flipped={controller.currentFlipped}
+            mastery={controller.currentMastery}
+            onFlip={controller.flipCurrent}
+            onPrev={controller.goPrev}
+            onNext={controller.goNext}
+            onRate={controller.rateCurrent}
+            onReset={controller.resetDeck}
+            canNavigate={controller.totalCards > 1}
+            masteredCount={controller.masteredCount}
+          />
+        </>
+      )}
+    </section>
+  );
+}
+
+export function FlashcardDeckAuthoring({
   controller,
   addCard,
   renderContent,
@@ -285,35 +455,26 @@ export function FlashcardDeckReader({
   addCard?: ReactNode;
   renderContent: () => ReactNode;
 }) {
-  if (controller.allMastered) {
-    return (
-      <MasteredState onReset={controller.resetDeck}>
-        <div className="sc-flashcard-hidden-content">{renderContent()}</div>
-      </MasteredState>
-    );
-  }
-
   return (
-    <div className="sc-flashcard-deck">
-      <DeckHeader
-        mastered={controller.masteredCount}
-        total={controller.totalCards}
-        currentIndex={controller.currentIndex}
-      />
+    <section
+      aria-label="Flashcard authoring"
+      className="sc-course-flashcard-deck"
+      data-flashcard-mode="authoring"
+    >
+      <AuthoringDeckHeader total={controller.totalCards} currentIndex={controller.currentIndex} />
       {addCard}
       <CardStack>{renderContent()}</CardStack>
-      <ReaderControls
-        flipped={controller.currentFlipped}
-        mastery={controller.currentMastery}
-        onFlip={controller.flipCurrent}
-        onPrev={controller.goPrev}
-        onNext={controller.goNext}
-        onRate={controller.rateCurrent}
-        onReset={controller.resetDeck}
-        canNavigate={controller.totalCards > 1}
-        masteredCount={controller.masteredCount}
-      />
-    </div>
+      <div className="sc-course-flashcard-reader-controls" data-flashcard-authoring-controls="">
+        <NavigationControls
+          flipped={controller.currentFlipped}
+          onFlip={controller.flipCurrent}
+          onPrev={controller.goPrev}
+          onNext={controller.goNext}
+          canNavigate={controller.totalCards > 1}
+          showKeycaps={false}
+        />
+      </div>
+    </section>
   );
 }
 
@@ -321,14 +482,12 @@ export function FlashcardCardSurface({
   flipped,
   mastery,
   editable,
-  showFlipHint,
   onFlip,
   children,
 }: {
   flipped: boolean;
   mastery: FlashcardMasteryStatus | undefined;
   editable: boolean;
-  showFlipHint?: boolean;
   onFlip: () => void;
   children: ReactNode;
 }) {
@@ -352,38 +511,25 @@ export function FlashcardCardSurface({
       onClick={handleCardClick}
       onKeyDown={handleCardKey}
       tabIndex={-1}
-      className="sc-flashcard-card__surface"
+      className="sc-course-flashcard-card__surface"
     >
-      <div className="sc-flashcard-card__rotator">{children}</div>
+      <div className="sc-course-flashcard-card__rotator">{children}</div>
       {mastery ? (
-        <span
+        <Badge
           data-scaffold-card-no-flip
           contentEditable={false}
-          className={cn(
-            "sc-flashcard-card__mastery-badge",
-            mastery === "gotIt" && "sc-flashcard-card__mastery-badge--got-it",
-            mastery === "notYet" && "sc-flashcard-card__mastery-badge--not-yet",
-          )}
+          data-course-state={mastery === "gotIt" ? "completed" : "available"}
+          className="sc-course-flashcard-card__mastery-badge"
         >
           {mastery === "gotIt" ? (
             <>
-              <Check size={10} weight="bold" aria-hidden />
+              <Check size={12} weight="bold" aria-hidden />
               Mastered
             </>
           ) : (
             "Review again"
           )}
-        </span>
-      ) : null}
-      {showFlipHint ? (
-        <span
-          data-scaffold-card-no-flip
-          contentEditable={false}
-          aria-hidden
-          className="sc-flashcard-card__flip-hint"
-        >
-          Click anywhere on the card to flip
-        </span>
+        </Badge>
       ) : null}
     </div>
   );

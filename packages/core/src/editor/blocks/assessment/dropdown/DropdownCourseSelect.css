@@ -1,0 +1,88 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-course-dropdown-select {
+    display: flex;
+    width: min(100%, 24rem);
+    max-width: 100%;
+    min-width: 0;
+    flex-direction: column;
+  }
+
+  .sc-course-dropdown-select__row {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+  }
+
+  .sc-course-dropdown-select__trigger {
+    display: inline-flex;
+    min-width: 0;
+    flex: 1 1 auto;
+    align-items: center;
+    justify-content: space-between;
+    text-align: start;
+  }
+
+  .sc-course-dropdown-select__value,
+  .sc-course-dropdown-select__option-content,
+  .sc-course-dropdown-select__correct-value {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .sc-course-dropdown-select__option-content {
+    display: block;
+    white-space: normal;
+  }
+
+  .sc-course-dropdown-select__option-content p {
+    margin: 0;
+  }
+
+  .sc-course-dropdown-select__caret,
+  .sc-course-dropdown-select__side-icon,
+  .sc-course-dropdown-select__item-indicator,
+  .sc-course-dropdown-select__feedback {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sc-course-dropdown-select__content {
+    box-sizing: border-box;
+    width: min(var(--radix-select-trigger-width), var(--radix-select-content-available-width));
+    max-width: var(--radix-select-content-available-width);
+    max-height: var(--radix-select-content-available-height);
+    overflow: hidden;
+  }
+
+  .sc-course-dropdown-select__viewport {
+    max-height: inherit;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .sc-course-dropdown-select__item {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    align-items: center;
+  }
+
+  .sc-course-dropdown-select__item-indicator {
+    position: absolute;
+    inset-inline-end: 0;
+  }
+
+  .sc-course-dropdown-select__correct-answer {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+  }
+
+  .sc-course-dropdown-select__correct-value {
+    flex: 1 1 auto;
+  }
+}

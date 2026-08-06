@@ -15,6 +15,7 @@ import { settingsFieldDomId } from "@/editor/shell/settings/controls/a11y";
 import type { SettingsFieldDocumentTarget } from "@/editor/shell/settings/controls/fields/types";
 import { Accordion } from "@/ui/components/Accordion/Accordion";
 import { Button } from "@/ui/components/Button/Button";
+import { Sheet } from "@/ui/components/app/Sheet/Sheet";
 
 import "./settings-form.css";
 
@@ -203,6 +204,20 @@ export function SettingsFormActions<TActionId extends string>({
         </Button>
       ))}
     </div>
+  );
+}
+
+export function SettingsFormFooter<TActionId extends string>({
+  actions,
+  onAction,
+}: {
+  actions: readonly SettingsFormAction<TActionId>[];
+  onAction: (event: SettingsFormActionEvent<TActionId>) => void;
+}) {
+  return (
+    <Sheet.Footer>
+      <SettingsFormActions actions={actions} location="footer" onAction={onAction} />
+    </Sheet.Footer>
   );
 }
 

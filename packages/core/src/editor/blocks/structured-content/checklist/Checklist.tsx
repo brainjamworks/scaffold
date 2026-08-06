@@ -1,6 +1,7 @@
 import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import { PlusIcon as Plus, TrashIcon as Trash } from "@phosphor-icons/react";
-import { useRef } from "react";
+import { Checkbox } from "@radix-ui/themes";
+import { useId, useRef } from "react";
 
 import { BlockAddGhost } from "@/editor/suggestions/insert/BlockAddGhost";
 import { ContainedMovementHandle } from "@/editor/movement/view/ContainedMovementHandle";
@@ -41,21 +42,18 @@ export function ChecklistAuthoringView(props: NodeViewProps) {
 
   const showProgress = data.showProgress && total > 0;
   const addGhost = (
-    <li className="sc-checklist-item sc-checklist-item--ghost" contentEditable={false}>
+    <li className="sc-course-checklist__item sc-app-checklist-add-row" contentEditable={false}>
       <BlockAddGhost
         label="Add item"
         presentation="item"
         onClick={addItem}
-        className="sc-checklist__add"
+        className="sc-app-checklist-add"
       >
-        <span aria-hidden className="sc-checklist-item__drag-placeholder" />
-        <span
-          aria-hidden
-          className="sc-checklist-item__checkbox sc-checklist-item__checkbox--ghost"
-        >
+        <span aria-hidden className="sc-app-checklist-add__drag-placeholder" />
+        <span aria-hidden className="sc-app-checklist-add__checkbox">
           <Plus size={12} weight="bold" />
         </span>
-        <span className="sc-checklist__add-label">Add item</span>
+        <span className="sc-app-checklist-add__label">Add item</span>
       </BlockAddGhost>
     </li>
   );
@@ -75,6 +73,7 @@ export function ChecklistItemNodeView(props: NodeViewProps) {
   const presentationRef = useRef<HTMLDivElement | null>(null);
   const { count, index } = readChecklistItemPosition(props);
   const canDelete = count > 1;
+  const deleteExplanationId = useId();
 
   const deleteItem = () => {
     const pos = readNodePos(props);
@@ -98,40 +97,45 @@ export function ChecklistItemNodeView(props: NodeViewProps) {
       data-checked="false"
       {...containedMovementTargetAttributes()}
       role="listitem"
-      className="sc-checklist-item"
+      className="sc-course-checklist__item"
     >
-      <div className="sc-checklist-item__shell">
+      <div className="sc-course-checklist__item-shell sc-app-checklist-item-shell">
         <ContainedMovementHandle
           getPresentationElement={() => presentationRef.current}
           getSourcePos={() => readNodePos(props) ?? null}
           label="checklist item"
           sourcePos={sourcePos}
-          className="sc-checklist-item__drag"
+          className="sc-app-checklist-item-drag"
         />
-        <button
-          type="button"
-          role="checkbox"
-          aria-checked={false}
+        <Checkbox
+          size="2"
+          checked={false}
           contentEditable={false}
           onMouseDown={(event) => event.preventDefault()}
           disabled
           aria-disabled
-          className="sc-checklist-item__checkbox"
+          className="sc-course-checklist__checkbox"
           aria-label="Checklist item completion is available at runtime"
         />
-        <div className="sc-checklist-item__text">
+        <div className="sc-course-checklist__item-text">
           <NodeViewContent />
         </div>
         <button
           {...authoringMovementSnapshotChromeAttributes()}
           type="button"
           contentEditable={false}
-          disabled={!canDelete}
+          aria-disabled={!canDelete || undefined}
+          aria-describedby={!canDelete ? deleteExplanationId : undefined}
           aria-label={`Delete checklist item ${index}`}
           onClick={deleteItem}
-          className="sc-checklist-item__delete"
+          className="sc-app-checklist-item-delete"
         >
           <Trash size={13} aria-hidden />
+          {!canDelete ? (
+            <span id={deleteExplanationId} className="sc-app-checklist-item-delete__explanation">
+              A checklist must contain at least one item.
+            </span>
+          ) : null}
         </button>
       </div>
     </NodeViewWrapper>

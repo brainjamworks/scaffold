@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { EmbedAspectRatioSchema, EmbedDataSchema, type EmbedData } from "./embed";
+import {
+  EmbedAspectRatioSchema,
+  EmbedDataSchema,
+  EmbedSizingModeSchema,
+  type EmbedData,
+} from "./embed";
 
 function normalizedIssues(result: ReturnType<typeof EmbedDataSchema.safeParse>) {
   if (result.success) return [];
@@ -10,6 +15,7 @@ function normalizedIssues(result: ReturnType<typeof EmbedDataSchema.safeParse>) 
 describe("embed persisted contract", () => {
   it("preserves enum order and exact defaults", () => {
     expect(EmbedAspectRatioSchema.options).toEqual(["16/9", "4/3", "1/1", "9/16"]);
+    expect(EmbedSizingModeSchema.options).toEqual(["provider", "aspect-ratio"]);
 
     const data: EmbedData = EmbedDataSchema.parse({});
 
@@ -19,6 +25,15 @@ describe("embed persisted contract", () => {
       provider: "generic",
       aspectRatio: "16/9",
       caption: "",
+    });
+  });
+
+  it("accepts explicit provider and authored aspect-ratio sizing intent", () => {
+    expect(EmbedDataSchema.parse({ sizingMode: "provider" })).toMatchObject({
+      sizingMode: "provider",
+    });
+    expect(EmbedDataSchema.parse({ sizingMode: "aspect-ratio" })).toMatchObject({
+      sizingMode: "aspect-ratio",
     });
   });
 

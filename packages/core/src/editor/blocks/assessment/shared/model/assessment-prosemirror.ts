@@ -5,6 +5,12 @@ import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-posi
 
 export type AssessmentAncestorMatcher = readonly string[] | ((node: ProseMirrorNode) => boolean);
 
+export function assessmentPromptDomId(authoredBlockId: string | null): string | undefined {
+  const id = authoredBlockId?.trim();
+  if (!id) return undefined;
+  return `sc-assessment-prompt-${encodeURIComponent(id).replaceAll("%", "-")}`;
+}
+
 export function countAssessmentHints(node: ProseMirrorNode): number {
   let total = 0;
   node.forEach((child) => {
@@ -36,4 +42,18 @@ export function findAncestorAssessmentBlockId(
   }
 
   return null;
+}
+
+export function isInsideAssessmentContainer(
+  editor: Editor,
+  nodePos: number | undefined,
+  containerType: string,
+): boolean {
+  if (!isValidEditorDocPos(editor, nodePos)) return false;
+
+  const resolved = editor.state.doc.resolve(nodePos);
+  for (let depth = resolved.depth; depth >= 0; depth -= 1) {
+    if (resolved.node(depth).type.name === containerType) return true;
+  }
+  return false;
 }

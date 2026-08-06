@@ -4,7 +4,7 @@ import { Editor, Node, type JSONContent } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { GridNode, CellNode } from "@/editor/arrangements/grid/model/grid-nodes";
 import { LayoutNode, SectionNode } from "@/editor/arrangements/layout/model/layout-nodes";
 import { defineBlock } from "@/editor/blocks/block-definition";
@@ -574,6 +574,7 @@ function makeEditor(surfaceContent: JSONContent[]): Editor {
       }),
       ExtendedParagraph,
       CourseDocumentNode,
+      createCourseSectionNode(),
       SurfaceNode,
       RegionNode,
       GridNode,

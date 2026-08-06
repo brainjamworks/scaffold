@@ -1,6 +1,13 @@
-import { CheckIcon as Check, InfoIcon as Info, XIcon as XMark } from "@phosphor-icons/react";
+import {
+  ArrowsOutIcon as ArrowsOut,
+  CheckIcon as Check,
+  InfoIcon as Info,
+  XIcon as XMark,
+} from "@phosphor-icons/react";
+import * as Popover from "@radix-ui/react-popover";
 import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
 import {
+  useCallback,
   useEffect,
   useId,
   useMemo,
@@ -10,17 +17,21 @@ import {
   type ReactNode,
 } from "react";
 
-import * as Popover from "@/ui/components/Popover/Popover";
-import { WorkspaceDialog } from "@/ui/components/WorkspaceDialog/WorkspaceDialog";
 import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
-import type { HotspotClickRecord } from "@/editor/blocks/assessment/shared/runtime/assessment-interaction-runtime";
+import {
+  nodeViewUiKey,
+  usePickerOpen,
+} from "@/editor/media/authoring/picker/file-picker-open-state";
+import type {
+  HotspotClickRecord,
+  ImageHotspotClickChangeStatus,
+} from "@/editor/blocks/assessment/shared/runtime/assessment-interaction-runtime";
 import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { AssessmentRuntimePopoverShell } from "@/editor/blocks/assessment/shared/chrome/AssessmentRuntimePopoverShell";
 import { resolveAssessmentAttrParent } from "@/editor/blocks/assessment/shared/model/private-assessment-attrs";
 import { renderRuntimeRichTextNode } from "@/editor/rich-text/runtime/render-rich-text";
 import { useAssessmentRuntimeById } from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
 import { resolveActiveBoundedPlacement } from "@/editor/bounded-containers/model/bounded-container-structure-policy";
-import { MediaExpandButton } from "@/editor/media/presentation/MediaExpandButton";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 import { createEmbeddedDataId } from "@/document/model/identity/stable-ids";
 import { useMediaPort } from "@/host/providers/ScaffoldServicesProvider";
@@ -35,9 +46,9 @@ import {
   type ScaffoldRichTextDocument,
 } from "@/schemas/rich-text";
 import { AssessmentFeedbackContentSchema } from "@scaffold/contracts";
+import { CourseThemePortalBoundary } from "@/theme/course/CourseThemeProvider";
 
 import {
-  IMAGE_HOTSPOT_CORRECT_COLOR,
   createImageHotspotCanvasNode,
   eventToPercent,
   findHitHotspot,
@@ -47,6 +58,7 @@ import {
   ImageHotspotCanvasSurface,
   type ImageHotspotFitStrategy,
 } from "./image-hotspot-canvas-surface";
+import { ImageHotspotCourseWorkspace } from "./ImageHotspotCourseWorkspace";
 
 import "./ImageHotspot.css";
 
@@ -55,6 +67,8 @@ interface RuntimeCanvasProps {
   authoredBlockId: string | null;
   fitStrategy?: ImageHotspotFitStrategy | undefined;
   presentation?: "compact" | "expanded";
+  onAnnounce?: ((message: string) => void) | undefined;
+  renderLiveRegion?: boolean | undefined;
 }
 
 function readSpatialHotspotReveal(answers: unknown) {
@@ -155,6 +169,8 @@ function RuntimeCanvas({
   data,
   fitStrategy = "width",
   presentation = "compact",
+  onAnnounce,
+  renderLiveRegion = true,
 }: RuntimeCanvasProps) {
   const isExpanded = presentation === "expanded";
   const effectiveFitStrategy = isExpanded ? "contain" : fitStrategy;
@@ -168,25 +184,50 @@ function RuntimeCanvas({
   } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const fitStageRef = useRef<HTMLDivElement>(null);
-  const [workspaceOpen, setWorkspaceOpen] = useState(false);
+  const workspaceKey = nodeViewUiKey({
+    owner: "image-hotspot",
+    surface: "course-workspace-runtime",
+    id: authoredBlockId,
+  });
+  const [workspaceOpen, setWorkspaceOpen] = usePickerOpen(workspaceKey);
+  const [announcement, setAnnouncement] = useState("");
+  const [mediaStatus, setMediaStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [imageError, setImageError] = useState(false);
   const surfaceDescriptionId = useId();
+  const announce = useCallback(
+    (message: string) => {
+      if (onAnnounce) onAnnounce(message);
+      else setAnnouncement(message);
+    },
+    [onAnnounce],
+  );
 
   const image = data.image;
   const externalSrc = image?.mode === "external" ? image.src : null;
   const managedMediaId = image?.mode === "managed" ? image.mediaId : null;
 
   useEffect(() => {
-    if (!managedMediaId) return undefined;
+    if (!managedMediaId) {
+      setMediaStatus("idle");
+      return undefined;
+    }
     let cancelled = false;
+    setMediaStatus("loading");
     void (async () => {
       try {
         if (!mediaPort) {
           throw new Error("No media port configured.");
         }
         const url = await mediaPort.resolve(managedMediaId);
-        if (!cancelled) setResolvedManagedSrc({ mediaId: managedMediaId, url });
+        if (!cancelled) {
+          setResolvedManagedSrc({ mediaId: managedMediaId, url });
+          setMediaStatus("idle");
+        }
       } catch {
-        if (!cancelled) setResolvedManagedSrc(null);
+        if (!cancelled) {
+          setResolvedManagedSrc(null);
+          setMediaStatus("error");
+        }
       }
     })();
     return () => {
@@ -199,6 +240,10 @@ function RuntimeCanvas({
     (managedMediaId && resolvedManagedSrc?.mediaId === managedMediaId
       ? resolvedManagedSrc.url
       : null);
+
+  useEffect(() => {
+    setImageError(false);
+  }, [resolvedSrc]);
 
   const submitted = runtimeProblem?.state.submitted ?? false;
   const answerKeyVisible = runtimeProblem?.answerKeyVisible ?? false;
@@ -221,8 +266,47 @@ function RuntimeCanvas({
     !problem || submitted || hasRevealPayload || Boolean(runtimeProblem?.exhausted);
   const disabled = responseLocked || capped;
 
+  useEffect(() => {
+    if (answerKeyVisible) {
+      announce("Answer revealed.");
+    } else if (submitted) {
+      announce(
+        feedbackResult?.isCorrect ? "Answer submitted. Correct." : "Answer submitted. Incorrect.",
+      );
+    }
+  }, [announce, answerKeyVisible, feedbackResult?.isCorrect, submitted]);
+
+  const announceAddResult = (
+    status: ImageHotspotClickChangeStatus,
+    hotspot: HotspotItem | null,
+  ) => {
+    const nextCount = (problem?.clicks.length ?? 0) + (status === "added" ? 1 : 0);
+    if (status === "added") {
+      announce(
+        hotspot
+          ? `${hotspot.label} selected. ${nextCount} ${nextCount === 1 ? "attempt" : "attempts"}.`
+          : `Miss recorded. ${nextCount} ${nextCount === 1 ? "attempt" : "attempts"}.`,
+      );
+    } else if (status === "duplicate") {
+      announce(`${hotspot?.label ?? "That region"} is already selected.`);
+    } else if (status === "limit") {
+      announce("Selection limit reached.");
+    } else if (status === "locked") {
+      announce("This answer is locked.");
+    } else {
+      announce("That selection was rejected.");
+    }
+  };
+
   const handleImageClick = (e: MouseEvent<HTMLDivElement>, aspectRatio: number) => {
-    if (disabled || !containerRef.current || !problem) return;
+    if (!problem || !containerRef.current) {
+      announce("This answer is not accepting selections.");
+      return;
+    }
+    if (disabled) {
+      announce(capped && !responseLocked ? "Selection limit reached." : "This answer is locked.");
+      return;
+    }
     const pct = eventToPercent(e, containerRef.current);
     const hit = findHitHotspot(pct.x, pct.y, data.hotspots, aspectRatio);
     const click: HotspotClickRecord = {
@@ -231,11 +315,29 @@ function RuntimeCanvas({
       y: pct.y,
       hotspotId: hit?.id ?? null,
     };
-    problem.addClick(click);
+    announceAddResult(problem.addClick(click), hit);
   };
 
-  if (!data.image || !resolvedSrc) {
-    return <p className="sc-image-hotspot-runtime-missing">Image not configured.</p>;
+  if (!data.image) {
+    return (
+      <p role="status" className="sc-course-image-hotspot-runtime-missing">
+        Image not configured.
+      </p>
+    );
+  }
+  if (mediaStatus === "loading") {
+    return (
+      <p role="status" className="sc-course-image-hotspot-runtime-missing">
+        Loading hotspot image…
+      </p>
+    );
+  }
+  if (mediaStatus === "error" || imageError || !resolvedSrc) {
+    return (
+      <p role="alert" className="sc-course-image-hotspot-runtime-missing">
+        Hotspot image could not be loaded.
+      </p>
+    );
   }
 
   const markerState = (click: HotspotClickRecord) => {
@@ -286,53 +388,38 @@ function RuntimeCanvas({
       ariaDescribedBy={surfaceDescriptionId}
       className={cn(
         disabled
-          ? "sc-image-hotspot-canvas--runtime-disabled"
-          : "sc-image-hotspot-canvas--runtime-enabled",
+          ? "sc-course-image-hotspot-canvas--runtime-disabled"
+          : "sc-course-image-hotspot-canvas--runtime-enabled",
       )}
+      onImageError={() => setImageError(true)}
       onSurfaceClick={(event, surface) => handleImageClick(event, surface.aspectRatio)}
     >
       {({ naturalSize }) => (
         <>
           {!isExpanded && (
-            <WorkspaceDialog.Trigger asChild>
-              <MediaExpandButton
-                aria-label="Answer in expanded hotspot workspace"
-                tooltipLabel="Answer in expanded view"
-                hidden={responseLocked}
-              />
-            </WorkspaceDialog.Trigger>
+            <div
+              role="toolbar"
+              aria-label="Image hotspot view tools"
+              className="sc-course-image-hotspot__canvas-toolbar"
+            >
+              <ImageHotspotCourseWorkspace.Trigger asChild>
+                <ImageHotspotCourseWorkspace.Action
+                  label="Answer in expanded hotspot workspace"
+                  intent="edit"
+                >
+                  <ArrowsOut size={iconSm} aria-hidden />
+                </ImageHotspotCourseWorkspace.Action>
+              </ImageHotspotCourseWorkspace.Trigger>
+            </div>
           )}
           <span id={surfaceDescriptionId} className="sc-sr-only">
             {surfaceDescription}
           </span>
 
-          {data.debug && naturalSize && (
-            <svg
-              aria-hidden="true"
-              className="sc-image-hotspot-overlay"
-              viewBox={`0 0 ${naturalSize.w} ${naturalSize.h}`}
-              preserveAspectRatio="none"
-            >
-              {data.hotspots.map((h) => (
-                <circle
-                  key={h.id}
-                  cx={(h.centerX / 100) * naturalSize.w}
-                  cy={(h.centerY / 100) * naturalSize.h}
-                  r={(h.radius / 100) * naturalSize.w}
-                  fill="var(--color-primary)"
-                  fillOpacity={0.18}
-                  stroke="var(--color-primary)"
-                  strokeWidth={naturalSize.w * 0.0025}
-                  strokeDasharray="6 4"
-                />
-              ))}
-            </svg>
-          )}
-
           {answerKeyVisible && naturalSize && (
             <svg
               aria-hidden="true"
-              className="sc-image-hotspot-overlay"
+              className="sc-course-image-hotspot-overlay"
               viewBox={`0 0 ${naturalSize.w} ${naturalSize.h}`}
               preserveAspectRatio="none"
             >
@@ -342,10 +429,8 @@ function RuntimeCanvas({
                   cx={(h.centerX / 100) * naturalSize.w}
                   cy={(h.centerY / 100) * naturalSize.h}
                   r={(h.radius / 100) * naturalSize.w}
-                  fill="none"
-                  stroke={IMAGE_HOTSPOT_CORRECT_COLOR}
-                  strokeWidth={naturalSize.w * 0.004}
-                  className="sc-hotspot-pulse"
+                  data-course-state="correct"
+                  className="sc-course-image-hotspot__revealed-region"
                 />
               ))}
             </svg>
@@ -369,7 +454,17 @@ function RuntimeCanvas({
                 submitted={submitted}
                 answerKeyVisible={answerKeyVisible}
                 feedbackDocument={feedbackDocument}
-                onRemove={() => !submitted && !hasRevealPayload && problem?.removeClick(click.id)}
+                onRemove={() => {
+                  if (submitted || hasRevealPayload || !problem) {
+                    announce("This answer is locked.");
+                    return;
+                  }
+                  problem.removeClick(click.id);
+                  const nextCount = Math.max(0, problem.clicks.length - 1);
+                  announce(
+                    `Selection removed. ${nextCount} ${nextCount === 1 ? "attempt" : "attempts"}.`,
+                  );
+                }}
               />
             );
           })}
@@ -379,10 +474,15 @@ function RuntimeCanvas({
   );
 
   return (
-    <div className={cn("sc-image-hotspot-shell", isExpanded && "sc-image-hotspot-shell--expanded")}>
+    <div
+      className={cn(
+        "sc-course-image-hotspot-shell",
+        isExpanded && "sc-course-image-hotspot-shell--expanded",
+      )}
+    >
       {!responseLocked && data.maxClicks !== null && (
-        <div className="sc-image-hotspot-runtime-toolbar">
-          <p className="sc-image-hotspot-runtime-counter">
+        <div className="sc-course-image-hotspot-runtime-toolbar">
+          <p className="sc-course-image-hotspot-runtime-counter">
             {problem
               ? `${problem.clicks.length} of ${data.maxClicks} click${
                   data.maxClicks === 1 ? "" : "s"
@@ -393,35 +493,39 @@ function RuntimeCanvas({
       )}
 
       {!isExpanded ? (
-        <WorkspaceDialog.Root open={workspaceOpen} onOpenChange={setWorkspaceOpen}>
-          <div ref={fitStageRef} className="sc-image-hotspot-fit-stage">
+        <ImageHotspotCourseWorkspace.Root open={workspaceOpen} onOpenChange={setWorkspaceOpen}>
+          <div ref={fitStageRef} className="sc-course-image-hotspot-fit-stage">
             {runtimeSurface}
           </div>
-          <WorkspaceDialog.Content size="large">
-            <WorkspaceDialog.Header>
-              <div>
-                <WorkspaceDialog.Title>Answer image hotspot</WorkspaceDialog.Title>
-                <WorkspaceDialog.Description>
-                  Click the correct regions on the image.
-                </WorkspaceDialog.Description>
-              </div>
-              <WorkspaceDialog.Close aria-label="Close expanded hotspot workspace" />
-            </WorkspaceDialog.Header>
-            <WorkspaceDialog.Body className="sc-image-hotspot-runtime-workspace__body">
+          <ImageHotspotCourseWorkspace.Content
+            open={workspaceOpen}
+            title="Answer image hotspot"
+            description="Select every correct region on the image."
+          >
+            <div className="sc-course-image-hotspot-runtime-workspace__body">
               <RuntimeCanvas
                 authoredBlockId={authoredBlockId}
                 data={data}
                 fitStrategy="contain"
                 presentation="expanded"
+                onAnnounce={announce}
+                renderLiveRegion={false}
               />
-            </WorkspaceDialog.Body>
-          </WorkspaceDialog.Content>
-        </WorkspaceDialog.Root>
+            </div>
+          </ImageHotspotCourseWorkspace.Content>
+        </ImageHotspotCourseWorkspace.Root>
       ) : (
-        <div ref={fitStageRef} className="sc-image-hotspot-fit-stage">
-          {runtimeSurface}
-        </div>
+        <>
+          <div ref={fitStageRef} className="sc-course-image-hotspot-fit-stage">
+            {runtimeSurface}
+          </div>
+        </>
       )}
+      {renderLiveRegion ? (
+        <span className="sc-sr-only" aria-live="polite" aria-atomic="true">
+          {announcement}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -507,14 +611,15 @@ function ClickMarker({
           aria-label={ariaLabel}
           aria-describedby={descriptionId}
           data-hotspot-marker-id={click.id}
-          className={cn(
-            "sc-image-hotspot-marker",
-            isHit && "sc-image-hotspot-marker--hit",
-            state === "correct" && "sc-image-hotspot-marker--correct",
-            state === "incorrect" && "sc-image-hotspot-marker--incorrect",
-            state === "pending" && "sc-image-hotspot-marker--pending",
-            isMiss && "sc-image-hotspot-marker--miss",
-          )}
+          data-course-state={state === "correct" || state === "incorrect" ? state : undefined}
+          data-hotspot-state={
+            state === "pending" || state === "miss" || state === "submitted"
+              ? state
+              : submitted
+                ? "submitted"
+                : undefined
+          }
+          className="sc-course-image-hotspot-marker"
           style={{
             left: `${click.x}%`,
             top: `${click.y}%`,
@@ -536,7 +641,7 @@ function ClickMarker({
             />
           )}
           {state === "pending" && (
-            <span aria-hidden className="sc-image-hotspot-marker__pending-label">
+            <span aria-hidden className="sc-course-image-hotspot-marker__pending-label">
               ?
             </span>
           )}
@@ -545,23 +650,26 @@ function ClickMarker({
       </Popover.Anchor>
       {hasFeedback && (
         <Popover.Portal>
-          <Popover.Content
-            side="top"
-            sideOffset={8}
-            collisionPadding={12}
-            aria-label="Feedback"
-            style={{ zIndex: zIndex.popover }}
-          >
-            <AssessmentRuntimePopoverShell
-              icon={<Info size={iconSm} weight="fill" />}
-              title="Feedback"
-              tone="feedback"
+          <CourseThemePortalBoundary>
+            <Popover.Content
+              side="top"
+              sideOffset={8}
+              collisionPadding={12}
+              aria-label="Feedback"
+              className="sc-course-image-hotspot__feedback-popover"
+              style={{ zIndex: zIndex.popover }}
             >
-              <div className="sc-image-hotspot-runtime-rich-text">
-                {feedbackDocument ? renderRuntimeRichTextNode(feedbackDocument) : null}
-              </div>
-            </AssessmentRuntimePopoverShell>
-          </Popover.Content>
+              <AssessmentRuntimePopoverShell
+                icon={<Info size={iconSm} weight="fill" />}
+                title="Feedback"
+                tone="feedback"
+              >
+                <div className="sc-course-image-hotspot-runtime-rich-text">
+                  {feedbackDocument ? renderRuntimeRichTextNode(feedbackDocument) : null}
+                </div>
+              </AssessmentRuntimePopoverShell>
+            </Popover.Content>
+          </CourseThemePortalBoundary>
         </Popover.Portal>
       )}
     </Popover.Root>

@@ -67,11 +67,7 @@ function duplicateSurface(
   });
   const clone = schema.nodeFromJSON(json);
   return {
-    children: [
-      ...children.slice(0, sourceIndex + 1),
-      clone,
-      ...children.slice(sourceIndex + 1),
-    ],
+    children: [...children.slice(0, sourceIndex + 1), clone, ...children.slice(sourceIndex + 1)],
   };
 }
 

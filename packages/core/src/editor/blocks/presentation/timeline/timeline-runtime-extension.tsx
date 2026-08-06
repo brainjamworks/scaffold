@@ -15,7 +15,7 @@ const TimelineItemRuntimeNode = createTimelineItemNode({
 const TimelineRuntimeRootNode = createTimelineNode({
   addNodeView: () =>
     createBlockRuntimeNodeView({
-      className: "sc-timeline",
+      className: "sc-course-timeline",
       definition: timelineBlockDefinition,
       view: { component: TimelineRuntimeView },
     }),

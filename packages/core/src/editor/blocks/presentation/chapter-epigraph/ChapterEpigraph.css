@@ -1,100 +1,79 @@
 @layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
 
 @layer sc-components {
-  /* ─── Chapter epigraph ─────────────────────────────────────────
- * Italic opener quote at the start of a section. More restrained than
- * the pull quote: smaller scale, italic, hairline rule below, generous
- * top margin to read as a chapter mark. Default-centred (epigraphs
- * typically sit above the chapter body). */
-
-  .sc-chapter-epigraph {
-    margin-inline: auto;
-    max-width: 52ch;
-    display: flex;
-    flex-direction: column;
-    gap: 0.625rem;
+  .sc-course-chapter-epigraph-node {
+    min-width: 0;
+    container-name: sc-course-chapter-epigraph;
+    container-type: inline-size;
   }
 
-  .sc-chapter-epigraph[data-align="left"] {
+  blockquote.sc-course-chapter-epigraph,
+  .ProseMirror blockquote.sc-course-chapter-epigraph {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    margin: 0;
+    border: 0;
+    padding: 0;
+    color: inherit;
+    overflow-wrap: anywhere;
+  }
+
+  blockquote.sc-course-chapter-epigraph[data-align="left"],
+  .ProseMirror blockquote.sc-course-chapter-epigraph[data-align="left"] {
     margin-left: 0;
+    margin-right: auto;
     text-align: left;
   }
 
-  .sc-chapter-epigraph[data-align="center"] {
+  blockquote.sc-course-chapter-epigraph[data-align="center"],
+  .ProseMirror blockquote.sc-course-chapter-epigraph[data-align="center"] {
+    margin-inline: auto;
     text-align: center;
   }
 
-  .sc-chapter-epigraph__content {
-    display: contents;
-  }
-
-  .sc-chapter-epigraph__body {
-    font-family: var(--font-heading);
-    font-style: italic;
-    font-size: 1.0625rem;
-    line-height: 1.55;
-    color: var(--color-text-secondary);
-    text-wrap: balance;
-  }
-
-  .sc-chapter-epigraph__body > [data-node-view-content-react] > p {
-    margin: 0;
-  }
-
-  .sc-chapter-epigraph__body > [data-node-view-content-react] > p + p {
-    margin-top: 0.5rem;
-  }
-
-  .sc-chapter-epigraph__attribution {
-    font-family: var(--font-sans);
-    font-size: 0.6875rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--color-text-muted);
-  }
-
-  .sc-chapter-epigraph__attribution > [data-node-view-content-react] > p {
-    margin: 0;
-  }
-
-  .sc-chapter-epigraph[data-align="center"] .sc-chapter-epigraph__attribution {
-    display: flex;
-    justify-content: center;
-  }
-
-  /* Hairline rule below the attribution to mark the chapter transition. */
-  .sc-chapter-epigraph::after {
-    content: "";
-    display: block;
-    width: 2.5rem;
-    height: 1px;
-    background: var(--color-border);
-    margin-top: 0.5rem;
-  }
-
-  .sc-chapter-epigraph[data-align="center"]::after {
+  blockquote.sc-course-chapter-epigraph[data-align="right"],
+  .ProseMirror blockquote.sc-course-chapter-epigraph[data-align="right"] {
     margin-left: auto;
-    margin-right: auto;
+    margin-right: 0;
+    text-align: right;
   }
 
-  .sc-chapter-epigraph__attribution--hidden {
+  .sc-course-chapter-epigraph__content {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    align-items: flex-start;
+  }
+
+  .sc-course-chapter-epigraph[data-align="center"] .sc-course-chapter-epigraph__content {
+    align-items: center;
+  }
+
+  .sc-course-chapter-epigraph[data-align="right"] .sc-course-chapter-epigraph__content {
+    align-items: flex-end;
+  }
+
+  .sc-course-chapter-epigraph__body,
+  .sc-course-chapter-epigraph__attribution {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  :is(.sc-course-chapter-epigraph__body, .sc-course-chapter-epigraph__attribution)
+    [data-node-view-content-react]
+    > * {
+    margin: 0;
+  }
+
+  .sc-course-chapter-epigraph
+    :is(.sc-course-chapter-epigraph__body, .sc-course-chapter-epigraph__attribution)
+    [data-node-view-content-react]
+    > * {
+    text-align: inherit !important;
+  }
+
+  .sc-course-chapter-epigraph__attribution--hidden {
     display: none;
-  }
-
-  /* Empty placeholders */
-  .sc-chapter-epigraph__body > [data-node-view-content-react] > p:first-child:empty::before {
-    content: "A quote to open the section";
-    color: var(--color-text-placeholder);
-    font-style: italic;
-    pointer-events: none;
-  }
-
-  .sc-chapter-epigraph__attribution[data-empty]
-    > [data-node-view-content-react]
-    > p:first-child:empty::before {
-    content: "Attribution";
-    color: var(--color-text-placeholder);
-    pointer-events: none;
   }
 }

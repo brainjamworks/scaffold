@@ -10,7 +10,7 @@ import { NumberedListItemNode, NumberedListTitleNode } from "./slots";
 const NumberedListRuntimeRootNode = createNumberedListNode({
   addNodeView: () =>
     createBlockRuntimeNodeView({
-      className: "sc-numbered-list",
+      className: "sc-course-numbered-list",
       definition: numberedListBlockDefinition,
       view: { component: NumberedListView },
     }),

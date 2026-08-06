@@ -1,8 +1,9 @@
 import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
 import { DOMSerializer } from "@tiptap/pm/model";
+import { InfoIcon as Info } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, type RefObject } from "react";
 
-import { ChoiceAnswerItem } from "@/editor/blocks/assessment/shared/chrome/ChoiceAnswerItem";
+import { AssessmentSelectableChoiceRow } from "@/ui/components/course/AssessmentSelectableChoiceRow/AssessmentSelectableChoiceRow";
 import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { isAssessmentQuestionNode } from "./assessment-meta";
 import { RichFeedbackRuntimePopover } from "@/editor/blocks/assessment/shared/chrome/RichFeedbackRuntimePopover";
@@ -13,6 +14,8 @@ import { SelectableChoiceAttrsSchema, type SelectableChoiceAttrs } from "@/schem
 import { createSelectableChoiceNode, selectableChoiceBodyContent } from "./selectable-choice";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 import { serializeStaticRichTextHtml } from "@/editor/rich-text/static/render-rich-text";
+import { iconSm } from "@/ui/tokens/icon-sizes";
+import { describeMultiSelectLimitState } from "../runtime/assessment-interaction-runtime";
 
 export const SelectableChoiceRuntimeNode = createSelectableChoiceNode({
   addNodeView: () => ReactNodeViewRenderer(SelectableChoiceRuntimeNodeView),
@@ -102,6 +105,16 @@ function SelectableChoiceRuntimeNodeView(props: NodeViewProps) {
     <RichFeedbackRuntimePopover
       feedback={runtimeFeedback.data}
       triggerLabel={feedbackTriggerLabel}
+      trigger={
+        <button
+          type="button"
+          aria-label={feedbackTriggerLabel}
+          className="sc-course-assessment-choice__feedback-action"
+          data-no-select
+        >
+          <Info size={iconSm} weight="fill" aria-hidden />
+        </button>
+      }
     />
   ) : null;
 
@@ -110,7 +123,17 @@ function SelectableChoiceRuntimeNodeView(props: NodeViewProps) {
   const submitted = assessment?.problem?.state.submitted ?? false;
   const answerKeyVisible = assessment?.problem?.answerKeyVisible ?? false;
   const runtimeReady = Boolean(assessment?.problem);
-  const disabled = Boolean(submitted);
+  const interactionLocked = assessment?.problem?.interactionLocked ?? false;
+  const limitUnavailable =
+    choice?.kind === "multi-select" ? choice.isChoiceUnavailable(attrs.id) : false;
+  const disabled = interactionLocked || limitUnavailable;
+  const disabledReason =
+    limitUnavailable && choice?.kind === "multi-select"
+      ? describeMultiSelectLimitState({
+          maxSelections: choice.maxSelections,
+          selectedCount: choice.selectedCount,
+        })
+      : null;
   const inputType = choice?.inputType ?? "radio";
   const revealTarget = answerKeyVisible && (state === "correct" || state === "missed");
   const submitTarget = submitted && checked;
@@ -136,25 +159,22 @@ function SelectableChoiceRuntimeNodeView(props: NodeViewProps) {
       {...(submitTarget ? { [SUBMIT_SCROLL_TARGET_ATTR]: "" } : {})}
       {...(revealTarget ? { [REVEAL_SCROLL_TARGET_ATTR]: "" } : {})}
     >
-      <ChoiceAnswerItem
+      <AssessmentSelectableChoiceRow
         id={attrs.id}
         {...(assessment?.problem?.state.responseName
           ? { name: assessment.problem.state.responseName }
           : {})}
         inputType={inputType}
-        isCorrect={false}
         feedbackControl={feedbackControl}
-        isEditable={false}
         state={state}
         checked={checked}
         submitted={submitted}
         disabled={disabled}
+        {...(disabledReason ? { disabledReason } : {})}
         onSelect={handleSelect}
-        onToggleCorrect={() => {}}
-        onDelete={() => {}}
       >
         <div dangerouslySetInnerHTML={{ __html: staticContentHtml }} />
-      </ChoiceAnswerItem>
+      </AssessmentSelectableChoiceRow>
     </NodeViewWrapper>
   );
 }

@@ -9,7 +9,12 @@ import { rewriteMultiselectCopiedContent } from "@/editor/blocks/assessment/shar
 import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/model/assessment-capability";
 import { createStableId } from "@/document/model/identity/stable-ids";
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
-import type { ConfigurationControlDescriptor } from "@/editor/configuration/definition";
+import {
+  defineConfiguration,
+  type ConfigurationControlDescriptor,
+} from "@/editor/configuration/definition";
+import type { SettingsSheetApplyInput } from "@/editor/configuration/settings-sheet";
+import { updateNodeSettingsChecked } from "@/document/model/commands/settings";
 import { defineAssessmentCapability, defineBlock } from "@/editor/blocks/block-definition";
 import {
   multiselectResponseCodec,
@@ -21,7 +26,7 @@ import {
 
 export const MULTISELECT_BLOCK_ID = "multiselect";
 
-const multiselectConfiguration = createAssessmentConfiguration({
+const baseMultiselectConfiguration = createAssessmentConfiguration({
   schema: MultiselectSettingsSchema,
   title: "Multi-select settings",
   defaultOpenSections: ["scoring"],
@@ -73,6 +78,54 @@ const multiselectConfiguration = createAssessmentConfiguration({
     },
   ] satisfies ConfigurationControlDescriptor[],
 });
+
+const multiselectConfiguration = defineConfiguration({
+  ...baseMultiselectConfiguration,
+  apply: applyMultiselectSettings,
+});
+
+function applyMultiselectSettings({ attr, schema, target, tr, value }: SettingsSheetApplyInput) {
+  if (attr !== "settings") {
+    return {
+      ok: false as const,
+      issue: {
+        code: "invalid_multiselect_settings_attr",
+        message: "Multi-select settings must write to settings.",
+      },
+    };
+  }
+
+  const parsed = MultiselectSettingsSchema.safeParse(value);
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      issue: {
+        code: "invalid_multiselect_settings",
+        message: parsed.error.message,
+      },
+    };
+  }
+
+  const nodeId = target.node.attrs["id"];
+  if (typeof nodeId !== "string") {
+    return {
+      ok: false as const,
+      issue: {
+        code: "missing_multiselect_target_id",
+        message: "The multi-select target has no stable id.",
+      },
+    };
+  }
+
+  return updateNodeSettingsChecked({
+    tr,
+    nodeId,
+    nodeType: target.node.type.name,
+    attr,
+    schema,
+    value: parsed.data,
+  });
+}
 
 export const multiselectBlockDefinition = defineBlock({
   nodeType: "multiselect",

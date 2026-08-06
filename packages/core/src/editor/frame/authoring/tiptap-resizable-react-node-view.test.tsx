@@ -13,7 +13,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { CellAuthoringNode, GridAuthoringNode } from "../../arrangements/grid/authoring/grid-nodes";
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { CELL_ARRANGEMENT_CONTENT } from "@/document/model/content-model/content-groups";
 import {
   AUTHORING_CHROME_ATTR,
@@ -1142,6 +1142,7 @@ describe("createTiptapResizableReactNodeView", () => {
         StarterKit.configure({ document: false, undoRedo: false }),
         createScaffoldInteractionOwnerExtension(testBlockRegistry),
         CourseDocumentNode,
+        createCourseSectionNode(),
         SurfaceNode,
         RegionNode,
         GridAuthoringNode,

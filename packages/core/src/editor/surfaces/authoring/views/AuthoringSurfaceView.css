@@ -97,7 +97,7 @@
     )
     > [data-node-view-content-react]
     > :not(.react-renderer):not(:last-child) {
-    margin-bottom: var(--sc-surface-flow-gap);
+    margin-bottom: var(--sc-authoring-node-flow-gap, var(--sc-surface-flow-gap));
   }
 
   .scaffold-authoring-surface-view
@@ -112,6 +112,6 @@
     > [data-node-view-content-react]
     > .react-renderer:not(:last-child)
     > [data-authoring-frame] {
-    margin-bottom: var(--sc-surface-flow-gap);
+    margin-bottom: var(--sc-authoring-node-flow-gap, var(--sc-surface-flow-gap));
   }
 }

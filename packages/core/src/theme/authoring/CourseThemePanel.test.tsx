@@ -1,23 +1,61 @@
 // @vitest-environment happy-dom
 
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import type { CourseThemeRef, PersistedCourseTheme } from "@scaffold/contracts";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Editor, Node, type JSONContent } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import {
-  SCAFFOLD_DEFAULT_PRESET,
-  createScaffoldDefaultTheme,
-} from "@/theme/model/built-in-presets";
-import { createThemeCatalogue, resolveCourseTheme, type ScaffoldColorMode } from "@/theme/model";
+  createCourseColourSystemRegistry,
+  type CourseColourSystemRegistry,
+  type CourseColourSystemRevision,
+} from "@/theme/course/colour-systems/registry";
+import { SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1 } from "@/theme/course/colour-systems/scaffold-indigo/v1";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
+import {
+  createCourseDesignThemeRegistry,
+  type CourseDesignThemeRegistry,
+  type CourseDesignThemeRevision,
+} from "@/theme/course/designs/registry";
+import { SCAFFOLD_FLOW_DESIGN_V1 } from "@/theme/course/designs/scaffold-flow/v1/definition";
 
 import { CourseThemePanel } from "./CourseThemePanel";
 
 const editors: Editor[] = [];
+const alternateColourSystem = {
+  ...SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1,
+  id: "scaffold-coral",
+  label: "Scaffold Coral",
+  description: "A warm complete Course colour system.",
+  radix: { ...SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1.radix, accentColor: "crimson" },
+} satisfies CourseColourSystemRevision;
+const alternateDesign = {
+  ...SCAFFOLD_FLOW_DESIGN_V1,
+  id: "scaffold-editorial",
+  label: "Scaffold Editorial",
+  description: "An editorial Course design.",
+  defaultColourSystem: reference(alternateColourSystem),
+  authorDefaults: {
+    ...SCAFFOLD_FLOW_DESIGN_V1.authorDefaults,
+    design: {
+      roundness: "full",
+      stroke: "strong",
+      shadow: "soft",
+      density: "spacious",
+    },
+  },
+  rootClassName: "sc-course-theme-scaffold-editorial-v1",
+} satisfies CourseDesignThemeRevision;
+const designs = createCourseDesignThemeRegistry([SCAFFOLD_FLOW_DESIGN_V1, alternateDesign]);
+const colourSystems = createCourseColourSystemRegistry([
+  SCAFFOLD_INDIGO_COLOUR_SYSTEM_V1,
+  alternateColourSystem,
+]);
 const TestArrangementNode = Node.create({
   name: "testArrangement",
   group: "arrangement",
@@ -35,7 +73,7 @@ afterEach(() => {
 });
 
 describe("CourseThemePanel", () => {
-  it("renders the complete Theme form through one shared accordion path", async () => {
+  it("retains the theme trigger, tooltip, right sheet, card selectors, and reset footer", async () => {
     const user = userEvent.setup();
     const editor = createEditor();
     render(<PanelHarness editor={editor} />);
@@ -43,337 +81,648 @@ describe("CourseThemePanel", () => {
     const trigger = screen.getByRole("button", { name: "Open course theme" });
     expect(trigger).toHaveClass("sc-icon-button");
     expect(trigger).toHaveTextContent("");
-
     await user.hover(trigger);
     expect(await screen.findByRole("tooltip")).toHaveTextContent("Course theme");
     await user.unhover(trigger);
     await user.click(trigger);
+
     const panel = screen.getByRole("dialog", { name: "Course theme" });
-
-    for (const section of [
-      "Presets",
-      "Foundation colours",
-      "Creative palette",
-      "Links",
-      "Typography",
-      "Design",
-    ]) {
-      expect(within(panel).getByRole("button", { name: section })).toHaveAttribute(
-        "aria-expanded",
-        "true",
-      );
-    }
-
-    expect(panel.querySelectorAll(".sc-accordion-trigger")).toHaveLength(6);
-    expect(panel.querySelectorAll(".sc-sheet-section")).toHaveLength(0);
-    expect(panel.querySelectorAll(".sc-course-theme-colour-accordion")).toHaveLength(0);
-    expect(panel.querySelectorAll(".sc-course-theme-preset")).toHaveLength(0);
-    expect(panel.querySelectorAll(".sc-course-theme-reset")).toHaveLength(0);
-    expect(within(panel).getByRole("radiogroup", { name: "Course theme preset" })).toHaveClass(
+    expect(panel).toHaveTextContent(
+      "Choose a complete Course design and colour system for learner-facing content.",
+    );
+    expect(within(panel).getByRole("button", { name: "Design" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(within(panel).getByRole("button", { name: "Colour system" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(within(panel).getByRole("radiogroup", { name: "Course design" })).toHaveClass(
       "sc-settings-card-select",
     );
-    expect(panel.querySelectorAll(".sc-settings-color-field__trigger")).toHaveLength(11);
-    expect(panel.querySelectorAll(".sc-color-picker-control-stack")).toHaveLength(0);
-    const backgroundTrigger = within(panel).getByRole("button", {
-      name: (name) => name.startsWith("Edit Background, current value "),
-    });
-    await user.click(backgroundTrigger);
-    expect(panel.querySelectorAll(".sc-color-picker-control-stack")).toHaveLength(1);
-    await user.click(backgroundTrigger);
-    expect(panel.querySelectorAll(".sc-color-picker-control-stack")).toHaveLength(0);
-    expect(within(panel).getByRole("combobox", { name: "Heading font" })).toBeInTheDocument();
-    expect(within(panel).getByRole("spinbutton", { name: "Roundness" })).toBeInTheDocument();
-
-    expect(screen.queryByRole("heading", { name: "Preview colours" })).toBeNull();
-    expect(screen.queryByRole("radiogroup", { name: "Course preview colours" })).toBeNull();
-    expect(screen.queryByRole("radiogroup", { name: "Palette to edit" })).toBeNull();
+    expect(within(panel).getByRole("radiogroup", { name: "Course colour system" })).toHaveClass(
+      "sc-settings-card-select",
+    );
+    const reset = within(panel).getByRole("button", { name: "Reset complete theme" });
+    expect(reset.closest(".sc-app-sheet-footer")).not.toBeNull();
+    expect(reset.closest(".sc-settings-form__footer-actions")).not.toBeNull();
+    expect(reset.closest(".sc-app-sheet-body")).toBeNull();
   });
 
-  it("selects and resets presets through generic cards and actions", async () => {
+  it("renders exact options from registry labels and descriptions", async () => {
+    const user = userEvent.setup();
+    render(<PanelHarness editor={createEditor()} />);
+    await user.click(screen.getByRole("button", { name: "Open course theme" }));
+
+    for (const design of designs.definitions) {
+      const option = screen.getByRole("radio", { name: `Use ${design.label} design` });
+      expect(option).toHaveTextContent(design.label);
+      expect(option).toHaveTextContent(design.description);
+    }
+    for (const colourSystem of colourSystems.definitions) {
+      const option = screen.getByRole("radio", {
+        name: `Use ${colourSystem.label} colour system`,
+      });
+      expect(option).toHaveTextContent(colourSystem.label);
+      expect(option).toHaveTextContent(colourSystem.description);
+    }
+  });
+
+  it("selects a design and adopts its exact default colour system", async () => {
     const user = userEvent.setup();
     const editor = createEditor();
-    const catalogue = createThemeCatalogue();
     const onThemeChange = vi.fn();
     render(<PanelHarness editor={editor} onThemeChange={onThemeChange} />);
-
     await user.click(screen.getByRole("button", { name: "Open course theme" }));
-    expect(screen.getByRole("dialog", { name: "Course theme" })).toBeInTheDocument();
 
-    for (const preset of catalogue.presets) {
-      const option = screen.getByRole("radio", { name: `Use ${preset.label} theme` });
-      await user.click(option);
-      expect(readTheme(editor).preset.id).toBe(preset.id);
-      expect(option).toHaveAttribute("aria-checked", "true");
-    }
+    await user.click(screen.getByRole("radio", { name: "Use Scaffold Editorial design" }));
 
-    const selected = catalogue.presets.at(-1)!;
-    const customised = readTheme(editor);
-    customised.values!.design.roundness = 0.95;
-    act(() => {
-      updateCourseTheme(editor, customised);
+    expect(readTheme(editor)).toEqual({
+      schemaVersion: 1,
+      design: reference(alternateDesign),
+      colourSystem: reference(alternateColourSystem),
+      overrides: {},
     });
-    const reset = screen.getByRole("button", { name: "Reset complete theme" });
-    expect(reset).toHaveClass("sc-button");
-    expect(reset.closest(".sc-sheet-footer")).not.toBeNull();
-    expect(reset.closest(".sc-sheet-body")).toBeNull();
-    await user.click(reset);
-    expect(readTheme(editor).values).toEqual(selected.values);
-    expect(onThemeChange).toHaveBeenCalled();
+    expect(onThemeChange).toHaveBeenLastCalledWith(readTheme(editor));
+    expect(screen.getByRole("radio", { name: "Use Scaffold Coral colour system" })).toBeChecked();
   });
 
-  it("keeps preset selection in document history", async () => {
+  it("changes only the exact colour-system reference", async () => {
     const user = userEvent.setup();
     const editor = createEditor();
-    const catalogue = createThemeCatalogue();
-    const initialPresetId = readTheme(editor).preset.id;
-    const nextPreset = catalogue.presets.find((preset) => preset.id !== initialPresetId)!;
     render(<PanelHarness editor={editor} />);
-
+    const before = readTheme(editor);
     await user.click(screen.getByRole("button", { name: "Open course theme" }));
-    await user.click(screen.getByRole("radio", { name: `Use ${nextPreset.label} theme` }));
-    expect(readTheme(editor).preset.id).toBe(nextPreset.id);
+
+    await user.click(screen.getByRole("radio", { name: "Use Scaffold Coral colour system" }));
+
+    expect(readTheme(editor)).toEqual({
+      ...before,
+      colourSystem: reference(alternateColourSystem),
+    });
+  });
+
+  it("resets to application defaults without changing course content", async () => {
+    const user = userEvent.setup();
+    const editor = createEditor({
+      schemaVersion: 1,
+      design: reference(alternateDesign),
+      colourSystem: reference(alternateColourSystem),
+      overrides: {},
+    });
+    const contentBefore = editor.getJSON().content![0]!.content;
+    render(<PanelHarness editor={editor} />);
+    await user.click(screen.getByRole("button", { name: "Open course theme" }));
+
+    await user.click(screen.getByRole("button", { name: "Reset complete theme" }));
+
+    expect(readTheme(editor)).toEqual(createDefaultPersistedCourseTheme());
+    expect(editor.getJSON().content![0]!.content).toEqual(contentBefore);
+  });
+
+  it("keeps selection and reset in separate undo history groups", async () => {
+    const user = userEvent.setup();
+    const editor = createEditor();
+    render(<PanelHarness editor={editor} />);
+    await user.click(screen.getByRole("button", { name: "Open course theme" }));
+    await user.click(screen.getByRole("radio", { name: "Use Scaffold Editorial design" }));
+    await user.click(screen.getByRole("button", { name: "Reset complete theme" }));
 
     expect(editor.commands.undo()).toBe(true);
-    expect(readTheme(editor).preset.id).toBe(initialPresetId);
+    expect(readTheme(editor).design).toEqual(reference(alternateDesign));
+    expect(editor.commands.undo()).toBe(true);
+    expect(readTheme(editor)).toEqual(createDefaultPersistedCourseTheme());
   });
 
-  it("edits and derives dark colours through generic field metadata and reset behavior", async () => {
+  it("reports unavailable references independently and leaves their selectors unselected", async () => {
     const user = userEvent.setup();
-    const editor = createEditor();
-    render(<PanelHarness editor={editor} mode="dark" />);
-
+    const editor = createEditor({
+      schemaVersion: 1,
+      design: { id: "missing-design", revision: "7" },
+      colourSystem: { id: "missing-colours", revision: "3" },
+      overrides: {},
+    });
+    render(<PanelHarness editor={editor} />);
     await user.click(screen.getByRole("button", { name: "Open course theme" }));
 
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("Saved design missing-design@7 is unavailable.");
+    expect(status).toHaveTextContent("Saved colour system missing-colours@3 is unavailable.");
     expect(
-      screen.getByText("Editing dark colours for the current application mode."),
-    ).toBeVisible();
-    expect(screen.getAllByText("Automatic", { selector: ".sc-pill" })).toHaveLength(11);
+      screen.getAllByRole("radio").every((option) => option.getAttribute("data-state") !== "on"),
+    ).toBe(true);
 
-    chooseThemeColour("Primary", "Secondary course primary");
-    expect(readTheme(editor).values!.colors.author.dark.sourceBySlot.primary).toBe("custom");
-    expect(readTheme(editor).values!.colors.resolved.dark.primary).toBe(
-      createThemeCatalogue().defaultPreset.values.colors.author.dark.values.secondary,
-    );
-    expect(readTheme(editor).values!.colors.resolved.light.primary).not.toBe(
-      createThemeCatalogue().defaultPreset.values.colors.author.dark.values.secondary,
-    );
-    expect(screen.getByText("Custom", { selector: ".sc-pill" })).toBeInTheDocument();
-
-    chooseThemeColour("Secondary", "Accent 1 course secondary");
-    expect(readTheme(editor).values!.colors.author.dark.sourceBySlot.secondary).toBe("custom");
-
-    openThemeColourPicker("Primary");
-    const useDerived = requiredThemePopoverButton("Use automatic primary colour");
-    expect(useDerived).toHaveClass("sc-color-picker-inline-action");
-    fireEvent.click(useDerived);
-
-    expect(readTheme(editor).values!.colors.author.dark.sourceBySlot.primary).toBe("derived");
-    expect(readTheme(editor).values!.colors.author.dark.sourceBySlot.secondary).toBe("custom");
-
-    const deriveAll = screen.getByRole("button", {
-      name: "Use automatic dark colours",
-    });
-    expect(deriveAll).toHaveClass("sc-button");
-    await user.click(deriveAll);
-
-    expect(Object.values(readTheme(editor).values!.colors.author.dark.sourceBySlot)).toEqual(
-      Array(11).fill("derived"),
-    );
-    expect(screen.queryByText("Custom", { selector: ".sc-pill" })).toBeNull();
+    await user.click(screen.getByRole("radio", { name: "Use Scaffold Editorial design" }));
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(readTheme(editor).design).toEqual(reference(alternateDesign));
+    expect(readTheme(editor).colourSystem).toEqual(reference(alternateColourSystem));
   });
 
-  it("resets palette sections through generic section actions as one undo step", async () => {
+  it("shows the four effective inherited Design overrides after the complete design selector", async () => {
     const user = userEvent.setup();
-    const editor = createEditor();
-    render(<PanelHarness editor={editor} />);
-
+    render(<PanelHarness editor={createEditor()} />);
     await user.click(screen.getByRole("button", { name: "Open course theme" }));
-    chooseThemeColour("Primary", "Secondary course primary");
-    expect(readTheme(editor).values!.colors.author.light.primary).toBe(
-      SCAFFOLD_DEFAULT_PRESET.values.colors.author.light.secondary,
-    );
 
-    const resetCreative = screen.getByRole("button", {
-      name: "Reset creative palette colours",
-    });
-    expect(resetCreative).toHaveClass("sc-button");
-    await user.click(resetCreative);
-
-    expect(readTheme(editor).values!.colors.author.light.primary).toBe(
-      SCAFFOLD_DEFAULT_PRESET.values.colors.author.light.primary,
+    const panel = screen.getByRole("dialog", { name: "Course theme" });
+    const design = within(panel).getByRole("region", { name: "Design" });
+    const selector = within(design).getByRole("radiogroup", { name: "Course design" });
+    const roundness = within(design).getByRole("combobox", { name: "Roundness" });
+    expect(
+      selector.compareDocumentPosition(roundness) & globalThis.Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(roundness).toHaveTextContent("Rounded");
+    expect(within(design).getByRole("combobox", { name: "Stroke" })).toHaveTextContent("Standard");
+    expect(within(design).getByRole("combobox", { name: "Shadow" })).toHaveTextContent("None");
+    expect(within(design).getByRole("combobox", { name: "Density" })).toHaveTextContent(
+      "Comfortable",
     );
-    expect(editor.commands.undo()).toBe(true);
-    expect(readTheme(editor).values!.colors.author.light.primary).toBe(
-      SCAFFOLD_DEFAULT_PRESET.values.colors.author.light.secondary,
-    );
+    expect(within(design).getAllByText("Inherited")).toHaveLength(4);
+    expect(within(design).getAllByRole("button", { name: /^Use inherited / })).toHaveLength(4);
+    expect(
+      within(design).getByRole("button", { name: "Reset all Design overrides" }),
+    ).toBeDisabled();
   });
 
-  it("resets edited typography through one undo step", async () => {
+  it("writes each Design override immediately as semantic intent", async () => {
     const user = userEvent.setup();
     const editor = createEditor();
-    render(<PanelHarness editor={editor} />);
-
+    const onThemeChange = vi.fn();
+    render(<PanelHarness editor={editor} onThemeChange={onThemeChange} />);
     await user.click(screen.getByRole("button", { name: "Open course theme" }));
-    await selectMenuOption(user, "Heading font", "Inter");
-    await selectMenuOption(user, "Body font", "Source Serif 4");
-    await selectMenuOption(user, "Code font", "Poppins");
-    await selectMenuOption(user, "Heading weight", "800");
-    await selectMenuOption(user, "Body weight", "700");
-    await replaceNumber(user, "Type scale", "1.3");
-    await replaceNumber(user, "Body line height", "1.8");
-    await replaceNumber(user, "Heading line height", "1.1");
-    await replaceNumber(user, "Heading letter spacing", "0.1");
-    await user.click(screen.getByRole("checkbox", { name: "Uppercase headings" }));
 
-    expect(readTheme(editor).values!.typography).toMatchObject({
-      headingFontId: "scaffold-inter",
-      bodyFontId: "scaffold-source-serif-4",
-      codeFontId: "scaffold-poppins",
-      headingWeight: 800,
-      bodyWeight: 700,
-      typeScale: 1.3,
-      bodyLineHeight: 1.8,
-      headingLineHeight: 1.1,
-      headingLetterSpacing: 0.1,
-      uppercaseHeadings: true,
+    await chooseSelectOption(user, "Roundness", "Square");
+    await chooseSelectOption(user, "Stroke", "Strong");
+    await chooseSelectOption(user, "Shadow", "Defined");
+    await chooseSelectOption(user, "Density", "Spacious");
+
+    expect(readTheme(editor).overrides).toEqual({
+      design: { roundness: "square", stroke: "strong", shadow: "defined", density: "spacious" },
     });
-
-    const resetTypography = screen.getByRole("button", { name: "Reset course typography" });
-    expect(resetTypography).toHaveClass("sc-button");
-
-    await user.click(resetTypography);
-    expect(readTheme(editor).values!.typography).toEqual(SCAFFOLD_DEFAULT_PRESET.values.typography);
-    expect(editor.commands.undo()).toBe(true);
-    expect(readTheme(editor).values!.typography.uppercaseHeadings).toBe(true);
+    expect(onThemeChange).toHaveBeenLastCalledWith(readTheme(editor));
+    expect(
+      within(screen.getByRole("region", { name: "Design" })).getAllByText("Custom"),
+    ).toHaveLength(4);
   });
 
-  it("resets edited design values through one undo step", async () => {
+  it("individually resets each sparse Design override", async () => {
     const user = userEvent.setup();
-    const editor = createEditor();
+    const editor = createEditor({
+      ...createDefaultPersistedCourseTheme(),
+      overrides: {
+        typography: { courseTextSize: "larger" },
+        design: { roundness: "square", stroke: "strong", shadow: "defined", density: "spacious" },
+      },
+    });
     render(<PanelHarness editor={editor} />);
-
     await user.click(screen.getByRole("button", { name: "Open course theme" }));
-    await replaceNumber(user, "Roundness", "0.9");
-    await replaceNumber(user, "Stroke", "2");
-    await selectMenuOption(user, "Shadow", "Defined");
-    await selectMenuOption(user, "Density", "Spacious");
 
-    expect(readTheme(editor).values!.design).toMatchObject({
-      roundness: 0.9,
-      stroke: 2,
+    await user.click(screen.getByRole("button", { name: "Use inherited roundness" }));
+    expect(readTheme(editor).overrides.design).toEqual({
+      stroke: "strong",
       shadow: "defined",
       density: "spacious",
     });
+    await user.click(screen.getByRole("button", { name: "Use inherited stroke" }));
+    await user.click(screen.getByRole("button", { name: "Use inherited shadow" }));
+    await user.click(screen.getByRole("button", { name: "Use inherited density" }));
 
-    const resetDesign = screen.getByRole("button", { name: "Reset course design" });
-    expect(resetDesign).toHaveClass("sc-button");
-    await user.click(resetDesign);
-    expect(readTheme(editor).values!.design).toEqual(SCAFFOLD_DEFAULT_PRESET.values.design);
+    expect(readTheme(editor).overrides).toEqual({ typography: { courseTextSize: "larger" } });
+    expect(screen.getByRole("combobox", { name: "Roundness" })).toHaveTextContent("Rounded");
+  });
+
+  it("resets only Design overrides through the Design section action", async () => {
+    const user = userEvent.setup();
+    const initialTheme: PersistedCourseTheme = {
+      schemaVersion: 1,
+      design: reference(SCAFFOLD_FLOW_DESIGN_V1),
+      colourSystem: reference(alternateColourSystem),
+      overrides: {
+        typography: { courseTextSize: "larger", uppercaseHeadings: true },
+        design: { roundness: "square", density: "spacious" },
+      },
+    };
+    const editor = createEditor(initialTheme);
+    const onThemeChange = vi.fn();
+    render(<PanelHarness editor={editor} onThemeChange={onThemeChange} />);
+    await user.click(screen.getByRole("button", { name: "Open course theme" }));
+
+    const reset = screen.getByRole("button", { name: "Reset all Design overrides" });
+    expect(reset).toHaveTextContent("Reset Design overrides");
+    expect(reset.closest(".sc-settings-form__section-actions")).not.toBeNull();
+    expect(reset.closest(".sc-app-sheet-footer")).toBeNull();
+    await user.click(reset);
+
+    expect(readTheme(editor)).toEqual({
+      ...initialTheme,
+      overrides: { typography: initialTheme.overrides.typography },
+    });
+    expect(onThemeChange).toHaveBeenLastCalledWith(readTheme(editor));
     expect(editor.commands.undo()).toBe(true);
-    expect(readTheme(editor).values!.design.density).toBe("spacious");
+    expect(readTheme(editor)).toEqual(initialTheme);
   });
 
-  it("reverts an invalid numeric draft on blur", async () => {
+  it("re-normalizes and resynchronizes Design overrides when selecting a complete design", async () => {
     const user = userEvent.setup();
-    const editor = createEditor();
+    const editor = createEditor({
+      ...createDefaultPersistedCourseTheme(),
+      overrides: {
+        typography: { courseTextSize: "larger" },
+        design: { roundness: "full", stroke: "light" },
+      },
+    });
+    const onTransaction = vi.fn();
+    editor.on("transaction", onTransaction);
     render(<PanelHarness editor={editor} />);
-
     await user.click(screen.getByRole("button", { name: "Open course theme" }));
-    const roundness = screen.getByRole("spinbutton", { name: "Roundness" });
-    const persisted = readTheme(editor).values!.design.roundness;
 
-    await user.clear(roundness);
-    await user.type(roundness, "3");
-    roundness.blur();
+    await user.click(screen.getByRole("radio", { name: "Use Scaffold Editorial design" }));
 
-    expect(roundness).toHaveValue(persisted);
-    expect(readTheme(editor).values!.design.roundness).toBe(persisted);
+    expect(onTransaction).toHaveBeenCalledTimes(1);
+    expect(readTheme(editor)).toEqual({
+      schemaVersion: 1,
+      design: reference(alternateDesign),
+      colourSystem: reference(alternateColourSystem),
+      overrides: {
+        typography: { courseTextSize: "larger" },
+        design: { stroke: "light" },
+      },
+    });
+    expect(screen.getByRole("combobox", { name: "Roundness" })).toHaveTextContent("Full");
+    expect(screen.getByRole("button", { name: "Use inherited roundness" })).toBeDisabled();
+    expect(screen.getByRole("combobox", { name: "Stroke" })).toHaveTextContent("Light");
+    expect(screen.getByRole("button", { name: "Use inherited stroke" })).toBeEnabled();
   });
 
-  it("preserves an unavailable saved font and exposes generic status metadata", async () => {
+  it("synchronizes selected cards when the persisted theme prop changes", async () => {
     const user = userEvent.setup();
     const editor = createEditor();
-    const theme = readTheme(editor);
-    theme.values!.typography.headingFontId = "host-font-missing";
-    updateCourseTheme(editor, theme);
-    render(<PanelHarness editor={editor} />);
-
-    await user.click(screen.getByRole("button", { name: "Open course theme" }));
-    const headingFont = screen.getByRole("combobox", { name: "Heading font" });
-    const describedBy = headingFont.getAttribute("aria-describedby")?.split(" ") ?? [];
-    const unavailable = screen.getByText("Unavailable", { selector: ".sc-pill" });
-
-    expect(headingFont).toHaveTextContent("Unavailable (host-font-missing)");
-    await user.click(headingFont);
-    expect(
-      await screen.findByRole("option", { name: "Unavailable (host-font-missing)" }),
-    ).toBeInTheDocument();
-    expect(document.getElementById(describedBy[0] ?? "")).toBe(unavailable);
-  });
-
-  it("shows an unavailable saved preset only to the author", async () => {
-    const user = userEvent.setup();
-    const editor = createEditor();
-    const catalogue = createThemeCatalogue();
-    const theme = readTheme(editor);
-    theme.preset.id = "host-missing";
-    theme.preset.revision = null;
-    theme.values = null;
-    render(
+    const defaults = createDefaultPersistedCourseTheme();
+    const view = render(
       <CourseThemePanel
         editor={editor}
-        catalogue={catalogue}
-        theme={theme}
-        resolvedTheme={resolveCourseTheme({ catalogue, mode: "light", theme })}
+        designs={designs}
+        colourSystems={colourSystems}
+        theme={defaults}
+        onThemeChange={() => undefined}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Open course theme" }));
+    expect(screen.getByRole("radio", { name: "Use Scaffold Flow design" })).toBeChecked();
+
+    view.rerender(
+      <CourseThemePanel
+        editor={editor}
+        designs={designs}
+        colourSystems={colourSystems}
+        theme={{
+          schemaVersion: 1,
+          design: reference(alternateDesign),
+          colourSystem: reference(alternateColourSystem),
+          overrides: {},
+        }}
         onThemeChange={() => undefined}
       />,
     );
 
+    expect(screen.getByRole("radio", { name: "Use Scaffold Editorial design" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Use Scaffold Coral colour system" })).toBeChecked();
+  });
+
+  it("restores the saved selection when the document command refuses a write", async () => {
+    const user = userEvent.setup();
+    const editor = createEditor();
+    replaceThemeAttr(editor, { malformed: true });
+    const onThemeChange = vi.fn();
+    render(
+      <CourseThemePanel
+        editor={editor}
+        designs={designs}
+        colourSystems={colourSystems}
+        theme={createDefaultPersistedCourseTheme()}
+        onThemeChange={onThemeChange}
+      />,
+    );
     await user.click(screen.getByRole("button", { name: "Open course theme" }));
 
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "The saved theme is unavailable. Scaffold Default is shown instead.",
+    await user.click(screen.getByRole("radio", { name: "Use Scaffold Editorial design" }));
+
+    expect(screen.getByRole("radio", { name: "Use Scaffold Flow design" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Use Scaffold Editorial design" })).not.toBeChecked();
+    expect(onThemeChange).not.toHaveBeenCalled();
+    expect(editor.state.doc.firstChild?.attrs["theme"]).toEqual({ malformed: true });
+  });
+
+  it("disables theme mutations without a live editor", () => {
+    render(
+      <CourseThemePanel
+        editor={null}
+        designs={designs}
+        colourSystems={colourSystems}
+        theme={createDefaultPersistedCourseTheme()}
+        onThemeChange={() => undefined}
+      />,
     );
+
+    expect(screen.getByRole("button", { name: "Open course theme" })).toBeDisabled();
+  });
+
+  it("shows effective inherited typography values from registered options", async () => {
+    const user = userEvent.setup();
+    render(<PanelHarness editor={createEditor()} />);
+    await user.click(screen.getByRole("button", { name: "Open course theme" }));
+
+    const panel = screen.getByRole("dialog", { name: "Course theme" });
+    const typography = within(panel).getByRole("region", { name: "Typography" });
+    expect(within(typography).getByRole("combobox", { name: "Body font" })).toHaveTextContent(
+      "Satoshi",
+    );
+    expect(within(typography).getByRole("combobox", { name: "Heading font" })).toHaveTextContent(
+      "Satoshi",
+    );
+    expect(within(typography).getByRole("combobox", { name: "Code font" })).toHaveTextContent(
+      "JetBrains Mono",
+    );
+    expect(within(typography).getByRole("combobox", { name: "Body weight" })).toHaveTextContent(
+      "400",
+    );
+    expect(within(typography).getByRole("combobox", { name: "Heading weight" })).toHaveTextContent(
+      "600",
+    );
+    expect(
+      within(typography).getByRole("combobox", { name: "Course text size" }),
+    ).toHaveTextContent("Standard");
+    expect(
+      within(typography).getByRole("combobox", { name: "Body line spacing" }),
+    ).toHaveTextContent("Standard");
+    expect(
+      within(typography).getByRole("combobox", { name: "Heading line spacing" }),
+    ).toHaveTextContent("Standard");
+    expect(
+      within(typography).getByRole("combobox", { name: "Heading letter spacing" }),
+    ).toHaveTextContent("Standard");
+    expect(
+      within(typography).getByRole("checkbox", { name: "Uppercase headings" }),
+    ).not.toBeChecked();
+    expect(within(typography).getAllByText("Inherited")).toHaveLength(10);
+    expect(within(typography).getAllByRole("button", { name: /^Use inherited / })).toHaveLength(10);
+    for (const reset of within(typography).getAllByRole("button", { name: /^Use inherited / })) {
+      expect(reset).toBeDisabled();
+    }
+    expect(
+      within(typography).getByRole("button", { name: "Reset all typography overrides" }),
+    ).toBeDisabled();
+
+    const bodyFont = within(typography).getByRole("combobox", { name: "Body font" });
+    await user.click(bodyFont);
+    expect(screen.queryByRole("option", { name: "JetBrains Mono" })).toBeNull();
+    await user.keyboard("{Escape}");
+    const codeFont = within(typography).getByRole("combobox", { name: "Code font" });
+    await user.click(codeFont);
+    expect(screen.queryByRole("option", { name: "Satoshi" })).toBeNull();
+    await user.keyboard("{Escape}");
+    expect(within(typography).queryByRole("button", { name: /apply|save/i })).toBeNull();
+  });
+
+  it("writes each typography choice immediately and reports the live theme", async () => {
+    const user = userEvent.setup();
+    const editor = createEditor();
+    const onThemeChange = vi.fn();
+    render(<PanelHarness editor={editor} onThemeChange={onThemeChange} />);
+    await user.click(screen.getByRole("button", { name: "Open course theme" }));
+
+    await chooseSelectOption(user, "Body font", "Poppins");
+    await chooseSelectOption(user, "Heading font", "Source Serif 4");
+    await chooseSelectOption(user, "Body weight", "500");
+    await chooseSelectOption(user, "Heading weight", "700");
+    await chooseSelectOption(user, "Course text size", "Larger");
+    await chooseSelectOption(user, "Body line spacing", "Relaxed");
+    await chooseSelectOption(user, "Heading line spacing", "Tight");
+    await chooseSelectOption(user, "Heading letter spacing", "Wide");
+    await user.click(screen.getByRole("checkbox", { name: "Uppercase headings" }));
+
+    expect(readTheme(editor).overrides).toEqual({
+      typography: {
+        defaultFontId: "scaffold-poppins",
+        headingFontId: "scaffold-source-serif-4",
+        bodyWeight: 500,
+        headingWeight: 700,
+        courseTextSize: "larger",
+        bodyLineSpacing: "relaxed",
+        headingLineSpacing: "tight",
+        headingLetterSpacing: "wide",
+        uppercaseHeadings: true,
+      },
+    });
+    expect(onThemeChange).toHaveBeenLastCalledWith(readTheme(editor));
+    expect(screen.getAllByText("Custom")).toHaveLength(9);
+  });
+
+  it("resets only its associated sparse typography field", async () => {
+    const user = userEvent.setup();
+    const editor = createEditor({
+      ...createDefaultPersistedCourseTheme(),
+      overrides: {
+        typography: {
+          defaultFontId: "scaffold-poppins",
+          headingFontId: "scaffold-source-serif-4",
+          bodyWeight: 500,
+        },
+      },
+    });
+    render(<PanelHarness editor={editor} />);
+    await user.click(screen.getByRole("button", { name: "Open course theme" }));
+
+    await user.click(screen.getByRole("button", { name: "Use inherited body font" }));
+
+    expect(readTheme(editor).overrides).toEqual({
+      typography: { headingFontId: "scaffold-source-serif-4", bodyWeight: 500 },
+    });
+    expect(screen.getByRole("combobox", { name: "Body font" })).toHaveTextContent("Satoshi");
+    expect(screen.getByRole("button", { name: "Use inherited body font" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Use inherited heading font" })).toBeEnabled();
+  });
+
+  it("individually resets each semantic typography field", async () => {
+    const user = userEvent.setup();
+    const editor = createEditor({
+      ...createDefaultPersistedCourseTheme(),
+      overrides: {
+        typography: {
+          courseTextSize: "larger",
+          bodyLineSpacing: "relaxed",
+          headingLineSpacing: "tight",
+          headingLetterSpacing: "wide",
+          uppercaseHeadings: true,
+        },
+      },
+    });
+    render(<PanelHarness editor={editor} />);
+    await user.click(screen.getByRole("button", { name: "Open course theme" }));
+
+    await user.click(screen.getByRole("button", { name: "Use inherited course text size" }));
+    expect(readTheme(editor).overrides.typography).toEqual({
+      bodyLineSpacing: "relaxed",
+      headingLineSpacing: "tight",
+      headingLetterSpacing: "wide",
+      uppercaseHeadings: true,
+    });
+    await user.click(screen.getByRole("button", { name: "Use inherited body line spacing" }));
+    await user.click(screen.getByRole("button", { name: "Use inherited heading line spacing" }));
+    await user.click(screen.getByRole("button", { name: "Use inherited heading letter spacing" }));
+    await user.click(screen.getByRole("button", { name: "Use inherited uppercase headings" }));
+
+    expect(readTheme(editor).overrides).toEqual({});
+    expect(screen.getByRole("combobox", { name: "Course text size" })).toHaveTextContent(
+      "Standard",
+    );
+    expect(screen.getByRole("checkbox", { name: "Uppercase headings" })).not.toBeChecked();
+  });
+
+  it("resets the Typography section while preserving unrelated theme intent", async () => {
+    const user = userEvent.setup();
+    const initialTheme: PersistedCourseTheme = {
+      schemaVersion: 1,
+      design: reference(SCAFFOLD_FLOW_DESIGN_V1),
+      colourSystem: reference(alternateColourSystem),
+      overrides: {
+        typography: { defaultFontId: "scaffold-poppins", courseTextSize: "larger" },
+        design: { density: "compact" },
+      },
+    };
+    const editor = createEditor(initialTheme);
+    const onThemeChange = vi.fn();
+    render(<PanelHarness editor={editor} onThemeChange={onThemeChange} />);
+    await user.click(screen.getByRole("button", { name: "Open course theme" }));
+
+    const reset = screen.getByRole("button", { name: "Reset all typography overrides" });
+    expect(reset.closest(".sc-settings-form__section-actions")).not.toBeNull();
+    expect(reset.closest(".sc-app-sheet-footer")).toBeNull();
+    await user.click(reset);
+
+    expect(readTheme(editor)).toEqual({
+      ...initialTheme,
+      overrides: { design: { density: "compact" } },
+    });
+    expect(onThemeChange).toHaveBeenLastCalledWith(readTheme(editor));
+    expect(editor.commands.undo()).toBe(true);
+    expect(readTheme(editor)).toEqual(initialTheme);
+  });
+
+  it("resynchronizes external typography values without dispatching a transaction", async () => {
+    const user = userEvent.setup();
+    const editor = createEditor();
+    const onTransaction = vi.fn();
+    editor.on("transaction", onTransaction);
+    const defaults = createDefaultPersistedCourseTheme();
+    const view = render(
+      <CourseThemePanel
+        editor={editor}
+        designs={designs}
+        colourSystems={colourSystems}
+        theme={defaults}
+        onThemeChange={() => undefined}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Open course theme" }));
+
+    const externalTheme: PersistedCourseTheme = {
+      ...defaults,
+      overrides: {
+        typography: {
+          defaultFontId: "scaffold-poppins",
+          headingWeight: 700,
+          courseTextSize: "larger",
+          bodyLineSpacing: "relaxed",
+          headingLineSpacing: "tight",
+          headingLetterSpacing: "wide",
+          uppercaseHeadings: true,
+        },
+        design: {
+          roundness: "square",
+          stroke: "strong",
+          shadow: "defined",
+          density: "spacious",
+        },
+      },
+    };
+    replaceThemeAttr(editor, externalTheme);
+    expect(onTransaction).toHaveBeenCalledTimes(1);
+    onTransaction.mockClear();
+
+    view.rerender(
+      <CourseThemePanel
+        editor={editor}
+        designs={designs}
+        colourSystems={colourSystems}
+        theme={externalTheme}
+        onThemeChange={() => undefined}
+      />,
+    );
+
+    expect(screen.getByRole("combobox", { name: "Body font" })).toHaveTextContent("Poppins");
+    expect(screen.getByRole("combobox", { name: "Heading weight" })).toHaveTextContent("700");
+    expect(screen.getByRole("combobox", { name: "Course text size" })).toHaveTextContent("Larger");
+    expect(screen.getByRole("combobox", { name: "Body line spacing" })).toHaveTextContent(
+      "Relaxed",
+    );
+    expect(screen.getByRole("combobox", { name: "Heading line spacing" })).toHaveTextContent(
+      "Tight",
+    );
+    expect(screen.getByRole("combobox", { name: "Heading letter spacing" })).toHaveTextContent(
+      "Wide",
+    );
+    expect(screen.getByRole("checkbox", { name: "Uppercase headings" })).toBeChecked();
+    expect(screen.getByRole("combobox", { name: "Roundness" })).toHaveTextContent("Square");
+    expect(screen.getByRole("combobox", { name: "Stroke" })).toHaveTextContent("Strong");
+    expect(screen.getByRole("combobox", { name: "Shadow" })).toHaveTextContent("Defined");
+    expect(screen.getByRole("combobox", { name: "Density" })).toHaveTextContent("Spacious");
+    expect(onTransaction).not.toHaveBeenCalled();
+  });
+
+  it("contains exactly the fourteen approved non-colour controls and no arbitrary colour", async () => {
+    const user = userEvent.setup();
+    render(<PanelHarness editor={createEditor()} />);
+    await user.click(screen.getByRole("button", { name: "Open course theme" }));
+
+    expect(screen.queryByRole("button", { name: /edit .*current value/i })).toBeNull();
+    expect(screen.queryByRole("spinbutton")).toBeNull();
+    expect(screen.getByRole("checkbox", { name: "Uppercase headings" })).not.toBeChecked();
+    expect(screen.getAllByRole("combobox")).toHaveLength(13);
+    expect(screen.getAllByRole("checkbox")).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: /apply|save/i })).toBeNull();
   });
 });
 
-async function selectMenuOption(
-  user: ReturnType<typeof userEvent.setup>,
-  fieldName: string,
-  optionName: string,
-): Promise<void> {
-  await user.click(screen.getByRole("combobox", { name: fieldName }));
-  await user.click(await screen.findByRole("option", { name: optionName }));
-}
-
-function createEditor(): Editor {
+function createEditor(theme: PersistedCourseTheme = createDefaultPersistedCourseTheme()): Editor {
   const editor = new Editor({
     extensions: [
       DocumentNode,
       StarterKit.configure({ document: false }),
       CourseDocumentNode,
+      createCourseSectionNode(),
       SurfaceNode,
       TestArrangementNode,
       TestRegionNode,
     ],
-    content: documentContent(),
+    content: documentContent(theme),
   });
   editors.push(editor);
   return editor;
 }
 
-function documentContent(): JSONContent {
+function documentContent(theme: PersistedCourseTheme): JSONContent {
   return {
     type: "doc",
     content: [
       {
         type: "courseDocument",
-        attrs: { mode: "page", theme: createScaffoldDefaultTheme() },
+        attrs: { mode: "page", theme },
         content: [
           {
             type: "surface",
-            attrs: { id: "surface00001", variant: "page-default" },
-            content: [{ type: "paragraph" }],
+            attrs: { id: "surface-1", variant: "page-default" },
+            content: [{ type: "paragraph", content: [{ type: "text", text: "Keep me" }] }],
           },
         ],
       },
@@ -381,11 +730,15 @@ function documentContent(): JSONContent {
   };
 }
 
-function readTheme(editor: Editor) {
+function reference(definition: { id: string; revision: string }): CourseThemeRef {
+  return { id: definition.id, revision: definition.revision };
+}
+
+function readTheme(editor: Editor): PersistedCourseTheme {
   return structuredClone(editor.getJSON().content![0]!.attrs!["theme"]);
 }
 
-function updateCourseTheme(editor: Editor, theme: ReturnType<typeof readTheme>) {
+function replaceThemeAttr(editor: Editor, theme: unknown): void {
   const courseDocument = editor.state.doc.firstChild!;
   editor.view.dispatch(
     editor.state.tr.setNodeMarkup(0, undefined, {
@@ -395,63 +748,36 @@ function updateCourseTheme(editor: Editor, theme: ReturnType<typeof readTheme>) 
   );
 }
 
-function openThemeColourPicker(fieldLabel: string): HTMLButtonElement {
-  const trigger = screen.getByRole("button", {
-    name: (name) => name.startsWith(`Edit ${fieldLabel}, current value `),
-  });
-  if (!(trigger instanceof HTMLButtonElement)) {
-    throw new Error(`Expected Theme colour trigger ${fieldLabel}`);
-  }
-  fireEvent.click(trigger);
-  return trigger;
-}
-
-function chooseThemeColour(fieldLabel: string, optionLabel: string): void {
-  const trigger = openThemeColourPicker(fieldLabel);
-  fireEvent.click(requiredThemePopoverButton(optionLabel));
-  fireEvent.click(trigger);
-}
-
-function requiredThemePopoverButton(name: string): HTMLButtonElement {
-  const popover = document.querySelector(".sc-settings-color-field__popover");
-  const button = [...(popover?.querySelectorAll<HTMLButtonElement>("button") ?? [])].find(
-    (candidate) => candidate.getAttribute("aria-label") === name,
-  );
-  if (!button) throw new Error(`Expected Theme colour popover button ${name}`);
-  return button;
-}
-
-async function replaceNumber(
+async function chooseSelectOption(
   user: ReturnType<typeof userEvent.setup>,
-  name: string,
-  value: string,
-) {
-  const input = screen.getByRole("spinbutton", { name });
-  await user.clear(input);
-  await user.type(input, value);
-  input.blur();
+  label: string,
+  option: string,
+): Promise<void> {
+  await user.click(screen.getByRole("combobox", { name: label }));
+  await user.click(await screen.findByRole("option", { name: option }));
 }
 
 function PanelHarness({
   editor,
-  mode = "light",
+  designRegistry = designs,
+  colourSystemRegistry = colourSystems,
   onThemeChange = () => undefined,
 }: {
   editor: Editor;
-  mode?: ScaffoldColorMode;
-  onThemeChange?: () => void;
+  designRegistry?: CourseDesignThemeRegistry;
+  colourSystemRegistry?: CourseColourSystemRegistry;
+  onThemeChange?: (theme: PersistedCourseTheme) => void;
 }) {
-  const catalogue = createThemeCatalogue();
   const [theme, setTheme] = useState(() => readTheme(editor));
   return (
     <CourseThemePanel
       editor={editor}
-      catalogue={catalogue}
+      designs={designRegistry}
+      colourSystems={colourSystemRegistry}
       theme={theme}
-      resolvedTheme={resolveCourseTheme({ catalogue, mode, theme })}
       onThemeChange={(nextTheme) => {
         setTheme(nextTheme);
-        onThemeChange();
+        onThemeChange(nextTheme);
       }}
     />
   );

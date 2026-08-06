@@ -1,0 +1,81 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-assessment-control-layout {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sc-assessment-control-layout__support,
+  .sc-assessment-control-layout__submission {
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .sc-assessment-control-layout__support {
+    width: 100%;
+    flex: 0 1 auto;
+  }
+
+  .sc-assessment-control-layout__submission {
+    max-width: 100%;
+    align-self: flex-end;
+    justify-content: flex-end;
+  }
+
+  .sc-assessment-control-layout__content,
+  .sc-assessment-control-layout__content > [data-node-view-content-react] {
+    display: contents;
+  }
+
+  .sc-assessment-control-layout__content
+    > [data-node-view-content-react]
+    > .react-renderer:has(> [data-slot="assessment-hints-group"]),
+  .sc-assessment-control-layout__content
+    > [data-node-view-content-react]
+    > .react-renderer:has(> [data-slot="assessment-summary-feedback"]) {
+    display: contents;
+  }
+
+  .sc-assessment-control-layout__content:not(:has(button, [role="button"], [role="status"])) {
+    display: none;
+  }
+
+  .sc-assessment-control-layout__support
+    [data-slot="assessment-hints-group"]:not(:has(button, [role="button"], [role="status"])),
+  .sc-assessment-control-layout__support
+    [data-slot="assessment-summary-feedback"]:not(:has(button, [role="button"], [role="status"])) {
+    display: none;
+  }
+
+  .sc-assessment-control-layout__feature-control {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+  }
+
+  .sc-assessment-control-layout__support [data-slot="assessment-hints-group"] {
+    order: 10;
+  }
+
+  .sc-assessment-control-layout__feature-control--show-answer {
+    order: 20;
+  }
+
+  .sc-assessment-control-layout__support [data-slot="assessment-summary-feedback"] {
+    order: 30;
+  }
+
+  .sc-assessment-control-layout__support:not(:has(button, [role="button"], [role="status"])),
+  .sc-assessment-control-layout__submission:empty,
+  .sc-assessment-control-layout:not(
+    :has(button, [role="button"], [role="status"], .sc-course-assessment-attempt-counter)
+  ) {
+    display: none;
+  }
+}

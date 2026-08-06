@@ -8,9 +8,9 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
 
 import { IconButton } from "@/ui/components/IconButton/IconButton";
-import { OverlayBoundary } from "@/ui/components/OverlayBoundary/OverlayBoundary";
 import { createScaledCanvasCoordinateSpace } from "@/editor/interactions/drag/dom/dom-coordinate-space";
 import { InteractionDragEnvironmentProvider } from "@/editor/interactions/drag/react/interaction-drag-environment";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 import { readSurfaceViewSettings } from "@/document/model/surface-view-settings";
 import {
   deriveSlideshowCanvasScale,
@@ -19,9 +19,8 @@ import {
   type SlideshowCanvasMetrics,
   type SlideshowCanvasScaleState,
 } from "@/editor/surfaces/view/slideshow-canvas";
+import { CourseThemePortalBoundary } from "@/theme/course/CourseThemeProvider";
 import { iconMd } from "@/ui/tokens/icon-sizes";
-import type { ResolvedCourseTheme } from "@/theme/model";
-import { DEFAULT_RESOLVED_COURSE_THEME } from "@/theme/presentation/CourseThemeScope";
 
 import {
   CourseDocumentRuntimeRenderer,
@@ -39,7 +38,6 @@ export interface SlideshowPlayerProps {
   artifactId?: string | null;
   composition: CourseDocumentRuntimeRendererProps["composition"];
   initialContent: JSONContent;
-  resolvedTheme?: ResolvedCourseTheme;
   surfaceIds: [string, ...string[]];
   sizing?: SlideshowPlayerSizing;
   onRendererReady?: (editor: TiptapEditor) => void;
@@ -50,13 +48,11 @@ export function SlideshowPlayer({
   artifactId,
   composition,
   initialContent,
-  resolvedTheme,
   surfaceIds,
   sizing = "contained",
   onRendererReady,
   onActiveSurfaceChange,
 }: SlideshowPlayerProps) {
-  const effectiveTheme = resolvedTheme ?? DEFAULT_RESOLVED_COURSE_THEME;
   const [viewportElement, setViewportElement] = useState<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const [canvasElement, setCanvasElement] = useState<HTMLDivElement | null>(null);
@@ -245,9 +241,7 @@ export function SlideshowPlayer({
                   <OverlayBoundary
                     collisionBoundary={overlayCollisionBoundary}
                     container={overlayContainer}
-                    hostClassName="sc-course-theme-portal-scope"
-                    hostColorScheme={effectiveTheme.mode}
-                    hostCssVariables={effectiveTheme.cssTokens}
+                    hostBoundary={CourseThemePortalBoundary}
                     kind="viewport"
                   >
                     <InteractionDragEnvironmentProvider
@@ -258,7 +252,6 @@ export function SlideshowPlayer({
                         artifactId={artifactId ?? null}
                         composition={composition}
                         initialContent={initialContent}
-                        {...(resolvedTheme ? { resolvedTheme } : {})}
                         surfaceStates={surfaceStates}
                         {...(onRendererReady ? { onReady: onRendererReady } : {})}
                       />

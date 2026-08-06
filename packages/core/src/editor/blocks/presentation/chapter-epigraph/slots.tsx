@@ -61,7 +61,7 @@ export const ChapterEpigraphAttributionNode = Node.create({
 
 function EpigraphBodyView() {
   return (
-    <NodeViewWrapper data-slot="chapter-epigraph-body" className="sc-chapter-epigraph__body">
+    <NodeViewWrapper data-slot="chapter-epigraph-body" className="sc-course-chapter-epigraph__body">
       <NodeViewContent />
     </NodeViewWrapper>
   );
@@ -79,7 +79,7 @@ function EpigraphAttributionView(props: NodeViewProps) {
       <NodeViewWrapper
         data-slot="chapter-epigraph-attribution"
         aria-hidden
-        className="sc-chapter-epigraph__attribution--hidden"
+        className="sc-course-chapter-epigraph__attribution--hidden"
       >
         <NodeViewContent />
       </NodeViewWrapper>
@@ -90,7 +90,7 @@ function EpigraphAttributionView(props: NodeViewProps) {
     <NodeViewWrapper
       data-slot="chapter-epigraph-attribution"
       data-empty={isEmpty ? "true" : undefined}
-      className="sc-chapter-epigraph__attribution"
+      className="sc-course-chapter-epigraph__attribution"
     >
       <NodeViewContent />
     </NodeViewWrapper>

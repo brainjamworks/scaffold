@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { imagePositionToCss } from "@/editor/media/model/image-position";
+import { cn } from "@/lib/cn";
 import type { SlideImageBandImage } from "@/editor/surfaces/model/templates/slide-image-band";
 
 interface SlideImageBandImageSlotProps {
@@ -19,7 +20,10 @@ export function SlideImageBandImageSlot({
 
   return (
     <div
-      className="sc-slide-image-band-image sc-media-replace-host"
+      className={cn(
+        "sc-slide-image-band-image",
+        imageUrl && replaceAction && "sc-app-media-replace-host",
+      )}
       contentEditable={false}
       data-slot="slide-image-band-image"
       data-empty={imageUrl ? undefined : "true"}

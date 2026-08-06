@@ -17,8 +17,7 @@ import { createScaffoldDocumentContent } from "@/format/artifact";
 import { ScaffoldUnavailableAgentIntegration } from "@/editor/shell/agent/ScaffoldUnavailableAgentIntegration";
 import type { ScaffoldAgentIntegration } from "@/editor/shell/agent/agent-integration";
 import type { ArtifactSaveBundle } from "@/host/ports";
-import { SCAFFOLD_DEFAULT_PRESET, SCAFFOLD_EDITORIAL_PRESET } from "@/theme/model/built-in-presets";
-import type { ScaffoldThemeExtension } from "@/theme/model";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
 const mocks = vi.hoisted(() => {
   return {
@@ -88,7 +87,7 @@ vi.mock("./ContentAuthorHost", async () => {
       leftRail,
       onUpdate,
       rightRail,
-      resolvedTheme,
+      courseAppearance,
     }: {
       agentIntegration?: unknown;
       agentOpen?: boolean;
@@ -100,7 +99,7 @@ vi.mock("./ContentAuthorHost", async () => {
       leftRail?: (editor: unknown) => ReactNode;
       onUpdate?: (content: unknown) => void;
       rightRail?: (editor: unknown) => ReactNode;
-      resolvedTheme?: unknown;
+      courseAppearance?: unknown;
     }) => {
       mocks.contentAuthorHostRenderCount += 1;
       mocks.contentAuthorHostProps.push({
@@ -112,7 +111,7 @@ vi.mock("./ContentAuthorHost", async () => {
         onAgentClose,
         onChange,
         onUpdate,
-        resolvedTheme,
+        courseAppearance,
         rightRail,
       });
       useEffect(() => {
@@ -311,7 +310,7 @@ function createDeferred<T>() {
 }
 
 describe("ScaffoldAuthoringApp preview", () => {
-  it("resolves the live course theme from every editor document update", async () => {
+  it("synchronizes the live persisted theme from every editor document update", async () => {
     vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
       callback(0);
       return 1;
@@ -336,29 +335,19 @@ describe("ScaffoldAuthoringApp preview", () => {
       | undefined;
     expect(onChange).toBeTypeOf("function");
 
-    mocks.authorJSON.content![0]!.attrs!["theme"] = {
+    const unavailableTheme = {
       schemaVersion: 1,
-      preset: {
-        id: SCAFFOLD_EDITORIAL_PRESET.id,
-        revision: SCAFFOLD_EDITORIAL_PRESET.revision,
-      },
-      values: structuredClone(SCAFFOLD_EDITORIAL_PRESET.values),
+      design: { id: "unavailable-design", revision: "7" },
+      colourSystem: { id: "unavailable-colours", revision: "3" },
+      overrides: {},
     };
+    mocks.authorJSON.content![0]!.attrs!["theme"] = unavailableTheme;
     mocks.fakeEditor.state.doc.firstChild.attrs = mocks.authorJSON.content![0]!.attrs!;
     act(() => onChange?.(mocks.fakeEditor));
-    await waitFor(() => expect(latestResolvedThemePreset()).toBe(SCAFFOLD_EDITORIAL_PRESET.id));
-
-    mocks.authorJSON.content![0]!.attrs!["theme"] = {
-      schemaVersion: 1,
-      preset: {
-        id: SCAFFOLD_DEFAULT_PRESET.id,
-        revision: SCAFFOLD_DEFAULT_PRESET.revision,
-      },
-      values: structuredClone(SCAFFOLD_DEFAULT_PRESET.values),
-    };
-    mocks.fakeEditor.state.doc.firstChild.attrs = mocks.authorJSON.content![0]!.attrs!;
-    act(() => onChange?.(mocks.fakeEditor));
-    await waitFor(() => expect(latestResolvedThemePreset()).toBe(SCAFFOLD_DEFAULT_PRESET.id));
+    await userEvent.setup().click(screen.getByRole("button", { name: "Open course theme" }));
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Saved design unavailable-design@7 is unavailable.",
+    );
   });
 
   it("opens the course Theme panel without a separate preview colour mode", async () => {
@@ -425,7 +414,7 @@ describe("ScaffoldAuthoringApp preview", () => {
 
     expect(application).toHaveAttribute("data-scaffold-color-mode", "dark");
     expect(application?.style.colorScheme).toBe("dark");
-    expect(latestResolvedThemeMode()).toBe("dark");
+    expect(latestCourseAppearance()).toBe("dark");
     expect(localStorage.getItem("scaffold.authoring.color-mode.v1")).toBe("dark");
     expect(mocks.authorJSON.content?.[0]?.attrs?.["theme"]).toEqual(initialCourseTheme);
 
@@ -629,12 +618,8 @@ describe("ScaffoldAuthoringApp preview", () => {
     const initialContent = structuredClone(mocks.authorJSON);
     const workingContent = structuredClone(initialContent);
     workingContent.content![0]!.attrs!["theme"] = {
-      schemaVersion: 1,
-      preset: {
-        id: SCAFFOLD_EDITORIAL_PRESET.id,
-        revision: SCAFFOLD_EDITORIAL_PRESET.revision,
-      },
-      values: structuredClone(SCAFFOLD_EDITORIAL_PRESET.values),
+      ...createDefaultPersistedCourseTheme(),
+      overrides: { design: { roundness: "square" } },
     };
     mocks.authorJSON = workingContent;
     mocks.fakeEditor.state.doc.firstChild.attrs = workingContent.content![0]!.attrs!;
@@ -689,14 +674,14 @@ describe("ScaffoldAuthoringApp preview", () => {
       "data-scaffold-color-mode",
       "dark",
     );
-    expect(latestResolvedThemeMode()).toBe("dark");
+    expect(latestCourseAppearance()).toBe("dark");
 
     await user.click(
       screen.getByRole("button", { name: "Switch authoring application to light mode" }),
     );
 
     await waitFor(() => {
-      expect(latestResolvedThemeMode()).toBe("light");
+      expect(latestCourseAppearance()).toBe("light");
     });
     expect(JSON.stringify(mocks.authorJSON)).toBe(initialJSON);
     expect(mocks.authorJSON.content?.[0]?.attrs).not.toHaveProperty("colorMode");
@@ -709,7 +694,7 @@ describe("ScaffoldAuthoringApp preview", () => {
     first.unmount();
     mocks.contentAuthorHostProps.length = 0;
     render(<ScaffoldAuthoringApp {...props} />);
-    expect(latestResolvedThemeMode()).toBe("light");
+    expect(latestCourseAppearance()).toBe("light");
   });
 
   it("awaits asynchronous preview services before entering preview", async () => {
@@ -836,107 +821,6 @@ describe("ScaffoldAuthoringApp preview", () => {
 
     await screen.findByTestId("content-author-host");
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Switch to preview" }));
-  });
-
-  it("uses the same host theme extension for editing and learner preview", async () => {
-    const user = userEvent.setup();
-    const themeExtension = hostThemeExtension();
-    const hostPreset = themeExtension.presets![0]!;
-    mocks.authorJSON.content![0]!.attrs = {
-      ...mocks.authorJSON.content![0]!.attrs,
-      theme: {
-        schemaVersion: 1,
-        preset: { id: hostPreset.id, revision: hostPreset.revision },
-        values: structuredClone(hostPreset.values),
-      },
-    };
-    mocks.fakeEditor.state.doc.firstChild.attrs = mocks.authorJSON.content![0]!.attrs!;
-
-    render(
-      <ScaffoldAuthoringApp
-        application={testApplication}
-        artifact={{
-          id: "artifact-host-theme",
-          title: "Host themed draft",
-          mode: "page",
-          content: mocks.authorJSON,
-        }}
-        services={{
-          artifactPersistence: { saveArtifact: vi.fn(async () => ({})) },
-          media: null,
-        }}
-        themeExtension={themeExtension}
-      />,
-    );
-
-    await screen.findByTestId("content-author-host");
-    expect(mocks.contentAuthorHostProps.at(-1)?.["resolvedTheme"]).toMatchObject({
-      effectivePresetId: hostPreset.id,
-      available: true,
-    });
-
-    await user.click(screen.getByRole("button", { name: "Switch to preview" }));
-    await screen.findByTestId("scaffold-learner-app");
-    expect(mocks.learnerAppProps.at(-1)?.["themeExtension"]).toBe(themeExtension);
-  });
-
-  it("keeps saved course values when the host publishes a newer preset revision", async () => {
-    const savedExtension = hostThemeExtension();
-    const savedPreset = savedExtension.presets![0]!;
-    const changedExtension = structuredClone(savedExtension);
-    const changedPreset = changedExtension.presets![0]!;
-    changedPreset.revision = "host-course-v2";
-    changedPreset.values.colors.resolved.light.primary = "#ea580c";
-    mocks.authorJSON.content![0]!.attrs = {
-      ...mocks.authorJSON.content![0]!.attrs,
-      theme: {
-        schemaVersion: 1,
-        preset: { id: savedPreset.id, revision: savedPreset.revision },
-        values: structuredClone(savedPreset.values),
-      },
-    };
-    mocks.fakeEditor.state.doc.firstChild.attrs = mocks.authorJSON.content![0]!.attrs!;
-    const savedPrimary = savedPreset.values.colors.resolved.light.primary;
-
-    const view = render(
-      <ScaffoldAuthoringApp
-        application={testApplication}
-        artifact={{
-          id: "artifact-stable-host-theme",
-          title: "Stable host theme",
-          mode: "page",
-          content: mocks.authorJSON,
-        }}
-        services={{
-          artifactPersistence: { saveArtifact: vi.fn(async () => ({})) },
-          media: null,
-        }}
-        themeExtension={savedExtension}
-      />,
-    );
-    await screen.findByTestId("content-author-host");
-
-    view.rerender(
-      <ScaffoldAuthoringApp
-        application={testApplication}
-        artifact={{
-          id: "artifact-stable-host-theme",
-          title: "Stable host theme",
-          mode: "page",
-          content: mocks.authorJSON,
-        }}
-        services={{
-          artifactPersistence: { saveArtifact: vi.fn(async () => ({})) },
-          media: null,
-        }}
-        themeExtension={changedExtension}
-      />,
-    );
-
-    await waitFor(() => expect(latestResolvedThemePrimary()).toBe(savedPrimary));
-    expect(mocks.authorJSON.content![0]!.attrs!["theme"].preset.revision).toBe(
-      savedPreset.revision,
-    );
   });
 
   it("shows the document creation gate before mounting authoring without an artifact", () => {
@@ -1215,29 +1099,8 @@ describe("ScaffoldAuthoringApp preview", () => {
   });
 });
 
-function hostThemeExtension(): ScaffoldThemeExtension {
-  const preset = structuredClone(SCAFFOLD_DEFAULT_PRESET);
-  preset.id = "host-course";
-  preset.revision = "host-course-v1";
-  preset.label = "Host course";
-  return { presets: [preset] };
-}
-
-function latestResolvedThemeMode(): unknown {
+function latestCourseAppearance(): unknown {
   const props = mocks.contentAuthorHostProps.at(-1);
   if (!props) throw new Error("ContentAuthorHost props were not recorded");
-  return (props["resolvedTheme"] as { mode?: unknown } | undefined)?.mode;
-}
-
-function latestResolvedThemePreset(): unknown {
-  const props = mocks.contentAuthorHostProps.at(-1);
-  if (!props) throw new Error("ContentAuthorHost props were not recorded");
-  return (props["resolvedTheme"] as { requestedPresetId?: unknown } | undefined)?.requestedPresetId;
-}
-
-function latestResolvedThemePrimary(): unknown {
-  const props = mocks.contentAuthorHostProps.at(-1);
-  if (!props) throw new Error("ContentAuthorHost props were not recorded");
-  return (props["resolvedTheme"] as { palette?: { primary?: unknown } } | undefined)?.palette
-    ?.primary;
+  return props["courseAppearance"];
 }

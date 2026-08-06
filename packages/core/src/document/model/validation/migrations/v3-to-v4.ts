@@ -8,9 +8,8 @@ import {
   OverflowModeSchema,
   SurfaceSizeSchema,
 } from "@/schemas/course-document";
-import { createScaffoldDefaultTheme } from "@/theme/model";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
-
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import { defineCourseDocumentMigration } from "../migration-registry";
 import { asRecord, findCourseDocument } from "./helpers";
 
@@ -223,7 +222,7 @@ function migrateContentTreeIdentity(document: JSONContent): void {
 export const v3ToV4CourseDocumentMigration = defineCourseDocumentMigration({
   from: 3,
   to: 4,
-  description: "Materialise course themes and canonical node identity.",
+  description: "Migrate exact course theme references and canonical node identity.",
   migrate(document) {
     const courseDocument = findCourseDocument(document);
     if (!courseDocument) throw new Error("the courseDocument node is missing");
@@ -238,21 +237,14 @@ export const v3ToV4CourseDocumentMigration = defineCourseDocumentMigration({
       throw new Error(`courseDocument.attrs${path} does not match the v3 courseDocument format`);
     }
 
-    const theme =
-      typeof legacy.data.theme === "string"
-        ? {
-            schemaVersion: 1 as const,
-            preset: { id: legacy.data.theme, revision: null },
-            values: null,
-          }
-        : createScaffoldDefaultTheme();
+    const { theme: _theme, ...attrsWithoutTheme } = legacy.data;
     migrateContentTreeIdentity(document);
     const migratedCourseDocumentAttrs = asRecord(courseDocument.node.attrs);
     const migrated = CourseDocumentAttrsSchema.safeParse({
-      ...legacy.data,
+      ...attrsWithoutTheme,
       id: migratedCourseDocumentAttrs?.["id"],
       schemaVersion: 4,
-      theme,
+      theme: createDefaultPersistedCourseTheme(),
     });
     if (!migrated.success) {
       throw new Error("courseDocument.attrs do not match the v4 courseDocument format");

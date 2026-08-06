@@ -3,7 +3,7 @@ import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
 import { getCourseDocumentDefaultsForMode } from "@/document/model/course-document-defaults";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
-import { SCAFFOLD_DEFAULT_PRESET } from "@/theme/model";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
 import {
   createScaffoldArtifact,
@@ -29,14 +29,7 @@ describe("Scaffold format", () => {
             mode: "page",
             surfaceSize: "fluid",
             overflowMode: "grow",
-            theme: {
-              schemaVersion: 1,
-              preset: {
-                id: SCAFFOLD_DEFAULT_PRESET.id,
-                revision: SCAFFOLD_DEFAULT_PRESET.revision,
-              },
-              values: SCAFFOLD_DEFAULT_PRESET.values,
-            },
+            theme: createDefaultPersistedCourseTheme(),
           },
           content: [
             {
@@ -119,6 +112,9 @@ describe("Scaffold format", () => {
       mode: "slideshow",
     });
     expect(readCourseDocumentMode(initialized.content)).toBe("slideshow");
+    expect(initialized.content.content?.[0]?.attrs?.["theme"]).toEqual(
+      createDefaultPersistedCourseTheme(),
+    );
     expect(initialized.content).toMatchObject({
       content: [
         {
@@ -164,12 +160,7 @@ describe("Scaffold format", () => {
       mode: "branching",
       surfaceSize: "fluid",
       overflowMode: "grow",
-      theme: {
-        preset: {
-          id: SCAFFOLD_DEFAULT_PRESET.id,
-          revision: SCAFFOLD_DEFAULT_PRESET.revision,
-        },
-      },
+      theme: createDefaultPersistedCourseTheme(),
     });
   });
 

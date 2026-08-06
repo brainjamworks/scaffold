@@ -1,6 +1,5 @@
 import { CheckIcon as Check } from "@phosphor-icons/react";
 import {
-  RoadmapDataSchema,
   RoadmapMilestoneStatusSchema,
   type RoadmapData,
   type RoadmapMilestoneStatus,
@@ -11,12 +10,30 @@ import { IconRenderer } from "@/ui/icons/IconRenderer";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 import { catalogIconValue } from "@/schemas/media/icon";
 
-import { ROADMAP_MILESTONE_NODE, ROADMAP_NODE, emptyRoadmapData } from "./content";
+import { ROADMAP_NODE } from "./content";
+import { parseRoadmapData } from "./RoadmapModel";
 
 export const MARKER_ICON_FALLBACK = catalogIconValue("map");
 
-export function tileClassName(status: RoadmapMilestoneStatus): string {
-  return `sc-roadmap__tile sc-roadmap__tile--${status}`;
+export function roadmapMarkerClassName(status: RoadmapMilestoneStatus): string {
+  return `sc-course-roadmap__marker sc-course-roadmap__marker--${status}`;
+}
+
+export function courseStateForRoadmapStatus(
+  status: RoadmapMilestoneStatus,
+): "available" | "completed" | "current" {
+  if (status === "done") return "completed";
+  if (status === "current") return "current";
+  return "available";
+}
+
+export function roadmapStatusLabel(status: RoadmapMilestoneStatus, index: number): string {
+  return `Milestone ${index} status: ${courseStateForRoadmapStatus(status)}`;
+}
+
+export function readRequiredRoadmapMilestoneId(value: unknown): string {
+  if (typeof value === "string" && value.length > 0) return value;
+  throw new Error("Roadmap milestone node is missing a stable id.");
 }
 
 export function renderRoadmapTileContent(
@@ -29,7 +46,7 @@ export function renderRoadmapTileContent(
       <IconRenderer
         value={data.icon}
         fallbackValue={MARKER_ICON_FALLBACK}
-        className="sc-roadmap__tile-icon"
+        className="sc-course-roadmap__marker-icon"
       />
     );
   }
@@ -52,19 +69,21 @@ export function readNodePos(props: NodeViewProps): number | undefined {
 }
 
 export function resolveRoadmapData(props: NodeViewProps): RoadmapData {
+  return parseRoadmapData(resolveRoadmapDataAttribute(props));
+}
+
+export function resolveRoadmapDataAttribute(props: NodeViewProps): unknown {
   const pos = readNodePos(props);
-  if (!isValidEditorDocPos(props.editor, pos)) return emptyRoadmapData();
+  if (!isValidEditorDocPos(props.editor, pos)) return undefined;
 
   const $pos = props.editor.state.doc.resolve(pos);
   for (let depth = $pos.depth; depth >= 0; depth -= 1) {
     const parent = $pos.node(depth);
     if (parent.type.name !== ROADMAP_NODE) continue;
-
-    const parsed = RoadmapDataSchema.safeParse(parent.attrs["data"]);
-    return parsed.success ? parsed.data : emptyRoadmapData();
+    return parent.attrs["data"];
   }
 
-  return emptyRoadmapData();
+  return undefined;
 }
 
 export function readMilestonePosition(props: NodeViewProps): {
@@ -74,16 +93,8 @@ export function readMilestonePosition(props: NodeViewProps): {
   const pos = readNodePos(props);
   if (!isValidEditorDocPos(props.editor, pos)) return { count: 1, index: 1 };
   const $pos = props.editor.state.doc.resolve(pos);
-  const parent = $pos.parent;
-  const parentStart = $pos.start();
-  let count = 0;
-  let index = 1;
-  parent.forEach((child, offset) => {
-    if (child.type.name !== ROADMAP_MILESTONE_NODE) return;
-    count += 1;
-    if (parentStart + offset <= pos) {
-      index = count;
-    }
-  });
-  return { count: Math.max(count, 1), index };
+  return {
+    count: Math.max($pos.parent.childCount, 1),
+    index: $pos.index() + 1,
+  };
 }

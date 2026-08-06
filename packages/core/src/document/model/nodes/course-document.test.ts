@@ -7,7 +7,7 @@ import { Fragment } from "@tiptap/pm/model";
 import { describe, expect, it } from "vite-plus/test";
 
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
-import { createScaffoldDefaultTheme } from "@/theme/model";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import {
@@ -55,7 +55,7 @@ function courseDocumentContent(): JSONContent {
         type: "courseDocument",
         attrs: {
           mode: "page",
-          theme: createScaffoldDefaultTheme(),
+          theme: createDefaultPersistedCourseTheme(),
         },
         content: [
           {
@@ -112,6 +112,7 @@ describe("course document nodes", () => {
       mode: "page",
       surfaceSize: "fluid",
       overflowMode: "grow",
+      theme: createDefaultPersistedCourseTheme(),
     });
 
     editor.destroy();
@@ -165,9 +166,9 @@ describe("course document nodes", () => {
 
     expect(courseDocumentType.spec.content).toBe("surface+ | (courseSection surface+)+");
     expect(courseDocumentType.validContent(Fragment.from(firstSurface))).toBe(true);
-    expect(
-      courseDocumentType.validContent(Fragment.fromArray([firstSurface, secondSurface])),
-    ).toBe(true);
+    expect(courseDocumentType.validContent(Fragment.fromArray([firstSurface, secondSurface]))).toBe(
+      true,
+    );
     expect(
       courseDocumentType.validContent(
         Fragment.fromArray([firstSection, firstSurface, secondSection, secondSurface]),
@@ -278,8 +279,8 @@ describe("course document nodes", () => {
     expect(html).toContain(
       `data-scaffold-document-format-version="${SCAFFOLD_DOCUMENT_FORMAT_VERSION}"`,
     );
-    expect(html).toContain('data-course-theme="scaffold-default"');
-    expect(html).toContain("data-course-theme-values=");
+    expect(html).toContain("data-course-theme=");
+    expect(html).not.toContain("data-course-theme-values=");
     expect(html).toContain("data-surface");
     expect(html).toContain('data-id="surface00001"');
     expect(html).not.toContain("data-surface-id");
@@ -294,7 +295,7 @@ describe("course document nodes", () => {
       mode: "page",
       surfaceSize: "fluid",
       overflowMode: "grow",
-      theme: createScaffoldDefaultTheme(),
+      theme: createDefaultPersistedCourseTheme(),
     });
     expect(surface?.attrs).toMatchObject({
       id: "surface00001",
@@ -305,6 +306,66 @@ describe("course document nodes", () => {
     editor.destroy();
     nextEditor.destroy();
   });
+
+  it("round-trips valid non-default exact theme references unchanged", () => {
+    const theme = {
+      schemaVersion: 1 as const,
+      design: { id: "scaffold-editorial", revision: "7" },
+      colourSystem: { id: "scaffold-ocean", revision: "3" },
+      overrides: {},
+    };
+    const content = courseDocumentContent();
+    const courseDocument = content.content![0]!;
+    courseDocument.attrs = {
+      ...courseDocument.attrs,
+      theme,
+      branching: { startSurfaceId: "surface-1" },
+    };
+    courseDocument.content!.push({
+      type: "surface",
+      attrs: { id: "surface-2", title: "Next", variant: "page-default" },
+      content: [{ type: "paragraph" }],
+    });
+    const editor = makeEditor(content);
+    const html = editor.getHTML();
+    const nextEditor = makeEditor(html);
+
+    const reopenedCourse = nextEditor.getJSON().content?.[0] as JSONContent | undefined;
+    expect(reopenedCourse?.attrs?.["theme"]).toEqual(theme);
+    expect(reopenedCourse?.attrs?.["branching"]).toEqual({ startSurfaceId: "surface-1" });
+    expect(reopenedCourse?.content?.map((surface) => surface.attrs?.["id"])).toEqual([
+      "surface-1",
+      "surface-2",
+    ]);
+    expect(html).toContain("data-course-theme=");
+    expect(html).not.toContain("data-course-theme-values=");
+    expect(html).not.toContain("radixThemeProps");
+    expect(html).not.toContain("resolved");
+
+    editor.destroy();
+    nextEditor.destroy();
+  });
+
+  it.each([undefined, "not-json", '{"schemaVersion":1,"preset":{}}'])(
+    "uses the required default for an absent or invalid HTML theme attribute",
+    (serializedTheme) => {
+      const themeAttribute =
+        serializedTheme === undefined ? "" : `data-course-theme='${serializedTheme}'`;
+      const editor = makeEditor(`
+        <section data-course-document data-course-mode="page" ${themeAttribute}>
+          <section data-surface data-surface-id="surface-1" data-surface-variant="page-default">
+            <p>Content</p>
+          </section>
+        </section>
+      `);
+
+      expect((editor.getJSON().content?.[0] as JSONContent | undefined)?.attrs?.["theme"]).toEqual(
+        createDefaultPersistedCourseTheme(),
+      );
+
+      editor.destroy();
+    },
+  );
 
   it("preserves unsupported document format versions parsed from HTML", () => {
     const futureVersion = SCAFFOLD_DOCUMENT_FORMAT_VERSION + 1;

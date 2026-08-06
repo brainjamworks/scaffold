@@ -172,6 +172,9 @@ export function toggleChoiceCorrect(editor: Editor, choicePos: number): boolean 
   const correctIds = new Set(assessment.correctOptionIds);
   const isCurrentlyCorrect = correctIds.has(attrs.data.id);
   if (isCurrentlyCorrect && correctIds.size <= 1) return false;
+  if (!isCurrentlyCorrect && correctIds.size >= readMultiselectMaxSelections(parent.node)) {
+    return false;
+  }
   if (isCurrentlyCorrect) correctIds.delete(attrs.data.id);
   else correctIds.add(attrs.data.id);
 
@@ -180,6 +183,41 @@ export function toggleChoiceCorrect(editor: Editor, choicePos: number): boolean 
     correctOptionIds: [...correctIds],
   });
   return true;
+}
+
+export function choiceCorrectnessUnavailableReason(
+  editor: Editor,
+  choicePos: number,
+): string | undefined {
+  if (!isValidEditorDocPos(editor, choicePos)) return undefined;
+  const node = editor.state.doc.nodeAt(choicePos);
+  if (!node || node.type.name !== "selectable_choice") return undefined;
+  const attrs = SelectableChoiceAttrsSchema.safeParse(node.attrs);
+  if (!attrs.success || !attrs.data.id) return undefined;
+
+  const parent = resolveChoiceAssessmentParent(editor, choicePos);
+  if (!parent || parent.typeName !== "multiselect") return undefined;
+  const assessment = MultiselectPrivateAssessmentSchema.parse(
+    parent.node.attrs["assessment"] ?? {},
+  );
+  const correctIds = new Set(assessment.correctOptionIds);
+  if (correctIds.has(attrs.data.id)) {
+    return correctIds.size <= 1
+      ? "A multi-select assessment must contain at least one correct answer."
+      : undefined;
+  }
+  return correctIds.size >= readMultiselectMaxSelections(parent.node)
+    ? "Increase max selections or unmark another correct answer."
+    : undefined;
+}
+
+function readMultiselectMaxSelections(node: ProseMirrorNode): number {
+  const settings = node.attrs["settings"];
+  if (!settings || typeof settings !== "object") return Number.POSITIVE_INFINITY;
+  const maxSelect = (settings as Record<string, unknown>)["maxSelect"];
+  return typeof maxSelect === "number" && Number.isInteger(maxSelect) && maxSelect > 0
+    ? maxSelect
+    : Number.POSITIVE_INFINITY;
 }
 
 /**

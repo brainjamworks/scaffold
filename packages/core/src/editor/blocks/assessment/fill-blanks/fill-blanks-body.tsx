@@ -8,7 +8,9 @@ import {
 } from "@tiptap/react";
 
 import { FILL_BLANK_INLINE_CONTENT } from "@/document/model/content-model/content-groups";
-import { cn } from "@/lib/cn";
+import { assessmentPromptDomId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
+import { FillBlanksSettingsSchema } from "@scaffold/contracts";
 
 import "./FillBlanks.css";
 
@@ -32,7 +34,7 @@ export const FillBlanksBodyNode = TiptapNode.create({
         "data-bounded-scroll-frame": "",
         "data-slot": "fill-blanks-body",
       }),
-      ["div", { "data-bounded-scroll": "", class: "sc-fill-blanks-body-scroll" }, 0],
+      ["div", { "data-bounded-scroll": "", class: "sc-course-fill-blanks__scroll" }, 0],
       ["div", { "data-bounded-scroll-hint": "", "aria-hidden": "true" }, "Scroll for more ↓"],
     ];
   },
@@ -47,22 +49,41 @@ function FillBlanksBodyNodeView(props: NodeViewProps) {
     editor: props.editor,
     selector: ({ editor }) => editor.isEditable,
   });
+  const group = fillBlanksGroup(props);
 
   return (
     <NodeViewWrapper
+      role="group"
+      aria-label={group.legend || undefined}
+      aria-labelledby={group.legend ? undefined : assessmentPromptDomId(group.authoredBlockId)}
       data-bounded-scroll-frame=""
       data-slot="fill-blanks-body"
-      className={cn(
-        "sc-fill-blanks-body",
-        isEditable ? "sc-fill-blanks-body--authoring" : "sc-fill-blanks-body--runtime",
-      )}
+      className="sc-course-fill-blanks__body"
+      data-course-mode={isEditable ? "authoring" : "runtime"}
     >
-      <div data-bounded-scroll="" className="sc-fill-blanks-body-scroll">
-        <NodeViewContent className="sc-fill-blanks-body-content" />
+      <div data-bounded-scroll="" className="sc-course-fill-blanks__scroll">
+        <NodeViewContent className="sc-course-fill-blanks__content" />
       </div>
       <div data-bounded-scroll-hint="" contentEditable={false} aria-hidden="true">
         Scroll for more ↓
       </div>
     </NodeViewWrapper>
   );
+}
+
+function fillBlanksGroup(props: NodeViewProps): { authoredBlockId: string | null; legend: string } {
+  const pos = safeGetPos(props.getPos);
+  if (typeof pos !== "number") return { authoredBlockId: null, legend: "" };
+  const resolved = props.editor.state.doc.resolve(pos);
+  for (let depth = resolved.depth; depth >= 0; depth -= 1) {
+    const node = resolved.node(depth);
+    if (node.type.name !== "fill_blanks") continue;
+    const id = node.attrs["id"];
+    const settings = FillBlanksSettingsSchema.safeParse(node.attrs["settings"] ?? {});
+    return {
+      authoredBlockId: typeof id === "string" && id.trim() ? id : null,
+      legend: settings.success ? (settings.data.legend?.trim() ?? "") : "",
+    };
+  }
+  return { authoredBlockId: null, legend: "" };
 }

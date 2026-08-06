@@ -905,9 +905,7 @@ describe("EditorMovementLayer", () => {
     renderMovementLayer(editor);
 
     const handle = await screen.findByRole("button", { name: "Move block" });
-    expect(handle.getAttribute("aria-keyshortcuts")).toBe(
-      "Space Enter ArrowUp ArrowDown Escape",
-    );
+    expect(handle.getAttribute("aria-keyshortcuts")).toBe("Space Enter ArrowUp ArrowDown Escape");
     expect(describedText(handle)).toBe(
       "Press Space or Enter to pick up this block. Use Arrow Up or Arrow Down to choose a destination. Press Space or Enter to drop, or Escape to cancel.",
     );
@@ -938,9 +936,7 @@ describe("EditorMovementLayer", () => {
     );
 
     const handle = screen.getByRole("button", { name: "Move choice within its group" });
-    expect(handle.getAttribute("aria-keyshortcuts")).toBe(
-      "Space Enter ArrowUp ArrowDown Escape",
-    );
+    expect(handle.getAttribute("aria-keyshortcuts")).toBe("Space Enter ArrowUp ArrowDown Escape");
     expect(describedText(handle)).toBe(
       "Press Space or Enter to pick up this choice. Use Arrow Up or Arrow Down to choose a destination within its group. Press Space or Enter to drop, or Escape to cancel.",
     );
@@ -984,10 +980,7 @@ describe("EditorMovementLayer", () => {
     for (const handle of [blockHandle, containedHandle]) {
       expect(handle).toHaveAttribute("data-interaction-drag-activation-area");
       expect(handle).not.toHaveAttribute("aria-roledescription");
-      expect(handle).toHaveAttribute(
-        "aria-keyshortcuts",
-        "Space Enter ArrowUp ArrowDown Escape",
-      );
+      expect(handle).toHaveAttribute("aria-keyshortcuts", "Space Enter ArrowUp ArrowDown Escape");
     }
     expect(blockHandle.className).toContain("sc-editor-movement-handle");
     expect(containedHandle.className).toContain("sc-contained-movement-handle");

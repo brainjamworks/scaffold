@@ -7,7 +7,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it } from "vite-plus/test";
 
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import {
   ARRANGEMENT_CONTENT,
   SECTION_ARRANGEMENT_CONTENT,
@@ -202,6 +202,7 @@ function createEditor(mode: "page" | "slideshow", surfaces: JSONContent[]): Edit
       }),
       ExtendedParagraph,
       CourseDocumentNode,
+      createCourseSectionNode(),
       SurfaceNode,
       RegionNode,
       TestArrangementNode,

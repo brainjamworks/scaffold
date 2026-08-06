@@ -88,7 +88,7 @@ describe("PDF bounded geometry", () => {
     const adapterStyles = document.createElement("style");
     adapterStyles.textContent = `
       @layer sc-adapters {
-        .sc-pdf-embed__stage {
+        .sc-course-pdf-embed__stage {
           background: rgb(12 34 56);
         }
       }
@@ -97,11 +97,11 @@ describe("PDF bounded geometry", () => {
     mountedStyles.push(adapterStyles);
 
     const stage = document.createElement("div");
-    stage.className = "sc-pdf-embed__stage";
+    stage.className = "sc-course-pdf-embed__stage";
     document.body.append(stage);
 
     expect(stage.getBoundingClientRect().width).toBeCloseTo(document.body.clientWidth, 0);
-    expect(getComputedStyle(stage).minHeight).toBe("288px");
+    expect(getComputedStyle(stage).minHeight).toBe("0px");
     expect(getComputedStyle(stage).backgroundColor).toBe("rgb(12, 34, 56)");
   });
 
@@ -109,11 +109,11 @@ describe("PDF bounded geometry", () => {
     "fills a finite %s frame while reserving caption and navigation chrome",
     async (kind) => {
       const mounted = await mountPdf({ bounded: true, kind });
-      const figure = requiredElement<HTMLElement>(mounted.frame, ".sc-pdf-embed__figure");
-      const caption = requiredElement<HTMLElement>(mounted.frame, ".sc-pdf-embed__caption");
-      const stage = requiredElement<HTMLElement>(mounted.frame, ".sc-pdf-embed__stage");
+      const figure = requiredElement<HTMLElement>(mounted.frame, ".sc-course-pdf-embed__figure");
+      const caption = requiredElement<HTMLElement>(mounted.frame, ".sc-course-pdf-embed__caption");
+      const stage = requiredElement<HTMLElement>(mounted.frame, ".sc-course-pdf-embed__stage");
       const canvas = requiredElement<HTMLCanvasElement>(mounted.frame, "[data-pdf-page]");
-      const chrome = requiredElement<HTMLElement>(mounted.frame, ".sc-pdf-embed__chrome");
+      const chrome = requiredElement<HTMLElement>(mounted.frame, ".sc-course-pdf-embed__chrome");
       const frameRect = mounted.frame.getBoundingClientRect();
       const figureRect = figure.getBoundingClientRect();
       const captionRect = caption.getBoundingClientRect();
@@ -134,7 +134,7 @@ describe("PDF bounded geometry", () => {
 
   it("keeps ordinary page-flow PDF height intrinsic", async () => {
     const mounted = await mountPdf({ bounded: false, kind: "runtime" });
-    const stage = requiredElement<HTMLElement>(mounted.frame, ".sc-pdf-embed__stage");
+    const stage = requiredElement<HTMLElement>(mounted.frame, ".sc-course-pdf-embed__stage");
     const canvas = requiredElement<HTMLCanvasElement>(mounted.frame, "[data-pdf-page]");
     const stageRect = stage.getBoundingClientRect();
     const canvasRect = canvas.getBoundingClientRect();
@@ -145,18 +145,38 @@ describe("PDF bounded geometry", () => {
     expect(canvasRect.width / canvasRect.height).toBeCloseTo(600 / 800, 2);
   });
 
+  it("keeps the fitted Page viewport height while fixed zoom scrolls inside it", async () => {
+    const mounted = await mountPdf({ bounded: false, kind: "runtime" });
+    const stage = requiredElement<HTMLElement>(mounted.frame, ".sc-course-pdf-embed__stage");
+    const fittedStageHeight = stage.getBoundingClientRect().height;
+
+    requiredElement<HTMLButtonElement>(mounted.frame, '[aria-label="Zoom in"]').click();
+    await waitForCondition(() =>
+      mounted.frame.querySelector('[aria-label="Zoom 125%. Reset to fit"]'),
+    );
+    await nextLayoutFrames(3);
+
+    const canvas = requiredElement<HTMLCanvasElement>(mounted.frame, "[data-pdf-page]");
+
+    expect(stage.getBoundingClientRect().height).toBeCloseTo(fittedStageHeight, 0);
+    expect(canvas.getBoundingClientRect().height).toBeGreaterThan(fittedStageHeight);
+    expect(getComputedStyle(stage).overflow).toBe("auto");
+    expect(stage.scrollHeight).toBeGreaterThan(stage.clientHeight);
+    expect(stage.tabIndex).toBe(0);
+  });
+
   it("contains the lazy-loading fallback inside a short bounded frame", () => {
     const host = document.createElement("div");
     host.style.width = "640px";
     host.style.height = "180px";
 
     const frame = document.createElement("div");
-    frame.className = "sc-pdf-embed";
+    frame.className = "sc-course-pdf-embed";
     frame.dataset["authoringFrame"] = "block";
     frame.dataset["boundedPlacement"] = "fill";
 
     const fallback = document.createElement("div");
-    fallback.className = "sc-pdf-embed__fallback";
+    fallback.className = "sc-course-pdf-embed__fallback";
     frame.append(fallback);
     host.append(frame);
     document.body.append(host);
@@ -171,7 +191,7 @@ describe("PDF bounded geometry", () => {
 
   it("makes an enlarged page keyboard-scrollable instead of clipping it", async () => {
     const mounted = await mountPdf({ bounded: true, kind: "runtime" });
-    const stage = requiredElement<HTMLElement>(mounted.frame, ".sc-pdf-embed__stage");
+    const stage = requiredElement<HTMLElement>(mounted.frame, ".sc-course-pdf-embed__stage");
 
     for (let index = 0; index < 4; index += 1) {
       requiredElement<HTMLButtonElement>(mounted.frame, '[aria-label="Zoom in"]').click();
@@ -211,7 +231,7 @@ async function mountPdf(input: { bounded: boolean; kind: RendererKind }): Promis
   if (input.bounded) host.style.height = "300px";
 
   const frame = document.createElement("div");
-  frame.className = "sc-pdf-embed";
+  frame.className = "sc-course-pdf-embed";
   frame.setAttribute(
     input.kind === "authoring" ? "data-authoring-frame" : "data-runtime-frame",
     "block",
@@ -230,9 +250,10 @@ async function mountPdf(input: { bounded: boolean; kind: RendererKind }): Promis
         },
         title: "Course handbook",
       })}
-      editable={input.kind === "authoring"}
       mediaPort={null}
-      {...(input.kind === "authoring" ? { onAdd: () => undefined } : {})}
+      {...(input.kind === "authoring"
+        ? { replaceAction: <button type="button">Replace PDF</button> }
+        : {})}
     />,
   );
 

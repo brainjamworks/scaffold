@@ -11,6 +11,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ComponentType,
   type KeyboardEvent,
   type ReactNode,
   type RefObject,
@@ -18,7 +19,7 @@ import {
 
 import { zIndex } from "@/ui/overlays/z-index";
 
-import { OverlayBoundary } from "../OverlayBoundary/OverlayBoundary";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 import { useOverlayBoundary } from "@/ui/overlays/portal-host-context";
 
 import "./Lightbox.css";
@@ -64,6 +65,8 @@ export interface LightboxProps {
   returnFocusRef?: RefObject<HTMLElement | null>;
   /** Reports the stable key after the active default image successfully loads. */
   onActiveItemLoad?: (key: string) => void;
+  /** Optional owner boundary for overlays rendered inside the lightbox. */
+  childOverlayHostBoundary?: ComponentType<Readonly<{ children: ReactNode }>>;
 }
 
 function LightboxPortal(props: DialogPrimitive.DialogPortalProps) {
@@ -83,6 +86,7 @@ export function Lightbox({
   ariaLabel = "Image viewer",
   returnFocusRef,
   onActiveItemLoad,
+  childOverlayHostBoundary,
 }: LightboxProps) {
   const safeInitial = Math.max(0, Math.min(initialIndex, items.length - 1));
   const [activeKey, setActiveKey] = useState<string | null>(items[safeInitial]?.key ?? null);
@@ -216,7 +220,11 @@ export function Lightbox({
             {positionLabel}
           </DialogPrimitive.Description>
 
-          <OverlayBoundary container={childOverlayContainer} kind="contained">
+          <OverlayBoundary
+            container={childOverlayContainer}
+            {...(childOverlayHostBoundary ? { hostBoundary: childOverlayHostBoundary } : {})}
+            kind="contained"
+          >
             <figure
               className="sc-lightbox-figure"
               aria-describedby={activeItem?.caption ? captionId : undefined}

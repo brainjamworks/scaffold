@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { OverlayBoundary } from "@/ui/components/OverlayBoundary/OverlayBoundary";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 import * as Popover from "@/ui/components/Popover/Popover";
 import {
   AUTHORING_CHROME_ATTR,

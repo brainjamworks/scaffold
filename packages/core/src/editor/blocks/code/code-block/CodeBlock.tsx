@@ -5,10 +5,12 @@ import {
 } from "@scaffold/contracts";
 import { NodeViewContent, type NodeViewProps } from "@tiptap/react";
 
-import { Combobox } from "@/ui/components/Combobox/Combobox";
+import { Combobox } from "@/ui/components/app/Combobox/Combobox";
 import { authoringMovementSnapshotChromeAttributes } from "@/editor/movement/view/authoring-movement-presentation";
 
 import { CodeBlockSurface, normalizeCodeBlockData, parseCodeBlockData } from "./CodeBlockSurface";
+
+import "./CodeBlockAuthoringControls.css";
 
 const LANGUAGE_OPTIONS = CodeBlockLanguageSchema.options.map((value) => ({
   value,
@@ -31,6 +33,7 @@ export function CodeBlockAuthoringView(props: NodeViewProps) {
       languageControl={
         <div
           {...authoringMovementSnapshotChromeAttributes()}
+          className="sc-app-code-block__language-control"
           onMouseDown={(event) => event.stopPropagation()}
           onClick={(event) => event.stopPropagation()}
         >
@@ -40,7 +43,7 @@ export function CodeBlockAuthoringView(props: NodeViewProps) {
             onChange={(value) => updateLanguage(value as CodeBlockLanguage)}
             options={LANGUAGE_OPTIONS}
             searchPlaceholder="Search languages"
-            className="sc-code-block__language"
+            className="sc-app-code-block__language-trigger"
           />
         </div>
       }

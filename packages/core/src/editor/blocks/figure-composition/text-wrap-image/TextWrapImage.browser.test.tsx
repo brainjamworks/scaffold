@@ -2,6 +2,8 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import "@/styles/globals.css";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
 import { emptyTextWrapImageData } from "./content";
 import { TextWrapImageMediaSurface } from "./TextWrapImageSurface";
@@ -23,31 +25,35 @@ describe("Text Wrap Image geometry", () => {
     const root = createRoot(host);
     mountedRoots.push(root);
     root.render(
-      <div
-        className="sc-text-wrap-image__shell"
-        data-position="left"
-        data-size="sm"
-        data-shape="rounded"
-      >
-        <TextWrapImageMediaSurface
-          data={emptyTextWrapImageData({
-            source: { mode: "external", src: "https://example.com/wrapped-image.png" },
-            alt: "Text wrap geometry fixture",
-          })}
-          fileUrl={testImageUrl()}
-        />
-        <div className="sc-text-wrap-image__body-content">
-          <div data-node-view-content-react>
-            <p>Body copy wraps around the floated image before continuing below it.</p>
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <div className="sc-course-text-wrap-image">
+          <div
+            className="sc-course-text-wrap-image__shell"
+            data-position="left"
+            data-size="sm"
+            data-shape="rounded"
+          >
+            <TextWrapImageMediaSurface
+              data={emptyTextWrapImageData({
+                source: { mode: "external", src: "https://example.com/wrapped-image.png" },
+                alt: "Text wrap geometry fixture",
+              })}
+              fileUrl={testImageUrl()}
+            />
+            <div className="sc-course-text-wrap-image__body-content">
+              <div data-node-view-content-react>
+                <p>Body copy wraps around the floated image before continuing below it.</p>
+              </div>
+            </div>
           </div>
         </div>
-      </div>,
+      </CourseThemeProvider>,
     );
 
-    await waitForCondition(() => host.querySelector(".sc-text-wrap-image__media"));
-    const shell = requiredElement<HTMLElement>(host, ".sc-text-wrap-image__shell");
-    const media = requiredElement<HTMLElement>(shell, ".sc-text-wrap-image__media");
-    const image = requiredElement<HTMLImageElement>(media, ".sc-text-wrap-image__img");
+    await waitForCondition(() => host.querySelector(".sc-course-text-wrap-image__media"));
+    const shell = requiredElement<HTMLElement>(host, ".sc-course-text-wrap-image__shell");
+    const media = requiredElement<HTMLElement>(shell, ".sc-course-text-wrap-image__media");
+    const image = requiredElement<HTMLImageElement>(media, ".sc-course-text-wrap-image__img");
 
     expect(getComputedStyle(media).float).toBe("left");
     expect(media.getBoundingClientRect().width).toBeCloseTo(168, 0);
@@ -66,6 +72,63 @@ describe("Text Wrap Image geometry", () => {
     expect(Number.parseFloat(getComputedStyle(media).marginLeft)).toBeCloseTo(20, 0);
     expect(getComputedStyle(media).shapeOutside).toBe("circle()");
     expect(getComputedStyle(image).borderRadius).toBe("9999px");
+  });
+
+  it("recolours learner text and image treatment with Course appearance", async () => {
+    const host = document.createElement("div");
+    host.style.width = "500px";
+    document.body.append(host);
+
+    const root = createRoot(host);
+    mountedRoots.push(root);
+    const renderAppearance = (appearance: "light" | "dark") => {
+      root.render(
+        <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance={appearance}>
+          <div className="sc-course-text-wrap-image">
+            <div
+              className="sc-course-text-wrap-image__shell"
+              data-position="right"
+              data-size="md"
+              data-shape="rounded"
+            >
+              <TextWrapImageMediaSurface
+                data={emptyTextWrapImageData({
+                  source: { mode: "external", src: "https://example.com/wrapped-image.png" },
+                  alt: "Course appearance fixture",
+                })}
+                fileUrl={testImageUrl()}
+              />
+              <div className="sc-course-text-wrap-image__body-content">
+                <div data-node-view-content-react>
+                  <p>Course-owned body copy.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CourseThemeProvider>,
+      );
+    };
+
+    renderAppearance("light");
+    await waitForCondition(() => host.querySelector(".sc-course-text-wrap-image__img"));
+    const paragraph = requiredElement<HTMLParagraphElement>(host, "p");
+    const image = requiredElement<HTMLImageElement>(host, ".sc-course-text-wrap-image__img");
+    const lightText = getComputedStyle(paragraph).color;
+    const lightOutline = getComputedStyle(image).boxShadow;
+    const paragraphStyle = getComputedStyle(paragraph);
+
+    const expectedLineHeight = Number.parseFloat(
+      paragraphStyle.getPropertyValue("--sc-course-author-body-line-height"),
+    );
+    expect(
+      Number.parseFloat(paragraphStyle.lineHeight) / Number.parseFloat(paragraphStyle.fontSize),
+    ).toBeCloseTo(expectedLineHeight, 2);
+
+    renderAppearance("dark");
+    await waitForCondition(() => getComputedStyle(paragraph).color !== lightText);
+
+    expect(getComputedStyle(paragraph).color).not.toBe(lightText);
+    expect(getComputedStyle(image).boxShadow).not.toBe(lightOutline);
   });
 });
 

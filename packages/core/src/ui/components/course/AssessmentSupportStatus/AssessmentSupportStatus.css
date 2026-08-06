@@ -1,0 +1,16 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-course-assessment-support-status {
+    display: inline-flex;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 2.25rem;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sc-course-assessment-support-status__icon {
+    flex: none;
+  }
+}

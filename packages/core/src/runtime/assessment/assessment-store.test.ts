@@ -3146,6 +3146,34 @@ describe("createAssessmentStore", () => {
     expect(store.getState().registrations[problemId]?.config.hintsTotal).toBe(5);
   });
 
+  it("recomputes response readiness when an existing registration changes", () => {
+    const store = createAssessmentStore({
+      artifactId: "artifact-one",
+      assessmentPort: createAssessmentPort(),
+    });
+    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const original = createRegistration();
+    const stricter = createRegistration({
+      response: {
+        ...original.response,
+        hasResponse: () => false,
+      },
+    });
+
+    expect(store.getState().register(original)).toBe(true);
+    expect(store.getState().setLocalResponse(registrationIdentity(), { choice: "option-a" })).toBe(
+      true,
+    );
+    expect(store.getState().transient.responseReady[problemId]).toBe(true);
+
+    expect(store.getState().update(stricter)).toBe(true);
+    expect(store.getState().transient.responseReady[problemId]).toBe(false);
+    expect(store.getState().durable.problems[problemId]?.response).toEqual({
+      kind: "single-select",
+      optionId: "option-a",
+    });
+  });
+
   it("rejects registration identity changes", () => {
     const store = createAssessmentStore({
       artifactId: "artifact-one",

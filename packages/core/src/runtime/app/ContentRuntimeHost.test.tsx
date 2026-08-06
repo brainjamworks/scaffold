@@ -23,17 +23,13 @@ import type { SurfaceAuthoringViewProps } from "@/editor/surfaces/authoring/surf
 import type { SurfaceRuntimeViewProps } from "@/editor/surfaces/runtime/surface-runtime-view-registry";
 import { SurfaceRuntimeFrame } from "@/editor/surfaces/runtime/views/SurfaceRuntimeFrame";
 import type { LearningEventPort } from "@/host/ports/learning-events";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import {
   LEARNING_EVENT_ACTIVITY_TYPES,
   LEARNING_EVENT_EXTENSIONS,
   createLayoutSectionActivityId as createLearningEventLayoutSectionActivityId,
   createSurfaceActivityId as createLearningEventSurfaceActivityId,
 } from "../learning-events/catalogue";
-import {
-  createScaffoldDefaultTheme,
-  SCAFFOLD_DEFAULT_PRESET,
-  type ScaffoldThemeExtension,
-} from "@/theme/model";
 
 import { ContentRuntimeHost } from "./ContentRuntimeHost";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
@@ -341,7 +337,7 @@ function runtimeDocumentContent({
             mode: "branching",
             surfaceSize: "fluid",
             overflowMode: "grow",
-            theme: createScaffoldDefaultTheme(),
+            theme: createDefaultPersistedCourseTheme(),
           },
           content: surfaceIds.map((id) => {
             if (id === null) {
@@ -611,103 +607,6 @@ describe("ContentRuntimeHost", () => {
     expect(
       document.body.querySelector(`[data-private-runtime-surface="${capability.definition.id}"]`),
     ).not.toBeNull();
-  });
-
-  it("falls back and recovers silently when a host theme extension is removed and restored", async () => {
-    const themeExtension = hostThemeExtension();
-    const hostPreset = themeExtension.presets![0]!;
-    const content = runtimeDocumentContent();
-    const courseDocument = content.content![0]!;
-    courseDocument.attrs = {
-      ...courseDocument.attrs,
-      theme: {
-        schemaVersion: 1,
-        preset: { id: hostPreset.id, revision: hostPreset.revision },
-        values: structuredClone(hostPreset.values),
-      },
-    };
-    const persistedSnapshot = structuredClone(courseDocument.attrs!["theme"]);
-
-    const { rerender } = render(
-      <ContentRuntimeHost
-        composition={runtimeComposition}
-        artifactId="artifact-host-theme"
-        initialContent={content}
-        themeExtension={themeExtension}
-      />,
-    );
-
-    await waitFor(() =>
-      expect(screen.getByTestId("course-theme-scope")).toHaveAttribute(
-        "data-effective-course-theme",
-        hostPreset.id,
-      ),
-    );
-
-    rerender(
-      <ContentRuntimeHost
-        composition={runtimeComposition}
-        artifactId="artifact-host-theme"
-        initialContent={content}
-      />,
-    );
-    await waitFor(() =>
-      expect(screen.getByTestId("course-theme-scope")).toHaveAttribute(
-        "data-effective-course-theme",
-        SCAFFOLD_DEFAULT_PRESET.id,
-      ),
-    );
-    expect(screen.queryByRole("alert")).toBeNull();
-    expect(courseDocument.attrs!["theme"]).toEqual(persistedSnapshot);
-
-    rerender(
-      <ContentRuntimeHost
-        composition={runtimeComposition}
-        artifactId="artifact-host-theme"
-        initialContent={content}
-        themeExtension={themeExtension}
-      />,
-    );
-    await waitFor(() =>
-      expect(screen.getByTestId("course-theme-scope")).toHaveAttribute(
-        "data-effective-course-theme",
-        hostPreset.id,
-      ),
-    );
-    expect(courseDocument.attrs!["theme"]).toEqual(persistedSnapshot);
-  });
-
-  it("silently excludes an invalid host theme recipe", async () => {
-    const validExtension = hostThemeExtension();
-    const invalidExtension = structuredClone(validExtension) as unknown as ScaffoldThemeExtension;
-    Object.assign(invalidExtension.presets![0]!.recipe, { version: 999 });
-    const content = runtimeDocumentContent();
-    const courseDocument = content.content![0]!;
-    courseDocument.attrs = {
-      ...courseDocument.attrs,
-      theme: {
-        schemaVersion: 1,
-        preset: { id: "host-course", revision: "host-course-v1" },
-        values: structuredClone(validExtension.presets![0]!.values),
-      },
-    };
-
-    render(
-      <ContentRuntimeHost
-        composition={runtimeComposition}
-        artifactId="artifact-invalid-host-theme"
-        initialContent={content}
-        themeExtension={invalidExtension}
-      />,
-    );
-
-    await waitFor(() =>
-      expect(screen.getByTestId("course-theme-scope")).toHaveAttribute(
-        "data-effective-course-theme",
-        SCAFFOLD_DEFAULT_PRESET.id,
-      ),
-    );
-    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("renders page content through the runtime renderer surface", async () => {
@@ -1882,11 +1781,3 @@ describe("ContentRuntimeHost", () => {
     expect(document.body.querySelector("[data-authoring-resize-handle]")).toBeNull();
   });
 });
-
-function hostThemeExtension(): ScaffoldThemeExtension {
-  const preset = structuredClone(SCAFFOLD_DEFAULT_PRESET);
-  preset.id = "host-course";
-  preset.revision = "host-course-v1";
-  preset.label = "Host course";
-  return { presets: [preset] };
-}

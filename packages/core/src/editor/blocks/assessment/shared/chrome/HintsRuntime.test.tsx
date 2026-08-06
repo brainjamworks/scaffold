@@ -46,7 +46,10 @@ describe("Hints", () => {
     expect(screen.queryByText("Try the smallest option first.")).toBeNull();
     expect(screen.queryByLabelText("Hint navigation")).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Show next hint" }));
+    const trigger = screen.getByRole("button", { name: "Show next hint" });
+    expect(trigger).toHaveClass("sc-course-assessment-support-button");
+    expect(trigger).toHaveAttribute("data-assessment-support-intent", "hint");
+    fireEvent.click(trigger);
 
     const dialog = screen.getByRole("dialog", { name: "Hint 1 of 2" });
     expect(within(dialog).getByRole("heading", { name: "Hint 1", level: 2 })).toBeInTheDocument();
@@ -160,9 +163,29 @@ describe("Hints", () => {
     fireEvent.click(screen.getByRole("button", { name: "Show next hint" }));
     let dialog = screen.getByRole("dialog", { name: "Hint 2 of 3" });
     expect(within(dialog).getByText("Eliminate the distractor.")).toBeInTheDocument();
+    const liveRegion = within(dialog).getByLabelText("Revealed hints");
+    expect(liveRegion).toHaveAttribute("aria-live", "polite");
+    expect(liveRegion).toHaveAttribute("aria-atomic", "true");
+    const visibleHints = Array.from(
+      liveRegion.querySelectorAll<HTMLElement>('[data-slot="assessment-hint"]'),
+    );
+    expect(visibleHints[0]).toHaveAttribute("aria-hidden", "true");
+    expect(visibleHints[1]).not.toHaveAttribute("aria-hidden");
 
-    fireEvent.click(within(dialog).getByRole("button", { name: "Next hint" }));
+    const nextHintAction = within(dialog).getByRole("button", { name: "Next hint" });
+    nextHintAction.focus();
+    fireEvent.click(nextHintAction);
     dialog = screen.getByRole("dialog", { name: "Hint 3 of 3" });
     expect(within(dialog).getByText("Check the final wording.")).toBeInTheDocument();
+    expect(document.activeElement).toBe(
+      within(dialog).getByRole("button", { name: "Previous hint" }),
+    );
+    const updatedHints = Array.from(
+      within(dialog)
+        .getByLabelText("Revealed hints")
+        .querySelectorAll<HTMLElement>('[data-slot="assessment-hint"]'),
+    );
+    expect(updatedHints[1]).toHaveAttribute("aria-hidden", "true");
+    expect(updatedHints[2]).not.toHaveAttribute("aria-hidden");
   });
 });

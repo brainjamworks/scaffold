@@ -1,6 +1,5 @@
 export {
   resetCourseTheme,
-  resetCourseThemeSection,
-  selectCoursePreset,
-  updateCourseTheme,
+  selectCourseColourSystem,
+  selectCourseDesign,
 } from "./course-theme-commands";

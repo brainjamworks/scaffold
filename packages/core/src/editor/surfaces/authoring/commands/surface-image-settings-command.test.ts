@@ -9,7 +9,7 @@ import {
   ARRANGEMENT_CONTENT,
   SECTION_ARRANGEMENT_CONTENT,
 } from "@/document/model/content-model/content-groups";
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import type { EmbeddedNodeId } from "@scaffold/contracts";
 import { ExtendedHeading } from "@/editor/rich-text/model/rich-text-blocks";
@@ -134,6 +134,7 @@ function makeEditor({
       ExtendedParagraph,
       ExtendedHeading,
       CourseDocumentNode,
+      createCourseSectionNode(),
       SurfaceNode,
       RegionNode,
       SlideTitleNode,

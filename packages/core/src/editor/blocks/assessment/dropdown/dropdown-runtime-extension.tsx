@@ -15,7 +15,7 @@ import { createDropdownNode } from "./node";
 function DropdownRuntimeView(props: NodeViewProps) {
   return (
     <AssessmentRuntimeProblemContent
-      blockClass="sc-dropdown"
+      blockClass="sc-course-dropdown"
       definition={dropdownBlockDefinition}
       props={props}
     />

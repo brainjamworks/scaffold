@@ -1,0 +1,220 @@
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-shell {
+  column-gap: var(--space-3);
+  row-gap: var(--space-5);
+  padding: calc(1.5rem * var(--sc-course-author-density));
+  border: var(--sc-course-author-stroke-width) solid var(--gray-a6);
+  border-radius: var(--radius-4);
+  background: var(--gray-1);
+  box-shadow: var(--sc-course-author-shadow);
+  color: var(--gray-12);
+  font-family: var(--default-font-family);
+  transition: border-color 150ms ease;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-shell:focus-within {
+  border-color: var(--accent-a8);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-shell
+  [data-slot="assessment-actions-group"] {
+  margin-top: calc(-1 * var(--space-3));
+  margin-left: 0;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-meta-title,
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-meta-instructions {
+  min-height: var(--space-5);
+  color: var(--gray-10);
+  font-family: var(--default-font-family);
+  font-size: var(--font-size-1);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-1);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-meta-title {
+  max-inline-size: 45%;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  :is(.sc-course-assessment-meta-title, .sc-course-assessment-meta-instructions)
+  .sc-course-assessment-meta-content--inline {
+  overflow: hidden;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  :is(.sc-course-assessment-meta-title, .sc-course-assessment-meta-instructions)
+  .sc-course-assessment-meta-content--inline
+  p {
+  width: max-content;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  :is(
+    .sc-course-assessment-meta-title,
+    .sc-course-assessment-meta-instructions
+  )[data-course-overflow="true"]:focus-visible {
+  border-radius: var(--radius-1);
+  outline: 2px solid var(--accent-8, currentColor);
+  outline-offset: var(--space-1);
+}
+
+@keyframes sc-course-assessment-meta-marquee {
+  0%,
+  12% {
+    transform: translateX(0);
+  }
+
+  88%,
+  100% {
+    transform: translateX(calc(-1 * var(--sc-course-assessment-meta-marquee-distance, 0px)));
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    :is(
+      .sc-course-assessment-meta-title,
+      .sc-course-assessment-meta-instructions
+    )[data-course-overflow="true"]:is(:hover, :focus)
+    .sc-course-assessment-meta-content--inline
+    p {
+    max-width: none;
+    overflow: visible;
+    animation: sc-course-assessment-meta-marquee
+      var(--sc-course-assessment-meta-marquee-duration, 6s) linear infinite alternate both;
+    text-overflow: clip;
+    will-change: transform;
+  }
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-meta-instructions {
+  column-gap: var(--space-3);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-prompt {
+  color: var(--gray-12);
+  font-family: var(--heading-font-family);
+  font-size: calc(var(--font-size-5) * var(--sc-course-author-text-scale));
+  font-weight: var(--sc-course-author-heading-weight);
+  line-height: var(--sc-course-author-heading-line-height);
+  letter-spacing: var(--sc-course-author-heading-letter-spacing);
+  text-transform: var(--sc-course-author-heading-text-transform);
+  text-wrap: pretty;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-assessment-control-layout {
+  gap: var(--space-5);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  :is(.sc-assessment-control-layout__support, .sc-assessment-control-layout__submission) {
+  gap: var(--space-3);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-attempt-counter {
+  min-height: var(--space-6);
+  color: var(--gray-10);
+  font-family: var(--default-font-family);
+  font-size: var(--font-size-1);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-1);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-attempt-counter[data-state="warning"] {
+  color: var(--sc-course-state-warning-text);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-attempt-counter[data-state="final"] {
+  color: var(--sc-course-state-error-text);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-shell[data-assessment-container="quiz"] {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+  > .sc-course-assessment-shell {
+  --sc-assessment-bounded-section-gap: clamp(0.75rem, 2cqw, 1rem);
+  --sc-assessment-bounded-padding: clamp(0.75rem, 3cqw, 1rem);
+  --sc-assessment-bounded-row-gap: var(--sc-assessment-bounded-section-gap);
+  --sc-assessment-bounded-column-gap: var(--sc-assessment-bounded-section-gap);
+  grid-template-columns: fit-content(45%) minmax(0, 1fr);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+  > .sc-course-assessment-shell
+  [data-slot="assessment-title"] {
+  inline-size: 100%;
+  max-inline-size: none;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+  [data-bounded-scroll] {
+  padding-block: 0.125rem 0.25rem;
+  padding-right: 0.125rem;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-shell:hover {
+    border-color: var(--gray-a8);
+  }
+}
+
+@container (max-width: 460px) {
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-shell {
+    column-gap: clamp(0.5rem, 3cqw, 0.75rem);
+    row-gap: clamp(1rem, 5cqw, 1.5rem);
+    padding: clamp(0.75rem, 4cqw, 1.5rem);
+  }
+
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-course-assessment-shell
+    [data-slot="assessment-title"] {
+    min-width: 0;
+    font-size: clamp(0.5625rem, 2.25cqw, 0.8125rem);
+    letter-spacing: clamp(0.06em, 0.4cqw, 0.14em);
+    line-height: 1.15;
+  }
+
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-course-assessment-shell
+    [data-slot="assessment-instructions"] {
+    min-width: 0;
+    flex-wrap: nowrap;
+    column-gap: clamp(0.25rem, 1.25cqw, 0.75rem);
+    font-size: clamp(0.5625rem, 2.25cqw, 0.8125rem);
+    letter-spacing: clamp(0.06em, 0.4cqw, 0.14em);
+    line-height: 1.15;
+  }
+}
+
+@container (max-width: 520px) {
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-course-assessment-shell
+    [data-slot="assessment-actions-group"] {
+    flex-basis: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-shell {
+    transition: none;
+  }
+}

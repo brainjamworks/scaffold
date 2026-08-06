@@ -35,7 +35,7 @@ export function AttemptCounter({ attempts, maxAttempts }: AttemptCounterProps) {
 
   return (
     <span
-      className="sc-assessment-attempt-counter"
+      className="sc-course-assessment-attempt-counter"
       data-state={state}
       role="status"
       aria-live="polite"

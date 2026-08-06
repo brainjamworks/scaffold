@@ -2,6 +2,7 @@ import { useEditorState, type NodeViewProps } from "@tiptap/react";
 
 import { readEmbedData, updateEmbedDataUrl } from "./embed-data";
 import { EmbedSurface } from "./EmbedSurface";
+import "./EmbedAuthoringControls.css";
 
 export function EmbedAuthoringView(props: NodeViewProps) {
   const editable = useEditorState({

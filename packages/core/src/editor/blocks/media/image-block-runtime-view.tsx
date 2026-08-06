@@ -10,12 +10,5 @@ export function ImageBlockRuntimeView(props: NodeViewProps) {
   const data = parseImageBlockData(props.node.attrs["data"]);
   const { errorMessage, resolvedUrl } = useResolvedImageBlockSource(data, mediaPort);
 
-  return (
-    <ImageBlockSurface
-      data={data}
-      errorMessage={errorMessage}
-      resolvedUrl={resolvedUrl}
-      withWrapper={false}
-    />
-  );
+  return <ImageBlockSurface data={data} errorMessage={errorMessage} resolvedUrl={resolvedUrl} />;
 }

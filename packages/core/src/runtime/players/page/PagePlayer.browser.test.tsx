@@ -5,12 +5,8 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { createAssessmentRuntimeTestRoot } from "@/runtime/assessment/test-utils";
-import {
-  createScaffoldDefaultTheme,
-  createThemeCatalogue,
-  resolveCourseTheme,
-  type ResolvedCourseTheme,
-} from "@/theme/model";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import "@/styles/globals.css";
 
 import { PagePlayer } from "./PagePlayer";
@@ -40,18 +36,14 @@ describe("PagePlayer presentation", () => {
         background: { color: "#123456" },
       },
     };
-    const resolvedTheme = resolveCourseTheme({
-      catalogue: createThemeCatalogue(),
-      mode: "dark",
-      theme: createScaffoldDefaultTheme(),
-    });
-
-    const mounted = await mountPage(content, 1200, resolvedTheme);
-    const scope = uniqueElement<HTMLElement>(mounted.host, ".sc-course-theme-scope");
+    const mounted = await mountPage(content, 1200, "dark");
+    const player = uniqueElement<HTMLElement>(mounted.host, ".sc-page-player");
+    const scope = player.closest<HTMLElement>(".sc-course");
+    if (!scope) throw new Error("Page player is missing its Course boundary.");
     const runtimeSurface = uniqueElement<HTMLElement>(scope, "[data-surface]");
     const paragraph = uniqueElement<HTMLElement>(runtimeSurface, "p");
 
-    expect(scope.dataset.courseColorMode).toBe("dark");
+    expect(scope).toHaveClass("dark", "sc-course-theme-scaffold-flow-v1");
     expect(getComputedStyle(paragraph).color).toBe(getComputedStyle(scope).color);
     expect(getComputedStyle(runtimeSurface).backgroundColor).toBe("rgb(18, 52, 86)");
   });
@@ -263,7 +255,7 @@ function buttonByName(root: ParentNode, name: string): HTMLButtonElement {
 async function mountPage(
   initialContent: JSONContent,
   width = 1200,
-  resolvedTheme?: ResolvedCourseTheme,
+  appearance: "light" | "dark" = "light",
 ): Promise<{ host: HTMLElement }> {
   let editor: TiptapEditor | null = null;
   const host = document.createElement("div");
@@ -276,15 +268,16 @@ async function mountPage(
   root.render(
     createAssessmentRuntimeTestRoot({
       children: (
-        <PagePlayer
-          composition={runtimeComposition}
-          initialContent={initialContent}
-          {...(resolvedTheme ? { resolvedTheme } : {})}
-          surfaceId="surface-page-player-browser"
-          onRendererReady={(readyEditor) => {
-            editor = readyEditor;
-          }}
-        />
+        <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance={appearance}>
+          <PagePlayer
+            composition={runtimeComposition}
+            initialContent={initialContent}
+            surfaceId="surface-page-player-browser"
+            onRendererReady={(readyEditor) => {
+              editor = readyEditor;
+            }}
+          />
+        </CourseThemeProvider>
       ),
     }),
   );

@@ -1,0 +1,73 @@
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-chapter-epigraph {
+  width: 100%;
+  max-width: 40ch;
+  gap: var(--space-3);
+  padding-block: var(--space-6);
+  color: var(--gray-12);
+  font-family: var(--default-font-family);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-chapter-epigraph__content {
+  gap: var(--space-2);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-chapter-epigraph__body {
+  width: 100%;
+  color: var(--gray-12);
+  font-family: var(--heading-font-family);
+  font-size: var(--font-size-5);
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: var(--letter-spacing-5);
+  line-height: var(--line-height-5);
+  text-wrap: balance;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-chapter-epigraph__attribution {
+  display: block;
+  color: var(--gray-11);
+  font-family: var(--default-font-family);
+  font-size: var(--font-size-1);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: var(--line-height-1);
+  text-transform: uppercase;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-chapter-epigraph::after {
+  content: "";
+  width: var(--space-7);
+  height: 1px;
+  flex: none;
+  align-self: flex-start;
+  margin-top: var(--space-1);
+  background: var(--gray-a6);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-chapter-epigraph[data-align="center"]::after {
+  align-self: center;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-chapter-epigraph[data-align="right"]::after {
+  align-self: flex-end;
+}
+
+@container sc-course-chapter-epigraph (max-width: 18rem) {
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-chapter-epigraph {
+    max-width: none;
+    gap: var(--space-2);
+    padding: var(--space-4) var(--space-2);
+  }
+
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-chapter-epigraph__body {
+    font-size: var(--font-size-4);
+    letter-spacing: var(--letter-spacing-4);
+    line-height: var(--line-height-4);
+    text-wrap: pretty;
+  }
+
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-chapter-epigraph::after {
+    width: var(--space-6);
+  }
+}

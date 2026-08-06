@@ -37,6 +37,7 @@ describe("image-hotspot authored persisted contracts", () => {
       centerX: 20,
       centerY: 30,
       radius: 8,
+      label: "Region",
     });
     const assessment = ImageHotspotPrivateAssessmentSchema.safeParse({
       correctHotspotIds: ["h1"],
@@ -60,8 +61,8 @@ describe("image-hotspot authored persisted contracts", () => {
   it("reports duplicate hotspot owners and correct references at safe paths", () => {
     const canvas = ImageHotspotCanvasDataSchema.safeParse({
       hotspots: [
-        { id: "hotsp_000001", centerX: 20, centerY: 30, radius: 8 },
-        { id: "hotsp_000001", centerX: 70, centerY: 60, radius: 8 },
+        { id: "hotsp_000001", centerX: 20, centerY: 30, radius: 8, label: "Region 1" },
+        { id: "hotsp_000001", centerX: 70, centerY: 60, radius: 8, label: "Region 2" },
       ],
     });
     const assessment = ImageHotspotPrivateAssessmentSchema.safeParse({
@@ -90,7 +91,9 @@ describe("image-hotspot authored persisted contracts", () => {
   it("reports dangling private references against the complete owner payload", () => {
     const result = ImageHotspotPayloadSchema.safeParse({
       canvas: {
-        hotspots: [{ id: "hotsp_000001", centerX: 20, centerY: 30, radius: 8 }],
+        hotspots: [
+          { id: "hotsp_000001", centerX: 20, centerY: 30, radius: 8, label: "Region" },
+        ],
       },
       assessment: {
         correctHotspotIds: ["hotsp_000002"],
@@ -124,7 +127,7 @@ describe("image-hotspot authored persisted contracts", () => {
       points: 1,
       maxAttempts: null,
     });
-    expect(canvas).toEqual({ image: null, hotspots: [], maxClicks: null, debug: false });
+    expect(canvas).toEqual({ image: null, hotspots: [], maxClicks: null });
     expect(assessment).toEqual({
       gradingMode: "partial-credit",
       correctHotspotIds: [],
@@ -139,7 +142,8 @@ describe("image-hotspot authored persisted contracts", () => {
       id: "hotsp_000001",
       centerX: 0,
       centerY: 100,
-      radius: 0,
+      radius: 2,
+      label: "  Target  ",
       editorSelection: true,
     });
 
@@ -147,8 +151,8 @@ describe("image-hotspot authored persisted contracts", () => {
       id: "hotsp_000001",
       centerX: 0,
       centerY: 100,
-      radius: 0,
-      label: "",
+      radius: 2,
+      label: "Target",
     });
     expect(
       HotspotItemSchema.parse({
@@ -163,7 +167,7 @@ describe("image-hotspot authored persisted contracts", () => {
       centerX: 100,
       centerY: 0,
       radius: 100,
-      label: "  Target  ",
+      label: "Target",
     });
   });
 
@@ -176,16 +180,18 @@ describe("image-hotspot authored persisted contracts", () => {
           alt: "  Map  ",
           ignored: true,
         },
-        hotspots: [{ id: "hotsp_000001", centerX: 20, centerY: 30, radius: 8 }],
+        hotspots: [
+          { id: "hotsp_000001", centerX: 20, centerY: 30, radius: 8, label: "Capital" },
+        ],
         maxClicks: 2,
-        debug: true,
         editorOnly: true,
       }),
     ).toEqual({
       image: { mode: "external", src: "https://example.com/map.png", alt: "  Map  " },
-      hotspots: [{ id: "hotsp_000001", centerX: 20, centerY: 30, radius: 8, label: "" }],
+      hotspots: [
+        { id: "hotsp_000001", centerX: 20, centerY: 30, radius: 8, label: "Capital" },
+      ],
       maxClicks: 2,
-      debug: true,
     });
     expect(
       ImageHotspotPrivateAssessmentSchema.parse({
@@ -222,6 +228,7 @@ describe("image-hotspot authored persisted contracts", () => {
           centerX: -1,
           centerY: 101,
           radius: 101,
+          label: "Region",
         }),
       ),
     ).toEqual([
@@ -242,6 +249,20 @@ describe("image-hotspot authored persisted contracts", () => {
       },
     ]);
     expect(ImageHotspotCanvasDataSchema.safeParse({ maxClicks: 0 }).success).toBe(false);
+    for (const hotspot of [
+      { id: "hotsp_000001", centerX: Number.NaN, centerY: 50, radius: 8, label: "Region" },
+      {
+        id: "hotsp_000001",
+        centerX: 50,
+        centerY: Number.POSITIVE_INFINITY,
+        radius: 8,
+        label: "Region",
+      },
+      { id: "hotsp_000001", centerX: 50, centerY: 50, radius: 1.99, label: "Region" },
+      { id: "hotsp_000001", centerX: 50, centerY: 50, radius: 8, label: "   " },
+    ]) {
+      expect(HotspotItemSchema.safeParse(hotspot).success).toBe(false);
+    }
     expect(
       ImageHotspotCanvasDataSchema.safeParse({
         image: { mode: "external", src: "javascript:alert(1)" },

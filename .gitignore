@@ -65,6 +65,7 @@ yarn-error.log*
 claude-*.txt
 .plans/
 .impeccable/
+skills-lock.json
 
 # Local-only agent rules + personas
 .agents/

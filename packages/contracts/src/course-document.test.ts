@@ -5,27 +5,21 @@ import {
   CourseSectionAttrsSchema,
   CourseSectionTitleSchema,
   CourseDocumentAttrsSchema,
-  PersistedCourseThemeSchema,
+  CourseThemeNonColourAuthorOverridesSchema,
+  CourseThemeRefSchema,
   HorizontalAlignmentSchema,
   ImagePositionSchema,
+  PersistedCourseThemeSchema,
   SurfaceAttrsSchema,
   SurfaceBackgroundSchema,
   SurfaceSettingsSchema,
   SurfaceSizeSchema,
-  FontCatalogueIdSchema,
-  ThemePresetIdSchema,
-  ThemeRecipeNameSchema,
   VerticalContentPositionSchema,
-  type FontCatalogueId,
   type CourseSectionAttrs,
   type CourseSectionId,
-  type ThemePresetId,
-  type ThemeRecipeName,
 } from "./course-document";
-import { type EmbeddedNodeId } from "./embedded-id";
+import type { EmbeddedNodeId } from "./embedded-id";
 
-const SURFACE_ID = "AbCdEf123_--";
-const COURSE_DOCUMENT_ID = "CdEfGh456_--";
 const COURSE_SECTION_ID = "EfGhIj789_--";
 const SECOND_COURSE_SECTION_ID = "GhIjKl012_--";
 
@@ -61,10 +55,7 @@ describe("course document contracts", () => {
     );
 
     expect(sections.map(({ title }) => title)).toEqual(["Practice", "Practice"]);
-    expect(sections.map(({ id }) => id)).toEqual([
-      COURSE_SECTION_ID,
-      SECOND_COURSE_SECTION_ID,
-    ]);
+    expect(sections.map(({ id }) => id)).toEqual([COURSE_SECTION_ID, SECOND_COURSE_SECTION_ID]);
   });
 
   it("rejects blank and oversized Course Section titles", () => {
@@ -73,7 +64,6 @@ describe("course document contracts", () => {
         false,
       );
     }
-
     expect(
       CourseSectionAttrsSchema.safeParse({ id: COURSE_SECTION_ID, title: "a".repeat(200) }).success,
     ).toBe(true);
@@ -99,11 +89,10 @@ describe("course document contracts", () => {
     expect(SCAFFOLD_DOCUMENT_FORMAT_VERSION).toBe(4);
     expect(
       CourseDocumentAttrsSchema.safeParse({
-        id: COURSE_DOCUMENT_ID,
         schemaVersion: 4,
         mode: "page",
         surfaceSize: "fluid",
-        theme: completeTheme(),
+        theme: persistedCourseTheme(),
       }).success,
     ).toBe(true);
     expect(
@@ -122,241 +111,232 @@ describe("course document contracts", () => {
     ).toBe(false);
   });
 
-  it("requires persisted course document identity to use the EmbeddedNodeId wire format", () => {
-    const parsed = CourseDocumentAttrsSchema.parse({
-      id: COURSE_DOCUMENT_ID,
-      schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
-      mode: "page",
-      theme: completeTheme(),
-    });
-
-    expect(parsed.id).toBe(COURSE_DOCUMENT_ID);
-    expectTypeOf(parsed.id).toEqualTypeOf<EmbeddedNodeId>();
+  it("requires the exact persisted Course theme on document attributes", () => {
     expect(
       CourseDocumentAttrsSchema.safeParse({
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
         mode: "page",
-        theme: completeTheme(),
-      }).success,
-    ).toBe(false);
-    expect(
-      CourseDocumentAttrsSchema.safeParse({
-        id: "course-document-1",
-        schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
-        mode: "page",
-        theme: completeTheme(),
+        surfaceSize: "fluid",
       }).success,
     ).toBe(false);
   });
 
-  it("accepts a complete persisted course theme with semantic font roles", () => {
-    expect(PersistedCourseThemeSchema.parse(completeTheme())).toMatchObject({
+  it("accepts exact design and colour-system revisions with empty overrides", () => {
+    expect(PersistedCourseThemeSchema.parse(persistedCourseTheme())).toEqual({
       schemaVersion: 1,
-      preset: { id: "scaffold-default", revision: "1" },
-      values: {
-        typography: {
-          headingFontId: "scaffold-poppins",
-          bodyFontId: "scaffold-poppins",
-          codeFontId: "scaffold-jetbrains-mono",
-        },
-      },
+      design: { id: "scaffold-flow", revision: "1" },
+      colourSystem: { id: "scaffold-indigo", revision: "1" },
+      overrides: {},
     });
   });
 
-  it("keeps preset, font-catalogue, and recipe identities semantically separate", () => {
-    const parsed = PersistedCourseThemeSchema.parse(completeTheme());
-
-    expect(ThemePresetIdSchema).not.toBe(FontCatalogueIdSchema);
-    expect(FontCatalogueIdSchema).not.toBe(ThemeRecipeNameSchema);
-    expect(ThemeRecipeNameSchema).not.toBe(ThemePresetIdSchema);
-    expect(parsed).toMatchObject({
-      preset: { id: "scaffold-default", revision: "1" },
-      values: {
-        colors: { recipe: { id: "scaffold.legacy-palette", version: 1 } },
-        typography: {
-          headingFontId: "scaffold-poppins",
-          bodyFontId: "scaffold-poppins",
-          codeFontId: "scaffold-jetbrains-mono",
-        },
-      },
-    });
-    expectTypeOf(parsed.preset.id).toEqualTypeOf<ThemePresetId>();
-    expectTypeOf(parsed.values!.colors.recipe.id).toEqualTypeOf<ThemeRecipeName>();
-    expectTypeOf(parsed.values!.typography.headingFontId).toEqualTypeOf<FontCatalogueId>();
-    expectTypeOf(parsed.preset.revision).toEqualTypeOf<string | null>();
-    expectTypeOf(parsed.values!.colors.recipe.version).toEqualTypeOf<number>();
-  });
-
-  it("preserves valid author colours even when they provide no visual contrast", () => {
-    const theme = PersistedCourseThemeSchema.parse(completeTheme());
-    theme.values!.colors.author.light.background = "#ffffff";
-    theme.values!.colors.author.light.bodyText = "#ffffff";
-    theme.values!.colors.resolved.light.background = "#ffffff";
-    theme.values!.colors.resolved.light.text = "#ffffff";
-
-    const parsed = PersistedCourseThemeSchema.parse(theme);
-
-    expect(parsed.values!.colors.author.light.bodyText).toBe("#ffffff");
-    expect(parsed.values!.colors.resolved.light.text).toBe("#ffffff");
-  });
-
-  it("expands a legacy materialised palette with complete author intent and recipe provenance", () => {
-    const legacy = completeTheme();
-    const parsed = PersistedCourseThemeSchema.parse(legacy);
-    const light = legacy.values!.colors.light;
-    const dark = legacy.values!.colors.dark.palette;
-
-    expect(parsed.values?.colors).toMatchObject({
-      author: {
-        light: {
-          background: light.background,
-          surface: light.surface,
-          bodyText: light.text,
-          headingText: light.text,
-          primary: light.primary,
-          secondary: light.secondary,
-          accent1: light.accent,
-          accent2: light.dataSeries[3],
-          accent3: light.dataSeries[4],
-          accent4: light.dataSeries[5],
-          link: light.primary,
-        },
-        dark: {
-          sourceBySlot: {
-            background: "derived",
-            surface: "derived",
-            bodyText: "derived",
-            headingText: "derived",
-            primary: "derived",
-            secondary: "derived",
-            accent1: "derived",
-            accent2: "derived",
-            accent3: "derived",
-            accent4: "derived",
-            link: "derived",
-          },
-          values: {
-            background: dark.background,
-            surface: dark.surface,
-            bodyText: dark.text,
-            headingText: dark.text,
-            primary: dark.primary,
-            secondary: dark.secondary,
-            accent1: dark.accent,
-            accent2: dark.dataSeries[3],
-            accent3: dark.dataSeries[4],
-            accent4: dark.dataSeries[5],
-            link: dark.primary,
-          },
-        },
-      },
-      recipe: { id: "scaffold.legacy-palette", version: 1 },
-      resolved: {
-        light,
-        dark,
-      },
-    });
-    expect(parsed.values?.colors).not.toHaveProperty("light");
-    expect(parsed.values?.colors).not.toHaveProperty("dark");
-  });
-
-  it("marks every extracted dark author slot custom when legacy derivation cannot be proven", () => {
-    const custom = completeTheme();
-    (custom.values!.colors.dark.source as "derived" | "custom") = "custom";
-
-    const parsed = PersistedCourseThemeSchema.parse(custom);
-
-    expect(new Set(Object.values(parsed.values!.colors.author.dark.sourceBySlot))).toEqual(
-      new Set(["custom"]),
-    );
-  });
-
-  it("rejects incomplete expanded author palettes and recipe provenance", () => {
-    const expanded = PersistedCourseThemeSchema.parse(completeTheme());
-    const missingSlot = structuredClone(expanded);
-    delete (
-      missingSlot.values!.colors.author.light as Partial<
-        NonNullable<typeof missingSlot.values>["colors"]["author"]["light"]
-      >
-    ).link;
-    const missingRecipeVersion = structuredClone(expanded);
-    delete (
-      missingRecipeVersion.values!.colors.recipe as Partial<
-        NonNullable<typeof missingRecipeVersion.values>["colors"]["recipe"]
-      >
-    ).version;
-
-    expect(PersistedCourseThemeSchema.safeParse(missingSlot).success).toBe(false);
-    expect(PersistedCourseThemeSchema.safeParse(missingRecipeVersion).success).toBe(false);
-  });
-
-  it("accepts approved numeric boundaries and rejects values outside them", () => {
-    for (const [path, minimum, maximum] of [
-      [["values", "typography", "typeScale"], 0.8, 1.4],
-      [["values", "typography", "bodyLineHeight"], 1.2, 2],
-      [["values", "typography", "headingLineHeight"], 0.9, 1.5],
-      [["values", "typography", "headingLetterSpacing"], -0.08, 0.2],
-      [["values", "design", "roundness"], 0, 1],
-      [["values", "design", "stroke"], 0, 2],
-    ] as const) {
-      expect(PersistedCourseThemeSchema.safeParse(withThemeValue(path, minimum)).success).toBe(
-        true,
-      );
-      expect(PersistedCourseThemeSchema.safeParse(withThemeValue(path, maximum)).success).toBe(
-        true,
-      );
-      expect(
-        PersistedCourseThemeSchema.safeParse(withThemeValue(path, minimum - 0.01)).success,
-      ).toBe(false);
-      expect(
-        PersistedCourseThemeSchema.safeParse(withThemeValue(path, maximum + 0.01)).success,
-      ).toBe(false);
+  it("requires non-empty, non-null exact reference identifiers and revisions", () => {
+    for (const reference of [
+      { id: "", revision: "1" },
+      { id: "scaffold-flow", revision: "" },
+      { id: "scaffold-flow", revision: null },
+    ]) {
+      expect(CourseThemeRefSchema.safeParse(reference).success).toBe(false);
     }
   });
 
-  it("rejects invalid colours, incomplete palettes, tuples, enums, and unknown theme keys", () => {
-    expect(
-      PersistedCourseThemeSchema.safeParse(
-        withThemeValue(["values", "colors", "light", "background"], "var(--unsafe)"),
-      ).success,
-    ).toBe(false);
-    expect(
-      PersistedCourseThemeSchema.safeParse(
-        withThemeValue(["values", "colors", "light", "background"], "url(example.test/a)"),
-      ).success,
-    ).toBe(false);
-    expect(
-      PersistedCourseThemeSchema.safeParse(
-        withThemeValue(["values", "colors", "light", "dataSeries"], ["#000000"]),
-      ).success,
-    ).toBe(false);
-    expect(
-      PersistedCourseThemeSchema.safeParse(
-        withThemeValue(["values", "design", "density"], "enormous"),
-      ).success,
-    ).toBe(false);
+  it("accepts the complete approved non-colour author override contract", () => {
+    const overrides = {
+      typography: {
+        defaultFontId: "scaffold-satoshi",
+        headingFontId: "scaffold-source-serif",
+        codeFontId: "scaffold-jetbrains-mono",
+        bodyWeight: 500,
+        headingWeight: 700,
+        courseTextSize: "larger",
+        bodyLineSpacing: "relaxed",
+        headingLineSpacing: "tight",
+        headingLetterSpacing: "wide",
+        uppercaseHeadings: true,
+      },
+      design: {
+        roundness: "rounded",
+        stroke: "strong",
+        shadow: "defined",
+        density: "spacious",
+      },
+    } as const;
 
-    const incomplete = completeTheme();
-    delete (incomplete.values!.colors.light as Partial<typeof incomplete.values.colors.light>).text;
-    expect(PersistedCourseThemeSchema.safeParse(incomplete).success).toBe(false);
-
-    expect(
-      PersistedCourseThemeSchema.safeParse({ ...completeTheme(), injectedCss: "body {}" }).success,
-    ).toBe(false);
+    expect(CourseThemeNonColourAuthorOverridesSchema.parse(overrides)).toEqual(overrides);
   });
 
-  it("reserves null theme values for recoverable legacy references", () => {
+  it("accepts empty outer overrides and sparse one-field sections", () => {
+    expect(CourseThemeNonColourAuthorOverridesSchema.parse({})).toEqual({});
+
     expect(
-      PersistedCourseThemeSchema.parse({
-        schemaVersion: 1,
-        preset: { id: "legacy-editorial", revision: null },
-        values: null,
+      CourseThemeNonColourAuthorOverridesSchema.parse({
+        typography: { defaultFontId: " future-font-id " },
       }),
-    ).toEqual({
-      schemaVersion: 1,
-      preset: { id: "legacy-editorial", revision: null },
-      values: null,
-    });
+    ).toEqual({ typography: { defaultFontId: "future-font-id" } });
+    expect(CourseThemeNonColourAuthorOverridesSchema.parse({ design: { shadow: "soft" } })).toEqual(
+      { design: { shadow: "soft" } },
+    );
+  });
+
+  it("accepts every approved semantic value and weight", () => {
+    for (const courseTextSize of ["smaller", "standard", "larger"] as const) {
+      expect(
+        CourseThemeNonColourAuthorOverridesSchema.safeParse({
+          typography: { courseTextSize },
+        }).success,
+      ).toBe(true);
+    }
+
+    for (const lineSpacing of ["tight", "standard", "relaxed"] as const) {
+      expect(
+        CourseThemeNonColourAuthorOverridesSchema.safeParse({
+          typography: {
+            bodyLineSpacing: lineSpacing,
+            headingLineSpacing: lineSpacing,
+          },
+        }).success,
+      ).toBe(true);
+    }
+
+    for (const headingLetterSpacing of ["tight", "standard", "wide"] as const) {
+      expect(
+        CourseThemeNonColourAuthorOverridesSchema.safeParse({
+          typography: { headingLetterSpacing },
+        }).success,
+      ).toBe(true);
+    }
+
+    for (const bodyWeight of [400, 500, 600] as const) {
+      expect(
+        CourseThemeNonColourAuthorOverridesSchema.safeParse({
+          typography: { bodyWeight },
+        }).success,
+      ).toBe(true);
+    }
+
+    for (const headingWeight of [400, 500, 600, 700, 800] as const) {
+      expect(
+        CourseThemeNonColourAuthorOverridesSchema.safeParse({
+          typography: { headingWeight },
+        }).success,
+      ).toBe(true);
+    }
+
+    for (const roundness of ["square", "subtle", "rounded", "full"] as const) {
+      expect(
+        CourseThemeNonColourAuthorOverridesSchema.safeParse({ design: { roundness } }).success,
+      ).toBe(true);
+    }
+
+    for (const stroke of ["light", "standard", "strong"] as const) {
+      expect(
+        CourseThemeNonColourAuthorOverridesSchema.safeParse({ design: { stroke } }).success,
+      ).toBe(true);
+    }
+
+    for (const shadow of ["none", "soft", "defined"] as const) {
+      expect(
+        CourseThemeNonColourAuthorOverridesSchema.safeParse({ design: { shadow } }).success,
+      ).toBe(true);
+    }
+
+    for (const density of ["compact", "comfortable", "spacious"] as const) {
+      expect(
+        CourseThemeNonColourAuthorOverridesSchema.safeParse({ design: { density } }).success,
+      ).toBe(true);
+    }
+  });
+
+  it("rejects empty nested override sections", () => {
+    expect(CourseThemeNonColourAuthorOverridesSchema.safeParse({ typography: {} }).success).toBe(
+      false,
+    );
+    expect(CourseThemeNonColourAuthorOverridesSchema.safeParse({ design: {} }).success).toBe(false);
+  });
+
+  it("rejects invalid author override values", () => {
+    for (const overrides of [
+      { typography: { defaultFontId: " " } },
+      { typography: { headingFontId: "" } },
+      { typography: { codeFontId: null } },
+      { typography: { bodyWeight: 300 } },
+      { typography: { bodyWeight: 700 } },
+      { typography: { headingWeight: 300 } },
+      { typography: { headingWeight: 900 } },
+      { typography: { courseTextSize: "extra-large" } },
+      { typography: { bodyLineSpacing: "loose" } },
+      { typography: { headingLineSpacing: "normal" } },
+      { typography: { headingLetterSpacing: "extra-wide" } },
+      { typography: { uppercaseHeadings: "true" } },
+      { design: { roundness: "medium" } },
+      { design: { stroke: "heavy" } },
+      { design: { shadow: "hard" } },
+      { design: { density: "dense" } },
+    ]) {
+      expect(CourseThemeNonColourAuthorOverridesSchema.safeParse(overrides).success).toBe(false);
+    }
+  });
+
+  it("rejects unknown keys and arbitrary colours at every override level", () => {
+    for (const overrides of [
+      { unknown: true },
+      { colors: { primary: "#161d77" } },
+      { primaryColor: "#161d77" },
+      { typography: { defaultFontId: "scaffold-satoshi", fontFamily: "Satoshi" } },
+      { typography: { defaultFontId: "scaffold-satoshi", color: "#161d77" } },
+      { design: { shadow: "soft", radius: "large" } },
+      { design: { shadow: "soft", accentColor: "indigo" } },
+    ]) {
+      expect(CourseThemeNonColourAuthorOverridesSchema.safeParse(overrides).success).toBe(false);
+    }
+  });
+
+  it("rejects raw CSS, Radix and resolved runtime values", () => {
+    for (const overrides of [
+      { typography: { courseTextSize: "1.125rem" } },
+      { typography: { bodyLineSpacing: 1.5 } },
+      { typography: { headingLetterSpacing: "-0.02em" } },
+      { design: { roundness: "8px" } },
+      { design: { stroke: "1px" } },
+      { design: { shadow: "0 2px 8px rgb(0 0 0 / 20%)" } },
+      { design: { density: "var(--space-4)" } },
+      { radixThemeProps: { radius: "large" } },
+      { cssVariables: { "--sc-radius": "8px" } },
+      { resolved: { rootClassNames: ["sc-course"] } },
+    ]) {
+      expect(CourseThemeNonColourAuthorOverridesSchema.safeParse(overrides).success).toBe(false);
+    }
+  });
+
+  it("rejects retired theme snapshots and runtime implementation data", () => {
+    for (const retiredTheme of [
+      {
+        schemaVersion: 1,
+        preset: { id: "scaffold-default", revision: "1" },
+        values: {},
+      },
+      { ...persistedCourseTheme(), colors: { primary: "#161d77" } },
+      {
+        ...persistedCourseTheme(),
+        design: {
+          id: "scaffold-flow",
+          revision: "1",
+          definition: { radius: "medium" },
+        },
+      },
+      {
+        ...persistedCourseTheme(),
+        colourSystem: {
+          id: "scaffold-indigo",
+          revision: "1",
+          palette: { accent: "indigo" },
+        },
+      },
+      { ...persistedCourseTheme(), radixThemeProps: { accentColor: "indigo" } },
+      { ...persistedCourseTheme(), resolved: { rootClassNames: ["sc-course"] } },
+    ]) {
+      expect(PersistedCourseThemeSchema.safeParse(retiredTheme).success).toBe(false);
+    }
   });
 
   it("accepts only common horizontal alignment values", () => {
@@ -382,29 +362,26 @@ describe("course document contracts", () => {
   it("accepts only the surface size assigned to each course mode", () => {
     expect(
       CourseDocumentAttrsSchema.safeParse({
-        id: COURSE_DOCUMENT_ID,
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
         mode: "slideshow",
         surfaceSize: "16x9",
-        theme: completeTheme(),
+        theme: persistedCourseTheme(),
       }).success,
     ).toBe(true);
     expect(
       CourseDocumentAttrsSchema.safeParse({
-        id: COURSE_DOCUMENT_ID,
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
         mode: "page",
         surfaceSize: "fluid",
-        theme: completeTheme(),
+        theme: persistedCourseTheme(),
       }).success,
     ).toBe(true);
     expect(
       CourseDocumentAttrsSchema.safeParse({
-        id: COURSE_DOCUMENT_ID,
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
         mode: "branching",
         surfaceSize: "fluid",
-        theme: completeTheme(),
+        theme: persistedCourseTheme(),
       }).success,
     ).toBe(true);
 
@@ -434,7 +411,7 @@ describe("course document contracts", () => {
   it("accepts persisted surface variants", () => {
     expect(
       SurfaceAttrsSchema.parse({
-        id: SURFACE_ID,
+        id: "surface-1",
         variant: "slide-title-content",
         settings: {
           verticalPosition: "bottom",
@@ -444,7 +421,7 @@ describe("course document contracts", () => {
         },
       }),
     ).toEqual({
-      id: SURFACE_ID,
+      id: "surface-1",
       variant: "slide-title-content",
       settings: {
         verticalPosition: "bottom",
@@ -458,7 +435,7 @@ describe("course document contracts", () => {
   it("rejects invalid persisted surface vertical positions", () => {
     expect(
       SurfaceAttrsSchema.safeParse({
-        id: SURFACE_ID,
+        id: "surface-1",
         variant: "slide-cover",
         settings: { verticalPosition: "center" },
       }).success,
@@ -478,34 +455,15 @@ describe("course document contracts", () => {
   it("requires persisted surface variants", () => {
     expect(() =>
       SurfaceAttrsSchema.parse({
-        id: SURFACE_ID,
+        id: "surface-1",
       }),
     ).toThrow();
     expect(() =>
       SurfaceAttrsSchema.parse({
-        id: SURFACE_ID,
+        id: "surface-1",
         variant: null,
       }),
     ).toThrow();
-  });
-
-  it("requires persisted Surface identity to use the EmbeddedNodeId wire format", () => {
-    const parsed = SurfaceAttrsSchema.parse({
-      id: SURFACE_ID,
-      variant: "page-default",
-    });
-
-    expect(parsed.id).toBe(SURFACE_ID);
-    expectTypeOf(parsed.id).toEqualTypeOf<EmbeddedNodeId>();
-    expect(SurfaceAttrsSchema.safeParse({ id: "surface-1", variant: "page-default" }).success).toBe(
-      false,
-    );
-    expect(SurfaceAttrsSchema.safeParse({ id: "", variant: "page-default" }).success).toBe(false);
-    expect(SurfaceAttrsSchema.safeParse({ id: "not-an-id", variant: "page-default" }).success).toBe(
-      false,
-    );
-    expect(SurfaceAttrsSchema.safeParse({ variant: "page-default" }).success).toBe(false);
-    expect(SurfaceAttrsSchema.safeParse({ id: null, variant: "page-default" }).success).toBe(false);
   });
 
   it("accepts the nine standard image positions", () => {
@@ -530,93 +488,11 @@ describe("course document contracts", () => {
   });
 });
 
-function completeTheme() {
-  const state = {
-    base: "#2196f3",
-    onBase: "#ffffff",
-    background: "#e3f2fd",
-    text: "#0d47a1",
-  };
-  const palette = {
-    background: "#ffffff",
-    canvas: "#fafafa",
-    surface: "#ffffff",
-    surfaceMuted: "#f4f4f5",
-    text: "#18181b",
-    textSecondary: "#52525b",
-    textMuted: "#71717a",
-    placeholder: "#a1a1aa",
-    border: "#e4e4e7",
-    borderSubtle: "#f4f4f5",
-    primary: "oklch(0.3 0.15 270)",
-    onPrimary: "#ffffff",
-    primaryMuted: "oklch(0.95 0.025 270)",
-    secondary: "oklch(0.64 0.22 18)",
-    onSecondary: "#ffffff",
-    accent: "oklch(0.68 0.18 175)",
-    onAccent: "#ffffff",
-    info: state,
-    success: state,
-    warning: state,
-    error: state,
-    focusOutline: "oklch(0.3 0.15 270)",
-    focusRing: "#161d7759",
-    overlayBackdrop: "#00000066",
-    overlayControl: "#ffffff26",
-    overlayControlHover: "#ffffff40",
-    overlayPill: "#00000099",
-    dataSeries: [
-      "#161d77",
-      "#f43a57",
-      "#00ba92",
-      "#5b6790",
-      "#f47398",
-      "#33bda5",
-      "#52525b",
-      "#a1a1aa",
-    ],
-  };
-
+function persistedCourseTheme() {
   return {
     schemaVersion: 1 as const,
-    preset: { id: "scaffold-default", revision: "1" },
-    values: {
-      colors: {
-        light: structuredClone(palette),
-        dark: {
-          source: "derived" as const,
-          generatorVersion: 1 as const,
-          palette: structuredClone(palette),
-        },
-      },
-      typography: {
-        headingFontId: "scaffold-poppins",
-        bodyFontId: "scaffold-poppins",
-        codeFontId: "scaffold-jetbrains-mono",
-        headingWeight: 700 as const,
-        bodyWeight: 400 as const,
-        typeScale: 1,
-        bodyLineHeight: 1.5,
-        headingLineHeight: 1.2,
-        headingLetterSpacing: 0,
-        uppercaseHeadings: false,
-      },
-      design: {
-        roundness: 0.5,
-        stroke: 1,
-        shadow: "soft" as const,
-        density: "comfortable" as const,
-      },
-    },
+    design: { id: "scaffold-flow", revision: "1" },
+    colourSystem: { id: "scaffold-indigo", revision: "1" },
+    overrides: {},
   };
-}
-
-function withThemeValue(path: readonly string[], value: unknown) {
-  const theme = completeTheme() as unknown as Record<string, unknown>;
-  let target = theme;
-  for (const segment of path.slice(0, -1)) {
-    target = target[segment] as Record<string, unknown>;
-  }
-  target[path.at(-1)!] = value;
-  return theme;
 }

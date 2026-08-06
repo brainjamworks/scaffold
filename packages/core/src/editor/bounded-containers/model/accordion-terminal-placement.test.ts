@@ -4,7 +4,7 @@ import { Editor, Node, type JSONContent } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { CellNode, GridNode } from "@/editor/arrangements/grid/model/grid-nodes";
 import {
   AccordionSectionPanelNode,
@@ -178,6 +178,7 @@ function makeEditor(regionContent: JSONContent[]): Editor {
       }),
       ExtendedParagraph,
       CourseDocumentNode,
+      createCourseSectionNode(),
       SurfaceNode,
       RegionNode,
       GridNode,

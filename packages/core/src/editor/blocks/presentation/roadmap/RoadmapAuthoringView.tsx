@@ -30,22 +30,20 @@ export function RoadmapAuthoringView(props: NodeViewProps) {
       .run();
   };
 
-  const addGhost = (
+  const footer = (
     <BlockAddGhost
-      label="Add chapter"
+      label="Add milestone"
       presentation="item"
       onClick={addMilestone}
       contentEditable={false}
-      className="sc-roadmap__milestone sc-roadmap__milestone--ghost"
+      className="sc-app-roadmap-add"
     >
-      <span className="sc-roadmap__milestone-shell">
-        <span aria-hidden className="sc-roadmap__tile sc-roadmap__tile--ghost">
-          <Plus size={18} weight="bold" />
-        </span>
-        <span className="sc-roadmap__content sc-roadmap__add-label">Add</span>
+      <span aria-hidden className="sc-app-roadmap-add__marker">
+        <Plus size={18} weight="bold" />
       </span>
+      <span>Add milestone</span>
     </BlockAddGhost>
   );
 
-  return <RoadmapView props={props} addGhost={addGhost} />;
+  return <RoadmapView props={props} footer={footer} />;
 }

@@ -66,7 +66,7 @@ describe("Settings field cascade layering", () => {
     label.className = "sc-field-label sc-settings-color-field__label";
     label.textContent = "Primary";
     const status = document.createElement("span");
-    status.className = "sc-pill sc-settings-field-status";
+    status.className = "sc-app-pill sc-settings-field-status";
     status.textContent = "Automatic";
     heading.append(label, status);
     document.body.append(heading);

@@ -9,7 +9,7 @@ import type { ReactElement } from "react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { z } from "zod";
 
-import { OverlayBoundary } from "@/ui/components/OverlayBoundary/OverlayBoundary";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { RESIZE_GESTURE_ACTIVE_ATTR } from "@/editor/interactions/gesture/editor-resize-gesture";

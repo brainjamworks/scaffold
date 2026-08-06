@@ -6,7 +6,7 @@ import { useState, type ReactNode } from "react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import * as DropdownMenu from "./DropdownMenu/DropdownMenu";
-import { OverlayBoundary } from "./OverlayBoundary/OverlayBoundary";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 import * as SelectMenu from "./Select/SelectMenu";
 import * as Tooltip from "./Tooltip/Tooltip";
 

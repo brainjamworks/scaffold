@@ -2,7 +2,7 @@ import { XIcon as X } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
 import { IconButton } from "@/ui/components/IconButton/IconButton";
-import { Pill } from "@/ui/components/Pill/Pill";
+import { Pill } from "@/ui/components/app/Pill/Pill";
 import { iconSm } from "@/ui/tokens/icon-sizes";
 
 import "./scaffold-agent-dock.css";

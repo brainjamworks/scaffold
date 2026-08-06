@@ -24,8 +24,10 @@ export function createRoadmapMilestoneNode(options: RoadmapMilestoneNodeOptions 
           },
           renderHTML: (attrs: { status?: unknown }) => {
             const parsed = RoadmapMilestoneStatusSchema.safeParse(attrs.status);
+            const status = parsed.success ? parsed.data : "upcoming";
             return {
-              "data-status": parsed.success ? parsed.data : "upcoming",
+              ...(status === "current" ? { "aria-current": "step" } : {}),
+              "data-status": status,
             };
           },
         },

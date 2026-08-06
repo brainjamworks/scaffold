@@ -2,7 +2,7 @@ import type { JSONContent } from "@tiptap/core";
 import { describe, expect, it } from "vite-plus/test";
 
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
-import { createScaffoldDefaultTheme } from "@/theme/model";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
 import { migrateCourseDocumentJSON, readCourseDocumentFormatVersion } from "./migrations";
 import {
@@ -18,7 +18,7 @@ function documentWithAttrs(
     mode: "page",
     surfaceSize: "fluid",
     overflowMode: "grow",
-    theme: createScaffoldDefaultTheme(),
+    theme: createDefaultPersistedCourseTheme(),
   },
 ): JSONContent {
   return {
@@ -58,7 +58,7 @@ describe("course document migrations", () => {
       mode: "page",
       surfaceSize: "fluid",
       overflowMode: "grow",
-      theme: createScaffoldDefaultTheme(),
+      theme: createDefaultPersistedCourseTheme(),
     });
     const result = migrateCourseDocumentJSON(source);
 
@@ -233,7 +233,7 @@ describe("course document migrations", () => {
       toVersion: 4,
       migrated: true,
       document: {
-        content: [{ attrs: { schemaVersion: 4, theme: createScaffoldDefaultTheme() } }],
+        content: [{ attrs: { schemaVersion: 4, theme: createDefaultPersistedCourseTheme() } }],
       },
     });
   });
@@ -254,7 +254,7 @@ describe("course document migrations", () => {
       toVersion: 4,
       migrated: true,
       document: {
-        content: [{ attrs: { schemaVersion: 4, theme: createScaffoldDefaultTheme() } }],
+        content: [{ attrs: { schemaVersion: 4, theme: createDefaultPersistedCourseTheme() } }],
       },
     });
   });

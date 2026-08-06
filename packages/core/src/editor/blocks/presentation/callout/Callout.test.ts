@@ -22,6 +22,7 @@ import { catalogIconValue } from "@/schemas/media/icon";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { calloutBlockDefinition } from "./callout-definition";
 import { CalloutAuthoringExtension } from "./callout-authoring-extension";
+import { CalloutRuntimeExtension } from "./callout-runtime-extension";
 import { emptyCalloutData } from "./content";
 
 const blockInsertCatalog = createInsertCatalog(createBlockInsertActions([calloutBlockDefinition]));
@@ -44,6 +45,19 @@ function makeEditor() {
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
       createRuntimeBlockFrameAttributesExtension(["callout"]),
       CalloutAuthoringExtension,
+    ],
+  });
+}
+
+function makeRuntimeEditor() {
+  return new Editor({
+    editable: false,
+    extensions: [
+      StarterKit.configure({ undoRedo: false, paragraph: false }),
+      ExtendedParagraph,
+      createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
+      createRuntimeBlockFrameAttributesExtension(["callout"]),
+      CalloutRuntimeExtension,
     ],
   });
 }
@@ -230,6 +244,76 @@ describe("composite callout node", () => {
       ),
     ).toBeInstanceOf(HTMLElement);
     expect(document.body.querySelectorAll("[data-authoring-resize-handle]")).toHaveLength(5);
+
+    editor.destroy();
+  });
+
+  it("uses stable Course semantics for every learner-facing variant", async () => {
+    const variants = ["info", "warning", "success", "error", "tip", "note"] as const;
+    const editor = makeRuntimeEditor();
+    editor.commands.setContent({
+      type: "doc",
+      content: variants.map((variant) =>
+        calloutDoc(
+          {
+            id: `block-callout-${variant}`,
+            data: {
+              type: "callout",
+              variant,
+              showIcon: true,
+              icon: null,
+              headingLevel: 4,
+            },
+          },
+          { body: `${variant} body`, title: `${variant} title` },
+        ),
+      ),
+    });
+
+    render(createElement(EditorContent, { editor }));
+
+    const callouts = await waitFor(() => {
+      const elements = Array.from(
+        document.body.querySelectorAll<HTMLElement>("aside.sc-course-callout"),
+      );
+      expect(elements).toHaveLength(variants.length);
+      return elements;
+    });
+
+    expect(callouts.map((callout) => callout.getAttribute("role"))).toEqual(
+      variants.map(() => "note"),
+    );
+    expect(callouts.map((callout) => callout.dataset["calloutVariant"])).toEqual(variants);
+    expect(callouts.map((callout) => callout.dataset["courseState"] ?? null)).toEqual([
+      "info",
+      "warning",
+      "success",
+      "error",
+      null,
+      null,
+    ]);
+    expect(document.body.querySelector(".sc-callout")).toBeNull();
+
+    editor.destroy();
+  });
+
+  it("keeps the editable icon trigger under App visual ownership", async () => {
+    const editor = makeEditor();
+    editor.commands.setContent({ type: "doc", content: [calloutDoc()] });
+
+    render(createElement(EditorContent, { editor }));
+
+    const trigger = await waitFor(() => {
+      const element = document.body.querySelector<HTMLButtonElement>(
+        'button[aria-label="Choose callout icon"]',
+      );
+      expect(element).not.toBeNull();
+      return element;
+    });
+
+    expect(trigger).toHaveClass("sc-app-callout-icon-trigger");
+    expect(trigger).toHaveClass("sc-course-callout__icon-slot");
+    expect(trigger).not.toHaveClass("sc-course-callout__icon-chip");
 
     editor.destroy();
   });

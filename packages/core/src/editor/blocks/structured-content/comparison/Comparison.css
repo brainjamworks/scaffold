@@ -1,0 +1,79 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  /* Course structure only. Scaffold Flow owns the visual recipe. */
+  .sc-course-comparison {
+    display: block;
+    min-width: 0;
+    container-name: sc-course-comparison;
+    container-type: inline-size;
+  }
+
+  .sc-course-comparison__surface,
+  .sc-course-comparison__header,
+  .sc-course-comparison__header-row,
+  .sc-course-comparison__body,
+  .sc-course-comparison__row,
+  .sc-course-comparison__cell,
+  .sc-course-comparison__cell-content {
+    min-width: 0;
+  }
+
+  .sc-course-comparison__surface {
+    display: flex;
+    overflow: hidden;
+    flex-direction: column;
+  }
+
+  .sc-course-comparison__header-row,
+  .sc-course-comparison__row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sc-course-comparison__row {
+    position: relative;
+  }
+
+  .sc-course-comparison__body > [data-node-view-content],
+  .sc-course-comparison__body > [data-node-view-content] > [data-node-view-content-react],
+  .sc-course-comparison__row > [data-node-view-content],
+  .sc-course-comparison__row > [data-node-view-content] > [data-node-view-content-react] {
+    display: contents;
+  }
+
+  .sc-course-comparison__cell,
+  .sc-course-comparison__cell-content,
+  .sc-course-comparison__cell-content [data-node-view-content-react] {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .sc-course-comparison__cell-content img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  .sc-course-comparison__cell-label {
+    display: none;
+  }
+
+  @container sc-course-comparison (max-width: 26rem) {
+    .sc-course-comparison__header {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+
+    .sc-course-comparison__row {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .sc-course-comparison__cell-label {
+      display: block;
+    }
+  }
+}

@@ -20,7 +20,6 @@ import type { SurfaceRuntimeViewProps } from "@/editor/surfaces/runtime/surface-
 import { SurfaceRuntimeFrame } from "@/editor/surfaces/runtime/views/SurfaceRuntimeFrame";
 import type { ScaffoldLearnerBootstrap, ScaffoldLearnerHostServices } from "@/host/contracts";
 import type { LearningEventPort } from "@/host/ports/learning-events";
-import { SCAFFOLD_DEFAULT_PRESET, type ScaffoldThemeExtension } from "@/theme/model";
 
 import { ScaffoldLearnerApp } from "./ScaffoldLearnerApp";
 
@@ -243,92 +242,6 @@ describe("ScaffoldLearnerApp", () => {
       ).not.toBeNull(),
     );
     expect(screen.queryByTestId("scaffold-runtime-unavailable")).toBeNull();
-  });
-
-  it("applies a validated host theme extension to learner content", async () => {
-    const themeExtension = hostThemeExtension();
-    const hostPreset = themeExtension.presets![0]!;
-    const learnerContent = learnerDocumentWithText("Host themed learner content");
-    learnerContent.content![0]!.attrs = {
-      ...learnerContent.content![0]!.attrs,
-      theme: {
-        schemaVersion: 1,
-        preset: { id: hostPreset.id, revision: hostPreset.revision },
-        values: structuredClone(hostPreset.values),
-      },
-    };
-
-    render(
-      <ScaffoldLearnerApp
-        composition={runtimeComposition}
-        bootstrap={learnerBootstrap({ learnerContent })}
-        services={{}}
-        themeExtension={themeExtension}
-      />,
-    );
-
-    await screen.findByText("Host themed learner content");
-    expect(screen.getByTestId("course-theme-scope")).toHaveAttribute(
-      "data-effective-course-theme",
-      hostPreset.id,
-    );
-  });
-
-  it("falls back and restores a host theme without mutating the saved snapshot", async () => {
-    const themeExtension = hostThemeExtension();
-    const hostPreset = themeExtension.presets![0]!;
-    const learnerContent = learnerDocumentWithText("Recoverable host theme");
-    learnerContent.content![0]!.attrs = {
-      ...learnerContent.content![0]!.attrs,
-      theme: {
-        schemaVersion: 1,
-        preset: { id: hostPreset.id, revision: hostPreset.revision },
-        values: structuredClone(hostPreset.values),
-      },
-    };
-    const savedTheme = structuredClone(learnerContent.content![0]!.attrs!["theme"]);
-    const bootstrap = learnerBootstrap({ learnerContent });
-    const view = render(
-      <ScaffoldLearnerApp
-        composition={runtimeComposition}
-        bootstrap={bootstrap}
-        services={{}}
-        themeExtension={themeExtension}
-      />,
-    );
-
-    await screen.findByText("Recoverable host theme");
-    expect(screen.getByTestId("course-theme-scope")).toHaveAttribute(
-      "data-effective-course-theme",
-      hostPreset.id,
-    );
-
-    view.rerender(
-      <ScaffoldLearnerApp composition={runtimeComposition} bootstrap={bootstrap} services={{}} />,
-    );
-    await waitFor(() =>
-      expect(screen.getByTestId("course-theme-scope")).toHaveAttribute(
-        "data-effective-course-theme",
-        SCAFFOLD_DEFAULT_PRESET.id,
-      ),
-    );
-    expect(screen.queryByRole("alert")).toBeNull();
-
-    view.rerender(
-      <ScaffoldLearnerApp
-        composition={runtimeComposition}
-        bootstrap={bootstrap}
-        services={{}}
-        themeExtension={themeExtension}
-      />,
-    );
-    await waitFor(() =>
-      expect(screen.getByTestId("course-theme-scope")).toHaveAttribute(
-        "data-effective-course-theme",
-        hostPreset.id,
-      ),
-    );
-    expect(learnerContent.content![0]!.attrs!["theme"]).toEqual(savedTheme);
   });
 
   it("applies an explicit host mode to learner chrome and course presentation", async () => {
@@ -572,14 +485,6 @@ describe("ScaffoldLearnerApp", () => {
     ).toThrow();
   });
 });
-
-function hostThemeExtension(): ScaffoldThemeExtension {
-  const preset = structuredClone(SCAFFOLD_DEFAULT_PRESET);
-  preset.id = "host-course";
-  preset.revision = "host-course-v1";
-  preset.label = "Host course";
-  return { presets: [preset] };
-}
 
 function installColorModePreference(initialDark: boolean) {
   let matches = initialDark;

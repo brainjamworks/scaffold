@@ -15,8 +15,6 @@ import {
 } from "./runtime-surface-visibility";
 import { RuntimeSurfacePresentationProvider } from "./runtime-surface-presentation";
 import { RuntimeSurfaceView } from "@/editor/surfaces/runtime/views/RuntimeSurfaceView";
-import type { ResolvedCourseTheme } from "@/theme/model";
-import { CourseThemeScope } from "@/theme/presentation";
 import "./CourseDocumentRuntimeRenderer.css";
 
 export interface CourseDocumentRuntimeRendererProps {
@@ -24,7 +22,6 @@ export interface CourseDocumentRuntimeRendererProps {
   composition: ScaffoldRuntimeComposition;
   initialContent?: JSONContent | null;
   onReady?: (editor: TiptapEditor) => void;
-  resolvedTheme?: ResolvedCourseTheme;
   surfaceStates?: RuntimeSurfaceStateMap;
   visibleSurfaceId?: string;
 }
@@ -34,7 +31,6 @@ export function CourseDocumentRuntimeRenderer({
   composition,
   initialContent = null,
   onReady,
-  resolvedTheme,
   surfaceStates,
   visibleSurfaceId,
 }: CourseDocumentRuntimeRendererProps) {
@@ -86,16 +82,14 @@ export function CourseDocumentRuntimeRenderer({
   return (
     <div data-testid="course-document-runtime-renderer">
       <ScaffoldArtifactIdentityProvider artifactId={artifactId ?? null}>
-        <CourseThemeScope resolvedTheme={resolvedTheme}>
-          <RuntimeSurfaceView settings={surfaceViewSettings}>
-            <RuntimeSurfacePresentationProvider surfaceId={presentedSurfaceId}>
-              <EditorContent
-                className="sc-course-document-runtime-renderer__content"
-                editor={editor}
-              />
-            </RuntimeSurfacePresentationProvider>
-          </RuntimeSurfaceView>
-        </CourseThemeScope>
+        <RuntimeSurfaceView settings={surfaceViewSettings}>
+          <RuntimeSurfacePresentationProvider surfaceId={presentedSurfaceId}>
+            <EditorContent
+              className="sc-course-document-runtime-renderer__content"
+              editor={editor}
+            />
+          </RuntimeSurfacePresentationProvider>
+        </RuntimeSurfaceView>
       </ScaffoldArtifactIdentityProvider>
     </div>
   );

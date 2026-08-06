@@ -10,7 +10,7 @@ import {
   type NumberedListData,
   type NumberedListMarkerState,
 } from "@scaffold/contracts";
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 
 import { IconRenderer } from "@/ui/icons/IconRenderer";
 import { isFieldContentEmpty } from "@/document/model/content-model/is-field-content-empty";
@@ -31,13 +31,25 @@ const MARKER_STATE_LABELS: Record<NumberedListMarkerState, string> = {
 };
 
 function headerIconClassName(interactive: boolean): string {
-  return `sc-numbered-list__header-icon${
-    interactive ? " sc-numbered-list__header-icon--interactive" : ""
+  return `sc-course-numbered-list__header-icon${
+    interactive ? " sc-app-numbered-list-icon-picker" : ""
   }`;
 }
 
 function markerClassName(state: NumberedListMarkerState): string {
-  return `sc-numbered-list__marker sc-numbered-list__marker--${state}`;
+  return `sc-course-numbered-list__marker sc-course-numbered-list__marker--${state}`;
+}
+
+function courseStateForMarker(state: NumberedListMarkerState): "current" | "completed" | undefined {
+  if (state === "inProgress") return "current";
+  if (state === "complete") return "completed";
+  return undefined;
+}
+
+function runtimeMarkerLabel(state: NumberedListMarkerState, index: number): string {
+  if (state === "inProgress") return `Item ${index}, in progress`;
+  if (state === "complete") return `Item ${index}, complete`;
+  return `Item ${index}`;
 }
 
 function renderMarkerContent(state: NumberedListMarkerState, index: number) {
@@ -46,7 +58,7 @@ function renderMarkerContent(state: NumberedListMarkerState, index: number) {
   }
 
   if (state === "inProgress") {
-    return <span className="sc-numbered-list__marker-dot" aria-hidden />;
+    return <span className="sc-course-numbered-list__marker-dot" aria-hidden />;
   }
 
   return index;
@@ -103,7 +115,7 @@ export function NumberedListView(props: NumberedListViewProps) {
   };
   const addGhost = editable
     ? (props.renderAddControl?.({
-        className: "sc-numbered-list__add",
+        className: "sc-app-numbered-list-add",
         label: "Add item",
         onClick: addItem,
       }) ?? null)
@@ -148,7 +160,7 @@ export function NumberedListTitleNodeView(props: NumberedListTitleNodeViewProps)
       <NodeViewWrapper
         data-slot="numbered-list-title"
         aria-hidden
-        className="sc-numbered-list__suppressed"
+        className="sc-course-numbered-list__suppressed"
       >
         <NodeViewContent />
       </NodeViewWrapper>
@@ -156,7 +168,7 @@ export function NumberedListTitleNodeView(props: NumberedListTitleNodeViewProps)
   }
 
   return (
-    <NodeViewWrapper data-slot="numbered-list-title" className="sc-numbered-list__title">
+    <NodeViewWrapper data-slot="numbered-list-title" className="sc-course-numbered-list__title">
       {data.showIcon ? (
         editable && props.renderIconControl ? (
           props.renderIconControl({
@@ -170,12 +182,12 @@ export function NumberedListTitleNodeView(props: NumberedListTitleNodeViewProps)
             <IconRenderer
               value={data.icon}
               fallbackValue={HEADER_ICON_FALLBACK}
-              className="sc-numbered-list__header-icon-glyph"
+              className="sc-course-numbered-list__header-icon-glyph"
             />
           </span>
         )
       ) : null}
-      <div className="sc-numbered-list__title-content">
+      <div className="sc-course-numbered-list__title-content">
         <NodeViewContent />
       </div>
     </NodeViewWrapper>
@@ -189,7 +201,9 @@ export function NumberedListItemNodeView(props: NodeViewProps) {
   });
   const { count, index } = readNumberedListItemPosition(props);
   const markerState = readMarkerState(props.node);
+  const courseState = courseStateForMarker(markerState);
   const canDelete = editable && count > 1;
+  const deleteExplanationId = useId();
 
   const cycleMarkerState = () => {
     if (!editable) return;
@@ -212,44 +226,56 @@ export function NumberedListItemNodeView(props: NodeViewProps) {
     <NodeViewWrapper
       data-node="numbered-list-item"
       role="listitem"
-      className="sc-numbered-list__item"
+      className="sc-course-numbered-list__item"
     >
-      <div className="sc-numbered-list__item-shell">
+      <div className="sc-course-numbered-list__item-shell">
         {editable ? (
           <button
             type="button"
             contentEditable={false}
             data-status={markerState}
+            data-course-state={courseState}
             aria-label={`Set item ${index} status. Current: ${MARKER_STATE_LABELS[markerState]}.`}
             onClick={cycleMarkerState}
             onMouseDown={(event) => event.preventDefault()}
-            className={markerClassName(markerState)}
+            className={`${markerClassName(markerState)} sc-app-numbered-list-status-cycle`}
           >
             {renderMarkerContent(markerState, index)}
           </button>
         ) : (
           <span
             contentEditable={false}
-            aria-hidden
             data-status={markerState}
+            data-course-state={courseState}
             className={markerClassName(markerState)}
           >
-            {renderMarkerContent(markerState, index)}
+            <span aria-hidden className="sc-course-numbered-list__marker-visual">
+              {renderMarkerContent(markerState, index)}
+            </span>
+            <span className="sc-course-numbered-list__runtime-status">
+              {runtimeMarkerLabel(markerState, index)}
+            </span>
           </span>
         )}
-        <div className="sc-numbered-list__item-content">
+        <div className="sc-course-numbered-list__item-content">
           <NodeViewContent />
         </div>
         {editable ? (
           <button
             type="button"
             contentEditable={false}
-            disabled={!canDelete}
+            aria-disabled={!canDelete || undefined}
+            aria-describedby={!canDelete ? deleteExplanationId : undefined}
             aria-label={`Delete numbered list item ${index}`}
             onClick={deleteItem}
-            className="sc-numbered-list__delete"
+            className="sc-app-numbered-list-delete"
           >
             <Trash size={14} aria-hidden />
+            {!canDelete ? (
+              <span id={deleteExplanationId} className="sc-app-numbered-list-delete__explanation">
+                A numbered list must contain at least one item.
+              </span>
+            ) : null}
           </button>
         ) : null}
       </div>

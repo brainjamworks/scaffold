@@ -15,7 +15,7 @@ describe("AttemptCounter", () => {
 
     expect(status.textContent).toBe("1 of 3");
     expect(status.getAttribute("data-state")).toBe("normal");
-    expect(status.classList.contains("sc-pill")).toBe(false);
+    expect(status.classList.contains("sc-app-pill")).toBe(false);
   });
 
   it("keeps final attempts visibly distinct", () => {

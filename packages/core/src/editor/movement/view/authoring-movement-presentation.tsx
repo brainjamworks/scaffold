@@ -12,8 +12,7 @@ import type { MovementTargetAxis } from "../model/movement-target";
 
 export const AUTHORING_MOVEMENT_SILHOUETTE_ATTR = "data-authoring-movement-silhouette";
 export const AUTHORING_MOVEMENT_ACTIVATION_ID_ATTR = "data-authoring-movement-activation-id";
-export const AUTHORING_MOVEMENT_SNAPSHOT_CHROME_ATTR =
-  "data-authoring-movement-snapshot-chrome";
+export const AUTHORING_MOVEMENT_SNAPSHOT_CHROME_ATTR = "data-authoring-movement-snapshot-chrome";
 
 const MAX_AUTHORING_MOVEMENT_PREVIEW_SIZE = 280;
 
@@ -77,7 +76,15 @@ export function useAuthoringMovementDragSource({
       label,
       sourcePos,
     }),
-    [axis, containedMovement, getSourcePos, label, readPresentationElement, readSourcePos, sourcePos],
+    [
+      axis,
+      containedMovement,
+      getSourcePos,
+      label,
+      readPresentationElement,
+      readSourcePos,
+      sourcePos,
+    ],
   );
   const drag = useInteractionDragSource<AuthoringMovementDragData>({
     data,

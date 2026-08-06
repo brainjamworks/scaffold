@@ -9,6 +9,8 @@ import { sidebarBlockDefinition } from "./sidebar-definition";
 import { createSidebarNode } from "./node";
 import { SidebarBodyNode, SidebarLabelNode, SidebarTitleNode } from "./slots";
 
+import "./SidebarAuthoringControls.css";
+
 function SidebarAuthoringView(props: NodeViewProps) {
   return <SidebarView {...props} renderIconControl={renderSidebarAuthoringIconControl} />;
 }
@@ -16,7 +18,7 @@ function SidebarAuthoringView(props: NodeViewProps) {
 const SidebarAuthoringRootNode = createSidebarNode({
   addNodeView: () =>
     createBlockAuthoringNodeView({
-      className: "sc-sidebar",
+      className: "sc-course-sidebar",
       definition: sidebarBlockDefinition,
       view: { component: SidebarAuthoringView },
     }),

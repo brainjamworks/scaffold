@@ -5,7 +5,7 @@ import {
   ReactNodeViewRenderer,
   type NodeViewProps,
 } from "@tiptap/react";
-import { CheckIcon as Check } from "@phosphor-icons/react";
+import { Checkbox } from "@radix-ui/themes";
 
 import { fieldContainerSpec } from "@/document/model/content-model/content-groups";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
@@ -57,22 +57,20 @@ export function ChecklistItemRuntimeNodeView(props: NodeViewProps) {
       data-node="checklist-item"
       data-checked={checked ? "true" : "false"}
       role="listitem"
-      className="sc-checklist-item"
+      className="sc-course-checklist__item"
     >
-      <div className="sc-checklist-item__shell">
-        <button
-          type="button"
-          role="checkbox"
-          aria-checked={checked}
+      <div className="sc-course-checklist__item-shell">
+        <Checkbox
+          size="2"
+          checked={checked}
+          data-course-state={checked ? "completed" : undefined}
           contentEditable={false}
-          onClick={handleToggle}
+          onCheckedChange={handleToggle}
           onMouseDown={(event) => event.preventDefault()}
-          className="sc-checklist-item__checkbox"
+          className="sc-course-checklist__checkbox"
           aria-label={checked ? "Mark item as not complete" : "Mark item as complete"}
-        >
-          {checked ? <Check size={12} weight="bold" aria-hidden /> : null}
-        </button>
-        <div className="sc-checklist-item__text">
+        />
+        <div className="sc-course-checklist__item-text">
           <NodeViewContent />
         </div>
       </div>

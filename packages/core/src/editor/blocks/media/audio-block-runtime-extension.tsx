@@ -6,7 +6,7 @@ import { createAudioBlockNode } from "./audio-block-node";
 import "./AudioBlock.css";
 
 function AudioBlockRuntimeFallback() {
-  return <div aria-hidden="true" className="sc-audio-block__fallback" />;
+  return <div aria-hidden="true" className="sc-course-audio-block__fallback" />;
 }
 
 export const AudioBlockRuntimeExtension = createAudioBlockNode({
@@ -20,6 +20,6 @@ export const AudioBlockRuntimeExtension = createAudioBlockNode({
           return { default: mod.AudioBlockRuntimeView };
         },
       },
-      className: "sc-audio-block",
+      className: "sc-course-audio-block",
     }),
 });

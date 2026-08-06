@@ -8,15 +8,14 @@ import {
 import { InfoIcon as Info } from "@phosphor-icons/react";
 import { useEffect, useId, useMemo, useRef } from "react";
 
-import { CHOICE_TRAILING_BTN, ChoiceAnswerItem } from "../chrome/ChoiceAnswerItem";
 import { richTextDocumentToAssessmentFeedback } from "../model/private-assessment-attrs";
+import { deleteAssessmentChoice } from "../model/delete-assessment-choice";
 import { containedMovementTargetAttributes } from "@/editor/movement/view/movement-dom";
 import { ContainedMovementHandle } from "@/editor/movement/view/ContainedMovementHandle";
 import { authoringMovementSnapshotChromeAttributes } from "@/editor/movement/view/authoring-movement-presentation";
 import { Placeholder } from "@/editor/prosemirror/placeholder/Placeholder";
 import { createFieldContentEditorExtensions } from "@/editor/rich-text/authoring/field-content-extensions";
 import { EditableOverlayPopover } from "@/editor/rich-text/authoring/nested-overlay/EditableOverlayPopoverShell";
-import { cn } from "@/lib/cn";
 import {
   isScaffoldRichTextDocumentEmpty,
   toTiptapRichTextDocument,
@@ -24,13 +23,17 @@ import {
 } from "@/schemas/rich-text";
 import { SelectableChoiceAttrsSchema, type SelectableChoiceAttrs } from "@/schemas/shared";
 import { iconSm } from "@/ui/tokens/icon-sizes";
+import {
+  AssessmentChoiceAuthoringAction,
+  AssessmentChoiceAuthoringRow,
+} from "@/ui/components/course/AssessmentChoiceAuthoringRow/AssessmentChoiceAuthoringRow";
 import "@/editor/blocks/assessment/shared/chrome/assessment-feedback-popover.css";
 
 import {
   createSelectableChoiceNode,
+  choiceCorrectnessUnavailableReason,
   emptyPrivateChoiceState,
   readPrivateChoiceState,
-  resolveChoiceAssessmentParent,
   setPrivateChoiceFeedback,
   toggleChoiceCorrect,
 } from "./selectable-choice";
@@ -77,23 +80,27 @@ function SelectableChoiceAuthoringNodeView(props: NodeViewProps) {
         : emptyPrivateChoiceState;
     },
   });
-  const parentTypeName = useEditorState({
+  const choicePosition = useEditorState({
     editor: props.editor,
     selector: ({ editor }) => {
       const currentPos = currentChoicePos(editor);
-      if (currentPos === null) return null;
-      return resolveChoiceAssessmentParent(editor, currentPos)?.typeName ?? null;
+      return currentPos !== null
+        ? readSiblingPosition(editor, currentPos, "selectable_choice")
+        : { count: 1, index: 1 };
     },
   });
-  const choiceIndex = useEditorState({
+  const correctnessUnavailableReason = useEditorState({
     editor: props.editor,
     selector: ({ editor }) => {
       const currentPos = currentChoicePos(editor);
-      return currentPos !== null ? readSiblingIndex(editor, currentPos, "selectable_choice") : 1;
+      return currentPos === null
+        ? undefined
+        : choiceCorrectnessUnavailableReason(editor, currentPos);
     },
   });
   const pos = safeGetPos(props.getPos);
   const hasFeedback = !isScaffoldRichTextDocumentEmpty(privateChoiceState.feedback?.document);
+  const choiceLabel = props.node.textContent.trim() || `choice ${choicePosition.index}`;
   const fieldKey = `assessment:${attrs.id}:feedback`;
 
   useEffect(() => {
@@ -136,31 +143,20 @@ function SelectableChoiceAuthoringNodeView(props: NodeViewProps) {
   const deleteChoice = () => {
     const currentPos = currentChoicePos();
     if (currentPos === null) return;
-    const currentNode = props.editor.state.doc.nodeAt(currentPos);
-    if (!currentNode) return;
-    props.editor
-      .chain()
-      .focus()
-      .deleteRange({ from: currentPos, to: currentPos + currentNode.nodeSize })
-      .run();
+    deleteAssessmentChoice(props.editor, currentPos);
   };
 
   const feedbackControl = (
     <EditableOverlayPopover.Root>
       <EditableOverlayPopover.Trigger asChild>
-        <button
+        <AssessmentChoiceAuthoringAction
           {...authoringMovementSnapshotChromeAttributes()}
-          type="button"
-          aria-label={hasFeedback ? "Edit feedback" : "Add feedback"}
-          onClick={(event) => event.stopPropagation()}
-          data-no-select
-          className={cn(
-            CHOICE_TRAILING_BTN,
-            hasFeedback && "sc-assessment-feedback-trigger--visible",
-          )}
+          active={hasFeedback}
+          intent="feedback"
+          label={hasFeedback ? "Edit feedback" : "Add feedback"}
         >
           <Info size={iconSm} weight={hasFeedback ? "fill" : "regular"} />
-        </button>
+        </AssessmentChoiceAuthoringAction>
       </EditableOverlayPopover.Trigger>
       <EditableOverlayPopover.Portal>
         <EditableOverlayPopover.Content
@@ -173,7 +169,8 @@ function SelectableChoiceAuthoringNodeView(props: NodeViewProps) {
           editor={{
             ariaLabel: "Feedback editor",
             bubbleMenuPluginKey: richTextPluginKey,
-            className: "sc-assessment-feedback-editor-field sc-assessment-feedback-rich-text",
+            className:
+              "sc-course-assessment-feedback-editor-field sc-course-assessment-feedback-rich-text",
             extensions,
             fieldKey,
             outerEditor: props.editor,
@@ -191,36 +188,35 @@ function SelectableChoiceAuthoringNodeView(props: NodeViewProps) {
       ref={presentationRef}
       {...props.HTMLAttributes}
       data-node="selectable-choice"
+      data-choice-id={attrs.id}
       {...containedMovementTargetAttributes()}
     >
-      <ChoiceAnswerItem
-        authoringControlAttributes={authoringMovementSnapshotChromeAttributes()}
-        id={attrs.id}
-        inputType={parentTypeName === "multiselect" ? "checkbox" : "radio"}
-        isCorrect={privateChoiceState.isCorrect}
+      <AssessmentChoiceAuthoringRow
+        correct={privateChoiceState.isCorrect}
+        correctnessLabel={`Toggle whether ${choiceLabel} is correct`}
+        {...(correctnessUnavailableReason ? { correctnessUnavailableReason } : {})}
         feedbackControl={feedbackControl}
-        isEditable
-        state={privateChoiceState.isCorrect ? "correct" : null}
-        checked={privateChoiceState.isCorrect}
-        submitted={false}
-        disabled={false}
-        onSelect={() => {}}
         onToggleCorrect={toggleCorrect}
-        onDelete={deleteChoice}
-        deleteLabel={`Delete choice ${choiceIndex}`}
-        leading={
+        deleteAction={{
+          label: `Delete choice ${choicePosition.index}`,
+          onAction: deleteChoice,
+          ...(choicePosition.count <= 1
+            ? { unavailableReason: "An assessment must contain at least one choice." }
+            : {}),
+        }}
+        movementControl={
           <ContainedMovementHandle
             getPresentationElement={() => presentationRef.current}
             getSourcePos={() => safeGetPos(props.getPos)}
             label="choice"
             sourceKey={attrs.id}
             sourcePos={pos}
-            className="sc-contained-movement-handle--row-offset"
+            className="sc-app-contained-movement-handle--row-offset"
           />
         }
       >
         <NodeViewContent />
-      </ChoiceAnswerItem>
+      </AssessmentChoiceAuthoringRow>
     </NodeViewWrapper>
   );
 }
@@ -235,7 +231,11 @@ function resolveSelectableChoicePos(
   return currentNode?.type.name === "selectable_choice" ? currentPos : null;
 }
 
-function readSiblingIndex(editor: NodeViewProps["editor"], pos: number, typeName: string): number {
+function readSiblingPosition(
+  editor: NodeViewProps["editor"],
+  pos: number,
+  typeName: string,
+): { count: number; index: number } {
   const $pos = editor.state.doc.resolve(pos);
   const parent = $pos.parent;
   const parentStart = $pos.start();
@@ -250,5 +250,5 @@ function readSiblingIndex(editor: NodeViewProps["editor"], pos: number, typeName
     }
   });
 
-  return index;
+  return { count, index };
 }

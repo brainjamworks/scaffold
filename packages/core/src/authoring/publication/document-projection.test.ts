@@ -12,7 +12,6 @@ import { createBlockRegistry, type BlockRegistry } from "@/editor/blocks/block-r
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
 import { mcqResponseCodec } from "@/editor/blocks/assessment/mcq/assessment";
-import { SCAFFOLD_EDITORIAL_PRESET } from "@/theme/model";
 
 import {
   projectAssessmentDocument as projectAssessmentDocumentWithBlocks,
@@ -63,14 +62,12 @@ vi.mock("@/editor/blocks/built-in-block-definitions", async (importOriginal) => 
 });
 
 describe("authoring publication document projection", () => {
-  it("preserves the complete course theme snapshot for learners", () => {
+  it("preserves exact Course theme references for learners", () => {
     const theme = {
       schemaVersion: 1 as const,
-      preset: {
-        id: SCAFFOLD_EDITORIAL_PRESET.id,
-        revision: SCAFFOLD_EDITORIAL_PRESET.revision,
-      },
-      values: structuredClone(SCAFFOLD_EDITORIAL_PRESET.values),
+      design: { id: "scaffold-flow", revision: "1" },
+      colourSystem: { id: "scaffold-indigo", revision: "1" },
+      overrides: {},
     };
     const document: JSONContent = {
       type: "courseDocument",
@@ -86,11 +83,8 @@ describe("authoring publication document projection", () => {
 
     const projectedTheme = projectLearnerDocument(document).document.attrs?.["theme"];
     expect(projectedTheme).toEqual(theme);
-    expect(projectedTheme.values.colors).toMatchObject({
-      author: theme.values.colors.author,
-      recipe: theme.values.colors.recipe,
-      resolved: theme.values.colors.resolved,
-    });
+    expect(projectedTheme).not.toHaveProperty("preset");
+    expect(projectedTheme).not.toHaveProperty("values");
   });
 
   it("reads assessment projection from the explicit built-in registry", async () => {
@@ -743,8 +737,11 @@ describe("authoring publication document projection", () => {
 
     const canvasAttrs = attrsOf(firstDescendant(learner.document, "image_hotspot_canvas"));
     expect(canvasAttrs["data"]).toMatchObject({
-      debug: false,
-      image: null,
+      image: {
+        mode: "external",
+        src: "https://example.com/hotspot.png",
+        alt: "A labelled hotspot diagram",
+      },
       maxClicks: null,
       hotspots: [
         {
@@ -832,65 +829,6 @@ describe("authoring publication document projection", () => {
     ]);
   });
 
-  it("redacts malformed hotspot canvas data without preserving private fields", () => {
-    const document: JSONContent = {
-      type: "courseDocument",
-      content: [
-        {
-          type: "surface",
-          attrs: { id: "surface-malformed-hotspot", variant: "page-default" },
-          content: [
-            {
-              type: "image_hotspot",
-              attrs: {
-                id: "malformed-hotspot-block",
-                settings: {
-                  feedbackMode: "on_submit",
-                  isGraded: true,
-                  showAnswer: true,
-                  points: 1,
-                  maxAttempts: null,
-                },
-              },
-              content: [
-                {
-                  type: "image_hotspot_canvas",
-                  attrs: {
-                    data: {
-                      debug: true,
-                      missFeedback: { summary: "leaked miss feedback" },
-                      hotspots: [
-                        {
-                          id: "leaky-hotspot",
-                          centerX: "not a number",
-                          isCorrect: true,
-                          feedback: { summary: "leaked hotspot feedback" },
-                        },
-                      ],
-                    },
-                  },
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    };
-
-    const learner = projectLearnerDocument(document);
-    const canvasData = attrsOf(firstDescendant(learner.document, "image_hotspot_canvas"))[
-      "data"
-    ] as Record<string, unknown>;
-    const learnerHotspots = canvasData["hotspots"] as Array<Record<string, unknown>>;
-
-    expect(canvasData["debug"]).toBe(false);
-    expect(canvasData).not.toHaveProperty("missFeedback");
-    expect(canvasData).not.toHaveProperty("gradingMode");
-    expect(learnerHotspots).toHaveLength(1);
-    expect(learnerHotspots[0]).not.toHaveProperty("isCorrect");
-    expect(learnerHotspots[0]).not.toHaveProperty("feedback");
-  });
-
   it("structurally redacts sequencing and matching learner JSON", () => {
     const document: JSONContent = {
       type: "courseDocument",
@@ -911,6 +849,7 @@ describe("authoring publication document projection", () => {
     };
 
     const learner = projectLearnerDocument(document);
+    const repeatedLearner = projectLearnerDocument(document);
     const targets = projectAssessmentTargets(document);
 
     expect(learner.warnings.map((warning) => warning.code)).toEqual(["missing-block-id"]);
@@ -924,6 +863,11 @@ describe("authoring publication document projection", () => {
       "second",
     ]);
     expect(sequenceIds).not.toEqual(["first", "second"]);
+    expect(
+      descendantsOfType(repeatedLearner.document, "sequencing_item").map((item) =>
+        String(attrsOf(item)["id"]),
+      ),
+    ).toEqual(sequenceIds);
 
     const matchingPairs = descendantsOfType(learner.document, "matching_pair");
     const learnerPairs = matchingPairs.map((pair) => attrsOf(pair));
@@ -957,8 +901,8 @@ describe("authoring publication document projection", () => {
           { id: "left-2", label: "Spain" },
         ],
         targets: [
-          { id: "right-1", label: "Paris" },
           { id: "right-2", label: "Madrid" },
+          { id: "right-1", label: "Paris" },
         ],
       },
       assessment: {
@@ -980,6 +924,50 @@ describe("authoring publication document projection", () => {
         summaryFeedback: null,
       },
     });
+  });
+
+  it("projects one stable Matching source order independent of authored pair nesting", () => {
+    const authored = matchingBlock();
+    const reordered = structuredClone(authored);
+    const reorderedGroup = reordered.content?.find(
+      (child) => child.type === "matching_pairs_group",
+    );
+    reorderedGroup!.content = [...(reorderedGroup?.content ?? [])].reverse();
+
+    const wrap = (block: JSONContent): JSONContent => ({
+      type: "courseDocument",
+      content: [
+        {
+          type: "surface",
+          attrs: { id: "matching-surface", variant: "page-default" },
+          content: [block],
+        },
+      ],
+    });
+    const first = projectBuiltInAssessmentDocument(wrap(authored));
+    const repeated = projectBuiltInAssessmentDocument(wrap(reordered));
+    const learnerPairAttrs = (document: JSONContent) =>
+      descendantsOfType(document, "matching_pair").map((pair) => attrsOf(pair));
+
+    expect(learnerPairAttrs(first.learnerDocument)).toEqual([
+      { itemId: "left-1", targetId: "right-2" },
+      { itemId: "left-2", targetId: "right-1" },
+    ]);
+    expect(learnerPairAttrs(repeated.learnerDocument)).toEqual(
+      learnerPairAttrs(first.learnerDocument),
+    );
+    expect(first.targets[0]?.interaction).toEqual({
+      kind: "match",
+      items: [
+        { id: "left-1", label: "France" },
+        { id: "left-2", label: "Spain" },
+      ],
+      targets: [
+        { id: "right-2", label: "Madrid" },
+        { id: "right-1", label: "Paris" },
+      ],
+    });
+    expect(repeated.targets[0]).toEqual(first.targets[0]);
   });
 });
 
@@ -1090,6 +1078,7 @@ function fillBlanksBlock(): JSONContent {
         showAnswer: true,
         points: 4,
         maxAttempts: null,
+        legend: "Complete the sentence",
       },
     },
     content: [
@@ -1136,6 +1125,7 @@ function imageHotspotBlock(): JSONContent {
         feedbackMode: "on_submit",
         isGraded: true,
         showAnswer: true,
+        legend: "Select every target region",
         points: 1,
         maxAttempts: null,
       },
@@ -1148,7 +1138,11 @@ function imageHotspotBlock(): JSONContent {
         type: "image_hotspot_canvas",
         attrs: {
           data: {
-            image: null,
+            image: {
+              mode: "external",
+              src: "https://example.com/hotspot.png",
+              alt: "A labelled hotspot diagram",
+            },
             hotspots: [
               {
                 id: "hotspot-1",
@@ -1159,7 +1153,6 @@ function imageHotspotBlock(): JSONContent {
               },
             ],
             maxClicks: null,
-            debug: false,
           },
         },
       },
@@ -1184,6 +1177,7 @@ function sequencingBlock(): JSONContent {
         feedbackMode: "on_submit",
         isGraded: true,
         showAnswer: true,
+        legend: "Order the steps",
         points: 2,
         maxAttempts: null,
       },
@@ -1222,6 +1216,7 @@ function matchingBlock(): JSONContent {
         showAnswer: true,
         points: 2,
         maxAttempts: null,
+        legend: "Match each country to its capital",
       },
     },
     content: [

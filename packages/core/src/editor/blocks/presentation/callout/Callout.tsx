@@ -3,7 +3,6 @@ import { NodeViewContent, type NodeViewProps } from "@tiptap/react";
 import type { ReactNode } from "react";
 
 import { IconRenderer } from "@/ui/icons/IconRenderer";
-import { cn } from "@/lib/cn";
 import { catalogIconValue, type IconValue } from "@/schemas/media/icon";
 
 import { emptyCalloutData } from "./content";
@@ -37,8 +36,19 @@ function normalizeCalloutData(next: Partial<CalloutData>): CalloutData {
   return CalloutDataSchema.parse(next);
 }
 
-function calloutIconChipClassName(interactive: boolean): string {
-  return cn("sc-callout__icon-chip", interactive && "sc-callout__icon-chip--interactive");
+function calloutIconClassName(interactive: boolean): string {
+  return interactive
+    ? "sc-course-callout__icon-slot sc-app-callout-icon-trigger"
+    : "sc-course-callout__icon-slot sc-course-callout__icon-chip";
+}
+
+function courseStateForVariant(
+  variant: CalloutVariant,
+): "info" | "warning" | "success" | "error" | undefined {
+  if (variant === "info" || variant === "warning" || variant === "success" || variant === "error") {
+    return variant;
+  }
+  return undefined;
 }
 
 export interface CalloutIconControlProps {
@@ -56,8 +66,12 @@ function StaticCalloutIcon({ data }: { data: CalloutData }) {
   const fallbackValue = calloutVariantIcons[data.variant];
 
   return (
-    <span className={calloutIconChipClassName(false)} aria-hidden>
-      <IconRenderer value={data.icon} fallbackValue={fallbackValue} className="sc-callout__icon" />
+    <span className={calloutIconClassName(false)} aria-hidden>
+      <IconRenderer
+        value={data.icon}
+        fallbackValue={fallbackValue}
+        className="sc-course-callout__icon-glyph"
+      />
     </span>
   );
 }
@@ -81,11 +95,10 @@ export function CalloutView({
 
   const title = props.node.firstChild?.textContent.trim() ?? "";
   const label = variantLabels[data.variant];
-  const isAlert = !editable && (data.variant === "warning" || data.variant === "error");
   const icon: ReactNode =
     editable && data.showIcon && renderIconControl ? (
       renderIconControl({
-        className: calloutIconChipClassName(true),
+        className: calloutIconClassName(true),
         fallbackValue: calloutVariantIcons[data.variant],
         value: data.icon,
         onValueChange: (icon) => updateData({ icon }),
@@ -96,13 +109,15 @@ export function CalloutView({
 
   return (
     <aside
-      role={isAlert ? "alert" : "note"}
+      role="note"
       aria-label={title ? `${label}: ${title}` : `${label} callout`}
-      className={cn("sc-callout", `sc-callout--${data.variant}`)}
+      className="sc-course-callout"
+      data-callout-variant={data.variant}
+      data-course-state={courseStateForVariant(data.variant)}
     >
-      <div className="sc-callout__layout">
+      <div className="sc-course-callout__layout">
         {icon}
-        <div className="sc-callout__content">
+        <div className="sc-course-callout__content">
           <NodeViewContent />
         </div>
       </div>

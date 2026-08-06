@@ -10,8 +10,6 @@ import { describe, expect, it } from "vite-plus/test";
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createScaffoldDocumentContent } from "@/format/artifact";
-import { selectCoursePreset } from "@/theme/authoring";
-import { SCAFFOLD_EDITORIAL_PRESET } from "@/theme/model";
 
 import { Toolbar } from "./Toolbar";
 
@@ -118,7 +116,7 @@ describe("Toolbar", () => {
     editor.destroy();
   });
 
-  it("enables redo after undoing a course theme change", async () => {
+  it("enables redo after undoing a document change", async () => {
     const user = userEvent.setup();
     const editor = new Editor({
       content: createScaffoldDocumentContent({ mode: "page" }),
@@ -132,7 +130,7 @@ describe("Toolbar", () => {
     });
     render(<Toolbar editor={editor} />);
 
-    expect(selectCoursePreset(editor, SCAFFOLD_EDITORIAL_PRESET)).toBe(true);
+    expect(editor.commands.insertContent("history entry")).toBe(true);
     await waitFor(() => expect(screen.getByRole("button", { name: "Undo" })).toBeEnabled());
     await user.click(screen.getByRole("button", { name: "Undo" }));
 

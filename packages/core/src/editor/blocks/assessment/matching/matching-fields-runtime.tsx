@@ -8,7 +8,6 @@ import { DOMSerializer, type Node as PMNode } from "@tiptap/pm/model";
 import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
 import { useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { CHOICE_TRAILING_BTN } from "@/editor/blocks/assessment/shared/chrome/ChoiceAnswerItem";
 import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import type { AssessmentItemDetail } from "@scaffold/contracts";
 import { RichFeedbackRuntimePopover } from "@/editor/blocks/assessment/shared/chrome/RichFeedbackRuntimePopover";
@@ -21,7 +20,6 @@ import { useInteractionDropTarget } from "@/editor/interactions/drag/react/use-i
 import { observeInteractionGeometry } from "@/editor/interactions/drag/dom/observe-interaction-geometry";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 import { serializeStaticRichTextHtml } from "@/editor/rich-text/static/render-rich-text";
-import { cn } from "@/lib/cn";
 import { AssessmentFeedbackContentSchema } from "@scaffold/contracts";
 import { iconMd, iconSm, iconXs } from "@/ui/tokens/icon-sizes";
 
@@ -36,7 +34,6 @@ import {
   deterministicShuffle,
   getMatchingConnectorPath,
   matchedItemId,
-  matchingConnectorColor,
   matchingRevealFromAnswers,
   type MatchingConnector,
   type MatchingProjectionPair,
@@ -54,7 +51,6 @@ export {
   describeMatchingItemAccessibilityState,
   describeMatchingTargetAccessibilityState,
   getMatchingConnectorPath,
-  matchingConnectorColor,
 } from "./matching-fields-shared";
 
 export const MatchingItemRuntimeNode = createMatchingItemNode();
@@ -214,9 +210,9 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
     <NodeViewWrapper
       data-bounded-scroll-frame=""
       data-slot="matching-pairs-group"
-      className="sc-matching-pairs-group"
+      className="sc-course-matching__group"
     >
-      <div data-bounded-scroll="" className="sc-matching-pairs-scroll">
+      <div data-bounded-scroll="" className="sc-course-matching__scroll">
         <fieldset className="sc-matching-runtime-fieldset">
           {runtimeProblem?.state.legend && (
             <legend className="sc-matching-runtime-legend">{runtimeProblem.state.legend}</legend>
@@ -231,61 +227,58 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
             onStart={handleDragStart}
             profile="pointer"
             renderPreview={(active) => (
-              <div className="sc-matching-runtime-preview">
-                <div className="sc-matching-runtime-preview__content">
+              <div className="sc-course-matching__drag-preview">
+                <div className="sc-course-matching__item-content">
                   {renderStaticHtml(active.itemHtml, "Item")}
                 </div>
               </div>
             )}
             sessionId={`matching-${authoredBlockId ?? "runtime"}`}
           >
-            <div ref={matchingCanvasRef} className="sc-matching-runtime-canvas">
+            <div ref={matchingCanvasRef} className="sc-course-matching__canvas">
               <svg
                 ref={connectorSvgRef}
                 aria-hidden
                 data-matching-connectors=""
-                className="sc-matching-connectors"
+                className="sc-course-matching__connectors"
               >
                 {connectors.map((connector) => {
-                  const color = matchingConnectorColor(connector.state);
                   return (
                     <g
                       key={`${connector.itemId}:${connector.targetId}`}
                       data-matching-connector-item-id={connector.itemId}
                       data-matching-connector-state={connector.state}
                       data-matching-connector-target-id={connector.targetId}
+                      data-course-state={
+                        connector.state === "default" ? undefined : connector.state
+                      }
+                      className="sc-course-matching__connector"
                     >
                       <path
                         d={getMatchingConnectorPath(connector)}
-                        fill="none"
-                        stroke={color}
-                        strokeLinecap="round"
-                        strokeWidth={3}
-                        opacity={connector.state === "default" ? 0.72 : 0.85}
+                        className="sc-course-matching__connector-path"
                       />
                       <circle
                         data-matching-connector-endpoint="start"
                         cx={connector.startX}
                         cy={connector.startY}
                         r={5}
-                        fill={color}
-                        opacity={connector.state === "default" ? 0.72 : 0.85}
+                        className="sc-course-matching__connector-endpoint"
                       />
                       <circle
                         data-matching-connector-endpoint="end"
                         cx={connector.endX}
                         cy={connector.endY}
                         r={5}
-                        fill={color}
-                        opacity={connector.state === "default" ? 0.72 : 0.85}
+                        className="sc-course-matching__connector-endpoint"
                       />
                     </g>
                   );
                 })}
               </svg>
-              <div className="sc-matching-runtime-column sc-matching-runtime-column--items">
-                <div className="sc-matching-runtime-heading">Items</div>
-                <div className="sc-matching-runtime-list">
+              <div className="sc-course-matching__column">
+                <div className="sc-course-matching__header">Items</div>
+                <div className="sc-course-matching__runtime-list">
                   {pairs.map((pair, idx) => {
                     const selected = selectedItemId === pair.itemId;
                     const matched = displayMatches[pair.itemId] !== undefined;
@@ -314,9 +307,9 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
                 </div>
               </div>
 
-              <div className="sc-matching-runtime-column sc-matching-runtime-column--targets">
-                <div className="sc-matching-runtime-heading">Matches</div>
-                <div className="sc-matching-runtime-list">
+              <div className="sc-course-matching__column">
+                <div className="sc-course-matching__header">Matches</div>
+                <div className="sc-course-matching__runtime-list">
                   {orderedTargets.map((target, idx) => {
                     const matched = matchedItemId(displayMatches, target.targetId);
                     const matchedPair = matched ? (pairByItemId.get(matched) ?? null) : null;
@@ -338,15 +331,11 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
                     const activeDrop =
                       hoverTargetId === target.targetId ||
                       (selectedItemId !== null && !interactionLocked);
-                    const matchedItemIndex = matchedPair
-                      ? pairs.findIndex((pair) => pair.itemId === matchedPair.itemId) + 1
-                      : null;
                     const targetDescription = describeMatchingTargetAccessibilityState({
                       activeDrop,
                       correct,
                       hasFeedback: showFeedback && matchedFeedback.success,
-                      matchedItemIndex:
-                        matchedItemIndex !== null && matchedItemIndex > 0 ? matchedItemIndex : null,
+                      matchedItemLabel: matchedPair?.itemLabel ?? null,
                       revealed: answerKeyVisible,
                       submitted,
                     });
@@ -356,7 +345,6 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
                         activeDrop={activeDrop}
                         correct={correct}
                         description={targetDescription}
-                        hasMatchedPair={matchedPair !== null}
                         index={idx}
                         interactionLocked={interactionLocked}
                         selectedItemId={selectedItemId}
@@ -366,12 +354,12 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
                           if (selectedItemId) commitMatch(selectedItemId, target.targetId);
                         }}
                       >
-                        <div className="sc-matching-runtime-target__body">
+                        <div className="sc-course-matching__target-content">
                           {renderStaticHtml(target.targetHtml, `Target ${idx + 1}`)}
                         </div>
                         {matchedPair ? (
-                          <div className="sc-matching-runtime-match">
-                            <div className="sc-matching-runtime-match__content">
+                          <div className="sc-course-matching__matched-item">
+                            <div className="sc-course-matching__matched-content">
                               {renderStaticHtml(matchedPair.itemHtml, "Matched item")}
                             </div>
                             {!interactionLocked && (
@@ -382,10 +370,7 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
                                   e.stopPropagation();
                                   problem?.removeTargetMatch(target.targetId);
                                 }}
-                                className={cn(
-                                  CHOICE_TRAILING_BTN,
-                                  "sc-choice-trailing-button--course-danger",
-                                )}
+                                className="sc-course-matching__remove-action"
                               >
                                 <X size={iconSm} />
                               </button>
@@ -394,7 +379,8 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
                               <CheckCircle
                                 size={iconMd}
                                 weight="fill"
-                                className="sc-matching-runtime-status-icon sc-matching-runtime-status-icon--correct"
+                                className="sc-course-matching__state-cue"
+                                data-course-state="correct"
                                 aria-hidden
                               />
                             )}
@@ -402,7 +388,8 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
                               <XCircle
                                 size={iconMd}
                                 weight="fill"
-                                className="sc-matching-runtime-status-icon sc-matching-runtime-status-icon--incorrect"
+                                className="sc-course-matching__state-cue"
+                                data-course-state="incorrect"
                                 aria-hidden
                               />
                             )}
@@ -411,7 +398,7 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
                             )}
                           </div>
                         ) : (
-                          <span className="sc-matching-empty">
+                          <span className="sc-course-matching__empty-target">
                             {selectedItemId ? "Click to place selected item" : "Choose an item"}
                           </span>
                         )}
@@ -473,6 +460,8 @@ function MatchingRuntimeItem({
       data-matching-draggable-item=""
       data-interaction-drag-placeholder={drag.isPlaceholder ? "" : undefined}
       data-item-id={pair.itemId}
+      data-selected={selected || undefined}
+      data-matched={matched || undefined}
       onClick={onSelect}
       onKeyDown={(e) => {
         if (disabled) return;
@@ -482,19 +471,12 @@ function MatchingRuntimeItem({
         }
         if (e.key === "Escape") onEscape();
       }}
-      className={cn(
-        "sc-matching-runtime-item",
-        selected && "sc-matching-runtime-item--selected",
-        !disabled && !selected && "sc-matching-runtime-item--interactive",
-        matched && !selected && "sc-matching-runtime-item--dimmed",
-        drag.isPlaceholder && "sc-matching-runtime-item--placeholder",
-        disabled && "sc-matching-runtime-item--disabled",
-      )}
+      className="sc-course-matching__item"
     >
-      <span aria-hidden data-runtime-matching-handle="" className="sc-matching-runtime-handle">
+      <span aria-hidden data-runtime-matching-handle="" className="sc-course-matching__item-handle">
         <DotsSixVertical size={iconXs} weight="bold" />
       </span>
-      <div className="sc-matching-runtime-item__content">
+      <div className="sc-course-matching__item-content">
         {renderStaticHtml(pair.itemHtml, `Item ${index + 1}`)}
       </div>
       <span id={descriptionId} className="sc-sr-only">
@@ -509,7 +491,6 @@ function MatchingRuntimeTarget({
   children,
   correct,
   description,
-  hasMatchedPair,
   index,
   interactionLocked,
   onCommitSelected,
@@ -521,7 +502,6 @@ function MatchingRuntimeTarget({
   children: ReactNode;
   correct: boolean | null;
   description: string;
-  hasMatchedPair: boolean;
   index: number;
   interactionLocked: boolean;
   onCommitSelected: () => void;
@@ -547,6 +527,10 @@ function MatchingRuntimeTarget({
       aria-describedby={descriptionId}
       data-matching-drop-target=""
       data-target-id={targetId}
+      data-active={isActiveDrop || undefined}
+      data-course-state={
+        showFeedback && correct !== null ? (correct ? "correct" : "incorrect") : undefined
+      }
       onClick={onCommitSelected}
       onKeyDown={(e) => {
         if (interactionLocked) return;
@@ -555,17 +539,7 @@ function MatchingRuntimeTarget({
           onCommitSelected();
         }
       }}
-      className={cn(
-        "sc-matching-runtime-target",
-        !interactionLocked &&
-          !hasMatchedPair &&
-          !showFeedback &&
-          "sc-matching-runtime-target--interactive",
-        isActiveDrop && "sc-matching-runtime-target--active",
-        hasMatchedPair && !showFeedback && "sc-matching-runtime-target--matched",
-        showFeedback && correct === true && "sc-matching-runtime-target--correct",
-        showFeedback && correct === false && "sc-matching-runtime-target--incorrect",
-      )}
+      className="sc-course-matching__target"
     >
       {children}
       <span id={descriptionId} className="sc-sr-only">
@@ -593,14 +567,16 @@ function projectionsFromGroup(node: PMNode, serializer: DOMSerializer): Matching
     if (pair.type.name !== "matching_pair") return;
     const item = childByType(pair, "matching_item");
     const target = childByType(pair, "matching_target");
-    const itemId = String(item?.attrs["id"] ?? "");
-    const targetId = String(target?.attrs["id"] ?? "");
+    const itemId = String(pair.attrs["itemId"] ?? "");
+    const targetId = String(pair.attrs["targetId"] ?? "");
     if (!itemId || !targetId) return;
     pairs.push({
       itemId,
       targetId,
       itemHtml: fieldHtml(serializer, item),
       targetHtml: fieldHtml(serializer, target),
+      itemLabel: item?.textContent.replace(/\s+/g, " ").trim() || `Item ${pairs.length + 1}`,
+      targetLabel: target?.textContent.replace(/\s+/g, " ").trim() || `Target ${pairs.length + 1}`,
     });
   });
   return pairs;
@@ -608,5 +584,7 @@ function projectionsFromGroup(node: PMNode, serializer: DOMSerializer): Matching
 
 function renderStaticHtml(html: string, fallback: string) {
   if (!html) return fallback;
-  return <div className="sc-matching-static-html" dangerouslySetInnerHTML={{ __html: html }} />;
+  return (
+    <div className="sc-course-matching__static-html" dangerouslySetInnerHTML={{ __html: html }} />
+  );
 }

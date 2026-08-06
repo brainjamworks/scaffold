@@ -1,0 +1,27 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-course-assessment-support-button {
+    box-sizing: border-box;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 2.75rem;
+  }
+
+  .sc-course-assessment-support-button__icon,
+  .sc-course-assessment-support-button__end-icon {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sc-course-assessment-support-button__label {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .sc-course-assessment-support-button__end-icon[data-expanded="true"] {
+    transform: rotate(180deg);
+  }
+}

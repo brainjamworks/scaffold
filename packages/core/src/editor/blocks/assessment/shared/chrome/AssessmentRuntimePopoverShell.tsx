@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { PopoverSurface } from "@/ui/components/PopoverSurface/PopoverSurface";
+import { CoursePopoverSurface } from "@/ui/components/course/CoursePopoverSurface/CoursePopoverSurface";
 
 interface AssessmentRuntimePopoverShellProps {
   children: ReactNode;
@@ -18,8 +18,8 @@ export function AssessmentRuntimePopoverShell({
   tone,
 }: AssessmentRuntimePopoverShellProps) {
   return (
-    <PopoverSurface headerActions={headerActions} icon={icon} title={title} tone={tone}>
+    <CoursePopoverSurface headerActions={headerActions} icon={icon} title={title} tone={tone}>
       {children}
-    </PopoverSurface>
+    </CoursePopoverSurface>
   );
 }

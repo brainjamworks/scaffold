@@ -1,4 +1,6 @@
 import { Extension } from "@tiptap/core";
+import { Plugin } from "@tiptap/pm/state";
+import type { NodeViewProps } from "@tiptap/react";
 
 import { AssessmentProblemContent } from "@/editor/blocks/assessment/shared/chrome/AssessmentProblemContent";
 import { createBlockAuthoringNodeView } from "@/editor/frame/authoring/create-block-authoring-node-view";
@@ -11,9 +13,16 @@ import {
   MatchingTargetNode,
 } from "./matching-fields";
 import { createMatchingNode } from "./node";
+import { synchronizeMatchingAssessmentsInTransaction } from "./commands";
 
-function MatchingAuthoringView() {
-  return <AssessmentProblemContent editable blockClass="sc-matching" />;
+function MatchingAuthoringView(props: NodeViewProps) {
+  return (
+    <AssessmentProblemContent
+      editable
+      blockClass="sc-course-assessment-matching"
+      nodeViewProps={props}
+    />
+  );
 }
 
 const MatchingAuthoringNode = createMatchingNode({
@@ -35,6 +44,17 @@ export const MatchingAuthoringExtension = Extension.create({
       MatchingPairNode,
       MatchingPairsGroupNode,
       MatchingAuthoringNode,
+    ];
+  },
+
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        filterTransaction(transaction) {
+          if (transaction.docChanged) synchronizeMatchingAssessmentsInTransaction(transaction);
+          return true;
+        },
+      }),
     ];
   },
 });

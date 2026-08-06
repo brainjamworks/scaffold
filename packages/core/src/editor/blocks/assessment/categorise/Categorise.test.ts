@@ -730,10 +730,7 @@ describe("composite categorise node", () => {
     const before = editor.getJSON();
     const beforeIds = categoriseItemIdsInBin(before, "birds_000001");
     const fishIds = categoriseItemIdsInBin(before, "fish__000001");
-    expect(handles[1]).toHaveAttribute(
-      "aria-keyshortcuts",
-      "Space Enter ArrowUp ArrowDown Escape",
-    );
+    expect(handles[1]).toHaveAttribute("aria-keyshortcuts", "Space Enter ArrowUp ArrowDown Escape");
     expect(birdsBin.querySelectorAll("[data-contained-movement-target]")).toHaveLength(2);
 
     fireEvent.keyDown(handles[1]!, { key: "ArrowUp" });

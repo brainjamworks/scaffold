@@ -1,5 +1,5 @@
 import { AttemptCounter } from "./AttemptCounter";
-import { SubmitButton } from "./SubmitButton";
+import { AssessmentSubmissionControl } from "@/ui/components/course/AssessmentSubmissionControl/AssessmentSubmissionControl";
 import {
   assessmentResultStatusText,
   missingResponseDescriptionForInteraction,
@@ -16,37 +16,38 @@ interface AssessmentControlsProps {
 }
 
 /**
- * Standard controls row for choice-family assessment blocks. Renders
- * the SubmitButton in the right mode + the AttemptCounter beside it.
+ * Submission-zone adapter for standalone assessment blocks. Renders
+ * the Course submission control in the right state plus its adjacent AttemptCounter.
  *
  * Author: a disabled "Submit" so the layout matches what students see.
  * Runtime:
  *   - pre-submit -> Submit (enabled iff the block has a response, exhausted
  *     variant if max attempts hit)
  *   - submitted + can retry -> Try Again
- *   - submitted + correct -> disabled green Submit
- *   - submitted + exhausted -> disabled gray Submit
+ *   - submitted + correct -> noninteractive Correct status
+ *   - submitted + exhausted -> noninteractive Submitted status
  * Returns `null` when the parent's feedbackMode is immediate (no
  * commit step in that mode).
  */
 export function AssessmentControls({ isEditable, problem, maxAttempts }: AssessmentControlsProps) {
   if (isEditable) {
-    return <AuthoringAssessmentControls problem={problem} />;
+    return (
+      <AuthoringAssessmentControls feedbackMode={problem?.state.feedbackMode ?? "on_submit"} />
+    );
   }
 
   return <RuntimeAssessmentControls problem={problem} maxAttempts={maxAttempts} />;
 }
 
 interface AuthoringAssessmentControlsProps {
-  /** Passed only to mirror runtime's immediate-feedback visibility. */
-  problem: ProblemScope | null;
+  /** Mirrors runtime's immediate-feedback visibility without exposing response state. */
+  feedbackMode: "immediate" | "on_submit";
 }
 
-export function AuthoringAssessmentControls({ problem }: AuthoringAssessmentControlsProps) {
-  const feedbackMode = problem?.state.feedbackMode ?? "on_submit";
+export function AuthoringAssessmentControls({ feedbackMode }: AuthoringAssessmentControlsProps) {
   if (feedbackMode === "immediate") return null;
 
-  return <SubmitButton mode="submit" disabled />;
+  return <AssessmentSubmissionControl state="submit" disabled onAction={() => {}} />;
 }
 
 interface RuntimeAssessmentControlsProps {
@@ -75,25 +76,30 @@ export function RuntimeAssessmentControls({
   );
 
   const counter = <AttemptCounter attempts={attempts} maxAttempts={maxAttempts} />;
-  const status = resultStatus ? (
-    <span role="status" aria-live="polite" aria-atomic="true" className="sc-sr-only">
-      {resultStatus}
-    </span>
-  ) : null;
+  const status =
+    resultStatus && canRetry ? (
+      <span role="status" aria-live="polite" aria-atomic="true" className="sc-sr-only">
+        {resultStatus}
+      </span>
+    ) : null;
 
   if (!submitted) {
     return (
       <>
-        <SubmitButton
-          mode={exhausted ? "exhausted" : "submit"}
-          disabled={!hasResponse}
-          description={
-            !hasResponse && !exhausted
-              ? missingResponseDescriptionForInteraction(problem?.state.interactionKind)
-              : null
-          }
-          onClick={() => problem?.submit()}
-        />
+        {exhausted ? (
+          <AssessmentSubmissionControl state="submitted" />
+        ) : (
+          <AssessmentSubmissionControl
+            state="submit"
+            disabled={!hasResponse}
+            disabledReason={
+              !hasResponse
+                ? missingResponseDescriptionForInteraction(problem?.state.interactionKind)
+                : undefined
+            }
+            onAction={() => void problem?.submit()}
+          />
+        )}
         {counter}
         {status}
       </>
@@ -103,7 +109,7 @@ export function RuntimeAssessmentControls({
   if (canRetry) {
     return (
       <>
-        <SubmitButton mode="retry" onClick={() => problem?.reset()} />
+        <AssessmentSubmissionControl state="retry" onAction={() => problem?.reset()} />
         {counter}
         {status}
       </>
@@ -112,7 +118,7 @@ export function RuntimeAssessmentControls({
 
   return (
     <>
-      <SubmitButton mode={isCorrect ? "correct" : "exhausted"} disabled />
+      <AssessmentSubmissionControl state={isCorrect ? "correct" : "submitted"} />
       {counter}
       {status}
     </>

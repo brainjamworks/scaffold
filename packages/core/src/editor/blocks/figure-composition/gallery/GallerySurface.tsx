@@ -17,13 +17,13 @@ import { useGalleryGridLayout } from "./use-gallery-grid-layout";
 
 export function GalleryEmptyState({ hint, action }: { hint: string; action?: ReactNode }) {
   return (
-    <div className="sc-gallery__empty">
-      <span className="sc-gallery__empty-chip" aria-hidden>
+    <div className="sc-course-gallery__empty">
+      <span className="sc-course-gallery__empty-chip" aria-hidden>
         <ImagePlaceholder size={20} weight="regular" />
       </span>
-      <div className="sc-gallery__empty-text">
-        <p className="sc-gallery__empty-title">Image gallery</p>
-        <p className="sc-gallery__empty-hint">{hint}</p>
+      <div className="sc-course-gallery__empty-text">
+        <p className="sc-course-gallery__empty-title">Image gallery</p>
+        <p className="sc-course-gallery__empty-hint">{hint}</p>
       </div>
       {action ?? null}
     </div>
@@ -33,7 +33,9 @@ export function GalleryEmptyState({ hint, action }: { hint: string; action?: Rea
 export function GallerySharedCaption({ caption }: { caption: ScaffoldRichTextDocument }) {
   if (isScaffoldRichTextDocumentEmpty(caption)) return null;
 
-  return <div className="sc-gallery__shared-caption">{renderRuntimeRichTextNode(caption)}</div>;
+  return (
+    <div className="sc-course-gallery__shared-caption">{renderRuntimeRichTextNode(caption)}</div>
+  );
 }
 
 export function GalleryCarousel({
@@ -62,8 +64,8 @@ export function GalleryCarousel({
   const showThumbs = items.length > 1 || Boolean(renderAddThumb);
 
   return (
-    <div className="sc-gallery__carousel">
-      <div className="sc-gallery__stage">
+    <div className="sc-course-gallery__carousel">
+      <div className="sc-course-gallery__stage">
         {activeItem?.url ? (
           <button
             type="button"
@@ -71,13 +73,13 @@ export function GalleryCarousel({
               onBeforeOpenLightbox?.();
               onOpenLightbox(event.currentTarget);
             }}
-            className="sc-gallery__stage-button"
+            className="sc-course-gallery__stage-button"
             aria-label={`Open ${activeItem.alt || "image"} fullscreen`}
           >
             <img
               src={activeItem.url}
               alt={activeItem.alt}
-              className="sc-gallery__stage-image"
+              className="sc-course-gallery__stage-image"
               draggable={false}
               onLoad={() => onActiveItemLoad?.(activeItem.key)}
             />
@@ -85,35 +87,34 @@ export function GalleryCarousel({
         ) : (
           <GalleryMediaState
             item={activeItem}
-            className="sc-gallery__stage-placeholder"
+            className="sc-course-gallery__stage-placeholder"
             iconSize={28}
           />
         )}
       </div>
 
       {showThumbs ? (
-        <div className="sc-gallery__thumbs" role="tablist" aria-label="Gallery images">
+        <div className="sc-course-gallery__thumbs" role="group" aria-label="Gallery images">
           {items.map((item, index) => (
-            <div key={item.key} className="sc-gallery__thumb-item">
+            <div key={item.key} className="sc-course-gallery__thumb-item">
               <button
                 type="button"
-                role="tab"
-                aria-selected={index === activeIndex}
-                aria-label={`Image ${index + 1}`}
+                aria-current={index === activeIndex ? "true" : undefined}
+                aria-label={`Show image ${index + 1}`}
                 onClick={() => {
                   onBeforeSelect?.();
                   onSelect(item.key);
                 }}
                 className={cn(
-                  "sc-gallery__thumb",
-                  index === activeIndex && "sc-gallery__thumb--active",
+                  "sc-course-gallery__thumb",
+                  index === activeIndex && "sc-course-gallery__thumb--active",
                 )}
               >
                 {item.url ? (
                   <img
                     src={item.url}
                     alt=""
-                    className="sc-gallery__thumb-image"
+                    className="sc-course-gallery__thumb-image"
                     draggable={false}
                   />
                 ) : (
@@ -146,12 +147,12 @@ export function GalleryGrid({
   const gridRef = useGalleryGridLayout(items.length);
 
   return (
-    <div className="sc-gallery__grid-composition">
-      <div ref={gridRef} className="sc-gallery__grid" role="list">
+    <div className="sc-course-gallery__grid-composition">
+      <div ref={gridRef} className="sc-course-gallery__grid" role="list">
         {items.map((item, index) => {
           const reference = lowerAlphaReference(index);
           return (
-            <figure key={item.key} className="sc-gallery__tile" role="listitem">
+            <figure key={item.key} className="sc-course-gallery__tile" role="listitem">
               {item.url ? (
                 <button
                   type="button"
@@ -159,28 +160,32 @@ export function GalleryGrid({
                     onBeforeTileClick?.();
                     onTileClick(item.key, event.currentTarget);
                   }}
-                  className="sc-gallery__tile-button"
+                  className="sc-course-gallery__tile-button"
                   aria-label={`Open image (${reference}) fullscreen${item.alt ? `: ${item.alt}` : ""}`}
                 >
                   <img
                     src={item.url}
                     alt={item.alt}
-                    className="sc-gallery__tile-image"
+                    className="sc-course-gallery__tile-image"
                     draggable={false}
                   />
-                  <span className="sc-gallery__reference" aria-hidden>
+                  <span className="sc-course-gallery__reference" aria-hidden>
                     ({reference})
                   </span>
                 </button>
               ) : (
-                <GalleryMediaState item={item} className="sc-gallery__tile-state" iconSize={20} />
+                <GalleryMediaState
+                  item={item}
+                  className="sc-course-gallery__tile-state"
+                  iconSize={20}
+                />
               )}
               {renderTileAction?.(item, index) ?? null}
             </figure>
           );
         })}
       </div>
-      {renderAddTile ? <div className="sc-gallery__grid-add">{renderAddTile}</div> : null}
+      {renderAddTile ? <div className="sc-app-gallery__grid-add">{renderAddTile}</div> : null}
     </div>
   );
 }
@@ -213,12 +218,12 @@ function GalleryMediaState({
       role={role}
       className={cn(
         className,
-        "sc-gallery__media-state",
-        item?.error && "sc-gallery__media-state--error",
+        "sc-course-gallery__media-state",
+        item?.error && "sc-course-gallery__media-state--error",
       )}
     >
       <ImagePlaceholder size={iconSize} weight="regular" aria-hidden />
-      <span className="sc-gallery__media-state-label">{message}</span>
+      <span className="sc-course-gallery__media-state-label">{message}</span>
     </div>
   );
 }

@@ -2,11 +2,18 @@
 
 import { Editor } from "@tiptap/core";
 import type { JSONContent } from "@tiptap/core";
+import UniqueID from "@tiptap/extension-unique-id";
 import { EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render as renderWithTestingLibrary,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { createElement } from "react";
+import { createElement, type ReactNode } from "react";
 import { expect, it, vi } from "vite-plus/test";
 
 import { createCourseDocumentInlineContentExtensions } from "@/composition/model/create-document-composition";
@@ -30,6 +37,9 @@ import {
   createVisualItemActivityId,
 } from "@/runtime/learning-events/catalogue";
 import { LearningEventRuntimeProvider } from "@/runtime/learning-events/LearningEventRuntimeProvider";
+import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
+import { CourseThemeProvider } from "@/theme/course";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import { AnnotatedFigureAuthoringExtension } from "./annotated-figure-authoring-extension";
 import { resolveAnnotatedFigureModel } from "./annotated-figure-document-model";
 import { AnnotatedFigureRuntimeExtension } from "./annotated-figure-runtime-extension";
@@ -38,6 +48,22 @@ import { emptyAnnotatedFigureData } from "./content";
 import "./annotated-figure-definition";
 
 const coreRuntimeComposition = createCoreScaffoldRuntimeComposition();
+
+function render(ui: ReactNode) {
+  return renderWithTestingLibrary(ui, { wrapper: AppTestBoundary });
+}
+
+function AppTestBoundary({ children }: Readonly<{ children: ReactNode }>) {
+  return createElement(AppThemeProvider, {
+    appearance: "light",
+    children: createElement(CourseThemeProvider, {
+      appearance: "light",
+      hasBackground: false,
+      theme: createDefaultPersistedCourseTheme(),
+      children: createElement("div", null, children),
+    }),
+  });
+}
 
 function annotatedFigureFixture(
   data: Record<string, unknown> = {
@@ -61,7 +87,7 @@ function annotatedFigureFixture(
   return {
     type: "annotated_figure",
     attrs: {
-      id: "annotated-figure-proof",
+      id: "figure_00001",
       data,
     },
     content: [
@@ -97,6 +123,11 @@ function renderAnnotatedFigureRuntime(content: JSONContent) {
     editable: false,
     extensions: [
       StarterKit.configure({ link: false, underline: false, undoRedo: false }),
+      UniqueID.configure({
+        attributeName: "id",
+        types: ["annotated_figure", "annotated_figure_annotation"],
+        updateDocument: false,
+      }),
       ...createCourseDocumentInlineContentExtensions({
         inlineIconNode: InlineIconRuntimeNode,
         mathInlineNode: MathInlineRuntimeNode,
@@ -150,6 +181,11 @@ function renderAnnotatedFigureEditor(
   const editor = new Editor({
     extensions: [
       StarterKit.configure({ undoRedo: undoRedo ? {} : false }),
+      UniqueID.configure({
+        attributeName: "id",
+        types: ["annotated_figure", "annotated_figure_annotation"],
+        updateDocument: false,
+      }),
       AnnotatedFigureAuthoringExtension,
     ],
     content: {
@@ -311,7 +347,7 @@ it("keeps the compact image actions together over the resolved image", async () 
 it("keeps editor activation out of direct image-click annotation creation", async () => {
   const editor = renderAnnotatedFigureEditor();
   const stage = await screen.findByRole("group", { name: "Annotated figure image" });
-  const canvas = stage.querySelector<HTMLElement>(".sc-annotated-figure__canvas");
+  const canvas = stage.querySelector<HTMLElement>(".sc-course-annotated-figure__canvas");
   if (!canvas) throw new Error("Expected Annotated Figure canvas.");
   setCanvasRect(canvas);
   let transactionCount = 0;
@@ -334,7 +370,7 @@ it("keeps editor activation out of direct image-click annotation creation", asyn
 it("adds a complete annotation at the clicked image-relative position", async () => {
   const editor = renderAnnotatedFigureEditor();
   const stage = await screen.findByRole("group", { name: "Annotated figure image" });
-  const canvas = stage.querySelector<HTMLElement>(".sc-annotated-figure__canvas");
+  const canvas = stage.querySelector<HTMLElement>(".sc-course-annotated-figure__canvas");
   if (!canvas) throw new Error("Expected Annotated Figure canvas.");
   canvas.getBoundingClientRect = () =>
     ({
@@ -369,7 +405,7 @@ it("previews a pin drag locally and commits it once without activating the pin",
     ]),
   );
   const stage = await screen.findByRole("group", { name: "Annotated figure image" });
-  const canvas = stage.querySelector<HTMLElement>(".sc-annotated-figure__canvas");
+  const canvas = stage.querySelector<HTMLElement>(".sc-course-annotated-figure__canvas");
   if (!canvas) throw new Error("Expected Annotated Figure canvas.");
   setCanvasRect(canvas);
 
@@ -412,7 +448,7 @@ it("discards a moved pin preview when the pointer is cancelled", async () => {
     ]),
   );
   const stage = await screen.findByRole("group", { name: "Annotated figure image" });
-  const canvas = stage.querySelector<HTMLElement>(".sc-annotated-figure__canvas");
+  const canvas = stage.querySelector<HTMLElement>(".sc-course-annotated-figure__canvas");
   if (!canvas) throw new Error("Expected Annotated Figure canvas.");
   setCanvasRect(canvas);
   const pin = await screen.findByRole("button", { name: "Select annotation 1" });
@@ -451,7 +487,7 @@ it("discards a moved pin preview when pointer capture is lost", async () => {
     ]),
   );
   const stage = await screen.findByRole("group", { name: "Annotated figure image" });
-  const canvas = stage.querySelector<HTMLElement>(".sc-annotated-figure__canvas");
+  const canvas = stage.querySelector<HTMLElement>(".sc-course-annotated-figure__canvas");
   if (!canvas) throw new Error("Expected Annotated Figure canvas.");
   setCanvasRect(canvas);
   const pin = await screen.findByRole("button", { name: "Select annotation 1" });
@@ -488,7 +524,7 @@ it("restores a committed pin position with undo", async () => {
     { undoRedo: true },
   );
   const stage = await screen.findByRole("group", { name: "Annotated figure image" });
-  const canvas = stage.querySelector<HTMLElement>(".sc-annotated-figure__canvas");
+  const canvas = stage.querySelector<HTMLElement>(".sc-course-annotated-figure__canvas");
   if (!canvas) throw new Error("Expected Annotated Figure canvas.");
   setCanvasRect(canvas);
   const pin = await screen.findByRole("button", { name: "Select annotation 1" });
@@ -523,7 +559,7 @@ it("selects and reveals a caption row when its pin is activated", async () => {
   const scrollIntoView = vi.fn();
   row.scrollIntoView = scrollIntoView;
   const stage = screen.getByRole("group", { name: "Annotated figure image" });
-  const canvas = stage.querySelector<HTMLElement>(".sc-annotated-figure__canvas");
+  const canvas = stage.querySelector<HTMLElement>(".sc-course-annotated-figure__canvas");
   if (!canvas) throw new Error("Expected Annotated Figure canvas.");
   setCanvasRect(canvas);
   const pin = screen.getByRole("button", { name: "Select annotation 1" });
@@ -585,7 +621,7 @@ it("normalizes an outer caption selection before hiding the List presentation", 
       ),
     ).toBe(false);
   });
-  expect(document.querySelector(".sc-annotated-figure__content")).toHaveAttribute(
+  expect(document.querySelector(".sc-course-annotated-figure__content")).toHaveAttribute(
     "data-caption-display",
     "popover",
   );
@@ -740,7 +776,9 @@ it("opens a new empty caption in popover mode and deletes it before restoring ca
       resolveAnnotatedFigureModel({ node: editor.state.doc.firstChild!, pos: 0 })?.annotations,
     ).toHaveLength(0);
   });
-  expect(document.activeElement).toBe(document.querySelector(".sc-annotated-figure__canvas"));
+  expect(document.activeElement).toBe(
+    document.querySelector(".sc-course-annotated-figure__canvas"),
+  );
   editor.destroy();
 });
 
@@ -781,7 +819,9 @@ it("closes the compact editor on display change, outside press, and target loss"
   );
   await waitFor(() => {
     expect(screen.queryByLabelText("Annotation 1 caption")).toBeNull();
-    expect(document.activeElement).toBe(document.querySelector(".sc-annotated-figure__canvas"));
+    expect(document.activeElement).toBe(
+      document.querySelector(".sc-course-annotated-figure__canvas"),
+    );
   });
   editor.destroy();
 });
@@ -793,7 +833,7 @@ it("converts an activated popover pin into a drag without opening its caption", 
     ]),
   );
   const stage = await screen.findByRole("group", { name: "Annotated figure image" });
-  const canvas = stage.querySelector<HTMLElement>(".sc-annotated-figure__canvas");
+  const canvas = stage.querySelector<HTMLElement>(".sc-course-annotated-figure__canvas");
   if (!canvas) throw new Error("Expected Annotated Figure canvas.");
   setCanvasRect(canvas);
   const pin = screen.getByRole("button", { name: "Edit annotation 1 caption" });
@@ -833,7 +873,7 @@ it("opens one workspace canvas and selected caption field, then restores editor 
   const dialog = await screen.findByRole("dialog", { name: "Edit annotated figure" });
   const captionList = within(dialog).getByRole("region", { name: "Caption management" });
   expect(within(dialog).getAllByRole("group", { name: "Annotated figure image" })).toHaveLength(1);
-  expect(document.querySelectorAll(".sc-annotated-figure__stage")).toHaveLength(2);
+  expect(document.querySelectorAll(".sc-course-annotated-figure__stage")).toHaveLength(2);
   expect(editTrigger.isConnected).toBe(true);
   expect(within(captionList).getByText("First workspace caption")).toBeInTheDocument();
   const captionEditor = within(captionList).getByLabelText("Annotation 2 caption");
@@ -842,7 +882,7 @@ it("opens one workspace canvas and selected caption field, then restores editor 
   expect(captionEditor.classList.contains("sc-textarea")).toBe(true);
   expect(captionEditor.getAttribute("aria-multiline")).toBe("true");
   expect(within(captionList).getAllByLabelText(/Annotation \d+ caption/)).toHaveLength(1);
-  expect(document.querySelector(".sc-annotated-figure__caption-popover")).toBeNull();
+  expect(document.querySelector(".sc-course-annotated-figure__caption-popover")).toBeNull();
 
   await user.keyboard("{Escape}");
 
@@ -1102,7 +1142,7 @@ it("keeps the workspace caption list present in popover mode and selects a newly
 
   expect(await within(captionList).findByLabelText("Annotation 1 caption")).toBeInTheDocument();
   expect(within(captionList).getAllByLabelText(/Annotation \d+ caption/)).toHaveLength(1);
-  expect(document.querySelector(".sc-annotated-figure__caption-popover")).toBeNull();
+  expect(document.querySelector(".sc-course-annotated-figure__caption-popover")).toBeNull();
   expect(
     resolveAnnotatedFigureModel({ node: editor.state.doc.firstChild!, pos: 0 })?.annotations,
   ).toHaveLength(1);
@@ -1124,7 +1164,7 @@ it("shares pin drag preview, cancellation, commit, and workspace-close teardown"
   );
   const dialog = await screen.findByRole("dialog", { name: "Edit annotated figure" });
   const stage = within(dialog).getByRole("group", { name: "Annotated figure image" });
-  const canvas = stage.querySelector<HTMLElement>(".sc-annotated-figure__canvas");
+  const canvas = stage.querySelector<HTMLElement>(".sc-course-annotated-figure__canvas");
   if (!canvas) throw new Error("Expected workspace Annotated Figure canvas.");
   setCanvasRect(canvas);
   const pin = within(dialog).getByRole("button", {
@@ -1470,11 +1510,13 @@ it("renders List presentation as one visible semantic ordered caption tray", asy
   const list = await screen.findByRole("list", { name: "Annotations" });
   const captions = within(list)
     .getAllByRole("listitem")
-    .map((item) => item.querySelector(".sc-annotated-figure__annotation-caption")?.textContent);
+    .map(
+      (item) => item.querySelector(".sc-course-annotated-figure__annotation-caption")?.textContent,
+    );
 
   expect(list.tagName).toBe("OL");
   expect(list.getAttribute("data-visual")).toBe("true");
-  expect(list.classList.contains("sc-annotated-figure__legend")).toBe(true);
+  expect(list.classList.contains("sc-course-annotated-figure__legend")).toBe(true);
   expect(captions).toEqual(["First caption", "Second caption"]);
   expect(screen.queryByRole("button", { name: /View annotation/ })).toBeNull();
   editor.destroy();
@@ -1495,24 +1537,26 @@ it("keeps empty Popover captions noninteractive and retains an ordered semantic 
 
   expect(fallback.getAttribute("data-visual")).toBe("false");
   expect(fallback.classList.contains("sc-sr-only")).toBe(true);
-  expect(fallback.classList.contains("sc-annotated-figure__legend")).toBe(false);
+  expect(fallback.classList.contains("sc-course-annotated-figure__legend")).toBe(false);
   expect(within(fallback).getAllByRole("listitem")).toHaveLength(2);
   expect(screen.queryByRole("button", { name: "View annotation 2" })).toBeNull();
   expect(emptyPin?.querySelector("button")).toBeNull();
-  expect(emptyPin?.querySelector(".sc-annotated-figure__pin-number")?.textContent).toBe("2");
+  expect(emptyPin?.querySelector(".sc-course-annotated-figure__pin-number")?.textContent).toBe("2");
 
   await user.click(captionPin);
   await waitFor(() => {
-    expect(document.querySelector(".sc-annotated-figure__caption-popover")).not.toBeNull();
+    expect(document.querySelector(".sc-course-annotated-figure__caption-popover")).not.toBeNull();
   });
-  const popover = document.querySelector<HTMLElement>(".sc-annotated-figure__caption-popover");
+  const popover = document.querySelector<HTMLElement>(
+    ".sc-course-annotated-figure__caption-popover",
+  );
   if (!popover) throw new Error("Expected a runtime caption popover");
-  expect(popover.querySelector('[data-tone="neutral"]')).not.toBeNull();
+  expect(popover.querySelector('[data-tone="annotation"]')).not.toBeNull();
   expect(within(popover).getByText("Readable caption")).toBeInTheDocument();
 
   await user.keyboard("{Escape}");
   await waitFor(() => {
-    expect(document.querySelector(".sc-annotated-figure__caption-popover")).toBeNull();
+    expect(document.querySelector(".sc-course-annotated-figure__caption-popover")).toBeNull();
     expect(document.activeElement).toBe(captionPin);
   });
   editor.destroy();
@@ -1534,11 +1578,13 @@ it("uses an authored annotation title in the runtime popover", async () => {
 
   await user.click(await screen.findByRole("button", { name: "View annotation 1" }));
   await waitFor(() => {
-    expect(document.querySelector(".sc-annotated-figure__caption-popover")).not.toBeNull();
+    expect(document.querySelector(".sc-course-annotated-figure__caption-popover")).not.toBeNull();
   });
-  const popover = document.querySelector<HTMLElement>(".sc-annotated-figure__caption-popover");
+  const popover = document.querySelector<HTMLElement>(
+    ".sc-course-annotated-figure__caption-popover",
+  );
   if (!popover) throw new Error("Expected a runtime caption popover");
-  expect(popover.querySelector(".sc-popover-surface__title")?.textContent).toBe(
+  expect(popover.querySelector(".sc-course-popover-surface__title")?.textContent).toBe(
     "Salty global ocean",
   );
   expect(
@@ -1585,7 +1631,7 @@ it("reports each opened runtime annotation once per Learning Event reporter", as
   expect(accept.mock.calls[1]?.[0]).toMatchObject({
     verb: { display: { en: "experienced" } },
     object: {
-      id: createVisualItemActivityId(rootActivityId, "annotated-figure-proof", "annotation-one"),
+      id: createVisualItemActivityId(rootActivityId, "figure_00001", "annotation-one"),
       definition: {
         type: LEARNING_EVENT_ACTIVITY_TYPES.visualItem,
         extensions: {
@@ -1599,7 +1645,7 @@ it("reports each opened runtime annotation once per Learning Event reporter", as
       contextActivities: {
         parent: [
           {
-            id: createVisualCompositionActivityId(rootActivityId, "annotated-figure-proof"),
+            id: createVisualCompositionActivityId(rootActivityId, "figure_00001"),
             definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.visualComposition },
           },
         ],
@@ -1688,7 +1734,7 @@ it("keeps inline and Lightbox Popover state independent with child-first focus r
 
   const dialog = await screen.findByRole("dialog", { name: "Annotated figure viewer" });
   const composition = dialog.querySelector(
-    '.sc-annotated-figure__runtime-lightbox-composition[data-caption-display="popover"]',
+    '.sc-course-annotated-figure__runtime-lightbox-composition[data-caption-display="popover"]',
   );
   const expandedStage = within(dialog).getByRole("group", { name: "Annotated figure image" });
   const expandedPin = within(dialog).getByRole("button", { name: "View annotation 1" });
@@ -1701,14 +1747,14 @@ it("keeps inline and Lightbox Popover state independent with child-first focus r
 
   await user.click(expandedPin);
   await waitFor(() => {
-    expect(dialog.querySelector(".sc-annotated-figure__caption-popover")).not.toBeNull();
+    expect(dialog.querySelector(".sc-course-annotated-figure__caption-popover")).not.toBeNull();
   });
   expect(expandedPin.getAttribute("aria-expanded")).toBe("true");
   expect(inlinePin.getAttribute("aria-expanded")).toBe("false");
 
   await user.keyboard("{Escape}");
   await waitFor(() => {
-    expect(dialog.querySelector(".sc-annotated-figure__caption-popover")).toBeNull();
+    expect(dialog.querySelector(".sc-course-annotated-figure__caption-popover")).toBeNull();
     expect(screen.getByRole("dialog", { name: "Annotated figure viewer" })).toBe(dialog);
     expect(document.activeElement).toBe(expandedPin);
   });
@@ -1737,7 +1783,7 @@ it("uses the saved List presentation inside the custom Lightbox composition", as
 
   expect(
     dialog.querySelector(
-      '.sc-annotated-figure__runtime-lightbox-composition[data-caption-display="list"]',
+      '.sc-course-annotated-figure__runtime-lightbox-composition[data-caption-display="list"]',
     ),
   ).not.toBeNull();
   expect(list.getAttribute("data-visual")).toBe("true");

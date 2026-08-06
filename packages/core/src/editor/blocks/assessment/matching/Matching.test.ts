@@ -48,7 +48,6 @@ import {
   answerMatchesFromReveal,
   describeMatchingItemAccessibilityState,
   describeMatchingTargetAccessibilityState,
-  matchingConnectorColor,
 } from "./matching-fields";
 import { MatchingAuthoringExtension } from "./matching-authoring-extension";
 import { MatchingRuntimeExtension } from "./matching-runtime-extension";
@@ -356,22 +355,22 @@ describe("composite matching node", () => {
         activeDrop: false,
         correct: false,
         hasFeedback: false,
-        matchedItemIndex: 1,
+        matchedItemLabel: "France",
         revealed: false,
         submitted: true,
       }),
-    ).toBe("Matched with item 1. Submitted match, incorrect");
+    ).toBe("Matched with ‘France’. Submitted match, incorrect");
 
     expect(
       describeMatchingTargetAccessibilityState({
         activeDrop: false,
         correct: true,
         hasFeedback: true,
-        matchedItemIndex: 1,
+        matchedItemLabel: "France",
         revealed: true,
         submitted: true,
       }),
-    ).toBe("Matched with item 1. Revealed correct match. Feedback available");
+    ).toBe("Matched with ‘France’. Revealed correct match. Feedback available");
   });
 
   it("persists author feedback for the selected matching item", async () => {
@@ -1040,12 +1039,6 @@ describe("composite matching node", () => {
 });
 
 describe("matching reveal parsing", () => {
-  it("uses semantic result colours for matching connectors", () => {
-    expect(matchingConnectorColor("correct")).toBe("var(--color-success)");
-    expect(matchingConnectorColor("incorrect")).toBe("var(--color-error)");
-    expect(matchingConnectorColor("default")).toBe("var(--color-primary)");
-  });
-
   it("reads revealed matches from the canonical match assessment schema", () => {
     expect(
       answerMatchesFromReveal({

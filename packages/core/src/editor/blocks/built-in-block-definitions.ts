@@ -16,7 +16,7 @@ import { chartBlockDefinition } from "./media/chart/chart-definition";
 import { imageBlockDefinition } from "./media/image-block-definition";
 import { calloutBlockDefinition } from "./presentation/callout/callout-definition";
 import { chapterEpigraphBlockDefinition } from "./presentation/chapter-epigraph/chapter-epigraph-definition";
-import { comparisonBlockDefinition } from "./presentation/comparison/comparison-definition";
+import { comparisonBlockDefinition } from "./structured-content/comparison/comparison-definition";
 import { flashcardBlockDefinition } from "./presentation/flashcard/flashcard-definition";
 import { marginaliaBlockDefinition } from "./presentation/marginalia/marginalia-definition";
 import { pullQuoteBlockDefinition } from "./presentation/pull-quote/pull-quote-definition";

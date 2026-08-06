@@ -48,6 +48,35 @@ describe("ContentAuthorHost", () => {
     expect(courseDocument?.attrs).toMatchObject({ mode: "page" });
   });
 
+  it("uses an unscaled viewport overlay host for slideshow authoring", async () => {
+    const content = createScaffoldDocumentContent({ mode: "slideshow" });
+    const onEditorReady = vi.fn();
+
+    const { container } = render(
+      <ContentAuthorHost
+        composition={coreAuthoringComposition}
+        agentIntegration={ScaffoldUnavailableAgentIntegration}
+        agentOpen={false}
+        content={content}
+        onEditorReady={onEditorReady}
+      />,
+    );
+
+    await waitFor(() => expect(onEditorReady).toHaveBeenCalledTimes(1));
+
+    const editorStage = container.querySelector<HTMLElement>(".sc-editor-stage");
+    const courseEditor = screen.getByTestId("course-document-editor");
+
+    expect(editorStage).not.toBeNull();
+    await waitFor(() => {
+      expect(
+        courseEditor.querySelector<HTMLElement>(
+          ':scope > [data-scaffold-overlay-host][data-kind="viewport"]',
+        ),
+      ).not.toBeNull();
+    });
+  });
+
   it("provides the initial null editor before the live editor without remounting", async () => {
     const content = createScaffoldDocumentContent({ mode: "page" });
     const onEditorReady = vi.fn();
@@ -80,6 +109,36 @@ describe("ContentAuthorHost", () => {
     expect(container.querySelectorAll(".sc-editor-rail-viewport")).toHaveLength(2);
     expect(liveEditor.isDestroyed).toBe(false);
     expect(onEditorReady).toHaveBeenCalledTimes(1);
+  });
+
+  it("applies Course appearance without extending Course scope to the workspace or rails", async () => {
+    const content = createScaffoldDocumentContent({ mode: "page" });
+    const onEditorReady = vi.fn();
+
+    const { container } = render(
+      <ContentAuthorHost
+        composition={coreAuthoringComposition}
+        agentIntegration={ScaffoldUnavailableAgentIntegration}
+        agentOpen={false}
+        content={content}
+        courseAppearance="dark"
+        leftRail={() => <div>Left rail</div>}
+        onEditorReady={onEditorReady}
+        rightRail={() => <div>Right rail</div>}
+      />,
+    );
+
+    await waitFor(() => expect(onEditorReady).toHaveBeenCalledTimes(1));
+    const courseRoot = container.querySelector(".sc-course");
+    const workspace = screen.getByTestId("content-author-workspace");
+    const rails = container.querySelectorAll(".sc-editor-rail-viewport");
+
+    expect(courseRoot).toHaveClass("dark", "sc-course-theme-scaffold-flow-v1");
+    expect(workspace).not.toHaveClass("sc-course");
+    expect(courseRoot?.contains(workspace)).toBe(false);
+    expect(rails).toHaveLength(2);
+    expect(Array.from(rails).every((rail) => !rail.classList.contains("sc-course"))).toBe(true);
+    expect(Array.from(rails).every((rail) => !courseRoot?.contains(rail))).toBe(true);
   });
 
   it("remounts the editor when the authoring artifact changes", async () => {

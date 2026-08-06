@@ -1,8 +1,8 @@
 export { Button } from "@/ui/components/Button/Button";
 export { IconButton } from "@/ui/components/IconButton/IconButton";
 export { Textarea } from "@/ui/components/Input/Input";
-export { Mark } from "@/ui/components/Mark/Mark";
-export { Pill } from "@/ui/components/Pill/Pill";
+export { Mark } from "@/ui/components/app/Mark/Mark";
+export { Pill } from "@/ui/components/app/Pill/Pill";
 
 export {
   ScaffoldAgentDockEmptyState,

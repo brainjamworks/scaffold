@@ -7,8 +7,8 @@ import {
   type NodeViewProps,
 } from "@tiptap/react";
 
-import { BlockAddGhost } from "@/editor/suggestions/insert/BlockAddGhost";
 import { createStableId } from "@/document/model/identity/stable-ids";
+import { AssessmentChoiceAddButton } from "@/ui/components/course/AssessmentChoiceAuthoringRow/AssessmentChoiceAuthoringRow";
 
 import { currentNodeViewPos } from "@/editor/prosemirror/position/node-view-position";
 import "./assessment-choices-group.css";
@@ -42,7 +42,7 @@ export const AssessmentChoicesGroupNode = Node.create({
         "data-bounded-scroll-frame": "",
         "data-slot": "assessment-choices-group",
       }),
-      ["div", { "data-bounded-scroll": "", class: "sc-assessment-choices-scroll" }, 0],
+      ["div", { "data-bounded-scroll": "", class: "sc-course-assessment-choices-scroll" }, 0],
       ["div", { "data-bounded-scroll-hint": "", "aria-hidden": "true" }, "Scroll for more ↓"],
     ];
   },
@@ -84,17 +84,15 @@ function AssessmentChoicesGroupNodeView(props: NodeViewProps) {
     <NodeViewWrapper
       data-bounded-scroll-frame=""
       data-slot="assessment-choices-group"
-      className="sc-assessment-choices-group"
+      className="sc-course-assessment-choices-group"
     >
-      <div data-bounded-scroll="" className="sc-assessment-choices-scroll">
+      <div data-bounded-scroll="" className="sc-course-assessment-choices-scroll">
         <NodeViewContent />
         {isEditable ? (
-          <BlockAddGhost
+          <AssessmentChoiceAddButton
             label="Add choice"
-            presentation="pill"
             contentEditable={false}
             onClick={addChoice}
-            className="sc-assessment-choices-add"
           />
         ) : null}
       </div>

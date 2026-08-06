@@ -1,13 +1,6 @@
 import { DotsSixVerticalIcon as DotsSixVertical } from "@phosphor-icons/react";
 import type { Editor } from "@tiptap/core";
-import {
-  type ReactNode,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
@@ -220,13 +213,7 @@ export function EditorMovementLayer({
       canApplyMovementResult: (context, intent) =>
         isContainedMoveIntent(intent)
           ? canApplyContainedMovementIntent(editor, context.pos, intent)
-          : canApplyMovementIntent(
-              editor,
-              context.pos,
-              intent,
-              blockDefinitions,
-              surfaceVariants,
-            ),
+          : canApplyMovementIntent(editor, context.pos, intent, blockDefinitions, surfaceVariants),
       coordinateSpace: environment.coordinateSpace,
       isEnvironmentValid: () =>
         movementEnvironmentRef.current === environment &&
@@ -511,7 +498,10 @@ function capitalize(value: string): string {
   return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
 }
 
-function restoreCommittedKeyboardMovementFocus(ownerDocument: Document, activationId: string): void {
+function restoreCommittedKeyboardMovementFocus(
+  ownerDocument: Document,
+  activationId: string,
+): void {
   const ownerWindow = ownerDocument.defaultView;
   if (!ownerWindow) return;
   let remainingFrames = COMMITTED_KEYBOARD_FOCUS_RESTORE_FRAMES;
@@ -568,14 +558,10 @@ function MovementChromeLayer({
       aria-hidden={!target}
       data-testid="scaffold-editor-movement-layer"
       data-scaffold-editor-movement-layer=""
-      className="sc-editor-movement-layer"
+      className="sc-app-movement-layer"
       style={{ zIndex: zIndex.interactive }}
     >
-      <MovementHandle
-        blockDefinitions={blockDefinitions}
-        editor={editor}
-        target={target}
-      />
+      <MovementHandle blockDefinitions={blockDefinitions} editor={editor} target={target} />
       <div
         role="status"
         aria-live="polite"
@@ -647,13 +633,13 @@ function MovementHandle({
         onMouseDown={(event) => event.preventDefault()}
         safeLocalHeight={44}
         safeLocalWidth={44}
-        className="sc-editor-movement-handle"
+        className="sc-app-movement-layer__handle"
       >
         <span id={descriptionId} className="sc-sr-only">
           Press Space or Enter to pick up this {label}. Use Arrow Up or Arrow Down to choose a
           destination. Press Space or Enter to drop, or Escape to cancel.
         </span>
-        <span aria-hidden className="sc-editor-movement-handle__visual">
+        <span aria-hidden className="sc-app-movement-layer__handle-visual">
           <DotsSixVertical size={iconXs} weight="bold" />
         </span>
       </InteractionDragActivationArea>

@@ -1,5 +1,6 @@
 import { Node, mergeAttributes, type NodeViewRenderer } from "@tiptap/core";
 
+import { mountBoundedScrollAffordance } from "@/editor/bounded-containers/view/bounded-scroll";
 import { ANNOTATED_FIGURE_ANNOTATION_NODE, ANNOTATED_FIGURE_LEGEND_NODE } from "./content";
 
 export interface AnnotatedFigureAnnotationNodeOptions {
@@ -95,41 +96,35 @@ export const AnnotatedFigureLegendNode = Node.create({
 });
 
 const createAnnotatedFigureLegendNodeView: NodeViewRenderer = () => {
+  const root = document.createElement("div");
+  root.className = "sc-course-annotated-figure__caption-frame";
+  root.dataset.boundedScrollFrame = "";
+
   const dom = document.createElement("ol");
   dom.dataset.slot = "annotated-figure-legend";
-  dom.dataset.overflowBefore = "false";
-  dom.dataset.overflowAfter = "false";
-  dom.className = "sc-annotated-figure__legend";
-  const updateOverflow = () => {
-    const before = dom.scrollTop > 1 ? "true" : "false";
-    const after = dom.scrollTop + dom.clientHeight < dom.scrollHeight - 1 ? "true" : "false";
-    if (dom.dataset.overflowBefore !== before) dom.dataset.overflowBefore = before;
-    if (dom.dataset.overflowAfter !== after) dom.dataset.overflowAfter = after;
-  };
-  const frame = requestAnimationFrame(updateOverflow);
-  const resizeObserver =
-    typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateOverflow);
-  resizeObserver?.observe(dom);
-  const mutationObserver =
-    typeof MutationObserver === "undefined" ? null : new MutationObserver(updateOverflow);
-  mutationObserver?.observe(dom, {
-    characterData: true,
-    childList: true,
-    subtree: true,
-  });
-  dom.addEventListener("scroll", updateOverflow);
+  dom.dataset.boundedScroll = "";
+  dom.className = "sc-course-annotated-figure__legend";
+
+  const hint = document.createElement("div");
+  hint.dataset.boundedScrollHint = "";
+  hint.setAttribute("aria-hidden", "true");
+  hint.contentEditable = "false";
+  hint.textContent = "Scroll for more ↓";
+
+  root.append(dom, hint);
+  const unmountBoundedScrollAffordance = mountBoundedScrollAffordance(root);
 
   return {
-    dom,
+    dom: root,
     contentDOM: dom,
     ignoreMutation(mutation) {
-      return mutation.type === "attributes" && mutation.target === dom;
+      return (
+        mutation.type === "attributes" &&
+        (mutation.target === root || mutation.target === dom || mutation.target === hint)
+      );
     },
     destroy() {
-      cancelAnimationFrame(frame);
-      resizeObserver?.disconnect();
-      mutationObserver?.disconnect();
-      dom.removeEventListener("scroll", updateOverflow);
+      unmountBoundedScrollAffordance?.();
     },
   };
 };

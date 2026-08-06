@@ -1,5 +1,5 @@
 import { ChartBarIcon as ChartBar } from "@phosphor-icons/react";
-import { StatHighlightAlignSchema, StatHighlightDataSchema } from "@scaffold/contracts";
+import { StatHighlightDataSchema } from "@scaffold/contracts";
 
 import { createStableId } from "@/document/model/identity/stable-ids";
 import { defineConfiguration } from "@/editor/configuration/definition";
@@ -9,31 +9,10 @@ import { emptyStatHighlightData } from "./content";
 
 export const STAT_HIGHLIGHT_BLOCK_ID = "stat-highlight";
 
-const ALIGN_LABELS: Record<"left" | "center", string> = {
-  left: "Left",
-  center: "Centre",
-};
-
 const statHighlightConfiguration = defineConfiguration({
   attr: "data",
   schema: StatHighlightDataSchema,
-  sheet: {
-    title: "Stat highlight settings",
-    defaultOpenSections: ["appearance"],
-    sections: [{ id: "appearance", title: "Appearance" }],
-  },
-  controls: [
-    {
-      kind: "select",
-      name: "align",
-      label: "Alignment",
-      options: StatHighlightAlignSchema.options.map((value) => ({
-        value,
-        label: ALIGN_LABELS[value],
-      })),
-      placement: { sheet: { section: "appearance" } },
-    },
-  ],
+  controls: [],
 });
 
 export const statHighlightBlockDefinition = defineBlock({

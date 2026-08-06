@@ -130,8 +130,21 @@ export function fromMultiselectContractResponse(
   return MultiselectResponseSchema.parse({ choices: canonical.optionIds });
 }
 
-export function hasMultiselectResponse(response: unknown): boolean {
-  return MultiselectResponseSchema.parse(response).choices.length > 0;
+export function hasMultiselectResponse(
+  response: unknown,
+  interaction?: AssessmentInteractionContract,
+): boolean {
+  const selectedIds = new Set(MultiselectResponseSchema.parse(response).choices);
+  if (!interaction || interaction.kind !== "multi-select") return selectedIds.size > 0;
+
+  const currentOptionIds = new Set(interaction.options.map((option) => option.id));
+  const currentSelectionCount = Array.from(selectedIds).filter((id) =>
+    currentOptionIds.has(id),
+  ).length;
+  return (
+    currentSelectionCount > 0 &&
+    (interaction.maxSelections === null || currentSelectionCount <= interaction.maxSelections)
+  );
 }
 
 export const multiselectResponseCodec: AssessmentCapabilityResponseDefinition<MultiselectResponse> =

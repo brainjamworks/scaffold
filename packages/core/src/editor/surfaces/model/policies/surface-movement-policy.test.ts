@@ -4,7 +4,7 @@ import { Editor, Node, type JSONContent } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 
 import type { SurfaceVariantDefinition } from "../surface-variant-definition";
 import {
@@ -203,6 +203,7 @@ function makeEditor(surfaces: JSONContent[]): Editor {
       DocumentNode,
       StarterKit.configure({ document: false, undoRedo: false }),
       CourseDocumentNode,
+      createCourseSectionNode(),
       MovementSurfaceNode,
       MovementFixtureNode,
     ],

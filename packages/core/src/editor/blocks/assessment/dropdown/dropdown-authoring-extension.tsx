@@ -1,4 +1,5 @@
 import { Extension } from "@tiptap/core";
+import type { NodeViewProps } from "@tiptap/react";
 
 import { AssessmentProblemContent } from "@/editor/blocks/assessment/shared/chrome/AssessmentProblemContent";
 import { createBlockAuthoringNodeView } from "@/editor/frame/authoring/create-block-authoring-node-view";
@@ -11,8 +12,10 @@ import {
 } from "./dropdown-choice";
 import { createDropdownNode } from "./node";
 
-function DropdownAuthoringView() {
-  return <AssessmentProblemContent editable blockClass="sc-dropdown" />;
+function DropdownAuthoringView(props: NodeViewProps) {
+  return (
+    <AssessmentProblemContent editable blockClass="sc-course-dropdown" nodeViewProps={props} />
+  );
 }
 
 const DropdownAuthoringNode = createDropdownNode({

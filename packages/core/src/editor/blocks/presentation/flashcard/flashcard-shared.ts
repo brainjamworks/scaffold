@@ -5,6 +5,7 @@ export interface FlashcardActivityData {
   currentCardId: string | null;
   flipped: Record<string, boolean>;
   mastery: Record<string, FlashcardMasteryStatus>;
+  order?: string[];
 }
 
 export interface FlashcardCardSummary {
@@ -12,6 +13,7 @@ export interface FlashcardCardSummary {
 }
 
 export interface FlashcardDeckNodeLike {
+  attrs?: Record<string, unknown>;
   childCount: number;
   child(index: number): {
     attrs: Record<string, unknown>;
@@ -64,6 +66,35 @@ export function readCardSummaries(deckNode: FlashcardDeckNodeLike): FlashcardCar
   return result;
 }
 
+export function reconcileFlashcardCardOrder(
+  cardSummaries: FlashcardCardSummary[],
+  persistedOrder: readonly string[],
+  shuffle: boolean,
+  seed: string,
+): FlashcardCardSummary[] {
+  if (!shuffle) return cardSummaries;
+
+  const cardsById = new Map(cardSummaries.map((card) => [card.id, card]));
+  const retainedIds = persistedOrder.filter(
+    (id, index) => cardsById.has(id) && persistedOrder.indexOf(id) === index,
+  );
+  const retained = new Set(retainedIds);
+  const addedIds = cardSummaries.map((card) => card.id).filter((id) => !retained.has(id));
+  const shuffledAddedIds = deterministicShuffle(addedIds, seed);
+
+  if (
+    retainedIds.length === 0 &&
+    shuffledAddedIds.length > 1 &&
+    shuffledAddedIds.every((id, index) => id === cardSummaries[index]?.id)
+  ) {
+    shuffledAddedIds.push(shuffledAddedIds.shift()!);
+  }
+
+  return [...retainedIds, ...shuffledAddedIds]
+    .map((id) => cardsById.get(id))
+    .filter((card): card is FlashcardCardSummary => card !== undefined);
+}
+
 export function readFlashcardData(data: unknown): FlashcardActivityData {
   const raw = readObject(data);
   const currentCardId = typeof raw["currentCardId"] === "string" ? raw["currentCardId"] : null;
@@ -75,8 +106,15 @@ export function readFlashcardData(data: unknown): FlashcardActivityData {
     raw["mastery"] !== null && typeof raw["mastery"] === "object" && !Array.isArray(raw["mastery"])
       ? readMasteryRecord(raw["mastery"] as Record<string, unknown>)
       : {};
+  const order = Array.isArray(raw["order"])
+    ? raw["order"].filter((id): id is string => typeof id === "string")
+    : undefined;
 
-  return { currentCardId, flipped, mastery };
+  return { currentCardId, flipped, mastery, ...(order ? { order } : {}) };
+}
+
+export function readFlashcardShuffle(deckNode: FlashcardDeckNodeLike): boolean {
+  return readObject(deckNode.attrs?.["data"])["shuffle"] === true;
 }
 
 export function resolveFlashcardDeckState(
@@ -157,6 +195,7 @@ export function rateFlashcardDeck(
       currentCardId: nextCardId,
       flipped,
       mastery,
+      ...(deck.order ? { order: deck.order } : {}),
     },
     completed:
       cardSummaries.length > 0 && cardSummaries.every((card) => mastery[card.id] === "gotIt"),
@@ -167,18 +206,19 @@ export function isCurrentFlashcardCard({
   deck,
   deckNode,
   cardId,
+  cardSummaries,
 }: {
   deck: FlashcardActivityData;
   deckNode: FlashcardDeckNodeLike | null | undefined;
   cardId: string;
+  cardSummaries?: FlashcardCardSummary[];
 }): boolean {
-  return (
-    deck.currentCardId === cardId ||
-    (deck.currentCardId === null &&
-      deckNode != null &&
-      deckNode.childCount > 0 &&
-      deckNode.child(0).attrs["id"] === cardId)
-  );
+  const knownCards = cardSummaries ?? (deckNode ? readCardSummaries(deckNode) : []);
+  const currentCardId =
+    deck.currentCardId && knownCards.some((card) => card.id === deck.currentCardId)
+      ? deck.currentCardId
+      : (knownCards[0]?.id ?? null);
+  return currentCardId === cardId;
 }
 
 export function resolveFlashcardKeyboardAction(
@@ -237,6 +277,36 @@ function readObject(value: unknown): Record<string, unknown> {
     : {};
 }
 
+function deterministicShuffle(values: readonly string[], seed: string): string[] {
+  const result = [...values];
+  let state = hashString(seed);
+
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    state = xorshift32(state);
+    const target = state % (index + 1);
+    [result[index], result[target]] = [result[target]!, result[index]!];
+  }
+
+  return result;
+}
+
+function hashString(value: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function xorshift32(value: number): number {
+  let result = value || 0x9e3779b9;
+  result ^= result << 13;
+  result ^= result >>> 17;
+  result ^= result << 5;
+  return result >>> 0;
+}
+
 function readBooleanRecord(value: Record<string, unknown>): Record<string, boolean> {
   const result: Record<string, boolean> = {};
   for (const [key, entry] of Object.entries(value)) {
@@ -254,6 +324,9 @@ function isTextEditingTarget(target: EventTarget | null | undefined): boolean {
   return (
     tagName === "input" ||
     tagName === "textarea" ||
+    tagName === "select" ||
+    tagName === "button" ||
+    tagName === "a" ||
     (typeof HTMLElement !== "undefined" &&
       target instanceof HTMLElement &&
       target.isContentEditable)

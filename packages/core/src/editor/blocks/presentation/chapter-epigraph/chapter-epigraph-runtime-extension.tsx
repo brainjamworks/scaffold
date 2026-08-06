@@ -10,6 +10,7 @@ import { ChapterEpigraphAttributionNode, ChapterEpigraphBodyNode } from "./slots
 const ChapterEpigraphRuntimeNode = createChapterEpigraphNode({
   addNodeView: () =>
     createBlockRuntimeNodeView({
+      className: "sc-course-chapter-epigraph-node",
       definition: chapterEpigraphBlockDefinition,
       view: { component: ChapterEpigraphView },
     }),

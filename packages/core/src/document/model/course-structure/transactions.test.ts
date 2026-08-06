@@ -21,7 +21,7 @@ import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
-import { createScaffoldDefaultTheme } from "@/theme/model";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
 import type { CourseStructureCommand } from "./index";
 
@@ -143,11 +143,7 @@ describe("Course Structure Tiptap commands", () => {
   });
 
   it("splits an existing section and refuses incomplete or duplicate boundaries", () => {
-    const unsectioned = makeEditor(
-      [surface(SURFACE_1), surface(SURFACE_2)],
-      "slideshow",
-      [],
-    );
+    const unsectioned = makeEditor([surface(SURFACE_1), surface(SURFACE_2)], "slideshow", []);
     expect(
       runCommand(unsectioned, {
         type: "course-section.start",
@@ -168,12 +164,7 @@ describe("Course Structure Tiptap commands", () => {
         title: "Two",
       }),
     ).toBe(true);
-    expect(childIdentity(sectioned)).toEqual([
-      SECTION_1,
-      SURFACE_1,
-      "splitsec0001",
-      SURFACE_2,
-    ]);
+    expect(childIdentity(sectioned)).toEqual([SECTION_1, SURFACE_1, "splitsec0001", SURFACE_2]);
     expect(
       runCommand(sectioned, {
         type: "course-section.start",
@@ -195,9 +186,9 @@ describe("Course Structure Tiptap commands", () => {
       [],
     );
 
-    expect(
-      runCommand(editor, { type: "course-section.remove", courseSectionId: SECTION_1 }),
-    ).toBe(true);
+    expect(runCommand(editor, { type: "course-section.remove", courseSectionId: SECTION_1 })).toBe(
+      true,
+    );
     expect(childIdentity(editor)).toEqual([SECTION_2, SURFACE_1, SURFACE_2]);
   });
 
@@ -350,12 +341,7 @@ describe("Course Structure Tiptap commands", () => {
     );
 
     expect(runCommand(editor, { type: "surface.delete", surfaceId: SURFACE_2 })).toBe(true);
-    expect(childIdentity(editor)).toEqual([
-      SECTION_1,
-      SURFACE_1,
-      SECTION_3,
-      SURFACE_3,
-    ]);
+    expect(childIdentity(editor)).toEqual([SECTION_1, SURFACE_1, SECTION_3, SURFACE_3]);
     expect(selectedSurfaceId(editor)).toBe(SURFACE_3);
   });
 
@@ -538,7 +524,7 @@ function document(mode: "page" | "slideshow", content: JSONContent[]): JSONConte
           mode,
           surfaceSize: mode === "slideshow" ? "16x9" : "fluid",
           overflowMode: "grow",
-          theme: createScaffoldDefaultTheme(),
+          theme: createDefaultPersistedCourseTheme(),
         },
         content,
       },

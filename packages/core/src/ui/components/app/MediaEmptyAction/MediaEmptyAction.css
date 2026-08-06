@@ -1,0 +1,75 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-app-media-empty-action {
+    box-sizing: border-box;
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    min-height: var(--spacing-touch-target);
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 1rem;
+    border: 1px dashed var(--sc-app-color-border);
+    border-radius: 8px;
+    background: color-mix(in oklch, var(--sc-app-color-background) 88%, transparent);
+    color: var(--sc-app-color-text-secondary);
+    font-family: var(--font-ui);
+    font-size: 0.875rem;
+    font-weight: 500;
+    line-height: 1.35;
+    text-align: center;
+    cursor: pointer;
+    transition:
+      background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .sc-app-media-empty-action__icon {
+    display: inline-flex;
+    flex: none;
+  }
+
+  .sc-app-media-empty-action > span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .sc-app-media-empty-action:hover:not(:disabled) {
+    border-color: var(--sc-app-color-primary);
+    background: color-mix(in oklch, var(--sc-app-color-primary) 4%, transparent);
+    color: var(--sc-app-color-primary);
+  }
+
+  .sc-app-media-empty-action:active:not(:disabled) {
+    background: color-mix(in oklch, var(--sc-app-color-primary) 8%, transparent);
+  }
+
+  .sc-app-media-empty-action:focus-visible {
+    outline: 2px solid var(--sc-app-color-focus-outline);
+    outline-offset: -3px;
+  }
+
+  .sc-app-media-empty-action:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  @media (forced-colors: active) {
+    .sc-app-media-empty-action {
+      border-color: ButtonText;
+    }
+
+    .sc-app-media-empty-action:focus-visible {
+      outline-color: Highlight;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sc-app-media-empty-action {
+      transition: none;
+    }
+  }
+}

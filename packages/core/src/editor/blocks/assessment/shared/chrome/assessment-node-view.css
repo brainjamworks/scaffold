@@ -7,8 +7,6 @@
   }
 
   .sc-assessment-node-view[data-bounded-placement="fill"] {
-    --sc-assessment-bounded-section-gap: clamp(0.75rem, 2cqw, 1rem);
-
     display: grid;
     height: 100%;
     min-height: 0;
@@ -16,11 +14,7 @@
     overflow: hidden;
   }
 
-  .sc-assessment-node-view[data-bounded-placement="fill"] > .sc-assessment-shell {
-    --sc-assessment-bounded-padding: clamp(0.75rem, 3cqw, 1rem);
-    --sc-assessment-bounded-row-gap: var(--sc-assessment-bounded-section-gap);
-    --sc-assessment-bounded-column-gap: var(--sc-assessment-bounded-section-gap);
-
+  .sc-assessment-node-view[data-bounded-placement="fill"] > .sc-course-assessment-shell {
     box-sizing: border-box;
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
@@ -33,28 +27,28 @@
     min-height: 0;
     max-height: 100%;
     align-content: stretch;
-    column-gap: var(--sc-assessment-bounded-column-gap);
+    column-gap: var(--sc-assessment-bounded-column-gap, 0);
     overflow: hidden;
-    padding: var(--sc-assessment-bounded-padding);
-    row-gap: var(--sc-assessment-bounded-row-gap);
+    padding: var(--sc-assessment-bounded-padding, 0);
+    row-gap: var(--sc-assessment-bounded-row-gap, 0);
   }
 
   .sc-assessment-node-view[data-bounded-placement="fill"]
-    > .sc-assessment-shell
+    > .sc-course-assessment-shell
     [data-slot="assessment-title"] {
     grid-column: 1 / 2;
     grid-row: 1;
   }
 
   .sc-assessment-node-view[data-bounded-placement="fill"]
-    > .sc-assessment-shell
+    > .sc-course-assessment-shell
     [data-slot="assessment-instructions"] {
     grid-column: 2 / -1;
     grid-row: 1;
   }
 
   .sc-assessment-node-view[data-bounded-placement="fill"]
-    > .sc-assessment-shell
+    > .sc-course-assessment-shell
     [data-slot="assessment-prompt"] {
     grid-column: 1 / -1;
     grid-row: 2;
@@ -65,7 +59,7 @@
   }
 
   .sc-assessment-node-view[data-bounded-placement="fill"]
-    > .sc-assessment-shell
+    > .sc-course-assessment-shell
     [data-slot="assessment-actions-group"] {
     grid-column: 1 / -1;
     grid-row: 4;
@@ -74,8 +68,23 @@
     justify-self: stretch;
   }
 
-  .sc-assessment-node-view[data-bounded-placement="fill"] [data-bounded-scroll] {
-    padding-block: 0.125rem 0.25rem;
-    padding-right: 0.125rem;
+  @container (max-width: 14rem) {
+    .sc-course-assessment-shell[data-editable="true"] :where(p, h1, h2, h3, h4, h5, h6).is-empty {
+      position: relative;
+      min-height: 1lh;
+    }
+
+    .sc-course-assessment-shell[data-editable="true"]
+      :where(p, h1, h2, h3, h4, h5, h6).is-empty::before {
+      position: absolute;
+      inset: 0 0 auto;
+      width: auto;
+      max-width: 100%;
+      height: auto;
+      overflow: hidden;
+      float: none;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
   }
 }

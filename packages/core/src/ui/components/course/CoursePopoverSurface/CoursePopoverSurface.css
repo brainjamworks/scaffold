@@ -1,0 +1,99 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-course-popover-surface {
+    box-sizing: border-box;
+    display: flex;
+    max-inline-size: min(100%, var(--sc-overlay-available-inline-size, 100%));
+    min-inline-size: 0;
+    min-block-size: 0;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sc-course-popover-surface__header {
+    display: flex;
+    min-inline-size: 0;
+    flex: none;
+    align-items: center;
+  }
+
+  .sc-course-popover-surface__icon {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sc-course-popover-surface__heading {
+    min-inline-size: 0;
+    flex: 1 1 auto;
+  }
+
+  .sc-course-popover-surface__title-row {
+    display: flex;
+    min-inline-size: 0;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .sc-course-popover-surface__title,
+  .sc-course-popover-surface__description {
+    min-inline-size: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .sc-course-popover-surface__meta {
+    display: inline-flex;
+    max-inline-size: 100%;
+    min-inline-size: 0;
+    align-items: center;
+    overflow-wrap: anywhere;
+  }
+
+  .sc-course-popover-surface__header-actions {
+    display: inline-flex;
+    min-inline-size: 0;
+    flex: none;
+    align-items: center;
+  }
+
+  .sc-course-popover-surface__body {
+    min-inline-size: 0;
+    min-block-size: 0;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overflow-wrap: anywhere;
+    overscroll-behavior: contain;
+  }
+
+  .sc-course-popover-surface__body > :first-child {
+    margin-block-start: 0;
+  }
+
+  .sc-course-popover-surface__body > :last-child {
+    margin-block-end: 0;
+  }
+
+  .sc-course-popover-surface__footer {
+    display: flex;
+    min-inline-size: 0;
+    flex: none;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .sc-course-popover-surface__footer-start,
+  .sc-course-popover-surface__footer-end {
+    display: flex;
+    min-inline-size: 0;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .sc-course-popover-surface__footer-end {
+    justify-content: flex-end;
+    margin-inline-start: auto;
+  }
+}

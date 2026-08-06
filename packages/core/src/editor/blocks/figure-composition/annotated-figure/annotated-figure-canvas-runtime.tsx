@@ -21,7 +21,8 @@ import {
 import type { AnnotatedFigureData } from "@scaffold/contracts";
 import { Lightbox, type LightboxItem } from "@/ui/components/Lightbox/Lightbox";
 import * as Popover from "@/ui/components/Popover/Popover";
-import { PopoverSurface } from "@/ui/components/PopoverSurface/PopoverSurface";
+import { CoursePopoverSurface } from "@/ui/components/course/CoursePopoverSurface/CoursePopoverSurface";
+import { CourseThemePortalBoundary } from "@/theme/course/CourseThemeProvider";
 import { zIndex } from "@/ui/overlays/z-index";
 
 import { createAnnotatedFigureCanvasNode } from "./annotated-figure-canvas-shared";
@@ -89,7 +90,7 @@ function AnnotatedFigureRuntimeComposition({
   ) => {
     const projectedAnnotation = annotations.find((candidate) => candidate.id === annotation.id);
     if (!projectedAnnotation || !hasAnnotatedFigureRuntimeCaption(projectedAnnotation)) {
-      return <span className="sc-annotated-figure__pin-number">{annotation.number}</span>;
+      return <span className="sc-course-annotated-figure__pin-number">{annotation.number}</span>;
     }
 
     const open = liveOpenAnnotation?.id === annotation.id;
@@ -111,7 +112,7 @@ function AnnotatedFigureRuntimeComposition({
           <Popover.Portal>
             <Popover.Content
               aria-labelledby={titleId}
-              className="sc-annotated-figure__caption-popover"
+              className="sc-course-annotated-figure__caption-popover"
               collisionPadding={12}
               onClick={(event) => event.stopPropagation()}
               onEscapeKeyDown={(event) => {
@@ -123,19 +124,20 @@ function AnnotatedFigureRuntimeComposition({
               sideOffset={8}
               style={{ zIndex: zIndex.popover }}
             >
-              <PopoverSurface
+              <CoursePopoverSurface
                 title={projectedAnnotation.title || `Annotation ${annotation.number}`}
                 titleId={titleId}
+                tone="annotation"
               >
                 {projectedAnnotation.captionNode.content.size > 0 ? (
-                  <div className="sc-annotated-figure__runtime-popover-caption">
+                  <div className="sc-course-annotated-figure__runtime-popover-caption">
                     {renderRuntimeRichTextNode(
                       projectedAnnotation.captionNode.toJSON(),
                       `annotated-figure-popover:${projectedAnnotation.id}`,
                     )}
                   </div>
                 ) : null}
-              </PopoverSurface>
+              </CoursePopoverSurface>
             </Popover.Content>
           </Popover.Portal>
         ) : null}
@@ -248,7 +250,7 @@ export function AnnotatedFigureCanvasRuntimeView(props: NodeViewProps) {
         alt: data.alt,
         render: () => (
           <div
-            className="sc-annotated-figure__runtime-lightbox-composition"
+            className="sc-course-annotated-figure__runtime-lightbox-composition"
             data-caption-display={data.captionDisplay}
           >
             <AnnotatedFigureRuntimeComposition
@@ -268,7 +270,7 @@ export function AnnotatedFigureCanvasRuntimeView(props: NodeViewProps) {
   return (
     <NodeViewWrapper
       data-node="annotated-figure-canvas"
-      className="sc-annotated-figure__canvas-node"
+      className="sc-course-annotated-figure__canvas-node"
     >
       <AnnotatedFigureRuntimeComposition
         annotations={annotations}
@@ -279,6 +281,7 @@ export function AnnotatedFigureCanvasRuntimeView(props: NodeViewProps) {
             <MediaExpandButton
               ref={expandButtonRef}
               aria-label="Expand annotated figure"
+              className="sc-course-annotated-figure__expand-action"
               onClick={() => setLightboxOpen(true)}
               tooltipLabel="Expand annotated figure"
             />
@@ -290,6 +293,7 @@ export function AnnotatedFigureCanvasRuntimeView(props: NodeViewProps) {
       />
       <Lightbox
         ariaLabel="Annotated figure viewer"
+        childOverlayHostBoundary={CourseThemePortalBoundary}
         items={lightboxItems}
         onOpenChange={setLightboxOpen}
         open={lightboxOpen && lightboxItems.length > 0}

@@ -1,11 +1,10 @@
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
 import { useMemo, useState } from "react";
 
-import { OverlayBoundary } from "@/ui/components/OverlayBoundary/OverlayBoundary";
 import { createViewportCoordinateSpace } from "@/editor/interactions/drag/dom/dom-coordinate-space";
 import { InteractionDragEnvironmentProvider } from "@/editor/interactions/drag/react/interaction-drag-environment";
-import type { ResolvedCourseTheme } from "@/theme/model";
-import { DEFAULT_RESOLVED_COURSE_THEME } from "@/theme/presentation/CourseThemeScope";
+import { CourseThemePortalBoundary } from "@/theme/course/CourseThemeProvider";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 
 import {
   CourseDocumentRuntimeRenderer,
@@ -17,7 +16,6 @@ export interface PagePlayerProps {
   artifactId?: string | null;
   composition: CourseDocumentRuntimeRendererProps["composition"];
   initialContent: JSONContent;
-  resolvedTheme?: ResolvedCourseTheme;
   surfaceId: string;
   onRendererReady?: (editor: TiptapEditor) => void;
 }
@@ -26,7 +24,6 @@ export function PagePlayer({
   artifactId,
   composition,
   initialContent,
-  resolvedTheme,
   surfaceId,
   onRendererReady,
 }: PagePlayerProps) {
@@ -41,7 +38,6 @@ export function PagePlayer({
         : null,
     [playerElement],
   );
-  const effectiveTheme = resolvedTheme ?? DEFAULT_RESOLVED_COURSE_THEME;
   const playerAttributes = {
     "data-runtime-player": "page",
     "data-runtime-surface-id": surfaceId,
@@ -56,10 +52,8 @@ export function PagePlayer({
     >
       <OverlayBoundary
         container={playerElement}
-        hostClassName="sc-course-theme-portal-scope"
-        hostColorScheme={effectiveTheme.mode}
-        hostCssVariables={effectiveTheme.cssTokens}
         collisionBoundary={playerElement}
+        hostBoundary={CourseThemePortalBoundary}
         kind="viewport"
       >
         <InteractionDragEnvironmentProvider
@@ -71,7 +65,6 @@ export function PagePlayer({
               artifactId={artifactId ?? null}
               composition={composition}
               initialContent={initialContent}
-              {...(resolvedTheme ? { resolvedTheme } : {})}
               {...(onRendererReady ? { onReady: onRendererReady } : {})}
             />
           </div>

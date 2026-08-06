@@ -21,11 +21,7 @@ import {
   type CandidateMutation,
   type CommandBuildContext,
 } from "./transaction-helpers";
-import type {
-  CourseSectionId,
-  CourseStructureCommand,
-  SurfaceId,
-} from "./types";
+import type { CourseSectionId, CourseStructureCommand, SurfaceId } from "./types";
 
 interface ApplyCourseStructureCommandInput {
   readonly blockDefinitions?: CopiedBlockDefinitionLookup;
@@ -213,10 +209,7 @@ function insertNewRuns(
   }
 }
 
-function removeCourseSection(
-  tr: Transaction,
-  courseSectionId: CourseSectionId,
-) {
+function removeCourseSection(tr: Transaction, courseSectionId: CourseSectionId) {
   const source = requireDirectChildRef(tr.doc.firstChild, "courseSection", courseSectionId);
   const sectionRefs = directChildRefs(tr.doc.firstChild).filter(
     (ref) => ref.node.type.name === "courseSection",
@@ -293,9 +286,7 @@ function loneSurfaceBoundary(
   const sectionEnd = nextBoundary?.index ?? Number.POSITIVE_INFINITY;
   const surfaces = refs.filter(
     (ref) =>
-      ref.index > boundary.index &&
-      ref.index < sectionEnd &&
-      ref.node.type.name === "surface",
+      ref.index > boundary.index && ref.index < sectionEnd && ref.node.type.name === "surface",
   );
   return surfaces.length === 1 ? boundary : undefined;
 }

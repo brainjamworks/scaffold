@@ -13,7 +13,7 @@ import Underline from "@tiptap/extension-underline";
 import StarterKit from "@tiptap/starter-kit";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { OverlayBoundary } from "@/ui/components/OverlayBoundary/OverlayBoundary";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 import { setIconCatalogForTests, type IconCatalog } from "@/ui/icons/catalog";
 import { InlineIconAuthoringNode } from "@/editor/rich-text/inline-icon/authoring/InlineIconAuthoringNode";
 import { MathInlineNode } from "@/editor/rich-text/math/authoring/MathInlineNodeView";

@@ -55,7 +55,7 @@ export function KeyValueListView(props: KeyValueListViewProps) {
   };
   const trailing = editable
     ? (props.renderAddControl?.({
-        className: "sc-key-value-list__add",
+        className: "sc-app-key-value-list-add",
         label: "Add item",
         onClick: addRow,
       }) ?? null)
@@ -64,39 +64,34 @@ export function KeyValueListView(props: KeyValueListViewProps) {
   return <KeyValueListSurface node={props.node} trailing={trailing} />;
 }
 
-/* ──────────────────────────────────────────────────────────────────
- * Row (renders <div> wrapping the two slots; layout-aware via the
- * parent's data-layout attribute on the closest ancestor).
- * ────────────────────────────────────────────────────────────────── */
-
 export function KeyValueRowNodeView() {
   return (
-    <NodeViewWrapper data-slot="key-value-row" className="sc-key-value-list__row">
-      <NodeViewContent />
+    <NodeViewWrapper as="div" data-node="key-value-row" className="sc-course-key-value-list__row">
+      <NodeViewContent as="div" />
     </NodeViewWrapper>
   );
 }
-
-/* ──────────────────────────────────────────────────────────────────
- * Key slot (plain paragraph rendered as <dt>).
- * ────────────────────────────────────────────────────────────────── */
 
 export function KeyValueRowKeyNodeView() {
   return (
-    <NodeViewWrapper data-slot="key-value-row-key" className="sc-key-value-list__key">
-      <NodeViewContent />
+    <NodeViewWrapper
+      as="dt"
+      data-slot="key-value-row-key"
+      className="sc-course-key-value-list__key"
+    >
+      <NodeViewContent as="div" />
     </NodeViewWrapper>
   );
 }
 
-/* ──────────────────────────────────────────────────────────────────
- * Value slot (rich paragraph rendered as <dd>).
- * ────────────────────────────────────────────────────────────────── */
-
 export function KeyValueRowValueNodeView() {
   return (
-    <NodeViewWrapper data-slot="key-value-row-value" className="sc-key-value-list__value">
-      <NodeViewContent />
+    <NodeViewWrapper
+      as="dd"
+      data-slot="key-value-row-value"
+      className="sc-course-key-value-list__value"
+    >
+      <NodeViewContent as="div" />
     </NodeViewWrapper>
   );
 }

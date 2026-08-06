@@ -4,8 +4,8 @@ import {
   FilePickerModal,
   type FilePickerResult,
 } from "@/editor/media/authoring/picker/LazyFilePickerModal";
-import { MediaEmptyAction } from "@/editor/media/authoring/shared-components/MediaEmptyAction";
-import { MediaReplaceButton } from "@/editor/media/authoring/shared-components/MediaReplaceButton";
+import { MediaEmptyAction } from "@/ui/components/app/MediaEmptyAction/MediaEmptyAction";
+import { MediaReplaceButton } from "@/ui/components/app/MediaReplaceButton/MediaReplaceButton";
 import {
   readSlideImageCoverSurfaceSettings,
   slideImageCoverDataAttrs,

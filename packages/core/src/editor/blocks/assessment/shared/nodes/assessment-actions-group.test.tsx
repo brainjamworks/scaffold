@@ -22,6 +22,9 @@ import type { AssessmentStoreApi } from "@/runtime/assessment/types";
 import type { NestedRichTextBubbleMenuHostProps } from "@/editor/rich-text/authoring/nested-overlay/NestedRichTextBubbleMenuHost";
 import type { AssessmentPort } from "@/host/ports";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
+import { ASSESSMENT_QUESTION_CONTENT } from "@/document/model/content-model/content-groups";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
 import { AssessmentActionsGroupNode } from "./assessment-actions-group";
 import { AssessmentActionsGroupRuntimeNode } from "./assessment-actions-group-runtime";
@@ -74,6 +77,26 @@ const TestAssessmentHostNode = Node.create({
 
   renderHTML() {
     return ["div", { "data-test-assessment-host": "" }, 0];
+  },
+});
+
+const TestImmediateAssessmentHostNode = Node.create({
+  name: "test_immediate_assessment_host",
+  group: `block ${ASSESSMENT_QUESTION_CONTENT}`,
+  content: "assessment_actions_group",
+
+  addAttributes() {
+    return {
+      settings: { default: { feedbackMode: "immediate" } },
+    };
+  },
+
+  parseHTML() {
+    return [{ tag: "div[data-test-immediate-assessment-host]" }];
+  },
+
+  renderHTML() {
+    return ["div", { "data-test-immediate-assessment-host": "" }, 0];
   },
 });
 
@@ -174,6 +197,17 @@ describe("assessment_actions_group", () => {
     expect(submit.disabled).toBe(true);
   });
 
+  it("suppresses authoring Submit when the ancestor assessment uses immediate feedback", async () => {
+    const editor = makeImmediateFeedbackAuthoringEditor();
+
+    renderAssessmentEditor(editor);
+
+    await waitFor(() => {
+      expect(actionGroup()).toBeInstanceOf(HTMLElement);
+    });
+    expect(within(actionGroup()).queryByRole("button", { name: "Submit" })).toBeNull();
+  });
+
   it("renders authoring hint and summary children inside the action group", async () => {
     const editor = makeStructuralEditor();
     editor.commands.setContent(validActionsGroupDocument());
@@ -182,11 +216,11 @@ describe("assessment_actions_group", () => {
 
     await waitFor(() => {
       const group = actionGroup();
-      expect(within(group).getByRole("button", { name: "Add hint" })).toBeInstanceOf(
-        HTMLButtonElement,
+      expect(within(group).getByRole("button", { name: "Add hint" })).toHaveClass(
+        "sc-course-assessment-support-button",
       );
-      expect(within(group).getByRole("button", { name: "Show feedback" })).toBeInstanceOf(
-        HTMLButtonElement,
+      expect(within(group).getByRole("button", { name: "Show feedback" })).toHaveClass(
+        "sc-course-assessment-support-button",
       );
     });
 
@@ -231,16 +265,18 @@ describe("assessment_actions_group", () => {
     expect(surface?.getAttribute("data-tone")).toBe("hint");
     const addHintAction = dialog.querySelector('[data-action="add-hint"]');
     expect(addHintAction).toBeInstanceOf(HTMLButtonElement);
-    expect(addHintAction?.classList.contains("sc-assessment-hint-popover__add")).toBe(true);
+    expect(addHintAction).toHaveClass("sc-course-popover-action");
+    expect(addHintAction?.className).not.toContain("sc-app-");
     const deleteHintAction = dialog.querySelector('[aria-label="Delete hint 1"]');
     expect(deleteHintAction).toBeInstanceOf(HTMLButtonElement);
+    expect(deleteHintAction).toHaveClass("sc-course-popover-action");
     expect(deleteHintAction?.getAttribute("data-tone")).toBe("danger");
 
     const bubbleAppendTarget = hostProps?.appendTo?.();
     expect(bubbleAppendTarget).toBeInstanceOf(HTMLElement);
     expect(bubbleAppendTarget).toBe(surface?.querySelector('[data-slot="popover-surface-body"]'));
 
-    const editorDom = dialog.querySelector(".sc-assessment-hint-popover__editor");
+    const editorDom = dialog.querySelector(".sc-course-assessment-hint-popover__editor");
     expect(editorDom).toBeInstanceOf(HTMLElement);
     expect(editorDom?.getAttribute("aria-label")).toBe("Hint 1 editor");
     expect(editorDom?.getAttribute("data-placeholder")).toBe("Write a hint");
@@ -287,11 +323,15 @@ describe("assessment_actions_group", () => {
 
     const nextHintAction = authoringHintDialog().querySelector('[aria-label="Next hint"]');
     expect(nextHintAction).toBeInstanceOf(HTMLButtonElement);
+    (nextHintAction as HTMLButtonElement).focus();
     fireEvent.click(nextHintAction as HTMLButtonElement);
 
     await waitFor(() => {
       expect(authoringHintDialog().getAttribute("aria-label")).toBe("Hint 2");
       expect(nestedRichTextBubbleMenuHostMock.props.at(-1)?.editor?.getText()).toBe("Second hint");
+      expect(document.activeElement).toBe(
+        authoringHintDialog().querySelector('[aria-label="Previous hint"]'),
+      );
     });
 
     const addHintAction = authoringHintDialog().querySelector('[data-action="add-hint"]');
@@ -303,7 +343,7 @@ describe("assessment_actions_group", () => {
       expect(dialog.getAttribute("aria-label")).toBe("Hint 3");
       expect(
         dialog.querySelector(
-          '.sc-assessment-hint-popover__editor p[data-placeholder="Write a hint"]',
+          '.sc-course-assessment-hint-popover__editor p[data-placeholder="Write a hint"]',
         ),
       ).toBeInstanceOf(HTMLElement);
     });
@@ -372,8 +412,8 @@ describe("assessment_actions_group", () => {
 
     await waitFor(() => {
       const group = actionGroup();
-      expect(within(group).getByRole("button", { name: "Show feedback" })).toBeInstanceOf(
-        HTMLButtonElement,
+      expect(within(group).getByRole("button", { name: "Show feedback" })).toHaveClass(
+        "sc-course-assessment-support-button",
       );
     });
 
@@ -413,9 +453,10 @@ describe("assessment_actions_group", () => {
     expect(within(dialog).getByText("Use elimination.")).toBeInstanceOf(HTMLElement);
   });
 
-  it("renders runtime Show answer in the action group behind the existing gate", async () => {
+  it("replaces runtime Show answer with a visible announced terminal status after reveal", async () => {
+    const user = userEvent.setup();
     const editor = makeRuntimeMcqEditor();
-    const port = incorrectRuntimePort();
+    const port = revealableIncorrectRuntimePort();
 
     renderRuntimeEditor(editor, port);
 
@@ -429,8 +470,17 @@ describe("assessment_actions_group", () => {
     expect(
       within(actionGroup())
         .getByRole("button", { name: "Show correct answer" })
-        .closest(".sc-assessment-actions-row__chrome--show-answer"),
+        .closest(".sc-assessment-control-layout__feature-control--show-answer"),
     ).toBeInstanceOf(HTMLElement);
+
+    await user.click(within(actionGroup()).getByRole("button", { name: "Show correct answer" }));
+
+    await waitFor(() => {
+      expect(within(actionGroup()).getByRole("status", { name: "Answer revealed" })).toBeVisible();
+    });
+    expect(
+      within(actionGroup()).queryByRole("button", { name: "Correct answer revealed" }),
+    ).toBeNull();
   });
 });
 
@@ -445,6 +495,39 @@ function makeStructuralEditor(runtime = false) {
       runtime ? AssessmentHintsGroupRuntimeNode : AssessmentHintsGroupNode,
       runtime ? AssessmentSummaryFeedbackRuntimeNode : AssessmentSummaryFeedbackNode,
     ],
+  });
+  editors.push(editor);
+  return editor;
+}
+
+function makeImmediateFeedbackAuthoringEditor() {
+  const editor = new Editor({
+    extensions: [
+      StarterKit.configure({ undoRedo: false, paragraph: false }),
+      ExtendedParagraph,
+      TestImmediateAssessmentHostNode,
+      AssessmentHintNode,
+      AssessmentActionsGroupNode,
+      AssessmentHintsGroupNode,
+      AssessmentSummaryFeedbackNode,
+    ],
+    content: {
+      type: "doc",
+      content: [
+        {
+          type: "test_immediate_assessment_host",
+          content: [
+            {
+              type: "assessment_actions_group",
+              content: [
+                { type: "assessment_hints_group" },
+                { type: "assessment_summary_feedback" },
+              ],
+            },
+          ],
+        },
+      ],
+    },
   });
   editors.push(editor);
   return editor;
@@ -492,7 +575,11 @@ function captureAssessmentStore(store: AssessmentStoreApi | null) {
 function renderAssessmentEditor(editor: Editor) {
   return render(
     createAssessmentRuntimeTestRoot({
-      children: createElement(EditorContent, { editor }),
+      children: createElement(CourseThemeProvider, {
+        appearance: "light",
+        theme: createDefaultPersistedCourseTheme(),
+        children: createElement(EditorContent, { editor }),
+      }),
       onStore: captureAssessmentStore,
     }),
   );
@@ -511,6 +598,15 @@ function incorrectRuntimePort(): AssessmentPort {
         },
         { response: args.response },
       ),
+  };
+}
+
+function revealableIncorrectRuntimePort(): AssessmentPort {
+  return {
+    ...incorrectRuntimePort(),
+    revealAnswer: async () => ({
+      answerKey: { kind: "single-select", correctOptionId: "b", feedbackByOptionId: {} },
+    }),
   };
 }
 

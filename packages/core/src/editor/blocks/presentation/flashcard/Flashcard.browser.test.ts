@@ -82,9 +82,9 @@ describe("Flashcard bounded geometry", () => {
 
     for (const mounted of [pair.authoring, pair.runtime]) {
       const { frame } = mounted;
-      const deck = requiredElement<HTMLElement>(frame, ".sc-flashcard-deck");
-      const header = requiredElement<HTMLElement>(frame, ".sc-flashcard-deck-header");
-      const controls = requiredElement<HTMLElement>(frame, ".sc-flashcard-reader-controls");
+      const deck = requiredElement<HTMLElement>(frame, ".sc-course-flashcard-deck");
+      const header = requiredElement<HTMLElement>(frame, ".sc-course-flashcard-deck-header");
+      const controls = requiredElement<HTMLElement>(frame, ".sc-course-flashcard-reader-controls");
 
       expect(frame.dataset["boundedPlacement"]).toBe("fill");
       expect(getComputedStyle(deck).overflowY).toBe("auto");
@@ -97,7 +97,7 @@ describe("Flashcard bounded geometry", () => {
         deck.getBoundingClientRect().top - 1,
       );
       if (mounted.kind === "authoring") {
-        const addCard = requiredElement<HTMLElement>(frame, ".sc-flashcard-add-card");
+        const addCard = requiredElement<HTMLElement>(frame, ".sc-app-flashcard-add-card");
         expect(addCard.getBoundingClientRect().bottom).toBeLessThanOrEqual(
           deck.getBoundingClientRect().bottom + 1,
         );
@@ -112,6 +112,13 @@ describe("Flashcard bounded geometry", () => {
         deck.getBoundingClientRect().bottom + 1,
       );
     }
+
+    expect(pair.authoring.frame.querySelector(".sc-app-flashcard-card-chrome")).not.toBeNull();
+    expect(pair.authoring.frame.querySelector(".sc-app-flashcard-card-delete")).not.toBeNull();
+    expect(pair.authoring.frame.querySelector(".sc-course-flashcard-rating-button")).toBeNull();
+    expect(pair.authoring.frame.querySelector('[role="progressbar"]')).toBeNull();
+    expect(pair.runtime.frame.querySelector('[class*="sc-app-flashcard-"]')).toBeNull();
+    expect(pair.runtime.frame.querySelector('[role="progressbar"]')).not.toBeNull();
 
     const authoringFront = await waitForElement<HTMLElement>(
       pair.authoring.frame,
@@ -128,7 +135,7 @@ describe("Flashcard bounded geometry", () => {
     );
     requiredElement<HTMLButtonElement>(
       pair.authoring.frame,
-      ".sc-flashcard-reader-controls__flip-button",
+      ".sc-course-flashcard-reader-controls__flip-button",
     ).click();
     await waitForCondition(
       () =>
@@ -162,11 +169,15 @@ describe("Flashcard bounded geometry", () => {
         front.getAttribute("aria-hidden") === "false" &&
         back.getAttribute("aria-hidden") === "true",
     );
-    const rotator = requiredElement<HTMLElement>(pair.runtime.frame, ".sc-flashcard-card__rotator");
+    const rotator = requiredElement<HTMLElement>(
+      pair.runtime.frame,
+      ".sc-course-flashcard-card__rotator",
+    );
 
     expect(rotator.hasAttribute("aria-hidden")).toBe(false);
     expect(
-      requiredElement<HTMLElement>(pair.runtime.frame, ".sc-flashcard-card__surface").tabIndex,
+      requiredElement<HTMLElement>(pair.runtime.frame, ".sc-course-flashcard-card__surface")
+        .tabIndex,
     ).toBe(-1);
     expect(front.getAttribute("role")).toBe("region");
     expect(front.getAttribute("aria-label")).toBe("Flashcard front content");
@@ -248,7 +259,8 @@ describe("Flashcard bounded geometry", () => {
     await nextLayoutFrame();
 
     expect(fixture.frame.hasAttribute("data-bounded-placement")).toBe(false);
-    expect(fixture.surface.getBoundingClientRect().height).toBeGreaterThanOrEqual(288);
+    const surfaceRect = fixture.surface.getBoundingClientRect();
+    expect(surfaceRect.width / surfaceRect.height).toBeCloseTo(5 / 3, 2);
     expect(fixture.frame.scrollHeight).toBe(fixture.frame.clientHeight);
   });
 
@@ -275,12 +287,12 @@ describe("Flashcard bounded geometry", () => {
     host.style.height = "360px";
 
     const frame = document.createElement("div");
-    frame.className = "sc-flashcard-block";
+    frame.className = "sc-course-flashcard-block";
     frame.dataset["runtimeFrame"] = "block";
     frame.dataset["boundedPlacement"] = "fill";
 
     const mastered = document.createElement("div");
-    mastered.className = "sc-flashcard-mastered";
+    mastered.className = "sc-course-flashcard-mastered";
     mastered.textContent = "Deck complete.";
     frame.append(mastered);
     host.append(frame);
@@ -310,7 +322,7 @@ function createFlashcardFixture(input: {
   if (input.height !== undefined) host.style.height = `${input.height}px`;
 
   const frame = document.createElement("div");
-  frame.className = "sc-flashcard-block";
+  frame.className = "sc-course-flashcard-block";
   frame.setAttribute(
     input.kind === "authoring" ? "data-authoring-frame" : "data-runtime-frame",
     "block",
@@ -318,34 +330,34 @@ function createFlashcardFixture(input: {
   if (input.bounded) frame.dataset["boundedPlacement"] = "fill";
 
   const deck = document.createElement("div");
-  deck.className = "sc-flashcard-deck";
+  deck.className = "sc-course-flashcard-deck";
 
   const header = document.createElement("div");
-  header.className = "sc-flashcard-deck-header";
+  header.className = "sc-course-flashcard-deck-header";
   header.style.height = "28px";
   deck.append(header);
 
   if (input.kind === "authoring") {
     const addCard = document.createElement("button");
-    addCard.className = "sc-flashcard-add-card";
+    addCard.className = "sc-app-flashcard-add-card";
     addCard.textContent = "Add card";
     deck.append(addCard);
   }
 
   const stack = document.createElement("div");
-  stack.className = "sc-flashcard-stack";
+  stack.className = "sc-course-flashcard-stack";
 
   const card = document.createElement("div");
-  card.className = "sc-flashcard-card";
+  card.className = "sc-course-flashcard-card";
 
   const surface = document.createElement("div");
-  surface.className = "sc-flashcard-card__surface";
+  surface.className = "sc-course-flashcard-card__surface";
 
   const rotator = document.createElement("div");
-  rotator.className = "sc-flashcard-card__rotator";
+  rotator.className = "sc-course-flashcard-card__rotator";
 
   const side = document.createElement("div");
-  side.className = "sc-flashcard-side sc-flashcard-side--front";
+  side.className = "sc-course-flashcard-side sc-course-flashcard-side--front";
 
   const longContent = document.createElement("div");
   longContent.style.height = "600px";
@@ -358,7 +370,7 @@ function createFlashcardFixture(input: {
   deck.append(stack);
 
   const controls = document.createElement("div");
-  controls.className = "sc-flashcard-reader-controls";
+  controls.className = "sc-course-flashcard-reader-controls";
   controls.style.height = "88px";
   deck.append(controls);
 
@@ -442,8 +454,8 @@ async function mountRealFlashcardPair(): Promise<MountedFlashcardPair> {
     () =>
       authoringEditor !== null &&
       runtimeEditor !== null &&
-      authoringHost.querySelector('.sc-flashcard-block[data-bounded-placement="fill"]') &&
-      runtimeHost.querySelector('.sc-flashcard-block[data-bounded-placement="fill"]'),
+      authoringHost.querySelector('.sc-course-flashcard-block[data-bounded-placement="fill"]') &&
+      runtimeHost.querySelector('.sc-course-flashcard-block[data-bounded-placement="fill"]'),
   );
   if (!authoringEditor || !runtimeEditor) {
     throw new Error("Flashcard browser editors were not ready.");
@@ -453,13 +465,13 @@ async function mountRealFlashcardPair(): Promise<MountedFlashcardPair> {
   const pair: MountedFlashcardPair = {
     authoring: {
       editor: authoringEditor,
-      frame: requiredElement<HTMLElement>(authoringHost, ".sc-flashcard-block"),
+      frame: requiredElement<HTMLElement>(authoringHost, ".sc-course-flashcard-block"),
       host: authoringHost,
       kind: "authoring",
     },
     runtime: {
       editor: runtimeEditor,
-      frame: requiredElement<HTMLElement>(runtimeHost, ".sc-flashcard-block"),
+      frame: requiredElement<HTMLElement>(runtimeHost, ".sc-course-flashcard-block"),
       host: runtimeHost,
       kind: "runtime",
     },

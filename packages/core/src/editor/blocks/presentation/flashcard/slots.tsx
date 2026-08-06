@@ -124,11 +124,11 @@ function FlashcardCardFrontView(props: NodeViewProps) {
       inert={!face.visible}
       tabIndex={face.tabIndex}
       onKeyDown={face.onKeyDown}
-      className="sc-flashcard-side sc-flashcard-side--front"
+      className="sc-course-flashcard-side sc-course-flashcard-side--front"
     >
       <FaceCaption side="Front" />
-      <div className="sc-flashcard-side__inner">
-        <div className="sc-flashcard-side__content sc-flashcard-side__content--front">
+      <div className="sc-course-flashcard-side__inner">
+        <div className="sc-course-flashcard-side__content sc-course-flashcard-side__content--front">
           <NodeViewContent />
         </div>
       </div>
@@ -149,11 +149,11 @@ function FlashcardCardBackView(props: NodeViewProps) {
       inert={!face.visible}
       tabIndex={face.tabIndex}
       onKeyDown={face.onKeyDown}
-      className="sc-flashcard-side sc-flashcard-side--back"
+      className="sc-course-flashcard-side sc-course-flashcard-side--back"
     >
       <FaceCaption side="Back" />
-      <div className="sc-flashcard-side__inner">
-        <div className="sc-flashcard-side__content sc-flashcard-side__content--back">
+      <div className="sc-course-flashcard-side__inner">
+        <div className="sc-course-flashcard-side__content sc-course-flashcard-side__content--back">
           <NodeViewContent />
         </div>
       </div>
@@ -167,7 +167,7 @@ function FaceCaption({ side }: { side: "Front" | "Back" }) {
       contentEditable={false}
       aria-hidden
       data-scaffold-card-no-flip
-      className="sc-flashcard-side__caption"
+      className="sc-course-flashcard-side__caption"
     >
       {side}
     </span>
@@ -243,7 +243,7 @@ function handleFlashcardFaceKey(event: ReactKeyboardEvent<HTMLElement>): void {
 
     event.preventDefault();
     event.stopPropagation();
-    face.closest<HTMLElement>(".sc-flashcard-card__surface")?.click();
+    face.closest<HTMLElement>(".sc-course-flashcard-card__surface")?.click();
     return;
   }
 

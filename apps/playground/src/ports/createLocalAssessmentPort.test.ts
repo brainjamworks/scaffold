@@ -5,7 +5,12 @@ import { createLocalAssessmentPortFromProjection } from "./createLocalAssessment
 import { LOCAL_ARTIFACT_ID } from "./local-artifact-id";
 import { quizAssessmentProjection } from "./localAssessmentProjection.test-fixture";
 
-const RUNTIME_QUIZ_GROUP_ID = `artifact:${LOCAL_ARTIFACT_ID}/group:quiz-1`;
+const QUIZ_GROUP_ID = "quiz__000001";
+const QUIZ_TARGET_ONE_ID = "target_00001";
+const QUIZ_TARGET_TWO_ID = "target_00002";
+const OPTION_ONE_ID = "option_00001";
+const OPTION_TWO_ID = "option_00002";
+const RUNTIME_QUIZ_GROUP_ID = `artifact:${LOCAL_ARTIFACT_ID}/group:${QUIZ_GROUP_ID}`;
 
 afterEach(() => {
   vi.useRealTimers();
@@ -17,10 +22,10 @@ describe("createLocalAssessmentPort quiz runtime", () => {
     const port = createLocalAssessmentPortFromProjection(() => quizAssessmentProjection());
 
     const result = await port.check!({
-      problemId: `artifact:${LOCAL_ARTIFACT_ID}/block:mcq-1`,
-      targetId: "mcq-1",
+      problemId: `artifact:${LOCAL_ARTIFACT_ID}/block:${QUIZ_TARGET_ONE_ID}`,
+      targetId: QUIZ_TARGET_ONE_ID,
       interactionKind: "single-select",
-      response: { kind: "single-select", optionId: "a" },
+      response: { kind: "single-select", optionId: OPTION_ONE_ID },
       expectedAttemptNumber: 0,
     });
 
@@ -41,10 +46,10 @@ describe("createLocalAssessmentPort quiz runtime", () => {
 
     await expect(
       port.check!({
-        problemId: `artifact:${LOCAL_ARTIFACT_ID}/block:mcq-1`,
-        targetId: "mcq-1",
+        problemId: `artifact:${LOCAL_ARTIFACT_ID}/block:${QUIZ_TARGET_ONE_ID}`,
+        targetId: QUIZ_TARGET_ONE_ID,
         interactionKind: "single-select",
-        response: { kind: "single-select", optionId: "a" },
+        response: { kind: "single-select", optionId: OPTION_ONE_ID },
         expectedAttemptNumber: 0,
       }),
     ).rejects.toThrow();
@@ -56,17 +61,17 @@ describe("createLocalAssessmentPort quiz runtime", () => {
       assessmentTargets: [
         {
           schemaVersion: 2,
-          targetId: "multi-1",
-          blockId: "multi-1",
+          targetId: "multi_000001",
+          blockId: "multi_000001",
           blockType: "multiselect",
           interaction: {
             kind: "multi-select",
-            options: [{ id: "a" }, { id: "b" }, { id: "c" }],
+            options: [{ id: "option_00001" }, { id: "option_00002" }, { id: "option_00003" }],
             maxSelections: null,
           },
           assessment: {
             kind: "multi-select",
-            correctOptionIds: ["a", "b"],
+            correctOptionIds: ["option_00001", "option_00002"],
             feedbackByOptionId: {},
             summaryFeedback: null,
           },
@@ -82,8 +87,8 @@ describe("createLocalAssessmentPort quiz runtime", () => {
     }));
     const submit = (optionIds: string[]) =>
       port.submit({
-        problemId: `artifact:${LOCAL_ARTIFACT_ID}/block:multi-1`,
-        targetId: "multi-1",
+        problemId: `artifact:${LOCAL_ARTIFACT_ID}/block:multi_000001`,
+        targetId: "multi_000001",
         interactionKind: "multi-select",
         response: { kind: "multi-select", optionIds },
         expectedAttemptNumber: 0,
@@ -96,37 +101,37 @@ describe("createLocalAssessmentPort quiz runtime", () => {
           score: { scaled: 0, raw: 0, min: 0, max: 2 },
           feedback: null,
           items: {
-            a: { correct: false, expected: true, given: false },
-            b: { correct: false, expected: true, given: false },
-            c: { correct: true, expected: false, given: false },
+            option_00001: { correct: false, expected: true, given: false },
+            option_00002: { correct: false, expected: true, given: false },
+            option_00003: { correct: true, expected: false, given: false },
           },
         },
       },
     });
-    await expect(submit(["a"])).resolves.toMatchObject({
+    await expect(submit(["option_00001"])).resolves.toMatchObject({
       problem: {
         submissionResult: {
           isCorrect: false,
           score: { scaled: 0.5, raw: 1, min: 0, max: 2 },
           feedback: null,
           items: {
-            a: { correct: true, expected: true, given: true },
-            b: { correct: false, expected: true, given: false },
-            c: { correct: true, expected: false, given: false },
+            option_00001: { correct: true, expected: true, given: true },
+            option_00002: { correct: false, expected: true, given: false },
+            option_00003: { correct: true, expected: false, given: false },
           },
         },
       },
     });
-    await expect(submit(["a", "b"])).resolves.toMatchObject({
+    await expect(submit(["option_00001", "option_00002"])).resolves.toMatchObject({
       problem: {
         submissionResult: {
           isCorrect: true,
           score: { scaled: 1, raw: 2, min: 0, max: 2 },
           feedback: null,
           items: {
-            a: { correct: true, expected: true, given: true },
-            b: { correct: true, expected: true, given: true },
-            c: { correct: true, expected: false, given: false },
+            option_00001: { correct: true, expected: true, given: true },
+            option_00002: { correct: true, expected: true, given: true },
+            option_00003: { correct: true, expected: false, given: false },
           },
         },
       },
@@ -147,12 +152,12 @@ describe("createLocalAssessmentPort quiz runtime", () => {
 
     await expect(
       port.revealAnswer?.({
-        problemId: `artifact:${LOCAL_ARTIFACT_ID}/block:missing-target`,
-        targetId: "missing-target",
+        problemId: `artifact:${LOCAL_ARTIFACT_ID}/block:target_99999`,
+        targetId: "target_99999",
         interactionKind: "single-select",
         response: { kind: "single-select", optionId: null },
       }),
-    ).rejects.toThrow("local assessment target not found: missing-target");
+    ).rejects.toThrow("local assessment target not found: target_99999");
   });
 
   it("starts and finishes a projected quiz with local aggregate grading", async () => {
@@ -167,15 +172,15 @@ describe("createLocalAssessmentPort quiz runtime", () => {
       attemptId: started?.quizAttempt.attemptId ?? "attempt-1",
       groupId: RUNTIME_QUIZ_GROUP_ID,
       responsesByTargetId: {
-        "mcq-1": { kind: "single-select", optionId: "a" },
-        "mcq-2": { kind: "single-select", optionId: "a" },
+        [QUIZ_TARGET_ONE_ID]: { kind: "single-select", optionId: OPTION_ONE_ID },
+        [QUIZ_TARGET_TWO_ID]: { kind: "single-select", optionId: OPTION_ONE_ID },
       },
     });
 
     expect(started?.quizAttempt).toMatchObject({
       groupId: RUNTIME_QUIZ_GROUP_ID,
       status: "in_progress",
-      currentTargetId: "mcq-1",
+      currentTargetId: QUIZ_TARGET_ONE_ID,
       submittedTargetIds: [],
       score: null,
       successStatus: null,
@@ -184,13 +189,19 @@ describe("createLocalAssessmentPort quiz runtime", () => {
       groupId: RUNTIME_QUIZ_GROUP_ID,
       status: "completed",
       currentTargetId: null,
-      submittedTargetIds: ["mcq-1", "mcq-2"],
+      submittedTargetIds: [QUIZ_TARGET_ONE_ID, QUIZ_TARGET_TWO_ID],
       answerReviewAuthorized: true,
       score: { scaled: 0.5, raw: 1, min: 0, max: 2 },
       successStatus: null,
       resultsByTargetId: {
-        "mcq-1": { isCorrect: true, score: { scaled: 1, raw: 1, min: 0, max: 1 } },
-        "mcq-2": { isCorrect: false, score: { scaled: 0, raw: 0, min: 0, max: 1 } },
+        [QUIZ_TARGET_ONE_ID]: {
+          isCorrect: true,
+          score: { scaled: 1, raw: 1, min: 0, max: 1 },
+        },
+        [QUIZ_TARGET_TWO_ID]: {
+          isCorrect: false,
+          score: { scaled: 0, raw: 0, min: 0, max: 1 },
+        },
       },
     });
   });
@@ -205,8 +216,8 @@ describe("createLocalAssessmentPort quiz runtime", () => {
       attemptId: started?.quizAttempt.attemptId ?? "attempt-1",
       groupId: RUNTIME_QUIZ_GROUP_ID,
       responsesByTargetId: {
-        "mcq-1": { kind: "single-select", optionId: "a" },
-        "mcq-2": { kind: "single-select", optionId: "a" },
+        [QUIZ_TARGET_ONE_ID]: { kind: "single-select", optionId: OPTION_ONE_ID },
+        [QUIZ_TARGET_TWO_ID]: { kind: "single-select", optionId: OPTION_ONE_ID },
       },
     });
 
@@ -227,8 +238,8 @@ describe("createLocalAssessmentPort quiz runtime", () => {
       attemptId: started?.quizAttempt.attemptId ?? "attempt-1",
       groupId: RUNTIME_QUIZ_GROUP_ID,
       responsesByTargetId: {
-        "mcq-1": { kind: "single-select", optionId: "a" },
-        "mcq-2": { kind: "single-select", optionId: "a" },
+        [QUIZ_TARGET_ONE_ID]: { kind: "single-select", optionId: OPTION_ONE_ID },
+        [QUIZ_TARGET_TWO_ID]: { kind: "single-select", optionId: OPTION_ONE_ID },
       },
     });
 
@@ -244,7 +255,7 @@ describe("createLocalAssessmentPort quiz runtime", () => {
       projectionSource(quizAssessmentProjection()),
     );
 
-    await expect(port.quiz?.startAttempt({ groupId: "quiz-1" })).rejects.toThrow(
+    await expect(port.quiz?.startAttempt({ groupId: QUIZ_GROUP_ID })).rejects.toThrow(
       `local quiz group id is not scoped to ${LOCAL_ARTIFACT_ID}`,
     );
   });
@@ -267,7 +278,7 @@ describe("createLocalAssessmentPort quiz runtime", () => {
     const projection = quizAssessmentProjection();
     projection.assessmentGroups.push({
       ...projection.assessmentGroups[0]!,
-      groupId: "quiz-2",
+      groupId: "quiz__000002",
     });
     const port = createLocalAssessmentPortFromProjection(projectionSource(projection));
     const started = await port.quiz?.startAttempt({ groupId: RUNTIME_QUIZ_GROUP_ID });
@@ -275,7 +286,7 @@ describe("createLocalAssessmentPort quiz runtime", () => {
     await expect(
       port.quiz?.finishAttempt({
         attemptId: started?.quizAttempt.attemptId ?? "attempt-1",
-        groupId: `artifact:${LOCAL_ARTIFACT_ID}/group:quiz-2`,
+        groupId: `artifact:${LOCAL_ARTIFACT_ID}/group:quiz__000002`,
         responsesByTargetId: {},
       }),
     ).rejects.toThrow(/does not belong to group/);
@@ -301,15 +312,15 @@ describe("createLocalAssessmentPort quiz runtime", () => {
     const first = await port.quiz?.submitQuestion({
       attemptId: started?.quizAttempt.attemptId ?? "attempt-1",
       groupId: RUNTIME_QUIZ_GROUP_ID,
-      targetId: "mcq-1",
-      response: { kind: "single-select", optionId: "a" },
+      targetId: QUIZ_TARGET_ONE_ID,
+      response: { kind: "single-select", optionId: OPTION_ONE_ID },
       expectedAttemptNumber: 0,
     });
     const second = await port.quiz?.submitQuestion({
       attemptId: started?.quizAttempt.attemptId ?? "attempt-1",
       groupId: RUNTIME_QUIZ_GROUP_ID,
-      targetId: "mcq-2",
-      response: { kind: "single-select", optionId: "a" },
+      targetId: QUIZ_TARGET_TWO_ID,
+      response: { kind: "single-select", optionId: OPTION_ONE_ID },
       expectedAttemptNumber: 0,
     });
 
@@ -319,13 +330,19 @@ describe("createLocalAssessmentPort quiz runtime", () => {
       currentTargetId: null,
       expiresAt: "2026-06-18T08:01:30.000Z",
       finishedAt: "2026-06-18T08:00:00.000Z",
-      submittedTargetIds: ["mcq-1", "mcq-2"],
+      submittedTargetIds: [QUIZ_TARGET_ONE_ID, QUIZ_TARGET_TWO_ID],
       answerReviewAuthorized: true,
       score: { scaled: 0.5, raw: 1, min: 0, max: 2 },
       successStatus: "passed",
       resultsByTargetId: {
-        "mcq-1": { isCorrect: true, score: { scaled: 1, raw: 1, min: 0, max: 1 } },
-        "mcq-2": { isCorrect: false, score: { scaled: 0, raw: 0, min: 0, max: 1 } },
+        [QUIZ_TARGET_ONE_ID]: {
+          isCorrect: true,
+          score: { scaled: 1, raw: 1, min: 0, max: 1 },
+        },
+        [QUIZ_TARGET_TWO_ID]: {
+          isCorrect: false,
+          score: { scaled: 0, raw: 0, min: 0, max: 1 },
+        },
       },
     });
   });
@@ -347,8 +364,8 @@ describe("createLocalAssessmentPort quiz runtime", () => {
       port.quiz?.submitQuestion({
         attemptId: started?.quizAttempt.attemptId ?? "attempt-1",
         groupId: RUNTIME_QUIZ_GROUP_ID,
-        targetId: "mcq-2",
-        response: { kind: "single-select", optionId: "a" },
+        targetId: QUIZ_TARGET_TWO_ID,
+        response: { kind: "single-select", optionId: OPTION_ONE_ID },
         expectedAttemptNumber: 0,
       }),
     ).rejects.toThrow(/current question/);
@@ -371,8 +388,8 @@ describe("createLocalAssessmentPort quiz runtime", () => {
     await port.quiz?.submitQuestion({
       attemptId: started?.quizAttempt.attemptId ?? "attempt-1",
       groupId: RUNTIME_QUIZ_GROUP_ID,
-      targetId: "mcq-1",
-      response: { kind: "single-select", optionId: "b" },
+      targetId: QUIZ_TARGET_ONE_ID,
+      response: { kind: "single-select", optionId: OPTION_TWO_ID },
       expectedAttemptNumber: 0,
     });
 
@@ -380,8 +397,8 @@ describe("createLocalAssessmentPort quiz runtime", () => {
       port.quiz?.submitQuestion({
         attemptId: started?.quizAttempt.attemptId ?? "attempt-1",
         groupId: RUNTIME_QUIZ_GROUP_ID,
-        targetId: "mcq-1",
-        response: { kind: "single-select", optionId: "a" },
+        targetId: QUIZ_TARGET_ONE_ID,
+        response: { kind: "single-select", optionId: OPTION_ONE_ID },
         expectedAttemptNumber: 1,
       }),
     ).rejects.toThrow(/attempts exhausted/);
@@ -404,32 +421,38 @@ describe("createLocalAssessmentPort quiz runtime", () => {
     const first = await port.quiz?.submitQuestion({
       attemptId: started?.quizAttempt.attemptId ?? "attempt-1",
       groupId: RUNTIME_QUIZ_GROUP_ID,
-      targetId: "mcq-1",
-      response: { kind: "single-select", optionId: "b" },
+      targetId: QUIZ_TARGET_ONE_ID,
+      response: { kind: "single-select", optionId: OPTION_TWO_ID },
       expectedAttemptNumber: 0,
     });
     const second = await port.quiz?.submitQuestion({
       attemptId: started?.quizAttempt.attemptId ?? "attempt-1",
       groupId: RUNTIME_QUIZ_GROUP_ID,
-      targetId: "mcq-1",
-      response: { kind: "single-select", optionId: "a" },
+      targetId: QUIZ_TARGET_ONE_ID,
+      response: { kind: "single-select", optionId: OPTION_ONE_ID },
       expectedAttemptNumber: 1,
     });
 
     expect(first?.quizAttempt).toMatchObject({
       status: "in_progress",
-      currentTargetId: "mcq-1",
-      submittedTargetIds: ["mcq-1"],
+      currentTargetId: QUIZ_TARGET_ONE_ID,
+      submittedTargetIds: [QUIZ_TARGET_ONE_ID],
       resultsByTargetId: {
-        "mcq-1": { isCorrect: false, score: { scaled: 0, raw: 0, min: 0, max: 1 } },
+        [QUIZ_TARGET_ONE_ID]: {
+          isCorrect: false,
+          score: { scaled: 0, raw: 0, min: 0, max: 1 },
+        },
       },
     });
     expect(second?.quizAttempt).toMatchObject({
       status: "in_progress",
-      currentTargetId: "mcq-2",
-      submittedTargetIds: ["mcq-1"],
+      currentTargetId: QUIZ_TARGET_TWO_ID,
+      submittedTargetIds: [QUIZ_TARGET_ONE_ID],
       resultsByTargetId: {
-        "mcq-1": { isCorrect: true, score: { scaled: 1, raw: 1, min: 0, max: 1 } },
+        [QUIZ_TARGET_ONE_ID]: {
+          isCorrect: true,
+          score: { scaled: 1, raw: 1, min: 0, max: 1 },
+        },
       },
     });
   });
@@ -452,45 +475,54 @@ describe("createLocalAssessmentPort quiz runtime", () => {
     const first = await port.quiz?.submitQuestion({
       attemptId,
       groupId: RUNTIME_QUIZ_GROUP_ID,
-      targetId: "mcq-1",
-      response: { kind: "single-select", optionId: "b" },
+      targetId: QUIZ_TARGET_ONE_ID,
+      response: { kind: "single-select", optionId: OPTION_TWO_ID },
       expectedAttemptNumber: 0,
     });
     const second = await port.quiz?.submitQuestion({
       attemptId,
       groupId: RUNTIME_QUIZ_GROUP_ID,
-      targetId: "mcq-1",
-      response: { kind: "single-select", optionId: "b" },
+      targetId: QUIZ_TARGET_ONE_ID,
+      response: { kind: "single-select", optionId: OPTION_TWO_ID },
       expectedAttemptNumber: 1,
     });
     const third = await port.quiz?.submitQuestion({
       attemptId,
       groupId: RUNTIME_QUIZ_GROUP_ID,
-      targetId: "mcq-1",
-      response: { kind: "single-select", optionId: "a" },
+      targetId: QUIZ_TARGET_ONE_ID,
+      response: { kind: "single-select", optionId: OPTION_ONE_ID },
       expectedAttemptNumber: 2,
     });
 
     expect(first?.quizAttempt).toMatchObject({
       status: "in_progress",
-      currentTargetId: "mcq-1",
+      currentTargetId: QUIZ_TARGET_ONE_ID,
       resultsByTargetId: {
-        "mcq-1": { isCorrect: false, score: { scaled: 0, raw: 0, min: 0, max: 1 } },
+        [QUIZ_TARGET_ONE_ID]: {
+          isCorrect: false,
+          score: { scaled: 0, raw: 0, min: 0, max: 1 },
+        },
       },
     });
     expect(second?.quizAttempt).toMatchObject({
       status: "in_progress",
-      currentTargetId: "mcq-1",
+      currentTargetId: QUIZ_TARGET_ONE_ID,
       resultsByTargetId: {
-        "mcq-1": { isCorrect: false, score: { scaled: 0, raw: 0, min: 0, max: 1 } },
+        [QUIZ_TARGET_ONE_ID]: {
+          isCorrect: false,
+          score: { scaled: 0, raw: 0, min: 0, max: 1 },
+        },
       },
     });
     expect(third?.quizAttempt).toMatchObject({
       status: "in_progress",
-      currentTargetId: "mcq-2",
-      submittedTargetIds: ["mcq-1"],
+      currentTargetId: QUIZ_TARGET_TWO_ID,
+      submittedTargetIds: [QUIZ_TARGET_ONE_ID],
       resultsByTargetId: {
-        "mcq-1": { isCorrect: true, score: { scaled: 1, raw: 1, min: 0, max: 1 } },
+        [QUIZ_TARGET_ONE_ID]: {
+          isCorrect: true,
+          score: { scaled: 1, raw: 1, min: 0, max: 1 },
+        },
       },
     });
   });
@@ -512,14 +544,14 @@ describe("createLocalAssessmentPort quiz runtime", () => {
       attemptId: started?.quizAttempt.attemptId ?? "attempt-1",
       groupId: RUNTIME_QUIZ_GROUP_ID,
       responsesByTargetId: {
-        "mcq-1": { kind: "single-select", optionId: "a" },
-        "mcq-2": { kind: "single-select", optionId: "a" },
+        [QUIZ_TARGET_ONE_ID]: { kind: "single-select", optionId: OPTION_ONE_ID },
+        [QUIZ_TARGET_TWO_ID]: { kind: "single-select", optionId: OPTION_ONE_ID },
       },
     });
 
     expect(finished?.quizAttempt).toMatchObject({
       status: "completed",
-      submittedTargetIds: ["mcq-1", "mcq-2"],
+      submittedTargetIds: [QUIZ_TARGET_ONE_ID, QUIZ_TARGET_TWO_ID],
       answerReviewAuthorized: true,
     });
   });
@@ -546,14 +578,14 @@ describe("createLocalAssessmentPort quiz runtime", () => {
       attemptId: started?.quizAttempt.attemptId ?? "attempt-1",
       groupId: RUNTIME_QUIZ_GROUP_ID,
       responsesByTargetId: {
-        "mcq-1": { kind: "single-select", optionId: "a" },
+        [QUIZ_TARGET_ONE_ID]: { kind: "single-select", optionId: OPTION_ONE_ID },
       },
     });
 
     expect(finished?.quizAttempt).toMatchObject({
       status: "expired",
       currentTargetId: null,
-      submittedTargetIds: ["mcq-1"],
+      submittedTargetIds: [QUIZ_TARGET_ONE_ID],
       answerReviewAuthorized: true,
       score: { scaled: 0.5, raw: 1, min: 0, max: 2 },
       successStatus: "passed",
@@ -581,15 +613,15 @@ describe("createLocalAssessmentPort quiz runtime", () => {
     const submitted = await port.quiz?.submitQuestion({
       attemptId: started?.quizAttempt.attemptId ?? "attempt-1",
       groupId: RUNTIME_QUIZ_GROUP_ID,
-      targetId: "mcq-1",
-      response: { kind: "single-select", optionId: "a" },
+      targetId: QUIZ_TARGET_ONE_ID,
+      response: { kind: "single-select", optionId: OPTION_ONE_ID },
       expectedAttemptNumber: 0,
     });
 
     expect(submitted?.quizAttempt).toMatchObject({
       status: "expired",
       currentTargetId: null,
-      submittedTargetIds: ["mcq-1"],
+      submittedTargetIds: [QUIZ_TARGET_ONE_ID],
       finishedAt: "2026-06-18T08:00:02.000Z",
       score: { scaled: 0.5, raw: 1, min: 0, max: 2 },
       successStatus: "passed",
@@ -608,8 +640,8 @@ describe("createLocalAssessmentPort quiz runtime", () => {
       attemptId: started?.quizAttempt.attemptId ?? "attempt-1",
       groupId: RUNTIME_QUIZ_GROUP_ID,
       responsesByTargetId: {
-        "mcq-1": { kind: "single-select", optionId: "a" },
-        "mcq-2": { kind: "single-select", optionId: "a" },
+        [QUIZ_TARGET_ONE_ID]: { kind: "single-select", optionId: OPTION_ONE_ID },
+        [QUIZ_TARGET_TWO_ID]: { kind: "single-select", optionId: OPTION_ONE_ID },
       },
     });
 

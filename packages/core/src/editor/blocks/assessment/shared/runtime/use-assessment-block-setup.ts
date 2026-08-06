@@ -28,6 +28,7 @@ export interface AssessmentBlockSetupConfig {
   legend?: string;
   placeholder?: string;
   maxSelect?: number | null;
+  currentOptionIds?: readonly string[];
   responseCodec: AssessmentCapabilityResponseDefinition;
 }
 

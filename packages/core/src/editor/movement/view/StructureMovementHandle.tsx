@@ -76,19 +76,18 @@ export function StructureMovementHandle({
       safeLocalHeight={44}
       safeLocalWidth={44}
       className={cn(
-        "sc-structure-movement-handle",
-        variant === "pill" && "sc-structure-movement-handle--pill",
-        variant === "bare" && "sc-structure-movement-handle--bare",
-        disabled && "sc-movement-handle--disabled",
+        "sc-app-structure-movement-handle",
+        variant === "pill" && "sc-app-structure-movement-handle--pill",
+        variant === "bare" && "sc-app-structure-movement-handle--bare",
+        disabled && "sc-app-movement-handle--disabled",
         className,
       )}
     >
       <span id={descriptionId} className="sc-sr-only">
-        Press Space or Enter to pick up this {label}. Use Arrow {backwardLabel} or Arrow{
-        " "}
+        Press Space or Enter to pick up this {label}. Use Arrow {backwardLabel} or Arrow{" "}
         {forwardLabel} to choose a destination. Press Space or Enter to drop, or Escape to cancel.
       </span>
-      <span aria-hidden className="sc-structure-movement-handle__visual">
+      <span aria-hidden className="sc-app-structure-movement-handle__visual">
         <DotsSixVertical size={iconXs} weight="bold" />
       </span>
     </InteractionDragActivationArea>

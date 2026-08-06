@@ -5,7 +5,8 @@ import { createRoot, type Root } from "react-dom/client";
 import { render as renderBrowserReact } from "vitest-browser-react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
-import { OverlayBoundary } from "@/ui/components/OverlayBoundary/OverlayBoundary";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
+import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
 import { Select } from "@/ui/components/Select/Select";
 import { WorkspaceDialog } from "@/ui/components/WorkspaceDialog/WorkspaceDialog";
 import {
@@ -142,8 +143,15 @@ describe("authoring application overlay colour mode", () => {
         dialog,
         'button[aria-label="Close workspace"]',
       );
+      if (!application) throw new Error("Expected the dialog to resolve its application root");
 
       expect(overlayHost?.parentElement).toBe(application);
+      expect(application).toHaveClass("radix-themes", "dark", "sc-app");
+      expect(application).toHaveAttribute("data-accent-color", "indigo");
+      expect(application).toHaveAttribute("data-gray-color", "slate");
+      expect(application).toHaveAttribute("data-radius", "medium");
+      expect(getComputedStyle(application).fontFamily).toContain("Satoshi");
+      expect(getComputedStyle(application).color).toBe("rgb(250, 250, 250)");
       expect(dialog.closest(".sc-course-theme-scope")).toBeNull();
       expect(getComputedStyle(dialog).getPropertyValue("--color-background").trim()).not.toBe(
         "rgb(1 2 3)",
@@ -261,40 +269,37 @@ function DarkApplicationDialogHarness() {
   const [application, setApplication] = useState<HTMLDivElement | null>(null);
 
   return (
-    <div
-      ref={setApplication}
-      className="sc-scaffold-authoring-app"
-      data-scaffold-color-mode="dark"
-      style={{ colorScheme: "dark" }}
-    >
-      <OverlayBoundary container={application} kind="viewport">
-        <div
-          className="sc-course-theme-scope"
-          style={
-            {
-              "--color-background": "rgb(1 2 3)",
-              "--color-text-primary": "rgb(4 5 6)",
-              "--color-border": "rgb(7 8 9)",
-            } as CSSProperties
-          }
-        >
-          <WorkspaceDialog.Root open>
-            <WorkspaceDialog.Content size="small">
-              <WorkspaceDialog.Header>
-                <div>
-                  <WorkspaceDialog.Title>Application settings</WorkspaceDialog.Title>
-                  <WorkspaceDialog.Description>
-                    Configure the authoring workspace.
-                  </WorkspaceDialog.Description>
-                </div>
-                <WorkspaceDialog.Close />
-              </WorkspaceDialog.Header>
-              <WorkspaceDialog.Body>Application-owned dialog content</WorkspaceDialog.Body>
-            </WorkspaceDialog.Content>
-          </WorkspaceDialog.Root>
-        </div>
-      </OverlayBoundary>
-    </div>
+    <AppThemeProvider appearance="dark">
+      <div ref={setApplication} className="sc-scaffold-authoring-app">
+        <OverlayBoundary container={application} kind="viewport">
+          <div
+            className="sc-course-theme-scope"
+            style={
+              {
+                "--color-background": "rgb(1 2 3)",
+                "--color-text-primary": "rgb(4 5 6)",
+                "--color-border": "rgb(7 8 9)",
+              } as CSSProperties
+            }
+          >
+            <WorkspaceDialog.Root open>
+              <WorkspaceDialog.Content size="small">
+                <WorkspaceDialog.Header>
+                  <div>
+                    <WorkspaceDialog.Title>Application settings</WorkspaceDialog.Title>
+                    <WorkspaceDialog.Description>
+                      Configure the authoring workspace.
+                    </WorkspaceDialog.Description>
+                  </div>
+                  <WorkspaceDialog.Close />
+                </WorkspaceDialog.Header>
+                <WorkspaceDialog.Body>Application-owned dialog content</WorkspaceDialog.Body>
+              </WorkspaceDialog.Content>
+            </WorkspaceDialog.Root>
+          </div>
+        </OverlayBoundary>
+      </div>
+    </AppThemeProvider>
   );
 }
 
@@ -322,35 +327,33 @@ function DarkCourseDialogHarness() {
   };
 
   return (
-    <div
-      className="sc-scaffold-authoring-app"
-      data-scaffold-color-mode="light"
-      style={{ colorScheme: "light" }}
-    >
-      <div
-        ref={setCourseScope}
-        className="sc-course-theme-scope"
-        data-course-color-mode="dark"
-        style={courseStyle}
-      >
-        <OverlayBoundary container={courseScope} kind="contained">
-          <WorkspaceDialog.Root open>
-            <WorkspaceDialog.Content size="small">
-              <WorkspaceDialog.Header>
-                <div>
-                  <WorkspaceDialog.Title>Course media</WorkspaceDialog.Title>
-                  <WorkspaceDialog.Description>
-                    Edit presentation owned by this course.
-                  </WorkspaceDialog.Description>
-                </div>
-                <WorkspaceDialog.Close />
-              </WorkspaceDialog.Header>
-              <WorkspaceDialog.Body>Course-owned dialog content</WorkspaceDialog.Body>
-            </WorkspaceDialog.Content>
-          </WorkspaceDialog.Root>
-        </OverlayBoundary>
+    <AppThemeProvider appearance="light">
+      <div className="sc-scaffold-authoring-app">
+        <div
+          ref={setCourseScope}
+          className="sc-course-theme-scope"
+          data-course-color-mode="dark"
+          style={courseStyle}
+        >
+          <OverlayBoundary container={courseScope} kind="contained">
+            <WorkspaceDialog.Root open>
+              <WorkspaceDialog.Content size="small">
+                <WorkspaceDialog.Header>
+                  <div>
+                    <WorkspaceDialog.Title>Course media</WorkspaceDialog.Title>
+                    <WorkspaceDialog.Description>
+                      Edit presentation owned by this course.
+                    </WorkspaceDialog.Description>
+                  </div>
+                  <WorkspaceDialog.Close />
+                </WorkspaceDialog.Header>
+                <WorkspaceDialog.Body>Course-owned dialog content</WorkspaceDialog.Body>
+              </WorkspaceDialog.Content>
+            </WorkspaceDialog.Root>
+          </OverlayBoundary>
+        </div>
       </div>
-    </div>
+    </AppThemeProvider>
   );
 }
 

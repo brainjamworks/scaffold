@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { imagePositionToCss } from "@/editor/media/model/image-position";
+import { cn } from "@/lib/cn";
 import type { SlideImageCoverImage } from "@/editor/surfaces/model/templates/slide-image-cover";
 
 interface SlideImageCoverImageSlotProps {
@@ -19,7 +20,10 @@ export function SlideImageCoverImageSlot({
 
   return (
     <div
-      className="sc-slide-image-cover-image sc-media-replace-host"
+      className={cn(
+        "sc-slide-image-cover-image",
+        imageUrl && replaceAction && "sc-app-media-replace-host",
+      )}
       contentEditable={false}
       data-slot="slide-image-cover-image"
       data-empty={imageUrl ? undefined : "true"}

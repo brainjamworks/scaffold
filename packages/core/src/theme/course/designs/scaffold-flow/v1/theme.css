@@ -1,0 +1,141 @@
+@import "./glossary.css";
+@import "./key-value-list.css";
+@import "./numbered-list.css";
+@import "./checklist.css";
+@import "./table.css";
+@import "./callout.css";
+@import "./sidebar.css";
+@import "./pull-quote.css";
+@import "./chapter-epigraph.css";
+@import "./marginalia.css";
+@import "./stat-highlight.css";
+@import "./comparison.css";
+@import "./timeline.css";
+@import "./roadmap.css";
+@import "./flashcard.css";
+@import "./image-block.css";
+@import "./audio-block.css";
+@import "./chart.css";
+@import "./annotated-figure.css";
+@import "./gallery.css";
+@import "./text-wrap-image.css";
+@import "./embed.css";
+@import "./pdf-embed.css";
+@import "./code-block.css";
+@import "./resource-link.css";
+@import "./course-popover-surface.css";
+@import "./assessment-shell.css";
+@import "./assessment-support-controls.css";
+@import "./assessment-submission-control.css";
+@import "./assessment-choice.css";
+@import "./assessment-dropdown.css";
+@import "./assessment-fill-blanks.css";
+@import "./assessment-sequencing.css";
+@import "./assessment-categorise.css";
+@import "./assessment-matching.css";
+@import "./assessment-image-hotspot.css";
+
+.sc-course.sc-course-theme-scaffold-flow-v1 {
+  --sc-container-flow-gap: calc(0.75rem * var(--sc-course-author-density));
+
+  min-width: 0;
+  font-family: var(--default-font-family);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  :where(
+    .ProseMirror > p:not(.sc-runtime-rich-text-heading),
+    .ProseMirror > ul,
+    .ProseMirror > ol,
+    .ProseMirror > blockquote,
+    [data-surface-content] > [data-node-view-content-react] > p:not(.sc-runtime-rich-text-heading),
+    [data-surface-content] > [data-node-view-content-react] > ul,
+    [data-surface-content] > [data-node-view-content-react] > ol,
+    [data-surface-content] > [data-node-view-content-react] > blockquote,
+    .sc-field-content > p:not(.sc-runtime-rich-text-heading),
+    .sc-field-content > ul,
+    .sc-field-content > ol,
+    .sc-field-content > blockquote
+  ) {
+  font-size: calc(1em * var(--sc-course-author-text-scale));
+  font-weight: var(--sc-course-author-body-weight);
+  line-height: var(--sc-course-author-body-line-height);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  :where(h1, h2, h3, h4, h5, h6, .rt-Heading, .sc-runtime-rich-text-heading) {
+  font-family: var(--heading-font-family);
+  font-weight: var(--sc-course-author-heading-weight);
+  line-height: var(--sc-course-author-heading-line-height);
+  letter-spacing: var(--sc-course-author-heading-letter-spacing);
+  text-transform: var(--sc-course-author-heading-text-transform);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 :where(code, kbd, pre, samp) {
+  font-family: var(--code-font-family);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 :where([data-course-state]) {
+  border-style: solid;
+  border-width: 1px;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 :where([data-course-state="info"]) {
+  color: var(--sc-course-state-info-text);
+  background-color: var(--sc-course-state-info-background);
+  border-color: var(--sc-course-state-info-border);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 :where([data-course-state="warning"]) {
+  color: var(--sc-course-state-warning-text);
+  background-color: var(--sc-course-state-warning-background);
+  border-color: var(--sc-course-state-warning-border);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 :where([data-course-state="success"]) {
+  color: var(--sc-course-state-success-text);
+  background-color: var(--sc-course-state-success-background);
+  border-color: var(--sc-course-state-success-border);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 :where([data-course-state="error"]) {
+  color: var(--sc-course-state-error-text);
+  background-color: var(--sc-course-state-error-background);
+  border-color: var(--sc-course-state-error-border);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 :where([data-course-state="correct"]) {
+  color: var(--sc-course-state-correct-text);
+  background-color: var(--sc-course-state-correct-background);
+  border-color: var(--sc-course-state-correct-border);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 :where([data-course-state="incorrect"]) {
+  color: var(--sc-course-state-incorrect-text);
+  background-color: var(--sc-course-state-incorrect-background);
+  border-color: var(--sc-course-state-incorrect-border);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 :where([data-course-state="current"]) {
+  color: var(--sc-course-state-current-text);
+  background-color: var(--sc-course-state-current-background);
+  border-color: var(--sc-course-state-current-border);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 :where([data-course-state="completed"]) {
+  color: var(--sc-course-state-completed-text);
+  background-color: var(--sc-course-state-completed-background);
+  border-color: var(--sc-course-state-completed-border);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 :where([data-course-state="available"]) {
+  color: var(--sc-course-state-available-text);
+  background-color: var(--sc-course-state-available-background);
+  border-color: var(--sc-course-state-available-border);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 :where([data-course-state="locked"]) {
+  color: var(--sc-course-state-locked-text);
+  background-color: var(--sc-course-state-locked-background);
+  border-color: var(--sc-course-state-locked-border);
+}

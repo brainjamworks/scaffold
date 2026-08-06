@@ -22,7 +22,7 @@ import {
   ASSESSMENT_QUESTION_CONTENT,
   COURSE_BLOCK_CONTENT,
 } from "@/document/model/content-model/content-groups";
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
 import {
@@ -72,10 +72,7 @@ import {
   describeImageHotspotRevealedHotspotAccessibilityState,
   describeImageHotspotSurfaceAccessibilityState,
 } from "./image-hotspot-canvas-runtime";
-import {
-  IMAGE_HOTSPOT_CORRECT_COLOR,
-  patchHotspotInCanvasData,
-} from "./image-hotspot-canvas-shared";
+import { patchHotspotInCanvasData } from "./image-hotspot-canvas-shared";
 import { ImageHotspotAuthoringExtension } from "./image-hotspot-authoring-extension";
 import { ImageHotspotRuntimeExtension } from "./image-hotspot-runtime-extension";
 
@@ -193,6 +190,7 @@ function makeBoundedAuthoringEditor(
       UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       ExtendedParagraph,
       CourseDocumentNode,
+      createCourseSectionNode(),
       SurfaceNode,
       RegionNode,
       GridNode,
@@ -228,6 +226,7 @@ function makeBoundedRuntimeEditor(
       UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       ExtendedParagraph,
       CourseDocumentNode,
+      createCourseSectionNode(),
       SurfaceNode,
       RegionNode,
       GridNode,
@@ -548,10 +547,6 @@ afterEach(() => {
 });
 
 describe("composite image_hotspot node", () => {
-  it("uses the semantic success colour for correct hotspot geometry", () => {
-    expect(IMAGE_HOTSPOT_CORRECT_COLOR).toBe("var(--color-success)");
-  });
-
   it("describes image hotspot runtime accessibility states", () => {
     expect(
       describeImageHotspotSurfaceAccessibilityState({

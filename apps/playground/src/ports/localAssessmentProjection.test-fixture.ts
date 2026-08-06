@@ -12,8 +12,8 @@ export interface LocalAssessmentFixtureTarget {
 export function quizAssessmentProjection(
   settings: Partial<QuizAssessmentSettings> = {},
   targets: LocalAssessmentFixtureTarget[] = [
-    { id: "mcq-1", correctOptionId: "a" },
-    { id: "mcq-2", correctOptionId: "b" },
+    { id: "target_00001", correctOptionId: "option_00001" },
+    { id: "target_00002", correctOptionId: "option_00002" },
   ],
 ): {
   assessmentGroups: AssessmentGroupContract[];
@@ -35,7 +35,7 @@ export function quizAssessmentProjection(
       {
         schemaVersion: 2,
         kind: "quiz",
-        groupId: "quiz-1",
+        groupId: "quiz__000001",
         targetIds: targets.map(({ id }) => id),
         settings: quizSettings,
       },
@@ -47,7 +47,7 @@ export function quizAssessmentProjection(
       blockType: "mcq",
       interaction: {
         kind: "single-select",
-        options: [{ id: "a" }, { id: "b" }],
+        options: [{ id: "option_00001" }, { id: "option_00002" }],
       },
       assessment: {
         kind: "single-select",

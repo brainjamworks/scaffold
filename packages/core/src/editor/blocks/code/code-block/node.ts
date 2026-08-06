@@ -148,7 +148,14 @@ export function createCodeBlockNode(options: CodeBlockNodeOptions = {}) {
     },
 
     renderHTML({ HTMLAttributes }) {
-      return ["section", mergeAttributes(HTMLAttributes, { "data-node": "code_block" }), 0];
+      return [
+        "section",
+        mergeAttributes(HTMLAttributes, {
+          "data-node": "code_block",
+          class: "sc-course-code-block",
+        }),
+        0,
+      ];
     },
 
     ...(options.addNodeView
@@ -188,9 +195,9 @@ export function createCodeBlockBodyNode(options: CodeBlockBodyNodeOptions = {}) 
         "pre",
         mergeAttributes(HTMLAttributes, {
           "data-slot": "code-block-body",
-          class: "sc-code-block__pre",
+          class: "sc-course-code-block__pre",
         }),
-        ["code", { class: "sc-code-block__content" }, 0],
+        ["code", { class: "sc-course-code-block__content" }, 0],
       ];
     },
 

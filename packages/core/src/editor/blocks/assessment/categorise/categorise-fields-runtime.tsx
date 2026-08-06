@@ -11,7 +11,6 @@ import { InteractionDragSession } from "@/editor/interactions/drag/react/Interac
 import { useInteractionDragSource } from "@/editor/interactions/drag/react/use-interaction-drag-source";
 import { useInteractionDropTarget } from "@/editor/interactions/drag/react/use-interaction-drop-target";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
-import { cn } from "@/lib/cn";
 import { AssessmentFeedbackContentSchema } from "@scaffold/contracts";
 import { iconSm } from "@/ui/tokens/icon-sizes";
 
@@ -154,9 +153,9 @@ function CategoriseContentRuntimeNodeView(props: NodeViewProps) {
     <NodeViewWrapper
       data-bounded-scroll-frame=""
       data-slot="categorise-content"
-      className="sc-categorise-content sc-categorise-content--runtime"
+      className="sc-course-categorise__content sc-course-categorise__content--runtime"
     >
-      <div data-bounded-scroll="" className="sc-categorise-content-scroll">
+      <div data-bounded-scroll="" className="sc-course-categorise__scroll">
         <InteractionDragSession<CategoriseDragData, CategoriseDropData>
           accessibilityMode="selection-alternative"
           collisionPolicy="pointer"
@@ -167,16 +166,16 @@ function CategoriseContentRuntimeNodeView(props: NodeViewProps) {
           onStart={handleDragStart}
           profile="pointer"
           renderPreview={(active) => (
-            <div className="sc-categorise-runtime-preview">
+            <div className="sc-course-categorise__drag-preview">
               {renderStaticHtml(active.html, "Item")}
             </div>
           )}
           sessionId={`categorise-${authoredBlockId ?? "runtime"}`}
         >
           {sourceItems.length > 0 && (
-            <div className="sc-categorise-runtime-source">
-              <div className="sc-categorise-runtime-source-label">Items</div>
-              <div className="sc-categorise-grid">
+            <div className="sc-course-categorise__source">
+              <div className="sc-course-categorise__source-label">Items</div>
+              <div className="sc-course-categorise__source-grid">
                 {sourceItems.map((item, idx) => {
                   const selected = selectedItemId === item.id;
                   const sourceDescription = describeCategoriseSourceItemAccessibilityState({
@@ -203,7 +202,7 @@ function CategoriseContentRuntimeNodeView(props: NodeViewProps) {
             </div>
           )}
 
-          <div className="sc-categorise-runtime-bin-grid">
+          <div className="sc-course-categorise__bin-grid">
             {categories.map((category, idx) => {
               const placed = items.filter((item) => displayPlacements[item.id] === category.id);
               return (
@@ -274,6 +273,7 @@ function CategoriseRuntimeSourceItem({
       aria-label={`Select item ${index + 1}`}
       aria-describedby={descriptionId}
       data-id={item.id}
+      data-selected={selected || undefined}
       data-interaction-drag-placeholder={drag.isPlaceholder ? "" : undefined}
       onClick={onSelect}
       onKeyDown={(event) => {
@@ -284,12 +284,7 @@ function CategoriseRuntimeSourceItem({
         }
         if (event.key === "Escape") onEscape();
       }}
-      className={cn(
-        "sc-categorise-runtime-source-item",
-        selected && "sc-categorise-runtime-source-item--selected",
-        !interactionLocked && "sc-categorise-runtime-source-item--interactive",
-        drag.isPlaceholder && "sc-categorise-runtime-source-item--placeholder",
-      )}
+      className="sc-course-categorise__source-item"
     >
       {renderStaticHtml(item.html, `Item ${index + 1}`)}
       <span id={descriptionId} className="sc-sr-only">
@@ -352,6 +347,8 @@ function CategoriseRuntimeCategory({
       aria-label={`Category ${index + 1}`}
       aria-describedby={categoryDescriptionId}
       data-id={category.id}
+      data-drop-active={activeDrop || undefined}
+      data-placement-ready={selectedItemId && !interactionLocked ? "" : undefined}
       onClick={onPlaceSelected}
       onKeyDown={(event) => {
         if (interactionLocked || !selectedItemId) return;
@@ -360,18 +357,15 @@ function CategoriseRuntimeCategory({
           onPlaceSelected();
         }
       }}
-      className={cn(
-        "sc-categorise-runtime-category",
-        activeDrop && "sc-categorise-runtime-category--active",
-      )}
+      className="sc-course-categorise__runtime-bin"
     >
       <span id={categoryDescriptionId} className="sc-sr-only">
         {categoryDescription}
       </span>
-      <div className="sc-categorise-runtime-category__title">
+      <div className="sc-course-categorise__runtime-bin-title">
         {renderStaticHtml(category.html, `Category ${index + 1}`)}
       </div>
-      <div className="sc-categorise-runtime-category__items">
+      <div className="sc-course-categorise__placed-items">
         {items.map((item) => (
           <CategoriseRuntimePlacedItem
             key={item.id}
@@ -387,7 +381,7 @@ function CategoriseRuntimeCategory({
           />
         ))}
         {items.length === 0 && (
-          <span className="sc-categorise-empty">
+          <span className="sc-course-categorise__empty-bin">
             {selectedItemId ? "Click to place selected item" : "Drop items here"}
           </span>
         )}
@@ -443,14 +437,13 @@ function CategoriseRuntimePlacedItem({
       aria-label="Placed item"
       aria-describedby={placedItemDescriptionId}
       data-placed-item-id={item.id}
-      className={cn(
-        "sc-categorise-runtime-placed-item",
-        showFeedback && correct === true && "sc-categorise-runtime-placed-item--correct",
-        showFeedback && correct === false && "sc-categorise-runtime-placed-item--incorrect",
-      )}
+      data-course-state={
+        showFeedback && correct !== null ? (correct ? "correct" : "incorrect") : undefined
+      }
+      className="sc-course-categorise__placed-item"
     >
-      <div className="sc-categorise-placed-item__row">
-        <div className="sc-categorise-placed-item__content">
+      <div className="sc-course-categorise__placed-item-row">
+        <div className="sc-course-categorise__item-content">
           {renderStaticHtml(item.html, "Item")}
         </div>
         {!interactionLocked && (
@@ -461,7 +454,7 @@ function CategoriseRuntimePlacedItem({
               e.stopPropagation();
               onRemovePlacement(item.id);
             }}
-            className="sc-categorise-runtime-remove"
+            className="sc-course-categorise__remove-action"
           >
             <X size={iconSm} />
           </button>
@@ -479,5 +472,7 @@ function CategoriseRuntimePlacedItem({
 
 function renderStaticHtml(html: string, fallback: string) {
   if (!html) return fallback;
-  return <div className="sc-categorise-static-html" dangerouslySetInnerHTML={{ __html: html }} />;
+  return (
+    <div className="sc-course-categorise__static-html" dangerouslySetInnerHTML={{ __html: html }} />
+  );
 }

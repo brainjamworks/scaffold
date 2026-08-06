@@ -15,7 +15,7 @@ const FlashcardCardRuntimeNode = createFlashcardCardNode({
 const FlashcardRuntimeRootNode = createFlashcardNode({
   addNodeView: () =>
     createBlockRuntimeNodeView({
-      className: "sc-flashcard-block",
+      className: "sc-course-flashcard-block",
       definition: flashcardBlockDefinition,
       view: { component: FlashcardRuntimeView },
     }),

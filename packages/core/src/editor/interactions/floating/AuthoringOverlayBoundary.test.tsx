@@ -86,6 +86,48 @@ describe("AuthoringOverlayBoundary", () => {
     container.remove();
   });
 
+  it("separates interaction ownership from explicit viewport collision geometry", async () => {
+    const container = document.createElement("div");
+    const collisionBoundary = document.createElement("section");
+    const ownerRoot = document.createElement("div");
+    container.append(collisionBoundary, ownerRoot);
+    document.body.append(container);
+    const environments: OverlayBoundaryEnvironment[] = [];
+
+    function EnvironmentProbe() {
+      const resolution = useOverlayBoundary();
+      if (resolution.status === "ready") environments.push(resolution.environment);
+      return <div data-testid="viewport-boundary-probe" data-status={resolution.status} />;
+    }
+
+    const { unmount } = render(
+      <AuthoringOverlayBoundary
+        collisionBoundary={collisionBoundary}
+        container={container}
+        kind="viewport"
+        ownerRoot={ownerRoot}
+      >
+        <EnvironmentProbe />
+      </AuthoringOverlayBoundary>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("viewport-boundary-probe").dataset.status).toBe("ready");
+    });
+
+    const host = container.querySelector<HTMLElement>(":scope > [data-scaffold-overlay-host]");
+    const environment = environments.at(-1);
+    expect(host?.dataset.kind).toBe("viewport");
+    expect(environment?.collisionBoundary).toBe(collisionBoundary);
+
+    const target = document.createElement("button");
+    host?.append(target);
+    expect(isOverlayTargetOwnedBy(ownerRoot, target)).toBe(true);
+
+    unmount();
+    container.remove();
+  });
+
   it("stays pending and creates no host without a concrete editor root", () => {
     const container = document.createElement("div");
     document.body.append(container);

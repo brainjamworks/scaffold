@@ -15,7 +15,7 @@ function CalloutRuntimeView(props: NodeViewProps) {
 const CalloutRuntimeNode = createCalloutNode({
   addNodeView: () =>
     createBlockRuntimeNodeView({
-      className: "sc-callout-node",
+      className: "sc-course-callout-node",
       definition: calloutBlockDefinition,
       view: { component: CalloutRuntimeView },
     }),

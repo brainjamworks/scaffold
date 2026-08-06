@@ -7,7 +7,7 @@ import type { ZodTypeAny } from "zod";
 import type { CheckedMutationResult } from "@/document/model/commands/checked-transactions";
 import type { ResolvedStableNode } from "@/document/model/identity/resolve-stable-node";
 import type { ButtonVariant } from "@/ui/components/Button/Button";
-import type { PillVariant } from "@/ui/components/Pill/Pill";
+import type { PillVariant } from "@/ui/components/app/Pill/Pill";
 
 export type SettingsSheetAttrSurface = "data" | "settings" | "options";
 export type SettingsSheetFieldName = FieldPath<FieldValues>;
@@ -209,10 +209,16 @@ export interface SettingsFormSection<TActionId extends string = string> {
 export interface SettingsFormDefinition<TActionId extends string = string> {
   sections: readonly SettingsFormSection<TActionId>[];
   defaultOpenSections?: readonly string[];
-  footerActions?: readonly SettingsFormAction<TActionId>[];
 }
 
-export interface SettingsSheetDefinition extends SettingsFormDefinition {
+export interface SettingsSheetSection {
+  id: string;
+  title: string;
+  description?: ReactNode;
+  items: readonly SettingsFormItemDescriptor[];
+}
+
+export interface SettingsSheetDefinition {
   attr: SettingsSheetAttrSurface;
   /** Persisted schema for the configured node attr. */
   schema: ZodTypeAny;
@@ -223,6 +229,8 @@ export interface SettingsSheetDefinition extends SettingsFormDefinition {
   apply?: SettingsSheetApply;
   title: string;
   description?: string;
+  sections: readonly SettingsSheetSection[];
+  defaultOpenSections?: readonly string[];
 }
 
 export type NodeSettingsSheetDefinition = SettingsSheetDefinition & {

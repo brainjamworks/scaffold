@@ -1,3 +1,4 @@
+import { FilePdfIcon as FilePdf } from "@phosphor-icons/react";
 import { useEditorState, type NodeViewProps } from "@tiptap/react";
 import { PdfEmbedDataSchema, type PdfEmbedData, type PdfEmbedSource } from "@scaffold/contracts";
 
@@ -6,6 +7,8 @@ import {
   usePickerOpen,
 } from "@/editor/media/authoring/picker/file-picker-open-state";
 import { useMediaPort } from "@/host/providers/ScaffoldServicesProvider";
+import { MediaEmptyAction } from "@/ui/components/app/MediaEmptyAction/MediaEmptyAction";
+import { MediaReplaceButton } from "@/ui/components/app/MediaReplaceButton/MediaReplaceButton";
 import {
   FilePickerModal,
   type FilePickerResult,
@@ -62,9 +65,28 @@ export function PdfEmbedAuthoringView(props: NodeViewProps) {
     <>
       <PdfEmbedSurface
         data={data}
-        editable={editable}
         mediaPort={mediaPort}
-        onAdd={() => setPickerOpen(true)}
+        emptyAction={
+          editable ? (
+            <MediaEmptyAction
+              aria-label="Add PDF"
+              icon={<FilePdf size={24} weight="regular" />}
+              label="Add PDF"
+              onClick={() => setPickerOpen(true)}
+              onMouseDown={(event) => event.stopPropagation()}
+            />
+          ) : undefined
+        }
+        replaceAction={
+          editable && data.source ? (
+            <MediaReplaceButton
+              aria-label="Replace PDF"
+              onClick={() => setPickerOpen(true)}
+              placement="inline"
+              tooltip="Replace PDF"
+            />
+          ) : undefined
+        }
       />
       {editable ? (
         <FilePickerModal

@@ -11,6 +11,7 @@ import {
 } from "./numbered-list-authoring-controls";
 import { createNumberedListNode } from "./node";
 import { createNumberedListTitleNode, NumberedListItemNode } from "./slots";
+import "./NumberedListAuthoringControls.css";
 
 function NumberedListAuthoringView(props: NodeViewProps) {
   return <NumberedListView {...props} renderAddControl={renderNumberedListAddControl} />;
@@ -27,7 +28,7 @@ const NumberedListAuthoringTitleNode = createNumberedListTitleNode(() =>
 const NumberedListAuthoringRootNode = createNumberedListNode({
   addNodeView: () =>
     createBlockAuthoringNodeView({
-      className: "sc-numbered-list",
+      className: "sc-course-numbered-list",
       definition: numberedListBlockDefinition,
       view: { component: NumberedListAuthoringView },
     }),

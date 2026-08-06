@@ -9,13 +9,9 @@ interface GlossarySurfaceProps {
 
 export function GlossarySurface({ trailing }: GlossarySurfaceProps) {
   return (
-    <div data-node="glossary" className="sc-glossary">
-      <section className="sc-glossary__section" aria-label="Glossary">
-        <div className="sc-glossary__list">
-          <NodeViewContent />
-          {trailing}
-        </div>
-      </section>
-    </div>
+    <section data-node="glossary" className="sc-course-glossary__section" aria-label="Glossary">
+      <NodeViewContent<"dl"> as="dl" className="sc-course-glossary__list" />
+      {trailing}
+    </section>
   );
 }

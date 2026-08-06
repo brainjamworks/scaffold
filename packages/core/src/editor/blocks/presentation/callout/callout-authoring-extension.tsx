@@ -9,6 +9,8 @@ import { calloutBlockDefinition } from "./callout-definition";
 import { createCalloutNode } from "./node";
 import { CalloutPromptNode, CalloutTitleNode } from "./slots";
 
+import "./CalloutAuthoringControls.css";
+
 function CalloutAuthoringView(props: NodeViewProps) {
   return (
     <CalloutView editable props={props} renderIconControl={renderCalloutAuthoringIconControl} />
@@ -18,7 +20,7 @@ function CalloutAuthoringView(props: NodeViewProps) {
 const CalloutAuthoringNode = createCalloutNode({
   addNodeView: () =>
     createBlockAuthoringNodeView({
-      className: "sc-callout-node",
+      className: "sc-course-callout-node",
       definition: calloutBlockDefinition,
       view: { component: CalloutAuthoringView },
     }),

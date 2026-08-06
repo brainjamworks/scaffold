@@ -35,7 +35,7 @@ describe("Playground local assessment runtime composition", () => {
     const user = userEvent.setup();
     const learnerContent = quizDocument();
     const assessmentProjection = quizAssessmentProjection({ passingScore: 1 }, [
-      { id: "mcq-1", correctOptionId: "a" },
+      { id: "target_00001", correctOptionId: "option_00001" },
     ]);
     const assessment = createLocalAssessmentPortFromProjection(() => assessmentProjection);
     const finishAttempt = vi.spyOn(assessment.quiz!, "finishAttempt");
@@ -89,7 +89,7 @@ function quizDocument(): JSONContent {
     {
       type: "quiz",
       attrs: {
-        id: "quiz-1",
+        id: "quiz__000001",
         settings: {
           allowBacktracking: true,
           reviewTiming: "after_quiz",
@@ -110,9 +110,9 @@ function mcqBlock(): JSONContent {
   return {
     type: "mcq",
     attrs: {
-      id: "mcq-1",
+      id: "target_00001",
       assessment: {
-        correctOptionId: "a",
+        correctOptionId: "option_00001",
         feedbackByOptionId: {},
         summaryFeedback: null,
       },
@@ -131,7 +131,10 @@ function mcqBlock(): JSONContent {
       { type: "assessment_prompt", content: [{ type: "paragraph" }] },
       {
         type: "assessment_choices_group",
-        content: [selectableChoice("a", "Alpha"), selectableChoice("b", "Beta")],
+        content: [
+          selectableChoice("option_00001", "Alpha"),
+          selectableChoice("option_00002", "Beta"),
+        ],
       },
       {
         type: "assessment_actions_group",

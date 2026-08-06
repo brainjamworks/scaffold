@@ -3,7 +3,7 @@ import UniqueID from "@tiptap/extension-unique-id";
 import StarterKit from "@tiptap/starter-kit";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 
@@ -48,6 +48,7 @@ function makeEditor({
       DocumentNode,
       StarterKit.configure({ document: false, undoRedo: false }),
       CourseDocumentNode,
+      createCourseSectionNode(),
       UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       SurfaceNode,
       RegionNode,

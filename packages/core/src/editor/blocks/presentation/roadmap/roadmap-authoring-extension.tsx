@@ -8,6 +8,7 @@ import { roadmapBlockDefinition } from "./roadmap-definition";
 import { RoadmapAuthoringView } from "./RoadmapAuthoringView";
 import { RoadmapMilestoneAuthoringView } from "./RoadmapMilestoneAuthoringView";
 import { createRoadmapMilestoneNode } from "./slots";
+import "./RoadmapAuthoringControls.css";
 
 const RoadmapMilestoneAuthoringNode = createRoadmapMilestoneNode({
   addNodeView: () => ReactNodeViewRenderer(RoadmapMilestoneAuthoringView),
@@ -16,6 +17,7 @@ const RoadmapMilestoneAuthoringNode = createRoadmapMilestoneNode({
 const RoadmapAuthoringNode = createRoadmapNode({
   addNodeView: () =>
     createBlockAuthoringNodeView({
+      className: "sc-course-roadmap-node",
       definition: roadmapBlockDefinition,
       view: { component: RoadmapAuthoringView },
     }),

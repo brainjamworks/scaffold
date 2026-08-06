@@ -37,7 +37,7 @@ export function createCourseTableNode(options: CourseTableNodeOptions = {}) {
   return Table.configure({
     resizable: true,
     HTMLAttributes: {
-      class: "sc-table",
+      class: "sc-course-table",
     },
     // Default size when inserting a new table from a command.
     cellMinWidth: 80,
@@ -53,7 +53,7 @@ export function createCourseTableNode(options: CourseTableNodeOptions = {}) {
         "table",
         {
           ...HTMLAttributes,
-          class: ["sc-table", HTMLAttributes.class].filter(Boolean).join(" "),
+          class: ["sc-course-table", HTMLAttributes.class].filter(Boolean).join(" "),
           ...(options.tableAttributes?.(HTMLAttributes) ?? {}),
         },
         ["tbody", 0],
@@ -63,7 +63,7 @@ export function createCourseTableNode(options: CourseTableNodeOptions = {}) {
     ...(options.proseMirrorPlugins
       ? {
           addProseMirrorPlugins() {
-            return options.proseMirrorPlugins!(this.name);
+            return [...(this.parent?.() ?? []), ...options.proseMirrorPlugins!(this.name)];
           },
         }
       : {}),

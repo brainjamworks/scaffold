@@ -1,0 +1,77 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-app-glossary-add {
+    display: block;
+    width: 100%;
+    padding-block: 0.75rem;
+    border: 0;
+    border-bottom: 1px dashed var(--sc-app-color-border);
+    background: transparent;
+    color: var(--sc-app-color-text-muted);
+    font-family: var(--font-ui);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.5;
+    text-align: left;
+    cursor: pointer;
+    transition:
+      border-color 150ms ease,
+      color 150ms ease;
+  }
+
+  .sc-app-glossary-add:hover {
+    border-bottom-color: var(--sc-app-color-primary);
+    color: var(--sc-app-color-primary);
+  }
+
+  .sc-app-glossary-add:focus-visible {
+    outline: 2px solid var(--sc-app-color-focus-outline);
+    outline-offset: 2px;
+  }
+
+  .sc-app-glossary-delete {
+    position: absolute;
+    inset-block-start: 1rem;
+    inset-inline-end: 0;
+    display: inline-flex;
+    width: 1.75rem;
+    height: 1.75rem;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    color: var(--sc-app-color-text-muted);
+    opacity: 1;
+    cursor: pointer;
+    transition:
+      background-color 150ms ease,
+      color 150ms ease,
+      opacity 150ms ease;
+  }
+
+  .sc-app-glossary-delete:not([aria-disabled="true"]):hover,
+  .sc-app-glossary-delete:not([aria-disabled="true"]):focus-visible {
+    background: var(--sc-app-color-error-background);
+    color: var(--sc-app-color-error);
+  }
+
+  .sc-app-glossary-delete:focus-visible {
+    outline: 2px solid var(--sc-app-color-focus-outline);
+    outline-offset: 2px;
+  }
+
+  .sc-app-glossary-delete[aria-disabled="true"] {
+    color: var(--sc-app-color-text-placeholder);
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sc-app-glossary-add,
+    .sc-app-glossary-delete {
+      transition: none;
+    }
+  }
+}

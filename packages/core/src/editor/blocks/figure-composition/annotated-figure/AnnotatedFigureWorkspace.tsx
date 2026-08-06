@@ -3,12 +3,14 @@ import {
   CaretUpIcon as CaretUp,
   XIcon as X,
 } from "@phosphor-icons/react";
+import { IconButton, TextField } from "@radix-ui/themes";
 import type { Editor, Extensions } from "@tiptap/core";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { MediaWorkspace } from "@/editor/media/presentation/MediaWorkspace";
 import { RichTextArea } from "@/editor/rich-text/authoring/nested-overlay/RichTextArea";
 import { renderRuntimeRichTextNode } from "@/editor/rich-text/runtime/render-rich-text";
+import { CourseThemePortalBoundary } from "@/theme/course";
 import { WorkspaceDialog } from "@/ui/components/WorkspaceDialog/WorkspaceDialog";
 
 import { createAnnotatedFigureCaptionTarget } from "./annotated-figure-caption-editor";
@@ -73,7 +75,7 @@ export function AnnotatedFigureWorkspace({
   return (
     <WorkspaceDialog.Content
       ref={setWorkspaceElement}
-      className="sc-annotated-figure-workspace"
+      className="sc-app-annotated-figure-workspace"
       contentEditable={false}
       size="large"
     >
@@ -89,12 +91,16 @@ export function AnnotatedFigureWorkspace({
       </WorkspaceDialog.Header>
       <AnnotatedFigureToolbar onAddAnnotation={onAddAnnotation} onReplaceImage={onReplaceImage} />
       <MediaWorkspace.Root>
-        <MediaWorkspace.Canvas
-          className="sc-annotated-figure-workspace__canvas-panel"
-          aria-label="Annotation canvas"
-        >
-          {canvas}
-        </MediaWorkspace.Canvas>
+        <CourseThemePortalBoundary>
+          <MediaWorkspace.Canvas
+            className="sc-app-annotated-figure-workspace__canvas-panel"
+            aria-label="Annotation canvas"
+          >
+            <div className="sc-course-annotated-figure sc-app-annotated-figure-workspace__course-surface">
+              {canvas}
+            </div>
+          </MediaWorkspace.Canvas>
+        </CourseThemePortalBoundary>
         <MediaWorkspace.Sidebar aria-label="Caption management">
           <MediaWorkspace.SidebarHeader
             title="Captions"
@@ -130,14 +136,17 @@ export function AnnotatedFigureWorkspace({
                         </span>
                       </MediaWorkspace.ItemSelect>
                       <div
-                        className="sc-annotated-figure-workspace__row-actions"
+                        className="sc-app-annotated-figure-workspace__row-actions"
                         role="group"
                         aria-label={`Reorder and delete workspace annotation ${annotation.number}`}
                       >
-                        <button
+                        <IconButton
                           type="button"
+                          className="sc-app-annotated-figure-workspace__row-action"
                           disabled={!previous}
                           aria-label={`Move workspace annotation ${annotation.number} previous`}
+                          size="2"
+                          variant="ghost"
                           onClick={() => {
                             if (previous) {
                               onMoveAnnotation(annotation.id, "previous", previous.id);
@@ -145,32 +154,37 @@ export function AnnotatedFigureWorkspace({
                           }}
                         >
                           <CaretUp size={16} aria-hidden />
-                        </button>
-                        <button
+                        </IconButton>
+                        <IconButton
                           type="button"
+                          className="sc-app-annotated-figure-workspace__row-action"
                           disabled={!next}
                           aria-label={`Move workspace annotation ${annotation.number} next`}
+                          size="2"
+                          variant="ghost"
                           onClick={() => {
                             if (next) onMoveAnnotation(annotation.id, "next", next.id);
                           }}
                         >
                           <CaretDown size={16} aria-hidden />
-                        </button>
-                        <button
+                        </IconButton>
+                        <IconButton
                           type="button"
-                          className="sc-annotated-figure-workspace__row-delete"
+                          className="sc-app-annotated-figure-workspace__row-delete"
                           aria-label={`Delete workspace annotation ${annotation.number}`}
                           onClick={() => onDeleteAnnotation(annotation.id)}
+                          size="2"
+                          variant="ghost"
                         >
                           <X size={16} aria-hidden />
-                        </button>
+                        </IconButton>
                       </div>
                     </MediaWorkspace.ItemHeader>
                     {selected && captionTarget ? (
-                      <div className="sc-annotated-figure-workspace__caption-editor">
-                        <input
+                      <div className="sc-app-annotated-figure-workspace__caption-editor">
+                        <TextField.Root
                           aria-label={`Annotation ${annotation.number} title`}
-                          className="sc-annotated-figure-workspace__title-field"
+                          className="sc-app-annotated-figure-workspace__title-field"
                           maxLength={120}
                           onChange={(event) => {
                             outerEditor.view.dispatch(
@@ -181,7 +195,6 @@ export function AnnotatedFigureWorkspace({
                             );
                           }}
                           placeholder={`Annotation ${annotation.number}`}
-                          type="text"
                           value={annotation.title}
                         />
                         <RichTextArea
@@ -190,7 +203,7 @@ export function AnnotatedFigureWorkspace({
                           autoFocus
                           bubbleMenuAppendTo={() => workspaceElement}
                           bubbleMenuPluginKey={`annotated-figure-workspace-caption-${editorId}`}
-                          className="sc-annotated-figure-workspace__caption-field"
+                          className="sc-app-annotated-figure-workspace__caption-field"
                           extensions={captionEditorExtensions}
                           fieldKey={`annotation:${annotation.id}:caption`}
                           outerEditor={outerEditor}
@@ -200,7 +213,7 @@ export function AnnotatedFigureWorkspace({
                         />
                       </div>
                     ) : (
-                      <div className="sc-annotated-figure-workspace__caption-preview">
+                      <div className="sc-app-annotated-figure-workspace__caption-preview">
                         {annotation.captionNode.content.size > 0
                           ? renderRuntimeRichTextNode(
                               annotation.captionNode.toJSON(),

@@ -4,7 +4,7 @@ import { Editor, Node, type JSONContent } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import type { EmbeddedNodeId } from "@scaffold/contracts";
 import { ARRANGEMENT_CONTENT } from "@/document/model/content-model/content-groups";
@@ -46,6 +46,7 @@ function makeEditor(surfaceIds: readonly EmbeddedNodeId[] = [SURFACE_ID]): Edito
       ExtendedParagraph,
       ExtendedHeading,
       CourseDocumentNode,
+      createCourseSectionNode(),
       SurfaceNode,
       RegionNode,
       SurfaceHeaderNode,

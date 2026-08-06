@@ -2,6 +2,7 @@
 
 import { Editor } from "@tiptap/core";
 import type { JSONContent } from "@tiptap/core";
+import UniqueID from "@tiptap/extension-unique-id";
 import { NodeSelection } from "@tiptap/pm/state";
 import { EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -75,7 +76,7 @@ function galleryFixture(layout: "carousel" | "grid" = "carousel") {
   return {
     type: "gallery",
     attrs: {
-      id: "block-gallery-proof",
+      id: "gallery_0001",
       data: emptyGalleryData({
         layout,
         caption: richText("Shared gallery caption", [{ type: "italic" }]),
@@ -85,7 +86,7 @@ function galleryFixture(layout: "carousel" | "grid" = "carousel") {
       {
         type: "gallery_item",
         attrs: {
-          id: "gallery-image-1",
+          id: "galleryimg01",
           data: {
             image: {
               mode: "external",
@@ -99,7 +100,7 @@ function galleryFixture(layout: "carousel" | "grid" = "carousel") {
       {
         type: "gallery_item",
         attrs: {
-          id: "gallery-image-2",
+          id: "galleryimg02",
           data: {
             image: {
               mode: "external",
@@ -141,6 +142,11 @@ function renderGalleryEditor(content: JSONContent = galleryFixture()) {
   const fixture = createDisposableEditor({
     extensions: [
       StarterKit,
+      UniqueID.configure({
+        attributeName: "id",
+        types: ["gallery", "gallery_item"],
+        updateDocument: false,
+      }),
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
       createRuntimeBlockFrameAttributesExtension([GALLERY_NODE]),
       GalleryAuthoringExtension,
@@ -208,6 +214,11 @@ it("resolves selected gallery blocks to their declared visual surface", async ()
   const editor = new Editor({
     extensions: [
       StarterKit.configure({ undoRedo: false }),
+      UniqueID.configure({
+        attributeName: "id",
+        types: ["gallery", "gallery_item"],
+        updateDocument: false,
+      }),
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
       createRuntimeBlockFrameAttributesExtension([GALLERY_NODE]),
       GalleryAuthoringExtension,
@@ -218,7 +229,7 @@ it("resolves selected gallery blocks to their declared visual surface", async ()
         {
           type: "gallery",
           attrs: {
-            id: "block-gallery-proof",
+            id: "gallery_0001",
             data: emptyGalleryData(),
           },
         },
@@ -230,9 +241,7 @@ it("resolves selected gallery blocks to their declared visual surface", async ()
 
   await waitFor(() => {
     expect(
-      document.body.querySelector(
-        `[${AUTHORING_FRAME_ATTR}="block"][data-id="block-gallery-proof"]`,
-      ),
+      document.body.querySelector(`[${AUTHORING_FRAME_ATTR}="block"][data-id="gallery_0001"]`),
     ).toBeInstanceOf(HTMLElement);
   });
 
@@ -247,16 +256,16 @@ it("resolves selected gallery blocks to their declared visual surface", async ()
     builtInBlockRegistry,
   );
   expect(ownerDescriptor?.nodeType).toBe("gallery");
-  expect(ownerDescriptor?.blockId).toBe("block-gallery-proof");
+  expect(ownerDescriptor?.blockId).toBe("gallery_0001");
 
   const surface = resolveAuthoringFrameElement(document.body, {
     frameKind: AuthoringFrameKind.Block,
-    id: "block-gallery-proof",
+    id: "gallery_0001",
   });
   expect(surface?.getAttribute(AUTHORING_FRAME_ATTR)).toBe("block");
   expect(surface?.getAttribute("data-node")).toBe("gallery");
   expect(surface?.getAttribute("data-definition")).toBe("gallery");
-  expect(surface?.getAttribute("data-id")).toBe("block-gallery-proof");
+  expect(surface?.getAttribute("data-id")).toBe("gallery_0001");
 
   editor.destroy();
 });
@@ -265,14 +274,14 @@ it("renders the pilot block surface without legacy authoring attrs", async () =>
   const editor = renderGalleryEditor({
     type: "gallery",
     attrs: {
-      id: "block-gallery-proof",
+      id: "gallery_0001",
       data: emptyGalleryData(),
     },
   });
 
   const surface = await waitFor(() => {
     const element = document.body.querySelector<HTMLElement>(
-      `[${AUTHORING_FRAME_ATTR}="block"][data-id="block-gallery-proof"]`,
+      `[${AUTHORING_FRAME_ATTR}="block"][data-id="gallery_0001"]`,
     );
     expect(element).toBeInstanceOf(HTMLElement);
     if (!(element instanceof HTMLElement)) {
@@ -294,12 +303,12 @@ it("selects gallery from passive surface clicks through the shared surface activ
   await waitFor(() => {
     expect(
       document.body.querySelector<HTMLElement>(
-        `[${AUTHORING_FRAME_ATTR}="block"][data-id="block-gallery-proof"]`,
+        `[${AUTHORING_FRAME_ATTR}="block"][data-id="gallery_0001"]`,
       ),
     ).toBeInstanceOf(HTMLElement);
   });
   const surface = document.body.querySelector<HTMLElement>(
-    `[${AUTHORING_FRAME_ATTR}="block"][data-id="block-gallery-proof"]`,
+    `[${AUTHORING_FRAME_ATTR}="block"][data-id="gallery_0001"]`,
   );
   if (!(surface instanceof HTMLElement)) {
     throw new Error("Expected gallery authoring frame");
@@ -315,19 +324,52 @@ it("selects gallery from passive surface clicks through the shared surface activ
   editor.destroy();
 });
 
-it("labels carousel thumbnail tabs and preserves selected state", async () => {
+it("uses ordinary labelled carousel picker buttons and preserves current state", async () => {
   const editor = renderGalleryEditor();
 
-  const firstTab = await screen.findByRole("tab", { name: "Image 1" });
-  const secondTab = screen.getByRole("tab", { name: "Image 2" });
+  const picker = await screen.findByRole("group", { name: "Gallery images" });
+  const firstButton = within(picker).getByRole("button", { name: "Show image 1" });
+  const secondButton = within(picker).getByRole("button", { name: "Show image 2" });
 
-  expect(firstTab.getAttribute("aria-selected")).toBe("true");
-  expect(secondTab.getAttribute("aria-selected")).toBe("false");
+  expect(firstButton.getAttribute("aria-current")).toBe("true");
+  expect(secondButton.getAttribute("aria-current")).toBeNull();
+  expect(within(picker).queryByRole("tab")).toBeNull();
 
-  fireEvent.click(secondTab);
+  fireEvent.click(secondButton);
 
-  expect(firstTab.getAttribute("aria-selected")).toBe("false");
-  expect(secondTab.getAttribute("aria-selected")).toBe("true");
+  expect(firstButton.getAttribute("aria-current")).toBeNull();
+  expect(secondButton.getAttribute("aria-current")).toBe("true");
+
+  editor.destroy();
+});
+
+it("separates Course gallery composition from App-only author controls", async () => {
+  const editor = renderGalleryEditor();
+
+  const authoring = await waitFor(() => {
+    const element = document.querySelector<HTMLElement>(
+      '.sc-course-gallery[data-authoring-frame="block"]',
+    );
+    expect(element).toBeInstanceOf(HTMLElement);
+    return element!;
+  });
+  expect(authoring.querySelector(".sc-app-gallery__thumb-delete")).toHaveClass("rt-IconButton");
+  expect(authoring.querySelector('[class^="sc-gallery"], [class*=" sc-gallery"]')).toBeNull();
+
+  renderGalleryLearningEventRuntime(galleryFixture(), {
+    rootActivityId: "https://lms.example.test/courses/gallery",
+    accept: async () => undefined,
+  });
+
+  const runtime = await waitFor(() => {
+    const element = document.querySelector<HTMLElement>(
+      '.sc-course-gallery[data-runtime-frame="block"]',
+    );
+    expect(element).toBeInstanceOf(HTMLElement);
+    return element!;
+  });
+  expect(runtime.querySelector('[class*="sc-app-gallery"]')).toBeNull();
+  expect(runtime.querySelector('[class^="sc-gallery"], [class*=" sc-gallery"]')).toBeNull();
 
   editor.destroy();
 });
@@ -336,7 +378,7 @@ it("reports a carousel item only after its full-size stage image loads", () => {
   const onActiveItemLoad = vi.fn();
   const items: GalleryResolvedItem[] = [
     {
-      key: "gallery-image-1",
+      key: "galleryimg01",
       alt: "First",
       caption: EmptyScaffoldRichTextDocument,
       url: "https://example.com/first.jpg",
@@ -358,7 +400,7 @@ it("reports a carousel item only after its full-size stage image loads", () => {
 
   expect(onActiveItemLoad).not.toHaveBeenCalled();
   fireEvent.load(screen.getByRole("img", { name: "First" }));
-  expect(onActiveItemLoad).toHaveBeenCalledWith("gallery-image-1");
+  expect(onActiveItemLoad).toHaveBeenCalledWith("galleryimg01");
 });
 
 it("reports each successfully displayed carousel item once per Learning Event reporter", async () => {
@@ -374,7 +416,7 @@ it("reports each successfully displayed carousel item once per Learning Event re
   fireEvent.load(firstStageImage);
   await waitFor(() => expect(accept).toHaveBeenCalledTimes(2));
 
-  fireEvent.click(screen.getByRole("tab", { name: "Image 2" }));
+  fireEvent.click(screen.getByRole("button", { name: "Show image 2" }));
   const secondStageImage = await screen.findByRole("img", { name: "Second image" });
   fireEvent.load(secondStageImage);
   await waitFor(() => expect(accept).toHaveBeenCalledTimes(3));
@@ -389,7 +431,7 @@ it("reports each successfully displayed carousel item once per Learning Event re
   expect(accept.mock.calls[1]?.[0]).toMatchObject({
     verb: { display: { en: "experienced" } },
     object: {
-      id: createVisualItemActivityId(rootActivityId, "block-gallery-proof", "gallery-image-1"),
+      id: createVisualItemActivityId(rootActivityId, "gallery_0001", "galleryimg01"),
       definition: {
         type: LEARNING_EVENT_ACTIVITY_TYPES.visualItem,
         extensions: {
@@ -403,7 +445,7 @@ it("reports each successfully displayed carousel item once per Learning Event re
       contextActivities: {
         parent: [
           {
-            id: createVisualCompositionActivityId(rootActivityId, "block-gallery-proof"),
+            id: createVisualCompositionActivityId(rootActivityId, "gallery_0001"),
             definition: { type: LEARNING_EVENT_ACTIVITY_TYPES.visualComposition },
           },
         ],
@@ -456,8 +498,12 @@ it("does not report loaded gallery items on a non-presented runtime surface", as
     "another-surface",
   );
 
-  await waitFor(() => expect(document.querySelector(".sc-gallery__stage-image")).not.toBeNull());
-  const hiddenStageImage = document.querySelector<HTMLImageElement>(".sc-gallery__stage-image");
+  await waitFor(() =>
+    expect(document.querySelector(".sc-course-gallery__stage-image")).not.toBeNull(),
+  );
+  const hiddenStageImage = document.querySelector<HTMLImageElement>(
+    ".sc-course-gallery__stage-image",
+  );
   if (!hiddenStageImage) throw new Error("Expected a hidden-surface gallery stage image.");
   fireEvent.load(hiddenStageImage);
   await act(async () => {
@@ -689,7 +735,7 @@ it("derives bounded tracks from the measured grid viewport and disconnects clean
       createElement(GalleryGrid, { items, onTileClick: () => undefined }),
     ),
   );
-  const grid = container.querySelector<HTMLElement>(".sc-gallery__grid");
+  const grid = container.querySelector<HTMLElement>(".sc-course-gallery__grid");
 
   expect(grid).not.toBeNull();
   act(() => resize?.(0, 400));
@@ -698,8 +744,8 @@ it("derives bounded tracks from the measured grid viewport and disconnects clean
   act(() => resize?.(800, 400));
   expect(grid?.getAttribute("data-gallery-grid-bounded")).toBe("");
   expect(grid?.getAttribute("data-gallery-grid-layout")).toBe("3x2");
-  expect(grid?.style.getPropertyValue("--sc-gallery-grid-columns")).toBe("3");
-  expect(grid?.style.getPropertyValue("--sc-gallery-grid-rows")).toBe("2");
+  expect(grid?.style.getPropertyValue("--sc-course-gallery-grid-columns")).toBe("3");
+  expect(grid?.style.getPropertyValue("--sc-course-gallery-grid-rows")).toBe("2");
 
   unmount();
   expect(disconnect).toHaveBeenCalledTimes(1);
@@ -734,7 +780,7 @@ it("does not observe or apply measured tracks outside bounded placement", () => 
       onTileClick: () => undefined,
     }),
   );
-  const grid = container.querySelector<HTMLElement>(".sc-gallery__grid");
+  const grid = container.querySelector<HTMLElement>(".sc-course-gallery__grid");
 
   expect(construct).not.toHaveBeenCalled();
   expect(grid?.hasAttribute("data-gallery-grid-bounded")).toBe(false);
@@ -789,31 +835,31 @@ it("derives bounded tracks from the effective narrow-container gap", () => {
   act(() => resize?.(320, 210));
 
   expect(
-    container.querySelector(".sc-gallery__grid")?.getAttribute("data-gallery-grid-layout"),
+    container.querySelector(".sc-course-gallery__grid")?.getAttribute("data-gallery-grid-layout"),
   ).toBe("3x1");
 });
 
 it("labels carousel remove controls and removes the requested image", async () => {
   const editor = renderGalleryEditor();
 
-  expect(await screen.findByRole("tab", { name: "Image 1" })).toBeInTheDocument();
-  expect(screen.getByRole("tab", { name: "Image 2" })).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Show image 1" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Show image 2" })).toBeInTheDocument();
   const dispatch = vi.spyOn(editor.view, "dispatch");
 
   fireEvent.click(screen.getByRole("button", { name: "Remove image 1" }));
 
   await waitFor(() => {
-    expect(screen.queryByRole("tab", { name: "Image 2" })).toBeNull();
-    expect(screen.getByRole("tab", { name: "Image 1" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Show image 2" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Show image 1" })).toBeInTheDocument();
   });
 
-  expect(galleryItemIds(editor)).toEqual(["gallery-image-2"]);
+  expect(galleryItemIds(editor)).toEqual(["galleryimg02"]);
   expect(dispatch).toHaveBeenCalledTimes(1);
   expect(editor.state.selection).toBeInstanceOf(NodeSelection);
   expect(editor.state.selection.from).toBe(0);
 
   expect(editor.commands.undo()).toBe(true);
-  expect(galleryItemIds(editor)).toEqual(["gallery-image-1", "gallery-image-2"]);
+  expect(galleryItemIds(editor)).toEqual(["galleryimg01", "galleryimg02"]);
 
   editor.destroy();
 });
@@ -826,7 +872,7 @@ it("edits the same stable children through generic collection settings", async (
       editor,
       nodeType: GALLERY_NODE,
       pos: 0,
-      targetId: "block-gallery-proof",
+      targetId: "gallery_0001",
       open: true,
       onOpenChange: () => undefined,
     }),
@@ -838,7 +884,7 @@ it("edits the same stable children through generic collection settings", async (
   fireEvent.click(screen.getByRole("button", { name: "Remove Image (a)" }));
 
   await waitFor(() => {
-    expect(galleryItemIds(editor)).toEqual(["gallery-image-2"]);
+    expect(galleryItemIds(editor)).toEqual(["galleryimg02"]);
     expect(screen.queryByRole("group", { name: "Image (b)" })).toBeNull();
   });
 
@@ -847,7 +893,7 @@ it("edits the same stable children through generic collection settings", async (
   await waitFor(() => {
     const ids = galleryItemIds(editor);
     expect(ids).toHaveLength(2);
-    expect(ids[0]).toBe("gallery-image-2");
+    expect(ids[0]).toBe("galleryimg02");
     expect(ids[1]).toEqual(expect.stringMatching(/^[0-9A-Z_a-z-]{12}$/));
   });
 
@@ -857,7 +903,7 @@ it("edits the same stable children through generic collection settings", async (
 it("preserves canonical media identity and rejects stale collection writes", () => {
   const editor = renderGalleryEditor();
   const target = {
-    ownerId: "block-gallery-proof",
+    ownerId: "gallery_0001",
     ownerNodeType: GALLERY_NODE,
     childNodeType: galleryItemsCollection.childNodeType,
     attr: galleryItemsCollection.attr,
@@ -870,14 +916,14 @@ it("preserves canonical media identity and rejects stale collection writes", () 
   const updated = updateDirectChildSettingsItemChecked({
     tr: editor.state.tr,
     ...target,
-    childId: "gallery-image-1",
+    childId: "galleryimg01",
     value: managedValue,
   });
 
   expect(updated.ok).toBe(true);
   if (updated.ok) editor.view.dispatch(updated.tr);
   expect(editor.state.doc.firstChild?.firstChild?.attrs["data"]).toEqual(managedValue);
-  expect(galleryItemIds(editor)[0]).toBe("gallery-image-1");
+  expect(galleryItemIds(editor)[0]).toBe("galleryimg01");
 
   const before = editor.state.doc;
   const stale = removeDirectChildSettingsItemChecked({
@@ -897,7 +943,7 @@ it("re-resolves managed media when an existing child receives a new media id", a
   const resolve = vi.fn(async (mediaId: string) => `https://cdn.example.com/${mediaId}.jpg`);
   const firstItems: GalleryRawItem[] = [
     {
-      id: "stable-item",
+      id: "stableitem01",
       data: {
         image: { mode: "managed" as const, mediaId: "media-one", alt: "Managed" },
         caption: EmptyScaffoldRichTextDocument,
@@ -916,7 +962,7 @@ it("re-resolves managed media when an existing child receives a new media id", a
   rerender({
     items: [
       {
-        id: "stable-item",
+        id: "stableitem01",
         data: {
           image: { mode: "managed" as const, mediaId: "media-two", alt: "Managed" },
           caption: EmptyScaffoldRichTextDocument,
@@ -936,7 +982,7 @@ it("labels grid remove controls and removes the requested image", async () => {
   const editor = renderGalleryEditor({
     ...galleryFixture(),
     attrs: {
-      id: "block-gallery-proof",
+      id: "gallery_0001",
       data: emptyGalleryData({ layout: "grid" }),
     },
   });
@@ -962,7 +1008,7 @@ it("labels grid remove controls and removes the requested image", async () => {
     ).toBeNull();
   });
 
-  expect(galleryItemIds(editor)).toEqual(["gallery-image-1"]);
+  expect(galleryItemIds(editor)).toEqual(["galleryimg01"]);
 
   editor.destroy();
 });

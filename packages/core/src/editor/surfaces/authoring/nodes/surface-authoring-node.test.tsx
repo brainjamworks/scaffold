@@ -4,12 +4,18 @@ import { Editor, Node, type JSONContent } from "@tiptap/core";
 import UniqueID from "@tiptap/extension-unique-id";
 import { EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  cleanup,
+  render as renderWithTestingLibrary,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { createElement } from "react";
+import { createElement, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { CellNode, GridNode } from "@/editor/arrangements/grid/model/grid-nodes";
 import { LayoutNode, SectionNode } from "@/editor/arrangements/layout/model/layout-nodes";
@@ -27,6 +33,7 @@ import {
 } from "@/document/model/content-model/content-groups";
 import { createScaffoldTextAlignExtension } from "@/editor/rich-text/model/text-alignment";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
+import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
 
 import { PageDefaultSurfaceAuthoringView } from "../variants/page-default";
 import { SlideCompositionSurfaceAuthoringView } from "../variants/slide-composition";
@@ -62,6 +69,18 @@ import {
   SurfaceHeaderNode,
   SurfaceHeaderFooterSlotNode,
 } from "../../model/nodes/header-footer-slots";
+
+function render(ui: ReactNode) {
+  return renderWithTestingLibrary(ui, { wrapper: AppTestBoundary });
+}
+
+function AppTestBoundary({ children }: Readonly<{ children: ReactNode }>) {
+  return (
+    <AppThemeProvider appearance="light">
+      <div>{children}</div>
+    </AppThemeProvider>
+  );
+}
 
 const TestArrangementNode = Node.create({
   name: "testArrangement",
@@ -1438,6 +1457,7 @@ function createEditor(
       ExtendedParagraph,
       createScaffoldTextAlignExtension(["paragraph", "heading", "slide_title"]),
       CourseDocumentNode,
+      createCourseSectionNode(),
       createSurfaceAuthoringNode({
         registry: surfaceComposition.registry,
         views: surfaceComposition.views,

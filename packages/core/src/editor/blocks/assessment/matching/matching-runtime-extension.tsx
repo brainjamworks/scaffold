@@ -16,7 +16,7 @@ import { createMatchingNode } from "./node";
 function MatchingRuntimeView(props: NodeViewProps) {
   return (
     <AssessmentRuntimeProblemContent
-      blockClass="sc-matching"
+      blockClass="sc-course-assessment-matching"
       definition={matchingBlockDefinition}
       props={props}
     />

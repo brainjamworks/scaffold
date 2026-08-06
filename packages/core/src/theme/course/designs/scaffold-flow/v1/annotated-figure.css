@@ -1,0 +1,187 @@
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-annotated-figure {
+  --sc-course-annotated-figure-marker-gutter: 1.375rem;
+  --sc-course-annotated-figure-page-content-size: 40rem;
+  --sc-course-annotated-figure-page-stage-size: clamp(18rem, 66cqi, 36rem);
+  --sc-course-annotated-figure-tray-size: 9.75rem;
+  --sc-course-annotated-figure-tray-inset: 0.75rem;
+  --sc-course-annotated-figure-pin-target-size: 2.75rem;
+  --sc-course-annotated-figure-pin-marker-size: 1.75rem;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-annotated-figure__content {
+  gap: var(--space-4);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-annotated-figure:not([data-bounded-placement="fill"])
+  .sc-course-annotated-figure__content[data-caption-display="list"] {
+  gap: 0;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-annotated-figure__canvas {
+  border-radius: var(--radius-3);
+  background: var(--gray-a2);
+  box-shadow: var(--sc-course-author-shadow);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-annotated-figure:not([data-bounded-placement="fill"])
+  .sc-course-annotated-figure__stage[data-presentation="compact"] {
+  width: min(100%, var(--sc-course-annotated-figure-page-content-size));
+  margin-inline: auto;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-annotated-figure__image-actions {
+  inset-block-start: var(--space-3);
+  inset-inline-end: var(--space-3);
+  gap: var(--space-2);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-annotated-figure__empty {
+  aspect-ratio: 16 / 9;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: var(--sc-course-author-stroke-width) dashed var(--gray-a6);
+  border-radius: var(--radius-3);
+  background: var(--gray-a2);
+  box-shadow: var(--sc-course-author-shadow);
+  color: var(--gray-11);
+  font-family: var(--default-font-family);
+  font-size: var(--font-size-1);
+  line-height: var(--line-height-1);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-annotated-figure__empty[role="alert"] {
+  border-color: var(--sc-course-state-error-border);
+  background: var(--sc-course-state-error-background);
+  color: var(--sc-course-state-error-text);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-annotated-figure__pin {
+  color: var(--accent-contrast);
+  font-family: var(--default-font-family);
+  font-size: var(--font-size-1);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--letter-spacing-1);
+  cursor: default;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-annotated-figure__pin-number {
+  background: var(--accent-9);
+  box-shadow: 0 0 0 2px var(--color-background);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-annotated-figure__pin-activate {
+  cursor: pointer;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-annotated-figure__pin-activate:focus-visible {
+  outline: 2px solid var(--accent-8);
+  outline-offset: 2px;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-annotated-figure__legend {
+  gap: var(--space-2);
+  padding: var(--sc-course-annotated-figure-tray-inset)
+    var(--sc-course-annotated-figure-marker-gutter);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-annotated-figure:not([data-bounded-placement="fill"])
+  .sc-course-annotated-figure__legend {
+  padding-block-start: 0;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-annotated-figure:not([data-bounded-placement="fill"])
+  :is(
+    .sc-course-annotated-figure__caption-frame,
+    .sc-course-annotated-figure__runtime-caption-frame[data-presentation="compact"]
+  ) {
+  width: min(100%, var(--sc-course-annotated-figure-page-content-size));
+  margin-inline: auto;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  :is(
+    .sc-course-annotated-figure__annotation,
+    .sc-course-annotated-figure__legend > [data-node="annotated-figure-annotation"]
+  ) {
+  gap: var(--space-3);
+  color: var(--gray-12);
+  font-family: var(--default-font-family);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  :is(
+    .sc-course-annotated-figure__annotation-number,
+    .sc-course-annotated-figure__legend
+      [data-node="annotated-figure-annotation"]:not(.sc-course-annotated-figure__annotation)::before
+  ) {
+  margin-block-start: calc((1.55em - var(--sc-course-annotated-figure-pin-marker-size)) / 2);
+  background: var(--accent-a3);
+  color: var(--accent-11);
+  font-family: var(--default-font-family);
+  font-size: var(--font-size-1);
+  font-weight: var(--font-weight-bold);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-annotated-figure:not([data-bounded-placement="fill"])
+  .sc-course-annotated-figure__annotation-number {
+  margin-block-start: 0;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-annotated-figure__annotation-title {
+  display: block;
+  margin-block-end: var(--space-1);
+  color: var(--gray-12);
+  font-family: var(--heading-font-family);
+  font-weight: var(--font-weight-bold);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-annotated-figure__runtime-popover-caption {
+  max-inline-size: 65ch;
+  color: var(--gray-12);
+  font-family: var(--default-font-family);
+  font-size: var(--font-size-2);
+  line-height: var(--line-height-2);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-annotated-figure__runtime-lightbox-composition {
+  inline-size: min(72rem, calc(100dvw - 6rem));
+  block-size: min(48rem, calc(100dvh - 6rem));
+  grid-template-rows: minmax(0, 1fr) minmax(8rem, 14rem);
+  gap: var(--space-4);
+}
+
+@media (max-width: 40rem) {
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    .sc-course-annotated-figure__runtime-lightbox-composition {
+    inline-size: calc(100dvw - 2rem);
+    block-size: calc(100dvh - 5rem);
+    gap: var(--space-3);
+  }
+}
+
+:is(
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-annotated-figure__caption-popover,
+  .sc-course.sc-course-theme-scaffold-flow-v1.sc-course-annotated-figure__caption-popover
+) {
+  inline-size: min(28rem, var(--sc-overlay-available-inline-size, 28rem));
+  min-inline-size: min(14rem, var(--sc-overlay-available-inline-size, 14rem));
+  max-inline-size: min(28rem, var(--sc-overlay-available-inline-size, 28rem));
+}
+
+:is(
+    .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-annotated-figure__caption-popover,
+    .sc-course.sc-course-theme-scaffold-flow-v1.sc-course-annotated-figure__caption-popover
+  )
+  .sc-course-popover-surface {
+  inline-size: 100%;
+  max-block-size: min(18rem, var(--sc-overlay-available-block-size, 18rem));
+}

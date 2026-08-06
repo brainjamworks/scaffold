@@ -28,7 +28,7 @@ const RuntimeCodeBlockBodyNode = createCodeBlockBodyNode({
 const CodeBlockRuntimeRootNode = createCodeBlockNode({
   addNodeView: () =>
     createBlockRuntimeNodeView({
-      className: "sc-code-block",
+      className: "sc-course-code-block",
       definition: codeBlockDefinition,
       view: { component: CodeBlockRuntimeView },
     }),

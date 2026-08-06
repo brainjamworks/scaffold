@@ -67,8 +67,6 @@ export function projectSequencingInteraction(node: JSONContent): AssessmentInter
 export function projectSequencingAssessment(node: JSONContent): AssessmentAnswerKey {
   const assessment = SequencingPrivateAssessmentSchema.parse(readAttrs(node)["assessment"] ?? {});
   const itemIds = projectSequencingItems(node).map((item) => item.id);
-  const itemSet = new Set(itemIds);
-  const correctOrder = assessment.correctOrder.filter((id) => itemSet.has(id));
   const feedbackByItemId: typeof assessment.feedbackByItemId = {};
   for (const id of itemIds) {
     const feedback = assessment.feedbackByItemId[id];
@@ -76,7 +74,7 @@ export function projectSequencingAssessment(node: JSONContent): AssessmentAnswer
   }
   return SequenceAssessmentSchema.parse({
     kind: "sequence",
-    correctOrder: correctOrder.length > 0 ? correctOrder : itemIds,
+    correctOrder: assessment.correctOrder,
     feedbackByItemId,
     summaryFeedback: assessment.summaryFeedback,
   });
@@ -93,7 +91,6 @@ function projectSequencingItems(node: JSONContent): Array<{ id: string; label?: 
 
   for (const item of childrenOfType(group, "sequencing_item")) {
     const id = readStringAttr(item, "id");
-    if (!id) continue;
     const label = textBetween(item).trim();
     items.push({ id, ...(label ? { label } : {}) });
   }
@@ -107,22 +104,60 @@ function assertUniqueOrderedItemIds(itemIds: readonly string[]): void {
   }
 }
 
-export function toSequencingContractResponse(response: unknown) {
+function currentSequencingItemIds(
+  interaction?: AssessmentInteractionContract,
+): readonly string[] | null {
+  if (!interaction) return null;
+  if (interaction.kind !== "sequence") {
+    throw new Error("Sequence response requires a sequence interaction.");
+  }
+  const itemIds = interaction.items.map((item) => item.id);
+  if (itemIds.some((id) => id.trim().length === 0) || new Set(itemIds).size !== itemIds.length) {
+    throw new Error("Sequence interaction item ids must be nonblank and unique.");
+  }
+  return itemIds;
+}
+
+function isExactItemPermutation(order: readonly string[], itemIds: readonly string[]): boolean {
+  if (order.length !== itemIds.length) return false;
+  const itemIdSet = new Set(itemIds);
+  return order.every((id) => id.trim().length > 0 && itemIdSet.has(id));
+}
+
+export function toSequencingContractResponse(
+  response: unknown,
+  interaction?: AssessmentInteractionContract,
+) {
   const local = SequencingResponseSchema.parse(response);
   assertUniqueOrderedItemIds(local.order);
-  return SequenceResponseSchema.parse({ kind: "sequence", orderedItemIds: local.order });
+  const itemIds = currentSequencingItemIds(interaction);
+  const orderedItemIds =
+    !itemIds || isExactItemPermutation(local.order, itemIds) ? local.order : [];
+  return SequenceResponseSchema.parse({ kind: "sequence", orderedItemIds });
 }
 
 export function fromSequencingContractResponse(
   response: AssessmentResponseValue,
+  interaction?: AssessmentInteractionContract,
 ): SequencingResponse {
   const canonical = SequenceResponseSchema.parse(response);
   assertUniqueOrderedItemIds(canonical.orderedItemIds);
-  return SequencingResponseSchema.parse({ order: canonical.orderedItemIds });
+  const itemIds = currentSequencingItemIds(interaction);
+  const itemIdSet = itemIds ? new Set(itemIds) : null;
+  const order = itemIdSet
+    ? canonical.orderedItemIds.filter((id) => itemIdSet.has(id))
+    : canonical.orderedItemIds;
+  return SequencingResponseSchema.parse({ order });
 }
 
-export function hasSequencingResponse(response: unknown): boolean {
-  return SequencingResponseSchema.parse(response).order.length > 0;
+export function hasSequencingResponse(
+  response: unknown,
+  interaction?: AssessmentInteractionContract,
+): boolean {
+  const order = SequencingResponseSchema.parse(response).order;
+  assertUniqueOrderedItemIds(order);
+  const itemIds = currentSequencingItemIds(interaction);
+  return itemIds ? isExactItemPermutation(order, itemIds) : order.length > 0;
 }
 
 export const sequencingResponseCodec: AssessmentCapabilityResponseDefinition<SequencingResponse> = {

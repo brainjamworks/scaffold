@@ -4,7 +4,7 @@ import { useController, useFormContext, type FieldValues } from "react-hook-form
 import { Button } from "@/ui/components/Button/Button";
 import { Field, Input, Label } from "@/ui/components/Input/Input";
 import { RadioGroup, RadioItem } from "@/ui/components/Radio/Radio";
-import { MediaEmptyAction } from "@/editor/media/authoring/shared-components/MediaEmptyAction";
+import { MediaEmptyAction } from "@/ui/components/app/MediaEmptyAction/MediaEmptyAction";
 import {
   FilePickerModal,
   type FilePickerResult,

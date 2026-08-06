@@ -1,12 +1,13 @@
 import { createRoot, type Root } from "react-dom/client";
+import type { CSSProperties, ReactNode } from "react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import "@/styles/globals.css";
 
 import { Lightbox } from "./Lightbox/Lightbox";
-import { OverlayBoundary } from "./OverlayBoundary/OverlayBoundary";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 import * as Popover from "./Popover/Popover";
-import { PopoverSurface } from "./PopoverSurface/PopoverSurface";
+import { CoursePopoverSurface } from "./course/CoursePopoverSurface/CoursePopoverSurface";
 import * as Tooltip from "./Tooltip/Tooltip";
 import { WorkspaceDialog } from "./WorkspaceDialog/WorkspaceDialog";
 
@@ -26,7 +27,7 @@ describe("overlay theme ownership", () => {
           <Popover.Trigger>Feedback trigger</Popover.Trigger>
           <Popover.Portal>
             <Popover.Content data-testid="course-popover">
-              <PopoverSurface title="Feedback">Review this answer.</PopoverSurface>
+              <CoursePopoverSurface title="Feedback">Review this answer.</CoursePopoverSurface>
             </Popover.Content>
           </Popover.Portal>
         </Popover.Root>
@@ -46,26 +47,23 @@ describe("overlay theme ownership", () => {
 
     expectThemeOwner(popover, "course");
     expectThemeOwner(tooltip, "course");
-    expect(getComputedStyle(popover.querySelector(".sc-popover-surface")!).backgroundColor).toBe(
-      "rgb(18, 52, 86)",
-    );
+    expect(
+      getComputedStyle(popover.querySelector(".sc-course-popover-surface")!).backgroundColor,
+    ).toBe("rgb(18, 52, 86)");
     expect(getComputedStyle(tooltip).backgroundColor).toBe("rgb(18, 52, 86)");
     expect(getComputedStyle(tooltip).color).toBe("rgb(35, 69, 103)");
-    expect(getComputedStyle(popover.querySelector(".sc-popover-surface")!).borderTopWidth).toBe(
-      "3px",
-    );
-    expect(getComputedStyle(popover.querySelector(".sc-popover-surface")!).borderRadius).toBe(
-      "18px",
-    );
-    expect(getComputedStyle(popover.querySelector(".sc-popover-surface")!).paddingTop).toBe(
+    expect(
+      getComputedStyle(popover.querySelector(".sc-course-popover-surface")!).borderTopWidth,
+    ).toBe("3px");
+    expect(
+      getComputedStyle(popover.querySelector(".sc-course-popover-surface")!).borderRadius,
+    ).toBe("18px");
+    expect(getComputedStyle(popover.querySelector(".sc-course-popover-surface")!).paddingTop).toBe(
       "17.5px",
     );
-    expect(getComputedStyle(popover.querySelector(".sc-popover-surface")!).boxShadow).toBe(
+    expect(getComputedStyle(popover.querySelector(".sc-course-popover-surface")!).boxShadow).toBe(
       "rgb(1, 2, 3) 0px 4px 12px 0px",
     );
-    expect(getComputedStyle(tooltip).borderTopWidth).toBe("3px");
-    expect(getComputedStyle(tooltip).borderRadius).toBe("12px");
-    expect(getComputedStyle(tooltip).boxShadow).toBe("rgb(1, 2, 3) 0px 4px 12px 0px");
     expect(popover.closest("[data-scaffold-overlay-host]")?.parentElement).toBe(
       fixture.boundaryContainer,
     );
@@ -74,21 +72,47 @@ describe("overlay theme ownership", () => {
     );
   });
 
+  it("keeps the content-bearing Course popover bounded under full roundness", async () => {
+    const fixture = createOwnershipFixture("course");
+    fixture.boundaryContainer.style.setProperty("--radius-full", "9999px");
+    fixture.root.render(
+      <OverlayBoundary container={fixture.boundaryContainer} kind="viewport">
+        <Popover.Root open>
+          <Popover.Trigger>Hint trigger</Popover.Trigger>
+          <Popover.Portal>
+            <Popover.Content data-testid="bounded-course-popover">
+              <CoursePopoverSurface title="Hint">
+                This content-bearing surface must keep usable corners.
+              </CoursePopoverSurface>
+            </Popover.Content>
+          </Popover.Portal>
+        </Popover.Root>
+      </OverlayBoundary>,
+    );
+
+    const positioned = await waitForElement('[data-testid="bounded-course-popover"]');
+    positioned.classList.add("sc-course", "sc-course-theme-scaffold-flow-v1");
+    fixture.boundaryContainer.classList.remove("sc-course", "sc-course-theme-scaffold-flow-v1");
+    const surface = positioned.querySelector<HTMLElement>(".sc-course-popover-surface");
+    expect(surface).not.toBeNull();
+    expect(getComputedStyle(surface!).borderRadius).toBe("18px");
+    expect(getComputedStyle(positioned).borderRadius).toBe("18px");
+  });
+
   it("establishes the course body font on a standalone learner portal host", async () => {
     const fixture = createOwnershipFixture("application");
     fixture.application.style.fontFamily = '"Application Font", sans-serif';
     fixture.root.render(
       <OverlayBoundary
         container={fixture.boundaryContainer}
-        hostClassName="sc-course-theme-portal-scope"
-        hostCssVariables={{ "--sc-course-font-body": '"Course Body", serif' }}
+        hostBoundary={StandaloneCourseBoundary}
         kind="viewport"
       >
         <Popover.Root open>
           <Popover.Trigger>Feedback trigger</Popover.Trigger>
           <Popover.Portal>
             <Popover.Content data-testid="standalone-course-popover">
-              <PopoverSurface title="Feedback">Review this answer.</PopoverSurface>
+              <CoursePopoverSurface title="Feedback">Review this answer.</CoursePopoverSurface>
             </Popover.Content>
           </Popover.Portal>
         </Popover.Root>
@@ -100,9 +124,9 @@ describe("overlay theme ownership", () => {
 
     expect(portalHost).not.toBeNull();
     expect(getComputedStyle(portalHost!).fontFamily).toContain("Course Body");
-    expect(getComputedStyle(popover.querySelector(".sc-popover-surface")!).fontFamily).toContain(
-      "Course Body",
-    );
+    expect(
+      getComputedStyle(popover.querySelector(".sc-course-popover-surface")!).fontFamily,
+    ).toContain("Course Body");
   });
 
   it("keeps a learner workspace and lightbox inside the course theme owner", async () => {
@@ -126,12 +150,6 @@ describe("overlay theme ownership", () => {
     const workspace = await waitForElement(".sc-workspace-dialog-content");
     expectThemeOwner(workspace, "course");
     expect(getComputedStyle(workspace).backgroundColor).toBe("rgb(18, 52, 86)");
-    expect(getComputedStyle(workspace).borderTopWidth).toBe("3px");
-    expect(getComputedStyle(workspace).borderRadius).toBe("12px");
-    expect(getComputedStyle(workspace).boxShadow).toBe("rgb(1, 2, 3) 0px 4px 12px 0px");
-    expect(getComputedStyle(workspace.querySelector(".sc-workspace-dialog-body")!).padding).toBe(
-      "30px",
-    );
 
     workspaceFixture.root.unmount();
     mountedRoots.splice(mountedRoots.indexOf(workspaceFixture.root), 1);
@@ -184,6 +202,22 @@ describe("overlay theme ownership", () => {
   });
 });
 
+function StandaloneCourseBoundary({ children }: Readonly<{ children: ReactNode }>) {
+  return (
+    <div
+      className="sc-course-theme-portal-scope"
+      style={
+        {
+          "--sc-course-font-body": '"Course Body", serif',
+          fontFamily: "var(--sc-course-font-body)",
+        } as CSSProperties
+      }
+    >
+      {children}
+    </div>
+  );
+}
+
 function createOwnershipFixture(owner: "application" | "course") {
   const application = document.createElement("div");
   application.style.setProperty("--test-theme-owner", "application");
@@ -191,7 +225,8 @@ function createOwnershipFixture(owner: "application" | "course") {
   application.style.setProperty("--color-ink", "rgb(40 50 60)");
 
   const course = document.createElement("section");
-  course.className = "sc-course-theme-scope";
+  course.className =
+    "radix-themes light sc-course sc-course-theme-scaffold-flow-v1 sc-course-theme-scope";
   course.style.setProperty("--test-theme-owner", "course");
   course.style.setProperty("--color-background", "rgb(18 52 86)");
   course.style.setProperty("--color-ink", "rgb(35 69 103)");
@@ -207,6 +242,22 @@ function createOwnershipFixture(owner: "application" | "course") {
   course.style.setProperty("--sc-course-stroke", "3px");
   course.style.setProperty("--sc-course-shadow", "0 4px 12px rgb(1 2 3)");
   course.style.setProperty("--sc-course-density", "1.25");
+  course.style.setProperty("--sc-course-author-density", "1.25");
+  course.style.setProperty("--sc-course-author-shadow", "none");
+  course.style.setProperty("--sc-course-author-stroke-width", "3px");
+  course.style.setProperty("--default-font-family", '"Course Body", serif');
+  course.style.setProperty("--heading-font-family", '"Course Body", serif');
+  course.style.setProperty("--gray-1", "rgb(18 52 86)");
+  course.style.setProperty("--gray-11", "rgb(103 137 171)");
+  course.style.setProperty("--gray-12", "rgb(35 69 103)");
+  course.style.setProperty("--gray-a3", "rgb(52 86 120)");
+  course.style.setProperty("--gray-a6", "rgb(69 103 137)");
+  course.style.setProperty("--accent-9", "rgb(86 120 154)");
+  course.style.setProperty("--radius-4", "18px");
+  course.style.setProperty("--radius-full", "0px");
+  course.style.setProperty("--space-3", "12px");
+  course.style.setProperty("--space-4", "14px");
+  course.style.setProperty("--shadow-4", "0 4px 12px rgb(1 2 3)");
   application.append(course);
 
   const boundaryContainer = owner === "course" ? course : application;

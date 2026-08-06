@@ -5,6 +5,7 @@ import {
   EmbeddedNodeIdSchema,
   SingleSelectAssessmentSchema,
   SingleSelectInteractionSchema,
+  DropdownSettingsSchema,
   SingleSelectResponseSchema,
   type AssessmentAnswerKey,
   type AssessmentInteractionContract,
@@ -67,9 +68,12 @@ export function projectDropdownAssessment(node: JSONContent): AssessmentAnswerKe
 }
 
 export function projectDropdownSettings(settings: unknown): Partial<AssessmentTargetSettings> {
+  const label = readOptionalString(settings, "label")?.trim();
+  const configuredPlaceholder = readOptionalString(settings, "placeholder")?.trim();
+  const placeholder = configuredPlaceholder || DropdownSettingsSchema.parse({}).placeholder;
   return {
-    ...optionalStringField("label", readOptionalString(settings, "label")),
-    ...optionalStringField("placeholder", readOptionalString(settings, "placeholder")),
+    ...(label ? optionalStringField("label", label) : {}),
+    ...optionalStringField("placeholder", placeholder),
   };
 }
 
@@ -131,8 +135,14 @@ export function fromDropdownContractResponse(response: AssessmentResponseValue):
   return DropdownResponseSchema.parse({ choices: canonical.optionId });
 }
 
-export function hasDropdownResponse(response: unknown): boolean {
-  return DropdownResponseSchema.parse(response).choices !== null;
+export function hasDropdownResponse(
+  response: unknown,
+  interaction?: AssessmentInteractionContract,
+): boolean {
+  const selectedId = DropdownResponseSchema.parse(response).choices;
+  if (selectedId === null) return false;
+  if (!interaction || interaction.kind !== "single-select") return true;
+  return interaction.options.some((option) => option.id === selectedId);
 }
 
 export const dropdownResponseCodec: AssessmentCapabilityResponseDefinition<DropdownResponse> = {

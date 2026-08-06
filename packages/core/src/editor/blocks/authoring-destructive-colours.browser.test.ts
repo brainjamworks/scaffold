@@ -7,8 +7,9 @@ import "@/ui/components/Button/Button.css";
 import "@/ui/components/IconButton/IconButton.css";
 
 import "./assessment/shared/chrome/assessment-hints.css";
-import "./assessment/shared/chrome/choice-trailing-button.css";
-import "./structured-content/checklist/Checklist.css";
+import "@/ui/components/app/AssessmentAuthoringIconAction/AssessmentAuthoringIconAction.css";
+import "@/theme/course/designs/scaffold-flow/v1/assessment-matching.css";
+import "./structured-content/checklist/ChecklistAuthoringControls.css";
 
 afterEach(() => {
   document.body.replaceChildren();
@@ -31,15 +32,15 @@ describe("authoring destructive colours", () => {
 
   it("keeps inline authoring delete controls on the application semantic", async () => {
     const course = createThemedAuthoringFixture();
-    const checklistDelete = appendButton(course, "sc-checklist-item__delete", "Delete item");
-    const hintDelete = appendButton(course, "sc-assessment-hint__delete", "Delete hint");
+    const checklistDelete = appendButton(course, "sc-app-checklist-item-delete", "Delete item");
     const choiceDelete = appendButton(
       course,
-      "sc-choice-trailing-button sc-choice-trailing-button--danger",
+      "sc-app-assessment-authoring-icon-action",
       "Delete choice",
     );
+    choiceDelete.dataset["tone"] = "danger";
 
-    for (const control of [checklistDelete, hintDelete, choiceDelete]) {
+    for (const control of [checklistDelete, choiceDelete]) {
       await userEvent.hover(control);
       expect(getComputedStyle(control).color).toBe("rgb(185, 28, 28)");
     }
@@ -47,11 +48,7 @@ describe("authoring destructive colours", () => {
 
   it("keeps learner remove actions on the course error semantic", async () => {
     const course = createThemedAuthoringFixture();
-    const removeMatch = appendButton(
-      course,
-      "sc-choice-trailing-button sc-choice-trailing-button--course-danger",
-      "Remove match",
-    );
+    const removeMatch = appendButton(course, "sc-course-matching__remove-action", "Remove match");
 
     await userEvent.hover(removeMatch);
     expect(getComputedStyle(removeMatch).color).toBe("rgb(220, 38, 38)");
@@ -67,10 +64,11 @@ function createThemedAuthoringFixture(): HTMLDivElement {
   application.style.setProperty("--sc-app-color-error-text", "rgb(153 27 27)");
 
   const course = document.createElement("div");
-  course.className = "sc-course-theme-scope";
+  course.className = "sc-course sc-course-theme-scaffold-flow-v1";
   course.style.setProperty("--color-secondary", "rgb(8 145 178)");
   course.style.setProperty("--color-secondary-foreground", "rgb(255 255 255)");
-  course.style.setProperty("--color-error", "rgb(220 38 38)");
+  course.style.setProperty("--sc-course-state-error-indicator", "rgb(220 38 38)");
+  course.style.setProperty("--sc-course-state-error-background", "rgb(254 226 226)");
   course.style.setProperty("--color-error-foreground", "rgb(255 255 255)");
   course.style.setProperty("--color-muted", "rgb(241 245 249)");
   course.style.setProperty("--color-background", "rgb(255 255 255)");

@@ -11,7 +11,7 @@ import { createImageHotspotNode } from "./node";
 function ImageHotspotRuntimeView(props: NodeViewProps) {
   return (
     <AssessmentRuntimeProblemContent
-      blockClass="sc-image-hotspot"
+      blockClass="sc-course-image-hotspot"
       definition={imageHotspotBlockDefinition}
       props={props}
     />

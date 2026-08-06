@@ -5,8 +5,9 @@ import userEvent from "@testing-library/user-event";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { MediaEmptyAction } from "@/editor/media/authoring/shared-components/MediaEmptyAction";
-import { MediaReplaceButton } from "@/editor/media/authoring/shared-components/MediaReplaceButton";
+import { MediaEmptyAction } from "@/ui/components/app/MediaEmptyAction/MediaEmptyAction";
+import { MediaReplaceButton } from "@/ui/components/app/MediaReplaceButton/MediaReplaceButton";
+import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
 
 afterEach(cleanup);
 
@@ -17,19 +18,24 @@ describe("media picker trigger accessibility", () => {
     const onReplace = vi.fn();
 
     render(
-      createElement(
-        "div",
-        null,
-        createElement(MediaEmptyAction, {
-          "aria-label": "Add wrapped image",
-          label: "Add image",
-          onClick: onAdd,
-        }),
-        createElement(MediaReplaceButton, {
-          "aria-label": "Replace wrapped image",
-          onClick: onReplace,
-        }),
-      ),
+      createElement(AppThemeProvider, {
+        appearance: "light",
+        children: createElement(
+          "div",
+          null,
+          createElement(MediaEmptyAction, {
+            "aria-label": "Add wrapped image",
+            icon: createElement("svg"),
+            label: "Add image",
+            onClick: onAdd,
+          }),
+          createElement(MediaReplaceButton, {
+            "aria-label": "Replace wrapped image",
+            onClick: onReplace,
+            tooltip: "Replace image",
+          }),
+        ),
+      }),
     );
 
     await user.click(screen.getByRole("button", { name: "Add wrapped image" }));

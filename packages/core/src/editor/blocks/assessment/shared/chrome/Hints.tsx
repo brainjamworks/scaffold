@@ -6,10 +6,12 @@ import {
 } from "@phosphor-icons/react";
 import {
   useRef,
+  useLayoutEffect,
   useState,
   type CSSProperties,
   type ElementType,
   type ReactNode,
+  type RefObject,
   type RefAttributes,
 } from "react";
 import { flushSync } from "react-dom";
@@ -18,12 +20,14 @@ import * as Popover from "@/ui/components/Popover/Popover";
 import { cn } from "@/lib/cn";
 import { zIndex } from "@/ui/overlays/z-index";
 import { iconSm, iconXs } from "@/ui/tokens/icon-sizes";
+import { AssessmentSupportButton } from "@/ui/components/course/AssessmentSupportButton/AssessmentSupportButton";
 
 import { AssessmentRuntimePopoverShell } from "./AssessmentRuntimePopoverShell";
 import "./assessment-hints.css";
 
 export interface HintsAuthorPopoverRenderProps {
   activeIndex: number;
+  contentRef: RefObject<HTMLDivElement | null>;
   hasVisibleHints: boolean;
   onAddHint: () => void;
   onDeleteHint: () => void;
@@ -109,6 +113,7 @@ export function Hints({
   const [activeIndex, setActiveIndex] = useState(0);
   const [open, setOpen] = useState(false);
   const contentRef = useRef<HTMLDivElement | null>(null);
+  const pendingPagerFocusRef = useRef<"next" | "previous" | null>(null);
 
   const revealedHints = isEditable ? hintsTotal : hintsShown;
   const hasVisibleHints = revealedHints > 0;
@@ -118,24 +123,47 @@ export function Hints({
   const runtimeHintsVisible = !isEditable && !submitted && hintsShown > 0;
 
   const goToPreviousHint = () => {
-    setActiveIndex(Math.max(0, visibleActiveIndex - 1));
+    const nextIndex = Math.max(0, visibleActiveIndex - 1);
+    pendingPagerFocusRef.current = nextIndex === 0 ? "next" : "previous";
+    setActiveIndex(nextIndex);
   };
 
   const goToNextHint = () => {
     if (!isEditable) {
       if (visibleActiveIndex < hintsShown - 1) {
-        setActiveIndex(visibleActiveIndex + 1);
+        const nextIndex = visibleActiveIndex + 1;
+        pendingPagerFocusRef.current = nextIndex >= pagerTotal - 1 ? "previous" : "next";
+        setActiveIndex(nextIndex);
         return;
       }
       if (hintsShown < hintsTotal) {
+        pendingPagerFocusRef.current = hintsShown >= pagerTotal - 1 ? "previous" : "next";
         setActiveIndex(hintsShown);
         onReveal();
       }
       return;
     }
 
-    setActiveIndex(pagerTotal > 0 ? Math.min(pagerTotal - 1, visibleActiveIndex + 1) : 0);
+    const nextIndex = pagerTotal > 0 ? Math.min(pagerTotal - 1, visibleActiveIndex + 1) : 0;
+    pendingPagerFocusRef.current = nextIndex >= pagerTotal - 1 ? "previous" : "next";
+    setActiveIndex(nextIndex);
   };
+
+  useLayoutEffect(() => {
+    const preferred = pendingPagerFocusRef.current;
+    const root = contentRef.current;
+    if (!preferred || !root || !open) return;
+
+    const labels =
+      preferred === "next" ? ["Next hint", "Previous hint"] : ["Previous hint", "Next hint"];
+    const target = labels
+      .map((label) => root.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`))
+      .find((button) => button && !button.disabled);
+
+    if (!target) return;
+    pendingPagerFocusRef.current = null;
+    target.focus();
+  }, [hintsShown, open, revealedHints, visibleActiveIndex]);
 
   const addHint = () => {
     setActiveIndex(hintsTotal);
@@ -203,28 +231,21 @@ export function Hints({
       <div className="sc-assessment-hints__bar">
         <HintPopover.Root open={open} onOpenChange={setOpen}>
           <HintPopover.Trigger asChild>
-            <button
-              type="button"
+            <AssessmentSupportButton
+              intent="hint"
+              icon={<Lightbulb size={iconSm} weight="fill" />}
+              endIcon={hasVisibleHints ? <CaretDown size={iconXs} weight="bold" /> : undefined}
+              expanded={open}
               onClick={onTriggerClick}
               disabled={!isEditable && !hasMoreRuntimeHints && hintsShown === 0}
-              className="sc-assessment-hints__toggle"
-              aria-expanded={open}
             >
-              <Lightbulb size={iconSm} weight="fill" aria-hidden />
-              <span>{label}</span>
-              {hasVisibleHints && (
-                <CaretDown
-                  size={iconXs}
-                  weight="bold"
-                  className={cn("sc-assessment-hints__toggle-caret", open && "is-expanded")}
-                  aria-hidden
-                />
-              )}
-            </button>
+              {label}
+            </AssessmentSupportButton>
           </HintPopover.Trigger>
           {isEditable ? (
             renderAuthorPopover?.({
               activeIndex: visibleActiveIndex,
+              contentRef,
               hasVisibleHints,
               onAddHint: addHint,
               onDeleteHint: deleteActiveHint,
@@ -244,7 +265,7 @@ export function Hints({
                 side="top"
                 align="start"
                 sideOffset={8}
-                className="sc-assessment-hint-popover sc-assessment-hint-popover--runtime"
+                className="sc-course-assessment-hint-popover sc-course-assessment-hint-popover--runtime"
                 style={{ zIndex: zIndex.popover }}
               >
                 <AssessmentRuntimePopoverShell
@@ -262,7 +283,11 @@ export function Hints({
                   title={`Hint ${visibleActiveIndex + 1}`}
                   tone="hint"
                 >
-                  <HintPopoverBody hidden={!runtimeHintsVisible} trackStyle={trackStyle}>
+                  <HintPopoverBody
+                    activeIndex={visibleActiveIndex}
+                    hidden={!runtimeHintsVisible}
+                    trackStyle={trackStyle}
+                  >
                     {children}
                   </HintPopoverBody>
                 </AssessmentRuntimePopoverShell>
@@ -276,17 +301,34 @@ export function Hints({
 }
 
 interface HintPopoverBodyProps {
+  activeIndex: number;
   children: ReactNode;
   hidden: boolean;
   trackStyle: CSSProperties;
 }
 
-function HintPopoverBody({ children, hidden, trackStyle }: HintPopoverBodyProps) {
+function HintPopoverBody({ activeIndex, children, hidden, trackStyle }: HintPopoverBodyProps) {
+  const listRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const hints = listRef.current?.querySelectorAll<HTMLElement>('[data-slot="assessment-hint"]');
+    hints?.forEach((hint, index) => {
+      const inactive = index !== activeIndex;
+      if (inactive) {
+        hint.setAttribute("aria-hidden", "true");
+      } else {
+        hint.removeAttribute("aria-hidden");
+      }
+      hint.inert = inactive;
+    });
+  }, [activeIndex, children]);
+
   return (
     <div
+      ref={listRef}
       className={cn("sc-assessment-hints__list", hidden && "is-hidden")}
       aria-live="polite"
-      aria-atomic="false"
+      aria-atomic="true"
       aria-roledescription="carousel"
       aria-label="Revealed hints"
     >
@@ -307,25 +349,25 @@ interface HintCarouselPagerProps {
 function HintCarouselPager({ activeIndex, total, onNext, onPrevious }: HintCarouselPagerProps) {
   return (
     <div
-      className="sc-assessment-hints__pager"
+      className="sc-course-assessment-hint-pager"
       aria-label="Hint navigation"
       contentEditable={false}
     >
       <button
         type="button"
-        className="sc-assessment-hints__pager-button"
+        className="sc-course-assessment-hint-pager__button"
         onClick={onPrevious}
         disabled={activeIndex === 0}
         aria-label="Previous hint"
       >
         <CaretLeft size={iconXs} weight="bold" aria-hidden />
       </button>
-      <span className="sc-assessment-hints__pager-count">
+      <span className="sc-course-assessment-hint-pager__count">
         {activeIndex + 1} / {total}
       </span>
       <button
         type="button"
-        className="sc-assessment-hints__pager-button"
+        className="sc-course-assessment-hint-pager__button"
         onClick={onNext}
         disabled={activeIndex >= total - 1}
         aria-label="Next hint"

@@ -52,6 +52,15 @@ describe("dropdown authored contract", () => {
     expect(DropdownPrivateAssessmentSchema.parse(assessment)).toEqual(assessment);
   });
 
+  it("trims labels and normalizes a blank placeholder to the configured default", () => {
+    expect(
+      DropdownSettingsSchema.parse({ label: "  Choose a city  ", placeholder: "   " }),
+    ).toMatchObject({
+      label: "Choose a city",
+      placeholder: "Select...",
+    });
+  });
+
   it("keeps settings strict and private assessment unknown-key stripping", () => {
     expect(DropdownSettingsSchema.safeParse({ editorOnly: true }).success).toBe(false);
     expect(DropdownPrivateAssessmentSchema.parse({ editorOnly: true })).not.toHaveProperty(

@@ -25,6 +25,7 @@ import {
 import "./key-value-list-definition";
 import { KeyValueListAuthoringExtension } from "./key-value-list-authoring-extension";
 import { keyValueListBlockDefinition } from "./key-value-list-definition";
+import { KeyValueListRuntimeExtension } from "./key-value-list-runtime-extension";
 
 describeBlockContract({
   blockDefinitions: builtInBlockRegistry,
@@ -66,16 +67,17 @@ function keyValueListFixture(): JSONContent {
   };
 }
 
-function renderKeyValueListEditor() {
+function renderKeyValueListEditor({ runtime = false }: { runtime?: boolean } = {}) {
   const fixture = createDisposableEditor({
     extensions: [
       StarterKit.configure({ undoRedo: false, paragraph: false }),
       ExtendedParagraph,
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
       createRuntimeBlockFrameAttributesExtension([KEY_VALUE_LIST_NODE]),
-      KeyValueListAuthoringExtension,
+      runtime ? KeyValueListRuntimeExtension : KeyValueListAuthoringExtension,
     ],
     content: keyValueListFixture(),
+    editable: !runtime,
   });
 
   render(createElement(EditorContent, { editor: fixture.editor }));
@@ -96,7 +98,42 @@ describe("key-value list block", () => {
     });
   });
 
-  it("adds a new pair through the authoring ghost affordance", async () => {
+  it("renders live authoring as a semantic definition list with the Add control outside it", async () => {
+    const fixture = renderKeyValueListEditor();
+    const add = await screen.findByRole("button", { name: "Add item" });
+    const outer = document.querySelector("div.sc-course-key-value-list");
+    const list = outer?.querySelector(':scope > dl[data-node="key-value-list"]');
+    const row = list?.querySelector('div[data-node="key-value-row"]');
+
+    expect(outer).not.toBeNull();
+    expect(list?.getAttribute("data-layout")).toBe("stacked");
+    expect(list?.getAttribute("data-key-width")).toBe("auto");
+    expect(row?.querySelector('dt[data-slot="key-value-row-key"]')).not.toBeNull();
+    expect(row?.querySelector('dd[data-slot="key-value-row-value"]')).not.toBeNull();
+    expect(list?.contains(add)).toBe(false);
+
+    fixture.destroy();
+  });
+
+  it("renders the same semantic definition list at runtime without authoring affordances", async () => {
+    const fixture = renderKeyValueListEditor({ runtime: true });
+    await waitFor(() => {
+      expect(document.querySelector("div.sc-course-key-value-list")).not.toBeNull();
+    });
+    const outer = document.querySelector("div.sc-course-key-value-list");
+    const list = outer?.querySelector(':scope > dl[data-node="key-value-list"]');
+    const row = list?.querySelector('div[data-node="key-value-row"]');
+
+    expect(row?.querySelector('dt[data-slot="key-value-row-key"]')).not.toBeNull();
+    expect(row?.querySelector('dd[data-slot="key-value-row-value"]')).not.toBeNull();
+    expect(outer?.querySelector("button")).toBeNull();
+    expect(outer?.querySelector('[class*="sc-app-key-value-list"]')).toBeNull();
+    expect(outer?.querySelector("p.is-empty")).toBeNull();
+
+    fixture.destroy();
+  });
+
+  it("adds a new pair without changing the existing row identities", async () => {
     const user = userEvent.setup();
     const fixture = renderKeyValueListEditor();
 
@@ -106,18 +143,21 @@ describe("key-value list block", () => {
       expect(fixture.json().content?.[0]?.content).toHaveLength(2);
     });
     expect(fixture.json().content?.[0]?.content?.[1]?.type).toBe(KEY_VALUE_ROW_NODE);
+    expect(fixture.json().content?.[0]?.content?.[0]?.attrs?.["id"]).toBe("kv-row-00001");
+    expect(fixture.json().content?.[0]?.content?.[1]?.attrs?.["id"]).toEqual(expect.any(String));
 
     fixture.destroy();
   });
 
-  it("renders an item-shaped add pair affordance", async () => {
+  it("renders a text-only Add item affordance", async () => {
     const fixture = renderKeyValueListEditor();
     const add = await screen.findByRole("button", { name: "Add item" });
 
-    expect(add.classList.contains("sc-ghost-add--item")).toBe(true);
-    expect(add.querySelector(".sc-key-value-list__add-marker")).not.toBeNull();
-    expect(add.querySelector(".sc-key-value-list__add-key")).not.toBeNull();
-    expect(add.querySelector(".sc-key-value-list__add-value")).not.toBeNull();
+    expect(add.classList.contains("sc-app-block-add--item")).toBe(true);
+    expect(add.classList.contains("sc-app-key-value-list-add")).toBe(true);
+    expect(add).toHaveTextContent(/^Add item$/);
+    expect(add.querySelector("svg")).toBeNull();
+    expect(add.querySelector('[class*="sc-app-key-value-list-add__"]')).toBeNull();
     fixture.destroy();
   });
 

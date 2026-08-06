@@ -1,4 +1,5 @@
 import { Extension } from "@tiptap/core";
+import type { NodeViewProps } from "@tiptap/react";
 
 import { AssessmentProblemContent } from "@/editor/blocks/assessment/shared/chrome/AssessmentProblemContent";
 import { createBlockAuthoringNodeView } from "@/editor/frame/authoring/create-block-authoring-node-view";
@@ -7,8 +8,10 @@ import { imageHotspotBlockDefinition } from "./image-hotspot-definition";
 import { ImageHotspotCanvasAuthoringNode } from "./image-hotspot-canvas";
 import { createImageHotspotNode } from "./node";
 
-function ImageHotspotAuthoringView() {
-  return <AssessmentProblemContent editable blockClass="sc-image-hotspot" />;
+function ImageHotspotAuthoringView(props: NodeViewProps) {
+  return (
+    <AssessmentProblemContent editable blockClass="sc-course-image-hotspot" nodeViewProps={props} />
+  );
 }
 
 const ImageHotspotAuthoringNode = createImageHotspotNode({

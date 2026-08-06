@@ -20,6 +20,7 @@
     "report:xblock-css": "node scripts/report-xblock-css.mjs"
   },
   "devDependencies": {
+    "@types/node": "catalog:",
     "dependency-cruiser": "17.4.3",
     "postcss": "^8.5.18",
     "typescript": "~5.9.3",

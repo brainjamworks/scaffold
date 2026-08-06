@@ -192,9 +192,44 @@ function gradeMatch(
   target: ExtractTarget<"match">,
   response: ExtractResponse<"match">,
 ): AssessmentResult {
-  const givenByItem = new Map(response.pairs.map((pair) => [pair.itemId, pair.targetId]));
   const pairs = target.assessment.correctPairs;
   const items: Record<string, AssessmentItemDetail> = {};
+  const interactionItemIds = target.interaction.items.map((item) => item.id);
+  const interactionTargetIds = target.interaction.targets.map((item) => item.id);
+  const interactionItemIdSet = new Set(interactionItemIds);
+  const interactionTargetIdSet = new Set(interactionTargetIds);
+  const expectedItemIds = pairs.map((pair) => pair.itemId);
+  const expectedTargetIds = pairs.map((pair) => pair.targetId);
+  const responseItemIds = response.pairs.map((pair) => pair.itemId);
+  const responseTargetIds = response.pairs.map((pair) => pair.targetId);
+  const interactionIsExact =
+    interactionItemIds.length > 0 &&
+    interactionItemIds.length === interactionTargetIds.length &&
+    interactionItemIds.every((id) => id.trim().length > 0) &&
+    interactionTargetIds.every((id) => id.trim().length > 0) &&
+    interactionItemIdSet.size === interactionItemIds.length &&
+    interactionTargetIdSet.size === interactionTargetIds.length;
+  const expectedIsExact =
+    interactionIsExact &&
+    pairs.length === interactionItemIds.length &&
+    new Set(expectedItemIds).size === expectedItemIds.length &&
+    new Set(expectedTargetIds).size === expectedTargetIds.length &&
+    pairs.every(
+      ({ itemId, targetId }) =>
+        interactionItemIdSet.has(itemId) && interactionTargetIdSet.has(targetId),
+    );
+  const responseIsExact =
+    response.pairs.length === interactionItemIds.length &&
+    new Set(responseItemIds).size === responseItemIds.length &&
+    new Set(responseTargetIds).size === responseTargetIds.length &&
+    response.pairs.every(
+      ({ itemId, targetId }) =>
+        interactionItemIdSet.has(itemId) && interactionTargetIdSet.has(targetId),
+    );
+  const givenByItem = new Map<string, string>();
+  for (const pair of response.pairs) {
+    if (!givenByItem.has(pair.itemId)) givenByItem.set(pair.itemId, pair.targetId);
+  }
 
   if (pairs.length === 0) {
     return {
@@ -220,7 +255,7 @@ function gradeMatch(
 
   return {
     score: countScore(correctCount, pairs.length),
-    isCorrect: correctCount === pairs.length,
+    isCorrect: expectedIsExact && responseIsExact && correctCount === pairs.length,
     feedback: summaryFeedbackFor(target),
     items,
   };
@@ -230,11 +265,38 @@ function gradeClassify(
   target: ExtractTarget<"classify">,
   response: ExtractResponse<"classify">,
 ): AssessmentResult {
-  const givenByItem = new Map(
-    response.placements.map((placement) => [placement.itemId, placement.categoryId]),
-  );
   const placements = target.assessment.correctPlacements;
   const items: Record<string, AssessmentItemDetail> = {};
+  const interactionItemIds = target.interaction.items.map((item) => item.id);
+  const interactionCategoryIds = target.interaction.categories.map((category) => category.id);
+  const interactionItemIdSet = new Set(interactionItemIds);
+  const interactionCategoryIdSet = new Set(interactionCategoryIds);
+  const expectedItemIds = placements.map((placement) => placement.itemId);
+  const responseItemIds = response.placements.map((placement) => placement.itemId);
+  const expectedIsExact =
+    interactionItemIds.every((id) => id.trim().length > 0) &&
+    interactionCategoryIds.every((id) => id.trim().length > 0) &&
+    new Set(interactionItemIds).size === interactionItemIds.length &&
+    new Set(interactionCategoryIds).size === interactionCategoryIds.length &&
+    placements.length === interactionItemIds.length &&
+    new Set(expectedItemIds).size === expectedItemIds.length &&
+    placements.every(
+      ({ itemId, categoryId }) =>
+        interactionItemIdSet.has(itemId) && interactionCategoryIdSet.has(categoryId),
+    );
+  const responseIsExact =
+    response.placements.length === interactionItemIds.length &&
+    new Set(responseItemIds).size === responseItemIds.length &&
+    response.placements.every(
+      ({ itemId, categoryId }) =>
+        interactionItemIdSet.has(itemId) && interactionCategoryIdSet.has(categoryId),
+    );
+  const givenByItem = new Map<string, string>();
+  for (const placement of response.placements) {
+    if (!givenByItem.has(placement.itemId)) {
+      givenByItem.set(placement.itemId, placement.categoryId);
+    }
+  }
 
   if (placements.length === 0) {
     return {
@@ -260,7 +322,7 @@ function gradeClassify(
 
   return {
     score: countScore(correctCount, placements.length),
-    isCorrect: correctCount === placements.length,
+    isCorrect: expectedIsExact && responseIsExact && correctCount === placements.length,
     feedback: summaryFeedbackFor(target),
     items,
   };
@@ -285,7 +347,7 @@ function gradeFillBlanks(
 
   let correctCount = 0;
   for (const blank of blanks) {
-    const accepted = blank.acceptedAnswers.filter((answer) => answer.length > 0);
+    const accepted = blank.acceptedAnswers.filter((answer) => answer.trim().length > 0);
     const given = givenByBlank.get(blank.blankId) ?? "";
     const normalizedGiven = normalizeBlankValue(given, blank);
     const correct =
@@ -314,10 +376,12 @@ function gradeSpatialHotspot(
   response: ExtractResponse<"spatial-hotspot">,
 ): AssessmentResult {
   const hotspotIds = target.interaction.hotspots.map((hotspot) => hotspot.id);
+  const hotspotIdSet = new Set(hotspotIds);
   const correctIds = new Set(target.assessment.correctHotspotIds);
-  const selectedIds = new Set(
-    response.selections.flatMap((selection) => (selection.hotspotId ? [selection.hotspotId] : [])),
+  const selectedCurrentIds = response.selections.flatMap((selection) =>
+    selection.hotspotId && hotspotIdSet.has(selection.hotspotId) ? [selection.hotspotId] : [],
   );
+  const selectedIds = new Set(selectedCurrentIds);
   const items: Record<string, AssessmentItemDetail> = {};
 
   if (hotspotIds.length === 0) {
@@ -329,12 +393,10 @@ function gradeSpatialHotspot(
     };
   }
 
-  let correctlyClassified = 0;
   for (const hotspotId of hotspotIds) {
     const expected = correctIds.has(hotspotId);
     const given = selectedIds.has(hotspotId);
     const correct = expected === given;
-    if (correct) correctlyClassified += 1;
     items[hotspotId] = {
       correct,
       expected,
@@ -343,13 +405,20 @@ function gradeSpatialHotspot(
     };
   }
 
-  const allCorrect = correctlyClassified === hotspotIds.length;
-  const score =
-    target.assessment.gradingMode === "all-or-nothing"
-      ? countScore(allCorrect ? 1 : 0, 1)
-      : countScore(correctlyClassified, hotspotIds.length);
+  const correctSelections = [...selectedIds].filter((id) => correctIds.has(id)).length;
+  const allCorrect =
+    response.selections.length === correctIds.size &&
+    selectedCurrentIds.length === response.selections.length &&
+    selectedIds.size === response.selections.length &&
+    correctSelections === correctIds.size;
+  const partialCreditDenominator = Math.max(correctIds.size, response.selections.length);
   return {
-    score,
+    score:
+      target.assessment.gradingMode === "all-or-nothing"
+        ? countScore(allCorrect ? 1 : 0, 1)
+        : correctIds.size === 0 || partialCreditDenominator === 0
+          ? countScore(0, 1)
+          : countScore(correctSelections, partialCreditDenominator),
     isCorrect: allCorrect,
     feedback: summaryFeedbackFor(target),
     items,
@@ -386,7 +455,7 @@ function normalizeBlankValue(
   },
 ): string {
   const trimmed = meta.trimWhitespace === false ? value : value.trim();
-  return meta.caseSensitive ? trimmed : trimmed.toLocaleLowerCase();
+  return meta.caseSensitive ? trimmed : trimmed.toLowerCase();
 }
 
 function feedbackFor(

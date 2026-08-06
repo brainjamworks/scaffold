@@ -1,0 +1,111 @@
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-stat-highlight {
+  color: var(--gray-12);
+  font-family: var(--default-font-family);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-stat-highlight__content
+  > [data-node-view-content-react] {
+  gap: var(--space-1);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-stat-highlight__value {
+  color: var(--accent-11);
+  font-family: var(--heading-font-family);
+  font-size: var(--font-size-9);
+  font-weight: 600;
+  letter-spacing: var(--letter-spacing-9);
+  line-height: var(--line-height-9);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-stat-highlight__label {
+  color: var(--gray-11);
+  font-family: var(--default-font-family);
+  font-size: var(--font-size-1);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: var(--line-height-1);
+  text-transform: uppercase;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-stat-highlight__context {
+  width: 100%;
+  max-width: 60ch;
+  margin-top: var(--space-2);
+  color: var(--gray-11);
+  font-family: var(--default-font-family);
+  font-size: var(--font-size-3);
+  letter-spacing: var(--letter-spacing-3);
+  line-height: var(--line-height-3);
+  text-wrap: pretty;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-stat-highlight
+  :is(
+    .sc-course-stat-highlight__value,
+    .sc-course-stat-highlight__label,
+    .sc-course-stat-highlight__context
+  )
+  [data-node-view-content-react]
+  span {
+  line-height: normal;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-stat-highlight[data-align="left"]
+  .sc-course-stat-highlight__context {
+  margin-right: auto;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-stat-highlight[data-align="center"]
+  .sc-course-stat-highlight__context {
+  margin-inline: auto;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-stat-highlight__context:has([data-text-align="left"]) {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-stat-highlight__context:has([data-text-align="center"]) {
+  margin-inline: auto;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-stat-highlight__context:has([data-text-align="right"]) {
+  margin-left: auto;
+  margin-right: 0;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-stat-highlight__context:has([data-text-align="justify"]) {
+  margin-inline: 0;
+  max-width: none;
+}
+
+@container sc-course-stat-highlight (max-width: 28rem) {
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-stat-highlight__value {
+    font-size: var(--font-size-8);
+    letter-spacing: var(--letter-spacing-8);
+    line-height: var(--line-height-8);
+  }
+}
+
+@container sc-course-stat-highlight (max-width: 16rem) {
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-stat-highlight__value {
+    font-size: var(--font-size-7);
+    letter-spacing: var(--letter-spacing-7);
+    line-height: var(--line-height-7);
+  }
+
+  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-stat-highlight__context {
+    margin-top: var(--space-1);
+    font-size: var(--font-size-2);
+    letter-spacing: var(--letter-spacing-2);
+    line-height: var(--line-height-2);
+  }
+}

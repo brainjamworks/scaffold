@@ -42,7 +42,7 @@ export function useResolvedAudioBlockSource(
     }
 
     let cancelled = false;
-    (async () => {
+    void (async () => {
       try {
         if (!mediaPort) {
           throw new Error("No media port configured.");

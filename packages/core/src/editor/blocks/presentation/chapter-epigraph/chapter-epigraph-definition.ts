@@ -1,5 +1,5 @@
 import { BookOpenTextIcon as BookOpenText } from "@phosphor-icons/react";
-import { ChapterEpigraphAlignSchema, ChapterEpigraphDataSchema } from "@scaffold/contracts";
+import { ChapterEpigraphDataSchema } from "@scaffold/contracts";
 
 import { createStableId } from "@/document/model/identity/stable-ids";
 import { defineConfiguration } from "@/editor/configuration/definition";
@@ -9,31 +9,10 @@ import { emptyChapterEpigraphData } from "./content";
 
 export const CHAPTER_EPIGRAPH_BLOCK_ID = "chapter-epigraph";
 
-const ALIGN_LABELS: Record<"left" | "center", string> = {
-  left: "Left",
-  center: "Centre",
-};
-
 const chapterEpigraphConfiguration = defineConfiguration({
   attr: "data",
   schema: ChapterEpigraphDataSchema,
-  sheet: {
-    title: "Epigraph settings",
-    defaultOpenSections: ["appearance"],
-    sections: [{ id: "appearance", title: "Appearance" }],
-  },
-  controls: [
-    {
-      kind: "select",
-      name: "align",
-      label: "Alignment",
-      options: ChapterEpigraphAlignSchema.options.map((value) => ({
-        value,
-        label: ALIGN_LABELS[value],
-      })),
-      placement: { sheet: { section: "appearance" } },
-    },
-  ],
+  controls: [],
 });
 
 export const chapterEpigraphBlockDefinition = defineBlock({

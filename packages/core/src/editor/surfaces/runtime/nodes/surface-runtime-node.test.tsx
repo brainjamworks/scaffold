@@ -7,7 +7,7 @@ import { cleanup, render, waitFor, within } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it } from "vite-plus/test";
 
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import {
   ARRANGEMENT_CONTENT,
@@ -869,6 +869,7 @@ function createEditor(
       ExtendedParagraph,
       createScaffoldTextAlignExtension(["paragraph", "heading", "slide_title"]),
       CourseDocumentNode,
+      createCourseSectionNode(),
       createSurfaceRuntimeNode({
         registry: surfaceComposition.registry,
         views: surfaceComposition.views,

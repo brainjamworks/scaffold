@@ -83,8 +83,7 @@ function RealSource() {
       ref={(node) => {
         drag.sourceRef(node);
         if (node) {
-          node.getBoundingClientRect = () =>
-            rect({ left: 40, top: 40, width: 120, height: 60 });
+          node.getBoundingClientRect = () => rect({ left: 40, top: 40, width: 120, height: 60 });
         }
       }}
       data-testid="real-source"
@@ -131,12 +130,7 @@ function elementWithRect(input: {
   return element;
 }
 
-function rect(input: {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-}): DOMRect {
+function rect(input: { left: number; top: number; width: number; height: number }): DOMRect {
   return {
     bottom: input.top + input.height,
     height: input.height,

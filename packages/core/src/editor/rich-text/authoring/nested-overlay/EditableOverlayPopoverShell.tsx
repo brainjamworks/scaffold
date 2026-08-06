@@ -3,28 +3,38 @@ import {
   useId,
   useRef,
   useState,
-  type ButtonHTMLAttributes,
   type ComponentPropsWithoutRef,
+  type ElementRef,
   type Ref,
   type ReactNode,
 } from "react";
 
 import {
-  PopoverSurface,
-  type PopoverSurfaceTone,
-} from "@/ui/components/PopoverSurface/PopoverSurface";
+  CoursePopoverAction,
+  CoursePopoverPager,
+  CoursePopoverPagerAction,
+  type CoursePopoverActionProps,
+  type CoursePopoverActionTone,
+  type CoursePopoverPagerProps,
+} from "@/ui/components/course/CoursePopoverSurface/CoursePopoverActions";
+import {
+  CoursePopoverSurface,
+  type CoursePopoverSurfaceTone,
+} from "@/ui/components/course/CoursePopoverSurface/CoursePopoverSurface";
 import {
   EditorFloatingPopover,
   type EditorFloatingPopoverContentProps,
 } from "@/editor/interactions/floating/EditorFloatingPopover";
+import { AUTHORING_CHROME_SUPPRESSION_ATTR } from "@/editor/interactions/dom/authoring-chrome";
 import { cn } from "@/lib/cn";
+import { CourseThemePortalBoundary } from "@/theme/course/CourseThemeProvider";
 
 import {
   NestedRichTextEditorField,
   type NestedRichTextEditorFieldConfig,
 } from "./NestedRichTextEditorField";
 
-export type EditableOverlayPopoverTone = PopoverSurfaceTone;
+export type EditableOverlayPopoverTone = CoursePopoverSurfaceTone;
 
 export interface EditableOverlayPopoverShellProps extends Omit<
   EditorFloatingPopoverContentProps,
@@ -54,18 +64,26 @@ export type EditableOverlayPopoverContentProps =
       editor: EditableOverlayPopoverEditorConfig;
     });
 
-export type EditableOverlayPopoverTextActionTone = "default" | "danger";
-
-export interface EditableOverlayPopoverTextActionProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  tone?: EditableOverlayPopoverTextActionTone;
-}
+export type EditableOverlayPopoverTextActionTone = CoursePopoverActionTone;
+export type EditableOverlayPopoverTextActionProps = CoursePopoverActionProps;
 
 export const EditableOverlayPopoverRoot = EditorFloatingPopover.Root;
 export const EditableOverlayPopoverTrigger = EditorFloatingPopover.Trigger;
 export const EditableOverlayPopoverAnchor = EditorFloatingPopover.Anchor;
 export const EditableOverlayPopoverPortal = EditorFloatingPopover.Portal;
 export const EditableOverlayPopoverClose = EditorFloatingPopover.Close;
-export const EditableOverlayPopoverArrow = EditorFloatingPopover.Arrow;
+export const EditableOverlayPopoverArrow = forwardRef<
+  ElementRef<typeof EditorFloatingPopover.Arrow>,
+  ComponentPropsWithoutRef<typeof EditorFloatingPopover.Arrow>
+>(function EditableOverlayPopoverArrow({ className, ...props }, ref) {
+  return (
+    <EditorFloatingPopover.Arrow
+      {...props}
+      ref={ref}
+      className={cn("sc-course-popover-surface__arrow", className)}
+    />
+  );
+});
 
 export const EditableOverlayPopoverShell = forwardRef<
   HTMLDivElement,
@@ -101,36 +119,39 @@ export const EditableOverlayPopoverShell = forwardRef<
   const describedBy = ariaDescribedBy ?? (description ? descriptionId : undefined);
 
   return (
-    <EditorFloatingPopover.Content
-      {...contentProps}
-      ref={ref}
-      role={role}
-      {...(ariaLabel ? { "aria-label": ariaLabel } : {})}
-      {...(labelledBy ? { "aria-labelledby": labelledBy } : {})}
-      {...(describedBy ? { "aria-describedby": describedBy } : {})}
-      align={align}
-      authoringChrome={authoringChrome}
-      contentEditable={false}
-      side={side}
-      sideOffset={sideOffset}
-      className={className}
-    >
-      <PopoverSurface
-        {...(bodyRef ? { bodyRef } : {})}
-        description={description}
-        descriptionId={descriptionId}
-        footerEnd={footerEnd}
-        footerStart={footerStart}
-        headerActions={headerActions}
-        icon={icon}
-        meta={meta}
-        title={title}
-        titleId={titleId}
-        tone={tone}
+    <CourseThemePortalBoundary>
+      <EditorFloatingPopover.Content
+        {...contentProps}
+        ref={ref}
+        role={role}
+        {...(ariaLabel ? { "aria-label": ariaLabel } : {})}
+        {...(labelledBy ? { "aria-labelledby": labelledBy } : {})}
+        {...(describedBy ? { "aria-describedby": describedBy } : {})}
+        align={align}
+        authoringChrome={authoringChrome}
+        contentEditable={false}
+        {...{ [AUTHORING_CHROME_SUPPRESSION_ATTR]: "" }}
+        side={side}
+        sideOffset={sideOffset}
+        className={className}
       >
-        {children}
-      </PopoverSurface>
-    </EditorFloatingPopover.Content>
+        <CoursePopoverSurface
+          {...(bodyRef ? { bodyRef } : {})}
+          description={description}
+          descriptionId={descriptionId}
+          footerEnd={footerEnd}
+          footerStart={footerStart}
+          headerActions={headerActions}
+          icon={icon}
+          meta={meta}
+          title={title}
+          titleId={titleId}
+          tone={tone}
+        >
+          {children}
+        </CoursePopoverSurface>
+      </EditorFloatingPopover.Content>
+    </CourseThemePortalBoundary>
   );
 });
 
@@ -178,36 +199,10 @@ const EditableOverlayPopoverEditorContent = forwardRef<
   );
 });
 
-export const EditableOverlayPopoverTextAction = forwardRef<
-  HTMLButtonElement,
-  EditableOverlayPopoverTextActionProps
->(function EditableOverlayPopoverTextAction(
-  { children, className, tone = "default", type = "button", ...props },
-  ref,
-) {
-  return (
-    <button
-      {...props}
-      ref={ref}
-      type={type}
-      data-tone={tone}
-      className={cn("sc-popover-surface__text-action", className)}
-    >
-      {children}
-    </button>
-  );
-});
-
-export const EditableOverlayPopoverPager = forwardRef<
-  HTMLDivElement,
-  ComponentPropsWithoutRef<"div">
->(function EditableOverlayPopoverPager({ children, className, ...props }, ref) {
-  return (
-    <div {...props} ref={ref} className={cn("sc-popover-surface__pager", className)}>
-      {children}
-    </div>
-  );
-});
+export const EditableOverlayPopoverTextAction = CoursePopoverAction;
+export const EditableOverlayPopoverPager = CoursePopoverPager;
+export type EditableOverlayPopoverPagerProps = CoursePopoverPagerProps;
+export const EditableOverlayPopoverPagerAction = CoursePopoverPagerAction;
 
 export const EditableOverlayPopover = {
   Anchor: EditableOverlayPopoverAnchor,
@@ -215,6 +210,7 @@ export const EditableOverlayPopover = {
   Close: EditableOverlayPopoverClose,
   Content: EditableOverlayPopoverContent,
   Pager: EditableOverlayPopoverPager,
+  PagerAction: EditableOverlayPopoverPagerAction,
   Portal: EditableOverlayPopoverPortal,
   Root: EditableOverlayPopoverRoot,
   Shell: EditableOverlayPopoverShell,

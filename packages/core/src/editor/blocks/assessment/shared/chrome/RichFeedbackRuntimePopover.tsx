@@ -3,7 +3,6 @@ import { useState, type ReactNode } from "react";
 
 import * as Popover from "@/ui/components/Popover/Popover";
 import { renderRuntimeRichTextNode } from "@/editor/rich-text/runtime/render-rich-text";
-import { cn } from "@/lib/cn";
 import { zIndex } from "@/ui/overlays/z-index";
 import { isScaffoldRichTextDocumentEmpty, toTiptapRichTextDocument } from "@/schemas/rich-text";
 import {
@@ -12,7 +11,6 @@ import {
 } from "@scaffold/contracts";
 import { iconSm } from "@/ui/tokens/icon-sizes";
 
-import { CHOICE_TRAILING_BTN } from "./ChoiceAnswerItem";
 import { AssessmentRuntimePopoverShell } from "./AssessmentRuntimePopoverShell";
 import "./assessment-feedback-popover.css";
 
@@ -40,7 +38,7 @@ export function RichFeedbackRuntimePopover({
       aria-label={triggerLabel ?? "Show feedback"}
       onClick={(event) => event.stopPropagation()}
       data-no-select
-      className={cn(CHOICE_TRAILING_BTN, "sc-assessment-feedback-trigger--visible")}
+      className="sc-course-assessment-feedback-action"
     >
       <Info size={iconSm} weight="fill" />
     </button>
@@ -65,11 +63,11 @@ export function RichFeedbackRuntimePopover({
             title="Feedback"
             tone="feedback"
           >
-            <div className="sc-assessment-feedback-rich-text sc-assessment-feedback-rich-text--runtime">
+            <div className="sc-course-assessment-feedback-rich-text sc-course-assessment-feedback-rich-text--runtime">
               {renderRuntimeRichTextNode(document)}
             </div>
           </AssessmentRuntimePopoverShell>
-          <Popover.Arrow className="sc-assessment-feedback-arrow" />
+          <Popover.Arrow className="sc-course-popover-surface__arrow" />
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>

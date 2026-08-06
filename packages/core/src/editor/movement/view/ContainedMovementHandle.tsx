@@ -76,18 +76,17 @@ export function ContainedMovementHandle({
       safeLocalWidth={44}
       {...{ [CONTAINED_MOVEMENT_HANDLE_ATTR]: "" }}
       className={cn(
-        "sc-contained-movement-handle",
-        disabled && "sc-movement-handle--disabled",
+        "sc-app-contained-movement-handle",
+        disabled && "sc-app-movement-handle--disabled",
         className,
       )}
     >
       <span id={descriptionId} className="sc-sr-only">
-        Press Space or Enter to pick up this {label}. Use Arrow {backwardLabel} or Arrow{
-        " "}
+        Press Space or Enter to pick up this {label}. Use Arrow {backwardLabel} or Arrow{" "}
         {forwardLabel} to choose a destination within its group. Press Space or Enter to drop, or
         Escape to cancel.
       </span>
-      <span aria-hidden className="sc-contained-movement-handle__visual">
+      <span aria-hidden className="sc-app-contained-movement-handle__visual">
         <DotsSixVertical size={iconXs} weight="bold" />
       </span>
     </InteractionDragActivationArea>

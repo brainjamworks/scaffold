@@ -6,7 +6,7 @@ import { createImageBlockNode } from "./image-block-node";
 import "./ImageBlock.css";
 
 function ImageBlockRuntimeFallback() {
-  return <div aria-hidden="true" className="sc-image-block__fallback" />;
+  return <div aria-hidden="true" className="sc-course-image-block__fallback" />;
 }
 
 export const ImageBlockRuntimeExtension = createImageBlockNode({
@@ -20,6 +20,6 @@ export const ImageBlockRuntimeExtension = createImageBlockNode({
           return { default: mod.ImageBlockRuntimeView };
         },
       },
-      className: "sc-image-block",
+      className: "sc-course-image-block",
     }),
 });

@@ -14,6 +14,7 @@
       "@scaffold/core/format": ["packages/core/src/entrypoints/format.ts"],
       "@scaffold/core/ports": ["packages/core/src/entrypoints/ports.ts"],
       "@scaffold/core/media-policy": ["packages/core/src/entrypoints/media-policy.ts"],
+      "@scaffold/core/extensions": ["packages/core/src/entrypoints/extensions.ts"],
       "@scaffold/core/styles.css": ["packages/core/src/styles/globals.css"]
     }
   }

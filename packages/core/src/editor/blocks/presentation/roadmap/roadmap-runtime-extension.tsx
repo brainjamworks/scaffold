@@ -16,6 +16,7 @@ const RoadmapMilestoneRuntimeNode = createRoadmapMilestoneNode({
 const RoadmapRuntimeNode = createRoadmapNode({
   addNodeView: () =>
     createBlockRuntimeNodeView({
+      className: "sc-course-roadmap-node",
       definition: roadmapBlockDefinition,
       view: { component: RoadmapRuntimeView },
     }),

@@ -9,6 +9,7 @@ import {
 
 import { fieldContainerSpec } from "@/document/model/content-model/content-groups";
 import { isFieldContentEmpty } from "@/document/model/content-model/is-field-content-empty";
+import { useAssessmentMetaOverflow } from "./use-assessment-meta-overflow";
 import "./assessment-shared-chrome.css";
 
 const ASSESSMENT_TITLE_CONTENT = "paragraph";
@@ -41,6 +42,7 @@ function AssessmentTitleNodeView(props: NodeViewProps) {
     selector: ({ editor }) => editor.isEditable,
   });
   const isEmpty = isFieldContentEmpty(props.node);
+  const { wrapperRef, hasOverflow } = useAssessmentMetaOverflow(props.node.textContent);
 
   if (!isEditable && isEmpty) {
     return (
@@ -51,8 +53,15 @@ function AssessmentTitleNodeView(props: NodeViewProps) {
   }
 
   return (
-    <NodeViewWrapper data-slot="assessment-title" className="sc-assessment-meta-title">
-      <NodeViewContent className="sc-assessment-meta-content--inline" />
+    <NodeViewWrapper
+      ref={wrapperRef}
+      aria-label={!isEditable && hasOverflow ? props.node.textContent.trim() : undefined}
+      data-course-overflow={hasOverflow ? "true" : undefined}
+      data-slot="assessment-title"
+      className="sc-course-assessment-meta-title"
+      tabIndex={!isEditable && hasOverflow ? 0 : undefined}
+    >
+      <NodeViewContent className="sc-course-assessment-meta-content--inline" />
     </NodeViewWrapper>
   );
 }

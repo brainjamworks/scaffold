@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
+import "../views/AuthoringSurfaceView.css";
 import "./page-default.css";
 import "./slide-cover.css";
 import "./slide-module-cover.css";
@@ -29,6 +30,32 @@ describe("Authoring variant cascade layering", () => {
     document.body.append(frame);
 
     expect(getComputedStyle(surface).maxWidth).toBe("none");
+  });
+
+  it("reserves space below an active Page block for its authoring bubble", () => {
+    const frame = document.createElement("div");
+    frame.className = "scaffold-authoring-surface-view";
+    frame.dataset.courseMode = "page";
+    const surface = document.createElement("article");
+    surface.className = "sc-page-default-surface-view sc-page-default-surface-authoring-view";
+    surface.dataset.surface = "";
+    surface.style.setProperty("--sc-surface-flow-gap", "24px");
+    const content = document.createElement("div");
+    content.dataset.surfaceContent = "";
+    const nodeViewContent = document.createElement("div");
+    nodeViewContent.dataset.nodeViewContentReact = "";
+    const resizeContainer = document.createElement("div");
+    resizeContainer.dataset.resizeContainer = "";
+    const activeFrame = document.createElement("div");
+    activeFrame.dataset.authoringFrameWrapperActive = "";
+    resizeContainer.append(activeFrame);
+    nodeViewContent.append(resizeContainer, document.createElement("div"));
+    content.append(nodeViewContent);
+    surface.append(content);
+    frame.append(surface);
+    document.body.append(frame);
+
+    expect(getComputedStyle(resizeContainer).marginBlockEnd).toBe("56px");
   });
 
   it("allows adapter placeholder overrides on slide-cover titles", () => {

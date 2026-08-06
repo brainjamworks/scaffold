@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import { getScaffoldAuthoringCataloguesForEditor } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
+import type { OverlayBoundaryKind } from "@/ui/overlays/portal-host-context";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { BlockStrip } from "@/editor/shell/chrome/BlockStrip";
 import { SURFACE_FLOATING_AUTHORING_CONTROLS } from "@/editor/surfaces/authoring/chrome/surface-floating-controls";
@@ -16,7 +17,9 @@ export interface AuthoringDocumentChromeProps {
   children: ReactNode;
   editable: boolean;
   editor: Editor;
+  overlayCollisionBoundary?: Element | null;
   overlayContainer?: Element | null;
+  overlayKind?: OverlayBoundaryKind;
 }
 
 export function AuthoringDocumentBlockStrip({ editor }: { editor: Editor }) {
@@ -51,7 +54,9 @@ export function AuthoringDocumentChrome({
   children,
   editable,
   editor,
+  overlayCollisionBoundary,
   overlayContainer,
+  overlayKind,
 }: AuthoringDocumentChromeProps) {
   const canShowAuthoringChrome = editable && editor.isEditable;
 
@@ -64,7 +69,9 @@ export function AuthoringDocumentChrome({
         editor={editor}
         surfaceAuthoringChrome={builtInSurfaceAuthoringChromeResolver}
         surfaceVariants={builtInSurfaceVariantRegistry}
+        {...(overlayCollisionBoundary !== undefined ? { overlayCollisionBoundary } : {})}
         {...(overlayContainer !== undefined ? { overlayContainer } : {})}
+        {...(overlayKind !== undefined ? { overlayKind } : {})}
       >
         {children}
       </AuthoringContentChrome>

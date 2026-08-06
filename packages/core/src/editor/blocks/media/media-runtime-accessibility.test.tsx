@@ -35,7 +35,11 @@ describe("media runtime accessibility", () => {
       },
     });
 
-    expect(await screen.findByRole("img", { name: "Course map" })).toBeInTheDocument();
+    const image = await screen.findByRole("img", { name: "Course map" });
+    expect(image).toHaveClass("sc-course-image-block__media");
+    expect(image.parentElement).toHaveClass("sc-course-image-block__stage");
+    expect(image.parentElement).not.toHaveClass("sc-app-media-replace-host");
+    expect(image.closest('[data-node="image_block"]')).toHaveClass("sc-course-image-block");
   });
 
   it("renders audio metadata as the player label", async () => {
@@ -51,7 +55,9 @@ describe("media runtime accessibility", () => {
       },
     });
 
-    expect(await screen.findByRole("group", { name: "Lecture clip controls" })).toBeInTheDocument();
+    const controls = await screen.findByRole("group", { name: "Lecture clip controls" });
+    expect(controls).toHaveClass("sc-course-audio-player__bar");
+    expect(controls.closest(".sc-course-audio-block__stage")).not.toBeNull();
   });
 
   it("keeps image missing, loading, and error states semantic", async () => {

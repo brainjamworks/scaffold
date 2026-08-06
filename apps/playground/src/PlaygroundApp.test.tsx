@@ -6,7 +6,6 @@ import type { JSONContent } from "@tiptap/core";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { createScaffoldDocumentContent } from "@scaffold/core/format";
-import type { ScaffoldThemeExtension } from "@scaffold/core/authoring";
 import type { ArtifactSaveBundle } from "@scaffold/core/ports";
 import type { StoredArtifact } from "./ports/browserStorageDb";
 
@@ -220,7 +219,7 @@ function storedArtifact(id = "shell-doc", title = "Stored draft"): StoredArtifac
 
 function createLearnerPreviewContent(): BrowserPreviewProjection {
   return {
-    learnerContent: pageDocumentWithParagraph("surface-1", "Learner draft"),
+    learnerContent: pageDocumentWithParagraph("surface_0001", "Learner draft"),
     assessmentGroups: [],
     assessmentTargets: [],
   };
@@ -256,20 +255,6 @@ describe("PlaygroundApp preview boundary", () => {
     view.rerender(<PlaygroundApp artifactId="shell-doc" />);
     expect(mocks.scaffoldApplications).toHaveLength(1);
     expect(mocks.authoringAppProps.at(-1)?.["application"]).toBe(mocks.scaffoldApplications[0]);
-  });
-
-  it("adds and removes a sample host theme extension at the public authoring seam", async () => {
-    const sampleThemeExtension = { fonts: [] } satisfies ScaffoldThemeExtension;
-    mocks.loadArtifact.mockResolvedValueOnce(storedArtifact());
-    const view = render(
-      <PlaygroundApp artifactId="shell-doc" themeExtension={sampleThemeExtension} />,
-    );
-
-    await screen.findByTestId("content-author-workspace");
-    expect(mocks.authoringAppProps.at(-1)?.["themeExtension"]).toBe(sampleThemeExtension);
-
-    view.rerender(<PlaygroundApp artifactId="shell-doc" />);
-    await waitFor(() => expect(mocks.authoringAppProps.at(-1)?.["themeExtension"]).toBeUndefined());
   });
 
   it("does not evaluate local assessment grading during an ordinary mount", async () => {
@@ -406,7 +391,7 @@ describe("PlaygroundApp preview boundary", () => {
 
     const secondProjection = createLearnerPreviewContent();
     secondProjection.learnerContent = pageDocumentWithParagraph(
-      "surface-2",
+      "surface_0002",
       "Latest learner draft",
     );
     mocks.learnerPreviewContent = secondProjection;

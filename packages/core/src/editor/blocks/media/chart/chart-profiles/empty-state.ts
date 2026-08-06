@@ -1,5 +1,10 @@
 import type { ChartBlockData, ChartColumn, ChartDataSource } from "@/schemas/shared";
 
+import {
+  CHART_BODY_FONT_ROLE,
+  CHART_INK_COLOUR_ROLE,
+  CHART_MUTED_COLOUR_ROLE,
+} from "../chart-theme";
 import { baseOption } from "./shared";
 
 /**
@@ -24,10 +29,10 @@ export function emptyStateOption(chart: ChartBlockData): Record<string, unknown>
             silent: true,
             style: {
               text: "No data to display",
-              fontFamily: "var(--font-sans)",
+              fontFamily: CHART_BODY_FONT_ROLE,
               fontSize: 13,
               fontWeight: 500,
-              fill: "var(--color-ink)",
+              fill: CHART_INK_COLOUR_ROLE,
               textAlign: "center",
             },
           },
@@ -37,9 +42,9 @@ export function emptyStateOption(chart: ChartBlockData): Record<string, unknown>
             silent: true,
             style: {
               text: "Add rows to the data table to plot this chart",
-              fontFamily: "var(--font-sans)",
+              fontFamily: CHART_BODY_FONT_ROLE,
               fontSize: 11,
-              fill: "var(--color-text-muted)",
+              fill: CHART_MUTED_COLOUR_ROLE,
               textAlign: "center",
             },
           },

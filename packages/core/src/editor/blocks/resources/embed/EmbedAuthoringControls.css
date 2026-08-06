@@ -1,0 +1,109 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-app-embed__interaction-guard {
+    position: absolute;
+    inset: 0;
+    cursor: pointer;
+  }
+
+  .sc-app-embed__form {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 0.5rem;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .sc-app-embed__input,
+  .sc-app-embed__submit {
+    min-height: 2.75rem;
+    border-radius: 0.375rem;
+    font-family: var(--font-ui);
+    font-size: 1rem;
+    line-height: 1.25;
+  }
+
+  .sc-app-embed__input {
+    flex: 1;
+    min-width: 0;
+    border: 1px solid var(--sc-app-color-border);
+    padding-inline: 0.75rem;
+    background: var(--sc-app-color-background);
+    color: var(--sc-app-color-ink);
+    transition:
+      border-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .sc-app-embed__input::placeholder {
+    color: var(--sc-app-color-text-placeholder);
+  }
+
+  .sc-app-embed__input:hover {
+    border-color: var(--sc-app-color-text-muted);
+  }
+
+  .sc-app-embed__input:focus {
+    outline: 2px solid var(--sc-app-color-focus-outline);
+    outline-offset: 2px;
+  }
+
+  .sc-app-embed__submit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding-inline: 1rem;
+    border: 1px solid var(--sc-app-color-primary);
+    background: var(--sc-app-color-primary);
+    color: var(--sc-app-color-primary-foreground);
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      transform 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .sc-app-embed__submit:hover {
+    background: var(--sc-app-color-ink-2);
+  }
+
+  .sc-app-embed__submit:active {
+    transform: scale(0.98);
+  }
+
+  .sc-app-embed__submit:focus {
+    outline: 2px solid var(--sc-app-color-focus-outline);
+    outline-offset: 2px;
+  }
+
+  .sc-app-embed__submit:disabled {
+    color: var(--sc-app-color-text-placeholder);
+    cursor: not-allowed;
+  }
+
+  @container sc-course-embed (max-width: 320px) {
+    .sc-app-embed__form {
+      flex-direction: column;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sc-app-embed__input,
+    .sc-app-embed__submit {
+      transition: none;
+    }
+  }
+
+  @media (forced-colors: active) {
+    .sc-app-embed__input,
+    .sc-app-embed__submit {
+      border: 1px solid ButtonText;
+    }
+
+    .sc-app-embed__input:focus,
+    .sc-app-embed__submit:focus {
+      outline-color: Highlight;
+    }
+  }
+}

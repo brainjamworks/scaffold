@@ -9,6 +9,13 @@ export {
 } from "@/document/authoring/CourseDocumentEditor";
 export { ScaffoldAuthoringEntry } from "@/editor/shell/authoring/ScaffoldAuthoringEntry";
 export { AuthoringHeaderIconButton } from "@/editor/shell/chrome/AuthoringHeaderIconButton";
+export {
+  CourseThemePortalBoundary,
+  CourseThemeProvider,
+  useCourseTheme,
+  type CourseThemePortalBoundaryProps,
+  type CourseThemeProviderProps,
+} from "@/theme/course/CourseThemeProvider";
 export type {
   ScaffoldAuthoringHeaderActionsContext,
   ScaffoldAuthoringSaveState,
@@ -22,4 +29,3 @@ export type {
   ScaffoldAuthoringHostServices,
   ScaffoldLearnerHostServices,
 } from "@/host/contracts";
-export type { ScaffoldThemeExtension } from "@/theme/model";

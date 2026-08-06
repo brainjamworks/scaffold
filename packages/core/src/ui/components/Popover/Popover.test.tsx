@@ -4,7 +4,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import * as Popover from "./Popover";
-import { OverlayBoundary } from "../OverlayBoundary/OverlayBoundary";
+import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 
 const popoverMock = vi.hoisted(() => ({
   contentProps: [] as Array<Record<string, unknown>>,

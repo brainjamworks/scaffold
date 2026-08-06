@@ -1,25 +1,47 @@
 // @vitest-environment happy-dom
 
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  render as renderTest,
+  screen,
+  waitFor,
+  type RenderOptions,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
+import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { AssessmentRuntimeProvider } from "@/runtime/assessment/AssessmentRuntimeProvider";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
-import {
-  createScaffoldDefaultTheme,
-  createThemeCatalogue,
-  resolveCourseTheme,
-} from "@/theme/model";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
+import type { ScaffoldColorMode } from "@/theme/state/color-mode";
 
 import { SlideshowPlayer } from "./SlideshowPlayer";
 
 const runtimeComposition = createCoreScaffoldRuntimeComposition();
 
 let restoreFullscreenHarness: (() => void) | null = null;
+
+function render(children: ReactNode, options?: RenderOptions) {
+  return renderWithCourseAppearance(children, "light", options);
+}
+
+function renderWithCourseAppearance(
+  children: ReactNode,
+  appearance: ScaffoldColorMode,
+  options?: RenderOptions,
+) {
+  return renderTest(
+    <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance={appearance}>
+      {children}
+    </CourseThemeProvider>,
+    options,
+  );
+}
 
 class ResizeObserverStub implements ResizeObserver {
   static instances: ResizeObserverStub[] = [];
@@ -286,29 +308,22 @@ describe("SlideshowPlayer", () => {
     "passes the resolved %s course mode into slideshow content",
     async (mode) => {
       const onRendererReady = vi.fn();
-      const resolvedTheme = resolveCourseTheme({
-        catalogue: createThemeCatalogue(),
-        mode,
-        theme: createScaffoldDefaultTheme(),
-      });
-
-      render(
+      renderWithCourseAppearance(
         <SlideshowPlayer
           composition={runtimeComposition}
           initialContent={slideshowDocumentContent([
             { id: "slide_theme1", text: "Themed slide content" },
           ])}
-          resolvedTheme={resolvedTheme}
           surfaceIds={["slide_theme1"]}
           onRendererReady={onRendererReady}
         />,
+        mode,
       );
 
       await waitFor(() => expect(onRendererReady).toHaveBeenCalledOnce());
-      expect(screen.getByTestId("course-theme-scope")).toHaveAttribute(
-        "data-course-color-mode",
-        mode,
-      );
+      expect(
+        screen.getByTestId("course-document-runtime-renderer").closest(".sc-course"),
+      ).toHaveClass(mode, "sc-course-theme-scaffold-flow-v1");
     },
   );
 

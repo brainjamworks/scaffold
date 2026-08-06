@@ -10,7 +10,7 @@ import {
   LayoutAuthoringNode,
   SectionAuthoringNode,
 } from "@/editor/arrangements/layout/authoring/layout-nodes";
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 
 import { CellAuthoringNode, GridAuthoringNode } from "../authoring/grid-nodes";
 import {
@@ -94,6 +94,7 @@ function makeCourseEditor(content: JSONContent[] = []) {
       }),
       ExtendedParagraph,
       CourseDocumentNode,
+      createCourseSectionNode(),
       SurfaceNode,
       RegionNode,
       GridAuthoringNode,

@@ -1,5 +1,5 @@
 import type { CourseDocumentAttrs, CourseMode } from "@/schemas/course-document";
-import { createScaffoldDefaultTheme } from "@/theme/model";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
 type CourseDocumentViewDefaults = Pick<
   CourseDocumentAttrs,
@@ -12,7 +12,7 @@ export function getCourseDocumentDefaultsForMode(mode: CourseMode): CourseDocume
       mode,
       surfaceSize: "16x9",
       overflowMode: "clip",
-      theme: createScaffoldDefaultTheme(),
+      theme: createDefaultPersistedCourseTheme(),
     };
   }
 
@@ -20,6 +20,6 @@ export function getCourseDocumentDefaultsForMode(mode: CourseMode): CourseDocume
     mode,
     surfaceSize: "fluid",
     overflowMode: "grow",
-    theme: createScaffoldDefaultTheme(),
+    theme: createDefaultPersistedCourseTheme(),
   };
 }
