@@ -116,7 +116,18 @@ function tabsDocumentContent(): JSONContent {
         {
           type: "section",
           attrs: { id: "first-topic", role: "tab-panel", verticalPosition: "top" },
-          content: [paragraph("First topic")],
+          content: [
+            {
+              type: "paragraph",
+              content: [
+                {
+                  type: "text",
+                  text: "First topic resource",
+                  marks: [{ type: "link", attrs: { href: "https://example.com/first-topic" } }],
+                },
+              ],
+            },
+          ],
         },
         {
           type: "section",
@@ -141,6 +152,36 @@ function surfaceById(surfaceId: string): HTMLElement {
 }
 
 describe("CourseDocumentRuntimeRenderer", () => {
+  it("publishes named read-only document semantics without flattening nested controls", async () => {
+    const user = userEvent.setup();
+    const onReady = vi.fn();
+
+    render(
+      <CourseDocumentRuntimeRenderer
+        composition={runtimeComposition}
+        artifactId="artifact-accessibility"
+        initialContent={tabsDocumentContent()}
+        onReady={onReady}
+      />,
+    );
+
+    await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
+
+    const runtimeDocument = screen.getByRole("document", { name: "Course content" });
+    expect(runtimeDocument).toHaveAttribute("contenteditable", "false");
+    expect(screen.queryByRole("textbox")).toBeNull();
+
+    const link = screen.getByRole("link", { name: "First topic resource" });
+    link.focus();
+    expect(document.activeElement).toBe(link);
+
+    const tabs = screen.getAllByRole("tab");
+    tabs[1]!.focus();
+    await user.keyboard("{Enter}");
+    expect(tabs[1]).toHaveAttribute("aria-selected", "true");
+    expect(document.activeElement).toBe(tabs[1]);
+  });
+
   it("starts a fresh editor when runtime composition identity changes", async () => {
     const surfaceVariant = "private-identity-surface";
     const firstBlock = privateRuntimeBlockCapability("first_private_runtime_block");

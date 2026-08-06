@@ -21,6 +21,39 @@ afterEach(() => {
   restoreFullscreen = null;
 });
 
+describe("Runtime document accessibility", () => {
+  it.each([
+    { label: "Page", surface: "page" as const },
+    { label: "Slideshow", surface: "slideshow" as const },
+  ])("exposes named read-only content and native assessment controls on $label", async ({ surface }) => {
+    await page.viewport(1024, 768);
+    const harness = await mountRuntimeDragHarness({ interaction: "matching", surface });
+    mounted.push(harness);
+
+    const runtimeDocument = harness.player.querySelector<HTMLElement>(".ProseMirror");
+    expect(runtimeDocument).not.toBeNull();
+    expect(page.getByRole("document", { name: "Course content" }).elements()).toContain(
+      runtimeDocument,
+    );
+    expect(runtimeDocument).toHaveAttribute("contenteditable", "false");
+    expect(
+      page
+        .getByRole("textbox")
+        .elements()
+        .filter((element) => harness.player.contains(element)),
+    ).toHaveLength(0);
+
+    const source = matchingSource(harness, "i1");
+    expect(page.getByRole("button").elements()).toContain(source);
+    source.focus();
+    expect(harness.ownerDocument.activeElement).toBe(source);
+    source.click();
+    await animationFrames(harness, 1);
+    matchingTarget(harness, "t1").click();
+    await harness.waitForMatches({ i1: "t1" }, 1);
+  });
+});
+
 describe("Sequencing shared drag runtime", () => {
   it.each([
     { label: "Page", surface: "page" as const, scale: 1, targetClientSize: 44 },

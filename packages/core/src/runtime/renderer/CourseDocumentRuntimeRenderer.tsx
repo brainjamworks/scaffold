@@ -47,6 +47,12 @@ export function CourseDocumentRuntimeRenderer({
     {
       immediatelyRender: false,
       editable: false,
+      editorProps: {
+        attributes: {
+          "aria-label": "Course content",
+          role: "document",
+        },
+      },
       ...(initialContent ? { content: initialContent } : {}),
       extensions: [
         ...createCourseDocumentRuntimeExtensions({ composition }),
