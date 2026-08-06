@@ -31,6 +31,7 @@
 @import "./assessment-dropdown.css";
 @import "./assessment-fill-blanks.css";
 @import "./assessment-sequencing.css";
+@import "./assessment-categorise.css";
 @import "./assessment-matching-action.css";
 
 .sc-course.sc-course-theme-scaffold-flow-v1 {

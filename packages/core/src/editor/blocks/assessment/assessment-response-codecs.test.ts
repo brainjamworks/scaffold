@@ -242,6 +242,110 @@ describe("assessment response codecs", () => {
     ).toEqual({ blanks: { "blank-a": "Paris" } });
   });
 
+  it("requires Categorise responses to be the exact current mapping", () => {
+    const codec = responseCodec(categoriseBlockDefinition);
+    const interaction = {
+      kind: "classify" as const,
+      items: [{ id: "item-b" }, { id: "item-a" }],
+      categories: [{ id: "category-a" }, { id: "category-b" }],
+    };
+
+    expect(codec.hasResponse({ placements: {} }, interaction)).toBe(false);
+    expect(codec.hasResponse({ placements: { "item-a": "category-a" } }, interaction)).toBe(false);
+    expect(
+      codec.hasResponse(
+        { placements: { "item-a": "category-a", stale: "category-b" } },
+        interaction,
+      ),
+    ).toBe(false);
+    expect(
+      codec.hasResponse(
+        { placements: { "item-a": "category-a", "item-b": "unknown" } },
+        interaction,
+      ),
+    ).toBe(false);
+    expect(
+      codec.hasResponse(
+        { placements: { "item-a": "category-a", "item-b": "category-b" } },
+        interaction,
+      ),
+    ).toBe(true);
+
+    expect(
+      codec.toContractResponse(
+        {
+          placements: {
+            "item-a": "category-a",
+            "item-b": "category-b",
+            stale: "category-a",
+          },
+        },
+        interaction,
+      ),
+    ).toEqual({
+      kind: "classify",
+      placements: [
+        { itemId: "item-b", categoryId: "category-b" },
+        { itemId: "item-a", categoryId: "category-a" },
+      ],
+    });
+
+    expect(
+      codec.fromContractResponse(
+        {
+          kind: "classify",
+          placements: [
+            { itemId: "stale", categoryId: "category-a" },
+            { itemId: "item-a", categoryId: "unknown" },
+            { itemId: "item-b", categoryId: "category-b" },
+          ],
+        },
+        interaction,
+      ),
+    ).toEqual({ placements: { "item-b": "category-b" } });
+  });
+
+  it("rejects ambiguous Categorise interaction and canonical response identities", () => {
+    const codec = responseCodec(categoriseBlockDefinition);
+
+    expect(() =>
+      codec.hasResponse(
+        { placements: { "item-a": "category-a" } },
+        {
+          kind: "classify",
+          items: [{ id: "item-a" }, { id: "item-a" }],
+          categories: [{ id: "category-a" }, { id: "category-b" }],
+        },
+      ),
+    ).toThrow("Categorise interaction item ids must be nonblank and unique");
+    expect(() =>
+      codec.hasResponse(
+        { placements: { "item-a": "category-a" } },
+        {
+          kind: "classify",
+          items: [{ id: "item-a" }],
+          categories: [{ id: "category-a" }, { id: " " }],
+        },
+      ),
+    ).toThrow("Categorise interaction category ids must be nonblank and unique");
+    expect(() =>
+      codec.fromContractResponse(
+        {
+          kind: "classify",
+          placements: [
+            { itemId: "item-a", categoryId: "category-a" },
+            { itemId: "item-a", categoryId: "category-b" },
+          ],
+        },
+        {
+          kind: "classify",
+          items: [{ id: "item-a" }],
+          categories: [{ id: "category-a" }, { id: "category-b" }],
+        },
+      ),
+    ).toThrow("Categorise response item ids must be unique");
+  });
+
   it.each(codecCases)(
     "$name round-trips empty, partial, and complete local response state",
     ({ codec, localResponses }) => {

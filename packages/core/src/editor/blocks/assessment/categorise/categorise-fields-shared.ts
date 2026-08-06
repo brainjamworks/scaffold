@@ -12,11 +12,13 @@ import type { AssessmentFeedbackContent } from "@scaffold/contracts";
 export interface CategoriseCategoryProjection {
   id: string;
   html: string;
+  label: string;
 }
 
 export interface CategoriseItemProjection {
   id: string;
   html: string;
+  label: string;
 }
 
 export interface CategoriseReveal {
@@ -85,7 +87,11 @@ export function categoriesFromContent(
     if (bin.type.name !== "categorise_bin") return;
     const id = String(bin.attrs["id"] ?? "");
     if (!id) return;
-    categories.push({ id, html: fieldHtml(serializer, bin) });
+    categories.push({
+      id,
+      html: fieldHtml(serializer, bin),
+      label: categoriseCategoryPublicLabel(bin.textContent, categories.length + 1),
+    });
   });
   return categories;
 }
@@ -106,32 +112,18 @@ export function itemsFromContent(
     items.push({
       id,
       html: fieldHtml(serializer, childByType(item, "categorise_item_body")),
+      label: categoriseItemPublicLabel(item.textContent, items.length + 1),
     });
   });
   return items;
 }
 
-export function deterministicShuffle<T extends { id: string }>(
-  input: readonly T[],
-  seed: string,
-): T[] {
-  let h = 2166136261 >>> 0;
-  for (let i = 0; i < seed.length; i += 1) {
-    h ^= seed.charCodeAt(i);
-    h = (h * 16777619) >>> 0;
-  }
-  const rand = () => {
-    h = (h * 1664525 + 1013904223) >>> 0;
-    return h / 0x100000000;
-  };
-  const arr = input.slice();
-  for (let i = arr.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(rand() * (i + 1));
-    const tmp = arr[i] as T;
-    arr[i] = arr[j] as T;
-    arr[j] = tmp;
-  }
-  return arr;
+export function categoriseItemPublicLabel(content: string, position: number): string {
+  return publicLabel(content) || `item ${position}`;
+}
+
+export function categoriseCategoryPublicLabel(content: string, position: number): string {
+  return publicLabel(content) || `category ${position}`;
 }
 
 export function categoriseRevealFromAnswers(answers: unknown): CategoriseReveal | null {
@@ -144,6 +136,59 @@ export function categoriseRevealFromAnswers(answers: unknown): CategoriseReveal 
   }
 
   return { placements, feedbackByItemId: parsed.data.feedbackByItemId };
+}
+
+export function reconcileCategorisePlacements(
+  placements: Readonly<Record<string, string>>,
+  itemIds: readonly string[],
+  categoryIds: readonly string[],
+): Record<string, string> {
+  const identity = projectedCategoriseIdentity(itemIds, categoryIds);
+  const next: Record<string, string> = {};
+  for (const itemId of identity.itemIds) {
+    const categoryId = placements[itemId];
+    if (categoryId && identity.categoryIdSet.has(categoryId)) next[itemId] = categoryId;
+  }
+  return next;
+}
+
+export function resolveAuthorizedCategoriseReveal({
+  answerKeyVisible,
+  categoryIds,
+  itemIds,
+  reveal,
+  resultItems,
+}: {
+  answerKeyVisible: boolean;
+  categoryIds: readonly string[];
+  itemIds: readonly string[];
+  reveal: CategoriseReveal | null;
+  resultItems: Readonly<Record<string, { expected?: unknown }>> | null;
+}): CategoriseReveal | null {
+  if (!answerKeyVisible) return null;
+  const identity = projectedCategoriseIdentity(itemIds, categoryIds);
+  if (reveal && hasCompleteExactPlacements(reveal.placements, identity)) {
+    return {
+      placements: Object.fromEntries(
+        identity.itemIds.map((itemId) => [itemId, reveal.placements[itemId]!] as const),
+      ),
+      feedbackByItemId: Object.fromEntries(
+        identity.itemIds.flatMap((itemId) => {
+          const feedback = reveal.feedbackByItemId[itemId];
+          return feedback ? ([[itemId, feedback]] as const) : [];
+        }),
+      ),
+    };
+  }
+
+  if (!resultItems) return null;
+  const placements: Record<string, string> = {};
+  for (const itemId of identity.itemIds) {
+    const expected = resultItems[itemId]?.expected;
+    if (typeof expected !== "string" || !identity.categoryIdSet.has(expected)) return null;
+    placements[itemId] = expected;
+  }
+  return { placements, feedbackByItemId: {} };
 }
 
 export function describeCategoriseSourceItemAccessibilityState({
@@ -194,6 +239,42 @@ export function categorisePlacementsRecord(
     record[placement.itemId] = placement.categoryId;
   }
   return record;
+}
+
+interface ProjectedCategoriseIdentity {
+  readonly itemIds: readonly string[];
+  readonly categoryIdSet: ReadonlySet<string>;
+}
+
+function projectedCategoriseIdentity(
+  itemIds: readonly string[],
+  categoryIds: readonly string[],
+): ProjectedCategoriseIdentity {
+  if (itemIds.some((id) => !id.trim()) || new Set(itemIds).size !== itemIds.length) {
+    throw new Error("Projected Categorise item ids must be nonblank and unique");
+  }
+  if (categoryIds.some((id) => !id.trim()) || new Set(categoryIds).size !== categoryIds.length) {
+    throw new Error("Projected Categorise category ids must be nonblank and unique");
+  }
+  return { itemIds, categoryIdSet: new Set(categoryIds) };
+}
+
+function hasCompleteExactPlacements(
+  placements: Readonly<Record<string, string>>,
+  identity: ProjectedCategoriseIdentity,
+): boolean {
+  const entries = Object.entries(placements);
+  return (
+    entries.length === identity.itemIds.length &&
+    entries.every(
+      ([itemId, categoryId]) =>
+        identity.itemIds.includes(itemId) && identity.categoryIdSet.has(categoryId),
+    )
+  );
+}
+
+function publicLabel(content: string): string {
+  return content.replace(/\s+/g, " ").trim();
 }
 
 export function createCategoriseBinNode(options: CategoriseFieldNodeOptions = {}) {
@@ -407,7 +488,7 @@ export function createCategoriseContentNode(options: CategoriseFieldNodeOptions 
           "data-bounded-scroll-frame": "",
           "data-slot": "categorise-content",
         }),
-        ["div", { "data-bounded-scroll": "", class: "sc-categorise-content-scroll" }, 0],
+        ["div", { "data-bounded-scroll": "", class: "sc-course-categorise__scroll" }, 0],
         ["div", { "data-bounded-scroll-hint": "", "aria-hidden": "true" }, "Scroll for more ↓"],
       ];
     },

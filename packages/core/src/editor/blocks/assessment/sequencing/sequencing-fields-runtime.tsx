@@ -37,6 +37,10 @@ import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 import { serializeStaticRichTextHtml } from "@/editor/rich-text/static/render-rich-text";
 import { AssessmentFeedbackContentSchema } from "@scaffold/contracts";
 import { iconSm, iconXs } from "@/ui/tokens/icon-sizes";
+import {
+  assessmentDndDropAnimationFor,
+  useAssessmentDndReducedMotion,
+} from "@/editor/blocks/assessment/shared/runtime/runtime-dnd";
 
 import {
   createSequencingItemNode,
@@ -72,7 +76,7 @@ export const SequencingItemsGroupRuntimeNode = createSequencingItemsGroupNode({
 
 function SequencingItemsGroupRuntimeNodeView(props: NodeViewProps) {
   const [draggingItemId, setDraggingItemId] = useState<string | null>(null);
-  const reducedMotion = usePrefersReducedMotion();
+  const reducedMotion = useAssessmentDndReducedMotion();
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 9 } }),
     useSensor(KeyboardSensor, {
@@ -247,11 +251,7 @@ function SequencingItemsGroupRuntimeNodeView(props: NodeViewProps) {
               })}
             </ol>
           </SortableContext>
-          <DragOverlay
-            dropAnimation={
-              reducedMotion ? null : { duration: 160, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }
-            }
-          >
+          <DragOverlay dropAnimation={assessmentDndDropAnimationFor(reducedMotion)}>
             {draggingItem ? (
               <div className="sc-course-sequencing__drag-preview">
                 <span aria-hidden className="sc-course-sequencing__preview-handle">
@@ -421,25 +421,6 @@ function sequencingAnnouncements(items: readonly SequencingProjectionItem[]): An
       return `Cancelled reordering ‘${label(active.id)}’. It returned to position ${position(active.id) ?? 1} of ${total}.`;
     },
   };
-}
-
-function usePrefersReducedMotion(): boolean {
-  const getPreference = () =>
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const [reducedMotion, setReducedMotion] = useState(getPreference);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
-    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const update = () => setReducedMotion(query.matches);
-    update();
-    query.addEventListener("change", update);
-    return () => query.removeEventListener("change", update);
-  }, []);
-
-  return reducedMotion;
 }
 
 function renderStaticHtml(html: string, fallback: string) {

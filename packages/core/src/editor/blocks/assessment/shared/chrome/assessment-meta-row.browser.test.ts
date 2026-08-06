@@ -89,39 +89,47 @@ describe("assessment metadata", () => {
   it("keeps the points beside left-aligned instructions", async () => {
     await page.viewport(1000, 600);
     host = document.createElement("div");
-    host.className =
-      "sc-course sc-course-theme-scaffold-flow-v1 radix-themes light sc-assessment-node-view";
-    host.dataset["boundedPlacement"] = "fill";
+    host.className = "sc-course sc-course-theme-scaffold-flow-v1 radix-themes light";
     host.style.cssText = "width: 700px; height: 360px; --space-3: 12px;";
     host.innerHTML = `
-      <section class="sc-course-assessment-shell">
-        <div class="sc-course-assessment-meta-title" data-slot="assessment-title">
-          <p data-text-align="left">Question title</p>
-        </div>
-        <div class="sc-course-assessment-meta-instructions" data-slot="assessment-instructions">
-          <span class="sc-course-assessment-meta-default">·</span>
-          <div class="sc-course-assessment-meta-content--inline">
-            <p data-text-align="left">Click the fungal sheath</p>
+      <div class="sc-assessment-node-view" data-bounded-placement="fill" style="height: 100%">
+        <section class="sc-course-assessment-shell">
+          <div class="sc-course-assessment-meta-title" data-slot="assessment-title">
+            <p data-text-align="left">Question title</p>
           </div>
-          <span class="sc-course-assessment-meta-default" data-testid="points-separator">·</span>
-          <span class="sc-course-assessment-meta-default">2 points</span>
-        </div>
-        <div data-slot="assessment-prompt">Prompt</div>
-        <div data-slot="sequencing-items-group">Items</div>
-        <div data-slot="assessment-actions-group">Actions</div>
-      </section>
+          <div class="sc-course-assessment-meta-instructions" data-slot="assessment-instructions">
+            <span class="sc-course-assessment-meta-default">·</span>
+            <div class="sc-course-assessment-meta-content--inline">
+              <p data-text-align="left">Click the fungal sheath</p>
+            </div>
+            <span class="sc-course-assessment-meta-default" data-testid="points-separator">·</span>
+            <span class="sc-course-assessment-meta-default">2 points</span>
+          </div>
+          <div data-slot="assessment-prompt">Prompt</div>
+          <div data-slot="sequencing-items-group">Items</div>
+          <div data-slot="assessment-actions-group">Actions</div>
+        </section>
+      </div>
     `;
     document.body.append(host);
 
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
+    const title = requireElement<HTMLElement>(host, '[data-slot="assessment-title"]');
+    const instructionsMeta = requireElement<HTMLElement>(
+      host,
+      '[data-slot="assessment-instructions"]',
+    );
     const instructions = requireElement<HTMLParagraphElement>(
       host,
       '[data-slot="assessment-instructions"] p',
     );
     const separator = requireElement<HTMLElement>(host, '[data-testid="points-separator"]');
+    const headerGap =
+      instructionsMeta.getBoundingClientRect().left - title.getBoundingClientRect().right;
     const gap = separator.getBoundingClientRect().left - instructions.getBoundingClientRect().right;
 
+    expect(headerGap).toBeCloseTo(12, 0);
     expect(gap).toBeCloseTo(12, 0);
   });
 

@@ -18,7 +18,7 @@ import { createCategoriseNode } from "./node";
 function CategoriseRuntimeView(props: NodeViewProps) {
   return (
     <AssessmentRuntimeProblemContent
-      blockClass="sc-categorise"
+      blockClass="sc-course-assessment-categorise"
       definition={categoriseBlockDefinition}
       props={props}
     />

@@ -157,6 +157,15 @@
   --sc-assessment-bounded-padding: clamp(0.75rem, 3cqw, 1rem);
   --sc-assessment-bounded-row-gap: var(--sc-assessment-bounded-section-gap);
   --sc-assessment-bounded-column-gap: var(--sc-assessment-bounded-section-gap);
+  grid-template-columns: fit-content(45%) minmax(0, 1fr);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+  > .sc-course-assessment-shell
+  [data-slot="assessment-title"] {
+  inline-size: 100%;
+  max-inline-size: none;
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1

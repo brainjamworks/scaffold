@@ -763,6 +763,125 @@ describe("course document JSON helpers", () => {
     );
   });
 
+  it("reports every Categorise identity, structure, feedback, naming, and minimum defect", () => {
+    const document = createScaffoldDocumentContent({ mode: "page", surfaceId: "surface-1" });
+    document.content![0]!.content![0]!.content = [
+      {
+        type: "categorise",
+        attrs: {
+          id: "categorise-invalid",
+          settings: { legend: "  " },
+          assessment: {
+            feedbackByItemId: {
+              stale: {
+                kind: "rich-text",
+                document: { type: "doc", content: [{ type: "paragraph" }] },
+              },
+            },
+            summaryFeedback: null,
+          },
+        },
+        content: [
+          { type: "assessment_title", content: [{ type: "paragraph" }] },
+          { type: "assessment_instructions", content: [{ type: "paragraph" }] },
+          { type: "assessment_prompt", content: [{ type: "paragraph" }] },
+          {
+            type: "categorise_content",
+            content: [
+              {
+                type: "categorise_bins_group",
+                content: [
+                  {
+                    type: "categorise_bin",
+                    attrs: { id: "" },
+                    content: [
+                      { type: "categorise_bin_title", content: [{ type: "paragraph" }] },
+                      {
+                        type: "categorise_items_group",
+                        content: [
+                          {
+                            type: "categorise_item",
+                            attrs: { id: "duplicate" },
+                            content: [
+                              {
+                                type: "categorise_item_body",
+                                content: [{ type: "paragraph" }],
+                              },
+                            ],
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+              {
+                type: "categorise_items_group",
+                content: [
+                  {
+                    type: "categorise_item",
+                    attrs: { id: "duplicate" },
+                    content: [
+                      {
+                        type: "categorise_item_body",
+                        content: [{ type: "paragraph" }],
+                      },
+                    ],
+                  },
+                  {
+                    type: "categorise_item",
+                    attrs: { id: "" },
+                    content: [
+                      {
+                        type: "categorise_item_body",
+                        content: [{ type: "paragraph" }],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            type: "assessment_actions_group",
+            content: [{ type: "assessment_hints_group" }, { type: "assessment_summary_feedback" }],
+          },
+        ],
+      },
+    ];
+
+    const issues = validateCourseDocumentJSON(document).issues;
+    const codes = issues.map((issue) => issue.code);
+    expect(codes).toEqual(
+      expect.arrayContaining([
+        "too_few_categorise_categories",
+        "empty_categorise_category_id",
+        "empty_categorise_item_id",
+        "duplicate_categorise_item_id",
+        "invalid_categorise_item_structure",
+        "stale_categorise_feedback_item_id",
+        "unnamed_categorise_response",
+      ]),
+    );
+    expect(issues).toContainEqual(
+      expect.objectContaining({
+        code: "stale_categorise_feedback_item_id",
+        path: [
+          "content",
+          0,
+          "content",
+          0,
+          "content",
+          0,
+          "attrs",
+          "assessment",
+          "feedbackByItemId",
+          "stale",
+        ],
+      }),
+    );
+  });
+
   it("returns frozen public validation results with an owned readonly issue array", () => {
     const valid = validateCourseDocumentJSON(createScaffoldDocumentContent({ mode: "page" }));
     const invalid = validateCourseDocumentJSON({ type: "paragraph" });

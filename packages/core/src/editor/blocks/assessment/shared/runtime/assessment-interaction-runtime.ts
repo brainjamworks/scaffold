@@ -67,6 +67,7 @@ export interface ClassifyInteractionRuntime {
   placements: Readonly<Record<string, string>>;
   selectedCategoryFor: (itemId: string) => string | null;
   setPlacement: (itemId: string, categoryId: string) => void;
+  setPlacements: (placements: Readonly<Record<string, string>>) => void;
   removePlacement: (itemId: string) => void;
   clearPlacements: () => void;
 }
@@ -226,6 +227,7 @@ export function createPendingAssessmentInteractionRuntime<K extends AssessmentIn
         placements: {},
         selectedCategoryFor: () => null,
         setPlacement: noop,
+        setPlacements: noop,
         removePlacement: noop,
         clearPlacements: noop,
       } as unknown as AssessmentInteractionRuntime<K>;
@@ -271,6 +273,10 @@ export function useAssessmentInteractionRuntime<K extends AssessmentInteractionK
   expectedKind?: K,
 ): AssessmentInteractionRuntime<K> | null {
   const fillCommitRef = useRef<{ last: string | null; pending: string | null }>({
+    last: null,
+    pending: null,
+  });
+  const classifyCommitRef = useRef<{ last: string | null; pending: string | null }>({
     last: null,
     pending: null,
   });
@@ -412,20 +418,57 @@ export function useAssessmentInteractionRuntime<K extends AssessmentInteractionK
       }
       case "classify": {
         const placements = stringRecord(response["placements"]);
+        if (!facade.responseReady && !facade.request) {
+          classifyCommitRef.current.last = null;
+        }
+        const writePlacements = (nextPlacements: Readonly<Record<string, string>>) => {
+          writeField("placements", nextPlacements);
+        };
+        const commitImmediatePlacement = (nextPlacements: Readonly<Record<string, string>>) => {
+          if (
+            locked ||
+            problem.state.feedbackMode !== "immediate" ||
+            facade.request ||
+            !facade.capability
+          ) {
+            return;
+          }
+          const nextResponse = { ...response, placements: nextPlacements };
+          if (!facade.capability.hasResponse(nextResponse)) return;
+          const fingerprint = JSON.stringify(facade.capability.toContractResponse(nextResponse));
+          if (
+            classifyCommitRef.current.last === fingerprint ||
+            classifyCommitRef.current.pending !== null
+          ) {
+            return;
+          }
+          classifyCommitRef.current.pending = fingerprint;
+          void facade.actions
+            .check()
+            .then((result) => {
+              if (result) classifyCommitRef.current.last = fingerprint;
+            })
+            .finally(() => {
+              if (classifyCommitRef.current.pending === fingerprint) {
+                classifyCommitRef.current.pending = null;
+              }
+            });
+        };
         return {
           kind: "classify",
           placements,
           selectedCategoryFor: (itemId: string) => placements[itemId] ?? null,
           setPlacement: (itemId: string, categoryId: string) => {
-            writeField("placements", { ...placements, [itemId]: categoryId });
-            checkImmediate();
+            const next = { ...placements, [itemId]: categoryId };
+            writePlacements(next);
+            commitImmediatePlacement(next);
           },
+          setPlacements: writePlacements,
           removePlacement: (itemId: string) =>
-            writeField(
-              "placements",
+            writePlacements(
               Object.fromEntries(Object.entries(placements).filter(([id]) => id !== itemId)),
             ),
-          clearPlacements: () => writeField("placements", {}),
+          clearPlacements: () => writePlacements({}),
         } as unknown as AssessmentInteractionRuntime<K>;
       }
       case "fill-blanks": {

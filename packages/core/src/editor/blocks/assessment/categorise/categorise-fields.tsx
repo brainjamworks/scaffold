@@ -1,4 +1,9 @@
-import { InfoIcon as Info, TrashIcon as Trash } from "@phosphor-icons/react";
+import {
+  CaretDownIcon as CaretDown,
+  DotsSixVerticalIcon as DotsSixVertical,
+  InfoIcon as Info,
+  TrashIcon as Trash,
+} from "@phosphor-icons/react";
 import {
   NodeViewContent,
   NodeViewWrapper,
@@ -9,30 +14,36 @@ import {
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   CategorisePrivateAssessmentSchema,
+  CategoriseSettingsSchema,
   type AssessmentFeedbackContent,
 } from "@scaffold/contracts";
 
-import { AssessmentAuthoringIconAction } from "@/ui/components/app/AssessmentAuthoringIconAction/AssessmentAuthoringIconAction";
+import {
+  AssessmentChoiceAddButton,
+  AssessmentChoiceAuthoringAction,
+} from "@/ui/components/course/AssessmentChoiceAuthoringRow/AssessmentChoiceAuthoringRow";
 import {
   nextAssessmentFeedbackRecord,
   resolveAssessmentAttrParent,
   richTextDocumentToAssessmentFeedback,
   setAssessmentAttr,
 } from "@/editor/blocks/assessment/shared/model/private-assessment-attrs";
-import { BlockAddGhost } from "@/editor/suggestions/insert/BlockAddGhost";
 import { CONTAINED_MOVEMENT_TARGET_ATTR } from "@/editor/drag/view/movement-dom";
-import { ContainedMovementHandle } from "@/editor/drag/view/ContainedMovementHandle";
+import { useContainedMovementHandle } from "@/editor/drag/view/use-contained-movement-handle";
 import { Placeholder } from "@/editor/prosemirror/placeholder/Placeholder";
 import { createFieldContentEditorExtensions } from "@/editor/rich-text/authoring/field-content-extensions";
 import { EditableOverlayPopover } from "@/editor/rich-text/authoring/nested-overlay/EditableOverlayPopoverShell";
 import { currentNodeViewPos, safeGetPos } from "@/editor/prosemirror/position/node-view-position";
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { assessmentPromptDomId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import {
   isScaffoldRichTextDocumentEmpty,
   toTiptapRichTextDocument,
   type ScaffoldRichTextDocument,
 } from "@/schemas/rich-text";
 import { iconSm } from "@/ui/tokens/icon-sizes";
+import * as Select from "@/ui/components/Select/SelectMenu";
+import { zIndex } from "@/ui/overlays/z-index";
+import { CourseThemePortalBoundary } from "@/theme/course/CourseThemeProvider";
 import "@/editor/blocks/assessment/shared/chrome/assessment-feedback-popover.css";
 
 import {
@@ -43,8 +54,18 @@ import {
   createCategoriseItemBodyNode,
   createCategoriseItemNode,
   createCategoriseItemsGroupNode,
-  fieldContent,
+  categoriseCategoryPublicLabel,
+  categoriseItemPublicLabel,
 } from "./categorise-fields-shared";
+import {
+  addCategoriseCategory,
+  addCategoriseItem,
+  canDeleteCategoriseCategory,
+  canDeleteCategoriseItem,
+  deleteCategoriseCategory,
+  deleteCategoriseItem,
+  reassignCategoriseItem,
+} from "./commands";
 import "./Categorise.css";
 
 export {
@@ -77,39 +98,53 @@ function CategoriseBinNodeView(props: NodeViewProps) {
     if (!props.editor.isEditable) return;
     const currentPos = currentNodeViewPos(props.editor, props.getPos, "categorise_bin");
     if (currentPos === null) return;
-    deleteCategoriseCategory(props.editor, currentPos, categoryId);
+    deleteCategoriseCategory(props.editor, currentPos);
   };
+  const deleteUnavailable = useEditorState({
+    editor: props.editor,
+    selector: ({ editor }) => {
+      const currentPos = currentNodeViewPos(editor, props.getPos, "categorise_bin");
+      return currentPos === null || !canDeleteCategoriseCategory(editor, currentPos);
+    },
+  });
+  const categoryLabel = categoriseCategoryPublicLabel(
+    props.node.firstChild?.textContent ?? "",
+    binPosition.index,
+  );
 
   return (
     <NodeViewWrapper
       data-node="categorise-bin"
       data-bin-id={categoryId}
       role="group"
-      aria-label={`Category ${binPosition.index}`}
+      aria-label={`Category ‘${categoryLabel}’`}
       {...{ [CONTAINED_MOVEMENT_TARGET_ATTR]: "" }}
-      className="sc-categorise-bin"
+      className="sc-course-categorise__bin"
     >
-      <div className="sc-categorise-bin__header">
+      <div className="sc-course-categorise__bin-header">
         {isEditable && (
-          <ContainedMovementHandle
+          <CategoriseAuthoringMovementAction
             getSourcePos={() => safeGetPos(props.getPos)}
-            label={`category ${binPosition.index}`}
+            label={`Move category ${binPosition.index}, ${categoryLabel}`}
             sourceKey={categoryId}
             sourcePos={pos ?? undefined}
-            className="sc-categorise-bin__move-handle"
           />
         )}
-        <NodeViewContent className="sc-categorise-bin__content" />
-        {isEditable && binPosition.count > 1 && (
-          <AssessmentAuthoringIconAction
+        <NodeViewContent className="sc-course-categorise__bin-content" />
+        {isEditable && (
+          <AssessmentChoiceAuthoringAction
+            disabled={deleteUnavailable}
             onClick={() => {
               deleteBin();
             }}
             label={`Delete category ${binPosition.index}`}
-            tone="danger"
+            intent="delete"
+            {...(deleteUnavailable
+              ? { unavailableReason: "Categorise requires two categories and one item." }
+              : {})}
           >
             <Trash size={iconSm} />
-          </AssessmentAuthoringIconAction>
+          </AssessmentChoiceAuthoringAction>
         )}
       </div>
     </NodeViewWrapper>
@@ -122,7 +157,7 @@ export const CategoriseBinTitleNode = createCategoriseBinTitleNode({
 
 function CategoriseBinTitleNodeView() {
   return (
-    <NodeViewWrapper data-slot="categorise-bin-title" className="sc-categorise-bin__title">
+    <NodeViewWrapper data-slot="categorise-bin-title" className="sc-course-categorise__bin-title">
       <NodeViewContent />
     </NodeViewWrapper>
   );
@@ -138,32 +173,18 @@ function CategoriseBinsGroupNodeView(props: NodeViewProps) {
     if (!props.editor.isEditable) return;
     const currentPos = currentNodeViewPos(props.editor, props.getPos, "categorise_bins_group");
     if (currentPos === null) return;
-    const currentNode = props.editor.state.doc.nodeAt(currentPos);
-    if (!currentNode) return;
-    props.editor
-      .chain()
-      .focus()
-      .insertContentAt(currentPos + currentNode.nodeSize - 1, {
-        type: "categorise_bin",
-        attrs: { id: createStableId() },
-        content: [
-          { type: "categorise_bin_title", content: fieldContent() },
-          { type: "categorise_items_group" },
-        ],
-      })
-      .run();
+    addCategoriseCategory(props.editor, currentPos);
   };
 
   return (
-    <NodeViewWrapper data-slot="categorise-bins-group" className="sc-categorise-bins-group">
-      <NodeViewContent className="sc-categorise-bin-grid" />
+    <NodeViewWrapper data-slot="categorise-bins-group" className="sc-course-categorise__bins">
+      <NodeViewContent className="sc-course-categorise__bin-grid" />
       {isEditable && (
-        <BlockAddGhost
+        <AssessmentChoiceAddButton
           label="Add category"
-          presentation="pill"
           contentEditable={false}
           onClick={addBin}
-          className="sc-categorise-add"
+          className="sc-course-categorise__add"
         />
       )}
     </NodeViewWrapper>
@@ -176,7 +197,7 @@ export const CategoriseItemBodyNode = createCategoriseItemBodyNode({
 
 function CategoriseItemBodyNodeView() {
   return (
-    <NodeViewWrapper data-slot="categorise-item-body" className="sc-categorise-item-body">
+    <NodeViewWrapper data-slot="categorise-item-body" className="sc-course-categorise__item-body">
       <NodeViewContent />
     </NodeViewWrapper>
   );
@@ -194,9 +215,9 @@ function CategoriseItemNodeView(props: NodeViewProps) {
       <NodeViewWrapper
         data-node="categorise-item"
         data-item-id={String(props.node.attrs["id"] ?? "")}
-        className="sc-categorise-item"
+        className="sc-course-categorise__item"
       >
-        <NodeViewContent className="sc-categorise-item__content" />
+        <NodeViewContent className="sc-course-categorise__item-content" />
       </NodeViewWrapper>
     );
   }
@@ -216,7 +237,7 @@ function CategoriseEditableItemNodeView(props: NodeViewProps) {
       ...createFieldContentEditorExtensions(),
       Placeholder.configure({
         includeChildren: false,
-        placeholder: "Feedback for this choice",
+        placeholder: "Feedback for this item",
         showOnlyCurrent: false,
         showOnlyWhenEditable: true,
       }),
@@ -231,6 +252,7 @@ function CategoriseEditableItemNodeView(props: NodeViewProps) {
       return currentPos !== null ? readSiblingIndex(editor, currentPos, "categorise_item") : 1;
     },
   });
+  const itemLabel = categoriseItemPublicLabel(props.node.textContent, itemIndex);
   const categoryIndex = useEditorState({
     editor: props.editor,
     selector: ({ editor }) => {
@@ -238,6 +260,22 @@ function CategoriseEditableItemNodeView(props: NodeViewProps) {
       return currentPos !== null
         ? readAncestorSiblingIndex(editor, currentPos, "categorise_bin")
         : 1;
+    },
+  });
+  const categoryOptions = useEditorState({
+    editor: props.editor,
+    selector: ({ editor }) => {
+      const currentPos = currentNodeViewPos(editor, props.getPos, "categorise_item");
+      return currentPos !== null
+        ? readCategoriseCategoryOptions(editor, currentPos)
+        : { currentCategoryId: "", options: [] };
+    },
+  });
+  const deleteUnavailable = useEditorState({
+    editor: props.editor,
+    selector: ({ editor }) => {
+      const currentPos = currentNodeViewPos(editor, props.getPos, "categorise_item");
+      return currentPos === null || !canDeleteCategoriseItem(editor, currentPos);
     },
   });
   const itemAssessment = useEditorState({
@@ -286,25 +324,41 @@ function CategoriseEditableItemNodeView(props: NodeViewProps) {
     if (!props.editor.isEditable) return;
     const currentPos = currentNodeViewPos(props.editor, props.getPos, "categorise_item");
     if (currentPos === null) return;
-    deleteCategoriseItem(props.editor, currentPos, itemId);
+    deleteCategoriseItem(props.editor, currentPos);
   };
 
   return (
     <NodeViewWrapper
       data-node="categorise-item"
       data-item-id={itemId}
-      className="sc-categorise-item sc-categorise-item--editable"
+      role="group"
+      aria-label={`Item ‘${itemLabel}’`}
+      className="sc-course-categorise__item sc-course-categorise__item--editable"
     >
-      <div className="sc-categorise-item__row">
-        <NodeViewContent className="sc-categorise-item__content" />
+      <div className="sc-course-categorise__item-row">
+        <NodeViewContent className="sc-course-categorise__item-content" />
+        <CategoriseAuthoringCategorySelect
+          categories={categoryOptions.options}
+          itemLabel={itemLabel}
+          value={categoryOptions.currentCategoryId}
+          onValueChange={(categoryId) => {
+            const currentPos = currentNodeViewPos(props.editor, props.getPos, "categorise_item");
+            if (currentPos !== null) reassignCategoriseItem(props.editor, currentPos, categoryId);
+          }}
+        />
         <EditableOverlayPopover.Root>
           <EditableOverlayPopover.Trigger asChild>
-            <AssessmentAuthoringIconAction
+            <AssessmentChoiceAuthoringAction
               active={hasFeedback}
-              label={hasFeedback ? "Edit feedback" : "Add feedback"}
+              intent="feedback"
+              label={
+                hasFeedback
+                  ? `Edit feedback for item ‘${itemLabel}’`
+                  : `Add feedback for item ‘${itemLabel}’`
+              }
             >
               <Info size={iconSm} weight={hasFeedback ? "fill" : "regular"} />
-            </AssessmentAuthoringIconAction>
+            </AssessmentChoiceAuthoringAction>
           </EditableOverlayPopover.Trigger>
           <EditableOverlayPopover.Portal>
             <EditableOverlayPopover.Content
@@ -322,22 +376,26 @@ function CategoriseEditableItemNodeView(props: NodeViewProps) {
                 extensions,
                 fieldKey,
                 outerEditor: props.editor,
-                placeholder: "Feedback for this choice",
+                placeholder: "Feedback for this item",
                 syncKey: itemAssessment.feedback?.document,
                 target: feedbackTarget,
               }}
             />
           </EditableOverlayPopover.Portal>
         </EditableOverlayPopover.Root>
-        <AssessmentAuthoringIconAction
+        <AssessmentChoiceAuthoringAction
+          disabled={deleteUnavailable}
           onClick={() => {
             deleteItem();
           }}
           label={`Delete item ${itemIndex} from category ${categoryIndex}`}
-          tone="danger"
+          intent="delete"
+          {...(deleteUnavailable
+            ? { unavailableReason: "Categorise requires at least one item." }
+            : {})}
         >
           <Trash size={iconSm} />
-        </AssessmentAuthoringIconAction>
+        </AssessmentChoiceAuthoringAction>
       </div>
     </NodeViewWrapper>
   );
@@ -363,29 +421,18 @@ function CategoriseItemsGroupNodeView(props: NodeViewProps) {
     if (!props.editor.isEditable) return;
     const currentPos = currentNodeViewPos(props.editor, props.getPos, "categorise_items_group");
     if (currentPos === null) return;
-    const currentNode = props.editor.state.doc.nodeAt(currentPos);
-    if (!currentNode) return;
-    props.editor
-      .chain()
-      .focus()
-      .insertContentAt(currentPos + currentNode.nodeSize - 1, {
-        type: "categorise_item",
-        attrs: { id: createStableId() },
-        content: [{ type: "categorise_item_body", content: fieldContent() }],
-      })
-      .run();
+    addCategoriseItem(props.editor, currentPos);
   };
 
   return (
-    <NodeViewWrapper data-slot="categorise-items-group" className="sc-categorise-items-group">
-      <NodeViewContent className="sc-categorise-grid" />
+    <NodeViewWrapper data-slot="categorise-items-group" className="sc-course-categorise__items">
+      <NodeViewContent className="sc-course-categorise__item-grid" />
       {isEditable && (
-        <BlockAddGhost
+        <AssessmentChoiceAddButton
           label={`Add item to category ${categoryIndex}`}
-          presentation="pill"
           contentEditable={false}
           onClick={addItem}
-          className="sc-categorise-add"
+          className="sc-course-categorise__add"
         />
       )}
     </NodeViewWrapper>
@@ -397,21 +444,167 @@ export const CategoriseContentNode = createCategoriseContentNode({
   addNodeView: () => ReactNodeViewRenderer(CategoriseContentNodeView),
 });
 
-function CategoriseContentNodeView() {
+function CategoriseContentNodeView(props: NodeViewProps) {
+  const group = authoringCategoriseGroup(props);
   return (
     <NodeViewWrapper
       data-bounded-scroll-frame=""
       data-slot="categorise-content"
-      className="sc-categorise-content"
+      className="sc-course-categorise__content"
     >
-      <div data-bounded-scroll="" className="sc-categorise-content-scroll">
-        <NodeViewContent className="sc-categorise-content-flow" />
+      <div data-bounded-scroll="" className="sc-course-categorise__scroll">
+        <NodeViewContent
+          role="group"
+          aria-label={group.legend || undefined}
+          aria-labelledby={group.legend ? undefined : assessmentPromptDomId(group.authoredBlockId)}
+          className="sc-course-categorise__flow"
+        />
       </div>
       <div data-bounded-scroll-hint="" contentEditable={false} aria-hidden="true">
         Scroll for more ↓
       </div>
     </NodeViewWrapper>
   );
+}
+
+function CategoriseAuthoringMovementAction({
+  getSourcePos,
+  label,
+  sourceKey,
+  sourcePos,
+}: {
+  getSourcePos: () => number | null | undefined;
+  label: string;
+  sourceKey: string;
+  sourcePos: number | null | undefined;
+}) {
+  const movement = useContainedMovementHandle({ getSourcePos, sourceKey, sourcePos });
+  return (
+    <AssessmentChoiceAuthoringAction
+      {...movement.buttonProps}
+      ref={movement.setHandleRef}
+      className="sc-course-categorise__move-action"
+      intent="move"
+      label={label}
+    >
+      <DotsSixVertical size={iconSm} weight="bold" aria-hidden />
+      <span id={movement.descriptionId} className="sc-sr-only">
+        Press Arrow Up or Arrow Down to move this category.
+      </span>
+    </AssessmentChoiceAuthoringAction>
+  );
+}
+
+function CategoriseAuthoringCategorySelect({
+  categories,
+  itemLabel,
+  onValueChange,
+  value,
+}: {
+  categories: readonly { id: string; label: string }[];
+  itemLabel: string;
+  onValueChange: (value: string) => void;
+  value: string;
+}) {
+  const currentCategory = categories.find((category) => category.id === value);
+  const destinations = categories.filter((category) => category.id !== value);
+  const currentLabel = currentCategory?.label ?? "Choose category";
+
+  return (
+    <Select.Root value={value} onValueChange={onValueChange}>
+      <Select.Trigger
+        aria-label={`Move ‘${itemLabel}’ to category. Current category: ‘${currentLabel}’`}
+        className="sc-course-categorise__category-select"
+        contentEditable={false}
+      >
+        <Select.Value className="sc-course-categorise__category-select-value">
+          {currentLabel}
+        </Select.Value>
+        <Select.Icon className="sc-course-categorise__category-select-caret">
+          <CaretDown size={iconSm} aria-hidden />
+        </Select.Icon>
+      </Select.Trigger>
+      <Select.Portal>
+        <CourseThemePortalBoundary>
+          <Select.Content
+            aria-label={`Move ‘${itemLabel}’ to another category`}
+            position="popper"
+            sideOffset={6}
+            className="sc-course-categorise__category-select-content"
+            style={{ zIndex: zIndex.popover }}
+          >
+            <Select.Viewport className="sc-course-categorise__category-select-viewport">
+              {destinations.map((category) => (
+                <Select.Item
+                  key={category.id}
+                  value={category.id}
+                  textValue={category.label}
+                  className="sc-course-categorise__category-select-item"
+                >
+                  <Select.ItemText>{category.label}</Select.ItemText>
+                </Select.Item>
+              ))}
+            </Select.Viewport>
+          </Select.Content>
+        </CourseThemePortalBoundary>
+      </Select.Portal>
+    </Select.Root>
+  );
+}
+
+function authoringCategoriseGroup(props: NodeViewProps): {
+  authoredBlockId: string | null;
+  legend: string;
+} {
+  const pos = safeGetPos(props.getPos);
+  if (typeof pos !== "number") return { authoredBlockId: null, legend: "" };
+  const resolved = props.editor.state.doc.resolve(pos);
+  for (let depth = resolved.depth; depth >= 0; depth -= 1) {
+    const node = resolved.node(depth);
+    if (node.type.name !== "categorise") continue;
+    const id = node.attrs["id"];
+    const settings = CategoriseSettingsSchema.safeParse(node.attrs["settings"] ?? {});
+    return {
+      authoredBlockId: typeof id === "string" && id.trim() ? id : null,
+      legend: settings.success ? (settings.data.legend?.trim() ?? "") : "",
+    };
+  }
+  return { authoredBlockId: null, legend: "" };
+}
+
+function readCategoriseCategoryOptions(
+  editor: NodeViewProps["editor"],
+  itemPos: number,
+): { currentCategoryId: string; options: Array<{ id: string; label: string }> } {
+  const resolved = editor.state.doc.resolve(itemPos);
+  let categorise = null as typeof resolved.parent | null;
+  let currentCategoryId = "";
+  for (let depth = resolved.depth; depth >= 0; depth -= 1) {
+    const node = resolved.node(depth);
+    if (node.type.name === "categorise_bin") {
+      currentCategoryId = String(node.attrs["id"] ?? "");
+    }
+    if (node.type.name === "categorise") {
+      categorise = node;
+      break;
+    }
+  }
+  const options: Array<{ id: string; label: string }> = [];
+  categorise?.descendants((node) => {
+    if (node.type.name !== "categorise_bin") return true;
+    const id = String(node.attrs["id"] ?? "");
+    if (id) {
+      options.push({
+        id,
+        label: categoriseCategoryPublicLabel(
+          node.firstChild?.textContent ?? "",
+          options.length + 1,
+        ),
+      });
+    }
+    return false;
+  });
+  return { currentCategoryId, options };
 }
 
 function readSiblingPosition(
@@ -480,69 +673,6 @@ function readCategoriseItemAssessment(
   return {
     feedback: assessment.feedbackByItemId[itemId] ?? null,
   };
-}
-
-function deleteCategoriseCategory(
-  editor: NodeViewProps["editor"],
-  categoryPos: number,
-  categoryId: string,
-) {
-  if (!editor.isEditable) return;
-  const currentNode = editor.state.doc.nodeAt(categoryPos);
-  if (!currentNode || currentNode.type.name !== "categorise_bin") return;
-  if (editor.state.doc.resolve(categoryPos).parent.childCount <= 1) return;
-
-  const parent = resolveAssessmentAttrParent(editor, categoryPos, ["categorise"]);
-  let transaction = editor.state.tr;
-
-  if (parent && categoryId) {
-    const assessment = CategorisePrivateAssessmentSchema.parse(
-      parent.node.attrs["assessment"] ?? {},
-    );
-    const feedbackByItemId = { ...assessment.feedbackByItemId };
-    currentNode.descendants((node) => {
-      if (node.type.name !== "categorise_item") return;
-      const itemId = String(node.attrs["id"] ?? "");
-      if (itemId) delete feedbackByItemId[itemId];
-    });
-    transaction = transaction.setNodeMarkup(parent.pos, null, {
-      ...parent.node.attrs,
-      assessment: {
-        ...assessment,
-        feedbackByItemId,
-      },
-    });
-  }
-
-  editor.view.focus();
-  editor.view.dispatch(transaction.delete(categoryPos, categoryPos + currentNode.nodeSize));
-}
-
-function deleteCategoriseItem(editor: NodeViewProps["editor"], itemPos: number, itemId: string) {
-  if (!editor.isEditable) return;
-  const currentNode = editor.state.doc.nodeAt(itemPos);
-  if (!currentNode || currentNode.type.name !== "categorise_item") return;
-
-  const parent = resolveAssessmentAttrParent(editor, itemPos, ["categorise"]);
-  let transaction = editor.state.tr;
-
-  if (parent && itemId) {
-    const assessment = CategorisePrivateAssessmentSchema.parse(
-      parent.node.attrs["assessment"] ?? {},
-    );
-    const feedbackByItemId = { ...assessment.feedbackByItemId };
-    delete feedbackByItemId[itemId];
-    transaction = transaction.setNodeMarkup(parent.pos, null, {
-      ...parent.node.attrs,
-      assessment: {
-        ...assessment,
-        feedbackByItemId,
-      },
-    });
-  }
-
-  editor.view.focus();
-  editor.view.dispatch(transaction.delete(itemPos, itemPos + currentNode.nodeSize));
 }
 
 function setCategoriseItemFeedback(

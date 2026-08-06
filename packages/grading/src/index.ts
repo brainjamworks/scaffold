@@ -239,11 +239,38 @@ function gradeClassify(
   target: ExtractTarget<"classify">,
   response: ExtractResponse<"classify">,
 ): AssessmentResult {
-  const givenByItem = new Map(
-    response.placements.map((placement) => [placement.itemId, placement.categoryId]),
-  );
   const placements = target.assessment.correctPlacements;
   const items: Record<string, AssessmentItemDetail> = {};
+  const interactionItemIds = target.interaction.items.map((item) => item.id);
+  const interactionCategoryIds = target.interaction.categories.map((category) => category.id);
+  const interactionItemIdSet = new Set(interactionItemIds);
+  const interactionCategoryIdSet = new Set(interactionCategoryIds);
+  const expectedItemIds = placements.map((placement) => placement.itemId);
+  const responseItemIds = response.placements.map((placement) => placement.itemId);
+  const expectedIsExact =
+    interactionItemIds.every((id) => id.trim().length > 0) &&
+    interactionCategoryIds.every((id) => id.trim().length > 0) &&
+    new Set(interactionItemIds).size === interactionItemIds.length &&
+    new Set(interactionCategoryIds).size === interactionCategoryIds.length &&
+    placements.length === interactionItemIds.length &&
+    new Set(expectedItemIds).size === expectedItemIds.length &&
+    placements.every(
+      ({ itemId, categoryId }) =>
+        interactionItemIdSet.has(itemId) && interactionCategoryIdSet.has(categoryId),
+    );
+  const responseIsExact =
+    response.placements.length === interactionItemIds.length &&
+    new Set(responseItemIds).size === responseItemIds.length &&
+    response.placements.every(
+      ({ itemId, categoryId }) =>
+        interactionItemIdSet.has(itemId) && interactionCategoryIdSet.has(categoryId),
+    );
+  const givenByItem = new Map<string, string>();
+  for (const placement of response.placements) {
+    if (!givenByItem.has(placement.itemId)) {
+      givenByItem.set(placement.itemId, placement.categoryId);
+    }
+  }
 
   if (placements.length === 0) {
     return {
@@ -271,7 +298,7 @@ function gradeClassify(
   return {
     score: correctCount / placements.length,
     maxScore: 1,
-    isCorrect: correctCount === placements.length,
+    isCorrect: expectedIsExact && responseIsExact && correctCount === placements.length,
     feedback: summaryFeedbackFor(target),
     items,
   };

@@ -1,4 +1,5 @@
 import { Extension } from "@tiptap/core";
+import { Plugin } from "@tiptap/pm/state";
 import type { NodeViewProps } from "@tiptap/react";
 
 import { AssessmentProblemContent } from "@/editor/blocks/assessment/shared/chrome/AssessmentProblemContent";
@@ -15,9 +16,16 @@ import {
   CategoriseItemsGroupNode,
 } from "./categorise-fields";
 import { createCategoriseNode } from "./node";
+import { synchronizeCategoriseAssessmentsInTransaction } from "./commands";
 
 function CategoriseAuthoringView(props: NodeViewProps) {
-  return <AssessmentProblemContent editable blockClass="sc-categorise" nodeViewProps={props} />;
+  return (
+    <AssessmentProblemContent
+      editable
+      blockClass="sc-course-assessment-categorise"
+      nodeViewProps={props}
+    />
+  );
 }
 
 const CategoriseAuthoringNode = createCategoriseNode({
@@ -42,6 +50,19 @@ export const CategoriseAuthoringExtension = Extension.create({
       CategoriseBinsGroupNode,
       CategoriseContentNode,
       CategoriseAuthoringNode,
+    ];
+  },
+
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        filterTransaction(transaction) {
+          if (transaction.docChanged) {
+            synchronizeCategoriseAssessmentsInTransaction(transaction);
+          }
+          return true;
+        },
+      }),
     ];
   },
 });

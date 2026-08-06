@@ -129,6 +129,7 @@ export interface AssessmentRuntimeController<
     value: ProblemResponse;
     setValue: (response: ProblemResponse) => void;
     projected: AssessmentResponseValue;
+    durable: AssessmentResponseValue | null;
     hasValue: boolean;
   };
   actions: {
@@ -244,6 +245,7 @@ function useAssessmentRuntimeFacade<
     () => responseCodec?.toContractResponse(responseValue) ?? EMPTY_PROJECTED_RESPONSE,
     [responseCodec, responseValue],
   );
+  const durableResponse = facade.problem?.response ?? null;
   const feedbackSummary = problem?.officialResult ?? problem?.feedbackResult ?? null;
 
   return useMemo<AssessmentRuntimeController<K> | null>(() => {
@@ -262,6 +264,7 @@ function useAssessmentRuntimeFacade<
           facade.actions.setLocalResponse(response);
         },
         projected,
+        durable: durableResponse,
         hasValue: responseCodec?.hasResponse(responseValue) ?? false,
       },
       actions: {
@@ -279,6 +282,7 @@ function useAssessmentRuntimeFacade<
   }, [
     feedbackSummary,
     facade.actions,
+    durableResponse,
     hasUnsafeIdentity,
     problem,
     problemConfig,

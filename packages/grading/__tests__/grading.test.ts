@@ -158,6 +158,84 @@ describe("@scaffold/grading primitive targets", () => {
     expect(AssessmentResultSchema.parse(result)).toEqual(result);
   });
 
+  it("requires an exact unique current Categorise mapping for correctness", () => {
+    const target: AssessmentTargetContract = {
+      ...baseTarget,
+      interaction: {
+        kind: "classify",
+        items: [{ id: "eagle" }, { id: "salmon" }],
+        categories: [{ id: "birds" }, { id: "fish" }],
+      },
+      assessment: {
+        kind: "classify",
+        correctPlacements: [
+          { itemId: "eagle", categoryId: "birds" },
+          { itemId: "salmon", categoryId: "fish" },
+        ],
+        feedbackByItemId: {},
+      },
+    };
+
+    expect(
+      gradeAssessment(target, {
+        kind: "classify",
+        placements: [
+          { itemId: "eagle", categoryId: "birds" },
+          { itemId: "salmon", categoryId: "fish" },
+        ],
+      }),
+    ).toMatchObject({ isCorrect: true, score: 1 });
+
+    expect(
+      gradeAssessment(target, {
+        kind: "classify",
+        placements: [
+          { itemId: "eagle", categoryId: "birds" },
+          { itemId: "salmon", categoryId: "fish" },
+          { itemId: "stale", categoryId: "birds" },
+        ],
+      }),
+    ).toMatchObject({ isCorrect: false, score: 1 });
+
+    expect(
+      gradeAssessment(target, {
+        kind: "classify",
+        placements: [
+          { itemId: "eagle", categoryId: "birds" },
+          { itemId: "eagle", categoryId: "fish" },
+          { itemId: "salmon", categoryId: "fish" },
+        ],
+      }).isCorrect,
+    ).toBe(false);
+
+    expect(
+      gradeAssessment(target, {
+        kind: "classify",
+        placements: [
+          { itemId: "eagle", categoryId: "birds" },
+          { itemId: "salmon", categoryId: "unknown" },
+        ],
+      }),
+    ).toMatchObject({ isCorrect: false, score: 0.5 });
+
+    const duplicateExpected: AssessmentTargetContract = {
+      ...target,
+      assessment: {
+        ...target.assessment,
+        correctPlacements: [
+          { itemId: "eagle", categoryId: "birds" },
+          { itemId: "eagle", categoryId: "birds" },
+        ],
+      },
+    };
+    expect(
+      gradeAssessment(duplicateExpected, {
+        kind: "classify",
+        placements: [{ itemId: "eagle", categoryId: "birds" }],
+      }).isCorrect,
+    ).toBe(false);
+  });
+
   it("grades fill-blanks targets with answer normalization", () => {
     const blankFeedback = richText("Review the river name.");
     const target: AssessmentTargetContract = {
