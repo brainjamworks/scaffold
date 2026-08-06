@@ -10,6 +10,7 @@ import {
   createWindowFrameScheduler,
   type FrameScheduler,
 } from "./frame-coalescer";
+import { hasSupportedAxisAlignedTransformChain } from "./axis-aligned-transform";
 
 interface DOMCoordinateSpaceOptions {
   readonly getRoot: () => HTMLElement | null;
@@ -72,7 +73,9 @@ function createDOMCoordinateSpace(
         root.ownerDocument !== options.ownerDocument ||
         !ownerWindow ||
         root.ownerDocument.defaultView !== ownerWindow ||
-        !hasSupportedTransform(root, ownerWindow, kind)
+        !hasSupportedAxisAlignedTransformChain(root, ownerWindow, {
+          allowScale: kind === "scaled-canvas",
+        })
       ) {
         measuredSnapshot = null;
         return measuredSnapshot;
@@ -221,29 +224,4 @@ function observeRelevantMutations(
 
 function isAncestorOrSelf(ancestor: Node, node: Node): boolean {
   return ancestor === node || ancestor.contains(node);
-}
-
-function hasSupportedTransform(
-  root: HTMLElement,
-  ownerWindow: Window,
-  kind: CoordinateSpaceKind,
-): boolean {
-  const transform = ownerWindow.getComputedStyle(root).transform.trim();
-  if (transform === "" || transform === "none") return true;
-  if (!transform.startsWith("matrix(") || !transform.endsWith(")")) return false;
-
-  const values = transform
-    .slice("matrix(".length, -1)
-    .split(",")
-    .map((value) => Number(value.trim()));
-  if (values.length !== 6 || values.some((value) => !Number.isFinite(value))) return false;
-  const [scaleX, skewY, skewX, scaleY] = values as [number, number, number, number];
-  if (scaleX <= 0 || scaleY <= 0 || Math.abs(skewX) > 1e-8 || Math.abs(skewY) > 1e-8) {
-    return false;
-  }
-  return kind === "scaled-canvas" || (approximatelyOne(scaleX) && approximatelyOne(scaleY));
-}
-
-function approximatelyOne(value: number): boolean {
-  return Math.abs(value - 1) <= 1e-8;
 }

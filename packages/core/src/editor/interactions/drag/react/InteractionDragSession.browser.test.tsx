@@ -39,6 +39,34 @@ afterEach(async () => {
 });
 
 describe("InteractionDragSession browser lifecycle", () => {
+  it("keeps a rotated coordinate-root ancestor from publishing a ready source", async () => {
+    await page.viewport(900, 700);
+    const harness = await mountLifecycleHarness("ready", {
+      ancestorTransform: "rotate(15deg)",
+    });
+    mounted.push(harness);
+
+    const source = requiredSource(harness);
+    expect(source).toHaveAttribute("aria-disabled", "true");
+    await startPointerDrag(source);
+    expect(harness.overlay()).toBeNull();
+    expect(harness.endings).toEqual([]);
+  });
+
+  it("cancels without committing when an active transform chain becomes unsupported", async () => {
+    await page.viewport(900, 700);
+    const harness = await mountLifecycleHarness("ready");
+    mounted.push(harness);
+
+    await startPointerDrag(requiredSource(harness));
+    expect(harness.overlay()).not.toBeNull();
+    harness.mountHost.style.transform = "rotate(15deg)";
+    await harness.waitForIdle();
+
+    expect(harness.cancellations).toEqual(["environment-lost"]);
+    expect(harness.endings).toEqual([]);
+  });
+
   it("gates unscoped and pending sources until a ready owner environment exists", async () => {
     await page.viewport(900, 700);
     for (const mode of ["unscoped", "pending"] as const) {
@@ -182,10 +210,14 @@ describe("InteractionDragSession browser lifecycle", () => {
   });
 });
 
-async function mountLifecycleHarness(mode: EnvironmentMode): Promise<LifecycleHarness> {
+async function mountLifecycleHarness(
+  mode: EnvironmentMode,
+  options: Readonly<{ ancestorTransform?: string }> = {},
+): Promise<LifecycleHarness> {
   const mountHost = document.createElement("div");
   mountHost.style.cssText =
     "position: absolute; left: 80px; top: 64px; width: 620px; height: 420px";
+  if (options.ancestorTransform) mountHost.style.transform = options.ancestorTransform;
   const root = document.createElement("div");
   root.style.cssText =
     "position: relative; width: 520px; height: 320px; border: 1px solid transparent";

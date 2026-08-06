@@ -4,6 +4,7 @@ import {
   type ClientPoint,
   type LocalPoint,
 } from "../model/coordinate-space";
+import { hasSupportedAxisAlignedTransformChain } from "./axis-aligned-transform";
 
 export interface ElementLocalCoordinateSpaceSnapshot {
   readonly kind: "html-border-box" | "svg-ctm";
@@ -28,7 +29,7 @@ export function measureElementLocalCoordinateSpace(
   if (
     !ownerWindow ||
     !element.isConnected ||
-    !hasSupportedAncestorTransforms(element, ownerWindow)
+    !hasSupportedAxisAlignedTransformChain(element, ownerWindow, { allowScale: true })
   ) {
     return null;
   }
@@ -97,32 +98,6 @@ function createSnapshot(
       return createClientPoint(point.x * matrix.a + matrix.e, point.y * matrix.d + matrix.f)!;
     },
   });
-}
-
-function hasSupportedAncestorTransforms(element: Element, ownerWindow: Window): boolean {
-  let current: Element | null = element;
-  while (current) {
-    const style = ownerWindow.getComputedStyle(current);
-    const perspective = style.perspective?.trim() ?? "";
-    if (perspective !== "" && perspective !== "none") return false;
-    const transform = style.transform?.trim() ?? "";
-    if (transform !== "" && transform !== "none" && !isAxisAlignedTransform(transform)) {
-      return false;
-    }
-    current = current.parentElement;
-  }
-  return true;
-}
-
-function isAxisAlignedTransform(transform: string): boolean {
-  if (!transform.startsWith("matrix(") || !transform.endsWith(")")) return false;
-  const values = transform
-    .slice("matrix(".length, -1)
-    .split(",")
-    .map((value) => Number(value.trim()));
-  if (values.length !== 6 || !areFinite(...values)) return false;
-  const [scaleX, skewY, skewX, scaleY] = values as [number, number, number, number];
-  return scaleX > 0 && scaleY > 0 && Math.abs(skewX) <= 1e-8 && Math.abs(skewY) <= 1e-8;
 }
 
 function areFinite(...values: readonly number[]): boolean {

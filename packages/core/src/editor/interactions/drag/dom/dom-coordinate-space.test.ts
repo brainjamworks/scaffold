@@ -210,6 +210,76 @@ describe("DOM coordinate spaces", () => {
         }).measure(),
       ).toBeNull();
     }
+
+    const perspectiveRoot = connectedRoot({ left: 0, top: 0, width: 100, height: 100 });
+    perspectiveRoot.style.perspective = "500px";
+    expect(
+      createScaledCanvasCoordinateSpace({
+        getRoot: () => perspectiveRoot,
+        ownerDocument: document,
+        localSize: { width: 100, height: 100 },
+      }).measure(),
+    ).toBeNull();
+  });
+
+  it.each([
+    ["rotation", "matrix(0.866, 0.5, -0.5, 0.866, 0, 0)", ""],
+    ["skew", "matrix(1, 0.2, 0, 1, 0, 0)", ""],
+    ["matrix3d", "matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1)", ""],
+    ["perspective", "none", "500px"],
+  ])("rejects %s on a coordinate-root ancestor", (_label, transform, perspective) => {
+    const ancestor = document.createElement("div");
+    const root = connectedRoot({ left: 120, top: 80, width: 512, height: 288 });
+    document.body.append(ancestor);
+    ancestor.append(root);
+    ancestor.style.transform = transform;
+    ancestor.style.perspective = perspective;
+
+    expect(
+      createScaledCanvasCoordinateSpace({
+        getRoot: () => root,
+        ownerDocument: document,
+        localSize: { width: 1024, height: 576 },
+      }).measure(),
+    ).toBeNull();
+  });
+
+  it("accepts axis-aligned positive scale and translation through the scaled root chain", () => {
+    const ancestor = document.createElement("div");
+    const root = connectedRoot({ left: 120, top: 80, width: 512, height: 288 });
+    document.body.append(ancestor);
+    ancestor.append(root);
+    ancestor.style.transform = "matrix(2, 0, 0, 2, 16, 24)";
+    root.style.transform = "matrix(0.5, 0, 0, 0.5, 0, 0)";
+
+    expect(
+      createScaledCanvasCoordinateSpace({
+        getRoot: () => root,
+        ownerDocument: document,
+        localSize: { width: 1024, height: 576 },
+      }).measure(),
+    ).toMatchObject({ kind: "scaled-canvas", scaleX: 0.5, scaleY: 0.5 });
+  });
+
+  it("accepts translation but rejects scaling in a viewport identity chain", () => {
+    const ancestor = document.createElement("div");
+    const root = connectedRoot({ left: 120, top: 80, width: 512, height: 288 });
+    document.body.append(ancestor);
+    ancestor.append(root);
+    ancestor.style.transform = "matrix(1, 0, 0, 1, 16, 24)";
+    const coordinateSpace = createViewportCoordinateSpace({
+      getRoot: () => root,
+      ownerDocument: document,
+    });
+
+    expect(coordinateSpace.measure()).toMatchObject({ kind: "viewport", scaleX: 1, scaleY: 1 });
+
+    ancestor.style.transform = "matrix(2, 0, 0, 2, 16, 24)";
+    const scaledAncestorSpace = createViewportCoordinateSpace({
+      getRoot: () => root,
+      ownerDocument: document,
+    });
+    expect(scaledAncestorSpace.measure()).toBeNull();
   });
 });
 
