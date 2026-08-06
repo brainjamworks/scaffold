@@ -222,7 +222,7 @@ import { ScaffoldAuthoringEntry } from "./ScaffoldAuthoringEntry";
 
 beforeEach(() => {
   localStorage.clear();
-  mocks.authorJSON = pageDocumentWithParagraph("surface-author", "Author");
+  mocks.authorJSON = pageDocumentWithParagraph("authorsurf01", "Author");
   mocks.fakeEditor.getJSON.mockImplementation(() => mocks.authorJSON);
   mocks.fakeEditor.state.doc.firstChild.attrs = mocks.authorJSON.content?.[0]?.attrs ?? {};
 });
@@ -273,7 +273,7 @@ function slideshowDocument(surfaceId: string): JSONContent {
 }
 
 function privateAssessmentDocument(): JSONContent {
-  const document = createScaffoldDocumentContent({ mode: "page", surfaceId: "private-surface" });
+  const document = createScaffoldDocumentContent({ mode: "page", surfaceId: "privatesurf1" });
   const surface = document.content?.[0]?.content?.[0];
   if (!surface) throw new Error("expected default page Surface");
   surface.content = [
@@ -517,7 +517,7 @@ describe("ScaffoldAuthoringApp preview", () => {
       />,
     );
 
-    mocks.authorJSON = pageDocumentWithParagraph("surface-author", "Fresh editor content");
+    mocks.authorJSON = pageDocumentWithParagraph("authorsurf01", "Fresh editor content");
     mocks.fakeEditor.getJSON.mockClear();
     await user.click(screen.getByRole("button", { name: "Save now" }));
 
@@ -1182,7 +1182,7 @@ describe("ScaffoldAuthoringApp preview", () => {
 
   it("gives slideshow preview the remaining two-axis workspace", async () => {
     const user = userEvent.setup();
-    const content = slideshowDocument("slide-preview");
+    const content = slideshowDocument("slideprev001");
     mocks.authorJSON = content;
     mocks.fakeEditor.getJSON.mockReturnValue(content);
 

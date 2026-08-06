@@ -81,7 +81,10 @@ afterEach(() => {
 describe("course theme consumer matrix", () => {
   it("keeps the Page and Slideshow fixtures in parity with every built-in block", () => {
     for (const mode of ["page", "slideshow"] as const) {
-      const document = representativeDocument(mode, `consumer-${mode}`);
+      const document = representativeDocument(
+        mode,
+        mode === "page" ? "consumerpage" : "consumersld1",
+      );
       const fixtureNodeTypes = new Set(
         collectNodeTypes(document).filter((nodeType) =>
           builtInBlockDefinitions.some((definition) => definition.nodeType === nodeType),
@@ -165,8 +168,8 @@ describe("course theme consumer matrix", () => {
         const expected = METRIC_EXPECTATIONS[profile];
         const resolvedTheme = createConsumerTheme(mode, profile);
         const players = [
-          await mountPage(learnerDocument("page", "consumer-page"), resolvedTheme),
-          await mountSlideshow(learnerDocument("slideshow", "consumer-slide"), resolvedTheme),
+          await mountPage(learnerDocument("page", "consumerpage"), resolvedTheme),
+          await mountSlideshow(learnerDocument("slideshow", "consumersld1"), resolvedTheme),
         ];
 
         for (const { host } of players) {

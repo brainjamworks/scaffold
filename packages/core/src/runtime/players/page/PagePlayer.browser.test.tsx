@@ -158,7 +158,7 @@ describe("PagePlayer presentation", () => {
 function pageDocumentWithParagraphs(paragraphs: string[]): JSONContent {
   const content = createScaffoldDocumentContent({
     mode: "page",
-    surfaceId: "surface-page-player-browser",
+    surfaceId: "pagebrowse01",
   });
   const surface = content.content?.[0]?.content?.[0];
 

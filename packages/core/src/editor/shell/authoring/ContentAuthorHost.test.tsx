@@ -85,11 +85,11 @@ describe("ContentAuthorHost", () => {
   it("remounts the editor when the authoring artifact changes", async () => {
     const firstContent = createScaffoldDocumentContent({
       mode: "page",
-      surfaceId: "first-surface",
+      surfaceId: "firstsurf001",
     });
     const nextContent = createScaffoldDocumentContent({
       mode: "page",
-      surfaceId: "next-surface",
+      surfaceId: "nextsurf0001",
     });
     const onEditorReady = vi.fn();
     const { rerender } = render(

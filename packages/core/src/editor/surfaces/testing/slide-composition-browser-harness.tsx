@@ -93,7 +93,7 @@ export async function renderCompositionStateCase(
   );
   return renderDocumentPair(
     initialContent,
-    `geometry-${state.composition}`,
+    COMPOSITION_TEST_SURFACE_ID,
     options.authoringEditable ?? false,
     describeState(state),
     authoringComposition,
@@ -109,7 +109,7 @@ export async function renderRegisteredSurfaceVariant(
 ): Promise<RenderedCompositionStateCase> {
   return renderDocumentPair(
     createRegisteredSurfaceDocument(variant, options),
-    `geometry-${variant}`,
+    COMPOSITION_TEST_SURFACE_ID,
     options.authoringEditable ?? false,
     `variant=${variant}`,
     authoringComposition,

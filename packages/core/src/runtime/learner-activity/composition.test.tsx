@@ -136,13 +136,13 @@ describe("learner activity runtime composition", () => {
         <ContentRuntimeHost
           composition={runtimeComposition}
           artifactId="artifact-one"
-          initialContent={runtimeContent("surface-no-port")}
+          initialContent={runtimeContent("noport000001")}
         />
       </ScaffoldServicesProvider>,
     );
 
     await waitFor(() => expect(capturedStores.assessment.size).toBe(1));
-    const { assessment, learnerActivity } = storesFor("surface-no-port");
+    const { assessment, learnerActivity } = storesFor("noport000001");
 
     ensureChecklist(learnerActivity, "checklist-one");
     learnerActivity.getState().setCompleted("checklist-one", true);
@@ -184,13 +184,13 @@ describe("learner activity runtime composition", () => {
         <ContentRuntimeHost
           composition={runtimeComposition}
           artifactId="artifact-one"
-          initialContent={runtimeContent("surface-failures")}
+          initialContent={runtimeContent("failure00001")}
         />
       </ScaffoldServicesProvider>,
     );
 
     await waitFor(() => expect(capturedStores.assessment.size).toBe(1));
-    const { assessment, learnerActivity } = storesFor("surface-failures");
+    const { assessment, learnerActivity } = storesFor("failure00001");
 
     ensureChecklist(learnerActivity, "checklist-one");
     await waitFor(() =>
@@ -220,7 +220,7 @@ describe("learner activity runtime composition", () => {
         <ContentRuntimeHost
           composition={runtimeComposition}
           artifactId="shared-artifact"
-          initialContent={runtimeContent("surface-first")}
+          initialContent={runtimeContent("firstsurf001")}
         />
       </ScaffoldServicesProvider>,
     );
@@ -229,14 +229,14 @@ describe("learner activity runtime composition", () => {
         <ContentRuntimeHost
           composition={runtimeComposition}
           artifactId="shared-artifact"
-          initialContent={runtimeContent("surface-second")}
+          initialContent={runtimeContent("secondsurf01")}
         />
       </ScaffoldServicesProvider>,
     );
 
     await waitFor(() => expect(capturedStores.assessment.size).toBe(2));
-    const firstStores = storesFor("surface-first");
-    const secondStores = storesFor("surface-second");
+    const firstStores = storesFor("firstsurf001");
+    const secondStores = storesFor("secondsurf01");
 
     expect(firstStores.assessment).not.toBe(secondStores.assessment);
     expect(firstStores.learnerActivity).not.toBe(secondStores.learnerActivity);

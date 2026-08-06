@@ -24,7 +24,7 @@ afterEach(() => {
 function pageDocumentWithText(text: string): JSONContent {
   const content = createScaffoldDocumentContent({
     mode: "page",
-    surfaceId: "surface-page-player",
+    surfaceId: "pageplayer01",
   });
   const courseDocument = content.content?.[0];
   const surface = courseDocument?.content?.[0];
