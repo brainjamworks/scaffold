@@ -321,7 +321,7 @@ describe("SettingsForm", () => {
     expect(footerAction).toHaveAttribute("data-size", "md");
     expect(footerAction).toHaveAttribute("data-variant", "danger");
     expect(footerAction).toHaveAttribute("aria-label", "Restore default settings");
-    expect(footerAction.closest("footer")).toHaveClass("sc-sheet-footer");
+    expect(footerAction.closest("footer")).toHaveClass("sc-app-sheet-footer");
     expect(disabledFooterAction).toBeDisabled();
 
     await userEvent.click(sectionAction);

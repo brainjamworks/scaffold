@@ -12,7 +12,7 @@ import { createFillBlanksNode } from "./node";
 function FillBlanksRuntimeView(props: NodeViewProps) {
   return (
     <AssessmentRuntimeProblemContent
-      blockClass="sc-fill-blanks"
+      blockClass="sc-course-fill-blanks"
       definition={fillBlanksBlockDefinition}
       props={props}
     />

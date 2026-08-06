@@ -35,6 +35,7 @@ describe("fill-blanks authored persisted contracts", () => {
   it("preserves exact settings, blank, entry, and private defaults", () => {
     const settings: FillBlanksSettings = FillBlanksSettingsSchema.parse({});
     const blank: FillBlankAttrs = FillBlankAttrsSchema.parse({ id: "blank-1" });
+    const invalidBlankSentinel: FillBlankAttrs = FillBlankAttrsSchema.parse({});
     const entry: FillBlankPrivateAssessmentEntry = FillBlankPrivateAssessmentEntrySchema.parse({});
     const assessment: FillBlanksPrivateAssessment = FillBlanksPrivateAssessmentSchema.parse({});
 
@@ -46,6 +47,7 @@ describe("fill-blanks authored persisted contracts", () => {
       maxAttempts: null,
     });
     expect(blank).toEqual({ id: "blank-1", placeholder: "" });
+    expect(invalidBlankSentinel).toEqual({ id: "", placeholder: "" });
     expect(entry).toEqual({
       acceptedAnswers: [""],
       feedback: null,

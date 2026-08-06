@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 
 import {
   MultiSelectAssessmentSchema,
@@ -75,6 +75,7 @@ export interface FillBlanksInteractionRuntime {
   blanks: Readonly<Record<string, string>>;
   valueFor: (blankId: string) => string;
   setBlank: (blankId: string, value: string) => void;
+  commitImmediate: () => void;
   clearBlank: (blankId: string) => void;
   clearBlanks: () => void;
 }
@@ -232,6 +233,7 @@ export function createPendingAssessmentInteractionRuntime<K extends AssessmentIn
         blanks: {},
         valueFor: () => "",
         setBlank: noop,
+        commitImmediate: noop,
         clearBlank: noop,
         clearBlanks: noop,
       } as unknown as AssessmentInteractionRuntime<K>;
@@ -266,6 +268,11 @@ export function useAssessmentInteractionRuntime<K extends AssessmentInteractionK
   problem: ProblemScope | null,
   expectedKind?: K,
 ): AssessmentInteractionRuntime<K> | null {
+  const fillCommitRef = useRef<{ last: string | null; pending: string | null }>({
+    last: null,
+    pending: null,
+  });
+
   return useMemo(() => {
     if (!problem) return null;
 
@@ -320,10 +327,13 @@ export function useAssessmentInteractionRuntime<K extends AssessmentInteractionK
         const selected = new Set(selectedIds);
         const currentOptionIds = problem.state.currentOptionIds ?? [];
         const currentOptionIdSet = new Set(currentOptionIds);
-        const selectedCount = Array.from(selected).filter((id) => currentOptionIdSet.has(id)).length;
+        const selectedCount = Array.from(selected).filter((id) =>
+          currentOptionIdSet.has(id),
+        ).length;
         const maxSelections = problem.state.maxSelect;
         const limitReached = maxSelections !== null && selectedCount >= maxSelections;
-        const overLimitCount = maxSelections === null ? 0 : Math.max(0, selectedCount - maxSelections);
+        const overLimitCount =
+          maxSelections === null ? 0 : Math.max(0, selectedCount - maxSelections);
         const changeSelection = (choiceId: string) => {
           const change = resolveMultiSelectChoiceChange({
             choiceId,
@@ -414,6 +424,39 @@ export function useAssessmentInteractionRuntime<K extends AssessmentInteractionK
       }
       case "fill-blanks": {
         const blanks = stringRecord(response["blanks"]);
+        if (!facade.responseReady && !facade.request) {
+          fillCommitRef.current.last = null;
+        }
+        const commitImmediate = () => {
+          if (
+            locked ||
+            problem.state.feedbackMode !== "immediate" ||
+            !facade.responseReady ||
+            facade.request
+          ) {
+            return;
+          }
+          const canonical = facade.capability?.toContractResponse({ blanks });
+          if (!canonical) return;
+          const fingerprint = JSON.stringify(canonical);
+          if (
+            fillCommitRef.current.last === fingerprint ||
+            fillCommitRef.current.pending !== null
+          ) {
+            return;
+          }
+          fillCommitRef.current.pending = fingerprint;
+          void facade.actions
+            .check()
+            .then((result) => {
+              if (result) fillCommitRef.current.last = fingerprint;
+            })
+            .finally(() => {
+              if (fillCommitRef.current.pending === fingerprint) {
+                fillCommitRef.current.pending = null;
+              }
+            });
+        };
         return {
           kind: "fill-blanks",
           blanks,
@@ -422,8 +465,8 @@ export function useAssessmentInteractionRuntime<K extends AssessmentInteractionK
             const next = { ...blanks, [blankId]: value };
             if (!value) delete next[blankId];
             writeField("blanks", next);
-            checkImmediate();
           },
+          commitImmediate,
           clearBlank: (blankId: string) => {
             const next = { ...blanks };
             delete next[blankId];

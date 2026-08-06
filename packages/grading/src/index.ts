@@ -297,7 +297,7 @@ function gradeFillBlanks(
 
   let correctCount = 0;
   for (const blank of blanks) {
-    const accepted = blank.acceptedAnswers.filter((answer) => answer.length > 0);
+    const accepted = blank.acceptedAnswers.filter((answer) => answer.trim().length > 0);
     const given = givenByBlank.get(blank.blankId) ?? "";
     const normalizedGiven = normalizeBlankValue(given, blank);
     const correct =
@@ -398,7 +398,7 @@ function normalizeBlankValue(
   },
 ): string {
   const trimmed = meta.trimWhitespace === false ? value : value.trim();
-  return meta.caseSensitive ? trimmed : trimmed.toLocaleLowerCase();
+  return meta.caseSensitive ? trimmed : trimmed.toLowerCase();
 }
 
 function feedbackFor(

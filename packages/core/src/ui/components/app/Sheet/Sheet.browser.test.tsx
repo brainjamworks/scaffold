@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { page } from "vite-plus/test/browser/context";
 
 import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
-import { Select } from "../Select/Select";
+import { Select } from "../../Select/Select";
 import { Sheet } from "./Sheet";
 
 import "@/styles/globals.css";
@@ -104,7 +104,7 @@ describe("Sheet nested rich text geometry", () => {
       );
 
       await waitForCondition(() => {
-        const sheet = document.querySelector<HTMLElement>(".sc-sheet-content");
+        const sheet = document.querySelector<HTMLElement>(".sc-app-sheet-content");
         const listbox = document.querySelector<HTMLElement>('[role="listbox"]');
         return (
           sheet &&
@@ -115,7 +115,7 @@ describe("Sheet nested rich text geometry", () => {
         );
       });
 
-      const sheet = requireElement<HTMLElement>(document, ".sc-sheet-content");
+      const sheet = requireElement<HTMLElement>(document, ".sc-app-sheet-content");
       const trigger = requireElement<HTMLElement>(sheet, '[role="combobox"]');
       const listbox = requireElement<HTMLElement>(document, '[role="listbox"]');
       const innerHost = sheet.querySelector<HTMLElement>(":scope > [data-scaffold-overlay-host]");

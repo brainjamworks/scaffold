@@ -18,7 +18,7 @@ import { Accordion } from "@/ui/components/Accordion/Accordion";
 import { Button } from "@/ui/components/Button/Button";
 import { IconButton } from "@/ui/components/IconButton/IconButton";
 import { Field, Input, Label } from "@/ui/components/Input/Input";
-import { Sheet } from "@/ui/components/Sheet/Sheet";
+import { Sheet } from "@/ui/components/app/Sheet/Sheet";
 import { Switch } from "@/ui/components/Switch/Switch";
 import {
   resolveAssessmentAttrParent,
@@ -33,7 +33,6 @@ import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-posi
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
 import { selectNodeAt } from "@/editor/selection/selection-commands";
 import { setTextSelectionNearInTransaction } from "@/editor/selection/selection-transactions";
-import { cn } from "@/lib/cn";
 import {
   FillBlankPrivateAssessmentEntrySchema,
   FillBlanksPrivateAssessmentSchema,
@@ -56,6 +55,7 @@ import {
   firstAnswer,
 } from "./fill-blank-shared";
 import "./FillBlanks.css";
+import "./FillBlankSettings.css";
 
 export const FillBlankAuthoringNode = createFillBlankNode({
   addNodeView: () => ReactNodeViewRenderer(FillBlankAuthoringNodeView, { as: "span" }),
@@ -180,6 +180,7 @@ function AuthorFillBlank({
   const count = answerCount(blankAssessment);
   const feedbackLabelId = useId();
   const sheetContentRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
   const appendFeedbackBubbleMenuTo = useCallback(() => sheetContentRef.current, []);
 
   const updateAssessment = (patch: Partial<FillBlankPrivateAssessmentEntry>) => {
@@ -238,9 +239,11 @@ function AuthorFillBlank({
       data-node="fill-blank"
       data-blank-id={blank.id}
       contentEditable={false}
-      className="sc-fill-blank sc-fill-blank--authoring"
+      className="sc-course-fill-blank"
+      data-course-mode="authoring"
     >
       <button
+        ref={triggerRef}
         type="button"
         onMouseDown={(event) => {
           event.preventDefault();
@@ -256,15 +259,24 @@ function AuthorFillBlank({
           selectNode();
           setOpen(true);
         }}
-        className={cn("sc-fill-blank__pill", selected && "sc-fill-blank__pill--selected")}
+        className="sc-course-fill-blank__author-trigger"
+        data-selected={selected ? "true" : "false"}
       >
         <BracketsCurly size={iconXs} weight="bold" aria-hidden />
-        <span className="sc-fill-blank__label">{label}</span>
-        {count > 1 && <span className="sc-fill-blank__count">+{count - 1}</span>}
+        <span className="sc-course-fill-blank__label">{label}</span>
+        {count > 1 && <span className="sc-course-fill-blank__count">+{count - 1}</span>}
       </button>
 
       <Sheet.Root open={open} onOpenChange={setOpen}>
-        <Sheet.Content ref={sheetContentRef} side="right" contentEditable={false}>
+        <Sheet.Content
+          ref={sheetContentRef}
+          side="right"
+          contentEditable={false}
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            triggerRef.current?.focus({ preventScroll: true });
+          }}
+        >
           <Sheet.Header closeLabel="Close blank settings">
             <Sheet.Title>Edit blank</Sheet.Title>
             <Sheet.Description>
@@ -273,12 +285,12 @@ function AuthorFillBlank({
           </Sheet.Header>
 
           <Sheet.Body>
-            <div className="sc-fill-blank-sheet__summary">
-              <span className="sc-fill-blank-sheet__badge">
+            <div className="sc-app-fill-blank-settings__summary">
+              <span className="sc-app-fill-blank-settings__badge">
                 <BracketsCurly size={iconXs} weight="bold" aria-hidden />
-                <span className="sc-fill-blank-sheet__badge-label">{label}</span>
+                <span className="sc-app-fill-blank-settings__badge-label">{label}</span>
               </span>
-              <span className="sc-fill-blank-sheet__answer-count">
+              <span className="sc-app-fill-blank-settings__answer-count">
                 {count} accepted answer{count === 1 ? "" : "s"}
               </span>
             </div>
@@ -286,12 +298,12 @@ function AuthorFillBlank({
             <Accordion.Root
               type="multiple"
               defaultValue={["answer"]}
-              className="sc-fill-blank-sheet__accordion"
+              className="sc-app-fill-blank-settings__accordion"
             >
               <Accordion.Item value="answer">
                 <Accordion.Header>Answer</Accordion.Header>
                 <Accordion.Content>
-                  <div className="sc-fill-blank-sheet__answer-section">
+                  <div className="sc-app-fill-blank-settings__answer-section">
                     <Field>
                       <Label htmlFor={`${blank.id}-placeholder`}>Placeholder</Label>
                       <Input
@@ -302,31 +314,39 @@ function AuthorFillBlank({
                       />
                     </Field>
 
-                    <div className="sc-fill-blank-sheet__answers">
-                      <Label>Accepted answers</Label>
+                    <div className="sc-app-fill-blank-settings__answers">
+                      <p className="sc-app-fill-blank-settings__answers-title">Accepted answers</p>
                       {blankAssessment.acceptedAnswers.map((answer, index) => (
-                        <div key={index} className="sc-fill-blank-sheet__answer-row">
-                          <Input
-                            value={answer}
-                            onChange={(event) => updateAnswer(index, event.target.value)}
-                            placeholder={index === 0 ? "Correct answer" : "Alternative answer"}
-                          />
-                          <IconButton
-                            type="button"
-                            variant="danger"
-                            size="md"
-                            aria-label={`Remove accepted answer ${index + 1}`}
-                            disabled={blankAssessment.acceptedAnswers.length === 1}
-                            onClick={() => removeAnswer(index)}
-                          >
-                            <Trash size={iconSm} aria-hidden />
-                          </IconButton>
+                        <div key={index} className="sc-app-fill-blank-settings__answer-item">
+                          <Label htmlFor={`${blank.id}-accepted-${index}`}>
+                            {index === 0
+                              ? `Accepted answer ${index + 1}`
+                              : `Alternative answer ${index + 1}`}
+                          </Label>
+                          <div className="sc-app-fill-blank-settings__answer-row">
+                            <Input
+                              id={`${blank.id}-accepted-${index}`}
+                              value={answer}
+                              onChange={(event) => updateAnswer(index, event.target.value)}
+                              placeholder={index === 0 ? "Correct answer" : "Alternative answer"}
+                            />
+                            <IconButton
+                              type="button"
+                              variant="danger"
+                              size="md"
+                              aria-label={`Remove accepted answer ${index + 1}`}
+                              disabled={blankAssessment.acceptedAnswers.length === 1}
+                              onClick={() => removeAnswer(index)}
+                            >
+                              <Trash size={iconSm} aria-hidden />
+                            </IconButton>
+                          </div>
                         </div>
                       ))}
                       <button
                         type="button"
                         onClick={addAnswer}
-                        className="sc-fill-blank-sheet__add-answer"
+                        className="sc-app-fill-blank-settings__add-answer"
                       >
                         <Plus size={iconXs} weight="bold" aria-hidden />
                         <span>Add alternative</span>
@@ -339,11 +359,13 @@ function AuthorFillBlank({
               <Accordion.Item value="matching">
                 <Accordion.Header>Matching</Accordion.Header>
                 <Accordion.Content>
-                  <div className="sc-fill-blank-sheet__matching-options">
-                    <label className="sc-fill-blank-sheet__switch-row">
-                      <span className="sc-fill-blank-sheet__switch-copy">
-                        <span className="sc-fill-blank-sheet__switch-title">Case sensitive</span>
-                        <span className="sc-fill-blank-sheet__switch-description">
+                  <div className="sc-app-fill-blank-settings__matching-options">
+                    <label className="sc-app-fill-blank-settings__switch-row">
+                      <span className="sc-app-fill-blank-settings__switch-copy">
+                        <span className="sc-app-fill-blank-settings__switch-title">
+                          Case sensitive
+                        </span>
+                        <span className="sc-app-fill-blank-settings__switch-description">
                           When on, "Paris" and "paris" are different answers.
                         </span>
                       </span>
@@ -352,10 +374,12 @@ function AuthorFillBlank({
                         onCheckedChange={(caseSensitive) => updateAssessment({ caseSensitive })}
                       />
                     </label>
-                    <label className="sc-fill-blank-sheet__switch-row">
-                      <span className="sc-fill-blank-sheet__switch-copy">
-                        <span className="sc-fill-blank-sheet__switch-title">Trim spaces</span>
-                        <span className="sc-fill-blank-sheet__switch-description">
+                    <label className="sc-app-fill-blank-settings__switch-row">
+                      <span className="sc-app-fill-blank-settings__switch-copy">
+                        <span className="sc-app-fill-blank-settings__switch-title">
+                          Trim spaces
+                        </span>
+                        <span className="sc-app-fill-blank-settings__switch-description">
                           Strip leading and trailing whitespace before comparing.
                         </span>
                       </span>
@@ -392,7 +416,7 @@ function AuthorFillBlank({
             </Accordion.Root>
           </Sheet.Body>
 
-          <Sheet.Footer className="sc-sheet-footer--split">
+          <Sheet.Footer className="sc-app-sheet-footer--split">
             <Button type="button" variant="ghost" size="sm" onClick={restoreAsText}>
               <ArrowUUpLeft size={iconXs} weight="bold" aria-hidden />
               Convert to text

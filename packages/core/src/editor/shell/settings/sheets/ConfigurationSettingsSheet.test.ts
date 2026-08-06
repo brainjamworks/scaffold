@@ -542,7 +542,7 @@ describe("ConfigurationSettingsSheet", () => {
     await userEvent.clear(legend!);
     await userEvent.type(legend!, "Updated response label");
     const save = screen.getByRole("button", { name: "Save" });
-    expect(save.closest(".sc-sheet-footer")).not.toBeNull();
+    expect(save.closest(".sc-app-sheet-footer")).not.toBeNull();
     expect(save.closest(".sc-settings-form__footer-actions")).not.toBeNull();
     await userEvent.click(save);
 
@@ -801,7 +801,7 @@ describe("ConfigurationSettingsSheet", () => {
     await userEvent.clear(screen.getByLabelText("Points"));
     await userEvent.type(screen.getByLabelText("Points"), "8");
     const cancel = screen.getByRole("button", { name: "Cancel" });
-    expect(cancel.closest(".sc-sheet-footer")).not.toBeNull();
+    expect(cancel.closest(".sc-app-sheet-footer")).not.toBeNull();
     expect(cancel.closest(".sc-settings-form__footer-actions")).not.toBeNull();
     await userEvent.click(cancel);
 

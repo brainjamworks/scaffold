@@ -22,7 +22,7 @@ import type {
 import { builtInThemeFonts } from "@/theme/model/built-in-fonts";
 import { Button } from "@/ui/components/Button/Button";
 import { IconButton } from "@/ui/components/IconButton/IconButton";
-import { Sheet } from "@/ui/components/Sheet/Sheet";
+import { Sheet } from "@/ui/components/app/Sheet/Sheet";
 import * as Tooltip from "@/ui/components/Tooltip/Tooltip";
 import { iconSm } from "@/ui/tokens/icon-sizes";
 

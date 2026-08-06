@@ -11,7 +11,7 @@ export const FillBlanksSettingsSchema = AssessmentCommonSettingsSchema.extend({
 export type FillBlanksSettings = z.infer<typeof FillBlanksSettingsSchema>;
 
 export const FillBlankAttrsSchema = z.object({
-  id: z.string(),
+  id: z.string().default(""),
   placeholder: z.string().default(""),
 });
 export type FillBlankAttrs = z.infer<typeof FillBlankAttrsSchema>;

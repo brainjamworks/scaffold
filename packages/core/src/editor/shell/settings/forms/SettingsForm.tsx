@@ -15,7 +15,7 @@ import { settingsFieldDomId } from "@/editor/shell/settings/controls/a11y";
 import type { SettingsFieldDocumentTarget } from "@/editor/shell/settings/controls/fields/types";
 import { Accordion } from "@/ui/components/Accordion/Accordion";
 import { Button } from "@/ui/components/Button/Button";
-import { Sheet } from "@/ui/components/Sheet/Sheet";
+import { Sheet } from "@/ui/components/app/Sheet/Sheet";
 
 import "./settings-form.css";
 

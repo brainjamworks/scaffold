@@ -10,9 +10,9 @@ import {
   type OverlayBoundaryEnvironment,
 } from "@/ui/overlays/portal-host-context";
 
-import * as Dialog from "../Dialog/Dialog";
+import * as Dialog from "../../Dialog/Dialog";
 import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
-import { Select } from "../Select/Select";
+import { Select } from "../../Select/Select";
 import { Sheet, sheetContentVariants } from "./Sheet";
 
 afterEach(() => {
@@ -124,20 +124,20 @@ describe("Sheet", () => {
     const dialog = screen.getByRole("dialog");
 
     expect(dialog.parentElement).toBe(document.body);
-    expect(dialog.classList.contains("sc-sheet-content")).toBe(true);
+    expect(dialog.classList.contains("sc-app-sheet-content")).toBe(true);
     expect(dialog.getAttribute("data-side")).toBe("left");
-    expect(document.querySelector(".sc-sheet-overlay")).not.toBeNull();
-    expect(document.querySelector(".sc-sheet-header")).not.toBeNull();
-    expect(screen.getByText("Panel title").classList.contains("sc-sheet-title")).toBe(true);
-    expect(screen.getByText("Panel description").classList.contains("sc-sheet-description")).toBe(
-      true,
-    );
-    expect(screen.getByText("Panel body").classList.contains("sc-sheet-body")).toBe(true);
-    expect(screen.getByText("Panel footer").classList.contains("sc-sheet-footer")).toBe(true);
+    expect(document.querySelector(".sc-app-sheet-overlay")).not.toBeNull();
+    expect(document.querySelector(".sc-app-sheet-header")).not.toBeNull();
+    expect(screen.getByText("Panel title").classList.contains("sc-app-sheet-title")).toBe(true);
+    expect(
+      screen.getByText("Panel description").classList.contains("sc-app-sheet-description"),
+    ).toBe(true);
+    expect(screen.getByText("Panel body").classList.contains("sc-app-sheet-body")).toBe(true);
+    expect(screen.getByText("Panel footer").classList.contains("sc-app-sheet-footer")).toBe(true);
   });
 
   it("keeps the exported variant helper available", () => {
-    expect(sheetContentVariants({ side: "bottom" })).toBe("sc-sheet-content");
+    expect(sheetContentVariants({ side: "bottom" })).toBe("sc-app-sheet-content");
   });
 
   it("waits instead of falling back to the body while a scope is pending", () => {
@@ -167,7 +167,7 @@ describe("Sheet", () => {
 
     expect(screen.getByRole("dialog", { name: "Block settings" })).toBeInTheDocument();
     expect(editorContent.querySelector("[data-aria-hidden]")).toBeNull();
-    expect(editorContent).toHaveAttribute("data-sc-sheet-inert");
+    expect(editorContent).toHaveAttribute("data-sc-app-sheet-inert");
     expect(editorContent).toHaveAttribute("inert");
   });
 
@@ -215,7 +215,7 @@ describe("Sheet", () => {
     );
 
     await waitFor(() => expect(onReady).toHaveBeenCalled());
-    const dialog = container.querySelector<HTMLDivElement>(".sc-sheet-content");
+    const dialog = container.querySelector<HTMLDivElement>(".sc-app-sheet-content");
     if (!dialog) throw new Error("Expected the Sheet content element");
     const environment = onReady.mock.calls.at(-1)?.[0];
     if (!environment) throw new Error("Expected a ready Sheet overlay environment");

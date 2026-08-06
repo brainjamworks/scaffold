@@ -162,8 +162,14 @@ export interface AssessmentExperienceDefinition {
 
 export interface AssessmentCapabilityResponseDefinition<LocalResponse = unknown> {
   readonly schema: ZodType<LocalResponse, ZodTypeDef, unknown>;
-  readonly toContractResponse: (response: unknown) => AssessmentResponseValue;
-  readonly fromContractResponse: (response: AssessmentResponseValue) => LocalResponse;
+  readonly toContractResponse: (
+    response: unknown,
+    interaction?: AssessmentInteractionContract,
+  ) => AssessmentResponseValue;
+  readonly fromContractResponse: (
+    response: AssessmentResponseValue,
+    interaction?: AssessmentInteractionContract,
+  ) => LocalResponse;
   readonly hasResponse: (response: unknown, interaction?: AssessmentInteractionContract) => boolean;
 }
 

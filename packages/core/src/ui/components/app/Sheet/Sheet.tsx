@@ -20,7 +20,7 @@ import { AUTHORING_CHROME_SUPPRESSION_ATTR } from "@/editor/interactions/dom/aut
 import { cn } from "@/lib/cn";
 import { zIndex } from "@/ui/overlays/z-index";
 
-import { IconButton } from "../IconButton/IconButton";
+import { IconButton } from "../../IconButton/IconButton";
 import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 import { useOverlayBoundary } from "@/ui/overlays/portal-host-context";
 
@@ -74,7 +74,7 @@ interface SheetContentVariantProps {
 }
 
 function sheetContentVariants(_options?: SheetContentVariantProps): string {
-  return "sc-sheet-content";
+  return "sc-app-sheet-content";
 }
 
 interface SheetContentProps
@@ -107,7 +107,11 @@ const Content = forwardRef<ComponentRef<typeof RadixDialog.Content>, SheetConten
       if (portalHost === null || overlayElement.parentElement !== portalHost) return;
       const isolationRoot = portalHost.parentElement;
       if (isolationRoot === null) return;
-      return inertOthers([overlayElement, contentElement], isolationRoot, "data-sc-sheet-inert");
+      return inertOthers(
+        [overlayElement, contentElement],
+        isolationRoot,
+        "data-sc-app-sheet-inert",
+      );
     }, [contentElement, overlayElement]);
 
     return (
@@ -115,7 +119,7 @@ const Content = forwardRef<ComponentRef<typeof RadixDialog.Content>, SheetConten
         <div
           ref={setOverlayElement}
           aria-hidden="true"
-          className="sc-sheet-overlay"
+          className="sc-app-sheet-overlay"
           data-state="open"
           style={{ zIndex: zIndex.modalBackdrop }}
         />
@@ -182,8 +186,8 @@ function Header({
   ...rest
 }: SheetHeaderProps) {
   return (
-    <header className={cn("sc-sheet-header", className)} {...rest}>
-      <div className="sc-sheet-header-copy">{children}</div>
+    <header className={cn("sc-app-sheet-header", className)} {...rest}>
+      <div className="sc-app-sheet-header-copy">{children}</div>
       {closable && (
         <RadixDialog.Close asChild>
           <IconButton variant="ghost" size="md" aria-label={closeLabel}>
@@ -199,7 +203,7 @@ const Title = forwardRef<
   ComponentRef<typeof RadixDialog.Title>,
   ComponentPropsWithoutRef<typeof RadixDialog.Title>
 >(function Title({ className, ...rest }, ref) {
-  return <RadixDialog.Title ref={ref} className={cn("sc-sheet-title", className)} {...rest} />;
+  return <RadixDialog.Title ref={ref} className={cn("sc-app-sheet-title", className)} {...rest} />;
 });
 
 const Description = forwardRef<
@@ -209,18 +213,18 @@ const Description = forwardRef<
   return (
     <RadixDialog.Description
       ref={ref}
-      className={cn("sc-sheet-description", className)}
+      className={cn("sc-app-sheet-description", className)}
       {...rest}
     />
   );
 });
 
 function Body({ className, ...rest }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("sc-sheet-body", className)} {...rest} />;
+  return <div className={cn("sc-app-sheet-body", className)} {...rest} />;
 }
 
 function Footer({ className, ...rest }: HTMLAttributes<HTMLElement>) {
-  return <footer className={cn("sc-sheet-footer", className)} {...rest} />;
+  return <footer className={cn("sc-app-sheet-footer", className)} {...rest} />;
 }
 
 /** Section divider for grouped panels inside a Sheet.Body. */
@@ -230,8 +234,8 @@ interface SheetSectionProps extends Omit<HTMLAttributes<HTMLElement>, "title"> {
 
 function Section({ className, title, children, ...rest }: SheetSectionProps) {
   return (
-    <section className={cn("sc-sheet-section", className)} {...rest}>
-      {title && <h3 className="sc-sheet-section-title">{title}</h3>}
+    <section className={cn("sc-app-sheet-section", className)} {...rest}>
+      {title && <h3 className="sc-app-sheet-section-title">{title}</h3>}
       {children}
     </section>
   );

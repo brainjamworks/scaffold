@@ -639,6 +639,63 @@ describe("course document JSON helpers", () => {
     expect(JSON.stringify(result)).not.toContain("createSurface");
   });
 
+  it("reports every Fill publication integrity defect without dropping visible blanks", () => {
+    const document = createScaffoldDocumentContent({ mode: "page", surfaceId: "surface-1" });
+    document.content![0]!.content![0]!.content = [
+      {
+        type: "fill_blanks",
+        attrs: {
+          id: "fill-invalid",
+          settings: { legend: "" },
+          assessment: {
+            blanksById: {
+              duplicate: {
+                acceptedAnswers: ["   "],
+                feedback: null,
+                caseSensitive: false,
+                trimWhitespace: false,
+              },
+            },
+          },
+        },
+        content: [
+          { type: "assessment_title", content: [{ type: "paragraph" }] },
+          { type: "assessment_instructions", content: [{ type: "paragraph" }] },
+          { type: "assessment_prompt", content: [{ type: "paragraph" }] },
+          {
+            type: "fill_blanks_body",
+            content: [
+              {
+                type: "paragraph",
+                content: [
+                  { type: "fill_blank", attrs: { id: "" } },
+                  { type: "fill_blank", attrs: { id: "duplicate" } },
+                  { type: "fill_blank", attrs: { id: "duplicate" } },
+                  { type: "fill_blank", attrs: { id: "missing" } },
+                ],
+              },
+            ],
+          },
+          {
+            type: "assessment_actions_group",
+            content: [{ type: "assessment_hints_group" }, { type: "assessment_summary_feedback" }],
+          },
+        ],
+      },
+    ];
+
+    const codes = validateCourseDocumentJSON(document).issues.map((issue) => issue.code);
+    expect(codes).toEqual(
+      expect.arrayContaining([
+        "empty_fill_blank_id",
+        "duplicate_fill_blank_id",
+        "missing_fill_blank_assessment",
+        "empty_fill_blank_accepted_answers",
+        "unnamed_fill_blanks_response",
+      ]),
+    );
+  });
+
   it("returns frozen public validation results with an owned readonly issue array", () => {
     const valid = validateCourseDocumentJSON(createScaffoldDocumentContent({ mode: "page" }));
     const invalid = validateCourseDocumentJSON({ type: "paragraph" });

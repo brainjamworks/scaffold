@@ -326,10 +326,8 @@ function problemScopeFromFacade(
     submissionResult: snapshot.submissionResult,
     revealedAnswer,
   };
-  const exhausted =
-    effectiveMaxAttempts !== null && snapshot.attemptNumber >= effectiveMaxAttempts;
-  const interactionLocked =
-    snapshot.submitted || exhausted || revealedAnswer !== null;
+  const exhausted = effectiveMaxAttempts !== null && snapshot.attemptNumber >= effectiveMaxAttempts;
+  const interactionLocked = snapshot.submitted || exhausted || revealedAnswer !== null;
   const rawFeedbackResult = snapshot.checkResult ?? snapshot.submissionResult;
   const reviewPolicy = quizReviewPolicy(facade);
   const feedbackResult = reviewResultForPolicy(rawFeedbackResult, reviewPolicy);
@@ -510,6 +508,10 @@ function createRuntimeProblemConfig(
   }
   const responseCodec = {
     ...assessment.response,
+    toContractResponse: (response: unknown) =>
+      assessment.response.toContractResponse(response, interaction),
+    fromContractResponse: (response: AssessmentResponseValue) =>
+      assessment.response.fromContractResponse(response, interaction),
     hasResponse: (response: unknown) => assessment.response.hasResponse(response, interaction),
   };
   const getXapiActivityDefinition = () => {

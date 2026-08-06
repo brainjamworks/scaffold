@@ -8,6 +8,8 @@ import {
 
 import * as Tooltip from "@/ui/components/Tooltip/Tooltip";
 import { MenuIconButton } from "@/editor/shell/bubbles/interaction/menu-controls/MenuControls";
+import { zIndex } from "@/ui/overlays/z-index";
+import { iconSm } from "@/ui/tokens/icon-sizes";
 
 import { questionTypeTag } from "./question-type-tags";
 import type { ResolvedQuickAction } from "./quick-actions";
@@ -22,8 +24,9 @@ import type { ResolvedQuickAction } from "./quick-actions";
  *     authoringControls. Path-based settings are kept off this row.
  *   - standard authoring actions: settings, duplicate, delete.
  *
- * Both clusters share `MenuIconButton` (the same icon button the
- * standalone block bubble menu uses) so the visual treatment matches.
+ * The per-question actions are Course controls because they sit inside
+ * the canvas. Standard settings and document-management actions retain
+ * their existing shell control until the Quiz slice itself is migrated.
  */
 export function QuizStageMeta({
   activeIndex,
@@ -88,12 +91,32 @@ function QuizQuickActionButton({
     selector: ({ editor: liveEditor }) => action.canRun({ editor: liveEditor }),
   });
   if (!action.icon) return null;
+  const Icon = action.icon;
   return (
-    <MenuIconButton
-      icon={action.icon}
-      label={action.label}
-      disabled={!canRun}
-      onClick={action.run}
-    />
+    <Tooltip.Root>
+      <Tooltip.Trigger asChild>
+        <button
+          type="button"
+          className="sc-course-quiz__quick-action"
+          aria-label={action.label}
+          title={action.label}
+          disabled={!canRun}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={action.run}
+        >
+          <Icon size={iconSm} aria-hidden />
+        </button>
+      </Tooltip.Trigger>
+      <Tooltip.Portal>
+        <Tooltip.Content
+          side="top"
+          sideOffset={7}
+          className="sc-course-quiz__quick-action-tooltip"
+          style={{ zIndex: zIndex.tooltip }}
+        >
+          {action.label}
+        </Tooltip.Content>
+      </Tooltip.Portal>
+    </Tooltip.Root>
   );
 }

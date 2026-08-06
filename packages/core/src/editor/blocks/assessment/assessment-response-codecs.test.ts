@@ -147,6 +147,47 @@ const codecCases: CodecCase[] = [
 ];
 
 describe("assessment response codecs", () => {
+  it("filters Fill state to current projected blanks and requires every current blank", () => {
+    const codec = responseCodec(fillBlanksBlockDefinition);
+    const interaction = {
+      kind: "fill-blanks" as const,
+      blanks: [{ id: "blank-b" }, { id: "blank-a" }],
+    };
+    const local = {
+      blanks: {
+        stale: "must not count",
+        "blank-a": " Paris ",
+        "blank-b": "France",
+      },
+    };
+
+    expect(codec.hasResponse({ blanks: { stale: "value" } }, interaction)).toBe(false);
+    expect(codec.hasResponse({ blanks: { "blank-a": "Paris" } }, interaction)).toBe(false);
+    expect(
+      codec.hasResponse({ blanks: { "blank-a": " \t", "blank-b": "France" } }, interaction),
+    ).toBe(false);
+    expect(codec.hasResponse(local, interaction)).toBe(true);
+    expect(codec.toContractResponse(local, interaction)).toEqual({
+      kind: "fill-blanks",
+      blanks: [
+        { blankId: "blank-b", value: "France" },
+        { blankId: "blank-a", value: " Paris " },
+      ],
+    });
+    expect(
+      codec.fromContractResponse(
+        {
+          kind: "fill-blanks",
+          blanks: [
+            { blankId: "stale", value: "discard me" },
+            { blankId: "blank-a", value: "Paris" },
+          ],
+        },
+        interaction,
+      ),
+    ).toEqual({ blanks: { "blank-a": "Paris" } });
+  });
+
   it.each(codecCases)(
     "$name round-trips empty, partial, and complete local response state",
     ({ codec, localResponses }) => {

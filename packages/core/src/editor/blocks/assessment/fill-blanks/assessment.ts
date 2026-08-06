@@ -23,6 +23,7 @@ import {
   redactCommonAssessmentShellNode,
   walkDescendants,
 } from "@/editor/blocks/assessment/shared/publication/projection";
+import { assertFillBlanksIntegrity } from "./integrity";
 
 export const FillBlanksResponseSchema = z
   .object({
@@ -46,10 +47,7 @@ export function projectFillBlanksLearnerNode(node: JSONContent): JSONContent {
 export function projectFillBlanksInteraction(node: JSONContent): AssessmentInteractionContract {
   return {
     kind: "fill-blanks",
-    blanks: projectFillBlankEntries(node).map(({ blankId, label }) => ({
-      id: blankId,
-      ...(label ? { label } : {}),
-    })),
+    blanks: projectFillBlankInteractionEntries(node),
   };
 }
 
@@ -108,6 +106,7 @@ function projectFillBlankEntries(node: JSONContent): Array<{
   caseSensitive: boolean;
   trimWhitespace: boolean;
 }> {
+  assertFillBlanksIntegrity(node);
   const out: Array<{
     blankId: string;
     label?: string;
@@ -127,7 +126,7 @@ function projectFillBlankEntries(node: JSONContent): Array<{
 
     const answers = privateBlank.acceptedAnswers
       .map((answer) => (privateBlank.trimWhitespace ? answer.trim() : answer))
-      .filter((answer) => answer.length > 0);
+      .filter((answer) => answer.trim().length > 0);
     if (answers.length === 0) return;
 
     out.push({
@@ -143,13 +142,58 @@ function projectFillBlankEntries(node: JSONContent): Array<{
   return out;
 }
 
+function projectFillBlankInteractionEntries(
+  node: JSONContent,
+): Array<{ id: string; label?: string }> {
+  const out: Array<{ id: string; label?: string }> = [];
+  const seenIds = new Set<string>();
+
+  walkDescendants(node, (child) => {
+    if (child.type !== "fill_blank") return;
+    const parsed = FillBlankAttrsSchema.safeParse(readAttrs(child));
+    const blankId = parsed.success ? parsed.data.id.trim() : "";
+    if (!blankId) {
+      throw new Error("Invalid fill_blanks publication: empty_fill_blank_id");
+    }
+    if (seenIds.has(blankId)) {
+      throw new Error("Invalid fill_blanks publication: duplicate_fill_blank_id");
+    }
+    seenIds.add(blankId);
+    out.push({
+      id: blankId,
+      ...(parsed.success && parsed.data.placeholder ? { label: parsed.data.placeholder } : {}),
+    });
+  });
+
+  return out;
+}
+
 export function readFillBlanksResponse(response: unknown): FillBlanksResponse {
   return FillBlanksResponseSchema.parse(response);
 }
 
-export function hasFillBlanksResponse(response: unknown): boolean {
-  return Object.values(readFillBlanksResponse(response).blanks).some(
-    (answer) => answer.trim().length > 0,
+function currentFillBlankIds(
+  interaction?: AssessmentInteractionContract,
+): readonly string[] | null {
+  if (!interaction) return null;
+  if (interaction.kind !== "fill-blanks") {
+    throw new Error('Fill-blanks response requires a "fill-blanks" interaction.');
+  }
+  return interaction.blanks.map((blank) => blank.id);
+}
+
+export function hasFillBlanksResponse(
+  response: unknown,
+  interaction?: AssessmentInteractionContract,
+): boolean {
+  const blanks = readFillBlanksResponse(response).blanks;
+  const currentIds = currentFillBlankIds(interaction);
+  if (!currentIds) {
+    return Object.values(blanks).some((answer) => answer.trim().length > 0);
+  }
+  return (
+    currentIds.length > 0 &&
+    currentIds.every((blankId) => (blanks[blankId]?.trim().length ?? 0) > 0)
   );
 }
 
@@ -160,23 +204,38 @@ function assertUniqueBlankIds(blanks: readonly { blankId: string; value: string 
   }
 }
 
-export function toFillBlanksContractResponse(response: unknown) {
-  const blanks = Object.entries(readFillBlanksResponse(response).blanks).map(
-    ([blankId, value]) => ({
-      blankId,
-      value,
-    }),
-  );
+export function toFillBlanksContractResponse(
+  response: unknown,
+  interaction?: AssessmentInteractionContract,
+) {
+  const localBlanks = readFillBlanksResponse(response).blanks;
+  const currentIds = currentFillBlankIds(interaction);
+  const entries = currentIds
+    ? currentIds.flatMap((blankId) =>
+        Object.hasOwn(localBlanks, blankId) ? [[blankId, localBlanks[blankId]!] as const] : [],
+      )
+    : Object.entries(localBlanks);
+  const blanks = entries.map(([blankId, value]) => ({
+    blankId,
+    value,
+  }));
   return ContractFillBlanksResponseSchema.parse({ kind: "fill-blanks", blanks });
 }
 
 export function fromFillBlanksContractResponse(
   response: AssessmentResponseValue,
+  interaction?: AssessmentInteractionContract,
 ): FillBlanksResponse {
   const canonical = ContractFillBlanksResponseSchema.parse(response);
   assertUniqueBlankIds(canonical.blanks);
+  const currentIds = currentFillBlankIds(interaction);
+  const currentIdSet = currentIds ? new Set(currentIds) : null;
   return FillBlanksResponseSchema.parse({
-    blanks: Object.fromEntries(canonical.blanks.map(({ blankId, value }) => [blankId, value])),
+    blanks: Object.fromEntries(
+      canonical.blanks
+        .filter(({ blankId }) => !currentIdSet || currentIdSet.has(blankId))
+        .map(({ blankId, value }) => [blankId, value]),
+    ),
   });
 }
 

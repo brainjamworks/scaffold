@@ -34,7 +34,8 @@ import { FillBlanksPrivateAssessmentSchema } from "@scaffold/contracts";
 import { toTiptapRichTextDocument, type ScaffoldRichTextDocument } from "@/schemas/rich-text";
 
 import { describeFillBlankAccessibilityState } from "./fill-blank-runtime";
-import { applyFillBlankToEditor } from "./commands";
+import { applyFillBlankToEditor, repairFillBlanksInEditor } from "./commands";
+import { projectFillBlanksAssessment, projectFillBlanksInteraction } from "./assessment";
 import { FillBlanksAuthoringExtension } from "./fill-blanks-authoring-extension";
 import { fillBlanksBlockDefinition } from "./fill-blanks-definition";
 import { FillBlanksRuntimeExtension } from "./fill-blanks-runtime-extension";
@@ -193,10 +194,12 @@ function fillBlanksDoc({
 function runtimeFillBlanksDoc({
   answer,
   feedback,
+  feedbackMode = "on_submit",
   showAnswer = true,
 }: {
   answer: string;
   feedback: string;
+  feedbackMode?: "immediate" | "on_submit";
   showAnswer?: boolean;
 }) {
   return {
@@ -218,7 +221,7 @@ function runtimeFillBlanksDoc({
             summaryFeedback: null,
           },
           settings: {
-            feedbackMode: "on_submit",
+            feedbackMode,
             isGraded: true,
             showAnswer,
             legend: "Complete the sentence",
@@ -256,7 +259,7 @@ function runtimeFillBlanksDoc({
   };
 }
 
-function blankDescription(label = "city"): string | null {
+function blankDescription(label: string | RegExp = /Blank 1 of 1, city/): string | null {
   const input = screen.getByLabelText(label);
   const describedBy = input.getAttribute("aria-describedby");
   return describedBy ? (document.getElementById(describedBy)?.textContent ?? null) : null;
@@ -327,6 +330,13 @@ function setBlankFeedback(editor: Editor, blankId: string, text: string) {
   if (!updated) throw new Error("Missing fill_blanks assessment node");
 }
 
+function inlineFillBlankNodes(editor: Editor): JSONContent[] {
+  const block = editor.getJSON().content?.[0] as JSONContent | undefined;
+  const body = block?.content?.[3] as JSONContent | undefined;
+  const paragraph = body?.content?.[0] as JSONContent | undefined;
+  return (paragraph?.content ?? []).filter((node) => node.type === "fill_blank");
+}
+
 beforeEach(() => {
   assessmentStore = null;
 });
@@ -342,13 +352,58 @@ describe("composite fill_blanks node", () => {
     expect(fillBlanksBlockDefinition.boundedPlacement).toBe("fill");
   });
 
-  it("gives each runtime blank a child-specific assessment response name", async () => {
+  it("names the response group and each required field without using private answers", async () => {
     const editor = makeEditor({ runtime: true });
     editor.commands.setContent(fillBlanksDoc());
     renderAssessmentEditor(editor);
 
-    const input = await screen.findByLabelText("temperature");
+    const group = await screen.findByRole("group", { name: "Complete the sentence" });
+    const input = within(group).getByRole("textbox", { name: "Blank 1 of 1, temperature" });
     expect(input).toHaveAttribute("name", "assessment-fill-1-response-b1");
+    expect(input).toBeRequired();
+    expect(input).not.toHaveAccessibleName(expect.stringContaining("0°C"));
+
+    editor.destroy();
+  });
+
+  it("keeps required semantics without exposing browser-owned invalid UI", async () => {
+    const editor = makeEditor({ runtime: true });
+    editor.commands.setContent(fillBlanksDoc());
+    renderAssessmentEditor(editor);
+
+    const input = await screen.findByRole("textbox", {
+      name: "Blank 1 of 1, temperature",
+    });
+    const invalidEvent = new Event("invalid", { bubbles: false, cancelable: true });
+
+    input.dispatchEvent(invalidEvent);
+
+    expect(input).toBeRequired();
+    expect(invalidEvent.defaultPrevented).toBe(true);
+
+    editor.destroy();
+  });
+
+  it("falls back to the assessment prompt for the response group name", async () => {
+    const document = fillBlanksDoc() as JSONContent;
+    const block = document.content?.[0];
+    if (!block?.attrs || !block.content?.[2]) throw new Error("Missing Fill fixture shell");
+    block.attrs["settings"] = { ...block.attrs["settings"], legend: "   " };
+    block.content[2] = {
+      type: "assessment_prompt",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "Complete the temperature statement" }],
+        },
+      ],
+    };
+    const editor = makeEditor({ runtime: true, content: document });
+    renderAssessmentEditor(editor);
+
+    expect(
+      await screen.findByRole("group", { name: "Complete the temperature statement" }),
+    ).toBeInTheDocument();
 
     editor.destroy();
   });
@@ -555,7 +610,7 @@ describe("composite fill_blanks node", () => {
       expect(hasAssessmentRegistration(assessmentStore, problemId)).toBe(true);
     });
 
-    fireEvent.change(screen.getByLabelText("city"), {
+    fireEvent.change(screen.getByRole("textbox", { name: "Blank 1 of 1, city" }), {
       target: { value: "London" },
     });
 
@@ -622,7 +677,7 @@ describe("composite fill_blanks node", () => {
       expect(hasAssessmentRegistration(assessmentStore, problemId)).toBe(true);
     });
 
-    fireEvent.change(screen.getByLabelText("city"), {
+    fireEvent.change(screen.getByRole("textbox", { name: "Blank 1 of 1, city" }), {
       target: { value: "London" },
     });
 
@@ -633,17 +688,24 @@ describe("composite fill_blanks node", () => {
     fireEvent.click(screen.getByText("Submit"));
 
     await waitFor(() => {
-      expect(screen.getByText("Show answer")).toBeInstanceOf(HTMLButtonElement);
+      expect(screen.getByRole("button", { name: "Show correct answer" })).toBeInstanceOf(
+        HTMLButtonElement,
+      );
     });
-    fireEvent.click(screen.getByText("Show answer"));
+    fireEvent.click(screen.getByRole("button", { name: "Show correct answer" }));
 
     await waitFor(() => {
       expect(screen.getByDisplayValue("Paris")).toBeInstanceOf(HTMLInputElement);
+      expect(screen.queryByRole("note")).toBeNull();
       expect(blankDescription()).toBe("Revealed answer, correct. Feedback available");
       expect(screen.queryByDisplayValue("Berlin")).toBeNull();
+      expect(assessmentStore?.getState().durable.problems[problemId]?.response).toEqual({
+        kind: "fill-blanks",
+        blanks: [{ blankId: "blank-1", value: "London" }],
+      });
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Show feedback" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show feedback for blank 1 of 1" }));
 
     await waitFor(() => {
       const dialog = screen.getByRole("dialog", { name: "Feedback" });
@@ -653,6 +715,78 @@ describe("composite fill_blanks node", () => {
       expect(within(dialog).getByText("Capital city")).toBeInstanceOf(HTMLElement);
       expect(screen.queryByText("Authored feedback")).toBeNull();
     });
+
+    editor.destroy();
+  });
+
+  it("commits immediate checks only on blur or Enter after a changed ready response", async () => {
+    const editor = makeEditor({ runtime: true });
+    const document = runtimeFillBlanksDoc({
+      answer: "Paris",
+      feedback: "",
+      feedbackMode: "immediate",
+    }) as JSONContent;
+    const block = document.content?.[0];
+    const paragraph = block?.content?.[3]?.content?.[0];
+    if (!block?.attrs || !paragraph?.content) throw new Error("Missing immediate Fill fixture");
+    block.attrs["assessment"] = {
+      ...block.attrs["assessment"],
+      blanksById: {
+        ...block.attrs["assessment"].blanksById,
+        "blank-2": {
+          acceptedAnswers: ["France"],
+          feedback: null,
+          caseSensitive: false,
+          trimWhitespace: true,
+        },
+      },
+    };
+    paragraph.content.splice(
+      paragraph.content.length - 1,
+      0,
+      { type: "text", text: " in " },
+      { type: "fill_blank", attrs: { id: "blank-2", placeholder: "country" } },
+    );
+    editor.commands.setContent(document);
+    const check = vi.fn<NonNullable<AssessmentPort["check"]>>(async (args) => {
+      const result = { ...canonicalAssessmentResult, isCorrect: true, score: 1 };
+      return assessmentProblemOutcome(result, {
+        response: args.response,
+        checkResult: result,
+        submitted: false,
+        submissionResult: null,
+      });
+    });
+    renderRuntimeEditor(editor, {
+      type: "runtime",
+      check,
+      submit: async (args) =>
+        assessmentProblemOutcome(
+          { ...canonicalAssessmentResult, isCorrect: true, score: 1 },
+          { response: args.response },
+        ),
+    });
+    const city = await screen.findByRole("textbox", { name: "Blank 1 of 2, city" });
+    const country = screen.getByRole("textbox", { name: "Blank 2 of 2, country" });
+    const cityWidth = city.style.width;
+
+    fireEvent.change(city, { target: { value: "Paris" } });
+    expect(city.style.width).toBe(cityWidth);
+    expect(check).not.toHaveBeenCalled();
+    fireEvent.blur(city);
+    expect(check).not.toHaveBeenCalled();
+
+    fireEvent.change(country, { target: { value: "France" } });
+    fireEvent.blur(country);
+    await waitFor(() => expect(check).toHaveBeenCalledTimes(1));
+    fireEvent.blur(country);
+    fireEvent.keyDown(country, { key: "Enter" });
+    await waitFor(() => expect(check).toHaveBeenCalledTimes(1));
+
+    fireEvent.change(city, { target: { value: "Lyon" } });
+    expect(check).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(city, { key: "Enter" });
+    await waitFor(() => expect(check).toHaveBeenCalledTimes(2));
 
     editor.destroy();
   });
@@ -763,6 +897,98 @@ describe("composite fill_blanks node", () => {
 
     expect(paragraph?.content).toEqual([{ type: "text", text: "Do not blank this prompt." }]);
     editor.destroy();
+  });
+
+  it("repairs invalid identity and private configuration in one explicit transaction", () => {
+    const document = fillBlanksDoc() as JSONContent;
+    const block = document.content?.[0];
+    const blank = block?.content?.[3]?.content?.[0]?.content?.[1];
+    if (!block?.attrs || !blank?.attrs) throw new Error("Missing Fill fixture blank");
+    blank.attrs["id"] = "";
+    block.attrs["assessment"] = { blanksById: {} };
+    const editor = makeEditor({ content: document, undoRedo: true });
+
+    expect(repairFillBlanksInEditor(editor)).toBe(true);
+    const repaired = editor.getJSON().content?.[0] as JSONContent | undefined;
+    const repairedBlank = inlineFillBlankNodes(editor)[0];
+    const repairedId = repairedBlank?.attrs?.["id"];
+    expect(repairedId).toEqual(expect.any(String));
+    expect(repairedId).not.toBe("");
+    expect(repaired?.attrs?.["assessment"]?.blanksById?.[repairedId as string]).toMatchObject({
+      acceptedAnswers: [""],
+    });
+
+    expect(editor.commands.undo()).toBe(true);
+    expect(inlineFillBlankNodes(editor)[0]?.attrs?.["id"]).toBe("");
+    expect(editor.commands.redo()).toBe(true);
+    expect(inlineFillBlankNodes(editor)[0]?.attrs?.["id"]).toBe(repairedId);
+    editor.destroy();
+  });
+
+  it("normalizes independently pasted blanks without copying private answers", () => {
+    const editor = makeEditor({ content: fillBlanksDoc(), undoRedo: true });
+    let blankPos = -1;
+    editor.state.doc.descendants((node, pos) => {
+      if (blankPos < 0 && node.type.name === "fill_blank") blankPos = pos;
+    });
+    const pasted = editor.schema.nodes["fill_blank"]?.create({ id: "b1", placeholder: "copy" });
+    if (!pasted || blankPos < 0) throw new Error("Missing Fill paste fixture");
+
+    editor.view.dispatch(
+      editor.state.tr
+        .insert(blankPos + 1, pasted)
+        .setMeta("uiEvent", "paste")
+        .scrollIntoView(),
+    );
+    const pastedBlock = editor.getJSON().content?.[0] as JSONContent | undefined;
+    const ids = inlineFillBlankNodes(editor).map((node) => String(node.attrs?.["id"] ?? ""));
+    expect(ids).toHaveLength(2);
+    expect(new Set(ids).size).toBe(2);
+    const pastedId = ids.find((id) => id !== "b1");
+    expect(pastedBlock?.attrs?.["assessment"]?.blanksById?.[pastedId ?? ""]).toMatchObject({
+      acceptedAnswers: [""],
+      feedback: null,
+    });
+
+    expect(editor.commands.undo()).toBe(true);
+    expect(inlineFillBlankNodes(editor)).toHaveLength(1);
+    expect(editor.commands.redo()).toBe(true);
+    expect(inlineFillBlankNodes(editor)).toHaveLength(2);
+    editor.destroy();
+  });
+
+  it("cleans keyed private feedback when direct deletion removes a blank", () => {
+    const editor = makeEditor({ content: fillBlanksDoc(), undoRedo: true });
+    let blankPos = -1;
+    editor.state.doc.descendants((node, pos) => {
+      if (blankPos < 0 && node.type.name === "fill_blank") blankPos = pos;
+    });
+    if (blankPos < 0) throw new Error("Missing Fill deletion fixture");
+
+    editor.view.dispatch(editor.state.tr.delete(blankPos, blankPos + 1));
+    expect(
+      editor.getJSON().content?.[0]?.attrs?.["assessment"]?.blanksById?.["b1"],
+    ).toBeUndefined();
+    expect(editor.commands.undo()).toBe(true);
+    expect(editor.getJSON().content?.[0]?.attrs?.["assessment"]?.blanksById?.["b1"]).toBeDefined();
+    expect(editor.commands.redo()).toBe(true);
+    expect(
+      editor.getJSON().content?.[0]?.attrs?.["assessment"]?.blanksById?.["b1"],
+    ).toBeUndefined();
+    editor.destroy();
+  });
+
+  it("keeps every visible blank in the redacted learner interaction", () => {
+    const document = fillBlanksDoc() as JSONContent;
+    const block = document.content?.[0];
+    if (!block?.attrs) throw new Error("Missing Fill fixture block");
+    block.attrs["assessment"] = { blanksById: {} };
+
+    expect(projectFillBlanksInteraction(block)).toEqual({
+      kind: "fill-blanks",
+      blanks: [{ id: "b1", label: "temperature" }],
+    });
+    expect(() => projectFillBlanksAssessment(block)).toThrow(/missing_fill_blank_assessment/);
   });
 
   it("does not open blank settings from selection alone", async () => {
@@ -883,6 +1109,25 @@ describe("composite fill_blanks node", () => {
       expect(screen.queryByRole("dialog", { name: "Edit blank" })).toBeNull();
       expect(nestedEditor.isDestroyed).toBe(true);
     });
+
+    editor.destroy();
+  });
+
+  it("labels every accepted answer and restores focus to the inline blank", async () => {
+    const editor = makeEditor();
+    editor.commands.setContent(fillBlanksDoc());
+    renderAssessmentEditor(editor);
+    const trigger = await screen.findByRole("button", { name: /0°C/ });
+
+    fireEvent.mouseDown(trigger);
+    const sheet = await screen.findByRole("dialog", { name: "Edit blank" });
+    expect(within(sheet).getByRole("textbox", { name: "Accepted answer 1" })).toHaveValue("0°C");
+    expect(within(sheet).getByRole("textbox", { name: "Alternative answer 2" })).toHaveValue(
+      "0 degrees Celsius",
+    );
+
+    fireEvent.click(within(sheet).getByRole("button", { name: "Done" }));
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
 
     editor.destroy();
   });

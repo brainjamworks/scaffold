@@ -105,9 +105,9 @@ describe("CourseThemePanel", () => {
       "sc-settings-card-select",
     );
     const reset = within(panel).getByRole("button", { name: "Reset complete theme" });
-    expect(reset.closest(".sc-sheet-footer")).not.toBeNull();
+    expect(reset.closest(".sc-app-sheet-footer")).not.toBeNull();
     expect(reset.closest(".sc-settings-form__footer-actions")).not.toBeNull();
-    expect(reset.closest(".sc-sheet-body")).toBeNull();
+    expect(reset.closest(".sc-app-sheet-body")).toBeNull();
   });
 
   it("renders exact options from registry labels and descriptions", async () => {
@@ -310,7 +310,7 @@ describe("CourseThemePanel", () => {
     const reset = screen.getByRole("button", { name: "Reset all Design overrides" });
     expect(reset).toHaveTextContent("Reset Design overrides");
     expect(reset.closest(".sc-settings-form__section-actions")).not.toBeNull();
-    expect(reset.closest(".sc-sheet-footer")).toBeNull();
+    expect(reset.closest(".sc-app-sheet-footer")).toBeNull();
     await user.click(reset);
 
     expect(readTheme(editor)).toEqual({
@@ -597,7 +597,7 @@ describe("CourseThemePanel", () => {
 
     const reset = screen.getByRole("button", { name: "Reset all typography overrides" });
     expect(reset.closest(".sc-settings-form__section-actions")).not.toBeNull();
-    expect(reset.closest(".sc-sheet-footer")).toBeNull();
+    expect(reset.closest(".sc-app-sheet-footer")).toBeNull();
     await user.click(reset);
 
     expect(readTheme(editor)).toEqual({

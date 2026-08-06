@@ -38,6 +38,63 @@
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-course-assessment-meta-title {
+  max-inline-size: 45%;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  :is(.sc-course-assessment-meta-title, .sc-course-assessment-meta-instructions)
+  .sc-course-assessment-meta-content--inline {
+  overflow: hidden;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  :is(.sc-course-assessment-meta-title, .sc-course-assessment-meta-instructions)
+  .sc-course-assessment-meta-content--inline
+  p {
+  width: max-content;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  :is(.sc-course-assessment-meta-title, .sc-course-assessment-meta-instructions)[data-course-overflow="true"]:focus-visible {
+  border-radius: var(--radius-1);
+  outline: 2px solid var(--accent-8, currentColor);
+  outline-offset: var(--space-1);
+}
+
+@keyframes sc-course-assessment-meta-marquee {
+  0%,
+  12% {
+    transform: translateX(0);
+  }
+
+  88%,
+  100% {
+    transform: translateX(
+      calc(-1 * var(--sc-course-assessment-meta-marquee-distance, 0px))
+    );
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sc-course.sc-course-theme-scaffold-flow-v1
+    :is(.sc-course-assessment-meta-title, .sc-course-assessment-meta-instructions)[data-course-overflow="true"]:is(:hover, :focus)
+    .sc-course-assessment-meta-content--inline
+    p {
+    max-width: none;
+    overflow: visible;
+    animation: sc-course-assessment-meta-marquee
+      var(--sc-course-assessment-meta-marquee-duration, 6s) linear infinite alternate both;
+    text-overflow: clip;
+    will-change: transform;
+  }
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
   .sc-course-assessment-meta-instructions {
   column-gap: var(--space-3);
 }
@@ -51,7 +108,7 @@
   line-height: var(--sc-course-author-heading-line-height);
   letter-spacing: var(--sc-course-author-heading-letter-spacing);
   text-transform: var(--sc-course-author-heading-text-transform);
-  text-wrap: balance;
+  text-wrap: pretty;
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1
@@ -129,7 +186,6 @@
     font-size: clamp(0.5625rem, 2.25cqw, 0.8125rem);
     letter-spacing: clamp(0.06em, 0.4cqw, 0.14em);
     line-height: 1.15;
-    white-space: nowrap;
   }
 
   .sc-course.sc-course-theme-scaffold-flow-v1
@@ -141,7 +197,6 @@
     font-size: clamp(0.5625rem, 2.25cqw, 0.8125rem);
     letter-spacing: clamp(0.06em, 0.4cqw, 0.14em);
     line-height: 1.15;
-    white-space: nowrap;
   }
 }
 

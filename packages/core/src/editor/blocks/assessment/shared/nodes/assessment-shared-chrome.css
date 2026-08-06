@@ -8,30 +8,36 @@
   .sc-course-assessment-meta-title {
     position: relative;
     display: flex;
-    flex: 0 0 auto;
+    min-width: 0;
+    flex: 0 1 auto;
     align-items: center;
   }
 
   .sc-course-assessment-meta-instructions {
     position: relative;
     display: flex;
-    flex: 0 1 auto;
     min-width: 0;
-    flex-wrap: wrap;
+    flex: 1 1 0;
+    flex-wrap: nowrap;
     align-items: center;
   }
 
   .sc-course-assessment-meta-title p,
   .sc-course-assessment-meta-instructions p {
+    min-width: 0;
     margin: 0;
+    overflow-wrap: anywhere;
   }
 
   .sc-course-assessment-meta-default {
+    flex: 0 0 auto;
     pointer-events: none;
   }
 
   .sc-course-assessment-meta-content--inline {
-    display: contents;
+    display: block;
+    min-width: 0;
+    flex: 0 1 auto;
   }
 
   .sc-course-assessment-prompt {

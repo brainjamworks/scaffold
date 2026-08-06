@@ -234,7 +234,7 @@ describe("course theme panel browser workflow", () => {
         'button[aria-label="Reset all typography overrides"]',
       );
       expect(resetTypography.closest(".sc-settings-form__section-actions")).not.toBeNull();
-      expect(resetTypography.closest(".sc-sheet-footer")).toBeNull();
+      expect(resetTypography.closest(".sc-app-sheet-footer")).toBeNull();
       resetTypography.click();
       await waitForCondition(() => readEditorTheme(editor)?.overrides.typography === undefined);
       await waitForCondition(
@@ -294,7 +294,7 @@ describe("course theme panel browser workflow", () => {
       );
       expect(resetDesign.textContent).toContain("Reset Design overrides");
       expect(resetDesign.closest(".sc-settings-form__section-actions")).not.toBeNull();
-      expect(resetDesign.closest(".sc-sheet-footer")).toBeNull();
+      expect(resetDesign.closest(".sc-app-sheet-footer")).toBeNull();
       resetDesign.click();
       await waitForCondition(
         () =>

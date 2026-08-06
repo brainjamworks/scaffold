@@ -6,14 +6,12 @@ import {
 } from "@tiptap/react";
 import { useId, useMemo } from "react";
 
-import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { RichFeedbackRuntimePopover } from "@/editor/blocks/assessment/shared/chrome/RichFeedbackRuntimePopover";
+import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { useAssessmentRuntimeById } from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
 import { assessmentResponseName } from "@/editor/blocks/assessment/shared/runtime/assessment-response-name";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
-import { cn } from "@/lib/cn";
-import { FillBlanksAssessmentSchema } from "@scaffold/contracts";
-import { AssessmentFeedbackContentSchema } from "@scaffold/contracts";
+import { AssessmentFeedbackContentSchema, FillBlanksAssessmentSchema } from "@scaffold/contracts";
 import type { FillBlankAttrs } from "@scaffold/contracts";
 
 import { blankAttrsFromNode, createFillBlankNode } from "./fill-blank-shared";
@@ -80,39 +78,48 @@ function RuntimeFillBlank({
   const runtimeProblem = assessment?.problem ?? null;
   const submitted = runtimeProblem?.state.submitted ?? false;
   const answerKeyVisible = runtimeProblem?.answerKeyVisible ?? false;
-  const hasRevealPayload = (runtimeProblem?.state.revealedAnswer ?? null) !== null;
   const feedbackResult = runtimeProblem?.feedbackResult ?? null;
   const detail = feedbackResult?.items?.[blank.id] ?? null;
   const showFeedback =
     submitted ||
     answerKeyVisible ||
     (runtimeProblem?.state.feedbackMode === "immediate" && feedbackResult !== null);
-  const locked = submitted || hasRevealPayload || (runtimeProblem?.exhausted ?? false);
+  const locked = runtimeProblem?.interactionLocked ?? false;
+  const givenValue = problem?.valueFor(blank.id) ?? "";
   const reveal = revealedBlankAnswer(runtimeProblem?.state.revealedAnswer?.answers, blank.id);
-  const displayedValue =
-    answerKeyVisible && reveal ? reveal.value : (problem?.valueFor(blank.id) ?? "");
-  const state =
-    answerKeyVisible && reveal
-      ? "correct"
-      : showFeedback && detail
-        ? detail.correct
-          ? "correct"
-          : "incorrect"
-        : null;
-  const feedback = answerKeyVisible ? (reveal?.feedback ?? null) : (detail?.feedback ?? null);
+  const feedback = answerKeyVisible
+    ? (reveal?.feedback ?? detail?.feedback ?? null)
+    : (detail?.feedback ?? null);
   const parsedFeedback = AssessmentFeedbackContentSchema.safeParse(feedback);
-  const widthBasis = displayedValue || blank.placeholder || "Answer";
+  const expectedAnswer = answerKeyVisible
+    ? (reveal?.value ?? expectedBlankAnswer(detail?.expected))
+    : null;
+  const revealed = expectedAnswer !== null;
+  const displayedValue = revealed ? expectedAnswer : givenValue;
+  const state = revealed
+    ? "correct"
+    : showFeedback && detail
+      ? detail.correct
+        ? "correct"
+        : "incorrect"
+      : null;
+  const widthBasis = blank.placeholder.trim() || "Answer";
 
-  const hasInlineFeedback = showFeedback && parsedFeedback.success;
+  const hasFeedback = showFeedback && parsedFeedback.success;
   const accessibilityDescription = describeFillBlankAccessibilityState({
-    hasFeedback: hasInlineFeedback,
-    revealed: answerKeyVisible && reveal !== null,
+    hasFeedback,
+    revealed,
     state,
     submitted,
-    value: displayedValue,
+    value: givenValue,
   });
   const generatedDescriptionId = useId();
   const descriptionId = accessibilityDescription ? generatedDescriptionId : undefined;
+  const position = fillBlankDocumentPosition(editor, pos);
+  const publicPlaceholder = blank.placeholder.trim();
+  const fieldLabel = `Blank ${position.index} of ${position.total}${
+    publicPlaceholder ? `, ${publicPlaceholder}` : ""
+  }`;
 
   return (
     <NodeViewWrapper
@@ -120,30 +127,33 @@ function RuntimeFillBlank({
       data-node="fill-blank"
       data-blank-id={blank.id}
       contentEditable={false}
-      className="sc-fill-blank sc-fill-blank--runtime"
+      className="sc-course-fill-blank"
+      data-course-mode="runtime"
+      data-has-feedback={hasFeedback ? "true" : "false"}
     >
       <input
         type="text"
         name={assessmentResponseName(authoredBlockId ?? "", blank.id)}
         value={displayedValue}
-        disabled={locked}
+        readOnly={locked}
+        tabIndex={locked ? -1 : undefined}
+        required
+        onInvalid={(event) => event.preventDefault()}
         onChange={(event) => problem?.setBlank(blank.id, event.target.value)}
+        onBlur={() => problem?.commitImmediate()}
+        onKeyDown={(event) => {
+          if (event.key !== "Enter") return;
+          event.preventDefault();
+          problem?.commitImmediate();
+        }}
         placeholder={blank.placeholder || "Answer"}
-        aria-label={blank.placeholder || "Fill in blank"}
+        aria-label={fieldLabel}
         aria-describedby={descriptionId}
-        className={cn(
-          "sc-fill-blank__input",
-          state === "correct" && "sc-fill-blank__input--correct",
-          state === "incorrect" && "sc-fill-blank__input--incorrect",
-          hasInlineFeedback
-            ? "sc-fill-blank__input--with-feedback"
-            : "sc-fill-blank__input--without-feedback",
-        )}
+        className="sc-course-fill-blank__input"
+        data-course-state={state ?? "neutral"}
+        data-review={answerKeyVisible ? "answer-key" : submitted ? "submitted" : "active"}
         style={{
-          width: `${Math.max(
-            8,
-            Math.min(24, widthBasis.length + 4 + (hasInlineFeedback ? 2 : 0)),
-          )}ch`,
+          width: `${Math.max(16, Math.min(24, widthBasis.length + 4))}ch`,
         }}
       />
       {accessibilityDescription && (
@@ -151,12 +161,24 @@ function RuntimeFillBlank({
           {accessibilityDescription}
         </span>
       )}
-      {hasInlineFeedback && (
-        <span className="sc-fill-blank__feedback-anchor">
-          <RichFeedbackRuntimePopover feedback={parsedFeedback.data} />
+      {hasFeedback ? (
+        <span className="sc-course-fill-blank__feedback-anchor">
+          <RichFeedbackRuntimePopover
+            feedback={parsedFeedback.data}
+            triggerLabel={`Show feedback for blank ${position.index} of ${position.total}`}
+          />
         </span>
-      )}
+      ) : null}
     </NodeViewWrapper>
+  );
+}
+
+function expectedBlankAnswer(expected: unknown): string | null {
+  const values =
+    typeof expected === "string" ? [expected] : Array.isArray(expected) ? expected : [];
+  return (
+    values.find((value): value is string => typeof value === "string" && value.trim().length > 0) ??
+    null
   );
 }
 
@@ -167,6 +189,26 @@ function revealedBlankAnswer(
   const parsed = FillBlanksAssessmentSchema.safeParse(answers);
   if (!parsed.success) return null;
   const blank = parsed.data.blanks.find((candidate) => candidate.blankId === blankId);
-  const value = blank?.acceptedAnswers.find((answer) => answer.length > 0) ?? null;
+  const value = blank?.acceptedAnswers.find((answer) => answer.trim().length > 0) ?? null;
   return value ? { value, feedback: parsed.data.feedbackByBlankId[blankId] ?? null } : null;
+}
+
+function fillBlankDocumentPosition(
+  editor: Editor,
+  pos: number | null,
+): { index: number; total: number } {
+  if (pos === null) return { index: 1, total: 1 };
+  const resolved = editor.state.doc.resolve(pos);
+  for (let depth = resolved.depth; depth >= 0; depth -= 1) {
+    const ancestor = resolved.node(depth);
+    if (ancestor.type.name !== "fill_blanks") continue;
+    const ancestorStart = resolved.start(depth);
+    const positions: number[] = [];
+    ancestor.descendants((node, offset) => {
+      if (node.type.name === "fill_blank") positions.push(ancestorStart + offset);
+    });
+    const index = positions.indexOf(pos);
+    return { index: Math.max(0, index) + 1, total: Math.max(1, positions.length) };
+  }
+  return { index: 1, total: 1 };
 }

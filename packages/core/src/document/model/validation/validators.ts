@@ -6,6 +6,7 @@ import {
   AnnotatedFigureAnnotationAttrsSchema,
   AnnotatedFigureDataSchema,
 } from "@scaffold/contracts";
+import { collectFillBlanksIntegrityIssues } from "@/editor/blocks/assessment/fill-blanks/integrity";
 
 import {
   validateCourseSurfaceLifecycle,
@@ -18,7 +19,12 @@ export type CourseDocumentIssueCode =
   | "invalid_annotated_figure_structure"
   | "invalid_annotated_figure_annotation_attrs"
   | "duplicate_annotated_figure_annotation_id"
-  | "invalid_annotated_figure_annotation_content";
+  | "invalid_annotated_figure_annotation_content"
+  | "empty_fill_blank_id"
+  | "duplicate_fill_blank_id"
+  | "missing_fill_blank_assessment"
+  | "empty_fill_blank_accepted_answers"
+  | "unnamed_fill_blanks_response";
 
 export interface CourseDocumentIssue {
   readonly code: CourseDocumentIssueCode;
@@ -42,6 +48,7 @@ export function validateCourseDocumentJSON(content: JSONContent): CourseDocument
   });
   const issues: CourseDocumentIssue[] = surfaceResult.ok ? [] : [...surfaceResult.issues];
   collectQuizCompletenessIssues(content, []).forEach((quizIssue) => issues.push(quizIssue));
+  collectFillBlanksIssues(content, []).forEach((issue) => issues.push(issue));
   collectAnnotatedFigureIssues(content, []).forEach((issue) => issues.push(issue));
 
   const ownedIssues = Object.freeze([...issues]);
@@ -49,6 +56,22 @@ export function validateCourseDocumentJSON(content: JSONContent): CourseDocument
     ok: issues.length === 0,
     issues: ownedIssues,
   });
+}
+
+function collectFillBlanksIssues(
+  node: JSONContent,
+  path: Array<string | number>,
+): CourseDocumentIssue[] {
+  const issues =
+    node.type === "fill_blanks"
+      ? collectFillBlanksIntegrityIssues(node).map((issue) =>
+          createIssue(issue.code, issue.message, [...path, ...issue.path]),
+        )
+      : [];
+  for (const [index, child] of getContent(node).entries()) {
+    issues.push(...collectFillBlanksIssues(child, [...path, "content", index]));
+  }
+  return issues;
 }
 
 function collectQuizCompletenessIssues(

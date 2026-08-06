@@ -210,6 +210,53 @@ describe("@scaffold/grading primitive targets", () => {
     expect(AssessmentResultSchema.parse(result)).toEqual(result);
   });
 
+  it("rejects whitespace-only accepted answers while preserving significant raw whitespace", () => {
+    const target: AssessmentTargetContract = {
+      ...baseTarget,
+      interaction: {
+        kind: "fill-blanks",
+        blanks: [{ id: "empty" }, { id: "spaced" }, { id: "case" }],
+      },
+      assessment: {
+        kind: "fill-blanks",
+        blanks: [
+          {
+            blankId: "empty",
+            acceptedAnswers: ["   "],
+            caseSensitive: false,
+            trimWhitespace: false,
+          },
+          {
+            blankId: "spaced",
+            acceptedAnswers: [" Paris "],
+            caseSensitive: true,
+            trimWhitespace: false,
+          },
+          {
+            blankId: "case",
+            acceptedAnswers: ["I"],
+            caseSensitive: false,
+            trimWhitespace: true,
+          },
+        ],
+        feedbackByBlankId: {},
+      },
+    };
+
+    const result = gradeAssessment(target, {
+      kind: "fill-blanks",
+      blanks: [
+        { blankId: "empty", value: "   " },
+        { blankId: "spaced", value: "Paris" },
+        { blankId: "case", value: "i" },
+      ],
+    });
+
+    expect(result.items["empty"]?.correct).toBe(false);
+    expect(result.items["spaced"]?.correct).toBe(false);
+    expect(result.items["case"]?.correct).toBe(true);
+  });
+
   it("grades spatial-hotspot targets", () => {
     const target: AssessmentTargetContract = {
       ...baseTarget,
