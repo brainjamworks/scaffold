@@ -94,6 +94,23 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     expect(duplicates).toEqual([]);
   });
 
+  it("registers one inert Course Section node with shared mounted identity", () => {
+    const extensions = createCourseDocumentAuthoringExtensions({
+      editable: true,
+      composition: coreAuthoringComposition,
+    });
+    const courseSectionNodes = extensions.filter(({ name }) => name === "courseSection");
+    const schema = getSchema(extensions);
+
+    expect(courseSectionNodes).toHaveLength(1);
+    expect(courseSectionNodes[0]?.config.addNodeView).toBeUndefined();
+    expect(Object.keys(schema.nodes).filter((name) => name === "courseSection")).toEqual([
+      "courseSection",
+    ]);
+    expect(schema.nodes["courseSection"]?.spec.attrs?.["id"]).toBeDefined();
+    expect(schema.nodes["courseSection"]?.spec.attrs?.["title"]).toBeDefined();
+  });
+
   it("installs the exact resolved authoring catalogues once for a host editor", () => {
     const capability = hostLayoutCapability("host-catalogue-storage-layout");
     const application = createScaffoldApplication({
@@ -380,6 +397,7 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     expect(createSlash).toHaveBeenCalledWith({
       blockDefinitions: application.capabilities.blocks.registry,
       items: application.authoring.catalogues.inDocument.actions,
+      layoutDefinitions: application.capabilities.layouts.registry,
       surfaceVariants: surfaceRegistry,
     });
   });
@@ -999,7 +1017,7 @@ function persistedHostSurfaceDocument(variant: string) {
     content: [
       {
         type: "courseDocument",
-        attrs: { mode: "page" },
+        attrs: { id: "courseDoc001", mode: "page" },
         content: [
           {
             type: "surface",

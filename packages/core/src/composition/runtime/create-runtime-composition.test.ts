@@ -94,6 +94,22 @@ describe("createCourseDocumentRuntimeExtensions", () => {
     });
   });
 
+  it("registers one inert Course Section node with shared mounted identity", () => {
+    const extensions = createCourseDocumentRuntimeExtensions({
+      composition: coreRuntimeComposition,
+    });
+    const courseSectionNodes = extensions.filter(({ name }) => name === "courseSection");
+    const schema = getSchema(extensions);
+
+    expect(courseSectionNodes).toHaveLength(1);
+    expect(courseSectionNodes[0]?.config.addNodeView).toBeUndefined();
+    expect(Object.keys(schema.nodes).filter((name) => name === "courseSection")).toEqual([
+      "courseSection",
+    ]);
+    expect(schema.nodes["courseSection"]?.spec.attrs?.["id"]).toBeDefined();
+    expect(schema.nodes["courseSection"]?.spec.attrs?.["title"]).toBeDefined();
+  });
+
   it("renders a persisted host Surface through its runtime component only", async () => {
     const capability = hostSurfaceCapability("host-surface-runtime-tracer");
     const application = createScaffoldApplication({

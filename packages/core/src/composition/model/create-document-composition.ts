@@ -86,6 +86,7 @@ export function createCourseDocumentBaseExtensions({
   assessmentHintNode,
   assessmentHintsGroupNode,
   assessmentSummaryFeedbackNode,
+  courseSectionNode,
   inlineIconNode,
   layoutNode,
   mathInlineNode,
@@ -104,6 +105,7 @@ export function createCourseDocumentBaseExtensions({
   assessmentHintsGroupNode: TiptapNode;
   assessmentSummaryFeedbackNode: TiptapNode;
   cellNode: TiptapNode;
+  courseSectionNode: TiptapNode;
   gridNode: TiptapNode;
   inlineIconNode: TiptapNode;
   layoutNode: TiptapNode;
@@ -134,6 +136,7 @@ export function createCourseDocumentBaseExtensions({
       underline: false,
     }),
     CourseDocumentNode,
+    courseSectionNode,
     surfaceNode,
     regionNode,
     SurfaceHeaderNode,

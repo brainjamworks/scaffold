@@ -20,6 +20,7 @@ import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/t
 import { createBoundedContainerStructurePolicy } from "@/editor/bounded-containers/authoring/BoundedContainerStructurePolicy";
 import { createSlashCommand } from "@/editor/suggestions/slash/SlashCommand";
 import { StableIdPasteNormalization } from "@/document/authoring/stable-id-paste-normalization";
+import { createCourseSectionNode } from "@/document/model/nodes";
 import { resolveEditorPlaceholder } from "@/editor/prosemirror/placeholder/resolve-editor-placeholder";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createScaffoldAuthoringCataloguesStorageExtension } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
@@ -64,6 +65,7 @@ export function createCourseDocumentAuthoringExtensions({
       assessmentHintsGroupNode: AssessmentHintsGroupNode,
       assessmentSummaryFeedbackNode: AssessmentSummaryFeedbackNode,
       cellNode: CellAuthoringNode,
+      courseSectionNode: createCourseSectionNode(),
       gridNode: GridAuthoringNode,
       inlineIconNode: InlineIconAuthoringNode,
       layoutNode,

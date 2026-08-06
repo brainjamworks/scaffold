@@ -55,7 +55,7 @@ function parseDocumentFormatVersion(value: unknown): number {
 
 export const CourseDocumentNode = Node.create({
   name: "courseDocument",
-  content: "surface+",
+  content: "surface+ | (courseSection surface+)+",
   selectable: false,
   draggable: false,
   isolating: true,

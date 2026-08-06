@@ -14,7 +14,12 @@ import {
   ARRANGEMENT_CONTENT,
   SECTION_ARRANGEMENT_CONTENT,
 } from "@/document/model/content-model/content-groups";
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import {
+  COURSE_SECTION_NODE_TYPE,
+  CourseDocumentNode,
+  DocumentNode,
+  createCourseSectionNode,
+} from "@/document/model/nodes";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 
@@ -79,6 +84,7 @@ function makeEditor(content: JSONContent | string = courseDocumentContent()) {
       }),
       ExtendedParagraph,
       CourseDocumentNode,
+      createCourseSectionNode(),
       SurfaceNode,
       RegionNode,
       TestArrangementNode,
@@ -129,6 +135,62 @@ describe("course document nodes", () => {
     expect(docType!.validContent(Fragment.fromArray([courseDocument!, courseDocument!]))).toBe(
       false,
     );
+
+    editor.destroy();
+  });
+
+  it("accepts only flat Surfaces or complete Course Section partitions", () => {
+    const editor = makeEditor();
+    const { schema } = editor;
+    const courseDocumentType = schema.nodes.courseDocument!;
+    const courseSectionType = schema.nodes[COURSE_SECTION_NODE_TYPE]!;
+    const surfaceType = schema.nodes.surface!;
+    const paragraphType = schema.nodes.paragraph!;
+    const firstSurface = surfaceType.createChecked(
+      { id: "surface00001", variant: "slide-content" },
+      paragraphType.create(),
+    );
+    const secondSurface = surfaceType.createChecked(
+      { id: "surface00002", variant: "slide-content" },
+      paragraphType.create(),
+    );
+    const firstSection = courseSectionType.createChecked({
+      id: "section00001",
+      title: "Introduction",
+    });
+    const secondSection = courseSectionType.createChecked({
+      id: "section00002",
+      title: "Practice",
+    });
+
+    expect(courseDocumentType.spec.content).toBe("surface+ | (courseSection surface+)+");
+    expect(courseDocumentType.validContent(Fragment.from(firstSurface))).toBe(true);
+    expect(
+      courseDocumentType.validContent(Fragment.fromArray([firstSurface, secondSurface])),
+    ).toBe(true);
+    expect(
+      courseDocumentType.validContent(
+        Fragment.fromArray([firstSection, firstSurface, secondSection, secondSurface]),
+      ),
+    ).toBe(true);
+    expect(
+      courseDocumentType.validContent(
+        Fragment.fromArray([firstSurface, firstSection, secondSurface]),
+      ),
+    ).toBe(false);
+    expect(
+      courseDocumentType.validContent(
+        Fragment.fromArray([firstSection, firstSection, firstSurface]),
+      ),
+    ).toBe(false);
+    expect(
+      courseDocumentType.validContent(
+        Fragment.fromArray([firstSection, firstSurface, secondSection]),
+      ),
+    ).toBe(false);
+    expect(courseDocumentType.validContent(Fragment.from(firstSection))).toBe(false);
+    expect(courseDocumentType.validContent(Fragment.empty)).toBe(false);
+    expect(surfaceType.validContent(Fragment.from(firstSection))).toBe(false);
 
     editor.destroy();
   });

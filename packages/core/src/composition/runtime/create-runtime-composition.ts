@@ -13,6 +13,7 @@ import { MathInlineRuntimeNode } from "@/editor/rich-text/math/runtime/MathInlin
 import { VocabularyTermRuntimeNode } from "@/editor/rich-text/vocabulary-term/runtime/VocabularyTermRuntimeNode";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createCourseDocumentBaseExtensions } from "@/composition/model/create-document-composition";
+import { createCourseSectionNode } from "@/document/model/nodes";
 import { createSurfaceRuntimeNode } from "@/editor/surfaces/runtime/nodes/surface-runtime-node";
 import { StudentGuard } from "@/runtime/guards/student-guard";
 import "@/editor/rich-text/view/text-alignment.css";
@@ -44,6 +45,7 @@ export function createCourseDocumentRuntimeExtensions({
       assessmentHintsGroupNode: AssessmentHintsGroupRuntimeNode,
       assessmentSummaryFeedbackNode: AssessmentSummaryFeedbackRuntimeNode,
       cellNode: CellRuntimeNode,
+      courseSectionNode: createCourseSectionNode(),
       gridNode: GridRuntimeNode,
       inlineIconNode: InlineIconRuntimeNode,
       layoutNode,
