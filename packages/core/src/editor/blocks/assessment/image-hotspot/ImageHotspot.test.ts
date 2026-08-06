@@ -64,6 +64,8 @@ import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import type { AssessmentPort } from "@/host/ports";
 import type { MediaPort } from "@/host/ports/media";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
 import { imageHotspotBlockDefinition } from "./image-hotspot-definition";
 import {
@@ -72,7 +74,6 @@ import {
   describeImageHotspotSurfaceAccessibilityState,
 } from "./image-hotspot-canvas-runtime";
 import {
-  IMAGE_HOTSPOT_CORRECT_COLOR,
   patchHotspotInCanvasData,
 } from "./image-hotspot-canvas-shared";
 import { ImageHotspotAuthoringExtension } from "./image-hotspot-authoring-extension";
@@ -261,7 +262,7 @@ function renderRuntimeEditor(
   return render(
     createAssessmentRuntimeTestRoot({
       assessment: assessmentPort,
-      children: createElement(EditorContent, { editor }),
+      children: renderCourseEditor(editor),
       initialSnapshot,
       media: mediaPort,
       onStore: captureAssessmentStore,
@@ -272,7 +273,7 @@ function renderRuntimeEditor(
 function renderAuthoringEditor(editor: Editor, mediaPort: MediaPort) {
   render(
     createAssessmentRuntimeTestRoot({
-      children: createElement(EditorContent, { editor }),
+      children: renderCourseEditor(editor),
       media: mediaPort,
       onStore: captureAssessmentStore,
     }),
@@ -287,9 +288,28 @@ function captureAssessmentStore(store: AssessmentStoreApi | null) {
 function renderAssessmentEditor(editor: Editor) {
   return render(
     createAssessmentRuntimeTestRoot({
-      children: createElement(EditorContent, { editor }),
+      children: renderCourseEditor(editor),
       onStore: captureAssessmentStore,
     }),
+  );
+}
+
+async function findHotspotWorkspace(name: "Edit image hotspots" | "Answer image hotspot") {
+  await screen.findByRole("dialog", { name });
+  await new Promise<void>((resolve) => {
+    setTimeout(resolve, 30);
+  });
+  return screen.getByRole("dialog", { name });
+}
+
+function renderCourseEditor(editor: Editor) {
+  return createElement(
+    CourseThemeProvider,
+    {
+      theme: createDefaultPersistedCourseTheme(),
+      appearance: "light",
+      children: createElement(EditorContent, { editor }),
+    },
   );
 }
 
@@ -411,7 +431,18 @@ function assessmentActions(): JSONContent {
 function imageHotspotBlock(id: string): JSONContent {
   return {
     type: "image_hotspot",
-    attrs: { id, assessment: sampleAssessment },
+    attrs: {
+      id,
+      assessment: sampleAssessment,
+      settings: {
+        feedbackMode: "on_submit",
+        isGraded: true,
+        showAnswer: true,
+        legend: "Select every matching region",
+        points: 1,
+        maxAttempts: null,
+      },
+    },
     content: [
       { type: "assessment_title", content: [{ type: "paragraph" }] },
       {
@@ -475,7 +506,6 @@ const sampleCanvasData: ImageHotspotCanvasData = {
     { id: "h3", centerX: 80, centerY: 80, radius: 7, label: "C" },
   ],
   maxClicks: null,
-  debug: false,
 };
 
 const sampleAssessment = {
@@ -541,10 +571,6 @@ afterEach(() => {
 });
 
 describe("composite image_hotspot node", () => {
-  it("uses the semantic success colour for correct hotspot geometry", () => {
-    expect(IMAGE_HOTSPOT_CORRECT_COLOR).toBe("var(--color-success)");
-  });
-
   it("describes image hotspot runtime accessibility states", () => {
     expect(
       describeImageHotspotSurfaceAccessibilityState({
@@ -642,7 +668,7 @@ describe("composite image_hotspot node", () => {
     renderAssessmentEditor(editor);
 
     const image = (await screen.findByAltText("sample")) as HTMLImageElement;
-    const fitStage = image.closest<HTMLElement>(".sc-image-hotspot-fit-stage");
+    const fitStage = image.closest<HTMLElement>(".sc-course-image-hotspot-fit-stage");
     if (!fitStage) throw new Error("expected hotspot fit stage");
     fitStage.getBoundingClientRect = () => ({
       x: 0,
@@ -676,7 +702,7 @@ describe("composite image_hotspot node", () => {
     const surface = image.closest<HTMLElement>("[data-image-hotspot-canvas-surface]");
     expect(surface?.getAttribute("data-image-hotspot-fit")).toBe("width");
     await waitFor(() => {
-      expect(surface?.style.getPropertyValue("--sc-image-hotspot-aspect-ratio")).toBe("2");
+      expect(surface?.style.getPropertyValue("--sc-course-image-hotspot-aspect-ratio")).toBe("2");
       expect(surface?.style.width).toBe("482px");
       expect(surface?.style.height).toBe("241px");
     });
@@ -741,9 +767,15 @@ describe("composite image_hotspot node", () => {
     const preview = await screen.findByRole("group", {
       name: "Image hotspot authoring preview",
     });
-    expect(preview.classList.contains("sc-image-hotspot-canvas--authoring-preview")).toBe(true);
+    expect(preview.classList.contains("sc-course-image-hotspot-canvas--authoring-preview")).toBe(true);
     expect(preview.getAttribute("data-image-hotspot-fit")).toBe("contain");
-    expect(screen.queryByRole("button", { name: "Add hotspot region" })).toBeNull();
+    expect(
+      within(preview)
+        .getByRole("toolbar", { name: "Image hotspot image tools" })
+        .querySelectorAll("button"),
+    ).toHaveLength(3);
+    expect(within(preview).getByRole("button", { name: "Replace image" })).toBeInTheDocument();
+    expect(within(preview).getByRole("button", { name: "Add hotspot region" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Edit hotspot 1: A" })).toBeNull();
 
     fireEvent.click(
@@ -752,9 +784,10 @@ describe("composite image_hotspot node", () => {
       }),
     );
 
-    const dialog = await screen.findByRole("dialog", {
-      name: "Edit image hotspots",
-    });
+    const dialog = await findHotspotWorkspace("Edit image hotspots");
+    expect(document.activeElement).toBe(
+      within(dialog).getByRole("heading", { name: "Edit image hotspots" }),
+    );
     expect(within(dialog).getByRole("button", { name: "Add hotspot region" })).toBeInTheDocument();
     const inspector = within(dialog).getByRole("region", {
       name: "Selected hotspot details",
@@ -863,7 +896,7 @@ describe("composite image_hotspot node", () => {
     unboundedEditor.destroy();
   });
 
-  it("renders a persistent hotspot management panel with ordered rows and label fallbacks", async () => {
+  it("renders a persistent hotspot management panel with ordered public labels", async () => {
     const user = userEvent.setup();
     const block = imageHotspotBlock("hs-workspace-management");
     const canvas = block.content?.find((child) => child.type === "image_hotspot_canvas");
@@ -872,7 +905,9 @@ describe("composite image_hotspot node", () => {
       data: {
         ...sampleCanvasData,
         hotspots: sampleCanvasData.hotspots.map((hotspot, index) =>
-          index === 1 ? { ...hotspot, label: "" } : hotspot,
+          index === 1
+            ? { ...hotspot, label: "A deliberately long second public region label" }
+            : hotspot,
         ),
       },
     };
@@ -891,7 +926,9 @@ describe("composite image_hotspot node", () => {
     within(canvasRegion).getByRole("group", {
       name: "Image hotspot authoring area",
     });
-    const workspaceBody = canvasRegion.closest<HTMLElement>(".sc-media-workspace");
+    const workspaceBody = canvasRegion.closest<HTMLElement>(
+      ".sc-course-image-hotspot-workspace__body",
+    );
     expect(workspaceBody?.parentElement).toBe(dialog);
     expect(workspaceBody?.contains(panel)).toBe(true);
     expect(canvasRegion.parentElement).toBe(panel.parentElement);
@@ -905,7 +942,7 @@ describe("composite image_hotspot node", () => {
     const rowButtons = within(list).getAllByRole("button", { name: /^Select hotspot/ });
     expect(rowButtons.map((button) => button.getAttribute("aria-label"))).toEqual([
       "Select hotspot 1: A",
-      "Select hotspot 2: Untitled hotspot",
+      "Select hotspot 2: A deliberately long second public region label",
       "Select hotspot 3: C",
     ]);
     expect(rowButtons[0]?.getAttribute("aria-pressed")).toBe("true");
@@ -1029,7 +1066,7 @@ describe("composite image_hotspot node", () => {
 
     replaceImage.blur();
     replaceImage.focus();
-    expect(await screen.findByRole("tooltip")).toHaveTextContent("Replace hotspot image");
+    expect(replaceImage).toHaveAttribute("title", "Replace hotspot image");
     editor.destroy();
   });
 
@@ -1109,7 +1146,7 @@ describe("composite image_hotspot node", () => {
 
     fireEvent.click(within(imageTools).getByRole("button", { name: "Add hotspot region" }));
 
-    const marker = await screen.findByRole("button", { name: "Edit hotspot 1" });
+    const marker = await screen.findByRole("button", { name: "Edit hotspot 1: Region 1" });
     expect(marker.getAttribute("data-hotspot-selected")).toBe("true");
     expect(marker.getAttribute("aria-expanded")).toBe("false");
     expect(screen.queryByText("Hotspot 1")).toBeNull();
@@ -1123,7 +1160,7 @@ describe("composite image_hotspot node", () => {
         centerX: 50,
         centerY: 50,
         radius: 8,
-        label: "",
+        label: "Region 1",
       });
     });
 
@@ -1140,11 +1177,10 @@ describe("composite image_hotspot node", () => {
     });
 
     renderAssessmentEditor(editor);
-    await user.click(
-      await screen.findByRole("button", {
-        name: "Edit hotspots in expanded workspace",
-      }),
-    );
+    const opener = await screen.findByRole("button", {
+      name: "Edit hotspots in expanded workspace",
+    });
+    await user.click(opener);
 
     const dialog = await screen.findByRole("dialog", {
       name: "Edit image hotspots",
@@ -1163,13 +1199,13 @@ describe("composite image_hotspot node", () => {
         centerX: 50,
         centerY: 50,
         radius: 8,
-        label: "",
+        label: "Region 4",
       });
     });
-    const marker = within(dialog).getByRole("button", { name: "Edit hotspot 4" });
+    const marker = within(dialog).getByRole("button", { name: "Edit hotspot 4: Region 4" });
     expect(marker.getAttribute("data-hotspot-selected")).toBe("true");
     const rowButton = within(inspector).getByRole("button", {
-      name: "Select hotspot 4: Untitled hotspot",
+      name: "Select hotspot 4: Region 4",
     });
     expect(rowButton.getAttribute("aria-pressed")).toBe("true");
     const row = rowButton.closest("li");
@@ -1187,6 +1223,7 @@ describe("composite image_hotspot node", () => {
     );
     await waitFor(() => {
       expect(screen.queryByRole("dialog", { name: "Edit image hotspots" })).toBeNull();
+      expect(document.activeElement).toBe(opener);
     });
 
     editor.destroy();
@@ -1352,9 +1389,10 @@ describe("composite image_hotspot node", () => {
 
     const dialog = await screen.findByRole("dialog", { name: "Edit image hotspots" });
     const nestedEditor = await latestNestedHotspotEditor();
-    const formattingToolbar = screen.getByRole("toolbar", { name: "Text formatting" });
+    const formattingToolbars = screen.getAllByRole("toolbar", { name: "Text formatting" });
 
-    expect(dialog.contains(formattingToolbar)).toBe(true);
+    expect(formattingToolbars).toHaveLength(2);
+    expect(formattingToolbars.every((toolbar) => dialog.contains(toolbar))).toBe(true);
     expect(imageHotspotBubbleMenuMock.props.at(-1)?.appendTo?.()).toBe(dialog);
     expect(nestedEditor.isFocused).toBe(false);
 
@@ -1418,6 +1456,7 @@ describe("composite image_hotspot node", () => {
       expect(readCanvasData(editor).image).toEqual({
         mode: "managed",
         mediaId: "library-image",
+        alt: "library-image.png",
       });
     });
 
@@ -1565,6 +1604,38 @@ describe("composite image_hotspot node", () => {
         correctHotspotIds: ["h1", "h3"],
         feedbackByHotspotId: {},
       });
+    });
+    expect(transactionCount).toBe(1);
+
+    editor.destroy();
+  });
+
+  it("commits a spaced public label as one keyboard edit and one transaction", async () => {
+    const user = userEvent.setup();
+    const editor = makeEditor({
+      content: { type: "doc", content: [imageHotspotBlock("hs-label-commit")] },
+    });
+
+    renderAssessmentEditor(editor);
+    await user.click(await screen.findByRole("button", { name: "Edit hotspot 2: B" }));
+    const input = await screen.findByRole("textbox", { name: "Public region label" });
+    let transactionCount = 0;
+    editor.on("transaction", () => {
+      transactionCount += 1;
+    });
+
+    await user.clear(input);
+    await user.type(input, "Dental chair and overhead light");
+
+    expect(input).toHaveValue("Dental chair and overhead light");
+    expect(transactionCount).toBe(0);
+
+    await user.tab();
+
+    await waitFor(() => {
+      expect(readCanvasData(editor).hotspots[1]?.label).toBe(
+        "Dental chair and overhead light",
+      );
     });
     expect(transactionCount).toBe(1);
 
@@ -2150,14 +2221,8 @@ describe("composite image_hotspot node", () => {
       maxAttempts: null,
     });
     const canvas = (block?.content as JSONContent[] | undefined)?.[3];
-    const data = canvas?.attrs?.["data"] as
-      | {
-          hotspots: unknown[];
-          debug: boolean;
-        }
-      | undefined;
+    const data = canvas?.attrs?.["data"] as { hotspots: unknown[] } | undefined;
     expect(data?.hotspots).toEqual([]);
-    expect(data?.debug).toBe(false);
     editor.destroy();
   });
 
@@ -2364,7 +2429,7 @@ describe("composite image_hotspot node", () => {
     const image = within(dialog).getByAltText("sample");
     const canvas = image.closest<HTMLElement>("[data-image-hotspot-canvas-surface]");
     if (!canvas) throw new Error("expected expanded hotspot canvas");
-    const workspaceBody = canvas.closest<HTMLElement>(".sc-image-hotspot-runtime-workspace__body");
+    const workspaceBody = canvas.closest<HTMLElement>(".sc-course-image-hotspot-runtime-workspace__body");
     expect(workspaceBody?.parentElement).toBe(dialog);
     canvas.getBoundingClientRect = () => ({
       x: 0,
@@ -2444,7 +2509,7 @@ describe("composite image_hotspot node", () => {
       mediaPort,
     );
 
-    expect(await screen.findByText("Image not configured.")).toBeInTheDocument();
+    expect(await screen.findByText("Loading hotspot image…")).toBeInTheDocument();
     resolveMediaUrl("https://cdn.example.test/managed-hotspot-image.png");
 
     expect(await screen.findByAltText("managed sample")).toBeInTheDocument();
@@ -2452,7 +2517,7 @@ describe("composite image_hotspot node", () => {
     editor.destroy();
   });
 
-  it("hides response toolbar chrome for a hydrated submitted hotspot", async () => {
+  it("hides response controls but retains expanded view for a submitted hotspot", async () => {
     const targetId = "hs-submitted-review";
     const initialSnapshot = assessmentSnapshot({
       problems: {
@@ -2493,14 +2558,14 @@ describe("composite image_hotspot node", () => {
       document.body.querySelector('[data-hotspot-marker-id="hydrated-click-1"]'),
     ).not.toBeNull();
     expect(
-      screen.queryByRole("button", { name: "Answer in expanded hotspot workspace" }),
-    ).toBeNull();
-    expect(document.body.querySelector(".sc-image-hotspot-runtime-toolbar")).toBeNull();
+      screen.getByRole("button", { name: "Answer in expanded hotspot workspace" }),
+    ).toBeInTheDocument();
+    expect(document.body.querySelector(".sc-course-image-hotspot-runtime-toolbar")).toBeNull();
 
     editor.destroy();
   });
 
-  it("restores expanded response access after resetting a retryable hotspot", async () => {
+  it("keeps expanded response access through a retry reset", async () => {
     const user = userEvent.setup();
     const targetId = "hs-retry-open";
     const problemId = `artifact:artifact-1/block:${targetId}`;
@@ -2550,7 +2615,10 @@ describe("composite image_hotspot node", () => {
       initialSnapshot,
     );
 
-    await user.click(await screen.findByRole("button", { name: "Try again" }));
+    expect(
+      await screen.findByRole("button", { name: "Answer in expanded hotspot workspace" }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Try again" }));
 
     await waitFor(() => {
       expect(
@@ -2726,8 +2794,8 @@ describe("composite image_hotspot node", () => {
     expect(marker?.getAttribute("aria-label")).toBe("Submitted");
     expect(document.body.querySelector("[data-hotspot-marker-feedback-icon]")).toBeNull();
     expect(
-      screen.queryByRole("button", { name: "Answer in expanded hotspot workspace" }),
-    ).toBeNull();
+      screen.getByRole("button", { name: "Answer in expanded hotspot workspace" }),
+    ).toBeInTheDocument();
     if (!marker) throw new Error("Expected result-only hotspot marker");
     await user.click(marker);
     expect(screen.queryByText("This answer feedback must remain private.")).toBeNull();
@@ -2745,7 +2813,7 @@ describe("composite image_hotspot node", () => {
           type: "image_hotspot",
           attrs: {
             id: "hs-1",
-            assessment: sampleAssessment,
+            assessment: { ...sampleAssessment, correctHotspotIds: ["h1"] },
             settings: {
               feedbackMode: "on_submit",
               isGraded: true,
@@ -2803,6 +2871,7 @@ describe("composite image_hotspot node", () => {
       toJSON: () => ({}),
     });
 
+    expect(screen.queryByRole("checkbox")).toBeNull();
     fireEvent.click(canvas, { clientX: 20, clientY: 20 });
 
     await waitFor(() => {
@@ -2810,6 +2879,23 @@ describe("composite image_hotspot node", () => {
         "1 of 1 click placed. Click limit reached",
       );
       expect(describedText("[data-hotspot-marker-id]")).toBe("Pending click");
+    });
+    const runtimeBlock = image.closest<HTMLElement>('[data-node="image_hotspot"]');
+    const liveRegion = runtimeBlock?.querySelector<HTMLElement>('[aria-live="polite"]');
+    expect(liveRegion?.textContent).toBe("A selected. 1 attempt.");
+
+    fireEvent.click(canvas, { clientX: 20, clientY: 20 });
+    expect(liveRegion?.textContent).toBe("Selection limit reached.");
+
+    fireEvent.click(screen.getByRole("button", { name: "Pending click — click to remove" }));
+    await waitFor(() => {
+      expect(describedText('[aria-label="Image hotspot response area"]')).toBe(
+        "0 of 1 click placed",
+      );
+    });
+    fireEvent.click(canvas, { clientX: 50, clientY: 95 });
+    await waitFor(() => {
+      expect(liveRegion?.textContent).toBe("Miss recorded. 1 attempt.");
     });
     expect(
       screen.getByRole("button", { name: "Answer in expanded hotspot workspace" }),

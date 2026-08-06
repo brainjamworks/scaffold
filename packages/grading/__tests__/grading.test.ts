@@ -446,6 +446,62 @@ describe("@scaffold/grading primitive targets", () => {
     ).toMatchObject({ score: 1, isCorrect: true });
   });
 
+  it("grades spatial-hotspot partial credit from valid selections and all attempts", () => {
+    const target: AssessmentTargetContract = {
+      ...baseTarget,
+      interaction: {
+        kind: "spatial-hotspot",
+        hotspots: ["h1", "h2", "h3"].map((id, index) => ({
+          id,
+          geometry: { kind: "circle" as const, centerX: 20 + index * 30, centerY: 50, radius: 8 },
+        })),
+        maxSelections: null,
+      },
+      assessment: {
+        kind: "spatial-hotspot",
+        gradingMode: "partial-credit",
+        correctHotspotIds: ["h1", "h2"],
+        feedbackByHotspotId: {},
+      },
+    };
+
+    expect(
+      gradeAssessment(target, {
+        kind: "spatial-hotspot",
+        selections: [{ hotspotId: "h1", x: 20, y: 50 }],
+      }),
+    ).toMatchObject({ score: 0.5, isCorrect: false });
+    expect(
+      gradeAssessment(target, {
+        kind: "spatial-hotspot",
+        selections: [
+          { hotspotId: "h1", x: 20, y: 50 },
+          { hotspotId: "h3", x: 80, y: 50 },
+        ],
+      }),
+    ).toMatchObject({ score: 0.5, isCorrect: false });
+    expect(
+      gradeAssessment(target, {
+        kind: "spatial-hotspot",
+        selections: [
+          { hotspotId: "h1", x: 20, y: 50 },
+          { hotspotId: "h2", x: 50, y: 50 },
+          { hotspotId: null, x: 5, y: 5 },
+        ],
+      }),
+    ).toMatchObject({ score: 2 / 3, isCorrect: false });
+    expect(
+      gradeAssessment(target, {
+        kind: "spatial-hotspot",
+        selections: [
+          { hotspotId: "h1", x: 20, y: 50 },
+          { hotspotId: "h1", x: 21, y: 50 },
+          { hotspotId: "stale", x: 90, y: 90 },
+        ],
+      }),
+    ).toMatchObject({ score: 1 / 3, isCorrect: false });
+  });
+
   it("returns a complete canonical zero result for a mismatched response", () => {
     const target: AssessmentTargetContract = {
       ...baseTarget,

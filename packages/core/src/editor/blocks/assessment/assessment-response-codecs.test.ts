@@ -147,6 +147,63 @@ const codecCases: CodecCase[] = [
 ];
 
 describe("assessment response codecs", () => {
+  it("reconciles Image Hotspot responses and rejects unsafe local selections", () => {
+    const codec = responseCodec(imageHotspotBlockDefinition);
+    const interaction = {
+      kind: "spatial-hotspot" as const,
+      hotspots: [
+        {
+          id: "h1",
+          label: "North entrance",
+          geometry: { kind: "circle" as const, centerX: 25, centerY: 25, radius: 8 },
+        },
+        {
+          id: "h2",
+          label: "South entrance",
+          geometry: { kind: "circle" as const, centerX: 75, centerY: 75, radius: 8 },
+        },
+      ],
+      maxSelections: 2,
+    };
+
+    expect(
+      codec.fromContractResponse(
+        {
+          kind: "spatial-hotspot",
+          selections: [
+            { hotspotId: "stale", x: 10, y: 10 },
+            { hotspotId: "h1", x: 25, y: 25 },
+            { hotspotId: "h1", x: 26, y: 25 },
+            { hotspotId: null, x: 120, y: 10 },
+            { hotspotId: null, x: 5, y: 5 },
+          ],
+        },
+        interaction,
+      ),
+    ).toEqual({
+      clicks: [
+        { id: "hydrated-click-1", hotspotId: "h1", x: 25, y: 25 },
+        { id: "hydrated-click-2", hotspotId: null, x: 5, y: 5 },
+      ],
+    });
+
+    for (const clicks of [
+      [
+        { id: "one", hotspotId: "h1", x: 25, y: 25 },
+        { id: "two", hotspotId: "h1", x: 26, y: 25 },
+      ],
+      [
+        { id: "one", hotspotId: "h1", x: 25, y: 25 },
+        { id: "two", hotspotId: "h2", x: 75, y: 75 },
+        { id: "three", hotspotId: null, x: 5, y: 5 },
+      ],
+      [{ id: "one", hotspotId: "stale", x: 25, y: 25 }],
+      [{ id: "one", hotspotId: null, x: -1, y: 25 }],
+    ]) {
+      expect(() => codec.toContractResponse({ clicks }, interaction)).toThrow();
+    }
+  });
+
   it("requires Sequencing responses to be the exact current item permutation", () => {
     const codec = responseCodec(sequencingBlockDefinition);
     const interaction = {

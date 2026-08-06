@@ -50,25 +50,11 @@ export function projectMultiselectInteraction(
   node: JSONContent,
   settings: unknown,
 ): AssessmentInteractionContract {
-  assertMultiselectSelectionLimit(node, settings);
   return {
     kind: "multi-select",
     options: projectSelectableOptions(node),
     maxSelections: readNullableNumber(settings, "maxSelect") ?? null,
   };
-}
-
-export function assertMultiselectSelectionLimit(node: JSONContent, settings: unknown): void {
-  const maxSelections = readNullableNumber(settings, "maxSelect") ?? null;
-  if (maxSelections === null) return;
-
-  const assessment = MultiselectPrivateAssessmentSchema.parse(readAttrs(node)["assessment"] ?? {});
-  const correctAnswerCount = new Set(assessment.correctOptionIds).size;
-  if (maxSelections < correctAnswerCount) {
-    throw new Error(
-      `Max selections (${maxSelections}) cannot be lower than the number of correct answers (${correctAnswerCount}).`,
-    );
-  }
 }
 
 export function projectMultiselectAssessment(node: JSONContent): AssessmentAnswerKey {

@@ -1,51 +1,53 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import type { ProblemScope } from "./use-assessment-runtime";
-import {
-  choiceStateForProblem,
-  resolveMultiSelectChoiceChange,
-} from "./assessment-interaction-runtime";
+import { resolveImageHotspotClickChange } from "./assessment-interaction-runtime";
 
-describe("choiceStateForProblem", () => {
-  it("marks selected multiselect choices correct when the submitted overall result is correct", () => {
-    const problem = {
-      answerKeyVisible: false,
-      feedbackResult: null,
-      officialResult: { isCorrect: true, score: 1, maxScore: 1, feedback: null, items: {} },
-      state: { submitted: true, revealedAnswer: null },
-    } as ProblemScope;
+const first = { id: "one", hotspotId: "h1", x: 25, y: 25 };
 
+describe("image-hotspot interaction state", () => {
+  it("enforces locks, limits, coordinate bounds, and one selection per hotspot", () => {
     expect(
-      choiceStateForProblem({
-        choiceId: "a",
-        kind: "multi-select",
-        problem,
-        selected: new Set(["a", "b"]),
+      resolveImageHotspotClickChange({
+        clicks: [first],
+        click: { ...first, id: "duplicate" },
+        locked: false,
+        maxClicks: 2,
       }),
-    ).toBe("correct");
-  });
-});
-
-describe("resolveMultiSelectChoiceChange", () => {
-  it("refuses an N+1 selection without producing an unchanged response", () => {
+    ).toEqual({ status: "duplicate", clicks: [first] });
     expect(
-      resolveMultiSelectChoiceChange({
-        choiceId: "c",
-        currentOptionIds: ["a", "b", "c"],
-        maxSelections: 2,
-        selectedIds: ["a", "b"],
+      resolveImageHotspotClickChange({
+        clicks: [first],
+        click: { id: "two", hotspotId: null, x: 5, y: 5 },
+        locked: false,
+        maxClicks: 1,
       }),
-    ).toEqual({ changed: false, choices: null });
-  });
-
-  it("keeps over-limit current selections repairable and prunes stale ids on a real change", () => {
+    ).toEqual({ status: "limit", clicks: [first] });
     expect(
-      resolveMultiSelectChoiceChange({
-        choiceId: "b",
-        currentOptionIds: ["a", "b", "c"],
-        maxSelections: 1,
-        selectedIds: ["a", "b", "deleted-choice"],
+      resolveImageHotspotClickChange({
+        clicks: [],
+        click: { id: "two", hotspotId: null, x: -1, y: 5 },
+        locked: false,
+        maxClicks: null,
       }),
-    ).toEqual({ changed: true, choices: ["a"] });
+    ).toEqual({ status: "invalid", clicks: [] });
+    expect(
+      resolveImageHotspotClickChange({
+        clicks: [],
+        click: { id: "two", hotspotId: null, x: 5, y: 5 },
+        locked: true,
+        maxClicks: null,
+      }),
+    ).toEqual({ status: "locked", clicks: [] });
+    expect(
+      resolveImageHotspotClickChange({
+        clicks: [first],
+        click: { id: "two", hotspotId: null, x: 5, y: 5 },
+        locked: false,
+        maxClicks: 2,
+      }),
+    ).toEqual({
+      status: "added",
+      clicks: [first, { id: "two", hotspotId: null, x: 5, y: 5 }],
+    });
   });
 });

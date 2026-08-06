@@ -23,7 +23,6 @@ import {
   redactCommonAssessmentShellNode,
   walkDescendants,
 } from "@/editor/blocks/assessment/shared/publication/projection";
-import { assertFillBlanksIntegrity } from "./integrity";
 
 export const FillBlanksResponseSchema = z
   .object({
@@ -106,7 +105,6 @@ function projectFillBlankEntries(node: JSONContent): Array<{
   caseSensitive: boolean;
   trimWhitespace: boolean;
 }> {
-  assertFillBlanksIntegrity(node);
   const out: Array<{
     blankId: string;
     label?: string;
@@ -152,12 +150,7 @@ function projectFillBlankInteractionEntries(
     if (child.type !== "fill_blank") return;
     const parsed = FillBlankAttrsSchema.safeParse(readAttrs(child));
     const blankId = parsed.success ? parsed.data.id.trim() : "";
-    if (!blankId) {
-      throw new Error("Invalid fill_blanks publication: empty_fill_blank_id");
-    }
-    if (seenIds.has(blankId)) {
-      throw new Error("Invalid fill_blanks publication: duplicate_fill_blank_id");
-    }
+    if (!blankId || seenIds.has(blankId)) return;
     seenIds.add(blankId);
     out.push({
       id: blankId,

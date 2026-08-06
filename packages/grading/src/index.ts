@@ -389,10 +389,12 @@ function gradeSpatialHotspot(
   response: ExtractResponse<"spatial-hotspot">,
 ): AssessmentResult {
   const hotspotIds = target.interaction.hotspots.map((hotspot) => hotspot.id);
+  const hotspotIdSet = new Set(hotspotIds);
   const correctIds = new Set(target.assessment.correctHotspotIds);
-  const selectedIds = new Set(
-    response.selections.flatMap((selection) => (selection.hotspotId ? [selection.hotspotId] : [])),
+  const selectedCurrentIds = response.selections.flatMap((selection) =>
+    selection.hotspotId && hotspotIdSet.has(selection.hotspotId) ? [selection.hotspotId] : [],
   );
+  const selectedIds = new Set(selectedCurrentIds);
   const items: Record<string, AssessmentItemDetail> = {};
 
   if (hotspotIds.length === 0) {
@@ -405,12 +407,10 @@ function gradeSpatialHotspot(
     };
   }
 
-  let correctlyClassified = 0;
   for (const hotspotId of hotspotIds) {
     const expected = correctIds.has(hotspotId);
     const given = selectedIds.has(hotspotId);
     const correct = expected === given;
-    if (correct) correctlyClassified += 1;
     items[hotspotId] = {
       correct,
       expected,
@@ -419,14 +419,22 @@ function gradeSpatialHotspot(
     };
   }
 
-  const allCorrect = correctlyClassified === hotspotIds.length;
+  const correctSelections = [...selectedIds].filter((id) => correctIds.has(id)).length;
+  const allCorrect =
+    response.selections.length === correctIds.size &&
+    selectedCurrentIds.length === response.selections.length &&
+    selectedIds.size === response.selections.length &&
+    correctSelections === correctIds.size;
+  const partialCreditDenominator = Math.max(correctIds.size, response.selections.length);
   return {
     score:
       target.assessment.gradingMode === "all-or-nothing"
         ? allCorrect
           ? 1
           : 0
-        : correctlyClassified / hotspotIds.length,
+        : correctIds.size === 0 || partialCreditDenominator === 0
+          ? 0
+          : correctSelections / partialCreditDenominator,
     maxScore: 1,
     isCorrect: allCorrect,
     feedback: summaryFeedbackFor(target),

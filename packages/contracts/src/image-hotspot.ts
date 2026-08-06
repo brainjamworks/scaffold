@@ -12,6 +12,8 @@ export const ImageHotspotSettingsSchema = AssessmentCommonSettingsSchema.extend(
 });
 export type ImageHotspotSettings = z.infer<typeof ImageHotspotSettingsSchema>;
 
+export const IMAGE_HOTSPOT_MIN_RADIUS = 2;
+
 /**
  * One hotspot region. Geometry is normalized to image dimensions:
  *  - centerX / centerY: % of image width / height respectively (0..100)
@@ -23,11 +25,11 @@ export type ImageHotspotSettings = z.infer<typeof ImageHotspotSettingsSchema>;
  * on the parent image_hotspot node's private attrs.assessment payload.
  */
 export const HotspotItemSchema = z.object({
-  id: z.string(),
-  centerX: z.number().min(0).max(100),
-  centerY: z.number().min(0).max(100),
-  radius: z.number().min(0).max(100),
-  label: z.string().default(""),
+  id: z.string().trim().min(1),
+  centerX: z.number().finite().min(0).max(100),
+  centerY: z.number().finite().min(0).max(100),
+  radius: z.number().finite().min(IMAGE_HOTSPOT_MIN_RADIUS).max(100),
+  label: z.string().trim().min(1),
 });
 export type HotspotItem = z.infer<typeof HotspotItemSchema>;
 
@@ -39,7 +41,6 @@ export const ImageHotspotCanvasDataSchema = z.object({
   image: ImageBlockAttrsSchema.nullable().default(null),
   hotspots: z.array(HotspotItemSchema).default([]),
   maxClicks: z.number().int().positive().nullable().default(null),
-  debug: z.boolean().default(false),
 });
 export type ImageHotspotCanvasData = z.infer<typeof ImageHotspotCanvasDataSchema>;
 

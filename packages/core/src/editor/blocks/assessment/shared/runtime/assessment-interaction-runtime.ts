@@ -87,7 +87,7 @@ export interface SpatialHotspotInteractionRuntime {
   kind: "spatial-hotspot";
   clicks: readonly HotspotClickRecord[];
   capped: boolean;
-  addClick: (click: HotspotClickRecord) => void;
+  addClick: (click: HotspotClickRecord) => ImageHotspotClickChangeStatus;
   removeClick: (clickId: string) => void;
   clearClicks: () => void;
 }
@@ -109,6 +109,51 @@ export type AssessmentInteractionRuntime<
 const emptySelected = new Set<string>();
 
 const noop = () => {};
+const noopHotspotChange = (): ImageHotspotClickChangeStatus => "locked";
+
+export type ImageHotspotClickChangeStatus =
+  | "added"
+  | "duplicate"
+  | "limit"
+  | "locked"
+  | "invalid";
+
+export function resolveImageHotspotClickChange({
+  click,
+  clicks,
+  locked,
+  maxClicks,
+}: {
+  click: HotspotClickRecord;
+  clicks: readonly HotspotClickRecord[];
+  locked: boolean;
+  maxClicks: number | null;
+}): { status: ImageHotspotClickChangeStatus; clicks: readonly HotspotClickRecord[] } {
+  if (locked) return { status: "locked", clicks };
+  if (
+    !click.id.trim() ||
+    !Number.isFinite(click.x) ||
+    click.x < 0 ||
+    click.x > 100 ||
+    !Number.isFinite(click.y) ||
+    click.y < 0 ||
+    click.y > 100 ||
+    (click.hotspotId !== null && !click.hotspotId.trim()) ||
+    clicks.some((current) => current.id === click.id)
+  ) {
+    return { status: "invalid", clicks };
+  }
+  if (
+    click.hotspotId !== null &&
+    clicks.some((current) => current.hotspotId === click.hotspotId)
+  ) {
+    return { status: "duplicate", clicks };
+  }
+  if (maxClicks !== null && clicks.length >= maxClicks) {
+    return { status: "limit", clicks };
+  }
+  return { status: "added", clicks: [...clicks, click] };
+}
 
 function canShowAnswerKey(problem: ProblemScope): boolean {
   return problem.answerKeyVisible;
@@ -248,7 +293,7 @@ export function createPendingAssessmentInteractionRuntime<K extends AssessmentIn
         kind,
         clicks: [],
         capped: false,
-        addClick: noop,
+        addClick: noopHotspotChange,
         removeClick: noop,
         clearClicks: noop,
       } as unknown as AssessmentInteractionRuntime<K>;
@@ -299,9 +344,9 @@ export function useAssessmentInteractionRuntime<K extends AssessmentInteractionK
 
     const response = problem.state.response;
     const locked = problem.interactionLocked;
-    const writeField = (field: string, value: unknown) => {
-      if (locked) return;
-      facade.actions.setLocalResponse({ ...response, [field]: value });
+    const writeField = (field: string, value: unknown): boolean => {
+      if (locked) return false;
+      return facade.actions.setLocalResponse({ ...response, [field]: value });
     };
     const checkImmediate = () => {
       if (problem.state.feedbackMode === "immediate") void facade.actions.check();
@@ -569,15 +614,23 @@ export function useAssessmentInteractionRuntime<K extends AssessmentInteractionK
       }
       case "spatial-hotspot": {
         const clicks = clickArray(response["clicks"]);
-        const capped = problem.state.maxSelect !== null && clicks.length >= problem.state.maxSelect;
+        const maxClicks = problem.state.maxSelect;
+        const capped = maxClicks !== null && clicks.length >= maxClicks;
         return {
           kind: "spatial-hotspot",
           clicks,
           capped,
           addClick: (click: HotspotClickRecord) => {
-            if (capped) return;
-            writeField("clicks", [...clicks, click]);
+            const change = resolveImageHotspotClickChange({
+              click,
+              clicks,
+              locked,
+              maxClicks,
+            });
+            if (change.status !== "added") return change.status;
+            if (!writeField("clicks", change.clicks)) return "invalid";
             checkImmediate();
+            return "added";
           },
           removeClick: (clickId: string) =>
             writeField(

@@ -98,6 +98,7 @@ export const imageHotspotBlockDefinition = defineBlock({
       attrs: {
         id: createStableId(),
         assessment: ImageHotspotPrivateAssessmentSchema.parse({}),
+        settings: ImageHotspotSettingsSchema.parse({ legend: "Select regions" }),
       },
       content: [
         {

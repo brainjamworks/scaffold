@@ -25,7 +25,6 @@ import {
   stableShuffleDifferent,
   textBetween,
 } from "@/editor/blocks/assessment/shared/publication/projection";
-import { assertSequencingIntegrity, assertSequencingInteractionIntegrity } from "./integrity";
 
 export const SequencingResponseSchema = z
   .object({
@@ -35,7 +34,6 @@ export const SequencingResponseSchema = z
 export type SequencingResponse = z.infer<typeof SequencingResponseSchema>;
 
 export function projectSequencingLearnerNode(node: JSONContent): JSONContent {
-  assertSequencingIntegrity(node);
   const blockId = readStringAttr(node, "id");
   return {
     ...cloneJsonNodeWithoutContent(node),
@@ -57,7 +55,6 @@ export function projectSequencingLearnerNode(node: JSONContent): JSONContent {
 }
 
 export function projectSequencingInteraction(node: JSONContent): AssessmentInteractionContract {
-  assertSequencingInteractionIntegrity(node);
   return {
     kind: "sequence",
     items: projectSequencingItems(node),
@@ -65,7 +62,6 @@ export function projectSequencingInteraction(node: JSONContent): AssessmentInter
 }
 
 export function projectSequencingAssessment(node: JSONContent): AssessmentAnswerKey {
-  assertSequencingIntegrity(node);
   const assessment = SequencingPrivateAssessmentSchema.parse(readAttrs(node)["assessment"] ?? {});
   const itemIds = projectSequencingItems(node).map((item) => item.id);
   const feedbackByItemId: typeof assessment.feedbackByItemId = {};

@@ -17,7 +17,6 @@ import { updateNodeSettingsChecked } from "@/document/model/commands/settings";
 import { defineAssessmentCapability, defineBlock } from "@/editor/blocks/block-definition";
 import {
   multiselectResponseCodec,
-  assertMultiselectSelectionLimit,
   projectMultiselectAssessment,
   projectMultiselectInteraction,
   projectMultiselectLearnerNode,
@@ -108,19 +107,6 @@ function applyMultiselectSettings({
       issue: {
         code: "invalid_multiselect_settings",
         message: parsed.error.message,
-      },
-    };
-  }
-
-  try {
-    assertMultiselectSelectionLimit(target.node.toJSON(), parsed.data);
-  } catch (error) {
-    return {
-      ok: false as const,
-      issue: {
-        code: "invalid_multiselect_selection_limit",
-        field: "maxSelect",
-        message: error instanceof Error ? error.message : "Max selections is not valid.",
       },
     };
   }

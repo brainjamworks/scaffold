@@ -35,7 +35,6 @@ import { toTiptapRichTextDocument, type ScaffoldRichTextDocument } from "@/schem
 
 import { describeFillBlankAccessibilityState } from "./fill-blank-runtime";
 import { applyFillBlankToEditor, repairFillBlanksInEditor } from "./commands";
-import { projectFillBlanksAssessment, projectFillBlanksInteraction } from "./assessment";
 import { FillBlanksAuthoringExtension } from "./fill-blanks-authoring-extension";
 import { fillBlanksBlockDefinition } from "./fill-blanks-definition";
 import { FillBlanksRuntimeExtension } from "./fill-blanks-runtime-extension";
@@ -976,19 +975,6 @@ describe("composite fill_blanks node", () => {
       editor.getJSON().content?.[0]?.attrs?.["assessment"]?.blanksById?.["b1"],
     ).toBeUndefined();
     editor.destroy();
-  });
-
-  it("keeps every visible blank in the redacted learner interaction", () => {
-    const document = fillBlanksDoc() as JSONContent;
-    const block = document.content?.[0];
-    if (!block?.attrs) throw new Error("Missing Fill fixture block");
-    block.attrs["assessment"] = { blanksById: {} };
-
-    expect(projectFillBlanksInteraction(block)).toEqual({
-      kind: "fill-blanks",
-      blanks: [{ id: "b1", label: "temperature" }],
-    });
-    expect(() => projectFillBlanksAssessment(block)).toThrow(/missing_fill_blank_assessment/);
   });
 
   it("does not open blank settings from selection alone", async () => {

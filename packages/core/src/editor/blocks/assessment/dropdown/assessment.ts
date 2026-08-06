@@ -46,9 +46,8 @@ export function projectDropdownLearnerNode(node: JSONContent): JSONContent {
 
 export function projectDropdownInteraction(
   node: JSONContent,
-  settings: unknown = {},
+  _settings: unknown = {},
 ): AssessmentInteractionContract {
-  assertDropdownAuthoredValidity(node, settings);
   return {
     kind: "single-select",
     options: projectDropdownChoiceEntries(node).map(({ id, label }) => ({
@@ -76,19 +75,6 @@ export function projectDropdownSettings(settings: unknown): Partial<AssessmentTa
     ...(label ? optionalStringField("label", label) : {}),
     ...optionalStringField("placeholder", placeholder),
   };
-}
-
-export function assertDropdownAuthoredValidity(node: JSONContent, settings: unknown): void {
-  const label = readOptionalString(settings, "label")?.trim() ?? "";
-  const prompt = childText(node, "assessment_prompt");
-  if (!label && !prompt) {
-    throw new Error("Dropdown requires an authored accessible name in its label or prompt.");
-  }
-
-  const choices = projectDropdownChoiceEntries(node);
-  if (choices.length === 0 || choices.some((choice) => !choice.label)) {
-    throw new Error("Every dropdown choice requires meaningful authored option text.");
-  }
 }
 
 function projectDropdownChoicesGroupLearnerNode(group: JSONContent): JSONContent {

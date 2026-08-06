@@ -6,17 +6,6 @@ import {
   AnnotatedFigureAnnotationAttrsSchema,
   AnnotatedFigureDataSchema,
 } from "@scaffold/contracts";
-import { collectFillBlanksIntegrityIssues } from "@/editor/blocks/assessment/fill-blanks/integrity";
-import {
-  collectCategoriseIntegrityIssues,
-  type CategoriseIntegrityIssueCode,
-} from "@/editor/blocks/assessment/categorise/integrity";
-import { collectSequencingIntegrityIssues } from "@/editor/blocks/assessment/sequencing/integrity";
-import {
-  collectMatchingIntegrityIssues,
-  type MatchingIntegrityIssueCode,
-} from "@/editor/blocks/assessment/matching/integrity";
-
 import {
   validateCourseSurfaceLifecycle,
   type CourseDocumentIssueCode as SurfaceCourseDocumentIssueCode,
@@ -28,19 +17,7 @@ export type CourseDocumentIssueCode =
   | "invalid_annotated_figure_structure"
   | "invalid_annotated_figure_annotation_attrs"
   | "duplicate_annotated_figure_annotation_id"
-  | "invalid_annotated_figure_annotation_content"
-  | CategoriseIntegrityIssueCode
-  | MatchingIntegrityIssueCode
-  | "empty_fill_blank_id"
-  | "duplicate_fill_blank_id"
-  | "missing_fill_blank_assessment"
-  | "empty_fill_blank_accepted_answers"
-  | "unnamed_fill_blanks_response"
-  | "too_few_sequencing_items"
-  | "empty_sequencing_item_id"
-  | "duplicate_sequencing_item_id"
-  | "invalid_sequencing_correct_order"
-  | "unnamed_sequencing_response";
+  | "invalid_annotated_figure_annotation_content";
 
 export interface CourseDocumentIssue {
   readonly code: CourseDocumentIssueCode;
@@ -64,10 +41,6 @@ export function validateCourseDocumentJSON(content: JSONContent): CourseDocument
   });
   const issues: CourseDocumentIssue[] = surfaceResult.ok ? [] : [...surfaceResult.issues];
   collectQuizCompletenessIssues(content, []).forEach((quizIssue) => issues.push(quizIssue));
-  collectFillBlanksIssues(content, []).forEach((issue) => issues.push(issue));
-  collectSequencingIssues(content, []).forEach((issue) => issues.push(issue));
-  collectCategoriseIssues(content, []).forEach((issue) => issues.push(issue));
-  collectMatchingIssues(content, []).forEach((issue) => issues.push(issue));
   collectAnnotatedFigureIssues(content, []).forEach((issue) => issues.push(issue));
 
   const ownedIssues = Object.freeze([...issues]);
@@ -75,70 +48,6 @@ export function validateCourseDocumentJSON(content: JSONContent): CourseDocument
     ok: issues.length === 0,
     issues: ownedIssues,
   });
-}
-
-function collectMatchingIssues(
-  node: JSONContent,
-  path: Array<string | number>,
-): CourseDocumentIssue[] {
-  const issues =
-    node.type === "matching"
-      ? collectMatchingIntegrityIssues(node).map((issue) =>
-          createIssue(issue.code, issue.message, [...path, ...issue.path]),
-        )
-      : [];
-  for (const [index, child] of getContent(node).entries()) {
-    issues.push(...collectMatchingIssues(child, [...path, "content", index]));
-  }
-  return issues;
-}
-
-function collectCategoriseIssues(
-  node: JSONContent,
-  path: Array<string | number>,
-): CourseDocumentIssue[] {
-  const issues =
-    node.type === "categorise"
-      ? collectCategoriseIntegrityIssues(node).map((issue) =>
-          createIssue(issue.code, issue.message, [...path, ...issue.path]),
-        )
-      : [];
-  for (const [index, child] of getContent(node).entries()) {
-    issues.push(...collectCategoriseIssues(child, [...path, "content", index]));
-  }
-  return issues;
-}
-
-function collectSequencingIssues(
-  node: JSONContent,
-  path: Array<string | number>,
-): CourseDocumentIssue[] {
-  const issues =
-    node.type === "sequencing"
-      ? collectSequencingIntegrityIssues(node).map((issue) =>
-          createIssue(issue.code, issue.message, [...path, ...issue.path]),
-        )
-      : [];
-  for (const [index, child] of getContent(node).entries()) {
-    issues.push(...collectSequencingIssues(child, [...path, "content", index]));
-  }
-  return issues;
-}
-
-function collectFillBlanksIssues(
-  node: JSONContent,
-  path: Array<string | number>,
-): CourseDocumentIssue[] {
-  const issues =
-    node.type === "fill_blanks"
-      ? collectFillBlanksIntegrityIssues(node).map((issue) =>
-          createIssue(issue.code, issue.message, [...path, ...issue.path]),
-        )
-      : [];
-  for (const [index, child] of getContent(node).entries()) {
-    issues.push(...collectFillBlanksIssues(child, [...path, "content", index]));
-  }
-  return issues;
 }
 
 function collectQuizCompletenessIssues(

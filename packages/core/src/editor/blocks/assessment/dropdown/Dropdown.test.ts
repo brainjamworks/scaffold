@@ -309,20 +309,6 @@ describe("composite dropdown node", () => {
       choices: "a",
     });
 
-    expect(() =>
-      projectDropdownInteraction(dropdownBlockContent({ label: "", prompt: "" }), {
-        label: "",
-      }),
-    ).toThrow(/accessible name/i);
-
-    const invalidOption = dropdownBlockContent({ label: "Pick a term" });
-    const choices = invalidOption.content?.[3]?.content;
-    if (choices?.[0]?.content?.[0]) {
-      choices[0].content[0].content = [{ type: "paragraph" }];
-    }
-    expect(() => projectDropdownInteraction(invalidOption, { label: "Pick a term" })).toThrow(
-      /option text/i,
-    );
   });
 
   it("uses the prompt as the dropdown name when the visible label is blank", async () => {

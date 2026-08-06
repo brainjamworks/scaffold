@@ -42,7 +42,7 @@ describe("image-hotspot authored persisted contracts", () => {
       points: 1,
       maxAttempts: null,
     });
-    expect(canvas).toEqual({ image: null, hotspots: [], maxClicks: null, debug: false });
+    expect(canvas).toEqual({ image: null, hotspots: [], maxClicks: null });
     expect(assessment).toEqual({
       gradingMode: "partial-credit",
       correctHotspotIds: [],
@@ -52,36 +52,37 @@ describe("image-hotspot authored persisted contracts", () => {
     });
   });
 
-  it("preserves geometry boundaries, defaults, and unknown-key stripping", () => {
+  it("preserves canonical finite geometry and meaningful public identity", () => {
     const hotspot: HotspotItem = HotspotItemSchema.parse({
       id: "hotspot-1",
-      centerX: 0,
-      centerY: 100,
-      radius: 0,
+      centerX: 20,
+      centerY: 80,
+      radius: 2,
+      label: "  Target  ",
       editorSelection: true,
     });
 
     expect(hotspot).toEqual({
       id: "hotspot-1",
-      centerX: 0,
-      centerY: 100,
-      radius: 0,
-      label: "",
+      centerX: 20,
+      centerY: 80,
+      radius: 2,
+      label: "Target",
     });
     expect(
       HotspotItemSchema.parse({
         id: "hotspot-2",
-        centerX: 100,
-        centerY: 0,
-        radius: 100,
+        centerX: 90,
+        centerY: 10,
+        radius: 10,
         label: "  Target  ",
       }),
     ).toEqual({
       id: "hotspot-2",
-      centerX: 100,
-      centerY: 0,
-      radius: 100,
-      label: "  Target  ",
+      centerX: 90,
+      centerY: 10,
+      radius: 10,
+      label: "Target",
     });
   });
 
@@ -94,16 +95,14 @@ describe("image-hotspot authored persisted contracts", () => {
           alt: "  Map  ",
           ignored: true,
         },
-        hotspots: [{ id: "h1", centerX: 20, centerY: 30, radius: 8 }],
+        hotspots: [{ id: "h1", centerX: 20, centerY: 30, radius: 8, label: "Capital" }],
         maxClicks: 2,
-        debug: true,
         editorOnly: true,
       }),
     ).toEqual({
       image: { mode: "external", src: "https://example.com/map.png", alt: "  Map  " },
-      hotspots: [{ id: "h1", centerX: 20, centerY: 30, radius: 8, label: "" }],
+      hotspots: [{ id: "h1", centerX: 20, centerY: 30, radius: 8, label: "Capital" }],
       maxClicks: 2,
-      debug: true,
     });
     expect(
       ImageHotspotPrivateAssessmentSchema.parse({
@@ -135,7 +134,13 @@ describe("image-hotspot authored persisted contracts", () => {
     ]);
     expect(
       normalizedHotspotIssues(
-        HotspotItemSchema.safeParse({ id: "h1", centerX: -1, centerY: 101, radius: 101 }),
+        HotspotItemSchema.safeParse({
+          id: "h1",
+          centerX: -1,
+          centerY: 101,
+          radius: 101,
+          label: "Region",
+        }),
       ),
     ).toEqual([
       {
@@ -155,6 +160,20 @@ describe("image-hotspot authored persisted contracts", () => {
       },
     ]);
     expect(ImageHotspotCanvasDataSchema.safeParse({ maxClicks: 0 }).success).toBe(false);
+    for (const hotspot of [
+      { id: "", centerX: 50, centerY: 50, radius: 8, label: "Region" },
+      { id: "h1", centerX: Number.NaN, centerY: 50, radius: 8, label: "Region" },
+      { id: "h1", centerX: 50, centerY: Number.POSITIVE_INFINITY, radius: 8, label: "Region" },
+      { id: "h1", centerX: 50, centerY: 50, radius: 1.99, label: "Region" },
+      { id: "h1", centerX: 50, centerY: 50, radius: 8, label: "   " },
+    ]) {
+      expect(HotspotItemSchema.safeParse(hotspot).success).toBe(false);
+    }
+    expect(ImageHotspotCanvasDataSchema.parse({ editorOnly: true })).toEqual({
+      image: null,
+      hotspots: [],
+      maxClicks: null,
+    });
     expect(
       ImageHotspotCanvasDataSchema.safeParse({
         image: { mode: "external", src: "javascript:alert(1)" },

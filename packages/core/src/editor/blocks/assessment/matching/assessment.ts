@@ -25,7 +25,6 @@ import {
   stableShuffleDifferent,
   textBetween,
 } from "@/editor/blocks/assessment/shared/publication/projection";
-import { assertMatchingIntegrity, assertMatchingInteractionIntegrity } from "./integrity";
 
 export const MatchingResponseSchema = z
   .object({
@@ -35,7 +34,6 @@ export const MatchingResponseSchema = z
 export type MatchingResponse = z.infer<typeof MatchingResponseSchema>;
 
 export function projectMatchingLearnerNode(node: JSONContent): JSONContent {
-  assertMatchingIntegrity(node);
   const blockId = readStringAttr(node, "id");
   return {
     ...cloneJsonNodeWithoutContent(node),
@@ -50,7 +48,6 @@ export function projectMatchingLearnerNode(node: JSONContent): JSONContent {
 }
 
 export function projectMatchingInteraction(node: JSONContent): AssessmentInteractionContract {
-  assertMatchingInteractionIntegrity(node);
   const projection = projectMatchingProjection(node);
   return {
     kind: "match",
@@ -66,7 +63,6 @@ export function projectMatchingInteraction(node: JSONContent): AssessmentInterac
 }
 
 export function projectMatchingAssessment(node: JSONContent): AssessmentAnswerKey {
-  assertMatchingIntegrity(node);
   const assessment = MatchingPrivateAssessmentSchema.parse(readAttrs(node)["assessment"] ?? {});
   const itemOrder = projectMatchingProjection(node).items.map((pair) => pair.itemId);
   const correctPairByItemId = new Map(

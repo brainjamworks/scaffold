@@ -10,7 +10,7 @@ import { createImageHotspotNode } from "./node";
 
 function ImageHotspotAuthoringView(props: NodeViewProps) {
   return (
-    <AssessmentProblemContent editable blockClass="sc-image-hotspot" nodeViewProps={props} />
+    <AssessmentProblemContent editable blockClass="sc-course-image-hotspot" nodeViewProps={props} />
   );
 }
 

@@ -8,7 +8,6 @@ import {
   type AssessmentInteractionContract,
   type AssessmentResponseValue,
   type AssessmentTargetSettings,
-  type ImageHotspotCanvasData,
 } from "@scaffold/contracts";
 
 import type { AssessmentBlockAdapter } from "@/editor/blocks/assessment/shared/model/assessment-block-adapter";
@@ -122,52 +121,21 @@ function projectImageHotspotCanvasLearnerNode(node: JSONContent): JSONContent {
 
 function redactImageHotspotCanvasAttrs(node: JSONContent): Record<string, unknown> | undefined {
   const attrs = readAttrs(node);
-  const parsed = ImageHotspotCanvasDataSchema.safeParse(attrs["data"] ?? {});
-  const data = parsed.success
-    ? redactParsedImageHotspotCanvasData(parsed.data)
-    : redactUnsafeImageHotspotCanvasData(attrs["data"]);
+  const data = ImageHotspotCanvasDataSchema.parse(attrs["data"] ?? {});
 
   return {
     ...(cloneJson(attrs) as Record<string, unknown>),
-    data,
+    data: {
+      ...data,
+      hotspots: data.hotspots.map((hotspot) => ({
+        id: hotspot.id,
+        centerX: hotspot.centerX,
+        centerY: hotspot.centerY,
+        radius: hotspot.radius,
+        label: hotspot.label,
+      })),
+    },
   };
-}
-
-function redactParsedImageHotspotCanvasData(data: ImageHotspotCanvasData) {
-  return {
-    ...data,
-    debug: false,
-    hotspots: data.hotspots.map((hotspot) => ({
-      id: hotspot.id,
-      centerX: hotspot.centerX,
-      centerY: hotspot.centerY,
-      radius: hotspot.radius,
-      label: hotspot.label,
-    })),
-  };
-}
-
-function redactUnsafeImageHotspotCanvasData(value: unknown): unknown {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return ImageHotspotCanvasDataSchema.parse({});
-  }
-
-  const data = cloneJson(value) as Record<string, unknown>;
-  data["debug"] = false;
-  delete data["missFeedback"];
-  delete data["gradingMode"];
-  data["hotspots"] = Array.isArray(data["hotspots"])
-    ? data["hotspots"].map(redactUnsafeHotspot)
-    : [];
-  return data;
-}
-
-function redactUnsafeHotspot(value: unknown): unknown {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
-  const hotspot = cloneJson(value) as Record<string, unknown>;
-  delete hotspot["isCorrect"];
-  delete hotspot["feedback"];
-  return hotspot;
 }
 
 function readImageHotspotData(node: JSONContent) {
@@ -199,9 +167,13 @@ function assertUniqueHotspotSelections(
   }
 }
 
-export function toImageHotspotContractResponse(response: unknown) {
+export function toImageHotspotContractResponse(
+  response: unknown,
+  interaction?: AssessmentInteractionContract,
+) {
   const local = readImageHotspotResponse(response);
   assertUniqueHotspotClickIds(local.clicks);
+  assertValidLocalHotspotClicks(local.clicks, interaction);
   const selections = local.clicks.map((click) => ({
     hotspotId: click.hotspotId,
     x: click.x,
@@ -213,19 +185,88 @@ export function toImageHotspotContractResponse(response: unknown) {
 
 export function fromImageHotspotContractResponse(
   response: AssessmentResponseValue,
+  interaction?: AssessmentInteractionContract,
 ): ImageHotspotResponse {
   const canonical = SpatialHotspotResponseSchema.parse(response);
-  assertUniqueHotspotSelections(canonical.selections);
+  const selections = reconcileCanonicalHotspotSelections(canonical.selections, interaction);
   return ImageHotspotResponseSchema.parse({
-    clicks: canonical.selections.map((selection, index) => ({
+    clicks: selections.map((selection, index) => ({
       id: `hydrated-click-${index + 1}`,
       ...selection,
     })),
   });
 }
 
-export function hasImageHotspotResponse(response: unknown): boolean {
-  return readImageHotspotResponse(response).clicks.length > 0;
+export function hasImageHotspotResponse(
+  response: unknown,
+  interaction?: AssessmentInteractionContract,
+): boolean {
+  const local = readImageHotspotResponse(response);
+  assertUniqueHotspotClickIds(local.clicks);
+  assertValidLocalHotspotClicks(local.clicks, interaction);
+  return local.clicks.length > 0;
+}
+
+function assertValidLocalHotspotClicks(
+  clicks: readonly ImageHotspotClickResponse[],
+  interaction?: AssessmentInteractionContract,
+): void {
+  if (interaction === undefined) return;
+  if (interaction.kind !== "spatial-hotspot") {
+    throw new Error("Image-hotspot response requires a spatial-hotspot interaction.");
+  }
+  const currentIds = new Set(interaction.hotspots.map((hotspot) => hotspot.id));
+  const selectedIds = new Set<string>();
+  for (const click of clicks) {
+    if (!inCanonicalPercentBounds(click.x) || !inCanonicalPercentBounds(click.y)) {
+      throw new Error("Image-hotspot click coordinates must be finite values from 0 to 100.");
+    }
+    if (click.hotspotId === null) continue;
+    if (!currentIds.has(click.hotspotId)) {
+      throw new Error("Image-hotspot clicks must reference current hotspot ids.");
+    }
+    if (selectedIds.has(click.hotspotId)) {
+      throw new Error("The same image hotspot cannot be selected more than once.");
+    }
+    selectedIds.add(click.hotspotId);
+  }
+  if (interaction.maxSelections !== null && clicks.length > interaction.maxSelections) {
+    throw new Error("Image-hotspot response exceeds the current click limit.");
+  }
+}
+
+function reconcileCanonicalHotspotSelections(
+  selections: readonly { hotspotId: string | null; x: number; y: number }[],
+  interaction?: AssessmentInteractionContract,
+) {
+  if (interaction === undefined) {
+    assertUniqueHotspotSelections(selections);
+    return selections;
+  }
+  if (interaction.kind !== "spatial-hotspot") {
+    throw new Error("Image-hotspot response requires a spatial-hotspot interaction.");
+  }
+  const currentIds = new Set(interaction.hotspots.map((hotspot) => hotspot.id));
+  const selectedIds = new Set<string>();
+  const canonicalKeys = new Set<string>();
+  const reconciled: Array<{ hotspotId: string | null; x: number; y: number }> = [];
+  for (const selection of selections) {
+    if (!inCanonicalPercentBounds(selection.x) || !inCanonicalPercentBounds(selection.y)) continue;
+    if (selection.hotspotId !== null) {
+      if (!currentIds.has(selection.hotspotId) || selectedIds.has(selection.hotspotId)) continue;
+      selectedIds.add(selection.hotspotId);
+    }
+    const key = `${selection.hotspotId ?? "<miss>"}\u0000${selection.x}\u0000${selection.y}`;
+    if (canonicalKeys.has(key)) continue;
+    canonicalKeys.add(key);
+    reconciled.push(selection);
+    if (interaction.maxSelections !== null && reconciled.length >= interaction.maxSelections) break;
+  }
+  return reconciled;
+}
+
+function inCanonicalPercentBounds(value: number): boolean {
+  return Number.isFinite(value) && value >= 0 && value <= 100;
 }
 
 export const imageHotspotResponseCodec: AssessmentCapabilityResponseDefinition<ImageHotspotResponse> =

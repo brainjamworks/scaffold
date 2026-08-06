@@ -21,9 +21,11 @@ import { resolveStableNode } from "@/document/model/identity/resolve-stable-node
 import type { ImageHotspotCanvasData } from "@scaffold/contracts";
 
 import {
+  addImageHotspotChecked,
+  patchImageHotspotChecked,
   removeImageHotspotChecked,
+  replaceImageHotspotImageChecked,
   resolveImageHotspotAuthoringModel,
-  setImageHotspotCanvasDataChecked,
   setImageHotspotFeedbackChecked,
   toggleImageHotspotCorrectChecked,
 } from "./image-hotspot-authoring-commands";
@@ -37,7 +39,6 @@ const canvasData: ImageHotspotCanvasData = {
     { id: "h2", centerX: 70, centerY: 60, radius: 12, label: "Second" },
   ],
   maxClicks: 2,
-  debug: false,
 };
 
 const feedback = {
@@ -162,21 +163,14 @@ describe("image-hotspot checked authoring commands", () => {
     expect(resolveImageHotspotAuthoringModel(wrongCanvasTarget)).toBeNull();
   });
 
-  it("updates canvas data while preserving owner and canvas attrs", () => {
+  it("patches one region while preserving owner and canvas attrs", () => {
     const editor = makeEditor();
     const target = ownerTarget(editor);
-    const nextData = {
-      ...canvasData,
-      debug: true,
-      hotspots: canvasData.hotspots.map((hotspot) =>
-        hotspot.id === "h2" ? { ...hotspot, centerX: 75, label: "Moved" } : hotspot,
-      ),
-    };
-
-    const result = setImageHotspotCanvasDataChecked({
+    const result = patchImageHotspotChecked({
       tr: editor.state.tr,
       target,
-      data: nextData,
+      hotspotId: "h2",
+      patch: { centerX: 75, label: "Moved" },
     });
 
     expect(result.ok).toBe(true);
@@ -188,7 +182,7 @@ describe("image-hotspot checked authoring commands", () => {
     expect(nextTarget.status).toBe("ready");
     if (nextTarget.status !== "ready") return;
     const nextModel = resolveImageHotspotAuthoringModel(nextTarget);
-    expect(nextModel?.data).toEqual(nextData);
+    expect(nextModel?.data.hotspots[1]).toMatchObject({ centerX: 75, label: "Moved" });
     expect(nextModel?.assessment).toEqual(assessment);
     expect(nextModel?.owner.node.attrs["settings"]).toEqual(target.node.attrs["settings"]);
   });
@@ -233,38 +227,6 @@ describe("image-hotspot checked authoring commands", () => {
     ).toEqual(feedback);
   });
 
-  it("fails invalid checked writes without adding transaction steps", () => {
-    const editor = makeEditor();
-    const target = ownerTarget(editor);
-    const transactions = Array.from({ length: 4 }, () => editor.state.tr);
-
-    const results = [
-      setImageHotspotCanvasDataChecked({
-        tr: transactions[0]!,
-        target,
-        data: { ...canvasData, maxClicks: 0 },
-      }),
-      toggleImageHotspotCorrectChecked({
-        tr: transactions[1]!,
-        target,
-        hotspotId: "missing",
-      }),
-      setImageHotspotFeedbackChecked({
-        tr: transactions[2]!,
-        target,
-        hotspotId: "missing",
-        feedback,
-      }),
-      removeImageHotspotChecked({
-        tr: transactions[3]!,
-        target,
-        hotspotId: "missing",
-      }),
-    ];
-
-    expect(results.every((result) => !result.ok)).toBe(true);
-    expect(transactions.map((tr) => tr.steps.length)).toEqual([0, 0, 0, 0]);
-  });
 
   it("removes canvas geometry, correctness, and feedback atomically before dispatch", () => {
     const editor = makeEditor();
@@ -293,4 +255,33 @@ describe("image-hotspot checked authoring commands", () => {
     expect(nextModel?.assessment.feedbackByHotspotId["h2"]).toBeUndefined();
     expect(result.tr.steps).toHaveLength(2);
   });
+
+  it("replaces the image and clears the complete image-bound definition atomically", () => {
+    const editor = makeEditor();
+    const result = replaceImageHotspotImageChecked({
+      tr: editor.state.tr,
+      target: ownerTarget(editor),
+      image: { mode: "external", src: "https://example.test/replacement.png", alt: "New map" },
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const next = resolveStableNode(result.tr.doc, {
+      id: "hotspot-owner",
+      nodeType: "image_hotspot",
+    });
+    expect(next.status).toBe("ready");
+    if (next.status !== "ready") return;
+    const model = resolveImageHotspotAuthoringModel(next);
+    expect(model?.data).toEqual({
+      image: { mode: "external", src: "https://example.test/replacement.png", alt: "New map" },
+      hotspots: [],
+      maxClicks: 2,
+    });
+    expect(model?.assessment.correctHotspotIds).toEqual([]);
+    expect(model?.assessment.feedbackByHotspotId).toEqual({});
+    expect(result.tr.steps).toHaveLength(2);
+  });
+
+
 });

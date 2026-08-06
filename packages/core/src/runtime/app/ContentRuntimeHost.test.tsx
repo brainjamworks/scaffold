@@ -447,6 +447,14 @@ function runtimeImageHotspotBlock(): JSONContent {
         missFeedback: null,
         summaryFeedback: null,
       },
+      settings: {
+        feedbackMode: "on_submit",
+        isGraded: true,
+        showAnswer: true,
+        legend: "Select every target region",
+        points: 1,
+        maxAttempts: null,
+      },
     },
     content: assessmentShellContent({
       type: "image_hotspot_canvas",
@@ -459,7 +467,6 @@ function runtimeImageHotspotBlock(): JSONContent {
           },
           hotspots: [{ id: "hotspot-a", centerX: 20, centerY: 20, radius: 8, label: "A" }],
           maxClicks: null,
-          debug: false,
         },
       },
     }),

@@ -25,7 +25,6 @@ import {
   stableShuffleDifferent,
   textBetween,
 } from "@/editor/blocks/assessment/shared/publication/projection";
-import { assertCategoriseIntegrity, assertCategoriseInteractionIntegrity } from "./integrity";
 
 export const CategoriseResponseSchema = z
   .object({
@@ -35,7 +34,6 @@ export const CategoriseResponseSchema = z
 export type CategoriseResponse = z.infer<typeof CategoriseResponseSchema>;
 
 export function projectCategoriseLearnerNode(node: JSONContent): JSONContent {
-  assertCategoriseIntegrity(node);
   return {
     ...cloneJsonNodeWithoutContent(node),
     attrs: omitAttrs(node, ["assessment"]),
@@ -50,7 +48,6 @@ export function projectCategoriseLearnerNode(node: JSONContent): JSONContent {
 export function projectCategoriseInteraction(
   node: JSONContent,
 ): Extract<AssessmentInteractionContract, { kind: "classify" }> {
-  assertCategoriseInteractionIntegrity(node);
   const { categories, items } = projectCategoriseParts(node);
   return {
     kind: "classify",
@@ -63,7 +60,6 @@ export function projectCategoriseInteraction(
 }
 
 export function projectCategoriseAssessment(node: JSONContent): AssessmentAnswerKey {
-  assertCategoriseIntegrity(node);
   const assessment = CategorisePrivateAssessmentSchema.parse(readAttrs(node)["assessment"] ?? {});
   const { correctPlacements, items } = projectCategoriseParts(node);
   const itemIds = new Set(items.map((item) => item.id));

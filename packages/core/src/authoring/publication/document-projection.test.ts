@@ -726,8 +726,11 @@ describe("authoring publication document projection", () => {
 
     const canvasAttrs = attrsOf(firstDescendant(learner.document, "image_hotspot_canvas"));
     expect(canvasAttrs["data"]).toMatchObject({
-      debug: false,
-      image: null,
+      image: {
+        mode: "external",
+        src: "https://example.com/hotspot.png",
+        alt: "A labelled hotspot diagram",
+      },
       maxClicks: null,
       hotspots: [
         {
@@ -815,64 +818,6 @@ describe("authoring publication document projection", () => {
     ]);
   });
 
-  it("redacts malformed hotspot canvas data without preserving private fields", () => {
-    const document: JSONContent = {
-      type: "courseDocument",
-      content: [
-        {
-          type: "surface",
-          attrs: { id: "surface-malformed-hotspot", variant: "page-default" },
-          content: [
-            {
-              type: "image_hotspot",
-              attrs: {
-                id: "malformed-hotspot-block",
-                settings: {
-                  feedbackMode: "on_submit",
-                  isGraded: true,
-                  showAnswer: true,
-                  points: 1,
-                  maxAttempts: null,
-                },
-              },
-              content: [
-                {
-                  type: "image_hotspot_canvas",
-                  attrs: {
-                    data: {
-                      debug: true,
-                      missFeedback: { summary: "leaked miss feedback" },
-                      hotspots: [
-                        {
-                          id: "leaky-hotspot",
-                          centerX: "not a number",
-                          isCorrect: true,
-                          feedback: { summary: "leaked hotspot feedback" },
-                        },
-                      ],
-                    },
-                  },
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    };
-
-    const learner = projectLearnerDocument(document);
-    const canvasData = attrsOf(firstDescendant(learner.document, "image_hotspot_canvas"))[
-      "data"
-    ] as Record<string, unknown>;
-    const learnerHotspots = canvasData["hotspots"] as Array<Record<string, unknown>>;
-
-    expect(canvasData["debug"]).toBe(false);
-    expect(canvasData).not.toHaveProperty("missFeedback");
-    expect(canvasData).not.toHaveProperty("gradingMode");
-    expect(learnerHotspots).toHaveLength(1);
-    expect(learnerHotspots[0]).not.toHaveProperty("isCorrect");
-    expect(learnerHotspots[0]).not.toHaveProperty("feedback");
-  });
 
   it("structurally redacts sequencing and matching learner JSON", () => {
     const document: JSONContent = {
@@ -1167,6 +1112,7 @@ function imageHotspotBlock(): JSONContent {
         feedbackMode: "on_submit",
         isGraded: true,
         showAnswer: true,
+        legend: "Select every target region",
         points: 1,
         maxAttempts: null,
       },
@@ -1179,7 +1125,11 @@ function imageHotspotBlock(): JSONContent {
         type: "image_hotspot_canvas",
         attrs: {
           data: {
-            image: null,
+            image: {
+              mode: "external",
+              src: "https://example.com/hotspot.png",
+              alt: "A labelled hotspot diagram",
+            },
             hotspots: [
               {
                 id: "hotspot-1",
@@ -1190,7 +1140,6 @@ function imageHotspotBlock(): JSONContent {
               },
             ],
             maxClicks: null,
-            debug: false,
           },
         },
       },

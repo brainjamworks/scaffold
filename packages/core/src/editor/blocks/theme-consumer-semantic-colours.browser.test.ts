@@ -68,7 +68,7 @@ describe("course consumer semantic colours", () => {
 
   it("derives neutral learner interaction washes from course text colours", async () => {
     const fixture = createFixture();
-    const missedHotspot = appendElement(fixture, "span", "sc-image-hotspot-marker--miss");
+    const missedHotspot = appendElement(fixture, "span", "sc-course-image-hotspot-marker--miss");
 
     expect(getComputedStyle(missedHotspot).backgroundColor).toBe(
       "color(srgb 0.419608 0.447059 0.501961 / 0.7)",

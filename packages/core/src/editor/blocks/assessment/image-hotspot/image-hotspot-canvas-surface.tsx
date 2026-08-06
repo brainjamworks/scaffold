@@ -57,6 +57,7 @@ interface ImageHotspotCanvasSurfaceProps {
     event: PointerEvent<HTMLDivElement>,
     state: ImageHotspotCanvasSurfaceState,
   ) => void;
+  onImageError?: (() => void) | undefined;
   children?: (state: ImageHotspotCanvasSurfaceState) => ReactNode;
 }
 
@@ -72,6 +73,7 @@ export function ImageHotspotCanvasSurface({
   fitStrategy = "contain",
   mode,
   onSurfaceClick,
+  onImageError,
   onSurfacePointerDown,
   onSurfacePointerMove,
   onSurfacePointerUp,
@@ -88,7 +90,7 @@ export function ImageHotspotCanvasSurface({
   const surfaceStyle = useMemo(
     () =>
       ({
-        "--sc-image-hotspot-aspect-ratio": String(state.aspectRatio),
+        "--sc-course-image-hotspot-aspect-ratio": String(state.aspectRatio),
         aspectRatio: state.aspectRatio,
         ...(fitSize
           ? {
@@ -165,7 +167,7 @@ export function ImageHotspotCanvasSurface({
       aria-describedby={ariaDescribedBy}
       data-image-hotspot-canvas-surface={mode}
       data-image-hotspot-fit={fitStrategy}
-      className={cn("sc-image-hotspot-canvas", className)}
+      className={cn("sc-course-image-hotspot-canvas", className)}
       contentEditable={contentEditable}
       style={surfaceStyle}
       onClick={onSurfaceClick ? (event) => onSurfaceClick(event, state) : undefined}
@@ -184,7 +186,8 @@ export function ImageHotspotCanvasSurface({
         alt={alt}
         draggable={false}
         onLoad={onImageLoad}
-        className="sc-image-hotspot-image"
+        onError={onImageError}
+        className="sc-course-image-hotspot-image"
       />
       {children?.(state)}
     </div>
