@@ -9,8 +9,11 @@ import { AssessmentCommonSettingsSchema } from "./assessment-settings";
  * the learner chooses an option.
  */
 export const DropdownSettingsSchema = AssessmentCommonSettingsSchema.extend({
-  label: z.string().optional(),
-  placeholder: z.string().default("Select..."),
+  label: z.string().transform((value) => value.trim()).optional(),
+  placeholder: z
+    .string()
+    .transform((value) => value.trim() || "Select...")
+    .default("Select..."),
   points: z.number().int().nonnegative().default(1),
   maxAttempts: z.number().int().positive().nullable().default(null),
 });

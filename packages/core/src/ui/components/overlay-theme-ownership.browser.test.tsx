@@ -72,6 +72,33 @@ describe("overlay theme ownership", () => {
     );
   });
 
+  it("keeps the content-bearing Course popover bounded under full roundness", async () => {
+    const fixture = createOwnershipFixture("course");
+    fixture.boundaryContainer.style.setProperty("--radius-full", "9999px");
+    fixture.root.render(
+      <OverlayBoundary container={fixture.boundaryContainer} kind="viewport">
+        <Popover.Root open>
+          <Popover.Trigger>Hint trigger</Popover.Trigger>
+          <Popover.Portal>
+            <Popover.Content data-testid="bounded-course-popover">
+              <CoursePopoverSurface title="Hint">
+                This content-bearing surface must keep usable corners.
+              </CoursePopoverSurface>
+            </Popover.Content>
+          </Popover.Portal>
+        </Popover.Root>
+      </OverlayBoundary>,
+    );
+
+    const positioned = await waitForElement('[data-testid="bounded-course-popover"]');
+    positioned.classList.add("sc-course", "sc-course-theme-scaffold-flow-v1");
+    fixture.boundaryContainer.classList.remove("sc-course", "sc-course-theme-scaffold-flow-v1");
+    const surface = positioned.querySelector<HTMLElement>(".sc-course-popover-surface");
+    expect(surface).not.toBeNull();
+    expect(getComputedStyle(surface!).borderRadius).toBe("18px");
+    expect(getComputedStyle(positioned).borderRadius).toBe("18px");
+  });
+
   it("establishes the course body font on a standalone learner portal host", async () => {
     const fixture = createOwnershipFixture("application");
     fixture.application.style.fontFamily = '"Application Font", sans-serif';

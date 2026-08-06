@@ -96,6 +96,8 @@ import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/mode
 import { CalloutAuthoringExtension } from "@/editor/blocks/presentation/callout";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { McqAuthoringExtension, McqRuntimeExtension } from "../mcq";
+import { DropdownAuthoringExtension } from "../dropdown/dropdown-authoring-extension";
+import { DropdownRuntimeExtension } from "../dropdown/dropdown-runtime-extension";
 import { QuizNode } from "./node";
 import { QuizAuthoringExtension, QuizRuntimeExtension } from "./index";
 import { getQuizChildBlock } from "./quiz-authoring";
@@ -894,6 +896,50 @@ describe("quiz block skeleton", () => {
     expect(check).not.toHaveBeenCalled();
     expect(
       alpha.closest("[data-assessment-shell]")?.getAttribute("data-assessment-container"),
+    ).toBe("quiz");
+
+    editor.destroy();
+  });
+
+  it("lets Quiz policy override an immediate, single-attempt Dropdown child", async () => {
+    seedAssessmentStore({
+      problems: {
+        "question-a": {
+          attemptNumber: 1,
+          submitted: false,
+        },
+      },
+      quizzes: {
+        "quiz-dropdown-child-policy": {
+          attemptId: "attempt-dropdown-child-policy",
+          status: "in_progress",
+          currentTargetId: "question-a",
+        },
+      },
+    });
+    const check = vi.fn(async () =>
+      assessmentProblemOutcome({ ...canonicalAssessmentResult, isCorrect: false, score: 0 }),
+    );
+    const editor = createQuizEditor({
+      editable: false,
+      content: runtimeQuizDropdownDocument("quiz-dropdown-child-policy", {
+        attemptsPerQuestion: 2,
+        reviewTiming: "after_each_answer",
+      }),
+    });
+
+    renderWithRuntime(editor, { ...quizPort(), check });
+
+    const user = userEvent.setup();
+    const trigger = await screen.findByRole("combobox", { name: "Question response" });
+    await user.click(trigger);
+    await user.click(await screen.findByRole("option", { name: "Alpha" }));
+
+    await waitFor(() => expect(trigger).toHaveTextContent("Alpha"));
+    expect(trigger).not.toHaveAttribute("data-locked");
+    expect(check).not.toHaveBeenCalled();
+    expect(
+      trigger.closest("[data-assessment-shell]")?.getAttribute("data-assessment-container"),
     ).toBe("quiz");
 
     editor.destroy();
@@ -2841,7 +2887,7 @@ function createDisposableQuizEditor({
     extensions: [
       StarterKit.configure({ undoRedo: undoRedo ? {} : false, paragraph: false }),
       ExtendedParagraph,
-      createRuntimeBlockFrameAttributesExtension(["quiz", "mcq", "callout"]),
+      createRuntimeBlockFrameAttributesExtension(["quiz", "mcq", "dropdown", "callout"]),
       AssessmentTitleNode,
       AssessmentInstructionsNode,
       AssessmentPromptNode,
@@ -2862,6 +2908,7 @@ function createDisposableQuizEditor({
       TestAssessmentQuestionNode,
       CalloutAuthoringExtension,
       editable ? McqAuthoringExtension : McqRuntimeExtension,
+      editable ? DropdownAuthoringExtension : DropdownRuntimeExtension,
       editable ? QuizAuthoringExtension : QuizRuntimeExtension,
     ],
   });
@@ -3123,6 +3170,98 @@ function runtimeQuizMcqDocument(quizId: string, settings: Partial<QuizSettings> 
               { type: "assessment_hints_group" },
               { type: "assessment_summary_feedback" },
             ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function runtimeQuizDropdownDocument(
+  quizId: string,
+  settings: Partial<QuizSettings> = {},
+): JSONContent {
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "quiz",
+        attrs: {
+          id: quizId,
+          settings: {
+            ...quizSettings(),
+            ...settings,
+            timer: {
+              ...quizSettings().timer,
+              ...settings.timer,
+            },
+          },
+        },
+        content: [
+          {
+            type: "dropdown",
+            attrs: {
+              id: "question-a",
+              assessment: {
+                correctOptionId: "b",
+                feedbackByOptionId: {},
+                summaryFeedback: null,
+              },
+              settings: {
+                feedbackMode: "immediate",
+                isGraded: true,
+                showAnswer: true,
+                points: 1,
+                maxAttempts: 1,
+                label: "Question response",
+                placeholder: "Choose...",
+              },
+            },
+            content: [
+              { type: "assessment_title", content: [{ type: "paragraph" }] },
+              { type: "assessment_instructions", content: [{ type: "paragraph" }] },
+              {
+                type: "assessment_prompt",
+                content: [
+                  {
+                    type: "paragraph",
+                    content: [{ type: "text", text: "Choose a response" }],
+                  },
+                ],
+              },
+              {
+                type: "dropdown_choices_group",
+                content: [
+                  dropdownQuizChoice("a", "Alpha"),
+                  dropdownQuizChoice("b", "Beta"),
+                ],
+              },
+              {
+                type: "assessment_actions_group",
+                content: [
+                  { type: "assessment_hints_group" },
+                  { type: "assessment_summary_feedback" },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function dropdownQuizChoice(id: string, label: string): JSONContent {
+  return {
+    type: "dropdown_choice",
+    attrs: { id },
+    content: [
+      {
+        type: "dropdown_choice_label",
+        content: [
+          {
+            type: "paragraph",
+            content: [{ type: "text", text: label }],
           },
         ],
       },

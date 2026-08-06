@@ -37,6 +37,14 @@ import { describeDropdownAccessibilityState, dropdownChoiceLabelContent } from "
 import { DropdownAuthoringExtension } from "./dropdown-authoring-extension";
 import { DropdownRuntimeExtension } from "./dropdown-runtime-extension";
 import { dropdownBlockDefinition } from "./dropdown-definition";
+import { DropdownCourseSelect } from "./DropdownCourseSelect";
+import {
+  fromDropdownContractResponse,
+  hasDropdownResponse,
+  projectDropdownInteraction,
+  projectDropdownSettings,
+  toDropdownContractResponse,
+} from "./assessment";
 
 const canonicalAssessmentResult = { maxScore: 1 as const, feedback: null, items: {} };
 
@@ -153,9 +161,17 @@ const richFeedback = (text: string) => ({
 
 function dropdownBlockContent({
   id = "dropdown-1",
+  feedbackMode = "on_submit",
+  label = "Pick a term",
+  placeholder = "Choose...",
+  prompt = "",
   showAnswer = true,
 }: {
   id?: string;
+  feedbackMode?: "immediate" | "on_submit";
+  label?: string;
+  placeholder?: string;
+  prompt?: string;
   showAnswer?: boolean;
 } = {}): JSONContent {
   return {
@@ -163,11 +179,11 @@ function dropdownBlockContent({
     attrs: {
       id,
       settings: {
-        feedbackMode: "on_submit",
+        feedbackMode,
         isGraded: true,
         showAnswer,
-        label: "Pick a term",
-        placeholder: "Choose...",
+        label,
+        placeholder,
         points: 1,
         maxAttempts: null,
       },
@@ -180,7 +196,15 @@ function dropdownBlockContent({
     content: [
       emptyContent("assessment_title"),
       emptyContent("assessment_instructions"),
-      emptyContent("assessment_prompt"),
+      {
+        type: "assessment_prompt",
+        content: [
+          {
+            type: "paragraph",
+            ...(prompt ? { content: [{ type: "text", text: prompt }] } : {}),
+          },
+        ],
+      },
       {
         type: "dropdown_choices_group",
         content: [
@@ -212,8 +236,14 @@ function dropdownBlockContent({
 }
 
 function dropdownRuntimeContent({
+  label,
+  placeholder,
+  prompt,
   showAnswer = true,
 }: {
+  label?: string;
+  placeholder?: string;
+  prompt?: string;
   showAnswer?: boolean;
 } = {}): JSONContent {
   return {
@@ -221,6 +251,9 @@ function dropdownRuntimeContent({
     content: [
       dropdownBlockContent({
         id: "dropdown-1",
+        ...(label === undefined ? {} : { label }),
+        ...(placeholder === undefined ? {} : { placeholder }),
+        ...(prompt === undefined ? {} : { prompt }),
         showAnswer,
       }),
     ],
@@ -243,6 +276,101 @@ afterEach(() => {
 });
 
 describe("composite dropdown node", () => {
+  it("normalizes accessible settings, validates authored names, and round-trips responses", () => {
+    expect(projectDropdownSettings({ label: "  Pick a term  ", placeholder: "   " })).toEqual({
+      label: "Pick a term",
+      placeholder: "Select...",
+    });
+    expect(
+      hasDropdownResponse(
+        { choices: "missing" },
+        {
+          kind: "single-select",
+          options: [
+            { id: "a", label: "Alpha" },
+            { id: "b", label: "Beta" },
+          ],
+        },
+      ),
+    ).toBe(false);
+    expect(
+      hasDropdownResponse(
+        { choices: "a" },
+        {
+          kind: "single-select",
+          options: [
+            { id: "a", label: "Alpha" },
+            { id: "b", label: "Beta" },
+          ],
+        },
+      ),
+    ).toBe(true);
+    expect(fromDropdownContractResponse(toDropdownContractResponse({ choices: "a" }))).toEqual({
+      choices: "a",
+    });
+
+    expect(() =>
+      projectDropdownInteraction(dropdownBlockContent({ label: "", prompt: "" }), {
+        label: "",
+      }),
+    ).toThrow(/accessible name/i);
+
+    const invalidOption = dropdownBlockContent({ label: "Pick a term" });
+    const choices = invalidOption.content?.[3]?.content;
+    if (choices?.[0]?.content?.[0]) {
+      choices[0].content[0].content = [{ type: "paragraph" }];
+    }
+    expect(() => projectDropdownInteraction(invalidOption, { label: "Pick a term" })).toThrow(
+      /option text/i,
+    );
+  });
+
+  it("uses the prompt as the dropdown name when the visible label is blank", async () => {
+    const editor = makeEditor(false);
+    editor.commands.setContent(
+      dropdownRuntimeContent({ label: "   ", prompt: "Which term matches the definition?" }),
+    );
+
+    renderRuntimeEditor(editor, {
+      type: "runtime",
+      submit: async (args) =>
+        assessmentProblemOutcome(
+          { ...canonicalAssessmentResult, isCorrect: true, score: 1 },
+          { response: args.response },
+        ),
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("combobox", { name: "Which term matches the definition?" }),
+      ).toBeInstanceOf(HTMLElement);
+    });
+
+    editor.destroy();
+  });
+
+  it("announces a newly available immediate result without submitting", () => {
+    render(
+      createElement(CourseThemeProvider, {
+        appearance: "light",
+        theme: createDefaultPersistedCourseTheme(),
+        children: createElement(DropdownCourseSelect, {
+          disabled: false,
+          immediateAnnouncement: "Answer checked. Incorrect. Feedback available.",
+          label: "Pick a term",
+          onValueChange: () => {},
+          options: [{ id: "a", text: "Alpha", content: "Alpha" }],
+          placeholder: "Choose...",
+          state: "incorrect",
+          value: "a",
+        }),
+      }),
+    );
+
+    expect(screen.getByRole("status").textContent).toBe(
+      "Answer checked. Incorrect. Feedback available.",
+    );
+  });
   it("describes dropdown runtime accessibility states", () => {
     expect(
       describeDropdownAccessibilityState({
@@ -423,13 +551,13 @@ describe("composite dropdown node", () => {
     });
     const shell = frame?.querySelector<HTMLElement>("[data-assessment-shell]");
     const choices = frame?.querySelector<HTMLElement>('[data-slot="dropdown-choices-group"]');
-    const runtimeControl = frame?.querySelector<HTMLElement>(".sc-dropdown-runtime");
+    const runtimeControl = frame?.querySelector<HTMLElement>(".sc-course-dropdown-select");
     const trigger = screen.getByRole("combobox", { name: "Pick a term" });
 
     expect(shell).toBeInstanceOf(HTMLElement);
     expect(choices).toBeInstanceOf(HTMLElement);
     expect(runtimeControl).toBeInstanceOf(HTMLElement);
-    expect(trigger.classList.contains("sc-dropdown-runtime__trigger")).toBe(true);
+    expect(trigger.classList.contains("sc-course-dropdown-select__trigger")).toBe(true);
     expect(choices?.hasAttribute("data-bounded-scroll")).toBe(false);
     expect(choices?.hasAttribute("data-bounded-scroll-frame")).toBe(false);
     expect(choices?.querySelector("[data-bounded-scroll]")).toBeNull();
@@ -917,7 +1045,7 @@ describe("composite dropdown node", () => {
     editor.destroy();
   });
 
-  it("describes the revealed dropdown correct value from the port payload", async () => {
+  it("keeps the given answer selected and shows the authorized correct answer separately", async () => {
     const editor = makeEditor(false);
     const problemId = "artifact:artifact-1/block:dropdown-1";
     editor.commands.setContent(dropdownRuntimeContent());
@@ -960,8 +1088,9 @@ describe("composite dropdown node", () => {
     fireEvent.click(screen.getByText("Show answer"));
 
     await waitFor(() => {
-      expect(screen.getByRole("combobox", { name: "Pick a term" }).textContent).toContain("Beta");
-      expect(dropdownDescription()).toBe("Correct answer");
+      expect(screen.getByRole("combobox", { name: "Pick a term" }).textContent).toContain("Alpha");
+      expect(screen.getByText("Correct answer:").parentElement?.textContent).toContain("Beta");
+      expect(dropdownDescription()).toBe("Submitted answer, incorrect");
     });
 
     editor.destroy();
@@ -1088,7 +1217,10 @@ describe("composite dropdown node", () => {
     fireEvent.click(screen.getByText("Show answer"));
 
     await waitFor(() => {
-      expect(screen.getByText("Gamma")).toBeInstanceOf(HTMLElement);
+      expect(screen.getByRole("combobox", { name: "Pick a term" }).textContent).toContain(
+        "Alpha One",
+      );
+      expect(screen.getByText("Correct answer:").parentElement?.textContent).toContain("Gamma");
       expect(screen.queryByText("Beta")).toBeNull();
     });
 

@@ -190,7 +190,7 @@ describe("assessment choice row ownership and geometry", () => {
     host.style.setProperty("--radius-3", "8px");
     host.style.setProperty("--radius-full", "9999px");
     expect(getComputedStyle(authoring).borderRadius).toBe(getComputedStyle(runtime).borderRadius);
-    expect(Number.parseFloat(getComputedStyle(authoring).borderRadius)).toBeGreaterThan(100);
+    expect(getComputedStyle(authoring).borderRadius).toBe("8px");
     expect(getComputedStyle(radioIndicator).borderRadius).toBe("50%");
   });
 });

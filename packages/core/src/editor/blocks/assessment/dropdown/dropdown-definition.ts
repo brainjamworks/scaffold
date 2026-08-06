@@ -53,7 +53,7 @@ const dropdownConfiguration = createAssessmentConfiguration({
       kind: "text",
       name: "label",
       label: "Label",
-      description: "Names the dropdown for learners using assistive technology.",
+      description: "Shown above the dropdown. Leave blank to use the assessment prompt as its name.",
       placement: { sheet: { section: "presentation" } },
     },
     {

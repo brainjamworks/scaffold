@@ -10,7 +10,7 @@
     calc(var(--space-4) * var(--sc-course-author-density))
     calc(var(--space-3) * var(--sc-course-author-density));
   border: var(--sc-course-author-stroke-width) solid var(--sc-course-popover-tone-border);
-  border-radius: max(var(--radius-4), var(--radius-full));
+  border-radius: var(--radius-4);
   background: var(--gray-1);
   box-shadow: var(--shadow-4);
   color: var(--gray-12);
@@ -18,8 +18,11 @@
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1
-  .sc-overlay-positioned-content:has(> .sc-course-popover-surface) {
-  border-radius: max(var(--radius-4), var(--radius-full));
+  .sc-overlay-positioned-content:has(> .sc-course-popover-surface),
+.sc-course.sc-course-theme-scaffold-flow-v1.sc-overlay-positioned-content:has(
+    > .sc-course-popover-surface
+  ) {
+  border-radius: var(--radius-4);
   box-shadow: var(--sc-course-author-shadow);
 }
 

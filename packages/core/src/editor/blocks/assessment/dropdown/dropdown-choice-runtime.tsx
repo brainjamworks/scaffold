@@ -1,27 +1,19 @@
 import type { Editor } from "@tiptap/core";
 import { DOMSerializer, type Node as PMNode } from "@tiptap/pm/model";
 import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
-import {
-  CaretDownIcon as CaretDown,
-  CheckCircleIcon as CheckCircle,
-  CheckIcon as Check,
-  XCircleIcon as XCircle,
-} from "@phosphor-icons/react";
-import { useId, useMemo } from "react";
+import { useMemo } from "react";
 
-import * as Select from "@/ui/components/Select/SelectMenu";
-import * as VisuallyHidden from "@/ui/components/VisuallyHidden/VisuallyHidden";
-import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
+import {
+  assessmentPromptDomId,
+  findAncestorAssessmentBlockId,
+} from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { RichFeedbackRuntimePopover } from "@/editor/blocks/assessment/shared/chrome/RichFeedbackRuntimePopover";
 import type { SingleSelectInteractionRuntime } from "@/editor/blocks/assessment/shared/runtime/assessment-interaction-runtime";
 import {
   useAssessmentRuntimeById,
   type AssessmentRuntimeController,
 } from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
-import { cn } from "@/lib/cn";
-import { zIndex } from "@/ui/overlays/z-index";
 import { AssessmentFeedbackContentSchema } from "@scaffold/contracts";
-import { iconMd, iconSm, iconXs } from "@/ui/tokens/icon-sizes";
 
 import { serializeStaticRichTextHtml } from "@/editor/rich-text/static/render-rich-text";
 import {
@@ -30,6 +22,10 @@ import {
   createDropdownChoicesGroupNode,
   describeDropdownAccessibilityState,
 } from "./dropdown-choice-shared";
+import {
+  DropdownCourseSelect,
+  type DropdownCourseOption,
+} from "./DropdownCourseSelect";
 
 import "./Dropdown.css";
 
@@ -109,11 +105,13 @@ export function DropdownChoicesRuntimeNodeView(props: NodeViewProps) {
       assessment={assessment}
       dropdown={dropdown}
       label={assessment?.problem?.state.legend ?? ""}
+      authoredBlockId={authoredBlockId}
     />
   );
 }
 
 interface DropdownChoicesRuntimeProps {
+  authoredBlockId: string | null;
   node: NodeViewProps["node"];
   editor: Editor;
   assessment: AssessmentRuntimeController<"single-select"> | null;
@@ -122,6 +120,7 @@ interface DropdownChoicesRuntimeProps {
 }
 
 function DropdownChoicesRuntime({
+  authoredBlockId,
   node,
   editor,
   assessment,
@@ -133,136 +132,96 @@ function DropdownChoicesRuntime({
   const selectedId = dropdown?.selectedIds[0] ?? "";
   const problem = assessment?.problem ?? null;
   const answerKeyVisible = problem?.answerKeyVisible ?? false;
-  const hasRevealPayload = (problem?.state.revealedAnswer ?? null) !== null;
-  const displayId = answerKeyVisible ? (dropdown?.revealedSelectedId ?? selectedId) : selectedId;
-  const displayOption = options.find((option) => option.id === displayId) ?? null;
-  const state = displayOption && dropdown ? dropdown.stateFor(displayOption.id) : null;
-  const locked = Boolean(problem?.state.submitted || hasRevealPayload || problem?.exhausted);
+  const selectedOption = options.find((option) => option.id === selectedId) ?? null;
+  const state = selectedOption && dropdown ? dropdown.stateFor(selectedOption.id) : null;
+  const locked = problem?.interactionLocked ?? false;
   const placeholder = problem?.state.placeholder || "Select...";
-  const labelId = useId();
-  const generatedDescriptionId = useId();
+  const trimmedLabel = label.trim();
+  const promptId = assessmentPromptDomId(authoredBlockId);
   const showFeedback = Boolean(
-    displayOption &&
+    selectedOption &&
     dropdown &&
     (problem?.state.submitted ||
       answerKeyVisible ||
       (problem?.state.feedbackMode === "immediate" && problem.feedbackResult)),
   );
-  const runtimeFeedback = AssessmentFeedbackContentSchema.safeParse(
-    displayOption ? assessment?.feedback.items?.[displayOption.id]?.feedback : null,
+  const selectedFeedback = AssessmentFeedbackContentSchema.safeParse(
+    selectedOption ? assessment?.feedback.items?.[selectedOption.id]?.feedback : null,
   );
   const accessibilityDescription = describeDropdownAccessibilityState({
-    hasFeedback: showFeedback && runtimeFeedback.success,
-    selected: displayOption ? selectedId === displayOption.id : false,
+    hasFeedback: showFeedback && selectedFeedback.success,
+    selected: selectedOption !== null,
     state,
     submitted: problem?.state.submitted ?? false,
   });
-  const descriptionId = accessibilityDescription ? generatedDescriptionId : undefined;
-  const sideIconBoxClass = "sc-dropdown-runtime__side-icon";
-  const renderOptionContent = (option: DropdownChoiceOption) =>
-    option.html ? (
-      <span
-        className="sc-dropdown-runtime__option-html"
-        dangerouslySetInnerHTML={{ __html: option.html }}
-      />
-    ) : (
-      option.text
-    );
-
-  const stateIcon =
-    state === "correct" || state === "missed" ? (
-      <span className={sideIconBoxClass}>
-        <CheckCircle
-          size={iconMd}
-          weight="fill"
-          className="sc-dropdown-runtime__state-icon sc-dropdown-runtime__state-icon--correct"
-          aria-hidden
-        />
-      </span>
-    ) : state === "incorrect" ? (
-      <span className={sideIconBoxClass}>
-        <XCircle
-          size={iconMd}
-          weight="fill"
-          className="sc-dropdown-runtime__state-icon sc-dropdown-runtime__state-icon--incorrect"
-          aria-hidden
-        />
-      </span>
-    ) : null;
+  const correctOptionId = answerKeyVisible
+    ? (dropdown?.revealedSelectedId ??
+      options.find((option) => dropdown?.stateFor(option.id) === "missed")?.id ??
+      (state === "correct" ? selectedId : null))
+    : null;
+  const correctOption = options.find((option) => option.id === correctOptionId) ?? null;
+  const correctFeedback = AssessmentFeedbackContentSchema.safeParse(
+    correctOption ? assessment?.feedback.items?.[correctOption.id]?.feedback : null,
+  );
+  const immediateResult =
+    problem?.state.feedbackMode === "immediate" ? (problem.feedbackResult ?? null) : null;
+  const immediateAnnouncement = immediateResult
+    ? `Answer checked. ${immediateResult.isCorrect ? "Correct." : "Incorrect."}${
+        selectedFeedback.success ? " Feedback available." : ""
+      }`
+    : null;
+  const courseOptions: DropdownCourseOption[] = options.map((option) => ({
+    id: option.id,
+    text: option.text,
+    content: renderOptionContent(option),
+  }));
 
   return (
     <NodeViewWrapper data-slot="dropdown-choices-group">
-      <div className="sc-dropdown-runtime">
-        {label && (
-          <div id={labelId} className="sc-dropdown-runtime__label">
-            {label}
-          </div>
-        )}
-        <div className="sc-dropdown-runtime__row">
-          <Select.Root
-            required
-            value={displayId}
-            onValueChange={(next) => dropdown?.select(next)}
-            disabled={locked}
-            {...(problem?.state.responseName ? { name: problem.state.responseName } : {})}
-          >
-            <Select.Trigger
-              aria-labelledby={label ? labelId : undefined}
-              aria-describedby={descriptionId}
-              className={cn(
-                "sc-dropdown-runtime__trigger",
-                state === null && "sc-dropdown-runtime__trigger--idle",
-                locked && state === null && "sc-dropdown-runtime__trigger--locked",
-                (state === "correct" || state === "missed") &&
-                  "sc-dropdown-runtime__trigger--correct",
-                state === "incorrect" && "sc-dropdown-runtime__trigger--incorrect",
-              )}
-            >
-              <Select.Value placeholder={placeholder} className="sc-dropdown-runtime__value">
-                {displayOption ? renderOptionContent(displayOption) : undefined}
-              </Select.Value>
-              <Select.Icon className="sc-dropdown-runtime__caret">
-                <CaretDown size={iconXs} aria-hidden />
-              </Select.Icon>
-            </Select.Trigger>
-            <Select.Portal>
-              <Select.Content
-                position="popper"
-                sideOffset={4}
-                className="sc-dropdown-runtime__content"
-                style={{ zIndex: zIndex.popover }}
-              >
-                <Select.Viewport className="sc-dropdown-runtime__viewport">
-                  {options.map((option) => (
-                    <Select.Item
-                      key={option.id}
-                      value={option.id}
-                      textValue={option.text}
-                      className="sc-dropdown-runtime__item"
-                    >
-                      <Select.ItemText>{renderOptionContent(option)}</Select.ItemText>
-                      <Select.ItemIndicator className="sc-dropdown-runtime__item-indicator">
-                        <Check size={iconSm} aria-hidden />
-                      </Select.ItemIndicator>
-                    </Select.Item>
-                  ))}
-                </Select.Viewport>
-              </Select.Content>
-            </Select.Portal>
-          </Select.Root>
-
-          {stateIcon}
-          {showFeedback && displayOption && runtimeFeedback.success && (
-            <span className={cn(sideIconBoxClass, "sc-dropdown-runtime__feedback-anchor")}>
-              <RichFeedbackRuntimePopover feedback={runtimeFeedback.data} />
-            </span>
-          )}
-          {accessibilityDescription && (
-            <VisuallyHidden.Root id={descriptionId}>{accessibilityDescription}</VisuallyHidden.Root>
-          )}
-        </div>
-      </div>
+      <DropdownCourseSelect
+        accessibilityDescription={accessibilityDescription}
+        correctAnswer={
+          correctOption
+            ? {
+                content: renderOptionContent(correctOption),
+                ...(correctOption.id !== selectedOption?.id && correctFeedback.success
+                  ? {
+                      feedbackControl: (
+                        <RichFeedbackRuntimePopover feedback={correctFeedback.data} />
+                      ),
+                    }
+                  : {}),
+              }
+            : null
+        }
+        disabled={locked}
+        feedbackControl={
+          showFeedback && selectedFeedback.success ? (
+            <RichFeedbackRuntimePopover feedback={selectedFeedback.data} />
+          ) : null
+        }
+        immediateAnnouncement={immediateAnnouncement}
+        label={trimmedLabel}
+        name={problem?.state.responseName}
+        onValueChange={(next) => dropdown?.select(next)}
+        options={courseOptions}
+        placeholder={placeholder}
+        promptId={promptId}
+        state={state}
+        value={selectedId}
+      />
     </NodeViewWrapper>
+  );
+}
+
+function renderOptionContent(option: DropdownChoiceOption) {
+  return option.html ? (
+    <span
+      className="sc-course-dropdown-select__option-content"
+      dangerouslySetInnerHTML={{ __html: option.html }}
+    />
+  ) : (
+    option.text
   );
 }
 

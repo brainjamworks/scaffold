@@ -2,6 +2,7 @@ import type { JSONContent } from "@tiptap/core";
 import { z } from "zod";
 import {
   DropdownPrivateAssessmentSchema,
+  DropdownSettingsSchema,
   SingleSelectResponseSchema,
   type AssessmentAnswerKey,
   type AssessmentInteractionContract,
@@ -43,7 +44,11 @@ export function projectDropdownLearnerNode(node: JSONContent): JSONContent {
   };
 }
 
-export function projectDropdownInteraction(node: JSONContent): AssessmentInteractionContract {
+export function projectDropdownInteraction(
+  node: JSONContent,
+  settings: unknown = {},
+): AssessmentInteractionContract {
+  assertDropdownAuthoredValidity(node, settings);
   return {
     kind: "single-select",
     options: projectDropdownChoiceEntries(node).map(({ id, label }) => ({
@@ -64,10 +69,26 @@ export function projectDropdownAssessment(node: JSONContent): AssessmentAnswerKe
 }
 
 export function projectDropdownSettings(settings: unknown): Partial<AssessmentTargetSettings> {
+  const label = readOptionalString(settings, "label")?.trim();
+  const configuredPlaceholder = readOptionalString(settings, "placeholder")?.trim();
+  const placeholder = configuredPlaceholder || DropdownSettingsSchema.parse({}).placeholder;
   return {
-    ...optionalStringField("label", readOptionalString(settings, "label")),
-    ...optionalStringField("placeholder", readOptionalString(settings, "placeholder")),
+    ...(label ? optionalStringField("label", label) : {}),
+    ...optionalStringField("placeholder", placeholder),
   };
+}
+
+export function assertDropdownAuthoredValidity(node: JSONContent, settings: unknown): void {
+  const label = readOptionalString(settings, "label")?.trim() ?? "";
+  const prompt = childText(node, "assessment_prompt");
+  if (!label && !prompt) {
+    throw new Error("Dropdown requires an authored accessible name in its label or prompt.");
+  }
+
+  const choices = projectDropdownChoiceEntries(node);
+  if (choices.length === 0 || choices.some((choice) => !choice.label)) {
+    throw new Error("Every dropdown choice requires meaningful authored option text.");
+  }
 }
 
 function projectDropdownChoicesGroupLearnerNode(group: JSONContent): JSONContent {
@@ -128,8 +149,14 @@ export function fromDropdownContractResponse(response: AssessmentResponseValue):
   return DropdownResponseSchema.parse({ choices: canonical.optionId });
 }
 
-export function hasDropdownResponse(response: unknown): boolean {
-  return DropdownResponseSchema.parse(response).choices !== null;
+export function hasDropdownResponse(
+  response: unknown,
+  interaction?: AssessmentInteractionContract,
+): boolean {
+  const selectedId = DropdownResponseSchema.parse(response).choices;
+  if (selectedId === null) return false;
+  if (!interaction || interaction.kind !== "single-select") return true;
+  return interaction.options.some((option) => option.id === selectedId);
 }
 
 export const dropdownResponseCodec: AssessmentCapabilityResponseDefinition<DropdownResponse> = {

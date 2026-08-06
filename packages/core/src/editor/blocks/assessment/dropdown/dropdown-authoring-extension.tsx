@@ -13,7 +13,7 @@ import {
 import { createDropdownNode } from "./node";
 
 function DropdownAuthoringView(props: NodeViewProps) {
-  return <AssessmentProblemContent editable blockClass="sc-dropdown" nodeViewProps={props} />;
+  return <AssessmentProblemContent editable blockClass="sc-course-dropdown" nodeViewProps={props} />;
 }
 
 const DropdownAuthoringNode = createDropdownNode({
