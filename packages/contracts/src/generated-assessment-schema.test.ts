@@ -20,15 +20,91 @@ import {
 
 const scoreSemanticKeyword = "x-scaffold-semantic";
 const scoreSemanticVersion = "score-v1";
+const semanticManifestKeyword = "x-scaffold-semantics";
+const supportedSemantics = new Set([scoreSemanticVersion]);
 
-function createCanonicalAssessmentAjv(schema: typeof assessmentJsonSchema): Ajv {
-  const scoreDefinition = schema.definitions.Score as Record<string, unknown>;
-  if (scoreDefinition[scoreSemanticKeyword] !== scoreSemanticVersion) {
-    throw new Error("Assessment schema is missing the supported canonical Score semantic marker");
+type JsonSchemaObject = Record<string, unknown>;
+
+function auditSemanticProtocol(schema: JsonSchemaObject): void {
+  const manifest = schema[semanticManifestKeyword];
+  const declared = new Set<string>();
+  if (manifest !== undefined) {
+    if (!Array.isArray(manifest) || manifest.length === 0) {
+      throw new Error("Schema semantic manifest must be a non-empty array");
+    }
+    for (const semantic of manifest) {
+      if (
+        typeof semantic !== "string" ||
+        !supportedSemantics.has(semantic) ||
+        declared.has(semantic)
+      ) {
+        throw new Error("Schema semantic manifest is malformed or unsupported");
+      }
+      declared.add(semantic);
+    }
   }
+
+  const observed = new Set<string>();
+  const visit = (node: JsonSchemaObject, path: string): void => {
+    if (path !== "#" && semanticManifestKeyword in node) {
+      throw new Error("Schema semantic manifest must be declared at the bundle root");
+    }
+    if (scoreSemanticKeyword in node) {
+      if (path === "#") {
+        throw new Error("Schema semantic markers must be declared on an applicable child schema");
+      }
+      const semantic = node[scoreSemanticKeyword];
+      if (typeof semantic !== "string" || !supportedSemantics.has(semantic)) {
+        throw new Error(`Unsupported schema semantic marker at ${path}`);
+      }
+      if (!declared.has(semantic)) {
+        throw new Error(`Undeclared schema semantic marker at ${path}`);
+      }
+      observed.add(semantic);
+    }
+
+    for (const keyword of ["definitions", "properties"] as const) {
+      const children = node[keyword];
+      if (children && typeof children === "object" && !Array.isArray(children)) {
+        for (const [name, child] of Object.entries(children)) {
+          if (child && typeof child === "object" && !Array.isArray(child)) {
+            visit(child as JsonSchemaObject, `${path}/${keyword}/${name}`);
+          }
+        }
+      }
+    }
+    for (const keyword of ["allOf", "anyOf", "oneOf"] as const) {
+      const children = node[keyword];
+      if (Array.isArray(children)) {
+        children.forEach((child, index) => {
+          if (child && typeof child === "object" && !Array.isArray(child)) {
+            visit(child as JsonSchemaObject, `${path}/${keyword}/${index}`);
+          }
+        });
+      }
+    }
+    for (const keyword of ["items", "propertyNames", "additionalProperties"] as const) {
+      const child = node[keyword];
+      if (child && typeof child === "object" && !Array.isArray(child)) {
+        visit(child as JsonSchemaObject, `${path}/${keyword}`);
+      }
+    }
+  };
+  visit(schema, "#");
+
+  for (const semantic of declared) {
+    if (!observed.has(semantic)) {
+      throw new Error(`Required schema semantic marker is missing: ${semantic}`);
+    }
+  }
+}
+
+function createSemanticAjv(schema: JsonSchemaObject): Ajv {
+  auditSemanticProtocol(schema);
 
   const validator = new Ajv({ allErrors: true, strict: true });
   addFormats(validator);
+  validator.addKeyword({ keyword: semanticManifestKeyword, schemaType: "array", valid: true });
   validator.addKeyword({
     keyword: scoreSemanticKeyword,
     schemaType: "string",
@@ -39,7 +115,51 @@ function createCanonicalAssessmentAjv(schema: typeof assessmentJsonSchema): Ajv 
   return validator;
 }
 
-const ajv = createCanonicalAssessmentAjv(assessmentJsonSchema);
+function definitionValidator(
+  validator: Ajv,
+  schema: JsonSchemaObject,
+  definitionName: string,
+): ValidateFunction {
+  const schemaId = schema.$id;
+  if (typeof schemaId !== "string") throw new Error("Schema bundle is missing $id");
+  const validate = validator.getSchema(`${schemaId}#/definitions/${definitionName}`);
+  if (!validate) throw new Error(`Missing generated definition: ${definitionName}`);
+  return validate;
+}
+
+function replaceRefs(value: unknown, from: string, to: string): void {
+  if (Array.isArray(value)) {
+    value.forEach((child) => replaceRefs(child, from, to));
+    return;
+  }
+  if (!value || typeof value !== "object") return;
+  for (const [key, child] of Object.entries(value)) {
+    if (key === "$ref" && typeof child === "string") {
+      Reflect.set(value, key, child.replace(from, to));
+    } else {
+      replaceRefs(child, from, to);
+    }
+  }
+}
+
+function schemaDefinition(schema: JsonSchemaObject, definitionName: string): JsonSchemaObject {
+  const definitions = schema.definitions as Record<string, JsonSchemaObject>;
+  const definition = definitions[definitionName];
+  if (!definition) throw new Error(`Missing schema definition: ${definitionName}`);
+  return definition;
+}
+
+function renamedScoreSchema(): JsonSchemaObject {
+  const schema = structuredClone(assessmentJsonSchema) as unknown as JsonSchemaObject;
+  schema[semanticManifestKeyword] = [scoreSemanticVersion];
+  const definitions = schema.definitions as Record<string, JsonSchemaObject>;
+  definitions.CanonicalScore = schemaDefinition(schema, "Score");
+  Reflect.deleteProperty(definitions, "Score");
+  replaceRefs(schema, "#/definitions/Score", "#/definitions/CanonicalScore");
+  return schema;
+}
+
+const ajv = createSemanticAjv(assessmentJsonSchema as unknown as JsonSchemaObject);
 
 function validatorFor(definitionName: string): ValidateFunction {
   const validator = ajv.getSchema(`${assessmentJsonSchema.$id}#/definitions/${definitionName}`);
@@ -174,23 +294,123 @@ describe("generated assessment JSON Schema", () => {
     ]);
     expect(assessmentJsonSchema.$comment).toContain("x-scaffold-semantic");
     expect(
+      (assessmentJsonSchema as unknown as JsonSchemaObject)[semanticManifestKeyword],
+    ).toEqual([scoreSemanticVersion]);
+    expect(
       (assessmentJsonSchema.definitions.Score as Record<string, unknown>)["x-scaffold-semantic"],
     ).toBe("score-v1");
   });
 
-  it("fails closed when the canonical Score semantic marker is missing or unsupported", () => {
-    for (const semantic of [undefined, "unknown"] as const) {
-      const schema = structuredClone(assessmentJsonSchema);
-      const scoreDefinition = schema.definitions.Score as Record<string, unknown>;
-      if (semantic === undefined) {
-        Reflect.deleteProperty(scoreDefinition, scoreSemanticKeyword);
-      } else {
-        scoreDefinition[scoreSemanticKeyword] = semantic;
-      }
+  it("fails closed when a declared semantic marker is missing", () => {
+    const schema = renamedScoreSchema();
+    Reflect.deleteProperty(schemaDefinition(schema, "CanonicalScore"), scoreSemanticKeyword);
 
-      expect(() => createCanonicalAssessmentAjv(schema)).toThrow(
-        "Assessment schema is missing the supported canonical Score semantic marker",
-      );
+    expect(() => createSemanticAjv(schema)).toThrow(
+      `Required schema semantic marker is missing: ${scoreSemanticVersion}`,
+    );
+  });
+
+  it("identifies Score semantics only through the manifest and marker", () => {
+    const schema = renamedScoreSchema();
+    const renamedAjv = createSemanticAjv(schema);
+    const root = definitionValidator(renamedAjv, schema, "CanonicalScore");
+    const nested = definitionValidator(renamedAjv, schema, "AssessmentResult");
+
+    expect(root({ scaled: 0.5, raw: 1, min: 0, max: 2 })).toBe(true);
+    expect(root({ scaled: 0.5, raw: 1, min: 1, max: 1 })).toBe(false);
+    expect(nested({ ...result, score: { scaled: 0.5, raw: 1, min: 1, max: 1 } })).toBe(false);
+
+    const unmarked = structuredClone(schema);
+    Reflect.deleteProperty(schemaDefinition(unmarked, "CanonicalScore"), scoreSemanticKeyword);
+    expect(() => createSemanticAjv(unmarked)).toThrow(
+      `Required schema semantic marker is missing: ${scoreSemanticVersion}`,
+    );
+
+    const generic = {
+      $id: "https://scaffold.ac/schemas/generic-score-name.json",
+      definitions: {
+        Score: { type: "string" },
+        Other: { type: "integer" },
+      },
+    } satisfies JsonSchemaObject;
+    const genericAjv = createSemanticAjv(generic);
+    expect(definitionValidator(genericAjv, generic, "Score")("ordinary")).toBe(true);
+    expect(definitionValidator(genericAjv, generic, "Other")(1)).toBe(true);
+  });
+
+  it("rejects malformed, unknown, undeclared, and unsatisfied semantic declarations", () => {
+    const invalidSchemas: JsonSchemaObject[] = [
+      {
+        $id: "https://scaffold.ac/schemas/undeclared-semantic.json",
+        definitions: {
+          Probe: { type: "object", [scoreSemanticKeyword]: scoreSemanticVersion },
+        },
+      },
+    ];
+    for (const manifest of [
+      null,
+      "score-v1",
+      [],
+      ["score-v1", "score-v1"],
+      ["score-v2"],
+    ]) {
+      invalidSchemas.push({
+        $id: "https://scaffold.ac/schemas/malformed-manifest.json",
+        [semanticManifestKeyword]: manifest,
+        definitions: { Probe: { type: "object" } },
+      });
+    }
+    for (const marker of [1, "score-v2"]) {
+      invalidSchemas.push({
+        $id: "https://scaffold.ac/schemas/malformed-marker.json",
+        [semanticManifestKeyword]: [scoreSemanticVersion],
+        definitions: {
+          Probe: { type: "object", [scoreSemanticKeyword]: marker },
+        },
+      });
+    }
+    invalidSchemas.push({
+      $id: "https://scaffold.ac/schemas/root-semantic.json",
+      [semanticManifestKeyword]: [scoreSemanticVersion],
+      [scoreSemanticKeyword]: scoreSemanticVersion,
+      definitions: { Probe: { type: "object" } },
+    });
+
+    for (const schema of invalidSchemas) {
+      expect(() => createSemanticAjv(schema)).toThrow();
+    }
+  });
+
+  it("executes marked semantics in branches, adjacent to refs, and behind refs", () => {
+    const schema = {
+      $id: "https://scaffold.ac/schemas/semantic-traversal.json",
+      [semanticManifestKeyword]: [scoreSemanticVersion],
+      definitions: {
+        Shape: { type: "object" },
+        AdjacentRef: {
+          $ref: "#/definitions/Shape",
+          [scoreSemanticKeyword]: scoreSemanticVersion,
+        },
+        BehindRef: { $ref: "#/definitions/AdjacentRef" },
+        Branch: {
+          oneOf: [
+            { type: "null" },
+            {
+              $ref: "#/definitions/Shape",
+              [scoreSemanticKeyword]: scoreSemanticVersion,
+            },
+          ],
+        },
+      },
+    } satisfies JsonSchemaObject;
+    const semanticAjv = createSemanticAjv(schema);
+    const valid = { scaled: 0.5, raw: 1, min: 0, max: 2 };
+    const invalid = { scaled: 0.5, raw: 1, min: 1, max: 1 };
+
+    for (const definition of ["AdjacentRef", "BehindRef", "Branch"]) {
+      const validate = definitionValidator(semanticAjv, schema, definition);
+      expect(validate(valid), definition).toBe(true);
+      expect(validate(invalid), definition).toBe(false);
     }
   });
 

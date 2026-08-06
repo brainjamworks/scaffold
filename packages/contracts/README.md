@@ -32,12 +32,23 @@ separate private hosted product, not this package.
 ## Generated assessment schema
 
 `assessment.schema.json` is a Draft-07 structural projection of the canonical
-runtime contracts. Its `Score` definition carries the required
-`x-scaffold-semantic: score-v1` extension. Draft-07 can enforce the closed
-Score shapes and IEEE-754 safe-integer bounds, but it cannot compare the
-sibling `raw`, `min`, and `max` values.
+runtime contracts. The bundle declares its required extensions with
+`x-scaffold-semantics: ["score-v1"]`, and the concrete canonical Score schema
+carries `x-scaffold-semantic: "score-v1"`. The marker is the sole authority for
+Score semantics; definition names and reference strings carry no semantic
+meaning. Draft-07 can enforce the closed Score shapes and IEEE-754 safe-integer
+bounds, but it cannot compare the sibling `raw`, `min`, and `max` values.
 
 Code claiming full canonical Score validation must register the `score-v1`
-semantic extension, enforce `min < max` and `min <= raw <= max`, and fail
-closed when the marker is missing or unsupported. A generic Draft-07 result
-without that extension is structural validation only.
+semantic extension, audit the manifest and markers recursively, enforce
+`min < max` and `min <= raw <= max` at every marked node, and fail closed for
+missing, malformed, unknown, or undeclared semantics. A generic schema with no
+manifest and no markers receives ordinary structural validation. A generic
+Draft-07 result without the extension is structural validation only.
+
+Validation begins after standards-compliant host JSON decoding and uses the
+decoded numeric value. Original JSON number spelling is not retained or part
+of the contract: a decoded safe integer is accepted whether its source token
+was written as `1`, `1.0`, or another spelling that decodes to that value.
+Decoded fractional, non-finite, boolean, and unsafe-integer values remain
+invalid.

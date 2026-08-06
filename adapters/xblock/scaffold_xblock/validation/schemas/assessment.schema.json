@@ -1,5 +1,5 @@
 {
-  "$comment": "This bundle is generated from the strict version 2 Zod assessment contracts. Full canonical Score validation requires the x-scaffold-semantic score-v1 extension; standalone Draft-07 validation enforces structure and safe-integer bounds but cannot compare raw, min, and max.",
+  "$comment": "This bundle is generated from the strict version 2 Zod assessment contracts. Full canonical Score validation requires the declared x-scaffold-semantic score-v1 extension; standalone Draft-07 validation enforces structure and safe-integer bounds but cannot compare raw, min, and max. Numeric validation begins after host JSON decoding and uses the decoded value, not its original lexical spelling.",
   "$id": "https://scaffold.ac/schemas/assessment.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "definitions": {
@@ -1752,5 +1752,6 @@
       "x-scaffold-semantic": "score-v1"
     }
   },
-  "title": "Scaffold assessment contracts"
+  "title": "Scaffold assessment contracts",
+  "x-scaffold-semantics": ["score-v1"]
 }

@@ -27,6 +27,8 @@ namespace mod_scaffold\local;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class json_schema_validator {
+    /** Bundle declaration for required semantic extensions. */
+    private const SEMANTIC_MANIFEST_KEYWORD = 'x-scaffold-semantics';
     /** Required extension marker for full canonical Score validation. */
     private const SCORE_SEMANTIC_KEYWORD = 'x-scaffold-semantic';
     /** Supported canonical Score semantic version. */
@@ -57,6 +59,7 @@ class json_schema_validator {
         'maximum',
         'minItems',
         'minimum',
+        'oneOf',
         'pattern',
         'properties',
         'propertyNames',
@@ -65,6 +68,7 @@ class json_schema_validator {
         'type',
         'uniqueItems',
         'x-scaffold-semantic',
+        'x-scaffold-semantics',
     ];
 
     /** @var ?self Shared plugin schema validator. */
@@ -72,6 +76,12 @@ class json_schema_validator {
 
     /** @var \stdClass Loaded JSON schema. */
     private \stdClass $schema;
+
+    /** @var array<string, true> Bundle-declared semantic versions. */
+    private array $declaredsemantics = [];
+
+    /** @var array<string, true> Semantic versions observed on schema nodes. */
+    private array $observedsemantics = [];
 
     /**
      * Creates a new json schema validator instance.
@@ -96,8 +106,15 @@ class json_schema_validator {
         }
 
         $this->schema = $schema;
+        $this->declaredsemantics = $this->read_semantic_manifest();
         $this->audit_schema($schema, '#');
-        $this->assert_score_semantic_marker();
+        foreach ($this->declaredsemantics as $semantic => $_unused) {
+            if (!isset($this->observedsemantics[$semantic])) {
+                throw new \invalid_parameter_exception(
+                    'Required JSON schema semantic marker is missing: ' . $semantic,
+                );
+            }
+        }
     }
 
     /**
@@ -172,7 +189,7 @@ class json_schema_validator {
                 continue;
             }
 
-            if ($keyword === 'anyOf' || $keyword === 'allOf') {
+            if ($keyword === 'anyOf' || $keyword === 'allOf' || $keyword === 'oneOf') {
                 if (!is_array($constraint) || !array_is_list($constraint) || $constraint === []) {
                     throw new \invalid_parameter_exception($path . '.' . $keyword . ' must be a non-empty array');
                 }
@@ -255,8 +272,22 @@ class json_schema_validator {
         if ($keyword === 'format' && $constraint !== 'date-time') {
             throw new \invalid_parameter_exception($path . '.format is not supported');
         }
-        if ($keyword === self::SCORE_SEMANTIC_KEYWORD && $constraint !== self::SCORE_SEMANTIC_VERSION) {
-            throw new \invalid_parameter_exception($path . ' declares an unsupported Score semantic');
+        if ($keyword === self::SEMANTIC_MANIFEST_KEYWORD && $path !== '#') {
+            throw new \invalid_parameter_exception('JSON schema semantic manifest must be declared at the bundle root');
+        }
+        if ($keyword === self::SCORE_SEMANTIC_KEYWORD) {
+            if ($path === '#') {
+                throw new \invalid_parameter_exception(
+                    'JSON schema semantic markers must be declared on an applicable child schema',
+                );
+            }
+            if (!is_string($constraint) || $constraint !== self::SCORE_SEMANTIC_VERSION) {
+                throw new \invalid_parameter_exception($path . ' declares an unsupported JSON schema semantic');
+            }
+            if (!isset($this->declaredsemantics[$constraint])) {
+                throw new \invalid_parameter_exception($path . ' declares an undeclared JSON schema semantic');
+            }
+            $this->observedsemantics[$constraint] = true;
         }
     }
 
@@ -275,6 +306,9 @@ class json_schema_validator {
 
         if (property_exists($schema, '$ref')) {
             $this->validate_value($value, $this->resolve_reference($schema->{'$ref'}), $path, $depth + 1);
+            if (property_exists($schema, self::SCORE_SEMANTIC_KEYWORD)) {
+                $this->validate_semantic($schema->{self::SCORE_SEMANTIC_KEYWORD}, $value, $path);
+            }
             return;
         }
 
@@ -298,6 +332,22 @@ class json_schema_validator {
             }
             if (!$matched) {
                 throw new \invalid_parameter_exception($path . ' does not match any allowed schema');
+            }
+        }
+
+        if (property_exists($schema, 'oneOf')) {
+            $matches = 0;
+            foreach ($schema->oneOf as $childschema) {
+                try {
+                    $this->validate_value($value, $childschema, $path, $depth + 1);
+                    $matches++;
+                } catch (\invalid_parameter_exception) {
+                    // Exactly one later branch may still validate the value.
+                    continue;
+                }
+            }
+            if ($matches !== 1) {
+                throw new \invalid_parameter_exception($path . ' must match exactly one allowed schema');
             }
         }
 
@@ -346,7 +396,7 @@ class json_schema_validator {
             $this->validate_string($value, $schema, $path);
         }
         if (property_exists($schema, self::SCORE_SEMANTIC_KEYWORD)) {
-            $this->validate_score_contract($value, $path);
+            $this->validate_semantic($schema->{self::SCORE_SEMANTIC_KEYWORD}, $value, $path);
         }
     }
 
@@ -483,21 +533,48 @@ class json_schema_validator {
     }
 
     /**
-     * Fails closed if a bundle exposing Score omits the semantic extension.
+     * Executes one audited semantic extension.
+     *
+     * @param string $semantic Semantic version.
+     * @param mixed $value Value.
+     * @param string $path Value path.
      */
-    private function assert_score_semantic_marker(): void {
-        $definitions = $this->schema->definitions ?? null;
-        if (!($definitions instanceof \stdClass) || !property_exists($definitions, 'Score')) {
+    private function validate_semantic(string $semantic, mixed $value, string $path): void {
+        if ($semantic === self::SCORE_SEMANTIC_VERSION) {
+            $this->validate_score_contract($value, $path);
             return;
         }
-        $score = $definitions->Score;
-        if (
-            !($score instanceof \stdClass)
-            || !property_exists($score, self::SCORE_SEMANTIC_KEYWORD)
-            || $score->{self::SCORE_SEMANTIC_KEYWORD} !== self::SCORE_SEMANTIC_VERSION
-        ) {
-            throw new \invalid_parameter_exception('JSON schema Score semantic marker is missing or unsupported');
+
+        throw new \invalid_parameter_exception('Unsupported JSON schema semantic: ' . $semantic);
+    }
+
+    /**
+     * Loads the optional bundle-level semantic manifest.
+     *
+     * @return array<string, true>
+     */
+    private function read_semantic_manifest(): array {
+        if (!property_exists($this->schema, self::SEMANTIC_MANIFEST_KEYWORD)) {
+            return [];
         }
+
+        $manifest = $this->schema->{self::SEMANTIC_MANIFEST_KEYWORD};
+        if (!is_array($manifest) || !array_is_list($manifest) || $manifest === []) {
+            throw new \invalid_parameter_exception('JSON schema semantic manifest must be a non-empty array');
+        }
+
+        $declared = [];
+        foreach ($manifest as $semantic) {
+            if (
+                !is_string($semantic)
+                || $semantic !== self::SCORE_SEMANTIC_VERSION
+                || isset($declared[$semantic])
+            ) {
+                throw new \invalid_parameter_exception('JSON schema semantic manifest is malformed or unsupported');
+            }
+            $declared[$semantic] = true;
+        }
+        return $declared;
     }
 
     /**

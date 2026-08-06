@@ -13,8 +13,10 @@ class UnsupportedJsonSchemaKeywordError(JsonSchemaValidationError):
     pass
 
 
+SEMANTIC_MANIFEST_KEYWORD = "x-scaffold-semantics"
 SCORE_SEMANTIC_KEYWORD = "x-scaffold-semantic"
 SCORE_SEMANTIC_VERSION = "score-v1"
+SUPPORTED_SEMANTICS = {SCORE_SEMANTIC_VERSION}
 MIN_SAFE_INTEGER = -9007199254740991
 MAX_SAFE_INTEGER = 9007199254740991
 
@@ -38,6 +40,7 @@ SUPPORTED_SCHEMA_KEYWORDS = {
     "maximum",
     "minItems",
     "minimum",
+    "oneOf",
     "pattern",
     "properties",
     "propertyNames",
@@ -45,6 +48,7 @@ SUPPORTED_SCHEMA_KEYWORDS = {
     "title",
     "type",
     "uniqueItems",
+    SEMANTIC_MANIFEST_KEYWORD,
     SCORE_SEMANTIC_KEYWORD,
 }
 
@@ -76,8 +80,19 @@ def validate_schema_definition(
     path="$",
     definition_kind="JSON",
 ):
-    _assert_supported_schema(bundle)
-    _assert_score_semantic_marker(bundle)
+    declared_semantics = _semantic_manifest(bundle)
+    observed_semantics = set()
+    _assert_supported_schema(
+        bundle,
+        declared_semantics=declared_semantics,
+        observed_semantics=observed_semantics,
+    )
+    missing_semantics = declared_semantics - observed_semantics
+    if missing_semantics:
+        raise JsonSchemaValidationError(
+            "Required JSON schema semantic marker is missing: %s"
+            % sorted(missing_semantics)[0]
+        )
     definitions = bundle.get("definitions", {})
     try:
         schema = definitions[definition_name]
@@ -91,36 +106,65 @@ def validate_schema_definition(
     return value
 
 
-def _assert_supported_schema(schema, schema_path=""):
+def _assert_supported_schema(
+    schema,
+    schema_path="",
+    declared_semantics=None,
+    observed_semantics=None,
+):
+    declared_semantics = set() if declared_semantics is None else declared_semantics
+    observed_semantics = set() if observed_semantics is None else observed_semantics
     for keyword in schema:
         if keyword not in SUPPORTED_SCHEMA_KEYWORDS:
             path = ".".join(part for part in (schema_path, keyword) if part)
             raise UnsupportedJsonSchemaKeywordError(
                 "Unsupported JSON Schema keyword at %s" % path,
             )
-        if (
-            keyword == SCORE_SEMANTIC_KEYWORD
-            and schema[keyword] != SCORE_SEMANTIC_VERSION
-        ):
+        if keyword == SEMANTIC_MANIFEST_KEYWORD and schema_path:
             raise UnsupportedJsonSchemaKeywordError(
-                "Unsupported Score semantic at %s" % schema_path,
+                "JSON schema semantic manifest must be declared at the bundle root"
             )
+        if keyword == SCORE_SEMANTIC_KEYWORD:
+            if not schema_path:
+                raise UnsupportedJsonSchemaKeywordError(
+                    "JSON schema semantic markers must be declared on an applicable child schema"
+                )
+            semantic = schema[keyword]
+            if not isinstance(semantic, str) or semantic not in SUPPORTED_SEMANTICS:
+                raise UnsupportedJsonSchemaKeywordError(
+                    "Unsupported JSON schema semantic at %s" % schema_path,
+                )
+            if semantic not in declared_semantics:
+                raise UnsupportedJsonSchemaKeywordError(
+                    "Undeclared JSON schema semantic at %s" % schema_path,
+                )
+            observed_semantics.add(semantic)
 
     for collection_keyword in ("definitions", "properties"):
         for name, child_schema in schema.get(collection_keyword, {}).items():
             child_path = ".".join(
                 part for part in (schema_path, collection_keyword, name) if part
             )
-            _assert_supported_schema(child_schema, child_path)
+            _assert_supported_schema(
+                child_schema,
+                child_path,
+                declared_semantics,
+                observed_semantics,
+            )
 
-    for collection_keyword in ("allOf", "anyOf"):
+    for collection_keyword in ("allOf", "anyOf", "oneOf"):
         for index, child_schema in enumerate(schema.get(collection_keyword, [])):
             child_path = "%s%s[%d]" % (
                 schema_path + "." if schema_path else "",
                 collection_keyword,
                 index,
             )
-            _assert_supported_schema(child_schema, child_path)
+            _assert_supported_schema(
+                child_schema,
+                child_path,
+                declared_semantics,
+                observed_semantics,
+            )
 
     for child_keyword in ("items", "propertyNames"):
         child_schema = schema.get(child_keyword)
@@ -128,14 +172,24 @@ def _assert_supported_schema(schema, schema_path=""):
             child_path = ".".join(
                 part for part in (schema_path, child_keyword) if part
             )
-            _assert_supported_schema(child_schema, child_path)
+            _assert_supported_schema(
+                child_schema,
+                child_path,
+                declared_semantics,
+                observed_semantics,
+            )
 
     additional = schema.get("additionalProperties")
     if isinstance(additional, dict):
         child_path = ".".join(
             part for part in (schema_path, "additionalProperties") if part
         )
-        _assert_supported_schema(additional, child_path)
+        _assert_supported_schema(
+            additional,
+            child_path,
+            declared_semantics,
+            observed_semantics,
+        )
 
 
 def _validate(value, schema, root_schema, path):
@@ -165,6 +219,18 @@ def _validate(value, schema, root_schema, path):
             if discriminant_error is not None:
                 raise discriminant_error
             raise max(errors, key=lambda item: item[0])[1]
+    if "oneOf" in schema:
+        matches = 0
+        for child_schema in schema["oneOf"]:
+            try:
+                _validate(value, child_schema, root_schema, path)
+                matches += 1
+            except JsonSchemaValidationError:
+                continue
+        if matches != 1:
+            raise JsonSchemaValidationError(
+                "%s must match exactly one allowed schema" % path
+            )
 
     expected_type = schema.get("type")
     if expected_type is not None and not _matches_type(value, expected_type):
@@ -251,7 +317,14 @@ def _validate(value, schema, root_schema, path):
     if isinstance(value, str) and "format" in schema:
         _validate_format(value, schema["format"], path)
     if SCORE_SEMANTIC_KEYWORD in schema:
+        _validate_semantic(schema[SCORE_SEMANTIC_KEYWORD], value, path)
+
+
+def _validate_semantic(semantic, value, path):
+    if semantic == SCORE_SEMANTIC_VERSION:
         _validate_score_contract(value, path)
+        return
+    raise JsonSchemaValidationError("Unsupported JSON schema semantic: %s" % semantic)
 
 
 def _validate_score_contract(value, path):
@@ -269,17 +342,27 @@ def _validate_score_contract(value, path):
         raise JsonSchemaValidationError("%s.raw must be within min and max" % path)
 
 
-def _assert_score_semantic_marker(bundle):
-    score_schema = bundle.get("definitions", {}).get("Score")
-    if score_schema is None:
-        return
-    if (
-        not isinstance(score_schema, dict)
-        or score_schema.get(SCORE_SEMANTIC_KEYWORD) != SCORE_SEMANTIC_VERSION
-    ):
+def _semantic_manifest(bundle):
+    if SEMANTIC_MANIFEST_KEYWORD not in bundle:
+        return set()
+    manifest = bundle[SEMANTIC_MANIFEST_KEYWORD]
+    if not isinstance(manifest, list) or not manifest:
         raise JsonSchemaValidationError(
-            "JSON schema Score semantic marker is missing or unsupported"
+            "JSON schema semantic manifest must be a non-empty array"
         )
+
+    declared = set()
+    for semantic in manifest:
+        if (
+            not isinstance(semantic, str)
+            or semantic not in SUPPORTED_SEMANTICS
+            or semantic in declared
+        ):
+            raise JsonSchemaValidationError(
+                "JSON schema semantic manifest is malformed or unsupported"
+            )
+        declared.add(semantic)
+    return declared
 
 
 def _resolve_ref(root_schema, reference):
@@ -325,6 +408,14 @@ def _schema_match_score(value, schema, root_schema):
             (
                 _schema_match_score(value, child_schema, root_schema)
                 for child_schema in schema["anyOf"]
+            ),
+            default=0,
+        )
+    if "oneOf" in schema:
+        score += max(
+            (
+                _schema_match_score(value, child_schema, root_schema)
+                for child_schema in schema["oneOf"]
             ),
             default=0,
         )

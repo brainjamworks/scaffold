@@ -112,6 +112,18 @@ def load_validation_module(module_name):
     return importlib.import_module("scaffold_xblock.validation.%s" % module_name)
 
 
+def replace_refs(value, old, new):
+    if isinstance(value, dict):
+        for key, child in value.items():
+            if key == "$ref" and isinstance(child, str):
+                value[key] = child.replace(old, new)
+            else:
+                replace_refs(child, old, new)
+    elif isinstance(value, list):
+        for child in value:
+            replace_refs(child, old, new)
+
+
 class AssessmentContractResourceTest(unittest.TestCase):
     def test_validation_package_exports_contract_evaluator(self):
         validation = importlib.import_module("scaffold_xblock.validation")
@@ -143,6 +155,7 @@ class AssessmentContractResourceTest(unittest.TestCase):
             schema["$id"],
             "https://scaffold.ac/schemas/assessment.schema.json",
         )
+        self.assertEqual(schema["x-scaffold-semantics"], ["score-v1"])
         self.assertEqual(
             json_schema.validate_assessment_definition(
                 "AssessmentGroupContract",
@@ -318,24 +331,147 @@ class AssessmentContractSemanticTest(unittest.TestCase):
                 with self.assertRaises(json_schema.JsonSchemaValidationError):
                     json_schema.validate_assessment_definition("Score", score)
 
-    def test_score_semantic_marker_is_mandatory_and_versioned(self):
+    def test_score_semantics_are_name_independent(self):
         json_schema = load_validation_module("json_schema")
+        schema = deepcopy(json_schema.load_assessment_schema())
+        schema["x-scaffold-semantics"] = ["score-v1"]
+        schema["definitions"]["CanonicalScore"] = schema["definitions"].pop(
+            "Score"
+        )
+        replace_refs(
+            schema,
+            "#/definitions/Score",
+            "#/definitions/CanonicalScore",
+        )
 
-        for marker in (None, "unknown"):
-            schema = deepcopy(json_schema.load_assessment_schema())
-            score_schema = schema["definitions"]["Score"]
-            if marker is None:
-                score_schema.pop("x-scaffold-semantic", None)
-            else:
-                score_schema["x-scaffold-semantic"] = marker
+        valid = {"scaled": 0.5, "raw": 1, "min": 0, "max": 2}
+        invalid = {"scaled": 0.5, "raw": 1, "min": 1, "max": 1}
+        self.assertIs(
+            json_schema.validate_schema_definition(schema, "CanonicalScore", valid),
+            valid,
+        )
+        with self.assertRaises(json_schema.JsonSchemaValidationError):
+            json_schema.validate_schema_definition(schema, "CanonicalScore", invalid)
+        result = {
+            "isCorrect": True,
+            "score": invalid,
+            "feedback": None,
+            "items": {},
+        }
+        with self.assertRaises(json_schema.JsonSchemaValidationError):
+            json_schema.validate_schema_definition(schema, "AssessmentResult", result)
 
-            with self.subTest(marker=marker):
-                with patch.object(json_schema, "load_assessment_schema", return_value=schema):
-                    with self.assertRaises(json_schema.JsonSchemaValidationError):
-                        json_schema.validate_assessment_definition(
-                            "Score",
-                            {"scaled": 0.5},
-                        )
+        unmarked = deepcopy(schema)
+        unmarked["definitions"]["CanonicalScore"].pop("x-scaffold-semantic")
+        with self.assertRaises(json_schema.JsonSchemaValidationError):
+            json_schema.validate_schema_definition(
+                unmarked,
+                "CanonicalScore",
+                valid,
+            )
+
+        generic = {
+            "definitions": {
+                "Score": {"type": "string"},
+                "Other": {"type": "integer"},
+            }
+        }
+        self.assertEqual(
+            json_schema.validate_schema_definition(generic, "Score", "ordinary"),
+            "ordinary",
+        )
+        self.assertEqual(
+            json_schema.validate_schema_definition(generic, "Other", 1),
+            1,
+        )
+
+    def test_rejects_invalid_semantic_protocols(self):
+        json_schema = load_validation_module("json_schema")
+        invalid_schemas = [
+            {
+                "definitions": {
+                    "Probe": {
+                        "type": "object",
+                        "x-scaffold-semantic": "score-v1",
+                    }
+                }
+            },
+            {"x-scaffold-semantics": None, "definitions": {"Probe": {"type": "object"}}},
+            {"x-scaffold-semantics": "score-v1", "definitions": {"Probe": {"type": "object"}}},
+            {"x-scaffold-semantics": [], "definitions": {"Probe": {"type": "object"}}},
+            {
+                "x-scaffold-semantics": ["score-v1", "score-v1"],
+                "definitions": {"Probe": {"type": "object"}},
+            },
+            {"x-scaffold-semantics": ["score-v2"], "definitions": {"Probe": {"type": "object"}}},
+            {"x-scaffold-semantics": ["score-v1"], "definitions": {"Probe": {"type": "object"}}},
+            {
+                "x-scaffold-semantics": ["score-v1"],
+                "definitions": {"Probe": {"type": "object", "x-scaffold-semantic": 1}},
+            },
+            {
+                "x-scaffold-semantics": ["score-v1"],
+                "definitions": {
+                    "Probe": {"type": "object", "x-scaffold-semantic": "score-v2"}
+                },
+            },
+            {
+                "x-scaffold-semantics": ["score-v1"],
+                "x-scaffold-semantic": "score-v1",
+                "definitions": {"Probe": {"type": "object"}},
+            },
+        ]
+
+        for schema in invalid_schemas:
+            with self.subTest(schema=schema):
+                with self.assertRaises(json_schema.JsonSchemaValidationError):
+                    json_schema.validate_schema_definition(
+                        schema,
+                        "Probe",
+                        {},
+                    )
+
+    def test_score_semantics_execute_in_branches_and_through_refs(self):
+        json_schema = load_validation_module("json_schema")
+        schema = {
+            "x-scaffold-semantics": ["score-v1"],
+            "definitions": {
+                "Shape": {"type": "object"},
+                "AdjacentRef": {
+                    "$ref": "#/definitions/Shape",
+                    "x-scaffold-semantic": "score-v1",
+                },
+                "BehindRef": {"$ref": "#/definitions/AdjacentRef"},
+                "Branch": {
+                    "oneOf": [
+                        {"type": "null"},
+                        {
+                            "$ref": "#/definitions/Shape",
+                            "x-scaffold-semantic": "score-v1",
+                        },
+                    ]
+                },
+            },
+        }
+        valid = {"scaled": 0.5, "raw": 1, "min": 0, "max": 2}
+        invalid = {"scaled": 0.5, "raw": 1, "min": 1, "max": 1}
+
+        for definition_name in ("AdjacentRef", "BehindRef", "Branch"):
+            with self.subTest(definition=definition_name):
+                self.assertIs(
+                    json_schema.validate_schema_definition(
+                        schema,
+                        definition_name,
+                        valid,
+                    ),
+                    valid,
+                )
+                with self.assertRaises(json_schema.JsonSchemaValidationError):
+                    json_schema.validate_schema_definition(
+                        schema,
+                        definition_name,
+                        invalid,
+                    )
 
     def test_score_boundary_accepts_only_the_canonical_shapes(self):
         json_schema = load_validation_module("json_schema")

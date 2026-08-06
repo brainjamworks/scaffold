@@ -20,6 +20,17 @@
       "normalized": { "scaled": 0.5, "raw": 1, "min": 0, "max": 2 }
     },
     {
+      "name": "decoded safe integer after decimal precision collapse",
+      "json": "{\"scaled\":1,\"raw\":9007199254740991.1,\"min\":0,\"max\":9007199254740991.1}",
+      "valid": true,
+      "normalized": {
+        "scaled": 1,
+        "raw": 9007199254740991,
+        "min": 0,
+        "max": 9007199254740991
+      }
+    },
+    {
       "name": "safe integer upper boundary",
       "json": "{\"scaled\":1,\"raw\":9007199254740991,\"min\":0,\"max\":9007199254740991}",
       "valid": true,

@@ -24,6 +24,7 @@ import {
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const generatedPath = resolve(packageRoot, "generated/assessment.schema.json");
 const packagedPath = resolve(packageRoot, "dist/schemas/assessment.schema.json");
+const semanticManifestKeyword = "x-scaffold-semantics";
 const scoreSemanticKeyword = "x-scaffold-semantic";
 const scoreSemanticVersion = "score-v1";
 
@@ -119,8 +120,9 @@ function generateSchema() {
     $id: "https://scaffold.ac/schemas/assessment.schema.json",
     title: "Scaffold assessment contracts",
     $comment:
-      "This bundle is generated from the strict version 2 Zod assessment contracts. Full canonical Score validation requires the x-scaffold-semantic score-v1 extension; standalone Draft-07 validation enforces structure and safe-integer bounds but cannot compare raw, min, and max.",
+      "This bundle is generated from the strict version 2 Zod assessment contracts. Full canonical Score validation requires the declared x-scaffold-semantic score-v1 extension; standalone Draft-07 validation enforces structure and safe-integer bounds but cannot compare raw, min, and max. Numeric validation begins after host JSON decoding and uses the decoded value, not its original lexical spelling.",
     definitions: converted.definitions,
+    [semanticManifestKeyword]: [scoreSemanticVersion],
   });
 }
 

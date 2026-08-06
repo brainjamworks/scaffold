@@ -96,6 +96,74 @@ final class assessment_contract_test extends \advanced_testcase {
         }
     }
 
+    public function test_score_semantics_are_name_independent(): void {
+        $schema = $this->decode(
+            file_get_contents(dirname(__DIR__) . '/schemas/assessment.schema.json'),
+        );
+        $schema->{'x-scaffold-semantics'} = ['score-v1'];
+        $schema->definitions->CanonicalScore = $schema->definitions->Score;
+        unset($schema->definitions->Score);
+        $this->replace_refs($schema, '#/definitions/Score', '#/definitions/CanonicalScore');
+
+        $validator = $this->schema_validator($schema);
+        $validator->validate_definition(
+            'CanonicalScore',
+            (object) ['scaled' => 0.5, 'raw' => 1, 'min' => 0, 'max' => 2],
+        );
+        $this->assert_contract_rejected(
+            'CanonicalScore',
+            (object) ['scaled' => 0.5, 'raw' => 1, 'min' => 1, 'max' => 1],
+            $validator,
+        );
+        $result = $this->decode(
+            '{"isCorrect":true,"score":{"scaled":0.5,"raw":1,"min":1,"max":1},"feedback":null,"items":{}}',
+        );
+        $this->assert_contract_rejected('AssessmentResult', $result, $validator);
+
+        $unmarked = $this->copy($schema);
+        unset($unmarked->definitions->CanonicalScore->{'x-scaffold-semantic'});
+        $this->assert_schema_rejected($unmarked);
+
+        $generic = $this->decode(
+            '{"definitions":{"Score":{"type":"string"},"Other":{"type":"integer"}}}',
+        );
+        $genericvalidator = $this->schema_validator($generic);
+        $genericvalidator->validate_definition('Score', 'ordinary');
+        $genericvalidator->validate_definition('Other', 1);
+        $this->addToAssertionCount(3);
+    }
+
+    public function test_score_semantics_execute_in_branches_and_through_refs(): void {
+        $schema = $this->decode(<<<'JSON'
+{
+  "x-scaffold-semantics": ["score-v1"],
+  "definitions": {
+    "Shape": {"type": "object"},
+    "AdjacentRef": {
+      "$ref": "#/definitions/Shape",
+      "x-scaffold-semantic": "score-v1"
+    },
+    "BehindRef": {"$ref": "#/definitions/AdjacentRef"},
+    "Branch": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/definitions/Shape", "x-scaffold-semantic": "score-v1"}
+      ]
+    }
+  }
+}
+JSON);
+        $validator = $this->schema_validator($schema);
+        $valid = (object) ['scaled' => 0.5, 'raw' => 1, 'min' => 0, 'max' => 2];
+        $invalid = (object) ['scaled' => 0.5, 'raw' => 1, 'min' => 1, 'max' => 1];
+
+        foreach (['AdjacentRef', 'BehindRef', 'Branch'] as $definition) {
+            $validator->validate_definition($definition, $valid);
+            $this->assert_contract_rejected($definition, $invalid, $validator);
+        }
+        $this->addToAssertionCount(3);
+    }
+
     public function test_target_contract_accepts_canonical_target(): void {
         (new json_schema_validator())->validate_definition(
             'AssessmentTargetContract',
@@ -322,10 +390,30 @@ JSON);
      */
     public static function invalid_schema_resource_provider(): array {
         return [
-            'unsupported keyword' => ['{"definitions":{"Invalid":{"oneOf":[]}}}'],
-            'missing Score semantic marker' => ['{"definitions":{"Score":{"type":"object"}}}'],
-            'unsupported Score semantic marker' => [
-                '{"definitions":{"Score":{"type":"object","x-scaffold-semantic":"unknown"}}}',
+            'unsupported keyword' => ['{"definitions":{"Invalid":{"minLength":1}}}'],
+            'missing manifest' => [
+                '{"definitions":{"Canonical":{"type":"object","x-scaffold-semantic":"score-v1"}}}',
+            ],
+            'null manifest' => ['{"x-scaffold-semantics":null,"definitions":{}}'],
+            'malformed manifest' => ['{"x-scaffold-semantics":"score-v1","definitions":{}}'],
+            'empty manifest' => ['{"x-scaffold-semantics":[],"definitions":{}}'],
+            'duplicate manifest entry' => [
+                '{"x-scaffold-semantics":["score-v1","score-v1"],"definitions":{}}',
+            ],
+            'unknown manifest entry' => [
+                '{"x-scaffold-semantics":["score-v2"],"definitions":{}}',
+            ],
+            'missing required marker' => [
+                '{"x-scaffold-semantics":["score-v1"],"definitions":{"Canonical":{"type":"object"}}}',
+            ],
+            'malformed marker' => [
+                '{"x-scaffold-semantics":["score-v1"],"definitions":{"Canonical":{"type":"object","x-scaffold-semantic":1}}}',
+            ],
+            'unknown marker' => [
+                '{"x-scaffold-semantics":["score-v1"],"definitions":{"Canonical":{"type":"object","x-scaffold-semantic":"score-v2"}}}',
+            ],
+            'marker on bundle root' => [
+                '{"x-scaffold-semantics":["score-v1"],"x-scaffold-semantic":"score-v1","definitions":{"Probe":{"type":"object"}}}',
             ],
             'invalid JSON' => ['{'],
         ];
@@ -423,6 +511,41 @@ JSON);
             $this->fail('Assessment contract unexpectedly accepted invalid input');
         } catch (\invalid_parameter_exception) {
             $this->addToAssertionCount(1);
+        }
+    }
+
+    private function assert_schema_rejected(
+        \stdClass $schema,
+    ): void {
+        try {
+            $this->schema_validator($schema);
+            $this->fail('Semantic schema protocol unexpectedly accepted an invalid bundle');
+        } catch (\invalid_parameter_exception) {
+            $this->addToAssertionCount(1);
+        }
+    }
+
+    private function schema_validator(\stdClass $schema): json_schema_validator {
+        $path = make_request_directory() . '/semantic-assessment.schema.json';
+        file_put_contents($path, json_encode($schema, JSON_THROW_ON_ERROR));
+        return new json_schema_validator($path);
+    }
+
+    private function replace_refs(mixed $value, string $from, string $to): void {
+        if ($value instanceof \stdClass) {
+            foreach (get_object_vars($value) as $key => $child) {
+                if ($key === '$ref' && is_string($child)) {
+                    $value->{$key} = str_replace($from, $to, $child);
+                    continue;
+                }
+                $this->replace_refs($child, $from, $to);
+            }
+            return;
+        }
+        if (is_array($value)) {
+            foreach ($value as $child) {
+                $this->replace_refs($child, $from, $to);
+            }
         }
     }
 
