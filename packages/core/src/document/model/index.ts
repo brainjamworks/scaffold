@@ -17,6 +17,7 @@ export {
   runCourseDocumentMigrationSteps,
   validateCourseDocumentJSON,
   validateCourseDocumentMigrationPlan,
+  validateEmbeddedNodeIdentities,
   type AppliedCourseDocumentMigration,
   type CourseDocumentIssue,
   type CourseDocumentIssueCode,
@@ -25,6 +26,9 @@ export {
   type CourseDocumentMigrationStep,
   type CourseDocumentMigrationStepResult,
   type CourseDocumentValidationResult,
+  type EmbeddedNodeIdentityIssue,
+  type EmbeddedNodeIdentityIssueCode,
+  type EmbeddedNodeIdentityValidationResult,
 } from "./validation";
 export {
   getSurfaceViewSettings,
