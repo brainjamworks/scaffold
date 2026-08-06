@@ -43,6 +43,7 @@ import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
 import { DefaultLayoutContent } from "@/editor/arrangements/layout/authoring/default-layout-content";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
+import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 
 const coreCapabilities = Object.freeze({
@@ -195,7 +196,7 @@ describe("layout contract assertions", () => {
             },
           ],
         });
-        render(createElement(EditorContent, { editor }));
+        render(createAuthoringMovementTestRoot(editor, createElement(EditorContent, { editor })));
 
         await waitFor(() => {
           const layoutSurface = document.body.querySelector<HTMLElement>(

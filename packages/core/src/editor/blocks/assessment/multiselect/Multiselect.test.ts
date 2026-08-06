@@ -11,7 +11,10 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { createAssessmentRuntimeTestRoot } from "@/runtime/assessment/test-utils";
 
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
+import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { AUTHORING_FRAME_ATTR } from "@/editor/interactions/dom/authoring-frame";
+import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
+import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import { AssessmentActionsGroupNode } from "@/editor/blocks/assessment/shared/nodes/assessment-actions-group";
 import { AssessmentActionsGroupRuntimeNode } from "@/editor/blocks/assessment/shared/nodes/assessment-actions-group-runtime";
 import { AssessmentChoicesGroupNode } from "@/editor/blocks/assessment/shared/nodes/assessment-choices-group";
@@ -70,6 +73,7 @@ function makeEditor() {
       SelectableChoiceBodyNode,
       SelectableChoiceAuthoringNode,
       MultiselectAuthoringExtension,
+      createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
     ],
   });
 }
@@ -161,7 +165,7 @@ function selectFirstNode(editor: Editor) {
 function renderAssessmentEditor(editor: Editor) {
   return render(
     createAssessmentRuntimeTestRoot({
-      children: createElement(EditorContent, { editor }),
+      children: createAuthoringMovementTestRoot(editor, createElement(EditorContent, { editor })),
     }),
   );
 }

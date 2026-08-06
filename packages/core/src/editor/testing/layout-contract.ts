@@ -25,6 +25,7 @@ import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
 import type { BlockRegistry } from "@/editor/blocks/block-registry";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
+import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
@@ -76,7 +77,7 @@ export function describeLayoutContract(input: DescribeLayoutContractInput): void
             },
           ],
         });
-        render(createElement(EditorContent, { editor }));
+        render(createAuthoringMovementTestRoot(editor, createElement(EditorContent, { editor })));
 
         await waitFor(() => {
           const root = document.body.querySelector(

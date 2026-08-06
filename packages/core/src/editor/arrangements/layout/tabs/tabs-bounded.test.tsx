@@ -31,6 +31,7 @@ import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-
 import { InteractionTargetKind } from "@/editor/interactions/targets/model/interaction-owner-state";
 import { createInteractionOwnerCommandPorts } from "@/editor/interactions/targets/prosemirror/facade/interaction-facade-command-ports";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
+import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import { resolveStructuralChromeTargetDescriptor } from "@/editor/interactions/targets/prosemirror/projection/structural-chrome-target-projection";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
@@ -79,11 +80,15 @@ afterAll(() => {
   restoreProperty(Range.prototype, "getBoundingClientRect", rangeBoundingRectDescriptor);
 });
 
+function renderEditorContent(editor: Editor) {
+  return render(createAuthoringMovementTestRoot(editor, createElement(EditorContent, { editor })));
+}
+
 describe("bounded tabs authoring", () => {
   it("hands the finite region from the generic frame to the inner tabs surface", async () => {
     const user = userEvent.setup();
     const editor = makeEditor({ editable: true, placement: "region" });
-    render(createElement(EditorContent, { editor }));
+    renderEditorContent(editor);
 
     await waitFor(() => {
       expect(screen.getByRole("tablist", { name: "Lesson sections" })).toBeInTheDocument();
@@ -129,7 +134,7 @@ describe("bounded tabs authoring", () => {
       layout: emptyTabsContent(),
       placement: "region",
     });
-    render(createElement(EditorContent, { editor }));
+    renderEditorContent(editor);
 
     await waitFor(() => {
       expect(screen.getByRole("tablist", { name: "Empty lesson sections" })).toBeInTheDocument();
@@ -167,7 +172,7 @@ describe("bounded tabs authoring", () => {
       layout: emptyTabsContent(),
       placement: "region",
     });
-    render(createElement(EditorContent, { editor }));
+    renderEditorContent(editor);
 
     await waitFor(() => {
       expect(screen.getByRole("tablist", { name: "Empty lesson sections" })).toBeInTheDocument();
@@ -215,7 +220,7 @@ describe("bounded tabs runtime", () => {
   it("keeps runtime semantics inside the tabs-owned surface without authoring controls", async () => {
     const user = userEvent.setup();
     const editor = makeEditor({ editable: false, placement: "region" });
-    render(createElement(EditorContent, { editor }));
+    renderEditorContent(editor);
 
     await waitFor(() => {
       expect(screen.getByRole("tablist", { name: "Lesson sections" })).toBeInTheDocument();
@@ -258,7 +263,7 @@ describe("bounded tabs runtime", () => {
 describe("page-flow tabs", () => {
   it("keeps finite geometry markers scoped below a region", async () => {
     const editor = makeEditor({ editable: false, placement: "surface" });
-    render(createElement(EditorContent, { editor }));
+    renderEditorContent(editor);
 
     await waitFor(() => {
       expect(screen.getByRole("tablist", { name: "Lesson sections" })).toBeInTheDocument();

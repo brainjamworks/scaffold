@@ -40,6 +40,7 @@ import {
   AUTHORING_ANCHOR_ATTR,
 } from "@/editor/interactions/dom/authoring-frame";
 import { resolveEditorMovementTarget } from "@/editor/movement/view/use-editor-movement-target";
+import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import {
   CourseSelectionMode,
   resolveCourseSelectionFacts,
@@ -209,6 +210,10 @@ function makeEditor(content?: JSONContent) {
 
 function editorFacade(editor: Editor) {
   return getInteractionFacadeStoreForEditor(editor);
+}
+
+function renderEditorContent(editor: Editor) {
+  return render(createAuthoringMovementTestRoot(editor, createElement(EditorContent, { editor })));
 }
 
 function menuOwnerForTest(editor: Editor): InteractionTargetRef | null {
@@ -562,7 +567,7 @@ describe("layout arrangement nodes", () => {
         },
       ],
     });
-    render(createElement(EditorContent, { editor }));
+    renderEditorContent(editor);
 
     await waitFor(() => {
       expect(document.body.querySelector('[data-authoring-frame="layout"]')).not.toBeNull();
@@ -615,7 +620,7 @@ describe("layout arrangement nodes", () => {
         },
       ],
     });
-    render(createElement(EditorContent, { editor }));
+    renderEditorContent(editor);
 
     await waitFor(() => {
       expect(
@@ -660,7 +665,7 @@ describe("layout arrangement nodes", () => {
         },
       ],
     });
-    render(createElement(EditorContent, { editor }));
+    renderEditorContent(editor);
 
     await waitFor(() => {
       expect(
@@ -704,7 +709,7 @@ describe("layout arrangement nodes", () => {
         },
       ],
     });
-    render(createElement(EditorContent, { editor }));
+    renderEditorContent(editor);
 
     await waitFor(() => {
       expect(
@@ -750,7 +755,7 @@ describe("layout arrangement nodes", () => {
         },
       ],
     });
-    render(createElement(EditorContent, { editor }));
+    renderEditorContent(editor);
 
     await waitFor(() => {
       expect(document.body.querySelector('[data-authoring-frame="layout"]')).not.toBeNull();
@@ -826,7 +831,7 @@ describe("layout arrangement nodes", () => {
       ],
     });
     editor.commands.setTextSelection(textPos(editor, "Outside") + 1);
-    render(createElement(EditorContent, { editor }));
+    renderEditorContent(editor);
 
     await waitFor(() => {
       expect(document.body.querySelector('[data-authoring-frame="layout"]')).not.toBeNull();
@@ -893,7 +898,7 @@ describe("layout arrangement nodes", () => {
         },
       ],
     });
-    render(createElement(EditorContent, { editor }));
+    renderEditorContent(editor);
 
     await waitFor(() => {
       expect(document.body.querySelector('[role="tab"]')).not.toBeNull();
@@ -1500,7 +1505,7 @@ describe("layout arrangement nodes", () => {
       createElement(
         "div",
         null,
-        createElement(EditorContent, { editor }),
+        createAuthoringMovementTestRoot(editor, createElement(EditorContent, { editor })),
         createElement(
           InteractionProvider,
           { store: editorFacade(editor) },
@@ -1690,7 +1695,7 @@ describe("layout arrangement nodes", () => {
         },
       ],
     });
-    render(createElement(EditorContent, { editor }));
+    renderEditorContent(editor);
 
     await waitFor(() => {
       expect(document.body.querySelector("[data-scaffold-tabs-item]")).not.toBeNull();
@@ -1757,7 +1762,7 @@ describe("layout arrangement nodes", () => {
         },
       ],
     });
-    render(createElement(EditorContent, { editor }));
+    renderEditorContent(editor);
 
     await waitFor(() => {
       expect(document.body.querySelector('[data-authoring-frame="section"]')).not.toBeNull();
@@ -1832,7 +1837,7 @@ describe("layout arrangement nodes", () => {
         },
       ],
     });
-    render(createElement(EditorContent, { editor }));
+    renderEditorContent(editor);
 
     await waitFor(() => {
       expect(document.body.querySelector('[role="tablist"]')).not.toBeNull();
@@ -1941,7 +1946,7 @@ describe("layout arrangement nodes", () => {
         },
       ],
     });
-    render(createElement(EditorContent, { editor }));
+    renderEditorContent(editor);
 
     await waitFor(() => {
       expect(document.body.querySelector('[role="tablist"]')).not.toBeNull();
@@ -2018,7 +2023,7 @@ describe("layout arrangement nodes", () => {
         },
       ],
     });
-    render(createElement(EditorContent, { editor }));
+    renderEditorContent(editor);
 
     await waitFor(() => {
       expect(document.body.querySelector('[role="tablist"]')).not.toBeNull();
@@ -2096,7 +2101,7 @@ describe("layout arrangement nodes", () => {
         },
       ],
     });
-    render(createElement(EditorContent, { editor }));
+    renderEditorContent(editor);
 
     await waitFor(() => {
       expect(document.body.querySelector('[role="tablist"]')).not.toBeNull();
@@ -2164,7 +2169,7 @@ describe("layout arrangement nodes", () => {
         },
       ],
     });
-    render(createElement(EditorContent, { editor }));
+    renderEditorContent(editor);
 
     await waitFor(() => {
       expect(document.body.querySelector('[role="tablist"]')).not.toBeNull();
@@ -2240,7 +2245,7 @@ describe("layout arrangement nodes", () => {
         },
       ],
     });
-    render(createElement(EditorContent, { editor }));
+    renderEditorContent(editor);
 
     await waitFor(() => {
       expect(document.body.querySelector('[aria-label="Pages"]')).not.toBeNull();
@@ -2335,7 +2340,7 @@ describe("layout arrangement nodes", () => {
         },
       ],
     });
-    render(createElement(EditorContent, { editor }));
+    renderEditorContent(editor);
 
     await waitFor(() => {
       expect(document.body.querySelector('[role="tablist"]')).not.toBeNull();
@@ -2421,7 +2426,7 @@ describe("layout arrangement nodes", () => {
         },
       ],
     });
-    render(createElement(EditorContent, { editor }));
+    renderEditorContent(editor);
 
     await waitFor(() => {
       expect(document.body.querySelector("[data-scaffold-accordion]")).not.toBeNull();
@@ -2527,7 +2532,7 @@ describe("layout arrangement nodes", () => {
         },
       ],
     });
-    render(createElement(EditorContent, { editor }));
+    renderEditorContent(editor);
 
     await waitFor(() => {
       expect(document.body.querySelector("[data-layout-add-ghost]")).not.toBeNull();

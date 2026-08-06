@@ -11,6 +11,8 @@ import { SCAFFOLD_LEARNER_ACTIVITY_SNAPSHOT_VERSION } from "@scaffold/contracts"
 
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
+import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import { describeBlockContract } from "@/editor/testing";
 import { createDisposableEditor } from "@/editor/testing/disposable-editor";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
@@ -106,11 +108,17 @@ function renderChecklistEditor(content: JSONContent = checklistFixture()) {
       ExtendedParagraph,
       createRuntimeBlockFrameAttributesExtension([CHECKLIST_NODE]),
       ChecklistAuthoringExtension,
+      createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
     ],
     content,
   });
 
-  render(createElement(EditorContent, { editor: fixture.editor }));
+  render(
+    createAuthoringMovementTestRoot(
+      fixture.editor,
+      createElement(EditorContent, { editor: fixture.editor }),
+    ),
+  );
 
   return fixture;
 }

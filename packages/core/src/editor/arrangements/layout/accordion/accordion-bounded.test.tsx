@@ -27,6 +27,7 @@ import {
 import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { InteractionTargetKind } from "@/editor/interactions/targets/model/interaction-owner-state";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
+import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import { resolveStructuralChromeTargetDescriptor } from "@/editor/interactions/targets/prosemirror/projection/structural-chrome-target-projection";
 import { createAlignmentTargetPort } from "@/editor/interactions/alignment/alignment-target";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
@@ -52,11 +53,15 @@ afterEach(() => {
   for (const editor of editors.splice(0)) editor.destroy();
 });
 
+function renderEditorContent(editor: Editor) {
+  return render(createAuthoringMovementTestRoot(editor, createElement(EditorContent, { editor })));
+}
+
 describe("bounded accordion authoring", () => {
   it("keeps the add affordance visible while open panels remain independent lanes", async () => {
     const user = userEvent.setup();
     const editor = makeEditor({ editable: true, placement: "region" });
-    render(createElement(EditorContent, { editor }));
+    renderEditorContent(editor);
 
     await waitFor(() => {
       expect(screen.getByRole("group", { name: "Topics" })).toBeInTheDocument();
@@ -120,7 +125,7 @@ describe("bounded accordion runtime", () => {
   it("renders terminal panel lanes without authoring controls", async () => {
     const user = userEvent.setup();
     const editor = makeEditor({ editable: false, placement: "region" });
-    render(createElement(EditorContent, { editor }));
+    renderEditorContent(editor);
 
     await waitFor(() => {
       expect(screen.getByRole("group", { name: "Topics" })).toBeInTheDocument();
@@ -169,7 +174,7 @@ describe("page-flow accordion", () => {
   it("preserves natural disclosure behavior outside a finite region", async () => {
     const user = userEvent.setup();
     const editor = makeEditor({ editable: false, placement: "surface" });
-    render(createElement(EditorContent, { editor }));
+    renderEditorContent(editor);
 
     await waitFor(() => {
       expect(screen.getByRole("group", { name: "Topics" })).toBeInTheDocument();

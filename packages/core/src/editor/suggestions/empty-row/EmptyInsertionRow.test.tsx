@@ -20,6 +20,7 @@ import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-
 import { InteractionTargetKind } from "@/editor/interactions/targets/model/interaction-owner-state";
 import { createInteractionOwnerCommandPorts } from "@/editor/interactions/targets/prosemirror/facade/interaction-facade-command-ports";
 import { interactionOwnerPluginKey } from "@/editor/interactions/targets/prosemirror/state/interaction-owner-plugin-state";
+import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import { isSlashCommandActive } from "@/editor/suggestions/slash/SlashCommand";
 
 import {
@@ -51,6 +52,10 @@ function makeEditor(content = createScaffoldDocumentContent({ mode: "page" }), a
 
 function makeEditorWithRegisteredBlocks(content = createScaffoldDocumentContent({ mode: "page" })) {
   return makeEditor(content);
+}
+
+function renderEditorContent(editor: Editor) {
+  return render(createAuthoringMovementTestRoot(editor, <EditorContent editor={editor} />));
 }
 
 function makeApplicationEditor(
@@ -709,7 +714,7 @@ describe("EmptyInsertionRow", () => {
       },
       false,
     );
-    render(<EditorContent editor={editor} />);
+    renderEditorContent(editor);
 
     expect(
       createInteractionOwnerCommandPorts(editor.view, builtInBlockRegistry).openMenu({
@@ -817,7 +822,7 @@ describe("EmptyInsertionRow", () => {
       },
       false,
     );
-    render(<EditorContent editor={editor} />);
+    renderEditorContent(editor);
 
     const surfaceElement = await waitFor(() => nodeElement(editor, nodePos(editor, "surface")));
     const layoutElement = nodeElement(editor, nodePos(editor, "layout"));
@@ -877,7 +882,7 @@ describe("EmptyInsertionRow", () => {
       },
       false,
     );
-    render(<EditorContent editor={editor} />);
+    renderEditorContent(editor);
 
     const surfaceElement = await waitFor(() => nodeElement(editor, nodePos(editor, "surface")));
     const layoutElement = nodeElement(editor, nodePos(editor, "layout"));
@@ -899,7 +904,7 @@ describe("EmptyInsertionRow", () => {
 
   it("does not create a direct section paragraph after a nested insertion host", async () => {
     const editor = makeEditor(accordionJSON(), false);
-    render(<EditorContent editor={editor} />);
+    renderEditorContent(editor);
 
     const sectionElement = await waitFor(() => nodeElement(editor, nodePos(editor, "section")));
     const panelElement = nodeElement(editor, nodePos(editor, "accordion_section_panel"));
@@ -921,7 +926,7 @@ describe("EmptyInsertionRow", () => {
 
   it("does not create a second paragraph when blank surface space follows a textblock", () => {
     const editor = makeEditor(undefined, false);
-    render(<EditorContent editor={editor} />);
+    renderEditorContent(editor);
 
     const surfaceElement = nodeElement(editor, nodePos(editor, "surface"));
     const paragraphElement = nodeElement(editor, nodePos(editor, "paragraph"));
@@ -981,7 +986,7 @@ describe("EmptyInsertionRow", () => {
       },
       false,
     );
-    render(<EditorContent editor={editor} />);
+    renderEditorContent(editor);
 
     const cellElement = await waitFor(() => nodeElement(editor, nodePos(editor, "cell")));
     const layoutElement = nodeElement(editor, nodePos(editor, "layout"));
@@ -1048,7 +1053,7 @@ describe("EmptyInsertionRow", () => {
       },
       false,
     );
-    render(<EditorContent editor={editor} />);
+    renderEditorContent(editor);
 
     const cellElement = await waitFor(() => nodeElement(editor, nodePos(editor, "cell")));
     const layoutElement = nodeElement(editor, nodePos(editor, "layout"));
@@ -1127,7 +1132,7 @@ describe("EmptyInsertionRow", () => {
       },
       false,
     );
-    render(<EditorContent editor={editor} />);
+    renderEditorContent(editor);
 
     const cellElement = await waitFor(() => nodeElement(editor, nodePos(editor, "cell")));
     const layoutElement = nodeElement(editor, nodePos(editor, "layout"));

@@ -13,6 +13,7 @@ import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/t
 import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";
 import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import { describeBlockContract } from "@/editor/testing";
 import { createDisposableEditor } from "@/editor/testing/disposable-editor";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
@@ -143,7 +144,12 @@ function renderTimelineEditor(
     content,
   });
 
-  render(createElement(EditorContent, { editor: fixture.editor }));
+  render(
+    createAuthoringMovementTestRoot(
+      fixture.editor,
+      createElement(EditorContent, { editor: fixture.editor }),
+    ),
+  );
 
   return fixture;
 }
