@@ -21,17 +21,15 @@ describe("observeInteractionGeometry", () => {
     restoreResizeObserver = resize.restore;
     const endpoint = document.createElement("div");
     document.body.append(endpoint);
-    let environmentListener: ((reason: CoordinateInvalidationReason) => void) | null = null;
+    const environmentListeners = new Set<(reason: CoordinateInvalidationReason) => void>();
     let reads = 0;
 
     const stop = observeInteractionGeometry({
       coordinateSpace: {
-        kind: "viewport",
-        measure: () => null,
         subscribe: (listener) => {
-          environmentListener = listener;
+          environmentListeners.add(listener);
           return () => {
-            environmentListener = null;
+            environmentListeners.delete(listener);
           };
         },
       },
@@ -50,14 +48,14 @@ describe("observeInteractionGeometry", () => {
 
     resize.notify();
     document.dispatchEvent(new Event("scroll"));
-    environmentListener?.("transform");
+    for (const listener of environmentListeners) listener("transform");
     expect(scheduler.pending()).toBe(1);
     scheduler.flush();
     expect(reads).toBe(2);
 
     stop();
     expect(resize.disconnected()).toBe(true);
-    expect(environmentListener).toBeNull();
+    expect(environmentListeners.size).toBe(0);
   });
 
   it("remeasures root replacement and disconnection without retaining a stale revision", async () => {

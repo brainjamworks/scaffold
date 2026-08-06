@@ -40,7 +40,7 @@ export function ContainedMovementHandle({
   const drag = useInteractionDragSource<AuthoringMovementDragData>({
     data: {
       containedMovement: true,
-      getSourcePos,
+      ...(getSourcePos ? { getSourcePos } : {}),
       label,
       previewKind: "contained",
       sourcePos,

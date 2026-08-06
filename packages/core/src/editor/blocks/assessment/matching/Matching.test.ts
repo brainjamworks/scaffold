@@ -149,26 +149,28 @@ function authoringMovementFixture(editor: Editor, children: ReturnType<typeof cr
     getRoot: () => coordinateRoot,
     ownerDocument: coordinateRoot.ownerDocument,
   });
+  const movementLayer = createElement(
+    EditorMovementLayer,
+    {
+      blockDefinitions: builtInBlockRegistry,
+      editor,
+      surfaceVariants: builtInSurfaceVariantRegistry,
+    },
+    children,
+  );
+  const dragEnvironment = createElement(InteractionDragEnvironmentProvider, {
+    children: movementLayer,
+    coordinateRoot,
+    coordinateSpace,
+  });
+  const overlayBoundary = createElement(AuthoringOverlayBoundary, {
+    children: dragEnvironment,
+    ownerRoot: coordinateRoot,
+  });
   return createElement(
     InteractionProvider,
     { store: getInteractionFacadeStoreForEditor(editor) },
-    createElement(
-      AuthoringOverlayBoundary,
-      { ownerRoot: coordinateRoot },
-      createElement(
-        InteractionDragEnvironmentProvider,
-        { coordinateRoot, coordinateSpace },
-        createElement(
-          EditorMovementLayer,
-          {
-            blockDefinitions: builtInBlockRegistry,
-            editor,
-            surfaceVariants: builtInSurfaceVariantRegistry,
-          },
-          children,
-        ),
-      ),
-    ),
+    overlayBoundary,
   );
 }
 

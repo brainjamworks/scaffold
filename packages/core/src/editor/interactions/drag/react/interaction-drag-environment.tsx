@@ -55,6 +55,8 @@ export function InteractionDragEnvironmentProvider({
   const readyEnvironmentRef = useRef<ReadyInteractionDragEnvironment | null>(null);
 
   const resolution = useMemo<InteractionDragEnvironmentResolution>(() => {
+    // Coordinate-space invalidation is the signal to remeasure this otherwise stable resolution.
+    void coordinateRevision;
     if (!coordinateRoot || !coordinateSpace) return pendingRootResolution;
     if (overlayBoundary.status !== "ready") return pendingOverlayResolution;
 

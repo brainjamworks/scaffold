@@ -270,7 +270,6 @@ describe("Sequencing shared drag runtime", () => {
     const targets = harness.getTargets();
     const source = harness.getActivationAreas()[0]!;
     const targetRects = targets.map((target) => target.getBoundingClientRect());
-    const initialDestination = targets[1]!;
     const drag = await startPointerDrag(harness, source, centerOf(targetRects[1]!), "mouse");
     const overlayBeforeScroll = requiredOverlay(harness).getBoundingClientRect();
     const overlayHost = harness.getOverlayHost();

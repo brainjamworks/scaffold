@@ -2,7 +2,7 @@ import { Editor, Node } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { useState, type CSSProperties } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { render as renderBrowserReact, type RenderResult } from "vitest-browser-react";
+import { render as renderBrowserReact } from "vitest-browser-react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { OverlayBoundary } from "@/ui/components/OverlayBoundary/OverlayBoundary";

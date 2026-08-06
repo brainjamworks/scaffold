@@ -137,28 +137,30 @@ function renderMovementEditor(editor: Editor) {
     getRoot: () => coordinateRoot,
     ownerDocument: coordinateRoot.ownerDocument,
   });
+  const movementLayer = createElement(
+    EditorMovementLayer,
+    {
+      blockDefinitions: builtInBlockRegistry,
+      editor,
+      surfaceVariants: builtInSurfaceVariantRegistry,
+    },
+    createElement(EditorContent, { editor }),
+  );
+  const dragEnvironment = createElement(InteractionDragEnvironmentProvider, {
+    children: movementLayer,
+    coordinateRoot,
+    coordinateSpace,
+  });
+  const overlayBoundary = createElement(AuthoringOverlayBoundary, {
+    children: dragEnvironment,
+    ownerRoot: coordinateRoot,
+  });
   return render(
     createAssessmentRuntimeTestRoot({
       children: createElement(
         InteractionProvider,
         { store: getInteractionFacadeStoreForEditor(editor) },
-        createElement(
-          AuthoringOverlayBoundary,
-          { ownerRoot: coordinateRoot },
-          createElement(
-            InteractionDragEnvironmentProvider,
-            { coordinateRoot, coordinateSpace },
-            createElement(
-              EditorMovementLayer,
-              {
-                blockDefinitions: builtInBlockRegistry,
-                editor,
-                surfaceVariants: builtInSurfaceVariantRegistry,
-              },
-              createElement(EditorContent, { editor }),
-            ),
-          ),
-        ),
+        overlayBoundary,
       ),
       onStore: captureAssessmentStore,
     }),

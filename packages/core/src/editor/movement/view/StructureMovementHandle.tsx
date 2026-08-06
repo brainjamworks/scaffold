@@ -36,7 +36,7 @@ export function StructureMovementHandle({
   const drag = useInteractionDragSource<AuthoringMovementDragData>({
     data: {
       containedMovement: false,
-      getSourcePos,
+      ...(getSourcePos ? { getSourcePos } : {}),
       label,
       previewKind: "block",
       sourcePos,

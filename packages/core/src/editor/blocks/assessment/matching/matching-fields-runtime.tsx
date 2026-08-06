@@ -166,7 +166,15 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
       onMeasure: updateConnectors,
       ownerDocument: container.ownerDocument,
     });
-  }, [answerKeyVisible, connectorCoordinateSpace, feedbackSignature, matchSignature, showFeedback]);
+  }, [
+    answerKeyVisible,
+    connectorCoordinateSpace,
+    displayMatches,
+    feedbackItems,
+    feedbackSignature,
+    matchSignature,
+    showFeedback,
+  ]);
 
   const commitMatch = (itemId: string, targetId: string) => {
     if (interactionLocked) return;
