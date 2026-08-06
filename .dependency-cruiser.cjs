@@ -961,7 +961,12 @@ module.exports = {
         path: centralDragModelPath,
       },
       to: {
-        path: [centralDragDOMPath, centralDragReactPath, ...interactionFeaturePolicyPath],
+        path: [
+          centralDragDOMPath,
+          centralDragReactPath,
+          ...interactionFeaturePolicyPath,
+          ...interactionFrameworkDependencyPath,
+        ],
         reachable: true,
       },
     },

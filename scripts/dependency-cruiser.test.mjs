@@ -73,6 +73,10 @@ function cruise(fixtureRoot, outputType, inputs, extraArguments = []) {
   );
 }
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 test("resolves every supported source seam and import form without build output", async (t) => {
   const fixtureRoot = await createFixture(t, {
     "packages/contracts/src/index.ts": "export interface ContractType { id: string }\n",
@@ -558,74 +562,186 @@ test("allows the inward central drag dependency shape and movement target bridge
   assert.equal(result.status, 0, result.stderr || result.stdout);
 });
 
-test("reports central drag, dnd-kit, target, and movement state inversions", async (t) => {
-  const fixtureRoot = await createFixture(t, {
-    "node_modules/@dnd-kit/core/package.json": JSON.stringify({
-      name: "@dnd-kit/core",
-      type: "module",
-      exports: "./index.js",
-    }),
-    "node_modules/@dnd-kit/core/index.js": "export const DndContext = true;\n",
-    "packages/core/src/editor/blocks/assessment/future/feature-policy.ts":
-      "export interface FeaturePolicy { id: string }\n",
-    "packages/core/src/editor/movement/view/movement-policy.ts":
-      "export interface MovementPolicy { id: string }\n",
-    "packages/core/src/editor/interactions/drag/react/session.ts":
-      "export interface DragReactSession { id: string }\n",
-    "packages/core/src/editor/interactions/drag/react/feature-leak.ts": [
-      'import type { FeaturePolicy } from "../../../blocks/assessment/future/feature-policy";',
-      'import type { MovementPolicy } from "../../../movement/view/movement-policy";',
-      "export type DragReactFeatureLeak = FeaturePolicy | MovementPolicy;",
-    ].join("\n"),
-    "packages/core/src/editor/interactions/drag/dom/dom-owner.ts":
-      "export interface DragDOMOwner { id: string }\n",
-    "packages/core/src/editor/interactions/drag/dom/outward-leak.ts": [
-      'import type { DragReactSession } from "../react/session";',
-      'import type { FeaturePolicy } from "../../../blocks/assessment/future/feature-policy";',
-      "export type DragDOMLeak = DragReactSession | FeaturePolicy;",
-    ].join("\n"),
-    "packages/core/src/editor/interactions/drag/model/outward-leak.ts": [
-      'import type { DragDOMOwner } from "../dom/dom-owner";',
-      'import type { DragReactSession } from "../react/session";',
-      'import type { FeaturePolicy } from "../../../blocks/assessment/future/feature-policy";',
-      "export type DragModelLeak = DragDOMOwner | DragReactSession | FeaturePolicy;",
-    ].join("\n"),
-    "packages/core/src/editor/interactions/targets/model/target.ts":
-      "export interface InteractionTarget { id: string }\n",
-    "packages/core/src/editor/interactions/drag/dom/target-leak.ts": [
-      'import type { InteractionTarget } from "../../targets/model/target";',
-      "export type SharedDragTargetLeak = InteractionTarget;",
-    ].join("\n"),
-    "packages/core/src/editor/blocks/assessment/future/direct-dnd.tsx": [
-      'import { DndContext } from "@dnd-kit/core";',
-      "export const featureDndContext = DndContext;",
-    ].join("\n"),
-    "packages/core/src/editor/frame/authoring/frame-private.ts":
-      "export interface FramePrivateState { id: string }\n",
-    "packages/core/src/editor/movement/view/frame-leak.ts": [
-      'import type { FramePrivateState } from "../../frame/authoring/frame-private";',
-      "export type MovementFrameLeak = FramePrivateState;",
-    ].join("\n"),
-    "packages/core/src/editor/movement/view/movement-private.ts":
-      "export interface MovementPrivateState { id: string }\n",
-    "packages/core/src/editor/frame/authoring/movement-leak.ts": [
-      'import type { MovementPrivateState } from "../../movement/view/movement-private";',
-      "export type FrameMovementLeak = MovementPrivateState;",
-    ].join("\n"),
+for (const { label, packageName, packagePath } of [
+  { label: "React", packageName: "react", packagePath: "react" },
+  { label: "Tiptap", packageName: "@tiptap/core", packagePath: "@tiptap/core" },
+  {
+    label: "ProseMirror",
+    packageName: "prosemirror-state",
+    packagePath: "prosemirror-state",
+  },
+]) {
+  test(`drag model rejects a direct ${label} framework dependency`, async (t) => {
+    const targetPath = `node_modules/${packagePath}/index.js`;
+    const sourcePath = `packages/core/src/editor/interactions/drag/model/${label.toLowerCase()}-leak.ts`;
+    const fixtureRoot = await createFixture(t, {
+      [`node_modules/${packagePath}/package.json`]: JSON.stringify({
+        name: packageName,
+        type: "module",
+        exports: "./index.js",
+      }),
+      [targetPath]: "export const frameworkValue = true;\n",
+      [sourcePath]: [
+        `import { frameworkValue } from "${packageName}";`,
+        "export const dragModelFrameworkLeak = frameworkValue;",
+      ].join("\n"),
+    });
+
+    const result = cruise(fixtureRoot, "err-long", ["packages/core/src"]);
+    const output = `${result.stdout}\n${result.stderr}`;
+
+    assert.equal(result.status, 1, output);
+    assert.match(output, /drag-model-does-not-reach-dom-react-or-feature-policy/);
+    assert.match(
+      output,
+      new RegExp(`${escapeRegExp(sourcePath)}[\\s\\S]*${escapeRegExp(targetPath)}`),
+    );
   });
+}
 
-  const result = cruise(fixtureRoot, "err-long", ["packages/core/src"]);
-  const output = `${result.stdout}\n${result.stderr}`;
+const isolatedDragBoundaryViolations = [
+  {
+    label: "drag model to DOM",
+    rule: "drag-model-does-not-reach-dom-react-or-feature-policy",
+    sourcePath: "packages/core/src/editor/interactions/drag/model/dom-leak.ts",
+    targetPath: "packages/core/src/editor/interactions/drag/dom/dom-owner.ts",
+    files: {
+      "packages/core/src/editor/interactions/drag/model/dom-leak.ts":
+        'import type { DOMOwner } from "../dom/dom-owner";\nexport type Leak = DOMOwner;\n',
+      "packages/core/src/editor/interactions/drag/dom/dom-owner.ts":
+        "export interface DOMOwner { id: string }\n",
+    },
+  },
+  {
+    label: "drag model to React adapter",
+    rule: "drag-model-does-not-reach-dom-react-or-feature-policy",
+    sourcePath: "packages/core/src/editor/interactions/drag/model/react-leak.ts",
+    targetPath: "packages/core/src/editor/interactions/drag/react/session.ts",
+    files: {
+      "packages/core/src/editor/interactions/drag/model/react-leak.ts":
+        'import type { ReactSession } from "../react/session";\nexport type Leak = ReactSession;\n',
+      "packages/core/src/editor/interactions/drag/react/session.ts":
+        "export interface ReactSession { id: string }\n",
+    },
+  },
+  {
+    label: "drag model to feature policy",
+    rule: "drag-model-does-not-reach-dom-react-or-feature-policy",
+    sourcePath: "packages/core/src/editor/interactions/drag/model/feature-leak.ts",
+    targetPath: "packages/core/src/editor/blocks/assessment/future/feature-policy.ts",
+    files: {
+      "packages/core/src/editor/interactions/drag/model/feature-leak.ts":
+        'import type { FeaturePolicy } from "../../../blocks/assessment/future/feature-policy";\nexport type Leak = FeaturePolicy;\n',
+      "packages/core/src/editor/blocks/assessment/future/feature-policy.ts":
+        "export interface FeaturePolicy { id: string }\n",
+    },
+  },
+  {
+    label: "drag DOM to React adapter",
+    rule: "drag-dom-does-not-reach-react-or-feature-policy",
+    sourcePath: "packages/core/src/editor/interactions/drag/dom/react-leak.ts",
+    targetPath: "packages/core/src/editor/interactions/drag/react/session.ts",
+    files: {
+      "packages/core/src/editor/interactions/drag/dom/react-leak.ts":
+        'import type { ReactSession } from "../react/session";\nexport type Leak = ReactSession;\n',
+      "packages/core/src/editor/interactions/drag/react/session.ts":
+        "export interface ReactSession { id: string }\n",
+    },
+  },
+  {
+    label: "drag DOM to feature policy",
+    rule: "drag-dom-does-not-reach-react-or-feature-policy",
+    sourcePath: "packages/core/src/editor/interactions/drag/dom/feature-leak.ts",
+    targetPath: "packages/core/src/editor/blocks/assessment/future/feature-policy.ts",
+    files: {
+      "packages/core/src/editor/interactions/drag/dom/feature-leak.ts":
+        'import type { FeaturePolicy } from "../../../blocks/assessment/future/feature-policy";\nexport type Leak = FeaturePolicy;\n',
+      "packages/core/src/editor/blocks/assessment/future/feature-policy.ts":
+        "export interface FeaturePolicy { id: string }\n",
+    },
+  },
+  {
+    label: "drag React adapter to feature policy",
+    rule: "drag-react-does-not-reach-feature-policy",
+    sourcePath: "packages/core/src/editor/interactions/drag/react/feature-leak.ts",
+    targetPath: "packages/core/src/editor/blocks/assessment/future/feature-policy.ts",
+    files: {
+      "packages/core/src/editor/interactions/drag/react/feature-leak.ts":
+        'import type { FeaturePolicy } from "../../../blocks/assessment/future/feature-policy";\nexport type Leak = FeaturePolicy;\n',
+      "packages/core/src/editor/blocks/assessment/future/feature-policy.ts":
+        "export interface FeaturePolicy { id: string }\n",
+    },
+  },
+  {
+    label: "central drag to interaction targets",
+    rule: "central-drag-does-not-reach-interaction-targets",
+    sourcePath: "packages/core/src/editor/interactions/drag/dom/target-leak.ts",
+    targetPath: "packages/core/src/editor/interactions/targets/model/target.ts",
+    files: {
+      "packages/core/src/editor/interactions/drag/dom/target-leak.ts":
+        'import type { InteractionTarget } from "../../targets/model/target";\nexport type Leak = InteractionTarget;\n',
+      "packages/core/src/editor/interactions/targets/model/target.ts":
+        "export interface InteractionTarget { id: string }\n",
+    },
+  },
+  {
+    label: "feature policy to dnd-kit",
+    rule: "dnd-kit-is-owned-by-central-drag-react-adapter",
+    sourcePath: "packages/core/src/editor/blocks/assessment/future/direct-dnd.tsx",
+    targetPath: "node_modules/@dnd-kit/core/index.js",
+    files: {
+      "node_modules/@dnd-kit/core/package.json": JSON.stringify({
+        name: "@dnd-kit/core",
+        type: "module",
+        exports: "./index.js",
+      }),
+      "node_modules/@dnd-kit/core/index.js": "export const DndContext = true;\n",
+      "packages/core/src/editor/blocks/assessment/future/direct-dnd.tsx":
+        'import { DndContext } from "@dnd-kit/core";\nexport const leak = DndContext;\n',
+    },
+  },
+  {
+    label: "movement view to Frame private state",
+    rule: "movement-view-does-not-reach-frame-authoring-state",
+    sourcePath: "packages/core/src/editor/movement/view/frame-leak.ts",
+    targetPath: "packages/core/src/editor/frame/authoring/frame-private.ts",
+    files: {
+      "packages/core/src/editor/movement/view/frame-leak.ts":
+        'import type { FramePrivate } from "../../frame/authoring/frame-private";\nexport type Leak = FramePrivate;\n',
+      "packages/core/src/editor/frame/authoring/frame-private.ts":
+        "export interface FramePrivate { id: string }\n",
+    },
+  },
+  {
+    label: "Frame authoring to movement private state",
+    rule: "frame-authoring-does-not-reach-movement-view-state",
+    sourcePath: "packages/core/src/editor/frame/authoring/movement-leak.ts",
+    targetPath: "packages/core/src/editor/movement/view/movement-private.ts",
+    files: {
+      "packages/core/src/editor/frame/authoring/movement-leak.ts":
+        'import type { MovementPrivate } from "../../movement/view/movement-private";\nexport type Leak = MovementPrivate;\n',
+      "packages/core/src/editor/movement/view/movement-private.ts":
+        "export interface MovementPrivate { id: string }\n",
+    },
+  },
+];
 
-  assert.notEqual(result.status, 0, output);
-  assert.match(output, /drag-model-does-not-reach-dom-react-or-feature-policy/);
-  assert.match(output, /drag-dom-does-not-reach-react-or-feature-policy/);
-  assert.match(output, /drag-react-does-not-reach-feature-policy/);
-  assert.match(output, /central-drag-does-not-reach-interaction-targets/);
-  assert.match(output, /dnd-kit-is-owned-by-central-drag-react-adapter/);
-  assert.match(output, /movement-view-does-not-reach-frame-authoring-state/);
-  assert.match(output, /frame-authoring-does-not-reach-movement-view-state/);
-});
+for (const violation of isolatedDragBoundaryViolations) {
+  test(`reports the isolated ${violation.label} edge`, async (t) => {
+    const fixtureRoot = await createFixture(t, violation.files);
+    const result = cruise(fixtureRoot, "err-long", ["packages/core/src"]);
+    const output = `${result.stdout}\n${result.stderr}`;
+
+    assert.equal(result.status, 1, output);
+    assert.match(output, new RegExp(escapeRegExp(violation.rule)));
+    assert.match(
+      output,
+      new RegExp(
+        `${escapeRegExp(violation.sourcePath)}[\\s\\S]*${escapeRegExp(violation.targetPath)}`,
+      ),
+    );
+  });
+}
 
 test("permits only the exact lazy Preview source and target", async (t) => {
   const fixtureRoot = await createFixture(t, {
