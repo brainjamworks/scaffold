@@ -1693,6 +1693,31 @@ describe("quiz block skeleton", () => {
     editor.destroy();
   });
 
+  it("rounds repeating aggregate scores for learner-facing display", async () => {
+    seedAssessmentStore({
+      quizzes: {
+        "quiz-rounded-score": {
+          attemptId: "attempt-rounded-score",
+          status: "completed",
+          currentTargetId: null,
+          score: 1 / 3,
+          maxScore: 1,
+        },
+      },
+    });
+    const editor = createQuizEditor({
+      editable: false,
+      content: runtimeQuizDocument("quiz-rounded-score"),
+    });
+
+    renderWithRuntime(editor);
+
+    await screen.findByText("0.33 / 1");
+    expect(screen.queryByText("0.3333333333333333 / 1")).toBeNull();
+
+    editor.destroy();
+  });
+
   it("suppresses aggregate score for completed quizzes when results are hidden", async () => {
     seedAssessmentStore({
       quizzes: {

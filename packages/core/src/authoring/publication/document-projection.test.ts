@@ -894,6 +894,7 @@ describe("authoring publication document projection", () => {
     };
 
     const learner = projectLearnerDocument(document);
+    const repeatedLearner = projectLearnerDocument(document);
     const targets = projectAssessmentTargets(document);
 
     expect(learner.warnings.map((warning) => warning.code)).toEqual(["missing-block-id"]);
@@ -907,6 +908,11 @@ describe("authoring publication document projection", () => {
       "second",
     ]);
     expect(sequenceIds).not.toEqual(["first", "second"]);
+    expect(
+      descendantsOfType(repeatedLearner.document, "sequencing_item").map((item) =>
+        String(attrsOf(item)["id"]),
+      ),
+    ).toEqual(sequenceIds);
 
     const matchingPairs = descendantsOfType(learner.document, "matching_pair");
     const learnerPairs = matchingPairs.map((pair) => attrsOf(pair));
@@ -1070,6 +1076,7 @@ function fillBlanksBlock(): JSONContent {
         showAnswer: true,
         points: 4,
         maxAttempts: null,
+        legend: "Complete the sentence",
       },
     },
     content: [
@@ -1164,6 +1171,7 @@ function sequencingBlock(): JSONContent {
         feedbackMode: "on_submit",
         isGraded: true,
         showAnswer: true,
+        legend: "Order the steps",
         points: 2,
         maxAttempts: null,
       },

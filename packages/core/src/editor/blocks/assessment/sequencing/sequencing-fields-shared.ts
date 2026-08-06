@@ -38,6 +38,14 @@ export function itemContent() {
   return [{ type: "paragraph" }];
 }
 
+export function sequencingItemPublicLabel(text: string): string {
+  return text.replace(/\s+/g, " ").trim() || "item";
+}
+
+export function sequencingReorderLabel(text: string, position: number, total: number): string {
+  return `Reorder ‘${sequencingItemPublicLabel(text)}’, position ${position} of ${total}`;
+}
+
 export function describeSequencingItemAccessibilityState({
   canReorder,
   correct,
@@ -66,26 +74,6 @@ export function describeSequencingItemAccessibilityState({
   return parts.join(". ");
 }
 
-export function deterministicShuffle<T>(input: readonly T[], seed: string): T[] {
-  let h = 2166136261 >>> 0;
-  for (let i = 0; i < seed.length; i += 1) {
-    h ^= seed.charCodeAt(i);
-    h = (h * 16777619) >>> 0;
-  }
-  const rand = () => {
-    h = (h * 1664525 + 1013904223) >>> 0;
-    return h / 0x100000000;
-  };
-  const arr = input.slice();
-  for (let i = arr.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(rand() * (i + 1));
-    const tmp = arr[i] as T;
-    arr[i] = arr[j] as T;
-    arr[j] = tmp;
-  }
-  return arr;
-}
-
 export function getSequencingDisplayOrder({
   isEditable,
   answerKeyVisible,
@@ -104,6 +92,65 @@ export function getSequencingDisplayOrder({
     return answerOrderIds && hasSameIds(answerOrderIds, docOrderIds) ? answerOrderIds : docOrderIds;
   }
   return hasSameIds(responseOrder, docOrderIds) ? responseOrder : docOrderIds;
+}
+
+export function reconcileSequencingOrder(
+  responseOrder: readonly string[],
+  projectedOrder: readonly string[],
+): string[] {
+  if (
+    projectedOrder.some((id) => id.trim().length === 0) ||
+    new Set(projectedOrder).size !== projectedOrder.length
+  ) {
+    throw new Error("Projected sequence item ids must be nonblank and unique.");
+  }
+  if (new Set(responseOrder).size !== responseOrder.length) {
+    throw new Error("Sequence response item ids must be unique.");
+  }
+
+  const projectedSet = new Set(projectedOrder);
+  const surviving = responseOrder.filter((id) => projectedSet.has(id));
+  const survivingSet = new Set(surviving);
+  return [...surviving, ...projectedOrder.filter((id) => !survivingSet.has(id))];
+}
+
+export function resolveAuthorizedSequenceOrder({
+  answerKeyVisible,
+  currentItemIds,
+  revealedOrderIds,
+  resultItems,
+}: {
+  answerKeyVisible: boolean;
+  currentItemIds: readonly string[];
+  revealedOrderIds: readonly string[];
+  resultItems: Readonly<Record<string, { expected?: unknown }>> | null | undefined;
+}): string[] {
+  if (!answerKeyVisible) return [];
+  if (hasSameIds(revealedOrderIds, currentItemIds)) return Array.from(revealedOrderIds);
+  if (!resultItems || currentItemIds.length === 0) return [];
+
+  const positioned = currentItemIds.map((id) => ({
+    id,
+    expected: resultItems[id]?.expected,
+  }));
+  const expectedPositions = positioned.map(({ expected }) => expected);
+  if (
+    expectedPositions.some(
+      (position) =>
+        typeof position !== "number" ||
+        !Number.isInteger(position) ||
+        position < 0 ||
+        position >= currentItemIds.length,
+    ) ||
+    new Set(expectedPositions).size !== currentItemIds.length
+  ) {
+    return [];
+  }
+
+  return positioned
+    .slice()
+    .sort((left, right) => Number(left.expected) - Number(right.expected))
+    .map(({ id }) => id);
 }
 
 export function getSequencingReorderedOrder({
@@ -159,11 +206,11 @@ export function createSequencingItemNode(options: SequencingItemNodeOptions = {}
     },
 
     parseHTML() {
-      return [{ tag: 'div[data-node="sequencing-item"]' }];
+      return [{ tag: 'li[data-node="sequencing-item"]' }];
     },
 
     renderHTML({ HTMLAttributes }) {
-      return ["div", mergeAttributes(HTMLAttributes, { "data-node": "sequencing-item" }), 0];
+      return ["li", mergeAttributes(HTMLAttributes, { "data-node": "sequencing-item" }), 0];
     },
 
     ...(options.addNodeView
@@ -179,7 +226,7 @@ export function createSequencingItemNode(options: SequencingItemNodeOptions = {}
 export function createSequencingItemsGroupNode(options: SequencingItemsGroupNodeOptions = {}) {
   return Node.create({
     name: "sequencing_items_group",
-    content: "sequencing_item+",
+    content: "sequencing_item{2,}",
     defining: true,
     isolating: true,
     selectable: false,
@@ -195,7 +242,11 @@ export function createSequencingItemsGroupNode(options: SequencingItemsGroupNode
           "data-bounded-scroll-frame": "",
           "data-slot": "sequencing-items-group",
         }),
-        ["div", { "data-bounded-scroll": "", class: "sc-sequencing-items-scroll" }, 0],
+        [
+          "div",
+          { "data-bounded-scroll": "", class: "sc-course-sequencing__scroll" },
+          ["ol", { role: "list", class: "sc-course-sequencing__list" }, 0],
+        ],
         ["div", { "data-bounded-scroll-hint": "", "aria-hidden": "true" }, "Scroll for more ↓"],
       ];
     },
@@ -212,6 +263,7 @@ export function createSequencingItemsGroupNode(options: SequencingItemsGroupNode
 
 function hasSameIds(a: readonly string[], b: readonly string[]): boolean {
   if (a.length !== b.length) return false;
+  if (new Set(a).size !== a.length || new Set(b).size !== b.length) return false;
   const bSet = new Set(b);
-  return a.every((id) => bSet.has(id));
+  return a.every((id) => id.trim().length > 0 && bSet.has(id));
 }

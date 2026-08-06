@@ -7,6 +7,7 @@ import {
   AnnotatedFigureDataSchema,
 } from "@scaffold/contracts";
 import { collectFillBlanksIntegrityIssues } from "@/editor/blocks/assessment/fill-blanks/integrity";
+import { collectSequencingIntegrityIssues } from "@/editor/blocks/assessment/sequencing/integrity";
 
 import {
   validateCourseSurfaceLifecycle,
@@ -24,7 +25,12 @@ export type CourseDocumentIssueCode =
   | "duplicate_fill_blank_id"
   | "missing_fill_blank_assessment"
   | "empty_fill_blank_accepted_answers"
-  | "unnamed_fill_blanks_response";
+  | "unnamed_fill_blanks_response"
+  | "too_few_sequencing_items"
+  | "empty_sequencing_item_id"
+  | "duplicate_sequencing_item_id"
+  | "invalid_sequencing_correct_order"
+  | "unnamed_sequencing_response";
 
 export interface CourseDocumentIssue {
   readonly code: CourseDocumentIssueCode;
@@ -49,6 +55,7 @@ export function validateCourseDocumentJSON(content: JSONContent): CourseDocument
   const issues: CourseDocumentIssue[] = surfaceResult.ok ? [] : [...surfaceResult.issues];
   collectQuizCompletenessIssues(content, []).forEach((quizIssue) => issues.push(quizIssue));
   collectFillBlanksIssues(content, []).forEach((issue) => issues.push(issue));
+  collectSequencingIssues(content, []).forEach((issue) => issues.push(issue));
   collectAnnotatedFigureIssues(content, []).forEach((issue) => issues.push(issue));
 
   const ownedIssues = Object.freeze([...issues]);
@@ -56,6 +63,22 @@ export function validateCourseDocumentJSON(content: JSONContent): CourseDocument
     ok: issues.length === 0,
     issues: ownedIssues,
   });
+}
+
+function collectSequencingIssues(
+  node: JSONContent,
+  path: Array<string | number>,
+): CourseDocumentIssue[] {
+  const issues =
+    node.type === "sequencing"
+      ? collectSequencingIntegrityIssues(node).map((issue) =>
+          createIssue(issue.code, issue.message, [...path, ...issue.path]),
+        )
+      : [];
+  for (const [index, child] of getContent(node).entries()) {
+    issues.push(...collectSequencingIssues(child, [...path, "content", index]));
+  }
+  return issues;
 }
 
 function collectFillBlanksIssues(

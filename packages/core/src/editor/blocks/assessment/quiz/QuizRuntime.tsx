@@ -6,6 +6,14 @@ import {
   TimerIcon as Timer,
 } from "@phosphor-icons/react";
 
+const quizScoreFormatter = new Intl.NumberFormat(undefined, {
+  maximumFractionDigits: 2,
+});
+
+function formatQuizScore(value: number): string {
+  return quizScoreFormatter.format(value);
+}
+
 /**
  * Learner-facing runtime surfaces of a quiz attempt. Five small shapes,
  * one file because they all live downstream of the same `runtimeStatus`
@@ -334,7 +342,7 @@ export function QuizExpired({
       {resultsVisible && score !== null && maxScore !== null ? (
         <>
           <span className="sc-quiz__expired-score">
-            {score} / {maxScore}
+            {formatQuizScore(score)} / {formatQuizScore(maxScore)}
           </span>
           <span className="sc-quiz__expired-percent">
             {Math.round((score / Math.max(maxScore, 1)) * 100)}%
@@ -367,7 +375,7 @@ export function QuizCompletion({
       {resultsVisible && score !== null && maxScore !== null ? (
         <>
           <span className="sc-quiz__completion-score">
-            {score} / {maxScore}
+            {formatQuizScore(score)} / {formatQuizScore(maxScore)}
           </span>
           <span className="sc-quiz__completion-meta">
             {Math.round((score / Math.max(maxScore, 1)) * 100)}%

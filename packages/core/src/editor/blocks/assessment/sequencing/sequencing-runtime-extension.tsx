@@ -14,7 +14,7 @@ import {
 function SequencingRuntimeView(props: NodeViewProps) {
   return (
     <AssessmentRuntimeProblemContent
-      blockClass="sc-sequencing"
+      blockClass="sc-course-assessment-sequencing"
       definition={sequencingBlockDefinition}
       props={props}
     />

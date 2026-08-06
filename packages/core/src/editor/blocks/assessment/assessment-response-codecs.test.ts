@@ -147,6 +147,60 @@ const codecCases: CodecCase[] = [
 ];
 
 describe("assessment response codecs", () => {
+  it("requires Sequencing responses to be the exact current item permutation", () => {
+    const codec = responseCodec(sequencingBlockDefinition);
+    const interaction = {
+      kind: "sequence" as const,
+      items: [{ id: "item-b" }, { id: "item-a" }, { id: "item-c" }],
+    };
+
+    expect(codec.hasResponse({ order: [] }, interaction)).toBe(false);
+    expect(codec.hasResponse({ order: ["item-b", "item-a"] }, interaction)).toBe(false);
+    expect(codec.hasResponse({ order: ["item-b", "item-a", "stale"] }, interaction)).toBe(false);
+    expect(codec.hasResponse({ order: ["item-b", "item-a", ""] }, interaction)).toBe(false);
+    expect(() => codec.hasResponse({ order: ["item-b", "item-b", "item-c"] }, interaction)).toThrow(
+      "Sequence response item ids must be unique",
+    );
+    expect(codec.hasResponse({ order: ["item-c", "item-b", "item-a"] }, interaction)).toBe(true);
+
+    expect(
+      codec.toContractResponse({ order: ["item-c", "item-b", "item-a"] }, interaction),
+    ).toEqual({
+      kind: "sequence",
+      orderedItemIds: ["item-c", "item-b", "item-a"],
+    });
+    expect(codec.toContractResponse({ order: ["item-b", "stale"] }, interaction)).toEqual({
+      kind: "sequence",
+      orderedItemIds: [],
+    });
+    expect(
+      codec.fromContractResponse(
+        { kind: "sequence", orderedItemIds: ["stale", "item-a", "item-b"] },
+        interaction,
+      ),
+    ).toEqual({ order: ["item-a", "item-b"] });
+  });
+
+  it("rejects ambiguous Sequencing interaction and response identities", () => {
+    const codec = responseCodec(sequencingBlockDefinition);
+
+    expect(() =>
+      codec.hasResponse(
+        { order: ["item-a", "item-a"] },
+        { kind: "sequence", items: [{ id: "item-a" }, { id: "item-b" }] },
+      ),
+    ).toThrow("Sequence response item ids must be unique");
+    expect(() =>
+      codec.hasResponse(
+        { order: ["item-a"] },
+        { kind: "sequence", items: [{ id: "item-a" }, { id: "item-a" }] },
+      ),
+    ).toThrow("Sequence interaction item ids must be nonblank and unique");
+    expect(() =>
+      codec.hasResponse({ order: ["item-a"] }, { kind: "sequence", items: [{ id: " " }] }),
+    ).toThrow("Sequence interaction item ids must be nonblank and unique");
+  });
+
   it("filters Fill state to current projected blanks and requires every current blank", () => {
     const codec = responseCodec(fillBlanksBlockDefinition);
     const interaction = {

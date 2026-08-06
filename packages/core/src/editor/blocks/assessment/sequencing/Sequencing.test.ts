@@ -1,12 +1,13 @@
 // @vitest-environment happy-dom
 
 import { Editor, Node as TiptapNode, type JSONContent } from "@tiptap/core";
+import { closeHistory } from "@tiptap/pm/history";
 import { EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createElement } from "react";
-import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { builtInInsertCatalog } from "@/editor/insertion/built-in-insert-catalog";
 import {
@@ -31,16 +32,22 @@ import { AssessmentSummaryFeedbackNode } from "@/editor/blocks/assessment/shared
 import { AssessmentTitleNode } from "@/editor/blocks/assessment/shared/nodes/assessment-title";
 import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
 import { sequencingBlockDefinition } from "./sequencing-definition";
 import { SequencingAuthoringExtension } from "./sequencing-authoring-extension";
 import { SequencingRuntimeExtension } from "./sequencing-runtime-extension";
+import { addSequencingItem, deleteSequencingItem } from "./commands";
+import { projectSequencingInteraction, projectSequencingLearnerNode } from "./assessment";
 import {
   describeSequencingItemAccessibilityState,
   getSequencingDisplayOrder,
   getSequencingReorderedOrder,
+  reconcileSequencingOrder,
   revealedSequenceAssessment,
   revealedSequenceOrder,
+  resolveAuthorizedSequenceOrder,
 } from "./sequencing-fields";
 
 const canonicalAssessmentResult = { maxScore: 1 as const, feedback: null, items: {} };
@@ -66,11 +73,11 @@ const BoundedRegionTestNode = TiptapNode.create({
   },
 });
 
-function makeEditor(editable = true) {
+function makeEditor(editable = true, undoRedo = false) {
   return new Editor({
     editable,
     extensions: [
-      StarterKit.configure({ undoRedo: false, paragraph: false }),
+      StarterKit.configure({ undoRedo: undoRedo ? {} : false, paragraph: false }),
       ExtendedParagraph,
       createRuntimeBlockFrameAttributesExtension([sequencingBlockDefinition.nodeType]),
       BoundedRegionTestNode,
@@ -108,10 +115,14 @@ function createDisposableSequencingEditor(content: JSONContent) {
 
 function renderRuntimeEditor(editor: Editor, assessmentPort: AssessmentPort) {
   render(
-    createAssessmentRuntimeTestRoot({
-      assessment: assessmentPort,
-      children: createElement(EditorContent, { editor }),
-      onStore: captureAssessmentStore,
+    createElement(CourseThemeProvider, {
+      theme: createDefaultPersistedCourseTheme(),
+      appearance: "light",
+      children: createAssessmentRuntimeTestRoot({
+        assessment: assessmentPort,
+        children: createElement(EditorContent, { editor }),
+        onStore: captureAssessmentStore,
+      }),
     }),
   );
 }
@@ -122,9 +133,13 @@ function captureAssessmentStore(store: AssessmentStoreApi | null) {
 }
 function renderAssessmentEditor(editor: Editor) {
   return render(
-    createAssessmentRuntimeTestRoot({
-      children: createElement(EditorContent, { editor }),
-      onStore: captureAssessmentStore,
+    createElement(CourseThemeProvider, {
+      theme: createDefaultPersistedCourseTheme(),
+      appearance: "light",
+      children: createAssessmentRuntimeTestRoot({
+        children: createElement(EditorContent, { editor }),
+        onStore: captureAssessmentStore,
+      }),
     }),
   );
 }
@@ -224,11 +239,32 @@ function sequencingBlock(attrs: Record<string, unknown> = {}): JSONContent {
 }
 
 function sequencingItemDescription(index: number): string | null {
-  const item = screen.getByRole("listitem", {
-    name: `Sequencing item ${index}`,
-  });
+  const item = sequencingItemAt(index);
   const describedBy = item.getAttribute("aria-describedby");
   return describedBy ? (document.getElementById(describedBy)?.textContent ?? null) : null;
+}
+
+function sequencingItemAt(index: number): HTMLElement {
+  const item = within(screen.getByRole("list", { name: "Order the steps" })).getAllByRole(
+    "listitem",
+  )[index - 1];
+  if (!item) throw new Error(`Missing sequencing list item ${index}`);
+  return item;
+}
+
+function sequencingSnapshot(editor: Editor) {
+  const sequencing = editor.getJSON().content?.[0];
+  const group = sequencing?.content?.find((child) => child.type === "sequencing_items_group") as
+    | JSONContent
+    | undefined;
+  const assessment = sequencing?.attrs?.["assessment"] as
+    | { correctOrder?: string[]; feedbackByItemId?: Record<string, unknown> }
+    | undefined;
+  return {
+    itemIds: group?.content?.map((item) => String(item.attrs?.["id"] ?? "")) ?? [],
+    correctOrder: assessment?.correctOrder ?? [],
+    feedbackIds: Object.keys(assessment?.feedbackByItemId ?? {}),
+  };
 }
 
 describe("composite sequencing node", () => {
@@ -315,13 +351,20 @@ describe("composite sequencing node", () => {
     editor.destroy();
   });
 
-  it("reorders authored items through a ProseMirror transaction", () => {
-    const editor = makeEditor();
+  it("reorders document and private order in one undoable ProseMirror transaction", () => {
+    const editor = makeEditor(true, true);
     editor.commands.setContent({
       type: "doc",
       content: [
         {
           type: "sequencing",
+          attrs: {
+            assessment: {
+              correctOrder: ["a", "b", "c"],
+              feedbackByItemId: { b: richFeedback("Keep with Beta") },
+              summaryFeedback: null,
+            },
+          },
           content: [
             { type: "assessment_title", content: [{ type: "paragraph" }] },
             {
@@ -354,6 +397,7 @@ describe("composite sequencing node", () => {
         },
       ],
     });
+    editor.view.dispatch(closeHistory(editor.state.tr));
 
     let itemBPos: number | undefined;
     editor.state.doc.descendants((node, pos) => {
@@ -362,8 +406,94 @@ describe("composite sequencing node", () => {
       }
     });
 
-    expect(moveSiblingNode(editor, itemBPos!, "up")).toBe(true);
+    let transactionCount = 0;
+    editor.on("transaction", () => {
+      transactionCount += 1;
+    });
 
+    expect(moveSiblingNode(editor, itemBPos!, "up")).toBe(true);
+    expect(transactionCount).toBe(1);
+    expect(sequencingSnapshot(editor)).toMatchObject({
+      itemIds: ["b", "a", "c"],
+      correctOrder: ["b", "a", "c"],
+      feedbackIds: ["b"],
+    });
+
+    expect(editor.commands.undo()).toBe(true);
+    expect(sequencingSnapshot(editor)).toMatchObject({
+      itemIds: ["a", "b", "c"],
+      correctOrder: ["a", "b", "c"],
+      feedbackIds: ["b"],
+    });
+    expect(editor.commands.redo()).toBe(true);
+    expect(sequencingSnapshot(editor)).toMatchObject({
+      itemIds: ["b", "a", "c"],
+      correctOrder: ["b", "a", "c"],
+      feedbackIds: ["b"],
+    });
+
+    editor.destroy();
+  });
+
+  it("adds document and private order in one undoable ProseMirror transaction", () => {
+    const editor = makeEditor(true, true);
+    editor.commands.setContent(sequencingRuntimeDoc());
+    editor.view.dispatch(closeHistory(editor.state.tr));
+    let groupPos = -1;
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === "sequencing_items_group") groupPos = pos;
+    });
+    let transactionCount = 0;
+    editor.on("transaction", () => {
+      transactionCount += 1;
+    });
+
+    expect(addSequencingItem(editor, groupPos)).toBe(true);
+    const added = sequencingSnapshot(editor);
+    expect(transactionCount).toBe(1);
+    expect(added.itemIds).toHaveLength(4);
+    expect(added.correctOrder).toEqual(added.itemIds);
+    expect(new Set(added.itemIds).size).toBe(4);
+
+    expect(editor.commands.undo()).toBe(true);
+    expect(sequencingSnapshot(editor).itemIds).toEqual(["a", "b", "c"]);
+    expect(editor.commands.redo()).toBe(true);
+    expect(sequencingSnapshot(editor)).toMatchObject({
+      itemIds: added.itemIds,
+      correctOrder: added.itemIds,
+    });
+    editor.destroy();
+  });
+
+  it("deletes document order and keyed feedback in one undoable transaction", () => {
+    const editor = makeEditor(true, true);
+    editor.commands.setContent(sequencingRuntimeDoc());
+    editor.view.dispatch(closeHistory(editor.state.tr));
+    let itemBPos = -1;
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === "sequencing_item" && node.attrs["id"] === "b") itemBPos = pos;
+    });
+    let transactionCount = 0;
+    editor.on("transaction", () => {
+      transactionCount += 1;
+    });
+
+    expect(deleteSequencingItem(editor, itemBPos)).toBe(true);
+    expect(transactionCount).toBe(1);
+    expect(sequencingSnapshot(editor)).toEqual({
+      itemIds: ["a", "c"],
+      correctOrder: ["a", "c"],
+      feedbackIds: [],
+    });
+
+    expect(editor.commands.undo()).toBe(true);
+    expect(sequencingSnapshot(editor)).toEqual({
+      itemIds: ["a", "b", "c"],
+      correctOrder: ["a", "b", "c"],
+      feedbackIds: ["b"],
+    });
+    expect(editor.commands.redo()).toBe(true);
+    expect(sequencingSnapshot(editor).itemIds).toEqual(["a", "c"]);
     editor.destroy();
   });
 
@@ -377,7 +507,7 @@ describe("composite sequencing node", () => {
             id: "sequencing-delete-item",
             assessment: {
               correctOrder: ["a", "b", "c"],
-              feedbackByItemId: {},
+              feedbackByItemId: { b: richFeedback("Remove with Beta") },
               summaryFeedback: null,
             },
           },
@@ -439,8 +569,65 @@ describe("composite sequencing node", () => {
     expect(fixture.editor.state.doc.textContent).toContain("Alpha");
     expect(fixture.editor.state.doc.textContent).toContain("Gamma");
     expect(itemIds).toEqual(["a", "c"]);
+    expect(sequencing?.attrs?.["assessment"]).toMatchObject({
+      correctOrder: ["a", "c"],
+      feedbackByItemId: {},
+    });
 
     fixture.destroy();
+  });
+
+  it("keeps deletion unavailable at the two-item minimum", async () => {
+    const editor = makeEditor();
+    const document = sequencingRuntimeDoc();
+    const group = document.content?.[0]?.content?.[3];
+    const block = document.content?.[0];
+    group?.content?.splice(2, 1);
+    if (block?.attrs) {
+      block.attrs["assessment"] = {
+        correctOrder: ["a", "b"],
+        feedbackByItemId: {},
+        summaryFeedback: null,
+      };
+    }
+    editor.commands.setContent(document);
+
+    renderAssessmentEditor(editor);
+
+    expect(await screen.findByRole("button", { name: "Delete sequencing item 1" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Delete sequencing item 2" })).toBeDisabled();
+    editor.destroy();
+  });
+
+  it("composes authoring rows and controls as named Course-owned list UI", async () => {
+    const editor = makeEditor();
+    editor.commands.setContent(sequencingRuntimeDoc());
+    renderAssessmentEditor(editor);
+
+    const list = await screen.findByRole("list", { name: "Order the steps" });
+    expect(list.tagName).toBe("OL");
+    expect(within(list).getAllByRole("listitem")).toHaveLength(3);
+    expect(
+      within(list)
+        .getAllByRole("listitem")
+        .every((item) => !item.hasAttribute("aria-label")),
+    ).toBe(true);
+    const movement = within(list).getByRole("button", {
+      name: "Reorder ‘Alpha’, position 1 of 3",
+    });
+    expect(movement).toHaveClass("sc-course-assessment-choice__authoring-action");
+    expect(movement.className).not.toContain("sc-app-");
+    expect(
+      within(list)
+        .getAllByRole("button", { name: "Add feedback" })
+        .every((button) =>
+          button.classList.contains("sc-course-assessment-choice__authoring-action"),
+        ),
+    ).toBe(true);
+    expect(screen.getByRole("button", { name: "Add item" })).toHaveClass(
+      "sc-course-assessment-choice-add",
+    );
+    editor.destroy();
   });
 
   it("exposes contained movement anchors and handles in editable mode only", async () => {
@@ -600,15 +787,216 @@ describe("composite sequencing node", () => {
     setAssessmentResponseField(assessmentStore, problemId, "order", ["c", "a", "b"]);
 
     await waitFor(() => {
-      expect(screen.getByRole("listitem", { name: "Sequencing item 1" }).textContent).toContain(
-        "Gamma",
-      );
-      expect(scrollLane?.querySelector(".sc-sequencing-runtime-list")?.textContent).toContain(
+      expect(sequencingItemAt(1).textContent).toContain("Gamma");
+      expect(scrollLane?.querySelector(".sc-course-sequencing__list")?.textContent).toContain(
         "Gamma",
       );
       expect(sequencingItemDescription(1)).toBe("Position 1 of 3. Reorderable");
     });
 
+    editor.destroy();
+  });
+
+  it("uses projected DOM order as the initial learner order and names the native ordered list", async () => {
+    const editor = makeEditor(false);
+    const problemId = "artifact:artifact-1/block:seq-1";
+    editor.commands.setContent(sequencingRuntimeDoc());
+    const assessmentPort: AssessmentPort = {
+      type: "runtime",
+      submit: async (args) =>
+        assessmentProblemOutcome(
+          { ...canonicalAssessmentResult, isCorrect: false, score: 0, items: {} },
+          { response: args.response },
+        ),
+    };
+
+    renderRuntimeEditor(editor, assessmentPort);
+    await waitFor(() => {
+      expect(hasAssessmentRegistration(assessmentStore, problemId)).toBe(true);
+    });
+
+    const list = await screen.findByRole("list", { name: "Order the steps" });
+    expect(list.tagName).toBe("OL");
+    expect(
+      within(list)
+        .getAllByRole("listitem")
+        .map((item) => item.textContent),
+    ).toEqual([
+      expect.stringContaining("Alpha"),
+      expect.stringContaining("Beta"),
+      expect.stringContaining("Gamma"),
+    ]);
+    expect(
+      within(list).getByRole("button", {
+        name: "Reorder ‘Alpha’, position 1 of 3",
+      }),
+    ).toBeInstanceOf(HTMLButtonElement);
+    editor.destroy();
+  });
+
+  it("uses the assessment prompt to name the learner list when legend is blank", async () => {
+    const editor = makeEditor(false);
+    const document = sequencingRuntimeDoc();
+    const block = document.content?.[0];
+    const prompt = block?.content?.[2];
+    if (!block?.attrs || !prompt) throw new Error("Missing Sequencing naming fixture");
+    block.attrs["settings"] = {
+      feedbackMode: "on_submit",
+      isGraded: true,
+      showAnswer: true,
+      legend: "   ",
+      points: 1,
+      maxAttempts: null,
+    };
+    prompt.content = itemContent("Arrange these process steps");
+    editor.commands.setContent(document);
+    const assessmentPort: AssessmentPort = {
+      type: "runtime",
+      submit: async (args) =>
+        assessmentProblemOutcome(
+          { ...canonicalAssessmentResult, isCorrect: false, score: 0, items: {} },
+          { response: args.response },
+        ),
+    };
+
+    renderRuntimeEditor(editor, assessmentPort);
+    const list = await screen.findByRole("list", { name: "Arrange these process steps" });
+    expect(list.getAttribute("aria-labelledby")).toBe("sc-assessment-prompt-seq-1");
+    editor.destroy();
+  });
+
+  it("checks immediate Sequencing exactly once for a completed keyboard reorder, never init", async () => {
+    const editor = makeEditor(false);
+    const problemId = "artifact:artifact-1/block:seq-1";
+    const document = sequencingRuntimeDoc();
+    const block = document.content?.[0];
+    if (!block?.attrs) throw new Error("Missing Sequencing immediate fixture");
+    block.attrs["settings"] = {
+      feedbackMode: "immediate",
+      isGraded: true,
+      showAnswer: true,
+      legend: "Order the steps",
+      points: 1,
+      maxAttempts: null,
+    };
+    editor.commands.setContent(document);
+    const check = vi.fn(async (args) =>
+      assessmentProblemOutcome(
+        {
+          ...canonicalAssessmentResult,
+          isCorrect: false,
+          score: 0,
+          items: {
+            a: { correct: false, expected: 1, given: 2 },
+            b: { correct: false, expected: 2, given: 1 },
+            c: { correct: true, expected: 3, given: 3 },
+          },
+        },
+        { response: args.response },
+      ),
+    );
+    const assessmentPort: AssessmentPort = {
+      type: "runtime",
+      check,
+      submit: async (args) =>
+        assessmentProblemOutcome(
+          { ...canonicalAssessmentResult, isCorrect: false, score: 0, items: {} },
+          { response: args.response },
+        ),
+    };
+
+    renderRuntimeEditor(editor, assessmentPort);
+    await waitFor(() => {
+      expect(hasAssessmentRegistration(assessmentStore, problemId)).toBe(true);
+      expect(screen.getByRole("list", { name: "Order the steps" })).toBeInstanceOf(
+        HTMLOListElement,
+      );
+      expect(assessmentStore?.getState().durable.problems[problemId]?.response).toEqual({
+        kind: "sequence",
+        orderedItemIds: ["a", "b", "c"],
+      });
+    });
+    expect(check).not.toHaveBeenCalled();
+
+    const handle = screen.getByRole("button", {
+      name: "Reorder ‘Alpha’, position 1 of 3",
+    });
+    screen.getAllByRole("listitem").forEach((item, index) => {
+      vi.spyOn(item, "getBoundingClientRect").mockReturnValue({
+        bottom: (index + 1) * 60,
+        height: 48,
+        left: 0,
+        right: 320,
+        top: index * 60,
+        width: 320,
+        x: 0,
+        y: index * 60,
+        toJSON: () => ({}),
+      });
+    });
+    handle.focus();
+    fireEvent.keyDown(handle, { key: " ", code: "Space" });
+    await waitFor(() => {
+      expect(handle.getAttribute("aria-pressed")).toBe("true");
+    });
+    fireEvent.keyDown(handle, { key: "ArrowDown", code: "ArrowDown" });
+    await screen.findByText("‘Alpha’ moved to position 2 of 3.");
+    fireEvent.keyDown(handle, { key: " ", code: "Space" });
+
+    await waitFor(() => {
+      expect(check).toHaveBeenCalledTimes(1);
+    });
+    editor.destroy();
+  });
+
+  it("retains handle focus after an on-submit keyboard reorder", async () => {
+    const editor = makeEditor(false);
+    editor.commands.setContent(sequencingRuntimeDoc());
+    const assessmentPort: AssessmentPort = {
+      type: "runtime",
+      submit: async (args) =>
+        assessmentProblemOutcome(
+          { ...canonicalAssessmentResult, isCorrect: false, score: 0, items: {} },
+          { response: args.response },
+        ),
+    };
+    renderRuntimeEditor(editor, assessmentPort);
+    const problemId = "artifact:artifact-1/block:seq-1";
+    const handle = await waitFor(() => {
+      expect(assessmentStore?.getState().durable.problems[problemId]?.response).toEqual({
+        kind: "sequence",
+        orderedItemIds: ["a", "b", "c"],
+      });
+      return screen.getByRole("button", {
+        name: "Reorder ‘Alpha’, position 1 of 3",
+      });
+    });
+    screen.getAllByRole("listitem").forEach((item, index) => {
+      vi.spyOn(item, "getBoundingClientRect").mockReturnValue({
+        bottom: (index + 1) * 60,
+        height: 48,
+        left: 0,
+        right: 320,
+        top: index * 60,
+        width: 320,
+        x: 0,
+        y: index * 60,
+        toJSON: () => ({}),
+      });
+    });
+    handle.focus();
+    fireEvent.keyDown(handle, { key: " ", code: "Space" });
+    await waitFor(() => {
+      expect(handle.getAttribute("aria-pressed")).toBe("true");
+    });
+    fireEvent.keyDown(handle, { key: "ArrowDown", code: "ArrowDown" });
+    await screen.findByText("‘Alpha’ moved to position 2 of 3.");
+    fireEvent.keyDown(handle, { key: " ", code: "Space" });
+
+    await waitFor(() => {
+      expect(handle.getAttribute("aria-label")).toBe("Reorder ‘Alpha’, position 2 of 3");
+    });
+    expect(globalThis.document.activeElement).toBe(handle);
     editor.destroy();
   });
 
@@ -810,15 +1198,11 @@ describe("composite sequencing node", () => {
     setAssessmentResponseField(assessmentStore, problemId, "order", ["c", "a", "b"]);
 
     await waitFor(() => {
-      expect(screen.getByRole("listitem", { name: "Sequencing item 1" }).textContent).toContain(
-        "Gamma",
-      );
+      expect(sequencingItemAt(1).textContent).toContain("Gamma");
       expect(sequencingItemDescription(1)).toBe("Position 1 of 3. Reorderable");
     });
-    const firstItem = screen.getByRole("listitem", {
-      name: "Sequencing item 1",
-    });
-    expect(firstItem.className).toContain("sc-sequencing-item--runtime");
+    const firstItem = sequencingItemAt(1);
+    expect(firstItem.className).toContain("sc-course-sequencing__item");
     const runtimeHandle = document.body.querySelector("[data-runtime-sequencing-handle]");
     expect(runtimeHandle).not.toBeNull();
 
@@ -867,9 +1251,7 @@ describe("composite sequencing node", () => {
     fireEvent.click(screen.getByText("Submit"));
 
     await waitFor(() => {
-      expect(screen.getByRole("listitem", { name: "Sequencing item 1" }).textContent).toContain(
-        "Gamma",
-      );
+      expect(sequencingItemAt(1).textContent).toContain("Gamma");
       expect(sequencingItemDescription(1)).toBe("Position 1 of 3. Submitted position, incorrect");
     });
 
@@ -920,20 +1302,23 @@ describe("composite sequencing node", () => {
     fireEvent.click(screen.getByText("Submit"));
 
     await waitFor(() => {
-      expect(screen.getByText("Show answer")).toBeInstanceOf(HTMLButtonElement);
+      expect(screen.getByRole("button", { name: "Show correct answer" })).toBeInstanceOf(
+        HTMLButtonElement,
+      );
     });
-    fireEvent.click(screen.getByText("Show answer"));
+    fireEvent.click(screen.getByRole("button", { name: "Show correct answer" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("listitem", { name: "Sequencing item 1" }).textContent).toContain(
-        "Alpha",
-      );
-      expect(screen.getByRole("listitem", { name: "Sequencing item 2" }).textContent).toContain(
-        "Beta",
-      );
+      expect(screen.getByText("Correct order shown")).toBeVisible();
+      expect(sequencingItemAt(1).textContent).toContain("Alpha");
+      expect(sequencingItemAt(2).textContent).toContain("Beta");
       expect(sequencingItemDescription(2)).toBe(
         "Position 2 of 3. Revealed correct position. Feedback available",
       );
+    });
+    expect(assessmentStore?.getState().durable.problems[problemId]?.response).toEqual({
+      kind: "sequence",
+      orderedItemIds: ["c", "a", "b"],
     });
 
     editor.destroy();
@@ -941,6 +1326,51 @@ describe("composite sequencing node", () => {
 });
 
 describe("sequencing display order", () => {
+  it("projects the public runtime interaction after private answer state is redacted", () => {
+    const authored = sequencingRuntimeDoc().content?.[0];
+    if (!authored) throw new Error("Missing Sequencing projection fixture");
+    const learner = projectSequencingLearnerNode(authored);
+
+    expect(learner.attrs).not.toHaveProperty("assessment");
+    expect(projectSequencingInteraction(learner)).toEqual({
+      kind: "sequence",
+      items: expect.arrayContaining([
+        { id: "a", label: "Alpha" },
+        { id: "b", label: "Beta" },
+        { id: "c", label: "Gamma" },
+      ]),
+    });
+  });
+
+  it("initializes from the projected DOM order without another shuffle", () => {
+    expect(reconcileSequencingOrder([], ["projected-c", "projected-a", "projected-b"])).toEqual([
+      "projected-c",
+      "projected-a",
+      "projected-b",
+    ]);
+  });
+
+  it("preserves surviving response ids and appends missing ids in projected order", () => {
+    expect(
+      reconcileSequencingOrder(
+        ["deleted", "projected-b", "projected-a"],
+        ["projected-c", "projected-a", "projected-b", "projected-d"],
+      ),
+    ).toEqual(["projected-b", "projected-a", "projected-c", "projected-d"]);
+  });
+
+  it("rejects duplicate response or projected identities during reconciliation", () => {
+    expect(() => reconcileSequencingOrder(["a", "a"], ["a", "b"])).toThrow(
+      "Sequence response item ids must be unique",
+    );
+    expect(() => reconcileSequencingOrder(["a"], ["a", "a"])).toThrow(
+      "Projected sequence item ids must be nonblank and unique",
+    );
+    expect(() => reconcileSequencingOrder(["a"], ["a", " "])).toThrow(
+      "Projected sequence item ids must be nonblank and unique",
+    );
+  });
+
   it("reads revealed order from the canonical sequence assessment schema", () => {
     expect(
       revealedSequenceOrder({
@@ -999,6 +1429,78 @@ describe("sequencing display order", () => {
         responseOrder: ["c", "a", "b"],
       }),
     ).toEqual(["a", "b", "c"]);
+  });
+
+  it("does not accept duplicate revealed ids as a complete answer order", () => {
+    expect(
+      getSequencingDisplayOrder({
+        isEditable: false,
+        answerKeyVisible: true,
+        docOrderIds: ["c", "a", "b"],
+        answerOrderIds: ["a", "a", "c"],
+        responseOrder: ["c", "a", "b"],
+      }),
+    ).toEqual(["c", "a", "b"]);
+  });
+
+  it("prefers a valid authorized reveal and otherwise reconstructs a complete result order", () => {
+    expect(
+      resolveAuthorizedSequenceOrder({
+        answerKeyVisible: true,
+        currentItemIds: ["c", "a", "b"],
+        revealedOrderIds: ["a", "b", "c"],
+        resultItems: {
+          a: { expected: 2 },
+          b: { expected: 1 },
+          c: { expected: 3 },
+        },
+      }),
+    ).toEqual(["a", "b", "c"]);
+
+    expect(
+      resolveAuthorizedSequenceOrder({
+        answerKeyVisible: true,
+        currentItemIds: ["c", "a", "b"],
+        revealedOrderIds: ["a", "a", "c"],
+        resultItems: {
+          a: { expected: 0 },
+          b: { expected: 1 },
+          c: { expected: 2 },
+        },
+      }),
+    ).toEqual(["a", "b", "c"]);
+  });
+
+  it("does not reconstruct answer order from unauthorized or incomplete result positions", () => {
+    const resultItems = {
+      a: { expected: 0 },
+      b: { expected: 0 },
+      c: { expected: 2 },
+    };
+    expect(
+      resolveAuthorizedSequenceOrder({
+        answerKeyVisible: false,
+        currentItemIds: ["a", "b", "c"],
+        revealedOrderIds: ["a", "b", "c"],
+        resultItems,
+      }),
+    ).toEqual([]);
+    expect(
+      resolveAuthorizedSequenceOrder({
+        answerKeyVisible: true,
+        currentItemIds: ["a", "b", "c"],
+        revealedOrderIds: [],
+        resultItems,
+      }),
+    ).toEqual([]);
+    expect(
+      resolveAuthorizedSequenceOrder({
+        answerKeyVisible: true,
+        currentItemIds: ["a", "b", "c"],
+        revealedOrderIds: [],
+        resultItems: { a: { expected: 0 }, b: { expected: 1 } },
+      }),
+    ).toEqual([]);
   });
 
   it("moves a dragged runtime item before the drop target", () => {

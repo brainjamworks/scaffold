@@ -48,6 +48,7 @@ export interface SequenceInteractionRuntime {
   kind: "sequence";
   order: readonly string[];
   setOrder: (ids: readonly string[]) => void;
+  commitOrder: (ids: readonly string[]) => void;
 }
 
 export interface MatchInteractionRuntime {
@@ -206,6 +207,7 @@ export function createPendingAssessmentInteractionRuntime<K extends AssessmentIn
         kind,
         order: [],
         setOrder: noop,
+        commitOrder: noop,
       } as unknown as AssessmentInteractionRuntime<K>;
     case "match":
       return {
@@ -374,6 +376,10 @@ export function useAssessmentInteractionRuntime<K extends AssessmentInteractionK
           kind: "sequence",
           order,
           setOrder: (ids: readonly string[]) => writeField("order", Array.from(ids)),
+          commitOrder: (ids: readonly string[]) => {
+            writeField("order", Array.from(ids));
+            checkImmediate();
+          },
         } as unknown as AssessmentInteractionRuntime<K>;
       }
       case "match": {

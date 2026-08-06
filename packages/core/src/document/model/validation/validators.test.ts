@@ -696,6 +696,73 @@ describe("course document JSON helpers", () => {
     );
   });
 
+  it("reports Sequencing identity, answer-order, naming, and minimum-item defects", () => {
+    const document = createScaffoldDocumentContent({ mode: "page", surfaceId: "surface-1" });
+    document.content![0]!.content![0]!.content = [
+      {
+        type: "sequencing",
+        attrs: {
+          id: "sequence-invalid",
+          settings: { legend: "  " },
+          assessment: {
+            correctOrder: ["duplicate", "missing"],
+            feedbackByItemId: {},
+            summaryFeedback: null,
+          },
+        },
+        content: [
+          { type: "assessment_title", content: [{ type: "paragraph" }] },
+          { type: "assessment_instructions", content: [{ type: "paragraph" }] },
+          { type: "assessment_prompt", content: [{ type: "paragraph" }] },
+          {
+            type: "sequencing_items_group",
+            content: [
+              { type: "sequencing_item", attrs: { id: "" } },
+              { type: "sequencing_item", attrs: { id: "duplicate" } },
+              { type: "sequencing_item", attrs: { id: "duplicate" } },
+            ],
+          },
+          {
+            type: "assessment_actions_group",
+            content: [{ type: "assessment_hints_group" }, { type: "assessment_summary_feedback" }],
+          },
+        ],
+      },
+      {
+        type: "sequencing",
+        attrs: {
+          id: "sequence-too-short",
+          settings: { legend: "Order the step" },
+          assessment: { correctOrder: ["only"], feedbackByItemId: {}, summaryFeedback: null },
+        },
+        content: [
+          { type: "assessment_title", content: [{ type: "paragraph" }] },
+          { type: "assessment_instructions", content: [{ type: "paragraph" }] },
+          { type: "assessment_prompt", content: [{ type: "paragraph" }] },
+          {
+            type: "sequencing_items_group",
+            content: [{ type: "sequencing_item", attrs: { id: "only" } }],
+          },
+          {
+            type: "assessment_actions_group",
+            content: [{ type: "assessment_hints_group" }, { type: "assessment_summary_feedback" }],
+          },
+        ],
+      },
+    ];
+
+    const codes = validateCourseDocumentJSON(document).issues.map((issue) => issue.code);
+    expect(codes).toEqual(
+      expect.arrayContaining([
+        "empty_sequencing_item_id",
+        "duplicate_sequencing_item_id",
+        "invalid_sequencing_correct_order",
+        "unnamed_sequencing_response",
+        "too_few_sequencing_items",
+      ]),
+    );
+  });
+
   it("returns frozen public validation results with an owned readonly issue array", () => {
     const valid = validateCourseDocumentJSON(createScaffoldDocumentContent({ mode: "page" }));
     const invalid = validateCourseDocumentJSON({ type: "paragraph" });
