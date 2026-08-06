@@ -67,7 +67,7 @@ describe("Playground local assessment runtime composition", () => {
     await waitFor(() => expect((submit as HTMLButtonElement).disabled).toBe(false));
     await user.click(submit);
 
-    expect(await screen.findByText("Quiz complete")).toBeTruthy();
+    expect(await screen.findByText("Quiz complete")).toBeInTheDocument();
     expect(screen.getByTestId("quiz-completion-summary").textContent).toContain("1 / 1");
     expect(finishAttempt).toHaveBeenCalledOnce();
     await expect(finishAttempt.mock.results[0]?.value).resolves.toMatchObject({
