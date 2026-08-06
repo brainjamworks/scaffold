@@ -1,4 +1,12 @@
-import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 import type { InteractionCoordinateSpace } from "../model/coordinate-space";
 import { useOverlayBoundary } from "@/ui/overlays/portal-host-context";
@@ -43,6 +51,9 @@ export function InteractionDragEnvironmentProvider({
   coordinateSpace,
 }: InteractionDragEnvironmentProviderProps) {
   const overlayBoundary = useOverlayBoundary();
+  const [coordinateRevision, setCoordinateRevision] = useState(0);
+  const readyEnvironmentRef = useRef<ReadyInteractionDragEnvironment | null>(null);
+
   const resolution = useMemo<InteractionDragEnvironmentResolution>(() => {
     if (!coordinateRoot || !coordinateSpace) return pendingRootResolution;
     if (overlayBoundary.status !== "ready") return pendingOverlayResolution;
@@ -67,22 +78,38 @@ export function InteractionDragEnvironmentProvider({
       coordinateSpace.measure() === null ||
       (coordinateSpace.kind === "scaled-canvas" && coordinateRoot.contains(overlay.host))
     ) {
+      readyEnvironmentRef.current = null;
       return pendingInvalidResolution;
     }
 
+    const cachedEnvironment = readyEnvironmentRef.current;
+    const environment =
+      cachedEnvironment &&
+      cachedEnvironment.coordinateSpace === coordinateSpace &&
+      cachedEnvironment.coordinateRoot === coordinateRoot &&
+      cachedEnvironment.overlayHost === overlay.host &&
+      cachedEnvironment.collisionBoundary === collisionBoundary
+        ? cachedEnvironment
+        : Object.freeze({
+            coordinateSpace,
+            coordinateRoot,
+            overlayHost: overlay.host,
+            collisionBoundary,
+            ownerDocument,
+            ownerWindow,
+            positionStrategy: "fixed" as const,
+          });
+    readyEnvironmentRef.current = environment;
     return Object.freeze({
       status: "ready",
-      environment: Object.freeze({
-        coordinateSpace,
-        coordinateRoot,
-        overlayHost: overlay.host,
-        collisionBoundary,
-        ownerDocument,
-        ownerWindow,
-        positionStrategy: "fixed" as const,
-      }),
+      environment,
     });
-  }, [coordinateRoot, coordinateSpace, overlayBoundary]);
+  }, [coordinateRevision, coordinateRoot, coordinateSpace, overlayBoundary]);
+
+  useEffect(() => {
+    if (!coordinateSpace) return;
+    return coordinateSpace.subscribe(() => setCoordinateRevision((revision) => revision + 1));
+  }, [coordinateSpace]);
 
   useEffect(() => {
     if (!import.meta.env.DEV || resolution.status === "ready") return;

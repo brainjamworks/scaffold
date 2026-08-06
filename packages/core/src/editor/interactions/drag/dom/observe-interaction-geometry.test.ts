@@ -90,6 +90,41 @@ describe("observeInteractionGeometry", () => {
     expect(connectedStates).toEqual([true, true, false]);
     stop();
   });
+
+  it("ignores mutations outside the geometry root while observing ancestor transforms", async () => {
+    const scheduler = controlledScheduler();
+    const ancestor = document.createElement("section");
+    const root = document.createElement("div");
+    const endpoint = document.createElement("div");
+    const unrelated = document.createElement("aside");
+    root.append(endpoint);
+    ancestor.append(root);
+    document.body.append(ancestor, unrelated);
+    let reads = 0;
+
+    const stop = observeInteractionGeometry({
+      frameScheduler: scheduler.api,
+      getElements: () => [root, endpoint],
+      onMeasure: () => {
+        reads += 1;
+      },
+      ownerDocument: document,
+    });
+    scheduler.flush();
+    expect(reads).toBe(1);
+
+    unrelated.append(document.createElement("span"));
+    unrelated.className = "unrelated-change";
+    await Promise.resolve();
+    expect(scheduler.pending()).toBe(0);
+
+    ancestor.style.transform = "matrix(0.8, 0, 0, 0.8, 0, 0)";
+    await Promise.resolve();
+    expect(scheduler.pending()).toBe(1);
+    scheduler.flush();
+    expect(reads).toBe(2);
+    stop();
+  });
 });
 
 function controlledScheduler() {

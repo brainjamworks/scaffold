@@ -25,7 +25,13 @@ export function measureElementLocalCoordinateSpace(
 ): ElementLocalCoordinateSpaceSnapshot | null {
   const ownerDocument = element.ownerDocument;
   const ownerWindow = ownerDocument.defaultView;
-  if (!ownerWindow || !element.isConnected) return null;
+  if (
+    !ownerWindow ||
+    !element.isConnected ||
+    !hasSupportedAncestorTransforms(element, ownerWindow)
+  ) {
+    return null;
+  }
 
   const svgMatrix = screenCtm(element);
   if (svgMatrix !== undefined) {
@@ -33,9 +39,7 @@ export function measureElementLocalCoordinateSpace(
   }
 
   const OwnerHTMLElement = (ownerWindow as Window & typeof globalThis).HTMLElement;
-  if (!(element instanceof OwnerHTMLElement) || !hasSupportedHtmlTransforms(element, ownerWindow)) {
-    return null;
-  }
+  if (!(element instanceof OwnerHTMLElement)) return null;
   const rect = element.getBoundingClientRect();
   const localWidth = element.offsetWidth;
   const localHeight = element.offsetHeight;
@@ -95,10 +99,13 @@ function createSnapshot(
   });
 }
 
-function hasSupportedHtmlTransforms(element: HTMLElement, ownerWindow: Window): boolean {
+function hasSupportedAncestorTransforms(element: Element, ownerWindow: Window): boolean {
   let current: Element | null = element;
   while (current) {
-    const transform = ownerWindow.getComputedStyle(current).transform?.trim() ?? "";
+    const style = ownerWindow.getComputedStyle(current);
+    const perspective = style.perspective?.trim() ?? "";
+    if (perspective !== "" && perspective !== "none") return false;
+    const transform = style.transform?.trim() ?? "";
     if (transform !== "" && transform !== "none" && !isAxisAlignedTransform(transform)) {
       return false;
     }

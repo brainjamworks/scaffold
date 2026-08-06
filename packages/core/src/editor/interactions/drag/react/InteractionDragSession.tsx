@@ -255,6 +255,7 @@ export function InteractionDragSession<ActiveData, OverData>({
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
       if (!environment || activeSessionRef.current) return;
+      if (!environmentElementsAreLive(environment)) return;
       const registration = registrationFromData(event.active.data.current);
       if (!registration?.source) return;
       const measuredSnapshot = environment.coordinateSpace.measure();
@@ -456,6 +457,7 @@ export function InteractionDragSession<ActiveData, OverData>({
     collisionPolicy,
     resolveCollision,
     activeSessionRef,
+    pointerTrackerRef,
   );
   const accessibility = useMemo<NonNullable<DndContextProps["accessibility"]>>(
     () => createAccessibility(accessibilityMode, labels, environment?.overlayHost),
@@ -571,6 +573,7 @@ function useCollisionDetection<ActiveData, OverData>(
   policy: InteractionCollisionPolicy,
   resolveCollision: InteractionDragSessionProps<ActiveData, OverData>["resolveCollision"],
   activeSessionRef: React.RefObject<ActiveSession<ActiveData, OverData> | null>,
+  pointerTrackerRef: React.RefObject<ReturnType<typeof createOwnerDocumentPointerTracker> | null>,
 ): CollisionDetection {
   return useCallback<CollisionDetection>(
     (input) => {
@@ -580,12 +583,10 @@ function useCollisionDetection<ActiveData, OverData>(
       if (policy === "pointer") return pointerWithin(constrainedInput);
       if (policy === "closest-center") return closestCenter(constrainedInput);
       if (!resolveCollision) return [];
-      const clientPoint = constrainedInput.pointerCoordinates
-        ? createClientPoint(
-            constrainedInput.pointerCoordinates.x,
-            constrainedInput.pointerCoordinates.y,
-          )
-        : null;
+      const clientPoint =
+        activeSession.input === "pointer"
+          ? (pointerTrackerRef.current?.getLatestClientPoint() ?? null)
+          : null;
       const candidates = constrainedInput.droppableContainers.flatMap((container) => {
         const registration = registrationFromData(container.data.current);
         const rect = constrainedInput.droppableRects.get(container.id);
@@ -612,7 +613,7 @@ function useCollisionDetection<ActiveData, OverData>(
       });
       return resolvedId === null ? [] : [{ id: resolvedId }];
     },
-    [activeSessionRef, policy, resolveCollision],
+    [activeSessionRef, policy, pointerTrackerRef, resolveCollision],
   );
 }
 

@@ -49,6 +49,8 @@ function createDOMCoordinateSpace(
   const listeners = new Set<(reason: CoordinateInvalidationReason) => void>();
   let revision = 0;
   let stopObserving: (() => void) | null = null;
+  let measuredRoot: HTMLElement | null | undefined;
+  let measuredSnapshot: CoordinateSpaceSnapshot | null | undefined;
 
   const coordinateSpace: DOMInteractionCoordinateSpace = {
     kind,
@@ -57,6 +59,14 @@ function createDOMCoordinateSpace(
     measure(): CoordinateSpaceSnapshot | null {
       const root = options.getRoot();
       if (
+        root === measuredRoot &&
+        measuredSnapshot !== undefined &&
+        (measuredSnapshot !== null || !root?.isConnected)
+      ) {
+        return measuredSnapshot;
+      }
+      measuredRoot = root;
+      if (
         !root ||
         !root.isConnected ||
         root.ownerDocument !== options.ownerDocument ||
@@ -64,11 +74,12 @@ function createDOMCoordinateSpace(
         root.ownerDocument.defaultView !== ownerWindow ||
         !hasSupportedTransform(root, ownerWindow, kind)
       ) {
-        return null;
+        measuredSnapshot = null;
+        return measuredSnapshot;
       }
 
       const rect = root.getBoundingClientRect();
-      return createCoordinateSpaceSnapshot({
+      measuredSnapshot = createCoordinateSpaceSnapshot({
         kind,
         revision,
         clientRect: {
@@ -79,12 +90,14 @@ function createDOMCoordinateSpace(
         },
         localSize: declaredLocalSize ?? { width: rect.width, height: rect.height },
       });
+      return measuredSnapshot;
     },
     subscribe(listener) {
       listeners.add(listener);
       if (listeners.size === 1 && ownerWindow) {
         stopObserving = observeInvalidations(options, ownerWindow, (reasons) => {
           revision += 1;
+          measuredSnapshot = undefined;
           for (const reason of reasons) {
             for (const currentListener of listeners) currentListener(reason);
           }
@@ -153,18 +166,7 @@ function observeInvalidations(
     if (observedRoot) nextResizeObserver.observe(observedRoot);
   }
 
-  const MutationObserverConstructor = ownerGlobal.MutationObserver;
-  const mutationObserver = MutationObserverConstructor
-    ? new MutationObserverConstructor(handleTransform)
-    : null;
-  if (mutationObserver && options.ownerDocument.documentElement) {
-    mutationObserver.observe(options.ownerDocument.documentElement, {
-      attributes: true,
-      attributeFilter: ["class", "style"],
-      childList: true,
-      subtree: true,
-    });
-  }
+  const mutationObserver = observeRelevantMutations(options, ownerGlobal, handleTransform);
 
   return () => {
     coalescer.dispose();
@@ -177,6 +179,48 @@ function observeInvalidations(
     options.ownerDocument.removeEventListener("transitionend", handleTransform, true);
     ownerWindow.removeEventListener("resize", handleResize);
   };
+}
+
+function observeRelevantMutations(
+  options: DOMCoordinateSpaceOptions,
+  ownerGlobal: Window & typeof globalThis,
+  notify: () => void,
+): MutationObserver | null {
+  const MutationObserverConstructor = ownerGlobal.MutationObserver;
+  const OwnerElement = ownerGlobal.Element;
+  const documentElement = options.ownerDocument.documentElement;
+  if (!MutationObserverConstructor || !OwnerElement || !documentElement) return null;
+
+  const observer = new MutationObserverConstructor((records) => {
+    if (
+      records.some((record) => {
+        const root = options.getRoot();
+        if (!root) return false;
+        if (record.type === "attributes") {
+          return record.target instanceof OwnerElement && isAncestorOrSelf(record.target, root);
+        }
+        return (
+          record.target === root ||
+          [...record.addedNodes, ...record.removedNodes].some(
+            (node) => node === root || (node instanceof OwnerElement && node.contains(root)),
+          )
+        );
+      })
+    ) {
+      notify();
+    }
+  });
+  observer.observe(documentElement, {
+    attributes: true,
+    attributeFilter: ["class", "style"],
+    childList: true,
+    subtree: true,
+  });
+  return observer;
+}
+
+function isAncestorOrSelf(ancestor: Node, node: Node): boolean {
+  return ancestor === node || ancestor.contains(node);
 }
 
 function hasSupportedTransform(

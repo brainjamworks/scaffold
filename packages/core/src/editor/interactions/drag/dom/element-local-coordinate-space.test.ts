@@ -70,6 +70,21 @@ describe("measureElementLocalCoordinateSpace", () => {
       expect(measureElementLocalCoordinateSpace(svg)).toBeNull();
     }
   });
+
+  it("fails closed when an SVG has a 3D or perspective ancestor hidden by an affine screen CTM", () => {
+    const ancestor = document.createElement("div");
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    ancestor.append(svg);
+    document.body.append(ancestor);
+    stubScreenCtm(svg, { a: 1, b: 0, c: 0, d: 1, e: 20, f: 30 });
+
+    ancestor.style.transform = "matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, -0.002, 0, 0, 0, 1)";
+    expect(measureElementLocalCoordinateSpace(svg)).toBeNull();
+
+    ancestor.style.transform = "none";
+    ancestor.style.perspective = "500px";
+    expect(measureElementLocalCoordinateSpace(svg)).toBeNull();
+  });
 });
 
 function stubScreenCtm(

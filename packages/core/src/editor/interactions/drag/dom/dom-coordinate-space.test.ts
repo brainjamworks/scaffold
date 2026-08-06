@@ -116,6 +116,57 @@ describe("DOM coordinate spaces", () => {
     unsubscribe();
   });
 
+  it("ignores unrelated document mutations instead of invalidating the root", async () => {
+    const scheduler = createControlledFrameScheduler();
+    const root = connectedRoot({ left: 0, top: 0, width: 100, height: 80 });
+    const coordinateSpace = createViewportCoordinateSpace({
+      getRoot: () => root,
+      ownerDocument: document,
+      frameScheduler: scheduler.api,
+    });
+    const reasons: string[] = [];
+    const unsubscribe = coordinateSpace.subscribe((reason) => reasons.push(reason));
+    coordinateSpace.measure();
+    const unrelated = document.createElement("div");
+    document.body.append(unrelated);
+
+    await Promise.resolve();
+    unrelated.className = "unrelated-change";
+    await Promise.resolve();
+
+    expect(scheduler.pending()).toBe(0);
+    expect(reasons).toEqual([]);
+    unsubscribe();
+  });
+
+  it("shares one measured snapshot across subscribers after invalidation", () => {
+    const scheduler = createControlledFrameScheduler();
+    const root = connectedRoot({ left: 0, top: 0, width: 100, height: 80 });
+    const coordinateSpace = createViewportCoordinateSpace({
+      getRoot: () => root,
+      ownerDocument: document,
+      frameScheduler: scheduler.api,
+    });
+    const snapshots: unknown[] = [];
+    const unsubscribeFirst = coordinateSpace.subscribe(() => {
+      snapshots.push(coordinateSpace.measure());
+    });
+    const unsubscribeSecond = coordinateSpace.subscribe(() => {
+      snapshots.push(coordinateSpace.measure());
+    });
+    coordinateSpace.measure();
+    rectReaders.get(root)?.mockClear();
+
+    document.dispatchEvent(new Event("scroll"));
+    scheduler.flush();
+
+    expect(rectReaders.get(root)).toHaveBeenCalledOnce();
+    expect(snapshots).toHaveLength(2);
+    expect(snapshots[0]).toBe(snapshots[1]);
+    unsubscribeFirst();
+    unsubscribeSecond();
+  });
+
   it("fails closed for disconnected, cross-document, zero-sized, and invalid-transform roots", () => {
     const disconnected = document.createElement("div");
     vi.spyOn(disconnected, "getBoundingClientRect").mockReturnValue(

@@ -25,16 +25,47 @@ export function observeInteractionGeometry({
   const ownerGlobal = ownerWindow as Window & typeof globalThis;
   const scheduler = frameScheduler ?? createWindowFrameScheduler(ownerWindow);
   let observedElements: readonly Element[] = [];
+  let observedMutationRoot: Element | null = null;
+  let observedMutationParent: Element | null = null;
   let resizeObserver: ResizeObserver | null = null;
+  let mutationObserver: MutationObserver | null = null;
+
+  const syncMutationObservation = () => {
+    const nextRoot = observedElements[0] ?? null;
+    const nextParent = nextRoot?.parentElement ?? null;
+    if (observedMutationRoot === nextRoot && observedMutationParent === nextParent) return;
+    observedMutationRoot = nextRoot;
+    observedMutationParent = nextParent;
+    mutationObserver?.disconnect();
+    if (!mutationObserver || !nextRoot?.isConnected) return;
+
+    mutationObserver.observe(nextRoot, {
+      attributes: true,
+      attributeFilter: ["class", "style"],
+      childList: true,
+      subtree: true,
+    });
+    let ancestor = nextRoot.parentElement;
+    while (ancestor) {
+      mutationObserver.observe(ancestor, {
+        attributes: true,
+        attributeFilter: ["class", "style"],
+        childList: ancestor === nextParent,
+      });
+      ancestor = ancestor.parentElement;
+    }
+  };
 
   const syncObservedElements = () => {
     const nextElements = uniqueElements(getElements());
-    if (sameElements(observedElements, nextElements)) return;
-    observedElements = nextElements;
-    resizeObserver?.disconnect();
-    for (const element of observedElements) {
-      if (element.isConnected) resizeObserver?.observe(element);
+    if (!sameElements(observedElements, nextElements)) {
+      observedElements = nextElements;
+      resizeObserver?.disconnect();
+      for (const element of observedElements) {
+        if (element.isConnected) resizeObserver?.observe(element);
+      }
     }
+    syncMutationObservation();
   };
   const coalescer = createFrameCoalescer(() => {
     syncObservedElements();
@@ -46,6 +77,10 @@ export function observeInteractionGeometry({
   if (ResizeObserverConstructor) {
     resizeObserver = new ResizeObserverConstructor(queueMeasurement);
   }
+  const MutationObserverConstructor = ownerGlobal.MutationObserver;
+  if (MutationObserverConstructor) {
+    mutationObserver = new MutationObserverConstructor(queueMeasurement);
+  }
   syncObservedElements();
 
   const handleScroll = () => queueMeasurement();
@@ -55,18 +90,6 @@ export function observeInteractionGeometry({
   ownerDocument.addEventListener("fullscreenchange", handleFullscreen);
   ownerWindow.addEventListener("resize", handleResize);
 
-  const MutationObserverConstructor = ownerGlobal.MutationObserver;
-  const mutationObserver = MutationObserverConstructor
-    ? new MutationObserverConstructor(queueMeasurement)
-    : null;
-  if (mutationObserver && ownerDocument.documentElement) {
-    mutationObserver.observe(ownerDocument.documentElement, {
-      attributes: true,
-      attributeFilter: ["class", "style"],
-      childList: true,
-      subtree: true,
-    });
-  }
   const stopCoordinateObservation = coordinateSpace?.subscribe(queueMeasurement) ?? null;
   queueMeasurement();
 

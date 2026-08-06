@@ -184,7 +184,76 @@ describe("InteractionDragSession", () => {
     expect(fixture.overlayHost.querySelector("[data-interaction-drag-overlay]")).toBeNull();
   });
 
-  it("publishes null coordinate fields for keyboard sorting and restores focus on cancellation", () => {
+  it("does not activate after the ready overlay host disconnects without a provider rerender", () => {
+    const onStart = vi.fn();
+    const fixture = createFixtureGeometry(1);
+    render(
+      <FixtureEnvironment fixture={fixture}>
+        <InteractionDragSession
+          accessibilityMode="draggable"
+          collisionPolicy="pointer"
+          labels={{ draggable: "Card" }}
+          onEnd={vi.fn()}
+          onStart={onStart}
+          profile="pointer"
+          renderPreview={() => <span>Preview</span>}
+          sessionId="fixture-detached-host"
+        >
+          <Source id="source" title="Alpha" />
+        </InteractionDragSession>
+      </FixtureEnvironment>,
+    );
+
+    fixture.overlayHost.remove();
+    startDragWithoutMeasurement("source", pointerEvent("pointerdown", 140, 100));
+
+    expect(onStart).not.toHaveBeenCalled();
+    expect(screen.getByTestId("source")).not.toHaveAttribute("data-interaction-drag-placeholder");
+    expect(fixture.overlayHost.querySelector("[data-interaction-drag-overlay]")).toBeNull();
+  });
+
+  it("passes the owner-document pointer to feature collision resolvers", async () => {
+    const resolveCollision = vi.fn(() => "target");
+    const fixture = createFixtureGeometry(1);
+    render(
+      <FixtureEnvironment fixture={fixture}>
+        <InteractionDragSession
+          accessibilityMode="draggable"
+          collisionPolicy="feature-resolver"
+          labels={{ draggable: "Card" }}
+          onEnd={vi.fn()}
+          profile="pointer"
+          resolveCollision={resolveCollision}
+          sessionId="fixture-authoritative-collision-pointer"
+        >
+          <Source id="source" title="Alpha" />
+          <Target id="target" title="Destination" />
+        </InteractionDragSession>
+      </FixtureEnvironment>,
+    );
+
+    document.dispatchEvent(pointerEvent("pointermove", 190, 145));
+    await startDrag("source", pointerEvent("pointerdown", 140, 100));
+    const collisionDetection = dndHarness.contextProps?.["collisionDetection"] as (
+      input: unknown,
+    ) => unknown;
+
+    collisionDetection({
+      active: activeRecord("source"),
+      collisionRect: clientRect(180, 135, 20, 20),
+      droppableContainers: [
+        { data: { current: dndHarness.droppableData.get("target") }, id: "target" },
+      ],
+      droppableRects: new Map([["target", clientRect(180, 135, 100, 60)]]),
+      pointerCoordinates: { x: 140, y: 100 },
+    });
+
+    expect(resolveCollision).toHaveBeenCalledWith(
+      expect.objectContaining({ clientPoint: { space: "client", x: 190, y: 145 } }),
+    );
+  });
+
+  it("publishes null coordinate fields for keyboard sorting and restores focus on cancellation", async () => {
     const onStart = vi.fn();
     const onCancel = vi.fn();
     const fixture = createFixtureGeometry(1);
@@ -209,7 +278,7 @@ describe("InteractionDragSession", () => {
     const source = screen.getByTestId("sortable-source");
     source.focus();
 
-    startDrag("source", new KeyboardEvent("keydown", { code: "Space" }));
+    await startDrag("source", new KeyboardEvent("keydown", { code: "Space" }));
     expect(onStart).toHaveBeenCalledWith(
       expect.objectContaining({
         clientDelta: null,
@@ -245,7 +314,7 @@ describe("InteractionDragSession", () => {
       </FixtureEnvironment>,
     );
     document.dispatchEvent(pointerEvent("pointermove", 190, 145));
-    startDrag("source", pointerEvent("pointerdown", 140, 100));
+    await startDrag("source", pointerEvent("pointerdown", 140, 100));
     moveDrag("source", "target", { x: 20, y: 10 });
     expect(onMove).toHaveBeenLastCalledWith(
       expect.objectContaining({ localDelta: { space: "local-delta", x: 40, y: 20 } }),
@@ -289,7 +358,7 @@ describe("InteractionDragSession", () => {
     expect(accessibility.announcements.onDragStart()).toBeUndefined();
   });
 
-  it("constrains collision candidates to the ready environment boundary", () => {
+  it("constrains collision candidates to the ready environment boundary", async () => {
     const fixture = createFixtureGeometry(1);
     render(
       <FixtureEnvironment fixture={fixture}>
@@ -307,7 +376,7 @@ describe("InteractionDragSession", () => {
         </InteractionDragSession>
       </FixtureEnvironment>,
     );
-    startDrag("source", pointerEvent("pointerdown", 20, 20));
+    await startDrag("source", pointerEvent("pointerdown", 20, 20));
     const collisionDetection = dndHarness.contextProps?.["collisionDetection"] as (
       input: unknown,
     ) => unknown;
@@ -337,7 +406,7 @@ describe("InteractionDragSession", () => {
         fixture.root.ownerDocument.defaultView!.dispatchEvent(new Event("blur")),
     ],
     ["dnd-kit", () => cancelFromDndKit("source")],
-  ] as const)("cancels an active pointer session for %s", (reason, cancel) => {
+  ] as const)("cancels an active pointer session for %s", async (reason, cancel) => {
     const onCancel = vi.fn();
     const fixture = createFixtureGeometry(1);
     render(
@@ -356,7 +425,7 @@ describe("InteractionDragSession", () => {
       </FixtureEnvironment>,
     );
     document.dispatchEvent(pointerEvent("pointermove", 20, 20));
-    startDrag("source", pointerEvent("pointerdown", 20, 20));
+    await startDrag("source", pointerEvent("pointerdown", 20, 20));
 
     act(() => {
       cancel(fixture);
@@ -365,24 +434,24 @@ describe("InteractionDragSession", () => {
     expect(onCancel).toHaveBeenCalledWith(reason);
   });
 
-  it("cancels for source removal and environment loss", () => {
+  it("cancels for source removal and environment loss", async () => {
     const onCancel = vi.fn();
     const fixture = createFixtureGeometry(1);
     render(<CancelableFixture fixture={fixture} onCancel={onCancel} />);
     document.dispatchEvent(pointerEvent("pointermove", 20, 20));
-    startDrag("source", pointerEvent("pointerdown", 20, 20));
+    await startDrag("source", pointerEvent("pointerdown", 20, 20));
 
     act(() => screen.getByRole("button", { name: "Remove source" }).click());
     expect(onCancel).toHaveBeenLastCalledWith("source-removed");
 
     act(() => screen.getByRole("button", { name: "Restore source" }).click());
-    startDrag("source", pointerEvent("pointerdown", 20, 20));
+    await startDrag("source", pointerEvent("pointerdown", 20, 20));
     fixture.overlayHost.remove();
     moveDrag("source", "source", { x: 5, y: 5 });
     expect(onCancel).toHaveBeenLastCalledWith("environment-lost");
   });
 
-  it("cancels an active session on unmount", () => {
+  it("cancels an active session on unmount", async () => {
     const onCancel = vi.fn();
     const fixture = createFixtureGeometry(1);
     const view = render(
@@ -401,14 +470,14 @@ describe("InteractionDragSession", () => {
       </FixtureEnvironment>,
     );
     document.dispatchEvent(pointerEvent("pointermove", 20, 20));
-    startDrag("source", pointerEvent("pointerdown", 20, 20));
+    await startDrag("source", pointerEvent("pointerdown", 20, 20));
 
     view.unmount();
 
     expect(onCancel).toHaveBeenCalledWith("unmount");
   });
 
-  it("cancels an invalid drop without invoking the feature commit", () => {
+  it("cancels an invalid drop without invoking the feature commit", async () => {
     const onCancel = vi.fn();
     const onEnd = vi.fn();
     const fixture = createFixtureGeometry(1);
@@ -428,7 +497,7 @@ describe("InteractionDragSession", () => {
       </FixtureEnvironment>,
     );
     document.dispatchEvent(pointerEvent("pointermove", 20, 20));
-    startDrag("source", pointerEvent("pointerdown", 20, 20));
+    await startDrag("source", pointerEvent("pointerdown", 20, 20));
 
     act(() => {
       callback("onDragEnd")({
@@ -444,7 +513,7 @@ describe("InteractionDragSession", () => {
     expect(onEnd).not.toHaveBeenCalled();
   });
 
-  it("disables drop animation when the owner window prefers reduced motion", () => {
+  it("disables drop animation when the owner window prefers reduced motion", async () => {
     vi.spyOn(window, "matchMedia").mockReturnValue({
       matches: true,
       media: "(prefers-reduced-motion: reduce)",
@@ -472,7 +541,7 @@ describe("InteractionDragSession", () => {
       </FixtureEnvironment>,
     );
     document.dispatchEvent(pointerEvent("pointermove", 20, 20));
-    startDrag("source", pointerEvent("pointerdown", 20, 20));
+    await startDrag("source", pointerEvent("pointerdown", 20, 20));
 
     expect(dndHarness.dragOverlayProps?.["dropAnimation"]).toBeNull();
   });
@@ -654,13 +723,22 @@ function createFixtureGeometry(scale: number): FixtureGeometry {
   };
 }
 
-function startDrag(id: string, activatorEvent: Event) {
+async function startDrag(id: string, activatorEvent: Event) {
+  const active = startDragWithoutMeasurement(id, activatorEvent);
+  active.rect.current.initial = clientRect(140, 100, 80, 40);
+  await act(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+  return active;
+}
+
+function startDragWithoutMeasurement(id: string, activatorEvent: Event) {
+  const active = activeRecord(id);
   act(() => {
     callback("onDragStart")({
-      active: activeRecord(id),
+      active,
       activatorEvent,
     });
   });
+  return active;
 }
 
 function moveDrag(activeId: string, overId: string, delta: { x: number; y: number }) {
@@ -701,7 +779,7 @@ function activeRecord(id: string) {
   return {
     data: { current: dndHarness.draggableData.get(id) },
     id,
-    rect: { current: { initial: clientRect(140, 100, 80, 40), translated: null } },
+    rect: { current: { initial: null as DOMRect | null, translated: null } },
   };
 }
 
