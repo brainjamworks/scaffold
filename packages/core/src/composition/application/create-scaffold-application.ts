@@ -127,7 +127,6 @@ export function createScaffoldApplication(
   validateUniqueBlockExtensionNames(blockCapabilities, "authoring");
   validateUniqueBlockExtensionNames(blockCapabilities, "runtime");
   const courseStructure = createCourseStructureModule({
-    blockDefinitions: capabilities.blocks.registry,
     surfaceVariants: capabilities.surfaces.registry,
   });
   const authoring = createScaffoldAuthoringComposition(

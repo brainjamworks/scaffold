@@ -43,7 +43,7 @@ describe("Course Structure storage", () => {
         StarterKit,
         Extension.create({
           name: "scaffoldCourseStructure",
-          addStorage: () => ({ courseStructure: { validate: () => ({ ok: false, issues: [] }) } }),
+          addStorage: () => ({ courseStructure: { validate: "not a function" } }),
         }),
       ],
     });

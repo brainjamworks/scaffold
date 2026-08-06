@@ -23,6 +23,19 @@ export function setTextSelectionNearInTransaction(tr: Transaction, pos: number, 
   }
 }
 
+export function setTextSelectionInTransaction(
+  tr: Transaction,
+  anchor: number,
+  head = anchor,
+): boolean {
+  try {
+    tr.setSelection(TextSelection.create(tr.doc, anchor, head));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Deliberate object-shell activation: sets a ProseMirror NodeSelection.
  * Structural ownership changes must use the non-destructive helpers instead.

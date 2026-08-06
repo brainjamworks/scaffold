@@ -17,7 +17,6 @@ import {
 import { createCourseStructureModule } from "@/document/model";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
-import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { ExtendedHeading } from "@/editor/rich-text/model/rich-text-blocks";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
@@ -37,7 +36,6 @@ import { insertSurfaceTemplateAfterSurface } from "./surface-template-insertion"
 
 const surfaceVariants = createSurfaceVariantRegistry(builtInSurfaceVariantDefinitions);
 const courseStructure = createCourseStructureModule({
-  blockDefinitions: builtInBlockRegistry,
   surfaceVariants,
 });
 const FIRST_SURFACE_ID = createEmbeddedNodeId();

@@ -10,6 +10,7 @@ import {
   setNonDestructiveSelectionNearInTransaction,
   setNonDestructiveSelectionNearWithinRangeInTransaction,
   setObjectSelectionInTransaction,
+  setTextSelectionInTransaction,
 } from "./selection-transactions";
 
 const TestStructuralContainer = Node.create({
@@ -152,6 +153,21 @@ describe("setNonDestructiveSelectionNearInTransaction", () => {
     expect(
       setNonDestructiveSelectionNearInTransaction(tr, editor.state.doc.content.size + 10),
     ).toBe(false);
+    editor.destroy();
+  });
+});
+
+describe("setTextSelectionInTransaction", () => {
+  it("sets an exact text range for logical selection restoration", () => {
+    const editor = makeEditor();
+    const tr = editor.state.tr;
+
+    expect(setTextSelectionInTransaction(tr, 2, 6)).toBe(true);
+    expect(isTextSelection(tr.selection)).toBe(true);
+    expect({ anchor: tr.selection.anchor, head: tr.selection.head }).toEqual({
+      anchor: 2,
+      head: 6,
+    });
     editor.destroy();
   });
 });

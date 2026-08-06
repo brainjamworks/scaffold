@@ -1,6 +1,7 @@
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
 import { cloneJsonWithNewStableIds } from "@/document/model/identity/clone-with-new-ids";
+import type { CopiedBlockDefinitionLookup } from "@/document/model/identity/clone-with-new-ids";
 
 import {
   childIndexById,
@@ -15,9 +16,13 @@ import {
 import type { CourseSectionId, CourseStructureCommand } from "./types";
 
 type CourseSectionCommand = Extract<CourseStructureCommand, { type: `course-section.${string}` }>;
+type NonDuplicateCourseSectionCommand = Exclude<
+  CourseSectionCommand,
+  { type: "course-section.duplicate" }
+>;
 
 export function buildCourseSectionCandidate(
-  command: CourseSectionCommand,
+  command: NonDuplicateCourseSectionCommand,
   context: CommandBuildContext,
 ): CandidateMutationResult {
   switch (command.type) {
@@ -28,10 +33,20 @@ export function buildCourseSectionCandidate(
     case "course-section.remove":
       return removeCourseSection(command.courseSectionId, context);
     case "course-section.move":
-      return moveCourseSection(command.courseSectionId, command.beforeCourseSectionId, context.children);
-    case "course-section.duplicate":
-      return duplicateCourseSection(command.courseSectionId, context);
+      return moveCourseSection(
+        command.courseSectionId,
+        command.beforeCourseSectionId,
+        context.children,
+      );
   }
+}
+
+export function buildCourseSectionDuplicateCandidate(
+  command: Extract<CourseSectionCommand, { type: "course-section.duplicate" }>,
+  context: CommandBuildContext,
+  blockDefinitions: CopiedBlockDefinitionLookup,
+): CandidateMutationResult {
+  return duplicateCourseSection(command.courseSectionId, context, blockDefinitions);
 }
 
 function startCourseSection(
@@ -42,15 +57,16 @@ function startCourseSection(
   if (title === null) return failureMutation("invalid_title", "Course Section title is invalid.");
   const targetIndex = childIndexById(children, "surface", command.atSurfaceId);
   if (targetIndex < 0) {
-    return failureMutation("target_not_found", "The target Surface does not exist.", command.atSurfaceId);
+    return failureMutation(
+      "target_not_found",
+      "The target Surface does not exist.",
+      command.atSurfaceId,
+    );
   }
 
   if (structure.sectioning === "none") {
     if (command.atSurfaceId === structure.surfaceIds[0]) {
-      return successMutation([
-        createCourseSectionBoundary(schema, createId(), title),
-        ...children,
-      ]);
+      return successMutation([createCourseSectionBoundary(schema, createId(), title), ...children]);
     }
     const leadingTitle = parseCourseSectionTitle(command.leadingTitle);
     if (leadingTitle === null) {
@@ -92,11 +108,19 @@ function renameCourseSection(
   if (title === null) return failureMutation("invalid_title", "Course Section title is invalid.");
   const index = childIndexById(children, "courseSection", command.courseSectionId);
   if (index < 0) {
-    return failureMutation("target_not_found", "The Course Section does not exist.", command.courseSectionId);
+    return failureMutation(
+      "target_not_found",
+      "The Course Section does not exist.",
+      command.courseSectionId,
+    );
   }
   const source = children[index]!;
   if (source.attrs["title"] === title) {
-    return failureMutation("no_change", "The Course Section already has that title.", command.courseSectionId);
+    return failureMutation(
+      "no_change",
+      "The Course Section already has that title.",
+      command.courseSectionId,
+    );
   }
   const next = [...children];
   next[index] = source.type.createChecked({ ...source.attrs, title });
@@ -108,10 +132,16 @@ function removeCourseSection(
   { structure, children }: CommandBuildContext,
 ): CandidateMutationResult {
   const childIndex = childIndexById(children, "courseSection", courseSectionId);
-  const sectionIndex = structure.courseSections.findIndex((section) => section.id === courseSectionId);
+  const sectionIndex = structure.courseSections.findIndex(
+    (section) => section.id === courseSectionId,
+  );
   const removed = structure.courseSections[sectionIndex];
   if (childIndex < 0 || !removed) {
-    return failureMutation("target_not_found", "The Course Section does not exist.", courseSectionId);
+    return failureMutation(
+      "target_not_found",
+      "The Course Section does not exist.",
+      courseSectionId,
+    );
   }
 
   const next = [...children];
@@ -137,10 +167,18 @@ function moveCourseSection(
 ): CandidateMutationResult {
   const sourceIndex = childIndexById(children, "courseSection", courseSectionId);
   if (sourceIndex < 0) {
-    return failureMutation("target_not_found", "The Course Section does not exist.", courseSectionId);
+    return failureMutation(
+      "target_not_found",
+      "The Course Section does not exist.",
+      courseSectionId,
+    );
   }
   if (beforeCourseSectionId === courseSectionId) {
-    return failureMutation("invalid_destination", "A Course Section cannot move before itself.", courseSectionId);
+    return failureMutation(
+      "invalid_destination",
+      "A Course Section cannot move before itself.",
+      courseSectionId,
+    );
   }
 
   const sourceEnd = nextBoundaryIndex(children, sourceIndex);
@@ -166,11 +204,16 @@ function moveCourseSection(
 
 function duplicateCourseSection(
   courseSectionId: CourseSectionId,
-  { blockDefinitions, children, createId, schema }: CommandBuildContext,
+  { children, createId, schema }: CommandBuildContext,
+  blockDefinitions: CopiedBlockDefinitionLookup,
 ): CandidateMutationResult {
   const sourceIndex = childIndexById(children, "courseSection", courseSectionId);
   if (sourceIndex < 0) {
-    return failureMutation("target_not_found", "The Course Section does not exist.", courseSectionId);
+    return failureMutation(
+      "target_not_found",
+      "The Course Section does not exist.",
+      courseSectionId,
+    );
   }
   const sourceEnd = nextBoundaryIndex(children, sourceIndex);
   const sourceJson = children.slice(sourceIndex, sourceEnd).map((node) => node.toJSON());

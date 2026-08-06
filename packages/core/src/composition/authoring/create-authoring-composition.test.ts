@@ -113,13 +113,16 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     expect(schema.nodes["courseSection"]?.spec.attrs?.["title"]).toBeDefined();
   });
 
-  it("owns the full Core-only Course Structure service", () => {
-    expect(coreAuthoringComposition.courseStructure).toEqual(
-      expect.objectContaining({
-        validate: expect.any(Function),
-        buildTransaction: expect.any(Function),
-      }),
-    );
+  it("owns validation while installing authoring mutation as a Tiptap command", () => {
+    expect(coreAuthoringComposition.courseStructure).toEqual({
+      validate: expect.any(Function),
+    });
+    expect(
+      createCourseDocumentAuthoringExtensions({
+        editable: true,
+        composition: coreAuthoringComposition,
+      }).filter((extension) => extension.name === "courseStructureCommands"),
+    ).toHaveLength(1);
   });
 
   it("installs the exact authoring catalogues and Course Structure once for a host editor", () => {
@@ -149,6 +152,7 @@ describe("createCourseDocumentAuthoringExtensions", () => {
       expect(
         extensions.filter((extension) => extension.name === "scaffoldCourseStructure"),
       ).toHaveLength(1);
+      expect(editor.commands.applyCourseStructureCommand).toBeTypeOf("function");
       expect(getScaffoldAuthoringCataloguesForEditor(editor)).toBe(
         application.authoring.catalogues,
       );

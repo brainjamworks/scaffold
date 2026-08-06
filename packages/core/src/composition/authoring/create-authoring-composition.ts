@@ -27,6 +27,7 @@ import { createScaffoldAuthoringCataloguesStorageExtension } from "@/composition
 import { createCourseStructureStorageExtension } from "@/composition/extensions/course-structure-storage";
 import { createCourseDocumentBaseExtensions } from "@/composition/model/create-document-composition";
 import { createCourseStructureAuthoringPolicy } from "@/document/authoring/course-structure-authoring-policy";
+import { createCourseStructureCommandsExtension } from "@/document/authoring/course-structure-commands";
 import { AuthoringSlideDividers } from "@/editor/surfaces/authoring/AuthoringSlideDividers";
 import { createSurfaceRootSelectionPolicy } from "@/editor/surfaces/authoring/surface-root-selection-policy";
 import { createSurfaceAuthoringNode } from "@/editor/surfaces/authoring/nodes/surface-authoring-node";
@@ -60,6 +61,7 @@ export function createCourseDocumentAuthoringExtensions({
     createScaffoldCapabilitiesStorageExtension(composition.capabilities),
     createScaffoldAuthoringCataloguesStorageExtension(composition.catalogues),
     createCourseStructureStorageExtension(composition.courseStructure),
+    createCourseStructureCommandsExtension({ courseStructure: composition.courseStructure }),
     ...createCourseDocumentBaseExtensions({
       assessmentActionsGroupNode: AssessmentActionsGroupNode,
       assessmentChoicesGroupNode: AssessmentChoicesGroupNode,

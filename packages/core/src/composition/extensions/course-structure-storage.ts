@@ -31,10 +31,7 @@ export function getCourseStructureForEditor(editor: Editor): CourseStructureModu
   if (!storage) {
     throw new Error("Course Structure extension is not installed for this editor");
   }
-  if (
-    typeof storage.courseStructure?.validate !== "function" ||
-    typeof storage.courseStructure.buildTransaction !== "function"
-  ) {
+  if (typeof storage.courseStructure?.validate !== "function") {
     throw new Error("Course Structure storage does not contain a complete module");
   }
 

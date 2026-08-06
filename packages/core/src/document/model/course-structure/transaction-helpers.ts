@@ -1,19 +1,16 @@
 import { CourseSectionTitleSchema } from "@scaffold/contracts";
 import type { Node as ProseMirrorNode, Schema } from "@tiptap/pm/model";
 
-import type { CopiedBlockDefinitionLookup } from "@/document/model/identity/clone-with-new-ids";
-
 import type {
   CourseSectionId,
   CourseStructure,
-  CourseStructureTransactionIssue,
-  CourseStructureTransactionIssueCode,
+  CourseStructureCommandIssue,
+  CourseStructureCommandIssueCode,
   SurfaceDestination,
   SurfaceId,
 } from "./types";
 
 export interface CommandBuildContext {
-  readonly blockDefinitions: CopiedBlockDefinitionLookup;
   readonly structure: CourseStructure;
   readonly children: readonly ProseMirrorNode[];
   readonly createId: () => string;
@@ -27,7 +24,7 @@ export interface CandidateMutation {
 
 export type CandidateMutationResult =
   | { readonly ok: true; readonly value: CandidateMutation }
-  | { readonly ok: false; readonly issue: CourseStructureTransactionIssue };
+  | { readonly ok: false; readonly issue: CourseStructureCommandIssue };
 
 export function successMutation(
   children: readonly ProseMirrorNode[],
@@ -40,18 +37,18 @@ export function successMutation(
 }
 
 export function failureMutation(
-  code: CourseStructureTransactionIssueCode,
+  code: CourseStructureCommandIssueCode,
   message: string,
   targetId?: CourseSectionId,
 ): CandidateMutationResult {
-  return { ok: false, issue: transactionIssue(code, message, targetId) };
+  return { ok: false, issue: commandIssue(code, message, targetId) };
 }
 
-export function transactionIssue(
-  code: CourseStructureTransactionIssueCode,
+export function commandIssue(
+  code: CourseStructureCommandIssueCode,
   message: string,
   targetId?: CourseSectionId,
-): CourseStructureTransactionIssue {
+): CourseStructureCommandIssue {
   return Object.freeze({ code, message, ...(targetId ? { targetId } : {}) });
 }
 
@@ -123,18 +120,4 @@ export function sameChildren(
   after: readonly ProseMirrorNode[],
 ): boolean {
   return before.length === after.length && before.every((node, index) => node.eq(after[index]!));
-}
-
-export function directChildPositionById(
-  courseDocument: ProseMirrorNode | null,
-  id: SurfaceId,
-): number | null {
-  if (!courseDocument) return null;
-  let position = 1;
-  for (let index = 0; index < courseDocument.childCount; index += 1) {
-    const child = courseDocument.child(index);
-    if (child.type.name === "surface" && child.attrs["id"] === id) return position;
-    position += child.nodeSize;
-  }
-  return null;
 }

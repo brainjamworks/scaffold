@@ -103,12 +103,8 @@ describe("createScaffoldApplication", () => {
     });
     expect(application.authoring.courseStructure).toBe(application.courseStructure);
     expect(application.runtime.courseStructure).toBe(application.courseStructure);
-    expectTypeOf<
-      "buildTransaction" extends keyof typeof application.authoring.courseStructure ? true : false
-    >().toEqualTypeOf<true>();
-    expectTypeOf<
-      "buildTransaction" extends keyof typeof application.runtime.courseStructure ? true : false
-    >().toEqualTypeOf<false>();
+    expectTypeOf<keyof typeof application.authoring.courseStructure>().toEqualTypeOf<"validate">();
+    expectTypeOf<keyof typeof application.runtime.courseStructure>().toEqualTypeOf<"validate">();
   });
 
   it("creates isolated immutable Block and Surface registries for each application", () => {

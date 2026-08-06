@@ -10,7 +10,6 @@ import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { ARRANGEMENT_CONTENT } from "@/document/model/content-model/content-groups";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
-import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SlideCoverSubtitleNode } from "@/editor/surfaces/model/nodes/slide-cover-subtitle";
 import { SlideTitleNode } from "@/editor/surfaces/model/nodes/slide-title";
@@ -30,7 +29,6 @@ const COMPATIBLE_SLIDE_ID = createEmbeddedNodeId();
 const COURSE_DOCUMENT_ID = createEmbeddedNodeId();
 const COURSE_SECTION_ID = createEmbeddedNodeId();
 const courseStructure = createCourseStructureModule({
-  blockDefinitions: builtInBlockRegistry,
   surfaceVariants: builtInSurfaceVariantRegistry,
 });
 const TestArrangementNode = Node.create({

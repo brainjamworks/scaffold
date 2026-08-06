@@ -113,9 +113,7 @@ describe("createCourseDocumentRuntimeExtensions", () => {
     expect(coreRuntimeComposition.courseStructure).toEqual(
       expect.objectContaining({ validate: expect.any(Function) }),
     );
-    expectTypeOf<
-      "buildTransaction" extends keyof typeof coreRuntimeComposition.courseStructure ? true : false
-    >().toEqualTypeOf<false>();
+    expectTypeOf<keyof typeof coreRuntimeComposition.courseStructure>().toEqualTypeOf<"validate">();
   });
 
   it("renders a persisted host Surface through its runtime component only", async () => {

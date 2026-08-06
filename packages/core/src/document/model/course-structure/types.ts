@@ -1,7 +1,6 @@
 import type { EmbeddedNodeId } from "@scaffold/contracts";
 import type { JSONContent } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
-import type { EditorState, Transaction } from "@tiptap/pm/state";
 
 export type CourseSectionId = EmbeddedNodeId;
 export type SurfaceId = EmbeddedNodeId;
@@ -134,7 +133,7 @@ export type CourseStructureCommand =
       readonly destination: SurfaceDestination;
     };
 
-export type CourseStructureTransactionIssueCode =
+export type CourseStructureCommandIssueCode =
   | "invalid_source_document"
   | "unsupported_mode"
   | "target_not_found"
@@ -147,26 +146,31 @@ export type CourseStructureTransactionIssueCode =
   | "schema_rejected_transaction"
   | "invalid_result";
 
-export interface CourseStructureTransactionIssue {
-  readonly code: CourseStructureTransactionIssueCode;
+export interface CourseStructureCommandIssue {
+  readonly code: CourseStructureCommandIssueCode;
   readonly message: string;
   readonly targetId?: EmbeddedNodeId;
 }
 
-export type CourseStructureTransactionResult =
-  | {
-      readonly ok: true;
-      readonly transaction: Transaction;
-      readonly next: CourseStructure;
-    }
-  | { readonly ok: false; readonly issue: CourseStructureTransactionIssue };
+export type CourseStructureCommandResult =
+  | { readonly ok: true; readonly next: CourseStructure }
+  | { readonly ok: false; readonly issue: CourseStructureCommandIssue };
+
+export type CourseStructureCommandResultHandler = (result: CourseStructureCommandResult) => void;
 
 export interface CourseStructureModule {
   validate(content: JSONContent): CourseStructureValidationResult;
-  buildTransaction(
-    state: EditorState,
-    command: CourseStructureCommand,
-  ): CourseStructureTransactionResult;
+}
+
+declare module "@tiptap/core" {
+  interface Commands<ReturnType> {
+    courseStructure: {
+      applyCourseStructureCommand: (
+        command: CourseStructureCommand,
+        onResult?: CourseStructureCommandResultHandler,
+      ) => ReturnType;
+    };
+  }
 }
 
 export type CourseStructureValidator = Pick<CourseStructureModule, "validate">;

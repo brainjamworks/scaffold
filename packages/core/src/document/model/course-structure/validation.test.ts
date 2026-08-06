@@ -6,7 +6,6 @@ import { describe, expect, it } from "vite-plus/test";
 import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
 import { createScaffoldDefaultTheme } from "@/theme/model";
-import { createBlockRegistry } from "@/editor/blocks/block-registry";
 
 import { createCourseStructureModule } from "./index";
 
@@ -53,7 +52,6 @@ const surfaceVariants = createSurfaceVariantRegistry([
 ]);
 
 const courseStructure = createCourseStructureModule({
-  blockDefinitions: createBlockRegistry([]),
   surfaceVariants,
 });
 
@@ -181,11 +179,7 @@ describe("CourseStructureModule.validate", () => {
     ],
     [
       "incomplete_course_section_partition",
-      document("slideshow", [
-        surface(SURFACE_1),
-        section(SECTION_1, "One"),
-        surface(SURFACE_2),
-      ]),
+      document("slideshow", [surface(SURFACE_1), section(SECTION_1, "One"), surface(SURFACE_2)]),
       ["content", 0, "content", 0],
     ],
     [
@@ -199,7 +193,11 @@ describe("CourseStructureModule.validate", () => {
     ],
     [
       "empty_course_section",
-      document("slideshow", [section(SECTION_1, "One"), surface(SURFACE_1), section(SECTION_2, "Two")]),
+      document("slideshow", [
+        section(SECTION_1, "One"),
+        surface(SURFACE_1),
+        section(SECTION_2, "Two"),
+      ]),
       ["content", 0, "content", 2],
     ],
   ] as const)("reports %s at its stable JSON path", (code, content, path) => {
@@ -338,9 +336,7 @@ describe("CourseStructureModule.validate", () => {
     const unknown = courseStructure.validate(
       document("slideshow", [surface(SURFACE_1, "missing")]),
     );
-    const mismatch = courseStructure.validate(
-      document("page", [surface(PAGE_ID, "test-slide")]),
-    );
+    const mismatch = courseStructure.validate(document("page", [surface(PAGE_ID, "test-slide")]));
     const settings = courseStructure.validate(
       document("slideshow", [surface(SURFACE_1, "test-slide", { density: "dense" })]),
     );
@@ -398,11 +394,7 @@ describe("CourseStructureModule.validate", () => {
       "attrs",
       "id",
     ]);
-    expectIssue(document("page", []), "invalid_surface_cardinality", [
-      "content",
-      0,
-      "content",
-    ]);
+    expectIssue(document("page", []), "invalid_surface_cardinality", ["content", 0, "content"]);
     expectIssue(fixedCount, "fixed_surface_child_count_mismatch", [
       "content",
       0,
@@ -450,10 +442,7 @@ function expectIssue(content: JSONContent, code: string, path: readonly (string 
   });
 }
 
-function document(
-  mode: "page" | "slideshow" | "branching",
-  content: JSONContent[],
-): JSONContent {
+function document(mode: "page" | "slideshow" | "branching", content: JSONContent[]): JSONContent {
   return {
     type: "doc",
     content: [

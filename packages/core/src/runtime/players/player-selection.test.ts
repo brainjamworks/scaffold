@@ -3,7 +3,6 @@ import { describe, expect, it } from "vite-plus/test";
 import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
 import { createCourseStructureModule } from "@/document/model/course-structure";
-import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 
@@ -14,7 +13,6 @@ const FIRST_SLIDE_ID = EmbeddedNodeIdSchema.parse("slide_000002");
 const SECOND_SLIDE_ID = EmbeddedNodeIdSchema.parse("slide_000001");
 const COURSE_SECTION_ID = EmbeddedNodeIdSchema.parse("section00001");
 const courseStructure = createCourseStructureModule({
-  blockDefinitions: builtInBlockRegistry,
   surfaceVariants: builtInSurfaceVariantRegistry,
 });
 

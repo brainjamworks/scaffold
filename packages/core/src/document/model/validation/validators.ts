@@ -12,7 +12,6 @@ import {
 } from "@/document/model/course-structure";
 
 const coreCourseStructure = createCourseStructureModule({
-  blockDefinitions: builtInBlockRegistry,
   surfaceVariants: builtInSurfaceVariantRegistry,
 });
 

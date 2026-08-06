@@ -88,7 +88,6 @@ export function createCoreScaffoldAuthoringComposition(): ScaffoldAuthoringCompo
   });
   validateSurfaceVariantFactories(capabilities.surfaces.registry);
   const courseStructure = createCourseStructureModule({
-    blockDefinitions: capabilities.blocks.registry,
     surfaceVariants: capabilities.surfaces.registry,
   });
 

@@ -1,6 +1,7 @@
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
 import { cloneJsonWithNewStableIds } from "@/document/model/identity/clone-with-new-ids";
+import type { CopiedBlockDefinitionLookup } from "@/document/model/identity/clone-with-new-ids";
 
 import {
   childIndexById,
@@ -14,21 +15,28 @@ import {
 import type { CourseStructureCommand, SurfaceDestination, SurfaceId } from "./types";
 
 type SurfaceCommand = Extract<CourseStructureCommand, { type: `surface.${string}` }>;
+type NonDuplicateSurfaceCommand = Exclude<SurfaceCommand, { type: "surface.duplicate" }>;
 
 export function buildSurfaceCandidate(
-  command: SurfaceCommand,
+  command: NonDuplicateSurfaceCommand,
   context: CommandBuildContext,
 ): CandidateMutationResult {
   switch (command.type) {
     case "surface.insert":
       return insertSurface(command.surface, command.destination, context.children);
-    case "surface.duplicate":
-      return duplicateSurface(command.surfaceId, context);
     case "surface.delete":
       return deleteSurface(command.surfaceId, context);
     case "surface.move":
       return moveSurface(command.surfaceId, command.destination, context);
   }
+}
+
+export function buildSurfaceDuplicateCandidate(
+  command: Extract<SurfaceCommand, { type: "surface.duplicate" }>,
+  context: CommandBuildContext,
+  blockDefinitions: CopiedBlockDefinitionLookup,
+): CandidateMutationResult {
+  return duplicateSurface(command.surfaceId, context, blockDefinitions);
 }
 
 function insertSurface(
@@ -52,7 +60,8 @@ function insertSurface(
 
 function duplicateSurface(
   surfaceId: SurfaceId,
-  { blockDefinitions, children, createId, schema }: CommandBuildContext,
+  { children, createId, schema }: CommandBuildContext,
+  blockDefinitions: CopiedBlockDefinitionLookup,
 ): CandidateMutationResult {
   const sourceIndex = childIndexById(children, "surface", surfaceId);
   if (sourceIndex < 0) {
@@ -107,7 +116,11 @@ function moveSurface(
   const destinationSurfaceId =
     "beforeSurfaceId" in destination ? destination.beforeSurfaceId : destination.afterSurfaceId;
   if (destinationSurfaceId === surfaceId) {
-    return failureMutation("invalid_destination", "A Surface cannot move relative to itself.", surfaceId);
+    return failureMutation(
+      "invalid_destination",
+      "A Surface cannot move relative to itself.",
+      surfaceId,
+    );
   }
   if (childIndexById(children, "surface", destinationSurfaceId) < 0) {
     return failureMutation(
