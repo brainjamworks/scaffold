@@ -1,21 +1,25 @@
 // @vitest-environment happy-dom
 
 import { Editor, Node, type JSONContent } from "@tiptap/core";
+import UniqueID from "@tiptap/extension-unique-id";
 import StarterKit from "@tiptap/starter-kit";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { CourseDocumentNode, DocumentNode, createCourseSectionNode } from "@/document/model/nodes";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { ARRANGEMENT_CONTENT } from "@/document/model/content-model/content-groups";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
+import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SlideCoverSubtitleNode } from "@/editor/surfaces/model/nodes/slide-cover-subtitle";
 import { SlideTitleNode } from "@/editor/surfaces/model/nodes/slide-title";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
+import { createScaffoldDefaultTheme } from "@/theme/model";
+import { createCourseStructureModule } from "@/document/model/course-structure";
 
-import { createSurfaceLifecycleAuthoringPolicy } from "./surface-lifecycle-authoring-policy";
+import { createCourseStructureAuthoringPolicy } from "./course-structure-authoring-policy";
 
 const editors: Editor[] = [];
 const PAGE_SURFACE_ID = createEmbeddedNodeId();
@@ -23,6 +27,12 @@ const FIRST_SLIDE_ID = createEmbeddedNodeId();
 const SECOND_SLIDE_ID = createEmbeddedNodeId();
 const THIRD_SLIDE_ID = createEmbeddedNodeId();
 const COMPATIBLE_SLIDE_ID = createEmbeddedNodeId();
+const COURSE_DOCUMENT_ID = createEmbeddedNodeId();
+const COURSE_SECTION_ID = createEmbeddedNodeId();
+const courseStructure = createCourseStructureModule({
+  blockDefinitions: builtInBlockRegistry,
+  surfaceVariants: builtInSurfaceVariantRegistry,
+});
 const TestArrangementNode = Node.create({
   name: "testArrangement",
   group: ARRANGEMENT_CONTENT,
@@ -33,7 +43,7 @@ afterEach(() => {
   for (const editor of editors.splice(0)) editor.destroy();
 });
 
-describe("surface lifecycle authoring policy", () => {
+describe("Course Structure authoring policy", () => {
   it("rejects a local transaction that clears a surface variant", () => {
     const editor = makeEditor(pageDocument());
     const surfacePosition = firstSurfacePosition(editor);
@@ -61,6 +71,15 @@ describe("surface lifecycle authoring policy", () => {
     );
 
     expect(allSurfaceIds(editor)).toEqual([FIRST_SLIDE_ID, SECOND_SLIDE_ID]);
+  });
+
+  it("rejects an invalid Course Section boundary", () => {
+    const editor = makeEditor(sectionedSlideshowDocument());
+    const sectionPosition = firstNodePosition(editor, "courseSection");
+
+    editor.view.dispatch(editor.state.tr.setNodeAttribute(sectionPosition, "title", "   "));
+
+    expect(editor.state.doc.nodeAt(sectionPosition)?.attrs["title"]).toBe("Introduction");
   });
 
   it("rejects relabelling an existing surface to a compatible registered variant", () => {
@@ -145,12 +164,14 @@ function makeEditor(content?: JSONContent): Editor {
       StarterKit.configure({ document: false, paragraph: false, undoRedo: false }),
       ExtendedParagraph,
       CourseDocumentNode,
+      createCourseSectionNode(),
       SurfaceNode,
       RegionNode,
       SlideCoverSubtitleNode,
       SlideTitleNode,
       TestArrangementNode,
-      createSurfaceLifecycleAuthoringPolicy({ registry: builtInSurfaceVariantRegistry }),
+      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
+      createCourseStructureAuthoringPolicy({ courseStructure }),
     ],
     ...(content === undefined ? {} : { content }),
   });
@@ -165,10 +186,12 @@ function pageDocument(): JSONContent {
       {
         type: "courseDocument",
         attrs: {
+          id: COURSE_DOCUMENT_ID,
           schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
           mode: "page",
           surfaceSize: "fluid",
           overflowMode: "grow",
+          theme: createScaffoldDefaultTheme(),
         },
         content: [
           builtInSurfaceVariantRegistry.get("page-default")!.createSurface({
@@ -188,12 +211,39 @@ function slideshowDocument(): JSONContent {
       {
         type: "courseDocument",
         attrs: {
+          id: COURSE_DOCUMENT_ID,
           schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
           mode: "slideshow",
           surfaceSize: "16x9",
           overflowMode: "clip",
+          theme: createScaffoldDefaultTheme(),
         },
         content: [
+          definition.createSurface({ surfaceId: FIRST_SLIDE_ID }),
+          definition.createSurface({ surfaceId: SECOND_SLIDE_ID }),
+        ],
+      },
+    ],
+  };
+}
+
+function sectionedSlideshowDocument(): JSONContent {
+  const definition = builtInSurfaceVariantRegistry.get("slide-cover")!;
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "courseDocument",
+        attrs: {
+          id: COURSE_DOCUMENT_ID,
+          schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+          mode: "slideshow",
+          surfaceSize: "16x9",
+          overflowMode: "clip",
+          theme: createScaffoldDefaultTheme(),
+        },
+        content: [
+          { type: "courseSection", attrs: { id: COURSE_SECTION_ID, title: "Introduction" } },
           definition.createSurface({ surfaceId: FIRST_SLIDE_ID }),
           definition.createSurface({ surfaceId: SECOND_SLIDE_ID }),
         ],
@@ -210,10 +260,12 @@ function compatibleSlideshowDocument(): JSONContent {
       {
         type: "courseDocument",
         attrs: {
+          id: COURSE_DOCUMENT_ID,
           schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
           mode: "slideshow",
           surfaceSize: "16x9",
           overflowMode: "clip",
+          theme: createScaffoldDefaultTheme(),
         },
         content: [definition.createSurface({ surfaceId: COMPATIBLE_SLIDE_ID })],
       },

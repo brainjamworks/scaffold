@@ -17,7 +17,8 @@ import {
 } from "@/composition/application/create-scaffold-application";
 import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import { getScaffoldAuthoringCataloguesForEditor } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
-import * as surfaceLifecyclePolicy from "@/document/authoring/surface-lifecycle-authoring-policy";
+import { getCourseStructureForEditor } from "@/composition/extensions/course-structure-storage";
+import * as courseStructurePolicy from "@/document/authoring/course-structure-authoring-policy";
 import * as structuralClipboardPolicy from "@/document/authoring/structural-clipboard-policy";
 import {
   CellAuthoringNode,
@@ -121,7 +122,7 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     );
   });
 
-  it("installs the exact resolved authoring catalogues once for a host editor", () => {
+  it("installs the exact authoring catalogues and Course Structure once for a host editor", () => {
     const capability = hostLayoutCapability("host-catalogue-storage-layout");
     const application = createScaffoldApplication({
       packs: [
@@ -145,9 +146,13 @@ describe("createCourseDocumentAuthoringExtensions", () => {
       expect(
         extensions.filter((extension) => extension.name === "scaffoldAuthoringCatalogues"),
       ).toHaveLength(1);
+      expect(
+        extensions.filter((extension) => extension.name === "scaffoldCourseStructure"),
+      ).toHaveLength(1);
       expect(getScaffoldAuthoringCataloguesForEditor(editor)).toBe(
         application.authoring.catalogues,
       );
+      expect(getCourseStructureForEditor(editor)).toBe(application.authoring.courseStructure);
     } finally {
       editor.destroy();
     }
@@ -335,7 +340,7 @@ describe("createCourseDocumentAuthoringExtensions", () => {
       extensions: createCourseDocumentAuthoringExtensions({
         editable: true,
         composition: application.authoring,
-      }).filter(({ name }) => name !== "surfaceLifecycleAuthoringPolicy"),
+      }).filter(({ name }) => name !== "courseStructureAuthoringPolicy"),
       content: persistedHostLayoutInBoundedCellDocument(fillCapability.definition.id, "cell-fill"),
     });
     const flowEditor = new Editor({
@@ -343,7 +348,7 @@ describe("createCourseDocumentAuthoringExtensions", () => {
       extensions: createCourseDocumentAuthoringExtensions({
         editable: true,
         composition: application.authoring,
-      }).filter(({ name }) => name !== "surfaceLifecycleAuthoringPolicy"),
+      }).filter(({ name }) => name !== "courseStructureAuthoringPolicy"),
       content: persistedHostLayoutInBoundedCellDocument(flowCapability.definition.id, "cell-flow"),
     });
 
@@ -379,9 +384,9 @@ describe("createCourseDocumentAuthoringExtensions", () => {
       surfaceRootSelectionPolicy,
       "createSurfaceRootSelectionPolicy",
     );
-    const createLifecycle = vi.spyOn(
-      surfaceLifecyclePolicy,
-      "createSurfaceLifecycleAuthoringPolicy",
+    const createStructurePolicy = vi.spyOn(
+      courseStructurePolicy,
+      "createCourseStructureAuthoringPolicy",
     );
     const createEmptyRow = vi.spyOn(emptyInsertionRow, "createEmptyInsertionRowExtension");
     const createSlash = vi.spyOn(slashCommand, "createSlashCommand");
@@ -399,7 +404,9 @@ describe("createCourseDocumentAuthoringExtensions", () => {
       views: application.authoring.surfaces.views,
     });
     expect(createRootSelection).toHaveBeenCalledWith({ surfaceVariants: surfaceRegistry });
-    expect(createLifecycle).toHaveBeenCalledWith({ registry: surfaceRegistry });
+    expect(createStructurePolicy).toHaveBeenCalledWith({
+      courseStructure: application.authoring.courseStructure,
+    });
     expect(createEmptyRow).toHaveBeenCalledWith({
       blockDefinitions: application.capabilities.blocks.registry,
       surfaceVariants: surfaceRegistry,
