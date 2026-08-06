@@ -15,6 +15,7 @@ import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { AUTHORING_FRAME_ATTR } from "@/editor/interactions/dom/authoring-frame";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
+import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import { AssessmentActionsGroupNode } from "@/editor/blocks/assessment/shared/nodes/assessment-actions-group";
 import { AssessmentChoicesGroupNode } from "@/editor/blocks/assessment/shared/nodes/assessment-choices-group";
 import { AssessmentHintNode } from "@/editor/blocks/assessment/shared/nodes/assessment-hint";
@@ -67,7 +68,7 @@ export function describeBlockContract(input: DescribeBlockContractInput): void {
             type: "doc",
             content: [node.toJSON()],
           });
-          render(createElement(EditorContent, { editor }));
+          render(createAuthoringMovementTestRoot(editor, createElement(EditorContent, { editor })));
 
           await waitFor(() => {
             expect(document.body.querySelector("[data-authoring-frame-wrapper]")).not.toBeNull();
@@ -92,7 +93,7 @@ export function describeBlockContract(input: DescribeBlockContractInput): void {
             type: "doc",
             content: [node.toJSON()],
           });
-          render(createElement(EditorContent, { editor }));
+          render(createAuthoringMovementTestRoot(editor, createElement(EditorContent, { editor })));
 
           await waitFor(() => {
             const authoringFrame = document.body.querySelector<HTMLElement>(

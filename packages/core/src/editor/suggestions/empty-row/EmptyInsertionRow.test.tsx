@@ -103,8 +103,8 @@ function nodePos(editor: Editor, type: string): number {
 
 function nodeElement(editor: Editor, pos: number): HTMLElement {
   const element = editor.view.nodeDOM(pos);
-  if (!(element instanceof HTMLElement)) {
-    throw new Error(`expected HTMLElement at ${pos}`);
+  if (!(element instanceof HTMLElement) || !element.isConnected) {
+    throw new Error(`expected connected HTMLElement at ${pos}`);
   }
   return element;
 }
