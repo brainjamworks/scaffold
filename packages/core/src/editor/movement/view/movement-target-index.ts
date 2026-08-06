@@ -118,12 +118,14 @@ export function measureMovementTargetEntries(
 }
 
 export function readMovementScrollOffset(target: Element | Document): MovementScrollOffset {
-  if (target instanceof Element) {
-    return Object.freeze({ x: target.scrollLeft, y: target.scrollTop });
+  if (target.nodeType === 1) {
+    const element = target as Element;
+    return Object.freeze({ x: element.scrollLeft, y: element.scrollTop });
   }
 
-  const scrollingElement = target.scrollingElement;
-  const ownerWindow = target.defaultView;
+  const ownerDocument = target as Document;
+  const scrollingElement = ownerDocument.scrollingElement;
+  const ownerWindow = ownerDocument.defaultView;
   return Object.freeze({
     x: scrollingElement?.scrollLeft ?? ownerWindow?.scrollX ?? 0,
     y: scrollingElement?.scrollTop ?? ownerWindow?.scrollY ?? 0,

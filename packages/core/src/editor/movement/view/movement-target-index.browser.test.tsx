@@ -9,6 +9,7 @@ import {
   createArtificialLargeMovementFixture,
   type ArtificialLargeMovementFixture,
 } from "../testing/artificial-large-movement-fixture";
+import { readMovementScrollOffset } from "./movement-target-index";
 
 const mounted: ArtificialLargeMovementFixture[] = [];
 
@@ -17,6 +18,32 @@ afterEach(() => {
 });
 
 describe("movement target index artificial worst case", () => {
+  it("reads scroll offsets from an element owned by another document realm", () => {
+    const iframe = document.createElement("iframe");
+    document.body.append(iframe);
+    try {
+      const foreignDocument = iframe.contentDocument;
+      if (!foreignDocument) throw new Error("Expected iframe document.");
+      const foreignElement = foreignDocument.createElement("div");
+      const overflowContent = foreignDocument.createElement("div");
+      foreignElement.style.cssText = "height: 10px; overflow: scroll; width: 10px";
+      overflowContent.style.cssText = "height: 100px; width: 100px";
+      foreignElement.append(overflowContent);
+      foreignDocument.body.append(foreignElement);
+      foreignElement.scrollLeft = 17;
+      foreignElement.scrollTop = 31;
+
+      expect(foreignElement instanceof Element).toBe(false);
+      expect({ x: foreignElement.scrollLeft, y: foreignElement.scrollTop }).toEqual({
+        x: 17,
+        y: 31,
+      });
+      expect(readMovementScrollOffset(foreignElement)).toEqual({ x: 17, y: 31 });
+    } finally {
+      iframe.remove();
+    }
+  });
+
   it("keeps pointer and scroll queries free of traversal and layout reads", async () => {
     await page.viewport(1000, 720);
     const fixture = createArtificialLargeMovementFixture();
@@ -30,6 +57,12 @@ describe("movement target index artificial worst case", () => {
     expect(snapshot).not.toBeNull();
     expect(snapshot!.entries.length).toBeGreaterThanOrEqual(1_000);
     expect(fixture.controller.getCandidate()).not.toBeNull();
+
+    const counterControlBaseline = operationCounts(fixture);
+    fixture.editor.state.doc.descendants(() => false);
+    snapshot!.entries[0]!.descriptor.element.getBoundingClientRect();
+    expect(fixture.counts.traversals).toBe(counterControlBaseline.traversals + 1);
+    expect(fixture.counts.rectReads).toBe(counterControlBaseline.rectReads + 1);
 
     const constructionCounts = operationCounts(fixture);
     for (let index = 1; index <= 200; index += 1) {
@@ -60,6 +93,15 @@ describe("movement target index artificial worst case", () => {
     );
     expect(fixture.counts.candidateQueries).toBeGreaterThan(beforeScrollCounts.candidateQueries);
     expectNoDiscoveryOrLayoutReads(fixture, beforeScrollCounts);
+
+    const documentNode = fixture.editor.state.doc;
+    const descriptorElement = snapshot!.entries[0]!.descriptor.element;
+    const beforeDisposeCounts = operationCounts(fixture);
+    expect(mounted.pop()).toBe(fixture);
+    fixture.dispose();
+    documentNode.descendants(() => false);
+    descriptorElement.getBoundingClientRect();
+    expect(operationCounts(fixture)).toEqual(beforeDisposeCounts);
   });
 });
 

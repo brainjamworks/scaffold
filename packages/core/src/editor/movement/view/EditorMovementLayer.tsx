@@ -429,15 +429,19 @@ function MovementChromeLayer({
   onKeyboardMove: (sourcePos: number, direction: KeyboardMovementDirection) => void;
   target: EditorMovementTarget | null;
 }) {
-  const dropSurface = useInteractionDropTarget<AuthoringMovementDropData>({
-    data: { movementSurface: true },
-    id: "scaffold-authoring-movement-surface",
-  });
+  const { setNodeRef: setDropSurfaceNodeRef, targetProps: dropSurfaceTargetProps } =
+    useInteractionDropTarget<AuthoringMovementDropData>({
+      data: { movementSurface: true },
+      id: "scaffold-authoring-movement-surface",
+    });
+  useEffect(() => {
+    setDropSurfaceNodeRef(editor.view.dom);
+    return () => setDropSurfaceNodeRef(null);
+  }, [editor, setDropSurfaceNodeRef]);
 
   return (
     <div
-      ref={dropSurface.setNodeRef}
-      {...dropSurface.targetProps}
+      {...dropSurfaceTargetProps}
       aria-hidden={!target}
       data-testid="scaffold-editor-movement-layer"
       data-scaffold-editor-movement-layer=""

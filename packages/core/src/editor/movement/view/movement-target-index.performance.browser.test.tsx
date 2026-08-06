@@ -43,7 +43,10 @@ describe("movement target index stable-runner budget", () => {
       const lookupMaxMs = Math.max(...lookupDurations);
       const autoScroll = await measureAutoScroll(fixture, 10_000);
       const metrics = {
+        backwardCandidateMoves: autoScroll.backwardCandidateMoves,
+        candidateQueries: autoScroll.candidateQueries,
         constructionMs,
+        forwardCandidateMoves: autoScroll.forwardCandidateMoves,
         framesPerSecond: autoScroll.framesPerSecond,
         lookupMaxMs,
         lookupP95Ms,
@@ -55,6 +58,9 @@ describe("movement target index stable-runner budget", () => {
       expect(constructionMs).toBeLessThan(100);
       expect(lookupP95Ms).toBeLessThan(4);
       expect(lookupMaxMs).toBeLessThan(8);
+      expect(autoScroll.candidateQueries).toBeGreaterThan(0);
+      expect(autoScroll.forwardCandidateMoves).toBeGreaterThan(10);
+      expect(autoScroll.backwardCandidateMoves).toBeGreaterThan(10);
       expect(autoScroll.maxLongTaskMs).toBeLessThanOrEqual(50);
       expect(autoScroll.framesPerSecond).toBeGreaterThanOrEqual(55);
     },
@@ -66,6 +72,9 @@ async function measureAutoScroll(
   fixture: ArtificialLargeMovementFixture,
   durationMs: number,
 ): Promise<{
+  backwardCandidateMoves: number;
+  candidateQueries: number;
+  forwardCandidateMoves: number;
   framesPerSecond: number;
   maxLongTaskMs: number;
   observedFrames: number;
@@ -81,22 +90,43 @@ async function measureAutoScroll(
 
   const timestamps: number[] = [];
   const maximumScroll = fixture.scrollRoot.scrollHeight - fixture.scrollRoot.clientHeight;
-  let direction = 1;
+  const workloadMaximumScroll = Math.min(maximumScroll, 9_000);
+  const queryCountBeforeScroll = fixture.counts.candidateQueries;
+  let backwardCandidateMoves = 0;
+  let direction: -1 | 1 = 1;
+  let forwardCandidateMoves = 0;
+  let lastAppliedDirection: -1 | 1 | null = null;
+  let previousCandidatePos = fixture.controller.getCandidate()?.target.pos ?? null;
   await new Promise<void>((resolve) => {
     let firstTimestamp: number | null = null;
     const frame = (timestamp: number) => {
       firstTimestamp ??= timestamp;
       timestamps.push(timestamp);
+      const currentCandidatePos = fixture.controller.getCandidate()?.target.pos ?? null;
+      if (
+        previousCandidatePos !== null &&
+        currentCandidatePos !== null &&
+        currentCandidatePos !== previousCandidatePos
+      ) {
+        if (lastAppliedDirection === 1 && currentCandidatePos > previousCandidatePos) {
+          forwardCandidateMoves += 1;
+        } else if (lastAppliedDirection === -1 && currentCandidatePos < previousCandidatePos) {
+          backwardCandidateMoves += 1;
+        }
+      }
+      previousCandidatePos = currentCandidatePos;
+      const appliedDirection = direction;
       let nextScrollTop = fixture.scrollRoot.scrollTop + direction * 180;
-      if (nextScrollTop >= maximumScroll) {
+      if (nextScrollTop >= workloadMaximumScroll) {
         direction = -1;
-        nextScrollTop = maximumScroll;
+        nextScrollTop = workloadMaximumScroll;
       } else if (nextScrollTop <= 0) {
         direction = 1;
         nextScrollTop = 0;
       }
       fixture.scrollRoot.scrollTop = nextScrollTop;
       fixture.scrollRoot.dispatchEvent(new Event("scroll"));
+      lastAppliedDirection = appliedDirection;
 
       if (timestamp - firstTimestamp >= durationMs) {
         resolve();
@@ -112,6 +142,9 @@ async function measureAutoScroll(
 
   const elapsed = timestamps.at(-1)! - timestamps[0]!;
   return {
+    backwardCandidateMoves,
+    candidateQueries: fixture.counts.candidateQueries - queryCountBeforeScroll,
+    forwardCandidateMoves,
     framesPerSecond: ((timestamps.length - 1) * 1_000) / elapsed,
     maxLongTaskMs: Math.max(0, ...longTasks),
     observedFrames: timestamps.length,

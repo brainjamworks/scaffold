@@ -1,4 +1,5 @@
 import { Editor, Node, type JSONContent } from "@tiptap/core";
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { EditorView } from "@tiptap/pm/view";
 import StarterKit from "@tiptap/starter-kit";
 
@@ -164,7 +165,10 @@ export function createArtificialLargeMovementFixture(): ArtificialLargeMovementF
     traversals: 0,
   };
   const candidateHistory: (MovementCandidate | null)[] = [];
-  const countingView = createCountingView(editor.view, counts);
+  const traversalInstrumentation = createTraversalInstrumentation(counts);
+  traversalInstrumentation.instrument(editor.state.doc);
+  const rectangleInstrumentation = createRectangleReadInstrumentation(counts);
+  const countingView = createCountingView(editor.view, counts, traversalInstrumentation);
   const controller = createMovementTargetIndexController({
     blockDefinitions,
     canApplyMovementResult: () => {
@@ -173,12 +177,13 @@ export function createArtificialLargeMovementFixture(): ArtificialLargeMovementF
     },
     createMutationObserver: () => null,
     createResizeObserver: () => null,
-    discoverDescriptors: (input) => {
-      counts.traversals += 1;
-      return discoverMovementTargetDescriptors({ ...input, view: countingView });
-    },
+    discoverDescriptors: (input) =>
+      discoverMovementTargetDescriptors({ ...input, view: countingView }),
     isEnvironmentValid: () => host.isConnected && scrollRoot.isConnected,
-    measureEntries: (descriptors) => instrumentedMeasurement(descriptors, counts),
+    measureEntries: (descriptors) => {
+      rectangleInstrumentation.instrument(descriptors);
+      return measureMovementTargetEntries(descriptors);
+    },
     onCandidateChange: (candidate) => candidateHistory.push(candidate),
     ownerDocument: host.ownerDocument,
     resolveSource: () => source,
@@ -206,6 +211,7 @@ export function createArtificialLargeMovementFixture(): ArtificialLargeMovementF
     return entry;
   };
 
+  let disposed = false;
   return {
     blockElements,
     candidateHistory,
@@ -226,7 +232,11 @@ export function createArtificialLargeMovementFixture(): ArtificialLargeMovementF
     scrollRoot,
     slideElements,
     dispose() {
+      if (disposed) return;
+      disposed = true;
       controller.dispose();
+      rectangleInstrumentation.restore();
+      traversalInstrumentation.restore();
       editor.destroy();
       host.remove();
     },
@@ -287,13 +297,16 @@ function findBlockPosition(editor: Editor, index: number): number {
 function createCountingView(
   view: EditorView,
   counts: ArtificialMovementOperationCounts,
+  traversalInstrumentation: ReturnType<typeof createTraversalInstrumentation>,
 ): EditorView {
   return {
     get dom() {
       return view.dom;
     },
     get state() {
-      return view.state;
+      const state = view.state;
+      traversalInstrumentation.instrument(state.doc);
+      return state;
     },
     nodeDOM(pos) {
       counts.nodeDOM += 1;
@@ -306,33 +319,65 @@ function createCountingView(
   } as EditorView;
 }
 
-function instrumentedMeasurement(
-  descriptors: readonly MovementTargetDescriptor[],
-  counts: ArtificialMovementOperationCounts,
-) {
-  const restores = descriptors.map((descriptor) => {
-    const element = descriptor.element;
-    const ownDescriptor = Object.getOwnPropertyDescriptor(element, "getBoundingClientRect");
-    const original = element.getBoundingClientRect.bind(element);
-    Object.defineProperty(element, "getBoundingClientRect", {
-      configurable: true,
-      value: () => {
-        counts.rectReads += 1;
-        return original();
-      },
-    });
-    return () => {
-      if (ownDescriptor) {
-        Object.defineProperty(element, "getBoundingClientRect", ownDescriptor);
-      } else {
-        Reflect.deleteProperty(element, "getBoundingClientRect");
-      }
-    };
-  });
+function createTraversalInstrumentation(counts: ArtificialMovementOperationCounts) {
+  const originals = new Map<ProseMirrorNode, PropertyDescriptor | undefined>();
 
-  try {
-    return measureMovementTargetEntries(descriptors);
-  } finally {
-    for (const restore of restores) restore();
-  }
+  return {
+    instrument(documentNode: ProseMirrorNode) {
+      if (originals.has(documentNode)) return;
+      const ownDescriptor = Object.getOwnPropertyDescriptor(documentNode, "descendants");
+      const original = documentNode.descendants.bind(documentNode);
+      originals.set(documentNode, ownDescriptor);
+      Object.defineProperty(documentNode, "descendants", {
+        configurable: true,
+        value: (...args: Parameters<ProseMirrorNode["descendants"]>) => {
+          counts.traversals += 1;
+          return original(...args);
+        },
+      });
+    },
+    restore() {
+      for (const [documentNode, ownDescriptor] of originals) {
+        if (ownDescriptor) {
+          Object.defineProperty(documentNode, "descendants", ownDescriptor);
+        } else {
+          Reflect.deleteProperty(documentNode, "descendants");
+        }
+      }
+      originals.clear();
+    },
+  };
+}
+
+function createRectangleReadInstrumentation(counts: ArtificialMovementOperationCounts) {
+  const originals = new Map<Element, PropertyDescriptor | undefined>();
+
+  return {
+    instrument(descriptors: readonly MovementTargetDescriptor[]) {
+      for (const descriptor of descriptors) {
+        const element = descriptor.element;
+        if (originals.has(element)) continue;
+        const ownDescriptor = Object.getOwnPropertyDescriptor(element, "getBoundingClientRect");
+        const original = element.getBoundingClientRect.bind(element);
+        originals.set(element, ownDescriptor);
+        Object.defineProperty(element, "getBoundingClientRect", {
+          configurable: true,
+          value: () => {
+            counts.rectReads += 1;
+            return original();
+          },
+        });
+      }
+    },
+    restore() {
+      for (const [element, ownDescriptor] of originals) {
+        if (ownDescriptor) {
+          Object.defineProperty(element, "getBoundingClientRect", ownDescriptor);
+        } else {
+          Reflect.deleteProperty(element, "getBoundingClientRect");
+        }
+      }
+      originals.clear();
+    },
+  };
 }

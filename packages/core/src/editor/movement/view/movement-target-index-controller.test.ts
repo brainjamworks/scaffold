@@ -191,7 +191,39 @@ describe("movement target index controller", () => {
     controller.dispose();
   });
 
-  it("does not publish an equivalent candidate after a geometry revision", () => {
+  it("publishes fresh presentation geometry for the same target after stationary scroll", () => {
+    const scroller = document.createElement("div");
+    const target = descriptor(2, "target", document.createElement("div"));
+    scroller.append(target.element);
+    document.body.append(scroller);
+    const scheduler = new TestFrameScheduler();
+    const onCandidateChange = vi.fn();
+    const controller = createMovementTargetIndexController(
+      controllerOptions({
+        discoverDescriptors: ({ documentRevision }) => ({
+          descriptors: [target],
+          documentRevision,
+        }),
+        frameScheduler: scheduler,
+        measureEntries: () => [entry(target, 20, scroller)],
+        onCandidateChange,
+      }),
+    );
+    controller.start({ space: "client", x: 100, y: 50 });
+    scheduler.flush();
+    expect(controller.getCandidate()?.target.rect.top).toBe(20);
+
+    scroller.scrollTop = 4;
+    scroller.dispatchEvent(new Event("scroll"));
+    scheduler.flush();
+
+    expect(controller.getCandidate()?.key).toBe(target.key);
+    expect(controller.getCandidate()?.target.rect.top).toBe(16);
+    expect(onCandidateChange).toHaveBeenCalledTimes(2);
+    controller.dispose();
+  });
+
+  it("publishes fresh presentation geometry for the same target after resize", () => {
     const target = descriptor(2, "target");
     const scheduler = new TestFrameScheduler();
     let top = 20;
@@ -211,11 +243,100 @@ describe("movement target index controller", () => {
     scheduler.flush();
 
     top = 24;
-    controller.invalidate("layout");
+    controller.invalidate("resize");
+    scheduler.flush();
+
+    expect(onCandidateChange).toHaveBeenCalledTimes(2);
+    expect(controller.getCandidate()?.key).toBe(target.key);
+    expect(controller.getCandidate()?.target.rect.top).toBe(24);
+    controller.dispose();
+  });
+
+  it("does not publish when semantic intent and presentation geometry are unchanged", () => {
+    const target = descriptor(2, "target");
+    const scheduler = new TestFrameScheduler();
+    const onCandidateChange = vi.fn();
+    const controller = createMovementTargetIndexController(
+      controllerOptions({
+        discoverDescriptors: ({ documentRevision }) => ({
+          descriptors: [target],
+          documentRevision,
+        }),
+        frameScheduler: scheduler,
+        measureEntries: () => [entry(target, 20)],
+        onCandidateChange,
+      }),
+    );
+    controller.start({ space: "client", x: 100, y: 70 });
+    scheduler.flush();
+
+    controller.invalidate("resize");
     scheduler.flush();
 
     expect(onCandidateChange).toHaveBeenCalledTimes(1);
-    expect(controller.getCandidate()?.key).toBe(target.key);
+    expect(controller.getCandidate()?.target.rect.top).toBe(20);
+    controller.dispose();
+  });
+
+  it("samples scroll offsets synchronously when drop precedes the scroll event", () => {
+    const scroller = document.createElement("div");
+    const first = descriptor(2, "first", document.createElement("div"));
+    const second = descriptor(3, "second", document.createElement("div"));
+    scroller.append(first.element, second.element);
+    document.body.append(scroller);
+    const scheduler = new TestFrameScheduler();
+    const measure = vi.fn(() => [entry(first, 20, scroller), entry(second, 120, scroller)]);
+    const controller = createMovementTargetIndexController(
+      controllerOptions({
+        discoverDescriptors: ({ documentRevision }) => ({
+          descriptors: [first, second],
+          documentRevision,
+        }),
+        frameScheduler: scheduler,
+        measureEntries: measure,
+      }),
+    );
+    controller.start({ space: "client", x: 100, y: 50 });
+    scheduler.flush();
+    expect(controller.getCandidate()?.target.pos).toBe(2);
+
+    scroller.scrollTop = 100;
+    const dropCandidate = controller.revalidate();
+
+    expect(dropCandidate?.target.pos).toBe(3);
+    expect(measure).toHaveBeenCalledTimes(1);
+    expect(scheduler.pending).toBe(0);
+    controller.dispose();
+  });
+
+  it("uses delivered scroll offsets during synchronous drop revalidation", () => {
+    const scroller = document.createElement("div");
+    const first = descriptor(2, "first", document.createElement("div"));
+    const second = descriptor(3, "second", document.createElement("div"));
+    scroller.append(first.element, second.element);
+    document.body.append(scroller);
+    const scheduler = new TestFrameScheduler();
+    const measure = vi.fn(() => [entry(first, 20, scroller), entry(second, 120, scroller)]);
+    const controller = createMovementTargetIndexController(
+      controllerOptions({
+        discoverDescriptors: ({ documentRevision }) => ({
+          descriptors: [first, second],
+          documentRevision,
+        }),
+        frameScheduler: scheduler,
+        measureEntries: measure,
+      }),
+    );
+    controller.start({ space: "client", x: 100, y: 50 });
+    scheduler.flush();
+
+    scroller.scrollTop = 100;
+    scroller.dispatchEvent(new Event("scroll"));
+    const dropCandidate = controller.revalidate();
+
+    expect(dropCandidate?.target.pos).toBe(3);
+    expect(measure).toHaveBeenCalledTimes(1);
+    expect(scheduler.pending).toBe(0);
     controller.dispose();
   });
 
@@ -305,6 +426,8 @@ describe("movement target index controller", () => {
       }),
     );
     controller.start({ space: "client", x: 100, y: 70 });
+    scheduler.flush();
+    expect(controller.getCandidate()).not.toBeNull();
     const resizeDisconnectsBeforeDispose = resizeDisconnect.mock.calls.length;
     const mutationDisconnectsBeforeDispose = mutationDisconnect.mock.calls.length;
 
@@ -315,5 +438,6 @@ describe("movement target index controller", () => {
     expect(stopCoordinates).toHaveBeenCalledTimes(1);
     expect(resizeDisconnect).toHaveBeenCalledTimes(resizeDisconnectsBeforeDispose + 1);
     expect(mutationDisconnect).toHaveBeenCalledTimes(mutationDisconnectsBeforeDispose + 1);
+    expect(controller.getCandidate()).toBeNull();
   });
 });

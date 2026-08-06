@@ -205,6 +205,17 @@ export function createMovementTargetIndexController(
     scrollDirty = false;
   }
 
+  function sampleCurrentScrollOffsets(): void {
+    for (const target of relevantScrollTargets) {
+      const previous = currentScrollOffsets.get(target);
+      const current = readMovementScrollOffset(target);
+      if (!previous || previous.x !== current.x || previous.y !== current.y) {
+        currentScrollOffsets.set(target, current);
+        scrollDirty = true;
+      }
+    }
+  }
+
   function queryCandidate(): MovementCandidate | null {
     if (!snapshot || !source || !latestPoint) return null;
     const queryResult = snapshot.query(latestPoint, source);
@@ -226,8 +237,12 @@ export function createMovementTargetIndexController(
 
   function queryAndPublish(): MovementCandidate | null {
     const nextCandidate = queryCandidate();
-    if (!movementCandidatesAreSemanticallyEqual(candidate, nextCandidate)) {
-      candidate = nextCandidate;
+    const previousCandidate = candidate;
+    candidate = nextCandidate;
+    if (
+      !movementCandidatesAreSemanticallyEqual(previousCandidate, nextCandidate) ||
+      !movementCandidateGeometryIsEqual(previousCandidate, nextCandidate)
+    ) {
       options.onCandidateChange(candidate);
     }
     return nextCandidate;
@@ -317,7 +332,9 @@ export function createMovementTargetIndexController(
     descriptors = [];
     entries = [];
     snapshot = null;
+    candidate = null;
     source = null;
+    sourceIdentity = null;
     latestPoint = null;
     relevantScrollTargets.clear();
     currentScrollOffsets.clear();
@@ -357,8 +374,9 @@ export function createMovementTargetIndexController(
       if (structuralDirty && !discoverNow()) return null;
       if (geometryDirty || !snapshot) {
         if (!measureNow()) return null;
-      } else if (scrollDirty) {
-        refreshScrollSnapshot();
+      } else {
+        sampleCurrentScrollOffsets();
+        if (scrollDirty) refreshScrollSnapshot();
       }
       const nextCandidate = queryAndPublish();
       if (!nextCandidate) return null;
@@ -393,6 +411,24 @@ export function createMovementTargetIndexController(
       queryAndPublish();
     },
   };
+}
+
+function movementCandidateGeometryIsEqual(
+  left: MovementCandidate | null,
+  right: MovementCandidate | null,
+): boolean {
+  if (left === right) return true;
+  if (!left || !right) return false;
+  const leftRect = left.target.rect;
+  const rightRect = right.target.rect;
+  return (
+    leftRect.bottom === rightRect.bottom &&
+    leftRect.height === rightRect.height &&
+    leftRect.left === rightRect.left &&
+    leftRect.right === rightRect.right &&
+    leftRect.top === rightRect.top &&
+    leftRect.width === rightRect.width
+  );
 }
 
 function movementSourceIdentity(source: MovementTargetQuerySource): string {

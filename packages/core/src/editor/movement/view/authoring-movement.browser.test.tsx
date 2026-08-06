@@ -110,21 +110,27 @@ describe("authoring movement shared drag", () => {
     };
     expect(isVisibleWithin(harness.block("c"), harness.ownerRoot)).toBe(false);
 
+    const forwardIndicatorGeometry = waitForSameTargetIndicatorGeometry(harness);
     await startPointerDrag(source, pointer);
     const initialKey = await waitForValue(() => harness.indicator()?.dataset.movementTargetKey);
     expect(source).toHaveAttribute("data-interaction-drag-placeholder");
     expect(harness.overlay()).not.toBeNull();
 
-    await runFixtureAutoScroll(harness.ownerRoot, "forward", () =>
-      isVisibleWithin(harness.block("c"), harness.ownerRoot),
-    );
-    await waitFor(() => harness.ownerRoot.scrollTop > 400);
+    await Promise.all([
+      waitFor(() => isComfortablyVisibleWithin(harness.block("c"), harness.ownerRoot, 48)),
+      forwardIndicatorGeometry,
+    ]);
     const stationaryKey = await waitForValue(() => {
       const key = harness.indicator()?.dataset.movementTargetKey;
       return key && key !== initialKey ? key : undefined;
     });
     expect(stationaryKey).not.toBe(initialKey);
 
+    await movePointer({
+      x: rootRect.left + rootRect.width / 2,
+      y: rootRect.top + rootRect.height / 2,
+    });
+    await waitForScrollStability(harness.ownerRoot);
     const target = harness.block("c");
     const targetRect = target.getBoundingClientRect();
     const dropPoint = {
@@ -132,11 +138,11 @@ describe("authoring movement shared drag", () => {
       y: targetRect.top + targetRect.height * 0.75,
     };
     await movePointer(dropPoint);
-    expectIndicatorAt(harness, target);
     expect(harness.indicator()).toHaveAttribute(
       "data-movement-target-key",
       expect.stringContaining(":c"),
     );
+    expectIndicatorAt(harness, target);
 
     await finishPointerDrag(dropPoint);
     await harness.waitForIdle();
@@ -156,25 +162,20 @@ describe("authoring movement shared drag", () => {
     const rootRect = harness.ownerRoot.getBoundingClientRect();
     const source = harness.blockHandle();
 
+    const forwardIndicatorGeometry = waitForSameTargetIndicatorGeometry(harness);
     await startPointerDrag(source, {
       x: rootRect.left + 220,
       y: rootRect.bottom - 10,
     });
-    await runFixtureAutoScroll(
-      harness.ownerRoot,
-      "forward",
-      () => harness.ownerRoot.scrollTop > 180,
-    );
-    await waitFor(() => harness.ownerRoot.scrollTop > 180);
+    await Promise.all([waitFor(() => harness.ownerRoot.scrollTop > 180), forwardIndicatorGeometry]);
     const downwardScroll = harness.ownerRoot.scrollTop;
 
+    const backwardIndicatorGeometry = waitForSameTargetIndicatorGeometry(harness);
     await movePointer({ x: rootRect.left + 220, y: rootRect.top + 10 });
-    await runFixtureAutoScroll(
-      harness.ownerRoot,
-      "backward",
-      () => harness.ownerRoot.scrollTop < downwardScroll - 80,
-    );
-    await waitFor(() => harness.ownerRoot.scrollTop < downwardScroll - 80);
+    await Promise.all([
+      waitFor(() => harness.ownerRoot.scrollTop < downwardScroll - 80),
+      backwardIndicatorGeometry,
+    ]);
 
     fireEvent.keyDown(document, { code: "Escape", key: "Escape" });
     await harness.waitForIdle();
@@ -253,7 +254,7 @@ async function mountMovementHarness(): Promise<MovementBrowserHarness> {
   }
   ownerRoot.setAttribute("data-authoring-movement-browser-fixture", "");
   ownerRoot.style.cssText =
-    "position: relative; width: 640px; height: 560px; padding: 24px 48px; box-sizing: border-box; overflow: auto";
+    "position: relative; width: 640px; height: 240px; padding: 24px 48px; box-sizing: border-box; overflow: auto";
   const fixtureStyles = document.createElement("style");
   fixtureStyles.textContent = `
     [data-authoring-movement-browser-fixture] [data-surface] {
@@ -472,27 +473,6 @@ async function movePointer(point: Readonly<{ x: number; y: number }>): Promise<v
   await animationFrames(2);
 }
 
-async function runFixtureAutoScroll(
-  scrollRoot: HTMLElement,
-  direction: "backward" | "forward",
-  done: () => boolean,
-): Promise<void> {
-  const deadline = performance.now() + 8_000;
-  const step = direction === "forward" ? 18 : -18;
-  while (!done()) {
-    const before = scrollRoot.scrollTop;
-    scrollRoot.scrollBy({ behavior: "auto", top: step });
-    await animationFrames(1);
-    if (scrollRoot.scrollTop === before) {
-      throw new Error(`Fixture could not auto-scroll ${direction}.`);
-    }
-    if (performance.now() > deadline) {
-      throw new Error(`Timed out auto-scrolling fixture ${direction}.`);
-    }
-  }
-  await animationFrames(2);
-}
-
 async function finishPointerDrag(pointer: Readonly<{ x: number; y: number }>): Promise<void> {
   fireEvent.pointerUp(document, {
     buttons: 0,
@@ -505,6 +485,19 @@ async function finishPointerDrag(pointer: Readonly<{ x: number; y: number }>): P
   await animationFrames(2);
 }
 
+async function waitForScrollStability(scrollRoot: HTMLElement): Promise<void> {
+  let previous = scrollRoot.scrollTop;
+  let stableFrames = 0;
+  for (let frame = 0; frame < 60; frame += 1) {
+    await animationFrames(1);
+    const current = scrollRoot.scrollTop;
+    stableFrames = current === previous ? stableFrames + 1 : 0;
+    if (stableFrames >= 3) return;
+    previous = current;
+  }
+  throw new Error("Timed out waiting for production auto-scroll to settle.");
+}
+
 function expectIndicatorAt(harness: MovementBrowserHarness, target: HTMLElement): void {
   const indicator = requiredElement<HTMLElement>(
     harness.host,
@@ -513,6 +506,80 @@ function expectIndicatorAt(harness: MovementBrowserHarness, target: HTMLElement)
   const targetRect = target.getBoundingClientRect();
   expectClose(Number.parseFloat(indicator.style.left), targetRect.left, 1);
   expectClose(Number.parseFloat(indicator.style.top), targetRect.top, 1);
+}
+
+async function waitForSameTargetIndicatorGeometry(harness: MovementBrowserHarness): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const deadline = performance.now() + 8_000;
+    let previous = readIndicatorPresentation(harness);
+    let settled = false;
+    const samples: Array<ReturnType<typeof readIndicatorPresentation>> = [];
+    const observer = new MutationObserver(() => {
+      const current = readIndicatorPresentation(harness);
+      const lastSample = samples.at(-1);
+      if (
+        current &&
+        (!lastSample || lastSample.key !== current.key || lastSample.top !== current.top)
+      ) {
+        samples.push(current);
+      }
+      if (
+        previous &&
+        current &&
+        previous.key === current.key &&
+        previous.top !== current.top &&
+        current.aligned
+      ) {
+        settled = true;
+        observer.disconnect();
+        resolve();
+        return;
+      }
+      previous = current;
+    });
+    observer.observe(harness.host, {
+      attributeFilter: ["style", "data-movement-target-key"],
+      attributes: true,
+      childList: true,
+      subtree: true,
+    });
+    const checkDeadline = () => {
+      if (settled) return;
+      if (performance.now() > deadline) {
+        settled = true;
+        observer.disconnect();
+        reject(
+          new Error(
+            `Timed out waiting for same-target indicator geometry: ${JSON.stringify(samples.slice(-8))}`,
+          ),
+        );
+        return;
+      }
+      requestAnimationFrame(checkDeadline);
+    };
+    requestAnimationFrame(checkDeadline);
+  });
+}
+
+function readIndicatorPresentation(
+  harness: MovementBrowserHarness,
+): Readonly<{ aligned: boolean; key: string; top: number }> | null {
+  const indicator = harness.indicator();
+  const key = indicator?.dataset.movementTargetKey;
+  const targetId = key?.split(":").at(-1);
+  if (!indicator || !key || !targetId) return null;
+  const target = harness.ownerRoot.querySelector<HTMLElement>(
+    `[data-id="${CSS.escape(targetId)}"]`,
+  );
+  if (!target) return null;
+  const targetRect = target.getBoundingClientRect();
+  const left = Number.parseFloat(indicator.style.left);
+  const top = Number.parseFloat(indicator.style.top);
+  return {
+    aligned: Math.abs(left - targetRect.left) <= 1 && Math.abs(top - targetRect.top) <= 1,
+    key,
+    top,
+  };
 }
 
 function expectNoTransientMovementState(harness: MovementBrowserHarness): void {
@@ -525,6 +592,15 @@ function isVisibleWithin(element: Element, container: Element): boolean {
   const elementRect = element.getBoundingClientRect();
   const containerRect = container.getBoundingClientRect();
   return elementRect.bottom > containerRect.top && elementRect.top < containerRect.bottom;
+}
+
+function isComfortablyVisibleWithin(element: Element, container: Element, inset: number): boolean {
+  const elementRect = element.getBoundingClientRect();
+  const containerRect = container.getBoundingClientRect();
+  return (
+    elementRect.top >= containerRect.top + inset &&
+    elementRect.bottom <= containerRect.bottom - inset
+  );
 }
 
 function requiredElement<T extends Element>(root: ParentNode, selector: string): T {

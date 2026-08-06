@@ -5,7 +5,7 @@ import { EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { render } from "@testing-library/react";
 import { createElement } from "react";
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { CellNode, GridNode } from "@/editor/arrangements/grid/model/grid-nodes";
 import { LayoutNode, SectionNode } from "@/editor/arrangements/layout/model/layout-nodes";
@@ -32,10 +32,26 @@ import {
   deriveMovementCandidate as deriveMovementCandidateWithLookup,
   movementCandidatesAreSemanticallyEqual,
 } from "./movement-candidate";
-import { InsertAfterTarget, MoveContainedBeforeTarget } from "../model/movement-intents";
+import {
+  AddCellAtGridEnd,
+  InsertAfterTarget,
+  InsertBeforeTarget,
+  InsertInsideTarget,
+  MoveContainedBeforeTarget,
+} from "../model/movement-intents";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
-import { ContainedMovementTarget, createMovementTarget } from "../model/movement-target";
+import {
+  ContainedMovementTarget,
+  createMovementTarget,
+  RegionMovementTarget,
+} from "../model/movement-target";
+import { discoverMovementTargetDescriptors } from "./movement-target-discovery";
+import {
+  createMovementTargetIndexSnapshot,
+  measureMovementTargetEntries,
+  type MovementTargetDescriptor,
+} from "./movement-target-index";
 
 const testBlockRegistry = createBlockRegistry([
   ...builtInBlockRegistry.definitions,
@@ -399,6 +415,27 @@ function block(id: string): JSONContent {
   return { type: "test_block", attrs: { id } };
 }
 
+function framedBlock(id: string): JSONContent {
+  return { type: "test_framed_block", attrs: { id } };
+}
+
+function compositeBlock(text: string): JSONContent {
+  return {
+    type: "test_composite_block",
+    content: [
+      {
+        type: "test_field",
+        content: [
+          {
+            type: "paragraph",
+            content: [{ type: "text", text }],
+          },
+        ],
+      },
+    ],
+  };
+}
+
 function containedFieldNode(name: string) {
   return Node.create({
     name,
@@ -660,6 +697,63 @@ function rect(overrides: Partial<DOMRect> = {}): DOMRect {
     ...overrides,
   };
 }
+
+function indexedMovementHarness(
+  editor: Editor,
+  sourcePos: number,
+  rects: ReadonlyMap<number, DOMRect>,
+) {
+  const sourceContext = resolveMovementNodeContext(editor.state.doc, sourcePos);
+  if (!sourceContext) throw new Error("Expected indexed movement source context.");
+  const source = { context: sourceContext, kind: "structure" as const };
+  const discovery = discoverMovementTargetDescriptors({
+    blockDefinitions: testBlockRegistry,
+    documentRevision: 0,
+    source,
+    view: editor.view,
+  });
+  for (const descriptor of discovery.descriptors) {
+    vi.spyOn(descriptor.element, "getBoundingClientRect").mockReturnValue(
+      rects.get(descriptor.documentPosition) ??
+        rect({
+          bottom: 10_120,
+          left: 10_000,
+          right: 10_200,
+          top: 10_000,
+        }),
+    );
+  }
+  const entries = measureMovementTargetEntries(discovery.descriptors);
+  const snapshot = createMovementTargetIndexSnapshot({
+    documentRevision: discovery.documentRevision,
+    entries,
+    geometryRevision: 1,
+  });
+  return {
+    descriptors: discovery.descriptors,
+    candidateAt(point: Readonly<{ x: number; y: number }>) {
+      return deriveMovementCandidateWithLookup({
+        canApplyMovementResult: () => true,
+        point,
+        queryResult: snapshot.query(point, source),
+        source: sourceContext,
+      });
+    },
+  };
+}
+
+function descriptorAt(
+  descriptors: readonly MovementTargetDescriptor[],
+  documentPosition: number,
+): MovementTargetDescriptor {
+  const descriptor = descriptors.find((item) => item.documentPosition === documentPosition);
+  if (!descriptor) throw new Error(`Expected movement descriptor at ${documentPosition}.`);
+  return descriptor;
+}
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("structure movement policy", () => {
   it("allows registered blocks, layouts, and sections as movement sources", () => {
@@ -929,6 +1023,140 @@ describe("movement candidate construction", () => {
     expect(first).not.toBeNull();
     expect(second).not.toBeNull();
     expect(movementCandidatesAreSemanticallyEqual(first, second)).toBe(true);
+    editor.destroy();
+  });
+});
+
+describe("indexed structure movement integration", () => {
+  it("keeps empty-cell anchors and framed-child blank space targetable", () => {
+    const emptyCell = cell([]);
+    const framedCell = cell([framedBlock("framed")]);
+    const editor = makeEditor([block("source"), grid([emptyCell, framedCell])]);
+    const sourcePos = nodePos(editor, "test_block", "source");
+    const emptyCellPos = nodePos(editor, "cell", emptyCell.attrs?.["id"] as string);
+    const framedCellPos = nodePos(editor, "cell", framedCell.attrs?.["id"] as string);
+    const framedPos = nodePos(editor, "test_framed_block", "framed");
+    const harness = indexedMovementHarness(
+      editor,
+      sourcePos,
+      new Map([
+        [emptyCellPos, rect({ bottom: 180, height: 140, left: 20, right: 220, top: 40 })],
+        [framedCellPos, rect({ bottom: 180, height: 140, left: 260, right: 460, top: 40 })],
+        [framedPos, rect({ bottom: 100, height: 40, left: 280, right: 420, top: 60 })],
+      ]),
+    );
+
+    expect(descriptorAt(harness.descriptors, emptyCellPos).element).toHaveAttribute(
+      "data-authoring-frame",
+      "cell",
+    );
+    const emptyCandidate = harness.candidateAt({ x: 100, y: 120 });
+    expect(emptyCandidate?.intent).toBeInstanceOf(InsertInsideTarget);
+    expect(emptyCandidate?.target.pos).toBe(emptyCellPos);
+
+    const framedBlankCandidate = harness.candidateAt({ x: 320, y: 150 });
+    expect(framedBlankCandidate?.intent).toBeInstanceOf(InsertInsideTarget);
+    expect(framedBlankCandidate?.target.pos).toBe(framedCellPos);
+    editor.destroy();
+  });
+
+  it("resolves exact grid-end space and the adjacent gutter through the grid descriptor", () => {
+    const editor = makeEditor([block("source"), grid([cell([framedBlock("framed")]), cell([])])]);
+    const sourcePos = nodePos(editor, "test_block", "source");
+    const gridPos = nodePos(editor, "grid");
+    const framedPos = nodePos(editor, "test_framed_block", "framed");
+    const harness = indexedMovementHarness(
+      editor,
+      sourcePos,
+      new Map([
+        [gridPos, rect({ bottom: 180, height: 140, left: 20, right: 420, top: 40, width: 400 })],
+        [framedPos, rect({ bottom: 120, height: 60, left: 40, right: 200, top: 60, width: 160 })],
+      ]),
+    );
+
+    for (const point of [
+      { x: 410, y: 90 },
+      { x: 440, y: 90 },
+    ]) {
+      const candidate = harness.candidateAt(point);
+      expect(candidate?.intent).toBeInstanceOf(AddCellAtGridEnd);
+      expect(candidate?.target.pos).toBe(gridPos);
+    }
+    editor.destroy();
+  });
+
+  it("resolves visual row gaps above and below a grid", () => {
+    const editor = makeEditor([
+      block("source"),
+      grid([cell([block("inside")]), cell([])]),
+      block("after"),
+    ]);
+    const sourcePos = nodePos(editor, "test_block", "source");
+    const gridPos = nodePos(editor, "grid");
+    const harness = indexedMovementHarness(
+      editor,
+      sourcePos,
+      new Map([
+        [gridPos, rect({ bottom: 160, height: 120, left: 10, right: 410, top: 40, width: 400 })],
+      ]),
+    );
+
+    const before = harness.candidateAt({ x: 200, y: 20 });
+    expect(before?.intent).toBeInstanceOf(InsertBeforeTarget);
+    expect(before?.target.pos).toBe(gridPos);
+    const after = harness.candidateAt({ x: 200, y: 180 });
+    expect(after?.intent).toBeInstanceOf(InsertAfterTarget);
+    expect(after?.target.pos).toBe(gridPos);
+    editor.destroy();
+  });
+
+  it("uses the grid wrapper geometry for the row indicator instead of a child block", () => {
+    const editor = makeEditor([grid([cell([block("inside")]), cell([])]), block("source")]);
+    const sourcePos = nodePos(editor, "test_block", "source");
+    const gridPos = nodePos(editor, "grid");
+    const childPos = nodePos(editor, "test_block", "inside");
+    const harness = indexedMovementHarness(
+      editor,
+      sourcePos,
+      new Map([
+        [gridPos, rect({ bottom: 160, height: 120, left: 10, right: 410, top: 40, width: 400 })],
+        [childPos, rect({ bottom: 150, height: 80, left: 20, right: 100, top: 70, width: 80 })],
+      ]),
+    );
+
+    const candidate = harness.candidateAt({ x: 200, y: 170 });
+    expect(candidate?.intent).toBeInstanceOf(InsertAfterTarget);
+    expect(candidate?.target.pos).toBe(gridPos);
+    expect(candidate?.target.rect).toMatchObject({ left: 10, right: 410, width: 400 });
+    editor.destroy();
+  });
+
+  it("discovers nested field content through its registered block owner", () => {
+    const editor = makeEditor([block("source"), compositeBlock("Nested target")]);
+    const sourcePos = nodePos(editor, "test_block", "source");
+    const targetPos = nodePos(editor, "test_composite_block");
+    const harness = indexedMovementHarness(editor, sourcePos, new Map([[targetPos, rect()]]));
+
+    expect(textPos(editor, "target")).toBeGreaterThan(targetPos);
+    const candidate = harness.candidateAt({ x: 100, y: 125 });
+    expect(candidate?.intent).toBeInstanceOf(InsertAfterTarget);
+    expect(candidate?.target).toMatchObject({
+      pos: targetPos,
+      nodeType: editor.schema.nodes["test_composite_block"],
+    });
+    editor.destroy();
+  });
+
+  it("keeps region whitespace as an explicit inside target", () => {
+    const editor = makeEditor([block("source"), region([{ type: "paragraph" }])]);
+    const sourcePos = nodePos(editor, "test_block", "source");
+    const regionPos = nodePos(editor, "region");
+    const harness = indexedMovementHarness(editor, sourcePos, new Map([[regionPos, rect()]]));
+
+    const candidate = harness.candidateAt({ x: 100, y: 70 });
+    expect(candidate?.target).toBeInstanceOf(RegionMovementTarget);
+    expect(candidate?.target.pos).toBe(regionPos);
+    expect(candidate?.intent).toBeInstanceOf(InsertInsideTarget);
     editor.destroy();
   });
 });
