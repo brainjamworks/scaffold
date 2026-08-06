@@ -123,7 +123,7 @@ export function useInteractionDragSessionAdapter(): InteractionDragSessionAdapte
 
 interface ActiveSession<ActiveData, OverData> {
   readonly active: Readonly<InteractionDragEntity<ActiveData>>;
-  readonly collisionBoundaryRect: ClientRectSnapshot;
+  collisionBoundaryRect: ClientRectSnapshot;
   readonly environment: ReadyInteractionDragEnvironment;
   readonly focusTarget: HTMLElement | null;
   readonly input: DragInputKind;
@@ -260,13 +260,7 @@ export function InteractionDragSession<ActiveData, OverData>({
       if (!registration?.source) return;
       const measuredSnapshot = environment.coordinateSpace.measure();
       if (!measuredSnapshot) return;
-      const collisionRect = environment.collisionBoundary.getBoundingClientRect();
-      const collisionBoundaryRect = createClientRectSnapshot(
-        collisionRect.left,
-        collisionRect.top,
-        collisionRect.width,
-        collisionRect.height,
-      );
+      const collisionBoundaryRect = measureCollisionBoundary(environment);
       if (!collisionBoundaryRect) return;
       const input = inputKindFromActivator(event.activatorEvent, environment.ownerWindow);
       const active = Object.freeze({
@@ -291,11 +285,13 @@ export function InteractionDragSession<ActiveData, OverData>({
           cancelActiveSession("environment-lost");
           return;
         }
+        const nextCollisionBoundaryRect = measureCollisionBoundary(environment);
         const nextSnapshot = environment.coordinateSpace.measure();
-        if (!nextSnapshot) {
+        if (!nextCollisionBoundaryRect || !nextSnapshot) {
           cancelActiveSession("environment-lost");
           return;
         }
+        activeSession.collisionBoundaryRect = nextCollisionBoundaryRect;
         activeSession.snapshot = nextSnapshot;
         setSnapshot(nextSnapshot);
         if (activeSession.input !== "pointer" || !activeSession.latestMove) return;
@@ -801,6 +797,18 @@ function environmentElementsAreLive(environment: ReadyInteractionDragEnvironment
     collisionBoundary.ownerDocument === ownerDocument &&
     ownerDocument.defaultView === ownerWindow
   );
+}
+
+function measureCollisionBoundary(
+  environment: ReadyInteractionDragEnvironment,
+): ClientRectSnapshot | null {
+  if (!environmentElementsAreLive(environment)) return null;
+  try {
+    const rect = environment.collisionBoundary.getBoundingClientRect();
+    return createClientRectSnapshot(rect.left, rect.top, rect.width, rect.height);
+  } catch {
+    return null;
+  }
 }
 
 function useReducedMotion(ownerWindow: Window | null): boolean {

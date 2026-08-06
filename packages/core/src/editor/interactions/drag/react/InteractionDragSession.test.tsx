@@ -358,7 +358,8 @@ describe("InteractionDragSession", () => {
     expect(accessibility.announcements.onDragStart()).toBeUndefined();
   });
 
-  it("constrains collision candidates to the ready environment boundary", async () => {
+  it("refreshes the environment boundary and fails closed when it becomes invalid", async () => {
+    const onCancel = vi.fn();
     const fixture = createFixtureGeometry(1);
     render(
       <FixtureEnvironment fixture={fixture}>
@@ -366,6 +367,7 @@ describe("InteractionDragSession", () => {
           accessibilityMode="draggable"
           collisionPolicy="pointer"
           labels={{ draggable: "Card" }}
+          onCancel={onCancel}
           onEnd={vi.fn()}
           profile="pointer"
           sessionId="fixture-collision-boundary"
@@ -385,18 +387,27 @@ describe("InteractionDragSession", () => {
       id,
     }));
 
+    fixture.setCollisionBoundaryRect(clientRect(1500, 0, 300, 800));
+    document.dispatchEvent(new Event("scroll"));
+    await act(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+
     collisionDetection({
       active: activeRecord("source"),
       collisionRect: clientRect(0, 0, 20, 20),
       droppableContainers,
       droppableRects: new Map([
-        ["inside", clientRect(300, 100, 100, 60)],
-        ["outside", clientRect(1600, 100, 100, 60)],
+        ["inside", clientRect(1580, 100, 100, 60)],
+        ["outside", clientRect(300, 100, 100, 60)],
       ]),
-      pointerCoordinates: { x: 320, y: 120 },
+      pointerCoordinates: { x: 1600, y: 120 },
     });
 
     expect(dndHarness.collisionInput?.droppableContainers).toEqual([droppableContainers[0]]);
+
+    fixture.setCollisionBoundaryRect(clientRect(1500, 0, 0, 800));
+    document.dispatchEvent(new Event("scroll"));
+    await act(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+    expect(onCancel).toHaveBeenCalledWith("environment-lost");
   });
 
   it.each([
@@ -658,6 +669,7 @@ interface FixtureGeometry {
   coordinateSpace: ReturnType<typeof createScaledCanvasCoordinateSpace>;
   overlayHost: HTMLElement;
   root: HTMLElement;
+  setCollisionBoundaryRect(rect: DOMRect): void;
   setScale(scale: number): void;
 }
 
@@ -702,10 +714,11 @@ function createFixtureGeometry(scale: number): FixtureGeometry {
   const overlayHost = document.createElement("div");
   const collisionBoundary = document.createElement("div");
   let currentScale = scale;
+  let collisionBoundaryRect = clientRect(0, 0, 1200, 800);
   root.style.transform = `matrix(${currentScale}, 0, 0, ${currentScale}, 0, 0)`;
   root.getBoundingClientRect = () => clientRect(100, 50, 1024 * currentScale, 576 * currentScale);
   overlayHost.getBoundingClientRect = () => clientRect(0, 0, 1200, 800);
-  collisionBoundary.getBoundingClientRect = () => clientRect(0, 0, 1200, 800);
+  collisionBoundary.getBoundingClientRect = () => collisionBoundaryRect;
   document.body.append(root, overlayHost, collisionBoundary);
   return {
     collisionBoundary,
@@ -716,6 +729,9 @@ function createFixtureGeometry(scale: number): FixtureGeometry {
     }),
     overlayHost,
     root,
+    setCollisionBoundaryRect(rect) {
+      collisionBoundaryRect = rect;
+    },
     setScale(nextScale) {
       currentScale = nextScale;
       root.style.transform = `matrix(${currentScale}, 0, 0, ${currentScale}, 0, 0)`;
