@@ -26,6 +26,7 @@ import {
 } from "@/editor/arrangements/grid/authoring/grid-nodes";
 import { builtInBlockAuthoringBindings } from "@/editor/blocks/authoring-block-extensions";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import {
   LayoutAuthoringNode,
   SectionAuthoringNode,
@@ -221,7 +222,12 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     });
 
     try {
-      render(createElement(EditorContent, { editor: authoringEditor }));
+      render(
+        createAuthoringMovementTestRoot(
+          authoringEditor,
+          createElement(EditorContent, { editor: authoringEditor }),
+        ),
+      );
 
       await waitFor(() => {
         expect(
@@ -264,7 +270,7 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     expect(getScaffoldCapabilitiesForEditor(editor)).toBe(application.capabilities);
 
     try {
-      render(createElement(EditorContent, { editor }));
+      render(createAuthoringMovementTestRoot(editor, createElement(EditorContent, { editor })));
 
       await waitFor(() => {
         expect(
@@ -421,7 +427,7 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     ]);
 
     try {
-      render(createElement(EditorContent, { editor }));
+      render(createAuthoringMovementTestRoot(editor, createElement(EditorContent, { editor })));
 
       await waitFor(() => {
         expect(
