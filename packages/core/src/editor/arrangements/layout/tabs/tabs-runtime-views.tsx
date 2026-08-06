@@ -63,10 +63,7 @@ export function TabsLayoutRuntimeView(props: LayoutRuntimeViewProps) {
     }
     if (!activeId || activeIndex < 0) return;
     const previous = recordedSectionRef.current;
-    if (
-      previous?.reporter === learningEventReporter &&
-      previous.sectionId === activeId
-    ) {
+    if (previous?.reporter === learningEventReporter && previous.sectionId === activeId) {
       return;
     }
 

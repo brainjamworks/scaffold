@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 import type { LearnerActivityRecord } from "@scaffold/contracts";
 import type { LearnerActivityPort } from "../../host/ports/learner-activity";
-import type { CoreLearningEventInput, LearnerActivityLearningEvent } from "../learning-events/catalogue";
+import type {
+  CoreLearningEventInput,
+  LearnerActivityLearningEvent,
+} from "../learning-events/catalogue";
 import type { LearningEventSession } from "../learning-events/session";
 import { createLearnerActivityStore } from "./store";
 

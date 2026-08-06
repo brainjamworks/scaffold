@@ -227,10 +227,18 @@ export function createLearnerActivityStore({
         };
         let eventRecorded = false;
         if (learningEvent && learningEventIsAuthoritative) {
-          const authoritativeEvent = authoritativeLearningEvent(previousRecord, record, learningEvent);
+          const authoritativeEvent = authoritativeLearningEvent(
+            previousRecord,
+            record,
+            learningEvent,
+          );
           try {
             if (authoritativeEvent) {
-              session.record({ type: "learner-activity.interacted", ...input, event: authoritativeEvent });
+              session.record({
+                type: "learner-activity.interacted",
+                ...input,
+                event: authoritativeEvent,
+              });
               eventRecorded = true;
             }
           } catch {

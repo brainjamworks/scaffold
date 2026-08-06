@@ -293,9 +293,9 @@ describe("generated assessment JSON Schema", () => {
       "Score",
     ]);
     expect(assessmentJsonSchema.$comment).toContain("x-scaffold-semantic");
-    expect(
-      (assessmentJsonSchema as unknown as JsonSchemaObject)[semanticManifestKeyword],
-    ).toEqual([scoreSemanticVersion]);
+    expect((assessmentJsonSchema as unknown as JsonSchemaObject)[semanticManifestKeyword]).toEqual([
+      scoreSemanticVersion,
+    ]);
     expect(
       (assessmentJsonSchema.definitions.Score as Record<string, unknown>)["x-scaffold-semantic"],
     ).toBe("score-v1");
@@ -347,13 +347,7 @@ describe("generated assessment JSON Schema", () => {
         },
       },
     ];
-    for (const manifest of [
-      null,
-      "score-v1",
-      [],
-      ["score-v1", "score-v1"],
-      ["score-v2"],
-    ]) {
+    for (const manifest of [null, "score-v1", [], ["score-v1", "score-v1"], ["score-v2"]]) {
       invalidSchemas.push({
         $id: "https://scaffold.ac/schemas/malformed-manifest.json",
         [semanticManifestKeyword]: manifest,

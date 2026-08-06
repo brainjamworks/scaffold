@@ -50,7 +50,12 @@ export function AssessmentRuntimeProvider({
   const assessmentPort = useAssessmentPort();
   const getLearningEventSession = useLearningEventSessionAccessor();
   const [scope, setScope] = useState<AssessmentRuntimeScope | null>(() =>
-    createAssessmentRuntimeScope(artifactId, assessmentPort, initialSnapshot, getLearningEventSession),
+    createAssessmentRuntimeScope(
+      artifactId,
+      assessmentPort,
+      initialSnapshot,
+      getLearningEventSession,
+    ),
   );
   let currentScope = scope;
   const scopeMatches = currentScope

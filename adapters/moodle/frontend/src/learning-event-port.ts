@@ -2,10 +2,7 @@ import type { LearningEvent, LearningEventPort } from "@scaffold/core/ports";
 
 import { moodleCall, type MoodleAjaxResponse } from "./api";
 
-export function createMoodleLearningEventPort(
-  cmid: number,
-  wwwroot: string,
-): LearningEventPort {
+export function createMoodleLearningEventPort(cmid: number, wwwroot: string): LearningEventPort {
   const activityUrl = new URL("/mod/scaffold/view.php", wwwroot);
   activityUrl.searchParams.set("id", String(cmid));
 
