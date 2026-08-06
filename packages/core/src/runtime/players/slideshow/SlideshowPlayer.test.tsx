@@ -82,7 +82,7 @@ function paragraph(text: string): JSONContent {
 }
 
 function slideshowDocumentContent(surfaces: Array<{ id: string; text: string }>): JSONContent {
-  const firstSurfaceId = surfaces[0]?.id ?? "slide-1";
+  const firstSurfaceId = surfaces[0]?.id ?? "slide_000001";
   const content = createScaffoldDocumentContent({
     mode: "slideshow",
     surfaceId: firstSurfaceId,
@@ -107,7 +107,7 @@ function slideshowDocumentContent(surfaces: Array<{ id: string; text: string }>)
 }
 
 function slideshowDocumentContentWithRuntimeHint(): JSONContent {
-  const content = slideshowDocumentContent([{ id: "slide-1", text: "Hinted slide" }]);
+  const content = slideshowDocumentContent([{ id: "slide_000001", text: "Hinted slide" }]);
   const surface = content.content?.[0]?.content?.[0];
 
   if (!surface) {
@@ -296,10 +296,10 @@ describe("SlideshowPlayer", () => {
         <SlideshowPlayer
           composition={runtimeComposition}
           initialContent={slideshowDocumentContent([
-            { id: "slide-themed", text: "Themed slide content" },
+            { id: "slide_theme1", text: "Themed slide content" },
           ])}
           resolvedTheme={resolvedTheme}
-          surfaceIds={["slide-themed"]}
+          surfaceIds={["slide_theme1"]}
           onRendererReady={onRendererReady}
         />,
       );
@@ -319,8 +319,10 @@ describe("SlideshowPlayer", () => {
       <SlideshowPlayer
         composition={runtimeComposition}
         artifactId="artifact-slideshow"
-        initialContent={slideshowDocumentContent([{ id: "slide-1", text: "Only slide content" }])}
-        surfaceIds={["slide-1"]}
+        initialContent={slideshowDocumentContent([
+          { id: "slide_000001", text: "Only slide content" },
+        ])}
+        surfaceIds={["slide_000001"]}
         onRendererReady={onRendererReady}
       />,
     );
@@ -349,7 +351,7 @@ describe("SlideshowPlayer", () => {
     expect(screen.getByText("1 of 1")).toBeInTheDocument();
     expect(buttonByName("Previous slide").disabled).toBe(true);
     expect(buttonByName("Next slide").disabled).toBe(true);
-    expect(surfaceById("slide-1").getAttribute("data-runtime-surface-visible")).toBe("true");
+    expect(surfaceById("slide_000001").getAttribute("data-runtime-surface-visible")).toBe("true");
   });
 
   it("requests fullscreen for the slideshow viewport", async () => {
@@ -359,8 +361,10 @@ describe("SlideshowPlayer", () => {
     render(
       <SlideshowPlayer
         composition={runtimeComposition}
-        initialContent={slideshowDocumentContent([{ id: "slide-1", text: "Fullscreen slide" }])}
-        surfaceIds={["slide-1"]}
+        initialContent={slideshowDocumentContent([
+          { id: "slide_000001", text: "Fullscreen slide" },
+        ])}
+        surfaceIds={["slide_000001"]}
         sizing="embedded"
       />,
     );
@@ -388,7 +392,7 @@ describe("SlideshowPlayer", () => {
             composition={runtimeComposition}
             artifactId="artifact-fullscreen-popover"
             initialContent={slideshowDocumentContentWithRuntimeHint()}
-            surfaceIds={["slide-1"]}
+            surfaceIds={["slide_000001"]}
             sizing="embedded"
           />
         </AssessmentRuntimeProvider>
@@ -434,7 +438,7 @@ describe("SlideshowPlayer", () => {
             composition={runtimeComposition}
             artifactId="artifact-owner-document-popover"
             initialContent={slideshowDocumentContentWithRuntimeHint()}
-            surfaceIds={["slide-1"]}
+            surfaceIds={["slide_000001"]}
             sizing="embedded"
           />
         </AssessmentRuntimeProvider>
@@ -526,8 +530,10 @@ describe("SlideshowPlayer", () => {
     render(
       <SlideshowPlayer
         composition={runtimeComposition}
-        initialContent={slideshowDocumentContent([{ id: "slide-1", text: "Fullscreen slide" }])}
-        surfaceIds={["slide-1"]}
+        initialContent={slideshowDocumentContent([
+          { id: "slide_000001", text: "Fullscreen slide" },
+        ])}
+        surfaceIds={["slide_000001"]}
       />,
     );
 
@@ -545,8 +551,10 @@ describe("SlideshowPlayer", () => {
     render(
       <SlideshowPlayer
         composition={runtimeComposition}
-        initialContent={slideshowDocumentContent([{ id: "slide-1", text: "Fullscreen slide" }])}
-        surfaceIds={["slide-1"]}
+        initialContent={slideshowDocumentContent([
+          { id: "slide_000001", text: "Fullscreen slide" },
+        ])}
+        surfaceIds={["slide_000001"]}
       />,
     );
 
@@ -562,8 +570,10 @@ describe("SlideshowPlayer", () => {
     render(
       <SlideshowPlayer
         composition={runtimeComposition}
-        initialContent={slideshowDocumentContent([{ id: "slide-1", text: "Fullscreen slide" }])}
-        surfaceIds={["slide-1"]}
+        initialContent={slideshowDocumentContent([
+          { id: "slide_000001", text: "Fullscreen slide" },
+        ])}
+        surfaceIds={["slide_000001"]}
         sizing="embedded"
       />,
     );
@@ -590,8 +600,10 @@ describe("SlideshowPlayer", () => {
     render(
       <SlideshowPlayer
         composition={runtimeComposition}
-        initialContent={slideshowDocumentContent([{ id: "slide-1", text: "Fullscreen slide" }])}
-        surfaceIds={["slide-1"]}
+        initialContent={slideshowDocumentContent([
+          { id: "slide_000001", text: "Fullscreen slide" },
+        ])}
+        surfaceIds={["slide_000001"]}
       />,
     );
 
@@ -610,8 +622,8 @@ describe("SlideshowPlayer", () => {
     render(
       <SlideshowPlayer
         composition={runtimeComposition}
-        initialContent={slideshowDocumentContent([{ id: "slide-1", text: "Scaled slide" }])}
-        surfaceIds={["slide-1"]}
+        initialContent={slideshowDocumentContent([{ id: "slide_000001", text: "Scaled slide" }])}
+        surfaceIds={["slide_000001"]}
         onRendererReady={onRendererReady}
       />,
     );
@@ -661,8 +673,10 @@ describe("SlideshowPlayer", () => {
     const { unmount } = render(
       <SlideshowPlayer
         composition={runtimeComposition}
-        initialContent={slideshowDocumentContent([{ id: "slide-1", text: "Deferred slide" }])}
-        surfaceIds={["slide-1"]}
+        initialContent={slideshowDocumentContent([
+          { id: "slide_000001", text: "Deferred slide" },
+        ])}
+        surfaceIds={["slide_000001"]}
       />,
     );
 
@@ -687,8 +701,10 @@ describe("SlideshowPlayer", () => {
     render(
       <SlideshowPlayer
         composition={runtimeComposition}
-        initialContent={slideshowDocumentContent([{ id: "slide-1", text: "Embedded slide" }])}
-        surfaceIds={["slide-1"]}
+        initialContent={slideshowDocumentContent([
+          { id: "slide_000001", text: "Embedded slide" },
+        ])}
+        surfaceIds={["slide_000001"]}
         sizing="embedded"
       />,
     );
@@ -726,9 +742,9 @@ describe("SlideshowPlayer", () => {
       <SlideshowPlayer
         composition={runtimeComposition}
         initialContent={slideshowDocumentContent([
-          { id: "slide-1", text: "Measured embedded slide" },
+          { id: "slide_000001", text: "Measured embedded slide" },
         ])}
-        surfaceIds={["slide-1"]}
+        surfaceIds={["slide_000001"]}
         sizing="embedded"
         onRendererReady={onRendererReady}
       />,
@@ -749,14 +765,16 @@ describe("SlideshowPlayer", () => {
   });
 
   it("rejects a slideshow document without 16x9 view settings", () => {
-    const initialContent = slideshowDocumentContent([{ id: "slide-1", text: "Invalid slide" }]);
+    const initialContent = slideshowDocumentContent([
+      { id: "slide_000001", text: "Invalid slide" },
+    ]);
     initialContent.content![0]!.attrs!.surfaceSize = "fluid";
 
     render(
       <SlideshowPlayer
         composition={runtimeComposition}
         initialContent={initialContent}
-        surfaceIds={["slide-1"]}
+        surfaceIds={["slide_000001"]}
       />,
     );
 
@@ -777,11 +795,11 @@ describe("SlideshowPlayer", () => {
         composition={runtimeComposition}
         artifactId="artifact-slideshow"
         initialContent={slideshowDocumentContent([
-          { id: "slide-1", text: "First slide content" },
-          { id: "slide-2", text: "Second slide content" },
-          { id: "slide-3", text: "Third slide content" },
+          { id: "slide_000001", text: "First slide content" },
+          { id: "slide_000002", text: "Second slide content" },
+          { id: "slide_000003", text: "Third slide content" },
         ])}
-        surfaceIds={["slide-1", "slide-2", "slide-3"]}
+        surfaceIds={["slide_000001", "slide_000002", "slide_000003"]}
         onRendererReady={onRendererReady}
       />,
     );
@@ -796,29 +814,29 @@ describe("SlideshowPlayer", () => {
     expect(screen.getByText("1 of 3")).toBeInTheDocument();
     expect(buttonByName("Previous slide").disabled).toBe(true);
     expect(buttonByName("Next slide").disabled).toBe(false);
-    expect(surfaceById("slide-1").getAttribute("data-runtime-surface-state")).toBe("current");
-    expect(surfaceById("slide-2").getAttribute("data-runtime-surface-state")).toBe("next");
-    expect(surfaceById("slide-1").getAttribute("data-runtime-surface-visible")).toBe("true");
-    expect(surfaceById("slide-2").getAttribute("data-runtime-surface-hidden")).toBe("true");
+    expect(surfaceById("slide_000001").getAttribute("data-runtime-surface-state")).toBe("current");
+    expect(surfaceById("slide_000002").getAttribute("data-runtime-surface-state")).toBe("next");
+    expect(surfaceById("slide_000001").getAttribute("data-runtime-surface-visible")).toBe("true");
+    expect(surfaceById("slide_000002").getAttribute("data-runtime-surface-hidden")).toBe("true");
 
     await user.click(screen.getByRole("button", { name: "Next slide" }));
 
     await waitFor(() =>
-      expect(surfaceById("slide-2").getAttribute("data-runtime-surface-visible")).toBe("true"),
+      expect(surfaceById("slide_000002").getAttribute("data-runtime-surface-visible")).toBe("true"),
     );
     expect(screen.getByText("2 of 3")).toBeInTheDocument();
     expect(buttonByName("Previous slide").disabled).toBe(false);
     expect(buttonByName("Next slide").disabled).toBe(false);
-    expect(surfaceById("slide-1").getAttribute("data-runtime-surface-state")).toBe("previous");
-    expect(surfaceById("slide-2").getAttribute("data-runtime-surface-state")).toBe("current");
-    expect(surfaceById("slide-3").getAttribute("data-runtime-surface-state")).toBe("next");
-    expect(surfaceById("slide-1").getAttribute("data-runtime-surface-hidden")).toBe("true");
+    expect(surfaceById("slide_000001").getAttribute("data-runtime-surface-state")).toBe("previous");
+    expect(surfaceById("slide_000002").getAttribute("data-runtime-surface-state")).toBe("current");
+    expect(surfaceById("slide_000003").getAttribute("data-runtime-surface-state")).toBe("next");
+    expect(surfaceById("slide_000001").getAttribute("data-runtime-surface-hidden")).toBe("true");
     expect(editor.getJSON()).toEqual(initialJSON);
 
     await user.click(screen.getByRole("button", { name: "Previous slide" }));
 
     await waitFor(() =>
-      expect(surfaceById("slide-1").getAttribute("data-runtime-surface-visible")).toBe("true"),
+      expect(surfaceById("slide_000001").getAttribute("data-runtime-surface-visible")).toBe("true"),
     );
     expect(screen.getByText("1 of 3")).toBeInTheDocument();
     expect(buttonByName("Previous slide").disabled).toBe(true);
@@ -828,7 +846,7 @@ describe("SlideshowPlayer", () => {
     await user.click(screen.getByRole("button", { name: "Next slide" }));
 
     await waitFor(() =>
-      expect(surfaceById("slide-3").getAttribute("data-runtime-surface-visible")).toBe("true"),
+      expect(surfaceById("slide_000003").getAttribute("data-runtime-surface-visible")).toBe("true"),
     );
     expect(screen.getByText("3 of 3")).toBeInTheDocument();
     expect(buttonByName("Next slide").disabled).toBe(true);
@@ -843,10 +861,10 @@ describe("SlideshowPlayer", () => {
         composition={runtimeComposition}
         artifactId="artifact-slideshow"
         initialContent={slideshowDocumentContent([
-          { id: "slide-1", text: "First slide content" },
-          { id: "slide-2", text: "Second slide content" },
+          { id: "slide_000001", text: "First slide content" },
+          { id: "slide_000002", text: "Second slide content" },
         ])}
-        surfaceIds={["slide-1", "slide-2"]}
+        surfaceIds={["slide_000001", "slide_000002"]}
         onRendererReady={onRendererReady}
       />,
     );
