@@ -12,7 +12,6 @@ export const MatchingSettingsSchema = AssessmentCommonSettingsSchema.extend({
 export type MatchingSettings = z.infer<typeof MatchingSettingsSchema>;
 
 export const MatchingPrivateAssessmentSchema = z.object({
-  correctPairs: z.array(z.object({ itemId: z.string(), targetId: z.string() })).default([]),
   feedbackByItemId: z.record(z.string(), AssessmentFeedbackContentSchema).default({}),
   summaryFeedback: AssessmentFeedbackContentSchema.nullable().default(null),
 });

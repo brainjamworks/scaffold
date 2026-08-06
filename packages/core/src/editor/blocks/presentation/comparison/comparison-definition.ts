@@ -4,12 +4,7 @@ import { ComparisonDataSchema } from "@scaffold/contracts";
 import { defineConfiguration } from "@/editor/configuration/definition";
 import { defineBlock } from "@/editor/blocks/block-definition";
 
-import {
-  COMPARISON_BLOCK_ID,
-  COMPARISON_NODE,
-  COMPARISON_ROW_NODE,
-  createComparisonContent,
-} from "./content";
+import { COMPARISON_BLOCK_ID, COMPARISON_NODE, createComparisonContent } from "./content";
 
 export const comparisonBlockDefinition = defineBlock({
   nodeType: COMPARISON_NODE,
@@ -36,9 +31,6 @@ export const comparisonBlockDefinition = defineBlock({
       },
     ],
   }),
-  identity: {
-    stableChildNodeTypes: [COMPARISON_ROW_NODE],
-  },
   placeholders: {
     paragraph: "Add comparison text",
   },

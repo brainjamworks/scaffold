@@ -2,7 +2,6 @@ import { CalloutDataSchema, type CalloutData } from "@scaffold/contracts";
 import { Node, mergeAttributes, type NodeViewRenderer } from "@tiptap/core";
 
 import { COURSE_BLOCK_CONTENT } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 
 import { emptyCalloutData } from "./content";
 
@@ -21,7 +20,6 @@ export function createCalloutNode(options: CalloutNodeOptions = {}) {
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         data: {
           default: emptyCalloutData(),
           parseHTML: (el: HTMLElement) => {

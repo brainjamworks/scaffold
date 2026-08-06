@@ -5,7 +5,6 @@ import {
   fieldContainerSpec,
   textContentExpression,
 } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 
 import {
   GlossaryDefinitionNodeView,
@@ -57,12 +56,6 @@ export const GlossaryEntryNode = Node.create({
   isolating: true,
   selectable: false,
   draggable: false,
-
-  addAttributes() {
-    return {
-      id: stableNodeIdAttribute(),
-    };
-  },
 
   parseHTML() {
     return [{ tag: 'div[data-node="glossary-entry"]' }];

@@ -2,7 +2,6 @@ import { RoadmapDataSchema, type RoadmapData } from "@scaffold/contracts";
 import { Node, mergeAttributes, type NodeViewRenderer } from "@tiptap/core";
 
 import { COURSE_BLOCK_CONTENT } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 
 import { ROADMAP_MILESTONE_NODE, ROADMAP_NODE, emptyRoadmapData } from "./content";
 
@@ -21,7 +20,6 @@ export function createRoadmapNode(options: RoadmapNodeOptions = {}) {
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         data: {
           default: emptyRoadmapData(),
           parseHTML: (el: HTMLElement) => {

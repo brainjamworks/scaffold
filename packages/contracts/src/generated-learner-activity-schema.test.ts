@@ -48,7 +48,7 @@ const record = {
 const snapshot = {
   snapshotVersion: 1,
   artifactId: "artifact-1",
-  activities: { "block-1": record },
+  activities: { block_000001: record },
 };
 
 const portableUpdatedAtValues = [
@@ -149,7 +149,7 @@ describe("generated learner activity JSON Schema", () => {
       { ...snapshot, activities: { "   ": record } },
       {
         ...snapshot,
-        activities: { "artifact:artifact-1/block:block-1": record },
+        activities: { "artifact:artifact-1/block:block_000001": record },
       },
       { ...snapshot, provider: "xblock" },
     ]) {

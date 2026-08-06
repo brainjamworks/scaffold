@@ -26,6 +26,10 @@ export interface DragAccessibilityLabels {
 export interface InteractionDragEntity<Data> {
   readonly id: string;
   readonly data: Data;
+  readonly sortable?: Readonly<{
+    readonly index: number;
+    readonly initialIndex: number;
+  }>;
 }
 
 export interface InteractionDragEvent<ActiveData, OverData> {

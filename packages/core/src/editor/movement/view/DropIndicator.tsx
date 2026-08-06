@@ -12,6 +12,7 @@ import {
   MoveContainedBeforeTarget,
   type AnyMovementIntent,
 } from "../model/movement-intents";
+import { movementTargetAxis } from "../model/movement-target";
 
 import { cn } from "@/lib/cn";
 import "./drop-indicator.css";
@@ -37,16 +38,24 @@ export function DropIndicator({ className, intent }: DropIndicatorProps) {
 
 function indicatorClass(intent: AnyMovementIntent): string {
   if (intent instanceof InsertBeforeTarget) {
-    return "sc-drop-indicator--horizontal-before";
+    return movementTargetAxis(intent.target) === "horizontal"
+      ? "sc-drop-indicator--vertical-before"
+      : "sc-drop-indicator--horizontal-before";
   }
   if (intent instanceof InsertAfterTarget) {
-    return "sc-drop-indicator--horizontal-after";
+    return movementTargetAxis(intent.target) === "horizontal"
+      ? "sc-drop-indicator--vertical-after"
+      : "sc-drop-indicator--horizontal-after";
   }
   if (intent instanceof MoveContainedBeforeTarget) {
-    return "sc-drop-indicator--horizontal-before";
+    return movementTargetAxis(intent.target) === "horizontal"
+      ? "sc-drop-indicator--vertical-before"
+      : "sc-drop-indicator--horizontal-before";
   }
   if (intent instanceof MoveContainedAfterTarget) {
-    return "sc-drop-indicator--horizontal-after";
+    return movementTargetAxis(intent.target) === "horizontal"
+      ? "sc-drop-indicator--vertical-after"
+      : "sc-drop-indicator--horizontal-after";
   }
   if (isLeftSideIndicator(intent)) {
     return "sc-drop-indicator--vertical-before";

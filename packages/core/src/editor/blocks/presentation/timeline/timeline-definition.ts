@@ -85,9 +85,6 @@ export const timelineBlockDefinition = defineBlock({
       },
     ],
   }),
-  identity: {
-    stableChildNodeTypes: [TIMELINE_ITEM_NODE],
-  },
   placeholders: {
     paragraph: ({ $pos }) => {
       for (let depth = $pos.depth; depth >= 0; depth -= 1) {

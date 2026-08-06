@@ -2,6 +2,7 @@
 
 import { Editor, Node as TiptapNode } from "@tiptap/core";
 import type { JSONContent } from "@tiptap/core";
+import UniqueID from "@tiptap/extension-unique-id";
 import { EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -44,12 +45,6 @@ const BoundedRegionTestNode = TiptapNode.create({
   content: "block+",
   selectable: false,
 
-  addAttributes() {
-    return {
-      id: { default: null },
-    };
-  },
-
   parseHTML() {
     return [{ tag: 'section[data-node="region"]' }];
   },
@@ -75,6 +70,7 @@ function makeEditor(editable = true) {
       AssessmentHintsGroupNode,
       AssessmentSummaryFeedbackNode,
       editable ? DropdownAuthoringExtension : DropdownRuntimeExtension,
+      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
     ],
   });
 }
@@ -93,6 +89,7 @@ function createDisposableDropdownEditor(content: JSONContent) {
       AssessmentHintsGroupNode,
       AssessmentSummaryFeedbackNode,
       DropdownAuthoringExtension,
+      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
     ],
     content,
   });
@@ -162,7 +159,7 @@ function dropdownBlockContent({
         maxAttempts: null,
       },
       assessment: {
-        correctOptionId: "b",
+        correctOptionId: "choice_00002",
         feedbackByOptionId: {},
         summaryFeedback: null,
       },
@@ -176,7 +173,7 @@ function dropdownBlockContent({
         content: [
           {
             type: "dropdown_choice",
-            attrs: { id: "a" },
+            attrs: { id: "choice_00001" },
             content: [
               {
                 type: "dropdown_choice_label",
@@ -186,7 +183,7 @@ function dropdownBlockContent({
           },
           {
             type: "dropdown_choice",
-            attrs: { id: "b" },
+            attrs: { id: "choice_00002" },
             content: [
               {
                 type: "dropdown_choice_label",
@@ -311,14 +308,16 @@ describe("composite dropdown node", () => {
 
     const choice = await waitFor(() => {
       const element = document.body.querySelector<HTMLElement>(
-        '[data-node="dropdown-choice"][data-choice-id="a"]',
+        '[data-node="dropdown-choice"][data-id="choice_00001"]',
       );
       expect(element).toBeInstanceOf(HTMLElement);
       return element as HTMLElement;
     });
     await user.click(within(choice).getByRole("button", { name: "Add feedback" }));
     const feedbackEditor = await screen.findByLabelText("Feedback editor");
-    expect(feedbackEditor.getAttribute("data-attr-rich-text-field")).toBe("dropdown:a:feedback");
+    expect(feedbackEditor.getAttribute("data-attr-rich-text-field")).toBe(
+      "dropdown:choice_00001:feedback",
+    );
 
     fireEvent.paste(feedbackEditor, {
       clipboardData: {
@@ -328,7 +327,7 @@ describe("composite dropdown node", () => {
 
     await waitFor(() => {
       expect(editor.getJSON().content?.[0]?.attrs?.["assessment"]).toMatchObject({
-        feedbackByOptionId: { a: richFeedback("Review Alpha.") },
+        feedbackByOptionId: { choice_00001: richFeedback("Review Alpha.") },
       });
     });
 
@@ -439,7 +438,7 @@ describe("composite dropdown node", () => {
           attrs: {
             id: "dropdown-choice-delete",
             assessment: {
-              correctOptionId: "a",
+              correctOptionId: "choice_00001",
               feedbackByOptionId: {},
               summaryFeedback: null,
             },
@@ -453,7 +452,7 @@ describe("composite dropdown node", () => {
               content: [
                 {
                   type: "dropdown_choice",
-                  attrs: { id: "a" },
+                  attrs: { id: "choice_00001" },
                   content: [
                     {
                       type: "dropdown_choice_label",
@@ -463,7 +462,7 @@ describe("composite dropdown node", () => {
                 },
                 {
                   type: "dropdown_choice",
-                  attrs: { id: "b" },
+                  attrs: { id: "choice_00002" },
                   content: [
                     {
                       type: "dropdown_choice_label",
@@ -473,7 +472,7 @@ describe("composite dropdown node", () => {
                 },
                 {
                   type: "dropdown_choice",
-                  attrs: { id: "c" },
+                  attrs: { id: "choice_00003" },
                   content: [
                     {
                       type: "dropdown_choice_label",
@@ -509,7 +508,7 @@ describe("composite dropdown node", () => {
     expect(fixture.editor.state.doc.textContent).toContain("Keep after dropdown");
     expect(fixture.editor.state.doc.textContent).toContain("Alpha");
     expect(fixture.editor.state.doc.textContent).toContain("Gamma");
-    expect(choiceIds).toEqual(["a", "c"]);
+    expect(choiceIds).toEqual(["choice_00001", "choice_00003"]);
 
     fixture.destroy();
   });
@@ -523,8 +522,8 @@ describe("composite dropdown node", () => {
           type: "dropdown",
           attrs: {
             assessment: {
-              correctOptionId: "b",
-              feedbackByOptionId: { b: richFeedback("Correct.") },
+              correctOptionId: "choice_00002",
+              feedbackByOptionId: { choice_00002: richFeedback("Correct.") },
               summaryFeedback: null,
             },
             settings: {
@@ -557,7 +556,7 @@ describe("composite dropdown node", () => {
               content: [
                 {
                   type: "dropdown_choice",
-                  attrs: { id: "a" },
+                  attrs: { id: "choice_00001" },
                   content: [
                     {
                       type: "dropdown_choice_label",
@@ -567,7 +566,7 @@ describe("composite dropdown node", () => {
                 },
                 {
                   type: "dropdown_choice",
-                  attrs: { id: "b" },
+                  attrs: { id: "choice_00002" },
                   content: [
                     {
                       type: "dropdown_choice_label",
@@ -632,11 +631,11 @@ describe("composite dropdown node", () => {
     expect(children?.[4]?.type).toBe("assessment_actions_group");
     const choices = children?.[3]?.content as JSONContent[] | undefined;
     expect(dropdown?.attrs?.["assessment"]).toMatchObject({
-      correctOptionId: "b",
-      feedbackByOptionId: { b: richFeedback("Correct.") },
+      correctOptionId: "choice_00002",
+      feedbackByOptionId: { choice_00002: richFeedback("Correct.") },
     });
-    expect(choices?.[0]?.attrs).toMatchObject({ id: "a" });
-    expect(choices?.[1]?.attrs).toMatchObject({ id: "b" });
+    expect(choices?.[0]?.attrs).toMatchObject({ id: "choice_00001" });
+    expect(choices?.[1]?.attrs).toMatchObject({ id: "choice_00002" });
     expect(choices?.[1]?.attrs).not.toHaveProperty("feedback");
     const secondChoiceChildren = choices?.[1]?.content as JSONContent[] | undefined;
     expect(secondChoiceChildren?.[0]?.type).toBe("dropdown_choice_label");
@@ -661,7 +660,7 @@ describe("composite dropdown node", () => {
               content: [
                 {
                   type: "dropdown_choice",
-                  attrs: { id: "a" },
+                  attrs: { id: "choice_00001" },
                   content: [
                     {
                       type: "dropdown_choice_label",
@@ -700,8 +699,8 @@ describe("composite dropdown node", () => {
           type: "dropdown",
           attrs: {
             assessment: {
-              correctOptionId: "b",
-              feedbackByOptionId: { b: richFeedback("Yes.") },
+              correctOptionId: "choice_00002",
+              feedbackByOptionId: { choice_00002: richFeedback("Yes.") },
               summaryFeedback: null,
             },
           },
@@ -714,7 +713,7 @@ describe("composite dropdown node", () => {
               content: [
                 {
                   type: "dropdown_choice",
-                  attrs: { id: "a" },
+                  attrs: { id: "choice_00001" },
                   content: [
                     {
                       type: "dropdown_choice_label",
@@ -724,7 +723,7 @@ describe("composite dropdown node", () => {
                 },
                 {
                   type: "dropdown_choice",
-                  attrs: { id: "b" },
+                  attrs: { id: "choice_00002" },
                   content: [
                     {
                       type: "dropdown_choice_label",
@@ -770,7 +769,7 @@ describe("composite dropdown node", () => {
           type: "dropdown",
           attrs: {
             assessment: {
-              correctOptionId: "a",
+              correctOptionId: "choice_00001",
               feedbackByOptionId: {},
               summaryFeedback: null,
             },
@@ -784,7 +783,7 @@ describe("composite dropdown node", () => {
               content: [
                 {
                   type: "dropdown_choice",
-                  attrs: { id: "a" },
+                  attrs: { id: "choice_00001" },
                   content: [
                     {
                       type: "dropdown_choice_label",
@@ -816,7 +815,7 @@ describe("composite dropdown node", () => {
     const label = choices?.[0]?.content?.[0] as JSONContent | undefined;
 
     expect(choices).toHaveLength(1);
-    expect(choices?.[0]?.attrs?.["id"]).toBe("a");
+    expect(choices?.[0]?.attrs?.["id"]).toBe("choice_00001");
     expect(label?.content).toHaveLength(2);
     editor.destroy();
   });
@@ -849,7 +848,9 @@ describe("composite dropdown node", () => {
     });
     expect(document.body.querySelector("[data-authoring-frame-wrapper]")).toBeNull();
 
-    expect(setAssessmentResponseField(assessmentStore, problemId, "choices", "a")).toBe(true);
+    expect(setAssessmentResponseField(assessmentStore, problemId, "choices", "choice_00001")).toBe(
+      true,
+    );
 
     await waitFor(() => {
       expect(screen.getByRole("combobox", { name: "Pick a term" }).textContent).toContain("Alpha");
@@ -872,14 +873,18 @@ describe("composite dropdown node", () => {
             isCorrect: false,
             score: { scaled: 0 },
             items: {
-              a: { correct: false, expected: false, given: true },
-              b: { correct: false, expected: true, given: false },
+              choice_00001: { correct: false, expected: false, given: true },
+              choice_00002: { correct: false, expected: true, given: false },
             },
           },
           { response: args.response },
         ),
       revealAnswer: async () => ({
-        answerKey: { kind: "single-select", correctOptionId: "b", feedbackByOptionId: {} },
+        answerKey: {
+          kind: "single-select",
+          correctOptionId: "choice_00002",
+          feedbackByOptionId: {},
+        },
       }),
     };
 
@@ -889,7 +894,7 @@ describe("composite dropdown node", () => {
       expect(hasAssessmentRegistration(assessmentStore, problemId)).toBe(true);
     });
 
-    setAssessmentResponseField(assessmentStore, problemId, "choices", "a");
+    setAssessmentResponseField(assessmentStore, problemId, "choices", "choice_00001");
     await waitFor(() => {
       expect(dropdownDescription()).toBe("Selected answer");
     });
@@ -916,14 +921,18 @@ describe("composite dropdown node", () => {
             isCorrect: false,
             score: { scaled: 0 },
             items: {
-              a: { correct: false, expected: false, given: true },
-              b: { correct: false, expected: true, given: false },
+              choice_00001: { correct: false, expected: false, given: true },
+              choice_00002: { correct: false, expected: true, given: false },
             },
           },
           { response: args.response },
         ),
       revealAnswer: async () => ({
-        answerKey: { kind: "single-select", correctOptionId: "b", feedbackByOptionId: {} },
+        answerKey: {
+          kind: "single-select",
+          correctOptionId: "choice_00002",
+          feedbackByOptionId: {},
+        },
       }),
     };
 
@@ -933,7 +942,7 @@ describe("composite dropdown node", () => {
       expect(hasAssessmentRegistration(assessmentStore, problemId)).toBe(true);
     });
 
-    setAssessmentResponseField(assessmentStore, problemId, "choices", "a");
+    setAssessmentResponseField(assessmentStore, problemId, "choices", "choice_00001");
     await waitFor(() => {
       expect(dropdownDescription()).toBe("Selected answer");
     });
@@ -973,7 +982,7 @@ describe("composite dropdown node", () => {
               maxAttempts: null,
             },
             assessment: {
-              correctOptionId: "b",
+              correctOptionId: "choice_00002",
               feedbackByOptionId: {},
               summaryFeedback: null,
             },
@@ -987,7 +996,7 @@ describe("composite dropdown node", () => {
               content: [
                 {
                   type: "dropdown_choice",
-                  attrs: { id: "a" },
+                  attrs: { id: "choice_00001" },
                   content: [
                     {
                       type: "dropdown_choice_label",
@@ -1006,7 +1015,7 @@ describe("composite dropdown node", () => {
                 },
                 {
                   type: "dropdown_choice",
-                  attrs: { id: "b" },
+                  attrs: { id: "choice_00002" },
                   content: [
                     {
                       type: "dropdown_choice_label",
@@ -1016,7 +1025,7 @@ describe("composite dropdown node", () => {
                 },
                 {
                   type: "dropdown_choice",
-                  attrs: { id: "c" },
+                  attrs: { id: "choice_00003" },
                   content: [
                     {
                       type: "dropdown_choice_label",
@@ -1040,14 +1049,18 @@ describe("composite dropdown node", () => {
             isCorrect: false,
             score: { scaled: 0 },
             items: {
-              a: { correct: false, expected: false, given: true },
-              c: { correct: false, expected: true, given: false },
+              choice_00001: { correct: false, expected: false, given: true },
+              choice_00003: { correct: false, expected: true, given: false },
             },
           },
           { response: args.response },
         ),
       revealAnswer: async () => ({
-        answerKey: { kind: "single-select", correctOptionId: "c", feedbackByOptionId: {} },
+        answerKey: {
+          kind: "single-select",
+          correctOptionId: "choice_00003",
+          feedbackByOptionId: {},
+        },
       }),
     };
 
@@ -1057,7 +1070,7 @@ describe("composite dropdown node", () => {
       expect(hasAssessmentRegistration(assessmentStore, problemId)).toBe(true);
     });
 
-    setAssessmentResponseField(assessmentStore, problemId, "choices", "a");
+    setAssessmentResponseField(assessmentStore, problemId, "choices", "choice_00001");
 
     await waitFor(() => {
       expect(screen.getByText("Alpha One")).toBeInstanceOf(HTMLElement);

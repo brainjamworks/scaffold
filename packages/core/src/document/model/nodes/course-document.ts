@@ -2,19 +2,21 @@ import { mergeAttributes, Node } from "@tiptap/core";
 
 import {
   SCAFFOLD_DOCUMENT_FORMAT_VERSION,
-  CourseDocumentAttrsSchema,
   CourseModeSchema,
   OverflowModeSchema,
   PersistedCourseThemeSchema,
   SurfaceSizeSchema,
+  type CourseDocumentAttrs,
 } from "@/schemas/course-document";
 import { createScaffoldDefaultTheme } from "@/theme/model";
 
-const defaultAttrs = CourseDocumentAttrsSchema.parse({
+const defaultAttrs = {
   schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
-  mode: "page",
+  mode: "page" as const,
+  surfaceSize: "fluid" as const,
+  overflowMode: "grow" as const,
   theme: createScaffoldDefaultTheme(),
-});
+} satisfies Omit<CourseDocumentAttrs, "id">;
 
 function parseAttrWithDefault<T>(
   schema: { safeParse: (value: unknown) => { success: boolean; data?: T } },

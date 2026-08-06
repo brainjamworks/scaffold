@@ -12,13 +12,24 @@
               "additionalProperties": false,
               "properties": {
                 "correctOptionId": {
-                  "type": ["string", "null"]
+                  "anyOf": [
+                    {
+                      "pattern": "^[0-9A-Z_a-z-]{12}$",
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "feedbackByOptionId": {
                   "additionalProperties": {
                     "$ref": "#/definitions/AssessmentFeedbackContent"
                   },
                   "default": {},
+                  "propertyNames": {
+                    "pattern": "^[0-9A-Z_a-z-]{12}$"
+                  },
                   "type": "object"
                 },
                 "kind": {
@@ -44,7 +55,7 @@
               "properties": {
                 "correctOptionIds": {
                   "items": {
-                    "type": "string"
+                    "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
                   },
                   "type": "array"
                 },
@@ -53,6 +64,9 @@
                     "$ref": "#/definitions/AssessmentFeedbackContent"
                   },
                   "default": {},
+                  "propertyNames": {
+                    "pattern": "^[0-9A-Z_a-z-]{12}$"
+                  },
                   "type": "object"
                 },
                 "kind": {
@@ -78,7 +92,7 @@
               "properties": {
                 "correctOrder": {
                   "items": {
-                    "type": "string"
+                    "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
                   },
                   "type": "array"
                 },
@@ -87,6 +101,9 @@
                     "$ref": "#/definitions/AssessmentFeedbackContent"
                   },
                   "default": {},
+                  "propertyNames": {
+                    "pattern": "^[0-9A-Z_a-z-]{12}$"
+                  },
                   "type": "object"
                 },
                 "kind": {
@@ -115,10 +132,10 @@
                     "additionalProperties": false,
                     "properties": {
                       "itemId": {
-                        "type": "string"
+                        "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
                       },
                       "targetId": {
-                        "type": "string"
+                        "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
                       }
                     },
                     "required": ["itemId", "targetId"],
@@ -131,6 +148,9 @@
                     "$ref": "#/definitions/AssessmentFeedbackContent"
                   },
                   "default": {},
+                  "propertyNames": {
+                    "pattern": "^[0-9A-Z_a-z-]{12}$"
+                  },
                   "type": "object"
                 },
                 "kind": {
@@ -159,10 +179,10 @@
                     "additionalProperties": false,
                     "properties": {
                       "categoryId": {
-                        "type": "string"
+                        "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
                       },
                       "itemId": {
-                        "type": "string"
+                        "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
                       }
                     },
                     "required": ["itemId", "categoryId"],
@@ -175,6 +195,9 @@
                     "$ref": "#/definitions/AssessmentFeedbackContent"
                   },
                   "default": {},
+                  "propertyNames": {
+                    "pattern": "^[0-9A-Z_a-z-]{12}$"
+                  },
                   "type": "object"
                 },
                 "kind": {
@@ -209,7 +232,7 @@
                         "type": "array"
                       },
                       "blankId": {
-                        "type": "string"
+                        "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
                       },
                       "caseSensitive": {
                         "default": false,
@@ -230,6 +253,9 @@
                     "$ref": "#/definitions/AssessmentFeedbackContent"
                   },
                   "default": {},
+                  "propertyNames": {
+                    "pattern": "^[0-9A-Z_a-z-]{12}$"
+                  },
                   "type": "object"
                 },
                 "kind": {
@@ -255,7 +281,7 @@
               "properties": {
                 "correctHotspotIds": {
                   "items": {
-                    "type": "string"
+                    "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
                   },
                   "type": "array"
                 },
@@ -264,6 +290,9 @@
                     "$ref": "#/definitions/AssessmentFeedbackContent"
                   },
                   "default": {},
+                  "propertyNames": {
+                    "pattern": "^[0-9A-Z_a-z-]{12}$"
+                  },
                   "type": "object"
                 },
                 "gradingMode": {
@@ -419,8 +448,7 @@
       "additionalProperties": false,
       "properties": {
         "groupId": {
-          "pattern": "\\S",
-          "type": "string"
+          "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
         },
         "kind": {
           "const": "quiz",
@@ -491,7 +519,7 @@
         },
         "targetIds": {
           "items": {
-            "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+            "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
           },
           "minItems": 1,
           "type": "array",
@@ -543,21 +571,15 @@
       "additionalProperties": false,
       "properties": {
         "artifactId": {
-          "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+          "pattern": "\\S",
+          "type": "string"
         },
         "problems": {
           "additionalProperties": {
             "$ref": "#/definitions/AssessmentProblemSnapshot"
           },
           "propertyNames": {
-            "allOf": [
-              {
-                "pattern": "\\S"
-              },
-              {
-                "pattern": "^(?!artifact:[\\s\\S]*\\/block:)"
-              }
-            ]
+            "pattern": "^[0-9A-Z_a-z-]{12}$"
           },
           "type": "object"
         },
@@ -566,7 +588,7 @@
             "$ref": "#/definitions/QuizAttemptSnapshot"
           },
           "propertyNames": {
-            "pattern": "\\S"
+            "pattern": "^[0-9A-Z_a-z-]{12}$"
           },
           "type": "object"
         },
@@ -676,7 +698,7 @@
             "optionId": {
               "anyOf": [
                 {
-                  "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+                  "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
                 },
                 {
                   "type": "null"
@@ -696,7 +718,7 @@
             },
             "optionIds": {
               "items": {
-                "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+                "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
               },
               "type": "array"
             }
@@ -713,7 +735,7 @@
             },
             "orderedItemIds": {
               "items": {
-                "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+                "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
               },
               "type": "array"
             }
@@ -733,10 +755,10 @@
                 "additionalProperties": false,
                 "properties": {
                   "itemId": {
-                    "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+                    "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
                   },
                   "targetId": {
-                    "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+                    "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
                   }
                 },
                 "required": ["itemId", "targetId"],
@@ -760,10 +782,10 @@
                 "additionalProperties": false,
                 "properties": {
                   "categoryId": {
-                    "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+                    "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
                   },
                   "itemId": {
-                    "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+                    "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
                   }
                 },
                 "required": ["itemId", "categoryId"],
@@ -783,7 +805,7 @@
                 "additionalProperties": false,
                 "properties": {
                   "blankId": {
-                    "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+                    "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
                   },
                   "value": {
                     "type": "string"
@@ -816,7 +838,7 @@
                   "hotspotId": {
                     "anyOf": [
                       {
-                        "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+                        "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/6/properties/correctHotspotIds/items"
                       },
                       {
                         "type": "null"
@@ -879,10 +901,10 @@
               "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0"
             },
             "blockId": {
-              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
             },
             "blockType": {
-              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              "$ref": "#/definitions/AssessmentLearnerSnapshot/properties/artifactId"
             },
             "interaction": {
               "additionalProperties": false,
@@ -896,7 +918,7 @@
                     "additionalProperties": false,
                     "properties": {
                       "id": {
-                        "type": "string"
+                        "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
                       },
                       "label": {
                         "type": "string"
@@ -968,7 +990,7 @@
               "type": "object"
             },
             "targetId": {
-              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
             }
           },
           "required": [
@@ -989,10 +1011,10 @@
               "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/1"
             },
             "blockId": {
-              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
             },
             "blockType": {
-              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              "$ref": "#/definitions/AssessmentLearnerSnapshot/properties/artifactId"
             },
             "interaction": {
               "additionalProperties": false,
@@ -1030,7 +1052,7 @@
               "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/settings"
             },
             "targetId": {
-              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
             }
           },
           "required": [
@@ -1051,10 +1073,10 @@
               "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/2"
             },
             "blockId": {
-              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
             },
             "blockType": {
-              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              "$ref": "#/definitions/AssessmentLearnerSnapshot/properties/artifactId"
             },
             "interaction": {
               "additionalProperties": false,
@@ -1080,7 +1102,7 @@
               "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/settings"
             },
             "targetId": {
-              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
             }
           },
           "required": [
@@ -1101,10 +1123,10 @@
               "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/3"
             },
             "blockId": {
-              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
             },
             "blockType": {
-              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              "$ref": "#/definitions/AssessmentLearnerSnapshot/properties/artifactId"
             },
             "interaction": {
               "additionalProperties": false,
@@ -1136,7 +1158,7 @@
               "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/settings"
             },
             "targetId": {
-              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
             }
           },
           "required": [
@@ -1157,10 +1179,10 @@
               "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/4"
             },
             "blockId": {
-              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
             },
             "blockType": {
-              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              "$ref": "#/definitions/AssessmentLearnerSnapshot/properties/artifactId"
             },
             "interaction": {
               "additionalProperties": false,
@@ -1192,7 +1214,7 @@
               "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/settings"
             },
             "targetId": {
-              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
             }
           },
           "required": [
@@ -1213,10 +1235,10 @@
               "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/5"
             },
             "blockId": {
-              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
             },
             "blockType": {
-              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              "$ref": "#/definitions/AssessmentLearnerSnapshot/properties/artifactId"
             },
             "interaction": {
               "additionalProperties": false,
@@ -1242,7 +1264,7 @@
               "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/settings"
             },
             "targetId": {
-              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
             }
           },
           "required": [
@@ -1263,10 +1285,10 @@
               "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/6"
             },
             "blockId": {
-              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
             },
             "blockType": {
-              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              "$ref": "#/definitions/AssessmentLearnerSnapshot/properties/artifactId"
             },
             "interaction": {
               "additionalProperties": false,
@@ -1296,10 +1318,10 @@
                         "type": "object"
                       },
                       "id": {
-                        "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/interaction/properties/options/items/properties/id"
+                        "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/6/properties/correctHotspotIds/items"
                       },
                       "label": {
-                        "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/interaction/properties/options/items/properties/label"
+                        "type": "string"
                       }
                     },
                     "required": ["id", "geometry"],
@@ -1334,7 +1356,7 @@
               "$ref": "#/definitions/AssessmentTargetContract/anyOf/0/properties/settings"
             },
             "targetId": {
-              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
             }
           },
           "required": [
@@ -1359,12 +1381,12 @@
               "type": "boolean"
             },
             "attemptId": {
-              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              "$ref": "#/definitions/AssessmentLearnerSnapshot/properties/artifactId"
             },
             "currentTargetId": {
               "anyOf": [
                 {
-                  "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+                  "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
                 },
                 {
                   "type": "null"
@@ -1382,7 +1404,7 @@
                 "$ref": "#/definitions/AssessmentResult"
               },
               "propertyNames": {
-                "pattern": "\\S"
+                "pattern": "^[0-9A-Z_a-z-]{12}$"
               },
               "type": "object"
             },
@@ -1398,7 +1420,7 @@
             },
             "submittedTargetIds": {
               "items": {
-                "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+                "$ref": "#/definitions/AnswerReveal/properties/answerKey/anyOf/0/properties/correctOptionId/anyOf/0"
               },
               "type": "array",
               "uniqueItems": true
@@ -1429,7 +1451,7 @@
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/answerReviewAuthorized"
             },
             "attemptId": {
-              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              "$ref": "#/definitions/AssessmentLearnerSnapshot/properties/artifactId"
             },
             "currentTargetId": {
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/currentTargetId"
@@ -1490,7 +1512,7 @@
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/answerReviewAuthorized"
             },
             "attemptId": {
-              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              "$ref": "#/definitions/AssessmentLearnerSnapshot/properties/artifactId"
             },
             "currentTargetId": {
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/currentTargetId"
@@ -1547,7 +1569,7 @@
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/answerReviewAuthorized"
             },
             "attemptId": {
-              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              "$ref": "#/definitions/AssessmentLearnerSnapshot/properties/artifactId"
             },
             "currentTargetId": {
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/currentTargetId"
@@ -1559,7 +1581,15 @@
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/finishedAt"
             },
             "groupId": {
-              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              "allOf": [
+                {
+                  "pattern": "\\S"
+                },
+                {
+                  "pattern": "^artifact:.+\\/group:.+$"
+                }
+              ],
+              "type": "string"
             },
             "resultsByTargetId": {
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/resultsByTargetId"
@@ -1604,7 +1634,7 @@
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/answerReviewAuthorized"
             },
             "attemptId": {
-              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              "$ref": "#/definitions/AssessmentLearnerSnapshot/properties/artifactId"
             },
             "currentTargetId": {
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/currentTargetId"
@@ -1616,7 +1646,7 @@
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/finishedAt"
             },
             "groupId": {
-              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              "$ref": "#/definitions/QuizAttemptState/anyOf/0/properties/groupId"
             },
             "resultsByTargetId": {
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/resultsByTargetId"
@@ -1661,7 +1691,7 @@
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/answerReviewAuthorized"
             },
             "attemptId": {
-              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              "$ref": "#/definitions/AssessmentLearnerSnapshot/properties/artifactId"
             },
             "currentTargetId": {
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/currentTargetId"
@@ -1673,7 +1703,7 @@
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/finishedAt"
             },
             "groupId": {
-              "$ref": "#/definitions/AssessmentGroupContract/properties/groupId"
+              "$ref": "#/definitions/QuizAttemptState/anyOf/0/properties/groupId"
             },
             "resultsByTargetId": {
               "$ref": "#/definitions/QuizAttemptSnapshot/anyOf/0/properties/resultsByTargetId"

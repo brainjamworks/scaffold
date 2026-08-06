@@ -522,12 +522,12 @@ test("allows runtime and movement to share the central drag infrastructure", asy
 
 test("allows the inward central drag dependency shape and movement target bridge", async (t) => {
   const fixtureRoot = await createFixture(t, {
-    "node_modules/@dnd-kit/core/package.json": JSON.stringify({
-      name: "@dnd-kit/core",
+    "node_modules/@dnd-kit/react/package.json": JSON.stringify({
+      name: "@dnd-kit/react",
       type: "module",
       exports: "./index.js",
     }),
-    "node_modules/@dnd-kit/core/index.js": "export const DndContext = true;\n",
+    "node_modules/@dnd-kit/react/index.js": "export const DragDropProvider = true;\n",
     "packages/core/src/editor/interactions/drag/model/coordinate.ts":
       "export interface DragCoordinate { x: number }\n",
     "packages/core/src/editor/interactions/drag/dom/coordinate.ts": [
@@ -537,11 +537,11 @@ test("allows the inward central drag dependency shape and movement target bridge
     "packages/core/src/ui/overlays/portal-host-context.ts":
       "export interface OverlayHost { id: string }\n",
     "packages/core/src/editor/interactions/drag/react/session.ts": [
-      'import { DndContext } from "@dnd-kit/core";',
+      'import { DragDropProvider } from "@dnd-kit/react";',
       'import type { DOMDragCoordinate } from "../dom/coordinate";',
       'import type { DragCoordinate } from "../model/coordinate";',
       'import type { OverlayHost } from "../../../../ui/overlays/portal-host-context";',
-      "export const installedDndContext = DndContext;",
+      "export const installedDragDropProvider = DragDropProvider;",
       "export type DragSession = DOMDragCoordinate | DragCoordinate | OverlayHost;",
     ].join("\n"),
     "packages/core/src/editor/blocks/assessment/future/future-runtime.tsx": [
@@ -688,16 +688,16 @@ const isolatedDragBoundaryViolations = [
     label: "feature policy to dnd-kit",
     rule: "dnd-kit-is-owned-by-central-drag-react-adapter",
     sourcePath: "packages/core/src/editor/blocks/assessment/future/direct-dnd.tsx",
-    targetPath: "node_modules/@dnd-kit/core/index.js",
+    targetPath: "node_modules/@dnd-kit/react/index.js",
     files: {
-      "node_modules/@dnd-kit/core/package.json": JSON.stringify({
-        name: "@dnd-kit/core",
+      "node_modules/@dnd-kit/react/package.json": JSON.stringify({
+        name: "@dnd-kit/react",
         type: "module",
         exports: "./index.js",
       }),
-      "node_modules/@dnd-kit/core/index.js": "export const DndContext = true;\n",
+      "node_modules/@dnd-kit/react/index.js": "export const DragDropProvider = true;\n",
       "packages/core/src/editor/blocks/assessment/future/direct-dnd.tsx":
-        'import { DndContext } from "@dnd-kit/core";\nexport const leak = DndContext;\n',
+        'import { DragDropProvider } from "@dnd-kit/react";\nexport const leak = DragDropProvider;\n',
     },
   },
   {

@@ -2,6 +2,7 @@
 
 import { Editor } from "@tiptap/core";
 import type { JSONContent } from "@tiptap/core";
+import UniqueID from "@tiptap/extension-unique-id";
 import { EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { closeHistory } from "@tiptap/pm/history";
@@ -95,6 +96,7 @@ function makeEditor(
       editable ? SelectableChoiceAuthoringNode : SelectableChoiceRuntimeNode,
       editable ? McqAuthoringExtension : McqRuntimeExtension,
       editable ? MultiselectAuthoringExtension : MultiselectRuntimeExtension,
+      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
     ],
     content: {
@@ -473,7 +475,7 @@ describe("runtime selectable choice bounded scrolling", () => {
           return DOMRect.fromRect({ height: 100, width: 400, x: 0, y: 0 });
         }
 
-        const choiceId = element.getAttribute("data-choice-id");
+        const choiceId = element.getAttribute("data-id");
         if (choiceId === "a") {
           return DOMRect.fromRect({ height: 44, width: 400, x: 0, y: 140 });
         }
@@ -572,7 +574,7 @@ describe("runtime selectable choice bounded scrolling", () => {
           return DOMRect.fromRect({ height: 140, width: 400, x: 0, y: 0 });
         }
 
-        const choiceId = element.getAttribute("data-choice-id");
+        const choiceId = element.getAttribute("data-id");
         if (choiceId === "a") {
           return DOMRect.fromRect({ height: 44, width: 400, x: 0, y: 40 });
         }

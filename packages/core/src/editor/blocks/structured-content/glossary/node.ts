@@ -2,7 +2,6 @@ import { Node, mergeAttributes, type NodeViewRenderer } from "@tiptap/core";
 import { GlossaryDataSchema, type GlossaryData } from "@scaffold/contracts";
 
 import { COURSE_BLOCK_CONTENT } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 
 import { GLOSSARY_ENTRY_NODE, GLOSSARY_NODE, emptyGlossaryData } from "./content";
 
@@ -21,7 +20,6 @@ export function createGlossaryNode(options: GlossaryNodeOptions = {}) {
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         data: {
           default: emptyGlossaryData(),
           parseHTML: (el: HTMLElement) => {

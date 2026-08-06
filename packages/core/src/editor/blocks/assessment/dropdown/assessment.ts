@@ -2,6 +2,9 @@ import type { JSONContent } from "@tiptap/core";
 import { z } from "zod";
 import {
   DropdownPrivateAssessmentSchema,
+  EmbeddedNodeIdSchema,
+  SingleSelectAssessmentSchema,
+  SingleSelectInteractionSchema,
   SingleSelectResponseSchema,
   type AssessmentAnswerKey,
   type AssessmentInteractionContract,
@@ -26,7 +29,7 @@ import {
 
 export const DropdownResponseSchema = z
   .object({
-    choices: z.string().nullable().default(null),
+    choices: EmbeddedNodeIdSchema.nullable().default(null),
   })
   .strict();
 export type DropdownResponse = z.infer<typeof DropdownResponseSchema>;
@@ -44,23 +47,23 @@ export function projectDropdownLearnerNode(node: JSONContent): JSONContent {
 }
 
 export function projectDropdownInteraction(node: JSONContent): AssessmentInteractionContract {
-  return {
+  return SingleSelectInteractionSchema.parse({
     kind: "single-select",
     options: projectDropdownChoiceEntries(node).map(({ id, label }) => ({
       id,
       ...(label ? { label } : {}),
     })),
-  };
+  });
 }
 
 export function projectDropdownAssessment(node: JSONContent): AssessmentAnswerKey {
   const assessment = DropdownPrivateAssessmentSchema.parse(readAttrs(node)["assessment"] ?? {});
-  return {
+  return SingleSelectAssessmentSchema.parse({
     kind: "single-select",
     correctOptionId: assessment.correctOptionId,
     feedbackByOptionId: assessment.feedbackByOptionId,
     summaryFeedback: assessment.summaryFeedback,
-  };
+  });
 }
 
 export function projectDropdownSettings(settings: unknown): Partial<AssessmentTargetSettings> {

@@ -2,6 +2,7 @@
 
 import { Editor } from "@tiptap/core";
 import type { Content, JSONContent } from "@tiptap/core";
+import UniqueID from "@tiptap/extension-unique-id";
 import { NodeSelection } from "@tiptap/pm/state";
 import { EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -102,6 +103,7 @@ function makeEditor({
       AssessmentSummaryFeedbackNode,
       ...(runtime ? [] : [createScaffoldInteractionOwnerExtension(builtInBlockRegistry)]),
       runtime ? FillBlanksRuntimeExtension : FillBlanksAuthoringExtension,
+      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
     ],
   });
 }
@@ -139,10 +141,10 @@ function fillBlanksDoc({
       {
         type: "fill_blanks",
         attrs: {
-          id: "fill-1",
+          id: "fillbl_00001",
           assessment: {
             blanksById: {
-              b1: {
+              blank_000001: {
                 acceptedAnswers,
                 feedback: richFeedback("Use the Celsius freezing point."),
                 caseSensitive: false,
@@ -174,7 +176,7 @@ function fillBlanksDoc({
                   {
                     type: "fill_blank",
                     attrs: {
-                      id: "b1",
+                      id: "blank_000001",
                       placeholder,
                     },
                   },
@@ -205,10 +207,10 @@ function runtimeFillBlanksDoc({
       {
         type: "fill_blanks",
         attrs: {
-          id: "fill-1",
+          id: "fillbl_00001",
           assessment: {
             blanksById: {
-              "blank-1": {
+              blank_000001: {
                 acceptedAnswers: [answer],
                 feedback: feedback ? richFeedback(feedback) : null,
                 caseSensitive: false,
@@ -240,7 +242,7 @@ function runtimeFillBlanksDoc({
                   {
                     type: "fill_blank",
                     attrs: {
-                      id: "blank-1",
+                      id: "blank_000001",
                       placeholder: "city",
                     },
                   },
@@ -348,7 +350,10 @@ describe("composite fill_blanks node", () => {
     renderAssessmentEditor(editor);
 
     const input = await screen.findByLabelText("temperature");
-    expect(input).toHaveAttribute("name", "assessment-fill-1-response-b1");
+    expect(input).toHaveAttribute("name", "assessment-fillbl_00001-response-blank_000001");
+    const blank = input.closest('[data-node="fill-blank"]');
+    expect(blank?.getAttribute("data-id")).toBe("blank_000001");
+    expect(blank?.getAttribute("data-blank-id")).toBeNull();
 
     editor.destroy();
   });
@@ -371,7 +376,10 @@ describe("composite fill_blanks node", () => {
     expect(body?.hasAttribute("data-bounded-scroll")).toBe(false);
     expect(shell?.querySelectorAll("[data-bounded-scroll]")).toHaveLength(1);
     expect(scrollLane?.textContent).toContain("Water freezes at");
-    expect(scrollLane?.querySelector('[data-node="fill-blank"]')).toBeInstanceOf(HTMLElement);
+    const blank = scrollLane?.querySelector('[data-node="fill-blank"]');
+    expect(blank).toBeInstanceOf(HTMLElement);
+    expect(blank?.getAttribute("data-id")).toBe("blank_000001");
+    expect(blank?.getAttribute("data-blank-id")).toBeNull();
     expect(scrollLane?.querySelector('[data-slot="assessment-title"]')).toBeNull();
     expect(scrollLane?.querySelector('[data-slot="assessment-instructions"]')).toBeNull();
     expect(scrollLane?.querySelector('[data-slot="assessment-prompt"]')).toBeNull();
@@ -439,12 +447,12 @@ describe("composite fill_blanks node", () => {
     const inline = paragraph?.content as JSONContent[] | undefined;
     expect(inline?.map((part) => part.type)).toEqual(["text", "fill_blank", "text"]);
     expect(inline?.[1]?.attrs).toMatchObject({
-      id: "b1",
+      id: "blank_000001",
       placeholder: "temperature",
     });
     expect(block?.attrs?.["assessment"]).toMatchObject({
       blanksById: {
-        b1: {
+        blank_000001: {
           acceptedAnswers: ["0°C", "0 degrees Celsius"],
           feedback: richFeedback("Use the Celsius freezing point."),
         },
@@ -494,7 +502,8 @@ describe("composite fill_blanks node", () => {
 
     const html = editor.getHTML();
     expect(html).toContain('data-node="fill-blank"');
-    expect(html).toContain('data-blank-id="b1"');
+    expect(html).toContain('data-id="blank_000001"');
+    expect(html).not.toContain("data-blank-id");
     expect(html).toContain('data-placeholder="temperature"');
     expect(html).toContain('data-bounded-scroll-frame=""');
     expect(html).toContain('data-bounded-scroll=""');
@@ -520,7 +529,7 @@ describe("composite fill_blanks node", () => {
       if (node.type.name === "fill_blank") blankPos = pos;
     });
 
-    expect(findAncestorAssessmentBlockId(editor, blankPos, ["fill_blanks"])).toBe("fill-1");
+    expect(findAncestorAssessmentBlockId(editor, blankPos, ["fill_blanks"])).toBe("fillbl_00001");
     editor.destroy();
   });
 
@@ -532,7 +541,7 @@ describe("composite fill_blanks node", () => {
         feedback: "Capital city",
       }),
     );
-    const problemId = "artifact:artifact-1/block:fill-1";
+    const problemId = "artifact:artifact-1/block:fillbl_00001";
     const assessmentPort: AssessmentPort = {
       type: "runtime",
       submit: async (args) =>
@@ -542,7 +551,7 @@ describe("composite fill_blanks node", () => {
             isCorrect: false,
             score: { scaled: 0 },
             items: {
-              "blank-1": { correct: false, expected: "Paris", given: "London" },
+              blank_000001: { correct: false, expected: "Paris", given: "London" },
             },
           },
           { response: args.response },
@@ -583,7 +592,7 @@ describe("composite fill_blanks node", () => {
         feedback: "Authored feedback",
       }),
     );
-    const problemId = "artifact:artifact-1/block:fill-1";
+    const problemId = "artifact:artifact-1/block:fillbl_00001";
     const assessmentPort: AssessmentPort = {
       type: "runtime",
       submit: async (args) =>
@@ -593,7 +602,7 @@ describe("composite fill_blanks node", () => {
             isCorrect: false,
             score: { scaled: 0 },
             items: {
-              "blank-1": { correct: false, expected: "Paris", given: "London" },
+              blank_000001: { correct: false, expected: "Paris", given: "London" },
             },
           },
           { response: args.response },
@@ -603,14 +612,14 @@ describe("composite fill_blanks node", () => {
           kind: "fill-blanks",
           blanks: [
             {
-              blankId: "blank-1",
+              blankId: "blank_000001",
               acceptedAnswers: ["Paris"],
               caseSensitive: false,
               trimWhitespace: true,
             },
           ],
           feedbackByBlankId: {
-            "blank-1": richFeedback("Capital city"),
+            blank_000001: richFeedback("Capital city"),
           },
         },
       }),
@@ -664,7 +673,7 @@ describe("composite fill_blanks node", () => {
       content: [
         {
           type: "fill_blanks",
-          attrs: { id: "fill-1" },
+          attrs: { id: "fillbl_00001" },
           content: [
             { type: "assessment_title", content: [{ type: "paragraph" }] },
             {
@@ -717,7 +726,7 @@ describe("composite fill_blanks node", () => {
       content: [
         {
           type: "fill_blanks",
-          attrs: { id: "fill-1" },
+          attrs: { id: "fillbl_00001" },
           content: [
             { type: "assessment_title", content: [{ type: "paragraph" }] },
             {
@@ -800,7 +809,7 @@ describe("composite fill_blanks node", () => {
       transactionCount += 1;
     });
 
-    setBlankFeedback(editor, "b1", "Externally synchronized feedback");
+    setBlankFeedback(editor, "blank_000001", "Externally synchronized feedback");
 
     await waitFor(() => {
       expect(within(sheet).getByLabelText("Shown after submitting")).toBe(feedbackEditor);
@@ -820,7 +829,7 @@ describe("composite fill_blanks node", () => {
     nestedEditor.chain().selectAll().insertContent("Revised feedback").run();
 
     await waitFor(() => {
-      expect(readBlankFeedbackDocument(editor, "b1")).toMatchObject(
+      expect(readBlankFeedbackDocument(editor, "blank_000001")).toMatchObject(
         richFeedback("Revised feedback").document,
       );
     });
@@ -835,21 +844,21 @@ describe("composite fill_blanks node", () => {
 
     nestedEditor.chain().selectAll().insertContent("Revised feedback").run();
     await waitFor(() => {
-      expect(readBlankFeedbackDocument(editor, "b1")).toMatchObject(
+      expect(readBlankFeedbackDocument(editor, "blank_000001")).toMatchObject(
         richFeedback("Revised feedback").document,
       );
     });
 
     fireEvent.keyDown(nestedEditor.view.dom, { ctrlKey: true, key: "z" });
     await waitFor(() => {
-      expect(readBlankFeedbackDocument(editor, "b1")).toMatchObject(
+      expect(readBlankFeedbackDocument(editor, "blank_000001")).toMatchObject(
         richFeedback("Use the Celsius freezing point.").document,
       );
     });
 
     fireEvent.keyDown(nestedEditor.view.dom, { ctrlKey: true, key: "z", shiftKey: true });
     await waitFor(() => {
-      expect(readBlankFeedbackDocument(editor, "b1")).toMatchObject(
+      expect(readBlankFeedbackDocument(editor, "blank_000001")).toMatchObject(
         richFeedback("Revised feedback").document,
       );
     });
@@ -897,7 +906,7 @@ describe("composite fill_blanks node", () => {
     await waitFor(() => {
       expect(editor.state.doc.textContent).toContain("Water freezes at 0°C.");
       expect(
-        editor.getJSON().content?.[0]?.attrs?.["assessment"]?.blanksById?.["b1"],
+        editor.getJSON().content?.[0]?.attrs?.["assessment"]?.blanksById?.["blank_000001"],
       ).toBeUndefined();
     });
     let hasBlank = false;
@@ -918,7 +927,7 @@ describe("composite fill_blanks node", () => {
 
     await waitFor(() => {
       expect(
-        editor.getJSON().content?.[0]?.attrs?.["assessment"]?.blanksById?.["b1"],
+        editor.getJSON().content?.[0]?.attrs?.["assessment"]?.blanksById?.["blank_000001"],
       ).toBeUndefined();
     });
     let hasBlank = false;

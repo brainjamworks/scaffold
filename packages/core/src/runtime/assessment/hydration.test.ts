@@ -7,6 +7,10 @@ import { z } from "zod";
 
 import {
   AssessmentLearnerSnapshotSchema,
+  AssessmentProblemSnapshotSchema,
+  AnswerRevealSchema,
+  QuizAttemptSnapshotSchema,
+  SingleSelectResponseSchema,
   type AssessmentLearnerSnapshot,
   type AssessmentProblemSnapshot,
   type QuizAttemptSnapshot,
@@ -22,8 +26,8 @@ import type { AssessmentRegistrationInput, AssessmentStoreApi } from "./types";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
 
-const problem: AssessmentProblemSnapshot = {
-  response: { kind: "single-select", optionId: "option-a" },
+const problem: AssessmentProblemSnapshot = AssessmentProblemSnapshotSchema.parse({
+  response: { kind: "single-select", optionId: "option_00001" },
   submitted: true,
   attemptNumber: 1,
   hintsShown: 1,
@@ -34,12 +38,12 @@ const problem: AssessmentProblemSnapshot = {
     feedback: null,
     items: {},
   },
-};
+});
 
-const quiz: QuizAttemptSnapshot = {
+const quiz: QuizAttemptSnapshot = QuizAttemptSnapshotSchema.parse({
   attemptId: "attempt-one",
   status: "in_progress",
-  currentTargetId: "target-one",
+  currentTargetId: "target_00001",
   submittedTargetIds: [],
   startedAt: "2026-07-16T09:00:00Z",
   finishedAt: null,
@@ -48,37 +52,40 @@ const quiz: QuizAttemptSnapshot = {
   successStatus: null,
   resultsByTargetId: {},
   answerReviewAuthorized: false,
-};
+});
 
-function snapshot(overrides: Partial<AssessmentLearnerSnapshot> = {}): AssessmentLearnerSnapshot {
-  return {
+function snapshot(
+  overrides: Partial<z.input<typeof AssessmentLearnerSnapshotSchema>> = {},
+): AssessmentLearnerSnapshot {
+  return AssessmentLearnerSnapshotSchema.parse({
     snapshotVersion: 2,
     artifactId: "artifact-one",
-    problems: { "target-one": problem },
-    quizzes: { "quiz-one": quiz },
+    problems: { target_00001: problem },
+    quizzes: { quiz__000001: quiz },
     ...overrides,
-  };
+  });
 }
 
 function registration(
   overrides: Partial<AssessmentRegistrationInput> = {},
 ): AssessmentRegistrationInput {
   return {
-    authoredBlockId: "block-one",
-    targetId: "target-one",
+    authoredBlockId: "block_000001",
+    targetId: "target_00001",
     interactionKind: "single-select",
     response: {
       schema: z.object({ choice: z.string().nullable() }),
-      toContractResponse: (response) => ({
-        kind: "single-select",
-        optionId:
-          typeof response === "object" &&
-          response !== null &&
-          "choice" in response &&
-          typeof response.choice === "string"
-            ? response.choice
-            : null,
-      }),
+      toContractResponse: (response) =>
+        SingleSelectResponseSchema.parse({
+          kind: "single-select",
+          optionId:
+            typeof response === "object" &&
+            response !== null &&
+            "choice" in response &&
+            typeof response.choice === "string"
+              ? response.choice
+              : null,
+        }),
       fromContractResponse: (response) => ({
         choice: response.kind === "single-select" ? response.optionId : null,
       }),
@@ -165,8 +172,8 @@ describe("assessment snapshot hydration", () => {
 
     hydrateAssessmentSnapshot(store, value);
 
-    const problemId = scopeAssessmentProblemId("artifact-one", "target-one");
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "target_00001");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     expect(store.getState().durable.problems[problemId]).toEqual(problem);
     expect(store.getState().durable.quizzes[groupId]).toEqual({ ...quiz, groupId });
     expect(projectAssessmentSnapshot(store)).toEqual(value);
@@ -175,38 +182,38 @@ describe("assessment snapshot hydration", () => {
 
   it("preserves historical null success without consulting the Learning Event session", () => {
     const getLearningEventSession = vi.fn();
-    const historicalQuiz: QuizAttemptSnapshot = {
+    const historicalQuiz: QuizAttemptSnapshot = QuizAttemptSnapshotSchema.parse({
       ...quiz,
       status: "completed",
       currentTargetId: null,
-      submittedTargetIds: ["target-one"],
+      submittedTargetIds: ["target_00001"],
       finishedAt: "2026-07-16T09:05:00Z",
       score: { scaled: 1 },
       successStatus: null,
-    };
+    });
     const store = createAssessmentStore({
       artifactId: "artifact-one",
       assessmentPort: null,
       getLearningEventSession,
     });
 
-    hydrateAssessmentSnapshot(store, snapshot({ quizzes: { "quiz-one": historicalQuiz } }));
+    hydrateAssessmentSnapshot(store, snapshot({ quizzes: { quiz__000001: historicalQuiz } }));
 
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     expect(store.getState().durable.quizzes[groupId]?.successStatus).toBeNull();
-    expect(projectAssessmentSnapshot(store).quizzes["quiz-one"]?.successStatus).toBeNull();
+    expect(projectAssessmentSnapshot(store).quizzes["quiz__000001"]?.successStatus).toBeNull();
     expect(getLearningEventSession).not.toHaveBeenCalled();
   });
 
   it.each([
-    ["malformed", { ...snapshot(), problems: { "target-one": { ...problem, response: {} } } }],
+    ["malformed", { ...snapshot(), problems: { target_00001: { ...problem, response: {} } } }],
     ["extra-field", { ...snapshot(), provider: "xblock" }],
     ["legacy-version", { ...snapshot(), snapshotVersion: 1 }],
     ["future-version", { ...snapshot(), snapshotVersion: 3 }],
     ["foreign-artifact", { ...snapshot(), artifactId: "artifact-two" }],
   ])("rejects %s input without changing existing store state", (_name, value) => {
     const store = createAssessmentStore({ artifactId: "artifact-one", assessmentPort: null });
-    const existingProblemId = scopeAssessmentProblemId("artifact-one", "existing-target");
+    const existingProblemId = scopeAssessmentProblemId("artifact-one", "existg_00001");
     store.setState({
       durable: { problems: { [existingProblemId]: problem }, quizzes: {} },
       requests: {
@@ -218,7 +225,7 @@ describe("assessment snapshot hydration", () => {
           error: "existing failure",
         },
       },
-      targetBindings: { [existingProblemId]: "existing-target" },
+      targetBindings: { [existingProblemId]: "existg_00001" },
       transient: {
         responseReady: { [existingProblemId]: true },
         revealedAnswers: {},
@@ -236,8 +243,8 @@ describe("assessment snapshot hydration", () => {
     const value = {
       ...snapshot(),
       problems: {
-        "target-one": problem,
-        "target-two": { ...problem, response: { kind: "single-select", optionId: 42 } },
+        target_00001: problem,
+        target_00002: { ...problem, response: { kind: "single-select", optionId: 42 } },
       },
     };
 
@@ -249,7 +256,7 @@ describe("assessment snapshot hydration", () => {
     const store = createAssessmentStore({ artifactId: "artifact-one", assessmentPort: null });
     hydrateAssessmentSnapshot(store, snapshot());
     store.getState().register(registration());
-    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "block_000001");
     store.setState({
       requests: {
         [problemId]: {
@@ -263,13 +270,13 @@ describe("assessment snapshot hydration", () => {
       transient: {
         responseReady: { [problemId]: true },
         revealedAnswers: {
-          [problemId]: {
+          [problemId]: AnswerRevealSchema.parse({
             answerKey: {
               kind: "single-select",
-              correctOptionId: "option-a",
+              correctOptionId: "option_00001",
               feedbackByOptionId: {},
             },
-          },
+          }),
         },
       },
     });
@@ -277,9 +284,9 @@ describe("assessment snapshot hydration", () => {
     const projected = projectAssessmentSnapshot(store);
 
     expect(projected).toEqual(snapshot());
-    expect(projected.problems["target-one"]).not.toHaveProperty("responseReady");
-    expect(projected.problems["target-one"]).not.toHaveProperty("revealedAnswer");
-    expect(projected.quizzes["quiz-one"]).not.toHaveProperty("groupId");
+    expect(projected.problems["target_00001"]).not.toHaveProperty("responseReady");
+    expect(projected.problems["target_00001"]).not.toHaveProperty("revealedAnswer");
+    expect(projected.quizzes["quiz__000001"]).not.toHaveProperty("groupId");
     expect(projected).not.toHaveProperty("registrations");
     expect(projected).not.toHaveProperty("requests");
 
@@ -328,14 +335,17 @@ describe("assessment snapshot hydration", () => {
     };
     const mounted = render(runtimeRoot({ initialSnapshot: snapshot(), onRender }));
     const firstStore = requiredStore(stores);
-    const problemId = scopeAssessmentProblemId("artifact-one", "target-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "target_00001");
     firstStore.setState({
       durable: {
         ...firstStore.getState().durable,
         problems: {
           [problemId]: {
             ...problem,
-            response: { kind: "single-select", optionId: "locally-changed" },
+            response: SingleSelectResponseSchema.parse({
+              kind: "single-select",
+              optionId: "localc_00001",
+            }),
           },
         },
       },
@@ -345,9 +355,9 @@ describe("assessment snapshot hydration", () => {
       runtimeRoot({
         initialSnapshot: snapshot({
           problems: {
-            "target-one": {
+            target_00001: {
               ...problem,
-              response: { kind: "single-select", optionId: "new-prop-value" },
+              response: { kind: "single-select", optionId: "newval_00001" },
             },
           },
         }),
@@ -358,7 +368,7 @@ describe("assessment snapshot hydration", () => {
     expect(stores.at(-1)).toBe(firstStore);
     expect(firstStore.getState().durable.problems[problemId]?.response).toEqual({
       kind: "single-select",
-      optionId: "locally-changed",
+      optionId: "localc_00001",
     });
   });
 

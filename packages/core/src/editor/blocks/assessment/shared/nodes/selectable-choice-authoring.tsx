@@ -185,8 +185,8 @@ function SelectableChoiceAuthoringNodeView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper
+      {...props.HTMLAttributes}
       data-node="selectable-choice"
-      data-choice-id={attrs.id}
       {...{ [CONTAINED_MOVEMENT_TARGET_ATTR]: "" }}
     >
       <ChoiceAnswerItem

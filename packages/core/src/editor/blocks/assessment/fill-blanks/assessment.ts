@@ -1,7 +1,10 @@
 import type { JSONContent } from "@tiptap/core";
 import { z } from "zod";
 import {
+  EmbeddedNodeIdSchema,
   FillBlankAttrsSchema,
+  FillBlanksAssessmentSchema,
+  FillBlanksInteractionSchema,
   FillBlanksPrivateAssessmentSchema,
   FillBlanksResponseSchema as ContractFillBlanksResponseSchema,
   type AssessmentAnswerKey,
@@ -10,6 +13,8 @@ import {
   type AssessmentResponseValue,
   type AssessmentTargetSettings,
 } from "@scaffold/contracts";
+
+const EmbeddedNodeRecordKeySchema = EmbeddedNodeIdSchema.unwrap().unwrap();
 
 import type { AssessmentBlockAdapter } from "@/editor/blocks/assessment/shared/model/assessment-block-adapter";
 import type { AssessmentCapabilityResponseDefinition } from "@/editor/blocks/block-definition";
@@ -26,7 +31,7 @@ import {
 
 export const FillBlanksResponseSchema = z
   .object({
-    blanks: z.record(z.string(), z.string()).default({}),
+    blanks: z.record(EmbeddedNodeRecordKeySchema, z.string()).default({}),
   })
   .strict();
 export type FillBlanksResponse = z.infer<typeof FillBlanksResponseSchema>;
@@ -44,13 +49,13 @@ export function projectFillBlanksLearnerNode(node: JSONContent): JSONContent {
 }
 
 export function projectFillBlanksInteraction(node: JSONContent): AssessmentInteractionContract {
-  return {
+  return FillBlanksInteractionSchema.parse({
     kind: "fill-blanks",
     blanks: projectFillBlankEntries(node).map(({ blankId, label }) => ({
       id: blankId,
       ...(label ? { label } : {}),
     })),
-  };
+  });
 }
 
 export function projectFillBlanksAssessment(node: JSONContent): AssessmentAnswerKey {
@@ -59,7 +64,7 @@ export function projectFillBlanksAssessment(node: JSONContent): AssessmentAnswer
   for (const entry of entries) {
     if (entry.feedback) feedbackByBlankId[entry.blankId] = entry.feedback;
   }
-  return {
+  return FillBlanksAssessmentSchema.parse({
     kind: "fill-blanks",
     blanks: entries.map((blank) => ({
       blankId: blank.blankId,
@@ -70,7 +75,7 @@ export function projectFillBlanksAssessment(node: JSONContent): AssessmentAnswer
     feedbackByBlankId,
     summaryFeedback: FillBlanksPrivateAssessmentSchema.parse(readAttrs(node)["assessment"] ?? {})
       .summaryFeedback,
-  };
+  });
 }
 
 export function projectFillBlanksSettings(settings: unknown): Partial<AssessmentTargetSettings> {
@@ -120,9 +125,8 @@ function projectFillBlankEntries(node: JSONContent): Array<{
 
   walkDescendants(node, (child) => {
     if (child.type !== "fill_blank") return;
-    const parsed = FillBlankAttrsSchema.safeParse(readAttrs(child));
-    if (!parsed.success || !parsed.data.id) return;
-    const privateBlank = assessment.blanksById[parsed.data.id];
+    const parsed = FillBlankAttrsSchema.parse(readAttrs(child));
+    const privateBlank = assessment.blanksById[parsed.id];
     if (!privateBlank) return;
 
     const answers = privateBlank.acceptedAnswers
@@ -131,8 +135,8 @@ function projectFillBlankEntries(node: JSONContent): Array<{
     if (answers.length === 0) return;
 
     out.push({
-      blankId: parsed.data.id,
-      ...(parsed.data.placeholder ? { label: parsed.data.placeholder } : {}),
+      blankId: parsed.id,
+      ...(parsed.placeholder ? { label: parsed.placeholder } : {}),
       acceptedAnswers: answers,
       caseSensitive: privateBlank.caseSensitive,
       trimWhitespace: privateBlank.trimWhitespace,

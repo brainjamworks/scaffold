@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, expectTypeOf, it } from "vite-plus/test";
+import type { z } from "zod";
 
 import {
   AnswerRevealSchema,
@@ -35,38 +36,29 @@ import {
   SequenceResponseSchema,
   SingleSelectResponseSchema,
   SpatialHotspotResponseSchema,
-  type AnswerReveal,
+  type EmbeddedDataId,
+  type EmbeddedNodeId,
   type AssessmentActivityStatus,
-  type AssessmentAnswerKey,
   type AssessmentFeedbackContent,
-  type AssessmentGroupContract,
   type AssessmentGradeProjection,
   type AssessmentGradingStatus,
-  type AssessmentInteractionContract,
   type AssessmentItemDetail,
   type AssessmentItemValue,
-  type AssessmentLearnerSnapshot,
   type AssessmentProblemSnapshot,
-  type AssessmentResponseValue,
   type AssessmentResult,
-  type AssessmentTargetContract,
-  type ClassifyResponse,
-  type FillBlanksResponse,
-  type MatchResponse,
-  type MultiSelectResponse,
   type QuizAssessmentSettings,
-  type QuizAttemptSnapshot,
-  type QuizAttemptState,
   type QuizAttemptStatus,
   type QuizAttemptsPerQuestion,
   type QuizReviewDetail,
   type QuizReviewTiming,
   type Score,
+  type SingleSelectInteraction,
+  type SpatialHotspotInteraction,
   type QuizTimerSettings,
-  type SequenceResponse,
-  type SingleSelectResponse,
-  type SpatialHotspotResponse,
 } from "./index";
+
+type SingleSelectOptionId = SingleSelectInteraction["options"][number]["id"];
+type SpatialHotspotId = SpatialHotspotInteraction["hotspots"][number]["id"];
 
 describe("assessment learner snapshot contracts", () => {
   const result: AssessmentResult = {
@@ -85,10 +77,10 @@ describe("assessment learner snapshot contracts", () => {
     submissionResult: null,
   };
 
-  const quizAttemptSnapshot: QuizAttemptSnapshot = {
+  const quizAttemptSnapshot: z.input<typeof QuizAttemptSnapshotSchema> = {
     attemptId: "attempt-1",
     status: "in_progress",
-    currentTargetId: "question-1",
+    currentTargetId: "questn_00001",
     submittedTargetIds: [],
     startedAt: "2026-07-15T12:00:00Z",
     finishedAt: null,
@@ -100,7 +92,7 @@ describe("assessment learner snapshot contracts", () => {
   };
 
   it("exports the independent literal v2 snapshot contract and accepts an empty snapshot", () => {
-    const snapshot: AssessmentLearnerSnapshot = {
+    const snapshot: z.input<typeof AssessmentLearnerSnapshotSchema> = {
       snapshotVersion: 2,
       artifactId: "artifact-1",
       problems: {},
@@ -113,49 +105,52 @@ describe("assessment learner snapshot contracts", () => {
   });
 
   it("accepts every canonical response family in target-keyed problem entries", () => {
-    const snapshot: AssessmentLearnerSnapshot = {
+    const snapshot: z.input<typeof AssessmentLearnerSnapshotSchema> = {
       snapshotVersion: SCAFFOLD_ASSESSMENT_SNAPSHOT_VERSION,
       artifactId: "artifact-1",
       problems: {
-        "single-target": {
+        single_00001: {
           ...emptyProblem,
-          response: { kind: "single-select", optionId: "option-a" },
+          response: { kind: "single-select", optionId: "option_00001" },
         },
-        "multi-target": {
+        multi__00001: {
           ...emptyProblem,
-          response: { kind: "multi-select", optionIds: ["option-a", "option-b"] },
+          response: { kind: "multi-select", optionIds: ["option_00001", "option_00002"] },
         },
-        "sequence-target": {
+        seqnce_00001: {
           ...emptyProblem,
-          response: { kind: "sequence", orderedItemIds: ["item-2", "item-1"] },
+          response: { kind: "sequence", orderedItemIds: ["item_0000002", "item_0000001"] },
         },
-        "match-target": {
+        match__00001: {
           ...emptyProblem,
-          response: { kind: "match", pairs: [{ itemId: "item-1", targetId: "target-1" }] },
+          response: {
+            kind: "match",
+            pairs: [{ itemId: "item_0000001", targetId: "target_00001" }],
+          },
         },
-        "classify-target": {
+        classf_00001: {
           ...emptyProblem,
           response: {
             kind: "classify",
-            placements: [{ itemId: "item-1", categoryId: "category-1" }],
+            placements: [{ itemId: "item_0000001", categoryId: "catgry_00001" }],
           },
         },
-        "blanks-target": {
+        blanks_00001: {
           ...emptyProblem,
           response: {
             kind: "fill-blanks",
-            blanks: [{ blankId: "blank-1", value: "Scaffold" }],
+            blanks: [{ blankId: "blank_000001", value: "Scaffold" }],
           },
         },
-        "hotspot-target": {
+        hotarg_00001: {
           ...emptyProblem,
           response: {
             kind: "spatial-hotspot",
-            selections: [{ hotspotId: "hotspot-1", x: 0.25, y: 0.75 }],
+            selections: [{ hotspotId: "hotsp_000001", x: 0.25, y: 0.75 }],
           },
         },
       },
-      quizzes: { "quiz-1": quizAttemptSnapshot },
+      quizzes: { quiz__000001: quizAttemptSnapshot },
     };
 
     expect(AssessmentLearnerSnapshotSchema.parse(snapshot)).toEqual(snapshot);
@@ -215,7 +210,7 @@ describe("assessment learner snapshot contracts", () => {
       expect(AssessmentProblemSnapshotSchema.safeParse(incomplete).success).toBe(false);
     }
 
-    const snapshot: AssessmentLearnerSnapshot = {
+    const snapshot: z.input<typeof AssessmentLearnerSnapshotSchema> = {
       snapshotVersion: 2,
       artifactId: "artifact-1",
       problems: {},
@@ -229,10 +224,10 @@ describe("assessment learner snapshot contracts", () => {
   });
 
   it("rejects blank identities, composite runtime problem keys, and malformed records", () => {
-    const snapshot: AssessmentLearnerSnapshot = {
+    const snapshot: z.input<typeof AssessmentLearnerSnapshotSchema> = {
       snapshotVersion: 2,
       artifactId: "artifact-1",
-      problems: { "question-1": emptyProblem },
+      problems: { questn_00001: emptyProblem },
       quizzes: {},
     };
 
@@ -270,24 +265,24 @@ describe("assessment learner snapshot contracts", () => {
   });
 
   it("uses each quiz record key as canonical group identity without duplicating it", () => {
-    const snapshot: AssessmentLearnerSnapshot = {
+    const snapshot: z.input<typeof AssessmentLearnerSnapshotSchema> = {
       snapshotVersion: 2,
       artifactId: "artifact-1",
       problems: {},
-      quizzes: { "quiz-1": quizAttemptSnapshot },
+      quizzes: { quiz__000001: quizAttemptSnapshot },
     };
 
     expect(AssessmentLearnerSnapshotSchema.safeParse(snapshot).success).toBe(true);
     expect(
       AssessmentLearnerSnapshotSchema.safeParse({
         ...snapshot,
-        quizzes: { "quiz-2": quizAttemptSnapshot },
+        quizzes: { quiz__000002: quizAttemptSnapshot },
       }).success,
     ).toBe(true);
     expect(
       AssessmentLearnerSnapshotSchema.safeParse({
         ...snapshot,
-        quizzes: { "quiz-1": { ...quizAttemptSnapshot, groupId: "quiz-1" } },
+        quizzes: { quiz__000001: { ...quizAttemptSnapshot, groupId: "quiz__000001" } },
       }).success,
     ).toBe(false);
     expect(QuizAttemptSnapshotSchema.parse(quizAttemptSnapshot)).toEqual(quizAttemptSnapshot);
@@ -308,7 +303,7 @@ describe("assessment learner snapshot contracts", () => {
         artifactId: "artifact-1",
         problems: {},
         quizzes: {
-          "quiz-1": {
+          quiz__000001: {
             ...quizAttemptSnapshot,
             attemptId: null,
             status: "not_started",
@@ -320,7 +315,7 @@ describe("assessment learner snapshot contracts", () => {
 
   it("rejects strict-field violations and forbidden durable state", () => {
     for (const extra of [
-      { targetId: "question-1" },
+      { targetId: "questn_00001" },
       { revealedAnswer: { answerKey: {} } },
       { answerRevealAuthorized: true },
       { hintsTotal: 3 },
@@ -335,7 +330,7 @@ describe("assessment learner snapshot contracts", () => {
       );
     }
 
-    const snapshot: AssessmentLearnerSnapshot = {
+    const snapshot: z.input<typeof AssessmentLearnerSnapshotSchema> = {
       snapshotVersion: 2,
       artifactId: "artifact-1",
       problems: {},
@@ -361,7 +356,7 @@ describe("assessment learner snapshot contracts", () => {
     expect(
       AssessmentProblemSnapshotSchema.safeParse({
         ...emptyProblem,
-        response: { choices: "option-a" },
+        response: { choices: "option_00001" },
       }).success,
     ).toBe(false);
     expect(
@@ -382,31 +377,31 @@ describe("assessment learner snapshot contracts", () => {
         snapshotVersion: 2,
         artifactId: "artifact-1",
         problems: {},
-        quizzes: { "quiz-1": { ...quizAttemptSnapshot, answerReviewAuthorized: "yes" } },
+        quizzes: { quiz__000001: { ...quizAttemptSnapshot, answerReviewAuthorized: "yes" } },
       }).success,
     ).toBe(false);
   });
 
   it("rejects unsupported snapshot versions and round-trips canonical values through JSON", () => {
-    const snapshot: AssessmentLearnerSnapshot = {
+    const snapshot: z.input<typeof AssessmentLearnerSnapshotSchema> = {
       snapshotVersion: 2,
       artifactId: "artifact-1",
       problems: {
-        "question-1": {
+        questn_00001: {
           ...emptyProblem,
-          response: { kind: "single-select", optionId: "option-a" },
+          response: { kind: "single-select", optionId: "option_00001" },
           checkResult: result,
         },
-        "question-2": {
+        questn_00002: {
           ...emptyProblem,
-          response: { kind: "multi-select", optionIds: ["option-b"] },
+          response: { kind: "multi-select", optionIds: ["option_00002"] },
           submitted: true,
           attemptNumber: 1,
           hintsShown: 2,
           submissionResult: result,
         },
       },
-      quizzes: { "quiz-1": quizAttemptSnapshot },
+      quizzes: { quiz__000001: quizAttemptSnapshot },
     };
 
     for (const snapshotVersion of [0, 1, 99]) {
@@ -612,11 +607,14 @@ describe("assessment target contracts", () => {
     },
   };
 
-  function targetWith(interaction: AssessmentInteractionContract, assessment: AssessmentAnswerKey) {
+  function targetWith(
+    interaction: z.input<typeof AssessmentInteractionContractSchema>,
+    assessment: z.input<typeof AssessmentAnswerKeySchema>,
+  ) {
     return {
       schemaVersion: SCAFFOLD_ASSESSMENT_CONTRACT_VERSION,
-      targetId: "question-1",
-      blockId: "block-1",
+      targetId: "questn_00001",
+      blockId: "block_000001",
       blockType: "assessment-block",
       interaction,
       assessment,
@@ -630,22 +628,76 @@ describe("assessment target contracts", () => {
     };
   }
 
+  it("classifies projected owner ids and rejects malformed or inconsistent owner graphs", () => {
+    expectTypeOf<SingleSelectOptionId>().toEqualTypeOf<EmbeddedNodeId>();
+    expectTypeOf<SpatialHotspotId>().toEqualTypeOf<EmbeddedDataId>();
+
+    const target = {
+      schemaVersion: SCAFFOLD_ASSESSMENT_CONTRACT_VERSION,
+      targetId: "target_00001",
+      blockId: "block_000001",
+      blockType: "mcq",
+      interaction: {
+        kind: "single-select",
+        options: [{ id: "option_00001" }, { id: "option_00002" }],
+      },
+      assessment: {
+        kind: "single-select",
+        correctOptionId: "option_00001",
+        feedbackByOptionId: {},
+      },
+      settings: {
+        feedbackMode: "on_submit",
+        isGraded: true,
+        showAnswer: true,
+        points: 1,
+        maxAttempts: null,
+      },
+    };
+
+    expect(AssessmentTargetContractSchema.safeParse(target).success).toBe(true);
+    expect(
+      AssessmentTargetContractSchema.safeParse({
+        ...target,
+        interaction: { kind: "single-select", options: [{ id: "short" }] },
+      }).success,
+    ).toBe(false);
+    expect(
+      AssessmentTargetContractSchema.safeParse({
+        ...target,
+        interaction: {
+          kind: "single-select",
+          options: [{ id: "option_00001" }, { id: "option_00001" }],
+        },
+      }).success,
+    ).toBe(false);
+    expect(
+      AssessmentTargetContractSchema.safeParse({
+        ...target,
+        assessment: {
+          ...target.assessment,
+          correctOptionId: "option_99999",
+        },
+      }).success,
+    ).toBe(false);
+  });
+
   it("accepts a literal v2 single-select target", () => {
-    const target: AssessmentTargetContract = {
+    const target: z.input<typeof AssessmentTargetContractSchema> = {
       schemaVersion: 2,
-      targetId: "question-1",
-      blockId: "block-1",
+      targetId: "questn_00001",
+      blockId: "block_000001",
       blockType: "mcq",
       interaction: {
         kind: "single-select",
         options: [
-          { id: "option-a", label: "A" },
-          { id: "option-b", label: "B" },
+          { id: "option_00001", label: "A" },
+          { id: "option_00002", label: "B" },
         ],
       },
       assessment: {
         kind: "single-select",
-        correctOptionId: "option-b",
+        correctOptionId: "option_00002",
         feedbackByOptionId: {},
       },
       settings: {
@@ -665,11 +717,11 @@ describe("assessment target contracts", () => {
     const target = targetWith(
       {
         kind: "single-select",
-        options: [{ id: "option-a" }],
+        options: [{ id: "option_00001" }],
       },
       {
         kind: "single-select",
-        correctOptionId: "option-a",
+        correctOptionId: "option_00001",
         feedbackByOptionId: {},
       },
     );
@@ -692,11 +744,11 @@ describe("assessment target contracts", () => {
     const target = targetWith(
       {
         kind: "single-select",
-        options: [{ id: "option-a" }],
+        options: [{ id: "option_00001" }],
       },
       {
         kind: "single-select",
-        correctOptionId: "option-a",
+        correctOptionId: "option_00001",
         feedbackByOptionId: {},
       },
     );
@@ -704,22 +756,22 @@ describe("assessment target contracts", () => {
       { ...target, hostMaximum: 100 },
       {
         ...target,
-        interaction: { kind: "single-select", options: [{ id: "option-a" }], provider: "host" },
+        interaction: { kind: "single-select", options: [{ id: "option_00001" }], provider: "host" },
       },
       {
         ...target,
         interaction: {
           kind: "single-select",
-          options: [{ id: "option-a", providerPayload: {} }],
+          options: [{ id: "option_00001", providerPayload: {} }],
         },
       },
       {
         ...target,
         assessment: {
           kind: "single-select",
-          correctOptionId: "option-a",
+          correctOptionId: "option_00001",
           feedbackByOptionId: {},
-          hostItemId: "item-1",
+          hostItemId: "item_0000001",
         },
       },
       targetWith(
@@ -727,7 +779,7 @@ describe("assessment target contracts", () => {
           kind: "spatial-hotspot",
           hotspots: [
             {
-              id: "hotspot-1",
+              id: "hotsp_000001",
               geometry: withUnknownField(
                 {
                   kind: "circle" as const,
@@ -745,20 +797,24 @@ describe("assessment target contracts", () => {
         {
           kind: "spatial-hotspot",
           gradingMode: "all-or-nothing",
-          correctHotspotIds: ["hotspot-1"],
+          correctHotspotIds: ["hotsp_000001"],
           feedbackByHotspotId: {},
         },
       ),
       targetWith(
         {
           kind: "match",
-          items: [{ id: "item-1" }],
-          targets: [{ id: "target-1" }],
+          items: [{ id: "item_0000001" }],
+          targets: [{ id: "target_00001" }],
         },
         {
           kind: "match",
           correctPairs: [
-            withUnknownField({ itemId: "item-1", targetId: "target-1" }, "provider", "host"),
+            withUnknownField(
+              { itemId: "item_0000001", targetId: "target_00001" },
+              "provider",
+              "host",
+            ),
           ],
           feedbackByItemId: {},
         },
@@ -766,25 +822,29 @@ describe("assessment target contracts", () => {
       targetWith(
         {
           kind: "classify",
-          items: [{ id: "item-1" }],
-          categories: [{ id: "category-1" }],
+          items: [{ id: "item_0000001" }],
+          categories: [{ id: "catgry_00001" }],
         },
         {
           kind: "classify",
           correctPlacements: [
-            withUnknownField({ itemId: "item-1", categoryId: "category-1" }, "provider", "host"),
+            withUnknownField(
+              { itemId: "item_0000001", categoryId: "catgry_00001" },
+              "provider",
+              "host",
+            ),
           ],
           feedbackByItemId: {},
         },
       ),
       targetWith(
-        { kind: "fill-blanks", blanks: [{ id: "blank-1" }] },
+        { kind: "fill-blanks", blanks: [{ id: "blank_000001" }] },
         {
           kind: "fill-blanks",
           blanks: [
             withUnknownField(
               {
-                blankId: "blank-1",
+                blankId: "blank_000001",
                 acceptedAnswers: ["answer"],
                 caseSensitive: false,
                 trimWhitespace: true,
@@ -805,77 +865,77 @@ describe("assessment target contracts", () => {
 
   it("accepts all seven matching interaction and answer-key variants", () => {
     const variants: Array<{
-      interaction: AssessmentInteractionContract;
-      answerKey: AssessmentAnswerKey;
+      interaction: z.input<typeof AssessmentInteractionContractSchema>;
+      answerKey: z.input<typeof AssessmentAnswerKeySchema>;
     }> = [
       {
         interaction: {
           kind: "single-select",
-          options: [{ id: "option-a", label: "A" }],
+          options: [{ id: "option_00001", label: "A" }],
         },
         answerKey: {
           kind: "single-select",
-          correctOptionId: "option-a",
+          correctOptionId: "option_00001",
           feedbackByOptionId: {},
         },
       },
       {
         interaction: {
           kind: "multi-select",
-          options: [{ id: "option-a" }, { id: "option-b" }],
+          options: [{ id: "option_00001" }, { id: "option_00002" }],
           maxSelections: 2,
         },
         answerKey: {
           kind: "multi-select",
-          correctOptionIds: ["option-a"],
+          correctOptionIds: ["option_00001"],
           feedbackByOptionId: {},
         },
       },
       {
         interaction: {
           kind: "sequence",
-          items: [{ id: "step-1" }, { id: "step-2", label: "Second" }],
+          items: [{ id: "step__000001" }, { id: "step__000002", label: "Second" }],
         },
         answerKey: {
           kind: "sequence",
-          correctOrder: ["step-1", "step-2"],
+          correctOrder: ["step__000001", "step__000002"],
           feedbackByItemId: {},
         },
       },
       {
         interaction: {
           kind: "match",
-          items: [{ id: "term-1" }],
-          targets: [{ id: "definition-1" }],
+          items: [{ id: "term__000001" }],
+          targets: [{ id: "defn__000001" }],
         },
         answerKey: {
           kind: "match",
-          correctPairs: [{ itemId: "term-1", targetId: "definition-1" }],
+          correctPairs: [{ itemId: "term__000001", targetId: "defn__000001" }],
           feedbackByItemId: {},
         },
       },
       {
         interaction: {
           kind: "classify",
-          items: [{ id: "item-1" }],
-          categories: [{ id: "category-1" }],
+          items: [{ id: "item_0000001" }],
+          categories: [{ id: "catgry_00001" }],
         },
         answerKey: {
           kind: "classify",
-          correctPlacements: [{ itemId: "item-1", categoryId: "category-1" }],
+          correctPlacements: [{ itemId: "item_0000001", categoryId: "catgry_00001" }],
           feedbackByItemId: {},
         },
       },
       {
         interaction: {
           kind: "fill-blanks",
-          blanks: [{ id: "blank-1", label: "First blank" }],
+          blanks: [{ id: "blank_000001", label: "First blank" }],
         },
         answerKey: {
           kind: "fill-blanks",
           blanks: [
             {
-              blankId: "blank-1",
+              blankId: "blank_000001",
               acceptedAnswers: ["answer"],
               caseSensitive: false,
               trimWhitespace: true,
@@ -889,7 +949,7 @@ describe("assessment target contracts", () => {
           kind: "spatial-hotspot",
           hotspots: [
             {
-              id: "hotspot-1",
+              id: "hotsp_000001",
               geometry: {
                 kind: "circle",
                 centerX: 0.25,
@@ -903,7 +963,7 @@ describe("assessment target contracts", () => {
         answerKey: {
           kind: "spatial-hotspot",
           gradingMode: "partial-credit",
-          correctHotspotIds: ["hotspot-1"],
+          correctHotspotIds: ["hotsp_000001"],
           feedbackByHotspotId: {},
         },
       },
@@ -918,55 +978,55 @@ describe("assessment target contracts", () => {
   });
 
   it("accepts every private answer variant with authored rich-text feedback", () => {
-    const assessments: AssessmentAnswerKey[] = [
+    const assessments: Array<z.input<typeof AssessmentAnswerKeySchema>> = [
       {
         kind: "single-select",
         correctOptionId: null,
-        feedbackByOptionId: { "option-a": feedback },
+        feedbackByOptionId: { option_00001: feedback },
         summaryFeedback: feedback,
       },
       {
         kind: "multi-select",
-        correctOptionIds: ["option-a", "option-b"],
-        feedbackByOptionId: { "option-a": feedback },
+        correctOptionIds: ["option_00001", "option_00002"],
+        feedbackByOptionId: { option_00001: feedback },
         summaryFeedback: feedback,
       },
       {
         kind: "sequence",
-        correctOrder: ["step-1", "step-2"],
-        feedbackByItemId: { "step-1": feedback },
+        correctOrder: ["step__000001", "step__000002"],
+        feedbackByItemId: { step__000001: feedback },
         summaryFeedback: feedback,
       },
       {
         kind: "match",
-        correctPairs: [{ itemId: "term-1", targetId: "definition-1" }],
-        feedbackByItemId: { "term-1": feedback },
+        correctPairs: [{ itemId: "term__000001", targetId: "defn__000001" }],
+        feedbackByItemId: { term__000001: feedback },
         summaryFeedback: feedback,
       },
       {
         kind: "classify",
-        correctPlacements: [{ itemId: "item-1", categoryId: "category-1" }],
-        feedbackByItemId: { "item-1": feedback },
+        correctPlacements: [{ itemId: "item_0000001", categoryId: "catgry_00001" }],
+        feedbackByItemId: { item_0000001: feedback },
         summaryFeedback: feedback,
       },
       {
         kind: "fill-blanks",
         blanks: [
           {
-            blankId: "blank-1",
+            blankId: "blank_000001",
             acceptedAnswers: ["Scaffold"],
             caseSensitive: false,
             trimWhitespace: true,
           },
         ],
-        feedbackByBlankId: { "blank-1": feedback },
+        feedbackByBlankId: { blank_000001: feedback },
         summaryFeedback: feedback,
       },
       {
         kind: "spatial-hotspot",
         gradingMode: "partial-credit",
-        correctHotspotIds: ["hotspot-1"],
-        feedbackByHotspotId: { "hotspot-1": feedback },
+        correctHotspotIds: ["hotsp_000001"],
+        feedbackByHotspotId: { hotsp_000001: feedback },
         missFeedback: feedback,
         summaryFeedback: feedback,
       },
@@ -1013,13 +1073,13 @@ describe("assessment target contracts", () => {
     expect(
       AssessmentAnswerKeySchema.parse({
         kind: "fill-blanks",
-        blanks: [{ blankId: "blank-1", acceptedAnswers: ["answer"] }],
+        blanks: [{ blankId: "blank_000001", acceptedAnswers: ["answer"] }],
       }),
     ).toEqual({
       kind: "fill-blanks",
       blanks: [
         {
-          blankId: "blank-1",
+          blankId: "blank_000001",
           acceptedAnswers: ["answer"],
           caseSensitive: false,
           trimWhitespace: true,
@@ -1042,15 +1102,15 @@ describe("assessment target contracts", () => {
   });
 
   it("rejects sentinel, missing, and mismatched answer keys", () => {
-    const singleSelect: AssessmentInteractionContract = {
+    const singleSelect: z.input<typeof AssessmentInteractionContractSchema> = {
       kind: "single-select",
-      options: [{ id: "option-a" }],
+      options: [{ id: "option_00001" }],
     };
-    const spatialHotspot: AssessmentInteractionContract = {
+    const spatialHotspot: z.input<typeof AssessmentInteractionContractSchema> = {
       kind: "spatial-hotspot",
       hotspots: [
         {
-          id: "hotspot-1",
+          id: "hotsp_000001",
           geometry: { kind: "circle", centerX: 0.5, centerY: 0.5, radius: 0.1 },
         },
       ],
@@ -1058,7 +1118,7 @@ describe("assessment target contracts", () => {
     };
     const singleSelectTarget = targetWith(singleSelect, {
       kind: "single-select",
-      correctOptionId: "option-a",
+      correctOptionId: "option_00001",
       feedbackByOptionId: {},
     });
 
@@ -1083,7 +1143,7 @@ describe("assessment target contracts", () => {
       AssessmentTargetContractSchema.safeParse(
         targetWith(singleSelect, {
           kind: "multi-select",
-          correctOptionIds: ["option-a"],
+          correctOptionIds: ["option_00001"],
           feedbackByOptionId: {},
         }),
       ).success,
@@ -1100,13 +1160,13 @@ describe("assessment target contracts", () => {
   });
 
   it("accepts only literal v2 targets with non-blank identity fields", () => {
-    const interaction: AssessmentInteractionContract = {
+    const interaction: z.input<typeof AssessmentInteractionContractSchema> = {
       kind: "single-select",
-      options: [{ id: "option-a" }],
+      options: [{ id: "option_00001" }],
     };
     const target = targetWith(interaction, {
       kind: "single-select",
-      correctOptionId: "option-a",
+      correctOptionId: "option_00001",
       feedbackByOptionId: {},
     });
 
@@ -1129,14 +1189,14 @@ describe("assessment target contracts", () => {
   });
 
   it("enforces authored points, attempts, and selection bounds", () => {
-    const interaction: AssessmentInteractionContract = {
+    const interaction: z.input<typeof AssessmentInteractionContractSchema> = {
       kind: "multi-select",
-      options: [{ id: "option-a" }, { id: "option-b" }],
+      options: [{ id: "option_00001" }, { id: "option_00002" }],
       maxSelections: null,
     };
-    const assessment: AssessmentAnswerKey = {
+    const assessment: z.input<typeof AssessmentAnswerKeySchema> = {
       kind: "multi-select",
-      correctOptionIds: ["option-a"],
+      correctOptionIds: ["option_00001"],
       feedbackByOptionId: {},
     };
     const target = targetWith(interaction, assessment);
@@ -1173,9 +1233,9 @@ describe("assessment target contracts", () => {
     expect(
       AssessmentAnswerKeySchema.safeParse({
         kind: "single-select",
-        correctOptionId: "option-a",
+        correctOptionId: "option_00001",
         feedbackByOptionId: {
-          "option-a": {
+          option_00001: {
             kind: "plain-text",
             document: { type: "doc" },
           },
@@ -1186,7 +1246,7 @@ describe("assessment target contracts", () => {
       AssessmentAnswerKeySchema.safeParse({
         kind: "spatial-hotspot",
         gradingMode: "all-or-nothing",
-        correctHotspotIds: ["hotspot-1"],
+        correctHotspotIds: ["hotsp_000001"],
         summaryFeedback: {
           kind: "rich-text",
           document: { type: "paragraph" },
@@ -1201,7 +1261,7 @@ describe("assessment target contracts", () => {
         kind: "spatial-hotspot",
         hotspots: [
           {
-            id: "hotspot-1",
+            id: "hotsp_000001",
             label: "Primary region",
             geometry: { kind: "circle", centerX: 0.4, centerY: 0.6, radius: 0.2 },
           },
@@ -1211,8 +1271,8 @@ describe("assessment target contracts", () => {
       {
         kind: "spatial-hotspot",
         gradingMode: "partial-credit",
-        correctHotspotIds: ["hotspot-1"],
-        feedbackByHotspotId: { "hotspot-1": feedback },
+        correctHotspotIds: ["hotsp_000001"],
+        feedbackByHotspotId: { hotsp_000001: feedback },
         missFeedback: feedback,
         summaryFeedback: null,
       },
@@ -1254,55 +1314,55 @@ describe("assessment answer reveal contracts", () => {
     },
   };
 
-  const answerKeys: AssessmentAnswerKey[] = [
+  const answerKeys: Array<z.input<typeof AssessmentAnswerKeySchema>> = [
     {
       kind: "single-select",
-      correctOptionId: "option-b",
-      feedbackByOptionId: { "option-b": feedback },
+      correctOptionId: "option_00002",
+      feedbackByOptionId: { option_00002: feedback },
       summaryFeedback: feedback,
     },
     {
       kind: "multi-select",
-      correctOptionIds: ["option-a", "option-b"],
-      feedbackByOptionId: { "option-a": feedback },
+      correctOptionIds: ["option_00001", "option_00002"],
+      feedbackByOptionId: { option_00001: feedback },
       summaryFeedback: feedback,
     },
     {
       kind: "sequence",
-      correctOrder: ["step-1", "step-2"],
-      feedbackByItemId: { "step-1": feedback },
+      correctOrder: ["step__000001", "step__000002"],
+      feedbackByItemId: { step__000001: feedback },
       summaryFeedback: feedback,
     },
     {
       kind: "match",
-      correctPairs: [{ itemId: "term-1", targetId: "definition-1" }],
-      feedbackByItemId: { "term-1": feedback },
+      correctPairs: [{ itemId: "term__000001", targetId: "defn__000001" }],
+      feedbackByItemId: { term__000001: feedback },
       summaryFeedback: feedback,
     },
     {
       kind: "classify",
-      correctPlacements: [{ itemId: "item-1", categoryId: "category-1" }],
-      feedbackByItemId: { "item-1": feedback },
+      correctPlacements: [{ itemId: "item_0000001", categoryId: "catgry_00001" }],
+      feedbackByItemId: { item_0000001: feedback },
       summaryFeedback: feedback,
     },
     {
       kind: "fill-blanks",
       blanks: [
         {
-          blankId: "blank-1",
+          blankId: "blank_000001",
           acceptedAnswers: ["Scaffold"],
           caseSensitive: false,
           trimWhitespace: true,
         },
       ],
-      feedbackByBlankId: { "blank-1": feedback },
+      feedbackByBlankId: { blank_000001: feedback },
       summaryFeedback: feedback,
     },
     {
       kind: "spatial-hotspot",
       gradingMode: "partial-credit",
-      correctHotspotIds: ["hotspot-1"],
-      feedbackByHotspotId: { "hotspot-1": feedback },
+      correctHotspotIds: ["hotsp_000001"],
+      feedbackByHotspotId: { hotsp_000001: feedback },
       missFeedback: feedback,
       summaryFeedback: feedback,
     },
@@ -1310,7 +1370,7 @@ describe("assessment answer reveal contracts", () => {
 
   it("accepts all seven answer-bearing variants and their rich feedback", () => {
     for (const answerKey of answerKeys) {
-      const reveal: AnswerReveal = { answerKey };
+      const reveal = AnswerRevealSchema.parse({ answerKey });
 
       expect(AssessmentAnswerKeySchema.parse(answerKey)).toEqual(answerKey);
       expect(AnswerRevealSchema.parse(reveal)).toEqual(reveal);
@@ -1327,15 +1387,15 @@ describe("assessment answer reveal contracts", () => {
   it("rejects malformed answer-bearing variants", () => {
     const malformedAnswerKeys = [
       { kind: "single-select" },
-      { kind: "multi-select", correctOptionIds: "option-a" },
+      { kind: "multi-select", correctOptionIds: "option_00001" },
       { kind: "sequence", correctOrder: [1] },
-      { kind: "match", correctPairs: [{ itemId: "term-1" }] },
-      { kind: "classify", correctPlacements: [{ categoryId: "category-1" }] },
-      { kind: "fill-blanks", blanks: [{ blankId: "blank-1" }] },
+      { kind: "match", correctPairs: [{ itemId: "term__000001" }] },
+      { kind: "classify", correctPlacements: [{ categoryId: "catgry_00001" }] },
+      { kind: "fill-blanks", blanks: [{ blankId: "blank_000001" }] },
       {
         kind: "spatial-hotspot",
         gradingMode: "weighted",
-        correctHotspotIds: ["hotspot-1"],
+        correctHotspotIds: ["hotsp_000001"],
       },
     ];
 
@@ -1388,11 +1448,11 @@ describe("assessment group contracts", () => {
     passingScore: null,
     timer,
   };
-  const group: AssessmentGroupContract = {
+  const group: z.input<typeof AssessmentGroupContractSchema> = {
     schemaVersion: 2,
     kind: "quiz",
-    groupId: "quiz-1",
-    targetIds: ["question-1", "question-2"],
+    groupId: "quiz__000001",
+    targetIds: ["questn_00001", "questn_00002"],
     settings,
   };
 
@@ -1401,8 +1461,8 @@ describe("assessment group contracts", () => {
     expect(QuizAssessmentSettingsSchema.parse(settings)).toEqual(settings);
     expect(AssessmentGroupContractSchema.parse(group)).toEqual(group);
     expect(AssessmentGroupContractSchema.parse(group).targetIds).toEqual([
-      "question-1",
-      "question-2",
+      "questn_00001",
+      "questn_00002",
     ]);
   });
 
@@ -1477,7 +1537,7 @@ describe("assessment group contracts", () => {
       expect(AssessmentGroupContractSchema.safeParse({ ...group, groupId }).success).toBe(false);
     }
 
-    for (const targetIds of [[], [""], ["question-1", "  "]]) {
+    for (const targetIds of [[], [""], ["questn_00001", "  "]]) {
       expect(AssessmentGroupContractSchema.safeParse({ ...group, targetIds }).success).toBe(false);
     }
 
@@ -1490,7 +1550,7 @@ describe("assessment group contracts", () => {
     expect(
       AssessmentGroupContractSchema.safeParse({
         ...group,
-        targetIds: ["question-1", "question-2", "question-1"],
+        targetIds: ["questn_00001", "questn_00002", "questn_00001"],
       }).success,
     ).toBe(false);
   });
@@ -1527,7 +1587,7 @@ describe("assessment group contracts", () => {
   });
 
   it("round-trips a Quiz group through JSON without changing its contract value", () => {
-    const configuredGroup: AssessmentGroupContract = {
+    const configuredGroup: z.input<typeof AssessmentGroupContractSchema> = {
       ...group,
       settings: {
         allowBacktracking: false,
@@ -1548,27 +1608,19 @@ describe("assessment group contracts", () => {
 
 describe("assessment response value contracts", () => {
   it("exports and accepts all seven provider-neutral response variants", () => {
-    const responses: [
-      SingleSelectResponse,
-      MultiSelectResponse,
-      SequenceResponse,
-      MatchResponse,
-      ClassifyResponse,
-      FillBlanksResponse,
-      SpatialHotspotResponse,
-    ] = [
-      { kind: "single-select", optionId: "option-b" },
-      { kind: "multi-select", optionIds: ["option-a", "option-c"] },
-      { kind: "sequence", orderedItemIds: ["item-2", "item-1"] },
-      { kind: "match", pairs: [{ itemId: "item-1", targetId: "target-2" }] },
+    const responses: Array<z.input<typeof AssessmentResponseValueSchema>> = [
+      { kind: "single-select", optionId: "option_00002" },
+      { kind: "multi-select", optionIds: ["option_00001", "option_00003"] },
+      { kind: "sequence", orderedItemIds: ["item_0000002", "item_0000001"] },
+      { kind: "match", pairs: [{ itemId: "item_0000001", targetId: "target_00002" }] },
       {
         kind: "classify",
-        placements: [{ itemId: "item-1", categoryId: "category-2" }],
+        placements: [{ itemId: "item_0000001", categoryId: "catgry_00002" }],
       },
-      { kind: "fill-blanks", blanks: [{ blankId: "blank-1", value: "Scaffold" }] },
+      { kind: "fill-blanks", blanks: [{ blankId: "blank_000001", value: "Scaffold" }] },
       {
         kind: "spatial-hotspot",
-        selections: [{ hotspotId: "hotspot-1", x: -0.25, y: 1.5 }],
+        selections: [{ hotspotId: "hotsp_000001", x: -0.25, y: 1.5 }],
       },
     ];
 
@@ -1586,14 +1638,14 @@ describe("assessment response value contracts", () => {
   });
 
   it("accepts empty and partial draft response values", () => {
-    const drafts: AssessmentResponseValue[] = [
+    const drafts: Array<z.input<typeof AssessmentResponseValueSchema>> = [
       { kind: "single-select", optionId: null },
       { kind: "multi-select", optionIds: [] },
       { kind: "sequence", orderedItemIds: [] },
       { kind: "match", pairs: [] },
       { kind: "classify", placements: [] },
       { kind: "fill-blanks", blanks: [] },
-      { kind: "fill-blanks", blanks: [{ blankId: "blank-1", value: "" }] },
+      { kind: "fill-blanks", blanks: [{ blankId: "blank_000001", value: "" }] },
       { kind: "spatial-hotspot", selections: [] },
       { kind: "spatial-hotspot", selections: [{ hotspotId: null, x: -1, y: 2 }] },
     ];
@@ -1605,8 +1657,8 @@ describe("assessment response value contracts", () => {
 
   it("rejects missing and unsupported response kinds", () => {
     for (const response of [
-      { optionId: "option-a" },
-      { kind: "choice", optionId: "option-a" },
+      { optionId: "option_00001" },
+      { kind: "choice", optionId: "option_00001" },
       { kind: "none" },
     ]) {
       expect(AssessmentResponseValueSchema.safeParse(response).success).toBe(false);
@@ -1616,12 +1668,12 @@ describe("assessment response value contracts", () => {
   it("requires every structural identifier in a response to be non-blank", () => {
     const responses = [
       { kind: "single-select", optionId: "" },
-      { kind: "multi-select", optionIds: ["option-a", "   "] },
+      { kind: "multi-select", optionIds: ["option_00001", "   "] },
       { kind: "sequence", orderedItemIds: ["\t"] },
-      { kind: "match", pairs: [{ itemId: "", targetId: "target-1" }] },
-      { kind: "match", pairs: [{ itemId: "item-1", targetId: "  " }] },
-      { kind: "classify", placements: [{ itemId: "\n", categoryId: "category-1" }] },
-      { kind: "classify", placements: [{ itemId: "item-1", categoryId: "" }] },
+      { kind: "match", pairs: [{ itemId: "", targetId: "target_00001" }] },
+      { kind: "match", pairs: [{ itemId: "item_0000001", targetId: "  " }] },
+      { kind: "classify", placements: [{ itemId: "\n", categoryId: "catgry_00001" }] },
+      { kind: "classify", placements: [{ itemId: "item_0000001", categoryId: "" }] },
       { kind: "fill-blanks", blanks: [{ blankId: "   ", value: "" }] },
       { kind: "spatial-hotspot", selections: [{ hotspotId: "\t", x: 0, y: 0 }] },
     ];
@@ -1633,11 +1685,11 @@ describe("assessment response value contracts", () => {
 
   it("rejects malformed nested response entries", () => {
     const responses = [
-      { kind: "match", pairs: [{ itemId: "item-1" }] },
+      { kind: "match", pairs: [{ itemId: "item_0000001" }] },
       { kind: "match", pairs: [null] },
-      { kind: "classify", placements: [{ itemId: "item-1", categoryId: 1 }] },
-      { kind: "fill-blanks", blanks: [{ blankId: "blank-1" }] },
-      { kind: "fill-blanks", blanks: [{ blankId: "blank-1", value: null }] },
+      { kind: "classify", placements: [{ itemId: "item_0000001", categoryId: 1 }] },
+      { kind: "fill-blanks", blanks: [{ blankId: "blank_000001" }] },
+      { kind: "fill-blanks", blanks: [{ blankId: "blank_000001", value: null }] },
       { kind: "spatial-hotspot", selections: [{ hotspotId: null, x: 0 }] },
       { kind: "spatial-hotspot", selections: [{ hotspotId: null, x: "0", y: 0 }] },
     ];
@@ -1670,16 +1722,16 @@ describe("assessment response value contracts", () => {
   });
 
   it("rejects raw block-local and unrelated top-level response fields", () => {
-    const responses: AssessmentResponseValue[] = [
-      { kind: "single-select", optionId: "option-a" },
-      { kind: "multi-select", optionIds: ["option-a"] },
-      { kind: "sequence", orderedItemIds: ["item-1"] },
-      { kind: "match", pairs: [{ itemId: "item-1", targetId: "target-1" }] },
+    const responses: Array<z.input<typeof AssessmentResponseValueSchema>> = [
+      { kind: "single-select", optionId: "option_00001" },
+      { kind: "multi-select", optionIds: ["option_00001"] },
+      { kind: "sequence", orderedItemIds: ["item_0000001"] },
+      { kind: "match", pairs: [{ itemId: "item_0000001", targetId: "target_00001" }] },
       {
         kind: "classify",
-        placements: [{ itemId: "item-1", categoryId: "category-1" }],
+        placements: [{ itemId: "item_0000001", categoryId: "catgry_00001" }],
       },
-      { kind: "fill-blanks", blanks: [{ blankId: "blank-1", value: "answer" }] },
+      { kind: "fill-blanks", blanks: [{ blankId: "blank_000001", value: "answer" }] },
       { kind: "spatial-hotspot", selections: [{ hotspotId: null, x: 0, y: 0 }] },
     ];
 
@@ -1692,17 +1744,17 @@ describe("assessment response value contracts", () => {
     expect(
       AssessmentResponseValueSchema.safeParse({
         kind: "single-select",
-        optionId: "option-a",
-        choices: "option-a",
+        optionId: "option_00001",
+        choices: "option_00001",
       }).success,
     ).toBe(false);
     expect(
       AssessmentResponseValueSchema.safeParse({
         kind: "single-select",
-        optionId: "option-a",
+        optionId: "option_00001",
         schemaVersion: 1,
-        targetId: "question-1",
-        blockId: "block-1",
+        targetId: "questn_00001",
+        blockId: "block_000001",
         points: 1,
         isCorrect: true,
         feedback: null,
@@ -1712,18 +1764,18 @@ describe("assessment response value contracts", () => {
 
   it("rejects unrelated fields in nested response entries", () => {
     for (const response of [
-      { kind: "match", pairs: [{ itemId: "item-1", targetId: "target-1", score: 1 }] },
+      { kind: "match", pairs: [{ itemId: "item_0000001", targetId: "target_00001", score: 1 }] },
       {
         kind: "classify",
-        placements: [{ itemId: "item-1", categoryId: "category-1", correct: true }],
+        placements: [{ itemId: "item_0000001", categoryId: "catgry_00001", correct: true }],
       },
       {
         kind: "fill-blanks",
-        blanks: [{ blankId: "blank-1", value: "answer", acceptedAnswers: ["answer"] }],
+        blanks: [{ blankId: "blank_000001", value: "answer", acceptedAnswers: ["answer"] }],
       },
       {
         kind: "spatial-hotspot",
-        selections: [{ hotspotId: null, x: 0, y: 0, id: "click-1" }],
+        selections: [{ hotspotId: null, x: 0, y: 0, id: "click_000001" }],
       },
     ]) {
       expect(AssessmentResponseValueSchema.safeParse(response).success).toBe(false);
@@ -1731,25 +1783,25 @@ describe("assessment response value contracts", () => {
   });
 
   it("preserves ordered arrays and permits duplicate identifiers", () => {
-    const response: AssessmentResponseValue = {
+    const response: z.input<typeof AssessmentResponseValueSchema> = {
       kind: "sequence",
-      orderedItemIds: ["item-2", "item-1", "item-2"],
+      orderedItemIds: ["item_0000002", "item_0000001", "item_0000002"],
     };
 
     expect(AssessmentResponseValueSchema.parse(response)).toEqual(response);
   });
 
   it("round-trips every response variant through JSON", () => {
-    const responses: AssessmentResponseValue[] = [
+    const responses: Array<z.input<typeof AssessmentResponseValueSchema>> = [
       { kind: "single-select", optionId: null },
-      { kind: "multi-select", optionIds: ["option-a"] },
-      { kind: "sequence", orderedItemIds: ["item-1"] },
-      { kind: "match", pairs: [{ itemId: "item-1", targetId: "target-1" }] },
+      { kind: "multi-select", optionIds: ["option_00001"] },
+      { kind: "sequence", orderedItemIds: ["item_0000001"] },
+      { kind: "match", pairs: [{ itemId: "item_0000001", targetId: "target_00001" }] },
       {
         kind: "classify",
-        placements: [{ itemId: "item-1", categoryId: "category-1" }],
+        placements: [{ itemId: "item_0000001", categoryId: "catgry_00001" }],
       },
-      { kind: "fill-blanks", blanks: [{ blankId: "blank-1", value: "" }] },
+      { kind: "fill-blanks", blanks: [{ blankId: "blank_000001", value: "" }] },
       { kind: "spatial-hotspot", selections: [{ hotspotId: null, x: 0.4, y: 0.6 }] },
     ];
 
@@ -1764,7 +1816,7 @@ describe("assessment response value contracts", () => {
 describe("assessment item value contracts", () => {
   it("accepts every canonical item value", () => {
     const values: AssessmentItemValue[] = [
-      "option-a",
+      "option_00001",
       "",
       -1.25,
       0,
@@ -1772,7 +1824,7 @@ describe("assessment item value contracts", () => {
       false,
       true,
       [],
-      ["item-a", "item-b"],
+      ["item_0000001", "item_0000002"],
     ];
 
     for (const value of values) {
@@ -1789,10 +1841,10 @@ describe("assessment item value contracts", () => {
   it("rejects null, objects, and unsupported array values", () => {
     for (const value of [
       null,
-      { optionId: "option-a" },
+      { optionId: "option_00001" },
       [1],
       [true],
-      ["item-a", 2],
+      ["item_0000001", 2],
       [["nested"]],
     ]) {
       expect(AssessmentItemValueSchema.safeParse(value).success).toBe(false);
@@ -1818,7 +1870,7 @@ describe("assessment item detail contracts", () => {
     const minimal: AssessmentItemDetail = { correct: true };
     const complete: AssessmentItemDetail = {
       correct: false,
-      expected: ["option-a", "option-b"],
+      expected: ["option_00001", "option_00002"],
       given: 0.5,
       feedback,
     };
@@ -1830,7 +1882,7 @@ describe("assessment item detail contracts", () => {
   it("rejects unsupported detail values and malformed feedback", () => {
     for (const detail of [
       { correct: false, expected: null },
-      { correct: false, given: { optionId: "option-a" } },
+      { correct: false, given: { optionId: "option_00001" } },
       { correct: false, expected: [1] },
       {
         correct: false,
@@ -1845,7 +1897,7 @@ describe("assessment item detail contracts", () => {
     expect(
       AssessmentItemDetailSchema.safeParse({
         correct: true,
-        expected: "option-a",
+        expected: "option_00001",
         score: 1,
       }).success,
     ).toBe(false);
@@ -1923,10 +1975,10 @@ describe("assessment result contracts", () => {
     score: { scaled: 0.5 },
     feedback,
     items: {
-      "item-1": {
+      item_0000001: {
         correct: false,
-        expected: ["option-a", "option-b"],
-        given: ["option-a"],
+        expected: ["option_00001", "option_00002"],
+        given: ["option_00001"],
         feedback,
       },
     },
@@ -2001,8 +2053,8 @@ describe("assessment result contracts", () => {
       AssessmentResultSchema.safeParse({
         ...result,
         items: {
-          "item-1": {
-            ...result.items["item-1"],
+          item_0000001: {
+            ...result.items["item_0000001"],
             providerItemId: "host-item-1",
           },
         },
@@ -2036,11 +2088,11 @@ describe("quiz attempt state contracts", () => {
     expect(QuizAttemptStateSchema.safeParse(missingSuccessStatus).success).toBe(false);
   });
 
-  const inProgressAttempt: QuizAttemptState = {
+  const inProgressAttempt: z.input<typeof QuizAttemptStateSchema> = {
     attemptId: "attempt-1",
-    groupId: "quiz-1",
+    groupId: "artifact:artifact-1/group:quiz__000001",
     status: "in_progress",
-    currentTargetId: "question-1",
+    currentTargetId: "questn_00001",
     submittedTargetIds: [],
     startedAt: "2026-07-15T12:00:00Z",
     finishedAt: null,
@@ -2051,15 +2103,15 @@ describe("quiz attempt state contracts", () => {
     answerReviewAuthorized: false,
   };
 
-  const completedAttempt: QuizAttemptState = {
+  const completedAttempt: z.input<typeof QuizAttemptStateSchema> = {
     ...inProgressAttempt,
     status: "completed",
     currentTargetId: null,
-    submittedTargetIds: ["question-1"],
+    submittedTargetIds: ["questn_00001"],
     finishedAt: "2026-07-15T12:05:00Z",
     score: { scaled: 1, raw: 1, min: 0, max: 1 },
     successStatus: "passed",
-    resultsByTargetId: { "question-1": result },
+    resultsByTargetId: { questn_00001: result },
     answerReviewAuthorized: true,
   };
 
@@ -2126,7 +2178,7 @@ describe("quiz attempt state contracts", () => {
         QuizAttemptStateSchema.safeParse({ ...inProgressAttempt, currentTargetId }).success,
       ).toBe(false);
     }
-    for (const submittedTargetIds of [[""], ["question-1", "  "]]) {
+    for (const submittedTargetIds of [[""], ["questn_00001", "  "]]) {
       expect(
         QuizAttemptStateSchema.safeParse({ ...inProgressAttempt, submittedTargetIds }).success,
       ).toBe(false);
@@ -2145,7 +2197,7 @@ describe("quiz attempt state contracts", () => {
     expect(
       QuizAttemptStateSchema.safeParse({
         ...completedAttempt,
-        submittedTargetIds: ["question-1", "question-2", "question-1"],
+        submittedTargetIds: ["questn_00001", "questn_00002", "questn_00001"],
       }).success,
     ).toBe(false);
   });
@@ -2190,7 +2242,7 @@ describe("quiz attempt state contracts", () => {
       QuizAttemptStateSchema.safeParse({
         ...completedAttempt,
         resultsByTargetId: {
-          "question-1": { ...result, success: true },
+          questn_00001: { ...result, success: true },
         },
       }).success,
     ).toBe(false);
@@ -2200,7 +2252,7 @@ describe("quiz attempt state contracts", () => {
     expect(
       QuizAttemptStateSchema.safeParse({
         ...completedAttempt,
-        resultsByTargetId: { "question-1": incompleteResult },
+        resultsByTargetId: { questn_00001: incompleteResult },
       }).success,
     ).toBe(false);
   });

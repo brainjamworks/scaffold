@@ -2,12 +2,17 @@ import type { JSONContent } from "@tiptap/core";
 import { z } from "zod";
 import {
   CategorisePrivateAssessmentSchema,
+  ClassifyAssessmentSchema,
+  ClassifyInteractionSchema,
   ClassifyResponseSchema,
+  EmbeddedNodeIdSchema,
   type AssessmentAnswerKey,
   type AssessmentInteractionContract,
   type AssessmentResponseValue,
   type AssessmentTargetSettings,
 } from "@scaffold/contracts";
+
+const EmbeddedNodeRecordKeySchema = EmbeddedNodeIdSchema.unwrap().unwrap();
 
 import type { AssessmentBlockAdapter } from "@/editor/blocks/assessment/shared/model/assessment-block-adapter";
 import type { AssessmentCapabilityResponseDefinition } from "@/editor/blocks/block-definition";
@@ -27,7 +32,7 @@ import {
 
 export const CategoriseResponseSchema = z
   .object({
-    placements: z.record(z.string(), z.string()).default({}),
+    placements: z.record(EmbeddedNodeRecordKeySchema, EmbeddedNodeIdSchema).default({}),
   })
   .strict();
 export type CategoriseResponse = z.infer<typeof CategoriseResponseSchema>;
@@ -46,14 +51,14 @@ export function projectCategoriseLearnerNode(node: JSONContent): JSONContent {
 
 export function projectCategoriseInteraction(node: JSONContent): AssessmentInteractionContract {
   const { categories, items } = projectCategoriseParts(node);
-  return {
+  return ClassifyInteractionSchema.parse({
     kind: "classify",
     categories,
     items: items.map(({ id, label }) => ({
       id,
       ...(label ? { label } : {}),
     })),
-  };
+  });
 }
 
 export function projectCategoriseAssessment(node: JSONContent): AssessmentAnswerKey {
@@ -65,12 +70,12 @@ export function projectCategoriseAssessment(node: JSONContent): AssessmentAnswer
     const feedback = assessment.feedbackByItemId[itemId];
     if (feedback) feedbackByItemId[itemId] = feedback;
   }
-  return {
+  return ClassifyAssessmentSchema.parse({
     kind: "classify",
     correctPlacements,
     feedbackByItemId,
     summaryFeedback: assessment.summaryFeedback,
-  };
+  });
 }
 
 export function projectCategoriseSettings(settings: unknown): Partial<AssessmentTargetSettings> {

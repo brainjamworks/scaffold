@@ -201,8 +201,9 @@ describe("CourseDocumentEditor unified alignment", () => {
       insertCatalogItemChecked(
         editor,
         item,
-        builtInBlockRegistry,
-        builtInSurfaceVariantRegistry,
+        coreAuthoringComposition.capabilities.blocks.registry,
+        coreAuthoringComposition.capabilities.layouts.registry,
+        coreAuthoringComposition.capabilities.surfaces.registry,
         range,
       ),
     ).toBe(true);

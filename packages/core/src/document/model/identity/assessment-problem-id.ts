@@ -1,6 +1,9 @@
+export type AuthoredAssessmentBlockId = string;
+export type AssessmentProblemId = `artifact:${string}/block:${string}`;
+
 export interface BuildAssessmentProblemIdInput {
   artifactId: string | null | undefined;
-  blockId: string | null | undefined;
+  blockId: AuthoredAssessmentBlockId | null | undefined;
 }
 
 export type AssessmentProblemIdentityError = "missing-artifact-id" | "missing-block-id";
@@ -8,7 +11,7 @@ export type AssessmentProblemIdentityError = "missing-artifact-id" | "missing-bl
 export type AssessmentProblemIdentityResult =
   | {
       ok: true;
-      problemId: string;
+      problemId: AssessmentProblemId;
     }
   | {
       ok: false;

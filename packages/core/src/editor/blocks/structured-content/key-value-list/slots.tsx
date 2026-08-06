@@ -2,7 +2,6 @@ import { Node, mergeAttributes } from "@tiptap/core";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 
 import { fieldContainerSpec } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 
 import {
   KeyValueRowKeyNodeView,
@@ -59,12 +58,6 @@ export const KeyValueRowNode = Node.create({
   isolating: true,
   selectable: false,
   draggable: false,
-
-  addAttributes() {
-    return {
-      id: stableNodeIdAttribute(),
-    };
-  },
 
   parseHTML() {
     return [{ tag: 'div[data-node="key-value-row"]' }];

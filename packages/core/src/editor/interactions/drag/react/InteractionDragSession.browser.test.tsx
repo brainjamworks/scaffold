@@ -9,7 +9,7 @@ import { TestInteractionDragEnvironment } from "../testing/TestInteractionDragEn
 import type { DragCancellationReason } from "../model/interaction-drag-event";
 import "@/styles/globals.css";
 
-import { InteractionDragSession, useInteractionDragSessionAdapter } from "./InteractionDragSession";
+import { InteractionDragSession, useInteractionDragSession } from "./InteractionDragSession";
 import { InteractionDragEnvironmentProvider } from "./interaction-drag-environment";
 import { useInteractionDragSource } from "./use-interaction-drag-source";
 import { useInteractionDropTarget } from "./use-interaction-drop-target";
@@ -26,6 +26,7 @@ interface LifecycleHarness {
   overlay(): HTMLElement | null;
   removeSource(): void;
   source(): HTMLButtonElement | null;
+  sourceShape(): HTMLElement | null;
   waitForIdle(): Promise<void>;
 }
 
@@ -77,7 +78,7 @@ describe("InteractionDragSession browser lifecycle", () => {
 
       await startPointerDrag(source);
       expect(harness.overlay()).toBeNull();
-      expect(source).not.toHaveAttribute("data-interaction-drag-placeholder");
+      expect(harness.sourceShape()).not.toHaveAttribute("data-interaction-drag-placeholder");
       expect(harness.cancellations).toEqual([]);
       await harness.dispose();
       mounted.pop();
@@ -89,7 +90,7 @@ describe("InteractionDragSession browser lifecycle", () => {
     expect(source).toHaveAttribute("aria-disabled", "false");
     await startPointerDrag(source);
     expect(ready.overlay()).not.toBeNull();
-    expect(source).toHaveAttribute("data-interaction-drag-placeholder", "");
+    expect(ready.sourceShape()).toHaveAttribute("data-interaction-drag-placeholder", "");
     fireEvent.keyDown(document, { code: "Escape", key: "Escape" });
     await ready.waitForIdle();
   });
@@ -108,7 +109,7 @@ describe("InteractionDragSession browser lifecycle", () => {
 
     expect(harness.cancellations).toContain("escape");
     expect(document.activeElement).toBe(source);
-    expect(source).not.toHaveAttribute("data-interaction-drag-placeholder");
+    expect(harness.sourceShape()).not.toHaveAttribute("data-interaction-drag-placeholder");
     await waitFor(() => announcementText(harness.overlayHost).includes("Cancelled moving Alpha"));
   });
 
@@ -124,7 +125,7 @@ describe("InteractionDragSession browser lifecycle", () => {
     await harness.waitForIdle();
 
     expect(harness.cancellations).toEqual(["owner-window-blur"]);
-    expect(harness.source()).not.toHaveAttribute("data-interaction-drag-placeholder");
+    expect(harness.sourceShape()).not.toHaveAttribute("data-interaction-drag-placeholder");
     expect(harness.overlay()).toBeNull();
   });
 
@@ -148,7 +149,28 @@ describe("InteractionDragSession browser lifecycle", () => {
     await movePointer({ x: 340, y: 230 });
     await environmentLoss.waitForIdle();
     expect(environmentLoss.cancellations).toEqual(["environment-lost"]);
-    expect(environmentLoss.source()).not.toHaveAttribute("data-interaction-drag-placeholder");
+    expect(environmentLoss.sourceShape()).not.toHaveAttribute(
+      "data-interaction-drag-placeholder",
+    );
+  });
+
+  it("uses source geometry while a distinct handle activates the drag", async () => {
+    await page.viewport(900, 700);
+    const harness = await mountLifecycleHarness("ready");
+    mounted.push(harness);
+
+    await startPointerDrag(requiredSource(harness));
+    const overlay = requiredElement<HTMLElement>(
+      harness.overlayHost,
+      "[data-interaction-drag-overlay]",
+    );
+
+    expect(harness.sourceShape()).toHaveAttribute("data-interaction-drag-placeholder", "");
+    expect(overlay.style.width).toBe("100px");
+    expect(overlay.style.height).toBe("56px");
+
+    fireEvent.keyDown(document, { code: "Escape", key: "Escape" });
+    await harness.waitForIdle();
   });
 
   it("reports unmount cancellation and leaves no session presentation behind", async () => {
@@ -265,6 +287,7 @@ async function mountLifecycleHarness(
     overlay: () => overlayHost.querySelector<HTMLElement>("[data-interaction-drag-overlay]"),
     removeSource: () => flushSync(() => removeSource()),
     source: () => mountHost.querySelector<HTMLButtonElement>("[data-lifecycle-source]"),
+    sourceShape: () => mountHost.querySelector<HTMLElement>("[data-lifecycle-source-shape]"),
     waitForIdle: () =>
       waitFor(
         () =>
@@ -336,7 +359,7 @@ function LifecycleFixture({
 }
 
 function MotionProbe() {
-  const session = useInteractionDragSessionAdapter();
+  const session = useInteractionDragSession();
   return <output data-reduced-motion={String(session.reducedMotion)} />;
 }
 
@@ -347,19 +370,21 @@ function Source() {
     label: "Alpha",
   });
   return (
-    <button
-      {...drag.activatorProps}
-      {...drag.sourceProps}
-      ref={(element) => {
-        drag.setNodeRef(element);
-        drag.setActivatorNodeRef(element);
-      }}
-      data-lifecycle-source=""
+    <div
+      ref={drag.sourceRef}
+      data-interaction-drag-placeholder={drag.isPlaceholder ? "" : undefined}
+      data-lifecycle-source-shape=""
       style={{ position: "absolute", left: 40, top: 40, width: 100, height: 56 }}
-      type="button"
     >
-      Alpha
-    </button>
+      <button
+        ref={drag.handleRef}
+        data-lifecycle-source=""
+        style={{ width: 44, height: 44 }}
+        type="button"
+      >
+        Alpha
+      </button>
+    </div>
   );
 }
 
@@ -370,8 +395,7 @@ function Target() {
   });
   return (
     <div
-      {...drop.targetProps}
-      ref={drop.setNodeRef}
+      ref={drop.targetRef}
       data-lifecycle-target=""
       style={{ position: "absolute", left: 280, top: 150, width: 140, height: 84 }}
     >

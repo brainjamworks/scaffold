@@ -2,7 +2,6 @@ import { RoadmapMilestoneStatusSchema } from "@scaffold/contracts";
 import { Node, mergeAttributes, type NodeViewRenderer } from "@tiptap/core";
 
 import { fieldContainerSpec } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 
 import { ROADMAP_MILESTONE_NODE } from "./content";
 
@@ -17,7 +16,6 @@ export function createRoadmapMilestoneNode(options: RoadmapMilestoneNodeOptions 
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         status: {
           default: "upcoming",
           parseHTML: (el: HTMLElement) => {

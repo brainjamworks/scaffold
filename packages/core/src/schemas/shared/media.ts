@@ -1,4 +1,13 @@
 import { z } from "zod";
+import { EmbeddedDataIdSchema, type EmbeddedDataId } from "@scaffold/contracts";
+
+export const ChartColumnIdSchema = EmbeddedDataIdSchema;
+export type ChartColumnId = EmbeddedDataId;
+
+export const ChartRowIdSchema = EmbeddedDataIdSchema;
+export type ChartRowId = EmbeddedDataId;
+
+const ChartColumnRecordKeySchema = ChartColumnIdSchema.unwrap().unwrap();
 
 export const CHART_TYPES = [
   "bar",
@@ -19,7 +28,7 @@ export type ChartCellValue = z.infer<typeof ChartCellValueSchema>;
 
 export const ChartColumnSchema = z
   .object({
-    id: z.string().min(1),
+    id: ChartColumnIdSchema,
     label: z.string().min(1),
     valueType: z.enum(["category", "number"]),
     // Optional unit suffix applied to value-axis tick labels in charts
@@ -32,8 +41,8 @@ export type ChartColumn = z.infer<typeof ChartColumnSchema>;
 
 export const ChartRowSchema = z
   .object({
-    id: z.string().min(1),
-    cells: z.record(z.string(), ChartCellValueSchema),
+    id: ChartRowIdSchema,
+    cells: z.record(ChartColumnRecordKeySchema, ChartCellValueSchema),
   })
   .strict();
 export type ChartRow = z.infer<typeof ChartRowSchema>;
@@ -46,7 +55,31 @@ export const ChartDataSourceSchema = z
   })
   .strict()
   .superRefine((data, ctx) => {
-    const columnIds = new Set(data.columns.map((column) => column.id));
+    const seenColumnIds = new Set<ChartColumnId>();
+    data.columns.forEach((column, columnIndex) => {
+      if (seenColumnIds.has(column.id)) {
+        ctx.addIssue({
+          code: "custom",
+          message: `duplicate chart column id "${column.id}"`,
+          path: ["columns", columnIndex, "id"],
+        });
+      }
+      seenColumnIds.add(column.id);
+    });
+
+    const seenRowIds = new Set<ChartRowId>();
+    data.rows.forEach((row, rowIndex) => {
+      if (seenRowIds.has(row.id)) {
+        ctx.addIssue({
+          code: "custom",
+          message: `duplicate chart row id "${row.id}"`,
+          path: ["rows", rowIndex, "id"],
+        });
+      }
+      seenRowIds.add(row.id);
+    });
+
+    const columnIds = new Set<string>(data.columns.map((column) => column.id));
 
     data.rows.forEach((row, rowIndex) => {
       Object.keys(row.cells).forEach((columnId) => {
@@ -64,7 +97,7 @@ export type ChartDataSource = z.infer<typeof ChartDataSourceSchema>;
 
 export const ChartColumnRefSchema = z
   .object({
-    columnId: z.string().min(1),
+    columnId: ChartColumnIdSchema,
   })
   .strict();
 export type ChartColumnRef = z.infer<typeof ChartColumnRefSchema>;

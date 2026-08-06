@@ -429,19 +429,17 @@ function MovementChromeLayer({
   onKeyboardMove: (sourcePos: number, direction: KeyboardMovementDirection) => void;
   target: EditorMovementTarget | null;
 }) {
-  const { setNodeRef: setDropSurfaceNodeRef, targetProps: dropSurfaceTargetProps } =
-    useInteractionDropTarget<AuthoringMovementDropData>({
-      data: { movementSurface: true },
-      id: "scaffold-authoring-movement-surface",
-    });
+  const { targetRef: dropSurfaceRef } = useInteractionDropTarget<AuthoringMovementDropData>({
+    data: { movementSurface: true },
+    id: "scaffold-authoring-movement-surface",
+  });
   useEffect(() => {
-    setDropSurfaceNodeRef(editor.view.dom);
-    return () => setDropSurfaceNodeRef(null);
-  }, [editor, setDropSurfaceNodeRef]);
+    dropSurfaceRef(editor.view.dom);
+    return () => dropSurfaceRef(null);
+  }, [dropSurfaceRef, editor]);
 
   return (
     <div
-      {...dropSurfaceTargetProps}
       aria-hidden={!target}
       data-testid="scaffold-editor-movement-layer"
       data-scaffold-editor-movement-layer=""
@@ -523,12 +521,7 @@ function MovementHandle({
       placement="left-start"
     >
       <InteractionDragActivationArea
-        {...drag.activatorProps}
-        {...drag.sourceProps}
-        ref={(node) => {
-          drag.setNodeRef(node);
-          drag.setActivatorNodeRef(node);
-        }}
+        ref={drag.sourceRef}
         aria-describedby={descriptionId}
         aria-keyshortcuts="ArrowUp ArrowDown"
         aria-label={`Move ${label}`}
@@ -536,6 +529,7 @@ function MovementHandle({
         {...authoringChromeAttributes(AuthoringChromeKind.Handle)}
         {...{ [AUTHORING_MOVE_HANDLE_ATTR]: "" }}
         {...{ [AUTHORING_MOVE_POS_ATTR]: target.context.pos }}
+        data-interaction-drag-placeholder={drag.isPlaceholder ? "" : undefined}
         onMouseDown={(event) => event.preventDefault()}
         onKeyDown={handleKeyDown}
         safeLocalHeight={44}

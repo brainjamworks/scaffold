@@ -30,7 +30,7 @@ import {
 } from "@/editor/blocks/assessment/shared/model/private-assessment-attrs";
 import { CHOICE_TRAILING_BTN } from "@/editor/blocks/assessment/shared/chrome/ChoiceAnswerItem";
 import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedDataId } from "@/document/model/identity/stable-ids";
 import {
   useAuthoringNodeTarget,
   type AuthoringNodeTarget,
@@ -371,7 +371,7 @@ function AuthorCanvas({
   };
 
   const addHotspotRegion = (hotspot: Omit<HotspotItem, "id">) => {
-    const id = createStableId();
+    const id = createEmbeddedDataId();
     setHotspots([
       ...dataRef.current.hotspots,
       {

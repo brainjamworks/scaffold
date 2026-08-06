@@ -10,7 +10,6 @@ import {
   ASSESSMENT_QUESTION_CONTENT,
   COURSE_BLOCK_CONTENT,
 } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 
 /**
  * Composite Dropdown node. Options use dropdown_choice children so select
@@ -56,7 +55,6 @@ export function createDropdownNode(options: DropdownNodeOptions = {}) {
       });
 
       return {
-        id: stableNodeIdAttribute(),
         settings: {
           ...makeAttr("data-dropdown-settings", settingsDefault, DropdownSettingsSchema),
           renderHTML: (attrs: { settings: DropdownSettings }) => ({

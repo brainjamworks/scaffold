@@ -4,18 +4,18 @@
       "id": "single-select-happy",
       "target": {
         "schemaVersion": 2,
-        "targetId": "single-select-happy",
-        "blockId": "single-select-happy",
+        "targetId": "target_00001",
+        "blockId": "block_000001",
         "blockType": "mcq",
         "interaction": {
           "kind": "single-select",
-          "options": [{ "id": "a" }, { "id": "b" }]
+          "options": [{ "id": "option_00001" }, { "id": "option_00002" }]
         },
         "assessment": {
           "kind": "single-select",
-          "correctOptionId": "b",
+          "correctOptionId": "option_00002",
           "feedbackByOptionId": {
-            "b": {
+            "option_00002": {
               "kind": "rich-text",
               "document": {
                 "type": "doc",
@@ -39,7 +39,7 @@
           "maxAttempts": null
         }
       },
-      "response": { "kind": "single-select", "optionId": "b" },
+      "response": { "kind": "single-select", "optionId": "option_00002" },
       "expected": {
         "isCorrect": true,
         "score": { "scaled": 1, "raw": 1, "min": 0, "max": 1 },
@@ -51,8 +51,8 @@
           }
         },
         "items": {
-          "a": { "correct": false, "expected": false, "given": false },
-          "b": {
+          "option_00001": { "correct": false, "expected": false, "given": false },
+          "option_00002": {
             "correct": true,
             "expected": true,
             "given": true,
@@ -71,18 +71,18 @@
       "id": "single-select-fail",
       "target": {
         "schemaVersion": 2,
-        "targetId": "single-select-fail",
-        "blockId": "single-select-fail",
+        "targetId": "target_00001",
+        "blockId": "block_000001",
         "blockType": "dropdown",
         "interaction": {
           "kind": "single-select",
-          "options": [{ "id": "a" }, { "id": "b" }]
+          "options": [{ "id": "option_00001" }, { "id": "option_00002" }]
         },
         "assessment": {
           "kind": "single-select",
-          "correctOptionId": "b",
+          "correctOptionId": "option_00002",
           "feedbackByOptionId": {
-            "a": {
+            "option_00001": {
               "kind": "rich-text",
               "document": {
                 "type": "doc",
@@ -99,13 +99,13 @@
           "maxAttempts": 2
         }
       },
-      "response": { "kind": "single-select", "optionId": "a" },
+      "response": { "kind": "single-select", "optionId": "option_00001" },
       "expected": {
         "isCorrect": false,
         "score": { "scaled": 0, "raw": 0, "min": 0, "max": 1 },
         "feedback": null,
         "items": {
-          "a": {
+          "option_00001": {
             "correct": false,
             "expected": false,
             "given": true,
@@ -117,7 +117,7 @@
               }
             }
           },
-          "b": { "correct": false, "expected": true, "given": false }
+          "option_00002": { "correct": false, "expected": true, "given": false }
         }
       }
     },
@@ -125,12 +125,12 @@
       "id": "single-select-empty-answer",
       "target": {
         "schemaVersion": 2,
-        "targetId": "single-select-empty-answer",
-        "blockId": "single-select-empty-answer",
+        "targetId": "target_00001",
+        "blockId": "block_000001",
         "blockType": "mcq",
         "interaction": {
           "kind": "single-select",
-          "options": [{ "id": "a" }, { "id": "b" }]
+          "options": [{ "id": "option_00001" }, { "id": "option_00002" }]
         },
         "assessment": {
           "kind": "single-select",
@@ -151,8 +151,8 @@
         "score": { "scaled": 0, "raw": 0, "min": 0, "max": 1 },
         "feedback": null,
         "items": {
-          "a": { "correct": false, "expected": false, "given": false },
-          "b": { "correct": false, "expected": false, "given": false }
+          "option_00001": { "correct": false, "expected": false, "given": false },
+          "option_00002": { "correct": false, "expected": false, "given": false }
         }
       }
     },
@@ -160,19 +160,19 @@
       "id": "multi-select-happy",
       "target": {
         "schemaVersion": 2,
-        "targetId": "multi-select-happy",
-        "blockId": "multi-select-happy",
+        "targetId": "target_00001",
+        "blockId": "block_000001",
         "blockType": "multiselect",
         "interaction": {
           "kind": "multi-select",
-          "options": [{ "id": "a" }, { "id": "b" }, { "id": "c" }],
+          "options": [{ "id": "option_00001" }, { "id": "option_00002" }, { "id": "option_00003" }],
           "maxSelections": 2
         },
         "assessment": {
           "kind": "multi-select",
-          "correctOptionIds": ["a", "b"],
+          "correctOptionIds": ["option_00001", "option_00002"],
           "feedbackByOptionId": {
-            "a": {
+            "option_00001": {
               "kind": "rich-text",
               "document": {
                 "type": "doc",
@@ -197,7 +197,7 @@
           "maxSelections": 2
         }
       },
-      "response": { "kind": "multi-select", "optionIds": ["a", "b"] },
+      "response": { "kind": "multi-select", "optionIds": ["option_00001", "option_00002"] },
       "expected": {
         "isCorrect": true,
         "score": { "scaled": 1, "raw": 2, "min": 0, "max": 2 },
@@ -209,7 +209,7 @@
           }
         },
         "items": {
-          "a": {
+          "option_00001": {
             "correct": true,
             "expected": true,
             "given": true,
@@ -221,8 +221,8 @@
               }
             }
           },
-          "b": { "correct": true, "expected": true, "given": true },
-          "c": { "correct": true, "expected": false, "given": false }
+          "option_00002": { "correct": true, "expected": true, "given": true },
+          "option_00003": { "correct": true, "expected": false, "given": false }
         }
       }
     },
@@ -230,17 +230,17 @@
       "id": "multi-select-wrong-pick-penalty",
       "target": {
         "schemaVersion": 2,
-        "targetId": "multi-select-wrong-pick-penalty",
-        "blockId": "multi-select-wrong-pick-penalty",
+        "targetId": "target_00001",
+        "blockId": "block_000001",
         "blockType": "multiselect",
         "interaction": {
           "kind": "multi-select",
-          "options": [{ "id": "a" }, { "id": "b" }, { "id": "c" }],
+          "options": [{ "id": "option_00001" }, { "id": "option_00002" }, { "id": "option_00003" }],
           "maxSelections": null
         },
         "assessment": {
           "kind": "multi-select",
-          "correctOptionIds": ["a", "b"],
+          "correctOptionIds": ["option_00001", "option_00002"],
           "feedbackByOptionId": {}
         },
         "settings": {
@@ -251,15 +251,15 @@
           "maxAttempts": 3
         }
       },
-      "response": { "kind": "multi-select", "optionIds": ["a", "c"] },
+      "response": { "kind": "multi-select", "optionIds": ["option_00001", "option_00003"] },
       "expected": {
         "isCorrect": false,
         "score": { "scaled": 0, "raw": 0, "min": 0, "max": 2 },
         "feedback": null,
         "items": {
-          "a": { "correct": true, "expected": true, "given": true },
-          "b": { "correct": false, "expected": true, "given": false },
-          "c": { "correct": false, "expected": false, "given": true }
+          "option_00001": { "correct": true, "expected": true, "given": true },
+          "option_00002": { "correct": false, "expected": true, "given": false },
+          "option_00003": { "correct": false, "expected": false, "given": true }
         }
       }
     },
@@ -267,12 +267,12 @@
       "id": "multi-select-empty-answer",
       "target": {
         "schemaVersion": 2,
-        "targetId": "multi-select-empty-answer",
-        "blockId": "multi-select-empty-answer",
+        "targetId": "target_00001",
+        "blockId": "block_000001",
         "blockType": "multiselect",
         "interaction": {
           "kind": "multi-select",
-          "options": [{ "id": "a" }],
+          "options": [{ "id": "option_00001" }],
           "maxSelections": null
         },
         "assessment": {
@@ -294,7 +294,7 @@
         "score": { "scaled": 0 },
         "feedback": null,
         "items": {
-          "a": { "correct": true, "expected": false, "given": false }
+          "option_00001": { "correct": true, "expected": false, "given": false }
         }
       }
     },
@@ -302,18 +302,18 @@
       "id": "sequence-happy",
       "target": {
         "schemaVersion": 2,
-        "targetId": "sequence-happy",
-        "blockId": "sequence-happy",
+        "targetId": "target_00001",
+        "blockId": "block_000001",
         "blockType": "sequencing",
         "interaction": {
           "kind": "sequence",
-          "items": [{ "id": "a" }, { "id": "b" }, { "id": "c" }]
+          "items": [{ "id": "option_00001" }, { "id": "option_00002" }, { "id": "option_00003" }]
         },
         "assessment": {
           "kind": "sequence",
-          "correctOrder": ["a", "b", "c"],
+          "correctOrder": ["option_00001", "option_00002", "option_00003"],
           "feedbackByItemId": {
-            "b": {
+            "option_00002": {
               "kind": "rich-text",
               "document": {
                 "type": "doc",
@@ -337,7 +337,10 @@
           "maxAttempts": null
         }
       },
-      "response": { "kind": "sequence", "orderedItemIds": ["a", "b", "c"] },
+      "response": {
+        "kind": "sequence",
+        "orderedItemIds": ["option_00001", "option_00002", "option_00003"]
+      },
       "expected": {
         "isCorrect": true,
         "score": { "scaled": 1, "raw": 3, "min": 0, "max": 3 },
@@ -349,8 +352,8 @@
           }
         },
         "items": {
-          "a": { "correct": true, "expected": 0, "given": 0 },
-          "b": {
+          "option_00001": { "correct": true, "expected": 0, "given": 0 },
+          "option_00002": {
             "correct": true,
             "expected": 1,
             "given": 1,
@@ -362,7 +365,7 @@
               }
             }
           },
-          "c": { "correct": true, "expected": 2, "given": 2 }
+          "option_00003": { "correct": true, "expected": 2, "given": 2 }
         }
       }
     },
@@ -370,16 +373,16 @@
       "id": "sequence-partial-missing-selection",
       "target": {
         "schemaVersion": 2,
-        "targetId": "sequence-partial-missing-selection",
-        "blockId": "sequence-partial-missing-selection",
+        "targetId": "target_00001",
+        "blockId": "block_000001",
         "blockType": "sequencing",
         "interaction": {
           "kind": "sequence",
-          "items": [{ "id": "a" }, { "id": "b" }, { "id": "c" }]
+          "items": [{ "id": "option_00001" }, { "id": "option_00002" }, { "id": "option_00003" }]
         },
         "assessment": {
           "kind": "sequence",
-          "correctOrder": ["a", "b", "c"],
+          "correctOrder": ["option_00001", "option_00002", "option_00003"],
           "feedbackByItemId": {}
         },
         "settings": {
@@ -390,15 +393,15 @@
           "maxAttempts": 2
         }
       },
-      "response": { "kind": "sequence", "orderedItemIds": ["a", "c"] },
+      "response": { "kind": "sequence", "orderedItemIds": ["option_00001", "option_00003"] },
       "expected": {
         "isCorrect": false,
         "score": { "scaled": 0.3333333333333333, "raw": 1, "min": 0, "max": 3 },
         "feedback": null,
         "items": {
-          "a": { "correct": true, "expected": 0, "given": 0 },
-          "b": { "correct": false, "expected": 1 },
-          "c": { "correct": false, "expected": 2, "given": 1 }
+          "option_00001": { "correct": true, "expected": 0, "given": 0 },
+          "option_00002": { "correct": false, "expected": 1 },
+          "option_00003": { "correct": false, "expected": 2, "given": 1 }
         }
       }
     },
@@ -406,8 +409,8 @@
       "id": "sequence-empty-answer",
       "target": {
         "schemaVersion": 2,
-        "targetId": "sequence-empty-answer",
-        "blockId": "sequence-empty-answer",
+        "targetId": "target_00001",
+        "blockId": "block_000001",
         "blockType": "sequencing",
         "interaction": { "kind": "sequence", "items": [] },
         "assessment": {
@@ -435,22 +438,22 @@
       "id": "match-happy",
       "target": {
         "schemaVersion": 2,
-        "targetId": "match-happy",
-        "blockId": "match-happy",
+        "targetId": "target_00001",
+        "blockId": "block_000001",
         "blockType": "matching",
         "interaction": {
           "kind": "match",
-          "items": [{ "id": "i1" }, { "id": "i2" }],
-          "targets": [{ "id": "t1" }, { "id": "t2" }]
+          "items": [{ "id": "item___00001" }, { "id": "item___00002" }],
+          "targets": [{ "id": "matcht_00001" }, { "id": "matcht_00002" }]
         },
         "assessment": {
           "kind": "match",
           "correctPairs": [
-            { "itemId": "i1", "targetId": "t1" },
-            { "itemId": "i2", "targetId": "t2" }
+            { "itemId": "item___00001", "targetId": "matcht_00001" },
+            { "itemId": "item___00002", "targetId": "matcht_00002" }
           ],
           "feedbackByItemId": {
-            "i2": {
+            "item___00002": {
               "kind": "rich-text",
               "document": {
                 "type": "doc",
@@ -474,8 +477,8 @@
       "response": {
         "kind": "match",
         "pairs": [
-          { "itemId": "i1", "targetId": "t1" },
-          { "itemId": "i2", "targetId": "t2" }
+          { "itemId": "item___00001", "targetId": "matcht_00001" },
+          { "itemId": "item___00002", "targetId": "matcht_00002" }
         ]
       },
       "expected": {
@@ -486,11 +489,11 @@
           "document": { "type": "doc", "content": [{ "type": "text", "text": "Match summary." }] }
         },
         "items": {
-          "i1": { "correct": true, "expected": "t1", "given": "t1" },
-          "i2": {
+          "item___00001": { "correct": true, "expected": "matcht_00001", "given": "matcht_00001" },
+          "item___00002": {
             "correct": true,
-            "expected": "t2",
-            "given": "t2",
+            "expected": "matcht_00002",
+            "given": "matcht_00002",
             "feedback": {
               "kind": "rich-text",
               "document": {
@@ -506,19 +509,19 @@
       "id": "match-partial-missing-pair",
       "target": {
         "schemaVersion": 2,
-        "targetId": "match-partial-missing-pair",
-        "blockId": "match-partial-missing-pair",
+        "targetId": "target_00001",
+        "blockId": "block_000001",
         "blockType": "matching",
         "interaction": {
           "kind": "match",
-          "items": [{ "id": "i1" }, { "id": "i2" }],
-          "targets": [{ "id": "t1" }, { "id": "t2" }]
+          "items": [{ "id": "item___00001" }, { "id": "item___00002" }],
+          "targets": [{ "id": "matcht_00001" }, { "id": "matcht_00002" }]
         },
         "assessment": {
           "kind": "match",
           "correctPairs": [
-            { "itemId": "i1", "targetId": "t1" },
-            { "itemId": "i2", "targetId": "t2" }
+            { "itemId": "item___00001", "targetId": "matcht_00001" },
+            { "itemId": "item___00002", "targetId": "matcht_00002" }
           ],
           "feedbackByItemId": {}
         },
@@ -532,15 +535,15 @@
       },
       "response": {
         "kind": "match",
-        "pairs": [{ "itemId": "i1", "targetId": "t1" }]
+        "pairs": [{ "itemId": "item___00001", "targetId": "matcht_00001" }]
       },
       "expected": {
         "isCorrect": false,
         "score": { "scaled": 0.5, "raw": 1, "min": 0, "max": 2 },
         "feedback": null,
         "items": {
-          "i1": { "correct": true, "expected": "t1", "given": "t1" },
-          "i2": { "correct": false, "expected": "t2" }
+          "item___00001": { "correct": true, "expected": "matcht_00001", "given": "matcht_00001" },
+          "item___00002": { "correct": false, "expected": "matcht_00002" }
         }
       }
     },
@@ -548,8 +551,8 @@
       "id": "match-empty-answer",
       "target": {
         "schemaVersion": 2,
-        "targetId": "match-empty-answer",
-        "blockId": "match-empty-answer",
+        "targetId": "target_00001",
+        "blockId": "block_000001",
         "blockType": "matching",
         "interaction": { "kind": "match", "items": [], "targets": [] },
         "assessment": {
@@ -577,22 +580,22 @@
       "id": "classify-happy",
       "target": {
         "schemaVersion": 2,
-        "targetId": "classify-happy",
-        "blockId": "classify-happy",
+        "targetId": "target_00001",
+        "blockId": "block_000001",
         "blockType": "categorise",
         "interaction": {
           "kind": "classify",
-          "items": [{ "id": "i1" }, { "id": "i2" }],
-          "categories": [{ "id": "c1" }, { "id": "c2" }]
+          "items": [{ "id": "item___00001" }, { "id": "item___00002" }],
+          "categories": [{ "id": "categ_000001" }, { "id": "categ_000002" }]
         },
         "assessment": {
           "kind": "classify",
           "correctPlacements": [
-            { "itemId": "i1", "categoryId": "c1" },
-            { "itemId": "i2", "categoryId": "c2" }
+            { "itemId": "item___00001", "categoryId": "categ_000001" },
+            { "itemId": "item___00002", "categoryId": "categ_000002" }
           ],
           "feedbackByItemId": {
-            "i1": {
+            "item___00001": {
               "kind": "rich-text",
               "document": {
                 "type": "doc",
@@ -619,8 +622,8 @@
       "response": {
         "kind": "classify",
         "placements": [
-          { "itemId": "i1", "categoryId": "c1" },
-          { "itemId": "i2", "categoryId": "c2" }
+          { "itemId": "item___00001", "categoryId": "categ_000001" },
+          { "itemId": "item___00002", "categoryId": "categ_000002" }
         ]
       },
       "expected": {
@@ -634,10 +637,10 @@
           }
         },
         "items": {
-          "i1": {
+          "item___00001": {
             "correct": true,
-            "expected": "c1",
-            "given": "c1",
+            "expected": "categ_000001",
+            "given": "categ_000001",
             "feedback": {
               "kind": "rich-text",
               "document": {
@@ -646,7 +649,7 @@
               }
             }
           },
-          "i2": { "correct": true, "expected": "c2", "given": "c2" }
+          "item___00002": { "correct": true, "expected": "categ_000002", "given": "categ_000002" }
         }
       }
     },
@@ -654,19 +657,19 @@
       "id": "classify-partial-wrong-placement",
       "target": {
         "schemaVersion": 2,
-        "targetId": "classify-partial-wrong-placement",
-        "blockId": "classify-partial-wrong-placement",
+        "targetId": "target_00001",
+        "blockId": "block_000001",
         "blockType": "categorise",
         "interaction": {
           "kind": "classify",
-          "items": [{ "id": "i1" }, { "id": "i2" }],
-          "categories": [{ "id": "c1" }, { "id": "c2" }]
+          "items": [{ "id": "item___00001" }, { "id": "item___00002" }],
+          "categories": [{ "id": "categ_000001" }, { "id": "categ_000002" }]
         },
         "assessment": {
           "kind": "classify",
           "correctPlacements": [
-            { "itemId": "i1", "categoryId": "c1" },
-            { "itemId": "i2", "categoryId": "c2" }
+            { "itemId": "item___00001", "categoryId": "categ_000001" },
+            { "itemId": "item___00002", "categoryId": "categ_000002" }
           ],
           "feedbackByItemId": {}
         },
@@ -681,8 +684,8 @@
       "response": {
         "kind": "classify",
         "placements": [
-          { "itemId": "i1", "categoryId": "c1" },
-          { "itemId": "i2", "categoryId": "c1" }
+          { "itemId": "item___00001", "categoryId": "categ_000001" },
+          { "itemId": "item___00002", "categoryId": "categ_000001" }
         ]
       },
       "expected": {
@@ -690,8 +693,8 @@
         "score": { "scaled": 0.5, "raw": 1, "min": 0, "max": 2 },
         "feedback": null,
         "items": {
-          "i1": { "correct": true, "expected": "c1", "given": "c1" },
-          "i2": { "correct": false, "expected": "c2", "given": "c1" }
+          "item___00001": { "correct": true, "expected": "categ_000001", "given": "categ_000001" },
+          "item___00002": { "correct": false, "expected": "categ_000002", "given": "categ_000001" }
         }
       }
     },
@@ -699,8 +702,8 @@
       "id": "classify-empty-answer",
       "target": {
         "schemaVersion": 2,
-        "targetId": "classify-empty-answer",
-        "blockId": "classify-empty-answer",
+        "targetId": "target_00001",
+        "blockId": "block_000001",
         "blockType": "categorise",
         "interaction": { "kind": "classify", "items": [], "categories": [] },
         "assessment": {
@@ -728,31 +731,31 @@
       "id": "fill-blanks-happy-normalized",
       "target": {
         "schemaVersion": 2,
-        "targetId": "fill-blanks-happy-normalized",
-        "blockId": "fill-blanks-happy-normalized",
+        "targetId": "target_00001",
+        "blockId": "block_000001",
         "blockType": "fill_blanks",
         "interaction": {
           "kind": "fill-blanks",
-          "blanks": [{ "id": "b1" }, { "id": "b2" }]
+          "blanks": [{ "id": "blank_000001" }, { "id": "blank_000002" }]
         },
         "assessment": {
           "kind": "fill-blanks",
           "blanks": [
             {
-              "blankId": "b1",
+              "blankId": "blank_000001",
               "acceptedAnswers": ["Paris"],
               "caseSensitive": false,
               "trimWhitespace": true
             },
             {
-              "blankId": "b2",
+              "blankId": "blank_000002",
               "acceptedAnswers": [" Na "],
               "caseSensitive": true,
               "trimWhitespace": false
             }
           ],
           "feedbackByBlankId": {
-            "b2": {
+            "blank_000002": {
               "kind": "rich-text",
               "document": {
                 "type": "doc",
@@ -779,8 +782,8 @@
       "response": {
         "kind": "fill-blanks",
         "blanks": [
-          { "blankId": "b1", "value": " paris " },
-          { "blankId": "b2", "value": " Na " }
+          { "blankId": "blank_000001", "value": " paris " },
+          { "blankId": "blank_000002", "value": " Na " }
         ]
       },
       "expected": {
@@ -794,8 +797,8 @@
           }
         },
         "items": {
-          "b1": { "correct": true, "expected": ["Paris"], "given": " paris " },
-          "b2": {
+          "blank_000001": { "correct": true, "expected": ["Paris"], "given": " paris " },
+          "blank_000002": {
             "correct": true,
             "expected": [" Na "],
             "given": " Na ",
@@ -814,24 +817,24 @@
       "id": "fill-blanks-partial-normalization-flags",
       "target": {
         "schemaVersion": 2,
-        "targetId": "fill-blanks-partial-normalization-flags",
-        "blockId": "fill-blanks-partial-normalization-flags",
+        "targetId": "target_00001",
+        "blockId": "block_000001",
         "blockType": "fill_blanks",
         "interaction": {
           "kind": "fill-blanks",
-          "blanks": [{ "id": "b1" }, { "id": "b2" }]
+          "blanks": [{ "id": "blank_000001" }, { "id": "blank_000002" }]
         },
         "assessment": {
           "kind": "fill-blanks",
           "blanks": [
             {
-              "blankId": "b1",
+              "blankId": "blank_000001",
               "acceptedAnswers": ["Paris"],
               "caseSensitive": false,
               "trimWhitespace": true
             },
             {
-              "blankId": "b2",
+              "blankId": "blank_000002",
               "acceptedAnswers": [" Na "],
               "caseSensitive": true,
               "trimWhitespace": false
@@ -850,8 +853,8 @@
       "response": {
         "kind": "fill-blanks",
         "blanks": [
-          { "blankId": "b1", "value": " PARIS " },
-          { "blankId": "b2", "value": "Na" }
+          { "blankId": "blank_000001", "value": " PARIS " },
+          { "blankId": "blank_000002", "value": "Na" }
         ]
       },
       "expected": {
@@ -859,8 +862,8 @@
         "score": { "scaled": 0.5, "raw": 1, "min": 0, "max": 2 },
         "feedback": null,
         "items": {
-          "b1": { "correct": true, "expected": ["Paris"], "given": " PARIS " },
-          "b2": { "correct": false, "expected": [" Na "], "given": "Na" }
+          "blank_000001": { "correct": true, "expected": ["Paris"], "given": " PARIS " },
+          "blank_000002": { "correct": false, "expected": [" Na "], "given": "Na" }
         }
       }
     },
@@ -868,8 +871,8 @@
       "id": "fill-blanks-empty-answer",
       "target": {
         "schemaVersion": 2,
-        "targetId": "fill-blanks-empty-answer",
-        "blockId": "fill-blanks-empty-answer",
+        "targetId": "target_00001",
+        "blockId": "block_000001",
         "blockType": "fill_blanks",
         "interaction": { "kind": "fill-blanks", "blanks": [] },
         "assessment": {
@@ -897,18 +900,18 @@
       "id": "spatial-hotspot-partial-credit-happy",
       "target": {
         "schemaVersion": 2,
-        "targetId": "spatial-hotspot-partial-credit-happy",
-        "blockId": "spatial-hotspot-partial-credit-happy",
+        "targetId": "target_00001",
+        "blockId": "block_000001",
         "blockType": "image_hotspot",
         "interaction": {
           "kind": "spatial-hotspot",
           "hotspots": [
             {
-              "id": "h1",
+              "id": "hotsp_000001",
               "geometry": { "kind": "circle", "centerX": 0.25, "centerY": 0.25, "radius": 0.1 }
             },
             {
-              "id": "h2",
+              "id": "hotsp_000002",
               "geometry": { "kind": "circle", "centerX": 0.75, "centerY": 0.75, "radius": 0.1 }
             }
           ],
@@ -917,9 +920,9 @@
         "assessment": {
           "kind": "spatial-hotspot",
           "gradingMode": "partial-credit",
-          "correctHotspotIds": ["h1"],
+          "correctHotspotIds": ["hotsp_000001"],
           "feedbackByHotspotId": {
-            "h1": {
+            "hotsp_000001": {
               "kind": "rich-text",
               "document": {
                 "type": "doc",
@@ -945,7 +948,7 @@
       },
       "response": {
         "kind": "spatial-hotspot",
-        "selections": [{ "hotspotId": "h1", "x": 0.25, "y": 0.25 }]
+        "selections": [{ "hotspotId": "hotsp_000001", "x": 0.25, "y": 0.25 }]
       },
       "expected": {
         "isCorrect": true,
@@ -955,7 +958,7 @@
           "document": { "type": "doc", "content": [{ "type": "text", "text": "Hotspot summary." }] }
         },
         "items": {
-          "h1": {
+          "hotsp_000001": {
             "correct": true,
             "expected": true,
             "given": true,
@@ -967,7 +970,7 @@
               }
             }
           },
-          "h2": { "correct": true, "expected": false, "given": false }
+          "hotsp_000002": { "correct": true, "expected": false, "given": false }
         }
       }
     },
@@ -975,18 +978,18 @@
       "id": "spatial-hotspot-all-or-nothing-fail",
       "target": {
         "schemaVersion": 2,
-        "targetId": "spatial-hotspot-all-or-nothing-fail",
-        "blockId": "spatial-hotspot-all-or-nothing-fail",
+        "targetId": "target_00001",
+        "blockId": "block_000001",
         "blockType": "image_hotspot",
         "interaction": {
           "kind": "spatial-hotspot",
           "hotspots": [
             {
-              "id": "h1",
+              "id": "hotsp_000001",
               "geometry": { "kind": "circle", "centerX": 0.25, "centerY": 0.25, "radius": 0.1 }
             },
             {
-              "id": "h2",
+              "id": "hotsp_000002",
               "geometry": { "kind": "circle", "centerX": 0.75, "centerY": 0.75, "radius": 0.1 }
             }
           ],
@@ -995,7 +998,7 @@
         "assessment": {
           "kind": "spatial-hotspot",
           "gradingMode": "all-or-nothing",
-          "correctHotspotIds": ["h1", "h2"],
+          "correctHotspotIds": ["hotsp_000001", "hotsp_000002"],
           "feedbackByHotspotId": {}
         },
         "settings": {
@@ -1009,15 +1012,15 @@
       },
       "response": {
         "kind": "spatial-hotspot",
-        "selections": [{ "hotspotId": "h1", "x": 0.25, "y": 0.25 }]
+        "selections": [{ "hotspotId": "hotsp_000001", "x": 0.25, "y": 0.25 }]
       },
       "expected": {
         "isCorrect": false,
         "score": { "scaled": 0, "raw": 0, "min": 0, "max": 1 },
         "feedback": null,
         "items": {
-          "h1": { "correct": true, "expected": true, "given": true },
-          "h2": { "correct": false, "expected": true, "given": false }
+          "hotsp_000001": { "correct": true, "expected": true, "given": true },
+          "hotsp_000002": { "correct": false, "expected": true, "given": false }
         }
       }
     },
@@ -1025,8 +1028,8 @@
       "id": "spatial-hotspot-empty-answer",
       "target": {
         "schemaVersion": 2,
-        "targetId": "spatial-hotspot-empty-answer",
-        "blockId": "spatial-hotspot-empty-answer",
+        "targetId": "target_00001",
+        "blockId": "block_000001",
         "blockType": "image_hotspot",
         "interaction": {
           "kind": "spatial-hotspot",

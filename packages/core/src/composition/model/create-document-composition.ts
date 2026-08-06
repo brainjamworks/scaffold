@@ -1,9 +1,4 @@
-import {
-  Extension,
-  type AnyExtension,
-  type Extensions,
-  type Node as TiptapNode,
-} from "@tiptap/core";
+import { type AnyExtension, type Extensions, type Node as TiptapNode } from "@tiptap/core";
 import UniqueID from "@tiptap/extension-unique-id";
 import Highlight from "@tiptap/extension-highlight";
 import Link from "@tiptap/extension-link";
@@ -15,11 +10,6 @@ import Underline from "@tiptap/extension-underline";
 import StarterKit from "@tiptap/starter-kit";
 
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
-import { CELL_NODE_TYPE, GRID_NODE_TYPE } from "@/editor/arrangements/grid/model/grid-nodes";
-import {
-  LAYOUT_NODE_TYPE,
-  SECTION_NODE_TYPE,
-} from "@/editor/arrangements/layout/model/layout-nodes";
 import {
   AccordionSectionPanelNode,
   AccordionSectionTitleNode,
@@ -34,8 +24,7 @@ import {
   SurfaceHeaderNode,
   SurfaceHeaderFooterSlotNode,
 } from "@/editor/surfaces/model/nodes/header-footer-slots";
-import { REGION_NODE_TYPE, RegionNode } from "@/editor/surfaces/model/nodes/region-node";
-import { SURFACE_NODE_TYPE } from "@/editor/surfaces/model/nodes/surface-node";
+import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SlideCoverSubtitleNode } from "@/editor/surfaces/model/nodes/slide-cover-subtitle";
 import { SlideTitleNode } from "@/editor/surfaces/model/nodes/slide-title";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
@@ -55,17 +44,6 @@ import { KATEX_OPTIONS } from "@/editor/rich-text/math/model/katex-options";
 import { VocabularyTermStaticNode } from "@/editor/rich-text/vocabulary-term/static/VocabularyTermStaticNode";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { createScaffoldTextAlignExtension } from "@/editor/rich-text/model/text-alignment";
-
-export const CORE_STRUCTURAL_SEMANTIC_NODE_TYPES = Object.freeze([
-  SURFACE_NODE_TYPE,
-  REGION_NODE_TYPE,
-  LAYOUT_NODE_TYPE,
-  SECTION_NODE_TYPE,
-  GRID_NODE_TYPE,
-  CELL_NODE_TYPE,
-] as const);
-
-const SEMANTIC_NODE_SCHEMA_VALIDATION_EXTENSION = "scaffoldSemanticNodeSchemaValidation";
 
 export function createCourseDocumentInlineContentExtensions({
   inlineIconNode = InlineIconNode,
@@ -108,7 +86,6 @@ export function createCourseDocumentBaseExtensions({
   assessmentHintNode,
   assessmentHintsGroupNode,
   assessmentSummaryFeedbackNode,
-  blockStableIdNodeTypes,
   inlineIconNode,
   layoutNode,
   mathInlineNode,
@@ -126,7 +103,6 @@ export function createCourseDocumentBaseExtensions({
   assessmentHintNode: TiptapNode;
   assessmentHintsGroupNode: TiptapNode;
   assessmentSummaryFeedbackNode: TiptapNode;
-  blockStableIdNodeTypes: readonly string[];
   cellNode: TiptapNode;
   gridNode: TiptapNode;
   inlineIconNode: TiptapNode;
@@ -141,8 +117,6 @@ export function createCourseDocumentBaseExtensions({
   updateDocumentIds: boolean;
   vocabularyTermNode: TiptapNode;
 }): Extensions {
-  const semanticNodeTypes = createSemanticNodeTypes(blockStableIdNodeTypes);
-
   return [
     DocumentNode,
     StarterKit.configure({
@@ -175,12 +149,8 @@ export function createCourseDocumentBaseExtensions({
     AccordionSectionPanelNode,
     ExtendedParagraph,
     createRuntimeBlockFrameAttributesExtension(resizableBlockNodeTypes),
-    createSemanticNodeSchemaValidationExtension({
-      semanticNodeTypes,
-      blockSemanticNodeTypes: blockStableIdNodeTypes,
-    }),
     UniqueID.configure({
-      types: semanticNodeTypes as string[],
+      types: "all",
       attributeName: "id",
       updateDocument: updateDocumentIds,
       generateID: () => createEmbeddedNodeId(),
@@ -211,54 +181,4 @@ export function createCourseDocumentBaseExtensions({
     selectableChoiceNode,
     ...(studentGuardExtension ? [studentGuardExtension] : []),
   ];
-}
-
-function createSemanticNodeTypes(blockSemanticNodeTypes: readonly string[]): readonly string[] {
-  return Object.freeze([
-    ...new Set([...CORE_STRUCTURAL_SEMANTIC_NODE_TYPES, ...blockSemanticNodeTypes]),
-  ]);
-}
-
-function createSemanticNodeSchemaValidationExtension({
-  semanticNodeTypes,
-  blockSemanticNodeTypes,
-}: {
-  semanticNodeTypes: readonly string[];
-  blockSemanticNodeTypes: readonly string[];
-}): Extension {
-  const blockNodeTypeSet = new Set(blockSemanticNodeTypes);
-  const ownerName = (nodeType: string) =>
-    blockNodeTypeSet.has(nodeType) ? "Mounted Block" : "Core structural";
-
-  return Extension.create({
-    name: SEMANTIC_NODE_SCHEMA_VALIDATION_EXTENSION,
-
-    addGlobalAttributes() {
-      const mountedNodeTypes = new Set(
-        this.extensions
-          .filter((extension) => extension.type === "node")
-          .map((extension) => extension.name),
-      );
-
-      for (const nodeType of semanticNodeTypes) {
-        if (!mountedNodeTypes.has(nodeType)) {
-          throw new Error(
-            `${ownerName(nodeType)} semantic node "${nodeType}" is missing from the exact mounted Tiptap schema.`,
-          );
-        }
-      }
-
-      return [];
-    },
-
-    onBeforeCreate() {
-      for (const nodeType of semanticNodeTypes) {
-        if (!this.editor.schema.nodes[nodeType]?.spec.attrs?.["id"]) {
-          throw new Error(
-            `${ownerName(nodeType)} semantic node "${nodeType}" must declare the shared "id" attribute in the exact mounted Tiptap schema.`,
-          );
-        }
-      }
-    },
-  });
 }

@@ -8,6 +8,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import userEvent from "@testing-library/user-event";
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
 import {
   assessmentProblemOutcome,
@@ -216,11 +217,7 @@ function matchingDoc(attrs: Record<string, unknown> = {}) {
         attrs: {
           id: "matching-1",
           assessment: {
-            correctPairs: [
-              { itemId: "i1", targetId: "t1" },
-              { itemId: "i2", targetId: "t2" },
-            ],
-            feedbackByItemId: { i1: richFeedback("Good term match") },
+            feedbackByItemId: { item__000001: richFeedback("Good term match") },
             summaryFeedback: null,
           },
           settings: {
@@ -242,22 +239,32 @@ function matchingDoc(attrs: Record<string, unknown> = {}) {
             content: [
               {
                 type: "matching_pair",
-                attrs: { itemId: "i1", targetId: "t1" },
+                attrs: { id: "pair__000001" },
                 content: [
-                  { type: "matching_item", content: fieldContent("Term 1") },
+                  {
+                    type: "matching_item",
+                    attrs: { id: "item__000001" },
+                    content: fieldContent("Term 1"),
+                  },
                   {
                     type: "matching_target",
+                    attrs: { id: "target_00001" },
                     content: fieldContent("Target 1"),
                   },
                 ],
               },
               {
                 type: "matching_pair",
-                attrs: { itemId: "i2", targetId: "t2" },
+                attrs: { id: "pair__000002" },
                 content: [
-                  { type: "matching_item", content: fieldContent("Term 2") },
+                  {
+                    type: "matching_item",
+                    attrs: { id: "item__000002" },
+                    content: fieldContent("Term 2"),
+                  },
                   {
                     type: "matching_target",
+                    attrs: { id: "target_00002" },
                     content: fieldContent("Target 2"),
                   },
                 ],
@@ -287,11 +294,7 @@ function matchingRuntimeDoc(attrs: Record<string, unknown> = {}): JSONContent {
         attrs: {
           id: "matching-1",
           assessment: {
-            correctPairs: [
-              { itemId: "i1", targetId: "t1" },
-              { itemId: "i2", targetId: "t2" },
-            ],
-            feedbackByItemId: { i1: richFeedback("Good term match") },
+            feedbackByItemId: { item__000001: richFeedback("Good term match") },
             summaryFeedback: null,
           },
           settings: {
@@ -319,6 +322,24 @@ function describedText(selector: string): string | null {
 describe("composite matching node", () => {
   it("declares bounded fill placement", () => {
     expect(matchingBlockDefinition.boundedPlacement).toBe("fill");
+  });
+
+  it("creates Matching relationships from pair-child adjacency", () => {
+    const insertion = matchingBlockDefinition.insert;
+    if (!insertion) throw new Error("Matching insertion is unavailable");
+    const block = insertion.content() as JSONContent;
+    const group = block.content?.find((child) => child.type === "matching_pairs_group");
+    const pairs = group?.content ?? [];
+
+    expect(block.attrs?.["assessment"]).not.toHaveProperty("correctPairs");
+    expect(pairs).toHaveLength(3);
+    for (const pair of pairs) {
+      expect(EmbeddedNodeIdSchema.safeParse(pair.attrs?.["id"]).success).toBe(true);
+      expect(pair.attrs).not.toHaveProperty("itemId");
+      expect(pair.attrs).not.toHaveProperty("targetId");
+      expect(EmbeddedNodeIdSchema.safeParse(pair.content?.[0]?.attrs?.["id"]).success).toBe(true);
+      expect(EmbeddedNodeIdSchema.safeParse(pair.content?.[1]?.attrs?.["id"]).success).toBe(true);
+    }
   });
 
   it("describes matching runtime accessibility states", () => {
@@ -362,14 +383,16 @@ describe("composite matching node", () => {
 
     const pair = await waitFor(() => {
       const element = document.body.querySelector<HTMLElement>(
-        '[data-node="matching-pair"][data-item-id="i2"]',
+        '[data-node="matching-pair"][data-item-id="item__000002"]',
       );
       expect(element).toBeInstanceOf(HTMLElement);
       return element as HTMLElement;
     });
     await user.click(within(pair).getByRole("button", { name: "Add feedback" }));
     const feedbackEditor = await screen.findByLabelText("Feedback editor");
-    expect(feedbackEditor.getAttribute("data-attr-rich-text-field")).toBe("matching:i2:feedback");
+    expect(feedbackEditor.getAttribute("data-attr-rich-text-field")).toBe(
+      "matching:item__000002:feedback",
+    );
 
     fireEvent.paste(feedbackEditor, {
       clipboardData: {
@@ -379,7 +402,7 @@ describe("composite matching node", () => {
 
     await waitFor(() => {
       expect(editor.getJSON().content?.[0]?.attrs?.["assessment"]).toMatchObject({
-        feedbackByItemId: { i2: richFeedback("Review the second match.") },
+        feedbackByItemId: { item__000002: richFeedback("Review the second match.") },
       });
     });
 
@@ -392,7 +415,7 @@ describe("composite matching node", () => {
 
     let secondPairPos: number | undefined;
     editor.state.doc.descendants((node, pos) => {
-      if (node.type.name === "matching_pair" && node.attrs["itemId"] === "i2") {
+      if (node.type.name === "matching_pair" && node.firstChild?.attrs["id"] === "item__000002") {
         secondPairPos = pos;
       }
     });
@@ -400,7 +423,10 @@ describe("composite matching node", () => {
     expect(moveSiblingNode(editor, secondPairPos!, "up")).toBe(true);
     const blockJson = editor.getJSON().content?.[0] as JSONContent | undefined;
     const group = blockJson?.content?.[3] as JSONContent | undefined;
-    expect(group?.content?.map((pair) => pair.attrs?.["itemId"])).toEqual(["i2", "i1"]);
+    expect(group?.content?.map((pair) => pair.content?.[0]?.attrs?.["id"])).toEqual([
+      "item__000002",
+      "item__000001",
+    ]);
 
     editor.destroy();
   });
@@ -432,15 +458,15 @@ describe("composite matching node", () => {
     const matching = fixture.json().content?.[0] as JSONContent | undefined;
     const group = matching?.content?.[3] as JSONContent | undefined;
     const pairIds = group?.content?.map((pair) => [
-      pair.attrs?.["itemId"],
-      pair.attrs?.["targetId"],
+      pair.content?.[0]?.attrs?.["id"],
+      pair.content?.[1]?.attrs?.["id"],
     ]);
 
     expect(fixture.topLevelNodeTypes()).toEqual(["matching", "paragraph"]);
     expect(fixture.editor.state.doc.textContent).toContain("Keep after matching");
     expect(fixture.editor.state.doc.textContent).toContain("Term 1");
     expect(fixture.editor.state.doc.textContent).toContain("Target 1");
-    expect(pairIds).toEqual([["i1", "t1"]]);
+    expect(pairIds).toEqual([["item__000001", "target_00001"]]);
 
     fixture.destroy();
   });
@@ -616,7 +642,7 @@ describe("composite matching node", () => {
 
     const item = screen.getByRole("button", { name: "Select matching item 1" });
     const target = document.body.querySelector<HTMLElement>(
-      '[data-target-id="t2"][data-matching-drop-target]',
+      '[data-target-id="target_00002"][data-matching-drop-target]',
     );
     expect(target).toBeInstanceOf(HTMLElement);
     fireEvent.keyDown(item, { key: "Enter" });
@@ -624,7 +650,7 @@ describe("composite matching node", () => {
 
     await waitFor(() => {
       expect(localAssessmentResponse(assessmentStore, problemId)).toMatchObject({
-        matches: { i1: "t2" },
+        matches: { item__000001: "target_00002" },
       });
     });
     expect(item).toHaveAttribute("aria-disabled", "true");
@@ -632,7 +658,37 @@ describe("composite matching node", () => {
 
     fireEvent.keyDown(target!, { key: " " });
     expect(localAssessmentResponse(assessmentStore, problemId)).toMatchObject({
-      matches: { i1: "t2" },
+      matches: { item__000001: "target_00002" },
+    });
+
+    editor.destroy();
+  });
+
+  it("does not commit a stale selection after the item is matched externally", async () => {
+    const editor = makeEditor(false);
+    const problemId = "artifact:artifact-1/block:matching-1";
+    editor.commands.setContent(matchingRuntimeDoc());
+    renderAssessmentEditor(editor);
+
+    await waitFor(() => {
+      expect(hasAssessmentRegistration(assessmentStore, problemId)).toBe(true);
+    });
+    const source = screen.getByRole("button", { name: "Select matching item 1" });
+    fireEvent.click(source);
+    expect(source).toHaveAttribute("aria-pressed", "true");
+
+    setAssessmentResponseField(assessmentStore, problemId, "matches", {
+      item__000001: "target_00001",
+    });
+    await waitFor(() => {
+      expect(source).toHaveAttribute("aria-pressed", "false");
+    });
+
+    fireEvent.click(
+      document.body.querySelector('[data-target-id="target_00002"][data-matching-drop-target]')!,
+    );
+    expect(localAssessmentResponse(assessmentStore, problemId)).toMatchObject({
+      matches: { item__000001: "target_00001" },
     });
 
     editor.destroy();
@@ -655,21 +711,24 @@ describe("composite matching node", () => {
       maxAttempts: 2,
     });
     expect(matching?.attrs?.["assessment"]).toMatchObject({
-      correctPairs: [
-        { itemId: "i1", targetId: "t1" },
-        { itemId: "i2", targetId: "t2" },
-      ],
-      feedbackByItemId: { i1: richFeedback("Good term match") },
+      feedbackByItemId: { item__000001: richFeedback("Good term match") },
     });
+    expect(matching?.attrs?.["assessment"]).not.toHaveProperty("correctPairs");
     expect(matching?.content?.length).toBe(5);
     const children = matching?.content as JSONContent[] | undefined;
     const group = children?.[3];
     expect(group?.type).toBe("matching_pairs_group");
     expect(children?.[4]?.type).toBe("assessment_actions_group");
     const pairs = group?.content as JSONContent[] | undefined;
-    expect(pairs?.map((pair) => [pair.attrs?.["itemId"], pair.attrs?.["targetId"]])).toEqual([
-      ["i1", "t1"],
-      ["i2", "t2"],
+    expect(
+      pairs?.map((pair) => [
+        pair.attrs?.["id"],
+        pair.content?.[0]?.attrs?.["id"],
+        pair.content?.[1]?.attrs?.["id"],
+      ]),
+    ).toEqual([
+      ["pair__000001", "item__000001", "target_00001"],
+      ["pair__000002", "item__000002", "target_00002"],
     ]);
     expect(pairs?.[0]?.content?.[0]?.type).toBe("matching_item");
     expect(pairs?.[0]?.content?.[0]?.content?.[0]?.content?.[0]?.text).toBe("Term 1");
@@ -697,10 +756,18 @@ describe("composite matching node", () => {
               content: [
                 {
                   type: "matching_pair",
-                  attrs: { itemId: "i1", targetId: "t1" },
+                  attrs: { id: "pair__000001" },
                   content: [
-                    { type: "matching_item", content: fieldContent() },
-                    { type: "matching_target", content: fieldContent() },
+                    {
+                      type: "matching_item",
+                      attrs: { id: "item__000001" },
+                      content: fieldContent(),
+                    },
+                    {
+                      type: "matching_target",
+                      attrs: { id: "target_00001" },
+                      content: fieldContent(),
+                    },
                   ],
                 },
               ],
@@ -762,28 +829,28 @@ describe("composite matching node", () => {
     fireEvent.click(screen.getByRole("button", { name: "Select matching item 1" }));
 
     await waitFor(() => {
-      expect(describedText('[data-item-id="i1"][data-matching-draggable-item]')).toBe(
+      expect(describedText('[data-item-id="item__000001"][data-matching-draggable-item]')).toBe(
         "Selected item",
       );
-      expect(describedText('[data-target-id="t2"][data-matching-drop-target]')).toBe(
+      expect(describedText('[data-target-id="target_00002"][data-matching-drop-target]')).toBe(
         "Ready to match selected item",
       );
     });
 
     fireEvent.click(
-      document.body.querySelector('[data-target-id="t2"][data-matching-drop-target]')!,
+      document.body.querySelector('[data-target-id="target_00002"][data-matching-drop-target]')!,
     );
 
     await waitFor(() => {
-      expect(describedText('[data-item-id="i1"][data-matching-draggable-item]')).toBe(
+      expect(describedText('[data-item-id="item__000001"][data-matching-draggable-item]')).toBe(
         "Matched item",
       );
-      expect(describedText('[data-target-id="t2"][data-matching-drop-target]')).toBe(
+      expect(describedText('[data-target-id="target_00002"][data-matching-drop-target]')).toBe(
         "Matched with item 1",
       );
     });
     const matchedSource = document.body.querySelector(
-      '[data-item-id="i1"][data-matching-draggable-item]',
+      '[data-item-id="item__000001"][data-matching-draggable-item]',
     );
     expect(matchedSource?.getAttribute("aria-disabled")).toBe("true");
     expect(matchedSource?.getAttribute("tabindex")).toBe("-1");
@@ -816,11 +883,11 @@ describe("composite matching node", () => {
     });
 
     setAssessmentResponseField(assessmentStore, problemId, "matches", {
-      i1: "t1",
+      item__000001: "target_00001",
     });
 
     await waitFor(() => {
-      expect(describedText('[data-target-id="t1"][data-matching-drop-target]')).toBe(
+      expect(describedText('[data-target-id="target_00001"][data-matching-drop-target]')).toBe(
         "Matched with item 1",
       );
       expect(
@@ -832,8 +899,8 @@ describe("composite matching node", () => {
     });
 
     setAssessmentResponseField(assessmentStore, problemId, "matches", {
-      i1: "t2",
-      i2: "t1",
+      item__000001: "target_00002",
+      item__000002: "target_00001",
     });
 
     await waitFor(() => {
@@ -856,7 +923,7 @@ describe("composite matching node", () => {
             isCorrect: false,
             score: { scaled: 0 },
             items: {
-              i1: { correct: false, expected: "t1", given: "t2" },
+              item__000001: { correct: false, expected: "target_00001", given: "target_00002" },
             },
           },
           { response: args.response },
@@ -865,8 +932,8 @@ describe("composite matching node", () => {
         answerKey: {
           kind: "match",
           correctPairs: [
-            { itemId: "i1", targetId: "t1" },
-            { itemId: "i2", targetId: "t2" },
+            { itemId: "item__000001", targetId: "target_00001" },
+            { itemId: "item__000002", targetId: "target_00002" },
           ],
           feedbackByItemId: {},
         },
@@ -880,21 +947,25 @@ describe("composite matching node", () => {
     });
 
     setAssessmentResponseField(assessmentStore, problemId, "matches", {
-      i1: "t2",
-      i2: "t1",
+      item__000001: "target_00002",
+      item__000002: "target_00001",
     });
 
     await waitFor(() => {
-      expect(describedText('[data-target-id="t2"][data-matching-drop-target]')).toBe(
+      expect(describedText('[data-target-id="target_00002"][data-matching-drop-target]')).toBe(
         "Matched with item 1",
       );
     });
     fireEvent.click(screen.getByText("Submit"));
 
     await waitFor(() => {
-      expect(describedText('[data-target-id="t2"][data-matching-drop-target]')).toBe(
+      expect(describedText('[data-target-id="target_00002"][data-matching-drop-target]')).toBe(
         "Matched with item 1. Submitted match, incorrect",
       );
+      for (const target of document.body.querySelectorAll("[data-matching-drop-target]")) {
+        expect(target).toHaveAttribute("aria-disabled", "true");
+        expect(target).toHaveAttribute("tabindex", "-1");
+      }
     });
 
     editor.destroy();
@@ -913,7 +984,7 @@ describe("composite matching node", () => {
             isCorrect: false,
             score: { scaled: 0 },
             items: {
-              i1: { correct: false, expected: "t1", given: "t2" },
+              item__000001: { correct: false, expected: "target_00001", given: "target_00002" },
             },
           },
           { response: args.response },
@@ -922,11 +993,11 @@ describe("composite matching node", () => {
         answerKey: {
           kind: "match",
           correctPairs: [
-            { itemId: "i1", targetId: "t1" },
-            { itemId: "i2", targetId: "t2" },
+            { itemId: "item__000001", targetId: "target_00001" },
+            { itemId: "item__000002", targetId: "target_00002" },
           ],
           feedbackByItemId: {
-            i1: richFeedback("Good term match"),
+            item__000001: richFeedback("Good term match"),
           },
         },
       }),
@@ -939,12 +1010,12 @@ describe("composite matching node", () => {
     });
 
     setAssessmentResponseField(assessmentStore, problemId, "matches", {
-      i1: "t2",
-      i2: "t1",
+      item__000001: "target_00002",
+      item__000002: "target_00001",
     });
 
     await waitFor(() => {
-      expect(describedText('[data-target-id="t2"][data-matching-drop-target]')).toBe(
+      expect(describedText('[data-target-id="target_00002"][data-matching-drop-target]')).toBe(
         "Matched with item 1",
       );
     });
@@ -956,8 +1027,10 @@ describe("composite matching node", () => {
     fireEvent.click(screen.getByText("Show answer"));
 
     await waitFor(() => {
-      expect(document.body.querySelector('[data-target-id="t1"]')?.textContent).toContain("Term 1");
-      expect(describedText('[data-target-id="t1"][data-matching-drop-target]')).toBe(
+      expect(document.body.querySelector('[data-target-id="target_00001"]')?.textContent).toContain(
+        "Term 1",
+      );
+      expect(describedText('[data-target-id="target_00001"][data-matching-drop-target]')).toBe(
         "Matched with item 1. Revealed correct match. Feedback available",
       );
     });
@@ -978,18 +1051,18 @@ describe("matching reveal parsing", () => {
       answerMatchesFromReveal({
         kind: "match",
         correctPairs: [
-          { itemId: "i1", targetId: "t1" },
-          { itemId: "i2", targetId: "t2" },
+          { itemId: "item__000001", targetId: "target_00001" },
+          { itemId: "item__000002", targetId: "target_00002" },
         ],
-        feedbackByItemId: { i2: richFeedback("Good") },
+        feedbackByItemId: { item__000002: richFeedback("Good") },
       }),
-    ).toEqual({ i1: "t1", i2: "t2" });
+    ).toEqual({ item__000001: "target_00001", item__000002: "target_00002" });
   });
 
   it("does not accept legacy reveal match shapes", () => {
     expect(
       answerMatchesFromReveal({
-        i1: { correctMatch: "t1" },
+        item__000001: { correctMatch: "target_00001" },
       }),
     ).toEqual({});
   });

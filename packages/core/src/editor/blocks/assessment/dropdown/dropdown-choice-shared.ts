@@ -54,16 +54,6 @@ export interface DropdownChoiceAttrs {
   id: string;
 }
 
-export function dropdownChoiceAttrs() {
-  return {
-    id: {
-      default: "",
-      parseHTML: (el: HTMLElement) => el.getAttribute("data-choice-id") ?? "",
-      renderHTML: (attrs: { id: string }) => ({ "data-choice-id": attrs.id }),
-    },
-  };
-}
-
 interface DropdownChoiceNodeOptions {
   addNodeView?: () => NodeViewRenderer;
 }
@@ -108,10 +98,6 @@ export function createDropdownChoiceNode(options: DropdownChoiceNodeOptions = {}
     isolating: true,
     selectable: false,
     draggable: false,
-
-    addAttributes() {
-      return dropdownChoiceAttrs();
-    },
 
     parseHTML() {
       return [{ tag: 'div[data-node="dropdown-choice"]' }];

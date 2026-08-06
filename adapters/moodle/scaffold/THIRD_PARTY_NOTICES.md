@@ -6,10 +6,12 @@ own licence terms. `thirdpartylibs.xml` contains the matching Moodle metadata.
 
 | Package                                | Version | Licence                 | Packaged location | Upstream                                                              |
 | -------------------------------------- | ------- | ----------------------- | ----------------- | --------------------------------------------------------------------- |
-| @dnd-kit/accessibility                 | 3.1.1   | MIT                     | public/assets     | [source](https://github.com/clauderic/dnd-kit)                        |
-| @dnd-kit/core                          | 6.3.1   | MIT                     | public/assets     | [source](https://github.com/clauderic/dnd-kit)                        |
-| @dnd-kit/sortable                      | 10.0.0  | MIT                     | public/assets     | [source](https://github.com/clauderic/dnd-kit)                        |
-| @dnd-kit/utilities                     | 3.2.2   | MIT                     | public/assets     | [source](https://github.com/clauderic/dnd-kit)                        |
+| @dnd-kit/abstract                      | 0.5.0   | MIT                     | public/assets     | [source](https://github.com/clauderic/dnd-kit)                        |
+| @dnd-kit/collision                     | 0.5.0   | MIT                     | public/assets     | [source](https://github.com/clauderic/dnd-kit)                        |
+| @dnd-kit/dom                           | 0.5.0   | MIT                     | public/assets     | [source](https://github.com/clauderic/dnd-kit)                        |
+| @dnd-kit/geometry                      | 0.5.0   | MIT                     | public/assets     | [source](https://github.com/clauderic/dnd-kit)                        |
+| @dnd-kit/react                         | 0.5.0   | MIT                     | public/assets     | [source](https://github.com/clauderic/dnd-kit)                        |
+| @dnd-kit/state                         | 0.5.0   | MIT                     | public/assets     | [source](https://github.com/clauderic/dnd-kit)                        |
 | @floating-ui/core                      | 1.7.5   | MIT                     | public/assets     | [source](https://github.com/floating-ui/floating-ui)                  |
 | @floating-ui/dom                       | 1.7.6   | MIT                     | public/assets     | [source](https://github.com/floating-ui/floating-ui)                  |
 | @floating-ui/react-dom                 | 2.1.8   | MIT                     | public/assets     | [source](https://github.com/floating-ui/floating-ui)                  |
@@ -22,6 +24,7 @@ own licence terms. `thirdpartylibs.xml` contains the matching Moodle metadata.
 | @internationalized/number              | 3.6.7   | Apache-2.0              | public/assets     | [source](https://github.com/adobe/react-spectrum)                     |
 | @internationalized/string              | 3.2.9   | Apache-2.0              | public/assets     | [source](https://github.com/adobe/react-spectrum)                     |
 | @phosphor-icons/react                  | 2.1.10  | MIT                     | public/assets     | [source](https://github.com/phosphor-icons/react)                     |
+| @preact/signals-core                   | 1.14.4  | MIT                     | public/assets     | [source](https://github.com/preactjs/signals)                         |
 | @radix-ui/number                       | 1.1.2   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/primitive                    | 1.1.4   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-accordion              | 1.2.13  | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
@@ -172,10 +175,12 @@ and declared licence remains explicit.
 
 **Applies to:**
 
-- `@dnd-kit/accessibility@3.1.1` — declared `MIT`
-- `@dnd-kit/core@6.3.1` — declared `MIT`
-- `@dnd-kit/sortable@10.0.0` — declared `MIT`
-- `@dnd-kit/utilities@3.2.2` — declared `MIT`
+- `@dnd-kit/abstract@0.5.0` — declared `MIT`
+- `@dnd-kit/collision@0.5.0` — declared `MIT`
+- `@dnd-kit/dom@0.5.0` — declared `MIT`
+- `@dnd-kit/geometry@0.5.0` — declared `MIT`
+- `@dnd-kit/react@0.5.0` — declared `MIT`
+- `@dnd-kit/state@0.5.0` — declared `MIT`
 
 ```text
 MIT License
@@ -920,6 +925,36 @@ SOFTWARE.
 
 **Applies to:**
 
+- `@preact/signals-core@1.14.4` — declared `MIT`
+
+```text
+The MIT License (MIT)
+
+Copyright (c) 2022-present Preact Team
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### Text 11: `LICENSE`
+
+**Applies to:**
+
 - `@radix-ui/number@1.1.2` — declared `MIT`
 - `@radix-ui/primitive@1.1.4` — declared `MIT`
 - `@radix-ui/react-accordion@1.2.13` — declared `MIT`
@@ -989,7 +1024,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 11: `LICENSE`
+### Text 12: `LICENSE`
 
 **Applies to:**
 
@@ -1020,7 +1055,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 12: `LICENSE`, `LICENSE.md`
+### Text 13: `LICENSE`, `LICENSE.md`
 
 **Applies to:**
 
@@ -1083,7 +1118,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 13: `LICENSE`
+### Text 14: `LICENSE`
 
 **Applies to:**
 
@@ -1118,7 +1153,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 14: `license`
+### Text 15: `license`
 
 **Applies to:**
 
@@ -1136,7 +1171,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 15: `LICENSE`
+### Text 16: `LICENSE`
 
 **Applies to:**
 
@@ -1166,7 +1201,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 16: `license`
+### Text 17: `license`
 
 **Applies to:**
 
@@ -1196,7 +1231,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Text 17: `license`
+### Text 18: `license`
 
 **Applies to:**
 
@@ -1227,7 +1262,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 18: `LICENSE`
+### Text 19: `LICENSE`
 
 **Applies to:**
 
@@ -1438,7 +1473,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
    limitations under the License.
 ```
 
-### Text 19: `LICENSE-MPL`
+### Text 20: `LICENSE-MPL`
 
 **Applies to:**
 
@@ -1820,7 +1855,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
   defined by the Mozilla Public License, v. 2.0.
 ```
 
-### Text 20: `LICENSE`
+### Text 21: `LICENSE`
 
 **Applies to:**
 
@@ -2051,7 +2086,7 @@ The following files embed [d3.js](https://github.com/d3/d3) BSD 3-Clause:
 See `/licenses/LICENSE-d3` for details of the license.
 ```
 
-### Text 21: `NOTICE`
+### Text 22: `NOTICE`
 
 **Applies to:**
 
@@ -2065,7 +2100,7 @@ This product includes software developed at
 The Apache Software Foundation (https://www.apache.org/).
 ```
 
-### Text 22: `LICENSE`
+### Text 23: `LICENSE`
 
 **Applies to:**
 
@@ -2095,7 +2130,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 23: `LICENSE`
+### Text 24: `LICENSE`
 
 **Applies to:**
 
@@ -2125,7 +2160,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 24: `LICENSE`
+### Text 25: `LICENSE`
 
 **Applies to:**
 
@@ -2163,7 +2198,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### Text 25: `LICENSE`
+### Text 26: `LICENSE`
 
 **Applies to:**
 
@@ -2193,7 +2228,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 26: `LICENSE`
+### Text 27: `LICENSE`
 
 **Applies to:**
 
@@ -2221,7 +2256,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Text 27: `license`
+### Text 28: `license`
 
 **Applies to:**
 
@@ -2252,7 +2287,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 28: `LICENSE`
+### Text 29: `LICENSE`
 
 **Applies to:**
 
@@ -2282,7 +2317,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 29: `LICENSE`
+### Text 30: `LICENSE`
 
 **Applies to:**
 
@@ -2312,7 +2347,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 30: `LICENSE.txt`
+### Text 31: `LICENSE.txt`
 
 **Applies to:**
 
@@ -2340,7 +2375,7 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 31: `LICENSE`
+### Text 32: `LICENSE`
 
 **Applies to:**
 
@@ -2371,7 +2406,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 32: `LICENSE`
+### Text 33: `LICENSE`
 
 **Applies to:**
 
@@ -2400,7 +2435,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 33: `LICENSE`
+### Text 34: `LICENSE`
 
 **Applies to:**
 
@@ -2429,7 +2464,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Text 34: `LICENSE`
+### Text 35: `LICENSE`
 
 **Applies to:**
 
@@ -2615,7 +2650,7 @@ THE SOFTWARE.
    END OF TERMS AND CONDITIONS
 ```
 
-### Text 35: `LICENSE`
+### Text 36: `LICENSE`
 
 **Applies to:**
 
@@ -2652,7 +2687,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Text 36: `LICENSE`
+### Text 37: `LICENSE`
 
 **Applies to:**
 
@@ -2680,7 +2715,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Text 37: `LICENSE`
+### Text 38: `LICENSE`
 
 **Applies to:**
 
@@ -2713,7 +2748,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 38: `LICENSE`
+### Text 39: `LICENSE`
 
 **Applies to:**
 
@@ -2741,7 +2776,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Text 39: `LICENSE`
+### Text 40: `LICENSE`
 
 **Applies to:**
 
@@ -2771,7 +2806,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 40: `LICENSE.txt`
+### Text 41: `LICENSE.txt`
 
 **Applies to:**
 
@@ -2793,7 +2828,7 @@ OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.
 ```
 
-### Text 41: `LICENSE.md`
+### Text 42: `LICENSE.md`
 
 **Applies to:**
 
@@ -2811,7 +2846,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 42: `LICENSE.md`
+### Text 43: `LICENSE.md`
 
 **Applies to:**
 
@@ -2841,7 +2876,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 43: `LICENSE`
+### Text 44: `LICENSE`
 
 **Applies to:**
 
@@ -2871,7 +2906,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 44: `LICENSE`
+### Text 45: `LICENSE`
 
 **Applies to:**
 
@@ -2909,7 +2944,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### Text 45: `LICENSE`
+### Text 46: `LICENSE`
 
 **Applies to:**
 

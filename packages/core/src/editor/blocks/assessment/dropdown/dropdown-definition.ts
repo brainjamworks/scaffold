@@ -74,9 +74,6 @@ export const dropdownBlockDefinition = defineBlock({
     ...assessmentShellPlaceholders,
     dropdown_choice: "Enter your option",
   },
-  identity: {
-    stableChildNodeTypes: ["dropdown_choice"],
-  },
   capabilities: {
     assessment: defineAssessmentCapability({
       interactionKind: "single-select",

@@ -4,7 +4,6 @@ import {
   ASSESSMENT_QUESTION_CONTENT,
   COURSE_BLOCK_CONTENT,
 } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 import {
   ImageHotspotPrivateAssessmentSchema,
   ImageHotspotSettingsSchema,
@@ -59,7 +58,6 @@ export function createImageHotspotNode(options: ImageHotspotNodeOptions = {}) {
       });
 
       return {
-        id: stableNodeIdAttribute(),
         settings: {
           ...makeAttr("data-image-hotspot-settings", settingsDefault, ImageHotspotSettingsSchema),
           renderHTML: (attrs: { settings: ImageHotspotSettings }) => ({

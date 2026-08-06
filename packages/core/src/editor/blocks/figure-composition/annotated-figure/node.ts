@@ -1,7 +1,6 @@
 import { Node, mergeAttributes, type NodeViewRenderer } from "@tiptap/core";
 
 import { COURSE_BLOCK_CONTENT } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 import { AnnotatedFigureDataSchema, type AnnotatedFigureData } from "@scaffold/contracts";
 
 import {
@@ -26,7 +25,6 @@ export function createAnnotatedFigureNode(options: AnnotatedFigureNodeOptions = 
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         data: {
           default: emptyAnnotatedFigureData(),
           parseHTML: (el: HTMLElement) => {

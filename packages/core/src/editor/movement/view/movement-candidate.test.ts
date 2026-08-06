@@ -358,21 +358,21 @@ const TestCompositeBlockNode = Node.create({
   },
 });
 
-const SelectableChoiceNode = containedChildNode("selectable_choice", "data-choice-id");
+const SelectableChoiceNode = containedChildNode("selectable_choice");
 const AssessmentChoicesGroupNode = containedGroupNode(
   "assessment_choices_group",
   "selectable_choice+",
   "data-slot",
   "assessment-choices-group",
 );
-const SequencingItemNode = containedChildNode("sequencing_item", "data-item-id");
+const SequencingItemNode = containedChildNode("sequencing_item");
 const SequencingItemsGroupNode = containedGroupNode(
   "sequencing_items_group",
   "sequencing_item+",
   "data-slot",
   "sequencing-items-group",
 );
-const MatchingPairNode = containedChildNode("matching_pair", "data-pair-id");
+const MatchingPairNode = containedChildNode("matching_pair");
 const MatchingPairsGroupNode = containedGroupNode(
   "matching_pairs_group",
   "matching_pair+",
@@ -389,7 +389,6 @@ function movementTestId(prefix: string): string {
 const CategoriseBinTitleNode = containedFieldNode("categorise_bin_title");
 const CategoriseBinNode = containedChildNode(
   "categorise_bin",
-  "data-bin-id",
   "categorise_bin_title categorise_items_group",
 );
 const CategoriseBinsGroupNode = containedGroupNode(
@@ -399,11 +398,7 @@ const CategoriseBinsGroupNode = containedGroupNode(
   "categorise-bins-group",
 );
 const CategoriseItemBodyNode = containedFieldNode("categorise_item_body");
-const CategoriseItemNode = containedChildNode(
-  "categorise_item",
-  "data-item-id",
-  "categorise_item_body",
-);
+const CategoriseItemNode = containedChildNode("categorise_item", "categorise_item_body");
 const CategoriseItemsGroupNode = containedGroupNode(
   "categorise_items_group",
   "categorise_item*",
@@ -451,7 +446,7 @@ function containedFieldNode(name: string) {
   });
 }
 
-function containedChildNode(name: string, idAttribute: string, content = "paragraph+") {
+function containedChildNode(name: string, content = "paragraph+") {
   return Node.create({
     name,
     content,
@@ -464,9 +459,9 @@ function containedChildNode(name: string, idAttribute: string, content = "paragr
       return {
         id: {
           default: "",
-          parseHTML: (element: HTMLElement) => element.getAttribute(idAttribute) ?? "",
+          parseHTML: (element: HTMLElement) => element.getAttribute("data-id") ?? "",
           renderHTML: (attrs: { id?: unknown }) =>
-            typeof attrs.id === "string" ? { [idAttribute]: attrs.id } : {},
+            typeof attrs.id === "string" ? { "data-id": attrs.id } : {},
         },
       };
     },

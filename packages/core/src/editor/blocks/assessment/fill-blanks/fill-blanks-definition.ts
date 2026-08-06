@@ -114,9 +114,6 @@ export const fillBlanksBlockDefinition = defineBlock({
     ...assessmentShellPlaceholders,
     fill_blanks_body: "Write the sentence or paragraph",
   },
-  identity: {
-    stableChildNodeTypes: ["fill_blank"],
-  },
   capabilities: {
     assessment: defineAssessmentCapability({
       interactionKind: "fill-blanks",

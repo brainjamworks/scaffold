@@ -1,6 +1,7 @@
 import { Editor, type AnyExtension } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import StarterKit from "@tiptap/starter-kit";
+import UniqueID from "@tiptap/extension-unique-id";
 import { EditorContent } from "@tiptap/react";
 import { cleanup, render, waitFor } from "@testing-library/react";
 import { createElement } from "react";
@@ -206,6 +207,7 @@ function createBlockContractEditor(input: DescribeBlockContractInput): Editor {
         listItem: false,
         orderedList: false,
       }),
+      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       ExtendedParagraph,
       ExtendedHeading,
       ExtendedBulletList,

@@ -6,7 +6,6 @@ import {
   SECTION_ARRANGEMENT_CONTENT,
 } from "@/document/model/content-model/content-groups";
 import { boundedPlacementAttributes } from "@/editor/frame/model/bounded-placement";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 import { isGridCellEmpty, isGridCellVerticalPosition } from "./grid-model";
 
 export const GRID_NODE_TYPE = "grid" as const;
@@ -32,7 +31,6 @@ export function createGridNode(options: GridNodeOptions = {}) {
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         columnWidths: {
           default: [],
           parseHTML: (element: HTMLElement) =>
@@ -83,7 +81,6 @@ export function createCellNode(options: CellNodeOptions = {}) {
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         verticalPosition: {
           default: "top",
           parseHTML: (element: HTMLElement) =>

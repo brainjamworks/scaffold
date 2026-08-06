@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 
 import { Editor, Node, type JSONContent } from "@tiptap/core";
+import UniqueID from "@tiptap/extension-unique-id";
 import { EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
@@ -92,7 +93,6 @@ const TestAlignableBlockNode = Node.create({
   addAttributes() {
     return {
       frame: { default: null },
-      id: { default: null },
     };
   },
   renderHTML({ node, HTMLAttributes }) {
@@ -593,7 +593,8 @@ describe("surface authoring node views", () => {
       expect(surface?.getAttribute("as")).toBeNull();
       expect(surface?.getAttribute("data-course-surface-node-view")).toBe("authoring");
       expect(surface?.getAttribute("data-authoring-frame")).toBe("surface");
-      expect(surface?.getAttribute("data-surface-id")).toBe("surface-a");
+      expect(surface?.getAttribute("data-id")).toBe("surface-a");
+      expect(surface?.getAttribute("data-surface-id")).toBeNull();
       expect(surface?.getAttribute("data-surface-variant")).toBe("page-default");
       expect(surface?.hasAttribute("data-vertical-content-position")).toBe(false);
       expect(surface?.getAttribute("data-empty")).toBeNull();
@@ -1454,6 +1455,11 @@ function createEditor(
       TestArrangementNode,
       TestSectionArrangementNode,
       TestAlignableBlockNode,
+      UniqueID.configure({
+        attributeName: "id",
+        types: "all",
+        updateDocument: false,
+      }),
     ],
     content: {
       type: "doc",

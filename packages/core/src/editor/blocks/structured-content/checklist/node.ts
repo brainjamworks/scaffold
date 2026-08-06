@@ -2,7 +2,6 @@ import { Node, mergeAttributes, type NodeViewRenderer } from "@tiptap/core";
 import { ChecklistDataSchema, type ChecklistData } from "@scaffold/contracts";
 
 import { COURSE_BLOCK_CONTENT } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 
 import { CHECKLIST_ITEM_NODE, CHECKLIST_NODE, emptyChecklistData } from "./content";
 
@@ -21,7 +20,6 @@ export function createChecklistNode(options: ChecklistNodeOptions = {}) {
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         data: {
           default: emptyChecklistData(),
           parseHTML: (el: HTMLElement) => {

@@ -10,7 +10,6 @@ import {
   ASSESSMENT_QUESTION_CONTENT,
   COURSE_BLOCK_CONTENT,
 } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 
 /**
  * Composite MCQ node.
@@ -59,7 +58,6 @@ export function createMcqNode(options: McqNodeOptions = {}) {
       });
 
       return {
-        id: stableNodeIdAttribute(),
         settings: {
           ...makeAttr("data-mcq-settings", settingsDefault, McqSettingsSchema),
           renderHTML: (attrs: { settings: McqSettings }) => ({

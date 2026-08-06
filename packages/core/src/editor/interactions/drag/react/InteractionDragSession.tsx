@@ -1,27 +1,33 @@
 import {
-  closestCenter,
-  DndContext,
-  DragOverlay,
+  CollisionPriority,
+  CollisionType,
+  Plugin,
+  configure,
+  type CollisionDetector,
+} from "@dnd-kit/abstract";
+import {
+  RestrictToHorizontalAxis,
+  RestrictToVerticalAxis,
+} from "@dnd-kit/abstract/modifiers";
+import { closestCenter, pointerIntersection } from "@dnd-kit/collision";
+import {
+  Accessibility,
   KeyboardSensor,
+  PointerActivationConstraints,
   PointerSensor,
-  pointerWithin,
-  useSensor,
-  useSensors,
-  type Announcements,
-  type CollisionDetection,
-  type DndContextProps,
-  type DragCancelEvent,
+} from "@dnd-kit/dom";
+import {
+  DragDropProvider,
+  DragOverlay,
+  type CollisionEvent,
+  type DragDropManager,
   type DragEndEvent,
   type DragMoveEvent,
+  type DragOverEvent,
   type DragStartEvent,
-  type Modifier,
-} from "@dnd-kit/core";
-import {
-  horizontalListSortingStrategy,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
+  type UseDroppableInput,
+} from "@dnd-kit/react";
+import { isSortable } from "@dnd-kit/react/sortable";
 import {
   createContext,
   useCallback,
@@ -31,11 +37,12 @@ import {
   useMemo,
   useRef,
   useState,
+  type ComponentProps,
   type ReactNode,
+  type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
 
-import { createOwnerDocumentPointerTracker } from "../dom/owner-document-pointer-tracker";
 import {
   createClientDelta,
   createClientPoint,
@@ -62,7 +69,7 @@ import {
 
 import "./interaction-drag.css";
 
-export const INTERACTION_DRAG_REGISTRATION_DATA = "__scaffoldInteractionDragRegistration";
+const INTERACTION_DRAG_REGISTRATION_DATA = "__scaffoldInteractionDragRegistration";
 
 export interface InteractionDragRegistrationData {
   readonly activeData?: unknown;
@@ -70,6 +77,12 @@ export interface InteractionDragRegistrationData {
   readonly overData?: unknown;
   readonly source: boolean;
   readonly target: boolean;
+}
+
+export function createInteractionDragData(
+  registration: InteractionDragRegistrationData,
+): Record<string, unknown> {
+  return { [INTERACTION_DRAG_REGISTRATION_DATA]: registration };
 }
 
 export interface InteractionCollisionCandidate<OverData> {
@@ -94,29 +107,27 @@ export interface InteractionDragSessionProps<ActiveData, OverData> {
   readonly onMove?: (event: InteractionDragEvent<ActiveData, OverData>) => void;
   readonly onStart?: (event: InteractionDragEvent<ActiveData, OverData>) => void;
   readonly profile: DragInputProfile;
-  readonly renderPreview?: (active: ActiveData) => ReactNode;
+  readonly renderPreview: (active: ActiveData) => ReactNode;
   readonly resolveCollision?: (
     input: InteractionFeatureCollisionInput<ActiveData, OverData>,
   ) => string | null;
   readonly sessionId: string;
-  readonly sortableItems?: readonly string[];
 }
 
-export interface InteractionDragSessionAdapterContextValue {
+export interface InteractionDragSessionContextValue {
   readonly accessibilityMode: DragAccessibilityMode;
-  readonly activeId: string | null;
+  readonly collisionDetector: NonNullable<UseDroppableInput["collisionDetector"]>;
   readonly enabled: boolean;
-  readonly pointerActivationStarted: (sourceId: string, point: ClientPoint) => void;
   readonly reducedMotion: boolean;
-  readonly snapshot: CoordinateSpaceSnapshot | null;
   readonly sourceRemoved: (id: string) => void;
 }
 
-const InteractionDragSessionAdapterContext =
-  createContext<InteractionDragSessionAdapterContextValue | null>(null);
+const InteractionDragSessionContext = createContext<InteractionDragSessionContextValue | null>(
+  null,
+);
 
-export function useInteractionDragSessionAdapter(): InteractionDragSessionAdapterContextValue {
-  const context = useContext(InteractionDragSessionAdapterContext);
+export function useInteractionDragSession(): InteractionDragSessionContextValue {
+  const context = useContext(InteractionDragSessionContext);
   if (!context)
     throw new Error("Drag registrations must be rendered inside InteractionDragSession.");
   return context;
@@ -128,21 +139,20 @@ interface ActiveSession<ActiveData, OverData> {
   readonly environment: ReadyInteractionDragEnvironment;
   readonly focusTarget: HTMLElement | null;
   readonly input: DragInputKind;
-  started: boolean;
-  snapshot: CoordinateSpaceSnapshot;
-  stopCoordinateSubscription: (() => void) | null;
   latestMove: {
-    clientDelta: ClientDelta;
+    clientDelta: ClientDelta | null;
+    clientPoint: ClientPoint | null;
     over: Readonly<InteractionDragEntity<OverData>> | null;
   } | null;
+  readonly manager: DragDropManager;
+  snapshot: CoordinateSpaceSnapshot;
+  stopCoordinateSubscription: (() => void) | null;
+  stopLifecycleListeners: (() => void) | null;
 }
 
-interface ActivePresentation<ActiveData> {
-  readonly data: ActiveData;
-  readonly height: number;
-  readonly id: string;
-  readonly width: number;
-}
+const configuredPointerSensor = PointerSensor.configure({
+  activationConstraints: () => [new PointerActivationConstraints.Distance({ value: 4 })],
+});
 
 export function InteractionDragSession<ActiveData, OverData>({
   accessibilityMode,
@@ -157,96 +167,46 @@ export function InteractionDragSession<ActiveData, OverData>({
   renderPreview,
   resolveCollision,
   sessionId,
-  sortableItems,
 }: InteractionDragSessionProps<ActiveData, OverData>) {
   const environmentResolution = useInteractionDragEnvironmentResolution();
   const environment =
     environmentResolution.status === "ready" ? environmentResolution.environment : null;
-  const [activePresentation, setActivePresentation] =
-    useState<ActivePresentation<ActiveData> | null>(null);
-  const [snapshot, setSnapshot] = useState<CoordinateSpaceSnapshot | null>(null);
-  const [contextGeneration, setContextGeneration] = useState(0);
   const activeSessionRef = useRef<ActiveSession<ActiveData, OverData> | null>(null);
-  const pointerTrackerRef = useRef<ReturnType<typeof createOwnerDocumentPointerTracker> | null>(
-    null,
-  );
-  const pendingPointerActivationCleanupRef = useRef<(() => void) | null>(null);
-  const pendingPointerSourceIdRef = useRef<string | null>(null);
-  const pendingStartFrameRef = useRef<number | null>(null);
+  const pendingCancellationReasonRef = useRef<DragCancellationReason | null>(null);
   const callbacksRef = useRef({ onCancel, onEnd, onMove, onStart });
   callbacksRef.current = { onCancel, onEnd, onMove, onStart };
   const reducedMotion = useReducedMotion(environment?.ownerWindow ?? null);
 
-  const clearPendingPointerActivation = useCallback(() => {
-    const cleanup = pendingPointerActivationCleanupRef.current;
-    pendingPointerActivationCleanupRef.current = null;
-    pendingPointerSourceIdRef.current = null;
-    cleanup?.();
+  const releaseActiveSession = useCallback(() => {
+    const activeSession = activeSessionRef.current;
+    if (!activeSession) return null;
+    activeSessionRef.current = null;
+    activeSession.stopCoordinateSubscription?.();
+    activeSession.stopCoordinateSubscription = null;
+    activeSession.stopLifecycleListeners?.();
+    activeSession.stopLifecycleListeners = null;
+    restoreFocus(activeSession.focusTarget);
+    return activeSession;
   }, []);
 
-  const releasePointerTracking = useCallback(() => {
-    clearPendingPointerActivation();
-    pointerTrackerRef.current?.stop();
-    pointerTrackerRef.current = null;
-  }, [clearPendingPointerActivation]);
-
-  const pointerActivationStarted = useCallback(
-    (sourceId: string, point: ClientPoint) => {
-      if (!environment || activeSessionRef.current || !environmentElementsAreLive(environment)) {
-        return;
-      }
-      releasePointerTracking();
-      const tracker = createOwnerDocumentPointerTracker(environment.ownerDocument);
-      tracker.start(point);
-      pointerTrackerRef.current = tracker;
-      pendingPointerSourceIdRef.current = sourceId;
-
-      const stopPendingActivation = () => {
-        if (!activeSessionRef.current && pointerTrackerRef.current === tracker) {
-          releasePointerTracking();
-        }
-      };
-      environment.ownerDocument.addEventListener("pointerup", stopPendingActivation, true);
-      environment.ownerDocument.addEventListener("pointercancel", stopPendingActivation, true);
-      environment.ownerWindow.addEventListener("blur", stopPendingActivation);
-      pendingPointerActivationCleanupRef.current = () => {
-        environment.ownerDocument.removeEventListener("pointerup", stopPendingActivation, true);
-        environment.ownerDocument.removeEventListener("pointercancel", stopPendingActivation, true);
-        environment.ownerWindow.removeEventListener("blur", stopPendingActivation);
-      };
-    },
-    [environment, releasePointerTracking],
-  );
-
-  useEffect(() => () => releasePointerTracking(), [environment, releasePointerTracking]);
-
-  const releaseActiveSession = useCallback(
-    (remountDndContext: boolean) => {
-      const activeSession = activeSessionRef.current;
-      if (!activeSession) return null;
-      activeSessionRef.current = null;
-      if (pendingStartFrameRef.current !== null) {
-        activeSession.environment.ownerWindow.cancelAnimationFrame(pendingStartFrameRef.current);
-        pendingStartFrameRef.current = null;
-      }
-      activeSession.stopCoordinateSubscription?.();
-      activeSession.stopCoordinateSubscription = null;
-      releasePointerTracking();
-      setActivePresentation(null);
-      setSnapshot(null);
-      if (remountDndContext) setContextGeneration((generation) => generation + 1);
-      restoreFocus(activeSession.focusTarget);
-      return activeSession;
-    },
-    [releasePointerTracking],
-  );
-
-  const cancelActiveSession = useCallback(
-    (reason: DragCancellationReason, remountDndContext = true) => {
-      if (!releaseActiveSession(remountDndContext)) return;
+  const finishCancellation = useCallback(
+    (reason: DragCancellationReason) => {
+      pendingCancellationReasonRef.current = null;
+      if (!releaseActiveSession()) return;
       callbacksRef.current.onCancel?.(reason);
     },
     [releaseActiveSession],
+  );
+
+  const cancelActiveSession = useCallback(
+    (reason: DragCancellationReason) => {
+      const activeSession = activeSessionRef.current;
+      if (!activeSession) return;
+      pendingCancellationReasonRef.current = reason;
+      activeSession.manager.actions.stop({ canceled: true });
+      if (activeSessionRef.current === activeSession) finishCancellation(reason);
+    },
+    [finishCancellation],
   );
 
   useEffect(() => {
@@ -256,93 +216,68 @@ export function InteractionDragSession<ActiveData, OverData>({
     }
   }, [cancelActiveSession, environment]);
 
-  useEffect(() => {
-    if (!activePresentation) return;
-    const activeEnvironment = activeSessionRef.current?.environment;
-    if (!activeEnvironment) return;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") cancelActiveSession("escape", false);
-    };
-    const handleBlur = () => cancelActiveSession("owner-window-blur");
-    activeEnvironment.ownerDocument.addEventListener("keydown", handleKeyDown, true);
-    activeEnvironment.ownerWindow.addEventListener("blur", handleBlur);
-    return () => {
-      activeEnvironment.ownerDocument.removeEventListener("keydown", handleKeyDown, true);
-      activeEnvironment.ownerWindow.removeEventListener("blur", handleBlur);
-    };
-  }, [activePresentation, cancelActiveSession]);
-
   useEffect(
     () => () => {
       const activeSession = activeSessionRef.current;
       if (!activeSession) return;
       activeSessionRef.current = null;
-      if (pendingStartFrameRef.current !== null) {
-        activeSession.environment.ownerWindow.cancelAnimationFrame(pendingStartFrameRef.current);
-        pendingStartFrameRef.current = null;
-      }
       activeSession.stopCoordinateSubscription?.();
-      releasePointerTracking();
+      activeSession.stopLifecycleListeners?.();
       callbacksRef.current.onCancel?.("unmount");
       restoreFocus(activeSession.focusTarget);
     },
-    [releasePointerTracking],
+    [],
   );
 
   const handleDragStart = useCallback(
-    (event: DragStartEvent) => {
+    (event: DragStartEvent, manager: DragDropManager) => {
       if (activeSessionRef.current) return;
       if (!environment || !environmentElementsAreLive(environment)) {
-        releasePointerTracking();
+        manager.actions.stop({ canceled: true });
         return;
       }
-      const registration = registrationFromData(event.active.data.current);
-      if (!registration?.source) {
-        releasePointerTracking();
+      const source = event.operation.source;
+      const registration = registrationFromData(source?.data);
+      if (!source || !registration?.source) {
+        manager.actions.stop({ canceled: true });
         return;
       }
       const measuredSnapshot = environment.coordinateSpace.measure();
-      if (!measuredSnapshot) {
-        releasePointerTracking();
-        return;
-      }
       const collisionBoundaryRect = measureCollisionBoundary(environment);
-      if (!collisionBoundaryRect) {
-        releasePointerTracking();
+      if (!measuredSnapshot || !collisionBoundaryRect || !positiveSourceSize(source.element)) {
+        manager.actions.stop({ canceled: true });
         return;
       }
-      const input = inputKindFromActivator(event.activatorEvent, environment.ownerWindow);
-      if (input === "keyboard") {
-        releasePointerTracking();
-      } else if (!pointerTrackerRef.current) {
-        const initialPoint = pointerPointForEvent(
-          "pointer",
-          event.activatorEvent,
-          null,
-          environment,
-        );
-        if (!initialPoint) return;
-        const tracker = createOwnerDocumentPointerTracker(environment.ownerDocument);
-        tracker.start(initialPoint);
-        pointerTrackerRef.current = tracker;
+      const input = inputKindFromActivator(event.operation.activatorEvent, environment.ownerWindow);
+      const active = entityFromSource<ActiveData>(source);
+      if (!active) {
+        manager.actions.stop({ canceled: true });
+        return;
       }
-      clearPendingPointerActivation();
-      const active = Object.freeze({
-        id: String(event.active.id),
-        data: registration.activeData as ActiveData,
-      });
+      const clientPoint =
+        input === "pointer" ? clientPointFromCoordinates(event.operation.position.current) : null;
       const activeSession: ActiveSession<ActiveData, OverData> = {
         active,
         collisionBoundaryRect,
         environment,
         focusTarget: focusedHTMLElement(environment.ownerDocument),
         input,
-        latestMove: null,
-        started: false,
+        latestMove:
+          input === "pointer"
+            ? { clientDelta: createClientDelta(0, 0), clientPoint, over: null }
+            : null,
+        manager,
         snapshot: measuredSnapshot,
         stopCoordinateSubscription: null,
+        stopLifecycleListeners: null,
       };
       activeSessionRef.current = activeSession;
+
+      const handleBlur = () => cancelActiveSession("owner-window-blur");
+      environment.ownerWindow.addEventListener("blur", handleBlur);
+      activeSession.stopLifecycleListeners = () =>
+        environment.ownerWindow.removeEventListener("blur", handleBlur);
+
       activeSession.stopCoordinateSubscription = environment.coordinateSpace.subscribe(() => {
         if (activeSessionRef.current !== activeSession) return;
         if (!environmentElementsAreLive(environment)) {
@@ -357,68 +292,42 @@ export function InteractionDragSession<ActiveData, OverData>({
         }
         activeSession.collisionBoundaryRect = nextCollisionBoundaryRect;
         activeSession.snapshot = nextSnapshot;
-        setSnapshot(nextSnapshot);
-        if (activeSession.input !== "pointer" || !activeSession.latestMove) return;
-        const clientPoint = pointerTrackerRef.current?.getLatestClientPoint() ?? null;
+        if (!activeSession.latestMove) return;
         callbacksRef.current.onMove?.(
           normalizedEvent(
             activeSession.active,
             activeSession.latestMove.over,
-            "pointer",
-            clientPoint,
+            activeSession.input,
+            activeSession.latestMove.clientPoint,
             activeSession.latestMove.clientDelta,
             nextSnapshot,
           ),
         );
       });
-      setSnapshot(measuredSnapshot);
-      const presentSource = () => {
-        const sourceSize = positiveSourceSize(event.active);
-        if (!sourceSize || activeSessionRef.current !== activeSession) return false;
-        activeSession.started = true;
-        setActivePresentation({
-          data: active.data,
-          height: sourceSize.height,
-          id: active.id,
-          width: sourceSize.width,
-        });
-        callbacksRef.current.onStart?.(
-          normalizedEvent(
-            active,
-            null,
-            input,
-            pointerPointForEvent(
-              input,
-              event.activatorEvent,
-              pointerTrackerRef.current,
-              environment,
-            ),
-            input === "pointer" ? createClientDelta(0, 0)! : null,
-            measuredSnapshot,
-          ),
-        );
-        return true;
-      };
-      if (!presentSource()) {
-        pendingStartFrameRef.current = environment.ownerWindow.requestAnimationFrame(() => {
-          pendingStartFrameRef.current = null;
-          if (!presentSource()) cancelActiveSession("dnd-kit");
-        });
-      }
+
+      callbacksRef.current.onStart?.(
+        normalizedEvent(
+          active,
+          null,
+          input,
+          clientPoint,
+          input === "pointer" ? createClientDelta(0, 0) : null,
+          measuredSnapshot,
+        ),
+      );
     },
-    [cancelActiveSession, clearPendingPointerActivation, environment, releasePointerTracking],
+    [cancelActiveSession, environment],
   );
 
   const handleDragMove = useCallback(
     (event: DragMoveEvent) => {
       const activeSession = activeSessionRef.current;
       if (!activeSession) return;
-      if (!activeSession.started) return;
       if (!environmentElementsAreLive(activeSession.environment)) {
         cancelActiveSession("environment-lost");
         return;
       }
-      const over = overEntity<OverData>(event.over);
+      const over = entityFromTarget<OverData>(event.operation.target);
       if (activeSession.input === "keyboard") {
         callbacksRef.current.onMove?.(
           normalizedEvent(
@@ -432,15 +341,20 @@ export function InteractionDragSession<ActiveData, OverData>({
         );
         return;
       }
-      const clientDelta = createClientDelta(event.delta.x, event.delta.y);
-      if (!clientDelta) return;
-      activeSession.latestMove = { clientDelta, over };
+      const coordinates = moveCoordinates(event);
+      const clientPoint = clientPointFromCoordinates(coordinates);
+      const clientDelta = createClientDelta(
+        coordinates.x - event.operation.position.initial.x,
+        coordinates.y - event.operation.position.initial.y,
+      );
+      if (!clientPoint || !clientDelta) return;
+      activeSession.latestMove = { clientDelta, clientPoint, over };
       callbacksRef.current.onMove?.(
         normalizedEvent(
           activeSession.active,
           over,
           "pointer",
-          pointerTrackerRef.current?.getLatestClientPoint() ?? null,
+          clientPoint,
           clientDelta,
           activeSession.snapshot,
         ),
@@ -449,144 +363,144 @@ export function InteractionDragSession<ActiveData, OverData>({
     [cancelActiveSession],
   );
 
+  const handleDragOver = useCallback((event: DragOverEvent) => {
+    const activeSession = activeSessionRef.current;
+    if (!activeSession) return;
+    const over = entityFromTarget<OverData>(event.operation.target);
+    if (activeSession.input === "keyboard") {
+      callbacksRef.current.onMove?.(
+        normalizedEvent(
+          activeSession.active,
+          over,
+          "keyboard",
+          null,
+          null,
+          activeSession.snapshot,
+        ),
+      );
+      return;
+    }
+    if (!activeSession.latestMove) return;
+    activeSession.latestMove = { ...activeSession.latestMove, over };
+    callbacksRef.current.onMove?.(
+      normalizedEvent(
+        activeSession.active,
+        over,
+        "pointer",
+        activeSession.latestMove.clientPoint,
+        activeSession.latestMove.clientDelta,
+        activeSession.snapshot,
+      ),
+    );
+  }, []);
+
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       const activeSession = activeSessionRef.current;
       if (!activeSession) return;
-      if (!activeSession.started) {
-        cancelActiveSession("dnd-kit", false);
+      if (event.canceled) {
+        finishCancellation(
+          pendingCancellationReasonRef.current ?? cancellationReasonFromEvent(event.nativeEvent),
+        );
         return;
       }
       if (!environmentElementsAreLive(activeSession.environment)) {
-        cancelActiveSession("environment-lost", false);
+        finishCancellation("environment-lost");
         return;
       }
-      const over = overEntity<OverData>(event.over);
+      const active = entityFromSource<ActiveData>(event.operation.source) ?? activeSession.active;
+      const over = entityFromTarget<OverData>(event.operation.target);
       if (!over) {
-        cancelActiveSession("invalid-drop", false);
+        finishCancellation("invalid-drop");
         return;
       }
+      const clientPoint =
+        activeSession.input === "pointer"
+          ? clientPointFromCoordinates(event.operation.position.current)
+          : null;
       const clientDelta =
-        activeSession.input === "pointer" ? createClientDelta(event.delta.x, event.delta.y) : null;
+        activeSession.input === "pointer"
+          ? createClientDelta(event.operation.position.delta.x, event.operation.position.delta.y)
+          : null;
       const normalized = normalizedEvent(
-        activeSession.active,
+        active,
         over,
         activeSession.input,
-        activeSession.input === "pointer"
-          ? (pointerTrackerRef.current?.getLatestClientPoint() ?? null)
-          : null,
+        clientPoint,
         clientDelta,
         activeSession.snapshot,
       );
-      releaseActiveSession(false);
+      pendingCancellationReasonRef.current = null;
+      releaseActiveSession();
       callbacksRef.current.onEnd(normalized);
     },
-    [cancelActiveSession, releaseActiveSession],
+    [finishCancellation, releaseActiveSession],
   );
 
-  const handleDragCancel = useCallback(
-    (_event: DragCancelEvent) => cancelActiveSession("dnd-kit", false),
-    [cancelActiveSession],
-  );
   const sourceRemoved = useCallback(
     (id: string) => {
-      if (activeSessionRef.current?.active.id === id) {
-        cancelActiveSession("source-removed");
-      } else if (pendingPointerSourceIdRef.current === id) {
-        releasePointerTracking();
-      }
+      if (activeSessionRef.current?.active.id === id) cancelActiveSession("source-removed");
     },
-    [cancelActiveSession, releasePointerTracking],
+    [cancelActiveSession],
   );
-  const adapterContext = useMemo<InteractionDragSessionAdapterContextValue>(
-    () => ({
-      accessibilityMode,
-      activeId: activePresentation?.id ?? null,
-      enabled: environment !== null,
-      pointerActivationStarted,
-      reducedMotion,
-      snapshot,
-      sourceRemoved,
-    }),
-    [
-      accessibilityMode,
-      activePresentation?.id,
-      environment,
-      pointerActivationStarted,
-      reducedMotion,
-      snapshot,
-      sourceRemoved,
-    ],
-  );
-  const sensors = useInteractionSensors(profile, accessibilityMode);
-  const collisionDetection = useCollisionDetection(
+  const collisionDetector = useInteractionCollisionDetector(collisionPolicy, activeSessionRef);
+  const handleCollision = useFeatureCollision(
     collisionPolicy,
     resolveCollision,
     activeSessionRef,
-    pointerTrackerRef,
   );
-  const accessibility = useMemo<NonNullable<DndContextProps["accessibility"]>>(
-    () => createAccessibility(accessibilityMode, labels, environment?.overlayHost),
-    [accessibilityMode, environment?.overlayHost, labels],
+  const context = useMemo<InteractionDragSessionContextValue>(
+    () => ({
+      accessibilityMode,
+      collisionDetector,
+      enabled: environment !== null,
+      reducedMotion,
+      sourceRemoved,
+    }),
+    [accessibilityMode, collisionDetector, environment, reducedMotion, sourceRemoved],
   );
-  const modifiers = useMemo<Modifier[]>(() => {
-    if (profile === "sortable-vertical") return [restrictToVerticalAxis];
-    if (profile === "sortable-horizontal") return [restrictToHorizontalAxis];
-    return [];
-  }, [profile]);
-
-  const registeredChildren = (
-    <InteractionDragSessionAdapterContext value={adapterContext}>
-      {profile === "sortable-vertical" || profile === "sortable-horizontal" ? (
-        <SortableContext
-          items={[...(sortableItems ?? [])]}
-          strategy={
-            profile === "sortable-vertical"
-              ? verticalListSortingStrategy
-              : horizontalListSortingStrategy
-          }
-        >
-          {children}
-        </SortableContext>
-      ) : (
-        children
-      )}
-    </InteractionDragSessionAdapterContext>
-  );
+  const sensors = useInteractionSensors(profile, accessibilityMode);
+  const modifiers = useInteractionModifiers(profile);
+  const accessibilityContainer =
+    environment?.overlayHost ?? (typeof document === "undefined" ? null : document.body);
+  const plugins = useInteractionPlugins(accessibilityMode, accessibilityContainer, labels, sessionId);
 
   return (
-    <DndContext
-      key={`${sessionId}:${contextGeneration}`}
-      id={sessionId}
-      accessibility={accessibility}
-      collisionDetection={collisionDetection}
+    <DragDropProvider
       modifiers={modifiers}
+      plugins={plugins}
       sensors={sensors}
-      onDragCancel={handleDragCancel}
+      onCollision={handleCollision}
       onDragEnd={handleDragEnd}
       onDragMove={handleDragMove}
+      onDragOver={handleDragOver}
       onDragStart={handleDragStart}
     >
-      {registeredChildren}
-      {environment && activePresentation && renderPreview
+      <InteractionDragSessionContext value={context}>{children}</InteractionDragSessionContext>
+      {environment
         ? createPortal(
             <DragOverlay
-              adjustScale={false}
               dropAnimation={
-                reducedMotion ? null : { duration: 160, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }
+                reducedMotion || !supportsWebAnimations(environment.ownerWindow)
+                  ? null
+                  : { duration: 160, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }
               }
             >
-              <InteractionDragPreview
-                height={activePresentation.height}
-                width={activePresentation.width}
-              >
-                {renderPreview(activePresentation.data)}
-              </InteractionDragPreview>
+              {(source) => {
+                const registration = registrationFromData(source.data);
+                const sourceSize = positiveSourceSize(source.element);
+                if (!registration?.source || !sourceSize) return null;
+                return (
+                  <InteractionDragPreview height={sourceSize.height} width={sourceSize.width}>
+                    {renderPreview(registration.activeData as ActiveData)}
+                  </InteractionDragPreview>
+                );
+              }}
             </DragOverlay>,
             environment.overlayHost,
           )
         : null}
-    </DndContext>
+    </DragDropProvider>
   );
 }
 
@@ -625,48 +539,72 @@ function InteractionDragPreview({
 }
 
 function useInteractionSensors(profile: DragInputProfile, mode: DragAccessibilityMode) {
-  const pointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 4 } });
-  const keyboardSensor = useSensor(KeyboardSensor, {
-    coordinateGetter: sortableKeyboardCoordinates,
-  });
-  const keyboardEnabled =
-    mode !== "selection-alternative" &&
-    (profile === "sortable-vertical" || profile === "sortable-horizontal");
-  return useSensors(...(keyboardEnabled ? [pointerSensor, keyboardSensor] : [pointerSensor]));
+  return useMemo(
+    () =>
+      mode !== "selection-alternative" &&
+      (profile === "sortable-vertical" || profile === "sortable-horizontal")
+        ? [configuredPointerSensor, KeyboardSensor]
+        : [configuredPointerSensor],
+    [mode, profile],
+  );
 }
 
-function useCollisionDetection<ActiveData, OverData>(
+function useInteractionModifiers(profile: DragInputProfile) {
+  return useMemo(() => {
+    if (profile === "sortable-vertical") return [RestrictToVerticalAxis];
+    if (profile === "sortable-horizontal") return [RestrictToHorizontalAxis];
+    return [];
+  }, [profile]);
+}
+
+function useInteractionCollisionDetector<ActiveData, OverData>(
   policy: InteractionCollisionPolicy,
-  resolveCollision: InteractionDragSessionProps<ActiveData, OverData>["resolveCollision"],
-  activeSessionRef: React.RefObject<ActiveSession<ActiveData, OverData> | null>,
-  pointerTrackerRef: React.RefObject<ReturnType<typeof createOwnerDocumentPointerTracker> | null>,
-): CollisionDetection {
-  return useCallback<CollisionDetection>(
+  activeSessionRef: RefObject<ActiveSession<ActiveData, OverData> | null>,
+): CollisionDetector {
+  return useCallback<CollisionDetector>(
     (input) => {
       const activeSession = activeSessionRef.current;
-      if (!activeSession) return [];
-      const constrainedInput = constrainCollisionInput(input, activeSession.collisionBoundaryRect);
-      if (policy === "pointer") return pointerWithin(constrainedInput);
-      if (policy === "closest-center") return closestCenter(constrainedInput);
-      if (!resolveCollision) return [];
-      const clientPoint =
-        activeSession.input === "pointer"
-          ? (pointerTrackerRef.current?.getLatestClientPoint() ?? null)
-          : null;
-      const candidates = constrainedInput.droppableContainers.flatMap((container) => {
-        const registration = registrationFromData(container.data.current);
-        const rect = constrainedInput.droppableRects.get(container.id);
+      const rect = input.droppable.shape?.boundingRectangle;
+      if (!activeSession || !rect || !rectsIntersect(rect, activeSession.collisionBoundaryRect)) {
+        return null;
+      }
+      if (policy === "pointer") return pointerIntersection(input);
+      if (policy === "closest-center") return closestCenter(input);
+      return {
+        id: input.droppable.id,
+        priority: CollisionPriority.Normal,
+        type: CollisionType.Collision,
+        value: 1,
+      };
+    },
+    [activeSessionRef, policy],
+  );
+}
+
+function useFeatureCollision<ActiveData, OverData>(
+  policy: InteractionCollisionPolicy,
+  resolveCollision: InteractionDragSessionProps<ActiveData, OverData>["resolveCollision"],
+  activeSessionRef: RefObject<ActiveSession<ActiveData, OverData> | null>,
+): NonNullable<ComponentProps<typeof DragDropProvider>["onCollision"]> {
+  return useCallback(
+    (event: CollisionEvent, manager: DragDropManager) => {
+      if (policy !== "feature-resolver") return;
+      event.preventDefault();
+      const activeSession = activeSessionRef.current;
+      if (!activeSession || !resolveCollision) {
+        void manager.actions.setDropTarget(null);
+        return;
+      }
+      const candidates = event.collisions.flatMap((collision) => {
+        const droppable = manager.registry.droppables.get(collision.id);
+        const registration = registrationFromData(droppable?.data);
+        const rect = droppable?.shape?.boundingRectangle;
         if (!registration?.target || !rect) return [];
-        const clientRect: ClientRectSnapshot = Object.freeze({
-          space: "client",
-          left: rect.left,
-          top: rect.top,
-          width: rect.width,
-          height: rect.height,
-        });
+        const clientRect = createClientRectSnapshot(rect.left, rect.top, rect.width, rect.height);
+        if (!clientRect) return [];
         return [
           Object.freeze({
-            id: String(container.id),
+            id: String(collision.id),
             data: registration.overData as OverData,
             clientRect,
           }),
@@ -674,97 +612,246 @@ function useCollisionDetection<ActiveData, OverData>(
       });
       const resolvedId = resolveCollision({
         active: activeSession.active,
-        clientPoint,
+        clientPoint:
+          activeSession.input === "pointer"
+            ? clientPointFromCoordinates(manager.dragOperation.position.current)
+            : null,
         candidates,
       });
-      return resolvedId === null ? [] : [{ id: resolvedId }];
+      if (String(manager.dragOperation.target?.id ?? "") !== String(resolvedId ?? "")) {
+        void manager.actions.setDropTarget(resolvedId);
+      }
     },
-    [activeSessionRef, policy, pointerTrackerRef, resolveCollision],
+    [activeSessionRef, policy, resolveCollision],
   );
 }
 
-function positiveSourceSize(
-  active: DragStartEvent["active"],
-): Readonly<{ width: number; height: number }> | null {
-  const rect = active.rect.current.initial ?? active.rect.current.translated;
-  if (!rect || !Number.isFinite(rect.width) || !Number.isFinite(rect.height)) return null;
-  if (rect.width <= 0 || rect.height <= 0) return null;
-  return Object.freeze({ width: rect.width, height: rect.height });
-}
-
-function constrainCollisionInput(
-  input: Parameters<CollisionDetection>[0],
-  boundary: ClientRectSnapshot,
-): Parameters<CollisionDetection>[0] {
-  const droppableContainers = input.droppableContainers.filter((container) => {
-    const rect = input.droppableRects.get(container.id);
-    return rect ? rectsIntersect(rect, boundary) : false;
-  });
-  const droppableRects = new Map(
-    droppableContainers.flatMap((container) => {
-      const rect = input.droppableRects.get(container.id);
-      return rect ? [[container.id, rect] as const] : [];
-    }),
-  );
-  return { ...input, droppableContainers, droppableRects };
-}
-
-function rectsIntersect(
-  rect: Readonly<{ left: number; top: number; right: number; bottom: number }>,
-  boundary: ClientRectSnapshot,
-): boolean {
-  const boundaryRight = boundary.left + boundary.width;
-  const boundaryBottom = boundary.top + boundary.height;
-  return (
-    rect.right >= boundary.left &&
-    rect.left <= boundaryRight &&
-    rect.bottom >= boundary.top &&
-    rect.top <= boundaryBottom
-  );
-}
-
-function createAccessibility(
+function useInteractionPlugins(
   mode: DragAccessibilityMode,
+  container: HTMLElement | null,
   labels: DragAccessibilityLabels,
-  container: HTMLElement | undefined,
-): NonNullable<DndContextProps["accessibility"]> {
-  const silentAnnouncements: Announcements = {
-    onDragStart: () => undefined,
-    onDragOver: () => undefined,
-    onDragEnd: () => undefined,
-    onDragCancel: () => undefined,
-  };
-  const announcements: Announcements =
-    mode === "selection-alternative"
-      ? silentAnnouncements
-      : {
-          onDragStart: ({ active }) =>
-            labels.pickedUp ?? `Picked up ${labelFor(active.data.current)}.`,
-          onDragMove: ({ active, over }) =>
-            labels.moved ??
-            (over
-              ? `${labelFor(active.data.current)} is over ${labelFor(over.data.current)}.`
-              : `${labelFor(active.data.current)} is moving.`),
-          onDragOver: ({ active, over }) =>
-            labels.moved ??
-            (over
-              ? `${labelFor(active.data.current)} is over ${labelFor(over.data.current)}.`
-              : `${labelFor(active.data.current)} is no longer over a target.`),
-          onDragEnd: ({ active, over }) =>
-            labels.dropped ??
-            (over
-              ? `Dropped ${labelFor(active.data.current)} on ${labelFor(over.data.current)}.`
-              : `Drop cancelled for ${labelFor(active.data.current)}.`),
-          onDragCancel: ({ active }) =>
-            labels.cancelled ?? `Cancelled moving ${labelFor(active.data.current)}.`,
-        };
-  return {
-    announcements,
-    ...(container ? { container } : {}),
-    restoreFocus: mode !== "selection-alternative",
-    screenReaderInstructions: {
-      draggable: mode === "selection-alternative" ? "" : (labels.instructions ?? labels.draggable),
+  sessionId: string,
+): NonNullable<ComponentProps<typeof DragDropProvider>["plugins"]> {
+  return useMemo(
+    () => (defaults) => {
+      const withoutDefaultAccessibility = defaults.filter(
+        (entry) => pluginConstructor(entry) !== Accessibility,
+      );
+      if (mode === "selection-alternative") return withoutDefaultAccessibility;
+      const accessibility = configure(InteractionDragAccessibility, {
+        container,
+        labels,
+        sessionId,
+      });
+      return [...withoutDefaultAccessibility, accessibility];
     },
+    [container, labels, mode, sessionId],
+  );
+}
+
+function pluginConstructor(entry: unknown): unknown {
+  if (typeof entry === "function") return entry;
+  if (entry && typeof entry === "object" && "plugin" in entry) return entry.plugin;
+  return null;
+}
+
+interface InteractionDragAccessibilityOptions {
+  readonly container?: HTMLElement | null;
+  readonly labels?: DragAccessibilityLabels;
+  readonly sessionId?: string;
+}
+
+class InteractionDragAccessibility extends Plugin<
+  DragDropManager,
+  InteractionDragAccessibilityOptions
+> {
+  private readonly description: HTMLElement | null;
+  private readonly liveRegion: HTMLElement | null;
+  private announcementFrame: number | null = null;
+
+  constructor(manager: DragDropManager, options?: InteractionDragAccessibilityOptions) {
+    super(manager, options);
+    const ownerDocument = options?.container?.ownerDocument ?? null;
+    this.description = ownerDocument?.createElement("div") ?? null;
+    this.liveRegion = ownerDocument?.createElement("div") ?? null;
+    if (
+      this.description &&
+      this.liveRegion &&
+      options?.container &&
+      options.labels &&
+      options.sessionId
+    ) {
+      this.description.id = `scaffold-dnd-description-${options.sessionId}`;
+      this.description.hidden = true;
+      this.description.textContent = options.labels.instructions ?? options.labels.draggable;
+      this.liveRegion.id = `scaffold-dnd-announcement-${options.sessionId}`;
+      this.liveRegion.setAttribute("role", "status");
+      this.liveRegion.setAttribute("aria-live", "polite");
+      this.liveRegion.setAttribute("aria-atomic", "true");
+      visuallyHide(this.liveRegion);
+      options.container.append(this.description, this.liveRegion);
+    }
+
+    this.registerEffect(() => {
+      const cleanups: Array<() => void> = [];
+      for (const draggable of manager.registry.draggables.value) {
+        const handle = draggable.handle ?? draggable.element;
+        if (!handle) continue;
+        if (!draggable.disabled) {
+          if (!isNaturallyFocusable(handle) && !handle.hasAttribute("tabindex")) {
+            cleanups.push(setManagedAttribute(handle, "tabindex", "0"));
+          }
+          if (handle.tagName.toLowerCase() !== "button" && !handle.hasAttribute("role")) {
+            cleanups.push(setManagedAttribute(handle, "role", "button"));
+          }
+          if (!handle.hasAttribute("aria-roledescription")) {
+            cleanups.push(setManagedAttribute(handle, "aria-roledescription", "draggable"));
+          }
+          if (this.description && !handle.hasAttribute("aria-describedby")) {
+            cleanups.push(setManagedAttribute(handle, "aria-describedby", this.description.id));
+          }
+          if (!handle.hasAttribute("aria-pressed")) {
+            cleanups.push(
+              setManagedAttribute(handle, "aria-pressed", String(draggable.isDragging)),
+            );
+          }
+          if (!handle.hasAttribute("aria-grabbed")) {
+            cleanups.push(
+              setManagedAttribute(handle, "aria-grabbed", String(draggable.isDragging)),
+            );
+          }
+        }
+        if (!handle.hasAttribute("aria-disabled")) {
+          cleanups.push(setManagedAttribute(handle, "aria-disabled", String(draggable.disabled)));
+        }
+      }
+      return () => cleanups.reverse().forEach((cleanup) => cleanup());
+    });
+
+    const listeners = [
+      manager.monitor.addEventListener("dragstart", (event) => {
+        const source = event.operation.source;
+        if (!source) return;
+        this.announce(
+          this.options?.labels?.pickedUp ?? `Picked up ${labelFor(source.data)}.`,
+        );
+      }),
+      manager.monitor.addEventListener("dragmove", (event) => {
+        const { source, target } = event.operation;
+        if (!source) return;
+        this.announce(this.options?.labels?.moved ?? movementAnnouncement(source, target));
+      }),
+      manager.monitor.addEventListener("dragover", (event) => {
+        const { source, target } = event.operation;
+        if (!source) return;
+        this.announce(this.options?.labels?.moved ?? movementAnnouncement(source, target));
+      }),
+      manager.monitor.addEventListener("dragend", (event) => {
+        const { source, target } = event.operation;
+        if (!source) return;
+        if (event.canceled) {
+          this.announce(
+            this.options?.labels?.cancelled ?? `Cancelled moving ${labelFor(source.data)}.`,
+          );
+          return;
+        }
+        this.announce(this.options?.labels?.dropped ?? dropAnnouncement(source, target));
+      }),
+    ];
+
+    const destroy = this.destroy.bind(this);
+    this.destroy = () => {
+      destroy();
+      listeners.forEach((remove) => remove());
+      const ownerWindow = this.liveRegion?.ownerDocument.defaultView;
+      if (ownerWindow && this.announcementFrame !== null) {
+        ownerWindow.cancelAnimationFrame(this.announcementFrame);
+      }
+      this.description?.remove();
+      this.liveRegion?.remove();
+    };
+  }
+
+  override configure(options?: InteractionDragAccessibilityOptions): void {
+    super.configure(options);
+    if (!options) return;
+    if (this.description && options.labels) {
+      this.description.textContent = options.labels.instructions ?? options.labels.draggable;
+    }
+    if (this.description && this.liveRegion && options.container) {
+      options.container.append(this.description, this.liveRegion);
+    }
+  }
+
+  private announce(message: string | undefined): void {
+    if (!message || !this.liveRegion) return;
+    const ownerWindow = this.liveRegion.ownerDocument.defaultView;
+    if (!ownerWindow) return;
+    if (this.announcementFrame !== null) ownerWindow.cancelAnimationFrame(this.announcementFrame);
+    this.liveRegion.textContent = "";
+    this.announcementFrame = ownerWindow.requestAnimationFrame(() => {
+      this.announcementFrame = null;
+      if (this.liveRegion) this.liveRegion.textContent = message;
+    });
+  }
+}
+
+function visuallyHide(element: HTMLElement): void {
+  element.style.position = "fixed";
+  element.style.width = "1px";
+  element.style.height = "1px";
+  element.style.margin = "-1px";
+  element.style.padding = "0";
+  element.style.border = "0";
+  element.style.overflow = "hidden";
+  element.style.clip = "rect(0 0 0 0)";
+  element.style.clipPath = "inset(100%)";
+  element.style.whiteSpace = "nowrap";
+}
+
+function setManagedAttribute(element: Element, name: string, value: string): () => void {
+  const previous = element.getAttribute(name);
+  element.setAttribute(name, value);
+  return () => {
+    if (previous === null) element.removeAttribute(name);
+    else element.setAttribute(name, previous);
+  };
+}
+
+function isNaturallyFocusable(element: Element): boolean {
+  return ["button", "input", "select", "textarea", "a"].includes(
+    element.tagName.toLowerCase(),
+  );
+}
+
+function movementAnnouncement(
+  source: NonNullable<DragMoveEvent["operation"]["source"]>,
+  target: DragMoveEvent["operation"]["target"],
+): string {
+  const label = labelFor(source.data);
+  if (isSortable(source) && source.id === target?.id) {
+    return `${label} moved to position ${source.index + 1}.`;
+  }
+  return target
+    ? `${label} is over ${labelFor(target.data)}.`
+    : `${label} is no longer over a target.`;
+}
+
+function dropAnnouncement(
+  source: NonNullable<DragEndEvent["operation"]["source"]>,
+  target: DragEndEvent["operation"]["target"],
+): string {
+  const label = labelFor(source.data);
+  if (isSortable(source)) return `Dropped ${label} at position ${source.index + 1}.`;
+  return target ? `Dropped ${label} on ${labelFor(target.data)}.` : `Drop cancelled for ${label}.`;
+}
+
+function moveCoordinates(event: DragMoveEvent): Readonly<{ x: number; y: number }> {
+  if (event.to) return event.to;
+  const current = event.operation.position.current;
+  return {
+    x: current.x + (event.by?.x ?? 0),
+    y: current.y + (event.by?.y ?? 0),
   };
 }
 
@@ -787,13 +874,33 @@ function normalizedEvent<ActiveData, OverData>(
   });
 }
 
-function overEntity<OverData>(
-  over: DragMoveEvent["over"],
-): Readonly<InteractionDragEntity<OverData>> | null {
-  if (!over) return null;
-  const registration = registrationFromData(over.data.current);
+function entityFromSource<Data>(
+  source: DragStartEvent["operation"]["source"],
+): Readonly<InteractionDragEntity<Data>> | null {
+  if (!source) return null;
+  const registration = registrationFromData(source.data);
+  if (!registration?.source) return null;
+  return Object.freeze({
+    id: String(source.id),
+    data: registration.activeData as Data,
+    ...(isSortable(source)
+      ? {
+          sortable: Object.freeze({
+            index: source.index,
+            initialIndex: source.initialIndex,
+          }),
+        }
+      : {}),
+  });
+}
+
+function entityFromTarget<Data>(
+  target: DragMoveEvent["operation"]["target"],
+): Readonly<InteractionDragEntity<Data>> | null {
+  if (!target) return null;
+  const registration = registrationFromData(target.data);
   if (!registration?.target) return null;
-  return Object.freeze({ id: String(over.id), data: registration.overData as OverData });
+  return Object.freeze({ id: String(target.id), data: registration.overData as Data });
 }
 
 function registrationFromData(data: Record<string, unknown> | undefined) {
@@ -813,30 +920,48 @@ function labelFor(data: Record<string, unknown> | undefined): string {
   return registrationFromData(data)?.label ?? "item";
 }
 
-function inputKindFromActivator(event: Event, ownerWindow: Window): DragInputKind {
+function inputKindFromActivator(event: Event | null, ownerWindow: Window): DragInputKind {
+  if (!event) return "pointer";
   const OwnerKeyboardEvent = (ownerWindow as Window & typeof globalThis).KeyboardEvent;
   return event instanceof OwnerKeyboardEvent || event.type.startsWith("key")
     ? "keyboard"
     : "pointer";
 }
 
-function pointerPointForEvent(
-  input: DragInputKind,
-  activatorEvent: Event,
-  tracker: ReturnType<typeof createOwnerDocumentPointerTracker> | null,
-  environment: ReadyInteractionDragEnvironment,
+function cancellationReasonFromEvent(event: Event | undefined): DragCancellationReason {
+  return event?.type.startsWith("key") && "key" in event && event.key === "Escape"
+    ? "escape"
+    : "dnd-kit";
+}
+
+function clientPointFromCoordinates(
+  coordinates: Readonly<{ x: number; y: number }>,
 ): ClientPoint | null {
-  if (input === "keyboard") return null;
-  const tracked = tracker?.getLatestClientPoint();
-  if (tracked) return tracked;
-  const eventTarget = activatorEvent.target as (EventTarget & { ownerDocument?: Document }) | null;
-  if (eventTarget?.ownerDocument && eventTarget.ownerDocument !== environment.ownerDocument) {
-    return null;
-  }
-  const event = activatorEvent as Event & { clientX?: unknown; clientY?: unknown };
-  return typeof event.clientX === "number" && typeof event.clientY === "number"
-    ? createClientPoint(event.clientX, event.clientY)
-    : null;
+  return createClientPoint(coordinates.x, coordinates.y);
+}
+
+function positiveSourceSize(
+  element: Element | undefined,
+): Readonly<{ width: number; height: number }> | null {
+  if (!element?.isConnected) return null;
+  const rect = element.getBoundingClientRect();
+  if (!Number.isFinite(rect.width) || !Number.isFinite(rect.height)) return null;
+  if (rect.width <= 0 || rect.height <= 0) return null;
+  return Object.freeze({ width: rect.width, height: rect.height });
+}
+
+function rectsIntersect(
+  rect: Readonly<{ left: number; top: number; right: number; bottom: number }>,
+  boundary: ClientRectSnapshot,
+): boolean {
+  const boundaryRight = boundary.left + boundary.width;
+  const boundaryBottom = boundary.top + boundary.height;
+  return (
+    rect.right >= boundary.left &&
+    rect.left <= boundaryRight &&
+    rect.bottom >= boundary.top &&
+    rect.top <= boundaryBottom
+  );
 }
 
 function focusedHTMLElement(ownerDocument: Document): HTMLElement | null {
@@ -897,5 +1022,6 @@ function useReducedMotion(ownerWindow: Window | null): boolean {
   return reducedMotion;
 }
 
-const restrictToVerticalAxis: Modifier = ({ transform }) => ({ ...transform, x: 0 });
-const restrictToHorizontalAxis: Modifier = ({ transform }) => ({ ...transform, y: 0 });
+function supportsWebAnimations(ownerWindow: Window): boolean {
+  return typeof ownerWindow.document.documentElement.animate === "function";
+}

@@ -21,6 +21,7 @@ import {
 import { type EmbeddedNodeId } from "./embedded-id";
 
 const SURFACE_ID = "AbCdEf123_--";
+const COURSE_DOCUMENT_ID = "CdEfGh456_--";
 
 const IMAGE_POSITIONS = [
   "top-left",
@@ -39,6 +40,7 @@ describe("course document contracts", () => {
     expect(SCAFFOLD_DOCUMENT_FORMAT_VERSION).toBe(4);
     expect(
       CourseDocumentAttrsSchema.safeParse({
+        id: COURSE_DOCUMENT_ID,
         schemaVersion: 4,
         mode: "page",
         surfaceSize: "fluid",
@@ -57,6 +59,33 @@ describe("course document contracts", () => {
         schemaVersion: 2,
         mode: "page",
         surfaceSize: "fluid",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("requires persisted course document identity to use the EmbeddedNodeId wire format", () => {
+    const parsed = CourseDocumentAttrsSchema.parse({
+      id: COURSE_DOCUMENT_ID,
+      schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+      mode: "page",
+      theme: completeTheme(),
+    });
+
+    expect(parsed.id).toBe(COURSE_DOCUMENT_ID);
+    expectTypeOf(parsed.id).toEqualTypeOf<EmbeddedNodeId>();
+    expect(
+      CourseDocumentAttrsSchema.safeParse({
+        schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+        mode: "page",
+        theme: completeTheme(),
+      }).success,
+    ).toBe(false);
+    expect(
+      CourseDocumentAttrsSchema.safeParse({
+        id: "course-document-1",
+        schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+        mode: "page",
+        theme: completeTheme(),
       }).success,
     ).toBe(false);
   });
@@ -294,6 +323,7 @@ describe("course document contracts", () => {
   it("accepts only the surface size assigned to each course mode", () => {
     expect(
       CourseDocumentAttrsSchema.safeParse({
+        id: COURSE_DOCUMENT_ID,
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
         mode: "slideshow",
         surfaceSize: "16x9",
@@ -302,6 +332,7 @@ describe("course document contracts", () => {
     ).toBe(true);
     expect(
       CourseDocumentAttrsSchema.safeParse({
+        id: COURSE_DOCUMENT_ID,
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
         mode: "page",
         surfaceSize: "fluid",
@@ -310,6 +341,7 @@ describe("course document contracts", () => {
     ).toBe(true);
     expect(
       CourseDocumentAttrsSchema.safeParse({
+        id: COURSE_DOCUMENT_ID,
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
         mode: "branching",
         surfaceSize: "fluid",

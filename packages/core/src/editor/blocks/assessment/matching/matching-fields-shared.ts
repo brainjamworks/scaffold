@@ -4,6 +4,7 @@ import {
   fieldContainerSpec,
   textContentExpression,
 } from "@/document/model/content-model/content-groups";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { MatchAssessmentSchema } from "@scaffold/contracts";
 import type { AssessmentFeedbackContent } from "@scaffold/contracts";
 
@@ -68,8 +69,16 @@ export function matchingFieldContent(text = "") {
 
 export function matchingPairContent() {
   return [
-    { type: "matching_item", content: matchingFieldContent() },
-    { type: "matching_target", content: matchingFieldContent() },
+    {
+      type: "matching_item",
+      attrs: { id: createEmbeddedNodeId() },
+      content: matchingFieldContent(),
+    },
+    {
+      type: "matching_target",
+      attrs: { id: createEmbeddedNodeId() },
+      content: matchingFieldContent(),
+    },
   ];
 }
 
@@ -244,23 +253,6 @@ export function createMatchingPairNode(options: MatchingFieldNodeOptions = {}) {
     isolating: true,
     selectable: false,
     draggable: false,
-
-    addAttributes() {
-      return {
-        itemId: {
-          default: "",
-          parseHTML: (el: HTMLElement) => el.getAttribute("data-item-id") ?? "",
-          renderHTML: (attrs: { itemId: string }) =>
-            attrs.itemId ? { "data-item-id": attrs.itemId } : {},
-        },
-        targetId: {
-          default: "",
-          parseHTML: (el: HTMLElement) => el.getAttribute("data-target-id") ?? "",
-          renderHTML: (attrs: { targetId: string }) =>
-            attrs.targetId ? { "data-target-id": attrs.targetId } : {},
-        },
-      };
-    },
 
     parseHTML() {
       return [{ tag: 'div[data-node="matching-pair"]' }];

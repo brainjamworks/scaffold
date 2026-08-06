@@ -231,18 +231,6 @@ export function createSelectableChoiceNode(options: SelectableChoiceNodeOptions 
     selectable: false,
     draggable: false,
 
-    addAttributes() {
-      return {
-        id: {
-          default: "",
-          parseHTML: (el: HTMLElement) => el.getAttribute("data-choice-id") ?? "",
-          renderHTML: (attrs: { id: string }) => ({
-            "data-choice-id": attrs.id,
-          }),
-        },
-      };
-    },
-
     parseHTML() {
       return [{ tag: 'div[data-node="selectable-choice"]' }];
     },

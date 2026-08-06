@@ -2,7 +2,6 @@ import { ResourceLinkDataSchema, type ResourceLinkData } from "@scaffold/contrac
 import { Node, mergeAttributes, type NodeViewRenderer } from "@tiptap/core";
 
 import { COURSE_BLOCK_CONTENT } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 
 import { emptyResourceLinkData } from "./content";
 
@@ -21,7 +20,6 @@ export function createResourceLinkNode(options: ResourceLinkNodeOptions = {}) {
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         data: {
           default: emptyResourceLinkData(),
           parseHTML: (el: HTMLElement) => {

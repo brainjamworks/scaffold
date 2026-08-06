@@ -11,6 +11,7 @@ import { createScaffoldDefaultTheme } from "@/theme/model";
 import { validateCourseDocumentJSON } from "./validators";
 
 const FIXED_SURFACE_ID = "surfaceFixed";
+const COURSE_DOCUMENT_ID = "course000001";
 const FIRST_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface_0001");
 const SECOND_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface_0002");
 
@@ -114,6 +115,7 @@ describe("course document JSON helpers", () => {
         {
           type: "courseDocument",
           attrs: {
+            id: expect.stringMatching(/^[0-9A-Z_a-z-]{12}$/),
             schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
             mode: "page",
             surfaceSize: "fluid",
@@ -214,6 +216,7 @@ describe("course document JSON helpers", () => {
         {
           type: "courseDocument",
           attrs: {
+            id: COURSE_DOCUMENT_ID,
             schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
             mode: "slideshow",
             surfaceSize: "16x9",
@@ -230,6 +233,7 @@ describe("course document JSON helpers", () => {
         {
           type: "courseDocument",
           attrs: {
+            id: COURSE_DOCUMENT_ID,
             schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
             mode: "branching",
             theme: createScaffoldDefaultTheme(),
@@ -254,6 +258,7 @@ describe("course document JSON helpers", () => {
         {
           type: "courseDocument",
           attrs: {
+            id: COURSE_DOCUMENT_ID,
             schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
             mode: "deck",
             theme: createScaffoldDefaultTheme(),
@@ -279,7 +284,7 @@ describe("course document JSON helpers", () => {
       content: [
         {
           type: "courseDocument",
-          attrs: { mode: "page" },
+          attrs: { id: COURSE_DOCUMENT_ID, mode: "page" },
           content: [
             {
               type: "surface",
@@ -302,6 +307,7 @@ describe("course document JSON helpers", () => {
         {
           type: "courseDocument",
           attrs: {
+            id: COURSE_DOCUMENT_ID,
             schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
             mode: "page",
             surfaceSize: "fluid",
@@ -328,6 +334,7 @@ describe("course document JSON helpers", () => {
         {
           type: "courseDocument",
           attrs: {
+            id: COURSE_DOCUMENT_ID,
             schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
             mode: "page",
             theme: createScaffoldDefaultTheme(),
@@ -361,6 +368,7 @@ describe("course document JSON helpers", () => {
         {
           type: "courseDocument",
           attrs: {
+            id: COURSE_DOCUMENT_ID,
             schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
             mode: "page",
             theme: createScaffoldDefaultTheme(),
@@ -394,6 +402,7 @@ describe("course document JSON helpers", () => {
         {
           type: "courseDocument",
           attrs: {
+            id: COURSE_DOCUMENT_ID,
             schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
             mode: "slideshow",
             surfaceSize: "16x9",
@@ -428,6 +437,7 @@ describe("course document JSON helpers", () => {
         {
           type: "courseDocument",
           attrs: {
+            id: COURSE_DOCUMENT_ID,
             schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
             mode: "slideshow",
             surfaceSize: "16x9",
@@ -455,6 +465,7 @@ describe("course document JSON helpers", () => {
         {
           type: "courseDocument",
           attrs: {
+            id: COURSE_DOCUMENT_ID,
             schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
             mode: "page",
             theme: createScaffoldDefaultTheme(),
@@ -484,6 +495,7 @@ describe("course document JSON helpers", () => {
         {
           type: "courseDocument",
           attrs: {
+            id: COURSE_DOCUMENT_ID,
             schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
             mode: "page",
             surfaceSize: "fluid",
@@ -525,6 +537,7 @@ describe("course document JSON helpers", () => {
         {
           type: "courseDocument",
           attrs: {
+            id: COURSE_DOCUMENT_ID,
             schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
             mode: "page",
             theme: createScaffoldDefaultTheme(),
@@ -662,6 +675,7 @@ function fixedDocument(surfaceContent: Array<Record<string, unknown>>) {
       {
         type: "courseDocument",
         attrs: {
+          id: COURSE_DOCUMENT_ID,
           schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
           mode: "slideshow",
           surfaceSize: "16x9",

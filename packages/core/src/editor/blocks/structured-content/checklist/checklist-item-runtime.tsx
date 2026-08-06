@@ -9,7 +9,6 @@ import { CheckIcon as Check } from "@phosphor-icons/react";
 
 import { fieldContainerSpec } from "@/document/model/content-model/content-groups";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 import { useLearnerActivityRuntime } from "@/runtime/learner-activity";
 
 import { CHECKLIST_ITEM_NODE, CHECKLIST_NODE } from "./content";
@@ -84,12 +83,6 @@ export function ChecklistItemRuntimeNodeView(props: NodeViewProps) {
 export const ChecklistItemRuntimeNode = Node.create({
   name: CHECKLIST_ITEM_NODE,
   ...fieldContainerSpec(),
-
-  addAttributes() {
-    return {
-      id: stableNodeIdAttribute(),
-    };
-  },
 
   parseHTML() {
     return [{ tag: 'li[data-node="checklist-item"]' }];

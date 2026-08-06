@@ -2,7 +2,6 @@ import { Node, mergeAttributes, type NodeViewRenderer } from "@tiptap/core";
 import { TextWrapImageDataSchema, type TextWrapImageData } from "@scaffold/contracts";
 
 import { COURSE_BLOCK_CONTENT } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 import { TEXT_WRAP_IMAGE_NODE, emptyTextWrapImageData } from "./content";
 
 export interface TextWrapImageNodeOptions {
@@ -20,7 +19,6 @@ export function createTextWrapImageNode(options: TextWrapImageNodeOptions = {}) 
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         data: {
           default: emptyTextWrapImageData(),
           parseHTML: (el: HTMLElement) => {

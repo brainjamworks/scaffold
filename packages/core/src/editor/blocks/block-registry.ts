@@ -8,7 +8,6 @@ export interface BlockDefinitionLookup {
 
 export interface BlockRegistry extends BlockDefinitionLookup {
   readonly definitions: readonly BlockDefinition[];
-  readonly stableIdNodeTypes: readonly string[];
   readonly assessmentNodeTypes: readonly string[];
   readonly resizableNodeTypes: readonly string[];
 }
@@ -24,26 +23,12 @@ export function createBlockRegistry(input: readonly BlockDefinition[]): BlockReg
     if (definitionsByNodeType.has(definition.nodeType)) {
       throw new Error(`Duplicate block node type "${definition.nodeType}".`);
     }
-    if (definition.identity?.stableChildNodeTypes?.includes(definition.nodeType)) {
-      throw new Error(
-        `Block "${definition.nodeType}" must not declare its root node type as a stable child.`,
-      );
-    }
     definitionsByNodeType.set(definition.nodeType, definition);
-  }
-
-  const stableIdNodeTypes = new Set<string>();
-  for (const definition of definitions) {
-    stableIdNodeTypes.add(definition.nodeType);
-    for (const childNodeType of definition.identity?.stableChildNodeTypes ?? []) {
-      stableIdNodeTypes.add(childNodeType);
-    }
   }
 
   return Object.freeze({
     definitions,
     getByNodeType: (nodeType: string) => definitionsByNodeType.get(nodeType),
-    stableIdNodeTypes: Object.freeze([...stableIdNodeTypes]),
     assessmentNodeTypes: Object.freeze(
       definitions
         .filter((definition) => definition.capabilities?.assessment)

@@ -6,6 +6,7 @@ import { Schema as ProseMirrorSchema, type Node as ProseMirrorNode } from "@tipt
 import { NodeSelection } from "@tiptap/pm/state";
 import { EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import UniqueID from "@tiptap/extension-unique-id";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -412,11 +413,11 @@ const testAssessmentCapability = defineAssessmentCapability({
   projection: {
     projectInteraction: () => ({
       kind: "single-select",
-      options: [{ id: "a", label: "A" }],
+      options: [{ id: "choice_00001", label: "A" }],
     }),
     projectAssessment: () => ({
       kind: "single-select",
-      correctOptionId: "a",
+      correctOptionId: "choice_00001",
       feedbackByOptionId: {},
     }),
     projectLearnerNode: (node) => node,
@@ -607,8 +608,7 @@ describe("quiz block skeleton", () => {
     expect(QuizNode.config.content).toBe(`${ASSESSMENT_QUESTION_CONTENT}*`);
   });
 
-  it("registers quiz as a stable-id block", () => {
-    expect(builtInBlockRegistry.stableIdNodeTypes).toContain("quiz");
+  it("registers the quiz authoring bundle", () => {
     expect(builtInBlockAuthoringBindings.map(({ extension }) => extension.name)).toContain(
       "quiz_authoring_bundle",
     );
@@ -660,7 +660,7 @@ describe("quiz block skeleton", () => {
         editable: true,
         content: quizMcqDocument("quiz-bounded", {
           placement,
-          questionIds: ["question-a", "question-b"],
+          questionIds: ["questn_00001", "questn_00002"],
         }),
       });
 
@@ -668,8 +668,8 @@ describe("quiz block skeleton", () => {
       await screen.findByTestId("quiz-stage-viewport");
 
       const quizFrame = findBlockFrame("quiz-bounded", true);
-      const firstQuestionFrame = findBlockFrame("question-a", true);
-      const secondQuestionFrame = findBlockFrame("question-b", true);
+      const firstQuestionFrame = findBlockFrame("questn_00001", true);
+      const secondQuestionFrame = findBlockFrame("questn_00002", true);
 
       expect(quizFrame?.getAttribute("data-bounded-placement")).toBe("fill");
       expect(firstQuestionFrame?.getAttribute("data-bounded-placement")).toBe("fill");
@@ -679,7 +679,7 @@ describe("quiz block skeleton", () => {
           .getByTestId("quiz-stage-viewport")
           .closest("[data-quiz-view-id]")
           ?.getAttribute("data-active-question-id"),
-      ).toBe("question-a");
+      ).toBe("questn_00001");
 
       editor.destroy();
     },
@@ -690,7 +690,7 @@ describe("quiz block skeleton", () => {
       editable: true,
       content: quizMcqDocument("quiz-flow", {
         placement: "flow",
-        questionIds: ["question-a"],
+        questionIds: ["questn_00001"],
       }),
     });
 
@@ -698,7 +698,9 @@ describe("quiz block skeleton", () => {
     await screen.findByTestId("quiz-stage-viewport");
 
     expect(findBlockFrame("quiz-flow", true)?.hasAttribute("data-bounded-placement")).toBe(false);
-    expect(findBlockFrame("question-a", true)?.hasAttribute("data-bounded-placement")).toBe(false);
+    expect(findBlockFrame("questn_00001", true)?.hasAttribute("data-bounded-placement")).toBe(
+      false,
+    );
 
     editor.destroy();
   });
@@ -708,14 +710,14 @@ describe("quiz block skeleton", () => {
       editable: true,
       content: quizMcqDocument("quiz-scroll-owner", {
         placement: "region",
-        questionIds: ["question-a"],
+        questionIds: ["questn_00001"],
       }),
     });
 
     renderEditor(editor);
     const stage = await screen.findByTestId("quiz-stage-viewport");
     const quizFrame = findBlockFrame("quiz-scroll-owner", true);
-    const questionFrame = findBlockFrame("question-a", true);
+    const questionFrame = findBlockFrame("questn_00001", true);
     const shell = questionFrame?.querySelector<HTMLElement>("[data-assessment-shell]");
     const lanes = questionFrame?.querySelectorAll<HTMLElement>("[data-bounded-scroll]");
 
@@ -743,7 +745,7 @@ describe("quiz block skeleton", () => {
       editable: false,
       content: quizMcqDocument("quiz-bounded-review", {
         placement: "region",
-        questionIds: ["question-a", "question-b"],
+        questionIds: ["questn_00001", "questn_00002"],
       }),
     });
 
@@ -755,7 +757,7 @@ describe("quiz block skeleton", () => {
     const controls = screen.getByTestId("quiz-answer-review-controls");
     const container = context.parentElement;
     const quizFrame = findBlockFrame("quiz-bounded-review", false);
-    const activeQuestionFrame = findBlockFrame("question-a", false);
+    const activeQuestionFrame = findBlockFrame("questn_00001", false);
     const children = [...(container?.children ?? [])];
 
     expect(quizFrame?.getAttribute("data-bounded-placement")).toBe("fill");
@@ -786,7 +788,7 @@ describe("quiz block skeleton", () => {
       editable: false,
       content: quizMcqDocument("quiz-flow-review", {
         placement: "flow",
-        questionIds: ["question-a", "question-b"],
+        questionIds: ["questn_00001", "questn_00002"],
       }),
     });
 
@@ -948,7 +950,7 @@ describe("quiz block skeleton", () => {
           attemptState({
             attemptId: "attempt-started",
             groupId: args.groupId,
-            currentTargetId: "question-a",
+            currentTargetId: "questn_00001",
           }),
         ),
     });
@@ -962,7 +964,7 @@ describe("quiz block skeleton", () => {
         .getByTestId("quiz-stage-viewport")
         .closest("[data-quiz-view-id]") as HTMLElement | null;
       expect(quizShell?.getAttribute("data-quiz-status")).toBe("in_progress");
-      expect(quizShell?.getAttribute("data-active-question-id")).toBe("question-a");
+      expect(quizShell?.getAttribute("data-active-question-id")).toBe("questn_00001");
     });
     editor.destroy();
   });
@@ -973,8 +975,8 @@ describe("quiz block skeleton", () => {
         "quiz-resume": {
           attemptId: "attempt-resume",
           status: "in_progress",
-          currentTargetId: "question-b",
-          submittedTargetIds: ["question-a"],
+          currentTargetId: "questn_00002",
+          submittedTargetIds: ["questn_00001"],
         },
       },
     });
@@ -990,7 +992,7 @@ describe("quiz block skeleton", () => {
         .getByTestId("quiz-stage-viewport")
         .closest("[data-quiz-view-id]") as HTMLElement | null;
       expect(quizShell?.getAttribute("data-quiz-status")).toBe("in_progress");
-      expect(quizShell?.getAttribute("data-active-question-id")).toBe("question-b");
+      expect(quizShell?.getAttribute("data-active-question-id")).toBe("questn_00002");
     });
     expect(screen.queryByRole("button", { name: "Start quiz" })).toBeNull();
 
@@ -1003,11 +1005,11 @@ describe("quiz block skeleton", () => {
         "quiz-reviewable-nav": {
           attemptId: "attempt-reviewable",
           status: "in_progress",
-          currentTargetId: "question-a",
+          currentTargetId: "questn_00001",
         },
       },
     });
-    registerQuizQuestionProblem("problem-a", "question-a");
+    registerQuizQuestionProblem("problem-a", "questn_00001");
     const editor = createQuizEditor({
       editable: false,
       content: runtimeQuizDocument("quiz-reviewable-nav"),
@@ -1019,7 +1021,7 @@ describe("quiz block skeleton", () => {
       const quizShell = screen
         .getByTestId("quiz-stage-viewport")
         .closest("[data-quiz-view-id]") as HTMLElement | null;
-      expect(quizShell?.getAttribute("data-active-question-id")).toBe("question-a");
+      expect(quizShell?.getAttribute("data-active-question-id")).toBe("questn_00001");
     });
 
     const next = screen.getByRole("button", { name: "Next question" });
@@ -1027,7 +1029,7 @@ describe("quiz block skeleton", () => {
     expect(screen.queryByRole("button", { name: "Submit quiz" })).toBeNull();
 
     act(() => {
-      setAssessmentResponse("problem-a", "a");
+      setAssessmentResponse("problem-a", "choice_00001");
     });
     await waitFor(() => expect((next as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(next);
@@ -1036,7 +1038,7 @@ describe("quiz block skeleton", () => {
         .getByTestId("quiz-stage-viewport")
         .closest("[data-quiz-view-id]")
         ?.getAttribute("data-active-question-id"),
-    ).toBe("question-b");
+    ).toBe("questn_00002");
 
     fireEvent.click(screen.getByRole("button", { name: "Previous question" }));
     expect(
@@ -1044,7 +1046,7 @@ describe("quiz block skeleton", () => {
         .getByTestId("quiz-stage-viewport")
         .closest("[data-quiz-view-id]")
         ?.getAttribute("data-active-question-id"),
-    ).toBe("question-a");
+    ).toBe("questn_00001");
 
     editor.destroy();
   });
@@ -1056,7 +1058,7 @@ describe("quiz block skeleton", () => {
         "quiz-scroll-reset": {
           attemptId: "attempt-scroll-reset",
           status: "in_progress",
-          currentTargetId: "question-a",
+          currentTargetId: "questn_00001",
         },
       },
     });
@@ -1064,14 +1066,14 @@ describe("quiz block skeleton", () => {
       editable: false,
       content: quizMcqDocument("quiz-scroll-reset", {
         placement: "region",
-        questionIds: ["question-a", "question-b"],
+        questionIds: ["questn_00001", "questn_00002"],
       }),
     });
 
     renderWithRuntime(editor);
     const next = await screen.findByRole("button", { name: "Next question" });
-    const firstQuestionFrame = findBlockFrame("question-a", false);
-    const secondQuestionFrame = findBlockFrame("question-b", false);
+    const firstQuestionFrame = findBlockFrame("questn_00001", false);
+    const secondQuestionFrame = findBlockFrame("questn_00002", false);
     const firstLane = firstQuestionFrame?.querySelector<HTMLElement>("[data-bounded-scroll]");
     const secondLane = secondQuestionFrame?.querySelector<HTMLElement>("[data-bounded-scroll]");
 
@@ -1084,7 +1086,7 @@ describe("quiz block skeleton", () => {
     secondLane.scrollTop = 96;
 
     act(() => {
-      setAssessmentResponse("artifact:artifact-1/block:question-a", "selected");
+      setAssessmentResponse("artifact:artifact-1/block:questn_00001", "choice_10001");
     });
     await waitFor(() => expect((next as HTMLButtonElement).disabled).toBe(false));
     await user.click(next);
@@ -1095,7 +1097,7 @@ describe("quiz block skeleton", () => {
           .getByTestId("quiz-stage-viewport")
           .closest("[data-quiz-view-id]")
           ?.getAttribute("data-active-question-id"),
-      ).toBe("question-b");
+      ).toBe("questn_00002");
       expect(firstLane.scrollTop).toBe(48);
       expect(secondLane.scrollTop).toBe(0);
     });
@@ -1110,7 +1112,7 @@ describe("quiz block skeleton", () => {
         "quiz-flow-scroll": {
           attemptId: "attempt-flow-scroll",
           status: "in_progress",
-          currentTargetId: "question-a",
+          currentTargetId: "questn_00001",
         },
       },
     });
@@ -1118,13 +1120,13 @@ describe("quiz block skeleton", () => {
       editable: false,
       content: quizMcqDocument("quiz-flow-scroll", {
         placement: "flow",
-        questionIds: ["question-a", "question-b"],
+        questionIds: ["questn_00001", "questn_00002"],
       }),
     });
 
     renderWithRuntime(editor);
     const next = await screen.findByRole("button", { name: "Next question" });
-    const secondQuestionFrame = findBlockFrame("question-b", false);
+    const secondQuestionFrame = findBlockFrame("questn_00002", false);
     const secondLane = secondQuestionFrame?.querySelector<HTMLElement>("[data-bounded-scroll]");
 
     expect(secondQuestionFrame?.hasAttribute("data-bounded-placement")).toBe(false);
@@ -1133,7 +1135,7 @@ describe("quiz block skeleton", () => {
     secondLane.scrollTop = 96;
 
     act(() => {
-      setAssessmentResponse("artifact:artifact-1/block:question-a", "selected");
+      setAssessmentResponse("artifact:artifact-1/block:questn_00001", "choice_10001");
     });
     await waitFor(() => expect((next as HTMLButtonElement).disabled).toBe(false));
     await user.click(next);
@@ -1144,7 +1146,7 @@ describe("quiz block skeleton", () => {
           .getByTestId("quiz-stage-viewport")
           .closest("[data-quiz-view-id]")
           ?.getAttribute("data-active-question-id"),
-      ).toBe("question-b");
+      ).toBe("questn_00002");
       expect(secondLane.scrollTop).toBe(96);
     });
 
@@ -1157,11 +1159,11 @@ describe("quiz block skeleton", () => {
         "quiz-no-backtracking": {
           attemptId: "attempt-after-quiz",
           status: "in_progress",
-          currentTargetId: "question-b",
+          currentTargetId: "questn_00002",
         },
       },
     });
-    registerQuizQuestionProblem("problem-b", "question-b");
+    registerQuizQuestionProblem("problem-b", "questn_00002");
     const editor = createQuizEditor({
       editable: false,
       content: runtimeQuizDocument("quiz-no-backtracking", {
@@ -1183,14 +1185,14 @@ describe("quiz block skeleton", () => {
         "quiz-reviewable-finish": {
           attemptId: "attempt-reviewable",
           status: "in_progress",
-          currentTargetId: "question-a",
+          currentTargetId: "questn_00001",
         },
       },
     });
-    registerQuizQuestionProblem("problem-a", "question-a");
-    registerQuizQuestionProblem("problem-b", "question-b");
+    registerQuizQuestionProblem("problem-a", "questn_00001");
+    registerQuizQuestionProblem("problem-b", "questn_00002");
     act(() => {
-      setAssessmentResponse("problem-a", "a");
+      setAssessmentResponse("problem-a", "choice_00001");
     });
     let received: unknown = null;
     const port = quizPort({
@@ -1202,10 +1204,10 @@ describe("quiz block skeleton", () => {
             groupId: args.groupId,
             status: "completed",
             currentTargetId: null,
-            submittedTargetIds: ["question-a", "question-b"],
+            submittedTargetIds: ["questn_00001", "questn_00002"],
             resultsByTargetId: {
-              "question-a": { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
-              "question-b": { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
+              questn_00001: { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
+              questn_00002: { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
             },
           }),
         );
@@ -1226,13 +1228,13 @@ describe("quiz block skeleton", () => {
         .getByTestId("quiz-stage-viewport")
         .closest("[data-quiz-view-id]")
         ?.getAttribute("data-active-question-id"),
-    ).toBe("question-b");
+    ).toBe("questn_00002");
 
     const finish = await screen.findByRole("button", { name: "Submit quiz" });
     expect((finish as HTMLButtonElement).disabled).toBe(true);
 
     act(() => {
-      setAssessmentResponse("problem-b", "b");
+      setAssessmentResponse("problem-b", "choice_00002");
     });
     await waitFor(() => expect((finish as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(finish);
@@ -1242,8 +1244,8 @@ describe("quiz block skeleton", () => {
         attemptId: "attempt-reviewable",
         groupId: "artifact:artifact-1/group:quiz-reviewable-finish",
         responsesByTargetId: {
-          "question-a": { kind: "single-select", optionId: "a" },
-          "question-b": { kind: "single-select", optionId: "b" },
+          questn_00001: { kind: "single-select", optionId: "choice_00001" },
+          questn_00002: { kind: "single-select", optionId: "choice_00002" },
         },
       });
     });
@@ -1260,11 +1262,11 @@ describe("quiz block skeleton", () => {
         "quiz-locked-disabled": {
           attemptId: "attempt-locked",
           status: "in_progress",
-          currentTargetId: "question-a",
+          currentTargetId: "questn_00001",
         },
       },
     });
-    registerQuizQuestionProblem("problem-a", "question-a");
+    registerQuizQuestionProblem("problem-a", "questn_00001");
     const editor = createQuizEditor({
       editable: false,
       content: runtimeQuizDocument("quiz-locked-disabled", {
@@ -1279,7 +1281,7 @@ describe("quiz block skeleton", () => {
     expect((submit as HTMLButtonElement).disabled).toBe(true);
 
     act(() => {
-      setAssessmentResponse("problem-a", "a");
+      setAssessmentResponse("problem-a", "choice_00001");
     });
     await waitFor(() => expect((submit as HTMLButtonElement).disabled).toBe(false));
 
@@ -1292,11 +1294,11 @@ describe("quiz block skeleton", () => {
         "quiz-after-each-disabled": {
           attemptId: "attempt-after-each",
           status: "in_progress",
-          currentTargetId: "question-a",
+          currentTargetId: "questn_00001",
         },
       },
     });
-    registerQuizQuestionProblem("problem-a", "question-a");
+    registerQuizQuestionProblem("problem-a", "questn_00001");
     const editor = createQuizEditor({
       editable: false,
       content: runtimeQuizDocument("quiz-after-each-disabled", {
@@ -1311,7 +1313,7 @@ describe("quiz block skeleton", () => {
     expect((submit as HTMLButtonElement).disabled).toBe(true);
 
     act(() => {
-      setAssessmentResponse("problem-a", "a");
+      setAssessmentResponse("problem-a", "choice_00001");
     });
     await waitFor(() => expect((submit as HTMLButtonElement).disabled).toBe(false));
 
@@ -1324,13 +1326,13 @@ describe("quiz block skeleton", () => {
         "quiz-locked-advance": {
           attemptId: "attempt-locked",
           status: "in_progress",
-          currentTargetId: "question-a",
+          currentTargetId: "questn_00001",
         },
       },
     });
-    registerQuizQuestionProblem("problem-a", "question-a");
+    registerQuizQuestionProblem("problem-a", "questn_00001");
     act(() => {
-      setAssessmentResponse("problem-a", "a");
+      setAssessmentResponse("problem-a", "choice_00001");
     });
     let received: unknown = null;
     const port = quizPort({
@@ -1340,10 +1342,10 @@ describe("quiz block skeleton", () => {
           attemptState({
             attemptId: args.attemptId,
             groupId: args.groupId,
-            currentTargetId: "question-b",
-            submittedTargetIds: ["question-a"],
+            currentTargetId: "questn_00002",
+            submittedTargetIds: ["questn_00001"],
             resultsByTargetId: {
-              "question-a": { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
+              questn_00001: { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
             },
           }),
         );
@@ -1367,13 +1369,13 @@ describe("quiz block skeleton", () => {
       expect(received).toMatchObject({
         attemptId: "attempt-locked",
         groupId: "artifact:artifact-1/group:quiz-locked-advance",
-        targetId: "question-a",
-        response: { kind: "single-select", optionId: "a" },
+        targetId: "questn_00001",
+        response: { kind: "single-select", optionId: "choice_00001" },
       });
       const quizShell = screen
         .getByTestId("quiz-stage-viewport")
         .closest("[data-quiz-view-id]") as HTMLElement | null;
-      expect(quizShell?.getAttribute("data-active-question-id")).toBe("question-a");
+      expect(quizShell?.getAttribute("data-active-question-id")).toBe("questn_00001");
     });
     expect(screen.queryByRole("button", { name: "Submit answer" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Next question" }));
@@ -1382,7 +1384,7 @@ describe("quiz block skeleton", () => {
         .getByTestId("quiz-stage-viewport")
         .closest("[data-quiz-view-id]")
         ?.getAttribute("data-active-question-id"),
-    ).toBe("question-b");
+    ).toBe("questn_00002");
 
     editor.destroy();
   });
@@ -1393,13 +1395,13 @@ describe("quiz block skeleton", () => {
         "quiz-after-each-review-pause": {
           attemptId: "attempt-after-each",
           status: "in_progress",
-          currentTargetId: "question-a",
+          currentTargetId: "questn_00001",
         },
       },
     });
-    registerQuizQuestionProblem("problem-a", "question-a");
+    registerQuizQuestionProblem("problem-a", "questn_00001");
     act(() => {
-      setAssessmentResponse("problem-a", "a");
+      setAssessmentResponse("problem-a", "choice_00001");
     });
     const port = quizPort({
       submitQuestion: async (args) =>
@@ -1407,10 +1409,10 @@ describe("quiz block skeleton", () => {
           attemptState({
             attemptId: args.attemptId,
             groupId: args.groupId,
-            currentTargetId: "question-b",
-            submittedTargetIds: ["question-a"],
+            currentTargetId: "questn_00002",
+            submittedTargetIds: ["questn_00001"],
             resultsByTargetId: {
-              "question-a": { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
+              questn_00001: { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
             },
             answerReviewAuthorized: true,
           }),
@@ -1434,7 +1436,7 @@ describe("quiz block skeleton", () => {
           .getByTestId("quiz-stage-viewport")
           .closest("[data-quiz-view-id]")
           ?.getAttribute("data-active-question-id"),
-      ).toBe("question-a");
+      ).toBe("questn_00001");
     });
     expect(screen.queryByRole("button", { name: "Submit answer" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Next question" }));
@@ -1443,7 +1445,7 @@ describe("quiz block skeleton", () => {
         .getByTestId("quiz-stage-viewport")
         .closest("[data-quiz-view-id]")
         ?.getAttribute("data-active-question-id"),
-    ).toBe("question-b");
+    ).toBe("questn_00002");
 
     editor.destroy();
   });
@@ -1454,13 +1456,13 @@ describe("quiz block skeleton", () => {
         "quiz-after-each-readonly": {
           attemptId: "attempt-after-each",
           status: "in_progress",
-          currentTargetId: "question-a",
+          currentTargetId: "questn_00001",
         },
       },
     });
-    registerQuizQuestionProblem("problem-a", "question-a");
+    registerQuizQuestionProblem("problem-a", "questn_00001");
     act(() => {
-      setAssessmentResponse("problem-a", "a");
+      setAssessmentResponse("problem-a", "choice_00001");
     });
     const port = quizPort({
       submitQuestion: async (args) =>
@@ -1468,10 +1470,10 @@ describe("quiz block skeleton", () => {
           attemptState({
             attemptId: args.attemptId,
             groupId: args.groupId,
-            currentTargetId: "question-b",
-            submittedTargetIds: ["question-a"],
+            currentTargetId: "questn_00002",
+            submittedTargetIds: ["questn_00001"],
             resultsByTargetId: {
-              "question-a": { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
+              questn_00001: { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
             },
             answerReviewAuthorized: true,
           }),
@@ -1489,11 +1491,11 @@ describe("quiz block skeleton", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Submit answer" }));
     await screen.findByRole("button", { name: "Next question" });
     act(() => {
-      setAssessmentResponse("problem-a", "b");
+      setAssessmentResponse("problem-a", "choice_00002");
     });
 
     expect(assessmentProblem("problem-a")?.response).toEqual({
-      choices: "a",
+      choices: "choice_00001",
     });
 
     editor.destroy();
@@ -1505,13 +1507,13 @@ describe("quiz block skeleton", () => {
         "quiz-after-each-retry": {
           attemptId: "attempt-after-each",
           status: "in_progress",
-          currentTargetId: "question-a",
+          currentTargetId: "questn_00001",
         },
       },
     });
-    registerQuizQuestionProblem("problem-a", "question-a");
+    registerQuizQuestionProblem("problem-a", "questn_00001");
     act(() => {
-      setAssessmentResponse("problem-a", "a");
+      setAssessmentResponse("problem-a", "choice_00001");
     });
     const submittedResponses: unknown[] = [];
     const port = quizPort({
@@ -1521,10 +1523,10 @@ describe("quiz block skeleton", () => {
           attemptState({
             attemptId: args.attemptId,
             groupId: args.groupId,
-            currentTargetId: submittedResponses.length === 1 ? "question-a" : "question-b",
-            submittedTargetIds: ["question-a"],
+            currentTargetId: submittedResponses.length === 1 ? "questn_00001" : "questn_00002",
+            submittedTargetIds: ["questn_00001"],
             resultsByTargetId: {
-              "question-a":
+              questn_00001:
                 submittedResponses.length === 1
                   ? { ...canonicalAssessmentResult, isCorrect: false, score: { scaled: 0 } }
                   : { ...canonicalAssessmentResult, isCorrect: true, score: { scaled: 1 } },
@@ -1560,7 +1562,7 @@ describe("quiz block skeleton", () => {
     expect(assessmentProblem("problem-a")).toMatchObject({
       attemptNumber: 1,
       submitted: false,
-      response: { choices: "a" },
+      response: { choices: "choice_00001" },
       checkResult: { isCorrect: false, score: { scaled: 0 } },
       submissionResult: null,
     });
@@ -1569,13 +1571,13 @@ describe("quiz block skeleton", () => {
     expect((retry as HTMLButtonElement).disabled).toBe(true);
 
     act(() => {
-      setAssessmentResponse("problem-a", "b");
+      setAssessmentResponse("problem-a", "choice_00002");
     });
 
     expect(assessmentProblem("problem-a")).toMatchObject({
       attemptNumber: 1,
       submitted: false,
-      response: { choices: "b" },
+      response: { choices: "choice_00002" },
       submissionResult: null,
     });
     await waitFor(() => expect((retry as HTMLButtonElement).disabled).toBe(false), {
@@ -1587,8 +1589,8 @@ describe("quiz block skeleton", () => {
     await waitFor(
       () => {
         expect(submittedResponses).toEqual([
-          { kind: "single-select", optionId: "a" },
-          { kind: "single-select", optionId: "b" },
+          { kind: "single-select", optionId: "choice_00001" },
+          { kind: "single-select", optionId: "choice_00002" },
         ]);
         expect(screen.getByRole("button", { name: "Next question" })).toBeInTheDocument();
       },
@@ -1599,14 +1601,14 @@ describe("quiz block skeleton", () => {
         .getByTestId("quiz-stage-viewport")
         .closest("[data-quiz-view-id]")
         ?.getAttribute("data-active-question-id"),
-    ).toBe("question-a");
+    ).toBe("questn_00001");
     fireEvent.click(screen.getByRole("button", { name: "Next question" }));
     expect(
       screen
         .getByTestId("quiz-stage-viewport")
         .closest("[data-quiz-view-id]")
         ?.getAttribute("data-active-question-id"),
-    ).toBe("question-b");
+    ).toBe("questn_00002");
 
     editor.destroy();
   });
@@ -1617,13 +1619,13 @@ describe("quiz block skeleton", () => {
         "quiz-locked-failure": {
           attemptId: "attempt-locked",
           status: "in_progress",
-          currentTargetId: "question-a",
+          currentTargetId: "questn_00001",
         },
       },
     });
-    registerQuizQuestionProblem("problem-a", "question-a");
+    registerQuizQuestionProblem("problem-a", "questn_00001");
     act(() => {
-      setAssessmentResponse("problem-a", "a");
+      setAssessmentResponse("problem-a", "choice_00001");
     });
     const port = quizPort({
       submitQuestion: async () => {
@@ -1646,7 +1648,7 @@ describe("quiz block skeleton", () => {
       const quizShell = screen
         .getByTestId("quiz-stage-viewport")
         .closest("[data-quiz-view-id]") as HTMLElement | null;
-      expect(quizShell?.getAttribute("data-active-question-id")).toBe("question-a");
+      expect(quizShell?.getAttribute("data-active-question-id")).toBe("questn_00001");
     });
 
     editor.destroy();
@@ -1658,8 +1660,8 @@ describe("quiz block skeleton", () => {
         "quiz-locked-nav": {
           attemptId: "attempt-locked",
           status: "in_progress",
-          currentTargetId: "question-b",
-          submittedTargetIds: ["question-a"],
+          currentTargetId: "questn_00002",
+          submittedTargetIds: ["questn_00001"],
         },
       },
     });
@@ -1681,7 +1683,7 @@ describe("quiz block skeleton", () => {
         .getByTestId("quiz-stage-viewport")
         .closest("[data-quiz-view-id]")
         ?.getAttribute("data-active-question-id"),
-    ).toBe("question-b");
+    ).toBe("questn_00002");
 
     editor.destroy();
   });
@@ -1769,13 +1771,13 @@ describe("quiz block skeleton", () => {
     );
     expect(containerChildren.indexOf(reviewContext)).toBeLessThan(containerChildren.indexOf(stage));
     expect(stage.closest("[data-quiz-view-id]")?.getAttribute("data-active-question-id")).toBe(
-      "question-a",
+      "questn_00001",
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Next question" }));
     expect(reviewContext.textContent).toBe("Reviewing answersQuestion 2 of 2");
     expect(stage.closest("[data-quiz-view-id]")?.getAttribute("data-active-question-id")).toBe(
-      "question-b",
+      "questn_00002",
     );
 
     editor.destroy();
@@ -1856,7 +1858,7 @@ describe("quiz block skeleton", () => {
         .getByTestId("quiz-stage-viewport")
         .closest("[data-quiz-view-id]")
         ?.getAttribute("data-active-question-id"),
-    ).toBe("question-a");
+    ).toBe("questn_00001");
 
     fireEvent.click(screen.getByRole("button", { name: "Next question" }));
     expect(
@@ -1864,7 +1866,7 @@ describe("quiz block skeleton", () => {
         .getByTestId("quiz-stage-viewport")
         .closest("[data-quiz-view-id]")
         ?.getAttribute("data-active-question-id"),
-    ).toBe("question-b");
+    ).toBe("questn_00002");
 
     editor.destroy();
   });
@@ -1885,8 +1887,8 @@ describe("quiz block skeleton", () => {
 
     await screen.findByTestId("quiz-answer-review-controls");
     expect(answerRevealButtonLabel()).toBeNull();
-    expect(choiceDescription("a")).toBe("Submitted answer, incorrect");
-    expect(choiceDescription("b")).toBeNull();
+    expect(choiceDescription("choice_00001")).toBe("Submitted answer, incorrect");
+    expect(choiceDescription("choice_00002")).toBeNull();
 
     editor.destroy();
   });
@@ -1933,8 +1935,8 @@ describe("quiz block skeleton", () => {
 
     await screen.findByTestId("quiz-answer-review-controls");
     expect(answerRevealButtonLabel()).toBeNull();
-    expect(choiceDescription("a")).toBe("Submitted answer, incorrect");
-    expect(choiceDescription("b")).toBe("Correct answer");
+    expect(choiceDescription("choice_00001")).toBe("Submitted answer, incorrect");
+    expect(choiceDescription("choice_00002")).toBe("Correct answer");
 
     editor.destroy();
   });
@@ -1988,7 +1990,7 @@ describe("quiz block skeleton", () => {
           attemptState({
             attemptId: "attempt-timer",
             groupId: args.groupId,
-            currentTargetId: "question-a",
+            currentTargetId: "questn_00001",
             expiresAt: "2026-06-18T08:00:02.000Z",
           }),
         ),
@@ -2016,7 +2018,7 @@ describe("quiz block skeleton", () => {
         "quiz-hidden-timer": {
           attemptId: "attempt-hidden-timer",
           status: "in_progress",
-          currentTargetId: "question-a",
+          currentTargetId: "questn_00001",
           expiresAt: "2026-06-18T08:00:05.000Z",
         },
       },
@@ -2051,14 +2053,14 @@ describe("quiz block skeleton", () => {
         "quiz-timer-submit": {
           attemptId: "attempt-timer",
           status: "in_progress",
-          currentTargetId: "question-a",
+          currentTargetId: "questn_00001",
           expiresAt: "2026-06-18T08:00:01.000Z",
         },
       },
     });
-    registerQuizQuestionProblem("problem-a", "question-a");
+    registerQuizQuestionProblem("problem-a", "questn_00001");
     act(() => {
-      setAssessmentResponse("problem-a", "a");
+      setAssessmentResponse("problem-a", "choice_00001");
     });
     const submitted: string[] = [];
     const port = quizPort({
@@ -2092,7 +2094,7 @@ describe("quiz block skeleton", () => {
       await Promise.resolve();
     });
 
-    expect(submitted).toEqual(["question-a"]);
+    expect(submitted).toEqual(["questn_00001"]);
     expect(assessmentQuiz("quiz-timer-submit")?.status).toBe("expired");
 
     editor.destroy();
@@ -2106,12 +2108,12 @@ describe("quiz block skeleton", () => {
         "quiz-timer-empty": {
           attemptId: "attempt-timer",
           status: "in_progress",
-          currentTargetId: "question-a",
+          currentTargetId: "questn_00001",
           expiresAt: "2026-06-18T08:00:01.000Z",
         },
       },
     });
-    registerQuizQuestionProblem("problem-a", "question-a");
+    registerQuizQuestionProblem("problem-a", "questn_00001");
     const submitted: string[] = [];
     const port = quizPort({
       submitQuestion: async (args) => {
@@ -2270,7 +2272,7 @@ describe("quiz block skeleton", () => {
   it("inherits alignment from an existing sibling when adding a quiz question", async () => {
     const content = quizMcqDocument("quiz-aligned-question", {
       placement: "flow",
-      questionIds: ["question-a"],
+      questionIds: ["questn_00001"],
     });
     const firstQuestion = content.content?.[0]?.content?.[0];
     if (!firstQuestion) throw new Error("Expected an existing quiz question");
@@ -2306,7 +2308,7 @@ describe("quiz block skeleton", () => {
   it("undoes an aligned quiz question insertion as one authored change", async () => {
     const content = quizMcqDocument("quiz-undo-question", {
       placement: "flow",
-      questionIds: ["question-a"],
+      questionIds: ["questn_00001"],
     });
     const editor = createQuizEditor({ editable: true, content, undoRedo: true });
 
@@ -2336,7 +2338,7 @@ describe("quiz block skeleton", () => {
         content: [
           {
             type: "quiz",
-            content: [{ type: "test_assessment_question", attrs: { id: "question-a" } }],
+            content: [{ type: "test_assessment_question", attrs: { id: "questn_00001" } }],
           },
         ],
       },
@@ -2374,8 +2376,8 @@ describe("quiz block skeleton", () => {
           {
             type: "quiz",
             content: [
-              { type: "test_assessment_question", attrs: { id: "question-a" } },
-              { type: "test_assessment_question", attrs: { id: "question-b" } },
+              { type: "test_assessment_question", attrs: { id: "questn_00001" } },
+              { type: "test_assessment_question", attrs: { id: "questn_00002" } },
             ],
           },
         ],
@@ -2420,7 +2422,7 @@ describe("quiz block skeleton", () => {
   it("reorders questions from the strip and preserves projected target order", async () => {
     const content = quizMcqDocument("quiz-reorder", {
       placement: "flow",
-      questionIds: ["question-a", "question-b"],
+      questionIds: ["questn_00001", "questn_00002"],
     });
     const firstQuestion = content.content?.[0]?.content?.[0];
     const secondQuestion = content.content?.[0]?.content?.[1];
@@ -2451,14 +2453,14 @@ describe("quiz block skeleton", () => {
     const quiz = editor.getJSON().content?.[0];
     expect(
       quiz?.content?.map((child) => ("attrs" in child ? child.attrs?.["id"] : undefined)),
-    ).toEqual(["question-b", "question-a"]);
+    ).toEqual(["questn_00002", "questn_00001"]);
     const quizShell = screen
       .getByTestId("quiz-stage-viewport")
       .closest("[data-quiz-view-id]") as HTMLElement | null;
-    expect(quizShell?.getAttribute("data-active-question-id")).toBe("question-b");
+    expect(quizShell?.getAttribute("data-active-question-id")).toBe("questn_00002");
     expect(
       projectAssessmentDocument(editor.getJSON(), builtInBlockRegistry).groups[0]?.targetIds,
-    ).toEqual(["question-b", "question-a"]);
+    ).toEqual(["questn_00002", "questn_00001"]);
     expect(
       quiz?.content?.map((child) => ("attrs" in child ? child.attrs?.["frame"] : undefined)),
     ).toEqual([
@@ -2480,9 +2482,9 @@ describe("quiz block skeleton", () => {
             type: "quiz",
             attrs: { id: "quiz-atomic-reorder" },
             content: [
-              mcqQuestion("question-a"),
-              { type: "test_assessment_question", attrs: { id: "question-b" } },
-              mcqQuestion("question-c"),
+              mcqQuestion("questn_00001"),
+              { type: "test_assessment_question", attrs: { id: "questn_00002" } },
+              mcqQuestion("questn_00003"),
             ],
           },
         ],
@@ -2502,12 +2504,12 @@ describe("quiz block skeleton", () => {
     );
     const dispatch = vi.spyOn(editor.view, "dispatch");
 
-    act(() => reorderQuestion?.("question-a", "question-c"));
+    act(() => reorderQuestion?.("questn_00001", "questn_00003"));
 
     expect(dispatch).toHaveBeenCalledTimes(1);
-    expect(quizQuestionIds(editor)).toEqual(["question-b", "question-c", "question-a"]);
+    expect(quizQuestionIds(editor)).toEqual(["questn_00002", "questn_00003", "questn_00001"]);
     expect(editor.commands.undo()).toBe(true);
-    expect(quizQuestionIds(editor)).toEqual(["question-a", "question-b", "question-c"]);
+    expect(quizQuestionIds(editor)).toEqual(["questn_00001", "questn_00002", "questn_00003"]);
     expect(editor.commands.undo()).toBe(false);
     editor.destroy();
   });
@@ -2522,14 +2524,14 @@ describe("quiz block skeleton", () => {
             type: "quiz",
             attrs: { id: "quiz-question-settings" },
             content: [
-              { type: "test_assessment_question", attrs: { id: "question-a" } },
-              { type: "test_assessment_question", attrs: { id: "question-b" } },
+              { type: "test_assessment_question", attrs: { id: "questn_00001" } },
+              { type: "test_assessment_question", attrs: { id: "questn_00002" } },
             ],
           },
         ],
       },
     });
-    const childPos = findNodePosition(editor, "test_assessment_question", "question-a");
+    const childPos = findNodePosition(editor, "test_assessment_question", "questn_00001");
 
     renderEditor(editor);
     await screen.findByTestId("quiz-stage-selector");
@@ -2563,7 +2565,7 @@ describe("quiz block skeleton", () => {
 
     const settingsOwner = interactionOwnerPluginKey.getState(editor.state)?.settingsOwner;
     expect(settingsOwner).toMatchObject({
-      id: "question-a",
+      id: "questn_00001",
       kind: InteractionTargetKind.Block,
       pos: childPos,
     });
@@ -2592,8 +2594,8 @@ describe("quiz block skeleton", () => {
             type: "quiz",
             attrs: { id: "quiz-duplicate-question" },
             content: [
-              { type: "test_assessment_question", attrs: { id: "question-a" } },
-              { type: "test_assessment_question", attrs: { id: "question-b" } },
+              { type: "test_assessment_question", attrs: { id: "questn_00001" } },
+              { type: "test_assessment_question", attrs: { id: "questn_00002" } },
             ],
           },
         ],
@@ -2617,9 +2619,9 @@ describe("quiz block skeleton", () => {
     );
     expect(quiz?.type).toBe("quiz");
     expect(childIds).toHaveLength(3);
-    expect(childIds?.[0]).toBe("question-a");
-    expect(childIds?.[1]).not.toBe("question-a");
-    expect(childIds?.[2]).toBe("question-b");
+    expect(childIds?.[0]).toBe("questn_00001");
+    expect(childIds?.[1]).not.toBe("questn_00001");
+    expect(childIds?.[2]).toBe("questn_00002");
 
     editor.destroy();
   });
@@ -2634,8 +2636,8 @@ describe("quiz block skeleton", () => {
             type: "quiz",
             attrs: { id: "quiz-delete-question" },
             content: [
-              { type: "test_assessment_question", attrs: { id: "question-a" } },
-              { type: "test_assessment_question", attrs: { id: "question-b" } },
+              { type: "test_assessment_question", attrs: { id: "questn_00001" } },
+              { type: "test_assessment_question", attrs: { id: "questn_00002" } },
             ],
           },
           {
@@ -2665,11 +2667,11 @@ describe("quiz block skeleton", () => {
     expect(quiz?.type).toBe("quiz");
     expect(
       quiz?.content?.map((child) => ("attrs" in child ? child.attrs?.["id"] : undefined)),
-    ).toEqual(["question-a"]);
+    ).toEqual(["questn_00001"]);
     const quizShell = screen
       .getByTestId("quiz-stage-viewport")
       .closest("[data-quiz-view-id]") as HTMLElement | null;
-    expect(quizShell?.getAttribute("data-active-question-id")).toBe("question-a");
+    expect(quizShell?.getAttribute("data-active-question-id")).toBe("questn_00001");
 
     fixture.destroy();
   });
@@ -2687,7 +2689,7 @@ describe("quiz block skeleton", () => {
               {
                 type: "test_assessment_question",
                 attrs: {
-                  id: "question-a",
+                  id: "questn_00001",
                   settings: {
                     feedbackMode: "on_submit",
                     isGraded: true,
@@ -2751,7 +2753,7 @@ describe("quiz block skeleton", () => {
         schema: childSheet.schema,
         attr: childSheet.attr,
         target: createAuthoringNodeTarget(editor, {
-          id: "question-a",
+          id: "questn_00001",
           nodeType: "test_assessment_question",
         }),
         values: {
@@ -2786,12 +2788,12 @@ describe("quiz block skeleton", () => {
           {
             type: "quiz",
             attrs: { id: "quiz-settings-target" },
-            content: [{ type: "test_assessment_question", attrs: { id: "question-a" } }],
+            content: [{ type: "test_assessment_question", attrs: { id: "questn_00001" } }],
           },
         ],
       },
     });
-    const childPos = findNodePosition(editor, "test_assessment_question", "question-a");
+    const childPos = findNodePosition(editor, "test_assessment_question", "questn_00001");
 
     render(
       <>
@@ -3053,6 +3055,7 @@ function createDisposableQuizEditor({
     content,
     extensions: [
       StarterKit.configure({ undoRedo: undoRedo ? {} : false, paragraph: false }),
+      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       ExtendedParagraph,
       createRuntimeBlockFrameAttributesExtension(["quiz", "mcq", "callout"]),
       AssessmentTitleNode,
@@ -3205,8 +3208,9 @@ function cell(content: JSONContent[]): JSONContent {
 }
 
 function mcqQuestion(id: string): JSONContent {
-  const firstChoiceId = `${id}-a`;
-  const secondChoiceId = `${id}-b`;
+  const questionOrdinal = id.slice(-1);
+  const firstChoiceId = `choice_${questionOrdinal}0001`;
+  const secondChoiceId = `choice_${questionOrdinal}0002`;
 
   return {
     type: "mcq",
@@ -3278,8 +3282,8 @@ function runtimeQuizDocument(quizId: string, settings: Partial<QuizSettings> = {
           },
         },
         content: [
-          { type: "test_assessment_question", attrs: { id: "question-a" } },
-          { type: "test_assessment_question", attrs: { id: "question-b" } },
+          { type: "test_assessment_question", attrs: { id: "questn_00001" } },
+          { type: "test_assessment_question", attrs: { id: "questn_00002" } },
         ],
       },
     ],
@@ -3307,9 +3311,9 @@ function runtimeQuizMcqDocument(quizId: string, settings: Partial<QuizSettings> 
           {
             type: "mcq",
             attrs: {
-              id: "question-a",
+              id: "questn_00001",
               assessment: {
-                correctOptionId: "b",
+                correctOptionId: "choice_00002",
                 feedbackByOptionId: {},
                 summaryFeedback: null,
               },
@@ -3334,7 +3338,7 @@ function runtimeQuizMcqDocument(quizId: string, settings: Partial<QuizSettings> 
                 content: [
                   {
                     type: "selectable_choice",
-                    attrs: { id: "a" },
+                    attrs: { id: "choice_00001" },
                     content: [
                       {
                         type: "selectable_choice_body",
@@ -3349,7 +3353,7 @@ function runtimeQuizMcqDocument(quizId: string, settings: Partial<QuizSettings> 
                   },
                   {
                     type: "selectable_choice",
-                    attrs: { id: "b" },
+                    attrs: { id: "choice_00002" },
                     content: [
                       {
                         type: "selectable_choice_body",
@@ -3385,16 +3389,16 @@ function hydrateCompletedQuizMcqReview(
 ) {
   seedAssessmentStore({
     problems: {
-      "artifact:artifact-1/block:question-a": {
-        response: { choices: "a" },
+      "artifact:artifact-1/block:questn_00001": {
+        response: { choices: "choice_00001" },
         submitted: true,
         attemptNumber: 1,
         submissionResult: {
           isCorrect: false,
           score: { scaled: 0 },
           items: {
-            a: { correct: false, expected: false, given: true },
-            b: { correct: true, expected: true, given: false },
+            choice_00001: { correct: false, expected: false, given: true },
+            choice_00002: { correct: true, expected: true, given: false },
           },
         },
       },
@@ -3404,16 +3408,16 @@ function hydrateCompletedQuizMcqReview(
         attemptId: "attempt-review",
         status: "completed",
         currentTargetId: null,
-        submittedTargetIds: ["question-a"],
+        submittedTargetIds: ["questn_00001"],
         score: { scaled: 0 },
         answerReviewAuthorized,
         resultsByTargetId: {
-          "question-a": {
+          questn_00001: {
             isCorrect: false,
             score: { scaled: 0 },
             items: {
-              a: { correct: false, expected: false, given: true },
-              b: { correct: true, expected: true, given: false },
+              choice_00001: { correct: false, expected: false, given: true },
+              choice_00002: { correct: true, expected: true, given: false },
             },
           },
         },
@@ -3461,7 +3465,7 @@ function attemptState(overrides: Partial<QuizAttemptState> = {}): QuizAttemptSta
     attemptId: "attempt-1",
     groupId: "quiz-1",
     status,
-    currentTargetId: "question-a",
+    currentTargetId: "questn_00001",
     submittedTargetIds: [],
     startedAt: "2026-06-18T08:00:00.000Z",
     finishedAt: null,

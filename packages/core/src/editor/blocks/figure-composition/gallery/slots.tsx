@@ -2,8 +2,6 @@ import { Node, mergeAttributes } from "@tiptap/core";
 import { NodeViewWrapper, ReactNodeViewRenderer } from "@tiptap/react";
 import { GalleryItemDataSchema, type GalleryItemData } from "@scaffold/contracts";
 
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
-
 import { GALLERY_ITEM_NODE } from "./content";
 
 /* The atomic gallery_item NodeView renders nothing visible. The parent
@@ -21,7 +19,6 @@ export const GalleryItemNode = Node.create({
 
   addAttributes() {
     return {
-      id: stableNodeIdAttribute(),
       data: {
         default: null as GalleryItemData | null,
         parseHTML: (el: HTMLElement) => {

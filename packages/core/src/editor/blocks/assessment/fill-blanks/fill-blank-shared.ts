@@ -52,15 +52,9 @@ export function createFillBlankNode(options: FillBlankNodeOptions = {}) {
     selectable: true,
 
     addAttributes() {
-      const blankDefault = defaultBlankAttrs();
       return {
-        id: {
-          default: blankDefault.id,
-          parseHTML: (el: HTMLElement) => el.getAttribute("data-blank-id") ?? "",
-          renderHTML: (attrs: { id: string }) => (attrs.id ? { "data-blank-id": attrs.id } : {}),
-        },
         placeholder: {
-          default: blankDefault.placeholder,
+          default: "",
           parseHTML: (el: HTMLElement) => el.getAttribute("data-placeholder") ?? "",
           renderHTML: (attrs: { placeholder: string }) =>
             attrs.placeholder ? { "data-placeholder": attrs.placeholder } : {},

@@ -2,7 +2,6 @@ import { SidebarDataSchema, type SidebarData } from "@scaffold/contracts";
 import { Node, mergeAttributes, type NodeViewRenderer } from "@tiptap/core";
 
 import { COURSE_BLOCK_CONTENT } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 
 import {
   SIDEBAR_BODY_NODE,
@@ -27,7 +26,6 @@ export function createSidebarNode(options: SidebarNodeOptions = {}) {
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         data: {
           default: emptySidebarData(),
           parseHTML: (el: HTMLElement) => {

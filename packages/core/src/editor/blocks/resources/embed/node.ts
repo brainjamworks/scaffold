@@ -2,7 +2,6 @@ import { Node, mergeAttributes, type NodeViewRenderer } from "@tiptap/core";
 import { EmbedDataSchema, type EmbedData } from "@scaffold/contracts";
 
 import { COURSE_BLOCK_CONTENT } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 import { emptyEmbedData } from "./embed-data";
 
 export interface EmbedNodeOptions {
@@ -19,7 +18,6 @@ export function createEmbedNode(options: EmbedNodeOptions = {}) {
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         data: {
           default: emptyEmbedData(),
           parseHTML: (el: HTMLElement) => {

@@ -137,8 +137,8 @@ function SequencingItemNodeView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper
+      {...props.HTMLAttributes}
       data-node="sequencing-item"
-      data-item-id={itemId}
       {...{ [CONTAINED_MOVEMENT_TARGET_ATTR]: "" }}
       className="sc-sequencing-item"
     >

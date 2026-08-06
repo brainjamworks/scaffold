@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+import { EmbeddedNodeIdSchema } from "./embedded-id";
+
+const EmbeddedNodeRecordKeySchema = EmbeddedNodeIdSchema.unwrap().unwrap();
+
 export const SCAFFOLD_LEARNER_ACTIVITY_SNAPSHOT_VERSION = 1;
 
 const NonBlankStringSchema = z.string().regex(/\S/, {
@@ -65,15 +69,11 @@ export const LearnerActivityRecordSchema = z
   .strict();
 export type LearnerActivityRecord = z.infer<typeof LearnerActivityRecordSchema>;
 
-const LearnerActivityBlockIdSchema = NonBlankStringSchema.regex(/^(?!artifact:[\s\S]*\/block:)/, {
-  message: "Activity keys must be authored block ids, not runtime composite ids",
-});
-
 export const LearnerActivitySnapshotSchema = z
   .object({
     snapshotVersion: z.literal(SCAFFOLD_LEARNER_ACTIVITY_SNAPSHOT_VERSION),
     artifactId: NonBlankStringSchema,
-    activities: z.record(LearnerActivityBlockIdSchema, LearnerActivityRecordSchema),
+    activities: z.record(EmbeddedNodeRecordKeySchema, LearnerActivityRecordSchema),
   })
   .strict();
 export type LearnerActivitySnapshot = z.infer<typeof LearnerActivitySnapshotSchema>;

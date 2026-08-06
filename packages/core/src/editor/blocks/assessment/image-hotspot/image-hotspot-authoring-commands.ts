@@ -6,6 +6,7 @@ import type { CheckedMutationResult } from "@/document/model/commands/checked-tr
 import type { ResolvedAuthoringNode } from "@/editor/prosemirror/authoring-target";
 import {
   ImageHotspotCanvasDataSchema,
+  ImageHotspotPayloadSchema,
   ImageHotspotPrivateAssessmentSchema,
   type ImageHotspotCanvasData,
   type ImageHotspotPrivateAssessment,
@@ -27,9 +28,6 @@ export function resolveImageHotspotAuthoringModel(
 ): ImageHotspotAuthoringModel | null {
   if (target.node.type.name !== IMAGE_HOTSPOT_NODE_TYPE) return null;
 
-  const assessment = ImageHotspotPrivateAssessmentSchema.safeParse(target.node.attrs["assessment"]);
-  if (!assessment.success) return null;
-
   let canvas: { node: ProseMirrorNode; pos: number } | null = null;
   let canvasCount = 0;
   let childPos = target.pos + 1;
@@ -43,14 +41,17 @@ export function resolveImageHotspotAuthoringModel(
   }
   if (canvasCount !== 1 || !canvas) return null;
 
-  const data = ImageHotspotCanvasDataSchema.safeParse(canvas.node.attrs["data"]);
-  if (!data.success) return null;
+  const payload = ImageHotspotPayloadSchema.safeParse({
+    canvas: canvas.node.attrs["data"],
+    assessment: target.node.attrs["assessment"],
+  });
+  if (!payload.success) return null;
 
   return {
     owner: target,
     canvas,
-    data: data.data,
-    assessment: assessment.data,
+    data: payload.data.canvas,
+    assessment: payload.data.assessment,
   };
 }
 
@@ -66,15 +67,18 @@ export function setImageHotspotCanvasDataChecked({
   const model = resolveCurrentModel(tr, target);
   if (!model.ok) return model;
 
-  const parsed = ImageHotspotCanvasDataSchema.safeParse(data);
-  if (!parsed.success) {
-    return failure("invalid_image_hotspot_canvas_data", parsed.error.message);
+  const payload = ImageHotspotPayloadSchema.safeParse({
+    canvas: data,
+    assessment: model.model.assessment,
+  });
+  if (!payload.success) {
+    return failure("invalid_image_hotspot_canvas_data", payload.error.message);
   }
 
   return applyChecked(tr, () => {
     tr.setNodeMarkup(model.model.canvas.pos, undefined, {
       ...model.model.canvas.node.attrs,
-      data: parsed.data,
+      data: payload.data.canvas,
     });
   });
 }
@@ -90,11 +94,12 @@ export function toggleImageHotspotCorrectChecked({
 }): CheckedMutationResult<Transaction> {
   const model = resolveCurrentModel(tr, target);
   if (!model.ok) return model;
-  if (!hasHotspot(model.model, hotspotId)) return missingHotspotFailure(hotspotId);
+  const ownedHotspotId = findHotspotId(model.model, hotspotId);
+  if (!ownedHotspotId) return missingHotspotFailure(hotspotId);
 
   const correctIds = new Set(model.model.assessment.correctHotspotIds);
-  if (correctIds.has(hotspotId)) correctIds.delete(hotspotId);
-  else correctIds.add(hotspotId);
+  if (correctIds.has(ownedHotspotId)) correctIds.delete(ownedHotspotId);
+  else correctIds.add(ownedHotspotId);
 
   return setAssessmentChecked(tr, model.model, {
     ...model.model.assessment,
@@ -115,11 +120,12 @@ export function setImageHotspotFeedbackChecked({
 }): CheckedMutationResult<Transaction> {
   const model = resolveCurrentModel(tr, target);
   if (!model.ok) return model;
-  if (!hasHotspot(model.model, hotspotId)) return missingHotspotFailure(hotspotId);
+  const ownedHotspotId = findHotspotId(model.model, hotspotId);
+  if (!ownedHotspotId) return missingHotspotFailure(hotspotId);
 
   const feedbackByHotspotId = { ...model.model.assessment.feedbackByHotspotId };
-  if (feedback) feedbackByHotspotId[hotspotId] = feedback;
-  else delete feedbackByHotspotId[hotspotId];
+  if (feedback) feedbackByHotspotId[ownedHotspotId] = feedback;
+  else delete feedbackByHotspotId[ownedHotspotId];
 
   return setAssessmentChecked(tr, model.model, {
     ...model.model.assessment,
@@ -138,17 +144,20 @@ export function removeImageHotspotChecked({
 }): CheckedMutationResult<Transaction> {
   const model = resolveCurrentModel(tr, target);
   if (!model.ok) return model;
-  if (!hasHotspot(model.model, hotspotId)) return missingHotspotFailure(hotspotId);
+  const ownedHotspotId = findHotspotId(model.model, hotspotId);
+  if (!ownedHotspotId) return missingHotspotFailure(hotspotId);
 
   const data = ImageHotspotCanvasDataSchema.safeParse({
     ...model.model.data,
-    hotspots: model.model.data.hotspots.filter((hotspot) => hotspot.id !== hotspotId),
+    hotspots: model.model.data.hotspots.filter((hotspot) => hotspot.id !== ownedHotspotId),
   });
   const feedbackByHotspotId = { ...model.model.assessment.feedbackByHotspotId };
-  delete feedbackByHotspotId[hotspotId];
+  delete feedbackByHotspotId[ownedHotspotId];
   const assessment = ImageHotspotPrivateAssessmentSchema.safeParse({
     ...model.model.assessment,
-    correctHotspotIds: model.model.assessment.correctHotspotIds.filter((id) => id !== hotspotId),
+    correctHotspotIds: model.model.assessment.correctHotspotIds.filter(
+      (id) => id !== ownedHotspotId,
+    ),
     feedbackByHotspotId,
   });
   if (!data.success) return failure("invalid_image_hotspot_canvas_data", data.error.message);
@@ -231,8 +240,11 @@ function applyChecked(tr: Transaction, apply: () => void): CheckedMutationResult
   }
 }
 
-function hasHotspot(model: ImageHotspotAuthoringModel, hotspotId: string): boolean {
-  return hotspotId.length > 0 && model.data.hotspots.some((hotspot) => hotspot.id === hotspotId);
+function findHotspotId(
+  model: ImageHotspotAuthoringModel,
+  hotspotId: string,
+): ImageHotspotAuthoringModel["data"]["hotspots"][number]["id"] | null {
+  return model.data.hotspots.find((hotspot) => hotspot.id === hotspotId)?.id ?? null;
 }
 
 function missingHotspotFailure(hotspotId: string): CheckedMutationResult<never> {

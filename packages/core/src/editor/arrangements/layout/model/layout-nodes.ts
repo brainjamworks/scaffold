@@ -6,7 +6,6 @@ import {
   SECTION_ARRANGEMENT_CONTENT,
 } from "@/document/model/content-model/content-groups";
 import { isFieldContentEmpty } from "@/document/model/content-model/is-field-content-empty";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 import {
   VerticalContentPositionSchema,
   type VerticalContentPosition,
@@ -35,7 +34,6 @@ export function createLayoutNode(options: LayoutNodeOptions = {}) {
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         variant: {
           default: null,
           parseHTML: (element: HTMLElement) => element.getAttribute("data-layout-variant"),
@@ -95,7 +93,6 @@ export function createSectionNode(options: SectionNodeOptions = {}) {
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         role: {
           default: null,
           parseHTML: (element: HTMLElement) => element.getAttribute("data-section-role"),

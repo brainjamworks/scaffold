@@ -28,6 +28,7 @@ export function AuthoringDocumentBlockStrip({ editor }: { editor: Editor }) {
       blockDefinitions={capabilities.blocks.registry}
       editor={editor}
       items={inDocument.actions}
+      layoutDefinitions={capabilities.layouts.registry}
       surfaceVariants={capabilities.surfaces.registry}
     />
   );

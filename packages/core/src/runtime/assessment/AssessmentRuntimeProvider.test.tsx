@@ -5,7 +5,11 @@ import { StrictMode, useEffect } from "react";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
 
-import type { AssessmentProblemSnapshot, AssessmentResult } from "@scaffold/contracts";
+import {
+  SingleSelectResponseSchema,
+  type AssessmentProblemSnapshot,
+  type AssessmentResult,
+} from "@scaffold/contracts";
 import type { AssessmentPort } from "../../host/ports/assessment";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
@@ -43,8 +47,8 @@ function deferred<T>() {
 
 function registerResponse(store: AssessmentStoreApi) {
   const identity = {
-    authoredBlockId: "block-one",
-    targetId: "target-one",
+    authoredBlockId: "block_000001",
+    targetId: "target_00001",
     interactionKind: "single-select" as const,
   };
 
@@ -52,16 +56,17 @@ function registerResponse(store: AssessmentStoreApi) {
     ...identity,
     response: {
       schema: z.object({ choice: z.string().nullable() }),
-      toContractResponse: (response) => ({
-        kind: "single-select",
-        optionId:
-          typeof response === "object" &&
-          response !== null &&
-          "choice" in response &&
-          typeof response.choice === "string"
-            ? response.choice
-            : null,
-      }),
+      toContractResponse: (response) =>
+        SingleSelectResponseSchema.parse({
+          kind: "single-select",
+          optionId:
+            typeof response === "object" &&
+            response !== null &&
+            "choice" in response &&
+            typeof response.choice === "string"
+              ? response.choice
+              : null,
+        }),
       fromContractResponse: (response) => ({
         choice: response.kind === "single-select" ? response.optionId : null,
       }),
@@ -93,7 +98,7 @@ function registerResponse(store: AssessmentStoreApi) {
       },
     },
   });
-  store.getState().setLocalResponse(identity, { choice: "option-one" });
+  store.getState().setLocalResponse(identity, { choice: "option_00001" });
 
   return identity;
 }
@@ -346,7 +351,10 @@ describe("AssessmentRuntimeProvider", () => {
 
     pending.resolve({
       problem: {
-        response: { kind: "single-select", optionId: "option-b" },
+        response: SingleSelectResponseSchema.parse({
+          kind: "single-select",
+          optionId: "option_00002",
+        }),
         attemptNumber: 1,
         hintsShown: 0,
         checkResult: assessmentResult(),
@@ -377,7 +385,7 @@ describe("AssessmentRuntimeProvider", () => {
     const store = stores[0];
     if (!store) throw new Error("expected an assessment store");
     const identity = registerResponse(store);
-    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "block_000001");
 
     await expect(store.getState().submit(identity)).resolves.toBeNull();
     expect(store.getState().requests[problemId]).toMatchObject({

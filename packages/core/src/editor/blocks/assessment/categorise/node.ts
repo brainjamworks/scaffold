@@ -10,7 +10,6 @@ import {
   ASSESSMENT_QUESTION_CONTENT,
   COURSE_BLOCK_CONTENT,
 } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 
 /**
  * Composite Categorise node. Reuses the standard assessment shell
@@ -56,7 +55,6 @@ export function createCategoriseNode(options: CategoriseNodeOptions = {}) {
       });
 
       return {
-        id: stableNodeIdAttribute(),
         settings: {
           ...makeAttr("data-categorise-settings", settingsDefault, CategoriseSettingsSchema),
           renderHTML: (attrs: { settings: CategoriseSettings }) => ({

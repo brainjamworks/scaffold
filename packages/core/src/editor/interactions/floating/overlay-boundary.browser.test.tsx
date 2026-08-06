@@ -9,6 +9,7 @@ import { page, userEvent } from "vite-plus/test/browser/context";
 
 import * as Dialog from "@/ui/components/Dialog/Dialog";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import {
   authoringFrameAttributes,
@@ -612,6 +613,7 @@ async function mountAuthoringHarness(options: MountOptions = {}): Promise<Author
       createSlashCommand({
         blockDefinitions: builtInBlockRegistry,
         items: [slashParagraphItem],
+        layoutDefinitions: builtInLayoutRegistry,
         surfaceVariants: builtInSurfaceVariantRegistry,
       }),
     ],

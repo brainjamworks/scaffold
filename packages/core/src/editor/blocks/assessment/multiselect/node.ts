@@ -10,7 +10,6 @@ import {
   ASSESSMENT_QUESTION_CONTENT,
   COURSE_BLOCK_CONTENT,
 } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 
 /**
  * Composite Multiselect node. The parent stores identity, settings, and
@@ -56,7 +55,6 @@ export function createMultiselectNode(options: MultiselectNodeOptions = {}) {
       });
 
       return {
-        id: stableNodeIdAttribute(),
         settings: {
           ...makeAttr("data-multiselect-settings", settingsDefault, MultiselectSettingsSchema),
           renderHTML: (attrs: { settings: MultiselectSettings }) => ({

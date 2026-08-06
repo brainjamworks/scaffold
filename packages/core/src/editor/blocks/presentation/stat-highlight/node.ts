@@ -2,7 +2,6 @@ import { Node, mergeAttributes, type NodeViewRenderer } from "@tiptap/core";
 import { StatHighlightDataSchema, type StatHighlightData } from "@scaffold/contracts";
 
 import { COURSE_BLOCK_CONTENT } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 
 import { emptyStatHighlightData } from "./content";
 
@@ -21,7 +20,6 @@ export function createStatHighlightNode(options: StatHighlightNodeOptions = {}) 
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         data: {
           default: emptyStatHighlightData(),
           parseHTML: (el: HTMLElement) => {

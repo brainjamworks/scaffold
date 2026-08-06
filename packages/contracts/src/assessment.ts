@@ -1,16 +1,42 @@
 import { z } from "zod";
 
 import { AssessmentFeedbackContentSchema } from "./assessment-feedback";
+import { EmbeddedDataIdSchema, EmbeddedNodeIdSchema, type EmbeddedId } from "./embedded-id";
 
 export const SCAFFOLD_ASSESSMENT_CONTRACT_VERSION = 2;
 export const SCAFFOLD_ASSESSMENT_SNAPSHOT_VERSION = 2;
 
-const IdLabelSchema = z
+const NodeIdLabelSchema = z
   .object({
-    id: z.string(),
+    id: EmbeddedNodeIdSchema,
     label: z.string().optional(),
   })
   .strict();
+
+const DataIdLabelSchema = z
+  .object({
+    id: EmbeddedDataIdSchema,
+    label: z.string().optional(),
+  })
+  .strict();
+
+// JavaScript object keys are always structural strings. Use the unwrapped
+// physical codec so record types stay assignable and generated JSON Schema
+// retains the embedded-ID property-name constraint.
+const EmbeddedNodeRecordKeySchema = EmbeddedNodeIdSchema.unwrap().unwrap();
+const EmbeddedDataRecordKeySchema = EmbeddedDataIdSchema.unwrap().unwrap();
+
+// Aggregate assessment values cross runtime and host boundaries where object
+// keys and decoded JSON remain structural strings. Component schemas retain
+// their Node/Data brands; this helper prevents those brands from leaking into
+// transport-facing aggregate types and forcing consumer casts.
+type StructuralAssessmentIds<T> = T extends EmbeddedId
+  ? string
+  : T extends readonly (infer Item)[]
+    ? StructuralAssessmentIds<Item>[]
+    : T extends object
+      ? { [Key in keyof T]: StructuralAssessmentIds<T[Key]> }
+      : T;
 
 export const AssessmentInteractionKindSchema = z.enum([
   "single-select",
@@ -26,7 +52,7 @@ export type AssessmentInteractionKind = z.infer<typeof AssessmentInteractionKind
 export const SingleSelectInteractionSchema = z
   .object({
     kind: z.literal("single-select"),
-    options: z.array(IdLabelSchema),
+    options: z.array(NodeIdLabelSchema),
   })
   .strict();
 export type SingleSelectInteraction = z.infer<typeof SingleSelectInteractionSchema>;
@@ -34,7 +60,7 @@ export type SingleSelectInteraction = z.infer<typeof SingleSelectInteractionSche
 export const MultiSelectInteractionSchema = z
   .object({
     kind: z.literal("multi-select"),
-    options: z.array(IdLabelSchema),
+    options: z.array(NodeIdLabelSchema),
     maxSelections: z.number().int().positive().nullable().default(null),
   })
   .strict();
@@ -43,7 +69,7 @@ export type MultiSelectInteraction = z.infer<typeof MultiSelectInteractionSchema
 export const SequenceInteractionSchema = z
   .object({
     kind: z.literal("sequence"),
-    items: z.array(IdLabelSchema),
+    items: z.array(NodeIdLabelSchema),
   })
   .strict();
 export type SequenceInteraction = z.infer<typeof SequenceInteractionSchema>;
@@ -51,8 +77,8 @@ export type SequenceInteraction = z.infer<typeof SequenceInteractionSchema>;
 export const MatchInteractionSchema = z
   .object({
     kind: z.literal("match"),
-    items: z.array(IdLabelSchema),
-    targets: z.array(IdLabelSchema),
+    items: z.array(NodeIdLabelSchema),
+    targets: z.array(NodeIdLabelSchema),
   })
   .strict();
 export type MatchInteraction = z.infer<typeof MatchInteractionSchema>;
@@ -60,8 +86,8 @@ export type MatchInteraction = z.infer<typeof MatchInteractionSchema>;
 export const ClassifyInteractionSchema = z
   .object({
     kind: z.literal("classify"),
-    items: z.array(IdLabelSchema),
-    categories: z.array(IdLabelSchema),
+    items: z.array(NodeIdLabelSchema),
+    categories: z.array(NodeIdLabelSchema),
   })
   .strict();
 export type ClassifyInteraction = z.infer<typeof ClassifyInteractionSchema>;
@@ -69,7 +95,7 @@ export type ClassifyInteraction = z.infer<typeof ClassifyInteractionSchema>;
 export const FillBlanksInteractionSchema = z
   .object({
     kind: z.literal("fill-blanks"),
-    blanks: z.array(IdLabelSchema),
+    blanks: z.array(NodeIdLabelSchema),
   })
   .strict();
 export type FillBlanksInteraction = z.infer<typeof FillBlanksInteractionSchema>;
@@ -78,7 +104,7 @@ export const SpatialHotspotInteractionSchema = z
   .object({
     kind: z.literal("spatial-hotspot"),
     hotspots: z.array(
-      IdLabelSchema.extend({
+      DataIdLabelSchema.extend({
         geometry: z
           .object({
             kind: z.literal("circle"),
@@ -94,7 +120,7 @@ export const SpatialHotspotInteractionSchema = z
   .strict();
 export type SpatialHotspotInteraction = z.infer<typeof SpatialHotspotInteractionSchema>;
 
-export const AssessmentInteractionContractSchema = z.discriminatedUnion("kind", [
+const AssessmentInteractionContractValueSchema = z.discriminatedUnion("kind", [
   SingleSelectInteractionSchema,
   MultiSelectInteractionSchema,
   SequenceInteractionSchema,
@@ -103,13 +129,20 @@ export const AssessmentInteractionContractSchema = z.discriminatedUnion("kind", 
   FillBlanksInteractionSchema,
   SpatialHotspotInteractionSchema,
 ]);
+export const AssessmentInteractionContractSchema: z.ZodType<
+  StructuralAssessmentIds<z.infer<typeof AssessmentInteractionContractValueSchema>>,
+  z.ZodTypeDef,
+  z.input<typeof AssessmentInteractionContractValueSchema>
+> = AssessmentInteractionContractValueSchema;
 export type AssessmentInteractionContract = z.infer<typeof AssessmentInteractionContractSchema>;
 
 export const SingleSelectAssessmentSchema = z
   .object({
     kind: z.literal("single-select"),
-    correctOptionId: z.string().nullable(),
-    feedbackByOptionId: z.record(z.string(), AssessmentFeedbackContentSchema).default({}),
+    correctOptionId: EmbeddedNodeIdSchema.nullable(),
+    feedbackByOptionId: z
+      .record(EmbeddedNodeRecordKeySchema, AssessmentFeedbackContentSchema)
+      .default({}),
     summaryFeedback: AssessmentFeedbackContentSchema.nullable().optional(),
   })
   .strict();
@@ -118,8 +151,10 @@ export type SingleSelectAssessment = z.infer<typeof SingleSelectAssessmentSchema
 export const MultiSelectAssessmentSchema = z
   .object({
     kind: z.literal("multi-select"),
-    correctOptionIds: z.array(z.string()),
-    feedbackByOptionId: z.record(z.string(), AssessmentFeedbackContentSchema).default({}),
+    correctOptionIds: z.array(EmbeddedNodeIdSchema),
+    feedbackByOptionId: z
+      .record(EmbeddedNodeRecordKeySchema, AssessmentFeedbackContentSchema)
+      .default({}),
     summaryFeedback: AssessmentFeedbackContentSchema.nullable().optional(),
   })
   .strict();
@@ -128,8 +163,10 @@ export type MultiSelectAssessment = z.infer<typeof MultiSelectAssessmentSchema>;
 export const SequenceAssessmentSchema = z
   .object({
     kind: z.literal("sequence"),
-    correctOrder: z.array(z.string()),
-    feedbackByItemId: z.record(z.string(), AssessmentFeedbackContentSchema).default({}),
+    correctOrder: z.array(EmbeddedNodeIdSchema),
+    feedbackByItemId: z
+      .record(EmbeddedNodeRecordKeySchema, AssessmentFeedbackContentSchema)
+      .default({}),
     summaryFeedback: AssessmentFeedbackContentSchema.nullable().optional(),
   })
   .strict();
@@ -141,12 +178,14 @@ export const MatchAssessmentSchema = z
     correctPairs: z.array(
       z
         .object({
-          itemId: z.string(),
-          targetId: z.string(),
+          itemId: EmbeddedNodeIdSchema,
+          targetId: EmbeddedNodeIdSchema,
         })
         .strict(),
     ),
-    feedbackByItemId: z.record(z.string(), AssessmentFeedbackContentSchema).default({}),
+    feedbackByItemId: z
+      .record(EmbeddedNodeRecordKeySchema, AssessmentFeedbackContentSchema)
+      .default({}),
     summaryFeedback: AssessmentFeedbackContentSchema.nullable().optional(),
   })
   .strict();
@@ -158,12 +197,14 @@ export const ClassifyAssessmentSchema = z
     correctPlacements: z.array(
       z
         .object({
-          itemId: z.string(),
-          categoryId: z.string(),
+          itemId: EmbeddedNodeIdSchema,
+          categoryId: EmbeddedNodeIdSchema,
         })
         .strict(),
     ),
-    feedbackByItemId: z.record(z.string(), AssessmentFeedbackContentSchema).default({}),
+    feedbackByItemId: z
+      .record(EmbeddedNodeRecordKeySchema, AssessmentFeedbackContentSchema)
+      .default({}),
     summaryFeedback: AssessmentFeedbackContentSchema.nullable().optional(),
   })
   .strict();
@@ -175,14 +216,16 @@ export const FillBlanksAssessmentSchema = z
     blanks: z.array(
       z
         .object({
-          blankId: z.string(),
+          blankId: EmbeddedNodeIdSchema,
           acceptedAnswers: z.array(z.string()),
           caseSensitive: z.boolean().default(false),
           trimWhitespace: z.boolean().default(true),
         })
         .strict(),
     ),
-    feedbackByBlankId: z.record(z.string(), AssessmentFeedbackContentSchema).default({}),
+    feedbackByBlankId: z
+      .record(EmbeddedNodeRecordKeySchema, AssessmentFeedbackContentSchema)
+      .default({}),
     summaryFeedback: AssessmentFeedbackContentSchema.nullable().optional(),
   })
   .strict();
@@ -192,15 +235,17 @@ export const SpatialHotspotAssessmentSchema = z
   .object({
     kind: z.literal("spatial-hotspot"),
     gradingMode: z.enum(["partial-credit", "all-or-nothing"]),
-    correctHotspotIds: z.array(z.string()),
-    feedbackByHotspotId: z.record(z.string(), AssessmentFeedbackContentSchema).default({}),
+    correctHotspotIds: z.array(EmbeddedDataIdSchema),
+    feedbackByHotspotId: z
+      .record(EmbeddedDataRecordKeySchema, AssessmentFeedbackContentSchema)
+      .default({}),
     missFeedback: AssessmentFeedbackContentSchema.optional(),
     summaryFeedback: AssessmentFeedbackContentSchema.nullable().optional(),
   })
   .strict();
 export type SpatialHotspotAssessment = z.infer<typeof SpatialHotspotAssessmentSchema>;
 
-export const AssessmentAnswerKeySchema = z.discriminatedUnion("kind", [
+const AssessmentAnswerKeyValueSchema = z.discriminatedUnion("kind", [
   SingleSelectAssessmentSchema,
   MultiSelectAssessmentSchema,
   SequenceAssessmentSchema,
@@ -209,6 +254,11 @@ export const AssessmentAnswerKeySchema = z.discriminatedUnion("kind", [
   FillBlanksAssessmentSchema,
   SpatialHotspotAssessmentSchema,
 ]);
+export const AssessmentAnswerKeySchema: z.ZodType<
+  StructuralAssessmentIds<z.infer<typeof AssessmentAnswerKeyValueSchema>>,
+  z.ZodTypeDef,
+  z.input<typeof AssessmentAnswerKeyValueSchema>
+> = AssessmentAnswerKeyValueSchema;
 export type AssessmentAnswerKey = z.infer<typeof AssessmentAnswerKeySchema>;
 
 export const AnswerRevealSchema = z.object({ answerKey: AssessmentAnswerKeySchema }).strict();
@@ -239,14 +289,14 @@ const NonBlankStringSchema = z.string().regex(/\S/, {
 const AssessmentTargetContractBaseSchema = z
   .object({
     schemaVersion: z.literal(SCAFFOLD_ASSESSMENT_CONTRACT_VERSION),
-    targetId: NonBlankStringSchema,
-    blockId: NonBlankStringSchema,
+    targetId: EmbeddedNodeIdSchema,
+    blockId: EmbeddedNodeIdSchema,
     blockType: NonBlankStringSchema,
     settings: AssessmentTargetSettingsSchema,
   })
   .strict();
 
-export const AssessmentTargetContractSchema = z.union([
+const AssessmentTargetContractVariantSchema = z.union([
   AssessmentTargetContractBaseSchema.extend({
     interaction: SingleSelectInteractionSchema,
     assessment: SingleSelectAssessmentSchema,
@@ -276,6 +326,272 @@ export const AssessmentTargetContractSchema = z.union([
     assessment: SpatialHotspotAssessmentSchema,
   }).strict(),
 ]);
+
+function addDuplicateIdentityIssue(
+  ids: readonly string[],
+  context: z.RefinementCtx,
+  path: (string | number)[],
+  label: string,
+): void {
+  if (new Set(ids).size !== ids.length) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path,
+      message: `${label} must be unique`,
+    });
+  }
+}
+
+function addDanglingReferenceIssues(
+  ownerIds: ReadonlySet<string>,
+  references: readonly string[],
+  context: z.RefinementCtx,
+  path: (string | number)[],
+  label: string,
+): void {
+  if (references.some((reference) => !ownerIds.has(reference))) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path,
+      message: `${label} must reference an interaction owner`,
+    });
+  }
+}
+
+const AssessmentTargetContractValueSchema = AssessmentTargetContractVariantSchema.superRefine(
+  (target, context) => {
+    switch (target.interaction.kind) {
+      case "single-select": {
+        if (target.assessment.kind !== "single-select") return;
+        const optionIds = target.interaction.options.map((option) => option.id);
+        const owners = new Set<string>(optionIds);
+        addDuplicateIdentityIssue(optionIds, context, ["interaction", "options"], "Option IDs");
+        addDanglingReferenceIssues(
+          owners,
+          target.assessment.correctOptionId === null ? [] : [target.assessment.correctOptionId],
+          context,
+          ["assessment", "correctOptionId"],
+          "Correct option",
+        );
+        addDanglingReferenceIssues(
+          owners,
+          Object.keys(target.assessment.feedbackByOptionId),
+          context,
+          ["assessment", "feedbackByOptionId"],
+          "Option feedback keys",
+        );
+        break;
+      }
+      case "multi-select": {
+        if (target.assessment.kind !== "multi-select") return;
+        const optionIds = target.interaction.options.map((option) => option.id);
+        const owners = new Set<string>(optionIds);
+        addDuplicateIdentityIssue(optionIds, context, ["interaction", "options"], "Option IDs");
+        addDuplicateIdentityIssue(
+          target.assessment.correctOptionIds,
+          context,
+          ["assessment", "correctOptionIds"],
+          "Correct option IDs",
+        );
+        addDanglingReferenceIssues(
+          owners,
+          target.assessment.correctOptionIds,
+          context,
+          ["assessment", "correctOptionIds"],
+          "Correct option IDs",
+        );
+        addDanglingReferenceIssues(
+          owners,
+          Object.keys(target.assessment.feedbackByOptionId),
+          context,
+          ["assessment", "feedbackByOptionId"],
+          "Option feedback keys",
+        );
+        break;
+      }
+      case "sequence": {
+        if (target.assessment.kind !== "sequence") return;
+        const itemIds = target.interaction.items.map((item) => item.id);
+        const owners = new Set<string>(itemIds);
+        addDuplicateIdentityIssue(itemIds, context, ["interaction", "items"], "Item IDs");
+        addDuplicateIdentityIssue(
+          target.assessment.correctOrder,
+          context,
+          ["assessment", "correctOrder"],
+          "Correct-order item IDs",
+        );
+        addDanglingReferenceIssues(
+          owners,
+          target.assessment.correctOrder,
+          context,
+          ["assessment", "correctOrder"],
+          "Correct-order item IDs",
+        );
+        addDanglingReferenceIssues(
+          owners,
+          Object.keys(target.assessment.feedbackByItemId),
+          context,
+          ["assessment", "feedbackByItemId"],
+          "Item feedback keys",
+        );
+        break;
+      }
+      case "match": {
+        if (target.assessment.kind !== "match") return;
+        const itemIds = target.interaction.items.map((item) => item.id);
+        const targetIds = target.interaction.targets.map((item) => item.id);
+        const itemOwners = new Set<string>(itemIds);
+        const targetOwners = new Set<string>(targetIds);
+        const correctItemIds = target.assessment.correctPairs.map((pair) => pair.itemId);
+        const correctTargetIds = target.assessment.correctPairs.map((pair) => pair.targetId);
+        addDuplicateIdentityIssue(itemIds, context, ["interaction", "items"], "Item IDs");
+        addDuplicateIdentityIssue(targetIds, context, ["interaction", "targets"], "Target IDs");
+        addDuplicateIdentityIssue(
+          correctItemIds,
+          context,
+          ["assessment", "correctPairs"],
+          "Correct-pair item IDs",
+        );
+        addDuplicateIdentityIssue(
+          correctTargetIds,
+          context,
+          ["assessment", "correctPairs"],
+          "Correct-pair target IDs",
+        );
+        addDanglingReferenceIssues(
+          itemOwners,
+          correctItemIds,
+          context,
+          ["assessment", "correctPairs"],
+          "Correct-pair item IDs",
+        );
+        addDanglingReferenceIssues(
+          targetOwners,
+          correctTargetIds,
+          context,
+          ["assessment", "correctPairs"],
+          "Correct-pair target IDs",
+        );
+        addDanglingReferenceIssues(
+          itemOwners,
+          Object.keys(target.assessment.feedbackByItemId),
+          context,
+          ["assessment", "feedbackByItemId"],
+          "Item feedback keys",
+        );
+        break;
+      }
+      case "classify": {
+        if (target.assessment.kind !== "classify") return;
+        const itemIds = target.interaction.items.map((item) => item.id);
+        const categoryIds = target.interaction.categories.map((category) => category.id);
+        const itemOwners = new Set<string>(itemIds);
+        const categoryOwners = new Set<string>(categoryIds);
+        const placedItemIds = target.assessment.correctPlacements.map(
+          (placement) => placement.itemId,
+        );
+        const placedCategoryIds = target.assessment.correctPlacements.map(
+          (placement) => placement.categoryId,
+        );
+        addDuplicateIdentityIssue(itemIds, context, ["interaction", "items"], "Item IDs");
+        addDuplicateIdentityIssue(
+          categoryIds,
+          context,
+          ["interaction", "categories"],
+          "Category IDs",
+        );
+        addDuplicateIdentityIssue(
+          placedItemIds,
+          context,
+          ["assessment", "correctPlacements"],
+          "Placement item IDs",
+        );
+        addDanglingReferenceIssues(
+          itemOwners,
+          placedItemIds,
+          context,
+          ["assessment", "correctPlacements"],
+          "Placement item IDs",
+        );
+        addDanglingReferenceIssues(
+          categoryOwners,
+          placedCategoryIds,
+          context,
+          ["assessment", "correctPlacements"],
+          "Placement category IDs",
+        );
+        addDanglingReferenceIssues(
+          itemOwners,
+          Object.keys(target.assessment.feedbackByItemId),
+          context,
+          ["assessment", "feedbackByItemId"],
+          "Item feedback keys",
+        );
+        break;
+      }
+      case "fill-blanks": {
+        if (target.assessment.kind !== "fill-blanks") return;
+        const blankIds = target.interaction.blanks.map((blank) => blank.id);
+        const owners = new Set<string>(blankIds);
+        const answerBlankIds = target.assessment.blanks.map((blank) => blank.blankId);
+        addDuplicateIdentityIssue(blankIds, context, ["interaction", "blanks"], "Blank IDs");
+        addDuplicateIdentityIssue(
+          answerBlankIds,
+          context,
+          ["assessment", "blanks"],
+          "Answer blank IDs",
+        );
+        addDanglingReferenceIssues(
+          owners,
+          answerBlankIds,
+          context,
+          ["assessment", "blanks"],
+          "Answer blank IDs",
+        );
+        addDanglingReferenceIssues(
+          owners,
+          Object.keys(target.assessment.feedbackByBlankId),
+          context,
+          ["assessment", "feedbackByBlankId"],
+          "Blank feedback keys",
+        );
+        break;
+      }
+      case "spatial-hotspot": {
+        if (target.assessment.kind !== "spatial-hotspot") return;
+        const hotspotIds = target.interaction.hotspots.map((hotspot) => hotspot.id);
+        const owners = new Set<string>(hotspotIds);
+        addDuplicateIdentityIssue(hotspotIds, context, ["interaction", "hotspots"], "Hotspot IDs");
+        addDuplicateIdentityIssue(
+          target.assessment.correctHotspotIds,
+          context,
+          ["assessment", "correctHotspotIds"],
+          "Correct hotspot IDs",
+        );
+        addDanglingReferenceIssues(
+          owners,
+          target.assessment.correctHotspotIds,
+          context,
+          ["assessment", "correctHotspotIds"],
+          "Correct hotspot IDs",
+        );
+        addDanglingReferenceIssues(
+          owners,
+          Object.keys(target.assessment.feedbackByHotspotId),
+          context,
+          ["assessment", "feedbackByHotspotId"],
+          "Hotspot feedback keys",
+        );
+        break;
+      }
+    }
+  },
+);
+export const AssessmentTargetContractSchema: z.ZodType<
+  StructuralAssessmentIds<z.infer<typeof AssessmentTargetContractValueSchema>>,
+  z.ZodTypeDef,
+  z.input<typeof AssessmentTargetContractValueSchema>
+> = AssessmentTargetContractValueSchema;
 export type AssessmentTargetContract = z.infer<typeof AssessmentTargetContractSchema>;
 
 export const QuizReviewTimingSchema = z.enum(["after_quiz", "after_each_answer"]);
@@ -311,13 +627,13 @@ export const QuizAssessmentSettingsSchema = z
   .strict();
 export type QuizAssessmentSettings = z.infer<typeof QuizAssessmentSettingsSchema>;
 
-export const AssessmentGroupContractSchema = z
+const AssessmentGroupContractValueSchema = z
   .object({
     schemaVersion: z.literal(SCAFFOLD_ASSESSMENT_CONTRACT_VERSION),
     kind: z.literal("quiz"),
-    groupId: NonBlankStringSchema,
+    groupId: EmbeddedNodeIdSchema,
     targetIds: z
-      .array(NonBlankStringSchema)
+      .array(EmbeddedNodeIdSchema)
       .min(1)
       .refine((targetIds) => new Set(targetIds).size === targetIds.length, {
         message: "Target IDs must be unique",
@@ -325,12 +641,17 @@ export const AssessmentGroupContractSchema = z
     settings: QuizAssessmentSettingsSchema,
   })
   .strict();
+export const AssessmentGroupContractSchema: z.ZodType<
+  StructuralAssessmentIds<z.infer<typeof AssessmentGroupContractValueSchema>>,
+  z.ZodTypeDef,
+  z.input<typeof AssessmentGroupContractValueSchema>
+> = AssessmentGroupContractValueSchema;
 export type AssessmentGroupContract = z.infer<typeof AssessmentGroupContractSchema>;
 
 export const SingleSelectResponseSchema = z
   .object({
     kind: z.literal("single-select"),
-    optionId: NonBlankStringSchema.nullable(),
+    optionId: EmbeddedNodeIdSchema.nullable(),
   })
   .strict();
 export type SingleSelectResponse = z.infer<typeof SingleSelectResponseSchema>;
@@ -338,7 +659,7 @@ export type SingleSelectResponse = z.infer<typeof SingleSelectResponseSchema>;
 export const MultiSelectResponseSchema = z
   .object({
     kind: z.literal("multi-select"),
-    optionIds: z.array(NonBlankStringSchema),
+    optionIds: z.array(EmbeddedNodeIdSchema),
   })
   .strict();
 export type MultiSelectResponse = z.infer<typeof MultiSelectResponseSchema>;
@@ -346,7 +667,7 @@ export type MultiSelectResponse = z.infer<typeof MultiSelectResponseSchema>;
 export const SequenceResponseSchema = z
   .object({
     kind: z.literal("sequence"),
-    orderedItemIds: z.array(NonBlankStringSchema),
+    orderedItemIds: z.array(EmbeddedNodeIdSchema),
   })
   .strict();
 export type SequenceResponse = z.infer<typeof SequenceResponseSchema>;
@@ -357,8 +678,8 @@ export const MatchResponseSchema = z
     pairs: z.array(
       z
         .object({
-          itemId: NonBlankStringSchema,
-          targetId: NonBlankStringSchema,
+          itemId: EmbeddedNodeIdSchema,
+          targetId: EmbeddedNodeIdSchema,
         })
         .strict(),
     ),
@@ -372,8 +693,8 @@ export const ClassifyResponseSchema = z
     placements: z.array(
       z
         .object({
-          itemId: NonBlankStringSchema,
-          categoryId: NonBlankStringSchema,
+          itemId: EmbeddedNodeIdSchema,
+          categoryId: EmbeddedNodeIdSchema,
         })
         .strict(),
     ),
@@ -387,7 +708,7 @@ export const FillBlanksResponseSchema = z
     blanks: z.array(
       z
         .object({
-          blankId: NonBlankStringSchema,
+          blankId: EmbeddedNodeIdSchema,
           value: z.string(),
         })
         .strict(),
@@ -402,7 +723,7 @@ export const SpatialHotspotResponseSchema = z
     selections: z.array(
       z
         .object({
-          hotspotId: NonBlankStringSchema.nullable(),
+          hotspotId: EmbeddedDataIdSchema.nullable(),
           x: z.number().finite(),
           y: z.number().finite(),
         })
@@ -412,7 +733,7 @@ export const SpatialHotspotResponseSchema = z
   .strict();
 export type SpatialHotspotResponse = z.infer<typeof SpatialHotspotResponseSchema>;
 
-export const AssessmentResponseValueSchema = z.discriminatedUnion("kind", [
+const AssessmentResponseValueContractSchema = z.discriminatedUnion("kind", [
   SingleSelectResponseSchema,
   MultiSelectResponseSchema,
   SequenceResponseSchema,
@@ -421,6 +742,11 @@ export const AssessmentResponseValueSchema = z.discriminatedUnion("kind", [
   FillBlanksResponseSchema,
   SpatialHotspotResponseSchema,
 ]);
+export const AssessmentResponseValueSchema: z.ZodType<
+  StructuralAssessmentIds<z.infer<typeof AssessmentResponseValueContractSchema>>,
+  z.ZodTypeDef,
+  z.input<typeof AssessmentResponseValueContractSchema>
+> = AssessmentResponseValueContractSchema;
 export type AssessmentResponseValue = z.infer<typeof AssessmentResponseValueSchema>;
 
 export const AssessmentItemValueSchema = z.union([
@@ -440,6 +766,9 @@ export const AssessmentItemDetailSchema = z
   })
   .strict();
 export type AssessmentItemDetail = z.infer<typeof AssessmentItemDetailSchema>;
+
+const AssessmentItemReferenceIdSchema = z.union([EmbeddedNodeIdSchema, EmbeddedDataIdSchema]);
+const AssessmentItemReferenceRecordKeySchema: z.ZodType<string> = AssessmentItemReferenceIdSchema;
 
 const ScaledScoreSchema = z.number().finite().min(0).max(1);
 const ScoreIntegerSchema = z
@@ -483,7 +812,7 @@ export const AssessmentResultSchema = z
     isCorrect: z.boolean(),
     score: ScoreSchema,
     feedback: AssessmentFeedbackContentSchema.nullable(),
-    items: z.record(z.string(), AssessmentItemDetailSchema),
+    items: z.record(AssessmentItemReferenceRecordKeySchema, AssessmentItemDetailSchema),
   })
   .strict();
 export type AssessmentResult = z.infer<typeof AssessmentResultSchema>;
@@ -524,21 +853,23 @@ export type QuizSuccessStatus = z.infer<typeof QuizSuccessStatusSchema>;
 
 const QuizAttemptStateBaseSchema = z.object({
   attemptId: NonBlankStringSchema,
-  groupId: NonBlankStringSchema,
-  currentTargetId: NonBlankStringSchema.nullable(),
+  groupId: NonBlankStringSchema.regex(/^artifact:.+\/group:.+$/, {
+    message: "Group ID must be a derived runtime assessment scope",
+  }),
+  currentTargetId: EmbeddedNodeIdSchema.nullable(),
   submittedTargetIds: z
-    .array(NonBlankStringSchema)
+    .array(EmbeddedNodeIdSchema)
     .refine((targetIds) => new Set(targetIds).size === targetIds.length, {
       message: "Submitted target IDs must be unique",
     }),
   startedAt: z.string().nullable(),
   finishedAt: z.string().nullable(),
   expiresAt: z.string().nullable(),
-  resultsByTargetId: z.record(NonBlankStringSchema, AssessmentResultSchema),
+  resultsByTargetId: z.record(EmbeddedNodeRecordKeySchema, AssessmentResultSchema),
   answerReviewAuthorized: z.boolean(),
 });
 
-export const QuizAttemptStateSchema = z.union([
+const QuizAttemptStateValueSchema = z.union([
   QuizAttemptStateBaseSchema.extend({
     status: z.literal("in_progress"),
     score: z.null(),
@@ -555,11 +886,16 @@ export const QuizAttemptStateSchema = z.union([
     successStatus: QuizSuccessStatusSchema,
   }).strict(),
 ]);
+export const QuizAttemptStateSchema: z.ZodType<
+  StructuralAssessmentIds<z.infer<typeof QuizAttemptStateValueSchema>>,
+  z.ZodTypeDef,
+  z.input<typeof QuizAttemptStateValueSchema>
+> = QuizAttemptStateValueSchema;
 export type QuizAttemptState = z.infer<typeof QuizAttemptStateSchema>;
 
 const QuizAttemptSnapshotBaseSchema = QuizAttemptStateBaseSchema.omit({ groupId: true });
 
-export const QuizAttemptSnapshotSchema = z.union([
+const QuizAttemptSnapshotValueSchema = z.union([
   QuizAttemptSnapshotBaseSchema.extend({
     status: z.literal("in_progress"),
     score: z.null(),
@@ -576,12 +912,12 @@ export const QuizAttemptSnapshotSchema = z.union([
     successStatus: QuizSuccessStatusSchema,
   }).strict(),
 ]);
+export const QuizAttemptSnapshotSchema: z.ZodType<
+  StructuralAssessmentIds<z.infer<typeof QuizAttemptSnapshotValueSchema>>,
+  z.ZodTypeDef,
+  z.input<typeof QuizAttemptSnapshotValueSchema>
+> = QuizAttemptSnapshotValueSchema;
 export type QuizAttemptSnapshot = z.infer<typeof QuizAttemptSnapshotSchema>;
-
-const AssessmentSnapshotTargetIdSchema = NonBlankStringSchema.regex(
-  /^(?!artifact:[\s\S]*\/block:)/,
-  { message: "Problem keys must be canonical target ids, not runtime composite ids" },
-);
 
 const AssessmentProblemSnapshotBaseSchema = z.object({
   response: AssessmentResponseValueSchema.nullable(),
@@ -590,7 +926,7 @@ const AssessmentProblemSnapshotBaseSchema = z.object({
   checkResult: AssessmentResultSchema.nullable(),
 });
 
-export const AssessmentProblemSnapshotSchema = z.union([
+const AssessmentProblemSnapshotValueSchema = z.union([
   AssessmentProblemSnapshotBaseSchema.extend({
     submitted: z.literal(false),
     submissionResult: z.null(),
@@ -600,14 +936,24 @@ export const AssessmentProblemSnapshotSchema = z.union([
     submissionResult: AssessmentResultSchema,
   }).strict(),
 ]);
+export const AssessmentProblemSnapshotSchema: z.ZodType<
+  StructuralAssessmentIds<z.infer<typeof AssessmentProblemSnapshotValueSchema>>,
+  z.ZodTypeDef,
+  z.input<typeof AssessmentProblemSnapshotValueSchema>
+> = AssessmentProblemSnapshotValueSchema;
 export type AssessmentProblemSnapshot = z.infer<typeof AssessmentProblemSnapshotSchema>;
 
-export const AssessmentLearnerSnapshotSchema = z
+const AssessmentLearnerSnapshotValueSchema = z
   .object({
     snapshotVersion: z.literal(SCAFFOLD_ASSESSMENT_SNAPSHOT_VERSION),
     artifactId: NonBlankStringSchema,
-    problems: z.record(AssessmentSnapshotTargetIdSchema, AssessmentProblemSnapshotSchema),
-    quizzes: z.record(NonBlankStringSchema, QuizAttemptSnapshotSchema),
+    problems: z.record(EmbeddedNodeRecordKeySchema, AssessmentProblemSnapshotSchema),
+    quizzes: z.record(EmbeddedNodeRecordKeySchema, QuizAttemptSnapshotSchema),
   })
   .strict();
+export const AssessmentLearnerSnapshotSchema: z.ZodType<
+  StructuralAssessmentIds<z.infer<typeof AssessmentLearnerSnapshotValueSchema>>,
+  z.ZodTypeDef,
+  z.input<typeof AssessmentLearnerSnapshotValueSchema>
+> = AssessmentLearnerSnapshotValueSchema;
 export type AssessmentLearnerSnapshot = z.infer<typeof AssessmentLearnerSnapshotSchema>;

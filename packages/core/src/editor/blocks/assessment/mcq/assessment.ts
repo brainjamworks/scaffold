@@ -1,7 +1,10 @@
 import type { JSONContent } from "@tiptap/core";
 import { z } from "zod";
 import {
+  EmbeddedNodeIdSchema,
   McqPrivateAssessmentSchema,
+  SingleSelectAssessmentSchema,
+  SingleSelectInteractionSchema,
   SingleSelectResponseSchema,
   type AssessmentAnswerKey,
   type AssessmentInteractionContract,
@@ -27,7 +30,7 @@ import {
 
 export const McqResponseSchema = z
   .object({
-    choices: z.string().nullable().default(null),
+    choices: EmbeddedNodeIdSchema.nullable().default(null),
   })
   .strict();
 export type McqResponse = z.infer<typeof McqResponseSchema>;
@@ -45,20 +48,20 @@ export function projectMcqLearnerNode(node: JSONContent): JSONContent {
 }
 
 export function projectMcqInteraction(node: JSONContent): AssessmentInteractionContract {
-  return {
+  return SingleSelectInteractionSchema.parse({
     kind: "single-select",
     options: projectSelectableOptions(node),
-  };
+  });
 }
 
 export function projectMcqAssessment(node: JSONContent): AssessmentAnswerKey {
   const assessment = McqPrivateAssessmentSchema.parse(readAttrs(node)["assessment"] ?? {});
-  return {
+  return SingleSelectAssessmentSchema.parse({
     kind: "single-select",
     correctOptionId: assessment.correctOptionId,
     feedbackByOptionId: assessment.feedbackByOptionId,
     summaryFeedback: assessment.summaryFeedback,
-  };
+  });
 }
 
 export function projectMcqSettings(settings: unknown): Partial<AssessmentTargetSettings> {

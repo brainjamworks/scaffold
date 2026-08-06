@@ -6,6 +6,7 @@ import { ReactRenderer } from "@tiptap/react";
 import Suggestion from "@tiptap/suggestion";
 
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
+import type { LayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
 import {
   insertCatalogItemChecked,
   type InsertActionCheckedRange,
@@ -33,6 +34,7 @@ import { SlashMenu, type SlashMenuHandle } from "./SlashMenu";
 export interface SlashCommandOptions {
   blockDefinitions: BlockDefinitionLookup;
   items: readonly InsertAction[];
+  layoutDefinitions: LayoutRegistry;
   surfaceVariants: SurfaceVariantLookup;
 }
 
@@ -40,9 +42,36 @@ export function getSlashCommandItems(
   editor: Editor,
   query: string,
   items: readonly InsertAction[],
+  blockDefinitions: BlockDefinitionLookup,
+  layoutDefinitions: LayoutRegistry,
+  surfaceVariants: SurfaceVariantLookup,
 ): SlashItem[] {
-  const insertableItems = getInsertableCatalogItems(editor, items);
+  const range = resolveSlashQueryRange(editor, query);
+  const insertableItems = getInsertableCatalogItems(
+    editor,
+    items,
+    { blockDefinitions, layoutDefinitions, surfaceVariants },
+    range,
+    "slash-trigger-replacement",
+  );
   return searchSlashItems(insertableItems, query).slice(0, 10);
+}
+
+function resolveSlashQueryRange(
+  editor: Editor,
+  query: string,
+): InsertActionCheckedRange | undefined {
+  if (!editor.state.selection.empty) return undefined;
+
+  const to = editor.state.selection.from;
+  const from = to - query.length - 1;
+  if (from < 0) return undefined;
+
+  try {
+    return editor.state.doc.textBetween(from, to) === `/${query}` ? { from, to } : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export function insertSlashCommandItem(
@@ -50,10 +79,29 @@ export function insertSlashCommandItem(
   range: InsertActionCheckedRange,
   item: SlashItem,
   blockDefinitions: BlockDefinitionLookup,
+  layoutDefinitions: LayoutRegistry,
   surfaceVariants: SurfaceVariantLookup,
 ): boolean {
-  if (!canInsertCatalogItem(editor, item)) return false;
-  return insertCatalogItemChecked(editor, item, blockDefinitions, surfaceVariants, range);
+  if (
+    !canInsertCatalogItem(
+      editor,
+      item,
+      { blockDefinitions, layoutDefinitions, surfaceVariants },
+      range,
+      "slash-trigger-replacement",
+    )
+  ) {
+    return false;
+  }
+  return insertCatalogItemChecked(
+    editor,
+    item,
+    blockDefinitions,
+    layoutDefinitions,
+    surfaceVariants,
+    range,
+    "slash-trigger-replacement",
+  );
 }
 
 export const SlashCommandPluginKey = new PluginKey("slash-command");
@@ -111,6 +159,7 @@ function slashCommandReference(
 export function createSlashCommand({
   blockDefinitions,
   items,
+  layoutDefinitions,
   surfaceVariants,
 }: SlashCommandOptions) {
   return Extension.create({
@@ -126,11 +175,25 @@ export function createSlashCommand({
           allowSpaces: false,
           allowedPrefixes: null,
           items: ({ editor, query }): SlashItem[] => {
-            return getSlashCommandItems(editor, query, items);
+            return getSlashCommandItems(
+              editor,
+              query,
+              items,
+              blockDefinitions,
+              layoutDefinitions,
+              surfaceVariants,
+            );
           },
           command: ({ editor, range, props }) => {
             const item = props as SlashItem;
-            insertSlashCommandItem(editor, range, item, blockDefinitions, surfaceVariants);
+            insertSlashCommandItem(
+              editor,
+              range,
+              item,
+              blockDefinitions,
+              layoutDefinitions,
+              surfaceVariants,
+            );
           },
           render: () => {
             let component: ReactRenderer<SlashMenuHandle> | null = null;

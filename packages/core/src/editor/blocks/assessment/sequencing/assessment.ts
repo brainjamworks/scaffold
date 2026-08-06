@@ -1,7 +1,10 @@
 import type { JSONContent } from "@tiptap/core";
 import { z } from "zod";
 import {
+  EmbeddedNodeIdSchema,
   SequenceResponseSchema,
+  SequenceAssessmentSchema,
+  SequenceInteractionSchema,
   SequencingPrivateAssessmentSchema,
   type AssessmentAnswerKey,
   type AssessmentInteractionContract,
@@ -28,7 +31,7 @@ import {
 
 export const SequencingResponseSchema = z
   .object({
-    order: z.array(z.string()).default([]),
+    order: z.array(EmbeddedNodeIdSchema).default([]),
   })
   .strict();
 export type SequencingResponse = z.infer<typeof SequencingResponseSchema>;
@@ -55,10 +58,10 @@ export function projectSequencingLearnerNode(node: JSONContent): JSONContent {
 }
 
 export function projectSequencingInteraction(node: JSONContent): AssessmentInteractionContract {
-  return {
+  return SequenceInteractionSchema.parse({
     kind: "sequence",
     items: projectSequencingItems(node),
-  };
+  });
 }
 
 export function projectSequencingAssessment(node: JSONContent): AssessmentAnswerKey {
@@ -71,12 +74,12 @@ export function projectSequencingAssessment(node: JSONContent): AssessmentAnswer
     const feedback = assessment.feedbackByItemId[id];
     if (feedback) feedbackByItemId[id] = feedback;
   }
-  return {
+  return SequenceAssessmentSchema.parse({
     kind: "sequence",
     correctOrder: correctOrder.length > 0 ? correctOrder : itemIds,
     feedbackByItemId,
     summaryFeedback: assessment.summaryFeedback,
-  };
+  });
 }
 
 export function projectSequencingSettings(settings: unknown): Partial<AssessmentTargetSettings> {

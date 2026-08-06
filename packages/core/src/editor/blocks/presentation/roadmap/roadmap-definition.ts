@@ -75,9 +75,6 @@ const roadmapConfiguration = defineConfiguration({
 export const roadmapBlockDefinition = defineBlock({
   nodeType: ROADMAP_NODE,
   configuration: roadmapConfiguration,
-  identity: {
-    stableChildNodeTypes: [ROADMAP_MILESTONE_NODE],
-  },
   placeholders: {
     roadmap_milestone: ({ $pos, depth }) => ($pos.index(depth) === 0 ? "Heading" : "Description"),
   },

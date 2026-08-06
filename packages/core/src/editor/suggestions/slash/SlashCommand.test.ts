@@ -2,7 +2,8 @@
 
 import { CircleIcon } from "@phosphor-icons/react";
 import { Editor, Node, type JSONContent } from "@tiptap/core";
-import { cleanup, render, waitFor } from "@testing-library/react";
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { EditorContent } from "@tiptap/react";
 import { createElement, Fragment } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
@@ -13,9 +14,8 @@ import {
   createScaffoldApplication,
   defineScaffoldExtensionPack,
   type BlockCapability,
+  type LayoutCapability,
 } from "@/composition/application/create-scaffold-application";
-import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
-import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import type { InsertAction } from "@/editor/insertion/insert-action";
 import { authoringInteractionRootAttributes } from "@/editor/interactions/dom/authoring-root";
 import {
@@ -66,9 +66,10 @@ function makeEditor(items: readonly InsertAction[], ownerDocument: Document = do
   ownerRoot.append(element);
   ownerDocument.body.append(ownerRoot);
   const slashCommand = createSlashCommand({
-    blockDefinitions: builtInBlockRegistry,
+    blockDefinitions: coreAuthoringComposition.capabilities.blocks.registry,
     items,
-    surfaceVariants: builtInSurfaceVariantRegistry,
+    layoutDefinitions: coreAuthoringComposition.capabilities.layouts.registry,
+    surfaceVariants: coreAuthoringComposition.capabilities.surfaces.registry,
   });
   const extensions = createCourseDocumentAuthoringExtensions({
     composition: coreAuthoringComposition,
@@ -384,7 +385,7 @@ describe("SlashCommand catalog inputs", () => {
     rendered.unmount();
   });
 
-  it("uses host Block placement metadata during checked slash insertion", async () => {
+  it("hides a host fill Block when its bounded region has sibling content", async () => {
     const hostBlock = hostBlockCapability("host_fill_slash_block", "fill");
     const application = createScaffoldApplication({
       packs: [defineScaffoldExtensionPack({ id: "host-fill-slash-pack", blocks: [hostBlock] })],
@@ -400,10 +401,7 @@ describe("SlashCommand catalog inputs", () => {
     expect(editor.commands.insertContent("/host-fill-slash")).toBe(true);
     expect(isSlashCommandActive(editor.state)).toBe(true);
 
-    await waitFor(() => {
-      expect(root.querySelector('[aria-label="Host Fill Slash Block"]')).not.toBeNull();
-    });
-    editor.view.dom.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+    await waitFor(() => expect(root.textContent).toContain("No block matches"));
 
     expect(editorHasNode(editor, hostBlock.definition.nodeType)).toBe(false);
     expect(editor.state.doc.textContent).toContain("Existing region content");
@@ -412,10 +410,175 @@ describe("SlashCommand catalog inputs", () => {
     rendered.unmount();
   });
 
+  it("does not offer Grid when its bounded region has authored sibling content", async () => {
+    const editor = makeApplicationEditor(createScaffoldApplication(), boundedRegionDocument());
+    const host = document.createElement("div");
+    document.body.append(host);
+    const rendered = render(renderScopedEditor(editor, host));
+
+    await waitFor(() => expect(resolveSlashCommandPopupTarget(editor)).not.toBeNull());
+    const root = requireSlashRoot(editor);
+    setCursorInFirstEmptyParagraph(editor);
+    expect(editor.commands.insertContent("/grid")).toBe(true);
+
+    await waitFor(() => {
+      expect(root.textContent).toContain("Table");
+      expect(root.querySelector('[aria-label="Grid"]')).toBeNull();
+    });
+    expect(editor.state.doc.textContent).toContain("Existing region content");
+    expect(editorHasNode(editor, "grid")).toBe(false);
+
+    editor.destroy();
+    rendered.unmount();
+  });
+
+  it("does not offer Grid when an installed fill Layout section has authored sibling content", async () => {
+    const hostLayout = hostFillLayoutCapability("host-fill-slash-layout");
+    const application = createScaffoldApplication({
+      packs: [
+        defineScaffoldExtensionPack({
+          id: "host-fill-slash-layout-pack",
+          layouts: [hostLayout],
+        }),
+      ],
+    });
+    const editor = makeApplicationEditor(
+      application,
+      fillLayoutSectionDocument(hostLayout.definition.id),
+    );
+    const host = document.createElement("div");
+    document.body.append(host);
+    const rendered = render(renderScopedEditor(editor, host));
+
+    await waitFor(() => expect(resolveSlashCommandPopupTarget(editor)).not.toBeNull());
+    const root = requireSlashRoot(editor);
+    setCursorInFirstEmptyParagraph(editor);
+    expect(editor.commands.insertContent("/grid")).toBe(true);
+
+    await waitFor(() => {
+      expect(root.textContent).toContain("Table");
+      expect(root.querySelector('[aria-label="Grid"]')).toBeNull();
+    });
+    expect(editor.state.doc.textContent).toContain("Authored section sibling");
+    expect(editorHasNode(editor, "grid")).toBe(false);
+
+    const grid = application.authoring.catalogues.inDocument.getById("grid");
+    if (!grid) throw new Error("Expected the Grid action.");
+    const before = editor.getJSON();
+    const to = editor.state.selection.to;
+    expect(
+      insertSlashCommandItem(
+        editor,
+        { from: to - "/grid".length, to },
+        grid,
+        application.authoring.capabilities.blocks.registry,
+        application.authoring.capabilities.layouts.registry,
+        application.authoring.capabilities.surfaces.registry,
+      ),
+    ).toBe(false);
+    expect(editor.getJSON()).toEqual(before);
+
+    editor.destroy();
+    rendered.unmount();
+  });
+
+  it("does not offer Grid inside a Grid cell", async () => {
+    const editor = makeApplicationEditor(createScaffoldApplication(), gridCellDocument());
+    const host = document.createElement("div");
+    document.body.append(host);
+    const rendered = render(renderScopedEditor(editor, host));
+
+    await waitFor(() => expect(resolveSlashCommandPopupTarget(editor)).not.toBeNull());
+    const root = requireSlashRoot(editor);
+    setCursorInFirstEmptyParagraph(editor);
+    expect(editor.commands.insertContent("/grid")).toBe(true);
+
+    await waitFor(() => {
+      expect(root.textContent).toContain("Table");
+      expect(root.querySelector('[aria-label="Grid"]')).toBeNull();
+    });
+    const outerGrid = firstNodeOfType(editor, "grid");
+    expect(outerGrid?.childCount).toBe(2);
+    expect(editor.state.doc.textContent).toContain("/grid");
+
+    editor.destroy();
+    rendered.unmount();
+  });
+
+  it("inserts Grid with Enter as the sole child of an otherwise-empty region", async () => {
+    const grid = catalogItem("grid");
+    const editor = makeApplicationEditor(createScaffoldApplication(), emptyBoundedRegionDocument());
+    const host = document.createElement("div");
+    document.body.append(host);
+    const rendered = render(renderScopedEditor(editor, host));
+
+    await waitFor(() => expect(resolveSlashCommandPopupTarget(editor)).not.toBeNull());
+    const root = requireSlashRoot(editor);
+    setCursorInFirstEmptyParagraph(editor);
+    expect(editor.commands.insertContent("/grid")).toBe(true);
+
+    await waitFor(() => {
+      expect(root.querySelector('[aria-label="Grid"]')).not.toBeNull();
+    });
+    editor.view.dom.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
+
+    await waitFor(() => {
+      const region = firstNodeOfType(editor, "region");
+      expect(region?.childCount).toBe(1);
+      expect(region?.firstChild?.type.name).toBe(grid.nodeType);
+      expect(region?.firstChild?.childCount).toBe(2);
+      expect(region?.textContent).not.toContain("/grid");
+    });
+
+    editor.destroy();
+    rendered.unmount();
+  });
+
+  it("inserts Grid by mouse as the sole child of an otherwise-empty region", async () => {
+    const grid = catalogItem("grid");
+    const editor = makeApplicationEditor(createScaffoldApplication(), emptyBoundedRegionDocument());
+    const host = document.createElement("div");
+    document.body.append(host);
+    const rendered = render(renderScopedEditor(editor, host));
+
+    await waitFor(() => expect(resolveSlashCommandPopupTarget(editor)).not.toBeNull());
+    const root = requireSlashRoot(editor);
+    setCursorInFirstEmptyParagraph(editor);
+    expect(editor.commands.insertContent("/grid")).toBe(true);
+
+    const gridButton = await waitFor(() => {
+      const button = root.querySelector<HTMLElement>('[aria-label="Grid"]');
+      expect(button).not.toBeNull();
+      return button;
+    });
+    if (!gridButton) throw new Error("Expected the Grid Slash item.");
+    fireEvent.click(gridButton);
+
+    await waitFor(() => {
+      const region = firstNodeOfType(editor, "region");
+      expect(region?.childCount).toBe(1);
+      expect(region?.firstChild?.type.name).toBe(grid.nodeType);
+      expect(region?.firstChild?.childCount).toBe(2);
+      expect(region?.textContent).not.toContain("/grid");
+    });
+
+    editor.destroy();
+    rendered.unmount();
+  });
+
   it("searches the explicitly supplied built-in catalog", () => {
     const editor = makeEditor(coreInsertCatalog.actions);
+    editor.commands.focus("end");
+    editor.commands.insertContent("/callout");
 
-    const results = getSlashCommandItems(editor, "callout", coreInsertCatalog.actions);
+    const results = getSlashCommandItems(
+      editor,
+      "callout",
+      coreInsertCatalog.actions,
+      coreAuthoringComposition.capabilities.blocks.registry,
+      coreAuthoringComposition.capabilities.layouts.registry,
+      coreAuthoringComposition.capabilities.surfaces.registry,
+    );
 
     expect(results[0]?.id).toBe("callout");
     expect(results.map((item) => item.id)).toContain("callout");
@@ -428,8 +591,17 @@ describe("SlashCommand catalog inputs", () => {
     const chart = catalogItem("chart");
     const items = [callout, chart];
     const editor = makeEditor(items);
+    editor.commands.focus("end");
+    editor.commands.insertContent("/chart");
 
-    const results = getSlashCommandItems(editor, "chart", items);
+    const results = getSlashCommandItems(
+      editor,
+      "chart",
+      items,
+      coreAuthoringComposition.capabilities.blocks.registry,
+      coreAuthoringComposition.capabilities.layouts.registry,
+      coreAuthoringComposition.capabilities.surfaces.registry,
+    );
 
     expect(results.map((item) => item.id)).toEqual(["chart"]);
 
@@ -448,8 +620,9 @@ describe("SlashCommand catalog inputs", () => {
       editor,
       range,
       callout,
-      builtInBlockRegistry,
-      builtInSurfaceVariantRegistry,
+      coreAuthoringComposition.capabilities.blocks.registry,
+      coreAuthoringComposition.capabilities.layouts.registry,
+      coreAuthoringComposition.capabilities.surfaces.registry,
     );
 
     let hasCallout = false;
@@ -494,6 +667,35 @@ function hostBlockCapability(nodeType: string, boundedPlacement?: "fill"): Block
   };
 }
 
+function hostFillLayoutCapability(id: string): LayoutCapability {
+  return {
+    definition: {
+      id,
+      title: "Host Fill Layout",
+      description: "Host-contributed fill Layout",
+      icon: CircleIcon,
+      boundedPlacement: "fill",
+      createContent: () => ({
+        type: "layout",
+        attrs: { id: `${id}-instance`, variant: id },
+        content: [
+          {
+            type: "section",
+            attrs: { id: `${id}-section` },
+            content: [{ type: "paragraph" }],
+          },
+        ],
+      }),
+    },
+    authoringView: { id, layout: EmptyLayoutView },
+    runtimeView: { id, component: EmptyLayoutView },
+  };
+}
+
+function EmptyLayoutView() {
+  return null;
+}
+
 function boundedRegionDocument(): JSONContent {
   return {
     type: "doc",
@@ -528,6 +730,81 @@ function boundedRegionDocument(): JSONContent {
       },
     ],
   };
+}
+
+function emptyBoundedRegionDocument(): JSONContent {
+  const document = boundedRegionDocument();
+  const region = document.content?.[0]?.content?.[0]?.content?.find(
+    (node) => node.type === "region",
+  );
+  if (!region) throw new Error("Expected a bounded region.");
+  region.content = [{ type: "paragraph" }];
+  return document;
+}
+
+function fillLayoutSectionDocument(layoutId: string): JSONContent {
+  const document = emptyBoundedRegionDocument();
+  const region = document.content?.[0]?.content?.[0]?.content?.find(
+    (node) => node.type === "region",
+  );
+  if (!region) throw new Error("Expected a bounded region.");
+  region.content = [
+    {
+      type: "layout",
+      attrs: { id: `${layoutId}-instance`, variant: layoutId },
+      content: [
+        {
+          type: "section",
+          attrs: { id: `${layoutId}-section` },
+          content: [
+            { type: "paragraph" },
+            {
+              type: "paragraph",
+              content: [{ type: "text", text: "Authored section sibling" }],
+            },
+          ],
+        },
+      ],
+    },
+  ];
+  return document;
+}
+
+function gridCellDocument(): JSONContent {
+  const document = emptyBoundedRegionDocument();
+  const region = document.content?.[0]?.content?.[0]?.content?.find(
+    (node) => node.type === "region",
+  );
+  if (!region) throw new Error("Expected a bounded region.");
+  region.content = [
+    {
+      type: "grid",
+      attrs: { id: "slash-grid", columnWidths: [1, 1] },
+      content: [
+        {
+          type: "cell",
+          attrs: { id: "slash-grid-cell-a" },
+          content: [{ type: "paragraph" }],
+        },
+        {
+          type: "cell",
+          attrs: { id: "slash-grid-cell-b" },
+          content: [{ type: "paragraph" }],
+        },
+      ],
+    },
+  ];
+  return document;
+}
+
+function firstNodeOfType(editor: Editor, nodeType: string): ProseMirrorNode | null {
+  let found: ProseMirrorNode | null = null;
+  editor.state.doc.descendants((node) => {
+    if (node.type.name !== nodeType) return true;
+    found = node;
+    return false;
+  });
+  return found;
 }
 
 function setCursorInFirstEmptyParagraph(editor: Editor): void {

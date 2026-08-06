@@ -148,16 +148,6 @@ export function createSequencingItemNode(options: SequencingItemNodeOptions = {}
     name: "sequencing_item",
     ...fieldContainerSpec({ content: SEQUENCING_ITEM_CONTENT }),
 
-    addAttributes() {
-      return {
-        id: {
-          default: "",
-          parseHTML: (el: HTMLElement) => el.getAttribute("data-item-id") ?? "",
-          renderHTML: (attrs: { id: string }) => (attrs.id ? { "data-item-id": attrs.id } : {}),
-        },
-      };
-    },
-
     parseHTML() {
       return [{ tag: 'div[data-node="sequencing-item"]' }];
     },

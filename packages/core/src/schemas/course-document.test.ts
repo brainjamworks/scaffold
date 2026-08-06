@@ -9,11 +9,13 @@ import {
 } from "./course-document";
 
 const SURFACE_ID = "AbCdEf123_--";
+const COURSE_DOCUMENT_ID = "CdEfGh456_--";
 
 describe("course document schemas", () => {
   it("requires schemaVersion and defaults surface sizing for page documents", () => {
     expect(
       CourseDocumentAttrsSchema.parse({
+        id: COURSE_DOCUMENT_ID,
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
         mode: "page",
         theme: legacyThemeReference(),
@@ -30,6 +32,7 @@ describe("course document schemas", () => {
   it("accepts Tiptap nulls for optional document and surface metadata attrs", () => {
     expect(
       CourseDocumentAttrsSchema.parse({
+        id: COURSE_DOCUMENT_ID,
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
         mode: "page",
         theme: legacyThemeReference(),
@@ -58,6 +61,7 @@ describe("course document schemas", () => {
   it("requires the Contracts-owned structured course theme", () => {
     expect(
       CourseDocumentAttrsSchema.safeParse({
+        id: COURSE_DOCUMENT_ID,
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
         mode: "page",
         theme: "scaffold-default",
@@ -65,6 +69,7 @@ describe("course document schemas", () => {
     ).toBe(false);
     expect(
       CourseDocumentAttrsSchema.safeParse({
+        id: COURSE_DOCUMENT_ID,
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
         mode: "page",
         theme: null,
@@ -75,6 +80,7 @@ describe("course document schemas", () => {
   it("rejects unsupported document format versions", () => {
     expect(() =>
       CourseDocumentAttrsSchema.parse({
+        id: COURSE_DOCUMENT_ID,
         mode: "page",
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION + 1,
       }),
@@ -84,12 +90,14 @@ describe("course document schemas", () => {
   it("rejects invalid course document enum values", () => {
     expect(() =>
       CourseDocumentAttrsSchema.parse({
+        id: COURSE_DOCUMENT_ID,
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
         mode: "deck",
       }),
     ).toThrow();
     expect(() =>
       CourseDocumentAttrsSchema.parse({
+        id: COURSE_DOCUMENT_ID,
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
         mode: "page",
         surfaceSize: "wide",
@@ -97,6 +105,7 @@ describe("course document schemas", () => {
     ).toThrow();
     expect(() =>
       CourseDocumentAttrsSchema.parse({
+        id: COURSE_DOCUMENT_ID,
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
         mode: "page",
         overflowMode: "scroll",
@@ -173,6 +182,7 @@ describe("course document schemas", () => {
   it("does not expose active slideshow or playback attrs in page schemas", () => {
     expect(
       CourseDocumentAttrsSchema.parse({
+        id: COURSE_DOCUMENT_ID,
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
         mode: "page",
         theme: legacyThemeReference(),

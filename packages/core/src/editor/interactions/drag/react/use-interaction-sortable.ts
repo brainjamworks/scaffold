@@ -1,20 +1,9 @@
-import { useSortable } from "@dnd-kit/sortable";
-import {
-  useEffect,
-  useId,
-  useMemo,
-  type HTMLAttributes,
-  type PointerEvent as ReactPointerEvent,
-} from "react";
+import { useSortable } from "@dnd-kit/react/sortable";
+import { useEffect, useId, useMemo } from "react";
 
 import {
-  createClientDelta,
-  createClientPoint,
-  type CoordinateSpaceSnapshot,
-} from "../model/coordinate-space";
-import {
-  INTERACTION_DRAG_REGISTRATION_DATA,
-  useInteractionDragSessionAdapter,
+  createInteractionDragData,
+  useInteractionDragSession,
   type InteractionDragRegistrationData,
 } from "./InteractionDragSession";
 
@@ -22,54 +11,45 @@ export interface InteractionSortableRegistration<Data> {
   readonly data: Data;
   readonly disabled?: boolean;
   readonly id: string;
+  readonly index: number;
   readonly label: string;
 }
 
-export interface InteractionSortableTransform {
-  readonly x: number;
-  readonly y: number;
-  readonly scaleX: number;
-  readonly scaleY: number;
-}
-
 export interface InteractionSortableResult {
-  readonly activatorProps: HTMLAttributes<HTMLElement>;
+  readonly handleRef: (element: Element | null) => void;
   readonly isDragging: boolean;
-  readonly isOver: boolean;
+  readonly isDropTarget: boolean;
   readonly isPlaceholder: boolean;
-  readonly localTransform: InteractionSortableTransform | null;
-  readonly setActivatorNodeRef: (element: HTMLElement | null) => void;
-  readonly setNodeRef: (element: HTMLElement | null) => void;
-  readonly sourceProps: HTMLAttributes<HTMLElement> & {
-    readonly "data-interaction-drag-placeholder"?: "";
-  };
-  readonly transition: string | undefined;
+  readonly sourceRef: (element: Element | null) => void;
 }
 
 export function useInteractionSortable<Data>({
   data,
   disabled = false,
   id,
+  index,
   label,
 }: InteractionSortableRegistration<Data>): InteractionSortableResult {
-  const session = useInteractionDragSessionAdapter();
+  const session = useInteractionDragSession();
   const sourceRemoved = session.sourceRemoved;
   const fallbackId = useId();
-  const valid = id.trim().length > 0 && label.trim().length > 0;
+  const valid = id.trim().length > 0 && label.trim().length > 0 && Number.isInteger(index);
   const registration = useMemo<InteractionDragRegistrationData>(
     () => ({ activeData: data, label, overData: data, source: true, target: true }),
     [data, label],
   );
   const sortable = useSortable({
     id: valid ? id : `invalid-interaction-sortable:${fallbackId}`,
-    data: { [INTERACTION_DRAG_REGISTRATION_DATA]: registration },
+    index: valid ? index : 0,
+    data: createInteractionDragData(registration),
     disabled: disabled || !valid || !session.enabled,
+    collisionDetector: session.collisionDetector,
+    transition: session.reducedMotion ? null : { duration: 160, easing: "ease" },
   });
-  const isPlaceholder = valid && session.activeId === id;
 
   useEffect(() => {
     if (import.meta.env.DEV && !valid) {
-      console.error("Interaction sortables require non-empty id and label values.");
+      console.error("Interaction sortables require non-empty id and label values and an index.");
     }
   }, [valid]);
   useEffect(
@@ -79,52 +59,11 @@ export function useInteractionSortable<Data>({
     [id, sourceRemoved, valid],
   );
 
-  const activatorProps = useMemo<HTMLAttributes<HTMLElement>>(() => {
-    const dndPointerDown = sortable.listeners?.onPointerDown;
-    const onPointerDown = dndPointerDown
-      ? (event: ReactPointerEvent<HTMLElement>) => {
-          const point = createClientPoint(event.clientX, event.clientY);
-          if (point) session.pointerActivationStarted(id, point);
-          dndPointerDown(event);
-        }
-      : undefined;
-    if (session.accessibilityMode === "selection-alternative") {
-      return onPointerDown ? { onPointerDown } : {};
-    }
-    return {
-      ...sortable.attributes,
-      ...sortable.listeners,
-      ...(onPointerDown ? { onPointerDown } : {}),
-      "aria-label": label,
-    } as HTMLAttributes<HTMLElement>;
-  }, [id, label, session, sortable.attributes, sortable.listeners]);
-
   return {
-    activatorProps,
+    handleRef: sortable.handleRef,
     isDragging: sortable.isDragging,
-    isOver: sortable.isOver,
-    isPlaceholder,
-    localTransform: normalizeInteractionSortableTransform(sortable.transform, session.snapshot),
-    setActivatorNodeRef: sortable.setActivatorNodeRef,
-    setNodeRef: sortable.setNodeRef,
-    sourceProps: isPlaceholder ? { "data-interaction-drag-placeholder": "" } : {},
-    transition: session.reducedMotion ? undefined : sortable.transition,
+    isDropTarget: sortable.isDropTarget,
+    isPlaceholder: sortable.isDragSource,
+    sourceRef: sortable.ref,
   };
-}
-
-export function normalizeInteractionSortableTransform(
-  transform: InteractionSortableTransform | null,
-  snapshot: CoordinateSpaceSnapshot | null,
-): InteractionSortableTransform | null {
-  if (!transform || !snapshot) return null;
-  if (!Number.isFinite(transform.scaleX) || !Number.isFinite(transform.scaleY)) return null;
-  const clientDelta = createClientDelta(transform.x, transform.y);
-  if (!clientDelta) return null;
-  const localDelta = snapshot.clientDeltaToLocal(clientDelta);
-  return Object.freeze({
-    x: localDelta.x,
-    y: localDelta.y,
-    scaleX: transform.scaleX,
-    scaleY: transform.scaleY,
-  });
 }

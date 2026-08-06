@@ -86,20 +86,33 @@ export function resolveActiveBoundedPlacementForNodeView(input: {
 export function allowsBoundedContainerRootInsertionAtPosition(input: {
   blockDefinitions: BlockDefinitionLookup;
   doc: ProseMirrorNode;
+  layoutDefinitions?: LayoutRegistry;
   pos: number | null | undefined;
 }): boolean {
-  const container = resolveActiveBoundedContainer(input.doc, input.pos, input.blockDefinitions);
+  const layoutDefinitions = input.layoutDefinitions ?? builtInLayoutRegistry;
+  const container = resolveActiveBoundedContainer(
+    input.doc,
+    input.pos,
+    input.blockDefinitions,
+    layoutDefinitions,
+  );
   if (!container) return true;
-  return !hasDirectFillOccupant(container.node, input.blockDefinitions);
+  return !hasDirectFillOccupant(container.node, input.blockDefinitions, layoutDefinitions);
 }
 
 export function isActiveBoundedContainerAtPosition(input: {
   blockDefinitions: BlockDefinitionLookup;
   containerType: BoundedContainerType;
   doc: ProseMirrorNode;
+  layoutDefinitions?: LayoutRegistry;
   pos: number | null | undefined;
 }): boolean {
-  const container = resolveActiveBoundedContainer(input.doc, input.pos, input.blockDefinitions);
+  const container = resolveActiveBoundedContainer(
+    input.doc,
+    input.pos,
+    input.blockDefinitions,
+    input.layoutDefinitions ?? builtInLayoutRegistry,
+  );
   return container?.node.type.name === input.containerType;
 }
 
@@ -149,6 +162,7 @@ function resolveActiveBoundedContainer(
   doc: ProseMirrorNode,
   pos: number | null | undefined,
   blockDefinitions: BlockDefinitionLookup,
+  layoutDefinitions: LayoutRegistry,
 ): { node: ProseMirrorNode; pos: number } | null {
   if (typeof pos !== "number" || !Number.isInteger(pos)) return null;
 
@@ -156,13 +170,7 @@ function resolveActiveBoundedContainer(
     const node = doc.nodeAt(pos);
     if (
       !node ||
-      !isActiveBoundedContainerNodeAtPosition(
-        doc,
-        node,
-        pos,
-        blockDefinitions,
-        builtInLayoutRegistry,
-      )
+      !isActiveBoundedContainerNodeAtPosition(doc, node, pos, blockDefinitions, layoutDefinitions)
     ) {
       return null;
     }
@@ -300,12 +308,13 @@ function isActiveFillOccupantAtDepth(
 function hasDirectFillOccupant(
   node: ProseMirrorNode,
   blockDefinitions: BlockDefinitionLookup,
+  layoutDefinitions: LayoutRegistry,
 ): boolean {
   let hasFillOccupant = false;
 
   node.forEach((child) => {
     if (hasFillOccupant) return;
-    hasFillOccupant = isFillOccupantNode(child, blockDefinitions);
+    hasFillOccupant = isFillOccupantNode(child, blockDefinitions, layoutDefinitions);
   });
 
   return hasFillOccupant;

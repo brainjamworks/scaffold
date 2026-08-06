@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { Node, getSchema } from "@tiptap/core";
+import UniqueID from "@tiptap/extension-unique-id";
 import StarterKit from "@tiptap/starter-kit";
 import {
   DOMParser as ProseMirrorDOMParser,
@@ -44,28 +45,35 @@ const schema = getSchema([
   SurfaceNode,
   TestRegionNode,
   TestBlockNode,
+  UniqueID.configure({
+    attributeName: "id",
+    types: "all",
+    updateDocument: false,
+  }),
 ]);
 
 describe("SurfaceNode identity", () => {
   it("keeps missing and malformed identity observable without synthesizing an ID", () => {
     const missing = parseSurface("<section data-surface><div data-test-block></div></section>");
     const malformed = parseSurface(
-      '<section data-surface data-surface-id="not-an-id"><div data-test-block></div></section>',
+      '<section data-surface data-id="not-an-id"><div data-test-block></div></section>',
     );
 
     expect(missing.attrs["id"]).toBeNull();
-    expect(serializeSurface(missing).getAttribute("data-surface-id")).toBeNull();
+    expect(serializeSurface(missing).getAttribute("data-id")).toBeNull();
     expect(malformed.attrs["id"]).toBe("not-an-id");
-    expect(serializeSurface(malformed).getAttribute("data-surface-id")).toBe("not-an-id");
+    expect(serializeSurface(malformed).getAttribute("data-id")).toBe("not-an-id");
   });
 
   it("round-trips a valid EmbeddedNodeId unchanged", () => {
     const surface = parseSurface(
-      `<section data-surface data-surface-id="${VALID_SURFACE_ID}"><div data-test-block></div></section>`,
+      `<section data-surface data-id="${VALID_SURFACE_ID}"><div data-test-block></div></section>`,
     );
+    const serialized = serializeSurface(surface);
 
     expect(surface.attrs["id"]).toBe(VALID_SURFACE_ID);
-    expect(serializeSurface(surface).getAttribute("data-surface-id")).toBe(VALID_SURFACE_ID);
+    expect(serialized.getAttribute("data-id")).toBe(VALID_SURFACE_ID);
+    expect(serialized.getAttribute("data-surface-id")).toBeNull();
   });
 });
 

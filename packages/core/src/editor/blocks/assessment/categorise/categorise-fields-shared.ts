@@ -75,8 +75,8 @@ export function categoriesFromContent(
   serializer: DOMSerializer,
 ): CategoriseCategoryProjection[] {
   const categoriseContent = categoriseContentNode(content);
-  // `categorise_bin` and `data-bin-id` are the persisted legacy node format.
-  // Runtime and assessment contracts treat these nodes as categories.
+  // `categorise_bin` is the persisted node type; runtime and assessment
+  // contracts refer to these nodes as categories.
   const binsGroup = categoriseContent
     ? childByType(categoriseContent, "categorise_bins_group")
     : null;
@@ -201,16 +201,6 @@ export function createCategoriseBinNode(options: CategoriseFieldNodeOptions = {}
     name: "categorise_bin",
     ...fieldContainerSpec({ content: options.content ?? CATEGORISE_TEXT_CONTENT }),
 
-    addAttributes() {
-      return {
-        id: {
-          default: "",
-          parseHTML: (el: HTMLElement) => el.getAttribute("data-bin-id") ?? "",
-          renderHTML: (attrs: { id: string }) => (attrs.id ? { "data-bin-id": attrs.id } : {}),
-        },
-      };
-    },
-
     parseHTML() {
       return [{ tag: 'div[data-node="categorise-bin"]' }];
     },
@@ -327,16 +317,6 @@ export function createCategoriseItemNode(options: CategoriseFieldNodeOptions = {
     isolating: true,
     selectable: false,
     draggable: false,
-
-    addAttributes() {
-      return {
-        id: {
-          default: "",
-          parseHTML: (el: HTMLElement) => el.getAttribute("data-item-id") ?? "",
-          renderHTML: (attrs: { id: string }) => (attrs.id ? { "data-item-id": attrs.id } : {}),
-        },
-      };
-    },
 
     parseHTML() {
       return [{ tag: 'div[data-node="categorise-item"]' }];

@@ -10,7 +10,6 @@ import {
   ASSESSMENT_QUESTION_CONTENT,
   COURSE_BLOCK_CONTENT,
 } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 
 /**
  * Composite Matching node. Reuses the standard assessment shell
@@ -56,7 +55,6 @@ export function createMatchingNode(options: MatchingNodeOptions = {}) {
       });
 
       return {
-        id: stableNodeIdAttribute(),
         settings: {
           ...makeAttr("data-matching-settings", settingsDefault, MatchingSettingsSchema),
           renderHTML: (attrs: { settings: MatchingSettings }) => ({

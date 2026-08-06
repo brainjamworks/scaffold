@@ -3,7 +3,7 @@ import { MatchingPrivateAssessmentSchema, MatchingSettingsSchema } from "@scaffo
 
 import { assessmentShellPlaceholders } from "@/editor/blocks/assessment/shared/nodes/assessment-placeholders";
 import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/model/assessment-capability";
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createAssessmentConfiguration } from "@/editor/configuration/assessment-configuration";
 import type { ConfigurationControlDescriptor } from "@/editor/configuration/definition";
 import { defineAssessmentCapability, defineBlock } from "@/editor/blocks/block-definition";
@@ -14,6 +14,7 @@ import {
   projectMatchingLearnerNode,
   projectMatchingSettings,
 } from "./assessment";
+import { matchingPairContent } from "./matching-fields-shared";
 
 export const MATCHING_BLOCK_ID = "matching";
 
@@ -59,22 +60,11 @@ const matchingConfiguration = createAssessmentConfiguration({
   ] satisfies ConfigurationControlDescriptor[],
 });
 
-function fieldContent() {
-  return [{ type: "paragraph" }];
-}
-
 function makePair() {
-  const targetId = createStableId();
   return {
     type: "matching_pair",
-    attrs: {
-      itemId: createStableId(),
-      targetId,
-    },
-    content: [
-      { type: "matching_item", content: fieldContent() },
-      { type: "matching_target", content: fieldContent() },
-    ],
+    attrs: { id: createEmbeddedNodeId() },
+    content: matchingPairContent(),
   };
 }
 
@@ -86,9 +76,6 @@ export const matchingBlockDefinition = defineBlock({
     ...assessmentShellPlaceholders,
     matching_item: "Enter your item",
     matching_target: "Enter your match",
-  },
-  identity: {
-    stableChildNodeTypes: ["matching_pair"],
   },
   capabilities: {
     assessment: defineAssessmentCapability({
@@ -120,13 +107,8 @@ export const matchingBlockDefinition = defineBlock({
       return {
         type: "matching",
         attrs: {
-          id: createStableId(),
-          assessment: MatchingPrivateAssessmentSchema.parse({
-            correctPairs: pairs.map((pair) => ({
-              itemId: pair.attrs.itemId,
-              targetId: pair.attrs.targetId,
-            })),
-          }),
+          id: createEmbeddedNodeId(),
+          assessment: MatchingPrivateAssessmentSchema.parse({}),
         },
         content: [
           {

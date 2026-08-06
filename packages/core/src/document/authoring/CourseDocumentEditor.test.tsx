@@ -169,10 +169,7 @@ describe("CourseDocumentEditor", () => {
     const uniqueIdExtension = editor.extensionManager.extensions.find(
       (extension: { name: string }) => extension.name === "uniqueID",
     );
-    expect(uniqueIdExtension?.options.types).toEqual(
-      expect.arrayContaining(["surface", "cell", "section", "mcq", "chart_block"]),
-    );
-    expect(uniqueIdExtension?.options.types).not.toBe("all");
+    expect(uniqueIdExtension?.options.types).toBe("all");
     expect(uniqueIdExtension?.options.updateDocument).toBe(true);
     expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({ type: "doc" }));
   });
@@ -226,8 +223,8 @@ describe("CourseDocumentEditor", () => {
     expect(screen.getByRole("button", { name: "Add slide after slide 3" })).toBeInTheDocument();
 
     const surfaceIds = Array.from(
-      globalThis.document.body.querySelectorAll("[data-surface-id]"),
-      (element) => element.getAttribute("data-surface-id"),
+      globalThis.document.body.querySelectorAll('[data-node="surface"][data-id]'),
+      (element) => element.getAttribute("data-id"),
     );
     expect(surfaceIds).toEqual([FIRST_SLIDE_ID, SECOND_SLIDE_ID, THIRD_SLIDE_ID]);
   });

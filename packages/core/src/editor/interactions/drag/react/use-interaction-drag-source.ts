@@ -1,16 +1,9 @@
-import { useDraggable } from "@dnd-kit/core";
-import {
-  useEffect,
-  useId,
-  useMemo,
-  type HTMLAttributes,
-  type PointerEvent as ReactPointerEvent,
-} from "react";
+import { useDraggable } from "@dnd-kit/react";
+import { useEffect, useId, useMemo } from "react";
 
-import { createClientPoint } from "../model/coordinate-space";
 import {
-  INTERACTION_DRAG_REGISTRATION_DATA,
-  useInteractionDragSessionAdapter,
+  createInteractionDragData,
+  useInteractionDragSession,
   type InteractionDragRegistrationData,
 } from "./InteractionDragSession";
 
@@ -22,14 +15,10 @@ export interface InteractionDragSourceRegistration<Data> {
 }
 
 export interface InteractionDragSourceResult {
-  readonly activatorProps: HTMLAttributes<HTMLElement>;
+  readonly handleRef: (element: Element | null) => void;
   readonly isDragging: boolean;
   readonly isPlaceholder: boolean;
-  readonly setActivatorNodeRef: (element: HTMLElement | null) => void;
-  readonly setNodeRef: (element: HTMLElement | null) => void;
-  readonly sourceProps: HTMLAttributes<HTMLElement> & {
-    readonly "data-interaction-drag-placeholder"?: "";
-  };
+  readonly sourceRef: (element: Element | null) => void;
 }
 
 export function useInteractionDragSource<Data>({
@@ -38,7 +27,7 @@ export function useInteractionDragSource<Data>({
   id,
   label,
 }: InteractionDragSourceRegistration<Data>): InteractionDragSourceResult {
-  const session = useInteractionDragSessionAdapter();
+  const session = useInteractionDragSession();
   const sourceRemoved = session.sourceRemoved;
   const fallbackId = useId();
   const valid = id.trim().length > 0 && label.trim().length > 0;
@@ -48,10 +37,9 @@ export function useInteractionDragSource<Data>({
   );
   const draggable = useDraggable({
     id: valid ? id : `invalid-interaction-drag-source:${fallbackId}`,
-    data: { [INTERACTION_DRAG_REGISTRATION_DATA]: registration },
+    data: createInteractionDragData(registration),
     disabled: disabled || !valid || !session.enabled,
   });
-  const isPlaceholder = valid && session.activeId === id;
 
   useEffect(() => {
     if (import.meta.env.DEV && !valid) {
@@ -65,32 +53,10 @@ export function useInteractionDragSource<Data>({
     [id, sourceRemoved, valid],
   );
 
-  const activatorProps = useMemo<HTMLAttributes<HTMLElement>>(() => {
-    const dndPointerDown = draggable.listeners?.onPointerDown;
-    const onPointerDown = dndPointerDown
-      ? (event: ReactPointerEvent<HTMLElement>) => {
-          const point = createClientPoint(event.clientX, event.clientY);
-          if (point) session.pointerActivationStarted(id, point);
-          dndPointerDown(event);
-        }
-      : undefined;
-    if (session.accessibilityMode === "selection-alternative") {
-      return onPointerDown ? { onPointerDown } : {};
-    }
-    return {
-      ...draggable.attributes,
-      ...draggable.listeners,
-      ...(onPointerDown ? { onPointerDown } : {}),
-      "aria-label": label,
-    } as HTMLAttributes<HTMLElement>;
-  }, [draggable.attributes, draggable.listeners, id, label, session]);
-
   return {
-    activatorProps,
+    handleRef: draggable.handleRef,
     isDragging: draggable.isDragging,
-    isPlaceholder,
-    setActivatorNodeRef: draggable.setActivatorNodeRef,
-    setNodeRef: draggable.setNodeRef,
-    sourceProps: isPlaceholder ? { "data-interaction-drag-placeholder": "" } : {},
+    isPlaceholder: draggable.isDragSource,
+    sourceRef: draggable.ref,
   };
 }

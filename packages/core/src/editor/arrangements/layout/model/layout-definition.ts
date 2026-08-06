@@ -125,6 +125,7 @@ export function createLayoutInsertAction(definition: LayoutDefinition): InsertAc
     description: definition.description,
     icon: definition.icon,
     ...(definition.keywords ? { keywords: [...definition.keywords] } : {}),
+    ...(definition.boundedPlacement ? { boundedPlacement: definition.boundedPlacement } : {}),
     content: () => ({ ...definition.createContent() }),
   };
 }

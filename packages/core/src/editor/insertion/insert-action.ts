@@ -2,6 +2,7 @@ import type { Icon } from "@phosphor-icons/react";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
 import type { CheckedMutationIssue } from "@/document/model/commands/checked-transactions";
+import type { BoundedPlacement } from "@/editor/frame/model/bounded-placement";
 
 export type InsertCategory =
   | "content"
@@ -47,7 +48,16 @@ export interface InsertAction {
   readonly icon: Icon;
   readonly category: InsertCategory;
   readonly keywords?: readonly string[];
+  /** Existing bounded-container placement capability, projected from the owning definition. */
+  readonly boundedPlacement?: BoundedPlacement;
   /** Fresh ProseMirror node JSON for every invocation. */
   readonly content: () => Record<string, unknown>;
   readonly validateNode?: (node: ProseMirrorNode) => CheckedMutationIssue | null;
 }
+
+export interface InsertActionRange {
+  readonly from: number;
+  readonly to: number;
+}
+
+export type InsertActionIntent = "ordinary" | "slash-trigger-replacement";

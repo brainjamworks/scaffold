@@ -7,8 +7,6 @@ import {
 } from "@tiptap/react";
 import { useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
-
 import {
   FLASHCARD_CARD_BACK_NODE,
   FLASHCARD_CARD_FRONT_NODE,
@@ -32,12 +30,6 @@ export function createFlashcardCardNode(options: FlashcardCardNodeOptions = {}) 
     isolating: true,
     selectable: false,
     draggable: false,
-
-    addAttributes() {
-      return {
-        id: stableNodeIdAttribute(),
-      };
-    },
 
     parseHTML() {
       return [{ tag: 'div[data-node="flashcard-card"]' }];

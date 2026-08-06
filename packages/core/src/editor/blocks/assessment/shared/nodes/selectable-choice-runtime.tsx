@@ -130,9 +130,9 @@ function SelectableChoiceRuntimeNodeView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper
+      {...props.HTMLAttributes}
       ref={rowRef}
       data-node="selectable-choice"
-      data-choice-id={attrs.id}
       {...(submitTarget ? { [SUBMIT_SCROLL_TARGET_ATTR]: "" } : {})}
       {...(revealTarget ? { [REVEAL_SCROLL_TARGET_ATTR]: "" } : {})}
     >

@@ -62,16 +62,25 @@ function FillBlankRuntimeNodeView(props: NodeViewProps) {
   const rawPos = typeof props.getPos === "function" ? safeGetPos(props.getPos) : null;
   const pos = typeof rawPos === "number" ? rawPos : null;
 
-  return <RuntimeFillBlank blank={blank} editor={props.editor} pos={pos} />;
+  return (
+    <RuntimeFillBlank
+      blank={blank}
+      editor={props.editor}
+      HTMLAttributes={props.HTMLAttributes}
+      pos={pos}
+    />
+  );
 }
 
 function RuntimeFillBlank({
   blank,
   editor,
+  HTMLAttributes,
   pos,
 }: {
   blank: FillBlankAttrs;
   editor: Editor;
+  HTMLAttributes: NodeViewProps["HTMLAttributes"];
   pos: number | null;
 }) {
   const authoredBlockId = findAncestorAssessmentBlockId(editor, pos ?? undefined, ["fill_blanks"]);
@@ -116,9 +125,9 @@ function RuntimeFillBlank({
 
   return (
     <NodeViewWrapper
+      {...HTMLAttributes}
       as="span"
       data-node="fill-blank"
-      data-blank-id={blank.id}
       contentEditable={false}
       className="sc-fill-blank sc-fill-blank--runtime"
     >

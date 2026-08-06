@@ -87,9 +87,6 @@ export const categoriseBlockDefinition = defineBlock({
     categorise_bin_title: "Enter your category name",
     categorise_item_body: "Enter your item",
   },
-  identity: {
-    stableChildNodeTypes: ["categorise_bin", "categorise_item"],
-  },
   capabilities: {
     assessment: defineAssessmentCapability({
       interactionKind: "classify",

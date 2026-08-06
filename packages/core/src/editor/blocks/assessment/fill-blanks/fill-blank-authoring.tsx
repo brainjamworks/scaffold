@@ -136,6 +136,7 @@ function FillBlankAuthoringNodeView(props: NodeViewProps) {
       blank={blank}
       blankAssessment={blankAssessment}
       editor={props.editor}
+      HTMLAttributes={props.HTMLAttributes}
       feedbackBubbleMenuPluginKey={feedbackBubbleMenuPluginKey}
       feedbackEditorExtensions={feedbackEditorExtensions}
       feedbackSyncKey={feedbackSyncKey}
@@ -153,6 +154,7 @@ function AuthorFillBlank({
   blank,
   blankAssessment,
   editor,
+  HTMLAttributes,
   feedbackBubbleMenuPluginKey,
   feedbackEditorExtensions,
   feedbackSyncKey,
@@ -166,6 +168,7 @@ function AuthorFillBlank({
   blank: FillBlankAttrs;
   blankAssessment: FillBlankPrivateAssessmentEntry;
   editor: Editor;
+  HTMLAttributes: NodeViewProps["HTMLAttributes"];
   feedbackBubbleMenuPluginKey: string;
   feedbackEditorExtensions: Extensions;
   feedbackSyncKey: unknown;
@@ -234,9 +237,9 @@ function AuthorFillBlank({
 
   return (
     <NodeViewWrapper
+      {...HTMLAttributes}
       as="span"
       data-node="fill-blank"
-      data-blank-id={blank.id}
       contentEditable={false}
       className="sc-fill-blank sc-fill-blank--authoring"
     >

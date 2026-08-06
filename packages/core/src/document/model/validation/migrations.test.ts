@@ -13,6 +13,7 @@ import {
 
 function documentWithAttrs(
   attrs: Record<string, unknown> = {
+    id: "course000001",
     schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
     mode: "page",
     surfaceSize: "fluid",
@@ -52,6 +53,7 @@ describe("course document migrations", () => {
 
   it("leaves current v4 documents unchanged", () => {
     const source = documentWithAttrs({
+      id: "course000001",
       schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
       mode: "page",
       surfaceSize: "fluid",

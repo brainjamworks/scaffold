@@ -1,12 +1,13 @@
 import { DotsSixVerticalIcon as DotsSixVertical } from "@phosphor-icons/react";
 import { DOMSerializer, type Node as PMNode } from "@tiptap/pm/model";
 import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
-import { useEffect, useId, useMemo, type CSSProperties } from "react";
+import { useEffect, useId, useMemo } from "react";
 
 import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { RichFeedbackRuntimePopover } from "@/editor/blocks/assessment/shared/chrome/RichFeedbackRuntimePopover";
 import { useAssessmentRuntimeById } from "@/editor/blocks/assessment/shared/runtime/use-assessment-runtime";
 import { InteractionDragActivationArea } from "@/editor/interactions/drag/react/InteractionDragActivationArea";
+import type { InteractionDragEvent } from "@/editor/interactions/drag/model/interaction-drag-event";
 import { InteractionDragSession } from "@/editor/interactions/drag/react/InteractionDragSession";
 import { useInteractionSortable } from "@/editor/interactions/drag/react/use-interaction-sortable";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
@@ -120,15 +121,15 @@ function SequencingItemsGroupRuntimeNodeView(props: NodeViewProps) {
     if (nextOrder.every((id, index) => id === orderedItemIds[index])) return;
     setOrder(nextOrder);
   };
-  const handleDragEnd = (event: {
-    active: { id: string; data: SequencingDragData };
-    over: { id: string; data: SequencingDragData } | null;
-  }) => {
+  const handleDragEnd = (
+    event: InteractionDragEvent<SequencingDragData, SequencingDragData>,
+  ) => {
     if (!canReorder) {
       return;
     }
     const sourceId = event.active.data.itemId;
-    const targetId = event.over?.data.itemId ?? null;
+    const targetIndex = event.active.sortable?.index ?? -1;
+    const targetId = orderedItemIds[targetIndex] ?? null;
     if (targetId) commitRuntimeReorder(sourceId, targetId);
   };
 
@@ -156,7 +157,6 @@ function SequencingItemsGroupRuntimeNodeView(props: NodeViewProps) {
             </div>
           )}
           sessionId={`sequencing-${authoredBlockId ?? "runtime"}`}
-          sortableItems={orderedItemIds}
         >
           <ul className="sc-sequencing-runtime-list">
             {orderedItems.map((item, idx) => {
@@ -227,26 +227,18 @@ function SequencingRuntimeItem({
     data: { html: item.html, itemId: item.id },
     disabled: !canReorder,
     id: item.id,
+    index,
     label: `Drag sequencing item ${index + 1}`,
   });
-  const { localTransform } = sortable;
-  const style: CSSProperties = {
-    transform:
-      !sortable.isPlaceholder && localTransform
-        ? `translate3d(${localTransform.x}px, ${localTransform.y}px, 0) scale(${localTransform.scaleX}, ${localTransform.scaleY})`
-        : undefined,
-    transition: sortable.isPlaceholder ? undefined : sortable.transition,
-  };
   const parsedFeedback = AssessmentFeedbackContentSchema.safeParse(feedback);
 
   return (
     <li
       aria-label={`Sequencing item ${index + 1}`}
       aria-describedby={descriptionId}
-      data-item-id={item.id}
-      {...sortable.sourceProps}
-      ref={sortable.setNodeRef}
-      style={style}
+      data-id={item.id}
+      data-interaction-drag-placeholder={sortable.isPlaceholder ? "" : undefined}
+      ref={sortable.sourceRef}
       className={cn(
         "sc-sequencing-item",
         "sc-sequencing-item--runtime",
@@ -257,8 +249,7 @@ function SequencingRuntimeItem({
     >
       {canReorder && (
         <InteractionDragActivationArea
-          {...sortable.activatorProps}
-          ref={sortable.setActivatorNodeRef}
+          ref={sortable.handleRef}
           type="button"
           aria-label={`Drag sequencing item ${index + 1}`}
           data-runtime-sequencing-handle=""

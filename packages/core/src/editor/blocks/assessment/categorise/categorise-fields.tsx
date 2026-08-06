@@ -83,8 +83,8 @@ function CategoriseBinNodeView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper
+      {...props.HTMLAttributes}
       data-node="categorise-bin"
-      data-bin-id={categoryId}
       role="group"
       aria-label={`Category ${binPosition.index}`}
       {...{ [CONTAINED_MOVEMENT_TARGET_ATTR]: "" }}
@@ -201,8 +201,8 @@ function CategoriseItemNodeView(props: NodeViewProps) {
   if (!isEditable) {
     return (
       <NodeViewWrapper
+        {...props.HTMLAttributes}
         data-node="categorise-item"
-        data-item-id={String(props.node.attrs["id"] ?? "")}
         className="sc-categorise-item"
       >
         <NodeViewContent className="sc-categorise-item__content" />
@@ -300,8 +300,8 @@ function CategoriseEditableItemNodeView(props: NodeViewProps) {
 
   return (
     <NodeViewWrapper
+      {...props.HTMLAttributes}
       data-node="categorise-item"
-      data-item-id={itemId}
       className="sc-categorise-item sc-categorise-item--editable"
     >
       <div className="sc-categorise-item__row">

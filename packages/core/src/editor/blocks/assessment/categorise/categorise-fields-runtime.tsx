@@ -1,7 +1,7 @@
 import { XIcon as X } from "@phosphor-icons/react";
 import { DOMSerializer } from "@tiptap/pm/model";
 import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
-import { useId, useMemo, useState } from "react";
+import { useId, useLayoutEffect, useMemo, useState } from "react";
 
 import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { RichFeedbackRuntimePopover } from "@/editor/blocks/assessment/shared/chrome/RichFeedbackRuntimePopover";
@@ -107,13 +107,25 @@ function CategoriseContentRuntimeNodeView(props: NodeViewProps) {
     `${shuffleScopeId ?? "categorise"}|${items.map((item) => item.id).join("|")}`,
   );
   const sourceItems = orderedItems.filter((item) => displayPlacements[item.id] === undefined);
-  const itemById = new Map(items.map((item) => [item.id, item]));
+  const itemById = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
+
+  useLayoutEffect(() => {
+    if (
+      selectedItemId !== null &&
+      (!itemById.has(selectedItemId) || displayPlacements[selectedItemId] !== undefined)
+    ) {
+      setSelectedItemId(null);
+    }
+  }, [displayPlacements, itemById, selectedItemId]);
 
   const commitPlacement = (itemId: string, categoryId: string) => {
-    if (interactionLocked) return;
+    const itemAvailable = itemById.has(itemId) && displayPlacements[itemId] === undefined;
+    const categoryAvailable = categories.some((category) => category.id === categoryId);
+    if (interactionLocked || !itemAvailable || !categoryAvailable) return false;
     problem?.setPlacement(itemId, categoryId);
     setSelectedItemId(null);
     setHoveredCategoryId(null);
+    return true;
   };
   const clearDragState = () => {
     setHoveredCategoryId(null);
@@ -134,13 +146,7 @@ function CategoriseContentRuntimeNodeView(props: NodeViewProps) {
     }
     const itemId = event.active.data.itemId;
     const categoryId = event.over?.data.categoryId ?? null;
-    const itemAvailable = itemById.has(itemId) && displayPlacements[itemId] === undefined;
-    const categoryAvailable =
-      categoryId !== null && categories.some((category) => category.id === categoryId);
-    if (itemAvailable && categoryAvailable && categoryId) {
-      commitPlacement(itemId, categoryId);
-      return;
-    }
+    if (categoryId && commitPlacement(itemId, categoryId)) return;
     clearDragState();
   };
 
@@ -258,12 +264,7 @@ function CategoriseRuntimeSourceItem({
 
   return (
     <InteractionDragActivationArea
-      {...drag.activatorProps}
-      {...drag.sourceProps}
-      ref={(element) => {
-        drag.setNodeRef(element);
-        drag.setActivatorNodeRef(element);
-      }}
+      ref={drag.sourceRef}
       type="button"
       safeLocalHeight={55}
       safeLocalWidth={55}
@@ -272,7 +273,8 @@ function CategoriseRuntimeSourceItem({
       aria-pressed={selected}
       aria-label={`Select item ${index + 1}`}
       aria-describedby={descriptionId}
-      data-item-id={item.id}
+      data-id={item.id}
+      data-interaction-drag-placeholder={drag.isPlaceholder ? "" : undefined}
       onClick={onSelect}
       onKeyDown={(event) => {
         if (interactionLocked) return;
@@ -332,7 +334,7 @@ function CategoriseRuntimeCategory({
     id: `categorise-runtime-category:${category.id}`,
   });
   const activeDrop =
-    drop.isOver ||
+    drop.isDropTarget ||
     hoveredCategoryId === category.id ||
     (selectedItemId !== null && !interactionLocked);
   const categoryDescription = describeCategoriseCategoryAccessibilityState({
@@ -343,13 +345,13 @@ function CategoriseRuntimeCategory({
 
   return (
     <div
-      {...drop.targetProps}
-      ref={drop.setNodeRef}
+      ref={drop.targetRef}
       role="button"
       tabIndex={interactionLocked ? -1 : 0}
+      aria-disabled={interactionLocked || undefined}
       aria-label={`Category ${index + 1}`}
       aria-describedby={categoryDescriptionId}
-      data-bin-id={category.id}
+      data-id={category.id}
       onClick={onPlaceSelected}
       onKeyDown={(event) => {
         if (interactionLocked || !selectedItemId) return;

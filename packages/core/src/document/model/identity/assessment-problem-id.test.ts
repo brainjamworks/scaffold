@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, expectTypeOf, it } from "vite-plus/test";
+import type { EmbeddedNodeId } from "@scaffold/contracts";
 
-import { buildAssessmentProblemId } from "./assessment-problem-id";
+import { buildAssessmentProblemId, type AssessmentProblemId } from "./assessment-problem-id";
 
 describe("buildAssessmentProblemId", () => {
   it("derives runtime problem scope from artifact and block ids", () => {
@@ -51,5 +52,7 @@ describe("buildAssessmentProblemId", () => {
     }
     expect(result.problemId).not.toContain("component:");
     expect(result.problemId).not.toContain("surface:");
+    expectTypeOf(result.problemId).toEqualTypeOf<AssessmentProblemId>();
+    expectTypeOf<AssessmentProblemId>().not.toMatchTypeOf<EmbeddedNodeId>();
   });
 });

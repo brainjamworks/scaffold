@@ -1,7 +1,6 @@
 import { Node, mergeAttributes, type NodeViewRenderer } from "@tiptap/core";
 
 import { COURSE_BLOCK_CONTENT } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 import { AudioBlockAttrsSchema, type AudioBlockAttrs } from "@scaffold/contracts";
 
 export interface AudioBlockNodeOptions {
@@ -18,7 +17,6 @@ export function createAudioBlockNode(options: AudioBlockNodeOptions = {}) {
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         data: {
           default: null as AudioBlockAttrs | null,
           parseHTML: (el: HTMLElement) => {

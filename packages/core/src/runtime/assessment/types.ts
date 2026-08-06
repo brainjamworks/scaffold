@@ -14,10 +14,14 @@ import type {
   AssessmentExperienceDefinition,
 } from "../../editor/blocks/block-definition";
 import type { AssessmentPort } from "../../host/ports/assessment";
+import type { AssessmentProblemId } from "../../document/model/identity/assessment-problem-id";
 import type { AssessmentLearningEventDefinition } from "../learning-events/catalogue";
 import type { LearningEventSessionAccessor } from "../learning-events/LearningEventRuntimeProvider";
 
-export type AssessmentProblemId = `artifact:${string}/block:${string}`;
+export type { AssessmentProblemId } from "../../document/model/identity/assessment-problem-id";
+export type AuthoredAssessmentBlockId = string;
+export type AuthoredAssessmentTargetId = string;
+export type AuthoredAssessmentGroupId = string;
 export type AssessmentGroupId = `artifact:${string}/group:${string}`;
 export type AssessmentScopedId = AssessmentProblemId | AssessmentGroupId;
 
@@ -66,8 +70,8 @@ export interface AssessmentRegistrationConfig {
 }
 
 export interface AssessmentRegistrationIdentity {
-  readonly authoredBlockId: string;
-  readonly targetId: string;
+  readonly authoredBlockId: AuthoredAssessmentBlockId;
+  readonly targetId: AuthoredAssessmentTargetId;
   readonly interactionKind: AssessmentInteractionKind;
 }
 
@@ -78,25 +82,25 @@ export interface AssessmentRegistrationInput extends AssessmentRegistrationIdent
 
 export interface AssessmentRegistration {
   readonly problemId: AssessmentProblemId;
-  readonly targetId: string;
+  readonly targetId: AuthoredAssessmentTargetId;
   readonly interactionKind: AssessmentInteractionKind;
   readonly response: AssessmentCapabilityResponseDefinition;
   readonly config: AssessmentRegistrationConfig;
 }
 
 export interface AssessmentQuizRegistrationIdentity {
-  readonly groupId: string;
+  readonly groupId: AuthoredAssessmentGroupId;
 }
 
 export interface AssessmentQuizRegistrationInput extends AssessmentQuizRegistrationIdentity {
-  readonly targetIds: readonly string[];
+  readonly targetIds: readonly AuthoredAssessmentTargetId[];
   readonly settings: QuizAssessmentSettings;
 }
 
 export interface AssessmentQuizRegistration {
   readonly groupId: AssessmentGroupId;
-  readonly authoredGroupId: string;
-  readonly targetIds: readonly string[];
+  readonly authoredGroupId: AuthoredAssessmentGroupId;
+  readonly targetIds: readonly AuthoredAssessmentTargetId[];
   readonly settings: QuizAssessmentSettings;
 }
 
@@ -109,7 +113,7 @@ export interface CreateAssessmentStoreOptions {
 export interface AssessmentStore {
   readonly artifactId: string;
   readonly durable: AssessmentDurableState;
-  readonly targetBindings: Readonly<Record<AssessmentProblemId, string>>;
+  readonly targetBindings: Readonly<Record<AssessmentProblemId, AuthoredAssessmentTargetId>>;
   readonly registrations: Readonly<Record<AssessmentProblemId, AssessmentRegistration>>;
   readonly quizRegistrations: Readonly<Record<AssessmentGroupId, AssessmentQuizRegistration>>;
   readonly requests: Readonly<Record<AssessmentScopedId, AssessmentRequestState>>;

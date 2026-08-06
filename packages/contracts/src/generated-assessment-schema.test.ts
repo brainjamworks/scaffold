@@ -180,19 +180,19 @@ function expectRejected(zodSchema: ZodTypeAny, definitionName: string, value: un
 
 const target = {
   schemaVersion: 2,
-  targetId: "question-1",
-  blockId: "block-1",
+  targetId: "target_00001",
+  blockId: "block_000001",
   blockType: "mcq",
   interaction: {
     kind: "single-select",
     options: [
-      { id: "option-a", label: "A" },
-      { id: "option-b", label: "B" },
+      { id: "option_00001", label: "A" },
+      { id: "option_00002", label: "B" },
     ],
   },
   assessment: {
     kind: "single-select",
-    correctOptionId: "option-b",
+    correctOptionId: "option_00002",
     feedbackByOptionId: {},
   },
   settings: {
@@ -207,8 +207,8 @@ const target = {
 const group = {
   schemaVersion: 2,
   kind: "quiz",
-  groupId: "quiz-1",
-  targetIds: ["question-1", "question-2"],
+  groupId: "quiz__000001",
+  targetIds: ["target_00001", "target_00002"],
   settings: {
     allowBacktracking: true,
     reviewTiming: "after_quiz",
@@ -229,9 +229,9 @@ const result = {
 
 const quizAttempt = {
   attemptId: "attempt-1",
-  groupId: "quiz-1",
+  groupId: "artifact:artifact-1/group:quiz__000001",
   status: "in_progress",
-  currentTargetId: "question-1",
+  currentTargetId: "target_00001",
   submittedTargetIds: [],
   startedAt: "2026-07-15T12:00:00Z",
   finishedAt: null,
@@ -245,7 +245,7 @@ const quizAttempt = {
 const quizAttemptSnapshot = {
   attemptId: "attempt-1",
   status: "in_progress",
-  currentTargetId: "question-1",
+  currentTargetId: "target_00001",
   submittedTargetIds: [],
   startedAt: "2026-07-15T12:00:00Z",
   finishedAt: null,
@@ -268,8 +268,8 @@ const emptyProblem = {
 const snapshot = {
   snapshotVersion: 2,
   artifactId: "artifact-1",
-  problems: { "question-1": emptyProblem },
-  quizzes: { "quiz-1": quizAttemptSnapshot },
+  problems: { target_00001: emptyProblem },
+  quizzes: { quiz__000001: quizAttemptSnapshot },
 };
 
 describe("generated assessment JSON Schema", () => {
@@ -439,7 +439,7 @@ describe("generated assessment JSON Schema", () => {
     });
     expectRejected(AssessmentTargetContractSchema, "AssessmentTargetContract", {
       ...target,
-      assessment: { ...target.assessment, hostItemId: "item-1" },
+      assessment: { ...target.assessment, hostItemId: "item___00001" },
     });
 
     expectAccepted(AssessmentGroupContractSchema, "AssessmentGroupContract", group);
@@ -475,14 +475,14 @@ describe("generated assessment JSON Schema", () => {
   it("accepts every canonical response family and rejects malformed discriminants", () => {
     const responses = [
       { kind: "single-select", optionId: null },
-      { kind: "multi-select", optionIds: ["option-a"] },
-      { kind: "sequence", orderedItemIds: ["item-1"] },
-      { kind: "match", pairs: [{ itemId: "item-1", targetId: "target-1" }] },
+      { kind: "multi-select", optionIds: ["option_00001"] },
+      { kind: "sequence", orderedItemIds: ["item___00001"] },
+      { kind: "match", pairs: [{ itemId: "item___00001", targetId: "matcht_00001" }] },
       {
         kind: "classify",
-        placements: [{ itemId: "item-1", categoryId: "category-1" }],
+        placements: [{ itemId: "item___00001", categoryId: "categ_000001" }],
       },
-      { kind: "fill-blanks", blanks: [{ blankId: "blank-1", value: "answer" }] },
+      { kind: "fill-blanks", blanks: [{ blankId: "blank_000001", value: "answer" }] },
       { kind: "spatial-hotspot", selections: [{ hotspotId: null, x: 0.25, y: 0.75 }] },
     ];
 
@@ -491,7 +491,7 @@ describe("generated assessment JSON Schema", () => {
     }
     expectRejected(AssessmentResponseValueSchema, "AssessmentResponseValue", {
       kind: "choice",
-      optionId: "option-a",
+      optionId: "option_00001",
     });
     expectRejected(AssessmentResponseValueSchema, "AssessmentResponseValue", {
       kind: "spatial-hotspot",
@@ -599,7 +599,7 @@ describe("generated assessment JSON Schema", () => {
     expectAccepted(AssessmentProblemSnapshotSchema, "AssessmentProblemSnapshot", emptyProblem);
     expectAccepted(AssessmentProblemSnapshotSchema, "AssessmentProblemSnapshot", {
       ...emptyProblem,
-      response: { kind: "single-select", optionId: "option-a" },
+      response: { kind: "single-select", optionId: "option_00001" },
       submitted: true,
       attemptNumber: 1,
       submissionResult: result,
@@ -642,7 +642,7 @@ describe("generated assessment JSON Schema", () => {
           ...target,
           assessment: {
             kind: "multi-select",
-            correctOptionIds: ["option-a"],
+            correctOptionIds: ["option_00001"],
             feedbackByOptionId: {},
           },
         },
@@ -655,7 +655,7 @@ describe("generated assessment JSON Schema", () => {
       {
         definitionName: "AssessmentGroupContract",
         schema: AssessmentGroupContractSchema,
-        value: { ...group, targetIds: ["question-1", "question-1"] },
+        value: { ...group, targetIds: ["target_00001", "target_00001"] },
       },
       {
         definitionName: "AssessmentGradeProjection",
@@ -687,7 +687,7 @@ describe("generated assessment JSON Schema", () => {
         schema: QuizAttemptStateSchema,
         value: {
           ...quizAttempt,
-          submittedTargetIds: ["question-1", "question-1"],
+          submittedTargetIds: ["target_00001", "target_00001"],
         },
       },
       {
@@ -705,7 +705,7 @@ describe("generated assessment JSON Schema", () => {
         schema: AssessmentLearnerSnapshotSchema,
         value: {
           ...snapshot,
-          problems: { "artifact:artifact-1/block:question-1": emptyProblem },
+          problems: { "artifact:artifact-1/block:target_00001": emptyProblem },
         },
       },
       {
@@ -713,7 +713,7 @@ describe("generated assessment JSON Schema", () => {
         schema: AssessmentLearnerSnapshotSchema,
         value: {
           ...snapshot,
-          quizzes: { "quiz-1": { ...quizAttemptSnapshot, groupId: "quiz-1" } },
+          quizzes: { quiz__000001: { ...quizAttemptSnapshot, groupId: "quiz__000001" } },
         },
       },
     ];

@@ -4,17 +4,18 @@ import { Selection, type Transaction } from "@tiptap/pm/state";
 import type { Transform } from "@tiptap/pm/transform";
 
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
+import type { LayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
 import {
   replaceRangeWithNodeChecked,
   type CheckedMutationIssue,
 } from "@/document/model/commands/checked-transactions";
 import { validateBoundedContainerStructure } from "@/editor/bounded-containers/model/bounded-container-structure-policy";
 import { materializeCatalogNodeHorizontalAlignment } from "@/editor/interactions/alignment/alignment-insertion";
-import { allowsSurfaceRootInsertionAtPosition } from "@/editor/surfaces/model/policies/surface-root-insertion-policy";
 import type { SurfaceVariantLookup } from "@/editor/surfaces/model/surface-variant-registry";
 
-import type { InsertAction } from "./insert-action";
+import type { InsertAction, InsertActionIntent, InsertActionRange } from "./insert-action";
 import type { InsertCatalog } from "./insert-catalog";
+import { resolveInsertActionPlacement } from "./insertion-placement";
 
 export type CreateCatalogNodeCheckedResult =
   | {
@@ -39,10 +40,7 @@ export type ReplaceRangeWithCatalogNodeCheckedResult<TTransform extends Transfor
       readonly issue: CheckedMutationIssue;
     };
 
-export interface InsertActionCheckedRange {
-  from: number;
-  to: number;
-}
+export type InsertActionCheckedRange = InsertActionRange;
 
 export function createCatalogNodeChecked({
   catalog,
@@ -158,16 +156,25 @@ export function insertCatalogItemChecked(
   editor: Editor,
   item: InsertAction,
   blockDefinitions: BlockDefinitionLookup,
+  layoutDefinitions: LayoutRegistry,
   surfaceVariants: SurfaceVariantLookup,
   range: InsertActionCheckedRange = {
     from: editor.state.selection.from,
     to: editor.state.selection.to,
   },
+  intent: InsertActionIntent = "ordinary",
 ): boolean {
+  const placement = resolveInsertActionPlacement({
+    blockDefinitions,
+    editor,
+    intent,
+    item,
+    layoutDefinitions,
+    range,
+    surfaceVariants,
+  });
+  if (!placement.ok) return false;
   editor.commands.focus();
-  if (!allowsSurfaceRootInsertionAtPosition(editor.state.doc, range.from, surfaceVariants)) {
-    return false;
-  }
 
   const nodeResult = createInsertActionNodeChecked({
     action: item,
@@ -178,24 +185,27 @@ export function insertCatalogItemChecked(
   const node = materializeCatalogNodeHorizontalAlignment({
     blockDefinitions,
     doc: editor.state.doc,
-    from: range.from,
-    to: range.to,
+    from: placement.range.from,
+    to: placement.range.to,
     node: nodeResult.node,
   });
   const result = replaceRangeWithCheckedNode({
     action: item,
     node,
     tr: editor.state.tr,
-    from: range.from,
-    to: range.to,
+    from: placement.range.from,
+    to: placement.range.to,
   });
   if (!result.ok) return false;
-  if (!validateBoundedContainerStructure(result.tr.doc, blockDefinitions).ok) return false;
+  if (!validateBoundedContainerStructure(result.tr.doc, blockDefinitions, layoutDefinitions).ok) {
+    return false;
+  }
   if (result.tr.doc.eq(editor.state.doc)) return false;
 
-  setSelectionNearInsertedNode(result.tr, range.from);
+  setSelectionNearInsertedNode(result.tr, placement.range.from);
+  const docBeforeDispatch = editor.state.doc;
   editor.view.dispatch(result.tr.scrollIntoView());
-  return true;
+  return !editor.state.doc.eq(docBeforeDispatch);
 }
 
 function setSelectionNearInsertedNode(tr: Transaction, from: number): void {

@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 
 import { Editor } from "@tiptap/core";
+import UniqueID from "@tiptap/extension-unique-id";
 import type { JSONContent } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it } from "vite-plus/test";
@@ -11,11 +12,13 @@ import { AudioBlockNode } from "./audio-block-node";
 import { ImageBlockNode } from "./image-block-node";
 import { ChartRuntimeExtension } from "./chart/chart-runtime-extension";
 import { AudioBlockAttrsSchema, ImageBlockAttrsSchema } from "@scaffold/contracts";
+import { ChartBlockDataSchema } from "@/schemas/shared";
 
 function makeEditor() {
   return new Editor({
     extensions: [
       StarterKit.configure({ undoRedo: false, paragraph: false }),
+      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       ExtendedParagraph,
       ImageBlockNode,
       AudioBlockNode,
@@ -43,18 +46,18 @@ describe("media nodes", () => {
         {
           type: "image_block",
           attrs: {
-            id: "block-image",
-            data: { mode: "managed", mediaId: "asset-42", alt: "A picture" },
+            id: "imgblk_00001",
+            data: { mode: "managed", mediaId: "moodle:file/asset-42", alt: "A picture" },
           },
         },
       ],
     });
     const json = editor.getJSON();
     const top = json.content?.[0] as JSONContent | undefined;
-    expect(top?.attrs?.["id"]).toBe("block-image");
+    expect(top?.attrs?.["id"]).toBe("imgblk_00001");
     expect(top?.attrs?.["data"]).toMatchObject({
       mode: "managed",
-      mediaId: "asset-42",
+      mediaId: "moodle:file/asset-42",
       alt: "A picture",
     });
     editor.destroy();
@@ -68,7 +71,7 @@ describe("media nodes", () => {
         {
           type: "audio_block",
           attrs: {
-            id: "block-audio",
+            id: "audblk_00001",
             data: {
               mode: "external",
               src: "https://example.com/a.mp3",
@@ -80,7 +83,7 @@ describe("media nodes", () => {
     });
     const json = editor.getJSON();
     const top = json.content?.[0] as JSONContent | undefined;
-    expect(top?.attrs?.["id"]).toBe("block-audio");
+    expect(top?.attrs?.["id"]).toBe("audblk_00001");
     expect(top?.attrs?.["data"]).toMatchObject({
       mode: "external",
       src: "https://example.com/a.mp3",
@@ -114,13 +117,13 @@ describe("media nodes", () => {
       data: {
         kind: "inlineTable",
         columns: [
-          { id: "column-category", label: "Fruit", valueType: "category" },
-          { id: "column-value", label: "Votes", valueType: "number" },
+          { id: "column_00001", label: "Fruit", valueType: "category" },
+          { id: "column_00002", label: "Votes", valueType: "number" },
         ],
         rows: [
           {
-            id: "row-1",
-            cells: { "column-category": "Apples", "column-value": 12 },
+            id: "rowdata_0001",
+            cells: { column_00001: "Apples", column_00002: 12 },
           },
         ],
       },
@@ -128,21 +131,19 @@ describe("media nodes", () => {
         chartType: "bar",
         orientation: "vertical",
         stacked: false,
-        x: { columnId: "column-category" },
-        y: [{ columnId: "column-value" }],
+        x: { columnId: "column_00001" },
+        y: [{ columnId: "column_00002" }],
       },
     };
     editor.commands.setContent({
       type: "doc",
-      content: [{ type: "chart_block", attrs: { id: "block-chart", data } }],
+      content: [{ type: "chart_block", attrs: { id: "chartb_00001", data } }],
     });
     const top = editor.getJSON().content?.[0] as JSONContent | undefined;
-    expect(top?.attrs?.["id"]).toBe("block-chart");
-    expect(top?.attrs?.["data"]).toMatchObject({
-      kind: "chart",
-      chartType: "bar",
-      encoding: { chartType: "bar" },
-    });
+    expect(top?.attrs?.["id"]).toBe("chartb_00001");
+    expect(ChartBlockDataSchema.parse(top?.attrs?.["data"])).toEqual(
+      ChartBlockDataSchema.parse(data),
+    );
     editor.destroy();
   });
 
@@ -154,21 +155,20 @@ describe("media nodes", () => {
     });
 
     const top = editor.getJSON().content?.[0] as JSONContent | undefined;
-    expect(top?.attrs?.["data"]).toMatchObject({
+    const data = ChartBlockDataSchema.parse(top?.attrs?.["data"]);
+    expect(data).toMatchObject({
       kind: "chart",
       chartType: "bar",
       data: {
         columns: [
-          { id: "category", label: "Category", valueType: "category" },
-          { id: "value", label: "Value", valueType: "number" },
+          { label: "Category", valueType: "category" },
+          { label: "Value", valueType: "number" },
         ],
       },
-      encoding: {
-        chartType: "bar",
-        x: { columnId: "category" },
-        y: [{ columnId: "value" }],
-      },
     });
+    if (data.encoding.chartType !== "bar") throw new Error("Expected bar encoding");
+    expect(data.encoding.x.columnId).toBe(data.data.columns[0]?.id);
+    expect(data.encoding.y[0]?.columnId).toBe(data.data.columns[1]?.id);
     editor.destroy();
   });
 });

@@ -16,6 +16,7 @@ import {
   GridMovementTarget,
   RegionMovementTarget,
   SurfaceMovementTarget,
+  movementTargetAxis,
   type AnyMovementTarget,
 } from "./movement-target";
 
@@ -84,6 +85,12 @@ function deriveContainerMovementIntent(
   point: DropPoint,
   target: AnyMovementTarget,
 ): AnyMovementIntent {
+  if (movementTargetAxis(target) === "horizontal") {
+    return point.x < target.rect.left + Math.max(target.rect.width, 1) / 2
+      ? new InsertBeforeTarget(target)
+      : new InsertAfterTarget(target);
+  }
+
   const height = Math.max(target.rect.height, 1);
   const topThird = target.rect.top + height / 3;
   const bottomThird = target.rect.bottom - height / 3;

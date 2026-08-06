@@ -38,6 +38,16 @@ export function resolveMovementAnchorElement(
   const anchor = resolveAuthoringFrameElement(dom, locator);
   if (!anchor) return null;
 
+  if (
+    locator?.frameKind === AuthoringFrameKind.Section &&
+    anchor.getAttribute("data-layout-kind") === "tabs"
+  ) {
+    const labelledBy = anchor.querySelector('[role="tabpanel"]')?.getAttribute("aria-labelledby");
+    const trigger = labelledBy ? anchor.ownerDocument.getElementById(labelledBy) : null;
+    const tabItem = trigger?.closest("[data-scaffold-tabs-item]");
+    if (tabItem && tabItem.closest(".sc-tabs") === anchor.closest(".sc-tabs")) return tabItem;
+  }
+
   if (locator?.frameKind === AuthoringFrameKind.Block) {
     return anchor.closest(RESIZABLE_BLOCK_FRAME_SELECTOR) ?? anchor;
   }

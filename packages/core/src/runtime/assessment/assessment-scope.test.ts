@@ -1,4 +1,5 @@
 import { Editor, Node } from "@tiptap/core";
+import UniqueID from "@tiptap/extension-unique-id";
 import StarterKit from "@tiptap/starter-kit";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
@@ -36,7 +37,7 @@ const TestArrangementNode = Node.create({
 const editors: Editor[] = [];
 
 function makeEditor({
-  blockId = "block-1",
+  blockId = "block_000001",
   surfaceId = "surface00001",
 }: {
   blockId?: string | null;
@@ -47,6 +48,7 @@ function makeEditor({
       DocumentNode,
       StarterKit.configure({ document: false, undoRedo: false }),
       CourseDocumentNode,
+      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       SurfaceNode,
       RegionNode,
       TestArrangementNode,

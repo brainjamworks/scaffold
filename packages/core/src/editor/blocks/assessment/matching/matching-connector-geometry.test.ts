@@ -4,6 +4,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { getMatchingConnectorPath } from "./matching-fields-shared";
 import {
+  createMatchingConnectorRevision,
   measureMatchingConnectorGeometry,
   sameMatchingConnectors,
 } from "./matching-connector-geometry";
@@ -65,6 +66,19 @@ describe("matching connector geometry", () => {
     expect(getMatchingConnectorPath(connector)).toBe("M 10 20 C 40 20, 80 80, 110 80");
     expect(sameMatchingConnectors([connector], [{ ...connector }])).toBe(true);
     expect(sameMatchingConnectors([connector], [{ ...connector, endY: 81 }])).toBe(false);
+  });
+
+  it("creates collision-safe revisions for opaque match and feedback IDs", () => {
+    const first = createMatchingConnectorRevision(
+      { a: "b|c:d" },
+      { "feedback:item": { correct: true } },
+    );
+    const second = createMatchingConnectorRevision(
+      { a: "b", c: "d" },
+      { feedback: { correct: true }, item: { correct: true } },
+    );
+
+    expect(first).not.toBe(second);
   });
 });
 

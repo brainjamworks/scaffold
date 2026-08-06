@@ -14,6 +14,7 @@ import { useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
 import * as Tooltip from "@/ui/components/Tooltip/Tooltip";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
+import type { LayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
 import type { SurfaceVariantLookup } from "@/editor/surfaces/model/surface-variant-registry";
 import { insertCatalogItemChecked } from "@/editor/insertion/checked-insertion";
 import {
@@ -34,6 +35,7 @@ interface BlockStripProps {
   blockDefinitions: BlockDefinitionLookup;
   editor: Editor;
   items: readonly InsertAction[];
+  layoutDefinitions: LayoutRegistry;
   surfaceVariants: SurfaceVariantLookup;
 }
 
@@ -92,17 +94,26 @@ function blockRowDomId(itemId: string): string {
  * Brand metaphor: the strip's vertical block-stack composition echoes the
  * block-slot mark itself — three filled tiles waiting on the next slot.
  */
-export function BlockStrip({ blockDefinitions, editor, items, surfaceVariants }: BlockStripProps) {
+export function BlockStrip({
+  blockDefinitions,
+  editor,
+  items,
+  layoutDefinitions,
+  surfaceVariants,
+}: BlockStripProps) {
   const [openCategory, setOpenCategory] = useState<InsertCategory | null>(null);
   const restoreEditorFocusAfterInsertRef = useRef(false);
 
   const catalogItems = items;
-  const insertableItems = getInsertableCatalogItems(editor, catalogItems);
+  const placementDependencies = { blockDefinitions, layoutDefinitions, surfaceVariants };
+  const insertableItems = getInsertableCatalogItems(editor, catalogItems, placementDependencies);
   const insertableItemIds = new Set(insertableItems.map((item) => item.id));
 
   const handleInsert = (item: InsertAction) => {
-    if (!canInsertCatalogItem(editor, item)) return;
-    if (insertCatalogItemChecked(editor, item, blockDefinitions, surfaceVariants)) {
+    if (!canInsertCatalogItem(editor, item, placementDependencies)) return;
+    if (
+      insertCatalogItemChecked(editor, item, blockDefinitions, layoutDefinitions, surfaceVariants)
+    ) {
       restoreEditorFocusAfterInsertRef.current = true;
       setOpenCategory(null);
     }

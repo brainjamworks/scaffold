@@ -43,7 +43,6 @@ export function createCourseDocumentRuntimeExtensions({
       assessmentHintNode: AssessmentHintRuntimeNode,
       assessmentHintsGroupNode: AssessmentHintsGroupRuntimeNode,
       assessmentSummaryFeedbackNode: AssessmentSummaryFeedbackRuntimeNode,
-      blockStableIdNodeTypes: blockRegistry.stableIdNodeTypes,
       cellNode: CellRuntimeNode,
       gridNode: GridRuntimeNode,
       inlineIconNode: InlineIconRuntimeNode,

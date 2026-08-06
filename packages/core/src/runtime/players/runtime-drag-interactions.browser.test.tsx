@@ -88,7 +88,7 @@ describe("Sequencing shared drag runtime", () => {
       const activators = harness.getActivationAreas();
       const handles = harness.getTargets("[data-runtime-sequencing-handle]");
       const before = harness.getResponseOrder();
-      expect(targets.map((target) => target.dataset.itemId)).toEqual(before);
+      expect(targets.map((target) => target.dataset.id)).toEqual(before);
       expect(harness.getResponseRevision()).toBe(0);
       assertActivationGeometry(harness, activators, handles, targetClientSize);
 
@@ -553,7 +553,7 @@ describe("Categorise shared drag runtime", () => {
       });
       mounted.push(harness);
       const source = harness.getActivationAreas()[0]!;
-      const itemId = source.dataset.itemId;
+      const itemId = source.dataset.id;
       expect(itemId).toBeTruthy();
       const target = categoriseCategory(harness, "birds");
       assertCategoriseActivationGeometry(harness, targetClientSize);
@@ -646,7 +646,7 @@ describe("Categorise shared drag runtime", () => {
     });
     mounted.push(harness);
     const source = harness.getActivationAreas()[0]!;
-    const itemId = source.dataset.itemId!;
+    const itemId = source.dataset.id!;
     const target = categoriseCategory(harness, "fish");
     expect(source).not.toHaveAttribute("aria-roledescription");
     expect(source).not.toHaveAttribute("aria-description");
@@ -661,7 +661,9 @@ describe("Categorise shared drag runtime", () => {
 });
 
 function categoriseCategory(harness: RuntimeDragBrowserHarness, categoryId: string): HTMLElement {
-  const category = harness.player.querySelector<HTMLElement>(`[data-bin-id="${categoryId}"]`);
+  const category = harness.player.querySelector<HTMLElement>(
+    `.sc-categorise-runtime-category[data-id="${categoryId}"]`,
+  );
   if (!category) throw new Error(`Expected Categorise category ${categoryId}.`);
   return category;
 }

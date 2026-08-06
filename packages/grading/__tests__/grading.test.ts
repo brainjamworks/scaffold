@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  EmbeddedDataIdSchema,
+  EmbeddedNodeIdSchema,
   AssessmentResultSchema,
   type AssessmentFeedbackContent,
   type AssessmentTargetContract,
@@ -20,8 +22,8 @@ function richText(text: string): AssessmentFeedbackContent {
 
 const baseTarget = {
   schemaVersion: 2,
-  targetId: "target-1",
-  blockId: "target-1",
+  targetId: EmbeddedNodeIdSchema.parse("target_00001"),
+  blockId: EmbeddedNodeIdSchema.parse("block_000001"),
   blockType: "test",
   settings: {
     feedbackMode: "on_submit",
@@ -32,6 +34,18 @@ const baseTarget = {
   },
 } satisfies Omit<AssessmentTargetContract, "interaction" | "assessment">;
 
+const optionA = EmbeddedNodeIdSchema.parse("option_00001");
+const optionB = EmbeddedNodeIdSchema.parse("option_00002");
+const optionC = EmbeddedNodeIdSchema.parse("option_00003");
+const matchItemA = EmbeddedNodeIdSchema.parse("item___00001");
+const matchItemB = EmbeddedNodeIdSchema.parse("item___00002");
+const matchTargetA = EmbeddedNodeIdSchema.parse("matcht_00001");
+const matchTargetB = EmbeddedNodeIdSchema.parse("matcht_00002");
+const blankA = EmbeddedNodeIdSchema.parse("blank_000001");
+const blankB = EmbeddedNodeIdSchema.parse("blank_000002");
+const hotspotA = EmbeddedDataIdSchema.parse("hotsp_000001");
+const hotspotB = EmbeddedDataIdSchema.parse("hotsp_000002");
+
 describe("@scaffold/grading primitive targets", () => {
   it("grades single-select targets", () => {
     const optionFeedback = richText("That is the correct option.");
@@ -40,25 +54,25 @@ describe("@scaffold/grading primitive targets", () => {
       ...baseTarget,
       interaction: {
         kind: "single-select",
-        options: [{ id: "a" }, { id: "b" }],
+        options: [{ id: optionA }, { id: optionB }],
       },
       assessment: {
         kind: "single-select",
-        correctOptionId: "b",
-        feedbackByOptionId: { b: optionFeedback },
+        correctOptionId: optionB,
+        feedbackByOptionId: { [optionB]: optionFeedback },
         summaryFeedback,
       },
     };
 
-    const result = gradeAssessment(target, { kind: "single-select", optionId: "b" });
+    const result = gradeAssessment(target, { kind: "single-select", optionId: optionB });
 
     expect(result).toEqual({
       score: { scaled: 1, raw: 1, min: 0, max: 1 },
       isCorrect: true,
       feedback: summaryFeedback,
       items: {
-        a: { correct: false, expected: false, given: false },
-        b: { correct: true, expected: true, given: true, feedback: optionFeedback },
+        [optionA]: { correct: false, expected: false, given: false },
+        [optionB]: { correct: true, expected: true, given: true, feedback: optionFeedback },
       },
     });
     expect(AssessmentResultSchema.parse(result)).toEqual(result);
@@ -69,19 +83,19 @@ describe("@scaffold/grading primitive targets", () => {
       ...baseTarget,
       interaction: {
         kind: "multi-select",
-        options: [{ id: "a" }, { id: "b" }, { id: "c" }],
+        options: [{ id: optionA }, { id: optionB }, { id: optionC }],
         maxSelections: null,
       },
       assessment: {
         kind: "multi-select",
-        correctOptionIds: ["a", "b"],
+        correctOptionIds: [optionA, optionB],
         feedbackByOptionId: {},
       },
     };
 
     const result = gradeAssessment(target, {
       kind: "multi-select",
-      optionIds: ["a", "c"],
+      optionIds: [optionA, optionC],
     });
 
     expect(result.score).toEqual({ scaled: 0, raw: 0, min: 0, max: 2 });
@@ -94,23 +108,23 @@ describe("@scaffold/grading primitive targets", () => {
       ...baseTarget,
       interaction: {
         kind: "sequence",
-        items: [{ id: "a" }, { id: "b" }, { id: "c" }],
+        items: [{ id: optionA }, { id: optionB }, { id: optionC }],
       },
       assessment: {
         kind: "sequence",
-        correctOrder: ["a", "b", "c"],
-        feedbackByItemId: { b: itemFeedback },
+        correctOrder: [optionA, optionB, optionC],
+        feedbackByItemId: { [optionB]: itemFeedback },
       },
     };
 
     const result = gradeAssessment(target, {
       kind: "sequence",
-      orderedItemIds: ["a", "c", "b"],
+      orderedItemIds: [optionA, optionC, optionB],
     });
 
     expect(result.score).toEqual({ scaled: 1 / 3, raw: 1, min: 0, max: 3 });
     expect(result.isCorrect).toBe(false);
-    expect(result.items["b"]).toMatchObject({
+    expect(result.items[optionB]).toMatchObject({
       correct: false,
       expected: 1,
       given: 2,
@@ -125,33 +139,33 @@ describe("@scaffold/grading primitive targets", () => {
       ...baseTarget,
       interaction: {
         kind: "match",
-        items: [{ id: "fr" }, { id: "es" }],
-        targets: [{ id: "paris" }, { id: "madrid" }],
+        items: [{ id: matchItemA }, { id: matchItemB }],
+        targets: [{ id: matchTargetA }, { id: matchTargetB }],
       },
       assessment: {
         kind: "match",
         correctPairs: [
-          { itemId: "fr", targetId: "paris" },
-          { itemId: "es", targetId: "madrid" },
+          { itemId: matchItemA, targetId: matchTargetA },
+          { itemId: matchItemB, targetId: matchTargetB },
         ],
-        feedbackByItemId: { es: itemFeedback },
+        feedbackByItemId: { [matchItemB]: itemFeedback },
       },
     };
 
     const result = gradeAssessment(target, {
       kind: "match",
       pairs: [
-        { itemId: "fr", targetId: "paris" },
-        { itemId: "es", targetId: "paris" },
+        { itemId: matchItemA, targetId: matchTargetA },
+        { itemId: matchItemB, targetId: matchTargetA },
       ],
     });
 
     expect(result.score).toEqual({ scaled: 0.5, raw: 1, min: 0, max: 2 });
     expect(result.isCorrect).toBe(false);
-    expect(result.items["es"]).toMatchObject({
+    expect(result.items[matchItemB]).toMatchObject({
       correct: false,
-      expected: "madrid",
-      given: "paris",
+      expected: matchTargetB,
+      given: matchTargetA,
       feedback: itemFeedback,
     });
     expect(AssessmentResultSchema.parse(result)).toEqual(result);
@@ -163,33 +177,33 @@ describe("@scaffold/grading primitive targets", () => {
       ...baseTarget,
       interaction: {
         kind: "fill-blanks",
-        blanks: [{ id: "b1" }, { id: "b2" }],
+        blanks: [{ id: blankA }, { id: blankB }],
       },
       assessment: {
         kind: "fill-blanks",
         blanks: [
           {
-            blankId: "b1",
+            blankId: blankA,
             acceptedAnswers: ["Paris"],
             caseSensitive: false,
             trimWhitespace: true,
           },
           {
-            blankId: "b2",
+            blankId: blankB,
             acceptedAnswers: ["Seine"],
             caseSensitive: false,
             trimWhitespace: true,
           },
         ],
-        feedbackByBlankId: { b2: blankFeedback },
+        feedbackByBlankId: { [blankB]: blankFeedback },
       },
     };
 
     const result = gradeAssessment(target, {
       kind: "fill-blanks",
       blanks: [
-        { blankId: "b1", value: " paris " },
-        { blankId: "b2", value: "Loire" },
+        { blankId: blankA, value: " paris " },
+        { blankId: blankB, value: "Loire" },
       ],
     });
 
@@ -197,8 +211,8 @@ describe("@scaffold/grading primitive targets", () => {
       score: { scaled: 0.5, raw: 1, min: 0, max: 2 },
       isCorrect: false,
       items: {
-        b1: { correct: true, expected: ["Paris"], given: " paris " },
-        b2: {
+        [blankA]: { correct: true, expected: ["Paris"], given: " paris " },
+        [blankB]: {
           correct: false,
           expected: ["Seine"],
           given: "Loire",
@@ -216,11 +230,11 @@ describe("@scaffold/grading primitive targets", () => {
         kind: "spatial-hotspot",
         hotspots: [
           {
-            id: "h1",
+            id: hotspotA,
             geometry: { kind: "circle", centerX: 50, centerY: 50, radius: 10 },
           },
           {
-            id: "h2",
+            id: hotspotB,
             geometry: { kind: "circle", centerX: 20, centerY: 20, radius: 10 },
           },
         ],
@@ -229,7 +243,7 @@ describe("@scaffold/grading primitive targets", () => {
       assessment: {
         kind: "spatial-hotspot",
         gradingMode: "partial-credit",
-        correctHotspotIds: ["h1"],
+        correctHotspotIds: [hotspotA],
         feedbackByHotspotId: {},
       },
     };
@@ -237,7 +251,7 @@ describe("@scaffold/grading primitive targets", () => {
     expect(
       gradeAssessment(target, {
         kind: "spatial-hotspot",
-        selections: [{ hotspotId: "h1", x: 50, y: 50 }],
+        selections: [{ hotspotId: hotspotA, x: 50, y: 50 }],
       }),
     ).toMatchObject({ score: { scaled: 1, raw: 2, min: 0, max: 2 }, isCorrect: true });
   });
@@ -247,16 +261,16 @@ describe("@scaffold/grading primitive targets", () => {
       ...baseTarget,
       interaction: {
         kind: "single-select",
-        options: [{ id: "a" }, { id: "b" }],
+        options: [{ id: optionA }, { id: optionB }],
       },
       assessment: {
         kind: "single-select",
-        correctOptionId: "b",
+        correctOptionId: optionB,
         feedbackByOptionId: {},
       },
     };
 
-    const result = gradeAssessment(target, { kind: "multi-select", optionIds: ["b"] });
+    const result = gradeAssessment(target, { kind: "multi-select", optionIds: [optionB] });
 
     expect(result).toEqual({
       score: { scaled: 0 },

@@ -1,7 +1,6 @@
 import { BlockMath } from "@tiptap/extension-mathematics";
 
 import { TEXT_CONTENT } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 
 /**
  * Block-level math node — extends Tiptap's official BlockMath to also
@@ -15,11 +14,4 @@ import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-att
  */
 export const MathBlockNode = BlockMath.extend({
   group: `block ${TEXT_CONTENT}`,
-
-  addAttributes() {
-    return {
-      ...this.parent?.(),
-      id: stableNodeIdAttribute(),
-    };
-  },
 });

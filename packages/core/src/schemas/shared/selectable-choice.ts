@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
 /**
  * Attrs schema for the shared `selectable_choice` Tiptap node.
@@ -8,7 +9,7 @@ import { z } from "zod";
  * ancestor assessment block, not by this visible choice node.
  */
 export const SelectableChoiceAttrsSchema = z.object({
-  id: z.string(),
+  id: EmbeddedNodeIdSchema,
 });
 
-export type SelectableChoiceAttrs = z.infer<typeof SelectableChoiceAttrsSchema>;
+export type SelectableChoiceAttrs = z.input<typeof SelectableChoiceAttrsSchema>;

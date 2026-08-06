@@ -65,12 +65,10 @@ describe("createBlockRegistry", () => {
       },
     } satisfies BlockCapabilitiesDefinition;
     const alpha = createDefinition("alpha", {
-      identity: { stableChildNodeTypes: ["alpha_item", "shared_item"] },
       frame: { resizable: true },
       capabilities: assessmentCapabilities,
     });
     const beta = createDefinition("beta", {
-      identity: { stableChildNodeTypes: ["shared_item", "beta_item"] },
       frame: { resizable: false },
     });
     const gamma = createDefinition("gamma", {
@@ -81,14 +79,6 @@ describe("createBlockRegistry", () => {
     const registry = createBlockRegistry([alpha, beta, gamma]);
 
     expect(registry.definitions).toEqual([alpha, beta, gamma]);
-    expect(registry.stableIdNodeTypes).toEqual([
-      "alpha",
-      "alpha_item",
-      "shared_item",
-      "beta",
-      "beta_item",
-      "gamma",
-    ]);
     expect(registry.assessmentNodeTypes).toEqual(["alpha", "gamma"]);
     expect(registry.resizableNodeTypes).toEqual(["alpha", "gamma"]);
     expect(registry.getByNodeType("missing")).toBeUndefined();
@@ -110,7 +100,6 @@ describe("createBlockRegistry", () => {
     expect(registry.getByNodeType("late_addition")).toBeUndefined();
     expect(Object.isFrozen(registry)).toBe(true);
     expect(Object.isFrozen(registry.definitions)).toBe(true);
-    expect(Object.isFrozen(registry.stableIdNodeTypes)).toBe(true);
     expect(Object.isFrozen(registry.assessmentNodeTypes)).toBe(true);
     expect(Object.isFrozen(registry.resizableNodeTypes)).toBe(true);
     expect(() => Reflect.apply(Array.prototype.push, registry.definitions, [definition])).toThrow(
@@ -148,16 +137,6 @@ describe("createBlockRegistry", () => {
 
     expect(() => createBlockRegistry([first, second])).toThrow(
       'Duplicate block node type "duplicate".',
-    );
-  });
-
-  it("rejects a Block that redundantly declares its own root as a stable child", () => {
-    const definition = createDefinition("self_declared", {
-      identity: { stableChildNodeTypes: ["self_declared"] },
-    });
-
-    expect(() => createBlockRegistry([definition])).toThrow(
-      'Block "self_declared" must not declare its root node type as a stable child.',
     );
   });
 

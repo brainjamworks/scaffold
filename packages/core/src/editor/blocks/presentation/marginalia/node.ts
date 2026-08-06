@@ -2,7 +2,6 @@ import { Node, mergeAttributes, type NodeViewRenderer } from "@tiptap/core";
 import { MarginaliaDataSchema, type MarginaliaData } from "@scaffold/contracts";
 
 import { COURSE_BLOCK_CONTENT } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 
 import { emptyMarginaliaData } from "./content";
 
@@ -21,7 +20,6 @@ export function createMarginaliaNode(options: MarginaliaNodeOptions = {}) {
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         data: {
           default: emptyMarginaliaData(),
           parseHTML: (el: HTMLElement) => {

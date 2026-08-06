@@ -10,7 +10,6 @@ interface IdRewriteMaps {
   fillBlankIds: Map<string, string>;
   sequencingItemIds: Map<string, string>;
   matchingItemIds: Map<string, string>;
-  matchingTargetIds: Map<string, string>;
   categoriseItemIds: Map<string, string>;
   hotspotIds: Map<string, string>;
 }
@@ -22,7 +21,6 @@ function emptyRewriteMaps(): IdRewriteMaps {
     fillBlankIds: new Map(),
     sequencingItemIds: new Map(),
     matchingItemIds: new Map(),
-    matchingTargetIds: new Map(),
     categoriseItemIds: new Map(),
     hotspotIds: new Map(),
   };
@@ -147,26 +145,6 @@ function rewriteRowCells(value: unknown, columnIdMap: Map<string, string>) {
   });
 }
 
-function regenerateMatchingIds(node: JSONContent, maps: IdRewriteMaps) {
-  if (node.type !== "matching_pair") return;
-
-  const attrs = asRecord(node.attrs);
-  if (!attrs) return;
-
-  if (typeof attrs["itemId"] === "string" && attrs["itemId"]) {
-    const previous = attrs["itemId"];
-    const next = createStableId();
-    attrs["itemId"] = next;
-    maps.matchingItemIds.set(previous, next);
-  }
-  if (typeof attrs["targetId"] === "string" && attrs["targetId"]) {
-    const previous = attrs["targetId"];
-    const next = createStableId();
-    attrs["targetId"] = next;
-    maps.matchingTargetIds.set(previous, next);
-  }
-}
-
 function regenerateHotspotIds(node: JSONContent, maps: IdRewriteMaps) {
   if (node.type !== "image_hotspot_canvas") return;
 
@@ -213,6 +191,9 @@ function trackAssessmentReferenceId(
   }
   if (node.type === "sequencing_item") {
     maps.sequencingItemIds.set(replacement.previous, replacement.next);
+  }
+  if (node.type === "matching_item") {
+    maps.matchingItemIds.set(replacement.previous, replacement.next);
   }
   if (node.type === "categorise_item") {
     maps.categoriseItemIds.set(replacement.previous, replacement.next);
@@ -261,10 +242,6 @@ function rewriteAssessmentReferences(node: JSONContent, maps: IdRewriteMaps) {
   }
 
   if (node.type === "matching") {
-    asRecordArray(assessment["correctPairs"]).forEach((pair) => {
-      rewriteMappedValue(pair, "itemId", maps.matchingItemIds);
-      rewriteMappedValue(pair, "targetId", maps.matchingTargetIds);
-    });
     assessment["feedbackByItemId"] = rewriteRecordKeys(
       assessment["feedbackByItemId"],
       maps.matchingItemIds,
@@ -293,7 +270,6 @@ function regenerateIdsInNode(node: JSONContent): IdRewriteMaps {
   const attrIdReplacement = regenerateAttrId(asRecord(node.attrs) ?? undefined);
   trackAssessmentReferenceId(node, attrIdReplacement, maps);
 
-  regenerateMatchingIds(node, maps);
   regenerateHotspotIds(node, maps);
   regenerateChartIds(node);
 

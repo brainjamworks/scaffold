@@ -131,7 +131,6 @@ function surfaceAuthoringRendererAttrs(
     ...(verticalPosition ? { "data-vertical-content-position": verticalPosition } : {}),
     ...surfaceRegionDataAttrs(props.node.attrs["settings"]),
     ...surfaceBackgroundDataAttrs(readSurfaceBackground(props.node.attrs["settings"])),
-    ...(surfaceId ? { "data-surface-id": surfaceId } : {}),
     ...(variant ? { "data-surface-variant": variant } : {}),
   };
 }

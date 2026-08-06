@@ -1,4 +1,5 @@
 import { Editor, Node, type JSONContent } from "@tiptap/core";
+import UniqueID from "@tiptap/extension-unique-id";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { EditorView } from "@tiptap/pm/view";
 import StarterKit from "@tiptap/starter-kit";
@@ -39,10 +40,6 @@ const ArtificialMovementBlockNode = Node.create({
   group: "block",
   atom: true,
   selectable: true,
-
-  addAttributes() {
-    return { id: { default: null } };
-  },
 
   parseHTML() {
     return [{ tag: "div[data-artificial-movement-block]" }];
@@ -144,6 +141,7 @@ export function createArtificialLargeMovementFixture(): ArtificialLargeMovementF
       ArtificialMovementArrangementNode,
       ArtificialMovementRegionNode,
       ArtificialMovementBlockNode,
+      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
     ],
     content: artificialMovementDocument(),
   });

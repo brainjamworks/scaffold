@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { Editor, Node } from "@tiptap/core";
+import UniqueID from "@tiptap/extension-unique-id";
 import StarterKit from "@tiptap/starter-kit";
 import type { JSONContent } from "@tiptap/core";
 import { DOMSerializer, type Node as ProseMirrorNode } from "@tiptap/pm/model";
@@ -53,6 +54,7 @@ function makeEditor() {
       SelectableChoiceBodyNode,
       SelectableChoiceNode,
       TestContainerNode,
+      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
     ],
   });
 }
@@ -166,7 +168,8 @@ describe("shared composite children", () => {
       ],
     });
     const html = editor.getHTML();
-    expect(html).toContain('data-choice-id="xyz-42"');
+    expect(html).toContain('data-id="xyz-42"');
+    expect(html).not.toContain("data-choice-id");
     expect(html).not.toContain("data-correct");
     editor.destroy();
   });

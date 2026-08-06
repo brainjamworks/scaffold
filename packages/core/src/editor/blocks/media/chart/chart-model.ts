@@ -2,13 +2,23 @@ import type {
   ChartBlockData,
   ChartCellValue,
   ChartColumn,
+  ChartColumnId,
   ChartColumnRef,
   ChartDataSource,
   ChartEncoding,
   ChartType,
 } from "@/schemas/shared";
-import { ChartBlockDataSchema, ChartEncodingSchema, ChartTypeSchema } from "@/schemas/shared";
-import { createStableId } from "@/document/model/identity/stable-ids";
+import {
+  ChartBlockDataSchema,
+  ChartColumnIdSchema,
+  ChartEncodingSchema,
+  ChartRowIdSchema,
+  ChartTypeSchema,
+} from "@/schemas/shared";
+import {
+  createEmbeddedDataId,
+  createEmbeddedNodeId,
+} from "@/document/model/identity/stable-ids";
 import { z } from "zod";
 
 import { chartProfiles } from "./chart-profiles";
@@ -24,10 +34,10 @@ type ChartEncodingFor<TChartType extends ChartType> = Extract<
 
 export const ChartSettingsTableSchema = z
   .object({
-    columnIds: z.array(z.string()).optional(),
+    columnIds: z.array(ChartColumnIdSchema).optional(),
     columnTypes: z.array(ChartSettingsTableColumnTypeSchema).optional(),
     headers: z.array(z.string()).min(1),
-    rowIds: z.array(z.string()).optional(),
+    rowIds: z.array(ChartRowIdSchema).optional(),
     rows: z.array(z.array(z.string())),
   })
   .strict();
@@ -36,16 +46,16 @@ export type ChartSettingsTable = z.infer<typeof ChartSettingsTableSchema>;
 
 export const ChartSettingsMappingSchema = z
   .object({
-    bars: z.array(z.string()).default([]),
-    category: z.string().optional(),
-    label: z.string().optional(),
-    lines: z.array(z.string()).default([]),
-    value: z.string().optional(),
-    values: z.array(z.string()).default([]),
-    xCategory: z.string().optional(),
-    xValue: z.string().optional(),
-    yCategory: z.string().optional(),
-    yValue: z.string().optional(),
+    bars: z.array(ChartColumnIdSchema).default([]),
+    category: ChartColumnIdSchema.optional(),
+    label: ChartColumnIdSchema.optional(),
+    lines: z.array(ChartColumnIdSchema).default([]),
+    value: ChartColumnIdSchema.optional(),
+    values: z.array(ChartColumnIdSchema).default([]),
+    xCategory: ChartColumnIdSchema.optional(),
+    xValue: ChartColumnIdSchema.optional(),
+    yCategory: ChartColumnIdSchema.optional(),
+    yValue: ChartColumnIdSchema.optional(),
   })
   .strict();
 
@@ -114,7 +124,7 @@ export function getChartCatalogVariants(): readonly ChartInsertVariant[] {
       content: () => ({
         type: "chart_block",
         attrs: {
-          id: createStableId(),
+          id: createEmbeddedNodeId(),
           data: createChartDataForType(definition.chartType),
         },
       }),
@@ -239,32 +249,32 @@ function createChartEncodingFromSettingsMapping({
   const categoryColumnIds = new Set(
     data.columns.filter((column) => column.valueType === "category").map((column) => column.id),
   );
-  const anyColumn = (columnId: string | undefined) =>
+  const anyColumn = (columnId: ChartColumnId | undefined) =>
     columnId && allColumnIds.has(columnId) ? columnId : undefined;
-  const numberColumn = (columnId: string | undefined) =>
+  const numberColumn = (columnId: ChartColumnId | undefined) =>
     columnId && numberColumnIds.has(columnId) ? columnId : undefined;
-  const categoryColumn = (columnId: string | undefined) =>
+  const categoryColumn = (columnId: ChartColumnId | undefined) =>
     columnId && categoryColumnIds.has(columnId) ? columnId : undefined;
   const refs = (
-    columnIds: readonly string[],
-    accepts: (columnId: string | undefined) => string | undefined,
+    columnIds: readonly ChartColumnId[],
+    accepts: (columnId: ChartColumnId | undefined) => ChartColumnId | undefined,
   ): ChartColumnRef[] =>
     columnIds.flatMap((columnId) => {
       const validColumnId = accepts(columnId);
       return validColumnId ? [{ columnId: validColumnId }] : [];
     });
   const ref = (
-    columnId: string | undefined,
+    columnId: ChartColumnId | undefined,
     fallback: ChartColumnRef,
-    accepts: (columnId: string | undefined) => string | undefined,
+    accepts: (columnId: ChartColumnId | undefined) => ChartColumnId | undefined,
   ): ChartColumnRef => {
     const validColumnId = accepts(columnId);
     return validColumnId ? { columnId: validColumnId } : fallback;
   };
   const refList = (
-    columnIds: readonly string[],
+    columnIds: readonly ChartColumnId[],
     fallback: readonly ChartColumnRef[],
-    accepts: (columnId: string | undefined) => string | undefined,
+    accepts: (columnId: ChartColumnId | undefined) => ChartColumnId | undefined,
   ): ChartColumnRef[] => {
     const selected = refs(columnIds, accepts);
     return selected.length > 0 ? selected : [...fallback];
@@ -385,7 +395,7 @@ function normalizeChartSettingsTable(table: ChartSettingsTable): ChartDataSource
     table.columnTypes,
   );
   const rows = table.rows.map((row, rowIndex) => ({
-    id: table.rowIds?.[rowIndex] ?? createStableId(),
+    id: table.rowIds?.[rowIndex] ?? createEmbeddedDataId(),
     cells: Object.fromEntries(
       columns.map((column, columnIndex) => [
         column.id,
@@ -405,7 +415,7 @@ function createColumns(
   headers: string[],
   width: number,
   rows: string[][],
-  columnIds: string[] | undefined,
+  columnIds: ChartColumnId[] | undefined,
   columnTypes: ChartSettingsTable["columnTypes"],
 ): ChartColumn[] {
   return Array.from({ length: width }, (_, index) => {
@@ -413,7 +423,7 @@ function createColumns(
     const label = dedupeLabel(rawLabel || `Column ${index + 1}`, index, headers);
 
     return {
-      id: columnIds?.[index] ?? createStableId(),
+      id: columnIds?.[index] ?? createEmbeddedDataId(),
       label,
       valueType: inferColumnType(
         rows.map((row) => row[index] ?? ""),
@@ -452,7 +462,7 @@ function normalizeCell(value: string, valueType: ChartColumn["valueType"]): Char
 
 function emptyDataRow(columns: ChartColumn[]) {
   return {
-    id: createStableId(),
+    id: createEmbeddedDataId(),
     cells: Object.fromEntries(columns.map((column) => [column.id, null])),
   };
 }
@@ -474,9 +484,10 @@ function parseNumberCell(value: string): number {
 function isEncodingValidForChart(chart: ChartBlockData): boolean {
   if (chart.encoding.chartType !== chart.chartType) return false;
   const columnsById = new Map(chart.data.columns.map((column) => [column.id, column]));
-  const hasColumn = (columnId: string) => columnsById.has(columnId);
-  const hasNumberColumn = (columnId: string) => columnsById.get(columnId)?.valueType === "number";
-  const hasCategoryColumn = (columnId: string) =>
+  const hasColumn = (columnId: ChartColumnId) => columnsById.has(columnId);
+  const hasNumberColumn = (columnId: ChartColumnId) =>
+    columnsById.get(columnId)?.valueType === "number";
+  const hasCategoryColumn = (columnId: ChartColumnId) =>
     columnsById.get(columnId)?.valueType === "category";
 
   switch (chart.encoding.chartType) {

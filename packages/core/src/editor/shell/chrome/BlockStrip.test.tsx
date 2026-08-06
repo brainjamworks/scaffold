@@ -2,13 +2,11 @@
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Editor } from "@tiptap/core";
+import { Editor, type JSONContent } from "@tiptap/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
-import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
-import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import type { InsertAction } from "@/editor/insertion/insert-action";
 import {
   AUTHORING_CHROME_ATTR,
@@ -19,6 +17,7 @@ import { createScaffoldDocumentContent } from "@/format/artifact";
 import { BlockStrip } from "./BlockStrip";
 
 const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
+const coreCapabilities = coreAuthoringComposition.capabilities;
 const coreInsertCatalog = coreAuthoringComposition.catalogues.inDocument;
 
 beforeEach(() => {
@@ -62,7 +61,7 @@ afterEach(() => {
   cleanup();
 });
 
-function makeEditor() {
+function makeEditor(content: JSONContent = createScaffoldDocumentContent({ mode: "page" })) {
   return new Editor({
     extensions: [
       ...createCourseDocumentAuthoringExtensions({
@@ -70,8 +69,95 @@ function makeEditor() {
         editable: true,
       }),
     ],
-    content: createScaffoldDocumentContent({ mode: "page" }),
+    content,
   });
+}
+
+function boundedRegionDocument(): JSONContent {
+  const courseDocumentAttrs = createScaffoldDocumentContent({ mode: "slideshow" }).content?.[0]
+    ?.attrs;
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "courseDocument",
+        attrs: courseDocumentAttrs,
+        content: [
+          {
+            type: "surface",
+            attrs: {
+              id: "surface-block-strip-fill",
+              variant: "slide-content",
+              settings: { slideTitle: { enabled: false } },
+            },
+            content: [
+              { type: "slide_title" },
+              {
+                type: "region",
+                attrs: { id: "region-block-strip-fill", role: "main" },
+                content: [
+                  { type: "paragraph" },
+                  {
+                    type: "paragraph",
+                    content: [{ type: "text", text: "Existing region content" }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function authoredBoundedRegionDocument(): JSONContent {
+  const document = boundedRegionDocument();
+  const region = document.content?.[0]?.content?.[0]?.content?.find(
+    (node) => node.type === "region",
+  );
+  if (!region) throw new Error("Expected a bounded region.");
+  region.content = [
+    {
+      type: "paragraph",
+      content: [{ type: "text", text: "Authored region content" }],
+    },
+  ];
+  return document;
+}
+
+function emptyBoundedRegionDocument(): JSONContent {
+  const document = boundedRegionDocument();
+  const region = document.content?.[0]?.content?.[0]?.content?.find(
+    (node) => node.type === "region",
+  );
+  if (!region) throw new Error("Expected a bounded region.");
+  region.content = [{ type: "paragraph" }];
+  return document;
+}
+
+function setCursorInFirstEmptyParagraph(editor: Editor): void {
+  let position: number | null = null;
+  editor.state.doc.descendants((node, pos) => {
+    if (position !== null || node.type.name !== "paragraph" || node.content.size !== 0) {
+      return true;
+    }
+    position = pos + 1;
+    return false;
+  });
+  if (position === null) throw new Error("Expected an empty paragraph.");
+  editor.commands.setTextSelection(position);
+}
+
+function selectText(editor: Editor, text: string): void {
+  let from: number | null = null;
+  editor.state.doc.descendants((node, pos) => {
+    if (from !== null || !node.isText || node.text !== text) return true;
+    from = pos;
+    return false;
+  });
+  if (from === null) throw new Error(`Expected text: ${text}`);
+  editor.commands.setTextSelection({ from, to: from + text.length });
 }
 
 function catalogItem(id: string): InsertAction {
@@ -83,10 +169,11 @@ function catalogItem(id: string): InsertAction {
 function renderBuiltInBlockStrip(editor: Editor) {
   return render(
     <BlockStrip
-      blockDefinitions={builtInBlockRegistry}
+      blockDefinitions={coreCapabilities.blocks.registry}
       editor={editor}
       items={coreInsertCatalog.actions}
-      surfaceVariants={builtInSurfaceVariantRegistry}
+      layoutDefinitions={coreCapabilities.layouts.registry}
+      surfaceVariants={coreCapabilities.surfaces.registry}
     />,
   );
 }
@@ -160,10 +247,11 @@ describe("BlockStrip", () => {
 
     render(
       <BlockStrip
-        blockDefinitions={builtInBlockRegistry}
+        blockDefinitions={coreCapabilities.blocks.registry}
         editor={editor}
         items={[chart, includedVariant]}
-        surfaceVariants={builtInSurfaceVariantRegistry}
+        layoutDefinitions={coreCapabilities.layouts.registry}
+        surfaceVariants={coreCapabilities.surfaces.registry}
       />,
     );
 
@@ -186,10 +274,11 @@ describe("BlockStrip", () => {
 
     render(
       <BlockStrip
-        blockDefinitions={builtInBlockRegistry}
+        blockDefinitions={coreCapabilities.blocks.registry}
         editor={editor}
         items={[callout]}
-        surfaceVariants={builtInSurfaceVariantRegistry}
+        layoutDefinitions={coreCapabilities.layouts.registry}
+        surfaceVariants={coreCapabilities.surfaces.registry}
       />,
     );
 
@@ -205,6 +294,64 @@ describe("BlockStrip", () => {
     });
 
     editor.view.dom.remove();
+    editor.destroy();
+  });
+
+  it("disables Grid when bounded sibling content makes fill insertion invalid", async () => {
+    const editor = makeEditor(boundedRegionDocument());
+    setCursorInFirstEmptyParagraph(editor);
+
+    renderBuiltInBlockStrip(editor);
+    await userEvent.click(screen.getByRole("button", { name: "Containers" }));
+
+    expect(screen.getByRole("button", { name: "Grid" })).toBeDisabled();
+
+    editor.destroy();
+  });
+
+  it("does not offer Grid over a fully selected authored paragraph", async () => {
+    const editor = makeEditor(authoredBoundedRegionDocument());
+    selectText(editor, "Authored region content");
+    const before = editor.getJSON();
+
+    renderBuiltInBlockStrip(editor);
+    await userEvent.click(screen.getByRole("button", { name: "Containers" }));
+
+    const grid = screen.getByRole("button", { name: "Grid" });
+    expect(grid).toBeDisabled();
+    fireEvent.click(grid);
+    expect(editor.getJSON()).toEqual(before);
+
+    editor.destroy();
+  });
+
+  it("inserts Grid into an empty bounded container and removes only its empty paragraph", async () => {
+    const editor = makeEditor(emptyBoundedRegionDocument());
+    setCursorInFirstEmptyParagraph(editor);
+
+    renderBuiltInBlockStrip(editor);
+    await userEvent.click(screen.getByRole("button", { name: "Containers" }));
+
+    const grid = screen.getByRole("button", { name: "Grid" });
+    expect(grid).toBeEnabled();
+    await userEvent.click(grid);
+
+    await waitFor(() => {
+      let regionChildTypes: string[] | undefined;
+      let gridCellCount: number | undefined;
+      editor.state.doc.descendants((node) => {
+        if (node.type.name !== "region") return true;
+        regionChildTypes = [];
+        node.forEach((child) => {
+          regionChildTypes?.push(child.type.name);
+          if (child.type.name === "grid") gridCellCount = child.childCount;
+        });
+        return false;
+      });
+      expect(regionChildTypes).toEqual(["grid"]);
+      expect(gridCellCount).toBe(2);
+    });
+
     editor.destroy();
   });
 

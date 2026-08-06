@@ -9,6 +9,7 @@ import type { AssessmentResult, QuizAssessmentSettings } from "@scaffold/contrac
 import {
   AssessmentProblemSnapshotSchema,
   QuizAttemptStateSchema,
+  SingleSelectResponseSchema,
   type AssessmentProblemSnapshot,
   type QuizAttemptState,
 } from "@scaffold/contracts";
@@ -31,16 +32,17 @@ import type {
 
 const responseCapability = {
   schema: z.object({ choice: z.string().nullable() }),
-  toContractResponse: (response: unknown) => ({
-    kind: "single-select" as const,
-    optionId:
-      typeof response === "object" &&
-      response !== null &&
-      "choice" in response &&
-      typeof response.choice === "string"
-        ? response.choice
-        : null,
-  }),
+  toContractResponse: (response: unknown) =>
+    SingleSelectResponseSchema.parse({
+      kind: "single-select" as const,
+      optionId:
+        typeof response === "object" &&
+        response !== null &&
+        "choice" in response &&
+        typeof response.choice === "string"
+          ? response.choice
+          : null,
+    }),
   fromContractResponse: (response: { kind: string; optionId?: string | null }) => ({
     choice: response.kind === "single-select" ? (response.optionId ?? null) : null,
   }),
@@ -55,8 +57,8 @@ function problemRegistration(
   overrides: Partial<AssessmentRegistrationInput> = {},
 ): AssessmentRegistrationInput {
   return {
-    authoredBlockId: "block-one",
-    targetId: "target-one",
+    authoredBlockId: "block_000001",
+    targetId: "target_00001",
     interactionKind: "single-select",
     response: responseCapability,
     config: {
@@ -98,8 +100,8 @@ function quizRegistration(
   overrides: Partial<AssessmentQuizRegistrationInput> = {},
 ): AssessmentQuizRegistrationInput {
   return {
-    groupId: "quiz-one",
-    targetIds: ["target-one"],
+    groupId: "quiz__000001",
+    targetIds: ["target_00001"],
     settings: quizSettings,
     ...overrides,
   };
@@ -118,7 +120,7 @@ function problemSnapshot(
   overrides: Partial<AssessmentProblemSnapshot> = {},
 ): AssessmentProblemSnapshot {
   return AssessmentProblemSnapshotSchema.parse({
-    response: { kind: "single-select", optionId: "hydrated-option" },
+    response: { kind: "single-select", optionId: "hydrat_00001" },
     submitted: false,
     attemptNumber: 0,
     hintsShown: 0,
@@ -133,7 +135,7 @@ function quizAttempt(groupId: string, overrides: Partial<QuizAttemptState> = {})
     attemptId: "attempt-one",
     groupId,
     status: "in_progress",
-    currentTargetId: "target-one",
+    currentTargetId: "target_00001",
     submittedTargetIds: [],
     startedAt: "2026-07-16T12:00:00.000Z",
     finishedAt: null,
@@ -190,7 +192,7 @@ function createRuntimeWrapper({
 
 describe("assessment problem facade", () => {
   it("reports use outside the assessment provider consistently", () => {
-    expect(() => renderHook(() => useAssessmentProblemFacadeById("problem-one"))).toThrow(
+    expect(() => renderHook(() => useAssessmentProblemFacadeById("problm_00001"))).toThrow(
       "Assessment store hooks must be used inside an AssessmentRuntimeProvider.",
     );
   });
@@ -198,7 +200,7 @@ describe("assessment problem facade", () => {
   it("reports an invalid artifact store explicitly", () => {
     const wrapper = createRuntimeWrapper({ artifactId: " " });
     expect(() =>
-      renderHook(() => useAssessmentProblemFacadeById("problem-one"), { wrapper }),
+      renderHook(() => useAssessmentProblemFacadeById("problm_00001"), { wrapper }),
     ).toThrow("Assessment store selectors require a valid runtime artifact identity.");
   });
 
@@ -207,7 +209,7 @@ describe("assessment problem facade", () => {
     const { result } = renderHook(
       () => ({
         unsafe: useAssessmentProblemFacade(problemRegistration({ authoredBlockId: " " })),
-        missing: useAssessmentProblemFacadeById("not-registered"),
+        missing: useAssessmentProblemFacadeById("notreg_00001"),
       }),
       { wrapper },
     );
@@ -232,7 +234,7 @@ describe("assessment problem facade", () => {
     const { result } = renderHook(
       () => {
         const parent = useAssessmentProblemFacade(registration);
-        const child = useAssessmentProblemFacadeById("block-one", "single-select");
+        const child = useAssessmentProblemFacadeById("block_000001", "single-select");
         statuses.push(parent.status);
         return { child, parent };
       },
@@ -242,7 +244,7 @@ describe("assessment problem facade", () => {
     await waitFor(() => expect(result.current.parent.status).toBe("registered"));
     expect(statuses).toContain("missing-registration");
     expect(result.current.parent.problemId).toBe(
-      scopeAssessmentProblemId("artifact-one", "block-one"),
+      scopeAssessmentProblemId("artifact-one", "block_000001"),
     );
     expect(result.current.child.problemId).toBe(result.current.parent.problemId);
     expect(result.current.child.capability).toBe(responseCapability);
@@ -254,7 +256,7 @@ describe("assessment problem facade", () => {
       initialSnapshot: {
         snapshotVersion: 2,
         artifactId: "artifact-one",
-        problems: { "target-one": problemSnapshot() },
+        problems: { target_00001: problemSnapshot() },
         quizzes: {},
       },
     });
@@ -264,9 +266,9 @@ describe("assessment problem facade", () => {
     await waitFor(() => expect(result.current.status).toBe("registered"));
     expect(result.current.problem?.response).toEqual({
       kind: "single-select",
-      optionId: "hydrated-option",
+      optionId: "hydrat_00001",
     });
-    expect(result.current.localResponse).toEqual({ choice: "hydrated-option" });
+    expect(result.current.localResponse).toEqual({ choice: "hydrat_00001" });
     expect(result.current.responseReady).toBe(true);
   });
 
@@ -276,17 +278,19 @@ describe("assessment problem facade", () => {
     const { result } = renderHook(() => useAssessmentProblemFacade(registration), { wrapper });
     await waitFor(() => expect(result.current.status).toBe("registered"));
 
-    act(() => expect(result.current.actions.setLocalResponse({ choice: "option-b" })).toBe(true));
+    act(() =>
+      expect(result.current.actions.setLocalResponse({ choice: "option_00002" })).toBe(true),
+    );
     expect(result.current.problem?.response).toEqual({
       kind: "single-select",
-      optionId: "option-b",
+      optionId: "option_00002",
     });
-    expect(result.current.localResponse).toEqual({ choice: "option-b" });
+    expect(result.current.localResponse).toEqual({ choice: "option_00002" });
 
     act(() => expect(result.current.actions.setLocalResponse({ choice: 42 })).toBe(false));
     expect(result.current.problem?.response).toEqual({
       kind: "single-select",
-      optionId: "option-b",
+      optionId: "option_00002",
     });
   });
 
@@ -308,12 +312,15 @@ describe("assessment problem facade", () => {
     }));
     const revealHint = vi.fn().mockResolvedValue({
       problem: problemSnapshot({
-        response: { kind: "single-select", optionId: "option-b" },
+        response: SingleSelectResponseSchema.parse({
+          kind: "single-select",
+          optionId: "option_00002",
+        }),
         hintsShown: 1,
       }),
     });
     const revealAnswer = vi.fn().mockResolvedValue({
-      answerKey: { kind: "single-select", correctOptionId: "option-b", feedbackByOptionId: {} },
+      answerKey: { kind: "single-select", correctOptionId: "option_00002", feedbackByOptionId: {} },
     });
     const wrapper = createRuntimeWrapper({
       assessmentPort: { type: "runtime", check, submit, revealHint, revealAnswer },
@@ -323,31 +330,31 @@ describe("assessment problem facade", () => {
     await waitFor(() => expect(result.current.status).toBe("registered"));
 
     await act(async () => {
-      result.current.actions.setLocalResponse({ choice: "option-b" });
+      result.current.actions.setLocalResponse({ choice: "option_00002" });
       await expect(result.current.actions.revealHint()).resolves.toBe(true);
     });
     await act(() => result.current.actions.check());
     await act(() => result.current.actions.revealAnswer());
     expect(result.current.revealedAnswer?.answerKey).toMatchObject({
       kind: "single-select",
-      correctOptionId: "option-b",
+      correctOptionId: "option_00002",
     });
     act(() => expect(result.current.actions.reset()).toBe(true));
     act(() => {
-      result.current.actions.setLocalResponse({ choice: "option-b" });
+      result.current.actions.setLocalResponse({ choice: "option_00002" });
     });
     await act(() => result.current.actions.submit());
 
     expect(check).toHaveBeenCalledWith(
       expect.objectContaining({
-        problemId: scopeAssessmentProblemId("artifact-one", "block-one"),
-        targetId: "target-one",
+        problemId: scopeAssessmentProblemId("artifact-one", "block_000001"),
+        targetId: "target_00001",
       }),
     );
     expect(submit).toHaveBeenCalledOnce();
     expect(revealHint).toHaveBeenCalledWith({
-      problemId: scopeAssessmentProblemId("artifact-one", "block-one"),
-      targetId: "target-one",
+      problemId: scopeAssessmentProblemId("artifact-one", "block_000001"),
+      targetId: "target_00001",
       interactionKind: "single-select",
       hintsShown: 1,
     });
@@ -367,7 +374,7 @@ describe("assessment problem facade", () => {
         revealAnswer: vi.fn().mockResolvedValue({
           answerKey: {
             kind: "single-select",
-            correctOptionId: "option-b",
+            correctOptionId: "option_00002",
             feedbackByOptionId: {},
           },
         }),
@@ -377,7 +384,7 @@ describe("assessment problem facade", () => {
     const { result } = renderHook(() => useAssessmentProblemFacade(registration), { wrapper });
     await waitFor(() => expect(result.current.status).toBe("registered"));
     act(() => {
-      result.current.actions.setLocalResponse({ choice: "option-b" });
+      result.current.actions.setLocalResponse({ choice: "option_00002" });
     });
 
     let request!: Promise<AssessmentResult | null>;
@@ -400,14 +407,14 @@ describe("assessment problem facade", () => {
     const hook = renderHook(
       ({ expected }: { expected: "single-select" | "multi-select" }) => {
         useAssessmentProblemFacade(registration);
-        return useAssessmentProblemFacadeById("block-one", expected);
+        return useAssessmentProblemFacadeById("block_000001", expected);
       },
       { initialProps: { expected: "single-select" }, wrapper },
     );
     await waitFor(() => expect(hook.result.current.status).toBe("registered"));
 
     expect(() => hook.rerender({ expected: "multi-select" })).toThrow(
-      'Assessment facade expected "multi-select" interaction for "block-one", but registered "single-select".',
+      'Assessment facade expected "multi-select" interaction for "block_000001", but registered "single-select".',
     );
   });
 
@@ -421,7 +428,7 @@ describe("assessment problem facade", () => {
       initialSnapshot: {
         snapshotVersion: 2,
         artifactId: "artifact-one",
-        problems: { "target-one": problemSnapshot() },
+        problems: { target_00001: problemSnapshot() },
         quizzes: {},
       },
       onStore,
@@ -443,7 +450,7 @@ describe("assessment problem facade", () => {
     await waitFor(() => expect(facades.at(-1)?.status).toBe("registered"));
     const store = stores[0];
     if (!store) throw new Error("expected captured assessment store");
-    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "block_000001");
     const durableBefore = store.getState().durable.problems[problemId];
 
     mounted.rerender(
@@ -479,14 +486,14 @@ describe("assessment problem facade", () => {
     await waitFor(() => expect(second.result.current.status).toBe("registered"));
 
     act(() => {
-      first.result.current.actions.setLocalResponse({ choice: "first" });
+      first.result.current.actions.setLocalResponse({ choice: "option_00001" });
     });
     act(() => {
-      second.result.current.actions.setLocalResponse({ choice: "second" });
+      second.result.current.actions.setLocalResponse({ choice: "option_00002" });
     });
 
-    expect(first.result.current.localResponse).toEqual({ choice: "first" });
-    expect(second.result.current.localResponse).toEqual({ choice: "second" });
+    expect(first.result.current.localResponse).toEqual({ choice: "option_00001" });
+    expect(second.result.current.localResponse).toEqual({ choice: "option_00002" });
   });
 });
 
@@ -505,21 +512,21 @@ describe("assessment Quiz facade", () => {
     );
     await waitFor(() => expect(result.current.quizFacade.status).toBe("registered"));
     act(() => {
-      result.current.problemFacade.actions.setLocalResponse({ choice: "option-b" });
+      result.current.problemFacade.actions.setLocalResponse({ choice: "option_00002" });
     });
 
     expect(result.current.quizFacade.groupId).toBe(
-      scopeAssessmentGroupId("artifact-one", "quiz-one"),
+      scopeAssessmentGroupId("artifact-one", "quiz__000001"),
     );
-    expect(result.current.quizFacade.problemsByTargetId["target-one"]).toMatchObject({
-      authoredBlockId: "block-one",
+    expect(result.current.quizFacade.problemsByTargetId["target_00001"]).toMatchObject({
+      authoredBlockId: "block_000001",
       responseReady: true,
-      problem: { response: { kind: "single-select", optionId: "option-b" } },
+      problem: { response: { kind: "single-select", optionId: "option_00002" } },
     });
   });
 
   it("uses the captured Quiz port and requires no port action argument", async () => {
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     const startAttempt = vi.fn().mockResolvedValue({
       quizAttempt: quizAttempt(groupId),
       problemsByTargetId: {},
@@ -587,7 +594,7 @@ describe("assessment Quiz facade", () => {
     });
     await waitFor(() => expect(first.result.current.status).toBe("registered"));
     await waitFor(() => expect(second.result.current.status).toBe("registered"));
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     expect(firstStores[0]).not.toBe(secondStores[0]);
 
     first.unmount();

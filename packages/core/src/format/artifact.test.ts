@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
 import { getCourseDocumentDefaultsForMode } from "@/document/model/course-document-defaults";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
@@ -47,6 +48,7 @@ describe("Scaffold format", () => {
         },
       ],
     });
+    expect(EmbeddedNodeIdSchema.safeParse(content.content?.[0]?.attrs?.["id"]).success).toBe(true);
   });
 
   it("keeps the surface definition identity separate from the occurrence identity", () => {

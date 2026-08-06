@@ -6,6 +6,7 @@ import type { JSONContent } from "@tiptap/core";
 import { NodeSelection } from "@tiptap/pm/state";
 import { EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import UniqueID from "@tiptap/extension-unique-id";
 import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { createAssessmentRuntimeTestRoot } from "@/runtime/assessment/test-utils";
@@ -59,6 +60,7 @@ function makeEditor() {
   return new Editor({
     extensions: [
       StarterKit.configure({ undoRedo: false, paragraph: false }),
+      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       ExtendedParagraph,
       createRuntimeBlockFrameAttributesExtension([multiselectBlockDefinition.nodeType]),
       BoundedRegionTestNode,
@@ -83,6 +85,7 @@ function makeRuntimeEditor() {
     editable: false,
     extensions: [
       StarterKit.configure({ undoRedo: false, paragraph: false }),
+      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       ExtendedParagraph,
       createRuntimeBlockFrameAttributesExtension([multiselectBlockDefinition.nodeType]),
       BoundedRegionTestNode,
@@ -139,7 +142,7 @@ function multiselectDoc(attrs: Record<string, unknown> = {}): JSONContent {
     attrs: {
       id: "block-multiselect-test",
       assessment: {
-        correctOptionIds: ["a"],
+        correctOptionIds: ["choice_00001"],
         feedbackByOptionId: {},
         summaryFeedback: null,
       },
@@ -151,7 +154,7 @@ function multiselectDoc(attrs: Record<string, unknown> = {}): JSONContent {
       { type: "assessment_prompt", content: [{ type: "paragraph" }] },
       {
         type: "assessment_choices_group",
-        content: [choice("a", true), choice("b", false)],
+        content: [choice("choice_00001", true), choice("choice_00002", false)],
       },
       assessmentActions(),
     ],
@@ -198,7 +201,7 @@ describe("composite multiselect node", () => {
               maxSelect: 2,
             },
             assessment: {
-              correctOptionIds: ["b", "c"],
+              correctOptionIds: ["choice_00002", "choice_00003"],
               feedbackByOptionId: {},
               summaryFeedback: richFeedback("Nice."),
             },
@@ -228,7 +231,11 @@ describe("composite multiselect node", () => {
             },
             {
               type: "assessment_choices_group",
-              content: [choice("a", false, "4"), choice("b", true, "7"), choice("c", true, "11")],
+              content: [
+                choice("choice_00001", false, "4"),
+                choice("choice_00002", true, "7"),
+                choice("choice_00003", true, "11"),
+              ],
             },
             {
               type: "assessment_actions_group",
@@ -269,7 +276,7 @@ describe("composite multiselect node", () => {
       maxSelect: 2,
     });
     expect(ms?.attrs?.["assessment"]).toMatchObject({
-      correctOptionIds: ["b", "c"],
+      correctOptionIds: ["choice_00002", "choice_00003"],
       feedbackByOptionId: {},
       summaryFeedback: richFeedback("Nice."),
     });
@@ -282,8 +289,8 @@ describe("composite multiselect node", () => {
       "assessment_summary_feedback",
     ]);
     const choices = children?.[3]?.content as JSONContent[] | undefined;
-    expect(choices?.[1]?.attrs).toEqual({ id: "b" });
-    expect(choices?.[2]?.attrs).toEqual({ id: "c" });
+    expect(choices?.[1]?.attrs).toEqual({ id: "choice_00002" });
+    expect(choices?.[2]?.attrs).toEqual({ id: "choice_00003" });
     editor.destroy();
   });
 
@@ -303,7 +310,7 @@ describe("composite multiselect node", () => {
             { type: "assessment_prompt", content: [{ type: "paragraph" }] },
             {
               type: "assessment_choices_group",
-              content: [choice("a", false)],
+              content: [choice("choice_00001", false)],
             },
             assessmentActions(),
           ],
@@ -340,7 +347,7 @@ describe("composite multiselect node", () => {
             { type: "assessment_prompt", content: [{ type: "paragraph" }] },
             {
               type: "assessment_choices_group",
-              content: [choice("a", true)],
+              content: [choice("choice_00001", true)],
             },
             assessmentActions(),
           ],
@@ -374,7 +381,7 @@ describe("composite multiselect node", () => {
             { type: "assessment_prompt", content: [{ type: "paragraph" }] },
             {
               type: "assessment_choices_group",
-              content: [choice("a", true), choice("b", false)],
+              content: [choice("choice_00001", true), choice("choice_00002", false)],
             },
             assessmentActions(),
           ],

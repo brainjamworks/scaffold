@@ -67,9 +67,6 @@ export const sequencingBlockDefinition = defineBlock({
     ...assessmentShellPlaceholders,
     sequencing_item: "Enter your step",
   },
-  identity: {
-    stableChildNodeTypes: ["sequencing_item"],
-  },
   capabilities: {
     assessment: defineAssessmentCapability({
       interactionKind: "sequence",

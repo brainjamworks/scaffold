@@ -24,5 +24,6 @@ export const gridInsertAction: InsertAction = Object.freeze({
   description: "Create a two-cell grid",
   icon: GridFour,
   keywords: Object.freeze(["columns", "cells", "layout"]),
+  boundedPlacement: "fill",
   content: createGridInsertContent,
 });

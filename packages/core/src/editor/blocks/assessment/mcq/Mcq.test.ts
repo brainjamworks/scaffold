@@ -8,6 +8,7 @@ import { Fragment } from "@tiptap/pm/model";
 import { NodeSelection } from "@tiptap/pm/state";
 import { EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import UniqueID from "@tiptap/extension-unique-id";
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { createAssessmentRuntimeTestRoot } from "@/runtime/assessment/test-utils";
@@ -75,6 +76,7 @@ function makeEditor(editable = true) {
     editable,
     extensions: [
       StarterKit.configure({ undoRedo: false, paragraph: false }),
+      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       ExtendedParagraph,
       createRuntimeBlockFrameAttributesExtension([mcqBlockDefinition.nodeType]),
       BoundedRegionTestNode,
@@ -99,6 +101,7 @@ let cachedMcqSchema: ReturnType<typeof getSchema> | null = null;
 function makeMcqSchema() {
   cachedMcqSchema ??= getSchema([
     StarterKit.configure({ undoRedo: false, paragraph: false }),
+    UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
     ExtendedParagraph,
     createRuntimeBlockFrameAttributesExtension([mcqBlockDefinition.nodeType]),
     AssessmentTitleNode,
@@ -121,6 +124,7 @@ function makeRuntimeEditor() {
     editable: false,
     extensions: [
       StarterKit.configure({ undoRedo: false, paragraph: false }),
+      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       ExtendedParagraph,
       createRuntimeBlockFrameAttributesExtension([mcqBlockDefinition.nodeType]),
       BoundedRegionTestNode,
@@ -146,6 +150,7 @@ function createDisposableMcqEditor(
   return createDisposableEditor({
     extensions: [
       StarterKit.configure({ undoRedo: undoRedo ? {} : false, paragraph: false }),
+      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       ExtendedParagraph,
       createRuntimeBlockFrameAttributesExtension([mcqBlockDefinition.nodeType]),
       AssessmentTitleNode,
@@ -195,11 +200,11 @@ function mcqDoc(attrs: Record<string, unknown> = {}): JSONContent {
     type: "mcq",
     attrs: {
       assessment: {
-        correctOptionId: "a",
+        correctOptionId: "choice_00001",
         feedbackByOptionId: {},
         summaryFeedback: null,
       },
-      id: "block-mcq-test",
+      id: "mcqblk_00001",
       ...attrs,
     },
     content: [
@@ -208,7 +213,7 @@ function mcqDoc(attrs: Record<string, unknown> = {}): JSONContent {
       { type: "assessment_prompt", content: [{ type: "paragraph" }] },
       {
         type: "assessment_choices_group",
-        content: [choice("a", true), choice("b", false)],
+        content: [choice("choice_00001", true), choice("choice_00002", false)],
       },
       {
         type: "assessment_actions_group",
@@ -372,9 +377,9 @@ describe("composite mcq node", () => {
         type: "doc",
         content: [
           mcqDoc({
-            id: "mcq-summary-feedback-edit",
+            id: "mcqblk_00002",
             assessment: {
-              correctOptionId: "a",
+              correctOptionId: "choice_00001",
               feedbackByOptionId: {},
               summaryFeedback: null,
             },
@@ -401,7 +406,7 @@ describe("composite mcq node", () => {
     ).not.toBeNull();
     expect(dialog.getAttribute("data-authoring-chrome")).toBe("popover");
     expect(summaryEditor.getAttribute("data-attr-rich-text-field")).toBe(
-      "mcq-summary-feedback-edit:summary-feedback",
+      "mcqblk_00002:summary-feedback",
     );
     expect(summaryEditor.getAttribute("data-inline-editor-field")).toBeNull();
 
@@ -443,9 +448,9 @@ describe("composite mcq node", () => {
       type: "doc",
       content: [
         mcqDoc({
-          id: "mcq-summary-feedback-external-sync",
+          id: "mcqblk_00003",
           assessment: {
-            correctOptionId: "a",
+            correctOptionId: "choice_00001",
             feedbackByOptionId: {},
             summaryFeedback: richFeedback("Original feedback."),
           },
@@ -474,7 +479,7 @@ describe("composite mcq node", () => {
       fixture.editor.state.tr.setNodeMarkup(0, undefined, {
         ...mcq.attrs,
         assessment: {
-          correctOptionId: "a",
+          correctOptionId: "choice_00001",
           feedbackByOptionId: {},
           summaryFeedback: richFeedback("Replacement feedback."),
         },
@@ -496,9 +501,9 @@ describe("composite mcq node", () => {
       type: "doc",
       content: [
         mcqDoc({
-          id: "mcq-summary-feedback-action",
+          id: "mcqblk_00004",
           assessment: {
-            correctOptionId: "a",
+            correctOptionId: "choice_00001",
             feedbackByOptionId: {},
             summaryFeedback: richFeedback("Review the explanation."),
           },
@@ -529,9 +534,9 @@ describe("composite mcq node", () => {
         {
           type: "mcq",
           attrs: {
-            id: "mcq-choice-delete",
+            id: "mcqblk_00005",
             assessment: {
-              correctOptionId: "a",
+              correctOptionId: "choice_00001",
               feedbackByOptionId: {},
               summaryFeedback: null,
             },
@@ -546,9 +551,9 @@ describe("composite mcq node", () => {
             {
               type: "assessment_choices_group",
               content: [
-                choice("a", true, "First choice"),
-                choice("b", false, "Second choice"),
-                choice("c", false, "Third choice"),
+                choice("choice_00001", true, "First choice"),
+                choice("choice_00002", false, "Second choice"),
+                choice("choice_00003", false, "Third choice"),
               ],
             },
             {
@@ -583,7 +588,7 @@ describe("composite mcq node", () => {
     expect(fixture.editor.state.doc.textContent).toContain("Keep after MCQ");
     expect(fixture.editor.state.doc.textContent).toContain("First choice");
     expect(fixture.editor.state.doc.textContent).toContain("Third choice");
-    expect(choiceIds).toEqual(["a", "c"]);
+    expect(choiceIds).toEqual(["choice_00001", "choice_00003"]);
 
     fixture.destroy();
   });
@@ -595,9 +600,9 @@ describe("composite mcq node", () => {
         {
           type: "mcq",
           attrs: {
-            id: "mcq-hint-delete",
+            id: "mcqblk_00006",
             assessment: {
-              correctOptionId: "a",
+              correctOptionId: "choice_00001",
               feedbackByOptionId: {},
               summaryFeedback: null,
             },
@@ -611,7 +616,7 @@ describe("composite mcq node", () => {
             { type: "assessment_prompt", content: [{ type: "paragraph" }] },
             {
               type: "assessment_choices_group",
-              content: [choice("a", true, "Only choice")],
+              content: [choice("choice_00001", true, "Only choice")],
             },
             {
               type: "assessment_actions_group",
@@ -681,7 +686,7 @@ describe("composite mcq node", () => {
       type: "doc",
       content: [
         mcqDocWithHints(["Try eliminating unlikely answers.", "Check the remaining option."], {
-          id: "mcq-hint-cards",
+          id: "mcqblk_00007",
         }),
       ],
     });
@@ -701,7 +706,7 @@ describe("composite mcq node", () => {
       type: "doc",
       content: [
         mcqDocWithHints(["Use the answer choices to narrow it down."], {
-          id: "mcq-hint-popover",
+          id: "mcqblk_00008",
         }),
       ],
     });
@@ -725,7 +730,7 @@ describe("composite mcq node", () => {
       type: "doc",
       content: [
         mcqDocWithHints(["Start here"], {
-          id: "mcq-hint-popover-edit",
+          id: "mcqblk_00009",
         }),
       ],
     });
@@ -753,7 +758,7 @@ describe("composite mcq node", () => {
       type: "doc",
       content: [
         mcqDocWithHints(["Delete me"], {
-          id: "mcq-hint-popover-delete",
+          id: "mcqblk_00010",
         }),
         {
           type: "paragraph",
@@ -799,7 +804,7 @@ describe("composite mcq node", () => {
             { type: "assessment_prompt", content: [{ type: "paragraph" }] },
             {
               type: "assessment_choices_group",
-              content: [choice("a", false)],
+              content: [choice("choice_00001", false)],
             },
             {
               type: "assessment_actions_group",
@@ -860,7 +865,7 @@ describe("composite mcq node", () => {
 
     expect(wrapper?.dataset["authoringFrameResizeMode"]).toBe("responsive");
     const surface = document.body.querySelector<HTMLElement>(
-      `[${AUTHORING_FRAME_ATTR}="block"][data-id="block-mcq-test"]`,
+      `[${AUTHORING_FRAME_ATTR}="block"][data-id="mcqblk_00001"]`,
     );
     expect(surface?.dataset["authoringFrameResizeMode"]).toBe("responsive");
 
@@ -878,7 +883,7 @@ describe("composite mcq node", () => {
 
     const surface = await waitFor(() => {
       const element = document.body.querySelector<HTMLElement>(
-        `[${AUTHORING_FRAME_ATTR}="block"][data-id="block-mcq-test"]`,
+        `[${AUTHORING_FRAME_ATTR}="block"][data-id="mcqblk_00001"]`,
       );
       expect(element).toBeInstanceOf(HTMLElement);
       return element;
@@ -900,7 +905,7 @@ describe("composite mcq node", () => {
         {
           type: "region",
           attrs: { id: "bounded-region-authoring" },
-          content: [mcqDoc({ id: "block-mcq-bounded-authoring" })],
+          content: [mcqDoc({ id: "mcqblk_00011" })],
         },
       ],
     });
@@ -909,7 +914,7 @@ describe("composite mcq node", () => {
 
     const frame = await waitFor(() => {
       const element = document.body.querySelector<HTMLElement>(
-        `[${AUTHORING_FRAME_ATTR}="block"][data-id="block-mcq-bounded-authoring"]`,
+        `[${AUTHORING_FRAME_ATTR}="block"][data-id="mcqblk_00011"]`,
       );
       expect(element).toBeInstanceOf(HTMLElement);
       expect(element?.getAttribute("data-bounded-placement")).toBe("fill");
@@ -940,7 +945,7 @@ describe("composite mcq node", () => {
         {
           type: "region",
           attrs: { id: "bounded-region-runtime" },
-          content: [mcqDoc({ id: "block-mcq-bounded-runtime" })],
+          content: [mcqDoc({ id: "mcqblk_00012" })],
         },
       ],
     });
@@ -949,7 +954,7 @@ describe("composite mcq node", () => {
 
     const frame = await waitFor(() => {
       const element = document.body.querySelector<HTMLElement>(
-        '[data-runtime-frame="block"][data-id="block-mcq-bounded-runtime"]',
+        '[data-runtime-frame="block"][data-id="mcqblk_00012"]',
       );
       expect(element).toBeInstanceOf(HTMLElement);
       expect(element?.getAttribute("data-bounded-placement")).toBe("fill");
@@ -978,9 +983,9 @@ describe("composite mcq node", () => {
       type: "doc",
       content: [
         mcqDoc({
-          id: "block-mcq-surface-proof",
+          id: "mcqblk_00013",
           assessment: {
-            correctOptionId: "a",
+            correctOptionId: "choice_00001",
             feedbackByOptionId: {},
             summaryFeedback: null,
           },
@@ -992,13 +997,11 @@ describe("composite mcq node", () => {
 
     await waitFor(() => {
       expect(
-        document.body.querySelector(
-          `[${AUTHORING_FRAME_ATTR}="block"][data-id="block-mcq-surface-proof"]`,
-        ),
+        document.body.querySelector(`[${AUTHORING_FRAME_ATTR}="block"][data-id="mcqblk_00013"]`),
       ).toBeInstanceOf(HTMLElement);
     });
 
-    const choiceBodyPos = choicePositions(editor)["a"];
+    const choiceBodyPos = choicePositions(editor)["choice_00001"];
     expect(choiceBodyPos).toBeTypeOf("number");
     editor.view.dispatch(
       editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, choiceBodyPos!)),
@@ -1013,14 +1016,14 @@ describe("composite mcq node", () => {
       builtInBlockRegistry,
     );
     expect(ownerDescriptor?.nodeType).toBe("mcq");
-    expect(ownerDescriptor?.blockId).toBe("block-mcq-surface-proof");
+    expect(ownerDescriptor?.blockId).toBe("mcqblk_00013");
     const surface = resolveAuthoringFrameElement(document.body, {
       frameKind: AuthoringFrameKind.Block,
-      id: "block-mcq-surface-proof",
+      id: "mcqblk_00013",
     });
     expect(surface?.getAttribute(AUTHORING_FRAME_ATTR)).toBe("block");
     expect(surface?.getAttribute("data-node")).toBe("mcq");
-    expect(surface?.getAttribute("data-id")).toBe("block-mcq-surface-proof");
+    expect(surface?.getAttribute("data-id")).toBe("mcqblk_00013");
 
     editor.destroy();
   });
@@ -1042,12 +1045,12 @@ describe("composite mcq node", () => {
     expect(
       applyContainedMovementIntent(
         editor,
-        positions["a"]!,
-        new MoveContainedAfterTarget(containedTarget(editor, positions["b"]!)),
+        positions["choice_00001"]!,
+        new MoveContainedAfterTarget(containedTarget(editor, positions["choice_00002"]!)),
       ),
     ).toBe(true);
 
-    expect(choiceIds(editor)).toEqual(["b", "a"]);
+    expect(choiceIds(editor)).toEqual(["choice_00002", "choice_00001"]);
     expect((editor.getJSON().content?.[0] as JSONContent | undefined)?.attrs?.["frame"]).toEqual(
       frame,
     );
@@ -1090,12 +1093,12 @@ describe("composite mcq node", () => {
 
     await waitFor(() => {
       expect(
-        document.body.querySelector('[data-runtime-frame="block"][data-id="block-mcq-test"]'),
+        document.body.querySelector('[data-runtime-frame="block"][data-id="mcqblk_00001"]'),
       ).toBeInstanceOf(HTMLElement);
     });
     expect(
       document.body
-        .querySelector<HTMLElement>('[data-runtime-frame="block"][data-id="block-mcq-test"]')
+        .querySelector<HTMLElement>('[data-runtime-frame="block"][data-id="mcqblk_00001"]')
         ?.getAttribute("data-bounded-placement"),
     ).toBeNull();
     expect(document.body.querySelector("[data-authoring-frame-wrapper]")).toBeNull();
@@ -1147,7 +1150,7 @@ describe("composite mcq node", () => {
               maxAttempts: 3,
             },
             assessment: {
-              correctOptionId: "b",
+              correctOptionId: "choice_00002",
               feedbackByOptionId: {},
               summaryFeedback: richFeedback("Good job!"),
             },
@@ -1177,7 +1180,7 @@ describe("composite mcq node", () => {
             },
             {
               type: "assessment_choices_group",
-              content: [choice("a", false, "A"), choice("b", true, "B")],
+              content: [choice("choice_00001", false, "A"), choice("choice_00002", true, "B")],
             },
             {
               type: "assessment_actions_group",
@@ -1216,7 +1219,7 @@ describe("composite mcq node", () => {
       maxAttempts: 3,
     });
     expect(mcq?.attrs?.["assessment"]).toMatchObject({
-      correctOptionId: "b",
+      correctOptionId: "choice_00002",
       feedbackByOptionId: {},
       summaryFeedback: richFeedback("Good job!"),
     });
@@ -1230,8 +1233,8 @@ describe("composite mcq node", () => {
     expect(children?.[4]?.content?.[0]?.type).toBe("assessment_hints_group");
     expect(children?.[4]?.content?.[1]?.type).toBe("assessment_summary_feedback");
     const choices = children?.[3]?.content as JSONContent[] | undefined;
-    expect(choices?.[0]?.attrs).toEqual({ id: "a" });
-    expect(choices?.[1]?.attrs).toEqual({ id: "b" });
+    expect(choices?.[0]?.attrs).toEqual({ id: "choice_00001" });
+    expect(choices?.[1]?.attrs).toEqual({ id: "choice_00002" });
   });
 
   it("rejects the old direct-child MCQ action tail", () => {

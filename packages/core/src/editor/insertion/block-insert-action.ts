@@ -24,6 +24,7 @@ export function createBlockInsertAction(definition: BlockDefinition): InsertActi
     icon: insert.icon,
     category: insert.category,
     ...(insert.keywords ? { keywords: insert.keywords } : {}),
+    ...(definition.boundedPlacement ? { boundedPlacement: definition.boundedPlacement } : {}),
     content: insert.content,
     ...(composedValidateNode ? { validateNode: composedValidateNode } : {}),
   };
@@ -65,6 +66,7 @@ function createBlockInsertVariantAction(
     icon: primary.icon,
     category: primary.category,
     ...(variant.keywords ? { keywords: variant.keywords } : {}),
+    ...(definition.boundedPlacement ? { boundedPlacement: definition.boundedPlacement } : {}),
     content: variant.content,
     ...(composedValidateNode ? { validateNode: composedValidateNode } : {}),
   };

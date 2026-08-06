@@ -46,12 +46,6 @@ export function createSurfaceNode(options: SurfaceNodeOptions = {}) {
 
     addAttributes() {
       return {
-        id: {
-          default: null,
-          parseHTML: (element: HTMLElement) => element.getAttribute("data-surface-id"),
-          renderHTML: (attrs: { id?: unknown }) =>
-            typeof attrs.id === "string" ? { "data-surface-id": attrs.id } : {},
-        },
         title: {
           default: null,
           parseHTML: (element: HTMLElement) => element.getAttribute("data-surface-title"),

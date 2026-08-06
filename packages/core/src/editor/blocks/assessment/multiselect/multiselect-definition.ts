@@ -81,9 +81,6 @@ export const multiselectBlockDefinition = defineBlock({
     ...assessmentShellPlaceholders,
     ...selectableChoicePlaceholders,
   },
-  identity: {
-    stableChildNodeTypes: ["selectable_choice"],
-  },
   capabilities: {
     assessment: defineAssessmentCapability({
       interactionKind: "multi-select",

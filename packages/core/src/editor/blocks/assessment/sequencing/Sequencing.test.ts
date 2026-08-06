@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 
 import { Editor, Node as TiptapNode, type JSONContent } from "@tiptap/core";
+import UniqueID from "@tiptap/extension-unique-id";
 import { EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -59,12 +60,6 @@ const BoundedRegionTestNode = TiptapNode.create({
   content: "block+",
   selectable: false,
 
-  addAttributes() {
-    return {
-      id: { default: null },
-    };
-  },
-
   parseHTML() {
     return [{ tag: 'section[data-node="region"]' }];
   },
@@ -91,6 +86,7 @@ function makeEditor(editable = true) {
       AssessmentHintsGroupNode,
       AssessmentSummaryFeedbackNode,
       editable ? SequencingAuthoringExtension : SequencingRuntimeExtension,
+      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
     ],
   });
 }
@@ -111,6 +107,7 @@ function createDisposableSequencingEditor(content: JSONContent) {
       AssessmentHintsGroupNode,
       AssessmentSummaryFeedbackNode,
       SequencingAuthoringExtension,
+      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
     ],
     content,
   });
@@ -213,9 +210,9 @@ function sequencingRuntimeDoc(attrs: Record<string, unknown> = {}): JSONContent 
         attrs: {
           id: "seq-1",
           assessment: {
-            correctOrder: ["a", "b", "c"],
+            correctOrder: ["seqitm_00001", "seqitm_00002", "seqitm_00003"],
             feedbackByItemId: {
-              b: richFeedback("Second step."),
+              seqitm_00002: richFeedback("Second step."),
             },
           },
           settings: {
@@ -237,17 +234,17 @@ function sequencingRuntimeDoc(attrs: Record<string, unknown> = {}): JSONContent 
             content: [
               {
                 type: "sequencing_item",
-                attrs: { id: "a" },
+                attrs: { id: "seqitm_00001" },
                 content: itemContent("Alpha"),
               },
               {
                 type: "sequencing_item",
-                attrs: { id: "b" },
+                attrs: { id: "seqitm_00002" },
                 content: itemContent("Beta"),
               },
               {
                 type: "sequencing_item",
-                attrs: { id: "c" },
+                attrs: { id: "seqitm_00003" },
                 content: itemContent("Gamma"),
               },
             ],
@@ -325,14 +322,17 @@ describe("composite sequencing node", () => {
 
     const item = await waitFor(() => {
       const element = document.body.querySelector<HTMLElement>(
-        '[data-node="sequencing-item"][data-item-id="a"]',
+        '[data-node="sequencing-item"][data-id="seqitm_00001"]',
       );
       expect(element).toBeInstanceOf(HTMLElement);
+      expect(element).not.toHaveAttribute("data-item-id");
       return element as HTMLElement;
     });
     await user.click(within(item).getByRole("button", { name: "Add feedback" }));
     const feedbackEditor = await screen.findByLabelText("Feedback editor");
-    expect(feedbackEditor.getAttribute("data-attr-rich-text-field")).toBe("sequencing:a:feedback");
+    expect(feedbackEditor.getAttribute("data-attr-rich-text-field")).toBe(
+      "sequencing:seqitm_00001:feedback",
+    );
 
     fireEvent.paste(feedbackEditor, {
       clipboardData: {
@@ -342,7 +342,7 @@ describe("composite sequencing node", () => {
 
     await waitFor(() => {
       expect(editor.getJSON().content?.[0]?.attrs?.["assessment"]).toMatchObject({
-        feedbackByItemId: { a: richFeedback("Start with Alpha.") },
+        feedbackByItemId: { seqitm_00001: richFeedback("Start with Alpha.") },
       });
     });
 
@@ -368,17 +368,17 @@ describe("composite sequencing node", () => {
               content: [
                 {
                   type: "sequencing_item",
-                  attrs: { id: "a" },
+                  attrs: { id: "seqitm_00001" },
                   content: itemContent("A"),
                 },
                 {
                   type: "sequencing_item",
-                  attrs: { id: "b" },
+                  attrs: { id: "seqitm_00002" },
                   content: itemContent("B"),
                 },
                 {
                   type: "sequencing_item",
-                  attrs: { id: "c" },
+                  attrs: { id: "seqitm_00003" },
                   content: itemContent("C"),
                 },
               ],
@@ -391,7 +391,7 @@ describe("composite sequencing node", () => {
 
     let itemBPos: number | undefined;
     editor.state.doc.descendants((node, pos) => {
-      if (node.type.name === "sequencing_item" && node.attrs["id"] === "b") {
+      if (node.type.name === "sequencing_item" && node.attrs["id"] === "seqitm_00002") {
         itemBPos = pos;
       }
     });
@@ -410,7 +410,7 @@ describe("composite sequencing node", () => {
           attrs: {
             id: "sequencing-delete-item",
             assessment: {
-              correctOrder: ["a", "b", "c"],
+              correctOrder: ["seqitm_00001", "seqitm_00002", "seqitm_00003"],
               feedbackByItemId: {},
               summaryFeedback: null,
             },
@@ -427,17 +427,17 @@ describe("composite sequencing node", () => {
               content: [
                 {
                   type: "sequencing_item",
-                  attrs: { id: "a" },
+                  attrs: { id: "seqitm_00001" },
                   content: itemContent("Alpha"),
                 },
                 {
                   type: "sequencing_item",
-                  attrs: { id: "b" },
+                  attrs: { id: "seqitm_00002" },
                   content: itemContent("Beta"),
                 },
                 {
                   type: "sequencing_item",
-                  attrs: { id: "c" },
+                  attrs: { id: "seqitm_00003" },
                   content: itemContent("Gamma"),
                 },
               ],
@@ -472,7 +472,7 @@ describe("composite sequencing node", () => {
     expect(fixture.editor.state.doc.textContent).toContain("Keep after sequencing");
     expect(fixture.editor.state.doc.textContent).toContain("Alpha");
     expect(fixture.editor.state.doc.textContent).toContain("Gamma");
-    expect(itemIds).toEqual(["a", "c"]);
+    expect(itemIds).toEqual(["seqitm_00001", "seqitm_00003"]);
 
     fixture.destroy();
   });
@@ -496,7 +496,7 @@ describe("composite sequencing node", () => {
               content: [
                 {
                   type: "sequencing_item",
-                  attrs: { id: "a" },
+                  attrs: { id: "seqitm_00001" },
                   content: itemContent("A"),
                 },
               ],
@@ -631,7 +631,11 @@ describe("composite sequencing node", () => {
       expect(hasAssessmentRegistration(assessmentStore, problemId)).toBe(true);
     });
 
-    setAssessmentResponseField(assessmentStore, problemId, "order", ["c", "a", "b"]);
+    setAssessmentResponseField(assessmentStore, problemId, "order", [
+      "seqitm_00003",
+      "seqitm_00001",
+      "seqitm_00002",
+    ]);
 
     await waitFor(() => {
       expect(screen.getByRole("listitem", { name: "Sequencing item 1" }).textContent).toContain(
@@ -655,8 +659,8 @@ describe("composite sequencing node", () => {
           type: "sequencing",
           attrs: {
             assessment: {
-              correctOrder: ["a", "b", "c"],
-              feedbackByItemId: { b: richFeedback("Second step.") },
+              correctOrder: ["seqitm_00001", "seqitm_00002", "seqitm_00003"],
+              feedbackByItemId: { seqitm_00002: richFeedback("Second step.") },
             },
             settings: {
               feedbackMode: "on_submit",
@@ -687,17 +691,17 @@ describe("composite sequencing node", () => {
               content: [
                 {
                   type: "sequencing_item",
-                  attrs: { id: "a" },
+                  attrs: { id: "seqitm_00001" },
                   content: itemContent("A"),
                 },
                 {
                   type: "sequencing_item",
-                  attrs: { id: "b" },
+                  attrs: { id: "seqitm_00002" },
                   content: itemContent("B"),
                 },
                 {
                   type: "sequencing_item",
-                  attrs: { id: "c" },
+                  attrs: { id: "seqitm_00003" },
                   content: itemContent("C"),
                 },
               ],
@@ -720,15 +724,19 @@ describe("composite sequencing node", () => {
       maxAttempts: 2,
     });
     expect(seq?.attrs?.["assessment"]).toMatchObject({
-      correctOrder: ["a", "b", "c"],
-      feedbackByItemId: { b: richFeedback("Second step.") },
+      correctOrder: ["seqitm_00001", "seqitm_00002", "seqitm_00003"],
+      feedbackByItemId: { seqitm_00002: richFeedback("Second step.") },
     });
     expect(seq?.content?.length).toBe(5);
     const children = seq?.content as JSONContent[] | undefined;
     const group = children?.[3];
     expect(group?.type).toBe("sequencing_items_group");
     expect(children?.[4]?.type).toBe("assessment_actions_group");
-    expect(group?.content?.map((i) => i.attrs?.["id"])).toEqual(["a", "b", "c"]);
+    expect(group?.content?.map((i) => i.attrs?.["id"])).toEqual([
+      "seqitm_00001",
+      "seqitm_00002",
+      "seqitm_00003",
+    ]);
     expect(group?.content?.[0]?.content?.[0]?.content?.[0]?.text).toBe("A");
     editor.destroy();
   });
@@ -841,7 +849,11 @@ describe("composite sequencing node", () => {
       expect(hasAssessmentRegistration(assessmentStore, problemId)).toBe(true);
     });
 
-    setAssessmentResponseField(assessmentStore, problemId, "order", ["c", "a", "b"]);
+    setAssessmentResponseField(assessmentStore, problemId, "order", [
+      "seqitm_00003",
+      "seqitm_00001",
+      "seqitm_00002",
+    ]);
 
     await waitFor(() => {
       expect(screen.getByRole("listitem", { name: "Sequencing item 1" }).textContent).toContain(
@@ -853,6 +865,8 @@ describe("composite sequencing node", () => {
       name: "Sequencing item 1",
     });
     expect(firstItem.className).toContain("sc-sequencing-item--runtime");
+    expect(firstItem).toHaveAttribute("data-id", "seqitm_00003");
+    expect(firstItem).not.toHaveAttribute("data-item-id");
     const activationAreas = Array.from(
       document.body.querySelectorAll<HTMLElement>("[data-interaction-drag-activation-area]"),
     );
@@ -882,9 +896,9 @@ describe("composite sequencing node", () => {
             isCorrect: false,
             score: { scaled: 0 },
             items: {
-              c: { correct: false, expected: 3, given: 1 },
-              a: { correct: false, expected: 1, given: 2 },
-              b: { correct: false, expected: 2, given: 3 },
+              seqitm_00003: { correct: false, expected: 3, given: 1 },
+              seqitm_00001: { correct: false, expected: 1, given: 2 },
+              seqitm_00002: { correct: false, expected: 2, given: 3 },
             },
           },
           { response: args.response },
@@ -892,7 +906,7 @@ describe("composite sequencing node", () => {
       revealAnswer: async () => ({
         answerKey: {
           kind: "sequence",
-          correctOrder: ["a", "b", "c"],
+          correctOrder: ["seqitm_00001", "seqitm_00002", "seqitm_00003"],
           feedbackByItemId: {},
         },
       }),
@@ -904,7 +918,11 @@ describe("composite sequencing node", () => {
       expect(hasAssessmentRegistration(assessmentStore, problemId)).toBe(true);
     });
 
-    setAssessmentResponseField(assessmentStore, problemId, "order", ["c", "a", "b"]);
+    setAssessmentResponseField(assessmentStore, problemId, "order", [
+      "seqitm_00003",
+      "seqitm_00001",
+      "seqitm_00002",
+    ]);
     await waitFor(() => {
       expect(sequencingItemDescription(1)).toBe("Position 1 of 3. Reorderable");
     });
@@ -933,9 +951,9 @@ describe("composite sequencing node", () => {
             isCorrect: false,
             score: { scaled: 0 },
             items: {
-              c: { correct: false, expected: 3, given: 1 },
-              a: { correct: false, expected: 1, given: 2 },
-              b: { correct: false, expected: 2, given: 3 },
+              seqitm_00003: { correct: false, expected: 3, given: 1 },
+              seqitm_00001: { correct: false, expected: 1, given: 2 },
+              seqitm_00002: { correct: false, expected: 2, given: 3 },
             },
           },
           { response: args.response },
@@ -943,9 +961,9 @@ describe("composite sequencing node", () => {
       revealAnswer: async () => ({
         answerKey: {
           kind: "sequence",
-          correctOrder: ["a", "b", "c"],
+          correctOrder: ["seqitm_00001", "seqitm_00002", "seqitm_00003"],
           feedbackByItemId: {
-            b: richFeedback("Second step."),
+            seqitm_00002: richFeedback("Second step."),
           },
         },
       }),
@@ -957,7 +975,11 @@ describe("composite sequencing node", () => {
       expect(hasAssessmentRegistration(assessmentStore, problemId)).toBe(true);
     });
 
-    setAssessmentResponseField(assessmentStore, problemId, "order", ["c", "a", "b"]);
+    setAssessmentResponseField(assessmentStore, problemId, "order", [
+      "seqitm_00003",
+      "seqitm_00001",
+      "seqitm_00002",
+    ]);
     await waitFor(() => {
       expect(sequencingItemDescription(1)).toBe("Position 1 of 3. Reorderable");
     });
@@ -989,26 +1011,28 @@ describe("sequencing display order", () => {
     expect(
       revealedSequenceOrder({
         kind: "sequence",
-        correctOrder: ["a", "b", "c"],
+        correctOrder: ["seqitm_00001", "seqitm_00002", "seqitm_00003"],
       }),
-    ).toEqual(["a", "b", "c"]);
+    ).toEqual(["seqitm_00001", "seqitm_00002", "seqitm_00003"]);
   });
 
   it("reads revealed item feedback from the canonical sequence assessment schema", () => {
     expect(
       revealedSequenceAssessment({
         kind: "sequence",
-        correctOrder: ["a", "b", "c"],
-        feedbackByItemId: { b: richFeedback("Second step.") },
+        correctOrder: ["seqitm_00001", "seqitm_00002", "seqitm_00003"],
+        feedbackByItemId: { seqitm_00002: richFeedback("Second step.") },
       }),
     ).toEqual({
-      correctOrder: ["a", "b", "c"],
-      feedbackByItemId: { b: richFeedback("Second step.") },
+      correctOrder: ["seqitm_00001", "seqitm_00002", "seqitm_00003"],
+      feedbackByItemId: { seqitm_00002: richFeedback("Second step.") },
     });
   });
 
   it("does not accept legacy reveal order shapes", () => {
-    expect(revealedSequenceOrder({ order: ["a", "b", "c"] })).toEqual([]);
+    expect(
+      revealedSequenceOrder({ order: ["seqitm_00001", "seqitm_00002", "seqitm_00003"] }),
+    ).toEqual([]);
   });
 
   it("uses response order in runtime when it matches the document item set", () => {
@@ -1016,10 +1040,10 @@ describe("sequencing display order", () => {
       getSequencingDisplayOrder({
         isEditable: false,
         answerKeyVisible: false,
-        docOrderIds: ["a", "b", "c"],
-        responseOrder: ["c", "a", "b"],
+        docOrderIds: ["seqitm_00001", "seqitm_00002", "seqitm_00003"],
+        responseOrder: ["seqitm_00003", "seqitm_00001", "seqitm_00002"],
       }),
-    ).toEqual(["c", "a", "b"]);
+    ).toEqual(["seqitm_00003", "seqitm_00001", "seqitm_00002"]);
   });
 
   it("falls back to document order for stale runtime responses", () => {
@@ -1027,10 +1051,10 @@ describe("sequencing display order", () => {
       getSequencingDisplayOrder({
         isEditable: false,
         answerKeyVisible: false,
-        docOrderIds: ["a", "b", "c"],
-        responseOrder: ["c", "a"],
+        docOrderIds: ["seqitm_00001", "seqitm_00002", "seqitm_00003"],
+        responseOrder: ["seqitm_00003", "seqitm_00001"],
       }),
-    ).toEqual(["a", "b", "c"]);
+    ).toEqual(["seqitm_00001", "seqitm_00002", "seqitm_00003"]);
   });
 
   it("uses revealed answer order when the answer is revealed", () => {
@@ -1038,32 +1062,32 @@ describe("sequencing display order", () => {
       getSequencingDisplayOrder({
         isEditable: false,
         answerKeyVisible: true,
-        docOrderIds: ["c", "a", "b"],
-        answerOrderIds: ["a", "b", "c"],
-        responseOrder: ["c", "a", "b"],
+        docOrderIds: ["seqitm_00003", "seqitm_00001", "seqitm_00002"],
+        answerOrderIds: ["seqitm_00001", "seqitm_00002", "seqitm_00003"],
+        responseOrder: ["seqitm_00003", "seqitm_00001", "seqitm_00002"],
       }),
-    ).toEqual(["a", "b", "c"]);
+    ).toEqual(["seqitm_00001", "seqitm_00002", "seqitm_00003"]);
   });
 
   it("moves a dragged runtime item before the drop target", () => {
     expect(
       getSequencingReorderedOrder({
-        order: ["a", "b", "c", "d"],
+        order: ["seqitm_00001", "seqitm_00002", "seqitm_00003", "d"],
         sourceId: "d",
-        targetId: "b",
+        targetId: "seqitm_00002",
         placement: "before",
       }),
-    ).toEqual(["a", "d", "b", "c"]);
+    ).toEqual(["seqitm_00001", "d", "seqitm_00002", "seqitm_00003"]);
   });
 
   it("moves a dragged runtime item after the drop target", () => {
     expect(
       getSequencingReorderedOrder({
-        order: ["a", "b", "c", "d"],
-        sourceId: "a",
-        targetId: "c",
+        order: ["seqitm_00001", "seqitm_00002", "seqitm_00003", "d"],
+        sourceId: "seqitm_00001",
+        targetId: "seqitm_00003",
         placement: "after",
       }),
-    ).toEqual(["b", "c", "a", "d"]);
+    ).toEqual(["seqitm_00002", "seqitm_00003", "seqitm_00001", "d"]);
   });
 });

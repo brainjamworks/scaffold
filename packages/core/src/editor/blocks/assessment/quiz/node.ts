@@ -5,7 +5,6 @@ import {
   ASSESSMENT_QUESTION_CONTENT,
   COURSE_BLOCK_CONTENT,
 } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 import { emptyQuizSettings } from "./quiz-shared";
 
 export interface QuizNodeOptions {
@@ -23,7 +22,6 @@ export function createQuizNode(options: QuizNodeOptions = {}) {
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         settings: {
           default: emptyQuizSettings(),
           parseHTML: (el: HTMLElement) => {

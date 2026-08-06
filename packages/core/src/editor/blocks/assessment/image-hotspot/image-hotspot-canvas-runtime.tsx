@@ -22,7 +22,7 @@ import { useAssessmentRuntimeById } from "@/editor/blocks/assessment/shared/runt
 import { resolveActiveBoundedPlacement } from "@/editor/bounded-containers/model/bounded-container-structure-policy";
 import { MediaExpandButton } from "@/editor/media/presentation/MediaExpandButton";
 import { safeGetPos } from "@/editor/prosemirror/position/node-view-position";
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedDataId } from "@/document/model/identity/stable-ids";
 import { useMediaPort } from "@/host/providers/ScaffoldServicesProvider";
 import { cn } from "@/lib/cn";
 import { zIndex } from "@/ui/overlays/z-index";
@@ -226,7 +226,7 @@ function RuntimeCanvas({
     const pct = eventToPercent(e, containerRef.current);
     const hit = findHitHotspot(pct.x, pct.y, data.hotspots, aspectRatio);
     const click: HotspotClickRecord = {
-      id: createStableId(),
+      id: createEmbeddedDataId(),
       x: pct.x,
       y: pct.y,
       hotspotId: hit?.id ?? null,

@@ -283,9 +283,9 @@ const TestContainedChoiceNode = Node.create({
     return {
       id: {
         default: null,
-        parseHTML: (element: HTMLElement) => element.getAttribute("data-choice-id"),
+        parseHTML: (element: HTMLElement) => element.getAttribute("data-id"),
         renderHTML: (attrs: { id?: unknown }) =>
-          typeof attrs.id === "string" ? { "data-choice-id": attrs.id } : {},
+          typeof attrs.id === "string" ? { "data-id": attrs.id } : {},
       },
     };
   },

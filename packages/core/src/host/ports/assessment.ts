@@ -2,11 +2,19 @@ import { z } from "zod";
 
 import {
   AssessmentProblemSnapshotSchema,
+  EmbeddedNodeIdSchema,
   QuizAttemptStateSchema,
   type AnswerReveal,
   type AssessmentInteractionKind,
   type AssessmentResponseValue,
 } from "@scaffold/contracts";
+
+export type AuthoredAssessmentTargetId = string;
+export type AssessmentProblemScopeId = string;
+export type AssessmentGroupScopeId = string;
+export type QuizAttemptId = string;
+
+const AuthoredAssessmentTargetIdSchema: z.ZodType<string> = EmbeddedNodeIdSchema;
 
 export const AssessmentProblemCommandOutcomeSchema = z.object({
   problem: AssessmentProblemSnapshotSchema,
@@ -16,7 +24,7 @@ export type AssessmentProblemCommandOutcome = z.infer<typeof AssessmentProblemCo
 
 export const AssessmentQuizCommandOutcomeSchema = z.object({
   quizAttempt: QuizAttemptStateSchema,
-  problemsByTargetId: z.record(z.string(), AssessmentProblemSnapshotSchema),
+  problemsByTargetId: z.record(AuthoredAssessmentTargetIdSchema, AssessmentProblemSnapshotSchema),
 });
 
 export type AssessmentQuizCommandOutcome = z.infer<typeof AssessmentQuizCommandOutcomeSchema>;
@@ -24,57 +32,57 @@ export type AssessmentQuizCommandOutcome = z.infer<typeof AssessmentQuizCommandO
 export type AssessmentPortType = "runtime" | "preview";
 
 export interface AssessmentCheckRequest {
-  problemId: string;
-  targetId: string;
+  problemId: AssessmentProblemScopeId;
+  targetId: AuthoredAssessmentTargetId;
   interactionKind: AssessmentInteractionKind;
   response: AssessmentResponseValue;
   expectedAttemptNumber: number;
 }
 
 export interface AssessmentSubmitRequest {
-  problemId: string;
-  targetId: string;
+  problemId: AssessmentProblemScopeId;
+  targetId: AuthoredAssessmentTargetId;
   interactionKind: AssessmentInteractionKind;
   response: AssessmentResponseValue;
   expectedAttemptNumber: number;
 }
 
 export interface AssessmentRevealRequest {
-  problemId: string;
-  targetId: string;
+  problemId: AssessmentProblemScopeId;
+  targetId: AuthoredAssessmentTargetId;
   interactionKind: AssessmentInteractionKind;
   response: AssessmentResponseValue;
 }
 
 export interface AssessmentRevealHintRequest {
-  problemId: string;
-  targetId: string;
+  problemId: AssessmentProblemScopeId;
+  targetId: AuthoredAssessmentTargetId;
   interactionKind: AssessmentInteractionKind;
   /** Immediate next reveal count requested by the learner runtime. */
   hintsShown: number;
 }
 
 export interface QuizStartAttemptRequest {
-  groupId: string;
+  groupId: AssessmentGroupScopeId;
 }
 
 export interface QuizSubmitQuestionRequest {
-  attemptId: string;
-  groupId: string;
-  targetId: string;
+  attemptId: QuizAttemptId;
+  groupId: AssessmentGroupScopeId;
+  targetId: AuthoredAssessmentTargetId;
   response: AssessmentResponseValue;
   expectedAttemptNumber: number;
 }
 
 export interface QuizFinishAttemptRequest {
-  attemptId: string;
-  groupId: string;
-  responsesByTargetId: Record<string, AssessmentResponseValue>;
+  attemptId: QuizAttemptId;
+  groupId: AssessmentGroupScopeId;
+  responsesByTargetId: Record<AuthoredAssessmentTargetId, AssessmentResponseValue>;
 }
 
 export interface QuizRevealAnswersRequest {
-  attemptId: string;
-  groupId: string;
+  attemptId: QuizAttemptId;
+  groupId: AssessmentGroupScopeId;
 }
 
 export interface QuizAssessmentPort {

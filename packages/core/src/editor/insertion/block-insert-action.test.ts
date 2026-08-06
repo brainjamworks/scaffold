@@ -168,6 +168,33 @@ describe("createBlockInsertAction", () => {
     expect(nextFirstNode).not.toBe(firstNode);
   });
 
+  it("projects bounded placement onto primary and variant actions", () => {
+    const definition = defineBlock({
+      nodeType: "fixture",
+      boundedPlacement: "fill",
+      insert: {
+        id: "fixture",
+        title: "Fixture",
+        description: "Insert a fixture.",
+        icon: ArticleIcon,
+        category: "content",
+        content: () => ({ type: "fixture" }),
+        variants: [
+          {
+            id: "fixture-preset",
+            title: "Fixture preset",
+            description: "Insert a fixture preset.",
+            content: () => ({ type: "fixture" }),
+          },
+        ],
+      },
+    });
+
+    expect(createBlockInsertActions([definition]).map((action) => action.boundedPlacement)).toEqual(
+      ["fill", "fill"],
+    );
+  });
+
   it("validates the configured attr with the definition schema", () => {
     const definition = defineBlock({
       nodeType: "fixture",

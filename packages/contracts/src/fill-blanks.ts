@@ -2,6 +2,9 @@ import { z } from "zod";
 
 import { AssessmentFeedbackContentSchema } from "./assessment-feedback";
 import { AssessmentCommonSettingsSchema } from "./assessment-settings";
+import { EmbeddedNodeIdSchema } from "./embedded-id";
+
+const EmbeddedNodeRecordKeySchema = EmbeddedNodeIdSchema.unwrap().unwrap();
 
 export const FillBlanksSettingsSchema = AssessmentCommonSettingsSchema.extend({
   legend: z.string().optional(),
@@ -11,7 +14,7 @@ export const FillBlanksSettingsSchema = AssessmentCommonSettingsSchema.extend({
 export type FillBlanksSettings = z.infer<typeof FillBlanksSettingsSchema>;
 
 export const FillBlankAttrsSchema = z.object({
-  id: z.string(),
+  id: EmbeddedNodeIdSchema,
   placeholder: z.string().default(""),
 });
 export type FillBlankAttrs = z.infer<typeof FillBlankAttrsSchema>;
@@ -25,7 +28,9 @@ export const FillBlankPrivateAssessmentEntrySchema = z.object({
 export type FillBlankPrivateAssessmentEntry = z.infer<typeof FillBlankPrivateAssessmentEntrySchema>;
 
 export const FillBlanksPrivateAssessmentSchema = z.object({
-  blanksById: z.record(z.string(), FillBlankPrivateAssessmentEntrySchema).default({}),
+  blanksById: z
+    .record(EmbeddedNodeRecordKeySchema, FillBlankPrivateAssessmentEntrySchema)
+    .default({}),
   summaryFeedback: AssessmentFeedbackContentSchema.nullable().default(null),
 });
 export type FillBlanksPrivateAssessment = z.infer<typeof FillBlanksPrivateAssessmentSchema>;

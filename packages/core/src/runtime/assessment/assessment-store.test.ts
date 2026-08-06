@@ -3,16 +3,18 @@ import { z } from "zod";
 
 import type {
   AssessmentProblemSnapshot,
-  AssessmentResponseValue,
   AssessmentResult,
   QuizAssessmentSettings,
   QuizAttemptState,
   Score,
 } from "@scaffold/contracts";
 import {
+  AssessmentInteractionContractSchema,
   AssessmentProblemSnapshotSchema,
+  AssessmentResponseValueSchema,
   AssessmentResultSchema,
   QuizAttemptStateSchema,
+  SingleSelectResponseSchema,
 } from "@scaffold/contracts";
 import type { AssessmentPort, AssessmentQuizCommandOutcome } from "../../host/ports/assessment";
 import type {
@@ -88,7 +90,7 @@ function answeredInput(input: {
   readonly rootActivityId: string;
   readonly targetId: string;
   readonly definition: AssessmentLearningEventDefinition;
-  readonly response: AssessmentResponseValue | null;
+  readonly response: z.input<typeof AssessmentResponseValueSchema> | null;
   readonly result: Pick<AssessmentResult, "isCorrect" | "score">;
   readonly attemptNumber: number;
   readonly quiz?: { readonly quizId: string; readonly attemptId: string } | null;
@@ -97,6 +99,7 @@ function answeredInput(input: {
   return {
     type: "assessment.answered",
     ...event,
+    response: event.response === null ? null : AssessmentResponseValueSchema.parse(event.response),
     result: { isCorrect: event.result.isCorrect, score: event.result.score },
   };
 }
@@ -146,36 +149,36 @@ function quizSuccessInput(input: {
 function assessmentLearningEventDefinition(): AssessmentLearningEventDefinition {
   return {
     activityDescription: "Which answer is correct?",
-    interaction: {
+    interaction: AssessmentInteractionContractSchema.parse({
       kind: "single-select",
       options: [
-        { id: "option-a", label: "Paris" },
-        { id: "option-b", label: "Madrid" },
+        { id: "option_00001", label: "Paris" },
+        { id: "option_00002", label: "Madrid" },
       ],
-    },
+    }),
   };
 }
 
 function createProblemSnapshot(): AssessmentProblemSnapshot {
-  return {
-    response: { kind: "single-select", optionId: "option-a" },
+  return AssessmentProblemSnapshotSchema.parse({
+    response: { kind: "single-select", optionId: "option_00001" },
     attemptNumber: 0,
     hintsShown: 0,
     checkResult: null,
     submitted: false,
     submissionResult: null,
-  };
+  });
 }
 
 function createQuizAttempt(
   groupId: string,
-  overrides: Partial<QuizAttemptState> = {},
+  overrides: Partial<z.input<typeof QuizAttemptStateSchema>> = {},
 ): QuizAttemptState {
   return QuizAttemptStateSchema.parse({
     attemptId: "attempt-one",
     groupId,
     status: "in_progress",
-    currentTargetId: "target-one",
+    currentTargetId: "target_00001",
     submittedTargetIds: [],
     startedAt: "2026-07-16T12:00:00.000Z",
     finishedAt: null,
@@ -192,21 +195,22 @@ function createRegistration(
   overrides: Partial<AssessmentRegistrationInput> = {},
 ): AssessmentRegistrationInput {
   return {
-    authoredBlockId: "block-one",
-    targetId: "target-one",
+    authoredBlockId: "block_000001",
+    targetId: "target_00001",
     interactionKind: "single-select",
     response: {
       schema: z.object({ choice: z.string().nullable() }),
-      toContractResponse: (response) => ({
-        kind: "single-select",
-        optionId:
-          typeof response === "object" &&
-          response !== null &&
-          "choice" in response &&
-          typeof response.choice === "string"
-            ? response.choice
-            : null,
-      }),
+      toContractResponse: (response) =>
+        SingleSelectResponseSchema.parse({
+          kind: "single-select",
+          optionId:
+            typeof response === "object" &&
+            response !== null &&
+            "choice" in response &&
+            typeof response.choice === "string"
+              ? response.choice
+              : null,
+        }),
       fromContractResponse: (response) => ({
         choice: response.kind === "single-select" ? response.optionId : null,
       }),
@@ -243,8 +247,8 @@ function registrationIdentity(
   overrides: Partial<AssessmentRegistrationIdentity> = {},
 ): AssessmentRegistrationIdentity {
   return {
-    authoredBlockId: "block-one",
-    targetId: "target-one",
+    authoredBlockId: "block_000001",
+    targetId: "target_00001",
     interactionKind: "single-select",
     ...overrides,
   };
@@ -264,8 +268,8 @@ function createQuizRegistration(
   overrides: Partial<AssessmentQuizRegistrationInput> = {},
 ): AssessmentQuizRegistrationInput {
   return {
-    groupId: "quiz-one",
-    targetIds: ["target-one", "target-two"],
+    groupId: "quiz__000001",
+    targetIds: ["target_00001", "target_00002"],
     settings: quizSettings,
     ...overrides,
   };
@@ -278,19 +282,19 @@ describe("createAssessmentStore", () => {
       assessmentPort: createAssessmentPort(),
     });
     const identity = registrationIdentity();
-    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "block_000001");
 
     store.getState().register(createRegistration());
 
-    expect(store.getState().setLocalResponse(identity, { choice: "option-b" })).toBe(true);
+    expect(store.getState().setLocalResponse(identity, { choice: "option_00002" })).toBe(true);
     expect(store.getState().durable.problems[problemId]?.response).toEqual({
       kind: "single-select",
-      optionId: "option-b",
+      optionId: "option_00002",
     });
     expect(store.getState().setLocalResponse(identity, { choice: 42 })).toBe(false);
     expect(store.getState().durable.problems[problemId]?.response).toEqual({
       kind: "single-select",
-      optionId: "option-b",
+      optionId: "option_00002",
     });
   });
 
@@ -299,15 +303,15 @@ describe("createAssessmentStore", () => {
       artifactId: "artifact-one",
       assessmentPort: createAssessmentPort(),
     });
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
 
-    expect(store.getState().registerQuiz(createQuizRegistration({ groupId: " quiz-one " }))).toBe(
-      true,
-    );
+    expect(
+      store.getState().registerQuiz(createQuizRegistration({ groupId: " quiz__000001 " })),
+    ).toBe(true);
     expect(store.getState().quizRegistrations[groupId]).toEqual({
       groupId,
-      authoredGroupId: "quiz-one",
-      targetIds: ["target-one", "target-two"],
+      authoredGroupId: "quiz__000001",
+      targetIds: ["target_00001", "target_00002"],
       settings: quizSettings,
     });
     expect(store.getState().durable.quizzes).toEqual({});
@@ -320,12 +324,12 @@ describe("createAssessmentStore", () => {
         ),
     ).toBe(true);
     expect(store.getState().quizRegistrations[groupId]?.settings.allowBacktracking).toBe(true);
-    expect(store.getState().unregisterQuiz({ groupId: "quiz-one" })).toBe(true);
+    expect(store.getState().unregisterQuiz({ groupId: "quiz__000001" })).toBe(true);
     expect(store.getState().quizRegistrations).toEqual({});
   });
 
   it("starts a Quiz through its scoped group identity and commits only a matching host attempt", async () => {
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     const hostAttempt = createQuizAttempt(groupId);
     const startAttempt = vi.fn().mockResolvedValue({
       quizAttempt: hostAttempt,
@@ -352,7 +356,7 @@ describe("createAssessmentStore", () => {
 
     store.getState().registerQuiz(createQuizRegistration());
 
-    await expect(store.getState().startQuizAttempt({ groupId: "quiz-one" })).resolves.toEqual(
+    await expect(store.getState().startQuizAttempt({ groupId: "quiz__000001" })).resolves.toEqual(
       hostAttempt,
     );
     expect(startAttempt).toHaveBeenCalledWith({ groupId });
@@ -362,7 +366,7 @@ describe("createAssessmentStore", () => {
     expect(sessionDouble.record).toHaveBeenCalledWith(
       quizAttemptedInput({
         rootActivityId: ROOT_ACTIVITY_ID,
-        quizId: "quiz-one",
+        quizId: "quiz__000001",
         attemptId: "attempt-one",
       }),
     );
@@ -370,7 +374,7 @@ describe("createAssessmentStore", () => {
   });
 
   it("does not record the same authoritative Quiz attempt twice", async () => {
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     const hostAttempt = createQuizAttempt(groupId);
     const startAttempt = vi.fn().mockResolvedValue({
       quizAttempt: hostAttempt,
@@ -391,10 +395,10 @@ describe("createAssessmentStore", () => {
     });
     store.getState().registerQuiz(createQuizRegistration());
 
-    await expect(store.getState().startQuizAttempt({ groupId: "quiz-one" })).resolves.toEqual(
+    await expect(store.getState().startQuizAttempt({ groupId: "quiz__000001" })).resolves.toEqual(
       hostAttempt,
     );
-    await expect(store.getState().startQuizAttempt({ groupId: "quiz-one" })).resolves.toEqual(
+    await expect(store.getState().startQuizAttempt({ groupId: "quiz__000001" })).resolves.toEqual(
       hostAttempt,
     );
 
@@ -404,7 +408,7 @@ describe("createAssessmentStore", () => {
   });
 
   it("records only the current response when Quiz starts overlap", async () => {
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     const firstOutcome = deferred<AssessmentQuizCommandOutcome>();
     const secondOutcome = deferred<AssessmentQuizCommandOutcome>();
     const firstAttempt = createQuizAttempt(groupId);
@@ -427,8 +431,8 @@ describe("createAssessmentStore", () => {
     });
     store.getState().registerQuiz(createQuizRegistration());
 
-    const firstStart = store.getState().startQuizAttempt({ groupId: "quiz-one" });
-    const secondStart = store.getState().startQuizAttempt({ groupId: "quiz-one" });
+    const firstStart = store.getState().startQuizAttempt({ groupId: "quiz__000001" });
+    const secondStart = store.getState().startQuizAttempt({ groupId: "quiz__000001" });
     secondOutcome.resolve({ quizAttempt: secondAttempt, problemsByTargetId: {} });
     await expect(secondStart).resolves.toEqual(secondAttempt);
     firstOutcome.resolve({ quizAttempt: firstAttempt, problemsByTargetId: {} });
@@ -439,14 +443,14 @@ describe("createAssessmentStore", () => {
     expect(sessionDouble.record).toHaveBeenCalledWith(
       quizAttemptedInput({
         rootActivityId: ROOT_ACTIVITY_ID,
-        quizId: "quiz-one",
+        quizId: "quiz__000001",
         attemptId: "attempt-two",
       }),
     );
   });
 
   it("keeps an authoritative Quiz start successful when Learning Events are unavailable", async () => {
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     const hostAttempt = createQuizAttempt(groupId);
     const store = createAssessmentStore({
       artifactId: "artifact-one",
@@ -464,7 +468,7 @@ describe("createAssessmentStore", () => {
     });
     store.getState().registerQuiz(createQuizRegistration());
 
-    await expect(store.getState().startQuizAttempt({ groupId: "quiz-one" })).resolves.toEqual(
+    await expect(store.getState().startQuizAttempt({ groupId: "quiz__000001" })).resolves.toEqual(
       hostAttempt,
     );
     expect(store.getState().durable.quizzes[groupId]).toEqual(hostAttempt);
@@ -473,7 +477,7 @@ describe("createAssessmentStore", () => {
   it.each(["session accessor", "statement builder", "session record"] as const)(
     "keeps an authoritative Quiz start successful when the Learning Event %s throws",
     async (failurePoint) => {
-      const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+      const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
       const hostAttempt = createQuizAttempt(groupId);
       const sessionDouble = createSessionDouble(() => {
         throw new Error("recording failed");
@@ -505,7 +509,7 @@ describe("createAssessmentStore", () => {
       });
       store.getState().registerQuiz(createQuizRegistration());
 
-      await expect(store.getState().startQuizAttempt({ groupId: "quiz-one" })).resolves.toEqual(
+      await expect(store.getState().startQuizAttempt({ groupId: "quiz__000001" })).resolves.toEqual(
         hostAttempt,
       );
       expect(store.getState().durable.quizzes[groupId]).toEqual(hostAttempt);
@@ -513,7 +517,7 @@ describe("createAssessmentStore", () => {
   );
 
   it("does not record a rejected Quiz start", async () => {
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     const getLearningEventSession = vi.fn();
     const store = createAssessmentStore({
       artifactId: "artifact-one",
@@ -528,7 +532,9 @@ describe("createAssessmentStore", () => {
     });
     store.getState().registerQuiz(createQuizRegistration());
 
-    await expect(store.getState().startQuizAttempt({ groupId: "quiz-one" })).resolves.toBeNull();
+    await expect(
+      store.getState().startQuizAttempt({ groupId: "quiz__000001" }),
+    ).resolves.toBeNull();
     expect(store.getState().durable.quizzes).toEqual({});
     expect(store.getState().requests[groupId]).toMatchObject({
       operation: "quiz-start",
@@ -539,7 +545,7 @@ describe("createAssessmentStore", () => {
   });
 
   it("preserves historical null success returned by ensure-start", async () => {
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     const terminalAttempt = createQuizAttempt(groupId, {
       status: "completed",
       currentTargetId: null,
@@ -568,7 +574,7 @@ describe("createAssessmentStore", () => {
       }),
     );
 
-    await expect(store.getState().startQuizAttempt({ groupId: "quiz-one" })).resolves.toEqual(
+    await expect(store.getState().startQuizAttempt({ groupId: "quiz__000001" })).resolves.toEqual(
       terminalAttempt,
     );
     expect(store.getState().durable.quizzes[groupId]).toEqual(terminalAttempt);
@@ -576,7 +582,7 @@ describe("createAssessmentStore", () => {
   });
 
   it("submits a Quiz question with its canonical response and applies authoritative target state", async () => {
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     const result = assessmentResult({ isCorrect: false, score: { scaled: 0 } });
     const canonicalProblem = {
       ...createProblemSnapshot(),
@@ -587,11 +593,11 @@ describe("createAssessmentStore", () => {
     };
     const submitQuestion = vi.fn().mockResolvedValue({
       quizAttempt: createQuizAttempt(groupId, {
-        currentTargetId: "target-two",
-        submittedTargetIds: ["target-one"],
-        resultsByTargetId: { "target-one": result },
+        currentTargetId: "target_00002",
+        submittedTargetIds: ["target_00001"],
+        resultsByTargetId: { target_00001: result },
       }),
-      problemsByTargetId: { "target-one": canonicalProblem },
+      problemsByTargetId: { target_00001: canonicalProblem },
     });
     const sessionDouble = createSessionDouble();
     const store = createAssessmentStore({
@@ -606,7 +612,7 @@ describe("createAssessmentStore", () => {
       getLearningEventSession: () => sessionDouble.session,
     });
     const identity = registrationIdentity();
-    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "block_000001");
     const learningEventDefinition = assessmentLearningEventDefinition();
     const registrationConfig = {
       ...createRegistration().config,
@@ -625,34 +631,34 @@ describe("createAssessmentStore", () => {
         quizzes: { [groupId]: createQuizAttempt(groupId) },
       },
     });
-    store.getState().setLocalResponse(identity, { choice: "option-a" });
+    store.getState().setLocalResponse(identity, { choice: "option_00001" });
 
     await expect(
-      store.getState().submitQuizQuestion({ groupId: "quiz-one" }, identity),
-    ).resolves.toMatchObject({ currentTargetId: "target-two" });
+      store.getState().submitQuizQuestion({ groupId: "quiz__000001" }, identity),
+    ).resolves.toMatchObject({ currentTargetId: "target_00002" });
     expect(submitQuestion).toHaveBeenCalledWith({
       attemptId: "attempt-one",
       groupId,
-      targetId: "target-one",
-      response: { kind: "single-select", optionId: "option-a" },
+      targetId: "target_00001",
+      response: { kind: "single-select", optionId: "option_00001" },
       expectedAttemptNumber: 0,
     });
     expect(store.getState().durable.problems[problemId]).toEqual(canonicalProblem);
     expect(sessionDouble.record).toHaveBeenCalledExactlyOnceWith(
       answeredInput({
         rootActivityId: ROOT_ACTIVITY_ID,
-        targetId: "target-one",
+        targetId: "target_00001",
         definition: learningEventDefinition,
         response: canonicalProblem.response,
         result,
         attemptNumber: 5,
-        quiz: { quizId: "quiz-one", attemptId: "attempt-one" },
+        quiz: { quizId: "quiz__000001", attemptId: "attempt-one" },
       }),
     );
   });
 
   it("records a terminal final question as answered, completed, then passed", async () => {
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     const result = assessmentResult({
       feedback: {
         kind: "rich-text",
@@ -662,7 +668,7 @@ describe("createAssessmentStore", () => {
         },
       },
       items: {
-        "private-item": {
+        privat_00001: {
           correct: true,
           expected: "PRIVATE_ANSWER",
           given: "PRIVATE_RESPONSE",
@@ -672,11 +678,11 @@ describe("createAssessmentStore", () => {
     const terminalAttempt = createQuizAttempt(groupId, {
       status: "completed",
       currentTargetId: null,
-      submittedTargetIds: ["target-one"],
+      submittedTargetIds: ["target_00001"],
       finishedAt: "2026-07-16T12:05:00.000Z",
       score: { scaled: 1 },
       successStatus: "passed",
-      resultsByTargetId: { "target-one": result },
+      resultsByTargetId: { target_00001: result },
     });
     const problem: AssessmentProblemSnapshot = {
       ...createProblemSnapshot(),
@@ -692,7 +698,7 @@ describe("createAssessmentStore", () => {
           startAttempt: vi.fn(),
           submitQuestion: vi.fn().mockResolvedValue({
             quizAttempt: terminalAttempt,
-            problemsByTargetId: { "target-one": problem },
+            problemsByTargetId: { target_00001: problem },
           }),
           finishAttempt: vi.fn(),
         },
@@ -704,7 +710,7 @@ describe("createAssessmentStore", () => {
     store.getState().register(createRegistration());
     store.getState().registerQuiz(
       createQuizRegistration({
-        targetIds: ["target-one"],
+        targetIds: ["target_00001"],
         settings: { ...quizSettings, passingScore: 0.5 },
       }),
     );
@@ -714,32 +720,32 @@ describe("createAssessmentStore", () => {
         quizzes: { [groupId]: createQuizAttempt(groupId) },
       },
     });
-    store.getState().setLocalResponse(identity, { choice: "option-a" });
+    store.getState().setLocalResponse(identity, { choice: "option_00001" });
 
     await expect(
-      store.getState().submitQuizQuestion({ groupId: "quiz-one" }, identity),
+      store.getState().submitQuizQuestion({ groupId: "quiz__000001" }, identity),
     ).resolves.toEqual(terminalAttempt);
 
     expect(sessionDouble.record.mock.calls.map(([draft]) => draft)).toEqual([
       answeredInput({
         rootActivityId: ROOT_ACTIVITY_ID,
-        targetId: "target-one",
+        targetId: "target_00001",
         definition: assessmentLearningEventDefinition(),
         response: problem.response,
         result,
         attemptNumber: 1,
-        quiz: { quizId: "quiz-one", attemptId: "attempt-one" },
+        quiz: { quizId: "quiz__000001", attemptId: "attempt-one" },
       }),
       quizCompletedInput({
         rootActivityId: ROOT_ACTIVITY_ID,
-        quizId: "quiz-one",
+        quizId: "quiz__000001",
         attemptId: "attempt-one",
         startedAt: "2026-07-16T12:00:00.000Z",
         finishedAt: "2026-07-16T12:05:00.000Z",
       }),
       quizSuccessInput({
         rootActivityId: ROOT_ACTIVITY_ID,
-        quizId: "quiz-one",
+        quizId: "quiz__000001",
         attemptId: "attempt-one",
         successStatus: "passed",
         score: { scaled: 1 },
@@ -749,14 +755,14 @@ describe("createAssessmentStore", () => {
   });
 
   it("records equal-valued Quiz retries as distinct authoritative attempts", async () => {
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     const result = assessmentResult({ isCorrect: false, score: { scaled: 0 } });
     const submitQuestion = vi
       .fn()
       .mockResolvedValueOnce({
         quizAttempt: createQuizAttempt(groupId),
         problemsByTargetId: {
-          "target-one": {
+          target_00001: {
             ...createProblemSnapshot(),
             attemptNumber: 1,
             submitted: true,
@@ -767,7 +773,7 @@ describe("createAssessmentStore", () => {
       .mockResolvedValueOnce({
         quizAttempt: createQuizAttempt(groupId),
         problemsByTargetId: {
-          "target-one": {
+          target_00001: {
             ...createProblemSnapshot(),
             attemptNumber: 2,
             submitted: true,
@@ -798,28 +804,28 @@ describe("createAssessmentStore", () => {
         quizzes: { [groupId]: createQuizAttempt(groupId) },
       },
     });
-    store.getState().setLocalResponse(identity, { choice: "option-a" });
+    store.getState().setLocalResponse(identity, { choice: "option_00001" });
 
-    await store.getState().submitQuizQuestion({ groupId: "quiz-one" }, identity);
-    await store.getState().submitQuizQuestion({ groupId: "quiz-one" }, identity);
+    await store.getState().submitQuizQuestion({ groupId: "quiz__000001" }, identity);
+    await store.getState().submitQuizQuestion({ groupId: "quiz__000001" }, identity);
 
     expect(submitQuestion).toHaveBeenNthCalledWith(2, {
       attemptId: "attempt-one",
       groupId,
-      targetId: "target-one",
-      response: { kind: "single-select", optionId: "option-a" },
+      targetId: "target_00001",
+      response: { kind: "single-select", optionId: "option_00001" },
       expectedAttemptNumber: 1,
     });
     expect(sessionDouble.record.mock.calls.map(([draft]) => draft)).toEqual(
       [1, 2].map((attemptNumber) =>
         answeredInput({
           rootActivityId: ROOT_ACTIVITY_ID,
-          targetId: "target-one",
+          targetId: "target_00001",
           definition: assessmentLearningEventDefinition(),
-          response: { kind: "single-select", optionId: "option-a" },
+          response: { kind: "single-select", optionId: "option_00001" },
           result,
           attemptNumber,
-          quiz: { quizId: "quiz-one", attemptId: "attempt-one" },
+          quiz: { quizId: "quiz__000001", attemptId: "attempt-one" },
         }),
       ),
     );
@@ -827,14 +833,14 @@ describe("createAssessmentStore", () => {
   });
 
   it("does not record unchanged, lower, or redacted Quiz problem attempts", async () => {
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     const result = assessmentResult();
     const submitQuestion = vi
       .fn()
       .mockResolvedValueOnce({
         quizAttempt: createQuizAttempt(groupId),
         problemsByTargetId: {
-          "target-one": {
+          target_00001: {
             ...createProblemSnapshot(),
             attemptNumber: 2,
             submitted: true,
@@ -845,7 +851,7 @@ describe("createAssessmentStore", () => {
       .mockResolvedValueOnce({
         quizAttempt: createQuizAttempt(groupId),
         problemsByTargetId: {
-          "target-one": {
+          target_00001: {
             ...createProblemSnapshot(),
             attemptNumber: 1,
             submitted: true,
@@ -856,7 +862,7 @@ describe("createAssessmentStore", () => {
       .mockResolvedValueOnce({
         quizAttempt: createQuizAttempt(groupId),
         problemsByTargetId: {
-          "target-one": {
+          target_00001: {
             ...createProblemSnapshot(),
             attemptNumber: 2,
             submissionResult: null,
@@ -877,7 +883,7 @@ describe("createAssessmentStore", () => {
       getLearningEventSession: getLearningEventSession,
     });
     const identity = registrationIdentity();
-    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "block_000001");
 
     store.getState().register(createRegistration());
     store.getState().registerQuiz(createQuizRegistration());
@@ -899,9 +905,9 @@ describe("createAssessmentStore", () => {
       },
     });
 
-    await store.getState().submitQuizQuestion({ groupId: "quiz-one" }, identity);
-    await store.getState().submitQuizQuestion({ groupId: "quiz-one" }, identity);
-    await store.getState().submitQuizQuestion({ groupId: "quiz-one" }, identity);
+    await store.getState().submitQuizQuestion({ groupId: "quiz__000001" }, identity);
+    await store.getState().submitQuizQuestion({ groupId: "quiz__000001" }, identity);
+    await store.getState().submitQuizQuestion({ groupId: "quiz__000001" }, identity);
 
     expect(submitQuestion).toHaveBeenCalledTimes(3);
     expect(store.getState().durable.problems[problemId]).toMatchObject({
@@ -914,7 +920,7 @@ describe("createAssessmentStore", () => {
   });
 
   it("records explicit-finish answers before completion and authoritative success", async () => {
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     const firstResult = assessmentResult();
     const secondResult = assessmentResult({ isCorrect: false, score: { scaled: 0 } });
     const canonicalFirstProblem = {
@@ -925,7 +931,7 @@ describe("createAssessmentStore", () => {
     };
     const canonicalSecondProblem = {
       ...createProblemSnapshot(),
-      response: { kind: "single-select" as const, optionId: "option-b" },
+      response: { kind: "single-select" as const, optionId: "option_00002" },
       attemptNumber: 8,
       submitted: true,
       submissionResult: secondResult,
@@ -934,18 +940,18 @@ describe("createAssessmentStore", () => {
       quizAttempt: createQuizAttempt(groupId, {
         status: "completed",
         currentTargetId: null,
-        submittedTargetIds: ["target-one", "target-two"],
+        submittedTargetIds: ["target_00001", "target_00002"],
         finishedAt: "2026-07-16T12:05:00.000Z",
         score: { scaled: 1, raw: 2, min: 0, max: 2 },
         successStatus: "passed",
         resultsByTargetId: {
-          "target-one": firstResult,
-          "target-two": secondResult,
+          target_00001: firstResult,
+          target_00002: secondResult,
         },
       }),
       problemsByTargetId: {
-        "target-two": canonicalSecondProblem,
-        "target-one": canonicalFirstProblem,
+        target_00002: canonicalSecondProblem,
+        target_00001: canonicalFirstProblem,
       },
     });
     const sessionDouble = createSessionDouble(() => {
@@ -960,14 +966,14 @@ describe("createAssessmentStore", () => {
       getLearningEventSession: getLearningEventSession,
     });
     const secondIdentity = registrationIdentity({
-      authoredBlockId: "block-two",
-      targetId: "target-two",
+      authoredBlockId: "block_000002",
+      targetId: "target_00002",
     });
 
     store.getState().register(createRegistration());
     store
       .getState()
-      .register(createRegistration({ authoredBlockId: "block-two", targetId: "target-two" }));
+      .register(createRegistration({ authoredBlockId: "block_000002", targetId: "target_00002" }));
     store.getState().registerQuiz(
       createQuizRegistration({
         settings: { ...quizSettings, passingScore: 0.5 },
@@ -976,13 +982,15 @@ describe("createAssessmentStore", () => {
     store.setState({
       durable: { problems: {}, quizzes: { [groupId]: createQuizAttempt(groupId) } },
     });
-    store.getState().setLocalResponse(registrationIdentity(), { choice: "option-a" });
-    await expect(store.getState().finishQuizAttempt({ groupId: "quiz-one" })).resolves.toBeNull();
+    store.getState().setLocalResponse(registrationIdentity(), { choice: "option_00001" });
+    await expect(
+      store.getState().finishQuizAttempt({ groupId: "quiz__000001" }),
+    ).resolves.toBeNull();
     expect(finishAttempt).not.toHaveBeenCalled();
 
-    store.getState().setLocalResponse(secondIdentity, { choice: "option-b" });
+    store.getState().setLocalResponse(secondIdentity, { choice: "option_00002" });
     await expect(
-      store.getState().finishQuizAttempt({ groupId: "quiz-one" }),
+      store.getState().finishQuizAttempt({ groupId: "quiz__000001" }),
     ).resolves.toMatchObject({
       status: "completed",
       score: { scaled: 1, raw: 2, min: 0, max: 2 },
@@ -991,46 +999,46 @@ describe("createAssessmentStore", () => {
       attemptId: "attempt-one",
       groupId,
       responsesByTargetId: {
-        "target-one": { kind: "single-select", optionId: "option-a" },
-        "target-two": { kind: "single-select", optionId: "option-b" },
+        target_00001: { kind: "single-select", optionId: "option_00001" },
+        target_00002: { kind: "single-select", optionId: "option_00002" },
       },
     });
     expect(
-      store.getState().durable.problems[scopeAssessmentProblemId("artifact-one", "block-one")],
+      store.getState().durable.problems[scopeAssessmentProblemId("artifact-one", "block_000001")],
     ).toEqual(canonicalFirstProblem);
     expect(
-      store.getState().durable.problems[scopeAssessmentProblemId("artifact-one", "block-two")],
+      store.getState().durable.problems[scopeAssessmentProblemId("artifact-one", "block_000002")],
     ).toEqual(canonicalSecondProblem);
     expect(getLearningEventSession).toHaveBeenCalledOnce();
     expect(sessionDouble.record.mock.calls.map(([draft]) => draft)).toEqual([
       answeredInput({
         rootActivityId: ROOT_ACTIVITY_ID,
-        targetId: "target-one",
+        targetId: "target_00001",
         definition: assessmentLearningEventDefinition(),
         response: canonicalFirstProblem.response,
         result: firstResult,
         attemptNumber: 7,
-        quiz: { quizId: "quiz-one", attemptId: "attempt-one" },
+        quiz: { quizId: "quiz__000001", attemptId: "attempt-one" },
       }),
       answeredInput({
         rootActivityId: ROOT_ACTIVITY_ID,
-        targetId: "target-two",
+        targetId: "target_00002",
         definition: assessmentLearningEventDefinition(),
         response: canonicalSecondProblem.response,
         result: secondResult,
         attemptNumber: 8,
-        quiz: { quizId: "quiz-one", attemptId: "attempt-one" },
+        quiz: { quizId: "quiz__000001", attemptId: "attempt-one" },
       }),
       quizCompletedInput({
         rootActivityId: ROOT_ACTIVITY_ID,
-        quizId: "quiz-one",
+        quizId: "quiz__000001",
         attemptId: "attempt-one",
         startedAt: "2026-07-16T12:00:00.000Z",
         finishedAt: "2026-07-16T12:05:00.000Z",
       }),
       quizSuccessInput({
         rootActivityId: ROOT_ACTIVITY_ID,
-        quizId: "quiz-one",
+        quizId: "quiz__000001",
         attemptId: "attempt-one",
         successStatus: "passed",
         score: { scaled: 1, raw: 2, min: 0, max: 2 },
@@ -1041,23 +1049,25 @@ describe("createAssessmentStore", () => {
       successStatus: "passed",
     });
     expect(store.getState().requests[groupId]).toBeUndefined();
-    await expect(store.getState().finishQuizAttempt({ groupId: "quiz-one" })).resolves.toBeNull();
+    await expect(
+      store.getState().finishQuizAttempt({ groupId: "quiz__000001" }),
+    ).resolves.toBeNull();
     expect(sessionDouble.record).toHaveBeenCalledTimes(4);
   });
 
   it.each([
     {
       name: "removes a target",
-      replacementTargetIds: ["target-two"],
+      replacementTargetIds: ["target_00002"],
     },
     {
       name: "reorders targets",
-      replacementTargetIds: ["target-two", "target-one"],
+      replacementTargetIds: ["target_00002", "target_00001"],
     },
   ])(
     "records a finishing Quiz against its command registration when an update $name",
     async ({ replacementTargetIds }) => {
-      const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+      const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
       const firstResult = assessmentResult();
       const secondResult = assessmentResult({ isCorrect: false, score: { scaled: 0 } });
       const firstProblem: AssessmentProblemSnapshot = {
@@ -1068,7 +1078,10 @@ describe("createAssessmentStore", () => {
       };
       const secondProblem: AssessmentProblemSnapshot = {
         ...createProblemSnapshot(),
-        response: { kind: "single-select", optionId: "option-b" },
+        response: SingleSelectResponseSchema.parse({
+          kind: "single-select",
+          optionId: "option_00002",
+        }),
         attemptNumber: 1,
         submitted: true,
         submissionResult: secondResult,
@@ -1076,13 +1089,13 @@ describe("createAssessmentStore", () => {
       const terminalAttempt = createQuizAttempt(groupId, {
         status: "completed",
         currentTargetId: null,
-        submittedTargetIds: ["target-one", "target-two"],
+        submittedTargetIds: ["target_00001", "target_00002"],
         finishedAt: "2026-07-16T12:05:00.000Z",
         score: { scaled: 0.5, raw: 1, min: 0, max: 2 },
         successStatus: null,
         resultsByTargetId: {
-          "target-one": firstResult,
-          "target-two": secondResult,
+          target_00001: firstResult,
+          target_00002: secondResult,
         },
       });
       const pending = deferred<{
@@ -1102,30 +1115,32 @@ describe("createAssessmentStore", () => {
         getLearningEventSession: () => sessionDouble.session,
       });
       const secondIdentity = registrationIdentity({
-        authoredBlockId: "block-two",
-        targetId: "target-two",
+        authoredBlockId: "block_000002",
+        targetId: "target_00002",
       });
 
       store.getState().register(createRegistration());
       store
         .getState()
-        .register(createRegistration({ authoredBlockId: "block-two", targetId: "target-two" }));
+        .register(
+          createRegistration({ authoredBlockId: "block_000002", targetId: "target_00002" }),
+        );
       store.getState().registerQuiz(createQuizRegistration());
       store.setState({
         durable: { problems: {}, quizzes: { [groupId]: createQuizAttempt(groupId) } },
       });
-      store.getState().setLocalResponse(registrationIdentity(), { choice: "option-a" });
-      store.getState().setLocalResponse(secondIdentity, { choice: "option-b" });
+      store.getState().setLocalResponse(registrationIdentity(), { choice: "option_00001" });
+      store.getState().setLocalResponse(secondIdentity, { choice: "option_00002" });
 
-      const finishing = store.getState().finishQuizAttempt({ groupId: "quiz-one" });
+      const finishing = store.getState().finishQuizAttempt({ groupId: "quiz__000001" });
       expect(
         store.getState().updateQuiz(createQuizRegistration({ targetIds: replacementTargetIds })),
       ).toBe(true);
       pending.resolve({
         quizAttempt: terminalAttempt,
         problemsByTargetId: {
-          "target-one": firstProblem,
-          "target-two": secondProblem,
+          target_00001: firstProblem,
+          target_00002: secondProblem,
         },
       });
 
@@ -1133,25 +1148,25 @@ describe("createAssessmentStore", () => {
       expect(sessionDouble.record.mock.calls.map(([draft]) => draft)).toEqual([
         answeredInput({
           rootActivityId: ROOT_ACTIVITY_ID,
-          targetId: "target-one",
+          targetId: "target_00001",
           definition: assessmentLearningEventDefinition(),
           response: firstProblem.response,
           result: firstResult,
           attemptNumber: 1,
-          quiz: { quizId: "quiz-one", attemptId: "attempt-one" },
+          quiz: { quizId: "quiz__000001", attemptId: "attempt-one" },
         }),
         answeredInput({
           rootActivityId: ROOT_ACTIVITY_ID,
-          targetId: "target-two",
+          targetId: "target_00002",
           definition: assessmentLearningEventDefinition(),
           response: secondProblem.response,
           result: secondResult,
           attemptNumber: 1,
-          quiz: { quizId: "quiz-one", attemptId: "attempt-one" },
+          quiz: { quizId: "quiz__000001", attemptId: "attempt-one" },
         }),
         quizCompletedInput({
           rootActivityId: ROOT_ACTIVITY_ID,
-          quizId: "quiz-one",
+          quizId: "quiz__000001",
           attemptId: "attempt-one",
           startedAt: "2026-07-16T12:00:00.000Z",
           finishedAt: "2026-07-16T12:05:00.000Z",
@@ -1174,15 +1189,15 @@ describe("createAssessmentStore", () => {
       successStatus: null,
     },
   ])("records explicit-finish $name from authoritative state", async (testCase) => {
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     const terminalAttempt = createQuizAttempt(groupId, {
       status: "completed",
       currentTargetId: null,
-      submittedTargetIds: ["target-one"],
+      submittedTargetIds: ["target_00001"],
       finishedAt: "2026-07-16T12:05:00.000Z",
       score: testCase.score,
       successStatus: testCase.successStatus,
-      resultsByTargetId: { "target-one": assessmentResult() },
+      resultsByTargetId: { target_00001: assessmentResult() },
     });
     const finishAttempt = vi.fn().mockResolvedValue({
       quizAttempt: terminalAttempt,
@@ -1200,7 +1215,7 @@ describe("createAssessmentStore", () => {
     store.getState().register(createRegistration());
     store.getState().registerQuiz(
       createQuizRegistration({
-        targetIds: ["target-one"],
+        targetIds: ["target_00001"],
         settings: {
           ...quizSettings,
           reviewTiming: "after_quiz",
@@ -1214,16 +1229,16 @@ describe("createAssessmentStore", () => {
         quizzes: { [groupId]: createQuizAttempt(groupId) },
       },
     });
-    store.getState().setLocalResponse(registrationIdentity(), { choice: "option-a" });
+    store.getState().setLocalResponse(registrationIdentity(), { choice: "option_00001" });
 
-    await expect(store.getState().finishQuizAttempt({ groupId: "quiz-one" })).resolves.toEqual(
+    await expect(store.getState().finishQuizAttempt({ groupId: "quiz__000001" })).resolves.toEqual(
       terminalAttempt,
     );
 
     const expectedDrafts: CoreLearningEventInput[] = [
       quizCompletedInput({
         rootActivityId: ROOT_ACTIVITY_ID,
-        quizId: "quiz-one",
+        quizId: "quiz__000001",
         attemptId: "attempt-one",
         startedAt: "2026-07-16T12:00:00.000Z",
         finishedAt: "2026-07-16T12:05:00.000Z",
@@ -1233,7 +1248,7 @@ describe("createAssessmentStore", () => {
       expectedDrafts.push(
         quizSuccessInput({
           rootActivityId: ROOT_ACTIVITY_ID,
-          quizId: "quiz-one",
+          quizId: "quiz__000001",
           attemptId: "attempt-one",
           successStatus: testCase.successStatus,
           score: testCase.score,
@@ -1243,22 +1258,24 @@ describe("createAssessmentStore", () => {
     expect(sessionDouble.record.mock.calls.map(([draft]) => draft)).toEqual(expectedDrafts);
     expect(store.getState().durable.quizzes[groupId]).toEqual(terminalAttempt);
 
-    await expect(store.getState().finishQuizAttempt({ groupId: "quiz-one" })).resolves.toBeNull();
+    await expect(
+      store.getState().finishQuizAttempt({ groupId: "quiz__000001" }),
+    ).resolves.toBeNull();
     expect(sessionDouble.record).toHaveBeenCalledTimes(expectedDrafts.length);
   });
 
   it.each(["throwing accessor", "invalid builder root"] as const)(
     "retains terminal authority with a %s",
     async (failureMode) => {
-      const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+      const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
       const terminalAttempt = createQuizAttempt(groupId, {
         status: "completed",
         currentTargetId: null,
-        submittedTargetIds: ["target-one"],
+        submittedTargetIds: ["target_00001"],
         finishedAt: "2026-07-16T12:05:00.000Z",
         score: { scaled: 1 },
         successStatus: "passed",
-        resultsByTargetId: { "target-one": assessmentResult() },
+        resultsByTargetId: { target_00001: assessmentResult() },
       });
       const record = vi.fn<(statement: CoreLearningEventInput) => void>();
       const invalidSession: LearningEventSession = Object.freeze({
@@ -1290,7 +1307,7 @@ describe("createAssessmentStore", () => {
       store.getState().register(createRegistration());
       store.getState().registerQuiz(
         createQuizRegistration({
-          targetIds: ["target-one"],
+          targetIds: ["target_00001"],
           settings: { ...quizSettings, reviewTiming: "after_quiz", passingScore: 0.5 },
         }),
       );
@@ -1300,11 +1317,11 @@ describe("createAssessmentStore", () => {
           quizzes: { [groupId]: createQuizAttempt(groupId) },
         },
       });
-      store.getState().setLocalResponse(registrationIdentity(), { choice: "option-a" });
+      store.getState().setLocalResponse(registrationIdentity(), { choice: "option_00001" });
 
-      await expect(store.getState().finishQuizAttempt({ groupId: "quiz-one" })).resolves.toEqual(
-        terminalAttempt,
-      );
+      await expect(
+        store.getState().finishQuizAttempt({ groupId: "quiz__000001" }),
+      ).resolves.toEqual(terminalAttempt);
 
       expect(store.getState().durable.quizzes[groupId]).toEqual(terminalAttempt);
       expect(store.getState().requests[groupId]).toBeUndefined();
@@ -1313,15 +1330,15 @@ describe("createAssessmentStore", () => {
   );
 
   it("retains terminal authority when the learning-event recorder fails", async () => {
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     const terminalAttempt = createQuizAttempt(groupId, {
       status: "completed",
       currentTargetId: null,
-      submittedTargetIds: ["target-one"],
+      submittedTargetIds: ["target_00001"],
       finishedAt: "2026-07-16T12:05:00.000Z",
       score: { scaled: 1 },
       successStatus: "passed",
-      resultsByTargetId: { "target-one": assessmentResult() },
+      resultsByTargetId: { target_00001: assessmentResult() },
     });
     const { session, record } = createSessionDouble(() => {
       throw new Error("delivery unavailable");
@@ -1344,7 +1361,7 @@ describe("createAssessmentStore", () => {
     store.getState().register(createRegistration());
     store.getState().registerQuiz(
       createQuizRegistration({
-        targetIds: ["target-one"],
+        targetIds: ["target_00001"],
         settings: { ...quizSettings, reviewTiming: "after_quiz", passingScore: 0.5 },
       }),
     );
@@ -1354,9 +1371,9 @@ describe("createAssessmentStore", () => {
         quizzes: { [groupId]: createQuizAttempt(groupId) },
       },
     });
-    store.getState().setLocalResponse(registrationIdentity(), { choice: "option-a" });
+    store.getState().setLocalResponse(registrationIdentity(), { choice: "option_00001" });
 
-    await expect(store.getState().finishQuizAttempt({ groupId: "quiz-one" })).resolves.toEqual(
+    await expect(store.getState().finishQuizAttempt({ groupId: "quiz__000001" })).resolves.toEqual(
       terminalAttempt,
     );
     await flushPromises();
@@ -1368,7 +1385,7 @@ describe("createAssessmentStore", () => {
   });
 
   it("rejects a still-in-progress explicit-finish response without recording", async () => {
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     const getLearningEventSession = vi.fn();
     const store = createAssessmentStore({
       artifactId: "artifact-one",
@@ -1386,16 +1403,18 @@ describe("createAssessmentStore", () => {
     });
 
     store.getState().register(createRegistration());
-    store.getState().registerQuiz(createQuizRegistration({ targetIds: ["target-one"] }));
+    store.getState().registerQuiz(createQuizRegistration({ targetIds: ["target_00001"] }));
     store.setState({
       durable: {
         problems: {},
         quizzes: { [groupId]: createQuizAttempt(groupId) },
       },
     });
-    store.getState().setLocalResponse(registrationIdentity(), { choice: "option-a" });
+    store.getState().setLocalResponse(registrationIdentity(), { choice: "option_00001" });
 
-    await expect(store.getState().finishQuizAttempt({ groupId: "quiz-one" })).resolves.toBeNull();
+    await expect(
+      store.getState().finishQuizAttempt({ groupId: "quiz__000001" }),
+    ).resolves.toBeNull();
 
     expect(store.getState().durable.quizzes[groupId]?.status).toBe("in_progress");
     expect(store.getState().requests[groupId]).toMatchObject({
@@ -1436,18 +1455,18 @@ describe("createAssessmentStore", () => {
       error: "Quiz host response successStatus requires passingScore",
     },
   ])("rejects a newly terminal Quiz with $name without committing", async (testCase) => {
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     const current = createQuizAttempt(groupId);
     const terminal = createQuizAttempt(groupId, {
       status: "completed",
       currentTargetId: null,
-      submittedTargetIds: ["target-one", "target-two"],
+      submittedTargetIds: ["target_00001", "target_00002"],
       finishedAt: "2026-07-16T12:05:00.000Z",
       score: testCase.score,
       successStatus: testCase.successStatus,
       resultsByTargetId: {
-        "target-one": assessmentResult(),
-        "target-two": assessmentResult(),
+        target_00001: assessmentResult(),
+        target_00002: assessmentResult(),
       },
     });
     const getLearningEventSession = vi.fn();
@@ -1466,13 +1485,13 @@ describe("createAssessmentStore", () => {
       getLearningEventSession: getLearningEventSession,
     });
     const secondIdentity = registrationIdentity({
-      authoredBlockId: "block-two",
-      targetId: "target-two",
+      authoredBlockId: "block_000002",
+      targetId: "target_00002",
     });
     store.getState().register(createRegistration());
     store
       .getState()
-      .register(createRegistration({ authoredBlockId: "block-two", targetId: "target-two" }));
+      .register(createRegistration({ authoredBlockId: "block_000002", targetId: "target_00002" }));
     store.getState().registerQuiz(
       createQuizRegistration({
         settings: {
@@ -1484,10 +1503,12 @@ describe("createAssessmentStore", () => {
     store.setState({
       durable: { problems: {}, quizzes: { [groupId]: current } },
     });
-    store.getState().setLocalResponse(registrationIdentity(), { choice: "option-a" });
-    store.getState().setLocalResponse(secondIdentity, { choice: "option-b" });
+    store.getState().setLocalResponse(registrationIdentity(), { choice: "option_00001" });
+    store.getState().setLocalResponse(secondIdentity, { choice: "option_00002" });
 
-    await expect(store.getState().finishQuizAttempt({ groupId: "quiz-one" })).resolves.toBeNull();
+    await expect(
+      store.getState().finishQuizAttempt({ groupId: "quiz__000001" }),
+    ).resolves.toBeNull();
 
     expect(store.getState().durable.quizzes[groupId]).toEqual(current);
     expect(store.getState().requests[groupId]).toMatchObject({
@@ -1499,7 +1520,7 @@ describe("createAssessmentStore", () => {
   });
 
   it("does not create a false terminal Quiz state when expiry finalization rejects", async () => {
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     const finishAttempt = vi.fn().mockRejectedValue(new Error("timeout persistence failed"));
     const getLearningEventSession = vi.fn();
     const store = createAssessmentStore({
@@ -1513,16 +1534,18 @@ describe("createAssessmentStore", () => {
     store.getState().register(createRegistration());
     store.getState().registerQuiz(
       createQuizRegistration({
-        targetIds: ["target-one"],
+        targetIds: ["target_00001"],
         settings: { ...quizSettings, reviewTiming: "after_quiz" },
       }),
     );
     store.setState({
       durable: { problems: {}, quizzes: { [groupId]: createQuizAttempt(groupId) } },
     });
-    store.getState().setLocalResponse(registrationIdentity(), { choice: "option-a" });
+    store.getState().setLocalResponse(registrationIdentity(), { choice: "option_00001" });
 
-    await expect(store.getState().expireQuizAttempt({ groupId: "quiz-one" })).resolves.toBeNull();
+    await expect(
+      store.getState().expireQuizAttempt({ groupId: "quiz__000001" }),
+    ).resolves.toBeNull();
     expect(store.getState().durable.quizzes[groupId]?.status).toBe("in_progress");
     expect(store.getState().requests[groupId]).toMatchObject({
       operation: "quiz-expire",
@@ -1533,14 +1556,14 @@ describe("createAssessmentStore", () => {
   });
 
   it("reveals completed full-review Quiz answers only from authoritative host state", async () => {
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     const revealedAttempt = createQuizAttempt(groupId, {
       status: "completed",
       currentTargetId: null,
-      submittedTargetIds: ["target-one"],
+      submittedTargetIds: ["target_00001"],
       finishedAt: "2026-07-16T12:05:00.000Z",
       score: { scaled: 1 },
-      resultsByTargetId: { "target-one": assessmentResult() },
+      resultsByTargetId: { target_00001: assessmentResult() },
       answerReviewAuthorized: true,
     });
     const revealAnswers = vi.fn().mockResolvedValue({
@@ -1564,7 +1587,7 @@ describe("createAssessmentStore", () => {
     store.getState().register(createRegistration());
     store.getState().registerQuiz(
       createQuizRegistration({
-        targetIds: ["target-one"],
+        targetIds: ["target_00001"],
         settings: { ...quizSettings, reviewDetail: "full_review" },
       }),
     );
@@ -1582,7 +1605,7 @@ describe("createAssessmentStore", () => {
       },
     });
 
-    await expect(store.getState().revealQuizAnswers({ groupId: "quiz-one" })).resolves.toEqual(
+    await expect(store.getState().revealQuizAnswers({ groupId: "quiz__000001" })).resolves.toEqual(
       revealedAttempt,
     );
     expect(revealAnswers).toHaveBeenCalledWith({ attemptId: "attempt-one", groupId });
@@ -1595,12 +1618,12 @@ describe("createAssessmentStore", () => {
       isCorrect: false,
       score: { scaled: 0.5 },
       items: {
-        "multi-select-option": {
+        mulopt_00001: {
           correct: false,
           given: false,
           expected: true,
         },
-        "hotspot-region": {
+        hotsp_000001: {
           correct: true,
           given: true,
           expected: true,
@@ -1624,14 +1647,14 @@ describe("createAssessmentStore", () => {
   });
 
   it("rejects a host attempt for another group without changing durable Quiz state", async () => {
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     const getLearningEventSession = vi.fn();
     const store = createAssessmentStore({
       artifactId: "artifact-one",
       assessmentPort: createAssessmentPort({
         quiz: {
           startAttempt: vi.fn().mockResolvedValue({
-            quizAttempt: createQuizAttempt("another-group"),
+            quizAttempt: createQuizAttempt(scopeAssessmentGroupId("artifact-one", "quiz__000003")),
             problemsByTargetId: {},
           }),
           submitQuestion: vi.fn(),
@@ -1642,7 +1665,9 @@ describe("createAssessmentStore", () => {
     });
     store.getState().registerQuiz(createQuizRegistration());
 
-    await expect(store.getState().startQuizAttempt({ groupId: "quiz-one" })).resolves.toBeNull();
+    await expect(
+      store.getState().startQuizAttempt({ groupId: "quiz__000001" }),
+    ).resolves.toBeNull();
     expect(store.getState().durable.quizzes).toEqual({});
     expect(store.getState().requests[groupId]).toMatchObject({
       operation: "quiz-start",
@@ -1653,7 +1678,7 @@ describe("createAssessmentStore", () => {
   });
 
   it("preserves Quiz attempt and problem state when question submission rejects", async () => {
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     const attempt = createQuizAttempt(groupId);
     const getLearningEventSession = vi.fn();
     const store = createAssessmentStore({
@@ -1667,18 +1692,18 @@ describe("createAssessmentStore", () => {
       }),
       getLearningEventSession: getLearningEventSession,
     });
-    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "block_000001");
     store.getState().register(createRegistration());
     store.getState().registerQuiz(createQuizRegistration());
     store.setState({ durable: { problems: {}, quizzes: { [groupId]: attempt } } });
-    store.getState().setLocalResponse(registrationIdentity(), { choice: "option-a" });
+    store.getState().setLocalResponse(registrationIdentity(), { choice: "option_00001" });
 
     await expect(
-      store.getState().submitQuizQuestion({ groupId: "quiz-one" }, registrationIdentity()),
+      store.getState().submitQuizQuestion({ groupId: "quiz__000001" }, registrationIdentity()),
     ).resolves.toBeNull();
     expect(store.getState().durable.quizzes[groupId]).toEqual(attempt);
     expect(store.getState().durable.problems[problemId]).toMatchObject({
-      response: { kind: "single-select", optionId: "option-a" },
+      response: { kind: "single-select", optionId: "option_00001" },
       attemptNumber: 0,
       submitted: false,
       submissionResult: null,
@@ -1687,7 +1712,7 @@ describe("createAssessmentStore", () => {
   });
 
   it("rejects a Quiz question response for another host attempt", async () => {
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     const current = createQuizAttempt(groupId);
     const store = createAssessmentStore({
       artifactId: "artifact-one",
@@ -1705,10 +1730,10 @@ describe("createAssessmentStore", () => {
     store.getState().register(createRegistration());
     store.getState().registerQuiz(createQuizRegistration());
     store.setState({ durable: { problems: {}, quizzes: { [groupId]: current } } });
-    store.getState().setLocalResponse(registrationIdentity(), { choice: "option-a" });
+    store.getState().setLocalResponse(registrationIdentity(), { choice: "option_00001" });
 
     await expect(
-      store.getState().submitQuizQuestion({ groupId: "quiz-one" }, registrationIdentity()),
+      store.getState().submitQuizQuestion({ groupId: "quiz__000001" }, registrationIdentity()),
     ).resolves.toBeNull();
     expect(store.getState().durable.quizzes[groupId]).toEqual(current);
     expect(store.getState().requests[groupId]).toMatchObject({
@@ -1718,7 +1743,7 @@ describe("createAssessmentStore", () => {
   });
 
   it("does not replay a stale terminal Quiz response after a newer terminal commit", async () => {
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     const stale = deferred<{
       quizAttempt: QuizAttemptState;
       problemsByTargetId: Record<string, AssessmentProblemSnapshot>;
@@ -1739,18 +1764,18 @@ describe("createAssessmentStore", () => {
     const terminalAttempt = createQuizAttempt(groupId, {
       status: "completed",
       currentTargetId: null,
-      submittedTargetIds: ["target-one"],
+      submittedTargetIds: ["target_00001"],
       finishedAt: "2026-07-16T12:05:00.000Z",
       score: { scaled: 1 },
       successStatus: "passed",
-      resultsByTargetId: { "target-one": result },
+      resultsByTargetId: { target_00001: result },
     });
     const submitQuestion = vi
       .fn()
       .mockImplementationOnce(() => stale.promise)
       .mockResolvedValueOnce({
         quizAttempt: terminalAttempt,
-        problemsByTargetId: { "target-one": currentProblem },
+        problemsByTargetId: { target_00001: currentProblem },
       });
     const sessionDouble = createSessionDouble();
     const store = createAssessmentStore({
@@ -1769,7 +1794,7 @@ describe("createAssessmentStore", () => {
     store.getState().register(createRegistration());
     store.getState().registerQuiz(
       createQuizRegistration({
-        targetIds: ["target-one"],
+        targetIds: ["target_00001"],
         settings: { ...quizSettings, passingScore: 0.5 },
       }),
     );
@@ -1779,38 +1804,40 @@ describe("createAssessmentStore", () => {
         quizzes: { [groupId]: createQuizAttempt(groupId) },
       },
     });
-    store.getState().setLocalResponse(identity, { choice: "option-a" });
+    store.getState().setLocalResponse(identity, { choice: "option_00001" });
 
-    const staleSubmission = store.getState().submitQuizQuestion({ groupId: "quiz-one" }, identity);
+    const staleSubmission = store
+      .getState()
+      .submitQuizQuestion({ groupId: "quiz__000001" }, identity);
     await expect(
-      store.getState().submitQuizQuestion({ groupId: "quiz-one" }, identity),
+      store.getState().submitQuizQuestion({ groupId: "quiz__000001" }, identity),
     ).resolves.toEqual(terminalAttempt);
     stale.resolve({
       quizAttempt: terminalAttempt,
-      problemsByTargetId: { "target-one": staleProblem },
+      problemsByTargetId: { target_00001: staleProblem },
     });
     await expect(staleSubmission).resolves.toBeNull();
 
     expect(sessionDouble.record.mock.calls.map(([draft]) => draft)).toEqual([
       answeredInput({
         rootActivityId: ROOT_ACTIVITY_ID,
-        targetId: "target-one",
+        targetId: "target_00001",
         definition: assessmentLearningEventDefinition(),
-        response: { kind: "single-select", optionId: "option-a" },
+        response: { kind: "single-select", optionId: "option_00001" },
         result,
         attemptNumber: 2,
-        quiz: { quizId: "quiz-one", attemptId: "attempt-one" },
+        quiz: { quizId: "quiz__000001", attemptId: "attempt-one" },
       }),
       quizCompletedInput({
         rootActivityId: ROOT_ACTIVITY_ID,
-        quizId: "quiz-one",
+        quizId: "quiz__000001",
         attemptId: "attempt-one",
         startedAt: "2026-07-16T12:00:00.000Z",
         finishedAt: "2026-07-16T12:05:00.000Z",
       }),
       quizSuccessInput({
         rootActivityId: ROOT_ACTIVITY_ID,
-        quizId: "quiz-one",
+        quizId: "quiz__000001",
         attemptId: "attempt-one",
         successStatus: "passed",
         score: { scaled: 1 },
@@ -1819,7 +1846,7 @@ describe("createAssessmentStore", () => {
   });
 
   it("preserves the in-progress Quiz when explicit finish rejects", async () => {
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     const current = createQuizAttempt(groupId);
     const getLearningEventSession = vi.fn();
     const store = createAssessmentStore({
@@ -1834,19 +1861,21 @@ describe("createAssessmentStore", () => {
       getLearningEventSession: getLearningEventSession,
     });
     const secondIdentity = registrationIdentity({
-      authoredBlockId: "block-two",
-      targetId: "target-two",
+      authoredBlockId: "block_000002",
+      targetId: "target_00002",
     });
     store.getState().register(createRegistration());
     store
       .getState()
-      .register(createRegistration({ authoredBlockId: "block-two", targetId: "target-two" }));
+      .register(createRegistration({ authoredBlockId: "block_000002", targetId: "target_00002" }));
     store.getState().registerQuiz(createQuizRegistration());
     store.setState({ durable: { problems: {}, quizzes: { [groupId]: current } } });
-    store.getState().setLocalResponse(registrationIdentity(), { choice: "option-a" });
-    store.getState().setLocalResponse(secondIdentity, { choice: "option-b" });
+    store.getState().setLocalResponse(registrationIdentity(), { choice: "option_00001" });
+    store.getState().setLocalResponse(secondIdentity, { choice: "option_00002" });
 
-    await expect(store.getState().finishQuizAttempt({ groupId: "quiz-one" })).resolves.toBeNull();
+    await expect(
+      store.getState().finishQuizAttempt({ groupId: "quiz__000001" }),
+    ).resolves.toBeNull();
     expect(store.getState().durable.quizzes[groupId]).toEqual(current);
     expect(store.getState().requests[groupId]).toMatchObject({
       operation: "quiz-finish",
@@ -1857,16 +1886,16 @@ describe("createAssessmentStore", () => {
   });
 
   it("records authoritative failed success for an expired attempt", async () => {
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     const result = assessmentResult({ isCorrect: false, score: { scaled: 0 } });
     const expired = createQuizAttempt(groupId, {
       status: "expired",
       currentTargetId: null,
-      submittedTargetIds: ["target-one"],
+      submittedTargetIds: ["target_00001"],
       finishedAt: "2026-07-16T12:05:00.000Z",
       score: { scaled: 0 },
       successStatus: "failed",
-      resultsByTargetId: { "target-one": result },
+      resultsByTargetId: { target_00001: result },
     });
     const finishAttempt = vi.fn().mockResolvedValue({
       quizAttempt: expired,
@@ -1883,37 +1912,37 @@ describe("createAssessmentStore", () => {
     store.getState().register(createRegistration());
     store.getState().registerQuiz(
       createQuizRegistration({
-        targetIds: ["target-one"],
+        targetIds: ["target_00001"],
         settings: { ...quizSettings, reviewTiming: "after_quiz", passingScore: 0.5 },
       }),
     );
     store.setState({
       durable: { problems: {}, quizzes: { [groupId]: createQuizAttempt(groupId) } },
     });
-    store.getState().setLocalResponse(registrationIdentity(), { choice: "option-a" });
+    store.getState().setLocalResponse(registrationIdentity(), { choice: "option_00001" });
 
-    await expect(store.getState().expireQuizAttempt({ groupId: "quiz-one" })).resolves.toEqual(
+    await expect(store.getState().expireQuizAttempt({ groupId: "quiz__000001" })).resolves.toEqual(
       expired,
     );
     expect(finishAttempt).toHaveBeenCalledWith({
       attemptId: "attempt-one",
       groupId,
       responsesByTargetId: {
-        "target-one": { kind: "single-select", optionId: "option-a" },
+        target_00001: { kind: "single-select", optionId: "option_00001" },
       },
     });
     expect(store.getState().durable.quizzes[groupId]).toEqual(expired);
     expect(sessionDouble.record.mock.calls.map(([draft]) => draft)).toEqual([
       quizCompletedInput({
         rootActivityId: ROOT_ACTIVITY_ID,
-        quizId: "quiz-one",
+        quizId: "quiz__000001",
         attemptId: "attempt-one",
         startedAt: "2026-07-16T12:00:00.000Z",
         finishedAt: "2026-07-16T12:05:00.000Z",
       }),
       quizSuccessInput({
         rootActivityId: ROOT_ACTIVITY_ID,
-        quizId: "quiz-one",
+        quizId: "quiz__000001",
         attemptId: "attempt-one",
         successStatus: "failed",
         score: { scaled: 0 },
@@ -1922,7 +1951,7 @@ describe("createAssessmentStore", () => {
   });
 
   it("records timer-expiry's intermediate answer once before completion", async () => {
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     const result = assessmentResult();
     const problem = {
       ...createProblemSnapshot(),
@@ -1932,24 +1961,24 @@ describe("createAssessmentStore", () => {
     };
     const submittedAttempt = createQuizAttempt(groupId, {
       currentTargetId: null,
-      submittedTargetIds: ["target-one"],
-      resultsByTargetId: { "target-one": result },
+      submittedTargetIds: ["target_00001"],
+      resultsByTargetId: { target_00001: result },
     });
     const expiredAttempt = createQuizAttempt(groupId, {
       status: "expired",
       currentTargetId: null,
-      submittedTargetIds: ["target-one"],
+      submittedTargetIds: ["target_00001"],
       finishedAt: "2026-07-16T12:05:00.000Z",
       score: { scaled: 1 },
-      resultsByTargetId: { "target-one": result },
+      resultsByTargetId: { target_00001: result },
     });
     const submitQuestion = vi.fn().mockResolvedValue({
       quizAttempt: submittedAttempt,
-      problemsByTargetId: { "target-one": problem },
+      problemsByTargetId: { target_00001: problem },
     });
     const finishAttempt = vi.fn().mockResolvedValue({
       quizAttempt: expiredAttempt,
-      problemsByTargetId: { "target-one": problem },
+      problemsByTargetId: { target_00001: problem },
     });
     const sessionDouble = createSessionDouble();
     const getLearningEventSession = vi.fn(() => sessionDouble.session);
@@ -1964,7 +1993,7 @@ describe("createAssessmentStore", () => {
     store.getState().register(createRegistration());
     store.getState().registerQuiz(
       createQuizRegistration({
-        targetIds: ["target-one"],
+        targetIds: ["target_00001"],
       }),
     );
     store.setState({
@@ -1973,9 +2002,9 @@ describe("createAssessmentStore", () => {
         quizzes: { [groupId]: createQuizAttempt(groupId) },
       },
     });
-    store.getState().setLocalResponse(registrationIdentity(), { choice: "option-a" });
+    store.getState().setLocalResponse(registrationIdentity(), { choice: "option_00001" });
 
-    await expect(store.getState().expireQuizAttempt({ groupId: "quiz-one" })).resolves.toEqual(
+    await expect(store.getState().expireQuizAttempt({ groupId: "quiz__000001" })).resolves.toEqual(
       expiredAttempt,
     );
 
@@ -1985,16 +2014,16 @@ describe("createAssessmentStore", () => {
     expect(sessionDouble.record.mock.calls.map(([draft]) => draft)).toEqual([
       answeredInput({
         rootActivityId: ROOT_ACTIVITY_ID,
-        targetId: "target-one",
+        targetId: "target_00001",
         definition: assessmentLearningEventDefinition(),
-        response: { kind: "single-select", optionId: "option-a" },
+        response: { kind: "single-select", optionId: "option_00001" },
         result,
         attemptNumber: 1,
-        quiz: { quizId: "quiz-one", attemptId: "attempt-one" },
+        quiz: { quizId: "quiz__000001", attemptId: "attempt-one" },
       }),
       quizCompletedInput({
         rootActivityId: ROOT_ACTIVITY_ID,
-        quizId: "quiz-one",
+        quizId: "quiz__000001",
         attemptId: "attempt-one",
         startedAt: "2026-07-16T12:00:00.000Z",
         finishedAt: "2026-07-16T12:05:00.000Z",
@@ -2003,7 +2032,7 @@ describe("createAssessmentStore", () => {
   });
 
   it("preserves a completed Quiz when answer reveal rejects", async () => {
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     const completed = createQuizAttempt(groupId, {
       status: "completed",
       currentTargetId: null,
@@ -2023,13 +2052,15 @@ describe("createAssessmentStore", () => {
     });
     store.getState().registerQuiz(
       createQuizRegistration({
-        targetIds: ["target-one"],
+        targetIds: ["target_00001"],
         settings: { ...quizSettings, reviewDetail: "full_review" },
       }),
     );
     store.setState({ durable: { problems: {}, quizzes: { [groupId]: completed } } });
 
-    await expect(store.getState().revealQuizAnswers({ groupId: "quiz-one" })).resolves.toBeNull();
+    await expect(
+      store.getState().revealQuizAnswers({ groupId: "quiz__000001" }),
+    ).resolves.toBeNull();
     expect(store.getState().durable.quizzes[groupId]).toEqual(completed);
     expect(store.getState().requests[groupId]).toMatchObject({
       operation: "quiz-reveal-answers",
@@ -2041,7 +2072,7 @@ describe("createAssessmentStore", () => {
   it("commits an immediate check and its attempt only after authoritative success", async () => {
     const canonicalProblem = {
       ...createProblemSnapshot(),
-      response: { kind: "single-select" as const, optionId: "option-b" },
+      response: { kind: "single-select" as const, optionId: "option_00002" },
       attemptNumber: 4,
       checkResult: assessmentResult(),
     };
@@ -2057,17 +2088,17 @@ describe("createAssessmentStore", () => {
       },
     });
     const identity = registrationIdentity();
-    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "block_000001");
 
     store.getState().register(registration);
-    store.getState().setLocalResponse(identity, { choice: "option-b" });
+    store.getState().setLocalResponse(identity, { choice: "option_00002" });
 
     await expect(store.getState().check(identity)).resolves.toEqual(assessmentResult());
     expect(check).toHaveBeenCalledWith({
       problemId,
-      targetId: "target-one",
+      targetId: "target_00001",
       interactionKind: "single-select",
-      response: { kind: "single-select", optionId: "option-b" },
+      response: { kind: "single-select", optionId: "option_00002" },
       expectedAttemptNumber: 0,
     });
     expect(store.getState().durable.problems[problemId]).toEqual(canonicalProblem);
@@ -2078,7 +2109,7 @@ describe("createAssessmentStore", () => {
     const check = vi.fn().mockResolvedValue({
       problem: {
         ...createProblemSnapshot(),
-        response: { kind: "multi-select", optionIds: ["option-b"] },
+        response: { kind: "multi-select", optionIds: ["option_00002"] },
         attemptNumber: 1,
         checkResult: assessmentResult(),
       },
@@ -2094,10 +2125,10 @@ describe("createAssessmentStore", () => {
       },
     });
     const identity = registrationIdentity();
-    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "block_000001");
 
     store.getState().register(registration);
-    store.getState().setLocalResponse(identity, { choice: "option-b" });
+    store.getState().setLocalResponse(identity, { choice: "option_00002" });
     const before = store.getState().durable.problems[problemId];
 
     await expect(store.getState().check(identity)).resolves.toBeNull();
@@ -2131,10 +2162,10 @@ describe("createAssessmentStore", () => {
       },
     });
     const identity = registrationIdentity();
-    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "block_000001");
 
     store.getState().register(registration);
-    store.getState().setLocalResponse(identity, { choice: "option-a" });
+    store.getState().setLocalResponse(identity, { choice: "option_00001" });
     await store.getState().check(identity);
     await expect(store.getState().check(identity)).resolves.toBeNull();
 
@@ -2165,7 +2196,7 @@ describe("createAssessmentStore", () => {
       assessmentPort: createAssessmentPort({ submit }),
     });
     const identity = registrationIdentity();
-    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "block_000001");
 
     store.getState().register(
       createRegistration({
@@ -2175,11 +2206,11 @@ describe("createAssessmentStore", () => {
         },
       }),
     );
-    store.getState().setLocalResponse(identity, { choice: "option-a" });
+    store.getState().setLocalResponse(identity, { choice: "option_00001" });
 
     await expect(store.getState().submit(identity)).resolves.toBeNull();
     expect(store.getState().durable.problems[problemId]).toMatchObject({
-      response: { kind: "single-select", optionId: "option-a" },
+      response: { kind: "single-select", optionId: "option_00001" },
       attemptNumber: 0,
       submitted: false,
       submissionResult: null,
@@ -2189,14 +2220,14 @@ describe("createAssessmentStore", () => {
     expect(submit).toHaveBeenCalledTimes(2);
     expect(submit).toHaveBeenLastCalledWith({
       problemId,
-      targetId: "target-one",
+      targetId: "target_00001",
       interactionKind: "single-select",
-      response: { kind: "single-select", optionId: "option-a" },
+      response: { kind: "single-select", optionId: "option_00001" },
       expectedAttemptNumber: 0,
     });
     expect(store.getState().durable.problems[problemId]).toEqual(canonicalProblem);
     expect(store.getState().reset(identity)).toBe(false);
-    expect(store.getState().setLocalResponse(identity, { choice: "option-b" })).toBe(false);
+    expect(store.getState().setLocalResponse(identity, { choice: "option_00002" })).toBe(false);
     await expect(store.getState().submit(identity)).resolves.toBeNull();
     expect(submit).toHaveBeenCalledTimes(2);
   });
@@ -2210,7 +2241,7 @@ describe("createAssessmentStore", () => {
         isCorrect: false,
         score: { scaled: 0.25 },
         items: {
-          "private-item": {
+          privat_00001: {
             correct: false,
             expected: "PRIVATE_ANSWER",
             given: "PRIVATE_RESPONSE",
@@ -2222,7 +2253,7 @@ describe("createAssessmentStore", () => {
     let problemAtRecord: AssessmentProblemSnapshot | undefined;
     const sessionDouble = createSessionDouble(() => {
       problemAtRecord =
-        store.getState().durable.problems[scopeAssessmentProblemId("artifact-one", "block-one")];
+        store.getState().durable.problems[scopeAssessmentProblemId("artifact-one", "block_000001")];
     });
     store = createAssessmentStore({
       artifactId: "artifact-one",
@@ -2243,7 +2274,7 @@ describe("createAssessmentStore", () => {
         config: registrationConfig,
       }),
     );
-    store.getState().setLocalResponse(identity, { choice: "option-a" });
+    store.getState().setLocalResponse(identity, { choice: "option_00001" });
 
     await expect(store.getState().submit(identity)).resolves.toEqual(
       canonicalProblem.submissionResult,
@@ -2253,7 +2284,7 @@ describe("createAssessmentStore", () => {
     expect(sessionDouble.record).toHaveBeenCalledExactlyOnceWith(
       answeredInput({
         rootActivityId: ROOT_ACTIVITY_ID,
-        targetId: "target-one",
+        targetId: "target_00001",
         definition: learningEventDefinition,
         response: canonicalProblem.response,
         result: canonicalProblem.submissionResult,
@@ -2281,10 +2312,10 @@ describe("createAssessmentStore", () => {
       getLearningEventSession: () => sessionDouble.session,
     });
     const identity = registrationIdentity();
-    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "block_000001");
 
     store.getState().register(createRegistration());
-    store.getState().setLocalResponse(identity, { choice: "option-a" });
+    store.getState().setLocalResponse(identity, { choice: "option_00001" });
 
     await expect(store.getState().submit(identity)).resolves.toBeNull();
 
@@ -2319,7 +2350,7 @@ describe("createAssessmentStore", () => {
     const identity = registrationIdentity();
 
     store.getState().register(createRegistration());
-    store.getState().setLocalResponse(identity, { choice: "option-a" });
+    store.getState().setLocalResponse(identity, { choice: "option_00001" });
     const submission = store.getState().submit(identity);
     expect(getLearningEventSession).not.toHaveBeenCalled();
 
@@ -2349,10 +2380,10 @@ describe("createAssessmentStore", () => {
       getLearningEventSession: () => sessionDouble.session,
     });
     const identity = registrationIdentity();
-    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "block_000001");
 
     store.getState().register(createRegistration());
-    store.getState().setLocalResponse(identity, { choice: "option-a" });
+    store.getState().setLocalResponse(identity, { choice: "option_00001" });
 
     await expect(store.getState().submit(identity)).resolves.toEqual(
       canonicalProblem.submissionResult,
@@ -2377,7 +2408,7 @@ describe("createAssessmentStore", () => {
     const identity = registrationIdentity();
 
     store.getState().register(createRegistration());
-    store.getState().setLocalResponse(identity, { choice: "option-a" });
+    store.getState().setLocalResponse(identity, { choice: "option_00001" });
 
     await expect(store.getState().submit(identity)).resolves.toBeNull();
     expect(sessionDouble.record).not.toHaveBeenCalled();
@@ -2398,7 +2429,7 @@ describe("createAssessmentStore", () => {
         revealAnswer: vi.fn().mockResolvedValue({
           answerKey: {
             kind: "single-select",
-            correctOptionId: "option-b",
+            correctOptionId: "option_00002",
             feedbackByOptionId: {},
           },
         }),
@@ -2408,10 +2439,10 @@ describe("createAssessmentStore", () => {
     const identity = registrationIdentity();
 
     store.getState().register(createRegistration());
-    expect(store.getState().setLocalResponse(identity, { choice: "option-a" })).toBe(true);
+    expect(store.getState().setLocalResponse(identity, { choice: "option_00001" })).toBe(true);
     await expect(store.getState().check(identity)).resolves.toEqual(assessmentResult());
     await expect(store.getState().revealAnswer(identity)).resolves.toMatchObject({
-      answerKey: { kind: "single-select", correctOptionId: "option-b" },
+      answerKey: { kind: "single-select", correctOptionId: "option_00002" },
     });
     expect(store.getState().reset(identity)).toBe(true);
 
@@ -2433,7 +2464,7 @@ describe("createAssessmentStore", () => {
       }),
     });
     const identity = registrationIdentity();
-    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "block_000001");
 
     store.getState().register(
       createRegistration({
@@ -2443,7 +2474,7 @@ describe("createAssessmentStore", () => {
         },
       }),
     );
-    store.getState().setLocalResponse(identity, { choice: "option-a" });
+    store.getState().setLocalResponse(identity, { choice: "option_00001" });
     await expect(store.getState().revealHint(identity)).resolves.toBe(true);
     await store.getState().submit(identity);
     expect(store.getState().reset(identity)).toBe(true);
@@ -2470,14 +2501,14 @@ describe("createAssessmentStore", () => {
       assessmentPort: createAssessmentPort({ revealHint }),
     });
     const identity = registrationIdentity();
-    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "block_000001");
 
     store.getState().register(createRegistration());
     const revealPromise = store.getState().revealHint(identity);
 
     expect(revealHint).toHaveBeenCalledWith({
       problemId,
-      targetId: "target-one",
+      targetId: "target_00001",
       interactionKind: "single-select",
       hintsShown: 1,
     });
@@ -2509,7 +2540,7 @@ describe("createAssessmentStore", () => {
     let hintsAtRecord: number | undefined;
     const sessionDouble = createSessionDouble(() => {
       hintsAtRecord =
-        store.getState().durable.problems[scopeAssessmentProblemId("artifact-one", "block-one")]
+        store.getState().durable.problems[scopeAssessmentProblemId("artifact-one", "block_000001")]
           ?.hintsShown;
     });
     store = createAssessmentStore({
@@ -2539,7 +2570,7 @@ describe("createAssessmentStore", () => {
     expect(sessionDouble.record).toHaveBeenCalledExactlyOnceWith(
       hintInput({
         rootActivityId: ROOT_ACTIVITY_ID,
-        targetId: "target-one",
+        targetId: "target_00001",
         definition: learningEventDefinition,
         hintNumber: 1,
       }),
@@ -2558,7 +2589,7 @@ describe("createAssessmentStore", () => {
       getLearningEventSession: () => sessionDouble.session,
     });
     const identity = registrationIdentity();
-    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "block_000001");
 
     store.getState().register(createRegistration());
     store.setState({
@@ -2603,7 +2634,7 @@ describe("createAssessmentStore", () => {
       getLearningEventSession: () => sessionDouble.session,
     });
     const identity = registrationIdentity();
-    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "block_000001");
 
     store.getState().register(createRegistration());
 
@@ -2640,7 +2671,7 @@ describe("createAssessmentStore", () => {
       assessmentPort: createAssessmentPort({ revealHint }),
     });
     const identity = registrationIdentity();
-    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "block_000001");
 
     store.getState().register(createRegistration());
 
@@ -2666,11 +2697,11 @@ describe("createAssessmentStore", () => {
       getLearningEventSession: () => sessionDouble.session,
     });
     const identity = registrationIdentity();
-    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "block_000001");
 
     store.getState().register(createRegistration());
     const staleReveal = store.getState().revealHint(identity);
-    store.getState().setLocalResponse(identity, { choice: "option-a" });
+    store.getState().setLocalResponse(identity, { choice: "option_00001" });
     stale.resolve({ problem: { ...createProblemSnapshot(), hintsShown: 1 } });
 
     await expect(staleReveal).resolves.toBe(false);
@@ -2690,7 +2721,7 @@ describe("createAssessmentStore", () => {
       assessmentPort: createAssessmentPort({ revealHint }),
     });
     const identity = registrationIdentity();
-    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "block_000001");
 
     store.getState().register(createRegistration());
     await expect(store.getState().revealHint(identity)).resolves.toBe(false);
@@ -2709,7 +2740,11 @@ describe("createAssessmentStore", () => {
     const revealAnswer = vi
       .fn()
       .mockResolvedValueOnce({
-        answerKey: { kind: "single-select", correctOptionId: "option-b", feedbackByOptionId: {} },
+        answerKey: {
+          kind: "single-select",
+          correctOptionId: "option_00002",
+          feedbackByOptionId: {},
+        },
       })
       .mockRejectedValueOnce(new Error("denied"));
     const store = createAssessmentStore({
@@ -2717,14 +2752,14 @@ describe("createAssessmentStore", () => {
       assessmentPort: createAssessmentPort({ revealAnswer }),
     });
     const identity = registrationIdentity();
-    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "block_000001");
 
     store.getState().register(createRegistration());
-    store.getState().setLocalResponse(identity, { choice: "option-a" });
+    store.getState().setLocalResponse(identity, { choice: "option_00001" });
 
     const reveal = await store.getState().revealAnswer(identity);
     expect(reveal).toEqual({
-      answerKey: { kind: "single-select", correctOptionId: "option-b", feedbackByOptionId: {} },
+      answerKey: { kind: "single-select", correctOptionId: "option_00002", feedbackByOptionId: {} },
     });
     expect(store.getState().transient.revealedAnswers[problemId]).toEqual(reveal);
     expect(store.getState().durable.problems[problemId]).not.toHaveProperty("revealedAnswer");
@@ -2744,11 +2779,13 @@ describe("createAssessmentStore", () => {
     });
     const wrongIdentity = registrationIdentity({ interactionKind: "multi-select" });
 
-    expect(store.getState().setLocalResponse(registrationIdentity(), { choice: "option-a" })).toBe(
+    expect(
+      store.getState().setLocalResponse(registrationIdentity(), { choice: "option_00001" }),
+    ).toBe(false);
+    store.getState().register(createRegistration());
+    expect(store.getState().setLocalResponse(wrongIdentity, { choice: "option_00001" })).toBe(
       false,
     );
-    store.getState().register(createRegistration());
-    expect(store.getState().setLocalResponse(wrongIdentity, { choice: "option-a" })).toBe(false);
     await expect(store.getState().check(wrongIdentity)).resolves.toBeNull();
     await expect(store.getState().submit(wrongIdentity)).resolves.toBeNull();
     expect(store.getState().reset(wrongIdentity)).toBe(false);
@@ -2765,15 +2802,19 @@ describe("createAssessmentStore", () => {
     const registration = createRegistration({
       response: {
         ...createRegistration().response,
-        toContractResponse: () => ({ kind: "multi-select", optionIds: ["option-a"] }),
+        toContractResponse: () =>
+          AssessmentResponseValueSchema.parse({
+            kind: "multi-select",
+            optionIds: ["option_00001"],
+          }),
       },
     });
 
     store.getState().register(registration);
 
-    expect(store.getState().setLocalResponse(registrationIdentity(), { choice: "option-a" })).toBe(
-      false,
-    );
+    expect(
+      store.getState().setLocalResponse(registrationIdentity(), { choice: "option_00001" }),
+    ).toBe(false);
     expect(store.getState().durable.problems).toEqual({});
   });
 
@@ -2784,21 +2825,21 @@ describe("createAssessmentStore", () => {
       assessmentPort: createAssessmentPort({ check: () => pending.promise }),
     });
     const identity = registrationIdentity();
-    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "block_000001");
 
     store.getState().register(createRegistration());
-    store.getState().setLocalResponse(identity, { choice: "option-a" });
+    store.getState().setLocalResponse(identity, { choice: "option_00001" });
     const checkPromise = store.getState().check(identity);
     expect(store.getState().requests[problemId]?.status).toBe("pending");
 
-    store.getState().setLocalResponse(identity, { choice: "option-b" });
+    store.getState().setLocalResponse(identity, { choice: "option_00002" });
     pending.resolve({
       problem: { ...createProblemSnapshot(), attemptNumber: 1, checkResult: assessmentResult() },
     });
 
     await expect(checkPromise).resolves.toBeNull();
     expect(store.getState().durable.problems[problemId]).toMatchObject({
-      response: { kind: "single-select", optionId: "option-b" },
+      response: { kind: "single-select", optionId: "option_00002" },
       attemptNumber: 0,
       checkResult: null,
     });
@@ -2816,10 +2857,10 @@ describe("createAssessmentStore", () => {
       getLearningEventSession: () => sessionDouble.session,
     });
     const identity = registrationIdentity();
-    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "block_000001");
 
     store.getState().register(createRegistration());
-    store.getState().setLocalResponse(identity, { choice: "option-a" });
+    store.getState().setLocalResponse(identity, { choice: "option_00001" });
     const olderPromise = store.getState().submit(identity);
     const newerPromise = store.getState().submit(identity);
 
@@ -2852,14 +2893,14 @@ describe("createAssessmentStore", () => {
   });
 
   it("records predictable transient errors when the port or an optional capability is absent", async () => {
-    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "block_000001");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     const withoutPort = createAssessmentStore({
       artifactId: "artifact-one",
       assessmentPort: null,
     });
     withoutPort.getState().register(createRegistration());
-    withoutPort.getState().setLocalResponse(registrationIdentity(), { choice: "option-a" });
+    withoutPort.getState().setLocalResponse(registrationIdentity(), { choice: "option_00001" });
 
     await expect(withoutPort.getState().submit(registrationIdentity())).resolves.toBeNull();
     expect(withoutPort.getState().requests[problemId]).toMatchObject({
@@ -2881,7 +2922,7 @@ describe("createAssessmentStore", () => {
 
     withoutPort.getState().registerQuiz(createQuizRegistration());
     await expect(
-      withoutPort.getState().startQuizAttempt({ groupId: "quiz-one" }),
+      withoutPort.getState().startQuizAttempt({ groupId: "quiz__000001" }),
     ).resolves.toBeNull();
     expect(withoutPort.getState().requests[groupId]).toMatchObject({
       operation: "quiz-start",
@@ -2894,10 +2935,10 @@ describe("createAssessmentStore", () => {
       assessmentPort: createAssessmentPort(),
     });
     withoutCheck.getState().register(createRegistration());
-    withoutCheck.getState().setLocalResponse(registrationIdentity(), { choice: "option-a" });
+    withoutCheck.getState().setLocalResponse(registrationIdentity(), { choice: "option_00001" });
     await expect(withoutCheck.getState().check(registrationIdentity())).resolves.toBeNull();
     expect(
-      withoutCheck.getState().requests[scopeAssessmentProblemId("artifact-two", "block-one")],
+      withoutCheck.getState().requests[scopeAssessmentProblemId("artifact-two", "block_000001")],
     ).toMatchObject({ status: "error", error: "Assessment check is unavailable" });
   });
 
@@ -2917,22 +2958,22 @@ describe("createAssessmentStore", () => {
   });
 
   it("builds artifact-scoped problem and group identities", () => {
-    expect(scopeAssessmentProblemId("artifact-one", "block-one")).toBe(
-      "artifact:artifact-one/block:block-one",
+    expect(scopeAssessmentProblemId("artifact-one", "block_000001")).toBe(
+      "artifact:artifact-one/block:block_000001",
     );
-    expect(scopeAssessmentGroupId("artifact-one", "quiz-one")).toBe(
-      "artifact:artifact-one/group:quiz-one",
+    expect(scopeAssessmentGroupId("artifact-one", "quiz__000001")).toBe(
+      "artifact:artifact-one/group:quiz__000001",
     );
-    expect(scopeAssessmentProblemId("artifact-two", "block-one")).not.toBe(
-      scopeAssessmentProblemId("artifact-one", "block-one"),
+    expect(scopeAssessmentProblemId("artifact-two", "block_000001")).not.toBe(
+      scopeAssessmentProblemId("artifact-one", "block_000001"),
     );
-    expect(scopeAssessmentGroupId("artifact-two", "quiz-one")).not.toBe(
-      scopeAssessmentGroupId("artifact-one", "quiz-one"),
+    expect(scopeAssessmentGroupId("artifact-two", "quiz__000001")).not.toBe(
+      scopeAssessmentGroupId("artifact-one", "quiz__000001"),
     );
   });
 
   it("rejects blank identity components", () => {
-    expect(() => scopeAssessmentProblemId(" ", "block-one")).toThrow(/artifactId/);
+    expect(() => scopeAssessmentProblemId(" ", "block_000001")).toThrow(/artifactId/);
     expect(() => scopeAssessmentProblemId("artifact-one", " ")).toThrow(/authoredBlockId/);
     expect(() => scopeAssessmentGroupId("artifact-one", " ")).toThrow(/groupId/);
     expect(() =>
@@ -2949,8 +2990,8 @@ describe("createAssessmentStore", () => {
       artifactId: "artifact-two",
       assessmentPort: createAssessmentPort(),
     });
-    const firstProblemId = scopeAssessmentProblemId("artifact-one", "block-one");
-    const firstGroupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const firstProblemId = scopeAssessmentProblemId("artifact-one", "block_000001");
+    const firstGroupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     const firstRequest: AssessmentRequestState = {
       ownerId: firstProblemId,
       requestId: "request-one",
@@ -2958,7 +2999,7 @@ describe("createAssessmentStore", () => {
       status: "pending",
       error: null,
     };
-    const secondProblemId = scopeAssessmentProblemId("artifact-two", "block-one");
+    const secondProblemId = scopeAssessmentProblemId("artifact-two", "block_000001");
     const secondRequest: AssessmentRequestState = {
       ownerId: secondProblemId,
       requestId: "request-one",
@@ -2970,7 +3011,7 @@ describe("createAssessmentStore", () => {
     first.setState({
       durable: {
         problems: { [firstProblemId]: createProblemSnapshot() },
-        quizzes: { [firstGroupId]: createQuizAttempt("quiz-one") },
+        quizzes: { [firstGroupId]: createQuizAttempt(firstGroupId) },
       },
       requests: { [firstProblemId]: firstRequest },
     });
@@ -2983,7 +3024,7 @@ describe("createAssessmentStore", () => {
     expect(second.getState().requests[secondProblemId]).toEqual(secondRequest);
     expect(second.getState().requests[firstProblemId]).toBeUndefined();
     expect(secondProblemId).not.toBe(firstProblemId);
-    expect(scopeAssessmentGroupId("artifact-two", "quiz-one")).not.toBe(firstGroupId);
+    expect(scopeAssessmentGroupId("artifact-two", "quiz__000001")).not.toBe(firstGroupId);
   });
 
   it("replaces a matching registration without changing durable state", () => {
@@ -2991,7 +3032,7 @@ describe("createAssessmentStore", () => {
       artifactId: "artifact-one",
       assessmentPort: createAssessmentPort(),
     });
-    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "block_000001");
     const original = createRegistration();
     const replacement = createRegistration({
       config: {
@@ -3019,8 +3060,8 @@ describe("createAssessmentStore", () => {
       artifactId: "artifact-one",
       assessmentPort: createAssessmentPort(),
     });
-    const canonicalProblemId = scopeAssessmentProblemId("artifact-one", "target-one");
-    const runtimeProblemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const canonicalProblemId = scopeAssessmentProblemId("artifact-one", "target_00001");
+    const runtimeProblemId = scopeAssessmentProblemId("artifact-one", "block_000001");
     const hydrated = createProblemSnapshot();
     store.setState({
       durable: { problems: { [canonicalProblemId]: hydrated }, quizzes: {} },
@@ -3034,7 +3075,7 @@ describe("createAssessmentStore", () => {
 
     expect(store.getState().unregister(registrationIdentity())).toBe(true);
     expect(store.getState().durable.problems[runtimeProblemId]).toEqual(hydrated);
-    expect(store.getState().targetBindings[runtimeProblemId]).toBe("target-one");
+    expect(store.getState().targetBindings[runtimeProblemId]).toBe("target_00001");
     expect(store.getState().transient.responseReady).toEqual({});
   });
 
@@ -3043,7 +3084,7 @@ describe("createAssessmentStore", () => {
       artifactId: "artifact-one",
       assessmentPort: createAssessmentPort(),
     });
-    const canonicalProblemId = scopeAssessmentProblemId("artifact-one", "target-one");
+    const canonicalProblemId = scopeAssessmentProblemId("artifact-one", "target_00001");
     store.setState({
       durable: { problems: { [canonicalProblemId]: createProblemSnapshot() }, quizzes: {} },
     });
@@ -3063,7 +3104,7 @@ describe("createAssessmentStore", () => {
       artifactId: "artifact-one",
       assessmentPort: createAssessmentPort(),
     });
-    const canonicalProblemId = scopeAssessmentProblemId("artifact-one", "target-one");
+    const canonicalProblemId = scopeAssessmentProblemId("artifact-one", "target_00001");
     store.setState({
       durable: { problems: { [canonicalProblemId]: createProblemSnapshot() }, quizzes: {} },
     });
@@ -3090,7 +3131,7 @@ describe("createAssessmentStore", () => {
       artifactId: "artifact-one",
       assessmentPort: createAssessmentPort(),
     });
-    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "block_000001");
     const original = createRegistration();
     const update = createRegistration({
       config: {
@@ -3113,14 +3154,14 @@ describe("createAssessmentStore", () => {
 
     store.getState().register(createRegistration());
 
-    expect(() => store.getState().register(createRegistration({ targetId: "target-two" }))).toThrow(
-      /targetId/,
-    );
+    expect(() =>
+      store.getState().register(createRegistration({ targetId: "target_00002" })),
+    ).toThrow(/targetId/);
     expect(() =>
       store.getState().update(createRegistration({ interactionKind: "multi-select" })),
     ).toThrow(/interactionKind/);
     expect(() =>
-      store.getState().unregister(registrationIdentity({ targetId: "target-two" })),
+      store.getState().unregister(registrationIdentity({ targetId: "target_00002" })),
     ).toThrow(/targetId/);
   });
 
@@ -3129,7 +3170,7 @@ describe("createAssessmentStore", () => {
       artifactId: "artifact-one",
       assessmentPort: createAssessmentPort(),
     });
-    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "block_000001");
 
     expect(store.getState().unregister(registrationIdentity())).toBe(false);
     store.getState().register(createRegistration());
@@ -3143,7 +3184,7 @@ describe("createAssessmentStore", () => {
     expect(store.getState().unregister(registrationIdentity())).toBe(true);
     expect(store.getState().registrations).toEqual({});
     expect(store.getState().durable.problems[problemId]).toEqual(createProblemSnapshot());
-    expect(store.getState().targetBindings[problemId]).toBe("target-one");
+    expect(store.getState().targetBindings[problemId]).toBe("target_00001");
   });
 
   it("keeps matching local registrations isolated between artifacts", () => {
@@ -3159,8 +3200,8 @@ describe("createAssessmentStore", () => {
     const secondRegistration = createRegistration({
       config: { ...firstRegistration.config, hintsTotal: 7 },
     });
-    const firstProblemId = scopeAssessmentProblemId("artifact-one", "block-one");
-    const secondProblemId = scopeAssessmentProblemId("artifact-two", "block-one");
+    const firstProblemId = scopeAssessmentProblemId("artifact-one", "block_000001");
+    const secondProblemId = scopeAssessmentProblemId("artifact-two", "block_000001");
 
     first.getState().register(firstRegistration);
     second.getState().register(secondRegistration);
@@ -3176,10 +3217,10 @@ describe("createAssessmentStore", () => {
       artifactId: "artifact-one",
       assessmentPort: createAssessmentPort(),
     });
-    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
-    const groupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "block_000001");
+    const groupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
     const problem = createProblemSnapshot();
-    const quiz = createQuizAttempt("quiz-one");
+    const quiz = createQuizAttempt(groupId);
 
     store.getState().register(createRegistration());
     store.setState({
@@ -3220,17 +3261,17 @@ describe("createAssessmentStore", () => {
       artifactId: "artifact-two",
       assessmentPort: createAssessmentPort(),
     });
-    const firstProblemId = scopeAssessmentProblemId("artifact-one", "block-one");
-    const secondProblemId = scopeAssessmentProblemId("artifact-two", "block-one");
-    const firstGroupId = scopeAssessmentGroupId("artifact-one", "quiz-one");
-    const secondGroupId = scopeAssessmentGroupId("artifact-two", "quiz-one");
+    const firstProblemId = scopeAssessmentProblemId("artifact-one", "block_000001");
+    const secondProblemId = scopeAssessmentProblemId("artifact-two", "block_000001");
+    const firstGroupId = scopeAssessmentGroupId("artifact-one", "quiz__000001");
+    const secondGroupId = scopeAssessmentGroupId("artifact-two", "quiz__000001");
 
     first.getState().register(createRegistration());
     second.getState().register(createRegistration());
     first.setState({
       durable: {
         problems: { [firstProblemId]: createProblemSnapshot() },
-        quizzes: { [firstGroupId]: createQuizAttempt("quiz-one") },
+        quizzes: { [firstGroupId]: createQuizAttempt(firstGroupId) },
       },
       requests: {
         [firstProblemId]: {
@@ -3245,10 +3286,10 @@ describe("createAssessmentStore", () => {
     second.setState({
       durable: {
         problems: { [secondProblemId]: createProblemSnapshot() },
-        quizzes: { [secondGroupId]: createQuizAttempt("quiz-one") },
+        quizzes: { [secondGroupId]: createQuizAttempt(secondGroupId) },
       },
     });
-    expect(first.getState().register(createRegistration({ authoredBlockId: "block-two" }))).toBe(
+    expect(first.getState().register(createRegistration({ authoredBlockId: "block_000002" }))).toBe(
       true,
     );
     expect(Object.keys(first.getState()).sort()).toEqual([
@@ -3278,9 +3319,11 @@ describe("createAssessmentStore", () => {
       "updateQuiz",
     ]);
     expect(first.getState().durable.problems[firstProblemId]).toEqual(createProblemSnapshot());
-    expect(first.getState().durable.quizzes[firstGroupId]).toEqual(createQuizAttempt("quiz-one"));
+    expect(first.getState().durable.quizzes[firstGroupId]).toEqual(createQuizAttempt(firstGroupId));
     expect(second.getState().durable.problems[secondProblemId]).toEqual(createProblemSnapshot());
-    expect(second.getState().durable.quizzes[secondGroupId]).toEqual(createQuizAttempt("quiz-one"));
+    expect(second.getState().durable.quizzes[secondGroupId]).toEqual(
+      createQuizAttempt(secondGroupId),
+    );
     expect(second.getState().registrations[secondProblemId]).toBeDefined();
   });
 });

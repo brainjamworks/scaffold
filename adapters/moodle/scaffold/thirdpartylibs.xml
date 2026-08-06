@@ -3,33 +3,49 @@
 <libraries>
   <library>
     <location>public/assets</location>
-    <name>@dnd-kit/accessibility</name>
-    <description>A generic toolkit to help with accessibility</description>
-    <version>3.1.1</version>
+    <name>@dnd-kit/abstract</name>
+    <description>@dnd-kit/abstract frontend dependency.</description>
+    <version>0.5.0</version>
     <license>MIT</license>
     <repository>https://github.com/clauderic/dnd-kit</repository>
   </library>
   <library>
     <location>public/assets</location>
-    <name>@dnd-kit/core</name>
-    <description>dnd kit – a lightweight React library for building performant and accessible drag and drop experiences</description>
-    <version>6.3.1</version>
+    <name>@dnd-kit/collision</name>
+    <description>@dnd-kit/collision frontend dependency.</description>
+    <version>0.5.0</version>
     <license>MIT</license>
     <repository>https://github.com/clauderic/dnd-kit</repository>
   </library>
   <library>
     <location>public/assets</location>
-    <name>@dnd-kit/sortable</name>
-    <description>Official sortable preset and sensors for dnd kit</description>
-    <version>10.0.0</version>
+    <name>@dnd-kit/dom</name>
+    <description>@dnd-kit/dom frontend dependency.</description>
+    <version>0.5.0</version>
     <license>MIT</license>
     <repository>https://github.com/clauderic/dnd-kit</repository>
   </library>
   <library>
     <location>public/assets</location>
-    <name>@dnd-kit/utilities</name>
-    <description>Internal utilities to bee shared between `@dnd-kit` packages</description>
-    <version>3.2.2</version>
+    <name>@dnd-kit/geometry</name>
+    <description>@dnd-kit/geometry frontend dependency.</description>
+    <version>0.5.0</version>
+    <license>MIT</license>
+    <repository>https://github.com/clauderic/dnd-kit</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
+    <name>@dnd-kit/react</name>
+    <description>@dnd-kit/react frontend dependency.</description>
+    <version>0.5.0</version>
+    <license>MIT</license>
+    <repository>https://github.com/clauderic/dnd-kit</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
+    <name>@dnd-kit/state</name>
+    <description>@dnd-kit/state frontend dependency.</description>
+    <version>0.5.0</version>
     <license>MIT</license>
     <repository>https://github.com/clauderic/dnd-kit</repository>
   </library>
@@ -128,6 +144,14 @@
     <version>2.1.10</version>
     <license>MIT</license>
     <repository>https://github.com/phosphor-icons/react</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
+    <name>@preact/signals-core</name>
+    <description>Manage state with style in every framework</description>
+    <version>1.14.4</version>
+    <license>MIT</license>
+    <repository>https://github.com/preactjs/signals</repository>
   </library>
   <library>
     <location>public/assets</location>

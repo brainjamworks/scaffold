@@ -2,7 +2,6 @@ import { Node, mergeAttributes, type NodeViewRenderer } from "@tiptap/core";
 import { KeyValueListDataSchema, type KeyValueListData } from "@scaffold/contracts";
 
 import { COURSE_BLOCK_CONTENT } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 
 import { KEY_VALUE_LIST_NODE, KEY_VALUE_ROW_NODE, emptyKeyValueListData } from "./content";
 
@@ -21,7 +20,6 @@ export function createKeyValueListNode(options: KeyValueListNodeOptions = {}) {
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         data: {
           default: emptyKeyValueListData(),
           parseHTML: (el: HTMLElement) => {

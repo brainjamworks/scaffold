@@ -42,9 +42,10 @@ export function createCourseDocumentAuthoringExtensions({
   composition: ScaffoldAuthoringComposition;
 }): Extensions {
   const blockRegistry = composition.capabilities.blocks.registry;
+  const layoutRegistry = composition.capabilities.layouts.registry;
   const surfaceRegistry = composition.capabilities.surfaces.registry;
   const { layoutNode, sectionNode } = createLayoutAuthoringNodes({
-    registry: composition.capabilities.layouts.registry,
+    registry: layoutRegistry,
     authoringViews: composition.layouts.views,
     blockDefinitions: blockRegistry,
   });
@@ -62,7 +63,6 @@ export function createCourseDocumentAuthoringExtensions({
       assessmentHintNode: AssessmentHintNode,
       assessmentHintsGroupNode: AssessmentHintsGroupNode,
       assessmentSummaryFeedbackNode: AssessmentSummaryFeedbackNode,
-      blockStableIdNodeTypes: blockRegistry.stableIdNodeTypes,
       cellNode: CellAuthoringNode,
       gridNode: GridAuthoringNode,
       inlineIconNode: InlineIconAuthoringNode,
@@ -79,7 +79,7 @@ export function createCourseDocumentAuthoringExtensions({
     AuthoringSlideDividers,
     createSurfaceRootSelectionPolicy({ surfaceVariants: surfaceRegistry }),
     createSurfaceLifecycleAuthoringPolicy({ registry: surfaceRegistry }),
-    createBoundedContainerStructurePolicy(blockRegistry, composition.capabilities.layouts.registry),
+    createBoundedContainerStructurePolicy(blockRegistry, layoutRegistry),
     createScaffoldInteractionOwnerExtension(blockRegistry),
     StableIdPasteNormalization,
     Placeholder.configure({
@@ -98,6 +98,7 @@ export function createCourseDocumentAuthoringExtensions({
     createSlashCommand({
       blockDefinitions: blockRegistry,
       items: composition.catalogues.inDocument.actions,
+      layoutDefinitions: layoutRegistry,
       surfaceVariants: surfaceRegistry,
     }),
     ...composition.blocks.extensions,

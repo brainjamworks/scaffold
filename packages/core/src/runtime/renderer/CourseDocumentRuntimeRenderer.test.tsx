@@ -142,7 +142,7 @@ function tabsDocumentContent(): JSONContent {
 }
 
 function surfaceById(surfaceId: string): HTMLElement {
-  const surface = document.body.querySelector(`[data-surface-id="${surfaceId}"]`);
+  const surface = document.body.querySelector(`[data-node="surface"][data-id="${surfaceId}"]`);
 
   if (!(surface instanceof HTMLElement)) {
     throw new Error(`surface ${surfaceId} was not rendered`);

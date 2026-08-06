@@ -52,9 +52,6 @@ vi.mock("@/editor/blocks/built-in-block-definitions", async (importOriginal) => 
       getByNodeType(nodeType: string) {
         return activeRegistry().getByNodeType(nodeType);
       },
-      get stableIdNodeTypes() {
-        return activeRegistry().stableIdNodeTypes;
-      },
       get assessmentNodeTypes() {
         return activeRegistry().assessmentNodeTypes;
       },
@@ -930,10 +927,13 @@ describe("authoring publication document projection", () => {
 
     const matchingPairs = descendantsOfType(learner.document, "matching_pair");
     const learnerPairs = matchingPairs.map((pair) => attrsOf(pair));
-    expect(learnerPairs).toEqual([
-      { itemId: "left-1", targetId: "right-2" },
-      { itemId: "left-2", targetId: "right-1" },
-    ]);
+    expect(learnerPairs).toEqual([{ id: "pair-left-1" }, { id: "pair-left-2" }]);
+    expect(
+      descendantsOfType(learner.document, "matching_item").map((item) => attrsOf(item)["id"]),
+    ).toEqual(["left-1", "left-2"]);
+    expect(
+      descendantsOfType(learner.document, "matching_target").map((target) => attrsOf(target)["id"]),
+    ).toEqual(["right-2", "right-1"]);
     expect(descendantsOfType(learner.document, "matching_feedback")).toHaveLength(0);
 
     expect(targets.find((entry) => entry.blockId === "seq-1")).toMatchObject({
@@ -1210,10 +1210,6 @@ function matchingBlock(): JSONContent {
     attrs: {
       id: "matching-1",
       assessment: {
-        correctPairs: [
-          { itemId: "left-1", targetId: "right-1" },
-          { itemId: "left-2", targetId: "right-2" },
-        ],
         feedbackByItemId: {
           "left-1": richFeedback("Correct pair 1"),
           "left-2": richFeedback("Correct pair 2"),
@@ -1237,18 +1233,18 @@ function matchingBlock(): JSONContent {
         content: [
           {
             type: "matching_pair",
-            attrs: { itemId: "left-1", targetId: "right-1" },
+            attrs: { id: "pair-left-1" },
             content: [
-              fieldWithText("matching_item", "France"),
-              fieldWithText("matching_target", "Paris"),
+              { ...fieldWithText("matching_item", "France"), attrs: { id: "left-1" } },
+              { ...fieldWithText("matching_target", "Paris"), attrs: { id: "right-1" } },
             ],
           },
           {
             type: "matching_pair",
-            attrs: { itemId: "left-2", targetId: "right-2" },
+            attrs: { id: "pair-left-2" },
             content: [
-              fieldWithText("matching_item", "Spain"),
-              fieldWithText("matching_target", "Madrid"),
+              { ...fieldWithText("matching_item", "Spain"), attrs: { id: "left-2" } },
+              { ...fieldWithText("matching_target", "Madrid"), attrs: { id: "right-2" } },
             ],
           },
         ],

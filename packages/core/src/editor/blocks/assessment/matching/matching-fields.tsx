@@ -26,7 +26,7 @@ import { Placeholder } from "@/editor/prosemirror/placeholder/Placeholder";
 import { createFieldContentEditorExtensions } from "@/editor/rich-text/authoring/field-content-extensions";
 import { EditableOverlayPopover } from "@/editor/rich-text/authoring/nested-overlay/EditableOverlayPopoverShell";
 import { currentNodeViewPos, safeGetPos } from "@/editor/prosemirror/position/node-view-position";
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { cn } from "@/lib/cn";
 import {
   isScaffoldRichTextDocumentEmpty,
@@ -91,8 +91,8 @@ export const MatchingPairNode = createMatchingPairNode({
 
 function MatchingPairNodeView(props: NodeViewProps) {
   const pos = safeGetPos(props.getPos);
-  const itemId = String(props.node.attrs["itemId"] ?? "");
-  const targetId = String(props.node.attrs["targetId"] ?? "");
+  const itemId = String(props.node.firstChild?.attrs["id"] ?? "");
+  const targetId = String(props.node.lastChild?.attrs["id"] ?? "");
   const popoverId = useId();
   const richTextPluginKey = useMemo(
     () => `matching-item-feedback-rich-text-${popoverId.replace(/[^A-Za-z0-9_-]/g, "")}`,
@@ -273,42 +273,21 @@ export const MatchingPairsGroupNode = createMatchingPairsGroupNode({
 });
 
 function MatchingPairsGroupNodeView(props: NodeViewProps) {
-  const correctPairs = useMemo(() => {
-    const pairs: Array<{ itemId: string; targetId: string }> = [];
-    props.node.forEach((pair) => {
-      if (pair.type.name !== "matching_pair") return;
-      const itemId = String(pair.attrs["itemId"] ?? "");
-      const targetId = String(pair.attrs["targetId"] ?? "");
-      if (itemId && targetId) pairs.push({ itemId, targetId });
-    });
-    return pairs;
-  }, [props.node]);
-
   const addPair = () => {
     const currentPos = currentNodeViewPos(props.editor, props.getPos, "matching_pairs_group");
     if (currentPos === null) return;
     const currentNode = props.editor.state.doc.nodeAt(currentPos);
     if (!currentNode) return;
-    const targetId = createStableId();
     props.editor
       .chain()
       .focus()
       .insertContentAt(currentPos + currentNode.nodeSize - 1, {
         type: "matching_pair",
-        attrs: {
-          itemId: createStableId(),
-          targetId,
-        },
+        attrs: { id: createEmbeddedNodeId() },
         content: matchingPairContent(),
       })
       .run();
   };
-
-  useEffect(() => {
-    const currentPos = currentNodeViewPos(props.editor, props.getPos, "matching_pairs_group");
-    if (currentPos === null) return;
-    syncMatchingCorrectPairs(props.editor, currentPos, correctPairs);
-  }, [correctPairs, props.editor, props.getPos]);
 
   return (
     <NodeViewWrapper
@@ -368,26 +347,5 @@ function setMatchingPairFeedback(
   setAssessmentAttr(editor, parent, {
     ...assessment,
     feedbackByItemId: nextAssessmentFeedbackRecord(assessment.feedbackByItemId, itemId, feedback),
-  });
-}
-
-function syncMatchingCorrectPairs(
-  editor: NodeViewProps["editor"],
-  groupPos: number,
-  correctPairs: Array<{ itemId: string; targetId: string }>,
-) {
-  const parent = resolveAssessmentAttrParent(editor, groupPos, ["matching"]);
-  if (!parent) return;
-  const assessment = MatchingPrivateAssessmentSchema.parse(parent.node.attrs["assessment"] ?? {});
-  const same =
-    assessment.correctPairs.length === correctPairs.length &&
-    correctPairs.every((pair, index) => {
-      const existing = assessment.correctPairs[index];
-      return existing?.itemId === pair.itemId && existing.targetId === pair.targetId;
-    });
-  if (same) return;
-  setAssessmentAttr(editor, parent, {
-    ...assessment,
-    correctPairs,
   });
 }

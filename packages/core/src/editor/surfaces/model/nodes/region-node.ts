@@ -2,7 +2,6 @@ import { mergeAttributes, Node, type NodeViewRenderer } from "@tiptap/core";
 
 import { ARRANGEMENT_CONTENT } from "@/document/model/content-model/content-groups";
 import { isFieldContentEmpty } from "@/document/model/content-model/is-field-content-empty";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 import {
   VerticalContentPositionSchema,
   type VerticalContentPosition,
@@ -31,7 +30,6 @@ export function createRegionNode(options: RegionNodeOptions = {}) {
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         role: {
           default: DEFAULT_REGION_ROLE,
           parseHTML: (element: HTMLElement) =>

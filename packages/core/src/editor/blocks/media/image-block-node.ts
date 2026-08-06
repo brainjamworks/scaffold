@@ -1,7 +1,6 @@
 import { Node, mergeAttributes, type NodeViewRenderer } from "@tiptap/core";
 
 import { COURSE_BLOCK_CONTENT } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 import { ImageBlockAttrsSchema, type ImageBlockAttrs } from "@scaffold/contracts";
 
 export interface ImageBlockNodeOptions {
@@ -18,7 +17,6 @@ export function createImageBlockNode(options: ImageBlockNodeOptions = {}) {
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         data: {
           default: null as ImageBlockAttrs | null,
           parseHTML: (el: HTMLElement) => {

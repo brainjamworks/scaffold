@@ -61,7 +61,6 @@ export function surfaceRuntimeRendererAttrs({
   HTMLAttributes: Record<string, unknown>;
   variant: string;
 }): Record<string, string> {
-  const surfaceId = readStringAttr(attrs["id"]);
   const baseAttrs = stringAttrs(HTMLAttributes);
   const background = readSurfaceBackground(attrs["settings"]);
   const verticalPosition = readSurfaceVerticalPosition(attrs["settings"], definition);
@@ -75,7 +74,6 @@ export function surfaceRuntimeRendererAttrs({
     ...(verticalPosition ? { "data-vertical-content-position": verticalPosition } : {}),
     ...surfaceRegionDataAttrs(attrs["settings"]),
     ...surfaceBackgroundDataAttrs(background),
-    ...(surfaceId ? { "data-surface-id": surfaceId } : {}),
     ...(backgroundStyle
       ? {
           style: [baseAttrs["style"], backgroundStyle].filter(Boolean).join("; "),
@@ -92,8 +90,4 @@ function stringAttrs(attrs: Record<string, unknown>): Record<string, string> {
     result[key] = String(value);
   }
   return result;
-}
-
-function readStringAttr(value: unknown): string | undefined {
-  return typeof value === "string" && value.length > 0 ? value : undefined;
 }

@@ -2,7 +2,6 @@ import { TimelineDataSchema, type TimelineData } from "@scaffold/contracts";
 import { Node, mergeAttributes, type NodeViewRenderer } from "@tiptap/core";
 
 import { COURSE_BLOCK_CONTENT } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 
 import { TIMELINE_ITEM_NODE, TIMELINE_NODE, emptyTimelineData } from "./content";
 
@@ -21,7 +20,6 @@ export function createTimelineNode(options: TimelineNodeOptions = {}) {
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         data: {
           default: emptyTimelineData(),
           parseHTML: (el: HTMLElement) => {

@@ -48,18 +48,14 @@ export function StructureMovementHandle({
 
   return (
     <InteractionDragActivationArea
-      {...drag.activatorProps}
-      {...drag.sourceProps}
-      ref={(node) => {
-        drag.setNodeRef(node);
-        drag.setActivatorNodeRef(node);
-      }}
+      ref={drag.sourceRef}
       aria-label={`Move ${label}`}
       contentEditable={false}
       {...authoringChromeAttributes(AuthoringChromeKind.Handle)}
       {...{ [AUTHORING_MOVE_HANDLE_ATTR]: "" }}
       {...{ [AUTHORING_MOVE_POS_ATTR]: sourcePos ?? undefined }}
       data-no-select=""
+      data-interaction-drag-placeholder={drag.isPlaceholder ? "" : undefined}
       disabled={disabled}
       onMouseDown={(event) => event.preventDefault()}
       safeLocalHeight={44}

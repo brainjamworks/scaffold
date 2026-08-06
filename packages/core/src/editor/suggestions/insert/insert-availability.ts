@@ -3,41 +3,42 @@ import type { Editor } from "@tiptap/core";
 import type { BlockDefinition } from "@/editor/blocks/block-definition";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 import type { QuickMenuDefinition } from "@/editor/configuration/quick-menu";
-import type { InsertAction } from "@/editor/insertion/insert-action";
+import type {
+  InsertAction,
+  InsertActionIntent,
+  InsertActionRange,
+} from "@/editor/insertion/insert-action";
+import {
+  resolveInsertActionPlacement,
+  type InsertActionPlacementDependencies,
+} from "@/editor/insertion/insertion-placement";
 import { resolveCourseSelectionProjection } from "@/editor/selection/course-selection-projection";
 import { CourseSelectionMode } from "@/editor/selection/selection-facts";
 
-function insertionParentDepth(editor: Editor): number {
-  const { $from } = editor.state.selection;
-
-  if ($from.parent.isTextblock && $from.depth > 0) {
-    return $from.depth - 1;
-  }
-
-  return $from.depth;
-}
-
-export function canInsertCatalogItem(editor: Editor, item: InsertAction): boolean {
-  const nodeType = editor.schema.nodes[item.nodeType];
-  if (!nodeType) return false;
-
-  const { $from } = editor.state.selection;
-  const depth = insertionParentDepth(editor);
-  const parent = $from.node(depth);
-  const index = $from.index(depth);
-
-  try {
-    return Boolean(parent.contentMatchAt(index).matchType(nodeType));
-  } catch {
-    return false;
-  }
+export function canInsertCatalogItem(
+  editor: Editor,
+  item: InsertAction,
+  dependencies: InsertActionPlacementDependencies,
+  range?: InsertActionRange,
+  intent: InsertActionIntent = "ordinary",
+): boolean {
+  return resolveInsertActionPlacement({
+    editor,
+    intent,
+    item,
+    ...dependencies,
+    ...(range ? { range } : {}),
+  }).ok;
 }
 
 export function getInsertableCatalogItems(
   editor: Editor,
   items: readonly InsertAction[],
+  dependencies: InsertActionPlacementDependencies,
+  range?: InsertActionRange,
+  intent: InsertActionIntent = "ordinary",
 ): readonly InsertAction[] {
-  return items.filter((item) => canInsertCatalogItem(editor, item));
+  return items.filter((item) => canInsertCatalogItem(editor, item, dependencies, range, intent));
 }
 
 export function getSelectedBlockDefinition(

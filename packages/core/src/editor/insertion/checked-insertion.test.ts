@@ -1,13 +1,15 @@
 // @vitest-environment happy-dom
 
 import type { Icon } from "@phosphor-icons/react";
-import { Editor, Node, type JSONContent } from "@tiptap/core";
+import { Editor, Extension, Node, type JSONContent } from "@tiptap/core";
+import { Plugin } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
-import { afterEach, describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
@@ -30,6 +32,16 @@ const TestManualBlock = Node.create({
   group: "block",
   renderHTML() {
     return ["div", { "data-test-manual-catalog-block": "" }];
+  },
+});
+const RejectDocumentChanges = Extension.create({
+  name: "rejectDocumentChanges",
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        filterTransaction: (transaction) => !transaction.docChanged,
+      }),
+    ];
   },
 });
 const nestedCellInsertCatalog = createInsertCatalog([
@@ -183,10 +195,17 @@ describe("insertCatalogItemChecked", () => {
     const from = findTextPosition(editor, "/aligned");
 
     expect(
-      insertCatalogItemChecked(editor, item, testBlockRegistry, testSurfaceVariants, {
-        from,
-        to: from + "/aligned".length,
-      }),
+      insertCatalogItemChecked(
+        editor,
+        item,
+        testBlockRegistry,
+        builtInLayoutRegistry,
+        testSurfaceVariants,
+        {
+          from,
+          to: from + "/aligned".length,
+        },
+      ),
     ).toBe(true);
 
     const inserted = editor.state.doc.nodeAt(0);
@@ -228,6 +247,7 @@ describe("insertCatalogItemChecked", () => {
       editor,
       item,
       testBlockRegistry,
+      builtInLayoutRegistry,
       testSurfaceVariants,
       {
         from,
@@ -256,6 +276,7 @@ describe("insertCatalogItemChecked", () => {
         content: () => ({ type: "paragraph" }),
       },
       testBlockRegistry,
+      builtInLayoutRegistry,
       testSurfaceVariants,
       { from: 9, to: 1 },
     );
@@ -289,6 +310,7 @@ describe("insertCatalogItemChecked", () => {
         content: () => ({ type: "test_manual_catalog_block" }),
       },
       testBlockRegistry,
+      builtInLayoutRegistry,
       testSurfaceVariants,
       { from, to: from + "/block".length },
     );
@@ -328,6 +350,7 @@ describe("insertCatalogItemChecked", () => {
         content: () => ({ type: "test_manual_catalog_block" }),
       },
       testBlockRegistry,
+      builtInLayoutRegistry,
       testSurfaceVariants,
       { from, to: from + "/block".length },
     );
@@ -363,6 +386,7 @@ describe("insertCatalogItemChecked", () => {
       editor,
       nestedCellAction,
       testBlockRegistry,
+      builtInLayoutRegistry,
       testSurfaceVariants,
       {
         from,
@@ -372,6 +396,110 @@ describe("insertCatalogItemChecked", () => {
 
     expect(inserted).toBe(true);
     expect(nodeTypesInJson(editor.getJSON())).toContain("test_manual_catalog_block");
+  });
+
+  it("rejects an invalid bounded fill placement before materializing catalog content", () => {
+    const editor = makeCourseEditor(
+      slideContentDocument([
+        { type: "paragraph" },
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "Existing region content" }],
+        },
+      ]),
+    );
+    setCursorInFirstEmptyParagraph(editor);
+    const before = editor.getJSON();
+    const content = vi.fn(() => ({ type: "grid" }));
+
+    expect(
+      insertCatalogItemChecked(
+        editor,
+        {
+          id: "test-grid-fill",
+          nodeType: "grid",
+          title: "Grid",
+          description: "Test bounded fill insertion",
+          icon: TestIcon,
+          category: "layout",
+          boundedPlacement: "fill",
+          content,
+        },
+        testBlockRegistry,
+        builtInLayoutRegistry,
+        testSurfaceVariants,
+      ),
+    ).toBe(false);
+    expect(content).not.toHaveBeenCalled();
+    expect(editor.getJSON()).toEqual(before);
+  });
+
+  it("does not replace a fully selected authored paragraph with a bounded fill action", () => {
+    const editor = makeCourseEditor(
+      slideContentDocument([
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: "Authored region content" }],
+        },
+      ]),
+    );
+    const from = findTextPosition(editor, "Authored region content");
+    const range = { from, to: from + "Authored region content".length };
+    editor.commands.setTextSelection(range);
+    const before = editor.getJSON();
+    const content = vi.fn(() => ({ type: "grid" }));
+
+    expect(
+      insertCatalogItemChecked(
+        editor,
+        {
+          id: "test-grid-authored-selection",
+          nodeType: "grid",
+          title: "Grid",
+          description: "Test authored selection protection",
+          icon: TestIcon,
+          category: "layout",
+          boundedPlacement: "fill",
+          content,
+        },
+        testBlockRegistry,
+        builtInLayoutRegistry,
+        testSurfaceVariants,
+        range,
+      ),
+    ).toBe(false);
+    expect(content).not.toHaveBeenCalled();
+    expect(editor.getJSON()).toEqual(before);
+  });
+
+  it("returns false when an editor transaction filter rejects insertion", () => {
+    const editor = new Editor({
+      extensions: [StarterKit.configure({ undoRedo: false }), RejectDocumentChanges],
+    });
+    editors.push(editor);
+    const before = editor.getJSON();
+
+    expect(
+      insertCatalogItemChecked(
+        editor,
+        {
+          id: "test-filtered-insertion",
+          nodeType: "paragraph",
+          title: "Filtered insertion",
+          description: "Test filtered insertion result",
+          icon: TestIcon,
+          category: "content",
+          content: () => ({
+            type: "paragraph",
+            content: [{ type: "text", text: "Rejected content" }],
+          }),
+        },
+        testBlockRegistry,
+        builtInLayoutRegistry,
+        testSurfaceVariants,
+      ),
+    ).toBe(false);
+    expect(editor.getJSON()).toEqual(before);
   });
 });
 
@@ -440,6 +568,19 @@ function findTextPosition(editor: Editor, text: string): number {
 
   if (found === null) throw new Error(`Could not find text: ${text}`);
   return found;
+}
+
+function setCursorInFirstEmptyParagraph(editor: Editor): void {
+  let position: number | null = null;
+  editor.state.doc.descendants((node, pos) => {
+    if (position !== null || node.type.name !== "paragraph" || node.content.size !== 0) {
+      return true;
+    }
+    position = pos + 1;
+    return false;
+  });
+  if (position === null) throw new Error("Expected an empty paragraph.");
+  editor.commands.setTextSelection(position);
 }
 
 function nodeTypesInJson(content: JSONContent): string[] {

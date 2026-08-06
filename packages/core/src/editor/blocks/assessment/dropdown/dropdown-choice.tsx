@@ -272,7 +272,7 @@ function DropdownChoiceNodeView(props: NodeViewProps) {
   );
 
   return (
-    <NodeViewWrapper data-node="dropdown-choice" data-choice-id={attrs.id}>
+    <NodeViewWrapper {...props.HTMLAttributes} data-node="dropdown-choice">
       <ChoiceAnswerItem
         id={attrs.id}
         inputType="radio"

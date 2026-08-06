@@ -25,7 +25,6 @@ describe("matching authored contract", () => {
       maxAttempts: null,
     });
     expect(MatchingPrivateAssessmentSchema.parse({})).toEqual({
-      correctPairs: [],
       feedbackByItemId: {},
       summaryFeedback: null,
     });
@@ -41,7 +40,6 @@ describe("matching authored contract", () => {
       maxAttempts: 3,
     };
     const assessment: MatchingPrivateAssessment = {
-      correctPairs: [{ itemId: "france", targetId: "paris" }],
       feedbackByItemId: { france: richFeedback("Paris is correct.") },
       summaryFeedback: richFeedback("Review the pairs."),
     };
@@ -55,18 +53,20 @@ describe("matching authored contract", () => {
     expect(MatchingPrivateAssessmentSchema.parse({ editorOnly: true })).not.toHaveProperty(
       "editorOnly",
     );
+    expect(
+      MatchingPrivateAssessmentSchema.parse({
+        correctPairs: [{ itemId: "france", targetId: "paris" }],
+      }),
+    ).not.toHaveProperty("correctPairs");
   });
 
   it.each([
     { points: -1 },
     { maxAttempts: 0 },
-    { correctPairs: [{ itemId: "item" }] },
     { feedbackByItemId: { item: { kind: "plain-text" } } },
   ])("rejects invalid authored values %#", (value) => {
     const schema =
-      "correctPairs" in value || "feedbackByItemId" in value
-        ? MatchingPrivateAssessmentSchema
-        : MatchingSettingsSchema;
+      "feedbackByItemId" in value ? MatchingPrivateAssessmentSchema : MatchingSettingsSchema;
     expect(schema.safeParse(value).success).toBe(false);
   });
 });

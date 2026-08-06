@@ -2,7 +2,6 @@ import { Node, mergeAttributes, type NodeViewRenderer } from "@tiptap/core";
 import { FlashcardDataSchema, type FlashcardData } from "@scaffold/contracts";
 
 import { COURSE_BLOCK_CONTENT } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 
 import { FLASHCARD_CARD_NODE, FLASHCARD_NODE, emptyFlashcardData } from "./content";
 
@@ -21,7 +20,6 @@ export function createFlashcardNode(options: FlashcardNodeOptions = {}) {
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         data: {
           default: emptyFlashcardData(),
           parseHTML: (el: HTMLElement) => {

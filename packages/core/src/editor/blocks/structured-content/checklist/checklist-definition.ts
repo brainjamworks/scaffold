@@ -47,9 +47,6 @@ export const checklistBlockDefinition = defineBlock({
       },
     ],
   }),
-  identity: {
-    stableChildNodeTypes: [CHECKLIST_ITEM_NODE],
-  },
   frame: {
     resizable: true,
     resizeMode: "responsive",

@@ -32,9 +32,6 @@ const DEFAULT_ENTRIES = [
 
 export const glossaryBlockDefinition = defineBlock({
   nodeType: GLOSSARY_NODE,
-  identity: {
-    stableChildNodeTypes: [GLOSSARY_ENTRY_NODE],
-  },
   frame: {
     resizable: true,
     resizeMode: "responsive",

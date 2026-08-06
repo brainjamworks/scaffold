@@ -2,6 +2,8 @@ import type {
   ChartBlockData,
   ChartCellValue,
   ChartColumn,
+  ChartColumnId,
+  ChartColumnRef,
   ChartDataSource,
 } from "@/schemas/shared";
 
@@ -114,7 +116,7 @@ export function valueAxisDefaults(unit?: string) {
   };
 }
 
-export function requireColumn(source: ChartDataSource, columnId: string): ChartColumn {
+export function requireColumn(source: ChartDataSource, columnId: ChartColumnId): ChartColumn {
   const column = source.columns.find((candidate) => candidate.id === columnId);
   if (!column) throw new Error(`Chart references missing column "${columnId}"`);
   return column;
@@ -136,9 +138,7 @@ export function getDefaultChartColumns(source: ChartDataSource): {
   return { categoryColumn, numberColumns, valueColumn };
 }
 
-export function getDefaultYSeries(source: ChartDataSource): Array<{
-  columnId: string;
-}> {
+export function getDefaultYSeries(source: ChartDataSource): ChartColumnRef[] {
   const { numberColumns, valueColumn } = getDefaultChartColumns(source);
   return numberColumns.length
     ? numberColumns.map((column) => ({ columnId: column.id }))

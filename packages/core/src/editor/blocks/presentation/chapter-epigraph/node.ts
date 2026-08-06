@@ -2,7 +2,6 @@ import { Node, mergeAttributes, type NodeViewRenderer } from "@tiptap/core";
 import { ChapterEpigraphDataSchema, type ChapterEpigraphData } from "@scaffold/contracts";
 
 import { COURSE_BLOCK_CONTENT } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 
 import { emptyChapterEpigraphData } from "./content";
 
@@ -21,7 +20,6 @@ export function createChapterEpigraphNode(options: ChapterEpigraphNodeOptions = 
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         data: {
           default: emptyChapterEpigraphData(),
           parseHTML: (el: HTMLElement) => {

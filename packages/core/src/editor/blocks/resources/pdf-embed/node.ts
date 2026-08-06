@@ -2,7 +2,6 @@ import { Node, mergeAttributes, type NodeViewRenderer } from "@tiptap/core";
 import { PdfEmbedDataSchema, type PdfEmbedData } from "@scaffold/contracts";
 
 import { COURSE_BLOCK_CONTENT } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 import { emptyPdfEmbedData } from "./content";
 
 export interface PdfEmbedNodeOptions {
@@ -19,7 +18,6 @@ export function createPdfEmbedNode(options: PdfEmbedNodeOptions = {}) {
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         data: {
           default: emptyPdfEmbedData(),
           parseHTML: (el: HTMLElement) => {

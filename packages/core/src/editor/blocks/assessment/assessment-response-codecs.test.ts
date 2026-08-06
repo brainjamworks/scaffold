@@ -30,39 +30,43 @@ const codecCases: CodecCase[] = [
   {
     name: "mcq",
     codec: responseCodec(mcqBlockDefinition),
-    localResponses: [{ choices: null }, {}, { choices: "option-b" }],
-    wrongContractResponse: { kind: "multi-select", optionIds: ["option-b"] },
+    localResponses: [{ choices: null }, {}, { choices: "choice_00002" }],
+    wrongContractResponse: { kind: "multi-select", optionIds: ["choice_00002"] },
   },
   {
     name: "dropdown",
     codec: responseCodec(dropdownBlockDefinition),
-    localResponses: [{ choices: null }, {}, { choices: "option-b" }],
-    wrongContractResponse: { kind: "sequence", orderedItemIds: ["option-b"] },
+    localResponses: [{ choices: null }, {}, { choices: "choice_00002" }],
+    wrongContractResponse: { kind: "sequence", orderedItemIds: ["choice_00002"] },
   },
   {
     name: "multiselect",
     codec: responseCodec(multiselectBlockDefinition),
     localResponses: [
       { choices: [] },
-      { choices: ["option-a"] },
-      { choices: ["option-a", "option-c"] },
+      { choices: ["choice_00001"] },
+      { choices: ["choice_00001", "choice_00003"] },
     ],
-    wrongContractResponse: { kind: "single-select", optionId: "option-a" },
-    duplicateLocalResponse: { choices: ["option-a", "option-a"] },
+    wrongContractResponse: { kind: "single-select", optionId: "choice_00001" },
+    duplicateLocalResponse: { choices: ["choice_00001", "choice_00001"] },
     duplicateContractResponse: {
       kind: "multi-select",
-      optionIds: ["option-a", "option-a"],
+      optionIds: ["choice_00001", "choice_00001"],
     },
   },
   {
     name: "sequencing",
     codec: responseCodec(sequencingBlockDefinition),
-    localResponses: [{ order: [] }, { order: ["item-a"] }, { order: ["item-b", "item-a"] }],
-    wrongContractResponse: { kind: "single-select", optionId: "item-a" },
-    duplicateLocalResponse: { order: ["item-a", "item-a"] },
+    localResponses: [
+      { order: [] },
+      { order: ["seqitm_00001"] },
+      { order: ["seqitm_00002", "seqitm_00001"] },
+    ],
+    wrongContractResponse: { kind: "single-select", optionId: "seqitm_00001" },
+    duplicateLocalResponse: { order: ["seqitm_00001", "seqitm_00001"] },
     duplicateContractResponse: {
       kind: "sequence",
-      orderedItemIds: ["item-a", "item-a"],
+      orderedItemIds: ["seqitm_00001", "seqitm_00001"],
     },
   },
   {
@@ -70,15 +74,15 @@ const codecCases: CodecCase[] = [
     codec: responseCodec(categoriseBlockDefinition),
     localResponses: [
       { placements: {} },
-      { placements: { "item-a": "category-a" } },
-      { placements: { "item-a": "category-b", "item-b": "category-a" } },
+      { placements: { seqitm_00001: "catgry_00001" } },
+      { placements: { seqitm_00001: "catgry_00002", seqitm_00002: "catgry_00001" } },
     ],
-    wrongContractResponse: { kind: "single-select", optionId: "category-a" },
+    wrongContractResponse: { kind: "single-select", optionId: "catgry_00001" },
     duplicateContractResponse: {
       kind: "classify",
       placements: [
-        { itemId: "item-a", categoryId: "category-a" },
-        { itemId: "item-a", categoryId: "category-b" },
+        { itemId: "seqitm_00001", categoryId: "catgry_00001" },
+        { itemId: "seqitm_00001", categoryId: "catgry_00002" },
       ],
     },
   },
@@ -87,15 +91,15 @@ const codecCases: CodecCase[] = [
     codec: responseCodec(matchingBlockDefinition),
     localResponses: [
       { matches: {} },
-      { matches: { "item-a": "target-a" } },
-      { matches: { "item-a": "target-b", "item-b": "target-a" } },
+      { matches: { seqitm_00001: "target_00001" } },
+      { matches: { seqitm_00001: "target_00002", seqitm_00002: "target_00001" } },
     ],
-    wrongContractResponse: { kind: "single-select", optionId: "target-a" },
+    wrongContractResponse: { kind: "single-select", optionId: "target_00001" },
     duplicateContractResponse: {
       kind: "match",
       pairs: [
-        { itemId: "item-a", targetId: "target-a" },
-        { itemId: "item-a", targetId: "target-b" },
+        { itemId: "seqitm_00001", targetId: "target_00001" },
+        { itemId: "seqitm_00001", targetId: "target_00002" },
       ],
     },
   },
@@ -104,15 +108,15 @@ const codecCases: CodecCase[] = [
     codec: responseCodec(fillBlanksBlockDefinition),
     localResponses: [
       { blanks: {} },
-      { blanks: { "blank-a": "" } },
-      { blanks: { "blank-a": "Paris", "blank-b": "France" } },
+      { blanks: { blank_000001: "" } },
+      { blanks: { blank_000001: "Paris", blank_000002: "France" } },
     ],
     wrongContractResponse: { kind: "single-select", optionId: "Paris" },
     duplicateContractResponse: {
       kind: "fill-blanks",
       blanks: [
-        { blankId: "blank-a", value: "Paris" },
-        { blankId: "blank-a", value: "Lyon" },
+        { blankId: "blank_000001", value: "Paris" },
+        { blankId: "blank_000001", value: "Lyon" },
       ],
     },
   },
@@ -121,32 +125,47 @@ const codecCases: CodecCase[] = [
     codec: responseCodec(imageHotspotBlockDefinition),
     localResponses: [
       { clicks: [] },
-      { clicks: [{ id: "click-a", hotspotId: null, x: 0.1, y: 0.2 }] },
+      { clicks: [{ id: "click_000001", hotspotId: null, x: 0.1, y: 0.2 }] },
       {
         clicks: [
-          { id: "click-a", hotspotId: "hotspot-a", x: 0.1, y: 0.2 },
-          { id: "click-b", hotspotId: "hotspot-b", x: 0.7, y: 0.8 },
+          { id: "click_000001", hotspotId: "hotsp_000001", x: 0.1, y: 0.2 },
+          { id: "click_000002", hotspotId: "hotsp_000002", x: 0.7, y: 0.8 },
         ],
       },
     ],
-    wrongContractResponse: { kind: "single-select", optionId: "hotspot-a" },
+    wrongContractResponse: { kind: "single-select", optionId: "hotsp_000001" },
     duplicateLocalResponse: {
       clicks: [
-        { id: "click-a", hotspotId: null, x: 0.1, y: 0.2 },
-        { id: "click-a", hotspotId: "hotspot-a", x: 0.7, y: 0.8 },
+        { id: "click_000001", hotspotId: null, x: 0.1, y: 0.2 },
+        { id: "click_000001", hotspotId: "hotsp_000001", x: 0.7, y: 0.8 },
       ],
     },
     duplicateContractResponse: {
       kind: "spatial-hotspot",
       selections: [
-        { hotspotId: "hotspot-a", x: 0.1, y: 0.2 },
-        { hotspotId: "hotspot-a", x: 0.1, y: 0.2 },
+        { hotspotId: "hotsp_000001", x: 0.1, y: 0.2 },
+        { hotspotId: "hotsp_000001", x: 0.1, y: 0.2 },
       ],
     },
   },
 ];
 
 describe("assessment response codecs", () => {
+  it("requires Data-family identities for image-hotspot click owners and references", () => {
+    const codec = responseCodec(imageHotspotBlockDefinition);
+
+    expect(() =>
+      codec.toContractResponse({
+        clicks: [{ id: "click-1", hotspotId: null, x: 0.1, y: 0.2 }],
+      }),
+    ).toThrow();
+    expect(() =>
+      codec.toContractResponse({
+        clicks: [{ id: "click_000001", hotspotId: "h1", x: 0.1, y: 0.2 }],
+      }),
+    ).toThrow();
+  });
+
   it.each(codecCases)(
     "$name round-trips empty, partial, and complete local response state",
     ({ codec, localResponses }) => {

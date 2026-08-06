@@ -195,10 +195,6 @@ describeBlockContract({
   expectsAuthoringFrame: true,
 });
 
-it("declares annotation children as stable identities", () => {
-  expect(builtInBlockRegistry.stableIdNodeTypes).toContain("annotated_figure_annotation");
-});
-
 it("derives List and Pin popovers into both Annotated Figure configuration surfaces", () => {
   const definition = builtInBlockRegistry.getByNodeType("annotated_figure");
 

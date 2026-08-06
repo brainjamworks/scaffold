@@ -4,7 +4,6 @@ import {
   ASSESSMENT_QUESTION_CONTENT,
   COURSE_BLOCK_CONTENT,
 } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 import {
   FillBlanksPrivateAssessmentSchema,
   FillBlanksSettingsSchema,
@@ -50,7 +49,6 @@ export function createFillBlanksNode(options: FillBlanksNodeOptions = {}) {
       });
 
       return {
-        id: stableNodeIdAttribute(),
         settings: {
           ...makeAttr("data-fill-blanks-settings", settingsDefault, FillBlanksSettingsSchema),
           renderHTML: (attrs: { settings: FillBlanksSettings }) => ({

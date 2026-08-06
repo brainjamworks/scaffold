@@ -88,6 +88,31 @@ export type AnyMovementTarget =
   | RegionMovementTarget
   | ContainedMovementTarget;
 
+export type MovementTargetAxis = "horizontal" | "vertical";
+
+export function movementTargetAxis(target: AnyMovementTarget): MovementTargetAxis {
+  const parent = target.context.parent;
+  if (!parent) return "vertical";
+
+  if (target instanceof SectionMovementTarget && parent.attrs?.["variant"] === "tabs") {
+    return "horizontal";
+  }
+
+  const parentData = parent.attrs?.["data"];
+  if (
+    target instanceof ContainedMovementTarget &&
+    target.context.nodeType.name === "timeline_item" &&
+    parentData !== null &&
+    typeof parentData === "object" &&
+    !Array.isArray(parentData) &&
+    (parentData as Record<string, unknown>)["presentation"] === "carousel"
+  ) {
+    return "horizontal";
+  }
+
+  return "vertical";
+}
+
 export function createMovementTarget(
   context: MovementNodeContext,
   rect: MovementTargetRect,

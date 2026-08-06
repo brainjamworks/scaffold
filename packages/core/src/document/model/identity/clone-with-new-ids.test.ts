@@ -218,23 +218,29 @@ describe("cloneJsonWithNewStableIds", () => {
     expect(clone.attrs?.["data"]).toEqual(source.attrs?.["data"]);
   });
 
-  it("regenerates matching item and target ids while rewriting answer-key refs", () => {
+  it("regenerates Matching pair and child node identities without relationship attrs", () => {
     const clone = cloneJsonWithNewStableIds({
       type: "matching_pair",
-      attrs: {
-        itemId: "item-a",
-        targetId: "target-a",
-      },
+      attrs: { id: "pair-a" },
       content: [
-        { type: "matching_item", content: [{ type: "paragraph" }] },
-        { type: "matching_target", content: [{ type: "paragraph" }] },
+        { type: "matching_item", attrs: { id: "item-a" }, content: [{ type: "paragraph" }] },
+        {
+          type: "matching_target",
+          attrs: { id: "target-a" },
+          content: [{ type: "paragraph" }],
+        },
       ],
     });
+    const item = firstNodeByType(clone, "matching_item");
+    const target = firstNodeByType(clone, "matching_target");
 
-    expect(clone.attrs?.["itemId"]).toEqual(expect.stringMatching(STABLE_ID_PATTERN));
-    expect(clone.attrs?.["itemId"]).not.toBe("item-a");
-    expect(clone.attrs?.["targetId"]).toEqual(expect.stringMatching(STABLE_ID_PATTERN));
-    expect(clone.attrs?.["targetId"]).not.toBe("target-a");
+    expect(clone.attrs?.["id"]).toEqual(expect.stringMatching(STABLE_ID_PATTERN));
+    expect(clone.attrs).not.toHaveProperty("itemId");
+    expect(clone.attrs).not.toHaveProperty("targetId");
+    expect(item?.attrs?.["id"]).toEqual(expect.stringMatching(STABLE_ID_PATTERN));
+    expect(item?.attrs?.["id"]).not.toBe("item-a");
+    expect(target?.attrs?.["id"]).toEqual(expect.stringMatching(STABLE_ID_PATTERN));
+    expect(target?.attrs?.["id"]).not.toBe("target-a");
   });
 
   it("regenerates sequencing, categorise, and hotspot component ids", () => {
@@ -406,14 +412,17 @@ describe("cloneJsonWithNewStableIds", () => {
       attrs: {
         id: "match-block",
         assessment: {
-          correctPairs: [{ itemId: "item-a", targetId: "target-a" }],
           feedbackByItemId: { "item-a": { kind: "rich-text" } },
         },
       },
       content: [
         {
           type: "matching_pair",
-          attrs: { itemId: "item-a", targetId: "target-a" },
+          attrs: { id: "pair-a" },
+          content: [
+            { type: "matching_item", attrs: { id: "item-a" } },
+            { type: "matching_target", attrs: { id: "target-a" } },
+          ],
         },
       ],
     });
@@ -423,7 +432,7 @@ describe("cloneJsonWithNewStableIds", () => {
     const dropdownChoice = firstNodeByType(dropdown, "dropdown_choice");
     const blank = firstNodeByType(fillBlanks, "fill_blank");
     const sequenceItem = firstNodeByType(sequencing, "sequencing_item");
-    const pair = firstNodeByType(matching, "matching_pair");
+    const matchingItem = firstNodeByType(matching, "matching_item");
 
     expect(assessmentOf(mcq)["correctOptionId"]).toBe(mcqChoice?.attrs?.["id"]);
     expect(Object.keys(assessmentOf(mcq)["feedbackByOptionId"] as Record<string, unknown>)).toEqual(
@@ -444,13 +453,10 @@ describe("cloneJsonWithNewStableIds", () => {
     expect(
       Object.keys(assessmentOf(sequencing)["feedbackByItemId"] as Record<string, unknown>),
     ).toEqual([sequenceItem?.attrs?.["id"]]);
-    expect((assessmentOf(matching)["correctPairs"] as Array<Record<string, unknown>>)[0]).toEqual({
-      itemId: pair?.attrs?.["itemId"],
-      targetId: pair?.attrs?.["targetId"],
-    });
+    expect(assessmentOf(matching)).not.toHaveProperty("correctPairs");
     expect(
       Object.keys(assessmentOf(matching)["feedbackByItemId"] as Record<string, unknown>),
-    ).toEqual([pair?.attrs?.["itemId"]]);
+    ).toEqual([matchingItem?.attrs?.["id"]]);
   });
 
   it("regenerates chart row and column ids while rewriting table references", () => {

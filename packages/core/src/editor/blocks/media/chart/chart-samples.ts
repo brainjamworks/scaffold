@@ -1,13 +1,28 @@
 import {
   CHART_TYPES,
   type ChartBlockData,
+  type ChartCellValue,
   type ChartDataSource,
   type ChartType,
 } from "@/schemas/shared";
+import { createEmbeddedDataId } from "@/document/model/identity/stable-ids";
 
 import { createDefaultProfileEncoding } from "./chart-profiles";
 
-const categoryValueData: ChartDataSource = {
+interface ChartSampleDataTemplate {
+  kind: "inlineTable";
+  columns: Array<{
+    id: string;
+    label: string;
+    valueType: "category" | "number";
+  }>;
+  rows: Array<{
+    id: string;
+    cells: Record<string, ChartCellValue>;
+  }>;
+}
+
+const categoryValueData: ChartSampleDataTemplate = {
   kind: "inlineTable",
   columns: [
     { id: "category", label: "Category", valueType: "category" },
@@ -22,7 +37,7 @@ const categoryValueData: ChartDataSource = {
   ],
 };
 
-const actualTargetData: ChartDataSource = {
+const actualTargetData: ChartSampleDataTemplate = {
   kind: "inlineTable",
   columns: [
     { id: "month", label: "Month", valueType: "category" },
@@ -39,7 +54,7 @@ const actualTargetData: ChartDataSource = {
   ],
 };
 
-const scoreData: ChartDataSource = {
+const scoreData: ChartSampleDataTemplate = {
   kind: "inlineTable",
   columns: [
     { id: "sample", label: "Sample", valueType: "category" },
@@ -53,7 +68,7 @@ const scoreData: ChartDataSource = {
   ),
 };
 
-const scatterData: ChartDataSource = {
+const scatterData: ChartSampleDataTemplate = {
   kind: "inlineTable",
   columns: [
     { id: "study_hours", label: "Study hours", valueType: "number" },
@@ -69,7 +84,7 @@ const scatterData: ChartDataSource = {
   ],
 };
 
-const heatmapData: ChartDataSource = {
+const heatmapData: ChartSampleDataTemplate = {
   kind: "inlineTable",
   columns: [
     { id: "week", label: "Week", valueType: "category" },
@@ -126,10 +141,29 @@ const chartSampleDataByType = {
   line: actualTargetData,
   pie: categoryValueData,
   scatter: scatterData,
-} satisfies Record<ChartType, ChartDataSource>;
+} satisfies Record<ChartType, ChartSampleDataTemplate>;
+
+function createChartSampleData(template: ChartSampleDataTemplate): ChartDataSource {
+  const columnIds = new Map(
+    template.columns.map((column) => [column.id, createEmbeddedDataId()] as const),
+  );
+  return {
+    kind: "inlineTable",
+    columns: template.columns.map((column) => ({
+      ...column,
+      id: columnIds.get(column.id)!,
+    })),
+    rows: template.rows.map((row) => ({
+      id: createEmbeddedDataId(),
+      cells: Object.fromEntries(
+        Object.entries(row.cells).map(([columnId, value]) => [columnIds.get(columnId)!, value]),
+      ),
+    })),
+  };
+}
 
 export function createChartSample(chartType: ChartType): ChartBlockData {
-  const data = chartSampleDataByType[chartType];
+  const data = createChartSampleData(chartSampleDataByType[chartType]);
   return {
     kind: "chart",
     version: 1,

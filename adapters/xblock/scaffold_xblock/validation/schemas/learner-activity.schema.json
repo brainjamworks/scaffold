@@ -78,14 +78,7 @@
             "$ref": "#/definitions/LearnerActivityRecord"
           },
           "propertyNames": {
-            "allOf": [
-              {
-                "pattern": "\\S"
-              },
-              {
-                "pattern": "^(?!artifact:[\\s\\S]*\\/block:)"
-              }
-            ]
+            "pattern": "^[0-9A-Z_a-z-]{12}$"
           },
           "type": "object"
         },

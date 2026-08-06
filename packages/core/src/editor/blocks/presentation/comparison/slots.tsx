@@ -1,7 +1,6 @@
 import { Node, mergeAttributes, type NodeViewRenderer } from "@tiptap/core";
 
 import { fieldContainerSpec } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 
 import { COMPARISON_CELL_NODE, COMPARISON_ROW_NODE } from "./content";
 
@@ -16,12 +15,6 @@ export function createComparisonRowNode(options: ComparisonRowNodeOptions = {}) 
     defining: true,
     isolating: true,
     selectable: false,
-
-    addAttributes() {
-      return {
-        id: stableNodeIdAttribute(),
-      };
-    },
 
     parseHTML() {
       return [{ tag: 'div[data-node="comparison-row"]' }];

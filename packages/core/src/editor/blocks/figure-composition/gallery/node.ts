@@ -2,7 +2,6 @@ import { Node, mergeAttributes, type NodeViewRenderer } from "@tiptap/core";
 import { GalleryDataSchema, type GalleryData } from "@scaffold/contracts";
 
 import { COURSE_BLOCK_CONTENT } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 import { GALLERY_ITEM_NODE, GALLERY_NODE, emptyGalleryData } from "./content";
 
 export interface GalleryNodeOptions {
@@ -21,7 +20,6 @@ export function createGalleryNode(options: GalleryNodeOptions = {}) {
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         data: {
           default: emptyGalleryData(),
           parseHTML: (el: HTMLElement) => {

@@ -17,7 +17,6 @@ import { TableHeader } from "@tiptap/extension-table-header";
 import { TableRow } from "@tiptap/extension-table-row";
 import type { Plugin } from "@tiptap/pm/state";
 
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 import {
   COURSE_BLOCK_CONTENT,
   textContentExpression,
@@ -44,13 +43,6 @@ export function createCourseTableNode(options: CourseTableNodeOptions = {}) {
     cellMinWidth: 80,
   }).extend({
     group: `block ${COURSE_BLOCK_CONTENT}`,
-
-    addAttributes() {
-      return {
-        ...(this.parent?.() ?? {}),
-        id: stableNodeIdAttribute(),
-      };
-    },
 
     parseHTML() {
       return [{ tag: 'table[data-node="table"]' }];

@@ -32,9 +32,24 @@ const richFeedback = {
 };
 
 describe("fill-blanks authored persisted contracts", () => {
+  it("requires blank owners and private assessment references to use embedded node ids", () => {
+    expect(FillBlankAttrsSchema.safeParse({ id: "blank_000001" }).success).toBe(true);
+    expect(FillBlankAttrsSchema.safeParse({ id: "blank-1" }).success).toBe(false);
+    expect(
+      FillBlanksPrivateAssessmentSchema.safeParse({
+        blanksById: { blank_000001: {} },
+      }).success,
+    ).toBe(true);
+    expect(
+      FillBlanksPrivateAssessmentSchema.safeParse({
+        blanksById: { "blank-1": {} },
+      }).success,
+    ).toBe(false);
+  });
+
   it("preserves exact settings, blank, entry, and private defaults", () => {
     const settings: FillBlanksSettings = FillBlanksSettingsSchema.parse({});
-    const blank: FillBlankAttrs = FillBlankAttrsSchema.parse({ id: "blank-1" });
+    const blank: FillBlankAttrs = FillBlankAttrsSchema.parse({ id: "blank_000001" });
     const entry: FillBlankPrivateAssessmentEntry = FillBlankPrivateAssessmentEntrySchema.parse({});
     const assessment: FillBlanksPrivateAssessment = FillBlanksPrivateAssessmentSchema.parse({});
 
@@ -45,7 +60,7 @@ describe("fill-blanks authored persisted contracts", () => {
       points: 1,
       maxAttempts: null,
     });
-    expect(blank).toEqual({ id: "blank-1", placeholder: "" });
+    expect(blank).toEqual({ id: "blank_000001", placeholder: "" });
     expect(entry).toEqual({
       acceptedAnswers: [""],
       feedback: null,
@@ -57,12 +72,16 @@ describe("fill-blanks authored persisted contracts", () => {
 
   it("preserves authored values, rich feedback, and unknown-key stripping", () => {
     expect(
-      FillBlankAttrsSchema.parse({ id: "", placeholder: "  noun  ", editorSelection: true }),
-    ).toEqual({ id: "", placeholder: "  noun  " });
+      FillBlankAttrsSchema.parse({
+        id: "blank_000001",
+        placeholder: "  noun  ",
+        editorSelection: true,
+      }),
+    ).toEqual({ id: "blank_000001", placeholder: "  noun  " });
     expect(
       FillBlanksPrivateAssessmentSchema.parse({
         blanksById: {
-          "blank-1": {
+          blank_000001: {
             acceptedAnswers: [" Cat ", "feline"],
             feedback: richFeedback,
             caseSensitive: true,
@@ -75,7 +94,7 @@ describe("fill-blanks authored persisted contracts", () => {
       }),
     ).toEqual({
       blanksById: {
-        "blank-1": {
+        blank_000001: {
           acceptedAnswers: [" Cat ", "feline"],
           feedback: richFeedback,
           caseSensitive: true,

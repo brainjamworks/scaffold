@@ -1,8 +1,10 @@
 import type { JSONContent } from "@tiptap/core";
 import { z } from "zod";
 import {
+  EmbeddedDataIdSchema,
   ImageHotspotCanvasDataSchema,
-  ImageHotspotPrivateAssessmentSchema,
+  ImageHotspotIdSchema,
+  ImageHotspotPayloadSchema,
   SpatialHotspotResponseSchema,
   type AssessmentAnswerKey,
   type AssessmentInteractionContract,
@@ -11,6 +13,7 @@ import {
   type ImageHotspotCanvasData,
 } from "@scaffold/contracts";
 
+import { createEmbeddedDataId } from "@/document/model/identity/stable-ids";
 import type { AssessmentBlockAdapter } from "@/editor/blocks/assessment/shared/model/assessment-block-adapter";
 import type { AssessmentCapabilityResponseDefinition } from "@/editor/blocks/block-definition";
 import {
@@ -29,12 +32,14 @@ import {
  * Each click records its own stable id, the resolved hotspot id (or null for a
  * miss), plus the raw position for audit / replay.
  */
+export const ImageHotspotClickIdSchema = EmbeddedDataIdSchema;
+
 export const ImageHotspotClickResponseSchema = z
   .object({
-    id: z.string(),
+    id: ImageHotspotClickIdSchema,
     x: z.number(),
     y: z.number(),
-    hotspotId: z.string().nullable(),
+    hotspotId: ImageHotspotIdSchema.nullable(),
   })
   .strict();
 export type ImageHotspotClickResponse = z.infer<typeof ImageHotspotClickResponseSchema>;
@@ -43,7 +48,20 @@ export const ImageHotspotResponseSchema = z
   .object({
     clicks: z.array(ImageHotspotClickResponseSchema).default([]),
   })
-  .strict();
+  .strict()
+  .superRefine((response, context) => {
+    const clickIds = new Set<string>();
+    response.clicks.forEach((click, clickIndex) => {
+      if (clickIds.has(click.id)) {
+        context.addIssue({
+          code: "custom",
+          message: `duplicate image-hotspot click id "${click.id}"`,
+          path: ["clicks", clickIndex, "id"],
+        });
+      }
+      clickIds.add(click.id);
+    });
+  });
 export type ImageHotspotResponse = z.infer<typeof ImageHotspotResponseSchema>;
 
 export function projectImageHotspotLearnerNode(node: JSONContent): JSONContent {
@@ -59,14 +77,11 @@ export function projectImageHotspotLearnerNode(node: JSONContent): JSONContent {
 }
 
 export function projectImageHotspotInteraction(node: JSONContent): AssessmentInteractionContract {
-  const parsed = readImageHotspotData(node);
-  if (!parsed) {
-    return { kind: "spatial-hotspot", hotspots: [], maxSelections: null };
-  }
+  const { canvas } = readImageHotspotPayload(node);
 
   return {
     kind: "spatial-hotspot",
-    hotspots: parsed.hotspots.map((hotspot) => ({
+    hotspots: canvas.hotspots.map((hotspot) => ({
       id: hotspot.id,
       ...(hotspot.label ? { label: hotspot.label } : {}),
       geometry: {
@@ -76,34 +91,18 @@ export function projectImageHotspotInteraction(node: JSONContent): AssessmentInt
         radius: hotspot.radius,
       },
     })),
-    maxSelections: parsed.maxClicks,
+    maxSelections: canvas.maxClicks,
   };
 }
 
 export function projectImageHotspotAssessment(node: JSONContent): AssessmentAnswerKey {
-  const parsed = readImageHotspotData(node);
-  const assessment = ImageHotspotPrivateAssessmentSchema.parse(readAttrs(node)["assessment"] ?? {});
-  if (!parsed) {
-    return {
-      kind: "spatial-hotspot",
-      gradingMode: assessment.gradingMode,
-      correctHotspotIds: [],
-      feedbackByHotspotId: {},
-      ...(assessment.missFeedback ? { missFeedback: assessment.missFeedback } : {}),
-      summaryFeedback: assessment.summaryFeedback,
-    };
-  }
-
-  const hotspotIds = new Set(parsed.hotspots.map((hotspot) => hotspot.id));
-  const feedbackByHotspotId = Object.fromEntries(
-    Object.entries(assessment.feedbackByHotspotId).filter(([id]) => hotspotIds.has(id)),
-  );
+  const { assessment } = readImageHotspotPayload(node);
 
   return {
     kind: "spatial-hotspot",
     gradingMode: assessment.gradingMode,
-    correctHotspotIds: assessment.correctHotspotIds.filter((id) => hotspotIds.has(id)),
-    feedbackByHotspotId,
+    correctHotspotIds: assessment.correctHotspotIds,
+    feedbackByHotspotId: assessment.feedbackByHotspotId,
     ...(assessment.missFeedback ? { missFeedback: assessment.missFeedback } : {}),
     summaryFeedback: assessment.summaryFeedback,
   };
@@ -170,22 +169,16 @@ function redactUnsafeHotspot(value: unknown): unknown {
   return hotspot;
 }
 
-function readImageHotspotData(node: JSONContent) {
+function readImageHotspotPayload(node: JSONContent) {
   const canvas = childByType(node, "image_hotspot_canvas");
-  const data = canvas ? readAttrs(canvas)["data"] : {};
-  const parsed = ImageHotspotCanvasDataSchema.safeParse(data);
-  return parsed.success ? parsed.data : null;
+  return ImageHotspotPayloadSchema.parse({
+    canvas: canvas ? readAttrs(canvas)["data"] ?? {} : {},
+    assessment: readAttrs(node)["assessment"] ?? {},
+  });
 }
 
 export function readImageHotspotResponse(response: unknown): ImageHotspotResponse {
   return ImageHotspotResponseSchema.parse(response);
-}
-
-function assertUniqueHotspotClickIds(clicks: readonly { id: string }[]): void {
-  const clickIds = clicks.map((click) => click.id);
-  if (new Set(clickIds).size !== clickIds.length) {
-    throw new Error("Image-hotspot local click ids must be unique.");
-  }
 }
 
 function assertUniqueHotspotSelections(
@@ -201,7 +194,6 @@ function assertUniqueHotspotSelections(
 
 export function toImageHotspotContractResponse(response: unknown) {
   const local = readImageHotspotResponse(response);
-  assertUniqueHotspotClickIds(local.clicks);
   const selections = local.clicks.map((click) => ({
     hotspotId: click.hotspotId,
     x: click.x,
@@ -217,8 +209,8 @@ export function fromImageHotspotContractResponse(
   const canonical = SpatialHotspotResponseSchema.parse(response);
   assertUniqueHotspotSelections(canonical.selections);
   return ImageHotspotResponseSchema.parse({
-    clicks: canonical.selections.map((selection, index) => ({
-      id: `hydrated-click-${index + 1}`,
+    clicks: canonical.selections.map((selection) => ({
+      id: createEmbeddedDataId(),
       ...selection,
     })),
   });

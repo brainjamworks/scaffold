@@ -4,7 +4,7 @@ import { updateNodeSettingsChecked } from "@/document/model/commands/settings";
 import { defineConfiguration } from "@/editor/configuration/definition";
 import type { SettingsSheetApplyInput } from "@/editor/configuration/settings-sheet";
 import { defineBlock } from "@/editor/blocks/block-definition";
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { ChartBlockDataSchema } from "@/schemas/shared";
 
 import {
@@ -240,7 +240,7 @@ export const chartBlockDefinition = defineBlock({
     ],
     content: () => ({
       type: "chart_block",
-      attrs: { id: createStableId(), data: createDefaultChartData() },
+      attrs: { id: createEmbeddedNodeId(), data: createDefaultChartData() },
     }),
     variants: getChartCatalogVariants(),
   },

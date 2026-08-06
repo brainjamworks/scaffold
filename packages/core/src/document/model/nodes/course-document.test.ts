@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 
 import { Editor, Node, type JSONContent } from "@tiptap/core";
+import UniqueID from "@tiptap/extension-unique-id";
 import StarterKit from "@tiptap/starter-kit";
 import { Fragment } from "@tiptap/pm/model";
 import { describe, expect, it } from "vite-plus/test";
@@ -82,6 +83,11 @@ function makeEditor(content: JSONContent | string = courseDocumentContent()) {
       RegionNode,
       TestArrangementNode,
       TestSectionArrangementNode,
+      UniqueID.configure({
+        attributeName: "id",
+        types: "all",
+        updateDocument: false,
+      }),
     ],
     content,
   });
@@ -213,7 +219,8 @@ describe("course document nodes", () => {
     expect(html).toContain('data-course-theme="scaffold-default"');
     expect(html).toContain("data-course-theme-values=");
     expect(html).toContain("data-surface");
-    expect(html).toContain('data-surface-id="surface00001"');
+    expect(html).toContain('data-id="surface00001"');
+    expect(html).not.toContain("data-surface-id");
     expect(html).toContain('data-surface-variant="page-default"');
 
     const nextEditor = makeEditor(html);
@@ -245,7 +252,7 @@ describe("course document nodes", () => {
         data-course-mode="page"
         data-scaffold-document-format-version="${futureVersion}"
       >
-        <section data-surface data-surface-id="surface00001">
+        <section data-surface data-id="surface00001">
           <p>Future content</p>
         </section>
       </section>

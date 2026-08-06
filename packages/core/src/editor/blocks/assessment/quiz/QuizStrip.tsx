@@ -5,7 +5,7 @@ import {
   DotsSixVerticalIcon as DotsSixVertical,
   PlusIcon as Plus,
 } from "@phosphor-icons/react";
-import { useId, useState, type CSSProperties } from "react";
+import { useId, useState } from "react";
 
 import * as DropdownMenu from "@/ui/components/DropdownMenu/DropdownMenu";
 import { BlockAddGhost } from "@/editor/suggestions/insert/BlockAddGhost";
@@ -46,7 +46,8 @@ export function QuizStrip({
 }) {
   const sessionId = useId();
   const handleDragEnd = (event: InteractionDragEvent<QuizStripDragData, QuizStripDragData>) => {
-    const targetKey = event.over?.data.childKey ?? null;
+    const targetIndex = event.active.sortable?.index ?? -1;
+    const targetKey = childKeys[targetIndex] ?? null;
     const sourceKey = event.active.data.childKey;
     if (!targetKey || targetKey === sourceKey) return;
     onReorder(sourceKey, targetKey);
@@ -64,7 +65,6 @@ export function QuizStrip({
       profile="sortable-horizontal"
       renderPreview={(active) => <QuizStripPreview data={active} />}
       sessionId={`quiz-strip-${sessionId}`}
-      sortableItems={childKeys}
     >
       <div className="sc-quiz__strip" contentEditable={false} data-testid="quiz-stage-selector">
         <div className="sc-quiz__strip-sortable-items">
@@ -115,32 +115,23 @@ function QuizStripPill({
   const sortable = useInteractionSortable<QuizStripDragData>({
     data: { childKey, index, type },
     id: childKey,
+    index,
     label: `Drag question ${index + 1}`,
   });
   const isActive = childKey === activeChildKey;
-  const { localTransform } = sortable;
-  const style: CSSProperties = {
-    transform:
-      !sortable.isPlaceholder && localTransform
-        ? `translate3d(${localTransform.x}px, ${localTransform.y}px, 0) scale(${localTransform.scaleX}, ${localTransform.scaleY})`
-        : undefined,
-    transition: sortable.isPlaceholder ? undefined : sortable.transition,
-  };
 
   return (
     <DropdownMenu.Root>
       <div
-        {...sortable.sourceProps}
-        ref={sortable.setNodeRef}
-        style={style}
+        data-interaction-drag-placeholder={sortable.isPlaceholder ? "" : undefined}
+        ref={sortable.sourceRef}
         className="sc-quiz__strip-pill"
         data-active={isActive ? "true" : undefined}
         data-dragging={sortable.isDragging ? "true" : undefined}
         data-quiz-question-id={childKey}
       >
         <InteractionDragActivationArea
-          {...sortable.activatorProps}
-          ref={sortable.setActivatorNodeRef}
+          ref={sortable.handleRef}
           aria-label={`Drag question ${index + 1}`}
           className="sc-quiz__strip-pill-drag"
           data-quiz-strip-drag-handle=""

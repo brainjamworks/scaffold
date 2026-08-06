@@ -42,6 +42,7 @@ import {
   type MatchingProjectionPair,
 } from "./matching-fields-shared";
 import {
+  createMatchingConnectorRevision,
   measureMatchingConnectorGeometry,
   sameMatchingConnectors,
   type MatchingConnectorConnection,
@@ -108,7 +109,7 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
     })),
     `${authoredBlockId ?? "matching"}|${pairs.map((pair) => pair.targetId).join("|")}`,
   );
-  const pairByItemId = new Map(pairs.map((pair) => [pair.itemId, pair]));
+  const pairByItemId = useMemo(() => new Map(pairs.map((pair) => [pair.itemId, pair])), [pairs]);
   const responseMatches = problem?.matches ?? EMPTY_MATCHES;
   const answerKeyVisible = runtimeProblem?.answerKeyVisible ?? false;
   const hasRevealPayload = (runtimeProblem?.state.revealedAnswer ?? null) !== null;
@@ -124,14 +125,16 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
   const interactionLocked = submitted || hasRevealPayload || (runtimeProblem?.exhausted ?? false);
   const displayMatches =
     answerKeyVisible && Object.keys(revealedMatches).length > 0 ? revealedMatches : responseMatches;
-  const matchSignature = Object.entries(displayMatches)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([itemId, targetId]) => `${itemId}:${targetId}`)
-    .join("|");
-  const feedbackSignature = Object.entries(feedbackItems)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([itemId, item]) => `${itemId}:${item.correct}`)
-    .join("|");
+  const connectorRevision = createMatchingConnectorRevision(displayMatches, feedbackItems);
+
+  useLayoutEffect(() => {
+    if (
+      selectedItemId !== null &&
+      (!pairByItemId.has(selectedItemId) || displayMatches[selectedItemId] !== undefined)
+    ) {
+      setSelectedItemId(null);
+    }
+  }, [displayMatches, pairByItemId, selectedItemId]);
 
   useLayoutEffect(() => {
     const container = matchingCanvasRef.current;
@@ -169,18 +172,20 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
   }, [
     answerKeyVisible,
     connectorCoordinateSpace,
+    connectorRevision,
     displayMatches,
     feedbackItems,
-    feedbackSignature,
-    matchSignature,
     showFeedback,
   ]);
 
   const commitMatch = (itemId: string, targetId: string) => {
-    if (interactionLocked) return;
+    const itemAvailable = pairByItemId.has(itemId) && displayMatches[itemId] === undefined;
+    const targetAvailable = orderedTargets.some((target) => target.targetId === targetId);
+    if (interactionLocked || !itemAvailable || !targetAvailable) return false;
     problem?.setMatch(itemId, targetId);
     setSelectedItemId(null);
     setHoverTargetId(null);
+    return true;
   };
   const clearDragState = () => {
     setHoverTargetId(null);
@@ -201,13 +206,7 @@ function MatchingPairsGroupRuntimeNodeView(props: NodeViewProps) {
     }
     const itemId = event.active.data.itemId;
     const targetId = event.over?.data.targetId ?? null;
-    const itemAvailable = pairByItemId.has(itemId) && displayMatches[itemId] === undefined;
-    const targetAvailable =
-      targetId !== null && orderedTargets.some((target) => target.targetId === targetId);
-    if (itemAvailable && targetAvailable && targetId) {
-      commitMatch(itemId, targetId);
-      return;
-    }
+    if (targetId && commitMatch(itemId, targetId)) return;
     clearDragState();
   };
 
@@ -462,12 +461,7 @@ function MatchingRuntimeItem({
 
   return (
     <InteractionDragActivationArea
-      {...drag.activatorProps}
-      {...drag.sourceProps}
-      ref={(element) => {
-        drag.setNodeRef(element);
-        drag.setActivatorNodeRef(element);
-      }}
+      ref={drag.sourceRef}
       type="button"
       safeLocalHeight={55}
       safeLocalWidth={55}
@@ -477,6 +471,7 @@ function MatchingRuntimeItem({
       aria-label={`Select matching item ${index + 1}`}
       aria-describedby={descriptionId}
       data-matching-draggable-item=""
+      data-interaction-drag-placeholder={drag.isPlaceholder ? "" : undefined}
       data-item-id={pair.itemId}
       onClick={onSelect}
       onKeyDown={(e) => {
@@ -540,14 +535,14 @@ function MatchingRuntimeTarget({
     disabled: interactionLocked,
     id: `matching-runtime-target:${targetId}`,
   });
-  const isActiveDrop = drop.isOver || activeDrop;
+  const isActiveDrop = drop.isDropTarget || activeDrop;
 
   return (
     <div
-      {...drop.targetProps}
-      ref={drop.setNodeRef}
+      ref={drop.targetRef}
       role="button"
       tabIndex={interactionLocked ? -1 : 0}
+      aria-disabled={interactionLocked || undefined}
       aria-label={`Match target ${index + 1}`}
       aria-describedby={descriptionId}
       data-matching-drop-target=""
@@ -596,12 +591,11 @@ function projectionsFromGroup(node: PMNode, serializer: DOMSerializer): Matching
   const pairs: MatchingProjectionPair[] = [];
   node.forEach((pair) => {
     if (pair.type.name !== "matching_pair") return;
-    const itemId = String(pair.attrs["itemId"] ?? "");
-    const targetId = String(pair.attrs["targetId"] ?? "");
-    if (!itemId || !targetId) return;
-
     const item = childByType(pair, "matching_item");
     const target = childByType(pair, "matching_target");
+    const itemId = String(item?.attrs["id"] ?? "");
+    const targetId = String(target?.attrs["id"] ?? "");
+    if (!itemId || !targetId) return;
     pairs.push({
       itemId,
       targetId,

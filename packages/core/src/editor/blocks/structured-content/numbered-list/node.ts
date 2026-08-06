@@ -2,7 +2,6 @@ import { NumberedListDataSchema, type NumberedListData } from "@scaffold/contrac
 import { Node, mergeAttributes, type NodeViewRenderer } from "@tiptap/core";
 
 import { COURSE_BLOCK_CONTENT } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 
 import {
   NUMBERED_LIST_ITEM_NODE,
@@ -26,7 +25,6 @@ export function createNumberedListNode(options: NumberedListNodeOptions = {}) {
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         data: {
           default: emptyNumberedListData(),
           parseHTML: (el: HTMLElement) => {

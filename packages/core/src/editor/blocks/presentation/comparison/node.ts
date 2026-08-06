@@ -2,7 +2,6 @@ import { Node, mergeAttributes, type NodeViewRenderer } from "@tiptap/core";
 import { ComparisonDataSchema, type ComparisonData } from "@scaffold/contracts";
 
 import { COURSE_BLOCK_CONTENT } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 
 import { COMPARISON_NODE, COMPARISON_ROW_NODE, emptyComparisonData } from "./content";
 
@@ -21,7 +20,6 @@ export function createComparisonNode(options: ComparisonNodeOptions = {}) {
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         data: {
           default: emptyComparisonData(),
           parseHTML: (el: HTMLElement) => {

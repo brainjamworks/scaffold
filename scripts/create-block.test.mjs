@@ -73,6 +73,7 @@ test("content recipe writes schema, node, view, index, and contract test", (t) =
   const result = runCreateBlock(["--name", "Demo", "--recipe", "content"], root);
 
   assert.equal(result.status, 0, result.stderr);
+  assertGeneratedNodesInheritMountedIdentity(root);
   assertFixtureFiles(root, [
     "packages/core/src/schemas/blocks/demo.ts",
     "packages/core/src/editor/blocks/Demo/index.tsx",
@@ -249,6 +250,7 @@ test("assessment composite recipe writes current lane-safe assessment output", (
   const result = runCreateBlock(["--name", "Demo", "--recipe", "assessment-composite"], root);
 
   assert.equal(result.status, 0, result.stderr);
+  assertGeneratedNodesInheritMountedIdentity(root);
   assert.deepEqual(fixtureSourceFiles(root), [
     "packages/core/src/editor/blocks/Demo/Demo.test.ts",
     "packages/core/src/editor/blocks/Demo/Demo.tsx",
@@ -306,6 +308,7 @@ test("shell widget recipe writes current lane-safe assessment output with an ato
   const result = runCreateBlock(["--name", "Demo", "--recipe", "shell-widget"], root);
 
   assert.equal(result.status, 0, result.stderr);
+  assertGeneratedNodesInheritMountedIdentity(root);
   assert.deepEqual(fixtureSourceFiles(root), [
     "packages/core/src/editor/blocks/Demo/Demo.test.ts",
     "packages/core/src/editor/blocks/Demo/Demo.tsx",
@@ -319,10 +322,6 @@ test("shell widget recipe writes current lane-safe assessment output with an ato
     "packages/core/src/schemas/blocks/demo.ts",
   ]);
   assertAssessmentSettingsSchema(readFixtureFile(root, "packages/core/src/schemas/blocks/demo.ts"));
-  assert.match(
-    readFixtureFile(root, "packages/core/src/editor/blocks/Demo/DemoCanvas.tsx"),
-    /stableNodeIdAttribute\(\)/,
-  );
   assert.match(
     readFixtureFile(root, "packages/core/src/editor/blocks/Demo/DemoCanvas.tsx"),
     /atom: true/,
@@ -348,6 +347,7 @@ test("media widget recipe writes one visible widget node with structured data", 
   const result = runCreateBlock(["--name", "Demo", "--recipe", "media-widget"], root);
 
   assert.equal(result.status, 0, result.stderr);
+  assertGeneratedNodesInheritMountedIdentity(root);
   assert.deepEqual(fixtureSourceFiles(root), [
     "packages/core/src/editor/blocks/Demo/Demo.test.ts",
     "packages/core/src/editor/blocks/Demo/Demo.tsx",
@@ -540,6 +540,14 @@ function assertFixtureFiles(root, paths) {
   for (const path of paths) {
     assert.equal(existsSync(join(root, path)), true, `${path} should exist`);
   }
+}
+
+function assertGeneratedNodesInheritMountedIdentity(root) {
+  const generatedSource = fixtureSourceFiles(root)
+    .map((path) => readFixtureFile(root, path))
+    .join("\n");
+
+  assert.doesNotMatch(generatedSource, /stable-node-attribute|stableNodeIdAttribute/);
 }
 
 function assertAssessmentNodeViewSource(source) {

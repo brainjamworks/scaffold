@@ -25,7 +25,7 @@ const record: LearnerActivityRecord = {
 const snapshot: LearnerActivitySnapshot = {
   snapshotVersion: 1,
   artifactId: "artifact-1",
-  activities: { "block-1": record },
+  activities: { block_000001: record },
 };
 
 const portableUpdatedAtValues = [
@@ -50,6 +50,21 @@ const nonPortableUpdatedAtValues = [
 ];
 
 describe("learner activity contracts", () => {
+  it("requires activity record keys to be authored embedded node ids", () => {
+    expect(
+      LearnerActivitySnapshotSchema.safeParse({
+        ...snapshot,
+        activities: { block_000001: record },
+      }).success,
+    ).toBe(true);
+    expect(
+      LearnerActivitySnapshotSchema.safeParse({
+        ...snapshot,
+        activities: { "block-1": record },
+      }).success,
+    ).toBe(false);
+  });
+
   it("accepts strict version 1 snapshots with recursively JSON-safe data", () => {
     const data: LearnerActivityData = {
       text: "value",
@@ -162,7 +177,7 @@ describe("learner activity contracts", () => {
       ...snapshot,
       activities: {
         ...snapshot.activities,
-        "block-2": {
+        block_000002: {
           ...record,
           data: { cards: [{ id: "card-1", seen: true }], remaining: 3 },
           completed: true,

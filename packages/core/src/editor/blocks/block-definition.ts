@@ -64,11 +64,6 @@ export interface BlockStagedBoundedHostDefinition {
   readonly childGroup: string;
 }
 
-export interface BlockIdentityDefinition {
-  /** Independently addressable child node types that carry persisted semantic-node ids. */
-  readonly stableChildNodeTypes?: readonly string[];
-}
-
 export interface BlockPlaceholderContext {
   readonly editor: Editor;
   readonly node: ProseMirrorNode;
@@ -200,7 +195,6 @@ export interface BlockDefinitionInput {
   readonly capabilities?: BlockCapabilitiesDefinition;
   readonly childSettings?: BlockChildSettingsDefinition;
   readonly configuration?: ConfigurationDefinition;
-  readonly identity?: BlockIdentityDefinition;
   readonly insert?: BlockInsertDefinition;
   readonly interaction?: BlockInteractionDefinition;
   readonly placeholders?: BlockPlaceholderDefinition;

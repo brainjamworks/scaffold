@@ -8,6 +8,7 @@ import type { MovementNodeContext } from "../model/movement-policy";
 import {
   ContainedMovementTarget,
   createMovementTarget,
+  movementTargetAxis,
   type AnyMovementTarget,
   type MovementTargetRect,
 } from "../model/movement-target";
@@ -174,7 +175,13 @@ export function createMovementTargetIndexSnapshot({
 
       if (source.kind === "contained") {
         const placement =
-          point.y < best.target.rect.top + best.target.rect.height / 2 ? "before" : "after";
+          movementTargetAxis(best.target) === "horizontal"
+            ? point.x < best.target.rect.left + best.target.rect.width / 2
+              ? "before"
+              : "after"
+            : point.y < best.target.rect.top + best.target.rect.height / 2
+              ? "before"
+              : "after";
         if (isContainedNoOp(source.context, best.target.context, placement)) return null;
         return Object.freeze({ key: best.key, placement, target: best.target });
       }

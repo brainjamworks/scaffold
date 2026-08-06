@@ -1,20 +1,25 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, expectTypeOf, it } from "vite-plus/test";
 
-import type {
-  AnswerReveal,
-  AssessmentProblemSnapshot,
-  AssessmentResult,
-  QuizAttemptState,
+import {
+  AnswerRevealSchema,
+  AssessmentProblemSnapshotSchema,
+  QuizAttemptStateSchema,
+  SingleSelectResponseSchema,
+  type AssessmentResult,
 } from "@scaffold/contracts";
 
 import {
   AssessmentProblemCommandOutcomeSchema,
   AssessmentQuizCommandOutcomeSchema,
   type AssessmentProblemCommandOutcome,
+  type AssessmentProblemScopeId,
   type AssessmentCheckRequest,
+  type AssessmentGroupScopeId,
   type AssessmentPort,
   type AssessmentRevealHintRequest,
   type AssessmentSubmitRequest,
+  type AuthoredAssessmentTargetId,
+  type QuizAttemptId,
   type QuizFinishAttemptRequest,
   type QuizStartAttemptRequest,
   type QuizSubmitQuestionRequest,
@@ -27,19 +32,19 @@ const result: AssessmentResult = {
   items: {},
 };
 
-const reveal: AnswerReveal = {
+const reveal = AnswerRevealSchema.parse({
   answerKey: {
     kind: "single-select",
-    correctOptionId: "choice-b",
+    correctOptionId: "option_00002",
     feedbackByOptionId: {},
   },
-};
+});
 
-const attempt: QuizAttemptState = {
+const attempt = QuizAttemptStateSchema.parse({
   attemptId: "attempt-1",
-  groupId: "quiz-1",
+  groupId: "artifact:course-1/group:quiz__000001",
   status: "in_progress",
-  currentTargetId: "question-1",
+  currentTargetId: "questn_00001",
   submittedTargetIds: [],
   startedAt: null,
   finishedAt: null,
@@ -48,30 +53,44 @@ const attempt: QuizAttemptState = {
   successStatus: null,
   resultsByTargetId: {},
   answerReviewAuthorized: false,
-};
+});
 
-const problem: AssessmentProblemSnapshot = {
-  response: { kind: "single-select", optionId: "choice-b" },
+const response = SingleSelectResponseSchema.parse({
+  kind: "single-select",
+  optionId: "option_00002",
+});
+
+const problem = AssessmentProblemSnapshotSchema.parse({
+  response,
   attemptNumber: 1,
   hintsShown: 0,
   checkResult: result,
   submitted: false,
   submissionResult: null,
-};
+});
 
 const problemOutcome: AssessmentProblemCommandOutcome = { problem };
 const quizOutcome = {
   quizAttempt: attempt,
-  problemsByTargetId: { "question-1": problem },
+  problemsByTargetId: { questn_00001: problem },
 };
 
 describe("AssessmentPort", () => {
+  it("keeps authored targets and opaque host attempts semantically named", () => {
+    expectTypeOf<AssessmentCheckRequest["targetId"]>().toEqualTypeOf<AuthoredAssessmentTargetId>();
+    expectTypeOf<QuizSubmitQuestionRequest["attemptId"]>().toEqualTypeOf<QuizAttemptId>();
+    expectTypeOf<AuthoredAssessmentTargetId>().toEqualTypeOf<string>();
+    expectTypeOf<AssessmentProblemScopeId>().toEqualTypeOf<string>();
+    expectTypeOf<AssessmentGroupScopeId>().toEqualTypeOf<string>();
+    expectTypeOf<QuizAttemptId>().toEqualTypeOf<string>();
+  });
+
   it("supports runtime operations with minimal Contract-based requests", async () => {
     const checkRequest: AssessmentCheckRequest = {
-      problemId: "artifact:course-1/block:question-1",
-      targetId: "question-1",
+      problemId: "artifact:course-1/block:questn_00001",
+      targetId: "questn_00001",
       interactionKind: "single-select",
-      response: { kind: "single-select", optionId: "choice-b" },
+      response,
       expectedAttemptNumber: 0,
     };
     const submitRequest: AssessmentSubmitRequest = { ...checkRequest };
@@ -81,19 +100,21 @@ describe("AssessmentPort", () => {
       interactionKind: checkRequest.interactionKind,
       hintsShown: 1,
     };
-    const startRequest: QuizStartAttemptRequest = { groupId: "quiz-1" };
+    const startRequest: QuizStartAttemptRequest = {
+      groupId: "artifact:course-1/group:quiz__000001",
+    };
     const questionRequest: QuizSubmitQuestionRequest = {
       attemptId: "attempt-1",
-      groupId: "quiz-1",
-      targetId: "question-1",
-      response: { kind: "single-select", optionId: "choice-b" },
+      groupId: "artifact:course-1/group:quiz__000001",
+      targetId: "questn_00001",
+      response,
       expectedAttemptNumber: 0,
     };
     const finishRequest: QuizFinishAttemptRequest = {
       attemptId: "attempt-1",
-      groupId: "quiz-1",
+      groupId: "artifact:course-1/group:quiz__000001",
       responsesByTargetId: {
-        "question-1": { kind: "single-select", optionId: "choice-b" },
+        questn_00001: response,
       },
     };
     const runtimePort: AssessmentPort = {
@@ -122,7 +143,7 @@ describe("AssessmentPort", () => {
     expect(() =>
       AssessmentQuizCommandOutcomeSchema.parse({
         quizAttempt: attempt,
-        problemsByTargetId: { "question-1": { ...problem, attemptNumber: -1 } },
+        problemsByTargetId: { questn_00001: { ...problem, attemptNumber: -1 } },
       }),
     ).toThrow();
   });
@@ -137,10 +158,10 @@ describe("AssessmentPort", () => {
     expect(previewPort.revealHint).toBeUndefined();
     await expect(
       previewPort.submit({
-        problemId: "artifact:course-1/block:question-1",
-        targetId: "question-1",
+        problemId: "artifact:course-1/block:questn_00001",
+        targetId: "questn_00001",
         interactionKind: "single-select",
-        response: { kind: "single-select", optionId: "choice-b" },
+        response,
         expectedAttemptNumber: 0,
       }),
     ).resolves.toBe(problemOutcome);

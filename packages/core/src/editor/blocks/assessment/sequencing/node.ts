@@ -10,7 +10,6 @@ import {
   ASSESSMENT_QUESTION_CONTENT,
   COURSE_BLOCK_CONTENT,
 } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 
 /**
  * Composite Sequencing node. Same shell shape as MCQ / Multiselect
@@ -55,7 +54,6 @@ export function createSequencingNode(options: SequencingNodeOptions = {}) {
       });
 
       return {
-        id: stableNodeIdAttribute(),
         settings: {
           ...makeAttr("data-sequencing-settings", settingsDefault, SequencingSettingsSchema),
           renderHTML: (attrs: { settings: SequencingSettings }) => ({

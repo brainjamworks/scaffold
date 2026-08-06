@@ -1,13 +1,18 @@
 import type { JSONContent } from "@tiptap/core";
 import { z } from "zod";
 import {
+  EmbeddedNodeIdSchema,
   MatchResponseSchema,
+  MatchAssessmentSchema,
+  MatchInteractionSchema,
   MatchingPrivateAssessmentSchema,
   type AssessmentAnswerKey,
   type AssessmentInteractionContract,
   type AssessmentResponseValue,
   type AssessmentTargetSettings,
 } from "@scaffold/contracts";
+
+const EmbeddedNodeRecordKeySchema = EmbeddedNodeIdSchema.unwrap().unwrap();
 
 import type { AssessmentBlockAdapter } from "@/editor/blocks/assessment/shared/model/assessment-block-adapter";
 import type { AssessmentCapabilityResponseDefinition } from "@/editor/blocks/block-definition";
@@ -28,7 +33,7 @@ import {
 
 export const MatchingResponseSchema = z
   .object({
-    matches: z.record(z.string(), z.string()).default({}),
+    matches: z.record(EmbeddedNodeRecordKeySchema, EmbeddedNodeIdSchema).default({}),
   })
   .strict();
 export type MatchingResponse = z.infer<typeof MatchingResponseSchema>;
@@ -49,7 +54,7 @@ export function projectMatchingLearnerNode(node: JSONContent): JSONContent {
 
 export function projectMatchingInteraction(node: JSONContent): AssessmentInteractionContract {
   const pairs = projectMatchingPairs(node);
-  return {
+  return MatchInteractionSchema.parse({
     kind: "match",
     items: pairs.map(({ itemId, itemLabel }) => ({
       id: itemId,
@@ -59,28 +64,24 @@ export function projectMatchingInteraction(node: JSONContent): AssessmentInterac
       id: targetId,
       ...(targetLabel ? { label: targetLabel } : {}),
     })),
-  };
+  });
 }
 
 export function projectMatchingAssessment(node: JSONContent): AssessmentAnswerKey {
   const assessment = MatchingPrivateAssessmentSchema.parse(readAttrs(node)["assessment"] ?? {});
   const visiblePairs = projectMatchingPairs(node);
-  const validItemIds = new Set(visiblePairs.map((pair) => pair.itemId));
-  const validTargetIds = new Set(visiblePairs.map((pair) => pair.targetId));
-  const correctPairs = assessment.correctPairs.filter(
-    (pair) => validItemIds.has(pair.itemId) && validTargetIds.has(pair.targetId),
-  );
+  const correctPairs = visiblePairs.map(({ itemId, targetId }) => ({ itemId, targetId }));
   const feedbackByItemId: typeof assessment.feedbackByItemId = {};
   for (const pair of correctPairs) {
     const feedback = assessment.feedbackByItemId[pair.itemId];
     if (feedback) feedbackByItemId[pair.itemId] = feedback;
   }
-  return {
+  return MatchAssessmentSchema.parse({
     kind: "match",
     correctPairs,
     feedbackByItemId,
     summaryFeedback: assessment.summaryFeedback,
-  };
+  });
 }
 
 export function projectMatchingSettings(settings: unknown): Partial<AssessmentTargetSettings> {
@@ -92,7 +93,7 @@ function projectMatchingPairsGroupLearnerNode(group: JSONContent, blockId: strin
   const targets = pairs
     .map((pair) => {
       const target = childByType(pair, "matching_target");
-      const targetId = readStringAttr(pair, "targetId");
+      const targetId = target ? readStringAttr(target, "id") : "";
       return target && targetId ? { targetId, target } : null;
     })
     .filter((target): target is { targetId: string; target: JSONContent } => Boolean(target));
@@ -116,7 +117,6 @@ function projectMatchingPairLearnerNode(
   pair: JSONContent,
   targetProjection: { targetId: string; target: JSONContent } | null,
 ): JSONContent {
-  const itemId = readStringAttr(pair, "itemId");
   const item = childByType(pair, "matching_item");
   const target = targetProjection?.target ?? childByType(pair, "matching_target");
   const content = [
@@ -130,10 +130,6 @@ function projectMatchingPairLearnerNode(
 
   return {
     ...cloneJsonNodeWithoutContent(pair),
-    attrs: {
-      ...(itemId ? { itemId } : {}),
-      ...(targetProjection?.targetId ? { targetId: targetProjection.targetId } : {}),
-    },
     content,
   };
 }
@@ -154,11 +150,11 @@ function projectMatchingPairs(node: JSONContent): Array<{
   if (!group) return out;
 
   for (const pair of childrenOfType(group, "matching_pair")) {
-    const itemId = readStringAttr(pair, "itemId");
-    const targetId = readStringAttr(pair, "targetId");
-    if (!itemId || !targetId) continue;
     const item = childByType(pair, "matching_item");
     const target = childByType(pair, "matching_target");
+    const itemId = item ? readStringAttr(item, "id") : "";
+    const targetId = target ? readStringAttr(target, "id") : "";
+    if (!itemId || !targetId) continue;
     const itemLabel = item ? textBetween(item).trim() : "";
     const targetLabel = target ? textBetween(target).trim() : "";
     out.push({
@@ -209,8 +205,8 @@ export function hasMatchingResponse(
   if (!interaction) return Object.keys(matches).length > 0;
   if (interaction.kind !== "match" || interaction.items.length === 0) return false;
 
-  const expectedItemIds = new Set(interaction.items.map((item) => item.id));
-  const expectedTargetIds = new Set(interaction.targets.map((target) => target.id));
+  const expectedItemIds = new Set<string>(interaction.items.map((item) => item.id));
+  const expectedTargetIds = new Set<string>(interaction.targets.map((target) => target.id));
   const entries = Object.entries(matches);
   const selectedTargetIds = new Set(entries.map(([, targetId]) => targetId));
 

@@ -2,7 +2,6 @@ import { Node, mergeAttributes, type NodeViewRenderer } from "@tiptap/core";
 import { PullQuoteDataSchema, type PullQuoteData } from "@scaffold/contracts";
 
 import { COURSE_BLOCK_CONTENT } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 
 import { emptyPullQuoteData } from "./content";
 
@@ -21,7 +20,6 @@ export function createPullQuoteNode(options: PullQuoteNodeOptions = {}) {
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         data: {
           default: emptyPullQuoteData(),
           parseHTML: (el: HTMLElement) => {

@@ -17,9 +17,7 @@ import {
 } from "@/composition/application/create-scaffold-application";
 import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import { getScaffoldAuthoringCataloguesForEditor } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
-import { CORE_STRUCTURAL_SEMANTIC_NODE_TYPES } from "@/composition/model/create-document-composition";
 import * as surfaceLifecyclePolicy from "@/document/authoring/surface-lifecycle-authoring-policy";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 import {
   CellAuthoringNode,
   GridAuthoringNode,
@@ -143,43 +141,28 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     expect(missingBlockNames).toEqual([]);
   });
 
-  it("uses the exact immutable mounted semantic-node inventory in authoring", () => {
-    const authoringUniqueId = createCourseDocumentAuthoringExtensions({
+  it("configures identity for every eligible mounted node in editable authoring", () => {
+    const uniqueId = createCourseDocumentAuthoringExtensions({
       editable: true,
       composition: coreAuthoringComposition,
     }).find((extension) => extension.name === "uniqueID");
-    const semanticNodeTypes = authoringUniqueId?.options["types"] as readonly string[];
 
-    expect(semanticNodeTypes).toEqual([
-      ...CORE_STRUCTURAL_SEMANTIC_NODE_TYPES,
-      ...builtInBlockRegistry.stableIdNodeTypes,
-    ]);
-    expect(Object.isFrozen(semanticNodeTypes)).toBe(true);
+    expect(uniqueId?.options).toMatchObject({
+      attributeName: "id",
+      types: "all",
+      updateDocument: true,
+    });
+    expect(uniqueId?.options["generateID"]).toBeTypeOf("function");
   });
 
-  it("uses the immutable Core structural semantic-node inventory", () => {
-    const authoringUniqueId = createCourseDocumentAuthoringExtensions({
-      editable: true,
+  it("keeps identity non-mutating when the authoring composition is read-only", () => {
+    const uniqueId = createCourseDocumentAuthoringExtensions({
+      editable: false,
       composition: coreAuthoringComposition,
     }).find((extension) => extension.name === "uniqueID");
-    const types = authoringUniqueId?.options["types"] as readonly string[];
 
-    expect(Object.isFrozen(CORE_STRUCTURAL_SEMANTIC_NODE_TYPES)).toBe(true);
-    expect(CORE_STRUCTURAL_SEMANTIC_NODE_TYPES).toEqual([
-      "surface",
-      "region",
-      "layout",
-      "section",
-      "grid",
-      "cell",
-    ]);
-    expect(types.slice(0, CORE_STRUCTURAL_SEMANTIC_NODE_TYPES.length)).toEqual(
-      CORE_STRUCTURAL_SEMANTIC_NODE_TYPES,
-    );
-    expect(types).not.toContain("page-default");
-    expect(types).not.toContain("tabs");
-    expect(types).not.toContain("activeTabByLayoutId");
-    expect(types).not.toContain("openAccordionSectionsByLayoutId");
+    expect(uniqueId?.options["types"]).toBe("all");
+    expect(uniqueId?.options["updateDocument"]).toBe(false);
   });
 
   it("passes built-in resizable node types into the authoring frame extension", () => {
@@ -587,7 +570,7 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     }
   });
 
-  it("installs one host Block authoring bundle with resolved identity and frame metadata", () => {
+  it("gives Core and contributed node extensions mounted identity in authoring", () => {
     const capability = hostBlockCapability("host_authoring_tracer");
     const application = createScaffoldApplication({
       packs: [defineScaffoldExtensionPack({ id: "host-authoring-blocks", blocks: [capability] })],
@@ -607,44 +590,33 @@ describe("createCourseDocumentAuthoringExtensions", () => {
       extensions.filter((extension) => extension === capability.authoringExtension),
     ).toHaveLength(1);
     expect(extensions).not.toContain(capability.runtimeExtension);
-    const semanticNodeTypes = uniqueId?.options["types"] as readonly string[];
-    const expectedSemanticNodeTypes = [
-      ...CORE_STRUCTURAL_SEMANTIC_NODE_TYPES,
-      ...application.capabilities.blocks.registry.stableIdNodeTypes,
-    ];
-
-    expect(semanticNodeTypes).toEqual(expectedSemanticNodeTypes);
-    expect(Object.isFrozen(semanticNodeTypes)).toBe(true);
-    for (const nodeType of semanticNodeTypes) {
-      expect(schema.nodes[nodeType]?.spec.attrs?.["id"], nodeType).toBeDefined();
-    }
-    expect(schema.nodes["paragraph"]?.spec.attrs?.["id"]).toBeUndefined();
+    expect(uniqueId?.options["types"]).toBe("all");
+    expect(schema.nodes["paragraph"]?.spec.attrs?.["id"]).toBeDefined();
+    expect(
+      schema.nodes[`${capability.definition.nodeType}_child`]?.spec.attrs?.["id"],
+    ).toBeDefined();
+    expect(schema.nodes["doc"]?.spec.attrs?.["id"]).toBeUndefined();
     expect(schema.nodes["text"]?.spec.attrs?.["id"]).toBeUndefined();
-    expect(semanticNodeTypes).not.toContain("chart_row");
-    expect(semanticNodeTypes).not.toContain("chart_column");
-    expect(semanticNodeTypes).not.toContain("image_hotspot_region");
-    expect(semanticNodeTypes).not.toContain("private_payload_record");
+    expect(schema.marks["bold"]?.spec.attrs?.["id"]).toBeUndefined();
     expect(frame?.options["resizableBlockNodeTypes"]).toContain(capability.definition.nodeType);
-  });
 
-  it("rejects a declared Block semantic child missing from the authoring schema", () => {
-    const capability = hostBlockCapability("host_missing_authoring_child", {
-      omitAuthoringChild: true,
+    const editor = new Editor({
+      extensions,
+      content: contributedIdentityDocument(capability.definition.nodeType),
     });
-    const application = createScaffoldApplication({
-      packs: [defineScaffoldExtensionPack({ id: "missing-authoring-child", blocks: [capability] })],
-    });
-
-    expect(() =>
-      getSchema(
-        createCourseDocumentAuthoringExtensions({
-          editable: true,
-          composition: application.authoring,
-        }),
-      ),
-    ).toThrow(
-      'Mounted Block semantic node "host_missing_authoring_child_child" is missing from the exact mounted Tiptap schema.',
-    );
+    try {
+      const container = document.createElement("div");
+      container.innerHTML = editor.getHTML();
+      expect(container.querySelector("p")?.getAttribute("data-id")).toBe("corePara0001");
+      expect(container.querySelector("[data-contributed-wrapper]")?.getAttribute("data-id")).toBe(
+        "hostWrap0001",
+      );
+      expect(
+        container.querySelector("[data-contributed-inline-atom]")?.getAttribute("data-id"),
+      ).toBe("hostAtom0001");
+    } finally {
+      editor.destroy();
+    }
   });
 
   it("keeps host Block registries and authoring schemas isolated between applications", () => {
@@ -682,31 +654,19 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     expect(firstSchema.nodes[second.definition.nodeType]).toBeUndefined();
     expect(secondSchema.nodes[second.definition.nodeType]).toBeDefined();
     expect(secondSchema.nodes[first.definition.nodeType]).toBeUndefined();
-    const firstSemanticNodeTypes = createCourseDocumentAuthoringExtensions({
-      editable: true,
-      composition: firstApplication.authoring,
-    }).find(({ name }) => name === "uniqueID")?.options["types"] as readonly string[];
-    const secondSemanticNodeTypes = createCourseDocumentAuthoringExtensions({
-      editable: true,
-      composition: secondApplication.authoring,
-    }).find(({ name }) => name === "uniqueID")?.options["types"] as readonly string[];
-
-    expect(firstSemanticNodeTypes).toContain(first.definition.nodeType);
-    expect(firstSemanticNodeTypes).not.toContain(second.definition.nodeType);
-    expect(secondSemanticNodeTypes).toContain(second.definition.nodeType);
-    expect(secondSemanticNodeTypes).not.toContain(first.definition.nodeType);
+    expect(firstSchema.nodes[`${first.definition.nodeType}_child`]).toBeDefined();
+    expect(firstSchema.nodes[`${second.definition.nodeType}_child`]).toBeUndefined();
+    expect(secondSchema.nodes[`${second.definition.nodeType}_child`]).toBeDefined();
+    expect(secondSchema.nodes[`${first.definition.nodeType}_child`]).toBeUndefined();
   });
 });
 
-function hostBlockCapability(
-  nodeType: string,
-  options: { omitAuthoringChild?: boolean } = {},
-): BlockCapability {
+function hostBlockCapability(nodeType: string): BlockCapability {
   const childNodeType = `${nodeType}_child`;
+  const inlineNodeType = `${nodeType}_inline_atom`;
   return {
     definition: {
       nodeType,
-      identity: { stableChildNodeTypes: [childNodeType] },
       frame: { resizable: true },
     },
     authoringExtension: Extension.create({
@@ -715,17 +675,32 @@ function hostBlockCapability(
         Node.create({
           name: nodeType,
           group: "block",
-          content: `${childNodeType}?`,
-          addAttributes: () => ({ id: stableNodeIdAttribute() }),
+          content: childNodeType,
+          renderHTML: ({ HTMLAttributes }) => [
+            "div",
+            { ...HTMLAttributes, "data-contributed-root": "" },
+            0,
+          ],
         }),
-        ...(options.omitAuthoringChild
-          ? []
-          : [
-              Node.create({
-                name: childNodeType,
-                addAttributes: () => ({ id: stableNodeIdAttribute() }),
-              }),
-            ]),
+        Node.create({
+          name: childNodeType,
+          content: "paragraph",
+          renderHTML: ({ HTMLAttributes }) => [
+            "div",
+            { "data-contributed-wrapper": "", ...HTMLAttributes },
+            0,
+          ],
+        }),
+        Node.create({
+          name: inlineNodeType,
+          group: "inline",
+          inline: true,
+          atom: true,
+          renderHTML: ({ HTMLAttributes }) => [
+            "span",
+            { "data-contributed-inline-atom": "", ...HTMLAttributes },
+          ],
+        }),
       ],
     }),
     runtimeExtension: Extension.create({
@@ -734,15 +709,75 @@ function hostBlockCapability(
         Node.create({
           name: nodeType,
           group: "block",
-          content: `${childNodeType}?`,
-          addAttributes: () => ({ id: stableNodeIdAttribute() }),
+          content: childNodeType,
+          renderHTML: ({ HTMLAttributes }) => [
+            "div",
+            { ...HTMLAttributes, "data-contributed-root": "" },
+            0,
+          ],
         }),
         Node.create({
           name: childNodeType,
-          addAttributes: () => ({ id: stableNodeIdAttribute() }),
+          content: "paragraph",
+          renderHTML: ({ HTMLAttributes }) => [
+            "div",
+            { "data-contributed-wrapper": "", ...HTMLAttributes },
+            0,
+          ],
+        }),
+        Node.create({
+          name: inlineNodeType,
+          group: "inline",
+          inline: true,
+          atom: true,
+          renderHTML: ({ HTMLAttributes }) => [
+            "span",
+            { "data-contributed-inline-atom": "", ...HTMLAttributes },
+          ],
         }),
       ],
     }),
+  };
+}
+
+function contributedIdentityDocument(nodeType: string): JSONContent {
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "courseDocument",
+        attrs: { id: "courseDoc001", mode: "page" },
+        content: [
+          {
+            type: "surface",
+            attrs: { id: "surface00001", variant: "page-default" },
+            content: [
+              {
+                type: nodeType,
+                attrs: { id: "hostRoot0001" },
+                content: [
+                  {
+                    type: `${nodeType}_child`,
+                    attrs: { id: "hostWrap0001" },
+                    content: [
+                      {
+                        type: "paragraph",
+                        attrs: { id: "corePara0001" },
+                        content: [
+                          { type: "text", text: "Before " },
+                          { type: `${nodeType}_inline_atom`, attrs: { id: "hostAtom0001" } },
+                          { type: "text", text: " after" },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
   };
 }
 

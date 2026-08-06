@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   CHART_TYPES,
   ChartBlockDataSchema,
+  ChartDataSourceSchema,
   ChartTypeSchema,
   type ChartBlockData,
 } from "@/schemas/shared";
@@ -10,6 +11,7 @@ import {
 import {
   chartDataToSettingsDraft,
   chartSettingsDraftToData,
+  ChartSettingsDraftSchema,
   createDefaultChartEncoding,
   getChartCatalogVariants,
   normalizeChartData,
@@ -130,6 +132,87 @@ describe("chart type definitions", () => {
 });
 
 describe("chart data model helpers", () => {
+  it("requires Data-family identities for chart row and column owners and references", () => {
+    const result = ChartDataSourceSchema.safeParse({
+      kind: "inlineTable",
+      columns: [
+        { id: "category", label: "Category", valueType: "category" },
+        { id: "column_00002", label: "Value", valueType: "number" },
+      ],
+      rows: [
+        {
+          id: "row-1",
+          cells: { category: "Apples", column_00002: 34 },
+        },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) throw new Error("Expected invalid chart-local identities");
+    expect(result.error.issues.map((issue) => issue.path)).toEqual(
+      expect.arrayContaining([
+        ["columns", 0, "id"],
+        ["rows", 0, "id"],
+        ["rows", 0, "cells", "category"],
+      ]),
+    );
+  });
+
+  it("reports duplicate chart-local owners at the duplicate paths", () => {
+    const result = ChartDataSourceSchema.safeParse({
+      kind: "inlineTable",
+      columns: [
+        { id: "column_00001", label: "Category", valueType: "category" },
+        { id: "column_00001", label: "Value", valueType: "number" },
+      ],
+      rows: [
+        { id: "rowdata_0001", cells: { column_00001: "Apples" } },
+        { id: "rowdata_0001", cells: { column_00001: "Bananas" } },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) throw new Error("Expected duplicate chart-local owners");
+    expect(result.error.issues.map(({ message, path }) => ({ message, path }))).toEqual([
+      {
+        message: 'duplicate chart column id "column_00001"',
+        path: ["columns", 1, "id"],
+      },
+      {
+        message: 'duplicate chart row id "rowdata_0001"',
+        path: ["rows", 1, "id"],
+      },
+    ]);
+  });
+
+  it("requires chart settings owner and mapping identities to use the Data family", () => {
+    const draft = chartDataToSettingsDraft(createChartSample("bar"));
+    const result = ChartSettingsDraftSchema.safeParse({
+      ...draft,
+      table: {
+        ...draft.table,
+        columnIds: ["category", "value"],
+        rowIds: ["row-1"],
+      },
+      mapping: {
+        ...draft.mapping,
+        category: "category",
+        values: ["value"],
+      },
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) throw new Error("Expected invalid chart settings identities");
+    expect(result.error.issues.map((issue) => issue.path)).toEqual(
+      expect.arrayContaining([
+        ["table", "columnIds", 0],
+        ["table", "rowIds", 0],
+        ["mapping", "category"],
+        ["mapping", "values", 0],
+      ]),
+    );
+  });
+
   it("creates schema-valid default encodings through chart profiles", () => {
     for (const chartType of ChartTypeSchema.options) {
       const chart = createChartSample(chartType);
@@ -196,19 +279,21 @@ describe("chart data model helpers", () => {
   it("maps selected draft value series into persisted chart encoding", () => {
     const chart = createChartSample("line");
     const draft = chartDataToSettingsDraft(chart);
+    const monthId = chart.data.columns.find((column) => column.label === "Month")!.id;
+    const targetId = chart.data.columns.find((column) => column.label === "Target")!.id;
 
     const next = chartSettingsDraftToData({
       ...draft,
       mapping: {
         ...draft.mapping,
-        values: ["target"],
+        values: [targetId],
       },
     });
 
     expect(next.encoding).toMatchObject({
       chartType: "line",
-      x: { columnId: "month" },
-      y: [{ columnId: "target" }],
+      x: { columnId: monthId },
+      y: [{ columnId: targetId }],
     });
     expect(ChartBlockDataSchema.safeParse(next).success).toBe(true);
   });
@@ -230,22 +315,24 @@ describe("chart data model helpers", () => {
   it("uses draft mapping when changing to a different chart type", () => {
     const chart = createChartSample("bar");
     const draft = chartDataToSettingsDraft(chart);
+    const categoryId = chart.data.columns.find((column) => column.label === "Category")!.id;
+    const valueId = chart.data.columns.find((column) => column.label === "Value")!.id;
 
     const next = chartSettingsDraftToData({
       ...draft,
       chartType: "pie",
       mapping: {
         ...draft.mapping,
-        label: "category",
-        value: "value",
+        label: categoryId,
+        value: valueId,
       },
     });
 
     expect(next.encoding).toEqual({
       chartType: "pie",
       doughnut: false,
-      label: { columnId: "category" },
-      value: { columnId: "value" },
+      label: { columnId: categoryId },
+      value: { columnId: valueId },
     });
     expect(ChartBlockDataSchema.safeParse(next).success).toBe(true);
   });

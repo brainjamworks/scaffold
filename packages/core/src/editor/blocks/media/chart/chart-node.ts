@@ -1,7 +1,6 @@
 import { Node, mergeAttributes, type NodeViewRenderer } from "@tiptap/core";
 
 import { COURSE_BLOCK_CONTENT } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 import { ChartBlockDataSchema, type ChartBlockData } from "@/schemas/shared";
 
 import { createChartSample } from "./chart-samples";
@@ -20,7 +19,6 @@ export function createChartNode(options: ChartNodeOptions = {}) {
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         data: {
           default: createChartSample("bar"),
           parseHTML: (el: HTMLElement) => {

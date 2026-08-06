@@ -15,6 +15,18 @@ export interface MatchingConnectorGeometryInput {
   readonly svg: SVGSVGElement;
 }
 
+export function createMatchingConnectorRevision(
+  matches: Readonly<Record<string, string>>,
+  feedbackItems: Readonly<Record<string, Readonly<{ correct: boolean }>>>,
+): string {
+  return JSON.stringify({
+    matches: Object.entries(matches).sort(([a], [b]) => a.localeCompare(b)),
+    feedback: Object.entries(feedbackItems)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([itemId, item]) => [itemId, item.correct]),
+  });
+}
+
 export function measureMatchingConnectorGeometry({
   connections,
   container,

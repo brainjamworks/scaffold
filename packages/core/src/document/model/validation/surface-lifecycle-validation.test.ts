@@ -60,6 +60,7 @@ const PAGE_ID_2 = "page_0000002";
 const SLIDE_ID_1 = "slide_000001";
 const SLIDE_ID_2 = "slide_000002";
 const DUPLICATE_ID = "duplicate001";
+const COURSE_DOCUMENT_ID = "course000001";
 
 const invalidSettingsCases: [unknown, string, readonly (string | number)[]][] = [
   [{ density: "dense" }, "invalid value", ["density"]],
@@ -425,6 +426,7 @@ function document(
       {
         type: "courseDocument",
         attrs: {
+          id: COURSE_DOCUMENT_ID,
           schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
           mode,
           surfaceSize: mode === "slideshow" ? "16x9" : "fluid",

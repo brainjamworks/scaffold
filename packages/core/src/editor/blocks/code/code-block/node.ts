@@ -10,7 +10,6 @@ import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { common, createLowlight } from "lowlight";
 
 import { COURSE_BLOCK_CONTENT } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 import { setTextSelectionNearInTransaction } from "@/editor/selection/selection-transactions";
 
 import { CODE_BLOCK_BODY_NODE, CODE_BLOCK_NODE, emptyCodeBlockData } from "./content";
@@ -125,7 +124,6 @@ export function createCodeBlockNode(options: CodeBlockNodeOptions = {}) {
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         data: {
           default: emptyCodeBlockData(),
           parseHTML: (element: HTMLElement) => {

@@ -694,7 +694,6 @@ function nodeTemplate(context) {
 } from '@tiptap/core';
 
 import { COURSE_BLOCK_CONTENT } from '@/document/model/content-model/content-groups';
-import { stableNodeIdAttribute } from '@/document/model/identity/stable-node-attribute';
 import {
   ${context.pascalName}DataSchema,
   empty${context.pascalName}Data,
@@ -716,7 +715,6 @@ export function create${context.pascalName}Node(options: ${context.pascalName}No
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         data: {
           default: empty${context.pascalName}Data(),
           parseHTML: (element: HTMLElement) => {
@@ -774,7 +772,6 @@ function assessmentNodeTemplate(context) {
 } from '@tiptap/core';
 
 import { COURSE_BLOCK_CONTENT } from '@/document/model/content-model/content-groups';
-import { stableNodeIdAttribute } from '@/document/model/identity/stable-node-attribute';
 import {
   ${context.pascalName}PrivateAssessmentSchema,
   ${context.pascalName}SettingsSchema,
@@ -801,7 +798,6 @@ export function create${context.pascalName}Node(options: ${context.pascalName}No
         ${context.pascalName}PrivateAssessmentSchema.parse({});
 
       return {
-        id: stableNodeIdAttribute(),
         settings: {
           default: settingsDefault,
           parseHTML: (element: HTMLElement) => {
@@ -978,8 +974,6 @@ import {
   type NodeViewProps,
 } from '@tiptap/react';
 
-import { stableNodeIdAttribute } from '@/document/model/identity/stable-node-attribute';
-
 export const ${context.pascalName}CanvasNode = Node.create({
   name: '${context.nodeType}_canvas',
   atom: true,
@@ -988,7 +982,6 @@ export const ${context.pascalName}CanvasNode = Node.create({
 
   addAttributes() {
     return {
-      id: stableNodeIdAttribute(),
       data: {
         default: {},
         parseHTML: (element: HTMLElement) => {

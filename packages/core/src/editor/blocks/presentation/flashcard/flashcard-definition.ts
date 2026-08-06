@@ -8,7 +8,6 @@ import {
   FLASHCARD_BLOCK_ID,
   FLASHCARD_CARD_BACK_NODE,
   FLASHCARD_CARD_FRONT_NODE,
-  FLASHCARD_CARD_NODE,
   FLASHCARD_NODE,
   createFlashcardContent,
 } from "./content";
@@ -37,9 +36,6 @@ export const flashcardBlockDefinition = defineBlock({
       },
     ],
   }),
-  identity: {
-    stableChildNodeTypes: [FLASHCARD_CARD_NODE],
-  },
   placeholders: {
     [FLASHCARD_CARD_BACK_NODE]: "Back of the card",
     [FLASHCARD_CARD_FRONT_NODE]: "Front of the card",

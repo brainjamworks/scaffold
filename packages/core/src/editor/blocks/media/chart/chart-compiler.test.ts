@@ -6,8 +6,10 @@ import {
   CHART_TYPES,
   ChartBlockDataSchema,
   type ChartBlockData,
+  type ChartColumnId,
   type ChartType,
 } from "@/schemas/shared";
+import { createEmbeddedDataId } from "@/document/model/identity/stable-ids";
 
 import { chartProfiles } from "./chart-profiles";
 import { compileChart, defaultEncodingFor } from "./chart-compiler";
@@ -36,64 +38,76 @@ describe("chart compiler", () => {
   );
 
   it("keeps existing cartesian default encoding semantics", () => {
-    const chart = createChartSample("bar");
+    const barChart = createChartSample("bar");
+    const comboChart = createChartSample("combo");
+    const lineChart = createChartSample("line");
+    const areaChart = createChartSample("area");
 
-    expect(defaultEncodingFor("bar", chart.data)).toEqual({
+    expect(defaultEncodingFor("bar", barChart.data)).toEqual({
       chartType: "bar",
       orientation: "vertical",
       stacked: false,
-      x: { columnId: "category" },
-      y: [{ columnId: "value" }],
+      x: { columnId: columnIdByLabel(barChart, "Category") },
+      y: [{ columnId: columnIdByLabel(barChart, "Value") }],
     });
-    expect(defaultEncodingFor("combo", createChartSample("combo").data)).toEqual({
-      bars: [{ columnId: "actual" }],
+    expect(defaultEncodingFor("combo", comboChart.data)).toEqual({
+      bars: [{ columnId: columnIdByLabel(comboChart, "Actual") }],
       chartType: "combo",
-      lines: [{ columnId: "target" }],
-      x: { columnId: "month" },
+      lines: [{ columnId: columnIdByLabel(comboChart, "Target") }],
+      x: { columnId: columnIdByLabel(comboChart, "Month") },
     });
-    expect(defaultEncodingFor("line", createChartSample("line").data)).toEqual({
+    expect(defaultEncodingFor("line", lineChart.data)).toEqual({
       chartType: "line",
       area: false,
       smooth: false,
       stacked: false,
-      x: { columnId: "month" },
-      y: [{ columnId: "actual" }, { columnId: "target" }],
+      x: { columnId: columnIdByLabel(lineChart, "Month") },
+      y: [
+        { columnId: columnIdByLabel(lineChart, "Actual") },
+        { columnId: columnIdByLabel(lineChart, "Target") },
+      ],
     });
-    expect(defaultEncodingFor("area", createChartSample("area").data)).toEqual({
+    expect(defaultEncodingFor("area", areaChart.data)).toEqual({
       chartType: "area",
       smooth: false,
       stacked: false,
-      x: { columnId: "month" },
-      y: [{ columnId: "actual" }, { columnId: "target" }],
+      x: { columnId: columnIdByLabel(areaChart, "Month") },
+      y: [
+        { columnId: columnIdByLabel(areaChart, "Actual") },
+        { columnId: columnIdByLabel(areaChart, "Target") },
+      ],
     });
-    expect(defaultEncodingFor("donut", chart.data)).toEqual({
+    expect(defaultEncodingFor("donut", barChart.data)).toEqual({
       chartType: "donut",
-      label: { columnId: "category" },
-      value: { columnId: "value" },
+      label: { columnId: columnIdByLabel(barChart, "Category") },
+      value: { columnId: columnIdByLabel(barChart, "Value") },
     });
   });
 
   it("creates a numeric x/y default encoding for scatter charts", () => {
-    expect(defaultEncodingFor("scatter", createChartSample("scatter").data)).toEqual({
+    const chart = createChartSample("scatter");
+    expect(defaultEncodingFor("scatter", chart.data)).toEqual({
       chartType: "scatter",
-      x: { columnId: "study_hours" },
-      y: { columnId: "score" },
+      x: { columnId: columnIdByLabel(chart, "Study hours") },
+      y: { columnId: columnIdByLabel(chart, "Score") },
     });
   });
 
   it("creates a numeric value default encoding for histogram charts", () => {
-    expect(defaultEncodingFor("histogram", createChartSample("histogram").data)).toEqual({
+    const chart = createChartSample("histogram");
+    expect(defaultEncodingFor("histogram", chart.data)).toEqual({
       chartType: "histogram",
-      value: { columnId: "score" },
+      value: { columnId: columnIdByLabel(chart, "Score") },
     });
   });
 
   it("creates a category/category/value default encoding for heatmap charts", () => {
-    expect(defaultEncodingFor("heatmap", createChartSample("heatmap").data)).toEqual({
+    const chart = createChartSample("heatmap");
+    expect(defaultEncodingFor("heatmap", chart.data)).toEqual({
       chartType: "heatmap",
-      x: { columnId: "week" },
-      y: { columnId: "activity" },
-      value: { columnId: "completion" },
+      x: { columnId: columnIdByLabel(chart, "Week") },
+      y: { columnId: columnIdByLabel(chart, "Activity") },
+      value: { columnId: columnIdByLabel(chart, "Completion") },
     });
   });
 
@@ -108,7 +122,7 @@ describe("chart compiler", () => {
     expect(compiled.option["series"]).toMatchObject([
       { type: "bar", name: "Value", data: [34, 22, 18, 11, 15] },
     ]);
-    expect(compiled.table.rows[0]?.cells["category"]).toBe("Apples");
+    expect(compiled.table.rows[0]?.cells[columnIdByLabel(chart, "Category")]).toBe("Apples");
   });
 
   it("compiles combo charts to mixed bar and line series", () => {
@@ -292,18 +306,28 @@ describe("chart compiler", () => {
 });
 
 function histogramFixture(values = [1, 2, 3, 4, 5, 6, 7, 8, 9]): ChartBlockData {
+  const chart = createChartSample("histogram");
+  const sampleColumn = chart.data.columns[0];
+  const scoreColumn = chart.data.columns[1];
+  if (!sampleColumn || !scoreColumn) throw new Error("Expected histogram sample columns");
+
   return {
-    ...createChartSample("histogram"),
+    ...chart,
     data: {
-      kind: "inlineTable",
-      columns: [
-        { id: "sample", label: "Sample", valueType: "category" },
-        { id: "score", label: "Score", valueType: "number" },
-      ],
+      ...chart.data,
       rows: values.map((value, index) => ({
-        id: `row-${index + 1}`,
-        cells: { sample: `S${index + 1}`, score: value },
+        id: createEmbeddedDataId(),
+        cells: {
+          [sampleColumn.id]: `S${index + 1}`,
+          [scoreColumn.id]: value,
+        },
       })),
     },
   };
+}
+
+function columnIdByLabel(chart: ChartBlockData, label: string): ChartColumnId {
+  const column = chart.data.columns.find((candidate) => candidate.label === label);
+  if (!column) throw new Error(`Expected chart column labeled "${label}"`);
+  return column.id;
 }

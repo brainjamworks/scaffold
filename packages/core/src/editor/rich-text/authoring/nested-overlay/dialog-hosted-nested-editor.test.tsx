@@ -649,9 +649,10 @@ function FullChromeNestedEditorWorkspace({
         <Toolbar editor={result.editor} />
         <BlockStrip
           blockDefinitions={builtInBlockRegistry}
-          surfaceVariants={builtInSurfaceVariantRegistry}
           editor={result.editor}
           items={catalogItems}
+          layoutDefinitions={fullChromeCapabilities.layouts.registry}
+          surfaceVariants={builtInSurfaceVariantRegistry}
         />
         <EditorContent data-testid="inner-editor-content" editor={result.editor} />
       </AuthoringContentChrome>
@@ -711,6 +712,7 @@ function makeFullChromeInnerExtensions(catalogItems: readonly InsertAction[]): E
     createSlashCommand({
       blockDefinitions: builtInBlockRegistry,
       items: catalogItems,
+      layoutDefinitions: fullChromeCapabilities.layouts.registry,
       surfaceVariants: builtInSurfaceVariantRegistry,
     }),
   ];

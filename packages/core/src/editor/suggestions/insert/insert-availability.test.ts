@@ -4,7 +4,7 @@ import { TextHIcon as TextH } from "@phosphor-icons/react";
 import { Editor, Node } from "@tiptap/core";
 import { NodeSelection } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
 
 import {
@@ -15,6 +15,7 @@ import {
   LayoutAuthoringNode,
   SectionAuthoringNode,
 } from "@/editor/arrangements/layout/authoring/layout-nodes";
+import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { TEXT_CONTENT } from "@/document/model/content-model/content-groups";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
@@ -31,6 +32,10 @@ import {
 } from "./insert-availability";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { pageDefaultSurfaceDefinition } from "@/editor/surfaces/model/templates/page-default";
+import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
+import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
+import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
 
 const TestCourseBlock = Node.create({
   name: "test_course_block",
@@ -107,8 +112,17 @@ const testBlockRegistry = createBlockRegistry([
     }),
   }),
 ]);
+const testPlacementDependencies = {
+  blockDefinitions: testBlockRegistry,
+  layoutDefinitions: builtInLayoutRegistry,
+  surfaceVariants: createSurfaceVariantRegistry([
+    pageDefaultSurfaceDefinition,
+    slideCoverSurfaceDefinition,
+    slideContentSurfaceDefinition,
+  ]),
+};
 
-function itemFor(nodeType: string): InsertAction {
+function itemFor(nodeType: string, boundedPlacement?: "fill"): InsertAction {
   return {
     id: nodeType,
     nodeType,
@@ -116,11 +130,15 @@ function itemFor(nodeType: string): InsertAction {
     description: nodeType,
     category: "content",
     icon: TextH,
+    ...(boundedPlacement ? { boundedPlacement } : {}),
     content: () => ({ type: nodeType }),
   };
 }
 
-const structuralInsertCatalog = createInsertCatalog([itemFor("grid"), itemFor("layout")]);
+const structuralInsertCatalog = createInsertCatalog([
+  itemFor("grid", "fill"),
+  itemFor("layout", "fill"),
+]);
 
 function makeEditor() {
   return new Editor({
@@ -175,10 +193,36 @@ function setCursorInsideText(editor: Editor, text: string, offset = 0) {
   editor.commands.setTextSelection(pos);
 }
 
+function setCursorInFirstEmptyParagraph(editor: Editor): void {
+  let position: number | null = null;
+  editor.state.doc.descendants((node, pos) => {
+    if (position !== null || node.type.name !== "paragraph" || node.content.size !== 0) {
+      return true;
+    }
+    position = pos + 1;
+    return false;
+  });
+  if (position === null) throw new Error("Expected an empty paragraph.");
+  editor.commands.setTextSelection(position);
+}
+
+function selectText(editor: Editor, text: string): void {
+  let from: number | null = null;
+  editor.state.doc.descendants((node, pos) => {
+    if (from !== null || !node.isText || node.text !== text) return true;
+    from = pos;
+    return false;
+  });
+  if (from === null) throw new Error(`Expected text: ${text}`);
+  editor.commands.setTextSelection({ from, to: from + text.length });
+}
+
 function availableNodeTypes(editor: Editor): string[] {
-  return getInsertableCatalogItems(editor, structuralInsertCatalog.actions).map(
-    (item) => item.nodeType,
-  );
+  return getInsertableCatalogItems(
+    editor,
+    structuralInsertCatalog.actions,
+    testPlacementDependencies,
+  ).map((item) => item.nodeType);
 }
 
 describe("canInsertCatalogItem", () => {
@@ -196,8 +240,12 @@ describe("canInsertCatalogItem", () => {
 
     setCursorInsideText(editor, "level");
 
-    expect(canInsertCatalogItem(editor, itemFor("test_course_block"))).toBe(true);
-    expect(canInsertCatalogItem(editor, itemFor("test_field_media"))).toBe(false);
+    expect(
+      canInsertCatalogItem(editor, itemFor("test_course_block"), testPlacementDependencies),
+    ).toBe(true);
+    expect(
+      canInsertCatalogItem(editor, itemFor("test_field_media"), testPlacementDependencies),
+    ).toBe(false);
 
     editor.destroy();
   });
@@ -235,9 +283,15 @@ describe("canInsertCatalogItem", () => {
 
     setCursorInsideText(editor, "Prompt");
 
-    expect(canInsertCatalogItem(editor, itemFor("test_course_block"))).toBe(false);
-    expect(canInsertCatalogItem(editor, itemFor("test_rich_block"))).toBe(true);
-    expect(canInsertCatalogItem(editor, itemFor("test_field_media"))).toBe(true);
+    expect(
+      canInsertCatalogItem(editor, itemFor("test_course_block"), testPlacementDependencies),
+    ).toBe(false);
+    expect(
+      canInsertCatalogItem(editor, itemFor("test_rich_block"), testPlacementDependencies),
+    ).toBe(true);
+    expect(
+      canInsertCatalogItem(editor, itemFor("test_field_media"), testPlacementDependencies),
+    ).toBe(true);
 
     editor.destroy();
   });
@@ -270,9 +324,15 @@ describe("canInsertCatalogItem", () => {
 
     setCursorInsideText(editor, "Title");
 
-    expect(canInsertCatalogItem(editor, itemFor("test_course_block"))).toBe(false);
-    expect(canInsertCatalogItem(editor, itemFor("test_rich_block"))).toBe(false);
-    expect(canInsertCatalogItem(editor, itemFor("test_field_media"))).toBe(false);
+    expect(
+      canInsertCatalogItem(editor, itemFor("test_course_block"), testPlacementDependencies),
+    ).toBe(false);
+    expect(
+      canInsertCatalogItem(editor, itemFor("test_rich_block"), testPlacementDependencies),
+    ).toBe(false);
+    expect(
+      canInsertCatalogItem(editor, itemFor("test_field_media"), testPlacementDependencies),
+    ).toBe(false);
 
     editor.destroy();
   });
@@ -307,6 +367,7 @@ describe("canInsertCatalogItem", () => {
           content: [
             {
               type: "surface",
+              attrs: { id: "surface-page", variant: "page-default" },
               content: [
                 {
                   type: "paragraph",
@@ -342,10 +403,43 @@ describe("canInsertCatalogItem", () => {
                 {
                   type: "region",
                   attrs: { id: "region-a", role: "main" },
+                  content: [{ type: "paragraph" }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    setCursorInFirstEmptyParagraph(editor);
+
+    expect(availableNodeTypes(editor)).toEqual(expect.arrayContaining(["grid", "layout"]));
+
+    editor.destroy();
+  });
+
+  it("rejects fill actions when a bounded region contains authored sibling content", () => {
+    const editor = makeCourseEditor();
+    editor.commands.setContent({
+      type: "doc",
+      content: [
+        {
+          type: "courseDocument",
+          attrs: { mode: "slideshow" },
+          content: [
+            {
+              type: "surface",
+              attrs: { id: "surface-a", variant: "slide-content" },
+              content: [
+                {
+                  type: "region",
+                  attrs: { id: "region-a", role: "main" },
                   content: [
+                    { type: "paragraph" },
                     {
                       type: "paragraph",
-                      content: [{ type: "text", text: "Region text" }],
+                      content: [{ type: "text", text: "Authored sibling" }],
                     },
                   ],
                 },
@@ -355,10 +449,107 @@ describe("canInsertCatalogItem", () => {
         },
       ],
     });
+    setCursorInFirstEmptyParagraph(editor);
 
-    setCursorInsideText(editor, "Region");
+    expect(availableNodeTypes(editor)).not.toContain("grid");
+    expect(availableNodeTypes(editor)).not.toContain("layout");
 
-    expect(availableNodeTypes(editor)).toEqual(expect.arrayContaining(["grid", "layout"]));
+    editor.destroy();
+  });
+
+  it("rejects fill actions over a fully selected authored paragraph", () => {
+    const editor = makeCourseEditor();
+    editor.commands.setContent({
+      type: "doc",
+      content: [
+        {
+          type: "courseDocument",
+          attrs: { mode: "slideshow" },
+          content: [
+            {
+              type: "surface",
+              attrs: { id: "surface-a", variant: "slide-content" },
+              content: [
+                {
+                  type: "region",
+                  attrs: { id: "region-a", role: "main" },
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [{ type: "text", text: "Authored region content" }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    selectText(editor, "Authored region content");
+
+    expect(availableNodeTypes(editor)).not.toContain("grid");
+    expect(availableNodeTypes(editor)).not.toContain("layout");
+
+    editor.destroy();
+  });
+
+  it("does not grant slash replacement permission without an explicit trigger range", () => {
+    const editor = makeCourseEditor();
+    editor.commands.setContent({
+      type: "doc",
+      content: [
+        {
+          type: "courseDocument",
+          attrs: { mode: "slideshow" },
+          content: [
+            {
+              type: "surface",
+              attrs: { id: "surface-a", variant: "slide-content" },
+              content: [
+                {
+                  type: "region",
+                  attrs: { id: "region-a", role: "main" },
+                  content: [
+                    {
+                      type: "paragraph",
+                      content: [{ type: "text", text: "Authored region content" }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+    selectText(editor, "Authored region content");
+
+    const available = getInsertableCatalogItems(
+      editor,
+      structuralInsertCatalog.actions,
+      testPlacementDependencies,
+      undefined,
+      "slash-trigger-replacement",
+    );
+    expect(available.map((item) => item.nodeType)).not.toContain("grid");
+    expect(available.map((item) => item.nodeType)).not.toContain("layout");
+
+    editor.destroy();
+  });
+
+  it("filters catalog items without invoking their content factories", () => {
+    const editor = makeEditor();
+    const content = vi.fn(() => {
+      throw new Error("Availability must remain factory-inert.");
+    });
+    const item: InsertAction = {
+      ...itemFor("paragraph"),
+      content,
+    };
+
+    expect(getInsertableCatalogItems(editor, [item], testPlacementDependencies)).toEqual([item]);
+    expect(content).not.toHaveBeenCalled();
 
     editor.destroy();
   });

@@ -70,9 +70,6 @@ export const mcqBlockDefinition = defineBlock({
     ...assessmentShellPlaceholders,
     ...selectableChoicePlaceholders,
   },
-  identity: {
-    stableChildNodeTypes: ["selectable_choice"],
-  },
   capabilities: {
     assessment: defineAssessmentCapability({
       interactionKind: "single-select",

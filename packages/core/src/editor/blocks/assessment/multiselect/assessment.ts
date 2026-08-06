@@ -1,7 +1,10 @@
 import type { JSONContent } from "@tiptap/core";
 import { z } from "zod";
 import {
+  EmbeddedNodeIdSchema,
   MultiSelectResponseSchema,
+  MultiSelectAssessmentSchema,
+  MultiSelectInteractionSchema,
   MultiselectPrivateAssessmentSchema,
   type AssessmentAnswerKey,
   type AssessmentInteractionContract,
@@ -29,7 +32,7 @@ import {
 
 export const MultiselectResponseSchema = z
   .object({
-    choices: z.array(z.string()).default([]),
+    choices: z.array(EmbeddedNodeIdSchema).default([]),
   })
   .strict();
 export type MultiselectResponse = z.infer<typeof MultiselectResponseSchema>;
@@ -50,21 +53,21 @@ export function projectMultiselectInteraction(
   node: JSONContent,
   settings: unknown,
 ): AssessmentInteractionContract {
-  return {
+  return MultiSelectInteractionSchema.parse({
     kind: "multi-select",
     options: projectSelectableOptions(node),
     maxSelections: readNullableNumber(settings, "maxSelect") ?? null,
-  };
+  });
 }
 
 export function projectMultiselectAssessment(node: JSONContent): AssessmentAnswerKey {
   const assessment = MultiselectPrivateAssessmentSchema.parse(readAttrs(node)["assessment"] ?? {});
-  return {
+  return MultiSelectAssessmentSchema.parse({
     kind: "multi-select",
     correctOptionIds: assessment.correctOptionIds,
     feedbackByOptionId: assessment.feedbackByOptionId,
     summaryFeedback: assessment.summaryFeedback,
-  };
+  });
 }
 
 export function projectMultiselectSettings(settings: unknown): Partial<AssessmentTargetSettings> {

@@ -445,10 +445,10 @@ function runtimeMcqBlock(): JSONContent {
 function runtimeMatchingBlock(): JSONContent {
   const pair = (itemId: string, targetId: string, item: string, target: string): JSONContent => ({
     type: "matching_pair",
-    attrs: { itemId, targetId },
+    attrs: { id: `pair-${itemId}` },
     content: [
-      { type: "matching_item", content: [paragraph(item)] },
-      { type: "matching_target", content: [paragraph(target)] },
+      { type: "matching_item", attrs: { id: itemId }, content: [paragraph(item)] },
+      { type: "matching_target", attrs: { id: targetId }, content: [paragraph(target)] },
     ],
   });
 
@@ -457,10 +457,6 @@ function runtimeMatchingBlock(): JSONContent {
     attrs: {
       id: "matching-strict-runtime",
       assessment: {
-        correctPairs: [
-          { itemId: "item-a", targetId: "target-a" },
-          { itemId: "item-b", targetId: "target-b" },
-        ],
         feedbackByItemId: {},
         summaryFeedback: null,
       },
@@ -515,7 +511,7 @@ function runtimeImageHotspotBlock(): JSONContent {
 }
 
 function surfaceById(surfaceId: EmbeddedNodeId): HTMLElement {
-  const surface = document.body.querySelector(`[data-surface-id="${surfaceId}"]`);
+  const surface = document.body.querySelector(`[data-node="surface"][data-id="${surfaceId}"]`);
 
   if (!(surface instanceof HTMLElement)) {
     throw new Error(`surface ${surfaceId} was not rendered`);

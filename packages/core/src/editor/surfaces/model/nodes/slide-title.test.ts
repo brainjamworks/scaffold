@@ -85,7 +85,7 @@ describe("SlideTitleNode", () => {
       <section data-course-document data-course-mode="slideshow">
         <section
           data-surface
-          data-surface-id="surface-slide-title"
+          data-id="surface-slide-title"
           data-surface-variant="slide-content"
         >
           <h1 data-slot="slide-title">Imported title</h1>

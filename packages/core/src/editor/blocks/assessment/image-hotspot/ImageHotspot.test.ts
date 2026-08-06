@@ -6,6 +6,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { NodeSelection } from "@tiptap/pm/state";
 import { EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import UniqueID from "@tiptap/extension-unique-id";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createElement } from "react";
@@ -56,6 +57,7 @@ import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import type { RichTextBubbleMenuProps } from "@/editor/shell/bubbles/rich-text/RichTextBubbleMenu";
 import {
+  ImageHotspotCanvasDataSchema,
   ImageHotspotPrivateAssessmentSchema,
   type ImageHotspotCanvasData,
 } from "@scaffold/contracts";
@@ -139,6 +141,7 @@ function makeEditor({
     ...(content ? { content } : {}),
     extensions: [
       StarterKit.configure({ undoRedo: undoRedo ? {} : false, paragraph: false }),
+      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       ExtendedParagraph,
       createRuntimeBlockFrameAttributesExtension([imageHotspotBlockDefinition.nodeType]),
       AssessmentTitleNode,
@@ -160,6 +163,7 @@ function makeRuntimeEditor(
   return new Editor({
     extensions: [
       StarterKit.configure({ undoRedo: false, paragraph: false }),
+      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       ExtendedParagraph,
       createRuntimeBlockFrameAttributesExtension([imageHotspotBlockDefinition.nodeType]),
       AssessmentTitleNode,
@@ -186,6 +190,7 @@ function makeBoundedAuthoringEditor(
         paragraph: false,
         undoRedo: false,
       }),
+      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       ExtendedParagraph,
       CourseDocumentNode,
       SurfaceNode,
@@ -220,6 +225,7 @@ function makeBoundedRuntimeEditor(
         paragraph: false,
         undoRedo: false,
       }),
+      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
       ExtendedParagraph,
       CourseDocumentNode,
       SurfaceNode,
@@ -323,7 +329,10 @@ function directCanvasChild(
 }
 
 function describedText(selector: string): string | null {
-  const element = document.body.querySelector<HTMLElement>(selector);
+  return describedElementText(document.body.querySelector<HTMLElement>(selector));
+}
+
+function describedElementText(element: HTMLElement | null): string | null {
   const describedBy = element?.getAttribute("aria-describedby");
   if (!describedBy) return null;
   return describedBy
@@ -461,24 +470,24 @@ function stagedHostImageHotspotDocument(id: string): JSONContent {
   return document;
 }
 
-const sampleCanvasData: ImageHotspotCanvasData = {
+const sampleCanvasData: ImageHotspotCanvasData = ImageHotspotCanvasDataSchema.parse({
   image: {
     mode: "external",
     src: "https://example.com/img.png",
     alt: "sample",
   },
   hotspots: [
-    { id: "h1", centerX: 20, centerY: 20, radius: 8, label: "A" },
-    { id: "h2", centerX: 60, centerY: 40, radius: 6, label: "B" },
-    { id: "h3", centerX: 80, centerY: 80, radius: 7, label: "C" },
+    { id: "hotsp_000001", centerX: 20, centerY: 20, radius: 8, label: "A" },
+    { id: "hotsp_000002", centerX: 60, centerY: 40, radius: 6, label: "B" },
+    { id: "hotsp_000003", centerX: 80, centerY: 80, radius: 7, label: "C" },
   ],
   maxClicks: null,
   debug: false,
-};
+});
 
 const sampleAssessment = {
   gradingMode: "partial-credit",
-  correctHotspotIds: ["h1", "h3"],
+  correctHotspotIds: ["hotsp_000001", "hotsp_000003"],
   feedbackByHotspotId: {},
   missFeedback: null,
   summaryFeedback: null,
@@ -615,7 +624,7 @@ describe("composite image_hotspot node", () => {
       content: [
         {
           type: "image_hotspot",
-          attrs: { id: "hs-bounded-fit", assessment: sampleAssessment },
+          attrs: { id: "ihsblk_00005", assessment: sampleAssessment },
           content: [
             { type: "assessment_title", content: [{ type: "paragraph" }] },
             {
@@ -695,7 +704,7 @@ describe("composite image_hotspot node", () => {
                     {
                       type: "image_hotspot",
                       attrs: {
-                        id: "hs-bounded-preview",
+                        id: "ihsblk_00006",
                         assessment: sampleAssessment,
                       },
                       content: [
@@ -856,7 +865,7 @@ describe("composite image_hotspot node", () => {
 
   it("renders a persistent hotspot management panel with ordered rows and label fallbacks", async () => {
     const user = userEvent.setup();
-    const block = imageHotspotBlock("hs-workspace-management");
+    const block = imageHotspotBlock("ihsblk_00028");
     const canvas = block.content?.find((child) => child.type === "image_hotspot_canvas");
     if (!canvas) throw new Error("Expected image-hotspot canvas");
     canvas.attrs = {
@@ -916,7 +925,7 @@ describe("composite image_hotspot node", () => {
     const editor = makeEditor({
       content: {
         type: "doc",
-        content: [imageHotspotBlock("hs-workspace-selection")],
+        content: [imageHotspotBlock("ihsblk_00030")],
       },
     });
 
@@ -959,9 +968,13 @@ describe("composite image_hotspot node", () => {
 
   it("keeps the hotspot header above the empty workspace state", async () => {
     const user = userEvent.setup();
-    const block = imageHotspotBlock("hs-workspace-empty");
+    const block = imageHotspotBlock("ihsblk_00027");
     const canvas = block.content?.find((child) => child.type === "image_hotspot_canvas");
     if (!canvas) throw new Error("Expected image-hotspot canvas");
+    block.attrs = {
+      ...block.attrs,
+      assessment: ImageHotspotPrivateAssessmentSchema.parse({}),
+    };
     canvas.attrs = { data: { ...sampleCanvasData, hotspots: [] } };
     const editor = makeEditor({ content: { type: "doc", content: [block] } });
 
@@ -988,7 +1001,7 @@ describe("composite image_hotspot node", () => {
     const editor = makeEditor({
       content: {
         type: "doc",
-        content: [imageHotspotBlock("hs-workspace-toolbar")],
+        content: [imageHotspotBlock("ihsblk_00031")],
       },
     });
 
@@ -1029,7 +1042,7 @@ describe("composite image_hotspot node", () => {
     const editor = makeEditor({
       content: {
         type: "doc",
-        content: [imageHotspotBlock("hs-workspace-replace")],
+        content: [imageHotspotBlock("ihsblk_00029")],
       },
     });
 
@@ -1060,7 +1073,7 @@ describe("composite image_hotspot node", () => {
       content: [
         {
           type: "image_hotspot",
-          attrs: { id: "hs-1" },
+          attrs: { id: "ihsblk_00001" },
           content: [
             { type: "assessment_title", content: [{ type: "paragraph" }] },
             {
@@ -1126,7 +1139,7 @@ describe("composite image_hotspot node", () => {
     const editor = makeEditor({
       content: {
         type: "doc",
-        content: [imageHotspotBlock("hs-expanded-author")],
+        content: [imageHotspotBlock("ihsblk_00009")],
       },
     });
 
@@ -1187,7 +1200,7 @@ describe("composite image_hotspot node", () => {
     const editor = makeEditor({
       content: {
         type: "doc",
-        content: [imageHotspotBlock("hs-expanded-target-switch")],
+        content: [imageHotspotBlock("ihsblk_00013")],
       },
     });
 
@@ -1220,12 +1233,12 @@ describe("composite image_hotspot node", () => {
 
     thirdEditor.commands.insertContent("Third hotspot feedback");
     await waitFor(() => {
-      expect(readAuthoredHotspotFeedback(editor, "hs-expanded-target-switch", "h3")).toMatchObject(
+      expect(readAuthoredHotspotFeedback(editor, "ihsblk_00013", "hotsp_000003")).toMatchObject(
         richFeedback("Third hotspot feedback").document,
       );
     });
-    expect(readAuthoredHotspotFeedback(editor, "hs-expanded-target-switch", "h1")).toBeNull();
-    expect(readAuthoredHotspotFeedback(editor, "hs-expanded-target-switch", "h2")).toBeNull();
+    expect(readAuthoredHotspotFeedback(editor, "ihsblk_00013", "hotsp_000001")).toBeNull();
+    expect(readAuthoredHotspotFeedback(editor, "ihsblk_00013", "hotsp_000002")).toBeNull();
 
     editor.destroy();
   });
@@ -1234,7 +1247,7 @@ describe("composite image_hotspot node", () => {
     const editor = makeEditor({
       content: {
         type: "doc",
-        content: [imageHotspotBlock("hs-expanded-external-sync")],
+        content: [imageHotspotBlock("ihsblk_00010")],
       },
     });
 
@@ -1255,8 +1268,8 @@ describe("composite image_hotspot node", () => {
 
     setAuthoredHotspotFeedback(
       editor,
-      "hs-expanded-external-sync",
-      "h2",
+      "ihsblk_00010",
+      "hotsp_000002",
       "Externally synchronized feedback",
     );
 
@@ -1273,7 +1286,7 @@ describe("composite image_hotspot node", () => {
     const editor = makeEditor({
       content: {
         type: "doc",
-        content: [imageHotspotBlock("hs-expanded-model-sync")],
+        content: [imageHotspotBlock("ihsblk_00012")],
       },
     });
 
@@ -1301,12 +1314,12 @@ describe("composite image_hotspot node", () => {
     const nextCanvasData = {
       ...readCanvasData(editor),
       hotspots: readCanvasData(editor).hotspots.map((hotspot) =>
-        hotspot.id === "h2" ? { ...hotspot, label: "Externally renamed" } : hotspot,
+        hotspot.id === "hotsp_000002" ? { ...hotspot, label: "Externally renamed" } : hotspot,
       ),
     };
     const nextAssessment = {
       ...ImageHotspotPrivateAssessmentSchema.parse(ownerNode.attrs["assessment"] ?? {}),
-      correctHotspotIds: ["h1", "h2", "h3"],
+      correctHotspotIds: ["hotsp_000001", "hotsp_000002", "hotsp_000003"],
     };
     editor.view.dispatch(
       editor.state.tr
@@ -1332,7 +1345,7 @@ describe("composite image_hotspot node", () => {
     const editor = makeEditor({
       content: {
         type: "doc",
-        content: [imageHotspotBlock("hs-expanded-formatting")],
+        content: [imageHotspotBlock("ihsblk_00011")],
       },
     });
 
@@ -1359,7 +1372,7 @@ describe("composite image_hotspot node", () => {
       content: [
         {
           type: "image_hotspot",
-          attrs: { id: "hs-1" },
+          attrs: { id: "ihsblk_00001" },
           content: [
             { type: "assessment_title", content: [{ type: "paragraph" }] },
             {
@@ -1422,7 +1435,7 @@ describe("composite image_hotspot node", () => {
       content: [
         {
           type: "image_hotspot",
-          attrs: { id: "hs-1" },
+          attrs: { id: "ihsblk_00001" },
           content: [
             { type: "assessment_title", content: [{ type: "paragraph" }] },
             {
@@ -1436,7 +1449,7 @@ describe("composite image_hotspot node", () => {
         },
         {
           type: "image_hotspot",
-          attrs: { id: "hs-2" },
+          attrs: { id: "ihsblk_00002" },
           content: [
             { type: "assessment_title", content: [{ type: "paragraph" }] },
             {
@@ -1506,10 +1519,12 @@ describe("composite image_hotspot node", () => {
         {
           type: "image_hotspot",
           attrs: {
-            id: "hs-1",
+            id: "ihsblk_00001",
             assessment: {
               ...sampleAssessment,
-              feedbackByHotspotId: { h2: richFeedback("Second hotspot feedback") },
+              feedbackByHotspotId: {
+                hotsp_000002: richFeedback("Second hotspot feedback"),
+              },
             },
           },
           content: [
@@ -1537,7 +1552,7 @@ describe("composite image_hotspot node", () => {
     await waitFor(() => {
       const block = editor.getJSON().content?.[0] as JSONContent | undefined;
       expect(block?.attrs?.["assessment"]).toMatchObject({
-        correctHotspotIds: expect.arrayContaining(["h2"]),
+        correctHotspotIds: expect.arrayContaining(["hotsp_000002"]),
       });
     });
     expect(screen.getByText("Hotspot 2")).toBeInTheDocument();
@@ -1550,10 +1565,13 @@ describe("composite image_hotspot node", () => {
 
     await waitFor(() => {
       expect(screen.queryByRole("button", { name: "Edit hotspot 2: B" })).toBeNull();
-      expect(readCanvasData(editor).hotspots.map((h) => h.id)).toEqual(["h1", "h3"]);
+      expect(readCanvasData(editor).hotspots.map((h) => h.id)).toEqual([
+        "hotsp_000001",
+        "hotsp_000003",
+      ]);
       const block = editor.getJSON().content?.[0] as JSONContent | undefined;
       expect(block?.attrs?.["assessment"]).toMatchObject({
-        correctHotspotIds: ["h1", "h3"],
+        correctHotspotIds: ["hotsp_000001", "hotsp_000003"],
         feedbackByHotspotId: {},
       });
     });
@@ -1566,7 +1584,7 @@ describe("composite image_hotspot node", () => {
     const editor = makeEditor();
     editor.commands.setContent({
       type: "doc",
-      content: [imageHotspotBlock("hs-compact-common-shell")],
+      content: [imageHotspotBlock("ihsblk_00007")],
     });
 
     renderAssessmentEditor(editor);
@@ -1595,7 +1613,7 @@ describe("composite image_hotspot node", () => {
       content: [
         {
           type: "image_hotspot",
-          attrs: { id: "hs-geometry-mode", assessment: sampleAssessment },
+          attrs: { id: "ihsblk_00017", assessment: sampleAssessment },
           content: [
             { type: "assessment_title", content: [{ type: "paragraph" }] },
             {
@@ -1657,7 +1675,9 @@ describe("composite image_hotspot node", () => {
     fireEvent.click(marker);
     expect(await screen.findByText("Hotspot 2")).toBeInTheDocument();
 
-    const beforeSuppressedDrag = readCanvasData(editor).hotspots.find((h) => h.id === "h2");
+    const beforeSuppressedDrag = readCanvasData(editor).hotspots.find(
+      (h) => h.id === "hotsp_000002",
+    );
     fireEvent.pointerDown(canvas, {
       button: 0,
       buttons: 1,
@@ -1682,7 +1702,7 @@ describe("composite image_hotspot node", () => {
     await waitFor(() => {
       expect(screen.queryByText("Hotspot 2")).toBeNull();
     });
-    expect(readCanvasData(editor).hotspots.find((h) => h.id === "h2")).toEqual(
+    expect(readCanvasData(editor).hotspots.find((h) => h.id === "hotsp_000002")).toEqual(
       beforeSuppressedDrag,
     );
 
@@ -1700,7 +1720,7 @@ describe("composite image_hotspot node", () => {
       pointerId: 3,
     });
 
-    expect(readCanvasData(editor).hotspots.find((h) => h.id === "h2")).toEqual(
+    expect(readCanvasData(editor).hotspots.find((h) => h.id === "hotsp_000002")).toEqual(
       beforeSuppressedDrag,
     );
     await waitFor(() => {
@@ -1717,7 +1737,7 @@ describe("composite image_hotspot node", () => {
     });
 
     await waitFor(() => {
-      const moved = readCanvasData(editor).hotspots.find((h) => h.id === "h2");
+      const moved = readCanvasData(editor).hotspots.find((h) => h.id === "hotsp_000002");
       expect(moved).toMatchObject({
         centerX: 70,
         centerY: 50,
@@ -1725,7 +1745,7 @@ describe("composite image_hotspot node", () => {
       });
     });
 
-    const beforeResize = readCanvasData(editor).hotspots.find((h) => h.id === "h2");
+    const beforeResize = readCanvasData(editor).hotspots.find((h) => h.id === "hotsp_000002");
     fireEvent.pointerDown(canvas, {
       button: 0,
       buttons: 1,
@@ -1740,7 +1760,9 @@ describe("composite image_hotspot node", () => {
       pointerId: 4,
     });
 
-    expect(readCanvasData(editor).hotspots.find((h) => h.id === "h2")).toEqual(beforeResize);
+    expect(readCanvasData(editor).hotspots.find((h) => h.id === "hotsp_000002")).toEqual(
+      beforeResize,
+    );
 
     fireEvent.pointerUp(canvas, {
       button: 0,
@@ -1751,7 +1773,7 @@ describe("composite image_hotspot node", () => {
     });
 
     await waitFor(() => {
-      const resized = readCanvasData(editor).hotspots.find((h) => h.id === "h2");
+      const resized = readCanvasData(editor).hotspots.find((h) => h.id === "hotsp_000002");
       expect(resized).toMatchObject({
         centerX: 70,
         centerY: 50,
@@ -1769,7 +1791,7 @@ describe("composite image_hotspot node", () => {
       content: [
         {
           type: "image_hotspot",
-          attrs: { id: "hs-author", assessment: sampleAssessment },
+          attrs: { id: "ihsblk_00003", assessment: sampleAssessment },
           content: [
             { type: "assessment_title", content: [{ type: "paragraph" }] },
             {
@@ -1803,7 +1825,7 @@ describe("composite image_hotspot node", () => {
         {
           type: "image_hotspot",
           attrs: {
-            id: "hs-runtime",
+            id: "ihsblk_00022",
             assessment: sampleAssessment,
             settings: {
               feedbackMode: "on_submit",
@@ -1856,7 +1878,7 @@ describe("composite image_hotspot node", () => {
       content: [
         {
           type: "image_hotspot",
-          attrs: { id: "hs-feedback", assessment: sampleAssessment },
+          attrs: { id: "ihsblk_00014", assessment: sampleAssessment },
           content: [
             { type: "assessment_title", content: [{ type: "paragraph" }] },
             {
@@ -1877,7 +1899,7 @@ describe("composite image_hotspot node", () => {
     const feedbackEditor = await screen.findByLabelText("Hotspot 2 feedback");
 
     expect(feedbackEditor.getAttribute("data-attr-rich-text-field")).toBe(
-      "image_hotspot:hs-feedback:hotspot:h2:feedback",
+      "image_hotspot:ihsblk_00014:hotspot:hotsp_000002:feedback",
     );
     expect(feedbackEditor.getAttribute("data-inline-editor-field")).toBeNull();
 
@@ -1891,7 +1913,7 @@ describe("composite image_hotspot node", () => {
       const block = editor.getJSON().content?.[0] as JSONContent | undefined;
       expect(block?.attrs?.["assessment"]).toMatchObject({
         feedbackByHotspotId: {
-          h2: richFeedback("Look near the middle."),
+          hotsp_000002: richFeedback("Look near the middle."),
         },
       });
     });
@@ -1903,7 +1925,7 @@ describe("composite image_hotspot node", () => {
     const editor = makeEditor({
       content: {
         type: "doc",
-        content: [imageHotspotBlock("hs-feedback-history")],
+        content: [imageHotspotBlock("ihsblk_00015")],
       },
       undoRedo: true,
     });
@@ -1915,20 +1937,20 @@ describe("composite image_hotspot node", () => {
 
     nestedEditor.commands.insertContent("Saved feedback");
     await waitFor(() => {
-      expect(readAuthoredHotspotFeedback(editor, "hs-feedback-history", "h2")).toMatchObject(
+      expect(readAuthoredHotspotFeedback(editor, "ihsblk_00015", "hotsp_000002")).toMatchObject(
         richFeedback("Saved feedback").document,
       );
     });
 
     fireEvent.keyDown(nestedEditor.view.dom, { ctrlKey: true, key: "z" });
     await waitFor(() => {
-      expect(readAuthoredHotspotFeedback(editor, "hs-feedback-history", "h2")).toBeNull();
+      expect(readAuthoredHotspotFeedback(editor, "ihsblk_00015", "hotsp_000002")).toBeNull();
       expect(nestedEditor.getText()).toBe("");
     });
 
     fireEvent.keyDown(nestedEditor.view.dom, { ctrlKey: true, key: "z", shiftKey: true });
     await waitFor(() => {
-      expect(readAuthoredHotspotFeedback(editor, "hs-feedback-history", "h2")).toMatchObject(
+      expect(readAuthoredHotspotFeedback(editor, "ihsblk_00015", "hotsp_000002")).toMatchObject(
         richFeedback("Saved feedback").document,
       );
       expect(nestedEditor.getText()).toBe("Saved feedback");
@@ -1941,7 +1963,7 @@ describe("composite image_hotspot node", () => {
     const editor = makeEditor({
       content: {
         type: "doc",
-        content: [imageHotspotBlock("hs-shifted-feedback")],
+        content: [imageHotspotBlock("ihsblk_00025")],
       },
     });
 
@@ -1959,7 +1981,7 @@ describe("composite image_hotspot node", () => {
 
     nestedEditor.commands.insertContent("Feedback after shift");
     await waitFor(() => {
-      expect(readAuthoredHotspotFeedback(editor, "hs-shifted-feedback", "h2")).toMatchObject(
+      expect(readAuthoredHotspotFeedback(editor, "ihsblk_00025", "hotsp_000002")).toMatchObject(
         richFeedback("Feedback after shift").document,
       );
     });
@@ -1971,7 +1993,7 @@ describe("composite image_hotspot node", () => {
     const editor = makeEditor({
       content: {
         type: "doc",
-        content: [imageHotspotBlock("hs-removed-feedback-target")],
+        content: [imageHotspotBlock("ihsblk_00019")],
       },
     });
 
@@ -1988,14 +2010,14 @@ describe("composite image_hotspot node", () => {
     editor.view.dispatch(
       editor.state.tr.setNodeMarkup(0, undefined, {
         ...owner.attrs,
-        id: "replacement-hotspot-owner",
+        id: "ihsblk_00032",
       }),
     );
     if (!nestedEditor.isDestroyed) nestedEditor.commands.insertContent("Must not persist");
 
     await waitFor(() => {
       expect(transactionCount).toBe(1);
-      expect(readAuthoredHotspotFeedback(editor, "replacement-hotspot-owner", "h2")).toBeNull();
+      expect(readAuthoredHotspotFeedback(editor, "ihsblk_00032", "hotsp_000002")).toBeNull();
     });
 
     editor.destroy();
@@ -2051,7 +2073,7 @@ describe("composite image_hotspot node", () => {
         {
           type: "image_hotspot",
           attrs: {
-            id: "hs-1",
+            id: "ihsblk_00001",
             assessment: sampleAssessment,
             settings: {
               feedbackMode: "on_submit",
@@ -2104,9 +2126,13 @@ describe("composite image_hotspot node", () => {
     expect(canvas?.type).toBe("image_hotspot_canvas");
     expect(block?.content?.[4]?.type).toBe("assessment_actions_group");
     const data = canvas?.attrs?.["data"] as { hotspots: Array<{ id: string }> } | undefined;
-    expect(data?.hotspots.map((h) => h.id)).toEqual(["h1", "h2", "h3"]);
+    expect(data?.hotspots.map((h) => h.id)).toEqual([
+      "hotsp_000001",
+      "hotsp_000002",
+      "hotsp_000003",
+    ]);
     expect(block?.attrs?.["assessment"]).toMatchObject({
-      correctHotspotIds: ["h1", "h3"],
+      correctHotspotIds: ["hotsp_000001", "hotsp_000003"],
     });
     editor.destroy();
   });
@@ -2159,7 +2185,7 @@ describe("composite image_hotspot node", () => {
       content: [
         {
           type: "image_hotspot",
-          attrs: { id: "hs-1" },
+          attrs: { id: "ihsblk_00001" },
           content: [
             { type: "assessment_title", content: [{ type: "paragraph" }] },
             {
@@ -2181,9 +2207,11 @@ describe("composite image_hotspot node", () => {
       if (node.type.name === "assessment_summary_feedback") summaryFeedbackPos = pos;
     });
 
-    expect(findAncestorAssessmentBlockId(editor, hintsGroupPos, ["image_hotspot"])).toBe("hs-1");
+    expect(findAncestorAssessmentBlockId(editor, hintsGroupPos, ["image_hotspot"])).toBe(
+      "ihsblk_00001",
+    );
     expect(findAncestorAssessmentBlockId(editor, summaryFeedbackPos, ["image_hotspot"])).toBe(
-      "hs-1",
+      "ihsblk_00001",
     );
     editor.destroy();
   });
@@ -2192,30 +2220,30 @@ describe("composite image_hotspot node", () => {
     const editor = makeEditor();
     editor.commands.setContent({
       type: "doc",
-      content: [imageHotspotBlock("hs-original")],
+      content: [imageHotspotBlock("ihsblk_00018")],
     });
 
     renderAssessmentEditor(editor);
 
     await screen.findByRole("button", { name: "Add hint" });
 
-    editor.commands.insertContentAt(0, imageHotspotBlock("hs-before"));
+    editor.commands.insertContentAt(0, imageHotspotBlock("ihsblk_00004"));
 
     await waitFor(() => {
       expect(screen.getAllByRole("button", { name: "Add hint" })).toHaveLength(2);
     });
 
     const originalBlock = document.body.querySelector<HTMLElement>(
-      '[data-node="image_hotspot"][data-id="hs-original"]',
+      '[data-node="image_hotspot"][data-id="ihsblk_00018"]',
     );
     if (!originalBlock) throw new Error("expected shifted original image hotspot block");
 
     fireEvent.click(within(originalBlock).getByRole("button", { name: "Add hint" }));
 
     await waitFor(() => {
-      expect(assessmentHintCountByImageHotspotId(editor, "hs-original")).toBe(1);
+      expect(assessmentHintCountByImageHotspotId(editor, "ihsblk_00018")).toBe(1);
     });
-    expect(assessmentHintCountByImageHotspotId(editor, "hs-before")).toBe(0);
+    expect(assessmentHintCountByImageHotspotId(editor, "ihsblk_00004")).toBe(0);
     expect(topLevelNodeCount(editor, "image_hotspot")).toBe(2);
 
     editor.destroy();
@@ -2230,7 +2258,7 @@ describe("composite image_hotspot node", () => {
         {
           type: "image_hotspot",
           attrs: {
-            id: "hs-1",
+            id: "ihsblk_00001",
             assessment: sampleAssessment,
             settings: {
               feedbackMode: "on_submit",
@@ -2254,7 +2282,7 @@ describe("composite image_hotspot node", () => {
         },
       ],
     });
-    const problemId = "artifact:artifact-1/block:hs-1";
+    const problemId = "artifact:artifact-1/block:ihsblk_00001";
     const assessmentPort: AssessmentPort = {
       type: "runtime",
       submit: async (args) =>
@@ -2292,7 +2320,7 @@ describe("composite image_hotspot node", () => {
         | Array<{ hotspotId: string | null }>
         | undefined;
       expect(clicks).toHaveLength(1);
-      expect(clicks?.[0]?.hotspotId).toBe("h1");
+      expect(clicks?.[0]?.hotspotId).toBe("hotsp_000001");
     });
 
     editor.destroy();
@@ -2307,7 +2335,7 @@ describe("composite image_hotspot node", () => {
         {
           type: "image_hotspot",
           attrs: {
-            id: "hs-runtime-expanded",
+            id: "ihsblk_00023",
             assessment: sampleAssessment,
             settings: {
               feedbackMode: "on_submit",
@@ -2331,7 +2359,7 @@ describe("composite image_hotspot node", () => {
         },
       ],
     });
-    const problemId = "artifact:artifact-1/block:hs-runtime-expanded";
+    const problemId = "artifact:artifact-1/block:ihsblk_00023";
     const assessmentPort: AssessmentPort = {
       type: "runtime",
       submit: async (args) =>
@@ -2376,7 +2404,7 @@ describe("composite image_hotspot node", () => {
         | Array<{ hotspotId: string | null }>
         | undefined;
       expect(clicks).toHaveLength(1);
-      expect(clicks?.[0]?.hotspotId).toBe("h1");
+      expect(clicks?.[0]?.hotspotId).toBe("hotsp_000001");
     });
 
     fireEvent.click(
@@ -2391,7 +2419,7 @@ describe("composite image_hotspot node", () => {
   it("renders a managed hotspot image after its media URL resolves", async () => {
     const editor = makeRuntimeEditor();
     editor.setEditable(false);
-    const block = imageHotspotBlock("hs-runtime-managed-image");
+    const block = imageHotspotBlock("ihsblk_00024");
     const canvas = block.content?.find((node) => node.type === "image_hotspot_canvas");
     if (!canvas) throw new Error("expected image hotspot canvas");
     canvas.attrs = {
@@ -2444,16 +2472,16 @@ describe("composite image_hotspot node", () => {
   });
 
   it("hides response toolbar chrome for a hydrated submitted hotspot", async () => {
-    const targetId = "hs-submitted-review";
+    const targetId = "ihsblk_00026";
     const initialSnapshot = assessmentSnapshot({
       problems: {
         [targetId]: hotspotProblemSnapshot({
-          clicks: [{ x: 20, y: 20, hotspotId: "h1" }],
+          clicks: [{ x: 20, y: 20, hotspotId: "hotsp_000001" }],
           result: {
             isCorrect: true,
             score: { scaled: 1 },
             feedback: null,
-            items: { h1: { correct: true, expected: true, given: true } },
+            items: { hotsp_000001: { correct: true, expected: true, given: true } },
           },
         }),
       },
@@ -2479,9 +2507,7 @@ describe("composite image_hotspot node", () => {
     );
 
     await screen.findByAltText("sample");
-    expect(
-      document.body.querySelector('[data-hotspot-marker-id="hydrated-click-1"]'),
-    ).not.toBeNull();
+    expect(document.body.querySelector("[data-hotspot-marker-id]")).not.toBeNull();
     expect(
       screen.queryByRole("button", { name: "Answer in expanded hotspot workspace" }),
     ).toBeNull();
@@ -2492,17 +2518,17 @@ describe("composite image_hotspot node", () => {
 
   it("restores expanded response access after resetting a retryable hotspot", async () => {
     const user = userEvent.setup();
-    const targetId = "hs-retry-open";
+    const targetId = "ihsblk_00021";
     const problemId = `artifact:artifact-1/block:${targetId}`;
     const initialSnapshot = assessmentSnapshot({
       problems: {
         [targetId]: hotspotProblemSnapshot({
-          clicks: [{ x: 60, y: 40, hotspotId: "h2" }],
+          clicks: [{ x: 60, y: 40, hotspotId: "hotsp_000002" }],
           result: {
             isCorrect: false,
             score: { scaled: 0 },
             feedback: null,
-            items: { h2: { correct: false, given: true } },
+            items: { hotsp_000002: { correct: false, given: true } },
           },
         }),
       },
@@ -2552,26 +2578,26 @@ describe("composite image_hotspot node", () => {
   });
 
   it("outlines policy-authorized correct hotspots in hydrated full Quiz review", async () => {
-    const targetId = "hs-full-review";
+    const targetId = "ihsblk_00016";
     const problemId = `artifact:artifact-1/block:${targetId}`;
     const result: AssessmentResult = {
       isCorrect: false,
       score: { scaled: 0 },
       feedback: null,
       items: {
-        h1: { correct: false, expected: true, given: false },
-        h2: { correct: false, expected: false, given: true },
+        hotsp_000001: { correct: false, expected: true, given: false },
+        hotsp_000002: { correct: false, expected: false, given: true },
       },
     };
     const initialSnapshot = assessmentSnapshot({
       problems: {
         [targetId]: hotspotProblemSnapshot({
-          clicks: [{ x: 60, y: 40, hotspotId: "h2" }],
+          clicks: [{ x: 60, y: 40, hotspotId: "hotsp_000002" }],
           result,
         }),
       },
       quizzes: {
-        "quiz-hotspot-full-review": completedQuizSnapshot({
+        quizid_00001: completedQuizSnapshot({
           attemptId: "attempt-hotspot-full-review",
           result,
           targetId,
@@ -2602,7 +2628,7 @@ describe("composite image_hotspot node", () => {
       expect(hasAssessmentRegistration(assessmentStore, problemId)).toBe(true);
     });
     assessmentStore?.getState().registerQuiz({
-      groupId: "quiz-hotspot-full-review",
+      groupId: "quizid_00001",
       targetIds: [targetId],
       settings: {
         allowBacktracking: true,
@@ -2616,40 +2642,38 @@ describe("composite image_hotspot node", () => {
     });
 
     await waitFor(() => {
-      expect(document.body.querySelector('[data-revealed-hotspot-id="h1"]')?.textContent).toBe(
-        "Revealed correct hotspot 1: A",
-      );
+      expect(
+        document.body.querySelector('[data-revealed-hotspot-id="hotsp_000001"]')?.textContent,
+      ).toBe("Revealed correct hotspot 1: A");
     });
-    expect(describedText('[data-hotspot-marker-id="hydrated-click-1"]')).toBe(
-      "Revealed click, incorrect",
-    );
+    expect(describedText("[data-hotspot-marker-id]")).toBe("Revealed click, incorrect");
 
     editor.destroy();
   });
 
   it("keeps correct hotspots hidden in hydrated result-only Quiz review", async () => {
     const user = userEvent.setup();
-    const targetId = "hs-result-only-review";
+    const targetId = "ihsblk_00020";
     const problemId = `artifact:artifact-1/block:${targetId}`;
     const result: AssessmentResult = {
       isCorrect: false,
       score: { scaled: 0 },
       feedback: null,
       items: {
-        h1: { correct: false, expected: true, given: false },
-        h2: { correct: false, expected: false, given: true },
+        hotsp_000001: { correct: false, expected: true, given: false },
+        hotsp_000002: { correct: false, expected: false, given: true },
       },
     };
     const initialSnapshot = assessmentSnapshot({
       problems: {
         [targetId]: hotspotProblemSnapshot({
-          clicks: [{ x: 60, y: 40, hotspotId: "h2" }],
+          clicks: [{ x: 60, y: 40, hotspotId: "hotsp_000002" }],
           result: {
             ...result,
             items: {
               ...result.items,
-              h2: {
-                ...result.items["h2"]!,
+              hotsp_000002: {
+                ...result.items["hotsp_000002"]!,
                 feedback: richFeedback("This answer feedback must remain private."),
               },
             },
@@ -2657,7 +2681,7 @@ describe("composite image_hotspot node", () => {
         }),
       },
       quizzes: {
-        "quiz-hotspot-result-only": completedQuizSnapshot({
+        quizid_00002: completedQuizSnapshot({
           attemptId: "attempt-hotspot-result-only",
           result,
           targetId,
@@ -2688,7 +2712,7 @@ describe("composite image_hotspot node", () => {
       expect(hasAssessmentRegistration(assessmentStore, problemId)).toBe(true);
     });
     assessmentStore?.getState().registerQuiz({
-      groupId: "quiz-hotspot-result-only",
+      groupId: "quizid_00002",
       targetIds: [targetId],
       settings: {
         allowBacktracking: true,
@@ -2702,15 +2726,13 @@ describe("composite image_hotspot node", () => {
     });
 
     const marker = await waitFor(() => {
-      const element = document.body.querySelector<HTMLElement>(
-        '[data-hotspot-marker-id="hydrated-click-1"]',
-      );
+      const element = document.body.querySelector<HTMLElement>("[data-hotspot-marker-id]");
       expect(element).not.toBeNull();
+      expect(describedElementText(element)).toBe("Submitted click");
+      expect(element?.getAttribute("aria-label")).toBe("Submitted");
       return element;
     });
-    expect(document.body.querySelector('[data-revealed-hotspot-id="h1"]')).toBeNull();
-    expect(describedText('[data-hotspot-marker-id="hydrated-click-1"]')).toBe("Submitted click");
-    expect(marker?.getAttribute("aria-label")).toBe("Submitted");
+    expect(document.body.querySelector('[data-revealed-hotspot-id="hotsp_000001"]')).toBeNull();
     expect(document.body.querySelector("[data-hotspot-marker-feedback-icon]")).toBeNull();
     expect(
       screen.queryByRole("button", { name: "Answer in expanded hotspot workspace" }),
@@ -2731,7 +2753,7 @@ describe("composite image_hotspot node", () => {
         {
           type: "image_hotspot",
           attrs: {
-            id: "hs-1",
+            id: "ihsblk_00001",
             assessment: sampleAssessment,
             settings: {
               feedbackMode: "on_submit",
@@ -2814,7 +2836,7 @@ describe("composite image_hotspot node", () => {
         {
           type: "image_hotspot",
           attrs: {
-            id: "hs-1",
+            id: "ihsblk_00001",
             assessment: sampleAssessment,
             settings: {
               feedbackMode: "on_submit",
@@ -2838,7 +2860,7 @@ describe("composite image_hotspot node", () => {
         },
       ],
     });
-    const problemId = "artifact:artifact-1/block:hs-1";
+    const problemId = "artifact:artifact-1/block:ihsblk_00001";
     let submittedResponse: unknown = null;
     const assessmentPort: AssessmentPort = {
       type: "runtime",
@@ -2850,7 +2872,7 @@ describe("composite image_hotspot node", () => {
             isCorrect: false,
             score: { scaled: 0 },
             items: {
-              h2: {
+              hotsp_000002: {
                 correct: false,
                 feedback: richFeedback("Try another region."),
               },
@@ -2868,7 +2890,7 @@ describe("composite image_hotspot node", () => {
     });
     expect(
       setAssessmentResponseField(assessmentStore, problemId, "clicks", [
-        { id: "click-1", x: 60, y: 40, hotspotId: "h2" },
+        { id: "click_000001", x: 60, y: 40, hotspotId: "hotsp_000002" },
       ]),
     ).toBe(true);
     const identity = assessmentProblemIdentity(assessmentStore, problemId);
@@ -2877,18 +2899,16 @@ describe("composite image_hotspot node", () => {
 
     expect(submittedResponse).toEqual({
       kind: "spatial-hotspot",
-      selections: [{ hotspotId: "h2", x: 60, y: 40 }],
+      selections: [{ hotspotId: "hotsp_000002", x: 60, y: 40 }],
     });
 
     await waitFor(() => {
-      expect(describedText('[data-hotspot-marker-id="hydrated-click-1"]')).toBe(
+      expect(describedText("[data-hotspot-marker-id]")).toBe(
         "Submitted click, incorrect. Feedback available",
       );
     });
 
-    const marker = document.body.querySelector<HTMLElement>(
-      '[data-hotspot-marker-id="hydrated-click-1"]',
-    );
+    const marker = document.body.querySelector<HTMLElement>("[data-hotspot-marker-id]");
     expect(marker).not.toBeNull();
     expect(marker?.querySelector("[data-hotspot-marker-feedback-icon]")).toBeNull();
     fireEvent.focus(marker!);
@@ -2919,9 +2939,9 @@ describe("composite image_hotspot node", () => {
     editor.setEditable(false);
     editor.commands.setContent({
       type: "doc",
-      content: [imageHotspotBlock("hs-empty-invalid-feedback")],
+      content: [imageHotspotBlock("ihsblk_00008")],
     });
-    const problemId = "artifact:artifact-1/block:hs-empty-invalid-feedback";
+    const problemId = "artifact:artifact-1/block:ihsblk_00008";
     const assessmentPort: AssessmentPort = {
       type: "runtime",
       submit: async (args) =>
@@ -2931,14 +2951,14 @@ describe("composite image_hotspot node", () => {
             isCorrect: false,
             score: { scaled: 0 },
             items: {
-              h1: {
+              hotsp_000001: {
                 correct: false,
                 feedback: {
                   kind: "rich-text",
                   document: { type: "doc", content: [{ type: "paragraph" }] },
                 },
               },
-              h2: { correct: false },
+              hotsp_000002: { correct: false },
             },
           },
           { response: args.response },
@@ -2952,8 +2972,8 @@ describe("composite image_hotspot node", () => {
     });
     expect(
       setAssessmentResponseField(assessmentStore, problemId, "clicks", [
-        { id: "empty-feedback", x: 20, y: 20, hotspotId: "h1" },
-        { id: "invalid-feedback", x: 60, y: 40, hotspotId: "h2" },
+        { id: "click_000001", x: 20, y: 20, hotspotId: "hotsp_000001" },
+        { id: "click_000002", x: 60, y: 40, hotspotId: "hotsp_000002" },
       ]),
     ).toBe(true);
     const identity = assessmentProblemIdentity(assessmentStore, problemId);
@@ -2961,12 +2981,12 @@ describe("composite image_hotspot node", () => {
     await assessmentStore.getState().submit(identity);
 
     await waitFor(() => {
-      expect(describedText('[data-hotspot-marker-id="hydrated-click-1"]')).toBe(
-        "Submitted click, incorrect",
+      const markers = Array.from(
+        document.body.querySelectorAll<HTMLElement>("[data-hotspot-marker-id]"),
       );
-      expect(describedText('[data-hotspot-marker-id="hydrated-click-2"]')).toBe(
-        "Submitted click, incorrect",
-      );
+      expect(markers).toHaveLength(2);
+      expect(describedElementText(markers[0] ?? null)).toBe("Submitted click, incorrect");
+      expect(describedElementText(markers[1] ?? null)).toBe("Submitted click, incorrect");
     });
     expect(screen.queryByRole("dialog", { name: "Feedback" })).toBeNull();
 
@@ -2982,7 +3002,7 @@ describe("composite image_hotspot node", () => {
         {
           type: "image_hotspot",
           attrs: {
-            id: "hs-1",
+            id: "ihsblk_00001",
             assessment: sampleAssessment,
             settings: {
               feedbackMode: "on_submit",
@@ -3006,7 +3026,7 @@ describe("composite image_hotspot node", () => {
         },
       ],
     });
-    const problemId = "artifact:artifact-1/block:hs-1";
+    const problemId = "artifact:artifact-1/block:ihsblk_00001";
     const assessmentPort: AssessmentPort = {
       type: "runtime",
       submit: async (args) =>
@@ -3015,7 +3035,7 @@ describe("composite image_hotspot node", () => {
             ...canonicalAssessmentResult,
             isCorrect: false,
             score: { scaled: 0 },
-            items: { h2: { correct: false } },
+            items: { hotsp_000002: { correct: false } },
           },
           { response: args.response },
         ),
@@ -3023,9 +3043,9 @@ describe("composite image_hotspot node", () => {
         answerKey: {
           kind: "spatial-hotspot",
           gradingMode: "partial-credit",
-          correctHotspotIds: ["h1"],
+          correctHotspotIds: ["hotsp_000001"],
           feedbackByHotspotId: {
-            h1: richFeedback("This region is correct."),
+            hotsp_000001: richFeedback("This region is correct."),
           },
           summaryFeedback: null,
         },
@@ -3039,7 +3059,7 @@ describe("composite image_hotspot node", () => {
     });
     expect(
       setAssessmentResponseField(assessmentStore, problemId, "clicks", [
-        { id: "click-1", x: 20, y: 20, hotspotId: "h1" },
+        { id: "click_000001", x: 20, y: 20, hotspotId: "hotsp_000001" },
       ]),
     ).toBe(true);
     const identity = assessmentProblemIdentity(assessmentStore, problemId);
@@ -3048,10 +3068,10 @@ describe("composite image_hotspot node", () => {
     await assessmentStore.getState().revealAnswer(identity);
 
     await waitFor(() => {
-      expect(document.body.querySelector('[data-revealed-hotspot-id="h1"]')?.textContent).toBe(
-        "Revealed correct hotspot 1: A",
-      );
-      expect(describedText('[data-hotspot-marker-id="hydrated-click-1"]')).toBe(
+      expect(
+        document.body.querySelector('[data-revealed-hotspot-id="hotsp_000001"]')?.textContent,
+      ).toBe("Revealed correct hotspot 1: A");
+      expect(describedText("[data-hotspot-marker-id]")).toBe(
         "Revealed click, correct. Feedback available",
       );
       expect(describedText('[aria-label="Image hotspot response area"]')).toBe(
@@ -3059,9 +3079,7 @@ describe("composite image_hotspot node", () => {
       );
     });
 
-    const marker = document.body.querySelector<HTMLElement>(
-      '[data-hotspot-marker-id="hydrated-click-1"]',
-    );
+    const marker = document.body.querySelector<HTMLElement>("[data-hotspot-marker-id]");
     if (!marker) throw new Error("Expected revealed hotspot marker");
     fireEvent.click(marker);
 
@@ -3147,10 +3165,10 @@ function setAuthoredHotspotFeedback(
 
 describe("patchHotspotInCanvasData", () => {
   it("merges public hotspot geometry edits without clearing other fields", () => {
-    const moved = patchHotspotInCanvasData(sampleCanvasData, "h2", {
+    const moved = patchHotspotInCanvasData(sampleCanvasData, "hotsp_000002", {
       centerX: 65,
     });
-    const h2 = moved.hotspots.find((h) => h.id === "h2");
+    const h2 = moved.hotspots.find((h) => h.id === "hotsp_000002");
 
     expect(h2?.centerX).toBe(65);
     expect(h2?.label).toBe("B");

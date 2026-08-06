@@ -48,9 +48,6 @@ export const numberedListBlockDefinition = defineBlock({
       },
     ],
   }),
-  identity: {
-    stableChildNodeTypes: [NUMBERED_LIST_ITEM_NODE],
-  },
   frame: {
     resizable: true,
     resizeMode: "responsive",

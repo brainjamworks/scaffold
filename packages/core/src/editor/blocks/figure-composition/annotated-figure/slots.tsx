@@ -1,7 +1,5 @@
 import { Node, mergeAttributes, type NodeViewRenderer } from "@tiptap/core";
 
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
-
 import { ANNOTATED_FIGURE_ANNOTATION_NODE, ANNOTATED_FIGURE_LEGEND_NODE } from "./content";
 
 export interface AnnotatedFigureAnnotationNodeOptions {
@@ -20,7 +18,6 @@ export function createAnnotatedFigureAnnotationNode(
 
     addAttributes() {
       return {
-        id: stableNodeIdAttribute(),
         title: {
           default: "",
           parseHTML: (element: HTMLElement) => element.getAttribute("data-title") ?? "",

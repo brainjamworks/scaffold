@@ -153,10 +153,12 @@ export async function mountRuntimeDragHarness(
   }
 
   await waitFor(ownerWindow, () =>
-    interaction !== "sequencing"
-      ? assessmentStore !== null &&
-        player.querySelector("[data-interaction-drag-activation-area][data-item-id]") !== null
-      : responseOrder(assessmentStore).length === 3,
+    interaction === "sequencing"
+      ? responseOrder(assessmentStore).length === 3
+      : assessmentStore !== null &&
+        (interaction === "matching"
+          ? player.querySelector("[data-matching-draggable-item][data-item-id]") !== null
+          : player.querySelector("[data-interaction-drag-activation-area][data-id]") !== null),
   );
   const responseStore = assessmentStore as NonNullable<
     Parameters<typeof localAssessmentResponse>[0]
@@ -209,7 +211,7 @@ export async function mountRuntimeDragHarness(
       player.querySelector<HTMLElement>(selector),
     getPlaceholder: (selector = "[data-interaction-drag-placeholder]") =>
       player.querySelector<HTMLElement>(selector),
-    getTargets: (selector = "[data-item-id]") =>
+    getTargets: (selector = ".sc-sequencing-item--runtime[data-id]") =>
       Array.from(player.querySelectorAll<HTMLElement>(selector)),
     getResponseOrder: () => responseOrder(assessmentStore),
     getResponseMatches: () => responseMatches(assessmentStore),
@@ -398,10 +400,6 @@ function matchingRuntimeBlock(): JSONContent {
     attrs: {
       id: "matching-1",
       assessment: {
-        correctPairs: [
-          { itemId: "i1", targetId: "t1" },
-          { itemId: "i2", targetId: "t2" },
-        ],
         feedbackByItemId: {},
       },
       settings: {
@@ -422,14 +420,16 @@ function matchingRuntimeBlock(): JSONContent {
           { itemId: "i2", targetId: "t2", item: "Beta", target: "Two" },
         ].map(({ item, itemId, target, targetId }) => ({
           type: "matching_pair",
-          attrs: { itemId, targetId },
+          attrs: { id: `pair-${itemId}` },
           content: [
             {
               type: "matching_item",
+              attrs: { id: itemId },
               content: [{ type: "paragraph", content: [{ type: "text", text: item }] }],
             },
             {
               type: "matching_target",
+              attrs: { id: targetId },
               content: [{ type: "paragraph", content: [{ type: "text", text: target }] }],
             },
           ],

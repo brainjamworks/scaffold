@@ -3,7 +3,6 @@ import { Node, mergeAttributes, type NodeViewRenderer } from "@tiptap/core";
 import { ReactNodeViewRenderer } from "@tiptap/react";
 
 import { fieldContainerSpec } from "@/document/model/content-model/content-groups";
-import { stableNodeIdAttribute } from "@/document/model/identity/stable-node-attribute";
 
 import { NumberedListItemNodeView, NumberedListTitleNodeView } from "./NumberedList";
 import { NUMBERED_LIST_ITEM_NODE, NUMBERED_LIST_TITLE_NODE } from "./content";
@@ -41,7 +40,6 @@ export const NumberedListItemNode = Node.create({
 
   addAttributes() {
     return {
-      id: stableNodeIdAttribute(),
       status: {
         default: "neutral",
         parseHTML: (el: HTMLElement) => {

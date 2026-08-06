@@ -77,18 +77,14 @@ export function ContainedMovementHandle({
 
   return (
     <InteractionDragActivationArea
-      {...drag.activatorProps}
-      {...drag.sourceProps}
-      ref={(node) => {
-        drag.setNodeRef(node);
-        drag.setActivatorNodeRef(node);
-      }}
+      ref={drag.sourceRef}
       aria-describedby={descriptionId}
       aria-keyshortcuts="ArrowUp ArrowDown"
       aria-label={accessibleLabel}
       contentEditable={false}
       {...authoringChromeAttributes(AuthoringChromeKind.Handle)}
       data-contained-movement-pos={sourcePos ?? undefined}
+      data-interaction-drag-placeholder={drag.isPlaceholder ? "" : undefined}
       data-no-select=""
       disabled={disabled}
       onMouseDown={(event) => event.preventDefault()}
