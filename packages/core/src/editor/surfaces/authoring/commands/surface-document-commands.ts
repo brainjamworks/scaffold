@@ -3,6 +3,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
 import { SurfaceBackgroundSchema, SurfaceSettingsSchema } from "@/schemas/course-document";
 import { setTextSelectionNearInTransaction } from "@/editor/selection/selection-transactions";
+import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
 
 import {
   deleteNodeChecked,
@@ -112,7 +113,11 @@ export function canDuplicateSurfaceAt(editor: Editor, surfacePos: number): boole
   return Boolean(target && target.mode !== "page");
 }
 
-export function duplicateSurfaceAt(editor: Editor, surfacePos: number): boolean {
+export function duplicateSurfaceAt(
+  editor: Editor,
+  surfacePos: number,
+  blockDefinitions: BlockDefinitionLookup,
+): boolean {
   const target = resolveSurfaceActionTarget(editor, surfacePos);
   if (!target || target.mode === "page") return false;
 
@@ -120,6 +125,7 @@ export function duplicateSurfaceAt(editor: Editor, surfacePos: number): boolean 
     tr: editor.state.tr,
     pos: surfacePos,
     regenerateStableIds: true,
+    blockDefinitions,
   });
   if (!result.ok) return false;
 

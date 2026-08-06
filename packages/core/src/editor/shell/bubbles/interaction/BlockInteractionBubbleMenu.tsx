@@ -273,7 +273,7 @@ export function BlockInteractionBubbleMenuContent({
 
   return (
     <>
-      <DuplicateBlock editor={editor} pos={pos} />
+      <DuplicateBlock blockDefinitions={blockDefinitions} editor={editor} pos={pos} />
       <DeleteBlock editor={editor} pos={pos} />
       {descriptor.capabilities.supportsResize ? (
         <>

@@ -2,11 +2,12 @@
 
 import { Editor, Node, type JSONContent } from "@tiptap/core";
 import { TabsIcon as Tabs } from "@phosphor-icons/react";
+import UniqueID from "@tiptap/extension-unique-id";
 import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it } from "vite-plus/test";
 
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import {
   CourseSelectionMode,
   resolveCourseSelectionFacts,
@@ -136,6 +137,7 @@ function makeEditor() {
       AccordionSectionTitleNode,
       AccordionSectionPanelNode,
       TestSectionArrangementNode,
+      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
     ],
   });
 }
@@ -151,6 +153,7 @@ function makeCourseEditor(content: JSONContent[]) {
       }),
       ExtendedParagraph,
       CourseDocumentNode,
+      createCourseSectionNode(),
       SurfaceNode,
       RegionNode,
       LayoutAuthoringNode,
@@ -159,6 +162,7 @@ function makeCourseEditor(content: JSONContent[]) {
       AccordionSectionPanelNode,
       TestBlockNode,
       TestSectionArrangementNode,
+      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
     ],
     content: {
       type: "doc",
@@ -731,7 +735,9 @@ describe("layout section reorder commands", () => {
       },
     ]);
 
-    expect(duplicateLayoutAt(editor, nodePos(editor, "layout", "layout-a"))).toBe(true);
+    expect(
+      duplicateLayoutAt(editor, nodePos(editor, "layout", "layout-a"), builtInBlockRegistry),
+    ).toBe(true);
 
     const children = surfaceChildren(editor);
     expect(children).toHaveLength(2);
@@ -752,7 +758,13 @@ describe("layout section reorder commands", () => {
       layout([section("section-a", [block("a")]), section("section-b", [block("b")])]),
     ]);
 
-    expect(duplicateLayoutSectionAt(editor, nodePos(editor, "section", "section-a"))).toBe(true);
+    expect(
+      duplicateLayoutSectionAt(
+        editor,
+        nodePos(editor, "section", "section-a"),
+        builtInBlockRegistry,
+      ),
+    ).toBe(true);
 
     const sections = layoutAt(editor).content ?? [];
     expect(sections).toHaveLength(3);

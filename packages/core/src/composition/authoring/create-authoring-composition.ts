@@ -19,7 +19,7 @@ import { createEmptyInsertionRowExtension } from "@/editor/suggestions/empty-row
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
 import { createBoundedContainerStructurePolicy } from "@/editor/bounded-containers/authoring/BoundedContainerStructurePolicy";
 import { createSlashCommand } from "@/editor/suggestions/slash/SlashCommand";
-import { StableIdPasteNormalization } from "@/document/authoring/stable-id-paste-normalization";
+import { createStructuralClipboardPolicy } from "@/document/authoring/structural-clipboard-policy";
 import { createCourseSectionNode } from "@/document/model/nodes";
 import { resolveEditorPlaceholder } from "@/editor/prosemirror/placeholder/resolve-editor-placeholder";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
@@ -83,7 +83,11 @@ export function createCourseDocumentAuthoringExtensions({
     createSurfaceLifecycleAuthoringPolicy({ registry: surfaceRegistry }),
     createBoundedContainerStructurePolicy(blockRegistry, layoutRegistry),
     createScaffoldInteractionOwnerExtension(blockRegistry),
-    StableIdPasteNormalization,
+    createStructuralClipboardPolicy({
+      blockDefinitions: blockRegistry,
+      layoutDefinitions: layoutRegistry,
+      surfaceVariants: surfaceRegistry,
+    }),
     Placeholder.configure({
       showOnlyWhenEditable: true,
       // Show every empty-slot placeholder all the time, not just on

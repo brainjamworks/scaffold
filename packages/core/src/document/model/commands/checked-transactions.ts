@@ -3,7 +3,10 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Fragment } from "@tiptap/pm/model";
 import type { Transform } from "@tiptap/pm/transform";
 
-import { cloneJsonWithNewStableIds } from "../identity/clone-with-new-ids";
+import {
+  cloneJsonWithNewStableIds,
+  type CopiedBlockDefinitionLookup,
+} from "../identity/clone-with-new-ids";
 
 export interface CheckedMutationIssue {
   code: string;
@@ -203,20 +206,25 @@ export function deleteNodeChecked<TTransform extends Transform>({
   }
 }
 
-export function duplicateNodeChecked<TTransform extends Transform>({
-  tr,
-  pos,
-  regenerateStableIds = false,
-}: {
+type DuplicateNodeCheckedInput<TTransform extends Transform> = {
   tr: TTransform;
   pos: number;
-  regenerateStableIds?: boolean;
-}): CheckedDuplicateNodeResult<TTransform> {
+} & (
+  | { regenerateStableIds?: false; blockDefinitions?: never }
+  | { regenerateStableIds: true; blockDefinitions: CopiedBlockDefinitionLookup }
+);
+
+export function duplicateNodeChecked<TTransform extends Transform>(
+  input: DuplicateNodeCheckedInput<TTransform>,
+): CheckedDuplicateNodeResult<TTransform> {
+  const { tr, pos } = input;
   const target = nodeAtChecked(tr, pos, "duplicate");
   if (!target.ok) return target;
 
   const sourceJson = target.node.toJSON() as JSONContent;
-  const cloneJson = regenerateStableIds ? cloneJsonWithNewStableIds(sourceJson) : sourceJson;
+  const cloneJson = input.regenerateStableIds
+    ? cloneJsonWithNewStableIds(sourceJson, { blockDefinitions: input.blockDefinitions })
+    : sourceJson;
 
   let clone: ProseMirrorNode;
   try {

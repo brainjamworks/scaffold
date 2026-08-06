@@ -21,6 +21,17 @@ const insertDefinition = {
 };
 
 describe("defineBlock", () => {
+  it("preserves one pure copied-content rewrite owned by the Block definition", () => {
+    const rewriteCopiedContent = vi.fn(({ content }) => content);
+
+    const definition = defineBlock({
+      nodeType: "copy_fixture",
+      rewriteCopiedContent,
+    });
+
+    expect(definition.rewriteCopiedContent).toBe(rewriteCopiedContent);
+  });
+
   it("normalizes deterministic definition data without collecting the block", () => {
     const schema = z.object({ emphasis: z.boolean() });
     const configuration = defineConfiguration({

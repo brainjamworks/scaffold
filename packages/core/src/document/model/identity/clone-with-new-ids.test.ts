@@ -1,13 +1,35 @@
 import type { JSONContent } from "@tiptap/core";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 
+import { EmbeddedDataIdSchema, EmbeddedNodeIdSchema } from "@scaffold/contracts";
+import { defineBlock } from "@/editor/blocks/block-definition";
+import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 import { createEmbeddedNodeId } from "./stable-ids";
 
-import { cloneJsonWithNewStableIds } from "./clone-with-new-ids";
+import {
+  cloneJsonWithNewStableIds as cloneJsonWithNewStableIdsUsingLookup,
+  type CloneJsonWithNewStableIdsOptions,
+  type CopiedBlockDefinitionLookup,
+} from "./clone-with-new-ids";
 
 const STABLE_ID_PATTERN = /^[0-9A-Z_a-z-]{12}$/;
 const SOURCE_SURFACE_ID = createEmbeddedNodeId();
+const EMPTY_BLOCK_DEFINITIONS: CopiedBlockDefinitionLookup = Object.freeze({
+  getByNodeType: () => undefined,
+});
+
+function cloneJsonWithNewStableIds<T extends JSONContent | JSONContent[]>(
+  content: T,
+  options: Omit<CloneJsonWithNewStableIdsOptions, "blockDefinitions"> & {
+    blockDefinitions?: CopiedBlockDefinitionLookup;
+  } = {},
+): T {
+  return cloneJsonWithNewStableIdsUsingLookup(content, {
+    blockDefinitions: EMPTY_BLOCK_DEFINITIONS,
+    ...options,
+  });
+}
 
 function firstNodeByType(node: JSONContent, type: string): JSONContent | undefined {
   if (node.type === type) return node;
@@ -32,6 +54,124 @@ function assessmentOf(node: JSONContent | undefined): Record<string, unknown> {
 }
 
 describe("cloneJsonWithNewStableIds", () => {
+  it("gives a contributed Block one immutable node map for private Data rewriting", () => {
+    const source: JSONContent = {
+      type: "copy_fixture",
+      attrs: {
+        id: "blockold0001",
+        data: {
+          records: [{ id: "dataold00001", label: "Private row" }],
+          selectedId: "dataold00001",
+          nodeRef: "childold0001",
+        },
+      },
+      content: [
+        {
+          type: "paragraph",
+          attrs: { id: "childold0001" },
+          content: [{ type: "text", text: "Fixture" }],
+        },
+        {
+          type: "copy_observer",
+          attrs: { id: "observeold01" },
+        },
+      ],
+    };
+    const sourceSnapshot = structuredClone(source);
+    const seenMaps: ReadonlyMap<unknown, unknown>[] = [];
+    const rewriteCopiedContent = vi.fn(({ content, nodeIdChanges, generators }) => {
+      seenMaps.push(nodeIdChanges);
+      const data = content.attrs?.["data"] as {
+        records: Array<{ id: string; label: string }>;
+        selectedId: string;
+        nodeRef: string;
+      };
+      const nextDataId = generators.createDataId();
+
+      return {
+        ...content,
+        attrs: {
+          ...content.attrs,
+          data: {
+            ...data,
+            records: data.records.map((record) => ({ ...record, id: nextDataId })),
+            selectedId: nextDataId,
+            nodeRef: nodeIdChanges.get(EmbeddedNodeIdSchema.parse(data.nodeRef)),
+          },
+        },
+      };
+    });
+    const observeCopiedContent = vi.fn(({ content, nodeIdChanges }) => {
+      seenMaps.push(nodeIdChanges);
+      return content;
+    });
+    const blockDefinitions = createBlockRegistry([
+      defineBlock({ nodeType: "copy_fixture", rewriteCopiedContent }),
+      defineBlock({ nodeType: "copy_observer", rewriteCopiedContent: observeCopiedContent }),
+    ]);
+    const allocatedNodeIds = [
+      EmbeddedNodeIdSchema.parse("blocknew0001"),
+      EmbeddedNodeIdSchema.parse("childnew0001"),
+      EmbeddedNodeIdSchema.parse("observenew01"),
+    ];
+
+    const clone = cloneJsonWithNewStableIds(source, {
+      blockDefinitions,
+      createDataId: () => EmbeddedDataIdSchema.parse("datanew00001"),
+      createId: () => {
+        const id = allocatedNodeIds.shift();
+        if (!id) throw new Error("unexpected node identity allocation");
+        return id;
+      },
+    });
+
+    expect(rewriteCopiedContent).toHaveBeenCalledOnce();
+    expect(observeCopiedContent).toHaveBeenCalledOnce();
+    expect(seenMaps).toHaveLength(2);
+    expect(seenMaps[0]).toBe(seenMaps[1]);
+    expect(Object.isFrozen(seenMaps[0])).toBe(true);
+    expect("set" in seenMaps[0]!).toBe(false);
+    expect(seenMaps[0]?.get(EmbeddedNodeIdSchema.parse("blockold0001"))).toBe("blocknew0001");
+    expect(seenMaps[0]?.get(EmbeddedNodeIdSchema.parse("childold0001"))).toBe("childnew0001");
+    expect(clone).toEqual({
+      type: "copy_fixture",
+      attrs: {
+        id: "blocknew0001",
+        data: {
+          records: [{ id: "datanew00001", label: "Private row" }],
+          selectedId: "datanew00001",
+          nodeRef: "childnew0001",
+        },
+      },
+      content: [
+        {
+          type: "paragraph",
+          attrs: { id: "childnew0001" },
+          content: [{ type: "text", text: "Fixture" }],
+        },
+        {
+          type: "copy_observer",
+          attrs: { id: "observenew01" },
+        },
+      ],
+    });
+    expect(source).toEqual(sourceSnapshot);
+  });
+
+  it("clones an ordinary registered Block without callback ceremony", () => {
+    const blockDefinitions = createBlockRegistry([defineBlock({ nodeType: "ordinary_fixture" })]);
+
+    const clone = cloneJsonWithNewStableIds(
+      { type: "ordinary_fixture", attrs: { id: "ordinary0001" } },
+      {
+        blockDefinitions,
+        createId: () => EmbeddedNodeIdSchema.parse("ordinary0002"),
+      },
+    );
+
+    expect(clone.attrs?.["id"]).toBe("ordinary0002");
+  });
+
   it("remaps a complete course section fragment through one coordinated identity source", () => {
     const source: JSONContent[] = [
       {

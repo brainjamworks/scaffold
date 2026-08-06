@@ -5,8 +5,10 @@ import userEvent from "@testing-library/user-event";
 import { Editor, Node, type JSONContent } from "@tiptap/core";
 import { TooltipProvider } from "@radix-ui/react-tooltip";
 import StarterKit from "@tiptap/starter-kit";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 
+import { defineBlock } from "@/editor/blocks/block-definition";
+import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { DuplicateBlock } from "./DuplicateBlock";
 
 const STABLE_ID_PATTERN = /^[0-9A-Z_a-z-]{12}$/;
@@ -30,6 +32,11 @@ const TestMcqNode = Node.create({
     return ["div", { "data-test-mcq": "" }, 0];
   },
 });
+
+const testBlockDefinitions = createBlockRegistry([
+  defineBlock({ nodeType: "mcq" }),
+  defineBlock({ nodeType: "gallery" }),
+]);
 
 const TestSelectableChoiceNode = Node.create({
   name: "selectable_choice",
@@ -59,6 +66,7 @@ const TestGalleryNode = Node.create({
   addAttributes() {
     return {
       id: { default: null },
+      data: { default: null },
     };
   },
 
@@ -156,7 +164,7 @@ describe("DuplicateBlock", () => {
 
     render(
       <TooltipProvider>
-        <DuplicateBlock editor={editor} pos={0} />
+        <DuplicateBlock blockDefinitions={testBlockDefinitions} editor={editor} pos={0} />
       </TooltipProvider>,
     );
     await userEvent.click(screen.getByRole("button", { name: "Duplicate block" }));
@@ -181,7 +189,7 @@ describe("DuplicateBlock", () => {
 
     render(
       <TooltipProvider>
-        <DuplicateBlock editor={editor} pos={0} />
+        <DuplicateBlock blockDefinitions={testBlockDefinitions} editor={editor} pos={0} />
       </TooltipProvider>,
     );
     await userEvent.click(screen.getByRole("button", { name: "Duplicate block" }));
@@ -201,6 +209,36 @@ describe("DuplicateBlock", () => {
     ]);
     expect(cloneItems[0]?.attrs?.["id"]).not.toBe("component-gallery-item-a");
     expect(cloneItems[1]?.attrs?.["id"]).not.toBe("component-gallery-item-b");
+
+    editor.destroy();
+  });
+
+  it("routes controlled duplication through the mounted Block owner", async () => {
+    const editor = makeGalleryEditor();
+    const rewriteCopiedContent = vi.fn(({ content }) => ({
+      ...content,
+      attrs: {
+        ...content.attrs,
+        data: { rewrittenBy: "mounted-owner" },
+      },
+    }));
+    const blockDefinitions = createBlockRegistry([
+      defineBlock({ nodeType: "gallery", rewriteCopiedContent }),
+    ]);
+
+    render(
+      <TooltipProvider>
+        <DuplicateBlock blockDefinitions={blockDefinitions} editor={editor} pos={0} />
+      </TooltipProvider>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Duplicate block" }));
+
+    const galleries = ((editor.getJSON().content ?? []) as JSONContent[]).filter(
+      (node) => node.type === "gallery",
+    );
+    expect(rewriteCopiedContent).toHaveBeenCalledOnce();
+    expect(galleries[0]?.attrs?.["data"]).toBeNull();
+    expect(galleries[1]?.attrs?.["data"]).toEqual({ rewrittenBy: "mounted-owner" });
 
     editor.destroy();
   });

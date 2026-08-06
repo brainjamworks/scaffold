@@ -2,7 +2,10 @@
 
 import { Editor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
-import { afterEach, describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+
+import { defineBlock } from "@/editor/blocks/block-definition";
+import { createBlockRegistry } from "@/editor/blocks/block-registry";
 
 import {
   deleteNodeChecked,
@@ -236,6 +239,24 @@ describe("checked transaction primitives", () => {
       ],
     });
     expect(editor.getJSON().content).toHaveLength(1);
+  });
+
+  it("requires the mounted Block lookup when regenerating duplicate identities", () => {
+    const editor = makeEditor();
+    const rewriteCopiedContent = vi.fn(({ content }) => content);
+    const blockDefinitions = createBlockRegistry([
+      defineBlock({ nodeType: "paragraph", rewriteCopiedContent }),
+    ]);
+
+    const result = duplicateNodeChecked({
+      tr: editor.state.tr,
+      pos: 0,
+      regenerateStableIds: true,
+      blockDefinitions,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(rewriteCopiedContent).toHaveBeenCalledOnce();
   });
 
   it("rejects invalid duplicate positions before mutating the transform", () => {

@@ -86,13 +86,19 @@ export function appendLayoutSectionAt(
   }
 }
 
-export function duplicateLayoutAt(editor: Editor, layoutPos: number): boolean {
+export function duplicateLayoutAt(
+  editor: Editor,
+  layoutPos: number,
+  blockDefinitions: BlockDefinitionLookup,
+): boolean {
   if (!isValidDocPos(editor.state.doc, layoutPos)) return false;
   const layout = editor.state.doc.nodeAt(layoutPos);
   if (!layout || layout.type.name !== "layout") return false;
 
   try {
-    const clone = editor.state.schema.nodeFromJSON(cloneJsonWithNewStableIds(layout.toJSON()));
+    const clone = editor.state.schema.nodeFromJSON(
+      cloneJsonWithNewStableIds(layout.toJSON(), { blockDefinitions }),
+    );
     const insertPos = layoutPos + layout.nodeSize;
     const tr = editor.state.tr.insert(insertPos, clone);
     if (!setNodeSelectionInTransaction(tr, insertPos)) return false;
@@ -115,13 +121,19 @@ export function deleteLayoutAt(editor: Editor, layoutPos: number): boolean {
   }
 }
 
-export function duplicateLayoutSectionAt(editor: Editor, sectionPos: number): boolean {
+export function duplicateLayoutSectionAt(
+  editor: Editor,
+  sectionPos: number,
+  blockDefinitions: BlockDefinitionLookup,
+): boolean {
   if (!isValidDocPos(editor.state.doc, sectionPos)) return false;
   const section = editor.state.doc.nodeAt(sectionPos);
   if (!section || section.type.name !== "section") return false;
 
   try {
-    const clone = editor.state.schema.nodeFromJSON(cloneJsonWithNewStableIds(section.toJSON()));
+    const clone = editor.state.schema.nodeFromJSON(
+      cloneJsonWithNewStableIds(section.toJSON(), { blockDefinitions }),
+    );
     const insertPos = sectionPos + section.nodeSize;
     const tr = editor.state.tr.insert(insertPos, clone);
     if (!setNodeSelectionInTransaction(tr, insertPos)) return false;

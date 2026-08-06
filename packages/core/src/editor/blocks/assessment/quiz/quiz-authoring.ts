@@ -160,7 +160,9 @@ export function duplicateQuizQuestion({
   const source = node.child(index);
   const sourceJson = source.toJSON() as JSONContent;
   const duplicatedId = createStableId();
-  const cloneJson = cloneJsonWithNewStableIds(sourceJson);
+  const cloneJson = cloneJsonWithNewStableIds(sourceJson, {
+    blockDefinitions: getScaffoldCapabilitiesForEditor(editor).blocks.registry,
+  });
   let clone: ProseMirrorNode;
   try {
     clone = source.type.schema.nodeFromJSON({

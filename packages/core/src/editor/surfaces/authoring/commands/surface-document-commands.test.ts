@@ -1,8 +1,9 @@
 // @vitest-environment happy-dom
 
-import { Editor, type JSONContent } from "@tiptap/core";
+import { Editor, Node, type JSONContent } from "@tiptap/core";
+import UniqueID from "@tiptap/extension-unique-id";
 import StarterKit from "@tiptap/starter-kit";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import {
@@ -13,8 +14,10 @@ import {
   LayoutAuthoringNode,
   SectionAuthoringNode,
 } from "@/editor/arrangements/layout/authoring/layout-nodes";
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { CourseDocumentNode, DocumentNode, createCourseSectionNode } from "@/document/model/nodes";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { defineBlock } from "@/editor/blocks/block-definition";
+import { createBlockRegistry } from "@/editor/blocks/block-registry";
 
 import {
   canDeleteSurfaceAt,
@@ -34,6 +37,15 @@ import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/s
 const STABLE_ID_PATTERN = /^[0-9A-Z_a-z-]{12}$/;
 const FIRST_CREATED_SURFACE_ID = createEmbeddedNodeId();
 const SECOND_CREATED_SURFACE_ID = createEmbeddedNodeId();
+const EMPTY_BLOCK_DEFINITIONS = createBlockRegistry([]);
+
+const TestCopyFixtureNode = Node.create({
+  name: "copy_fixture",
+  group: "block",
+  atom: true,
+  addAttributes: () => ({ id: { default: null }, data: { default: null } }),
+  renderHTML: ({ HTMLAttributes }) => ["div", HTMLAttributes],
+});
 
 function paragraph(text: string): JSONContent {
   return {
@@ -89,6 +101,7 @@ function makeEditor(mode: "page" | "slideshow" | "branching", surfaces: JSONCont
       }),
       ExtendedParagraph,
       CourseDocumentNode,
+      createCourseSectionNode(),
       SurfaceNode,
       RegionNode,
       SlideCoverSubtitleNode,
@@ -96,6 +109,8 @@ function makeEditor(mode: "page" | "slideshow" | "branching", surfaces: JSONCont
       CellAuthoringNode,
       LayoutAuthoringNode,
       SectionAuthoringNode,
+      TestCopyFixtureNode,
+      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
     ],
     content: courseDocument(mode, surfaces),
   });
@@ -233,7 +248,7 @@ describe("surface document commands", () => {
 
     const pos = surfacePos(editor, FIRST_CREATED_SURFACE_ID);
     expect(canDuplicateSurfaceAt(editor, pos)).toBe(true);
-    expect(duplicateSurfaceAt(editor, pos)).toBe(true);
+    expect(duplicateSurfaceAt(editor, pos, EMPTY_BLOCK_DEFINITIONS)).toBe(true);
 
     const nextSurfaces = surfaces(editor);
     expect(nextSurfaces).toHaveLength(3);
@@ -248,6 +263,32 @@ describe("surface document commands", () => {
     editor.destroy();
   });
 
+  it("routes nested Blocks through mounted owners while duplicating a Surface", () => {
+    const rewriteCopiedContent = vi.fn(({ content }) => ({
+      ...content,
+      attrs: { ...content.attrs, data: { copiedBy: "surface-owner" } },
+    }));
+    const blockDefinitions = createBlockRegistry([
+      defineBlock({ nodeType: "copy_fixture", rewriteCopiedContent }),
+    ]);
+    const editor = makeEditor("slideshow", [
+      surfaceWithContent(
+        "surface00001",
+        [{ type: "copy_fixture", attrs: { id: "copyblock001", data: null } }],
+        { variant: "slide-cover", settings: {} },
+      ),
+      surface("surface00002", "Second", { variant: "slide-cover", settings: {} }),
+    ]);
+    const pos = surfacePos(editor, "surface00001");
+
+    expect(duplicateSurfaceAt(editor, pos, blockDefinitions)).toBe(true);
+
+    const duplicatedBlock = surfaces(editor)[1]?.content?.[0];
+    expect(rewriteCopiedContent).toHaveBeenCalledOnce();
+    expect(duplicatedBlock?.attrs?.["data"]).toEqual({ copiedBy: "surface-owner" });
+    editor.destroy();
+  });
+
   it("does not duplicate page surfaces", () => {
     const editor = makeEditor("page", [
       surface("surface00001", "Only", { variant: "page-default" }),
@@ -256,7 +297,7 @@ describe("surface document commands", () => {
     const pos = surfacePos(editor, "surface00001");
 
     expect(canDuplicateSurfaceAt(editor, pos)).toBe(false);
-    expect(duplicateSurfaceAt(editor, pos)).toBe(false);
+    expect(duplicateSurfaceAt(editor, pos, EMPTY_BLOCK_DEFINITIONS)).toBe(false);
     expect(editor.getJSON()).toEqual(before);
 
     editor.destroy();

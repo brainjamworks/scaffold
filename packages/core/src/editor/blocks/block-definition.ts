@@ -10,12 +10,19 @@ import type {
   AssessmentResponseValue,
   AssessmentTargetSettings,
 } from "@scaffold/contracts";
+import type { RewriteCopiedContent } from "@/document/model/identity/clone-with-new-ids";
 import type { ConfigurationDefinition } from "../configuration/definition";
 import { deriveQuickMenuDefinition } from "../configuration/quick-menu-derivation";
 import type { QuickControlDescriptor, QuickMenuDefinition } from "../configuration/quick-menu";
 import { deriveSettingsSheetDefinition } from "../configuration/settings-sheet-derivation";
 import type { NodeSettingsSheetDefinition } from "../configuration/settings-sheet";
 import type { BoundedPlacement } from "../frame/model/bounded-placement";
+
+export type {
+  CopiedContentIdentityGenerators,
+  RewriteCopiedContent,
+  RewriteCopiedContentInput,
+} from "@/document/model/identity/clone-with-new-ids";
 
 export type BlockAttrSurface = "data" | "settings" | "options";
 
@@ -198,6 +205,8 @@ export interface BlockDefinitionInput {
   readonly insert?: BlockInsertDefinition;
   readonly interaction?: BlockInteractionDefinition;
   readonly placeholders?: BlockPlaceholderDefinition;
+  /** Purely repairs capability-private identity in a generic controlled duplicate. */
+  readonly rewriteCopiedContent?: RewriteCopiedContent;
   readonly boundedPlacement?: BoundedPlacement;
   readonly stagedBoundedHost?: BlockStagedBoundedHostDefinition;
   readonly frame?: BlockFrameDefinition;

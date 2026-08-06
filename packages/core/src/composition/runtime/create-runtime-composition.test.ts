@@ -41,7 +41,6 @@ const coreRuntimeComposition = createCoreScaffoldRuntimeComposition();
 const AUTHORING_ONLY_EXTENSION_NAMES = [
   "scaffoldAuthoringCatalogues",
   "scaffoldInteractionOwner",
-  "scaffoldStableIdPasteNormalization",
   "placeholder",
   "emptyInsertionRow",
   "surfaceRootSelectionPolicy",

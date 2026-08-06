@@ -18,6 +18,7 @@ import {
 import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import { getScaffoldAuthoringCataloguesForEditor } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
 import * as surfaceLifecyclePolicy from "@/document/authoring/surface-lifecycle-authoring-policy";
+import * as structuralClipboardPolicy from "@/document/authoring/structural-clipboard-policy";
 import {
   CellAuthoringNode,
   GridAuthoringNode,
@@ -46,7 +47,7 @@ const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 
 const AUTHORING_ONLY_EXTENSION_NAMES = [
   "scaffoldInteractionOwner",
-  "scaffoldStableIdPasteNormalization",
+  "scaffoldStructuralClipboardPolicy",
   "placeholder",
   "emptyInsertionRow",
   "surfaceRootSelectionPolicy",
@@ -400,6 +401,29 @@ describe("createCourseDocumentAuthoringExtensions", () => {
       layoutDefinitions: application.capabilities.layouts.registry,
       surfaceVariants: surfaceRegistry,
     });
+  });
+
+  it("binds structural clipboard refusal to the exact mounted ownership", () => {
+    const capability = hostBlockCapability("host_clipboard_owner");
+    const application = createScaffoldApplication({
+      packs: [defineScaffoldExtensionPack({ id: "host-clipboard-owner", blocks: [capability] })],
+    });
+    const createPolicy = vi.spyOn(structuralClipboardPolicy, "createStructuralClipboardPolicy");
+
+    const extensions = createCourseDocumentAuthoringExtensions({
+      editable: true,
+      composition: application.authoring,
+    });
+
+    expect(createPolicy).toHaveBeenCalledOnce();
+    expect(createPolicy).toHaveBeenCalledWith({
+      blockDefinitions: application.capabilities.blocks.registry,
+      layoutDefinitions: application.capabilities.layouts.registry,
+      surfaceVariants: application.capabilities.surfaces.registry,
+    });
+    expect(
+      extensions.filter(({ name }) => name === "scaffoldStructuralClipboardPolicy"),
+    ).toHaveLength(1);
   });
 
   it("renders and interprets a host Surface through the resolved authoring composition", async () => {

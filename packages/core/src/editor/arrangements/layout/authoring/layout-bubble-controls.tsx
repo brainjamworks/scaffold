@@ -1,6 +1,7 @@
 import { CopyIcon as Copy, GearSixIcon as Gear, TrashIcon as Trash } from "@phosphor-icons/react";
 import type { Editor } from "@tiptap/react";
 
+import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import { ConfigurationMenuControls } from "@/editor/shell/bubbles/interaction/menu-controls/ConfigurationMenuControls";
 import {
   MenuIconButton,
@@ -78,12 +79,13 @@ export function LayoutMenuBubbleContent({
   const duplicateLabel = snapshot.kind === "layout" ? "Duplicate layout" : "Duplicate section";
   const deleteLabel = snapshot.kind === "layout" ? "Delete layout" : "Delete section";
   const duplicateTarget = () => {
+    const blockDefinitions = getScaffoldCapabilitiesForEditor(editor).blocks.registry;
     if (snapshot.kind === "layout") {
-      duplicateLayoutAt(editor, snapshot.layoutPos);
+      duplicateLayoutAt(editor, snapshot.layoutPos, blockDefinitions);
       return;
     }
 
-    duplicateLayoutSectionAt(editor, snapshot.sectionPos);
+    duplicateLayoutSectionAt(editor, snapshot.sectionPos, blockDefinitions);
   };
   const deleteTarget = () => {
     const deleted =

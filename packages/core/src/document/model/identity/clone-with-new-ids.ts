@@ -1,6 +1,7 @@
 import type { JSONContent } from "@tiptap/core";
 
-import { createEmbeddedNodeId } from "./stable-ids";
+import type { EmbeddedDataId, EmbeddedNodeId } from "@scaffold/contracts";
+import { createEmbeddedDataId, createEmbeddedNodeId } from "./stable-ids";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -109,7 +110,7 @@ function rewriteMappedStringArray(record: JsonRecord, key: string, idMap: Map<st
   );
 }
 
-function rewriteRecordKeys(value: unknown, idMap: Map<string, string>): JsonRecord | unknown {
+function rewriteRecordKeys(value: unknown, idMap: Map<string, string>): unknown {
   const record = asRecord(value);
   if (!record) return value;
 
@@ -264,17 +265,27 @@ function rewriteAssessmentReferences(node: JSONContent, maps: IdRewriteMaps) {
   }
 }
 
-function regenerateIdsInNode(node: JSONContent, createId: () => string): IdRewriteMaps {
+function regenerateIdsInNode(
+  node: JSONContent,
+  createId: () => string,
+  nodeIdChanges: Map<EmbeddedNodeId, EmbeddedNodeId>,
+): IdRewriteMaps {
   const maps = emptyRewriteMaps();
 
   const attrIdReplacement = regenerateAttrId(asRecord(node.attrs) ?? undefined, createId);
+  if (attrIdReplacement) {
+    nodeIdChanges.set(
+      attrIdReplacement.previous as EmbeddedNodeId,
+      attrIdReplacement.next as EmbeddedNodeId,
+    );
+  }
   trackAssessmentReferenceId(node, attrIdReplacement, maps);
 
   regenerateHotspotIds(node, maps, createId);
   regenerateChartIds(node, createId);
 
   node.content?.forEach((child) => {
-    mergeRewriteMaps(maps, regenerateIdsInNode(child, createId));
+    mergeRewriteMaps(maps, regenerateIdsInNode(child, createId, nodeIdChanges));
   });
 
   return maps;
@@ -285,25 +296,107 @@ function rewriteAssessmentReferencesInTree(node: JSONContent, maps: IdRewriteMap
   node.content?.forEach((child) => rewriteAssessmentReferencesInTree(child, maps));
 }
 
-interface CloneJsonWithNewStableIdsOptions {
+export interface CopiedContentIdentityGenerators {
+  /** Allocates identities for capability-private Data records only. */
+  readonly createDataId: () => EmbeddedDataId;
+}
+
+export interface RewriteCopiedContentInput {
+  /** The cloned Block JSON after generic document-node ID regeneration. */
+  readonly content: JSONContent;
+  /** One immutable old-to-new document-node ID snapshot for the whole clone. */
+  readonly nodeIdChanges: ReadonlyMap<EmbeddedNodeId, EmbeddedNodeId>;
+  readonly generators: CopiedContentIdentityGenerators;
+}
+
+/** Purely rewrites capability-private payload inside its own cloned Block. */
+export type RewriteCopiedContent = (input: RewriteCopiedContentInput) => JSONContent;
+
+export interface CopiedBlockDefinitionLookup {
+  readonly getByNodeType: (
+    nodeType: string,
+  ) => { readonly rewriteCopiedContent?: RewriteCopiedContent } | undefined;
+}
+
+export interface CloneJsonWithNewStableIdsOptions {
+  blockDefinitions: CopiedBlockDefinitionLookup;
+  createDataId?: CopiedContentIdentityGenerators["createDataId"];
   createId?: () => string;
 }
 
 export function cloneJsonWithNewStableIds<T extends JSONContent | JSONContent[]>(
   content: T,
-  options: CloneJsonWithNewStableIdsOptions = {},
+  options: CloneJsonWithNewStableIdsOptions,
 ): T {
   const clone = cloneJsonValue(content);
   const createId = options.createId ?? createEmbeddedNodeId;
+  const nodeIdChanges = new Map<EmbeddedNodeId, EmbeddedNodeId>();
 
   if (Array.isArray(clone)) {
     const fragmentMaps = emptyRewriteMaps();
-    clone.forEach((node) => mergeRewriteMaps(fragmentMaps, regenerateIdsInNode(node, createId)));
+    clone.forEach((node) =>
+      mergeRewriteMaps(fragmentMaps, regenerateIdsInNode(node, createId, nodeIdChanges)),
+    );
     clone.forEach((node) => rewriteAssessmentReferencesInTree(node, fragmentMaps));
   } else {
-    const maps = regenerateIdsInNode(clone, createId);
+    const maps = regenerateIdsInNode(clone, createId, nodeIdChanges);
     rewriteAssessmentReferencesInTree(clone, maps);
   }
 
-  return clone;
+  const immutableNodeIdChanges = immutableReadonlyMap(nodeIdChanges);
+  const generators = Object.freeze({
+    createDataId: options.createDataId ?? createEmbeddedDataId,
+  });
+
+  if (Array.isArray(clone)) {
+    return clone.map((node) =>
+      rewriteCopiedBlocksInTree(node, options.blockDefinitions, immutableNodeIdChanges, generators),
+    ) as T;
+  }
+
+  return rewriteCopiedBlocksInTree(
+    clone,
+    options.blockDefinitions,
+    immutableNodeIdChanges,
+    generators,
+  ) as T;
+}
+
+function rewriteCopiedBlocksInTree(
+  node: JSONContent,
+  blockDefinitions: CopiedBlockDefinitionLookup,
+  nodeIdChanges: ReadonlyMap<EmbeddedNodeId, EmbeddedNodeId>,
+  generators: CopiedContentIdentityGenerators,
+): JSONContent {
+  if (node.content) {
+    node.content = node.content.map((child) =>
+      rewriteCopiedBlocksInTree(child, blockDefinitions, nodeIdChanges, generators),
+    );
+  }
+
+  const rewriteCopiedContent = node.type
+    ? blockDefinitions.getByNodeType(node.type)?.rewriteCopiedContent
+    : undefined;
+  return rewriteCopiedContent
+    ? rewriteCopiedContent({ content: node, nodeIdChanges, generators })
+    : node;
+}
+
+function immutableReadonlyMap<K, V>(source: ReadonlyMap<K, V>): ReadonlyMap<K, V> {
+  const snapshot = new Map(source);
+  let readonlyMap: ReadonlyMap<K, V>;
+  readonlyMap = {
+    get size() {
+      return snapshot.size;
+    },
+    entries: () => snapshot.entries(),
+    forEach: (callback, thisArg) =>
+      snapshot.forEach((value, key) => callback.call(thisArg, value, key, readonlyMap)),
+    get: (key) => snapshot.get(key),
+    has: (key) => snapshot.has(key),
+    keys: () => snapshot.keys(),
+    values: () => snapshot.values(),
+    [Symbol.iterator]: () => snapshot[Symbol.iterator](),
+  };
+  return Object.freeze(readonlyMap);
 }
