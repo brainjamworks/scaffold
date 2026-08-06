@@ -58,6 +58,7 @@ export interface MatchInteractionRuntime {
   selectedTargetFor: (itemId: string) => string | null;
   matchedItemFor: (targetId: string) => string | null;
   setMatch: (itemId: string, targetId: string) => void;
+  setMatches: (matches: Readonly<Record<string, string>>) => void;
   removeTargetMatch: (targetId: string) => void;
   clearMatches: () => void;
 }
@@ -218,6 +219,7 @@ export function createPendingAssessmentInteractionRuntime<K extends AssessmentIn
         selectedTargetFor: () => null,
         matchedItemFor: () => null,
         setMatch: noop,
+        setMatches: noop,
         removeTargetMatch: noop,
         clearMatches: noop,
       } as unknown as AssessmentInteractionRuntime<K>;
@@ -277,6 +279,10 @@ export function useAssessmentInteractionRuntime<K extends AssessmentInteractionK
     pending: null,
   });
   const classifyCommitRef = useRef<{ last: string | null; pending: string | null }>({
+    last: null,
+    pending: null,
+  });
+  const matchCommitRef = useRef<{ last: string | null; pending: string | null }>({
     last: null,
     pending: null,
   });
@@ -391,6 +397,42 @@ export function useAssessmentInteractionRuntime<K extends AssessmentInteractionK
       case "match": {
         const matches = stringRecord(response["matches"]);
         const matchedTargetIds = new Set(Object.values(matches));
+        if (!facade.responseReady && !facade.request) {
+          matchCommitRef.current.last = null;
+        }
+        const writeMatches = (nextMatches: Readonly<Record<string, string>>) => {
+          writeField("matches", nextMatches);
+        };
+        const commitImmediateMatch = (nextMatches: Readonly<Record<string, string>>) => {
+          if (
+            locked ||
+            problem.state.feedbackMode !== "immediate" ||
+            facade.request ||
+            !facade.capability
+          ) {
+            return;
+          }
+          const nextResponse = { ...response, matches: nextMatches };
+          if (!facade.capability.hasResponse(nextResponse)) return;
+          const fingerprint = JSON.stringify(facade.capability.toContractResponse(nextResponse));
+          if (
+            matchCommitRef.current.last === fingerprint ||
+            matchCommitRef.current.pending !== null
+          ) {
+            return;
+          }
+          matchCommitRef.current.pending = fingerprint;
+          void facade.actions
+            .check()
+            .then((result) => {
+              if (result) matchCommitRef.current.last = fingerprint;
+            })
+            .finally(() => {
+              if (matchCommitRef.current.pending === fingerprint) {
+                matchCommitRef.current.pending = null;
+              }
+            });
+        };
         return {
           kind: "match",
           matches,
@@ -405,15 +447,16 @@ export function useAssessmentInteractionRuntime<K extends AssessmentInteractionK
                   currentItemId !== itemId && currentTargetId !== targetId,
               ),
             );
-            writeField("matches", { ...next, [itemId]: targetId });
-            checkImmediate();
+            const completed = { ...next, [itemId]: targetId };
+            writeMatches(completed);
+            commitImmediateMatch(completed);
           },
+          setMatches: writeMatches,
           removeTargetMatch: (targetId: string) =>
-            writeField(
-              "matches",
+            writeMatches(
               Object.fromEntries(Object.entries(matches).filter(([, value]) => value !== targetId)),
             ),
-          clearMatches: () => writeField("matches", {}),
+          clearMatches: () => writeMatches({}),
         } as unknown as AssessmentInteractionRuntime<K>;
       }
       case "classify": {

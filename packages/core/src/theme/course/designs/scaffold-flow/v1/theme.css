@@ -32,7 +32,7 @@
 @import "./assessment-fill-blanks.css";
 @import "./assessment-sequencing.css";
 @import "./assessment-categorise.css";
-@import "./assessment-matching-action.css";
+@import "./assessment-matching.css";
 
 .sc-course.sc-course-theme-scaffold-flow-v1 {
   --sc-container-flow-gap: calc(0.75rem * var(--sc-course-author-density));

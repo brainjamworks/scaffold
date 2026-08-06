@@ -943,8 +943,8 @@ describe("authoring publication document projection", () => {
           { id: "left-2", label: "Spain" },
         ],
         targets: [
-          { id: "right-1", label: "Paris" },
           { id: "right-2", label: "Madrid" },
+          { id: "right-1", label: "Paris" },
         ],
       },
       assessment: {
@@ -966,6 +966,50 @@ describe("authoring publication document projection", () => {
         summaryFeedback: null,
       },
     });
+  });
+
+  it("projects one stable Matching source order independent of authored pair nesting", () => {
+    const authored = matchingBlock();
+    const reordered = structuredClone(authored);
+    const reorderedGroup = reordered.content?.find(
+      (child) => child.type === "matching_pairs_group",
+    );
+    reorderedGroup!.content = [...(reorderedGroup?.content ?? [])].reverse();
+
+    const wrap = (block: JSONContent): JSONContent => ({
+      type: "courseDocument",
+      content: [
+        {
+          type: "surface",
+          attrs: { id: "matching-surface", variant: "page-default" },
+          content: [block],
+        },
+      ],
+    });
+    const first = projectAssessmentDocument(wrap(authored));
+    const repeated = projectAssessmentDocument(wrap(reordered));
+    const learnerPairAttrs = (document: JSONContent) =>
+      descendantsOfType(document, "matching_pair").map((pair) => attrsOf(pair));
+
+    expect(learnerPairAttrs(first.learnerDocument)).toEqual([
+      { itemId: "left-1", targetId: "right-2" },
+      { itemId: "left-2", targetId: "right-1" },
+    ]);
+    expect(learnerPairAttrs(repeated.learnerDocument)).toEqual(
+      learnerPairAttrs(first.learnerDocument),
+    );
+    expect(first.targets[0]?.interaction).toEqual({
+      kind: "match",
+      items: [
+        { id: "left-1", label: "France" },
+        { id: "left-2", label: "Spain" },
+      ],
+      targets: [
+        { id: "right-2", label: "Madrid" },
+        { id: "right-1", label: "Paris" },
+      ],
+    });
+    expect(repeated.targets[0]).toEqual(first.targets[0]);
   });
 });
 
@@ -1214,6 +1258,7 @@ function matchingBlock(): JSONContent {
         showAnswer: true,
         points: 2,
         maxAttempts: null,
+        legend: "Match each country to its capital",
       },
     },
     content: [

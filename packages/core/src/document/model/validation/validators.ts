@@ -12,6 +12,10 @@ import {
   type CategoriseIntegrityIssueCode,
 } from "@/editor/blocks/assessment/categorise/integrity";
 import { collectSequencingIntegrityIssues } from "@/editor/blocks/assessment/sequencing/integrity";
+import {
+  collectMatchingIntegrityIssues,
+  type MatchingIntegrityIssueCode,
+} from "@/editor/blocks/assessment/matching/integrity";
 
 import {
   validateCourseSurfaceLifecycle,
@@ -26,6 +30,7 @@ export type CourseDocumentIssueCode =
   | "duplicate_annotated_figure_annotation_id"
   | "invalid_annotated_figure_annotation_content"
   | CategoriseIntegrityIssueCode
+  | MatchingIntegrityIssueCode
   | "empty_fill_blank_id"
   | "duplicate_fill_blank_id"
   | "missing_fill_blank_assessment"
@@ -62,6 +67,7 @@ export function validateCourseDocumentJSON(content: JSONContent): CourseDocument
   collectFillBlanksIssues(content, []).forEach((issue) => issues.push(issue));
   collectSequencingIssues(content, []).forEach((issue) => issues.push(issue));
   collectCategoriseIssues(content, []).forEach((issue) => issues.push(issue));
+  collectMatchingIssues(content, []).forEach((issue) => issues.push(issue));
   collectAnnotatedFigureIssues(content, []).forEach((issue) => issues.push(issue));
 
   const ownedIssues = Object.freeze([...issues]);
@@ -69,6 +75,22 @@ export function validateCourseDocumentJSON(content: JSONContent): CourseDocument
     ok: issues.length === 0,
     issues: ownedIssues,
   });
+}
+
+function collectMatchingIssues(
+  node: JSONContent,
+  path: Array<string | number>,
+): CourseDocumentIssue[] {
+  const issues =
+    node.type === "matching"
+      ? collectMatchingIntegrityIssues(node).map((issue) =>
+          createIssue(issue.code, issue.message, [...path, ...issue.path]),
+        )
+      : [];
+  for (const [index, child] of getContent(node).entries()) {
+    issues.push(...collectMatchingIssues(child, [...path, "content", index]));
+  }
+  return issues;
 }
 
 function collectCategoriseIssues(

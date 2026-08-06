@@ -346,6 +346,104 @@ describe("assessment response codecs", () => {
     ).toThrow("Categorise response item ids must be unique");
   });
 
+  it("requires Matching responses to be the exact current one-to-one mapping", () => {
+    const codec = responseCodec(matchingBlockDefinition);
+    const interaction = {
+      kind: "match" as const,
+      items: [{ id: "item-b" }, { id: "item-a" }],
+      targets: [{ id: "target-a" }, { id: "target-b" }],
+    };
+
+    expect(codec.hasResponse({ matches: {} }, interaction)).toBe(false);
+    expect(codec.hasResponse({ matches: { "item-a": "target-a" } }, interaction)).toBe(false);
+    expect(
+      codec.hasResponse({ matches: { "item-a": "target-a", stale: "target-b" } }, interaction),
+    ).toBe(false);
+    expect(
+      codec.hasResponse({ matches: { "item-a": "target-a", "item-b": "unknown" } }, interaction),
+    ).toBe(false);
+    expect(
+      codec.hasResponse({ matches: { "item-a": "target-a", "item-b": "target-a" } }, interaction),
+    ).toBe(false);
+    expect(
+      codec.hasResponse({ matches: { "item-a": "target-a", "item-b": "target-b" } }, interaction),
+    ).toBe(true);
+
+    expect(
+      codec.toContractResponse(
+        {
+          matches: {
+            "item-a": "target-a",
+            "item-b": "target-b",
+            stale: "target-a",
+          },
+        },
+        interaction,
+      ),
+    ).toEqual({
+      kind: "match",
+      pairs: [
+        { itemId: "item-b", targetId: "target-b" },
+        { itemId: "item-a", targetId: "target-a" },
+      ],
+    });
+
+    expect(
+      codec.fromContractResponse(
+        {
+          kind: "match",
+          pairs: [
+            { itemId: "stale", targetId: "target-a" },
+            { itemId: "item-a", targetId: "unknown" },
+            { itemId: "item-b", targetId: "target-b" },
+          ],
+        },
+        interaction,
+      ),
+    ).toEqual({ matches: { "item-b": "target-b" } });
+  });
+
+  it("rejects ambiguous Matching interaction and canonical response identities", () => {
+    const codec = responseCodec(matchingBlockDefinition);
+
+    expect(() =>
+      codec.hasResponse(
+        { matches: { "item-a": "target-a" } },
+        {
+          kind: "match",
+          items: [{ id: "item-a" }, { id: "item-a" }],
+          targets: [{ id: "target-a" }, { id: "target-b" }],
+        },
+      ),
+    ).toThrow("Matching interaction item ids must be nonblank and unique");
+    expect(() =>
+      codec.hasResponse(
+        { matches: { "item-a": "target-a" } },
+        {
+          kind: "match",
+          items: [{ id: "item-a" }],
+          targets: [{ id: "target-a" }, { id: " " }],
+        },
+      ),
+    ).toThrow("Matching interaction target ids must be nonblank and unique");
+    expect(() =>
+      codec.fromContractResponse(
+        {
+          kind: "match",
+          pairs: [
+            { itemId: "item-a", targetId: "target-a" },
+            { itemId: "item-a", targetId: "target-b" },
+          ],
+        },
+        {
+          kind: "match",
+          items: [{ id: "item-a" }],
+          targets: [{ id: "target-a" }, { id: "target-b" }],
+        },
+      ),
+    ).toThrow("Matching response item ids must be unique");
+  });
+
   it.each(codecCases)(
     "$name round-trips empty, partial, and complete local response state",
     ({ codec, localResponses }) => {

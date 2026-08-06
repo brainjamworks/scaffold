@@ -199,9 +199,44 @@ function gradeMatch(
   target: ExtractTarget<"match">,
   response: ExtractResponse<"match">,
 ): AssessmentResult {
-  const givenByItem = new Map(response.pairs.map((pair) => [pair.itemId, pair.targetId]));
   const pairs = target.assessment.correctPairs;
   const items: Record<string, AssessmentItemDetail> = {};
+  const interactionItemIds = target.interaction.items.map((item) => item.id);
+  const interactionTargetIds = target.interaction.targets.map((item) => item.id);
+  const interactionItemIdSet = new Set(interactionItemIds);
+  const interactionTargetIdSet = new Set(interactionTargetIds);
+  const expectedItemIds = pairs.map((pair) => pair.itemId);
+  const expectedTargetIds = pairs.map((pair) => pair.targetId);
+  const responseItemIds = response.pairs.map((pair) => pair.itemId);
+  const responseTargetIds = response.pairs.map((pair) => pair.targetId);
+  const interactionIsExact =
+    interactionItemIds.length > 0 &&
+    interactionItemIds.length === interactionTargetIds.length &&
+    interactionItemIds.every((id) => id.trim().length > 0) &&
+    interactionTargetIds.every((id) => id.trim().length > 0) &&
+    interactionItemIdSet.size === interactionItemIds.length &&
+    interactionTargetIdSet.size === interactionTargetIds.length;
+  const expectedIsExact =
+    interactionIsExact &&
+    pairs.length === interactionItemIds.length &&
+    new Set(expectedItemIds).size === expectedItemIds.length &&
+    new Set(expectedTargetIds).size === expectedTargetIds.length &&
+    pairs.every(
+      ({ itemId, targetId }) =>
+        interactionItemIdSet.has(itemId) && interactionTargetIdSet.has(targetId),
+    );
+  const responseIsExact =
+    response.pairs.length === interactionItemIds.length &&
+    new Set(responseItemIds).size === responseItemIds.length &&
+    new Set(responseTargetIds).size === responseTargetIds.length &&
+    response.pairs.every(
+      ({ itemId, targetId }) =>
+        interactionItemIdSet.has(itemId) && interactionTargetIdSet.has(targetId),
+    );
+  const givenByItem = new Map<string, string>();
+  for (const pair of response.pairs) {
+    if (!givenByItem.has(pair.itemId)) givenByItem.set(pair.itemId, pair.targetId);
+  }
 
   if (pairs.length === 0) {
     return {
@@ -229,7 +264,7 @@ function gradeMatch(
   return {
     score: correctCount / pairs.length,
     maxScore: 1,
-    isCorrect: correctCount === pairs.length,
+    isCorrect: expectedIsExact && responseIsExact && correctCount === pairs.length,
     feedback: summaryFeedbackFor(target),
     items,
   };

@@ -1131,8 +1131,10 @@ describe("ContentRuntimeHost", () => {
       </StrictMode>,
     );
 
-    await user.click(await screen.findByRole("button", { name: "Select matching item 1" }));
-    await user.click(screen.getByRole("button", { name: "Match target 1" }));
+    await user.click(
+      await screen.findByRole("button", { name: /^Select ‘Term A’, item \d of 2$/ }),
+    );
+    await user.click(screen.getByRole("button", { name: "Match ‘Term A’ with ‘Target A’" }));
 
     await waitFor(() =>
       expect(document.body.querySelector("[data-matching-connectors]")).not.toBeNull(),

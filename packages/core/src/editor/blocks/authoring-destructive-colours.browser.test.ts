@@ -8,7 +8,7 @@ import "@/ui/components/IconButton/IconButton.css";
 
 import "./assessment/shared/chrome/assessment-hints.css";
 import "@/ui/components/app/AssessmentAuthoringIconAction/AssessmentAuthoringIconAction.css";
-import "@/theme/course/designs/scaffold-flow/v1/assessment-matching-action.css";
+import "@/theme/course/designs/scaffold-flow/v1/assessment-matching.css";
 import "./structured-content/checklist/ChecklistAuthoringControls.css";
 
 afterEach(() => {
@@ -48,11 +48,7 @@ describe("authoring destructive colours", () => {
 
   it("keeps learner remove actions on the course error semantic", async () => {
     const course = createThemedAuthoringFixture();
-    const removeMatch = appendButton(
-      course,
-      "sc-course-matching-remove-action",
-      "Remove match",
-    );
+    const removeMatch = appendButton(course, "sc-course-matching__remove-action", "Remove match");
 
     await userEvent.hover(removeMatch);
     expect(getComputedStyle(removeMatch).color).toBe("rgb(220, 38, 38)");
@@ -72,6 +68,7 @@ function createThemedAuthoringFixture(): HTMLDivElement {
   course.style.setProperty("--color-secondary", "rgb(8 145 178)");
   course.style.setProperty("--color-secondary-foreground", "rgb(255 255 255)");
   course.style.setProperty("--sc-course-state-error-indicator", "rgb(220 38 38)");
+  course.style.setProperty("--sc-course-state-error-background", "rgb(254 226 226)");
   course.style.setProperty("--color-error-foreground", "rgb(255 255 255)");
   course.style.setProperty("--color-muted", "rgb(241 245 249)");
   course.style.setProperty("--color-background", "rgb(255 255 255)");

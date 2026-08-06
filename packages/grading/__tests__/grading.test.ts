@@ -158,6 +158,84 @@ describe("@scaffold/grading primitive targets", () => {
     expect(AssessmentResultSchema.parse(result)).toEqual(result);
   });
 
+  it("requires an exact unique current Matching mapping for correctness", () => {
+    const target: AssessmentTargetContract = {
+      ...baseTarget,
+      interaction: {
+        kind: "match",
+        items: [{ id: "fr" }, { id: "es" }],
+        targets: [{ id: "paris" }, { id: "madrid" }],
+      },
+      assessment: {
+        kind: "match",
+        correctPairs: [
+          { itemId: "fr", targetId: "paris" },
+          { itemId: "es", targetId: "madrid" },
+        ],
+        feedbackByItemId: {},
+      },
+    };
+
+    expect(
+      gradeAssessment(target, {
+        kind: "match",
+        pairs: [
+          { itemId: "fr", targetId: "paris" },
+          { itemId: "es", targetId: "madrid" },
+        ],
+      }),
+    ).toMatchObject({ isCorrect: true, score: 1 });
+
+    expect(
+      gradeAssessment(target, {
+        kind: "match",
+        pairs: [
+          { itemId: "fr", targetId: "paris" },
+          { itemId: "es", targetId: "madrid" },
+          { itemId: "stale", targetId: "madrid" },
+        ],
+      }),
+    ).toMatchObject({ isCorrect: false, score: 1 });
+
+    expect(
+      gradeAssessment(target, {
+        kind: "match",
+        pairs: [
+          { itemId: "fr", targetId: "paris" },
+          { itemId: "fr", targetId: "madrid" },
+          { itemId: "es", targetId: "madrid" },
+        ],
+      }).isCorrect,
+    ).toBe(false);
+
+    expect(
+      gradeAssessment(target, {
+        kind: "match",
+        pairs: [
+          { itemId: "fr", targetId: "paris" },
+          { itemId: "es", targetId: "unknown" },
+        ],
+      }),
+    ).toMatchObject({ isCorrect: false, score: 0.5 });
+
+    const duplicateExpected: AssessmentTargetContract = {
+      ...target,
+      assessment: {
+        ...target.assessment,
+        correctPairs: [
+          { itemId: "fr", targetId: "paris" },
+          { itemId: "fr", targetId: "madrid" },
+        ],
+      },
+    };
+    expect(
+      gradeAssessment(duplicateExpected, {
+        kind: "match",
+        pairs: [{ itemId: "fr", targetId: "paris" }],
+      }).isCorrect,
+    ).toBe(false);
+  });
+
   it("requires an exact unique current Categorise mapping for correctness", () => {
     const target: AssessmentTargetContract = {
       ...baseTarget,

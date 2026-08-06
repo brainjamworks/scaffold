@@ -40,6 +40,11 @@ export function CourseDocumentRuntimeRenderer({
     {
       immediatelyRender: false,
       editable: false,
+      editorProps: {
+        attributes: {
+          role: "document",
+        },
+      },
       ...(initialContent ? { content: initialContent } : {}),
       extensions: [...createCourseDocumentRuntimeExtensions(), RuntimeSurfaceVisibility],
       onCreate: ({ editor: e }) => {

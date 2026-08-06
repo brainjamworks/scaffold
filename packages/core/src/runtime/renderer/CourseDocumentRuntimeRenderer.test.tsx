@@ -419,6 +419,7 @@ describe("CourseDocumentRuntimeRenderer", () => {
     expect(runtime.querySelector("[data-authoring-frame]")).toBeNull();
     expect(runtime.querySelector("[data-authoring-chrome]")).toBeNull();
     expect(runtime.querySelector('[contenteditable="true"]')).toBeNull();
+    expect(runtime.querySelector(".ProseMirror")?.getAttribute("role")).toBe("document");
   });
 });
 

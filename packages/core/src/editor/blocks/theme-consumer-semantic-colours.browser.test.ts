@@ -4,6 +4,7 @@ import { userEvent } from "vite-plus/test/browser/context";
 import "@/styles/globals.css";
 
 import "./assessment/matching/Matching.css";
+import "@/theme/course/designs/scaffold-flow/v1/assessment-matching.css";
 import "./assessment/sequencing/Sequencing.css";
 import "./assessment/categorise/Categorise.css";
 import "./assessment/dropdown/Dropdown.css";
@@ -18,13 +19,13 @@ afterEach(() => {
 describe("course consumer semantic colours", () => {
   it("uses success and error tokens for matching result states", () => {
     const fixture = createFixture();
-    const correctTarget = appendElement(fixture, "div", "sc-matching-runtime-target--correct");
-    const correctIcon = appendElement(fixture, "span", "sc-matching-runtime-status-icon--correct");
-    const incorrectIcon = appendElement(
-      fixture,
-      "span",
-      "sc-matching-runtime-status-icon--incorrect",
-    );
+    const course = appendElement(fixture, "div", "sc-course sc-course-theme-scaffold-flow-v1");
+    const correctTarget = appendElement(course, "div", "sc-course-matching__target");
+    correctTarget.dataset["courseState"] = "correct";
+    const correctIcon = appendElement(correctTarget, "span", "sc-course-matching__state-cue");
+    const incorrectTarget = appendElement(course, "div", "sc-course-matching__target");
+    incorrectTarget.dataset["courseState"] = "incorrect";
+    const incorrectIcon = appendElement(incorrectTarget, "span", "sc-course-matching__state-cue");
 
     expect(getComputedStyle(correctTarget).borderColor).toBe("rgb(22, 163, 74)");
     expect(getComputedStyle(correctIcon).color).toBe("rgb(22, 163, 74)");
@@ -96,6 +97,15 @@ function createFixture(): HTMLDivElement {
   fixture.style.setProperty("--color-border", "rgb(209 213 219)");
   fixture.style.setProperty("--color-text-muted", "rgb(107 114 128)");
   fixture.style.setProperty("--color-ink", "rgb(17 24 39)");
+  fixture.style.setProperty("--sc-course-author-density", "1");
+  fixture.style.setProperty("--sc-course-author-stroke-width", "1px");
+  fixture.style.setProperty("--sc-course-author-text-scale", "1");
+  fixture.style.setProperty("--sc-course-state-correct-border", "rgb(22 163 74)");
+  fixture.style.setProperty("--sc-course-state-correct-background", "rgb(220 252 231)");
+  fixture.style.setProperty("--sc-course-state-correct-text", "rgb(22 163 74)");
+  fixture.style.setProperty("--sc-course-state-incorrect-border", "rgb(220 38 38)");
+  fixture.style.setProperty("--sc-course-state-incorrect-background", "rgb(254 226 226)");
+  fixture.style.setProperty("--sc-course-state-incorrect-text", "rgb(220 38 38)");
   document.body.append(fixture);
   return fixture;
 }

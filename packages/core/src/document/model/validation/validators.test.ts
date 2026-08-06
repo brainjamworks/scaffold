@@ -882,6 +882,118 @@ describe("course document JSON helpers", () => {
     );
   });
 
+  it("reports every Matching identity, structure, answer, feedback, naming, and minimum defect", () => {
+    const document = createScaffoldDocumentContent({ mode: "page", surfaceId: "surface-1" });
+    document.content![0]!.content![0]!.content = [
+      {
+        type: "matching",
+        attrs: {
+          id: "matching-invalid",
+          settings: { legend: "  " },
+          assessment: {
+            correctPairs: [
+              { itemId: "duplicate", targetId: "target-duplicate" },
+              { itemId: "missing", targetId: "missing" },
+            ],
+            feedbackByItemId: {
+              stale: {
+                kind: "rich-text",
+                document: { type: "doc", content: [{ type: "paragraph" }] },
+              },
+            },
+            summaryFeedback: null,
+          },
+        },
+        content: [
+          { type: "assessment_title", content: [{ type: "paragraph" }] },
+          { type: "assessment_instructions", content: [{ type: "paragraph" }] },
+          { type: "assessment_prompt", content: [{ type: "paragraph" }] },
+          {
+            type: "matching_pairs_group",
+            content: [
+              {
+                type: "matching_pair",
+                attrs: { itemId: "", targetId: "target-duplicate" },
+                content: [{ type: "matching_target", content: [{ type: "paragraph" }] }],
+              },
+              {
+                type: "matching_pair",
+                attrs: { itemId: "duplicate", targetId: "target-duplicate" },
+                content: [
+                  { type: "matching_item", content: [{ type: "paragraph" }] },
+                  { type: "matching_item", content: [{ type: "paragraph" }] },
+                  { type: "matching_target", content: [{ type: "paragraph" }] },
+                ],
+              },
+              {
+                type: "matching_pair",
+                attrs: { itemId: "duplicate", targetId: "" },
+                content: [
+                  { type: "matching_item", content: [{ type: "paragraph" }] },
+                  { type: "matching_target", content: [{ type: "paragraph" }] },
+                ],
+              },
+            ],
+          },
+          {
+            type: "assessment_actions_group",
+            content: [{ type: "assessment_hints_group" }, { type: "assessment_summary_feedback" }],
+          },
+        ],
+      },
+      {
+        type: "matching",
+        attrs: {
+          id: "matching-empty",
+          settings: { legend: "Match the pair" },
+          assessment: { correctPairs: [], feedbackByItemId: {}, summaryFeedback: null },
+        },
+        content: [
+          { type: "assessment_title", content: [{ type: "paragraph" }] },
+          { type: "assessment_instructions", content: [{ type: "paragraph" }] },
+          { type: "assessment_prompt", content: [{ type: "paragraph" }] },
+          { type: "matching_pairs_group", content: [] },
+          {
+            type: "assessment_actions_group",
+            content: [{ type: "assessment_hints_group" }, { type: "assessment_summary_feedback" }],
+          },
+        ],
+      },
+    ];
+
+    const issues = validateCourseDocumentJSON(document).issues;
+    expect(issues.map((issue) => issue.code)).toEqual(
+      expect.arrayContaining([
+        "too_few_matching_pairs",
+        "empty_matching_item_id",
+        "duplicate_matching_item_id",
+        "empty_matching_target_id",
+        "duplicate_matching_target_id",
+        "invalid_matching_pair_structure",
+        "invalid_matching_correct_pairs",
+        "stale_matching_feedback_item_id",
+        "unnamed_matching_response",
+      ]),
+    );
+    expect(issues).toContainEqual(
+      expect.objectContaining({
+        code: "stale_matching_feedback_item_id",
+        path: [
+          "content",
+          0,
+          "content",
+          0,
+          "content",
+          0,
+          "attrs",
+          "assessment",
+          "feedbackByItemId",
+          "stale",
+        ],
+      }),
+    );
+  });
+
   it("returns frozen public validation results with an owned readonly issue array", () => {
     const valid = validateCourseDocumentJSON(createScaffoldDocumentContent({ mode: "page" }));
     const invalid = validateCourseDocumentJSON({ type: "paragraph" });
