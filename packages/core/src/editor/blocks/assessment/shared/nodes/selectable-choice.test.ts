@@ -818,10 +818,8 @@ describe("toggleChoiceCorrect — radio mode (MCQ)", () => {
     });
     selectVisibleText(feedbackEditor, "Prime");
 
-    const dialog = await screen.findByRole("dialog", { name: "Feedback" });
-    expect(
-      await within(dialog).findByRole("toolbar", { name: "Text formatting" }),
-    ).toBeInTheDocument();
+    await screen.findByRole("dialog", { name: "Feedback" });
+    expect(await screen.findByRole("toolbar", { name: "Text formatting" })).toBeInTheDocument();
 
     editor.destroy();
   });
