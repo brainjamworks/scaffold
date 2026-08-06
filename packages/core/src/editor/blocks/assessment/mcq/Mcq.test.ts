@@ -17,6 +17,7 @@ import { MoveContainedAfterTarget } from "@/editor/movement/model/movement-inten
 import { resolveMovementNodeContext } from "@/editor/movement/model/movement-policy";
 import { ContainedMovementTarget } from "@/editor/movement/model/movement-target";
 import { applyContainedMovementIntent } from "@/editor/movement/prosemirror/commands";
+import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
 import { createDisposableEditor } from "@/editor/testing/disposable-editor";
 import {
@@ -25,6 +26,7 @@ import {
   resolveAuthoringFrameElement,
 } from "@/editor/interactions/dom/authoring-frame";
 import { publishInteractionOwnerSnapshot } from "@/editor/interactions/targets/prosemirror/facade/interaction-owner-snapshot-publisher";
+import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
 import { resolveBlockChromeTargetDescriptor } from "@/editor/interactions/targets/prosemirror/projection/block-chrome-target-projection";
 
 import { AssessmentChoicesGroupNode } from "@/editor/blocks/assessment/shared/nodes/assessment-choices-group";
@@ -87,6 +89,7 @@ function makeEditor(editable = true) {
       SelectableChoiceBodyNode,
       SelectableChoiceAuthoringNode,
       McqAuthoringExtension,
+      createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
     ],
   });
 }
@@ -156,6 +159,7 @@ function createDisposableMcqEditor(
       SelectableChoiceBodyNode,
       SelectableChoiceAuthoringNode,
       McqAuthoringExtension,
+      createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
     ],
     content,
   });
@@ -314,7 +318,7 @@ async function openPopoverTrigger(name: string) {
 function renderAssessmentEditor(editor: Editor) {
   return render(
     createAssessmentRuntimeTestRoot({
-      children: createElement(EditorContent, { editor }),
+      children: createAuthoringMovementTestRoot(editor, createElement(EditorContent, { editor })),
     }),
   );
 }
