@@ -32,6 +32,98 @@ function assessmentOf(node: JSONContent | undefined): Record<string, unknown> {
 }
 
 describe("cloneJsonWithNewStableIds", () => {
+  it("remaps a complete course section fragment through one coordinated identity source", () => {
+    const source: JSONContent[] = [
+      {
+        type: "courseSection",
+        attrs: { id: "section-original", title: "Introduction" },
+      },
+      {
+        type: "surface",
+        attrs: { id: "surface-a-original", variant: "slide-cover", settings: {} },
+        content: [
+          {
+            type: "mcq",
+            attrs: {
+              id: "mcq-original",
+              assessment: {
+                correctOptionId: "choice-original",
+                feedbackByOptionId: { "choice-original": { kind: "rich-text" } },
+              },
+            },
+          },
+        ],
+      },
+      {
+        type: "surface",
+        attrs: { id: "surface-b-original", variant: "slide-cover", settings: {} },
+        content: [{ type: "selectable_choice", attrs: { id: "choice-original" } }],
+      },
+    ];
+    const allocatedIds = [
+      "section_copy",
+      "surface_a_cp",
+      "mcq_copy_001",
+      "surface_b_cp",
+      "choice_cp_01",
+    ];
+    const createId = () => {
+      const id = allocatedIds.shift();
+      if (!id) throw new Error("unexpected identity allocation");
+      return id;
+    };
+
+    const clone = cloneJsonWithNewStableIds(source, { createId });
+    const clonedMcq = firstNodeByType(clone[1]!, "mcq");
+    const clonedChoice = firstNodeByType(clone[2]!, "selectable_choice");
+
+    expect(clone.map((node) => node.attrs?.["id"])).toEqual([
+      "section_copy",
+      "surface_a_cp",
+      "surface_b_cp",
+    ]);
+    expect(clonedMcq?.attrs?.["id"]).toBe("mcq_copy_001");
+    expect(clonedChoice?.attrs?.["id"]).toBe("choice_cp_01");
+    expect(assessmentOf(clonedMcq)["correctOptionId"]).toBe("choice_cp_01");
+    expect(
+      Object.keys(assessmentOf(clonedMcq)["feedbackByOptionId"] as Record<string, unknown>),
+    ).toEqual(["choice_cp_01"]);
+    expect(
+      new Set([
+        ...clone.map((node) => node.attrs?.["id"]),
+        clonedMcq?.attrs?.["id"],
+        clonedChoice?.attrs?.["id"],
+      ]).size,
+    ).toBe(5);
+    expect(source).toEqual([
+      {
+        type: "courseSection",
+        attrs: { id: "section-original", title: "Introduction" },
+      },
+      {
+        type: "surface",
+        attrs: { id: "surface-a-original", variant: "slide-cover", settings: {} },
+        content: [
+          {
+            type: "mcq",
+            attrs: {
+              id: "mcq-original",
+              assessment: {
+                correctOptionId: "choice-original",
+                feedbackByOptionId: { "choice-original": { kind: "rich-text" } },
+              },
+            },
+          },
+        ],
+      },
+      {
+        type: "surface",
+        attrs: { id: "surface-b-original", variant: "slide-cover", settings: {} },
+        content: [{ type: "selectable_choice", attrs: { id: "choice-original" } }],
+      },
+    ]);
+  });
+
   it("allocates a fresh surface instance id without changing its variant or current shape", () => {
     const source = slideCoverSurfaceDefinition.createSurface({ surfaceId: SOURCE_SURFACE_ID });
 

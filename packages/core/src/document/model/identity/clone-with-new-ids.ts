@@ -1,6 +1,6 @@
 import type { JSONContent } from "@tiptap/core";
 
-import { createStableId } from "./stable-ids";
+import { createEmbeddedNodeId } from "./stable-ids";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -67,21 +67,21 @@ function readStableId(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value : null;
 }
 
-function regenerateAttrId(attrs: JsonRecord | undefined) {
+function regenerateAttrId(attrs: JsonRecord | undefined, createId: () => string) {
   const currentId = readStableId(attrs?.["id"]);
   if (!currentId || !attrs) return null;
 
-  const nextId = createStableId();
+  const nextId = createId();
   attrs["id"] = nextId;
 
   return { previous: currentId, next: nextId };
 }
 
-function regenerateRecordListIds(value: unknown): Map<string, string> {
+function regenerateRecordListIds(value: unknown, createId: () => string): Map<string, string> {
   const idMap = new Map<string, string>();
 
   asRecordArray(value).forEach((record) => {
-    const replacement = regenerateAttrId(record);
+    const replacement = regenerateAttrId(record, createId);
     if (replacement) {
       idMap.set(replacement.previous, replacement.next);
     }
@@ -145,18 +145,18 @@ function rewriteRowCells(value: unknown, columnIdMap: Map<string, string>) {
   });
 }
 
-function regenerateHotspotIds(node: JSONContent, maps: IdRewriteMaps) {
+function regenerateHotspotIds(node: JSONContent, maps: IdRewriteMaps, createId: () => string) {
   if (node.type !== "image_hotspot_canvas") return;
 
   const data = asRecord(asRecord(node.attrs)?.["data"]);
   if (!data) return;
 
-  for (const [previous, next] of regenerateRecordListIds(data["hotspots"])) {
+  for (const [previous, next] of regenerateRecordListIds(data["hotspots"], createId)) {
     maps.hotspotIds.set(previous, next);
   }
 }
 
-function regenerateChartIds(node: JSONContent) {
+function regenerateChartIds(node: JSONContent, createId: () => string) {
   if (node.type !== "chart_block") return;
 
   const attrs = asRecord(node.attrs);
@@ -164,8 +164,8 @@ function regenerateChartIds(node: JSONContent) {
   const table = asRecord(blockData?.["data"]);
   if (!blockData || !table) return;
 
-  const columnIdMap = regenerateRecordListIds(table["columns"]);
-  regenerateRecordListIds(table["rows"]);
+  const columnIdMap = regenerateRecordListIds(table["columns"], createId);
+  regenerateRecordListIds(table["rows"], createId);
   rewriteRowCells(table["rows"], columnIdMap);
   rewriteColumnRefs(blockData["encoding"], columnIdMap);
 }
@@ -264,30 +264,45 @@ function rewriteAssessmentReferences(node: JSONContent, maps: IdRewriteMaps) {
   }
 }
 
-function regenerateIdsInNode(node: JSONContent): IdRewriteMaps {
+function regenerateIdsInNode(node: JSONContent, createId: () => string): IdRewriteMaps {
   const maps = emptyRewriteMaps();
 
-  const attrIdReplacement = regenerateAttrId(asRecord(node.attrs) ?? undefined);
+  const attrIdReplacement = regenerateAttrId(asRecord(node.attrs) ?? undefined, createId);
   trackAssessmentReferenceId(node, attrIdReplacement, maps);
 
-  regenerateHotspotIds(node, maps);
-  regenerateChartIds(node);
+  regenerateHotspotIds(node, maps, createId);
+  regenerateChartIds(node, createId);
 
   node.content?.forEach((child) => {
-    mergeRewriteMaps(maps, regenerateIdsInNode(child));
+    mergeRewriteMaps(maps, regenerateIdsInNode(child, createId));
   });
 
-  rewriteAssessmentReferences(node, maps);
   return maps;
 }
 
-export function cloneJsonWithNewStableIds<T extends JSONContent | JSONContent[]>(content: T): T {
+function rewriteAssessmentReferencesInTree(node: JSONContent, maps: IdRewriteMaps) {
+  rewriteAssessmentReferences(node, maps);
+  node.content?.forEach((child) => rewriteAssessmentReferencesInTree(child, maps));
+}
+
+interface CloneJsonWithNewStableIdsOptions {
+  createId?: () => string;
+}
+
+export function cloneJsonWithNewStableIds<T extends JSONContent | JSONContent[]>(
+  content: T,
+  options: CloneJsonWithNewStableIdsOptions = {},
+): T {
   const clone = cloneJsonValue(content);
+  const createId = options.createId ?? createEmbeddedNodeId;
 
   if (Array.isArray(clone)) {
-    clone.forEach((node) => regenerateIdsInNode(node));
+    const fragmentMaps = emptyRewriteMaps();
+    clone.forEach((node) => mergeRewriteMaps(fragmentMaps, regenerateIdsInNode(node, createId)));
+    clone.forEach((node) => rewriteAssessmentReferencesInTree(node, fragmentMaps));
   } else {
-    regenerateIdsInNode(clone);
+    const maps = regenerateIdsInNode(clone, createId);
+    rewriteAssessmentReferencesInTree(clone, maps);
   }
 
   return clone;
