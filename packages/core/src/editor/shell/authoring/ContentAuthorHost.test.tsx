@@ -120,7 +120,7 @@ describe("ContentAuthorHost", () => {
     expect(firstEditor.isDestroyed).toBe(true);
     expect(nextEditor).not.toBe(firstEditor);
     const nextCourseDocument = nextEditor.getJSON().content?.[0] as JSONContent | undefined;
-    expect(nextCourseDocument?.content?.[0]?.attrs?.["id"]).toBe("next-surface");
+    expect(nextCourseDocument?.content?.[0]?.attrs?.["id"]).toBe("nextsurf0001");
   });
 
   it("starts a fresh editor session only when authoring composition identity changes", async () => {

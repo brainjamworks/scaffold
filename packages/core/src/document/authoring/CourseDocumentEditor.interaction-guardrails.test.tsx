@@ -52,8 +52,8 @@ describe("CourseDocumentEditor interaction guardrails", () => {
 
   it("preserves slideshow surface variants through text click, typing, and Backspace", async () => {
     const content = slideshowDocument([
-      { id: "slide-a", variant: "slide-cover" },
-      { id: "slide-b", variant: "slide-cover" },
+      { id: "slide_000001", variant: "slide-cover" },
+      { id: "slide_000002", variant: "slide-cover" },
     ]);
     const editor = await mountEditor(content);
 
@@ -61,11 +61,11 @@ describe("CourseDocumentEditor interaction guardrails", () => {
     typeAndBackspace(editor);
 
     expect(surfaceAttrsAt(editor, 0)).toMatchObject({
-      id: "slide-a",
+      id: "slide_000001",
       variant: "slide-cover",
     });
     expect(surfaceAttrsAt(editor, 1)).toMatchObject({
-      id: "slide-b",
+      id: "slide_000002",
       variant: "slide-cover",
     });
     expect(surfaceCount(editor)).toBe(2);
