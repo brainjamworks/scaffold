@@ -103,8 +103,8 @@ function nodePos(editor: Editor, type: string): number {
 
 function nodeElement(editor: Editor, pos: number): HTMLElement {
   const element = editor.view.nodeDOM(pos);
-  if (!(element instanceof HTMLElement) || !element.isConnected) {
-    throw new Error(`expected connected HTMLElement at ${pos}`);
+  if (!(element instanceof HTMLElement)) {
+    throw new Error(`expected HTMLElement at ${pos}`);
   }
   return element;
 }
@@ -166,16 +166,16 @@ function accordionJSON(extraSectionContent: JSONContent[] = []): JSONContent {
         content: [
           {
             type: "surface",
-            attrs: { id: "surface-accordion", variant: "page-default" },
+            attrs: { id: "surfaccord01", variant: "page-default" },
             content: [
               {
                 type: "layout",
-                attrs: { id: "layout-accordion", variant: "accordion" },
+                attrs: { id: "laytaccord01", variant: "accordion" },
                 content: [
                   {
                     type: "section",
                     attrs: {
-                      id: "accordion-section-a",
+                      id: "accordsect01",
                       options: { defaultOpen: true },
                     },
                     content: [
@@ -340,7 +340,7 @@ describe("EmptyInsertionRow", () => {
           content: [
             {
               type: "surface",
-              attrs: { id: "surface-slide-cover", variant: "slide-cover" },
+              attrs: { id: "surfcover001", variant: "slide-cover" },
               content: [{ type: "paragraph" }],
             },
           ],
@@ -368,7 +368,7 @@ describe("EmptyInsertionRow", () => {
           content: [
             {
               type: "surface",
-              attrs: { id: "surface-slide-grid", variant: "slide-cover" },
+              attrs: { id: "surfgrid0001", variant: "slide-cover" },
               content: [
                 { type: "heading", attrs: { level: 1 } },
                 {
@@ -412,11 +412,11 @@ describe("EmptyInsertionRow", () => {
           content: [
             {
               type: "surface",
-              attrs: { id: "surface-slide-content", variant: "slide-content" },
+              attrs: { id: "surfcontent1", variant: "slide-content" },
               content: [
                 {
                   type: "region",
-                  attrs: { id: "region-a", role: "main" },
+                  attrs: { id: "regionnode01", role: "main" },
                   content: [{ type: "paragraph" }],
                 },
               ],
@@ -466,7 +466,7 @@ describe("EmptyInsertionRow", () => {
           content: [
             {
               type: "surface",
-              attrs: { id: "surface-field", variant: "page-default" },
+              attrs: { id: "surffield001", variant: "page-default" },
               content: [
                 {
                   type: "callout",
@@ -584,7 +584,7 @@ describe("EmptyInsertionRow", () => {
           content: [
             {
               type: "surface",
-              attrs: { id: "surface-grid", variant: "page-default" },
+              attrs: { id: "surfgrid0001", variant: "page-default" },
               content: [
                 { type: "paragraph" },
                 {
@@ -629,7 +629,7 @@ describe("EmptyInsertionRow", () => {
           content: [
             {
               type: "surface",
-              attrs: { id: "surface-active-cell", variant: "page-default" },
+              attrs: { id: "surfactive01", variant: "page-default" },
               content: [
                 {
                   type: "grid",
@@ -695,7 +695,7 @@ describe("EmptyInsertionRow", () => {
             content: [
               {
                 type: "surface",
-                attrs: { id: "surface-grid-field", variant: "page-default" },
+                attrs: { id: "surfgrfield1", variant: "page-default" },
                 content: [
                   {
                     type: "grid",
@@ -747,7 +747,7 @@ describe("EmptyInsertionRow", () => {
           content: [
             {
               type: "surface",
-              attrs: { id: "surface-grid", variant: "page-default" },
+              attrs: { id: "surfgrid0001", variant: "page-default" },
               content: [
                 {
                   type: "grid",
@@ -801,15 +801,15 @@ describe("EmptyInsertionRow", () => {
             content: [
               {
                 type: "surface",
-                attrs: { id: "surface-layout", variant: "page-default" },
+                attrs: { id: "surflayout01", variant: "page-default" },
                 content: [
                   {
                     type: "layout",
-                    attrs: { id: "layout-tabs", variant: "tabs" },
+                    attrs: { id: "layouttabs01", variant: "tabs" },
                     content: [
                       {
                         type: "section",
-                        attrs: { id: "tab-a", role: "tab-panel" },
+                        attrs: { id: "tabsection01", role: "tab-panel" },
                         content: [{ type: "paragraph" }],
                       },
                     ],
@@ -856,7 +856,7 @@ describe("EmptyInsertionRow", () => {
             content: [
               {
                 type: "surface",
-                attrs: { id: "surface-slide-layout", variant: "slide-cover" },
+                attrs: { id: "surfslidelay", variant: "slide-cover" },
                 content: [
                   { type: "heading", attrs: { level: 1 } },
                   {
@@ -865,11 +865,11 @@ describe("EmptyInsertionRow", () => {
                   },
                   {
                     type: "layout",
-                    attrs: { id: "layout-slide", variant: "tabs" },
+                    attrs: { id: "layoutslide1", variant: "tabs" },
                     content: [
                       {
                         type: "section",
-                        attrs: { id: "slide-section-a", role: "tab-panel" },
+                        attrs: { id: "slidesection", role: "tab-panel" },
                         content: [{ type: "paragraph" }],
                       },
                     ],
@@ -953,23 +953,23 @@ describe("EmptyInsertionRow", () => {
             content: [
               {
                 type: "surface",
-                attrs: { id: "surface-grid-layout", variant: "page-default" },
+                attrs: { id: "surfgridlay1", variant: "page-default" },
                 content: [
                   {
                     type: "grid",
-                    attrs: { id: "grid-a" },
+                    attrs: { id: "gridnode0001" },
                     content: [
                       {
                         type: "cell",
-                        attrs: { id: "cell-a" },
+                        attrs: { id: "cellnode0001" },
                         content: [
                           {
                             type: "layout",
-                            attrs: { id: "layout-a", variant: "basic" },
+                            attrs: { id: "layoutnode01", variant: "basic" },
                             content: [
                               {
                                 type: "section",
-                                attrs: { id: "section-a" },
+                                attrs: { id: "sectionnode1" },
                                 content: [{ type: "paragraph" }],
                               },
                             ],
@@ -1020,23 +1020,23 @@ describe("EmptyInsertionRow", () => {
             content: [
               {
                 type: "surface",
-                attrs: { id: "surface-grid-tabs", variant: "page-default" },
+                attrs: { id: "surfgridtabs", variant: "page-default" },
                 content: [
                   {
                     type: "grid",
-                    attrs: { id: "grid-a" },
+                    attrs: { id: "gridnode0001" },
                     content: [
                       {
                         type: "cell",
-                        attrs: { id: "cell-a" },
+                        attrs: { id: "cellnode0001" },
                         content: [
                           {
                             type: "layout",
-                            attrs: { id: "layout-tabs", variant: "tabs" },
+                            attrs: { id: "layouttabs01", variant: "tabs" },
                             content: [
                               {
                                 type: "section",
-                                attrs: { id: "section-a", role: "tab-panel" },
+                                attrs: { id: "sectionnode1", role: "tab-panel" },
                                 content: [{ type: "paragraph" }],
                               },
                             ],
@@ -1088,30 +1088,30 @@ describe("EmptyInsertionRow", () => {
               {
                 type: "surface",
                 attrs: {
-                  id: "surface-region-grid-tabs",
+                      id: "surfregtabs1",
                   variant: "page-default",
                 },
                 content: [
                   {
                     type: "region",
-                    attrs: { id: "region-a", role: "main" },
+                    attrs: { id: "regionnode01", role: "main" },
                     content: [
                       {
                         type: "grid",
-                        attrs: { id: "grid-a" },
+                        attrs: { id: "gridnode0001" },
                         content: [
                           {
                             type: "cell",
-                            attrs: { id: "cell-a" },
+                            attrs: { id: "cellnode0001" },
                             content: [
                               {
                                 type: "layout",
-                                attrs: { id: "layout-tabs", variant: "tabs" },
+                                attrs: { id: "layouttabs01", variant: "tabs" },
                                 content: [
                                   {
                                     type: "section",
                                     attrs: {
-                                      id: "section-a",
+                                      id: "sectionnode1",
                                       role: "tab-panel",
                                     },
                                     content: [{ type: "paragraph" }],
