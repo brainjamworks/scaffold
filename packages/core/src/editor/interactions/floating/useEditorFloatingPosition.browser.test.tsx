@@ -15,11 +15,11 @@ const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 
 describe("structural floating visibility at the authoring boundary", () => {
   it.each([
-    { label: "Page", mode: "page" as const, surfaceId: "first-page-surface" },
+    { label: "Page", mode: "page" as const, surfaceId: "firstpage001" },
     {
       label: "Slideshow",
       mode: "slideshow" as const,
-      surfaceId: "first-slide-surface",
+      surfaceId: "firstslide01",
     },
   ])("keeps the first $label surface-options trigger visible at the boundary top", async (test) => {
     const content = createScaffoldDocumentContent({

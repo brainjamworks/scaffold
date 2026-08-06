@@ -16,7 +16,7 @@ describe("course theme panel browser workflow", () => {
     let saveCalls = 0;
     const content = createScaffoldDocumentContent({
       mode: "page",
-      surfaceId: "theme-browser-page",
+      surfaceId: "themepage001",
     });
     const editorial = createThemeCatalogue().presets.find(({ label }) => label === "Editorial")!;
     content.content![0]!.content![0]!.content = [
