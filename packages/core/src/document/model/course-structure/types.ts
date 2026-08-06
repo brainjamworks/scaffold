@@ -62,6 +62,7 @@ export type CourseStructureIssueCode =
   | "multiple_course_documents"
   | "invalid_course_document_attrs"
   | "invalid_course_document_child"
+  | "duplicate_embedded_node_id"
   | "invalid_surface_attrs"
   | "duplicate_surface_id"
   | "unknown_surface_variant"

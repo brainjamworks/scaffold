@@ -17,9 +17,38 @@ export interface EmbeddedNodeIdentityValidationResult {
   readonly issues: readonly EmbeddedNodeIdentityIssue[];
 }
 
+export interface CanonicalEmbeddedNodeIdentity {
+  readonly id: string;
+  readonly nodeType: string;
+  readonly path: readonly (string | number)[];
+}
+
 interface PendingNode {
   readonly value: unknown;
   readonly path: readonly (string | number)[];
+}
+
+interface IdentityCandidate {
+  readonly id: unknown;
+  readonly nodeType: string;
+  readonly path: readonly (string | number)[];
+}
+
+export function collectCanonicalEmbeddedNodeIdentities(
+  content: unknown,
+): readonly CanonicalEmbeddedNodeIdentity[] {
+  const identities = collectIdentityCandidates(content, () => true)
+    .filter((candidate): candidate is IdentityCandidate & { readonly id: string } =>
+      isEmbeddedId(candidate.id),
+    )
+    .map((candidate) =>
+      Object.freeze({
+        id: candidate.id,
+        nodeType: candidate.nodeType,
+        path: candidate.path,
+      }),
+    );
+  return Object.freeze(identities);
 }
 
 export function validateEmbeddedNodeIdentities(
@@ -31,6 +60,45 @@ export function validateEmbeddedNodeIdentities(
   );
   const issues: EmbeddedNodeIdentityIssue[] = [];
   const seenIds = new Set<string>();
+  const candidates = collectIdentityCandidates(content, (nodeType) =>
+    Boolean(schema.nodes[nodeType]),
+  );
+
+  for (const { id, nodeType, path } of candidates) {
+    if (!eligibleNodeTypes.has(nodeType)) continue;
+    if (id === undefined) {
+      issues.push(
+        createIssue("missing_embedded_node_id", `node "${nodeType}" must have attrs.id`, path),
+      );
+    } else if (!isEmbeddedId(id)) {
+      issues.push(
+        createIssue(
+          "invalid_embedded_node_id",
+          `node "${nodeType}" attrs.id must be a valid embedded ID`,
+          path,
+        ),
+      );
+    } else if (seenIds.has(id)) {
+      issues.push(
+        createIssue(
+          "duplicate_embedded_node_id",
+          `node "${nodeType}" attrs.id must be unique within the document`,
+          path,
+        ),
+      );
+    } else {
+      seenIds.add(id);
+    }
+  }
+
+  return Object.freeze({ ok: issues.length === 0, issues: Object.freeze(issues) });
+}
+
+function collectIdentityCandidates(
+  content: unknown,
+  isKnownNodeType: (nodeType: string) => boolean,
+): IdentityCandidate[] {
+  const candidates: IdentityCandidate[] = [];
   const pending: PendingNode[] = [{ value: content, path: [] }];
 
   while (pending.length > 0) {
@@ -38,38 +106,15 @@ export function validateEmbeddedNodeIdentities(
     if (!isRecord(current.value)) continue;
 
     const nodeType = current.value["type"];
-    if (typeof nodeType !== "string" || !schema.nodes[nodeType]) continue;
+    if (typeof nodeType !== "string" || !isKnownNodeType(nodeType)) continue;
 
-    if (eligibleNodeTypes.has(nodeType)) {
+    if (nodeType !== "doc" && nodeType !== "text") {
       const attrs = isRecord(current.value["attrs"]) ? current.value["attrs"] : undefined;
-      const id = attrs?.["id"];
-      if (id === undefined) {
-        issues.push(
-          createIssue("missing_embedded_node_id", `node "${nodeType}" must have attrs.id`, [
-            ...current.path,
-            "attrs",
-            "id",
-          ]),
-        );
-      } else if (!isEmbeddedId(id)) {
-        issues.push(
-          createIssue(
-            "invalid_embedded_node_id",
-            `node "${nodeType}" attrs.id must be a valid embedded ID`,
-            [...current.path, "attrs", "id"],
-          ),
-        );
-      } else if (seenIds.has(id)) {
-        issues.push(
-          createIssue(
-            "duplicate_embedded_node_id",
-            `node "${nodeType}" attrs.id must be unique within the document`,
-            [...current.path, "attrs", "id"],
-          ),
-        );
-      } else {
-        seenIds.add(id);
-      }
+      candidates.push({
+        id: attrs?.["id"],
+        nodeType,
+        path: Object.freeze([...current.path, "attrs", "id"]),
+      });
     }
 
     const children = current.value["content"];
@@ -79,7 +124,7 @@ export function validateEmbeddedNodeIdentities(
     }
   }
 
-  return Object.freeze({ ok: issues.length === 0, issues: Object.freeze(issues) });
+  return candidates;
 }
 
 function createIssue(

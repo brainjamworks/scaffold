@@ -465,6 +465,19 @@ describe("course document JSON helpers", () => {
     });
   });
 
+  it("preserves canonical identity collision paths through portable validation", () => {
+    const content = sectionedSlideshowDocument();
+    const heading = content.content![0]!.content![1]!.content![0]!;
+    heading.attrs = { ...heading.attrs, id: "section00001" };
+
+    expect(validateCourseDocumentJSON(content).issues).toContainEqual(
+      expect.objectContaining({
+        code: "duplicate_course_section_id",
+        path: ["content", 0, "content", 0, "attrs", "id"],
+      }),
+    );
+  });
+
   it.each([
     [
       "invalid_course_section_attrs",

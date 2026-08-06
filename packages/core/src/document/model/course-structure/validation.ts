@@ -5,6 +5,10 @@ import type { SurfaceVariantLookup } from "@/editor/surfaces/model/surface-varia
 import { CourseDocumentAttrsSchema } from "@/schemas/course-document";
 
 import {
+  collectCanonicalEmbeddedNodeIdentities,
+  type CanonicalEmbeddedNodeIdentity,
+} from "../validation/embedded-node-identity-validation";
+import {
   createCourseStructureSnapshot,
   type PendingCourseSection,
 } from "./structure-snapshot";
@@ -82,6 +86,7 @@ export function validateCourseStructure(
       );
     }
   }
+  const seenIds = collectDocumentOwnedIdentities(content, courseDocumentIndex, issues);
   collectPartitionIssues(
     mode,
     surfaces,
@@ -91,7 +96,6 @@ export function validateCourseStructure(
     issues,
   );
 
-  const seenIds = new Set<string>();
   const pendingSections = validateCourseSections(
     boundaries,
     courseDocumentIndex,
@@ -130,6 +134,46 @@ export function validateCourseStructure(
     return invalidCourseStructureResult(issues);
   }
   return createCourseStructureSnapshot(mode, validatedSurfaces, pendingSections);
+}
+
+function collectDocumentOwnedIdentities(
+  content: JSONContent,
+  courseDocumentIndex: number,
+  issues: CourseStructureIssue[],
+): Set<string> {
+  const seenIds = new Set<string>();
+  for (const identity of collectCanonicalEmbeddedNodeIdentities(content)) {
+    if (isDirectCourseStructureIdentity(identity, courseDocumentIndex)) continue;
+    if (seenIds.has(identity.id)) {
+      issues.push(
+        issue(
+          "duplicate_embedded_node_id",
+          `node "${identity.nodeType}" attrs.id must be unique within the document`,
+          identity.path,
+        ),
+      );
+    } else {
+      seenIds.add(identity.id);
+    }
+  }
+  return seenIds;
+}
+
+function isDirectCourseStructureIdentity(
+  identity: CanonicalEmbeddedNodeIdentity,
+  courseDocumentIndex: number,
+): boolean {
+  const path = identity.path;
+  return (
+    (identity.nodeType === "courseSection" || identity.nodeType === "surface") &&
+    path.length === 6 &&
+    path[0] === "content" &&
+    path[1] === courseDocumentIndex &&
+    path[2] === "content" &&
+    typeof path[3] === "number" &&
+    path[4] === "attrs" &&
+    path[5] === "id"
+  );
 }
 
 function collectCourseDocumentAttrIssues(

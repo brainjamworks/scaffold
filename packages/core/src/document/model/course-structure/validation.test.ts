@@ -211,25 +211,104 @@ describe("CourseStructureModule.validate", () => {
     });
   });
 
-  it("rejects identities colliding between Course Sections and Surfaces", () => {
-    const result = courseStructure.validate(
-      document("slideshow", [
-        section(SECTION_1, "One"),
-        surface(SECTION_1),
-        section(SECTION_2, "Two"),
-        surface(SURFACE_2),
-      ]),
-    );
+  it.each([
+    ["Course Document", COURSE_ID, surface(SURFACE_1)],
+    [
+      "nested node",
+      SECTION_1,
+      {
+        ...surface(SURFACE_1),
+        content: [{ type: "paragraph", attrs: { id: SECTION_1 } }],
+      },
+    ],
+  ] satisfies ReadonlyArray<readonly [string, string, JSONContent]>)(
+    "rejects a Course Section ID colliding with a %s ID",
+    (_owner, id, slide) => {
+      expect(
+        courseStructure.validate(document("slideshow", [section(id, "One"), slide])),
+      ).toMatchObject({
+        ok: false,
+        issues: expect.arrayContaining([
+          expect.objectContaining({
+            code: "duplicate_course_section_id",
+            path: ["content", 0, "content", 0, "attrs", "id"],
+          }),
+        ]),
+      });
+    },
+  );
 
-    expect(result).toMatchObject({
+  it.each([
+    ["Course Document", COURSE_ID, surface(COURSE_ID)],
+    ["Course Section", SECTION_1, surface(SECTION_1)],
+    [
+      "nested node",
+      SURFACE_1,
+      {
+        ...surface(SURFACE_1),
+        content: [{ type: "paragraph", attrs: { id: SURFACE_1 } }],
+      },
+    ],
+  ] satisfies ReadonlyArray<readonly [string, string, JSONContent]>)(
+    "rejects a Surface ID colliding with a %s ID",
+    (owner, id, slide) => {
+      const children = owner === "Course Section" ? [section(id, "One"), slide] : [slide];
+
+      expect(courseStructure.validate(document("slideshow", children))).toMatchObject({
+        ok: false,
+        issues: expect.arrayContaining([
+          expect.objectContaining({
+            code: "duplicate_surface_id",
+            path: ["content", 0, "content", children.length - 1, "attrs", "id"],
+          }),
+        ]),
+      });
+    },
+  );
+
+  it("rejects duplicate nested canonical identities at the second stable path", () => {
+    const slide = surface(SURFACE_1);
+    slide.content = [
+      {
+        type: "paragraph",
+        attrs: { id: "NestedNode01" },
+        content: [{ type: "contributed_block", attrs: { id: "NestedNode01" } }],
+      },
+    ];
+
+    expect(courseStructure.validate(document("slideshow", [slide]))).toMatchObject({
       ok: false,
       issues: expect.arrayContaining([
         expect.objectContaining({
-          code: "duplicate_surface_id",
-          path: ["content", 0, "content", 1, "attrs", "id"],
+          code: "duplicate_embedded_node_id",
+          path: ["content", 0, "content", 0, "content", 0, "content", 0, "attrs", "id"],
         }),
       ]),
     });
+  });
+
+  it("accepts distinct Core and contributed node IDs without reading attrs payload IDs", () => {
+    const slide = surface(SURFACE_1);
+    slide.content = [
+      {
+        type: "paragraph",
+        attrs: {
+          id: "NestedNode01",
+          data: {
+            records: [{ id: "LocalData001" }, { id: "LocalData001" }],
+            nestedNodeLikeRecord: {
+              type: "heading",
+              attrs: { id: SECTION_1 },
+            },
+          },
+        },
+        content: [{ type: "contributed_block", attrs: { id: "Contrib00001" } }],
+      },
+    ];
+
+    expect(
+      courseStructure.validate(document("slideshow", [section(SECTION_1, "One"), slide])),
+    ).toMatchObject({ ok: true });
   });
 
   it.each([
