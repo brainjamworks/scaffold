@@ -1,10 +1,7 @@
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
 import { useCallback, useEffect, useMemo, useRef, type CSSProperties } from "react";
 
-import {
-  validateCourseSurfaceLifecycle,
-  type CourseDocumentIssue,
-} from "@/document/model/validation";
+import type { CourseStructureIssue } from "@/document/model/course-structure";
 import type { ScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { CourseDocumentAttrsSchema } from "@/schemas/course-document";
 import {
@@ -74,10 +71,7 @@ export function ContentRuntimeHost({
     );
   }
 
-  const validation = validateCourseSurfaceLifecycle({
-    content: initialContent,
-    registry: composition.capabilities.surfaces.registry,
-  });
+  const validation = composition.courseStructure.validate(initialContent);
   if (!validation.ok) {
     return (
       <div data-testid="scaffold-runtime-host">
@@ -161,24 +155,30 @@ function HydratedRuntimePlayer({
   }
   const recordSurfaceExperienced = useCallback(
     (surfaceId: string) => {
-      activeSurfaceIdRef.current = surfaceId;
-      if (!rendererReadyRef.current) return;
-      const surfaceIndex = playerSelection.surfaceIds.indexOf(surfaceId);
+      const surfaceIndex = playerSelection.surfaceIds.findIndex(
+        (candidate) => candidate === surfaceId,
+      );
       if (surfaceIndex < 0) return;
+      const selectedSurfaceId = playerSelection.surfaceIds[surfaceIndex]!;
+      activeSurfaceIdRef.current = selectedSurfaceId;
+      if (!rendererReadyRef.current) return;
       const previous = recordedSurfaceRef.current;
-      if (previous?.reporter === learningEventReporter && previous.surfaceId === surfaceId) {
+      if (previous?.reporter === learningEventReporter && previous.surfaceId === selectedSurfaceId) {
         return;
       }
 
       try {
         learningEventReporter.report({
           type: "surface.experienced",
-          surfaceId,
+          surfaceId: selectedSurfaceId,
           surfaceKind: playerSelection.player === "page" ? "page" : "slide",
           position: surfaceIndex + 1,
           count: playerSelection.surfaceIds.length,
         });
-        recordedSurfaceRef.current = { reporter: learningEventReporter, surfaceId };
+        recordedSurfaceRef.current = {
+          reporter: learningEventReporter,
+          surfaceId: selectedSurfaceId,
+        };
       } catch {
         // Surface recording is observational and cannot make content unavailable.
       }
@@ -242,7 +242,7 @@ function HydratedRuntimePlayer({
 type RuntimeUnavailableReason = RuntimePlayerUnavailableReason;
 
 function unavailableReasonFromIssues(
-  issues: readonly CourseDocumentIssue[],
+  issues: readonly CourseStructureIssue[],
 ): RuntimeUnavailableReason {
   if (issues.some(({ code }) => code === "unsupported_surface_mode")) {
     return "unsupported-mode";

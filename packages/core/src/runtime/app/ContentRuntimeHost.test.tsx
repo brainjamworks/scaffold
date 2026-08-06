@@ -47,6 +47,7 @@ const DUPLICATE_SLIDESHOW_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00004"
 const FIRST_PAGE_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00005");
 const SECOND_PAGE_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00006");
 const BRANCHING_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00007");
+const COURSE_SECTION_ID = EmbeddedNodeIdSchema.parse("section00001");
 
 const runtimeStoreFactories = vi.hoisted(() => ({
   assessment: vi.fn(),
@@ -339,6 +340,7 @@ function runtimeDocumentContent({
         {
           type: "courseDocument",
           attrs: {
+            id: createEmbeddedNodeId(),
             schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
             mode: "branching",
             surfaceSize: "fluid",
@@ -420,9 +422,9 @@ function runtimeMcqBlock(): JSONContent {
   return {
     type: "mcq",
     attrs: {
-      id: "mcq-strict-runtime",
+      id: "mcq000000001",
       assessment: {
-        correctOptionId: "choice-b",
+        correctOptionId: "choice000002",
         feedbackByOptionId: {},
         summaryFeedback: null,
       },
@@ -437,15 +439,21 @@ function runtimeMcqBlock(): JSONContent {
     },
     content: assessmentShellContent({
       type: "assessment_choices_group",
-      content: [selectableChoice("choice-a", "A"), selectableChoice("choice-b", "B")],
+      content: [selectableChoice("choice000001", "A"), selectableChoice("choice000002", "B")],
     }),
   };
 }
 
 function runtimeMatchingBlock(): JSONContent {
-  const pair = (itemId: string, targetId: string, item: string, target: string): JSONContent => ({
+  const pair = (
+    pairId: string,
+    itemId: string,
+    targetId: string,
+    item: string,
+    target: string,
+  ): JSONContent => ({
     type: "matching_pair",
-    attrs: { id: `pair-${itemId}` },
+    attrs: { id: pairId },
     content: [
       { type: "matching_item", attrs: { id: itemId }, content: [paragraph(item)] },
       { type: "matching_target", attrs: { id: targetId }, content: [paragraph(target)] },
@@ -455,7 +463,7 @@ function runtimeMatchingBlock(): JSONContent {
   return {
     type: "matching",
     attrs: {
-      id: "matching-strict-runtime",
+      id: "matching0001",
       assessment: {
         feedbackByItemId: {},
         summaryFeedback: null,
@@ -472,8 +480,8 @@ function runtimeMatchingBlock(): JSONContent {
     content: assessmentShellContent({
       type: "matching_pairs_group",
       content: [
-        pair("item-a", "target-a", "Term A", "Target A"),
-        pair("item-b", "target-b", "Term B", "Target B"),
+        pair("pair00000001", "item00000001", "target000001", "Term A", "Target A"),
+        pair("pair00000002", "item00000002", "target000002", "Term B", "Target B"),
       ],
     }),
   };
@@ -483,10 +491,10 @@ function runtimeImageHotspotBlock(): JSONContent {
   return {
     type: "image_hotspot",
     attrs: {
-      id: "hotspot-strict-runtime",
+      id: "hotspot00001",
       assessment: {
         gradingMode: "partial-credit",
-        correctHotspotIds: ["hotspot-a"],
+        correctHotspotIds: ["hotspot00001"],
         feedbackByHotspotId: {},
         missFeedback: null,
         summaryFeedback: null,
@@ -501,7 +509,7 @@ function runtimeImageHotspotBlock(): JSONContent {
             src: "https://example.com/runtime-hotspot.png",
             alt: "Runtime hotspot",
           },
-          hotspots: [{ id: "hotspot-a", centerX: 20, centerY: 20, radius: 8, label: "A" }],
+          hotspots: [{ id: "hotspot00001", centerX: 20, centerY: 20, radius: 8, label: "A" }],
           maxClicks: null,
           debug: false,
         },
@@ -583,6 +591,7 @@ describe("ContentRuntimeHost", () => {
     });
     const content = runtimeDocumentContent({ mode: "slideshow" });
     content.content![0]!.content = [
+      { type: "courseSection", attrs: { id: COURSE_SECTION_ID, title: "Private content" } },
       capability.definition.createSurface({ surfaceId: createEmbeddedNodeId() }),
     ];
     const onEditorReady = vi.fn();

@@ -1,24 +1,24 @@
-import type { ValidatedCourseSurfaceProjection } from "@/document/model/validation";
+import type { CourseStructure } from "@/document/model/course-structure";
 
 import type { RuntimePlayerSelection } from "./player-types";
 
 export function selectRuntimePlayer(
-  projection: ValidatedCourseSurfaceProjection,
+  structure: CourseStructure,
 ): RuntimePlayerSelection {
-  if (projection.mode === "page") {
+  if (structure.mode === "page") {
     return {
       status: "available",
       player: "page",
       mode: "page",
-      surfaceIds: [projection.surfaces[0].instanceId],
+      surfaceIds: [structure.surfaceIds[0]],
     };
   }
 
-  const [firstSurface, ...remainingSurfaces] = projection.surfaces;
+  const [firstSurfaceId, ...remainingSurfaceIds] = structure.surfaceIds;
   return {
     status: "available",
     player: "slideshow",
     mode: "slideshow",
-    surfaceIds: [firstSurface.instanceId, ...remainingSurfaces.map(({ instanceId }) => instanceId)],
+    surfaceIds: [firstSurfaceId, ...remainingSurfaceIds],
   };
 }

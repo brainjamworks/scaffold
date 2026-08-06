@@ -1,4 +1,5 @@
 import type { CourseMode } from "@/schemas/course-document";
+import type { SurfaceId } from "@/document/model/course-structure";
 
 export type RuntimePlayer = "page" | "slideshow";
 
@@ -19,11 +20,11 @@ export type RuntimePlayerSelection =
       status: "available";
       player: "page";
       mode: Extract<CourseMode, "page">;
-      surfaceIds: [string];
+      surfaceIds: [SurfaceId];
     }
   | {
       status: "available";
       player: "slideshow";
       mode: Extract<CourseMode, "slideshow">;
-      surfaceIds: [string, ...string[]];
+      surfaceIds: [SurfaceId, ...SurfaceId[]];
     };
