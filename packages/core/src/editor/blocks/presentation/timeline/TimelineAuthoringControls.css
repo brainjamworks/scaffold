@@ -211,6 +211,7 @@
     }
 
     .sc-course-timeline__shell:not([data-presentation="carousel"])[data-alignment="alternate"]
+      .sc-app-timeline-add-row[data-timeline-side]
       .sc-app-timeline-add {
       grid-column: 2;
     }

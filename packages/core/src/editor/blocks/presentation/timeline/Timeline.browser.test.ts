@@ -106,6 +106,33 @@ describe("Timeline layout and ownership", () => {
     );
   });
 
+  it.each(["left", "right"] as const)(
+    "keeps the narrow %s add affordance in the event content lane",
+    async (side) => {
+      const fixture = createTimelineFixture({
+        bounded: false,
+        presentation: "vertical",
+        width: 320,
+      });
+      const addRow = document.createElement("div");
+      addRow.className = "sc-app-timeline-add-row";
+      addRow.dataset.timelineSide = side;
+      const dot = document.createElement("span");
+      dot.className = "sc-app-timeline-add-dot";
+      const addButton = document.createElement("button");
+      addButton.className = "sc-app-block-add sc-app-timeline-add";
+      addButton.textContent = "Add event";
+      addRow.append(dot, addButton);
+      fixture.rail.append(addRow);
+
+      await nextLayoutFrame();
+
+      const addRect = addButton.getBoundingClientRect();
+      expect(addRect.width).toBeGreaterThan(280);
+      expect(addRect.right).toBeLessThanOrEqual(fixture.frame.getBoundingClientRect().right + 1);
+    },
+  );
+
   it("recolours Course content while keeping visible authoring chrome App-owned", async () => {
     const fixture = createTimelineFixture({ bounded: false, presentation: "vertical" });
     fixture.host.style.setProperty("--gray-1", "rgb(24 24 27)");
@@ -288,6 +315,7 @@ function createTimelineFixture(input: {
     frame,
     host,
     movementButton,
+    rail,
     shell,
     track,
   };
