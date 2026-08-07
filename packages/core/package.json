@@ -42,7 +42,7 @@
     }
   },
   "scripts": {
-    "dev": "vp pack --watch",
+    "dev": "vp pack --watch --no-clean",
     "test": "vp test run --passWithNoTests",
     "test:watch": "vp test watch"
   },
