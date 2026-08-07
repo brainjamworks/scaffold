@@ -17,7 +17,6 @@ import "@/styles/globals.css";
 import { expandSlideCompositionCases } from "./slide-composition-cases";
 import {
   createCompositionDocumentForTest,
-  COMPOSITION_TEST_SURFACE_ID,
   expectCompositionGeometry,
   measureCompositionGeometry,
   type CompositionGeometrySample,
