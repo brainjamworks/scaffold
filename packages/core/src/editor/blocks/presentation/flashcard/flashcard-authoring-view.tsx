@@ -2,12 +2,13 @@ import { TrashIcon as Trash } from "@phosphor-icons/react";
 import { useEffect, useId, type ReactNode } from "react";
 import { NodeViewContent, useEditorState, type NodeViewProps } from "@tiptap/react";
 
-import { ContainedMovementHandle } from "@/editor/movement/view/ContainedMovementHandle";
 import { authoringMovementSnapshotChromeAttributes } from "@/editor/movement/view/authoring-movement-presentation";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 
 import { FlashcardCardView, FlashcardDeckAuthoring } from "./FlashcardComponents";
+import { FlashcardFilmstrip, type FlashcardFilmstripCard } from "./FlashcardFilmstrip";
 import { useFlashcardAuthoringDeckController } from "./flashcard-authoring-controller";
+import { reorderFlashcardCard } from "./flashcard-authoring";
 import { FLASHCARD_CARD_NODE, FLASHCARD_NODE, createFlashcardCard } from "./content";
 import {
   readNodeViewPos,
@@ -59,14 +60,33 @@ export function FlashcardAuthoringView(props: FlashcardAuthoringViewProps) {
         ...deckController,
         allMastered: false,
       }}
-      addCard={
-        props.renderAddControl ? (
-          <FlashcardAddCard
-            props={props}
-            onCardAdded={deckController.setCurrentCard}
-            renderAddControl={props.renderAddControl}
-          />
-        ) : null
+      filmstrip={
+        <FlashcardFilmstrip
+          cards={readFilmstripCards(props)}
+          currentCardId={deckController.currentCardId}
+          addCard={
+            props.renderAddControl ? (
+              <FlashcardAddCard
+                props={props}
+                onCardAdded={deckController.setCurrentCard}
+                renderAddControl={props.renderAddControl}
+              />
+            ) : null
+          }
+          onReorder={(sourceId, targetId) => {
+            if (
+              reorderFlashcardCard({
+                editor: props.editor,
+                getPos: props.getPos,
+                sourceId,
+                targetId,
+              })
+            ) {
+              deckController.setCurrentCard(sourceId);
+            }
+          }}
+          onSelect={deckController.setCurrentCard}
+        />
       }
       renderContent={() => <NodeViewContent className="sc-course-flashcard-content" />}
     />
@@ -85,7 +105,6 @@ export function FlashcardCardAuthoringView(props: NodeViewProps) {
     selector: () => resolveCardCount(props),
   });
   const deleteExplanationId = useId();
-  const cardPos = readNodeViewPos(props.getPos);
   const canDelete = cardCount > 1;
 
   const deleteCard = () => {
@@ -107,14 +126,6 @@ export function FlashcardCardAuthoringView(props: NodeViewProps) {
       mountSurface
       authoringChrome={
         <div className="sc-app-flashcard-card-chrome" contentEditable={false}>
-          <ContainedMovementHandle
-            getPresentationElement={() => resolveNodeViewElement(props)}
-            label={`flashcard card ${cardIndex + 1}`}
-            sourcePos={cardPos ?? null}
-            getSourcePos={() => readNodeViewPos(props.getPos) ?? null}
-            sourceKey={cardId}
-            className="sc-app-flashcard-card-movement"
-          />
           <button
             {...authoringMovementSnapshotChromeAttributes()}
             type="button"
@@ -146,6 +157,17 @@ export function FlashcardCardAuthoringView(props: NodeViewProps) {
       }}
     />
   );
+}
+
+function readFilmstripCards(props: NodeViewProps): FlashcardFilmstripCard[] {
+  const cards: FlashcardFilmstripCard[] = [];
+  for (let index = 0; index < props.node.childCount; index += 1) {
+    const card = props.node.child(index);
+    const id = card.attrs["id"];
+    if (typeof id !== "string") continue;
+    cards.push({ id, frontText: card.firstChild?.textContent ?? "" });
+  }
+  return cards;
 }
 
 function FlashcardAddCard({

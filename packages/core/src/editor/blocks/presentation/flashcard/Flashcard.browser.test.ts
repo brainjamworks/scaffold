@@ -1,4 +1,5 @@
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
+import { fireEvent } from "@testing-library/react";
 import { createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
@@ -35,6 +36,113 @@ const coreRuntimeComposition = createCoreScaffoldRuntimeComposition();
 afterEach(() => {
   for (const pair of mountedPairs.splice(0)) pair.dispose();
   document.body.replaceChildren();
+});
+
+describe("Flashcard authoring filmstrip", () => {
+  it("selects cards and commits one pointer reorder after a local thumbnail projection", async () => {
+    await page.viewport(1400, 900);
+    const pair = await mountRealFlashcardPair();
+    mountedPairs.push(pair);
+
+    const strip = requiredElement<HTMLElement>(pair.authoring.frame, "[data-flashcard-filmstrip]");
+    const thumbnails = Array.from(
+      strip.querySelectorAll<HTMLElement>("[data-flashcard-filmstrip-card]"),
+    );
+    expect(thumbnails).toHaveLength(3);
+    expect(pair.runtime.frame.querySelector("[data-flashcard-filmstrip]")).toBeNull();
+    expect(strip.querySelector(".sc-app-flashcard-add-card")).not.toBeNull();
+    expect(thumbnails[0]).toHaveTextContent("Front card one");
+    expect(thumbnails[0]?.querySelector('[contenteditable="true"], input, textarea')).toBeNull();
+
+    const secondSelector = filmstripHandle(strip, "flashcard002");
+    secondSelector.click();
+    await waitForCondition(
+      () =>
+        secondSelector.getAttribute("aria-current") === "true" &&
+        pair.authoring.frame.querySelector(
+          '[data-node="flashcard-card"][data-id="flashcard002"].sc-course-flashcard-card',
+        ) !== null,
+    );
+
+    const before = flashcardCardOrder(pair.authoring.editor);
+    let documentWrites = 0;
+    const countDocumentWrites = ({ transaction }: { transaction: { docChanged: boolean } }) => {
+      if (transaction.docChanged) documentWrites += 1;
+    };
+    pair.authoring.editor.on("transaction", countDocumentWrites);
+
+    const source = filmstripHandle(strip, "flashcard001");
+    const target = filmstripCard(strip, "flashcard003");
+    const pointer = centerOf(target.getBoundingClientRect());
+    source.focus({ preventScroll: true });
+    await startPointerDrag(source, pointer);
+
+    expect(flashcardCardOrder(pair.authoring.editor)).toEqual(before);
+    expect(filmstripCard(strip, "flashcard001")).toHaveAttribute(
+      "data-interaction-drag-placeholder",
+    );
+    expect(pair.authoring.host.querySelector("[data-interaction-drag-overlay]")).not.toBeNull();
+    expect(
+      pair.authoring.host.querySelector('[data-flashcard-filmstrip-preview="flashcard001"]'),
+    ).not.toBeNull();
+
+    await finishPointerDrag(pointer);
+    await waitForCondition(
+      () =>
+        flashcardCardOrder(pair.authoring.editor).join("|") ===
+        "flashcard002|flashcard003|flashcard001",
+    );
+    await waitForCondition(
+      () => !pair.authoring.host.querySelector("[data-interaction-drag-overlay]"),
+    );
+    pair.authoring.editor.off("transaction", countDocumentWrites);
+
+    expect(documentWrites).toBe(1);
+    expect(filmstripHandle(strip, "flashcard001")).toHaveAttribute("aria-current", "true");
+  });
+
+  it("reorders with Left and Right, cancels with Escape, and restores focus", async () => {
+    await page.viewport(1400, 900);
+    const pair = await mountRealFlashcardPair();
+    mountedPairs.push(pair);
+    const strip = requiredElement<HTMLElement>(pair.authoring.frame, "[data-flashcard-filmstrip]");
+    const source = filmstripHandle(strip, "flashcard002");
+
+    source.focus({ preventScroll: true });
+    fireEvent.keyDown(source, { code: "Space", key: " " });
+    await nextLayoutFrames(2);
+    expect(filmstripCard(strip, "flashcard002")).toHaveAttribute(
+      "data-interaction-drag-placeholder",
+    );
+
+    fireEvent.keyDown(source, { code: "ArrowLeft", key: "ArrowLeft" });
+    await nextLayoutFrames(2);
+    expect(filmstripVisualOrder(strip)).toEqual(["flashcard002", "flashcard001", "flashcard003"]);
+
+    await userEvent.keyboard("{Escape}");
+    await waitForCondition(
+      () => !pair.authoring.host.querySelector("[data-interaction-drag-overlay]"),
+    );
+    expect(flashcardCardOrder(pair.authoring.editor)).toEqual([
+      "flashcard001",
+      "flashcard002",
+      "flashcard003",
+    ]);
+    await waitForCondition(() => document.activeElement === source);
+    expect(document.activeElement).toBe(source);
+
+    fireEvent.keyDown(source, { code: "Space", key: " " });
+    await nextLayoutFrames(2);
+    fireEvent.keyDown(source, { code: "ArrowRight", key: "ArrowRight" });
+    await nextLayoutFrames(2);
+    fireEvent.keyDown(source, { code: "Space", key: " " });
+    await waitForCondition(
+      () =>
+        flashcardCardOrder(pair.authoring.editor).join("|") ===
+        "flashcard001|flashcard003|flashcard002",
+    );
+    expect(document.activeElement).toBe(source);
+  });
 });
 
 describe("Flashcard bounded geometry", () => {
@@ -122,12 +230,13 @@ describe("Flashcard bounded geometry", () => {
     expect(pair.runtime.frame.querySelector('[class*="sc-app-flashcard-"]')).toBeNull();
     expect(pair.runtime.frame.querySelector('[role="progressbar"]')).not.toBeNull();
 
+    const authoringCard = currentFlashcard(pair.authoring.frame);
     const authoringFront = await waitForElement<HTMLElement>(
-      pair.authoring.frame,
+      authoringCard,
       '[data-slot="flashcard-card-front"]',
     );
     const authoringBack = requiredElement<HTMLElement>(
-      pair.authoring.frame,
+      authoringCard,
       '[data-slot="flashcard-card-back"]',
     );
     await waitForCondition(
@@ -141,12 +250,8 @@ describe("Flashcard bounded geometry", () => {
     ).click();
     await waitForCondition(
       () =>
-        pair.authoring.frame.querySelector(
-          '[data-slot="flashcard-card-front"][aria-hidden="true"]',
-        ) !== null &&
-        pair.authoring.frame.querySelector(
-          '[data-slot="flashcard-card-back"][aria-hidden="false"]',
-        ) !== null,
+        authoringFront.getAttribute("aria-hidden") === "true" &&
+        authoringBack.getAttribute("aria-hidden") === "false",
     );
   });
 
@@ -158,28 +263,22 @@ describe("Flashcard bounded geometry", () => {
     pair.runtime.frame.style.maxHeight = "360px";
     await nextLayoutFrames(3);
 
+    const runtimeCard = currentFlashcard(pair.runtime.frame);
     const front = await waitForElement<HTMLElement>(
-      pair.runtime.frame,
+      runtimeCard,
       '[data-slot="flashcard-card-front"]',
     );
-    const back = requiredElement<HTMLElement>(
-      pair.runtime.frame,
-      '[data-slot="flashcard-card-back"]',
-    );
+    const back = requiredElement<HTMLElement>(runtimeCard, '[data-slot="flashcard-card-back"]');
     await waitForCondition(
       () =>
         front.getAttribute("aria-hidden") === "false" &&
         back.getAttribute("aria-hidden") === "true",
     );
-    const rotator = requiredElement<HTMLElement>(
-      pair.runtime.frame,
-      ".sc-course-flashcard-card__rotator",
-    );
+    const rotator = requiredElement<HTMLElement>(runtimeCard, ".sc-course-flashcard-card__rotator");
 
     expect(rotator.hasAttribute("aria-hidden")).toBe(false);
     expect(
-      requiredElement<HTMLElement>(pair.runtime.frame, ".sc-course-flashcard-card__surface")
-        .tabIndex,
+      requiredElement<HTMLElement>(runtimeCard, ".sc-course-flashcard-card__surface").tabIndex,
     ).toBe(-1);
     expect(front.getAttribute("role")).toBe("region");
     expect(front.getAttribute("aria-label")).toBe("Flashcard front content");
@@ -215,21 +314,11 @@ describe("Flashcard bounded geometry", () => {
     await userEvent.keyboard("{Enter}");
     await waitForCondition(
       () =>
-        pair.runtime.frame.querySelector(
-          '[data-slot="flashcard-card-front"][aria-hidden="true"]',
-        ) !== null &&
-        pair.runtime.frame.querySelector(
-          '[data-slot="flashcard-card-back"][aria-hidden="false"]',
-        ) !== null,
+        front.getAttribute("aria-hidden") === "true" &&
+        back.getAttribute("aria-hidden") === "false",
     );
-    const flippedFront = requiredElement<HTMLElement>(
-      pair.runtime.frame,
-      '[data-slot="flashcard-card-front"]',
-    );
-    const flippedBack = requiredElement<HTMLElement>(
-      pair.runtime.frame,
-      '[data-slot="flashcard-card-back"]',
-    );
+    const flippedFront = front;
+    const flippedBack = back;
     const flippedFrontLink = requiredElement<HTMLAnchorElement>(flippedFront, "a");
     const flippedBackLink = requiredElement<HTMLAnchorElement>(flippedBack, "a");
     expect(document.activeElement).toBe(flippedBack);
@@ -514,8 +603,24 @@ function boundedFlashcardDocument(surfaceId: EmbeddedNodeId): JSONContent {
           type: FLASHCARD_CARD_NODE,
           attrs: { id: "flashcard001" },
           content: [
-            flashcardSide(FLASHCARD_CARD_FRONT_NODE, "Front", 18),
-            flashcardSide(FLASHCARD_CARD_BACK_NODE, "Back", 1),
+            flashcardSide(FLASHCARD_CARD_FRONT_NODE, "Front card one", 18),
+            flashcardSide(FLASHCARD_CARD_BACK_NODE, "Back card one", 1),
+          ],
+        },
+        {
+          type: FLASHCARD_CARD_NODE,
+          attrs: { id: "flashcard002" },
+          content: [
+            flashcardSide(FLASHCARD_CARD_FRONT_NODE, "Front card two", 1),
+            flashcardSide(FLASHCARD_CARD_BACK_NODE, "Back card two", 1),
+          ],
+        },
+        {
+          type: FLASHCARD_CARD_NODE,
+          attrs: { id: "flashcard003" },
+          content: [
+            flashcardSide(FLASHCARD_CARD_FRONT_NODE, "Front card three", 1),
+            flashcardSide(FLASHCARD_CARD_BACK_NODE, "Back card three", 1),
           ],
         },
       ],
@@ -577,6 +682,93 @@ function requiredElement<T extends Element>(root: ParentNode, selector: string):
     throw new Error(`Expected one element for ${selector}, found ${matches.length}.`);
   }
   return matches[0];
+}
+
+function filmstripCard(root: ParentNode, cardId: string): HTMLElement {
+  return requiredElement<HTMLElement>(root, `[data-flashcard-filmstrip-card="${cardId}"]`);
+}
+
+function currentFlashcard(root: ParentNode): HTMLElement {
+  return requiredElement<HTMLElement>(
+    root,
+    ".sc-course-flashcard-card:not(.sc-course-flashcard-card--inactive)",
+  );
+}
+
+function filmstripHandle(root: ParentNode, cardId: string): HTMLButtonElement {
+  return requiredElement<HTMLButtonElement>(
+    filmstripCard(root, cardId),
+    "[data-flashcard-filmstrip-drag-handle]",
+  );
+}
+
+function filmstripVisualOrder(root: ParentNode): string[] {
+  return Array.from(root.querySelectorAll<HTMLElement>("[data-flashcard-filmstrip-card]"))
+    .filter((element) => !element.closest("[data-interaction-drag-overlay]"))
+    .map((element) => element.dataset["flashcardFilmstripCard"] ?? "");
+}
+
+function flashcardCardOrder(editor: TiptapEditor): string[] {
+  const result: string[] = [];
+  editor.state.doc.descendants((node) => {
+    if (node.type.name !== FLASHCARD_CARD_NODE) return true;
+    const id = node.attrs["id"];
+    if (typeof id === "string") result.push(id);
+    return false;
+  });
+  return result;
+}
+
+async function startPointerDrag(
+  source: HTMLElement,
+  destination: Readonly<{ x: number; y: number }>,
+): Promise<void> {
+  const start = centerOf(source.getBoundingClientRect());
+  fireEvent.pointerDown(source, {
+    button: 0,
+    buttons: 1,
+    clientX: start.x,
+    clientY: start.y,
+    isPrimary: true,
+    pointerId: 1,
+    pointerType: "mouse",
+  });
+  fireEvent.pointerMove(document, {
+    button: 0,
+    buttons: 1,
+    clientX: start.x + 6,
+    clientY: start.y,
+    isPrimary: true,
+    pointerId: 1,
+    pointerType: "mouse",
+  });
+  await nextLayoutFrame();
+  fireEvent.pointerMove(document, {
+    button: 0,
+    buttons: 1,
+    clientX: destination.x,
+    clientY: destination.y,
+    isPrimary: true,
+    pointerId: 1,
+    pointerType: "mouse",
+  });
+  await nextLayoutFrames(2);
+}
+
+async function finishPointerDrag(pointer: Readonly<{ x: number; y: number }>): Promise<void> {
+  fireEvent.pointerUp(document, {
+    buttons: 0,
+    clientX: pointer.x,
+    clientY: pointer.y,
+    isPrimary: true,
+    pointerId: 1,
+    pointerType: "mouse",
+  });
+  await nextLayoutFrames(2);
+}
+
+function centerOf(rect: DOMRect): Readonly<{ x: number; y: number }> {
+  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
 }
 
 async function waitForElement<T extends Element>(root: ParentNode, selector: string): Promise<T> {

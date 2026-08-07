@@ -12,7 +12,6 @@ import {
   XIcon as Cross,
 } from "@phosphor-icons/react";
 
-import { containedMovementTargetAttributes } from "@/editor/movement/view/movement-dom";
 import { cn } from "@/lib/cn";
 
 import type {
@@ -60,8 +59,6 @@ export function FlashcardCardView({
   authoringChrome?: ReactNode;
   mountSurface?: boolean;
 }) {
-  const movementAttributes = authoringChrome ? containedMovementTargetAttributes() : {};
-
   if (!mountSurface) {
     return (
       <NodeViewWrapper
@@ -84,7 +81,6 @@ export function FlashcardCardView({
         "sc-course-flashcard-card",
         !controller.isCurrent && "sc-course-flashcard-card--inactive",
       )}
-      {...movementAttributes}
     >
       {authoringChrome}
       <FlashcardCardSurface
@@ -448,11 +444,11 @@ export function FlashcardDeckReader({
 
 export function FlashcardDeckAuthoring({
   controller,
-  addCard,
+  filmstrip,
   renderContent,
 }: {
   controller: FlashcardDeckController;
-  addCard?: ReactNode;
+  filmstrip: ReactNode;
   renderContent: () => ReactNode;
 }) {
   return (
@@ -462,7 +458,7 @@ export function FlashcardDeckAuthoring({
       data-flashcard-mode="authoring"
     >
       <AuthoringDeckHeader total={controller.totalCards} currentIndex={controller.currentIndex} />
-      {addCard}
+      {filmstrip}
       <CardStack>{renderContent()}</CardStack>
       <div className="sc-course-flashcard-reader-controls" data-flashcard-authoring-controls="">
         <NavigationControls

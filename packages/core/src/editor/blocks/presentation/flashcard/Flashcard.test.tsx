@@ -27,6 +27,7 @@ import {
 } from "./content";
 import { flashcardBlockDefinition } from "./flashcard-definition";
 import { FlashcardAuthoringExtension } from "./flashcard-authoring-extension";
+import { reorderFlashcardCard } from "./flashcard-authoring";
 
 const blockInsertCatalog = createInsertCatalog(
   createBlockInsertActions([flashcardBlockDefinition]),
@@ -230,8 +231,9 @@ describe("flashcard block", () => {
     });
 
     expect(
-      screen.getByRole("button", { name: "Move flashcard card 2 within its group" }),
+      screen.getByRole("button", { name: /Card 2: Front 2\. Drag to reorder/u }),
     ).not.toBeNull();
+    expect(document.body.querySelector(".sc-app-flashcard-card-movement")).toBeNull();
     expect(screen.getByRole("button", { name: "Delete flashcard card 2" })).not.toBeNull();
     expect(screen.queryByRole("button", { name: /Mark as/u })).toBeNull();
     expect(document.body.querySelector(".sc-course-flashcard-deck-header__progress")).toBeNull();
@@ -249,12 +251,12 @@ describe("flashcard block", () => {
     fixture.destroy();
   });
 
-  it("deletes cards while exposing the contained App reorder control", async () => {
+  it("deletes cards while exposing the filmstrip reorder control", async () => {
     const user = userEvent.setup();
     const fixture = renderFlashcardEditor(flashcardFixture(2));
 
     expect(
-      await screen.findByRole("button", { name: "Move flashcard card 1 within its group" }),
+      await screen.findByRole("button", { name: /Card 1: Front 1\. Drag to reorder/u }),
     ).not.toBeNull();
     await user.click(screen.getByRole("button", { name: "Delete flashcard card 1" }));
     await waitFor(() => {
@@ -262,6 +264,31 @@ describe("flashcard block", () => {
         "flashcard002",
       ]);
     });
+
+    fixture.destroy();
+  });
+
+  it("commits a stable-id filmstrip reorder in one document transaction", () => {
+    const fixture = renderFlashcardEditor(flashcardFixture(3));
+    let documentWrites = 0;
+    fixture.editor.on("transaction", ({ transaction }) => {
+      if (transaction.docChanged) documentWrites += 1;
+    });
+
+    expect(
+      reorderFlashcardCard({
+        editor: fixture.editor,
+        getPos: () => 0,
+        sourceId: "flashcard001",
+        targetId: "flashcard003",
+      }),
+    ).toBe(true);
+    expect(fixture.json().content?.[0]?.content?.map((card) => card.attrs?.["id"])).toEqual([
+      "flashcard002",
+      "flashcard003",
+      "flashcard001",
+    ]);
+    expect(documentWrites).toBe(1);
 
     fixture.destroy();
   });
