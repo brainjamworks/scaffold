@@ -389,16 +389,6 @@ class grader {
      * @return array
      */
     private static function grade_hotspot(array $interaction, array $assessment, array $response): array {
-        $selected = [];
-        foreach (self::list($response['selections'] ?? null) as $selection) {
-            $selection = self::assoc($selection);
-            if ($selection && is_string($selection['hotspotId'] ?? null) && $selection['hotspotId'] !== '') {
-                $selected[$selection['hotspotId']] = true;
-            }
-        }
-
-        $expected = self::string_set($assessment['correctHotspotIds'] ?? null);
-        $feedback = self::assoc($assessment['feedbackByHotspotId'] ?? null) ?? [];
         $hotspotids = [];
         foreach (self::list($interaction['hotspots'] ?? null) as $hotspot) {
             $hotspot = self::assoc($hotspot);
@@ -411,15 +401,27 @@ class grader {
             return self::empty_result(self::summary_feedback($assessment));
         }
 
+        $hotspotset = array_fill_keys($hotspotids, true);
+        $selections = self::list($response['selections'] ?? null);
+        $selectedcurrentids = [];
+        foreach ($selections as $selection) {
+            $selection = self::assoc($selection);
+            if (!$selection) {
+                continue;
+            }
+            $hotspotid = $selection['hotspotId'] ?? null;
+            if (is_string($hotspotid) && isset($hotspotset[$hotspotid])) {
+                $selectedcurrentids[] = $hotspotid;
+            }
+        }
+        $selected = array_fill_keys($selectedcurrentids, true);
+        $expected = self::string_set($assessment['correctHotspotIds'] ?? null);
+        $feedback = self::assoc($assessment['feedbackByHotspotId'] ?? null) ?? [];
         $items = [];
-        $correctcount = 0;
         foreach ($hotspotids as $hotspotid) {
             $isexpected = isset($expected[$hotspotid]);
             $wasselected = isset($selected[$hotspotid]);
             $correct = $isexpected === $wasselected;
-            if ($correct) {
-                $correctcount++;
-            }
             $item = [
                 'correct' => $correct,
                 'expected' => $isexpected,
@@ -431,10 +433,17 @@ class grader {
             $items[$hotspotid] = $item;
         }
 
-        $allcorrect = $correctcount === count($hotspotids);
+        $correctselections = count(array_intersect_key($selected, $expected));
+        $allcorrect = count($selections) === count($expected)
+            && count($selectedcurrentids) === count($selections)
+            && count($selected) === count($selections)
+            && $correctselections === count($expected);
+        $partialcreditdenominator = max(count($expected), count($selections));
         $score = ($assessment['gradingMode'] ?? null) === 'all-or-nothing'
             ? self::count_score($allcorrect ? 1 : 0, 1)
-            : self::count_score($correctcount, count($hotspotids));
+            : (!$expected || $partialcreditdenominator === 0
+                ? self::count_score(0, 1)
+                : self::count_score($correctselections, $partialcreditdenominator));
 
         return [
             'isCorrect' => $allcorrect,

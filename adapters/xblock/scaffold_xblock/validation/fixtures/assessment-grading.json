@@ -952,7 +952,7 @@
       },
       "expected": {
         "isCorrect": true,
-        "score": { "scaled": 1, "raw": 2, "min": 0, "max": 2 },
+        "score": { "scaled": 1, "raw": 1, "min": 0, "max": 1 },
         "feedback": {
           "kind": "rich-text",
           "document": { "type": "doc", "content": [{ "type": "text", "text": "Hotspot summary." }] }

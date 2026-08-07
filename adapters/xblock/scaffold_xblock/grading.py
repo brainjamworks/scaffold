@@ -335,41 +335,51 @@ def grade_fill_blanks_target(assessment, response):
 
 
 def grade_hotspot_target(interaction, assessment, response):
-    selected = set()
-    for selection in response.get("selections") or []:
-        if not isinstance(selection, dict):
-            continue
-        hotspot_id = selection.get("hotspotId")
-        if isinstance(hotspot_id, str) and hotspot_id:
-            selected.add(hotspot_id)
-    expected = set(read_string_list(assessment.get("correctHotspotIds")))
-    feedback = assessment.get("feedbackByHotspotId")
-    feedback = feedback if isinstance(feedback, dict) else {}
     hotspot_ids = [
         hotspot.get("id")
         for hotspot in interaction.get("hotspots") or []
         if isinstance(hotspot, dict) and isinstance(hotspot.get("id"), str)
     ]
+    hotspot_id_set = set(hotspot_ids)
+    selections = response.get("selections")
+    selections = selections if isinstance(selections, list) else []
+    selected_current_ids = []
+    for selection in selections:
+        if not isinstance(selection, dict):
+            continue
+        hotspot_id = selection.get("hotspotId")
+        if isinstance(hotspot_id, str) and hotspot_id in hotspot_id_set:
+            selected_current_ids.append(hotspot_id)
+    selected = set(selected_current_ids)
+    expected = set(read_string_list(assessment.get("correctHotspotIds")))
+    feedback = assessment.get("feedbackByHotspotId")
+    feedback = feedback if isinstance(feedback, dict) else {}
     items = {}
     if not hotspot_ids:
         return empty_grade_result(summary_feedback(assessment))
-    correct_count = 0
     for hotspot_id in hotspot_ids:
         is_expected = hotspot_id in expected
         was_selected = hotspot_id in selected
         correct = is_expected == was_selected
-        if correct:
-            correct_count += 1
         item = {"correct": correct, "expected": is_expected, "given": was_selected}
         if hotspot_id in feedback:
             item["feedback"] = feedback[hotspot_id]
         items[hotspot_id] = item
-    all_correct = correct_count == len(hotspot_ids)
+    correct_selections = len(selected.intersection(expected))
+    all_correct = (
+        len(selections) == len(expected)
+        and len(selected_current_ids) == len(selections)
+        and len(selected) == len(selections)
+        and correct_selections == len(expected)
+    )
+    partial_credit_denominator = max(len(expected), len(selections))
     return {
         "isCorrect": all_correct,
         "score": count_score(1 if all_correct else 0, 1)
         if assessment.get("gradingMode") == "all-or-nothing"
-        else count_score(correct_count, len(hotspot_ids)),
+        else count_score(0, 1)
+        if not expected or partial_credit_denominator == 0
+        else count_score(correct_selections, partial_credit_denominator),
         "feedback": summary_feedback(assessment),
         "items": items,
     }
