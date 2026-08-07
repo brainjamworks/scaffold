@@ -71,6 +71,7 @@ function makePair() {
 
 export const matchingBlockDefinition = defineBlock({
   nodeType: "matching",
+  title: "Matching",
   rewriteCopiedContent: rewriteMatchingCopiedContent,
   boundedPlacement: "fill",
   configuration: matchingConfiguration,

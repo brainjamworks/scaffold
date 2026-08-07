@@ -106,6 +106,7 @@ function fillBlanksAuthoringControls({
 
 export const fillBlanksBlockDefinition = defineBlock({
   nodeType: "fill_blanks",
+  title: "Fill in the blanks",
   rewriteCopiedContent: rewriteFillBlanksCopiedContent,
   boundedPlacement: "fill",
   authoringControls: {

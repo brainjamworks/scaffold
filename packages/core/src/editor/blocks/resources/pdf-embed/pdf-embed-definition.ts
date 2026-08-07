@@ -37,6 +37,7 @@ const pdfEmbedConfiguration = defineConfiguration({
 
 export const pdfEmbedBlockDefinition = defineBlock({
   nodeType: "pdf_embed",
+  title: "PDF",
   configuration: pdfEmbedConfiguration,
   frame: {
     resizable: true,

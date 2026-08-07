@@ -33,6 +33,7 @@ const imageBlockConfiguration = defineConfiguration({
 
 export const imageBlockDefinition = defineBlock({
   nodeType: "image_block",
+  title: "Image",
   configuration: imageBlockConfiguration,
   frame: {
     resizable: true,

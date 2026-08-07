@@ -46,6 +46,7 @@ export const galleryItemsCollection = {
 
 export const galleryDefinition = defineBlock({
   nodeType: GALLERY_NODE,
+  title: "Gallery",
   configuration: defineConfiguration({
     attr: "data",
     schema: GalleryDataSchema,

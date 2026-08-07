@@ -33,6 +33,7 @@ const audioBlockConfiguration = defineConfiguration({
 
 export const audioBlockDefinition = defineBlock({
   nodeType: "audio_block",
+  title: "Audio",
   configuration: audioBlockConfiguration,
   frame: {
     resizable: true,

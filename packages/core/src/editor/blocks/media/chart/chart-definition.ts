@@ -41,6 +41,7 @@ const textTableColumnsOptionSource = {
 
 export const chartBlockDefinition = defineBlock({
   nodeType: "chart_block",
+  title: "Chart",
   rewriteCopiedContent: rewriteChartCopiedContent,
   frame: {
     resizable: true,

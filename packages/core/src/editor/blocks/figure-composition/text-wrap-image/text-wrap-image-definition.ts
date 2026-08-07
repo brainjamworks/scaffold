@@ -32,6 +32,7 @@ const SHAPE_LABELS: Record<"square" | "rounded" | "circle", string> = {
 
 export const textWrapImageDefinition = defineBlock({
   nodeType: TEXT_WRAP_IMAGE_NODE,
+  title: "Text-wrap image",
   configuration: defineConfiguration({
     attr: "data",
     schema: TextWrapImageDataSchema,

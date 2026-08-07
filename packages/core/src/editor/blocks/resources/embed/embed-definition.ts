@@ -49,6 +49,7 @@ const embedConfiguration = defineConfiguration({
 
 export const embedBlockDefinition = defineBlock({
   nodeType: "embed",
+  title: "Embed",
   configuration: embedConfiguration,
   frame: {
     resizable: true,

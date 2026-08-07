@@ -48,6 +48,7 @@ const resourceLinkConfiguration = defineConfiguration({
 
 export const resourceLinkBlockDefinition = defineBlock({
   nodeType: "resource_link",
+  title: "Resource link",
   configuration: resourceLinkConfiguration,
   placeholders: {
     resource_link_description: "One-line context for learners",

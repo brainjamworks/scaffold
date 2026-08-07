@@ -70,6 +70,7 @@ const dropdownConfiguration = createAssessmentConfiguration({
 
 export const dropdownBlockDefinition = defineBlock({
   nodeType: "dropdown",
+  title: "Dropdown",
   rewriteCopiedContent: rewriteDropdownCopiedContent,
   boundedPlacement: "fill",
   configuration: dropdownConfiguration,

@@ -81,6 +81,7 @@ function makeBin(items: ReturnType<typeof makeItem>[]) {
 
 export const categoriseBlockDefinition = defineBlock({
   nodeType: "categorise",
+  title: "Categorise",
   rewriteCopiedContent: rewriteCategoriseCopiedContent,
   boundedPlacement: "fill",
   configuration: categoriseConfiguration,

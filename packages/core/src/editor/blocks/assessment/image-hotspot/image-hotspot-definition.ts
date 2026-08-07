@@ -66,6 +66,7 @@ const imageHotspotConfiguration = createAssessmentConfiguration({
 
 export const imageHotspotBlockDefinition = defineBlock({
   nodeType: "image_hotspot",
+  title: "Image hotspot",
   rewriteCopiedContent: rewriteImageHotspotCopiedContent,
   configuration: imageHotspotConfiguration,
   placeholders: assessmentShellPlaceholders,

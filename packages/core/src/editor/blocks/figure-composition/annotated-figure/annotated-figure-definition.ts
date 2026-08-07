@@ -23,6 +23,7 @@ export const ANNOTATED_FIGURE_BLOCK_ID = "annotated-figure";
 
 export const annotatedFigureDefinition = defineBlock({
   nodeType: ANNOTATED_FIGURE_NODE,
+  title: "Annotated figure",
   placeholders: {
     [ANNOTATED_FIGURE_ANNOTATION_NODE]: "Describe a numbered pin",
   },

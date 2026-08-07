@@ -65,6 +65,7 @@ const mcqConfiguration = createAssessmentConfiguration({
 
 export const mcqBlockDefinition = defineBlock({
   nodeType: "mcq",
+  title: "Multiple choice",
   rewriteCopiedContent: rewriteMcqCopiedContent,
   boundedPlacement: "fill",
   configuration: mcqConfiguration,

@@ -129,6 +129,7 @@ function applyMultiselectSettings({ attr, schema, target, tr, value }: SettingsS
 
 export const multiselectBlockDefinition = defineBlock({
   nodeType: "multiselect",
+  title: "Multi-select",
   rewriteCopiedContent: rewriteMultiselectCopiedContent,
   boundedPlacement: "fill",
   configuration: multiselectConfiguration,

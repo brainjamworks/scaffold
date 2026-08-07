@@ -8,6 +8,13 @@ import { builtInBlockDefinitions, builtInBlockRegistry } from "./built-in-block-
 import { builtInBlockRuntimeBindings } from "./runtime-block-extensions";
 
 describe("built-in block definitions", () => {
+  it("gives every built-in definition an explicit non-empty capability title", () => {
+    for (const definition of builtInBlockDefinitions) {
+      expect(Object.hasOwn(definition, "title")).toBe(true);
+      expect(definition.title.trim().length).toBeGreaterThan(0);
+    }
+  });
+
   it("constructs the registry from 34 explicit unique node types", () => {
     const nodeTypes = builtInBlockDefinitions.map((definition) => definition.nodeType);
 

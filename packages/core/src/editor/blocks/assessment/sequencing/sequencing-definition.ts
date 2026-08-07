@@ -62,6 +62,7 @@ const sequencingConfiguration = createAssessmentConfiguration({
 
 export const sequencingBlockDefinition = defineBlock({
   nodeType: "sequencing",
+  title: "Sequencing",
   rewriteCopiedContent: rewriteSequencingCopiedContent,
   boundedPlacement: "fill",
   configuration: sequencingConfiguration,

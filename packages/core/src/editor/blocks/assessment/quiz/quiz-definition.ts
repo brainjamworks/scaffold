@@ -122,6 +122,7 @@ const quizConfiguration = defineConfiguration({
 
 export const quizBlockDefinition = defineBlock({
   nodeType: "quiz",
+  title: "Quiz",
   boundedPlacement: "fill",
   stagedBoundedHost: {
     childGroup: ASSESSMENT_QUESTION_CONTENT,
