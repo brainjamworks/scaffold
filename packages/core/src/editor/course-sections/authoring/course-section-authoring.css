@@ -37,4 +37,12 @@
     font-weight: 700;
     line-height: 1.35;
   }
+
+  .sc-course-section-authoring__controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.25rem;
+  }
 }

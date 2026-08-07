@@ -108,6 +108,30 @@ function CourseSectionAuthoringNodeView({ editor, node, selected }: NodeViewProp
     }
   };
 
+  const duplicateCourseSection = () => {
+    if (!parsedSectionId.success) {
+      setActionError("This Course Section cannot be changed because its identity is invalid.");
+      return;
+    }
+    const command = {
+      type: "course-section.duplicate" as const,
+      courseSectionId: parsedSectionId.data,
+    };
+    if (!editor.can().applyCourseStructureCommand(command)) {
+      setActionError("This Course Section could not be duplicated. The document may have changed.");
+      return;
+    }
+    const applied = editor
+      .chain()
+      .focus()
+      .applyCourseStructureCommand(command)
+      .scrollIntoView()
+      .run();
+    if (!applied) {
+      setActionError("This Course Section could not be duplicated. The document may have changed.");
+    }
+  };
+
   return (
     <>
       <NodeViewWrapper
@@ -123,6 +147,9 @@ function CourseSectionAuthoringNodeView({ editor, node, selected }: NodeViewProp
         <div className="sc-course-section-authoring__controls">
           <Button size="sm" variant="secondary" onClick={openRenameDialog}>
             Rename Course Section
+          </Button>
+          <Button size="sm" variant="secondary" onClick={duplicateCourseSection}>
+            Duplicate Course Section
           </Button>
           <Button size="sm" variant="ghost" onClick={removeCourseSection}>
             Remove Course Section

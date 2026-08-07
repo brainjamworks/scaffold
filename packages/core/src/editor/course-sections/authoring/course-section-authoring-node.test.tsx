@@ -8,10 +8,14 @@ import { act, cleanup, render, screen, waitFor, within } from "@testing-library/
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createCourseStructureCommandsExtension } from "@/document/authoring/course-structure-commands";
 import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { createLayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
+import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
 
 import { createCourseSectionAuthoringNode } from "./course-section-authoring-node";
 
@@ -21,6 +25,12 @@ const SECTION_2 = "section00002";
 const SURFACE_1 = "surface00001";
 const SURFACE_2 = "surface00002";
 const REPLACEMENT_SECTION_ID = "section99999";
+const PARAGRAPH_1 = "paragraph001";
+const capabilities = Object.freeze({
+  blocks: Object.freeze({ registry: createBlockRegistry([]) }),
+  layouts: Object.freeze({ registry: createLayoutRegistry([]) }),
+  surfaces: Object.freeze({ registry: createSurfaceVariantRegistry([]) }),
+});
 
 const TestArrangementNode = Node.create({
   name: "testArrangement",
@@ -276,11 +286,62 @@ describe("Course Section authoring node", () => {
       expect(documentTransactions).toBe(1);
     },
   );
+
+  it("duplicates a complete section with fresh coordinated identities and no move affordance", async () => {
+    const editor = createEditor([
+      courseSection(SECTION_1, "Practice"),
+      surface(SURFACE_1, "First slide", PARAGRAPH_1),
+      courseSection(SECTION_2, "Next"),
+      surface(SURFACE_2, "Second slide"),
+    ]);
+    const user = userEvent.setup();
+    let documentTransactions = 0;
+    editor.on("transaction", ({ transaction }) => {
+      if (transaction.docChanged) documentTransactions += 1;
+    });
+    render(<EditorContent editor={editor} />);
+
+    const sourceBoundary = await screen.findByRole("group", {
+      name: "Course Section: Practice",
+    });
+    expect(within(sourceBoundary).queryByRole("button", { name: /Move/ })).toBeNull();
+    expect(editor.schema.nodes["courseSection"]?.spec.draggable).toBe(false);
+    await user.click(
+      within(sourceBoundary).getByRole("button", { name: "Duplicate Course Section" }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByRole("group", { name: "Course Section: Practice" })).toHaveLength(2);
+    });
+    const children = readCourseChildren(editor);
+    expect(children.map((child) => child.type)).toEqual([
+      "courseSection",
+      "surface",
+      "courseSection",
+      "surface",
+      "courseSection",
+      "surface",
+    ]);
+    expect(children[2]?.attrs?.["title"]).toBe("Practice");
+    expect(children[3]?.content?.[0]?.content?.[0]?.text).toBe("First slide");
+    const sourceIds = collectNodeIds(children.slice(0, 2));
+    const duplicateIds = collectNodeIds(children.slice(2, 4));
+    expect(sourceIds).toEqual([SECTION_1, SURFACE_1, PARAGRAPH_1]);
+    expect(duplicateIds).toHaveLength(sourceIds.length);
+    expect(duplicateIds.every((id) => !sourceIds.includes(id))).toBe(true);
+    expect(new Set([...sourceIds, ...duplicateIds]).size).toBe(6);
+    expect(documentTransactions).toBe(1);
+    await waitFor(() => expect(editor.view.hasFocus()).toBe(true));
+    expect(
+      screen.queryByRole("button", { name: /Move Course Section|Move earlier|Move later/ }),
+    ).toBe(null);
+  });
 });
 
 function createEditor(children: readonly JSONContent[]): Editor {
   const editor = new Editor({
     extensions: [
+      createScaffoldCapabilitiesStorageExtension(capabilities),
       DocumentNode,
       StarterKit.configure({ document: false, paragraph: false, undoRedo: false }),
       ExtendedParagraph,
@@ -311,11 +372,17 @@ function courseSection(id: string, title: string): JSONContent {
   return { type: "courseSection", attrs: { id, title } };
 }
 
-function surface(id: string, text: string): JSONContent {
+function surface(id: string, text: string, paragraphId?: string): JSONContent {
   return {
     type: "surface",
     attrs: { id, variant: "slide-cover", settings: {} },
-    content: [{ type: "paragraph", content: [{ type: "text", text }] }],
+    content: [
+      {
+        type: "paragraph",
+        ...(paragraphId ? { attrs: { id: paragraphId } } : {}),
+        content: [{ type: "text", text }],
+      },
+    ],
   };
 }
 
@@ -360,4 +427,15 @@ function selectionIsInsideSurface(editor: Editor, surfaceId: string): boolean {
     editor.state.selection.from > surfacePos &&
     editor.state.selection.from < surfacePos + surface.nodeSize
   );
+}
+
+function collectNodeIds(nodes: readonly JSONContent[]): string[] {
+  const ids: string[] = [];
+  const visit = (node: JSONContent) => {
+    const id = node.attrs?.["id"];
+    if (typeof id === "string") ids.push(id);
+    node.content?.forEach(visit);
+  };
+  nodes.forEach(visit);
+  return ids;
 }
