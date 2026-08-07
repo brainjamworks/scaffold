@@ -3,7 +3,9 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import type { EmbeddedNodeId } from "@scaffold/contracts";
 
 /** Pure projection helpers supplied by Core while evaluating one owning definition. */
-export type SemanticProjectionHelpers = Readonly<Record<never, never>>;
+export interface SemanticProjectionHelpers {
+  projectStandardRichText(contentRoot?: ProseMirrorNode): readonly PublishedSemanticChild[];
+}
 
 export interface SemanticDefinitionOwnerInput {
   readonly owner: ProseMirrorNode;

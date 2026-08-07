@@ -8,7 +8,7 @@ import type {
   SemanticItemDescription,
 } from "./definition";
 import type { SemanticDefinitionLookup } from "./definition-lookup";
-import { semanticProjectionHelpers } from "./projection-helpers";
+import { createSemanticProjectionHelpers } from "./projection-helpers";
 import type { SemanticSnapshotBuilder } from "./snapshot-builder";
 
 export interface SemanticOwnerContext {
@@ -45,13 +45,14 @@ export function evaluateOwnerDescription(
 ): SemanticItemDescription | null {
   const describe = owner.documentSemantics.describe;
   if (!describe) return null;
+  const helpers = createSemanticProjectionHelpers(owner.node);
 
   try {
     const description = describe({
       owner: owner.node,
       ownerId: owner.id,
       definitionId: owner.definitionId,
-      helpers: semanticProjectionHelpers,
+      helpers,
     });
     if (!isValidDescription(description)) {
       addDiagnostic(builder, "invalid-definition-description", owner);
@@ -71,6 +72,7 @@ export function resolveOwnerPublication(
 ): readonly ResolvedPublishedSemanticChild[] {
   const projectChildren = owner.documentSemantics.projectChildren;
   if (!projectChildren) return [];
+  const helpers = createSemanticProjectionHelpers(owner.node);
 
   let candidates: readonly PublishedSemanticChild[];
   try {
@@ -78,7 +80,7 @@ export function resolveOwnerPublication(
       owner: owner.node,
       ownerId: owner.id,
       definitionId: owner.definitionId,
-      helpers: semanticProjectionHelpers,
+      helpers,
     });
     if (!Array.isArray(candidates)) throw new TypeError("Invalid semantic child candidates.");
   } catch {

@@ -216,12 +216,7 @@ function projectPublishedChildren(input: {
           nodeType: resolved.node.type.name,
           from: resolved.absolutePos,
           to: resolved.absolutePos + resolved.node.nodeSize,
-          selectionTarget:
-            isRichText && resolved.node.isTextblock
-              ? { kind: "text", from: resolved.absolutePos + 1, to: resolved.absolutePos + 1 }
-              : resolved.node.type.spec.selectable === false
-                ? { kind: "near", pos: resolved.absolutePos }
-                : { kind: "node", pos: resolved.absolutePos },
+          selectionTarget: semanticSelectionTarget(resolved.node, resolved.absolutePos, isRichText),
           surfaceId: input.surfaceId,
           activationPath,
         },
@@ -425,6 +420,21 @@ function humanize(value: string): string {
   return normalized.length === 0
     ? "Region"
     : `${normalized[0]?.toUpperCase()}${normalized.slice(1)}`;
+}
+
+function semanticSelectionTarget(
+  node: ProseMirrorNode,
+  pos: number,
+  richText: boolean,
+):
+  | { readonly kind: "node"; readonly pos: number }
+  | { readonly kind: "text"; readonly from: number; readonly to: number }
+  | { readonly kind: "near"; readonly pos: number } {
+  if (richText && node.isTextblock) return { kind: "text", from: pos + 1, to: pos + 1 };
+  if (richText && node.type.name === "listItem" && node.firstChild?.isTextblock) {
+    return { kind: "text", from: pos + 2, to: pos + 2 };
+  }
+  return node.type.spec.selectable === false ? { kind: "near", pos } : { kind: "node", pos };
 }
 
 function addMissingDefinitionDiagnostic(

@@ -2,6 +2,11 @@ import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
 
 import type { SemanticLocation } from "./semantic-location";
 import type { SemanticProjectionDiagnostic } from "./projection-diagnostic";
+import {
+  disambiguateSemanticLabels,
+  normalizeSemanticLabel,
+  semanticLabelFallback,
+} from "./semantic-labels";
 import type {
   SemanticDocumentSnapshot,
   SemanticItem,
@@ -104,6 +109,7 @@ export function createSemanticSnapshotBuilder(input: {
         records.get(left)!.location.from - records.get(right)!.location.from;
       rootIds.sort(byDocumentPosition);
       for (const childIds of childIdsByParent.values()) childIds.sort(byDocumentPosition);
+      const finalLabelById = createFinalLabels(records, rootIds, childIdsByParent);
 
       const itemById = new Map<EmbeddedNodeId, SemanticItem>();
       const freezeItem = (id: EmbeddedNodeId): SemanticItem => {
@@ -115,6 +121,7 @@ export function createSemanticSnapshotBuilder(input: {
         );
         const item = Object.freeze({
           ...record.item,
+          label: finalLabelById.get(id)!,
           presentation: freezePresentation(record.item.presentation),
           children,
         });
@@ -143,6 +150,25 @@ export function createSemanticSnapshotBuilder(input: {
       });
     },
   };
+}
+
+function createFinalLabels(
+  records: ReadonlyMap<EmbeddedNodeId, ItemRecord>,
+  rootIds: readonly EmbeddedNodeId[],
+  childIdsByParent: ReadonlyMap<EmbeddedNodeId, readonly EmbeddedNodeId[]>,
+): ReadonlyMap<EmbeddedNodeId, string> {
+  const labels = new Map<EmbeddedNodeId, string>();
+  const labelSiblings = (ids: readonly EmbeddedNodeId[]) => {
+    const normalized = ids.map((id) => {
+      const item = records.get(id)!.item;
+      return normalizeSemanticLabel(item.label, semanticLabelFallback(item.kind, item.nodeType));
+    });
+    const disambiguated = disambiguateSemanticLabels(normalized);
+    ids.forEach((id, index) => labels.set(id, disambiguated[index]!));
+  };
+  labelSiblings(rootIds);
+  for (const childIds of childIdsByParent.values()) labelSiblings(childIds);
+  return labels;
 }
 
 function assertOpen(finalized: boolean): void {

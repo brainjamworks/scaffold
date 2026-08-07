@@ -61,7 +61,7 @@ describe("semantic document definition contracts", () => {
       owner,
       ownerId,
       definitionId: "host-card",
-      helpers: Object.freeze({}),
+      helpers: Object.freeze({ projectStandardRichText: () => Object.freeze([]) }),
     }) satisfies SemanticChildProjectionInput;
 
     const description = semantics.describe(input);
