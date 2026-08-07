@@ -14,23 +14,27 @@ export function QuizEmptyStage({
   onAdd: (item: InsertAction) => void;
 }) {
   return (
-    <div className="sc-quiz__empty" contentEditable={false} data-testid="quiz-add-question-stage">
-      <h3 className="sc-quiz__empty-title">Pick a question type</h3>
-      <div className="sc-quiz__empty-grid">
+    <div
+      className="sc-course-quiz__empty"
+      contentEditable={false}
+      data-testid="quiz-add-question-stage"
+    >
+      <h3 className="sc-course-quiz__empty-title">Pick a question type</h3>
+      <div className="sc-course-quiz__empty-grid">
         {items.map((item) => {
           const Icon = item.icon;
           return (
             <button
               key={item.id}
               type="button"
-              className="sc-quiz__empty-card"
+              className="sc-course-quiz__empty-card"
               onClick={() => onAdd(item)}
             >
-              <span className="sc-quiz__empty-card-icon" aria-hidden>
+              <span className="sc-course-quiz__empty-card-icon" aria-hidden>
                 <Icon size={16} weight="regular" />
               </span>
-              <span className="sc-quiz__empty-card-title">{item.title}</span>
-              <span className="sc-quiz__empty-card-desc">{item.description}</span>
+              <span className="sc-course-quiz__empty-card-title">{item.title}</span>
+              <span className="sc-course-quiz__empty-card-desc">{item.description}</span>
             </button>
           );
         })}

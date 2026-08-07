@@ -48,9 +48,9 @@ export function QuizNodeView(props: NodeViewProps) {
       data-quiz-review-timing={quiz.settings.reviewTiming}
       data-active-question-id={quiz.activeChildKey ?? undefined}
       data-active-question-index={quiz.activeChildIndex >= 0 ? quiz.activeChildIndex : undefined}
-      className="sc-quiz"
+      className="sc-course-quiz"
     >
-      <section className="sc-quiz__container">
+      <section className="sc-course-quiz__container">
         <QuizHeader count={quiz.childCount} points={quiz.totalPoints} timer={null} />
 
         {showStrip ? (
@@ -100,7 +100,7 @@ export function QuizNodeView(props: NodeViewProps) {
         ) : null}
 
         <NodeViewContent
-          className={cn("sc-quiz__stage", hideStage && "sc-quiz__stage--hidden")}
+          className={cn("sc-course-quiz__stage", hideStage && "sc-course-quiz__stage--hidden")}
           data-slot="quiz-content"
           data-testid="quiz-stage-viewport"
         />

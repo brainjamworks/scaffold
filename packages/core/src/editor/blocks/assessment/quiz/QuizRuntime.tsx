@@ -5,7 +5,11 @@ import {
   HourglassIcon as Hourglass,
   TimerIcon as Timer,
 } from "@phosphor-icons/react";
+import { Button } from "@radix-ui/themes";
 import type { Score } from "@scaffold/contracts";
+import { useEffect, useRef, useState } from "react";
+
+import type { AssessmentRequestState } from "@/runtime/assessment/types";
 
 /**
  * Learner-facing runtime surfaces of a quiz attempt. Five small shapes,
@@ -27,7 +31,7 @@ import type { Score } from "@scaffold/contracts";
 export function QuizRuntimeIncomplete() {
   return (
     <div
-      className="sc-quiz__runtime-incomplete"
+      className="sc-course-quiz__runtime-incomplete"
       contentEditable={false}
       data-testid="quiz-runtime-incomplete"
     >
@@ -51,17 +55,23 @@ export function QuizRuntimeStart({
       : "Answers are submitted at the end of the quiz.";
 
   return (
-    <div className="sc-quiz__runtime-card" contentEditable={false} data-testid="quiz-runtime-start">
-      <h3 className="sc-quiz__runtime-title">Ready to begin?</h3>
-      <p className="sc-quiz__runtime-meta">{description}</p>
-      <button
+    <div
+      className="sc-course-quiz__runtime-card"
+      contentEditable={false}
+      data-testid="quiz-runtime-start"
+    >
+      <h3 className="sc-course-quiz__runtime-title">Ready to begin?</h3>
+      <p className="sc-course-quiz__runtime-meta">{description}</p>
+      <Button
         type="button"
-        className="sc-quiz__primary-button"
+        size="3"
+        variant="solid"
+        className="sc-course-quiz__primary-action"
         disabled={!canStart}
         onClick={onStart}
       >
         Start quiz
-      </button>
+      </Button>
     </div>
   );
 }
@@ -91,45 +101,51 @@ export function QuizReviewableControls({
 
   return (
     <div
-      className="sc-quiz__runtime-controls"
+      className="sc-course-quiz__runtime-controls"
       contentEditable={false}
       data-testid="quiz-reviewable-controls"
     >
-      <div className="sc-quiz__runtime-nav">
+      <div className="sc-course-quiz__runtime-nav">
         {showPrevious ? (
-          <button
+          <Button
             type="button"
-            className="sc-quiz__ghost-button"
+            size="3"
+            variant="outline"
+            className="sc-course-quiz__secondary-action"
             aria-label="Previous question"
             disabled={!canPrevious}
             onClick={onPrevious}
           >
             <CaretLeft size={12} weight="bold" aria-hidden />
             Previous
-          </button>
+          </Button>
         ) : null}
         {!isFinalStage ? (
-          <button
+          <Button
             type="button"
-            className="sc-quiz__ghost-button"
+            size="3"
+            variant="outline"
+            className="sc-course-quiz__secondary-action"
             aria-label="Next question"
             disabled={!canNext}
             onClick={onNext}
           >
             Next
             <CaretRight size={12} weight="bold" aria-hidden />
-          </button>
+          </Button>
         ) : null}
       </div>
       {isFinalStage ? (
-        <button
+        <Button
           type="button"
-          className="sc-quiz__primary-button"
+          size="3"
+          variant="solid"
+          className="sc-course-quiz__primary-action"
           disabled={!canSubmitQuiz}
           onClick={onSubmitQuiz}
         >
           Submit quiz
-        </button>
+        </Button>
       ) : null}
     </div>
   );
@@ -144,19 +160,21 @@ export function QuizLockedControls({
 }) {
   return (
     <div
-      className="sc-quiz__runtime-controls"
+      className="sc-course-quiz__runtime-controls"
       contentEditable={false}
       data-testid="quiz-locked-controls"
     >
-      <span className="sc-quiz__runtime-meta">Submit this answer to review it.</span>
-      <button
+      <span className="sc-course-quiz__runtime-meta">Submit this answer to review it.</span>
+      <Button
         type="button"
-        className="sc-quiz__primary-button"
+        size="3"
+        variant="solid"
+        className="sc-course-quiz__primary-action"
         disabled={!canSubmit}
         onClick={onSubmit}
       >
         Submit answer
-      </button>
+      </Button>
     </div>
   );
 }
@@ -170,19 +188,21 @@ export function QuizRetryControls({
 }) {
   return (
     <div
-      className="sc-quiz__runtime-controls"
+      className="sc-course-quiz__runtime-controls"
       contentEditable={false}
       data-testid="quiz-retry-controls"
     >
-      <span className="sc-quiz__runtime-meta">Change your answer, then try again.</span>
-      <button
+      <span className="sc-course-quiz__runtime-meta">Change your answer, then try again.</span>
+      <Button
         type="button"
-        className="sc-quiz__primary-button"
+        size="3"
+        variant="solid"
+        className="sc-course-quiz__primary-action"
         disabled={!canRetry}
         onClick={onRetry}
       >
         Try again
-      </button>
+      </Button>
     </div>
   );
 }
@@ -196,20 +216,22 @@ export function QuizReviewPauseControls({
 }) {
   return (
     <div
-      className="sc-quiz__runtime-controls"
+      className="sc-course-quiz__runtime-controls"
       contentEditable={false}
       data-testid="quiz-review-pause-controls"
     >
-      <span className="sc-quiz__runtime-meta">Review this answer, then continue.</span>
-      <button
+      <span className="sc-course-quiz__runtime-meta">Review this answer, then continue.</span>
+      <Button
         type="button"
-        className="sc-quiz__primary-button"
+        size="3"
+        variant="solid"
+        className="sc-course-quiz__primary-action"
         disabled={!canContinue}
         onClick={onContinue}
       >
         Next question
         <CaretRight size={12} weight="bold" aria-hidden />
-      </button>
+      </Button>
     </div>
   );
 }
@@ -223,12 +245,16 @@ export function QuizAnswerReviewContext({
 }) {
   return (
     <div
-      className="sc-quiz__review-context"
+      className="sc-course-quiz__review-context"
       contentEditable={false}
       data-testid="quiz-answer-review-context"
     >
-      <span className="sc-quiz__review-context-label">Reviewing answers</span>
-      <span className="sc-quiz__review-context-position" aria-live="polite" aria-atomic="true">
+      <span className="sc-course-quiz__review-context-label">Reviewing answers</span>
+      <span
+        className="sc-course-quiz__review-context-position"
+        aria-live="polite"
+        aria-atomic="true"
+      >
         Question {activeIndex + 1} of {total}
       </span>
     </div>
@@ -249,69 +275,111 @@ export function QuizAnswerReviewControls({
 
   return (
     <div
-      className="sc-quiz__runtime-controls"
+      className="sc-course-quiz__runtime-controls"
       contentEditable={false}
       data-testid="quiz-answer-review-controls"
     >
-      <div className="sc-quiz__runtime-nav">
-        <button
+      <div className="sc-course-quiz__runtime-nav">
+        <Button
           type="button"
-          className="sc-quiz__ghost-button"
+          size="3"
+          variant="outline"
+          className="sc-course-quiz__secondary-action"
           aria-label="Previous question"
           disabled={!canPrev}
           onClick={() => onNavigate(activeIndex - 1)}
         >
           <CaretLeft size={12} weight="bold" aria-hidden />
           Previous
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          className="sc-quiz__ghost-button"
+          size="3"
+          variant="outline"
+          className="sc-course-quiz__secondary-action"
           aria-label="Next question"
           disabled={!canNext}
           onClick={() => onNavigate(activeIndex + 1)}
         >
           Next
           <CaretRight size={12} weight="bold" aria-hidden />
-        </button>
+        </Button>
       </div>
     </div>
   );
 }
 
 export function QuizTimer({ remainingSeconds }: { remainingSeconds: number }) {
+  const [announcement, setAnnouncement] = useState("");
+  const lastAnnouncedThreshold = useRef<number | null>(null);
   const minutes = Math.floor(remainingSeconds / 60);
   const seconds = remainingSeconds % 60;
   const display = `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
-  const urgency =
-    remainingSeconds <= 10 ? "critical" : remainingSeconds <= 30 ? "warning" : "normal";
+  const courseState = remainingSeconds <= 10 ? "error" : remainingSeconds <= 30 ? "warning" : null;
+
+  useEffect(() => {
+    if (remainingSeconds !== 30 && remainingSeconds !== 10) return;
+    if (lastAnnouncedThreshold.current === remainingSeconds) return;
+    lastAnnouncedThreshold.current = remainingSeconds;
+    setAnnouncement(`${remainingSeconds} seconds remaining.`);
+  }, [remainingSeconds]);
+
   return (
-    <span
-      className="sc-quiz__timer"
-      data-urgency={urgency}
-      data-testid="quiz-timer"
-      role="timer"
-      aria-live={urgency === "critical" ? "assertive" : "polite"}
+    <>
+      <span
+        className="sc-course-quiz__timer"
+        data-course-state={courseState ?? undefined}
+        data-testid="quiz-timer"
+        role="timer"
+        aria-label={`Time remaining ${display}`}
+      >
+        <Hourglass size={12} weight="regular" aria-hidden />
+        {display}
+      </span>
+      <span
+        className="sc-course-quiz__timer-announcement sc-sr-only"
+        data-testid="quiz-timer-announcement"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {announcement}
+      </span>
+    </>
+  );
+}
+
+export function QuizRequestFeedback({ request }: { request: AssessmentRequestState | null }) {
+  if (!request) return null;
+  const feedback = quizRequestFeedback(request);
+  return (
+    <div
+      className="sc-course-quiz__request-feedback"
+      data-course-state={request.status === "error" ? "error" : "info"}
+      data-quiz-request-operation={request.operation}
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+      contentEditable={false}
     >
-      <Hourglass size={12} weight="regular" aria-hidden />
-      {display}
-    </span>
+      {feedback}
+    </div>
   );
 }
 
 export function QuizTimesUpOverlay() {
   return (
     <div
-      className="sc-quiz__timesup"
+      className="sc-course-quiz__timesup"
       contentEditable={false}
       data-testid="quiz-times-up"
+      data-course-state="warning"
       role="status"
       aria-live="assertive"
     >
-      <span className="sc-quiz__timesup-mark" aria-hidden>
+      <span className="sc-course-quiz__timesup-mark" aria-hidden>
         <Timer size={20} weight="regular" />
       </span>
-      <span className="sc-quiz__timesup-label">Time's up</span>
+      <span className="sc-course-quiz__timesup-label">Time's up</span>
     </div>
   );
 }
@@ -324,20 +392,25 @@ export function QuizExpired({
   resultsVisible: boolean;
 }) {
   return (
-    <div className="sc-quiz__expired" contentEditable={false} data-testid="quiz-expired-summary">
-      <span className="sc-quiz__expired-mark" aria-hidden>
+    <div
+      className="sc-course-quiz__expired"
+      contentEditable={false}
+      data-testid="quiz-expired-summary"
+      data-course-state="warning"
+    >
+      <span className="sc-course-quiz__expired-mark" aria-hidden>
         <Timer size={20} weight="regular" />
       </span>
-      <h3 className="sc-quiz__expired-title">Time's up</h3>
-      <p className="sc-quiz__expired-meta">Your attempt ended when the timer ran out.</p>
+      <h3 className="sc-course-quiz__expired-title">Time's up</h3>
+      <p className="sc-course-quiz__expired-meta">Your attempt ended when the timer ran out.</p>
       {resultsVisible && score !== null ? (
         <>
           {"raw" in score ? (
-            <span className="sc-quiz__expired-score">
+            <span className="sc-course-quiz__expired-score">
               {score.raw} / {score.max}
             </span>
           ) : null}
-          <span className="sc-quiz__expired-percent">{Math.round(score.scaled * 100)}%</span>
+          <span className="sc-course-quiz__expired-percent">{Math.round(score.scaled * 100)}%</span>
         </>
       ) : null}
     </div>
@@ -353,26 +426,55 @@ export function QuizCompletion({
 }) {
   return (
     <div
-      className="sc-quiz__completion"
+      className="sc-course-quiz__completion"
       contentEditable={false}
       data-testid="quiz-completion-summary"
+      data-course-state="completed"
     >
-      <span className="sc-quiz__completion-mark" aria-hidden>
+      <span className="sc-course-quiz__completion-mark" aria-hidden>
         <CheckCircle size={20} weight="regular" />
       </span>
-      <h3 className="sc-quiz__completion-title">Quiz complete</h3>
+      <h3 className="sc-course-quiz__completion-title">Quiz complete</h3>
       {resultsVisible && score !== null ? (
         <>
           {"raw" in score ? (
-            <span className="sc-quiz__completion-score">
+            <span className="sc-course-quiz__completion-score">
               {score.raw} / {score.max}
             </span>
           ) : null}
-          <span className="sc-quiz__completion-meta">{Math.round(score.scaled * 100)}%</span>
+          <span className="sc-course-quiz__completion-meta">{Math.round(score.scaled * 100)}%</span>
         </>
       ) : null}
     </div>
   );
+}
+
+function quizRequestFeedback(request: AssessmentRequestState): string {
+  const copy = {
+    "quiz-start": {
+      pending: "Starting quiz…",
+      error: "Couldn’t start the quiz. Try again.",
+    },
+    "quiz-submit-question": {
+      pending: "Submitting answer…",
+      error: "Couldn’t submit this answer. Try again.",
+    },
+    "quiz-finish": {
+      pending: "Submitting quiz…",
+      error: "Couldn’t submit the quiz. Try again.",
+    },
+    "quiz-expire": {
+      pending: "Ending timed attempt…",
+      error: "Couldn’t finish the timed attempt.",
+    },
+    "quiz-reveal-answers": {
+      pending: "Loading answer review…",
+      error: "Couldn’t load answer review.",
+    },
+  } as const;
+
+  if (!(request.operation in copy)) return request.status === "pending" ? "Working…" : "Try again.";
+  return copy[request.operation as keyof typeof copy][request.status];
 }
 
 /**

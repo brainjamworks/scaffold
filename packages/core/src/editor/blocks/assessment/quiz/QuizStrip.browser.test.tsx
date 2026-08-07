@@ -6,6 +6,8 @@ import { page, userEvent } from "vite-plus/test/browser/context";
 
 import { authoringInteractionRootAttributes } from "@/editor/interactions/dom/authoring-root";
 import { TestInteractionDragEnvironment } from "@/editor/interactions/drag/testing/TestInteractionDragEnvironment";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import "@/styles/globals.css";
 
 import { QuizStrip } from "./QuizStrip";
@@ -204,26 +206,28 @@ function QuizStripHarness({
   };
 
   return (
-    <div className="sc-quiz">
-      <QuizStrip
-        activeChildKey={activeChildKey}
-        childKeys={childKeys}
-        childTypes={childKeys.map((childKey) => typeByKey[childKey] ?? "mcq")}
-        items={[]}
-        onAdd={() => undefined}
-        onMove={(childKey, index, direction) => {
-          moveCalls.push({ childKey, direction, index });
-          setChildKeys((current) => moveAdjacent(current, childKey, direction));
-          setActiveChildKey(childKey);
-        }}
-        onReorder={(sourceKey, targetKey) => {
-          reorderCalls.push({ sourceKey, targetKey });
-          setChildKeys((current) => reorderToTarget(current, sourceKey, targetKey));
-          setActiveChildKey(sourceKey);
-        }}
-        onSelect={setActiveChildKey}
-      />
-    </div>
+    <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+      <div className="sc-course-quiz">
+        <QuizStrip
+          activeChildKey={activeChildKey}
+          childKeys={childKeys}
+          childTypes={childKeys.map((childKey) => typeByKey[childKey] ?? "mcq")}
+          items={[]}
+          onAdd={() => undefined}
+          onMove={(childKey, index, direction) => {
+            moveCalls.push({ childKey, direction, index });
+            setChildKeys((current) => moveAdjacent(current, childKey, direction));
+            setActiveChildKey(childKey);
+          }}
+          onReorder={(sourceKey, targetKey) => {
+            reorderCalls.push({ sourceKey, targetKey });
+            setChildKeys((current) => reorderToTarget(current, sourceKey, targetKey));
+            setActiveChildKey(sourceKey);
+          }}
+          onSelect={setActiveChildKey}
+        />
+      </div>
+    </CourseThemeProvider>
   );
 }
 

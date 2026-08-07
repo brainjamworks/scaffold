@@ -102,6 +102,8 @@ import {
 import { useAssessmentProblemFacade } from "@/runtime/assessment/runtime-facade";
 import { assessmentProblemOutcome, assessmentQuizOutcome } from "@/runtime/assessment/test-utils";
 import type { AssessmentRegistrationInput, AssessmentStoreApi } from "@/runtime/assessment/types";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import { pageAssessmentExperience } from "@/editor/blocks/assessment/shared/model/assessment-capability";
 import { CalloutAuthoringExtension } from "@/editor/blocks/presentation/callout";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
@@ -114,6 +116,7 @@ import { QuizNode } from "./node";
 import { QuizAuthoringExtension, QuizRuntimeExtension } from "./index";
 import { getQuizChildBlock } from "./quiz-authoring";
 import { quizBlockDefinition } from "./quiz-definition";
+import { QuizTimer } from "./QuizRuntime";
 import { useQuizAuthoringController } from "./use-quiz-authoring-controller";
 
 const blockInsertCatalog = createInsertCatalog(createBlockInsertActions([quizBlockDefinition]));
@@ -923,6 +926,40 @@ describe("quiz block skeleton", () => {
     editor.destroy();
   });
 
+  it("uses Course-owned Quiz classes and controls throughout the authoring canvas", async () => {
+    const user = userEvent.setup();
+    const editor = createQuizEditor({
+      editable: true,
+      content: runtimeQuizDocument("quiz-course-ownership"),
+    });
+
+    renderEditor(editor);
+
+    const stage = await screen.findByTestId("quiz-stage-viewport");
+    const quiz = stage.closest("[data-quiz-view-id]");
+    expect(quiz).toHaveClass("sc-course-quiz");
+    expect(quiz?.querySelector('[class^="sc-quiz"], [class*=" sc-quiz"]')).toBeNull();
+    expect(screen.getByRole("button", { name: "Question settings" })).toHaveClass(
+      "sc-course-quiz__stage-action",
+    );
+    expect(screen.getByRole("button", { name: "Duplicate question" })).toHaveClass(
+      "sc-course-quiz__stage-action",
+    );
+    expect(screen.getByRole("button", { name: "Delete question" })).toHaveClass(
+      "sc-course-quiz__stage-action",
+    );
+    const addQuestion = screen.getByRole("button", { name: "Add question" });
+    expect(addQuestion).toHaveClass("sc-course-quiz__strip-add");
+    expect(addQuestion).not.toHaveClass("sc-app-block-add");
+
+    await user.click(addQuestion);
+    const picker = await screen.findByRole("dialog");
+    expect(picker).toHaveClass("sc-course-quiz__add-popover");
+    expect(picker.closest(".sc-course-theme-scaffold-flow-v1")).not.toBeNull();
+
+    editor.destroy();
+  });
+
   it("renders an empty runtime quiz as incomplete without crashing", async () => {
     const editor = createQuizEditor({
       editable: false,
@@ -988,6 +1025,64 @@ describe("quiz block skeleton", () => {
       expect(quizShell?.getAttribute("data-quiz-status")).toBe("in_progress");
       expect(quizShell?.getAttribute("data-active-question-id")).toBe("questn_00001");
     });
+    editor.destroy();
+  });
+
+  it("disables a pending Quiz operation and reports concise request progress", async () => {
+    let releaseStart: (() => void) | null = null;
+    const pendingStart = new Promise<ReturnType<typeof canonicalQuizOutcome>>((resolve) => {
+      releaseStart = () =>
+        resolve(
+          canonicalQuizOutcome(
+            attemptState({
+              attemptId: "attempt-started",
+              groupId: "artifact:artifact-1/group:quiz-start-pending",
+              currentTargetId: "questn_00001",
+            }),
+          ),
+        );
+    });
+    const editor = createQuizEditor({
+      editable: false,
+      content: runtimeQuizDocument("quiz-start-pending"),
+    });
+    const port = quizPort({ startAttempt: async () => pendingStart });
+
+    renderWithRuntime(editor, port);
+
+    const start = await screen.findByRole("button", { name: "Start quiz" });
+    fireEvent.click(start);
+    await waitFor(() => expect(start).toBeDisabled());
+    expect(screen.getByRole("status")).toHaveTextContent("Starting quiz…");
+
+    act(() => releaseStart?.());
+    await waitFor(() => expect(screen.queryByText("Starting quiz…")).toBeNull());
+
+    editor.destroy();
+  });
+
+  it("restores the relevant Quiz operation after concise request failure feedback", async () => {
+    const editor = createQuizEditor({
+      editable: false,
+      content: runtimeQuizDocument("quiz-start-error"),
+    });
+    const port = quizPort({
+      startAttempt: async () => {
+        throw new Error("private host detail");
+      },
+    });
+
+    renderWithRuntime(editor, port);
+
+    const start = await screen.findByRole("button", { name: "Start quiz" });
+    fireEvent.click(start);
+    expect(await screen.findByText("Couldn’t start the quiz. Try again.")).toHaveAttribute(
+      "data-course-state",
+      "error",
+    );
+    expect(start).not.toBeDisabled();
+    expect(screen.queryByText("private host detail")).toBeNull();
+
     editor.destroy();
   });
 
@@ -1148,6 +1243,8 @@ describe("quiz block skeleton", () => {
         .closest("[data-quiz-view-id]") as HTMLElement | null;
       expect(quizShell?.getAttribute("data-active-question-id")).toBe("questn_00001");
     });
+    expect(screen.getByTestId("quiz-question-announcement")).toHaveTextContent("Question 1 of 2");
+    expect(screen.getByTestId("quiz-question-announcement")).toHaveAttribute("aria-live", "polite");
 
     const next = screen.getByRole("button", { name: "Next question" });
     expect((next as HTMLButtonElement).disabled).toBe(true);
@@ -1164,6 +1261,7 @@ describe("quiz block skeleton", () => {
         .closest("[data-quiz-view-id]")
         ?.getAttribute("data-active-question-id"),
     ).toBe("questn_00002");
+    expect(screen.getByTestId("quiz-question-announcement")).toHaveTextContent("Question 2 of 2");
 
     fireEvent.click(screen.getByRole("button", { name: "Previous question" }));
     expect(
@@ -2224,6 +2322,25 @@ describe("quiz block skeleton", () => {
     expect(screen.getByTestId("quiz-timer").textContent).toBe("00:02");
 
     editor.destroy();
+  });
+
+  it("keeps the visible timer quiet while announcing only meaningful thresholds", async () => {
+    const view = render(<QuizTimer remainingSeconds={30} />);
+    const timer = screen.getByRole("timer");
+    const announcement = screen.getByTestId("quiz-timer-announcement");
+
+    expect(timer).not.toHaveAttribute("aria-live", "assertive");
+    expect(timer).toHaveAttribute("data-course-state", "warning");
+    expect(announcement).toHaveAttribute("aria-live", "polite");
+    expect(announcement).toHaveTextContent("30 seconds remaining.");
+
+    view.rerender(<QuizTimer remainingSeconds={29} />);
+    expect(announcement).toHaveTextContent("30 seconds remaining.");
+    view.rerender(<QuizTimer remainingSeconds={10} />);
+    expect(timer).toHaveAttribute("data-course-state", "error");
+    expect(announcement).toHaveTextContent("10 seconds remaining.");
+    view.rerender(<QuizTimer remainingSeconds={9} />);
+    expect(announcement).toHaveTextContent("10 seconds remaining.");
   });
 
   it("continues a started timer while an enclosing tab panel is hidden", async () => {
@@ -3357,7 +3474,9 @@ function assessmentRuntimeTree(children: ReactNode, assessment: AssessmentPort |
       <ScaffoldArtifactIdentityProvider artifactId="artifact-1">
         <AssessmentRuntimeProvider>
           <ScopedAssessmentHarness />
-          {children}
+          <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+            {children}
+          </CourseThemeProvider>
         </AssessmentRuntimeProvider>
       </ScaffoldArtifactIdentityProvider>
     </ScaffoldServicesProvider>

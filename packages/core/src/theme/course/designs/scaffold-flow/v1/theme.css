@@ -34,6 +34,7 @@
 @import "./assessment-categorise.css";
 @import "./assessment-matching.css";
 @import "./assessment-image-hotspot.css";
+@import "./assessment-quiz.css";
 
 .sc-course.sc-course-theme-scaffold-flow-v1 {
   --sc-container-flow-gap: calc(0.75rem * var(--sc-course-author-density));

@@ -26,6 +26,8 @@ export function useQuizRuntimeController({ node }: { node: ProseMirrorNode }) {
   );
   const quizFacade = useAssessmentQuizFacade(quizRegistration, !isEmpty);
   const quiz = quizFacade.attempt;
+  const request = quizFacade.request;
+  const pendingOperation = request?.status === "pending" ? request.operation : null;
   const problems = quizFacade.problemsByTargetId;
   const runtimeStatus = quiz?.status ?? "not_started";
   const canRequestFullReview =
@@ -201,8 +203,8 @@ export function useQuizRuntimeController({ node }: { node: ProseMirrorNode }) {
     activeChildIndex,
     activeChildKey,
     canReviewAnswers: canShowCompletedReview,
-    canStart: quizFacade.available,
-    canSubmitLocked: learnerControls.canSubmitAnswer,
+    canStart: quizFacade.available && pendingOperation !== "quiz-start",
+    canSubmitLocked: learnerControls.canSubmitAnswer && pendingOperation !== "quiz-submit-question",
     childCount,
     childKeys,
     childTypes: quizSummary.childTypes,
@@ -210,6 +212,8 @@ export function useQuizRuntimeController({ node }: { node: ProseMirrorNode }) {
     learnerControls,
     quiz,
     quizViewId,
+    request,
+    pendingOperation,
     runtimeStatus,
     settings,
     timerActive,

@@ -10,27 +10,6 @@
   background: var(--color-background);
 }
 
-.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-quiz__quick-action {
-  display: inline-flex;
-  width: 2rem;
-  height: 2rem;
-  align-items: center;
-  justify-content: center;
-  border: var(--sc-course-author-stroke-width) solid var(--accent-a7);
-  border-radius: max(var(--radius-2), var(--radius-full));
-  background: var(--accent-a3);
-  color: var(--accent-11);
-}
-
-.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-quiz__quick-action:focus-visible {
-  outline: 2px solid var(--accent-9);
-  outline-offset: 2px;
-}
-
-.sc-course-quiz__quick-action-tooltip {
-  font-family: var(--default-font-family);
-}
-
 .sc-course.sc-course-theme-scaffold-flow-v1
   .sc-course-fill-blanks__body[data-course-mode="authoring"] {
   min-height: calc(3.5rem * var(--sc-course-author-density));
@@ -156,11 +135,6 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-quiz__quick-action:not(:disabled):hover {
-    border-color: var(--accent-9);
-    background: var(--accent-a4);
-  }
-
   .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-fill-blank__author-trigger:hover {
     border-color: var(--accent-9);
     background: var(--accent-a4);
@@ -176,7 +150,6 @@
 
 @media (forced-colors: active) {
   .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-fill-blank__author-trigger,
-  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-quiz__quick-action,
   .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-fill-blank__input {
     border-color: CanvasText;
     box-shadow: none;
@@ -196,7 +169,6 @@
 
   .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-fill-blank__input:focus-visible,
   .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-fill-blank__author-trigger:focus-visible,
-  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-quiz__quick-action:focus-visible,
   .sc-course.sc-course-theme-scaffold-flow-v1
     .sc-course-fill-blank__feedback-anchor
     .sc-course-assessment-feedback-action:focus-visible {

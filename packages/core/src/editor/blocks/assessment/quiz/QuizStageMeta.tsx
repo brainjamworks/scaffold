@@ -3,11 +3,14 @@ import type { Editor as TiptapEditor } from "@tiptap/core";
 import {
   CopyIcon as Copy,
   GearSixIcon as GearSix,
+  type Icon,
   TrashIcon as Trash,
 } from "@phosphor-icons/react";
+import * as Tooltip from "@radix-ui/react-tooltip";
+import { IconButton } from "@radix-ui/themes";
 
-import * as Tooltip from "@/ui/components/Tooltip/Tooltip";
-import { MenuIconButton } from "@/editor/shell/bubbles/interaction/menu-controls/MenuControls";
+import { CourseThemePortalBoundary } from "@/theme/course/CourseThemeProvider";
+import { useOverlayBoundary } from "@/ui/overlays/portal-host-context";
 import { zIndex } from "@/ui/overlays/z-index";
 import { iconSm } from "@/ui/tokens/icon-sizes";
 
@@ -24,9 +27,9 @@ import type { ResolvedQuickAction } from "./quick-actions";
  *     authoringControls. Path-based settings are kept off this row.
  *   - standard authoring actions: settings, duplicate, delete.
  *
- * The per-question actions are Course controls because they sit inside
- * the canvas. Standard settings and document-management actions retain
- * their existing shell control until the Quiz slice itself is migrated.
+ * Every visible action is Course-owned because this row sits inside the
+ * Course canvas. Tooltip behaviour stays with the Radix primitive while
+ * its portal content restores the active Course theme boundary.
  */
 export function QuizStageMeta({
   activeIndex,
@@ -48,25 +51,29 @@ export function QuizStageMeta({
   onDelete: () => void;
 }) {
   return (
-    <div className="sc-quiz__stage-meta" contentEditable={false} data-testid="quiz-stage-meta">
-      <div className="sc-quiz__stage-meta-left">
-        <span className="sc-quiz__stage-meta-position">
+    <div
+      className="sc-course-quiz__stage-meta"
+      contentEditable={false}
+      data-testid="quiz-stage-meta"
+    >
+      <div className="sc-course-quiz__stage-meta-left">
+        <span className="sc-course-quiz__stage-meta-position">
           {total > 1 ? `Question ${activeIndex + 1} of ${total}` : `Question ${activeIndex + 1}`}
         </span>
-        <span className="sc-quiz__stage-meta-sep">·</span>
-        <span className="sc-quiz__stage-meta-type">{questionTypeTag(type)}</span>
+        <span className="sc-course-quiz__stage-meta-sep">·</span>
+        <span className="sc-course-quiz__stage-meta-type">{questionTypeTag(type)}</span>
       </div>
       <Tooltip.Provider delayDuration={300}>
-        <div className="sc-quiz__stage-meta-actions">
+        <div className="sc-course-quiz__stage-meta-actions">
           {quickActions.map((action) => (
             <QuizQuickActionButton key={action.id} action={action} editor={editor} />
           ))}
           {quickActions.length > 0 ? (
-            <span aria-hidden className="sc-quiz__stage-meta-divider" />
+            <span aria-hidden className="sc-course-quiz__stage-meta-divider" />
           ) : null}
-          <MenuIconButton icon={GearSix} label="Question settings" onClick={onSettings} />
-          <MenuIconButton icon={Copy} label="Duplicate question" onClick={onDuplicate} />
-          <MenuIconButton icon={Trash} label="Delete question" destructive onClick={onDelete} />
+          <QuizStageAction icon={GearSix} label="Question settings" onClick={onSettings} />
+          <QuizStageAction icon={Copy} label="Duplicate question" onClick={onDuplicate} />
+          <QuizStageAction icon={Trash} label="Delete question" tone="danger" onClick={onDelete} />
         </div>
       </Tooltip.Provider>
     </div>
@@ -93,30 +100,71 @@ function QuizQuickActionButton({
   if (!action.icon) return null;
   const Icon = action.icon;
   return (
+    <QuizStageAction
+      icon={Icon}
+      label={action.label}
+      className="sc-course-quiz__quick-action"
+      disabled={!canRun}
+      onClick={action.run}
+    />
+  );
+}
+
+function QuizStageAction({
+  icon: Icon,
+  label,
+  className,
+  disabled = false,
+  tone = "default",
+  onClick,
+}: {
+  icon: Icon;
+  label: string;
+  className?: string;
+  disabled?: boolean;
+  tone?: "default" | "danger";
+  onClick: () => void;
+}) {
+  const overlayBoundary = useOverlayBoundary();
+
+  return (
     <Tooltip.Root>
       <Tooltip.Trigger asChild>
-        <button
+        <IconButton
           type="button"
-          className="sc-course-quiz__quick-action"
-          aria-label={action.label}
-          title={action.label}
-          disabled={!canRun}
+          size="2"
+          variant="ghost"
+          className={`sc-course-quiz__stage-action${className ? ` ${className}` : ""}`}
+          data-tone={tone}
+          aria-label={label}
+          disabled={disabled}
           onMouseDown={(event) => event.preventDefault()}
-          onClick={action.run}
+          onClick={onClick}
         >
           <Icon size={iconSm} aria-hidden />
-        </button>
+        </IconButton>
       </Tooltip.Trigger>
-      <Tooltip.Portal>
-        <Tooltip.Content
-          side="top"
-          sideOffset={7}
-          className="sc-course-quiz__quick-action-tooltip"
-          style={{ zIndex: zIndex.tooltip }}
+      {overlayBoundary.status === "pending" ? null : (
+        <Tooltip.Portal
+          container={
+            overlayBoundary.status === "ready" ? overlayBoundary.environment.host : undefined
+          }
         >
-          {action.label}
-        </Tooltip.Content>
-      </Tooltip.Portal>
+          <CourseThemePortalBoundary>
+            <Tooltip.Content
+              {...(overlayBoundary.status === "ready"
+                ? { collisionBoundary: overlayBoundary.environment.collisionBoundary }
+                : {})}
+              side="top"
+              sideOffset={7}
+              className="sc-course-quiz__action-tooltip"
+              style={{ zIndex: zIndex.tooltip }}
+            >
+              {label}
+            </Tooltip.Content>
+          </CourseThemePortalBoundary>
+        </Tooltip.Portal>
+      )}
     </Tooltip.Root>
   );
 }

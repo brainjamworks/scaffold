@@ -13,6 +13,7 @@ import {
   QuizRetryControls,
   QuizReviewPauseControls,
   QuizReviewableControls,
+  QuizRequestFeedback,
   QuizRuntimeIncomplete,
   QuizRuntimeStart,
   QuizTimer,
@@ -55,6 +56,8 @@ export function QuizRuntimeView(props: NodeViewProps) {
     quiz.canReviewAnswers &&
     !showTimesUp &&
     effectiveRuntimeStatus === "completed";
+  const showQuestionAnnouncement =
+    effectiveRuntimeStatus === "in_progress" && quiz.activeChildIndex >= 0;
 
   const hideStage =
     quiz.isEmpty ||
@@ -72,9 +75,9 @@ export function QuizRuntimeView(props: NodeViewProps) {
       data-quiz-status={quiz.runtimeStatus ?? undefined}
       data-active-question-id={quiz.activeChildKey ?? undefined}
       data-active-question-index={quiz.activeChildIndex >= 0 ? quiz.activeChildIndex : undefined}
-      className="sc-quiz"
+      className="sc-course-quiz"
     >
-      <section className="sc-quiz__container">
+      <section className="sc-course-quiz__container">
         <QuizHeader
           count={quiz.childCount}
           points={quiz.totalPoints}
@@ -84,6 +87,19 @@ export function QuizRuntimeView(props: NodeViewProps) {
             ) : null
           }
         />
+
+        <QuizRequestFeedback request={quiz.request} />
+
+        {showQuestionAnnouncement ? (
+          <span
+            className="sc-course-quiz__question-announcement sc-sr-only"
+            data-testid="quiz-question-announcement"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            Question {quiz.activeChildIndex + 1} of {quiz.childKeys.length}
+          </span>
+        ) : null}
 
         {showRuntimeIncomplete ? <QuizRuntimeIncomplete /> : null}
 
@@ -126,7 +142,7 @@ export function QuizRuntimeView(props: NodeViewProps) {
         ) : null}
 
         <NodeViewContent
-          className={cn("sc-quiz__stage", hideStage && "sc-quiz__stage--hidden")}
+          className={cn("sc-course-quiz__stage", hideStage && "sc-course-quiz__stage--hidden")}
           data-slot="quiz-content"
           data-testid="quiz-stage-viewport"
         />
@@ -136,7 +152,9 @@ export function QuizRuntimeView(props: NodeViewProps) {
             activeIndex={quiz.activeChildIndex}
             canNext={quiz.learnerControls.canGoNext}
             canPrevious={quiz.learnerControls.canGoPrevious}
-            canSubmitQuiz={quiz.learnerControls.canSubmitQuiz}
+            canSubmitQuiz={
+              quiz.learnerControls.canSubmitQuiz && quiz.pendingOperation !== "quiz-finish"
+            }
             showPrevious={quiz.settings.allowBacktracking}
             total={quiz.childKeys.length}
             onNext={() => quiz.actions.navigateRuntime(quiz.activeChildIndex + 1)}

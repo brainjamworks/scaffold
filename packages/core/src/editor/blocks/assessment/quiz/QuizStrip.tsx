@@ -5,16 +5,17 @@ import {
   DotsSixVerticalIcon as DotsSixVertical,
   PlusIcon as Plus,
 } from "@phosphor-icons/react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useId, useState } from "react";
 
-import * as DropdownMenu from "@/ui/components/DropdownMenu/DropdownMenu";
-import { BlockAddGhost } from "@/editor/suggestions/insert/BlockAddGhost";
 import { EditorFloatingPopover as EditorFloating } from "@/editor/interactions/floating/EditorFloatingPopover";
 import type { InteractionDragEvent } from "@/editor/interactions/drag/model/interaction-drag-event";
 import { InteractionDragActivationArea } from "@/editor/interactions/drag/react/InteractionDragActivationArea";
 import { InteractionDragSession } from "@/editor/interactions/drag/react/InteractionDragSession";
 import { useInteractionSortable } from "@/editor/interactions/drag/react/use-interaction-sortable";
 import type { InsertAction } from "@/editor/insertion/insert-action";
+import { CourseThemePortalBoundary } from "@/theme/course/CourseThemeProvider";
+import { useOverlayBoundary } from "@/ui/overlays/portal-host-context";
 import { zIndex } from "@/ui/overlays/z-index";
 
 import { questionTypeTag } from "./question-type-tags";
@@ -66,8 +67,12 @@ export function QuizStrip({
       renderPreview={(active) => <QuizStripPreview data={active} />}
       sessionId={`quiz-strip-${sessionId}`}
     >
-      <div className="sc-quiz__strip" contentEditable={false} data-testid="quiz-stage-selector">
-        <div className="sc-quiz__strip-sortable-items">
+      <div
+        className="sc-course-quiz__strip"
+        contentEditable={false}
+        data-testid="quiz-stage-selector"
+      >
+        <div className="sc-course-quiz__strip-sortable-items">
           {childKeys.map((childKey, index) => (
             <QuizStripPill
               key={childKey}
@@ -87,7 +92,7 @@ export function QuizStrip({
   );
 }
 
-const quizMenuItemClass = "sc-quiz__strip-menu-item";
+const quizMenuItemClass = "sc-course-quiz__strip-menu-item";
 
 interface QuizStripDragData {
   readonly childKey: string;
@@ -112,6 +117,7 @@ function QuizStripPill({
   onMove: (childKey: string, index: number, direction: "up" | "down") => void;
   onSelect: (childKey: string) => void;
 }) {
+  const overlayBoundary = useOverlayBoundary();
   const sortable = useInteractionSortable<QuizStripDragData>({
     data: { childKey, index, type },
     id: childKey,
@@ -125,7 +131,7 @@ function QuizStripPill({
       <div
         data-interaction-drag-placeholder={sortable.isPlaceholder ? "" : undefined}
         ref={sortable.sourceRef}
-        className="sc-quiz__strip-pill"
+        className="sc-course-quiz__strip-pill"
         data-active={isActive ? "true" : undefined}
         data-dragging={sortable.isDragging ? "true" : undefined}
         data-quiz-question-id={childKey}
@@ -133,7 +139,7 @@ function QuizStripPill({
         <InteractionDragActivationArea
           ref={sortable.handleRef}
           aria-label={`Drag question ${index + 1}`}
-          className="sc-quiz__strip-pill-drag"
+          className="sc-course-quiz__strip-pill-drag"
           data-quiz-strip-drag-handle=""
           safeLocalHeight={44}
           safeLocalWidth={44}
@@ -144,47 +150,60 @@ function QuizStripPill({
           type="button"
           aria-current={isActive ? "true" : undefined}
           aria-label={`Question ${index + 1}`}
-          className="sc-quiz__strip-button"
+          className="sc-course-quiz__strip-button"
           onClick={() => onSelect(childKey)}
         >
-          <span className="sc-quiz__strip-number">Q{index + 1}</span>
-          {type ? <span className="sc-quiz__strip-type">{questionTypeTag(type)}</span> : null}
+          <span className="sc-course-quiz__strip-number">Q{index + 1}</span>
+          {type ? (
+            <span className="sc-course-quiz__strip-type">{questionTypeTag(type)}</span>
+          ) : null}
         </button>
         <DropdownMenu.Trigger asChild>
           <button
             type="button"
             aria-label={`Question ${index + 1} options`}
-            className="sc-quiz__strip-pill-kebab"
+            className="sc-course-quiz__strip-pill-kebab"
           >
             <CaretDown size={11} weight="bold" aria-hidden />
           </button>
         </DropdownMenu.Trigger>
       </div>
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          sideOffset={4}
-          align="end"
-          style={{ zIndex: zIndex.dropdown }}
-          className="sc-quiz__strip-menu"
+      {overlayBoundary.status === "pending" ? null : (
+        <DropdownMenu.Portal
+          container={
+            overlayBoundary.status === "ready" ? overlayBoundary.environment.host : undefined
+          }
         >
-          <DropdownMenu.Item
-            disabled={index === 0}
-            onSelect={() => onMove(childKey, index, "up")}
-            className={quizMenuItemClass}
-          >
-            <ArrowLineLeft size={14} weight="regular" aria-hidden />
-            Move earlier
-          </DropdownMenu.Item>
-          <DropdownMenu.Item
-            disabled={index === total - 1}
-            onSelect={() => onMove(childKey, index, "down")}
-            className={quizMenuItemClass}
-          >
-            <ArrowLineRight size={14} weight="regular" aria-hidden />
-            Move later
-          </DropdownMenu.Item>
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
+          <CourseThemePortalBoundary>
+            <DropdownMenu.Content
+              {...(overlayBoundary.status === "ready"
+                ? { collisionBoundary: overlayBoundary.environment.collisionBoundary }
+                : {})}
+              sideOffset={4}
+              align="end"
+              style={{ zIndex: zIndex.dropdown }}
+              className="sc-course-quiz__strip-menu"
+            >
+              <DropdownMenu.Item
+                disabled={index === 0}
+                onSelect={() => onMove(childKey, index, "up")}
+                className={quizMenuItemClass}
+              >
+                <ArrowLineLeft size={14} weight="regular" aria-hidden />
+                Move earlier
+              </DropdownMenu.Item>
+              <DropdownMenu.Item
+                disabled={index === total - 1}
+                onSelect={() => onMove(childKey, index, "down")}
+                className={quizMenuItemClass}
+              >
+                <ArrowLineRight size={14} weight="regular" aria-hidden />
+                Move later
+              </DropdownMenu.Item>
+            </DropdownMenu.Content>
+          </CourseThemePortalBoundary>
+        </DropdownMenu.Portal>
+      )}
     </DropdownMenu.Root>
   );
 }
@@ -192,19 +211,19 @@ function QuizStripPill({
 function QuizStripPreview({ data }: { data: QuizStripDragData }) {
   return (
     <div
-      className="sc-quiz__strip-pill sc-quiz__strip-pill--preview"
+      className="sc-course-quiz__strip-pill sc-course-quiz__strip-pill--preview"
       data-quiz-strip-preview={data.childKey}
     >
-      <span className="sc-quiz__strip-pill-drag" aria-hidden>
+      <span className="sc-course-quiz__strip-pill-drag" aria-hidden>
         <DotsSixVertical size={14} weight="regular" />
       </span>
-      <span className="sc-quiz__strip-button">
-        <span className="sc-quiz__strip-number">Q{data.index + 1}</span>
+      <span className="sc-course-quiz__strip-button">
+        <span className="sc-course-quiz__strip-number">Q{data.index + 1}</span>
         {data.type ? (
-          <span className="sc-quiz__strip-type">{questionTypeTag(data.type)}</span>
+          <span className="sc-course-quiz__strip-type">{questionTypeTag(data.type)}</span>
         ) : null}
       </span>
-      <span className="sc-quiz__strip-pill-kebab" aria-hidden>
+      <span className="sc-course-quiz__strip-pill-kebab" aria-hidden>
         <CaretDown size={11} weight="bold" />
       </span>
     </div>
@@ -222,44 +241,50 @@ function QuizStripAdd({
   return (
     <EditorFloating.Root open={open} onOpenChange={setOpen}>
       <EditorFloating.Trigger asChild>
-        <BlockAddGhost
-          label="Add"
-          presentation="pill"
-          className="sc-quiz__strip-add"
-          icon={<Plus size={12} weight="bold" />}
+        <button
+          type="button"
+          className="sc-course-quiz__strip-add"
+          aria-label="Add question"
           data-testid="quiz-strip-add"
-        />
+        >
+          <span className="sc-course-quiz__strip-add-icon" aria-hidden>
+            <Plus size={12} weight="bold" />
+          </span>
+          <span>Add question</span>
+        </button>
       </EditorFloating.Trigger>
       <EditorFloating.Portal>
-        <EditorFloating.Content
-          sideOffset={6}
-          align="start"
-          authoringChrome
-          className="sc-quiz__add-popover"
-        >
-          <p className="sc-quiz__add-title">Pick a question type</p>
-          <div className="sc-quiz__add-grid">
-            {items.map((item) => {
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => {
-                    onAdd(item);
-                    setOpen(false);
-                  }}
-                  className="sc-quiz__add-option"
-                >
-                  <span aria-hidden className="sc-quiz__add-option-icon">
-                    <Icon size={14} weight="regular" />
-                  </span>
-                  <span className="sc-quiz__add-option-title">{item.title}</span>
-                </button>
-              );
-            })}
-          </div>
-        </EditorFloating.Content>
+        <CourseThemePortalBoundary>
+          <EditorFloating.Content
+            sideOffset={6}
+            align="start"
+            authoringChrome
+            className="sc-course-quiz__add-popover"
+          >
+            <p className="sc-course-quiz__add-title">Pick a question type</p>
+            <div className="sc-course-quiz__add-grid">
+              {items.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      onAdd(item);
+                      setOpen(false);
+                    }}
+                    className="sc-course-quiz__add-option"
+                  >
+                    <span aria-hidden className="sc-course-quiz__add-option-icon">
+                      <Icon size={14} weight="regular" />
+                    </span>
+                    <span className="sc-course-quiz__add-option-title">{item.title}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </EditorFloating.Content>
+        </CourseThemePortalBoundary>
       </EditorFloating.Portal>
     </EditorFloating.Root>
   );
