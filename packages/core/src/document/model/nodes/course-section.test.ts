@@ -94,6 +94,8 @@ describe("Course Section node", () => {
     expect(alternate.attrs).toMatchObject({ id: null, title: null });
     expect(rendered.hasAttribute("data-course-section")).toBe(true);
     expect(rendered.getAttribute("data-course-section-title")).toBe("Introduction & setup");
+    expect(rendered.hidden).toBe(true);
+    expect(rendered.getAttribute("aria-hidden")).toBe("true");
     expect(rendered.hasAttribute("data-title")).toBe(false);
     expect(rendered.childNodes).toHaveLength(0);
   });

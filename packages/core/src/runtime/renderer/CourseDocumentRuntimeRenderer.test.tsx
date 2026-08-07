@@ -79,6 +79,29 @@ function slideshowDocumentContent(): JSONContent {
   return content;
 }
 
+function sectionedSlideshowDocumentContent(): JSONContent {
+  const content = slideshowDocumentContent();
+  const courseDocument = content.content?.[0];
+  if (!courseDocument?.content) {
+    throw new Error("sectioned runtime renderer fixture is missing Course Document content");
+  }
+  const [firstSurface, secondSurface, thirdSurface] = courseDocument.content;
+  courseDocument.content = [
+    {
+      type: "courseSection",
+      attrs: { id: "section00001", title: "Introduction" },
+    },
+    firstSurface!,
+    secondSurface!,
+    {
+      type: "courseSection",
+      attrs: { id: "section00002", title: "Practice" },
+    },
+    thirdSurface!,
+  ];
+  return content;
+}
+
 function pageDocumentContent(): JSONContent {
   const content = createScaffoldDocumentContent({
     mode: "page",
@@ -316,6 +339,38 @@ describe("CourseDocumentRuntimeRenderer", () => {
     expect(nextSurface.getAttribute("data-runtime-surface-hidden")).toBe("true");
     expect(nextSurface.getAttribute("aria-hidden")).toBe("true");
     expect(nextSurface.hasAttribute("hidden")).toBe(true);
+  });
+
+  it("keeps Course Section boundaries hidden and outside Surface visibility state", async () => {
+    const onReady = vi.fn();
+
+    render(
+      <CourseDocumentRuntimeRenderer
+        composition={runtimeComposition}
+        artifactId="artifact-sectioned-renderer"
+        initialContent={sectionedSlideshowDocumentContent()}
+        surfaceStates={{
+          slide_000001: "previous",
+          slide_000002: "current",
+          slide_000003: "next",
+        }}
+        onReady={onReady}
+      />,
+    );
+
+    await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
+
+    const boundaries = document.body.querySelectorAll<HTMLElement>("[data-course-section]");
+    expect(boundaries).toHaveLength(2);
+    for (const boundary of boundaries) {
+      expect(boundary.hidden).toBe(true);
+      expect(boundary.getAttribute("aria-hidden")).toBe("true");
+      expect(boundary.textContent).toBe("");
+    }
+    expect(document.body.querySelectorAll('[data-node="surface"]')).toHaveLength(3);
+    expect(surfaceById("slide_000002").getAttribute("data-runtime-surface-state")).toBe("current");
+    expect(screen.queryByText("Introduction")).toBeNull();
+    expect(screen.queryByText("Practice")).toBeNull();
   });
 
   it("updates visible surface markers without mutating document JSON", async () => {

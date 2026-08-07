@@ -39,7 +39,9 @@ const runtimeComposition = createCoreScaffoldRuntimeComposition();
 const DEFAULT_RUNTIME_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00001");
 const FIRST_SLIDESHOW_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00002");
 const SECOND_SLIDESHOW_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00003");
+const THIRD_SLIDESHOW_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00004");
 const COURSE_SECTION_ID = EmbeddedNodeIdSchema.parse("section00001");
+const SECOND_COURSE_SECTION_ID = EmbeddedNodeIdSchema.parse("section00002");
 
 const runtimeStoreFactories = vi.hoisted(() => ({
   assessment: vi.fn(),
@@ -369,6 +371,36 @@ function runtimeDocumentContent({
     return definition.createSurface({ surfaceId: id });
   });
 
+  return content;
+}
+
+function sectionedRuntimeSlideshowContent(): JSONContent {
+  const content = runtimeDocumentContent({
+    mode: "slideshow",
+    surfaceIds: [
+      FIRST_SLIDESHOW_SURFACE_ID,
+      SECOND_SLIDESHOW_SURFACE_ID,
+      THIRD_SLIDESHOW_SURFACE_ID,
+    ],
+  });
+  const courseDocument = content.content?.[0];
+  if (!courseDocument?.content) {
+    throw new Error("sectioned runtime slideshow fixture is missing Course Document content");
+  }
+  const [firstSurface, secondSurface, thirdSurface] = courseDocument.content;
+  courseDocument.content = [
+    {
+      type: "courseSection",
+      attrs: { id: COURSE_SECTION_ID, title: "Introduction" },
+    },
+    firstSurface!,
+    secondSurface!,
+    {
+      type: "courseSection",
+      attrs: { id: SECOND_COURSE_SECTION_ID, title: "Practice" },
+    },
+    thirdSurface!,
+  ];
   return content;
 }
 
@@ -812,6 +844,72 @@ describe("ContentRuntimeHost", () => {
         },
       },
     ]);
+  });
+
+  it("records only active Surface experiences across Course Section navigation", async () => {
+    const user = userEvent.setup();
+    const port = createLearningEventPort();
+
+    render(
+      <ScaffoldServicesProvider ports={{ learningEvents: port }}>
+        <ContentRuntimeHost
+          composition={runtimeComposition}
+          artifactId="artifact-sectioned-slideshow"
+          initialContent={sectionedRuntimeSlideshowContent()}
+        />
+      </ScaffoldServicesProvider>,
+    );
+
+    await waitFor(() => expect(learningEventVerbs(port)).toEqual(["initialized", "experienced"]));
+    await user.click(screen.getByRole("button", { name: "Introduction, Course Section 1 of 2" }));
+    await user.click(
+      screen.getByRole("menuitemradio", { name: "Practice, Course Section 2 of 2" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Previous slide" }));
+    await user.click(screen.getByRole("button", { name: "Next slide" }));
+    await user.click(screen.getByRole("button", { name: "Practice, Course Section 2 of 2" }));
+    await user.click(
+      screen.getByRole("menuitemradio", { name: "Introduction, Course Section 1 of 2" }),
+    );
+
+    await waitFor(() =>
+      expect(learningEventVerbs(port)).toEqual([
+        "initialized",
+        "experienced",
+        "experienced",
+        "experienced",
+        "experienced",
+        "experienced",
+      ]),
+    );
+    expect(
+      port.accept.mock.calls.slice(1).map(([event]) => ({
+        id: event.object.id,
+        extensions: event.object.definition?.extensions,
+      })),
+    ).toStrictEqual(
+      [
+        FIRST_SLIDESHOW_SURFACE_ID,
+        THIRD_SLIDESHOW_SURFACE_ID,
+        SECOND_SLIDESHOW_SURFACE_ID,
+        THIRD_SLIDESHOW_SURFACE_ID,
+        FIRST_SLIDESHOW_SURFACE_ID,
+      ].map((surfaceId) => {
+        const surfacePosition = [
+          FIRST_SLIDESHOW_SURFACE_ID,
+          SECOND_SLIDESHOW_SURFACE_ID,
+          THIRD_SLIDESHOW_SURFACE_ID,
+        ].indexOf(surfaceId);
+        return {
+          id: createLearningEventSurfaceActivityId(port.rootActivityId, surfaceId),
+          extensions: {
+            [LEARNING_EVENT_EXTENSIONS.surfaceKind]: "slide",
+            [LEARNING_EVENT_EXTENSIONS.surfacePosition]: surfacePosition + 1,
+            [LEARNING_EVENT_EXTENSIONS.surfaceCount]: 3,
+          },
+        };
+      }),
+    );
   });
 
   it("records initial and changed active tab sections as experienced", async () => {

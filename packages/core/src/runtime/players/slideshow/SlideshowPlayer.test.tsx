@@ -910,6 +910,15 @@ describe("SlideshowPlayer", () => {
     const trigger = await screen.findByRole("button", {
       name: "Introduction, Course Section 1 of 2",
     });
+    const rawBoundaries = document.body.querySelectorAll<HTMLElement>("[data-course-section]");
+    expect(rawBoundaries).toHaveLength(2);
+    for (const boundary of rawBoundaries) {
+      expect(boundary.hidden).toBe(true);
+      expect(boundary.getAttribute("aria-hidden")).toBe("true");
+      expect(boundary.textContent).toBe("");
+    }
+    expect(document.body.querySelectorAll('[data-node="surface"]')).toHaveLength(3);
+    expect(screen.getAllByText("Introduction")).toHaveLength(1);
     await user.click(trigger);
     await user.click(
       screen.getByRole("menuitemradio", { name: "Practice, Course Section 2 of 2" }),

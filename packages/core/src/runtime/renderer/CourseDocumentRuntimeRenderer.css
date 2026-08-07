@@ -4,4 +4,8 @@
   .sc-course-document-runtime-renderer__content {
     max-width: none;
   }
+
+  .sc-course-document-runtime-renderer__content [data-course-section] {
+    display: none;
+  }
 }

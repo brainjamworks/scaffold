@@ -34,7 +34,14 @@ export function createCourseSectionNode(
     },
 
     renderHTML({ HTMLAttributes }) {
-      return ["div", mergeAttributes(HTMLAttributes, { "data-course-section": "" })];
+      return [
+        "div",
+        mergeAttributes(HTMLAttributes, {
+          "aria-hidden": "true",
+          "data-course-section": "",
+          hidden: "",
+        }),
+      ];
     },
 
     ...(input.addNodeView ? { addNodeView: input.addNodeView } : {}),
