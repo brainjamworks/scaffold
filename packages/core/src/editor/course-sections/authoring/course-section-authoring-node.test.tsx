@@ -59,12 +59,30 @@ describe("Course Section authoring node", () => {
     render(<EditorContent editor={editor} />);
 
     const boundary = await screen.findByRole("group", {
-      name: "Course Section: Introduction",
+      name: "Introduction, Course Section 1 of 1",
     });
     expect(within(boundary).getByText("Course Section")).toBeInTheDocument();
     expect(within(boundary).getByRole("heading", { name: "Introduction" })).toBeInTheDocument();
     expect(boundary).toHaveAttribute("contenteditable", "false");
     expect(boundary.querySelector("[contenteditable='true']")).toBeNull();
+  });
+
+  it("keeps the boundary visible without mutation controls in read-only authoring", async () => {
+    const editor = createEditor([
+      courseSection(SECTION_1, "Introduction"),
+      surface(SURFACE_1, "First slide"),
+    ]);
+    editor.setEditable(false);
+
+    render(<EditorContent editor={editor} />);
+
+    const boundary = await screen.findByRole("group", {
+      name: "Introduction, Course Section 1 of 1",
+    });
+    expect(within(boundary).getByRole("heading", { name: "Introduction" })).toBeInTheDocument();
+    expect(within(boundary).queryByRole("button", { name: /^Rename / })).toBeNull();
+    expect(within(boundary).queryByRole("button", { name: /^Duplicate / })).toBeNull();
+    expect(within(boundary).queryByRole("button", { name: /^Remove / })).toBeNull();
   });
 
   it("renders repeated authored titles as separate safe boundaries", async () => {
@@ -78,9 +96,23 @@ describe("Course Section authoring node", () => {
     render(<EditorContent editor={editor} />);
 
     await waitFor(() => {
-      expect(screen.getAllByRole("group", { name: "Course Section: Practice" })).toHaveLength(2);
+      expect(
+        screen.getByRole("group", { name: "Practice, Course Section 1 of 2" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("group", { name: "Practice, Course Section 2 of 2" }),
+      ).toBeInTheDocument();
       expect(screen.getAllByRole("heading", { name: "Practice" })).toHaveLength(2);
     });
+    expect(
+      screen.getByRole("button", { name: "Rename Practice, Course Section 1 of 2" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Duplicate Practice, Course Section 2 of 2" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Remove Practice, Course Section 2 of 2" }),
+    ).toBeInTheDocument();
   });
 
   it("projects ProseMirror node selection without becoming editable content", async () => {
@@ -91,7 +123,7 @@ describe("Course Section authoring node", () => {
     editor.commands.setTextSelection(findNodePosition(editor, "surface", "surface00001") + 2);
     render(<EditorContent editor={editor} />);
     const boundary = await screen.findByRole("group", {
-      name: "Course Section: Selected boundary",
+      name: "Selected boundary, Course Section 1 of 1",
     });
 
     expect(boundary).not.toHaveAttribute("data-selected");
@@ -114,21 +146,61 @@ describe("Course Section authoring node", () => {
     render(<EditorContent editor={editor} />);
 
     const boundary = await screen.findByRole("group", {
-      name: "Course Section: Introduction",
+      name: "Introduction, Course Section 1 of 1",
     });
-    await user.click(within(boundary).getByRole("button", { name: "Rename Course Section" }));
+    await user.click(
+      within(boundary).getByRole("button", {
+        name: "Rename Introduction, Course Section 1 of 1",
+      }),
+    );
     const dialog = await screen.findByRole("dialog", { name: "Rename Course Section" });
     const input = within(dialog).getByLabelText("Course Section title");
     await user.clear(input);
     await user.type(input, "Overview");
     await user.click(within(dialog).getByRole("button", { name: "Rename Course Section" }));
 
-    await screen.findByRole("group", { name: "Course Section: Overview" });
+    await screen.findByRole("group", { name: "Overview, Course Section 1 of 1" });
     expect(readCourseChildren(editor)[0]).toMatchObject({
       attrs: { id: SECTION_1, title: "Overview" },
       type: "courseSection",
     });
     expect(documentTransactions).toBe(1);
+  });
+
+  it("closes an open rename flow without mutation when authoring becomes read-only", async () => {
+    const editor = createEditor([
+      courseSection(SECTION_1, "Introduction"),
+      surface(SURFACE_1, "First slide"),
+    ]);
+    const before = editor.getJSON();
+    const user = userEvent.setup();
+    let documentTransactions = 0;
+    editor.on("transaction", ({ transaction }) => {
+      if (transaction.docChanged) documentTransactions += 1;
+    });
+    render(<EditorContent editor={editor} />);
+
+    const boundary = await screen.findByRole("group", {
+      name: "Introduction, Course Section 1 of 1",
+    });
+    await user.click(
+      within(boundary).getByRole("button", {
+        name: "Rename Introduction, Course Section 1 of 1",
+      }),
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Rename Course Section" });
+    const input = within(dialog).getByLabelText("Course Section title");
+    await user.clear(input);
+    await user.type(input, "Overview");
+
+    act(() => editor.setEditable(false));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(within(boundary).queryByRole("button", { name: /^Rename / })).toBeNull();
+    expect(within(boundary).queryByRole("button", { name: /^Duplicate / })).toBeNull();
+    expect(within(boundary).queryByRole("button", { name: /^Remove / })).toBeNull();
+    expect(editor.getJSON()).toEqual(before);
+    expect(documentTransactions).toBe(0);
   });
 
   it("allows a repeated authored title without changing either boundary identity", async () => {
@@ -142,9 +214,13 @@ describe("Course Section authoring node", () => {
     render(<EditorContent editor={editor} />);
 
     const firstBoundary = await screen.findByRole("group", {
-      name: "Course Section: Introduction",
+      name: "Introduction, Course Section 1 of 2",
     });
-    await user.click(within(firstBoundary).getByRole("button", { name: "Rename Course Section" }));
+    await user.click(
+      within(firstBoundary).getByRole("button", {
+        name: "Rename Introduction, Course Section 1 of 2",
+      }),
+    );
     const dialog = await screen.findByRole("dialog", { name: "Rename Course Section" });
     const input = within(dialog).getByLabelText("Course Section title");
     await user.clear(input);
@@ -152,7 +228,12 @@ describe("Course Section authoring node", () => {
     await user.click(within(dialog).getByRole("button", { name: "Rename Course Section" }));
 
     await waitFor(() => {
-      expect(screen.getAllByRole("group", { name: "Course Section: Practice" })).toHaveLength(2);
+      expect(
+        screen.getByRole("group", { name: "Practice, Course Section 1 of 2" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("group", { name: "Practice, Course Section 2 of 2" }),
+      ).toBeInTheDocument();
     });
     expect(readSectionIds(editor)).toEqual([SECTION_1, SECTION_2]);
   });
@@ -178,9 +259,13 @@ describe("Course Section authoring node", () => {
     render(<EditorContent editor={editor} />);
 
     const boundary = await screen.findByRole("group", {
-      name: "Course Section: Introduction",
+      name: "Introduction, Course Section 1 of 1",
     });
-    await user.click(within(boundary).getByRole("button", { name: "Rename Course Section" }));
+    await user.click(
+      within(boundary).getByRole("button", {
+        name: "Rename Introduction, Course Section 1 of 1",
+      }),
+    );
     const dialog = await screen.findByRole("dialog", { name: "Rename Course Section" });
     const titleInput = within(dialog).getByLabelText("Course Section title");
     await user.clear(titleInput);
@@ -200,9 +285,13 @@ describe("Course Section authoring node", () => {
     render(<EditorContent editor={editor} />);
 
     const boundary = await screen.findByRole("group", {
-      name: "Course Section: Introduction",
+      name: "Introduction, Course Section 1 of 1",
     });
-    await user.click(within(boundary).getByRole("button", { name: "Rename Course Section" }));
+    await user.click(
+      within(boundary).getByRole("button", {
+        name: "Rename Introduction, Course Section 1 of 1",
+      }),
+    );
     const dialog = await screen.findByRole("dialog", { name: "Rename Course Section" });
     const sectionPos = findNodePosition(editor, "courseSection", SECTION_1);
     act(() => {
@@ -236,7 +325,9 @@ describe("Course Section authoring node", () => {
       ],
       expectedSectionIds: [],
       label: "sole boundary",
+      number: 1,
       removeTitle: "Only",
+      sectionCount: 1,
       selectedSurfaceId: SURFACE_1,
     },
     {
@@ -248,7 +339,9 @@ describe("Course Section authoring node", () => {
       ],
       expectedSectionIds: [SECTION_2],
       label: "first boundary",
+      number: 1,
       removeTitle: "First",
+      sectionCount: 2,
       selectedSurfaceId: SURFACE_1,
     },
     {
@@ -260,12 +353,21 @@ describe("Course Section authoring node", () => {
       ],
       expectedSectionIds: [SECTION_1],
       label: "non-first boundary",
+      number: 2,
       removeTitle: "Second",
+      sectionCount: 2,
       selectedSurfaceId: SURFACE_2,
     },
   ])(
     "removes a $label through one command while preserving every Surface",
-    async ({ children, expectedSectionIds, removeTitle, selectedSurfaceId }) => {
+    async ({
+      children,
+      expectedSectionIds,
+      number,
+      removeTitle,
+      sectionCount,
+      selectedSurfaceId,
+    }) => {
       const editor = createEditor(children);
       const user = userEvent.setup();
       let documentTransactions = 0;
@@ -275,9 +377,13 @@ describe("Course Section authoring node", () => {
       render(<EditorContent editor={editor} />);
 
       const boundary = await screen.findByRole("group", {
-        name: "Course Section: " + removeTitle,
+        name: `${removeTitle}, Course Section ${number} of ${sectionCount}`,
       });
-      await user.click(within(boundary).getByRole("button", { name: "Remove Course Section" }));
+      await user.click(
+        within(boundary).getByRole("button", {
+          name: `Remove ${removeTitle}, Course Section ${number} of ${sectionCount}`,
+        }),
+      );
 
       await waitFor(() => expect(readSectionIds(editor)).toEqual(expectedSectionIds));
       expect(readSurfaceIds(editor)).toEqual([SURFACE_1, SURFACE_2]);
@@ -302,16 +408,26 @@ describe("Course Section authoring node", () => {
     render(<EditorContent editor={editor} />);
 
     const sourceBoundary = await screen.findByRole("group", {
-      name: "Course Section: Practice",
+      name: "Practice, Course Section 1 of 2",
     });
     expect(within(sourceBoundary).queryByRole("button", { name: /Move/ })).toBeNull();
     expect(editor.schema.nodes["courseSection"]?.spec.draggable).toBe(false);
     await user.click(
-      within(sourceBoundary).getByRole("button", { name: "Duplicate Course Section" }),
+      within(sourceBoundary).getByRole("button", {
+        name: "Duplicate Practice, Course Section 1 of 2",
+      }),
     );
 
     await waitFor(() => {
-      expect(screen.getAllByRole("group", { name: "Course Section: Practice" })).toHaveLength(2);
+      expect(
+        screen.getByRole("group", { name: "Practice, Course Section 1 of 3" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("group", { name: "Practice, Course Section 2 of 3" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("group", { name: "Next, Course Section 3 of 3" }),
+      ).toBeInTheDocument();
     });
     const children = readCourseChildren(editor);
     expect(children.map((child) => child.type)).toEqual([

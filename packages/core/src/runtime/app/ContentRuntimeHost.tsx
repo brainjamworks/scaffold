@@ -1,5 +1,5 @@
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import type { ScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { CourseDocumentAttrsSchema } from "@/schemas/course-document";
@@ -48,6 +48,10 @@ export function ContentRuntimeHost({
 }: ContentRuntimeHostProps) {
   const colorMode = useLearnerColorMode(hostColorMode);
   const runtimeArtifactId = artifactId ?? null;
+  const playerSelection = useMemo(
+    () => (initialContent ? selectRuntimePlayer(initialContent) : null),
+    [initialContent],
+  );
   if (!initialContent) {
     return (
       <div className="sc-content-runtime-host" data-testid="scaffold-runtime-host">
@@ -56,7 +60,6 @@ export function ContentRuntimeHost({
     );
   }
 
-  const playerSelection = selectRuntimePlayer(initialContent);
   if (!playerSelection) {
     return (
       <div className="sc-content-runtime-host" data-testid="scaffold-runtime-host">

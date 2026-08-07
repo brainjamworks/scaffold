@@ -19,6 +19,10 @@ export function createCourseStructureCommandsExtension({
         applyCourseStructureCommand:
           (command: CourseStructureCommand) =>
           ({ editor, state, tr, dispatch }) => {
+            if (!editor.isEditable) {
+              if (dispatch !== undefined) tr.setMeta("preventDispatch", true);
+              return false;
+            }
             const blockDefinitions =
               command.type === "course-section.duplicate" || command.type === "surface.duplicate"
                 ? getScaffoldCapabilitiesForEditor(editor).blocks.registry

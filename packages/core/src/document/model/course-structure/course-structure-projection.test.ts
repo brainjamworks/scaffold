@@ -131,6 +131,16 @@ describe("projectCourseStructure", () => {
       name: "an invalid Course Section title",
       content: slideshowContent([courseSection(SECTION_1, " "), surface(SURFACE_1)]),
     },
+    {
+      name: "a Course Section containing child content",
+      content: slideshowContent([
+        {
+          ...courseSection(SECTION_1, "Practice"),
+          content: [{ type: "paragraph" }],
+        },
+        surface(SURFACE_1),
+      ]),
+    },
   ])("does not reinterpret $name", ({ content }) => {
     expect(projectCourseStructure(content)).toBeNull();
   });

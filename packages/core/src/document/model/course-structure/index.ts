@@ -5,6 +5,10 @@ export type {
   SurfaceId,
 } from "./types";
 export {
+  readCourseSectionOrdinalContext,
+  type CourseSectionOrdinalContext,
+} from "./course-section-ordinal-context";
+export {
   projectCourseStructure,
   type ProjectedCourseSection,
   type ProjectedCourseStructure,

@@ -48,6 +48,19 @@ const runtimeStoreFactories = vi.hoisted(() => ({
   learnerActivity: vi.fn(),
 }));
 
+const runtimePlayerSelectionCalls = vi.hoisted(() => vi.fn());
+
+vi.mock("../players/player-selection", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../players/player-selection")>();
+  return {
+    ...actual,
+    selectRuntimePlayer: (...args: Parameters<typeof actual.selectRuntimePlayer>) => {
+      runtimePlayerSelectionCalls(...args);
+      return actual.selectRuntimePlayer(...args);
+    },
+  };
+});
+
 vi.mock("../assessment/assessment-store", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../assessment/assessment-store")>();
   return {
@@ -88,6 +101,7 @@ beforeEach(() => {
   vi.stubGlobal("ResizeObserver", ResizeObserverStub);
   runtimeStoreFactories.assessment.mockClear();
   runtimeStoreFactories.learnerActivity.mockClear();
+  runtimePlayerSelectionCalls.mockClear();
 });
 
 afterEach(() => {
@@ -1612,6 +1626,54 @@ describe("ContentRuntimeHost", () => {
     expect(onEditorReady).not.toHaveBeenCalled();
   });
 
+  it("reuses runtime player selection while the same initial content remains loaded", async () => {
+    const initialContent = runtimeDocumentContent();
+    const replacementContent = runtimeDocumentContent();
+    const callsFor = (content: JSONContent) =>
+      runtimePlayerSelectionCalls.mock.calls.filter(([candidate]) => candidate === content).length;
+    const { rerender } = render(
+      <StrictMode>
+        <ContentRuntimeHost
+          composition={runtimeComposition}
+          artifactId="artifact-1"
+          courseTitle="Initial title"
+          initialContent={initialContent}
+        />
+      </StrictMode>,
+    );
+
+    expect(await screen.findByTestId("page-player")).toBeInTheDocument();
+    const initialSelectionCount = callsFor(initialContent);
+    expect(initialSelectionCount).toBeGreaterThan(0);
+
+    rerender(
+      <StrictMode>
+        <ContentRuntimeHost
+          composition={runtimeComposition}
+          artifactId="artifact-1"
+          courseTitle="Updated title"
+          initialContent={initialContent}
+        />
+      </StrictMode>,
+    );
+
+    expect(callsFor(initialContent)).toBe(initialSelectionCount);
+
+    rerender(
+      <StrictMode>
+        <ContentRuntimeHost
+          composition={runtimeComposition}
+          artifactId="artifact-1"
+          courseTitle="Updated title"
+          initialContent={replacementContent}
+        />
+      </StrictMode>,
+    );
+
+    await waitFor(() => expect(callsFor(replacementContent)).toBeGreaterThan(0));
+    expect(callsFor(initialContent)).toBe(initialSelectionCount);
+  });
+
   it("renders unavailable when canonical Course Structure cannot be projected", () => {
     const content = runtimeDocumentContent({
       mode: "slideshow",
@@ -1633,6 +1695,41 @@ describe("ContentRuntimeHost", () => {
       <ContentRuntimeHost
         composition={runtimeComposition}
         artifactId="artifact-invalid-course-structure"
+        initialContent={content}
+      />,
+    );
+
+    expect(
+      screen
+        .getByTestId("scaffold-runtime-unavailable")
+        .getAttribute("data-runtime-unavailable-reason"),
+    ).toBe("invalid-course-structure");
+    expect(screen.queryByTestId("course-document-runtime-renderer")).toBeNull();
+  });
+
+  it("renders unavailable when a Course Section contains child content", () => {
+    const content = runtimeDocumentContent({
+      mode: "slideshow",
+      surfaceIds: [FIRST_SLIDESHOW_SURFACE_ID],
+    });
+    const courseDocument = content.content?.[0];
+    const firstSurface = courseDocument?.content?.[0];
+    if (!courseDocument || !firstSurface) {
+      throw new Error("runtime slideshow fixture is incomplete");
+    }
+    courseDocument.content = [
+      {
+        type: "courseSection",
+        attrs: { id: COURSE_SECTION_ID, title: "Practice" },
+        content: [{ type: "paragraph" }],
+      },
+      firstSurface,
+    ];
+
+    render(
+      <ContentRuntimeHost
+        composition={runtimeComposition}
+        artifactId="artifact-content-bearing-course-section"
         initialContent={content}
       />,
     );

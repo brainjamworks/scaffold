@@ -366,6 +366,27 @@ describe("Course Structure Tiptap commands", () => {
     expect(transactions).not.toHaveBeenCalled();
   });
 
+  it("refuses Course Structure commands without dispatching while the editor is read-only", () => {
+    const editor = makeEditor([section(SECTION_1, "One"), surface(SURFACE_1)], "slideshow", []);
+    const before = editor.getJSON();
+    editor.setEditable(false, false);
+    const transactions = vi.fn();
+    const updates = vi.fn();
+    editor.on("transaction", transactions);
+    editor.on("update", updates);
+
+    expect(
+      runCommand(editor, {
+        type: "course-section.rename",
+        courseSectionId: SECTION_1,
+        title: "Renamed",
+      }),
+    ).toBe(false);
+    expect(editor.getJSON()).toEqual(before);
+    expect(transactions).not.toHaveBeenCalled();
+    expect(updates).not.toHaveBeenCalled();
+  });
+
   it("lets a mounted Block rewrite private identity during Surface duplication", () => {
     const rewriteCopiedContent = vi.fn(({ content, nodeIdChanges }) => {
       const data = content.attrs?.["data"];

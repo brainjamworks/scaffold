@@ -135,6 +135,7 @@ function projectSectionedSlideshow(
   for (const child of children) {
     if (child.type === "courseSection") {
       if (activeSection && !finishActiveSection()) return null;
+      if (child.content && child.content.length > 0) return null;
       const parsed = CourseSectionAttrsSchema.safeParse(child.attrs);
       if (!parsed.success || ids.has(parsed.data.id)) return null;
       ids.add(parsed.data.id);

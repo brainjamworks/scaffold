@@ -58,7 +58,12 @@ describe("mounted Course Section authoring", () => {
     await user.click(within(startDialog).getByRole("button", { name: "Start Course Section" }));
 
     await waitFor(() => {
-      expect(screen.getAllByRole("group", { name: "Course Section: Shared" })).toHaveLength(2);
+      expect(
+        screen.getByRole("group", { name: "Shared, Course Section 1 of 2" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("group", { name: "Shared, Course Section 2 of 2" }),
+      ).toBeInTheDocument();
     });
     expect(readSectionTitles(editor)).toEqual(["Shared", "Shared"]);
     expect(readSurfaceIds(editor)).toEqual([FIRST_SURFACE_ID, SECOND_SURFACE_ID, THIRD_SURFACE_ID]);
@@ -83,10 +88,12 @@ describe("mounted Course Section authoring", () => {
     await expectOnePersistedUpdate(onUpdate, editor);
 
     const practiceBoundary = await screen.findByRole("group", {
-      name: "Course Section: Practice",
+      name: "Practice, Course Section 3 of 3",
     });
     await user.click(
-      within(practiceBoundary).getByRole("button", { name: "Rename Course Section" }),
+      within(practiceBoundary).getByRole("button", {
+        name: "Rename Practice, Course Section 3 of 3",
+      }),
     );
     const renameDialog = await screen.findByRole("dialog", { name: "Rename Course Section" });
     const titleInput = within(renameDialog).getByLabelText("Course Section title");
@@ -94,27 +101,38 @@ describe("mounted Course Section authoring", () => {
     await user.type(titleInput, "Shared");
     await user.click(within(renameDialog).getByRole("button", { name: "Rename Course Section" }));
     await waitFor(() => {
-      expect(screen.getAllByRole("group", { name: "Course Section: Shared" })).toHaveLength(3);
+      expect(
+        screen.getByRole("group", { name: "Shared, Course Section 1 of 3" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("group", { name: "Shared, Course Section 2 of 3" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("group", { name: "Shared, Course Section 3 of 3" }),
+      ).toBeInTheDocument();
     });
     await expectOnePersistedUpdate(onUpdate, editor);
 
-    const repeatedBoundaries = screen.getAllByRole("group", {
-      name: "Course Section: Shared",
+    const middleBoundary = screen.getByRole("group", {
+      name: "Shared, Course Section 2 of 3",
     });
-    const middleBoundary = repeatedBoundaries[1];
-    if (!middleBoundary) throw new Error("Expected the middle Course Section boundary.");
-    await user.click(within(middleBoundary).getByRole("button", { name: "Remove Course Section" }));
+    await user.click(
+      within(middleBoundary).getByRole("button", {
+        name: "Remove Shared, Course Section 2 of 3",
+      }),
+    );
     await waitFor(() => expect(readSectionTitles(editor)).toEqual(["Shared", "Shared"]));
     expect(readSurfaceIds(editor)).toEqual([FIRST_SURFACE_ID, SECOND_SURFACE_ID, THIRD_SURFACE_ID]);
     await expectOnePersistedUpdate(onUpdate, editor);
 
-    const duplicateSource = screen.getAllByRole("group", {
-      name: "Course Section: Shared",
-    })[0];
-    if (!duplicateSource) throw new Error("Expected the Course Section to duplicate.");
+    const duplicateSource = screen.getByRole("group", {
+      name: "Shared, Course Section 1 of 2",
+    });
     const beforeSectionDuplicate = structuredClone(editor.getJSON());
     await user.click(
-      within(duplicateSource).getByRole("button", { name: "Duplicate Course Section" }),
+      within(duplicateSource).getByRole("button", {
+        name: "Duplicate Shared, Course Section 1 of 2",
+      }),
     );
     await waitFor(() => expect(readSurfaceIds(editor)).toHaveLength(5));
     const afterSectionDuplicate = structuredClone(editor.getJSON());

@@ -13,6 +13,7 @@ import {
   type SurfaceSize,
 } from "@/schemas/course-document";
 import { getCourseDocumentDefaultsForMode } from "@/document/model/course-document-defaults";
+import { projectCourseStructure } from "@/document/model/course-structure";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { migrateCourseDocumentJSON } from "@/document/model/validation/migrations";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
@@ -163,6 +164,13 @@ export function prepareScaffoldArtifactForAuthoring(value: unknown): PreparedSca
     return {
       status: "error",
       message: `Scaffold artifact mode "${artifact.mode}" does not match content mode "${attrs.mode}".`,
+    };
+  }
+
+  if (!projectCourseStructure(migration.document)) {
+    return {
+      status: "error",
+      message: "Scaffold artifact content has invalid Course Structure.",
     };
   }
 

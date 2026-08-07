@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
+import type { JSONContent } from "@tiptap/core";
 
 import { getCourseDocumentDefaultsForMode } from "@/document/model/course-document-defaults";
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
@@ -193,6 +194,71 @@ describe("Scaffold format", () => {
     });
   });
 
+  it.each([
+    {
+      name: "a Page containing multiple Surfaces",
+      mode: "page" as const,
+      content: () =>
+        courseContent("page", (firstSurface) => [
+          firstSurface,
+          surfaceWithId(firstSurface, "surface00002"),
+        ]),
+    },
+    {
+      name: "a partially sectioned Slideshow",
+      mode: "slideshow" as const,
+      content: () =>
+        courseContent("slideshow", (firstSurface) => [
+          firstSurface,
+          courseSection("section00001", "Practice"),
+          surfaceWithId(firstSurface, "surface00002"),
+        ]),
+    },
+    {
+      name: "an empty Course Section",
+      mode: "slideshow" as const,
+      content: () =>
+        courseContent("slideshow", (firstSurface) => [
+          courseSection("section00001", "Introduction"),
+          courseSection("section00002", "Practice"),
+          firstSurface,
+        ]),
+    },
+    {
+      name: "invalid Course Section attributes",
+      mode: "slideshow" as const,
+      content: () =>
+        courseContent("slideshow", (firstSurface) => [
+          courseSection("section00001", " "),
+          firstSurface,
+        ]),
+    },
+    {
+      name: "a Course Section containing child content",
+      mode: "slideshow" as const,
+      content: () =>
+        courseContent("slideshow", (firstSurface) => [
+          {
+            ...courseSection("section00001", "Practice"),
+            content: [{ type: "paragraph" }],
+          },
+          firstSurface,
+        ]),
+    },
+  ])("rejects stored content with $name", ({ mode, content }) => {
+    expect(
+      prepareScaffoldArtifactForAuthoring({
+        id: "artifact-1",
+        title: "Untitled",
+        mode,
+        content: content(),
+      }),
+    ).toEqual({
+      status: "error",
+      message: "Scaffold artifact content has invalid Course Structure.",
+    });
+  });
+
   it("migrates stored v1 content before reading current attrs", () => {
     const content = createScaffoldDocumentContent({ mode: "page" });
     const courseDocument = content.content?.[0];
@@ -312,3 +378,26 @@ describe("Scaffold format", () => {
     });
   });
 });
+
+function courseContent(
+  mode: "page" | "slideshow",
+  children: (firstSurface: JSONContent) => JSONContent[],
+): JSONContent {
+  const content = createScaffoldDocumentContent({ mode, surfaceId: "surface00001" });
+  const courseDocument = content.content?.[0];
+  const firstSurface = courseDocument?.content?.[0];
+  if (!courseDocument || !firstSurface) throw new Error("Expected Course Document content.");
+  courseDocument.content = children(firstSurface);
+  return content;
+}
+
+function surfaceWithId(surface: JSONContent, id: string): JSONContent {
+  return {
+    ...structuredClone(surface),
+    attrs: { ...surface.attrs, id },
+  };
+}
+
+function courseSection(id: string, title: string): JSONContent {
+  return { type: "courseSection", attrs: { id, title } };
+}

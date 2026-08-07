@@ -95,4 +95,24 @@ describe("selectRuntimePlayer", () => {
 
     expect(selectRuntimePlayer(content)).toBeNull();
   });
+
+  it("returns no player selection for a Course Section containing child content", () => {
+    const content = createScaffoldDocumentContent({
+      mode: "slideshow",
+      surfaceId: FIRST_SLIDE_ID,
+    });
+    const courseDocument = content.content?.[0];
+    const firstSurface = courseDocument?.content?.[0];
+    if (!courseDocument || !firstSurface) throw new Error("missing slideshow fixture");
+    courseDocument.content = [
+      {
+        type: "courseSection",
+        attrs: { id: COURSE_SECTION_ID, title: "Practice" },
+        content: [{ type: "paragraph" }],
+      },
+      firstSurface,
+    ];
+
+    expect(selectRuntimePlayer(content)).toBeNull();
+  });
 });
