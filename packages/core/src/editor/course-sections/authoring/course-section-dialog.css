@@ -50,3 +50,9 @@
     gap: 0.5rem;
   }
 }
+
+@layer sc-components {
+  .sc-course-section-authoring__error {
+    margin: 0.25rem 0 0;
+  }
+}
