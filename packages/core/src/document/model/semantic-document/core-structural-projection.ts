@@ -81,7 +81,9 @@ export function projectCoreStructuralItems({
             documentSemantics: classified.documentSemantics,
           }
         : null;
-      const description = ownerContext ? evaluateOwnerDescription(ownerContext, builder) : null;
+      const description = ownerContext
+        ? evaluateOwnerDescription(ownerContext, definitions, builder)
+        : null;
       const describedItem = description
         ? {
             ...classified.item,
@@ -179,7 +181,10 @@ function projectPublishedChildren(input: {
       parentId,
       surfaceId: input.surfaceId,
       parentNodeType: resolved.parentNodeType,
-      layoutDefinition: undefined,
+      layoutDefinition:
+        input.owner.nodeType === NODE_TYPES.layout
+          ? input.definitions.layouts.get(input.owner.definitionId)
+          : undefined,
       siblingTypeOrdinal: 1,
       activationPath,
     };

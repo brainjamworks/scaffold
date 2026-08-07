@@ -41,11 +41,12 @@ interface OwnedNodeRecord {
 
 export function evaluateOwnerDescription(
   owner: SemanticOwnerContext,
+  definitions: SemanticDefinitionLookup,
   builder: SemanticSnapshotBuilder,
 ): SemanticItemDescription | null {
   const describe = owner.documentSemantics.describe;
   if (!describe) return null;
-  const helpers = createSemanticProjectionHelpers(owner.node);
+  const helpers = createSemanticProjectionHelpers(owner.node, definitions);
 
   try {
     const description = describe({
@@ -72,7 +73,7 @@ export function resolveOwnerPublication(
 ): readonly ResolvedPublishedSemanticChild[] {
   const projectChildren = owner.documentSemantics.projectChildren;
   if (!projectChildren) return [];
-  const helpers = createSemanticProjectionHelpers(owner.node);
+  const helpers = createSemanticProjectionHelpers(owner.node, definitions);
 
   let candidates: readonly PublishedSemanticChild[];
   try {

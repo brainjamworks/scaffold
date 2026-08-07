@@ -5,6 +5,7 @@ import type { EmbeddedNodeId } from "@scaffold/contracts";
 /** Pure projection helpers supplied by Core while evaluating one owning definition. */
 export interface SemanticProjectionHelpers {
   projectStandardRichText(contentRoot?: ProseMirrorNode): readonly PublishedSemanticChild[];
+  projectStructuralChildren(contentRoot?: ProseMirrorNode): readonly PublishedSemanticChild[];
 }
 
 export interface SemanticDefinitionOwnerInput {

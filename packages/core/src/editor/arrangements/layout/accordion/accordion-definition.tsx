@@ -5,7 +5,17 @@ import {
   StackIcon as Stack,
 } from "@phosphor-icons/react";
 import { z } from "zod";
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
+import type {
+  DocumentSemanticsDefinition,
+  PublishedSemanticChild,
+  SemanticChildProjector,
+  SemanticChildProjectionInput,
+  SemanticItemDescriber,
+} from "@/document/model/semantic-document";
+import { normalizeSemanticLabel } from "@/document/model/semantic-document/semantic-labels";
 import { defineConfiguration } from "@/editor/configuration/definition";
 
 import type { LayoutDefinition } from "../model/layout-definition";
@@ -21,6 +31,64 @@ const AccordionSectionOptionsSchema = z.object({
   defaultOpen: z.boolean().default(false),
 });
 
+const accordionDocumentSemantics: DocumentSemanticsDefinition = Object.freeze({
+  projectChildren: ({ owner, ownerId }: SemanticChildProjectionInput) => {
+    const sections: PublishedSemanticChild[] = [];
+    let offset = 0;
+    owner.forEach((node) => {
+      if (node.type.name === "section") {
+        const sectionId = EmbeddedNodeIdSchema.safeParse(node.attrs["id"]);
+        if (sectionId.success) {
+          sections.push(
+            Object.freeze({
+              relativePos: offset,
+              activation: Object.freeze([
+                Object.freeze({
+                  ownerId,
+                  childId: sectionId.data,
+                  ownerKind: "layout" as const,
+                }),
+              ]),
+            }),
+          );
+        }
+      }
+      offset += node.nodeSize;
+    });
+    return Object.freeze(sections);
+  },
+});
+
+const describeAccordionSection: SemanticItemDescriber = ({ owner }) => {
+  let title = "";
+  owner.forEach((node) => {
+    if (node.type.name === "accordion_section_title") title = node.textContent;
+  });
+  return Object.freeze({ label: normalizeSemanticLabel(title, "Accordion section") });
+};
+
+const projectAccordionSectionChildren: SemanticChildProjector = ({ owner, helpers }) => {
+  let panel: ProseMirrorNode | undefined;
+  owner.forEach((node) => {
+    if (node.type.name === "accordion_section_panel") panel = node;
+  });
+  if (!panel) return Object.freeze([]);
+
+  const candidates = new Map<number, PublishedSemanticChild>();
+  for (const candidate of helpers.projectStandardRichText(panel)) {
+    candidates.set(candidate.relativePos, candidate);
+  }
+  for (const candidate of helpers.projectStructuralChildren(panel)) {
+    candidates.set(candidate.relativePos, candidate);
+  }
+  return Object.freeze([...candidates.values()].sort((a, b) => a.relativePos - b.relativePos));
+};
+
+const accordionSectionDocumentSemantics: DocumentSemanticsDefinition = Object.freeze({
+  describe: describeAccordionSection,
+  projectChildren: projectAccordionSectionChildren,
+});
+
 export const accordionLayoutDefinition = {
   id: "accordion",
   title: "Accordion",
@@ -32,6 +100,7 @@ export const accordionLayoutDefinition = {
   placeholders: {
     accordion_section_title: "Enter your section title",
   },
+  documentSemantics: accordionDocumentSemantics,
   configuration: defineConfiguration({
     attr: "options",
     schema: AccordionLayoutOptionsSchema,
@@ -75,6 +144,7 @@ export const accordionLayoutDefinition = {
   section: {
     label: "Accordion section",
     addLabel: "Add section",
+    documentSemantics: accordionSectionDocumentSemantics,
     create: ({ index }) => createAccordionSection(index, `Section ${index + 1}`, false),
     configuration: defineConfiguration({
       attr: "options",
