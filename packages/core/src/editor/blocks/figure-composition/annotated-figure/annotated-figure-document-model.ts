@@ -15,6 +15,8 @@ import {
 
 export interface AnnotatedFigureAnnotationProjection {
   id: string;
+  /** Position relative to the owning Figure's content start. */
+  relativePos: number;
   index: number;
   number: number;
   title: string;
@@ -95,6 +97,7 @@ export function resolveAnnotatedFigureModel(owner: {
     seenIds.add(attrs.data.id);
     annotations.push({
       id: attrs.data.id,
+      relativePos: annotationPos - owner.pos - 1,
       index,
       number: index + 1,
       title: attrs.data.title,
