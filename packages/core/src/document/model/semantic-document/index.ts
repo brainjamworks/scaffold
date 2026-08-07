@@ -29,3 +29,7 @@ export type {
   SemanticItemKind,
   SemanticPresentationCapability,
 } from "./semantic-document-snapshot";
+export {
+  projectSemanticDocument,
+  type ProjectSemanticDocumentInput,
+} from "./project-semantic-document";
