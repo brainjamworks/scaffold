@@ -8,7 +8,7 @@ from adapters.xblock.tests.test_scaffold_projection import (
 )
 
 
-def submission(target_id="mcq-1", option_id="b"):
+def submission(target_id="target_00001", option_id="option_00002"):
     return {
         "problemId": "artifact:usage-v1/block:%s" % target_id,
         "targetId": target_id,
@@ -61,7 +61,7 @@ class AssessmentGradeDeliveryTest(unittest.TestCase):
         self.assertTrue(response["success"])
         self.assertTrue(response["isCorrect"])
         snapshot = json.loads(block.assessment_snapshot_json)
-        self.assertEqual(snapshot["problems"]["mcq-1"]["attemptNumber"], 1)
+        self.assertEqual(snapshot["problems"]["target_00001"]["attemptNumber"], 1)
         self.assertEqual(block.attempts_count, 1)
         self.assertEqual(block.current_score, 0.0)
         delivery = delivery_record(block)
@@ -104,16 +104,16 @@ class AssessmentGradeDeliveryTest(unittest.TestCase):
 
     def test_next_grade_change_retries_then_supersedes_with_the_newest_projection(self):
         block = make_xblock(
-            [single_select_target("mcq-1"), single_select_target("mcq-2")],
+            [single_select_target("target_00001"), single_select_target("target_00002")],
         )
         block.assessment_grade_delivery_json = ""
         block.runtime = SequencedPublishRuntime(
             [RuntimeError("temporary"), None, None],
         )
-        first = block.submit_assessment(submission("mcq-1"))
+        first = block.submit_assessment(submission("target_00001"))
         older_delivery = delivery_record(block)
 
-        second = block.submit_assessment(submission("mcq-2"))
+        second = block.submit_assessment(submission("target_00002"))
 
         self.assertTrue(first["success"])
         self.assertTrue(second["success"])
@@ -165,18 +165,18 @@ class AssessmentGradeDeliveryTest(unittest.TestCase):
         self.assertEqual(block.current_score, 1.0)
 
     def test_quiz_grade_failure_keeps_the_completed_attempt_accepted_once(self):
-        group = quiz_group(target_ids=["mcq-1"])
-        block = make_xblock([single_select_target("mcq-1")], groups=[group])
+        group = quiz_group(target_ids=["target_00001"])
+        block = make_xblock([single_select_target("target_00001")], groups=[group])
         block.assessment_grade_delivery_json = ""
         block.runtime = SequencedPublishRuntime([RuntimeError("temporary")])
-        attempt = block.start_quiz_attempt({"groupId": "quiz-1"})
+        attempt = block.start_quiz_attempt({"groupId": "quiz__000001"})
 
         response = block.finish_quiz_attempt(
             {
                 "attemptId": attempt["attemptId"],
-                "groupId": "quiz-1",
+                "groupId": "quiz__000001",
                 "responsesByTargetId": {
-                    "mcq-1": {"kind": "single-select", "optionId": "b"},
+                    "target_00001": {"kind": "single-select", "optionId": "option_00002"},
                 },
             },
         )
@@ -184,8 +184,8 @@ class AssessmentGradeDeliveryTest(unittest.TestCase):
         self.assertTrue(response["success"])
         self.assertEqual(response["status"], "completed")
         snapshot = json.loads(block.assessment_snapshot_json)
-        self.assertEqual(snapshot["quizzes"]["quiz-1"]["status"], "completed")
-        self.assertEqual(snapshot["problems"]["mcq-1"]["attemptNumber"], 1)
+        self.assertEqual(snapshot["quizzes"]["quiz__000001"]["status"], "completed")
+        self.assertEqual(snapshot["problems"]["target_00001"]["attemptNumber"], 1)
         self.assertEqual(block.attempts_count, 1)
         self.assertEqual(delivery_record(block)["deliveryStatus"], "failed")
 

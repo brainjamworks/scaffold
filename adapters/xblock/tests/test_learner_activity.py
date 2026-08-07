@@ -21,12 +21,12 @@ EXISTING_RECORD = {
 SNAPSHOT = {
     "snapshotVersion": 1,
     "artifactId": "artifact-1",
-    "activities": {"block-existing": EXISTING_RECORD},
+    "activities": {"block_000001": EXISTING_RECORD},
 }
 
 SAVE_REQUEST = {
     "artifactId": "artifact-1",
-    "blockId": "block-new",
+    "blockId": "block_000002",
     "record": {
         "activityKind": "checklist",
         "data": {"checkedItemIds": ["item-1"]},
@@ -152,7 +152,7 @@ class LearnerActivitySaveOperationTest(unittest.TestCase):
             SNAPSHOT,
             SAVE_REQUEST,
             "artifact-1",
-            {"block-existing", "block-new"},
+            {"block_000001", "block_000002"},
             clock=lambda: now,
         )
 
@@ -163,9 +163,9 @@ class LearnerActivitySaveOperationTest(unittest.TestCase):
                 "updatedAt": "2026-07-17T12:30:45.123000+00:00",
             },
         )
-        self.assertEqual(updated_snapshot["activities"]["block-new"], record)
+        self.assertEqual(updated_snapshot["activities"]["block_000002"], record)
         self.assertEqual(
-            updated_snapshot["activities"]["block-existing"],
+            updated_snapshot["activities"]["block_000001"],
             EXISTING_RECORD,
         )
         self.assertEqual(SNAPSHOT, original)
@@ -174,17 +174,17 @@ class LearnerActivitySaveOperationTest(unittest.TestCase):
         activity = load_scaffold_module("activity")
         cases = [
             {**deepcopy(SAVE_REQUEST), "artifactId": "artifact-2"},
-            {**deepcopy(SAVE_REQUEST), "blockId": "block-foreign"},
+            {**deepcopy(SAVE_REQUEST), "blockId": "block_999999"},
             {
                 **deepcopy(SAVE_REQUEST),
-                "blockId": "artifact:artifact-1/block:block-new",
+                "blockId": "artifact:artifact-1/block:block_000002",
             },
         ]
 
         for request in cases:
             with self.subTest(request=request):
                 original = deepcopy(SNAPSHOT)
-                authorized_block_ids = {"block-existing", "block-new"}
+                authorized_block_ids = {"block_000001", "block_000002"}
                 if request["blockId"].startswith("artifact:"):
                     authorized_block_ids.add(request["blockId"])
                 with self.assertRaises(activity.LearnerActivityOperationValidationError):
@@ -211,7 +211,7 @@ class LearnerActivitySaveOperationTest(unittest.TestCase):
                         SNAPSHOT,
                         request,
                         "artifact-1",
-                        {"block-existing", "block-new"},
+                        {"block_000001", "block_000002"},
                     )
                 self.assertEqual(SNAPSHOT, original)
 
@@ -249,7 +249,7 @@ class LearnerActivitySaveOperationTest(unittest.TestCase):
                         SNAPSHOT,
                         request,
                         "artifact-1",
-                        {"block-existing", "block-new"},
+                        {"block_000001", "block_000002"},
                     )
                 self.assertEqual(SNAPSHOT, original)
 
@@ -269,7 +269,7 @@ class LearnerActivitySaveOperationTest(unittest.TestCase):
                         snapshot,
                         SAVE_REQUEST,
                         "artifact-1",
-                        {"block-existing", "block-new"},
+                        {"block_000001", "block_000002"},
                     )
                 self.assertEqual(snapshot, original)
 

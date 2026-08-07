@@ -248,7 +248,7 @@ def rich_feedback(text):
 
 
 def single_select_target(
-    target_id="mcq-1",
+    target_id="target_00001",
     points=2,
     is_graded=True,
     max_attempts=2,
@@ -262,12 +262,12 @@ def single_select_target(
         "blockType": "mcq",
         "interaction": {
             "kind": "single-select",
-            "options": [{"id": "a"}, {"id": "b"}],
+            "options": [{"id": "option_00001"}, {"id": "option_00002"}],
         },
         "assessment": {
             "kind": "single-select",
-            "correctOptionId": "b",
-            "feedbackByOptionId": {"b": rich_feedback("Choice feedback")},
+            "correctOptionId": "option_00002",
+            "feedbackByOptionId": {"option_00002": rich_feedback("Choice feedback")},
             "summaryFeedback": rich_feedback("Summary feedback"),
         },
         "settings": {
@@ -281,7 +281,7 @@ def single_select_target(
 
 
 def quiz_group(
-    group_id="quiz-1",
+    group_id="quiz__000001",
     target_ids=None,
     review_timing="after_quiz",
     review_detail="result_only",
@@ -293,7 +293,7 @@ def quiz_group(
         "schemaVersion": 2,
         "kind": "quiz",
         "groupId": group_id,
-        "targetIds": target_ids or ["mcq-1", "mcq-2"],
+        "targetIds": target_ids or ["target_00001", "target_00002"],
         "settings": {
             "allowBacktracking": False,
             "reviewTiming": review_timing,
@@ -510,13 +510,13 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
                     block._assessment_targets()
 
     def test_xblock_rejects_non_current_stored_assessment_groups(self):
-        current_group = quiz_group(target_ids=["mcq-1"])
+        current_group = quiz_group(target_ids=["target_00001"])
         cases = [
             "",
             "{bad json",
             json.dumps({}),
             json.dumps([current_group, "not-an-object"]),
-            json.dumps([{"groupId": "old-group", "targetIds": ["mcq-1"]}]),
+            json.dumps([{"groupId": "old-group", "targetIds": ["target_00001"]}]),
             json.dumps([{**current_group, "schemaVersion": 3}]),
         ]
 
@@ -530,8 +530,8 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
     def test_xblock_validates_stored_group_membership_against_stored_targets(self):
         block = make_xblock(
-            targets=[single_select_target("mcq-1")],
-            groups=[quiz_group(target_ids=["missing-target"])],
+            targets=[single_select_target("target_00001")],
+            groups=[quiz_group(target_ids=["target_99999"])],
         )
 
         for read in (block._assessment_targets, block._assessment_groups):
@@ -542,13 +542,13 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
                 read()
 
     def test_xblock_rejects_duplicate_ids_in_stored_assessment_bundle(self):
-        target = single_select_target("mcq-1")
-        group = quiz_group(target_ids=["mcq-1"])
+        target = single_select_target("target_00001")
+        group = quiz_group(target_ids=["target_00001"])
         cases = [
             ([target, target], [group], "targetId must be unique"),
             (
                 [target],
-                [group, {**group, "targetIds": ["mcq-1"]}],
+                [group, {**group, "targetIds": ["target_00001"]}],
                 "groupId must be unique",
             ),
         ]
@@ -561,12 +561,12 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
                     block._assessment_bundle()
 
     def test_xblock_rejects_targets_owned_by_multiple_quiz_groups(self):
-        target = single_select_target("mcq-1")
+        target = single_select_target("target_00001")
         block = make_xblock(
             targets=[target],
             groups=[
-                quiz_group("quiz-1", target_ids=["mcq-1"]),
-                quiz_group("quiz-2", target_ids=["mcq-1"]),
+                quiz_group("quiz__000001", target_ids=["target_00001"]),
+                quiz_group("quiz__000002", target_ids=["target_00001"]),
             ],
         )
 
@@ -579,8 +579,8 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertEqual(empty_block._assessment_targets(), [])
         self.assertEqual(empty_block._assessment_groups(), [])
 
-        target = single_select_target("mcq-1")
-        group = quiz_group(target_ids=["mcq-1"])
+        target = single_select_target("target_00001")
+        group = quiz_group(target_ids=["target_00001"])
         populated_block = make_xblock(targets=[target], groups=[group])
 
         self.assertEqual(populated_block._assessment_targets(), [target])
@@ -687,10 +687,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
     def test_assessment_module_rejects_spoofed_problem_id(self):
         outcome = assessment_module.grade_assessment_request(
             {
-                "problemId": "artifact:other-usage/block:mcq-1",
-                "targetId": "mcq-1",
+                "problemId": "artifact:other-usage/block:target_00001",
+                "targetId": "target_00001",
                 "interactionKind": "single-select",
-                "response": {"kind": "single-select", "optionId": "b"},
+                "response": {"kind": "single-select", "optionId": "option_00002"},
                 "expectedAttemptNumber": 0,
             },
             "check",
@@ -718,11 +718,11 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             {
                 "problemId": (
                     "artifact:block-v1%3AScaffold%2BDemo%2B2026%2B"
-                    "type%40scaffold%2Bblock%40scaffold-1/block:mcq-1"
+                    "type%40scaffold%2Bblock%40scaffold-1/block:target_00001"
                 ),
-                "targetId": "mcq-1",
+                "targetId": "target_00001",
                 "interactionKind": "single-select",
-                "response": {"kind": "single-select", "optionId": "b"},
+                "response": {"kind": "single-select", "optionId": "option_00002"},
                 "expectedAttemptNumber": 0,
             },
             "check",
@@ -736,10 +736,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
     def test_assessment_module_prepares_immediate_check_submission(self):
         outcome = assessment_module.grade_assessment_request(
             {
-                "problemId": "artifact:usage-v1/block:mcq-1",
-                "targetId": "mcq-1",
+                "problemId": "artifact:usage-v1/block:target_00001",
+                "targetId": "target_00001",
                 "interactionKind": "single-select",
-                "response": {"kind": "single-select", "optionId": "b"},
+                "response": {"kind": "single-select", "optionId": "option_00002"},
                 "expectedAttemptNumber": 0,
             },
             "check",
@@ -756,12 +756,12 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             "score": {"scaled": 1, "raw": 1, "min": 0, "max": 1},
             "feedback": rich_feedback("Summary feedback"),
             "items": {
-                "a": {
+                "option_00001": {
                     "correct": False,
                     "expected": False,
                     "given": False,
                 },
-                "b": {
+                "option_00002": {
                     "correct": True,
                     "expected": True,
                     "given": True,
@@ -772,10 +772,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertEqual(
             outcome["submission"],
             {
-                "problem_id": "artifact:usage-v1/block:mcq-1",
-                "target_id": "mcq-1",
+                "problem_id": "artifact:usage-v1/block:target_00001",
+                "target_id": "target_00001",
                 "interaction_kind": "single-select",
-                "response": {"kind": "single-select", "optionId": "b"},
+                "response": {"kind": "single-select", "optionId": "option_00002"},
                 "result": canonical_result,
                 "points": 2,
                 "is_graded": True,
@@ -786,7 +786,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
     def test_quiz_module_resolves_membership_and_settings_from_stored_group(self):
         group = quiz_group(
-            target_ids=["mcq-1", "mcq-2"],
+            target_ids=["target_00001", "target_00002"],
             review_timing="after_each_answer",
             review_detail="full_review",
             attempts_per_question=3,
@@ -798,12 +798,12 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         }
 
         resolved_group, target_ids, settings, error = quiz_module.quiz_group_for_request(
-            {"groupId": "quiz-1"},
+            {"groupId": "quiz__000001"},
             [group],
         )
 
         self.assertEqual(resolved_group, group)
-        self.assertEqual(target_ids, ["mcq-1", "mcq-2"])
+        self.assertEqual(target_ids, ["target_00001", "target_00002"])
         self.assertEqual(
             settings,
             {
@@ -825,8 +825,8 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         attempt = {
             "attemptId": "attempt-1",
             "status": "in_progress",
-            "currentTargetId": "mcq-1",
-            "submittedTargetIds": ["mcq-1", 12],
+            "currentTargetId": "target_00001",
+            "submittedTargetIds": ["target_00001", 12],
             "startedAt": "2026-06-27T10:00:00Z",
             "finishedAt": None,
             "expiresAt": None,
@@ -836,16 +836,16 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             "answerReviewAuthorized": False,
         }
 
-        result = quiz_module.public_quiz_attempt(attempt, "quiz-1")
+        result = quiz_module.public_quiz_attempt(attempt, "quiz__000001")
 
         self.assertEqual(
             result,
             {
                 "attemptId": "attempt-1",
-                "groupId": "quiz-1",
+                "groupId": "quiz__000001",
                 "status": "in_progress",
-                "currentTargetId": "mcq-1",
-                "submittedTargetIds": ["mcq-1"],
+                "currentTargetId": "target_00001",
+                "submittedTargetIds": ["target_00001"],
                 "startedAt": "2026-06-27T10:00:00Z",
                 "finishedAt": None,
                 "expiresAt": None,
@@ -857,10 +857,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         )
 
     def test_quiz_module_starts_from_minimal_request_and_stored_membership(self):
-        group = quiz_group(target_ids=["mcq-1", "mcq-2"])
+        group = quiz_group(target_ids=["target_00001", "target_00002"])
 
         outcome = quiz_module.start_quiz_attempt(
-            {"groupId": "quiz-1"},
+            {"groupId": "quiz__000001"},
             [group],
             {},
             lambda: "2026-06-27T10:00:00Z",
@@ -870,11 +870,11 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         )
 
         self.assertIsNone(outcome["finalize_expired"])
-        self.assertEqual(outcome["response"]["attemptId"], "quiz:quiz-1:fixed")
-        self.assertEqual(outcome["response"]["groupId"], "quiz-1")
+        self.assertEqual(outcome["response"]["attemptId"], "quiz:quiz__000001:fixed")
+        self.assertEqual(outcome["response"]["groupId"], "quiz__000001")
         self.assertEqual(outcome["response"]["status"], "in_progress")
-        self.assertEqual(outcome["response"]["currentTargetId"], "mcq-1")
-        stored_attempt = outcome["state"]["quiz-1"]
+        self.assertEqual(outcome["response"]["currentTargetId"], "target_00001")
+        stored_attempt = outcome["state"]["quiz__000001"]
         self.assertEqual(stored_attempt["startedAt"], "2026-06-27T10:00:00Z")
         self.assertEqual(stored_attempt["expiresAt"], "2026-06-27T10:10:00Z")
         self.assertIsNone(stored_attempt["successStatus"])
@@ -885,14 +885,14 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
     def test_quiz_module_idempotent_start_preserves_historical_null_success(self):
         group = quiz_group(
-            target_ids=["mcq-1"],
+            target_ids=["target_00001"],
             passing_score=0.5,
         )
         attempt = {
             "attemptId": "attempt-1",
             "status": "completed",
             "currentTargetId": None,
-            "submittedTargetIds": ["mcq-1"],
+            "submittedTargetIds": ["target_00001"],
             "startedAt": "2026-06-27T10:00:00Z",
             "finishedAt": "2026-06-27T10:05:00Z",
             "expiresAt": None,
@@ -906,9 +906,9 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             raise AssertionError("new attempt factories must not run")
 
         outcome = quiz_module.start_quiz_attempt(
-            {"groupId": "quiz-1"},
+            {"groupId": "quiz__000001"},
             [group],
-            {"quiz-1": attempt},
+            {"quiz__000001": attempt},
             unexpected_factory,
             unexpected_factory,
             unexpected_factory,
@@ -952,16 +952,16 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         }
 
         self.assertEqual(
-            quiz_module.aggregate_quiz_results({"mcq-1": result}, ["mcq-1", "mcq-2"]),
+            quiz_module.aggregate_quiz_results({"target_00001": result}, ["target_00001", "target_00002"]),
             {"scaled": 0.25},
         )
         self.assertEqual(quiz_module.aggregate_quiz_results({}, []), {"scaled": 0.0})
 
     def test_quiz_module_terminal_success_uses_authored_threshold(self):
         cases = [
-            ("equal threshold passes", 0.5, "b", "a", {"scaled": 0.5, "raw": 1, "min": 0, "max": 2}, "passed"),
-            ("below threshold fails", 0.75, "b", "a", {"scaled": 0.5, "raw": 1, "min": 0, "max": 2}, "failed"),
-            ("no threshold has no status", None, "b", "b", {"scaled": 1.0, "raw": 2, "min": 0, "max": 2}, None),
+            ("equal threshold passes", 0.5, "option_00002", "option_00001", {"scaled": 0.5, "raw": 1, "min": 0, "max": 2}, "passed"),
+            ("below threshold fails", 0.75, "option_00002", "option_00001", {"scaled": 0.5, "raw": 1, "min": 0, "max": 2}, "failed"),
+            ("no threshold has no status", None, "option_00002", "option_00002", {"scaled": 1.0, "raw": 2, "min": 0, "max": 2}, None),
         ]
 
         for (
@@ -974,13 +974,13 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         ) in cases:
             with self.subTest(name=name):
                 group = quiz_group(
-                    target_ids=["mcq-1", "mcq-2"],
+                    target_ids=["target_00001", "target_00002"],
                     passing_score=passing_score,
                 )
                 attempt = {
                     "attemptId": "attempt-1",
                     "status": "in_progress",
-                    "currentTargetId": "mcq-1",
+                    "currentTargetId": "target_00001",
                     "submittedTargetIds": [],
                     "startedAt": "2026-06-27T10:00:00Z",
                     "finishedAt": None,
@@ -994,13 +994,13 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
                 outcome = quiz_module.finish_quiz_attempt(
                     {
                         "attemptId": "attempt-1",
-                        "groupId": "quiz-1",
+                        "groupId": "quiz__000001",
                         "responsesByTargetId": {
-                            "mcq-1": {
+                            "target_00001": {
                                 "kind": "single-select",
                                 "optionId": first_option,
                             },
-                            "mcq-2": {
+                            "target_00002": {
                                 "kind": "single-select",
                                 "optionId": second_option,
                             },
@@ -1008,16 +1008,16 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
                     },
                     [group],
                     [
-                        single_select_target("mcq-1"),
-                        single_select_target("mcq-2"),
+                        single_select_target("target_00001"),
+                        single_select_target("target_00002"),
                     ],
-                    {"quiz-1": attempt},
+                    {"quiz__000001": attempt},
                     "usage-v1",
                     lambda: "2026-06-27T10:02:00Z",
                     lambda _expires_at: False,
                 )
 
-                terminal = outcome["state"]["quiz-1"]
+                terminal = outcome["state"]["quiz__000001"]
                 self.assertEqual(terminal["score"], expected_score)
                 self.assertNotIn("maxScore", terminal)
                 self.assertEqual(
@@ -1031,14 +1031,14 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
     def test_quiz_module_question_completion_calculates_success(self):
         group = quiz_group(
-            target_ids=["mcq-1"],
+            target_ids=["target_00001"],
             review_timing="after_each_answer",
             passing_score=1.0,
         )
         attempt = {
             "attemptId": "attempt-1",
             "status": "in_progress",
-            "currentTargetId": "mcq-1",
+            "currentTargetId": "target_00001",
             "submittedTargetIds": [],
             "startedAt": "2026-06-27T10:00:00Z",
             "finishedAt": None,
@@ -1052,32 +1052,32 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         outcome = quiz_module.submit_quiz_question(
             {
                 "attemptId": "attempt-1",
-                "groupId": "quiz-1",
-                "targetId": "mcq-1",
-                "response": {"kind": "single-select", "optionId": "b"},
+                "groupId": "quiz__000001",
+                "targetId": "target_00001",
+                "response": {"kind": "single-select", "optionId": "option_00002"},
                 "expectedAttemptNumber": 0,
             },
             [group],
-            [single_select_target("mcq-1")],
-            {"quiz-1": attempt},
+            [single_select_target("target_00001")],
+            {"quiz__000001": attempt},
             {},
             "usage-v1",
             lambda: "2026-06-27T10:01:00Z",
             lambda _expires_at: False,
         )
 
-        terminal = outcome["state"]["quiz-1"]
+        terminal = outcome["state"]["quiz__000001"]
         self.assertEqual(terminal["status"], "completed")
         self.assertIsNone(terminal["currentTargetId"])
         self.assertEqual(terminal["score"], {"scaled": 1.0, "raw": 1, "min": 0, "max": 1})
         self.assertEqual(terminal["successStatus"], "passed")
 
     def test_quiz_module_returns_expired_attempt_finalization_action(self):
-        group = quiz_group(target_ids=["mcq-1", "mcq-2"])
+        group = quiz_group(target_ids=["target_00001", "target_00002"])
         attempt = {
             "attemptId": "attempt-1",
             "status": "in_progress",
-            "currentTargetId": "mcq-1",
+            "currentTargetId": "target_00001",
             "submittedTargetIds": [],
             "startedAt": "2026-06-27T10:00:00Z",
             "finishedAt": None,
@@ -1092,12 +1092,12 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         outcome = quiz_module.start_quiz_attempt(
             {
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
             },
             [group],
-            {"quiz-1": attempt},
+            {"quiz__000001": attempt},
             unexpected_factory,
             unexpected_factory,
             unexpected_factory,
@@ -1109,22 +1109,22 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             outcome["finalize_expired"],
             {
                 "attempt": attempt,
-                "group_id": "quiz-1",
-                "target_ids": ["mcq-1", "mcq-2"],
+                "group_id": "quiz__000001",
+                "target_ids": ["target_00001", "target_00002"],
                 "settings": quiz_module.quiz_settings(group),
             },
         )
 
     def test_quiz_module_submits_question_from_minimal_request_and_stored_membership(self):
         group = quiz_group(
-            target_ids=["mcq-1", "mcq-2"],
+            target_ids=["target_00001", "target_00002"],
             review_timing="after_each_answer",
             passing_score=0.5,
         )
         attempt = {
             "attemptId": "attempt-1",
             "status": "in_progress",
-            "currentTargetId": "mcq-1",
+            "currentTargetId": "target_00001",
             "submittedTargetIds": [],
             "startedAt": "2026-06-27T10:00:00Z",
             "finishedAt": None,
@@ -1134,17 +1134,17 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             "answerReviewAuthorized": False,
         }
 
-        state = {"quiz-1": attempt}
+        state = {"quiz__000001": attempt}
         outcome = quiz_module.submit_quiz_question(
             {
                 "attemptId": "attempt-1",
-                "groupId": "quiz-1",
-                "targetId": "mcq-1",
-                "response": {"kind": "single-select", "optionId": "b"},
+                "groupId": "quiz__000001",
+                "targetId": "target_00001",
+                "response": {"kind": "single-select", "optionId": "option_00002"},
                 "expectedAttemptNumber": 0,
             },
             [group],
-            [single_select_target("mcq-1"), single_select_target("mcq-2")],
+            [single_select_target("target_00001"), single_select_target("target_00002")],
             state,
             {},
             "usage-v1",
@@ -1153,35 +1153,35 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         )
 
         self.assertTrue(outcome["response"]["success"])
-        self.assertEqual(outcome["response"]["currentTargetId"], "mcq-2")
-        stored_attempt = outcome["state"]["quiz-1"]
-        self.assertEqual(stored_attempt["submittedTargetIds"], ["mcq-1"])
+        self.assertEqual(outcome["response"]["currentTargetId"], "target_00002")
+        stored_attempt = outcome["state"]["quiz__000001"]
+        self.assertEqual(stored_attempt["submittedTargetIds"], ["target_00001"])
         self.assertIsNone(stored_attempt["successStatus"])
         self.assertIsNone(outcome["response"]["successStatus"])
         self.assertNotIn("attemptCountsByTargetId", stored_attempt)
         self.assertEqual(
-            stored_attempt["resultsByTargetId"]["mcq-1"]["score"],
+            stored_attempt["resultsByTargetId"]["target_00001"]["score"],
             {"scaled": 1.0, "raw": 1, "min": 0, "max": 1},
         )
         self.assertEqual(
             outcome["submissions"],
             [
                 {
-                    "problem_id": "artifact:usage-v1/block:mcq-1",
-                    "target_id": "mcq-1",
+                    "problem_id": "artifact:usage-v1/block:target_00001",
+                    "target_id": "target_00001",
                     "interaction_kind": "single-select",
-                    "response": {"kind": "single-select", "optionId": "b"},
+                    "response": {"kind": "single-select", "optionId": "option_00002"},
                     "result": {
                         "isCorrect": True,
                         "score": {"scaled": 1, "raw": 1, "min": 0, "max": 1},
                         "feedback": rich_feedback("Summary feedback"),
                         "items": {
-                            "a": {
+                            "option_00001": {
                                 "correct": False,
                                 "expected": False,
                                 "given": False,
                             },
-                            "b": {
+                            "option_00002": {
                                 "correct": True,
                                 "expected": True,
                                 "given": True,
@@ -1201,16 +1201,16 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         rejected = quiz_module.submit_quiz_question(
             {
                 "attemptId": "attempt-1",
-                "groupId": "quiz-1",
-                "targetId": "mcq-outside-group",
-                "response": {"kind": "single-select", "optionId": "b"},
+                "groupId": "quiz__000001",
+                "targetId": "target_00003",
+                "response": {"kind": "single-select", "optionId": "option_00002"},
                 "expectedAttemptNumber": 0,
             },
             [group],
             [
-                single_select_target("mcq-1"),
-                single_select_target("mcq-2"),
-                single_select_target("mcq-outside-group"),
+                single_select_target("target_00001"),
+                single_select_target("target_00002"),
+                single_select_target("target_00003"),
             ],
             state,
             {},
@@ -1226,14 +1226,14 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
     def test_quiz_module_submit_question_keeps_retryable_wrong_answer_current(self):
         group = quiz_group(
-            target_ids=["mcq-1", "mcq-2"],
+            target_ids=["target_00001", "target_00002"],
             review_timing="after_each_answer",
             attempts_per_question=2,
         )
         attempt = {
             "attemptId": "attempt-1",
             "status": "in_progress",
-            "currentTargetId": "mcq-1",
+            "currentTargetId": "target_00001",
             "submittedTargetIds": [],
             "startedAt": "2026-06-27T10:00:00Z",
             "finishedAt": None,
@@ -1246,16 +1246,16 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         outcome = quiz_module.submit_quiz_question(
             {
                 "attemptId": "attempt-1",
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
-                "targetId": "mcq-1",
-                "response": {"kind": "single-select", "optionId": "a"},
+                "targetId": "target_00001",
+                "response": {"kind": "single-select", "optionId": "option_00001"},
                 "expectedAttemptNumber": 0,
             },
             [group],
-            [single_select_target("mcq-1"), single_select_target("mcq-2")],
-            {"quiz-1": attempt},
+            [single_select_target("target_00001"), single_select_target("target_00002")],
+            {"quiz__000001": attempt},
             {},
             "usage-v1",
             lambda: "2026-06-27T10:01:00Z",
@@ -1263,28 +1263,28 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         )
 
         self.assertTrue(outcome["response"]["success"])
-        self.assertEqual(outcome["response"]["currentTargetId"], "mcq-1")
-        stored_attempt = outcome["state"]["quiz-1"]
+        self.assertEqual(outcome["response"]["currentTargetId"], "target_00001")
+        stored_attempt = outcome["state"]["quiz__000001"]
         self.assertEqual(stored_attempt["submittedTargetIds"], [])
         self.assertNotIn("attemptCountsByTargetId", stored_attempt)
 
     def test_quiz_module_submit_question_finalizes_expired_without_late_submission(self):
         group = quiz_group(
-            target_ids=["mcq-1", "mcq-2"],
+            target_ids=["target_00001", "target_00002"],
             review_timing="after_each_answer",
             passing_score=0.5,
         )
         attempt = {
             "attemptId": "attempt-1",
             "status": "in_progress",
-            "currentTargetId": "mcq-2",
-            "submittedTargetIds": ["mcq-1"],
+            "currentTargetId": "target_00002",
+            "submittedTargetIds": ["target_00001"],
             "startedAt": "2026-06-27T10:00:00Z",
             "finishedAt": None,
             "expiresAt": "2000-01-01T00:00:00Z",
             "score": None,
             "resultsByTargetId": {
-                "mcq-1": {
+                "target_00001": {
                     "isCorrect": True,
                     "score": {"scaled": 1, "raw": 1, "min": 0, "max": 1},
                     "feedback": None,
@@ -1297,16 +1297,16 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         outcome = quiz_module.submit_quiz_question(
             {
                 "attemptId": "attempt-1",
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
-                "targetId": "mcq-2",
-                "response": {"kind": "single-select", "optionId": "b"},
+                "targetId": "target_00002",
+                "response": {"kind": "single-select", "optionId": "option_00002"},
                 "expectedAttemptNumber": 0,
             },
             [group],
-            [single_select_target("mcq-1"), single_select_target("mcq-2")],
-            {"quiz-1": attempt},
+            [single_select_target("target_00001"), single_select_target("target_00002")],
+            {"quiz__000001": attempt},
             {},
             "usage-v1",
             lambda: "2026-06-27T10:05:00Z",
@@ -1315,24 +1315,24 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         self.assertTrue(outcome["response"]["success"])
         self.assertEqual(outcome["response"]["status"], "expired")
-        self.assertEqual(outcome["response"]["submittedTargetIds"], ["mcq-1"])
+        self.assertEqual(outcome["response"]["submittedTargetIds"], ["target_00001"])
         self.assertEqual(outcome["response"]["score"], {"scaled": 0.5, "raw": 1, "min": 0, "max": 2})
         self.assertEqual(outcome["response"]["successStatus"], "passed")
         self.assertEqual(outcome["submissions"], [])
         self.assertTrue(outcome["publish_grade"])
-        stored_attempt = outcome["state"]["quiz-1"]
-        self.assertNotIn("mcq-2", stored_attempt["resultsByTargetId"])
+        stored_attempt = outcome["state"]["quiz__000001"]
+        self.assertNotIn("target_00002", stored_attempt["resultsByTargetId"])
         self.assertNotIn("attemptCountsByTargetId", stored_attempt)
 
     def test_quiz_module_finishes_from_minimal_request_and_stored_membership(self):
         group = quiz_group(
-            target_ids=["mcq-1", "mcq-2"],
+            target_ids=["target_00001", "target_00002"],
             passing_score=0.5,
         )
         attempt = {
             "attemptId": "attempt-1",
             "status": "in_progress",
-            "currentTargetId": "mcq-1",
+            "currentTargetId": "target_00001",
             "submittedTargetIds": [],
             "startedAt": "2026-06-27T10:00:00Z",
             "finishedAt": None,
@@ -1342,25 +1342,25 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             "answerReviewAuthorized": False,
         }
 
-        state = {"quiz-1": attempt}
+        state = {"quiz__000001": attempt}
         rejected = quiz_module.finish_quiz_attempt(
             {
                 "attemptId": "attempt-1",
-                "groupId": "quiz-1",
+                "groupId": "quiz__000001",
                 "responsesByTargetId": {
-                    "mcq-1": {"kind": "single-select", "optionId": "b"},
-                    "mcq-2": {"kind": "single-select", "optionId": "b"},
-                    "mcq-outside-group": {
+                    "target_00001": {"kind": "single-select", "optionId": "option_00002"},
+                    "target_00002": {"kind": "single-select", "optionId": "option_00002"},
+                    "target_00003": {
                         "kind": "single-select",
-                        "optionId": "b",
+                        "optionId": "option_00002",
                     },
                 },
             },
             [group],
             [
-                single_select_target("mcq-1"),
-                single_select_target("mcq-2"),
-                single_select_target("mcq-outside-group"),
+                single_select_target("target_00001"),
+                single_select_target("target_00002"),
+                single_select_target("target_00003"),
             ],
             state,
             "usage-v1",
@@ -1378,14 +1378,14 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         outcome = quiz_module.finish_quiz_attempt(
             {
                 "attemptId": "attempt-1",
-                "groupId": "quiz-1",
+                "groupId": "quiz__000001",
                 "responsesByTargetId": {
-                    "mcq-1": {"kind": "single-select", "optionId": "b"},
-                    "mcq-2": {"kind": "single-select", "optionId": "b"},
+                    "target_00001": {"kind": "single-select", "optionId": "option_00002"},
+                    "target_00002": {"kind": "single-select", "optionId": "option_00002"},
                 },
             },
             [group],
-            [single_select_target("mcq-1"), single_select_target("mcq-2")],
+            [single_select_target("target_00001"), single_select_target("target_00002")],
             state,
             "usage-v1",
             lambda: "2026-06-27T10:02:00Z",
@@ -1398,14 +1398,14 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertEqual(outcome["response"]["successStatus"], "passed")
         self.assertTrue(outcome["publish_grade"])
         self.assertIsNone(outcome["finalize_expired"])
-        stored_attempt = outcome["state"]["quiz-1"]
+        stored_attempt = outcome["state"]["quiz__000001"]
         self.assertEqual(stored_attempt["finishedAt"], "2026-06-27T10:02:00Z")
-        self.assertEqual(stored_attempt["submittedTargetIds"], ["mcq-1", "mcq-2"])
+        self.assertEqual(stored_attempt["submittedTargetIds"], ["target_00001", "target_00002"])
         self.assertEqual(stored_attempt["successStatus"], "passed")
         self.assertNotIn("attemptCountsByTargetId", stored_attempt)
         self.assertEqual(
             [submission["problem_id"] for submission in outcome["submissions"]],
-            ["artifact:usage-v1/block:mcq-1", "artifact:usage-v1/block:mcq-2"],
+            ["artifact:usage-v1/block:target_00001", "artifact:usage-v1/block:target_00002"],
         )
         self.assertEqual(
             [submission["publish_grade"] for submission in outcome["submissions"]],
@@ -1413,11 +1413,11 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         )
 
     def test_quiz_module_finish_expired_after_quiz_returns_finalization_action(self):
-        group = quiz_group(target_ids=["mcq-1", "mcq-2"])
+        group = quiz_group(target_ids=["target_00001", "target_00002"])
         attempt = {
             "attemptId": "attempt-1",
             "status": "in_progress",
-            "currentTargetId": "mcq-1",
+            "currentTargetId": "target_00001",
             "submittedTargetIds": [],
             "startedAt": "2026-06-27T10:00:00Z",
             "finishedAt": None,
@@ -1427,7 +1427,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             "answerReviewAuthorized": False,
         }
 
-        state = {"quiz-1": attempt}
+        state = {"quiz__000001": attempt}
         with patch.object(
             quiz_module,
             "grade_assessment",
@@ -1436,15 +1436,15 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             outcome = quiz_module.finish_quiz_attempt(
                 {
                     "attemptId": "attempt-1",
-                    "groupId": "quiz-1",
-                    "targetIds": ["mcq-1", "mcq-2"],
+                    "groupId": "quiz__000001",
+                    "targetIds": ["target_00001", "target_00002"],
                     "settings": group["settings"],
                     "responsesByTargetId": {
-                        "mcq-1": {"kind": "single-select", "optionId": "b"},
+                        "target_00001": {"kind": "single-select", "optionId": "option_00002"},
                     },
                 },
                 [group],
-                [single_select_target("mcq-1"), single_select_target("mcq-2")],
+                [single_select_target("target_00001"), single_select_target("target_00002")],
                 state,
                 "usage-v1",
                 lambda: "2026-06-27T10:02:00Z",
@@ -1459,8 +1459,8 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             outcome["finalize_expired"],
             {
                 "attempt": attempt,
-                "group_id": "quiz-1",
-                "target_ids": ["mcq-1", "mcq-2"],
+                "group_id": "quiz__000001",
+                "target_ids": ["target_00001", "target_00002"],
                 "settings": quiz_module.quiz_settings(group),
             },
         )
@@ -1468,13 +1468,13 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
     def test_quiz_module_finish_expired_after_each_answer_returns_finalization_action(self):
         group = quiz_group(
-            target_ids=["mcq-1", "mcq-2"],
+            target_ids=["target_00001", "target_00002"],
             review_timing="after_each_answer",
         )
         attempt = {
             "attemptId": "attempt-1",
             "status": "in_progress",
-            "currentTargetId": "mcq-1",
+            "currentTargetId": "target_00001",
             "submittedTargetIds": [],
             "startedAt": "2026-06-27T10:00:00Z",
             "finishedAt": None,
@@ -1483,18 +1483,18 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             "resultsByTargetId": {},
             "answerReviewAuthorized": False,
         }
-        state = {"quiz-1": attempt}
+        state = {"quiz__000001": attempt}
 
         outcome = quiz_module.finish_quiz_attempt(
             {
                 "attemptId": "attempt-1",
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
                 "responsesByTargetId": {},
             },
             [group],
-            [single_select_target("mcq-1"), single_select_target("mcq-2")],
+            [single_select_target("target_00001"), single_select_target("target_00002")],
             state,
             "usage-v1",
             lambda: "2026-06-27T10:02:00Z",
@@ -1509,28 +1509,28 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             outcome["finalize_expired"],
             {
                 "attempt": attempt,
-                "group_id": "quiz-1",
-                "target_ids": ["mcq-1", "mcq-2"],
+                "group_id": "quiz__000001",
+                "target_ids": ["target_00001", "target_00002"],
                 "settings": quiz_module.quiz_settings(group),
             },
         )
 
     def test_quiz_module_finalizes_expired_attempt_state_without_mutating_input(self):
         group = quiz_group(
-            target_ids=["mcq-1", "mcq-2"],
+            target_ids=["target_00001", "target_00002"],
             passing_score=0.5,
         )
         attempt = {
             "attemptId": "attempt-1",
             "status": "in_progress",
-            "currentTargetId": "mcq-2",
-            "submittedTargetIds": ["mcq-1", "not-in-quiz"],
+            "currentTargetId": "target_00002",
+            "submittedTargetIds": ["target_00001", "target_99999"],
             "startedAt": "2026-06-27T10:00:00Z",
             "finishedAt": None,
             "expiresAt": "2000-01-01T00:00:00Z",
             "score": None,
             "resultsByTargetId": {
-                "mcq-1": {
+                "target_00001": {
                     "isCorrect": True,
                     "score": {"scaled": 1, "raw": 1, "min": 0, "max": 1},
                     "feedback": None,
@@ -1539,13 +1539,13 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             },
             "answerReviewAuthorized": False,
         }
-        state = {"quiz-1": attempt}
+        state = {"quiz__000001": attempt}
 
         outcome = quiz_module.finalize_expired_quiz_attempt(
             attempt,
             state,
-            "quiz-1",
-            ["mcq-1", "mcq-2"],
+            "quiz__000001",
+            ["target_00001", "target_00002"],
             quiz_module.quiz_settings(group),
             lambda: "2026-06-27T10:05:00Z",
         )
@@ -1553,23 +1553,23 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertTrue(outcome["response"]["success"])
         self.assertEqual(outcome["response"]["status"], "expired")
         self.assertIsNone(outcome["response"]["currentTargetId"])
-        self.assertEqual(outcome["response"]["submittedTargetIds"], ["mcq-1"])
+        self.assertEqual(outcome["response"]["submittedTargetIds"], ["target_00001"])
         self.assertEqual(outcome["response"]["score"], {"scaled": 0.5, "raw": 1, "min": 0, "max": 2})
         self.assertEqual(outcome["response"]["successStatus"], "passed")
         self.assertTrue(outcome["publish_grade"])
-        finalized = outcome["state"]["quiz-1"]
+        finalized = outcome["state"]["quiz__000001"]
         self.assertEqual(finalized["finishedAt"], "2026-06-27T10:05:00Z")
         self.assertTrue(finalized["answerReviewAuthorized"])
         self.assertNotIn("attemptCountsByTargetId", finalized)
         self.assertEqual(attempt["status"], "in_progress")
-        self.assertEqual(attempt["submittedTargetIds"], ["mcq-1", "not-in-quiz"])
+        self.assertEqual(attempt["submittedTargetIds"], ["target_00001", "target_99999"])
 
     def test_quiz_module_finalizes_ungraded_expired_attempt_without_publish_intent(self):
-        group = quiz_group(target_ids=["mcq-1", "mcq-2"], is_graded=False)
+        group = quiz_group(target_ids=["target_00001", "target_00002"], is_graded=False)
         attempt = {
             "attemptId": "attempt-1",
             "status": "in_progress",
-            "currentTargetId": "mcq-1",
+            "currentTargetId": "target_00001",
             "submittedTargetIds": [],
             "startedAt": "2026-06-27T10:00:00Z",
             "finishedAt": None,
@@ -1581,9 +1581,9 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         outcome = quiz_module.finalize_expired_quiz_attempt(
             attempt,
-            {"quiz-1": attempt},
-            "quiz-1",
-            ["mcq-1", "mcq-2"],
+            {"quiz__000001": attempt},
+            "quiz__000001",
+            ["target_00001", "target_00002"],
             quiz_module.quiz_settings(group),
             lambda: "2026-06-27T10:05:00Z",
         )
@@ -1593,7 +1593,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
     def test_quiz_module_reveal_answers_reads_completed_attempt_without_mutation(self):
         group = quiz_group(
-            target_ids=["mcq-1"],
+            target_ids=["target_00001"],
             review_detail="full_review",
             passing_score=0.5,
         )
@@ -1601,19 +1601,19 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             "attemptId": "attempt-1",
             "status": "completed",
             "currentTargetId": None,
-            "submittedTargetIds": ["mcq-1"],
+            "submittedTargetIds": ["target_00001"],
             "startedAt": "2026-06-27T10:00:00Z",
             "finishedAt": "2026-06-27T10:05:00Z",
             "expiresAt": None,
             "score": {"scaled": 1, "raw": 1, "min": 0, "max": 1},
             "successStatus": None,
             "resultsByTargetId": {
-                "mcq-1": {
+                "target_00001": {
                     "isCorrect": True,
                     "score": {"scaled": 1, "raw": 1, "min": 0, "max": 1},
                     "feedback": rich_feedback("Summary feedback"),
                     "items": {
-                        "b": {
+                        "option_00002": {
                             "correct": True,
                             "expected": True,
                             "given": True,
@@ -1624,10 +1624,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             },
             "answerReviewAuthorized": False,
         }
-        state = {"quiz-1": attempt}
+        state = {"quiz__000001": attempt}
 
         outcome = quiz_module.reveal_quiz_answers(
-            {"attemptId": "attempt-1", "groupId": "quiz-1"},
+            {"attemptId": "attempt-1", "groupId": "quiz__000001"},
             [group],
             state,
         )
@@ -1644,11 +1644,11 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertIsNone(attempt["successStatus"])
 
     def test_quiz_module_reveal_answers_rejects_incomplete_attempt(self):
-        group = quiz_group(target_ids=["mcq-1"], review_detail="full_review")
+        group = quiz_group(target_ids=["target_00001"], review_detail="full_review")
         attempt = {
             "attemptId": "attempt-1",
             "status": "in_progress",
-            "currentTargetId": "mcq-1",
+            "currentTargetId": "target_00001",
             "submittedTargetIds": [],
             "startedAt": "2026-06-27T10:00:00Z",
             "finishedAt": None,
@@ -1659,9 +1659,9 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         }
 
         outcome = quiz_module.reveal_quiz_answers(
-            {"attemptId": "attempt-1", "groupId": "quiz-1"},
+            {"attemptId": "attempt-1", "groupId": "quiz__000001"},
             [group],
-            {"quiz-1": attempt},
+            {"quiz__000001": attempt},
         )
 
         self.assertEqual(
@@ -2105,7 +2105,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
                 "snapshotVersion": 1,
                 "artifactId": "usage-v1",
                 "activities": {
-                    "flashcard-1": {
+                    "block_000002": {
                         "activityKind": "flashcard",
                         "data": {"currentSectionId": "card-1"},
                         "completed": False,
@@ -2129,7 +2129,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
                 "snapshotVersion": 1,
                 "artifactId": "usage-v1",
                 "activities": {
-                    "flashcard-1": {
+                    "block_000002": {
                         "activityKind": "flashcard",
                         "data": {"currentSectionId": "card-1"},
                         "completed": False,
@@ -2146,21 +2146,21 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             "score": {"scaled": 0, "raw": 0, "min": 0, "max": 1},
             "feedback": rich_feedback("Bootstrap summary feedback"),
             "items": {
-                "a": {
+                "option_00001": {
                     "correct": False,
                     "expected": False,
                     "given": True,
                     "feedback": rich_feedback("Bootstrap choice feedback"),
                 },
-                "b": {"correct": False, "expected": True, "given": False},
+                "option_00002": {"correct": False, "expected": True, "given": False},
             },
         }
         snapshot = {
             "snapshotVersion": 2,
             "artifactId": "usage-v1",
             "problems": {
-                "mcq-1": {
-                    "response": {"kind": "single-select", "optionId": "b"},
+                "target_00001": {
+                    "response": {"kind": "single-select", "optionId": "option_00002"},
                     "attemptNumber": 1,
                     "hintsShown": 0,
                     "checkResult": None,
@@ -2189,7 +2189,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         _, payload = fragment.initialized[0]
         public_snapshot = payload["assessmentSnapshot"]
-        public_result = public_snapshot["problems"]["mcq-1"]["submissionResult"]
+        public_result = public_snapshot["problems"]["target_00001"]["submissionResult"]
         self.assertIsNone(public_result["feedback"])
         self.assertEqual(public_result["items"], {})
         public_json = json.dumps(public_snapshot, sort_keys=True)
@@ -2348,23 +2348,23 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertEqual(authorized["items"], {})
 
     def test_student_fragment_quiz_snapshot_is_identity_free_and_policy_redacted(self):
-        group = quiz_group(target_ids=["mcq-1"], review_detail="result_only")
+        group = quiz_group(target_ids=["target_00001"], review_detail="result_only")
         block = make_xblock([single_select_target()], groups=[group])
         stored_result = {
             "isCorrect": False,
             "score": {"scaled": 0, "raw": 0, "min": 0, "max": 1},
             "feedback": rich_feedback("Quiz bootstrap feedback"),
             "items": {
-                "a": {"correct": False, "expected": False, "given": True},
-                "b": {"correct": False, "expected": True, "given": False},
+                "option_00001": {"correct": False, "expected": False, "given": True},
+                "option_00002": {"correct": False, "expected": True, "given": False},
             },
         }
         snapshot = {
             "snapshotVersion": 2,
             "artifactId": "usage-v1",
             "problems": {
-                "mcq-1": {
-                    "response": {"kind": "single-select", "optionId": "a"},
+                "target_00001": {
+                    "response": {"kind": "single-select", "optionId": "option_00001"},
                     "attemptNumber": 1,
                     "hintsShown": 0,
                     "checkResult": None,
@@ -2373,17 +2373,17 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
                 },
             },
             "quizzes": {
-                "quiz-1": {
+                "quiz__000001": {
                     "attemptId": "attempt-1",
                     "status": "completed",
                     "currentTargetId": None,
-                    "submittedTargetIds": ["mcq-1"],
+                    "submittedTargetIds": ["target_00001"],
                     "startedAt": "2026-06-27T10:00:00Z",
                     "finishedAt": "2026-06-27T10:01:00Z",
                     "expiresAt": None,
                     "score": {"scaled": 0, "raw": 0, "min": 0, "max": 1},
                     "successStatus": None,
-                    "resultsByTargetId": {"mcq-1": stored_result},
+                    "resultsByTargetId": {"target_00001": stored_result},
                     "answerReviewAuthorized": True,
                 },
             },
@@ -2399,13 +2399,13 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         _, payload = fragment.initialized[0]
         public_snapshot = payload["assessmentSnapshot"]
-        self.assertNotIn("groupId", public_snapshot["quizzes"]["quiz-1"])
+        self.assertNotIn("groupId", public_snapshot["quizzes"]["quiz__000001"])
         self.assertEqual(
-            public_snapshot["quizzes"]["quiz-1"]["resultsByTargetId"]["mcq-1"]["items"],
+            public_snapshot["quizzes"]["quiz__000001"]["resultsByTargetId"]["target_00001"]["items"],
             {},
         )
         self.assertEqual(
-            public_snapshot["problems"]["mcq-1"]["submissionResult"]["items"],
+            public_snapshot["problems"]["target_00001"]["submissionResult"]["items"],
             {},
         )
         public_json = json.dumps(public_snapshot, sort_keys=True)
@@ -2429,7 +2429,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
     def test_content_save_validation_returns_normalized_bundle(self):
         target = single_select_target()
-        group = quiz_group(target_ids=["mcq-1"])
+        group = quiz_group(target_ids=["target_00001"])
         payload = save_payload(
             title="  Saved lesson  ",
             assessment_targets=[target],
@@ -2559,7 +2559,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
                 {
                     "type": "mcq",
                     "attrs": {
-                        "id": "mcq-1",
+                        "id": "target_00001",
                         "assessment": {"correctOptionId": "do-not-read-in-python"},
                     },
                 },
@@ -2595,8 +2595,8 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
     def test_save_content_persists_assessment_groups(self):
         block = make_xblock()
-        targets = [single_select_target("mcq-1")]
-        groups = [quiz_group(target_ids=["mcq-1"])]
+        targets = [single_select_target("target_00001")]
+        groups = [quiz_group(target_ids=["target_00001"])]
 
         result = block.save_content(
             save_payload(
@@ -2688,7 +2688,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             save_payload(
                 assessment_groups=[
                     {
-                        "groupId": "quiz-1",
+                        "groupId": "quiz__000001",
                         "title": "x"
                         * (scaffold.SAVE_PAYLOAD_MAX_BYTES["assessmentGroups"] + 1),
                     },
@@ -2704,7 +2704,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
     def test_save_content_requires_assessment_groups_array(self):
         block = make_xblock()
         payload = save_payload()
-        payload["assessmentGroups"] = {"groupId": "quiz-1"}
+        payload["assessmentGroups"] = {"groupId": "quiz__000001"}
 
         result = block.save_content(payload)
 
@@ -2726,8 +2726,8 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         )
 
     def test_save_content_rejects_old_and_future_assessment_contracts(self):
-        current_target = single_select_target("mcq-1")
-        current_group = quiz_group(target_ids=["mcq-1"])
+        current_target = single_select_target("target_00001")
+        current_group = quiz_group(target_ids=["target_00001"])
         old_target = dict(current_target)
         old_target.pop("schemaVersion")
         old_group = dict(current_group)
@@ -2772,15 +2772,15 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         rejected_payloads.append(save_payload(assessment_targets=[invalid_target]))
         rejected_payloads.append(
             save_payload(
-                assessment_targets=[single_select_target("mcq-1")],
-                assessment_groups=[quiz_group(target_ids=["missing-target"])],
+                assessment_targets=[single_select_target("target_00001")],
+                assessment_groups=[quiz_group(target_ids=["target_99999"])],
             ),
         )
         rejected_payloads.append(
             save_payload(
-                assessment_targets=[single_select_target("mcq-1")],
+                assessment_targets=[single_select_target("target_00001")],
                 assessment_groups=[
-                    {**quiz_group(target_ids=["mcq-1"]), "schemaVersion": 3},
+                    {**quiz_group(target_ids=["target_00001"]), "schemaVersion": 3},
                 ],
             ),
         )
@@ -2810,15 +2810,15 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
     def test_save_content_rejects_invalid_assessment_group_contracts(self):
         targets = [
-            single_select_target("mcq-1"),
-            single_select_target("mcq-2"),
+            single_select_target("target_00001"),
+            single_select_target("target_00002"),
         ]
 
         cases = [
             (
                 [
                     {
-                        **quiz_group(group_id="quiz-1", target_ids=["mcq-1"]),
+                        **quiz_group(group_id="quiz__000001", target_ids=["target_00001"]),
                         "kind": "lesson",
                     }
                 ],
@@ -2826,25 +2826,25 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             ),
             (
                 [
-                    quiz_group(group_id="quiz-1", target_ids=["mcq-1"]),
-                    quiz_group(group_id="quiz-1", target_ids=["mcq-2"]),
+                    quiz_group(group_id="quiz__000001", target_ids=["target_00001"]),
+                    quiz_group(group_id="quiz__000001", target_ids=["target_00002"]),
                 ],
                 "assessmentGroups[1].groupId must be unique",
             ),
             (
-                [quiz_group(target_ids=["mcq-1", "missing-target"])],
+                [quiz_group(target_ids=["target_00001", "target_99999"])],
                 "assessmentGroups[0].targetIds[1] must reference an assessment target",
             ),
             (
-                [quiz_group(target_ids=["mcq-1", "mcq-1"])],
+                [quiz_group(target_ids=["target_00001", "target_00001"])],
                 "assessmentGroups[0].targetIds[1] must be unique",
             ),
             (
                 [
                     {
-                        **quiz_group(target_ids=["mcq-1"]),
+                        **quiz_group(target_ids=["target_00001"]),
                         "settings": {
-                            **quiz_group(target_ids=["mcq-1"])["settings"],
+                            **quiz_group(target_ids=["target_00001"])["settings"],
                             "attemptsPerQuestion": 4,
                         },
                     }
@@ -2854,9 +2854,9 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             (
                 [
                     {
-                        **quiz_group(target_ids=["mcq-1"]),
+                        **quiz_group(target_ids=["target_00001"]),
                         "settings": {
-                            **quiz_group(target_ids=["mcq-1"])["settings"],
+                            **quiz_group(target_ids=["target_00001"])["settings"],
                             "timer": {"enabled": True, "durationSeconds": -1},
                         },
                     }
@@ -2923,8 +2923,8 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         result = block.save_content(
             save_payload(
                 assessment_targets=[
-                    single_select_target(target_id="mcq-1"),
-                    single_select_target(target_id="mcq-1"),
+                    single_select_target(target_id="target_00001"),
+                    single_select_target(target_id="target_00001"),
                 ],
             ),
         )
@@ -3009,8 +3009,8 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         block.learner_content_json = json.dumps(
             course_document(
                 [
-                    {"type": "checklist", "attrs": {"id": "checklist-1"}},
-                    {"type": "flashcard", "attrs": {"id": "flashcard-1"}},
+                    {"type": "checklist", "attrs": {"id": "block_000001"}},
+                    {"type": "flashcard", "attrs": {"id": "block_000002"}},
                 ],
             ),
         )
@@ -3024,14 +3024,14 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             {
                 "snapshotVersion": 1,
                 "artifactId": "usage-v1",
-                "activities": {"checklist-1": unrelated_record},
+                "activities": {"block_000001": unrelated_record},
             },
         )
 
         save_result = block.save_learner_activity(
             {
                 "artifactId": "usage-v1",
-                "blockId": "flashcard-1",
+                "blockId": "block_000002",
                 "record": {
                     "activityKind": "flashcard",
                     "data": {"currentSectionId": "card-2"},
@@ -3049,14 +3049,14 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertTrue(save_result["completed"])
         self.assertRegex(save_result["updatedAt"], r"\+00:00$")
         self.assertEqual(load_result, json.loads(block.learner_activity_snapshot_json))
-        self.assertEqual(load_result["activities"]["checklist-1"], unrelated_record)
-        self.assertEqual(load_result["activities"]["flashcard-1"], save_result)
+        self.assertEqual(load_result["activities"]["block_000001"], unrelated_record)
+        self.assertEqual(load_result["activities"]["block_000002"], save_result)
 
     def test_learner_activity_handler_rejects_unauthorized_blocks_atomically(self):
         block = make_xblock()
         block.learner_content_json = json.dumps(
             course_document(
-                [{"type": "flashcard", "attrs": {"id": "flashcard-1"}}],
+                [{"type": "flashcard", "attrs": {"id": "block_000002"}}],
             ),
         )
         original_storage = block.learner_activity_snapshot_json
@@ -3064,7 +3064,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         result = block.save_learner_activity(
             {
                 "artifactId": "usage-v1",
-                "blockId": "flashcard-other",
+                "blockId": "block_999999",
                 "record": {
                     "activityKind": "flashcard",
                     "data": {},
@@ -3204,7 +3204,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
                         {
                             "type": "mcq",
                             "attrs": {
-                                "id": "mcq-1",
+                                "id": "target_00001",
                                 "assessment": {"correctOptionId": "wrong"},
                             },
                         },
@@ -3214,10 +3214,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         )
         submission = block.submit_assessment(
             {
-                "problemId": "artifact:usage-v1/block:mcq-1",
-                "targetId": "mcq-1",
+                "problemId": "artifact:usage-v1/block:target_00001",
+                "targetId": "target_00001",
                 "interactionKind": "single-select",
-                "response": {"kind": "single-select", "optionId": "a"},
+                "response": {"kind": "single-select", "optionId": "option_00001"},
                 "expectedAttemptNumber": 0,
             },
         )
@@ -3226,15 +3226,15 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         result = block.reveal_answer(
             {
-                "problemId": "artifact:usage-v1/block:mcq-1",
-                "targetId": "mcq-1",
+                "problemId": "artifact:usage-v1/block:target_00001",
+                "targetId": "target_00001",
                 "interactionKind": "single-select",
             },
         )
 
         self.assertTrue(result["success"])
         self.assertEqual(result["answerKey"], target["assessment"])
-        self.assertEqual(result["answerKey"]["correctOptionId"], "b")
+        self.assertEqual(result["answerKey"]["correctOptionId"], "option_00002")
         self.assertNotIn("answers", result)
 
     def test_reveal_answer_rejects_before_submitted_incorrect_attempt(self):
@@ -3242,8 +3242,8 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         result = block.reveal_answer(
             {
-                "problemId": "artifact:usage-v1/block:mcq-1",
-                "targetId": "mcq-1",
+                "problemId": "artifact:usage-v1/block:target_00001",
+                "targetId": "target_00001",
                 "interactionKind": "single-select",
             },
         )
@@ -3260,10 +3260,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         )
         check = block.check_assessment(
             {
-                "problemId": "artifact:usage-v1/block:mcq-1",
-                "targetId": "mcq-1",
+                "problemId": "artifact:usage-v1/block:target_00001",
+                "targetId": "target_00001",
                 "interactionKind": "single-select",
-                "response": {"kind": "single-select", "optionId": "a"},
+                "response": {"kind": "single-select", "optionId": "option_00001"},
                 "expectedAttemptNumber": 0,
             },
         )
@@ -3273,8 +3273,8 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         result = block.reveal_answer(
             {
-                "problemId": "artifact:usage-v1/block:mcq-1",
-                "targetId": "mcq-1",
+                "problemId": "artifact:usage-v1/block:target_00001",
+                "targetId": "target_00001",
                 "interactionKind": "single-select",
             },
         )
@@ -3288,10 +3288,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         block = make_xblock([single_select_target()])
         submission = block.submit_assessment(
             {
-                "problemId": "artifact:usage-v1/block:mcq-1",
-                "targetId": "mcq-1",
+                "problemId": "artifact:usage-v1/block:target_00001",
+                "targetId": "target_00001",
                 "interactionKind": "single-select",
-                "response": {"kind": "single-select", "optionId": "b"},
+                "response": {"kind": "single-select", "optionId": "option_00002"},
                 "expectedAttemptNumber": 0,
             },
         )
@@ -3300,8 +3300,8 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         result = block.reveal_answer(
             {
-                "problemId": "artifact:usage-v1/block:mcq-1",
-                "targetId": "mcq-1",
+                "problemId": "artifact:usage-v1/block:target_00001",
+                "targetId": "target_00001",
                 "interactionKind": "single-select",
             },
         )
@@ -3317,8 +3317,8 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         result = block.reveal_answer(
             {
-                "problemId": "artifact:usage-v1/block:mcq-1",
-                "targetId": "mcq-1",
+                "problemId": "artifact:usage-v1/block:target_00001",
+                "targetId": "target_00001",
                 "interactionKind": "single-select",
             },
         )
@@ -3334,13 +3334,13 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             feedback_mode="immediate",
             max_attempts=2,
         )
-        group = quiz_group(target_ids=["mcq-1"])
+        group = quiz_group(target_ids=["target_00001"])
         existing_snapshot = {
             "snapshotVersion": 2,
             "artifactId": "usage-v1",
             "problems": {
-                "mcq-1": {
-                    "response": {"kind": "single-select", "optionId": "a"},
+                "target_00001": {
+                    "response": {"kind": "single-select", "optionId": "option_00001"},
                     "attemptNumber": 1,
                     "hintsShown": 0,
                     "checkResult": None,
@@ -3356,22 +3356,22 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             "quizzes": {},
         }
         base_request = {
-            "problemId": "artifact:usage-v1/block:mcq-1",
-            "targetId": "mcq-1",
+            "problemId": "artifact:usage-v1/block:target_00001",
+            "targetId": "target_00001",
             "interactionKind": "single-select",
         }
         operations = {
             "check": lambda block: block.check_assessment(
                 {
                     **base_request,
-                    "response": {"kind": "single-select", "optionId": "b"},
+                    "response": {"kind": "single-select", "optionId": "option_00002"},
                     "expectedAttemptNumber": 1,
                 },
             ),
             "submit": lambda block: block.submit_assessment(
                 {
                     **base_request,
-                    "response": {"kind": "single-select", "optionId": "b"},
+                    "response": {"kind": "single-select", "optionId": "option_00002"},
                     "expectedAttemptNumber": 1,
                 },
             ),
@@ -3406,8 +3406,8 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         result = block.reveal_answer(
             {
-                "problemId": "artifact:usage-v1/block:mcq-1",
-                "targetId": "mcq-1",
+                "problemId": "artifact:usage-v1/block:target_00001",
+                "targetId": "target_00001",
                 "interactionKind": "single-select",
             },
         )
@@ -3417,8 +3417,8 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
     def test_reveal_hint_persists_only_the_authoritative_hint_count(self):
         block = make_xblock([single_select_target()])
         request = {
-            "problemId": "artifact:usage-v1/block:mcq-1",
-            "targetId": "mcq-1",
+            "problemId": "artifact:usage-v1/block:target_00001",
+            "targetId": "target_00001",
             "interactionKind": "single-select",
             "hintsShown": 1,
         }
@@ -3433,7 +3433,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertEqual(second["hintsShown"], 2)
         self.assertEqual(second["problem"]["hintsShown"], 2)
         snapshot = json.loads(block.assessment_snapshot_json)
-        problem = snapshot["problems"]["mcq-1"]
+        problem = snapshot["problems"]["target_00001"]
         self.assertEqual(problem["hintsShown"], 2)
         self.assertEqual(
             set(problem),
@@ -3451,8 +3451,8 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
     def test_reveal_hint_rejects_invalid_and_skipped_counts_without_mutation(self):
         request = {
-            "problemId": "artifact:usage-v1/block:mcq-1",
-            "targetId": "mcq-1",
+            "problemId": "artifact:usage-v1/block:target_00001",
+            "targetId": "target_00001",
             "interactionKind": "single-select",
         }
 
@@ -3488,7 +3488,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             "snapshotVersion": 2,
             "artifactId": "usage-v1",
             "problems": {
-                "mcq-1": {
+                "target_00001": {
                     "response": None,
                     "attemptNumber": 0,
                     "hintsShown": 0,
@@ -3503,8 +3503,8 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             block.reveal_hint(
                 {
-                    "problemId": "artifact:usage-v1/block:mcq-1",
-                    "targetId": "mcq-1",
+                    "problemId": "artifact:usage-v1/block:target_00001",
+                    "targetId": "target_00001",
                     "interactionKind": "single-select",
                     "hintsShown": 1,
                 },
@@ -3517,8 +3517,8 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         result = block.reveal_hint(
             {
-                "problemId": "artifact:other-usage/block:mcq-1",
-                "targetId": "mcq-1",
+                "problemId": "artifact:other-usage/block:target_00001",
+                "targetId": "target_00001",
                 "interactionKind": "single-select",
             },
         )
@@ -3531,10 +3531,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         result = block.submit_assessment(
             {
-                "problemId": "artifact:usage-v1/block:mcq-1",
-                "targetId": "mcq-1",
+                "problemId": "artifact:usage-v1/block:target_00001",
+                "targetId": "target_00001",
                 "interactionKind": "single-select",
-                "response": {"kind": "single-select", "optionId": "b"},
+                "response": {"kind": "single-select", "optionId": "option_00002"},
                 "expectedAttemptNumber": 0,
             },
         )
@@ -3549,8 +3549,8 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertEqual(result["items"], {})
         self.assertEqual(result["problem"]["submissionResult"]["items"], {})
         snapshot = json.loads(block.assessment_snapshot_json)
-        stored = snapshot["problems"]["mcq-1"]
-        self.assertEqual(stored["response"], {"kind": "single-select", "optionId": "b"})
+        stored = snapshot["problems"]["target_00001"]
+        self.assertEqual(stored["response"], {"kind": "single-select", "optionId": "option_00002"})
         self.assertEqual(stored["attemptNumber"], 1)
         self.assertNotIn("targetId", stored)
         self.assertNotIn("interactionKind", stored)
@@ -3568,10 +3568,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         result = block.submit_assessment(
             {
-                "problemId": "artifact:canonical-usage-v1/block:mcq-1",
-                "targetId": "mcq-1",
+                "problemId": "artifact:canonical-usage-v1/block:target_00001",
+                "targetId": "target_00001",
                 "interactionKind": "single-select",
-                "response": {"kind": "single-select", "optionId": "b"},
+                "response": {"kind": "single-select", "optionId": "option_00002"},
                 "expectedAttemptNumber": 0,
             },
         )
@@ -3584,10 +3584,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         result = block.submit_assessment(
             {
-                "problemId": "artifact:usage-v1/block:mcq-1",
-                "targetId": "mcq-1",
+                "problemId": "artifact:usage-v1/block:target_00001",
+                "targetId": "target_00001",
                 "interactionKind": "single-select",
-                "response": {"kind": "single-select", "optionId": "b"},
+                "response": {"kind": "single-select", "optionId": "option_00002"},
                 "expectedAttemptNumber": 0,
             },
         )
@@ -3596,9 +3596,9 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         snapshot = json.loads(block.assessment_snapshot_json)
         self.assertEqual(snapshot["snapshotVersion"], 2)
         self.assertEqual(snapshot["artifactId"], "usage-v1")
-        self.assertEqual(set(snapshot["problems"]), {"mcq-1"})
+        self.assertEqual(set(snapshot["problems"]), {"target_00001"})
         self.assertEqual(snapshot["quizzes"], {})
-        problem = snapshot["problems"]["mcq-1"]
+        problem = snapshot["problems"]["target_00001"]
         self.assertEqual(problem["attemptNumber"], 1)
         self.assertEqual(problem["hintsShown"], 0)
         self.assertTrue(problem["submitted"])
@@ -3627,10 +3627,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             ],
         )
         request = {
-            "problemId": "artifact:usage-v1/block:mcq-1",
-            "targetId": "mcq-1",
+            "problemId": "artifact:usage-v1/block:target_00001",
+            "targetId": "target_00001",
             "interactionKind": "single-select",
-            "response": {"kind": "single-select", "optionId": "a"},
+            "response": {"kind": "single-select", "optionId": "option_00001"},
             "expectedAttemptNumber": 0,
         }
 
@@ -3654,10 +3654,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
     def test_standalone_retry_converges_without_regrading_or_republishing(self):
         block = make_xblock([single_select_target()])
         request = {
-            "problemId": "artifact:usage-v1/block:mcq-1",
-            "targetId": "mcq-1",
+            "problemId": "artifact:usage-v1/block:target_00001",
+            "targetId": "target_00001",
             "interactionKind": "single-select",
-            "response": {"kind": "single-select", "optionId": "b"},
+            "response": {"kind": "single-select", "optionId": "option_00002"},
             "expectedAttemptNumber": 0,
         }
 
@@ -3700,10 +3700,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             [single_select_target(feedback_mode="immediate")],
         )
         request = {
-            "problemId": "artifact:usage-v1/block:mcq-1",
-            "targetId": "mcq-1",
+            "problemId": "artifact:usage-v1/block:target_00001",
+            "targetId": "target_00001",
             "interactionKind": "single-select",
-            "response": {"kind": "single-select", "optionId": "a"},
+            "response": {"kind": "single-select", "optionId": "option_00001"},
             "expectedAttemptNumber": 0,
         }
 
@@ -3719,47 +3719,47 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertEqual(len(block.runtime.published), 1)
 
     def test_quiz_start_attempt_persists_user_state(self):
-        group = quiz_group(target_ids=["mcq-1", "mcq-2"])
+        group = quiz_group(target_ids=["target_00001", "target_00002"])
         block = make_xblock(
             [
-                single_select_target("mcq-1"),
-                single_select_target("mcq-2"),
+                single_select_target("target_00001"),
+                single_select_target("target_00002"),
             ],
             groups=[group],
         )
 
         result = block.start_quiz_attempt(
             {
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
             },
         )
 
         self.assertTrue(result["success"])
-        self.assertEqual(result["groupId"], "quiz-1")
+        self.assertEqual(result["groupId"], "quiz__000001")
         self.assertEqual(result["status"], "in_progress")
-        self.assertEqual(result["currentTargetId"], "mcq-1")
+        self.assertEqual(result["currentTargetId"], "target_00001")
         snapshot = json.loads(block.assessment_snapshot_json)
         self.assertEqual(
-            snapshot["quizzes"]["quiz-1"]["attemptId"],
+            snapshot["quizzes"]["quiz__000001"]["attemptId"],
             result["attemptId"],
         )
 
     def test_quiz_start_persists_an_identity_free_canonical_attempt(self):
-        group = quiz_group(target_ids=["mcq-1", "mcq-2"])
+        group = quiz_group(target_ids=["target_00001", "target_00002"])
         block = make_xblock(
-            [single_select_target("mcq-1"), single_select_target("mcq-2")],
+            [single_select_target("target_00001"), single_select_target("target_00002")],
             groups=[group],
         )
 
-        result = block.start_quiz_attempt({"groupId": "quiz-1"})
+        result = block.start_quiz_attempt({"groupId": "quiz__000001"})
 
         self.assertTrue(result["success"])
-        self.assertEqual(result["groupId"], "quiz-1")
+        self.assertEqual(result["groupId"], "quiz__000001")
         snapshot = json.loads(block.assessment_snapshot_json)
-        self.assertEqual(set(snapshot["quizzes"]), {"quiz-1"})
-        attempt = snapshot["quizzes"]["quiz-1"]
+        self.assertEqual(set(snapshot["quizzes"]), {"quiz__000001"})
+        attempt = snapshot["quizzes"]["quiz__000001"]
         self.assertEqual(attempt["attemptId"], result["attemptId"])
         self.assertNotIn("groupId", attempt)
         self.assertNotIn("targetIds", attempt)
@@ -3769,60 +3769,60 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertNotIn("latestByGroupId", snapshot["quizzes"])
 
     def test_quiz_start_uses_stored_target_order(self):
-        group = quiz_group(target_ids=["mcq-1", "mcq-2"])
+        group = quiz_group(target_ids=["target_00001", "target_00002"])
         block = make_xblock(
             [
-                single_select_target("mcq-1"),
-                single_select_target("mcq-2"),
+                single_select_target("target_00001"),
+                single_select_target("target_00002"),
             ],
             groups=[group],
         )
 
         result = block.start_quiz_attempt(
-            {"groupId": "quiz-1"},
+            {"groupId": "quiz__000001"},
         )
 
         self.assertTrue(result["success"])
-        self.assertEqual(result["currentTargetId"], "mcq-1")
-        stored = json.loads(block.assessment_snapshot_json)["quizzes"]["quiz-1"]
+        self.assertEqual(result["currentTargetId"], "target_00001")
+        stored = json.loads(block.assessment_snapshot_json)["quizzes"]["quiz__000001"]
         self.assertNotIn("targetIds", stored)
 
     def test_quiz_start_returns_completed_attempt_without_restarting(self):
         group = quiz_group(
-            target_ids=["mcq-1", "mcq-2"],
+            target_ids=["target_00001", "target_00002"],
             passing_score=0.5,
         )
         block = make_xblock(
             [
-                single_select_target("mcq-1"),
-                single_select_target("mcq-2"),
+                single_select_target("target_00001"),
+                single_select_target("target_00002"),
             ],
             groups=[group],
         )
         attempt = block.start_quiz_attempt(
             {
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
             },
         )
         completed = block.finish_quiz_attempt(
             {
                 "attemptId": attempt["attemptId"],
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
                 "responsesByTargetId": {
-                    "mcq-1": {"kind": "single-select", "optionId": "b"},
-                    "mcq-2": {"kind": "single-select", "optionId": "b"},
+                    "target_00001": {"kind": "single-select", "optionId": "option_00002"},
+                    "target_00002": {"kind": "single-select", "optionId": "option_00002"},
                 },
             },
         )
 
         restarted = block.start_quiz_attempt(
             {
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
             },
         )
@@ -3838,31 +3838,31 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
     def test_quiz_start_finalizes_expired_after_quiz_attempt_without_restarting(self):
         group = quiz_group(
-            target_ids=["mcq-1", "mcq-2"],
+            target_ids=["target_00001", "target_00002"],
             passing_score=0.5,
         )
         block = make_xblock(
             [
-                single_select_target("mcq-1"),
-                single_select_target("mcq-2"),
+                single_select_target("target_00001"),
+                single_select_target("target_00002"),
             ],
             groups=[group],
         )
         attempt = block.start_quiz_attempt(
             {
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
             },
         )
         snapshot = json.loads(block.assessment_snapshot_json)
-        snapshot["quizzes"]["quiz-1"]["expiresAt"] = "2000-01-01T00:00:00Z"
+        snapshot["quizzes"]["quiz__000001"]["expiresAt"] = "2000-01-01T00:00:00Z"
         block.assessment_snapshot_json = json.dumps(snapshot)
 
         restarted = block.start_quiz_attempt(
             {
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
             },
         )
@@ -3882,43 +3882,43 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
     def test_quiz_start_finalizes_expired_after_each_answer_attempt_without_restarting(self):
         group = quiz_group(
-            target_ids=["mcq-1", "mcq-2"],
+            target_ids=["target_00001", "target_00002"],
             review_timing="after_each_answer",
             passing_score=0.5,
         )
         block = make_xblock(
             [
-                single_select_target("mcq-1"),
-                single_select_target("mcq-2"),
+                single_select_target("target_00001"),
+                single_select_target("target_00002"),
             ],
             groups=[group],
         )
         attempt = block.start_quiz_attempt(
             {
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
             },
         )
         block.submit_quiz_question(
             {
                 "attemptId": attempt["attemptId"],
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
-                "targetId": "mcq-1",
-                "response": {"kind": "single-select", "optionId": "b"},
+                "targetId": "target_00001",
+                "response": {"kind": "single-select", "optionId": "option_00002"},
                 "expectedAttemptNumber": 0,
             },
         )
         snapshot = json.loads(block.assessment_snapshot_json)
-        snapshot["quizzes"]["quiz-1"]["expiresAt"] = "2000-01-01T00:00:00Z"
+        snapshot["quizzes"]["quiz__000001"]["expiresAt"] = "2000-01-01T00:00:00Z"
         block.assessment_snapshot_json = json.dumps(snapshot)
 
         restarted = block.start_quiz_attempt(
             {
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
             },
         )
@@ -3927,7 +3927,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertEqual(restarted["status"], "expired")
         self.assertEqual(restarted["score"], {"scaled": 0.5, "raw": 1, "min": 0, "max": 2})
         self.assertEqual(restarted["successStatus"], "passed")
-        self.assertEqual(restarted["submittedTargetIds"], ["mcq-1"])
+        self.assertEqual(restarted["submittedTargetIds"], ["target_00001"])
         snapshot = json.loads(block.assessment_snapshot_json)
         self.assertEqual(len(snapshot["quizzes"]), 1)
         self.assertEqual(block.current_score, 0.5)
@@ -3935,20 +3935,20 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
     def test_quiz_submit_question_persists_without_publishing_before_terminal(self):
         group = quiz_group(
-            target_ids=["mcq-1", "mcq-2"],
+            target_ids=["target_00001", "target_00002"],
             review_timing="after_each_answer",
         )
         block = make_xblock(
             [
-                single_select_target("mcq-1"),
-                single_select_target("mcq-2"),
+                single_select_target("target_00001"),
+                single_select_target("target_00002"),
             ],
             groups=[group],
         )
         attempt = block.start_quiz_attempt(
             {
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
             },
         )
@@ -3956,22 +3956,22 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         result = block.submit_quiz_question(
             {
                 "attemptId": attempt["attemptId"],
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
-                "targetId": "mcq-1",
-                "response": {"kind": "single-select", "optionId": "b"},
+                "targetId": "target_00001",
+                "response": {"kind": "single-select", "optionId": "option_00002"},
                 "expectedAttemptNumber": 0,
             },
         )
 
         self.assertTrue(result["success"])
         self.assertEqual(result["status"], "in_progress")
-        self.assertEqual(result["currentTargetId"], "mcq-2")
-        self.assertEqual(result["submittedTargetIds"], ["mcq-1"])
-        self.assertTrue(result["resultsByTargetId"]["mcq-1"]["isCorrect"])
+        self.assertEqual(result["currentTargetId"], "target_00002")
+        self.assertEqual(result["submittedTargetIds"], ["target_00001"])
+        self.assertTrue(result["resultsByTargetId"]["target_00001"]["isCorrect"])
         snapshot = json.loads(block.assessment_snapshot_json)
-        stored = snapshot["problems"]["mcq-1"]
+        stored = snapshot["problems"]["target_00001"]
         self.assertEqual(stored["attemptNumber"], 1)
         self.assertTrue(stored["submitted"])
         self.assertEqual(block.current_score, 0.0)
@@ -3979,33 +3979,33 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
     def test_quiz_result_only_response_redacts_answers_but_keeps_full_storage(self):
         group = quiz_group(
-            target_ids=["mcq-1", "mcq-2"],
+            target_ids=["target_00001", "target_00002"],
             review_timing="after_each_answer",
             review_detail="result_only",
             attempts_per_question=2,
         )
         block = make_xblock(
-            [single_select_target("mcq-1"), single_select_target("mcq-2")],
+            [single_select_target("target_00001"), single_select_target("target_00002")],
             groups=[group],
         )
-        attempt = block.start_quiz_attempt({"groupId": "quiz-1"})
+        attempt = block.start_quiz_attempt({"groupId": "quiz__000001"})
 
         result = block.submit_quiz_question(
             {
                 "attemptId": attempt["attemptId"],
-                "groupId": "quiz-1",
-                "targetId": "mcq-1",
-                "response": {"kind": "single-select", "optionId": "a"},
+                "groupId": "quiz__000001",
+                "targetId": "target_00001",
+                "response": {"kind": "single-select", "optionId": "option_00001"},
                 "expectedAttemptNumber": 0,
             },
         )
 
-        public_result = result["resultsByTargetId"]["mcq-1"]
+        public_result = result["resultsByTargetId"]["target_00001"]
         self.assertFalse(public_result["isCorrect"])
         self.assertIsNone(public_result["feedback"])
         self.assertEqual(public_result["items"], {})
         self.assertEqual(
-            result["problemsByTargetId"]["mcq-1"]["submissionResult"],
+            result["problemsByTargetId"]["target_00001"]["submissionResult"],
             public_result,
         )
         public_json = json.dumps(result, sort_keys=True)
@@ -4018,38 +4018,38 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertIn('"expected"', stored_json)
         self.assertIn("Summary feedback", stored_json)
         self.assertIn("Choice feedback", stored_json)
-        replay = block.start_quiz_attempt({"groupId": "quiz-1"})
+        replay = block.start_quiz_attempt({"groupId": "quiz__000001"})
         replay_json = json.dumps(replay, sort_keys=True)
-        self.assertEqual(replay["resultsByTargetId"]["mcq-1"]["items"], {})
+        self.assertEqual(replay["resultsByTargetId"]["target_00001"]["items"], {})
         self.assertNotIn('"expected"', replay_json)
         self.assertNotIn("Summary feedback", replay_json)
         self.assertNotIn("Choice feedback", replay_json)
 
     def test_quiz_none_response_redacts_question_results_but_keeps_full_storage(self):
         group = quiz_group(
-            target_ids=["mcq-1", "mcq-2"],
+            target_ids=["target_00001", "target_00002"],
             review_timing="after_each_answer",
             review_detail="none",
             attempts_per_question=2,
         )
         block = make_xblock(
-            [single_select_target("mcq-1"), single_select_target("mcq-2")],
+            [single_select_target("target_00001"), single_select_target("target_00002")],
             groups=[group],
         )
-        attempt = block.start_quiz_attempt({"groupId": "quiz-1"})
+        attempt = block.start_quiz_attempt({"groupId": "quiz__000001"})
 
         result = block.submit_quiz_question(
             {
                 "attemptId": attempt["attemptId"],
-                "groupId": "quiz-1",
-                "targetId": "mcq-1",
-                "response": {"kind": "single-select", "optionId": "a"},
+                "groupId": "quiz__000001",
+                "targetId": "target_00001",
+                "response": {"kind": "single-select", "optionId": "option_00001"},
                 "expectedAttemptNumber": 0,
             },
         )
 
         self.assertEqual(result["resultsByTargetId"], {})
-        public_problem = result["problemsByTargetId"]["mcq-1"]
+        public_problem = result["problemsByTargetId"]["target_00001"]
         self.assertEqual(public_problem["attemptNumber"], 1)
         self.assertFalse(public_problem["submitted"])
         self.assertIsNone(public_problem["checkResult"])
@@ -4060,34 +4060,34 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertNotIn("Choice feedback", public_json)
         stored = block._assessment_snapshot()
         self.assertTrue(
-            stored["quizzes"]["quiz-1"]["resultsByTargetId"]["mcq-1"]["items"]["b"][
+            stored["quizzes"]["quiz__000001"]["resultsByTargetId"]["target_00001"]["items"]["option_00002"][
                 "expected"
             ],
         )
         self.assertEqual(
-            stored["problems"]["mcq-1"]["submissionResult"]["feedback"],
+            stored["problems"]["target_00001"]["submissionResult"]["feedback"],
             rich_feedback("Summary feedback"),
         )
 
     def test_quiz_full_review_only_returns_answers_after_terminal_authorization(self):
         group = quiz_group(
-            target_ids=["mcq-1", "mcq-2"],
+            target_ids=["target_00001", "target_00002"],
             review_timing="after_each_answer",
             review_detail="full_review",
             attempts_per_question=2,
         )
         block = make_xblock(
-            [single_select_target("mcq-1"), single_select_target("mcq-2")],
+            [single_select_target("target_00001"), single_select_target("target_00002")],
             groups=[group],
         )
-        attempt = block.start_quiz_attempt({"groupId": "quiz-1"})
+        attempt = block.start_quiz_attempt({"groupId": "quiz__000001"})
 
         in_progress = block.submit_quiz_question(
             {
                 "attemptId": attempt["attemptId"],
-                "groupId": "quiz-1",
-                "targetId": "mcq-1",
-                "response": {"kind": "single-select", "optionId": "a"},
+                "groupId": "quiz__000001",
+                "targetId": "target_00001",
+                "response": {"kind": "single-select", "optionId": "option_00001"},
                 "expectedAttemptNumber": 0,
             },
         )
@@ -4101,18 +4101,18 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         block.submit_quiz_question(
             {
                 "attemptId": attempt["attemptId"],
-                "groupId": "quiz-1",
-                "targetId": "mcq-1",
-                "response": {"kind": "single-select", "optionId": "b"},
+                "groupId": "quiz__000001",
+                "targetId": "target_00001",
+                "response": {"kind": "single-select", "optionId": "option_00002"},
                 "expectedAttemptNumber": 1,
             },
         )
         completed = block.submit_quiz_question(
             {
                 "attemptId": attempt["attemptId"],
-                "groupId": "quiz-1",
-                "targetId": "mcq-2",
-                "response": {"kind": "single-select", "optionId": "b"},
+                "groupId": "quiz__000001",
+                "targetId": "target_00002",
+                "response": {"kind": "single-select", "optionId": "option_00002"},
                 "expectedAttemptNumber": 0,
             },
         )
@@ -4126,15 +4126,15 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
     def test_quiz_question_writes_one_complete_snapshot_and_uses_problem_attempts(self):
         group = quiz_group(
-            target_ids=["mcq-1", "mcq-2"],
+            target_ids=["target_00001", "target_00002"],
             review_timing="after_each_answer",
             attempts_per_question=2,
         )
         block = make_xblock(
-            [single_select_target("mcq-1"), single_select_target("mcq-2")],
+            [single_select_target("target_00001"), single_select_target("target_00002")],
             groups=[group],
         )
-        attempt = block.start_quiz_attempt({"groupId": "quiz-1"})
+        attempt = block.start_quiz_attempt({"groupId": "quiz__000001"})
         original_set_snapshot = block._set_assessment_snapshot
         writes = []
 
@@ -4146,54 +4146,54 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         first = block.submit_quiz_question(
             {
                 "attemptId": attempt["attemptId"],
-                "groupId": "quiz-1",
-                "targetId": "mcq-1",
-                "response": {"kind": "single-select", "optionId": "a"},
+                "groupId": "quiz__000001",
+                "targetId": "target_00001",
+                "response": {"kind": "single-select", "optionId": "option_00001"},
                 "expectedAttemptNumber": 0,
             },
         )
 
         self.assertTrue(first["success"])
-        self.assertEqual(first["currentTargetId"], "mcq-1")
+        self.assertEqual(first["currentTargetId"], "target_00001")
         self.assertEqual(len(writes), 1)
-        problem = writes[0]["problems"]["mcq-1"]
-        quiz = writes[0]["quizzes"]["quiz-1"]
+        problem = writes[0]["problems"]["target_00001"]
+        quiz = writes[0]["quizzes"]["quiz__000001"]
         self.assertEqual(problem["attemptNumber"], 1)
-        self.assertEqual(quiz["currentTargetId"], "mcq-1")
+        self.assertEqual(quiz["currentTargetId"], "target_00001")
         self.assertNotIn("attemptCountsByTargetId", quiz)
 
         second = block.submit_quiz_question(
             {
                 "attemptId": attempt["attemptId"],
-                "groupId": "quiz-1",
-                "targetId": "mcq-1",
-                "response": {"kind": "single-select", "optionId": "b"},
+                "groupId": "quiz__000001",
+                "targetId": "target_00001",
+                "response": {"kind": "single-select", "optionId": "option_00002"},
                 "expectedAttemptNumber": 1,
             },
         )
 
         self.assertTrue(second["success"])
-        self.assertEqual(second["currentTargetId"], "mcq-2")
+        self.assertEqual(second["currentTargetId"], "target_00002")
         snapshot = json.loads(block.assessment_snapshot_json)
-        self.assertEqual(snapshot["problems"]["mcq-1"]["attemptNumber"], 2)
+        self.assertEqual(snapshot["problems"]["target_00001"]["attemptNumber"], 2)
 
     def test_quiz_submit_question_keeps_retryable_wrong_answer_current(self):
         group = quiz_group(
-            target_ids=["mcq-1", "mcq-2"],
+            target_ids=["target_00001", "target_00002"],
             review_timing="after_each_answer",
             attempts_per_question=2,
         )
         block = make_xblock(
             [
-                single_select_target("mcq-1"),
-                single_select_target("mcq-2"),
+                single_select_target("target_00001"),
+                single_select_target("target_00002"),
             ],
             groups=[group],
         )
         attempt = block.start_quiz_attempt(
             {
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
             },
         )
@@ -4201,54 +4201,54 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         result = block.submit_quiz_question(
             {
                 "attemptId": attempt["attemptId"],
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
-                "targetId": "mcq-1",
-                "response": {"kind": "single-select", "optionId": "a"},
+                "targetId": "target_00001",
+                "response": {"kind": "single-select", "optionId": "option_00001"},
                 "expectedAttemptNumber": 0,
             },
         )
 
         self.assertTrue(result["success"])
         self.assertEqual(result["status"], "in_progress")
-        self.assertEqual(result["currentTargetId"], "mcq-1")
+        self.assertEqual(result["currentTargetId"], "target_00001")
         self.assertEqual(result["submittedTargetIds"], [])
-        self.assertFalse(result["resultsByTargetId"]["mcq-1"]["isCorrect"])
+        self.assertFalse(result["resultsByTargetId"]["target_00001"]["isCorrect"])
         snapshot = json.loads(block.assessment_snapshot_json)
-        stored_attempt = snapshot["quizzes"]["quiz-1"]
-        self.assertEqual(stored_attempt["currentTargetId"], "mcq-1")
+        stored_attempt = snapshot["quizzes"]["quiz__000001"]
+        self.assertEqual(stored_attempt["currentTargetId"], "target_00001")
         self.assertEqual(stored_attempt["submittedTargetIds"], [])
         self.assertNotIn("attemptCountsByTargetId", stored_attempt)
 
     def test_quiz_submit_question_rejects_skipping_retryable_current_target(self):
         group = quiz_group(
-            target_ids=["mcq-1", "mcq-2"],
+            target_ids=["target_00001", "target_00002"],
             review_timing="after_each_answer",
             attempts_per_question=2,
         )
         block = make_xblock(
             [
-                single_select_target("mcq-1"),
-                single_select_target("mcq-2"),
+                single_select_target("target_00001"),
+                single_select_target("target_00002"),
             ],
             groups=[group],
         )
         attempt = block.start_quiz_attempt(
             {
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
             },
         )
         block.submit_quiz_question(
             {
                 "attemptId": attempt["attemptId"],
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
-                "targetId": "mcq-1",
-                "response": {"kind": "single-select", "optionId": "a"},
+                "targetId": "target_00001",
+                "response": {"kind": "single-select", "optionId": "option_00001"},
                 "expectedAttemptNumber": 0,
             },
         )
@@ -4256,40 +4256,40 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         result = block.submit_quiz_question(
             {
                 "attemptId": attempt["attemptId"],
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
-                "targetId": "mcq-2",
-                "response": {"kind": "single-select", "optionId": "b"},
+                "targetId": "target_00002",
+                "response": {"kind": "single-select", "optionId": "option_00002"},
                 "expectedAttemptNumber": 0,
             },
         )
 
         self.assertEqual(
             result,
-            {"success": False, "error": "quiz current question is mcq-1"},
+            {"success": False, "error": "quiz current question is target_00001"},
         )
         snapshot = json.loads(block.assessment_snapshot_json)
-        stored_attempt = snapshot["quizzes"]["quiz-1"]
-        self.assertEqual(stored_attempt["currentTargetId"], "mcq-1")
+        stored_attempt = snapshot["quizzes"]["quiz__000001"]
+        self.assertEqual(stored_attempt["currentTargetId"], "target_00001")
         self.assertEqual(stored_attempt["submittedTargetIds"], [])
-        self.assertEqual(set(stored_attempt["resultsByTargetId"].keys()), {"mcq-1"})
+        self.assertEqual(set(stored_attempt["resultsByTargetId"].keys()), {"target_00001"})
         self.assertEqual(block.current_score, 0.0)
         self.assertEqual(block.runtime.published, [])
 
     def test_quiz_finish_attempt_grades_aggregate_and_publishes_once(self):
-        group = quiz_group(target_ids=["mcq-1", "mcq-2"])
+        group = quiz_group(target_ids=["target_00001", "target_00002"])
         block = make_xblock(
             [
-                single_select_target("mcq-1"),
-                single_select_target("mcq-2"),
+                single_select_target("target_00001"),
+                single_select_target("target_00002"),
             ],
             groups=[group],
         )
         attempt = block.start_quiz_attempt(
             {
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
             },
         )
@@ -4297,12 +4297,12 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         result = block.finish_quiz_attempt(
             {
                 "attemptId": attempt["attemptId"],
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
                 "responsesByTargetId": {
-                    "mcq-1": {"kind": "single-select", "optionId": "b"},
-                    "mcq-2": {"kind": "single-select", "optionId": "b"},
+                    "target_00001": {"kind": "single-select", "optionId": "option_00002"},
+                    "target_00002": {"kind": "single-select", "optionId": "option_00002"},
                 },
             },
         )
@@ -4312,7 +4312,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertEqual(result["score"], {"scaled": 1.0, "raw": 2, "min": 0, "max": 2})
         self.assertTrue(result["answerReviewAuthorized"])
         snapshot = json.loads(block.assessment_snapshot_json)
-        self.assertEqual(set(snapshot["problems"]), {"mcq-1", "mcq-2"})
+        self.assertEqual(set(snapshot["problems"]), {"target_00001", "target_00002"})
         self.assertEqual(block.current_score, 1.0)
         self.assertEqual(len(block.runtime.published), 1)
         _, event, payload = block.runtime.published[0]
@@ -4320,19 +4320,19 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertEqual(payload, {"value": 1.0, "max_value": 1.0})
 
     def test_ungraded_quiz_targets_do_not_leak_into_later_grade_publish(self):
-        group = quiz_group(target_ids=["mcq-1", "mcq-2"], is_graded=False)
+        group = quiz_group(target_ids=["target_00001", "target_00002"], is_graded=False)
         block = make_xblock(
             [
-                single_select_target("mcq-1"),
-                single_select_target("mcq-2"),
+                single_select_target("target_00001"),
+                single_select_target("target_00002"),
                 single_select_target("standalone-1"),
             ],
             groups=[group],
         )
         attempt = block.start_quiz_attempt(
             {
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
             },
         )
@@ -4340,12 +4340,12 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         quiz_result = block.finish_quiz_attempt(
             {
                 "attemptId": attempt["attemptId"],
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
                 "responsesByTargetId": {
-                    "mcq-1": {"kind": "single-select", "optionId": "b"},
-                    "mcq-2": {"kind": "single-select", "optionId": "b"},
+                    "target_00001": {"kind": "single-select", "optionId": "option_00002"},
+                    "target_00002": {"kind": "single-select", "optionId": "option_00002"},
                 },
             },
         )
@@ -4354,7 +4354,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
                 "problemId": "artifact:usage-v1/block:standalone-1",
                 "targetId": "standalone-1",
                 "interactionKind": "single-select",
-                "response": {"kind": "single-select", "optionId": "a"},
+                "response": {"kind": "single-select", "optionId": "option_00001"},
                 "expectedAttemptNumber": 0,
             },
         )
@@ -4371,20 +4371,20 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
     def test_quiz_finish_rejects_after_each_answer_before_expiry(self):
         group = quiz_group(
-            target_ids=["mcq-1", "mcq-2"],
+            target_ids=["target_00001", "target_00002"],
             review_timing="after_each_answer",
         )
         block = make_xblock(
             [
-                single_select_target("mcq-1"),
-                single_select_target("mcq-2"),
+                single_select_target("target_00001"),
+                single_select_target("target_00002"),
             ],
             groups=[group],
         )
         attempt = block.start_quiz_attempt(
             {
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
             },
         )
@@ -4392,12 +4392,12 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         result = block.finish_quiz_attempt(
             {
                 "attemptId": attempt["attemptId"],
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
                 "responsesByTargetId": {
-                    "mcq-1": {"kind": "single-select", "optionId": "b"},
-                    "mcq-2": {"kind": "single-select", "optionId": "b"},
+                    "target_00001": {"kind": "single-select", "optionId": "option_00002"},
+                    "target_00002": {"kind": "single-select", "optionId": "option_00002"},
                 },
             },
         )
@@ -4413,18 +4413,18 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertEqual(block.runtime.published, [])
 
     def test_quiz_finish_rejects_partial_after_quiz_before_expiry(self):
-        group = quiz_group(target_ids=["mcq-1", "mcq-2"])
+        group = quiz_group(target_ids=["target_00001", "target_00002"])
         block = make_xblock(
             [
-                single_select_target("mcq-1"),
-                single_select_target("mcq-2"),
+                single_select_target("target_00001"),
+                single_select_target("target_00002"),
             ],
             groups=[group],
         )
         attempt = block.start_quiz_attempt(
             {
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
             },
         )
@@ -4432,11 +4432,11 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         result = block.finish_quiz_attempt(
             {
                 "attemptId": attempt["attemptId"],
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
                 "responsesByTargetId": {
-                    "mcq-1": {"kind": "single-select", "optionId": "b"},
+                    "target_00001": {"kind": "single-select", "optionId": "option_00002"},
                 },
             },
         )
@@ -4449,36 +4449,36 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             },
         )
         snapshot = json.loads(block.assessment_snapshot_json)
-        stored_attempt = snapshot["quizzes"]["quiz-1"]
+        stored_attempt = snapshot["quizzes"]["quiz__000001"]
         self.assertEqual(stored_attempt["status"], "in_progress")
         self.assertEqual(snapshot["problems"], {})
         self.assertEqual(block.runtime.published, [])
 
     def test_quiz_finish_replay_returns_terminal_canonical_state_without_mutating_grade(self):
-        group = quiz_group(target_ids=["mcq-1", "mcq-2"])
+        group = quiz_group(target_ids=["target_00001", "target_00002"])
         block = make_xblock(
             [
-                single_select_target("mcq-1"),
-                single_select_target("mcq-2"),
+                single_select_target("target_00001"),
+                single_select_target("target_00002"),
             ],
             groups=[group],
         )
         attempt = block.start_quiz_attempt(
             {
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
             },
         )
         first = block.finish_quiz_attempt(
             {
                 "attemptId": attempt["attemptId"],
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
                 "responsesByTargetId": {
-                    "mcq-1": {"kind": "single-select", "optionId": "b"},
-                    "mcq-2": {"kind": "single-select", "optionId": "b"},
+                    "target_00001": {"kind": "single-select", "optionId": "option_00002"},
+                    "target_00002": {"kind": "single-select", "optionId": "option_00002"},
                 },
             },
         )
@@ -4486,12 +4486,12 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         second = block.finish_quiz_attempt(
             {
                 "attemptId": attempt["attemptId"],
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
                 "responsesByTargetId": {
-                    "mcq-1": {"kind": "single-select", "optionId": "a"},
-                    "mcq-2": {"kind": "single-select", "optionId": "a"},
+                    "target_00001": {"kind": "single-select", "optionId": "option_00001"},
+                    "target_00002": {"kind": "single-select", "optionId": "option_00001"},
                 },
             },
         )
@@ -4501,27 +4501,27 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertEqual(second["quizAttempt"], first["quizAttempt"])
         self.assertEqual(second["problemsByTargetId"], first["problemsByTargetId"])
         snapshot = json.loads(block.assessment_snapshot_json)
-        stored_attempt = snapshot["quizzes"]["quiz-1"]
+        stored_attempt = snapshot["quizzes"]["quiz__000001"]
         self.assertEqual(stored_attempt["score"], {"scaled": 1.0, "raw": 2, "min": 0, "max": 2})
         self.assertEqual(block.current_score, 1.0)
         self.assertEqual(len(block.runtime.published), 1)
 
     def test_quiz_question_retry_converges_before_policy_or_grading(self):
         group = quiz_group(
-            target_ids=["mcq-1", "mcq-2"],
+            target_ids=["target_00001", "target_00002"],
             review_timing="after_each_answer",
             attempts_per_question=2,
         )
         block = make_xblock(
-            [single_select_target("mcq-1"), single_select_target("mcq-2")],
+            [single_select_target("target_00001"), single_select_target("target_00002")],
             groups=[group],
         )
-        attempt = block.start_quiz_attempt({"groupId": "quiz-1"})
+        attempt = block.start_quiz_attempt({"groupId": "quiz__000001"})
         request = {
             "attemptId": attempt["attemptId"],
-            "groupId": "quiz-1",
-            "targetId": "mcq-1",
-            "response": {"kind": "single-select", "optionId": "a"},
+            "groupId": "quiz__000001",
+            "targetId": "target_00001",
+            "response": {"kind": "single-select", "optionId": "option_00001"},
             "expectedAttemptNumber": 0,
         }
 
@@ -4542,7 +4542,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertTrue(accepted["success"])
         self.assertEqual(accepted["quizAttempt"], replay["quizAttempt"])
         self.assertEqual(accepted["problemsByTargetId"], replay["problemsByTargetId"])
-        self.assertEqual(accepted["problemsByTargetId"]["mcq-1"]["attemptNumber"], 1)
+        self.assertEqual(accepted["problemsByTargetId"]["target_00001"]["attemptNumber"], 1)
         self.assertEqual(
             missing,
             {
@@ -4559,36 +4559,36 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertEqual(block.runtime.published, [])
 
     def test_quiz_finish_rejects_stale_attempt(self):
-        group = quiz_group(target_ids=["mcq-1", "mcq-2"])
+        group = quiz_group(target_ids=["target_00001", "target_00002"])
         block = make_xblock(
             [
-                single_select_target("mcq-1"),
-                single_select_target("mcq-2"),
+                single_select_target("target_00001"),
+                single_select_target("target_00002"),
             ],
             groups=[group],
         )
         stale_attempt = block.start_quiz_attempt(
             {
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
             },
         )
         snapshot = json.loads(block.assessment_snapshot_json)
-        latest_attempt = dict(snapshot["quizzes"]["quiz-1"])
-        latest_attempt["attemptId"] = "quiz:quiz-1:latest"
-        snapshot["quizzes"]["quiz-1"] = latest_attempt
+        latest_attempt = dict(snapshot["quizzes"]["quiz__000001"])
+        latest_attempt["attemptId"] = "quiz:quiz__000001:latest"
+        snapshot["quizzes"]["quiz__000001"] = latest_attempt
         block.assessment_snapshot_json = json.dumps(snapshot)
 
         result = block.finish_quiz_attempt(
             {
                 "attemptId": stale_attempt["attemptId"],
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
                 "responsesByTargetId": {
-                    "mcq-1": {"kind": "single-select", "optionId": "b"},
-                    "mcq-2": {"kind": "single-select", "optionId": "b"},
+                    "target_00001": {"kind": "single-select", "optionId": "option_00002"},
+                    "target_00002": {"kind": "single-select", "optionId": "option_00002"},
                 },
             },
         )
@@ -4601,23 +4601,23 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertEqual(block.runtime.published, [])
 
     def test_expired_after_quiz_finish_ignores_late_answers_and_is_idempotent(self):
-        group = quiz_group(target_ids=["mcq-1", "mcq-2"])
+        group = quiz_group(target_ids=["target_00001", "target_00002"])
         block = make_xblock(
             [
-                single_select_target("mcq-1"),
-                single_select_target("mcq-2"),
+                single_select_target("target_00001"),
+                single_select_target("target_00002"),
             ],
             groups=[group],
         )
         attempt = block.start_quiz_attempt(
             {
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1", "mcq-2"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001", "target_00002"],
                 "settings": group["settings"],
             },
         )
         snapshot = json.loads(block.assessment_snapshot_json)
-        snapshot["quizzes"]["quiz-1"]["expiresAt"] = "2000-01-01T00:00:00Z"
+        snapshot["quizzes"]["quiz__000001"]["expiresAt"] = "2000-01-01T00:00:00Z"
         block.assessment_snapshot_json = json.dumps(snapshot)
 
         with patch.object(
@@ -4628,23 +4628,23 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
             first = block.finish_quiz_attempt(
                 {
                     "attemptId": attempt["attemptId"],
-                    "groupId": "quiz-1",
-                    "targetIds": ["mcq-1", "mcq-2"],
+                    "groupId": "quiz__000001",
+                    "targetIds": ["target_00001", "target_00002"],
                     "settings": group["settings"],
                     "responsesByTargetId": {
-                        "mcq-1": {"kind": "single-select", "optionId": "b"},
+                        "target_00001": {"kind": "single-select", "optionId": "option_00002"},
                     },
                 },
             )
             second = block.finish_quiz_attempt(
                 {
                     "attemptId": attempt["attemptId"],
-                    "groupId": "quiz-1",
-                    "targetIds": ["mcq-1", "mcq-2"],
+                    "groupId": "quiz__000001",
+                    "targetIds": ["target_00001", "target_00002"],
                     "settings": group["settings"],
                     "responsesByTargetId": {
-                        "mcq-1": {"kind": "single-select", "optionId": "b"},
-                        "mcq-2": {"kind": "single-select", "optionId": "b"},
+                        "target_00001": {"kind": "single-select", "optionId": "option_00002"},
+                        "target_00002": {"kind": "single-select", "optionId": "option_00002"},
                     },
                 },
             )
@@ -4665,38 +4665,38 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
     def test_expired_after_quiz_finish_preserves_pre_expiry_accepted_answers(self):
         after_each_group = quiz_group(
-            target_ids=["mcq-1", "mcq-2"],
+            target_ids=["target_00001", "target_00002"],
             review_timing="after_each_answer",
         )
         block = make_xblock(
-            [single_select_target("mcq-1"), single_select_target("mcq-2")],
+            [single_select_target("target_00001"), single_select_target("target_00002")],
             groups=[after_each_group],
         )
-        attempt = block.start_quiz_attempt({"groupId": "quiz-1"})
+        attempt = block.start_quiz_attempt({"groupId": "quiz__000001"})
         accepted = block.submit_quiz_question(
             {
                 "attemptId": attempt["attemptId"],
-                "groupId": "quiz-1",
-                "targetId": "mcq-1",
-                "response": {"kind": "single-select", "optionId": "b"},
+                "groupId": "quiz__000001",
+                "targetId": "target_00001",
+                "response": {"kind": "single-select", "optionId": "option_00002"},
                 "expectedAttemptNumber": 0,
             },
         )
         self.assertTrue(accepted["success"])
 
-        after_quiz_group = quiz_group(target_ids=["mcq-1", "mcq-2"])
+        after_quiz_group = quiz_group(target_ids=["target_00001", "target_00002"])
         block.assessment_groups_json = json.dumps([after_quiz_group])
         snapshot = block._assessment_snapshot()
-        accepted_problem = snapshot["problems"]["mcq-1"]
-        snapshot["quizzes"]["quiz-1"]["expiresAt"] = "2000-01-01T00:00:00Z"
+        accepted_problem = snapshot["problems"]["target_00001"]
+        snapshot["quizzes"]["quiz__000001"]["expiresAt"] = "2000-01-01T00:00:00Z"
         block.assessment_snapshot_json = json.dumps(snapshot)
 
         result = block.finish_quiz_attempt(
             {
                 "attemptId": attempt["attemptId"],
-                "groupId": "quiz-1",
+                "groupId": "quiz__000001",
                 "responsesByTargetId": {
-                    "mcq-2": {"kind": "single-select", "optionId": "b"},
+                    "target_00002": {"kind": "single-select", "optionId": "option_00002"},
                 },
             },
         )
@@ -4704,35 +4704,35 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertTrue(result["success"])
         self.assertEqual(result["status"], "expired")
         self.assertEqual(result["score"], {"scaled": 0.5, "raw": 1, "min": 0, "max": 2})
-        self.assertEqual(result["submittedTargetIds"], ["mcq-1"])
-        self.assertEqual(set(result["resultsByTargetId"]), {"mcq-1"})
+        self.assertEqual(result["submittedTargetIds"], ["target_00001"])
+        self.assertEqual(set(result["resultsByTargetId"]), {"target_00001"})
         stored = block._assessment_snapshot()
-        self.assertEqual(stored["problems"], {"mcq-1": accepted_problem})
-        self.assertNotIn("mcq-2", result["problemsByTargetId"])
+        self.assertEqual(stored["problems"], {"target_00001": accepted_problem})
+        self.assertNotIn("target_00002", result["problemsByTargetId"])
         self.assertEqual(block.current_score, 0.5)
         self.assertEqual(len(block.runtime.published), 1)
 
     def test_quiz_reveal_answers_requires_full_review(self):
         group = quiz_group(
-            target_ids=["mcq-1"],
+            target_ids=["target_00001"],
             review_detail="result_only",
         )
-        block = make_xblock([single_select_target("mcq-1")], groups=[group])
+        block = make_xblock([single_select_target("target_00001")], groups=[group])
         attempt = block.start_quiz_attempt(
             {
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001"],
                 "settings": group["settings"],
             },
         )
         block.finish_quiz_attempt(
             {
                 "attemptId": attempt["attemptId"],
-                "groupId": "quiz-1",
-                "targetIds": ["mcq-1"],
+                "groupId": "quiz__000001",
+                "targetIds": ["target_00001"],
                 "settings": group["settings"],
                 "responsesByTargetId": {
-                    "mcq-1": {"kind": "single-select", "optionId": "b"},
+                    "target_00001": {"kind": "single-select", "optionId": "option_00002"},
                 },
             },
         )
@@ -4740,7 +4740,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         result = block.reveal_quiz_answers(
             {
                 "attemptId": attempt["attemptId"],
-                "groupId": "quiz-1",
+                "groupId": "quiz__000001",
             },
         )
 
@@ -4751,17 +4751,17 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
     def test_quiz_answer_reveal_returns_canonical_state_without_writing(self):
         group = quiz_group(
-            target_ids=["mcq-1"],
+            target_ids=["target_00001"],
             review_detail="full_review",
         )
-        block = make_xblock([single_select_target("mcq-1")], groups=[group])
-        attempt = block.start_quiz_attempt({"groupId": "quiz-1"})
+        block = make_xblock([single_select_target("target_00001")], groups=[group])
+        attempt = block.start_quiz_attempt({"groupId": "quiz__000001"})
         finished = block.finish_quiz_attempt(
             {
                 "attemptId": attempt["attemptId"],
-                "groupId": "quiz-1",
+                "groupId": "quiz__000001",
                 "responsesByTargetId": {
-                    "mcq-1": {"kind": "single-select", "optionId": "b"},
+                    "target_00001": {"kind": "single-select", "optionId": "option_00002"},
                 },
             },
         )
@@ -4775,7 +4775,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         block._set_assessment_snapshot = record_snapshot
         revealed = block.reveal_quiz_answers(
-            {"attemptId": attempt["attemptId"], "groupId": "quiz-1"},
+            {"attemptId": attempt["attemptId"], "groupId": "quiz__000001"},
         )
 
         self.assertEqual(revealed["quizAttempt"], finished["quizAttempt"])
@@ -4786,14 +4786,14 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
     def test_preview_submit_assessment_allows_quiz_target_without_persisting(self):
         block = make_xblock(
             [single_select_target(max_attempts=1)],
-            groups=[quiz_group(target_ids=["mcq-1"])],
+            groups=[quiz_group(target_ids=["target_00001"])],
         )
         existing_snapshot = {
             "snapshotVersion": 2,
             "artifactId": "usage-v1",
             "problems": {
-                "mcq-1": {
-                    "response": {"kind": "single-select", "optionId": "a"},
+                "target_00001": {
+                    "response": {"kind": "single-select", "optionId": "option_00001"},
                     "attemptNumber": 1,
                     "hintsShown": 0,
                     "checkResult": None,
@@ -4809,10 +4809,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         result = block.preview_submit_assessment(
             {
-                "problemId": "artifact:usage-v1/block:mcq-1",
-                "targetId": "mcq-1",
+                "problemId": "artifact:usage-v1/block:target_00001",
+                "targetId": "target_00001",
                 "interactionKind": "single-select",
-                "response": {"kind": "single-select", "optionId": "b"},
+                "response": {"kind": "single-select", "optionId": "option_00002"},
             },
         )
 
@@ -4828,10 +4828,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         block = make_xblock([single_select_target()])
         block._has_studio_write_access = lambda: False
         payload = {
-            "problemId": "artifact:usage-v1/block:mcq-1",
-            "targetId": "mcq-1",
+            "problemId": "artifact:usage-v1/block:target_00001",
+            "targetId": "target_00001",
             "interactionKind": "single-select",
-            "response": {"kind": "single-select", "optionId": "b"},
+            "response": {"kind": "single-select", "optionId": "option_00002"},
         }
 
         self.assertEqual(
@@ -4850,10 +4850,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         result = block.check_assessment(
             {
-                "problemId": "artifact:usage-v1/block:mcq-1",
-                "targetId": "mcq-1",
+                "problemId": "artifact:usage-v1/block:target_00001",
+                "targetId": "target_00001",
                 "interactionKind": "single-select",
-                "response": {"kind": "single-select", "optionId": "b"},
+                "response": {"kind": "single-select", "optionId": "option_00002"},
                 "expectedAttemptNumber": 0,
             },
         )
@@ -4870,10 +4870,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         result = block.check_assessment(
             {
-                "problemId": "artifact:usage-v1/block:mcq-1",
-                "targetId": "mcq-1",
+                "problemId": "artifact:usage-v1/block:target_00001",
+                "targetId": "target_00001",
                 "interactionKind": "single-select",
-                "response": {"kind": "single-select", "optionId": "b"},
+                "response": {"kind": "single-select", "optionId": "option_00002"},
                 "expectedAttemptNumber": 0,
             },
         )
@@ -4881,7 +4881,7 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertTrue(result["success"])
         self.assertTrue(result["isCorrect"])
         snapshot = json.loads(block.assessment_snapshot_json)
-        stored = snapshot["problems"]["mcq-1"]
+        stored = snapshot["problems"]["target_00001"]
         self.assertFalse(stored["submitted"])
         self.assertEqual(stored["attemptNumber"], 1)
         self.assertEqual(
@@ -4898,15 +4898,15 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
     def test_preview_check_assessment_allows_quiz_target_without_persisting(self):
         block = make_xblock(
             [single_select_target(feedback_mode="immediate")],
-            groups=[quiz_group(target_ids=["mcq-1"])],
+            groups=[quiz_group(target_ids=["target_00001"])],
         )
 
         result = block.preview_check_assessment(
             {
-                "problemId": "artifact:usage-v1/block:mcq-1",
-                "targetId": "mcq-1",
+                "problemId": "artifact:usage-v1/block:target_00001",
+                "targetId": "target_00001",
                 "interactionKind": "single-select",
-                "response": {"kind": "single-select", "optionId": "b"},
+                "response": {"kind": "single-select", "optionId": "option_00002"},
             },
         )
 
@@ -4924,19 +4924,19 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         first = block.check_assessment(
             {
-                "problemId": "artifact:usage-v1/block:mcq-1",
-                "targetId": "mcq-1",
+                "problemId": "artifact:usage-v1/block:target_00001",
+                "targetId": "target_00001",
                 "interactionKind": "single-select",
-                "response": {"kind": "single-select", "optionId": "a"},
+                "response": {"kind": "single-select", "optionId": "option_00001"},
                 "expectedAttemptNumber": 0,
             },
         )
         second = block.check_assessment(
             {
-                "problemId": "artifact:usage-v1/block:mcq-1",
-                "targetId": "mcq-1",
+                "problemId": "artifact:usage-v1/block:target_00001",
+                "targetId": "target_00001",
                 "interactionKind": "single-select",
-                "response": {"kind": "single-select", "optionId": "b"},
+                "response": {"kind": "single-select", "optionId": "option_00002"},
                 "expectedAttemptNumber": 1,
             },
         )
@@ -4944,9 +4944,9 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         self.assertTrue(first["success"])
         self.assertEqual(second, {"success": False, "error": "maximum attempts exceeded"})
         snapshot = json.loads(block.assessment_snapshot_json)
-        stored = snapshot["problems"]["mcq-1"]
+        stored = snapshot["problems"]["target_00001"]
         self.assertEqual(stored["attemptNumber"], 1)
-        self.assertEqual(stored["response"], {"kind": "single-select", "optionId": "a"})
+        self.assertEqual(stored["response"], {"kind": "single-select", "optionId": "option_00001"})
 
     def test_request_problem_id_must_match_xblock_usage_id(self):
         block = make_xblock([
@@ -4955,18 +4955,18 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         spoofed = block.check_assessment(
             {
-                "problemId": "artifact:other-usage/block:mcq-1",
-                "targetId": "mcq-1",
+                "problemId": "artifact:other-usage/block:target_00001",
+                "targetId": "target_00001",
                 "interactionKind": "single-select",
-                "response": {"kind": "single-select", "optionId": "b"},
+                "response": {"kind": "single-select", "optionId": "option_00002"},
             },
         )
         valid = block.check_assessment(
             {
-                "problemId": "artifact:usage-v1/block:mcq-1",
-                "targetId": "mcq-1",
+                "problemId": "artifact:usage-v1/block:target_00001",
+                "targetId": "target_00001",
                 "interactionKind": "single-select",
-                "response": {"kind": "single-select", "optionId": "b"},
+                "response": {"kind": "single-select", "optionId": "option_00002"},
                 "expectedAttemptNumber": 0,
             },
         )
@@ -4977,18 +4977,18 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
         )
         self.assertTrue(valid["success"])
         problems = json.loads(block.assessment_snapshot_json)["problems"]
-        self.assertNotIn("artifact:other-usage/block:mcq-1", problems)
-        self.assertIn("mcq-1", problems)
+        self.assertNotIn("artifact:other-usage/block:target_00001", problems)
+        self.assertIn("target_00001", problems)
 
     def test_scorebook_projection_uses_stored_target_settings(self):
         targets = [
-            single_select_target("mcq-1", points=1),
-            single_select_target("mcq-2", points=3),
+            single_select_target("target_00001", points=1),
+            single_select_target("target_00002", points=3),
             single_select_target("practice-1", points=50, is_graded=False),
         ]
         problems = {
-            "mcq-1": {"submissionResult": {"score": {"scaled": 1}}},
-            "mcq-2": {"submissionResult": {"score": {"scaled": 0.5}}},
+            "target_00001": {"submissionResult": {"score": {"scaled": 1}}},
+            "target_00002": {"submissionResult": {"score": {"scaled": 0.5}}},
             "practice-1": {"submissionResult": {"score": {"scaled": 1}}},
         }
 
@@ -5007,10 +5007,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         result = block.submit_assessment(
             {
-                "problemId": "artifact:usage-v1/block:mcq-1",
-                "targetId": "mcq-1",
+                "problemId": "artifact:usage-v1/block:target_00001",
+                "targetId": "target_00001",
                 "interactionKind": "single-select",
-                "response": {"kind": "single-select", "optionId": "b"},
+                "response": {"kind": "single-select", "optionId": "option_00002"},
                 "expectedAttemptNumber": 0,
             },
         )
@@ -5032,10 +5032,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         result = block.submit_assessment(
             {
-                "problemId": "artifact:usage-v1/block:mcq-1",
-                "targetId": "mcq-1",
+                "problemId": "artifact:usage-v1/block:target_00001",
+                "targetId": "target_00001",
                 "interactionKind": "single-select",
-                "response": {"kind": "single-select", "optionId": "b"},
+                "response": {"kind": "single-select", "optionId": "option_00002"},
                 "expectedAttemptNumber": 0,
             },
         )
@@ -5046,20 +5046,20 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
     def test_successive_assessment_projections_store_ordered_change_times(self):
         block = make_xblock(
-            [single_select_target("mcq-1"), single_select_target("mcq-2")],
+            [single_select_target("target_00001"), single_select_target("target_00002")],
         )
 
-        for target_id in ["mcq-1", "mcq-2"]:
+        for target_id in ["target_00001", "target_00002"]:
             block.submit_assessment(
                 {
                     "problemId": "artifact:usage-v1/block:%s" % target_id,
                     "targetId": target_id,
                     "interactionKind": "single-select",
-                    "response": {"kind": "single-select", "optionId": "b"},
+                    "response": {"kind": "single-select", "optionId": "option_00002"},
                     "expectedAttemptNumber": 0,
                 },
             )
-            if target_id == "mcq-1":
+            if target_id == "target_00001":
                 first_changed_at = block.assessment_grade_changed_at
 
         self.assertTrue(first_changed_at)
@@ -5075,18 +5075,18 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         wrong_target = block.submit_assessment(
             {
-                "problemId": "artifact:usage-v1/block:mcq-1",
+                "problemId": "artifact:usage-v1/block:target_00001",
                 "targetId": "other",
                 "interactionKind": "single-select",
-                "response": {"kind": "single-select", "optionId": "b"},
+                "response": {"kind": "single-select", "optionId": "option_00002"},
             },
         )
         wrong_kind = block.submit_assessment(
             {
-                "problemId": "artifact:usage-v1/block:mcq-1",
-                "targetId": "mcq-1",
+                "problemId": "artifact:usage-v1/block:target_00001",
+                "targetId": "target_00001",
                 "interactionKind": "multi-select",
-                "response": {"kind": "single-select", "optionId": "b"},
+                "response": {"kind": "single-select", "optionId": "option_00002"},
             },
         )
 
@@ -5104,10 +5104,10 @@ class ScaffoldAssessmentTargetContractTest(unittest.TestCase):
 
         response = block.submit_assessment(
             {
-                "problemId": "artifact:usage-v1/block:mcq-1",
-                "targetId": "mcq-1",
+                "problemId": "artifact:usage-v1/block:target_00001",
+                "targetId": "target_00001",
                 "interactionKind": "single-select",
-                "response": {"kind": "multi-select", "optionIds": ["b"]},
+                "response": {"kind": "multi-select", "optionIds": ["option_00002"]},
             },
         )
 

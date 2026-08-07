@@ -42,25 +42,25 @@ EMPTY_PROBLEM = {
 LEARNER_SNAPSHOT = {
     "snapshotVersion": 2,
     "artifactId": "artifact-1",
-    "problems": {"question-1": EMPTY_PROBLEM},
+    "problems": {"target_00001": EMPTY_PROBLEM},
     "quizzes": {},
 }
 
 TARGET = {
     "schemaVersion": 2,
-    "targetId": "question-1",
-    "blockId": "block-1",
+    "targetId": "target_00001",
+    "blockId": "block_000001",
     "blockType": "mcq",
     "interaction": {
         "kind": "single-select",
         "options": [
-            {"id": "option-a", "label": "A"},
-            {"id": "option-b", "label": "B"},
+            {"id": "option_00001", "label": "A"},
+            {"id": "option_00002", "label": "B"},
         ],
     },
     "assessment": {
         "kind": "single-select",
-        "correctOptionId": "option-b",
+        "correctOptionId": "option_00002",
         "feedbackByOptionId": {},
     },
     "settings": {
@@ -75,8 +75,8 @@ TARGET = {
 GROUP = {
     "schemaVersion": 2,
     "kind": "quiz",
-    "groupId": "quiz-1",
-    "targetIds": ["question-1", "question-2"],
+    "groupId": "quiz__000001",
+    "targetIds": ["target_00001", "target_00002"],
     "settings": {
         "allowBacktracking": True,
         "reviewTiming": "after_quiz",
@@ -91,7 +91,7 @@ GROUP = {
 QUIZ_ATTEMPT_SNAPSHOT = {
     "attemptId": "attempt-1",
     "status": "in_progress",
-    "currentTargetId": "question-1",
+    "currentTargetId": "target_00001",
     "submittedTargetIds": [],
     "startedAt": "2026-07-15T12:00:00Z",
     "finishedAt": None,
@@ -138,8 +138,8 @@ class AssessmentContractResourceTest(unittest.TestCase):
         group = {
             "schemaVersion": 2,
             "kind": "quiz",
-            "groupId": "quiz-1",
-            "targetIds": ["question-1"],
+            "groupId": "quiz__000001",
+            "targetIds": ["target_00001"],
             "settings": {
                 "allowBacktracking": True,
                 "reviewTiming": "after_quiz",
@@ -529,7 +529,7 @@ class AssessmentContractSemanticTest(unittest.TestCase):
         missing_success_status = deepcopy(LEARNER_SNAPSHOT)
         attempt = deepcopy(QUIZ_ATTEMPT_SNAPSHOT)
         del attempt["successStatus"]
-        missing_success_status["quizzes"] = {"quiz-1": attempt}
+        missing_success_status["quizzes"] = {"quiz__000001": attempt}
 
         for definition_name, value in [
             ("AssessmentGroupContract", missing_passing_score),
@@ -544,7 +544,7 @@ class AssessmentContractSemanticTest(unittest.TestCase):
         mismatched_target = deepcopy(TARGET)
         mismatched_target["assessment"] = {
             "kind": "multi-select",
-            "correctOptionIds": ["option-a"],
+            "correctOptionIds": ["option_00001"],
             "feedbackByOptionId": {},
         }
         blank_target = {**deepcopy(TARGET), "targetId": "   "}
@@ -557,7 +557,7 @@ class AssessmentContractSemanticTest(unittest.TestCase):
         option_with_unknown_field["interaction"]["options"][0]["providerPayload"] = {}
         answer_key_with_unknown_field = deepcopy(TARGET)
         answer_key_with_unknown_field["assessment"]["hostItemId"] = "item-1"
-        duplicate_group = {**deepcopy(GROUP), "targetIds": ["question-1"] * 2}
+        duplicate_group = {**deepcopy(GROUP), "targetIds": ["target_00001"] * 2}
         invalid_grade = {
             "normalizedScore": None,
             "activityStatus": "completed",
@@ -571,14 +571,14 @@ class AssessmentContractSemanticTest(unittest.TestCase):
         }
         duplicate_submitted_ids = {
             **deepcopy(QUIZ_ATTEMPT_SNAPSHOT),
-            "submittedTargetIds": ["question-1", "question-1"],
+            "submittedTargetIds": ["target_00001", "target_00001"],
         }
         submitted_without_result = {**deepcopy(EMPTY_PROBLEM), "submitted": True}
         blank_problem_key = deepcopy(LEARNER_SNAPSHOT)
         blank_problem_key["problems"] = {"   ": deepcopy(EMPTY_PROBLEM)}
         quiz_with_identity = deepcopy(LEARNER_SNAPSHOT)
         quiz_with_identity["quizzes"] = {
-            "quiz-1": {**deepcopy(QUIZ_ATTEMPT_SNAPSHOT), "groupId": "quiz-1"},
+            "quiz__000001": {**deepcopy(QUIZ_ATTEMPT_SNAPSHOT), "groupId": "quiz__000001"},
         }
         cases = [
             ("AssessmentTargetContract", mismatched_target),
@@ -606,12 +606,12 @@ class AssessmentContractSemanticTest(unittest.TestCase):
         json_schema = load_validation_module("json_schema")
         snapshot = deepcopy(LEARNER_SNAPSHOT)
         snapshot["problems"] = {
-            "artifact:artifact-1/block:question-1": deepcopy(EMPTY_PROBLEM),
+            "artifact:artifact-1/block:target_00001": deepcopy(EMPTY_PROBLEM),
         }
 
         with self.assertRaisesRegex(
             json_schema.JsonSchemaValidationError,
-            r"assessmentSnapshot\.problems\.artifact:artifact-1/block:question-1",
+            r"assessmentSnapshot\.problems\.artifact:artifact-1/block:target_00001",
         ):
             json_schema.validate_assessment_definition(
                 "AssessmentLearnerSnapshot",
@@ -654,7 +654,7 @@ class XBlockAssessmentInvariantTest(unittest.TestCase):
     def test_group_validator_executes_the_vendored_settings_contract(self):
         assessment_groups = load_validation_module("assessment_groups")
         invalid_group = deepcopy(GROUP)
-        invalid_group["targetIds"] = ["question-1"]
+        invalid_group["targetIds"] = ["target_00001"]
         invalid_group["settings"]["provider"] = "xblock"
 
         with self.assertRaisesRegex(
@@ -679,7 +679,7 @@ class XBlockAssessmentInvariantTest(unittest.TestCase):
 
     def test_group_members_must_reference_targets_in_the_xblock_save_bundle(self):
         assessment_groups = load_validation_module("assessment_groups")
-        group = {**deepcopy(GROUP), "targetIds": ["question-1", "missing"]}
+        group = {**deepcopy(GROUP), "targetIds": ["target_00001", "target_99999"]}
 
         with self.assertRaisesRegex(
             assessment_groups.AssessmentGroupValidationError,
