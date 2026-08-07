@@ -135,6 +135,7 @@ export const ImageHotspotCanvasAuthoringNode = createImageHotspotCanvasNode({
 const MIN_RADIUS = 2;
 const RESIZE_HANDLE_HIT = 1.8;
 const KEYBOARD_HOTSPOT_RADIUS = 8;
+const HOTSPOT_DRAG_THRESHOLD_PX = 4;
 
 function isOnResizeHandle(
   x: number,
@@ -260,6 +261,7 @@ function AuthorCanvas({
   const fitStageRef = useRef<HTMLDivElement>(null);
   const hotspotListRef = useRef<HTMLOListElement>(null);
   const suppressNextCanvasPointerDownRef = useRef(false);
+  const suppressNextMarkerClickRef = useRef<string | null>(null);
   const interactionRef = useRef({
     mode: "idle" as InteractionMode,
     activeId: null as string | null,
@@ -268,6 +270,9 @@ function AuthorCanvas({
     moveStart: { x: 0, y: 0 },
     moveOrigin: { cx: 0, cy: 0 },
     resizeOrigin: { cx: 0, cy: 0 },
+    moveInitiator: "surface" as "marker" | "surface",
+    pointerStart: { x: 0, y: 0 },
+    moved: false,
   });
   const [drawingPreview, setDrawingPreview] = useState<{
     cx: number;
@@ -314,6 +319,7 @@ function AuthorCanvas({
       mode: "idle",
       activeId: null,
     };
+    suppressNextMarkerClickRef.current = null;
   }, [canEditInline]);
 
   useEffect(() => {
@@ -550,7 +556,10 @@ function AuthorCanvas({
       return;
     }
 
-    const hit = findHitHotspot(pct.x, pct.y, visibleHotspots, aspectRatio);
+    const selectedHit = selected
+      ? findHitHotspot(pct.x, pct.y, [selected], aspectRatio)
+      : null;
+    const hit = selectedHit ?? findHitHotspot(pct.x, pct.y, visibleHotspots, aspectRatio);
     if (hit) {
       setSelectedId(hit.id);
       setDetailsOpenId(null);
@@ -561,6 +570,9 @@ function AuthorCanvas({
         activeId: hit.id,
         moveStart: { x: pct.x, y: pct.y },
         moveOrigin: { cx: hit.centerX, cy: hit.centerY },
+        moveInitiator: "surface",
+        pointerStart: { x: e.clientX, y: e.clientY },
+        moved: true,
       };
       containerRef.current.setPointerCapture(e.pointerId);
       return;
@@ -581,8 +593,28 @@ function AuthorCanvas({
     containerRef.current.setPointerCapture(e.pointerId);
   };
 
-  const onPointerMove = (e: PointerEvent<HTMLDivElement>, aspectRatio: number) => {
-    const i = interactionRef.current;
+  const onMarkerPointerDown = (hotspot: HotspotItem, e: PointerEvent<HTMLButtonElement>) => {
+    if (e.button !== 0 || !containerRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const pct = eventToPercent(e, containerRef.current);
+    setSelectedId(hotspot.id);
+    interactionRef.current = {
+      ...interactionRef.current,
+      mode: "moving",
+      activeId: hotspot.id,
+      moveStart: { x: pct.x, y: pct.y },
+      moveOrigin: { cx: hotspot.centerX, cy: hotspot.centerY },
+      moveInitiator: "marker",
+      pointerStart: { x: e.clientX, y: e.clientY },
+      moved: false,
+    };
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  };
+
+  const onPointerMove = (e: PointerEvent<HTMLElement>, aspectRatio: number) => {
+    let i = interactionRef.current;
     if (i.mode === "idle" || !containerRef.current) return;
     const pct = eventToPercent(e, containerRef.current);
 
@@ -596,13 +628,25 @@ function AuthorCanvas({
     }
 
     if (i.mode === "moving" && i.activeId) {
+      const activeId = i.activeId;
+      if (i.moveInitiator === "marker" && !i.moved) {
+        const distance = Math.hypot(
+          e.clientX - i.pointerStart.x,
+          e.clientY - i.pointerStart.y,
+        );
+        if (distance < HOTSPOT_DRAG_THRESHOLD_PX) return;
+        beginDraftHotspots();
+        setDetailsOpenId(null);
+        i = { ...i, moved: true };
+        interactionRef.current = i;
+      }
       const dx = pct.x - i.moveStart.x;
       const dy = pct.y - i.moveStart.y;
       const target = (draftHotspotsRef.current ?? dataRef.current.hotspots).find(
-        (h) => h.id === i.activeId,
+        (h) => h.id === activeId,
       );
       if (!target) return;
-      updateDraftHotspot(i.activeId, {
+      updateDraftHotspot(activeId, {
         centerX: clamp(i.moveOrigin.cx + dx, 0, 100),
         centerY: clamp(i.moveOrigin.cy + dy, 0, 100),
       });
@@ -621,13 +665,13 @@ function AuthorCanvas({
     }
   };
 
-  const onPointerUp = (e: PointerEvent<HTMLDivElement>) => {
+  const onPointerUp = (e: PointerEvent<HTMLElement>) => {
     const i = interactionRef.current;
     if (i.mode === "idle") {
       suppressNextCanvasPointerDownRef.current = false;
       return;
     }
-    const cancelled = e.type === "pointercancel";
+    const cancelled = e.type === "pointercancel" || e.type === "lostpointercapture";
 
     if (i.mode === "drawing" && !cancelled && i.drawRadius >= MIN_RADIUS) {
       addHotspotRegion({
@@ -639,11 +683,20 @@ function AuthorCanvas({
     }
 
     if (i.mode === "moving" || i.mode === "resizing") {
-      if (cancelled) {
+      if (cancelled || (i.moveInitiator === "marker" && !i.moved)) {
         setDraftHotspots(null);
       } else {
         commitDraftHotspots();
       }
+    }
+
+    if (!cancelled && i.mode === "moving" && i.moveInitiator === "marker" && i.moved) {
+      suppressNextMarkerClickRef.current = i.activeId;
+      setTimeout(() => {
+        if (suppressNextMarkerClickRef.current === i.activeId) {
+          suppressNextMarkerClickRef.current = null;
+        }
+      }, 0);
     }
 
     setDrawingPreview(null);
@@ -738,7 +791,7 @@ function AuthorCanvas({
           }
         : {})}
     >
-      {({ naturalSize }) => {
+      {({ aspectRatio, naturalSize }) => {
         return (
           <>
             {!isExpanded && (
@@ -846,9 +899,30 @@ function AuthorCanvas({
                     aria-label={hotspotName}
                     data-hotspot-selected={isSel ? "true" : "false"}
                     data-hotspot-author-marker-id={h.id}
-                    onPointerDown={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => onMarkerPointerDown(h, e)}
+                    onPointerMove={(e) => {
+                      e.stopPropagation();
+                      onPointerMove(e, aspectRatio);
+                    }}
+                    onPointerUp={(e) => {
+                      e.stopPropagation();
+                      onPointerUp(e);
+                    }}
+                    onPointerCancel={(e) => {
+                      e.stopPropagation();
+                      onPointerUp(e);
+                    }}
+                    onLostPointerCapture={(e) => {
+                      e.stopPropagation();
+                      onPointerUp(e);
+                    }}
                     onClick={(e) => {
                       e.stopPropagation();
+                      if (suppressNextMarkerClickRef.current === h.id) {
+                        e.preventDefault();
+                        suppressNextMarkerClickRef.current = null;
+                        return;
+                      }
                       setSelectedId(h.id);
                       if (isExpanded) setDetailsOpenId(null);
                     }}

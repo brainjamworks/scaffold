@@ -1779,6 +1779,255 @@ describe("composite image_hotspot node", () => {
     editor.destroy();
   });
 
+  it("drags the exact overlapping hotspot marker without opening its details", async () => {
+    const overlappingCanvasData = ImageHotspotCanvasDataSchema.parse({
+      ...sampleCanvasData,
+      hotspots: [
+        { ...sampleCanvasData.hotspots[0], centerX: 60, centerY: 40 },
+        { ...sampleCanvasData.hotspots[1], centerX: 60, centerY: 40 },
+        sampleCanvasData.hotspots[2],
+      ],
+    });
+    const editor = makeEditor();
+    editor.commands.setContent({
+      type: "doc",
+      content: [
+        {
+          type: "image_hotspot",
+          attrs: { id: "ihsblk_00036", assessment: sampleAssessment },
+          content: [
+            { type: "assessment_title", content: [{ type: "paragraph" }] },
+            {
+              type: "assessment_instructions",
+              content: [{ type: "paragraph" }],
+            },
+            { type: "assessment_prompt", content: [{ type: "paragraph" }] },
+            { type: "image_hotspot_canvas", attrs: { data: overlappingCanvasData } },
+            assessmentActions(),
+          ],
+        },
+      ],
+    });
+
+    renderAssessmentEditor(editor);
+
+    const canvas = await screen.findByRole("group", {
+      name: "Image hotspot authoring area",
+    });
+    canvas.getBoundingClientRect = () => ({
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      right: 100,
+      bottom: 100,
+      width: 100,
+      height: 100,
+      toJSON: () => ({}),
+    });
+    Object.defineProperties(canvas, {
+      setPointerCapture: { configurable: true, value: vi.fn() },
+      hasPointerCapture: { configurable: true, value: vi.fn(() => true) },
+      releasePointerCapture: { configurable: true, value: vi.fn() },
+    });
+
+    const firstMarker = await screen.findByRole("button", { name: "Edit hotspot 1: A" });
+    const secondBefore = readCanvasData(editor).hotspots[1];
+
+    fireEvent.pointerDown(firstMarker, {
+      button: 0,
+      buttons: 1,
+      clientX: 60,
+      clientY: 40,
+      pointerId: 5,
+    });
+    fireEvent.pointerMove(firstMarker, {
+      buttons: 1,
+      clientX: 70,
+      clientY: 50,
+      pointerId: 5,
+    });
+
+    await waitFor(() => {
+      expect(firstMarker.style.left).toBe("70%");
+      expect(firstMarker.style.top).toBe("50%");
+    });
+
+    fireEvent.pointerUp(firstMarker, {
+      button: 0,
+      buttons: 0,
+      clientX: 70,
+      clientY: 50,
+      pointerId: 5,
+    });
+    fireEvent.click(firstMarker);
+
+    await waitFor(() => {
+      expect(readCanvasData(editor).hotspots[0]).toMatchObject({
+        id: "hotsp_000001",
+        centerX: 70,
+        centerY: 50,
+      });
+    });
+    expect(readCanvasData(editor).hotspots[1]).toEqual(secondBefore);
+    expect(screen.queryByText("Hotspot 1")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit hotspot 1: A" }));
+    expect(await screen.findByText("Hotspot 1")).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByText("Hotspot 1")).toBeNull());
+
+    const movedBeforeCancel = readCanvasData(editor).hotspots[0];
+    const movedMarker = screen.getByRole("button", { name: "Edit hotspot 1: A" });
+    fireEvent.pointerDown(movedMarker, {
+      button: 0,
+      buttons: 1,
+      clientX: 70,
+      clientY: 50,
+      pointerId: 8,
+    });
+    fireEvent.pointerMove(movedMarker, {
+      buttons: 1,
+      clientX: 80,
+      clientY: 60,
+      pointerId: 8,
+    });
+    await waitFor(() => {
+      expect(movedMarker.style.left).toBe("80%");
+      expect(movedMarker.style.top).toBe("60%");
+    });
+
+    fireEvent.pointerCancel(movedMarker, {
+      buttons: 0,
+      clientX: 80,
+      clientY: 60,
+      pointerId: 8,
+    });
+
+    await waitFor(() => {
+      expect(movedMarker.style.left).toBe("70%");
+      expect(movedMarker.style.top).toBe("50%");
+    });
+    expect(readCanvasData(editor).hotspots[0]).toEqual(movedBeforeCancel);
+
+    editor.destroy();
+  });
+
+  it("keeps the selected hotspot active when dragging through an overlapping region", async () => {
+    const overlappingCanvasData = ImageHotspotCanvasDataSchema.parse({
+      ...sampleCanvasData,
+      hotspots: [
+        {
+          ...sampleCanvasData.hotspots[0],
+          centerX: 50,
+          centerY: 50,
+          radius: 20,
+        },
+        {
+          ...sampleCanvasData.hotspots[1],
+          centerX: 60,
+          centerY: 50,
+          radius: 8,
+        },
+        sampleCanvasData.hotspots[2],
+      ],
+    });
+    const editor = makeEditor();
+    editor.commands.setContent({
+      type: "doc",
+      content: [
+        {
+          type: "image_hotspot",
+          attrs: { id: "ihsblk_00037", assessment: sampleAssessment },
+          content: [
+            { type: "assessment_title", content: [{ type: "paragraph" }] },
+            {
+              type: "assessment_instructions",
+              content: [{ type: "paragraph" }],
+            },
+            { type: "assessment_prompt", content: [{ type: "paragraph" }] },
+            { type: "image_hotspot_canvas", attrs: { data: overlappingCanvasData } },
+            assessmentActions(),
+          ],
+        },
+      ],
+    });
+
+    renderAssessmentEditor(editor);
+
+    const canvas = await screen.findByRole("group", {
+      name: "Image hotspot authoring area",
+    });
+    canvas.getBoundingClientRect = () => ({
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      right: 100,
+      bottom: 100,
+      width: 100,
+      height: 100,
+      toJSON: () => ({}),
+    });
+    Object.defineProperties(canvas, {
+      setPointerCapture: { configurable: true, value: vi.fn() },
+      hasPointerCapture: { configurable: true, value: vi.fn(() => true) },
+      releasePointerCapture: { configurable: true, value: vi.fn() },
+    });
+
+    fireEvent.pointerDown(canvas, {
+      button: 0,
+      buttons: 1,
+      clientX: 35,
+      clientY: 50,
+      pointerId: 6,
+    });
+    fireEvent.pointerUp(canvas, {
+      button: 0,
+      buttons: 0,
+      clientX: 35,
+      clientY: 50,
+      pointerId: 6,
+    });
+
+    const firstMarker = await screen.findByRole("button", { name: "Edit hotspot 1: A" });
+    expect(firstMarker.getAttribute("data-hotspot-selected")).toBe("true");
+    const secondBefore = readCanvasData(editor).hotspots[1];
+
+    fireEvent.pointerDown(canvas, {
+      button: 0,
+      buttons: 1,
+      clientX: 60,
+      clientY: 50,
+      pointerId: 7,
+    });
+    fireEvent.pointerMove(canvas, {
+      buttons: 1,
+      clientX: 70,
+      clientY: 60,
+      pointerId: 7,
+    });
+    fireEvent.pointerUp(canvas, {
+      button: 0,
+      buttons: 0,
+      clientX: 70,
+      clientY: 60,
+      pointerId: 7,
+    });
+
+    await waitFor(() => {
+      expect(readCanvasData(editor).hotspots[0]).toMatchObject({
+        id: "hotsp_000001",
+        centerX: 60,
+        centerY: 60,
+      });
+    });
+    expect(readCanvasData(editor).hotspots[1]).toEqual(secondBefore);
+
+    editor.destroy();
+  });
+
   it("renders authoring and runtime canvases through the shared surface contract", async () => {
     const authoringEditor = makeEditor();
     authoringEditor.commands.setContent({

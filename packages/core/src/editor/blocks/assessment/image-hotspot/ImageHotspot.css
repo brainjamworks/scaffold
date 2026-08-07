@@ -47,7 +47,7 @@
 
   .sc-course-image-hotspot__canvas-toolbar {
     position: absolute;
-    z-index: 3;
+    z-index: 4;
     inset-block-start: 0;
     inset-inline-end: 0;
     display: flex;
@@ -61,6 +61,17 @@
     height: 44px;
     transform: translate(-50%, -50%);
     border-radius: 50%;
+  }
+
+  .sc-course-image-hotspot-author-marker {
+    touch-action: none;
+  }
+
+  .sc-course-image-hotspot-author-marker[data-hotspot-selected="true"] {
+    z-index: 3;
+  }
+
+  .sc-course-image-hotspot-marker {
     touch-action: manipulation;
   }
 
