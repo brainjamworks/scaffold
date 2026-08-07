@@ -2,7 +2,7 @@
 
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Editor, Node, type JSONContent } from "@tiptap/core";
+import { Editor, Extension, Node, type JSONContent } from "@tiptap/core";
 import UniqueID from "@tiptap/extension-unique-id";
 import StarterKit from "@tiptap/starter-kit";
 import { createElement } from "react";
@@ -10,6 +10,8 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import type { EmbeddedNodeId } from "@scaffold/contracts";
 
 import { SCAFFOLD_DOCUMENT_FORMAT_VERSION } from "@/schemas/course-document";
+import { createCourseStructureCommandsExtension } from "@/document/authoring/course-structure-commands";
+import type { CourseStructureCommand } from "@/document/model/course-structure";
 import {
   ARRANGEMENT_CONTENT,
   SECTION_ARRANGEMENT_CONTENT,
@@ -36,6 +38,9 @@ import { insertSurfaceTemplateAfterSurface } from "./surface-template-insertion"
 const surfaceVariants = createSurfaceVariantRegistry(builtInSurfaceVariantDefinitions);
 const FIRST_SURFACE_ID = createEmbeddedNodeId();
 const SECOND_SURFACE_ID = createEmbeddedNodeId();
+const THIRD_SURFACE_ID = createEmbeddedNodeId();
+const FIRST_SECTION_ID = createEmbeddedNodeId();
+const SECOND_SECTION_ID = createEmbeddedNodeId();
 
 const editors: Editor[] = [];
 const editorElements: HTMLElement[] = [];
@@ -155,6 +160,56 @@ describe("SurfaceTemplatePickerHost", () => {
     ]);
   });
 
+  it("inserts after an ordinary member inside its Course Section", () => {
+    const editor = createSectionedEditor([
+      courseSection(FIRST_SECTION_ID, "First"),
+      slideCoverSurfaceDefinition.createSurface({ surfaceId: FIRST_SURFACE_ID }),
+      slideCoverSurfaceDefinition.createSurface({ surfaceId: SECOND_SURFACE_ID }),
+      courseSection(SECOND_SECTION_ID, "Second"),
+      slideCoverSurfaceDefinition.createSurface({ surfaceId: THIRD_SURFACE_ID }),
+    ]);
+
+    expect(
+      insertSurfaceTemplateAfterSurface(editor, surfaceVariants, {
+        afterSurfaceId: FIRST_SURFACE_ID,
+        variantId: "slide-content",
+      }),
+    ).toBe(true);
+    expect(readCourseChildIds(editor.getJSON())).toEqual([
+      FIRST_SECTION_ID,
+      FIRST_SURFACE_ID,
+      expect.not.stringMatching(new RegExp(`${FIRST_SURFACE_ID}|${SECOND_SURFACE_ID}`)),
+      SECOND_SURFACE_ID,
+      SECOND_SECTION_ID,
+      THIRD_SURFACE_ID,
+    ]);
+  });
+
+  it("inserts before a following Course Section boundary", () => {
+    const editor = createSectionedEditor([
+      courseSection(FIRST_SECTION_ID, "First"),
+      slideCoverSurfaceDefinition.createSurface({ surfaceId: FIRST_SURFACE_ID }),
+      slideCoverSurfaceDefinition.createSurface({ surfaceId: SECOND_SURFACE_ID }),
+      courseSection(SECOND_SECTION_ID, "Second"),
+      slideCoverSurfaceDefinition.createSurface({ surfaceId: THIRD_SURFACE_ID }),
+    ]);
+
+    expect(
+      insertSurfaceTemplateAfterSurface(editor, surfaceVariants, {
+        afterSurfaceId: SECOND_SURFACE_ID,
+        variantId: "slide-content",
+      }),
+    ).toBe(true);
+    expect(readCourseChildIds(editor.getJSON())).toEqual([
+      FIRST_SECTION_ID,
+      FIRST_SURFACE_ID,
+      SECOND_SURFACE_ID,
+      expect.not.stringMatching(new RegExp(`${FIRST_SURFACE_ID}|${SECOND_SURFACE_ID}`)),
+      SECOND_SECTION_ID,
+      THIRD_SURFACE_ID,
+    ]);
+  });
+
   it("uses the variant ID for repeated insertion while allocating distinct stable instance IDs", () => {
     const editor = createEditor([FIRST_SURFACE_ID]);
 
@@ -179,6 +234,40 @@ describe("SurfaceTemplatePickerHost", () => {
     ]);
     expect(new Set(surfaces.map(({ id }) => id)).size).toBe(3);
     expect(surfaces.slice(1).every(({ id }) => /^[0-9A-Z_a-z-]{12}$/.test(String(id)))).toBe(true);
+  });
+
+  it("submits the created Surface and stable destination to the installed Course Structure command", () => {
+    const applyCommand = vi.fn<(command: CourseStructureCommand) => void>();
+    const commandExtension = Extension.create({
+      name: "courseStructureCommands",
+      addCommands() {
+        return {
+          applyCourseStructureCommand: (command: CourseStructureCommand) => () => {
+            applyCommand(command);
+            return false;
+          },
+        };
+      },
+    });
+    const editor = createEditor([FIRST_SURFACE_ID], undefined, commandExtension);
+    const before = editor.getJSON();
+
+    expect(
+      insertSurfaceTemplateAfterSurface(editor, surfaceVariants, {
+        afterSurfaceId: FIRST_SURFACE_ID,
+        variantId: "slide-content",
+      }),
+    ).toBe(false);
+    expect(applyCommand).toHaveBeenCalledOnce();
+    expect(applyCommand).toHaveBeenCalledWith({
+      type: "surface.insert",
+      surface: expect.objectContaining({
+        type: expect.objectContaining({ name: "surface" }),
+        attrs: expect.objectContaining({ variant: "slide-content" }),
+      }),
+      destination: { afterSurfaceId: FIRST_SURFACE_ID },
+    });
+    expect(editor.getJSON()).toEqual(before);
   });
 
   it("shows later catalogue definitions without picker-specific changes", async () => {
@@ -247,7 +336,27 @@ async function renderOpenPicker({
   return { dialog, editor, user };
 }
 
-function createEditor(surfaceIds: readonly EmbeddedNodeId[], editorElement?: HTMLElement): Editor {
+function createEditor(
+  surfaceIds: readonly EmbeddedNodeId[],
+  editorElement?: HTMLElement,
+  courseStructureExtension = createCourseStructureCommandsExtension(),
+): Editor {
+  return createEditorForDocument(
+    slideshowDocument(surfaceIds),
+    editorElement,
+    courseStructureExtension,
+  );
+}
+
+function createSectionedEditor(children: readonly JSONContent[]): Editor {
+  return createEditorForDocument(slideshowDocumentWithChildren(children));
+}
+
+function createEditorForDocument(
+  content: JSONContent,
+  editorElement?: HTMLElement,
+  courseStructureExtension = createCourseStructureCommandsExtension(),
+): Editor {
   const element = editorElement ?? globalThis.document.createElement("div");
   if (!editorElement) {
     globalThis.document.body.append(element);
@@ -275,14 +384,21 @@ function createEditor(surfaceIds: readonly EmbeddedNodeId[], editorElement?: HTM
       TestSectionArrangementNode,
       AuthoringSlideDividers,
       UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
+      courseStructureExtension,
     ],
-    content: slideshowDocument(surfaceIds),
+    content,
   });
   editors.push(editor);
   return editor;
 }
 
 function slideshowDocument(surfaceIds: readonly EmbeddedNodeId[]): JSONContent {
+  return slideshowDocumentWithChildren(
+    surfaceIds.map((surfaceId) => slideCoverSurfaceDefinition.createSurface({ surfaceId })),
+  );
+}
+
+function slideshowDocumentWithChildren(children: readonly JSONContent[]): JSONContent {
   return {
     type: "doc",
     content: [
@@ -296,12 +412,18 @@ function slideshowDocument(surfaceIds: readonly EmbeddedNodeId[]): JSONContent {
           overflowMode: "clip",
           theme: createDefaultPersistedCourseTheme(),
         },
-        content: surfaceIds.map((surfaceId) =>
-          slideCoverSurfaceDefinition.createSurface({ surfaceId }),
-        ),
+        content: [...children],
       },
     ],
   };
+}
+
+function courseSection(id: EmbeddedNodeId, title: string): JSONContent {
+  return { type: "courseSection", attrs: { id, title } };
+}
+
+function readCourseChildIds(document: JSONContent): unknown[] {
+  return (document.content?.[0]?.content ?? []).map((child) => child.attrs?.["id"]);
 }
 
 function readSurfaceVariants(document: JSONContent): unknown[] {
