@@ -12,6 +12,7 @@
   }
 
   .sc-course-image-hotspot-fit-stage {
+    position: relative;
     display: grid;
     overflow: hidden;
     place-items: center;
@@ -242,7 +243,7 @@
   .sc-assessment-node-view[data-bounded-placement="fill"]
     > .sc-course-image-hotspot
     .sc-course-image-hotspot-fit-stage {
-    justify-items: start;
+    justify-items: center;
   }
 
   @media (max-width: 48rem) {

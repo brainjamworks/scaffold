@@ -174,6 +174,7 @@ function RuntimeCanvas({
 }: RuntimeCanvasProps) {
   const isExpanded = presentation === "expanded";
   const effectiveFitStrategy = isExpanded ? "contain" : fitStrategy;
+  const isBoundedCompact = !isExpanded && fitStrategy === "contain";
   const mediaPort = useMediaPort();
   const assessment = useAssessmentRuntimeById(authoredBlockId, "spatial-hotspot");
   const problem = assessment?.interaction ?? null;
@@ -396,7 +397,7 @@ function RuntimeCanvas({
     >
       {({ naturalSize }) => (
         <>
-          {!isExpanded && (
+          {!isExpanded && !isBoundedCompact && (
             <div
               role="toolbar"
               aria-label="Image hotspot view tools"
@@ -496,6 +497,22 @@ function RuntimeCanvas({
         <ImageHotspotCourseWorkspace.Root open={workspaceOpen} onOpenChange={setWorkspaceOpen}>
           <div ref={fitStageRef} className="sc-course-image-hotspot-fit-stage">
             {runtimeSurface}
+            {isBoundedCompact && (
+              <div
+                role="toolbar"
+                aria-label="Image hotspot view tools"
+                className="sc-course-image-hotspot__canvas-toolbar"
+              >
+                <ImageHotspotCourseWorkspace.Trigger asChild>
+                  <ImageHotspotCourseWorkspace.Action
+                    label="Answer in expanded hotspot workspace"
+                    intent="edit"
+                  >
+                    <ArrowsOut size={iconSm} aria-hidden />
+                  </ImageHotspotCourseWorkspace.Action>
+                </ImageHotspotCourseWorkspace.Trigger>
+              </div>
+            )}
           </div>
           <ImageHotspotCourseWorkspace.Content
             open={workspaceOpen}

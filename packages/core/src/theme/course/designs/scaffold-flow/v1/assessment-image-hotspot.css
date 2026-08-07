@@ -25,6 +25,25 @@
   gap: calc(var(--space-4) * var(--sc-course-author-density));
 }
 
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+  > .sc-course-assessment-shell.sc-course-image-hotspot
+  .sc-course-image-hotspot-fit-stage {
+  border: var(--sc-course-author-stroke-width) solid var(--gray-a6);
+  border-radius: var(--radius-4);
+  background: var(--gray-a2);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+  > .sc-course-assessment-shell.sc-course-image-hotspot
+  .sc-course-image-hotspot-canvas {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-image-hotspot-empty__button,
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-image-hotspot-runtime-missing {
   padding: calc(var(--space-5) * var(--sc-course-author-density));

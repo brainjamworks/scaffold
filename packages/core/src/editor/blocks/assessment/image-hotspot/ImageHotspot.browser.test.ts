@@ -16,7 +16,7 @@ afterEach(() => {
 });
 
 describe("bounded image hotspot layout", () => {
-  it("gives the slideshow image a larger left-aligned stage without changing the shell", async () => {
+  it("centres the slideshow image in a single theme-owned frame", async () => {
     await page.viewport(1200, 800);
     host = document.createElement("div");
     host.className = "sc-course sc-course-theme-scaffold-flow-v1 radix-themes light";
@@ -27,6 +27,10 @@ describe("bounded image hotspot layout", () => {
       "--space-3: 12px",
       "--space-4: 16px",
       "--space-5: 24px",
+      "--gray-a2: rgba(28, 32, 36, 0.05)",
+      "--gray-a6: rgba(84, 90, 99, 0.28)",
+      "--radius-4: 8px",
+      "--sc-course-author-stroke-width: 1px",
     ].join(";");
     host.innerHTML = `
       <div class="sc-assessment-node-view" data-bounded-placement="fill">
@@ -53,12 +57,17 @@ describe("bounded image hotspot layout", () => {
 
     const body = requireElement<HTMLElement>(host, '[data-node="image-hotspot-canvas"]');
     const stage = requireElement<HTMLElement>(host, ".sc-course-image-hotspot-fit-stage");
+    const canvas = requireElement<HTMLElement>(host, ".sc-course-image-hotspot-canvas");
     const actions = requireElement<HTMLElement>(host, '[data-slot="assessment-actions-group"]');
     const bodyRect = body.getBoundingClientRect();
 
     expect(bodyRect.height).toBeGreaterThanOrEqual(200);
     expect(actions.getBoundingClientRect().top - bodyRect.bottom).toBeGreaterThanOrEqual(16);
-    expect(getComputedStyle(stage).justifyItems).toBe("start");
+    expect(getComputedStyle(stage).justifyItems).toBe("center");
+    expect(getComputedStyle(stage).backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+    expect(Number.parseFloat(getComputedStyle(stage).borderTopWidth)).toBeGreaterThan(0);
+    expect(getComputedStyle(canvas).borderTopWidth).toBe("0px");
+    expect(getComputedStyle(canvas).boxShadow).toBe("none");
   });
 });
 

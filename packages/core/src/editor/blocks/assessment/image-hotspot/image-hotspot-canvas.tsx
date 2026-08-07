@@ -794,7 +794,7 @@ function AuthorCanvas({
       {({ aspectRatio, naturalSize }) => {
         return (
           <>
-            {!isExpanded && (
+            {!isExpanded && !isBoundedCompact && (
               <div
                 role="toolbar"
                 aria-label="Image hotspot image tools"
@@ -1142,6 +1142,22 @@ function AuthorCanvas({
       >
         <div ref={fitStageRef} className="sc-course-image-hotspot-fit-stage">
           {canvasSurface}
+          {isBoundedCompact && (
+            <div
+              role="toolbar"
+              aria-label="Image hotspot image tools"
+              className="sc-course-image-hotspot__canvas-toolbar"
+            >
+              <ImageHotspotCourseWorkspace.Trigger asChild>
+                <ImageHotspotCourseWorkspace.Action
+                  label="Edit hotspots in expanded workspace"
+                  intent="edit"
+                >
+                  <PencilSimple size={iconMd} aria-hidden />
+                </ImageHotspotCourseWorkspace.Action>
+              </ImageHotspotCourseWorkspace.Trigger>
+            </div>
+          )}
         </div>
         <ImageHotspotCourseWorkspace.Content
           ref={workspaceElementRef}

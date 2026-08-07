@@ -751,6 +751,13 @@ describe("composite image_hotspot node", () => {
     expect(screen.queryByRole("button", { name: "Add hotspot region" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Edit hotspot 1: A" })).toBeNull();
 
+    const compactTools = screen.getByRole("toolbar", {
+      name: "Image hotspot image tools",
+    });
+    const fitStage = preview.closest<HTMLElement>(".sc-course-image-hotspot-fit-stage");
+    expect(preview.contains(compactTools)).toBe(false);
+    expect(fitStage).toContainElement(compactTools);
+
     fireEvent.click(
       screen.getByRole("button", {
         name: "Edit hotspots in expanded workspace",
@@ -853,11 +860,21 @@ describe("composite image_hotspot node", () => {
 
     await within(installedView.container).findByAltText("sample");
     await within(unboundedView.container).findByAltText("sample");
+    const installedCanvas = installedView.container.querySelector<HTMLElement>(
+      "[data-image-hotspot-canvas-surface]",
+    );
+    const installedWorkspaceButton = within(installedView.container).getByRole("button", {
+      name: "Answer in expanded hotspot workspace",
+    });
     expect(
-      installedView.container
-        .querySelector("[data-image-hotspot-canvas-surface]")
-        ?.getAttribute("data-image-hotspot-fit"),
+      installedCanvas?.getAttribute("data-image-hotspot-fit"),
     ).toBe("contain");
+    expect(installedCanvas?.contains(installedWorkspaceButton)).toBe(false);
+    expect(
+      installedCanvas
+        ?.closest<HTMLElement>(".sc-course-image-hotspot-fit-stage")
+        ?.contains(installedWorkspaceButton),
+    ).toBe(true);
     expect(
       unboundedView.container
         .querySelector("[data-image-hotspot-canvas-surface]")
