@@ -125,6 +125,7 @@ const schema = new Schema({
 export interface SemanticFixtureCallbackCounts {
   layoutSection: number;
   ownerBlock: number;
+  assessmentBlock: number;
   throwingBlock: number;
 }
 
@@ -162,6 +163,7 @@ export function createRepresentativeSemanticDocumentFixture(input: {
   const callbackCounts: SemanticFixtureCallbackCounts = {
     layoutSection: 0,
     ownerBlock: 0,
+    assessmentBlock: 0,
     throwingBlock: 0,
   };
   const surfaceCount = input.kind === "page" ? 1 : 2;
@@ -204,6 +206,7 @@ export function createScaleSemanticDocumentFixture(input: {
   const callbackCounts: SemanticFixtureCallbackCounts = {
     layoutSection: 0,
     ownerBlock: 0,
+    assessmentBlock: 0,
     throwingBlock: 0,
   };
   const blockIds: EmbeddedNodeId[] = [];
@@ -360,7 +363,14 @@ function representativeDefinitions(
         nodeType: "assessment_block",
         title: "Assessment",
         isAssessment: true,
-        documentSemantics: { presentation: { actionIds: ["reveal"] } },
+        documentSemantics: {
+          describe: () => ({ label: "Safe assessment" }),
+          presentation: { actionIds: ["reveal"] },
+          projectChildren: ({ helpers }: SemanticChildProjectionInput) => {
+            callbackCounts.assessmentBlock += 1;
+            return helpers.projectStandardRichText();
+          },
+        },
       },
     ],
     [

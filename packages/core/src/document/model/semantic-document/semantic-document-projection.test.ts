@@ -75,6 +75,7 @@ describe.each(["page", "unsectioned-slideshow", "sectioned-slideshow"] as const)
           "highlight",
         ]);
         expect(snapshot.itemById.get(ids.assessmentBlock)?.presentation.actionIds).toEqual([]);
+        expect(snapshot.itemById.get(ids.assessmentBlock)?.label).toBe("Safe assessment");
         expect(snapshot.itemById.get(ids.grid)?.presentation.actionIds).toEqual([]);
         expect(snapshot.itemById.get(ids.cells[0])?.presentation.actionIds).toEqual([]);
       }
@@ -90,6 +91,7 @@ describe.each(["page", "unsectioned-slideshow", "sectioned-slideshow"] as const)
       expect(fixture.callbackCounts).toEqual({
         layoutSection: fixture.surfaces.length,
         ownerBlock: fixture.surfaces.length,
+        assessmentBlock: 0,
         throwingBlock: fixture.surfaces.length,
       });
       expect(Object.isFrozen(snapshot)).toBe(true);

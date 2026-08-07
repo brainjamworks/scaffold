@@ -347,6 +347,11 @@ function classifyNode(
   const block = definitions.blocks.get(nodeType);
   if (!block) return null;
   const id = requireNodeId(node);
+  const documentSemantics = block.isAssessment
+    ? block.documentSemantics?.describe
+      ? Object.freeze({ describe: block.documentSemantics.describe })
+      : undefined
+    : block.documentSemantics;
   return classified(
     item(
       id,
@@ -359,7 +364,7 @@ function classifyNode(
     context.parentId,
     context.surfaceId,
     undefined,
-    block.documentSemantics,
+    documentSemantics,
     true,
   );
 }
