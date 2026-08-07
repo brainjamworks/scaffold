@@ -9,7 +9,7 @@ const snapshot = {
   snapshotVersion: 1 as const,
   artifactId: "artifact-1",
   activities: {
-    "block-1": {
+    block_000001: {
       activityKind: "checklist",
       data: { checkedItemIds: ["item-1"] },
       completed: false,
@@ -97,7 +97,7 @@ describe("createXBlockLearnerActivityPort", () => {
     const port = createXBlockLearnerActivityPort(bridge);
     const request = {
       artifactId: "artifact-1",
-      blockId: "block-1",
+      blockId: "block_000001",
       record: {
         activityKind: "checklist",
         data: { checkedItemIds: ["item-1"] },
@@ -128,7 +128,7 @@ describe("createXBlockLearnerActivityPort", () => {
       await expect(
         port.save({
           artifactId: "artifact-1",
-          blockId: "block-1",
+          blockId: "block_000001",
           record: {
             activityKind: "checklist",
             data: {},

@@ -13,7 +13,7 @@ const result = {
 };
 
 const problem = {
-  response: { kind: "single-select" as const, optionId: "b" },
+  response: { kind: "single-select" as const, optionId: "option_00001" },
   attemptNumber: 1,
   hintsShown: 0,
   checkResult: null,
@@ -23,9 +23,9 @@ const problem = {
 
 const quizAttempt = {
   attemptId: "attempt-1",
-  groupId: "quiz-1",
+  groupId: "artifact:usage-v1/group:quiz__000001",
   status: "in_progress" as const,
-  currentTargetId: "mcq-1",
+  currentTargetId: "target_00001",
   submittedTargetIds: [],
   startedAt: "2026-07-18T07:00:00Z",
   finishedAt: null,
@@ -64,31 +64,31 @@ describe("XBlock runtime assessment port", () => {
       "assessment.quiz.submitQuestion": {
         success: true,
         quizAttempt,
-        problemsByTargetId: { "mcq-1": problem },
+        problemsByTargetId: { target_00001: problem },
       },
     });
     const assessment = createXBlockRuntimePorts(bridge).assessment;
     if (!assessment?.quiz) throw new Error("expected XBlock quiz port");
 
     const submission = {
-      problemId: "artifact:usage-v1/block:mcq-1",
-      targetId: "mcq-1",
+      problemId: "artifact:usage-v1/block:block_000001",
+      targetId: "target_00001",
       interactionKind: "single-select" as const,
-      response: { kind: "single-select" as const, optionId: "b" },
+      response: { kind: "single-select" as const, optionId: "option_00001" },
       expectedAttemptNumber: 0,
     };
     const question = {
       attemptId: "attempt-1",
-      groupId: "quiz-1",
-      targetId: "mcq-1",
-      response: { kind: "single-select" as const, optionId: "b" },
+      groupId: "artifact:usage-v1/group:quiz__000001",
+      targetId: "target_00001",
+      response: { kind: "single-select" as const, optionId: "option_00001" },
       expectedAttemptNumber: 0,
     };
 
     await expect(assessment.submit(submission)).resolves.toEqual({ problem });
     await expect(assessment.quiz.submitQuestion(question)).resolves.toEqual({
       quizAttempt,
-      problemsByTargetId: { "mcq-1": problem },
+      problemsByTargetId: { target_00001: problem },
     });
     expect(bridge.requests).toEqual([
       { type: "assessment.submit", payload: submission },
@@ -104,10 +104,10 @@ describe("XBlock runtime assessment port", () => {
 
     await expect(
       assessment?.submit({
-        problemId: "artifact:usage-v1/block:mcq-1",
-        targetId: "mcq-1",
+        problemId: "artifact:usage-v1/block:block_000001",
+        targetId: "target_00001",
         interactionKind: "single-select",
-        response: { kind: "single-select", optionId: "b" },
+        response: { kind: "single-select", optionId: "option_00001" },
         expectedAttemptNumber: 0,
       }),
     ).rejects.toThrow();

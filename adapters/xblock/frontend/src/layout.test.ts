@@ -132,7 +132,7 @@ describe("XBlockStudioApp mounted configuration", () => {
           id: "xblock-studio-artifact",
           title: "Studio content",
           mode: "page",
-          surfaceId: "xblock-studio-surface",
+          surfaceId: "surfac_00001",
         }),
       ),
       initialLearnerState: {},

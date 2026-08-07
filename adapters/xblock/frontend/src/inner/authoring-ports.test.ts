@@ -44,7 +44,7 @@ class RecordingBridge implements XBlockInnerBridge {
         success: true,
         answerKey: {
           kind: "single-select",
-          correctOptionId: "b",
+          correctOptionId: "option_00001",
           feedbackByOptionId: {},
         },
       } as TResult);
@@ -83,9 +83,9 @@ class RecordingBridge implements XBlockInnerBridge {
         success: true,
         quizAttempt: {
           attemptId: "attempt-1",
-          groupId: "quiz-1",
+          groupId: "artifact:usage-v1/group:quiz__000001",
           status: "in_progress",
-          currentTargetId: "mcq-1",
+          currentTargetId: "target_00001",
           submittedTargetIds: [],
           startedAt: "2026-06-27T10:00:00Z",
           finishedAt: null,
@@ -102,7 +102,7 @@ class RecordingBridge implements XBlockInnerBridge {
       return Promise.resolve({
         success: true,
         problem: {
-          response: { kind: "single-select", optionId: "b" },
+          response: { kind: "single-select", optionId: "option_00001" },
           attemptNumber: 1,
           hintsShown: 0,
           checkResult: null,
@@ -121,7 +121,7 @@ class RecordingBridge implements XBlockInnerBridge {
         snapshotVersion: 1,
         artifactId: "artifact-1",
         activities: {
-          "flashcard-1": {
+          block_000001: {
             activityKind: "flashcard",
             data: { currentSectionId: "card-1" },
             completed: false,
@@ -148,10 +148,10 @@ class RecordingBridge implements XBlockInnerBridge {
 }
 
 const assessmentArgs = {
-  problemId: "artifact:usage-v1/block:mcq-1",
-  targetId: "mcq-1",
+  problemId: "artifact:usage-v1/block:block_000001",
+  targetId: "target_00001",
   interactionKind: "single-select" as const,
-  response: { kind: "single-select" as const, optionId: "b" },
+  response: { kind: "single-select" as const, optionId: "option_00001" },
   expectedAttemptNumber: 0,
 };
 
@@ -163,7 +163,7 @@ describe("XBlock assessment ports", () => {
 
     await expect(ports.assessment?.submit(assessmentArgs)).resolves.toEqual({
       problem: {
-        response: { kind: "single-select", optionId: "b" },
+        response: { kind: "single-select", optionId: "option_00001" },
         attemptNumber: 1,
         hintsShown: 0,
         checkResult: null,
@@ -190,8 +190,8 @@ describe("XBlock assessment ports", () => {
     const bridge = new RecordingBridge();
     const assessment = createXBlockRuntimePorts(bridge).assessment;
     const revealArgs = {
-      problemId: "artifact:usage-v1/block:mcq-1",
-      targetId: "mcq-1",
+      problemId: "artifact:usage-v1/block:block_000001",
+      targetId: "target_00001",
       interactionKind: "single-select" as const,
       hintsShown: 1,
     };
@@ -209,8 +209,8 @@ describe("XBlock assessment ports", () => {
 
   it("rejects failed and invalid learner hint handler responses", async () => {
     const revealArgs = {
-      problemId: "artifact:usage-v1/block:mcq-1",
-      targetId: "mcq-1",
+      problemId: "artifact:usage-v1/block:block_000001",
+      targetId: "target_00001",
       interactionKind: "single-select" as const,
       hintsShown: 1,
     };
@@ -247,26 +247,26 @@ describe("XBlock assessment ports", () => {
     }
 
     const startArgs = {
-      groupId: "quiz-1",
+      groupId: "artifact:usage-v1/group:quiz__000001",
     };
     const submitArgs = {
       attemptId: "attempt-1",
-      groupId: "quiz-1",
-      targetId: "mcq-1",
-      response: { kind: "single-select" as const, optionId: "b" },
+      groupId: "artifact:usage-v1/group:quiz__000001",
+      targetId: "target_00001",
+      response: { kind: "single-select" as const, optionId: "option_00001" },
       expectedAttemptNumber: 0,
     };
     const finishArgs = {
       attemptId: "attempt-1",
-      groupId: "quiz-1",
+      groupId: "artifact:usage-v1/group:quiz__000001",
       responsesByTargetId: {
-        "mcq-1": { kind: "single-select" as const, optionId: "b" },
-        "mcq-2": { kind: "single-select" as const, optionId: "b" },
+        target_00001: { kind: "single-select" as const, optionId: "option_00001" },
+        target_00002: { kind: "single-select" as const, optionId: "option_00001" },
       },
     };
     const revealArgs = {
       attemptId: "attempt-1",
-      groupId: "quiz-1",
+      groupId: "artifact:usage-v1/group:quiz__000001",
     };
 
     await assessment.quiz.startAttempt(startArgs);
@@ -302,7 +302,7 @@ describe("XBlock assessment ports", () => {
       snapshotVersion: 1,
       artifactId: "artifact-1",
       activities: {
-        "flashcard-1": {
+        block_000001: {
           activityKind: "flashcard",
           data: { currentSectionId: "card-1" },
           completed: false,
@@ -313,7 +313,7 @@ describe("XBlock assessment ports", () => {
     await expect(
       services.learnerActivity?.save({
         artifactId: "artifact-1",
-        blockId: "flashcard-1",
+        blockId: "block_000001",
         record: {
           activityKind: "flashcard",
           data: { currentSectionId: "card-2" },
@@ -336,7 +336,7 @@ describe("XBlock assessment ports", () => {
         type: "learnerActivity.save",
         payload: {
           artifactId: "artifact-1",
-          blockId: "flashcard-1",
+          blockId: "block_000001",
           record: {
             activityKind: "flashcard",
             data: { currentSectionId: "card-2" },
@@ -426,7 +426,7 @@ describe("XBlock assessment ports", () => {
     await expect(assessment.revealAnswer(assessmentArgs)).resolves.toEqual({
       answerKey: {
         kind: "single-select",
-        correctOptionId: "b",
+        correctOptionId: "option_00001",
         feedbackByOptionId: {},
       },
     });

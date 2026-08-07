@@ -42,7 +42,7 @@ describe("XBlockStudentApp mounted configuration", () => {
           id: "xblock-student-artifact",
           title: "Student content",
           mode: "page",
-          surfaceId: "xblock-student-surface",
+          surfaceId: "surfac_00002",
         }),
       ),
       initialLearnerState: {},

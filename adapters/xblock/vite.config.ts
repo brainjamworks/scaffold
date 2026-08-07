@@ -2,7 +2,8 @@ import { resolve } from "node:path";
 
 import react from "@vitejs/plugin-react";
 import { visualizer } from "rollup-plugin-visualizer";
-import { defineConfig, type PluginOption } from "vite";
+import type { PluginOption } from "vite";
+import { defineConfig } from "vite-plus";
 
 const bundleAnalyzeEnabled = process.env.SCAFFOLD_BUNDLE_ANALYZE === "1";
 const bundleAnalysisDir = resolve(__dirname, ".bundle-analysis");
@@ -10,6 +11,9 @@ const bundleAnalysisDir = resolve(__dirname, ".bundle-analysis");
 export default defineConfig({
   base: "./",
   plugins: [react(), ...createBundleAnalysisPlugins()],
+  test: {
+    setupFiles: ["./vitest.setup.ts"],
+  },
   define: {
     // LMS adapter bundles do not have an HTML entry to carry environment
     // replacement. Keep React's CJS branch selection static.
