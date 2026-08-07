@@ -20,17 +20,18 @@ import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/t
 import { createBoundedContainerStructurePolicy } from "@/editor/bounded-containers/authoring/BoundedContainerStructurePolicy";
 import { createSlashCommand } from "@/editor/suggestions/slash/SlashCommand";
 import { createStructuralClipboardPolicy } from "@/document/authoring/structural-clipboard-policy";
-import { createCourseSectionNode } from "@/document/model/nodes";
 import { resolveEditorPlaceholder } from "@/editor/prosemirror/placeholder/resolve-editor-placeholder";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createScaffoldAuthoringCataloguesStorageExtension } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
 import { createCourseDocumentBaseExtensions } from "@/composition/model/create-document-composition";
 import { createCourseStructureCommandsExtension } from "@/document/authoring/course-structure-commands";
+import { createCourseSectionAuthoringNode } from "@/editor/course-sections/authoring/course-section-authoring-node";
 import { AuthoringSlideDividers } from "@/editor/surfaces/authoring/AuthoringSlideDividers";
 import { createSurfaceRootSelectionPolicy } from "@/editor/surfaces/authoring/surface-root-selection-policy";
 import { createSurfaceAuthoringNode } from "@/editor/surfaces/authoring/nodes/surface-authoring-node";
 import { RegionAuthoringNode } from "@/editor/surfaces/authoring/nodes/region-authoring-node";
 import "@/editor/surfaces/authoring/AuthoringSlideDividers.css";
+import "@/editor/course-sections/authoring/course-section-authoring.css";
 import "@/editor/rich-text/view/text-alignment.css";
 
 import type { ScaffoldAuthoringComposition } from "./scaffold-authoring-composition";
@@ -66,7 +67,7 @@ export function createCourseDocumentAuthoringExtensions({
       assessmentHintsGroupNode: AssessmentHintsGroupNode,
       assessmentSummaryFeedbackNode: AssessmentSummaryFeedbackNode,
       cellNode: CellAuthoringNode,
-      courseSectionNode: createCourseSectionNode(),
+      courseSectionNode: createCourseSectionAuthoringNode(),
       gridNode: GridAuthoringNode,
       inlineIconNode: InlineIconAuthoringNode,
       layoutNode,
