@@ -175,6 +175,7 @@ function positionIsInsideTable(
 
 export const tableBlockDefinition = defineBlock({
   nodeType: "table",
+  title: "Table",
   authoringControls: {
     controls: tableAuthoringControls,
   },

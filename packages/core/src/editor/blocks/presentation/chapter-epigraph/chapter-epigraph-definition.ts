@@ -17,6 +17,7 @@ const chapterEpigraphConfiguration = defineConfiguration({
 
 export const chapterEpigraphBlockDefinition = defineBlock({
   nodeType: "chapter_epigraph",
+  title: "Chapter epigraph",
   configuration: chapterEpigraphConfiguration,
   placeholders: {
     chapter_epigraph_attribution: "Attribution",

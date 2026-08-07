@@ -38,6 +38,7 @@ const marginaliaConfiguration = defineConfiguration({
 
 export const marginaliaBlockDefinition = defineBlock({
   nodeType: "marginalia",
+  title: "Marginalia",
   configuration: marginaliaConfiguration,
   placeholders: {
     marginalia_gutter: "Write a margin note",

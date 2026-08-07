@@ -45,6 +45,7 @@ const KEY_WIDTH_LABELS: Record<"auto" | "narrow" | "medium" | "wide", string> = 
 
 export const keyValueListBlockDefinition = defineBlock({
   nodeType: KEY_VALUE_LIST_NODE,
+  title: "Key-value list",
   configuration: defineConfiguration({
     attr: "data",
     schema: KeyValueListDataSchema,

@@ -63,6 +63,7 @@ const calloutConfiguration = defineConfiguration({
 
 export const calloutBlockDefinition = defineBlock({
   nodeType: "callout",
+  title: "Callout",
   configuration: calloutConfiguration,
   placeholders: {
     callout_title: "Enter your callout title",

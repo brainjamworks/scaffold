@@ -17,6 +17,7 @@ const statHighlightConfiguration = defineConfiguration({
 
 export const statHighlightBlockDefinition = defineBlock({
   nodeType: "stat_highlight",
+  title: "Stat highlight",
   configuration: statHighlightConfiguration,
   placeholders: {
     stat_highlight_context: "Add context for learners",

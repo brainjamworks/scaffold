@@ -22,6 +22,7 @@ const DEFAULT_ITEMS = [
 
 export const checklistBlockDefinition = defineBlock({
   nodeType: CHECKLIST_NODE,
+  title: "Checklist",
   configuration: defineConfiguration({
     attr: "data",
     schema: ChecklistDataSchema,

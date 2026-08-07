@@ -32,6 +32,7 @@ const DEFAULT_ENTRIES = [
 
 export const glossaryBlockDefinition = defineBlock({
   nodeType: GLOSSARY_NODE,
+  title: "Glossary",
   frame: {
     resizable: true,
     resizeMode: "responsive",

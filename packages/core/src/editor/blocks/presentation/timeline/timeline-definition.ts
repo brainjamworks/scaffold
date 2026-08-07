@@ -35,6 +35,7 @@ const PRESENTATION_LABELS: Record<TimelinePresentation, string> = {
 
 export const timelineBlockDefinition = defineBlock({
   nodeType: TIMELINE_NODE,
+  title: "Timeline",
   configuration: defineConfiguration({
     attr: "data",
     schema: TimelineDataSchema,

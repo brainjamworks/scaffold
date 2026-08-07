@@ -17,6 +17,7 @@ const pullQuoteConfiguration = defineConfiguration({
 
 export const pullQuoteBlockDefinition = defineBlock({
   nodeType: "pull_quote",
+  title: "Pull quote",
   configuration: pullQuoteConfiguration,
   placeholders: {
     pull_quote_attribution: "Attribution",

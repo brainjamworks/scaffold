@@ -6,6 +6,7 @@ import { SIDEBAR_BLOCK_ID, SIDEBAR_NODE, createSidebarContent } from "./content"
 
 export const sidebarBlockDefinition = defineBlock({
   nodeType: SIDEBAR_NODE,
+  title: "Sidebar",
   placeholders: {
     sidebar_body: "Write the sidebar body",
     sidebar_label: "Sidebar label",

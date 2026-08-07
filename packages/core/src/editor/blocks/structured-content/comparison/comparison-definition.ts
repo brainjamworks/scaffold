@@ -8,6 +8,7 @@ import { COMPARISON_BLOCK_ID, COMPARISON_NODE, createComparisonContent } from ".
 
 export const comparisonBlockDefinition = defineBlock({
   nodeType: COMPARISON_NODE,
+  title: "Comparison",
   configuration: defineConfiguration({
     attr: "data",
     schema: ComparisonDataSchema,
