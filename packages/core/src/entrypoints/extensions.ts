@@ -43,6 +43,22 @@ export {
   type BlockInsertVariantDefinition,
 } from "@/editor/blocks/block-definition";
 export type {
+  LayoutDefinition,
+  LayoutSectionDefinition,
+} from "@/editor/arrangements/layout/model/layout-definition";
+export type {
+  DocumentSemanticsDefinition,
+  PublishedSemanticChild,
+  SemanticActivationRelationship,
+  SemanticChildProjectionInput,
+  SemanticChildProjector,
+  SemanticDefinitionOwnerInput,
+  SemanticItemDescriber,
+  SemanticItemDescription,
+  SemanticPresentationDefinition,
+  SemanticProjectionHelpers,
+} from "@/document/model/semantic-document";
+export type {
   SurfaceAuthoringViewBinding,
   SurfaceAuthoringViewProps,
 } from "@/editor/surfaces/authoring/surface-authoring-view-registry";

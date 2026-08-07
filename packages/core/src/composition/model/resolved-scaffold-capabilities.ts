@@ -10,6 +10,9 @@ import {
   createSurfaceVariantRegistry,
   type SurfaceVariantRegistry,
 } from "@/editor/surfaces/model/surface-variant-registry";
+import type { SemanticDefinitionLookup } from "@/document/model/semantic-document";
+
+import { createSemanticDefinitionLookup } from "./semantic-definition-lookup";
 
 export interface ResolvedBlockCapabilities {
   readonly registry: BlockRegistry;
@@ -27,6 +30,7 @@ export interface ResolvedScaffoldCapabilities {
   readonly blocks: ResolvedBlockCapabilities;
   readonly layouts: ResolvedLayoutCapabilities;
   readonly surfaces: ResolvedSurfaceCapabilities;
+  readonly documentSemantics: SemanticDefinitionLookup;
 }
 
 export interface ResolveScaffoldCapabilitiesInput {
@@ -40,15 +44,24 @@ export function resolveScaffoldCapabilities({
   layoutDefinitions,
   surfaceDefinitions,
 }: ResolveScaffoldCapabilitiesInput): ResolvedScaffoldCapabilities {
+  const blocks = Object.freeze({
+    registry: createBlockRegistry(blockDefinitions),
+  });
+  const layouts = Object.freeze({
+    registry: createLayoutRegistry(layoutDefinitions),
+  });
+  const surfaces = Object.freeze({
+    registry: createSurfaceVariantRegistry(surfaceDefinitions),
+  });
+
   return Object.freeze({
-    blocks: Object.freeze({
-      registry: createBlockRegistry(blockDefinitions),
-    }),
-    layouts: Object.freeze({
-      registry: createLayoutRegistry(layoutDefinitions),
-    }),
-    surfaces: Object.freeze({
-      registry: createSurfaceVariantRegistry(surfaceDefinitions),
+    blocks,
+    layouts,
+    surfaces,
+    documentSemantics: createSemanticDefinitionLookup({
+      blocks: blocks.registry,
+      layouts: layouts.registry,
+      surfaces: surfaces.registry,
     }),
   });
 }

@@ -3,6 +3,7 @@ import {
   type ResolvedScaffoldCapabilities,
 } from "@/composition/model/resolved-scaffold-capabilities";
 import type { ScaffoldAuthoringCatalogues } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
+import type { SemanticDefinitionLookup } from "@/document/model/semantic-document";
 import { builtInLayoutAuthoringViews } from "@/editor/arrangements/layout/authoring/built-in-layout-views";
 import type { LayoutViewRegistration } from "@/editor/arrangements/layout/authoring/layout-view-definition";
 import {
@@ -40,6 +41,7 @@ export interface ScaffoldAuthoringSurfaceComposition {
 
 export interface ScaffoldAuthoringComposition {
   readonly capabilities: ResolvedScaffoldCapabilities;
+  readonly documentSemantics: SemanticDefinitionLookup;
   readonly blocks: ScaffoldAuthoringBlockComposition;
   readonly layouts: ScaffoldAuthoringLayoutComposition;
   readonly surfaces: ScaffoldAuthoringSurfaceComposition;
@@ -59,6 +61,7 @@ export function createScaffoldAuthoringComposition(
 
   return Object.freeze({
     capabilities,
+    documentSemantics: capabilities.documentSemantics,
     blocks: Object.freeze({
       extensions: Object.freeze([...blockExtensions]),
     }),

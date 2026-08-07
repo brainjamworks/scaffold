@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
 
 import { builtInBlockDefinitions } from "@/editor/blocks/built-in-block-definitions";
+import { defineBlock } from "@/editor/blocks/block-definition";
 import { builtInSurfaceVariantDefinitions } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import * as surfaceVariantRegistry from "@/editor/surfaces/model/surface-variant-registry";
@@ -59,7 +60,12 @@ describe("createScaffoldApplication", () => {
 
     expect(application.authoring.capabilities).toBe(application.capabilities);
     expect(application.runtime.capabilities).toBe(application.capabilities);
-    expect(Object.keys(application.capabilities)).toEqual(["blocks", "layouts", "surfaces"]);
+    expect(Object.keys(application.capabilities)).toEqual([
+      "blocks",
+      "layouts",
+      "surfaces",
+      "documentSemantics",
+    ]);
     expect(Object.keys(application.capabilities.blocks)).toEqual(["registry"]);
     expect(Object.keys(application.capabilities.layouts)).toEqual(["registry"]);
     expect(Object.keys(application.capabilities.surfaces)).toEqual(["registry"]);
@@ -81,6 +87,10 @@ describe("createScaffoldApplication", () => {
     expect(Object.keys(application.runtime.layouts)).toEqual(["views"]);
     expect(Object.keys(application.authoring.surfaces)).toEqual(["views", "chrome"]);
     expect(Object.keys(application.runtime.surfaces)).toEqual(["views"]);
+    expect(application.authoring.documentSemantics).toBe(
+      application.capabilities.documentSemantics,
+    );
+    expect(application.runtime.documentSemantics).toBe(application.capabilities.documentSemantics);
     expect(application.authoring.layouts.views.getById(hostLayout.definition.id)?.layout).toBe(
       TestLayoutAuthoringView,
     );
@@ -121,6 +131,7 @@ describe("createScaffoldApplication", () => {
       ...testBlockCapability("host_catalogue_block"),
       definition: {
         nodeType: "host_catalogue_block",
+        title: "Host catalogue Block",
         insert: {
           id: "host-catalogue-block",
           title: "Host catalogue Block",
@@ -257,6 +268,71 @@ describe("createScaffoldApplication", () => {
     ).toHaveLength(1);
   });
 
+  it("shares one exact Core-plus-host semantic lookup across both composition lanes", () => {
+    const describeBlock = vi.fn(() => ({ label: "Host semantic block" }));
+    const describeLayout = vi.fn(() => ({ label: "Host semantic layout" }));
+    const describeSurface = vi.fn(() => ({ label: "Host semantic surface" }));
+    const baseBlock = testBlockCapability("host_semantic_block");
+    const baseLayout = testLayoutCapability("host-semantic-layout");
+    const baseSurface = testSurfaceCapability("host-semantic-surface");
+    const hostBlock = {
+      ...baseBlock,
+      definition: defineBlock({
+        nodeType: "host_semantic_block",
+        title: "Host semantic block",
+        documentSemantics: { describe: describeBlock },
+      }),
+    } satisfies BlockCapability;
+    const hostLayout = {
+      ...baseLayout,
+      definition: {
+        ...baseLayout.definition,
+        documentSemantics: { describe: describeLayout },
+      },
+    } satisfies LayoutCapability;
+    const hostSurface = {
+      ...baseSurface,
+      definition: {
+        ...baseSurface.definition,
+        documentSemantics: { describe: describeSurface },
+      },
+    } satisfies SurfaceCapability;
+
+    const application = createScaffoldApplication({
+      packs: [
+        defineScaffoldExtensionPack({
+          id: "host-document-semantics",
+          blocks: [hostBlock],
+          layouts: [hostLayout],
+          surfaces: [hostSurface],
+        }),
+      ],
+    });
+    const lookup = application.capabilities.documentSemantics;
+
+    expect(lookup.blocks.get("code_block")?.title).toBe("Code block");
+    expect(lookup.blocks.get(hostBlock.definition.nodeType)).toMatchObject({
+      nodeType: hostBlock.definition.nodeType,
+      title: "Host semantic block",
+      documentSemantics: hostBlock.definition.documentSemantics,
+    });
+    expect(lookup.layouts.get(hostLayout.definition.id)?.documentSemantics?.describe).toBe(
+      describeLayout,
+    );
+    expect(lookup.surfaces.get(hostSurface.definition.id)?.documentSemantics?.describe).toBe(
+      describeSurface,
+    );
+    expect(lookup.blocks.get("unmounted_block")).toBeUndefined();
+    expect(lookup.layouts.get("unmounted-layout")).toBeUndefined();
+    expect(lookup.surfaces.get("unmounted-surface")).toBeUndefined();
+    expect(application.authoring.documentSemantics).toBe(lookup);
+    expect(application.runtime.documentSemantics).toBe(lookup);
+    expect(Object.isFrozen(lookup)).toBe(true);
+    expect(describeBlock).not.toHaveBeenCalled();
+    expect(describeLayout).not.toHaveBeenCalled();
+    expect(describeSurface).not.toHaveBeenCalled();
+  });
+
   it("projects complete host Surfaces after Core in pack order without leaking between applications", () => {
     const secondSurface = testSurfaceCapability("host-tracer-second");
 
@@ -317,7 +393,7 @@ describe("createScaffoldApplication", () => {
 
 function testBlockCapability(nodeType: string): BlockCapability {
   return {
-    definition: { nodeType },
+    definition: { nodeType, title: `Block ${nodeType}` },
     authoringExtension: Node.create({ name: nodeType }),
     runtimeExtension: Node.create({ name: nodeType }),
   };
