@@ -801,27 +801,31 @@ function AuthorCanvas({
                 className="sc-course-image-hotspot__canvas-toolbar"
                 hidden={isInteracting}
               >
-                <ImageHotspotCourseWorkspace.Action
-                  label="Replace image"
-                  intent="replace"
-                  onClick={() => setPickerOpen(true)}
-                >
-                  <ArrowsClockwise size={iconMd} aria-hidden />
-                </ImageHotspotCourseWorkspace.Action>
-                <ImageHotspotCourseWorkspace.Action
-                  data-image-hotspot-add-region=""
-                  label="Add hotspot region"
-                  intent="add"
-                  onClick={() => {
-                    const id = addKeyboardHotspotRegion();
-                    if (!canEditInline && id) {
-                      setWorkspaceSelectionRequestId(id);
-                      setWorkspaceOpen(true);
-                    }
-                  }}
-                >
-                  <Plus size={iconMd} aria-hidden />
-                </ImageHotspotCourseWorkspace.Action>
+                {!isBoundedCompact && (
+                  <>
+                    <ImageHotspotCourseWorkspace.Action
+                      label="Replace image"
+                      intent="replace"
+                      onClick={() => setPickerOpen(true)}
+                    >
+                      <ArrowsClockwise size={iconMd} aria-hidden />
+                    </ImageHotspotCourseWorkspace.Action>
+                    <ImageHotspotCourseWorkspace.Action
+                      data-image-hotspot-add-region=""
+                      label="Add hotspot region"
+                      intent="add"
+                      onClick={() => {
+                        const id = addKeyboardHotspotRegion();
+                        if (!canEditInline && id) {
+                          setWorkspaceSelectionRequestId(id);
+                          setWorkspaceOpen(true);
+                        }
+                      }}
+                    >
+                      <Plus size={iconMd} aria-hidden />
+                    </ImageHotspotCourseWorkspace.Action>
+                  </>
+                )}
                 <ImageHotspotCourseWorkspace.Trigger asChild>
                   <ImageHotspotCourseWorkspace.Action
                     label="Edit hotspots in expanded workspace"

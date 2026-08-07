@@ -747,7 +747,8 @@ describe("composite image_hotspot node", () => {
       true,
     );
     expect(preview.getAttribute("data-image-hotspot-fit")).toBe("contain");
-    expect(screen.getByRole("button", { name: "Add hotspot region" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Replace image" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add hotspot region" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Edit hotspot 1: A" })).toBeNull();
 
     fireEvent.click(

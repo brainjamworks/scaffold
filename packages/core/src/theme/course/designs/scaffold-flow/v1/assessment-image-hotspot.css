@@ -4,6 +4,27 @@
   font-size: calc(var(--font-size-2) * var(--sc-course-author-text-scale));
 }
 
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+  > .sc-course-assessment-shell.sc-course-image-hotspot {
+  padding: calc(var(--space-3) * var(--sc-course-author-density));
+  row-gap: calc(var(--space-4) * var(--sc-course-author-density));
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+  > .sc-course-assessment-shell.sc-course-image-hotspot
+  [data-slot="assessment-actions-group"] {
+  margin-top: 0;
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1
+  .sc-assessment-node-view[data-bounded-placement="fill"]
+  > .sc-course-assessment-shell.sc-course-image-hotspot
+  .sc-assessment-control-layout {
+  gap: calc(var(--space-4) * var(--sc-course-author-density));
+}
+
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-image-hotspot-empty__button,
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-image-hotspot-runtime-missing {
   padding: calc(var(--space-5) * var(--sc-course-author-density));
