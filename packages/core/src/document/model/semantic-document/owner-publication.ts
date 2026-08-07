@@ -201,6 +201,7 @@ function validateActivationPath(
   definitions: SemanticDefinitionLookup,
 ): readonly SemanticActivationRelationship[] | null {
   if (!Array.isArray(path)) return null;
+  let previousOwner: OwnedNodeRecord | null = null;
   let previousChild: OwnedNodeRecord | null = null;
 
   for (const relationship of path) {
@@ -213,10 +214,14 @@ function validateActivationPath(
       owner.id === child.id ||
       !contains(owner, child) ||
       !ownerMatchesKind(owner.node, relationship.ownerKind, definitions) ||
-      (previousChild !== null && previousChild.id !== owner.id && !contains(previousChild, owner))
+      (previousChild !== null &&
+        previousChild.id !== owner.id &&
+        !contains(previousChild, owner) &&
+        !(previousOwner?.id === owner.id && contains(previousChild, child)))
     ) {
       return null;
     }
+    previousOwner = owner;
     previousChild = child;
   }
 
