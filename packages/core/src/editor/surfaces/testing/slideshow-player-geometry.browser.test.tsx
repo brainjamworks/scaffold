@@ -214,7 +214,7 @@ describe("slideshow player geometry", () => {
     );
     if (!state) throw new Error("Content player acceptance state is not registered.");
 
-    const initialContent = createCompositionDocumentForTest(state);
+    const initialContent = withCourseSection(createCompositionDocumentForTest(state));
     let editor: TiptapEditor | null = null;
     host = document.createElement("div");
     host.style.position = "absolute";
@@ -288,6 +288,11 @@ describe("slideshow player geometry", () => {
       expect(matrix.d).toBeCloseTo(1, 5);
       const stageRect = stage.getBoundingClientRect();
       const chromeRect = chrome.getBoundingClientRect();
+      const sectionTrigger = uniqueElement<HTMLElement>(
+        player,
+        ".sc-slideshow-player__course-section-trigger",
+      );
+      expectElementWithin(sectionTrigger, stage);
       expect(chromeRect.left + chromeRect.width / 2).toBeCloseTo(
         stageRect.left + stageRect.width / 2,
         2,
@@ -308,7 +313,7 @@ describe("slideshow player geometry", () => {
     );
     if (!state) throw new Error("Content embedded player acceptance state is not registered.");
 
-    const initialContent = createCompositionDocumentForTest(state);
+    const initialContent = withCourseSection(createCompositionDocumentForTest(state));
     let editor: TiptapEditor | null = null;
     host = document.createElement("div");
     host.style.position = "absolute";
@@ -383,9 +388,75 @@ describe("slideshow player geometry", () => {
       const matrix = new DOMMatrix(getComputedStyle(chrome).transform);
       expect(matrix.a).toBeCloseTo(1, 5);
       expect(matrix.d).toBeCloseTo(1, 5);
+      expectElementWithin(
+        uniqueElement<HTMLElement>(player, ".sc-slideshow-player__course-section-trigger"),
+        stage,
+      );
     }
 
     expect(runtimeEditor.getJSON()).toEqual(initialDocument);
+  });
+
+  it("keeps Course Section navigation inside embedded and fullscreen presentation bounds", async () => {
+    installFullscreenHarness();
+    const initialContent = withCourseSection(
+      createScaffoldDocumentContent({
+        mode: "slideshow",
+        surfaceId: createEmbeddedNodeId(),
+      }),
+    );
+    host = document.createElement("div");
+    host.style.cssText = "position: absolute; inset: 0 auto auto 0; width: 512px; height: 320px;";
+    document.body.append(host);
+    root = createRoot(host);
+    root.render(
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <SlideshowPlayer
+          composition={runtimeComposition}
+          initialContent={initialContent}
+          structure={requireSlideshowStructure(initialContent)}
+          sizing="embedded"
+        />
+      </CourseThemeProvider>,
+    );
+
+    await waitForCondition(() =>
+      host?.querySelector(".sc-slideshow-player__course-section-trigger"),
+    );
+    const player = uniqueElement<HTMLElement>(host, ".sc-slideshow-player");
+    const viewport = uniqueElement<HTMLElement>(player, ".sc-slideshow-player__viewport");
+    const stage = uniqueElement<HTMLElement>(player, ".sc-slideshow-player__stage");
+    const trigger = uniqueElement<HTMLButtonElement>(
+      player,
+      ".sc-slideshow-player__course-section-trigger",
+    );
+    expectElementWithin(trigger, stage);
+
+    buttonByName(player, "Enter fullscreen").click();
+    await waitForCondition(
+      () =>
+        buttonByNameOrNull(player, "Exit fullscreen") !== null &&
+        viewport.querySelector("[data-scaffold-overlay-host]") !== null,
+    );
+    const fullscreenHost = uniqueElement<HTMLElement>(
+      viewport,
+      ":scope > [data-scaffold-overlay-host]",
+    );
+    const fullscreenTrigger = uniqueElement<HTMLButtonElement>(
+      player,
+      ".sc-slideshow-player__course-section-trigger",
+    );
+    fullscreenTrigger.dispatchEvent(
+      new PointerEvent("pointerdown", {
+        bubbles: true,
+        button: 0,
+        pointerType: "mouse",
+      }),
+    );
+    await waitForCondition(() => fullscreenHost.querySelector("[role='menu']"));
+    const menu = uniqueElement<HTMLElement>(fullscreenHost, "[role='menu']");
+    expectElementWithin(menu, viewport);
+    expect(menu.closest("[data-scaffold-overlay-host]")).toBe(fullscreenHost);
   });
 
   it("keeps stage, canvas, and controls stable while overlays retarget", async () => {
@@ -603,6 +674,30 @@ function requireSlideshowStructure(content: JSONContent) {
     throw new Error("Expected a projected Slideshow fixture.");
   }
   return structure;
+}
+
+function withCourseSection(content: JSONContent): JSONContent {
+  const courseDocument = content.content?.[0];
+  if (courseDocument?.type !== "courseDocument" || !courseDocument.content?.length) {
+    throw new Error("Expected a Course Document with at least one Surface.");
+  }
+  courseDocument.content = [
+    {
+      type: "courseSection",
+      attrs: { id: createEmbeddedNodeId(), title: "Introduction" },
+    },
+    ...courseDocument.content,
+  ];
+  return content;
+}
+
+function expectElementWithin(element: HTMLElement, boundary: HTMLElement): void {
+  const elementRect = element.getBoundingClientRect();
+  const boundaryRect = boundary.getBoundingClientRect();
+  expect(elementRect.left).toBeGreaterThanOrEqual(boundaryRect.left - 0.5);
+  expect(elementRect.top).toBeGreaterThanOrEqual(boundaryRect.top - 0.5);
+  expect(elementRect.right).toBeLessThanOrEqual(boundaryRect.right + 0.5);
+  expect(elementRect.bottom).toBeLessThanOrEqual(boundaryRect.bottom + 0.5);
 }
 
 function selectableChoice(id: string, text: string): JSONContent {

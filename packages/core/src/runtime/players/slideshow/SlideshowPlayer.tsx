@@ -28,6 +28,7 @@ import {
   type CourseDocumentRuntimeRendererProps,
 } from "../../renderer/CourseDocumentRuntimeRenderer";
 import type { SlideshowPlayerSizing } from "../player-types";
+import { CourseSectionNavigation } from "./CourseSectionNavigation";
 import { getSlideshowNavigationState, getSlideshowSurfaceStates } from "./slideshow-navigation";
 import "./SlideshowPlayer.css";
 
@@ -228,7 +229,12 @@ export function SlideshowPlayer({
             }
           >
             {metrics && scaleState ? (
-              <>
+              <OverlayBoundary
+                collisionBoundary={overlayCollisionBoundary}
+                container={overlayContainer}
+                hostBoundary={CourseThemePortalBoundary}
+                kind="viewport"
+              >
                 <div
                   ref={setCanvasElement}
                   className="sc-slideshow-player__canvas"
@@ -239,30 +245,28 @@ export function SlideshowPlayer({
                     transformOrigin: "top left",
                   }}
                 >
-                  <OverlayBoundary
-                    collisionBoundary={overlayCollisionBoundary}
-                    container={overlayContainer}
-                    hostBoundary={CourseThemePortalBoundary}
-                    kind="viewport"
+                  <InteractionDragEnvironmentProvider
+                    coordinateRoot={canvasElement}
+                    coordinateSpace={coordinateSpace}
                   >
-                    <InteractionDragEnvironmentProvider
-                      coordinateRoot={canvasElement}
-                      coordinateSpace={coordinateSpace}
-                    >
-                      <CourseDocumentRuntimeRenderer
-                        artifactId={artifactId ?? null}
-                        composition={composition}
-                        initialContent={initialContent}
-                        surfaceStates={surfaceStates}
-                        {...(onRendererReady ? { onReady: onRendererReady } : {})}
-                      />
-                    </InteractionDragEnvironmentProvider>
-                  </OverlayBoundary>
+                    <CourseDocumentRuntimeRenderer
+                      artifactId={artifactId ?? null}
+                      composition={composition}
+                      initialContent={initialContent}
+                      surfaceStates={surfaceStates}
+                      {...(onRendererReady ? { onReady: onRendererReady } : {})}
+                    />
+                  </InteractionDragEnvironmentProvider>
                 </div>
                 <div
                   className="sc-slideshow-player__chrome"
                   data-fullscreen-available={fullscreenAvailable}
                 >
+                  <CourseSectionNavigation
+                    currentCourseSection={navigation.currentCourseSection}
+                    courseSectionItems={navigation.courseSectionItems}
+                    onSelectSurface={setActiveSurfaceId}
+                  />
                   <div
                     data-testid="slideshow-controls"
                     className="sc-slideshow-player__controls"
@@ -342,7 +346,7 @@ export function SlideshowPlayer({
                     </span>
                   ) : null}
                 </div>
-              </>
+              </OverlayBoundary>
             ) : null}
           </div>
         ) : null}

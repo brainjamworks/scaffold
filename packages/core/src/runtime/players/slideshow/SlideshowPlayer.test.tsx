@@ -129,6 +129,23 @@ function slideshowDocumentContent(surfaces: Array<{ id: string; text: string }>)
   return content;
 }
 
+function sectionedSlideshowDocumentContent(
+  sections: Array<{ id: string; title: string; surfaces: Array<{ id: string; text: string }> }>,
+): JSONContent {
+  const surfaces = sections.flatMap((section) => section.surfaces);
+  const content = slideshowDocumentContent(surfaces);
+  const courseDocument = content.content?.[0];
+  if (!courseDocument) throw new Error("sectioned slideshow fixture is missing courseDocument");
+  const surfaceById = new Map(
+    (courseDocument.content ?? []).map((surface) => [surface.attrs?.["id"], surface]),
+  );
+  courseDocument.content = sections.flatMap((section) => [
+    { type: "courseSection", attrs: { id: section.id, title: section.title } },
+    ...section.surfaces.map(({ id }) => surfaceById.get(id)!),
+  ]);
+  return content;
+}
+
 function slideshowDocumentContentWithRuntimeHint(): JSONContent {
   const content = slideshowDocumentContent([{ id: "slide_000001", text: "Hinted slide" }]);
   const surface = content.content?.[0]?.content?.[0];
@@ -867,6 +884,88 @@ describe("SlideshowPlayer", () => {
     expect(editor.getJSON()).toEqual(initialJSON);
   });
 
+  it("presents Course Section context and jumps to a selected section's first Surface", async () => {
+    const user = userEvent.setup();
+    render(
+      <TestSlideshowPlayer
+        composition={runtimeComposition}
+        initialContent={sectionedSlideshowDocumentContent([
+          {
+            id: "section00001",
+            title: "Introduction",
+            surfaces: [
+              { id: "slide_000001", text: "First slide content" },
+              { id: "slide_000002", text: "Second slide content" },
+            ],
+          },
+          {
+            id: "section00002",
+            title: "Practice",
+            surfaces: [{ id: "slide_000003", text: "Third slide content" }],
+          },
+        ])}
+      />,
+    );
+
+    const trigger = await screen.findByRole("button", {
+      name: "Introduction, Course Section 1 of 2",
+    });
+    await user.click(trigger);
+    await user.click(
+      screen.getByRole("menuitemradio", { name: "Practice, Course Section 2 of 2" }),
+    );
+
+    await waitFor(() =>
+      expect(surfaceById("slide_000003").getAttribute("data-runtime-surface-visible")).toBe("true"),
+    );
+    expect(screen.getByText("3 of 3")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Practice, Course Section 2 of 2" }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the Course Section chooser portal inside the fullscreen viewport", async () => {
+    const user = userEvent.setup();
+    installFullscreenHarness();
+    render(
+      <TestSlideshowPlayer
+        composition={runtimeComposition}
+        initialContent={sectionedSlideshowDocumentContent([
+          {
+            id: "section00001",
+            title: "Introduction",
+            surfaces: [{ id: "slide_000001", text: "First slide content" }],
+          },
+          {
+            id: "section00002",
+            title: "Practice",
+            surfaces: [{ id: "slide_000002", text: "Second slide content" }],
+          },
+        ])}
+        sizing="embedded"
+      />,
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Enter fullscreen" }));
+    const viewport = document.body.querySelector(".sc-slideshow-player__viewport");
+    let fullscreenHost: Element | null = null;
+    await waitFor(() => {
+      fullscreenHost = viewport?.querySelector("[data-scaffold-overlay-host]") ?? null;
+      expect(fullscreenHost).not.toBeNull();
+    });
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Introduction, Course Section 1 of 2",
+      }),
+    );
+
+    const menu = await screen.findByRole("menu");
+    expect(menu).toHaveAccessibleName("Introduction, Course Section 1 of 2");
+    expect(menu.closest("[aria-hidden='true']")).toBeNull();
+    expect(viewport?.contains(menu)).toBe(true);
+    expect(menu.closest("[data-scaffold-overlay-host]")).not.toBeNull();
+  });
+
   it("omits authoring and expanded slideshow product controls", async () => {
     const onRendererReady = vi.fn();
 
@@ -889,6 +988,7 @@ describe("SlideshowPlayer", () => {
     expect(screen.queryByRole("button", { name: /fullscreen/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /autoplay/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /narration/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Course Section/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /presenter notes/i })).toBeNull();
     expect(screen.queryByTestId("slide-thumbnails")).toBeNull();
     expect(screen.queryByTestId("authoring-agent-dock")).toBeNull();
