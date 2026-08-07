@@ -186,7 +186,7 @@ function ChecklistSpecimen({
               {authoring ? (
                 <button
                   type="button"
-                  className="sc-app-checklist-item-delete"
+                  className="sc-app-checklist-item-delete sc-course-checklist__delete"
                   aria-label="Delete checklist item 1"
                 >
                   Delete

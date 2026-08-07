@@ -90,7 +90,7 @@ export function ComparisonRowAuthoringView(props: NodeViewProps) {
             aria-label={`Delete comparison row ${rowIndex + 1}`}
             onMouseDown={(event) => event.preventDefault()}
             onClick={deleteRow}
-            className="sc-app-comparison-delete"
+            className="sc-app-comparison-delete sc-course-comparison__delete"
           >
             <Trash size={14} aria-hidden />
             {!canDelete ? (

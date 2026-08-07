@@ -19,7 +19,7 @@ afterEach(() => {
 });
 
 describe("Glossary presentation", () => {
-  it("keeps its row recipe and App controls correct when only the container narrows", async () => {
+  it("keeps its row recipe and Course-owned delete action correct when the container narrows", async () => {
     await page.viewport(900, 700);
     const host = document.createElement("div");
     host.style.width = "800px";
@@ -38,12 +38,9 @@ describe("Glossary presentation", () => {
     );
 
     await waitForCondition(() => host.querySelector(".sc-course-glossary__entry"));
-    const application = requiredElement<HTMLElement>(host, ".sc-app");
-    const applicationStyle = getComputedStyle(application);
-    const mutedColour = computedColor(
-      applicationStyle.getPropertyValue("--sc-app-color-text-muted"),
-    );
-    const errorColour = computedColor(applicationStyle.getPropertyValue("--sc-app-color-error"));
+    const courseStyle = getComputedStyle(requiredElement<HTMLElement>(host, ".sc-course"));
+    const mutedColour = computedColor(courseStyle.getPropertyValue("--gray-11"));
+    const errorColour = computedColor(courseStyle.getPropertyValue("--sc-course-state-error-text"));
 
     const entry = requiredElement<HTMLElement>(host, ".sc-course-glossary__entry");
     const term = requiredElement<HTMLElement>(entry, ".sc-course-glossary__term");
@@ -77,7 +74,7 @@ describe("Glossary presentation", () => {
     expect(window.innerWidth).toBe(900);
   });
 
-  it("lets Course appearance recolour content without recolouring App controls", async () => {
+  it("lets Course appearance recolour content and its embedded delete action", async () => {
     const host = document.createElement("div");
     document.body.append(host);
     const root = createRoot(host);
@@ -100,7 +97,7 @@ describe("Glossary presentation", () => {
     const deletes = host.querySelectorAll<HTMLElement>(".sc-app-glossary-delete");
 
     expect(getComputedStyle(terms[0]!).color).not.toBe(getComputedStyle(terms[1]!).color);
-    expect(getComputedStyle(deletes[0]!).color).toBe(getComputedStyle(deletes[1]!).color);
+    expect(getComputedStyle(deletes[0]!).color).not.toBe(getComputedStyle(deletes[1]!).color);
   });
 });
 
@@ -116,7 +113,11 @@ function GlossarySpecimen({ label = "Glossary" }: { label?: string }) {
             <dd data-slot="glossary-definition" className="sc-course-glossary__definition">
               <p>The process plants use to convert light into chemical energy.</p>
             </dd>
-            <button type="button" className="sc-app-glossary-delete" aria-label="Delete term 1">
+            <button
+              type="button"
+              className="sc-app-glossary-delete sc-course-glossary__delete"
+              aria-label="Delete term 1"
+            >
               Delete
             </button>
           </div>

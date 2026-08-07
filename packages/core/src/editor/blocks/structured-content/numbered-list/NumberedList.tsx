@@ -268,7 +268,7 @@ export function NumberedListItemNodeView(props: NodeViewProps) {
             aria-describedby={!canDelete ? deleteExplanationId : undefined}
             aria-label={`Delete numbered list item ${index}`}
             onClick={deleteItem}
-            className="sc-app-numbered-list-delete"
+            className="sc-app-numbered-list-delete sc-course-numbered-list__delete"
           >
             <Trash size={14} aria-hidden />
             {!canDelete ? (

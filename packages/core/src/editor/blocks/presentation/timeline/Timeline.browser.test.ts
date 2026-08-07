@@ -137,7 +137,7 @@ describe("Timeline layout and ownership", () => {
     },
   );
 
-  it("recolours Course content while keeping visible authoring chrome App-owned", async () => {
+  it("recolours Course content and its embedded delete action together", async () => {
     const fixture = createTimelineFixture({ bounded: false, presentation: "vertical" });
     fixture.host.style.setProperty("--gray-1", "rgb(24 24 27)");
     fixture.host.style.setProperty("--gray-11", "rgb(212 212 216)");
@@ -147,16 +147,18 @@ describe("Timeline layout and ownership", () => {
     fixture.host.style.setProperty("--sc-app-color-text-muted", "rgb(113 113 122)");
     fixture.host.style.setProperty("--sc-app-color-error", "rgb(225 29 72)");
     fixture.host.style.setProperty("--sc-app-color-error-background", "rgb(63 29 36)");
+    fixture.host.style.setProperty("--sc-course-state-error-text", "rgb(244 63 94)");
+    fixture.host.style.setProperty("--sc-course-state-error-background", "rgb(76 5 25)");
     await nextLayoutFrame();
 
     expect(getComputedStyle(fixture.firstCard).backgroundColor).toBe("rgb(24, 24, 27)");
     expect(getComputedStyle(fixture.firstCard).borderColor).toBe("rgb(63, 63, 70)");
-    expect(getComputedStyle(fixture.deleteButton).color).toBe("rgb(113, 113, 122)");
+    expect(getComputedStyle(fixture.deleteButton).color).toBe("rgb(212, 212, 216)");
     expect(Number.parseFloat(getComputedStyle(fixture.deleteButton).opacity)).toBeGreaterThan(0);
 
     fixture.deleteButton.style.transition = "none";
     await userEvent.hover(fixture.deleteButton);
-    expect(getComputedStyle(fixture.deleteButton).color).toBe("rgb(225, 29, 72)");
+    expect(getComputedStyle(fixture.deleteButton).color).toBe("rgb(244, 63, 94)");
   });
 
   it("enables edge treatment only while a vertical Timeline actually overflows", async () => {
@@ -354,7 +356,7 @@ function createTimelineFixture(input: {
       movementButton.textContent = "Move event";
       deleteButton = document.createElement("button");
       deleteButton.type = "button";
-      deleteButton.className = "sc-app-timeline-delete";
+      deleteButton.className = "sc-app-timeline-delete sc-course-timeline__delete";
       deleteButton.textContent = "Delete event";
       chrome.append(movementButton, deleteButton);
       card.append(chrome);

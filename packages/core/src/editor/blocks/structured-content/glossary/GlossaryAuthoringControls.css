@@ -39,38 +39,15 @@
     height: 1.75rem;
     align-items: center;
     justify-content: center;
-    border: 0;
-    border-radius: 9999px;
-    background: transparent;
-    color: var(--sc-app-color-text-muted);
-    opacity: 1;
     cursor: pointer;
-    transition:
-      background-color 150ms ease,
-      color 150ms ease,
-      opacity 150ms ease;
-  }
-
-  .sc-app-glossary-delete:not([aria-disabled="true"]):hover,
-  .sc-app-glossary-delete:not([aria-disabled="true"]):focus-visible {
-    background: var(--sc-app-color-error-background);
-    color: var(--sc-app-color-error);
-  }
-
-  .sc-app-glossary-delete:focus-visible {
-    outline: 2px solid var(--sc-app-color-focus-outline);
-    outline-offset: 2px;
   }
 
   .sc-app-glossary-delete[aria-disabled="true"] {
-    color: var(--sc-app-color-text-placeholder);
-    opacity: 0.55;
     cursor: not-allowed;
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .sc-app-glossary-add,
-    .sc-app-glossary-delete {
+    .sc-app-glossary-add {
       transition: none;
     }
   }

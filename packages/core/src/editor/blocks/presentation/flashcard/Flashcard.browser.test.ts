@@ -224,7 +224,7 @@ describe("Flashcard bounded geometry", () => {
     }
 
     expect(pair.authoring.frame.querySelector(".sc-app-flashcard-card-chrome")).not.toBeNull();
-    expect(pair.authoring.frame.querySelector(".sc-app-flashcard-card-delete")).not.toBeNull();
+    expect(pair.authoring.frame.querySelector(".sc-course-flashcard__delete")).not.toBeNull();
     expect(pair.authoring.frame.querySelector(".sc-course-flashcard-rating-button")).toBeNull();
     expect(pair.authoring.frame.querySelector('[role="progressbar"]')).toBeNull();
     expect(pair.runtime.frame.querySelector('[class*="sc-app-flashcard-"]')).toBeNull();

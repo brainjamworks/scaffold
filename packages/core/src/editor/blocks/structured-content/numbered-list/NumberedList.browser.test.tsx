@@ -19,7 +19,7 @@ afterEach(() => {
 });
 
 describe("Numbered List presentation", () => {
-  it("keeps Flow marker alignment while App controls retain App-owned interaction colours", async () => {
+  it("keeps Flow marker alignment while the delete action uses Course interaction colours", async () => {
     const host = document.createElement("div");
     host.style.width = "480px";
     document.body.append(host);
@@ -37,14 +37,10 @@ describe("Numbered List presentation", () => {
     );
 
     await waitForCondition(() => host.querySelector(".sc-course-numbered-list__marker"));
-    const application = requiredElement<HTMLElement>(host, ".sc-app");
     const course = requiredElement<HTMLElement>(host, ".sc-course");
-    const applicationStyle = getComputedStyle(application);
     const courseStyle = getComputedStyle(course);
-    const mutedColour = computedColor(
-      applicationStyle.getPropertyValue("--sc-app-color-text-muted"),
-    );
-    const errorColour = computedColor(applicationStyle.getPropertyValue("--sc-app-color-error"));
+    const mutedColour = computedColor(courseStyle.getPropertyValue("--gray-11"));
+    const errorColour = computedColor(courseStyle.getPropertyValue("--sc-course-state-error-text"));
     const currentBackground = computedColor(
       courseStyle.getPropertyValue("--sc-course-state-current-background"),
     );
@@ -128,7 +124,7 @@ function NumberedListSpecimen() {
               <div className="sc-course-numbered-list__item-content">Publish the course</div>
               <button
                 type="button"
-                className="sc-app-numbered-list-delete"
+                className="sc-app-numbered-list-delete sc-course-numbered-list__delete"
                 aria-label="Delete numbered list item 1"
               >
                 Delete

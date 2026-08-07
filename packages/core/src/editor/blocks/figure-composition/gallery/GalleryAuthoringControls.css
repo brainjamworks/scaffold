@@ -52,17 +52,7 @@
   height: 1.5rem;
   min-width: 1.5rem;
   min-height: 1.5rem;
-  border: 1px solid var(--sc-app-color-border);
-  border-radius: 50%;
-  background: var(--sc-app-color-background);
-  box-shadow: none;
-  color: var(--sc-app-color-text-muted);
   cursor: pointer;
-  opacity: 1;
-  transition:
-    background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
-    border-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
-    color 150ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .radix-themes .sc-app-gallery__thumb-delete {
@@ -73,18 +63,6 @@
 .radix-themes .sc-app-gallery__tile-delete {
   inset-block-start: 0.375rem;
   inset-inline-end: 0.375rem;
-}
-
-.radix-themes :is(.sc-app-gallery__thumb-delete, .sc-app-gallery__tile-delete):hover:not(:disabled),
-.radix-themes :is(.sc-app-gallery__thumb-delete, .sc-app-gallery__tile-delete):focus-visible {
-  border-color: var(--sc-app-color-error);
-  background: var(--sc-app-color-error-background);
-  color: var(--sc-app-color-error);
-}
-
-.radix-themes :is(.sc-app-gallery__thumb-delete, .sc-app-gallery__tile-delete):focus-visible {
-  outline: 2px solid var(--sc-app-color-focus-outline);
-  outline-offset: 2px;
 }
 
 @container gallery-composition (inline-size < 28rem) {
@@ -105,8 +83,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sc-app-gallery__thumb-add-preview,
-  .radix-themes :is(.sc-app-gallery__thumb-delete, .sc-app-gallery__tile-delete) {
+  .sc-app-gallery__thumb-add-preview {
     transition: none;
   }
 }

@@ -41,25 +41,9 @@
     flex-shrink: 0;
     align-items: center;
     justify-content: center;
-    border: 0;
-    border-radius: 9999px;
-    background: transparent;
-    color: var(--sc-app-color-text-muted);
-    opacity: 1;
     cursor: pointer;
-    transition:
-      background-color 150ms ease,
-      color 150ms ease,
-      opacity 150ms ease;
   }
 
-  .sc-app-checklist-item-delete:not([aria-disabled="true"]):hover,
-  .sc-app-checklist-item-delete:not([aria-disabled="true"]):focus-visible {
-    background: var(--sc-app-color-error-background);
-    color: var(--sc-app-color-error);
-  }
-
-  .sc-app-checklist-item-delete:focus-visible,
   .sc-app-checklist-item-drag:focus-visible,
   .sc-app-block-add.sc-app-checklist-add:focus-visible {
     outline: 2px solid var(--sc-app-color-focus-outline);
@@ -67,8 +51,6 @@
   }
 
   .sc-app-checklist-item-delete[aria-disabled="true"] {
-    color: var(--sc-app-color-text-placeholder);
-    opacity: 0.55;
     cursor: not-allowed;
   }
 
@@ -125,7 +107,6 @@
 
   @media (prefers-reduced-motion: reduce) {
     .sc-app-checklist-item-drag,
-    .sc-app-checklist-item-delete,
     .sc-app-checklist-add,
     .sc-app-checklist-add__checkbox {
       transition: none;

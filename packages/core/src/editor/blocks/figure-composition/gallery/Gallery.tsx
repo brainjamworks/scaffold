@@ -153,13 +153,11 @@ export function GalleryAuthoringView(props: NodeViewProps) {
                 <IconButton
                   type="button"
                   size="1"
-                  radius="full"
-                  variant="surface"
                   onClick={(event) => {
                     event.stopPropagation();
                     removeItem(item.key);
                   }}
-                  className="sc-app-gallery__tile-delete"
+                  className="sc-app-gallery__tile-delete sc-course-gallery__delete"
                   aria-label={`Remove image ${index + 1}`}
                 >
                   <Trash size={14} aria-hidden />
@@ -195,13 +193,11 @@ export function GalleryAuthoringView(props: NodeViewProps) {
                 <IconButton
                   type="button"
                   size="1"
-                  radius="full"
-                  variant="surface"
                   onClick={(event) => {
                     event.stopPropagation();
                     removeItem(item.key);
                   }}
-                  className="sc-app-gallery__thumb-delete"
+                  className="sc-app-gallery__thumb-delete sc-course-gallery__delete"
                   aria-label={`Remove image ${index + 1}`}
                 >
                   <Trash size={14} aria-hidden />

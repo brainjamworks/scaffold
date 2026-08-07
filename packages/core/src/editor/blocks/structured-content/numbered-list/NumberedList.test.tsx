@@ -196,7 +196,7 @@ it("separates Course presentation from App authoring controls and maps semantic 
   expect(markers?.[2]?.getAttribute("data-course-state")).toBe("completed");
   expect(markers?.[0]?.classList.contains("sc-app-numbered-list-status-cycle")).toBe(true);
   expect(document.querySelector(".sc-app-numbered-list-icon-picker")).not.toBeNull();
-  expect(document.querySelector(".sc-app-numbered-list-delete")).not.toBeNull();
+  expect(document.querySelector(".sc-course-numbered-list__delete")).not.toBeNull();
   expect(
     document.querySelector('[class^="sc-numbered-list"], [class*=" sc-numbered-list"]'),
   ).toBeNull();

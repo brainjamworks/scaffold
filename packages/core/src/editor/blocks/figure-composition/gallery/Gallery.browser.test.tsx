@@ -156,10 +156,15 @@ describe("Gallery container geometry", () => {
       ".sc-app-gallery__grid-add-action",
     );
     const style = getComputedStyle(addAction);
+    const deleteAction = authoringFrame.querySelector<HTMLElement>(".sc-course-gallery__delete");
+    if (!deleteAction) throw new Error("Expected a Course-owned Gallery delete action.");
+    const deleteRadius = Number.parseFloat(getComputedStyle(deleteAction).borderTopLeftRadius);
 
     expect(style.borderStyle).toBe("dashed");
     expect(style.boxShadow).toBe("none");
     expect(addAction.querySelector(".sc-app-block-add__icon")).not.toBeNull();
+    expect(deleteRadius).toBeGreaterThan(0);
+    expect(deleteRadius).toBeLessThan(deleteAction.getBoundingClientRect().width / 2);
     expect(galleryFrame(pair.runtime).querySelector(".sc-app-gallery__grid-add-action")).toBeNull();
   });
 

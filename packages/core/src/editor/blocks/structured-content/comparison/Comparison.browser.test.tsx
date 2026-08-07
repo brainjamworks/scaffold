@@ -51,8 +51,8 @@ describe("Comparison presentation", () => {
     const lightHeader = requiredElement<HTMLElement>(light, ".sc-course-comparison__header");
     const lightHeaderRow = requiredElement<HTMLElement>(light, ".sc-course-comparison__header-row");
     const darkHeaderRow = requiredElement<HTMLElement>(dark, ".sc-course-comparison__header-row");
-    const lightDelete = requiredElement<HTMLElement>(light, ".sc-app-comparison-delete");
-    const darkDelete = requiredElement<HTMLElement>(dark, ".sc-app-comparison-delete");
+    const lightDelete = requiredElement<HTMLElement>(light, ".sc-course-comparison__delete");
+    const darkDelete = requiredElement<HTMLElement>(dark, ".sc-course-comparison__delete");
 
     expect(lightSurface.getAttribute("aria-label")).toBe("Before compared with After");
     expect(light.querySelectorAll('[role="columnheader"]')).toHaveLength(2);
@@ -73,7 +73,7 @@ describe("Comparison presentation", () => {
     expect(getComputedStyle(lightHeaderRow).backgroundColor).not.toBe(
       getComputedStyle(darkHeaderRow).backgroundColor,
     );
-    expect(getComputedStyle(lightDelete).color).toBe(getComputedStyle(darkDelete).color);
+    expect(getComputedStyle(lightDelete).color).not.toBe(getComputedStyle(darkDelete).color);
 
     const row = requiredElement<HTMLElement>(light, ".sc-course-comparison__row");
     const headerCells = light.querySelectorAll<HTMLElement>(".sc-course-comparison__header-cell");
@@ -164,7 +164,7 @@ function ComparisonSpecimen({ id, mode }: { id: string; mode: "authoring" | "run
             {authoring ? (
               <button
                 type="button"
-                className="sc-app-comparison-delete"
+                className="sc-app-comparison-delete sc-course-comparison__delete"
                 aria-label="Delete comparison row 1"
               >
                 <Trash size={14} aria-hidden />

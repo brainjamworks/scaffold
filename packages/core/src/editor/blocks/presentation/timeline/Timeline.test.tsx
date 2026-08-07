@@ -242,6 +242,7 @@ describe("timeline block", () => {
       name: "Delete timeline event 2",
     });
     expect(deleteButton.classList.contains("sc-app-timeline-delete")).toBe(true);
+    expect(deleteButton.classList.contains("sc-course-timeline__delete")).toBe(true);
     const addButton = screen.getByRole("button", { name: "Add event" });
     expect(addButton.closest("ol")).toBeNull();
     expect(document.body.querySelector(".sc-course-timeline")).not.toBeNull();

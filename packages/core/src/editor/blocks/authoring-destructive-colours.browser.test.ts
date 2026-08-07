@@ -9,6 +9,7 @@ import "@/ui/components/IconButton/IconButton.css";
 import "./assessment/shared/chrome/assessment-hints.css";
 import "@/ui/components/app/AssessmentAuthoringIconAction/AssessmentAuthoringIconAction.css";
 import "@/theme/course/designs/scaffold-flow/v1/assessment-matching.css";
+import "@/theme/course/designs/scaffold-flow/v1/checklist.css";
 import "./structured-content/checklist/ChecklistAuthoringControls.css";
 
 afterEach(() => {
@@ -30,9 +31,13 @@ describe("authoring destructive colours", () => {
     expect(getComputedStyle(iconButton).color).toBe("rgb(185, 28, 28)");
   });
 
-  it("keeps inline authoring delete controls on the application semantic", async () => {
+  it("keeps Course-embedded and App-owned delete controls on their owner semantics", async () => {
     const course = createThemedAuthoringFixture();
-    const checklistDelete = appendButton(course, "sc-app-checklist-item-delete", "Delete item");
+    const checklistDelete = appendButton(
+      course,
+      "sc-app-checklist-item-delete sc-course-checklist__delete",
+      "Delete item",
+    );
     const choiceDelete = appendButton(
       course,
       "sc-app-assessment-authoring-icon-action",
@@ -40,10 +45,11 @@ describe("authoring destructive colours", () => {
     );
     choiceDelete.dataset["tone"] = "danger";
 
-    for (const control of [checklistDelete, choiceDelete]) {
-      await userEvent.hover(control);
-      expect(getComputedStyle(control).color).toBe("rgb(185, 28, 28)");
-    }
+    await userEvent.hover(checklistDelete);
+    expect(getComputedStyle(checklistDelete).color).toBe("rgb(220, 38, 38)");
+
+    await userEvent.hover(choiceDelete);
+    expect(getComputedStyle(choiceDelete).color).toBe("rgb(185, 28, 28)");
   });
 
   it("keeps learner remove actions on the course error semantic", async () => {
@@ -68,6 +74,7 @@ function createThemedAuthoringFixture(): HTMLDivElement {
   course.style.setProperty("--color-secondary", "rgb(8 145 178)");
   course.style.setProperty("--color-secondary-foreground", "rgb(255 255 255)");
   course.style.setProperty("--sc-course-state-error-indicator", "rgb(220 38 38)");
+  course.style.setProperty("--sc-course-state-error-text", "rgb(220 38 38)");
   course.style.setProperty("--sc-course-state-error-background", "rgb(254 226 226)");
   course.style.setProperty("--color-error-foreground", "rgb(255 255 255)");
   course.style.setProperty("--color-muted", "rgb(241 245 249)");

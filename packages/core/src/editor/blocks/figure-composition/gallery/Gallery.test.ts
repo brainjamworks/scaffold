@@ -353,7 +353,10 @@ it("separates Course gallery composition from App-only author controls", async (
     expect(element).toBeInstanceOf(HTMLElement);
     return element!;
   });
-  expect(authoring.querySelector(".sc-app-gallery__thumb-delete")).toHaveClass("rt-IconButton");
+  expect(authoring.querySelector(".sc-app-gallery__thumb-delete")).toHaveClass(
+    "rt-IconButton",
+    "sc-course-gallery__delete",
+  );
   expect(authoring.querySelector('[class^="sc-gallery"], [class*=" sc-gallery"]')).toBeNull();
 
   renderGalleryLearningEventRuntime(galleryFixture(), {

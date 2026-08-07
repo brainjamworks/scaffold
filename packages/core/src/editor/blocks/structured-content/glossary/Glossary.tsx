@@ -96,7 +96,7 @@ export function GlossaryEntryNodeView(props: NodeViewProps) {
           aria-describedby={!canDelete ? deleteExplanationId : undefined}
           aria-label={`Delete term ${index}`}
           onClick={deleteEntry}
-          className="sc-app-glossary-delete"
+          className="sc-app-glossary-delete sc-course-glossary__delete"
         >
           <Trash size={14} aria-hidden />
           {!canDelete ? (
