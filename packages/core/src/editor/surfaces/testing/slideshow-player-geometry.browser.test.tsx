@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { projectCourseStructure } from "@/document/model/course-structure";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { slideModuleCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-module-cover";
 import { AssessmentRuntimeProvider } from "@/runtime/assessment/AssessmentRuntimeProvider";
@@ -161,7 +162,7 @@ describe("slideshow player geometry", () => {
         <SlideshowPlayer
           composition={runtimeComposition}
           initialContent={initialContent}
-          surfaceIds={[surfaceId]}
+          structure={requireSlideshowStructure(initialContent)}
           onRendererReady={(readyEditor) => {
             editor = readyEditor;
           }}
@@ -227,7 +228,7 @@ describe("slideshow player geometry", () => {
         <SlideshowPlayer
           composition={runtimeComposition}
           initialContent={initialContent}
-          surfaceIds={[COMPOSITION_TEST_SURFACE_ID]}
+          structure={requireSlideshowStructure(initialContent)}
           onRendererReady={(readyEditor) => {
             editor = readyEditor;
           }}
@@ -321,7 +322,7 @@ describe("slideshow player geometry", () => {
         <SlideshowPlayer
           composition={runtimeComposition}
           initialContent={initialContent}
-          surfaceIds={[COMPOSITION_TEST_SURFACE_ID]}
+          structure={requireSlideshowStructure(initialContent)}
           sizing="embedded"
           onRendererReady={(readyEditor) => {
             editor = readyEditor;
@@ -406,7 +407,7 @@ describe("slideshow player geometry", () => {
               composition={runtimeComposition}
               artifactId="artifact-slideshow-overlay-geometry"
               initialContent={initialContent}
-              surfaceIds={[OVERLAY_SURFACE_ID]}
+              structure={requireSlideshowStructure(initialContent)}
               onRendererReady={(readyEditor) => {
                 editor = readyEditor;
               }}
@@ -594,6 +595,14 @@ function slideshowDocumentWithRuntimeHint(): JSONContent {
     },
   ];
   return content;
+}
+
+function requireSlideshowStructure(content: JSONContent) {
+  const structure = projectCourseStructure(content);
+  if (!structure || structure.mode !== "slideshow") {
+    throw new Error("Expected a projected Slideshow fixture.");
+  }
+  return structure;
 }
 
 function selectableChoice(id: string, text: string): JSONContent {

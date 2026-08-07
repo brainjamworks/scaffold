@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
 
 import { IconButton } from "@/ui/components/IconButton/IconButton";
+import type { ProjectedSlideshowCourseStructure } from "@/document/model/course-structure";
 import { createScaledCanvasCoordinateSpace } from "@/editor/interactions/drag/dom/dom-coordinate-space";
 import { InteractionDragEnvironmentProvider } from "@/editor/interactions/drag/react/interaction-drag-environment";
 import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
@@ -38,7 +39,7 @@ export interface SlideshowPlayerProps {
   artifactId?: string | null;
   composition: CourseDocumentRuntimeRendererProps["composition"];
   initialContent: JSONContent;
-  surfaceIds: [string, ...string[]];
+  structure: ProjectedSlideshowCourseStructure;
   sizing?: SlideshowPlayerSizing;
   onRendererReady?: (editor: TiptapEditor) => void;
   onActiveSurfaceChange?: (surfaceId: string) => void;
@@ -48,7 +49,7 @@ export function SlideshowPlayer({
   artifactId,
   composition,
   initialContent,
-  surfaceIds,
+  structure,
   sizing = "contained",
   onRendererReady,
   onActiveSurfaceChange,
@@ -57,13 +58,13 @@ export function SlideshowPlayer({
   const stageRef = useRef<HTMLDivElement>(null);
   const [canvasElement, setCanvasElement] = useState<HTMLDivElement | null>(null);
   const [scaleState, setScaleState] = useState<SlideshowCanvasScaleState | null>(null);
-  const [activeSurfaceId, setActiveSurfaceId] = useState(surfaceIds[0]);
+  const [activeSurfaceId, setActiveSurfaceId] = useState(structure.surfaceIds[0]);
   const [fullscreenAvailable, setFullscreenAvailable] = useState(false);
   const [fullscreenPending, setFullscreenPending] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenError, setFullscreenError] = useState<string | null>(null);
-  const navigation = getSlideshowNavigationState(surfaceIds, activeSurfaceId);
-  const surfaceStates = getSlideshowSurfaceStates(surfaceIds, navigation.activeSurfaceId);
+  const navigation = getSlideshowNavigationState(structure.surfaceIds, activeSurfaceId);
+  const surfaceStates = getSlideshowSurfaceStates(structure.surfaceIds, navigation.activeSurfaceId);
   const viewSettings = readSurfaceViewSettings(initialContent);
   const courseDocument = initialContent.content?.[0];
   const rawMode = courseDocument?.type === "courseDocument" ? courseDocument.attrs?.mode : null;

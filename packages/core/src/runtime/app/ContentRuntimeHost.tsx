@@ -57,6 +57,13 @@ export function ContentRuntimeHost({
   }
 
   const playerSelection = selectRuntimePlayer(initialContent);
+  if (!playerSelection) {
+    return (
+      <div className="sc-content-runtime-host" data-testid="scaffold-runtime-host">
+        <ContentRuntimeUnavailable reason="invalid-course-structure" />
+      </div>
+    );
+  }
   const courseDocumentAttrs = CourseDocumentAttrsSchema.parse(initialContent.content?.[0]?.attrs);
 
   return (
@@ -118,21 +125,20 @@ function HydratedRuntimePlayer({
 }: HydratedRuntimePlayerProps) {
   const learningEventReporter = useLearningEventReporter();
   const rendererReadyRef = useRef(false);
-  const activeSurfaceIdRef = useRef(playerSelection.surfaceIds[0]);
+  const surfaceIds = playerSelection.structure.surfaceIds;
+  const activeSurfaceIdRef = useRef(surfaceIds[0]);
   const recordedSurfaceRef = useRef<{
     reporter: LearningEventReporter;
     surfaceId: string;
   } | null>(null);
-  if (!playerSelection.surfaceIds.includes(activeSurfaceIdRef.current)) {
-    activeSurfaceIdRef.current = playerSelection.surfaceIds[0];
+  if (!surfaceIds.includes(activeSurfaceIdRef.current)) {
+    activeSurfaceIdRef.current = surfaceIds[0];
   }
   const recordSurfaceExperienced = useCallback(
     (surfaceId: string) => {
-      const surfaceIndex = playerSelection.surfaceIds.findIndex(
-        (candidate) => candidate === surfaceId,
-      );
+      const surfaceIndex = surfaceIds.findIndex((candidate) => candidate === surfaceId);
       if (surfaceIndex < 0) return;
-      const selectedSurfaceId = playerSelection.surfaceIds[surfaceIndex]!;
+      const selectedSurfaceId = surfaceIds[surfaceIndex]!;
       activeSurfaceIdRef.current = selectedSurfaceId;
       if (!rendererReadyRef.current) return;
       const previous = recordedSurfaceRef.current;
@@ -149,7 +155,7 @@ function HydratedRuntimePlayer({
           surfaceId: selectedSurfaceId,
           surfaceKind: playerSelection.player === "page" ? "page" : "slide",
           position: surfaceIndex + 1,
-          count: playerSelection.surfaceIds.length,
+          count: surfaceIds.length,
         });
         recordedSurfaceRef.current = {
           reporter: learningEventReporter,
@@ -159,7 +165,7 @@ function HydratedRuntimePlayer({
         // Surface recording is observational and cannot make content unavailable.
       }
     },
-    [learningEventReporter, playerSelection.player, playerSelection.surfaceIds],
+    [learningEventReporter, playerSelection.player, surfaceIds],
   );
   const handleRendererReady = useCallback(
     (editor: TiptapEditor) => {
@@ -183,7 +189,7 @@ function HydratedRuntimePlayer({
         composition={composition}
         initialContent={initialContent}
         onRendererReady={handleRendererReady}
-        surfaceId={playerSelection.surfaceIds[0]}
+        surfaceId={playerSelection.structure.surfaceIds[0]}
       />
     ) : (
       <SlideshowPlayer
@@ -192,14 +198,18 @@ function HydratedRuntimePlayer({
         initialContent={initialContent}
         onActiveSurfaceChange={recordSurfaceExperienced}
         onRendererReady={handleRendererReady}
-        surfaceIds={playerSelection.surfaceIds}
+        structure={playerSelection.structure}
         {...(slideshowSizing ? { sizing: slideshowSizing } : {})}
       />
     );
   return runtimeContent;
 }
 
-function ContentRuntimeUnavailable({ reason }: { reason: "missing-initial-content" }) {
+function ContentRuntimeUnavailable({
+  reason,
+}: {
+  reason: "invalid-course-structure" | "missing-initial-content";
+}) {
   return (
     <div
       data-testid="scaffold-runtime-unavailable"

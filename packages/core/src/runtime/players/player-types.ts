@@ -1,5 +1,8 @@
 import type { CourseMode } from "@/schemas/course-document";
-import type { SurfaceId } from "@/document/model/course-structure";
+import type {
+  ProjectedPageCourseStructure,
+  ProjectedSlideshowCourseStructure,
+} from "@/document/model/course-structure";
 
 export type RuntimePlayer = "page" | "slideshow";
 
@@ -9,10 +12,10 @@ export type RuntimePlayerSelection =
   | {
       player: "page";
       mode: Extract<CourseMode, "page">;
-      surfaceIds: [SurfaceId];
+      structure: ProjectedPageCourseStructure;
     }
   | {
       player: "slideshow";
       mode: Extract<CourseMode, "slideshow">;
-      surfaceIds: [SurfaceId, ...SurfaceId[]];
+      structure: ProjectedSlideshowCourseStructure;
     };

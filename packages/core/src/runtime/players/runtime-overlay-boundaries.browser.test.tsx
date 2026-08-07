@@ -5,6 +5,7 @@ import { page } from "vite-plus/test/browser/context";
 
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
+import { projectCourseStructure } from "@/document/model/course-structure";
 import { createAssessmentRuntimeTestRoot } from "@/runtime/assessment/test-utils";
 import { PagePlayer } from "@/runtime/players/page/PagePlayer";
 import { SlideshowPlayer } from "@/runtime/players/slideshow/SlideshowPlayer";
@@ -368,14 +369,19 @@ async function mountSlideshow(owner: ForeignOwner): Promise<MountedRuntime> {
   host.style.cssText = "height: 576px; position: absolute; top: 0; width: 1024px;";
   owner.document.body.append(host);
   const root = createRoot(host);
+  const initialContent = runtimeHintDocument("slideshow", "runtime_sld1");
+  const structure = projectCourseStructure(initialContent);
+  if (!structure || structure.mode !== "slideshow") {
+    throw new Error("Expected a projected Slideshow fixture.");
+  }
   root.render(
     createAssessmentRuntimeTestRoot({
       children: (
         <SlideshowPlayer
           composition={runtimeComposition}
           artifactId="runtime-boundary-contract"
-          initialContent={runtimeHintDocument("slideshow", "runtime_sld1")}
-          surfaceIds={["runtime_sld1"]}
+          initialContent={initialContent}
+          structure={structure}
           onRendererReady={(readyEditor) => {
             editor = readyEditor;
           }}

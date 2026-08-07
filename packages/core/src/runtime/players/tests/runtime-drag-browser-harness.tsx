@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { useLayoutEffect, type ComponentType } from "react";
 
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
+import { projectCourseStructure } from "@/document/model/course-structure";
 import { createSurfaceRuntimeViewMap } from "@/editor/surfaces/runtime/surface-runtime-view-registry";
 import { builtInSurfaceRuntimeViewBindings } from "@/editor/surfaces/runtime/surface-runtime-views";
 import type { SurfaceRuntimeViewProps } from "@/editor/surfaces/runtime/surface-runtime-view-registry";
@@ -109,6 +110,12 @@ export async function mountRuntimeDragHarness(
   });
   const root = createRoot(host);
   const initialContent = runtimeDragDocument(options.surface, interaction);
+  const structure = projectCourseStructure(initialContent);
+  if (!structure) throw new Error("Runtime drag content could not be projected.");
+  const slideshowStructure = structure.mode === "slideshow" ? structure : null;
+  if (options.surface === "slideshow" && !slideshowStructure) {
+    throw new Error("Expected projected Slideshow drag content.");
+  }
   root.render(
     createAssessmentRuntimeTestRoot({
       children:
@@ -125,7 +132,7 @@ export async function mountRuntimeDragHarness(
           <SlideshowPlayer
             composition={composition}
             initialContent={initialContent}
-            surfaceIds={[RUNTIME_DRAG_SURFACE_ID]}
+            structure={slideshowStructure!}
             sizing="embedded"
             onRendererReady={(readyEditor) => {
               editor = readyEditor;

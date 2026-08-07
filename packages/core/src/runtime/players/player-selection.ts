@@ -1,27 +1,24 @@
 import type { JSONContent } from "@tiptap/core";
 
-import type { SurfaceId } from "@/document/model/course-structure";
+import { projectCourseStructure } from "@/document/model/course-structure";
 
 import type { RuntimePlayerSelection } from "./player-types";
 
-export function selectRuntimePlayer(content: JSONContent): RuntimePlayerSelection {
-  const courseDocument = content.content?.[0];
-  const surfaceIds = (courseDocument?.content ?? [])
-    .filter((node) => node.type === "surface")
-    .map((node) => node.attrs?.["id"] as SurfaceId);
-  const [firstSurfaceId, ...remainingSurfaceIds] = surfaceIds as [SurfaceId, ...SurfaceId[]];
+export function selectRuntimePlayer(content: JSONContent): RuntimePlayerSelection | null {
+  const structure = projectCourseStructure(content);
+  if (!structure) return null;
 
-  if (courseDocument?.attrs?.["mode"] === "page") {
+  if (structure.kind === "page") {
     return {
       player: "page",
       mode: "page",
-      surfaceIds: [firstSurfaceId],
+      structure,
     };
   }
 
   return {
     player: "slideshow",
     mode: "slideshow",
-    surfaceIds: [firstSurfaceId, ...remainingSurfaceIds],
+    structure,
   };
 }

@@ -14,13 +14,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
+import { projectCourseStructure } from "@/document/model/course-structure";
 import { AssessmentRuntimeProvider } from "@/runtime/assessment/AssessmentRuntimeProvider";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import type { ScaffoldColorMode } from "@/theme/state/color-mode";
 
-import { SlideshowPlayer } from "./SlideshowPlayer";
+import { SlideshowPlayer, type SlideshowPlayerProps } from "./SlideshowPlayer";
 
 const runtimeComposition = createCoreScaffoldRuntimeComposition();
 
@@ -303,18 +304,25 @@ function restoreProperty(
   Reflect.deleteProperty(target, property);
 }
 
+function TestSlideshowPlayer(props: Omit<SlideshowPlayerProps, "structure">) {
+  const structure = projectCourseStructure(props.initialContent);
+  if (!structure || structure.mode !== "slideshow") {
+    throw new Error("Expected a projected Slideshow fixture.");
+  }
+  return <SlideshowPlayer {...props} structure={structure} />;
+}
+
 describe("SlideshowPlayer", () => {
   it.each(["light", "dark"] as const)(
     "passes the resolved %s course mode into slideshow content",
     async (mode) => {
       const onRendererReady = vi.fn();
       renderWithCourseAppearance(
-        <SlideshowPlayer
+        <TestSlideshowPlayer
           composition={runtimeComposition}
           initialContent={slideshowDocumentContent([
             { id: "slide_theme1", text: "Themed slide content" },
           ])}
-          surfaceIds={["slide_theme1"]}
           onRendererReady={onRendererReady}
         />,
         mode,
@@ -331,13 +339,12 @@ describe("SlideshowPlayer", () => {
     const onRendererReady = vi.fn();
 
     render(
-      <SlideshowPlayer
+      <TestSlideshowPlayer
         composition={runtimeComposition}
         artifactId="artifact-slideshow"
         initialContent={slideshowDocumentContent([
           { id: "slide_000001", text: "Only slide content" },
         ])}
-        surfaceIds={["slide_000001"]}
         onRendererReady={onRendererReady}
       />,
     );
@@ -374,12 +381,11 @@ describe("SlideshowPlayer", () => {
     const { requestFullscreen } = installFullscreenHarness();
 
     render(
-      <SlideshowPlayer
+      <TestSlideshowPlayer
         composition={runtimeComposition}
         initialContent={slideshowDocumentContent([
           { id: "slide_000001", text: "Fullscreen slide" },
         ])}
-        surfaceIds={["slide_000001"]}
         sizing="embedded"
       />,
     );
@@ -403,11 +409,10 @@ describe("SlideshowPlayer", () => {
     render(
       <ScaffoldArtifactIdentityProvider artifactId="artifact-fullscreen-popover">
         <AssessmentRuntimeProvider>
-          <SlideshowPlayer
+          <TestSlideshowPlayer
             composition={runtimeComposition}
             artifactId="artifact-fullscreen-popover"
             initialContent={slideshowDocumentContentWithRuntimeHint()}
-            surfaceIds={["slide_000001"]}
             sizing="embedded"
           />
         </AssessmentRuntimeProvider>
@@ -451,11 +456,10 @@ describe("SlideshowPlayer", () => {
     const { unmount } = render(
       <ScaffoldArtifactIdentityProvider artifactId="artifact-owner-document-popover">
         <AssessmentRuntimeProvider>
-          <SlideshowPlayer
+          <TestSlideshowPlayer
             composition={runtimeComposition}
             artifactId="artifact-owner-document-popover"
             initialContent={slideshowDocumentContentWithRuntimeHint()}
-            surfaceIds={["slide_000001"]}
             sizing="embedded"
           />
         </AssessmentRuntimeProvider>
@@ -555,12 +559,11 @@ describe("SlideshowPlayer", () => {
     const { exitFullscreen } = installFullscreenHarness();
 
     render(
-      <SlideshowPlayer
+      <TestSlideshowPlayer
         composition={runtimeComposition}
         initialContent={slideshowDocumentContent([
           { id: "slide_000001", text: "Fullscreen slide" },
         ])}
-        surfaceIds={["slide_000001"]}
       />,
     );
 
@@ -576,12 +579,11 @@ describe("SlideshowPlayer", () => {
     installFullscreenHarness({ requestError: new Error("fullscreen denied") });
 
     render(
-      <SlideshowPlayer
+      <TestSlideshowPlayer
         composition={runtimeComposition}
         initialContent={slideshowDocumentContent([
           { id: "slide_000001", text: "Fullscreen slide" },
         ])}
-        surfaceIds={["slide_000001"]}
       />,
     );
 
@@ -595,12 +597,11 @@ describe("SlideshowPlayer", () => {
     installFullscreenHarness();
 
     render(
-      <SlideshowPlayer
+      <TestSlideshowPlayer
         composition={runtimeComposition}
         initialContent={slideshowDocumentContent([
           { id: "slide_000001", text: "Fullscreen slide" },
         ])}
-        surfaceIds={["slide_000001"]}
         sizing="embedded"
       />,
     );
@@ -625,12 +626,11 @@ describe("SlideshowPlayer", () => {
     installFullscreenHarness();
 
     render(
-      <SlideshowPlayer
+      <TestSlideshowPlayer
         composition={runtimeComposition}
         initialContent={slideshowDocumentContent([
           { id: "slide_000001", text: "Fullscreen slide" },
         ])}
-        surfaceIds={["slide_000001"]}
       />,
     );
 
@@ -647,10 +647,9 @@ describe("SlideshowPlayer", () => {
     const onRendererReady = vi.fn();
 
     render(
-      <SlideshowPlayer
+      <TestSlideshowPlayer
         composition={runtimeComposition}
         initialContent={slideshowDocumentContent([{ id: "slide_000001", text: "Scaled slide" }])}
-        surfaceIds={["slide_000001"]}
         onRendererReady={onRendererReady}
       />,
     );
@@ -698,10 +697,9 @@ describe("SlideshowPlayer", () => {
   it("withholds the stage until the viewport has valid bounds and disconnects on unmount", async () => {
     ResizeObserverStub.initialSize = { width: 0, height: 0 };
     const { unmount } = render(
-      <SlideshowPlayer
+      <TestSlideshowPlayer
         composition={runtimeComposition}
         initialContent={slideshowDocumentContent([{ id: "slide_000001", text: "Deferred slide" }])}
-        surfaceIds={["slide_000001"]}
       />,
     );
 
@@ -724,10 +722,9 @@ describe("SlideshowPlayer", () => {
   it("establishes an embedded stage before rendering into measured bounds", async () => {
     ResizeObserverStub.initialSize = { width: 0, height: 0 };
     render(
-      <SlideshowPlayer
+      <TestSlideshowPlayer
         composition={runtimeComposition}
         initialContent={slideshowDocumentContent([{ id: "slide_000001", text: "Embedded slide" }])}
-        surfaceIds={["slide_000001"]}
         sizing="embedded"
       />,
     );
@@ -762,12 +759,11 @@ describe("SlideshowPlayer", () => {
     ResizeObserverStub.initialSize = { width: 512, height: 288 };
     const onRendererReady = vi.fn();
     render(
-      <SlideshowPlayer
+      <TestSlideshowPlayer
         composition={runtimeComposition}
         initialContent={slideshowDocumentContent([
           { id: "slide_000001", text: "Measured embedded slide" },
         ])}
-        surfaceIds={["slide_000001"]}
         sizing="embedded"
         onRendererReady={onRendererReady}
       />,
@@ -794,11 +790,7 @@ describe("SlideshowPlayer", () => {
     initialContent.content![0]!.attrs!.surfaceSize = "fluid";
 
     render(
-      <SlideshowPlayer
-        composition={runtimeComposition}
-        initialContent={initialContent}
-        surfaceIds={["slide_000001"]}
-      />,
+      <TestSlideshowPlayer composition={runtimeComposition} initialContent={initialContent} />,
     );
 
     expect(screen.getByRole("alert").textContent).toContain("Slideshow surface size must be 16x9.");
@@ -814,7 +806,7 @@ describe("SlideshowPlayer", () => {
     });
 
     render(
-      <SlideshowPlayer
+      <TestSlideshowPlayer
         composition={runtimeComposition}
         artifactId="artifact-slideshow"
         initialContent={slideshowDocumentContent([
@@ -822,7 +814,6 @@ describe("SlideshowPlayer", () => {
           { id: "slide_000002", text: "Second slide content" },
           { id: "slide_000003", text: "Third slide content" },
         ])}
-        surfaceIds={["slide_000001", "slide_000002", "slide_000003"]}
         onRendererReady={onRendererReady}
       />,
     );
@@ -880,14 +871,13 @@ describe("SlideshowPlayer", () => {
     const onRendererReady = vi.fn();
 
     render(
-      <SlideshowPlayer
+      <TestSlideshowPlayer
         composition={runtimeComposition}
         artifactId="artifact-slideshow"
         initialContent={slideshowDocumentContent([
           { id: "slide_000001", text: "First slide content" },
           { id: "slide_000002", text: "Second slide content" },
         ])}
-        surfaceIds={["slide_000001", "slide_000002"]}
         onRendererReady={onRendererReady}
       />,
     );

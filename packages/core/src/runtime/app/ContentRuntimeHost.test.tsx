@@ -1514,6 +1514,39 @@ describe("ContentRuntimeHost", () => {
     expect(onEditorReady).not.toHaveBeenCalled();
   });
 
+  it("renders unavailable when canonical Course Structure cannot be projected", () => {
+    const content = runtimeDocumentContent({
+      mode: "slideshow",
+      surfaceIds: [FIRST_SLIDESHOW_SURFACE_ID, SECOND_SLIDESHOW_SURFACE_ID],
+    });
+    const courseDocument = content.content?.[0];
+    const firstSurface = courseDocument?.content?.[0];
+    const secondSurface = courseDocument?.content?.[1];
+    if (!courseDocument || !firstSurface || !secondSurface) {
+      throw new Error("runtime slideshow fixture is incomplete");
+    }
+    courseDocument.content = [
+      firstSurface,
+      { type: "courseSection", attrs: { id: COURSE_SECTION_ID, title: "Practice" } },
+      secondSurface,
+    ];
+
+    render(
+      <ContentRuntimeHost
+        composition={runtimeComposition}
+        artifactId="artifact-invalid-course-structure"
+        initialContent={content}
+      />,
+    );
+
+    expect(
+      screen
+        .getByTestId("scaffold-runtime-unavailable")
+        .getAttribute("data-runtime-unavailable-reason"),
+    ).toBe("invalid-course-structure");
+    expect(screen.queryByTestId("course-document-runtime-renderer")).toBeNull();
+  });
+
   it("renders one-surface slideshow mode through the slideshow player", async () => {
     const onEditorReady = vi.fn();
 

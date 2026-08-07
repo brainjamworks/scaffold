@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
+import { projectCourseStructure } from "@/document/model/course-structure";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 
 import { selectRuntimePlayer } from "./player-selection";
@@ -14,10 +15,12 @@ describe("selectRuntimePlayer", () => {
   it("selects the page Surface from document content", () => {
     const content = createScaffoldDocumentContent({ mode: "page", surfaceId: PAGE_SURFACE_ID });
 
+    const structure = projectCourseStructure(content);
+    expect(structure?.kind).toBe("page");
     expect(selectRuntimePlayer(content)).toEqual({
       player: "page",
       mode: "page",
-      surfaceIds: [PAGE_SURFACE_ID],
+      structure,
     });
   });
 
@@ -39,10 +42,12 @@ describe("selectRuntimePlayer", () => {
 
     const selection = selectRuntimePlayer(content);
 
+    const structure = projectCourseStructure(content);
+    expect(structure?.kind).toBe("unsectioned-slideshow");
     expect(selection).toEqual({
       player: "slideshow",
       mode: "slideshow",
-      surfaceIds: [FIRST_SLIDE_ID, SECOND_SLIDE_ID],
+      structure,
     });
     expect(content).toEqual(before);
   });
@@ -64,11 +69,30 @@ describe("selectRuntimePlayer", () => {
       slideCover.createSurface({ surfaceId: SECOND_SLIDE_ID }),
     ];
 
+    const structure = projectCourseStructure(content);
+    expect(structure?.kind).toBe("sectioned-slideshow");
     expect(selectRuntimePlayer(content)).toEqual({
       player: "slideshow",
       mode: "slideshow",
-      surfaceIds: [FIRST_SLIDE_ID, SECOND_SLIDE_ID],
+      structure,
     });
-    expect(selectRuntimePlayer(content).surfaceIds).not.toContain(COURSE_SECTION_ID);
+    expect(structure?.surfaceIds).not.toContain(COURSE_SECTION_ID);
+  });
+
+  it("returns no player selection for malformed Course Structure", () => {
+    const content = createScaffoldDocumentContent({
+      mode: "slideshow",
+      surfaceId: FIRST_SLIDE_ID,
+    });
+    const courseDocument = content.content?.[0];
+    const firstSurface = courseDocument?.content?.[0];
+    if (!courseDocument || !firstSurface) throw new Error("missing slideshow fixture");
+    courseDocument.content = [
+      firstSurface,
+      { type: "courseSection", attrs: { id: COURSE_SECTION_ID, title: "Practice" } },
+      structuredClone(firstSurface),
+    ];
+
+    expect(selectRuntimePlayer(content)).toBeNull();
   });
 });
