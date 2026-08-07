@@ -63,8 +63,8 @@ export function SlideshowPlayer({
   const [fullscreenPending, setFullscreenPending] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenError, setFullscreenError] = useState<string | null>(null);
-  const navigation = getSlideshowNavigationState(structure.surfaceIds, activeSurfaceId);
-  const surfaceStates = getSlideshowSurfaceStates(structure.surfaceIds, navigation.activeSurfaceId);
+  const navigation = getSlideshowNavigationState(structure, activeSurfaceId);
+  const surfaceStates = getSlideshowSurfaceStates(structure, navigation);
   const viewSettings = readSurfaceViewSettings(initialContent);
   const courseDocument = initialContent.content?.[0];
   const rawMode = courseDocument?.type === "courseDocument" ? courseDocument.attrs?.mode : null;
