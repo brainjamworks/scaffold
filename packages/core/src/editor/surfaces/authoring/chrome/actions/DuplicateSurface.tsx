@@ -1,25 +1,24 @@
 import { CopyIcon as Copy } from "@phosphor-icons/react";
 import type { Editor } from "@tiptap/react";
 
-import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaffold-capabilities-storage";
 import { MenuIconButton } from "@/editor/shell/bubbles/interaction/menu-controls/MenuControls";
 import {
-  canDuplicateSurfaceAt,
-  duplicateSurfaceAt,
+  canDuplicateSurface,
+  duplicateSurface,
 } from "@/editor/surfaces/authoring/commands/surface-document-commands";
 
 interface DuplicateSurfaceProps {
   editor: Editor;
   label?: string;
-  pos?: number | null;
+  surfaceId?: string | null;
 }
 
 export function DuplicateSurface({
   editor,
   label = "Duplicate surface",
-  pos,
+  surfaceId,
 }: DuplicateSurfaceProps) {
-  const canDuplicate = pos !== null && pos !== undefined && canDuplicateSurfaceAt(editor, pos);
+  const canDuplicate = Boolean(surfaceId && canDuplicateSurface(editor, surfaceId));
 
   return (
     <MenuIconButton
@@ -27,8 +26,8 @@ export function DuplicateSurface({
       label={label}
       disabled={!canDuplicate}
       onClick={() => {
-        if (!canDuplicate || pos === null || pos === undefined) return;
-        duplicateSurfaceAt(editor, pos, getScaffoldCapabilitiesForEditor(editor).blocks.registry);
+        if (!canDuplicate || !surfaceId) return;
+        duplicateSurface(editor, surfaceId);
       }}
     />
   );

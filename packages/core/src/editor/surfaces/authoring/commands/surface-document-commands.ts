@@ -1,14 +1,8 @@
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import type { Editor } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
 import { SurfaceBackgroundSchema, SurfaceSettingsSchema } from "@/schemas/course-document";
-import { setTextSelectionNearInTransaction } from "@/editor/selection/selection-transactions";
-import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
-
-import {
-  deleteNodeChecked,
-  duplicateNodeChecked,
-} from "@/document/model/commands/checked-transactions";
 
 interface SurfaceRecord {
   node: ProseMirrorNode;
@@ -17,14 +11,6 @@ interface SurfaceRecord {
 
 interface CourseDocumentRecord {
   mode: string | null;
-  surfaces: SurfaceRecord[];
-}
-
-interface SurfaceActionTarget {
-  index: number;
-  mode: string | null;
-  node: ProseMirrorNode;
-  pos: number;
   surfaces: SurfaceRecord[];
 }
 
@@ -67,97 +53,54 @@ function dispatchChecked(editor: Editor, tr: Editor["state"]["tr"]): boolean {
   return true;
 }
 
-function dispatchSurfaceAction(editor: Editor, tr: Editor["state"]["tr"]): boolean {
-  if (!tr.docChanged) return false;
+export function canDuplicateSurface(editor: Editor, surfaceId: string): boolean {
+  const parsedSurfaceId = EmbeddedNodeIdSchema.safeParse(surfaceId);
+  if (!parsedSurfaceId.success) return false;
 
-  try {
-    tr.doc.check();
-  } catch {
-    return false;
-  }
-
-  editor.view.dispatch(tr.scrollIntoView());
-  editor.view.focus();
-  return true;
-}
-
-function resolveSurfaceActionTarget(
-  editor: Editor,
-  surfacePos: number,
-): SurfaceActionTarget | null {
-  const courseDocument = getCourseDocument(editor);
-  if (!courseDocument) return null;
-
-  const index = courseDocument.surfaces.findIndex((surface) => surface.pos === surfacePos);
-  if (index < 0) return null;
-
-  const surface = courseDocument.surfaces[index];
-  if (!surface || surface.node.type.name !== "surface") return null;
-
-  return {
-    index,
-    mode: courseDocument.mode,
-    node: surface.node,
-    pos: surface.pos,
-    surfaces: courseDocument.surfaces,
-  };
-}
-
-function setTextSelectionNearSurface(tr: Editor["state"]["tr"], surfacePos: number): void {
-  const selectionPos = Math.min(surfacePos + 2, tr.doc.content.size);
-  setTextSelectionNearInTransaction(tr, selectionPos, 1);
-}
-
-export function canDuplicateSurfaceAt(editor: Editor, surfacePos: number): boolean {
-  const target = resolveSurfaceActionTarget(editor, surfacePos);
-  return Boolean(target && target.mode !== "page");
-}
-
-export function duplicateSurfaceAt(
-  editor: Editor,
-  surfacePos: number,
-  blockDefinitions: BlockDefinitionLookup,
-): boolean {
-  const target = resolveSurfaceActionTarget(editor, surfacePos);
-  if (!target || target.mode === "page") return false;
-
-  const result = duplicateNodeChecked({
-    tr: editor.state.tr,
-    pos: surfacePos,
-    regenerateStableIds: true,
-    blockDefinitions,
+  return editor.can().applyCourseStructureCommand({
+    type: "surface.duplicate",
+    surfaceId: parsedSurfaceId.data,
   });
-  if (!result.ok) return false;
-
-  setTextSelectionNearSurface(result.tr, surfacePos + target.node.nodeSize);
-  return dispatchSurfaceAction(editor, result.tr);
 }
 
-export function canDeleteSurfaceAt(editor: Editor, surfacePos: number): boolean {
-  const target = resolveSurfaceActionTarget(editor, surfacePos);
-  return Boolean(target && target.mode !== "page" && target.surfaces.length > 1);
+export function duplicateSurface(editor: Editor, surfaceId: string): boolean {
+  const parsedSurfaceId = EmbeddedNodeIdSchema.safeParse(surfaceId);
+  if (!parsedSurfaceId.success) return false;
+
+  return editor
+    .chain()
+    .focus()
+    .applyCourseStructureCommand({
+      type: "surface.duplicate",
+      surfaceId: parsedSurfaceId.data,
+    })
+    .scrollIntoView()
+    .run();
 }
 
-export function deleteSurfaceAt(editor: Editor, surfacePos: number): boolean {
-  const target = resolveSurfaceActionTarget(editor, surfacePos);
-  if (!target || target.mode === "page" || target.surfaces.length <= 1) {
-    return false;
-  }
+export function canDeleteSurface(editor: Editor, surfaceId: string): boolean {
+  const parsedSurfaceId = EmbeddedNodeIdSchema.safeParse(surfaceId);
+  if (!parsedSurfaceId.success) return false;
 
-  const nextSurface = target.surfaces[target.index + 1];
-  const previousSurface = target.surfaces[target.index - 1];
-  const selectionSurfacePos = nextSurface ? surfacePos : (previousSurface?.pos ?? null);
-
-  const result = deleteNodeChecked({
-    tr: editor.state.tr,
-    pos: surfacePos,
+  return editor.can().applyCourseStructureCommand({
+    type: "surface.delete",
+    surfaceId: parsedSurfaceId.data,
   });
-  if (!result.ok) return false;
+}
 
-  if (selectionSurfacePos !== null) {
-    setTextSelectionNearSurface(result.tr, selectionSurfacePos);
-  }
-  return dispatchSurfaceAction(editor, result.tr);
+export function deleteSurface(editor: Editor, surfaceId: string): boolean {
+  const parsedSurfaceId = EmbeddedNodeIdSchema.safeParse(surfaceId);
+  if (!parsedSurfaceId.success) return false;
+
+  return editor
+    .chain()
+    .focus()
+    .applyCourseStructureCommand({
+      type: "surface.delete",
+      surfaceId: parsedSurfaceId.data,
+    })
+    .scrollIntoView()
+    .run();
 }
 
 function updatePageSurfaceAttrs(editor: Editor, attrs: Record<string, unknown>): boolean {

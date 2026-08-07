@@ -69,12 +69,12 @@ export function SurfaceMenuBubbleContent({
         <>
           <DuplicateSurface
             editor={editor}
-            pos={snapshot.surfacePos}
+            surfaceId={snapshot.surfaceId}
             label={snapshot.defaultActions.duplicateLabel}
           />
           <DeleteSurface
             editor={editor}
-            pos={snapshot.surfacePos}
+            surfaceId={snapshot.surfaceId}
             label={snapshot.defaultActions.deleteLabel}
           />
         </>

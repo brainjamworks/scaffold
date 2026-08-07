@@ -3,18 +3,18 @@ import type { Editor } from "@tiptap/react";
 
 import { MenuIconButton } from "@/editor/shell/bubbles/interaction/menu-controls/MenuControls";
 import {
-  canDeleteSurfaceAt,
-  deleteSurfaceAt,
+  canDeleteSurface,
+  deleteSurface,
 } from "@/editor/surfaces/authoring/commands/surface-document-commands";
 
 interface DeleteSurfaceProps {
   editor: Editor;
   label?: string;
-  pos?: number | null;
+  surfaceId?: string | null;
 }
 
-export function DeleteSurface({ editor, label = "Delete surface", pos }: DeleteSurfaceProps) {
-  const canDelete = pos !== null && pos !== undefined && canDeleteSurfaceAt(editor, pos);
+export function DeleteSurface({ editor, label = "Delete surface", surfaceId }: DeleteSurfaceProps) {
+  const canDelete = Boolean(surfaceId && canDeleteSurface(editor, surfaceId));
 
   return (
     <MenuIconButton
@@ -23,8 +23,8 @@ export function DeleteSurface({ editor, label = "Delete surface", pos }: DeleteS
       label={label}
       disabled={!canDelete}
       onClick={() => {
-        if (!canDelete || pos === null || pos === undefined) return;
-        deleteSurfaceAt(editor, pos);
+        if (!canDelete || !surfaceId) return;
+        deleteSurface(editor, surfaceId);
       }}
     />
   );

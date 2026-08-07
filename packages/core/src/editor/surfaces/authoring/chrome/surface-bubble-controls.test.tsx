@@ -2,11 +2,14 @@
 
 import { TooltipProvider } from "@radix-ui/react-tooltip";
 import { Editor, Node, type JSONContent } from "@tiptap/core";
+import UniqueID from "@tiptap/extension-unique-id";
 import StarterKit from "@tiptap/starter-kit";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it } from "vite-plus/test";
 
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { createCourseStructureCommandsExtension } from "@/document/authoring/course-structure-commands";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import {
   ARRANGEMENT_CONTENT,
@@ -20,9 +23,14 @@ import {
   type SurfaceChromeTargetDescriptor,
 } from "@/editor/interactions/targets/prosemirror/projection/structural-chrome-target-projection";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
+import { createLayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
+import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import { builtInSurfaceAuthoringChromeResolver } from "@/editor/surfaces/authoring/surface-authoring-views";
+import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
+import { pageDefaultSurfaceDefinition } from "@/editor/surfaces/model/templates/page-default";
+import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 
 import {
   SurfaceMenuBubbleContent,
@@ -65,7 +73,7 @@ describe("SurfaceMenuBubbleContent", () => {
   it("renders default slide actions before variant quick controls", () => {
     const editor = createEditor("slideshow", [
       surface("surface00001", "slide-cover"),
-      surface("surface-2", "slide-cover"),
+      surface("surface00002", "slide-cover"),
     ]);
     const descriptor = surfaceDescriptor(editor, "surface00001");
     const snapshot = resolveSurfaceMenuSnapshot(
@@ -110,6 +118,62 @@ describe("SurfaceMenuBubbleContent", () => {
       false,
     );
     expect(screen.getByRole("button", { name: "Delete slide" })).toHaveProperty("disabled", true);
+
+    editor.destroy();
+  });
+
+  it("duplicates the Surface identified by the menu snapshot instead of its transient position", () => {
+    const editor = createEditor("slideshow", [
+      surface("surface00001", "slide-cover"),
+      surface("surface00002", "slide-cover"),
+    ]);
+    const descriptor = surfaceDescriptor(editor, "surface00001");
+    const resolved = resolveSurfaceMenuSnapshot(
+      editor,
+      descriptor,
+      builtInSurfaceAuthoringChromeResolver,
+    );
+    const snapshot = resolved ? { ...resolved, surfacePos: 9999 } : null;
+
+    renderWithFacade(
+      <SurfaceMenuBubbleContent descriptor={descriptor} editor={editor} snapshot={snapshot} />,
+    );
+
+    const duplicate = screen.getByRole("button", { name: "Duplicate slide" });
+    expect(duplicate).toHaveProperty("disabled", false);
+    fireEvent.click(duplicate);
+    expect(readCourseChildren(editor).map((child) => child.attrs?.["id"])).toEqual([
+      "surface00001",
+      expect.not.stringMatching(/^surface0000[12]$/),
+      "surface00002",
+    ]);
+
+    editor.destroy();
+  });
+
+  it("deletes the Surface identified by the menu snapshot instead of its transient position", () => {
+    const editor = createEditor("slideshow", [
+      surface("surface00001", "slide-cover"),
+      surface("surface00002", "slide-cover"),
+    ]);
+    const descriptor = surfaceDescriptor(editor, "surface00002");
+    const resolved = resolveSurfaceMenuSnapshot(
+      editor,
+      descriptor,
+      builtInSurfaceAuthoringChromeResolver,
+    );
+    const snapshot = resolved ? { ...resolved, surfacePos: 9999 } : null;
+
+    renderWithFacade(
+      <SurfaceMenuBubbleContent descriptor={descriptor} editor={editor} snapshot={snapshot} />,
+    );
+
+    const remove = screen.getByRole("button", { name: "Delete slide" });
+    expect(remove).toHaveProperty("disabled", false);
+    fireEvent.click(remove);
+    expect(readCourseChildren(editor).map((child) => child.attrs?.["id"])).toEqual([
+      "surface00001",
+    ]);
 
     editor.destroy();
   });
@@ -192,8 +256,19 @@ describe("SurfaceMenuBubbleContent", () => {
 });
 
 function createEditor(mode: "page" | "slideshow", surfaces: JSONContent[]): Editor {
+  const capabilities = Object.freeze({
+    blocks: Object.freeze({ registry: createBlockRegistry([]) }),
+    layouts: Object.freeze({ registry: createLayoutRegistry([]) }),
+    surfaces: Object.freeze({
+      registry: createSurfaceVariantRegistry([
+        pageDefaultSurfaceDefinition,
+        slideCoverSurfaceDefinition,
+      ]),
+    }),
+  });
   return new Editor({
     extensions: [
+      createScaffoldCapabilitiesStorageExtension(capabilities),
       DocumentNode,
       StarterKit.configure({
         document: false,
@@ -207,6 +282,8 @@ function createEditor(mode: "page" | "slideshow", surfaces: JSONContent[]): Edit
       RegionNode,
       TestArrangementNode,
       TestSectionArrangementNode,
+      UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
+      createCourseStructureCommandsExtension(),
     ],
     content: {
       type: "doc",
@@ -219,6 +296,10 @@ function createEditor(mode: "page" | "slideshow", surfaces: JSONContent[]): Edit
       ],
     },
   });
+}
+
+function readCourseChildren(editor: Editor): JSONContent[] {
+  return editor.getJSON().content?.[0]?.content ?? [];
 }
 
 function surface(id: string, variant: string, background?: Record<string, unknown>): JSONContent {

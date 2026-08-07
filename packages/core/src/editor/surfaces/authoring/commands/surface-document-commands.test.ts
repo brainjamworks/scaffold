@@ -6,6 +6,9 @@ import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { createCourseStructureCommandsExtension } from "@/document/authoring/course-structure-commands";
+import { createLayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
 import {
   CellAuthoringNode,
   GridAuthoringNode,
@@ -20,10 +23,10 @@ import { defineBlock } from "@/editor/blocks/block-definition";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
 
 import {
-  canDeleteSurfaceAt,
-  canDuplicateSurfaceAt,
-  deleteSurfaceAt,
-  duplicateSurfaceAt,
+  canDeleteSurface,
+  canDuplicateSurface,
+  deleteSurface,
+  duplicateSurface,
   setPageSurfaceBackground,
   setPageSurfaceNotes,
   setPageSurfaceTitle,
@@ -33,6 +36,7 @@ import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SlideCoverSubtitleNode } from "@/editor/surfaces/model/nodes/slide-cover-subtitle";
 import { pageDefaultSurfaceDefinition } from "@/editor/surfaces/model/templates/page-default";
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
+import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
 
 const STABLE_ID_PATTERN = /^[0-9A-Z_a-z-]{12}$/;
 const FIRST_CREATED_SURFACE_ID = createEmbeddedNodeId();
@@ -74,6 +78,13 @@ function surfaceWithContent(
   };
 }
 
+function section(id: string, title: string): JSONContent {
+  return {
+    type: "courseSection",
+    attrs: { id, title },
+  };
+}
+
 function courseDocument(
   mode: "page" | "slideshow" | "branching",
   surfaces: JSONContent[],
@@ -90,9 +101,24 @@ function courseDocument(
   };
 }
 
-function makeEditor(mode: "page" | "slideshow" | "branching", surfaces: JSONContent[]): Editor {
+function makeEditor(
+  mode: "page" | "slideshow" | "branching",
+  surfaces: JSONContent[],
+  mountedBlocks = EMPTY_BLOCK_DEFINITIONS,
+): Editor {
+  const capabilities = Object.freeze({
+    blocks: Object.freeze({ registry: mountedBlocks }),
+    layouts: Object.freeze({ registry: createLayoutRegistry([]) }),
+    surfaces: Object.freeze({
+      registry: createSurfaceVariantRegistry([
+        pageDefaultSurfaceDefinition,
+        slideCoverSurfaceDefinition,
+      ]),
+    }),
+  });
   return new Editor({
     extensions: [
+      createScaffoldCapabilitiesStorageExtension(capabilities),
       DocumentNode,
       StarterKit.configure({
         document: false,
@@ -111,6 +137,7 @@ function makeEditor(mode: "page" | "slideshow" | "branching", surfaces: JSONCont
       SectionAuthoringNode,
       TestCopyFixtureNode,
       UniqueID.configure({ attributeName: "id", types: "all", updateDocument: false }),
+      createCourseStructureCommandsExtension(),
     ],
     content: courseDocument(mode, surfaces),
   });
@@ -119,25 +146,6 @@ function makeEditor(mode: "page" | "slideshow" | "branching", surfaces: JSONCont
 function surfaces(editor: Editor): JSONContent[] {
   const course = editor.getJSON().content?.[0] as JSONContent | undefined;
   return course?.content ?? [];
-}
-
-function surfacePos(editor: Editor, surfaceId: string): number {
-  let found: number | null = null;
-
-  editor.state.doc.descendants((node, pos) => {
-    if (node.type.name === "surface" && node.attrs["id"] === surfaceId) {
-      found = pos;
-      return false;
-    }
-
-    return true;
-  });
-
-  if (found === null) {
-    throw new Error(`Could not find surface "${surfaceId}".`);
-  }
-
-  return found;
 }
 
 describe("surface document commands", () => {
@@ -246,9 +254,8 @@ describe("surface document commands", () => {
     });
     const editor = makeEditor("slideshow", [first, second]);
 
-    const pos = surfacePos(editor, FIRST_CREATED_SURFACE_ID);
-    expect(canDuplicateSurfaceAt(editor, pos)).toBe(true);
-    expect(duplicateSurfaceAt(editor, pos, EMPTY_BLOCK_DEFINITIONS)).toBe(true);
+    expect(canDuplicateSurface(editor, FIRST_CREATED_SURFACE_ID)).toBe(true);
+    expect(duplicateSurface(editor, FIRST_CREATED_SURFACE_ID)).toBe(true);
 
     const nextSurfaces = surfaces(editor);
     expect(nextSurfaces).toHaveLength(3);
@@ -263,6 +270,25 @@ describe("surface document commands", () => {
     editor.destroy();
   });
 
+  it("duplicates an ordinary Course Section member by stable Surface ID", () => {
+    const editor = makeEditor("slideshow", [
+      section("section00001", "First"),
+      surface("surface00001", "First", { variant: "slide-cover", settings: {} }),
+      surface("surface00002", "Second", { variant: "slide-cover", settings: {} }),
+    ]);
+
+    expect(canDuplicateSurface(editor, "surface00001")).toBe(true);
+    expect(duplicateSurface(editor, "surface00001")).toBe(true);
+    expect(surfaces(editor).map((child) => child.attrs?.["id"])).toEqual([
+      "section00001",
+      "surface00001",
+      expect.stringMatching(STABLE_ID_PATTERN),
+      "surface00002",
+    ]);
+
+    editor.destroy();
+  });
+
   it("routes nested Blocks through mounted owners while duplicating a Surface", () => {
     const rewriteCopiedContent = vi.fn(({ content }) => ({
       ...content,
@@ -271,17 +297,20 @@ describe("surface document commands", () => {
     const blockDefinitions = createBlockRegistry([
       defineBlock({ nodeType: "copy_fixture", rewriteCopiedContent }),
     ]);
-    const editor = makeEditor("slideshow", [
-      surfaceWithContent(
-        "surface00001",
-        [{ type: "copy_fixture", attrs: { id: "copyblock001", data: null } }],
-        { variant: "slide-cover", settings: {} },
-      ),
-      surface("surface00002", "Second", { variant: "slide-cover", settings: {} }),
-    ]);
-    const pos = surfacePos(editor, "surface00001");
+    const editor = makeEditor(
+      "slideshow",
+      [
+        surfaceWithContent(
+          "surface00001",
+          [{ type: "copy_fixture", attrs: { id: "copyblock001", data: null } }],
+          { variant: "slide-cover", settings: {} },
+        ),
+        surface("surface00002", "Second", { variant: "slide-cover", settings: {} }),
+      ],
+      blockDefinitions,
+    );
 
-    expect(duplicateSurfaceAt(editor, pos, blockDefinitions)).toBe(true);
+    expect(duplicateSurface(editor, "surface00001")).toBe(true);
 
     const duplicatedBlock = surfaces(editor)[1]?.content?.[0];
     expect(rewriteCopiedContent).toHaveBeenCalledOnce();
@@ -294,10 +323,9 @@ describe("surface document commands", () => {
       surface("surface00001", "Only", { variant: "page-default" }),
     ]);
     const before = editor.getJSON();
-    const pos = surfacePos(editor, "surface00001");
 
-    expect(canDuplicateSurfaceAt(editor, pos)).toBe(false);
-    expect(duplicateSurfaceAt(editor, pos, EMPTY_BLOCK_DEFINITIONS)).toBe(false);
+    expect(canDuplicateSurface(editor, "surface00001")).toBe(false);
+    expect(duplicateSurface(editor, "surface00001")).toBe(false);
     expect(editor.getJSON()).toEqual(before);
 
     editor.destroy();
@@ -309,9 +337,8 @@ describe("surface document commands", () => {
       surface("surface-2", "Second", { variant: "slide-cover" }),
     ]);
 
-    const pos = surfacePos(editor, "surface00001");
-    expect(canDeleteSurfaceAt(editor, pos)).toBe(true);
-    expect(deleteSurfaceAt(editor, pos)).toBe(true);
+    expect(canDeleteSurface(editor, "surface00001")).toBe(true);
+    expect(deleteSurface(editor, "surface00001")).toBe(true);
 
     const nextSurfaces = surfaces(editor);
     expect(nextSurfaces).toHaveLength(1);
@@ -326,11 +353,79 @@ describe("surface document commands", () => {
       surface("surface00001", "Only", { variant: "slide-cover" }),
     ]);
     const before = editor.getJSON();
-    const pos = surfacePos(editor, "surface00001");
 
-    expect(canDeleteSurfaceAt(editor, pos)).toBe(false);
-    expect(deleteSurfaceAt(editor, pos)).toBe(false);
+    expect(canDeleteSurface(editor, "surface00001")).toBe(false);
+    expect(deleteSurface(editor, "surface00001")).toBe(false);
     expect(editor.getJSON()).toEqual(before);
+
+    editor.destroy();
+  });
+
+  it.each([
+    {
+      label: "beginning",
+      children: [
+        section("section00001", "First"),
+        surface("surface00001", "First"),
+        section("section00002", "Second"),
+        surface("surface00002", "Second"),
+        surface("surface00003", "Third"),
+      ],
+      surfaceId: "surface00001",
+      expectedIds: ["section00002", "surface00002", "surface00003"],
+    },
+    {
+      label: "middle",
+      children: [
+        section("section00001", "First"),
+        surface("surface00001", "First"),
+        surface("surface00002", "Second"),
+        section("section00002", "Middle"),
+        surface("surface00003", "Third"),
+        section("section00003", "Last"),
+        surface("surface00004", "Fourth"),
+      ],
+      surfaceId: "surface00003",
+      expectedIds: ["section00001", "surface00001", "surface00002", "section00003", "surface00004"],
+    },
+    {
+      label: "end",
+      children: [
+        section("section00001", "First"),
+        surface("surface00001", "First"),
+        surface("surface00002", "Second"),
+        section("section00002", "Last"),
+        surface("surface00003", "Third"),
+      ],
+      surfaceId: "surface00003",
+      expectedIds: ["section00001", "surface00001", "surface00002"],
+    },
+  ])(
+    "deletes a singleton member and its $label Course Section boundary",
+    ({ children, surfaceId, expectedIds }) => {
+      const editor = makeEditor("slideshow", children);
+
+      expect(canDeleteSurface(editor, surfaceId)).toBe(true);
+      expect(deleteSurface(editor, surfaceId)).toBe(true);
+      expect(surfaces(editor).map((child) => child.attrs?.["id"])).toEqual(expectedIds);
+
+      editor.destroy();
+    },
+  );
+
+  it("returns false without dispatching for stale Surface IDs", () => {
+    const editor = makeEditor("slideshow", [
+      surface("surface00001", "First"),
+      surface("surface00002", "Second"),
+    ]);
+    const dispatched = vi.fn();
+    editor.on("transaction", dispatched);
+
+    expect(canDuplicateSurface(editor, "surface99999")).toBe(false);
+    expect(canDeleteSurface(editor, "surface99999")).toBe(false);
+    expect(duplicateSurface(editor, "surface99999")).toBe(false);
+    expect(deleteSurface(editor, "surface99999")).toBe(false);
+    expect(dispatched).not.toHaveBeenCalled();
 
     editor.destroy();
   });
