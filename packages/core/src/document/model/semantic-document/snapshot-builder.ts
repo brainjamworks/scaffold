@@ -50,6 +50,7 @@ export class SemanticSnapshotBuildError extends Error {
 export interface SemanticSnapshotBuilder {
   addItem(input: AddSemanticSnapshotItemInput): void;
   addDiagnostic(diagnostic: SemanticProjectionDiagnostic): void;
+  hasItem(id: EmbeddedNodeId): boolean;
   build(): SemanticDocumentSnapshot;
 }
 
@@ -78,6 +79,10 @@ export function createSemanticSnapshotBuilder(input: {
       assertOpen(finalized);
       diagnostics.push(diagnostic);
     },
+    hasItem(id) {
+      assertOpen(finalized);
+      return records.has(id);
+    },
     build() {
       assertOpen(finalized);
       finalized = true;
@@ -95,6 +100,10 @@ export function createSemanticSnapshotBuilder(input: {
           childIdsByParent.set(record.parentId, siblings);
         }
       }
+      const byDocumentPosition = (left: EmbeddedNodeId, right: EmbeddedNodeId) =>
+        records.get(left)!.location.from - records.get(right)!.location.from;
+      rootIds.sort(byDocumentPosition);
+      for (const childIds of childIdsByParent.values()) childIds.sort(byDocumentPosition);
 
       const itemById = new Map<EmbeddedNodeId, SemanticItem>();
       const freezeItem = (id: EmbeddedNodeId): SemanticItem => {

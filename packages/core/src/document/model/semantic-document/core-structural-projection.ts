@@ -3,7 +3,17 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
 import type { ProjectedCourseStructure } from "../course-structure/course-structure-projection";
 import type { SemanticDefinitionLookup, SemanticLayoutDefinition } from "./definition-lookup";
-import type { SemanticPresentationDefinition } from "./definition";
+import type {
+  DocumentSemanticsDefinition,
+  SemanticActivationRelationship,
+  SemanticPresentationDefinition,
+} from "./definition";
+import {
+  evaluateOwnerDescription,
+  resolveOwnerPublication,
+  type ResolvedPublishedSemanticChild,
+  type SemanticOwnerContext,
+} from "./owner-publication";
 import type { SemanticSnapshotBuilder, SemanticSnapshotItemInput } from "./snapshot-builder";
 
 const NODE_TYPES = Object.freeze({
@@ -29,6 +39,7 @@ interface TraversalContext {
   readonly parentNodeType: string | null;
   readonly layoutDefinition: SemanticLayoutDefinition | undefined;
   readonly siblingTypeOrdinal: number;
+  readonly activationPath: readonly SemanticActivationRelationship[];
 }
 
 interface ClassifiedNode {
@@ -36,6 +47,7 @@ interface ClassifiedNode {
   readonly parentId: EmbeddedNodeId | null;
   readonly surfaceId: EmbeddedNodeId | null;
   readonly layoutDefinition: SemanticLayoutDefinition | undefined;
+  readonly documentSemantics: DocumentSemanticsDefinition | undefined;
   readonly closesTraversal: boolean;
 }
 
@@ -51,20 +63,51 @@ export function projectCoreStructuralItems({
     const surfaceId = classified?.surfaceId ?? context.surfaceId;
 
     if (classified) {
+      if (builder.hasItem(classified.item.id)) return;
+      const ownerContext: SemanticOwnerContext | null = classified.documentSemantics
+        ? {
+            node,
+            id: classified.item.id,
+            nodeType: node.type.name,
+            definitionId: classified.item.definitionId!,
+            absolutePos: pos,
+            documentSemantics: classified.documentSemantics,
+          }
+        : null;
+      const description = ownerContext ? evaluateOwnerDescription(ownerContext, builder) : null;
+      const describedItem = description
+        ? {
+            ...classified.item,
+            label: readNonEmptyString(description.label) ?? classified.item.label,
+            summary: readNonEmptyString(description.summary),
+          }
+        : classified.item;
       builder.addItem({
-        item: classified.item,
+        item: describedItem,
         parentId: classified.parentId,
         location: {
-          id: classified.item.id,
+          id: describedItem.id,
           nodeType: node.type.name,
           from: pos,
           to: pos + node.nodeSize,
           selectionTarget:
             node.type.spec.selectable === false ? { kind: "near", pos } : { kind: "node", pos },
           surfaceId,
-          activationPath: [],
+          activationPath: context.activationPath,
         },
       });
+      if (ownerContext) {
+        projectPublishedChildren({
+          owner: ownerContext,
+          candidates: resolveOwnerPublication(ownerContext, definitions, builder),
+          surfaceId,
+          inheritedActivationPath: context.activationPath,
+          definitions,
+          builder,
+          courseStructure,
+          walkNode,
+        });
+      }
       if (classified.closesTraversal) return;
     }
 
@@ -79,6 +122,7 @@ export function projectCoreStructuralItems({
         parentNodeType: node.type.name,
         layoutDefinition: classified?.layoutDefinition,
         siblingTypeOrdinal: ordinal,
+        activationPath: context.activationPath,
       });
       offset += child.nodeSize;
     });
@@ -90,7 +134,111 @@ export function projectCoreStructuralItems({
     parentNodeType: null,
     layoutDefinition: undefined,
     siblingTypeOrdinal: 1,
+    activationPath: [],
   });
+}
+
+function projectPublishedChildren(input: {
+  readonly owner: SemanticOwnerContext;
+  readonly candidates: readonly ResolvedPublishedSemanticChild[];
+  readonly surfaceId: EmbeddedNodeId | null;
+  readonly inheritedActivationPath: readonly SemanticActivationRelationship[];
+  readonly definitions: SemanticDefinitionLookup;
+  readonly builder: SemanticSnapshotBuilder;
+  readonly courseStructure: ProjectedCourseStructure;
+  readonly walkNode: (node: ProseMirrorNode, pos: number, context: TraversalContext) => void;
+}): void {
+  const accepted: Array<{
+    readonly id: EmbeddedNodeId;
+    readonly from: number;
+    readonly to: number;
+  }> = [];
+
+  for (const resolved of input.candidates) {
+    let containingCandidate: (typeof accepted)[number] | undefined;
+    for (let index = accepted.length - 1; index >= 0; index -= 1) {
+      const possibleParent = accepted[index]!;
+      if (
+        possibleParent.from < resolved.relativePos &&
+        possibleParent.to >= resolved.relativePos + resolved.node.nodeSize
+      ) {
+        containingCandidate = possibleParent;
+        break;
+      }
+    }
+    const parentId = containingCandidate?.id ?? input.owner.id;
+    const activationPath = [...input.inheritedActivationPath, ...resolved.activationPath] as const;
+    const context: TraversalContext = {
+      parentId,
+      surfaceId: input.surfaceId,
+      parentNodeType: resolved.parentNodeType,
+      layoutDefinition: undefined,
+      siblingTypeOrdinal: 1,
+      activationPath,
+    };
+    const structural = classifyNode(
+      resolved.node,
+      context,
+      input.courseStructure,
+      input.definitions,
+      input.builder,
+    );
+
+    if (structural) {
+      input.walkNode(resolved.node, resolved.absolutePos, context);
+    } else if (resolved.candidate.semanticRole) {
+      if (input.builder.hasItem(resolved.id)) {
+        addCandidateDiagnostic(
+          input.builder,
+          "duplicate-published-candidate",
+          input.owner,
+          resolved,
+        );
+        continue;
+      }
+      const isRichText = resolved.candidate.semanticRole === "rich-text";
+      input.builder.addItem({
+        item: {
+          id: resolved.id,
+          kind: resolved.candidate.semanticRole,
+          nodeType: resolved.node.type.name,
+          definitionId: input.owner.definitionId,
+          label: readNonEmptyString(resolved.candidate.label) ?? humanize(resolved.node.type.name),
+          summary: readNonEmptyString(resolved.candidate.summary),
+          presentation: {
+            actionIds: resolved.candidate.presentation?.actionIds ?? [],
+            disabledReason: resolved.candidate.presentation?.disabledReason ?? null,
+          },
+        },
+        parentId,
+        location: {
+          id: resolved.id,
+          nodeType: resolved.node.type.name,
+          from: resolved.absolutePos,
+          to: resolved.absolutePos + resolved.node.nodeSize,
+          selectionTarget:
+            isRichText && resolved.node.isTextblock
+              ? { kind: "text", from: resolved.absolutePos + 1, to: resolved.absolutePos + 1 }
+              : resolved.node.type.spec.selectable === false
+                ? { kind: "near", pos: resolved.absolutePos }
+                : { kind: "node", pos: resolved.absolutePos },
+          surfaceId: input.surfaceId,
+          activationPath,
+        },
+      });
+    } else {
+      addCandidateDiagnostic(input.builder, "invalid-published-candidate", input.owner, resolved);
+      continue;
+    }
+
+    if (input.builder.hasItem(resolved.id)) {
+      accepted.push({
+        id: resolved.id,
+        from: resolved.relativePos,
+        to: resolved.relativePos + resolved.node.nodeSize,
+      });
+    }
+  }
 }
 
 function classifyNode(
@@ -127,6 +275,8 @@ function classifyNode(
       ),
       projectedSurface.courseSectionId,
       id,
+      undefined,
+      definition?.documentSemantics,
     );
   }
 
@@ -147,6 +297,7 @@ function classifyNode(
       context.parentId,
       context.surfaceId,
       definition,
+      definition?.documentSemantics,
     );
   }
 
@@ -165,6 +316,8 @@ function classifyNode(
       ),
       context.parentId,
       context.surfaceId,
+      undefined,
+      definition?.section?.documentSemantics,
     );
   }
 
@@ -211,6 +364,7 @@ function classifyNode(
     context.parentId,
     context.surfaceId,
     undefined,
+    block.documentSemantics,
     true,
   );
 }
@@ -220,9 +374,17 @@ function classified(
   parentId: EmbeddedNodeId | null,
   surfaceId: EmbeddedNodeId | null,
   layoutDefinition?: SemanticLayoutDefinition,
+  documentSemantics?: DocumentSemanticsDefinition,
   closesTraversal = false,
 ): ClassifiedNode {
-  return { item: itemValue, parentId, surfaceId, layoutDefinition, closesTraversal };
+  return {
+    item: itemValue,
+    parentId,
+    surfaceId,
+    layoutDefinition,
+    documentSemantics,
+    closesTraversal,
+  };
 }
 
 function item(
@@ -276,5 +438,20 @@ function addMissingDefinitionDiagnostic(
     candidateId: null,
     ownerNodeType,
     candidateNodeType: null,
+  });
+}
+
+function addCandidateDiagnostic(
+  builder: SemanticSnapshotBuilder,
+  code: "invalid-published-candidate" | "duplicate-published-candidate",
+  owner: SemanticOwnerContext,
+  candidate: ResolvedPublishedSemanticChild,
+): void {
+  builder.addDiagnostic({
+    code,
+    ownerId: owner.id,
+    candidateId: candidate.id,
+    ownerNodeType: owner.nodeType,
+    candidateNodeType: candidate.node.type.name,
   });
 }
