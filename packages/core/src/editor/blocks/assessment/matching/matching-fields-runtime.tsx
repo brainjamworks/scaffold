@@ -567,8 +567,8 @@ function projectionsFromGroup(node: PMNode, serializer: DOMSerializer): Matching
     if (pair.type.name !== "matching_pair") return;
     const item = childByType(pair, "matching_item");
     const target = childByType(pair, "matching_target");
-    const itemId = String(pair.attrs["itemId"] ?? "");
-    const targetId = String(pair.attrs["targetId"] ?? "");
+    const itemId = String(item?.attrs["id"] ?? "");
+    const targetId = String(target?.attrs["id"] ?? "");
     if (!itemId || !targetId) return;
     pairs.push({
       itemId,

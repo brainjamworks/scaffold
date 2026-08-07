@@ -524,7 +524,7 @@ function calloutBlock(widthPercent: number): JSONContent {
   return {
     type: "callout",
     attrs: {
-      id: "block-callout-runtime",
+      id: "callout00001",
       data: emptyCalloutData(),
       frame: frameAttrs(widthPercent),
     },
@@ -1766,7 +1766,7 @@ describe("ContentRuntimeHost", () => {
 
     const frameElement = await waitFor(() => {
       const element = document.body.querySelector<HTMLElement>(
-        '[data-runtime-frame="block"][data-id="block-callout-runtime"]',
+        '[data-runtime-frame="block"][data-id="callout00001"]',
       );
       if (!element) {
         throw new Error("Expected runtime frame projection to render");
@@ -1776,7 +1776,7 @@ describe("ContentRuntimeHost", () => {
 
     expect(frameElement.style.width).toBe(`${widthPercent}%`);
     expect(frameElement.getAttribute("data-frame")).toContain(`"widthPercent":${widthPercent}`);
-    expect(frameElement.classList.contains("sc-callout-node")).toBe(true);
+    expect(frameElement.querySelector(".sc-course-callout")).not.toBeNull();
     expect(document.body.querySelector("[data-authoring-frame-wrapper]")).toBeNull();
     expect(document.body.querySelector("[data-authoring-resize-handle]")).toBeNull();
   });

@@ -4,6 +4,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { JSONContent } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
+import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import StarterKit from "@tiptap/starter-kit";
 import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
@@ -13,6 +14,7 @@ import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model
 import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";
 import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
 import { describeBlockContract } from "@/editor/testing";
 import { createDisposableEditor } from "@/editor/testing/disposable-editor";
 
@@ -49,23 +51,23 @@ function roadmapFixture(): JSONContent {
       {
         type: ROADMAP_NODE,
         attrs: {
-          id: "roadmap-delete-fixture",
+          id: "roadmap000001",
           data: emptyRoadmapData(),
         },
         content: [
           {
             type: ROADMAP_MILESTONE_NODE,
-            attrs: { id: "milestone-one", status: "upcoming" },
+            attrs: { id: "milestone001", status: "upcoming" },
             content: roadmapMilestoneContent("Foundations", "Start here"),
           },
           {
             type: ROADMAP_MILESTONE_NODE,
-            attrs: { id: "milestone-two", status: "current" },
+            attrs: { id: "milestone002", status: "current" },
             content: roadmapMilestoneContent("Practice", "Apply the work"),
           },
           {
             type: ROADMAP_MILESTONE_NODE,
-            attrs: { id: "milestone-three", status: "done" },
+            attrs: { id: "milestone003", status: "done" },
             content: roadmapMilestoneContent("Reflect", "Close the loop"),
           },
         ],
@@ -86,13 +88,19 @@ function renderRoadmapEditor(content: JSONContent = roadmapFixture()) {
         paragraph: false,
       }),
       ExtendedParagraph,
+      createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
       createRuntimeBlockFrameAttributesExtension([ROADMAP_NODE]),
       RoadmapAuthoringExtension,
     ],
     content,
   });
 
-  render(createElement(EditorContent, { editor: fixture.editor }));
+  render(
+    createAuthoringMovementTestRoot(
+      fixture.editor,
+      createElement(EditorContent, { editor: fixture.editor }),
+    ),
+  );
 
   return fixture;
 }
@@ -152,7 +160,7 @@ describe("roadmap node", () => {
     expect(fixture.editor.state.doc.textContent).toContain("Keep after roadmap");
     expect(fixture.editor.state.doc.textContent).toContain("Foundations");
     expect(fixture.editor.state.doc.textContent).toContain("Reflect");
-    expect(milestoneIds).toEqual(["milestone-one", "milestone-three"]);
+    expect(milestoneIds).toEqual(["milestone001", "milestone003"]);
 
     fixture.destroy();
   });

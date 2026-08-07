@@ -18,7 +18,7 @@ function activityRecord(): LearnerActivitySnapshot["activities"][string] {
 
 function snapshot(
   activities: LearnerActivitySnapshot["activities"] = {
-    "block-1": activityRecord(),
+    block0000001: activityRecord(),
   },
 ): LearnerActivitySnapshot {
   return {
@@ -42,12 +42,14 @@ describe("learner activity hydration", () => {
     expect(store.getState().saves).toEqual({});
     expect(
       store.getState().ensureActivity({
-        blockId: "block-1",
+        blockId: "block0000001",
         activityKind: "checklist",
         initial: { data: { ignored: true }, completed: true },
       }),
     ).toBe(true);
-    expect(store.getState().activities["block-1"]).toEqual(snapshot().activities["block-1"]);
+    expect(store.getState().activities["block0000001"]).toEqual(
+      snapshot().activities["block0000001"],
+    );
   });
 
   it("uses defaults only for records absent from the hydrated snapshot", () => {
@@ -58,12 +60,12 @@ describe("learner activity hydration", () => {
     hydrateLearnerActivitySnapshot(store, snapshot());
 
     store.getState().ensureActivity({
-      blockId: "block-2",
+      blockId: "block0000002",
       activityKind: "flashcards",
       initial: { data: { currentCard: 2 }, completed: true },
     });
 
-    expect(store.getState().activities["block-2"]).toEqual({
+    expect(store.getState().activities["block0000002"]).toEqual({
       activityKind: "flashcards",
       data: { currentCard: 2 },
       completed: true,
@@ -80,7 +82,7 @@ describe("learner activity hydration", () => {
 
     expect(() =>
       store.getState().ensureActivity({
-        blockId: "block-1",
+        blockId: "block0000001",
         activityKind: "flashcards",
         initial: { data: {}, completed: false },
       }),
@@ -114,7 +116,7 @@ describe("learner activity hydration", () => {
         snapshotVersion: 1,
         artifactId: "course-1",
         activities: {
-          "block-1": { ...activityRecord(), data: { invalid: undefined } },
+          block0000001: { ...activityRecord(), data: { invalid: undefined } },
         },
       },
     ],
@@ -124,7 +126,7 @@ describe("learner activity hydration", () => {
         snapshotVersion: 1,
         artifactId: "course-1",
         activities: {
-          "block-1": { ...activityRecord(), updatedAt: "not-a-timestamp" },
+          block0000001: { ...activityRecord(), updatedAt: "not-a-timestamp" },
         },
       },
     ],
@@ -135,7 +137,7 @@ describe("learner activity hydration", () => {
       learnerActivityPort: null,
     });
     store.getState().ensureActivity({
-      blockId: "existing-block",
+      blockId: "block0000005",
       activityKind: "checklist",
       initial: { data: { existing: true }, completed: false },
     });
@@ -154,7 +156,7 @@ describe("learner activity hydration", () => {
       learnerActivityPort: null,
     });
     store.getState().ensureActivity({
-      blockId: "existing-block",
+      blockId: "block0000005",
       activityKind: "checklist",
       initial: { data: { existing: true }, completed: false },
     });
@@ -176,7 +178,7 @@ describe("learner activity projection", () => {
     source.setState({
       hydration: { status: "error", error: "transient load failure" },
       saves: {
-        "block-1": { status: "error", generation: 7, error: "transient save failure" },
+        block0000001: { status: "error", generation: 7, error: "transient save failure" },
       },
     });
 

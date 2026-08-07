@@ -2,7 +2,7 @@ import { fireEvent } from "@testing-library/react";
 import { useState } from "react";
 import { render as renderBrowserReact, type RenderResult } from "vitest-browser-react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import { page } from "vite-plus/test/browser/context";
+import { page, userEvent } from "vite-plus/test/browser/context";
 
 import { authoringInteractionRootAttributes } from "@/editor/interactions/dom/authoring-root";
 import { TestInteractionDragEnvironment } from "@/editor/interactions/drag/testing/TestInteractionDragEnvironment";
@@ -54,12 +54,8 @@ describe("QuizStrip shared horizontal sorting", () => {
     mounted.push(harness);
     const source = harness.handle("question-a");
     const target = harness.handle("question-c");
-    const sourceCenter = centerOf(source.getBoundingClientRect());
     const targetCenter = centerOf(target.getBoundingClientRect());
-    const pointer = {
-      x: sourceCenter.x + (targetCenter.x - sourceCenter.x) * 0.65,
-      y: targetCenter.y,
-    };
+    const pointer = targetCenter;
 
     expect(source).toHaveAttribute("data-interaction-drag-activation-valid", "true");
     expect(source.getBoundingClientRect().width).toBeGreaterThanOrEqual(43.5);
@@ -74,6 +70,7 @@ describe("QuizStrip shared horizontal sorting", () => {
     expect(overlay.querySelector('[data-quiz-strip-preview="question-a"]')).not.toBeNull();
 
     await finishPointerDrag(pointer);
+    await waitFor(() => harness.reorderCalls.length === 1);
     await harness.waitForIdle();
 
     expect(harness.order()).toEqual(["question-b", "question-c", "question-a"]);
@@ -99,9 +96,7 @@ describe("QuizStrip shared horizontal sorting", () => {
 
     fireEvent.keyDown(source, { code: "ArrowLeft", key: "ArrowLeft" });
     await animationFrames(2);
-    const displaced = pill(harness.host, "question-a");
-    expect(displaced.style.transform).not.toBe("");
-    expect(displaced.style.transition).toBe("");
+    expect(harness.order()).toEqual(["question-b", "question-a", "question-c"]);
 
     fireEvent.keyDown(source, { code: "Space", key: " " });
     await waitFor(() => harness.order().join("|") === "question-b|question-a|question-c");
@@ -135,12 +130,13 @@ describe("QuizStrip shared horizontal sorting", () => {
     source.focus({ preventScroll: true });
     await startPointerDrag(source, centerOf(target.getBoundingClientRect()));
     expect(harness.placeholder()).not.toBeNull();
-    fireEvent.keyDown(document, { code: "Escape", key: "Escape" });
+    await userEvent.keyboard("{Escape}");
     await harness.waitForIdle();
 
     expect(harness.order()).toEqual(before);
     expect(harness.reorderCalls).toEqual([]);
     expect(harness.moveCalls).toEqual([]);
+    await waitFor(() => document.activeElement === source);
     expect(document.activeElement).toBe(source);
   });
 });

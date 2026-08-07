@@ -994,7 +994,7 @@ describe("quiz block skeleton", () => {
   it("lets Quiz policy override an immediate, single-attempt MCQ child", async () => {
     seedAssessmentStore({
       problems: {
-        "question-a": {
+        questn_00001: {
           attemptNumber: 1,
           submitted: false,
         },
@@ -1003,7 +1003,7 @@ describe("quiz block skeleton", () => {
         "quiz-child-policy": {
           attemptId: "attempt-child-policy",
           status: "in_progress",
-          currentTargetId: "question-a",
+          currentTargetId: "questn_00001",
         },
       },
     });
@@ -1032,7 +1032,7 @@ describe("quiz block skeleton", () => {
     const alpha = await screen.findByRole("radio", { name: "Alpha" });
     await waitFor(() => {
       expect(alpha).not.toBeDisabled();
-      expect(alpha).toHaveAttribute("name", "assessment-question-a");
+      expect(alpha).toHaveAttribute("name", "assessment-questn_00001");
     });
     fireEvent.click(alpha);
 
@@ -1049,7 +1049,7 @@ describe("quiz block skeleton", () => {
   it("lets Quiz policy override an immediate, single-attempt Dropdown child", async () => {
     seedAssessmentStore({
       problems: {
-        "question-a": {
+        questn_00001: {
           attemptNumber: 1,
           submitted: false,
         },
@@ -1058,7 +1058,7 @@ describe("quiz block skeleton", () => {
         "quiz-dropdown-child-policy": {
           attemptId: "attempt-dropdown-child-policy",
           status: "in_progress",
-          currentTargetId: "question-a",
+          currentTargetId: "questn_00001",
         },
       },
     });
@@ -1843,7 +1843,7 @@ describe("quiz block skeleton", () => {
           attemptId: "attempt-rounded-score",
           status: "completed",
           currentTargetId: null,
-          score: 1 / 3,
+          score: { scaled: 1 / 3 },
           maxScore: 1,
         },
       },
@@ -1855,8 +1855,8 @@ describe("quiz block skeleton", () => {
 
     renderWithRuntime(editor);
 
-    await screen.findByText("0.33 / 1");
-    expect(screen.queryByText("0.3333333333333333 / 1")).toBeNull();
+    await screen.findByText("33%");
+    expect(screen.queryByText("33.33333333333333%")).toBeNull();
 
     editor.destroy();
   });
@@ -2109,9 +2109,9 @@ describe("quiz block skeleton", () => {
     expect(input).toHaveValue("Paris");
     expect(input).toHaveAttribute("readonly");
     expect(screen.queryByText("Correct answer: Paris")).toBeNull();
-    expect(assessmentProblem("artifact:artifact-1/block:question-a")?.response).toEqual({
+    expect(assessmentProblem("artifact:artifact-1/block:fillquest001")?.response).toEqual({
       kind: "fill-blanks",
-      blanks: [{ blankId: "blank-1", value: "London" }],
+      blanks: [{ blankId: "blank_000001", value: "London" }],
     });
     expect(screen.queryByText("Private authored answer")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Show feedback for blank 1 of 1" }));
@@ -3630,9 +3630,9 @@ function runtimeQuizDropdownDocument(
           {
             type: "dropdown",
             attrs: {
-              id: "question-a",
+              id: "questn_00001",
               assessment: {
-                correctOptionId: "b",
+                correctOptionId: "choice_00002",
                 feedbackByOptionId: {},
                 summaryFeedback: null,
               },
@@ -3660,7 +3660,10 @@ function runtimeQuizDropdownDocument(
               },
               {
                 type: "dropdown_choices_group",
-                content: [dropdownQuizChoice("a", "Alpha"), dropdownQuizChoice("b", "Beta")],
+                content: [
+                  dropdownQuizChoice("choice_00001", "Alpha"),
+                  dropdownQuizChoice("choice_00002", "Beta"),
+                ],
               },
               {
                 type: "assessment_actions_group",
@@ -3698,10 +3701,10 @@ function runtimeQuizFillBlanksDocument(
           {
             type: "fill_blanks",
             attrs: {
-              id: "question-a",
+              id: "fillquest001",
               assessment: {
                 blanksById: {
-                  "blank-1": {
+                  blank_000001: {
                     acceptedAnswers: ["Private authored answer"],
                     feedback: null,
                     caseSensitive: false,
@@ -3735,7 +3738,10 @@ function runtimeQuizFillBlanksDocument(
                     type: "paragraph",
                     content: [
                       { type: "text", text: "The city is " },
-                      { type: "fill_blank", attrs: { id: "blank-1", placeholder: "city" } },
+                      {
+                        type: "fill_blank",
+                        attrs: { id: "blank_000001", placeholder: "city" },
+                      },
                       { type: "text", text: "." },
                     ],
                   },
@@ -3840,9 +3846,9 @@ function hydrateCompletedQuizFillReview(
   };
   const result = {
     isCorrect: false,
-    score: 0,
+    score: { scaled: 0 },
     items: {
-      "blank-1": {
+      blank_000001: {
         correct: false,
         expected: ["Paris"],
         given: "London",
@@ -3852,8 +3858,8 @@ function hydrateCompletedQuizFillReview(
   };
   seedAssessmentStore({
     problems: {
-      "artifact:artifact-1/block:question-a": {
-        response: { blanks: [{ blankId: "blank-1", value: "London" }] },
+      "artifact:artifact-1/block:fillquest001": {
+        response: { blanks: [{ blankId: "blank_000001", value: "London" }] },
         submitted: true,
         attemptNumber: 1,
         submissionResult: result,
@@ -3864,11 +3870,11 @@ function hydrateCompletedQuizFillReview(
         attemptId: "attempt-review",
         status: "completed",
         currentTargetId: null,
-        submittedTargetIds: ["question-a"],
-        score: 0,
+        submittedTargetIds: ["fillquest001"],
+        score: { scaled: 0, raw: 0, min: 0, max: 1 },
         maxScore: 1,
         answerReviewAuthorized,
-        resultsByTargetId: { "question-a": result },
+        resultsByTargetId: { fillquest001: result },
       },
     },
   });

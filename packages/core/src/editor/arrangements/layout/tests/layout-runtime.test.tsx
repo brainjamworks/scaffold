@@ -31,6 +31,7 @@ import {
 } from "../accordion/accordion-section-nodes";
 import { accordionLayoutDefinition } from "../accordion/accordion-definition";
 import { paginatedLayoutDefinition } from "../paginated/paginated-definition";
+import { createTestNodeIdentityExtension } from "@/editor/testing";
 
 const boundedRuntimeLayoutDefinition = {
   id: "test-bounded-runtime-layout",
@@ -66,6 +67,7 @@ describe("layout runtime nodes", () => {
     const editor = new Editor({
       editable: false,
       extensions: [
+        createTestNodeIdentityExtension(),
         DocumentNode,
         StarterKit.configure({
           document: false,
@@ -92,20 +94,20 @@ describe("layout runtime nodes", () => {
               {
                 type: "surface",
                 attrs: {
-                  id: "surface-runtime-layout",
+                  id: "surfaceRun01",
                   variant: "page-default",
                 },
                 content: [
                   {
                     type: "layout",
                     attrs: {
-                      id: "layout-runtime-tabs",
+                      id: "layoutRun001",
                       variant: "tabs",
                       options: { variant: "default", label: "Runtime tabs" },
                     },
                     content: [
-                      runtimeTabSection("section-runtime-a", "First tab"),
-                      runtimeTabSection("section-runtime-b", "Second tab"),
+                      runtimeTabSection("sectionRun01", "First tab"),
+                      runtimeTabSection("sectionRun02", "Second tab"),
                     ],
                   },
                 ],
@@ -154,6 +156,7 @@ describe("layout runtime nodes", () => {
     const editor = new Editor({
       editable: false,
       extensions: [
+        createTestNodeIdentityExtension(),
         DocumentNode,
         StarterKit.configure({
           document: false,
@@ -180,17 +183,17 @@ describe("layout runtime nodes", () => {
               {
                 type: "surface",
                 attrs: {
-                  id: "surface-runtime-bounded-layout",
+                  id: "surfaceRun02",
                   variant: "page-default",
                 },
                 content: [
                   {
                     type: "layout",
                     attrs: {
-                      id: "layout-runtime-bounded",
+                      id: "layoutRun002",
                       variant: "test-bounded-runtime-layout",
                     },
-                    content: [runtimeTabSection("section-runtime-bounded", "Bounded")],
+                    content: [runtimeTabSection("sectionRun03", "Bounded")],
                   },
                 ],
               },
@@ -226,6 +229,7 @@ describe("layout runtime nodes", () => {
     const editor = new Editor({
       editable: false,
       extensions: [
+        createTestNodeIdentityExtension(),
         DocumentNode,
         StarterKit.configure({
           document: false,
@@ -252,14 +256,14 @@ describe("layout runtime nodes", () => {
               {
                 type: "surface",
                 attrs: {
-                  id: "surface-runtime-process-flow",
+                  id: "surfaceRun03",
                   variant: "page-default",
                 },
                 content: [
                   {
                     type: "layout",
                     attrs: {
-                      id: "layout-runtime-process-flow",
+                      id: "layoutRun003",
                       variant: "process-flow",
                       options: {
                         orientation: "vertical",
@@ -268,8 +272,8 @@ describe("layout runtime nodes", () => {
                       },
                     },
                     content: [
-                      runtimeProcessFlowSection("process-flow-a", "Step one"),
-                      runtimeProcessFlowSection("process-flow-b", "Step two"),
+                      runtimeProcessFlowSection("processFl001", "Step one"),
+                      runtimeProcessFlowSection("processFl002", "Step two"),
                     ],
                   },
                 ],
@@ -323,6 +327,7 @@ describe("layout runtime nodes", () => {
     const editor = new Editor({
       editable: false,
       extensions: [
+        createTestNodeIdentityExtension(),
         DocumentNode,
         StarterKit.configure({
           document: false,
@@ -350,7 +355,7 @@ describe("layout runtime nodes", () => {
             content: [
               {
                 type: "surface",
-                attrs: { id: "surface-runtime-variants", variant: "page-default" },
+                attrs: { id: "surfaceRun04", variant: "page-default" },
                 content: [
                   accordionLayoutDefinition.createContent({ options: { sections: 1 } }),
                   paginatedLayoutDefinition.createContent({ options: { pages: 1 } }),
@@ -381,6 +386,7 @@ describe("layout runtime nodes", () => {
     const editor = new Editor({
       editable: false,
       extensions: [
+        createTestNodeIdentityExtension(),
         DocumentNode,
         StarterKit.configure({
           document: false,
@@ -406,15 +412,15 @@ describe("layout runtime nodes", () => {
             content: [
               {
                 type: "surface",
-                attrs: { id: "surface-runtime-unknown", variant: "page-default" },
+                attrs: { id: "surfaceRun05", variant: "page-default" },
                 content: [
                   {
                     type: "layout",
-                    attrs: { id: "layout-runtime-unknown", variant: "persisted-unknown" },
+                    attrs: { id: "layoutRun004", variant: "persisted-unknown" },
                     content: [
                       {
                         type: "section",
-                        attrs: { id: "section-runtime-unknown" },
+                        attrs: { id: "sectionRun04" },
                         content: [
                           {
                             type: "paragraph",

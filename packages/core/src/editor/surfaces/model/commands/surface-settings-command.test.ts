@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 
 import { Editor, Node, type JSONContent } from "@tiptap/core";
+import UniqueID from "@tiptap/extension-unique-id";
 import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it, vi } from "vite-plus/test";
 import type { ZodTypeAny } from "zod";
@@ -47,6 +48,7 @@ const contentOnlySurfaceVariants = createSurfaceVariantRegistry([
     defaultForModes: ["slideshow"],
   } satisfies SurfaceVariantDefinition,
 ]);
+const SURFACE_ID = createEmbeddedNodeId();
 
 const TestArrangementNode = Node.create({
   name: "testArrangement",
@@ -93,6 +95,11 @@ function makeEditor({
       SurfaceFooterNode,
       TestArrangementNode,
       TestSectionArrangementNode,
+      UniqueID.configure({
+        attributeName: "id",
+        types: "all",
+        updateDocument: false,
+      }),
     ],
     content: {
       type: "doc",
@@ -104,7 +111,7 @@ function makeEditor({
             {
               type: "surface",
               attrs: {
-                id: "surface-a",
+                id: SURFACE_ID,
                 variant,
                 settings,
               },
@@ -146,7 +153,7 @@ function applySurfaceSettingsAndDispatch({
 }) {
   const result = updateSurfaceSettingsChecked({
     tr: editor.state.tr,
-    surfaceId: "surface-a",
+    surfaceId: SURFACE_ID,
     schema,
     value,
   });
@@ -181,7 +188,7 @@ describe("surface header/footer commands", () => {
     expect(
       setSurfaceHeaderEnabled({
         tr,
-        surfaceId: "surface-a",
+        surfaceId: SURFACE_ID,
         enabled: true,
       }),
     ).toEqual({ ok: true });
@@ -202,7 +209,7 @@ describe("surface header/footer commands", () => {
     expect(
       setSurfaceHeaderEnabled({
         tr,
-        surfaceId: "surface-a",
+        surfaceId: SURFACE_ID,
         enabled: false,
       }),
     ).toEqual({ ok: true });
@@ -229,7 +236,7 @@ describe("surface header/footer commands", () => {
     expect(
       setSurfaceFooterEnabled({
         tr,
-        surfaceId: "surface-a",
+        surfaceId: SURFACE_ID,
         enabled: true,
       }),
     ).toEqual({ ok: true });
@@ -293,7 +300,7 @@ describe("updateSurfaceSettingsChecked", () => {
     expect(
       updateSurfaceSettingsChecked({
         tr: editor.state.tr,
-        surfaceId: "surface-a",
+        surfaceId: SURFACE_ID,
         schema: SurfaceSettingsSchema,
         value: { background: { imagePosition: "middle" } },
       }).ok,
@@ -322,7 +329,7 @@ describe("updateSurfaceSettingsChecked", () => {
 
     const result = updateSurfaceSettingsChecked({
       tr: editor.state.tr,
-      surfaceId: "surface-a",
+      surfaceId: SURFACE_ID,
       schema: SurfaceSettingsSchema,
       value: nextSettings,
     });

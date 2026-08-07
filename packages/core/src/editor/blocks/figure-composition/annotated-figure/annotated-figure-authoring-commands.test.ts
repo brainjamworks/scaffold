@@ -20,6 +20,12 @@ import { createAnnotatedFigureCanvasNode } from "./annotated-figure-canvas-share
 import { resolveAnnotatedFigureModel } from "./annotated-figure-document-model";
 import { createAnnotatedFigureNode } from "./node";
 import { AnnotatedFigureLegendNode, createAnnotatedFigureAnnotationNode } from "./slots";
+import { createTestNodeIdentityExtension } from "@/editor/testing";
+
+const FIGURE_ID = "figure000001";
+const ANNOTATION_A_ID = "annotate0001";
+const ANNOTATION_B_ID = "annotate0002";
+const ANNOTATION_C_ID = "annotate0003";
 
 const editors: Editor[] = [];
 
@@ -35,6 +41,7 @@ function makeEditor() {
       createAnnotatedFigureAnnotationNode(),
       AnnotatedFigureLegendNode,
       createAnnotatedFigureNode(),
+      createTestNodeIdentityExtension(),
     ],
     content: {
       type: "doc",
@@ -42,7 +49,7 @@ function makeEditor() {
         {
           type: "annotated_figure",
           attrs: {
-            id: "figure-one",
+            id: FIGURE_ID,
             data: {
               type: "annotated_figure",
               source: { mode: "external", src: "https://example.com/map.png" },
@@ -57,7 +64,7 @@ function makeEditor() {
               content: [
                 {
                   type: "annotated_figure_annotation",
-                  attrs: { id: "annotation-a", x: 10, y: 20 },
+                  attrs: { id: ANNOTATION_A_ID, x: 10, y: 20 },
                   content: [
                     {
                       type: "paragraph",
@@ -67,7 +74,7 @@ function makeEditor() {
                 },
                 {
                   type: "annotated_figure_annotation",
-                  attrs: { id: "annotation-b", x: 70, y: 80 },
+                  attrs: { id: ANNOTATION_B_ID, x: 70, y: 80 },
                   content: [{ type: "paragraph", content: [{ type: "text", text: "Beta" }] }],
                 },
               ],
@@ -83,7 +90,7 @@ function makeEditor() {
 
 function ownerTarget(editor: Editor): ResolvedAuthoringNode {
   const target = createAuthoringNodeTarget(editor, {
-    id: "figure-one",
+    id: FIGURE_ID,
     nodeType: "annotated_figure",
   }).read();
   if (!target) throw new Error("Expected Annotated Figure owner.");
@@ -128,8 +135,8 @@ describe("Annotated Figure v3 document model", () => {
         caption: captionNode.textContent,
       })),
     ).toEqual([
-      { id: "annotation-a", index: 0, number: 1, x: 10, y: 20, caption: "Alpha" },
-      { id: "annotation-b", index: 1, number: 2, x: 70, y: 80, caption: "Beta" },
+      { id: ANNOTATION_A_ID, index: 0, number: 1, x: 10, y: 20, caption: "Alpha" },
+      { id: ANNOTATION_B_ID, index: 1, number: 2, x: 70, y: 80, caption: "Beta" },
     ]);
   });
 
@@ -144,7 +151,7 @@ describe("Annotated Figure v3 document model", () => {
         legend.child(0),
         legend
           .child(1)
-          .type.create({ ...legend.child(1).attrs, id: "annotation-a" }, legend.child(1).content),
+          .type.create({ ...legend.child(1).attrs, id: ANNOTATION_A_ID }, legend.child(1).content),
       ]),
     );
     const duplicateTarget = {
@@ -170,7 +177,7 @@ describe("Annotated Figure checked authoring commands", () => {
     const result = addAnnotatedFigureAnnotationChecked({
       tr: editor.state.tr,
       target: ownerTarget(editor),
-      annotationId: "annotation-c",
+      annotationId: ANNOTATION_C_ID,
       x: -10,
       y: 120,
     });
@@ -189,10 +196,10 @@ describe("Annotated Figure checked authoring commands", () => {
         caption: captionNode.toJSON(),
       })),
     ).toContainEqual({
-      id: "annotation-c",
+      id: ANNOTATION_C_ID,
       x: 0,
       y: 100,
-      caption: { type: "paragraph" },
+      caption: expect.objectContaining({ type: "paragraph" }),
     });
   });
 
@@ -201,9 +208,9 @@ describe("Annotated Figure checked authoring commands", () => {
     const move = moveAnnotatedFigureAnnotationChecked({
       tr: editor.state.tr,
       target: ownerTarget(editor),
-      annotationId: "annotation-b",
+      annotationId: ANNOTATION_B_ID,
       direction: "before",
-      relativeToId: "annotation-a",
+      relativeToId: ANNOTATION_A_ID,
     });
     expect(move.ok).toBe(true);
     if (!move.ok) return;
@@ -217,14 +224,14 @@ describe("Annotated Figure checked authoring commands", () => {
         caption: captionNode.textContent,
       })),
     ).toEqual([
-      { id: "annotation-b", number: 1, x: 70, y: 80, caption: "Beta" },
-      { id: "annotation-a", number: 2, x: 10, y: 20, caption: "Alpha" },
+      { id: ANNOTATION_B_ID, number: 1, x: 70, y: 80, caption: "Beta" },
+      { id: ANNOTATION_A_ID, number: 2, x: 10, y: 20, caption: "Alpha" },
     ]);
 
     const remove = removeAnnotatedFigureAnnotationChecked({
       tr: move.tr,
       target: { status: "ready", node: move.tr.doc.firstChild!, pos: 0 },
-      annotationId: "annotation-a",
+      annotationId: ANNOTATION_A_ID,
     });
     expect(remove.ok).toBe(true);
     if (!remove.ok) return;
@@ -232,7 +239,7 @@ describe("Annotated Figure checked authoring commands", () => {
       resolveAnnotatedFigureModel({ node: remove.tr.doc.firstChild!, pos: 0 })?.annotations.map(
         ({ id }) => id,
       ),
-    ).toEqual(["annotation-b"]);
+    ).toEqual([ANNOTATION_B_ID]);
   });
 
   it("changes only the selected annotation coordinates", () => {
@@ -240,7 +247,7 @@ describe("Annotated Figure checked authoring commands", () => {
     const result = setAnnotatedFigureAnnotationPositionChecked({
       tr: editor.state.tr,
       target: ownerTarget(editor),
-      annotationId: "annotation-a",
+      annotationId: ANNOTATION_A_ID,
       x: 42,
       y: 61,
     });
@@ -256,8 +263,8 @@ describe("Annotated Figure checked authoring commands", () => {
         caption: captionNode.textContent,
       })),
     ).toEqual([
-      { id: "annotation-a", x: 42, y: 61, caption: "Alpha" },
-      { id: "annotation-b", x: 70, y: 80, caption: "Beta" },
+      { id: ANNOTATION_A_ID, x: 42, y: 61, caption: "Alpha" },
+      { id: ANNOTATION_B_ID, x: 70, y: 80, caption: "Beta" },
     ]);
   });
 
@@ -269,7 +276,7 @@ describe("Annotated Figure checked authoring commands", () => {
       addAnnotatedFigureAnnotationChecked({
         tr: transactions[0]!,
         target,
-        annotationId: "annotation-a",
+        annotationId: ANNOTATION_A_ID,
         x: 50,
         y: 50,
       }),
@@ -288,14 +295,14 @@ describe("Annotated Figure checked authoring commands", () => {
       moveAnnotatedFigureAnnotationChecked({
         tr: transactions[3]!,
         target,
-        annotationId: "annotation-a",
+        annotationId: ANNOTATION_A_ID,
         direction: "after",
         relativeToId: "missing",
       }),
       setAnnotatedFigureAnnotationPositionChecked({
         tr: transactions[4]!,
         target,
-        annotationId: "annotation-a",
+        annotationId: ANNOTATION_A_ID,
         x: Number.NaN,
         y: 50,
       }),

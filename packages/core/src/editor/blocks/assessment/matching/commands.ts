@@ -6,7 +6,7 @@ import {
   type AssessmentFeedbackContent,
 } from "@scaffold/contracts";
 
-import { createStableId } from "@/document/model/identity/stable-ids";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { matchingPairContent } from "./matching-fields-shared";
 
 type MatchingMoveDirection = "up" | "down";
@@ -21,7 +21,7 @@ export function addMatchingPair(editor: Editor, groupPos: number): boolean {
   if (!group || group.type.name !== "matching_pairs_group") return false;
   const pair = editor.schema.nodeFromJSON({
     type: "matching_pair",
-    attrs: { itemId: createStableId(), targetId: createStableId() },
+    attrs: { id: createEmbeddedNodeId() },
     content: matchingPairContent(),
   });
   const insertPos = groupPos + group.nodeSize - 1;
@@ -115,25 +115,19 @@ export function synchronizeMatchingAssessmentsInTransaction(tr: Transaction): Tr
     const seenItemIds = new Set<string>();
     const seenTargetIds = new Set<string>();
 
-    group.node.forEach((pair, offset) => {
+    group.node.forEach((pair) => {
       if (pair.type.name !== "matching_pair") return;
-      const pairPos = group.pos + 1 + offset;
-      const originalItemId = stringAttr(pair, "itemId");
-      const originalTargetId = stringAttr(pair, "targetId");
-      const keepItemId = originalItemId.trim().length > 0 && !seenItemIds.has(originalItemId);
-      const keepTargetId =
-        originalTargetId.trim().length > 0 && !seenTargetIds.has(originalTargetId);
-      const itemId = keepItemId ? originalItemId : createStableId();
-      const targetId = keepTargetId ? originalTargetId : createStableId();
+      const item = directChild(pair, "matching_item");
+      const target = directChild(pair, "matching_target");
+      const itemId = item ? stringAttr(item, "id") : "";
+      const targetId = target ? stringAttr(target, "id") : "";
+      const keepItemId = itemId.trim().length > 0 && !seenItemIds.has(itemId);
+      const keepTargetId = targetId.trim().length > 0 && !seenTargetIds.has(targetId);
+      if (!keepItemId || !keepTargetId) return;
       seenItemIds.add(itemId);
       seenTargetIds.add(targetId);
-      if (itemId !== originalItemId || targetId !== originalTargetId) {
-        tr.setNodeMarkup(pairPos, undefined, { ...pair.attrs, itemId, targetId });
-      }
-      if (keepItemId) {
-        const feedback = assessment.feedbackByItemId[originalItemId];
-        if (feedback) feedbackByItemId[itemId] = feedback;
-      }
+      const feedback = assessment.feedbackByItemId[itemId];
+      if (feedback) feedbackByItemId[itemId] = feedback;
     });
 
     const feedbackIds = Object.keys(assessment.feedbackByItemId);
@@ -198,6 +192,14 @@ function findMatchingBlock(doc: ProseMirrorNode, pos: number): MatchingBlockLoca
 
 function stringAttr(node: ProseMirrorNode, name: string): string {
   return typeof node.attrs[name] === "string" ? node.attrs[name] : "";
+}
+
+function directChild(node: ProseMirrorNode, typeName: string): ProseMirrorNode | null {
+  let child: ProseMirrorNode | null = null;
+  node.forEach((candidate) => {
+    if (!child && candidate.type.name === typeName) child = candidate;
+  });
+  return child;
 }
 
 function setSelectionNear(tr: Transaction, pos: number): void {

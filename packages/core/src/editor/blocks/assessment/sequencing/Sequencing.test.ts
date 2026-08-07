@@ -322,10 +322,10 @@ describe("composite sequencing node", () => {
 
     const item = await waitFor(() => {
       const element = document.body.querySelector<HTMLElement>(
-        '[data-node="sequencing-item"][data-id="seqitm_00001"]',
+        '[data-node="sequencing-item"][data-item-id="seqitm_00001"]',
       );
       expect(element).toBeInstanceOf(HTMLElement);
-      expect(element).not.toHaveAttribute("data-item-id");
+      expect(element).not.toHaveAttribute("data-id");
       return element as HTMLElement;
     });
     await user.click(within(item).getByRole("button", { name: "Add feedback" }));
@@ -641,7 +641,7 @@ describe("composite sequencing node", () => {
       expect(screen.getByRole("listitem", { name: "Sequencing item 1" }).textContent).toContain(
         "Gamma",
       );
-      expect(scrollLane?.querySelector(".sc-sequencing-runtime-list")?.textContent).toContain(
+      expect(scrollLane?.querySelector(".sc-course-sequencing__list")?.textContent).toContain(
         "Gamma",
       );
       expect(sequencingItemDescription(1)).toBe("Position 1 of 3. Reorderable");
@@ -864,7 +864,7 @@ describe("composite sequencing node", () => {
     const firstItem = screen.getByRole("listitem", {
       name: "Sequencing item 1",
     });
-    expect(firstItem.className).toContain("sc-sequencing-item--runtime");
+    expect(firstItem.className).toContain("sc-course-sequencing__item");
     expect(firstItem).toHaveAttribute("data-id", "seqitm_00003");
     expect(firstItem).not.toHaveAttribute("data-item-id");
     const activationAreas = Array.from(
@@ -986,9 +986,11 @@ describe("composite sequencing node", () => {
     fireEvent.click(screen.getByText("Submit"));
 
     await waitFor(() => {
-      expect(screen.getByText("Show answer")).toBeInstanceOf(HTMLButtonElement);
+      expect(screen.getByRole("button", { name: "Show correct answer" })).toBeInstanceOf(
+        HTMLButtonElement,
+      );
     });
-    fireEvent.click(screen.getByText("Show answer"));
+    fireEvent.click(screen.getByRole("button", { name: "Show correct answer" }));
 
     await waitFor(() => {
       expect(screen.getByRole("listitem", { name: "Sequencing item 1" }).textContent).toContain(

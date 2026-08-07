@@ -13,6 +13,8 @@ import {
   CourseDocumentRuntimeRenderer,
   type CourseDocumentRuntimeRendererProps,
 } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import "@/runtime/players/slideshow/SlideshowPlayer.css";
 
 import type { CompositionStateCase } from "./slide-composition-cases";
@@ -154,24 +156,38 @@ async function renderDocumentPair(
       authoringEditor = editor;
     });
     authoringRoot.render(
-      <CourseDocumentEditor
-        composition={authoringComposition}
-        source={{ mode: "document", content: cloneJSON(initialContent) }}
-        editable={authoringEditable}
-        onReady={authoringReady}
-      />,
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <CourseDocumentEditor
+          composition={authoringComposition}
+          source={{ mode: "document", content: cloneJSON(initialContent) }}
+          editable={authoringEditable}
+          onReady={authoringReady}
+        />
+      </CourseThemeProvider>,
     );
 
     const runtimeReady = editorReadyPromise("runtime", (editor) => {
       runtimeEditor = editor;
     });
     runtimeRoot.render(
-      <CourseDocumentRuntimeRenderer
-        composition={runtimeComposition}
-        initialContent={cloneJSON(initialContent)}
-        visibleSurfaceId={visibleSurfaceId}
-        onReady={runtimeReady}
-      />,
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <div
+          className="sc-slideshow-player__viewport"
+          style={{ width: INTRINSIC_WIDTH, height: INTRINSIC_HEIGHT, padding: 0 }}
+        >
+          <div
+            className="sc-slideshow-player__canvas"
+            style={{ width: INTRINSIC_WIDTH, height: INTRINSIC_HEIGHT }}
+          >
+            <CourseDocumentRuntimeRenderer
+              composition={runtimeComposition}
+              initialContent={cloneJSON(initialContent)}
+              visibleSurfaceId={visibleSurfaceId}
+              onReady={runtimeReady}
+            />
+          </div>
+        </div>
+      </CourseThemeProvider>,
     );
 
     await waitForEditors(
@@ -839,11 +855,11 @@ function createRegisteredSurfaceDocument(
 function nestedGridContent(): JSONContent {
   return {
     type: "grid",
-    attrs: { columnWidths: [1, 1], id: "geometry-nested-grid" },
+    attrs: { columnWidths: [1, 1], id: "geomgrid0001" },
     content: [
       {
         type: "cell",
-        attrs: { id: "geometry-nested-cell-a" },
+        attrs: { id: "geomcell0001" },
         content: [
           {
             type: "paragraph",
@@ -853,7 +869,7 @@ function nestedGridContent(): JSONContent {
       },
       {
         type: "cell",
-        attrs: { id: "geometry-nested-cell-b" },
+        attrs: { id: "geomcell0002" },
         content: [
           {
             type: "paragraph",
@@ -868,9 +884,6 @@ function nestedGridContent(): JSONContent {
 function createRendererHost(renderer: "authoring" | "runtime"): HTMLElement {
   const host = globalThis.document.createElement("div");
   host.dataset["compositionRenderer"] = renderer;
-  if (renderer === "runtime") {
-    host.className = "sc-slideshow-player__viewport sc-slideshow-player__canvas";
-  }
   host.style.boxSizing = "border-box";
   host.style.width = `${INTRINSIC_WIDTH}px`;
   host.style.height = `${INTRINSIC_HEIGHT}px`;

@@ -3151,7 +3151,7 @@ describe("createAssessmentStore", () => {
       artifactId: "artifact-one",
       assessmentPort: createAssessmentPort(),
     });
-    const problemId = scopeAssessmentProblemId("artifact-one", "block-one");
+    const problemId = scopeAssessmentProblemId("artifact-one", "block_000001");
     const original = createRegistration();
     const stricter = createRegistration({
       response: {
@@ -3161,16 +3161,16 @@ describe("createAssessmentStore", () => {
     });
 
     expect(store.getState().register(original)).toBe(true);
-    expect(store.getState().setLocalResponse(registrationIdentity(), { choice: "option-a" })).toBe(
-      true,
-    );
+    expect(
+      store.getState().setLocalResponse(registrationIdentity(), { choice: "option_00001" }),
+    ).toBe(true);
     expect(store.getState().transient.responseReady[problemId]).toBe(true);
 
     expect(store.getState().update(stricter)).toBe(true);
     expect(store.getState().transient.responseReady[problemId]).toBe(false);
     expect(store.getState().durable.problems[problemId]?.response).toEqual({
       kind: "single-select",
-      optionId: "option-a",
+      optionId: "option_00001",
     });
   });
 

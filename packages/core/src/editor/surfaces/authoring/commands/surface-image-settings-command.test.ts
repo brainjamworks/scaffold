@@ -35,6 +35,7 @@ import { slideTriptychSurfaceDefinition } from "@/editor/surfaces/model/template
 import { defineSurfaceImageRoles } from "@/editor/surfaces/model/surface-owned-image";
 import { setSurfaceOwnedImageChecked } from "./surface-image-settings-command";
 import { DEFAULT_SURFACE_SETTINGS } from "@/editor/surfaces/model/surface-settings";
+import { createTestNodeIdentityExtension } from "@/editor/testing";
 
 const registeredSlideCoverSurfaceDefinition = builtInSurfaceVariantRegistry.get("slide-cover");
 if (!registeredSlideCoverSurfaceDefinition) {
@@ -144,6 +145,7 @@ function makeEditor({
       SurfaceFooterNode,
       TestArrangementNode,
       TestSectionArrangementNode,
+      createTestNodeIdentityExtension(),
     ],
     content: {
       type: "doc",

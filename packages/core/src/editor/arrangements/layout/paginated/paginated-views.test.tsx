@@ -34,6 +34,7 @@ import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { createTestNodeIdentityExtension } from "@/editor/testing";
 
 const editors: Editor[] = [];
 const coreCapabilities = Object.freeze({
@@ -109,7 +110,10 @@ describe("paginated authoring", () => {
     expect(sections).toHaveLength(3);
     expect(sections[0]?.classList.contains("sc-paginated-layout__section")).toBe(true);
     expect(sections[0]?.getAttribute("data-vertical-content-position")).toBe("middle");
-    expect(sectionVerticalState(editor, "page-a")).toEqual({ kind: "value", value: "middle" });
+    expect(sectionVerticalState(editor, "page00000001")).toEqual({
+      kind: "value",
+      value: "middle",
+    });
     expect(screen.getByRole("button", { name: "Add page" })).toBeInTheDocument();
     expect(layout?.querySelector("[data-layout-section-menu-trigger]")).not.toBeNull();
     expect(pageButtons[0]?.getAttribute("aria-current")).toBe("page");
@@ -138,7 +142,7 @@ describe("paginated authoring", () => {
 
     const pageButtons = pageNumberButtons();
     const panels = pagePanels();
-    editor.commands.setTextSelection(sectionTextSelectionPos(editor, "page-a"));
+    editor.commands.setTextSelection(sectionTextSelectionPos(editor, "page00000001"));
     editor.view.focus();
 
     await waitFor(() => {
@@ -148,14 +152,14 @@ describe("paginated authoring", () => {
     await user.click(pageButtons[1]!);
 
     await waitFor(() => {
-      expect(selectionSectionId(editor)).toBe("page-b");
+      expect(selectionSectionId(editor)).toBe("page00000002");
       expect(panels[1]?.querySelector("[data-empty-insertion-row]")).not.toBeNull();
     });
 
     await user.click(pageButtons[2]!);
 
     await waitFor(() => {
-      expect(selectionSectionId(editor)).toBe("page-c");
+      expect(selectionSectionId(editor)).toBe("page00000003");
       expect(panels[2]?.querySelector("[data-empty-insertion-row]")).not.toBeNull();
     });
   });
@@ -170,7 +174,7 @@ describe("paginated authoring", () => {
 
     const pageButtons = pageNumberButtons();
     const panels = pagePanels();
-    editor.commands.setTextSelection(sectionTextSelectionPos(editor, "page-c"));
+    editor.commands.setTextSelection(sectionTextSelectionPos(editor, "page00000003"));
 
     await waitFor(() => {
       expect(pageButtons[2]?.getAttribute("aria-current")).toBe("page");
@@ -213,7 +217,10 @@ describe("paginated runtime", () => {
     expect(screen.queryByRole("button", { name: "Add page" })).toBeNull();
     expect(layout?.querySelector("[data-layout-section-menu-trigger]")).toBeNull();
     expect(activePageViewport(panels)?.hasAttribute("data-bounded-scroll")).toBe(true);
-    expect(sectionVerticalState(editor, "page-a")).toEqual({ kind: "value", value: "middle" });
+    expect(sectionVerticalState(editor, "page00000001")).toEqual({
+      kind: "value",
+      value: "middle",
+    });
 
     await user.click(pageButtons[1]!);
 
@@ -243,7 +250,7 @@ describe("page-flow paginated", () => {
     expect(paginatedRoot).not.toBeNull();
     expect(paginatedRoot?.getAttribute("data-bounded-placement")).toBeNull();
     expect(activePageViewport(panels)?.hasAttribute("data-bounded-scroll")).toBe(true);
-    expect(sectionVerticalState(editor, "page-a")).toEqual({ kind: "unavailable" });
+    expect(sectionVerticalState(editor, "page00000001")).toEqual({ kind: "unavailable" });
   });
 });
 
@@ -264,6 +271,7 @@ function makeEditor(editable: boolean, placement: "region" | "surface"): Editor 
   const editor = new Editor({
     editable,
     extensions: [
+      createTestNodeIdentityExtension(),
       createScaffoldCapabilitiesStorageExtension(coreCapabilities),
       DocumentNode,
       StarterKit.configure({
@@ -288,7 +296,7 @@ function makeEditor(editable: boolean, placement: "region" | "surface"): Editor 
             {
               type: "surface",
               attrs: {
-                id: "surface-pages",
+                id: "surfacePag01",
                 variant: placement === "region" ? "slide-content" : "page-default",
               },
               content:
@@ -296,7 +304,7 @@ function makeEditor(editable: boolean, placement: "region" | "surface"): Editor 
                   ? [
                       {
                         type: "region",
-                        attrs: { id: "region-pages" },
+                        attrs: { id: "regionPag001" },
                         content: [paginatedContent()],
                       },
                     ]
@@ -315,13 +323,13 @@ function paginatedContent(): JSONContent {
   return {
     type: "layout",
     attrs: {
-      id: "layout-pages",
+      id: "layoutPag001",
       variant: "paginated",
     },
     content: [
-      paginatedPage("page-a", "Overview", "middle"),
-      paginatedPage("page-b", "Practice"),
-      paginatedPage("page-c", "Review"),
+      paginatedPage("page00000001", "Overview", "middle"),
+      paginatedPage("page00000002", "Practice"),
+      paginatedPage("page00000003", "Review"),
     ],
   };
 }

@@ -34,6 +34,7 @@ import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { createTestNodeIdentityExtension } from "@/editor/testing";
 
 import { AccordionSectionPanelNode, AccordionSectionTitleNode } from "./accordion-section-nodes";
 
@@ -91,11 +92,11 @@ describe("bounded accordion authoring", () => {
     expect(sections).toHaveLength(2);
     expect(sections[0]?.classList.contains("sc-accordion-section")).toBe(true);
     expect(sections[0]?.getAttribute("data-vertical-content-position")).toBe("bottom");
-    expect(sectionVerticalState(editor, "accordion-a")).toEqual({ kind: "unavailable" });
+    expect(sectionVerticalState(editor, "accordion001")).toEqual({ kind: "unavailable" });
     expect(
       alignmentTargetPort.setVertical(
         editor,
-        { id: "accordion-a", kind: InteractionTargetKind.Section },
+        { id: "accordion001", kind: InteractionTargetKind.Section },
         "middle",
       ),
     ).toBe(false);
@@ -226,7 +227,7 @@ function makeEditor({
       ? [
           {
             type: "region",
-            attrs: { id: "region-accordion" },
+            attrs: { id: "regionAcc001" },
             content: [layout],
           },
         ]
@@ -234,6 +235,7 @@ function makeEditor({
   const editor = new Editor({
     editable,
     extensions: [
+      createTestNodeIdentityExtension(),
       createScaffoldCapabilitiesStorageExtension(coreCapabilities),
       DocumentNode,
       StarterKit.configure({
@@ -260,7 +262,7 @@ function makeEditor({
             {
               type: "surface",
               attrs: {
-                id: "surface-accordion",
+                id: "surfaceAcc01",
                 variant: placement === "region" ? "slide-content" : "page-default",
               },
               content: surfaceContent,
@@ -278,7 +280,7 @@ function accordionContent(): JSONContent {
   return {
     type: "layout",
     attrs: {
-      id: "layout-accordion",
+      id: "layoutAcc001",
       variant: "accordion",
       options: {
         variant: "default",
@@ -287,8 +289,8 @@ function accordionContent(): JSONContent {
       },
     },
     content: [
-      accordionSection("accordion-a", "Before class", true),
-      accordionSection("accordion-b", "After class", false),
+      accordionSection("accordion001", "Before class", true),
+      accordionSection("accordion002", "After class", false),
     ],
   };
 }
@@ -299,7 +301,7 @@ function accordionSection(id: string, label: string, defaultOpen: boolean): JSON
     attrs: {
       id,
       role: "accordion-panel",
-      verticalPosition: id === "accordion-a" ? "bottom" : "top",
+      verticalPosition: id === "accordion001" ? "bottom" : "top",
       options: { defaultOpen },
     },
     content: [

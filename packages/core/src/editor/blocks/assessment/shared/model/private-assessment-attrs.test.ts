@@ -16,6 +16,7 @@ import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { SelectableChoiceBodyNode, SelectableChoiceNode } from "../nodes/selectable-choice";
 
 import { McqNode } from "@/editor/blocks/assessment/mcq/node";
+import { createTestNodeIdentityExtension } from "@/editor/testing/node-identity";
 
 import {
   readAssessmentFeedbackContent,
@@ -27,6 +28,7 @@ function makeEditor(content: JSONContent): Editor {
   return new Editor({
     extensions: [
       StarterKit.configure({ undoRedo: false, paragraph: false }),
+      createTestNodeIdentityExtension(),
       ExtendedParagraph,
       AssessmentTitleNode,
       AssessmentInstructionsNode,
@@ -58,8 +60,8 @@ function mcqDoc(): JSONContent {
       {
         type: "mcq",
         attrs: {
-          id: "problem-1",
-          assessment: { correctChoiceId: "choice-1" },
+          id: "mcq000000001",
+          assessment: { correctChoiceId: "option000001" },
         },
         content: [
           { type: "assessment_title", content: [paragraph()] },
@@ -70,7 +72,7 @@ function mcqDoc(): JSONContent {
             content: [
               {
                 type: "selectable_choice",
-                attrs: { id: "choice-1" },
+                attrs: { id: "option000001" },
                 content: [
                   {
                     type: "selectable_choice_body",
@@ -121,7 +123,7 @@ describe("resolveAssessmentAttrParent", () => {
     const parent = resolveAssessmentAttrParent(editor, summaryFeedbackPos!);
 
     expect(parent?.typeName).toBe("mcq");
-    expect(parent?.node.attrs["id"]).toBe("problem-1");
+    expect(parent?.node.attrs["id"]).toBe("mcq000000001");
     editor.destroy();
   });
 });

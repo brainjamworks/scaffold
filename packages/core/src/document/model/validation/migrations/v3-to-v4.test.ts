@@ -566,7 +566,7 @@ function v3Document(mode: "page" | "slideshow", theme: unknown): JSONContent {
               id: "surface00001",
               variant: mode === "slideshow" ? "slide-cover" : "page-default",
             },
-            content: [{ type: "paragraph" }],
+            content: [{ type: "paragraph", attrs: { id: "paragraph001" } }],
           },
         ],
       },

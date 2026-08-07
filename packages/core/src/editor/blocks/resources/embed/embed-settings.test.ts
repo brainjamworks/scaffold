@@ -10,6 +10,9 @@ import { createAuthoringNodeTarget } from "@/editor/prosemirror/authoring-target
 import { emptyEmbedData, updateEmbedDataUrl } from "./embed-data";
 import { applyEmbedSettings } from "./embed-settings";
 import { EmbedNode } from "./node";
+import { createTestNodeIdentityExtension } from "@/editor/testing";
+
+const EMBED_ID = "embed0000001";
 
 const editors: Editor[] = [];
 
@@ -21,14 +24,18 @@ describe("applyEmbedSettings", () => {
   it("normalizes settings in a checked transaction without dispatching", () => {
     const current = updateEmbedDataUrl(emptyEmbedData(), "https://example.com/resource");
     const editor = new Editor({
-      extensions: [StarterKit.configure({ undoRedo: false }), EmbedNode],
+      extensions: [
+        StarterKit.configure({ undoRedo: false }),
+        EmbedNode,
+        createTestNodeIdentityExtension(),
+      ],
       content: {
         type: "doc",
-        content: [{ type: "embed", attrs: { id: "embed-a", data: current } }],
+        content: [{ type: "embed", attrs: { id: EMBED_ID, data: current } }],
       },
     });
     editors.push(editor);
-    const target = createAuthoringNodeTarget(editor, { id: "embed-a", nodeType: "embed" }).read();
+    const target = createAuthoringNodeTarget(editor, { id: EMBED_ID, nodeType: "embed" }).read();
     if (!target) throw new Error("Expected the embed settings target");
 
     const result = applyEmbedSettings({

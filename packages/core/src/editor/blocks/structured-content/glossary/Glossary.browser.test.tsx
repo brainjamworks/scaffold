@@ -39,9 +39,11 @@ describe("Glossary presentation", () => {
 
     await waitForCondition(() => host.querySelector(".sc-course-glossary__entry"));
     const application = requiredElement<HTMLElement>(host, ".sc-app");
-    application.style.setProperty("--sc-app-color-text-muted", "rgb(82 82 91)");
-    application.style.setProperty("--sc-app-color-error", "rgb(185 28 28)");
-    application.style.setProperty("--sc-app-color-error-background", "rgb(254 226 226)");
+    const applicationStyle = getComputedStyle(application);
+    const mutedColour = computedColor(
+      applicationStyle.getPropertyValue("--sc-app-color-text-muted"),
+    );
+    const errorColour = computedColor(applicationStyle.getPropertyValue("--sc-app-color-error"));
 
     const entry = requiredElement<HTMLElement>(host, ".sc-course-glossary__entry");
     const term = requiredElement<HTMLElement>(entry, ".sc-course-glossary__term");
@@ -56,15 +58,15 @@ describe("Glossary presentation", () => {
     expect(desktopDefinition.left - desktopTerm.right).toBeCloseTo(24, 0);
     expect(Math.abs(desktopDefinition.top - desktopTerm.top)).toBeLessThanOrEqual(2);
     expect(getComputedStyle(deleteButton).opacity).toBe("1");
-    expect(getComputedStyle(deleteButton).color).toBe("rgb(82, 82, 91)");
+    expect(getComputedStyle(deleteButton).color).toBe(mutedColour);
     expect(addButton.querySelector("svg")).toBeNull();
 
     await userEvent.hover(deleteButton);
-    await waitForCondition(() => getComputedStyle(deleteButton).color === "rgb(185, 28, 28)");
+    await waitForCondition(() => getComputedStyle(deleteButton).color === errorColour);
 
     await userEvent.unhover(deleteButton);
     deleteButton.focus();
-    await waitForCondition(() => getComputedStyle(deleteButton).color === "rgb(185, 28, 28)");
+    await waitForCondition(() => getComputedStyle(deleteButton).color === errorColour);
 
     host.style.width = "560px";
     await waitForCondition(() => getComputedStyle(definition).gridRowStart === "2");
@@ -131,6 +133,15 @@ function requiredElement<T extends Element>(root: ParentNode, selector: string):
   const element = root.querySelector<T>(selector);
   if (!element) throw new Error(`Expected an element for ${selector}.`);
   return element;
+}
+
+function computedColor(value: string): string {
+  const probe = document.createElement("span");
+  probe.style.color = value;
+  document.body.append(probe);
+  const resolved = getComputedStyle(probe).color;
+  probe.remove();
+  return resolved;
 }
 
 async function waitForCondition(condition: () => unknown): Promise<void> {

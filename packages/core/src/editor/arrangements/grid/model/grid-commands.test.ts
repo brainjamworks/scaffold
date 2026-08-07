@@ -35,6 +35,7 @@ import {
 } from "./grid-model";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { createTestNodeIdentityExtension } from "@/editor/testing";
 
 const TestBlockNode = Node.create({
   name: "test_block",
@@ -45,12 +46,6 @@ const TestBlockNode = Node.create({
 
   addAttributes() {
     return {
-      id: {
-        default: null,
-        parseHTML: (element: HTMLElement) => element.getAttribute("data-id"),
-        renderHTML: (attrs: { id?: unknown }) =>
-          typeof attrs.id === "string" ? { "data-id": attrs.id } : {},
-      },
       marker: {
         default: null,
         parseHTML: (element: HTMLElement) => element.getAttribute("data-marker"),
@@ -79,6 +74,7 @@ function makeEditor() {
       CellAuthoringNode,
       LayoutAuthoringNode,
       SectionAuthoringNode,
+      createTestNodeIdentityExtension(),
     ],
   });
 }
@@ -102,6 +98,7 @@ function makeCourseEditor(content: JSONContent[] = []) {
       LayoutAuthoringNode,
       SectionAuthoringNode,
       TestBlockNode,
+      createTestNodeIdentityExtension(),
     ],
     content: {
       type: "doc",

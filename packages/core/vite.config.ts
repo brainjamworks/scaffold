@@ -62,6 +62,11 @@ export default defineConfig({
     projects: [
       {
         extends: true,
+        resolve: {
+          alias: {
+            "@scaffold/contracts": resolve(__dirname, "../contracts/src/index.ts"),
+          },
+        },
         test: {
           name: "unit",
           exclude: ["**/node_modules/**", "**/dist/**", "src/**/*.browser.test.{ts,tsx}"],
@@ -71,6 +76,11 @@ export default defineConfig({
       },
       {
         extends: true,
+        resolve: {
+          alias: {
+            "@scaffold/contracts": resolve(__dirname, "../contracts/src/index.ts"),
+          },
+        },
         optimizeDeps: {
           include: ["vite-plus > vitest > expect-type"],
         },

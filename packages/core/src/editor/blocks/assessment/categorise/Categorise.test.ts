@@ -601,10 +601,10 @@ describe("composite categorise node", () => {
         ).length,
       ).toBe(2);
       expect(
-        screen.getByRole("button", { name: "Move category 1 within its group" }),
+        screen.getByRole("button", { name: "Move category 1, Birds within its group" }),
       ).toBeInTheDocument();
       expect(
-        screen.getByRole("button", { name: "Move category 2 within its group" }),
+        screen.getByRole("button", { name: "Move category 2, Fish within its group" }),
       ).toBeInTheDocument();
       expect(
         document.body.querySelectorAll(

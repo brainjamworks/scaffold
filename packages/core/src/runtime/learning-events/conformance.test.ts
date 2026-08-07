@@ -38,17 +38,17 @@ import { LEARNING_EVENT_SESSION_MAX_PENDING_EVENTS, createLearningEventSession }
 const ROOT_ACTIVITY_ID = "https://lms.example.test/courses/course-one";
 const EVENT_START = "2026-07-25T10:00:00.000Z";
 const ARTIFACT_ID = "course-one";
-const LEARNER_ACTIVITY_BLOCK_ID = "checklist-one";
-const STANDALONE_PROBLEM_ID = "standalone-block";
-const STANDALONE_TARGET_ID = "standalone-target";
-const HINT_PROBLEM_ID = "hint-block";
-const HINT_TARGET_ID = "hint-target";
-const QUIZ_PROBLEM_ID = "quiz-block";
-const QUIZ_TARGET_ID = "quiz-target";
-const QUIZ_ID = "quiz-one";
+const LEARNER_ACTIVITY_BLOCK_ID = "checklist001";
+const STANDALONE_PROBLEM_ID = "standalone01";
+const STANDALONE_TARGET_ID = "target000001";
+const HINT_PROBLEM_ID = "hintblock001";
+const HINT_TARGET_ID = "target000002";
+const QUIZ_PROBLEM_ID = "quizblock001";
+const QUIZ_TARGET_ID = "target000003";
+const QUIZ_ID = "quiz00000001";
 const QUIZ_ATTEMPT_ID = "quiz-attempt-one";
-const LOCAL_RESPONSE_ID = "local option";
-const AUTHORITATIVE_RESPONSE_ID = "authoritative option";
+const LOCAL_RESPONSE_ID = "option000001";
+const AUTHORITATIVE_RESPONSE_ID = "option000002";
 
 const PRIVATE_VALUES = Object.freeze([
   "PRIVATE_ITEM_RESPONSE",
@@ -729,7 +729,7 @@ describe("Core learning event conformance", () => {
       result: {
         success: false,
         score: { scaled: 0.25 },
-        response: "authoritative%20option",
+        response: AUTHORITATIVE_RESPONSE_ID,
         extensions: {
           [LEARNING_EVENT_EXTENSIONS.assessmentAttemptNumber]: 3,
         },
@@ -769,7 +769,7 @@ describe("Core learning event conformance", () => {
         id: createAssessmentActivityId(ROOT_ACTIVITY_ID, QUIZ_TARGET_ID),
       },
       result: {
-        response: "authoritative%20option",
+        response: AUTHORITATIVE_RESPONSE_ID,
         extensions: {
           [LEARNING_EVENT_EXTENSIONS.assessmentAttemptNumber]: 1,
         },
@@ -850,7 +850,7 @@ describe("Core learning event conformance", () => {
     });
     session.record({
       type: "quiz.completed",
-      quizId: "quiz-one",
+      quizId: QUIZ_ID,
       attemptId: "attempt-one",
       startedAt: "2026-08-05T09:55:00.000Z",
       finishedAt: "2026-08-05T10:00:00.000Z",

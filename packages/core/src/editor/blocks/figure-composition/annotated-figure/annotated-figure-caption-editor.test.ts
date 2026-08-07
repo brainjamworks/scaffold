@@ -12,6 +12,7 @@ import {
 import { resolveAnnotatedFigureModel } from "./annotated-figure-document-model";
 import { createAnnotatedFigureNode } from "./node";
 import { AnnotatedFigureLegendNode, createAnnotatedFigureAnnotationNode } from "./slots";
+import { createTestNodeIdentityExtension } from "@/editor/testing/node-identity";
 
 const editors: Editor[] = [];
 
@@ -80,13 +81,13 @@ describe("createAnnotatedFigureCaptionTarget", () => {
     const editor = makeOuterEditor();
     const target = createAnnotatedFigureCaptionTarget({
       editor,
-      figureId: "figure-one",
-      annotationId: "annotation-two",
+      figureId: "figure000001",
+      annotationId: "annot0000002",
     });
     if (!target) throw new Error("Expected a live caption target");
     const initialPos = target.getPos();
 
-    expect(target.node.attrs["id"]).toBe("annotation-two");
+    expect(target.node.attrs["id"]).toBe("annot0000002");
     expect(target.node.textContent).toBe("Second caption");
     expect(initialPos).toBeTypeOf("number");
 
@@ -95,11 +96,11 @@ describe("createAnnotatedFigureCaptionTarget", () => {
     const reorderedPos = target.getPos();
     expect(reorderedPos).toBeTypeOf("number");
     expect(reorderedPos).not.toBe(initialPos);
-    expect(editor.state.doc.nodeAt(reorderedPos!)?.attrs["id"]).toBe("annotation-two");
+    expect(editor.state.doc.nodeAt(reorderedPos!)?.attrs["id"]).toBe("annot0000002");
 
     const reorderedFigure = findFigure(editor);
     const reorderedModel = resolveAnnotatedFigureModel(reorderedFigure);
-    const annotation = reorderedModel?.annotations.find(({ id }) => id === "annotation-two");
+    const annotation = reorderedModel?.annotations.find(({ id }) => id === "annot0000002");
     if (!annotation) throw new Error("Expected reordered annotation");
     editor.view.dispatch(
       editor.state.tr.delete(annotation.pos, annotation.pos + annotation.node.nodeSize),
@@ -114,15 +115,15 @@ describe("createAnnotatedFigureCaptionTarget", () => {
     expect(
       createAnnotatedFigureCaptionTarget({
         editor,
-        figureId: "missing-figure",
-        annotationId: "annotation-one",
+        figureId: "miss00000001",
+        annotationId: "annot0000001",
       }),
     ).toBeNull();
 
     const target = createAnnotatedFigureCaptionTarget({
       editor,
-      figureId: "figure-one",
-      annotationId: "annotation-one",
+      figureId: "figure000001",
+      annotationId: "annot0000001",
     });
     if (!target) throw new Error("Expected a live caption target");
     const figure = findFigure(editor);
@@ -132,7 +133,7 @@ describe("createAnnotatedFigureCaptionTarget", () => {
     editor.view.dispatch(
       editor.state.tr.setNodeMarkup(second.pos, undefined, {
         ...second.node.attrs,
-        id: "annotation-one",
+        id: "annot0000001",
       }),
     );
 
@@ -150,6 +151,7 @@ function makeOuterEditor(): Editor {
     new Editor({
       extensions: [
         StarterKit.configure({ undoRedo: false }),
+        createTestNodeIdentityExtension(),
         createAnnotatedFigureCanvasNode(),
         createAnnotatedFigureAnnotationNode(),
         AnnotatedFigureLegendNode,
@@ -167,7 +169,7 @@ function outerDocument(): JSONContent {
       {
         type: "annotated_figure",
         attrs: {
-          id: "figure-one",
+          id: "figure000001",
           data: {
             type: "annotated_figure",
             source: null,
@@ -180,8 +182,8 @@ function outerDocument(): JSONContent {
           {
             type: "annotated_figure_legend",
             content: [
-              annotation("annotation-one", "First caption"),
-              annotation("annotation-two", "Second caption"),
+              annotation("annot0000001", "First caption"),
+              annotation("annot0000002", "Second caption"),
             ],
           },
         ],

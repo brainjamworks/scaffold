@@ -32,6 +32,8 @@ describe("@scaffold/core/runtime", () => {
   it("publishes the exact runtime value surface", () => {
     expect(Object.keys(runtime).sort()).toEqual([
       "ContentRuntimeHost",
+      "CourseThemePortalBoundary",
+      "CourseThemeProvider",
       "LearningEventRuntimeProvider",
       "ScaffoldLearnerApp",
       "ScaffoldServicesProvider",
@@ -39,6 +41,7 @@ describe("@scaffold/core/runtime", () => {
       "migrateCourseDocumentJSON",
       "readCourseDocumentFormatVersion",
       "useAssessmentPort",
+      "useCourseTheme",
       "useLearnerActivityPort",
       "useLearningEventPort",
       "useMediaPort",

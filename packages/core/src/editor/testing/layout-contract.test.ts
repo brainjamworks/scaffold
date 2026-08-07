@@ -36,7 +36,7 @@ import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/doc
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { AUTHORING_FRAME_ATTR } from "@/editor/interactions/dom/authoring-frame";
 import { defineConfiguration } from "@/editor/configuration/definition";
-import { describeLayoutContract } from "@/editor/testing";
+import { createTestNodeIdentityExtension, describeLayoutContract } from "@/editor/testing";
 import { assertLayoutContract } from "@/editor/testing/layout-contract";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
@@ -189,7 +189,7 @@ describe("layout contract assertions", () => {
               content: [
                 {
                   type: "surface",
-                  attrs: { id: `surface-${definition.id}` },
+                  attrs: { id: "surface00001" },
                   content: [node.toJSON()],
                 },
               ],
@@ -229,6 +229,7 @@ function createUniversalLayoutContractEditor(): Editor {
   return new Editor({
     extensions: [
       createScaffoldCapabilitiesStorageExtension(coreCapabilities),
+      createTestNodeIdentityExtension(),
       DocumentNode,
       StarterKit.configure({
         document: false,

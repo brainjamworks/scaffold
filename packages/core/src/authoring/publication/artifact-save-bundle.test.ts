@@ -64,7 +64,7 @@ describe("artifact save bundle publication", () => {
 
   it("projects migrated author content with regenerated learner content and assessment targets", () => {
     const authorDocument = pageDocumentWithSurfaceContent("surface00001", [
-      persistenceMcqBlock("assessment-1", { points: 2, maxAttempts: 3 }),
+      persistenceMcqBlock("assess000001", { points: 2, maxAttempts: 3 }),
     ]);
 
     const bundle = projectArtifactSaveBundle(
@@ -82,19 +82,19 @@ describe("artifact save bundle publication", () => {
       assessmentTargets: [
         {
           schemaVersion: 2,
-          targetId: "assessment-1",
+          targetId: "assess000001",
           blockType: "mcq",
-          blockId: "assessment-1",
+          blockId: "assess000001",
           interaction: {
             kind: "single-select",
             options: [
-              { id: "a", label: "A" },
-              { id: "b", label: "B" },
+              { id: "option000001", label: "A" },
+              { id: "option000002", label: "B" },
             ],
           },
           assessment: {
             kind: "single-select",
-            correctOptionId: "a",
+            correctOptionId: "option000001",
             feedbackByOptionId: {},
           },
           settings: {
@@ -108,13 +108,13 @@ describe("artifact save bundle publication", () => {
       ],
     });
     const learnerMcqAttrs = firstDescendant(bundle.learnerContent, "mcq")?.attrs;
-    expect(learnerMcqAttrs).toMatchObject({ id: "assessment-1" });
+    expect(learnerMcqAttrs).toMatchObject({ id: "assess000001" });
     expect(learnerMcqAttrs).not.toHaveProperty("assessment");
   });
 
   it("uses the explicitly installed Block lookup", () => {
     const authorDocument = pageDocumentWithSurfaceContent("surface00001", [
-      persistenceMcqBlock("assessment-1", { points: 2, maxAttempts: 3 }),
+      persistenceMcqBlock("assess000001", { points: 2, maxAttempts: 3 }),
     ]);
 
     const bundle = projectArtifactSaveBundle(
@@ -127,11 +127,11 @@ describe("artifact save bundle publication", () => {
   });
 
   it("projects quiz assessment groups into the save bundle", () => {
-    const authorDocument = pageDocumentWithSurfaceContent("surface-quiz", [
+    const authorDocument = pageDocumentWithSurfaceContent("surfaceQuiz1", [
       {
         type: "quiz",
         attrs: {
-          id: "quiz-1",
+          id: "quiz00000001",
           settings: {
             allowBacktracking: false,
             attemptsPerQuestion: 1,
@@ -141,7 +141,7 @@ describe("artifact save bundle publication", () => {
             timer: { enabled: false, durationSeconds: 0 },
           },
         },
-        content: [persistenceMcqBlock("quiz-target-1", { points: 1, maxAttempts: null })],
+        content: [persistenceMcqBlock("quizTarget01", { points: 1, maxAttempts: null })],
       },
     ]);
 
@@ -154,8 +154,8 @@ describe("artifact save bundle publication", () => {
       {
         schemaVersion: 2,
         kind: "quiz",
-        groupId: "quiz-1",
-        targetIds: ["quiz-target-1"],
+        groupId: "quiz00000001",
+        targetIds: ["quizTarget01"],
         settings: {
           allowBacktracking: false,
           attemptsPerQuestion: 1,
@@ -179,7 +179,7 @@ function persistenceMcqBlock(
     attrs: {
       id,
       assessment: {
-        correctOptionId: "a",
+        correctOptionId: "option000001",
         feedbackByOptionId: {},
         summaryFeedback: null,
       },
@@ -197,7 +197,7 @@ function persistenceMcqBlock(
       emptyAssessmentField("assessment_prompt"),
       {
         type: "assessment_choices_group",
-        content: [selectableChoice("a", "A"), selectableChoice("b", "B")],
+        content: [selectableChoice("option000001", "A"), selectableChoice("option000002", "B")],
       },
       {
         type: "assessment_actions_group",

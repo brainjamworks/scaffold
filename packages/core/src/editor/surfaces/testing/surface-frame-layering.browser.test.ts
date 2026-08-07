@@ -22,9 +22,9 @@ describe("Surface frame cascade layering", () => {
   it("applies course stroke to authored page surfaces without changing the application default", () => {
     const applicationFrame = createPageSurfaceFrame();
     const courseFrame = createPageSurfaceFrame();
-    courseFrame.classList.add("sc-course-theme-scope");
-    courseFrame.style.setProperty("--sc-course-color-border", "rgb(10 20 30)");
-    courseFrame.style.setProperty("--sc-course-stroke", "3px");
+    courseFrame.classList.add("sc-course");
+    courseFrame.style.setProperty("--color-border", "rgb(10 20 30)");
+    courseFrame.style.setProperty("--sc-border-width", "3px");
     document.body.append(applicationFrame, courseFrame);
 
     expect(getComputedStyle(applicationFrame.querySelector("[data-surface]")!).borderTopWidth).toBe(
@@ -38,9 +38,9 @@ describe("Surface frame cascade layering", () => {
   it("applies course stroke to standard slide separators and empty media frames", () => {
     const application = createSlideMetricFixture();
     const course = createSlideMetricFixture();
-    course.classList.add("sc-course-theme-scope");
-    course.style.setProperty("--sc-course-color-border", "rgb(10 20 30)");
-    course.style.setProperty("--sc-course-stroke", "3px");
+    course.classList.add("sc-course");
+    course.style.setProperty("--color-border", "rgb(10 20 30)");
+    course.style.setProperty("--sc-border-width", "3px");
     document.body.append(application, course);
 
     expect(readSlideMetricBorders(application)).toEqual(["1px", "1px", "1px", "1px"]);

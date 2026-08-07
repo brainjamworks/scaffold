@@ -44,6 +44,7 @@ import type { InsertAction } from "@/editor/insertion/insert-action";
 import { BlockStrip } from "@/editor/shell/chrome/BlockStrip";
 import { Toolbar } from "@/editor/shell/chrome/Toolbar";
 import { AuthoringContentChrome } from "@/editor/shell/authoring/AuthoringContentChrome";
+import { createTestNodeIdentityExtension } from "@/editor/testing";
 import { createSlashCommand, isSlashCommandActive } from "@/editor/suggestions/slash/SlashCommand";
 import { emptyCalloutData } from "@/editor/blocks/presentation/callout/content";
 
@@ -293,11 +294,11 @@ describe("dialog-hosted nested editor", () => {
     expect(countEditorNodes(firstInnerEditor, "callout")).toBe(calloutCountBeforeSlashInsert);
     expect(screen.getByRole("dialog", { name: "Nested content" })).toBeInTheDocument();
 
-    activateEditorTarget(firstInnerEditor, "grid", "inner-grid");
+    activateEditorTarget(firstInnerEditor, "grid", "innergrid001");
 
     expect(interactionOwnerPluginKey.getState(firstInnerEditor.state)?.explicitOwner).toMatchObject(
       {
-        id: "inner-grid",
+        id: "innergrid001",
         kind: "grid",
       },
     );
@@ -316,7 +317,7 @@ describe("dialog-hosted nested editor", () => {
     expect(within(gridBubble).getByRole("combobox", { name: "Grid cells" })).toBeInTheDocument();
     expect(workspace.contains(gridBubble)).toBe(true);
 
-    activateEditorTarget(firstInnerEditor, "cell", "inner-cell-a");
+    activateEditorTarget(firstInnerEditor, "cell", "innercell001");
     const cellOptions = await within(firstInnerFloatingRoot).findByRole("button", {
       name: "Cell options",
     });
@@ -325,7 +326,7 @@ describe("dialog-hosted nested editor", () => {
     expect(within(cellBubble).getByRole("button", { name: "Add column left" })).toBeInTheDocument();
     expect(within(cellBubble).getByRole("button", { name: "Delete cell" })).toBeInTheDocument();
 
-    activateEditorTarget(firstInnerEditor, "layout", "inner-layout");
+    activateEditorTarget(firstInnerEditor, "layout", "innerlayout1");
     const layoutOptions = await within(firstInnerFloatingRoot).findByRole("button", {
       name: "Layout options",
     });
@@ -336,7 +337,7 @@ describe("dialog-hosted nested editor", () => {
     ).toBeInTheDocument();
     expect(within(layoutBubble).getByRole("button", { name: "Delete layout" })).toBeInTheDocument();
 
-    activateEditorTarget(firstInnerEditor, "block", "inner-callout");
+    activateEditorTarget(firstInnerEditor, "block", "innercall001");
     const settingsLauncher = await waitForElement(workspace, '[aria-label="Open block settings"]');
     expect(settingsLauncher.closest('[role="toolbar"][aria-label="Block actions"]')).not.toBeNull();
     await userEvent.click(settingsLauncher);
@@ -357,7 +358,7 @@ describe("dialog-hosted nested editor", () => {
     await waitFor(() =>
       expect(screen.queryByRole("dialog", { name: "Callout settings" })).toBeNull(),
     );
-    expect(calloutVariant(outerEditor, "inner-callout")).toBe("warning");
+    expect(calloutVariant(outerEditor, "innercall001")).toBe("warning");
     await waitFor(() => expect(portalHost.closest('[aria-hidden="true"]')).toBeNull());
     act(() => {
       firstInnerEditor.commands.setTextSelection("Initial authority".length + 1);
@@ -397,7 +398,7 @@ describe("dialog-hosted nested editor", () => {
 
     const closingFloatingRoot = await waitForAuthoringFloatingRoot(firstInnerEditor);
     const closingEditorDom = firstInnerEditor.view.dom;
-    activateEditorTarget(firstInnerEditor, "block", "inner-callout");
+    activateEditorTarget(firstInnerEditor, "block", "innercall001");
     const reopenedSettingsLauncher = await waitForElement(
       workspace,
       '[aria-label="Open block settings"]',
@@ -449,7 +450,7 @@ describe("dialog-hosted nested editor", () => {
     expect(interactionOwnerPluginKey.getState(reopenedEditor.state)?.menuOwner).toBeNull();
     expect(interactionOwnerPluginKey.getState(reopenedEditor.state)?.settingsOwner).toBeNull();
     expect(isSlashCommandActive(reopenedEditor.state)).toBe(false);
-    expect(calloutVariant(outerEditor, "inner-callout")).toBe("warning");
+    expect(calloutVariant(outerEditor, "innercall001")).toBe("warning");
     expect(within(reopenedWorkspace).queryByRole("dialog")).toBeNull();
     expect(innerEditors.filter((editor) => !editor.isDestroyed)).toEqual([reopenedEditor]);
 
@@ -673,6 +674,7 @@ function makeFullChromeOuterEditor(): Editor {
   const editor = new Editor({
     extensions: [
       StarterKit.configure({ paragraph: false }),
+      createTestNodeIdentityExtension(),
       ExtendedParagraph,
       createRuntimeBlockFrameAttributesExtension(["callout"]),
       createScaffoldCapabilitiesStorageExtension(fullChromeCapabilities),
@@ -699,6 +701,7 @@ function makeFullChromeInnerExtensions(catalogItems: readonly InsertAction[]): E
   return [
     makeContentDocumentNode(),
     StarterKit.configure({ document: false, paragraph: false, undoRedo: false }),
+    createTestNodeIdentityExtension(),
     ExtendedParagraph,
     createRuntimeBlockFrameAttributesExtension(["callout"]),
     createScaffoldCapabilitiesStorageExtension(fullChromeCapabilities),
@@ -831,11 +834,11 @@ function fullChromeOuterDoc(): JSONContent {
           },
           {
             type: "grid",
-            attrs: { id: "inner-grid", columnWidths: [1, 1] },
+            attrs: { id: "innergrid001", columnWidths: [1, 1] },
             content: [
               {
                 type: "cell",
-                attrs: { id: "inner-cell-a", verticalPosition: "top" },
+                attrs: { id: "innercell001", verticalPosition: "top" },
                 content: [
                   {
                     type: "paragraph",
@@ -845,7 +848,7 @@ function fullChromeOuterDoc(): JSONContent {
               },
               {
                 type: "cell",
-                attrs: { id: "inner-cell-b", verticalPosition: "top" },
+                attrs: { id: "innercell002", verticalPosition: "top" },
                 content: [
                   {
                     type: "paragraph",
@@ -857,11 +860,11 @@ function fullChromeOuterDoc(): JSONContent {
           },
           {
             type: "layout",
-            attrs: { id: "inner-layout", variant: null, options: {} },
+            attrs: { id: "innerlayout1", variant: null, options: {} },
             content: [
               {
                 type: "section",
-                attrs: { id: "inner-section", verticalPosition: "top", options: {} },
+                attrs: { id: "innersect001", verticalPosition: "top", options: {} },
                 content: [
                   {
                     type: "paragraph",
@@ -871,7 +874,7 @@ function fullChromeOuterDoc(): JSONContent {
               },
             ],
           },
-          calloutContent("inner-callout"),
+          calloutContent("innercall001"),
         ],
       },
       {

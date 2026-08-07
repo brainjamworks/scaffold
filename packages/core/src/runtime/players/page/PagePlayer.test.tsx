@@ -8,6 +8,8 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { createAssessmentRuntimeTestRoot } from "@/runtime/assessment/test-utils";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
 import { PagePlayer } from "./PagePlayer";
 
@@ -55,9 +57,9 @@ function pageDocumentWithRuntimeHint(hintText = "The answer follows A."): JSONCo
     {
       type: "mcq",
       attrs: {
-        id: "mcq-page-runtime-popover",
+        id: "mcqPage00001",
         assessment: {
-          correctOptionId: "choice-b",
+          correctOptionId: "option000002",
           feedbackByOptionId: {},
           summaryFeedback: null,
         },
@@ -79,7 +81,7 @@ function pageDocumentWithRuntimeHint(hintText = "The answer follows A."): JSONCo
         },
         {
           type: "assessment_choices_group",
-          content: [selectableChoice("choice-a", "A"), selectableChoice("choice-b", "B")],
+          content: [selectableChoice("option000001", "A"), selectableChoice("option000002", "B")],
         },
         {
           type: "assessment_actions_group",
@@ -139,13 +141,15 @@ describe("PagePlayer", () => {
     const initialContent = pageDocumentWithText("Learner page content");
 
     render(
-      <PagePlayer
-        composition={runtimeComposition}
-        artifactId="artifact-page-player"
-        initialContent={initialContent}
-        surfaceId="surface-page-player"
-        onRendererReady={onRendererReady}
-      />,
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <PagePlayer
+          composition={runtimeComposition}
+          artifactId="artifact-page-player"
+          initialContent={initialContent}
+          surfaceId="pageplayer01"
+          onRendererReady={onRendererReady}
+        />
+      </CourseThemeProvider>,
     );
 
     await waitFor(() => expect(onRendererReady).toHaveBeenCalledTimes(1));
@@ -154,7 +158,7 @@ describe("PagePlayer", () => {
     expect(pagePlayer.getAttribute("data-runtime-player")).toBe("page");
     expect(pagePlayer.className).toBe("sc-page-player");
     expect(pagePlayer.querySelector(".sc-page-player__content")).not.toBeNull();
-    expect(pagePlayer.getAttribute("data-runtime-surface-id")).toBe("surface-page-player");
+    expect(pagePlayer.getAttribute("data-runtime-surface-id")).toBe("pageplayer01");
     expect(screen.getByTestId("course-document-runtime-renderer")).toBeInTheDocument();
     expect(screen.getByText("Learner page content")).toBeInTheDocument();
   });
@@ -163,13 +167,15 @@ describe("PagePlayer", () => {
     const onRendererReady = vi.fn();
 
     render(
-      <PagePlayer
-        composition={runtimeComposition}
-        artifactId="artifact-page-player"
-        initialContent={pageDocumentWithText("Plain learner content")}
-        surfaceId="surface-page-player"
-        onRendererReady={onRendererReady}
-      />,
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <PagePlayer
+          composition={runtimeComposition}
+          artifactId="artifact-page-player"
+          initialContent={pageDocumentWithText("Plain learner content")}
+          surfaceId="pageplayer01"
+          onRendererReady={onRendererReady}
+        />
+      </CourseThemeProvider>,
     );
 
     await waitFor(() => expect(onRendererReady).toHaveBeenCalledTimes(1));
@@ -209,7 +215,7 @@ describe("PagePlayer", () => {
             composition={runtimeComposition}
             artifactId="artifact-page-runtime-popover"
             initialContent={pageDocumentWithRuntimeHint()}
-            surfaceId="surface-page-player"
+            surfaceId="pageplayer01"
           />
         ),
       }),
@@ -222,8 +228,8 @@ describe("PagePlayer", () => {
 
     await waitFor(() => {
       expect(
-        ownerDocument.querySelector(".sc-assessment-hint-popover--runtime") ??
-          document.querySelector(".sc-assessment-hint-popover--runtime"),
+        ownerDocument.querySelector(".sc-course-assessment-hint-popover--runtime") ??
+          document.querySelector(".sc-course-assessment-hint-popover--runtime"),
       ).not.toBeNull();
     });
 
@@ -238,7 +244,7 @@ describe("PagePlayer", () => {
     expect(host?.style.pointerEvents).toBe("none");
 
     const popover = ownerDocument.querySelector<HTMLElement>(
-      ".sc-assessment-hint-popover--runtime",
+      ".sc-course-assessment-hint-popover--runtime",
     );
     expect(popover).toBeInstanceOf(OwnerHTMLElement);
     expect(host?.contains(popover)).toBe(true);

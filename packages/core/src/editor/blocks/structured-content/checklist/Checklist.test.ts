@@ -69,23 +69,23 @@ function checklistFixture(): JSONContent {
       {
         type: CHECKLIST_NODE,
         attrs: {
-          id: "checklist-delete-fixture",
+          id: "check0000001",
           data: emptyChecklistData(),
         },
         content: [
           {
             type: CHECKLIST_ITEM_NODE,
-            attrs: { id: "checklist-item-one" },
+            attrs: { id: "item00000001" },
             content: checklistItemContent("First checklist item"),
           },
           {
             type: CHECKLIST_ITEM_NODE,
-            attrs: { id: "checklist-item-two" },
+            attrs: { id: "item00000002" },
             content: checklistItemContent("Second checklist item"),
           },
           {
             type: CHECKLIST_ITEM_NODE,
-            attrs: { id: "checklist-item-three" },
+            attrs: { id: "item00000003" },
             content: checklistItemContent("Third checklist item"),
           },
         ],
@@ -127,8 +127,8 @@ it("renders an item-shaped add checklist affordance", async () => {
   const fixture = renderChecklistEditor();
   const add = await screen.findByRole("button", { name: "Add item" });
 
-  expect(add.classList.contains("sc-ghost-add--item")).toBe(true);
-  expect(add.querySelector(".sc-checklist-item__checkbox--ghost")).not.toBeNull();
+  expect(add.classList.contains("sc-app-checklist-add")).toBe(true);
+  expect(add.querySelector(".sc-app-checklist-add__checkbox")).not.toBeNull();
   fixture.destroy();
 });
 
@@ -177,7 +177,7 @@ function renderChecklistRuntimeEditor({
               snapshotVersion: SCAFFOLD_LEARNER_ACTIVITY_SNAPSHOT_VERSION,
               artifactId: "checklist-artifact",
               activities: {
-                "checklist-delete-fixture": {
+                check0000001: {
                   activityKind: "checklist",
                   data: { checked: {} },
                   completed: false,
@@ -216,7 +216,7 @@ it("deletes the requested checklist item from a disposable editor fixture", asyn
   expect(fixture.editor.state.doc.textContent).toContain("Keep after checklist");
   expect(fixture.editor.state.doc.textContent).toContain("First checklist item");
   expect(fixture.editor.state.doc.textContent).toContain("Third checklist item");
-  expect(itemIds).toEqual(["checklist-item-one", "checklist-item-three"]);
+  expect(itemIds).toEqual(["item00000001", "item00000003"]);
 
   fixture.destroy();
 });
@@ -248,7 +248,7 @@ it("emits accepted checklist item details through one learner-activity save", as
   await waitFor(() => expect(accept).toHaveBeenCalledTimes(2));
 
   expect(save.mock.calls[0]?.[0].record).toMatchObject({
-    data: { checked: { "checklist-item-one": true } },
+    data: { checked: { item00000001: true } },
     completed: false,
   });
   expect(accept.mock.calls[1]?.[0]).toMatchObject({
@@ -257,7 +257,7 @@ it("emits accepted checklist item details through one learner-activity save", as
       extensions: {
         [LEARNING_EVENT_EXTENSIONS.learnerActivityEvent]: {
           action: "item-toggled",
-          itemId: "checklist-item-one",
+          itemId: "item00000001",
           checked: true,
           completedCount: 1,
           total: 3,

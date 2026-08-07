@@ -9,6 +9,8 @@ import { slideModuleCoverSurfaceDefinition } from "@/editor/surfaces/model/templ
 import { AssessmentRuntimeProvider } from "@/runtime/assessment/AssessmentRuntimeProvider";
 import { SlideshowPlayer } from "@/runtime/players/slideshow/SlideshowPlayer";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import "@/styles/globals.css";
 
 import { expandSlideCompositionCases } from "./slide-composition-cases";
@@ -155,14 +157,16 @@ describe("slideshow player geometry", () => {
     `;
     document.head.append(adapterStyle);
     root.render(
-      <SlideshowPlayer
-        composition={runtimeComposition}
-        initialContent={initialContent}
-        surfaceIds={[surfaceId]}
-        onRendererReady={(readyEditor) => {
-          editor = readyEditor;
-        }}
-      />,
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <SlideshowPlayer
+          composition={runtimeComposition}
+          initialContent={initialContent}
+          surfaceIds={[surfaceId]}
+          onRendererReady={(readyEditor) => {
+            editor = readyEditor;
+          }}
+        />
+      </CourseThemeProvider>,
     );
 
     await waitForCondition(() => editor !== null && host?.querySelector(".sc-slideshow-player"));
@@ -219,21 +223,27 @@ describe("slideshow player geometry", () => {
     document.body.append(host);
     root = createRoot(host);
     root.render(
-      <SlideshowPlayer
-        composition={runtimeComposition}
-        initialContent={initialContent}
-        surfaceIds={[COMPOSITION_TEST_SURFACE_ID]}
-        onRendererReady={(readyEditor) => {
-          editor = readyEditor;
-        }}
-      />,
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <SlideshowPlayer
+          composition={runtimeComposition}
+          initialContent={initialContent}
+          surfaceIds={[COMPOSITION_TEST_SURFACE_ID]}
+          onRendererReady={(readyEditor) => {
+            editor = readyEditor;
+          }}
+        />
+      </CourseThemeProvider>,
     );
 
     await waitForCondition(() => editor !== null && host?.querySelector(".sc-slideshow-player"));
+    const courseRoot = uniqueElement<HTMLElement>(host, ".sc-course");
     const player = uniqueElement<HTMLElement>(host, ".sc-slideshow-player");
     const viewport = uniqueElement<HTMLElement>(player, ".sc-slideshow-player__viewport");
     const runtimeEditor = requireEditor(editor);
     const initialDocument = runtimeEditor.getJSON();
+    courseRoot.style.width = "100%";
+    courseRoot.style.height = "100%";
+    courseRoot.style.minHeight = "0";
     player.style.width = "100%";
     player.style.height = "100%";
     player.style.minHeight = "0";
@@ -307,15 +317,17 @@ describe("slideshow player geometry", () => {
     document.body.append(host);
     root = createRoot(host);
     root.render(
-      <SlideshowPlayer
-        composition={runtimeComposition}
-        initialContent={initialContent}
-        surfaceIds={[COMPOSITION_TEST_SURFACE_ID]}
-        sizing="embedded"
-        onRendererReady={(readyEditor) => {
-          editor = readyEditor;
-        }}
-      />,
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <SlideshowPlayer
+          composition={runtimeComposition}
+          initialContent={initialContent}
+          surfaceIds={[COMPOSITION_TEST_SURFACE_ID]}
+          sizing="embedded"
+          onRendererReady={(readyEditor) => {
+            editor = readyEditor;
+          }}
+        />
+      </CourseThemeProvider>,
     );
 
     await waitForCondition(() => editor !== null && host?.querySelector(".sc-slideshow-player"));
@@ -387,24 +399,30 @@ describe("slideshow player geometry", () => {
     document.body.append(host);
     root = createRoot(host);
     root.render(
-      <ScaffoldArtifactIdentityProvider artifactId="artifact-slideshow-overlay-geometry">
-        <AssessmentRuntimeProvider>
-          <SlideshowPlayer
-            composition={runtimeComposition}
-            artifactId="artifact-slideshow-overlay-geometry"
-            initialContent={initialContent}
-            surfaceIds={[OVERLAY_SURFACE_ID]}
-            onRendererReady={(readyEditor) => {
-              editor = readyEditor;
-            }}
-          />
-        </AssessmentRuntimeProvider>
-      </ScaffoldArtifactIdentityProvider>,
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <ScaffoldArtifactIdentityProvider artifactId="artifact-slideshow-overlay-geometry">
+          <AssessmentRuntimeProvider>
+            <SlideshowPlayer
+              composition={runtimeComposition}
+              artifactId="artifact-slideshow-overlay-geometry"
+              initialContent={initialContent}
+              surfaceIds={[OVERLAY_SURFACE_ID]}
+              onRendererReady={(readyEditor) => {
+                editor = readyEditor;
+              }}
+            />
+          </AssessmentRuntimeProvider>
+        </ScaffoldArtifactIdentityProvider>
+      </CourseThemeProvider>,
     );
 
     await waitForCondition(() => editor !== null && host?.querySelector(".sc-slideshow-player"));
+    const courseRoot = uniqueElement<HTMLElement>(host, ".sc-course");
     const player = uniqueElement<HTMLElement>(host, ".sc-slideshow-player");
     const viewport = uniqueElement<HTMLElement>(player, ".sc-slideshow-player__viewport");
+    courseRoot.style.width = "100%";
+    courseRoot.style.height = "100%";
+    courseRoot.style.minHeight = "0";
     player.style.width = "100%";
     player.style.height = "100%";
     player.style.minHeight = "0";
@@ -422,8 +440,13 @@ describe("slideshow player geometry", () => {
       expect(canvas.contains(normalHost)).toBe(false);
 
       runtimeHintTrigger(player).click();
-      await waitForCondition(() => document.querySelector(".sc-assessment-hint-popover--runtime"));
-      let popover = uniqueElement<HTMLElement>(document, ".sc-assessment-hint-popover--runtime");
+      await waitForCondition(() =>
+        document.querySelector(".sc-course-assessment-hint-popover--runtime"),
+      );
+      let popover = uniqueElement<HTMLElement>(
+        document,
+        ".sc-course-assessment-hint-popover--runtime",
+      );
       expect(normalHost.contains(popover)).toBe(true);
       expectSlideshowShellUnchanged(measureSlideshowShell(player), baseline);
 
@@ -465,7 +488,7 @@ describe("slideshow player geometry", () => {
         new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Escape" }),
       );
       await waitForCondition(
-        () => document.querySelector(".sc-assessment-hint-popover--runtime") === null,
+        () => document.querySelector(".sc-course-assessment-hint-popover--runtime") === null,
       );
       expectSlideshowShellUnchanged(measureSlideshowShell(player), baseline);
     }
@@ -521,9 +544,9 @@ function slideshowDocumentWithRuntimeHint(): JSONContent {
     {
       type: "mcq",
       attrs: {
-        id: "mcq-slideshow-overlay-geometry",
+        id: "mcqslide001",
         assessment: {
-          correctOptionId: "choice-b",
+          correctOptionId: "choice000002",
           feedbackByOptionId: {},
           summaryFeedback: null,
         },
@@ -545,7 +568,7 @@ function slideshowDocumentWithRuntimeHint(): JSONContent {
         },
         {
           type: "assessment_choices_group",
-          content: [selectableChoice("choice-a", "A"), selectableChoice("choice-b", "B")],
+          content: [selectableChoice("choice000001", "A"), selectableChoice("choice000002", "B")],
         },
         {
           type: "assessment_actions_group",
@@ -599,7 +622,9 @@ async function ensureRuntimeHintOpen(
   expectedHost: HTMLElement,
 ): Promise<HTMLElement> {
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-  const current = expectedHost.querySelector<HTMLElement>(".sc-assessment-hint-popover--runtime");
+  const current = expectedHost.querySelector<HTMLElement>(
+    ".sc-course-assessment-hint-popover--runtime",
+  );
   if (current !== null) return current;
 
   const hideTrigger = Array.from(rootNode.querySelectorAll("button")).find((candidate) =>
@@ -617,8 +642,10 @@ async function ensureRuntimeHintOpen(
   }
 
   runtimeHintTrigger(rootNode).click();
-  await waitForCondition(() => expectedHost.querySelector(".sc-assessment-hint-popover--runtime"));
-  return uniqueElement<HTMLElement>(expectedHost, ".sc-assessment-hint-popover--runtime");
+  await waitForCondition(() =>
+    expectedHost.querySelector(".sc-course-assessment-hint-popover--runtime"),
+  );
+  return uniqueElement<HTMLElement>(expectedHost, ".sc-course-assessment-hint-popover--runtime");
 }
 
 function buttonByName(rootNode: ParentNode, name: string): HTMLButtonElement {
@@ -712,16 +739,27 @@ async function waitForPlayerBounds(
   viewport: HTMLElement,
   bounds: (typeof PLAYER_BOUNDS)[number],
 ): Promise<void> {
-  await waitForCondition(() => {
+  try {
+    await waitForCondition(() => {
+      const viewportRect = viewport.getBoundingClientRect();
+      const stage = player.querySelector<HTMLElement>(".sc-slideshow-player__stage");
+      return (
+        Math.abs(viewportRect.width - bounds.hostWidth) < 0.01 &&
+        Math.abs(viewportRect.height - bounds.hostHeight) < 0.01 &&
+        stage?.style.width === `${bounds.stageWidth}px` &&
+        stage.style.height === `${bounds.stageHeight}px`
+      );
+    });
+  } catch (error) {
     const viewportRect = viewport.getBoundingClientRect();
     const stage = player.querySelector<HTMLElement>(".sc-slideshow-player__stage");
-    return (
-      Math.abs(viewportRect.width - bounds.hostWidth) < 0.01 &&
-      Math.abs(viewportRect.height - bounds.hostHeight) < 0.01 &&
-      stage?.style.width === `${bounds.stageWidth}px` &&
-      stage.style.height === `${bounds.stageHeight}px`
+    throw new Error(
+      `Timed out waiting for ${bounds.name} player bounds: ` +
+        `viewport=${viewportRect.width}x${viewportRect.height}, ` +
+        `stage=${stage?.style.width || "unset"}x${stage?.style.height || "unset"}.`,
+      { cause: error },
     );
-  });
+  }
 }
 
 async function waitForEmbeddedPlayerBounds(

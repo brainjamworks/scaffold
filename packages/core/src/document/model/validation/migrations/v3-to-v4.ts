@@ -250,7 +250,10 @@ export const v3ToV4CourseDocumentMigration = defineCourseDocumentMigration({
       throw new Error("courseDocument.attrs do not match the v4 courseDocument format");
     }
 
-    courseDocument.node.attrs = migrated.data;
+    courseDocument.node.attrs = {
+      ...migrated.data,
+      id: migratedCourseDocumentAttrs?.["id"],
+    };
     return document;
   },
 });

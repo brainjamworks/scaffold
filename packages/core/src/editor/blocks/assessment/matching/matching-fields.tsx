@@ -97,8 +97,8 @@ export const MatchingPairNode = createMatchingPairNode({
 function MatchingPairNodeView(props: NodeViewProps) {
   const presentationRef = useRef<HTMLDivElement | null>(null);
   const pos = safeGetPos(props.getPos);
-  const itemId = String(props.node.attrs["itemId"] ?? "");
-  const targetId = String(props.node.attrs["targetId"] ?? "");
+  const itemId = String(props.node.firstChild?.attrs["id"] ?? "");
+  const targetId = String(props.node.lastChild?.attrs["id"] ?? "");
   const popoverId = useId();
   const richTextPluginKey = useMemo(
     () => `matching-item-feedback-rich-text-${popoverId.replace(/[^A-Za-z0-9_-]/g, "")}`,

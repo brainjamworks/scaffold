@@ -41,6 +41,7 @@ import {
 } from "../model/movement-intents";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { createTestNodeIdentityExtension } from "@/editor/testing/node-identity";
 import {
   ContainedMovementTarget,
   createMovementTarget,
@@ -609,6 +610,7 @@ function makeEditor(content: JSONContent[]) {
         paragraph: false,
         undoRedo: false,
       }),
+      createTestNodeIdentityExtension(),
       ExtendedParagraph,
       CourseDocumentNode,
       createCourseSectionNode(),

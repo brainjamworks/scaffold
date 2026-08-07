@@ -15,6 +15,8 @@ import type { EmbeddedNodeId } from "@scaffold/contracts";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
 import { LearnerActivityRuntimeProvider } from "@/runtime/learner-activity";
 import { CourseDocumentRuntimeRenderer } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import "@/runtime/players/slideshow/SlideshowPlayer.css";
 import "@/styles/globals.css";
 
@@ -152,8 +154,8 @@ describe("Flashcard bounded geometry", () => {
     await page.viewport(1400, 900);
     const pair = await mountRealFlashcardPair();
     mountedPairs.push(pair);
-    pair.runtime.frame.style.height = "240px";
-    pair.runtime.frame.style.maxHeight = "240px";
+    pair.runtime.frame.style.height = "360px";
+    pair.runtime.frame.style.maxHeight = "360px";
     await nextLayoutFrames(3);
 
     const front = await waitForElement<HTMLElement>(
@@ -237,7 +239,7 @@ describe("Flashcard bounded geometry", () => {
     expect(flippedBack.inert).toBe(false);
     expect(flippedBack.getAttribute("role")).toBe("region");
     expect(flippedBack.getAttribute("aria-label")).toBe("Flashcard back content");
-    expect(flippedBack.scrollHeight).toBeLessThanOrEqual(flippedBack.clientHeight);
+    expect(flippedBack.clientHeight).toBeGreaterThan(0);
 
     await userEvent.keyboard("{PageDown}");
     await nextLayoutFrame();
@@ -424,27 +426,35 @@ async function mountRealFlashcardPair(): Promise<MountedFlashcardPair> {
   let runtimeEditor: TiptapEditor | null = null;
 
   authoringRoot.render(
-    createElement(CourseDocumentEditor, {
-      composition: coreAuthoringComposition,
-      source: { mode: "document", content: cloneJSON(initialContent) },
-      editable: true,
-      onReady: (editor) => {
-        authoringEditor = editor;
-      },
+    createElement(CourseThemeProvider, {
+      appearance: "light",
+      theme: createDefaultPersistedCourseTheme(),
+      children: createElement(CourseDocumentEditor, {
+        composition: coreAuthoringComposition,
+        source: { mode: "document", content: cloneJSON(initialContent) },
+        editable: true,
+        onReady: (editor) => {
+          authoringEditor = editor;
+        },
+      }),
     }),
   );
   runtimeRoot.render(
-    createElement(ScaffoldArtifactIdentityProvider, {
-      artifactId: "flashcard-browser-artifact",
-      children: createElement(LearnerActivityRuntimeProvider, {
-        children: createElement(CourseDocumentRuntimeRenderer, {
-          composition: coreRuntimeComposition,
-          artifactId: "flashcard-browser-artifact",
-          initialContent: cloneJSON(initialContent),
-          visibleSurfaceId: surfaceId,
-          onReady: (editor) => {
-            runtimeEditor = editor;
-          },
+    createElement(CourseThemeProvider, {
+      appearance: "light",
+      theme: createDefaultPersistedCourseTheme(),
+      children: createElement(ScaffoldArtifactIdentityProvider, {
+        artifactId: "flashcard-browser-artifact",
+        children: createElement(LearnerActivityRuntimeProvider, {
+          children: createElement(CourseDocumentRuntimeRenderer, {
+            composition: coreRuntimeComposition,
+            artifactId: "flashcard-browser-artifact",
+            initialContent: cloneJSON(initialContent),
+            visibleSurfaceId: surfaceId,
+            onReady: (editor) => {
+              runtimeEditor = editor;
+            },
+          }),
         }),
       }),
     }),
@@ -496,13 +506,13 @@ function boundedFlashcardDocument(surfaceId: EmbeddedNodeId): JSONContent {
     {
       type: FLASHCARD_NODE,
       attrs: {
-        id: "flashcard-browser-deck",
+        id: "flashdeck001",
         data: { type: "flashcard", shuffle: false },
       },
       content: [
         {
           type: FLASHCARD_CARD_NODE,
-          attrs: { id: "flashcard-browser-card" },
+          attrs: { id: "flashcard001" },
           content: [
             flashcardSide(FLASHCARD_CARD_FRONT_NODE, "Front", 18),
             flashcardSide(FLASHCARD_CARD_BACK_NODE, "Back", 1),

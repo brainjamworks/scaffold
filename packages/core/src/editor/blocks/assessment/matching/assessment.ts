@@ -150,8 +150,8 @@ function projectMatchingProjectionFromGroup(
     const itemLabel = textBetween(item).trim();
     const targetLabel = textBetween(target).trim();
     return {
-      itemId: readStringAttr(pair, "itemId"),
-      targetId: readStringAttr(pair, "targetId"),
+      itemId: readStringAttr(item, "id"),
+      targetId: readStringAttr(target, "id"),
       ...(itemLabel ? { itemLabel } : {}),
       ...(targetLabel ? { targetLabel } : {}),
       node: pair,

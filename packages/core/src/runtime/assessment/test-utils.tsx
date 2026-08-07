@@ -14,6 +14,8 @@ import type {
 } from "@/host/ports";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import { AssessmentRuntimeProvider, useAssessmentStoreApi } from "./AssessmentRuntimeProvider";
 import type { AssessmentStoreApi } from "./types";
 import { scopeAssessmentProblemId } from "./assessment-store";
@@ -40,7 +42,11 @@ export function createAssessmentRuntimeTestRoot({
         AssessmentRuntimeProvider,
         initialSnapshot === undefined ? null : { initialSnapshot },
         onStore ? createElement(AssessmentStoreCapture, { onStore }) : null,
-        children,
+        createElement(CourseThemeProvider, {
+          appearance: "light",
+          theme: createDefaultPersistedCourseTheme(),
+          children,
+        }),
       ),
     }),
   );

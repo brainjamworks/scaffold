@@ -5,6 +5,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { userEvent } from "vite-plus/test/browser/context";
 
 import { FieldRenderer } from "@/editor/shell/settings/controls/FieldRenderer";
+import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
 import "@/styles/globals.css";
 import "@/editor/shell/authoring/ScaffoldAuthoringApp.css";
 
@@ -60,13 +61,11 @@ describe("card select browser interactions", () => {
 
   it("uses the application interaction palette for a selected card in dark mode", async () => {
     const rendered = await renderBrowserReact(
-      <div
-        className="sc-scaffold-authoring-app"
-        data-scaffold-color-mode="dark"
-        style={{ colorScheme: "dark" }}
-      >
-        <CardSelectHarness onChange={() => undefined} />
-      </div>,
+      <AppThemeProvider appearance="dark">
+        <div className="sc-scaffold-authoring-app">
+          <CardSelectHarness onChange={() => undefined} />
+        </div>
+      </AppThemeProvider>,
     );
 
     try {

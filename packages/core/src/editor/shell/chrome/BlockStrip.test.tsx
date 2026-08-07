@@ -86,19 +86,20 @@ function boundedRegionDocument(): JSONContent {
           {
             type: "surface",
             attrs: {
-              id: "surface-block-strip-fill",
+              id: "surface00001",
               variant: "slide-content",
               settings: { slideTitle: { enabled: false } },
             },
             content: [
-              { type: "slide_title" },
+              { type: "slide_title", attrs: { id: "slidetitle01" } },
               {
                 type: "region",
-                attrs: { id: "region-block-strip-fill", role: "main" },
+                attrs: { id: "region000001", role: "main" },
                 content: [
-                  { type: "paragraph" },
+                  { type: "paragraph", attrs: { id: "paragraph001" } },
                   {
                     type: "paragraph",
+                    attrs: { id: "paragraph002" },
                     content: [{ type: "text", text: "Existing region content" }],
                   },
                 ],
@@ -120,6 +121,7 @@ function authoredBoundedRegionDocument(): JSONContent {
   region.content = [
     {
       type: "paragraph",
+      attrs: { id: "paragraph003" },
       content: [{ type: "text", text: "Authored region content" }],
     },
   ];
@@ -132,7 +134,7 @@ function emptyBoundedRegionDocument(): JSONContent {
     (node) => node.type === "region",
   );
   if (!region) throw new Error("Expected a bounded region.");
-  region.content = [{ type: "paragraph" }];
+  region.content = [{ type: "paragraph", attrs: { id: "paragraph004" } }];
   return document;
 }
 

@@ -54,6 +54,7 @@ import { isGridCellChromeActive, resolveGridChromeState } from "../authoring/gri
 import { gridCellPositionAt } from "../authoring/grid-menu-target";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { createTestNodeIdentityExtension } from "@/editor/testing/node-identity";
 
 const TEST_INNER_BLOCK = "grid_selection_test_block";
 
@@ -101,6 +102,7 @@ function makeEditor() {
   return new Editor({
     extensions: [
       StarterKit.configure({ undoRedo: false, paragraph: false }),
+      createTestNodeIdentityExtension(),
       ExtendedParagraph,
       GridAuthoringNode,
       CellAuthoringNode,
@@ -164,6 +166,7 @@ function makeCourseEditorWithSurfaceContent(content: JSONContent[], editable = t
         paragraph: false,
         undoRedo: false,
       }),
+      createTestNodeIdentityExtension(),
       ExtendedParagraph,
       CourseDocumentNode,
       createCourseSectionNode(),
@@ -276,6 +279,7 @@ function makeRuntimeCourseEditorWithSurfaceContent(content: JSONContent[]) {
         paragraph: false,
         undoRedo: false,
       }),
+      createTestNodeIdentityExtension(),
       ExtendedParagraph,
       CourseDocumentNode,
       createCourseSectionNode(),

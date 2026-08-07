@@ -75,7 +75,7 @@ describe("authoring publication document projection", () => {
       content: [
         {
           type: "surface",
-          attrs: { id: "theme-surface", variant: "page-default" },
+          attrs: { id: "surface00001", variant: "page-default" },
           content: [{ type: "paragraph" }],
         },
       ],
@@ -117,19 +117,19 @@ describe("authoring publication document projection", () => {
           projection: {
             projectInteraction: () => ({
               kind: "single-select",
-              options: [{ id: "registered-option", label: "Registered option" }],
+              options: [{ id: "option000001", label: "Registered option" }],
             }),
             projectAssessment: () => ({
               kind: "single-select",
-              correctOptionId: "registered-option",
+              correctOptionId: "option000001",
               feedbackByOptionId: {
-                "registered-option": richFeedback("Capability feedback"),
+                option000001: richFeedback("Capability feedback"),
               },
             }),
             projectLearnerNode: (node) => ({
               ...node,
               attrs: {
-                id: "registered-block",
+                id: "assess000001",
                 projectedBy: "capability",
               },
               content: [{ type: "paragraph" }],
@@ -144,12 +144,12 @@ describe("authoring publication document projection", () => {
       content: [
         {
           type: "surface",
-          attrs: { id: "registry-surface", variant: "page-default" },
+          attrs: { id: "surface00002", variant: "page-default" },
           content: [
             {
               type: "registry_owned_projection_assessment",
               attrs: {
-                id: "registered-block",
+                id: "assess000001",
                 privateAnswer: "do-not-leak",
                 settings: {},
               },
@@ -162,7 +162,7 @@ describe("authoring publication document projection", () => {
             },
             {
               type: "registry_owned_projection_unknown",
-              attrs: { id: "unknown-node" },
+              attrs: { id: "unknwn000001" },
             },
           ],
         },
@@ -177,18 +177,18 @@ describe("authoring publication document projection", () => {
     expect(projection.targets).toEqual([
       {
         schemaVersion: 2,
-        targetId: "registered-block",
+        targetId: "assess000001",
         blockType: "registry_owned_projection_assessment",
-        blockId: "registered-block",
+        blockId: "assess000001",
         interaction: {
           kind: "single-select",
-          options: [{ id: "registered-option", label: "Registered option" }],
+          options: [{ id: "option000001", label: "Registered option" }],
         },
         assessment: {
           kind: "single-select",
-          correctOptionId: "registered-option",
+          correctOptionId: "option000001",
           feedbackByOptionId: {
-            "registered-option": richFeedback("Capability feedback"),
+            option000001: richFeedback("Capability feedback"),
           },
         },
         settings: {
@@ -203,7 +203,7 @@ describe("authoring publication document projection", () => {
     expect(
       attrsOf(firstDescendant(projection.learnerDocument, "registry_owned_projection_assessment")),
     ).toEqual({
-      id: "registered-block",
+      id: "assess000001",
       projectedBy: "capability",
     });
     expect(projection.warnings).toEqual([]);
@@ -220,11 +220,11 @@ describe("authoring publication document projection", () => {
       content: [
         {
           type: "surface",
-          attrs: { id: "surface-unknown", variant: "page-default" },
+          attrs: { id: "surface00003", variant: "page-default" },
           content: [
             {
               type: "unknown_non_assessment_node",
-              attrs: { id: "unknown-1", privateAnswer: "not-assessment" },
+              attrs: { id: "unknown00001", privateAnswer: "not-assessment" },
             },
           ],
         },
@@ -245,11 +245,11 @@ describe("authoring publication document projection", () => {
       content: [
         {
           type: "surface",
-          attrs: { id: "surface-empty-quiz", variant: "page-default" },
+          attrs: { id: "surface00004", variant: "page-default" },
           content: [
             {
               type: "quiz",
-              attrs: { id: "quiz-empty", settings: {} },
+              attrs: { id: "quiz00000001", settings: {} },
             },
           ],
         },
@@ -261,8 +261,8 @@ describe("authoring publication document projection", () => {
     expect(projection.warnings).toContainEqual({
       code: "empty-assessment-group",
       blockType: "quiz",
-      blockId: "quiz-empty",
-      surfaceId: "surface-empty-quiz",
+      blockId: "quiz00000001",
+      surfaceId: "surface00004",
       message: "Quiz has no playable assessment targets; projection omitted its assessment group.",
     });
   });
@@ -273,12 +273,12 @@ describe("authoring publication document projection", () => {
       content: [
         {
           type: "surface",
-          attrs: { id: "surface-quiz", variant: "page-default" },
+          attrs: { id: "surface00005", variant: "page-default" },
           content: [
             {
               type: "quiz",
               attrs: {
-                id: "quiz-1",
+                id: "quiz00000002",
                 settings: {
                   allowBacktracking: false,
                   reviewTiming: "after_each_answer",
@@ -287,7 +287,10 @@ describe("authoring publication document projection", () => {
                   passingScore: 0.8,
                 },
               },
-              content: [mcqBlock("mcq-quiz-1", "a"), mcqBlock("mcq-quiz-2", "b")],
+              content: [
+                mcqBlock("mcqQuiz00001", "option000001"),
+                mcqBlock("mcqQuiz00002", "option000002"),
+              ],
             },
           ],
         },
@@ -295,15 +298,15 @@ describe("authoring publication document projection", () => {
     });
 
     expect(projection.targets.map((target) => target.targetId)).toEqual([
-      "mcq-quiz-1",
-      "mcq-quiz-2",
+      "mcqQuiz00001",
+      "mcqQuiz00002",
     ]);
     expect(projection.groups).toEqual([
       {
         schemaVersion: 2,
         kind: "quiz",
-        groupId: "quiz-1",
-        targetIds: ["mcq-quiz-1", "mcq-quiz-2"],
+        groupId: "quiz00000002",
+        targetIds: ["mcqQuiz00001", "mcqQuiz00002"],
         settings: {
           allowBacktracking: false,
           reviewTiming: "after_each_answer",
@@ -329,12 +332,15 @@ describe("authoring publication document projection", () => {
       content: [
         {
           type: "surface",
-          attrs: { id: "surface-duplicate-quiz", variant: "page-default" },
+          attrs: { id: "surface00006", variant: "page-default" },
           content: [
             {
               type: "quiz",
-              attrs: { id: "quiz-duplicate", settings: {} },
-              content: [mcqBlock("duplicate-target", "a"), mcqBlock("duplicate-target", "b")],
+              attrs: { id: "quiz00000003", settings: {} },
+              content: [
+                mcqBlock("duplTarget01", "option000001"),
+                mcqBlock("duplTarget01", "option000002"),
+              ],
             },
           ],
         },
@@ -345,8 +351,8 @@ describe("authoring publication document projection", () => {
     expect(projection.warnings).toContainEqual({
       code: "invalid-assessment-group",
       blockType: "quiz",
-      blockId: "quiz-duplicate",
-      surfaceId: "surface-duplicate-quiz",
+      blockId: "quiz00000003",
+      surfaceId: "surface00006",
       message:
         "Quiz contains children without projected assessment targets; projection omitted its assessment group.",
     });
@@ -358,16 +364,16 @@ describe("authoring publication document projection", () => {
       content: [
         {
           type: "surface",
-          attrs: { id: "surface-malformed-quiz", variant: "page-default" },
+          attrs: { id: "surface00007", variant: "page-default" },
           content: [
             {
               type: "quiz",
-              attrs: { id: "quiz-malformed", settings: {} },
+              attrs: { id: "quiz00000004", settings: {} },
               content: [
-                mcqBlock("mcq-valid-child", "a"),
+                mcqBlock("mcqValid0001", "option000001"),
                 {
                   type: "unknown_child",
-                  attrs: { id: "missing-target-child" },
+                  attrs: { id: "assess000004" },
                 },
               ],
             },
@@ -376,13 +382,13 @@ describe("authoring publication document projection", () => {
       ],
     });
 
-    expect(projection.targets.map((target) => target.targetId)).toEqual(["mcq-valid-child"]);
+    expect(projection.targets.map((target) => target.targetId)).toEqual(["mcqValid0001"]);
     expect(projection.groups).toEqual([]);
     expect(projection.warnings).toContainEqual({
       code: "invalid-assessment-group",
       blockType: "quiz",
-      blockId: "quiz-malformed",
-      surfaceId: "surface-malformed-quiz",
+      blockId: "quiz00000004",
+      surfaceId: "surface00007",
       message:
         "Quiz contains children without projected assessment targets; projection omitted its assessment group.",
     });
@@ -394,16 +400,16 @@ describe("authoring publication document projection", () => {
       content: [
         {
           type: "surface",
-          attrs: { id: "surface-idless-quiz", variant: "page-default" },
+          attrs: { id: "surface00008", variant: "page-default" },
           content: [
             {
               type: "quiz",
-              attrs: { id: "quiz-idless-child", settings: {} },
+              attrs: { id: "quiz00000005", settings: {} },
               content: [
                 {
-                  ...mcqBlock("mcq-idless-child", "a"),
+                  ...mcqBlock("mcqIdless001", "option000001"),
                   attrs: {
-                    ...mcqBlock("mcq-idless-child", "a").attrs,
+                    ...mcqBlock("mcqIdless001", "option000001").attrs,
                     id: "",
                   },
                 },
@@ -420,15 +426,15 @@ describe("authoring publication document projection", () => {
       code: "missing-block-id",
       blockType: "mcq",
       blockId: null,
-      surfaceId: "surface-idless-quiz",
+      surfaceId: "surface00008",
       message:
         "Assessment block has no id; projection omitted its target because server storage cannot address it stably.",
     });
     expect(projection.warnings).toContainEqual({
       code: "empty-assessment-group",
       blockType: "quiz",
-      blockId: "quiz-idless-child",
-      surfaceId: "surface-idless-quiz",
+      blockId: "quiz00000005",
+      surfaceId: "surface00008",
       message: "Quiz has no playable assessment targets; projection omitted its assessment group.",
     });
   });
@@ -461,13 +467,13 @@ describe("authoring publication document projection", () => {
             {
               type: "surface",
               attrs: {
-                id: "missing-projection-surface",
+                id: "surface00009",
                 variant: "page-default",
               },
               content: [
                 {
                   type: "missing_projection_assessment",
-                  attrs: { id: "missing-projection-block" },
+                  attrs: { id: "assess000005" },
                 },
               ],
             },
@@ -518,13 +524,13 @@ describe("authoring publication document projection", () => {
             {
               type: "surface",
               attrs: {
-                id: "missing-settings-contract-surface",
+                id: "surface00010",
                 variant: "page-default",
               },
               content: [
                 {
                   type: "missing_settings_contract_assessment",
-                  attrs: { id: "missing-settings-contract-block" },
+                  attrs: { id: "assess000006" },
                 },
               ],
             },
@@ -584,13 +590,13 @@ describe("authoring publication document projection", () => {
             {
               type: "surface",
               attrs: {
-                id: "invalid-contract-surface",
+                id: "surface00011",
                 variant: "page-default",
               },
               content: [
                 {
                   type: "invalid_contract_projection_assessment",
-                  attrs: { id: "invalid-contract-block" },
+                  attrs: { id: "assess000007" },
                 },
               ],
             },
@@ -615,12 +621,12 @@ describe("authoring publication document projection", () => {
             {
               type: "mcq",
               attrs: {
-                id: "mcq-1",
+                id: "assess000008",
                 assessment: {
-                  correctOptionId: "b",
+                  correctOptionId: "option000002",
                   feedbackByOptionId: {
-                    a: richFeedback("No"),
-                    b: richFeedback("Yes"),
+                    option000001: richFeedback("No"),
+                    option000002: richFeedback("Yes"),
                   },
                   summaryFeedback: null,
                 },
@@ -639,7 +645,10 @@ describe("authoring publication document projection", () => {
                 emptyField("assessment_prompt"),
                 {
                   type: "assessment_choices_group",
-                  content: [selectableChoice("a", false, "No"), selectableChoice("b", true, "Yes")],
+                  content: [
+                    selectableChoice("option000001", false, "No"),
+                    selectableChoice("option000002", true, "Yes"),
+                  ],
                 },
                 {
                   type: "assessment_actions_group",
@@ -660,22 +669,22 @@ describe("authoring publication document projection", () => {
     expect(projection.targets).toEqual([
       {
         schemaVersion: 2,
-        targetId: "mcq-1",
+        targetId: "assess000008",
         blockType: "mcq",
-        blockId: "mcq-1",
+        blockId: "assess000008",
         interaction: {
           kind: "single-select",
           options: [
-            { id: "a", label: "a" },
-            { id: "b", label: "b" },
+            { id: "option000001", label: "No" },
+            { id: "option000002", label: "Yes" },
           ],
         },
         assessment: {
           kind: "single-select",
-          correctOptionId: "b",
+          correctOptionId: "option000002",
           feedbackByOptionId: {
-            a: richFeedback("No"),
-            b: richFeedback("Yes"),
+            option000001: richFeedback("No"),
+            option000002: richFeedback("Yes"),
           },
           summaryFeedback: null,
         },
@@ -692,8 +701,8 @@ describe("authoring publication document projection", () => {
 
     const learnerChoices = descendantsOfType(projection.learnerDocument, "selectable_choice");
     expect(learnerChoices).toHaveLength(2);
-    expect(attrsOf(nthNode(learnerChoices, 0))).toEqual({ id: "a" });
-    expect(attrsOf(nthNode(learnerChoices, 1))).toEqual({ id: "b" });
+    expect(attrsOf(nthNode(learnerChoices, 0))).toEqual({ id: "option000001" });
+    expect(attrsOf(nthNode(learnerChoices, 1))).toEqual({ id: "option000002" });
     expect(
       descendantsOfType(projection.learnerDocument, "selectable_choice_feedback"),
     ).toHaveLength(0);
@@ -709,7 +718,7 @@ describe("authoring publication document projection", () => {
     expect(learnerJson).not.toContain('"summaryFeedback"');
 
     expect(attrsOf(nthNode(descendantsOfType(document, "selectable_choice"), 1))).toEqual({
-      id: "b",
+      id: "option000002",
     });
   });
 
@@ -719,7 +728,7 @@ describe("authoring publication document projection", () => {
       content: [
         {
           type: "surface",
-          attrs: { id: "surface-2", variant: "page-default" },
+          attrs: { id: "surface00012", variant: "page-default" },
           content: [fillBlanksBlock(), imageHotspotBlock()],
         },
       ],
@@ -729,7 +738,7 @@ describe("authoring publication document projection", () => {
     const targets = projectAssessmentTargets(document);
 
     const blankAttrs = attrsOf(firstDescendant(learner.document, "fill_blank"));
-    expect(blankAttrs).toEqual({ id: "blank-1", placeholder: "term" });
+    expect(blankAttrs).toEqual({ id: "blank0000001", placeholder: "term" });
     expect(blankAttrs).not.toHaveProperty("answers");
     expect(blankAttrs).not.toHaveProperty("feedback");
     expect(blankAttrs).not.toHaveProperty("caseSensitive");
@@ -745,7 +754,7 @@ describe("authoring publication document projection", () => {
       maxClicks: null,
       hotspots: [
         {
-          id: "hotspot-1",
+          id: "hotspot00001",
           centerX: 20,
           centerY: 30,
           radius: 8,
@@ -771,39 +780,39 @@ describe("authoring publication document projection", () => {
     expect(targets).toMatchObject([
       {
         schemaVersion: 2,
-        targetId: "fill-1",
+        targetId: "fill00000001",
         blockType: "fill_blanks",
-        blockId: "fill-1",
+        blockId: "fill00000001",
         interaction: {
           kind: "fill-blanks",
-          blanks: [{ id: "blank-1", label: "term" }],
+          blanks: [{ id: "blank0000001", label: "term" }],
         },
         assessment: {
           kind: "fill-blanks",
           blanks: [
             {
-              blankId: "blank-1",
+              blankId: "blank0000001",
               acceptedAnswers: ["ATP", "adenosine triphosphate"],
               caseSensitive: false,
               trimWhitespace: true,
             },
           ],
           feedbackByBlankId: {
-            "blank-1": richFeedback("Energy currency"),
+            blank0000001: richFeedback("Energy currency"),
           },
           summaryFeedback: null,
         },
       },
       {
         schemaVersion: 2,
-        targetId: "hotspot-block-1",
+        targetId: "hotspotBlk01",
         blockType: "image_hotspot",
-        blockId: "hotspot-block-1",
+        blockId: "hotspotBlk01",
         interaction: {
           kind: "spatial-hotspot",
           hotspots: [
             {
-              id: "hotspot-1",
+              id: "hotspot00001",
               label: "Target",
               geometry: {
                 kind: "circle",
@@ -818,9 +827,9 @@ describe("authoring publication document projection", () => {
         assessment: {
           kind: "spatial-hotspot",
           gradingMode: "all-or-nothing",
-          correctHotspotIds: ["hotspot-1"],
+          correctHotspotIds: ["hotspot00001"],
           feedbackByHotspotId: {
-            "hotspot-1": richFeedback("Correct region"),
+            hotspot00001: richFeedback("Correct region"),
           },
           missFeedback: richFeedback("Try again"),
           summaryFeedback: null,
@@ -835,7 +844,7 @@ describe("authoring publication document projection", () => {
       content: [
         {
           type: "surface",
-          attrs: { id: "surface-3", variant: "page-default" },
+          attrs: { id: "surface00013", variant: "page-default" },
           content: [
             sequencingBlock(),
             matchingBlock(),
@@ -853,16 +862,16 @@ describe("authoring publication document projection", () => {
     const targets = projectAssessmentTargets(document);
 
     expect(learner.warnings.map((warning) => warning.code)).toEqual(["missing-block-id"]);
-    expect(targets.map((target) => target.blockId)).toEqual(["seq-1", "matching-1"]);
+    expect(targets.map((target) => target.blockId)).toEqual(["sequen000001", "matching0001"]);
 
     const sequenceIds = descendantsOfType(learner.document, "sequencing_item").map((item) =>
       String(attrsOf(item)["id"]),
     );
     expect([...sequenceIds].sort((left, right) => left.localeCompare(right))).toEqual([
-      "first",
-      "second",
+      "item00000001",
+      "item00000002",
     ]);
-    expect(sequenceIds).not.toEqual(["first", "second"]);
+    expect(sequenceIds).not.toEqual(["item00000001", "item00000002"]);
     expect(
       descendantsOfType(repeatedLearner.document, "sequencing_item").map((item) =>
         String(attrsOf(item)["id"]),
@@ -871,55 +880,55 @@ describe("authoring publication document projection", () => {
 
     const matchingPairs = descendantsOfType(learner.document, "matching_pair");
     const learnerPairs = matchingPairs.map((pair) => attrsOf(pair));
-    expect(learnerPairs).toEqual([{ id: "pair-left-1" }, { id: "pair-left-2" }]);
+    expect(learnerPairs).toEqual([{ id: "pair00000001" }, { id: "pair00000002" }]);
     expect(
       descendantsOfType(learner.document, "matching_item").map((item) => attrsOf(item)["id"]),
-    ).toEqual(["left-1", "left-2"]);
+    ).toEqual(["item00000003", "item00000004"]);
     expect(
       descendantsOfType(learner.document, "matching_target").map((target) => attrsOf(target)["id"]),
-    ).toEqual(["right-2", "right-1"]);
+    ).toEqual(["target000002", "target000001"]);
     expect(descendantsOfType(learner.document, "matching_feedback")).toHaveLength(0);
 
-    expect(targets.find((entry) => entry.blockId === "seq-1")).toMatchObject({
+    expect(targets.find((entry) => entry.blockId === "sequen000001")).toMatchObject({
       interaction: {
         kind: "sequence",
-        items: [{ id: "first" }, { id: "second" }],
+        items: [{ id: "item00000001" }, { id: "item00000002" }],
       },
       assessment: {
         kind: "sequence",
-        correctOrder: ["first", "second"],
+        correctOrder: ["item00000001", "item00000002"],
         feedbackByItemId: {
-          first: richFeedback("Correct first step"),
+          item00000001: richFeedback("Correct first step"),
         },
       },
     });
-    expect(targets.find((entry) => entry.blockId === "matching-1")).toMatchObject({
+    expect(targets.find((entry) => entry.blockId === "matching0001")).toMatchObject({
       interaction: {
         kind: "match",
         items: [
-          { id: "left-1", label: "France" },
-          { id: "left-2", label: "Spain" },
+          { id: "item00000003", label: "France" },
+          { id: "item00000004", label: "Spain" },
         ],
         targets: [
-          { id: "right-2", label: "Madrid" },
-          { id: "right-1", label: "Paris" },
+          { id: "target000002", label: "Madrid" },
+          { id: "target000001", label: "Paris" },
         ],
       },
       assessment: {
         kind: "match",
         correctPairs: [
           {
-            itemId: "left-1",
-            targetId: "right-1",
+            itemId: "item00000003",
+            targetId: "target000001",
           },
           {
-            itemId: "left-2",
-            targetId: "right-2",
+            itemId: "item00000004",
+            targetId: "target000002",
           },
         ],
         feedbackByItemId: {
-          "left-1": richFeedback("Correct pair 1"),
-          "left-2": richFeedback("Correct pair 2"),
+          item00000003: richFeedback("Correct pair 1"),
+          item00000004: richFeedback("Correct pair 2"),
         },
         summaryFeedback: null,
       },
@@ -939,7 +948,7 @@ describe("authoring publication document projection", () => {
       content: [
         {
           type: "surface",
-          attrs: { id: "matching-surface", variant: "page-default" },
+          attrs: { id: "surface00014", variant: "page-default" },
           content: [block],
         },
       ],
@@ -950,8 +959,8 @@ describe("authoring publication document projection", () => {
       descendantsOfType(document, "matching_pair").map((pair) => attrsOf(pair));
 
     expect(learnerPairAttrs(first.learnerDocument)).toEqual([
-      { itemId: "left-1", targetId: "right-2" },
-      { itemId: "left-2", targetId: "right-1" },
+      { id: "pair00000001" },
+      { id: "pair00000002" },
     ]);
     expect(learnerPairAttrs(repeated.learnerDocument)).toEqual(
       learnerPairAttrs(first.learnerDocument),
@@ -959,12 +968,12 @@ describe("authoring publication document projection", () => {
     expect(first.targets[0]?.interaction).toEqual({
       kind: "match",
       items: [
-        { id: "left-1", label: "France" },
-        { id: "left-2", label: "Spain" },
+        { id: "item00000003", label: "France" },
+        { id: "item00000004", label: "Spain" },
       ],
       targets: [
-        { id: "right-2", label: "Madrid" },
-        { id: "right-1", label: "Paris" },
+        { id: "target000002", label: "Madrid" },
+        { id: "target000001", label: "Paris" },
       ],
     });
     expect(repeated.targets[0]).toEqual(first.targets[0]);
@@ -993,9 +1002,8 @@ async function withBlockDefinitions<T>(
   }
 }
 
-function selectableChoice(id: string, isCorrect: boolean, feedback: string): JSONContent {
+function selectableChoice(id: string, isCorrect: boolean, label: string): JSONContent {
   void isCorrect;
-  void feedback;
 
   return {
     type: "selectable_choice",
@@ -1003,7 +1011,7 @@ function selectableChoice(id: string, isCorrect: boolean, feedback: string): JSO
     content: [
       {
         type: "selectable_choice_body",
-        content: [{ type: "paragraph", content: [{ type: "text", text: id }] }],
+        content: [{ type: "paragraph", content: [{ type: "text", text: label }] }],
       },
     ],
   };
@@ -1034,8 +1042,8 @@ function mcqBlock(id: string, correctOptionId: string): JSONContent {
       {
         type: "assessment_choices_group",
         content: [
-          selectableChoice("a", correctOptionId === "a", "A"),
-          selectableChoice("b", correctOptionId === "b", "B"),
+          selectableChoice("option000001", correctOptionId === "option000001", "A"),
+          selectableChoice("option000002", correctOptionId === "option000002", "B"),
         ],
       },
       {
@@ -1060,10 +1068,10 @@ function fillBlanksBlock(): JSONContent {
   return {
     type: "fill_blanks",
     attrs: {
-      id: "fill-1",
+      id: "fill00000001",
       assessment: {
         blanksById: {
-          "blank-1": {
+          blank0000001: {
             acceptedAnswers: [" ATP ", "adenosine triphosphate"],
             feedback: richFeedback("Energy currency"),
             caseSensitive: false,
@@ -1094,7 +1102,7 @@ function fillBlanksBlock(): JSONContent {
               {
                 type: "fill_blank",
                 attrs: {
-                  id: "blank-1",
+                  id: "blank0000001",
                   placeholder: "term",
                 },
               },
@@ -1111,12 +1119,12 @@ function imageHotspotBlock(): JSONContent {
   return {
     type: "image_hotspot",
     attrs: {
-      id: "hotspot-block-1",
+      id: "hotspotBlk01",
       assessment: {
         gradingMode: "all-or-nothing",
-        correctHotspotIds: ["hotspot-1"],
+        correctHotspotIds: ["hotspot00001"],
         feedbackByHotspotId: {
-          "hotspot-1": richFeedback("Correct region"),
+          hotspot00001: richFeedback("Correct region"),
         },
         missFeedback: richFeedback("Try again"),
         summaryFeedback: null,
@@ -1145,7 +1153,7 @@ function imageHotspotBlock(): JSONContent {
             },
             hotspots: [
               {
-                id: "hotspot-1",
+                id: "hotspot00001",
                 centerX: 20,
                 centerY: 30,
                 radius: 8,
@@ -1165,11 +1173,11 @@ function sequencingBlock(): JSONContent {
   return {
     type: "sequencing",
     attrs: {
-      id: "seq-1",
+      id: "sequen000001",
       assessment: {
-        correctOrder: ["first", "second"],
+        correctOrder: ["item00000001", "item00000002"],
         feedbackByItemId: {
-          first: richFeedback("Correct first step"),
+          item00000001: richFeedback("Correct first step"),
         },
         summaryFeedback: null,
       },
@@ -1189,8 +1197,8 @@ function sequencingBlock(): JSONContent {
       {
         type: "sequencing_items_group",
         content: [
-          { type: "sequencing_item", attrs: { id: "first" } },
-          { type: "sequencing_item", attrs: { id: "second" } },
+          { type: "sequencing_item", attrs: { id: "item00000001" } },
+          { type: "sequencing_item", attrs: { id: "item00000002" } },
         ],
       },
       assessmentActions(),
@@ -1202,11 +1210,11 @@ function matchingBlock(): JSONContent {
   return {
     type: "matching",
     attrs: {
-      id: "matching-1",
+      id: "matching0001",
       assessment: {
         feedbackByItemId: {
-          "left-1": richFeedback("Correct pair 1"),
-          "left-2": richFeedback("Correct pair 2"),
+          item00000003: richFeedback("Correct pair 1"),
+          item00000004: richFeedback("Correct pair 2"),
         },
         summaryFeedback: null,
       },
@@ -1228,18 +1236,18 @@ function matchingBlock(): JSONContent {
         content: [
           {
             type: "matching_pair",
-            attrs: { id: "pair-left-1" },
+            attrs: { id: "pair00000001" },
             content: [
-              { ...fieldWithText("matching_item", "France"), attrs: { id: "left-1" } },
-              { ...fieldWithText("matching_target", "Paris"), attrs: { id: "right-1" } },
+              { ...fieldWithText("matching_item", "France"), attrs: { id: "item00000003" } },
+              { ...fieldWithText("matching_target", "Paris"), attrs: { id: "target000001" } },
             ],
           },
           {
             type: "matching_pair",
-            attrs: { id: "pair-left-2" },
+            attrs: { id: "pair00000002" },
             content: [
-              { ...fieldWithText("matching_item", "Spain"), attrs: { id: "left-2" } },
-              { ...fieldWithText("matching_target", "Madrid"), attrs: { id: "right-2" } },
+              { ...fieldWithText("matching_item", "Spain"), attrs: { id: "item00000004" } },
+              { ...fieldWithText("matching_target", "Madrid"), attrs: { id: "target000002" } },
             ],
           },
         ],

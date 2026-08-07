@@ -12,6 +12,10 @@ import { AudioBlockNode } from "./audio-block-node";
 import { ImageBlockNode } from "./image-block-node";
 import { applyAudioAccessibilitySettings, applyImageAccessibilitySettings } from "./media-settings";
 import { AudioBlockAttrsSchema, ImageBlockAttrsSchema } from "@scaffold/contracts";
+import { createTestNodeIdentityExtension } from "@/editor/testing";
+
+const IMAGE_ID = "image0000001";
+const AUDIO_ID = "audio0000001";
 
 const editors: Editor[] = [];
 
@@ -28,6 +32,7 @@ function makeEditor(content: JSONContent) {
       ExtendedParagraph,
       ImageBlockNode,
       AudioBlockNode,
+      createTestNodeIdentityExtension(),
     ],
     content,
   });
@@ -47,7 +52,7 @@ describe("media settings apply hooks", () => {
         {
           type: "image_block",
           attrs: {
-            id: "image-1",
+            id: IMAGE_ID,
             data: { mode: "managed", mediaId: "asset-1", alt: "Old" },
           },
         },
@@ -56,7 +61,7 @@ describe("media settings apply hooks", () => {
 
     const result = applyImageAccessibilitySettings({
       tr: editor.state.tr,
-      target: resolveTarget(editor, "image-1", "image_block"),
+      target: resolveTarget(editor, IMAGE_ID, "image_block"),
       attr: "data",
       schema: ImageBlockAttrsSchema.nullable(),
       value: { alt: "New alt text" },
@@ -79,7 +84,7 @@ describe("media settings apply hooks", () => {
       content: [
         {
           type: "image_block",
-          attrs: { id: "image-1", data: null },
+          attrs: { id: IMAGE_ID, data: null },
         },
       ],
     });
@@ -87,7 +92,7 @@ describe("media settings apply hooks", () => {
     const tr = editor.state.tr;
     const result = applyImageAccessibilitySettings({
       tr,
-      target: resolveTarget(editor, "image-1", "image_block"),
+      target: resolveTarget(editor, IMAGE_ID, "image_block"),
       attr: "data",
       schema: ImageBlockAttrsSchema.nullable(),
       value: { alt: "New alt text" },
@@ -108,7 +113,7 @@ describe("media settings apply hooks", () => {
         {
           type: "audio_block",
           attrs: {
-            id: "audio-1",
+            id: AUDIO_ID,
             data: {
               mode: "external",
               src: "https://example.com/audio.mp3",
@@ -121,7 +126,7 @@ describe("media settings apply hooks", () => {
 
     const result = applyAudioAccessibilitySettings({
       tr: editor.state.tr,
-      target: resolveTarget(editor, "audio-1", "audio_block"),
+      target: resolveTarget(editor, AUDIO_ID, "audio_block"),
       attr: "data",
       schema: AudioBlockAttrsSchema.nullable(),
       value: { title: "New audio title" },
@@ -144,7 +149,7 @@ describe("media settings apply hooks", () => {
       content: [
         {
           type: "audio_block",
-          attrs: { id: "audio-1", data: null },
+          attrs: { id: AUDIO_ID, data: null },
         },
       ],
     });
@@ -152,7 +157,7 @@ describe("media settings apply hooks", () => {
     const tr = editor.state.tr;
     const result = applyAudioAccessibilitySettings({
       tr,
-      target: resolveTarget(editor, "audio-1", "audio_block"),
+      target: resolveTarget(editor, AUDIO_ID, "audio_block"),
       attr: "data",
       schema: AudioBlockAttrsSchema.nullable(),
       value: { title: "New audio title" },

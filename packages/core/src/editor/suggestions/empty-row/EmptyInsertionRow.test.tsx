@@ -692,6 +692,7 @@ describe("EmptyInsertionRow", () => {
         content: [
           {
             type: "courseDocument",
+            attrs: { id: "course000001" },
             content: [
               {
                 type: "surface",
@@ -798,6 +799,7 @@ describe("EmptyInsertionRow", () => {
         content: [
           {
             type: "courseDocument",
+            attrs: { id: "course000004" },
             content: [
               {
                 type: "surface",
@@ -810,7 +812,7 @@ describe("EmptyInsertionRow", () => {
                       {
                         type: "section",
                         attrs: { id: "tabsection01", role: "tab-panel" },
-                        content: [{ type: "paragraph" }],
+                        content: [{ type: "paragraph", attrs: { id: "paragraph001" } }],
                       },
                     ],
                   },
@@ -853,6 +855,7 @@ describe("EmptyInsertionRow", () => {
         content: [
           {
             type: "courseDocument",
+            attrs: { id: "course000002" },
             content: [
               {
                 type: "surface",
@@ -950,6 +953,7 @@ describe("EmptyInsertionRow", () => {
         content: [
           {
             type: "courseDocument",
+            attrs: { id: "course000005" },
             content: [
               {
                 type: "surface",
@@ -970,7 +974,7 @@ describe("EmptyInsertionRow", () => {
                               {
                                 type: "section",
                                 attrs: { id: "sectionnode1" },
-                                content: [{ type: "paragraph" }],
+                                content: [{ type: "paragraph", attrs: { id: "paragraph002" } }],
                               },
                             ],
                           },
@@ -1017,6 +1021,7 @@ describe("EmptyInsertionRow", () => {
         content: [
           {
             type: "courseDocument",
+            attrs: { id: "course000003" },
             content: [
               {
                 type: "surface",
@@ -1037,7 +1042,7 @@ describe("EmptyInsertionRow", () => {
                               {
                                 type: "section",
                                 attrs: { id: "sectionnode1", role: "tab-panel" },
-                                content: [{ type: "paragraph" }],
+                                content: [{ type: "paragraph", attrs: { id: "paragraph003" } }],
                               },
                             ],
                           },

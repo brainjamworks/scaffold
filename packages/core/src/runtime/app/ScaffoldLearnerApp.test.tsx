@@ -93,9 +93,9 @@ function learnerDocumentWithMcq(): JSONContent {
     {
       type: "mcq",
       attrs: {
-        id: "mcq-runtime-only",
+        id: "mcqRuntime01",
         assessment: {
-          correctOptionId: "choice-b",
+          correctOptionId: "option000002",
           feedbackByOptionId: {},
           summaryFeedback: null,
         },
@@ -122,7 +122,7 @@ function learnerDocumentWithMcq(): JSONContent {
         },
         {
           type: "assessment_choices_group",
-          content: [selectableChoice("choice-a", "A"), selectableChoice("choice-b", "B")],
+          content: [selectableChoice("option000001", "A"), selectableChoice("option000002", "B")],
         },
         {
           type: "assessment_actions_group",
@@ -256,11 +256,11 @@ describe("ScaffoldLearnerApp", () => {
 
     await screen.findByText("Projected learner content");
     const runtimeHost = screen.getByTestId("scaffold-runtime-host");
-    const courseScope = screen.getByTestId("course-theme-scope");
+    const courseScope = screen
+      .getByTestId("course-document-runtime-renderer")
+      .closest(".sc-course");
     expect(runtimeHost).toHaveAttribute("data-scaffold-color-mode", "dark");
-    expect(runtimeHost).toHaveClass("sc-course-theme-scope");
-    expect(runtimeHost.style.colorScheme).toBe("dark");
-    expect(courseScope).toHaveAttribute("data-course-color-mode", "dark");
+    expect(courseScope).toHaveClass("dark", "sc-course-theme-scaffold-flow-v1");
 
     rerender(
       <ScaffoldLearnerApp
@@ -273,7 +273,7 @@ describe("ScaffoldLearnerApp", () => {
 
     await waitFor(() => {
       expect(runtimeHost).toHaveAttribute("data-scaffold-color-mode", "light");
-      expect(courseScope).toHaveAttribute("data-course-color-mode", "light");
+      expect(courseScope).toHaveClass("light");
     });
   });
 
@@ -289,15 +289,17 @@ describe("ScaffoldLearnerApp", () => {
 
     await screen.findByText("Projected learner content");
     const runtimeHost = screen.getByTestId("scaffold-runtime-host");
-    const courseScope = screen.getByTestId("course-theme-scope");
+    const courseScope = screen
+      .getByTestId("course-document-runtime-renderer")
+      .closest(".sc-course");
     expect(runtimeHost).toHaveAttribute("data-scaffold-color-mode", "light");
-    expect(courseScope).toHaveAttribute("data-course-color-mode", "light");
+    expect(courseScope).toHaveClass("light", "sc-course-theme-scaffold-flow-v1");
 
     act(() => media.setDark(true));
 
     await waitFor(() => {
       expect(runtimeHost).toHaveAttribute("data-scaffold-color-mode", "dark");
-      expect(courseScope).toHaveAttribute("data-course-color-mode", "dark");
+      expect(courseScope).toHaveClass("dark");
     });
   });
 
@@ -427,8 +429,8 @@ describe("ScaffoldLearnerApp", () => {
               snapshotVersion: 2,
               artifactId: "artifact-learner",
               problems: {
-                "target-mcq-1": {
-                  response: { kind: "single-select", optionId: "choice-1" },
+                target000001: {
+                  response: { kind: "single-select", optionId: "option000001" },
                   submitted: true,
                   attemptNumber: 1,
                   hintsShown: 0,
@@ -447,7 +449,7 @@ describe("ScaffoldLearnerApp", () => {
               snapshotVersion: 1,
               artifactId: "artifact-learner",
               activities: {
-                "flashcard-1": {
+                flash0000001: {
                   activityKind: "flashcard",
                   data: { currentCard: 2 },
                   completed: false,

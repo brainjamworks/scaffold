@@ -21,7 +21,7 @@ import {
   CellAuthoringNode,
   GridAuthoringNode,
 } from "@/editor/arrangements/grid/authoring/grid-nodes";
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import type { BlockRegistry } from "@/editor/blocks/block-registry";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
@@ -29,6 +29,7 @@ import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authori
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
+import { createTestNodeIdentityExtension } from "./node-identity";
 
 export interface DescribeLayoutContractInput {
   blockDefinitions: BlockRegistry;
@@ -70,7 +71,7 @@ export function describeLayoutContract(input: DescribeLayoutContractInput): void
               content: [
                 {
                   type: "surface",
-                  attrs: { id: "surface-contract", variant: "page-default" },
+                  attrs: { id: "surface00001", variant: "page-default" },
                   content: [nodeResult.node.toJSON()],
                 },
               ],
@@ -204,6 +205,7 @@ function createLayoutContractEditor(
       }),
       ExtendedParagraph,
       CourseDocumentNode,
+      createCourseSectionNode(),
       SurfaceNode,
       RegionNode,
       createScaffoldInteractionOwnerExtension(blockDefinitions),
@@ -211,6 +213,7 @@ function createLayoutContractEditor(
       CellAuthoringNode,
       LayoutContractNode,
       SectionContractNode,
+      createTestNodeIdentityExtension(),
       ...editorExtensions,
     ],
   });

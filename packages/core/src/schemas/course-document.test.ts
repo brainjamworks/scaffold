@@ -7,6 +7,7 @@ import {
   SurfaceAttrsSchema,
   SurfaceBackgroundSchema,
 } from "./course-document";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
 const SURFACE_ID = "AbCdEf123_--";
 const COURSE_DOCUMENT_ID = "CdEfGh456_--";
@@ -18,7 +19,7 @@ describe("course document schemas", () => {
         id: COURSE_DOCUMENT_ID,
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
         mode: "page",
-        theme: legacyThemeReference(),
+        theme: currentThemeReference(),
       }),
     ).toMatchObject({
       schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
@@ -35,7 +36,7 @@ describe("course document schemas", () => {
         id: COURSE_DOCUMENT_ID,
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
         mode: "page",
-        theme: legacyThemeReference(),
+        theme: currentThemeReference(),
         branching: null,
       }),
     ).toMatchObject({
@@ -185,7 +186,7 @@ describe("course document schemas", () => {
         id: COURSE_DOCUMENT_ID,
         schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
         mode: "page",
-        theme: legacyThemeReference(),
+        theme: currentThemeReference(),
         slideshow: { playbackMode: "auto" },
       }),
     ).not.toHaveProperty("slideshow");
@@ -209,10 +210,6 @@ describe("course document schemas", () => {
   });
 });
 
-function legacyThemeReference() {
-  return {
-    schemaVersion: 1 as const,
-    preset: { id: "legacy-default", revision: null },
-    values: null,
-  };
+function currentThemeReference() {
+  return createDefaultPersistedCourseTheme();
 }

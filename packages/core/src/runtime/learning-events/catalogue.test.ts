@@ -67,8 +67,8 @@ function singleSelectAssessmentDefinition() {
     interaction: {
       kind: "single-select" as const,
       options: [
-        { id: "option/a", label: "Paris" },
-        { id: "option-b", label: "Madrid" },
+        { id: "option000001", label: "Paris" },
+        { id: "option000002", label: "Madrid" },
       ],
     },
   };
@@ -220,62 +220,62 @@ describe("Learning Event catalogue vocabulary", () => {
     {
       interaction: {
         kind: "single-select",
-        options: [{ id: "option /é", label: "Paris" }],
+        options: [{ id: "option000001", label: "Paris" }],
       },
       expected: {
         interactionType: "choice",
-        choices: [{ id: "option%20%2F%C3%A9", description: { en: "Paris" } }],
+        choices: [{ id: "option000001", description: { en: "Paris" } }],
       },
     },
     {
       interaction: {
         kind: "multi-select",
-        options: [{ id: "option-a" }, { id: "option-b", label: "Second" }],
+        options: [{ id: "option000001" }, { id: "option000002", label: "Second" }],
         maxSelections: 2,
       },
       expected: {
         interactionType: "choice",
-        choices: [{ id: "option-a" }, { id: "option-b", description: { en: "Second" } }],
+        choices: [{ id: "option000001" }, { id: "option000002", description: { en: "Second" } }],
       },
     },
     {
       interaction: {
         kind: "sequence",
-        items: [{ id: "step-1", label: "First step" }],
+        items: [{ id: "item00000001", label: "First step" }],
       },
       expected: {
         interactionType: "sequencing",
-        choices: [{ id: "step-1", description: { en: "First step" } }],
+        choices: [{ id: "item00000001", description: { en: "First step" } }],
       },
     },
     {
       interaction: {
         kind: "match",
-        items: [{ id: "left-1", label: "France" }],
-        targets: [{ id: "right-1", label: "Paris" }],
+        items: [{ id: "item00000001", label: "France" }],
+        targets: [{ id: "target000001", label: "Paris" }],
       },
       expected: {
         interactionType: "matching",
-        source: [{ id: "left-1", description: { en: "France" } }],
-        target: [{ id: "right-1", description: { en: "Paris" } }],
+        source: [{ id: "item00000001", description: { en: "France" } }],
+        target: [{ id: "target000001", description: { en: "Paris" } }],
       },
     },
     {
       interaction: {
         kind: "classify",
-        items: [{ id: "item-1", label: "Salmon" }],
-        categories: [{ id: "category-1", label: "Fish" }],
+        items: [{ id: "item00000001", label: "Salmon" }],
+        categories: [{ id: "category0001", label: "Fish" }],
       },
       expected: {
         interactionType: "matching",
-        source: [{ id: "item-1", description: { en: "Salmon" } }],
-        target: [{ id: "category-1", description: { en: "Fish" } }],
+        source: [{ id: "item00000001", description: { en: "Salmon" } }],
+        target: [{ id: "category0001", description: { en: "Fish" } }],
       },
     },
     {
       interaction: {
         kind: "fill-blanks",
-        blanks: [{ id: "blank-1", label: "Capital" }],
+        blanks: [{ id: "blank0000001", label: "Capital" }],
       },
       expected: { interactionType: "other" },
     },
@@ -284,7 +284,7 @@ describe("Learning Event catalogue vocabulary", () => {
         kind: "spatial-hotspot",
         hotspots: [
           {
-            id: "hotspot-1",
+            id: "hotspot00001",
             label: "France",
             geometry: { kind: "circle", centerX: 0.5, centerY: 0.5, radius: 0.1 },
           },
@@ -404,7 +404,7 @@ describe("closed producer inputs", () => {
       type: "assessment.answered" as const,
       targetId: "question-1",
       definition: singleSelectAssessmentDefinition(),
-      response: { kind: "single-select" as const, optionId: "option/a" },
+      response: { kind: "single-select" as const, optionId: "option000001" },
       result: { isCorrect: true, score: { scaled: 1 } },
       attemptNumber: 2,
     };
@@ -417,15 +417,15 @@ describe("closed producer inputs", () => {
       type: LEARNING_EVENT_ACTIVITY_TYPES.assessmentQuestion,
       interactionType: "choice",
       choices: [
-        { id: "option%2Fa", description: { en: "Paris" } },
-        { id: "option-b", description: { en: "Madrid" } },
+        { id: "option000001", description: { en: "Paris" } },
+        { id: "option000002", description: { en: "Madrid" } },
       ],
       extensions: {
         [LEARNING_EVENT_EXTENSIONS.assessmentInteractionKind]: "single-select",
       },
     });
     expect(draft.result).toMatchObject({
-      response: "option%2Fa",
+      response: "option000001",
       success: true,
       score: { scaled: 1 },
       extensions: { [LEARNING_EVENT_EXTENSIONS.assessmentAttemptNumber]: 2 },
@@ -624,65 +624,65 @@ describe("Learning Event assessment response encoding", () => {
   it.each([
     {
       interactionKind: "single-select",
-      response: { kind: "single-select", optionId: "option /é" },
+      response: { kind: "single-select", optionId: "option000001" },
       interactionType: "choice",
-      encodedResponse: "option%20%2F%C3%A9",
+      encodedResponse: "option000001",
     },
     {
       interactionKind: "multi-select",
       response: {
         kind: "multi-select",
-        optionIds: ["option[,]b", "option a"],
+        optionIds: ["option000002", "option000001"],
       },
       interactionType: "choice",
-      encodedResponse: "option%20a[,]option%5B%2C%5Db",
+      encodedResponse: "option000001[,]option000002",
     },
     {
       interactionKind: "sequence",
       response: {
         kind: "sequence",
-        orderedItemIds: ["item b", "item/a"],
+        orderedItemIds: ["item00000002", "item00000001"],
       },
       interactionType: "sequencing",
-      encodedResponse: "item%20b[,]item%2Fa",
+      encodedResponse: "item00000002[,]item00000001",
     },
     {
       interactionKind: "match",
       response: {
         kind: "match",
         pairs: [
-          { itemId: "item-b", targetId: "target[,]2" },
-          { itemId: "item a", targetId: "target.1" },
+          { itemId: "item00000002", targetId: "target000002" },
+          { itemId: "item00000001", targetId: "target000001" },
         ],
       },
       interactionType: "matching",
-      encodedResponse: "item%20a[.]target.1[,]item-b[.]target%5B%2C%5D2",
+      encodedResponse: "item00000001[.]target000001[,]item00000002[.]target000002",
     },
     {
       interactionKind: "classify",
       response: {
         kind: "classify",
         placements: [
-          { itemId: "item-b", categoryId: "category 2" },
-          { itemId: "item/a", categoryId: "category[,]1" },
+          { itemId: "item00000002", categoryId: "category0002" },
+          { itemId: "item00000001", categoryId: "category0001" },
         ],
       },
       interactionType: "matching",
-      encodedResponse: "item%2Fa[.]category%5B%2C%5D1[,]item-b[.]category%202",
+      encodedResponse: "item00000001[.]category0001[,]item00000002[.]category0002",
     },
     {
       interactionKind: "fill-blanks",
       response: {
         kind: "fill-blanks",
         blanks: [
-          { blankId: "blank-b", value: "second" },
-          { blankId: "blank a", value: "Mercury[,]Venus" },
-          { blankId: "blank-c", value: "" },
+          { blankId: "blank0000002", value: "second" },
+          { blankId: "blank0000001", value: "Mercury[,]Venus" },
+          { blankId: "blank0000003", value: "" },
         ],
       },
       interactionType: "other",
       encodedResponse:
-        '{"blanks":[{"blankId":"blank a","value":"Mercury[,]Venus"},{"blankId":"blank-b","value":"second"},{"blankId":"blank-c","value":""}]}',
+        '{"blanks":[{"blankId":"blank0000001","value":"Mercury[,]Venus"},{"blankId":"blank0000002","value":"second"},{"blankId":"blank0000003","value":""}]}',
     },
     {
       interactionKind: "spatial-hotspot",
@@ -690,12 +690,12 @@ describe("Learning Event assessment response encoding", () => {
         kind: "spatial-hotspot",
         selections: [
           { hotspotId: null, x: -0, y: 0.75 },
-          { hotspotId: "hotspot[,]1", x: 0.5, y: 0.25 },
+          { hotspotId: "hotspot00001", x: 0.5, y: 0.25 },
         ],
       },
       interactionType: "other",
       encodedResponse:
-        '{"selections":[{"hotspotId":null,"x":0,"y":0.75},{"hotspotId":"hotspot[,]1","x":0.5,"y":0.25}]}',
+        '{"selections":[{"hotspotId":null,"x":0,"y":0.75},{"hotspotId":"hotspot00001","x":0.5,"y":0.25}]}',
     },
   ] satisfies readonly {
     readonly interactionKind: AssessmentInteractionKind;
@@ -716,7 +716,7 @@ describe("Learning Event assessment response encoding", () => {
     ["sequence", { kind: "sequence", orderedItemIds: [] }],
     ["match", { kind: "match", pairs: [] }],
     ["classify", { kind: "classify", placements: [] }],
-    ["fill-blanks", { kind: "fill-blanks", blanks: [{ blankId: "blank-1", value: "  " }] }],
+    ["fill-blanks", { kind: "fill-blanks", blanks: [{ blankId: "blank0000001", value: "  " }] }],
     ["spatial-hotspot", { kind: "spatial-hotspot", selections: [] }],
   ] satisfies readonly (readonly [AssessmentInteractionKind, AssessmentResponseValue | null])[])(
     "omits an absent %s response",
@@ -729,7 +729,7 @@ describe("Learning Event assessment response encoding", () => {
     expect(() =>
       encodeAssessmentResponse("single-select", {
         kind: "multi-select",
-        optionIds: ["option-a"],
+        optionIds: ["option000001"],
       }),
     ).toThrow("does not match");
   });
@@ -937,7 +937,7 @@ describe("Learning Event Event catalogue builders", () => {
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
         definition: singleSelectAssessmentDefinition(),
-        response: { kind: "single-select", optionId: "option/a" },
+        response: { kind: "single-select", optionId: "option000001" },
         result: normalizedResult({ isCorrect: false, score: { scaled: 0.25 } }),
         attemptNumber: 2,
       }),
@@ -951,8 +951,8 @@ describe("Learning Event Event catalogue builders", () => {
           type: LEARNING_EVENT_ACTIVITY_TYPES.assessmentQuestion,
           interactionType: "choice",
           choices: [
-            { id: "option%2Fa", description: { en: "Paris" } },
-            { id: "option-b", description: { en: "Madrid" } },
+            { id: "option000001", description: { en: "Paris" } },
+            { id: "option000002", description: { en: "Madrid" } },
           ],
           extensions: {
             [LEARNING_EVENT_EXTENSIONS.assessmentInteractionKind]: "single-select",
@@ -962,7 +962,7 @@ describe("Learning Event Event catalogue builders", () => {
       result: {
         success: false,
         score: { scaled: 0.25 },
-        response: "option%2Fa",
+        response: "option000001",
         extensions: { [LEARNING_EVENT_EXTENSIONS.assessmentAttemptNumber]: 2 },
       },
       context: {
@@ -1033,8 +1033,8 @@ describe("Learning Event Event catalogue builders", () => {
                 type: LEARNING_EVENT_ACTIVITY_TYPES.assessmentQuestion,
                 interactionType: "choice",
                 choices: [
-                  { id: "option%2Fa", description: { en: "Paris" } },
-                  { id: "option-b", description: { en: "Madrid" } },
+                  { id: "option000001", description: { en: "Paris" } },
+                  { id: "option000002", description: { en: "Madrid" } },
                 ],
                 extensions: {
                   [LEARNING_EVENT_EXTENSIONS.assessmentInteractionKind]: "single-select",
@@ -1617,7 +1617,7 @@ describe("Learning Event catalogue invariants", () => {
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
         definition: singleSelectAssessmentDefinition(),
-        response: { kind: "single-select", optionId: "authorized-response" },
+        response: { kind: "single-select", optionId: "option000001" },
         result: privateResult,
         attemptNumber: 1,
         ...privateCanaries,
@@ -1626,7 +1626,7 @@ describe("Learning Event catalogue invariants", () => {
         rootActivityId: ROOT_ACTIVITY_ID,
         targetId: "question-one",
         definition: singleSelectAssessmentDefinition(),
-        response: { kind: "single-select", optionId: "authorized-response" },
+        response: { kind: "single-select", optionId: "option000001" },
         result: privateResult,
         attemptNumber: 1,
         quiz: { quizId: "quiz-one", attemptId: "attempt-one", ...privateCanaries },
@@ -1757,7 +1757,7 @@ describe("Learning Event catalogue invariants", () => {
       expect(serialized).not.toContain(privateKey);
       expect(serialized).not.toContain(privateValue);
     }
-    expect(serialized).toContain("authorized-response");
+    expect(serialized).toContain("option000001");
     expect(serialized).not.toContain("correctResponsesPattern");
     expect(serialized).not.toContain("attachments");
     expect(serialized).not.toContain("authority");

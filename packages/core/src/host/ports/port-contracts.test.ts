@@ -43,6 +43,13 @@ const successfulProblemOutcome: AssessmentProblemCommandOutcome = {
     },
   },
 };
+
+const TARGET_ID = "target000001";
+const OPTION_ID = "option000001";
+const QUIZ_GROUP_ID = "artifact:artifact-1/group:quiz00000001";
+const SECOND_QUIZ_GROUP_ID = "artifact:artifact-1/group:quiz00000002";
+const PROBLEM_ID = "artifact:artifact-1/block:target000001";
+
 describe("host app contracts", () => {
   it("keeps authoring bootstrap separate from learner bootstrap", () => {
     const artifact = {
@@ -56,8 +63,8 @@ describe("host app contracts", () => {
       snapshotVersion: 2,
       artifactId: artifact.id,
       problems: {
-        "target-1": {
-          response: { kind: "single-select", optionId: "choice-a" },
+        [TARGET_ID]: {
+          response: { kind: "single-select", optionId: OPTION_ID },
           submitted: true,
           attemptNumber: 1,
           hintsShown: 0,
@@ -150,10 +157,10 @@ describe("host app contracts", () => {
     >().toEqualTypeOf<false>();
     await expect(
       learnerServices.assessment?.submit({
-        problemId: "problem-1",
-        targetId: "target-1",
+        problemId: PROBLEM_ID,
+        targetId: TARGET_ID,
         interactionKind: "single-select",
-        response: { kind: "single-select", optionId: "option-1" },
+        response: { kind: "single-select", optionId: OPTION_ID },
         expectedAttemptNumber: 0,
       }),
     ).resolves.toMatchObject({ problem: { submissionResult: { isCorrect: true } } });
@@ -235,9 +242,9 @@ describe("assessment port contracts", () => {
   it("types quiz attempt port methods under assessment port", async () => {
     const attempt: QuizAttemptState = {
       attemptId: "attempt-1",
-      groupId: "quiz-1",
+      groupId: QUIZ_GROUP_ID,
       status: "in_progress",
-      currentTargetId: "target-1",
+      currentTargetId: TARGET_ID,
       submittedTargetIds: [],
       startedAt: "2026-06-18T08:00:00.000Z",
       finishedAt: null,
@@ -283,31 +290,31 @@ describe("assessment port contracts", () => {
 
     await expect(
       port.quiz.startAttempt({
-        groupId: "quiz-2",
+        groupId: SECOND_QUIZ_GROUP_ID,
       }),
-    ).resolves.toMatchObject({ quizAttempt: { groupId: "quiz-2" } });
+    ).resolves.toMatchObject({ quizAttempt: { groupId: SECOND_QUIZ_GROUP_ID } });
     await expect(
       port.quiz.submitQuestion({
         attemptId: "attempt-1",
-        groupId: "quiz-1",
-        targetId: "target-1",
-        response: { kind: "single-select", optionId: "a" },
+        groupId: QUIZ_GROUP_ID,
+        targetId: TARGET_ID,
+        response: { kind: "single-select", optionId: OPTION_ID },
         expectedAttemptNumber: 0,
       }),
-    ).resolves.toMatchObject({ quizAttempt: { submittedTargetIds: ["target-1"] } });
+    ).resolves.toMatchObject({ quizAttempt: { submittedTargetIds: [TARGET_ID] } });
     await expect(
       port.quiz.finishAttempt({
         attemptId: "attempt-1",
-        groupId: "quiz-1",
+        groupId: QUIZ_GROUP_ID,
         responsesByTargetId: {
-          "target-1": { kind: "single-select", optionId: "a" },
+          [TARGET_ID]: { kind: "single-select", optionId: OPTION_ID },
         },
       }),
     ).resolves.toMatchObject({ quizAttempt: { status: "completed" } });
     await expect(
       port.quiz.revealAnswers?.({
         attemptId: "attempt-1",
-        groupId: "quiz-1",
+        groupId: QUIZ_GROUP_ID,
       }),
     ).resolves.toMatchObject({ quizAttempt: { answerReviewAuthorized: true } });
   });
@@ -316,17 +323,17 @@ describe("assessment port contracts", () => {
     expect(
       QuizAttemptStateSchema.parse({
         attemptId: "attempt-1",
-        groupId: "quiz-1",
+        groupId: QUIZ_GROUP_ID,
         status: "completed",
         currentTargetId: null,
-        submittedTargetIds: ["target-1"],
+        submittedTargetIds: [TARGET_ID],
         startedAt: "2026-06-18T08:00:00.000Z",
         finishedAt: "2026-06-18T08:05:00.000Z",
         expiresAt: null,
         score: { scaled: 1 },
         successStatus: null,
         resultsByTargetId: {
-          "target-1": {
+          [TARGET_ID]: {
             isCorrect: true,
             score: { scaled: 1 },
             feedback: null,
@@ -340,7 +347,7 @@ describe("assessment port contracts", () => {
     expect(() =>
       QuizAttemptStateSchema.parse({
         attemptId: "attempt-1",
-        groupId: "quiz-1",
+        groupId: QUIZ_GROUP_ID,
         status: "paused",
         currentTargetId: null,
         submittedTargetIds: [],

@@ -39,8 +39,11 @@ describe("@scaffold/core/authoring", () => {
     expect(Object.keys(authoring).sort()).toEqual([
       "AuthoringHeaderIconButton",
       "CourseDocumentEditor",
+      "CourseThemePortalBoundary",
+      "CourseThemeProvider",
       "ScaffoldAuthoringEntry",
       "createCoreScaffoldAuthoringComposition",
+      "useCourseTheme",
     ]);
     expect(Object.values(authoring).every((value) => value !== undefined)).toBe(true);
   });

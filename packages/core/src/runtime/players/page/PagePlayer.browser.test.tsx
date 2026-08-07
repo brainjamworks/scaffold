@@ -108,10 +108,15 @@ describe("PagePlayer presentation", () => {
       const before = player.getBoundingClientRect();
 
       trigger.click();
-      await waitForCondition(() => document.querySelector(".sc-assessment-hint-popover--runtime"));
+      await waitForCondition(() =>
+        document.querySelector(".sc-course-assessment-hint-popover--runtime"),
+      );
 
       const host = player.querySelector<HTMLElement>(":scope > [data-scaffold-overlay-host]");
-      const popover = uniqueElement<HTMLElement>(document, ".sc-assessment-hint-popover--runtime");
+      const popover = uniqueElement<HTMLElement>(
+        document,
+        ".sc-course-assessment-hint-popover--runtime",
+      );
 
       expect(host).not.toBeNull();
       expect(host?.contains(popover)).toBe(true);
@@ -137,7 +142,7 @@ describe("PagePlayer presentation", () => {
         new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "Escape" }),
       );
       await waitForCondition(
-        () => document.querySelector(".sc-assessment-hint-popover--runtime") === null,
+        () => document.querySelector(".sc-course-assessment-hint-popover--runtime") === null,
       );
 
       const closed = player.getBoundingClientRect();
@@ -174,9 +179,9 @@ function pageDocumentWithRuntimeHint(): JSONContent {
     {
       type: "mcq",
       attrs: {
-        id: "mcq-page-browser-popover",
+        id: "mcqpage00001",
         assessment: {
-          correctOptionId: "choice-b",
+          correctOptionId: "choice000002",
           feedbackByOptionId: {},
           summaryFeedback: null,
         },
@@ -198,7 +203,7 @@ function pageDocumentWithRuntimeHint(): JSONContent {
         },
         {
           type: "assessment_choices_group",
-          content: [selectableChoice("choice-a", "A"), selectableChoice("choice-b", "B")],
+          content: [selectableChoice("choice000001", "A"), selectableChoice("choice000002", "B")],
         },
         {
           type: "assessment_actions_group",
@@ -272,7 +277,7 @@ async function mountPage(
           <PagePlayer
             composition={runtimeComposition}
             initialContent={initialContent}
-            surfaceId="surface-page-player-browser"
+            surfaceId="pagebrowse01"
             onRendererReady={(readyEditor) => {
               editor = readyEditor;
             }}

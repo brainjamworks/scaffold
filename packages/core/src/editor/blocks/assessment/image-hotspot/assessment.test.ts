@@ -23,6 +23,7 @@ describe("image-hotspot assessment projection", () => {
                   centerX: 50,
                   centerY: 50,
                   radius: 10,
+                  label: "Only hotspot",
                 },
               ],
             },

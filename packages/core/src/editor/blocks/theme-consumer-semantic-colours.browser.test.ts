@@ -1,5 +1,4 @@
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import { userEvent } from "vite-plus/test/browser/context";
 
 import "@/styles/globals.css";
 
@@ -34,49 +33,53 @@ describe("course consumer semantic colours", () => {
 
   it("uses success and error tokens for sequencing result states", () => {
     const fixture = createFixture();
-    const answerKey = appendElement(fixture, "div", "sc-sequencing-item--answer-key");
-    const correctDot = appendElement(fixture, "span", "sc-sequencing-position-dot--correct");
-    const incorrectDot = appendElement(fixture, "span", "sc-sequencing-position-dot--incorrect");
+    const course = appendElement(fixture, "div", "sc-course sc-course-theme-scaffold-flow-v1");
+    const correctItem = appendElement(course, "div", "sc-course-sequencing__item");
+    correctItem.dataset["courseState"] = "correct";
+    const correctCue = appendElement(correctItem, "span", "sc-course-sequencing__state-cue");
+    const incorrectItem = appendElement(course, "div", "sc-course-sequencing__item");
+    incorrectItem.dataset["courseState"] = "incorrect";
 
-    expect(getComputedStyle(answerKey).borderColor).toBe("rgb(22, 163, 74)");
-    expect(getComputedStyle(answerKey).color).toBe("rgb(20, 83, 45)");
-    expect(getComputedStyle(correctDot).backgroundColor).toBe("rgb(22, 163, 74)");
-    expect(getComputedStyle(incorrectDot).backgroundColor).toBe("rgb(220, 38, 38)");
+    expect(getComputedStyle(correctItem).borderColor).toBe("rgb(22, 163, 74)");
+    expect(getComputedStyle(correctItem).color).toBe("rgb(22, 163, 74)");
+    expect(getComputedStyle(correctCue).color).toBe("rgb(22, 163, 74)");
+    expect(getComputedStyle(incorrectItem).borderColor).toBe("rgb(220, 38, 38)");
   });
 
-  it("uses the success family for flashcard mastery", async () => {
+  it("uses the success family for flashcard mastery", () => {
     const fixture = createFixture();
-    const badge = appendElement(fixture, "span", "sc-flashcard-card__mastery-badge--got-it");
-    const activeButton = appendElement(
-      fixture,
-      "button",
-      "sc-flashcard-rating-button--got-it-active",
-    );
-    const idleButton = appendElement(fixture, "button", "sc-flashcard-rating-button--got-it-idle");
-    idleButton.textContent = "Got it";
-    const masteredIcon = appendElement(fixture, "span", "sc-flashcard-mastered__icon");
-
-    await userEvent.hover(idleButton);
+    const course = appendElement(fixture, "div", "sc-course sc-course-theme-scaffold-flow-v1");
+    const badge = appendElement(course, "span", "sc-course-flashcard-card__mastery-badge");
+    badge.dataset["courseState"] = "completed";
+    const activeButton = appendElement(course, "button", "sc-course-flashcard-rating-button");
+    activeButton.dataset["courseState"] = "completed";
+    const mastered = appendElement(course, "div", "sc-course-flashcard-mastered");
+    const masteredIcon = appendElement(mastered, "span", "sc-course-flashcard-mastered__icon");
 
     expect(getComputedStyle(badge).backgroundColor).toBe("rgb(220, 252, 231)");
     expect(getComputedStyle(activeButton).borderColor).toBe("rgb(22, 163, 74)");
-    expect(getComputedStyle(activeButton).backgroundColor).toBe("rgb(22, 163, 74)");
-    expect(getComputedStyle(activeButton).color).toBe("rgb(240, 253, 244)");
-    expect(getComputedStyle(idleButton).borderColor).toBe("rgb(22, 163, 74)");
-    expect(getComputedStyle(masteredIcon).color).toBe("rgb(22, 163, 74)");
+    expect(getComputedStyle(activeButton).backgroundColor).toBe("rgb(220, 252, 231)");
+    expect(getComputedStyle(activeButton).color).toBe("rgb(20, 83, 45)");
+    expect(getComputedStyle(masteredIcon).color).toBe("rgb(20, 83, 45)");
   });
 
-  it("derives neutral learner interaction washes from course text colours", async () => {
+  it("keeps current Flow learner interaction selectors on Course-owned tokens", () => {
     const fixture = createFixture();
-    const missedHotspot = appendElement(fixture, "span", "sc-course-image-hotspot-marker--miss");
+    const course = appendElement(fixture, "div", "sc-course sc-course-theme-scaffold-flow-v1");
+    const missedHotspot = appendElement(course, "span", "sc-course-image-hotspot-marker");
+    missedHotspot.dataset["hotspotState"] = "miss";
 
-    expect(getComputedStyle(missedHotspot).backgroundColor).toBe(
-      "color(srgb 0.419608 0.447059 0.501961 / 0.7)",
-    );
-    expect(cssRuleText(".sc-categorise-runtime-remove:hover")).toContain("var(--color-ink)");
-    expect(cssRuleText(".sc-dropdown-runtime__trigger:focus")).toContain(
-      "var(--color-focus-outline)",
-    );
+    expect(getComputedStyle(missedHotspot, "::before").backgroundColor).toBe("rgb(254, 226, 226)");
+    expect(
+      cssRuleText(
+        ".sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-categorise__remove-action:hover",
+      ),
+    ).toContain("var(--accent-11)");
+    expect(
+      cssRuleText(
+        ".sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-dropdown-select__trigger:focus-visible",
+      ),
+    ).toContain("var(--accent-9)");
     expect(cssRuleText(".sc-quiz__completion-mark")).toContain("var(--color-success)");
   });
 });
@@ -106,6 +109,10 @@ function createFixture(): HTMLDivElement {
   fixture.style.setProperty("--sc-course-state-incorrect-border", "rgb(220 38 38)");
   fixture.style.setProperty("--sc-course-state-incorrect-background", "rgb(254 226 226)");
   fixture.style.setProperty("--sc-course-state-incorrect-text", "rgb(220 38 38)");
+  fixture.style.setProperty("--sc-course-state-incorrect-indicator", "rgb(220 38 38)");
+  fixture.style.setProperty("--sc-course-state-completed-border", "rgb(22 163 74)");
+  fixture.style.setProperty("--sc-course-state-completed-background", "rgb(220 252 231)");
+  fixture.style.setProperty("--sc-course-state-completed-text", "rgb(20 83 45)");
   document.body.append(fixture);
   return fixture;
 }
@@ -124,7 +131,12 @@ function appendElement<K extends keyof HTMLElementTagNameMap>(
 function cssRuleText(selector: string): string {
   const visit = (rules: CSSRuleList): string => {
     for (const rule of rules) {
-      if (rule instanceof CSSStyleRule && rule.selectorText === selector) return rule.cssText;
+      if (
+        rule instanceof CSSStyleRule &&
+        rule.selectorText.split(",").some((candidate) => candidate.trim() === selector)
+      ) {
+        return rule.cssText;
+      }
       if ("cssRules" in rule) {
         const nested = visit((rule as CSSGroupingRule).cssRules);
         if (nested) return nested;

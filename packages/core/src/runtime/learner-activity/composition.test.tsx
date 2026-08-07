@@ -68,7 +68,7 @@ function storesFor(surfaceId: string) {
 function registerAssessment(store: AssessmentStoreApi, problemId: string) {
   const identity = {
     authoredBlockId: problemId,
-    targetId: `${problemId}-target`,
+    targetId: problemId.replace(/^problem/, "target0"),
     interactionKind: "single-select" as const,
   };
 
@@ -144,27 +144,27 @@ describe("learner activity runtime composition", () => {
     await waitFor(() => expect(capturedStores.assessment.size).toBe(1));
     const { assessment, learnerActivity } = storesFor("noport000001");
 
-    ensureChecklist(learnerActivity, "checklist-one");
-    learnerActivity.getState().setCompleted("checklist-one", true);
+    ensureChecklist(learnerActivity, "check0000001");
+    learnerActivity.getState().setCompleted("check0000001", true);
 
-    expect(learnerActivity.getState().activities["checklist-one"]?.completed).toBe(true);
-    expect(learnerActivity.getState().saves["checklist-one"]).toMatchObject({
+    expect(learnerActivity.getState().activities["check0000001"]?.completed).toBe(true);
+    expect(learnerActivity.getState().saves["check0000001"]).toMatchObject({
       status: "unavailable",
       error: null,
     });
     expect(assessment.getState().durable).toEqual({ problems: {}, quizzes: {} });
 
-    const assessmentIdentity = registerAssessment(assessment, "problem-one");
-    assessment.getState().setLocalResponse(assessmentIdentity, { choice: "option-one" });
+    const assessmentIdentity = registerAssessment(assessment, "problem000001");
+    assessment.getState().setLocalResponse(assessmentIdentity, { choice: "option000001" });
 
     expect(assessment.getState().durable.problems).not.toEqual({});
-    expect(learnerActivity.getState().activities["checklist-one"]?.completed).toBe(true);
+    expect(learnerActivity.getState().activities["check0000001"]?.completed).toBe(true);
     expect(assessment.getState()).not.toHaveProperty("progress");
     expect(learnerActivity.getState()).not.toHaveProperty("progress");
 
     mounted.unmount();
     expect(assessment.getState().durable.problems).not.toEqual({});
-    expect(learnerActivity.getState().activities["checklist-one"]?.completed).toBe(true);
+    expect(learnerActivity.getState().activities["check0000001"]?.completed).toBe(true);
   });
 
   it("contains persistence failures within their owning sibling domain", async () => {
@@ -192,14 +192,14 @@ describe("learner activity runtime composition", () => {
     await waitFor(() => expect(capturedStores.assessment.size).toBe(1));
     const { assessment, learnerActivity } = storesFor("failure00001");
 
-    ensureChecklist(learnerActivity, "checklist-one");
+    ensureChecklist(learnerActivity, "check0000001");
     await waitFor(() =>
-      expect(learnerActivity.getState().saves["checklist-one"]?.status).toBe("error"),
+      expect(learnerActivity.getState().saves["check0000001"]?.status).toBe("error"),
     );
     expect(assessment.getState().durable).toEqual({ problems: {}, quizzes: {} });
 
-    const assessmentIdentity = registerAssessment(assessment, "problem-one");
-    assessment.getState().setLocalResponse(assessmentIdentity, { choice: "option-one" });
+    const assessmentIdentity = registerAssessment(assessment, "problem000001");
+    assessment.getState().setLocalResponse(assessmentIdentity, { choice: "option000001" });
     await expect(assessment.getState().submit(assessmentIdentity)).resolves.toBeNull();
 
     const requests = assessment.getState().requests;
@@ -208,10 +208,10 @@ describe("learner activity runtime composition", () => {
       status: "error",
       error: "assessment submit denied",
     });
-    expect(learnerActivity.getState().activities["checklist-one"]?.data).toEqual({
+    expect(learnerActivity.getState().activities["check0000001"]?.data).toEqual({
       checked: false,
     });
-    expect(learnerActivity.getState().saves["checklist-one"]?.error).toBe("activity save denied");
+    expect(learnerActivity.getState().saves["check0000001"]?.error).toBe("activity save denied");
   });
 
   it("unmounts one same-artifact root without changing the surviving stores", async () => {
@@ -241,22 +241,22 @@ describe("learner activity runtime composition", () => {
     expect(firstStores.assessment).not.toBe(secondStores.assessment);
     expect(firstStores.learnerActivity).not.toBe(secondStores.learnerActivity);
 
-    ensureChecklist(firstStores.learnerActivity, "shared-checklist");
-    registerAssessment(firstStores.assessment, "shared-problem");
+    ensureChecklist(firstStores.learnerActivity, "check0000002");
+    registerAssessment(firstStores.assessment, "problem000002");
     expect(secondStores.learnerActivity.getState().activities).toEqual({});
     expect(secondStores.assessment.getState().registrations).toEqual({});
 
     first.unmount();
-    expect(firstStores.learnerActivity.getState().activities["shared-checklist"]).toBeDefined();
+    expect(firstStores.learnerActivity.getState().activities["check0000002"]).toBeDefined();
     expect(firstStores.assessment.getState().registrations).not.toEqual({});
     expect(secondStores.learnerActivity.getState().activities).toEqual({});
     expect(secondStores.assessment.getState().registrations).toEqual({});
 
-    ensureChecklist(secondStores.learnerActivity, "shared-checklist");
-    registerAssessment(secondStores.assessment, "shared-problem");
-    expect(secondStores.learnerActivity.getState().activities["shared-checklist"]).toBeDefined();
+    ensureChecklist(secondStores.learnerActivity, "check0000002");
+    registerAssessment(secondStores.assessment, "problem000002");
+    expect(secondStores.learnerActivity.getState().activities["check0000002"]).toBeDefined();
     expect(secondStores.assessment.getState().registrations).not.toEqual({});
-    expect(firstStores.learnerActivity.getState().activities["shared-checklist"]).toBeDefined();
+    expect(firstStores.learnerActivity.getState().activities["check0000002"]).toBeDefined();
     expect(firstStores.assessment.getState().registrations).not.toEqual({});
   });
 });

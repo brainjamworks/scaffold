@@ -31,6 +31,9 @@ import { AssessmentPromptNode } from "@/editor/blocks/assessment/shared/nodes/as
 import { AssessmentSummaryFeedbackNode } from "@/editor/blocks/assessment/shared/nodes/assessment-summary-feedback";
 import { AssessmentTitleNode } from "@/editor/blocks/assessment/shared/nodes/assessment-title";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
+import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
+import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
 
 import { describeDropdownAccessibilityState, dropdownChoiceLabelContent } from "./dropdown-choice";
 import { DropdownAuthoringExtension } from "./dropdown-authoring-extension";
@@ -61,6 +64,7 @@ function makeEditor(editable = true) {
       StarterKit.configure({ undoRedo: false, paragraph: false }),
       ExtendedParagraph,
       createRuntimeBlockFrameAttributesExtension([dropdownBlockDefinition.nodeType]),
+      createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
       BoundedRegionTestNode,
       AssessmentTitleNode,
       AssessmentInstructionsNode,
@@ -81,6 +85,7 @@ function createDisposableDropdownEditor(content: JSONContent) {
       StarterKit.configure({ undoRedo: false, paragraph: false }),
       ExtendedParagraph,
       createRuntimeBlockFrameAttributesExtension([dropdownBlockDefinition.nodeType]),
+      createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
       AssessmentTitleNode,
       AssessmentInstructionsNode,
       AssessmentPromptNode,
@@ -99,7 +104,7 @@ function renderRuntimeEditor(editor: Editor, assessmentPort: AssessmentPort) {
   render(
     createAssessmentRuntimeTestRoot({
       assessment: assessmentPort,
-      children: createElement(EditorContent, { editor }),
+      children: createAuthoringMovementTestRoot(editor, createElement(EditorContent, { editor })),
       onStore: captureAssessmentStore,
     }),
   );
@@ -112,7 +117,7 @@ function captureAssessmentStore(store: AssessmentStoreApi | null) {
 function renderAssessmentEditor(editor: Editor) {
   return render(
     createAssessmentRuntimeTestRoot({
-      children: createElement(EditorContent, { editor }),
+      children: createAuthoringMovementTestRoot(editor, createElement(EditorContent, { editor })),
       onStore: captureAssessmentStore,
     }),
   );
@@ -412,13 +417,13 @@ describe("composite dropdown node", () => {
     });
     const shell = frame?.querySelector<HTMLElement>("[data-assessment-shell]");
     const choices = frame?.querySelector<HTMLElement>('[data-slot="dropdown-choices-group"]');
-    const runtimeControl = frame?.querySelector<HTMLElement>(".sc-dropdown-runtime");
+    const runtimeControl = frame?.querySelector<HTMLElement>(".sc-course-dropdown-select");
     const trigger = screen.getByRole("combobox", { name: "Pick a term" });
 
     expect(shell).toBeInstanceOf(HTMLElement);
     expect(choices).toBeInstanceOf(HTMLElement);
     expect(runtimeControl).toBeInstanceOf(HTMLElement);
-    expect(trigger.classList.contains("sc-dropdown-runtime__trigger")).toBe(true);
+    expect(trigger.classList.contains("sc-course-dropdown-select__trigger")).toBe(true);
     expect(choices?.hasAttribute("data-bounded-scroll")).toBe(false);
     expect(choices?.hasAttribute("data-bounded-scroll-frame")).toBe(false);
     expect(choices?.querySelector("[data-bounded-scroll]")).toBeNull();
@@ -955,8 +960,11 @@ describe("composite dropdown node", () => {
     fireEvent.click(screen.getByText("Show answer"));
 
     await waitFor(() => {
-      expect(screen.getByRole("combobox", { name: "Pick a term" }).textContent).toContain("Beta");
-      expect(dropdownDescription()).toBe("Correct answer");
+      expect(
+        document.body.querySelector(".sc-course-dropdown-select__correct-value")?.textContent,
+      ).toContain("Beta");
+      expect(screen.getByRole("combobox", { name: "Pick a term" }).textContent).toContain("Alpha");
+      expect(dropdownDescription()).toBe("Submitted answer, incorrect");
     });
 
     editor.destroy();

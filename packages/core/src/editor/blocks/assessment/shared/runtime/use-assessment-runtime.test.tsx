@@ -63,6 +63,7 @@ import {
 } from "@/runtime/assessment/runtime-facade";
 import { assessmentProblemOutcome } from "@/runtime/assessment/test-utils";
 import { pageAssessmentExperience } from "../model/assessment-capability";
+import { createTestNodeIdentityExtension } from "@/editor/testing";
 
 const canonicalAssessmentResult = { feedback: null, items: {} };
 
@@ -91,7 +92,19 @@ function learningEventDefinitionForKind(
     case "fill-blanks":
       return { interaction: { kind, blanks: [] } };
     case "spatial-hotspot":
-      return { interaction: { kind, hotspots: [], maxSelections: null } };
+      return {
+        interaction: {
+          kind,
+          hotspots: [
+            {
+              id: "hotspot00001",
+              label: "Target",
+              geometry: { kind: "circle", centerX: 20, centerY: 20, radius: 8 },
+            },
+          ],
+          maxSelections: null,
+        },
+      };
   }
 }
 
@@ -144,8 +157,8 @@ function ScopedQuizRegistration({
 }) {
   const registration = useMemo(
     () => ({
-      groupId: "quiz-1",
-      targetIds: ["target-1"],
+      groupId: "quiz00000001",
+      targetIds: ["target000001"],
       settings: {
         allowBacktracking: true,
         reviewTiming: "after_quiz" as const,
@@ -176,7 +189,11 @@ const MismatchMcqNode = Node.create({
 
 function makeMismatchEditor() {
   const editor = new Editor({
-    extensions: [StarterKit.configure({ undoRedo: false }), MismatchMcqNode],
+    extensions: [
+      StarterKit.configure({ undoRedo: false }),
+      createTestNodeIdentityExtension(),
+      MismatchMcqNode,
+    ],
     content: { type: "doc", content: [{ type: "mcq" }] },
   });
   editors.push(editor);
@@ -204,6 +221,7 @@ function makeEditor() {
       MathInlineNode,
       MathBlockNode,
       createVocabularyTermNode(),
+      createTestNodeIdentityExtension(),
       McqNode,
     ],
     content: {
@@ -212,9 +230,9 @@ function makeEditor() {
         {
           type: "mcq",
           attrs: {
-            id: "mcq-1",
+            id: "assess000001",
             assessment: {
-              correctOptionId: "b",
+              correctOptionId: "option000002",
               feedbackByOptionId: {},
               summaryFeedback: null,
             },
@@ -262,13 +280,13 @@ function makeEditor() {
                 { type: "horizontalRule" },
                 {
                   type: "blockMath",
-                  attrs: { id: "prompt-math", latex: "a^2 + b^2 = c^2" },
+                  attrs: { id: "promptMath01", latex: "a^2 + b^2 = c^2" },
                 },
               ],
             },
             {
               type: "assessment_choices_group",
-              content: [richSelectableChoice("a"), selectableChoice("b")],
+              content: [richSelectableChoice("option000001"), selectableChoice("option000002")],
             },
             {
               type: "assessment_actions_group",
@@ -346,7 +364,7 @@ function richSelectableChoice(id: string) {
           },
           {
             type: "blockMath",
-            attrs: { id: "choice-math", latex: "y^2 = y × y" },
+            attrs: { id: "choiceMath01", latex: "y^2 = y × y" },
           },
         ],
       },
@@ -383,7 +401,7 @@ function RuntimeProbe({
           : ""}
       </p>
       <p data-testid="summary-feedback">{String(runtime.feedback.summary?.isCorrect ?? "")}</p>
-      <button type="button" onClick={() => runtime.response.setValue({ choices: "b" })}>
+      <button type="button" onClick={() => runtime.response.setValue({ choices: "option000002" })}>
         choose
       </button>
       <button type="button" onClick={() => void runtime.actions.check()}>
@@ -460,7 +478,7 @@ function RuntimeByIdResult({ runtime }: { runtime: AssessmentRuntimeController |
       <p data-testid="by-id-kind">{interaction.kind}</p>
       <p data-testid="by-id-hints">{String(runtime.experience.hints)}</p>
       {interaction.kind === "single-select" ? (
-        <button type="button" onClick={() => interaction.select("b")}>
+        <button type="button" onClick={() => interaction.select("option000002")}>
           by-id choose
         </button>
       ) : null}
@@ -488,9 +506,9 @@ function ChoiceDisclosureProbe({
   return (
     <>
       <p data-testid="registered">{runtime.problem ? "registered" : "missing"}</p>
-      <p data-testid="state-a">{interaction?.stateFor("a") ?? "none"}</p>
-      <p data-testid="state-b">{interaction?.stateFor("b") ?? "none"}</p>
-      <button type="button" onClick={() => interaction?.select("a")}>
+      <p data-testid="state-a">{interaction?.stateFor("option000001") ?? "none"}</p>
+      <p data-testid="state-b">{interaction?.stateFor("option000002") ?? "none"}</p>
+      <button type="button" onClick={() => interaction?.select("option000001")}>
         choose wrong
       </button>
       <button type="button" onClick={() => void runtime.actions.submit()}>
@@ -516,10 +534,10 @@ function HotspotByIdProbe({ problemId }: { problemId: string }) {
         type="button"
         onClick={() =>
           interaction?.addClick({
-            id: "click-1",
+            id: "click0000001",
             x: 20,
             y: 20,
-            hotspotId: "h1",
+            hotspotId: "hotspot00001",
           })
         }
       >
@@ -625,7 +643,7 @@ function setScopedProblem(
             [problemId]: {
               answerKey: {
                 kind: "single-select",
-                correctOptionId: "b",
+                correctOptionId: "option000002",
                 feedbackByOptionId: {},
               },
             },
@@ -636,7 +654,7 @@ function setScopedProblem(
 }
 
 function setScopedQuizAttempt(overrides: Partial<QuizAttemptState>) {
-  const groupId = scopeAssessmentGroupId("artifact-1", "quiz-1");
+  const groupId = scopeAssessmentGroupId("artifact-1", "quiz00000001");
   scopedAssessmentStore?.setState((state) => ({
     durable: {
       ...state.durable,
@@ -646,7 +664,7 @@ function setScopedQuizAttempt(overrides: Partial<QuizAttemptState>) {
           attemptId: "attempt-1",
           groupId,
           status: "in_progress",
-          currentTargetId: "target-1",
+          currentTargetId: "target000001",
           submittedTargetIds: [],
           startedAt: "2026-07-16T12:00:00.000Z",
           finishedAt: null,
@@ -698,19 +716,19 @@ describe("useAssessmentRuntime", () => {
 
     await waitFor(() => {
       const registration =
-        scopedAssessmentStore?.getState().registrations["artifact:artifact-1/block:mcq-1"];
+        scopedAssessmentStore?.getState().registrations["artifact:artifact-1/block:assess000001"];
       expect(registration?.config.learningEventDefinition).toBeDefined();
     });
     const registration =
-      scopedAssessmentStore?.getState().registrations["artifact:artifact-1/block:mcq-1"];
+      scopedAssessmentStore?.getState().registrations["artifact:artifact-1/block:assess000001"];
     const learningEventDefinition = registration?.config.learningEventDefinition;
     expect(learningEventDefinition).toStrictEqual({
       activityDescription: "What is x^2 called? square 💡 a^2 + b^2 = c^2",
       interaction: {
         kind: "single-select",
         options: [
-          { id: "a", label: "Formula y^2 means square ✅ y^2 = y × y" },
-          { id: "b", label: "b" },
+          { id: "option000001", label: "Formula y^2 means square ✅ y^2 = y × y" },
+          { id: "option000002", label: "option000002" },
         ],
       },
     });
@@ -784,7 +802,11 @@ describe("useAssessmentRuntime", () => {
       revealAnswer: async (args) => {
         revealed = args;
         return {
-          answerKey: { kind: "single-select", correctOptionId: "b", feedbackByOptionId: {} },
+          answerKey: {
+            kind: "single-select",
+            correctOptionId: "option000002",
+            feedbackByOptionId: {},
+          },
         };
       },
     };
@@ -802,7 +824,9 @@ describe("useAssessmentRuntime", () => {
       expect(screen.getByTestId("registered").textContent).toBe("registered");
     });
 
-    expect(screen.getByTestId("problem-id").textContent).toBe("artifact:artifact-1/block:mcq-1");
+    expect(screen.getByTestId("problem-id").textContent).toBe(
+      "artifact:artifact-1/block:assess000001",
+    );
     expect(screen.getByTestId("kind").textContent).toBe("single-select");
     expect(screen.getByTestId("experience-hints").textContent).toBe("true");
     expect(screen.getByTestId("response-kind").textContent).toBe("single-select");
@@ -810,11 +834,11 @@ describe("useAssessmentRuntime", () => {
     await user.click(screen.getByText("choose"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("response-option").textContent).toBe("b");
+      expect(screen.getByTestId("response-option").textContent).toBe("option000002");
     });
     expect(
       scopedAssessmentStore?.getState().transient.responseReady[
-        scopeAssessmentProblemId("artifact-1", "mcq-1")
+        scopeAssessmentProblemId("artifact-1", "assess000001")
       ],
     ).toBe(true);
 
@@ -823,7 +847,7 @@ describe("useAssessmentRuntime", () => {
       expect(checked).not.toBeNull();
       expect(
         scopedAssessmentStore?.getState().durable.problems[
-          scopeAssessmentProblemId("artifact-1", "mcq-1")
+          scopeAssessmentProblemId("artifact-1", "assess000001")
         ]?.checkResult?.isCorrect,
       ).toBe(true);
       expect(screen.getByTestId("summary-feedback").textContent).toBe("true");
@@ -834,22 +858,22 @@ describe("useAssessmentRuntime", () => {
 
     await waitFor(() => {
       expect(checked).toMatchObject({
-        problemId: "artifact:artifact-1/block:mcq-1",
-        targetId: "mcq-1",
+        problemId: "artifact:artifact-1/block:assess000001",
+        targetId: "assess000001",
         interactionKind: "single-select",
-        response: { kind: "single-select", optionId: "b" },
+        response: { kind: "single-select", optionId: "option000002" },
       });
       expect(submitted).toMatchObject({
-        problemId: "artifact:artifact-1/block:mcq-1",
-        targetId: "mcq-1",
+        problemId: "artifact:artifact-1/block:assess000001",
+        targetId: "assess000001",
         interactionKind: "single-select",
-        response: { kind: "single-select", optionId: "b" },
+        response: { kind: "single-select", optionId: "option000002" },
       });
       expect(revealed).toMatchObject({
-        problemId: "artifact:artifact-1/block:mcq-1",
-        targetId: "mcq-1",
+        problemId: "artifact:artifact-1/block:assess000001",
+        targetId: "assess000001",
         interactionKind: "single-select",
-        response: { kind: "single-select", optionId: "b" },
+        response: { kind: "single-select", optionId: "option000002" },
       });
     });
   });
@@ -870,7 +894,7 @@ describe("useAssessmentRuntime", () => {
       withAssessmentPort(
         <ScaffoldArtifactIdentityProvider artifactId="artifact-1">
           <RuntimeProbe {...setup} />
-          <RuntimeByIdProbe problemId="mcq-1" />
+          <RuntimeByIdProbe problemId="assess000001" />
         </ScaffoldArtifactIdentityProvider>,
         assessmentPort,
       ),
@@ -887,7 +911,7 @@ describe("useAssessmentRuntime", () => {
     await user.click(screen.getByText("by-id choose"));
 
     await waitFor(() => {
-      expect(screen.getByTestId("response-option").textContent).toBe("b");
+      expect(screen.getByTestId("response-option").textContent).toBe("option000002");
     });
   });
 
@@ -907,7 +931,7 @@ describe("useAssessmentRuntime", () => {
         <ScaffoldArtifactIdentityProvider artifactId="artifact-1">
           <RuntimeProbe {...setup} />
           <RuntimeErrorBoundary>
-            <RuntimeByIdProbe problemId="mcq-1" expectedKind="spatial-hotspot" />
+            <RuntimeByIdProbe problemId="assess000001" expectedKind="spatial-hotspot" />
           </RuntimeErrorBoundary>
         </ScaffoldArtifactIdentityProvider>,
         assessmentPort,
@@ -937,14 +961,18 @@ describe("useAssessmentRuntime", () => {
             isCorrect: false,
             score: { scaled: 0 },
             items: {
-              a: { correct: false, expected: false, given: true },
-              b: { correct: false, expected: true, given: false },
+              option000001: { correct: false, expected: false, given: true },
+              option000002: { correct: false, expected: true, given: false },
             },
           },
           { response: args.response },
         ),
       revealAnswer: async () => ({
-        answerKey: { kind: "single-select", correctOptionId: "b", feedbackByOptionId: {} },
+        answerKey: {
+          kind: "single-select",
+          correctOptionId: "option000002",
+          feedbackByOptionId: {},
+        },
       }),
     };
 
@@ -977,7 +1005,7 @@ describe("useAssessmentRuntime", () => {
   });
 
   it("marks the answer key visible after an explicit reveal payload arrives", async () => {
-    const problemId = "p1";
+    const problemId = "assess000002";
     const assessmentPort: AssessmentPort = {
       type: "runtime",
       submit: async (args) =>
@@ -986,7 +1014,11 @@ describe("useAssessmentRuntime", () => {
           { response: args.response },
         ),
       revealAnswer: async () => ({
-        answerKey: { kind: "single-select", correctOptionId: "b", feedbackByOptionId: {} },
+        answerKey: {
+          kind: "single-select",
+          correctOptionId: "option000002",
+          feedbackByOptionId: {},
+        },
       }),
     };
 
@@ -1012,7 +1044,7 @@ describe("useAssessmentRuntime", () => {
         ?.getState()
         .setLocalResponse(
           { authoredBlockId: problemId, targetId: problemId, interactionKind: "single-select" },
-          { choices: "a" },
+          { choices: "option000001" },
         );
     });
 
@@ -1034,7 +1066,7 @@ describe("useAssessmentRuntime", () => {
   });
 
   it("marks the answer key visible for immediate feedback without creating a reveal payload", async () => {
-    const problemId = "p1";
+    const problemId = "assess000002";
     const assessmentPort: AssessmentPort = {
       type: "runtime",
       check: async (args) => {
@@ -1043,8 +1075,8 @@ describe("useAssessmentRuntime", () => {
           isCorrect: false,
           score: { scaled: 0 },
           items: {
-            a: { correct: false, expected: false, given: true },
-            b: { correct: false, expected: true, given: false },
+            option000001: { correct: false, expected: false, given: true },
+            option000002: { correct: false, expected: true, given: false },
           },
         };
         return assessmentProblemOutcome(result, {
@@ -1087,7 +1119,7 @@ describe("useAssessmentRuntime", () => {
         ?.getState()
         .setLocalResponse(
           { authoredBlockId: problemId, targetId: problemId, interactionKind: "single-select" },
-          { choices: "a" },
+          { choices: "option000001" },
         );
     });
 
@@ -1109,7 +1141,7 @@ describe("useAssessmentRuntime", () => {
   });
 
   it("keeps standalone assessment visibility unchanged without a quiz policy", async () => {
-    const problemId = "p1";
+    const problemId = "assess000002";
     render(
       withAssessmentPort(
         <>
@@ -1142,11 +1174,11 @@ describe("useAssessmentRuntime", () => {
   });
 
   it("suppresses child feedback and hints when quiz results are hidden", () => {
-    const problemId = "p1";
+    const problemId = "assess000002";
     render(
       withAssessmentPort(
         <>
-          <ScopedProblemRegistration problemId={problemId} targetId="target-1" hintsTotal={1} />
+          <ScopedProblemRegistration problemId={problemId} targetId="target000001" hintsTotal={1} />
           <ScopedQuizRegistration reviewDetail="none" />
           <RuntimeProblemVisibilityProbe problemId={problemId} />
         </>,
@@ -1175,11 +1207,11 @@ describe("useAssessmentRuntime", () => {
   });
 
   it("shows only result state when quiz review detail is result-only", () => {
-    const problemId = "p1";
+    const problemId = "assess000002";
     render(
       withAssessmentPort(
         <>
-          <ScopedProblemRegistration problemId={problemId} targetId="target-1" />
+          <ScopedProblemRegistration problemId={problemId} targetId="target000001" />
           <ScopedQuizRegistration reviewDetail="result_only" />
           <RuntimeProblemVisibilityProbe problemId={problemId} />
         </>,
@@ -1195,7 +1227,7 @@ describe("useAssessmentRuntime", () => {
             score: { scaled: 0 },
             feedback: { kind: "rich-text", document: { type: "doc" } },
             items: {
-              a: {
+              option000001: {
                 correct: false,
                 expected: false,
                 given: true,
@@ -1219,11 +1251,11 @@ describe("useAssessmentRuntime", () => {
   });
 
   it("waits for quiz review authorization before full answer reveal", async () => {
-    const problemId = "p1";
+    const problemId = "assess000002";
     render(
       withAssessmentPort(
         <>
-          <ScopedProblemRegistration problemId={problemId} targetId="target-1" />
+          <ScopedProblemRegistration problemId={problemId} targetId="target000001" />
           <ScopedQuizRegistration reviewDetail="full_review" />
           <RuntimeProblemVisibilityProbe problemId={problemId} />
         </>,
@@ -1239,7 +1271,7 @@ describe("useAssessmentRuntime", () => {
             score: { scaled: 0 },
             feedback: { kind: "rich-text", document: { type: "doc" } },
             items: {
-              a: {
+              option000001: {
                 correct: false,
                 expected: false,
                 given: true,
@@ -1270,7 +1302,7 @@ describe("useAssessmentRuntime", () => {
 
   it("exposes spatial hotspot click updates through the runtime-by-id interaction", async () => {
     const user = userEvent.setup();
-    const problemId = "hs-1";
+    const problemId = "hotspotBlk01";
     render(
       withAssessmentPort(
         <>

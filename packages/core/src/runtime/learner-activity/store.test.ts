@@ -77,7 +77,7 @@ function hydrateBlock(
   record: LearnerActivityRecord,
 ): void {
   store.setState({
-    activities: { "block-1": record },
+    activities: { block0000001: record },
     hydration: { status: "ready", error: null },
   });
 }
@@ -117,7 +117,7 @@ describe("createLearnerActivityStore", () => {
 
     expect(
       first.getState().ensureActivity({
-        blockId: "block-1",
+        blockId: "block0000001",
         activityKind: "checklist",
         initial: { data: { checked: [] }, completed: false },
       }),
@@ -136,38 +136,38 @@ describe("createLearnerActivityStore", () => {
 
     expect(
       actions.ensureActivity({
-        blockId: "block-1",
+        blockId: "block0000001",
         activityKind: "checklist",
         initial: { data: { checked: [] }, completed: false },
       }),
     ).toBe(true);
     expect(
       actions.ensureActivity({
-        blockId: "block-1",
+        blockId: "block0000001",
         activityKind: "checklist",
         initial: { data: { ignored: true }, completed: true },
       }),
     ).toBe(true);
-    expect(store.getState().activities["block-1"]).toEqual({
+    expect(store.getState().activities["block0000001"]).toEqual({
       activityKind: "checklist",
       data: { checked: [] },
       completed: false,
       updatedAt: null,
     });
-    expect(store.getState().saves["block-1"]).toEqual({
+    expect(store.getState().saves["block0000001"]).toEqual({
       status: "unavailable",
       generation: 1,
       error: null,
     });
     expect(() =>
       actions.ensureActivity({
-        blockId: "block-1",
+        blockId: "block0000001",
         activityKind: "flashcards",
         initial: { data: {}, completed: false },
       }),
     ).toThrow("activityKind cannot change");
-    expect(() => actions.setData("block-1", { invalid: undefined } as never)).toThrow();
-    expect(store.getState().activities["block-1"]?.data).toEqual({ checked: [] });
+    expect(() => actions.setData("block0000001", { invalid: undefined } as never)).toThrow();
+    expect(store.getState().activities["block0000001"]?.data).toEqual({ checked: [] });
   });
 
   it("patches shallowly and retains the authoritative timestamp until save succeeds", async () => {
@@ -180,14 +180,14 @@ describe("createLearnerActivityStore", () => {
 
     store.setState({
       activities: {
-        "block-1": hostRecord({ checked: ["a"], nested: { keep: true } }),
+        block0000001: hostRecord({ checked: ["a"], nested: { keep: true } }),
       },
       hydration: { status: "ready", error: null },
     });
-    expect(store.getState().patchData("block-1", { nested: { replaced: true }, page: 2 })).toBe(
-      true,
-    );
-    expect(store.getState().activities["block-1"]).toEqual(
+    expect(
+      store.getState().patchData("block0000001", { nested: { replaced: true }, page: 2 }),
+    ).toBe(true);
+    expect(store.getState().activities["block0000001"]).toEqual(
       hostRecord({ checked: ["a"], nested: { replaced: true }, page: 2 }),
     );
 
@@ -199,8 +199,8 @@ describe("createLearnerActivityStore", () => {
     );
     await flushPromises();
 
-    expect(store.getState().activities["block-1"]?.updatedAt).toBe("2026-07-17T11:00:00Z");
-    expect(store.getState().saves["block-1"]).toEqual({
+    expect(store.getState().activities["block0000001"]?.updatedAt).toBe("2026-07-17T11:00:00Z");
+    expect(store.getState().saves["block0000001"]).toEqual({
       status: "idle",
       generation: 1,
       error: null,
@@ -220,33 +220,33 @@ describe("createLearnerActivityStore", () => {
     });
 
     store.getState().ensureActivity({
-      blockId: "block-1",
+      blockId: "block0000001",
       activityKind: "checklist",
       initial: { data: { step: 1 }, completed: false },
     });
-    store.getState().setData("block-1", { step: 2 });
+    store.getState().setData("block0000001", { step: 2 });
     await flushPromises();
 
     expect(save).toHaveBeenCalledTimes(1);
     expect(save).toHaveBeenNthCalledWith(1, {
       artifactId: "course-1",
-      blockId: "block-1",
+      blockId: "block0000001",
       record: { activityKind: "checklist", data: { step: 1 }, completed: false },
     });
 
     first.resolve(hostRecord({ step: 1 }, { updatedAt: "2026-07-17T10:00:00Z" }));
     await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(2));
 
-    expect(store.getState().activities["block-1"]?.data).toEqual({ step: 2 });
-    expect(store.getState().activities["block-1"]?.updatedAt).toBeNull();
+    expect(store.getState().activities["block0000001"]?.data).toEqual({ step: 2 });
+    expect(store.getState().activities["block0000001"]?.updatedAt).toBeNull();
 
     second.resolve(hostRecord({ step: 2 }, { updatedAt: "2026-07-17T11:00:00Z" }));
     await flushPromises();
 
-    expect(store.getState().activities["block-1"]).toEqual(
+    expect(store.getState().activities["block0000001"]).toEqual(
       hostRecord({ step: 2 }, { updatedAt: "2026-07-17T11:00:00Z" }),
     );
-    expect(store.getState().saves["block-1"]).toEqual({
+    expect(store.getState().saves["block0000001"]).toEqual({
       status: "idle",
       generation: 2,
       error: null,
@@ -274,25 +274,25 @@ describe("createLearnerActivityStore", () => {
     });
     let reentered = false;
     const unsubscribe = store.subscribe((state) => {
-      if (!reentered && state.activities["block-1"]?.data["step"] === 1) {
+      if (!reentered && state.activities["block0000001"]?.data["step"] === 1) {
         reentered = true;
-        state.setData("block-1", { step: 2 });
+        state.setData("block0000001", { step: 2 });
       }
     });
 
     store.getState().ensureActivity({
-      blockId: "block-1",
+      blockId: "block0000001",
       activityKind: "checklist",
       initial: { data: { step: 1 }, completed: false },
     });
 
     await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(2));
-    await vi.waitFor(() => expect(store.getState().saves["block-1"]?.status).toBe("idle"));
+    await vi.waitFor(() => expect(store.getState().saves["block0000001"]?.status).toBe("idle"));
     unsubscribe();
 
     expect(portInputs).toEqual([1, 2]);
     expect(persistedRecords[persistedRecords.length - 1]?.data).toEqual({ step: 2 });
-    expect(store.getState().activities["block-1"]).toEqual(
+    expect(store.getState().activities["block0000001"]).toEqual(
       hostRecord({ step: 2 }, { updatedAt: "2026-07-17T12:00:00Z" }),
     );
   });
@@ -301,7 +301,7 @@ describe("createLearnerActivityStore", () => {
     const blockA = deferred<LearnerActivityRecord>();
     const blockB = deferred<LearnerActivityRecord>();
     const save = vi.fn<LearnerActivityPort["save"]>(({ blockId }) =>
-      blockId === "block-a" ? blockA.promise : blockB.promise,
+      blockId === "block0000003" ? blockA.promise : blockB.promise,
     );
     const store = createLearnerActivityStore({
       artifactId: "course-1",
@@ -309,12 +309,12 @@ describe("createLearnerActivityStore", () => {
     });
 
     store.getState().ensureActivity({
-      blockId: "block-a",
+      blockId: "block0000003",
       activityKind: "checklist",
       initial: { data: { block: "a" }, completed: false },
     });
     store.getState().ensureActivity({
-      blockId: "block-b",
+      blockId: "block0000004",
       activityKind: "checklist",
       initial: { data: { block: "b" }, completed: false },
     });
@@ -323,12 +323,12 @@ describe("createLearnerActivityStore", () => {
     expect(save).toHaveBeenCalledTimes(2);
     blockB.resolve(hostRecord({ block: "b" }, { updatedAt: "2026-07-17T12:00:00Z" }));
     await flushPromises();
-    expect(store.getState().saves["block-b"]?.status).toBe("idle");
-    expect(store.getState().saves["block-a"]?.status).toBe("pending");
+    expect(store.getState().saves["block0000004"]?.status).toBe("idle");
+    expect(store.getState().saves["block0000003"]?.status).toBe("pending");
 
     blockA.resolve(hostRecord({ block: "a" }));
     await flushPromises();
-    expect(store.getState().saves["block-a"]?.status).toBe("idle");
+    expect(store.getState().saves["block0000003"]?.status).toBe("idle");
   });
 
   it("continues a block tail after stale and current failures", async () => {
@@ -346,35 +346,35 @@ describe("createLearnerActivityStore", () => {
     });
 
     store.getState().ensureActivity({
-      blockId: "block-1",
+      blockId: "block0000001",
       activityKind: "checklist",
       initial: { data: { step: 1 }, completed: false },
     });
-    store.getState().setData("block-1", { step: 2 });
+    store.getState().setData("block0000001", { step: 2 });
     await flushPromises();
     first.reject(new Error("stale failure"));
     await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(2));
 
-    expect(store.getState().saves["block-1"]).toEqual({
+    expect(store.getState().saves["block0000001"]).toEqual({
       status: "pending",
       generation: 2,
       error: null,
     });
 
     second.reject(new Error("current failure"));
-    await vi.waitFor(() => expect(store.getState().saves["block-1"]?.status).toBe("error"));
-    expect(store.getState().saves["block-1"]).toEqual({
+    await vi.waitFor(() => expect(store.getState().saves["block0000001"]?.status).toBe("error"));
+    expect(store.getState().saves["block0000001"]).toEqual({
       status: "error",
       generation: 2,
       error: "current failure",
     });
-    expect(store.getState().activities["block-1"]?.data).toEqual({ step: 2 });
+    expect(store.getState().activities["block0000001"]?.data).toEqual({ step: 2 });
 
-    store.getState().setCompleted("block-1", true);
+    store.getState().setCompleted("block0000001", true);
     await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(3));
     third.resolve(hostRecord({ step: 2 }, { completed: true }));
-    await vi.waitFor(() => expect(store.getState().saves["block-1"]?.status).toBe("idle"));
-    expect(store.getState().saves["block-1"]).toEqual({
+    await vi.waitFor(() => expect(store.getState().saves["block0000001"]?.status).toBe("idle"));
+    expect(store.getState().saves["block0000001"]).toEqual({
       status: "idle",
       generation: 3,
       error: null,
@@ -391,15 +391,15 @@ describe("createLearnerActivityStore", () => {
     });
 
     store.getState().ensureActivity({
-      blockId: "block-1",
+      blockId: "block0000001",
       activityKind: "checklist",
       initial: { data: { local: true }, completed: false },
     });
-    await vi.waitFor(() => expect(store.getState().saves["block-1"]?.status).toBe("error"));
+    await vi.waitFor(() => expect(store.getState().saves["block0000001"]?.status).toBe("error"));
 
-    expect(store.getState().activities["block-1"]?.data).toEqual({ local: true });
-    expect(store.getState().saves["block-1"]?.status).toBe("error");
-    expect(store.getState().saves["block-1"]?.error).toMatch(/\S/);
+    expect(store.getState().activities["block0000001"]?.data).toEqual({ local: true });
+    expect(store.getState().saves["block0000001"]?.status).toBe("error");
+    expect(store.getState().saves["block0000001"]?.error).toMatch(/\S/);
   });
 
   it("keeps stale generations inert and drains the tail after the current save settles", async () => {
@@ -418,29 +418,29 @@ describe("createLearnerActivityStore", () => {
     const actions = store.getState();
 
     actions.ensureActivity({
-      blockId: "block-1",
+      blockId: "block0000001",
       activityKind: "checklist",
       initial: { data: { step: 1 }, completed: false },
     });
-    actions.setData("block-1", { step: 2 });
+    actions.setData("block0000001", { step: 2 });
     await flushPromises();
     expect(save).toHaveBeenCalledTimes(1);
 
     first.resolve(hostRecord({ step: 1 }));
     await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(2));
-    expect(store.getState().activities["block-1"]?.data).toEqual({ step: 2 });
-    expect(store.getState().saves["block-1"]?.generation).toBe(2);
+    expect(store.getState().activities["block0000001"]?.data).toEqual({ step: 2 });
+    expect(store.getState().saves["block0000001"]?.generation).toBe(2);
 
     second.resolve(hostRecord({ step: 2 }, { updatedAt: "2026-07-17T11:00:00Z" }));
-    await vi.waitFor(() => expect(store.getState().saves["block-1"]?.status).toBe("idle"));
+    await vi.waitFor(() => expect(store.getState().saves["block0000001"]?.status).toBe("idle"));
 
-    expect(actions.setCompleted("block-1", true)).toBe(true);
+    expect(actions.setCompleted("block0000001", true)).toBe(true);
     await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(3));
     third.resolve(hostRecord({ step: 2 }, { completed: true, updatedAt: "2026-07-17T12:00:00Z" }));
-    await vi.waitFor(() => expect(store.getState().saves["block-1"]?.status).toBe("idle"));
+    await vi.waitFor(() => expect(store.getState().saves["block0000001"]?.status).toBe("idle"));
 
-    expect(store.getState().activities["block-1"]?.completed).toBe(true);
-    expect(store.getState().saves["block-1"]?.generation).toBe(3);
+    expect(store.getState().activities["block0000001"]?.completed).toBe(true);
+    expect(store.getState().saves["block0000001"]?.generation).toBe(3);
     expect(Object.keys(store.getState()).sort()).toEqual([
       "activities",
       "artifactId",
@@ -481,13 +481,13 @@ describe("createLearnerActivityStore", () => {
       getLearningEventSession: () => session,
     });
     initializedStore.getState().ensureActivity({
-      blockId: "block-1",
+      blockId: "block0000001",
       activityKind: "checklist",
       initial: { data: { checked: [] }, completed: false },
     });
 
     await vi.waitFor(() =>
-      expect(initializedStore.getState().saves["block-1"]?.status).toBe("idle"),
+      expect(initializedStore.getState().saves["block0000001"]?.status).toBe("idle"),
     );
     await flushPromises();
     expect(record).not.toHaveBeenCalled();
@@ -503,7 +503,7 @@ describe("createLearnerActivityStore", () => {
     });
     hydrateBlock(store, hostRecord({ checked: [] }));
 
-    store.getState().setData("block-1", {
+    store.getState().setData("block0000001", {
       checked: ["a"],
       privateAnswer: "must stay in learner state",
     });
@@ -516,14 +516,14 @@ describe("createLearnerActivityStore", () => {
         { updatedAt: "2026-07-25T11:00:00Z" },
       ),
     );
-    await vi.waitFor(() => expect(store.getState().saves["block-1"]?.status).toBe("idle"));
+    await vi.waitFor(() => expect(store.getState().saves["block0000001"]?.status).toBe("idle"));
     await flushPromises();
 
     expect(record).toHaveBeenCalledOnce();
     expect(record).toHaveBeenCalledWith(
       learnerActivityInput({
         rootActivityId: ROOT_ACTIVITY_ID,
-        blockId: "block-1",
+        blockId: "block0000001",
         activityKind: "checklist",
       }),
     );
@@ -541,7 +541,7 @@ describe("createLearnerActivityStore", () => {
     });
     hydrateBlock(store, hostRecord({ checked: {} }));
 
-    store.getState().updateActivity("block-1", {
+    store.getState().updateActivity("block0000001", {
       data: {
         checked: { "item-one": true },
         total: 1,
@@ -569,13 +569,13 @@ describe("createLearnerActivityStore", () => {
         { completed: true, updatedAt: "2026-07-25T11:00:00Z" },
       ),
     );
-    await vi.waitFor(() => expect(store.getState().saves["block-1"]?.status).toBe("idle"));
+    await vi.waitFor(() => expect(store.getState().saves["block0000001"]?.status).toBe("idle"));
 
     expect(record).toHaveBeenCalledTimes(2);
     expect(record.mock.calls[0]?.[0]).toEqual(
       learnerActivityInput({
         rootActivityId: ROOT_ACTIVITY_ID,
-        blockId: "block-1",
+        blockId: "block0000001",
         activityKind: "checklist",
         event: {
           kind: "checklist-item-toggled",
@@ -588,7 +588,7 @@ describe("createLearnerActivityStore", () => {
     );
     expect(record.mock.calls[1]?.[0]).toMatchObject({
       type: "learner-activity.completed",
-      blockId: "block-1",
+      blockId: "block0000001",
       activityKind: "checklist",
     });
     expect(JSON.stringify(record.mock.calls)).not.toContain("PRIVATE_LEARNER_STATE");
@@ -608,7 +608,7 @@ describe("createLearnerActivityStore", () => {
     });
     hydrateBlock(store, hostRecord({ checked: {}, total: 2 }));
 
-    store.getState().updateActivity("block-1", {
+    store.getState().updateActivity("block0000001", {
       data: { checked: { "item-one": true }, total: 2 },
       completed: false,
       learningEvent: {
@@ -619,13 +619,13 @@ describe("createLearnerActivityStore", () => {
         total: 2,
       },
     });
-    await vi.waitFor(() => expect(store.getState().saves["block-1"]?.status).toBe("idle"));
+    await vi.waitFor(() => expect(store.getState().saves["block0000001"]?.status).toBe("idle"));
 
     expect(record).toHaveBeenCalledTimes(1);
     expect(record).toHaveBeenCalledWith(
       learnerActivityInput({
         rootActivityId: ROOT_ACTIVITY_ID,
-        blockId: "block-1",
+        blockId: "block0000001",
         activityKind: "checklist",
       }),
     );
@@ -642,7 +642,7 @@ describe("createLearnerActivityStore", () => {
     });
     hydrateBlock(store, hostRecord({ checked: {} }));
 
-    store.getState().updateActivity("block-1", {
+    store.getState().updateActivity("block0000001", {
       data: { checked: { "item-one": true } },
       completed: false,
       learningEvent: {
@@ -653,13 +653,13 @@ describe("createLearnerActivityStore", () => {
         total: 1,
       },
     });
-    await vi.waitFor(() => expect(store.getState().saves["block-1"]?.status).toBe("idle"));
+    await vi.waitFor(() => expect(store.getState().saves["block0000001"]?.status).toBe("idle"));
 
     expect(record).toHaveBeenCalledTimes(1);
     expect(record).toHaveBeenCalledWith(
       learnerActivityInput({
         rootActivityId: ROOT_ACTIVITY_ID,
-        blockId: "block-1",
+        blockId: "block0000001",
         activityKind: "checklist",
       }),
     );
@@ -679,7 +679,7 @@ describe("createLearnerActivityStore", () => {
     });
     hydrateBlock(store, hostRecord({ flipped: {} }, { activityKind: "flashcard" }));
 
-    store.getState().updateActivity("block-1", {
+    store.getState().updateActivity("block0000001", {
       data: { flipped: { "card-one": true } },
       completed: false,
       learningEvent: {
@@ -688,13 +688,13 @@ describe("createLearnerActivityStore", () => {
         face: "back",
       },
     });
-    await vi.waitFor(() => expect(store.getState().saves["block-1"]?.status).toBe("idle"));
+    await vi.waitFor(() => expect(store.getState().saves["block0000001"]?.status).toBe("idle"));
 
     expect(record).toHaveBeenCalledTimes(1);
     expect(record).toHaveBeenCalledWith(
       learnerActivityInput({
         rootActivityId: ROOT_ACTIVITY_ID,
-        blockId: "block-1",
+        blockId: "block0000001",
         activityKind: "flashcard",
       }),
     );
@@ -721,7 +721,7 @@ describe("createLearnerActivityStore", () => {
       ),
     );
 
-    store.getState().updateActivity("block-1", {
+    store.getState().updateActivity("block0000001", {
       data: {
         currentCardId: "card-one",
         flipped: { "card-one": true },
@@ -735,13 +735,13 @@ describe("createLearnerActivityStore", () => {
         face: "back",
       },
     });
-    await vi.waitFor(() => expect(store.getState().saves["block-1"]?.status).toBe("idle"));
+    await vi.waitFor(() => expect(store.getState().saves["block0000001"]?.status).toBe("idle"));
 
     expect(record).toHaveBeenCalledTimes(1);
     expect(record).toHaveBeenCalledWith(
       learnerActivityInput({
         rootActivityId: ROOT_ACTIVITY_ID,
-        blockId: "block-1",
+        blockId: "block0000001",
         activityKind: "flashcard",
       }),
     );
@@ -762,8 +762,8 @@ describe("createLearnerActivityStore", () => {
     });
     hydrateBlock(store, hostRecord({ step: 0 }));
 
-    store.getState().setData("block-1", { step: 1 });
-    store.getState().setCompleted("block-1", true);
+    store.getState().setData("block0000001", { step: 1 });
+    store.getState().setCompleted("block0000001", true);
     await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(1));
 
     first.resolve(hostRecord({ step: 1 }));
@@ -771,12 +771,12 @@ describe("createLearnerActivityStore", () => {
     expect(record).not.toHaveBeenCalled();
 
     second.resolve(hostRecord({ step: 1 }, { completed: true }));
-    await vi.waitFor(() => expect(store.getState().saves["block-1"]?.status).toBe("idle"));
+    await vi.waitFor(() => expect(store.getState().saves["block0000001"]?.status).toBe("idle"));
 
     expect(record).toHaveBeenCalledTimes(1);
     expect(record.mock.calls[0]?.[0]).toMatchObject({
       type: "learner-activity.completed",
-      blockId: "block-1",
+      blockId: "block0000001",
     });
   });
 
@@ -794,9 +794,11 @@ describe("createLearnerActivityStore", () => {
     });
     hydrateBlock(changedStore, hostRecord({ step: 2 }, { completed: true }));
 
-    changedStore.getState().setData("block-1", { step: 0 });
-    changedStore.getState().setCompleted("block-1", false);
-    await vi.waitFor(() => expect(changedStore.getState().saves["block-1"]?.status).toBe("idle"));
+    changedStore.getState().setData("block0000001", { step: 0 });
+    changedStore.getState().setCompleted("block0000001", false);
+    await vi.waitFor(() =>
+      expect(changedStore.getState().saves["block0000001"]?.status).toBe("idle"),
+    );
     expect(changed.record).toHaveBeenCalledTimes(1);
     expect(changed.record.mock.calls[0]?.[0].type).toBe("learner-activity.interacted");
 
@@ -813,9 +815,9 @@ describe("createLearnerActivityStore", () => {
     });
     hydrateBlock(completionOnlyStore, hostRecord({ step: 0 }, { completed: true }));
 
-    completionOnlyStore.getState().setCompleted("block-1", false);
+    completionOnlyStore.getState().setCompleted("block0000001", false);
     await vi.waitFor(() =>
-      expect(completionOnlyStore.getState().saves["block-1"]?.status).toBe("idle"),
+      expect(completionOnlyStore.getState().saves["block0000001"]?.status).toBe("idle"),
     );
     expect(completionOnly.record).not.toHaveBeenCalled();
   });
@@ -858,26 +860,26 @@ describe("createLearnerActivityStore", () => {
       }),
     );
 
-    store.getState().setData("block-1", {
+    store.getState().setData("block0000001", {
       list: ["a", "b"],
       nested: { right: false, left: true },
       first: 1,
     });
     await vi.waitFor(() =>
-      expect(store.getState().saves["block-1"]).toMatchObject({
+      expect(store.getState().saves["block0000001"]).toMatchObject({
         status: "idle",
         generation: 1,
       }),
     );
     expect(record).not.toHaveBeenCalled();
 
-    store.getState().setData("block-1", {
+    store.getState().setData("block0000001", {
       first: 1,
       nested: { left: true, right: false },
       list: ["b", "a"],
     });
     await vi.waitFor(() =>
-      expect(store.getState().saves["block-1"]).toMatchObject({
+      expect(store.getState().saves["block0000001"]).toMatchObject({
         status: "idle",
         generation: 2,
       }),
@@ -903,9 +905,9 @@ describe("createLearnerActivityStore", () => {
     });
     hydrateBlock(store, hostRecord({ step: 0 }, { activityKind: "flashcards" }));
 
-    store.getState().setData("block-1", { step: 1 });
+    store.getState().setData("block0000001", { step: 1 });
     await vi.waitFor(() =>
-      expect(store.getState().saves["block-1"]).toMatchObject({
+      expect(store.getState().saves["block0000001"]).toMatchObject({
         status: "idle",
         generation: 1,
       }),
@@ -914,15 +916,15 @@ describe("createLearnerActivityStore", () => {
 
     store.setState({
       activities: {
-        "block-1": hostRecord(
+        block0000001: hostRecord(
           { step: 1 },
           { activityKind: "checklist", updatedAt: "2026-07-25T11:30:00Z" },
         ),
       },
     });
-    store.getState().setCompleted("block-1", false);
+    store.getState().setCompleted("block0000001", false);
     await vi.waitFor(() =>
-      expect(store.getState().saves["block-1"]).toMatchObject({
+      expect(store.getState().saves["block0000001"]).toMatchObject({
         status: "idle",
         generation: 2,
       }),
@@ -940,8 +942,8 @@ describe("createLearnerActivityStore", () => {
       getLearningEventSession: () => sessionDouble.session,
     });
     hydrateBlock(rejected, hostRecord({ step: 0 }));
-    rejected.getState().setData("block-1", { step: 1 });
-    await vi.waitFor(() => expect(rejected.getState().saves["block-1"]?.status).toBe("error"));
+    rejected.getState().setData("block0000001", { step: 1 });
+    await vi.waitFor(() => expect(rejected.getState().saves["block0000001"]?.status).toBe("error"));
 
     const invalidSave = vi
       .fn<LearnerActivityPort["save"]>()
@@ -958,13 +960,13 @@ describe("createLearnerActivityStore", () => {
       getLearningEventSession: () => sessionDouble.session,
     });
     hydrateBlock(invalid, hostRecord({ step: 0 }));
-    invalid.getState().setCompleted("block-1", true);
-    await vi.waitFor(() => expect(invalid.getState().saves["block-1"]?.status).toBe("error"));
+    invalid.getState().setCompleted("block0000001", true);
+    await vi.waitFor(() => expect(invalid.getState().saves["block0000001"]?.status).toBe("error"));
     expect(sessionDouble.record).not.toHaveBeenCalled();
 
-    invalid.getState().setCompleted("block-1", true);
+    invalid.getState().setCompleted("block0000001", true);
     await vi.waitFor(() =>
-      expect(invalid.getState().saves["block-1"]).toMatchObject({
+      expect(invalid.getState().saves["block0000001"]).toMatchObject({
         status: "idle",
         generation: 2,
       }),
@@ -989,7 +991,7 @@ describe("createLearnerActivityStore", () => {
       getLearningEventSession: () => currentSession,
     });
     hydrateBlock(absent, hostRecord({ step: 0 }));
-    absent.getState().setData("block-1", { step: 1 });
+    absent.getState().setData("block0000001", { step: 1 });
 
     const throwingAccessor = createLearnerActivityStore({
       artifactId: "course-1",
@@ -999,7 +1001,7 @@ describe("createLearnerActivityStore", () => {
       },
     });
     hydrateBlock(throwingAccessor, hostRecord({ step: 0 }));
-    throwingAccessor.getState().setData("block-1", { step: 1 });
+    throwingAccessor.getState().setData("block0000001", { step: 1 });
 
     const throwingRecord = createSessionDouble(() => {
       throw new Error("recording unavailable");
@@ -1010,21 +1012,21 @@ describe("createLearnerActivityStore", () => {
       getLearningEventSession: () => throwingRecord.session,
     });
     hydrateBlock(throwingSession, hostRecord({ step: 0 }));
-    throwingSession.getState().setData("block-1", { step: 1 });
+    throwingSession.getState().setData("block0000001", { step: 1 });
 
     await vi.waitFor(() => {
-      expect(absent.getState().saves["block-1"]?.status).toBe("idle");
-      expect(throwingAccessor.getState().saves["block-1"]?.status).toBe("idle");
-      expect(throwingSession.getState().saves["block-1"]?.status).toBe("idle");
+      expect(absent.getState().saves["block0000001"]?.status).toBe("idle");
+      expect(throwingAccessor.getState().saves["block0000001"]?.status).toBe("idle");
+      expect(throwingSession.getState().saves["block0000001"]?.status).toBe("idle");
     });
-    expect(absent.getState().activities["block-1"]?.data).toEqual({ step: 1 });
-    expect(throwingAccessor.getState().activities["block-1"]?.data).toEqual({ step: 1 });
-    expect(throwingSession.getState().activities["block-1"]?.data).toEqual({ step: 1 });
+    expect(absent.getState().activities["block0000001"]?.data).toEqual({ step: 1 });
+    expect(throwingAccessor.getState().activities["block0000001"]?.data).toEqual({ step: 1 });
+    expect(throwingSession.getState().activities["block0000001"]?.data).toEqual({ step: 1 });
 
     currentSession = laterSession.session;
-    absent.getState().setData("block-1", { step: 1 });
+    absent.getState().setData("block0000001", { step: 1 });
     await vi.waitFor(() =>
-      expect(absent.getState().saves["block-1"]).toMatchObject({
+      expect(absent.getState().saves["block0000001"]).toMatchObject({
         status: "idle",
         generation: 2,
       }),
@@ -1044,10 +1046,10 @@ describe("createLearnerActivityStore", () => {
     });
     hydrateBlock(store, hostRecord({ step: 0 }));
 
-    store.getState().setData("block-1", { step: 1 });
+    store.getState().setData("block0000001", { step: 1 });
     currentSession = newSession.session;
     save.resolve(hostRecord({ step: 1 }, { updatedAt: "2026-07-25T11:00:00Z" }));
-    await vi.waitFor(() => expect(store.getState().saves["block-1"]?.status).toBe("idle"));
+    await vi.waitFor(() => expect(store.getState().saves["block0000001"]?.status).toBe("idle"));
 
     expect(oldSession.record).not.toHaveBeenCalled();
     expect(newSession.record).toHaveBeenCalledTimes(1);

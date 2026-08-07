@@ -173,11 +173,11 @@ const privateAssessmentDefinition = defineBlock({
       projection: {
         projectInteraction: () => ({
           kind: "single-select" as const,
-          options: [{ id: "private-option", label: "Private option" }],
+          options: [{ id: "option000001", label: "Private option" }],
         }),
         projectAssessment: () => ({
           kind: "single-select" as const,
-          correctOptionId: "private-option",
+          correctOptionId: "option000001",
           feedbackByOptionId: {},
         }),
         projectLearnerNode: (node) => ({
@@ -261,6 +261,7 @@ function pageDocumentWithParagraph(surfaceId: string, text: string): JSONContent
   surface.content = [
     {
       type: "paragraph",
+      attrs: { id: "paragraph001" },
       content: [{ type: "text", text }],
     },
   ];
@@ -279,7 +280,7 @@ function privateAssessmentDocument(): JSONContent {
     {
       type: PRIVATE_ASSESSMENT_NODE_TYPE,
       attrs: {
-        id: "private-assessment-1",
+        id: "privassess01",
         settings: {},
         assessment: { privateAnswer: "must-not-reach-preview" },
       },

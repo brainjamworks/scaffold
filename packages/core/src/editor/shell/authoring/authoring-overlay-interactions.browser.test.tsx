@@ -7,6 +7,8 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
 import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import { Select } from "@/ui/components/Select/Select";
 import { WorkspaceDialog } from "@/ui/components/WorkspaceDialog/WorkspaceDialog";
 import {
@@ -152,7 +154,7 @@ describe("authoring application overlay colour mode", () => {
       expect(application).toHaveAttribute("data-radius", "medium");
       expect(getComputedStyle(application).fontFamily).toContain("Satoshi");
       expect(getComputedStyle(application).color).toBe("rgb(250, 250, 250)");
-      expect(dialog.closest(".sc-course-theme-scope")).toBeNull();
+      expect(dialog.closest(".sc-course")).toBeNull();
       expect(getComputedStyle(dialog).getPropertyValue("--color-background").trim()).not.toBe(
         "rgb(1 2 3)",
       );
@@ -183,12 +185,20 @@ describe("authoring application overlay colour mode", () => {
     try {
       const dialog = await waitForElement<HTMLElement>(document, ".sc-workspace-dialog-content");
       const overlayHost = dialog.closest<HTMLElement>("[data-scaffold-overlay-host]");
-      const courseScope = dialog.closest<HTMLElement>(".sc-course-theme-scope");
+      const courseScope = dialog.closest<HTMLElement>(".sc-course");
+      if (!courseScope) throw new Error("Expected the dialog to inherit a Course theme scope");
+      const courseStyle = getComputedStyle(courseScope);
 
-      expect(overlayHost?.parentElement).toBe(courseScope);
-      expect(getComputedStyle(dialog).backgroundColor).toBe("rgb(16, 24, 32)");
-      expect(getComputedStyle(dialog).color).toBe("rgb(244, 247, 250)");
-      expect(getComputedStyle(dialog).borderColor).toBe("rgb(63, 78, 92)");
+      expect(overlayHost?.parentElement?.closest(".sc-course")).toBe(courseScope);
+      expect(getComputedStyle(dialog).backgroundColor).toBe(
+        computedColor(courseStyle.getPropertyValue("--color-background")),
+      );
+      expect(getComputedStyle(dialog).color).toBe(
+        computedColor(courseStyle.getPropertyValue("--color-ink")),
+      );
+      expect(getComputedStyle(dialog).borderColor).toBe(
+        computedColor(courseStyle.getPropertyValue("--color-border")),
+      );
       expect(getComputedStyle(dialog).colorScheme).toBe("dark");
       expect(
         getComputedStyle(requireElement(document, ".sc-scaffold-authoring-app")).colorScheme,
@@ -273,7 +283,6 @@ function DarkApplicationDialogHarness() {
       <div ref={setApplication} className="sc-scaffold-authoring-app">
         <OverlayBoundary container={application} kind="viewport">
           <div
-            className="sc-course-theme-scope"
             style={
               {
                 "--color-background": "rgb(1 2 3)",
@@ -303,58 +312,44 @@ function DarkApplicationDialogHarness() {
   );
 }
 
-interface CourseScopeStyle extends CSSProperties {
-  "--sc-course-color-background": string;
-  "--sc-course-color-border": string;
-  "--sc-course-color-text": string;
-  "--sc-course-density": string;
-  "--sc-course-roundness": string;
-  "--sc-course-shadow": string;
-  "--sc-course-stroke": string;
-}
-
 function DarkCourseDialogHarness() {
   const [courseScope, setCourseScope] = useState<HTMLDivElement | null>(null);
-  const courseStyle: CourseScopeStyle = {
-    "--sc-course-color-background": "#101820",
-    "--sc-course-color-border": "#3f4e5c",
-    "--sc-course-color-text": "#f4f7fa",
-    "--sc-course-density": "1",
-    "--sc-course-roundness": "0.5",
-    "--sc-course-shadow": "none",
-    "--sc-course-stroke": "1px",
-    colorScheme: "dark",
-  };
 
   return (
     <AppThemeProvider appearance="light">
       <div className="sc-scaffold-authoring-app">
-        <div
-          ref={setCourseScope}
-          className="sc-course-theme-scope"
-          data-course-color-mode="dark"
-          style={courseStyle}
-        >
-          <OverlayBoundary container={courseScope} kind="contained">
-            <WorkspaceDialog.Root open>
-              <WorkspaceDialog.Content size="small">
-                <WorkspaceDialog.Header>
-                  <div>
-                    <WorkspaceDialog.Title>Course media</WorkspaceDialog.Title>
-                    <WorkspaceDialog.Description>
-                      Edit presentation owned by this course.
-                    </WorkspaceDialog.Description>
-                  </div>
-                  <WorkspaceDialog.Close />
-                </WorkspaceDialog.Header>
-                <WorkspaceDialog.Body>Course-owned dialog content</WorkspaceDialog.Body>
-              </WorkspaceDialog.Content>
-            </WorkspaceDialog.Root>
-          </OverlayBoundary>
-        </div>
+        <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="dark">
+          <div ref={setCourseScope}>
+            <OverlayBoundary container={courseScope} kind="contained">
+              <WorkspaceDialog.Root open>
+                <WorkspaceDialog.Content size="small">
+                  <WorkspaceDialog.Header>
+                    <div>
+                      <WorkspaceDialog.Title>Course media</WorkspaceDialog.Title>
+                      <WorkspaceDialog.Description>
+                        Edit presentation owned by this course.
+                      </WorkspaceDialog.Description>
+                    </div>
+                    <WorkspaceDialog.Close />
+                  </WorkspaceDialog.Header>
+                  <WorkspaceDialog.Body>Course-owned dialog content</WorkspaceDialog.Body>
+                </WorkspaceDialog.Content>
+              </WorkspaceDialog.Root>
+            </OverlayBoundary>
+          </div>
+        </CourseThemeProvider>
       </div>
     </AppThemeProvider>
   );
+}
+
+function computedColor(value: string): string {
+  const probe = document.createElement("span");
+  probe.style.color = value;
+  document.body.append(probe);
+  const resolved = getComputedStyle(probe).color;
+  probe.remove();
+  return resolved;
 }
 
 describe("authoring owner-local geometry", () => {

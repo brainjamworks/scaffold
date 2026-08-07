@@ -35,6 +35,7 @@ import type {
   NodeSettingsSheetDefinition,
   SettingsSheetApplyInput,
 } from "@/editor/configuration/settings-sheet";
+import { createTestNodeIdentityExtension } from "@/editor/testing/node-identity";
 
 import {
   applySettingsSheetSettings,
@@ -49,11 +50,16 @@ afterEach(() => {
 });
 
 let testNodeSettingsSheetDefinition: NodeSettingsSheetDefinition | undefined;
+const MCQ_ID = "mcq000000001";
+const OPTION_ID = "option000001";
+const CONFIGURATION_ID = "config000001";
+const QUIZ_ID = "quiz00000001";
 
 function makeEditor(initialSettings: unknown = {}) {
   const editor = new Editor({
     extensions: [
       StarterKit.configure({ undoRedo: false, paragraph: false }),
+      createTestNodeIdentityExtension(),
       ExtendedParagraph,
       AssessmentTitleNode,
       AssessmentInstructionsNode,
@@ -72,7 +78,7 @@ function makeEditor(initialSettings: unknown = {}) {
       content: [
         {
           type: "mcq",
-          attrs: { id: "block-mcq", settings: initialSettings },
+          attrs: { id: MCQ_ID, settings: initialSettings },
           content: [
             { type: "assessment_title", content: [{ type: "paragraph" }] },
             {
@@ -85,7 +91,7 @@ function makeEditor(initialSettings: unknown = {}) {
               content: [
                 {
                   type: "selectable_choice",
-                  attrs: { id: "a", isCorrect: false },
+                  attrs: { id: OPTION_ID, isCorrect: false },
                   content: [
                     {
                       type: "selectable_choice_body",
@@ -117,7 +123,7 @@ function readMcqSettings(editor: Editor): Record<string, unknown> {
 }
 
 function createSettingsTarget(editor: Editor) {
-  return createAuthoringNodeTarget(editor, { id: "block-mcq", nodeType: "mcq" });
+  return createAuthoringNodeTarget(editor, { id: MCQ_ID, nodeType: "mcq" });
 }
 
 function readFirstMcqSettings(editor: Editor): Record<string, unknown> {
@@ -292,13 +298,17 @@ const configurationSheetEntry = defineBlock({
 
 function makeConfigurationSheetEditor(initialSettings: unknown = {}) {
   const editor = new Editor({
-    extensions: [StarterKit.configure({ undoRedo: false }), TestConfigurationSheetNode],
+    extensions: [
+      StarterKit.configure({ undoRedo: false }),
+      createTestNodeIdentityExtension(),
+      TestConfigurationSheetNode,
+    ],
     content: {
       type: "doc",
       content: [
         {
           type: "test_configuration_sheet_block",
-          attrs: { id: "block-configuration", settings: initialSettings },
+          attrs: { id: CONFIGURATION_ID, settings: initialSettings },
         },
       ],
     },
@@ -323,7 +333,7 @@ function renderSettingsSheet(
       nodeType: "mcq",
       ...(entry ? { entry } : {}),
       pos,
-      targetId: "block-mcq",
+      targetId: MCQ_ID,
       open: true,
       onOpenChange,
     }),
@@ -415,6 +425,7 @@ function makeQuizChildEditor(initialSettings: unknown = {}) {
   const editor = new Editor({
     extensions: [
       StarterKit.configure({ undoRedo: false, paragraph: false }),
+      createTestNodeIdentityExtension(),
       ExtendedParagraph,
       AssessmentTitleNode,
       AssessmentInstructionsNode,
@@ -434,11 +445,11 @@ function makeQuizChildEditor(initialSettings: unknown = {}) {
       content: [
         {
           type: "quiz",
-          attrs: { id: "quiz-1" },
+          attrs: { id: QUIZ_ID },
           content: [
             {
               type: "mcq",
-              attrs: { id: "block-mcq", settings: initialSettings },
+              attrs: { id: MCQ_ID, settings: initialSettings },
               content: [
                 { type: "assessment_title", content: [{ type: "paragraph" }] },
                 {
@@ -451,7 +462,7 @@ function makeQuizChildEditor(initialSettings: unknown = {}) {
                   content: [
                     {
                       type: "selectable_choice",
-                      attrs: { id: "a", isCorrect: false },
+                      attrs: { id: OPTION_ID, isCorrect: false },
                       content: [
                         {
                           type: "selectable_choice_body",
@@ -645,7 +656,7 @@ describe("ConfigurationSettingsSheet", () => {
         entry: configurationSheetEntry!,
         nodeType: "test_configuration_sheet_block",
         pos: blockPos,
-        targetId: "block-configuration",
+        targetId: CONFIGURATION_ID,
         open: true,
         onOpenChange,
       }),
@@ -963,7 +974,7 @@ describe("applySettingsSheetSettings", () => {
   it("does not dispatch when the live settings target is missing or invalid", () => {
     const missingEditor = makeConfigurationSheetEditor({ points: 1 }).editor;
     const missingTarget = createAuthoringNodeTarget(missingEditor, {
-      id: "block-configuration",
+      id: CONFIGURATION_ID,
       nodeType: "test_configuration_sheet_block",
     });
     missingEditor.view.dispatch(
@@ -986,17 +997,21 @@ describe("applySettingsSheetSettings", () => {
     missingEditor.destroy();
 
     const invalidEditor = new Editor({
-      extensions: [StarterKit.configure({ undoRedo: false }), TestConfigurationSheetNode],
+      extensions: [
+        StarterKit.configure({ undoRedo: false }),
+        createTestNodeIdentityExtension(),
+        TestConfigurationSheetNode,
+      ],
       content: {
         type: "doc",
         content: [
           {
             type: "test_configuration_sheet_block",
-            attrs: { id: "duplicate", settings: { showAnswer: true, points: 1 } },
+            attrs: { id: "duplicate001", settings: { showAnswer: true, points: 1 } },
           },
           {
             type: "test_configuration_sheet_block",
-            attrs: { id: "duplicate", settings: { showAnswer: true, points: 1 } },
+            attrs: { id: "duplicate001", settings: { showAnswer: true, points: 1 } },
           },
         ],
       },
@@ -1008,7 +1023,7 @@ describe("applySettingsSheetSettings", () => {
         schema: configurationSheetSchema,
         attr: "settings",
         target: createAuthoringNodeTarget(invalidEditor, {
-          id: "duplicate",
+          id: "duplicate001",
           nodeType: "test_configuration_sheet_block",
         }),
         values: { showAnswer: true, points: 2 },
@@ -1027,21 +1042,26 @@ describe("applySettingsSheetSettings", () => {
       content: [{ type: "paragraph", content: [{ type: "text", text: "External caption" }] }],
     };
     const editor = new Editor({
-      extensions: [StarterKit, TestCollectionSettingsOwnerNode, TestCollectionSettingsItemNode],
+      extensions: [
+        StarterKit,
+        createTestNodeIdentityExtension(),
+        TestCollectionSettingsOwnerNode,
+        TestCollectionSettingsItemNode,
+      ],
       content: {
         type: "doc",
         content: [
           {
             type: "test_collection_settings_owner",
             attrs: {
-              id: "collection-owner",
+              id: "collection01",
               data: { title: "Original", caption: EmptyScaffoldRichTextDocument },
             },
             content: [
               {
                 type: "test_collection_settings_item",
                 attrs: {
-                  id: "collection-item-a",
+                  id: "collectitem1",
                   data: {
                     image: null,
                     caption: EmptyScaffoldRichTextDocument,
@@ -1104,7 +1124,7 @@ describe("applySettingsSheetSettings", () => {
         nodeType: "test_collection_settings_owner",
         entry,
         pos: 0,
-        targetId: "collection-owner",
+        targetId: "collection01",
         open: true,
         onOpenChange: vi.fn(),
       }),

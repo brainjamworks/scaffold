@@ -36,6 +36,7 @@ import { resolveStructuralChromeTargetDescriptor } from "@/editor/interactions/t
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { createTestNodeIdentityExtension } from "@/editor/testing";
 
 const editors: Editor[] = [];
 const coreCapabilities = Object.freeze({
@@ -111,7 +112,10 @@ describe("bounded tabs authoring", () => {
     expect(sections).toHaveLength(2);
     expect(sections[0]?.classList.contains("sc-tabs__panel-frame")).toBe(true);
     expect(sections[0]?.getAttribute("data-vertical-content-position")).toBe("bottom");
-    expect(sectionVerticalState(editor, "tab-a")).toEqual({ kind: "value", value: "bottom" });
+    expect(sectionVerticalState(editor, "tab000000001")).toEqual({
+      kind: "value",
+      value: "bottom",
+    });
     expect(activePanelViewport(panels)?.hasAttribute("data-bounded-scroll")).toBe(true);
     expect(screen.getByRole("button", { name: "Add tab" })).toBeInTheDocument();
     expect(layout?.querySelector("[data-authoring-move-handle]")).not.toBeNull();
@@ -142,7 +146,7 @@ describe("bounded tabs authoring", () => {
 
     const tabs = screen.getAllByRole("tab");
     const panels = screen.getAllByRole("tabpanel", { hidden: true });
-    editor.commands.setTextSelection(sectionTextSelectionPos(editor, "tab-a"));
+    editor.commands.setTextSelection(sectionTextSelectionPos(editor, "tab000000001"));
     editor.view.focus();
 
     await waitFor(() => {
@@ -153,7 +157,7 @@ describe("bounded tabs authoring", () => {
 
     await waitFor(() => {
       expect(tabs[1]?.getAttribute("aria-selected")).toBe("true");
-      expect(selectionSectionId(editor)).toBe("tab-b");
+      expect(selectionSectionId(editor)).toBe("tab000000002");
       expect(panels[1]?.querySelector("[data-empty-insertion-row]")).not.toBeNull();
     });
 
@@ -161,7 +165,7 @@ describe("bounded tabs authoring", () => {
 
     await waitFor(() => {
       expect(tabs[2]?.getAttribute("aria-selected")).toBe("true");
-      expect(selectionSectionId(editor)).toBe("tab-c");
+      expect(selectionSectionId(editor)).toBe("tab000000003");
       expect(panels[2]?.querySelector("[data-empty-insertion-row]")).not.toBeNull();
     });
   });
@@ -180,10 +184,10 @@ describe("bounded tabs authoring", () => {
 
     const layout = layoutFrame("authoring");
     const tabs = screen.getAllByRole("tab");
-    const layoutPos = nodePosById(editor, "layout-empty-tabs");
+    const layoutPos = nodePosById(editor, "layoutTab002");
     editor.view.focus();
     createInteractionOwnerCommandPorts(editor.view, builtInBlockRegistry).activateStructuralTarget({
-      id: "layout-empty-tabs",
+      id: "layoutTab002",
       kind: InteractionTargetKind.Layout,
       pos: layoutPos,
     });
@@ -205,7 +209,7 @@ describe("bounded tabs authoring", () => {
 
     editor.view.dom.blur();
     act(() => {
-      editor.commands.setTextSelection(sectionTextSelectionPos(editor, "tab-b"));
+      editor.commands.setTextSelection(sectionTextSelectionPos(editor, "tab000000002"));
     });
     tabs[1]?.focus();
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -244,7 +248,10 @@ describe("bounded tabs runtime", () => {
     expect(sections[0]?.classList.contains("sc-tabs__panel-frame")).toBe(true);
     expect(sections[0]?.getAttribute("data-vertical-content-position")).toBe("bottom");
     expect(activePanelViewport(panels)?.hasAttribute("data-bounded-scroll")).toBe(true);
-    expect(sectionVerticalState(editor, "tab-a")).toEqual({ kind: "value", value: "bottom" });
+    expect(sectionVerticalState(editor, "tab000000001")).toEqual({
+      kind: "value",
+      value: "bottom",
+    });
     expect(screen.queryByRole("button", { name: "Add tab" })).toBeNull();
     expect(layout?.querySelector("[data-authoring-move-handle]")).toBeNull();
     expect(layout?.querySelector("[data-layout-section-menu-trigger]")).toBeNull();
@@ -279,8 +286,8 @@ describe("page-flow tabs", () => {
     expect(tabsSurface).not.toBeNull();
     expect(tabsSurface?.getAttribute("data-bounded-placement")).toBeNull();
     expect(activePanelViewport(panels)?.hasAttribute("data-bounded-scroll")).toBe(true);
-    expect(sectionVerticalState(editor, "tab-a")).toEqual({ kind: "unavailable" });
-    expect(setSectionVerticalPosition(editor, "tab-a", "middle")).toBe(false);
+    expect(sectionVerticalState(editor, "tab000000001")).toEqual({ kind: "unavailable" });
+    expect(setSectionVerticalPosition(editor, "tab000000001", "middle")).toBe(false);
     expect(screen.getByRole("tab", { name: "Overview" }).getAttribute("aria-selected")).toBe(
       "true",
     );
@@ -314,7 +321,7 @@ function makeEditor({
       ? [
           {
             type: "region",
-            attrs: { id: "region-tabs" },
+            attrs: { id: "regionTab001" },
             content: [layout],
           },
         ]
@@ -322,6 +329,7 @@ function makeEditor({
   const editor = new Editor({
     editable,
     extensions: [
+      createTestNodeIdentityExtension(),
       createScaffoldCapabilitiesStorageExtension(coreCapabilities),
       DocumentNode,
       StarterKit.configure({
@@ -346,7 +354,7 @@ function makeEditor({
             {
               type: "surface",
               attrs: {
-                id: "surface-tabs",
+                id: "surfaceTab01",
                 variant: placement === "region" ? "slide-content" : "page-default",
               },
               content: surfaceContent,
@@ -364,11 +372,14 @@ function tabsContent(): JSONContent {
   return {
     type: "layout",
     attrs: {
-      id: "layout-tabs",
+      id: "layoutTab001",
       variant: "tabs",
       options: { variant: "default", label: "Lesson sections" },
     },
-    content: [tabSection("tab-a", "Overview", "bottom"), tabSection("tab-b", "Practice")],
+    content: [
+      tabSection("tab000000001", "Overview", "bottom"),
+      tabSection("tab000000002", "Practice"),
+    ],
   };
 }
 
@@ -376,14 +387,14 @@ function emptyTabsContent(): JSONContent {
   return {
     type: "layout",
     attrs: {
-      id: "layout-empty-tabs",
+      id: "layoutTab002",
       variant: "tabs",
       options: { variant: "default", label: "Empty lesson sections" },
     },
     content: [
-      emptyTabSection("tab-a", "Overview"),
-      emptyTabSection("tab-b", "Practice"),
-      emptyTabSection("tab-c", "Review"),
+      emptyTabSection("tab000000001", "Overview"),
+      emptyTabSection("tab000000002", "Practice"),
+      emptyTabSection("tab000000003", "Review"),
     ],
   };
 }

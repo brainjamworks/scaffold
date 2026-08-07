@@ -16,8 +16,8 @@ import {
 import { PagePlayer } from "../page/PagePlayer";
 import { SlideshowPlayer } from "../slideshow/SlideshowPlayer";
 
-const SEQUENCING_PROBLEM_ID = "artifact:artifact-1/block:seq-1";
-const MATCHING_PROBLEM_ID = "artifact:artifact-1/block:matching-1";
+const SEQUENCING_PROBLEM_ID = "artifact:artifact-1/block:sequenc00001";
+const MATCHING_PROBLEM_ID = "artifact:artifact-1/block:matching0001";
 const CATEGORISE_PROBLEM_ID = "artifact:artifact-1/block:categorise-1";
 const RUNTIME_DRAG_SURFACE_ID = "runtime_drag";
 
@@ -211,7 +211,7 @@ export async function mountRuntimeDragHarness(
       player.querySelector<HTMLElement>(selector),
     getPlaceholder: (selector = "[data-interaction-drag-placeholder]") =>
       player.querySelector<HTMLElement>(selector),
-    getTargets: (selector = ".sc-sequencing-item--runtime[data-id]") =>
+    getTargets: (selector = ".sc-course-sequencing__item[data-id]") =>
       Array.from(player.querySelectorAll<HTMLElement>(selector)),
     getResponseOrder: () => responseOrder(assessmentStore),
     getResponseMatches: () => responseMatches(assessmentStore),
@@ -360,8 +360,8 @@ function categoriseRuntimeBlock(): JSONContent {
           {
             type: "categorise_bins_group",
             content: [
-              { id: "birds", label: "Birds" },
-              { id: "fish", label: "Fish" },
+              { id: "catbirds0001", label: "Birds" },
+              { id: "catfish00001", label: "Fish" },
             ].map(({ id, label }) => ({
               type: "categorise_bin",
               attrs: { id },
@@ -371,8 +371,8 @@ function categoriseRuntimeBlock(): JSONContent {
           {
             type: "categorise_items_group",
             content: [
-              { id: "eagle", label: "Eagle" },
-              { id: "salmon", label: "Salmon" },
+              { id: "cateagle0001", label: "Eagle" },
+              { id: "catsalmon001", label: "Salmon" },
             ].map(({ id, label }) => ({
               type: "categorise_item",
               attrs: { id },
@@ -398,7 +398,7 @@ function matchingRuntimeBlock(): JSONContent {
   return {
     type: "matching",
     attrs: {
-      id: "matching-1",
+      id: "matching0001",
       assessment: {
         feedbackByItemId: {},
       },
@@ -416,11 +416,21 @@ function matchingRuntimeBlock(): JSONContent {
       {
         type: "matching_pairs_group",
         content: [
-          { itemId: "i1", targetId: "t1", item: "Alpha", target: "One" },
-          { itemId: "i2", targetId: "t2", item: "Beta", target: "Two" },
+          {
+            itemId: "matchitem001",
+            targetId: "matchtarg001",
+            item: "Alpha",
+            target: "One",
+          },
+          {
+            itemId: "matchitem002",
+            targetId: "matchtarg002",
+            item: "Beta",
+            target: "Two",
+          },
         ].map(({ item, itemId, target, targetId }) => ({
           type: "matching_pair",
-          attrs: { id: `pair-${itemId}` },
+          attrs: { id: itemId === "matchitem001" ? "matchpair001" : "matchpair002" },
           content: [
             {
               type: "matching_item",
@@ -447,8 +457,8 @@ function sequencingRuntimeBlock(): JSONContent {
   return {
     type: "sequencing",
     attrs: {
-      id: "seq-1",
-      assessment: { correctOrder: ["a", "b", "c"] },
+      id: "sequenc00001",
+      assessment: { correctOrder: ["seqitem00001", "seqitem00002", "seqitem00003"] },
       settings: { feedbackMode: "on_submit", isGraded: true, showAnswer: true, points: 1 },
     },
     content: [
@@ -457,10 +467,15 @@ function sequencingRuntimeBlock(): JSONContent {
       { type: "assessment_prompt", content: [{ type: "paragraph" }] },
       {
         type: "sequencing_items_group",
-        content: ["a", "b", "c"].map((id) => ({
+        content: ["seqitem00001", "seqitem00002", "seqitem00003"].map((id, index) => ({
           type: "sequencing_item",
           attrs: { id },
-          content: [{ type: "paragraph", content: [{ type: "text", text: id.toUpperCase() }] }],
+          content: [
+            {
+              type: "paragraph",
+              content: [{ type: "text", text: String.fromCharCode(65 + index) }],
+            },
+          ],
         })),
       },
       {

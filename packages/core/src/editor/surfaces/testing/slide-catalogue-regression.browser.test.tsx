@@ -120,7 +120,7 @@ describe("slide catalogue regression", () => {
     });
     const grid = uniqueElement<HTMLElement>(
       rendered.authoring.host,
-      '[data-authoring-frame="grid"][data-id="geometry-nested-grid"]',
+      '[data-authoring-frame="grid"][data-id="geomgrid0001"]',
     );
     const titlePosition = textPosition(rendered.authoring.editor, "Geometry title");
     const gridPosition = textPosition(rendered.authoring.editor, "Nested grid alpha");

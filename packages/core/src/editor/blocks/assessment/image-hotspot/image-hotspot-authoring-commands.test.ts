@@ -187,7 +187,7 @@ describe("image-hotspot checked authoring commands", () => {
     const target = ownerTarget(editor);
     const nextData = {
       ...canvasData,
-      debug: true,
+      maxClicks: 1,
       hotspots: canvasData.hotspots.map((hotspot) =>
         hotspot.id === "hotsp_000002" ? { ...hotspot, centerX: 75, label: "Moved" } : hotspot,
       ),

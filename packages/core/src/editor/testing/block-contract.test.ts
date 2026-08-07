@@ -44,11 +44,9 @@ import {
 } from "@/editor/rich-text/model/rich-text-blocks";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { createRuntimeBlockFrameAttributesExtension } from "@/editor/frame/model/frame-attributes-extension";
-import { EditorMovementLayer } from "@/editor/movement/view/EditorMovementLayer";
-import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
-import { InteractionProvider } from "@/editor/interactions/targets/facade/interaction-provider";
-import { getInteractionFacadeStoreForEditor } from "@/editor/interactions/targets/prosemirror/facade/interaction-facade-storage";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
+import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
+import { createTestNodeIdentityExtension } from "@/editor/testing/node-identity";
 
 const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 
@@ -189,21 +187,7 @@ describe("block contract assertions", () => {
           type: "doc",
           content: [node.toJSON()],
         });
-        render(
-          createElement(
-            InteractionProvider,
-            { store: getInteractionFacadeStoreForEditor(editor) },
-            createElement(
-              EditorMovementLayer,
-              {
-                blockDefinitions: builtInBlockRegistry,
-                editor,
-                surfaceVariants: builtInSurfaceVariantRegistry,
-              },
-              createElement(EditorContent, { editor }),
-            ),
-          ),
-        );
+        render(createAuthoringMovementTestRoot(editor, createElement(EditorContent, { editor })));
 
         await waitFor(() => {
           const authoringFrame = document.body.querySelector<HTMLElement>(
@@ -246,6 +230,7 @@ function createAuthoringFrameContractEditor(): Editor {
       ExtendedBlockquote,
       ExtendedCodeBlock,
       ExtendedHorizontalRule,
+      createTestNodeIdentityExtension(),
       AssessmentTitleNode,
       AssessmentInstructionsNode,
       AssessmentPromptNode,

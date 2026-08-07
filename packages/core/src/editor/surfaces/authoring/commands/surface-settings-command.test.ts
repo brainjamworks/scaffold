@@ -22,6 +22,7 @@ import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import { DEFAULT_SURFACE_SETTINGS } from "@/editor/surfaces/model/surface-settings";
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 import { SurfaceSettingsSchema } from "@/schemas/course-document";
+import { createTestNodeIdentityExtension } from "@/editor/testing/node-identity";
 
 import { applySurfaceSettings, setSurfaceSettingsChecked } from "./surface-settings-command";
 
@@ -43,6 +44,7 @@ function makeEditor(surfaceIds: readonly EmbeddedNodeId[] = [SURFACE_ID]): Edito
         paragraph: false,
         undoRedo: false,
       }),
+      createTestNodeIdentityExtension(),
       ExtendedParagraph,
       ExtendedHeading,
       CourseDocumentNode,

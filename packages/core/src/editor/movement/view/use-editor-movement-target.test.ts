@@ -31,6 +31,7 @@ import {
 } from "./use-editor-movement-target";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { createTestNodeIdentityExtension } from "@/editor/testing/node-identity";
 
 const TEST_BLOCK = "movement_target_test_block";
 const FRAMED_BLOCK = "movement_target_framed_block";
@@ -415,6 +416,7 @@ function makeEditor(content: JSONContent[]) {
         paragraph: false,
         undoRedo: false,
       }),
+      createTestNodeIdentityExtension(),
       ExtendedParagraph,
       CourseDocumentNode,
       createCourseSectionNode(),

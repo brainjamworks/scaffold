@@ -93,7 +93,7 @@ describe("course theme panel browser workflow", () => {
     const savedBundles: ArtifactSaveBundle[] = [];
     const content = createScaffoldDocumentContent({
       mode: "page",
-      surfaceId: "theme-browser-page",
+      surfaceId: "themepage001",
     });
     content.content![0]!.attrs!["theme"] = unavailableTheme;
     content.content![0]!.content![0]!.content = [

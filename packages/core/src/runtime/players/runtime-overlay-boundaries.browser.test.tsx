@@ -109,7 +109,7 @@ describe("runtime overlay boundary contract", () => {
       trigger.click();
       const popover = await waitForElement<HTMLElement>(
         mounted.player,
-        '.sc-assessment-hint-popover--runtime[role="dialog"]',
+        '.sc-course-assessment-hint-popover--runtime[role="dialog"]',
       );
       const overlayHost = uniqueElement<HTMLElement>(
         mounted.player,
@@ -207,7 +207,7 @@ describe("runtime overlay boundary contract", () => {
       trigger.click();
       const popover = await waitForElement<HTMLElement>(
         normalHost,
-        '.sc-assessment-hint-popover--runtime[role="dialog"]',
+        '.sc-course-assessment-hint-popover--runtime[role="dialog"]',
       );
       const containedRect = popover.getBoundingClientRect();
 
@@ -430,9 +430,9 @@ function runtimeHintDocument(mode: "page" | "slideshow", surfaceId: string): JSO
     {
       type: "mcq",
       attrs: {
-        id: `mcq-${surfaceId}`,
+        id: mode === "page" ? "mcqpage00001" : "mcqslide001",
         assessment: {
-          correctOptionId: "choice-b",
+          correctOptionId: "choice000002",
           feedbackByOptionId: {},
           summaryFeedback: null,
         },
@@ -454,7 +454,7 @@ function runtimeHintDocument(mode: "page" | "slideshow", surfaceId: string): JSO
         },
         {
           type: "assessment_choices_group",
-          content: [selectableChoice("choice-a", "A"), selectableChoice("choice-b", "B")],
+          content: [selectableChoice("choice000001", "A"), selectableChoice("choice000002", "B")],
         },
         {
           type: "assessment_actions_group",
@@ -545,7 +545,9 @@ async function ensureRuntimeHintOpen(
   player: HTMLElement,
   expectedHost: HTMLElement,
 ): Promise<HTMLElement> {
-  const current = expectedHost.querySelector<HTMLElement>(".sc-assessment-hint-popover--runtime");
+  const current = expectedHost.querySelector<HTMLElement>(
+    ".sc-course-assessment-hint-popover--runtime",
+  );
   if (current) return current;
 
   const hideTrigger = Array.from(player.querySelectorAll("button")).find((candidate) =>
@@ -557,7 +559,7 @@ async function ensureRuntimeHintOpen(
   }
 
   runtimeHintTrigger(player).click();
-  return waitForElement<HTMLElement>(expectedHost, ".sc-assessment-hint-popover--runtime");
+  return waitForElement<HTMLElement>(expectedHost, ".sc-course-assessment-hint-popover--runtime");
 }
 
 function runtimeHintTrigger(root: ParentNode): HTMLButtonElement {
@@ -567,7 +569,7 @@ function runtimeHintTrigger(root: ParentNode): HTMLButtonElement {
 }
 
 function runtimeHintToggle(root: ParentNode): HTMLButtonElement {
-  return uniqueElement<HTMLButtonElement>(root, ".sc-assessment-hints__toggle");
+  return uniqueElement<HTMLButtonElement>(root, 'button[data-assessment-support-intent="hint"]');
 }
 
 function runtimeHintTriggerOrNull(root: ParentNode): HTMLButtonElement | null {
@@ -673,11 +675,9 @@ function uniqueElement<T extends Element>(root: ParentNode, selector: string): T
 }
 
 function expectCourseThemeInheritance(overlay: HTMLElement, player: HTMLElement): void {
-  const courseScope = uniqueElement<HTMLElement>(
-    player,
-    ".sc-course-theme-scope:not([data-scaffold-overlay-host])",
-  );
-  const property = "--sc-course-color-background";
+  const courseScope = player.closest<HTMLElement>(".sc-course");
+  if (!courseScope) throw new Error("Expected the runtime player inside a Course theme scope.");
+  const property = "--color-background";
   const expected = getComputedStyle(courseScope).getPropertyValue(property).trim();
   expect(expected).not.toBe("");
   expect(getComputedStyle(overlay).getPropertyValue(property).trim()).toBe(expected);

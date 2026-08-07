@@ -9,6 +9,7 @@ export {
   type DisposableEditorFixture,
   type EditorDisposalPool,
 } from "./disposable-editor";
+export { createTestNodeIdentityExtension, withTestNodeIdentity } from "./node-identity";
 export {
   assertLayoutContract,
   describeLayoutContract,

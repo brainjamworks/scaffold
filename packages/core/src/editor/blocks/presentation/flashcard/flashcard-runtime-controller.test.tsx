@@ -26,7 +26,7 @@ import type { FlashcardDeckNodeLike } from "./flashcard-shared";
 const deckNode: FlashcardDeckNodeLike = {
   childCount: 2,
   child(index) {
-    return { attrs: { id: index === 0 ? "card-a" : "card-b" } };
+    return { attrs: { id: index === 0 ? "flashcard001" : "flashcard002" } };
   },
 };
 
@@ -58,22 +58,22 @@ function createLearningEventPort() {
 
 function RuntimeControllerProbe() {
   const deck = useFlashcardDeckController({
-    blockId: "flashcard-one",
+    blockId: "flash0000001",
     deckNode,
   });
   const cardA = useFlashcardCardController({
-    blockId: "flashcard-one",
+    blockId: "flash0000001",
     deckNode,
-    cardId: "card-a",
+    cardId: "flashcard001",
   });
   const cardB = useFlashcardCardController({
-    blockId: "flashcard-one",
+    blockId: "flash0000001",
     deckNode,
-    cardId: "card-b",
+    cardId: "flashcard002",
   });
 
   return (
-    <section>
+    <section aria-label="Flashcard deck" tabIndex={0} onKeyDown={deck.handleKeyDown}>
       <output data-testid="flashcard-runtime-state">
         {JSON.stringify({
           currentCardId: deck.currentCardId,
@@ -148,7 +148,7 @@ describe("flashcard runtime controller", () => {
 
     await waitFor(() =>
       expect(runtimeState()).toMatchObject({
-        currentCardId: "card-a",
+        currentCardId: "flashcard001",
         currentIndex: 0,
         currentFlipped: false,
         masteredCount: 0,
@@ -160,7 +160,7 @@ describe("flashcard runtime controller", () => {
     await waitFor(() =>
       expect(save).toHaveBeenCalledWith({
         artifactId: "artifact-one",
-        blockId: "flashcard-one",
+        blockId: "flash0000001",
         record: {
           activityKind: "flashcard",
           data: { currentCardId: null, flipped: {}, mastery: {}, total: 2 },
@@ -172,7 +172,7 @@ describe("flashcard runtime controller", () => {
     await user.click(screen.getByRole("button", { name: "Next" }));
     await waitFor(() =>
       expect(runtimeState()).toMatchObject({
-        currentCardId: "card-b",
+        currentCardId: "flashcard002",
         currentIndex: 1,
         cardA: { isCurrent: false },
         cardB: { isCurrent: true },
@@ -182,17 +182,22 @@ describe("flashcard runtime controller", () => {
     await user.click(screen.getByRole("button", { name: "Flip" }));
     await waitFor(() =>
       expect(runtimeState()).toMatchObject({
-        currentCardId: "card-b",
+        currentCardId: "flashcard002",
         currentFlipped: true,
         cardB: { flipped: true, isCurrent: true },
       }),
     );
     expect(save).toHaveBeenLastCalledWith({
       artifactId: "artifact-one",
-      blockId: "flashcard-one",
+      blockId: "flash0000001",
       record: {
         activityKind: "flashcard",
-        data: { currentCardId: "card-b", flipped: { "card-b": true }, mastery: {}, total: 2 },
+        data: {
+          currentCardId: "flashcard002",
+          flipped: { flashcard002: true },
+          mastery: {},
+          total: 2,
+        },
         completed: false,
       },
     });
@@ -204,11 +209,11 @@ describe("flashcard runtime controller", () => {
 
     renderRuntimeController(learnerActivityPort);
 
-    await waitFor(() => expect(runtimeState()).toMatchObject({ currentCardId: "card-a" }));
+    await waitFor(() => expect(runtimeState()).toMatchObject({ currentCardId: "flashcard001" }));
     await user.click(screen.getByRole("button", { name: "Got it" }));
     await waitFor(() =>
       expect(runtimeState()).toMatchObject({
-        currentCardId: "card-b",
+        currentCardId: "flashcard002",
         masteredCount: 1,
         allMastered: false,
         cardA: { mastery: "gotIt", isCurrent: false },
@@ -218,7 +223,7 @@ describe("flashcard runtime controller", () => {
     await user.click(screen.getByRole("button", { name: "Got it" }));
     await waitFor(() =>
       expect(runtimeState()).toMatchObject({
-        currentCardId: "card-b",
+        currentCardId: "flashcard002",
         masteredCount: 2,
         allMastered: true,
         cardB: { mastery: "gotIt", isCurrent: true },
@@ -227,13 +232,13 @@ describe("flashcard runtime controller", () => {
     await waitFor(() =>
       expect(save).toHaveBeenLastCalledWith({
         artifactId: "artifact-one",
-        blockId: "flashcard-one",
+        blockId: "flash0000001",
         record: {
           activityKind: "flashcard",
           data: {
-            currentCardId: "card-b",
+            currentCardId: "flashcard002",
             flipped: {},
-            mastery: { "card-a": "gotIt", "card-b": "gotIt" },
+            mastery: { flashcard001: "gotIt", flashcard002: "gotIt" },
             total: 2,
           },
           completed: true,
@@ -244,7 +249,7 @@ describe("flashcard runtime controller", () => {
     await user.click(screen.getByRole("button", { name: "Reset" }));
     await waitFor(() =>
       expect(runtimeState()).toMatchObject({
-        currentCardId: "card-a",
+        currentCardId: "flashcard001",
         masteredCount: 0,
         allMastered: false,
         cardA: { flipped: false, isCurrent: true },
@@ -254,7 +259,7 @@ describe("flashcard runtime controller", () => {
     await waitFor(() =>
       expect(save).toHaveBeenLastCalledWith({
         artifactId: "artifact-one",
-        blockId: "flashcard-one",
+        blockId: "flash0000001",
         record: {
           activityKind: "flashcard",
           data: { currentCardId: null, flipped: {}, mastery: {}, total: 2 },
@@ -270,9 +275,10 @@ describe("flashcard runtime controller", () => {
 
     renderRuntimeController(learnerActivityPort);
 
-    await waitFor(() => expect(runtimeState()).toMatchObject({ currentCardId: "card-a" }));
+    await waitFor(() => expect(runtimeState()).toMatchObject({ currentCardId: "flashcard001" }));
+    screen.getByRole("region", { name: "Flashcard deck" }).focus();
     await user.keyboard("{ArrowRight}");
-    await waitFor(() => expect(runtimeState()).toMatchObject({ currentCardId: "card-b" }));
+    await waitFor(() => expect(runtimeState()).toMatchObject({ currentCardId: "flashcard002" }));
 
     await user.keyboard(" ");
     await waitFor(() => expect(runtimeState()).toMatchObject({ currentFlipped: true }));
@@ -280,7 +286,7 @@ describe("flashcard runtime controller", () => {
     await user.keyboard("g");
     await waitFor(() =>
       expect(runtimeState()).toMatchObject({
-        currentCardId: "card-a",
+        currentCardId: "flashcard001",
         currentFlipped: false,
         masteredCount: 1,
         allMastered: false,
@@ -290,13 +296,13 @@ describe("flashcard runtime controller", () => {
     await waitFor(() =>
       expect(save).toHaveBeenLastCalledWith({
         artifactId: "artifact-one",
-        blockId: "flashcard-one",
+        blockId: "flash0000001",
         record: {
           activityKind: "flashcard",
           data: {
-            currentCardId: "card-a",
-            flipped: { "card-b": false },
-            mastery: { "card-b": "gotIt" },
+            currentCardId: "flashcard001",
+            flipped: { flashcard002: false },
+            mastery: { flashcard002: "gotIt" },
             total: 2,
           },
           completed: false,
@@ -322,7 +328,7 @@ describe("flashcard runtime controller", () => {
         extensions: {
           [LEARNING_EVENT_EXTENSIONS.learnerActivityEvent]: {
             action: "card-flipped",
-            cardId: "card-a",
+            cardId: "flashcard001",
             face: "back",
           },
         },
@@ -338,7 +344,7 @@ describe("flashcard runtime controller", () => {
         extensions: {
           [LEARNING_EVENT_EXTENSIONS.learnerActivityEvent]: {
             action: "card-flipped",
-            cardId: "card-a",
+            cardId: "flashcard001",
             face: "front",
           },
         },
@@ -355,11 +361,11 @@ describe("flashcard runtime controller", () => {
 
     await waitFor(() => expect(save).toHaveBeenCalledOnce());
     await user.click(screen.getByRole("button", { name: "Not yet" }));
-    await waitFor(() => expect(runtimeState()).toMatchObject({ currentCardId: "card-b" }));
+    await waitFor(() => expect(runtimeState()).toMatchObject({ currentCardId: "flashcard002" }));
     await user.click(screen.getByRole("button", { name: "Got it" }));
     await waitFor(() =>
       expect(runtimeState()).toMatchObject({
-        currentCardId: "card-a",
+        currentCardId: "flashcard001",
         masteredCount: 1,
         allMastered: false,
       }),
@@ -375,7 +381,7 @@ describe("flashcard runtime controller", () => {
           extensions: {
             [LEARNING_EVENT_EXTENSIONS.learnerActivityEvent]: {
               action: "card-rated",
-              cardId: "card-a",
+              cardId: "flashcard001",
               rating: "not-yet",
               masteredCount: 0,
               total: 2,
@@ -389,7 +395,7 @@ describe("flashcard runtime controller", () => {
           extensions: {
             [LEARNING_EVENT_EXTENSIONS.learnerActivityEvent]: {
               action: "card-rated",
-              cardId: "card-b",
+              cardId: "flashcard002",
               rating: "got-it",
               masteredCount: 1,
               total: 2,
@@ -403,7 +409,7 @@ describe("flashcard runtime controller", () => {
           extensions: {
             [LEARNING_EVENT_EXTENSIONS.learnerActivityEvent]: {
               action: "card-rated",
-              cardId: "card-a",
+              cardId: "flashcard001",
               rating: "got-it",
               masteredCount: 2,
               total: 2,

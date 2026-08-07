@@ -139,7 +139,7 @@ describe("LearnerActivityRuntimeProvider", () => {
 
     expect(
       store.getState().ensureActivity({
-        blockId: "block-one",
+        blockId: "block0000001",
         activityKind: "checklist",
         initial: { data: { checked: false }, completed: false },
       }),
@@ -149,7 +149,7 @@ describe("LearnerActivityRuntimeProvider", () => {
   it("hydrates bootstrap synchronously and suppresses the initial port load", async () => {
     const load = vi.fn(async () => snapshot());
     const stores: LearnerActivityStoreApi[] = [];
-    const initial = snapshot("artifact-one", { "block-one": record({ checked: true }) });
+    const initial = snapshot("artifact-one", { block0000001: record({ checked: true }) });
 
     render(
       <RuntimeRoot
@@ -170,7 +170,7 @@ describe("LearnerActivityRuntimeProvider", () => {
   it("loads once without bootstrap and gates children until the snapshot resolves", async () => {
     const pending = deferred<LearnerActivitySnapshot | null>();
     const load = vi.fn(() => pending.promise);
-    const loaded = snapshot("artifact-one", { "block-one": record({ checked: true }) });
+    const loaded = snapshot("artifact-one", { block0000001: record({ checked: true }) });
 
     render(<RuntimeRoot learnerActivityPort={port(load)} onStore={() => {}} />);
 
@@ -219,11 +219,11 @@ describe("LearnerActivityRuntimeProvider", () => {
     expect(screen.getByText("Runtime ready")).toBeInTheDocument();
     await waitFor(() => expect(stores).toHaveLength(1));
     stores[0]?.getState().ensureActivity({
-      blockId: "block-one",
+      blockId: "block0000001",
       activityKind: "checklist",
       initial: { data: {}, completed: false },
     });
-    expect(stores[0]?.getState().saves["block-one"]?.status).toBe("unavailable");
+    expect(stores[0]?.getState().saves["block0000001"]?.status).toBe("unavailable");
   });
 
   it("gates children and exposes an explicit hydration error after load rejection", async () => {
@@ -245,7 +245,7 @@ describe("LearnerActivityRuntimeProvider", () => {
         learnerActivityPort={port(async () => ({
           ...snapshot(),
           activities: {
-            "block-one": { ...record({ checked: true }), updatedAt: "invalid" },
+            block0000001: { ...record({ checked: true }), updatedAt: "invalid" },
           },
         }))}
         onStore={() => {}}
@@ -278,10 +278,10 @@ describe("LearnerActivityRuntimeProvider", () => {
     const firstPort = port(firstLoad);
     const secondPort = port(secondLoad);
     const firstSnapshot = snapshot("artifact-one", {
-      "block-one": record({ scope: "first" }),
+      block0000001: record({ scope: "first" }),
     });
     const secondSnapshot = snapshot("artifact-one", {
-      "block-one": record({ scope: "second" }),
+      block0000001: record({ scope: "second" }),
     });
     const stores: LearnerActivityStoreApi[] = [];
     const onStore = (store: LearnerActivityStoreApi | null) => {
@@ -331,7 +331,7 @@ describe("LearnerActivityRuntimeProvider", () => {
       <RuntimeRoot
         artifactId="artifact-two"
         initialSnapshot={snapshot("artifact-two", {
-          "block-two": record({ restored: true }),
+          block0000002: record({ restored: true }),
         })}
         learnerActivityPort={runtimePort}
         onStore={onStore}
@@ -339,7 +339,7 @@ describe("LearnerActivityRuntimeProvider", () => {
     );
 
     await waitFor(() => expect(stores).toHaveLength(2));
-    expect(stores[1]?.getState().activities["block-two"]?.data).toEqual({ restored: true });
+    expect(stores[1]?.getState().activities["block0000002"]?.data).toEqual({ restored: true });
     expect(load).not.toHaveBeenCalled();
   });
 
@@ -359,7 +359,7 @@ describe("LearnerActivityRuntimeProvider", () => {
     );
     await waitFor(() => expect(stores).toHaveLength(2));
 
-    stale.resolve(snapshot("artifact-one", { "block-one": record({ stale: true }) }));
+    stale.resolve(snapshot("artifact-one", { block0000001: record({ stale: true }) }));
     await Promise.resolve();
     await Promise.resolve();
 
@@ -417,7 +417,7 @@ describe("LearnerActivityRuntimeProvider", () => {
     await waitFor(() => expect(stores[0]).not.toBeNull());
     await waitFor(() => expect(stores[1]).not.toBeNull());
     stores[0]?.getState().ensureActivity({
-      blockId: "block-one",
+      blockId: "block0000001",
       activityKind: "checklist",
       initial: { data: { root: 1 }, completed: false },
     });
@@ -426,15 +426,15 @@ describe("LearnerActivityRuntimeProvider", () => {
     expect(stores[1]?.getState().activities).toEqual({});
 
     first.unmount();
-    expect(stores[0]?.getState().activities["block-one"]?.data).toEqual({ root: 1 });
+    expect(stores[0]?.getState().activities["block0000001"]?.data).toEqual({ root: 1 });
     expect(
       stores[1]?.getState().ensureActivity({
-        blockId: "block-two",
+        blockId: "block0000002",
         activityKind: "checklist",
         initial: { data: { root: 2 }, completed: false },
       }),
     ).toBe(true);
-    expect(stores[1]?.getState().activities["block-two"]?.data).toEqual({ root: 2 });
+    expect(stores[1]?.getState().activities["block0000002"]?.data).toEqual({ root: 2 });
   });
 
   it("keeps simultaneous different-artifact roots isolated even when block ids match", async () => {
@@ -493,7 +493,7 @@ describe("LearnerActivityRuntimeProvider", () => {
     );
     await waitFor(() => expect(stores).toHaveLength(1));
     stores[0]?.getState().ensureActivity({
-      blockId: "block-one",
+      blockId: "block0000001",
       activityKind: "checklist",
       initial: { data: { old: true }, completed: false },
     });
@@ -522,8 +522,8 @@ describe("LearnerActivityRuntimeProvider", () => {
     const user = userEvent.setup();
     const Root = ({ first }: { first: boolean }) => (
       <RuntimeRoot learnerActivityPort={null} onStore={() => {}}>
-        {first ? <ActivityProbe blockId="block-one" label="first" /> : null}
-        <ActivityProbe blockId="block-one" label="second" />
+        {first ? <ActivityProbe blockId="block0000001" label="first" /> : null}
+        <ActivityProbe blockId="block0000001" label="second" />
       </RuntimeRoot>
     );
     const mounted = render(<Root first />);

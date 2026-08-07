@@ -1,6 +1,8 @@
 import { Editor, type JSONContent } from "@tiptap/core";
 
-type EditorOptions = ConstructorParameters<typeof Editor>[0];
+import { withTestNodeIdentity } from "./node-identity";
+
+type EditorOptions = NonNullable<ConstructorParameters<typeof Editor>[0]>;
 
 export interface DisposableEditorFixture {
   editor: Editor;
@@ -32,7 +34,10 @@ export function createEditorDisposalPool(): EditorDisposalPool {
 }
 
 export function createDisposableEditor(options: EditorOptions): DisposableEditorFixture {
-  const editor = new Editor(options);
+  const editor = new Editor({
+    ...options,
+    extensions: withTestNodeIdentity(options.extensions),
+  });
   let destroyed = false;
 
   return {

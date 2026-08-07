@@ -90,12 +90,18 @@ describe("Key-Value List presentation", () => {
     );
     expect(getComputedStyle(row).flexDirection).toBe("column");
     expect(getComputedStyle(key).textAlign).toBe("left");
-    expect(key.getBoundingClientRect().width).toBeLessThan(180);
+    expect(key.getBoundingClientRect().width).toBeLessThanOrEqual(180);
+    expect(key.getBoundingClientRect().right).toBeLessThanOrEqual(
+      row.getBoundingClientRect().right,
+    );
     expect(window.innerWidth).toBe(900);
 
     list.dataset["layout"] = "inline";
     await waitForCondition(() => getComputedStyle(row).flexDirection === "column");
-    expect(key.getBoundingClientRect().width).toBeLessThan(180);
+    expect(key.getBoundingClientRect().width).toBeLessThanOrEqual(180);
+    expect(key.getBoundingClientRect().right).toBeLessThanOrEqual(
+      row.getBoundingClientRect().right,
+    );
     expect(window.innerWidth).toBe(900);
   });
 

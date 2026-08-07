@@ -4,6 +4,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { JSONContent } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
+import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import StarterKit from "@tiptap/starter-kit";
 import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
@@ -53,7 +54,7 @@ function flashcardFixture(cardCount = 1): JSONContent {
       {
         type: FLASHCARD_NODE,
         attrs: {
-          id: "flashcard-fixture",
+          id: "flashcard001",
           data: {
             type: "flashcard",
             shuffle: false,
@@ -61,7 +62,7 @@ function flashcardFixture(cardCount = 1): JSONContent {
         },
         content: Array.from({ length: cardCount }, (_, index) => ({
           type: FLASHCARD_CARD_NODE,
-          attrs: { id: `card-${String.fromCharCode(97 + index)}` },
+          attrs: { id: `flashcard${String(index + 1).padStart(3, "0")}` },
           content: [
             {
               type: FLASHCARD_CARD_FRONT_NODE,
@@ -107,7 +108,12 @@ function renderFlashcardEditor(content: JSONContent = flashcardFixture()) {
     content,
   });
 
-  render(createElement(EditorContent, { editor: fixture.editor }));
+  render(
+    createAuthoringMovementTestRoot(
+      fixture.editor,
+      createElement(EditorContent, { editor: fixture.editor }),
+    ),
+  );
 
   return fixture;
 }
@@ -218,12 +224,14 @@ describe("flashcard block", () => {
     await user.click(await screen.findByRole("button", { name: "Next card" }));
 
     await waitFor(() => {
-      const selected = document.body.querySelector<HTMLElement>('[data-id="card-b"]');
+      const selected = document.body.querySelector<HTMLElement>('[data-id="flashcard002"]');
       expect(selected?.classList.contains("sc-course-flashcard-card")).toBe(true);
       expect(selected?.querySelector(".sc-course-flashcard-card__surface")).not.toBeNull();
     });
 
-    expect(screen.getByRole("button", { name: "Move flashcard card 2" })).not.toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Move flashcard card 2 within its group" }),
+    ).not.toBeNull();
     expect(screen.getByRole("button", { name: "Delete flashcard card 2" })).not.toBeNull();
     expect(screen.queryByRole("button", { name: /Mark as/u })).toBeNull();
     expect(document.body.querySelector(".sc-course-flashcard-deck-header__progress")).toBeNull();
@@ -245,11 +253,13 @@ describe("flashcard block", () => {
     const user = userEvent.setup();
     const fixture = renderFlashcardEditor(flashcardFixture(2));
 
-    expect(await screen.findByRole("button", { name: "Move flashcard card 1" })).not.toBeNull();
+    expect(
+      await screen.findByRole("button", { name: "Move flashcard card 1 within its group" }),
+    ).not.toBeNull();
     await user.click(screen.getByRole("button", { name: "Delete flashcard card 1" }));
     await waitFor(() => {
       expect(fixture.json().content?.[0]?.content?.map((card) => card.attrs?.["id"])).toEqual([
-        "card-b",
+        "flashcard002",
       ]);
     });
 

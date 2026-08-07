@@ -25,13 +25,13 @@ describe("Runtime document shell cascade layering", () => {
     expect(style.getPropertyValue("--color-text-secondary").trim()).toBe("#52525b");
   });
 
-  it("rebinds course colours inside the scope without changing application tokens", () => {
+  it("rebinds resolved course colours inside the scope without changing application tokens", () => {
     const scope = document.createElement("div");
-    scope.className = "sc-course-theme-scope";
-    scope.style.setProperty("--sc-course-color-background", "#123456");
-    scope.style.setProperty("--sc-course-color-canvas", "#234567");
-    scope.style.setProperty("--sc-course-color-text", "#345678");
-    scope.style.setProperty("--sc-course-color-text-secondary", "#456789");
+    scope.className = "sc-course";
+    scope.style.setProperty("--color-background", "#123456");
+    scope.style.setProperty("--color-canvas", "#234567");
+    scope.style.setProperty("--color-text-primary", "#345678");
+    scope.style.setProperty("--color-text-secondary", "#456789");
     const runtime = document.createElement("div");
     runtime.className = "sc-course-document-runtime-renderer__content";
     scope.append(runtime);
@@ -48,10 +48,10 @@ describe("Runtime document shell cascade layering", () => {
 
   it("lets learner player chrome and course content share the resolved learner palette", () => {
     const runtime = document.createElement("div");
-    runtime.className = "sc-course-theme-scope";
+    runtime.className = "sc-course";
     runtime.dataset.scaffoldColorMode = "dark";
-    runtime.style.setProperty("--sc-course-color-background", "#101820");
-    runtime.style.setProperty("--sc-course-color-text", "#f4f7fa");
+    runtime.style.setProperty("--color-background", "#101820");
+    runtime.style.setProperty("--color-text-primary", "#f4f7fa");
 
     const chrome = document.createElement("div");
     chrome.className = "sc-slideshow-player__chrome";

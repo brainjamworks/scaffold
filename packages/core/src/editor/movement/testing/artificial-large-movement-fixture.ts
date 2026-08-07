@@ -10,7 +10,7 @@ import { courseBlockAuthoringFrameAttributes } from "@/editor/interactions/dom/a
 import type { ClientPoint } from "@/editor/interactions/drag/model/coordinate-space";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
-import { CourseDocumentNode, DocumentNode } from "@/document/model/nodes";
+import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 
 import { resolveMovementNodeContext } from "../model/movement-policy";
 import { discoverMovementTargetDescriptors } from "../view/movement-target-discovery";
@@ -137,6 +137,7 @@ export function createArtificialLargeMovementFixture(): ArtificialLargeMovementF
       StarterKit.configure({ document: false, paragraph: false, undoRedo: false }),
       ExtendedParagraph,
       CourseDocumentNode,
+      createCourseSectionNode(),
       SurfaceNode,
       ArtificialMovementArrangementNode,
       ArtificialMovementRegionNode,
@@ -248,7 +249,7 @@ export function createArtificialLargeMovementFixture(): ArtificialLargeMovementF
 }
 
 export function artificialMovementBlockId(index: number): string {
-  return `large-block-${String(index).padStart(4, "0")}`;
+  return `largeblk${String(index).padStart(4, "0")}`;
 }
 
 function artificialMovementDocument(): JSONContent {

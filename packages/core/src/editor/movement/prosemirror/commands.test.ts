@@ -22,6 +22,7 @@ import type { SurfaceVariantDefinition } from "@/editor/surfaces/model/surface-v
 import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
 import { RegionAuthoringNode } from "@/editor/surfaces/authoring/nodes/region-authoring-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { createTestNodeIdentityExtension } from "@/editor/testing/node-identity";
 
 import {
   applyMovementIntent as applyMovementIntentWithLookup,
@@ -261,6 +262,7 @@ function makeEditor(content: JSONContent[], surfaceVariant = "page-default") {
         paragraph: false,
         undoRedo: false,
       }),
+      createTestNodeIdentityExtension(),
       ExtendedParagraph,
       CourseDocumentNode,
       createCourseSectionNode(),

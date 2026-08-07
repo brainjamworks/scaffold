@@ -127,7 +127,7 @@ function CategoriseBinNodeView(props: NodeViewProps) {
           <CategoriseAuthoringMovementAction
             getPresentationElement={() => presentationRef.current}
             getSourcePos={() => safeGetPos(props.getPos)}
-            label={`Move category ${binPosition.index}, ${categoryLabel}`}
+            label={`category ${binPosition.index}, ${categoryLabel}`}
             sourceKey={categoryId}
             sourcePos={pos ?? undefined}
           />

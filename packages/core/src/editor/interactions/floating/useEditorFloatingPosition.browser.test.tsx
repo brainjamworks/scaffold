@@ -21,7 +21,7 @@ describe("structural floating visibility at the authoring boundary", () => {
       mode: "slideshow" as const,
       surfaceId: "firstslide01",
     },
-  ])("keeps the first $label surface-options trigger visible at the boundary top", async (test) => {
+  ])("keeps the first $label surface-options trigger visible inside the boundary", async (test) => {
     const content = createScaffoldDocumentContent({
       mode: test.mode,
       surfaceId: test.surfaceId,
@@ -72,7 +72,12 @@ describe("structural floating visibility at the authoring boundary", () => {
       const boundaryRect = boundary.getBoundingClientRect();
       const surfaceRect = surface.getBoundingClientRect();
 
-      expect(Math.abs(surfaceRect.top - boundaryRect.top)).toBeLessThanOrEqual(1);
+      if (test.mode === "page") {
+        expect(Math.abs(surfaceRect.top - boundaryRect.top)).toBeLessThanOrEqual(1);
+      } else {
+        expect(host.querySelector("[data-course-section-start-divider]")).not.toBeNull();
+        expect(surfaceRect.top).toBeGreaterThan(boundaryRect.top);
+      }
       expect(floatingContent.dataset.scaffoldOverlayHidden).toBe("false");
       expect(getComputedStyle(floatingContent).visibility).toBe("visible");
       expect(getComputedStyle(floatingContent).pointerEvents).toBe("auto");

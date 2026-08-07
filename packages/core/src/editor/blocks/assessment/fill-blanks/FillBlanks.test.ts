@@ -30,6 +30,7 @@ import { AssessmentSummaryFeedbackNode } from "@/editor/blocks/assessment/shared
 import { AssessmentTitleNode } from "@/editor/blocks/assessment/shared/nodes/assessment-title";
 import { findAncestorAssessmentBlockId } from "@/editor/blocks/assessment/shared/model/assessment-prosemirror";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
+import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import type { RichTextBubbleMenuProps } from "@/editor/shell/bubbles/rich-text/RichTextBubbleMenu";
 import { FillBlanksPrivateAssessmentSchema } from "@scaffold/contracts";
 import { toTiptapRichTextDocument, type ScaffoldRichTextDocument } from "@/schemas/rich-text";
@@ -118,6 +119,15 @@ function renderRuntimeEditor(editor: Editor, assessmentPort: AssessmentPort) {
   );
 }
 
+function renderRuntimeOnlyEditor(editor: Editor) {
+  return render(
+    createAssessmentRuntimeTestRoot({
+      children: createElement(EditorContent, { editor }),
+      onStore: captureAssessmentStore,
+    }),
+  );
+}
+
 let assessmentStore: AssessmentStoreApi | null = null;
 function captureAssessmentStore(store: AssessmentStoreApi | null) {
   assessmentStore = store;
@@ -125,7 +135,7 @@ function captureAssessmentStore(store: AssessmentStoreApi | null) {
 function renderAssessmentEditor(editor: Editor) {
   return render(
     createAssessmentRuntimeTestRoot({
-      children: createElement(EditorContent, { editor }),
+      children: createAuthoringMovementTestRoot(editor, createElement(EditorContent, { editor })),
       onStore: captureAssessmentStore,
     }),
   );
@@ -258,7 +268,7 @@ function runtimeFillBlanksDoc({
   };
 }
 
-function blankDescription(label = "city"): string | null {
+function blankDescription(label = "Blank 1 of 1, city"): string | null {
   const input = screen.getByLabelText(label);
   const describedBy = input.getAttribute("aria-describedby");
   return describedBy ? (document.getElementById(describedBy)?.textContent ?? null) : null;
@@ -347,9 +357,9 @@ describe("composite fill_blanks node", () => {
   it("gives each runtime blank a child-specific assessment response name", async () => {
     const editor = makeEditor({ runtime: true });
     editor.commands.setContent(fillBlanksDoc());
-    renderAssessmentEditor(editor);
+    renderRuntimeOnlyEditor(editor);
 
-    const input = await screen.findByLabelText("temperature");
+    const input = await screen.findByLabelText("Blank 1 of 1, temperature");
     expect(input).toHaveAttribute("name", "assessment-fillbl_00001-response-blank_000001");
     const blank = input.closest('[data-node="fill-blank"]');
     expect(blank?.getAttribute("data-id")).toBe("blank_000001");
@@ -564,7 +574,7 @@ describe("composite fill_blanks node", () => {
       expect(hasAssessmentRegistration(assessmentStore, problemId)).toBe(true);
     });
 
-    fireEvent.change(screen.getByLabelText("city"), {
+    fireEvent.change(screen.getByLabelText("Blank 1 of 1, city"), {
       target: { value: "London" },
     });
 
@@ -631,7 +641,7 @@ describe("composite fill_blanks node", () => {
       expect(hasAssessmentRegistration(assessmentStore, problemId)).toBe(true);
     });
 
-    fireEvent.change(screen.getByLabelText("city"), {
+    fireEvent.change(screen.getByLabelText("Blank 1 of 1, city"), {
       target: { value: "London" },
     });
 
@@ -642,9 +652,11 @@ describe("composite fill_blanks node", () => {
     fireEvent.click(screen.getByText("Submit"));
 
     await waitFor(() => {
-      expect(screen.getByText("Show answer")).toBeInstanceOf(HTMLButtonElement);
+      expect(screen.getByRole("button", { name: "Show correct answer" })).toBeInstanceOf(
+        HTMLButtonElement,
+      );
     });
-    fireEvent.click(screen.getByText("Show answer"));
+    fireEvent.click(screen.getByRole("button", { name: "Show correct answer" }));
 
     await waitFor(() => {
       expect(screen.getByDisplayValue("Paris")).toBeInstanceOf(HTMLInputElement);
@@ -652,7 +664,7 @@ describe("composite fill_blanks node", () => {
       expect(screen.queryByDisplayValue("Berlin")).toBeNull();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "Show feedback" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show feedback for blank 1 of 1" }));
 
     await waitFor(() => {
       const dialog = screen.getByRole("dialog", { name: "Feedback" });

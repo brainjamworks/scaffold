@@ -102,7 +102,12 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     const schema = getSchema(extensions);
 
     expect(courseSectionNodes).toHaveLength(1);
-    expect(courseSectionNodes[0]?.config.addNodeView).toBeTypeOf("function");
+    const courseSectionConfig = courseSectionNodes[0]?.config;
+    expect(courseSectionConfig && "addNodeView" in courseSectionConfig).toBe(true);
+    if (!courseSectionConfig || !("addNodeView" in courseSectionConfig)) {
+      throw new Error("Expected Course Section to be registered as a Node extension.");
+    }
+    expect(courseSectionConfig.addNodeView).toBeTypeOf("function");
     expect(Object.keys(schema.nodes).filter((name) => name === "courseSection")).toEqual([
       "courseSection",
     ]);

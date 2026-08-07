@@ -56,8 +56,8 @@ export function createScaffoldDocumentContent(
   input: CreateScaffoldDocumentContentInput,
 ): JSONContent {
   const defaults = getCourseDocumentDefaultsForMode(input.mode);
+  const courseDocumentId = createEmbeddedNodeId();
   const attrs = CourseDocumentAttrsSchema.parse({
-    id: createEmbeddedNodeId(),
     schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
     mode: defaults.mode,
     surfaceSize: input.surfaceSize ?? defaults.surfaceSize,
@@ -74,7 +74,7 @@ export function createScaffoldDocumentContent(
     content: [
       {
         type: "courseDocument",
-        attrs,
+        attrs: { id: courseDocumentId, ...attrs },
         content: [
           builtInSurfaceVariantRegistry.createDefault({
             mode: input.mode,

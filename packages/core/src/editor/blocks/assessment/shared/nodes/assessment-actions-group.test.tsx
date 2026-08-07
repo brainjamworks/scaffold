@@ -25,6 +25,7 @@ import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { ASSESSMENT_QUESTION_CONTENT } from "@/document/model/content-model/content-groups";
 import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
 import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
+import { createTestNodeIdentityExtension } from "@/editor/testing";
 
 import { AssessmentActionsGroupNode } from "./assessment-actions-group";
 import { AssessmentActionsGroupRuntimeNode } from "./assessment-actions-group-runtime";
@@ -378,9 +379,9 @@ describe("assessment_actions_group", () => {
     expect(initialSubmit.disabled).toBe(true);
 
     act(() => {
-      expect(setAssessmentResponseField(assessmentStore, runtimeProblemId, "choices", "a")).toBe(
-        true,
-      );
+      expect(
+        setAssessmentResponseField(assessmentStore, runtimeProblemId, "choices", "choice000001"),
+      ).toBe(true);
     });
 
     await waitFor(() => {
@@ -488,6 +489,7 @@ function makeStructuralEditor(runtime = false) {
   const editor = new Editor({
     extensions: [
       StarterKit.configure({ undoRedo: false, paragraph: false }),
+      createTestNodeIdentityExtension(),
       ExtendedParagraph,
       TestAssessmentHostNode,
       runtime ? AssessmentHintRuntimeNode : AssessmentHintNode,
@@ -538,6 +540,7 @@ function makeRuntimeMcqEditor() {
     editable: false,
     extensions: [
       StarterKit.configure({ undoRedo: false, paragraph: false }),
+      createTestNodeIdentityExtension(),
       ExtendedParagraph,
       AssessmentTitleNode,
       AssessmentInstructionsNode,
@@ -605,7 +608,11 @@ function revealableIncorrectRuntimePort(): AssessmentPort {
   return {
     ...incorrectRuntimePort(),
     revealAnswer: async () => ({
-      answerKey: { kind: "single-select", correctOptionId: "b", feedbackByOptionId: {} },
+      answerKey: {
+        kind: "single-select",
+        correctOptionId: "choice000002",
+        feedbackByOptionId: {},
+      },
     }),
   };
 }
@@ -617,9 +624,9 @@ async function submitIncorrectRuntimeAnswer() {
   });
 
   act(() => {
-    expect(setAssessmentResponseField(assessmentStore, runtimeProblemId, "choices", "a")).toBe(
-      true,
-    );
+    expect(
+      setAssessmentResponseField(assessmentStore, runtimeProblemId, "choices", "choice000001"),
+    ).toBe(true);
   });
 
   await waitFor(() => {
@@ -738,7 +745,7 @@ function firstHintText(editor: Editor): string {
   return text;
 }
 
-const runtimeProblemId = "artifact:artifact-1/block:mcq-action-group-runtime";
+const runtimeProblemId = "artifact:artifact-1/block:mcqaction001";
 
 function runtimeMcqDocument(): JSONContent {
   return {
@@ -747,9 +754,9 @@ function runtimeMcqDocument(): JSONContent {
       {
         type: "mcq",
         attrs: {
-          id: "mcq-action-group-runtime",
+          id: "mcqaction001",
           assessment: {
-            correctOptionId: "b",
+            correctOptionId: "choice000002",
             feedbackByOptionId: {},
             summaryFeedback: null,
           },
@@ -768,7 +775,10 @@ function runtimeMcqDocument(): JSONContent {
           { type: "assessment_prompt", content: [{ type: "paragraph" }] },
           {
             type: "assessment_choices_group",
-            content: [choice("a", "Incorrect option"), choice("b", "Correct option")],
+            content: [
+              choice("choice000001", "Incorrect option"),
+              choice("choice000002", "Correct option"),
+            ],
           },
           {
             type: "assessment_actions_group",

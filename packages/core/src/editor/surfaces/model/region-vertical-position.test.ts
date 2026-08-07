@@ -8,6 +8,10 @@ import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/doc
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { createTestNodeIdentityExtension } from "@/editor/testing";
+
+const SURFACE_ID = "surface00001";
+const REGION_ID = "region000001";
 
 import {
   readRegionVerticalPosition,
@@ -63,7 +67,7 @@ describe("Region vertical content position", () => {
 
       const region = tr?.doc.nodeAt(pos);
       expect(region?.attrs).toMatchObject({
-        id: "region-a",
+        id: REGION_ID,
         role: "main",
         verticalPosition: "middle",
       });
@@ -118,6 +122,7 @@ function createEditor(): Editor {
       RegionNode,
       RegionChildNode,
       TestArrangementNode,
+      createTestNodeIdentityExtension(),
     ],
     content: {
       type: "doc",
@@ -127,11 +132,11 @@ function createEditor(): Editor {
           content: [
             {
               type: "surface",
-              attrs: { id: "surface-a", variant: "slide-content" },
+              attrs: { id: SURFACE_ID, variant: "slide-content" },
               content: [
                 {
                   type: "region",
-                  attrs: { id: "region-a", role: "main" },
+                  attrs: { id: REGION_ID, role: "main" },
                   content: [
                     {
                       type: "regionVerticalPositionTestBlock",

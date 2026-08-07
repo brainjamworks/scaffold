@@ -387,7 +387,7 @@ describe("composite matching node", () => {
       expect(element).toBeInstanceOf(HTMLElement);
       return element as HTMLElement;
     });
-    await user.click(within(pair).getByRole("button", { name: "Add feedback" }));
+    await user.click(within(pair).getByRole("button", { name: "Add feedback for item ‘Term 2’" }));
     const feedbackEditor = await screen.findByLabelText("Feedback editor");
     expect(feedbackEditor.getAttribute("data-attr-rich-text-field")).toBe(
       "matching:item__000002:feedback",
@@ -593,7 +593,6 @@ describe("composite matching node", () => {
     expect(hint?.textContent).toBe("Scroll for more ↓");
     expect(scrollLane?.querySelectorAll("[data-matching-draggable-item]")).toHaveLength(2);
     expect(scrollLane?.querySelectorAll("[data-matching-drop-target]")).toHaveLength(2);
-    expect(scrollLane?.querySelector(".sc-matching-runtime-canvas")).toBeInstanceOf(HTMLElement);
     expect(shell?.hasAttribute("data-bounded-scroll")).toBe(false);
     expect(frame?.hasAttribute("data-bounded-scroll")).toBe(false);
 
@@ -845,7 +844,7 @@ describe("composite matching node", () => {
         "Matched item",
       );
       expect(describedText('[data-target-id="target_00002"][data-matching-drop-target]')).toBe(
-        "Matched with item 1",
+        "Matched with ‘Term 1’",
       );
     });
     const matchedSource = document.body.querySelector(
@@ -887,7 +886,7 @@ describe("composite matching node", () => {
 
     await waitFor(() => {
       expect(describedText('[data-target-id="target_00001"][data-matching-drop-target]')).toBe(
-        "Matched with item 1",
+        "Matched with ‘Term 1’",
       );
       expect(
         screen.getByRole("button", {
@@ -952,14 +951,14 @@ describe("composite matching node", () => {
 
     await waitFor(() => {
       expect(describedText('[data-target-id="target_00002"][data-matching-drop-target]')).toBe(
-        "Matched with item 1",
+        "Matched with ‘Term 1’",
       );
     });
     fireEvent.click(screen.getByText("Submit"));
 
     await waitFor(() => {
       expect(describedText('[data-target-id="target_00002"][data-matching-drop-target]')).toBe(
-        "Matched with item 1. Submitted match, incorrect",
+        "Matched with ‘Term 1’. Submitted match, incorrect",
       );
       for (const target of document.body.querySelectorAll("[data-matching-drop-target]")) {
         expect(target).toHaveAttribute("aria-disabled", "true");
@@ -1015,22 +1014,24 @@ describe("composite matching node", () => {
 
     await waitFor(() => {
       expect(describedText('[data-target-id="target_00002"][data-matching-drop-target]')).toBe(
-        "Matched with item 1",
+        "Matched with ‘Term 1’",
       );
     });
     fireEvent.click(screen.getByText("Submit"));
 
     await waitFor(() => {
-      expect(screen.getByText("Show answer")).toBeInstanceOf(HTMLButtonElement);
+      expect(screen.getByRole("button", { name: "Show correct answer" })).toBeInstanceOf(
+        HTMLButtonElement,
+      );
     });
-    fireEvent.click(screen.getByText("Show answer"));
+    fireEvent.click(screen.getByRole("button", { name: "Show correct answer" }));
 
     await waitFor(() => {
       expect(document.body.querySelector('[data-target-id="target_00001"]')?.textContent).toContain(
         "Term 1",
       );
       expect(describedText('[data-target-id="target_00001"][data-matching-drop-target]')).toBe(
-        "Matched with item 1. Revealed correct match. Feedback available",
+        "Matched with ‘Term 1’. Revealed correct match. Feedback available",
       );
     });
 

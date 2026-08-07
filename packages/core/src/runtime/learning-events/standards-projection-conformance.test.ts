@@ -49,12 +49,12 @@ const ANSWERED_INPUT = {
     interaction: {
       kind: "single-select",
       options: [
-        { id: "option-a", label: "Paris" },
-        { id: "option-b", label: "Madrid" },
+        { id: "option000001", label: "Paris" },
+        { id: "option000002", label: "Madrid" },
       ],
     },
   },
-  response: { kind: "single-select", optionId: "option-a" },
+  response: { kind: "single-select", optionId: "option000001" },
   result: { isCorrect: true, score: { scaled: 1 } },
   attemptNumber: 2,
   quiz: { quizId: "quiz-one", attemptId: "quiz-attempt-one" },
@@ -606,7 +606,7 @@ describe("SCORM projection sufficiency", () => {
           {
             id: expect.stringContaining("question-one"),
             type: "choice",
-            learnerResponse: "option-a",
+            learnerResponse: "option000001",
             result: "correct",
             description: "Which city is the capital of France?",
           },
@@ -834,14 +834,14 @@ describe("projection privacy", () => {
     );
     expect(ordinaryXapi.actor).toStrictEqual(TRUSTED_ACTOR);
     expect(ordinaryXapi.context?.registration).toBe(REGISTRATION_ID);
-    expect(ordinaryXapi.result?.response).toBe("option-a");
+    expect(ordinaryXapi.result?.response).toBe("option000001");
     expect(cmi5Statement.actor).toStrictEqual(TRUSTED_ACTOR);
     expect(cmi5Statement.context).toStrictEqual(
       buildCmi5HostContext(cmi5Event, TRUSTED_CMI5_LAUNCH_CONTEXT),
     );
     expect(scorm).toMatchObject({
       status: "accepted",
-      state: { interactions: [{ learnerResponse: "option-a" }] },
+      state: { interactions: [{ learnerResponse: "option000001" }] },
     });
   });
 });

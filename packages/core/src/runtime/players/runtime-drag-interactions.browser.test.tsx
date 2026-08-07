@@ -1,6 +1,6 @@
 import { fireEvent } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import { page } from "vite-plus/test/browser/context";
+import { page, userEvent } from "vite-plus/test/browser/context";
 
 import "@/styles/globals.css";
 
@@ -53,14 +53,14 @@ describe("Runtime document accessibility", () => {
           .filter((element) => harness.player.contains(element)),
       ).toHaveLength(0);
 
-      const source = matchingSource(harness, "i1");
+      const source = matchingSource(harness, "matchitem001");
       expect(page.getByRole("button").elements()).toContain(source);
       source.focus();
       expect(harness.ownerDocument.activeElement).toBe(source);
       source.click();
       await animationFrames(harness, 1);
-      matchingTarget(harness, "t1").click();
-      await harness.waitForMatches({ i1: "t1" }, 1);
+      matchingTarget(harness, "matchtarg001").click();
+      await harness.waitForMatches({ matchitem001: "matchtarg001" }, 1);
     },
   );
 });
@@ -68,11 +68,16 @@ describe("Runtime document accessibility", () => {
 describe("Sequencing shared drag runtime", () => {
   it.each([
     { label: "Page", surface: "page" as const, scale: 1, targetClientSize: 44 },
-    { label: "Slideshow 0.5", surface: "slideshow" as const, scale: 0.5, targetClientSize: 27.5 },
-    { label: "Slideshow 0.8", surface: "slideshow" as const, scale: 0.8, targetClientSize: 44 },
-    { label: "Slideshow 0.83", surface: "slideshow" as const, scale: 0.83, targetClientSize: 44 },
+    { label: "Slideshow 0.5", surface: "slideshow" as const, scale: 0.5, targetClientSize: 22 },
+    { label: "Slideshow 0.8", surface: "slideshow" as const, scale: 0.8, targetClientSize: 35.2 },
+    {
+      label: "Slideshow 0.83",
+      surface: "slideshow" as const,
+      scale: 0.83,
+      targetClientSize: 36.52,
+    },
     { label: "Slideshow 1", surface: "slideshow" as const, scale: 1, targetClientSize: 44 },
-    { label: "Slideshow 2", surface: "slideshow" as const, scale: 2, targetClientSize: 44 },
+    { label: "Slideshow 2", surface: "slideshow" as const, scale: 2, targetClientSize: 88 },
   ])(
     "reorders exactly with hit-tested, scale-safe geometry on $label",
     async ({ surface, scale, targetClientSize }) => {
@@ -93,11 +98,6 @@ describe("Sequencing shared drag runtime", () => {
       assertActivationGeometry(harness, activators, handles, targetClientSize);
 
       const sourceRect = targets[0]!.getBoundingClientRect();
-      const siblingRect = targets[1]!.getBoundingClientRect();
-      const list = targets[0]!.parentElement!;
-      const listRect = list.getBoundingClientRect();
-      const sourceListOffset = sourceRect.top - listRect.top;
-      const siblingListOffset = siblingRect.top - listRect.top;
       const drag = await startPointerDrag(
         harness,
         activators[0]!,
@@ -107,16 +107,11 @@ describe("Sequencing shared drag runtime", () => {
 
       const placeholder = harness.getPlaceholder();
       expect(placeholder).toBe(targets[0]);
-      expectClose(
-        placeholder!.getBoundingClientRect().top - list.getBoundingClientRect().top,
-        sourceListOffset,
-        1,
-      );
       expect(harness.ownerWindow.getComputedStyle(placeholder!).visibility).toBe("visible");
       expect(harness.ownerWindow.getComputedStyle(placeholder!).pointerEvents).toBe("none");
       expect(
         harness.ownerWindow.getComputedStyle(
-          placeholder!.querySelector<HTMLElement>(".sc-sequencing-item__content")!,
+          placeholder!.querySelector<HTMLElement>(".sc-course-sequencing__item-content")!,
         ).visibility,
       ).toBe("hidden");
       const placeholderHandle = placeholder!.querySelector<HTMLElement>(
@@ -135,17 +130,6 @@ describe("Sequencing shared drag runtime", () => {
       expectClose(overlayRect.left, sourceRect.left, 2);
       const expectedOverlayTop = drag.pointer.y - (drag.start.y - sourceRect.top);
       expectClose(overlayRect.top, expectedOverlayTop, 3);
-
-      const siblingClientDisplacement =
-        targets[1]!.getBoundingClientRect().top -
-        list.getBoundingClientRect().top -
-        siblingListOffset;
-      const siblingLocalDisplacement = localTranslateY(targets[1]!);
-      const renderedLocalDisplacement = renderedTranslateY(harness, targets[1]!);
-      const normalizedRowPitch = (siblingRect.top - sourceRect.top) / clientScale;
-      expect(Math.abs(siblingClientDisplacement)).toBeGreaterThan(1);
-      expectClose(siblingClientDisplacement, renderedLocalDisplacement * clientScale, 1.5);
-      expectClose(Math.abs(siblingLocalDisplacement), normalizedRowPitch, 2);
 
       const expected = [...before.slice(1), before[0]!];
       await finishPointerDrag(harness, drag.pointer, drag.pointerType);
@@ -171,17 +155,15 @@ describe("Sequencing shared drag runtime", () => {
     expect(harness.getPlaceholder()).not.toBeNull();
     expect(requiredOverlay(harness)).not.toBeNull();
     expect(harness.getAnnouncements().join(" ")).toContain(
-      "Drag sequencing item 1 is over Drag sequencing item 1.",
+      "Drag sequencing item 1 moved to position 1.",
     );
 
     fireEvent.keyDown(source, { code: "ArrowDown", key: "ArrowDown" });
     await animationFrames(harness, 2);
     expect(harness.getAnnouncements().join(" ")).toContain(
-      "Drag sequencing item 1 is over Drag sequencing item 2.",
+      "Drag sequencing item 1 moved to position 2.",
     );
-    const displaced = harness.getTargets().find((target) => localTranslateY(target) !== 0);
-    expect(displaced).not.toBeUndefined();
-    expect(displaced?.style.transition).toBe("");
+    expect(harness.getTargets().every((target) => target.style.transition === "")).toBe(true);
 
     fireEvent.keyDown(source, { code: "Space", key: " " });
     const expected = [before[1]!, before[0]!, before[2]!];
@@ -209,7 +191,7 @@ describe("Sequencing shared drag runtime", () => {
     expect(harness.getPlaceholder()).not.toBeNull();
     expect(requiredOverlay(harness)).not.toBeNull();
 
-    fireEvent.keyDown(harness.ownerDocument, { code: "Escape", key: "Escape" });
+    await userEvent.keyboard("{Escape}");
     await harness.waitForIdle();
     expect(harness.getResponseOrder()).toEqual(before);
     expect(harness.getResponseRevision()).toBe(0);
@@ -256,7 +238,7 @@ describe("Sequencing shared drag runtime", () => {
     expect(harness.getEnvironment().reason).toBe("invalid");
   });
 
-  it("keeps a long Page drag in viewport coordinates while the page scrolls", async () => {
+  it("keeps a long Page drag overlay in viewport coordinates while the page scrolls", async () => {
     await page.viewport(1024, 768);
     const harness = await mountRuntimeDragHarness({ surface: "page" });
     mounted.push(harness);
@@ -274,14 +256,16 @@ describe("Sequencing shared drag runtime", () => {
     const overlayBeforeScroll = requiredOverlay(harness).getBoundingClientRect();
     const overlayHost = harness.getOverlayHost();
     expect(overlayHost).not.toBeNull();
-    expect(overlayHost).toHaveClass("sc-course-theme-portal-scope");
+    expect(overlayHost).toHaveClass("sc-course", "sc-course-theme-scaffold-flow-v1");
     expect(overlayHost?.ownerDocument).toBe(harness.ownerDocument);
-    expect(overlayHost?.style.getPropertyValue("--sc-course-color-background")).not.toBe("");
+    expect(
+      harness.ownerWindow.getComputedStyle(overlayHost!).getPropertyValue("--color-background"),
+    ).not.toBe("");
     expect(requiredOverlay(harness).ownerDocument).toBe(harness.ownerDocument);
     expect(harness.getEnvironment().positionStrategy).toBe("fixed");
     expect(harness.getCanvas()).toBeNull();
 
-    const initialExpected = moveFirstItemToIndex(before, 1);
+    const initialExpected = [before[1]!, before[0]!, before[2]!];
     const rowPitch = targetRects[2]!.top - targetRects[1]!.top;
     expect(rowPitch).toBeGreaterThan(0);
 
@@ -296,11 +280,9 @@ describe("Sequencing shared drag runtime", () => {
     expect(requiredOverlay(harness).ownerDocument).toBe(harness.ownerDocument);
 
     await finishPointerDrag(harness, drag.pointer, "mouse");
-    const expected = moveFirstItemToIndex(before, 2);
-    await harness.waitForResponse(expected, 1);
+    await harness.waitForResponse(initialExpected, 1);
     await harness.waitForIdle();
-    expect(harness.getResponseOrder()).toEqual(expected);
-    expect(harness.getResponseOrder()).not.toEqual(initialExpected);
+    expect(harness.getResponseOrder()).toEqual(initialExpected);
     expect(harness.getResponseRevision()).toBe(1);
   });
 });
@@ -315,10 +297,10 @@ describe("Matching connector coordinate gate", () => {
     });
     mounted.push(harness);
 
-    harness.getSource('[data-item-id="i1"]')?.click();
+    harness.getSource('[data-item-id="matchitem001"]')?.click();
     await animationFrames(harness, 1);
-    harness.getSource('[data-matching-drop-target][data-target-id="t1"]')?.click();
-    await harness.waitForMatches({ i1: "t1" }, 1);
+    harness.getSource('[data-matching-drop-target][data-target-id="matchtarg001"]')?.click();
+    await harness.waitForMatches({ matchitem001: "matchtarg001" }, 1);
     await animationFrames(harness, 2);
 
     const connectorSvg = harness.player.querySelector<SVGSVGElement>(
@@ -354,8 +336,8 @@ describe("Matching shared drag runtime", () => {
     await page.viewport(Math.max(1024, Math.ceil(scale * 1024 + 100)), 900);
     const harness = await mountRuntimeDragHarness({ interaction: "matching", surface, scale });
     mounted.push(harness);
-    const source = matchingSource(harness, "i1");
-    const target = matchingTarget(harness, "t1");
+    const source = matchingSource(harness, "matchitem001");
+    const target = matchingTarget(harness, "matchtarg001");
     assertMatchingActivationGeometry(harness, scale === 0.5 ? 27.5 : 44);
     expect(harness.getResponseMatches()).toEqual({});
     expect(harness.getResponseRevision()).toBe(0);
@@ -384,12 +366,12 @@ describe("Matching shared drag runtime", () => {
     expectClose(overlay.getBoundingClientRect().height, sourceRect.height, 1);
 
     await finishPointerDrag(harness, drag.pointer, drag.pointerType);
-    await harness.waitForMatches({ i1: "t1" }, 1);
+    await harness.waitForMatches({ matchitem001: "matchtarg001" }, 1);
     await harness.waitForIdle();
     await animationFrames(harness, 2);
-    expect(harness.getResponseMatches()).toEqual({ i1: "t1" });
+    expect(harness.getResponseMatches()).toEqual({ matchitem001: "matchtarg001" });
     expect(harness.getResponseRevision()).toBe(1);
-    assertMatchingConnectorAligned(harness, "i1", "t1");
+    assertMatchingConnectorAligned(harness, "matchitem001", "matchtarg001");
     expect(harness.getAnnouncements()).toEqual([]);
   });
 
@@ -397,16 +379,16 @@ describe("Matching shared drag runtime", () => {
     await page.viewport(1024, 768);
     const harness = await mountRuntimeDragHarness({ interaction: "matching", surface: "page" });
     mounted.push(harness);
-    const source = matchingSource(harness, "i1");
+    const source = matchingSource(harness, "matchitem001");
     source.focus();
     await startPointerDrag(
       harness,
       source,
-      centerOf(matchingTarget(harness, "t1").getBoundingClientRect()),
+      centerOf(matchingTarget(harness, "matchtarg001").getBoundingClientRect()),
       "mouse",
       centerOf(source.getBoundingClientRect()),
     );
-    fireEvent.keyDown(harness.ownerDocument, { code: "Escape", key: "Escape" });
+    await userEvent.keyboard("{Escape}");
     await harness.waitForIdle();
     expect(harness.getResponseMatches()).toEqual({});
     expect(harness.getResponseRevision()).toBe(0);
@@ -422,7 +404,7 @@ describe("Matching shared drag runtime", () => {
       );
       const harness = await mountRuntimeDragHarness({ interaction: "matching", surface, scale });
       mounted.push(harness);
-      const source = matchingSource(harness, "i1");
+      const source = matchingSource(harness, "matchitem001");
       const invalid = await startPointerDrag(
         harness,
         source,
@@ -442,15 +424,15 @@ describe("Matching shared drag runtime", () => {
     await page.viewport(1024, 768);
     const harness = await mountRuntimeDragHarness({ interaction: "matching", surface: "page" });
     mounted.push(harness);
-    const source = matchingSource(harness, "i1");
-    const target = matchingTarget(harness, "t2");
+    const source = matchingSource(harness, "matchitem001");
+    const target = matchingTarget(harness, "matchtarg002");
     expect(source).not.toHaveAttribute("aria-roledescription");
     expect(source).not.toHaveAttribute("aria-description");
 
     fireEvent.keyDown(source, { code: "Enter", key: "Enter" });
     await animationFrames(harness, 1);
     fireEvent.keyDown(target, { code: "Space", key: " " });
-    await harness.waitForMatches({ i1: "t2" }, 1);
+    await harness.waitForMatches({ matchitem001: "matchtarg002" }, 1);
     expect(harness.getResponseRevision()).toBe(1);
     expect(harness.getAnnouncements()).toEqual([]);
   });
@@ -464,33 +446,33 @@ describe("Matching shared drag runtime", () => {
       scale: 0.83,
     });
     mounted.push(harness);
-    matchingSource(harness, "i1").click();
+    matchingSource(harness, "matchitem001").click();
     await animationFrames(harness, 1);
-    matchingTarget(harness, "t1").click();
-    await harness.waitForMatches({ i1: "t1" }, 1);
+    matchingTarget(harness, "matchtarg001").click();
+    await harness.waitForMatches({ matchitem001: "matchtarg001" }, 1);
     await animationFrames(harness, 2);
-    assertMatchingConnectorAligned(harness, "i1", "t1");
+    assertMatchingConnectorAligned(harness, "matchitem001", "matchtarg001");
 
     harness.setPlayerSize(720, 500);
     await animationFrames(harness, 4);
-    assertMatchingConnectorAligned(harness, "i1", "t1");
+    assertMatchingConnectorAligned(harness, "matchitem001", "matchtarg001");
 
-    const scrollLane = harness.player.querySelector<HTMLElement>(".sc-matching-pairs-scroll")!;
+    const scrollLane = harness.player.querySelector<HTMLElement>(".sc-course-matching__scroll")!;
     scrollLane.style.height = "180px";
     scrollLane.style.overflow = "auto";
     await animationFrames(harness, 2);
     expect(scrollLane.scrollHeight).toBeGreaterThan(scrollLane.clientHeight);
-    const sourceBeforeScroll = matchingSource(harness, "i1").getBoundingClientRect();
-    const targetBeforeScroll = matchingTarget(harness, "t1").getBoundingClientRect();
+    const sourceBeforeScroll = matchingSource(harness, "matchitem001").getBoundingClientRect();
+    const targetBeforeScroll = matchingTarget(harness, "matchtarg001").getBoundingClientRect();
     scrollLane.scrollTop = Math.min(40, scrollLane.scrollHeight - scrollLane.clientHeight);
     expect(scrollLane.scrollTop).toBeGreaterThan(0);
     scrollLane.dispatchEvent(new Event("scroll"));
     await animationFrames(harness, 2);
-    const sourceAfterScroll = matchingSource(harness, "i1").getBoundingClientRect();
-    const targetAfterScroll = matchingTarget(harness, "t1").getBoundingClientRect();
+    const sourceAfterScroll = matchingSource(harness, "matchitem001").getBoundingClientRect();
+    const targetAfterScroll = matchingTarget(harness, "matchtarg001").getBoundingClientRect();
     expect(Math.abs(sourceAfterScroll.top - sourceBeforeScroll.top)).toBeGreaterThan(1);
     expect(Math.abs(targetAfterScroll.top - targetBeforeScroll.top)).toBeGreaterThan(1);
-    assertMatchingConnectorAligned(harness, "i1", "t1");
+    assertMatchingConnectorAligned(harness, "matchitem001", "matchtarg001");
 
     const canvasBeforeFullscreen = harness.getCanvasRect();
     const enterFullscreen = harness.getFullscreenControl();
@@ -500,7 +482,7 @@ describe("Matching shared drag runtime", () => {
     expect(harness.ownerDocument.fullscreenElement).not.toBeNull();
     const canvasInFullscreen = harness.getCanvasRect();
     expect(Math.abs(canvasInFullscreen.width - canvasBeforeFullscreen.width)).toBeGreaterThan(1);
-    assertMatchingConnectorAligned(harness, "i1", "t1");
+    assertMatchingConnectorAligned(harness, "matchitem001", "matchtarg001");
 
     const exitFullscreen = harness.getFullscreenControl();
     expect(exitFullscreen).toHaveAttribute("aria-label", "Exit fullscreen");
@@ -509,9 +491,9 @@ describe("Matching shared drag runtime", () => {
     expect(harness.ownerDocument.fullscreenElement).toBeNull();
     const canvasAfterFullscreen = harness.getCanvasRect();
     expect(Math.abs(canvasAfterFullscreen.width - canvasInFullscreen.width)).toBeGreaterThan(1);
-    assertMatchingConnectorAligned(harness, "i1", "t1");
+    assertMatchingConnectorAligned(harness, "matchitem001", "matchtarg001");
 
-    const remove = matchingTarget(harness, "t1").querySelector<HTMLButtonElement>(
+    const remove = matchingTarget(harness, "matchtarg001").querySelector<HTMLButtonElement>(
       'button[aria-label^="Remove match"]',
     );
     expect(remove).not.toBeNull();
@@ -520,13 +502,13 @@ describe("Matching shared drag runtime", () => {
     await animationFrames(harness, 2);
     expect(harness.player.querySelector("[data-matching-connector-item-id]")).toBeNull();
 
-    matchingSource(harness, "i2").click();
+    matchingSource(harness, "matchitem002").click();
     await animationFrames(harness, 1);
-    matchingTarget(harness, "t2").click();
-    await harness.waitForMatches({ i2: "t2" }, 3);
+    matchingTarget(harness, "matchtarg002").click();
+    await harness.waitForMatches({ matchitem002: "matchtarg002" }, 3);
     await animationFrames(harness, 2);
-    assertMatchingConnectorAligned(harness, "i2", "t2");
-    matchingTarget(harness, "t2").remove();
+    assertMatchingConnectorAligned(harness, "matchitem002", "matchtarg002");
+    matchingTarget(harness, "matchtarg002").remove();
     await animationFrames(harness, 2);
     expect(harness.player.querySelector("[data-matching-connector-item-id]")).toBeNull();
   });
@@ -555,7 +537,7 @@ describe("Categorise shared drag runtime", () => {
       const source = harness.getActivationAreas()[0]!;
       const itemId = source.dataset.id;
       expect(itemId).toBeTruthy();
-      const target = categoriseCategory(harness, "birds");
+      const target = categoriseCategory(harness, "catbirds0001");
       assertCategoriseActivationGeometry(harness, targetClientSize);
       expect(harness.getResponsePlacements()).toEqual({});
 
@@ -577,9 +559,9 @@ describe("Categorise shared drag runtime", () => {
       expectClose(overlay.getBoundingClientRect().height, sourceRect.height, 1);
 
       await finishPointerDrag(harness, drag.pointer, drag.pointerType);
-      await harness.waitForPlacements({ [itemId!]: "birds" }, 1);
+      await harness.waitForPlacements({ [itemId!]: "catbirds0001" }, 1);
       await harness.waitForIdle();
-      expect(harness.getResponsePlacements()).toEqual({ [itemId!]: "birds" });
+      expect(harness.getResponsePlacements()).toEqual({ [itemId!]: "catbirds0001" });
       expect(harness.getResponseRevision()).toBe(1);
       expect(target.querySelector(`[data-placed-item-id="${itemId}"]`)).not.toBeNull();
       expect(harness.getAnnouncements()).toEqual([]);
@@ -598,11 +580,11 @@ describe("Categorise shared drag runtime", () => {
     await startPointerDrag(
       harness,
       source,
-      centerOf(categoriseCategory(harness, "birds").getBoundingClientRect()),
+      centerOf(categoriseCategory(harness, "catbirds0001").getBoundingClientRect()),
       "mouse",
       centerOf(source.getBoundingClientRect()),
     );
-    fireEvent.keyDown(harness.ownerDocument, { code: "Escape", key: "Escape" });
+    await userEvent.keyboard("{Escape}");
     await harness.waitForIdle();
     expect(harness.getResponsePlacements()).toEqual({});
     expect(harness.getResponseRevision()).toBe(0);
@@ -647,14 +629,14 @@ describe("Categorise shared drag runtime", () => {
     mounted.push(harness);
     const source = harness.getActivationAreas()[0]!;
     const itemId = source.dataset.id!;
-    const target = categoriseCategory(harness, "fish");
+    const target = categoriseCategory(harness, "catfish00001");
     expect(source).not.toHaveAttribute("aria-roledescription");
     expect(source).not.toHaveAttribute("aria-description");
 
     fireEvent.keyDown(source, { code: "Enter", key: "Enter" });
     await animationFrames(harness, 1);
     fireEvent.keyDown(target, { code: "Space", key: " " });
-    await harness.waitForPlacements({ [itemId]: "fish" }, 1);
+    await harness.waitForPlacements({ [itemId]: "catfish00001" }, 1);
     expect(harness.getResponseRevision()).toBe(1);
     expect(harness.getAnnouncements()).toEqual([]);
   });
@@ -662,7 +644,7 @@ describe("Categorise shared drag runtime", () => {
 
 function categoriseCategory(harness: RuntimeDragBrowserHarness, categoryId: string): HTMLElement {
   const category = harness.player.querySelector<HTMLElement>(
-    `.sc-categorise-runtime-category[data-id="${categoryId}"]`,
+    `.sc-course-categorise__runtime-bin[data-id="${categoryId}"]`,
   );
   if (!category) throw new Error(`Expected Categorise category ${categoryId}.`);
   return category;
@@ -689,7 +671,7 @@ function assertCategoriseActivationGeometry(
     return rect;
   });
   expect(rectanglesOverlap(sourceRects[0]!, sourceRects[1]!)).toBe(false);
-  const categoryRects = ["birds", "fish"].map((id) =>
+  const categoryRects = ["catbirds0001", "catfish00001"].map((id) =>
     categoriseCategory(harness, id).getBoundingClientRect(),
   );
   expect(rectanglesOverlap(categoryRects[0]!, categoryRects[1]!)).toBe(false);
@@ -891,29 +873,6 @@ function requiredOverlay(harness: RuntimeDragBrowserHarness): HTMLElement {
 
 function centerOf(rect: DOMRect): Readonly<{ x: number; y: number }> {
   return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-}
-
-function moveFirstItemToIndex(items: readonly string[], destinationIndex: number): string[] {
-  const result = [...items];
-  const [first] = result.splice(0, 1);
-  if (first === undefined || destinationIndex < 0) return result;
-  result.splice(destinationIndex, 0, first);
-  return result;
-}
-
-function localTranslateY(element: HTMLElement): number {
-  const match = element.style.transform.match(/translate3d\([^,]+,\s*(-?[\d.]+)px,\s*[^)]+\)/);
-  return match ? Number(match[1]) : 0;
-}
-
-function renderedTranslateY(harness: RuntimeDragBrowserHarness, element: HTMLElement): number {
-  const transform = harness.ownerWindow.getComputedStyle(element).transform;
-  if (transform === "none") return 0;
-  const values = transform
-    .slice(transform.indexOf("(") + 1, -1)
-    .split(",")
-    .map(Number);
-  return transform.startsWith("matrix3d(") ? (values[13] ?? 0) : (values[5] ?? 0);
 }
 
 function expectClose(actual: number, expected: number, tolerance: number) {

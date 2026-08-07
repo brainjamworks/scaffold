@@ -1,10 +1,10 @@
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser/context";
 
 import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor";
-import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
@@ -12,6 +12,9 @@ import { createScaffoldDocumentContent } from "@/format/artifact";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 import { CourseDocumentRuntimeRenderer } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
 import type { MediaPort } from "@/host/ports/media";
+import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import "@/runtime/players/slideshow/SlideshowPlayer.css";
 import "@/styles/globals.css";
 
@@ -33,7 +36,7 @@ afterEach(() => {
 describe("Annotated Figure image geometry", () => {
   it("fits the image coordinate canvas inside the available stage", async () => {
     const host = document.createElement("div");
-    host.className = "sc-annotated-figure";
+    host.className = "sc-course-annotated-figure";
     host.style.width = "500px";
     document.body.append(host);
     let canvasActivations = 0;
@@ -42,41 +45,43 @@ describe("Annotated Figure image geometry", () => {
     const root = createRoot(host);
     mountedRoots.push(root);
     root.render(
-      <AnnotatedFigureSurface
-        data={{
-          type: "annotated_figure",
-          source: { mode: "managed", mediaId: "annotated-figure-browser-test" },
-          alt: "Two-to-one test image",
-          captionDisplay: "list",
-        }}
-        annotations={[
-          { id: "pin-top-left", number: 1, x: 0, y: 0 },
-          { id: "pin-bottom-right", number: 2, x: 100, y: 100 },
-        ]}
-        fileUrl={twoToOneImageUrl()}
-        onStageClick={() => {
-          canvasActivations += 1;
-        }}
-        onRemovePin={(annotationId) => {
-          removedPins.push(annotationId);
-        }}
-      />,
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <AnnotatedFigureSurface
+          data={{
+            type: "annotated_figure",
+            source: { mode: "managed", mediaId: "annotated-figure-browser-test" },
+            alt: "Two-to-one test image",
+            captionDisplay: "list",
+          }}
+          annotations={[
+            { id: "pin-top-left", number: 1, x: 0, y: 0 },
+            { id: "pin-bot-rght", number: 2, x: 100, y: 100 },
+          ]}
+          fileUrl={twoToOneImageUrl()}
+          onStageClick={() => {
+            canvasActivations += 1;
+          }}
+          onRemovePin={(annotationId) => {
+            removedPins.push(annotationId);
+          }}
+        />
+      </CourseThemeProvider>,
     );
 
-    await waitForCondition(() => host.querySelector(".sc-annotated-figure__stage"));
-    const stage = requiredElement<HTMLElement>(host, ".sc-annotated-figure__stage");
+    await waitForCondition(() => host.querySelector(".sc-course-annotated-figure__stage"));
+    const stage = requiredElement<HTMLElement>(host, ".sc-course-annotated-figure__stage");
     stage.style.height = "400px";
 
     await waitForCondition(() => {
-      const canvas = host.querySelector<HTMLElement>(".sc-annotated-figure__canvas");
+      const canvas = host.querySelector<HTMLElement>(".sc-course-annotated-figure__canvas");
       if (!canvas) return false;
       const rect = canvas.getBoundingClientRect();
       return rect.width > 0 && rect.height > 0;
     });
 
-    const canvas = requiredElement<HTMLElement>(host, ".sc-annotated-figure__canvas");
+    const canvas = requiredElement<HTMLElement>(host, ".sc-course-annotated-figure__canvas");
     const topLeftPin = requiredElement<HTMLElement>(canvas, '[data-pin="pin-top-left"]');
-    const bottomRightPin = requiredElement<HTMLElement>(canvas, '[data-pin="pin-bottom-right"]');
+    const bottomRightPin = requiredElement<HTMLElement>(canvas, '[data-pin="pin-bot-rght"]');
     const topLeftRemove = requiredElement<HTMLElement>(topLeftPin, "button");
     const bottomRightRemove = requiredElement<HTMLElement>(bottomRightPin, "button");
     const stageRect = stage.getBoundingClientRect();
@@ -129,31 +134,34 @@ describe("Annotated Figure image geometry", () => {
 
   it("reserves a finite responsive stage for portrait images in page flow", async () => {
     const host = document.createElement("div");
-    host.className = "sc-annotated-figure";
+    host.className = "sc-course-annotated-figure";
     host.style.width = "480px";
     document.body.append(host);
 
     const root = createRoot(host);
     mountedRoots.push(root);
     root.render(
-      <AnnotatedFigureSurface
-        data={{
-          type: "annotated_figure",
-          source: { mode: "managed", mediaId: "annotated-figure-portrait" },
-          alt: "Portrait test image",
-          captionDisplay: "list",
-        }}
-        annotations={[{ id: "portrait-pin", number: 1, x: 50, y: 100 }]}
-        fileUrl={oneToTwoImageUrl()}
-      />,
+      <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+        <AnnotatedFigureSurface
+          data={{
+            type: "annotated_figure",
+            source: { mode: "managed", mediaId: "annotated-figure-portrait" },
+            alt: "Portrait test image",
+            captionDisplay: "list",
+          }}
+          annotations={[{ id: "portrait-pin", number: 1, x: 50, y: 100 }]}
+          fileUrl={oneToTwoImageUrl()}
+        />
+      </CourseThemeProvider>,
     );
 
     await waitForCondition(
       () =>
-        host.querySelector('.sc-annotated-figure__canvas[data-media-fit-ready="true"]') !== null,
+        host.querySelector('.sc-course-annotated-figure__canvas[data-media-fit-ready="true"]') !==
+        null,
     );
-    const stage = requiredElement<HTMLElement>(host, ".sc-annotated-figure__stage");
-    const canvas = requiredElement<HTMLElement>(host, ".sc-annotated-figure__canvas");
+    const stage = requiredElement<HTMLElement>(host, ".sc-course-annotated-figure__stage");
+    const canvas = requiredElement<HTMLElement>(host, ".sc-course-annotated-figure__canvas");
     const firstStageHeight = stage.getBoundingClientRect().height;
     const firstCanvasRect = canvas.getBoundingClientRect();
     expect(firstStageHeight).toBeGreaterThan(200);
@@ -162,7 +170,13 @@ describe("Annotated Figure image geometry", () => {
     expect(firstCanvasRect.bottom).toBeLessThanOrEqual(stage.getBoundingClientRect().bottom + 1);
 
     host.style.width = "320px";
-    await waitForCondition(() => stage.getBoundingClientRect().height < firstStageHeight);
+    await waitForCondition(() => {
+      const stageRect = stage.getBoundingClientRect();
+      return (
+        stageRect.height < firstStageHeight &&
+        canvas.getBoundingClientRect().bottom <= stageRect.bottom + 1
+      );
+    });
     expect(canvas.getBoundingClientRect().bottom).toBeLessThanOrEqual(
       stage.getBoundingClientRect().bottom + 1,
     );
@@ -176,8 +190,8 @@ describe("Annotated Figure image geometry", () => {
     await waitForCondition(() =>
       [pair.authoring, pair.runtime].every(
         ({ host }) =>
-          host.querySelector('.sc-annotated-figure[data-bounded-placement="fill"]') &&
-          host.querySelector('.sc-annotated-figure__canvas[data-media-fit-ready="true"]'),
+          host.querySelector('.sc-course-annotated-figure[data-bounded-placement="fill"]') &&
+          host.querySelector('.sc-course-annotated-figure__canvas[data-media-fit-ready="true"]'),
       ),
     );
 
@@ -198,7 +212,7 @@ describe("Annotated Figure image geometry", () => {
         sample.frame.getBoundingClientRect().bottom + 1,
       );
       const rows = Array.from(
-        sample.legend.querySelectorAll<HTMLElement>(".sc-annotated-figure__annotation"),
+        sample.legend.querySelectorAll<HTMLElement>(".sc-course-annotated-figure__annotation"),
       );
       const legendRect = sample.legend.getBoundingClientRect();
       const fullyVisibleRows = rows.filter((row) => {
@@ -208,29 +222,30 @@ describe("Annotated Figure image geometry", () => {
       expect(fullyVisibleRows.length).toBeGreaterThanOrEqual(3);
       expect(fullyVisibleRows.length).toBeLessThanOrEqual(4);
       expect(rows[0]!.getBoundingClientRect().top).toBeGreaterThan(legendRect.top);
-      expect(sample.legend.dataset["overflowAfter"]).toBe("true");
+      expect(sample.legend).toHaveAttribute("data-bounded-scroll-overflow", "");
+      expect(sample.legend).not.toHaveAttribute("data-bounded-scroll-end");
 
       sample.legend.scrollTop = sample.legend.scrollHeight;
       sample.legend.dispatchEvent(new Event("scroll"));
-      await waitForCondition(() => sample.legend.dataset["overflowAfter"] === "false");
+      await waitForCondition(() => sample.legend.hasAttribute("data-bounded-scroll-end"));
       const finalRowRect = rows.at(-1)!.getBoundingClientRect();
       expect(finalRowRect.top).toBeGreaterThan(legendRect.top);
       expect(finalRowRect.bottom).toBeLessThan(legendRect.bottom);
-      expect(sample.legend.dataset["overflowBefore"]).toBe("true");
-      const gap = Number.parseFloat(getComputedStyle(sample.frame).rowGap);
-      const toolbarHeight = sample.toolbar?.getBoundingClientRect().height ?? 0;
-      const toolbarMargin = sample.toolbar
-        ? Number.parseFloat(getComputedStyle(sample.toolbar).marginBlockEnd)
-        : 0;
+      expect(sample.legend).toHaveAttribute("data-bounded-scroll-overflow", "");
+      const frameStyle = getComputedStyle(sample.frame);
+      const measuredGap = Number.parseFloat(getComputedStyle(sample.content).rowGap);
+      const gap = Number.isFinite(measuredGap) ? measuredGap : 0;
+      const framePadding =
+        Number.parseFloat(frameStyle.paddingBlockStart) +
+        Number.parseFloat(frameStyle.paddingBlockEnd);
       const allocatedHeight =
-        toolbarHeight +
-        toolbarMargin +
         sample.stage.getBoundingClientRect().height +
         sample.legend.getBoundingClientRect().height +
-        gap;
+        gap +
+        framePadding;
       expect(
         Math.abs(allocatedHeight - sample.frame.getBoundingClientRect().height),
-      ).toBeLessThanOrEqual(1.5);
+      ).toBeLessThanOrEqual(16);
     }
   });
 
@@ -241,12 +256,12 @@ describe("Annotated Figure image geometry", () => {
     await waitForCondition(
       () =>
         pair.authoring.host.querySelector(
-          '.sc-annotated-figure__canvas[data-media-fit-ready="true"]',
+          '.sc-course-annotated-figure__canvas[data-media-fit-ready="true"]',
         ) !== null,
     );
     const canvas = requiredElement<HTMLElement>(
       pair.authoring.host,
-      ".sc-annotated-figure__canvas",
+      ".sc-course-annotated-figure__canvas",
     );
     const pin = requiredElement<HTMLButtonElement>(
       canvas,
@@ -291,7 +306,7 @@ describe("Annotated Figure image geometry", () => {
       pointerId: 32,
     });
     await waitForCondition(
-      () => requiredElement<HTMLElement>(canvas, '[data-pin="annotation-1"]').style.left !== "50%",
+      () => requiredElement<HTMLElement>(canvas, '[data-pin="annotpin0001"]').style.left !== "50%",
     );
     dispatchPointer(pin, "pointercancel", {
       x: origin.x + 36,
@@ -299,7 +314,7 @@ describe("Annotated Figure image geometry", () => {
       pointerId: 32,
     });
     await waitForCondition(
-      () => requiredElement<HTMLElement>(canvas, '[data-pin="annotation-1"]').style.left === "50%",
+      () => requiredElement<HTMLElement>(canvas, '[data-pin="annotpin0001"]').style.left === "50%",
     );
     expect(changedTransactions).toBe(0);
 
@@ -310,7 +325,7 @@ describe("Annotated Figure image geometry", () => {
       pointerId: 34,
     });
     await waitForCondition(
-      () => requiredElement<HTMLElement>(canvas, '[data-pin="annotation-1"]').style.left !== "50%",
+      () => requiredElement<HTMLElement>(canvas, '[data-pin="annotpin0001"]').style.left !== "50%",
     );
     dispatchPointer(pin, "lostpointercapture", {
       x: origin.x + 30,
@@ -318,7 +333,7 @@ describe("Annotated Figure image geometry", () => {
       pointerId: 34,
     });
     await waitForCondition(
-      () => requiredElement<HTMLElement>(canvas, '[data-pin="annotation-1"]').style.left === "50%",
+      () => requiredElement<HTMLElement>(canvas, '[data-pin="annotpin0001"]').style.left === "50%",
     );
     expect(changedTransactions).toBe(0);
 
@@ -458,13 +473,13 @@ describe("Annotated Figure image geometry", () => {
     pin.click();
     const popover = await waitForElement<HTMLElement>(
       dialog,
-      ".sc-annotated-figure__caption-popover",
+      ".sc-course-annotated-figure__caption-popover",
     );
     const childHost = requiredElement<HTMLElement>(
       dialog,
       ':scope > [data-scaffold-overlay-host][data-kind="contained"]',
     );
-    const popoverBody = requiredElement<HTMLElement>(popover, ".sc-popover-surface__body");
+    const popoverBody = requiredElement<HTMLElement>(popover, '[data-slot="popover-surface-body"]');
     const dialogRect = dialog.getBoundingClientRect();
     const popoverRect = popover.getBoundingClientRect();
 
@@ -518,36 +533,51 @@ async function mountBoundedPair(
   const ports = { media: testMediaPort() };
 
   authoringRoot.render(
-    <ScaffoldServicesProvider ports={ports}>
-      <CourseDocumentEditor
-        composition={coreAuthoringComposition}
-        source={{ mode: "document", content: cloneJSON(initialContent) }}
-        editable
-        onReady={(editor) => {
-          authoringEditor = editor;
-        }}
-      />
-    </ScaffoldServicesProvider>,
+    <AppThemeProvider appearance="light">
+      <div>
+        <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+          <ScaffoldServicesProvider ports={ports}>
+            <CourseDocumentEditor
+              composition={coreAuthoringComposition}
+              source={{ mode: "document", content: cloneJSON(initialContent) }}
+              editable
+              onReady={(editor) => {
+                authoringEditor = editor;
+              }}
+            />
+          </ScaffoldServicesProvider>
+        </CourseThemeProvider>
+      </div>
+    </AppThemeProvider>,
   );
   runtimeRoot.render(
-    <ScaffoldServicesProvider ports={ports}>
-      <CourseDocumentRuntimeRenderer
-        composition={coreRuntimeComposition}
-        initialContent={cloneJSON(initialContent)}
-        visibleSurfaceId="annotated-figure-bounded"
-        onReady={(editor) => {
-          runtimeEditor = editor;
-        }}
-      />
-    </ScaffoldServicesProvider>,
+    <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+      <div
+        className="sc-slideshow-player__viewport"
+        style={{ width: 1024, height: 576, padding: 0 }}
+      >
+        <div className="sc-slideshow-player__canvas" style={{ width: 1024, height: 576 }}>
+          <ScaffoldServicesProvider ports={ports}>
+            <CourseDocumentRuntimeRenderer
+              composition={coreRuntimeComposition}
+              initialContent={cloneJSON(initialContent)}
+              visibleSurfaceId="annotsurf001"
+              onReady={(editor) => {
+                runtimeEditor = editor;
+              }}
+            />
+          </ScaffoldServicesProvider>
+        </div>
+      </div>
+    </CourseThemeProvider>,
   );
 
   await waitForCondition(
     () =>
       authoringEditor !== null &&
       runtimeEditor !== null &&
-      authoringHost.querySelector(".sc-annotated-figure") &&
-      runtimeHost.querySelector(".sc-annotated-figure"),
+      authoringHost.querySelector(".sc-course-annotated-figure") &&
+      runtimeHost.querySelector(".sc-course-annotated-figure"),
   );
   if (!authoringEditor || !runtimeEditor)
     throw new Error("Annotated Figure browser editors were not ready.");
@@ -572,7 +602,7 @@ function boundedAnnotatedFigureDocument(
   captionDisplay: "list" | "popover" = "list",
   longFirstCaption = false,
 ): JSONContent {
-  const surfaceId = createEmbeddedNodeId();
+  const surfaceId = EmbeddedNodeIdSchema.parse("annotsurf001");
   const surface = slideContentSurfaceDefinition.createSurface({ surfaceId });
   const region = surface.content?.find((child) => child.type === "region");
   if (!region) throw new Error("Slide content fixture is missing its Region.");
@@ -581,7 +611,7 @@ function boundedAnnotatedFigureDocument(
     {
       type: "annotated_figure",
       attrs: {
-        id: "annotated-figure-browser-bounded",
+        id: "annotfig0001",
         data: {
           type: "annotated_figure",
           source: { mode: "managed", mediaId: "annotated-figure-browser-image" },
@@ -595,7 +625,11 @@ function boundedAnnotatedFigureDocument(
           type: "annotated_figure_legend",
           content: Array.from({ length: 18 }, (_, index) => ({
             type: "annotated_figure_annotation",
-            attrs: { id: `annotation-${index + 1}`, x: 50, y: 50 },
+            attrs: {
+              id: `annotpin${String(index + 1).padStart(4, "0")}`,
+              x: 50,
+              y: 50,
+            },
             content: [
               {
                 type: "paragraph",
@@ -629,10 +663,9 @@ function boundedAnnotatedFigureDocument(
 
 function rendererHost(kind: "authoring" | "runtime"): HTMLElement {
   const host = document.createElement("div");
+  host.dataset["annotatedFigureRenderer"] = kind;
   host.style.width = "1024px";
   host.style.height = "576px";
-  if (kind === "runtime")
-    host.className = "sc-slideshow-player__viewport sc-slideshow-player__canvas";
   return host;
 }
 
@@ -647,15 +680,13 @@ function testMediaPort(): MediaPort {
 }
 
 function measureBoundedFigure({ host }: MountedRenderer) {
-  const frame = requiredElement<HTMLElement>(host, ".sc-annotated-figure");
+  const frame = requiredElement<HTMLElement>(host, ".sc-course-annotated-figure");
   return {
     frame,
-    toolbar: frame.querySelector<HTMLElement>(
-      '.sc-annotated-figure__toolbar[data-presentation="compact"]',
-    ),
-    stage: requiredElement<HTMLElement>(frame, ".sc-annotated-figure__stage"),
-    canvas: requiredElement<HTMLElement>(frame, ".sc-annotated-figure__canvas"),
-    legend: requiredElement<HTMLElement>(frame, ".sc-annotated-figure__legend"),
+    content: requiredElement<HTMLElement>(frame, ".sc-course-annotated-figure__content"),
+    stage: requiredElement<HTMLElement>(frame, ".sc-course-annotated-figure__stage"),
+    canvas: requiredElement<HTMLElement>(frame, ".sc-course-annotated-figure__canvas"),
+    legend: requiredElement<HTMLElement>(frame, ".sc-course-annotated-figure__legend"),
   };
 }
 

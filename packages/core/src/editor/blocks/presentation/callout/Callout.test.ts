@@ -5,6 +5,7 @@ import { Editor } from "@tiptap/core";
 import type { JSONContent } from "@tiptap/core";
 import { NodeSelection } from "@tiptap/pm/state";
 import { EditorContent } from "@tiptap/react";
+import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import StarterKit from "@tiptap/starter-kit";
 import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
@@ -16,7 +17,7 @@ import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/t
 import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";
 import { createInsertCatalog } from "@/editor/insertion/insert-catalog";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
-import { describeBlockContract } from "@/editor/testing";
+import { createTestNodeIdentityExtension, describeBlockContract } from "@/editor/testing";
 import { catalogIconValue } from "@/schemas/media/icon";
 
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
@@ -41,6 +42,7 @@ function makeEditor() {
   return new Editor({
     extensions: [
       StarterKit.configure({ undoRedo: false, paragraph: false }),
+      createTestNodeIdentityExtension(),
       ExtendedParagraph,
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
       createRuntimeBlockFrameAttributesExtension(["callout"]),
@@ -54,6 +56,7 @@ function makeRuntimeEditor() {
     editable: false,
     extensions: [
       StarterKit.configure({ undoRedo: false, paragraph: false }),
+      createTestNodeIdentityExtension(),
       ExtendedParagraph,
       createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
       createRuntimeBlockFrameAttributesExtension(["callout"]),
@@ -72,7 +75,7 @@ function calloutDoc(
   return {
     type: "callout",
     attrs: {
-      id: "block-callout-test",
+      id: "callout00001",
       data: {
         type: "callout",
         variant: "info",
@@ -229,7 +232,7 @@ describe("composite callout node", () => {
     });
 
     selectFirstNode(editor);
-    render(createElement(EditorContent, { editor }));
+    render(createAuthoringMovementTestRoot(editor, createElement(EditorContent, { editor })));
 
     const wrapper = await waitFor(() => {
       const element = document.body.querySelector<HTMLElement>("[data-authoring-frame-wrapper]");
@@ -239,9 +242,7 @@ describe("composite callout node", () => {
 
     expect(wrapper?.dataset["authoringFrameResizeMode"]).toBe("responsive");
     expect(
-      document.body.querySelector(
-        `[${AUTHORING_FRAME_ATTR}="block"][data-id="block-callout-test"]`,
-      ),
+      document.body.querySelector(`[${AUTHORING_FRAME_ATTR}="block"][data-id="callout00001"]`),
     ).toBeInstanceOf(HTMLElement);
     expect(document.body.querySelectorAll("[data-authoring-resize-handle]")).toHaveLength(5);
 
@@ -270,7 +271,7 @@ describe("composite callout node", () => {
       ),
     });
 
-    render(createElement(EditorContent, { editor }));
+    render(createAuthoringMovementTestRoot(editor, createElement(EditorContent, { editor })));
 
     const callouts = await waitFor(() => {
       const elements = Array.from(
@@ -301,7 +302,7 @@ describe("composite callout node", () => {
     const editor = makeEditor();
     editor.commands.setContent({ type: "doc", content: [calloutDoc()] });
 
-    render(createElement(EditorContent, { editor }));
+    render(createAuthoringMovementTestRoot(editor, createElement(EditorContent, { editor })));
 
     const trigger = await waitFor(() => {
       const element = document.body.querySelector<HTMLButtonElement>(

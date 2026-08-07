@@ -187,9 +187,13 @@ describe("composite multiselect node", () => {
   it("derives readiness from unique current choices without consuming the limit for stale ids", () => {
     const interaction = projectMultiselectInteraction(multiselectDoc(), { maxSelect: 1 });
 
-    expect(hasMultiselectResponse({ choices: ["a", "deleted-choice"] }, interaction)).toBe(true);
-    expect(hasMultiselectResponse({ choices: ["deleted-choice"] }, interaction)).toBe(false);
-    expect(hasMultiselectResponse({ choices: ["a", "b"] }, interaction)).toBe(false);
+    expect(hasMultiselectResponse({ choices: ["choice_00001", "stale0000001"] }, interaction)).toBe(
+      true,
+    );
+    expect(hasMultiselectResponse({ choices: ["stale0000001"] }, interaction)).toBe(false);
+    expect(hasMultiselectResponse({ choices: ["choice_00001", "choice_00002"] }, interaction)).toBe(
+      false,
+    );
   });
 
   it("round-trips a full composite tree across settings attrs", () => {

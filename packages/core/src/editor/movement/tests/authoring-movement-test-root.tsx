@@ -8,6 +8,8 @@ import { InteractionProvider } from "@/editor/interactions/targets/facade/intera
 import { getInteractionFacadeStoreForEditor } from "@/editor/interactions/targets/prosemirror/facade/interaction-facade-storage";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 
 import { EditorMovementLayer } from "../view/EditorMovementLayer";
 
@@ -41,9 +43,15 @@ export function createAuthoringMovementTestRoot(
     ownerRoot: coordinateRoot,
   });
 
-  return createElement(
+  const interactionRoot = createElement(
     InteractionProvider,
     { store: getInteractionFacadeStoreForEditor(editor) },
     overlayBoundary,
   );
+
+  return createElement(CourseThemeProvider, {
+    theme: createDefaultPersistedCourseTheme(),
+    appearance: "light",
+    children: interactionRoot,
+  });
 }

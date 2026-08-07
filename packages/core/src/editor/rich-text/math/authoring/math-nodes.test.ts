@@ -7,6 +7,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { TEXT_CONTENT } from "@/document/model/content-model/content-groups";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
+import { createTestNodeIdentityExtension } from "@/editor/testing/node-identity";
 
 import { MathBlockNode } from "../model/MathBlock";
 import { MathInlineNode } from "./MathInlineNodeView";
@@ -15,6 +16,7 @@ function makeEditor() {
   return new Editor({
     extensions: [
       StarterKit.configure({ undoRedo: false, paragraph: false }),
+      createTestNodeIdentityExtension(),
       ExtendedParagraph,
       MathBlockNode,
       MathInlineNode,
@@ -38,12 +40,12 @@ describe("math nodes", () => {
       content: [
         {
           type: "blockMath",
-          attrs: { id: "block-math", latex: "a^2 + b^2 = c^2" },
+          attrs: { id: "mathblock001", latex: "a^2 + b^2 = c^2" },
         },
       ],
     });
     const top = editor.getJSON().content?.[0] as JSONContent | undefined;
-    expect(top?.attrs?.["id"]).toBe("block-math");
+    expect(top?.attrs?.["id"]).toBe("mathblock001");
     expect(top?.attrs?.["latex"]).toBe("a^2 + b^2 = c^2");
     editor.destroy();
   });

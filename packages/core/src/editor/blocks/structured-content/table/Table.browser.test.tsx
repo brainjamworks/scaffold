@@ -110,7 +110,7 @@ describe("Table presentation", () => {
 });
 
 function tableDocument(): JSONContent {
-  const content = createScaffoldDocumentContent({ mode: "page", surfaceId: "table-surface" });
+  const content = createScaffoldDocumentContent({ mode: "page", surfaceId: "tablesurf001" });
   const courseDocument = content.content?.[0];
   const surface = courseDocument?.content?.[0];
   if (!surface) throw new Error("Expected a Page surface.");
@@ -119,7 +119,7 @@ function tableDocument(): JSONContent {
   surface.content = [
     {
       type: "table",
-      attrs: { id: "table-browser-specimen" },
+      attrs: { id: "tablebrowser" },
       content: [
         {
           type: "tableRow",

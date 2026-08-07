@@ -86,10 +86,10 @@ function canonicalEvent(): LearningEvent {
             activityDescription: "Choose one answer",
             interaction: {
               kind: "single-select",
-              options: [{ id: "PRIVATE_LEARNER_RESPONSE", label: "Visible option" }],
+              options: [{ id: "option000001", label: "Visible option" }],
             },
           },
-          response: { kind: "single-select", optionId: "PRIVATE_LEARNER_RESPONSE" },
+          response: { kind: "single-select", optionId: "option000001" },
           result: { isCorrect: true, score: { scaled: 1 } },
           attemptNumber: 1,
           quiz: { quizId: "quiz-one", attemptId: "PRIVATE_ATTEMPT_CONTEXT" },
@@ -313,7 +313,7 @@ describe("independent Learning Event projection", () => {
     ]);
     const serialized = JSON.stringify(host.diagnostics);
     for (const privateValue of [
-      "PRIVATE_LEARNER_RESPONSE",
+      "option000001",
       "PRIVATE_PROJECTOR_RESPONSE",
       "PRIVATE_ATTEMPT_CONTEXT",
       "PRIVATE_ACTOR",

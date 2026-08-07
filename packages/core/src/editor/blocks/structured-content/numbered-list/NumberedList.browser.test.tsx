@@ -39,10 +39,15 @@ describe("Numbered List presentation", () => {
     await waitForCondition(() => host.querySelector(".sc-course-numbered-list__marker"));
     const application = requiredElement<HTMLElement>(host, ".sc-app");
     const course = requiredElement<HTMLElement>(host, ".sc-course");
-    application.style.setProperty("--sc-app-color-text-muted", "rgb(82 82 91)");
-    application.style.setProperty("--sc-app-color-error", "rgb(185 28 28)");
-    application.style.setProperty("--sc-app-color-error-background", "rgb(254 226 226)");
-    course.style.setProperty("--sc-course-state-current-background", "rgb(219 234 254)");
+    const applicationStyle = getComputedStyle(application);
+    const courseStyle = getComputedStyle(course);
+    const mutedColour = computedColor(
+      applicationStyle.getPropertyValue("--sc-app-color-text-muted"),
+    );
+    const errorColour = computedColor(applicationStyle.getPropertyValue("--sc-app-color-error"));
+    const currentBackground = computedColor(
+      courseStyle.getPropertyValue("--sc-course-state-current-background"),
+    );
 
     const items = requiredElement<HTMLElement>(host, ".sc-course-numbered-list__items");
     const marker = requiredElement<HTMLButtonElement>(
@@ -68,11 +73,11 @@ describe("Numbered List presentation", () => {
     expect(markerRect.height).toBeCloseTo(36, 0);
     expect(contentRect.left - markerRect.right).toBeCloseTo(14, 0);
     expect(getComputedStyle(items, "::before").width).toBe("1px");
-    expect(getComputedStyle(marker).backgroundColor).toBe("rgb(219, 234, 254)");
+    expect(getComputedStyle(marker).backgroundColor).toBe(currentBackground);
     expect(runtimeCurrentDot.getBoundingClientRect().width).toBeCloseTo(10, 0);
     expect(runtimeCurrentDot.getBoundingClientRect().height).toBeCloseTo(10, 0);
     expect(getComputedStyle(deleteButton).opacity).toBe("1");
-    expect(getComputedStyle(deleteButton).color).toBe("rgb(82, 82, 91)");
+    expect(getComputedStyle(deleteButton).color).toBe(mutedColour);
     expect(addMarker.textContent).toContain("+");
 
     const courseCircles = host.querySelectorAll<HTMLElement>(
@@ -93,7 +98,7 @@ describe("Numbered List presentation", () => {
     expect(Number.parseFloat(getComputedStyle(addMarker).borderRadius)).toBeGreaterThanOrEqual(18);
 
     await userEvent.hover(deleteButton);
-    await waitForCondition(() => getComputedStyle(deleteButton).color === "rgb(185, 28, 28)");
+    await waitForCondition(() => getComputedStyle(deleteButton).color === errorColour);
     expect(host.querySelector(".sc-numbered-list")).toBeNull();
   });
 });
@@ -188,6 +193,15 @@ function requiredElement<T extends Element>(root: ParentNode, selector: string):
   const element = root.querySelector<T>(selector);
   if (!element) throw new Error(`Expected an element for ${selector}.`);
   return element;
+}
+
+function computedColor(value: string): string {
+  const probe = document.createElement("span");
+  probe.style.color = value;
+  document.body.append(probe);
+  const resolved = getComputedStyle(probe).color;
+  probe.remove();
+  return resolved;
 }
 
 async function waitForCondition(condition: () => unknown): Promise<void> {

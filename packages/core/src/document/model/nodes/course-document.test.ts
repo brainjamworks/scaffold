@@ -319,11 +319,11 @@ describe("course document nodes", () => {
     courseDocument.attrs = {
       ...courseDocument.attrs,
       theme,
-      branching: { startSurfaceId: "surface-1" },
+      branching: { startSurfaceId: "surface00001" },
     };
     courseDocument.content!.push({
       type: "surface",
-      attrs: { id: "surface-2", title: "Next", variant: "page-default" },
+      attrs: { id: "surface00002", title: "Next", variant: "page-default" },
       content: [{ type: "paragraph" }],
     });
     const editor = makeEditor(content);
@@ -332,10 +332,10 @@ describe("course document nodes", () => {
 
     const reopenedCourse = nextEditor.getJSON().content?.[0] as JSONContent | undefined;
     expect(reopenedCourse?.attrs?.["theme"]).toEqual(theme);
-    expect(reopenedCourse?.attrs?.["branching"]).toEqual({ startSurfaceId: "surface-1" });
+    expect(reopenedCourse?.attrs?.["branching"]).toEqual({ startSurfaceId: "surface00001" });
     expect(reopenedCourse?.content?.map((surface) => surface.attrs?.["id"])).toEqual([
-      "surface-1",
-      "surface-2",
+      "surface00001",
+      "surface00002",
     ]);
     expect(html).toContain("data-course-theme=");
     expect(html).not.toContain("data-course-theme-values=");

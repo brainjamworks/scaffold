@@ -7,7 +7,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { createBlockInsertActions } from "@/editor/insertion/block-insert-action";
 import { createAuthoringNodeTarget } from "@/editor/prosemirror/authoring-target";
-import { describeBlockContract } from "@/editor/testing";
+import { createTestNodeIdentityExtension, describeBlockContract } from "@/editor/testing";
 import { CHART_TYPES, ChartBlockDataSchema } from "@/schemas/shared";
 
 import { chartDataToSettingsDraft, ChartSettingsDraftSchema } from "./chart-model";
@@ -69,14 +69,18 @@ describe("Chart settings apply", () => {
   it("writes chart settings draft values back to persisted chart data attrs", () => {
     const chart = createChartSample("bar");
     const editor = new Editor({
-      extensions: [StarterKit.configure({ undoRedo: false }), ChartNode],
+      extensions: [
+        StarterKit.configure({ undoRedo: false }),
+        createTestNodeIdentityExtension(),
+        ChartNode,
+      ],
       content: {
         type: "doc",
         content: [
           {
             type: "chart_block",
             attrs: {
-              id: "chart-settings-test",
+              id: "chart0000001",
               data: chart,
             },
           },
@@ -85,7 +89,7 @@ describe("Chart settings apply", () => {
     });
 
     const target = createAuthoringNodeTarget(editor, {
-      id: "chart-settings-test",
+      id: "chart0000001",
       nodeType: "chart_block",
     }).read();
     if (!target) throw new Error("Expected the chart settings target");

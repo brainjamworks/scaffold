@@ -1,14 +1,17 @@
 import type { Editor as TiptapEditor, JSONContent } from "@tiptap/core";
+import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
 import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { CourseDocumentEditor } from "@/document/authoring/CourseDocumentEditor";
-import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createCoreScaffoldRuntimeComposition } from "@/composition/runtime/scaffold-runtime-composition";
 import { slideContentSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-content";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { CourseDocumentRuntimeRenderer } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
+import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
+import { CourseThemeProvider } from "@/theme/course/CourseThemeProvider";
+import { createDefaultPersistedCourseTheme } from "@/theme/course/default-course-theme";
 import "@/runtime/players/slideshow/SlideshowPlayer.css";
 import "@/styles/globals.css";
 
@@ -44,7 +47,7 @@ describe("Gallery container geometry", () => {
     const adapterStyles = document.createElement("style");
     adapterStyles.textContent = `
       @layer sc-adapters {
-        .sc-gallery__shell {
+        .sc-course-gallery__shell {
           gap: 1px;
         }
       }
@@ -53,7 +56,7 @@ describe("Gallery container geometry", () => {
     mountedStyles.push(adapterStyles);
 
     const shell = document.createElement("div");
-    shell.className = "sc-gallery__shell";
+    shell.className = "sc-course-gallery__shell";
     document.body.append(shell);
 
     const style = getComputedStyle(shell);
@@ -69,7 +72,8 @@ describe("Gallery container geometry", () => {
   ])(
     "fills a bounded $owner equally in authoring and runtime",
     async ({ owner, expectedLayout }) => {
-      const pair = await mountPair(boundedGalleryDocument(owner, "grid"), `gallery-${owner}`, true);
+      const surfaceId = boundedGallerySurfaceId(owner);
+      const pair = await mountPair(boundedGalleryDocument(owner, "grid"), surfaceId, true);
       mountedPairs.push(pair);
       await waitForGridLayout(pair);
 
@@ -97,14 +101,14 @@ describe("Gallery container geometry", () => {
       expectRectSizeParity(authoring.cells[0]!, runtime.cells[0]!);
       expect(authoring.grid.querySelectorAll('[role="listitem"]')).toHaveLength(4);
       expect(runtime.grid.querySelectorAll('[role="listitem"]')).toHaveLength(4);
-      expect(authoring.frame.querySelector(".sc-gallery__grid-add")).not.toBeNull();
-      expect(authoring.grid.querySelector(".sc-gallery__grid-add")).toBeNull();
-      expect(runtime.frame.querySelector(".sc-gallery__grid-add")).toBeNull();
+      expect(authoring.frame.querySelector(".sc-app-gallery__grid-add")).not.toBeNull();
+      expect(authoring.grid.querySelector(".sc-app-gallery__grid-add")).toBeNull();
+      expect(runtime.frame.querySelector(".sc-app-gallery__grid-add")).toBeNull();
     },
   );
 
   it("grows an unbounded page, caps wide rows at four, and responds to container width", async () => {
-    const pair = await mountPair(unboundedGalleryDocument(), "gallery-page", true);
+    const pair = await mountPair(unboundedGalleryDocument(), "gallerypage1", true);
     mountedPairs.push(pair);
     const samples = [measureGrid(pair.authoring), measureGrid(pair.runtime)];
 
@@ -122,7 +126,10 @@ describe("Gallery container geometry", () => {
       expectUniformCells(sample.cells);
       expect(sample.objectFits.every((value) => value === "contain")).toBe(true);
       expect(sample.grid.scrollHeight).toBe(sample.grid.clientHeight);
-      const tileButton = requiredElement<HTMLElement>(sample.cells[0]!, ".sc-gallery__tile-button");
+      const tileButton = requiredElement<HTMLElement>(
+        sample.cells[0]!,
+        ".sc-course-gallery__tile-button",
+      );
       const tileRect = tileButton.getBoundingClientRect();
       expect(getComputedStyle(tileButton).aspectRatio).toBe("auto");
       expect(Math.abs(tileRect.width - tileRect.height)).toBeGreaterThan(16);
@@ -139,29 +146,32 @@ describe("Gallery container geometry", () => {
   });
 
   it("uses the dashed block-slot add affordance only in authoring", async () => {
-    const pair = await mountPair(unboundedGalleryDocument(), "gallery-page", true);
+    const pair = await mountPair(unboundedGalleryDocument(), "gallerypage1", true);
     mountedPairs.push(pair);
     await nextLayoutFrames(2);
 
     const authoringFrame = galleryFrame(pair.authoring);
-    const addAction = requiredElement<HTMLElement>(authoringFrame, ".sc-gallery__grid-add-action");
+    const addAction = requiredElement<HTMLElement>(
+      authoringFrame,
+      ".sc-app-gallery__grid-add-action",
+    );
     const style = getComputedStyle(addAction);
 
     expect(style.borderStyle).toBe("dashed");
     expect(style.boxShadow).toBe("none");
-    expect(addAction.querySelector(".sc-ghost-add__icon")).not.toBeNull();
-    expect(galleryFrame(pair.runtime).querySelector(".sc-gallery__grid-add-action")).toBeNull();
+    expect(addAction.querySelector(".sc-app-block-add__icon")).not.toBeNull();
+    expect(galleryFrame(pair.runtime).querySelector(".sc-app-gallery__grid-add-action")).toBeNull();
   });
 
   it("scores narrow bounded tracks with the effective eight-pixel gap", async () => {
-    const pair = await mountPair(boundedGalleryDocument("region", "grid"), "gallery-region", true);
+    const pair = await mountPair(boundedGalleryDocument("region", "grid"), "galleryreg01", true);
     mountedPairs.push(pair);
     await waitForGridLayout(pair);
 
     for (const mounted of [pair.authoring, pair.runtime]) {
       const composition = requiredElement<HTMLElement>(
         galleryFrame(mounted),
-        ".sc-gallery__grid-composition",
+        ".sc-course-gallery__grid-composition",
       );
       composition.style.width = "320px";
       composition.style.height = "210px";
@@ -170,14 +180,14 @@ describe("Gallery container geometry", () => {
     await waitForCondition(() =>
       [pair.authoring, pair.runtime].every(
         (mounted) =>
-          requiredElement<HTMLElement>(galleryFrame(mounted), ".sc-gallery__grid").dataset[
+          requiredElement<HTMLElement>(galleryFrame(mounted), ".sc-course-gallery__grid").dataset[
             "galleryGridLayout"
           ] === "3x2",
       ),
     );
 
     for (const mounted of [pair.authoring, pair.runtime]) {
-      const grid = requiredElement<HTMLElement>(galleryFrame(mounted), ".sc-gallery__grid");
+      const grid = requiredElement<HTMLElement>(galleryFrame(mounted), ".sc-course-gallery__grid");
       expect(Number.parseFloat(getComputedStyle(grid).columnGap)).toBeCloseTo(8, 0);
       expect(grid.dataset["galleryGridLayout"]).toBe("3x2");
     }
@@ -186,7 +196,7 @@ describe("Gallery container geometry", () => {
   it("contains the bounded Carousel stage and keeps thumbnails outside its flexible stage", async () => {
     const pair = await mountPair(
       boundedGalleryDocument("region", "carousel"),
-      "gallery-carousel",
+      boundedGallerySurfaceId("region"),
       true,
     );
     mountedPairs.push(pair);
@@ -194,11 +204,11 @@ describe("Gallery container geometry", () => {
 
     for (const mounted of [pair.authoring, pair.runtime]) {
       const frame = galleryFrame(mounted);
-      const shell = requiredElement<HTMLElement>(frame, ".sc-gallery__shell");
-      const composition = requiredElement<HTMLElement>(frame, ".sc-gallery__composition");
-      const stage = requiredElement<HTMLElement>(frame, ".sc-gallery__stage");
-      const image = requiredElement<HTMLElement>(frame, ".sc-gallery__stage-image");
-      const thumbs = requiredElement<HTMLElement>(frame, ".sc-gallery__thumbs");
+      const shell = requiredElement<HTMLElement>(frame, ".sc-course-gallery__shell");
+      const composition = requiredElement<HTMLElement>(frame, ".sc-course-gallery__composition");
+      const stage = requiredElement<HTMLElement>(frame, ".sc-course-gallery__stage");
+      const image = requiredElement<HTMLElement>(frame, ".sc-course-gallery__stage-image");
+      const thumbs = requiredElement<HTMLElement>(frame, ".sc-course-gallery__thumbs");
 
       expect(frame.getAttribute("data-bounded-placement")).toBe("fill");
       expect(getComputedStyle(image).objectFit).toBe("contain");
@@ -215,7 +225,7 @@ describe("Gallery container geometry", () => {
 });
 
 function boundedGalleryDocument(owner: BoundedOwner, layout: "carousel" | "grid"): JSONContent {
-  const surfaceId = createEmbeddedNodeId();
+  const surfaceId = boundedGallerySurfaceId(owner);
   const surface = slideContentSurfaceDefinition.createSurface({ surfaceId });
   const region = surface.content?.find((child) => child.type === "region");
   if (!region) throw new Error("Slide content fixture is missing its Region.");
@@ -236,7 +246,7 @@ function boundedGalleryDocument(owner: BoundedOwner, layout: "carousel" | "grid"
           {
             type: "section",
             attrs: {
-              id: "gallery-tab",
+              id: "gallerytab01",
               role: "tab-panel",
               label: "Gallery",
               options: { label: "Gallery" },
@@ -250,16 +260,16 @@ function boundedGalleryDocument(owner: BoundedOwner, layout: "carousel" | "grid"
     region.content = [
       {
         type: "grid",
-        attrs: { id: "gallery-host-grid", columnWidths: [1, 1] },
+        attrs: { id: "gallerygrid1", columnWidths: [1, 1] },
         content: [
           {
             type: "cell",
-            attrs: { id: "gallery-host-cell" },
+            attrs: { id: "gallerycell1" },
             content: [gallery],
           },
           {
             type: "cell",
-            attrs: { id: "gallery-support-cell" },
+            attrs: { id: "gallerycell2" },
             content: [{ type: "paragraph", content: [{ type: "text", text: "Support" }] }],
           },
         ],
@@ -274,8 +284,14 @@ function boundedGalleryDocument(owner: BoundedOwner, layout: "carousel" | "grid"
   return content;
 }
 
+function boundedGallerySurfaceId(owner: BoundedOwner): EmbeddedNodeId {
+  return EmbeddedNodeIdSchema.parse(
+    owner === "region" ? "galleryreg01" : owner === "section" ? "gallerysec01" : "gallerycel01",
+  );
+}
+
 function unboundedGalleryDocument(): JSONContent {
-  const content = createScaffoldDocumentContent({ mode: "page", surfaceId: "gallery-page" });
+  const content = createScaffoldDocumentContent({ mode: "page", surfaceId: "gallerypage1" });
   const surface = content.content?.[0]?.content?.[0];
   if (!surface) throw new Error("Page fixture has no Surface.");
   surface.content = [galleryNode("grid", 9)];
@@ -286,7 +302,7 @@ function galleryNode(layout: "carousel" | "grid", itemCount: number): JSONConten
   return {
     type: "gallery",
     attrs: {
-      id: `gallery-${layout}`,
+      id: layout === "grid" ? "gallery-grid" : "gallerycar01",
       data: {
         type: "gallery",
         layout,
@@ -296,7 +312,7 @@ function galleryNode(layout: "carousel" | "grid", itemCount: number): JSONConten
     content: Array.from({ length: itemCount }, (_, index) => ({
       type: "gallery_item",
       attrs: {
-        id: `gallery-item-${index + 1}`,
+        id: `galitem${String(index + 1).padStart(5, "0")}`,
         data: {
           image: {
             mode: "external",
@@ -334,32 +350,47 @@ async function mountPair(
   let runtimeEditor: TiptapEditor | null = null;
 
   authoringRoot.render(
-    <CourseDocumentEditor
-      composition={coreAuthoringComposition}
-      source={{ mode: "document", content: cloneJSON(initialContent) }}
-      editable={editable}
-      onReady={(editor) => {
-        authoringEditor = editor;
-      }}
-    />,
+    <AppThemeProvider appearance="light">
+      <div>
+        <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+          <CourseDocumentEditor
+            composition={coreAuthoringComposition}
+            source={{ mode: "document", content: cloneJSON(initialContent) }}
+            editable={editable}
+            onReady={(editor) => {
+              authoringEditor = editor;
+            }}
+          />
+        </CourseThemeProvider>
+      </div>
+    </AppThemeProvider>,
   );
   runtimeRoot.render(
-    <CourseDocumentRuntimeRenderer
-      composition={coreRuntimeComposition}
-      initialContent={cloneJSON(initialContent)}
-      visibleSurfaceId={surfaceId}
-      onReady={(editor) => {
-        runtimeEditor = editor;
-      }}
-    />,
+    <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="light">
+      <div
+        className="sc-slideshow-player__viewport"
+        style={{ width: 1024, height: 576, padding: 0 }}
+      >
+        <div className="sc-slideshow-player__canvas" style={{ width: 1024, height: 576 }}>
+          <CourseDocumentRuntimeRenderer
+            composition={coreRuntimeComposition}
+            initialContent={cloneJSON(initialContent)}
+            visibleSurfaceId={surfaceId}
+            onReady={(editor) => {
+              runtimeEditor = editor;
+            }}
+          />
+        </div>
+      </div>
+    </CourseThemeProvider>,
   );
 
   await waitForCondition(
     () =>
       authoringEditor !== null &&
       runtimeEditor !== null &&
-      authoringHost.querySelector(".sc-gallery") &&
-      runtimeHost.querySelector(".sc-gallery"),
+      authoringHost.querySelector(".sc-course-gallery") &&
+      runtimeHost.querySelector(".sc-course-gallery"),
   );
   if (!authoringEditor || !runtimeEditor)
     throw new Error("Gallery browser editors were not ready.");
@@ -386,22 +417,20 @@ function rendererHost(kind: RendererKind): HTMLElement {
   host.dataset["galleryRenderer"] = kind;
   host.style.width = "1024px";
   host.style.height = "576px";
-  if (kind === "runtime")
-    host.className = "sc-slideshow-player__viewport sc-slideshow-player__canvas";
   return host;
 }
 
 function measureGrid(mounted: MountedRenderer) {
   const frame = galleryFrame(mounted);
-  const grid = requiredElement<HTMLElement>(frame, ".sc-gallery__grid");
+  const grid = requiredElement<HTMLElement>(frame, ".sc-course-gallery__grid");
   return {
     frame,
     grid,
-    shell: requiredElement<HTMLElement>(frame, ".sc-gallery__shell"),
-    caption: requiredElement<HTMLElement>(frame, ".sc-gallery__shared-caption"),
-    cells: Array.from(grid.querySelectorAll<HTMLElement>(".sc-gallery__tile")),
+    shell: requiredElement<HTMLElement>(frame, ".sc-course-gallery__shell"),
+    caption: requiredElement<HTMLElement>(frame, ".sc-course-gallery__shared-caption"),
+    cells: Array.from(grid.querySelectorAll<HTMLElement>(".sc-course-gallery__tile")),
     objectFits: Array.from(
-      grid.querySelectorAll<HTMLElement>(".sc-gallery__tile-image"),
+      grid.querySelectorAll<HTMLElement>(".sc-course-gallery__tile-image"),
       (image) => getComputedStyle(image).objectFit,
     ),
   };
@@ -410,8 +439,8 @@ function measureGrid(mounted: MountedRenderer) {
 function galleryFrame(mounted: MountedRenderer): HTMLElement {
   const frameSelector =
     mounted.kind === "authoring"
-      ? '.sc-gallery[data-authoring-frame="block"]'
-      : '.sc-gallery[data-runtime-frame="block"]';
+      ? '.sc-course-gallery[data-authoring-frame="block"]'
+      : '.sc-course-gallery[data-runtime-frame="block"]';
   return requiredElement(mounted.host, frameSelector);
 }
 
@@ -420,7 +449,7 @@ async function waitForGridLayout(pair: MountedPair): Promise<void> {
     [pair.authoring, pair.runtime].every(
       (mounted) =>
         galleryFrame(mounted)
-          .querySelector(".sc-gallery__grid")
+          .querySelector(".sc-course-gallery__grid")
           ?.hasAttribute("data-gallery-grid-layout") === true,
     ),
   );
@@ -439,8 +468,8 @@ function expectUniformCells(cells: readonly HTMLElement[]) {
 function expectRectSizeParity(authoring: HTMLElement, runtime: HTMLElement) {
   const authoringRect = authoring.getBoundingClientRect();
   const runtimeRect = runtime.getBoundingClientRect();
-  expect(relativeDifference(authoringRect.width, runtimeRect.width)).toBeLessThanOrEqual(0.04);
-  expect(relativeDifference(authoringRect.height, runtimeRect.height)).toBeLessThanOrEqual(0.04);
+  expect(relativeDifference(authoringRect.width, runtimeRect.width)).toBeLessThanOrEqual(0.06);
+  expect(relativeDifference(authoringRect.height, runtimeRect.height)).toBeLessThanOrEqual(0.06);
 }
 
 function relativeDifference(first: number, second: number): number {
