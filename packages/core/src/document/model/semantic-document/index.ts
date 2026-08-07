@@ -17,3 +17,15 @@ export type {
   SemanticLayoutSectionDefinition,
   SemanticSurfaceDefinition,
 } from "./definition-lookup";
+export type { SemanticEditorSelectionTarget, SemanticLocation } from "./semantic-location";
+export type {
+  SemanticProjectionDiagnostic,
+  SemanticProjectionDiagnosticCode,
+} from "./projection-diagnostic";
+export type {
+  SemanticDocumentProjectionResult,
+  SemanticDocumentSnapshot,
+  SemanticItem,
+  SemanticItemKind,
+  SemanticPresentationCapability,
+} from "./semantic-document-snapshot";
