@@ -210,6 +210,40 @@ describe("SurfaceTemplatePickerHost", () => {
     ]);
   });
 
+  it("keeps template insertion as one undoable document transaction", () => {
+    const editor = createSectionedEditor(
+      [
+        courseSection(FIRST_SECTION_ID, "First"),
+        slideCoverSurfaceDefinition.createSurface({ surfaceId: FIRST_SURFACE_ID }),
+        slideCoverSurfaceDefinition.createSurface({ surfaceId: SECOND_SURFACE_ID }),
+      ],
+      true,
+    );
+    const before = editor.getJSON();
+    let changedTransactions = 0;
+    editor.on("transaction", ({ transaction }) => {
+      if (transaction.docChanged) changedTransactions += 1;
+    });
+
+    expect(
+      insertSurfaceTemplateAfterSurface(editor, surfaceVariants, {
+        afterSurfaceId: FIRST_SURFACE_ID,
+        variantId: "slide-content",
+      }),
+    ).toBe(true);
+    const after = editor.getJSON();
+    expect(after).not.toEqual(before);
+    expect(changedTransactions).toBe(1);
+
+    expect(editor.commands.undo()).toBe(true);
+    expect(editor.getJSON()).toEqual(before);
+    expect(changedTransactions).toBe(2);
+
+    expect(editor.commands.redo()).toBe(true);
+    expect(editor.getJSON()).toEqual(after);
+    expect(changedTransactions).toBe(3);
+  });
+
   it("uses the variant ID for repeated insertion while allocating distinct stable instance IDs", () => {
     const editor = createEditor([FIRST_SURFACE_ID]);
 
@@ -348,14 +382,20 @@ function createEditor(
   );
 }
 
-function createSectionedEditor(children: readonly JSONContent[]): Editor {
-  return createEditorForDocument(slideshowDocumentWithChildren(children));
+function createSectionedEditor(children: readonly JSONContent[], withHistory = false): Editor {
+  return createEditorForDocument(
+    slideshowDocumentWithChildren(children),
+    undefined,
+    createCourseStructureCommandsExtension(),
+    withHistory,
+  );
 }
 
 function createEditorForDocument(
   content: JSONContent,
   editorElement?: HTMLElement,
   courseStructureExtension = createCourseStructureCommandsExtension(),
+  withHistory = false,
 ): Editor {
   const element = editorElement ?? globalThis.document.createElement("div");
   if (!editorElement) {
@@ -370,7 +410,7 @@ function createEditorForDocument(
         document: false,
         heading: false,
         paragraph: false,
-        undoRedo: false,
+        undoRedo: withHistory ? {} : false,
       }),
       ExtendedParagraph,
       ExtendedHeading,

@@ -105,6 +105,7 @@ function makeEditor(
   mode: "page" | "slideshow" | "branching",
   surfaces: JSONContent[],
   mountedBlocks = EMPTY_BLOCK_DEFINITIONS,
+  withHistory = false,
 ): Editor {
   const capabilities = Object.freeze({
     blocks: Object.freeze({ registry: mountedBlocks }),
@@ -123,7 +124,7 @@ function makeEditor(
       StarterKit.configure({
         document: false,
         paragraph: false,
-        undoRedo: false,
+        undoRedo: withHistory ? {} : false,
       }),
       ExtendedParagraph,
       CourseDocumentNode,
@@ -344,6 +345,47 @@ describe("surface document commands", () => {
     expect(nextSurfaces).toHaveLength(1);
     expect(nextSurfaces[0]?.attrs?.["id"]).toBe("surface-2");
     expect(editor.state.doc.textContent).toBe("Second");
+
+    editor.destroy();
+  });
+
+  it.each([
+    {
+      label: "duplicate",
+      apply: (editor: Editor) => duplicateSurface(editor, "surface00001"),
+    },
+    {
+      label: "delete",
+      apply: (editor: Editor) => deleteSurface(editor, "surface00001"),
+    },
+  ])("keeps a successful $label as one undoable document transaction", ({ apply }) => {
+    const editor = makeEditor(
+      "slideshow",
+      [
+        surface("surface00001", "First", { variant: "slide-cover" }),
+        surface("surface00002", "Second", { variant: "slide-cover" }),
+      ],
+      EMPTY_BLOCK_DEFINITIONS,
+      true,
+    );
+    const before = editor.getJSON();
+    let changedTransactions = 0;
+    editor.on("transaction", ({ transaction }) => {
+      if (transaction.docChanged) changedTransactions += 1;
+    });
+
+    expect(apply(editor)).toBe(true);
+    const after = editor.getJSON();
+    expect(after).not.toEqual(before);
+    expect(changedTransactions).toBe(1);
+
+    expect(editor.commands.undo()).toBe(true);
+    expect(editor.getJSON()).toEqual(before);
+    expect(changedTransactions).toBe(2);
+
+    expect(editor.commands.redo()).toBe(true);
+    expect(editor.getJSON()).toEqual(after);
+    expect(changedTransactions).toBe(3);
 
     editor.destroy();
   });
