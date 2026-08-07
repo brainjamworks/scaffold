@@ -459,6 +459,7 @@ describe("createScaffoldApplication", () => {
     const capability = testBlockCapability("host_duplicate_action", {
       definition: {
         nodeType: "host_duplicate_action",
+        title: "Host duplicate action",
         insert: {
           id: coreActionId,
           title: "Duplicate action",
@@ -512,6 +513,7 @@ describe("createScaffoldApplication", () => {
     const capability = testBlockCapability("host_dormant_block", {
       definition: {
         nodeType: "host_dormant_block",
+        title: "Host dormant Block",
         insert: {
           id: "host-dormant-block",
           title: "Dormant Block",
@@ -585,7 +587,7 @@ describe("createScaffoldApplication", () => {
     expect(() =>
       createBlockCapabilitiesFromBindings({
         owner: "Core",
-        definitions: [{ nodeType: "joined" }],
+        definitions: [{ nodeType: "joined", title: "Joined" }],
         authoringBindings: testCase.authoringBindings,
         runtimeBindings: testCase.runtimeBindings,
       }),
@@ -910,7 +912,7 @@ function testBlockCapability(
   overrides: Partial<BlockCapability> = {},
 ): BlockCapability {
   return {
-    definition: { nodeType },
+    definition: { nodeType, title: `Block ${nodeType}` },
     authoringExtension: Node.create({ name: nodeType }),
     runtimeExtension: Node.create({ name: nodeType }),
     ...overrides,

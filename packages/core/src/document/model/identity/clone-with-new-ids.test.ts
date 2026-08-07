@@ -107,8 +107,16 @@ describe("cloneJsonWithNewStableIds", () => {
       return content;
     });
     const blockDefinitions = createBlockRegistry([
-      defineBlock({ nodeType: "copy_fixture", rewriteCopiedContent }),
-      defineBlock({ nodeType: "copy_observer", rewriteCopiedContent: observeCopiedContent }),
+      defineBlock({
+        nodeType: "copy_fixture",
+        title: "Copy fixture",
+        rewriteCopiedContent,
+      }),
+      defineBlock({
+        nodeType: "copy_observer",
+        title: "Copy observer",
+        rewriteCopiedContent: observeCopiedContent,
+      }),
     ]);
     const allocatedNodeIds = [
       EmbeddedNodeIdSchema.parse("blocknew0001"),
@@ -160,7 +168,9 @@ describe("cloneJsonWithNewStableIds", () => {
   });
 
   it("clones an ordinary registered Block without callback ceremony", () => {
-    const blockDefinitions = createBlockRegistry([defineBlock({ nodeType: "ordinary_fixture" })]);
+    const blockDefinitions = createBlockRegistry([
+      defineBlock({ nodeType: "ordinary_fixture", title: "Ordinary fixture" }),
+    ]);
 
     const clone = cloneJsonWithNewStableIds(
       { type: "ordinary_fixture", attrs: { id: "ordinary0001" } },
