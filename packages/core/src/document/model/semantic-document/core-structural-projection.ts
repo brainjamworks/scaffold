@@ -6,6 +6,7 @@ import type { SemanticDefinitionLookup, SemanticLayoutDefinition } from "./defin
 import type {
   DocumentSemanticsDefinition,
   SemanticActivationRelationship,
+  SemanticChildProjector,
   SemanticPresentationDefinition,
 } from "./definition";
 import {
@@ -51,6 +52,12 @@ interface ClassifiedNode {
   readonly closesTraversal: boolean;
 }
 
+const projectStandardRichTextChildren: SemanticChildProjector = ({ helpers }) =>
+  helpers.projectStandardRichText();
+const standardRichTextDocumentSemantics: DocumentSemanticsDefinition = Object.freeze({
+  projectChildren: projectStandardRichTextChildren,
+});
+
 export function projectCoreStructuralItems({
   doc,
   courseStructure,
@@ -69,7 +76,7 @@ export function projectCoreStructuralItems({
             node,
             id: classified.item.id,
             nodeType: node.type.name,
-            definitionId: classified.item.definitionId!,
+            definitionId: classified.item.definitionId ?? node.type.name,
             absolutePos: pos,
             documentSemantics: classified.documentSemantics,
           }
@@ -312,7 +319,7 @@ function classifyNode(
       context.parentId,
       context.surfaceId,
       undefined,
-      definition?.section?.documentSemantics,
+      withDefaultRichTextPublication(definition?.section?.documentSemantics),
     );
   }
 
@@ -323,6 +330,8 @@ function classifyNode(
       item(id, "region", nodeType, null, humanize(role)),
       context.parentId,
       context.surfaceId,
+      undefined,
+      standardRichTextDocumentSemantics,
     );
   }
 
@@ -385,6 +394,17 @@ function classified(
     documentSemantics,
     closesTraversal,
   };
+}
+
+function withDefaultRichTextPublication(
+  documentSemantics: DocumentSemanticsDefinition | undefined,
+): DocumentSemanticsDefinition {
+  if (documentSemantics?.projectChildren) return documentSemantics;
+  if (!documentSemantics) return standardRichTextDocumentSemantics;
+  return Object.freeze({
+    ...documentSemantics,
+    projectChildren: projectStandardRichTextChildren,
+  });
 }
 
 function item(

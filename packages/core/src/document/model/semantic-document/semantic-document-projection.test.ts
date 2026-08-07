@@ -100,6 +100,47 @@ describe.each(["page", "unsectioned-slideshow", "sectioned-slideshow"] as const)
   },
 );
 
+describe("standard Layout Section publication", () => {
+  it("publishes prose when the mounted Section definition does not override content roots", () => {
+    const fixture = createRepresentativeSemanticDocumentFixture({ kind: "page" });
+    const definitions = {
+      ...fixture.definitions,
+      layouts: {
+        get: (variant: string) => {
+          const definition = fixture.definitions.layouts.get(variant);
+          if (!definition?.section) return definition;
+          return {
+            ...definition,
+            section: {
+              ...definition.section,
+              documentSemantics: {
+                presentation: { actionIds: ["reveal"] },
+              },
+            },
+          };
+        },
+      },
+    };
+
+    const snapshot = projectSemanticDocument({
+      doc: fixture.doc,
+      courseStructure: fixture.courseStructure,
+      definitions,
+      revision: 43,
+    });
+    const ids = fixture.surfaces[0]!;
+
+    expect(ids.repeatedParagraphs.map((id) => snapshot.itemById.get(id)?.label)).toEqual([
+      "Repeat 1",
+      "Repeat 2",
+    ]);
+    expect(ids.repeatedParagraphs.map((id) => snapshot.parentById.get(id))).toEqual([
+      ids.layoutSection,
+      ids.layoutSection,
+    ]);
+  });
+});
+
 function assertExactIndexes(snapshot: SemanticDocumentSnapshot): void {
   const visited = new Set<EmbeddedNodeId>();
   const visit = (item: SemanticItem, parentId: EmbeddedNodeId | null) => {

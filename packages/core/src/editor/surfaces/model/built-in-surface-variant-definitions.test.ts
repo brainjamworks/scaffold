@@ -107,6 +107,12 @@ describe("built-in surface variant definitions", () => {
     }
   });
 
+  it("declares semantic publication for every built-in Surface", () => {
+    for (const definition of builtInSurfaceVariantRegistry.definitions) {
+      expect(definition.documentSemantics?.projectChildren).toBeTypeOf("function");
+    }
+  });
+
   it("keeps the five specialized declarations as pure unregistered values", () => {
     const specializedIds = new Set([
       "page-default",

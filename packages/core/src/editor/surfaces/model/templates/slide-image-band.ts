@@ -3,6 +3,7 @@ import { SurfaceSettingsSchema } from "@/schemas/course-document";
 import type { SurfaceVariantDefinition } from "../surface-variant-definition";
 import { SurfaceOwnedImageSchema, type SurfaceOwnedImage } from "../surface-owned-image";
 import { DEFAULT_SURFACE_SETTINGS } from "../surface-settings";
+import { createSurfaceDocumentSemantics } from "../surface-document-semantics";
 
 export const SlideImageBandSurfaceSettingsSchema = SurfaceSettingsSchema.extend({
   image: SurfaceOwnedImageSchema.default({}),
@@ -71,6 +72,10 @@ export const slideImageBandSurfaceDefinition = {
     },
   },
   settingsSchema: SlideImageBandSurfaceSettingsSchema,
+  documentSemantics: createSurfaceDocumentSemantics({
+    ownedRichTextNodeTypes: ["heading"],
+    contentRootNodeTypes: ["slide_cover_subtitle"],
+  }),
   structurePolicy: {
     fixedChildren: [{ type: "heading", attrs: { level: 1 } }, { type: "slide_cover_subtitle" }],
     allowRootInsertion: false,

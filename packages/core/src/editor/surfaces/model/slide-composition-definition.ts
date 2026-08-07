@@ -11,6 +11,7 @@ import {
   matchFixedSurfaceChildren,
   snapshotSurfaceStructureChildrenFromJSON,
 } from "./policies/surface-fixed-structure";
+import { createSurfaceDocumentSemantics } from "./surface-document-semantics";
 
 export const SlideTitleVisibilitySchema = z
   .object({
@@ -329,6 +330,9 @@ export function defineSlideCompositionSurface(
     ...definition,
     catalogue,
     createSurface,
+    documentSemantics:
+      definition.documentSemantics ??
+      createSurfaceDocumentSemantics({ ownedRichTextNodeTypes: ["slide_title"] }),
     slideComposition,
     modes: SLIDESHOW_MODES,
     settingsSchema,
