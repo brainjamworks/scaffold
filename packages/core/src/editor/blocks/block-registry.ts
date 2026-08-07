@@ -13,10 +13,11 @@ export interface BlockRegistry extends BlockDefinitionLookup {
 }
 
 export function createBlockRegistry(input: readonly BlockDefinition[]): BlockRegistry {
-  const definitions: readonly BlockDefinition[] = Object.freeze([...input]);
+  const normalizedDefinitions: BlockDefinition[] = [];
   const definitionsByNodeType = new Map<string, BlockDefinition>();
 
-  for (const definition of definitions) {
+  for (const inputDefinition of input) {
+    const definition = normalizeBlockDefinitionTitle(inputDefinition);
     if (!isBlockNodeType(definition.nodeType)) {
       throw new Error(`Block node type "${definition.nodeType}" must be a stable snake_case name.`);
     }
@@ -24,7 +25,10 @@ export function createBlockRegistry(input: readonly BlockDefinition[]): BlockReg
       throw new Error(`Duplicate block node type "${definition.nodeType}".`);
     }
     definitionsByNodeType.set(definition.nodeType, definition);
+    normalizedDefinitions.push(definition);
   }
+
+  const definitions: readonly BlockDefinition[] = Object.freeze(normalizedDefinitions);
 
   return Object.freeze({
     definitions,
@@ -40,4 +44,15 @@ export function createBlockRegistry(input: readonly BlockDefinition[]): BlockReg
         .map((definition) => definition.nodeType),
     ),
   });
+}
+
+function normalizeBlockDefinitionTitle(definition: BlockDefinition): BlockDefinition {
+  const title = typeof definition.title === "string" ? definition.title.trim() : "";
+  if (!title) {
+    throw new Error(
+      `Block definition "${definition.nodeType}" must have a non-empty author-facing title.`,
+    );
+  }
+
+  return title === definition.title ? definition : Object.freeze({ ...definition, title });
 }

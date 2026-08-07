@@ -2,7 +2,7 @@
 
 import { Editor, Node, type JSONContent } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import {
   ARRANGEMENT_CONTENT,
@@ -210,6 +210,30 @@ describe("surface definitions", () => {
 
     expect(normalized.nodeType).toBe("surface");
     expect(factoryCalls).toBe(0);
+  });
+
+  it("preserves semantic callback identity without executing callbacks during normalization", () => {
+    const describe = vi.fn(() => ({ label: "Surface" }));
+    const projectChildren = vi.fn(() => []);
+    const documentSemantics = { describe, projectChildren };
+
+    const normalized = normalizeSurfaceDefinition({
+      id: "surface-definition-semantics-test",
+      modes: ["page"],
+      title: "Semantic surface",
+      description: "Surface semantics fixture",
+      documentSemantics,
+      createSurface: ({ surfaceId }) => ({
+        type: "surface",
+        attrs: { id: surfaceId, variant: "surface-definition-semantics-test" },
+      }),
+    });
+
+    expect(normalized.documentSemantics).toBe(documentSemantics);
+    expect(normalized.documentSemantics?.describe).toBe(describe);
+    expect(normalized.documentSemantics?.projectChildren).toBe(projectChildren);
+    expect(describe).not.toHaveBeenCalled();
+    expect(projectChildren).not.toHaveBeenCalled();
   });
 
   it("uses fixed signatures as the only constrained slideshow structure policy", () => {

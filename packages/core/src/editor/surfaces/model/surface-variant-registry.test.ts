@@ -1,5 +1,5 @@
 import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
-import { describe, expect, expectTypeOf, it } from "vite-plus/test";
+import { describe, expect, expectTypeOf, it, vi } from "vite-plus/test";
 import { z } from "zod";
 
 import { SurfaceSettingsSchema, type CourseMode } from "@/schemas/course-document";
@@ -148,6 +148,35 @@ describe("surface variant registry foundation", () => {
     expect(secondFactoryCalls).toBe(1);
     expect(firstSurfaceId).toBe(secondSurfaceId);
     expect(EmbeddedNodeIdSchema.safeParse(firstSurfaceId).success).toBe(true);
+  });
+
+  it("owns semantic shells without executing their callbacks", () => {
+    const describe = vi.fn(() => ({ label: "Surface" }));
+    const projectChildren = vi.fn(() => []);
+    const actionIds = ["reveal"];
+    const documentSemantics = {
+      describe,
+      presentation: { actionIds },
+      projectChildren,
+    };
+    const registry = createSurfaceVariantRegistry([
+      createSurfaceDefinition("isolated-semantic-definition-test", {
+        defaultForModes: ["page"],
+        documentSemantics,
+      }),
+    ]);
+    const registered = registry.get("isolated-semantic-definition-test");
+
+    expect(registered?.documentSemantics).not.toBe(documentSemantics);
+    expect(registered?.documentSemantics?.describe).toBe(describe);
+    expect(registered?.documentSemantics?.projectChildren).toBe(projectChildren);
+    expect(registered?.documentSemantics?.presentation?.actionIds).toEqual(["reveal"]);
+    expect(registered?.documentSemantics?.presentation?.actionIds).not.toBe(actionIds);
+    expect(Object.isFrozen(registered?.documentSemantics)).toBe(true);
+    expect(Object.isFrozen(registered?.documentSemantics?.presentation)).toBe(true);
+    expect(Object.isFrozen(registered?.documentSemantics?.presentation?.actionIds)).toBe(true);
+    expect(describe).not.toHaveBeenCalled();
+    expect(projectChildren).not.toHaveBeenCalled();
   });
 
   it("keeps registries isolated when they contain the same variant id", () => {

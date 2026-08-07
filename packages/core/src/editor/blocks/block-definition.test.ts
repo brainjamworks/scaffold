@@ -26,6 +26,7 @@ describe("defineBlock", () => {
 
     const definition = defineBlock({
       nodeType: "copy_fixture",
+      title: "Copy fixture",
       rewriteCopiedContent,
     });
 
@@ -60,6 +61,7 @@ describe("defineBlock", () => {
     };
     const definition = defineBlock({
       nodeType: "fixture",
+      title: "Fixture block",
       configuration,
       frame,
       insert: insertDefinition,
@@ -97,6 +99,7 @@ describe("defineBlock", () => {
     });
     const definition = defineBlock({
       nodeType: "fixture_immutable",
+      title: "Immutable fixture",
       configuration,
       insert: insertDefinition,
     });
@@ -141,7 +144,7 @@ describe("defineBlock", () => {
       variants,
     };
 
-    const definition = defineBlock({ nodeType: "fixture", insert });
+    const definition = defineBlock({ nodeType: "fixture", title: "Fixture block", insert });
 
     expect(primaryContent).not.toHaveBeenCalled();
     expect(firstVariantContent).not.toHaveBeenCalled();
@@ -203,9 +206,41 @@ describe("defineBlock", () => {
     expect(capability.response).not.toHaveProperty("project");
   });
 
+  it("owns semantic shells without invoking callbacks and keeps title independent of insertion", () => {
+    const describe = vi.fn(() => ({ label: "Safe label" }));
+    const projectChildren = vi.fn(() => []);
+    const actionIds = ["reveal"];
+    const documentSemantics = {
+      describe,
+      presentation: { actionIds },
+      projectChildren,
+    };
+
+    const definition = defineBlock({
+      nodeType: "semantic_fixture",
+      title: "Semantic fixture",
+      insert: { ...insertDefinition, title: "Different insertion title" },
+      documentSemantics,
+    });
+
+    expect(definition.title).toBe("Semantic fixture");
+    expect(definition.insert?.title).toBe("Different insertion title");
+    expect(definition.documentSemantics).not.toBe(documentSemantics);
+    expect(definition.documentSemantics?.describe).toBe(describe);
+    expect(definition.documentSemantics?.projectChildren).toBe(projectChildren);
+    expect(definition.documentSemantics?.presentation?.actionIds).toEqual(["reveal"]);
+    expect(definition.documentSemantics?.presentation?.actionIds).not.toBe(actionIds);
+    expect(Object.isFrozen(definition.documentSemantics)).toBe(true);
+    expect(Object.isFrozen(definition.documentSemantics?.presentation)).toBe(true);
+    expect(Object.isFrozen(definition.documentSemantics?.presentation?.actionIds)).toBe(true);
+    expect(describe).not.toHaveBeenCalled();
+    expect(projectChildren).not.toHaveBeenCalled();
+  });
+
   it("preserves concrete interaction and structural policy metadata", () => {
     const definition = defineBlock({
       nodeType: "policy_fixture",
+      title: "Policy fixture",
       childSettings: {
         managedFields: [
           {
@@ -266,6 +301,7 @@ describe("defineBlock", () => {
 if (false) {
   defineBlock({
     nodeType: "missing_insert_id",
+    title: "Missing insert id",
     // @ts-expect-error insert.id is required for stable authoring action identity.
     insert: {
       title: "Missing id",
@@ -278,6 +314,7 @@ if (false) {
 
   defineBlock({
     nodeType: "invalid_primary_variant",
+    title: "Invalid primary variant",
     insert: {
       ...insertDefinition,
       // @ts-expect-error Block declarations cannot choose a variant parent.
@@ -287,6 +324,7 @@ if (false) {
 
   defineBlock({
     nodeType: "invalid_variant_metadata",
+    title: "Invalid variant metadata",
     insert: {
       ...insertDefinition,
       variants: [
@@ -305,21 +343,25 @@ if (false) {
   const rejectLegacyFields = (input: BlockDefinitionInput): BlockDefinitionInput => input;
   rejectLegacyFields({
     nodeType: "legacy_id",
+    title: "Legacy id",
     // @ts-expect-error top-level ids are not part of the final block definition contract.
     id: "legacy_id",
   });
   rejectLegacyFields({
     nodeType: "legacy_movement",
+    title: "Legacy movement",
     // @ts-expect-error unused block-level movement is excluded from the final contract.
     movement: { source: "block" },
   });
   rejectLegacyFields({
     nodeType: "legacy_runtime_projection",
+    title: "Legacy runtime projection",
     // @ts-expect-error unused runtime projection is excluded from the final contract.
     runtimeProjection: { kind: "legacy" },
   });
   rejectLegacyFields({
     nodeType: "legacy_workspace",
+    title: "Legacy workspace",
     // @ts-expect-error unused block-level workspace is excluded from the final contract.
     workspace: {},
   });

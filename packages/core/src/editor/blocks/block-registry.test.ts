@@ -13,6 +13,7 @@ function createDefinition(
 ): BlockDefinition {
   return {
     nodeType,
+    title: nodeType,
     insert: {
       id: insertActionId,
       title: nodeType,
@@ -26,6 +27,22 @@ function createDefinition(
 }
 
 describe("createBlockRegistry", () => {
+  it("rejects missing or blank titles and normalizes surrounding whitespace", () => {
+    const missing = {
+      nodeType: "missing_title",
+      insert: createDefinition("missing_title").insert,
+    } as BlockDefinition;
+    const blank = createDefinition("blank_title", { title: "  \n  " });
+    const padded = createDefinition("padded_title", { title: "  Padded title  " });
+    expect(() => createBlockRegistry([missing])).toThrow(
+      'Block definition "missing_title" must have a non-empty author-facing title.',
+    );
+    expect(() => createBlockRegistry([blank])).toThrow(
+      'Block definition "blank_title" must have a non-empty author-facing title.',
+    );
+    expect(createBlockRegistry([padded]).getByNodeType("padded_title")?.title).toBe("Padded title");
+  });
+
   it("constructs independent nodeType-keyed registries", () => {
     const alpha = createDefinition("alpha");
     const beta = createDefinition("beta");

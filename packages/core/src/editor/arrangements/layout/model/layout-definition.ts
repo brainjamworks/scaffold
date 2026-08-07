@@ -3,6 +3,7 @@ import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model";
 import type { Icon } from "@phosphor-icons/react";
 
 import type { ConfigurationDefinition } from "@/editor/configuration/definition";
+import type { DocumentSemanticsDefinition } from "@/document/model/semantic-document";
 import { deriveQuickMenuDefinition } from "@/editor/configuration/quick-menu-derivation";
 import type { QuickMenuDefinition } from "@/editor/configuration/quick-menu";
 import { deriveSettingsSheetDefinition } from "@/editor/configuration/settings-sheet-derivation";
@@ -26,6 +27,7 @@ export interface LayoutSectionDefinition {
   /** Label for the generic append affordance, e.g. "Add event". */
   readonly addLabel: string;
   readonly configuration?: ConfigurationDefinition;
+  readonly documentSemantics?: DocumentSemanticsDefinition;
   readonly create: (input: CreateLayoutSectionInput) => JSONContent;
 }
 
@@ -67,6 +69,7 @@ export interface LayoutDefinition {
   readonly createContent: (input?: CreateLayoutContentInput) => JSONContent;
   readonly placeholders?: LayoutPlaceholderDefinition;
   readonly section?: LayoutSectionDefinition;
+  readonly documentSemantics?: DocumentSemanticsDefinition;
 }
 
 export interface RegisteredLayoutSectionDefinition extends LayoutSectionDefinition {
@@ -86,6 +89,7 @@ export function defineLayout(definition: LayoutDefinition): RegisteredLayoutDefi
   const settingsSheet = deriveSettingsSheetDefinition(definition.configuration);
   const sectionQuickMenu = deriveQuickMenuDefinition(definition.section?.configuration);
   const sectionSettingsSheet = deriveSettingsSheetDefinition(definition.section?.configuration);
+  const documentSemantics = normalizeDocumentSemanticsDefinition(definition.documentSemantics);
   const keywords = definition.keywords ? Object.freeze([...definition.keywords]) : undefined;
   const placeholders = definition.placeholders
     ? Object.freeze({ ...definition.placeholders })
@@ -97,13 +101,19 @@ export function defineLayout(definition: LayoutDefinition): RegisteredLayoutDefi
     ? Object.freeze({ nodeType: "section", ...sectionSettingsSheet })
     : undefined;
   const section = definition.section
-    ? Object.freeze({
-        ...definition.section,
-        ...(sectionQuickMenu ? { quickMenu: sectionQuickMenu } : {}),
-        ...(registeredSectionSettingsSheet
-          ? { settingsSheet: registeredSectionSettingsSheet }
-          : {}),
-      })
+    ? (() => {
+        const sectionDocumentSemantics = normalizeDocumentSemanticsDefinition(
+          definition.section.documentSemantics,
+        );
+        return Object.freeze({
+          ...definition.section,
+          ...(sectionQuickMenu ? { quickMenu: sectionQuickMenu } : {}),
+          ...(registeredSectionSettingsSheet
+            ? { settingsSheet: registeredSectionSettingsSheet }
+            : {}),
+          ...(sectionDocumentSemantics ? { documentSemantics: sectionDocumentSemantics } : {}),
+        });
+      })()
     : undefined;
   return Object.freeze({
     ...definition,
@@ -113,6 +123,25 @@ export function defineLayout(definition: LayoutDefinition): RegisteredLayoutDefi
     ...(quickMenu ? { quickMenu } : {}),
     ...(layoutSettingsSheet ? { settingsSheet: layoutSettingsSheet } : {}),
     ...(section ? { section } : {}),
+    ...(documentSemantics ? { documentSemantics } : {}),
+  });
+}
+
+function normalizeDocumentSemanticsDefinition(
+  definition: DocumentSemanticsDefinition | undefined,
+): DocumentSemanticsDefinition | undefined {
+  if (!definition) return undefined;
+
+  const presentation = definition.presentation
+    ? Object.freeze({
+        ...definition.presentation,
+        actionIds: Object.freeze([...definition.presentation.actionIds]),
+      })
+    : undefined;
+
+  return Object.freeze({
+    ...definition,
+    ...(presentation ? { presentation } : {}),
   });
 }
 

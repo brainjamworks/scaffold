@@ -2,6 +2,7 @@ import type { EmbeddedNodeId } from "@scaffold/contracts";
 import type { JSONContent } from "@tiptap/core";
 import type { ZodTypeAny } from "zod";
 
+import type { DocumentSemanticsDefinition } from "@/document/model/semantic-document";
 import {
   SurfaceSettingsSchema,
   type CourseMode,
@@ -70,6 +71,7 @@ export interface SurfaceVariantDefinition {
   alignment?: SurfaceAlignmentDefinition;
   settingsSchema?: ZodTypeAny;
   structurePolicy?: SurfaceStructurePolicy;
+  documentSemantics?: DocumentSemanticsDefinition;
   createSurface: (input: CreateSurfaceInput) => JSONContent;
 }
 

@@ -11,6 +11,7 @@ import type {
   AssessmentTargetSettings,
 } from "@scaffold/contracts";
 import type { RewriteCopiedContent } from "@/document/model/identity/clone-with-new-ids";
+import type { DocumentSemanticsDefinition } from "@/document/model/semantic-document";
 import type { ConfigurationDefinition } from "../configuration/definition";
 import { deriveQuickMenuDefinition } from "../configuration/quick-menu-derivation";
 import type { QuickControlDescriptor, QuickMenuDefinition } from "../configuration/quick-menu";
@@ -204,6 +205,7 @@ export function defineAssessmentCapability(
 
 export interface BlockDefinitionInput {
   readonly nodeType: string;
+  readonly title: string;
   readonly authoringControls?: BlockAuthoringControlsDefinition;
   readonly capabilities?: BlockCapabilitiesDefinition;
   readonly childSettings?: BlockChildSettingsDefinition;
@@ -216,6 +218,7 @@ export interface BlockDefinitionInput {
   readonly boundedPlacement?: BoundedPlacement;
   readonly stagedBoundedHost?: BlockStagedBoundedHostDefinition;
   readonly frame?: BlockFrameDefinition;
+  readonly documentSemantics?: DocumentSemanticsDefinition;
 }
 
 export interface BlockDefinition extends BlockDefinitionInput {
@@ -230,14 +233,17 @@ export function defineBlock(input: BlockDefinitionInput): BlockDefinition {
   const settingsSheet = deriveSettingsSheetDefinition(input.configuration);
   const frame = normalizeFrameDefinition(input.frame);
   const insert = normalizeBlockInsertDefinition(input.insert);
+  const documentSemantics = normalizeDocumentSemanticsDefinition(input.documentSemantics);
 
   return Object.freeze({
     ...input,
+    title: normalizeBlockTitle(input.title),
     ...(attrSchemas ? { attrSchemas } : {}),
     ...(quickMenu ? { quickMenu } : {}),
     ...(settingsSheet ? { settingsSheet: { nodeType: input.nodeType, ...settingsSheet } } : {}),
     ...(frame ? { frame } : {}),
     ...(insert ? { insert } : {}),
+    ...(documentSemantics ? { documentSemantics } : {}),
   });
 }
 
@@ -307,5 +313,27 @@ function normalizeBlockInsertDefinition(
     ...insert,
     ...(keywords ? { keywords } : {}),
     ...(variants ? { variants } : {}),
+  });
+}
+
+function normalizeBlockTitle(title: string): string {
+  return typeof title === "string" ? title.trim() : "";
+}
+
+function normalizeDocumentSemanticsDefinition(
+  definition: DocumentSemanticsDefinition | undefined,
+): DocumentSemanticsDefinition | undefined {
+  if (!definition) return undefined;
+
+  const presentation = definition.presentation
+    ? Object.freeze({
+        ...definition.presentation,
+        actionIds: Object.freeze([...definition.presentation.actionIds]),
+      })
+    : undefined;
+
+  return Object.freeze({
+    ...definition,
+    ...(presentation ? { presentation } : {}),
   });
 }
