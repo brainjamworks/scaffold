@@ -26,49 +26,75 @@ own licence terms. `thirdpartylibs.xml` contains the matching Moodle metadata.
 | @phosphor-icons/react                  | 2.1.10  | MIT                     | public/assets     | [source](https://github.com/phosphor-icons/react)                     |
 | @preact/signals-core                   | 1.14.4  | MIT                     | public/assets     | [source](https://github.com/preactjs/signals)                         |
 | @radix-ui/number                       | 1.1.2   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
+| @radix-ui/number                       | 1.1.3   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/primitive                    | 1.1.4   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
+| @radix-ui/primitive                    | 1.1.7   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-accordion              | 1.2.13  | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
+| @radix-ui/react-arrow                  | 1.1.15  | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-arrow                  | 1.1.9   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
+| @radix-ui/react-checkbox               | 1.3.11  | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-checkbox               | 1.3.4   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-collapsible            | 1.1.13  | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-collection             | 1.1.10  | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
+| @radix-ui/react-collection             | 1.1.15  | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-collection             | 1.1.9   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-compose-refs           | 1.1.3   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
+| @radix-ui/react-compose-refs           | 1.1.5   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-context                | 1.1.4   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
+| @radix-ui/react-context                | 1.2.2   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-dialog                 | 1.1.16  | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-direction              | 1.1.2   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
+| @radix-ui/react-direction              | 1.1.4   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-dismissable-layer      | 1.1.12  | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
+| @radix-ui/react-dismissable-layer      | 1.1.19  | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-dropdown-menu          | 2.1.17  | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-focus-guards           | 1.1.4   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-focus-scope            | 1.1.9   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-id                     | 1.1.2   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
+| @radix-ui/react-id                     | 1.1.4   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-menu                   | 2.1.17  | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-popover                | 1.1.16  | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-popper                 | 1.3.0   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
+| @radix-ui/react-popper                 | 1.3.7   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-portal                 | 1.1.11  | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
+| @radix-ui/react-portal                 | 1.1.17  | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
+| @radix-ui/react-presence               | 1.1.10  | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-presence               | 1.1.6   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
+| @radix-ui/react-primitive              | 2.1.10  | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-primitive              | 2.1.5   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-primitive              | 2.1.6   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
+| @radix-ui/react-progress               | 1.1.16  | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-radio-group            | 1.4.0   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-roving-focus           | 1.1.12  | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-roving-focus           | 1.1.13  | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-select                 | 2.3.0   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-separator              | 1.1.10  | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
+| @radix-ui/react-slider                 | 1.4.7   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-slot                   | 1.2.5   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-slot                   | 1.3.0   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
+| @radix-ui/react-slot                   | 1.3.3   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-switch                 | 1.3.0   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-tabs                   | 1.1.14  | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-toggle                 | 1.1.12  | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-toggle-group           | 1.1.13  | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-toolbar                | 1.1.13  | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
+| @radix-ui/react-tooltip                | 1.2.16  | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-tooltip                | 1.2.9   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-use-callback-ref       | 1.1.2   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
+| @radix-ui/react-use-callback-ref       | 1.1.4   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-use-controllable-state | 1.2.3   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
+| @radix-ui/react-use-controllable-state | 1.2.6   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
+| @radix-ui/react-use-effect-event       | 0.0.5   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-use-escape-keydown     | 1.1.2   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-use-layout-effect      | 1.1.2   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
+| @radix-ui/react-use-layout-effect      | 1.1.4   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-use-previous           | 1.1.2   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
+| @radix-ui/react-use-previous           | 1.1.4   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-use-size               | 1.1.2   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
+| @radix-ui/react-use-size               | 1.1.4   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
+| @radix-ui/react-visually-hidden        | 1.2.11  | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
 | @radix-ui/react-visually-hidden        | 1.2.5   | MIT                     | public/assets     | [source](https://github.com/radix-ui/primitives)                      |
+| @radix-ui/themes                       | 3.3.0   | MIT                     | public/assets     | [source](https://github.com/radix-ui/themes)                          |
 | @revolist/react-datagrid               | 4.21.9  | MIT                     | public/assets     | [source](https://github.com/revolist/react-datagrid)                  |
 | @revolist/revogrid                     | 4.21.9  | MIT                     | public/assets     | [source](https://github.com/revolist/revogrid)                        |
 | @tiptap/core                           | 3.26.0  | MIT                     | public/assets     | [source](https://github.com/ueberdosis/tiptap)                        |
@@ -106,8 +132,8 @@ own licence terms. `thirdpartylibs.xml` contains the matching Moodle metadata.
 | @tiptap/starter-kit                    | 3.26.0  | MIT                     | public/assets     | [source](https://github.com/ueberdosis/tiptap)                        |
 | @tiptap/suggestion                     | 3.26.0  | MIT                     | public/assets     | [source](https://github.com/ueberdosis/tiptap)                        |
 | aria-hidden                            | 1.2.6   | MIT                     | public/assets     | [source](https://github.com/theKashey/aria-hidden)                    |
+| classnames                             | 2.5.1   | MIT                     | public/assets     | [source](https://github.com/JedWatson/classnames)                     |
 | clsx                                   | 2.1.1   | MIT                     | public/assets     | [source](https://github.com/lukeed/clsx)                              |
-| culori                                 | 4.0.2   | MIT                     | public/assets     | [source](https://github.com/Evercoder/culori)                         |
 | dequal                                 | 2.0.3   | MIT                     | public/assets     | [source](https://github.com/lukeed/dequal)                            |
 | devlop                                 | 1.1.0   | MIT                     | public/assets     | [source](https://github.com/wooorm/devlop)                            |
 | dompurify                              | 3.4.12  | (MPL-2.0 OR Apache-2.0) | public/assets     | [source](https://github.com/cure53/DOMPurify)                         |
@@ -956,48 +982,73 @@ SOFTWARE.
 **Applies to:**
 
 - `@radix-ui/number@1.1.2` — declared `MIT`
+- `@radix-ui/number@1.1.3` — declared `MIT`
 - `@radix-ui/primitive@1.1.4` — declared `MIT`
+- `@radix-ui/primitive@1.1.7` — declared `MIT`
 - `@radix-ui/react-accordion@1.2.13` — declared `MIT`
+- `@radix-ui/react-arrow@1.1.15` — declared `MIT`
 - `@radix-ui/react-arrow@1.1.9` — declared `MIT`
+- `@radix-ui/react-checkbox@1.3.11` — declared `MIT`
 - `@radix-ui/react-checkbox@1.3.4` — declared `MIT`
 - `@radix-ui/react-collapsible@1.1.13` — declared `MIT`
 - `@radix-ui/react-collection@1.1.10` — declared `MIT`
+- `@radix-ui/react-collection@1.1.15` — declared `MIT`
 - `@radix-ui/react-collection@1.1.9` — declared `MIT`
 - `@radix-ui/react-compose-refs@1.1.3` — declared `MIT`
+- `@radix-ui/react-compose-refs@1.1.5` — declared `MIT`
 - `@radix-ui/react-context@1.1.4` — declared `MIT`
+- `@radix-ui/react-context@1.2.2` — declared `MIT`
 - `@radix-ui/react-dialog@1.1.16` — declared `MIT`
 - `@radix-ui/react-direction@1.1.2` — declared `MIT`
+- `@radix-ui/react-direction@1.1.4` — declared `MIT`
 - `@radix-ui/react-dismissable-layer@1.1.12` — declared `MIT`
+- `@radix-ui/react-dismissable-layer@1.1.19` — declared `MIT`
 - `@radix-ui/react-dropdown-menu@2.1.17` — declared `MIT`
 - `@radix-ui/react-focus-guards@1.1.4` — declared `MIT`
 - `@radix-ui/react-focus-scope@1.1.9` — declared `MIT`
 - `@radix-ui/react-id@1.1.2` — declared `MIT`
+- `@radix-ui/react-id@1.1.4` — declared `MIT`
 - `@radix-ui/react-menu@2.1.17` — declared `MIT`
 - `@radix-ui/react-popover@1.1.16` — declared `MIT`
 - `@radix-ui/react-popper@1.3.0` — declared `MIT`
+- `@radix-ui/react-popper@1.3.7` — declared `MIT`
 - `@radix-ui/react-portal@1.1.11` — declared `MIT`
+- `@radix-ui/react-portal@1.1.17` — declared `MIT`
+- `@radix-ui/react-presence@1.1.10` — declared `MIT`
 - `@radix-ui/react-presence@1.1.6` — declared `MIT`
+- `@radix-ui/react-primitive@2.1.10` — declared `MIT`
 - `@radix-ui/react-primitive@2.1.5` — declared `MIT`
 - `@radix-ui/react-primitive@2.1.6` — declared `MIT`
+- `@radix-ui/react-progress@1.1.16` — declared `MIT`
 - `@radix-ui/react-radio-group@1.4.0` — declared `MIT`
 - `@radix-ui/react-roving-focus@1.1.12` — declared `MIT`
 - `@radix-ui/react-roving-focus@1.1.13` — declared `MIT`
 - `@radix-ui/react-select@2.3.0` — declared `MIT`
 - `@radix-ui/react-separator@1.1.10` — declared `MIT`
+- `@radix-ui/react-slider@1.4.7` — declared `MIT`
 - `@radix-ui/react-slot@1.2.5` — declared `MIT`
 - `@radix-ui/react-slot@1.3.0` — declared `MIT`
+- `@radix-ui/react-slot@1.3.3` — declared `MIT`
 - `@radix-ui/react-switch@1.3.0` — declared `MIT`
 - `@radix-ui/react-tabs@1.1.14` — declared `MIT`
 - `@radix-ui/react-toggle@1.1.12` — declared `MIT`
 - `@radix-ui/react-toggle-group@1.1.13` — declared `MIT`
 - `@radix-ui/react-toolbar@1.1.13` — declared `MIT`
+- `@radix-ui/react-tooltip@1.2.16` — declared `MIT`
 - `@radix-ui/react-tooltip@1.2.9` — declared `MIT`
 - `@radix-ui/react-use-callback-ref@1.1.2` — declared `MIT`
+- `@radix-ui/react-use-callback-ref@1.1.4` — declared `MIT`
 - `@radix-ui/react-use-controllable-state@1.2.3` — declared `MIT`
+- `@radix-ui/react-use-controllable-state@1.2.6` — declared `MIT`
+- `@radix-ui/react-use-effect-event@0.0.5` — declared `MIT`
 - `@radix-ui/react-use-escape-keydown@1.1.2` — declared `MIT`
 - `@radix-ui/react-use-layout-effect@1.1.2` — declared `MIT`
+- `@radix-ui/react-use-layout-effect@1.1.4` — declared `MIT`
 - `@radix-ui/react-use-previous@1.1.2` — declared `MIT`
+- `@radix-ui/react-use-previous@1.1.4` — declared `MIT`
 - `@radix-ui/react-use-size@1.1.2` — declared `MIT`
+- `@radix-ui/react-use-size@1.1.4` — declared `MIT`
+- `@radix-ui/react-visually-hidden@1.2.11` — declared `MIT`
 - `@radix-ui/react-visually-hidden@1.2.5` — declared `MIT`
 
 ```text
@@ -1028,6 +1079,36 @@ SOFTWARE.
 
 **Applies to:**
 
+- `@radix-ui/themes@3.3.0` — declared `MIT`
+
+```text
+MIT License
+
+Copyright (c) 2023 WorkOS
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### Text 13: `LICENSE`
+
+**Applies to:**
+
 - `@revolist/react-datagrid@4.21.9` — declared `MIT`
 - `@revolist/revogrid@4.21.9` — declared `MIT`
 
@@ -1055,7 +1136,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 13: `LICENSE`, `LICENSE.md`
+### Text 14: `LICENSE`, `LICENSE.md`
 
 **Applies to:**
 
@@ -1118,7 +1199,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 14: `LICENSE`
+### Text 15: `LICENSE`
 
 **Applies to:**
 
@@ -1153,34 +1234,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 15: `license`
-
-**Applies to:**
-
-- `clsx@2.1.1` — declared `MIT`
-
-```text
-MIT License
-
-Copyright (c) Luke Edwards <luke.edwards05@gmail.com> (lukeed.com)
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-```
-
 ### Text 16: `LICENSE`
 
 **Applies to:**
 
-- `culori@4.0.2` — declared `MIT`
+- `classnames@2.5.1` — declared `MIT`
 
 ```text
-MIT License
+The MIT License (MIT)
 
-Copyright (c) 2018 Dan Burzo
+Copyright (c) 2018 Jed Watson
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -1202,6 +1265,24 @@ SOFTWARE.
 ```
 
 ### Text 17: `license`
+
+**Applies to:**
+
+- `clsx@2.1.1` — declared `MIT`
+
+```text
+MIT License
+
+Copyright (c) Luke Edwards <luke.edwards05@gmail.com> (lukeed.com)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+### Text 18: `license`
 
 **Applies to:**
 
@@ -1231,7 +1312,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Text 18: `license`
+### Text 19: `license`
 
 **Applies to:**
 
@@ -1262,7 +1343,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 19: `LICENSE`
+### Text 20: `LICENSE`
 
 **Applies to:**
 
@@ -1473,7 +1554,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
    limitations under the License.
 ```
 
-### Text 20: `LICENSE-MPL`
+### Text 21: `LICENSE-MPL`
 
 **Applies to:**
 
@@ -1855,7 +1936,7 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
   defined by the Mozilla Public License, v. 2.0.
 ```
 
-### Text 21: `LICENSE`
+### Text 22: `LICENSE`
 
 **Applies to:**
 
@@ -2086,7 +2167,7 @@ The following files embed [d3.js](https://github.com/d3/d3) BSD 3-Clause:
 See `/licenses/LICENSE-d3` for details of the license.
 ```
 
-### Text 22: `NOTICE`
+### Text 23: `NOTICE`
 
 **Applies to:**
 
@@ -2100,7 +2181,7 @@ This product includes software developed at
 The Apache Software Foundation (https://www.apache.org/).
 ```
 
-### Text 23: `LICENSE`
+### Text 24: `LICENSE`
 
 **Applies to:**
 
@@ -2130,7 +2211,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 24: `LICENSE`
+### Text 25: `LICENSE`
 
 **Applies to:**
 
@@ -2160,7 +2241,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 25: `LICENSE`
+### Text 26: `LICENSE`
 
 **Applies to:**
 
@@ -2198,7 +2279,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### Text 26: `LICENSE`
+### Text 27: `LICENSE`
 
 **Applies to:**
 
@@ -2228,7 +2309,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 27: `LICENSE`
+### Text 28: `LICENSE`
 
 **Applies to:**
 
@@ -2256,7 +2337,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Text 28: `license`
+### Text 29: `license`
 
 **Applies to:**
 
@@ -2287,7 +2368,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 29: `LICENSE`
+### Text 30: `LICENSE`
 
 **Applies to:**
 
@@ -2317,7 +2398,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 30: `LICENSE`
+### Text 31: `LICENSE`
 
 **Applies to:**
 
@@ -2347,7 +2428,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 31: `LICENSE.txt`
+### Text 32: `LICENSE.txt`
 
 **Applies to:**
 
@@ -2375,7 +2456,7 @@ FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 32: `LICENSE`
+### Text 33: `LICENSE`
 
 **Applies to:**
 
@@ -2406,7 +2487,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 33: `LICENSE`
+### Text 34: `LICENSE`
 
 **Applies to:**
 
@@ -2435,7 +2516,7 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 34: `LICENSE`
+### Text 35: `LICENSE`
 
 **Applies to:**
 
@@ -2464,7 +2545,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Text 35: `LICENSE`
+### Text 36: `LICENSE`
 
 **Applies to:**
 
@@ -2650,7 +2731,7 @@ THE SOFTWARE.
    END OF TERMS AND CONDITIONS
 ```
 
-### Text 36: `LICENSE`
+### Text 37: `LICENSE`
 
 **Applies to:**
 
@@ -2687,7 +2768,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Text 37: `LICENSE`
+### Text 38: `LICENSE`
 
 **Applies to:**
 
@@ -2715,7 +2796,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Text 38: `LICENSE`
+### Text 39: `LICENSE`
 
 **Applies to:**
 
@@ -2748,7 +2829,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 39: `LICENSE`
+### Text 40: `LICENSE`
 
 **Applies to:**
 
@@ -2776,7 +2857,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ```
 
-### Text 40: `LICENSE`
+### Text 41: `LICENSE`
 
 **Applies to:**
 
@@ -2806,7 +2887,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 41: `LICENSE.txt`
+### Text 42: `LICENSE.txt`
 
 **Applies to:**
 
@@ -2828,7 +2909,7 @@ OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.
 ```
 
-### Text 42: `LICENSE.md`
+### Text 43: `LICENSE.md`
 
 **Applies to:**
 
@@ -2846,7 +2927,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
-### Text 43: `LICENSE.md`
+### Text 44: `LICENSE.md`
 
 **Applies to:**
 
@@ -2876,7 +2957,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 44: `LICENSE`
+### Text 45: `LICENSE`
 
 **Applies to:**
 
@@ -2906,7 +2987,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### Text 45: `LICENSE`
+### Text 46: `LICENSE`
 
 **Applies to:**
 
@@ -2944,7 +3025,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-### Text 46: `LICENSE`
+### Text 47: `LICENSE`
 
 **Applies to:**
 

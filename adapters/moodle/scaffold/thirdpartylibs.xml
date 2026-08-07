@@ -163,9 +163,25 @@
   </library>
   <library>
     <location>public/assets</location>
+    <name>@radix-ui/number</name>
+    <description>@radix-ui/number frontend dependency.</description>
+    <version>1.1.3</version>
+    <license>MIT</license>
+    <repository>https://github.com/radix-ui/primitives</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
     <name>@radix-ui/primitive</name>
     <description>@radix-ui/primitive frontend dependency.</description>
     <version>1.1.4</version>
+    <license>MIT</license>
+    <repository>https://github.com/radix-ui/primitives</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
+    <name>@radix-ui/primitive</name>
+    <description>@radix-ui/primitive frontend dependency.</description>
+    <version>1.1.7</version>
     <license>MIT</license>
     <repository>https://github.com/radix-ui/primitives</repository>
   </library>
@@ -181,7 +197,23 @@
     <location>public/assets</location>
     <name>@radix-ui/react-arrow</name>
     <description>@radix-ui/react-arrow frontend dependency.</description>
+    <version>1.1.15</version>
+    <license>MIT</license>
+    <repository>https://github.com/radix-ui/primitives</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
+    <name>@radix-ui/react-arrow</name>
+    <description>@radix-ui/react-arrow frontend dependency.</description>
     <version>1.1.9</version>
+    <license>MIT</license>
+    <repository>https://github.com/radix-ui/primitives</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
+    <name>@radix-ui/react-checkbox</name>
+    <description>@radix-ui/react-checkbox frontend dependency.</description>
+    <version>1.3.11</version>
     <license>MIT</license>
     <repository>https://github.com/radix-ui/primitives</repository>
   </library>
@@ -213,6 +245,14 @@
     <location>public/assets</location>
     <name>@radix-ui/react-collection</name>
     <description>@radix-ui/react-collection frontend dependency.</description>
+    <version>1.1.15</version>
+    <license>MIT</license>
+    <repository>https://github.com/radix-ui/primitives</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
+    <name>@radix-ui/react-collection</name>
+    <description>@radix-ui/react-collection frontend dependency.</description>
     <version>1.1.9</version>
     <license>MIT</license>
     <repository>https://github.com/radix-ui/primitives</repository>
@@ -227,9 +267,25 @@
   </library>
   <library>
     <location>public/assets</location>
+    <name>@radix-ui/react-compose-refs</name>
+    <description>@radix-ui/react-compose-refs frontend dependency.</description>
+    <version>1.1.5</version>
+    <license>MIT</license>
+    <repository>https://github.com/radix-ui/primitives</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
     <name>@radix-ui/react-context</name>
     <description>@radix-ui/react-context frontend dependency.</description>
     <version>1.1.4</version>
+    <license>MIT</license>
+    <repository>https://github.com/radix-ui/primitives</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
+    <name>@radix-ui/react-context</name>
+    <description>@radix-ui/react-context frontend dependency.</description>
+    <version>1.2.2</version>
     <license>MIT</license>
     <repository>https://github.com/radix-ui/primitives</repository>
   </library>
@@ -251,9 +307,25 @@
   </library>
   <library>
     <location>public/assets</location>
+    <name>@radix-ui/react-direction</name>
+    <description>@radix-ui/react-direction frontend dependency.</description>
+    <version>1.1.4</version>
+    <license>MIT</license>
+    <repository>https://github.com/radix-ui/primitives</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
     <name>@radix-ui/react-dismissable-layer</name>
     <description>@radix-ui/react-dismissable-layer frontend dependency.</description>
     <version>1.1.12</version>
+    <license>MIT</license>
+    <repository>https://github.com/radix-ui/primitives</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
+    <name>@radix-ui/react-dismissable-layer</name>
+    <description>@radix-ui/react-dismissable-layer frontend dependency.</description>
+    <version>1.1.19</version>
     <license>MIT</license>
     <repository>https://github.com/radix-ui/primitives</repository>
   </library>
@@ -291,6 +363,14 @@
   </library>
   <library>
     <location>public/assets</location>
+    <name>@radix-ui/react-id</name>
+    <description>@radix-ui/react-id frontend dependency.</description>
+    <version>1.1.4</version>
+    <license>MIT</license>
+    <repository>https://github.com/radix-ui/primitives</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
     <name>@radix-ui/react-menu</name>
     <description>@radix-ui/react-menu frontend dependency.</description>
     <version>2.1.17</version>
@@ -315,6 +395,14 @@
   </library>
   <library>
     <location>public/assets</location>
+    <name>@radix-ui/react-popper</name>
+    <description>@radix-ui/react-popper frontend dependency.</description>
+    <version>1.3.7</version>
+    <license>MIT</license>
+    <repository>https://github.com/radix-ui/primitives</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
     <name>@radix-ui/react-portal</name>
     <description>@radix-ui/react-portal frontend dependency.</description>
     <version>1.1.11</version>
@@ -323,9 +411,33 @@
   </library>
   <library>
     <location>public/assets</location>
+    <name>@radix-ui/react-portal</name>
+    <description>@radix-ui/react-portal frontend dependency.</description>
+    <version>1.1.17</version>
+    <license>MIT</license>
+    <repository>https://github.com/radix-ui/primitives</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
+    <name>@radix-ui/react-presence</name>
+    <description>@radix-ui/react-presence frontend dependency.</description>
+    <version>1.1.10</version>
+    <license>MIT</license>
+    <repository>https://github.com/radix-ui/primitives</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
     <name>@radix-ui/react-presence</name>
     <description>@radix-ui/react-presence frontend dependency.</description>
     <version>1.1.6</version>
+    <license>MIT</license>
+    <repository>https://github.com/radix-ui/primitives</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
+    <name>@radix-ui/react-primitive</name>
+    <description>@radix-ui/react-primitive frontend dependency.</description>
+    <version>2.1.10</version>
     <license>MIT</license>
     <repository>https://github.com/radix-ui/primitives</repository>
   </library>
@@ -342,6 +454,14 @@
     <name>@radix-ui/react-primitive</name>
     <description>@radix-ui/react-primitive frontend dependency.</description>
     <version>2.1.6</version>
+    <license>MIT</license>
+    <repository>https://github.com/radix-ui/primitives</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
+    <name>@radix-ui/react-progress</name>
+    <description>@radix-ui/react-progress frontend dependency.</description>
+    <version>1.1.16</version>
     <license>MIT</license>
     <repository>https://github.com/radix-ui/primitives</repository>
   </library>
@@ -387,6 +507,14 @@
   </library>
   <library>
     <location>public/assets</location>
+    <name>@radix-ui/react-slider</name>
+    <description>@radix-ui/react-slider frontend dependency.</description>
+    <version>1.4.7</version>
+    <license>MIT</license>
+    <repository>https://github.com/radix-ui/primitives</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
     <name>@radix-ui/react-slot</name>
     <description>@radix-ui/react-slot frontend dependency.</description>
     <version>1.2.5</version>
@@ -398,6 +526,14 @@
     <name>@radix-ui/react-slot</name>
     <description>@radix-ui/react-slot frontend dependency.</description>
     <version>1.3.0</version>
+    <license>MIT</license>
+    <repository>https://github.com/radix-ui/primitives</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
+    <name>@radix-ui/react-slot</name>
+    <description>@radix-ui/react-slot frontend dependency.</description>
+    <version>1.3.3</version>
     <license>MIT</license>
     <repository>https://github.com/radix-ui/primitives</repository>
   </library>
@@ -445,6 +581,14 @@
     <location>public/assets</location>
     <name>@radix-ui/react-tooltip</name>
     <description>@radix-ui/react-tooltip frontend dependency.</description>
+    <version>1.2.16</version>
+    <license>MIT</license>
+    <repository>https://github.com/radix-ui/primitives</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
+    <name>@radix-ui/react-tooltip</name>
+    <description>@radix-ui/react-tooltip frontend dependency.</description>
     <version>1.2.9</version>
     <license>MIT</license>
     <repository>https://github.com/radix-ui/primitives</repository>
@@ -459,9 +603,33 @@
   </library>
   <library>
     <location>public/assets</location>
+    <name>@radix-ui/react-use-callback-ref</name>
+    <description>@radix-ui/react-use-callback-ref frontend dependency.</description>
+    <version>1.1.4</version>
+    <license>MIT</license>
+    <repository>https://github.com/radix-ui/primitives</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
     <name>@radix-ui/react-use-controllable-state</name>
     <description>@radix-ui/react-use-controllable-state frontend dependency.</description>
     <version>1.2.3</version>
+    <license>MIT</license>
+    <repository>https://github.com/radix-ui/primitives</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
+    <name>@radix-ui/react-use-controllable-state</name>
+    <description>@radix-ui/react-use-controllable-state frontend dependency.</description>
+    <version>1.2.6</version>
+    <license>MIT</license>
+    <repository>https://github.com/radix-ui/primitives</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
+    <name>@radix-ui/react-use-effect-event</name>
+    <description>@radix-ui/react-use-effect-event frontend dependency.</description>
+    <version>0.0.5</version>
     <license>MIT</license>
     <repository>https://github.com/radix-ui/primitives</repository>
   </library>
@@ -483,9 +651,25 @@
   </library>
   <library>
     <location>public/assets</location>
+    <name>@radix-ui/react-use-layout-effect</name>
+    <description>@radix-ui/react-use-layout-effect frontend dependency.</description>
+    <version>1.1.4</version>
+    <license>MIT</license>
+    <repository>https://github.com/radix-ui/primitives</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
     <name>@radix-ui/react-use-previous</name>
     <description>@radix-ui/react-use-previous frontend dependency.</description>
     <version>1.1.2</version>
+    <license>MIT</license>
+    <repository>https://github.com/radix-ui/primitives</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
+    <name>@radix-ui/react-use-previous</name>
+    <description>@radix-ui/react-use-previous frontend dependency.</description>
+    <version>1.1.4</version>
     <license>MIT</license>
     <repository>https://github.com/radix-ui/primitives</repository>
   </library>
@@ -499,11 +683,35 @@
   </library>
   <library>
     <location>public/assets</location>
+    <name>@radix-ui/react-use-size</name>
+    <description>@radix-ui/react-use-size frontend dependency.</description>
+    <version>1.1.4</version>
+    <license>MIT</license>
+    <repository>https://github.com/radix-ui/primitives</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
+    <name>@radix-ui/react-visually-hidden</name>
+    <description>@radix-ui/react-visually-hidden frontend dependency.</description>
+    <version>1.2.11</version>
+    <license>MIT</license>
+    <repository>https://github.com/radix-ui/primitives</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
     <name>@radix-ui/react-visually-hidden</name>
     <description>@radix-ui/react-visually-hidden frontend dependency.</description>
     <version>1.2.5</version>
     <license>MIT</license>
     <repository>https://github.com/radix-ui/primitives</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
+    <name>@radix-ui/themes</name>
+    <description>@radix-ui/themes frontend dependency.</description>
+    <version>3.3.0</version>
+    <license>MIT</license>
+    <repository>https://github.com/radix-ui/themes</repository>
   </library>
   <library>
     <location>public/assets</location>
@@ -803,19 +1011,19 @@
   </library>
   <library>
     <location>public/assets</location>
+    <name>classnames</name>
+    <description>A simple utility for conditionally joining classNames together</description>
+    <version>2.5.1</version>
+    <license>MIT</license>
+    <repository>https://github.com/JedWatson/classnames</repository>
+  </library>
+  <library>
+    <location>public/assets</location>
     <name>clsx</name>
     <description>A tiny (239B) utility for constructing className strings conditionally.</description>
     <version>2.1.1</version>
     <license>MIT</license>
     <repository>https://github.com/lukeed/clsx</repository>
-  </library>
-  <library>
-    <location>public/assets</location>
-    <name>culori</name>
-    <description>A general-purpose color library for JavaScript</description>
-    <version>4.0.2</version>
-    <license>MIT</license>
-    <repository>https://github.com/Evercoder/culori</repository>
   </library>
   <library>
     <location>public/assets</location>
