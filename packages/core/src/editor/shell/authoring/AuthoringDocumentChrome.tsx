@@ -5,6 +5,7 @@ import { getScaffoldCapabilitiesForEditor } from "@/composition/extensions/scaff
 import { getScaffoldAuthoringCataloguesForEditor } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
 import type { OverlayBoundaryKind } from "@/ui/overlays/portal-host-context";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { CourseSectionStartDialog } from "@/editor/course-sections/authoring/CourseSectionStartDialog";
 import { BlockStrip } from "@/editor/shell/chrome/BlockStrip";
 import { SURFACE_FLOATING_AUTHORING_CONTROLS } from "@/editor/surfaces/authoring/chrome/surface-floating-controls";
 import { builtInSurfaceAuthoringChromeResolver } from "@/editor/surfaces/authoring/surface-authoring-views";
@@ -50,6 +51,10 @@ export function AuthoringDocumentSurfaceTemplatePickerHost({ editor }: { editor:
   );
 }
 
+export function AuthoringDocumentCourseSectionStartDialogHost({ editor }: { editor: Editor }) {
+  return <CourseSectionStartDialog editor={editor} />;
+}
+
 export function AuthoringDocumentChrome({
   children,
   editable,
@@ -76,7 +81,10 @@ export function AuthoringDocumentChrome({
         {children}
       </AuthoringContentChrome>
       {canShowAuthoringChrome ? (
-        <AuthoringDocumentSurfaceTemplatePickerHost editor={editor} />
+        <>
+          <AuthoringDocumentSurfaceTemplatePickerHost editor={editor} />
+          <AuthoringDocumentCourseSectionStartDialogHost editor={editor} />
+        </>
       ) : null}
     </>
   );

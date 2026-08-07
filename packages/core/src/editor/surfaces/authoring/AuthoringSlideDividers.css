@@ -71,6 +71,33 @@
     outline-offset: 2px;
   }
 
+  .scaffold-authoring-surface-view .sc-authoring-slide-divider__course-section-button {
+    box-sizing: border-box;
+    flex: 0 0 auto;
+    padding: 0.375rem 0.75rem;
+    border: 1px solid var(--sc-app-color-border);
+    border-radius: var(--radius-pill);
+    background: var(--sc-app-color-background);
+    color: var(--sc-app-color-text-secondary);
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 650;
+    line-height: 1.25;
+    cursor: pointer;
+    pointer-events: auto;
+  }
+
+  .scaffold-authoring-surface-view .sc-authoring-slide-divider__course-section-button:hover {
+    border-color: var(--sc-app-color-focus-outline);
+    color: var(--sc-app-color-ink);
+  }
+
+  .scaffold-authoring-surface-view
+    .sc-authoring-slide-divider__course-section-button:focus-visible {
+    outline: 2px solid var(--sc-app-color-focus-ring);
+    outline-offset: 2px;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .scaffold-authoring-surface-view .sc-authoring-slide-divider__button {
       transition: none;

@@ -34,6 +34,8 @@ const CORE_SURFACE_ID = createEmbeddedNodeId();
 const REGION_MENU_SURFACE_ID = createEmbeddedNodeId();
 const TEMPLATE_PICKER_SURFACE_ID = createEmbeddedNodeId();
 const TEMPLATE_PICKER_TEARDOWN_SURFACE_ID = createEmbeddedNodeId();
+const COURSE_SECTION_START_FIRST_SURFACE_ID = createEmbeddedNodeId();
+const COURSE_SECTION_START_SECOND_SURFACE_ID = createEmbeddedNodeId();
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
 import { interactionOwnerPluginKey } from "@/editor/interactions/targets/prosemirror/state/interaction-owner-plugin-state";
 import { authoringSlideDividersPluginKey } from "@/editor/surfaces/authoring/AuthoringSlideDividers";
@@ -423,6 +425,52 @@ describe("AuthoringDocumentChrome", () => {
     editor.destroy();
   });
 
+  it("opens Course Section authoring from leading and between-slide keyboard controls", async () => {
+    const editor = createApplicationAuthoringEditor(
+      createScaffoldApplication(),
+      createSlideshowWithSurfaceIds([
+        COURSE_SECTION_START_FIRST_SURFACE_ID,
+        COURSE_SECTION_START_SECOND_SURFACE_ID,
+      ]),
+    );
+    const rendered = render(
+      <AuthoringDocumentChrome editable editor={editor}>
+        <EditorContent className="sc-course-document-editor__content" editor={editor} />
+      </AuthoringDocumentChrome>,
+    );
+
+    const leading = await screen.findByRole("button", {
+      name: "Start Course Section at slide 1",
+    });
+    expect(
+      screen.getByRole("button", { name: "Start Course Section at slide 2" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Start Course Section at slide 3" })).toBeNull();
+
+    fireEvent.keyDown(leading, { key: "Enter" });
+
+    expect(await screen.findByRole("dialog", { name: "Start Course Section" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Course Section title")).toBeInTheDocument();
+
+    rendered.unmount();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    editor.destroy();
+  });
+
+  it("does not expose Course Section start controls for Page documents", () => {
+    const editor = createApplicationAuthoringEditor(createScaffoldApplication());
+    const rendered = render(
+      <AuthoringDocumentChrome editable editor={editor}>
+        <EditorContent className="sc-course-document-editor__content" editor={editor} />
+      </AuthoringDocumentChrome>,
+    );
+
+    expect(screen.queryByRole("button", { name: /Start Course Section at slide/ })).toBeNull();
+
+    rendered.unmount();
+    editor.destroy();
+  });
+
   it("does not refocus a destroyed editor after template picker teardown", async () => {
     const editor = createAuthoringEditor();
     editor.commands.setContent(
@@ -602,6 +650,26 @@ function createSlideshowDocumentJSON({
           overflowMode: "clip",
         },
         content: [surface],
+      },
+    ],
+  };
+}
+
+function createSlideshowWithSurfaceIds(surfaceIds: readonly EmbeddedNodeId[]): JSONContent {
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "courseDocument",
+        attrs: {
+          schemaVersion: SCAFFOLD_DOCUMENT_FORMAT_VERSION,
+          mode: "slideshow",
+          surfaceSize: "16x9",
+          overflowMode: "clip",
+        },
+        content: surfaceIds.map((surfaceId) =>
+          slideContentSurfaceDefinition.createSurface({ surfaceId }),
+        ),
       },
     ],
   };
