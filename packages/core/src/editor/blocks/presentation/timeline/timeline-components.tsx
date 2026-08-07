@@ -58,6 +58,12 @@ export function TimelineTrack({
     initialisedPresentationRef.current = options.presentation;
 
     const updateNavigation = () => {
+      const hasOverflow =
+        options.presentation === "carousel"
+          ? track.scrollWidth > track.clientWidth + 1
+          : track.scrollHeight > track.clientHeight + 1;
+      track.toggleAttribute("data-timeline-scrollable", hasOverflow);
+
       if (options.presentation !== "carousel") {
         setNavigation((current) =>
           current.visible
@@ -68,7 +74,6 @@ export function TimelineTrack({
       }
 
       const events = timelineEvents(track);
-      const hasOverflow = track.scrollWidth > track.clientWidth + 1;
       const currentIndex = nearestTimelineEventIndex(track, events);
       setNavigation({
         canNext: hasOverflow && currentIndex < events.length - 1,
@@ -83,6 +88,8 @@ export function TimelineTrack({
     const resizeObserver =
       typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateNavigation);
     resizeObserver?.observe(track);
+    const rail = track.querySelector<HTMLElement>(".sc-course-timeline__rail");
+    if (rail) resizeObserver?.observe(rail);
 
     return () => {
       track.removeEventListener("scroll", updateNavigation);

@@ -51,6 +51,7 @@ describe("Timeline layout and ownership", () => {
 
   it("lets events recede at the scrollport edge without extreme scaling", async () => {
     const fixture = createTimelineFixture({ bounded: false, presentation: "vertical" });
+    fixture.track.setAttribute("data-timeline-scrollable", "");
     await nextLayoutFrame();
 
     fixture.track.scrollTop = fixture.track.scrollHeight - fixture.track.clientHeight;
@@ -59,13 +60,15 @@ describe("Timeline layout and ownership", () => {
 
     const eventStyle = getComputedStyle(fixture.firstEvent);
     const scale = new DOMMatrixReadOnly(eventStyle.transform).a;
-    expect(Number.parseFloat(eventStyle.opacity)).toBeLessThanOrEqual(0.1);
-    expect(scale).toBeGreaterThanOrEqual(0.9);
-    expect(scale).toBeLessThanOrEqual(0.94);
+    expect(Number.parseFloat(eventStyle.opacity)).toBeGreaterThanOrEqual(0.3);
+    expect(Number.parseFloat(eventStyle.opacity)).toBeLessThanOrEqual(0.5);
+    expect(scale).toBeGreaterThanOrEqual(0.98);
+    expect(scale).toBeLessThanOrEqual(0.99);
   });
 
   it("uses the same restrained edge disappearance in the carousel", async () => {
     const fixture = createTimelineFixture({ bounded: false, presentation: "carousel" });
+    fixture.track.setAttribute("data-timeline-scrollable", "");
     await nextLayoutFrame();
 
     fixture.track.scrollLeft = fixture.track.scrollWidth - fixture.track.clientWidth;
@@ -74,9 +77,10 @@ describe("Timeline layout and ownership", () => {
 
     const eventStyle = getComputedStyle(fixture.firstEvent);
     const scale = new DOMMatrixReadOnly(eventStyle.transform).a;
-    expect(Number.parseFloat(eventStyle.opacity)).toBeLessThanOrEqual(0.1);
-    expect(scale).toBeGreaterThanOrEqual(0.9);
-    expect(scale).toBeLessThanOrEqual(0.94);
+    expect(Number.parseFloat(eventStyle.opacity)).toBeGreaterThanOrEqual(0.3);
+    expect(Number.parseFloat(eventStyle.opacity)).toBeLessThanOrEqual(0.5);
+    expect(scale).toBeGreaterThanOrEqual(0.98);
+    expect(scale).toBeLessThanOrEqual(0.99);
   });
 
   it("keeps authoring controls close to the first content line without overlap", async () => {
@@ -153,6 +157,69 @@ describe("Timeline layout and ownership", () => {
     fixture.deleteButton.style.transition = "none";
     await userEvent.hover(fixture.deleteButton);
     expect(getComputedStyle(fixture.deleteButton).color).toBe("rgb(225, 29, 72)");
+  });
+
+  it("enables edge treatment only while a vertical Timeline actually overflows", async () => {
+    const host = createCourseHost(420);
+    host.style.height = "240px";
+    const frame = document.createElement("div");
+    frame.className = "sc-course-timeline";
+    frame.dataset.boundedPlacement = "fill";
+    host.append(frame);
+    document.body.append(host);
+    const root = createRoot(frame);
+    mountedRoots.push(root);
+
+    const renderEvents = (eventCount: number) => {
+      root.render(
+        createElement(
+          "section",
+          {
+            className: "sc-course-timeline__shell",
+            "data-alignment": "alternate",
+            "data-presentation": "vertical",
+            "data-show-axis": "true",
+          },
+          createElement(TimelineTrack, {
+            children: createElement(
+              "ol",
+              { className: "sc-course-timeline__events" },
+              ...Array.from({ length: eventCount }, (_, index) =>
+                createElement(
+                  "li",
+                  {
+                    className: "sc-course-timeline__event",
+                    "data-timeline-event": "",
+                    key: index,
+                    style: { minHeight: "120px" },
+                  },
+                  `Event ${index + 1}`,
+                ),
+              ),
+            ),
+            eventCount,
+            options: { alignment: "alternate", presentation: "vertical", showAxis: true },
+          }),
+        ),
+      );
+    };
+
+    renderEvents(3);
+    await nextLayoutFrame();
+    await nextLayoutFrame();
+    const track = frame.querySelector<HTMLElement>(".sc-course-timeline__track");
+    expect(track).not.toBeNull();
+    expect(track?.scrollHeight).toBeGreaterThan(track?.clientHeight ?? 0);
+    expect(track).toHaveAttribute("data-timeline-scrollable", "");
+
+    renderEvents(1);
+    await nextLayoutFrame();
+    await nextLayoutFrame();
+    expect(track?.scrollHeight).toBeLessThanOrEqual(track?.clientHeight ?? 0);
+    expect(track).not.toHaveAttribute("data-timeline-scrollable");
+    const remainingEvent = track?.querySelector<HTMLElement>(".sc-course-timeline__event");
+    expect(remainingEvent).not.toBeNull();
+    expect(Number.parseFloat(getComputedStyle(remainingEvent!).opacity)).toBe(1);
   });
 
   it("navigates to adjacent event geometry with accurate endpoint states", async () => {

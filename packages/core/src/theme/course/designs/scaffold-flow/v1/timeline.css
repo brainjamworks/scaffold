@@ -29,6 +29,7 @@
 
 .sc-course.sc-course-theme-scaffold-flow-v1
   .sc-course-timeline__shell:not([data-presentation="carousel"])
+  .sc-course-timeline__track[data-timeline-scrollable]
   .sc-course-timeline__event {
   transform-origin: center;
   animation: sc-course-timeline-vertical-emphasis linear both;
@@ -39,23 +40,18 @@
 @keyframes sc-course-timeline-vertical-emphasis {
   0%,
   100% {
-    opacity: 0;
-    transform: scale(0.92);
+    opacity: 0.4;
+    transform: scale(0.985);
   }
 
-  18%,
-  82% {
-    opacity: 0.72;
-    transform: scale(0.965);
-  }
-
-  38%,
-  62% {
-    opacity: 0.96;
+  10%,
+  90% {
+    opacity: 0.82;
     transform: scale(0.995);
   }
 
-  50% {
+  20%,
+  80% {
     opacity: 1;
     transform: scale(1);
   }
@@ -275,6 +271,7 @@
 
 .sc-course.sc-course-theme-scaffold-flow-v1
   .sc-course-timeline__shell[data-presentation="carousel"]
+  .sc-course-timeline__track[data-timeline-scrollable]
   .sc-course-timeline__event {
   transform-origin: center bottom;
   animation: sc-course-timeline-carousel-emphasis linear both;
@@ -285,23 +282,18 @@
 @keyframes sc-course-timeline-carousel-emphasis {
   0%,
   100% {
-    opacity: 0;
-    transform: scale(0.92);
+    opacity: 0.4;
+    transform: scale(0.985);
   }
 
-  18%,
-  82% {
-    opacity: 0.72;
-    transform: scale(0.965);
-  }
-
-  38%,
-  62% {
-    opacity: 0.96;
+  10%,
+  90% {
+    opacity: 0.82;
     transform: scale(0.995);
   }
 
-  50% {
+  20%,
+  80% {
     opacity: 1;
     transform: scale(1);
   }
