@@ -29,6 +29,8 @@ import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtif
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import type { SemanticDocumentController } from "@/document/authoring/semantic-document/semantic-document-controller";
+import { semanticDocumentPluginKey } from "@/document/authoring/semantic-document/semantic-document-storage";
 import { CourseDocumentRuntimeRenderer } from "@/runtime/renderer/CourseDocumentRuntimeRenderer";
 import {
   LEARNING_EVENT_ACTIVITY_TYPES,
@@ -896,6 +898,36 @@ it("opens one workspace canvas and selected caption field, then restores editor 
   expect(restoredEdit).toBe(editTrigger);
   expect(document.activeElement).toBe(editTrigger);
   editor.destroy();
+});
+
+it("reports the actual annotation IDs selected from pins and the workspace", async () => {
+  const user = userEvent.setup();
+  const reportComponentSelection = vi.fn();
+  const controllerLookup = vi.spyOn(semanticDocumentPluginKey, "getState").mockReturnValue({
+    reportComponentSelection,
+  } as unknown as SemanticDocumentController);
+  const editor = renderAnnotatedFigureEditor(
+    annotatedFigureFixture(popoverFigureData(), [
+      { id: "annotate0001", x: 25, y: 30, caption: "First reported annotation" },
+      { id: "annotate0002", x: 65, y: 70, caption: "Second reported annotation" },
+    ]),
+  );
+
+  try {
+    await user.click(await screen.findByRole("button", { name: "Edit annotation 1 caption" }));
+    expect(reportComponentSelection).toHaveBeenLastCalledWith("annotate0001");
+
+    await user.click(
+      screen.getByRole("button", { name: "Edit annotated figure in expanded workspace" }),
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Edit annotated figure" });
+    await user.click(within(dialog).getByRole("button", { name: "Select annotation 2 caption" }));
+
+    expect(reportComponentSelection).toHaveBeenLastCalledWith("annotate0002");
+  } finally {
+    controllerLookup.mockRestore();
+    editor.destroy();
+  }
 });
 
 it("renders workspace actions as icon-only dialog toolbar chrome", async () => {

@@ -17,6 +17,7 @@ import {
 import type { SurfaceCapability } from "@/composition/application/surface-capability";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { getSemanticDocumentControllerForEditor } from "@/document/authoring/semantic-document";
 
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 import { createScaffoldDocumentContent } from "@/format/artifact";
@@ -32,6 +33,8 @@ const THIRD_SLIDE_ID = createEmbeddedNodeId();
 const MCQ_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00021");
 const GALLERY_SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00022");
 const FIRST_SECTION_ID = EmbeddedNodeIdSchema.parse("section00001");
+const MCQ_BLOCK_ID = EmbeddedNodeIdSchema.parse("mcq000000001");
+const GALLERY_BLOCK_ID = EmbeddedNodeIdSchema.parse("gallery00001");
 
 afterEach(() => {
   cleanup();
@@ -214,6 +217,58 @@ describe("CourseDocumentEditor", () => {
     });
     expect(screen.getByRole("region", { name: "Slide canvas" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Page canvas" })).toBeNull();
+  });
+
+  it("navigates to another current Surface through the contained shell without stealing focus", async () => {
+    const content = createSlideshowDocumentWithSurfaces([FIRST_SLIDE_ID, SECOND_SLIDE_ID]);
+    const onReady = vi.fn();
+
+    render(
+      createElement(
+        "div",
+        {
+          className: "sc-editor-shell",
+          "data-scroll-model": "contained",
+          "data-testid": "contained-editor-shell",
+        },
+        createElement("button", { type: "button" }, "Outline target"),
+        createElement(CourseDocumentEditor, {
+          composition: coreAuthoringComposition,
+          source: { mode: "document", content },
+          onReady,
+        }),
+      ),
+    );
+
+    await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(
+        document.querySelector(`[data-node="surface"][data-id="${SECOND_SLIDE_ID}"]`),
+      ).not.toBeNull(),
+    );
+    const editor = onReady.mock.calls[0]?.[0];
+    if (!editor) throw new Error("CourseDocumentEditor did not provide an editor");
+    const controller = getSemanticDocumentControllerForEditor(editor);
+    const semanticSnapshot = controller.getSnapshot().semantics;
+    const location = semanticSnapshot.locationById.get(SECOND_SLIDE_ID);
+    if (!location) throw new Error("Expected second Surface semantic location");
+    const targetNode = editor.view.nodeDOM(location.from);
+    const target = targetNode instanceof HTMLElement ? targetNode : targetNode?.parentElement;
+    if (!target) throw new Error("Expected second Surface DOM target");
+    target.getBoundingClientRect = () => testRect({ top: 500, bottom: 560 });
+    const shell = screen.getByTestId("contained-editor-shell");
+    shell.getBoundingClientRect = () => testRect({ top: 100, bottom: 400 });
+    const scrollBy = vi.fn();
+    Object.defineProperty(shell, "scrollBy", { configurable: true, value: scrollBy });
+    const outlineTarget = screen.getByRole("button", { name: "Outline target" });
+    outlineTarget.focus();
+
+    const result = await controller.select(SECOND_SLIDE_ID, { origin: "document-outline" });
+
+    expect(result).toEqual({ kind: "reached", id: SECOND_SLIDE_ID });
+    expect(scrollBy).toHaveBeenCalledWith({ behavior: "smooth", left: 0, top: 160 });
+    expect(document.activeElement).toBe(outlineTarget);
+    expect(controller.getSnapshot().semantics).toBe(semanticSnapshot);
   });
 
   it("renders authoring-only dividers after slideshow surfaces", async () => {
@@ -597,7 +652,7 @@ function authoringDocumentWithMcq(): JSONContent {
               {
                 type: "mcq",
                 attrs: {
-                  id: "mcq-1",
+                  id: MCQ_BLOCK_ID,
                   assessment: {
                     correctOptionId: "choice-a",
                     summaryFeedback: null,
@@ -709,7 +764,7 @@ function authoringDocumentWithGallery(): JSONContent {
               {
                 type: "gallery",
                 attrs: {
-                  id: "gallery-authoring",
+                  id: GALLERY_BLOCK_ID,
                   data: {
                     type: "gallery",
                     layout: "carousel",
@@ -783,4 +838,18 @@ function findFirstNodeOfType(node: JSONContent | undefined, type: string): JSONC
     if (match) return match;
   }
   return null;
+}
+
+function testRect({ top, bottom }: { top: number; bottom: number }): DOMRect {
+  return {
+    bottom,
+    height: bottom - top,
+    left: 0,
+    right: 100,
+    top,
+    width: 100,
+    x: 0,
+    y: top,
+    toJSON: () => ({}),
+  } as DOMRect;
 }

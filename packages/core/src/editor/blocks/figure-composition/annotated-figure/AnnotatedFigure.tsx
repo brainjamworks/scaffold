@@ -30,6 +30,7 @@ import { flushSync } from "react-dom";
 
 import type { CheckedMutationResult } from "@/document/model/commands/checked-transactions";
 import { createStableId } from "@/document/model/identity/stable-ids";
+import { semanticDocumentPluginKey } from "@/document/authoring/semantic-document/semantic-document-storage";
 import {
   nodeViewUiKey,
   usePickerOpen,
@@ -48,6 +49,7 @@ import { WorkspaceDialog } from "@/ui/components/WorkspaceDialog/WorkspaceDialog
 import { iconSm, iconXs } from "@/ui/tokens/icon-sizes";
 import {
   AnnotatedFigureDataSchema,
+  EmbeddedNodeIdSchema,
   type AnnotatedFigureData,
   type AnnotatedFigureSource,
 } from "@scaffold/contracts";
@@ -507,6 +509,12 @@ function AnnotatedFigureCanvasAuthoringView(props: NodeViewProps) {
 
   const activateAnnotation = (annotationId: string) => {
     setSelectedAnnotationId(annotationId);
+    const semanticId = EmbeddedNodeIdSchema.safeParse(annotationId);
+    if (semanticId.success) {
+      semanticDocumentPluginKey
+        .getState(props.editor.state)
+        ?.reportComponentSelection(semanticId.data);
+    }
     if (workspaceOpen) return;
     if (data.captionDisplay === "popover") {
       setCompactCaptionPopoverId((current) => (current === annotationId ? null : annotationId));

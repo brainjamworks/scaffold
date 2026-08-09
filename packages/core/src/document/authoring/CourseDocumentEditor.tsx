@@ -8,6 +8,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ScaffoldArtifactIdentityProvider } from "@/host/providers/ScaffoldArtifactIdentityProvider";
 import { AuthoringDocumentChrome } from "@/editor/shell/authoring/AuthoringDocumentChrome";
 import { readSurfaceViewSettingsFromProseMirrorDoc } from "@/document/model/surface-view-settings";
+import { getSemanticDocumentControllerForEditor } from "@/document/authoring/semantic-document";
+import { createAuthoringSemanticNavigationEnvironment } from "@/document/authoring/semantic-document/authoring-semantic-navigation-environment";
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 import type { ScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 import { PersistedCourseThemeSchema } from "@/schemas/course-document";
@@ -166,6 +168,23 @@ function MountedCourseDocumentEditor({
   useEffect(() => {
     editor?.setEditable(editable && !suspended);
   }, [editable, editor, suspended]);
+
+  useEffect(() => {
+    if (!editor || !overlayContainer) return;
+    const controller = getSemanticDocumentControllerForEditor(editor);
+    controller.setNavigationEditor({
+      dispatch: (transaction) => editor.view.dispatch(transaction),
+      focus: () => editor.view.focus(),
+      getState: () => editor.state,
+    });
+    controller.setNavigationEnvironment(
+      createAuthoringSemanticNavigationEnvironment({
+        getSnapshot: () => controller.getSnapshot().semantics,
+        root: overlayContainer,
+        view: editor.view,
+      }),
+    );
+  }, [editor, overlayContainer]);
 
   if (!editor || suspended) {
     return null;
