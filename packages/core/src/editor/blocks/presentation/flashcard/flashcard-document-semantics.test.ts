@@ -69,7 +69,9 @@ const schema = new Schema({
 });
 
 describe("Flashcard document semantics", () => {
-  it("publishes cards, faces, prose and recursively owned nested Blocks exactly once", () => {
+  it("publishes only the Flashcard root while keeping every descendant private", () => {
+    expect(flashcardBlockDefinition.documentSemantics).toBeUndefined();
+
     const flashcardId = makeId("fl", 1);
     const firstCardId = makeId("ca", 1);
     const firstFrontId = makeId("fr", 1);
@@ -81,27 +83,26 @@ describe("Flashcard document semantics", () => {
     const secondCardId = makeId("ca", 2);
     const secondFrontId = makeId("fr", 2);
     const secondBackId = makeId("ba", 2);
-    const flashcard = schema.node(FLASHCARD_NODE, { id: flashcardId }, [
-      card({
-        id: firstCardId,
-        frontId: firstFrontId,
-        backId: firstBackId,
-        front: [paragraph(frontParagraphId, "Question")],
-        back: [
-          paragraph(emptyBackParagraphId, ""),
-          schema.node("nested_block", { id: nestedBlockId }, [
-            paragraph(nestedParagraphId, "Nested answer"),
-          ]),
-        ],
-      }),
-      card({
-        id: secondCardId,
-        frontId: secondFrontId,
-        backId: secondBackId,
-        front: [paragraph(makeId("pa", 4), "Second question")],
-        back: [paragraph(makeId("pa", 5), "Second answer")],
-      }),
-    ]);
+    const firstCard = card({
+      id: firstCardId,
+      frontId: firstFrontId,
+      backId: firstBackId,
+      front: [paragraph(frontParagraphId, "Question")],
+      back: [
+        paragraph(emptyBackParagraphId, ""),
+        schema.node("nested_block", { id: nestedBlockId }, [
+          paragraph(nestedParagraphId, "Nested answer"),
+        ]),
+      ],
+    });
+    const secondCard = card({
+      id: secondCardId,
+      frontId: secondFrontId,
+      backId: secondBackId,
+      front: [paragraph(makeId("pa", 4), "Second question")],
+      back: [paragraph(makeId("pa", 5), "Second answer")],
+    });
+    const flashcard = schema.node(FLASHCARD_NODE, { id: flashcardId }, [firstCard, secondCard]);
     const doc = documentNode(flashcard);
     const snapshot = projectSemanticDocument({
       doc,
@@ -109,49 +110,43 @@ describe("Flashcard document semantics", () => {
       definitions: definitions(),
       revision: 3,
     });
-
-    expect(snapshot.itemById.get(flashcardId)?.children.map(({ id }) => id)).toEqual([
-      firstCardId,
-      secondCardId,
-    ]);
-    expect(snapshot.itemById.get(firstCardId)).toMatchObject({
-      kind: "published-child",
-      label: "Card 1",
+    const reorderedDoc = documentNode(
+      schema.node(FLASHCARD_NODE, { id: flashcardId }, [secondCard, firstCard]),
+    );
+    const reorderedSnapshot = projectSemanticDocument({
+      doc: reorderedDoc,
+      courseStructure: requireCourseStructure(reorderedDoc),
+      definitions: definitions(),
+      revision: 4,
     });
-    expect(snapshot.itemById.get(secondCardId)?.label).toBe("Card 2");
-    expect(snapshot.itemById.get(firstCardId)?.children.map(({ id }) => id)).toEqual([
-      firstFrontId,
-      firstBackId,
-    ]);
-    expect(snapshot.itemById.get(firstFrontId)?.label).toBe("Front");
-    expect(snapshot.itemById.get(firstBackId)?.label).toBe("Back");
-    expect(snapshot.itemById.get(firstFrontId)?.children.map(({ id }) => id)).toEqual([
-      frontParagraphId,
-    ]);
-    expect(snapshot.itemById.get(firstBackId)?.children.map(({ id }) => id)).toEqual([
-      emptyBackParagraphId,
-      nestedBlockId,
-    ]);
-    expect(snapshot.itemById.get(emptyBackParagraphId)?.label).toBe("Paragraph");
-    expect(snapshot.itemById.get(nestedBlockId)).toMatchObject({
-      kind: "block",
-      label: "Nested block",
-    });
-    expect(snapshot.itemById.get(nestedBlockId)?.children.map(({ id }) => id)).toEqual([
-      nestedParagraphId,
-    ]);
 
-    const cardActivation = [{ ownerId: flashcardId, childId: firstCardId, ownerKind: "block" }];
-    const backActivation = [
-      ...cardActivation,
-      { ownerId: flashcardId, childId: firstBackId, ownerKind: "block" },
-    ];
-    expect(snapshot.locationById.get(firstCardId)?.activationPath).toEqual(cardActivation);
-    expect(snapshot.locationById.get(firstBackId)?.activationPath).toEqual(backActivation);
-    expect(snapshot.locationById.get(nestedBlockId)?.activationPath).toEqual(backActivation);
-    expect(snapshot.locationById.get(nestedParagraphId)?.activationPath).toEqual(backActivation);
-    expect([...snapshot.itemById.keys()].filter((id) => id === nestedBlockId)).toHaveLength(1);
-    expect(snapshot.diagnostics).toEqual([]);
+    for (const current of [snapshot, reorderedSnapshot]) {
+      expect(current.itemById.get(flashcardId)).toMatchObject({
+        kind: "block",
+        label: "Flashcards",
+        children: [],
+      });
+      expect(current.locationById.get(flashcardId)?.activationPath).toEqual([]);
+      expect(current.locationById.get(flashcardId)?.authoringAnchorId).toBeNull();
+      for (const privateId of [
+        firstCardId,
+        firstFrontId,
+        firstBackId,
+        frontParagraphId,
+        emptyBackParagraphId,
+        nestedBlockId,
+        nestedParagraphId,
+        secondCardId,
+        secondFrontId,
+        secondBackId,
+        makeId("pa", 4),
+        makeId("pa", 5),
+      ]) {
+        expect(current.itemById.has(privateId)).toBe(false);
+        expect(current.locationById.has(privateId)).toBe(false);
+      }
+      expect(current.diagnostics).toEqual([]);
+    }
   });
 });
 
