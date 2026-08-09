@@ -20,6 +20,7 @@ import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/t
 import { createBoundedContainerStructurePolicy } from "@/editor/bounded-containers/authoring/BoundedContainerStructurePolicy";
 import { createSlashCommand } from "@/editor/suggestions/slash/SlashCommand";
 import { createStructuralClipboardPolicy } from "@/document/authoring/structural-clipboard-policy";
+import { createSemanticDocumentExtension } from "@/document/authoring/semantic-document";
 import { resolveEditorPlaceholder } from "@/editor/prosemirror/placeholder/resolve-editor-placeholder";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createScaffoldAuthoringCataloguesStorageExtension } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
@@ -58,6 +59,7 @@ export function createCourseDocumentAuthoringExtensions({
 
   return [
     createScaffoldCapabilitiesStorageExtension(composition.capabilities),
+    createSemanticDocumentExtension(composition.documentSemantics),
     createScaffoldAuthoringCataloguesStorageExtension(composition.catalogues),
     createCourseStructureCommandsExtension(),
     ...createCourseDocumentBaseExtensions({

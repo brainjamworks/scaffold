@@ -44,6 +44,7 @@ import { createCoreScaffoldAuthoringComposition } from "./scaffold-authoring-com
 const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
 
 const AUTHORING_ONLY_EXTENSION_NAMES = [
+  "semanticDocumentController",
   "scaffoldInteractionOwner",
   "scaffoldStructuralClipboardPolicy",
   "placeholder",
@@ -123,6 +124,10 @@ describe("createCourseDocumentAuthoringExtensions", () => {
 
     expect(coreAuthoringComposition).not.toHaveProperty("courseStructure");
     expect(extensions.filter(({ name }) => name === "courseStructureCommands")).toHaveLength(1);
+    expect(extensions.filter(({ name }) => name === "semanticDocumentController")).toHaveLength(1);
+    expect(extensions.findIndex(({ name }) => name === "scaffoldCapabilities")).toBeLessThan(
+      extensions.findIndex(({ name }) => name === "semanticDocumentController"),
+    );
   });
 
   it("installs the exact authoring catalogues and Course Structure commands for a host editor", () => {
@@ -694,6 +699,7 @@ function hostBlockCapability(nodeType: string): BlockCapability {
   return {
     definition: {
       nodeType,
+      title: `Host ${nodeType}`,
       frame: { resizable: true },
     },
     authoringExtension: Extension.create({
@@ -862,12 +868,12 @@ function persistedTabsDocument(lane: string) {
         content: [
           {
             type: "surface",
-            attrs: { id: `surface-${lane}`, variant: "page-default" },
+            attrs: { id: "surfaceAuth1", variant: "page-default" },
             content: [
               {
                 type: "layout",
                 attrs: {
-                  id: `layout-${lane}`,
+                  id: "layoutAuth01",
                   variant: "tabs",
                   options: { variant: "default", label: `${lane} tabs` },
                 },
@@ -875,7 +881,7 @@ function persistedTabsDocument(lane: string) {
                   {
                     type: "section",
                     attrs: {
-                      id: `section-${lane}`,
+                      id: "sectionAuth1",
                       role: "tab-panel",
                       label: "First tab",
                       options: { label: "First tab" },
@@ -883,6 +889,7 @@ function persistedTabsDocument(lane: string) {
                     content: [
                       {
                         type: "paragraph",
+                        attrs: { id: "paraAuth0001" },
                         content: [{ type: "text", text: `${lane} content` }],
                       },
                     ],
