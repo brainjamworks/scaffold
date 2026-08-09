@@ -1,7 +1,9 @@
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import { NodeViewContent, useEditorState } from "@tiptap/react";
 import type { EditorState } from "@tiptap/pm/state";
 import { useEffect } from "react";
 
+import { semanticDocumentPluginKey } from "@/document/authoring/semantic-document/semantic-document-storage";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 import { setNonDestructiveSelectionNearWithinRangeInTransaction } from "@/editor/selection/selection-transactions";
 import { publishInteractionOwnerSnapshot } from "@/editor/interactions/targets/prosemirror/facade/interaction-owner-snapshot-publisher";
@@ -13,7 +15,10 @@ import {
   LayoutAddGhost,
   SectionActionTrigger,
 } from "../authoring/layout-chrome";
-import { useLayoutInteractionStore } from "../shared/model/layout-interaction-store";
+import {
+  getLayoutInteractionStoreState,
+  useLayoutInteractionStore,
+} from "../shared/model/layout-interaction-store";
 import type {
   LayoutComponentProps,
   SectionComponentProps,
@@ -36,6 +41,7 @@ export function PaginatedLayoutView(props: LayoutComponentProps) {
   const layoutPos = resolveLayoutPos(props);
   const layoutId = readRequiredPaginatedNodeId(props.node.attrs["id"], "layout");
   const pages = readPaginatedPages(props.node);
+  const semanticController = semanticDocumentPluginKey.getState(props.editor.state);
   const storedActiveId = useLayoutInteractionStore(
     props.editor,
     (state) => state.activePageByLayoutId[layoutId],
@@ -58,6 +64,10 @@ export function PaginatedLayoutView(props: LayoutComponentProps) {
         sectionIndex: pageIndex,
       });
     }
+    const semanticPageId = EmbeddedNodeIdSchema.safeParse(pageId);
+    if (semanticPageId.success) {
+      semanticController?.reportComponentSelection(semanticPageId.data);
+    }
   };
   const activateLayout = () => {
     activateLayoutInteractionTarget({
@@ -68,10 +78,49 @@ export function PaginatedLayoutView(props: LayoutComponentProps) {
   };
 
   useEffect(() => {
+    const semanticLayoutId = EmbeddedNodeIdSchema.safeParse(layoutId);
+    if (!semanticController || !semanticLayoutId.success) return;
+    const registeredPages = readPaginatedPages(props.node);
+    const semanticPageIds = new Set(
+      registeredPages.flatMap(({ id }) => {
+        const parsed = EmbeddedNodeIdSchema.safeParse(id);
+        return parsed.success ? [parsed.data] : [];
+      }),
+    );
+
+    return semanticController.containerAdapters.register({
+      ownerId: semanticLayoutId.data,
+      reveal: async (childId) => {
+        if (!semanticPageIds.has(childId)) return "child-unavailable";
+        const storedActiveId = getLayoutInteractionStoreState(props.editor).activePageByLayoutId[
+          layoutId
+        ];
+        if (normalizeActivePageId(storedActiveId, registeredPages) === childId) {
+          return "already-visible";
+        }
+        setActivePage(layoutId, childId);
+        return "revealed";
+      },
+    });
+  }, [layoutId, props.editor, props.node, semanticController, setActivePage]);
+
+  useEffect(() => {
     const selectionPageId = selectionState.pageId;
-    if (!selectionPageId || selectionPageId === activeId) return;
+    if (!selectionPageId) return;
+    const currentPages = readPaginatedPages(props.node);
+    const storedActiveId = getLayoutInteractionStoreState(props.editor).activePageByLayoutId[
+      layoutId
+    ];
+    if (selectionPageId === normalizeActivePageId(storedActiveId, currentPages)) return;
     setActivePage(layoutId, selectionPageId);
-  }, [activeId, layoutId, selectionState.pageId, selectionState.signature, setActivePage]);
+  }, [
+    layoutId,
+    props.editor,
+    props.node,
+    selectionState.pageId,
+    selectionState.signature,
+    setActivePage,
+  ]);
 
   return (
     <div className="sc-paginated-layout sc-paginated-layout--authoring">

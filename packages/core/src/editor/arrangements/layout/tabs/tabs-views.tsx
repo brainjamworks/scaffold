@@ -1,7 +1,9 @@
+import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import { NodeViewContent, useEditorState } from "@tiptap/react";
 import type { EditorState } from "@tiptap/pm/state";
 import { useEffect, type KeyboardEvent } from "react";
 
+import { semanticDocumentPluginKey } from "@/document/authoring/semantic-document/semantic-document-storage";
 import { isValidEditorDocPos } from "@/editor/prosemirror/position/document-position";
 import { setNonDestructiveSelectionNearWithinRangeInTransaction } from "@/editor/selection/selection-transactions";
 import { publishInteractionOwnerSnapshot } from "@/editor/interactions/targets/prosemirror/facade/interaction-owner-snapshot-publisher";
@@ -14,7 +16,10 @@ import {
   SectionActionTrigger,
   SectionMovementHandle,
 } from "../authoring/layout-chrome";
-import { useLayoutInteractionStore } from "../shared/model/layout-interaction-store";
+import {
+  getLayoutInteractionStoreState,
+  useLayoutInteractionStore,
+} from "../shared/model/layout-interaction-store";
 import type {
   LayoutComponentProps,
   SectionComponentProps,
@@ -46,6 +51,7 @@ export function TabsLayoutView(props: LayoutComponentProps) {
   const layoutId = resolveLayoutId(props);
   const options = readTabsOptions(props.node.attrs["options"]);
   const sections = readTabsSections(props.node);
+  const semanticController = semanticDocumentPluginKey.getState(props.editor.state);
   const storedActiveId = useLayoutInteractionStore(
     props.editor,
     (state) => state.activeTabByLayoutId[layoutId],
@@ -72,6 +78,10 @@ export function TabsLayoutView(props: LayoutComponentProps) {
         sectionIndex,
       });
     }
+    const semanticSectionId = EmbeddedNodeIdSchema.safeParse(sectionId);
+    if (semanticSectionId.success) {
+      semanticController?.reportComponentSelection(semanticSectionId.data);
+    }
   };
   const activateLayout = () => {
     activateLayoutInteractionTarget({
@@ -82,10 +92,49 @@ export function TabsLayoutView(props: LayoutComponentProps) {
   };
 
   useEffect(() => {
+    const semanticLayoutId = EmbeddedNodeIdSchema.safeParse(layoutId);
+    if (!semanticController || !semanticLayoutId.success) return;
+    const registeredSections = readTabsSections(props.node);
+    const semanticSectionIds = new Set(
+      registeredSections.flatMap(({ id }) => {
+        const parsed = EmbeddedNodeIdSchema.safeParse(id);
+        return parsed.success ? [parsed.data] : [];
+      }),
+    );
+
+    return semanticController.containerAdapters.register({
+      ownerId: semanticLayoutId.data,
+      reveal: async (childId) => {
+        if (!semanticSectionIds.has(childId)) return "child-unavailable";
+        const storedActiveId = getLayoutInteractionStoreState(props.editor).activeTabByLayoutId[
+          layoutId
+        ];
+        if (normalizeActiveTabId(storedActiveId, registeredSections) === childId) {
+          return "already-visible";
+        }
+        setActiveTab(layoutId, childId);
+        return "revealed";
+      },
+    });
+  }, [layoutId, props.editor, props.node, semanticController, setActiveTab]);
+
+  useEffect(() => {
     const selectionSectionId = selectionState.sectionId;
-    if (!selectionSectionId || selectionSectionId === activeId) return;
+    if (!selectionSectionId) return;
+    const currentSections = readTabsSections(props.node);
+    const storedActiveId = getLayoutInteractionStoreState(props.editor).activeTabByLayoutId[
+      layoutId
+    ];
+    if (selectionSectionId === normalizeActiveTabId(storedActiveId, currentSections)) return;
     setActiveTab(layoutId, selectionSectionId);
-  }, [activeId, layoutId, selectionState.sectionId, selectionState.signature, setActiveTab]);
+  }, [
+    layoutId,
+    props.editor,
+    props.node,
+    selectionState.sectionId,
+    selectionState.signature,
+    setActiveTab,
+  ]);
 
   return (
     <div className="sc-tabs">

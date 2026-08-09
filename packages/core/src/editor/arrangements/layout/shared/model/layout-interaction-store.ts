@@ -95,6 +95,10 @@ function layoutInteractionStoreForEditor(editor: Editor): LayoutInteractionStore
   return store;
 }
 
+export function getLayoutInteractionStoreState(editor: Editor): LayoutInteractionStoreState {
+  return layoutInteractionStoreForEditor(editor).getState();
+}
+
 export function useLayoutInteractionStore<Selected>(
   editor: Editor,
   selector: (state: LayoutInteractionStoreState) => Selected,
