@@ -1,7 +1,13 @@
 import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
 import { Schema, type Node as ProseMirrorNode } from "@tiptap/pm/model";
-import { describe, expect, it } from "vite-plus/test";
+import { EditorState, NodeSelection, type Transaction } from "@tiptap/pm/state";
+import { describe, expect, it, vi } from "vite-plus/test";
 
+import { SemanticDocumentController } from "@/document/authoring/semantic-document/semantic-document-controller";
+import type {
+  SemanticNavigationEditor,
+  SemanticNavigationEnvironment,
+} from "@/document/authoring/semantic-document/semantic-navigation";
 import {
   projectCourseStructure,
   type ProjectedCourseStructure,
@@ -98,9 +104,10 @@ describe("Annotated Figure document semantics", () => {
         presentation: { actionIds: ["reveal", "highlight"], disabledReason: null },
       });
       expect(snapshot.parentById.get(annotationId)).toBe(figureId);
-      expect(snapshot.locationById.get(annotationId)?.activationPath).toEqual([
-        { ownerId: figureId, childId: annotationId, ownerKind: "block" },
-      ]);
+      const location = snapshot.locationById.get(annotationId);
+      expect(location?.activationPath).toEqual([]);
+      expect(location?.authoringAnchorId).toBe(figureId);
+      expect(Object.isFrozen(location)).toBe(true);
     }
     expect(snapshot.itemById.has(makeId("cv", 1))).toBe(false);
     expect(snapshot.itemById.has(makeId("le", 1))).toBe(false);
@@ -108,6 +115,53 @@ describe("Annotated Figure document semantics", () => {
       expect(snapshot.itemById.has(captionId)).toBe(false);
     }
     expect(snapshot.diagnostics).toEqual([]);
+  });
+
+  it("selects and scrolls the owning Figure while preserving annotation selection", async () => {
+    const figureId = makeId("fi", 4);
+    const annotationId = makeId("an", 9);
+    const doc = documentNode(figureNode(figureId, [annotation(annotationId, "Detail", "Caption")]));
+    let state = EditorState.create({ doc });
+    let controller: SemanticDocumentController;
+    const navigationEditor: SemanticNavigationEditor = {
+      getState: () => state,
+      dispatch: (transaction: Transaction) => {
+        state = state.apply(transaction);
+        controller.applyTransaction(transaction, state);
+      },
+      focus: vi.fn(),
+    };
+    const presentSurface = vi.fn(async () => undefined);
+    const bringIntoView = vi.fn(async () => undefined);
+    const environment: SemanticNavigationEnvironment = { presentSurface, bringIntoView };
+    controller = new SemanticDocumentController({
+      state,
+      definitions: definitions(),
+      navigationEditor,
+    });
+    controller.setNavigationEnvironment(environment);
+    const initialFigureLocation = controller.getSnapshot().semantics.locationById.get(figureId)!;
+    navigationEditor.dispatch(
+      state.tr.insert(initialFigureLocation.from, paragraph(makeId("pa", 10), "Before figure")),
+    );
+    const currentFigureLocation = controller.getSnapshot().semantics.locationById.get(figureId)!;
+    const adapterLookup = vi.spyOn(controller.containerAdapters, "get");
+
+    await expect(controller.select(annotationId, { origin: "document-outline" })).resolves.toEqual({
+      kind: "reached",
+      id: annotationId,
+    });
+
+    expect(state.selection).toBeInstanceOf(NodeSelection);
+    expect((state.selection as NodeSelection).node.attrs["id"]).toBe(figureId);
+    expect(state.selection.from).toBe(currentFigureLocation.from);
+    expect(currentFigureLocation.from).toBeGreaterThan(initialFigureLocation.from);
+    expect(controller.getSnapshot()).toMatchObject({
+      selectedId: annotationId,
+      selectionOrigin: "document-outline",
+    });
+    expect(bringIntoView).toHaveBeenCalledWith(currentFigureLocation, "smooth");
+    expect(adapterLookup).not.toHaveBeenCalled();
   });
 
   it("tracks annotation reorder and removal in legend order", () => {

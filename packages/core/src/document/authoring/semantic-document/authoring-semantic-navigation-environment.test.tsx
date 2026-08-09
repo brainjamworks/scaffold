@@ -192,6 +192,7 @@ function location(
 ): SemanticLocation {
   return {
     activationPath: [],
+    authoringAnchorId: null,
     from,
     id,
     nodeType,

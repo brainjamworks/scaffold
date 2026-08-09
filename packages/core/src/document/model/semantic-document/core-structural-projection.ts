@@ -102,6 +102,7 @@ export function projectCoreStructuralItems({
           selectionTarget:
             node.type.spec.selectable === false ? { kind: "near", pos } : { kind: "node", pos },
           surfaceId,
+          authoringAnchorId: null,
           activationPath: context.activationPath,
         },
       });
@@ -230,6 +231,7 @@ function projectPublishedChildren(input: {
           to: resolved.absolutePos + resolved.node.nodeSize,
           selectionTarget: semanticSelectionTarget(resolved.node, resolved.absolutePos, isRichText),
           surfaceId: input.surfaceId,
+          authoringAnchorId: resolved.authoringAnchorId,
           activationPath,
         },
       });

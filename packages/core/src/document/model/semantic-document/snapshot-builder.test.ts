@@ -93,6 +93,39 @@ describe("semantic snapshot builder", () => {
     );
   });
 
+  it("accepts only a semantic ancestor as an authoring anchor", () => {
+    const valid = createSemanticSnapshotBuilder({ revision: 1, mode: "page" });
+    valid.addItem({
+      item: item(ROOT_ID, "surface", "surface", "Page"),
+      parentId: null,
+      location: location(ROOT_ID, "surface", 1, 20, { kind: "node", pos: 1 }, ROOT_ID),
+    });
+    valid.addItem({
+      item: item(CHILD_ID, "published-child", "annotation", "Annotation"),
+      parentId: ROOT_ID,
+      location: {
+        ...location(CHILD_ID, "annotation", 2, 8, { kind: "node", pos: 2 }, ROOT_ID),
+        authoringAnchorId: ROOT_ID,
+      },
+    });
+
+    expect(valid.build().locationById.get(CHILD_ID)?.authoringAnchorId).toBe(ROOT_ID);
+
+    const invalid = createSemanticSnapshotBuilder({ revision: 1, mode: "page" });
+    invalid.addItem({
+      item: item(ROOT_ID, "surface", "surface", "Page"),
+      parentId: null,
+      location: {
+        ...location(ROOT_ID, "surface", 1, 20, { kind: "node", pos: 1 }, ROOT_ID),
+        authoringAnchorId: CHILD_ID,
+      },
+    });
+
+    expect(() => invalid.build()).toThrowError(
+      expect.objectContaining({ code: "invalid-authoring-anchor", itemId: ROOT_ID }),
+    );
+  });
+
   it("deeply freezes items, locations, diagnostics, arrays and read-only indexes", () => {
     const builder = createSemanticSnapshotBuilder({ revision: 3, mode: "slideshow" });
     const diagnostic = {
@@ -178,6 +211,7 @@ function location(
   surfaceId: EmbeddedNodeId | null,
 ) {
   return {
+    authoringAnchorId: null,
     id,
     nodeType,
     from,

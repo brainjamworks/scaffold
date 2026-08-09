@@ -36,6 +36,7 @@ export type SemanticSnapshotBuildErrorCode =
   | "invalid-item-id"
   | "invalid-location"
   | "invalid-selection-target"
+  | "invalid-authoring-anchor"
   | "missing-parent"
   | "cyclic-parent-edge"
   | "invalid-surface-reference";
@@ -202,6 +203,26 @@ function validateRecords(records: ReadonlyMap<EmbeddedNodeId, ItemRecord>): void
     }
     for (const pathId of path) complete.add(pathId);
   }
+
+  for (const [id, record] of records) {
+    validateAuthoringAnchor(id, record, records);
+  }
+}
+
+function validateAuthoringAnchor(
+  id: EmbeddedNodeId,
+  record: ItemRecord,
+  records: ReadonlyMap<EmbeddedNodeId, ItemRecord>,
+): void {
+  const anchorId = record.location.authoringAnchorId;
+  if (anchorId === null) return;
+
+  let ancestorId = record.parentId;
+  while (ancestorId !== null) {
+    if (ancestorId === anchorId) return;
+    ancestorId = records.get(ancestorId)!.parentId;
+  }
+  throw new SemanticSnapshotBuildError("invalid-authoring-anchor", id);
 }
 
 function validateLocation(

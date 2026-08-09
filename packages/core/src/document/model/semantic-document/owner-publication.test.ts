@@ -18,6 +18,7 @@ const IDS = {
   malformed: "bad" as EmbeddedNodeId,
   duplicate: id("duplicate001"),
   invalidActivation: id("invalidact01"),
+  invalidAnchor: id("invalidanc01"),
   throwingOwner: id("throwblock01"),
 } as const;
 
@@ -140,6 +141,7 @@ describe("owner-bounded semantic publication", () => {
         ]),
         paragraph(IDS.malformed, "Malformed identity"),
         paragraph(IDS.invalidActivation, "Invalid activation"),
+        paragraph(IDS.invalidAnchor, "Invalid anchor"),
       ]),
     ]);
     const projectChildren = ({ owner }: { readonly owner: ProseMirrorNode }) =>
@@ -158,6 +160,12 @@ describe("owner-bounded semantic publication", () => {
               ownerKind: "block" as const,
             },
           ],
+        },
+        {
+          relativePos: relativePosOf(owner, IDS.invalidAnchor),
+          semanticRole: "published-child" as const,
+          label: "Bad anchor",
+          authoringAnchorId: IDS.container,
         },
       ] satisfies readonly PublishedSemanticChild[];
 
@@ -181,12 +189,14 @@ describe("owner-bounded semantic publication", () => {
     expect(snapshot.itemById.has(IDS.nestedBlock)).toBe(false);
     expect(snapshot.itemById.has(IDS.nestedParagraph)).toBe(false);
     expect(snapshot.itemById.has(IDS.invalidActivation)).toBe(false);
+    expect(snapshot.itemById.has(IDS.invalidAnchor)).toBe(false);
     expect(snapshot.diagnostics.map(({ code }) => code)).toEqual([
       "duplicate-published-candidate",
       "invalid-published-candidate",
       "invalid-published-candidate",
       "invalid-published-candidate",
       "invalid-activation-relationship",
+      "invalid-published-candidate",
     ]);
     expect(snapshot.diagnostics).not.toContainEqual(
       expect.objectContaining({ candidateNodeType: "Private nested prose" }),

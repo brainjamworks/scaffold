@@ -27,6 +27,7 @@ export interface ResolvedPublishedSemanticChild {
   readonly relativePos: number;
   readonly absolutePos: number;
   readonly parentNodeType: string;
+  readonly authoringAnchorId: EmbeddedNodeId | null;
   readonly activationPath: readonly SemanticActivationRelationship[];
 }
 
@@ -125,6 +126,12 @@ export function resolveOwnerPublication(
       continue;
     }
 
+    const authoringAnchorId = validateAuthoringAnchor(candidate, owner);
+    if (authoringAnchorId === undefined) {
+      addDiagnostic(builder, "invalid-published-candidate", owner, record);
+      continue;
+    }
+
     const activationPath = validateActivationPath(
       candidate.activation ?? [],
       record,
@@ -144,12 +151,28 @@ export function resolveOwnerPublication(
         relativePos: record.from,
         absolutePos: owner.absolutePos + 1 + record.from,
         parentNodeType: record.parentNodeType,
+        authoringAnchorId,
         activationPath,
       }),
     );
   }
 
   return Object.freeze(resolved.sort((left, right) => left.relativePos - right.relativePos));
+}
+
+function validateAuthoringAnchor(
+  candidate: PublishedSemanticChild,
+  owner: SemanticOwnerContext,
+): EmbeddedNodeId | null | undefined {
+  if (candidate.authoringAnchorId === undefined) return null;
+  if (
+    candidate.semanticRole !== "published-child" ||
+    !EmbeddedNodeIdSchema.safeParse(candidate.authoringAnchorId).success ||
+    candidate.authoringAnchorId !== owner.id
+  ) {
+    return undefined;
+  }
+  return candidate.authoringAnchorId;
 }
 
 function indexOwnedNodes(owner: ProseMirrorNode): readonly OwnedNodeRecord[] {

@@ -45,6 +45,8 @@ export interface PublishedSemanticChild {
   readonly label?: string;
   readonly summary?: string;
   readonly presentation?: SemanticPresentationDefinition;
+  /** Semantic owner whose current location supplies authoring selection and scroll. */
+  readonly authoringAnchorId?: EmbeddedNodeId;
   readonly activation?: readonly SemanticActivationRelationship[];
 }
 

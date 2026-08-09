@@ -14,5 +14,6 @@ export interface SemanticLocation {
   readonly to: number;
   readonly selectionTarget: SemanticEditorSelectionTarget;
   readonly surfaceId: EmbeddedNodeId | null;
+  readonly authoringAnchorId: EmbeddedNodeId | null;
   readonly activationPath: readonly SemanticActivationRelationship[];
 }

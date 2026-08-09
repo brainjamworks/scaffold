@@ -238,9 +238,11 @@ export class SemanticNavigationCoordinator {
     const environment = this.#environment;
     if (!currentTarget) return { kind: "missing", id: target.id };
     if (!editor || !environment) return { kind: "interrupted", id: target.id };
+    const authoringTarget = this.#resolveAuthoringTarget(currentTarget);
+    if (!authoringTarget) return { kind: "missing", id: target.id };
 
     const transaction = editor.getState().tr;
-    if (!setSelectionForLocation(transaction, currentTarget.location)) {
+    if (!setSelectionForLocation(transaction, authoringTarget.location)) {
       return { kind: "interrupted", id: target.id };
     }
     setSemanticSelectionTransactionMeta(transaction, {
@@ -253,9 +255,11 @@ export class SemanticNavigationCoordinator {
     if (options.focusEditor) editor.focus();
     const scrollTarget = this.#resolve(target.id);
     if (!scrollTarget) return { kind: "missing", id: target.id };
+    const authoringScrollTarget = this.#resolveAuthoringTarget(scrollTarget);
+    if (!authoringScrollTarget) return { kind: "missing", id: target.id };
 
     try {
-      await environment.bringIntoView(scrollTarget.location, "smooth");
+      await environment.bringIntoView(authoringScrollTarget.location, "smooth");
     } catch {
       return { kind: "interrupted", id: target.id };
     }
@@ -263,6 +267,11 @@ export class SemanticNavigationCoordinator {
     return this.#resolve(target.id)
       ? { kind: "reached", id: target.id }
       : { kind: "missing", id: target.id };
+  }
+
+  #resolveAuthoringTarget(target: ResolvedSemanticTarget): ResolvedSemanticTarget | null {
+    const anchorId = target.location.authoringAnchorId;
+    return anchorId ? this.#resolve(anchorId) : target;
   }
 
   #isCurrent(token: number): boolean {

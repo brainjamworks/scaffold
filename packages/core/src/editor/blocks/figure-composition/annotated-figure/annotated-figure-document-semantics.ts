@@ -34,13 +34,7 @@ const projectAnnotatedFigureChildren: SemanticChildProjector = ({ owner, ownerId
         presentation: Object.freeze({
           actionIds: Object.freeze(["reveal", "highlight"]),
         }),
-        activation: Object.freeze([
-          Object.freeze({
-            ownerId,
-            childId: nodeId.data,
-            ownerKind: "block" as const,
-          }),
-        ]),
+        authoringAnchorId: ownerId,
       }),
     );
   }
