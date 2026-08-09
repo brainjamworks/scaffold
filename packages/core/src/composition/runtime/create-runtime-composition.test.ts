@@ -45,6 +45,10 @@ const AUTHORING_ONLY_EXTENSION_NAMES = [
   "emptyInsertionRow",
   "surfaceRootSelectionPolicy",
   "slashCommand",
+  "unavailable_block",
+  "unavailable_layout",
+  "unavailable_surface",
+  "scaffoldUnavailableContentClipboardPolicy",
 ];
 
 describe("createCourseDocumentRuntimeExtensions", () => {

@@ -51,7 +51,17 @@ const AUTHORING_ONLY_EXTENSION_NAMES = [
   "emptyInsertionRow",
   "surfaceRootSelectionPolicy",
   "slashCommand",
+  "unavailable_block",
+  "unavailable_layout",
+  "unavailable_surface",
+  "scaffoldUnavailableContentClipboardPolicy",
 ];
+
+const UNAVAILABLE_CONTENT_NODE_NAMES = [
+  "unavailable_block",
+  "unavailable_layout",
+  "unavailable_surface",
+] as const;
 
 const DECOMMISSIONED_ACTIVATION_EXTENSION_NAMES = ["scaffoldInteractionState", "blockSelection"];
 
@@ -92,6 +102,41 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     );
 
     expect(duplicates).toEqual([]);
+  });
+
+  it("finalizes the authoring array with one Core-owned compatibility bundle", () => {
+    const extensions = createCourseDocumentAuthoringExtensions({
+      editable: true,
+      composition: coreAuthoringComposition,
+    });
+    const lastCapabilityExtensionIndex = Math.max(
+      ...coreAuthoringComposition.blocks.extensions.map((capabilityExtension) =>
+        extensions.indexOf(capabilityExtension),
+      ),
+    );
+
+    for (const name of [
+      ...UNAVAILABLE_CONTENT_NODE_NAMES,
+      "scaffoldUnavailableContentClipboardPolicy",
+    ]) {
+      const matchingIndexes = extensions.flatMap((extension, index) =>
+        extension.name === name ? [index] : [],
+      );
+      expect(matchingIndexes).toHaveLength(1);
+      expect(matchingIndexes[0]).toBeGreaterThan(lastCapabilityExtensionIndex);
+    }
+  });
+
+  it("does not expose compatibility items through mounted capabilities or insertion catalogues", () => {
+    const actionIds = coreAuthoringComposition.catalogues.inDocument.actions.map(({ id }) => id);
+
+    for (const name of UNAVAILABLE_CONTENT_NODE_NAMES) {
+      expect(
+        coreAuthoringComposition.capabilities.blocks.registry.getByNodeType(name),
+      ).toBeUndefined();
+      expect(actionIds).not.toContain(name);
+      expect(actionIds).not.toContain(name.replaceAll("_", "-"));
+    }
   });
 
   it("registers one authoring Course Section node view with shared mounted identity", () => {

@@ -508,6 +508,35 @@ describe("createScaffoldApplication", () => {
     },
   );
 
+  it.each(
+    (["authoring", "runtime"] as const).flatMap((lane) =>
+      (["unavailable_block", "unavailable_layout", "unavailable_surface"] as const).map(
+        (reservedName) => ({ lane, reservedName }),
+      ),
+    ),
+  )(
+    "rejects reserved compatibility name $reservedName in a nested $lane bundle",
+    ({ lane, reservedName }) => {
+      const nodeType = `host_reserved_${lane}_${reservedName}`;
+      const capability = testBlockCapability(nodeType, {
+        [`${lane}Extension`]: testBlockBundle(
+          `reserved-${lane}-${reservedName.replaceAll("_", "-")}`,
+          nodeType,
+          reservedName,
+        ),
+      });
+      const id = `reserved-${lane}-${reservedName.replaceAll("_", "-")}`;
+      const message = `Scaffold ${lane} Block extension name "${reservedName}" is reserved for unavailable-content compatibility.`;
+
+      expect(() => defineScaffoldExtensionPack({ id, blocks: [capability] })).toThrow(message);
+      expect(() =>
+        createScaffoldApplication({
+          packs: [{ id, blocks: [capability], layouts: [], surfaces: [] }],
+        }),
+      ).toThrow(message);
+    },
+  );
+
   it("keeps Block insertion content factories dormant during composition validation", () => {
     const content = vi.fn(() => ({ type: "host_dormant_block" }));
     const capability = testBlockCapability("host_dormant_block", {

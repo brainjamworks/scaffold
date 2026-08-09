@@ -1,3 +1,5 @@
+import { flattenExtensions } from "@tiptap/core";
+
 import {
   createScaffoldAuthoringComposition,
   type ScaffoldAuthoringComposition,
@@ -37,6 +39,12 @@ import {
   type SurfaceCapability,
 } from "./surface-capability";
 
+const RESERVED_UNAVAILABLE_CONTENT_NODE_NAMES = new Set([
+  "unavailable_block",
+  "unavailable_layout",
+  "unavailable_surface",
+]);
+
 export type { BlockCapability } from "./block-capability";
 export type { SurfaceCapability } from "./surface-capability";
 
@@ -74,10 +82,12 @@ export function defineScaffoldExtensionPack(
   input: ScaffoldExtensionPackInput,
 ): ScaffoldExtensionPack {
   validatePackId(input.id);
+  const blocks = (input.blocks ?? []).map(freezeBlockCapabilityShell);
+  validateReservedUnavailableContentNames(blocks);
 
   return Object.freeze({
     id: input.id,
-    blocks: Object.freeze((input.blocks ?? []).map(freezeBlockCapabilityShell)),
+    blocks: Object.freeze(blocks),
     layouts: Object.freeze((input.layouts ?? []).map(freezeLayoutCapabilityShell)),
     surfaces: Object.freeze((input.surfaces ?? []).map(freezeSurfaceCapabilityShell)),
   });
@@ -102,6 +112,8 @@ export function createScaffoldApplication(
     layoutCapabilities.push(...pack.layouts);
     surfaceCapabilities.push(...pack.surfaces);
   }
+
+  validateReservedUnavailableContentNames(blockCapabilities);
 
   for (const capability of blockCapabilities) {
     validateBlockCapability(capability);
@@ -265,5 +277,22 @@ function validateLayoutCapability(capability: LayoutCapability): void {
 function validatePackId(id: string): void {
   if (!isExtensionPackName(id)) {
     throw new Error(`Scaffold extension pack ID "${id}" must be a stable kebab-case name.`);
+  }
+}
+
+function validateReservedUnavailableContentNames(capabilities: readonly BlockCapability[]): void {
+  for (const capability of capabilities) {
+    for (const lane of ["authoring", "runtime"] as const) {
+      const bundle =
+        lane === "authoring" ? capability.authoringExtension : capability.runtimeExtension;
+      if (!bundle) continue;
+
+      for (const extension of flattenExtensions([bundle])) {
+        if (!RESERVED_UNAVAILABLE_CONTENT_NODE_NAMES.has(extension.name)) continue;
+        throw new Error(
+          `Scaffold ${lane} Block extension name "${extension.name}" is reserved for unavailable-content compatibility.`,
+        );
+      }
+    }
   }
 }

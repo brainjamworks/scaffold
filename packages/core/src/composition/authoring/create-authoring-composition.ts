@@ -20,12 +20,17 @@ import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/t
 import { createBoundedContainerStructurePolicy } from "@/editor/bounded-containers/authoring/BoundedContainerStructurePolicy";
 import { createSlashCommand } from "@/editor/suggestions/slash/SlashCommand";
 import { createStructuralClipboardPolicy } from "@/document/authoring/structural-clipboard-policy";
+import {
+  authoringCourseDocumentContentExpression,
+  createUnavailableContentAuthoringExtensions,
+} from "@/document/authoring/unavailable-content";
 import { createSemanticDocumentExtension } from "@/document/authoring/semantic-document";
 import { resolveEditorPlaceholder } from "@/editor/prosemirror/placeholder/resolve-editor-placeholder";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { createScaffoldAuthoringCataloguesStorageExtension } from "@/composition/extensions/scaffold-authoring-catalogues-storage";
 import { createCourseDocumentBaseExtensions } from "@/composition/model/create-document-composition";
 import { createCourseStructureCommandsExtension } from "@/document/authoring/course-structure-commands";
+import { CourseDocumentNode } from "@/document/model/nodes";
 import { createCourseSectionAuthoringNode } from "@/editor/course-sections/authoring/course-section-authoring-node";
 import { AuthoringSlideDividers } from "@/editor/surfaces/authoring/AuthoringSlideDividers";
 import { createSurfaceRootSelectionPolicy } from "@/editor/surfaces/authoring/surface-root-selection-policy";
@@ -56,32 +61,38 @@ export function createCourseDocumentAuthoringExtensions({
     registry: surfaceRegistry,
     views: composition.surfaces.views,
   });
+  const courseDocumentNode = CourseDocumentNode.extend({
+    content: authoringCourseDocumentContentExpression(),
+  });
+  const baseExtensions = createCourseDocumentBaseExtensions({
+    assessmentActionsGroupNode: AssessmentActionsGroupNode,
+    assessmentChoicesGroupNode: AssessmentChoicesGroupNode,
+    assessmentHintNode: AssessmentHintNode,
+    assessmentHintsGroupNode: AssessmentHintsGroupNode,
+    assessmentSummaryFeedbackNode: AssessmentSummaryFeedbackNode,
+    cellNode: CellAuthoringNode,
+    courseSectionNode: createCourseSectionAuthoringNode(),
+    gridNode: GridAuthoringNode,
+    inlineIconNode: InlineIconAuthoringNode,
+    layoutNode,
+    mathInlineNode: MathInlineNode,
+    selectableChoiceNode: SelectableChoiceAuthoringNode,
+    regionNode: RegionAuthoringNode,
+    resizableBlockNodeTypes: blockRegistry.resizableNodeTypes,
+    sectionNode,
+    surfaceNode,
+    updateDocumentIds: editable,
+    vocabularyTermNode: VocabularyTermAuthoringNode,
+  }).map((extension) =>
+    extension.name === CourseDocumentNode.name ? courseDocumentNode : extension,
+  );
 
   return [
     createScaffoldCapabilitiesStorageExtension(composition.capabilities),
     createSemanticDocumentExtension(composition.documentSemantics),
     createScaffoldAuthoringCataloguesStorageExtension(composition.catalogues),
     createCourseStructureCommandsExtension(),
-    ...createCourseDocumentBaseExtensions({
-      assessmentActionsGroupNode: AssessmentActionsGroupNode,
-      assessmentChoicesGroupNode: AssessmentChoicesGroupNode,
-      assessmentHintNode: AssessmentHintNode,
-      assessmentHintsGroupNode: AssessmentHintsGroupNode,
-      assessmentSummaryFeedbackNode: AssessmentSummaryFeedbackNode,
-      cellNode: CellAuthoringNode,
-      courseSectionNode: createCourseSectionAuthoringNode(),
-      gridNode: GridAuthoringNode,
-      inlineIconNode: InlineIconAuthoringNode,
-      layoutNode,
-      mathInlineNode: MathInlineNode,
-      selectableChoiceNode: SelectableChoiceAuthoringNode,
-      regionNode: RegionAuthoringNode,
-      resizableBlockNodeTypes: blockRegistry.resizableNodeTypes,
-      sectionNode,
-      surfaceNode,
-      updateDocumentIds: editable,
-      vocabularyTermNode: VocabularyTermAuthoringNode,
-    }),
+    ...baseExtensions,
     AuthoringSlideDividers,
     createSurfaceRootSelectionPolicy({ surfaceVariants: surfaceRegistry }),
     createBoundedContainerStructurePolicy(blockRegistry, layoutRegistry),
@@ -111,5 +122,6 @@ export function createCourseDocumentAuthoringExtensions({
       surfaceVariants: surfaceRegistry,
     }),
     ...composition.blocks.extensions,
+    ...createUnavailableContentAuthoringExtensions(),
   ];
 }

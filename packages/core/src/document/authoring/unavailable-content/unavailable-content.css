@@ -1,0 +1,25 @@
+.sc-unavailable-content {
+  align-items: center;
+  background: color-mix(in srgb, var(--sc-color-warning, #b45309) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--sc-color-warning, #b45309) 45%, transparent);
+  border-radius: 0.5rem;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  padding: 0.875rem 1rem;
+}
+
+.sc-unavailable-content[data-selected="true"] {
+  outline: 2px solid var(--sc-color-focus, #2563eb);
+  outline-offset: 2px;
+}
+
+.sc-unavailable-content__label {
+  font-weight: 600;
+}
+
+.sc-unavailable-content__capability {
+  font-family: var(--sc-font-mono, monospace);
+  font-size: 0.875em;
+  overflow-wrap: anywhere;
+}
