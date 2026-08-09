@@ -54,7 +54,7 @@ export function readCourseDocumentFormatVersion(content: unknown): number | null
 }
 
 export function migrateCourseDocumentJSON(content: unknown): CourseDocumentMigrationResult {
-  const document = cloneJSONContent(content);
+  const document = cloneCourseDocumentJSON(content);
   if (!document) {
     return migrationError(
       "invalid_json",
@@ -127,7 +127,7 @@ function migrationError(
   };
 }
 
-function cloneJSONContent(content: unknown): JSONContent | null {
+export function cloneCourseDocumentJSON(content: unknown): JSONContent | null {
   if (!content || typeof content !== "object" || Array.isArray(content)) {
     return null;
   }

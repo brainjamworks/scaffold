@@ -69,6 +69,7 @@ describe("course document migrations", () => {
     expect(result.toVersion).toBe(SCAFFOLD_DOCUMENT_FORMAT_VERSION);
     expect(result.migrated).toBe(false);
     expect(result.document).toEqual(source);
+    expect(result.document).not.toBe(source);
   });
 
   it("rejects future document versions instead of loading them as v1", () => {

@@ -4,6 +4,8 @@ import * as format from "@scaffold/core/format";
 // @ts-expect-error Authoring mutation commands are not part of the trusted format read seam.
 import type { CourseStructureCommand } from "@scaffold/core/format";
 import type {
+  AuthoringDocumentCanonicalizationResult,
+  AuthoringDocumentEstablishmentResult,
   CourseSectionId,
   CourseDocumentAttrs,
   ScaffoldArtifact,
@@ -12,6 +14,9 @@ import type {
   CourseMode,
   CreateScaffoldArtifactInput,
   CreateScaffoldDocumentContentInput,
+  DocumentEstablishmentIssue,
+  EstablishedDocumentFormat,
+  LearnerProjectionReadinessResult,
   OverflowMode,
   PreparedScaffoldArtifact,
   PreparedScaffoldArtifactValue,
@@ -26,15 +31,22 @@ import type {
   SurfaceBackground,
   SurfaceId,
   SurfaceSize,
+  UnavailableCapabilityKind,
+  UnavailableContentRef,
 } from "@scaffold/core/format";
 
 type FormatTypeSurface = {
+  authoringCanonicalization: AuthoringDocumentCanonicalizationResult;
+  authoringEstablishment: AuthoringDocumentEstablishmentResult;
   artifact: ScaffoldArtifact;
   artifactInput: CreateScaffoldArtifactInput;
   content: ScaffoldDocumentContent;
   contentInput: CreateScaffoldDocumentContentInput;
   courseSectionId: CourseSectionId;
   documentAttrs: CourseDocumentAttrs;
+  establishmentIssue: DocumentEstablishmentIssue;
+  establishedFormat: EstablishedDocumentFormat;
+  learnerReadiness: LearnerProjectionReadinessResult;
   mode: CourseMode;
   overflowMode: OverflowMode;
   preparedArtifact: PreparedScaffoldArtifact;
@@ -50,6 +62,8 @@ type FormatTypeSurface = {
   surfaceBackground: SurfaceBackground;
   surfaceId: SurfaceId;
   surfaceSize: SurfaceSize;
+  unavailableCapabilityKind: UnavailableCapabilityKind;
+  unavailableContentRef: UnavailableContentRef;
   uninitializedBootstrap: ScaffoldUninitializedAuthoringBootstrap;
   mutationViolation: CourseStructureCommand;
 };

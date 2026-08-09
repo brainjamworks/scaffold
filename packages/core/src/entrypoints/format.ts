@@ -10,3 +10,12 @@ export {
   type ProjectedUnsectionedSlideshowCourseStructure,
 } from "@/document/model/course-structure/course-structure-projection";
 export type { CourseSectionId, SurfaceId } from "@/document/model/course-structure/types";
+export type {
+  AuthoringDocumentCanonicalizationResult,
+  AuthoringDocumentEstablishmentResult,
+  DocumentEstablishmentIssue,
+  EstablishedDocumentFormat,
+  LearnerProjectionReadinessResult,
+  UnavailableCapabilityKind,
+  UnavailableContentRef,
+} from "@/document/model/establishment";

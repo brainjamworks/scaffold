@@ -7,6 +7,7 @@ export {
   type CourseDocumentMigrationStepResult,
 } from "./migration-registry";
 export {
+  cloneCourseDocumentJSON,
   migrateCourseDocumentJSON,
   readCourseDocumentFormatVersion,
   type CourseDocumentMigrationErrorCode,
