@@ -1,13 +1,24 @@
 import type { EmbeddedNodeId } from "@scaffold/contracts";
 import type { EditorState, Transaction } from "@tiptap/pm/state";
 
-import { projectCourseStructure } from "@/document/model/course-structure";
+import {
+  projectCourseStructure,
+  type ProjectedCourseStructure,
+} from "@/document/model/course-structure";
 import {
   projectSemanticDocument,
   type SemanticDefinitionLookup,
   type SemanticDocumentSnapshot,
 } from "@/document/model/semantic-document";
 
+import { SemanticContainerAdapterRegistry } from "./semantic-container-adapter-registry";
+import {
+  SemanticNavigationCoordinator,
+  type SemanticNavigationEditor,
+  type SemanticNavigationEnvironment,
+  type SemanticNavigationOptions,
+  type SemanticNavigationResult,
+} from "./semantic-navigation";
 import {
   readSemanticSelectionTransactionMeta,
   type SemanticSelectionOrigin,
@@ -23,19 +34,34 @@ export interface SemanticDocumentControllerSnapshot {
 export interface CreateSemanticDocumentControllerInput {
   readonly state: EditorState;
   readonly definitions: SemanticDefinitionLookup;
+  readonly navigationEditor?: SemanticNavigationEditor;
 }
 
 export class SemanticDocumentController {
+  readonly containerAdapters = new SemanticContainerAdapterRegistry();
   readonly #definitions: SemanticDefinitionLookup;
   readonly #listeners = new Set<() => void>();
+  readonly #navigation: SemanticNavigationCoordinator;
+  #courseStructure: ProjectedCourseStructure;
   #snapshot: SemanticDocumentControllerSnapshot;
   #destroyed = false;
 
-  constructor({ state, definitions }: CreateSemanticDocumentControllerInput) {
+  constructor({ state, definitions, navigationEditor }: CreateSemanticDocumentControllerInput) {
     this.#definitions = definitions;
-    const semantics = projectState(state, definitions, 0);
-    const selectedId = projectSemanticSelection(state.selection, semantics.itemById);
-    this.#snapshot = createControllerSnapshot(semantics, selectedId, selectedId ? "editor" : null);
+    const projected = projectState(state, definitions, 0);
+    this.#courseStructure = projected.courseStructure;
+    const selectedId = projectSemanticSelection(state.selection, projected.semantics.itemById);
+    this.#snapshot = createControllerSnapshot(
+      projected.semantics,
+      selectedId,
+      selectedId ? "editor" : null,
+    );
+    this.#navigation = new SemanticNavigationCoordinator({
+      registry: this.containerAdapters,
+      getSemantics: () => this.#snapshot.semantics,
+      getCourseStructure: () => this.#courseStructure,
+      ...(navigationEditor ? { editor: navigationEditor } : {}),
+    });
   }
 
   readonly getSnapshot = (): SemanticDocumentControllerSnapshot => this.#snapshot;
@@ -51,6 +77,21 @@ export class SemanticDocumentController {
     this.reportComponentSelection(selectedId);
   }
 
+  setNavigationEditor(editor: SemanticNavigationEditor): void {
+    this.#navigation.setEditor(editor);
+  }
+
+  setNavigationEnvironment(environment: SemanticNavigationEnvironment): void {
+    this.#navigation.setEnvironment(environment);
+  }
+
+  select(
+    id: EmbeddedNodeId,
+    options: SemanticNavigationOptions,
+  ): Promise<SemanticNavigationResult> {
+    return this.#navigation.select(id, options);
+  }
+
   reportComponentSelection(id: EmbeddedNodeId): void {
     if (!this.#snapshot.semantics.itemById.has(id)) {
       if (import.meta.env.DEV) {
@@ -58,6 +99,7 @@ export class SemanticDocumentController {
       }
       return;
     }
+    this.#navigation.interrupt();
     this.#replaceSelection(id, "component");
   }
 
@@ -65,9 +107,16 @@ export class SemanticDocumentController {
     if (this.#destroyed || (!transaction.docChanged && !transaction.selectionSet)) return;
 
     const previous = this.#snapshot;
-    const semantics = transaction.docChanged
+    const transactionMeta = transaction.selectionSet
+      ? readSemanticSelectionTransactionMeta(transaction)
+      : null;
+    if (transaction.selectionSet && !transactionMeta) this.#navigation.interrupt();
+
+    const projected = transaction.docChanged
       ? projectState(state, this.#definitions, previous.semantics.revision + 1)
-      : previous.semantics;
+      : null;
+    if (projected) this.#courseStructure = projected.courseStructure;
+    const semantics = projected?.semantics ?? previous.semantics;
     let selectedId = transaction.docChanged
       ? reconcileSelectedId(previous, semantics)
       : previous.selectedId;
@@ -81,7 +130,6 @@ export class SemanticDocumentController {
       selectedId = projectSemanticSelection(state.selection, semantics.itemById);
       selectionOrigin = selectedId ? "editor" : null;
     } else if (transaction.selectionSet) {
-      const transactionMeta = readSemanticSelectionTransactionMeta(transaction);
       if (transactionMeta && semantics.itemById.has(transactionMeta.intendedId)) {
         selectedId = transactionMeta.intendedId;
         selectionOrigin = transactionMeta.origin;
@@ -104,6 +152,8 @@ export class SemanticDocumentController {
 
   destroy(): void {
     this.#destroyed = true;
+    this.#navigation.interrupt();
+    this.containerAdapters.clear();
     this.#listeners.clear();
   }
 
@@ -150,15 +200,28 @@ function reconcileSelectedId(
   return candidate;
 }
 
+interface ProjectedSemanticState {
+  readonly semantics: SemanticDocumentSnapshot;
+  readonly courseStructure: ProjectedCourseStructure;
+}
+
 function projectState(
   state: EditorState,
   definitions: SemanticDefinitionLookup,
   revision: number,
-): SemanticDocumentSnapshot {
+): ProjectedSemanticState {
   const courseStructure = projectCourseStructure(state.doc.toJSON());
   if (!courseStructure) {
     throw new Error("Cannot project semantic document from invalid Course Structure");
   }
 
-  return projectSemanticDocument({ doc: state.doc, courseStructure, definitions, revision });
+  return {
+    semantics: projectSemanticDocument({
+      doc: state.doc,
+      courseStructure,
+      definitions,
+      revision,
+    }),
+    courseStructure,
+  };
 }
