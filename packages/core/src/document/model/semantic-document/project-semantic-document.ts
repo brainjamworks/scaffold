@@ -4,6 +4,7 @@ import type { ProjectedCourseStructure } from "../course-structure/course-struct
 import { projectCoreStructuralItems } from "./core-structural-projection";
 import type { SemanticDefinitionLookup } from "./definition-lookup";
 import type { SemanticDocumentProjectionResult } from "./semantic-document-snapshot";
+import { createSemanticProjectionNodeIndex } from "./projection-node-index";
 import { createSemanticSnapshotBuilder } from "./snapshot-builder";
 
 export interface ProjectSemanticDocumentInput {
@@ -20,6 +21,7 @@ export function projectSemanticDocument({
   revision,
 }: ProjectSemanticDocumentInput): SemanticDocumentProjectionResult {
   const builder = createSemanticSnapshotBuilder({ revision, mode: courseStructure.mode });
-  projectCoreStructuralItems({ doc, courseStructure, definitions, builder });
+  const nodeIndex = createSemanticProjectionNodeIndex(doc, definitions);
+  projectCoreStructuralItems({ doc, courseStructure, definitions, nodeIndex, builder });
   return builder.build();
 }

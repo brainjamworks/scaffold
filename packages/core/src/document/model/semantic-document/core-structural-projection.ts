@@ -16,6 +16,7 @@ import {
   type ResolvedPublishedSemanticChild,
   type SemanticOwnerContext,
 } from "./owner-publication";
+import type { SemanticProjectionNodeIndex } from "./projection-node-index";
 import type { SemanticSnapshotBuilder, SemanticSnapshotItemInput } from "./snapshot-builder";
 
 const NODE_TYPES = Object.freeze({
@@ -32,6 +33,7 @@ export interface ProjectCoreStructuralItemsInput {
   readonly doc: ProseMirrorNode;
   readonly courseStructure: ProjectedCourseStructure;
   readonly definitions: SemanticDefinitionLookup;
+  readonly nodeIndex: SemanticProjectionNodeIndex;
   readonly builder: SemanticSnapshotBuilder;
 }
 
@@ -63,6 +65,7 @@ export function projectCoreStructuralItems({
   doc,
   courseStructure,
   definitions,
+  nodeIndex,
   builder,
 }: ProjectCoreStructuralItemsInput): void {
   const walkNode = (node: ProseMirrorNode, pos: number, context: TraversalContext): void => {
@@ -110,7 +113,7 @@ export function projectCoreStructuralItems({
       if (ownerContext) {
         projectPublishedChildren({
           owner: ownerContext,
-          candidates: resolveOwnerPublication(ownerContext, definitions, builder),
+          candidates: resolveOwnerPublication(ownerContext, definitions, nodeIndex, builder),
           surfaceId,
           inheritedActivationPath: context.activationPath,
           definitions,
@@ -159,23 +162,21 @@ function projectPublishedChildren(input: {
   readonly courseStructure: ProjectedCourseStructure;
   readonly walkNode: (node: ProseMirrorNode, pos: number, context: TraversalContext) => void;
 }): void {
-  const accepted: Array<{
+  const acceptedAncestors: Array<{
     readonly id: EmbeddedNodeId;
     readonly from: number;
     readonly to: number;
   }> = [];
 
   for (const resolved of input.candidates) {
-    let containingCandidate: (typeof accepted)[number] | undefined;
-    for (let index = accepted.length - 1; index >= 0; index -= 1) {
-      const possibleParent = accepted[index]!;
-      if (
-        possibleParent.from < resolved.relativePos &&
-        possibleParent.to >= resolved.relativePos + resolved.node.nodeSize
-      ) {
-        containingCandidate = possibleParent;
-        break;
-      }
+    let containingCandidate = acceptedAncestors.at(-1);
+    while (
+      containingCandidate &&
+      (containingCandidate.from >= resolved.relativePos ||
+        containingCandidate.to < resolved.relativePos + resolved.node.nodeSize)
+    ) {
+      acceptedAncestors.pop();
+      containingCandidate = acceptedAncestors.at(-1);
     }
     const parentId = containingCandidate?.id ?? input.owner.id;
     const activationPath = [...input.inheritedActivationPath, ...resolved.activationPath] as const;
@@ -242,7 +243,7 @@ function projectPublishedChildren(input: {
     }
 
     if (input.builder.hasItem(resolved.id)) {
-      accepted.push({
+      acceptedAncestors.push({
         id: resolved.id,
         from: resolved.relativePos,
         to: resolved.relativePos + resolved.node.nodeSize,

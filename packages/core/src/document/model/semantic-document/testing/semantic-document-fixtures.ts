@@ -199,6 +199,13 @@ export interface ScaleSemanticDocumentFixture {
   readonly callbackCounts: SemanticFixtureCallbackCounts;
 }
 
+export interface NestedOwnerSemanticDocumentFixture {
+  readonly doc: ProseMirrorNode;
+  readonly courseStructure: ProjectedCourseStructure;
+  readonly definitions: SemanticDefinitionLookup;
+  readonly ownerIds: readonly EmbeddedNodeId[];
+}
+
 export function createScaleSemanticDocumentFixture(input: {
   readonly surfaceCount: number;
   readonly blocksPerSurface: number;
@@ -251,6 +258,58 @@ export function createScaleSemanticDocumentFixture(input: {
     surfaceIds: Object.freeze(surfaceIds),
     blockIds: Object.freeze(blockIds),
     callbackCounts,
+  };
+}
+
+export function createNestedOwnerSemanticDocumentFixture(input: {
+  readonly depth: number;
+}): NestedOwnerSemanticDocumentFixture {
+  if (!Number.isSafeInteger(input.depth) || input.depth < 1) {
+    throw new RangeError("Nested owner fixture depth must be a positive integer.");
+  }
+
+  const ownerIds = Array.from({ length: input.depth }, (_, index) => makeNodeId("no", index + 1));
+  let owner = schema.node("owner_block", { id: ownerIds.at(-1) });
+  for (let index = ownerIds.length - 2; index >= 0; index -= 1) {
+    owner = schema.node("owner_block", { id: ownerIds[index] }, [owner]);
+  }
+  const surface = schema.node(
+    "surface",
+    {
+      id: makeNodeId("sf", 1),
+      variant: "nested-owner-surface",
+    },
+    [owner],
+  );
+  const doc = documentNode("page", [surface]);
+  const definitions = lookup(
+    new Map([
+      [
+        "owner_block",
+        {
+          nodeType: "owner_block",
+          title: "Nested owner",
+          isAssessment: false,
+          documentSemantics: {
+            projectChildren: ({ owner: currentOwner }) =>
+              currentOwner.firstChild?.type.name === "owner_block"
+                ? Object.freeze([{ relativePos: 0 }])
+                : Object.freeze([]),
+          },
+        },
+      ],
+    ] as const),
+    new Map(),
+    new Map([
+      ["nested-owner-surface", { id: "nested-owner-surface", title: "Nested owner Surface" }],
+    ] as const),
+  );
+
+  return {
+    doc,
+    courseStructure: requireCourseStructure(doc),
+    definitions,
+    ownerIds: Object.freeze(ownerIds),
   };
 }
 

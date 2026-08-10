@@ -9,6 +9,10 @@ import type {
 } from "./definition";
 import type { SemanticDefinitionLookup } from "./definition-lookup";
 import { createSemanticProjectionHelpers } from "./projection-helpers";
+import type {
+  SemanticProjectionNodeIndex,
+  SemanticProjectionNodeRecord,
+} from "./projection-node-index";
 import type { SemanticSnapshotBuilder } from "./snapshot-builder";
 
 export interface SemanticOwnerContext {
@@ -29,15 +33,6 @@ export interface ResolvedPublishedSemanticChild {
   readonly parentNodeType: string;
   readonly authoringAnchorId: EmbeddedNodeId | null;
   readonly activationPath: readonly SemanticActivationRelationship[];
-}
-
-interface OwnedNodeRecord {
-  readonly node: ProseMirrorNode;
-  readonly id: EmbeddedNodeId | null;
-  readonly from: number;
-  readonly to: number;
-  readonly ancestors: readonly ProseMirrorNode[];
-  readonly parentNodeType: string;
 }
 
 export function evaluateOwnerDescription(
@@ -70,6 +65,7 @@ export function evaluateOwnerDescription(
 export function resolveOwnerPublication(
   owner: SemanticOwnerContext,
   definitions: SemanticDefinitionLookup,
+  nodeIndex: SemanticProjectionNodeIndex,
   builder: SemanticSnapshotBuilder,
 ): readonly ResolvedPublishedSemanticChild[] {
   const projectChildren = owner.documentSemantics.projectChildren;
@@ -90,27 +86,16 @@ export function resolveOwnerPublication(
     return [];
   }
 
-  const ownedNodes = indexOwnedNodes(owner.node);
-  const ownedNodeById = new Map(
-    ownedNodes
-      .filter((record): record is OwnedNodeRecord & { readonly id: EmbeddedNodeId } =>
-        Boolean(record.id),
-      )
-      .map((record) => [record.id, record]),
-  );
-  ownedNodeById.set(owner.id, {
-    node: owner.node,
-    id: owner.id,
-    from: -1,
-    to: owner.node.nodeSize - 1,
-    ancestors: [],
-    parentNodeType: owner.node.type.name,
-  });
+  const ownerRecord = nodeIndex.getByAbsolutePos(owner.absolutePos);
+  if (!ownerRecord || ownerRecord.node !== owner.node || ownerRecord.id !== owner.id) {
+    addDiagnostic(builder, "invalid-published-candidate", owner);
+    return [];
+  }
 
   const seenIds = new Set<EmbeddedNodeId>();
   const resolved: ResolvedPublishedSemanticChild[] = [];
   for (const candidate of candidates) {
-    const record = resolveCandidateRecord(candidate, ownedNodes);
+    const record = resolveCandidateRecord(candidate, ownerRecord, nodeIndex);
     if (!record?.id) {
       addDiagnostic(builder, "invalid-published-candidate", owner, record ?? null);
       continue;
@@ -121,7 +106,7 @@ export function resolveOwnerPublication(
     }
     seenIds.add(record.id);
 
-    if (record.ancestors.some((ancestor) => definitions.blocks.get(ancestor.type.name))) {
+    if (nodeIndex.crossesMountedBlockBoundary(ownerRecord, record)) {
       addDiagnostic(builder, "invalid-published-candidate", owner, record);
       continue;
     }
@@ -135,7 +120,8 @@ export function resolveOwnerPublication(
     const activationPath = validateActivationPath(
       candidate.activation ?? [],
       record,
-      ownedNodeById,
+      ownerRecord,
+      nodeIndex,
       definitions,
     );
     if (!activationPath) {
@@ -148,8 +134,8 @@ export function resolveOwnerPublication(
         candidate,
         node: record.node,
         id: record.id,
-        relativePos: record.from,
-        absolutePos: owner.absolutePos + 1 + record.from,
+        relativePos: candidate.relativePos,
+        absolutePos: record.from,
         parentNodeType: record.parentNodeType,
         authoringAnchorId,
         activationPath,
@@ -175,37 +161,11 @@ function validateAuthoringAnchor(
   return candidate.authoringAnchorId;
 }
 
-function indexOwnedNodes(owner: ProseMirrorNode): readonly OwnedNodeRecord[] {
-  const records: OwnedNodeRecord[] = [];
-  const visit = (
-    parent: ProseMirrorNode,
-    parentContentStart: number,
-    ancestors: readonly ProseMirrorNode[],
-  ): void => {
-    let offset = 0;
-    parent.forEach((node) => {
-      const from = parentContentStart + offset;
-      const parsedId = EmbeddedNodeIdSchema.safeParse(node.attrs["id"]);
-      records.push({
-        node,
-        id: parsedId.success ? parsedId.data : null,
-        from,
-        to: from + node.nodeSize,
-        ancestors,
-        parentNodeType: parent.type.name,
-      });
-      if (!node.isText) visit(node, from + 1, [...ancestors, node]);
-      offset += node.nodeSize;
-    });
-  };
-  visit(owner, 0, []);
-  return records;
-}
-
 function resolveCandidateRecord(
   candidate: PublishedSemanticChild,
-  ownedNodes: readonly OwnedNodeRecord[],
-): OwnedNodeRecord | null {
+  owner: SemanticProjectionNodeRecord,
+  nodeIndex: SemanticProjectionNodeIndex,
+): SemanticProjectionNodeRecord | null {
   if (
     candidate === null ||
     typeof candidate !== "object" ||
@@ -214,23 +174,32 @@ function resolveCandidateRecord(
   ) {
     return null;
   }
-  return ownedNodes.find(({ from }) => from === candidate.relativePos) ?? null;
+  const record = nodeIndex.getByAbsolutePos(owner.from + 1 + candidate.relativePos);
+  return record && nodeIndex.isDescendant(owner, record) ? record : null;
 }
 
 function validateActivationPath(
   path: readonly SemanticActivationRelationship[],
-  candidate: OwnedNodeRecord,
-  ownedNodeById: ReadonlyMap<EmbeddedNodeId, OwnedNodeRecord>,
+  candidate: SemanticProjectionNodeRecord,
+  semanticOwner: SemanticProjectionNodeRecord,
+  nodeIndex: SemanticProjectionNodeIndex,
   definitions: SemanticDefinitionLookup,
 ): readonly SemanticActivationRelationship[] | null {
   if (!Array.isArray(path)) return null;
-  let previousOwner: OwnedNodeRecord | null = null;
-  let previousChild: OwnedNodeRecord | null = null;
+  let previousOwner: SemanticProjectionNodeRecord | null = null;
+  let previousChild: SemanticProjectionNodeRecord | null = null;
+
+  const findOwnedNode = (id: EmbeddedNodeId): SemanticProjectionNodeRecord | undefined => {
+    const record = nodeIndex.getById(id);
+    return record && (record === semanticOwner || nodeIndex.isDescendant(semanticOwner, record))
+      ? record
+      : undefined;
+  };
 
   for (const relationship of path) {
     if (!isActivationRelationship(relationship)) return null;
-    const owner = ownedNodeById.get(relationship.ownerId);
-    const child = ownedNodeById.get(relationship.childId);
+    const owner = findOwnedNode(relationship.ownerId);
+    const child = findOwnedNode(relationship.childId);
     if (
       !owner ||
       !child ||
@@ -281,7 +250,10 @@ function ownerMatchesKind(
   return definitions.blocks.get(node.type.name) !== undefined;
 }
 
-function contains(owner: OwnedNodeRecord, child: OwnedNodeRecord): boolean {
+function contains(
+  owner: SemanticProjectionNodeRecord,
+  child: SemanticProjectionNodeRecord,
+): boolean {
   return owner.from < child.from && owner.to >= child.to;
 }
 
@@ -303,7 +275,7 @@ function addDiagnostic(
     | "duplicate-published-candidate"
     | "invalid-activation-relationship",
   owner: SemanticOwnerContext,
-  candidate: OwnedNodeRecord | null = null,
+  candidate: SemanticProjectionNodeRecord | null = null,
 ): void {
   builder.addDiagnostic({
     code,
