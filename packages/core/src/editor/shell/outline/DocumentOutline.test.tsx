@@ -123,6 +123,30 @@ describe("DocumentOutline", () => {
 
     expect(screen.getByText("This document has no outline items yet.")).toBeInTheDocument();
   });
+
+  it("consumes only the snapshot/controller seam and never requests editor traversal state", () => {
+    const fixture = createFixture();
+    const controller = new Proxy(fixture.controller, {
+      get(target, property, receiver) {
+        if (property === "editor" || property === "state" || property === "doc") {
+          throw new Error(`Outline requested forbidden traversal property ${String(property)}`);
+        }
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    const viewport = new DocumentOutlineRowViewport();
+    const view = new SemanticHierarchyViewController({
+      controller,
+      origin: "document-outline",
+      viewport,
+    });
+
+    render(<DocumentOutline controller={controller} viewController={view} viewport={viewport} />);
+
+    expect(screen.getByRole("tree", { name: "Document outline" })).toBeInTheDocument();
+    expect(screen.getByRole("treeitem", { name: "Overview" })).toBeInTheDocument();
+    view.destroy();
+  });
 });
 
 function createFixture() {
