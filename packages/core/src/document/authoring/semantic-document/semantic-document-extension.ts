@@ -10,6 +10,10 @@ export function createSemanticDocumentExtension(definitions: SemanticDefinitionL
   return Extension.create({
     name: "semanticDocumentController",
 
+    onDestroy() {
+      semanticDocumentPluginKey.getState(this.editor.state)?.destroy();
+    },
+
     addProseMirrorPlugins() {
       return [
         new Plugin<SemanticDocumentController>({
@@ -21,9 +25,6 @@ export function createSemanticDocumentExtension(definitions: SemanticDefinitionL
               return controller;
             },
           },
-          view: (view) => ({
-            destroy: () => semanticDocumentPluginKey.getState(view.state)?.destroy(),
-          }),
         }),
       ];
     },
