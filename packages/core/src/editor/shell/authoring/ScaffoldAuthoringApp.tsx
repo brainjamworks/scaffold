@@ -1,6 +1,7 @@
 import {
   ChatCircleTextIcon as ChatCircleText,
   EyeIcon as Eye,
+  ListBulletsIcon as ListBullets,
   MoonIcon as Moon,
   PencilSimpleIcon as PencilSimple,
   SunIcon as Sun,
@@ -37,6 +38,7 @@ import {
   prepareScaffoldArtifactForAuthoring,
   type PreparedScaffoldArtifactValue,
 } from "@/format/artifact";
+import { DocumentOutlineHost } from "@/editor/shell/outline/DocumentOutlineHost";
 import type {
   ScaffoldAuthoringArtifact,
   ScaffoldAuthoringHostServices,
@@ -193,6 +195,7 @@ function ScaffoldAuthoringAppSession({
   const title = titleState.source === artifactStateSource ? titleState.value : initialTitle;
   const [editor, setEditor] = useState<TiptapEditor | null>(null);
   const [preview, setPreview] = useState(false);
+  const [outlineOpen, setOutlineOpen] = useState(false);
   const [uncontrolledAgentOpen, setUncontrolledAgentOpen] = useState(agentOpen);
   const [previewContent, setPreviewContent] = useState<ScaffoldLearnerPreviewContent | null>(null);
   const [previewServices, setPreviewServices] = useState<ScaffoldPreviewHostServices | null>(null);
@@ -200,6 +203,7 @@ function ScaffoldAuthoringAppSession({
   const [saveState, setSaveState] = useState<ScaffoldAuthoringSaveState>("idle");
   const [applicationElement, setApplicationElement] = useState<HTMLDivElement | null>(null);
   const saveStateRef = useRef<ScaffoldAuthoringSaveState>("idle");
+  const outlineToggleRef = useRef<HTMLButtonElement | null>(null);
   const hydratingRef = useRef(true);
   const latestEditorRef = useRef<TiptapEditor | null>(null);
   const autosaveTimeoutRef = useRef<number | null>(null);
@@ -445,6 +449,18 @@ function ScaffoldAuthoringAppSession({
     onAgentClose?.();
   }, [onAgentClose, setResolvedAgentOpen]);
 
+  const handleOutlineClose = useCallback(() => {
+    setOutlineOpen(false);
+    requestAnimationFrame(() => outlineToggleRef.current?.focus());
+  }, []);
+
+  const renderAuthoringNavigatorDock = useCallback(
+    (editorInstance: TiptapEditor) => (
+      <DocumentOutlineHost editor={editorInstance} onClose={handleOutlineClose} />
+    ),
+    [handleOutlineClose],
+  );
+
   const renderLeftRail = useCallback(
     (editorInstance: TiptapEditor) => <Toolbar editor={editorInstance} />,
     [],
@@ -490,6 +506,22 @@ function ScaffoldAuthoringAppSession({
           <Sun size={iconSm} aria-hidden />
         )}
       </AuthoringHeaderIconButton>
+      {!preview ? (
+        <button
+          ref={outlineToggleRef}
+          type="button"
+          onClick={() => setOutlineOpen((open) => !open)}
+          aria-pressed={outlineOpen}
+          aria-label={outlineOpen ? "Hide Document Outline" : "Show Document Outline"}
+          title="Toggle Document Outline"
+          className="sc-scaffold-authoring-action"
+          data-compact-label
+          data-state={outlineOpen ? "active-muted" : "default"}
+        >
+          <ListBullets size={iconSm} aria-hidden />
+          <span className="sc-scaffold-authoring-action-label">Outline</span>
+        </button>
+      ) : null}
       {!preview ? (
         <button
           type="button"
@@ -589,6 +621,9 @@ function ScaffoldAuthoringAppSession({
                     agentIntegration={agentIntegration}
                     artifactId={resolvedArtifactId}
                     content={toJsonDocument(latestContentRef.current.value)}
+                    {...(outlineOpen
+                      ? { authoringNavigatorDock: renderAuthoringNavigatorDock }
+                      : {})}
                     courseAppearance={applicationColorMode}
                     editable
                     onChange={handleEditorChange}

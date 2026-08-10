@@ -20,6 +20,26 @@ function setScrollMetrics(
 }
 
 describe("EditorShell", () => {
+  it("places a wide navigator dock on the left while preserving the wide right dock", () => {
+    const { container } = render(
+      <EditorShell
+        dock={<aside>Agent</aside>}
+        leftNavigatorDock={<aside>Document Outline</aside>}
+        stage={<main>Stage</main>}
+      />,
+    );
+
+    const shell = container.querySelector(".sc-editor-shell");
+    const docks = container.querySelectorAll(".sc-editor-dock-slot");
+    expect(docks).toHaveLength(2);
+    expect(docks[0]).toHaveAttribute("data-side", "left");
+    expect(docks[0]).toHaveTextContent("Document Outline");
+    expect(docks[1]).toHaveAttribute("data-side", "right");
+    expect(docks[1]).toHaveTextContent("Agent");
+    expect(shell?.firstElementChild).toBe(docks[0]);
+    expect(shell?.lastElementChild).toBe(docks[1]);
+  });
+
   it("wraps both rails in labelled bounded scroll regions", () => {
     const { container } = render(
       <EditorShell

@@ -276,6 +276,43 @@ describe("ContentAuthorHost", () => {
     expect(screen.queryByTestId("fake-agent-dock")).toBeNull();
   });
 
+  it("mounts the authoring navigator beside an independently open Agent dock", async () => {
+    const content = createScaffoldDocumentContent({ mode: "page" });
+    const onEditorReady = vi.fn();
+
+    function DockIntegration({ renderWorkspace }: ScaffoldAgentIntegrationProps) {
+      return renderWorkspace({
+        mode: "editing",
+        dock: <aside data-testid="fake-agent-dock">Fake Agent</aside>,
+      });
+    }
+
+    render(
+      <ContentAuthorHost
+        composition={coreAuthoringComposition}
+        agentIntegration={DockIntegration}
+        agentOpen
+        authoringNavigatorDock={(editor) => (
+          <aside data-editor-ready={!editor.isDestroyed} data-testid="fake-outline-dock">
+            Document Outline
+          </aside>
+        )}
+        content={content}
+        onEditorReady={onEditorReady}
+      />,
+    );
+
+    expect(screen.queryByTestId("fake-outline-dock")).toBeNull();
+    expect(screen.queryByTestId("fake-agent-dock")).toBeNull();
+    await waitFor(() => expect(onEditorReady).toHaveBeenCalledTimes(1));
+
+    expect(await screen.findByTestId("fake-outline-dock")).toHaveAttribute(
+      "data-editor-ready",
+      "true",
+    );
+    expect(screen.getByTestId("fake-agent-dock")).toBeInTheDocument();
+  });
+
   it("forwards close from a contributed dock", async () => {
     const user = userEvent.setup();
     const content = createScaffoldDocumentContent({ mode: "page" });

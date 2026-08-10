@@ -115,4 +115,55 @@
   .sc-scaffold-authoring-action[data-state="active-primary"]:hover:not(:disabled) {
     background: oklch(0.27 0.16 270);
   }
+
+  .sc-authoring-outline-dock {
+    --sc-authoring-outline-dock-width: clamp(17rem, 22vw, 22rem);
+    --sc-authoring-outline-dock-header-offset: var(--sc-editor-header-height, 53px);
+
+    position: sticky;
+    top: var(--sc-authoring-outline-dock-header-offset);
+    display: flex;
+    width: var(--sc-authoring-outline-dock-width);
+    height: calc(100vh - var(--sc-authoring-outline-dock-header-offset));
+    flex: 0 0 var(--sc-authoring-outline-dock-width);
+    flex-direction: column;
+    align-self: flex-start;
+    border-right: 1px solid var(--color-border);
+    background: var(--color-background);
+  }
+
+  .sc-xblock-editor-scroll .sc-authoring-outline-dock {
+    top: 0;
+    height: 100%;
+    max-height: calc(100vh - var(--sc-authoring-outline-dock-header-offset));
+  }
+
+  .sc-authoring-outline-dock-header {
+    display: flex;
+    min-height: 3.5rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border-bottom: 1px solid var(--color-border);
+    padding: 0.75rem 1rem 0.75rem 1.25rem;
+  }
+
+  .sc-authoring-outline-dock-title {
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    color: var(--color-ink);
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sc-authoring-outline-dock-scroll {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 1rem 0.75rem;
+  }
 }

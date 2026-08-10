@@ -71,6 +71,19 @@ vi.mock("@/editor/shell/chrome/Toolbar", async () => {
   };
 });
 
+vi.mock("@/editor/shell/outline/DocumentOutlineHost", async () => {
+  const { createElement } = await import("react");
+
+  return {
+    DocumentOutlineHost: ({ onClose }: { onClose: () => void }) =>
+      createElement(
+        "aside",
+        { "data-testid": "authoring-outline-dock" },
+        createElement("button", { type: "button", onClick: onClose }, "Close Document Outline"),
+      ),
+  };
+});
+
 vi.mock("./ContentAuthorHost", async () => {
   const React = await import("react");
   const { createElement, useEffect } = React;
@@ -79,6 +92,7 @@ vi.mock("./ContentAuthorHost", async () => {
     ContentAuthorHost: ({
       agentIntegration,
       agentOpen,
+      authoringNavigatorDock,
       content,
       composition,
       onAgentClose,
@@ -91,6 +105,7 @@ vi.mock("./ContentAuthorHost", async () => {
     }: {
       agentIntegration?: unknown;
       agentOpen?: boolean;
+      authoringNavigatorDock?: (editor: unknown) => ReactNode;
       content?: unknown;
       composition?: unknown;
       onAgentClose?: () => void;
@@ -105,6 +120,7 @@ vi.mock("./ContentAuthorHost", async () => {
       mocks.contentAuthorHostProps.push({
         agentIntegration,
         agentOpen,
+        authoringNavigatorDock,
         content,
         composition,
         leftRail,
@@ -121,6 +137,7 @@ vi.mock("./ContentAuthorHost", async () => {
       return createElement(
         "section",
         { "data-testid": "content-author-host" },
+        authoringNavigatorDock?.(mocks.fakeEditor),
         rightRail?.(mocks.fakeEditor),
         agentOpen
           ? createElement(
@@ -1003,6 +1020,72 @@ describe("ScaffoldAuthoringApp preview", () => {
     await screen.findByTestId("content-author-host");
 
     expect(mocks.contentAuthorHostProps.at(-1)?.["agentIntegration"]).toBe(FakeAgentIntegration);
+  });
+
+  it("keeps the left Document Outline and right Agent docks independently operable", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{
+          id: "artifact-outline-agent",
+          title: "Draft",
+          mode: "page",
+          content: mocks.authorJSON,
+        }}
+        services={{
+          artifactPersistence: { saveArtifact: vi.fn(async () => ({})) },
+          media: null,
+        }}
+      />,
+    );
+
+    await screen.findByTestId("content-author-host");
+    await user.click(screen.getByRole("button", { name: "Show Document Outline" }));
+    expect(screen.getByTestId("authoring-outline-dock")).toBeInTheDocument();
+    expect(screen.queryByTestId("authoring-agent-dock")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Show Scaffold Agent" }));
+    expect(screen.getByTestId("authoring-outline-dock")).toBeInTheDocument();
+    expect(screen.getByTestId("authoring-agent-dock")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Close Document Outline" }));
+    expect(screen.queryByTestId("authoring-outline-dock")).toBeNull();
+    expect(screen.getByTestId("authoring-agent-dock")).toBeInTheDocument();
+  });
+
+  it("does not mount the Document Outline in learner preview", async () => {
+    const user = userEvent.setup();
+
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{
+          id: "artifact-outline-preview",
+          title: "Draft",
+          mode: "page",
+          content: mocks.authorJSON,
+        }}
+        services={{
+          artifactPersistence: { saveArtifact: vi.fn(async () => ({})) },
+          media: null,
+        }}
+        createPreviewServices={() => ({ media: null })}
+      />,
+    );
+
+    await screen.findByTestId("content-author-host");
+    await user.click(screen.getByRole("button", { name: "Show Document Outline" }));
+    expect(screen.getByTestId("authoring-outline-dock")).toBeInTheDocument();
+
+    const previewButton = screen.getByRole("button", { name: "Switch to preview" });
+    await waitFor(() => expect(previewButton).toHaveProperty("disabled", false));
+    await user.click(previewButton);
+
+    await waitFor(() => expect(screen.queryByTestId("content-author-host")).toBeNull());
+    expect(screen.queryByTestId("authoring-outline-dock")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Hide Document Outline" })).toBeNull();
   });
 
   it("renders preview from projected learner content", async () => {

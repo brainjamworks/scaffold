@@ -27,7 +27,9 @@ export interface EditorShellProps extends Omit<HTMLAttributes<HTMLDivElement>, "
   rightRail?: ReactNode;
   /** Reserve the right-rail column before its content is ready. */
   reserveRightRail?: boolean;
-  /** Optional right-side dock surface — agent panel, review, outline. */
+  /** Optional wide left navigator surface — Document Outline, hierarchy browser, etc. */
+  leftNavigatorDock?: ReactNode;
+  /** Optional wide right-side dock surface — agent panel, review, etc. */
   dock?: ReactNode;
   /**
    * How the editor content scrolls.
@@ -49,7 +51,7 @@ export interface EditorShellProps extends Omit<HTMLAttributes<HTMLDivElement>, "
  * Document mode (page / slideshow / branching) lives inside the Stage
  * slot — the shell is mode-agnostic.
  *
- * Column order (left → right): leftRail · stage · rightRail · dock.
+ * Column order (left → right): leftNavigatorDock · leftRail · stage · rightRail · dock.
  * Rails live inside reserved shell columns so their horizontal position is
  * always measured in the same coordinate system as the stage and dock. They
  * use sticky vertical positioning to stay centered while the editor scrolls.
@@ -61,6 +63,7 @@ export function EditorShell({
   reserveLeftRail = false,
   rightRail,
   reserveRightRail = false,
+  leftNavigatorDock,
   dock,
   scrollModel = "page",
   className,
@@ -68,6 +71,11 @@ export function EditorShell({
 }: EditorShellProps) {
   return (
     <div className={cn("sc-editor-shell", className)} data-scroll-model={scrollModel} {...rest}>
+      {leftNavigatorDock ? (
+        <div className="sc-editor-dock-slot" data-side="left">
+          {leftNavigatorDock}
+        </div>
+      ) : null}
       {leftRail || reserveLeftRail ? (
         <div className="sc-editor-rail-slot" data-side="left">
           {leftRail ? (
@@ -89,7 +97,11 @@ export function EditorShell({
           ) : null}
         </div>
       ) : null}
-      {dock ? <div className="sc-editor-dock-slot">{dock}</div> : null}
+      {dock ? (
+        <div className="sc-editor-dock-slot" data-side="right">
+          {dock}
+        </div>
+      ) : null}
     </div>
   );
 }

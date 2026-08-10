@@ -36,6 +36,7 @@
   }
 
   .sc-editor-dock-slot {
+    min-width: 0;
     flex: 0 0 auto;
   }
 

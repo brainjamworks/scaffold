@@ -33,6 +33,8 @@ export interface ContentAuthorHostProps {
   onAgentClose?: () => void;
   /** Scroll container model used by the editor shell. */
   scrollModel?: EditorShellScrollModel;
+  /** Wide left navigator rendered only for a ready, editable authoring editor. */
+  authoringNavigatorDock?: (editor: TiptapEditor) => ReactNode;
   /**
    * Render slot for the left rail (rich-text formatting toolbar by
    * convention). Receives the live editor once it's ready.
@@ -58,6 +60,7 @@ export const ContentAuthorHost = memo(function ContentAuthorHost({
   agentOpen = true,
   onAgentClose,
   scrollModel = "page",
+  authoringNavigatorDock,
   leftRail,
   rightRail,
 }: ContentAuthorHostProps) {
@@ -114,6 +117,11 @@ export const ContentAuthorHost = memo(function ContentAuthorHost({
         scrollModel={scrollModel}
         reserveLeftRail={editable && leftRail !== undefined}
         reserveRightRail={editable && rightRail !== undefined}
+        leftNavigatorDock={
+          editor && editable && contribution.mode === "editing" && authoringNavigatorDock
+            ? authoringNavigatorDock(editor)
+            : null
+        }
         leftRail={editor && editable && leftRail ? leftRail(editor) : null}
         rightRail={editor && editable && rightRail ? rightRail(editor) : null}
         stage={
