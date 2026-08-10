@@ -4,6 +4,13 @@ export {
   type SemanticDocumentControllerSnapshot,
 } from "./semantic-document-controller";
 export {
+  SemanticHierarchyViewController,
+  type SemanticHierarchyRevealOptions,
+  type SemanticHierarchyViewControllerInput,
+  type SemanticHierarchyViewSnapshot,
+  type SemanticHierarchyViewport,
+} from "./semantic-hierarchy-view-controller";
+export {
   SemanticContainerAdapterRegistry,
   type SemanticContainerAdapter,
   type SemanticContainerRevealReason,
