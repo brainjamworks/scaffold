@@ -9,6 +9,7 @@ import type { ReactNode } from "react";
 import { describe, expect, it } from "vite-plus/test";
 
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
 import { createCourseStructureCommandsExtension } from "@/document/authoring/course-structure-commands";
 import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
 import {
@@ -23,12 +24,11 @@ import {
   type SurfaceChromeTargetDescriptor,
 } from "@/editor/interactions/targets/prosemirror/projection/structural-chrome-target-projection";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
-import { createLayoutRegistry } from "@/editor/arrangements/layout/model/layout-registry";
-import { createBlockRegistry } from "@/editor/blocks/block-registry";
+import { ExtendedHeading } from "@/editor/rich-text/model/rich-text-blocks";
+import { SlideCoverSubtitleNode } from "@/editor/surfaces/model/nodes/slide-cover-subtitle";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
 import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import { builtInSurfaceAuthoringChromeResolver } from "@/editor/surfaces/authoring/surface-authoring-views";
-import { createSurfaceVariantRegistry } from "@/editor/surfaces/model/surface-variant-registry";
 import { pageDefaultSurfaceDefinition } from "@/editor/surfaces/model/templates/page-default";
 import { slideCoverSurfaceDefinition } from "@/editor/surfaces/model/templates/slide-cover";
 
@@ -87,6 +87,7 @@ describe("SurfaceMenuBubbleContent", () => {
       <SurfaceMenuBubbleContent descriptor={descriptor} editor={editor} snapshot={snapshot} />,
     );
 
+    expect(screen.getByRole("button", { name: "Copy slide" })).toHaveProperty("disabled", false);
     expect(screen.getByRole("button", { name: "Duplicate slide" })).toHaveProperty(
       "disabled",
       false,
@@ -113,6 +114,7 @@ describe("SurfaceMenuBubbleContent", () => {
       <SurfaceMenuBubbleContent descriptor={descriptor} editor={editor} snapshot={snapshot} />,
     );
 
+    expect(screen.getByRole("button", { name: "Copy slide" })).toHaveProperty("disabled", false);
     expect(screen.getByRole("button", { name: "Duplicate slide" })).toHaveProperty(
       "disabled",
       false,
@@ -192,6 +194,8 @@ describe("SurfaceMenuBubbleContent", () => {
     );
 
     expect(screen.queryByRole("button", { name: "Duplicate surface" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Copy surface" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Copy slide" })).toBeNull();
     expect(screen.getByRole("button", { name: "Background colour" })).toBeInTheDocument();
     expect(screen.queryByRole("radiogroup", { name: "Horizontal alignment" })).toBeNull();
     expect(screen.queryByRole("radiogroup", { name: "Vertical position" })).toBeNull();
@@ -256,15 +260,10 @@ describe("SurfaceMenuBubbleContent", () => {
 });
 
 function createEditor(mode: "page" | "slideshow", surfaces: JSONContent[]): Editor {
-  const capabilities = Object.freeze({
-    blocks: Object.freeze({ registry: createBlockRegistry([]) }),
-    layouts: Object.freeze({ registry: createLayoutRegistry([]) }),
-    surfaces: Object.freeze({
-      registry: createSurfaceVariantRegistry([
-        pageDefaultSurfaceDefinition,
-        slideCoverSurfaceDefinition,
-      ]),
-    }),
+  const capabilities = resolveScaffoldCapabilities({
+    blockCapabilities: [],
+    layoutDefinitions: [],
+    surfaceDefinitions: [pageDefaultSurfaceDefinition, slideCoverSurfaceDefinition],
   });
   return new Editor({
     extensions: [
@@ -272,10 +271,13 @@ function createEditor(mode: "page" | "slideshow", surfaces: JSONContent[]): Edit
       DocumentNode,
       StarterKit.configure({
         document: false,
+        heading: false,
         paragraph: false,
         undoRedo: false,
       }),
       ExtendedParagraph,
+      ExtendedHeading,
+      SlideCoverSubtitleNode,
       CourseDocumentNode,
       createCourseSectionNode(),
       SurfaceNode,
@@ -303,6 +305,7 @@ function readCourseChildren(editor: Editor): JSONContent[] {
 }
 
 function surface(id: string, variant: string, background?: Record<string, unknown>): JSONContent {
+  const suffix = id.endsWith("2") ? "2" : "1";
   return {
     type: "surface",
     attrs: {
@@ -312,12 +315,27 @@ function surface(id: string, variant: string, background?: Record<string, unknow
       },
       variant,
     },
-    content: [
-      {
-        type: "paragraph",
-        content: [{ type: "text", text: id }],
-      },
-    ],
+    content:
+      variant === "slide-cover"
+        ? [
+            {
+              type: "heading",
+              attrs: { id: `heading0000${suffix}`, level: 1 },
+              content: [{ type: "text", text: id }],
+            },
+            {
+              type: "slide_cover_subtitle",
+              attrs: { id: `subtitle000${suffix}` },
+              content: [{ type: "paragraph", attrs: { id: `paragraph00${suffix}` } }],
+            },
+          ]
+        : [
+            {
+              type: "paragraph",
+              attrs: { id: `paragraph00${suffix}` },
+              content: [{ type: "text", text: id }],
+            },
+          ],
   };
 }
 

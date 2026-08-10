@@ -23,7 +23,7 @@ import type {
   StructuralInteractionBubbleRendererBinding,
 } from "@/editor/interactions/interaction-bubble";
 
-import { DeleteSurface, DuplicateSurface } from "./actions";
+import { CopySurface, DeleteSurface, DuplicateSurface } from "./actions";
 
 import type {
   SurfaceAuthoringChrome,
@@ -32,6 +32,7 @@ import type {
 
 export interface SurfaceMenuSnapshot {
   defaultActions?: {
+    copyLabel?: string;
     deleteLabel: string;
     duplicateLabel: string;
   };
@@ -67,6 +68,13 @@ export function SurfaceMenuBubbleContent({
     <>
       {snapshot.defaultActions ? (
         <>
+          {snapshot.defaultActions.copyLabel ? (
+            <CopySurface
+              editor={editor}
+              {...(snapshot.surfaceId !== undefined ? { surfaceId: snapshot.surfaceId } : {})}
+              label={snapshot.defaultActions.copyLabel}
+            />
+          ) : null}
           <DuplicateSurface
             editor={editor}
             {...(snapshot.surfaceId !== undefined ? { surfaceId: snapshot.surfaceId } : {})}
@@ -160,6 +168,7 @@ function surfaceDefaultActionsForMode(
   if (mode === "page") return undefined;
   if (mode === "slideshow") {
     return {
+      copyLabel: "Copy slide",
       deleteLabel: "Delete slide",
       duplicateLabel: "Duplicate slide",
     };

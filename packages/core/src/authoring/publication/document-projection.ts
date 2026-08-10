@@ -1,7 +1,6 @@
 import type { JSONContent } from "@tiptap/core";
 import {
   AssessmentGroupContractSchema,
-  AssessmentTargetContractSchema,
   SCAFFOLD_ASSESSMENT_CONTRACT_VERSION,
   QuizSettingsSchema,
   type AssessmentGroupContract,
@@ -15,12 +14,20 @@ import {
   readStringAttr,
 } from "@/editor/blocks/assessment/shared/publication/projection";
 import {
-  getBlockAttrSchema,
-  type AssessmentCapabilityProjectionDefinition,
   type BlockAssessmentCapabilityDefinition,
   type BlockDefinition,
 } from "@/editor/blocks/block-definition";
+import {
+  projectAssessmentTargetContract,
+  requireAssessmentProjection,
+} from "@/editor/blocks/assessment/shared/publication/assessment-target";
 import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
+import type { RequiresScaffoldPlusResult } from "@/host/contracts/product-access";
+import type {
+  LearnerProjectionReadinessResult,
+  UnavailableContentRef,
+  DocumentEstablishmentIssue,
+} from "@/document/model/establishment";
 
 export type AssessmentBlockNodeType = string;
 
@@ -49,19 +56,34 @@ export interface AssessmentDocumentProjection {
   warnings: AssessmentProjectionWarning[];
 }
 
-interface CommonAssessmentSettings {
-  feedbackMode: "immediate" | "on_submit";
-  isGraded: boolean;
-  showAnswer: boolean;
-  points: number;
-  maxAttempts: number | null;
-  maxSelect?: number | null;
-}
+export type SupportedLearnerProjectionReadiness = Extract<
+  LearnerProjectionReadinessResult,
+  { readonly status: "supported" }
+>;
 
-type SafeSchema<T> = {
-  parse(value: unknown): T;
-  safeParse(value: unknown): { success: true; data: T } | { success: false; error: unknown };
-};
+export type LearnerPublicationProjection =
+  | {
+      readonly status: "supported";
+      readonly learnerContent: JSONContent;
+      readonly assessmentTargets: AssessmentTargetContract[];
+      readonly assessmentGroups: AssessmentGroupContract[];
+      readonly warnings: AssessmentProjectionWarning[];
+    }
+  | {
+      readonly status: "unavailable-content";
+      readonly unavailableContent: readonly UnavailableContentRef[];
+    }
+  | {
+      readonly status: "invalid";
+      readonly issues: readonly DocumentEstablishmentIssue[];
+    }
+  | {
+      readonly status: "unsupported-core-format";
+      readonly documentVersion: number;
+      readonly supportedVersion: number;
+      readonly message: string;
+    }
+  | RequiresScaffoldPlusResult;
 
 interface VisitedAssessmentBlock {
   node: JSONContent;
@@ -77,13 +99,33 @@ interface VisitedAssessmentBlock {
  * targets. This operates only on ProseMirror JSON so XBlock, Moodle, LTI,
  * Teams, or any other host can call it without mounting Tiptap.
  */
+export function projectLearnerPublication(
+  readiness: LearnerProjectionReadinessResult,
+  blockDefinitions: BlockDefinitionLookup,
+): LearnerPublicationProjection {
+  if (readiness.status !== "supported") return readiness;
+
+  const projection = projectAssessmentDocument(readiness, blockDefinitions);
+  return {
+    status: "supported",
+    learnerContent: projection.learnerDocument,
+    assessmentTargets: projection.targets,
+    assessmentGroups: projection.groups,
+    warnings: projection.warnings,
+  };
+}
+
 export function projectAssessmentDocument(
-  authorDocument: JSONContent,
+  readiness: SupportedLearnerProjectionReadiness,
   blockDefinitions: BlockDefinitionLookup,
 ): AssessmentDocumentProjection {
-  const learner = projectLearnerDocument(authorDocument, blockDefinitions);
-  const targets = projectAssessmentTargets(authorDocument, blockDefinitions);
-  const groupProjection = projectAssessmentGroups(authorDocument, targets, blockDefinitions);
+  const learner = projectLearnerDocument(readiness, blockDefinitions);
+  const targets = projectAssessmentTargets(readiness, blockDefinitions);
+  const groupProjection = projectAssessmentGroups(
+    readiness.canonicalDocument,
+    targets,
+    blockDefinitions,
+  );
   return {
     learnerDocument: learner.document,
     targets,
@@ -97,9 +139,10 @@ export function projectAssessmentDocument(
  * assessment block capability for its learner-facing projection.
  */
 export function projectLearnerDocument(
-  authorDocument: JSONContent,
+  readiness: SupportedLearnerProjectionReadiness,
   blockDefinitions: BlockDefinitionLookup,
 ): LearnerDocumentProjection {
+  const authorDocument = readiness.canonicalDocument;
   const warnings: AssessmentProjectionWarning[] = [];
   collectAssessmentBlocks(authorDocument, blockDefinitions).forEach((block) => {
     if (!block.blockId) warnings.push(missingBlockIdWarning(block));
@@ -112,37 +155,19 @@ export function projectLearnerDocument(
 }
 
 export function projectAssessmentTargets(
-  authorDocument: JSONContent,
+  readiness: SupportedLearnerProjectionReadiness,
   blockDefinitions: BlockDefinitionLookup,
 ): AssessmentTargetContract[] {
+  const authorDocument = readiness.canonicalDocument;
   return collectAssessmentBlocks(authorDocument, blockDefinitions)
     .filter((block) => block.blockId.length > 0)
-    .map((block) => {
-      const projection = requireProjection(block);
-      const settingsSchema = requireSettingsSchema(block);
-      const settings = parseWithDefault<CommonAssessmentSettings>(
-        settingsSchema as SafeSchema<CommonAssessmentSettings>,
-        readAttrs(block.node)["settings"],
-      );
-
-      const target = {
-        schemaVersion: SCAFFOLD_ASSESSMENT_CONTRACT_VERSION,
-        targetId: block.blockId,
-        blockType: block.definition.nodeType,
+    .map((block) =>
+      projectAssessmentTargetContract({
         blockId: block.blockId,
-        interaction: projection.projectInteraction(block.node, settings),
-        assessment: projection.projectAssessment(block.node),
-        settings: {
-          feedbackMode: settings.feedbackMode,
-          isGraded: settings.isGraded,
-          showAnswer: settings.showAnswer,
-          points: settings.points,
-          maxAttempts: settings.maxAttempts,
-          ...projection.projectSettings?.(settings),
-        },
-      };
-      return AssessmentTargetContractSchema.parse(target);
-    });
+        definition: block.definition,
+        node: block.node,
+      }),
+    );
 }
 
 interface AssessmentGroupProjection {
@@ -313,13 +338,7 @@ function redactLearnerNode(
 ): JSONContent {
   const registered = assessmentDefinitionForNode(node, blockDefinitions);
   if (registered) {
-    const projection = requireProjection({
-      node,
-      definition: registered.definition,
-      assessment: registered.assessment,
-      blockId: readStringAttr(node, "id"),
-      surfaceId: null,
-    });
+    const projection = requireAssessmentProjection(registered.definition);
     return projection.projectLearnerNode(node);
   }
 
@@ -329,36 +348,4 @@ function redactLearnerNode(
       ? { content: readContent(node).map((child) => redactLearnerNode(child, blockDefinitions)) }
       : {}),
   };
-}
-
-function requireProjection(
-  block: VisitedAssessmentBlock,
-): AssessmentCapabilityProjectionDefinition {
-  const projection = block.assessment.projection;
-  if (!projection) {
-    throw new Error(
-      `Assessment block "${block.definition.nodeType}" (${block.definition.nodeType}) is missing capabilities.assessment.projection.`,
-    );
-  }
-  if (!projection.projectLearnerNode) {
-    throw new Error(
-      `Assessment block "${block.definition.nodeType}" (${block.definition.nodeType}) is missing capabilities.assessment.projection.projectLearnerNode.`,
-    );
-  }
-  return projection;
-}
-
-function requireSettingsSchema(block: VisitedAssessmentBlock): SafeSchema<unknown> {
-  const settingsSchema = getBlockAttrSchema(block.definition, "settings");
-  if (!settingsSchema) {
-    throw new Error(
-      `Assessment block "${block.definition.nodeType}" (${block.definition.nodeType}) is missing settings attr schema.`,
-    );
-  }
-  return settingsSchema as SafeSchema<unknown>;
-}
-
-function parseWithDefault<T>(schema: SafeSchema<T>, value: unknown): T {
-  const parsed = schema.safeParse(value);
-  return parsed.success ? parsed.data : schema.parse({});
 }

@@ -38,7 +38,11 @@ import * as surfaceRootSelectionPolicy from "@/editor/surfaces/authoring/surface
 import type { SurfaceAuthoringViewProps } from "@/editor/surfaces/authoring/surface-authoring-view-registry";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import * as surfaceVariantRegistry from "@/editor/surfaces/model/surface-variant-registry";
-import { createCourseDocumentAuthoringExtensions } from "./create-authoring-composition";
+import {
+  createCourseDocumentAuthoringEnvironment,
+  createCourseDocumentAuthoringExtensions,
+  getCourseDocumentAuthoringEnvironmentState,
+} from "./create-authoring-composition";
 import { createCoreScaffoldAuthoringComposition } from "./scaffold-authoring-composition";
 
 const coreAuthoringComposition = createCoreScaffoldAuthoringComposition();
@@ -87,6 +91,26 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     expect(coreAuthoringComposition.capabilities.surfaces.registry).not.toBe(
       builtInSurfaceVariantRegistry,
     );
+  });
+
+  it("owns one opaque immutable composition, extension list, capability set, and schema", () => {
+    const environment = createCourseDocumentAuthoringEnvironment({
+      composition: coreAuthoringComposition,
+    });
+    const state = getCourseDocumentAuthoringEnvironmentState(environment);
+
+    expect(Object.keys(environment)).toEqual([]);
+    expect(Object.isFrozen(environment)).toBe(true);
+    expect(Object.isFrozen(state.extensions)).toBe(true);
+    expect(state.composition).toBe(coreAuthoringComposition);
+    expect(Object.keys(state.schema.nodes)).toEqual(Object.keys(getSchema(state.extensions).nodes));
+    expect(state.capabilities.blocks).toBe(coreAuthoringComposition.capabilities.blocks.registry);
+    expect(state.capabilities.layouts).toBe(coreAuthoringComposition.capabilities.layouts.registry);
+    expect(state.capabilities.surfaces).toBe(
+      coreAuthoringComposition.capabilities.surfaces.registry,
+    );
+    type Options = Parameters<typeof createCourseDocumentAuthoringEnvironment>[0];
+    expectTypeOf<"sessionExtensions" extends keyof Options ? true : false>().toEqualTypeOf<false>();
   });
 
   it("returns each extension name only once", () => {
@@ -264,12 +288,8 @@ describe("createCourseDocumentAuthoringExtensions", () => {
       composition: coreAuthoringComposition,
     });
 
-    expect(authoringExtensions.find((extension) => extension.name === "grid")).toBe(
-      GridAuthoringNode,
-    );
-    expect(authoringExtensions.find((extension) => extension.name === "cell")).toBe(
-      CellAuthoringNode,
-    );
+    expect(authoringExtensions.filter((extension) => extension.name === "grid")).toHaveLength(1);
+    expect(authoringExtensions.filter((extension) => extension.name === "cell")).toHaveLength(1);
     expect(authoringExtensions.filter((extension) => extension.name === "layout")).toHaveLength(1);
     expect(authoringExtensions.filter((extension) => extension.name === "section")).toHaveLength(1);
     expect(LayoutAuthoringNode.name).toBe("layout");
@@ -297,7 +317,7 @@ describe("createCourseDocumentAuthoringExtensions", () => {
       await waitFor(() => {
         expect(
           document.body.querySelector(
-            '[data-authoring-frame="layout"][data-definition="tabs"] .sc-tabs',
+            '[data-authoring-frame="layout"][data-definition="tabs"] .sc-course-tabs',
           ),
         ).not.toBeNull();
       });
@@ -374,51 +394,6 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     }
   });
 
-  it("uses resolved host Layout placement in bounded transaction validation", () => {
-    const fillCapability = hostLayoutCapability("host-fill-layout", "fill");
-    const flowCapability = hostLayoutCapability("host-flow-layout");
-    const application = createScaffoldApplication({
-      packs: [
-        defineScaffoldExtensionPack({
-          id: "host-bounded-layouts",
-          layouts: [fillCapability, flowCapability],
-        }),
-      ],
-    });
-    const fillEditor = new Editor({
-      editable: true,
-      extensions: createCourseDocumentAuthoringExtensions({
-        editable: true,
-        composition: application.authoring,
-      }),
-      content: persistedHostLayoutInBoundedCellDocument(fillCapability.definition.id, "cell-fill"),
-    });
-    const flowEditor = new Editor({
-      editable: true,
-      extensions: createCourseDocumentAuthoringExtensions({
-        editable: true,
-        composition: application.authoring,
-      }),
-      content: persistedHostLayoutInBoundedCellDocument(flowCapability.definition.id, "cell-flow"),
-    });
-
-    try {
-      appendParagraphToNode(fillEditor, "cell-fill");
-      appendParagraphToNode(flowEditor, "cell-flow");
-
-      expect(findNodeJsonById(fillEditor, "cell-fill")?.content?.map(({ type }) => type)).toEqual([
-        "layout",
-      ]);
-      expect(findNodeJsonById(flowEditor, "cell-flow")?.content?.map(({ type }) => type)).toEqual([
-        "layout",
-        "paragraph",
-      ]);
-    } finally {
-      fillEditor.destroy();
-      flowEditor.destroy();
-    }
-  });
-
   it("constructs one Surface node and binds every Surface policy to the resolved application", () => {
     const capability = hostSurfaceCapability("host-surface-policy-tracer");
     const application = createScaffoldApplication({
@@ -452,6 +427,7 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     expect(createRootSelection).toHaveBeenCalledWith({ surfaceVariants: surfaceRegistry });
     expect(createEmptyRow).toHaveBeenCalledWith({
       blockDefinitions: application.capabilities.blocks.registry,
+      layoutDefinitions: application.capabilities.layouts.registry,
       surfaceVariants: surfaceRegistry,
     });
     expect(createSlash).toHaveBeenCalledWith({
@@ -477,6 +453,18 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     expect(createPolicy).toHaveBeenCalledOnce();
     expect(createPolicy).toHaveBeenCalledWith({
       blockDefinitions: application.capabilities.blocks.registry,
+      blockDuplications: application.capabilities.blocks.duplication,
+      carrierLimits: {
+        maxCarrierBytes: 2_000_000,
+        fragmentDecodeLimits: {
+          maxEncodedBytes: 1_000_000,
+          maxNestingDepth: 1_000,
+          maxVisitedValues: 100_000,
+          maxArrayLength: 100_000,
+          maxObjectPropertyCount: 100_000,
+          maxStringBytes: 100_000,
+        },
+      },
       layoutDefinitions: application.capabilities.layouts.registry,
       surfaceVariants: application.capabilities.surfaces.registry,
     });
@@ -735,6 +723,25 @@ describe("createCourseDocumentAuthoringExtensions", () => {
     expect(firstSchema.nodes[`${second.definition.nodeType}_child`]).toBeUndefined();
     expect(secondSchema.nodes[`${second.definition.nodeType}_child`]).toBeDefined();
     expect(secondSchema.nodes[`${first.definition.nodeType}_child`]).toBeUndefined();
+  });
+
+  it("constructs Grid authoring nodes from the exact mounted Block registry", () => {
+    const capability = hostBlockCapability("host_grid_owner_block");
+    const application = createScaffoldApplication({
+      packs: [
+        defineScaffoldExtensionPack({
+          id: "host-grid-owner",
+          blocks: [capability],
+        }),
+      ],
+    });
+    const extensions = createCourseDocumentAuthoringExtensions({
+      editable: true,
+      composition: application.authoring,
+    });
+
+    expect(extensions.find(({ name }) => name === "grid")).not.toBe(GridAuthoringNode);
+    expect(extensions.find(({ name }) => name === "cell")).not.toBe(CellAuthoringNode);
   });
 });
 
@@ -1089,60 +1096,6 @@ function persistedHostSurfaceDocument(variant: string) {
       },
     ],
   };
-}
-
-function persistedHostLayoutInBoundedCellDocument(variant: string, cellId: string) {
-  return {
-    type: "doc",
-    content: [
-      {
-        type: "courseDocument",
-        attrs: { mode: "slideshow" },
-        content: [
-          {
-            type: "surface",
-            attrs: { id: `surface-${cellId}`, variant: "slide-content" },
-            content: [
-              {
-                type: "region",
-                attrs: { id: `region-${cellId}` },
-                content: [
-                  {
-                    type: "grid",
-                    attrs: { id: `grid-${cellId}` },
-                    content: [
-                      {
-                        type: "cell",
-                        attrs: { id: cellId },
-                        content: [
-                          persistedHostLayoutDocument(variant).content[0]!.content[0]!.content[0]!,
-                        ],
-                      },
-                    ],
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      },
-    ],
-  };
-}
-
-function appendParagraphToNode(editor: Editor, id: string): void {
-  let insertPos: number | null = null;
-
-  editor.state.doc.descendants((node, pos) => {
-    if (node.attrs["id"] !== id) return true;
-    insertPos = pos + node.nodeSize - 1;
-    return false;
-  });
-
-  if (insertPos === null) throw new Error(`expected node "${id}"`);
-  const paragraph = editor.schema.nodes.paragraph?.create();
-  if (!paragraph) throw new Error("expected paragraph node");
-  editor.view.dispatch(editor.state.tr.insert(insertPos, paragraph));
 }
 
 function firstNodePosition(editor: Editor, type: string): number {

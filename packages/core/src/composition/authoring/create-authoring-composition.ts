@@ -1,9 +1,8 @@
-import type { Extensions } from "@tiptap/core";
+import { getSchema, type Extensions } from "@tiptap/core";
+import { UndoRedo } from "@tiptap/extensions";
+import type { Schema } from "@tiptap/pm/model";
 
-import {
-  CellAuthoringNode,
-  GridAuthoringNode,
-} from "@/editor/arrangements/grid/authoring/grid-nodes";
+import { createGridAuthoringNodes } from "@/editor/arrangements/grid/authoring/grid-nodes";
 import { createLayoutAuthoringNodes } from "@/editor/arrangements/layout/authoring/layout-nodes";
 import { AssessmentActionsGroupNode } from "@/editor/blocks/assessment/shared/nodes/assessment-actions-group";
 import { AssessmentChoicesGroupNode } from "@/editor/blocks/assessment/shared/nodes/assessment-choices-group";
@@ -17,9 +16,9 @@ import { VocabularyTermAuthoringNode } from "@/editor/rich-text/vocabulary-term/
 import { Placeholder } from "@/editor/prosemirror/placeholder/Placeholder";
 import { createEmptyInsertionRowExtension } from "@/editor/suggestions/empty-row/EmptyInsertionRowExtension";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
-import { createBoundedContainerStructurePolicy } from "@/editor/bounded-containers/authoring/BoundedContainerStructurePolicy";
 import { createSlashCommand } from "@/editor/suggestions/slash/SlashCommand";
 import { createStructuralClipboardPolicy } from "@/document/authoring/structural-clipboard-policy";
+import type { StructuralFragmentCarrierLimits } from "@/document/authoring/structural-clipboard/structural-fragment-carrier";
 import {
   authoringCourseDocumentContentExpression,
   createUnavailableContentAuthoringExtensions,
@@ -32,6 +31,10 @@ import { createCourseDocumentBaseExtensions } from "@/composition/model/create-d
 import { createCourseStructureCommandsExtension } from "@/document/authoring/course-structure-commands";
 import { CourseDocumentNode } from "@/document/model/nodes";
 import { createCourseSectionAuthoringNode } from "@/editor/course-sections/authoring/course-section-authoring-node";
+import {
+  assertMountedNodeIdentitySchema,
+  type DocumentCapabilityLookups,
+} from "@/document/model/establishment";
 import { AuthoringSlideDividers } from "@/editor/surfaces/authoring/AuthoringSlideDividers";
 import { createSurfaceRootSelectionPolicy } from "@/editor/surfaces/authoring/surface-root-selection-policy";
 import { createSurfaceAuthoringNode } from "@/editor/surfaces/authoring/nodes/surface-authoring-node";
@@ -41,6 +44,83 @@ import "@/editor/course-sections/authoring/course-section-authoring.css";
 import "@/editor/rich-text/view/text-alignment.css";
 
 import type { ScaffoldAuthoringComposition } from "./scaffold-authoring-composition";
+
+const courseDocumentAuthoringEnvironmentBrand: unique symbol = Symbol(
+  "CourseDocumentAuthoringEnvironment",
+);
+
+export interface CourseDocumentAuthoringEnvironment {
+  readonly [courseDocumentAuthoringEnvironmentBrand]: true;
+}
+
+export interface CourseDocumentAuthoringEnvironmentState {
+  readonly extensions: Extensions;
+  readonly schema: Schema;
+  readonly capabilities: DocumentCapabilityLookups;
+  readonly composition: ScaffoldAuthoringComposition;
+  readonly editable: boolean;
+}
+
+const environmentStates = new WeakMap<
+  CourseDocumentAuthoringEnvironment,
+  CourseDocumentAuthoringEnvironmentState
+>();
+
+export const AUTHORING_STRUCTURAL_CLIPBOARD_LIMITS: StructuralFragmentCarrierLimits = Object.freeze(
+  {
+    maxCarrierBytes: 2_000_000,
+    fragmentDecodeLimits: Object.freeze({
+      maxEncodedBytes: 1_000_000,
+      maxNestingDepth: 1_000,
+      maxVisitedValues: 100_000,
+      maxArrayLength: 100_000,
+      maxObjectPropertyCount: 100_000,
+      maxStringBytes: 100_000,
+    }),
+  },
+);
+
+export function createCourseDocumentAuthoringEnvironment({
+  composition,
+  editable = true,
+}: {
+  composition: ScaffoldAuthoringComposition;
+  editable?: boolean;
+}): CourseDocumentAuthoringEnvironment {
+  const extensions = Object.freeze([
+    ...createCourseDocumentAuthoringExtensions({ editable, composition }),
+    UndoRedo,
+  ]) as unknown as Extensions;
+  const schema = getSchema(extensions);
+  assertMountedNodeIdentitySchema(schema);
+
+  const environment = Object.freeze({}) as CourseDocumentAuthoringEnvironment;
+  environmentStates.set(
+    environment,
+    Object.freeze({
+      extensions,
+      schema,
+      composition,
+      editable,
+      capabilities: Object.freeze({
+        blocks: composition.capabilities.blocks.registry,
+        layouts: composition.capabilities.layouts.registry,
+        surfaces: composition.capabilities.surfaces.registry,
+      }),
+    }),
+  );
+  return environment;
+}
+
+export function getCourseDocumentAuthoringEnvironmentState(
+  environment: CourseDocumentAuthoringEnvironment,
+): CourseDocumentAuthoringEnvironmentState {
+  const state = environmentStates.get(environment);
+  if (!state) {
+    throw new Error("Course Document authoring environment was not created by Core.");
+  }
+  return state;
+}
 
 export function createCourseDocumentAuthoringExtensions({
   editable,
@@ -52,6 +132,7 @@ export function createCourseDocumentAuthoringExtensions({
   const blockRegistry = composition.capabilities.blocks.registry;
   const layoutRegistry = composition.capabilities.layouts.registry;
   const surfaceRegistry = composition.capabilities.surfaces.registry;
+  const { CellAuthoringNode, GridAuthoringNode } = createGridAuthoringNodes(blockRegistry);
   const { layoutNode, sectionNode } = createLayoutAuthoringNodes({
     registry: layoutRegistry,
     authoringViews: composition.layouts.views,
@@ -95,10 +176,11 @@ export function createCourseDocumentAuthoringExtensions({
     ...baseExtensions,
     AuthoringSlideDividers,
     createSurfaceRootSelectionPolicy({ surfaceVariants: surfaceRegistry }),
-    createBoundedContainerStructurePolicy(blockRegistry, layoutRegistry),
     createScaffoldInteractionOwnerExtension(blockRegistry),
     createStructuralClipboardPolicy({
       blockDefinitions: blockRegistry,
+      blockDuplications: composition.capabilities.blocks.duplication,
+      carrierLimits: AUTHORING_STRUCTURAL_CLIPBOARD_LIMITS,
       layoutDefinitions: layoutRegistry,
       surfaceVariants: surfaceRegistry,
     }),
@@ -113,6 +195,7 @@ export function createCourseDocumentAuthoringExtensions({
     }),
     createEmptyInsertionRowExtension({
       blockDefinitions: blockRegistry,
+      layoutDefinitions: layoutRegistry,
       surfaceVariants: surfaceRegistry,
     }),
     createSlashCommand({

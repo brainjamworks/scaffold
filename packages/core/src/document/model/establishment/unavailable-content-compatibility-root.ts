@@ -12,6 +12,10 @@ const COMPATIBILITY_ROOTS = Object.freeze({
   unavailable_surface: Object.freeze({ kind: "surface", label: "Unavailable Surface" }),
 } as const);
 
+export function isUnavailableContentCompatibilityRootType(nodeType: string): boolean {
+  return Object.prototype.hasOwnProperty.call(COMPATIBILITY_ROOTS, nodeType);
+}
+
 export function readUnavailableContentCompatibilityRoot(
   nodeType: string,
   attrs: Readonly<Record<string, unknown>>,
