@@ -241,33 +241,6 @@
     box-shadow: 0 0 0 2px var(--color-focus-ring);
   }
 
-  .sc-layout-section-movement-handle {
-    width: 1.25rem;
-    height: 1.5rem;
-    color: var(--color-text-muted);
-    opacity: 0;
-    pointer-events: none;
-    visibility: hidden;
-    transition: color 150ms var(--ease-out-soft);
-  }
-
-  [data-authoring-frame="section"]:hover .sc-layout-section-movement-handle,
-  [data-authoring-frame="section"]:focus-within .sc-layout-section-movement-handle {
-    opacity: 1;
-    pointer-events: auto;
-    visibility: visible;
-  }
-
-  .sc-layout-section-movement-handle:hover {
-    color: var(--color-text-primary);
-  }
-
-  .sc-layout-section-movement-handle:focus-visible {
-    opacity: 1;
-    pointer-events: auto;
-    visibility: visible;
-  }
-
   .sc-layout-outline {
     pointer-events: none;
     position: absolute;

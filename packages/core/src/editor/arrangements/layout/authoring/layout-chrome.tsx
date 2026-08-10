@@ -228,7 +228,7 @@ export function SectionMovementHandle({
         })
       }
       sourceKey={typeof sectionId === "string" && sectionId.length > 0 ? sectionId : sectionPos}
-      className={cn("sc-layout-section-movement-handle", className)}
+      {...(className !== undefined ? { className } : {})}
     />
   );
 }

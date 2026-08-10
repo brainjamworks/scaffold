@@ -3,6 +3,7 @@
 @layer sc-overlays {
   .sc-app-structure-movement-handle,
   .sc-app-contained-movement-handle,
+  .sc-app-compact-movement-handle,
   .sc-app-movement-layer__handle {
     display: inline-flex;
     width: 2.75rem;
@@ -21,13 +22,15 @@
 
   .sc-app-structure-movement-handle:focus-visible,
   .sc-app-contained-movement-handle:focus-visible,
+  .sc-app-compact-movement-handle:focus-visible,
   .sc-app-movement-layer__handle:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 2px var(--sc-app-color-focus-outline);
+    box-shadow: none;
   }
 
   .sc-app-structure-movement-handle__visual,
   .sc-app-contained-movement-handle__visual,
+  .sc-app-compact-movement-handle__visual,
   .sc-app-movement-layer__handle-visual {
     display: inline-flex;
     align-items: center;
@@ -42,7 +45,7 @@
     width: 1.25rem;
     height: 2.25rem;
     border: 1px solid var(--sc-app-color-border);
-    border-radius: max(var(--radius-2), var(--radius-full));
+    border-radius: var(--sc-app-radius-control);
     background: var(--sc-app-color-background);
     color: var(--sc-app-color-text-secondary);
     box-shadow: 0 2px 4px color-mix(in srgb, var(--sc-app-color-ink) 12%, transparent);
@@ -54,15 +57,16 @@
     color: var(--sc-app-color-ink);
   }
 
-  .sc-app-structure-movement-handle--bare .sc-app-structure-movement-handle__visual,
-  .sc-app-contained-movement-handle__visual {
+  .sc-app-compact-movement-handle__visual {
     width: 1rem;
     height: 1.25rem;
-    border-radius: var(--radius-2);
+    border-radius: var(--sc-app-radius-control);
     color: var(--sc-app-color-text-muted);
   }
 
-  .sc-app-structure-movement-handle--bare:hover .sc-app-structure-movement-handle__visual {
+  .sc-app-compact-movement-handle:hover:not(.sc-app-movement-handle--disabled)
+    .sc-app-compact-movement-handle__visual {
+    background: var(--sc-app-color-muted);
     color: var(--sc-app-color-text-primary);
   }
 
@@ -84,8 +88,14 @@
     opacity: 1;
   }
 
-  .sc-app-contained-movement-handle:hover .sc-app-contained-movement-handle__visual {
-    background: var(--sc-app-color-muted);
+  .sc-app-compact-movement-handle:focus-visible .sc-app-compact-movement-handle__visual {
+    box-shadow: 0 0 0 2px var(--sc-app-color-focus-outline);
+  }
+
+  .sc-app-structure-movement-handle:active:not(.sc-app-movement-handle--disabled),
+  .sc-app-compact-movement-handle:active:not(.sc-app-movement-handle--disabled),
+  .sc-app-movement-layer__handle:active:not(.sc-app-movement-handle--disabled) {
+    cursor: grabbing;
   }
 
   .sc-app-contained-movement-handle--row-offset {
@@ -128,9 +138,11 @@
   @media (prefers-reduced-motion: reduce) {
     .sc-app-structure-movement-handle,
     .sc-app-contained-movement-handle,
+    .sc-app-compact-movement-handle,
     .sc-app-movement-layer__handle,
     .sc-app-structure-movement-handle__visual,
     .sc-app-contained-movement-handle__visual,
+    .sc-app-compact-movement-handle__visual,
     .sc-app-movement-layer__handle-visual {
       transition: none;
     }

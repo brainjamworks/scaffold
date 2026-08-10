@@ -78,7 +78,8 @@ export function StructureMovementHandle({
       className={cn(
         "sc-app-structure-movement-handle",
         variant === "pill" && "sc-app-structure-movement-handle--pill",
-        variant === "bare" && "sc-app-structure-movement-handle--bare",
+        variant === "bare" &&
+          "sc-app-structure-movement-handle--bare sc-app-compact-movement-handle",
         disabled && "sc-app-movement-handle--disabled",
         className,
       )}
@@ -87,7 +88,13 @@ export function StructureMovementHandle({
         Press Space or Enter to pick up this {label}. Use Arrow {backwardLabel} or Arrow{" "}
         {forwardLabel} to choose a destination. Press Space or Enter to drop, or Escape to cancel.
       </span>
-      <span aria-hidden className="sc-app-structure-movement-handle__visual">
+      <span
+        aria-hidden
+        className={cn(
+          "sc-app-structure-movement-handle__visual",
+          variant === "bare" && "sc-app-compact-movement-handle__visual",
+        )}
+      >
         <DotsSixVertical size={iconXs} weight="bold" />
       </span>
     </InteractionDragActivationArea>

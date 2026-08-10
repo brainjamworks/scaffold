@@ -2,6 +2,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { page } from "vite-plus/test/browser/context";
 
+import "@/editor/movement/view/movement-handles.css";
 import "@/styles/globals.css";
 
 import { AppThemeProvider } from "@/theme/app/AppThemeProvider";
@@ -37,14 +38,22 @@ describe("Roadmap responsive ownership", () => {
             <RoadmapSpecimen id="dark" mode="authoring" />
             <RoadmapSpecimen id="runtime" mode="runtime" />
           </CourseThemeProvider>
+          <AppThemeProvider appearance="dark">
+            <div>
+              <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance="dark">
+                <RoadmapSpecimen id="app-dark" mode="authoring" />
+              </CourseThemeProvider>
+            </div>
+          </AppThemeProvider>
         </main>
       </AppThemeProvider>,
     );
 
-    await waitForCondition(() => host.querySelectorAll(".sc-course-roadmap").length === 3);
+    await waitForCondition(() => host.querySelectorAll(".sc-course-roadmap").length === 4);
 
     const light = requiredElement<HTMLElement>(host, '[data-specimen="light"]');
     const dark = requiredElement<HTMLElement>(host, '[data-specimen="dark"]');
+    const appDark = requiredElement<HTMLElement>(host, '[data-specimen="app-dark"]');
     const runtime = requiredElement<HTMLElement>(host, '[data-specimen="runtime"]');
     const lightList = requiredElement<HTMLElement>(light, ".sc-course-roadmap__milestones");
     const lightMarkers = light.querySelectorAll<HTMLElement>(".sc-course-roadmap__marker");
@@ -52,6 +61,18 @@ describe("Roadmap responsive ownership", () => {
     const lightItems = light.querySelectorAll<HTMLElement>(".sc-course-roadmap__milestone");
     const lightDelete = requiredElement<HTMLElement>(light, ".sc-app-roadmap-delete");
     const darkDelete = requiredElement<HTMLElement>(dark, ".sc-app-roadmap-delete");
+    const lightMovementVisual = requiredElement<HTMLElement>(
+      light,
+      ".sc-app-compact-movement-handle__visual",
+    );
+    const darkCourseMovementVisual = requiredElement<HTMLElement>(
+      dark,
+      ".sc-app-compact-movement-handle__visual",
+    );
+    const darkAppMovementVisual = requiredElement<HTMLElement>(
+      appDark,
+      ".sc-app-compact-movement-handle__visual",
+    );
 
     expect(light.getAttribute("aria-label")).toBe("Roadmap");
     expect(lightList.getAttribute("aria-label")).toBe("Roadmap milestones");
@@ -71,6 +92,13 @@ describe("Roadmap responsive ownership", () => {
       getComputedStyle(requiredElement(dark, ".sc-course-roadmap__content")).color,
     );
     expect(getComputedStyle(lightDelete).color).toBe(getComputedStyle(darkDelete).color);
+    expect(getComputedStyle(lightMovementVisual).color).toBe(
+      getComputedStyle(darkCourseMovementVisual).color,
+    );
+    expect(getComputedStyle(lightMovementVisual).color).not.toBe(
+      getComputedStyle(darkAppMovementVisual).color,
+    );
+    expect(getComputedStyle(lightMovementVisual).borderRadius).toBe("6px");
     expect(lightDelete.getBoundingClientRect().width).toBeGreaterThanOrEqual(44);
     expect(lightDelete.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
 
@@ -134,9 +162,11 @@ function RoadmapSpecimen({ id, mode }: { id: string; mode: "authoring" | "runtim
                   <div className="sc-app-roadmap-milestone-chrome">
                     <button
                       type="button"
-                      className="sc-app-contained-movement-handle sc-app-roadmap-movement"
+                      className="sc-app-contained-movement-handle sc-app-compact-movement-handle"
                     >
-                      Move
+                      <span className="sc-app-contained-movement-handle__visual sc-app-compact-movement-handle__visual">
+                        Move
+                      </span>
                     </button>
                     <button type="button" className="sc-app-roadmap-delete">
                       Delete

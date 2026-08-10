@@ -92,7 +92,6 @@ export function TimelineItemAuthoringView(props: NodeViewProps) {
               sourcePos={sourcePos}
               getSourcePos={() => readNodePos(props) ?? null}
               sourceKey={itemId}
-              className="sc-app-timeline-movement"
             />
             <button
               {...authoringMovementSnapshotChromeAttributes()}

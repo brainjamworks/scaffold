@@ -165,15 +165,13 @@
     padding: 0;
   }
 
-  .sc-course-categorise__item-handle,
-  .sc-course-categorise__move-action {
+  .sc-course-categorise__item-handle {
     touch-action: none;
     cursor: grab;
     user-select: none;
   }
 
-  .sc-course-categorise__item-handle:active,
-  .sc-course-categorise__move-action:active {
+  .sc-course-categorise__item-handle:active {
     cursor: grabbing;
   }
 

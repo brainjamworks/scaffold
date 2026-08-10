@@ -21,17 +21,6 @@
     align-items: center;
     justify-content: center;
     margin-top: 0.125rem;
-    color: var(--sc-app-color-text-muted);
-    opacity: 0.65;
-    transition:
-      color 150ms ease,
-      opacity 150ms ease;
-  }
-
-  .sc-course-checklist__item:hover .sc-app-checklist-item-drag,
-  .sc-course-checklist__item:focus-within .sc-app-checklist-item-drag {
-    color: var(--sc-app-color-text-primary);
-    opacity: 1;
   }
 
   .sc-app-checklist-item-delete {
@@ -44,7 +33,6 @@
     cursor: pointer;
   }
 
-  .sc-app-checklist-item-drag:focus-visible,
   .sc-app-block-add.sc-app-checklist-add:focus-visible {
     outline: 2px solid var(--sc-app-color-focus-outline);
     outline-offset: 2px;
@@ -106,7 +94,6 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .sc-app-checklist-item-drag,
     .sc-app-checklist-add,
     .sc-app-checklist-add__checkbox {
       transition: none;

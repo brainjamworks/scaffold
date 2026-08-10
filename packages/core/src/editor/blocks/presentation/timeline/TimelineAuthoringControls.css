@@ -21,29 +21,6 @@
     padding: 0.25rem 0.375rem;
   }
 
-  .sc-app-contained-movement-handle.sc-app-timeline-movement {
-    position: relative;
-    z-index: var(--z-interactive);
-    display: inline-flex;
-    width: 2.25rem;
-    height: 2.25rem;
-    align-items: center;
-    justify-content: center;
-    border: 0;
-    border-radius: 50%;
-    background: transparent;
-    color: var(--sc-app-color-text-muted);
-    opacity: 0.72;
-    transition:
-      background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
-      color 150ms cubic-bezier(0.16, 1, 0.3, 1),
-      opacity 150ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .sc-app-contained-movement-handle.sc-app-timeline-movement {
-    cursor: grab;
-  }
-
   .sc-app-timeline-delete {
     position: relative;
     z-index: var(--z-interactive);
@@ -55,20 +32,6 @@
     cursor: pointer;
   }
 
-  .sc-course-timeline__event:hover .sc-app-contained-movement-handle.sc-app-timeline-movement,
-  .sc-course-timeline__event:focus-within
-    .sc-app-contained-movement-handle.sc-app-timeline-movement {
-    opacity: 1;
-  }
-
-  .sc-app-contained-movement-handle.sc-app-timeline-movement:hover:not(
-    .sc-app-movement-handle--disabled
-  ) {
-    background: var(--sc-app-color-primary-muted);
-    color: var(--sc-app-color-primary);
-  }
-
-  .sc-app-contained-movement-handle.sc-app-timeline-movement:focus-visible,
   .sc-app-block-add.sc-app-timeline-add:focus-visible {
     outline: 2px solid var(--sc-app-color-focus-outline);
     outline-offset: 2px;
@@ -213,7 +176,6 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .sc-app-contained-movement-handle.sc-app-timeline-movement,
     .sc-app-timeline-chrome,
     .sc-app-timeline-add,
     .sc-app-timeline-add-dot {

@@ -89,14 +89,12 @@
     grid-row: 1;
   }
 
-  .sc-course-matching__move-action,
   .sc-course-matching__item-handle {
     touch-action: none;
     cursor: grab;
     user-select: none;
   }
 
-  .sc-course-matching__move-action:active,
   .sc-course-matching__item-handle:active {
     cursor: grabbing;
   }

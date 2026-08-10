@@ -1714,7 +1714,10 @@ describe("layout arrangement nodes", () => {
 
     expect(move).not.toBeNull();
     expect(menu).not.toBeNull();
-    expect(move?.getAttribute("class")).toContain("sc-layout-section-movement-handle");
+    expect(move?.getAttribute("class")).toContain("sc-app-structure-movement-handle");
+    expect(move?.getAttribute("class")).toContain("sc-app-structure-movement-handle--bare");
+    expect(move?.getAttribute("class")).toContain("sc-app-compact-movement-handle");
+    expect(move?.getAttribute("class")).not.toContain("sc-course-layout-chrome__move");
     expect(move?.getAttribute("class")).toContain("sc-tabs__handle");
     expect(move?.closest("[data-scaffold-tabs-item]")).toBe(item);
     expect(menu?.closest("[data-scaffold-tabs-item]")).toBe(item);

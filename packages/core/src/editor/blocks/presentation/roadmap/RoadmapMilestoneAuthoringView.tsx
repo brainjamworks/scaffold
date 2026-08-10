@@ -99,7 +99,6 @@ export function RoadmapMilestoneAuthoringView(props: NodeViewProps) {
               sourcePos={sourcePos}
               getSourcePos={() => readNodePos(props) ?? null}
               sourceKey={milestoneId}
-              className="sc-app-roadmap-movement"
             />
             <button
               {...authoringMovementSnapshotChromeAttributes()}

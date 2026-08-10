@@ -97,18 +97,16 @@
   inline-size: 1.5rem;
   justify-content: flex-end;
   padding-inline-end: var(--space-2);
+}
+
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-quiz__strip-pill-drag--preview {
   border: 0;
   background: transparent;
   color: currentColor;
-  cursor: grab;
   opacity: 0.55;
   transition:
     background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
     opacity 150ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-quiz__strip-pill-drag:active {
-  cursor: grabbing;
 }
 
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-quiz__strip-button {
@@ -603,7 +601,6 @@
     color: var(--gray-12);
   }
 
-  .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-quiz__strip-pill-drag:hover,
   .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-quiz__strip-pill-kebab:hover,
   .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-quiz__strip-pill-kebab[data-state="open"] {
     background: var(--gray-a4);
@@ -638,7 +635,6 @@
 
 .sc-course.sc-course-theme-scaffold-flow-v1
   :is(
-    .sc-course-quiz__strip-pill-drag,
     .sc-course-quiz__strip-button,
     .sc-course-quiz__strip-pill-kebab,
     .sc-course-quiz__strip-add,
@@ -675,7 +671,6 @@
   .sc-course.sc-course-theme-scaffold-flow-v1
     :is(
       .sc-course-quiz__strip-pill,
-      .sc-course-quiz__strip-pill-drag,
       .sc-course-quiz__strip-pill-kebab,
       .sc-course-quiz__strip-add,
       .sc-course-quiz__stage-action,
@@ -721,7 +716,6 @@
 
   .sc-course.sc-course-theme-scaffold-flow-v1
     :is(
-      .sc-course-quiz__strip-pill-drag,
       .sc-course-quiz__strip-button,
       .sc-course-quiz__strip-pill-kebab,
       .sc-course-quiz__strip-add,

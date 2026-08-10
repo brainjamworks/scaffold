@@ -73,8 +73,7 @@
     margin-block: 0;
   }
 
-  .sc-course-sequencing__runtime-handle,
-  .sc-course-sequencing__movement-action {
+  .sc-course-sequencing__runtime-handle {
     display: inline-flex;
     box-sizing: border-box;
     width: 2.75rem;
@@ -89,8 +88,7 @@
     user-select: none;
   }
 
-  .sc-course-sequencing__runtime-handle:active,
-  .sc-course-sequencing__movement-action:active {
+  .sc-course-sequencing__runtime-handle:active {
     cursor: grabbing;
   }
 

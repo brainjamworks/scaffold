@@ -60,6 +60,8 @@ describe("QuizStrip shared horizontal sorting", () => {
     const pointer = targetCenter;
 
     expect(source).toHaveAttribute("data-interaction-drag-activation-valid", "true");
+    expect(source).toHaveClass("sc-app-compact-movement-handle");
+    expect(source.querySelector(".sc-app-compact-movement-handle__visual")).not.toBeNull();
     expect(source.getBoundingClientRect().width).toBeGreaterThanOrEqual(43.5);
     expect(source.getBoundingClientRect().height).toBeGreaterThanOrEqual(43.5);
     source.focus({ preventScroll: true });
@@ -70,6 +72,7 @@ describe("QuizStrip shared horizontal sorting", () => {
     expect(overlay).toHaveAttribute("inert");
     expect(overlay.querySelector("button, [data-quiz-strip-drag-handle]")).toBeNull();
     expect(overlay.querySelector('[data-quiz-strip-preview="question-a"]')).not.toBeNull();
+    expect(overlay.querySelector(".sc-app-compact-movement-handle")).toBeNull();
 
     await finishPointerDrag(pointer);
     await waitFor(() => harness.reorderCalls.length === 1);

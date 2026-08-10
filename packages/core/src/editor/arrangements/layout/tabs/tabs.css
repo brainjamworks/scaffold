@@ -204,8 +204,6 @@
     top: 50%;
     transform: translateY(-50%);
     z-index: var(--z-interactive, 5);
-    opacity: 0;
-    transition: opacity 150ms cubic-bezier(0.16, 1, 0.3, 1);
     pointer-events: none;
   }
 
@@ -215,6 +213,8 @@
 
   .sc-tabs__action {
     inset-inline-end: 0.125rem;
+    opacity: 0;
+    transition: opacity 150ms cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   /* Lighten the shared section-action trigger inside tabs: drop the
@@ -233,8 +233,11 @@
   }
 
   .sc-tabs__item:hover .sc-tabs__handle,
+  .sc-tabs__item:focus-within .sc-tabs__handle {
+    pointer-events: auto;
+  }
+
   .sc-tabs__item:hover .sc-tabs__action,
-  .sc-tabs__item:focus-within .sc-tabs__handle,
   .sc-tabs__item:focus-within .sc-tabs__action {
     opacity: 1;
     pointer-events: auto;
@@ -243,7 +246,10 @@
 
   [data-authoring-frame="layout"][data-authoring-chrome-active]
     .sc-tabs__item[data-state="active"]
-    .sc-tabs__handle,
+    .sc-tabs__handle {
+    pointer-events: auto;
+  }
+
   [data-authoring-frame="layout"][data-authoring-chrome-active]
     .sc-tabs__item[data-state="active"]
     .sc-tabs__action {
@@ -279,7 +285,6 @@
   @media (prefers-reduced-motion: reduce) {
     .sc-tabs__trigger,
     .sc-tabs__trigger::after,
-    .sc-tabs__handle,
     .sc-tabs__action {
       transition: none;
     }

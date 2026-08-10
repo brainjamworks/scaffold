@@ -13,10 +13,12 @@ import type { InteractionDragEvent } from "@/editor/interactions/drag/model/inte
 import { InteractionDragActivationArea } from "@/editor/interactions/drag/react/InteractionDragActivationArea";
 import { InteractionDragSession } from "@/editor/interactions/drag/react/InteractionDragSession";
 import { useInteractionSortable } from "@/editor/interactions/drag/react/use-interaction-sortable";
+import "@/editor/movement/view/movement-handles.css";
 import type { InsertAction } from "@/editor/insertion/insert-action";
 import { CourseThemePortalBoundary } from "@/theme/course/CourseThemeProvider";
 import { useOverlayBoundary } from "@/ui/overlays/portal-host-context";
 import { zIndex } from "@/ui/overlays/z-index";
+import { iconXs } from "@/ui/tokens/icon-sizes";
 
 import { questionTypeTag } from "./question-type-tags";
 
@@ -139,12 +141,14 @@ function QuizStripPill({
         <InteractionDragActivationArea
           ref={sortable.handleRef}
           aria-label={`Drag question ${index + 1}`}
-          className="sc-course-quiz__strip-pill-drag"
+          className="sc-course-quiz__strip-pill-drag sc-app-compact-movement-handle"
           data-quiz-strip-drag-handle=""
           safeLocalHeight={44}
           safeLocalWidth={44}
         >
-          <DotsSixVertical size={14} weight="regular" aria-hidden />
+          <span aria-hidden className="sc-app-compact-movement-handle__visual">
+            <DotsSixVertical size={iconXs} weight="bold" />
+          </span>
         </InteractionDragActivationArea>
         <button
           type="button"
@@ -214,7 +218,10 @@ function QuizStripPreview({ data }: { data: QuizStripDragData }) {
       className="sc-course-quiz__strip-pill sc-course-quiz__strip-pill--preview"
       data-quiz-strip-preview={data.childKey}
     >
-      <span className="sc-course-quiz__strip-pill-drag" aria-hidden>
+      <span
+        className="sc-course-quiz__strip-pill-drag sc-course-quiz__strip-pill-drag--preview"
+        aria-hidden
+      >
         <DotsSixVertical size={14} weight="regular" />
       </span>
       <span className="sc-course-quiz__strip-button">
