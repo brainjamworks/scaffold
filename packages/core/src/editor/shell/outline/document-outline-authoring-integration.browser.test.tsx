@@ -1,5 +1,6 @@
 import { McqSettingsSchema } from "@scaffold/contracts";
 import type { JSONContent } from "@tiptap/core";
+import { StrictMode } from "react";
 import { render as renderBrowserReact } from "vitest-browser-react";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { page } from "vite-plus/test/browser/context";
@@ -7,6 +8,7 @@ import { page } from "vite-plus/test/browser/context";
 import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
 import { createScaffoldDocumentContent } from "@/format/artifact";
 import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { ScaffoldAuthoringApp } from "@/editor/shell/authoring/ScaffoldAuthoringApp";
 import "@/styles/globals.css";
@@ -70,6 +72,61 @@ describe("Document Outline authoring integration", () => {
       await rendered.unmount();
     }
   });
+
+  it("keeps layout disclosures interactive through Strict Mode effect replay", async () => {
+    const content = createScaffoldDocumentContent({
+      mode: "page",
+      surfaceId: "outlinepage2",
+    });
+    const surface = content.content?.[0]?.content?.[0];
+    const paginated = builtInLayoutRegistry.getById("paginated");
+    if (!surface || !paginated) {
+      throw new Error("Expected the built-in page Surface and Paginated layout");
+    }
+    surface.content = [mountedContent(paginated.createContent({ options: { pages: 2 } }))];
+
+    const rendered = await renderBrowserReact(
+      <StrictMode>
+        <ScaffoldAuthoringApp
+          application={createScaffoldApplication()}
+          artifact={{
+            id: "outline-strict-mode-artifact",
+            title: "Outline Strict Mode",
+            mode: "page",
+            content,
+          }}
+          productAccess={{ scaffoldPlusAuthorized: false }}
+          services={{
+            artifactPersistence: { saveArtifact: vi.fn(async () => ({})) },
+            media: null,
+          }}
+        />
+      </StrictMode>,
+    );
+
+    try {
+      await expect
+        .element(page.getByRole("button", { name: "Show Document Outline" }))
+        .toBeVisible();
+      requireElement<HTMLButtonElement>('button[aria-label="Show Document Outline"]').click();
+      await expect.element(page.getByRole("tree", { name: "Document outline" })).toBeVisible();
+
+      requireElement<HTMLButtonElement>('button[aria-label="Collapse Paginated"]').click();
+      await expect
+        .element(page.getByRole("treeitem", { name: "Paginated" }))
+        .toHaveAttribute("aria-expanded", "false");
+
+      requireElement<HTMLButtonElement>('button[aria-label="Expand Paginated"]').click();
+
+      await expect
+        .element(page.getByRole("treeitem", { name: "Paginated" }))
+        .toHaveAttribute("aria-expanded", "true");
+      await expect.element(page.getByRole("treeitem", { name: "Page 1" })).toBeVisible();
+      await expect.element(page.getByRole("treeitem", { name: "Page 2" })).toBeVisible();
+    } finally {
+      await rendered.unmount();
+    }
+  });
 });
 
 function multipleChoiceOutlineCount(): number {
@@ -86,6 +143,10 @@ function requireElement<ElementType extends Element>(selector: string): ElementT
 
 function mountedMcq(content: JSONContent): JSONContent {
   content.attrs = { ...content.attrs, settings: McqSettingsSchema.parse({}) };
+  return mountedContent(content);
+}
+
+function mountedContent(content: JSONContent): JSONContent {
   const pending = [content];
   while (pending.length > 0) {
     const node = pending.pop()!;

@@ -1,6 +1,6 @@
 import { XIcon as X } from "@phosphor-icons/react";
 import type { Editor } from "@tiptap/core";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { SemanticHierarchyViewController } from "@/document/authoring/semantic-document/semantic-hierarchy-view-controller";
 import { getSemanticDocumentControllerForEditor } from "@/document/authoring/semantic-document/semantic-document-storage";
@@ -17,17 +17,23 @@ export interface DocumentOutlineHostProps {
 export function DocumentOutlineHost({ editor, onClose }: DocumentOutlineHostProps) {
   const controller = getSemanticDocumentControllerForEditor(editor);
   const viewport = useMemo(() => new DocumentOutlineRowViewport(), []);
-  const viewController = useMemo(
-    () =>
-      new SemanticHierarchyViewController({
-        controller,
-        origin: "document-outline",
-        viewport,
-      }),
-    [controller, viewport],
+  const [viewController, setViewController] = useState<SemanticHierarchyViewController | null>(
+    null,
   );
 
-  useEffect(() => () => viewController.destroy(), [viewController]);
+  useEffect(() => {
+    const next = new SemanticHierarchyViewController({
+      controller,
+      origin: "document-outline",
+      viewport,
+    });
+    setViewController(next);
+
+    return () => {
+      next.destroy();
+      setViewController((current) => (current === next ? null : current));
+    };
+  }, [controller, viewport]);
 
   return (
     <aside
@@ -48,11 +54,13 @@ export function DocumentOutlineHost({ editor, onClose }: DocumentOutlineHostProp
         </IconButton>
       </header>
       <div className="sc-authoring-outline-dock-scroll">
-        <DocumentOutline
-          controller={controller}
-          viewController={viewController}
-          viewport={viewport}
-        />
+        {viewController ? (
+          <DocumentOutline
+            controller={controller}
+            viewController={viewController}
+            viewport={viewport}
+          />
+        ) : null}
       </div>
     </aside>
   );
