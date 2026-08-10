@@ -314,7 +314,9 @@ describe("ScaffoldLearnerApp", () => {
 
     expect(await screen.findByText("Projected learner content")).toBeInTheDocument();
     expect(screen.getByTestId("scaffold-runtime-host")).toBeInTheDocument();
-    expect(screen.getByTestId("course-document-runtime-renderer")).toBeInTheDocument();
+    const runtimeRenderer = screen.getByTestId("course-document-runtime-renderer");
+    expect(runtimeRenderer).toBeInTheDocument();
+    expect(runtimeRenderer.closest(".sc-course")).toHaveAttribute("data-has-background", "false");
     expect(screen.queryByTestId("course-document-editor")).toBeNull();
 
     const editableSurface = document.body.querySelector(".ProseMirror");
@@ -336,7 +338,9 @@ describe("ScaffoldLearnerApp", () => {
     expect(
       (await screen.findByTestId("slideshow-player")).getAttribute("data-slideshow-sizing"),
     ).toBe("embedded");
-    expect(screen.getByTestId("course-document-runtime-renderer")).toBeInTheDocument();
+    const runtimeRenderer = screen.getByTestId("course-document-runtime-renderer");
+    expect(runtimeRenderer).toBeInTheDocument();
+    expect(runtimeRenderer.closest(".sc-course")).toHaveAttribute("data-has-background", "true");
     expect(screen.getByText("1 of 1")).toBeInTheDocument();
     expect(screen.queryByTestId("scaffold-runtime-unavailable")).toBeNull();
   });

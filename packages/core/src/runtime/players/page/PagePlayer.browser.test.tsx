@@ -48,25 +48,46 @@ describe("PagePlayer presentation", () => {
     expect(getComputedStyle(runtimeSurface).backgroundColor).toBe("rgb(18, 52, 86)");
   });
 
-  it("presents the runtime Page as a sheet without painting the player", async () => {
-    const mounted = await mountPage(pageDocumentWithParagraphs(["Short learner page"]));
-    const player = uniqueElement<HTMLElement>(mounted.host, ".sc-page-player");
-    const runtimeView = uniqueElement<HTMLElement>(
-      player,
-      '.scaffold-runtime-surface-view[data-course-mode="page"]',
-    );
-    const runtimeSurface = uniqueElement<HTMLElement>(
-      runtimeView,
-      ".sc-page-default-surface-runtime-view",
-    );
+  it("presents the runtime Page natively with one responsive content inset", async () => {
+    const insets: number[] = [];
 
-    expect(getComputedStyle(player).backgroundColor).toBe("rgba(0, 0, 0, 0)");
-    expect(getComputedStyle(runtimeView).backgroundColor).toBe("rgba(0, 0, 0, 0)");
-    expect(Number.parseFloat(getComputedStyle(runtimeView).paddingTop)).toBeGreaterThan(0);
-    expect(getComputedStyle(runtimeSurface).backgroundColor).toBe("rgb(255, 255, 255)");
-    expect(Number.parseFloat(getComputedStyle(runtimeSurface).paddingTop)).toBeGreaterThan(0);
-    expect(getComputedStyle(runtimeSurface).borderTopWidth).toBe("1px");
-    expect(Number.parseFloat(getComputedStyle(runtimeSurface).borderRadius)).toBeGreaterThan(0);
+    for (const width of [1200, 360]) {
+      const mounted = await mountPage(pageDocumentWithParagraphs(["Short learner page"]), width);
+      const player = uniqueElement<HTMLElement>(mounted.host, ".sc-page-player");
+      const scope = player.closest<HTMLElement>(".sc-course");
+      const runtimeView = uniqueElement<HTMLElement>(
+        player,
+        '.scaffold-runtime-surface-view[data-course-mode="page"]',
+      );
+      const runtimeSurface = uniqueElement<HTMLElement>(
+        runtimeView,
+        ".sc-page-default-surface-runtime-view",
+      );
+      const runtimeContent = uniqueElement<HTMLElement>(runtimeSurface, "[data-surface-content]");
+      if (!scope) throw new Error("Page player is missing its Course boundary.");
+
+      const playerStyle = getComputedStyle(player);
+      const scopeStyle = getComputedStyle(scope);
+      const runtimeViewStyle = getComputedStyle(runtimeView);
+      const runtimeSurfaceStyle = getComputedStyle(runtimeSurface);
+
+      expect(scope).toHaveAttribute("data-has-background", "false");
+      expect(scopeStyle.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+      expect(playerStyle.padding).toBe("0px");
+      expect(playerStyle.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+      expect(runtimeViewStyle.padding).toBe("0px");
+      expect(runtimeViewStyle.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+      expect(runtimeSurfaceStyle.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+      expect(runtimeSurfaceStyle.borderTopWidth).toBe("0px");
+      expect(runtimeSurfaceStyle.borderRadius).toBe("0px");
+      expect(runtimeSurfaceStyle.boxShadow).toBe("none");
+      expect(runtimeSurfaceStyle.padding).toBe("0px");
+      expect(getComputedStyle(runtimeContent).display).toBe("block");
+      expect(Number.parseFloat(getComputedStyle(runtimeContent).paddingTop)).toBeGreaterThan(0);
+      insets.push(Number.parseFloat(getComputedStyle(runtimeContent).paddingTop));
+    }
+
+    expect(insets[0]).toBeGreaterThan(insets[1]!);
   });
 
   it("grows with Page content while retaining the reader measure", async () => {
@@ -273,7 +294,11 @@ async function mountPage(
   root.render(
     createAssessmentRuntimeTestRoot({
       children: (
-        <CourseThemeProvider theme={createDefaultPersistedCourseTheme()} appearance={appearance}>
+        <CourseThemeProvider
+          theme={createDefaultPersistedCourseTheme()}
+          appearance={appearance}
+          hasBackground={false}
+        >
           <PagePlayer
             composition={runtimeComposition}
             initialContent={initialContent}

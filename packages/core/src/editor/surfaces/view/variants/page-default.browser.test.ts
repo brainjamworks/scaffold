@@ -10,12 +10,12 @@ afterEach(() => {
 });
 
 describe("Page-default surface geometry", () => {
-  it("allows adapter-layer flow overrides without losing page sizing", () => {
+  it("allows adapter-layer sizing overrides without adding presentation", () => {
     const adapterStyles = document.createElement("style");
     adapterStyles.textContent = `
       @layer sc-adapters {
         .sc-page-default-surface-view {
-          --sc-surface-flow-gap: 1px;
+          width: 320px;
         }
       }
     `;
@@ -30,8 +30,8 @@ describe("Page-default surface geometry", () => {
     page.append(header);
     document.body.append(page);
 
-    expect(page.getBoundingClientRect().width).toBeCloseTo(document.body.clientWidth, 0);
+    expect(page.getBoundingClientRect().width).toBe(320);
     expect(getComputedStyle(page).boxSizing).toBe("border-box");
-    expect(getComputedStyle(header).marginBlockEnd).toBe("1px");
+    expect(getComputedStyle(header).marginBlockEnd).toBe("0px");
   });
 });

@@ -2,19 +2,14 @@
 
 @layer sc-components {
   .scaffold-runtime-surface-view {
-    --sc-surface-flow-gap: 1.5rem;
-
     box-sizing: border-box;
   }
 
   .scaffold-runtime-surface-view[data-course-mode="page"] {
-    --sc-surface-inset: clamp(1.5rem, 4vw, 3rem);
-    --sc-surface-flow-gap: 1.5rem;
-
+    container-type: inline-size;
     width: 100%;
     min-width: 0;
-    padding: 1rem;
-    background: transparent;
+    padding: 0;
   }
 
   .scaffold-runtime-surface-view[data-course-mode="page"] [data-surface] {
@@ -22,35 +17,11 @@
     width: 100%;
     max-width: none;
     min-height: 0;
-    padding: 0;
-    border: 0;
-    background: transparent;
-  }
-
-  .scaffold-runtime-surface-view[data-course-mode="page"] .sc-page-default-surface-runtime-view {
-    box-sizing: border-box;
-    width: 100%;
-    min-height: 0;
-    padding: var(--sc-surface-inset);
-    border: var(--sc-border-width) solid var(--color-border);
-    border-radius: var(--radius-xl);
-    background: var(--color-background);
-  }
-
-  @media (max-width: 639px) {
-    .scaffold-runtime-surface-view[data-course-mode="page"] {
-      --sc-surface-inset: 1.25rem;
-
-      padding: 0.75rem;
-    }
-
-    .scaffold-runtime-surface-view[data-course-mode="page"] .sc-page-default-surface-runtime-view {
-      border-radius: var(--radius-lg);
-    }
   }
 
   .scaffold-runtime-surface-view:not([data-course-mode="page"]) {
     --sc-surface-inset: 2rem;
+    --sc-surface-flow-gap: 1.5rem;
 
     max-width: 48rem;
     min-width: 0;
@@ -67,7 +38,8 @@
     background: var(--color-background);
   }
 
-  .scaffold-runtime-surface-view[data-surface-size="fluid"] [data-surface] {
+  .scaffold-runtime-surface-view:not([data-course-mode="page"])[data-surface-size="fluid"]
+    [data-surface] {
     max-width: none;
     min-height: min(1120px, 141vw);
   }

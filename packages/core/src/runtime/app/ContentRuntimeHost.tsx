@@ -89,7 +89,11 @@ export function ContentRuntimeHost({
               data-testid="scaffold-runtime-host"
               data-scaffold-color-mode={colorMode}
             >
-              <CourseThemeProvider theme={courseDocumentAttrs.theme} appearance={colorMode}>
+              <CourseThemeProvider
+                theme={courseDocumentAttrs.theme}
+                appearance={colorMode}
+                hasBackground={playerSelection.player !== "page"}
+              >
                 <LearnerActivityReadinessGate>
                   <HydratedRuntimePlayer
                     composition={composition}
