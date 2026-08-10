@@ -20,7 +20,7 @@ afterEach(() => {
 });
 
 describe("assessment Course control geometry", () => {
-  it("keeps both interactive control families at least 44px tall", async () => {
+  it("keeps both interactive control families exactly 44px tall", async () => {
     host = document.createElement("div");
     document.body.append(host);
     root = createRoot(host);
@@ -43,8 +43,8 @@ describe("assessment Course control geometry", () => {
       ".sc-course-assessment-submission-control__button",
     );
 
-    expect(support.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
-    expect(submission.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+    expect(support.getBoundingClientRect().height).toBe(44);
+    expect(submission.getBoundingClientRect().height).toBe(44);
     expect(Number.parseFloat(getComputedStyle(support).borderTopLeftRadius)).toBeGreaterThan(0);
     expect(Number.parseFloat(getComputedStyle(submission).borderTopLeftRadius)).toBeGreaterThan(0);
   });

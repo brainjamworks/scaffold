@@ -1,4 +1,5 @@
 .sc-course.sc-course-theme-scaffold-flow-v1 .sc-course-assessment-support-button {
+  box-sizing: border-box;
   height: 2.75rem;
   min-height: 2.75rem;
   margin: 0;
