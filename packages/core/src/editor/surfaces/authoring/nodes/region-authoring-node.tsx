@@ -64,8 +64,8 @@ function RegionAuthoringNodeView(props: NodeViewProps) {
       {...authoringChromeActiveAttributes(chromeActive)}
       className={cn(
         "sc-region",
-        "sc-region-authoring",
-        editable && "sc-region-authoring--editable",
+        "sc-app-region-authoring",
+        editable && "sc-app-region-authoring--editable",
       )}
     >
       <div data-bounded-scroll-frame="">

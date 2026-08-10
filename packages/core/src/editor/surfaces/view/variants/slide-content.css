@@ -38,23 +38,6 @@
     align-items: stretch;
   }
 
-  .sc-slide-content-surface-view .sc-region-authoring[data-empty="true"]::after {
-    content: "+ Add content";
-    position: absolute;
-    inset: var(--sc-region-inset);
-    z-index: 0;
-    display: grid;
-    place-items: center;
-    color: var(--color-text-secondary);
-    font-size: var(--text-sm);
-    font-weight: var(--font-weight-medium);
-    pointer-events: none;
-  }
-
-  .sc-slide-content-surface-view .sc-region-authoring[data-empty="true"]:focus-within::after {
-    opacity: 0.45;
-  }
-
   @media (max-width: 720px) {
     .scaffold-authoring-surface-view [data-surface].sc-slide-content-surface-view,
     .scaffold-runtime-surface-view

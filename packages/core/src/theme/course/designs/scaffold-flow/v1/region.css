@@ -1,0 +1,6 @@
+.sc-course.sc-course-theme-scaffold-flow-v1 .sc-region {
+  --sc-region-inset: 0.25rem;
+  --sc-region-flow-gap: var(--sc-container-flow-gap);
+
+  border-radius: var(--radius-4);
+}

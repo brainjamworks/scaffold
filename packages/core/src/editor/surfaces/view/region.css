@@ -2,9 +2,6 @@
 
 @layer sc-components {
   .sc-region {
-    --sc-region-inset: 0.25rem;
-    --sc-region-flow-gap: var(--sc-container-flow-gap);
-
     box-sizing: border-box;
     position: relative;
     display: grid;
@@ -19,7 +16,6 @@
     align-content: start;
     justify-items: stretch;
     gap: var(--sc-region-flow-gap);
-    border-radius: var(--radius-md);
     container-type: size;
   }
 
