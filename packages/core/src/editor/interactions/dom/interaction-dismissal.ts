@@ -1,10 +1,14 @@
 import { isOverlayTargetOwnedBy } from "./overlay-ownership";
+import { isAuthoringInteractionTargetOwnedBy } from "./authoring-root";
 
 export function shouldDismissEphemeralInteractionTarget(
   ownerRoot: Element,
   target: EventTarget | null,
 ): boolean {
-  return !isOverlayTargetOwnedBy(ownerRoot, target);
+  return !(
+    isAuthoringInteractionTargetOwnedBy(ownerRoot, target) ||
+    isOverlayTargetOwnedBy(ownerRoot, target)
+  );
 }
 
 export function isUnconsumedOverlayDismissKey(

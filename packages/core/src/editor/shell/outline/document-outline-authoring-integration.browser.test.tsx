@@ -3,7 +3,7 @@ import type { JSONContent } from "@tiptap/core";
 import { StrictMode } from "react";
 import { render as renderBrowserReact } from "vitest-browser-react";
 import { describe, expect, it, vi } from "vite-plus/test";
-import { page } from "vite-plus/test/browser/context";
+import { page, userEvent } from "vite-plus/test/browser/context";
 
 import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
 import { createScaffoldDocumentContent } from "@/format/artifact";
@@ -11,9 +11,85 @@ import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
 import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { ScaffoldAuthoringApp } from "@/editor/shell/authoring/ScaffoldAuthoringApp";
+import type { LearnerPublicationPort } from "@/host/ports/learner-publication";
 import "@/styles/globals.css";
 
 describe("Document Outline authoring integration", () => {
+  it("keeps canonical Block and Layout chrome visible while focus remains in the Outline", async () => {
+    const content = createScaffoldDocumentContent({
+      mode: "page",
+      surfaceId: "outlinenav01",
+    });
+    const surface = content.content?.[0]?.content?.[0];
+    const mcq = builtInBlockRegistry.getByNodeType("mcq")?.insert;
+    const paginated = builtInLayoutRegistry.getById("paginated");
+    if (!surface || !mcq || !paginated) {
+      throw new Error("Expected the built-in page Surface, MCQ and Paginated layout");
+    }
+    surface.content = [
+      mountedMcq(mcq.content()),
+      mountedContent(paginated.createContent({ options: { pages: 2 } })),
+    ];
+
+    const rendered = await renderBrowserReact(
+      <ScaffoldAuthoringApp
+        application={createScaffoldApplication()}
+        artifact={{
+          id: "outline-navigation-artifact",
+          title: "Outline navigation",
+          mode: "page",
+          content,
+        }}
+        productAccess={{ scaffoldPlusAuthorized: false }}
+        services={{
+          artifactPersistence: {
+            saveArtifact: vi.fn(async () => ({ artifactRevision: "outline-test-revision" })),
+          },
+          learnerPublication: createTestLearnerPublicationPort(),
+          media: null,
+        }}
+      />,
+    );
+
+    try {
+      await expect
+        .element(page.getByRole("button", { name: "Show Document Outline" }))
+        .toBeVisible();
+      requireElement<HTMLButtonElement>('button[aria-label="Show Document Outline"]').click();
+      await expect.element(page.getByRole("tree", { name: "Document outline" })).toBeVisible();
+
+      const blockRow = requireElement<HTMLElement>(
+        '[role="treeitem"][aria-label^="Multiple choice"]',
+      );
+      await userEvent.click(blockRow);
+
+      expect(document.activeElement).toBe(blockRow);
+      await expect
+        .poll(() => Boolean(document.querySelector('button[aria-label="Duplicate block"]')))
+        .toBe(true);
+      const blockFrame = requireElement<HTMLElement>(
+        '[data-authoring-frame="block"][data-node="mcq"]',
+      );
+      const blockFrameWrapper = blockFrame.closest<HTMLElement>("[data-authoring-frame-wrapper]");
+      if (!blockFrameWrapper) throw new Error("Expected the MCQ authoring frame wrapper");
+      expect(blockFrameWrapper.hasAttribute("data-authoring-frame-wrapper-active")).toBe(true);
+
+      const layoutRow = requireElement<HTMLElement>('[role="treeitem"][aria-label="Paginated"]');
+      await userEvent.click(layoutRow);
+
+      expect(document.activeElement).toBe(layoutRow);
+      await expect
+        .poll(() =>
+          requireElement<HTMLElement>(
+            '[data-authoring-frame="layout"][data-layout-kind="paginated"]',
+          ).hasAttribute("data-authoring-chrome-active"),
+        )
+        .toBe(true);
+    } finally {
+      await rendered.unmount();
+    }
+  });
+
   it("updates an already-open outline when the authoring UI duplicates a block", async () => {
     const content = createScaffoldDocumentContent({
       mode: "page",
@@ -35,7 +111,10 @@ describe("Document Outline authoring integration", () => {
         }}
         productAccess={{ scaffoldPlusAuthorized: false }}
         services={{
-          artifactPersistence: { saveArtifact: vi.fn(async () => ({})) },
+          artifactPersistence: {
+            saveArtifact: vi.fn(async () => ({ artifactRevision: "outline-test-revision" })),
+          },
+          learnerPublication: createTestLearnerPublicationPort(),
           media: null,
         }}
       />,
@@ -97,7 +176,10 @@ describe("Document Outline authoring integration", () => {
           }}
           productAccess={{ scaffoldPlusAuthorized: false }}
           services={{
-            artifactPersistence: { saveArtifact: vi.fn(async () => ({})) },
+            artifactPersistence: {
+              saveArtifact: vi.fn(async () => ({ artifactRevision: "outline-test-revision" })),
+            },
+            learnerPublication: createTestLearnerPublicationPort(),
             media: null,
           }}
         />
@@ -133,6 +215,21 @@ function multipleChoiceOutlineCount(): number {
   return Array.from(document.querySelectorAll<HTMLElement>('[role="treeitem"]')).filter((item) =>
     item.getAttribute("aria-label")?.startsWith("Multiple choice"),
   ).length;
+}
+
+function createTestLearnerPublicationPort(): LearnerPublicationPort {
+  return {
+    getStatus: async () => ({
+      currentArtifactRevision: "outline-test-revision",
+      publishedArtifactRevision: null,
+      publishedAt: null,
+    }),
+    publish: async (payload) => ({
+      currentArtifactRevision: payload.sourceArtifactRevision,
+      publishedArtifactRevision: payload.sourceArtifactRevision,
+      publishedAt: "2026-08-10T12:00:00.000Z",
+    }),
+  };
 }
 
 function requireElement<ElementType extends Element>(selector: string): ElementType {

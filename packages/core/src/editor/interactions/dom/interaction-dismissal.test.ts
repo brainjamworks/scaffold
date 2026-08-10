@@ -3,6 +3,7 @@
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import { AUTHORING_CHROME_ATTR } from "./authoring-chrome";
+import { registerAuthoringInteractionHost } from "./authoring-root";
 import { registerOverlayHostOwner } from "./overlay-ownership";
 import {
   isUnconsumedOverlayDismissKey,
@@ -37,6 +38,20 @@ describe("shouldDismissEphemeralInteractionTarget", () => {
     expect(shouldDismissEphemeralInteractionTarget(editorRoot, inner)).toBe(false);
 
     unregister();
+  });
+
+  it("preserves canonical owners for a registered authoring navigator", () => {
+    const editorRoot = document.createElement("div");
+    const navigator = document.createElement("aside");
+    const row = document.createElement("button");
+    navigator.appendChild(row);
+    document.body.append(editorRoot, navigator);
+    const unregister = registerAuthoringInteractionHost(editorRoot, navigator);
+
+    expect(shouldDismissEphemeralInteractionTarget(editorRoot, row)).toBe(false);
+
+    unregister();
+    expect(shouldDismissEphemeralInteractionTarget(editorRoot, row)).toBe(true);
   });
 
   it("dismisses for an unowned marked chrome or dialog lookalike", () => {

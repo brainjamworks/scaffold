@@ -4,6 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 
 import { SemanticHierarchyViewController } from "@/document/authoring/semantic-document/semantic-hierarchy-view-controller";
 import { getSemanticDocumentControllerForEditor } from "@/document/authoring/semantic-document/semantic-document-storage";
+import {
+  registerAuthoringInteractionHost,
+  resolveAuthoringInteractionRoot,
+} from "@/editor/interactions/dom/authoring-root";
 import { IconButton } from "@/ui/components/IconButton/IconButton";
 import { iconSm } from "@/ui/tokens/icon-sizes";
 
@@ -17,6 +21,7 @@ export interface DocumentOutlineHostProps {
 export function DocumentOutlineHost({ editor, onClose }: DocumentOutlineHostProps) {
   const controller = getSemanticDocumentControllerForEditor(editor);
   const viewport = useMemo(() => new DocumentOutlineRowViewport(), []);
+  const [host, setHost] = useState<HTMLElement | null>(null);
   const [viewController, setViewController] = useState<SemanticHierarchyViewController | null>(
     null,
   );
@@ -37,8 +42,14 @@ export function DocumentOutlineHost({ editor, onClose }: DocumentOutlineHostProp
 
   useEffect(() => () => viewport.destroy(), [viewport]);
 
+  useEffect(() => {
+    if (!host) return;
+    return registerAuthoringInteractionHost(resolveAuthoringInteractionRoot(editor.view.dom), host);
+  }, [editor, host]);
+
   return (
     <aside
+      ref={setHost}
       aria-label="Document Outline"
       className="sc-authoring-outline-dock"
       data-testid="authoring-outline-dock"

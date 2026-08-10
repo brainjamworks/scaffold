@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 
 import { Editor, Node, type JSONContent } from "@tiptap/core";
+import { NodeSelection } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -26,16 +27,19 @@ const CHILD = "v2_resize_chrome_child";
 const testBlockRegistry = createBlockRegistry([
   defineBlock({
     nodeType: RESIZABLE,
+    title: "Resizable test block",
     frame: { resizable: true, resizeMode: "responsive" },
   }),
-  defineBlock({ nodeType: FIXED }),
+  defineBlock({ nodeType: FIXED, title: "Fixed test block" }),
   defineBlock({
     nodeType: PARENT,
+    title: "Parent test block",
     frame: { resizable: true, resizeMode: "responsive" },
     interaction: { embeddedChildSelection: "delegate-to-parent" },
   }),
   defineBlock({
     nodeType: CHILD,
+    title: "Child test block",
     frame: { resizable: true, resizeMode: "responsive" },
   }),
 ]);
@@ -315,6 +319,28 @@ describe("syncNodeViewResizeChrome", () => {
     placeCaretInside(editor, "resizable-a");
 
     expectHidden(syncFor(editor, "resizable-a", { editorHasFocus: false }));
+    editor.destroy();
+  });
+
+  it("shows handles without editor focus for a canonically object-selected block", () => {
+    const editor = makeEditor(defaultContent());
+    activateAuthoringSession(editor);
+    const pos = nodePosById(editor, "resizable-a");
+    editor.view.dispatch(
+      setInteractionOwnerCommandMeta(
+        editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, pos)),
+        {
+          kind: InteractionOwnerCommandKind.SelectObjectTarget,
+          target: {
+            id: "resizable-a",
+            kind: InteractionTargetKind.Block,
+            pos,
+          },
+        },
+      ),
+    );
+
+    expectVisible(syncFor(editor, "resizable-a", { editorHasFocus: false }));
     editor.destroy();
   });
 

@@ -40,7 +40,9 @@ export function syncNodeViewResizeChrome(input: SyncResizeChromeInput): void {
     input.frameDefinition?.resizable !== false &&
     !slotState.gestureOwnsInteraction &&
     slotState.targetsOwnBlock &&
-    (input.editorHasFocus || slotState.contextOwnerTargetsOwnBlock);
+    (input.editorHasFocus ||
+      slotState.contextOwnerTargetsOwnBlock ||
+      slotState.objectSelectionTargetsOwnBlock);
 
   if (isVisible) {
     input.wrapper.setAttribute(AUTHORING_FRAME_WRAPPER_ACTIVE_ATTR, "");
@@ -72,6 +74,7 @@ export function resolveNodeViewBlockElement(
 function resolveVisibleResizeSlotState(input: SyncResizeChromeInput): {
   contextOwnerTargetsOwnBlock: boolean;
   gestureOwnsInteraction: boolean;
+  objectSelectionTargetsOwnBlock: boolean;
   targetsOwnBlock: boolean;
 } {
   const pos = resolveNodePos(input.getPos);
@@ -95,6 +98,7 @@ function resolveVisibleResizeSlotState(input: SyncResizeChromeInput): {
   const targetsOwnBlock =
     slotDescriptor.pos === ownContext.pos && slotDescriptor.nodeType === ownContext.nodeType;
   const contextOwner = snapshot.owners.contextOwner.target;
+  const objectSelection = snapshot.selection.objectSelectedTarget;
 
   return {
     contextOwnerTargetsOwnBlock:
@@ -103,6 +107,10 @@ function resolveVisibleResizeSlotState(input: SyncResizeChromeInput): {
       contextOwner.kind === InteractionTargetKind.Block &&
       sameInteractionTarget(contextOwner, slotDescriptor.target),
     gestureOwnsInteraction: snapshot.owners.gestureOwner.target !== null,
+    objectSelectionTargetsOwnBlock:
+      targetsOwnBlock &&
+      objectSelection !== null &&
+      sameInteractionTarget(objectSelection, slotDescriptor.target),
     targetsOwnBlock,
   };
 }
@@ -110,11 +118,13 @@ function resolveVisibleResizeSlotState(input: SyncResizeChromeInput): {
 function hiddenResizeSlotState(): {
   contextOwnerTargetsOwnBlock: boolean;
   gestureOwnsInteraction: boolean;
+  objectSelectionTargetsOwnBlock: boolean;
   targetsOwnBlock: boolean;
 } {
   return {
     contextOwnerTargetsOwnBlock: false,
     gestureOwnsInteraction: false,
+    objectSelectionTargetsOwnBlock: false,
     targetsOwnBlock: false,
   };
 }

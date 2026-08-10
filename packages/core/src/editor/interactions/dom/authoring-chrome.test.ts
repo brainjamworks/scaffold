@@ -10,6 +10,7 @@ import {
   isAuthoringChromeTarget,
   shouldRenderAuthoringChrome,
 } from "./authoring-chrome";
+import { registerAuthoringInteractionHost } from "./authoring-root";
 import { registerOverlayHostOwner } from "./overlay-ownership";
 
 afterEach(() => {
@@ -82,6 +83,21 @@ describe("neutral authoring chrome markers", () => {
     expect(shouldRenderAuthoringChrome(editorRoot, true)).toBe(true);
 
     unregister();
+  });
+
+  it("treats focus in a registered authoring navigator as active until it unregisters", () => {
+    const editorRoot = document.createElement("div");
+    const navigator = document.createElement("aside");
+    const row = document.createElement("button");
+    navigator.appendChild(row);
+    document.body.append(editorRoot, navigator);
+    const unregister = registerAuthoringInteractionHost(editorRoot, navigator);
+    row.focus();
+
+    expect(isAuthoringChromeSessionActive(editorRoot)).toBe(true);
+
+    unregister();
+    expect(isAuthoringChromeSessionActive(editorRoot)).toBe(false);
   });
 
   it("suppresses page-level authoring chrome while a registered modal owns focus", () => {

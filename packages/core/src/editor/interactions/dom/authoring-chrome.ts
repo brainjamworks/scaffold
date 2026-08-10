@@ -1,4 +1,5 @@
 import { isOverlayTargetOwnedBy } from "./overlay-ownership";
+import { isAuthoringInteractionTargetOwnedBy } from "./authoring-root";
 
 export const AUTHORING_CHROME_ATTR = "data-authoring-chrome";
 export const AUTHORING_CHROME_SUPPRESSION_ATTR = "data-scaffold-suppress-authoring-chrome";
@@ -41,7 +42,10 @@ export function isAuthoringChromeSessionActive(editorRoot: Element): boolean {
   ) {
     return false;
   }
-  return isOverlayTargetOwnedBy(editorRoot, activeElement);
+  return (
+    isAuthoringInteractionTargetOwnedBy(editorRoot, activeElement) ||
+    isOverlayTargetOwnedBy(editorRoot, activeElement)
+  );
 }
 
 export function shouldRenderAuthoringChrome(editorRoot: Element, active: boolean): boolean {
