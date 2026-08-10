@@ -10,7 +10,10 @@ import {
   CELL_ARRANGEMENT_CONTENT,
 } from "@/document/model/content-model/content-groups";
 
-import { UnavailableContentNodeView } from "./UnavailableContentNodeView";
+import {
+  UnavailableContentNodeView,
+  unavailableAuthoringFrameAttributes,
+} from "./UnavailableContentNodeView";
 
 export const UNAVAILABLE_CONTENT_NODE_NAMES = [
   "unavailable_block",
@@ -73,8 +76,15 @@ function createUnavailableContentNode(name: UnavailableContentNodeName, group?: 
       };
     },
 
-    renderHTML() {
-      return ["div", { "data-unavailable-content-kind": name.slice("unavailable_".length) }];
+    renderHTML({ node }) {
+      const kind = name.slice("unavailable_".length) as "block" | "layout" | "surface";
+      return [
+        "div",
+        {
+          ...unavailableAuthoringFrameAttributes(kind, node.attrs["id"], name),
+          "data-unavailable-content-kind": kind,
+        },
+      ];
     },
 
     addNodeView() {

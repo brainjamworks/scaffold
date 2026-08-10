@@ -1,8 +1,5 @@
-import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import { NodeViewContent } from "@tiptap/react";
-import { useEffect } from "react";
 
-import { semanticDocumentPluginKey } from "@/document/authoring/semantic-document/semantic-document-storage";
 import {
   LayoutAddGhost,
   resolveSectionPresentationElement,
@@ -13,6 +10,7 @@ import {
   getLayoutInteractionStoreState,
   useLayoutInteractionStore,
 } from "../shared/model/layout-interaction-store";
+import { useLayoutSemanticContainerAdapter } from "../shared/model/use-layout-semantic-container-adapter";
 import type {
   LayoutComponentProps,
   SectionComponentProps,
@@ -36,54 +34,29 @@ export function AccordionLayoutView(props: LayoutComponentProps) {
   const sections = readAccordionSections(props.node);
   const addLabel = props.definition?.section?.addLabel ?? "Add section";
   const defaultOpenIds = defaultOpenAccordionSectionIds(sections);
-  const semanticController = semanticDocumentPluginKey.getState(props.editor.state);
   const setAccordionSectionOpen = useLayoutInteractionStore(
     props.editor,
     (state) => state.setAccordionSectionOpen,
   );
 
-  useEffect(() => {
-    const semanticLayoutId = EmbeddedNodeIdSchema.safeParse(layoutId);
-    if (!semanticController || !semanticLayoutId.success) return;
-    const registeredSections = readAccordionSections(props.node);
-    const registeredDefaultOpenIds = defaultOpenAccordionSectionIds(registeredSections);
-    const semanticSectionIds = new Set(
-      registeredSections.flatMap(({ id }) => {
-        const parsed = EmbeddedNodeIdSchema.safeParse(id);
-        return parsed.success ? [parsed.data] : [];
-      }),
-    );
-
-    return semanticController.containerAdapters.register({
-      ownerId: semanticLayoutId.data,
-      reveal: async (childId) => {
-        if (!semanticSectionIds.has(childId)) return "child-unavailable";
-        const storedOpenIds = getLayoutInteractionStoreState(props.editor)
-          .openAccordionSectionsByLayoutId[layoutId];
-        if (
-          isAccordionSectionOpen({
-            defaultOpenIds: registeredDefaultOpenIds,
-            sectionId: childId,
-            storedOpenIds,
-          })
-        ) {
-          return "already-visible";
-        }
-        setAccordionSectionOpen(layoutId, childId, {
-          allowMultiple: options.allowMultiple,
-          defaultOpenIds: registeredDefaultOpenIds,
-        });
-        return "revealed";
-      },
-    });
-  }, [
+  useLayoutSemanticContainerAdapter({
+    editor: props.editor,
     layoutId,
-    options.allowMultiple,
-    props.editor,
-    props.node,
-    semanticController,
-    setAccordionSectionOpen,
-  ]);
+    node: props.node,
+    isVisible: (childId) =>
+      isAccordionSectionOpen({
+        defaultOpenIds: defaultOpenAccordionSectionIds(readAccordionSections(props.node)),
+        sectionId: childId,
+        storedOpenIds: getLayoutInteractionStoreState(props.editor).openAccordionSectionsByLayoutId[
+          layoutId
+        ],
+      }),
+    revealChild: (childId) =>
+      setAccordionSectionOpen(layoutId, childId, {
+        allowMultiple: options.allowMultiple,
+        defaultOpenIds: defaultOpenAccordionSectionIds(readAccordionSections(props.node)),
+      }),
+  });
 
   return (
     <div className="sc-accordion-layout sc-accordion-layout--authoring">

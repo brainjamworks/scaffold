@@ -1,7 +1,9 @@
 import { CourseSectionTitleSchema } from "@scaffold/contracts";
 import { mergeAttributes, Node, type NodeConfig } from "@tiptap/core";
 
-export const COURSE_SECTION_NODE_TYPE = "courseSection" as const;
+import { COURSE_SECTION_NODE_TYPE } from "./structural-node-types";
+
+export { COURSE_SECTION_NODE_TYPE };
 
 export function createCourseSectionNode(
   input: {

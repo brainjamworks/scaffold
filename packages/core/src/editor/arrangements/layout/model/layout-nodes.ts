@@ -6,13 +6,13 @@ import {
   SECTION_ARRANGEMENT_CONTENT,
 } from "@/document/model/content-model/content-groups";
 import { isFieldContentEmpty } from "@/document/model/content-model/is-field-content-empty";
+import { LAYOUT_NODE_TYPE, SECTION_NODE_TYPE } from "@/document/model/nodes/structural-node-types";
 import {
   VerticalContentPositionSchema,
   type VerticalContentPosition,
 } from "@/schemas/course-document";
 
-export const LAYOUT_NODE_TYPE = "layout" as const;
-export const SECTION_NODE_TYPE = "section" as const;
+export { LAYOUT_NODE_TYPE, SECTION_NODE_TYPE };
 
 export interface LayoutNodeOptions {
   addNodeView?: () => NodeViewRenderer;

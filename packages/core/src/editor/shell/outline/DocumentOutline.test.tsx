@@ -64,6 +64,7 @@ describe("DocumentOutline", () => {
       id: id("surface"),
       options: { origin: "document-outline", focusEditor: false },
     });
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalledTimes(1));
   });
 
   it("reveals an external editor selection without taking editor focus", async () => {
@@ -87,6 +88,21 @@ describe("DocumentOutline", () => {
       );
     });
     expect(editorInput).toHaveFocus();
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+  });
+
+  it("queues one reveal until a newly expanded row mounts", async () => {
+    const viewport = new DocumentOutlineRowViewport();
+    const row = document.createElement("div");
+
+    const revealed = viewport.reveal(id("paragraph"));
+    expect(scrollIntoView).not.toHaveBeenCalled();
+
+    viewport.register(id("paragraph"), row);
+    await revealed;
+
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
     expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" });
   });
 

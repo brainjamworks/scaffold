@@ -1,6 +1,15 @@
-import type { EmbeddedNodeId } from "@scaffold/contracts";
+import type { EditorState, Transaction } from "@tiptap/pm/state";
 
-import type { SemanticDocumentSnapshot } from "@/document/model/semantic-document";
+import type {
+  SemanticDocumentSnapshot,
+  SemanticLocation,
+} from "@/document/model/semantic-document";
+import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
+import {
+  createAuthoringInteractionNavigationTransaction,
+  resolveAuthoringInteractionNavigationFrame,
+  resolveAuthoringInteractionNavigationTarget,
+} from "@/editor/interactions/targets/prosemirror/activation/interaction-navigation";
 
 import type { SemanticNavigationEnvironment } from "./semantic-navigation";
 
@@ -9,33 +18,48 @@ const CONTAINED_EDITOR_SHELL_SELECTOR = '.sc-editor-shell[data-scroll-model="con
 
 interface AuthoringSemanticNavigationView {
   readonly dom: HTMLElement;
-  nodeDOM(pos: number): Node | null;
+  readonly state: EditorState;
 }
 
 export interface CreateAuthoringSemanticNavigationEnvironmentInput {
+  readonly blockDefinitions: BlockDefinitionLookup;
   readonly getSnapshot: () => SemanticDocumentSnapshot;
   readonly root: HTMLElement;
   readonly view: AuthoringSemanticNavigationView;
 }
 
 export function createAuthoringSemanticNavigationEnvironment({
+  blockDefinitions,
   getSnapshot,
   root,
   view,
 }: CreateAuthoringSemanticNavigationEnvironmentInput): SemanticNavigationEnvironment {
-  const resolveCurrentTarget = (id: EmbeddedNodeId): HTMLElement => {
-    const location = getSnapshot().locationById.get(id);
-    if (!location) throw new Error(`Semantic navigation target "${id}" is unavailable`);
-    const node = view.nodeDOM(location.from);
-    const element =
-      node instanceof root.ownerDocument.defaultView!.HTMLElement ? node : node?.parentElement;
+  const resolveTarget = (location: SemanticLocation) =>
+    resolveAuthoringInteractionNavigationTarget(
+      view.state,
+      { id: location.id, nodeType: location.nodeType, pos: location.from },
+      blockDefinitions,
+    );
+
+  const resolveCurrentFrame = (location: SemanticLocation): HTMLElement => {
+    const target = resolveTarget(location);
+    if (!target) throw new Error(`Semantic navigation target "${location.id}" is unavailable`);
+    const element = resolveAuthoringInteractionNavigationFrame(root, target);
     if (!element || !root.contains(element) || !view.dom.contains(element)) {
-      throw new Error(`Semantic navigation target "${id}" is not rendered`);
+      throw new Error(`Semantic navigation target "${location.id}" is not rendered`);
+    }
+    if (!(element instanceof root.ownerDocument.defaultView!.HTMLElement)) {
+      throw new Error(`Semantic navigation target "${location.id}" is not rendered`);
     }
     return element;
   };
 
   return {
+    createActivationTransaction(location): Transaction | null {
+      const target = resolveTarget(location);
+      return target ? createAuthoringInteractionNavigationTransaction(view.state, target) : null;
+    },
+
     async presentSurface(surfaceId) {
       const location = getSnapshot().locationById.get(surfaceId);
       if (
@@ -44,11 +68,11 @@ export function createAuthoringSemanticNavigationEnvironment({
       ) {
         throw new Error(`Semantic navigation Surface "${surfaceId}" is unavailable`);
       }
-      resolveCurrentTarget(surfaceId);
+      resolveCurrentFrame(location);
     },
 
     async bringIntoView(location, behavior) {
-      const target = resolveCurrentTarget(location.id);
+      const target = resolveCurrentFrame(location);
       const boundedViewport = target.closest<HTMLElement>(BOUNDED_SCROLL_VIEWPORT_SELECTOR);
       if (boundedViewport && root.contains(boundedViewport)) {
         scrollElementWithinOwner(target, boundedViewport, behavior);
@@ -112,11 +136,9 @@ function scrollDelta(
           ? target.right - viewport.right
           : 0,
     top:
-      target.top < viewport.top
-        ? target.top - viewport.top
-        : target.bottom > viewport.bottom
-          ? target.bottom - viewport.bottom
-          : 0,
+      target.bottom > target.top && viewport.bottom > viewport.top
+        ? (target.top + target.bottom) / 2 - (viewport.top + viewport.bottom) / 2
+        : 0,
   };
 }
 

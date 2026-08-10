@@ -1,7 +1,7 @@
-import { Editor, Node, type JSONContent } from "@tiptap/core";
+import { Editor, mergeAttributes, Node, type JSONContent } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { TextSelection } from "@tiptap/pm/state";
+import { NodeSelection, TextSelection } from "@tiptap/pm/state";
 import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
 import { render as renderBrowserReact, type RenderResult } from "vitest-browser-react";
 import { afterEach, describe, expect, it } from "vite-plus/test";
@@ -33,11 +33,13 @@ import { AnnotatedFigureAuthoringExtension } from "@/editor/blocks/figure-compos
 import { FlashcardAuthoringExtension } from "@/editor/blocks/presentation/flashcard";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
+import { interactionOwnerPluginKey } from "@/editor/interactions/targets/prosemirror/state/interaction-owner-plugin-state";
+import { surfaceAuthoringFrameAttributes } from "@/editor/interactions/dom/authoring-frame";
 import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
 import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
-import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { createSurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
 import { createTestNodeIdentityExtension } from "@/editor/testing";
 import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
 import type { MediaPort } from "@/host/ports/media";
@@ -119,27 +121,77 @@ describe("Document Outline bidirectional navigation", () => {
     expect(treeText()).not.toContain("Private flashcard back");
   });
 
-  it("uses keyboard-operated Outline rows to reveal a hidden tab target and valid selection", async () => {
+  it("reveals a hidden descendant while activating its Layout owner and retaining its semantic ID", async () => {
     const harness = await mountOutline();
     mounted.push(harness);
     const controller = harness.controller;
-    const target = controller.getSnapshot().semantics.itemById.get(IDS.hiddenTab);
-    if (!target) throw new Error("Expected hidden tab semantic item");
+    const target = controller.getSnapshot().semantics.itemById.get(IDS.hiddenProse);
+    if (!target) throw new Error("Expected hidden prose semantic item");
 
-    await expandAncestorsThroughOutline(harness, IDS.hiddenTab);
+    await expandAncestorsThroughOutline(harness, IDS.hiddenProse);
     const targetRow = treeItemForLabel(target.label);
-    targetRow.focus();
-    await userEvent.keyboard("{Enter}");
+    await userEvent.click(targetRow);
 
-    await expect.poll(() => controller.getSnapshot().selectedId).toBe(IDS.hiddenTab);
+    await expect.poll(() => controller.getSnapshot().selectedId).toBe(IDS.hiddenProse);
     expect(controller.getSnapshot().selectionOrigin).toBe("document-outline");
     expect(targetRow.getAttribute("aria-selected")).toBe("true");
     expect(document.activeElement).toBe(targetRow);
-    expect(harness.editor.state.selection.empty).toBe(false);
-    expect(harness.revealedIds.at(-1)).toBe(IDS.hiddenTab);
+    expect(harness.editor.state.selection).toBeInstanceOf(TextSelection);
+    expect(harness.editor.state.selection.empty).toBe(true);
+    expect(interactionOwnerPluginKey.getState(harness.editor.state)?.explicitOwner).toMatchObject({
+      id: IDS.tabs,
+      kind: "layout",
+    });
+    expect(harness.revealedIds.at(-1)).toBe(IDS.hiddenProse);
     await expect
       .element(page.getByRole("tab", { name: "Hidden topic" }))
       .toHaveAttribute("aria-selected", "true");
+  });
+
+  it("activates a Grid for its Cell while keeping the clicked Cell selected in the Outline", async () => {
+    const harness = await mountOutline();
+    mounted.push(harness);
+    const controller = harness.controller;
+    const cell = controller.getSnapshot().semantics.itemById.get(IDS.firstCell);
+    if (!cell) throw new Error("Expected Grid Cell semantic item");
+
+    await expandAncestorsThroughOutline(harness, IDS.firstCell);
+    const cellRow = treeItemForLabel(cell.label);
+    await userEvent.click(cellRow);
+
+    await expect.poll(() => controller.getSnapshot().selectedId).toBe(IDS.firstCell);
+    expect(interactionOwnerPluginKey.getState(harness.editor.state)?.explicitOwner).toMatchObject({
+      id: IDS.grid,
+      kind: "grid",
+    });
+    expect(harness.editor.state.selection).toBeInstanceOf(TextSelection);
+    expect(harness.editor.state.selection).not.toBeInstanceOf(NodeSelection);
+    expect(document.activeElement).toBe(cellRow);
+  });
+
+  it("selects the Figure Block for an annotation without replacing the annotation Outline ID", async () => {
+    const harness = await mountOutline();
+    mounted.push(harness);
+    const controller = harness.controller;
+    const annotation = controller.getSnapshot().semantics.itemById.get(IDS.annotation);
+    if (!annotation) throw new Error("Expected annotation semantic item");
+
+    await expandAncestorsThroughOutline(harness, IDS.annotation);
+    const annotationRow = treeItemForLabel(annotation.label);
+    await userEvent.click(annotationRow);
+
+    await expect.poll(() => controller.getSnapshot().selectedId).toBe(IDS.annotation);
+    expect(harness.editor.state.selection).toBeInstanceOf(NodeSelection);
+    expect((harness.editor.state.selection as NodeSelection).node.attrs["id"]).toBe(
+      IDS.annotationFigure,
+    );
+    expect(
+      interactionOwnerPluginKey.getState(harness.editor.state)?.activationIntent,
+    ).toMatchObject({
+      kind: "object-shell",
+      target: { id: IDS.annotationFigure, kind: "block" },
+    });
+    expect(document.activeElement).toBe(annotationRow);
   });
 });
 
@@ -182,7 +234,7 @@ async function mountOutline(): Promise<MountedOutlineHarness> {
       ExtendedParagraph,
       CourseDocumentNode,
       createCourseSectionNode(),
-      SurfaceNode,
+      TestSurfaceAuthoringNode,
       RegionNode,
       GridAuthoringNode,
       CellAuthoringNode,
@@ -223,16 +275,17 @@ async function mountOutline(): Promise<MountedOutlineHarness> {
   );
   const revealedIds: EmbeddedNodeId[] = [];
   const environment = createAuthoringSemanticNavigationEnvironment({
+    blockDefinitions: builtInBlockRegistry,
     getSnapshot: () => controller.getSnapshot().semantics,
     root: host,
     view: editor.view,
   });
   controller.setNavigationEditor({
-    getState: () => editor.state,
     dispatch: (transaction) => editor.view.dispatch(transaction),
     focus: () => editor.view.focus(),
   });
   controller.setNavigationEnvironment({
+    createActivationTransaction: (location) => environment.createActivationTransaction(location),
     presentSurface: (surfaceId) => environment.presentSurface(surfaceId),
     async bringIntoView(location, behavior) {
       revealedIds.push(location.id);
@@ -334,6 +387,25 @@ function roleElement<ElementType extends HTMLElement>(role: string, label: strin
   return element;
 }
 
+const TestSurfaceAuthoringNode = createSurfaceNode().extend({
+  renderHTML({ node, HTMLAttributes }) {
+    return [
+      "section",
+      mergeAttributes(
+        HTMLAttributes,
+        { "data-surface": "" },
+        surfaceAuthoringFrameAttributes({
+          ...(typeof node.attrs["variant"] === "string"
+            ? { definition: node.attrs["variant"] }
+            : {}),
+          surfaceId: node.attrs["id"],
+        }),
+      ),
+      0,
+    ];
+  },
+});
+
 const TestMcqNode = Node.create({
   name: "mcq",
   group: "block",
@@ -360,7 +432,11 @@ function representativeDocument(): JSONContent {
           { type: "courseSection", attrs: { id: IDS.courseSection, title: "Practice" } },
           {
             type: "surface",
-            attrs: { id: IDS.firstSurface, variant: "slide-content" },
+            attrs: {
+              id: IDS.firstSurface,
+              settings: { slideTitle: { enabled: true } },
+              variant: "slide-content",
+            },
             content: [
               {
                 type: "region",
@@ -392,7 +468,11 @@ function representativeDocument(): JSONContent {
           },
           {
             type: "surface",
-            attrs: { id: IDS.secondSurface, variant: "slide-content" },
+            attrs: {
+              id: IDS.secondSurface,
+              settings: { slideTitle: { enabled: true } },
+              variant: "slide-content",
+            },
             content: [
               {
                 type: "region",

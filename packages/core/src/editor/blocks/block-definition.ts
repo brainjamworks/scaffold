@@ -11,7 +11,10 @@ import type {
   AssessmentTargetSettings,
 } from "@scaffold/contracts";
 import type { RewriteCopiedContent } from "@/document/model/identity/clone-with-new-ids";
-import type { DocumentSemanticsDefinition } from "@/document/model/semantic-document";
+import {
+  normalizeDocumentSemanticsDefinition,
+  type DocumentSemanticsDefinition,
+} from "@/document/model/semantic-document";
 import type { ConfigurationDefinition } from "../configuration/definition";
 import { deriveQuickMenuDefinition } from "../configuration/quick-menu-derivation";
 import type { QuickControlDescriptor, QuickMenuDefinition } from "../configuration/quick-menu";
@@ -318,22 +321,4 @@ function normalizeBlockInsertDefinition(
 
 function normalizeBlockTitle(title: string): string {
   return typeof title === "string" ? title.trim() : "";
-}
-
-function normalizeDocumentSemanticsDefinition(
-  definition: DocumentSemanticsDefinition | undefined,
-): DocumentSemanticsDefinition | undefined {
-  if (!definition) return undefined;
-
-  const presentation = definition.presentation
-    ? Object.freeze({
-        ...definition.presentation,
-        actionIds: Object.freeze([...definition.presentation.actionIds]),
-      })
-    : undefined;
-
-  return Object.freeze({
-    ...definition,
-    ...(presentation ? { presentation } : {}),
-  });
 }

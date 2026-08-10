@@ -5,11 +5,11 @@ import {
   CELL_ARRANGEMENT_CONTENT,
   SECTION_ARRANGEMENT_CONTENT,
 } from "@/document/model/content-model/content-groups";
+import { CELL_NODE_TYPE, GRID_NODE_TYPE } from "@/document/model/nodes/structural-node-types";
 import { boundedPlacementAttributes } from "@/editor/frame/model/bounded-placement";
 import { isGridCellEmpty, isGridCellVerticalPosition } from "./grid-model";
 
-export const GRID_NODE_TYPE = "grid" as const;
-export const CELL_NODE_TYPE = "cell" as const;
+export { CELL_NODE_TYPE, GRID_NODE_TYPE };
 
 export interface GridNodeOptions {
   addNodeView?: () => NodeViewRenderer;

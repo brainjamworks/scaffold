@@ -26,7 +26,9 @@ import { InteractionDomActivationIntentKind } from "./interaction-activation-int
 
 const BLOCK = "v2_activation_dispatch_block";
 
-const testBlockRegistry = createBlockRegistry([defineBlock({ nodeType: BLOCK })]);
+const testBlockRegistry = createBlockRegistry([
+  defineBlock({ nodeType: BLOCK, title: "Activation dispatch block" }),
+]);
 
 function identifiedNode(name: string, content: string) {
   return Node.create({

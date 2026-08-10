@@ -5,20 +5,19 @@ import {
   StackIcon as Stack,
 } from "@phosphor-icons/react";
 import { z } from "zod";
-import { EmbeddedNodeIdSchema } from "@scaffold/contracts";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
 import type {
   DocumentSemanticsDefinition,
   PublishedSemanticChild,
   SemanticChildProjector,
-  SemanticChildProjectionInput,
   SemanticItemDescriber,
 } from "@/document/model/semantic-document";
 import { normalizeSemanticLabel } from "@/document/model/semantic-document/semantic-labels";
 import { defineConfiguration } from "@/editor/configuration/definition";
 
 import type { LayoutDefinition } from "../model/layout-definition";
+import { hiddenLayoutSectionDocumentSemantics } from "../shared/model/layout-semantic-publication";
 import { createAccordionContent, createAccordionSection } from "./accordion-content";
 
 const AccordionLayoutOptionsSchema = z.object({
@@ -29,34 +28,6 @@ const AccordionLayoutOptionsSchema = z.object({
 
 const AccordionSectionOptionsSchema = z.object({
   defaultOpen: z.boolean().default(false),
-});
-
-const accordionDocumentSemantics: DocumentSemanticsDefinition = Object.freeze({
-  projectChildren: ({ owner, ownerId }: SemanticChildProjectionInput) => {
-    const sections: PublishedSemanticChild[] = [];
-    let offset = 0;
-    owner.forEach((node) => {
-      if (node.type.name === "section") {
-        const sectionId = EmbeddedNodeIdSchema.safeParse(node.attrs["id"]);
-        if (sectionId.success) {
-          sections.push(
-            Object.freeze({
-              relativePos: offset,
-              activation: Object.freeze([
-                Object.freeze({
-                  ownerId,
-                  childId: sectionId.data,
-                  ownerKind: "layout" as const,
-                }),
-              ]),
-            }),
-          );
-        }
-      }
-      offset += node.nodeSize;
-    });
-    return Object.freeze(sections);
-  },
 });
 
 const describeAccordionSection: SemanticItemDescriber = ({ owner }) => {
@@ -100,7 +71,7 @@ export const accordionLayoutDefinition = {
   placeholders: {
     accordion_section_title: "Enter your section title",
   },
-  documentSemantics: accordionDocumentSemantics,
+  documentSemantics: hiddenLayoutSectionDocumentSemantics,
   configuration: defineConfiguration({
     attr: "options",
     schema: AccordionLayoutOptionsSchema,

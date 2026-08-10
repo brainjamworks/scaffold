@@ -155,10 +155,15 @@ describe("Accordion document semantics", () => {
       cellId,
       nestedBlockId,
       nestedLayoutId,
-      nestedSectionId,
-      nestedParagraphId,
     ]) {
       expect(snapshot.locationById.get(targetId)?.activationPath).toEqual(activation);
+    }
+    const nestedActivation = [
+      ...activation,
+      { ownerId: nestedLayoutId, childId: nestedSectionId, ownerKind: "layout" },
+    ];
+    for (const targetId of [nestedSectionId, nestedParagraphId]) {
+      expect(snapshot.locationById.get(targetId)?.activationPath).toEqual(nestedActivation);
     }
     expect(snapshot.diagnostics).toEqual([]);
   });

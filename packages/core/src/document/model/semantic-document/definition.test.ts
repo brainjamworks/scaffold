@@ -18,8 +18,26 @@ import type {
   SemanticLayoutDefinition,
   SemanticSurfaceDefinition,
 } from "./definition-lookup";
+import { normalizeDocumentSemanticsDefinition } from "./normalize-document-semantics-definition";
 
 describe("semantic document definition contracts", () => {
+  it("owns one immutable semantic-definition shell without changing callbacks", () => {
+    const actionIds = ["reveal", "highlight"];
+    const describe = () => ({ label: "Owned" });
+    const projectChildren = () => [];
+    const input = { describe, presentation: { actionIds }, projectChildren };
+
+    const normalized = normalizeDocumentSemanticsDefinition(input);
+
+    expect(normalized).not.toBe(input);
+    expect(normalized).toMatchObject({ describe, projectChildren });
+    expect(normalized?.presentation?.actionIds).toEqual(actionIds);
+    expect(normalized?.presentation?.actionIds).not.toBe(actionIds);
+    expect(Object.isFrozen(normalized)).toBe(true);
+    expect(Object.isFrozen(normalized?.presentation)).toBe(true);
+    expect(Object.isFrozen(normalized?.presentation?.actionIds)).toBe(true);
+  });
+
   it("keeps description and child projection owner-bounded and owner-relative", () => {
     const owner = {} as ProseMirrorNode;
     const ownerId = "owner-node-1" as EmbeddedNodeId;

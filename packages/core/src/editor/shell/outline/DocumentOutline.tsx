@@ -31,9 +31,18 @@ interface VisibleOutlineItem {
 
 export class DocumentOutlineRowViewport {
   readonly #rows = new Map<EmbeddedNodeId, HTMLElement>();
+  #pendingReveal: { readonly id: EmbeddedNodeId; readonly resolve: () => void } | null = null;
+  #destroyed = false;
 
   register(id: EmbeddedNodeId, row: HTMLElement): () => void {
+    if (this.#destroyed) return () => undefined;
     this.#rows.set(id, row);
+    if (this.#pendingReveal?.id === id) {
+      row.scrollIntoView({ block: "nearest" });
+      const pending = this.#pendingReveal;
+      this.#pendingReveal = null;
+      pending.resolve();
+    }
     return () => {
       if (this.#rows.get(id) === row) this.#rows.delete(id);
     };
@@ -43,8 +52,26 @@ export class DocumentOutlineRowViewport {
     this.#rows.get(id)?.focus();
   }
 
-  reveal(id: EmbeddedNodeId): void {
-    this.#rows.get(id)?.scrollIntoView({ block: "nearest" });
+  reveal(id: EmbeddedNodeId): Promise<void> {
+    if (this.#destroyed) return Promise.resolve();
+    const row = this.#rows.get(id);
+    if (row) {
+      row.scrollIntoView({ block: "nearest" });
+      return Promise.resolve();
+    }
+
+    this.#pendingReveal?.resolve();
+    return new Promise((resolve) => {
+      this.#pendingReveal = { id, resolve };
+    });
+  }
+
+  destroy(): void {
+    if (this.#destroyed) return;
+    this.#destroyed = true;
+    this.#pendingReveal?.resolve();
+    this.#pendingReveal = null;
+    this.#rows.clear();
   }
 }
 
@@ -88,11 +115,6 @@ export function DocumentOutline({ controller, viewController, viewport }: Docume
 
   async function activate(item: SemanticItem): Promise<void> {
     setFocusedId(item.id);
-    await viewController.reveal(item.id, {
-      select: false,
-      focus: false,
-      expandAncestors: true,
-    });
     const result = await controller.select(item.id, {
       origin: "document-outline",
       focusEditor: false,

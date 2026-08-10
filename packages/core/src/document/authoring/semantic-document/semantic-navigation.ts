@@ -1,5 +1,5 @@
 import type { EmbeddedNodeId } from "@scaffold/contracts";
-import type { EditorState, Transaction } from "@tiptap/pm/state";
+import type { Transaction } from "@tiptap/pm/state";
 
 import type { ProjectedCourseStructure } from "@/document/model/course-structure";
 import type {
@@ -7,11 +7,6 @@ import type {
   SemanticDocumentSnapshot,
   SemanticLocation,
 } from "@/document/model/semantic-document";
-import {
-  setNodeSelectionInTransaction,
-  setTextSelectionInTransaction,
-  setTextSelectionNearInTransaction,
-} from "@/editor/selection/selection-transactions";
 
 import {
   SemanticContainerAdapterRegistry,
@@ -23,13 +18,13 @@ import {
 } from "./semantic-selection-origin";
 
 export interface SemanticNavigationEditor {
-  getState(): EditorState;
   dispatch(transaction: Transaction): void;
   focus(): void;
 }
 
 export interface SemanticNavigationEnvironment {
   presentSurface(surfaceId: EmbeddedNodeId): Promise<void>;
+  createActivationTransaction(location: SemanticLocation): Transaction | null;
   bringIntoView(location: SemanticLocation, behavior: "instant" | "smooth"): Promise<void>;
 }
 
@@ -192,7 +187,7 @@ export class SemanticNavigationCoordinator {
     if (!ownerId) return { kind: "missing", id: target.id };
     const owner = this.#resolve(ownerId);
     if (!owner) return { kind: "missing", id: target.id };
-    const reached = await this.#reach(owner, token, options);
+    const reached = await this.#reach(owner, token, options, target.id);
     if (reached.kind !== "reached") return reached;
     return {
       kind: "reached-owner",
@@ -231,6 +226,7 @@ export class SemanticNavigationCoordinator {
     target: ResolvedSemanticTarget,
     token: number,
     options: SemanticNavigationOptions,
+    intendedId: EmbeddedNodeId = target.id,
   ): Promise<SemanticNavigationResult> {
     if (!this.#isCurrent(token)) return { kind: "interrupted", id: target.id };
     const currentTarget = this.#resolve(target.id);
@@ -241,60 +237,59 @@ export class SemanticNavigationCoordinator {
     const authoringTarget = this.#resolveAuthoringTarget(currentTarget);
     if (!authoringTarget) return { kind: "missing", id: target.id };
 
-    const preflightTransaction = editor.getState().tr;
-    if (!setSelectionForLocation(preflightTransaction, authoringTarget.location)) {
-      return { kind: "interrupted", id: target.id };
+    let preflightTransaction: Transaction | null;
+    try {
+      preflightTransaction = environment.createActivationTransaction(authoringTarget.location);
+    } catch {
+      return { kind: "interrupted", id: intendedId };
+    }
+    if (!preflightTransaction) {
+      return { kind: "interrupted", id: intendedId };
     }
 
     try {
       await environment.bringIntoView(authoringTarget.location, "smooth");
     } catch {
-      return { kind: "interrupted", id: target.id };
+      return { kind: "interrupted", id: intendedId };
     }
-    if (!this.#isCurrent(token)) return { kind: "interrupted", id: target.id };
+    if (!this.#isCurrent(token)) return { kind: "interrupted", id: intendedId };
 
     const selectionTarget = this.#resolve(target.id);
     if (!selectionTarget) return { kind: "missing", id: target.id };
     const authoringSelectionTarget = this.#resolveAuthoringTarget(selectionTarget);
     if (!authoringSelectionTarget) return { kind: "missing", id: target.id };
-    const transaction = editor.getState().tr;
-    if (!setSelectionForLocation(transaction, authoringSelectionTarget.location)) {
-      return { kind: "interrupted", id: target.id };
+    let transaction: Transaction | null;
+    try {
+      transaction = environment.createActivationTransaction(authoringSelectionTarget.location);
+    } catch {
+      return { kind: "interrupted", id: intendedId };
+    }
+    if (!transaction) {
+      return { kind: "interrupted", id: intendedId };
     }
     setSemanticSelectionTransactionMeta(transaction, {
-      intendedId: target.id,
+      intendedId,
       origin: options.origin,
     });
     editor.dispatch(transaction);
     if (options.focusEditor) editor.focus();
 
-    return this.#resolve(target.id)
-      ? { kind: "reached", id: target.id }
-      : { kind: "missing", id: target.id };
+    return this.#resolve(intendedId)
+      ? { kind: "reached", id: intendedId }
+      : { kind: "missing", id: intendedId };
   }
 
   #resolveAuthoringTarget(target: ResolvedSemanticTarget): ResolvedSemanticTarget | null {
     const anchorId = target.location.authoringAnchorId;
-    return anchorId ? this.#resolve(anchorId) : target;
+    if (anchorId) return this.#resolve(anchorId);
+    const item = this.#getSemantics().itemById.get(target.id);
+    if (item?.kind !== "course-section") return target;
+    const surfaceId = this.#resolveSurfaceId(target);
+    return surfaceId ? this.#resolve(surfaceId) : null;
   }
 
   #isCurrent(token: number): boolean {
     return token === this.#requestToken;
-  }
-}
-
-function setSelectionForLocation(transaction: Transaction, location: SemanticLocation): boolean {
-  switch (location.selectionTarget.kind) {
-    case "node":
-      return setNodeSelectionInTransaction(transaction, location.selectionTarget.pos);
-    case "text":
-      return setTextSelectionInTransaction(
-        transaction,
-        location.selectionTarget.from,
-        location.selectionTarget.to,
-      );
-    case "near":
-      return setTextSelectionNearInTransaction(transaction, location.selectionTarget.pos);
   }
 }
 

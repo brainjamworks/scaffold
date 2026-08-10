@@ -2,6 +2,7 @@ import { mergeAttributes, Node, type NodeViewRenderer } from "@tiptap/core";
 
 import { ARRANGEMENT_CONTENT } from "@/document/model/content-model/content-groups";
 import { isFieldContentEmpty } from "@/document/model/content-model/is-field-content-empty";
+import { REGION_NODE_TYPE } from "@/document/model/nodes/structural-node-types";
 import {
   VerticalContentPositionSchema,
   type VerticalContentPosition,
@@ -9,7 +10,7 @@ import {
 
 const DEFAULT_REGION_ROLE = "main";
 
-export const REGION_NODE_TYPE = "region" as const;
+export { REGION_NODE_TYPE };
 
 export interface RegionNodeOptions {
   addNodeView?: () => NodeViewRenderer;

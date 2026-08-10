@@ -1,4 +1,4 @@
-import type { Transaction } from "@tiptap/pm/state";
+import type { EditorState, Transaction } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
 
 import {
@@ -21,6 +21,52 @@ import {
 
 export interface ApplyInteractionActivationIntentOptions {
   contextOwner?: InteractionTargetRef | null;
+}
+
+export type InteractionTargetActivationMode = "object" | "structural";
+
+export interface CreateInteractionTargetActivationTransactionOptions {
+  readonly preferredPos?: number | null;
+}
+
+/**
+ * Canonical non-DOM activation entrypoint. Callers provide a live projected
+ * interaction target; this applies the same owner command and selection safety
+ * rules as pointer activation without synthesizing an event.
+ */
+export function createInteractionTargetActivationTransaction(
+  state: EditorState,
+  target: InteractionTargetRef,
+  mode: InteractionTargetActivationMode,
+  options: CreateInteractionTargetActivationTransactionOptions = {},
+): Transaction | null {
+  const tr = state.tr;
+
+  if (mode === "object") {
+    if (target.kind !== InteractionTargetKind.Block || !Number.isInteger(target.pos)) return null;
+    if (!setObjectSelectionInTransaction(tr, target.pos as number)) return null;
+    return setInteractionOwnerCommandMeta(tr, {
+      kind: InteractionOwnerCommandKind.SelectObjectTarget,
+      target,
+    });
+  }
+
+  if (target.kind === InteractionTargetKind.Block || target.kind === InteractionTargetKind.Field) {
+    return null;
+  }
+  const range = resolveLiveTargetRange(tr, target);
+  const pos = options.preferredPos ?? target.pos ?? tr.selection.from;
+  if (range) {
+    if (!setNonDestructiveSelectionNearWithinRangeInTransaction(tr, pos, range)) {
+      clearObjectSelectionToNonDestructiveSelectionInTransaction(tr);
+    }
+  } else if (!setNonDestructiveSelectionNearInTransaction(tr, pos)) {
+    clearObjectSelectionToNonDestructiveSelectionInTransaction(tr);
+  }
+  return setInteractionOwnerCommandMeta(tr, {
+    kind: InteractionOwnerCommandKind.ActivateStructuralTarget,
+    target,
+  });
 }
 
 /**
@@ -65,11 +111,20 @@ export function applyInteractionActivationIntent(
     case InteractionDomActivationIntentKind.ExplicitChrome: {
       event?.preventDefault();
       view.focus();
-      const tr = setInteractionOwnerCommandMeta(view.state.tr, {
-        kind: InteractionOwnerCommandKind.ActivateStructuralTarget,
-        target: intent.target,
-      });
-      reconcileStructuralSelection(view, tr, intent.target, event);
+      const tr = createInteractionTargetActivationTransaction(
+        view.state,
+        intent.target,
+        "structural",
+        {
+          preferredPos: resolveTargetBoundPointerDocumentPos(
+            view,
+            view.state.tr,
+            intent.target,
+            event,
+          ),
+        },
+      );
+      if (!tr) return false;
       view.dispatch(tr);
       return true;
     }
@@ -80,13 +135,8 @@ export function applyInteractionActivationIntent(
 
       event?.preventDefault();
       view.focus();
-      const tr = setInteractionOwnerCommandMeta(view.state.tr, {
-        kind: InteractionOwnerCommandKind.SelectObjectTarget,
-        target: intent.target,
-      });
-      if (!setObjectSelectionInTransaction(tr, intent.target.pos as number)) {
-        return false;
-      }
+      const tr = createInteractionTargetActivationTransaction(view.state, intent.target, "object");
+      if (!tr) return false;
       view.dispatch(tr);
       return true;
     }
@@ -100,30 +150,6 @@ export function applyInteractionActivationIntent(
       return true;
     }
   }
-}
-
-function reconcileStructuralSelection(
-  view: EditorView,
-  tr: Transaction,
-  target: InteractionTargetRef,
-  event: MouseEvent | undefined,
-): void {
-  const pos =
-    resolveTargetBoundPointerDocumentPos(view, tr, target, event) ??
-    (Number.isInteger(target.pos) ? (target.pos as number) : null) ??
-    tr.selection.from;
-  const range = resolveLiveTargetRange(tr, target);
-
-  if (range) {
-    if (setNonDestructiveSelectionNearWithinRangeInTransaction(tr, pos, range)) {
-      return;
-    }
-    clearObjectSelectionToNonDestructiveSelectionInTransaction(tr);
-    return;
-  }
-
-  if (setNonDestructiveSelectionNearInTransaction(tr, pos)) return;
-  clearObjectSelectionToNonDestructiveSelectionInTransaction(tr);
 }
 
 function resolveTargetBoundPointerDocumentPos(

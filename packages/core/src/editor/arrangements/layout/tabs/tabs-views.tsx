@@ -20,6 +20,7 @@ import {
   getLayoutInteractionStoreState,
   useLayoutInteractionStore,
 } from "../shared/model/layout-interaction-store";
+import { useLayoutSemanticContainerAdapter } from "../shared/model/use-layout-semantic-container-adapter";
 import type {
   LayoutComponentProps,
   SectionComponentProps,
@@ -91,32 +92,18 @@ export function TabsLayoutView(props: LayoutComponentProps) {
     });
   };
 
-  useEffect(() => {
-    const semanticLayoutId = EmbeddedNodeIdSchema.safeParse(layoutId);
-    if (!semanticController || !semanticLayoutId.success) return;
-    const registeredSections = readTabsSections(props.node);
-    const semanticSectionIds = new Set(
-      registeredSections.flatMap(({ id }) => {
-        const parsed = EmbeddedNodeIdSchema.safeParse(id);
-        return parsed.success ? [parsed.data] : [];
-      }),
-    );
-
-    return semanticController.containerAdapters.register({
-      ownerId: semanticLayoutId.data,
-      reveal: async (childId) => {
-        if (!semanticSectionIds.has(childId)) return "child-unavailable";
-        const storedActiveId = getLayoutInteractionStoreState(props.editor).activeTabByLayoutId[
-          layoutId
-        ];
-        if (normalizeActiveTabId(storedActiveId, registeredSections) === childId) {
-          return "already-visible";
-        }
-        setActiveTab(layoutId, childId);
-        return "revealed";
-      },
-    });
-  }, [layoutId, props.editor, props.node, semanticController, setActiveTab]);
+  useLayoutSemanticContainerAdapter({
+    editor: props.editor,
+    layoutId,
+    node: props.node,
+    isVisible: (childId) => {
+      const storedActiveId = getLayoutInteractionStoreState(props.editor).activeTabByLayoutId[
+        layoutId
+      ];
+      return normalizeActiveTabId(storedActiveId, readTabsSections(props.node)) === childId;
+    },
+    revealChild: (childId) => setActiveTab(layoutId, childId),
+  });
 
   useEffect(() => {
     const selectionSectionId = selectionState.sectionId;

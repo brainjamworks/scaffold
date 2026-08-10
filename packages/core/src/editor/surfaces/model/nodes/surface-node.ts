@@ -4,8 +4,9 @@ import { SurfaceAttrsSchema, SurfaceSettingsSchema } from "@/schemas/course-docu
 
 import { ARRANGEMENT_CONTENT } from "@/document/model/content-model/content-groups";
 import { isFieldContentEmpty } from "@/document/model/content-model/is-field-content-empty";
+import { SURFACE_NODE_TYPE } from "@/document/model/nodes/structural-node-types";
 
-export const SURFACE_NODE_TYPE = "surface" as const;
+export { SURFACE_NODE_TYPE };
 
 export interface SurfaceNodeOptions {
   addNodeView?: () => NodeViewRenderer;

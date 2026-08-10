@@ -175,16 +175,16 @@ function MountedCourseDocumentEditor({
     controller.setNavigationEditor({
       dispatch: (transaction) => editor.view.dispatch(transaction),
       focus: () => editor.view.focus(),
-      getState: () => editor.state,
     });
     controller.setNavigationEnvironment(
       createAuthoringSemanticNavigationEnvironment({
+        blockDefinitions: composition.capabilities.blocks.registry,
         getSnapshot: () => controller.getSnapshot().semantics,
         root: overlayContainer,
         view: editor.view,
       }),
     );
-  }, [editor, overlayContainer]);
+  }, [composition.capabilities.blocks.registry, editor, overlayContainer]);
 
   if (!editor || suspended) {
     return null;

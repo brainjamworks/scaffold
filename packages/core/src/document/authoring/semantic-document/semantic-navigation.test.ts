@@ -1,6 +1,6 @@
 import type { EmbeddedNodeId } from "@scaffold/contracts";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
-import { EditorState, type Transaction } from "@tiptap/pm/state";
+import { EditorState, NodeSelection, TextSelection, type Transaction } from "@tiptap/pm/state";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import type {
@@ -56,6 +56,7 @@ describe("semantic navigation", () => {
       activationPath.map(({ ownerId, childId }) => `${ownerId}:${childId}`),
     );
     expect(session.presentSurface).toHaveBeenCalledWith(session.fixture.surfaces[0]!.surface);
+    expect(session.createActivationTransaction).toHaveBeenCalledTimes(2);
     expect(session.bringIntoView).toHaveBeenCalledOnce();
     expect(session.focusEditor).not.toHaveBeenCalled();
     expect(session.controller.getSnapshot()).toMatchObject({
@@ -147,7 +148,7 @@ describe("semantic navigation", () => {
         ownerId: firstRelationship.ownerId,
         reason: targetKind === "missing" ? "missing-container-adapter" : "child-unavailable",
       });
-      expect(session.controller.getSnapshot().selectedId).toBe(firstRelationship.ownerId);
+      expect(session.controller.getSnapshot().selectedId).toBe(targetId);
     }
   });
 
@@ -215,6 +216,10 @@ describe("semantic navigation", () => {
       }),
     ).resolves.toEqual({ kind: "reached", id: sectionId });
     expect(session.presentSurface).toHaveBeenCalledWith(session.fixture.surfaces[0]!.surface);
+    expect(session.bringIntoView).toHaveBeenCalledWith(
+      requireLocation(session.controller, session.fixture.surfaces[0]!.surface),
+      "smooth",
+    );
     expect(session.focusEditor).toHaveBeenCalledOnce();
   });
 });
@@ -231,7 +236,6 @@ function createSession(fixture: ReturnType<typeof createRepresentativeSemanticDo
   let controller: SemanticDocumentController;
   const focusEditor = vi.fn();
   const navigationEditor: SemanticNavigationEditor = {
-    getState: () => state,
     dispatch: (transaction) => {
       state = state.apply(transaction);
       controller.applyTransaction(transaction, state);
@@ -240,7 +244,28 @@ function createSession(fixture: ReturnType<typeof createRepresentativeSemanticDo
   };
   const presentSurface = vi.fn(async () => undefined);
   const bringIntoView = vi.fn(async () => undefined);
-  const environment: SemanticNavigationEnvironment = { presentSurface, bringIntoView };
+  const createActivationTransaction = vi.fn((location) => {
+    const tr = state.tr;
+    switch (location.selectionTarget.kind) {
+      case "node":
+        tr.setSelection(NodeSelection.create(tr.doc, location.selectionTarget.pos));
+        break;
+      case "text":
+        tr.setSelection(
+          TextSelection.create(tr.doc, location.selectionTarget.from, location.selectionTarget.to),
+        );
+        break;
+      case "near":
+        tr.setSelection(TextSelection.near(tr.doc.resolve(location.selectionTarget.pos)));
+        break;
+    }
+    return tr;
+  });
+  const environment: SemanticNavigationEnvironment = {
+    presentSurface,
+    bringIntoView,
+    createActivationTransaction,
+  };
   controller = new SemanticDocumentController({
     state,
     definitions: navigationDefinitions(fixture),
@@ -254,6 +279,7 @@ function createSession(fixture: ReturnType<typeof createRepresentativeSemanticDo
     environment,
     presentSurface,
     bringIntoView,
+    createActivationTransaction,
     focusEditor,
     state: () => state,
     dispatch: (transaction: Transaction) => navigationEditor.dispatch(transaction),

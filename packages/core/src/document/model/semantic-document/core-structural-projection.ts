@@ -3,6 +3,15 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
 import type { ProjectedCourseStructure } from "../course-structure/course-structure-projection";
 import { readUnavailableContentCompatibilityRoot } from "../establishment/unavailable-content-compatibility-root";
+import {
+  CELL_NODE_TYPE,
+  COURSE_SECTION_NODE_TYPE,
+  GRID_NODE_TYPE,
+  LAYOUT_NODE_TYPE,
+  REGION_NODE_TYPE,
+  SECTION_NODE_TYPE,
+  SURFACE_NODE_TYPE,
+} from "../nodes/structural-node-types";
 import type { SemanticDefinitionLookup, SemanticLayoutDefinition } from "./definition-lookup";
 import type {
   DocumentSemanticsDefinition,
@@ -20,13 +29,13 @@ import type { SemanticProjectionNodeIndex } from "./projection-node-index";
 import type { SemanticSnapshotBuilder, SemanticSnapshotItemInput } from "./snapshot-builder";
 
 const NODE_TYPES = Object.freeze({
-  courseSection: "courseSection",
-  surface: "surface",
-  layout: "layout",
-  layoutSection: "section",
-  region: "region",
-  grid: "grid",
-  cell: "cell",
+  courseSection: COURSE_SECTION_NODE_TYPE,
+  surface: SURFACE_NODE_TYPE,
+  layout: LAYOUT_NODE_TYPE,
+  layoutSection: SECTION_NODE_TYPE,
+  region: REGION_NODE_TYPE,
+  grid: GRID_NODE_TYPE,
+  cell: CELL_NODE_TYPE,
 });
 
 export interface ProjectCoreStructuralItemsInput {

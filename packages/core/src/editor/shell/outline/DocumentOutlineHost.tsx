@@ -35,6 +35,8 @@ export function DocumentOutlineHost({ editor, onClose }: DocumentOutlineHostProp
     };
   }, [controller, viewport]);
 
+  useEffect(() => () => viewport.destroy(), [viewport]);
+
   return (
     <aside
       aria-label="Document Outline"

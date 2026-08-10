@@ -1,6 +1,10 @@
 // @vitest-environment happy-dom
 
 import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
+import { Schema, type Node as ProseMirrorNode } from "@tiptap/pm/model";
+import { EditorState } from "@tiptap/pm/state";
+import type { BlockDefinitionLookup } from "@/editor/blocks/block-registry";
+import { surfaceAuthoringFrameAttributes } from "@/editor/interactions/dom/authoring-frame";
 import type {
   SemanticDocumentSnapshot,
   SemanticLocation,
@@ -11,6 +15,18 @@ import { createAuthoringSemanticNavigationEnvironment } from "./authoring-semant
 
 const SURFACE_ID = EmbeddedNodeIdSchema.parse("surface00001");
 const TARGET_ID = EmbeddedNodeIdSchema.parse("target000001");
+const PREFIX_ID = EmbeddedNodeIdSchema.parse("prefix000001");
+const blockDefinitions: BlockDefinitionLookup = { getByNodeType: () => undefined };
+
+const schema = new Schema({
+  nodes: {
+    doc: { content: "(surface | unavailable_surface)+" },
+    text: { group: "inline" },
+    paragraph: { attrs: { id: { default: null } }, content: "text*" },
+    surface: { attrs: { id: { default: null } }, content: "paragraph*" },
+    unavailable_surface: { attrs: { id: { default: null } }, atom: true },
+  },
+});
 
 afterEach(() => {
   document.body.replaceChildren();
@@ -18,40 +34,29 @@ afterEach(() => {
 });
 
 describe("authoring semantic navigation environment", () => {
-  it("locates a Surface through its latest snapshot position", async () => {
-    const harness = createHarness([
-      location(SURFACE_ID, "surface", 2),
-      location(TARGET_ID, "paragraph", 4, SURFACE_ID),
-    ]);
-    const replacementSurface = document.createElement("section");
-    harness.root.append(replacementSurface);
+  it("resolves a Surface authoring frame through the latest snapshot without nodeDOM", async () => {
+    const harness = createHarness();
+    harness.replace(
+      schema.node("doc", null, [schema.node("surface", { id: PREFIX_ID }), surfaceNode()]),
+    );
 
-    harness.replace([
-      location(SURFACE_ID, "surface", 8),
-      location(TARGET_ID, "paragraph", 10, SURFACE_ID),
-    ]);
-    harness.nodes.set(8, replacementSurface);
-
-    await harness.environment.presentSurface(SURFACE_ID);
-
-    expect(harness.nodeDOM).toHaveBeenLastCalledWith(8);
+    await expect(harness.environment.presentSurface(SURFACE_ID)).resolves.toBeUndefined();
   });
 
-  it("locates an unavailable Surface through its safe compatibility location", async () => {
-    const harness = createHarness([location(SURFACE_ID, "unavailable_surface", 2)]);
+  it("preserves unavailable Surface navigation through its compatibility frame", async () => {
+    const harness = createHarness({ unavailable: true });
 
-    await harness.environment.presentSurface(SURFACE_ID);
-
-    expect(harness.nodeDOM).toHaveBeenLastCalledWith(2);
+    await expect(harness.environment.presentSurface(SURFACE_ID)).resolves.toBeUndefined();
+    expect(
+      harness.environment
+        .createActivationTransaction(harness.snapshot.locationById.get(SURFACE_ID)!)
+        ?.selection.toJSON(),
+    ).toEqual({ type: "node", anchor: 0 });
   });
 
-  it("scrolls a below-fold target in its page window without moving focus", async () => {
-    const harness = createHarness([
-      location(SURFACE_ID, "surface", 2),
-      location(TARGET_ID, "paragraph", 4, SURFACE_ID),
-    ]);
-    const target = harness.nodes.get(4) as HTMLElement;
-    target.getBoundingClientRect = () => rect({ top: 900, bottom: 960 });
+  it("centres a below-fold owner frame in its page window without moving focus", async () => {
+    const harness = createHarness();
+    harness.frame.getBoundingClientRect = () => rect({ top: 900, bottom: 960 });
     Object.defineProperty(harness.window, "innerHeight", { configurable: true, value: 600 });
     const scrollBy = vi.fn();
     Object.defineProperty(harness.window, "scrollBy", { configurable: true, value: scrollBy });
@@ -64,21 +69,17 @@ describe("authoring semantic navigation environment", () => {
       "smooth",
     );
 
-    expect(scrollBy).toHaveBeenCalledWith({ behavior: "smooth", left: 0, top: 360 });
+    expect(scrollBy).toHaveBeenCalledWith({ behavior: "smooth", left: 0, top: 630 });
     expect(document.activeElement).toBe(initiatingControl);
   });
 
-  it("uses the contained editor shell instead of the page window", async () => {
+  it("centres in the contained editor shell instead of the page window", async () => {
     const shell = document.createElement("div");
     shell.className = "sc-editor-shell";
     shell.dataset["scrollModel"] = "contained";
     document.body.append(shell);
-    const harness = createHarness(
-      [location(SURFACE_ID, "surface", 2), location(TARGET_ID, "paragraph", 4, SURFACE_ID)],
-      shell,
-    );
-    const target = harness.nodes.get(4) as HTMLElement;
-    target.getBoundingClientRect = () => rect({ top: 500, bottom: 560 });
+    const harness = createHarness({ parent: shell });
+    harness.frame.getBoundingClientRect = () => rect({ top: 500, bottom: 560 });
     shell.getBoundingClientRect = () => rect({ top: 100, bottom: 400 });
     const containedScrollBy = vi.fn();
     Object.defineProperty(shell, "scrollBy", { configurable: true, value: containedScrollBy });
@@ -93,26 +94,22 @@ describe("authoring semantic navigation environment", () => {
       "instant",
     );
 
-    expect(containedScrollBy).toHaveBeenCalledWith({ behavior: "auto", left: 0, top: 160 });
+    expect(containedScrollBy).toHaveBeenCalledWith({ behavior: "auto", left: 0, top: 280 });
     expect(pageScrollBy).not.toHaveBeenCalled();
   });
 
-  it("reveals a target through its nearest bounded scroll viewport first", async () => {
+  it("centres through the nearest bounded viewport and its containing page owner", async () => {
     const shell = document.createElement("div");
     shell.className = "sc-editor-shell";
     shell.dataset["scrollModel"] = "contained";
     document.body.append(shell);
-    const harness = createHarness(
-      [location(SURFACE_ID, "surface", 2), location(TARGET_ID, "paragraph", 4, SURFACE_ID)],
-      shell,
-    );
+    const harness = createHarness({ parent: shell });
     const boundedViewport = document.createElement("div");
     boundedViewport.dataset["boundedScroll"] = "";
-    const target = harness.nodes.get(4) as HTMLElement;
-    boundedViewport.append(target);
+    boundedViewport.append(harness.frame);
     harness.root.append(boundedViewport);
     boundedViewport.getBoundingClientRect = () => rect({ top: 100, bottom: 250 });
-    target.getBoundingClientRect = () => rect({ top: 300, bottom: 350 });
+    harness.frame.getBoundingClientRect = () => rect({ top: 300, bottom: 350 });
     shell.getBoundingClientRect = () => rect({ top: 0, bottom: 500 });
     const boundedScrollBy = vi.fn();
     Object.defineProperty(boundedViewport, "scrollBy", {
@@ -127,16 +124,13 @@ describe("authoring semantic navigation environment", () => {
       "smooth",
     );
 
-    expect(boundedScrollBy).toHaveBeenCalledWith({ behavior: "smooth", left: 0, top: 100 });
-    expect(shellScrollBy).not.toHaveBeenCalled();
+    expect(boundedScrollBy).toHaveBeenCalledWith({ behavior: "smooth", left: 0, top: 150 });
+    expect(shellScrollBy).toHaveBeenCalledWith({ behavior: "smooth", left: 0, top: 75 });
   });
 
-  it("rejects a target whose current ProseMirror DOM mapping is unavailable", async () => {
-    const harness = createHarness([
-      location(SURFACE_ID, "surface", 2),
-      location(TARGET_ID, "paragraph", 4, SURFACE_ID),
-    ]);
-    harness.nodes.delete(4);
+  it("rejects a target whose canonical authoring frame is unavailable", async () => {
+    const harness = createHarness();
+    harness.frame.remove();
 
     await expect(
       harness.environment.bringIntoView(harness.snapshot.locationById.get(TARGET_ID)!, "smooth"),
@@ -144,33 +138,38 @@ describe("authoring semantic navigation environment", () => {
   });
 });
 
-function createHarness(
-  locations: readonly SemanticLocation[],
-  parent: HTMLElement = document.body,
-) {
+function createHarness(options: { parent?: HTMLElement; unavailable?: boolean } = {}) {
   const root = document.createElement("div");
   root.className = "sc-course-document-editor";
-  parent.append(root);
-  const nodes = new Map<number, Node>();
-  for (const current of locations) {
-    const element = document.createElement("div");
-    root.append(element);
-    nodes.set(current.from, element);
-  }
-  let snapshot = semanticSnapshot(locations);
-  const nodeDOM = vi.fn((pos: number) => nodes.get(pos) ?? null);
+  (options.parent ?? document.body).append(root);
+  const frame = document.createElement("section");
+  setAttributes(frame, surfaceAuthoringFrameAttributes({ surfaceId: SURFACE_ID }));
+  root.append(frame);
+  let state = EditorState.create({
+    doc: options.unavailable
+      ? schema.node("doc", null, [schema.node("unavailable_surface", { id: SURFACE_ID })])
+      : schema.node("doc", null, [surfaceNode()]),
+  });
+  let snapshot = semanticSnapshot(state.doc);
+  const view = {
+    dom: root,
+    get state() {
+      return state;
+    },
+  };
   const environment = createAuthoringSemanticNavigationEnvironment({
+    blockDefinitions,
     getSnapshot: () => snapshot,
     root,
-    view: { dom: root, nodeDOM },
+    view,
   });
 
   return {
     environment,
-    nodes,
-    nodeDOM,
-    replace(nextLocations: readonly SemanticLocation[]) {
-      snapshot = semanticSnapshot(nextLocations);
+    frame,
+    replace(doc: ProseMirrorNode) {
+      state = EditorState.create({ doc });
+      snapshot = semanticSnapshot(doc);
     },
     root,
     get snapshot() {
@@ -180,7 +179,20 @@ function createHarness(
   };
 }
 
-function semanticSnapshot(locations: readonly SemanticLocation[]): SemanticDocumentSnapshot {
+function surfaceNode(): ProseMirrorNode {
+  return schema.node("surface", { id: SURFACE_ID }, [
+    schema.node("paragraph", { id: TARGET_ID }, schema.text("Target")),
+  ]);
+}
+
+function semanticSnapshot(doc: ProseMirrorNode): SemanticDocumentSnapshot {
+  const locations: SemanticLocation[] = [];
+  doc.descendants((node, pos) => {
+    const parsed = EmbeddedNodeIdSchema.safeParse(node.attrs["id"]);
+    if (!parsed.success) return true;
+    locations.push(location(parsed.data, node.type.name, pos));
+    return true;
+  });
   return {
     diagnostics: [],
     itemById: new Map(),
@@ -192,12 +204,7 @@ function semanticSnapshot(locations: readonly SemanticLocation[]): SemanticDocum
   };
 }
 
-function location(
-  id: EmbeddedNodeId,
-  nodeType: string,
-  from: number,
-  surfaceId: EmbeddedNodeId | null = id,
-): SemanticLocation {
+function location(id: EmbeddedNodeId, nodeType: string, from: number): SemanticLocation {
   return {
     activationPath: [],
     authoringAnchorId: null,
@@ -205,9 +212,13 @@ function location(
     id,
     nodeType,
     selectionTarget: { kind: "node", pos: from },
-    surfaceId: nodeType === "surface" ? id : surfaceId,
+    surfaceId: nodeType === "surface" || nodeType === "unavailable_surface" ? id : SURFACE_ID,
     to: from + 2,
   };
+}
+
+function setAttributes(element: HTMLElement, attributes: Record<string, string>): void {
+  for (const [name, value] of Object.entries(attributes)) element.setAttribute(name, value);
 }
 
 function rect({ top, bottom }: { top: number; bottom: number }): DOMRect {

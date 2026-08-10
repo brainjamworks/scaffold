@@ -1,6 +1,11 @@
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 
 import type { UnavailableCapabilityKind } from "@/document/model/establishment";
+import {
+  courseBlockAuthoringFrameAttributes,
+  layoutAuthoringFrameAttributes,
+  surfaceAuthoringFrameAttributes,
+} from "@/editor/interactions/dom/authoring-frame";
 
 import "./unavailable-content.css";
 
@@ -17,6 +22,7 @@ export function UnavailableContentNodeView({ node, selected }: NodeViewProps) {
   return (
     <NodeViewWrapper
       className="sc-unavailable-content"
+      {...unavailableAuthoringFrameAttributes(kind, node.attrs["id"], node.type.name)}
       data-selected={selected ? "true" : undefined}
       data-unavailable-content-kind={kind}
     >
@@ -24,6 +30,21 @@ export function UnavailableContentNodeView({ node, selected }: NodeViewProps) {
       <span className="sc-unavailable-content__capability">{capabilityId}</span>
     </NodeViewWrapper>
   );
+}
+
+export function unavailableAuthoringFrameAttributes(
+  kind: UnavailableCapabilityKind,
+  id: unknown,
+  nodeType: string,
+): Record<string, string> {
+  switch (kind) {
+    case "block":
+      return courseBlockAuthoringFrameAttributes({ blockId: id, nodeType });
+    case "layout":
+      return layoutAuthoringFrameAttributes({ layoutId: id });
+    case "surface":
+      return surfaceAuthoringFrameAttributes({ surfaceId: id });
+  }
 }
 
 function unavailableKindFromNodeName(nodeName: string): UnavailableCapabilityKind {

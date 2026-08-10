@@ -38,10 +38,6 @@ export function DocumentOutlineRow({
     return row ? viewport.register(item.id, row) : undefined;
   }, [item.id, viewport]);
 
-  useEffect(() => {
-    if (selected) viewport.reveal(item.id);
-  }, [item.id, selected, viewport]);
-
   return (
     <div
       ref={rowRef}

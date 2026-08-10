@@ -67,6 +67,11 @@ describe("SemanticDocumentController", () => {
     try {
       const controller = connectAuthoringNavigation(editor);
       const unavailableSurfaceId = testId("s", "unavailable");
+      expect(
+        editor.view.dom.querySelector(
+          `[data-authoring-frame="surface"][data-id="${unavailableSurfaceId}"]`,
+        ),
+      ).not.toBeNull();
 
       await expect(
         controller.select(unavailableSurfaceId, { origin: "document-outline" }),
@@ -241,12 +246,12 @@ function createEditor(content: JSONContent): Editor {
 function connectAuthoringNavigation(editor: Editor) {
   const controller = getSemanticDocumentControllerForEditor(editor);
   controller.setNavigationEditor({
-    getState: () => editor.state,
     dispatch: (transaction) => editor.view.dispatch(transaction),
     focus: () => editor.commands.focus(),
   });
   controller.setNavigationEnvironment(
     createAuthoringSemanticNavigationEnvironment({
+      blockDefinitions: composition.capabilities.blocks.registry,
       getSnapshot: () => controller.getSnapshot().semantics,
       root: editor.view.dom,
       view: editor.view,

@@ -3,7 +3,10 @@ import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model";
 import type { Icon } from "@phosphor-icons/react";
 
 import type { ConfigurationDefinition } from "@/editor/configuration/definition";
-import type { DocumentSemanticsDefinition } from "@/document/model/semantic-document";
+import {
+  normalizeDocumentSemanticsDefinition,
+  type DocumentSemanticsDefinition,
+} from "@/document/model/semantic-document";
 import { deriveQuickMenuDefinition } from "@/editor/configuration/quick-menu-derivation";
 import type { QuickMenuDefinition } from "@/editor/configuration/quick-menu";
 import { deriveSettingsSheetDefinition } from "@/editor/configuration/settings-sheet-derivation";
@@ -124,24 +127,6 @@ export function defineLayout(definition: LayoutDefinition): RegisteredLayoutDefi
     ...(layoutSettingsSheet ? { settingsSheet: layoutSettingsSheet } : {}),
     ...(section ? { section } : {}),
     ...(documentSemantics ? { documentSemantics } : {}),
-  });
-}
-
-function normalizeDocumentSemanticsDefinition(
-  definition: DocumentSemanticsDefinition | undefined,
-): DocumentSemanticsDefinition | undefined {
-  if (!definition) return undefined;
-
-  const presentation = definition.presentation
-    ? Object.freeze({
-        ...definition.presentation,
-        actionIds: Object.freeze([...definition.presentation.actionIds]),
-      })
-    : undefined;
-
-  return Object.freeze({
-    ...definition,
-    ...(presentation ? { presentation } : {}),
   });
 }
 

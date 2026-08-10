@@ -29,6 +29,7 @@ export type {
   SemanticItemKind,
   SemanticPresentationCapability,
 } from "./semantic-document-snapshot";
+export { normalizeDocumentSemanticsDefinition } from "./normalize-document-semantics-definition";
 export {
   projectSemanticDocument,
   type ProjectSemanticDocumentInput,
