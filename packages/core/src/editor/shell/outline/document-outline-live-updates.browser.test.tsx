@@ -1,0 +1,446 @@
+import { Editor, Node, type JSONContent } from "@tiptap/core";
+import UniqueID from "@tiptap/extension-unique-id";
+import { EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import { TextSelection } from "@tiptap/pm/state";
+import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
+import { render as renderBrowserReact, type RenderResult } from "vitest-browser-react";
+import { afterEach, describe, expect, it } from "vite-plus/test";
+import { page } from "vite-plus/test/browser/context";
+
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { createSemanticDefinitionLookup } from "@/composition/model/semantic-definition-lookup";
+import {
+  createSemanticDocumentExtension,
+  getSemanticDocumentControllerForEditor,
+  SemanticHierarchyViewController,
+} from "@/document/authoring/semantic-document";
+import { cloneJsonWithNewStableIds } from "@/document/model/identity/clone-with-new-ids";
+import { resolveStableNode } from "@/document/model/identity/resolve-stable-node";
+import { createEmbeddedNodeId } from "@/document/model/identity/stable-ids";
+import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
+import {
+  moveAnnotatedFigureAnnotationChecked,
+  removeAnnotatedFigureAnnotationChecked,
+} from "@/editor/blocks/figure-composition/annotated-figure/annotated-figure-authoring-commands";
+import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
+import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
+import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
+import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+
+import { DocumentOutline, DocumentOutlineRowViewport } from "./DocumentOutline";
+
+const IDS = {
+  course: id("livecourse01"),
+  surface: id("livesurface1"),
+  region: id("liveregion01"),
+  alpha: id("livealpha001"),
+  beta: id("livebeta0001"),
+  inserted: id("liveinsert01"),
+  duplicate: id("livedupl0001"),
+  figure: id("livefigure01"),
+  firstPin: id("livepin00001"),
+  secondPin: id("livepin00002"),
+  thirdPin: id("livepin00003"),
+} as const;
+
+const mounted: MountedLiveOutline[] = [];
+
+afterEach(async () => {
+  while (mounted.length > 0) await mounted.pop()!.dispose();
+  document.body.replaceChildren();
+});
+
+describe("Document Outline live mounted updates", () => {
+  it("reconciles insert, label edit, move, duplicate and delete transactions without stale rows", async () => {
+    const harness = await mountLiveOutline();
+    mounted.push(harness);
+    const { controller, editor } = harness;
+
+    selectTextNode(editor, IDS.alpha);
+    await expect.poll(() => controller.getSnapshot().selectedId).toBe(IDS.alpha);
+    const alphaNode = requireNode(editor, IDS.alpha);
+    const insertedNode = editor.schema.nodeFromJSON(paragraph(IDS.inserted, "Inserted paragraph"));
+    editor.view.dispatch(
+      editor.state.tr.insert(alphaNode.pos + alphaNode.node.nodeSize, insertedNode),
+    );
+
+    await expect
+      .poll(() => semanticChildIds(controller, IDS.region))
+      .toEqual([IDS.alpha, IDS.inserted, IDS.beta, IDS.figure]);
+    expect(outlineLabelCount("Inserted paragraph")).toBe(1);
+
+    const inserted = requireNode(editor, IDS.inserted);
+    editor.view.dispatch(
+      editor.state.tr.replaceWith(
+        inserted.pos + 1,
+        inserted.pos + inserted.node.nodeSize - 1,
+        editor.schema.text("Renamed paragraph"),
+      ),
+    );
+    await expect.poll(() => semanticLabel(controller, IDS.inserted)).toBe("Renamed paragraph");
+    expect(outlineLabelCount("Inserted paragraph")).toBe(0);
+    expect(outlineLabelCount("Renamed paragraph")).toBe(1);
+
+    moveNodeAfter(editor, IDS.inserted, IDS.figure);
+    await expect
+      .poll(() => semanticChildIds(controller, IDS.region))
+      .toEqual([IDS.alpha, IDS.beta, IDS.figure, IDS.inserted]);
+
+    const cloned = cloneJsonWithNewStableIds(requireNode(editor, IDS.inserted).node.toJSON(), {
+      blockDuplications: {
+        getByNodeType: () => undefined,
+        hasNodeType: () => false,
+      },
+      createId: () => IDS.duplicate,
+    });
+    const duplicateNode = editor.schema.nodeFromJSON(cloned);
+    const insertedAfterMove = requireNode(editor, IDS.inserted);
+    editor.view.dispatch(
+      editor.state.tr.insert(
+        insertedAfterMove.pos + insertedAfterMove.node.nodeSize,
+        duplicateNode,
+      ),
+    );
+    await expect
+      .poll(() => semanticChildIds(controller, IDS.region))
+      .toEqual([IDS.alpha, IDS.beta, IDS.figure, IDS.inserted, IDS.duplicate]);
+    expect(semanticLabel(controller, IDS.inserted)).toBe("Renamed paragraph 1");
+    expect(semanticLabel(controller, IDS.duplicate)).toBe("Renamed paragraph 2");
+    expect(outlineLabelCount("Renamed paragraph 1")).toBe(1);
+    expect(outlineLabelCount("Renamed paragraph 2")).toBe(1);
+
+    selectTextNode(editor, IDS.duplicate);
+    await expect.poll(() => controller.getSnapshot().selectedId).toBe(IDS.duplicate);
+    deleteNode(editor, IDS.duplicate);
+    await expect.poll(() => controller.getSnapshot().selectedId).toBe(IDS.inserted);
+    expect(semanticChildIds(controller, IDS.region)).not.toContain(IDS.duplicate);
+    expect(outlineLabelCount("Renamed paragraph")).toBe(1);
+    expect(new Set(semanticChildIds(controller, IDS.region)).size).toBe(
+      semanticChildIds(controller, IDS.region).length,
+    );
+  });
+
+  it("tracks paragraph split/join and annotation reorder/removal while preserving mounted selection", async () => {
+    const harness = await mountLiveOutline();
+    mounted.push(harness);
+    const { controller, editor } = harness;
+    const initialRegionIds = semanticChildIds(controller, IDS.region);
+
+    const alpha = requireNode(editor, IDS.alpha);
+    editor.commands.setTextSelection(alpha.pos + 6);
+    expect(editor.commands.splitBlock()).toBe(true);
+    await expect
+      .poll(() => semanticChildIds(controller, IDS.region).length)
+      .toBe(initialRegionIds.length + 1);
+    const splitIds = semanticChildIds(controller, IDS.region);
+    expect(new Set(splitIds).size).toBe(splitIds.length);
+
+    const splitSecondId = splitIds.find((candidate) => !initialRegionIds.includes(candidate));
+    if (!splitSecondId) throw new Error("Expected split paragraph identity");
+    const splitSecond = requireNode(editor, splitSecondId);
+    editor.commands.setTextSelection(splitSecond.pos + 1);
+    expect(editor.commands.joinBackward()).toBe(true);
+    await expect
+      .poll(() => semanticChildIds(controller, IDS.region).length)
+      .toBe(initialRegionIds.length);
+
+    controller.reportComponentSelection(IDS.secondPin);
+    await expect.poll(() => controller.getSnapshot().selectedId).toBe(IDS.secondPin);
+    const moveResult = moveAnnotatedFigureAnnotationChecked({
+      tr: editor.state.tr,
+      target: requireFigureTarget(editor),
+      annotationId: IDS.thirdPin,
+      direction: "before",
+      relativeToId: IDS.firstPin,
+    });
+    expect(moveResult.ok).toBe(true);
+    if (moveResult.ok) editor.view.dispatch(moveResult.tr);
+    await expect
+      .poll(() => semanticChildIds(controller, IDS.figure))
+      .toEqual([IDS.thirdPin, IDS.firstPin, IDS.secondPin]);
+    expect(controller.getSnapshot().selectedId).toBe(IDS.secondPin);
+
+    const removeResult = removeAnnotatedFigureAnnotationChecked({
+      tr: editor.state.tr,
+      target: requireFigureTarget(editor),
+      annotationId: IDS.secondPin,
+    });
+    expect(removeResult.ok).toBe(true);
+    if (removeResult.ok) editor.view.dispatch(removeResult.tr);
+    await expect
+      .poll(() => semanticChildIds(controller, IDS.figure))
+      .toEqual([IDS.thirdPin, IDS.firstPin]);
+    expect(controller.getSnapshot().selectedId).toBe(IDS.figure);
+    expect(outlineLabelCount("Second annotation")).toBe(0);
+  });
+});
+
+interface MountedLiveOutline {
+  readonly controller: ReturnType<typeof getSemanticDocumentControllerForEditor>;
+  readonly editor: Editor;
+  readonly rendered: RenderResult;
+  readonly viewController: SemanticHierarchyViewController;
+  dispose(): Promise<void>;
+}
+
+async function mountLiveOutline(): Promise<MountedLiveOutline> {
+  const semantics = createSemanticDefinitionLookup({
+    blocks: builtInBlockRegistry,
+    layouts: builtInLayoutRegistry,
+    surfaces: builtInSurfaceVariantRegistry,
+  });
+  const editor = new Editor({
+    editable: true,
+    extensions: [
+      UniqueID.configure({
+        attributeName: "id",
+        types: "all",
+        updateDocument: true,
+        generateID: () => createEmbeddedNodeId(),
+      }),
+      createScaffoldCapabilitiesStorageExtension(
+        Object.freeze({
+          blocks: Object.freeze({
+            registry: builtInBlockRegistry,
+            duplication: Object.freeze({
+              getByNodeType: () => undefined,
+              hasNodeType: (nodeType: string) =>
+                builtInBlockRegistry.getByNodeType(nodeType) !== undefined,
+            }),
+          }),
+          layouts: Object.freeze({ registry: builtInLayoutRegistry }),
+          surfaces: Object.freeze({ registry: builtInSurfaceVariantRegistry }),
+          documentSemantics: semantics,
+        }),
+      ),
+      createSemanticDocumentExtension(semantics),
+      DocumentNode,
+      StarterKit.configure({ document: false, paragraph: false, undoRedo: false }),
+      ExtendedParagraph,
+      CourseDocumentNode,
+      createCourseSectionNode(),
+      TestArrangementNode,
+      SurfaceNode,
+      RegionNode,
+      AnnotatedFigureNode,
+      AnnotatedFigureCanvasNode,
+      AnnotatedFigureLegendNode,
+      AnnotatedFigureAnnotationNode,
+    ],
+    content: liveDocument(),
+  });
+  const controller = getSemanticDocumentControllerForEditor(editor);
+  const viewport = new DocumentOutlineRowViewport();
+  const viewController = new SemanticHierarchyViewController({
+    controller,
+    origin: "document-outline",
+    viewport,
+  });
+  const rendered = await renderBrowserReact(
+    <div>
+      <DocumentOutline
+        controller={controller}
+        viewController={viewController}
+        viewport={viewport}
+      />
+      <EditorContent editor={editor} />
+    </div>,
+  );
+  await expect.element(page.getByRole("tree", { name: "Document outline" })).toBeVisible();
+
+  return {
+    controller,
+    editor,
+    rendered,
+    viewController,
+    async dispose() {
+      viewController.destroy();
+      await rendered.unmount();
+      editor.destroy();
+    },
+  };
+}
+
+function selectTextNode(editor: Editor, nodeId: EmbeddedNodeId): void {
+  const target = requireNode(editor, nodeId);
+  editor.view.dom.focus();
+  editor.view.dispatch(
+    editor.state.tr.setSelection(TextSelection.create(editor.state.doc, target.pos + 1)),
+  );
+}
+
+function moveNodeAfter(editor: Editor, sourceId: EmbeddedNodeId, targetId: EmbeddedNodeId): void {
+  const source = requireNode(editor, sourceId);
+  const target = requireNode(editor, targetId);
+  const transaction = editor.state.tr.delete(source.pos, source.pos + source.node.nodeSize);
+  const targetEnd = transaction.mapping.map(target.pos + target.node.nodeSize);
+  transaction.insert(targetEnd, source.node);
+  editor.view.dispatch(transaction);
+}
+
+function deleteNode(editor: Editor, nodeId: EmbeddedNodeId): void {
+  const target = requireNode(editor, nodeId);
+  editor.view.dispatch(editor.state.tr.delete(target.pos, target.pos + target.node.nodeSize));
+}
+
+function requireNode(editor: Editor, nodeId: EmbeddedNodeId) {
+  const resolved = resolveStableNode(editor.state.doc, {
+    id: nodeId,
+    nodeType: findNodeType(editor, nodeId),
+  });
+  if (resolved.status !== "ready") throw new Error(`Expected current node ${nodeId}`);
+  return resolved;
+}
+
+function requireFigureTarget(editor: Editor) {
+  const resolved = resolveStableNode(editor.state.doc, {
+    id: IDS.figure,
+    nodeType: "annotated_figure",
+  });
+  if (resolved.status !== "ready") throw new Error("Expected current Annotated Figure");
+  return resolved;
+}
+
+function findNodeType(editor: Editor, nodeId: EmbeddedNodeId): string {
+  let nodeType: string | null = null;
+  editor.state.doc.descendants((node) => {
+    if (node.attrs["id"] !== nodeId) return true;
+    nodeType = node.type.name;
+    return false;
+  });
+  if (!nodeType) throw new Error(`Expected node type for ${nodeId}`);
+  return nodeType;
+}
+
+function semanticChildIds(
+  controller: ReturnType<typeof getSemanticDocumentControllerForEditor>,
+  parentId: EmbeddedNodeId,
+): EmbeddedNodeId[] {
+  return [...(controller.getSnapshot().semantics.itemById.get(parentId)?.children ?? [])].map(
+    ({ id: childId }) => childId,
+  );
+}
+
+function semanticLabel(
+  controller: ReturnType<typeof getSemanticDocumentControllerForEditor>,
+  nodeId: EmbeddedNodeId,
+): string | undefined {
+  return controller.getSnapshot().semantics.itemById.get(nodeId)?.label;
+}
+
+function outlineLabelCount(label: string): number {
+  return Array.from(document.querySelectorAll<HTMLElement>('[role="treeitem"]')).filter(
+    (row) => row.getAttribute("aria-label") === label,
+  ).length;
+}
+
+const AnnotatedFigureNode = Node.create({
+  name: "annotated_figure",
+  group: "block",
+  content: "annotated_figure_canvas annotated_figure_legend",
+  addAttributes: () => ({ id: { default: null }, data: { default: null } }),
+  parseHTML: () => [{ tag: "figure[data-live-figure]" }],
+  renderHTML: ({ HTMLAttributes }) => ["figure", { ...HTMLAttributes, "data-live-figure": "" }, 0],
+});
+
+const TestArrangementNode = Node.create({
+  name: "live_test_arrangement",
+  group: "arrangement",
+  atom: true,
+});
+
+const AnnotatedFigureCanvasNode = Node.create({
+  name: "annotated_figure_canvas",
+  atom: true,
+  parseHTML: () => [{ tag: "div[data-live-canvas]" }],
+  renderHTML: () => ["div", { "data-live-canvas": "" }],
+});
+
+const AnnotatedFigureLegendNode = Node.create({
+  name: "annotated_figure_legend",
+  content: "annotated_figure_annotation*",
+  parseHTML: () => [{ tag: "ol[data-live-legend]" }],
+  renderHTML: () => ["ol", { "data-live-legend": "" }, 0],
+});
+
+const AnnotatedFigureAnnotationNode = Node.create({
+  name: "annotated_figure_annotation",
+  content: "paragraph",
+  addAttributes: () => ({
+    id: { default: null },
+    title: { default: "" },
+    x: { default: 50 },
+    y: { default: 50 },
+  }),
+  parseHTML: () => [{ tag: "li[data-live-annotation]" }],
+  renderHTML: ({ HTMLAttributes }) => ["li", { ...HTMLAttributes, "data-live-annotation": "" }, 0],
+});
+
+function liveDocument(): JSONContent {
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "courseDocument",
+        attrs: { id: IDS.course, mode: "page" },
+        content: [
+          {
+            type: "surface",
+            attrs: { id: IDS.surface, variant: "page-default" },
+            content: [
+              {
+                type: "region",
+                attrs: { id: IDS.region, role: "main" },
+                content: [
+                  paragraph(IDS.alpha, "Alpha paragraph"),
+                  paragraph(IDS.beta, "Beta paragraph"),
+                  {
+                    type: "annotated_figure",
+                    attrs: {
+                      id: IDS.figure,
+                      data: { type: "annotated_figure", alt: "Live figure" },
+                    },
+                    content: [
+                      { type: "annotated_figure_canvas" },
+                      {
+                        type: "annotated_figure_legend",
+                        content: [
+                          annotation(IDS.firstPin, "First annotation"),
+                          annotation(IDS.secondPin, "Second annotation"),
+                          annotation(IDS.thirdPin, "Third annotation"),
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function annotation(annotationId: EmbeddedNodeId, title: string): JSONContent {
+  return {
+    type: "annotated_figure_annotation",
+    attrs: { id: annotationId, title, x: 50, y: 50 },
+    content: [paragraph(undefined, `${title} caption`)],
+  };
+}
+
+function paragraph(paragraphId: EmbeddedNodeId | undefined, text: string): JSONContent {
+  return {
+    type: "paragraph",
+    ...(paragraphId ? { attrs: { id: paragraphId } } : {}),
+    content: [{ type: "text", text }],
+  };
+}
+
+function id(value: string): EmbeddedNodeId {
+  return EmbeddedNodeIdSchema.parse(value);
+}

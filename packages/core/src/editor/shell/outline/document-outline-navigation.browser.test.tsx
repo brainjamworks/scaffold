@@ -1,0 +1,528 @@
+import { Editor, Node, type JSONContent } from "@tiptap/core";
+import { EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import { TextSelection } from "@tiptap/pm/state";
+import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
+import { render as renderBrowserReact, type RenderResult } from "vitest-browser-react";
+import { afterEach, describe, expect, it } from "vite-plus/test";
+import { page, userEvent } from "vite-plus/test/browser/context";
+
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
+import { createSemanticDefinitionLookup } from "@/composition/model/semantic-definition-lookup";
+import {
+  createSemanticDocumentExtension,
+  getSemanticDocumentControllerForEditor,
+  SemanticHierarchyViewController,
+} from "@/document/authoring/semantic-document";
+import { createAuthoringSemanticNavigationEnvironment } from "@/document/authoring/semantic-document/authoring-semantic-navigation-environment";
+import { CourseDocumentNode, createCourseSectionNode, DocumentNode } from "@/document/model/nodes";
+import {
+  LayoutAuthoringNode,
+  SectionAuthoringNode,
+} from "@/editor/arrangements/layout/authoring/layout-nodes";
+import {
+  AccordionSectionPanelNode,
+  AccordionSectionTitleNode,
+} from "@/editor/arrangements/layout/accordion/accordion-section-nodes";
+import {
+  CellAuthoringNode,
+  GridAuthoringNode,
+} from "@/editor/arrangements/grid/authoring/grid-nodes";
+import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
+import { AnnotatedFigureAuthoringExtension } from "@/editor/blocks/figure-composition/annotated-figure";
+import { FlashcardAuthoringExtension } from "@/editor/blocks/presentation/flashcard";
+import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { createScaffoldInteractionOwnerExtension } from "@/editor/interactions/targets/prosemirror/interaction-owner-extension";
+import { createAuthoringMovementTestRoot } from "@/editor/movement/tests/authoring-movement-test-root";
+import { ExtendedParagraph } from "@/editor/rich-text/model/paragraph";
+import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
+import { RegionNode } from "@/editor/surfaces/model/nodes/region-node";
+import { SurfaceNode } from "@/editor/surfaces/model/nodes/surface-node";
+import { createTestNodeIdentityExtension } from "@/editor/testing";
+import { ScaffoldServicesProvider } from "@/host/providers/ScaffoldServicesProvider";
+import type { MediaPort } from "@/host/ports/media";
+
+import { DocumentOutline, DocumentOutlineRowViewport } from "./DocumentOutline";
+
+const IDS = {
+  course: id("course000001"),
+  courseSection: id("section00001"),
+  firstSurface: id("surface00001"),
+  secondSurface: id("surface00002"),
+  firstRegion: id("region000001"),
+  secondRegion: id("region000002"),
+  prose: id("prose0000001"),
+  grid: id("grid00000001"),
+  firstCell: id("cell00000001"),
+  secondCell: id("cell00000002"),
+  tabs: id("tabs00000001"),
+  firstTab: id("tabsect00001"),
+  hiddenTab: id("tabsect00002"),
+  hiddenProse: id("hiddenpara01"),
+  accordion: id("accord000001"),
+  firstAccordion: id("accsect00001"),
+  secondAccordion: id("accsect00002"),
+  flashcard: id("flashcard001"),
+  annotationFigure: id("annotfig0001"),
+  annotation: id("annotpin0001"),
+  mcq: id("mcqblock0001"),
+} as const;
+
+const mounted: MountedOutlineHarness[] = [];
+
+afterEach(async () => {
+  while (mounted.length > 0) await mounted.pop()!.dispose();
+  document.body.replaceChildren();
+});
+
+describe("Document Outline bidirectional navigation", () => {
+  it("reveals editor text, tab and annotation component selections without stealing focus", async () => {
+    await page.viewport(1280, 800);
+    const harness = await mountOutline();
+    mounted.push(harness);
+    const controller = harness.controller;
+
+    harness.editor.view.dom.focus();
+    expect(document.activeElement).toBe(harness.editor.view.dom);
+    const prosePosition = findNodePosition(harness.editor, IDS.prose) + 1;
+    harness.editor.view.dispatch(
+      harness.editor.state.tr.setSelection(
+        TextSelection.create(harness.editor.state.doc, prosePosition),
+      ),
+    );
+
+    await expect.poll(() => controller.getSnapshot().selectedId).toBe(IDS.prose);
+    expect(selectedOutlineLabel()).toContain("Editor prose");
+    expect(harness.editor.view.dom.contains(document.activeElement)).toBe(true);
+    expect(harness.viewController.getSnapshot().expandedIds.has(IDS.firstSurface)).toBe(true);
+
+    const hiddenTab = roleElement<HTMLButtonElement>("tab", "Hidden topic");
+    hiddenTab.focus();
+    hiddenTab.click();
+    await expect.poll(() => controller.getSnapshot().selectedId).toBe(IDS.hiddenTab);
+    expect(selectedOutlineLabel()).toContain("Hidden topic");
+    expect(document.activeElement?.getAttribute("role")).toBe("tab");
+
+    await expect.element(page.getByRole("button", { name: "Select annotation 1" })).toBeVisible();
+    const annotationPin = roleElement<HTMLButtonElement>("button", "Select annotation 1");
+    annotationPin.focus();
+    annotationPin.click();
+    await expect.poll(() => controller.getSnapshot().selectedId).toBe(IDS.annotation);
+    expect(selectedOutlineLabel()).toContain("Annotation detail");
+    expect(
+      requiredElement<HTMLElement>(document.body, '[role="tree"]').contains(document.activeElement),
+    ).toBe(false);
+
+    const flashcard = controller.getSnapshot().semantics.itemById.get(IDS.flashcard);
+    expect(flashcard?.children).toEqual([]);
+    expect(treeText()).not.toContain("Private flashcard front");
+    expect(treeText()).not.toContain("Private flashcard back");
+  });
+
+  it("uses keyboard-operated Outline rows to reveal a hidden tab target and valid selection", async () => {
+    const harness = await mountOutline();
+    mounted.push(harness);
+    const controller = harness.controller;
+    const target = controller.getSnapshot().semantics.itemById.get(IDS.hiddenTab);
+    if (!target) throw new Error("Expected hidden tab semantic item");
+
+    await expandAncestorsThroughOutline(harness, IDS.hiddenTab);
+    const targetRow = treeItemForLabel(target.label);
+    targetRow.focus();
+    await userEvent.keyboard("{Enter}");
+
+    await expect.poll(() => controller.getSnapshot().selectedId).toBe(IDS.hiddenTab);
+    expect(controller.getSnapshot().selectionOrigin).toBe("document-outline");
+    expect(targetRow.getAttribute("aria-selected")).toBe("true");
+    expect(document.activeElement).toBe(targetRow);
+    expect(harness.editor.state.selection.empty).toBe(false);
+    expect(harness.revealedIds.at(-1)).toBe(IDS.hiddenTab);
+    await expect
+      .element(page.getByRole("tab", { name: "Hidden topic" }))
+      .toHaveAttribute("aria-selected", "true");
+  });
+});
+
+interface MountedOutlineHarness {
+  readonly controller: ReturnType<typeof getSemanticDocumentControllerForEditor>;
+  readonly editor: Editor;
+  readonly rendered: RenderResult;
+  readonly revealedIds: EmbeddedNodeId[];
+  readonly viewController: SemanticHierarchyViewController;
+  dispose(): Promise<void>;
+}
+
+async function mountOutline(): Promise<MountedOutlineHarness> {
+  const semantics = createSemanticDefinitionLookup({
+    blocks: builtInBlockRegistry,
+    layouts: builtInLayoutRegistry,
+    surfaces: builtInSurfaceVariantRegistry,
+  });
+  const capabilities = Object.freeze({
+    blocks: Object.freeze({
+      registry: builtInBlockRegistry,
+      duplication: Object.freeze({
+        getByNodeType: () => undefined,
+        hasNodeType: (nodeType: string) =>
+          builtInBlockRegistry.getByNodeType(nodeType) !== undefined,
+      }),
+    }),
+    layouts: Object.freeze({ registry: builtInLayoutRegistry }),
+    surfaces: Object.freeze({ registry: builtInSurfaceVariantRegistry }),
+    documentSemantics: semantics,
+  });
+  const editor = new Editor({
+    editable: true,
+    extensions: [
+      createTestNodeIdentityExtension(),
+      createScaffoldCapabilitiesStorageExtension(capabilities),
+      createSemanticDocumentExtension(semantics),
+      DocumentNode,
+      StarterKit.configure({ document: false, paragraph: false, undoRedo: false }),
+      ExtendedParagraph,
+      CourseDocumentNode,
+      createCourseSectionNode(),
+      SurfaceNode,
+      RegionNode,
+      GridAuthoringNode,
+      CellAuthoringNode,
+      LayoutAuthoringNode,
+      SectionAuthoringNode,
+      AccordionSectionTitleNode,
+      AccordionSectionPanelNode,
+      FlashcardAuthoringExtension,
+      AnnotatedFigureAuthoringExtension,
+      TestMcqNode,
+      createScaffoldInteractionOwnerExtension(builtInBlockRegistry),
+    ],
+    content: representativeDocument(),
+  });
+  const controller = getSemanticDocumentControllerForEditor(editor);
+  const viewport = new DocumentOutlineRowViewport();
+  const viewController = new SemanticHierarchyViewController({
+    controller,
+    origin: "document-outline",
+    viewport,
+  });
+  const host = document.createElement("div");
+  const reactElement = document.createElement("div");
+  host.append(reactElement);
+  document.body.append(host);
+  const rendered = await renderBrowserReact(
+    <div className="sc-editor-shell" data-scroll-model="contained">
+      <DocumentOutline
+        controller={controller}
+        viewController={viewController}
+        viewport={viewport}
+      />
+      <ScaffoldServicesProvider ports={{ media: testMediaPort() }}>
+        {createAuthoringMovementTestRoot(editor, <EditorContent editor={editor} />, host)}
+      </ScaffoldServicesProvider>
+    </div>,
+    { baseElement: host, container: reactElement },
+  );
+  const revealedIds: EmbeddedNodeId[] = [];
+  const environment = createAuthoringSemanticNavigationEnvironment({
+    getSnapshot: () => controller.getSnapshot().semantics,
+    root: host,
+    view: editor.view,
+  });
+  controller.setNavigationEditor({
+    getState: () => editor.state,
+    dispatch: (transaction) => editor.view.dispatch(transaction),
+    focus: () => editor.view.focus(),
+  });
+  controller.setNavigationEnvironment({
+    presentSurface: (surfaceId) => environment.presentSurface(surfaceId),
+    async bringIntoView(location, behavior) {
+      revealedIds.push(location.id);
+      await environment.bringIntoView(location, behavior);
+    },
+  });
+
+  await expect.element(page.getByRole("tree", { name: "Document outline" })).toBeVisible();
+  await expect.poll(() => controller.containerAdapters.get(IDS.tabs) !== undefined).toBe(true);
+
+  return {
+    controller,
+    editor,
+    rendered,
+    revealedIds,
+    viewController,
+    async dispose() {
+      viewController.destroy();
+      await rendered.unmount();
+      editor.destroy();
+      host.remove();
+    },
+  };
+}
+
+async function expandAncestorsThroughOutline(
+  harness: MountedOutlineHarness,
+  targetId: EmbeddedNodeId,
+): Promise<void> {
+  const snapshot = harness.controller.getSnapshot().semantics;
+  const ancestors: EmbeddedNodeId[] = [];
+  let parentId = snapshot.parentById.get(targetId) ?? null;
+  while (parentId) {
+    ancestors.unshift(parentId);
+    parentId = snapshot.parentById.get(parentId) ?? null;
+  }
+  for (const id of ancestors) {
+    const item = snapshot.itemById.get(id);
+    if (!item || item.children.length === 0) continue;
+    const button = Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(
+      (candidate) => candidate.getAttribute("aria-label") === `Expand ${item.label}`,
+    );
+    if (!button)
+      throw new Error(`Expected disclosure for ${item.label}. Visible tree: ${treeText()}`);
+    button.focus();
+    button.click();
+    await expect.poll(() => harness.viewController.getSnapshot().expandedIds.has(id)).toBe(true);
+  }
+}
+
+function selectedOutlineLabel(): string {
+  return (
+    requiredElement<HTMLElement>(
+      document.body,
+      '[role="treeitem"][aria-selected="true"]',
+    ).getAttribute("aria-label") ?? ""
+  );
+}
+
+function treeText(): string {
+  return requiredElement<HTMLElement>(document.body, '[role="tree"]').textContent ?? "";
+}
+
+function treeItemForLabel(label: string): HTMLElement {
+  const row = Array.from(document.querySelectorAll<HTMLElement>('[role="treeitem"]')).find(
+    (candidate) => candidate.getAttribute("aria-label") === label,
+  );
+  if (!row) throw new Error(`Expected Outline row ${label}. Visible tree: ${treeText()}`);
+  return row;
+}
+
+function findNodePosition(editor: Editor, id: string): number {
+  let found: number | null = null;
+  editor.state.doc.descendants((node, position) => {
+    if (node.attrs["id"] !== id) return true;
+    found = position;
+    return false;
+  });
+  if (found === null) throw new Error(`Expected mounted node ${id}`);
+  return found;
+}
+
+function requiredElement<ElementType extends Element>(
+  root: ParentNode,
+  selector: string,
+): ElementType {
+  const element = root.querySelector<ElementType>(selector);
+  if (!element) throw new Error(`Expected element matching ${selector}`);
+  return element;
+}
+
+function roleElement<ElementType extends HTMLElement>(role: string, label: string): ElementType {
+  const selector = role === "button" ? 'button,[role="button"]' : `[role="${role}"]`;
+  const element = Array.from(document.querySelectorAll<ElementType>(selector)).find(
+    (candidate) =>
+      candidate.getAttribute("aria-label") === label || candidate.textContent === label,
+  );
+  if (!element) throw new Error(`Expected ${role} named ${label}`);
+  return element;
+}
+
+const TestMcqNode = Node.create({
+  name: "mcq",
+  group: "block",
+  atom: true,
+  addAttributes() {
+    return { id: { default: null }, assessment: { default: null } };
+  },
+  parseHTML() {
+    return [{ tag: "article[data-test-mcq]" }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ["article", { ...HTMLAttributes, "data-test-mcq": "" }, "Multiple choice"];
+  },
+});
+
+function representativeDocument(): JSONContent {
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "courseDocument",
+        attrs: { id: IDS.course, mode: "slideshow" },
+        content: [
+          { type: "courseSection", attrs: { id: IDS.courseSection, title: "Practice" } },
+          {
+            type: "surface",
+            attrs: { id: IDS.firstSurface, variant: "slide-content" },
+            content: [
+              {
+                type: "region",
+                attrs: { id: IDS.firstRegion, role: "main" },
+                content: [
+                  paragraph(IDS.prose, "Editor prose"),
+                  {
+                    type: "grid",
+                    attrs: { id: IDS.grid },
+                    content: [
+                      {
+                        type: "cell",
+                        attrs: { id: IDS.firstCell },
+                        content: [tabsContent()],
+                      },
+                      {
+                        type: "cell",
+                        attrs: { id: IDS.secondCell },
+                        content: [accordionContent()],
+                      },
+                    ],
+                  },
+                  flashcardContent(),
+                  annotatedFigureContent(),
+                  { type: "mcq", attrs: { id: IDS.mcq, assessment: {} } },
+                ],
+              },
+            ],
+          },
+          {
+            type: "surface",
+            attrs: { id: IDS.secondSurface, variant: "slide-content" },
+            content: [
+              {
+                type: "region",
+                attrs: { id: IDS.secondRegion, role: "main" },
+                content: [paragraph("secondpara01", "Second surface")],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function tabsContent(): JSONContent {
+  return {
+    type: "layout",
+    attrs: { id: IDS.tabs, variant: "tabs", options: { label: "Topic tabs" } },
+    content: [
+      {
+        type: "section",
+        attrs: { id: IDS.firstTab, label: "Visible topic", options: { label: "Visible topic" } },
+        content: [paragraph("visiblepara1", "Visible topic prose")],
+      },
+      {
+        type: "section",
+        attrs: { id: IDS.hiddenTab, label: "Hidden topic", options: { label: "Hidden topic" } },
+        content: [paragraph(IDS.hiddenProse, "Hidden topic prose")],
+      },
+    ],
+  };
+}
+
+function accordionContent(): JSONContent {
+  return {
+    type: "layout",
+    attrs: {
+      id: IDS.accordion,
+      variant: "accordion",
+      options: { label: "Details", allowMultiple: false },
+    },
+    content: [
+      {
+        type: "section",
+        attrs: { id: IDS.firstAccordion, options: { defaultOpen: true } },
+        content: [
+          { type: "accordion_section_title", content: [paragraph(undefined, "First detail")] },
+          { type: "accordion_section_panel", content: [paragraph("accpara00001", "First panel")] },
+        ],
+      },
+      {
+        type: "section",
+        attrs: { id: IDS.secondAccordion, options: { defaultOpen: false } },
+        content: [
+          { type: "accordion_section_title", content: [paragraph(undefined, "Second detail")] },
+          { type: "accordion_section_panel", content: [paragraph("accpara00002", "Second panel")] },
+        ],
+      },
+    ],
+  };
+}
+
+function flashcardContent(): JSONContent {
+  return {
+    type: "flashcard",
+    attrs: { id: IDS.flashcard, data: { type: "flashcard", shuffle: false } },
+    content: [
+      {
+        type: "flashcard_card",
+        attrs: { id: "flashcard101" },
+        content: [
+          {
+            type: "flashcard_card_front",
+            content: [paragraph("flashfront01", "Private flashcard front")],
+          },
+          {
+            type: "flashcard_card_back",
+            content: [paragraph("flashback001", "Private flashcard back")],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function annotatedFigureContent(): JSONContent {
+  return {
+    type: "annotated_figure",
+    attrs: {
+      id: IDS.annotationFigure,
+      data: {
+        type: "annotated_figure",
+        source: { mode: "managed", mediaId: "outline-test-image" },
+        alt: "Architecture diagram",
+        captionDisplay: "list",
+      },
+    },
+    content: [
+      { type: "annotated_figure_canvas" },
+      {
+        type: "annotated_figure_legend",
+        content: [
+          {
+            type: "annotated_figure_annotation",
+            attrs: { id: IDS.annotation, title: "Annotation detail", x: 50, y: 50 },
+            content: [paragraph("annotpara001", "Public annotation caption")],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function paragraph(id: string | undefined, text: string): JSONContent {
+  return {
+    type: "paragraph",
+    ...(id ? { attrs: { id } } : {}),
+    content: [{ type: "text", text }],
+  };
+}
+
+function id(value: string): EmbeddedNodeId {
+  return EmbeddedNodeIdSchema.parse(value);
+}
+
+function testMediaPort(): MediaPort {
+  return {
+    resolve: async () => "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=",
+    upload: async () => {
+      throw new Error("Uploads are unavailable in this browser fixture.");
+    },
+  };
+}
