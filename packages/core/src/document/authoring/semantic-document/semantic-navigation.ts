@@ -241,8 +241,24 @@ export class SemanticNavigationCoordinator {
     const authoringTarget = this.#resolveAuthoringTarget(currentTarget);
     if (!authoringTarget) return { kind: "missing", id: target.id };
 
+    const preflightTransaction = editor.getState().tr;
+    if (!setSelectionForLocation(preflightTransaction, authoringTarget.location)) {
+      return { kind: "interrupted", id: target.id };
+    }
+
+    try {
+      await environment.bringIntoView(authoringTarget.location, "smooth");
+    } catch {
+      return { kind: "interrupted", id: target.id };
+    }
+    if (!this.#isCurrent(token)) return { kind: "interrupted", id: target.id };
+
+    const selectionTarget = this.#resolve(target.id);
+    if (!selectionTarget) return { kind: "missing", id: target.id };
+    const authoringSelectionTarget = this.#resolveAuthoringTarget(selectionTarget);
+    if (!authoringSelectionTarget) return { kind: "missing", id: target.id };
     const transaction = editor.getState().tr;
-    if (!setSelectionForLocation(transaction, authoringTarget.location)) {
+    if (!setSelectionForLocation(transaction, authoringSelectionTarget.location)) {
       return { kind: "interrupted", id: target.id };
     }
     setSemanticSelectionTransactionMeta(transaction, {
@@ -250,20 +266,8 @@ export class SemanticNavigationCoordinator {
       origin: options.origin,
     });
     editor.dispatch(transaction);
-
-    if (!this.#isCurrent(token)) return { kind: "interrupted", id: target.id };
     if (options.focusEditor) editor.focus();
-    const scrollTarget = this.#resolve(target.id);
-    if (!scrollTarget) return { kind: "missing", id: target.id };
-    const authoringScrollTarget = this.#resolveAuthoringTarget(scrollTarget);
-    if (!authoringScrollTarget) return { kind: "missing", id: target.id };
 
-    try {
-      await environment.bringIntoView(authoringScrollTarget.location, "smooth");
-    } catch {
-      return { kind: "interrupted", id: target.id };
-    }
-    if (!this.#isCurrent(token)) return { kind: "interrupted", id: target.id };
     return this.#resolve(target.id)
       ? { kind: "reached", id: target.id }
       : { kind: "missing", id: target.id };

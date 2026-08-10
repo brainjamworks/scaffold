@@ -75,6 +75,49 @@ describe("semantic navigation", () => {
     expect(session.bringIntoView).not.toHaveBeenCalled();
   });
 
+  it("leaves editor, semantic and focus state unchanged when Surface presentation throws", async () => {
+    const session = makeSession();
+    const targetId = session.fixture.surfaces[0]!.surface;
+    const beforeSelection = session.state().selection.toJSON();
+    const beforeSnapshot = session.controller.getSnapshot();
+    session.presentSurface.mockRejectedValueOnce(new Error("presentation failed"));
+
+    await expect(
+      session.controller.select(targetId, {
+        origin: "document-outline",
+        focusEditor: true,
+      }),
+    ).resolves.toEqual({ kind: "interrupted", id: targetId });
+    expect(session.state().selection.toJSON()).toEqual(beforeSelection);
+    expect(session.controller.getSnapshot()).toMatchObject({
+      selectedId: beforeSnapshot.selectedId,
+      selectionOrigin: beforeSnapshot.selectionOrigin,
+    });
+    expect(session.bringIntoView).not.toHaveBeenCalled();
+    expect(session.focusEditor).not.toHaveBeenCalled();
+  });
+
+  it("leaves editor, semantic and focus state unchanged when scrolling throws", async () => {
+    const session = makeSession();
+    const targetId = session.fixture.surfaces[0]!.surface;
+    const beforeSelection = session.state().selection.toJSON();
+    const beforeSnapshot = session.controller.getSnapshot();
+    session.bringIntoView.mockRejectedValueOnce(new Error("scroll failed"));
+
+    await expect(
+      session.controller.select(targetId, {
+        origin: "document-outline",
+        focusEditor: true,
+      }),
+    ).resolves.toEqual({ kind: "interrupted", id: targetId });
+    expect(session.state().selection.toJSON()).toEqual(beforeSelection);
+    expect(session.controller.getSnapshot()).toMatchObject({
+      selectedId: beforeSnapshot.selectedId,
+      selectionOrigin: beforeSnapshot.selectionOrigin,
+    });
+    expect(session.focusEditor).not.toHaveBeenCalled();
+  });
+
   it("degrades to the nearest reachable owner for missing, unavailable and throwing adapters", async () => {
     const targetKinds = ["missing", "unavailable", "throwing"] as const;
 
