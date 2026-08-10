@@ -11,9 +11,7 @@ export const semanticDocumentPluginKey = new PluginKey<SemanticDocumentControlle
   "semanticDocumentController",
 );
 
-export function getSemanticDocumentControllerForEditor(
-  editor: Editor,
-): SemanticDocumentController {
+export function getSemanticDocumentControllerForEditor(editor: Editor): SemanticDocumentController {
   return getSemanticDocumentControllerForState(editor.state);
 }
 
@@ -31,9 +29,5 @@ export function useSemanticDocumentControllerSnapshot(
   editor: Editor,
 ): SemanticDocumentControllerSnapshot {
   const controller = getSemanticDocumentControllerForEditor(editor);
-  return useSyncExternalStore(
-    controller.subscribe,
-    controller.getSnapshot,
-    controller.getSnapshot,
-  );
+  return useSyncExternalStore(controller.subscribe, controller.getSnapshot, controller.getSnapshot);
 }

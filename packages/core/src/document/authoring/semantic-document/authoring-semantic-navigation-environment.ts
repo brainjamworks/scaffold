@@ -38,7 +38,10 @@ export function createAuthoringSemanticNavigationEnvironment({
   return {
     async presentSurface(surfaceId) {
       const location = getSnapshot().locationById.get(surfaceId);
-      if (!location || location.nodeType !== "surface") {
+      if (
+        !location ||
+        (location.nodeType !== "surface" && location.nodeType !== "unavailable_surface")
+      ) {
         throw new Error(`Semantic navigation Surface "${surfaceId}" is unavailable`);
       }
       resolveCurrentTarget(surfaceId);

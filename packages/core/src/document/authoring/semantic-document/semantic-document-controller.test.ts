@@ -9,8 +9,10 @@ import { describe, expect, it } from "vite-plus/test";
 import { createCourseDocumentAuthoringExtensions } from "@/composition/authoring/create-authoring-composition";
 import { createCoreScaffoldAuthoringComposition } from "@/composition/authoring/scaffold-authoring-composition";
 
+import { createAuthoringSemanticNavigationEnvironment } from "./authoring-semantic-navigation-environment";
 import {
   getSemanticDocumentControllerForEditor,
+  semanticDocumentPluginKey,
   useSemanticDocumentControllerSnapshot,
 } from "./semantic-document-storage";
 
@@ -24,7 +26,7 @@ describe("SemanticDocumentController", () => {
       expect(editor.extensionManager.extensions.map(({ name }) => name)).toContain(
         "semanticDocumentController",
       );
-      expect(editor.state.plugins.map(({ key }) => key)).toContain(semanticPluginKeyName());
+      expect(semanticDocumentPluginKey.get(editor.state)).toBeDefined();
       const controller = getSemanticDocumentControllerForEditor(editor);
 
       expect(controller.getSnapshot().semantics).toMatchObject({
@@ -53,6 +55,44 @@ describe("SemanticDocumentController", () => {
         nodeType: "unavailable_surface",
         definitionId: null,
         children: [],
+      });
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  it("navigates to an unavailable Surface through the real authoring environment", async () => {
+    const editor = createEditor(unavailablePageWorkingDocument());
+
+    try {
+      const controller = connectAuthoringNavigation(editor);
+      const unavailableSurfaceId = testId("s", "unavailable");
+
+      await expect(
+        controller.select(unavailableSurfaceId, { origin: "document-outline" }),
+      ).resolves.toEqual({ kind: "reached", id: unavailableSurfaceId });
+      expect(controller.getSnapshot()).toMatchObject({
+        selectedId: unavailableSurfaceId,
+        selectionOrigin: "document-outline",
+      });
+    } finally {
+      editor.destroy();
+    }
+  });
+
+  it("navigates a Course Section whose first member is an unavailable Surface", async () => {
+    const editor = createEditor(unavailableSectionedSlideshowWorkingDocument());
+
+    try {
+      const controller = connectAuthoringNavigation(editor);
+      const courseSectionId = testId("x", "unavailable");
+
+      await expect(
+        controller.select(courseSectionId, { origin: "document-outline" }),
+      ).resolves.toEqual({ kind: "reached", id: courseSectionId });
+      expect(controller.getSnapshot()).toMatchObject({
+        selectedId: courseSectionId,
+        selectionOrigin: "document-outline",
       });
     } finally {
       editor.destroy();
@@ -165,10 +205,12 @@ describe("SemanticDocumentController", () => {
 
   it("falls back from a deleted selected item to its nearest surviving semantic ancestor", () => {
     const selectedId = testId("p", "selected");
-    const editor = createEditor(pageDocument("tree", [
-      paragraph(selectedId, "Selected"),
-      paragraph(testId("p", "survivor"), "Survivor"),
-    ]));
+    const editor = createEditor(
+      pageDocument("tree", [
+        paragraph(selectedId, "Selected"),
+        paragraph(testId("p", "survivor"), "Survivor"),
+      ]),
+    );
 
     try {
       const controller = getSemanticDocumentControllerForEditor(editor);
@@ -196,8 +238,21 @@ function createEditor(content: JSONContent): Editor {
   });
 }
 
-function semanticPluginKeyName(): string {
-  return "semanticDocumentController$";
+function connectAuthoringNavigation(editor: Editor) {
+  const controller = getSemanticDocumentControllerForEditor(editor);
+  controller.setNavigationEditor({
+    getState: () => editor.state,
+    dispatch: (transaction) => editor.view.dispatch(transaction),
+    focus: () => editor.commands.focus(),
+  });
+  controller.setNavigationEnvironment(
+    createAuthoringSemanticNavigationEnvironment({
+      getSnapshot: () => controller.getSnapshot().semantics,
+      root: editor.view.dom,
+      view: editor.view,
+    }),
+  );
+  return controller;
 }
 
 function findNodePosition(editor: Editor, id: string): number {
@@ -225,7 +280,7 @@ function pageDocument(
           {
             type: "surface",
             attrs: { id: testId("s", suffix), variant: "page-default" },
-            content,
+            content: [...content],
           },
         ],
       },
@@ -265,27 +320,48 @@ function unavailablePageWorkingDocument(): JSONContent {
       {
         type: "courseDocument",
         attrs: { id: testId("c", "unavailable"), mode: "page" },
+        content: [unavailableSurface(unavailableSurfaceId)],
+      },
+    ],
+  };
+}
+
+function unavailableSectionedSlideshowWorkingDocument(): JSONContent {
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "courseDocument",
+        attrs: { id: testId("c", "unavailable-section"), mode: "slideshow" },
         content: [
           {
-            type: "unavailable_surface",
-            attrs: {
-              id: unavailableSurfaceId,
-              capabilityId: "plus.private-surface",
-              original: {
-                type: "surface",
-                attrs: { id: unavailableSurfaceId, variant: "plus.private-surface" },
-                content: [
-                  {
-                    type: "private_child",
-                    attrs: { secret: "must remain opaque" },
-                  },
-                ],
-              },
-            },
+            type: "courseSection",
+            attrs: { id: testId("x", "unavailable"), title: "Unavailable content" },
           },
+          unavailableSurface(testId("s", "unavailable")),
         ],
       },
     ],
+  };
+}
+
+function unavailableSurface(unavailableSurfaceId: EmbeddedNodeId): JSONContent {
+  return {
+    type: "unavailable_surface",
+    attrs: {
+      id: unavailableSurfaceId,
+      capabilityId: "plus.private-surface",
+      original: {
+        type: "surface",
+        attrs: { id: unavailableSurfaceId, variant: "plus.private-surface" },
+        content: [
+          {
+            type: "private_child",
+            attrs: { secret: "must remain opaque" },
+          },
+        ],
+      },
+    },
   };
 }
 
@@ -297,7 +373,7 @@ function paragraph(id: EmbeddedNodeId, text: string): JSONContent {
   };
 }
 
-function testId(kind: "c" | "p" | "s", value: string): EmbeddedNodeId {
+function testId(kind: "c" | "p" | "s" | "x", value: string): EmbeddedNodeId {
   const normalized = value.replaceAll(/[^0-9A-Za-z_-]/g, "");
   return EmbeddedNodeIdSchema.parse(`${kind}${normalized}`.padEnd(12, "0").slice(0, 12));
 }

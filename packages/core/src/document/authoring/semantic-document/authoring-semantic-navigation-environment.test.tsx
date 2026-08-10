@@ -37,6 +37,14 @@ describe("authoring semantic navigation environment", () => {
     expect(harness.nodeDOM).toHaveBeenLastCalledWith(8);
   });
 
+  it("locates an unavailable Surface through its safe compatibility location", async () => {
+    const harness = createHarness([location(SURFACE_ID, "unavailable_surface", 2)]);
+
+    await harness.environment.presentSurface(SURFACE_ID);
+
+    expect(harness.nodeDOM).toHaveBeenLastCalledWith(2);
+  });
+
   it("scrolls a below-fold target in its page window without moving focus", async () => {
     const harness = createHarness([
       location(SURFACE_ID, "surface", 2),

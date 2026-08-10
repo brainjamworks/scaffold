@@ -15,8 +15,7 @@ export function createSemanticDocumentExtension(definitions: SemanticDefinitionL
         new Plugin<SemanticDocumentController>({
           key: semanticDocumentPluginKey,
           state: {
-            init: (_configuration, state) =>
-              new SemanticDocumentController({ state, definitions }),
+            init: (_configuration, state) => new SemanticDocumentController({ state, definitions }),
             apply: (transaction, controller, _oldState, newState) => {
               controller.applyTransaction(transaction, newState);
               return controller;
