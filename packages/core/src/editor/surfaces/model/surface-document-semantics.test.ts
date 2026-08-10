@@ -5,11 +5,13 @@ import { describe, expect, it } from "vite-plus/test";
 import { projectCourseStructure } from "@/document/model/course-structure/course-structure-projection";
 import {
   projectSemanticDocument,
+  type PublishedSemanticChild,
   type SemanticDefinitionLookup,
   type SemanticSurfaceDefinition,
 } from "@/document/model/semantic-document";
 
 import { builtInSurfaceVariantRegistry } from "./built-in-surface-variant-definitions";
+import { createSurfaceDocumentSemantics } from "./surface-document-semantics";
 
 const schema = new Schema({
   nodes: {
@@ -69,6 +71,55 @@ describe("built-in Surface document semantics", () => {
     expect(snapshot.parentById.get(directParagraphId)).toBe(surface.attrs["id"]);
     expect(snapshot.itemById.get(regionParagraphId)?.label).toBe("Region prose");
     expect(snapshot.parentById.get(regionParagraphId)).toBe(regionId);
+  });
+
+  it("consumes direct page prose candidates without repeatedly rescanning them", () => {
+    const paragraphs = Array.from({ length: 64 }, (_, index) =>
+      textblock(
+        "paragraph",
+        id(`direct${index.toString().padStart(6, "0")}`),
+        `Paragraph ${index + 1}`,
+      ),
+    );
+    const surfaceId = id("surface00003");
+    const surface = schema.node("surface", { id: surfaceId, variant: "page-default" }, paragraphs);
+    const candidates: PublishedSemanticChild[] = [];
+    let offset = 0;
+    surface.forEach((node) => {
+      candidates.push(
+        Object.freeze({
+          relativePos: offset,
+          semanticRole: "rich-text" as const,
+          label: node.textContent,
+        }),
+      );
+      offset += node.nodeSize;
+    });
+
+    let candidateReads = 0;
+    const orderedCandidates = new Proxy(candidates, {
+      get: (target, property, receiver) => {
+        if (typeof property === "string" && /^\d+$/.test(property)) candidateReads += 1;
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    const projectChildren = createSurfaceDocumentSemantics({
+      directRichText: true,
+    }).projectChildren;
+    if (!projectChildren) throw new Error("Expected Surface semantic child projection.");
+
+    const published = projectChildren({
+      owner: surface,
+      ownerId: surfaceId,
+      definitionId: "page-default",
+      helpers: {
+        projectStandardRichText: () => orderedCandidates,
+        projectStructuralChildren: () => Object.freeze([]),
+      },
+    });
+
+    expect(published).toHaveLength(paragraphs.length);
+    expect(candidateReads).toBeLessThanOrEqual(paragraphs.length);
   });
 
   it("publishes only approved slide title and subtitle content roots", () => {

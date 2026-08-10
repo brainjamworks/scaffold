@@ -32,27 +32,16 @@ export function createSurfaceDocumentSemantics({
       const directChildren: Array<{
         readonly node: ProseMirrorNode;
         readonly from: number;
-        readonly to: number;
       }> = [];
       let offset = 0;
       owner.forEach((node) => {
-        directChildren.push({ node, from: offset, to: offset + node.nodeSize });
+        directChildren.push({ node, from: offset });
         offset += node.nodeSize;
       });
 
       if (directRichText) {
-        const standardCandidates = helpers.projectStandardRichText();
-        const approvedRanges = directChildren.filter(({ from }) =>
-          standardCandidates.some(({ relativePos }) => relativePos === from),
-        );
-        for (const candidate of standardCandidates) {
-          if (
-            approvedRanges.some(
-              ({ from, to }) => candidate.relativePos >= from && candidate.relativePos < to,
-            )
-          ) {
-            candidates.set(candidate.relativePos, candidate);
-          }
+        for (const candidate of helpers.projectStandardRichText()) {
+          candidates.set(candidate.relativePos, candidate);
         }
       }
 
