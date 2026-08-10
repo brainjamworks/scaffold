@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import "./grid/view/grid.css";
+import "./grid/authoring/grid-authoring.css";
 import "./layout/accordion/accordion.css";
 import "./layout/paginated/paginated.css";
 import "./layout/process-flow/process-flow.css";
@@ -16,7 +17,7 @@ afterEach(() => {
 
 describe("Arrangement cascade layering", () => {
   it.each([
-    "sc-grid-authoring",
+    "sc-app-grid-authoring",
     "sc-layout-frame",
     "sc-accordion-layout",
     "sc-paginated-layout",

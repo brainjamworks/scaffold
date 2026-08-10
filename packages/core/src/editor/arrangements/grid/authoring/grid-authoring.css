@@ -1,0 +1,88 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-overlays {
+  .sc-app-grid-authoring {
+    position: relative;
+    border-radius: var(--sc-app-radius-surface);
+    outline: 1px solid transparent;
+    transition: outline-color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .sc-app-grid-authoring--editable:hover,
+  .sc-app-grid-authoring--editable:focus-within,
+  .sc-app-grid-authoring--editable[data-authoring-chrome-active] {
+    outline-color: var(--sc-app-color-border);
+  }
+
+  .sc-app-grid-cell-authoring {
+    min-height: 6rem;
+  }
+
+  .sc-app-grid-column-controls {
+    position: absolute;
+    inset: 0;
+    z-index: var(--z-interactive);
+    pointer-events: none;
+  }
+
+  .sc-app-grid-column-resize-handle {
+    appearance: none;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--sc-grid-column-position);
+    width: 1rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: col-resize;
+    pointer-events: auto;
+    transform: translateX(-50%);
+  }
+
+  .sc-app-grid-column-resize-handle::before {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    left: 50%;
+    width: 1px;
+    border-radius: var(--sc-app-radius-control);
+    background: var(--sc-app-color-border);
+    transform: translateX(-50%);
+    transition:
+      background-color 120ms cubic-bezier(0.16, 1, 0.3, 1),
+      width 120ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .sc-app-grid-column-resize-handle:hover::before,
+  .sc-app-grid-column-resize-handle:focus-visible::before,
+  .sc-app-grid-column-resize-handle:active::before {
+    width: 2px;
+    background: var(--sc-app-color-primary);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sc-app-grid-authoring,
+    .sc-app-grid-column-resize-handle::before {
+      transition: none;
+    }
+  }
+
+  @media (forced-colors: active) {
+    .sc-app-grid-authoring--editable:hover,
+    .sc-app-grid-authoring--editable:focus-within,
+    .sc-app-grid-authoring--editable[data-authoring-chrome-active] {
+      outline-color: CanvasText;
+    }
+
+    .sc-app-grid-column-resize-handle::before {
+      background: ButtonText;
+    }
+
+    .sc-app-grid-column-resize-handle:hover::before,
+    .sc-app-grid-column-resize-handle:focus-visible::before,
+    .sc-app-grid-column-resize-handle:active::before {
+      background: Highlight;
+    }
+  }
+}

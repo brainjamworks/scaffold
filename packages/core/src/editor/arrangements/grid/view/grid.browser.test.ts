@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 
 import "./grid.css";
 
-const CELL_CLASS_NAMES = ["sc-grid-cell", "sc-grid-cell-authoring"] as const;
+const CELL_CLASS_NAMES = ["sc-grid-cell", "sc-grid-cell sc-app-grid-cell-authoring"] as const;
 
 afterEach(() => {
   document.body.replaceChildren();
@@ -26,7 +26,7 @@ describe("Cell vertical content geometry", () => {
 });
 
 function renderCell(
-  className: "sc-grid-cell" | "sc-grid-cell-authoring",
+  className: (typeof CELL_CLASS_NAMES)[number],
   position: "top" | "middle" | "bottom",
 ) {
   const cell = document.createElement("div");
@@ -36,7 +36,7 @@ function renderCell(
     "--sc-grid-cell-inset: 0; --sc-grid-cell-flow-gap: 0; width: 200px; height: 200px;";
 
   const content = document.createElement("div");
-  content.className = `${className}__content`;
+  content.className = "sc-grid-cell__content";
   content.style.height = "40px";
   cell.append(content);
   document.body.append(cell);

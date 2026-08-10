@@ -22,6 +22,7 @@ import { resizeGridColumnsAt } from "../model/grid-commands";
 import { normalizeColumnWidths } from "../model/grid-model";
 
 import "../view/grid.css";
+import "./grid-authoring.css";
 
 interface GridNodeViewProps extends NodeViewProps {
   blockDefinitions: BlockDefinitionLookup;
@@ -49,6 +50,9 @@ export function GridNodeView(props: GridNodeViewProps) {
   const columnWidths = normalizeColumnWidths(
     parseColumnWidths(props.node.attrs.columnWidths),
     props.node.childCount,
+  );
+  const controlledColumnIds = Array.from({ length: props.node.childCount }, (_, index) =>
+    gridCellDomId(props.node.child(index).attrs.id),
   );
   const style: CSSProperties | undefined = columnWidths.length
     ? {
@@ -83,11 +87,16 @@ export function GridNodeView(props: GridNodeViewProps) {
       })}
       {...boundedPlacementAttributes("fill")}
       {...authoringChromeActiveAttributes(showGridOutline)}
-      className={cn("sc-grid-authoring", editable && "sc-grid-authoring--editable")}
+      className={cn(
+        "sc-grid",
+        "sc-app-grid-authoring",
+        editable && "sc-app-grid-authoring--editable",
+      )}
       style={style}
     >
       <GridColumnControls
         columnWidths={columnWidths}
+        controlledColumnIds={controlledColumnIds}
         editable={editable}
         onCommitResize={(leftColumnIndex, delta) => {
           const pos =
@@ -96,11 +105,15 @@ export function GridNodeView(props: GridNodeViewProps) {
           return resizeGridColumnsAt(props.editor, pos, leftColumnIndex, delta);
         }}
       />
-      <NodeViewContent data-grid-column-content="" className="sc-grid-authoring__content" />
+      <NodeViewContent data-grid-column-content="" className="sc-grid__content" />
     </NodeViewWrapper>
   );
 }
 
 function parseColumnWidths(value: unknown): number[] {
   return Array.isArray(value) && value.every((width) => typeof width === "number") ? value : [];
+}
+
+function gridCellDomId(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? `sc-grid-cell-${value}` : undefined;
 }

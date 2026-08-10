@@ -12,13 +12,21 @@ afterEach(() => {
 
 describe("GridColumnControls", () => {
   it("renders one resize handle between each adjacent column", () => {
-    render(<GridColumnControls columnWidths={[1, 2, 1]} editable onCommitResize={() => true} />);
+    render(
+      <GridColumnControls
+        columnWidths={[1, 2, 1]}
+        controlledColumnIds={["sc-grid-cell-a", "sc-grid-cell-b", "sc-grid-cell-c"]}
+        editable
+        onCommitResize={() => true}
+      />,
+    );
 
     const handles = screen.getAllByRole("separator");
     expect(handles).toHaveLength(2);
     expect(handles[0]?.getAttribute("contenteditable")).toBe("false");
     expect(handles[0]?.getAttribute("data-grid-column-resize-handle")).toBe("");
-    expect(handles[0]?.getAttribute("aria-orientation")).toBe("horizontal");
+    expect(handles[0]?.getAttribute("aria-orientation")).toBe("vertical");
+    expect(handles[0]?.getAttribute("aria-controls")).toBe("sc-grid-cell-a");
     expect(handles[0]?.getAttribute("aria-valuemin")).toBe("7");
     expect(handles[0]?.getAttribute("aria-valuemax")).toBe("93");
     expect(handles[0]?.getAttribute("aria-valuenow")).toBe("33");

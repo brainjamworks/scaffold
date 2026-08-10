@@ -10,6 +10,7 @@ import { MIN_GRID_COLUMN_WIDTH, resizeAdjacentColumnWidths } from "../model/grid
 
 export interface GridColumnControlsProps {
   columnWidths: readonly number[];
+  controlledColumnIds?: readonly (string | undefined)[];
   editable: boolean;
   onCommitResize: (leftColumnIndex: number, delta: number) => boolean;
 }
@@ -18,6 +19,7 @@ const KEYBOARD_COLUMN_RESIZE_STEP = 0.1;
 
 export function GridColumnControls({
   columnWidths,
+  controlledColumnIds = [],
   editable,
   onCommitResize,
 }: GridColumnControlsProps) {
@@ -29,15 +31,21 @@ export function GridColumnControls({
   const handles = columnWidths.slice(0, -1).map((_, leftColumnIndex) => ({ leftColumnIndex }));
 
   return (
-    <div data-grid-column-controls="" contentEditable={false}>
+    <div
+      className="sc-app-grid-column-controls"
+      data-grid-column-controls=""
+      contentEditable={false}
+    >
       {handles.map(({ leftColumnIndex }) => (
         <button
           key={leftColumnIndex}
+          className="sc-app-grid-column-resize-handle"
           type="button"
           role="separator"
           contentEditable={false}
           data-grid-column-resize-handle=""
-          aria-orientation="horizontal"
+          aria-controls={controlledColumnIds[leftColumnIndex]}
+          aria-orientation="vertical"
           aria-label={`Resize columns ${leftColumnIndex + 1} and ${leftColumnIndex + 2}`}
           {...resizeSeparatorValueAttributes(columnWidths, leftColumnIndex)}
           style={

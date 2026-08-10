@@ -512,11 +512,13 @@ describe("grid arrangement nodes", () => {
     const controls = document.body.querySelector("[data-grid-column-controls]");
 
     expect(gridElement?.getAttribute("style")).toContain("grid-template-columns: minmax(0, 1fr);");
-    expect(gridElement?.getAttribute("class")).toContain("sc-grid-authoring");
-    expect(gridElement?.getAttribute("class")).toContain("sc-grid-authoring--editable");
+    expect(gridElement?.getAttribute("class")).toContain("sc-grid");
+    expect(gridElement?.getAttribute("class")).toContain("sc-app-grid-authoring");
+    expect(gridElement?.getAttribute("class")).toContain("sc-app-grid-authoring--editable");
     expect(gridElement?.getAttribute("data-bounded-placement")).toBe("fill");
-    expect(cellElement?.getAttribute("class")).toContain("sc-grid-cell-authoring");
-    expect(cellElement?.getAttribute("class")).toContain("sc-grid-cell-authoring--editable");
+    expect(cellElement?.getAttribute("class")).toContain("sc-grid-cell");
+    expect(cellElement?.getAttribute("class")).toContain("sc-app-grid-cell-authoring");
+    expect(cellElement?.getAttribute("class")).toContain("sc-app-grid-cell-authoring--editable");
     expect(cellElement?.getAttribute("data-vertical-content-position")).toBe("top");
     expect(cellElement?.querySelector("[data-bounded-scroll-frame]")).not.toBeNull();
     expect(cellElement?.querySelector("[data-bounded-scroll]")).not.toBeNull();
@@ -528,7 +530,7 @@ describe("grid arrangement nodes", () => {
     expect(gridMenuTrigger).toBeNull();
     expect(addCellEndTrigger).toBeNull();
     expect(cellMenuTrigger).toBeNull();
-    expect(gridContent?.getAttribute("class")).toContain("sc-grid-authoring__content");
+    expect(gridContent?.getAttribute("class")).toContain("sc-grid__content");
     expect(controls).toBeNull();
     expect(document.body.querySelector("[data-authoring-move-handle]")).toBeNull();
 
@@ -1526,8 +1528,9 @@ describe("grid arrangement nodes", () => {
     expect(document.body.querySelector("[data-grid-column-controls]")).toBeNull();
     expect(document.body.querySelector("[data-grid-column-resize-handle]")).toBeNull();
     const gridElement = document.body.querySelector('[data-authoring-frame="grid"]');
-    expect(gridElement?.getAttribute("class")).toContain("sc-grid-authoring");
-    expect(gridElement?.getAttribute("class")).not.toContain("sc-grid-authoring--editable");
+    expect(gridElement?.getAttribute("class")).toContain("sc-grid");
+    expect(gridElement?.getAttribute("class")).toContain("sc-app-grid-authoring");
+    expect(gridElement?.getAttribute("class")).not.toContain("sc-app-grid-authoring--editable");
     expect(gridElement?.getAttribute(AUTHORING_CHROME_ACTIVE_ATTR)).toBeNull();
 
     editor.destroy();

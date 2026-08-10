@@ -50,6 +50,7 @@ export function CellNodeView(props: CellNodeViewProps) {
   return (
     <NodeViewWrapper
       data-empty={isEmpty ? "true" : undefined}
+      id={gridCellDomId(props.node.attrs.id)}
       data-vertical-content-position={verticalPosition}
       {...structuralAuthoringFrameAttributes({
         id: props.node.attrs.id,
@@ -57,10 +58,14 @@ export function CellNodeView(props: CellNodeViewProps) {
         frameKind: "cell",
       })}
       {...authoringChromeActiveAttributes(cellChromeActive)}
-      className={cn("sc-grid-cell-authoring", editable && "sc-grid-cell-authoring--editable")}
+      className={cn(
+        "sc-grid-cell",
+        "sc-app-grid-cell-authoring",
+        editable && "sc-app-grid-cell-authoring--editable",
+      )}
     >
       <div data-bounded-scroll-frame="">
-        <NodeViewContent data-bounded-scroll="" className="sc-grid-cell-authoring__content" />
+        <NodeViewContent data-bounded-scroll="" className="sc-grid-cell__content" />
         <BoundedScrollHint editable />
       </div>
     </NodeViewWrapper>
@@ -69,4 +74,8 @@ export function CellNodeView(props: CellNodeViewProps) {
 
 function normalizeCellVerticalPosition(value: unknown): GridCellVerticalPosition {
   return isGridCellVerticalPosition(value) ? value : "top";
+}
+
+function gridCellDomId(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? `sc-grid-cell-${value}` : undefined;
 }
