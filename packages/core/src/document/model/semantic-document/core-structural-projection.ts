@@ -2,6 +2,7 @@ import { EmbeddedNodeIdSchema, type EmbeddedNodeId } from "@scaffold/contracts";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 
 import type { ProjectedCourseStructure } from "../course-structure/course-structure-projection";
+import { readUnavailableContentCompatibilityRoot } from "../establishment/unavailable-content-compatibility-root";
 import type { SemanticDefinitionLookup, SemanticLayoutDefinition } from "./definition-lookup";
 import type {
   DocumentSemanticsDefinition,
@@ -258,6 +259,24 @@ function classifyNode(
   builder: SemanticSnapshotBuilder,
 ): ClassifiedNode | null {
   const nodeType = node.type.name;
+  const unavailableRoot = readUnavailableContentCompatibilityRoot(nodeType, node.attrs);
+
+  if (unavailableRoot) {
+    const id = requireNodeId(node);
+    const unavailableSurface =
+      unavailableRoot.kind === "surface" ? courseStructure.surfaceById[id] : undefined;
+    if (unavailableRoot.kind === "surface" && !unavailableSurface) {
+      throw new Error(`Course Structure does not contain unavailable Surface ${id}.`);
+    }
+    return classified(
+      item(id, unavailableRoot.kind, nodeType, null, unavailableRoot.label),
+      unavailableSurface?.courseSectionId ?? context.parentId,
+      unavailableRoot.kind === "surface" ? id : context.surfaceId,
+      undefined,
+      undefined,
+      true,
+    );
+  }
 
   if (nodeType === NODE_TYPES.courseSection) {
     const id = requireNodeId(node);
