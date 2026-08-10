@@ -1,16 +1,14 @@
 import type { EmbeddedNodeId } from "@scaffold/contracts";
 import type { EditorState, Transaction } from "@tiptap/pm/state";
 
-import {
-  projectCourseStructure,
-  type ProjectedCourseStructure,
-} from "@/document/model/course-structure";
+import type { ProjectedCourseStructure } from "@/document/model/course-structure";
 import {
   projectSemanticDocument,
   type SemanticDefinitionLookup,
   type SemanticDocumentSnapshot,
 } from "@/document/model/semantic-document";
 
+import { projectAuthoringCourseStructure } from "../course-structure/project-authoring-course-structure";
 import { SemanticContainerAdapterRegistry } from "./semantic-container-adapter-registry";
 import {
   SemanticNavigationCoordinator,
@@ -210,7 +208,7 @@ function projectState(
   definitions: SemanticDefinitionLookup,
   revision: number,
 ): ProjectedSemanticState {
-  const courseStructure = projectCourseStructure(state.doc.toJSON());
+  const courseStructure = projectAuthoringCourseStructure(state.doc);
   if (!courseStructure) {
     throw new Error("Cannot project semantic document from invalid Course Structure");
   }

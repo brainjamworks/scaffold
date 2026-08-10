@@ -106,6 +106,22 @@ describe("projectCourseStructure", () => {
     });
   });
 
+  it("keeps authoring-only unavailable Surfaces outside canonical projection", () => {
+    const content = createScaffoldDocumentContent({ mode: "page", surfaceId: PAGE_SURFACE_ID });
+    content.content![0]!.content = [
+      {
+        type: "unavailable_surface",
+        attrs: {
+          id: PAGE_SURFACE_ID,
+          capabilityId: "plus.private-surface",
+          original: { type: "surface", attrs: { id: PAGE_SURFACE_ID } },
+        },
+      },
+    ];
+
+    expect(projectCourseStructure(content)).toBeNull();
+  });
+
   it.each([
     {
       name: "a partially sectioned Slideshow",

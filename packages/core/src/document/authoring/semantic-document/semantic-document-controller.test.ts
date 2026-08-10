@@ -39,6 +39,26 @@ describe("SemanticDocumentController", () => {
     }
   });
 
+  it("projects an unavailable Surface from the initial working ProseMirror document", () => {
+    const editor = createEditor(unavailablePageWorkingDocument());
+
+    try {
+      const snapshot = getSemanticDocumentControllerForEditor(editor).getSnapshot().semantics;
+      const unavailableSurfaceId = testId("s", "unavailable");
+
+      expect(snapshot.roots.map(({ id }) => id)).toEqual([unavailableSurfaceId]);
+      expect(snapshot.itemById.get(unavailableSurfaceId)).toMatchObject({
+        id: unavailableSurfaceId,
+        kind: "surface",
+        nodeType: "unavailable_surface",
+        definitionId: null,
+        children: [],
+      });
+    } finally {
+      editor.destroy();
+    }
+  });
+
   it("replaces semantics once for a document change and reuses them for selection-only work", () => {
     const editor = createEditor(pageDocument("live"));
 
@@ -230,6 +250,38 @@ function slideshowDocument(): JSONContent {
             type: "surface",
             attrs: { id: testId("s", "slide-two"), variant: "slide-content" },
             content: [paragraph(testId("p", "slide-two"), "Second slide")],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+function unavailablePageWorkingDocument(): JSONContent {
+  const unavailableSurfaceId = testId("s", "unavailable");
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "courseDocument",
+        attrs: { id: testId("c", "unavailable"), mode: "page" },
+        content: [
+          {
+            type: "unavailable_surface",
+            attrs: {
+              id: unavailableSurfaceId,
+              capabilityId: "plus.private-surface",
+              original: {
+                type: "surface",
+                attrs: { id: unavailableSurfaceId, variant: "plus.private-surface" },
+                content: [
+                  {
+                    type: "private_child",
+                    attrs: { secret: "must remain opaque" },
+                  },
+                ],
+              },
+            },
           },
         ],
       },
