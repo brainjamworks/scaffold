@@ -1,9 +1,6 @@
 import { useMemo } from "react";
 
-import {
-  ScaffoldAuthoringEntry,
-  type ScaffoldAuthoringHeaderActionsContext,
-} from "@scaffold/core/authoring";
+import { ScaffoldAuthoringEntry } from "@scaffold/core/authoring";
 import { createScaffoldApplication } from "@scaffold/core/extensions";
 import type { LearnerPublicationStatus, ScaffoldAuthoringArtifact } from "@scaffold/core/ports";
 import type { ScaffoldArtifact } from "@scaffold/core/format";
@@ -137,9 +134,9 @@ function MoodleAuthoringApp({
       className="sc-moodle-root sc-moodle-author-shell"
       mainClassName="sc-moodle-editor-scroll"
       scrollModel="contained"
-      headerActions={(context) => (
-        <MoodleAuthoringActions context={context} returnUrl={returnUrl} />
-      )}
+      hostHeaderActions={() => ({
+        beforePublish: <MoodleReturnLink returnUrl={returnUrl} />,
+      })}
     />
   );
 
@@ -155,59 +152,6 @@ function MoodleAuthoringApp({
       {entry}
     </div>
   );
-}
-
-function MoodleAuthoringActions({
-  context,
-  returnUrl,
-}: {
-  context: ScaffoldAuthoringHeaderActionsContext;
-  returnUrl: string;
-}) {
-  const disabled = [
-    "loading",
-    "publishing",
-    "unsaved",
-    "invalid",
-    "unavailable-content",
-    "requires-scaffold-plus",
-    "unsupported-core-format",
-    "projection-warning",
-    "payload-too-large",
-  ].includes(context.publishState);
-  return (
-    <>
-      <MoodleReturnLink returnUrl={returnUrl} />
-      <button
-        type="button"
-        className="sc-scaffold-authoring-action sc-moodle-publish-button"
-        disabled={disabled}
-        onClick={() => {
-          void context.publishNow();
-        }}
-      >
-        Publish
-      </button>
-      <span className="sc-moodle-publication-state" aria-live="polite">
-        {moodlePublicationStateCopy(context.publishState)}
-      </span>
-    </>
-  );
-}
-
-function moodlePublicationStateCopy(
-  state: ScaffoldAuthoringHeaderActionsContext["publishState"],
-): string {
-  if (state === "not-published") return "Not published";
-  if (state === "published") return "Published";
-  if (state === "unpublished") return "Unpublished changes";
-  if (state === "unsaved") return "Save before publishing";
-  if (state === "publishing") return "Publishing…";
-  if (state === "loading") return "Loading publication status";
-  if (state === "forbidden") return "Publishing is not permitted";
-  if (state === "stale-artifact-revision") return "Save changed; publish the latest revision";
-  if (state === "invalid") return "Fix invalid content before publishing";
-  return "Publish failed";
 }
 
 function MoodleArtifactUnavailable({
