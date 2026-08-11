@@ -35,6 +35,7 @@ import { BlockInteractionBubbleMenu } from "@/editor/shell/bubbles/interaction/B
 import { RichTextBubbleMenu } from "@/editor/shell/bubbles/rich-text/RichTextBubbleMenu";
 import { defineBlock } from "@/editor/blocks/block-definition";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import { builtInLayoutRegistry } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
 import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { createAlignmentTargetPort } from "@/editor/interactions/alignment/alignment-target";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
@@ -80,6 +81,7 @@ const testBlockRegistry = createBlockRegistry([
 ]);
 const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: testBlockRegistry,
+  layoutDefinitions: builtInLayoutRegistry,
   surfaceVariants: builtInSurfaceVariantRegistry,
 });
 

@@ -9,8 +9,14 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { resolveScaffoldCapabilities } from "@/composition/model/resolved-scaffold-capabilities";
 import { OverlayBoundary } from "@/ui/overlays/OverlayBoundary";
-import { builtInLayoutDefinitions } from "@/editor/arrangements/layout/model/built-in-layout-definitions";
-import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
+import {
+  builtInLayoutDefinitions,
+  builtInLayoutRegistry,
+} from "@/editor/arrangements/layout/model/built-in-layout-definitions";
+import {
+  builtInBlockCapabilityRegistrations,
+  builtInBlockRegistry,
+} from "@/editor/blocks/built-in-block-definitions";
 import { createAlignmentTargetPort } from "@/editor/interactions/alignment/alignment-target";
 import { builtInSurfaceVariantRegistry } from "@/editor/surfaces/model/built-in-surface-variant-definitions";
 import { RESIZE_GESTURE_ACTIVE_ATTR } from "@/editor/interactions/gesture/editor-resize-gesture";
@@ -54,10 +60,11 @@ import {
 
 const alignmentTargetPort = createAlignmentTargetPort({
   blockDefinitions: builtInBlockRegistry,
+  layoutDefinitions: builtInLayoutRegistry,
   surfaceVariants: builtInSurfaceVariantRegistry,
 });
 const testCapabilities = resolveScaffoldCapabilities({
-  blockDefinitions: builtInBlockRegistry.definitions,
+  blockCapabilities: builtInBlockCapabilityRegistrations,
   layoutDefinitions: builtInLayoutDefinitions,
   surfaceDefinitions: [],
 });

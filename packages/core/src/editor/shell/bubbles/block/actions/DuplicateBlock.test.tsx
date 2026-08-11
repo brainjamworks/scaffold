@@ -7,8 +7,6 @@ import { TooltipProvider } from "@radix-ui/react-tooltip";
 import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { defineBlock } from "@/editor/blocks/block-definition";
-import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { DuplicateBlock } from "./DuplicateBlock";
 
 const STABLE_ID_PATTERN = /^[0-9A-Z_a-z-]{12}$/;
@@ -33,10 +31,10 @@ const TestMcqNode = Node.create({
   },
 });
 
-const testBlockDefinitions = createBlockRegistry([
-  defineBlock({ nodeType: "mcq" }),
-  defineBlock({ nodeType: "gallery" }),
-]);
+const EMPTY_BLOCK_DUPLICATIONS = Object.freeze({
+  getByNodeType: () => undefined,
+  hasNodeType: () => false,
+});
 
 const TestSelectableChoiceNode = Node.create({
   name: "selectable_choice",
@@ -164,7 +162,7 @@ describe("DuplicateBlock", () => {
 
     render(
       <TooltipProvider>
-        <DuplicateBlock blockDefinitions={testBlockDefinitions} editor={editor} pos={0} />
+        <DuplicateBlock blockDuplications={EMPTY_BLOCK_DUPLICATIONS} editor={editor} pos={0} />
       </TooltipProvider>,
     );
     await userEvent.click(screen.getByRole("button", { name: "Duplicate block" }));
@@ -189,7 +187,7 @@ describe("DuplicateBlock", () => {
 
     render(
       <TooltipProvider>
-        <DuplicateBlock blockDefinitions={testBlockDefinitions} editor={editor} pos={0} />
+        <DuplicateBlock blockDuplications={EMPTY_BLOCK_DUPLICATIONS} editor={editor} pos={0} />
       </TooltipProvider>,
     );
     await userEvent.click(screen.getByRole("button", { name: "Duplicate block" }));
@@ -215,20 +213,21 @@ describe("DuplicateBlock", () => {
 
   it("routes controlled duplication through the mounted Block owner", async () => {
     const editor = makeGalleryEditor();
-    const rewriteCopiedContent = vi.fn(({ content }) => ({
+    const duplication = vi.fn(({ content }) => ({
       ...content,
       attrs: {
         ...content.attrs,
         data: { rewrittenBy: "mounted-owner" },
       },
     }));
-    const blockDefinitions = createBlockRegistry([
-      defineBlock({ nodeType: "gallery", rewriteCopiedContent }),
-    ]);
+    const blockDuplications = Object.freeze({
+      getByNodeType: (nodeType: string) => (nodeType === "gallery" ? duplication : undefined),
+      hasNodeType: (nodeType: string) => nodeType === "gallery",
+    });
 
     render(
       <TooltipProvider>
-        <DuplicateBlock blockDefinitions={blockDefinitions} editor={editor} pos={0} />
+        <DuplicateBlock blockDuplications={blockDuplications} editor={editor} pos={0} />
       </TooltipProvider>,
     );
     await userEvent.click(screen.getByRole("button", { name: "Duplicate block" }));
@@ -236,7 +235,7 @@ describe("DuplicateBlock", () => {
     const galleries = ((editor.getJSON().content ?? []) as JSONContent[]).filter(
       (node) => node.type === "gallery",
     );
-    expect(rewriteCopiedContent).toHaveBeenCalledOnce();
+    expect(duplication).toHaveBeenCalledOnce();
     expect(galleries[0]?.attrs?.["data"]).toBeNull();
     expect(galleries[1]?.attrs?.["data"]).toEqual({ rewrittenBy: "mounted-owner" });
 

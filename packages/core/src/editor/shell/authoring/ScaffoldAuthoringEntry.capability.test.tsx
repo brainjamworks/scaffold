@@ -28,9 +28,20 @@ describe("ScaffoldAuthoringEntry capability failure", () => {
       <ScaffoldAuthoringEntry
         application={testApplication}
         artifact={null}
+        productAccess={{ scaffoldPlusAuthorized: false }}
         services={{
           artifactCreation: { createArtifactMetadata: vi.fn() },
-          artifactPersistence: { saveArtifact: vi.fn(async () => ({})) },
+          artifactPersistence: {
+            saveArtifact: vi.fn(async () => ({ artifactRevision: "revision-created" })),
+          },
+          learnerPublication: {
+            getStatus: vi.fn(async () => ({
+              currentArtifactRevision: "revision-created",
+              publishedArtifactRevision: null,
+              publishedAt: null,
+            })),
+            publish: vi.fn(),
+          },
           media: null,
         }}
       />,
@@ -38,10 +49,12 @@ describe("ScaffoldAuthoringEntry capability failure", () => {
 
     await user.click(screen.getByRole("button", { name: "Create page" }));
 
-    const unavailable = await screen.findByRole("alert");
-    expect(unavailable.textContent).toContain("Scaffold document creation could not be loaded.");
+    const unavailable = await screen.findByRole("alert", {
+      name: "Document creation couldn’t load",
+    });
+    expect(unavailable.closest(".sc-app")).not.toBeNull();
     expect(unavailable.textContent).toContain("Reload this page to try again.");
-    expect(screen.getByRole("button", { name: "Reload" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reload page" })).toBeInTheDocument();
     expect(screen.queryByText("Document could not be created. Try again.")).toBeNull();
   });
 });

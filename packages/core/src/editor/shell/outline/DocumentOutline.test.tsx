@@ -12,6 +12,7 @@ import type {
   SemanticNavigationResult,
 } from "@/document/authoring/semantic-document/semantic-navigation";
 import type { SemanticDocumentSnapshot, SemanticItem } from "@/document/model/semantic-document";
+import type { CourseOutlineStructureAuthoringPort } from "./course-outline-structure-authoring";
 
 import { DocumentOutline, DocumentOutlineRowViewport } from "./DocumentOutline";
 
@@ -21,6 +22,20 @@ describe("DocumentOutline", () => {
   beforeEach(() => {
     scrollIntoView.mockClear();
     HTMLElement.prototype.scrollIntoView = scrollIntoView;
+  });
+
+  it("routes a Slideshow to Section groups and Surface cards instead of the full tree", () => {
+    const surface = item("surface", "surface", "Introduction", null, [
+      item("heading", "rich-text", "Heading", null),
+    ]);
+    const section = item("section", "course-section", "Section 1", null, [surface]);
+    const fixture = createFixtureFromRoots([section], "slideshow");
+
+    render(<DocumentOutline {...fixture.props} structureAuthoring={createStructurePort()} />);
+
+    expect(screen.getByRole("heading", { name: "Section 1" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Select Surface Introduction" })).toBeInTheDocument();
+    expect(screen.queryByRole("treeitem", { name: "Heading" })).toBeNull();
   });
 
   it("renders nested public items, supplied labels and payload-safe diagnostics", () => {
@@ -40,6 +55,167 @@ describe("DocumentOutline", () => {
     expect(screen.getByRole("treeitem", { name: /Paragraph/ })).toHaveAttribute("aria-level", "3");
     expect(screen.getByText("2 outline items could not be included.")).toBeInTheDocument();
     expect(screen.queryByText("must-not-render")).toBeNull();
+  });
+
+  it("expands Course Section roots when first observed without expanding member Surfaces", () => {
+    const paragraph = item("paragraph", "rich-text", "Paragraph", null);
+    const surface = item("surface", "surface", "Overview", null, [paragraph]);
+    const section = item("section", "course-section", "Introduction", null, [surface]);
+    const fixture = createFixtureFromRoots([section]);
+
+    render(<DocumentOutline {...fixture.props} />);
+
+    expect(screen.getByRole("treeitem", { name: "Introduction" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(screen.getByRole("treeitem", { name: "Overview" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(screen.queryByRole("treeitem", { name: "Paragraph" })).toBeNull();
+  });
+
+  it("keeps an empty Course Section as a quiet card destination without a redundant subtitle", () => {
+    const section = item("section", "course-section", "Practice", null);
+    const fixture = createFixtureFromRoots([section], "slideshow");
+
+    render(<DocumentOutline {...fixture.props} structureAuthoring={createStructurePort()} />);
+
+    expect(screen.getByRole("heading", { name: "Practice" })).toBeInTheDocument();
+    expect(document.querySelector('[data-destination="section:section00000:end"]')).not.toBeNull();
+    expect(screen.queryByText("No slides — drag slides here")).toBeNull();
+  });
+
+  it("preserves an explicit Course Section collapse across snapshot replacements", async () => {
+    const user = userEvent.setup();
+    const surface = item("surface", "surface", "Overview", null);
+    const section = item("section", "course-section", "Introduction", null, [surface]);
+    const fixture = createFixtureFromRoots([section]);
+    render(<DocumentOutline {...fixture.props} />);
+
+    await user.click(screen.getByRole("button", { name: "Collapse Introduction" }));
+    fixture.controller.replace(snapshotFromRoots([section]), null, null);
+
+    expect(screen.getByRole("treeitem", { name: "Introduction" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(screen.queryByRole("treeitem", { name: "Overview" })).toBeNull();
+  });
+
+  it("expands a newly inserted Course Section root", async () => {
+    const first = item("section", "course-section", "Introduction", null, [
+      item("surface", "surface", "Overview", null),
+    ]);
+    const fixture = createFixtureFromRoots([first]);
+    render(<DocumentOutline {...fixture.props} />);
+    const second = item("section-2", "course-section", "Practice", null, [
+      item("surface-2", "surface", "Exercise", null),
+    ]);
+
+    fixture.controller.replace(snapshotFromRoots([first, second]), null, null);
+
+    expect(await screen.findByRole("treeitem", { name: "Exercise" })).toHaveAttribute(
+      "aria-level",
+      "2",
+    );
+  });
+
+  it("offers Add Course Section only as an Outline-level action", async () => {
+    const user = userEvent.setup();
+    const fixture = createFixtureFromRoots(
+      [item("surface", "surface", "Overview", null)],
+      "slideshow",
+    );
+    const structure = createStructurePort();
+
+    render(<DocumentOutline {...fixture.props} structureAuthoring={structure} />);
+    await user.click(screen.getByRole("button", { name: "Add Course Section" }));
+    expect(screen.getByRole("dialog", { name: "Add Course Section" })).toHaveAttribute(
+      "data-intent",
+      "neutral",
+    );
+    await user.type(screen.getByRole("textbox", { name: "Course Section title" }), "Welcome");
+    await user.click(screen.getByRole("button", { name: "Add Course Section" }));
+
+    expect(structure.createCourseSection).toHaveBeenCalledWith("Welcome");
+    expect(screen.getByText("Course Section added.")).toHaveClass(
+      "sc-document-outline-status",
+      "sc-document-outline-status--visually-hidden",
+    );
+    expect(screen.queryByRole("button", { name: "More actions for Overview" })).toBeNull();
+  });
+
+  it("offers canonical title, duplicate and remove actions only on Course Section rows", async () => {
+    const user = userEvent.setup();
+    const section = item("section", "course-section", "Introduction", null, [
+      item("surface", "surface", "Overview", null),
+    ]);
+    const fixture = createFixtureFromRoots([section], "slideshow");
+    const structure = createStructurePort();
+    render(<DocumentOutline {...fixture.props} structureAuthoring={structure} />);
+
+    await user.click(screen.getByRole("button", { name: "More actions for Introduction" }));
+    await user.click(screen.getByRole("menuitem", { name: "Edit Course Section title" }));
+    const title = screen.getByRole("textbox", { name: "Course Section title" });
+    await user.clear(title);
+    await user.type(title, "Foundations");
+    await user.click(screen.getByRole("button", { name: "Save Course Section title" }));
+    expect(structure.renameCourseSection).toHaveBeenCalledWith({
+      courseSectionId: id("section"),
+      title: "Foundations",
+    });
+
+    await user.click(screen.getByRole("button", { name: "More actions for Introduction" }));
+    await user.click(screen.getByRole("menuitem", { name: "Duplicate Course Section" }));
+    expect(structure.duplicateCourseSection).toHaveBeenCalledWith(id("section"));
+
+    await user.click(screen.getByRole("button", { name: "More actions for Introduction" }));
+    await user.click(screen.getByRole("menuitem", { name: "Delete Course Section" }));
+    expect(screen.getByRole("alertdialog", { name: "Delete Course Section" })).toHaveAttribute(
+      "data-intent",
+      "danger",
+    );
+    expect(screen.getByRole("list", { name: "Related Surfaces" })).toHaveTextContent("Overview");
+    const deleteButton = screen.getByRole("button", { name: "Delete Course Section" });
+    expect(deleteButton).toHaveAttribute("data-variant", "danger");
+    await user.click(deleteButton);
+    expect(structure.deleteCourseSection).toHaveBeenCalledWith({
+      courseSectionId: id("section"),
+      expectedSurfaceIds: [id("surface")],
+    });
+  });
+
+  it("renders drag handles only for eligible Surface rows", () => {
+    const section = item("section", "course-section", "Introduction", null, [
+      item("surface", "surface", "Overview", null, [
+        item("region", "region", "Main content", null),
+      ]),
+      item("surface-2", "surface", "Practice", null),
+    ]);
+    const fixture = createFixtureFromRoots([section], "slideshow");
+    const structure = createStructurePort();
+    structure.canMoveSurface.mockReturnValue(true);
+
+    render(<DocumentOutline {...fixture.props} structureAuthoring={structure} />);
+
+    expect(screen.getByRole("button", { name: "Move Surface Overview" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Move Surface Practice" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Move Surface Introduction/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Move Surface Main content/ })).toBeNull();
+  });
+
+  it("keeps a one-Surface Page free of Section actions and movement", () => {
+    const fixture = createFixtureFromRoots([item("surface", "surface", "Page", null)]);
+    const structure = createStructurePort();
+    structure.canMoveSurface.mockReturnValue(true);
+
+    render(<DocumentOutline {...fixture.props} structureAuthoring={structure} />);
+
+    expect(screen.queryByRole("button", { name: "More actions for Page" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Move Surface Page" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add Course Section" })).toBeNull();
   });
 
   it("supports roving tree focus, expansion and selection from the keyboard", async () => {
@@ -205,6 +381,21 @@ function createFixture() {
   };
 }
 
+function createFixtureFromRoots(
+  roots: readonly SemanticItem[],
+  mode: SemanticDocumentSnapshot["mode"] = "page",
+) {
+  const snapshot = snapshotFromRoots(roots, mode);
+  const controller = new FakeSemanticDocumentController(snapshot);
+  const viewport = new DocumentOutlineRowViewport();
+  const view = new SemanticHierarchyViewController({
+    controller,
+    origin: "document-outline",
+    viewport,
+  });
+  return { controller, snapshot, view, props: { controller, viewController: view, viewport } };
+}
+
 function id(value: string): EmbeddedNodeId {
   return value.padEnd(12, "0") as EmbeddedNodeId;
 }
@@ -228,7 +419,10 @@ function item(
   };
 }
 
-function snapshotFromRoots(roots: readonly SemanticItem[]): SemanticDocumentSnapshot {
+function snapshotFromRoots(
+  roots: readonly SemanticItem[],
+  mode: SemanticDocumentSnapshot["mode"] = "page",
+): SemanticDocumentSnapshot {
   const itemById = new Map<EmbeddedNodeId, SemanticItem>();
   const parentById = new Map<EmbeddedNodeId, EmbeddedNodeId | null>();
   const visit = (entry: SemanticItem, parentId: EmbeddedNodeId | null) => {
@@ -239,7 +433,7 @@ function snapshotFromRoots(roots: readonly SemanticItem[]): SemanticDocumentSnap
   roots.forEach((root) => visit(root, null));
   return {
     revision: 1,
-    mode: "page",
+    mode,
     roots,
     itemById,
     parentById,
@@ -287,4 +481,15 @@ class FakeSemanticDocumentController {
     this.#snapshot = { semantics, selectedId, selectionOrigin };
     for (const listener of this.#listeners) listener();
   }
+}
+
+function createStructurePort() {
+  return {
+    createCourseSection: vi.fn(() => ({ ok: true as const })),
+    canMoveSurface: vi.fn(() => false),
+    renameCourseSection: vi.fn(() => ({ ok: true as const })),
+    duplicateCourseSection: vi.fn(() => ({ ok: true as const })),
+    deleteCourseSection: vi.fn(() => ({ ok: true as const })),
+    moveSurface: vi.fn(() => ({ ok: true as const })),
+  } satisfies CourseOutlineStructureAuthoringPort;
 }

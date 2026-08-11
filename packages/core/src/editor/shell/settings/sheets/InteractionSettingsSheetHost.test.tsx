@@ -148,12 +148,11 @@ function makeLayoutEditor() {
         {
           type: "layout",
           attrs: {
-            id: "layout-process-flow",
-            variant: "process-flow",
+            id: "layout-tabs",
+            variant: "tabs",
             options: {
-              orientation: "horizontal",
-              showNumbers: true,
-              showConnectors: true,
+              variant: "default",
+              label: "Tabs",
             },
           },
           content: [
@@ -227,7 +226,7 @@ describe("InteractionSettingsSheetHost", () => {
   it("renders and saves built-in layout settings through the interaction owner", async () => {
     const editor = makeLayoutEditor();
     const layoutTarget: InteractionTargetRef = {
-      id: "layout-process-flow",
+      id: "layout-tabs",
       kind: InteractionTargetKind.Layout,
       pos: 0,
     };
@@ -237,19 +236,18 @@ describe("InteractionSettingsSheetHost", () => {
 
     renderHost(editor, store);
 
-    expect(await screen.findByText("Process flow settings")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Presentation" })).toHaveAttribute(
+    expect(await screen.findByText("Tabs settings")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Tabs" })).toHaveAttribute(
       "aria-expanded",
       "true",
     );
-    await userEvent.click(screen.getByRole("combobox", { name: "Orientation" }));
-    await userEvent.click(screen.getByRole("option", { name: "Vertical" }));
+    await userEvent.click(screen.getByRole("combobox", { name: "Style" }));
+    await userEvent.click(screen.getByRole("option", { name: "Pills" }));
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(editor.state.doc.nodeAt(0)?.attrs["options"]).toEqual({
-      orientation: "vertical",
-      showNumbers: true,
-      showConnectors: true,
+      variant: "pills",
+      label: "Tabs",
     });
   });
 

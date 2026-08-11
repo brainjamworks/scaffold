@@ -12,7 +12,7 @@ import { createScaffoldDocumentContent } from "@/format/artifact";
 import { useScaffoldArtifactIdentity } from "@/host/providers/ScaffoldArtifactIdentityProvider";
 import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
 
-import { ContentAuthorHost } from "./ContentAuthorHost";
+import { ContentAuthorHost } from "./ContentAuthorHost.test-harness";
 
 const coreAuthoringComposition = createScaffoldApplication().authoring;
 
@@ -182,7 +182,7 @@ describe("ContentAuthorHost", () => {
     expect(nextCourseDocument?.content?.[0]?.attrs?.["id"]).toBe("nextsurf0001");
   });
 
-  it("starts a fresh editor session only when authoring composition identity changes", async () => {
+  it("starts a fresh editor session only when prepared input identity changes", async () => {
     const content = createScaffoldDocumentContent({ mode: "page" });
     const firstApplication = createScaffoldApplication();
     const nextApplication = createScaffoldApplication();
@@ -205,7 +205,7 @@ describe("ContentAuthorHost", () => {
         agentIntegration={ScaffoldUnavailableAgentIntegration}
         artifactId="stable-artifact"
         composition={firstApplication.authoring}
-        content={structuredClone(content)}
+        content={content}
         onEditorReady={onEditorReady}
       />,
     );

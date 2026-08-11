@@ -1,0 +1,22 @@
+@layer sc-reset, sc-base, sc-components, sc-overlays, sc-adapters;
+
+@layer sc-components {
+  .sc-scaffold-authoring-entry-surface {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    min-height: 100%;
+    background: var(--sc-app-color-canvas);
+    color: var(--sc-app-color-text-primary);
+    font-family: var(--sc-app-font-family);
+  }
+
+  .sc-scaffold-authoring-entry-surface__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 4rem;
+    border-bottom: 1px solid var(--sc-app-color-border-subtle);
+    padding-inline: clamp(1rem, 4vw, 2rem);
+    background: var(--sc-app-color-background);
+  }
+}

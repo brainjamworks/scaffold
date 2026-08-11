@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 
+import { CircleIcon } from "@phosphor-icons/react";
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Editor, Node } from "@tiptap/core";
@@ -9,6 +10,8 @@ import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { z } from "zod";
 
+import { createScaffoldApplication } from "@/composition/application/create-scaffold-application";
+import { createScaffoldCapabilitiesStorageExtension } from "@/composition/extensions/scaffold-capabilities-storage";
 import { AssessmentChoicesGroupNode } from "@/editor/blocks/assessment/shared/nodes/assessment-choices-group";
 import { AssessmentActionsGroupNode } from "@/editor/blocks/assessment/shared/nodes/assessment-actions-group";
 import { AssessmentHintNode } from "@/editor/blocks/assessment/shared/nodes/assessment-hint";
@@ -18,6 +21,7 @@ import { AssessmentPromptNode } from "@/editor/blocks/assessment/shared/nodes/as
 import { AssessmentSummaryFeedbackNode } from "@/editor/blocks/assessment/shared/nodes/assessment-summary-feedback";
 import { AssessmentTitleNode } from "@/editor/blocks/assessment/shared/nodes/assessment-title";
 import { defineBlock } from "@/editor/blocks/block-definition";
+import { createBlockRegistry } from "@/editor/blocks/block-registry";
 import { builtInBlockRegistry } from "@/editor/blocks/built-in-block-definitions";
 import { McqNode } from "@/editor/blocks/assessment/mcq/node";
 import { QuizNode } from "@/editor/blocks/assessment/quiz/node";
@@ -54,11 +58,13 @@ const MCQ_ID = "mcq000000001";
 const OPTION_ID = "option000001";
 const CONFIGURATION_ID = "config000001";
 const QUIZ_ID = "quiz00000001";
+const coreCapabilities = createScaffoldApplication().capabilities;
 
 function makeEditor(initialSettings: unknown = {}) {
   const editor = new Editor({
     extensions: [
       StarterKit.configure({ undoRedo: false, paragraph: false }),
+      createScaffoldCapabilitiesStorageExtension(coreCapabilities),
       createTestNodeIdentityExtension(),
       ExtendedParagraph,
       AssessmentTitleNode,
@@ -300,6 +306,7 @@ function makeConfigurationSheetEditor(initialSettings: unknown = {}) {
   const editor = new Editor({
     extensions: [
       StarterKit.configure({ undoRedo: false }),
+      createScaffoldCapabilitiesStorageExtension(coreCapabilities),
       createTestNodeIdentityExtension(),
       TestConfigurationSheetNode,
     ],
@@ -327,11 +334,12 @@ function renderSettingsSheet(
   onOpenChange = vi.fn(),
   entry = testNodeSettingsSheetDefinition,
 ) {
+  if (!entry) throw new Error("Expected a registered settings sheet definition.");
   render(
     createElement(ConfigurationSettingsSheet, {
       editor,
       nodeType: "mcq",
-      ...(entry ? { entry } : {}),
+      entry,
       pos,
       targetId: MCQ_ID,
       open: true,
@@ -425,6 +433,7 @@ function makeQuizChildEditor(initialSettings: unknown = {}) {
   const editor = new Editor({
     extensions: [
       StarterKit.configure({ undoRedo: false, paragraph: false }),
+      createScaffoldCapabilitiesStorageExtension(coreCapabilities),
       createTestNodeIdentityExtension(),
       ExtendedParagraph,
       AssessmentTitleNode,
@@ -508,7 +517,26 @@ describe("ConfigurationSettingsSheet", () => {
     ["image_block", "Image"],
     ["audio_block", "Audio"],
   ])("resolves divergent node type %s through its insert title", (nodeType, title) => {
-    expect(resolveSettingsTargetTitle(nodeType)).toBe(title);
+    expect(resolveSettingsTargetTitle(nodeType, builtInBlockRegistry)).toBe(title);
+  });
+
+  it("resolves a host Block title through the mounted Block lookup", () => {
+    const nodeType = "host_settings_title_block";
+    const blockDefinitions = createBlockRegistry([
+      {
+        nodeType,
+        insert: {
+          id: "host-settings-title-block",
+          title: "Private host settings",
+          description: "Configure the private host Block",
+          icon: CircleIcon,
+          category: "content",
+          content: () => ({ type: nodeType }),
+        },
+      },
+    ]);
+
+    expect(resolveSettingsTargetTitle(nodeType, blockDefinitions)).toBe("Private host settings");
   });
 
   it("marks quiz-managed assessment child controls while leaving per-question controls editable", async () => {
@@ -1044,6 +1072,7 @@ describe("applySettingsSheetSettings", () => {
     const editor = new Editor({
       extensions: [
         StarterKit,
+        createScaffoldCapabilitiesStorageExtension(coreCapabilities),
         createTestNodeIdentityExtension(),
         TestCollectionSettingsOwnerNode,
         TestCollectionSettingsItemNode,
