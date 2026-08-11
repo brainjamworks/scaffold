@@ -13,7 +13,8 @@ export {
   type CourseThemeProviderProps,
 } from "@/theme/course/CourseThemeProvider";
 export type {
-  ScaffoldAuthoringHeaderActionsContext,
+  ScaffoldAuthoringHostActionSlots,
+  ScaffoldAuthoringHostActionsContext,
   ScaffoldAuthoringSaveState,
   ScaffoldPreviewServicesFactory,
   ScaffoldLearnerPreviewContent,

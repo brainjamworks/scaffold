@@ -12,7 +12,8 @@ import type {
   ScaffoldAuthoringComposition,
   ScaffoldAuthoringEntryHostServices,
   ScaffoldAuthoringEntryProps,
-  ScaffoldAuthoringHeaderActionsContext,
+  ScaffoldAuthoringHostActionSlots,
+  ScaffoldAuthoringHostActionsContext,
   ScaffoldAuthoringHostServices,
   ScaffoldAuthoringSaveState,
   ScaffoldLearnerHostServices,
@@ -31,7 +32,8 @@ type AuthoringTypeSurface = {
   artifact: ScaffoldAuthoringArtifact;
   entryHostServices: ScaffoldAuthoringEntryHostServices;
   entryProps: ScaffoldAuthoringEntryProps;
-  headerActionsContext: ScaffoldAuthoringHeaderActionsContext;
+  hostActionSlots: ScaffoldAuthoringHostActionSlots;
+  hostActionsContext: ScaffoldAuthoringHostActionsContext;
   hostServices: ScaffoldAuthoringHostServices;
   learnerHostServices: ScaffoldLearnerHostServices;
   learnerPreviewContent: ScaffoldLearnerPreviewContent;
@@ -72,6 +74,18 @@ describe("@scaffold/core/authoring", () => {
     >().toEqualTypeOf<false>();
     expectTypeOf<
       "initialSavedArtifactRevision" extends keyof ScaffoldAuthoringEntryProps ? true : false
+    >().toEqualTypeOf<false>();
+    expectTypeOf<
+      "hostHeaderActions" extends keyof ScaffoldAuthoringEntryProps ? true : false
+    >().toEqualTypeOf<true>();
+    expectTypeOf<
+      "headerActions" extends keyof ScaffoldAuthoringEntryProps ? true : false
+    >().toEqualTypeOf<false>();
+    expectTypeOf<
+      "publishNow" extends keyof ScaffoldAuthoringHostActionsContext ? true : false
+    >().toEqualTypeOf<false>();
+    expectTypeOf<
+      "publishState" extends keyof ScaffoldAuthoringHostActionsContext ? true : false
     >().toEqualTypeOf<false>();
     expectTypeOf<
       "learningEvents" extends keyof Awaited<ReturnType<ScaffoldPreviewServicesFactory>>

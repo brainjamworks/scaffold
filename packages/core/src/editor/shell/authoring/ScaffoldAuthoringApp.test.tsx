@@ -269,8 +269,8 @@ Object.assign(mocks.fakeEditor.storage, {
 
 import {
   ScaffoldAuthoringApp as PublicScaffoldAuthoringApp,
-  type ScaffoldAuthoringHeaderActionsContext,
   type ScaffoldAuthoringAppProps,
+  type ScaffoldAuthoringHostActionsContext,
 } from "./ScaffoldAuthoringApp";
 import { ScaffoldAuthoringEntry } from "./ScaffoldAuthoringEntry";
 
@@ -488,7 +488,7 @@ function createControlledArtifactHost() {
 function renderSaveCoordinatorHarness(
   saveArtifact: (payload: ArtifactSavePayload) => Promise<unknown>,
 ) {
-  let actions: ScaffoldAuthoringHeaderActionsContext | null = null;
+  let actions: ScaffoldAuthoringHostActionsContext | null = null;
   render(
     <ScaffoldAuthoringApp
       application={testApplication}
@@ -499,9 +499,9 @@ function renderSaveCoordinatorHarness(
         content: mocks.authorJSON,
       }}
       services={{ artifactPersistence: { saveArtifact }, media: null }}
-      headerActions={(context) => {
+      hostHeaderActions={(context) => {
         actions = context;
-        return <span data-testid="coordinator-publish-state">{context.publishState}</span>;
+        return {};
       }}
     />,
   );
@@ -534,6 +534,12 @@ function renderSaveCoordinatorHarness(
   };
 
   return { getActions, invalidate, saveNow, update };
+}
+
+function getCorePublishAction(): HTMLButtonElement {
+  const action = document.querySelector<HTMLButtonElement>(".sc-app-publish-action");
+  if (!action) throw new Error("Core Publish action is unavailable");
+  return action;
 }
 
 describe("ScaffoldAuthoringApp preview", () => {
@@ -803,6 +809,7 @@ describe("ScaffoldAuthoringApp preview", () => {
 
     expect(saveArtifact).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("banner")).toHaveAttribute("data-save-state", "saved");
+    expect(document.querySelectorAll(".sc-app-notification")).toHaveLength(0);
   });
 
   it("starts a newer Save only after the in-flight Save settles", async () => {
@@ -955,7 +962,7 @@ describe("ScaffoldAuthoringApp preview", () => {
     harness.invalidate();
 
     expect(screen.getByRole("banner")).toHaveAttribute("data-save-state", "error");
-    expect(screen.getByTestId("coordinator-publish-state")).toHaveTextContent("invalid");
+    expect(getCorePublishAction()).toHaveAttribute("data-publish-state", "invalid");
 
     await act(async () => {
       host.resolve(0, "revision-a");
@@ -1006,16 +1013,16 @@ describe("ScaffoldAuthoringApp preview", () => {
     const harness = renderSaveCoordinatorHarness(host.saveArtifact);
 
     await waitFor(() =>
-      expect(screen.getByTestId("coordinator-publish-state")).toHaveTextContent("not-published"),
+      expect(getCorePublishAction()).toHaveAttribute("data-publish-state", "not-published"),
     );
     const save = harness.saveNow();
-    expect(screen.getByTestId("coordinator-publish-state")).toHaveTextContent("unsaved");
+    expect(getCorePublishAction()).toHaveAttribute("data-publish-state", "unsaved");
 
     await act(async () => {
       host.resolve(0, "revision-current");
       await save;
     });
-    expect(screen.getByTestId("coordinator-publish-state")).toHaveTextContent("not-published");
+    expect(getCorePublishAction()).toHaveAttribute("data-publish-state", "not-published");
   });
 
   it("cancels pending autosave when canonicalization rejects the latest edit", () => {
@@ -1071,11 +1078,13 @@ describe("ScaffoldAuthoringApp preview", () => {
           content: mocks.authorJSON,
         }}
         services={{ artifactPersistence: { saveArtifact }, media: null }}
-        headerActions={({ saveNow }) => (
-          <button type="button" onClick={() => void saveNow()}>
-            Save now
-          </button>
-        )}
+        hostHeaderActions={({ saveNow }) => ({
+          beforePublish: (
+            <button type="button" onClick={() => void saveNow()}>
+              Save now
+            </button>
+          ),
+        })}
       />,
     );
 
@@ -1370,6 +1379,67 @@ describe("ScaffoldAuthoringApp preview", () => {
     expect(document.querySelectorAll(".sc-app-notification")).toHaveLength(1);
   });
 
+  it("starts a new notification operation after published content changes", async () => {
+    const user = userEvent.setup();
+    const saveArtifact = vi.fn(async () => ({ artifactRevision: "revision-2" }));
+    const publish = vi.fn(async (payload: LearnerPublicationPayload) => ({
+      currentArtifactRevision: payload.sourceArtifactRevision,
+      publishedArtifactRevision: payload.sourceArtifactRevision,
+      publishedAt: "2026-08-11T12:00:00.000Z",
+    }));
+
+    render(
+      <ScaffoldAuthoringApp
+        application={testApplication}
+        artifact={{
+          id: "artifact-separate-publication-operations",
+          title: "Draft",
+          mode: "page",
+          content: mocks.authorJSON,
+        }}
+        services={{
+          artifactPersistence: { saveArtifact },
+          learnerPublication: {
+            getStatus: async () => ({
+              currentArtifactRevision: "revision-1",
+              publishedArtifactRevision: null,
+              publishedAt: null,
+            }),
+            publish,
+          },
+          media: null,
+        }}
+        hostHeaderActions={({ saveNow }) => ({
+          beforePublish: (
+            <button type="button" onClick={() => void saveNow()}>
+              Save changes
+            </button>
+          ),
+        })}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(getCorePublishAction()).toHaveAttribute("data-publish-state", "not-published"),
+    );
+    await user.click(getCorePublishAction());
+    expect(await screen.findByText("Publication complete")).toBeVisible();
+
+    mocks.authorJSON = pageDocumentWithParagraph("authorsurf01", "A separate publication");
+    const onUpdate = mocks.contentAuthorHostProps.at(-1)?.["onUpdate"] as
+      | ((content: JSONContent, unavailableContent: readonly []) => void)
+      | undefined;
+    act(() => onUpdate?.(mocks.authorJSON, []));
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() =>
+      expect(getCorePublishAction()).toHaveAttribute("data-publish-state", "unpublished"),
+    );
+    await user.click(getCorePublishAction());
+
+    await waitFor(() => expect(publish).toHaveBeenCalledTimes(2));
+    expect(document.querySelectorAll(".sc-app-notification")).toHaveLength(2);
+  });
+
   it("publishes only the latest successfully saved canonical generation", async () => {
     const user = userEvent.setup();
     const saveArtifact = vi.fn(async () => ({ artifactRevision: "revision-2" }));
@@ -1400,23 +1470,18 @@ describe("ScaffoldAuthoringApp preview", () => {
           },
           media: null,
         }}
-        headerActions={({ hasUnpublishedChanges, publishNow, publishState, saveNow }) => (
-          <>
+        hostHeaderActions={({ saveNow }) => ({
+          beforePublish: (
             <button type="button" onClick={() => void saveNow()}>
               Save now
             </button>
-            <button type="button" onClick={() => void publishNow()}>
-              Publish now
-            </button>
-            <span data-testid="publish-state">{publishState}</span>
-            <span data-testid="unpublished-state">{String(hasUnpublishedChanges)}</span>
-          </>
-        )}
+          ),
+        })}
       />,
     );
 
     await waitFor(() =>
-      expect(screen.getByTestId("publish-state")).toHaveTextContent("not-published"),
+      expect(getCorePublishAction()).toHaveAttribute("data-publish-state", "not-published"),
     );
     mocks.authorJSON = pageDocumentWithParagraph("authorsurf01", "Unsaved generation");
     const onUpdate = mocks.contentAuthorHostProps.at(-1)?.["onUpdate"] as
@@ -1424,13 +1489,12 @@ describe("ScaffoldAuthoringApp preview", () => {
       | undefined;
     act(() => onUpdate?.(mocks.authorJSON, []));
 
-    await user.click(screen.getByRole("button", { name: "Publish now" }));
     expect(publish).not.toHaveBeenCalled();
-    expect(screen.getByTestId("publish-state")).toHaveTextContent("unsaved");
+    expect(getCorePublishAction()).toHaveAttribute("data-publish-state", "unsaved");
 
     await user.click(screen.getByRole("button", { name: "Save now" }));
     await waitFor(() => expect(saveArtifact).toHaveBeenCalledTimes(1));
-    await user.click(screen.getByRole("button", { name: "Publish now" }));
+    await user.click(getCorePublishAction());
 
     await waitFor(() => expect(publish).toHaveBeenCalledTimes(1));
     expect(publish).toHaveBeenCalledWith({
@@ -1445,8 +1509,7 @@ describe("ScaffoldAuthoringApp preview", () => {
       assessmentTargets: [],
       assessmentGroups: [],
     });
-    expect(screen.getByTestId("publish-state")).toHaveTextContent("published");
-    expect(screen.getByTestId("unpublished-state")).toHaveTextContent("false");
+    expect(getCorePublishAction()).toHaveAttribute("data-publish-state", "published");
   });
 
   it("saves an empty quiz canonically and publishes learner content without it", async () => {
@@ -1478,16 +1541,13 @@ describe("ScaffoldAuthoringApp preview", () => {
           },
           media: null,
         }}
-        headerActions={({ publishNow, saveNow }) => (
-          <>
+        hostHeaderActions={({ saveNow }) => ({
+          beforePublish: (
             <button type="button" onClick={() => void saveNow()}>
               Save empty quiz
             </button>
-            <button type="button" onClick={() => void publishNow()}>
-              Publish without empty quiz
-            </button>
-          </>
-        )}
+          ),
+        })}
       />,
     );
 
@@ -1497,7 +1557,7 @@ describe("ScaffoldAuthoringApp preview", () => {
       findJsonNode(content, "quiz"),
     );
 
-    await user.click(screen.getByRole("button", { name: "Publish without empty quiz" }));
+    await user.click(getCorePublishAction());
     await waitFor(() => expect(publish).toHaveBeenCalledTimes(1));
     const publication = publish.mock.calls[0]?.[0];
     expect(findJsonNode(publication?.learnerContent, "quiz")).toBeUndefined();
@@ -1532,17 +1592,13 @@ describe("ScaffoldAuthoringApp preview", () => {
           },
           media: null,
         }}
-        headerActions={({ publishNow, publishState, saveNow }) => (
-          <>
+        hostHeaderActions={({ saveNow }) => ({
+          beforePublish: (
             <button type="button" onClick={() => void saveNow()}>
               Save now
             </button>
-            <button type="button" onClick={() => void publishNow()}>
-              Publish now
-            </button>
-            <span data-testid="publish-state">{publishState}</span>
-          </>
-        )}
+          ),
+        })}
       />,
     );
 
@@ -1558,8 +1614,10 @@ describe("ScaffoldAuthoringApp preview", () => {
     act(() => onDocumentError?.({ status: "canonicalization-failed", issues: [] }));
     saveResult.resolve({ artifactRevision: "revision-2" });
 
-    await waitFor(() => expect(screen.getByTestId("publish-state")).toHaveTextContent("invalid"));
-    await user.click(screen.getByRole("button", { name: "Publish now" }));
+    await waitFor(() =>
+      expect(getCorePublishAction()).toHaveAttribute("data-publish-state", "invalid"),
+    );
+    await user.click(getCorePublishAction());
     expect(publish).not.toHaveBeenCalled();
     expect(screen.getByRole("banner")).toHaveAttribute("data-save-state", "error");
   });
@@ -1584,11 +1642,13 @@ describe("ScaffoldAuthoringApp preview", () => {
           artifactPersistence: { saveArtifact },
           media: null,
         }}
-        headerActions={({ saveNow }) => (
-          <button type="button" onClick={() => void saveNow()}>
-            Save now
-          </button>
-        )}
+        hostHeaderActions={({ saveNow }) => ({
+          beforePublish: (
+            <button type="button" onClick={() => void saveNow()}>
+              Save now
+            </button>
+          ),
+        })}
       />,
     );
 
@@ -1622,11 +1682,13 @@ describe("ScaffoldAuthoringApp preview", () => {
         application={testApplication}
         artifact={{ id: "artifact-plus", title: "Plus", mode: "page", content }}
         services={{ artifactPersistence: { saveArtifact }, media: null }}
-        headerActions={({ saveNow }) => (
-          <button type="button" onClick={() => void saveNow()}>
-            Save unavailable
-          </button>
-        )}
+        hostHeaderActions={({ saveNow }) => ({
+          beforePublish: (
+            <button type="button" onClick={() => void saveNow()}>
+              Save unavailable
+            </button>
+          ),
+        })}
       />,
     );
 
@@ -2104,29 +2166,21 @@ describe("ScaffoldAuthoringApp preview", () => {
           },
           media: null,
         }}
-        headerActions={({ publishNow, publishState }) => (
-          <>
-            <button type="button" onClick={() => void publishNow()}>
-              Publish created artifact
-            </button>
-            <span data-testid="created-publish-state">{publishState}</span>
-          </>
-        )}
       />,
     );
 
     await user.click(screen.getByRole("button", { name: "Create page" }));
     await screen.findByTestId("content-author-host");
     await waitFor(() =>
-      expect(screen.getByTestId("created-publish-state")).toHaveTextContent("not-published"),
+      expect(getCorePublishAction()).toHaveAttribute("data-publish-state", "not-published"),
     );
 
-    await user.click(screen.getByRole("button", { name: "Publish created artifact" }));
+    await user.click(getCorePublishAction());
 
     await waitFor(() => expect(publish).toHaveBeenCalledTimes(1));
     expect(publish.mock.calls[0]?.[0]?.sourceArtifactRevision).toBe("revision-created");
     expect(saveArtifact).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId("created-publish-state")).toHaveTextContent("published");
+    expect(getCorePublishAction()).toHaveAttribute("data-publish-state", "published");
   });
 
   it("keeps the creation gate open when artifact creation fails", async () => {

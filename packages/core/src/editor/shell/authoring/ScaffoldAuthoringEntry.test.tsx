@@ -129,7 +129,6 @@ function renderEntry({
     artifactRevision: "revision-created",
   })),
   learnerPublication = createLearnerPublicationPort(),
-  headerActions,
   application = testApplication,
   productAccess = coreProductAccess,
 }: {
@@ -137,7 +136,6 @@ function renderEntry({
   createArtifactMetadata?: EntryProps["services"]["artifactCreation"]["createArtifactMetadata"];
   saveArtifact?: EntryProps["services"]["artifactPersistence"]["saveArtifact"];
   learnerPublication?: EntryProps["services"]["learnerPublication"];
-  headerActions?: EntryProps["headerActions"];
   application?: EntryProps["application"];
   productAccess?: EntryProps["productAccess"];
 } = {}) {
@@ -152,7 +150,6 @@ function renderEntry({
         learnerPublication,
         media: null,
       }}
-      {...(headerActions ? { headerActions } : {})}
     />,
   );
 }

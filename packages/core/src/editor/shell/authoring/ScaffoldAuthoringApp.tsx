@@ -138,16 +138,6 @@ export interface PrepareScaffoldLearnerPreviewArgs {
   title: string;
 }
 
-export interface ScaffoldAuthoringHeaderActionsContext {
-  hasUnpublishedChanges: boolean;
-  publishNow: () => Promise<boolean>;
-  publishState: ScaffoldAuthoringPublishState;
-  saveState: ScaffoldAuthoringSaveState;
-  saveNow: () => Promise<boolean>;
-  title: string;
-  preview: boolean;
-}
-
 export interface ScaffoldAuthoringHostActionsContext {
   saveState: ScaffoldAuthoringSaveState;
   saveNow: () => Promise<boolean>;
@@ -179,12 +169,6 @@ export interface ScaffoldAuthoringAppProps {
   artifact: ScaffoldAuthoringArtifact;
   productAccess: ScaffoldProductAccess;
   services: ScaffoldAuthoringHostServices;
-  /**
-   * Host-specific header actions, for example XBlock Save / Done or a
-   * browser Reset button. Scaffold-owned actions such as Agent and
-   * Preview are rendered by this app shell.
-   */
-  headerActions?: (context: ScaffoldAuthoringHeaderActionsContext) => ReactNode;
   /**
    * Host-owned actions placed around Core's publication action. Publication
    * state and commands intentionally remain private to the Core app shell.
@@ -262,7 +246,6 @@ function ScaffoldAuthoringAppSessionContent({
   initialSavedArtifactRevision,
   productAccess,
   services,
-  headerActions,
   hostHeaderActions,
   agentOpen = false,
   onAgentOpenChange,
@@ -584,6 +567,7 @@ function ScaffoldAuthoringAppSessionContent({
     (_failure: CourseDocumentAuthoringFailure) => {
       invalidWorkingStateRef.current.value = true;
       publicationLifecycleRef.current.generation += 1;
+      publicationNotificationIdRef.current = null;
       saveMachineRef.current.invalidate();
       setPublishActionState("invalid");
       refreshPublicationLifecycleView();
@@ -635,6 +619,7 @@ function ScaffoldAuthoringAppSessionContent({
     (content: JSONContent) => {
       invalidWorkingStateRef.current.value = false;
       publicationLifecycleRef.current.generation += 1;
+      publicationNotificationIdRef.current = null;
       setPublishActionState(null);
       refreshPublicationLifecycleView();
       latestContentRef.current = {
@@ -961,30 +946,13 @@ function ScaffoldAuthoringAppSessionContent({
       saveInProgress: saveMachineRef.current.isBusy(),
       status: publicationStatus,
     });
-  const hasUnpublishedChanges = publicationStatus
-    ? publicationStatus.publishedArtifactRevision !== publicationStatus.currentArtifactRevision
-    : false;
   const hostActionSlots = hostHeaderActions?.({ preview, saveNow, saveState, title });
 
   const appHeaderActions = (
     <div className="sc-scaffold-authoring-actions">
-      {hostHeaderActions ? (
-        <>
-          {hostActionSlots?.beforePublish}
-          <AuthoringPublishAction onPublish={publishNow} publishState={publishState} />
-          {hostActionSlots?.afterPublish}
-        </>
-      ) : (
-        headerActions?.({
-          hasUnpublishedChanges,
-          preview,
-          publishNow,
-          publishState,
-          saveNow,
-          saveState,
-          title,
-        })
-      )}
+      {hostActionSlots?.beforePublish}
+      <AuthoringPublishAction onPublish={publishNow} publishState={publishState} />
+      {hostActionSlots?.afterPublish}
       {courseTheme ? (
         <CourseThemePanel
           editor={editor}
@@ -1105,6 +1073,7 @@ function ScaffoldAuthoringAppSessionContent({
           titleRef.current = nextTitle;
           if (!readyArtifact) return;
           publicationLifecycleRef.current.generation += 1;
+          publicationNotificationIdRef.current = null;
           setPublishActionState(null);
           refreshPublicationLifecycleView();
           scheduleAutosave();
