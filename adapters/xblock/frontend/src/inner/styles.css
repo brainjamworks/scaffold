@@ -76,11 +76,6 @@ body {
   background: var(--color-ink);
 }
 
-.sc-xblock-publication-state {
-  color: var(--color-text-secondary);
-  font-size: 0.75rem;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .sc-xblock-header-action {
     transition: none;

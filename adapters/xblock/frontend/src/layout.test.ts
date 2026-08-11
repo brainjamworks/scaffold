@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { createElement } from "react";
+import { flushSync } from "react-dom";
+import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ScaffoldAuthoringEntryProps } from "@scaffold/core/authoring";
 import type { ScaffoldApplication } from "@scaffold/core/extensions";
@@ -15,7 +17,10 @@ import type { XBlockInnerBridge } from "./inner/xblock-inner-bridge";
 const studioMountMocks = vi.hoisted(() => ({
   applications: [] as ScaffoldApplication[],
   authoringEntryProps: [] as ScaffoldAuthoringEntryProps[],
+  saveNow: vi.fn(async () => true),
 }));
+
+const mountedRoots: Root[] = [];
 
 vi.mock("@scaffold/core/extensions", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@scaffold/core/extensions")>();
@@ -37,14 +42,34 @@ vi.mock("@scaffold/core/authoring", async (importOriginal) => {
     ...actual,
     ScaffoldAuthoringEntry: (props: ScaffoldAuthoringEntryProps) => {
       studioMountMocks.authoringEntryProps.push(props);
-      return null;
+      const slots = props.hostHeaderActions?.({
+        preview: false,
+        saveNow: studioMountMocks.saveNow,
+        saveState: "idle",
+        title: "Studio content",
+      });
+      return createElement(
+        "section",
+        { "data-testid": "authoring-entry-actions" },
+        slots?.beforePublish,
+        createElement("button", { type: "button" }, "Core Publish"),
+        slots?.afterPublish,
+      );
     },
   };
 });
 
 afterEach(() => {
+  for (const root of mountedRoots.splice(0)) {
+    root.unmount();
+  }
   document.body.innerHTML = "";
+  studioMountMocks.authoringEntryProps.length = 0;
   vi.restoreAllMocks();
+});
+
+beforeEach(() => {
+  studioMountMocks.saveNow.mockReset().mockResolvedValue(true);
 });
 
 function renderModal({
@@ -125,35 +150,7 @@ describe("applyStudioLayoutCompat", () => {
 
 describe("XBlockStudioApp mounted configuration", () => {
   it("mounts the exact module-stable complete Core application", () => {
-    const data = {
-      view: "studio" as const,
-      artifactAccess: {
-        status: "supported" as const,
-        artifact: {
-          id: "xblock-studio-artifact",
-          title: "Studio content",
-          mode: "page" as const,
-        },
-      },
-      artifact: ScaffoldArtifactSchema.parse(
-        createScaffoldArtifact({
-          id: "xblock-studio-artifact",
-          title: "Studio content",
-          mode: "page",
-          surfaceId: "surfac_00001",
-        }),
-      ),
-      initialLearnerState: {},
-      learnerPublication: {
-        status: "invalid",
-        issues: [{ code: "studio", message: "Not a learner view.", path: [] }],
-      },
-      publicationStatus: {
-        currentArtifactRevision: "revision-2",
-        publishedArtifactRevision: "revision-1",
-        publishedAt: "2026-08-09T10:00:00Z",
-      },
-    } satisfies ScaffoldXBlockInnerInitPayload;
+    const data = createStudioData();
     const bridge = createBridgeStub();
 
     renderToStaticMarkup(createElement(XBlockStudioApp, { data, bridge }));
@@ -167,31 +164,165 @@ describe("XBlockStudioApp mounted configuration", () => {
     expect(studioMountMocks.authoringEntryProps[1]?.application).toBe(
       studioMountMocks.applications[0],
     );
-    const actions = studioMountMocks.authoringEntryProps[0]?.headerActions?.({
-      hasUnpublishedChanges: true,
+    const props = studioMountMocks.authoringEntryProps[0];
+    expect(props?.headerActions).toBeUndefined();
+    const slots = props?.hostHeaderActions?.({
       preview: false,
-      publishNow: vi.fn(async () => true),
-      publishState: "unpublished",
-      saveNow: vi.fn(async () => true),
+      saveNow: studioMountMocks.saveNow,
       saveState: "idle",
       title: "Studio content",
     });
-    const actionsMarkup = renderToStaticMarkup(createElement("div", null, actions));
-    expect(actionsMarkup).toContain(">Publish</button>");
-    expect(actionsMarkup).toContain("Unpublished changes");
+    const actionsMarkup = renderToStaticMarkup(
+      createElement("div", null, slots?.beforePublish, "Core Publish", slots?.afterPublish),
+    );
     expect(actionsMarkup).toContain(">Save</button>");
+    expect(actionsMarkup).toContain("Core Publish");
     expect(actionsMarkup).toContain(">Done</button>");
+  });
+
+  it("orders one manual save lifecycle and rejects an overlapping Done operation", async () => {
+    const events: string[] = [];
+    const saveResult = createDeferred<boolean>();
+    studioMountMocks.saveNow.mockImplementation(() => {
+      events.push("saveNow");
+      return saveResult.promise;
+    });
+    const bridge = createBridgeStub((type) => {
+      events.push(type);
+      return Promise.resolve();
+    });
+    const host = renderStudioApp(createStudioData(), bridge);
+
+    clickButton(host, "Save");
+    await waitForCondition(() => studioMountMocks.saveNow.mock.calls.length === 1);
+    clickButton(host, "Done");
+
+    expect(events).toEqual(["host.notifySaveStart", "saveNow"]);
+
+    saveResult.resolve(true);
+    await waitForCondition(() => events.includes("host.notifySaveEnd"));
+    expect(events).toEqual(["host.notifySaveStart", "saveNow", "host.notifySaveEnd"]);
+    expect(events).not.toContain("host.done");
+  });
+
+  it("sends Done only after its own successful start-save-end lifecycle", async () => {
+    const events: string[] = [];
+    studioMountMocks.saveNow.mockImplementation(async () => {
+      events.push("saveNow");
+      return true;
+    });
+    const bridge = createBridgeStub((type) => {
+      events.push(type);
+      return Promise.resolve();
+    });
+    const host = renderStudioApp(createStudioData(), bridge);
+
+    clickButton(host, "Done");
+    await waitForCondition(() => events.includes("host.done"));
+
+    expect(events).toEqual(["host.notifySaveStart", "saveNow", "host.notifySaveEnd", "host.done"]);
+  });
+
+  it("releases the manual-operation guard when a lifecycle request rejects", async () => {
+    let saveStartCalls = 0;
+    const requestTypes: string[] = [];
+    const bridge = createBridgeStub((type) => {
+      requestTypes.push(type);
+      if (type === "host.notifySaveStart") {
+        saveStartCalls += 1;
+        if (saveStartCalls === 1) return Promise.reject(new Error("host unavailable"));
+      }
+      return Promise.resolve();
+    });
+    const host = renderStudioApp(createStudioData(), bridge);
+
+    clickButton(host, "Save");
+    await waitForCondition(() => saveStartCalls === 1);
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    clickButton(host, "Save");
+    await waitForCondition(() => studioMountMocks.saveNow.mock.calls.length === 1);
+
+    expect(saveStartCalls).toBe(2);
+    expect(requestTypes).toContain("host.notifySaveEnd");
   });
 });
 
-function createBridgeStub(): XBlockInnerBridge {
+function createStudioData(): ScaffoldXBlockInnerInitPayload {
+  return {
+    view: "studio",
+    artifactAccess: {
+      status: "supported",
+      artifact: {
+        id: "xblock-studio-artifact",
+        title: "Studio content",
+        mode: "page",
+      },
+    },
+    artifact: ScaffoldArtifactSchema.parse(
+      createScaffoldArtifact({
+        id: "xblock-studio-artifact",
+        title: "Studio content",
+        mode: "page",
+        surfaceId: "surfac_00001",
+      }),
+    ),
+    initialLearnerState: {},
+    learnerPublication: {
+      status: "invalid",
+      issues: [{ code: "studio", message: "Not a learner view.", path: [] }],
+    },
+    publicationStatus: {
+      currentArtifactRevision: "revision-2",
+      publishedArtifactRevision: "revision-1",
+      publishedAt: "2026-08-09T10:00:00Z",
+    },
+  };
+}
+
+function renderStudioApp(data: ScaffoldXBlockInnerInitPayload, bridge: XBlockInnerBridge) {
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  mountedRoots.push(root);
+  flushSync(() => root.render(createElement(XBlockStudioApp, { data, bridge })));
+  return host;
+}
+
+function clickButton(host: HTMLElement, name: string): void {
+  const button = Array.from(host.querySelectorAll("button")).find(
+    (candidate) => candidate.textContent === name,
+  );
+  if (!button) throw new Error(`Missing ${name} button`);
+  button.click();
+}
+
+function createBridgeStub(
+  requestImplementation: (type: string) => Promise<unknown> = () => Promise.resolve(),
+): XBlockInnerBridge {
+  const request = vi.fn(requestImplementation) as unknown as XBlockInnerBridge["request"];
   return {
     destroy: vi.fn(),
-    request: vi.fn(),
+    request,
     sendReady: vi.fn(),
     reportHeight: vi.fn(),
     requestHostScroll: vi.fn(),
     reportDirty: vi.fn(),
     reportFatalError: vi.fn(),
   };
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+  return { promise, resolve };
+}
+
+async function waitForCondition(condition: () => boolean): Promise<void> {
+  const deadline = performance.now() + 2_000;
+  while (!condition()) {
+    if (performance.now() > deadline) throw new Error("Timed out waiting for Studio actions");
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+  }
 }
